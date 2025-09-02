@@ -71,12 +71,12 @@ impl MediaProvider for ITunesService {
         let rsp = self
             .client
             .get(format!("{URL}/lookup"))
-            .query(&serde_json::json!({
-                "id": identifier,
-                "media": "podcast",
-                "entity": "podcast",
-                "lang": self.language
-            }))
+            .query(&[
+                ("id", identifier),
+                ("media", "podcast"),
+                ("entity", "podcast"),
+                ("lang", self.language.as_str()),
+            ])
             .send()
             .await?;
         let details: SearchResponse = rsp.json().await?;
@@ -105,13 +105,13 @@ impl MediaProvider for ITunesService {
         let rsp = self
             .client
             .get(format!("{URL}/lookup"))
-            .query(&serde_json::json!({
-                "id": identifier,
-                "media": "podcast",
-                "entity": "podcastEpisode",
-                "limit": total_episodes,
-                "lang": self.language
-            }))
+            .query(&[
+                ("id", identifier),
+                ("media", "podcast"),
+                ("entity", "podcastEpisode"),
+                ("limit", &total_episodes.to_string()),
+                ("lang", self.language.as_str()),
+            ])
             .send()
             .await?;
         let remote_images = details.image.into_iter().collect();
@@ -173,12 +173,12 @@ impl MediaProvider for ITunesService {
         let rsp = self
             .client
             .get(format!("{URL}/search"))
-            .query(&serde_json::json!({
-                "term": query,
-                "media": "podcast",
-                "entity": "podcast",
-                "lang": self.language
-            }))
+            .query(&[
+                ("term", query),
+                ("media", "podcast"),
+                ("entity", "podcast"),
+                ("lang", self.language.as_str()),
+            ])
             .send()
             .await?;
         let search: SearchResponse = rsp.json().await?;

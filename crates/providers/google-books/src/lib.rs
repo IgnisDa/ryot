@@ -102,15 +102,18 @@ impl MediaProvider for GoogleBooksService {
         let rsp = self
             .client
             .get(URL)
-            .query(&serde_json::json!({
-                "startIndex": index,
-                "printType": "books",
-                "maxResults": PAGE_SIZE,
-                "q": match pass_raw_query {
-                    true => query.to_owned(),
-                    false => format!("intitle:{query}")
-                },
-            }))
+            .query(&[
+                ("printType", "books"),
+                ("startIndex", &index.to_string()),
+                ("maxResults", &PAGE_SIZE.to_string()),
+                (
+                    "q",
+                    &match pass_raw_query {
+                        true => query.to_owned(),
+                        false => format!("intitle:{query}"),
+                    },
+                ),
+            ])
             .send()
             .await?;
         let search: SearchResponse = rsp.json().await?;
@@ -232,7 +235,7 @@ impl GoogleBooksService {
         let resp = self
             .client
             .get(URL)
-            .query(&serde_json::json!({ "q": format!("isbn:{}", isbn) }))
+            .query(&[("q", &format!("isbn:{}", isbn))])
             .send()
             .await
             .ok()?;

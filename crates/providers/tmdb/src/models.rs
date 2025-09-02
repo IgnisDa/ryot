@@ -8,7 +8,6 @@ use enum_models::{MediaLot, MediaSource};
 use media_models::PartialMetadataWithoutId;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
 use crate::base::TmdbService;
 
@@ -202,11 +201,11 @@ pub async fn fetch_company_media_by_type(
 
     base.fetch_paginated_data(
         format!("{}/discover/{}", URL, &media_type),
-        json!({
-            "page": 1,
-            "language": base.language,
-            "with_companies": identifier
-        }),
+        &[
+            ("page", "1"),
+            ("language", base.language.as_str()),
+            ("with_companies", identifier),
+        ],
         None,
         |entry| async move {
             Some(MetadataPersonRelated {

@@ -101,24 +101,24 @@ pub async fn send_notification(specifics: NotificationPlatformSpecifics, msg: &s
                 .await?;
         }
         NotificationPlatformSpecifics::PushOver { key, app_key } => {
-            client.post("https://api.pushover.net/1/messages.json")
-                    .query(&serde_json::json!({
-                        "token":  app_key.clone().unwrap_or_else(|| "abd1semr21hv1i5j5kfkm23wf1kd4u".to_owned()),
-                        "user": key,
-                        "message": msg,
-                        "title": project_name
-                    }))
-                    .send()
-                    .await?;
+            client
+                .post("https://api.pushover.net/1/messages.json")
+                .query(&[
+                    ("user", &key),
+                    ("title", &project_name),
+                    ("message", &msg.to_string()),
+                    (
+                        "token",
+                        &app_key.unwrap_or_else(|| "abd1semr21hv1i5j5kfkm23wf1kd4u".to_string()),
+                    ),
+                ])
+                .send()
+                .await?;
         }
         NotificationPlatformSpecifics::PushSafer { key } => {
             client
                 .post("https://www.pushsafer.com/api")
-                .query(&serde_json::json!({
-                    "k": key,
-                    "m": msg,
-                    "t": project_name
-                }))
+                .query(&[("k", &key), ("m", &msg.to_string()), ("t", &project_name)])
                 .send()
                 .await?;
         }

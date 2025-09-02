@@ -28,4 +28,4 @@ tmdb-provider = { workspace = true }
 tvdb-provider = { workspace = true }
 
 [package.metadata.cargo-machete]
-ignored = ["serde_json", "tracing"]
+ignored = ["tracing"]

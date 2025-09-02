@@ -33,7 +33,7 @@ use rust_decimal::Decimal;
 use rust_iso3166::from_numeric;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use serde_json::{Value, json};
+use serde_json::Value;
 use serde_with::{TimestampSeconds, formats::Flexible, serde_as};
 use slug::slugify;
 use supporting_service::SupportingService;
@@ -617,11 +617,14 @@ impl IgdbService {
         }
         let access_res = client
             .post(AUTH_URL)
-            .query(&json!({
-                "grant_type": "client_credentials".to_owned(),
-                "client_id": self.ss.config.video_games.twitch.client_id.to_owned(),
-                "client_secret": self.ss.config.video_games.twitch.client_secret.to_owned(),
-            }))
+            .query(&[
+                ("grant_type", "client_credentials"),
+                ("client_id", &self.ss.config.video_games.twitch.client_id),
+                (
+                    "client_secret",
+                    &self.ss.config.video_games.twitch.client_secret,
+                ),
+            ])
             .send()
             .await?;
         let access = access_res.json::<AccessResponse>().await?;

@@ -18,7 +18,6 @@ use paginate::Pages;
 use reqwest::Client;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use strum::{Display, EnumIter, IntoEnumIterator};
 use traits::MediaProvider;
 
@@ -27,39 +26,39 @@ static AUDNEX_URL: &str = "https://api.audnex.us";
 #[derive(EnumIter, Display)]
 enum AudibleSimilarityType {
     InTheSameSeries,
-    ByTheSameNarrator,
     RawSimilarities,
     ByTheSameAuthor,
     NextInSameSeries,
+    ByTheSameNarrator,
 }
 
 #[derive(Serialize, Deserialize, Educe)]
 #[educe(Default)]
 struct PrimaryQuery {
+    #[educe(Default = "2400")]
+    image_sizes: String,
     #[educe(
         Default = "contributors,category_ladders,media,product_attrs,product_extended_attrs,series,relationships,rating"
     )]
     response_groups: String,
-    #[educe(Default = "2400")]
-    image_sizes: String,
 }
 
 #[derive(Serialize, Deserialize)]
 struct SearchQuery {
+    page: i32,
     title: String,
     num_results: i32,
-    page: i32,
-    products_sort_by: String,
     #[serde(flatten)]
     primary: PrimaryQuery,
+    products_sort_by: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct AudiblePoster {
-    #[serde(rename = "2400")]
-    image_2400: Option<String>,
     #[serde(rename = "500")]
     image_500: Option<String>,
+    #[serde(rename = "2400")]
+    image_2400: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,26 +85,26 @@ struct AudibleRatings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct AudibleAuthor {
-    asin: Option<String>,
     name: String,
+    asin: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct AudibleItem {
     asin: String,
     title: String,
+    release_date: Option<String>,
+    rating: Option<AudibleRatings>,
     is_adult_product: Option<bool>,
+    runtime_length_min: Option<i32>,
+    series: Option<Vec<AudibleItem>>,
+    publisher_summary: Option<String>,
     authors: Option<Vec<AudibleAuthor>>,
     narrators: Option<Vec<NamedObject>>,
-    rating: Option<AudibleRatings>,
     product_images: Option<AudiblePoster>,
     merchandising_summary: Option<String>,
-    publisher_summary: Option<String>,
-    release_date: Option<String>,
-    runtime_length_min: Option<i32>,
-    category_ladders: Option<Vec<AudibleCategoryLadderCollection>>,
-    series: Option<Vec<AudibleItem>>,
     relationships: Option<Vec<AudibleRelationshipItem>>,
+    category_ladders: Option<Vec<AudibleCategoryLadderCollection>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -176,7 +175,7 @@ impl MediaProvider for AudibleService {
         let client = Client::new();
         let data: Vec<AudibleAuthor> = client
             .get(format!("{AUDNEX_URL}/authors"))
-            .query(&json!({ "region": self.locale, "name": query }))
+            .query(&[("region", self.locale.as_str()), ("name", query)])
             .send()
             .await?
             .json()
@@ -211,7 +210,7 @@ impl MediaProvider for AudibleService {
         let client = Client::new();
         let data: AudnexResponse = client
             .get(format!("{AUDNEX_URL}/authors/{identity}"))
-            .query(&json!({ "region": self.locale }))
+            .query(&[("region", self.locale.as_str())])
             .send()
             .await?
             .json()
@@ -312,10 +311,10 @@ impl MediaProvider for AudibleService {
             let data: AudibleItemSimResponse = self
                 .client
                 .get(format!("{}/{}/sims", self.url, identifier))
-                .query(&json!({
-                    "similarity_type": sim_type.to_string(),
-                    "response_groups": "media"
-                }))
+                .query(&[
+                    ("response_groups", "media"),
+                    ("similarity_type", sim_type.to_string().as_str()),
+                ])
                 .send()
                 .await?
                 .json()

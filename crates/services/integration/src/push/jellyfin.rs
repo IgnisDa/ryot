@@ -3,7 +3,6 @@ use common_utils::ryot_log;
 use enum_models::MediaLot;
 use external_utils::jellyfin::{ItemsResponse, get_authenticated_client};
 use media_models::SeenShowExtraInformation;
-use serde_json::json;
 use traits::TraceOk;
 
 pub async fn push_progress(
@@ -11,7 +10,7 @@ pub async fn push_progress(
     username: String,
     password: Option<String>,
     metadata_lot: &MediaLot,
-    metadata_title: &String,
+    metadata_title: &str,
     show_extra_information: &Option<SeenShowExtraInformation>,
 ) -> Result<()> {
     match *metadata_lot {
@@ -26,10 +25,13 @@ pub async fn push_progress(
         }
     }
     let (client, user_id) = get_authenticated_client(&base_url, &username, &password).await?;
-    let json = json!({ "Recursive": true, "SearchTerm": metadata_title, "HasTmdbId": true });
     let items = client
         .get(format!("{base_url}/Users/{user_id}/Items"))
-        .query(&json)
+        .query(&[
+            ("Recursive", "true"),
+            ("HasTmdbId", "true"),
+            ("SearchTerm", metadata_title),
+        ])
         .send()
         .await?
         .json::<ItemsResponse>()
@@ -41,7 +43,7 @@ pub async fn push_progress(
                 let id = selected_item.id.clone();
                 let season = client
                     .get(format!("{base_url}/Shows/{id}/Seasons"))
-                    .query(&json!({ "UserId": user_id }))
+                    .query(&[("UserId", user_id.as_str())])
                     .send()
                     .await?
                     .json::<ItemsResponse>()
@@ -52,7 +54,10 @@ pub async fn push_progress(
                 if let Some(season) = season {
                     let episode = client
                         .get(format!("{base_url}/Shows/{id}/Episodes"))
-                        .query(&json!({ "UserId": user_id, "SeasonId": season.id }))
+                        .query(&[
+                            ("UserId", user_id.as_str()),
+                            ("SeasonId", season.id.as_str()),
+                        ])
                         .send()
                         .await?
                         .json::<ItemsResponse>()

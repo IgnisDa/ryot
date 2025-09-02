@@ -10,7 +10,6 @@ use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem, PartialMetadataWithoutId,
 };
-use serde_json::json;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
@@ -47,12 +46,12 @@ impl MediaProvider for TvdbMovieService {
             .base
             .client
             .get(format!("{URL}/search"))
-            .query(&json!({
-                "limit": limit,
-                "type": "movie",
-                "offset": offset,
-                "query": query.to_owned(),
-            }))
+            .query(&[
+                ("query", query),
+                ("type", "movie"),
+                ("limit", &limit.to_string()),
+                ("offset", &offset.to_string()),
+            ])
             .send()
             .await?;
         let search: TvdbSearchResponse = rsp.json().await?;

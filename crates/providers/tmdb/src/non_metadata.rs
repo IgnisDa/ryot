@@ -11,7 +11,6 @@ use futures::{
 };
 use itertools::Itertools;
 use media_models::PeopleSearchItem;
-use serde_json::json;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
@@ -50,12 +49,12 @@ impl MediaProvider for NonMediaTmdbService {
             .base
             .client
             .get(format!("{URL}/search/{person_type}"))
-            .query(&json!({
-                "page": page,
-                "language": language,
-                "query": query.to_owned(),
-                "include_adult": display_nsfw,
-            }))
+            .query(&[
+                ("language", language),
+                ("page", &page.to_string()),
+                ("query", &query.to_owned()),
+                ("include_adult", &display_nsfw.to_string()),
+            ])
             .send()
             .await?;
         let search: TmdbListResponse = rsp.json().await?;
@@ -95,7 +94,7 @@ impl MediaProvider for NonMediaTmdbService {
             .base
             .client
             .get(format!("{URL}/{person_type}/{identifier}"))
-            .query(&json!({ "language": self.base.language }))
+            .query(&[("language", self.base.language.as_str())])
             .send()
             .await?
             .json()
@@ -112,7 +111,7 @@ impl MediaProvider for NonMediaTmdbService {
                         .base
                         .client
                         .get(format!("{URL}/{person_type}/{identifier}/combined_credits"))
-                        .query(&json!({ "language": self.base.language }))
+                        .query(&[("language", self.base.language.as_str())])
                         .send()
                         .await?;
                     resp.json::<TmdbCreditsResponse>()
@@ -205,7 +204,10 @@ impl NonMediaTmdbService {
             .base
             .client
             .get(format!("{URL}/find/{external_id}"))
-            .query(&json!({ "language": self.base.language, "external_source": external_source }))
+            .query(&[
+                ("external_source", external_source),
+                ("language", self.base.language.as_str()),
+            ])
             .send()
             .await?
             .json()

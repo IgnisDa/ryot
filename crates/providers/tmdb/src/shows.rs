@@ -19,7 +19,6 @@ use media_models::{
     ShowEpisode, ShowSeason, ShowSpecifics,
 };
 use rust_decimal_macros::dec;
-use serde_json::json;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
@@ -44,10 +43,10 @@ impl MediaProvider for TmdbShowService {
             .base
             .client
             .get(format!("{}/tv/{}", URL, &identifier))
-            .query(&json!({
-                "language": self.base.language,
-                "append_to_response": "videos",
-            }))
+            .query(&[
+                ("language", self.base.language.as_str()),
+                ("append_to_response", "videos"),
+            ])
             .send()
             .await?;
         let show_data: TmdbMediaEntry = rsp.json().await?;
@@ -267,12 +266,12 @@ impl MediaProvider for TmdbShowService {
             .base
             .client
             .get(format!("{URL}/search/tv"))
-            .query(&json!({
-                "query": query.to_owned(),
-                "page": page,
-                "language": self.base.language,
-                "include_adult": display_nsfw,
-            }))
+            .query(&[
+                ("query", query),
+                ("page", &page.to_string()),
+                ("language", self.base.language.as_str()),
+                ("include_adult", &display_nsfw.to_string()),
+            ])
             .send()
             .await?;
         let search: TmdbListResponse = rsp.json().await?;
@@ -309,7 +308,7 @@ pub async fn fetch_season_with_credits(
     let season_data_future = base
         .client
         .get(format!("{URL}/tv/{identifier}/season/{season_number}"))
-        .query(&json!({ "language": base.language }))
+        .query(&[("language", base.language.as_str())])
         .send();
 
     let season_credits_future = base
@@ -317,7 +316,7 @@ pub async fn fetch_season_with_credits(
         .get(format!(
             "{URL}/tv/{identifier}/season/{season_number}/credits"
         ))
-        .query(&json!({ "language": base.language }))
+        .query(&[("language", base.language.as_str())])
         .send();
 
     let (season_resp, credits_resp) = try_join!(season_data_future, season_credits_future)?;

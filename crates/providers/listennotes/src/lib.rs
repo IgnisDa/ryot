@@ -21,7 +21,6 @@ use reqwest::{
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use serde_with::{TimestampMilliSeconds, formats::Flexible, serde_as};
 use supporting_service::SupportingService;
 use traits::MediaProvider;
@@ -138,11 +137,11 @@ impl MediaProvider for ListennotesService {
         let rsp = self
             .client
             .get(format!("{}/search", self.url))
-            .query(&json!({
-                "type": "podcast",
-                "q": query.to_owned(),
-                "offset": (page - 1) * PAGE_SIZE,
-            }))
+            .query(&[
+                ("q", query),
+                ("type", "podcast"),
+                ("offset", &((page - 1) * PAGE_SIZE).to_string()),
+            ])
             .send()
             .await?;
 
@@ -223,13 +222,17 @@ impl ListennotesService {
         let resp = self
             .client
             .get(format!("{}/podcasts/{}", self.url, identifier))
-            .query(&json!({
-                "sort": "oldest_first",
-                "next_episode_pub_date": next_pub_date.map(|d| d.to_string()).unwrap_or_else(|| "null".to_owned())
-            }))
+            .query(&[
+                ("sort", "oldest_first"),
+                (
+                    "next_episode_pub_date",
+                    &next_pub_date
+                        .map(|d| d.to_string())
+                        .unwrap_or_else(|| "null".to_owned()),
+                ),
+            ])
             .send()
-            .await
-            ?;
+            .await?;
         let podcast_data: Podcast = resp.json().await?;
         let genres = self.get_genres().await?;
         Ok(MetadataDetails {

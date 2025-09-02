@@ -16,7 +16,6 @@ use media_models::{
     MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
 };
 use rust_decimal_macros::dec;
-use serde_json::json;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
@@ -47,12 +46,12 @@ impl MediaProvider for TmdbMovieService {
             .base
             .client
             .get(format!("{URL}/search/movie"))
-            .query(&json!({
-                "query": query.to_owned(),
-                "page": page,
-                "language": self.base.language,
-                "include_adult": display_nsfw,
-            }))
+            .query(&[
+                ("query", query),
+                ("page", &page.to_string()),
+                ("language", self.base.language.as_str()),
+                ("include_adult", &display_nsfw.to_string()),
+            ])
             .send()
             .await?;
         let search: TmdbListResponse = rsp.json().await?;
@@ -82,10 +81,10 @@ impl MediaProvider for TmdbMovieService {
             .base
             .client
             .get(format!("{URL}/movie/{identifier}"))
-            .query(&json!({
-                "language": self.base.language,
-                "append_to_response": "videos",
-            }))
+            .query(&[
+                ("append_to_response", "videos"),
+                ("language", self.base.language.as_str()),
+            ])
             .send()
             .await?;
         let data: TmdbMediaEntry = rsp.json().await?;
@@ -100,9 +99,7 @@ impl MediaProvider for TmdbMovieService {
             .base
             .client
             .get(format!("{URL}/movie/{identifier}/credits"))
-            .query(&json!({
-                "language": self.base.language,
-            }))
+            .query(&[("language", self.base.language.as_str())])
             .send()
             .await?;
         let credits: TmdbCreditsResponse = rsp.json().await?;
@@ -248,12 +245,12 @@ impl MediaProvider for TmdbMovieService {
             .base
             .client
             .get(format!("{URL}/search/collection"))
-            .query(&json!({
-                "query": query.to_owned(),
-                "page": page,
-                "language": self.base.language,
-                "include_adult": display_nsfw,
-            }))
+            .query(&[
+                ("query", query),
+                ("page", &page.to_string()),
+                ("language", self.base.language.as_str()),
+                ("include_adult", &display_nsfw.to_string()),
+            ])
             .send()
             .await?;
         let search: TmdbListResponse = rsp.json().await?;
@@ -285,7 +282,7 @@ impl MediaProvider for TmdbMovieService {
             .base
             .client
             .get(format!("{URL}/collection/{identifier}"))
-            .query(&json!({ "language": self.base.language }))
+            .query(&[("language", self.base.language.as_str())])
             .send()
             .await?
             .json()

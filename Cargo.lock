@@ -477,7 +477,6 @@ dependencies = [
  "reqwest",
  "rust_decimal",
  "serde",
- "serde_json",
  "strum",
  "tracing",
  "traits",
@@ -2255,7 +2254,6 @@ dependencies = [
  "dependent-models",
  "enum-models",
  "sea-orm",
- "serde_json",
  "supporting-service",
  "tracing",
 ]
@@ -3145,7 +3143,6 @@ dependencies = [
  "reqwest",
  "rust_decimal",
  "serde",
- "serde_json",
  "traits",
 ]
 
@@ -3993,7 +3990,6 @@ dependencies = [
  "reqwest",
  "sea-orm",
  "serde",
- "serde_json",
  "traits",
 ]
 
@@ -4106,7 +4102,6 @@ dependencies = [
  "rust_decimal",
  "sea-orm",
  "serde",
- "serde_json",
  "serde_with",
  "supporting-service",
  "traits",
@@ -4712,7 +4707,6 @@ dependencies = [
  "reqwest",
  "rust_decimal",
  "serde",
- "serde_json",
  "traits",
 ]
 
@@ -4949,7 +4943,6 @@ dependencies = [
  "media-models",
  "reqwest",
  "serde",
- "serde_json",
  "tracing",
  "traits",
 ]
@@ -6803,7 +6796,6 @@ dependencies = [
  "reqwest",
  "rust_decimal",
  "serde",
- "serde_json",
  "supporting-service",
  "traits",
 ]
@@ -7350,7 +7342,6 @@ dependencies = [
  "rust_decimal",
  "rust_decimal_macros",
  "serde",
- "serde_json",
  "supporting-service",
  "tracing",
  "traits",
@@ -7736,7 +7727,6 @@ dependencies = [
  "common-utils",
  "database-models",
  "dependent-models",
- "enum-models",
  "itertools 0.14.0",
  "media-models",
  "reqwest",

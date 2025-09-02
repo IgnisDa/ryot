@@ -7,7 +7,6 @@ edition = "2024"
 anyhow = { workspace = true }
 chrono = { workspace = true }
 sea-orm = { workspace = true }
-serde_json = { workspace = true }
 tracing = { workspace = true }
 
 cache-service = { workspace = true }
@@ -18,4 +17,4 @@ enum-models = { workspace = true }
 supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
-ignored = ["serde_json", "tracing"]
+ignored = ["tracing"]

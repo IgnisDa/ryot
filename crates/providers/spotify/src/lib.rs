@@ -25,7 +25,6 @@ use reqwest::{
 };
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
@@ -233,12 +232,12 @@ impl SpotifyService {
         let response = self
             .client
             .get(format!("{SPOTIFY_API_URL}/search"))
-            .query(&json!({
-                "q": query,
-                "type": search_type,
-                "offset": offset,
-                "limit": PAGE_SIZE,
-            }))
+            .query(&[
+                ("q", query),
+                ("type", search_type),
+                ("offset", &offset.to_string()),
+                ("limit", &PAGE_SIZE.to_string()),
+            ])
             .send()
             .await?;
 

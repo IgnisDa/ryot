@@ -16,7 +16,6 @@ use reqwest::{
 };
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use traits::MediaProvider;
 
 static URL: &str = "https://api.myanimelist.net/v2";
@@ -143,7 +142,12 @@ async fn search(
     }
     let search: SearchResponse = client
         .get(format!("{URL}/{media_type}"))
-        .query(&json!({ "q": query, "limit": PAGE_SIZE, "offset": offset, "fields": "start_date" }))
+        .query(&[
+            ("q", query),
+            ("fields", "start_date"),
+            ("offset", &offset.to_string()),
+            ("limit", &PAGE_SIZE.to_string()),
+        ])
         .send()
         .await?
         .json()
@@ -194,7 +198,7 @@ struct ItemData {
 async fn details(client: &Client, media_type: &str, id: &str) -> Result<MetadataDetails> {
     let details: ItemNode = client
         .get(format!("{URL}/{media_type}/{id}"))
-        .query(&json!({ "fields": "start_date,end_date,synopsis,genres,status,num_episodes,num_volumes,num_chapters,recommendations,related_manga,related_anime,mean,nsfw" }))
+        .query(&[("fields", "start_date,end_date,synopsis,genres,status,num_episodes,num_volumes,num_chapters,recommendations,related_manga,related_anime,mean,nsfw")])
         .send()
         .await
         ?

@@ -11,7 +11,6 @@ use itertools::Itertools;
 use media_models::{
     BookSpecifics, MetadataDetails, MetadataSearchItem, PartialMetadataPerson, PeopleSearchItem,
 };
-use serde_json::json;
 use traits::MediaProvider;
 
 use crate::{
@@ -36,11 +35,11 @@ impl MediaProvider for OpenlibraryService {
         let rsp = self
             .client
             .get(format!("{URL}/search/authors.json"))
-            .query(&json!({
-                "q": query.to_owned(),
-                "offset": (page - 1) * PAGE_SIZE,
-                "limit": PAGE_SIZE,
-            }))
+            .query(&[
+                ("q", query),
+                ("offset", &((page - 1) * PAGE_SIZE).to_string()),
+                ("limit", &PAGE_SIZE.to_string()),
+            ])
             .send()
             .await?;
         let search: AuthorLibrarySearchResponse = rsp.json().await?;
@@ -240,13 +239,13 @@ impl MediaProvider for OpenlibraryService {
         let rsp = self
             .client
             .get(format!("{URL}/search.json"))
-            .query(&json!({
-                "q": query.to_owned(),
-                "fields": fields,
-                "offset": (page - 1) * PAGE_SIZE,
-                "limit": PAGE_SIZE,
-                "type": "work".to_owned(),
-            }))
+            .query(&[
+                ("q", query),
+                ("fields", &fields),
+                ("offset", &((page - 1) * PAGE_SIZE).to_string()),
+                ("limit", &PAGE_SIZE.to_string()),
+                ("type", "work"),
+            ])
             .send()
             .await?;
         let search: MediaLibrarySearchResponse = rsp.json().await?;
