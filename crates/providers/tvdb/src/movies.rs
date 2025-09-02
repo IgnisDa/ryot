@@ -139,19 +139,16 @@ impl MediaProvider for TvdbMovieService {
             people.extend(
                 characters
                     .into_iter()
-                    .filter_map(|char| {
-                        if let (Some(name), Some(role)) = (char.person_name, char.people_type) {
-                            Some(PartialMetadataPerson {
-                                name,
-                                role,
-                                character: char.name,
-                                source_specifics: None,
-                                source: MediaSource::Tvdb,
-                                identifier: char.id.map(|id| id.to_string()).unwrap_or_default(),
-                            })
-                        } else {
-                            None
-                        }
+                    .filter_map(|char| match (char.person_name, char.people_type) {
+                        (Some(name), Some(role)) => Some(PartialMetadataPerson {
+                            name,
+                            role,
+                            character: char.name,
+                            source_specifics: None,
+                            source: MediaSource::Tvdb,
+                            identifier: char.id.map(|id| id.to_string()).unwrap_or_default(),
+                        }),
+                        _ => None,
                     })
                     .collect_vec(),
             );
