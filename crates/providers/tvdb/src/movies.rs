@@ -14,7 +14,6 @@ use media_models::{
     MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem, MovieSpecifics,
     PartialMetadataPerson, PartialMetadataWithoutId,
 };
-use rust_decimal::Decimal;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
@@ -113,7 +112,7 @@ impl MediaProvider for TvdbMovieService {
                     .collect_vec(),
             );
         }
-        if let Some(poster) = movie_data.poster.clone() {
+        if let Some(poster) = movie_data.image.clone() {
             remote_images.push(poster);
         }
         if let Some(image_url) = movie_data.image_url.clone() {
@@ -141,7 +140,7 @@ impl MediaProvider for TvdbMovieService {
                 characters
                     .into_iter()
                     .filter_map(|char| {
-                        if let (Some(name), Some(role)) = (char.people_name, char.role) {
+                        if let (Some(name), Some(role)) = (char.person_name, char.people_type) {
                             Some(PartialMetadataPerson {
                                 name,
                                 role,
@@ -158,7 +157,7 @@ impl MediaProvider for TvdbMovieService {
             );
         }
 
-        if let Some(companies) = movie_data.companies {
+        if let Some(companies) = movie_data.studios {
             people.extend(
                 companies
                     .into_iter()
@@ -196,23 +195,17 @@ impl MediaProvider for TvdbMovieService {
                 .and_then(|date| convert_date_to_year(date))
         });
 
-        let provider_rating = movie_data
-            .score
-            .filter(|&score| score > 0.0)
-            .map(|score| Decimal::from_f64_retain(score * 10.0).unwrap_or_default());
-
         Ok(MetadataDetails {
             genres,
             people,
             publish_date,
             publish_year,
-            provider_rating,
             title: title.clone(),
             lot: MediaLot::Movie,
             source: MediaSource::Tvdb,
             description: movie_data.overview,
-            identifier: movie_data.tvdb_id.clone(),
-            source_url: Some(format!("https://thetvdb.com/movies/{}", movie_data.tvdb_id)),
+            identifier: identifier.to_owned().clone(),
+            source_url: Some(format!("https://thetvdb.com/movies/{}", identifier)),
             original_language: self.base.get_language_name(movie_data.original_language),
             movie_specifics: Some(MovieSpecifics {
                 runtime: movie_data.runtime,

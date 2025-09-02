@@ -1,4 +1,4 @@
-use common_models::StringIdAndNamedObject;
+use common_models::IdAndNamedObject;
 use dependent_models::TvdbLanguage;
 use serde::Deserialize;
 
@@ -18,8 +18,6 @@ pub struct TvdbLoginData {
 
 pub type TvdbLoginResponse = TvdbApiResponse<TvdbLoginData>;
 
-pub type TvdbMovieExtendedResponse = TvdbApiResponse<TvdbItem>;
-
 #[derive(Debug, Deserialize)]
 pub struct TvdbSearchLinks {
     pub next: Option<String>,
@@ -27,45 +25,55 @@ pub struct TvdbSearchLinks {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct TvdbCharacter {
-    pub id: Option<i32>,
-    pub role: Option<String>,
-    pub name: Option<String>,
-    pub people_name: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct TvdbArtwork {
-    pub image: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct TvdbTrailer {
-    pub url: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct TvdbItem {
+pub struct TvdbSearchItem {
     pub tvdb_id: String,
-    pub score: Option<f64>,
     pub name: Option<String>,
-    pub year: Option<String>,
-    pub runtime: Option<i32>,
     pub title: Option<String>,
     pub poster: Option<String>,
-    pub overview: Option<String>,
     pub image_url: Option<String>,
-    pub genres: Option<Vec<String>>,
-    pub first_air_date: Option<String>,
-    pub original_language: Option<String>,
-    pub artworks: Option<Vec<TvdbArtwork>>,
-    pub trailers: Option<Vec<TvdbTrailer>>,
-    pub characters: Option<Vec<TvdbCharacter>>,
-    pub companies: Option<Vec<StringIdAndNamedObject>>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct TvdbSearchResponse {
-    pub data: Vec<TvdbItem>,
+    pub data: Vec<TvdbSearchItem>,
     pub links: Option<TvdbSearchLinks>,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct TvdbExtendedArtwork {
+    pub image: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TvdbExtendedTrailer {
+    pub url: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TvdbExtendedCharacter {
+    pub id: Option<i32>,
+    pub name: Option<String>,
+    pub people_type: Option<String>,
+    pub person_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TvdbExtendedItem {
+    pub year: Option<String>,
+    pub runtime: Option<i32>,
+    pub name: Option<String>,
+    pub title: Option<String>,
+    pub image: Option<String>,
+    pub image_url: Option<String>,
+    pub overview: Option<String>,
+    pub first_air_date: Option<String>,
+    pub original_language: Option<String>,
+    pub genres: Option<Vec<IdAndNamedObject>>,
+    pub studios: Option<Vec<IdAndNamedObject>>,
+    pub artworks: Option<Vec<TvdbExtendedArtwork>>,
+    pub trailers: Option<Vec<TvdbExtendedTrailer>>,
+    pub characters: Option<Vec<TvdbExtendedCharacter>>,
+}
+
+pub type TvdbMovieExtendedResponse = TvdbApiResponse<TvdbExtendedItem>;
