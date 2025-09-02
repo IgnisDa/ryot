@@ -530,9 +530,7 @@ impl MediaProvider for SpotifyService {
             description,
             related_metadata,
             name: artist.name,
-            identifier: artist.id,
             related_metadata_groups,
-            source: MediaSource::Spotify,
             source_url: artist
                 .external_urls
                 .as_ref()

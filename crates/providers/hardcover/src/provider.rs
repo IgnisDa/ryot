@@ -322,8 +322,6 @@ query {{
                     name: data.name.unwrap(),
                     birth_date: data.born_date,
                     death_date: data.death_date,
-                    source: MediaSource::Hardcover,
-                    identifier: data.id.to_string(),
                     alternate_names: data.alternate_names,
                     source_specifics: source_specifics.clone(),
                     source_url: data
@@ -382,8 +380,6 @@ query {{
                 let data = data.data.publishers_by_pk;
                 let details = PersonDetails {
                     name: data.name.unwrap(),
-                    source: MediaSource::Hardcover,
-                    identifier: data.id.to_string(),
                     source_specifics: source_specifics.clone(),
                     source_url: data
                         .slug

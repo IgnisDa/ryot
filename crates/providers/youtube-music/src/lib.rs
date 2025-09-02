@@ -274,8 +274,6 @@ impl MediaProvider for YoutubeMusicService {
             related_metadata,
             related_metadata_groups,
             description: data.description,
-            identifier: identifier.clone(),
-            source: MediaSource::YoutubeMusic,
             source_url: Some(format!("https://music.youtube.com/channel/{identifier}")),
             assets: EntityAssets {
                 remote_images: self

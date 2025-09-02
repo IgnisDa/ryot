@@ -234,8 +234,6 @@ impl MediaProvider for MangaUpdatesService {
             gender: data.gender,
             place: data.birthplace,
             name: data.name.unwrap(),
-            identifier: identity.to_owned(),
-            source: MediaSource::MangaUpdates,
             birth_date: data.birthday.and_then(|b| {
                 if let (Some(y), Some(m), Some(d)) = (b.year, b.month, b.day) {
                     NaiveDate::from_ymd_opt(y, m, d)

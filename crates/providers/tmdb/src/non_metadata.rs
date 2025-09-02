@@ -167,11 +167,9 @@ impl MediaProvider for NonMediaTmdbService {
         let resp = PersonDetails {
             related_metadata,
             name: name.clone(),
-            source: MediaSource::Tmdb,
             website: details.homepage,
             birth_date: details.birthday,
             death_date: details.deathday,
-            identifier: details.id.to_string(),
             source_specifics: source_specifics.to_owned(),
             place: details.origin_country.or(details.place_of_birth),
             description: description.and_then(|s| if s.as_str() == "" { None } else { Some(s) }),

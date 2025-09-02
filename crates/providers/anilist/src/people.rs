@@ -171,8 +171,6 @@ impl MediaProvider for NonMediaAnilistService {
                 related_metadata,
                 name: details.name,
                 website: details.site_url,
-                source: MediaSource::Anilist,
-                identifier: details.id.to_string(),
                 source_specifics: source_specifics.to_owned(),
                 ..Default::default()
             }
@@ -297,20 +295,18 @@ impl MediaProvider for NonMediaAnilistService {
                     }),
             );
             PersonDetails {
-                related_metadata,
                 death_date,
                 birth_date,
+                related_metadata,
+                gender: details.gender,
+                place: details.home_town,
+                description: details.description,
+                source_specifics: source_specifics.to_owned(),
+                name: details.name.and_then(|n| n.full).unwrap_or_default(),
                 assets: EntityAssets {
                     remote_images: images,
                     ..Default::default()
                 },
-                gender: details.gender,
-                place: details.home_town,
-                source: MediaSource::Anilist,
-                description: details.description,
-                identifier: details.id.to_string(),
-                name: details.name.and_then(|n| n.full).unwrap_or_default(),
-                source_specifics: source_specifics.to_owned(),
                 ..Default::default()
             }
         };

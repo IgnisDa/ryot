@@ -127,9 +127,7 @@ impl MediaProvider for VndbService {
         let data: SearchResponse = rsp.json().await?;
         let item = data.results.unwrap_or_default().pop().unwrap();
         Ok(PersonDetails {
-            identifier: item.id,
             name: item.title.unwrap(),
-            source: MediaSource::Vndb,
             description: item.description,
             ..Default::default()
         })

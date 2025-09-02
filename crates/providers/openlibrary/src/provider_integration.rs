@@ -96,13 +96,11 @@ impl MediaProvider for OpenlibraryService {
         let birth_date = data.birth_date.and_then(|d| parse_date_flexible(&d));
         let death_date = data.death_date.and_then(|d| parse_date_flexible(&d));
         Ok(PersonDetails {
-            name: data.name,
             death_date,
             birth_date,
             description,
+            name: data.name,
             source_url: Some(source_url),
-            source: MediaSource::Openlibrary,
-            identifier: get_key(&data.key),
             assets: EntityAssets {
                 remote_images: images,
                 ..Default::default()

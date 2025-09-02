@@ -372,9 +372,7 @@ impl MediaProvider for GiantBombService {
         Ok(PersonDetails {
             birth_date,
             name: resource.name.unwrap(),
-            source: MediaSource::GiantBomb,
             related_metadata: related_games,
-            identifier: resource.guid.unwrap(),
             source_url: resource.site_detail_url,
             related_metadata_groups: related_groups,
             description: combine_description(resource.deck, resource.description),

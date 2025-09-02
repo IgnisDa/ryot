@@ -433,9 +433,7 @@ where id = {identity};
         Ok(PersonDetails {
             related_metadata,
             name: name.clone(),
-            source: MediaSource::Igdb,
             description: detail.description,
-            identifier: detail.id_and_name.id.to_string(),
             source_url: Some(format!("https://www.igdb.com/companies/{}", slugify(name))),
             place: detail
                 .country

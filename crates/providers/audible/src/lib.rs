@@ -218,8 +218,6 @@ impl MediaProvider for AudibleService {
         let name = data.name;
         Ok(PersonDetails {
             name: name.clone(),
-            identifier: data.asin,
-            source: MediaSource::Audible,
             description: data.description,
             assets: EntityAssets {
                 remote_images: Vec::from_iter(data.image),

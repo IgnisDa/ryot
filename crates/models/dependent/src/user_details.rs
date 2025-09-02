@@ -5,7 +5,7 @@ use database_models::{
     exercise, metadata_group::MetadataGroupWithoutId, person, seen, user_to_entity, workout,
     workout_template,
 };
-use enum_models::{MediaSource, UserLot, UserToMediaReason};
+use enum_models::{UserLot, UserToMediaReason};
 use fitness_models::UserToExerciseHistoryExtraInformation;
 use media_models::{
     PartialMetadataWithoutId, PersonDetailsGroupedByRole, ReviewItem, UserDetailsError,
@@ -53,8 +53,6 @@ pub struct MetadataGroupPersonRelated {
 #[derive(Debug, Default, Serialize, Deserialize, Clone, Hash)]
 pub struct PersonDetails {
     pub name: String,
-    pub identifier: String,
-    pub source: MediaSource,
     pub assets: EntityAssets,
     pub place: Option<String>,
     pub gender: Option<String>,
