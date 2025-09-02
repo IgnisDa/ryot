@@ -1953,6 +1953,7 @@ dependencies = [
  "dependent-utility-utils",
  "enum-models",
  "futures",
+ "itertools 0.14.0",
  "media-models",
  "rust_decimal",
  "rust_decimal_macros",

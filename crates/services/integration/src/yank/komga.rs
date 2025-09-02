@@ -98,7 +98,7 @@ mod komga_series {
             Url::parse(&url).ok().and_then(|parsed_url| {
                 parsed_url
                     .path_segments()
-                    .and_then(|segments| segments.collect::<Vec<_>>().get(1).cloned())
+                    .and_then(|segments| segments.collect_vec().get(1).cloned())
                     .map(String::from)
             })
         }
