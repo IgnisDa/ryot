@@ -17,7 +17,7 @@ pub struct TvdbLoginData {
 
 pub type TvdbLoginResponse = TvdbApiResponse<TvdbLoginData>;
 
-pub type TvdbMovieExtendedResponse = TvdbApiResponse<TvdbSearchResult>;
+pub type TvdbMovieExtendedResponse = TvdbApiResponse<TvdbItem>;
 
 #[derive(Debug, Deserialize)]
 pub struct TvdbSearchLinks {
@@ -55,7 +55,7 @@ pub struct TvdbTrailer {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct TvdbSearchResult {
+pub struct TvdbItem {
     pub id: String,
     pub year: Option<i32>,
     pub score: Option<f64>,
@@ -76,6 +76,6 @@ pub struct TvdbSearchResult {
 
 #[derive(Debug, Deserialize)]
 pub struct TvdbSearchResponse {
-    pub data: Vec<TvdbSearchResult>,
+    pub data: Vec<TvdbItem>,
     pub links: Option<TvdbSearchLinks>,
 }
