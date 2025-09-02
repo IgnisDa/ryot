@@ -290,14 +290,8 @@ pub struct VideoGameConfig {
 
 impl VideoGameConfig {
     pub fn is_enabled(&self) -> bool {
-        let mut enabled = false;
-        if !self.twitch.client_id.is_empty() && !self.twitch.client_secret.is_empty() {
-            enabled = true;
-        }
-        if !self.giant_bomb.api_key.is_empty() {
-            enabled = true;
-        }
-        enabled
+        (!self.twitch.client_id.is_empty() && !self.twitch.client_secret.is_empty())
+            || !self.giant_bomb.api_key.is_empty()
     }
 }
 
