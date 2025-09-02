@@ -4580,6 +4580,7 @@ dependencies = [
  "rust_decimal",
  "supporting-service",
  "tracing",
+ "traits",
 ]
 
 [[package]]
