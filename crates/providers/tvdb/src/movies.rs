@@ -3,7 +3,6 @@ use std::sync::Arc;
 use anyhow::Result;
 use async_trait::async_trait;
 use common_models::SearchDetails;
-use common_utils::convert_date_to_year;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
 use itertools::Itertools;
@@ -63,7 +62,7 @@ impl MediaProvider for TvdbMovieService {
                 identifier: d.id,
                 image: d.poster.or(d.image_url),
                 title: d.title.or(d.name).unwrap_or_default(),
-                publish_year: d.year.and_then(|y| convert_date_to_year(&y)),
+                ..Default::default()
             })
             .collect_vec();
 

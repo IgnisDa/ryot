@@ -27,7 +27,6 @@ pub struct TvdbSearchLinks {
 pub struct TvdbSearchResult {
     pub id: String,
     pub name: Option<String>,
-    pub year: Option<String>,
     pub title: Option<String>,
     pub poster: Option<String>,
     pub image_url: Option<String>,
