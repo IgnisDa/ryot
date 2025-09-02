@@ -177,7 +177,12 @@ impl MediaProvider for TvdbMovieService {
             );
         }
 
-        let genres = movie_data.genres.unwrap_or_default();
+        let genres = movie_data
+            .genres
+            .unwrap_or_default()
+            .into_iter()
+            .map(|g| g.name)
+            .collect_vec();
 
         let publish_date = movie_data
             .first_air_date
