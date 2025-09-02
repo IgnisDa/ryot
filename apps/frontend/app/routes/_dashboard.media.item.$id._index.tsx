@@ -465,7 +465,6 @@ export default function Page() {
 											.with(
 												MediaSource.Igdb,
 												MediaSource.Tmdb,
-												MediaSource.Tvdb,
 												MediaSource.Vndb,
 												MediaSource.Anilist,
 												MediaSource.Listennotes,
@@ -486,6 +485,7 @@ export default function Page() {
 											.with(
 												MediaSource.Custom,
 												MediaSource.Itunes,
+												MediaSource.Tvdb,
 												MediaSource.Openlibrary,
 												MediaSource.YoutubeMusic,
 												MediaSource.GiantBomb,
