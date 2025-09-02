@@ -182,8 +182,6 @@ impl MediaProvider for TmdbMovieService {
             watch_providers,
             is_nsfw: data.adult,
             title: title.clone(),
-            lot: MediaLot::Movie,
-            source: MediaSource::Tmdb,
             description: data.overview,
             identifier: data.id.to_string(),
             production_status: data.status.clone(),

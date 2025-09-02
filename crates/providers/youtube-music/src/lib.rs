@@ -74,10 +74,8 @@ impl MediaProvider for YoutubeMusicService {
         let identifier = details.track.id;
         Ok(MetadataDetails {
             suggestions,
-            lot: MediaLot::Music,
             title: details.track.name,
             identifier: identifier.clone(),
-            source: MediaSource::YoutubeMusic,
             source_url: Some(format!("https://music.youtube.com/watch?v={identifier}")),
             music_specifics: Some(MusicSpecifics {
                 by_various_artists: Some(details.track.by_va),

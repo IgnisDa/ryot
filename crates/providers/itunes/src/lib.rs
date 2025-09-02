@@ -5,7 +5,6 @@ use chrono::Datelike;
 use common_models::{EntityAssets, NamedObject, SearchDetails};
 use common_utils::PAGE_SIZE;
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
-use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataFreeCreator, MetadataSearchItem, PodcastEpisode, PodcastSpecifics,
@@ -146,8 +145,6 @@ impl MediaProvider for ITunesService {
             creators,
             description,
             publish_date,
-            lot: MediaLot::Podcast,
-            source: MediaSource::Itunes,
             title: details.title.clone(),
             identifier: details.identifier,
             publish_year: publish_date.map(|d| d.year()),

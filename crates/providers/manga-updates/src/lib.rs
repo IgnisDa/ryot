@@ -311,11 +311,9 @@ impl MediaProvider for MangaUpdatesService {
         Ok(MetadataDetails {
             people,
             suggestions,
-            lot: MediaLot::Manga,
             production_status: status,
             title: data.title.unwrap(),
             description: data.description,
-            source: MediaSource::MangaUpdates,
             provider_rating: data.bayesian_rating,
             identifier: data.series_id.unwrap().to_string(),
             publish_year: data.year.and_then(|y| y.parse().ok()),

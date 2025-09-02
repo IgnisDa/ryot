@@ -300,8 +300,8 @@ impl MediaProvider for AudibleService {
             groups.push(CommitMetadataGroupInput {
                 name: s.title,
                 unique: UniqueMediaIdentifier {
-                    lot: item.lot,
                     identifier: s.asin,
+                    lot: MediaLot::AudioBook,
                     source: MediaSource::Audible,
                 },
                 ..Default::default()
@@ -427,9 +427,7 @@ impl AudibleService {
             description,
             assets,
             provider_rating: rating,
-            lot: MediaLot::AudioBook,
             title: item.title.clone(),
-            source: MediaSource::Audible,
             identifier: item.asin.clone(),
             is_nsfw: item.is_adult_product,
             source_url: Some(format!(

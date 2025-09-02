@@ -107,11 +107,9 @@ pub struct PartialMetadata {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct MetadataDetails {
-    pub lot: MediaLot,
     pub title: String,
     pub identifier: String,
     pub genres: Vec<String>,
-    pub source: MediaSource,
     pub assets: EntityAssets,
     pub is_nsfw: Option<bool>,
     pub publish_year: Option<i32>,

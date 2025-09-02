@@ -5,7 +5,7 @@ use common_models::{EntityAssets, NamedObject, PersonSourceSpecifics, SearchDeta
 use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
 use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::{PersonDetails, SearchResults};
-use enum_models::{MediaLot, MediaSource};
+use enum_models::MediaSource;
 use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataSearchItem, PartialMetadataPerson, PeopleSearchItem,
@@ -238,8 +238,6 @@ impl VndbService {
             .collect_vec();
         let identifier = item.id;
         MetadataDetails {
-            source: MediaSource::Vndb,
-            lot: MediaLot::VisualNovel,
             identifier: identifier.clone(),
             production_status: item.devstatus.map(|s| match s {
                 0 => "Finished".to_owned(),

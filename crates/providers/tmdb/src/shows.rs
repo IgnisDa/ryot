@@ -7,7 +7,7 @@ use common_models::{
 };
 use common_utils::{SHOW_SPECIAL_SEASON_NAMES, convert_date_to_year, convert_string_to_date};
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
-use enum_models::{MediaLot, MediaSource};
+use enum_models::MediaSource;
 use futures::{
     stream::{self, StreamExt},
     try_join,
@@ -161,10 +161,8 @@ impl MediaProvider for TmdbShowService {
             people,
             suggestions,
             watch_providers,
-            lot: MediaLot::Show,
             title: title.clone(),
             is_nsfw: show_data.adult,
-            source: MediaSource::Tmdb,
             description: show_data.overview,
             production_status: show_data.status,
             identifier: show_data.id.to_string(),

@@ -6,7 +6,6 @@ use common_utils::{PAGE_SIZE, convert_date_to_year};
 use convert_case::{Case, Casing};
 use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::SearchResults;
-use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{BookSpecifics, MetadataDetails, MetadataFreeCreator, MetadataSearchItem};
 use reqwest::{
@@ -209,11 +208,9 @@ impl GoogleBooksService {
         };
         MetadataDetails {
             assets,
-            lot: MediaLot::Book,
             identifier: id.clone(),
             title: item.title.clone(),
             description: item.description,
-            source: MediaSource::GoogleBooks,
             provider_rating: item.average_rating,
             genres: genres.into_iter().unique().collect(),
             creators: creators.into_iter().unique().collect(),

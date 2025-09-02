@@ -8,7 +8,7 @@ use common_models::{
 use common_utils::{convert_date_to_year, convert_string_to_date};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
-use enum_models::{MediaLot, MediaSource};
+use enum_models::MediaSource;
 use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem, MovieSpecifics,
@@ -198,8 +198,6 @@ impl MediaProvider for TvdbMovieService {
             publish_date,
             publish_year,
             title: title.clone(),
-            lot: MediaLot::Movie,
-            source: MediaSource::Tvdb,
             description: movie_data.overview,
             identifier: identifier.to_owned().clone(),
             source_url: Some(format!("https://thetvdb.com/movies/{}", identifier)),

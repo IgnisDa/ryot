@@ -259,13 +259,11 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
     let identifier = details.id.to_string();
     let title = details.title;
     let data = MetadataDetails {
-        lot,
         is_nsfw,
         suggestions,
         anime_specifics,
         manga_specifics,
         title: title.clone(),
-        source: MediaSource::Myanimelist,
         description: details.synopsis,
         provider_rating: details.mean,
         identifier: identifier.clone(),

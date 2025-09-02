@@ -6,7 +6,7 @@ use common_utils::{PAGE_SIZE, ryot_log};
 use convert_case::{Case, Casing};
 use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::{PersonDetails, SearchResults};
-use enum_models::{MediaLot, MediaSource};
+use enum_models::MediaSource;
 use itertools::Itertools;
 use media_models::{
     BookSpecifics, MetadataDetails, MetadataSearchItem, PartialMetadataPerson, PeopleSearchItem,
@@ -200,10 +200,8 @@ impl MediaProvider for OpenlibraryService {
             people,
             genres,
             description,
-            lot: MediaLot::Book,
             title: data.title.clone(),
             identifier: identifier.clone(),
-            source: MediaSource::Openlibrary,
             publish_year: first_release_date.map(|d| d.year()),
             source_url: Some(format!(
                 "https://openlibrary.org/works/{}/{}",

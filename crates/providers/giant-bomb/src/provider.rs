@@ -188,10 +188,8 @@ impl MediaProvider for GiantBombService {
             groups,
             description,
             suggestions,
-            lot: MediaLot::VideoGame,
             title: game.name.unwrap(),
             identifier: game.guid.unwrap(),
-            source: MediaSource::GiantBomb,
             source_url: game.site_detail_url,
             publish_year: extract_year_from_date(game.original_release_date),
             assets: EntityAssets {

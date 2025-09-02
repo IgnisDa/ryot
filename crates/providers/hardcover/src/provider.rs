@@ -79,11 +79,9 @@ query {{
         };
         let details = MetadataDetails {
             assets,
-            lot: MediaLot::Book,
             title: data.title.unwrap(),
             provider_rating: data.rating,
             description: data.description,
-            source: MediaSource::Hardcover,
             publish_date: data.release_date,
             publish_year: data.release_year,
             identifier: data.id.to_string(),

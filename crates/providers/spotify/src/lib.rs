@@ -311,9 +311,7 @@ impl MediaProvider for SpotifyService {
             publish_year,
             publish_date,
             title: track.name,
-            lot: MediaLot::Music,
             identifier: track.id,
-            source: MediaSource::Spotify,
             is_nsfw: track.explicit,
             music_specifics: Some(music_specifics),
             source_url: track

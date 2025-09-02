@@ -717,8 +717,6 @@ impl IgdbService {
         MetadataDetails {
             people,
             title: title.clone(),
-            lot: MediaLot::VideoGame,
-            source: MediaSource::Igdb,
             description: item.summary,
             provider_rating: item.rating,
             identifier: item.id.to_string(),

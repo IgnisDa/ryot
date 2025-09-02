@@ -598,7 +598,6 @@ pub async fn media_details(
     );
     let identifier = media.id.to_string();
     Ok(MetadataDetails {
-        lot,
         people,
         assets,
         suggestions,
@@ -608,7 +607,6 @@ pub async fn media_details(
         title: title.clone(),
         provider_rating: score,
         is_nsfw: media.is_adult,
-        source: MediaSource::Anilist,
         identifier: identifier.clone(),
         description: media.description,
         genres: genres.into_iter().unique().collect(),
