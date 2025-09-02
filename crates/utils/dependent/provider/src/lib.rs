@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anilist_provider::{AnilistAnimeService, AnilistMangaService, NonMediaAnilistService};
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 use audible_provider::AudibleService;
 use enum_models::{MediaLot, MediaSource};
 use giant_bomb_provider::GiantBombService;
@@ -17,7 +17,7 @@ use openlibrary_provider::OpenlibraryService;
 use spotify_provider::SpotifyService;
 use supporting_service::SupportingService;
 use tmdb_provider::{NonMediaTmdbService, TmdbMovieService, TmdbShowService};
-use traits::MediaProvider;
+use traits::{MediaProvider, TraceOk};
 use tvdb_provider::{NonMediaTvdbService, TvdbMovieService, TvdbShowService};
 use vndb_provider::VndbService;
 use youtube_music_provider::YoutubeMusicService;
@@ -148,7 +148,9 @@ pub async fn details_from_provider(
     ss: &Arc<SupportingService>,
 ) -> Result<MetadataDetails> {
     let provider = get_metadata_provider(lot, source, ss).await?;
-    let results = provider.metadata_details(identifier).await?;
+    let Some(results) = provider.metadata_details(identifier).await.trace_ok() else {
+        bail!("Failed to retrieve metadata details")
+    };
     Ok(results)
 }
 
