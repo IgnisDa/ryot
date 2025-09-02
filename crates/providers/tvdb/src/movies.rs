@@ -65,7 +65,7 @@ impl MediaProvider for TvdbMovieService {
             .data
             .into_iter()
             .map(|d| MetadataSearchItem {
-                identifier: d.id,
+                identifier: d.tvdb_id,
                 image: d.poster.or(d.image_url),
                 title: d.title.or(d.name).unwrap_or_default(),
                 ..Default::default()
@@ -177,19 +177,14 @@ impl MediaProvider for TvdbMovieService {
             );
         }
 
-        let genres = movie_data
-            .genres
-            .unwrap_or_default()
-            .into_iter()
-            .map(|g| g.name)
-            .collect_vec();
+        let genres = movie_data.genres.unwrap_or_default();
 
         let publish_date = movie_data
             .first_air_date
             .as_ref()
             .and_then(|date| convert_string_to_date(date));
 
-        let publish_year = movie_data.year.or_else(|| {
+        let publish_year = movie_data.year.and_then(|t| t.parse().ok()).or_else(|| {
             movie_data
                 .first_air_date
                 .as_ref()
@@ -211,8 +206,8 @@ impl MediaProvider for TvdbMovieService {
             lot: MediaLot::Movie,
             source: MediaSource::Tvdb,
             description: movie_data.overview,
-            identifier: movie_data.id.clone(),
-            source_url: Some(format!("https://thetvdb.com/movies/{}", movie_data.id)),
+            identifier: movie_data.tvdb_id.clone(),
+            source_url: Some(format!("https://thetvdb.com/movies/{}", movie_data.tvdb_id)),
             original_language: self.base.get_language_name(movie_data.original_language),
             movie_specifics: Some(MovieSpecifics {
                 runtime: movie_data.runtime,
