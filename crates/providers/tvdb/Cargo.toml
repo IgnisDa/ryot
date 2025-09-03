@@ -6,6 +6,8 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+chrono = { workspace = true }
+futures = { workspace = true }
 itertools = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }

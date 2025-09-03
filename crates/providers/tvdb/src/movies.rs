@@ -154,7 +154,7 @@ impl MediaProvider for TvdbMovieService {
             );
         }
 
-        if let Some(companies) = movie_data.studios {
+        if let Some(companies) = movie_data.companies {
             people.extend(
                 companies
                     .into_iter()

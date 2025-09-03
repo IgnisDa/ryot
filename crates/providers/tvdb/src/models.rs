@@ -59,21 +59,67 @@ pub struct TvdbExtendedCharacter {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct TvdbExtendedItem {
+pub struct TvdbShowEpisode {
+    pub id: i32,
+    pub number: i32,
+    pub name: Option<String>,
+    pub runtime: Option<i32>,
+    pub aired: Option<String>,
+    pub image: Option<String>,
+    pub overview: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TvdbSeasonType {
+    #[serde(rename = "type")]
+    pub season_type: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TvdbSeasonArtwork {
+    pub image: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TvdbSeasonExtended {
+    pub id: i32,
+    pub number: i32,
     pub year: Option<String>,
+    pub image: Option<String>,
+    #[serde(rename = "type")]
+    pub season_type: TvdbSeasonType,
+    pub episodes: Vec<TvdbShowEpisode>,
+    pub artwork: Option<Vec<TvdbSeasonArtwork>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TvdbShowSeason {
+    pub id: i32,
+    pub number: i32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TvdbExtendedItem {
+    pub id: Option<i32>,
+    pub year: Option<String>,
+    #[serde(rename = "averageRuntime")]
     pub runtime: Option<i32>,
     pub name: Option<String>,
     pub title: Option<String>,
     pub image: Option<String>,
     pub image_url: Option<String>,
     pub overview: Option<String>,
+    #[serde(rename = "firstAired")]
     pub first_air_date: Option<String>,
     pub original_language: Option<String>,
+    pub seasons: Option<Vec<TvdbShowSeason>>,
     pub genres: Option<Vec<IdAndNamedObject>>,
-    pub studios: Option<Vec<IdAndNamedObject>>,
+    pub companies: Option<Vec<IdAndNamedObject>>,
     pub artworks: Option<Vec<TvdbExtendedArtwork>>,
     pub trailers: Option<Vec<TvdbExtendedTrailer>>,
     pub characters: Option<Vec<TvdbExtendedCharacter>>,
 }
 
 pub type TvdbMovieExtendedResponse = TvdbApiResponse<TvdbExtendedItem>;
+pub type TvdbShowExtendedResponse = TvdbApiResponse<TvdbExtendedItem>;
+pub type TvdbSeasonExtendedResponse = TvdbApiResponse<TvdbSeasonExtended>;
