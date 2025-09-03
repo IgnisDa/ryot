@@ -60,6 +60,8 @@ impl MediaProvider for TvdbShowService {
             .await?;
         let search: TvdbSearchResponse = rsp.json().await?;
 
+        let (next_page, total_items) = search.get_pagination(page);
+
         let resp = search
             .data
             .into_iter()
@@ -70,14 +72,6 @@ impl MediaProvider for TvdbShowService {
                 ..Default::default()
             })
             .collect_vec();
-
-        let next_page = search
-            .links
-            .as_ref()
-            .and_then(|l| l.next.as_ref())
-            .is_some()
-            .then(|| page + 1);
-        let total_items = search.links.and_then(|l| l.total_items).unwrap_or(0);
 
         Ok(SearchResults {
             items: resp,

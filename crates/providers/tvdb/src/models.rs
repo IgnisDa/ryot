@@ -39,6 +39,19 @@ pub struct TvdbSearchResponse {
     pub links: Option<TvdbSearchLinks>,
 }
 
+impl TvdbSearchResponse {
+    pub fn get_pagination(&self, page: i32) -> (Option<i32>, i32) {
+        let next_page = self
+            .links
+            .as_ref()
+            .and_then(|l| l.next.as_ref())
+            .is_some()
+            .then(|| page + 1);
+        let total_items = self.links.as_ref().and_then(|l| l.total_items).unwrap_or(0);
+        (next_page, total_items)
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct TvdbExtendedArtwork {
     pub image: Option<String>,
