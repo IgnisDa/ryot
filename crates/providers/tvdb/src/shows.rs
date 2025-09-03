@@ -232,10 +232,10 @@ impl MediaProvider for TvdbShowService {
                     .into_iter()
                     .map(|ep| ShowEpisode {
                         id: ep.id,
-                        name: ep.name.unwrap_or_default(),
-                        episode_number: ep.number,
                         runtime: ep.runtime,
                         overview: ep.overview,
+                        episode_number: ep.number,
+                        name: ep.name.unwrap_or_default(),
                         poster_images: ep.image.into_iter().collect(),
                         publish_date: ep
                             .aired
