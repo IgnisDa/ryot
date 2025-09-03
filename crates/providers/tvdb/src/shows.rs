@@ -169,7 +169,7 @@ impl MediaProvider for TvdbShowService {
 
         let mut season_map = HashMap::new();
         for season in seasons_data {
-            let _entry = season_map.entry(season.number).or_insert(season.id);
+            season_map.entry(season.number).or_insert(season.id);
         }
 
         let season_ids: Vec<i32> = season_map.into_values().collect();
