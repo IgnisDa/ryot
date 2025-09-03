@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use anyhow::Result;
 use async_trait::async_trait;
 use common_models::{
-    EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics, SearchDetails,
+    EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics,
 };
 use common_utils::{convert_date_to_year, convert_string_to_date};
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
@@ -19,7 +19,7 @@ use traits::MediaProvider;
 
 use crate::{
     base::TvdbService,
-    models::{TvdbSearchResponse, TvdbSeasonExtendedResponse, TvdbShowExtendedResponse, URL},
+    models::{TvdbSeasonExtendedResponse, TvdbShowExtendedResponse, URL},
 };
 
 pub struct TvdbShowService {
@@ -40,46 +40,12 @@ impl MediaProvider for TvdbShowService {
         &self,
         page: i32,
         query: &str,
-        _display_nsfw: bool,
-        _source_specifics: &Option<MetadataSearchSourceSpecifics>,
+        display_nsfw: bool,
+        source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let limit = 20;
-        let offset = (page - 1) * limit;
-
-        let rsp = self
-            .base
-            .client
-            .get(format!("{URL}/search"))
-            .query(&[
-                ("query", query),
-                ("type", "series"),
-                ("limit", &limit.to_string()),
-                ("offset", &offset.to_string()),
-            ])
-            .send()
-            .await?;
-        let search: TvdbSearchResponse = rsp.json().await?;
-
-        let (next_page, total_items) = search.get_pagination(page);
-
-        let resp = search
-            .data
-            .into_iter()
-            .map(|d| MetadataSearchItem {
-                identifier: d.tvdb_id,
-                image: d.poster.or(d.image_url),
-                title: d.title.or(d.name).unwrap_or_default(),
-                ..Default::default()
-            })
-            .collect_vec();
-
-        Ok(SearchResults {
-            items: resp,
-            details: SearchDetails {
-                next_page,
-                total_items,
-            },
-        })
+        self.base
+            .metadata_search(page, query, "series", display_nsfw, source_specifics)
+            .await
     }
 
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {

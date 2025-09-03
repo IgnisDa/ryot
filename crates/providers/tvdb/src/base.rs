@@ -2,7 +2,13 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use application_utils::get_base_http_client;
-use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TvdbSettings};
+use common_models::SearchDetails;
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, MetadataSearchSourceSpecifics, SearchResults,
+    TvdbSettings,
+};
+use itertools::Itertools;
+use media_models::MetadataSearchItem;
 use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},
@@ -10,7 +16,7 @@ use reqwest::{
 use serde_json::json;
 use supporting_service::SupportingService;
 
-use crate::models::{TvdbLanguagesApiResponse, TvdbLoginResponse, URL};
+use crate::models::{TvdbLanguagesApiResponse, TvdbLoginResponse, TvdbSearchResponse, URL};
 
 pub struct TvdbService {
     pub client: Client,
@@ -42,6 +48,52 @@ impl TvdbService {
                 .iter()
                 .find(|l| l.id == i)
                 .map(|l| l.name.clone())
+        })
+    }
+
+    pub async fn metadata_search(
+        &self,
+        page: i32,
+        query: &str,
+        search_type: &str,
+        _display_nsfw: bool,
+        _source_specifics: &Option<MetadataSearchSourceSpecifics>,
+    ) -> Result<SearchResults<MetadataSearchItem>> {
+        let limit = 20;
+        let offset = (page - 1) * limit;
+
+        let rsp = self
+            .client
+            .get(format!("{URL}/search"))
+            .query(&[
+                ("query", query),
+                ("type", search_type),
+                ("limit", &limit.to_string()),
+                ("offset", &offset.to_string()),
+            ])
+            .send()
+            .await?;
+        let search: TvdbSearchResponse = rsp.json().await?;
+
+        let (next_page, total_items) = search.get_pagination(page);
+
+        let resp = search
+            .data
+            .into_iter()
+            .map(|d| MetadataSearchItem {
+                identifier: d.tvdb_id,
+                image: d.poster.or(d.image_url),
+                title: d.title.or(d.name).unwrap_or_default(),
+                ..Default::default()
+            })
+            .collect_vec();
+
+        Ok(SearchResults {
+            items: resp,
+            details: SearchDetails {
+                next_page,
+                total_items,
+            },
         })
     }
 }
