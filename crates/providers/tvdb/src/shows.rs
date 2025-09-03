@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use async_trait::async_trait;
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
-use media_models::{MetadataDetails, MetadataSearchItem, PartialMetadataWithoutId};
+use media_models::{MetadataDetails, MetadataSearchItem};
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
@@ -35,9 +35,5 @@ impl MediaProvider for TvdbShowService {
 
     async fn metadata_details(&self, _identifier: &str) -> Result<MetadataDetails> {
         todo!("Implement TVDB show details")
-    }
-
-    async fn get_trending_media(&self) -> Result<Vec<PartialMetadataWithoutId>> {
-        todo!("Implement TVDB show trending")
     }
 }

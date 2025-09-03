@@ -228,8 +228,4 @@ impl MediaProvider for TvdbMovieService {
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
         todo!("Implement TVDB movie group details")
     }
-
-    async fn get_trending_media(&self) -> Result<Vec<PartialMetadataWithoutId>> {
-        todo!("Implement TVDB movie trending")
-    }
 }
