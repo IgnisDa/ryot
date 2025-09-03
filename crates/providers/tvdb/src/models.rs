@@ -9,8 +9,6 @@ pub struct TvdbApiResponse<T> {
     pub data: T,
 }
 
-pub type TvdbLanguagesApiResponse = TvdbApiResponse<Vec<TvdbLanguage>>;
-
 #[derive(Debug, Deserialize)]
 pub struct TvdbLoginData {
     pub token: String,
@@ -112,28 +110,65 @@ pub struct TvdbShowSeason {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct TvdbExtendedItem {
-    pub id: Option<i32>,
-    pub year: Option<String>,
-    pub slug: Option<String>,
-    #[serde(rename = "averageRuntime")]
-    pub runtime: Option<i32>,
+pub struct TvdbCompanies {
+    pub studio: Option<Vec<IdAndNamedObject>>,
+    pub network: Option<Vec<IdAndNamedObject>>,
+    pub production: Option<Vec<IdAndNamedObject>>,
+    pub distributor: Option<Vec<IdAndNamedObject>>,
+    pub special_effects: Option<Vec<IdAndNamedObject>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TvdbCompany {
+    pub id: i32,
+    pub name: String,
+    #[serde(rename = "companyType")]
+    pub company_type: Option<TvdbCompanyType>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TvdbCompanyType {
+    #[serde(rename = "companyTypeName")]
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TvdbExtendedItemCommon {
     pub name: Option<String>,
-    pub title: Option<String>,
+    pub slug: Option<String>,
+    pub year: Option<String>,
     pub image: Option<String>,
-    pub image_url: Option<String>,
     pub overview: Option<String>,
     #[serde(rename = "firstAired")]
     pub first_air_date: Option<String>,
     pub original_language: Option<String>,
-    pub seasons: Option<Vec<TvdbShowSeason>>,
     pub genres: Option<Vec<IdAndNamedObject>>,
-    pub companies: Option<Vec<IdAndNamedObject>>,
     pub artworks: Option<Vec<TvdbExtendedArtwork>>,
     pub trailers: Option<Vec<TvdbExtendedTrailer>>,
     pub characters: Option<Vec<TvdbExtendedCharacter>>,
 }
 
-pub type TvdbMovieExtendedResponse = TvdbApiResponse<TvdbExtendedItem>;
-pub type TvdbShowExtendedResponse = TvdbApiResponse<TvdbExtendedItem>;
+#[derive(Debug, Deserialize)]
+pub struct TvdbMovieExtendedItem {
+    #[serde(rename = "averageRuntime")]
+    pub runtime: Option<i32>,
+    pub title: Option<String>,
+    pub image_url: Option<String>,
+    #[serde(flatten)]
+    pub common: TvdbExtendedItemCommon,
+    pub companies: Option<TvdbCompanies>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TvdbSeriesExtendedItem {
+    pub id: Option<i32>,
+    #[serde(flatten)]
+    pub common: TvdbExtendedItemCommon,
+    pub companies: Option<Vec<TvdbCompany>>,
+    pub seasons: Option<Vec<TvdbShowSeason>>,
+}
+
+pub type TvdbLanguagesApiResponse = TvdbApiResponse<Vec<TvdbLanguage>>;
 pub type TvdbSeasonExtendedResponse = TvdbApiResponse<TvdbSeasonExtended>;
+pub type TvdbMovieExtendedResponse = TvdbApiResponse<TvdbMovieExtendedItem>;
+pub type TvdbShowExtendedResponse = TvdbApiResponse<TvdbSeriesExtendedItem>;

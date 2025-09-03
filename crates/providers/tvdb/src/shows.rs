@@ -92,10 +92,10 @@ impl MediaProvider for TvdbShowService {
         let series_data: TvdbShowExtendedResponse = series_rsp.json().await?;
         let show_data = series_data.data;
 
-        let title = show_data.name.unwrap_or_default();
+        let title = show_data.common.name.unwrap_or_default();
 
         let mut remote_images = vec![];
-        if let Some(artworks) = show_data.artworks {
+        if let Some(artworks) = show_data.common.artworks {
             remote_images.extend(
                 artworks
                     .into_iter()
@@ -103,12 +103,12 @@ impl MediaProvider for TvdbShowService {
                     .collect_vec(),
             );
         }
-        if let Some(image) = show_data.image {
+        if let Some(image) = show_data.common.image {
             remote_images.push(image);
         }
 
         let mut remote_videos = vec![];
-        if let Some(trailers) = show_data.trailers {
+        if let Some(trailers) = show_data.common.trailers {
             remote_videos.extend(
                 trailers
                     .into_iter()
@@ -123,7 +123,7 @@ impl MediaProvider for TvdbShowService {
         }
 
         let mut people = vec![];
-        if let Some(characters) = show_data.characters {
+        if let Some(characters) = show_data.common.characters {
             people.extend(
                 characters
                     .into_iter()
@@ -145,23 +145,32 @@ impl MediaProvider for TvdbShowService {
         if let Some(companies) = show_data.companies {
             people.extend(
                 companies
-                    .into_iter()
-                    .map(|company| PartialMetadataPerson {
-                        name: company.name,
-                        source: MediaSource::Tvdb,
-                        identifier: company.id.to_string(),
-                        role: "Production Company".to_string(),
-                        source_specifics: Some(PersonSourceSpecifics {
-                            is_tvdb_company: Some(true),
+                    .iter()
+                    .map(|company| {
+                        let role = company
+                            .company_type
+                            .as_ref()
+                            .map(|ct| ct.name.as_str())
+                            .unwrap_or("Company");
+
+                        PartialMetadataPerson {
+                            name: company.name.clone(),
+                            source: MediaSource::Tvdb,
+                            identifier: company.id.to_string(),
+                            role: role.to_string(),
+                            source_specifics: Some(PersonSourceSpecifics {
+                                is_tvdb_company: Some(true),
+                                ..Default::default()
+                            }),
                             ..Default::default()
-                        }),
-                        ..Default::default()
+                        }
                     })
                     .collect_vec(),
             );
         }
 
         let genres = show_data
+            .common
             .genres
             .unwrap_or_default()
             .into_iter()
@@ -169,16 +178,22 @@ impl MediaProvider for TvdbShowService {
             .collect_vec();
 
         let publish_date = show_data
+            .common
             .first_air_date
             .as_ref()
             .and_then(|date| convert_string_to_date(date));
 
-        let publish_year = show_data.year.and_then(|t| t.parse().ok()).or_else(|| {
-            show_data
-                .first_air_date
-                .as_ref()
-                .and_then(|date| convert_date_to_year(date))
-        });
+        let publish_year = show_data
+            .common
+            .year
+            .and_then(|t| t.parse().ok())
+            .or_else(|| {
+                show_data
+                    .common
+                    .first_air_date
+                    .as_ref()
+                    .and_then(|date| convert_date_to_year(date))
+            });
 
         let external_identifiers = Some(MetadataExternalIdentifiers {
             tvdb_id: show_data.id,
@@ -272,7 +287,7 @@ impl MediaProvider for TvdbShowService {
 
         let source_url = Some(format!(
             "https://thetvdb.com/series/{}",
-            show_data.slug.as_deref().unwrap_or(identifier)
+            show_data.common.slug.as_deref().unwrap_or(identifier)
         ));
 
         Ok(MetadataDetails {
@@ -282,9 +297,11 @@ impl MediaProvider for TvdbShowService {
             publish_year,
             title: title.clone(),
             external_identifiers,
-            description: show_data.overview,
+            description: show_data.common.overview,
             source_url,
-            original_language: self.base.get_language_name(show_data.original_language),
+            original_language: self
+                .base
+                .get_language_name(show_data.common.original_language),
             assets: EntityAssets {
                 remote_images,
                 remote_videos,

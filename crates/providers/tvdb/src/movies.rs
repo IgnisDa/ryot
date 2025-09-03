@@ -93,12 +93,13 @@ impl MediaProvider for TvdbMovieService {
         let movie_data = data.data;
 
         let title = movie_data
+            .common
             .name
             .or(movie_data.title.clone())
             .unwrap_or_default();
 
         let mut remote_images = vec![];
-        if let Some(artworks) = movie_data.artworks {
+        if let Some(artworks) = movie_data.common.artworks {
             remote_images.extend(
                 artworks
                     .into_iter()
@@ -106,7 +107,7 @@ impl MediaProvider for TvdbMovieService {
                     .collect_vec(),
             );
         }
-        if let Some(poster) = movie_data.image.clone() {
+        if let Some(poster) = movie_data.common.image.clone() {
             remote_images.push(poster);
         }
         if let Some(image_url) = movie_data.image_url.clone() {
@@ -114,7 +115,7 @@ impl MediaProvider for TvdbMovieService {
         }
 
         let mut remote_videos = vec![];
-        if let Some(trailers) = movie_data.trailers {
+        if let Some(trailers) = movie_data.common.trailers {
             remote_videos.extend(
                 trailers
                     .into_iter()
@@ -129,7 +130,7 @@ impl MediaProvider for TvdbMovieService {
         }
 
         let mut people = vec![];
-        if let Some(characters) = movie_data.characters {
+        if let Some(characters) = movie_data.common.characters {
             people.extend(
                 characters
                     .into_iter()
@@ -138,9 +139,9 @@ impl MediaProvider for TvdbMovieService {
                             name,
                             role,
                             character: char.name,
-                            source_specifics: None,
                             source: MediaSource::Tvdb,
                             identifier: char.id.map(|id| id.to_string()).unwrap_or_default(),
+                            ..Default::default()
                         }),
                         _ => None,
                     })
@@ -149,25 +150,38 @@ impl MediaProvider for TvdbMovieService {
         }
 
         if let Some(companies) = movie_data.companies {
-            people.extend(
-                companies
-                    .into_iter()
-                    .map(|company| PartialMetadataPerson {
-                        character: None,
-                        name: company.name,
-                        source: MediaSource::Tvdb,
-                        identifier: company.id.to_string(),
-                        role: "Production Company".to_string(),
-                        source_specifics: Some(PersonSourceSpecifics {
-                            is_tvdb_company: Some(true),
-                            ..Default::default()
-                        }),
-                    })
-                    .collect_vec(),
-            );
+            let all_companies = [
+                (companies.studio.as_ref(), "Studio"),
+                (companies.network.as_ref(), "Network"),
+                (companies.production.as_ref(), "Production Company"),
+                (companies.distributor.as_ref(), "Distributor"),
+                (companies.special_effects.as_ref(), "Special Effects"),
+            ];
+
+            for (company_list, role) in all_companies {
+                if let Some(companies) = company_list {
+                    people.extend(
+                        companies
+                            .iter()
+                            .map(|company| PartialMetadataPerson {
+                                role: role.to_string(),
+                                source: MediaSource::Tvdb,
+                                name: company.name.clone(),
+                                identifier: company.id.to_string(),
+                                source_specifics: Some(PersonSourceSpecifics {
+                                    is_tvdb_company: Some(true),
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            })
+                            .collect_vec(),
+                    );
+                }
+            }
         }
 
         let genres = movie_data
+            .common
             .genres
             .unwrap_or_default()
             .into_iter()
@@ -175,34 +189,42 @@ impl MediaProvider for TvdbMovieService {
             .collect_vec();
 
         let publish_date = movie_data
+            .common
             .first_air_date
             .as_ref()
             .and_then(|date| convert_string_to_date(date));
 
-        let publish_year = movie_data.year.and_then(|t| t.parse().ok()).or_else(|| {
-            movie_data
-                .first_air_date
-                .as_ref()
-                .and_then(|date| convert_date_to_year(date))
-        });
+        let publish_year = movie_data
+            .common
+            .year
+            .and_then(|t| t.parse().ok())
+            .or_else(|| {
+                movie_data
+                    .common
+                    .first_air_date
+                    .as_ref()
+                    .and_then(|date| convert_date_to_year(date))
+            });
 
         let source_url = Some(format!(
             "https://thetvdb.com/movies/{}",
-            movie_data.slug.as_deref().unwrap_or(identifier)
+            movie_data.common.slug.as_deref().unwrap_or(identifier)
         ));
 
         Ok(MetadataDetails {
             genres,
             people,
+            source_url,
             publish_date,
             publish_year,
             title: title.clone(),
-            description: movie_data.overview,
-            source_url,
-            original_language: self.base.get_language_name(movie_data.original_language),
+            description: movie_data.common.overview,
             movie_specifics: Some(MovieSpecifics {
                 runtime: movie_data.runtime,
             }),
+            original_language: self
+                .base
+                .get_language_name(movie_data.common.original_language),
             assets: EntityAssets {
                 remote_images,
                 remote_videos,
