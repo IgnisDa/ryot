@@ -496,8 +496,7 @@ impl MediaProvider for SpotifyService {
                         remote_images: get_images_ordered_by_size(&album.images),
                         ..Default::default()
                     },
-                    source_url: None,
-                    description: None,
+                    ..Default::default()
                 },
             })
             .collect();
