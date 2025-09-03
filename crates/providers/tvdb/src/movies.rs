@@ -186,6 +186,11 @@ impl MediaProvider for TvdbMovieService {
                 .and_then(|date| convert_date_to_year(date))
         });
 
+        let source_url = Some(format!(
+            "https://thetvdb.com/movies/{}",
+            movie_data.slug.as_deref().unwrap_or(identifier)
+        ));
+
         Ok(MetadataDetails {
             genres,
             people,
@@ -193,7 +198,7 @@ impl MediaProvider for TvdbMovieService {
             publish_year,
             title: title.clone(),
             description: movie_data.overview,
-            source_url: Some(format!("https://thetvdb.com/movies/{}", identifier)),
+            source_url,
             original_language: self.base.get_language_name(movie_data.original_language),
             movie_specifics: Some(MovieSpecifics {
                 runtime: movie_data.runtime,

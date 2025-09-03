@@ -115,6 +115,7 @@ pub struct TvdbShowSeason {
 pub struct TvdbExtendedItem {
     pub id: Option<i32>,
     pub year: Option<String>,
+    pub slug: Option<String>,
     #[serde(rename = "averageRuntime")]
     pub runtime: Option<i32>,
     pub name: Option<String>,

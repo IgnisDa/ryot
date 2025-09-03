@@ -270,6 +270,11 @@ impl MediaProvider for TvdbShowService {
             .map(|e| e.runtime.unwrap_or(0))
             .sum();
 
+        let source_url = Some(format!(
+            "https://thetvdb.com/series/{}",
+            show_data.slug.as_deref().unwrap_or(identifier)
+        ));
+
         Ok(MetadataDetails {
             genres,
             people,
@@ -278,7 +283,7 @@ impl MediaProvider for TvdbShowService {
             title: title.clone(),
             external_identifiers,
             description: show_data.overview,
-            source_url: Some(format!("https://thetvdb.com/series/{}", identifier)),
+            source_url,
             original_language: self.base.get_language_name(show_data.original_language),
             assets: EntityAssets {
                 remote_images,
