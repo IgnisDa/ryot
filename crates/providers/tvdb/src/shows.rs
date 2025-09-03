@@ -259,12 +259,12 @@ impl MediaProvider for TvdbShowService {
         Ok(MetadataDetails {
             genres,
             people,
+            source_url,
             publish_date,
             publish_year,
             title: title.clone(),
             external_identifiers,
             description: show_data.common.overview,
-            source_url,
             original_language: self
                 .base
                 .get_language_name(show_data.common.original_language),
