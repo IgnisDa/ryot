@@ -282,33 +282,21 @@ impl MediaProvider for TvdbShowService {
             publish_date,
             publish_year,
             title: title.clone(),
+            external_identifiers,
             description: show_data.overview,
             source_url: Some(format!("https://thetvdb.com/series/{}", identifier)),
             original_language: self.base.get_language_name(show_data.original_language),
-            external_identifiers,
-            show_specifics: Some(ShowSpecifics {
-                runtime: if total_runtime == 0 {
-                    None
-                } else {
-                    Some(total_runtime)
-                },
-                total_seasons: if total_seasons == 0 {
-                    None
-                } else {
-                    Some(total_seasons)
-                },
-                total_episodes: if total_episodes == 0 {
-                    None
-                } else {
-                    Some(total_episodes)
-                },
-                seasons: processed_seasons,
-            }),
             assets: EntityAssets {
                 remote_images,
                 remote_videos,
                 ..Default::default()
             },
+            show_specifics: Some(ShowSpecifics {
+                seasons: processed_seasons,
+                runtime: (total_runtime != 0).then_some(total_runtime),
+                total_seasons: (total_seasons != 0).then_some(total_seasons),
+                total_episodes: (total_episodes != 0).then_some(total_episodes),
+            }),
             ..Default::default()
         })
     }
