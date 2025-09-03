@@ -157,6 +157,7 @@ pub struct TvdbMovieExtendedItem {
     #[serde(flatten)]
     pub common: TvdbExtendedItemCommon,
     pub companies: Option<TvdbCompanies>,
+    pub lists: Option<Vec<TvdbListItem>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -172,3 +173,12 @@ pub type TvdbLanguagesApiResponse = TvdbApiResponse<Vec<TvdbLanguage>>;
 pub type TvdbSeasonExtendedResponse = TvdbApiResponse<TvdbSeasonExtended>;
 pub type TvdbMovieExtendedResponse = TvdbApiResponse<TvdbMovieExtendedItem>;
 pub type TvdbShowExtendedResponse = TvdbApiResponse<TvdbSeriesExtendedItem>;
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TvdbListItem {
+    pub id: i32,
+    pub name: Option<String>,
+    pub image: Option<String>,
+    pub is_official: Option<bool>,
+}

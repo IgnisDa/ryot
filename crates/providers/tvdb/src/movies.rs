@@ -8,11 +8,11 @@ use common_models::{
 use common_utils::{convert_date_to_year, convert_string_to_date};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
-use enum_models::MediaSource;
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem, MovieSpecifics,
-    PartialMetadataPerson, PartialMetadataWithoutId,
+    CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
+    MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
 };
 use supporting_service::SupportingService;
 use traits::MediaProvider;
@@ -177,9 +177,27 @@ impl MediaProvider for TvdbMovieService {
             movie_data.common.slug.as_deref().unwrap_or(identifier)
         ));
 
+        let groups = movie_data
+            .lists
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|l| l.is_official.unwrap_or(false))
+            .map(|l| CommitMetadataGroupInput {
+                name: l.name.unwrap_or_else(|| "Loading...".to_string()),
+                image: l.image,
+                unique: UniqueMediaIdentifier {
+                    lot: MediaLot::Movie,
+                    source: MediaSource::Tvdb,
+                    identifier: l.id.to_string(),
+                },
+                ..Default::default()
+            })
+            .collect();
+
         Ok(MetadataDetails {
             genres,
             people,
+            groups,
             source_url,
             publish_date,
             publish_year,
