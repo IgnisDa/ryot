@@ -93,7 +93,7 @@ where
         (MediaSource, String, MediaLot),
         ImportOrExportMetadataItem,
     > = HashMap::new();
-    let mut other_items = Vec::new();
+    let mut other_items = vec![];
 
     for item in import.completed {
         match item {

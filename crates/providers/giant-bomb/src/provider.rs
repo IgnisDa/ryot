@@ -94,7 +94,7 @@ impl MediaProvider for GiantBombService {
 
         let game = details_response.results;
 
-        let mut people = Vec::new();
+        let mut people = vec![];
 
         let mut add_people_from_entries =
             |entries: Option<Vec<GiantBombResource>>, role: Option<&str>, is_company: bool| {
@@ -124,7 +124,7 @@ impl MediaProvider for GiantBombService {
         add_people_from_entries(game.publishers, Some(ROLE_PUBLISHER), true);
         add_people_from_entries(game.people, None, false);
 
-        let mut groups = Vec::new();
+        let mut groups = vec![];
         if let Some(franchises) = game.franchises {
             for franchise in franchises {
                 if let Some(api_url) = franchise.api_detail_url {
@@ -141,7 +141,7 @@ impl MediaProvider for GiantBombService {
             }
         }
 
-        let mut suggestions = Vec::new();
+        let mut suggestions = vec![];
         if let Some(similar_games) = game.similar_games {
             for similar in similar_games {
                 if let Some(api_url) = similar.api_detail_url {
@@ -156,7 +156,7 @@ impl MediaProvider for GiantBombService {
             }
         }
 
-        let mut genres = Vec::new();
+        let mut genres = vec![];
         if let Some(game_genres) = game.genres {
             for genre in game_genres {
                 genres.push(genre.name.unwrap());
@@ -168,7 +168,7 @@ impl MediaProvider for GiantBombService {
             }
         }
 
-        let mut platforms = Vec::new();
+        let mut platforms = vec![];
         if let Some(game_platforms) = game.platforms {
             for platform in game_platforms {
                 platforms.push(VideoGameSpecificsPlatformRelease {
@@ -309,8 +309,8 @@ impl MediaProvider for GiantBombService {
                 .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
 
         let resource = details_response.results;
-        let mut related_games = Vec::new();
-        let mut related_groups = Vec::new();
+        let mut related_games = vec![];
+        let mut related_groups = vec![];
 
         let mut add_games_to_related = |games: Option<Vec<GiantBombResource>>, role: &str| {
             games
@@ -479,7 +479,7 @@ impl MediaProvider for GiantBombService {
                 .unwrap_or(0) as i32,
         };
 
-        let mut games = Vec::new();
+        let mut games = vec![];
         if let Some(franchise_games) = franchise.games {
             for game in franchise_games {
                 if let Some(api_url) = game.api_detail_url {

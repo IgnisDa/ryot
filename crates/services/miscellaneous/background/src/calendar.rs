@@ -36,7 +36,7 @@ pub async fn recalculate_calendar_events(ss: &Arc<SupportingService>) -> Result<
         );
 
     let mut meta_stream = selected_metadata.clone().stream(&ss.db).await?;
-    let mut calendar_event_ids_to_delete = Vec::new();
+    let mut calendar_event_ids_to_delete = vec![];
 
     while let Some(meta) = meta_stream.try_next().await? {
         ryot_log!(trace, "Processing metadata id = {:#?}", meta.id);

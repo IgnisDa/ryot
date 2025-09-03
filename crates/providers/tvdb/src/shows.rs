@@ -100,7 +100,7 @@ impl MediaProvider for TvdbShowService {
 
         let title = show_data.name.unwrap_or_default();
 
-        let mut remote_images = Vec::new();
+        let mut remote_images = vec![];
         if let Some(artworks) = show_data.artworks {
             remote_images.extend(
                 artworks
@@ -113,7 +113,7 @@ impl MediaProvider for TvdbShowService {
             remote_images.push(image);
         }
 
-        let mut remote_videos = Vec::new();
+        let mut remote_videos = vec![];
         if let Some(trailers) = show_data.trailers {
             remote_videos.extend(
                 trailers
@@ -128,7 +128,7 @@ impl MediaProvider for TvdbShowService {
             );
         }
 
-        let mut people = Vec::new();
+        let mut people = vec![];
         if let Some(characters) = show_data.characters {
             people.extend(
                 characters
@@ -244,7 +244,7 @@ impl MediaProvider for TvdbShowService {
                     })
                     .collect();
 
-                let mut season_images = Vec::new();
+                let mut season_images = vec![];
                 if let Some(image) = season.image {
                     season_images.push(image);
                 }

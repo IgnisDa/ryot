@@ -103,7 +103,7 @@ impl MediaProvider for TvdbMovieService {
             .or(movie_data.title.clone())
             .unwrap_or_default();
 
-        let mut remote_images = Vec::new();
+        let mut remote_images = vec![];
         if let Some(artworks) = movie_data.artworks {
             remote_images.extend(
                 artworks
@@ -119,7 +119,7 @@ impl MediaProvider for TvdbMovieService {
             remote_images.push(image_url);
         }
 
-        let mut remote_videos = Vec::new();
+        let mut remote_videos = vec![];
         if let Some(trailers) = movie_data.trailers {
             remote_videos.extend(
                 trailers
@@ -134,7 +134,7 @@ impl MediaProvider for TvdbMovieService {
             );
         }
 
-        let mut people = Vec::new();
+        let mut people = vec![];
         if let Some(characters) = movie_data.characters {
             people.extend(
                 characters

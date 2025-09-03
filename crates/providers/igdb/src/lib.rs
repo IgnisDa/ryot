@@ -528,7 +528,7 @@ where id = {identity};
             ),
         ];
 
-        let mut filters = Vec::new();
+        let mut filters = vec![];
 
         if !allow_games_with_parent {
             filters.push("version_parent = null".to_string());

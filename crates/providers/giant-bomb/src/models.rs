@@ -86,7 +86,7 @@ pub fn extract_giant_bomb_guid(api_detail_url: &str) -> String {
 }
 
 pub fn get_prioritized_images(image: Option<GiantBombImage>) -> Vec<String> {
-    image.map_or(Vec::new(), |img| {
+    image.map_or(vec![], |img| {
         [
             img.original_url,
             img.super_url,

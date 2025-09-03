@@ -114,7 +114,7 @@ pub struct SpotifyService {
 }
 
 async fn fetch_artist_albums(client: &Client, artist_id: &str) -> Result<Vec<SpotifyAlbum>> {
-    let mut all_albums = Vec::new();
+    let mut all_albums = vec![];
     let mut offset = 0;
     let limit = 50;
 
