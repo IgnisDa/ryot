@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Result, bail};
+use anyhow::{Result, anyhow, bail};
 use chrono::Datelike;
 use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
 use common_utils::ryot_log;
@@ -314,7 +314,7 @@ pub async fn handle_metadata_eligible_for_smart_collection_moving(
     let meta = Metadata::find_by_id(&metadata_id)
         .one(&ss.db)
         .await?
-        .ok_or_else(|| anyhow::anyhow!("Metadata not found"))?;
+        .ok_or_else(|| anyhow!("Metadata not found"))?;
     if meta.lot != MediaLot::Show {
         return Ok(());
     }
