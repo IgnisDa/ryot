@@ -17,6 +17,5 @@ common-models = { workspace = true }
 common-utils = { workspace = true }
 config-definition = { workspace = true }
 dependent-models = { workspace = true }
-enum-models = { workspace = true }
 media-models = { workspace = true }
 traits = { workspace = true }
