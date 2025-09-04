@@ -37,6 +37,7 @@ use sea_orm::{
     sea_query::{Asterisk, Condition, Expr, JoinType},
 };
 use supporting_service::SupportingService;
+use traits::TraceOk;
 
 async fn ensure_metadata_updated(
     metadata_id: &String,
@@ -503,9 +504,13 @@ pub async fn update_person(
     }
     let mut notifications = vec![];
     let provider = get_non_metadata_provider(person.source, ss).await?;
-    let provider_person = provider
+    let Some(provider_person) = provider
         .person_details(&person.identifier, &person.source_specifics)
-        .await?;
+        .await
+        .trace_ok()
+    else {
+        bail!("Failed to retrieve person details");
+    };
     ryot_log!(debug, "Updating person for {:?}", person_id);
 
     let mut current_state_changes = person.clone().state_changes.unwrap_or_default();
