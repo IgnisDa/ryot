@@ -11,8 +11,8 @@ use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
-    MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
+    CommitMetadataGroupInput, MetadataDetails, MetadataSearchItem, MovieSpecifics,
+    PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
 };
 use supporting_service::SupportingService;
 use traits::MediaProvider;
@@ -216,15 +216,6 @@ impl MediaProvider for TvdbMovieService {
             },
             ..Default::default()
         })
-    }
-
-    async fn metadata_group_search(
-        &self,
-        _page: i32,
-        _query: &str,
-        _display_nsfw: bool,
-    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
-        todo!("Implement TVDB movie group search")
     }
 
     async fn metadata_group_details(
