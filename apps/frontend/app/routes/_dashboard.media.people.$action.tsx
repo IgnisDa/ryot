@@ -72,6 +72,7 @@ interface SearchFilterState {
 	query: string;
 	source: MediaSource;
 	sourceSpecifics: {
+		isTvdbCompany?: boolean;
 		isTmdbCompany?: boolean;
 		isAnilistStudio?: boolean;
 		isGiantBombCompany?: boolean;
@@ -398,6 +399,13 @@ const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => {
 
 	return (
 		<Stack gap="md">
+			{filters.source === MediaSource.Tvdb ? (
+				<Checkbox
+					label="Company"
+					checked={filters.sourceSpecifics.isTvdbCompany || false}
+					onChange={(e) => onFiltersChange("isTvdbCompany", e.target.checked)}
+				/>
+			) : null}
 			{filters.source === MediaSource.Tmdb ? (
 				<Checkbox
 					label="Company"
