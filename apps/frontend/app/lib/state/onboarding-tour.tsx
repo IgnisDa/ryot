@@ -171,11 +171,11 @@ export const useOnboardingTour = () => {
 				<Group>
 					{isOnboardingTourLoading ? <Loader size="xs" /> : null}
 					<Button
+						variant="outline"
 						size="compact-xs"
-						variant="default"
-						onClick={() => {
-							setTourState({ currentStepIndex: onboardingTourSteps.length });
-						}}
+						onClick={() =>
+							setTourState({ currentStepIndex: onboardingTourSteps.length })
+						}
 					>
 						Complete tour
 					</Button>
