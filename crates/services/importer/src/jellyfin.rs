@@ -10,7 +10,6 @@ use external_utils::jellyfin::{ItemResponse, ItemsResponse, MediaType, get_authe
 use futures::stream::{self, StreamExt};
 use media_models::{DeployJellyfinImportInput, ImportOrExportMetadataItemSeen};
 use reqwest::Client;
-use serde_json::json;
 use tokio::sync::Mutex;
 
 use crate::{ImportFailStep, ImportFailedItem};
@@ -22,10 +21,9 @@ pub async fn import(input: DeployJellyfinImportInput) -> Result<ImportResult> {
     let (client, user_id) =
         get_authenticated_client(&base_url, &input.username, &input.password).await?;
 
-    let query = json!({ "recursive": true, "IsPlayed": true, "fields": "ProviderIds" });
     let library_data = client
         .get(format!("{base_url}/Users/{user_id}/Items"))
-        .query(&query)
+        .query(&serde_json::json!({ "recursive": true, "IsPlayed": true, "fields": "ProviderIds" }))
         .send()
         .await
         .unwrap()

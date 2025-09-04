@@ -10,7 +10,6 @@ use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},
 };
-use serde_json::json;
 use supporting_service::SupportingService;
 
 use crate::models::{TvdbLanguagesApiResponse, TvdbLoginResponse, TvdbSearchResponse, URL};
@@ -112,7 +111,7 @@ async fn get_settings(ss: &Arc<SupportingService>) -> Result<TvdbSettings> {
             let client = Client::new();
             let login_response = client
                 .post(format!("{URL}/login"))
-                .json(&json!({ "apikey": ss.config.movies_and_shows.tvdb.api_key }))
+                .json(&serde_json::json!({ "apikey": ss.config.movies_and_shows.tvdb.api_key }))
                 .send()
                 .await?;
             let login_data: TvdbLoginResponse = login_response.json().await?;

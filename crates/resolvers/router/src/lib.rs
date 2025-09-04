@@ -11,7 +11,6 @@ use axum::{
 use common_utils::{get_temporary_directory, ryot_log};
 use integration_service::IntegrationService;
 use nanoid::nanoid;
-use serde_json::json;
 
 pub async fn graphql_playground_handler() -> impl IntoResponse {
     Html(playground_source(GraphQLPlaygroundConfig::new(
@@ -42,7 +41,7 @@ pub async fn upload_file_handler(
         write(&path, data).unwrap();
         res.push(path.canonicalize().unwrap());
     }
-    Ok(Json(json!(res)))
+    Ok(Json(serde_json::json!(res)))
 }
 
 pub async fn integration_webhook_handler(
