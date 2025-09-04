@@ -1,3 +1,4 @@
+use chrono::NaiveDate;
 use common_models::IdAndNamedObject;
 use dependent_models::TvdbLanguage;
 use serde::Deserialize;
@@ -175,8 +176,47 @@ pub struct TvdbListItem {
     pub entities: Option<Vec<TvdbListEntityItem>>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct TvdbBiography {
+    pub biography: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TvdbCharacter {
+    pub name: Option<String>,
+    pub movie_id: Option<i32>,
+    pub image: Option<String>,
+    pub series_id: Option<i32>,
+    pub people_type: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TvdbPersonExtended {
+    pub gender: Option<i32>,
+    pub name: Option<String>,
+    pub slug: Option<String>,
+    pub image: Option<String>,
+    pub birth: Option<NaiveDate>,
+    pub death: Option<NaiveDate>,
+    pub birth_place: Option<String>,
+    pub characters: Option<Vec<TvdbCharacter>>,
+    pub biographies: Option<Vec<TvdbBiography>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TvdbCompanyExtended {
+    pub name: Option<String>,
+    pub slug: Option<String>,
+    pub country: Option<String>,
+}
+
 pub type TvdbListDetailsResponse = TvdbApiResponse<TvdbListItem>;
 pub type TvdbLanguagesApiResponse = TvdbApiResponse<Vec<TvdbLanguage>>;
 pub type TvdbSeasonExtendedResponse = TvdbApiResponse<TvdbSeasonExtended>;
+pub type TvdbPersonExtendedResponse = TvdbApiResponse<TvdbPersonExtended>;
 pub type TvdbMovieExtendedResponse = TvdbApiResponse<TvdbMovieExtendedItem>;
 pub type TvdbShowExtendedResponse = TvdbApiResponse<TvdbSeriesExtendedItem>;
+pub type TvdbCompanyExtendedResponse = TvdbApiResponse<TvdbCompanyExtended>;
