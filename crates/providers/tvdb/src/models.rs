@@ -169,16 +169,27 @@ pub struct TvdbSeriesExtendedItem {
     pub seasons: Option<Vec<TvdbShowSeason>>,
 }
 
-pub type TvdbLanguagesApiResponse = TvdbApiResponse<Vec<TvdbLanguage>>;
-pub type TvdbSeasonExtendedResponse = TvdbApiResponse<TvdbSeasonExtended>;
-pub type TvdbMovieExtendedResponse = TvdbApiResponse<TvdbMovieExtendedItem>;
-pub type TvdbShowExtendedResponse = TvdbApiResponse<TvdbSeriesExtendedItem>;
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TvdbListEntityItem {
+    pub order: i32,
+    pub movie_id: Option<i32>,
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TvdbListItem {
     pub id: i32,
+    pub url: Option<String>,
     pub name: Option<String>,
     pub image: Option<String>,
+    pub overview: Option<String>,
     pub is_official: Option<bool>,
+    pub entities: Option<Vec<TvdbListEntityItem>>,
 }
+
+pub type TvdbListDetailsResponse = TvdbApiResponse<TvdbListItem>;
+pub type TvdbLanguagesApiResponse = TvdbApiResponse<Vec<TvdbLanguage>>;
+pub type TvdbSeasonExtendedResponse = TvdbApiResponse<TvdbSeasonExtended>;
+pub type TvdbMovieExtendedResponse = TvdbApiResponse<TvdbMovieExtendedItem>;
+pub type TvdbShowExtendedResponse = TvdbApiResponse<TvdbSeriesExtendedItem>;

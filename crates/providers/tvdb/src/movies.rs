@@ -19,7 +19,7 @@ use traits::MediaProvider;
 
 use crate::{
     base::TvdbService,
-    models::{TvdbMovieExtendedResponse, URL},
+    models::{TvdbListDetailsResponse, TvdbMovieExtendedResponse, URL},
 };
 
 pub struct TvdbMovieService {
@@ -229,8 +229,59 @@ impl MediaProvider for TvdbMovieService {
 
     async fn metadata_group_details(
         &self,
-        _identifier: &str,
+        identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
-        todo!("Implement TVDB movie group details")
+        let rsp = self
+            .base
+            .client
+            .get(format!("{URL}/lists/{identifier}/extended"))
+            .send()
+            .await?;
+        let data: TvdbListDetailsResponse = rsp.json().await?;
+        let list_data = data.data;
+
+        let mut images = vec![];
+        if let Some(image) = list_data.image.clone() {
+            images.push(image);
+        }
+
+        let parts = list_data
+            .entities
+            .unwrap_or_default()
+            .into_iter()
+            .sorted_by_key(|e| e.order)
+            .filter_map(|entity| {
+                entity.movie_id.map(|id| PartialMetadataWithoutId {
+                    lot: MediaLot::Movie,
+                    source: MediaSource::Tvdb,
+                    identifier: id.to_string(),
+                    title: "Loading...".to_string(),
+                    ..Default::default()
+                })
+            })
+            .collect_vec();
+
+        let list_name = list_data.name.unwrap_or_else(|| "Unnamed List".to_string());
+
+        let source_url = list_data
+            .url
+            .map(|f| format!("https://thetvdb.com/lists/{}", f));
+
+        Ok((
+            MetadataGroupWithoutId {
+                source_url,
+                lot: MediaLot::Movie,
+                title: list_name.clone(),
+                source: MediaSource::Tvdb,
+                description: list_data.overview,
+                identifier: identifier.to_owned(),
+                parts: parts.len().try_into().unwrap(),
+                assets: EntityAssets {
+                    remote_images: images,
+                    ..Default::default()
+                },
+            },
+            parts,
+        ))
     }
 }
