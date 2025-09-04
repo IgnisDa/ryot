@@ -40,12 +40,10 @@ impl MediaProvider for TvdbMovieService {
         &self,
         page: i32,
         query: &str,
-        display_nsfw: bool,
-        source_specifics: &Option<MetadataSearchSourceSpecifics>,
+        _display_nsfw: bool,
+        _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        self.base
-            .metadata_search(page, query, "movie", display_nsfw, source_specifics)
-            .await
+        self.base.trigger_search(page, query, "movie").await
     }
 
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {

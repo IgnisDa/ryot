@@ -3,10 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use application_utils::get_base_http_client;
 use common_models::SearchDetails;
-use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, MetadataSearchSourceSpecifics, SearchResults,
-    TvdbSettings,
-};
+use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, SearchResults, TvdbSettings};
 use itertools::Itertools;
 use media_models::MetadataSearchItem;
 use reqwest::{
@@ -51,13 +48,11 @@ impl TvdbService {
         })
     }
 
-    pub async fn metadata_search(
+    pub async fn trigger_search(
         &self,
         page: i32,
         query: &str,
         search_type: &str,
-        _display_nsfw: bool,
-        _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let limit = 20;
         let offset = (page - 1) * limit;
