@@ -21,3 +21,12 @@ tracking.
    the API key).
 8. Set the `MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN` environment variable as described in the
    [configuration](../configuration.md#important-parameters) docs.
+
+## TVDB
+
+- Create a [TVDB](https://www.thetvdb.com/) account.
+- Visit the [API](https://www.thetvdb.com/api-information) page and then click on "Get
+  Started".
+- Follow the prompts and then copy your **API Key**.
+- Set the `MOVIES_AND_SHOWS_TVDB_API_KEY` environment variable as described in the
+  [configuration](../configuration.md#all-parameters) docs.
