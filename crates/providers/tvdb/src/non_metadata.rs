@@ -65,15 +65,7 @@ impl MediaProvider for NonMediaTvdbService {
         identifier: &str,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PersonDetails> {
-        let person_type = match source_specifics {
-            Some(PersonSourceSpecifics {
-                is_tvdb_company: Some(true),
-                ..
-            }) => "company",
-            _ => "person",
-        };
-
-        if person_type == "company" {
+        if let Some(true) = source_specifics.as_ref().and_then(|s| s.is_tvdb_company) {
             let details: TvdbCompanyExtendedResponse = self
                 .base
                 .client
