@@ -1,7 +1,7 @@
 # Movies and shows
 
 Ryot supports tracking movies and shows via [TMDB](https://www.themoviedb.org) and
-[TVDB](https://www.thetvdb.com). Please follow these steps to enable this functionality.
+[TVDB](https://www.thetvdb.com). You can enable either TMDB, TVDB, or both.
 
 ## TMDB
 
