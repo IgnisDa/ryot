@@ -212,9 +212,9 @@ export const DebouncedSearchInput = (props: {
 	}, [props.value]);
 
 	useDidUpdate(() => {
-		const query = debounced?.trim().toLowerCase() || "";
-		if (props.onChange) props.onChange(query);
-		props.tourControl?.onQueryChange(query);
+		const normalizedQuery = debounced?.trim().toLowerCase() || "";
+		props.onChange(normalizedQuery);
+		props.tourControl?.onQueryChange(normalizedQuery);
 	}, [debounced]);
 
 	return (
