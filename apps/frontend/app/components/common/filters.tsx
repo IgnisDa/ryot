@@ -197,7 +197,6 @@ export const CollectionsFilter = (props: {
 
 export const DebouncedSearchInput = (props: {
 	value: string;
-	queryParam?: string;
 	placeholder?: string;
 	onChange: (query: string) => void;
 	tourControl?: {
