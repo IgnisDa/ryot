@@ -194,7 +194,6 @@ export const MetadataDisplayItem = (props: {
 							);
 
 							if (props.bottomRightImageOverlayClassName) {
-								await new Promise((resolve) => setTimeout(resolve, 7000));
 								advanceOnboardingTourStep();
 							}
 						}}
