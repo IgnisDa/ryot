@@ -51,8 +51,8 @@ pub struct TvdbExtendedTrailer {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TvdbExtendedCharacter {
-    pub people_id: Option<i32>,
     pub name: Option<String>,
+    pub people_id: Option<i32>,
     pub people_type: Option<String>,
     pub person_name: Option<String>,
 }
