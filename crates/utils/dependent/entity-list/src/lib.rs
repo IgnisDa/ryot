@@ -620,7 +620,7 @@ pub async fn user_exercises_list(
                     )
                 })
                 .order_by_desc(order_by_col)
-                .order_by_asc(enriched_user_to_exercise::Column::ExerciseId)
+                .order_by_asc(enriched_user_to_exercise::Column::Name)
                 .into_tuple::<String>()
                 .paginate(&ss.db, take);
             let ItemsAndPagesNumber {
