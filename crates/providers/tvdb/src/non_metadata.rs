@@ -92,9 +92,9 @@ impl MediaProvider for NonMediaTvdbService {
                 .flatten();
 
             let gender = person_data.gender.and_then(|g| match g {
-                2 => Some("Male".to_owned()),
-                1 => Some("Female".to_owned()),
-                3 => Some("Non-Binary".to_owned()),
+                1 => Some("Male".to_owned()),
+                2 => Some("Female".to_owned()),
+                3 => Some("Other".to_owned()),
                 _ => None,
             });
 
