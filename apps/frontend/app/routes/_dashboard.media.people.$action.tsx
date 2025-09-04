@@ -254,9 +254,10 @@ export default function Page(props: { params: { action: string } }) {
 							<>
 								<Select
 									value={searchFilters.source}
-									onChange={(v) =>
-										v && updateSearchFilters("source", v as MediaSource)
-									}
+									onChange={(v) => {
+										updateSearchFilters("source", v as MediaSource);
+										updateSearchFilters("page", 1);
+									}}
 									data={coreDetails.peopleSearchSources.map((o) => ({
 										value: o,
 										label: startCase(o.toLowerCase()),
