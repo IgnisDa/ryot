@@ -116,6 +116,7 @@ pub enum MediaSource {
 meta! {
     MediaSource, Option<MediaLot>;
 
+    Tvdb, None;
     Vndb, None;
     Custom, None;
     Itunes, None;
@@ -127,7 +128,6 @@ meta! {
     Openlibrary, None;
     MangaUpdates, None;
     Tmdb, Some(MediaLot::Movie);
-    Tvdb, Some(MediaLot::Movie);
     Spotify, Some(MediaLot::Music);
     Igdb, Some(MediaLot::VideoGame);
     Hardcover, Some(MediaLot::Book);
