@@ -170,10 +170,10 @@ impl MediaProvider for TvdbMovieService {
                     .and_then(|date| convert_date_to_year(date))
             });
 
-        let source_url = Some(format!(
-            "https://thetvdb.com/movies/{}",
-            movie_data.common.slug.as_deref().unwrap_or(identifier)
-        ));
+        let source_url = movie_data
+            .common
+            .slug
+            .map(|slug| format!("https://thetvdb.com/movies/{}", slug));
 
         let groups = movie_data
             .lists
