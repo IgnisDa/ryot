@@ -214,10 +214,7 @@ export const DebouncedSearchInput = (props: {
 
 	useDidUpdate(() => {
 		const query = debounced?.trim().toLowerCase() || "";
-		if (props.onChange) {
-			props.onChange(query);
-			return;
-		}
+		if (props.onChange) props.onChange(query);
 		props.tourControl?.onQueryChange(query);
 	}, [debounced]);
 
