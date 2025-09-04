@@ -73,100 +73,7 @@ impl MediaProvider for NonMediaTvdbService {
             _ => "person",
         };
 
-        if person_type == "person" {
-            let details: TvdbPersonExtendedResponse = self
-                .base
-                .client
-                .get(format!("{URL}/people/{identifier}/extended"))
-                .send()
-                .await?
-                .json()
-                .await?;
-
-            let person_data = details.data;
-            let name = person_data.name.unwrap_or_default();
-
-            let description = person_data
-                .biographies
-                .and_then(|biographies| biographies.first().map(|b| b.biography.clone()))
-                .flatten();
-
-            let gender = person_data.gender.and_then(|g| match g {
-                1 => Some("Male".to_owned()),
-                2 => Some("Female".to_owned()),
-                3 => Some("Other".to_owned()),
-                _ => None,
-            });
-
-            let mut related_metadata = vec![];
-            if let Some(characters) = person_data.characters {
-                for character in characters {
-                    let character_name = character.name.clone().unwrap_or_default();
-                    let role = character
-                        .people_type
-                        .clone()
-                        .unwrap_or_else(|| "Actor".to_owned());
-
-                    if let Some(movie_id) = character.movie_id {
-                        let metadata = media_models::PartialMetadataWithoutId {
-                            source: MediaSource::Tvdb,
-                            identifier: movie_id.to_string(),
-                            title: character_name.clone(),
-                            image: character.image.clone(),
-                            lot: enum_models::MediaLot::Movie,
-                            ..Default::default()
-                        };
-                        related_metadata.push(MetadataPersonRelated {
-                            metadata,
-                            role: role.clone(),
-                            character: Some(character_name.clone()),
-                        });
-                    }
-                    if let Some(series_id) = character.series_id {
-                        let metadata = media_models::PartialMetadataWithoutId {
-                            lot: MediaLot::Show,
-                            source: MediaSource::Tvdb,
-                            title: character_name.clone(),
-                            image: character.image.clone(),
-                            identifier: series_id.to_string(),
-                            ..Default::default()
-                        };
-                        related_metadata.push(MetadataPersonRelated {
-                            role,
-                            metadata,
-                            character: Some(character_name),
-                        });
-                    }
-                }
-            }
-
-            let mut images = vec![];
-            if let Some(image_url) = person_data.image {
-                images.push(image_url);
-            }
-
-            let source_url = person_data
-                .slug
-                .map(|slug| format!("https://www.thetvdb.com/people/{}", slug));
-
-            let resp = PersonDetails {
-                gender,
-                source_url,
-                description,
-                related_metadata,
-                name: name.clone(),
-                birth_date: person_data.birth,
-                death_date: person_data.death,
-                place: person_data.birth_place,
-                source_specifics: source_specifics.to_owned(),
-                assets: EntityAssets {
-                    remote_images: images,
-                    ..Default::default()
-                },
-                ..Default::default()
-            };
-            Ok(resp)
-        } else {
+        if person_type == "company" {
             let details: TvdbCompanyExtendedResponse = self
                 .base
                 .client
@@ -196,7 +103,100 @@ impl MediaProvider for NonMediaTvdbService {
                 source_specifics: source_specifics.to_owned(),
                 ..Default::default()
             };
-            Ok(resp)
+            return Ok(resp);
         }
+
+        let details: TvdbPersonExtendedResponse = self
+            .base
+            .client
+            .get(format!("{URL}/people/{identifier}/extended"))
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        let person_data = details.data;
+        let name = person_data.name.unwrap_or_default();
+
+        let description = person_data
+            .biographies
+            .and_then(|biographies| biographies.first().map(|b| b.biography.clone()))
+            .flatten();
+
+        let gender = person_data.gender.and_then(|g| match g {
+            1 => Some("Male".to_owned()),
+            2 => Some("Female".to_owned()),
+            3 => Some("Other".to_owned()),
+            _ => None,
+        });
+
+        let mut related_metadata = vec![];
+        if let Some(characters) = person_data.characters {
+            for character in characters {
+                let character_name = character.name.clone().unwrap_or_default();
+                let role = character
+                    .people_type
+                    .clone()
+                    .unwrap_or_else(|| "Actor".to_owned());
+
+                if let Some(movie_id) = character.movie_id {
+                    let metadata = media_models::PartialMetadataWithoutId {
+                        source: MediaSource::Tvdb,
+                        identifier: movie_id.to_string(),
+                        title: character_name.clone(),
+                        image: character.image.clone(),
+                        lot: enum_models::MediaLot::Movie,
+                        ..Default::default()
+                    };
+                    related_metadata.push(MetadataPersonRelated {
+                        metadata,
+                        role: role.clone(),
+                        character: Some(character_name.clone()),
+                    });
+                }
+                if let Some(series_id) = character.series_id {
+                    let metadata = media_models::PartialMetadataWithoutId {
+                        lot: MediaLot::Show,
+                        source: MediaSource::Tvdb,
+                        title: character_name.clone(),
+                        image: character.image.clone(),
+                        identifier: series_id.to_string(),
+                        ..Default::default()
+                    };
+                    related_metadata.push(MetadataPersonRelated {
+                        role,
+                        metadata,
+                        character: Some(character_name),
+                    });
+                }
+            }
+        }
+
+        let mut images = vec![];
+        if let Some(image_url) = person_data.image {
+            images.push(image_url);
+        }
+
+        let source_url = person_data
+            .slug
+            .map(|slug| format!("https://www.thetvdb.com/people/{}", slug));
+
+        let resp = PersonDetails {
+            gender,
+            source_url,
+            description,
+            related_metadata,
+            name: name.clone(),
+            birth_date: person_data.birth,
+            death_date: person_data.death,
+            place: person_data.birth_place,
+            source_specifics: source_specifics.to_owned(),
+            assets: EntityAssets {
+                remote_images: images,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        Ok(resp)
     }
 }
