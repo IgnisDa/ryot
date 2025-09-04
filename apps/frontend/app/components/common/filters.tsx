@@ -197,7 +197,7 @@ export const CollectionsFilter = (props: {
 
 export const DebouncedSearchInput = (props: {
 	value: string;
-	placeholder?: string;
+	placeholder: string;
 	onChange: (query: string) => void;
 	tourControl?: {
 		target: OnboardingTourStepTargets;
@@ -225,8 +225,8 @@ export const DebouncedSearchInput = (props: {
 			autoCapitalize="none"
 			style={{ flexGrow: 1 }}
 			leftSection={<IconSearch />}
+			placeholder={props.placeholder}
 			className={props.tourControl?.target}
-			placeholder={props.placeholder || "Search..."}
 			onChange={(e) => setQuery(e.currentTarget.value)}
 			rightSection={
 				query ? (

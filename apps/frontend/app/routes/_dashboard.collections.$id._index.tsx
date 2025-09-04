@@ -492,6 +492,7 @@ const RecommendationsSection = ({ collectionId }: { collectionId: string }) => {
 		<Stack gap="xs">
 			<DebouncedSearchInput
 				value={search.query}
+				placeholder="Search recommendations"
 				onChange={(query) => setSearchInput({ ...search, query })}
 			/>
 			{recommendations.data ? (
