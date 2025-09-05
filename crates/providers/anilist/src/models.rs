@@ -251,17 +251,17 @@ pub struct StaffDetails {
     #[serde(rename = "dateOfBirth")]
     pub date_of_birth: Option<
         nest! {
+            pub day: Option<u32>,
             pub year: Option<i32>,
-            pub month: Option<i32>,
-            pub day: Option<i32>,
+            pub month: Option<u32>,
         },
     >,
     #[serde(rename = "dateOfDeath")]
     pub date_of_death: Option<
         nest! {
+            pub day: Option<u32>,
             pub year: Option<i32>,
-            pub month: Option<i32>,
-            pub day: Option<i32>,
+            pub month: Option<u32>,
         },
     >,
     #[serde(rename = "homeTown")]

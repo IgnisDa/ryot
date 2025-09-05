@@ -190,20 +190,18 @@ impl MediaProvider for NonMediaAnilistService {
                 .staff
                 .unwrap();
             let images = Vec::from_iter(details.image.and_then(|i| i.large));
-            let birth_date = details.date_of_birth.and_then(|d| {
-                if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
-                    NaiveDate::from_ymd_opt(y, m.try_into().unwrap(), d.try_into().unwrap())
-                } else {
-                    None
-                }
-            });
-            let death_date = details.date_of_death.and_then(|d| {
-                if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
-                    NaiveDate::from_ymd_opt(y, m.try_into().unwrap(), d.try_into().unwrap())
-                } else {
-                    None
-                }
-            });
+            let birth_date = details
+                .date_of_birth
+                .and_then(|d| match (d.year, d.month, d.day) {
+                    (Some(y), Some(m), Some(d)) => NaiveDate::from_ymd_opt(y, m, d),
+                    _ => None,
+                });
+            let death_date = details
+                .date_of_death
+                .and_then(|d| match (d.year, d.month, d.day) {
+                    (Some(y), Some(m), Some(d)) => NaiveDate::from_ymd_opt(y, m, d),
+                    _ => None,
+                });
             let mut related_metadata = vec![];
             details
                 .character_media
