@@ -80,7 +80,7 @@ struct SpotifyImage {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyResponse<T> {
-    total: i32,
+    total: u64,
     items: Vec<T>,
 }
 
@@ -221,8 +221,8 @@ impl SpotifyService {
         &self,
         query: &str,
         search_type: &str,
-        page: Option<i32>,
-    ) -> Result<(T, i32)>
+        page: Option<u64>,
+    ) -> Result<(T, u64)>
     where
         T: for<'de> Deserialize<'de>,
     {
@@ -324,12 +324,12 @@ impl MediaProvider for SpotifyService {
 
     async fn metadata_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let (search_response, page): (SpotifySearchResponse, i32) =
+        let (search_response, page): (SpotifySearchResponse, u64) =
             self.search_spotify(query, "track", Some(page)).await?;
 
         let next_page = (search_response.tracks.total > (page * PAGE_SIZE)).then(|| page + 1);
@@ -417,11 +417,11 @@ impl MediaProvider for SpotifyService {
 
     async fn metadata_group_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
-        let (search_response, page): (SpotifyAlbumSearchResponse, i32) =
+        let (search_response, page): (SpotifyAlbumSearchResponse, u64) =
             self.search_spotify(query, "album", Some(page)).await?;
 
         let next_page = (search_response.albums.total > (page * PAGE_SIZE)).then(|| page + 1);
@@ -540,12 +540,12 @@ impl MediaProvider for SpotifyService {
 
     async fn people_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let (search_response, page): (SpotifyArtistSearchResponse, i32) =
+        let (search_response, page): (SpotifyArtistSearchResponse, u64) =
             self.search_spotify(query, "artist", Some(page)).await?;
 
         let next_page = (search_response.artists.total > (page * PAGE_SIZE)).then(|| page + 1);

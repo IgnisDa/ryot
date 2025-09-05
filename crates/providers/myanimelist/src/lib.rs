@@ -60,7 +60,7 @@ impl MediaProvider for MalAnimeService {
 
     async fn metadata_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
@@ -100,7 +100,7 @@ impl MediaProvider for MalMangaService {
 
     async fn metadata_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
@@ -128,8 +128,8 @@ async fn search(
     client: &Client,
     media_type: &str,
     query: &str,
-    page: i32,
-) -> Result<(Vec<MetadataSearchItem>, i32, Option<i32>)> {
+    page: u64,
+) -> Result<(Vec<MetadataSearchItem>, u64, Option<u64>)> {
     let offset = (page - 1) * PAGE_SIZE;
     #[derive(Serialize, Deserialize, Debug)]
     struct SearchPaging {

@@ -37,7 +37,7 @@ impl TmdbMovieService {
 impl MediaProvider for TmdbMovieService {
     async fn metadata_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
@@ -234,7 +234,7 @@ impl MediaProvider for TmdbMovieService {
 
     async fn metadata_group_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {

@@ -20,7 +20,7 @@ pub type TvdbLoginResponse = TvdbApiResponse<TvdbLoginData>;
 #[derive(Debug, Deserialize)]
 pub struct TvdbSearchLinks {
     pub next: Option<String>,
-    pub total_items: Option<i32>,
+    pub total_items: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]

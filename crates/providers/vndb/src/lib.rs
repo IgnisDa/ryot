@@ -61,7 +61,7 @@ struct ItemResponse {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct SearchResponse {
-    count: i32,
+    count: u64,
     more: bool,
     results: Option<Vec<ItemResponse>>,
 }
@@ -70,7 +70,7 @@ struct SearchResponse {
 impl MediaProvider for VndbService {
     async fn people_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
@@ -152,7 +152,7 @@ impl MediaProvider for VndbService {
 
     async fn metadata_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,

@@ -32,7 +32,7 @@ impl NonMediaTmdbService {
 impl MediaProvider for NonMediaTmdbService {
     async fn people_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,

@@ -69,7 +69,7 @@ struct ItemResponse {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct SearchResponse {
-    total_items: i32,
+    total_items: u64,
     items: Option<Vec<ItemResponse>>,
 }
 
@@ -88,7 +88,7 @@ impl MediaProvider for GoogleBooksService {
 
     async fn metadata_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
         source_specifics: &Option<MetadataSearchSourceSpecifics>,
@@ -136,7 +136,7 @@ impl MediaProvider for GoogleBooksService {
                 }
             })
             .collect();
-        let next_page = (search.total_items - ((page) * PAGE_SIZE) > 0).then(|| page + 1);
+        let next_page = (search.total_items - (page * PAGE_SIZE) > 0).then(|| page + 1);
         Ok(SearchResults {
             items: resp,
             details: SearchDetails {

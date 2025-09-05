@@ -123,7 +123,7 @@ pub async fn collection_contents(
                 items,
                 details: SearchDetails {
                     total_items: number_of_items.try_into().unwrap(),
-                    next_page: (page < number_of_pages).then(|| (page + 1) as i32),
+                    next_page: (page < number_of_pages).then(|| page + 1),
                 },
             };
             let user = user_by_id(&details.user_id, ss).await?;

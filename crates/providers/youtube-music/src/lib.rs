@@ -124,7 +124,7 @@ impl MediaProvider for YoutubeMusicService {
 
     async fn metadata_search(
         &self,
-        _page: i32,
+        _page: u64,
         query: &str,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
@@ -193,7 +193,7 @@ impl MediaProvider for YoutubeMusicService {
 
     async fn metadata_group_search(
         &self,
-        _page: i32,
+        _page: u64,
         query: &str,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
@@ -289,7 +289,7 @@ impl MediaProvider for YoutubeMusicService {
 
     async fn people_search(
         &self,
-        _page: i32,
+        _page: u64,
         query: &str,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,

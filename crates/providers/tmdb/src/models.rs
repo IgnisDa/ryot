@@ -59,8 +59,8 @@ pub struct TmdbEntry {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TmdbListResponse {
     pub page: i32,
-    pub total_pages: i32,
-    pub total_results: i32,
+    pub total_pages: u64,
+    pub total_results: u64,
     pub results: Vec<TmdbEntry>,
 }
 

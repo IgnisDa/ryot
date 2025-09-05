@@ -112,7 +112,7 @@ impl MediaProvider for ListennotesService {
 
     async fn metadata_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
@@ -129,7 +129,7 @@ impl MediaProvider for ListennotesService {
         }
         #[derive(Serialize, Deserialize, Debug)]
         struct SearchResponse {
-            total: i32,
+            total: u64,
             results: Vec<Podcast>,
             next_offset: Option<i32>,
         }

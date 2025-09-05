@@ -14,7 +14,7 @@ use sea_orm::{
 use serde::de;
 use tokio::time::{Duration, sleep};
 
-pub const PAGE_SIZE: i32 = 20;
+pub const PAGE_SIZE: u64 = 20;
 pub const AUTHOR: &str = "ignisda";
 pub const PROJECT_NAME: &str = "ryot";
 pub const TWO_FACTOR_BACKUP_CODES_COUNT: u8 = 12;

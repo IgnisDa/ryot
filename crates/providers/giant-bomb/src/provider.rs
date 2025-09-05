@@ -28,7 +28,7 @@ use crate::{
 impl MediaProvider for GiantBombService {
     async fn metadata_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
@@ -209,7 +209,7 @@ impl MediaProvider for GiantBombService {
 
     async fn people_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
@@ -393,7 +393,7 @@ impl MediaProvider for GiantBombService {
 
     async fn metadata_group_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {

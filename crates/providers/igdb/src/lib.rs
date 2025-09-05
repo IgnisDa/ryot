@@ -210,11 +210,11 @@ impl IgdbService {
     }
 }
 
-fn extract_count_from_response(rsp: &Response) -> Result<i32> {
+fn extract_count_from_response(rsp: &Response) -> Result<u64> {
     rsp.headers()
         .get("x-count")
         .and_then(|h| h.to_str().ok())
-        .and_then(|v| v.parse::<i32>().ok())
+        .and_then(|v| v.parse::<u64>().ok())
         .ok_or_else(|| anyhow!("Failed to extract count from response headers"))
 }
 
@@ -223,7 +223,7 @@ impl MediaProvider for IgdbService {
     #[allow(unused_variables)]
     async fn metadata_group_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
@@ -325,7 +325,7 @@ where id = {identifier};
 
     async fn people_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
@@ -497,7 +497,7 @@ where id = {identity};
 
     async fn metadata_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
         source_specifics: &Option<MetadataSearchSourceSpecifics>,

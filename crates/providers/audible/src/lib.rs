@@ -45,9 +45,9 @@ struct PrimaryQuery {
 
 #[derive(Serialize, Deserialize)]
 struct SearchQuery {
-    page: i32,
+    page: u64,
     title: String,
-    num_results: i32,
+    num_results: u64,
     #[serde(flatten)]
     primary: PrimaryQuery,
     products_sort_by: String,
@@ -165,7 +165,7 @@ impl AudibleService {
 impl MediaProvider for AudibleService {
     async fn people_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
@@ -335,14 +335,14 @@ impl MediaProvider for AudibleService {
 
     async fn metadata_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         #[derive(Serialize, Deserialize, Debug)]
         struct AudibleSearchResponse {
-            total_results: i32,
+            total_results: u64,
             products: Vec<AudibleItem>,
         }
         let rsp = self
@@ -371,7 +371,7 @@ impl MediaProvider for AudibleService {
                 }
             })
             .collect_vec();
-        let next_page = (search.total_results - ((page) * PAGE_SIZE) > 0).then(|| page + 1);
+        let next_page = (search.total_results - (page * PAGE_SIZE) > 0).then(|| page + 1);
         Ok(SearchResults {
             items: resp,
             details: SearchDetails {

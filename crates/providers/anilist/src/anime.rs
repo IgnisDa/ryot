@@ -35,7 +35,7 @@ impl MediaProvider for AnilistAnimeService {
 
     async fn metadata_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
@@ -44,7 +44,7 @@ impl MediaProvider for AnilistAnimeService {
             &self.base.client,
             MediaType::Anime,
             query,
-            Some(page),
+            page,
             PAGE_SIZE,
             display_nsfw,
             &self.base.preferred_language,

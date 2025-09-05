@@ -202,7 +202,7 @@ impl TmdbService {
         &self,
         url: String,
         query_params: &[(&str, &str)],
-        max_pages: Option<i32>,
+        max_pages: Option<u64>,
         process_entry: F,
     ) -> Result<Vec<T>>
     where

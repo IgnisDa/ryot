@@ -254,7 +254,7 @@ impl MediaProvider for TmdbShowService {
 
     async fn metadata_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,

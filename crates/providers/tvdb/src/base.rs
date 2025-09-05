@@ -49,7 +49,7 @@ impl TvdbService {
 
     pub async fn trigger_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         search_type: &str,
     ) -> Result<SearchResults<MetadataSearchItem>> {

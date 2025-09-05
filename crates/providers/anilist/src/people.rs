@@ -34,7 +34,7 @@ impl NonMediaAnilistService {
 impl MediaProvider for NonMediaAnilistService {
     async fn people_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,

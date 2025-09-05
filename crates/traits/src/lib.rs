@@ -21,7 +21,7 @@ pub trait MediaProvider {
     #[allow(unused_variables)]
     async fn metadata_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         display_nsfw: bool,
         source_specifics: &Option<MetadataSearchSourceSpecifics>,
@@ -39,7 +39,7 @@ pub trait MediaProvider {
     #[allow(unused_variables)]
     async fn people_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
@@ -61,7 +61,7 @@ pub trait MediaProvider {
     #[allow(unused_variables)]
     async fn metadata_group_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {

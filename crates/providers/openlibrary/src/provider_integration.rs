@@ -27,7 +27,7 @@ use crate::{
 impl MediaProvider for OpenlibraryService {
     async fn people_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
@@ -37,8 +37,8 @@ impl MediaProvider for OpenlibraryService {
             .get(format!("{URL}/search/authors.json"))
             .query(&[
                 ("q", query),
-                ("offset", &((page - 1) * PAGE_SIZE).to_string()),
                 ("limit", &PAGE_SIZE.to_string()),
+                ("offset", &((page - 1) * PAGE_SIZE).to_string()),
             ])
             .send()
             .await?;
@@ -218,7 +218,7 @@ impl MediaProvider for OpenlibraryService {
 
     async fn metadata_search(
         &self,
-        page: i32,
+        page: u64,
         query: &str,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
@@ -236,10 +236,10 @@ impl MediaProvider for OpenlibraryService {
             .get(format!("{URL}/search.json"))
             .query(&[
                 ("q", query),
-                ("fields", &fields),
-                ("offset", &((page - 1) * PAGE_SIZE).to_string()),
-                ("limit", &PAGE_SIZE.to_string()),
                 ("type", "work"),
+                ("fields", &fields),
+                ("limit", &PAGE_SIZE.to_string()),
+                ("offset", &((page - 1) * PAGE_SIZE).to_string()),
             ])
             .send()
             .await?;

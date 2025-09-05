@@ -166,7 +166,7 @@ pub async fn user_metadata_list(
                 items: paginator.fetch_page(page - 1).await?,
                 details: SearchDetails {
                     total_items: number_of_items.try_into().unwrap(),
-                    next_page: (page < number_of_pages).then(|| (page + 1) as i32),
+                    next_page: (page < number_of_pages).then(|| page + 1),
                 },
             };
             Ok(response)
@@ -352,7 +352,7 @@ pub async fn user_metadata_groups_list(
                 items: paginator.fetch_page(page - 1).await?,
                 details: SearchDetails {
                     total_items: number_of_items.try_into().unwrap(),
-                    next_page: (page < number_of_pages).then(|| (page + 1) as i32),
+                    next_page: (page < number_of_pages).then(|| page + 1),
                 },
             };
             Ok(response)
@@ -428,7 +428,7 @@ pub async fn user_people_list(
                 items: creators_paginator.fetch_page(page - 1).await?,
                 details: SearchDetails {
                     total_items: number_of_items.try_into().unwrap(),
-                    next_page: (page < number_of_pages).then(|| (page + 1) as i32),
+                    next_page: (page < number_of_pages).then(|| page + 1),
                 },
             };
             Ok(response)
@@ -479,7 +479,7 @@ pub async fn user_workouts_list(
                 items: paginator.fetch_page(page - 1).await?,
                 details: SearchDetails {
                     total_items: number_of_items.try_into().unwrap(),
-                    next_page: (page < number_of_pages).then(|| (page + 1) as i32),
+                    next_page: (page < number_of_pages).then(|| page + 1),
                 },
             };
             Ok(response)
@@ -530,7 +530,7 @@ pub async fn user_workout_templates_list(
                 items: paginator.fetch_page(page - 1).await?,
                 details: SearchDetails {
                     total_items: number_of_items.try_into().unwrap(),
-                    next_page: (page < number_of_pages).then(|| (page + 1) as i32),
+                    next_page: (page < number_of_pages).then(|| page + 1),
                 },
             };
             Ok(response)
@@ -631,7 +631,7 @@ pub async fn user_exercises_list(
                 items: paginator.fetch_page(page - 1).await?,
                 details: SearchDetails {
                     total_items: number_of_items.try_into().unwrap(),
-                    next_page: (page < number_of_pages).then(|| (page + 1) as i32),
+                    next_page: (page < number_of_pages).then(|| page + 1),
                 },
             };
             Ok(response)
@@ -707,7 +707,7 @@ pub async fn user_genres_list(
         items: items.into_iter().map(|g| g.id).collect(),
         details: SearchDetails {
             total_items: number_of_items.try_into().unwrap(),
-            next_page: (page < number_of_pages).then(|| (page + 1) as i32),
+            next_page: (page < number_of_pages).then(|| page + 1),
         },
     })
 }

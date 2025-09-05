@@ -249,14 +249,14 @@ pub struct NamedObject {
 )]
 pub struct SearchInput {
     pub take: Option<u64>,
-    pub page: Option<i32>,
+    pub page: Option<u64>,
     pub query: Option<String>,
 }
 
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, SimpleObject, Clone, Default)]
 pub struct SearchDetails {
-    pub total_items: i32,
-    pub next_page: Option<i32>,
+    pub total_items: u64,
+    pub next_page: Option<u64>,
 }
 
 #[derive(Debug, InputObject, Clone, Serialize, Deserialize)]
