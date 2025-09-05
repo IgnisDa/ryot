@@ -33,7 +33,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { DataTable } from "mantine-datatable";
 import { useState } from "react";
-import { useNavigate, useRevalidator } from "react-router";
+import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { withQuery } from "ufo";
 import { CopyableTextInput } from "~/components/common";
@@ -77,7 +77,6 @@ const UserInvitationModal = (props: {
 	onClose: () => void;
 	onSuccess: (data: UrlDisplayData) => void;
 }) => {
-	const revalidator = useRevalidator();
 	const [username, setUsername] = useState("");
 
 	const handleClose = () => {
@@ -113,7 +112,6 @@ const UserInvitationModal = (props: {
 		},
 		onSuccess: (createUserInvitation) => {
 			showSuccessNotification("User invitation created successfully");
-			revalidator.revalidate();
 			props.onSuccess({
 				url: createUserInvitation,
 				title: "User Invitation Created",
@@ -309,7 +307,6 @@ const UserActions = (props: {
 	user: User;
 	setUrlDisplayData: (data: UrlDisplayData) => void;
 }) => {
-	const revalidator = useRevalidator();
 	const userDetails = useUserDetails();
 	const navigate = useNavigate();
 
@@ -327,7 +324,6 @@ const UserActions = (props: {
 		onSuccess: ({ input }) => {
 			const isCurrentUser = input.userId === userDetails.id;
 			showSuccessNotification("User status updated successfully");
-			revalidator.revalidate();
 			if (isCurrentUser && input.isDisabled) {
 				handleCurrentUserLogout(navigate);
 			}
@@ -353,7 +349,6 @@ const UserActions = (props: {
 				message,
 				title: deleteUser ? "Success" : "Error",
 			});
-			if (deleteUser) revalidator.revalidate();
 		},
 		onError: () => showErrorNotification("Failed to delete user"),
 	});

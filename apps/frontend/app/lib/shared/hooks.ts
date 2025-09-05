@@ -17,7 +17,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { useRevalidator, useRouteLoaderData, useSubmit } from "react-router";
+import { useRouteLoaderData, useSubmit } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { useInterval, useMediaQuery } from "usehooks-ts";
@@ -71,7 +71,6 @@ export const useConfirmSubmit = () => {
 };
 
 export const useGetWorkoutStarter = () => {
-	const revalidator = useRevalidator();
 	const navigate = useNavigate();
 	const [_w, setCurrentWorkout] = useCurrentWorkout();
 	const [_t, setTimer] = useCurrentWorkoutTimerAtom();
@@ -82,7 +81,6 @@ export const useGetWorkoutStarter = () => {
 		setStopwatch(null);
 		setCurrentWorkout(wkt);
 		navigate($path("/fitness/:action", { action }));
-		revalidator.revalidate();
 	};
 	return fn;
 };
@@ -246,7 +244,6 @@ export const useIsOnboardingTourCompleted = () => {
 };
 
 export const useDeployBulkMetadataProgressUpdateMutation = (title?: string) => {
-	const revalidator = useRevalidator();
 	const events = useApplicationEvents();
 
 	const mutation = useMutation({
@@ -267,9 +264,6 @@ export const useDeployBulkMetadataProgressUpdateMutation = (title?: string) => {
 				message: "Progress will be updated shortly",
 			});
 			events.updateProgress(title || "");
-			setTimeout(() => {
-				revalidator.revalidate();
-			}, 1500);
 		},
 	});
 
@@ -277,25 +271,18 @@ export const useDeployBulkMetadataProgressUpdateMutation = (title?: string) => {
 };
 
 export const useAddEntitiesToCollectionMutation = () => {
-	const revalidator = useRevalidator();
-
 	const mutation = useMutation({
-		onSuccess: () => revalidator.revalidate(),
 		mutationFn: async (input: ChangeCollectionToEntitiesInput) => {
 			await clientGqlService.request(DeployAddEntitiesToCollectionJobDocument, {
 				input,
 			});
 		},
 	});
-
 	return mutation;
 };
 
 export const useRemoveEntitiesFromCollectionMutation = () => {
-	const revalidator = useRevalidator();
-
 	const mutation = useMutation({
-		onSuccess: () => revalidator.revalidate(),
 		mutationFn: async (input: ChangeCollectionToEntitiesInput) => {
 			await clientGqlService.request(
 				DeployRemoveEntitiesFromCollectionJobDocument,
@@ -303,7 +290,6 @@ export const useRemoveEntitiesFromCollectionMutation = () => {
 			);
 		},
 	});
-
 	return mutation;
 };
 
