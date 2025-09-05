@@ -74,7 +74,6 @@ import { FitnessAction } from "~/lib/types";
 import {
 	getCookieValue,
 	getCoreDetails,
-	getUserCollectionsList,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
@@ -82,10 +81,9 @@ import classes from "~/styles/dashboard.module.css";
 import type { Route } from "./+types/_dashboard";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
-	const [userCollections, coreDetails] = await Promise.all([
-		getUserCollectionsList(request),
+	const [coreDetails, userDetails] = await Promise.all([
 		getCoreDetails(),
+		redirectIfNotAuthenticatedOrUpdated(request),
 	]);
 	const desktopSidebarCollapsed = getCookieValue(
 		request,
@@ -115,7 +113,6 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		coreDetails,
 		isDemoInstance,
 		shouldHaveUmami,
-		userCollections,
 		currentColorScheme,
 		isAccessLinkSession,
 		desktopSidebarCollapsed,

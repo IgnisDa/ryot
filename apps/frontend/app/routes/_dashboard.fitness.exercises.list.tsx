@@ -393,10 +393,11 @@ const FiltersModalForm = (props: {
 				data={[
 					{
 						group: "My collections",
-						items: collections.map((c) => ({
-							label: c.name,
-							value: c.id.toString(),
-						})),
+						items:
+							collections?.map((c) => ({
+								label: c.name,
+								value: c.id.toString(),
+							})) || [],
 					},
 				]}
 			/>

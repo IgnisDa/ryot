@@ -10,6 +10,7 @@ import {
 	ExpireCacheKeyDocument,
 	type MediaLot,
 	type MetadataProgressUpdateInput,
+	UserCollectionsListDocument,
 	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -138,8 +139,18 @@ export const useDashboardLayoutData = () => {
 export const useCoreDetails = () => useDashboardLayoutData().coreDetails;
 export const useUserDetails = () => useDashboardLayoutData().userDetails;
 export const useUserPreferences = () => useUserDetails().preferences;
-export const useUserCollections = () =>
-	useDashboardLayoutData().userCollections;
+
+export const useUserCollections = () => {
+	const query = useQuery({
+		queryKey: queryFactory.collections.userCollectionsList().queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(UserCollectionsListDocument)
+				.then((d) => d.userCollectionsList.response),
+	});
+
+	return query.data || [];
+};
 
 export const useNonHiddenUserCollections = () => {
 	const userCollections = useUserCollections();

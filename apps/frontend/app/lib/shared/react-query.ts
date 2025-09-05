@@ -114,6 +114,9 @@ const mediaQueryKeys = createQueryKeys("media", {
 });
 
 const collectionQueryKeys = createQueryKeys("collections", {
+	userCollectionsList: () => ({
+		queryKey: ["userCollectionsList"],
+	}),
 	collectionDetailsImages: (collectionId: string) => ({
 		queryKey: ["collectionDetails", "images", collectionId],
 	}),
