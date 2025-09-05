@@ -245,7 +245,7 @@ export const useIsOnboardingTourCompleted = () => {
 	return dashboardData.isOnboardingTourCompleted;
 };
 
-export const useDeployBulkMetadataProgressUpdateMutation = (title: string) => {
+export const useDeployBulkMetadataProgressUpdateMutation = (title?: string) => {
 	const revalidator = useRevalidator();
 	const events = useApplicationEvents();
 
@@ -266,7 +266,7 @@ export const useDeployBulkMetadataProgressUpdateMutation = (title: string) => {
 				title: "Progress Updated",
 				message: "Progress will be updated shortly",
 			});
-			events.updateProgress(title);
+			events.updateProgress(title || "");
 			setTimeout(() => {
 				revalidator.revalidate();
 			}, 1500);
