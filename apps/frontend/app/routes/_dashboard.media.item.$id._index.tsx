@@ -23,7 +23,6 @@ import {
 	MediaLot,
 	MediaSource,
 	MergeMetadataDocument,
-	MetadataDetailsDocument,
 	type MetadataProgressUpdateChange,
 	SeenState,
 	UpdateSeenItemDocument,
@@ -100,7 +99,6 @@ import {
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { getVerb } from "~/lib/shared/media-utils";
-import { clientGqlService } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { zodDateTimeString } from "~/lib/shared/validation";
 import {
@@ -371,14 +369,10 @@ export default function Page() {
 							href: metadataDetails.data.sourceUrl,
 						}}
 						partialDetailsFetcher={{
+							fn: metadataDetails.refetch,
+							entityLot: EntityLot.Metadata,
 							entityId: metadataDetails.data.id,
-							isAlreadyPartial: metadataDetails.data.isPartial,
-							fn: () =>
-								clientGqlService
-									.request(MetadataDetailsDocument, {
-										metadataId: metadataDetails.data.id,
-									})
-									.then((data) => data.metadataDetails.isPartial),
+							partialStatus: metadataDetails.data.isPartial,
 						}}
 					>
 						{userMetadataDetails.data.collections.length > 0 ? (

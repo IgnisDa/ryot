@@ -10,10 +10,7 @@ import {
 	Tabs,
 	Text,
 } from "@mantine/core";
-import {
-	EntityLot,
-	PersonDetailsDocument,
-} from "@ryot/generated/graphql/backend/graphql";
+import { EntityLot } from "@ryot/generated/graphql/backend/graphql";
 import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
 import {
 	IconDeviceTv,
@@ -45,7 +42,6 @@ import {
 	useUserPersonDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/react-query";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
 import type { Route } from "./+types/_dashboard.media.people.item.$id._index";
 
@@ -128,14 +124,10 @@ export default function Page() {
 						href: personDetails.data.details.sourceUrl,
 					}}
 					partialDetailsFetcher={{
+						fn: personDetails.refetch,
+						entityLot: EntityLot.Person,
 						entityId: personDetails.data.details.id,
-						isAlreadyPartial: personDetails.data.details.isPartial,
-						fn: () =>
-							clientGqlService
-								.request(PersonDetailsDocument, {
-									personId: personDetails.data.details.id,
-								})
-								.then((data) => data.personDetails.details.isPartial),
+						partialStatus: personDetails.data.details.isPartial,
 					}}
 				>
 					{additionalPersonDetails.length > 0 ? (

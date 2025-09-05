@@ -9,10 +9,7 @@ import {
 	Tabs,
 	Text,
 } from "@mantine/core";
-import {
-	EntityLot,
-	MetadataGroupDetailsDocument,
-} from "@ryot/generated/graphql/backend/graphql";
+import { EntityLot } from "@ryot/generated/graphql/backend/graphql";
 import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
 import {
 	IconDeviceTv,
@@ -38,7 +35,6 @@ import {
 	useUserMetadataGroupDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/react-query";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
 import type { Route } from "./+types/_dashboard.media.groups.item.$id._index";
 
@@ -87,14 +83,10 @@ export default function Page() {
 						href: metadataGroupDetails.data.details.sourceUrl,
 					}}
 					partialDetailsFetcher={{
+						fn: metadataGroupDetails.refetch,
+						entityLot: EntityLot.MetadataGroup,
 						entityId: metadataGroupDetails.data.details.id,
-						isAlreadyPartial: metadataGroupDetails.data.details.isPartial,
-						fn: () =>
-							clientGqlService
-								.request(MetadataGroupDetailsDocument, {
-									metadataGroupId: metadataGroupDetails.data.details.id,
-								})
-								.then((data) => data.metadataGroupDetails.details.isPartial),
+						partialStatus: metadataGroupDetails.data.details.isPartial,
 					}}
 				>
 					<Flex id="group-details" wrap="wrap" gap={4}>

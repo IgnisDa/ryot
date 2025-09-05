@@ -1,7 +1,6 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Carousel } from "@mantine/carousel";
 import {
-	ActionIcon,
 	Anchor,
 	Badge,
 	Box,
@@ -16,19 +15,21 @@ import {
 	Title,
 } from "@mantine/core";
 import {
+	DeployUpdateMediaEntityJobDocument,
+	type DeployUpdateMediaEntityJobMutationVariables,
 	type EntityAssets,
+	type EntityLot,
 	GridPacking,
 	type MediaLot,
 	type MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase } from "@ryot/ts-utils";
-import { IconExternalLink, IconRefresh } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
-import { type ReactNode, useState } from "react";
-import { useRevalidator } from "react-router";
+import { IconExternalLink } from "@tabler/icons-react";
+import { useMutation } from "@tanstack/react-query";
+import { type ReactNode, useEffect, useState } from "react";
 import { match } from "ts-pattern";
 import { useFallbackImageUrl, useUserPreferences } from "~/lib/shared/hooks";
-import { refreshEntityDetails } from "~/lib/shared/react-query";
+import { clientGqlService } from "~/lib/shared/react-query";
 import { getSurroundingElements } from "~/lib/shared/ui-utils";
 import { useFullscreenImage } from "~/lib/state/general";
 import classes from "~/styles/common.module.css";
@@ -66,23 +67,51 @@ export const MediaDetailsLayout = (props: {
 	};
 	partialDetailsFetcher: {
 		entityId: string;
-		isAlreadyPartial?: boolean | null;
-		fn: () => Promise<boolean | undefined | null>;
+		fn: () => unknown;
+		entityLot: EntityLot;
+		partialStatus?: boolean | null;
 	};
 }) => {
 	const [activeImageId, setActiveImageId] = useState(0);
+	const [jobDeployedForEntity, setJobDeployedForEntity] = useState<
+		string | null
+	>(null);
 	const fallbackImageUrl = useFallbackImageUrl();
-	const revalidator = useRevalidator();
 
-	const { data: isPartialData } = useQuery({
-		queryFn: props.partialDetailsFetcher.fn,
-		enabled: Boolean(props.partialDetailsFetcher.isAlreadyPartial),
-		queryKey: ["pollDetails", props.partialDetailsFetcher.entityId],
-		refetchInterval: (query) => {
-			if (query.state.data === true) return 500;
-			return false;
-		},
+	const deployUpdateMediaEntity = useMutation({
+		mutationFn: (input: DeployUpdateMediaEntityJobMutationVariables) =>
+			clientGqlService.request(DeployUpdateMediaEntityJobDocument, input),
 	});
+
+	useEffect(() => {
+		const { partialStatus, entityId, entityLot, fn } =
+			props.partialDetailsFetcher;
+
+		if (jobDeployedForEntity && jobDeployedForEntity !== entityId) {
+			setJobDeployedForEntity(null);
+		}
+
+		if (!partialStatus) {
+			setJobDeployedForEntity(null);
+			return;
+		}
+
+		if (jobDeployedForEntity !== entityId) {
+			deployUpdateMediaEntity.mutate({ entityId, entityLot });
+			setJobDeployedForEntity(entityId);
+		}
+
+		const interval = setInterval(fn, 1000);
+
+		return () => clearInterval(interval);
+	}, [
+		jobDeployedForEntity,
+		deployUpdateMediaEntity.mutate,
+		props.partialDetailsFetcher.fn,
+		props.partialDetailsFetcher.entityId,
+		props.partialDetailsFetcher.entityLot,
+		props.partialDetailsFetcher.partialStatus,
+	]);
 
 	const images = [...props.assets.remoteImages, ...props.assets.s3Images];
 
@@ -141,20 +170,8 @@ export const MediaDetailsLayout = (props: {
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>
 				<Group wrap="nowrap">
-					{props.partialDetailsFetcher.isAlreadyPartial ? (
-						isPartialData ? (
-							<Loader size="sm" />
-						) : (
-							<ActionIcon
-								size="sm"
-								onClick={() => {
-									refreshEntityDetails(props.partialDetailsFetcher.entityId);
-									revalidator.revalidate();
-								}}
-							>
-								<IconRefresh />
-							</ActionIcon>
-						)
+					{props.partialDetailsFetcher.partialStatus ? (
+						<Loader size="sm" />
 					) : null}
 					<Title id="media-title">{props.title}</Title>
 				</Group>
