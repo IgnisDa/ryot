@@ -98,7 +98,7 @@ pub async fn collection_recommendations(
     Ok(SearchResults {
         items: paginator.fetch_page(page - 1).await?,
         details: SearchDetails {
-            total_items: number_of_items.try_into().unwrap(),
+            total_items: number_of_items,
             next_page: (page < number_of_pages).then(|| page + 1),
         },
     })

@@ -122,7 +122,7 @@ pub async fn collection_contents(
             let results = SearchResults {
                 items,
                 details: SearchDetails {
-                    total_items: number_of_items.try_into().unwrap(),
+                    total_items: number_of_items,
                     next_page: (page < number_of_pages).then(|| page + 1),
                 },
             };

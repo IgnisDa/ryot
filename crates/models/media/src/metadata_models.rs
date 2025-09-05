@@ -24,7 +24,7 @@ pub struct EntityWithLot {
 pub struct GenreListItem {
     pub id: String,
     pub name: String,
-    pub num_items: Option<i64>,
+    pub num_items: Option<u64>,
 }
 
 #[derive(PartialEq, Default, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]

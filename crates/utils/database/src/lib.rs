@@ -83,12 +83,7 @@ pub async fn extract_pagination_params(
     let user = user_by_id(user_id, ss).await?;
     let page_size = user.preferences.general.list_page_size;
     let take = search.as_ref().and_then(|s| s.take).unwrap_or(page_size);
-    let page: u64 = search
-        .as_ref()
-        .and_then(|s| s.page)
-        .unwrap_or(1)
-        .try_into()
-        .unwrap();
+    let page: u64 = search.as_ref().and_then(|s| s.page).unwrap_or(1);
     Ok((take, page))
 }
 
