@@ -205,7 +205,7 @@ export default function Page() {
 											)}
 										</ApplicationGrid>
 									) : (
-										<Text c="dimmed">No media upcoming.</Text>
+										<Text c="dimmed">No upcoming media.</Text>
 									)
 								) : (
 									<SkeletonLoader />
