@@ -109,7 +109,7 @@ pub async fn genre_details(
         details: GenreListItem {
             id: genre.id,
             name: genre.name,
-            num_items: Some(number_of_items),
+            num_items: Some(number_of_items.try_into().unwrap()),
         },
         contents: SearchResults {
             items: contents,
