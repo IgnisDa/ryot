@@ -10,10 +10,8 @@ import {
 	Text,
 } from "@mantine/core";
 import {
-	DeployUpdateMediaEntityJobDocument,
 	EntityLot,
 	MetadataGroupDetailsDocument,
-	UserMetadataGroupDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
 import {
@@ -24,7 +22,7 @@ import {
 } from "@tabler/icons-react";
 import { useLoaderData } from "react-router";
 import { z } from "zod";
-import { DisplayCollectionToEntity } from "~/components/common";
+import { DisplayCollectionToEntity, SkeletonLoader } from "~/components/common";
 import { MediaDetailsLayout } from "~/components/common/layout";
 import { ReviewItemDisplay } from "~/components/common/review";
 import {
@@ -35,10 +33,13 @@ import {
 	MarkEntityAsPartialMenuItem,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media/menu-items";
-import { useUserPreferences } from "~/lib/shared/hooks";
+import {
+	useMetadataGroupDetails,
+	useUserMetadataGroupDetails,
+	useUserPreferences,
+} from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
-import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.groups.item.$id._index";
 
 const searchParamsSchema = z.object({
@@ -53,28 +54,8 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		z.object({ id: z.string() }),
 	);
 	const query = parseSearchQuery(request, searchParamsSchema);
-	const [{ metadataGroupDetails }, { userMetadataGroupDetails }] =
-		await Promise.all([
-			serverGqlService.request(MetadataGroupDetailsDocument, {
-				metadataGroupId,
-			}),
-			serverGqlService.authenticatedRequest(
-				request,
-				UserMetadataGroupDetailsDocument,
-				{ metadataGroupId },
-			),
-		]);
-	if (metadataGroupDetails.details.isPartial)
-		await serverGqlService.request(DeployUpdateMediaEntityJobDocument, {
-			entityId: metadataGroupId,
-			entityLot: EntityLot.MetadataGroup,
-		});
-	return {
-		query,
-		metadataGroupId,
-		metadataGroupDetails,
-		userMetadataGroupDetails,
-	};
+
+	return { query, metadataGroupId };
 };
 
 export const meta = () => {
@@ -87,160 +68,168 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
+	const metadataGroupDetails = useMetadataGroupDetails(
+		loaderData.metadataGroupId,
+	);
+	const userMetadataGroupDetails = useUserMetadataGroupDetails(
+		loaderData.metadataGroupId,
+	);
+
 	return (
 		<Container>
-			<MediaDetailsLayout
-				title={loaderData.metadataGroupDetails.details.title}
-				assets={loaderData.metadataGroupDetails.details.assets}
-				externalLink={{
-					lot: loaderData.metadataGroupDetails.details.lot,
-					source: loaderData.metadataGroupDetails.details.source,
-					href: loaderData.metadataGroupDetails.details.sourceUrl,
-				}}
-				partialDetailsFetcher={{
-					entityId: loaderData.metadataGroupDetails.details.id,
-					isAlreadyPartial: loaderData.metadataGroupDetails.details.isPartial,
-					fn: () =>
-						clientGqlService
-							.request(MetadataGroupDetailsDocument, {
-								metadataGroupId: loaderData.metadataGroupDetails.details.id,
-							})
-							.then((data) => data.metadataGroupDetails.details.isPartial),
-				}}
-			>
-				<Flex id="group-details" wrap="wrap" gap={4}>
-					<Text>
-						{loaderData.metadataGroupDetails.details.parts} media items
-					</Text>
-				</Flex>
-				{loaderData.userMetadataGroupDetails.collections.length > 0 ? (
-					<Group>
-						{loaderData.userMetadataGroupDetails.collections.map((col) => (
-							<DisplayCollectionToEntity
-								col={col}
-								key={col.id}
-								entityLot={EntityLot.MetadataGroup}
-								entityId={loaderData.metadataGroupId}
-							/>
-						))}
-					</Group>
-				) : null}
-				<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
-					<Tabs.List mb="xs">
-						<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
-							Media
-						</Tabs.Tab>
-						<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
-							Actions
-						</Tabs.Tab>
-						{!userPreferences.general.disableReviews ? (
-							<Tabs.Tab
-								value="reviews"
-								leftSection={<IconMessageCircle2 size={16} />}
-							>
-								Reviews
+			{metadataGroupDetails.data && userMetadataGroupDetails.data ? (
+				<MediaDetailsLayout
+					title={metadataGroupDetails.data.details.title}
+					assets={metadataGroupDetails.data.details.assets}
+					externalLink={{
+						lot: metadataGroupDetails.data.details.lot,
+						source: metadataGroupDetails.data.details.source,
+						href: metadataGroupDetails.data.details.sourceUrl,
+					}}
+					partialDetailsFetcher={{
+						entityId: metadataGroupDetails.data.details.id,
+						isAlreadyPartial: metadataGroupDetails.data.details.isPartial,
+						fn: () =>
+							clientGqlService
+								.request(MetadataGroupDetailsDocument, {
+									metadataGroupId: metadataGroupDetails.data.details.id,
+								})
+								.then((data) => data.metadataGroupDetails.details.isPartial),
+					}}
+				>
+					<Flex id="group-details" wrap="wrap" gap={4}>
+						<Text>{metadataGroupDetails.data.details.parts} media items</Text>
+					</Flex>
+					{userMetadataGroupDetails.data.collections.length > 0 ? (
+						<Group>
+							{userMetadataGroupDetails.data.collections.map((col) => (
+								<DisplayCollectionToEntity
+									col={col}
+									key={col.id}
+									entityLot={EntityLot.MetadataGroup}
+									entityId={loaderData.metadataGroupId}
+								/>
+							))}
+						</Group>
+					) : null}
+					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
+						<Tabs.List mb="xs">
+							<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
+								Media
 							</Tabs.Tab>
-						) : null}
-						<Tabs.Tab
-							value="overview"
-							leftSection={<IconInfoCircle size={16} />}
-						>
-							Overview
-						</Tabs.Tab>
-					</Tabs.List>
-					<Tabs.Panel value="media">
-						<MediaScrollArea>
-							<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
-								{loaderData.metadataGroupDetails.contents.map((media) => (
-									<PartialMetadataDisplay key={media} metadataId={media} />
-								))}
-							</SimpleGrid>
-						</MediaScrollArea>
-					</Tabs.Panel>
-					<Tabs.Panel value="actions">
-						<MediaScrollArea>
-							<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-								<Button
-									variant="outline"
-									w="100%"
-									onClick={() => {
-										setEntityToReview({
-											entityId: loaderData.metadataGroupId,
-											entityLot: EntityLot.MetadataGroup,
-											entityTitle:
-												loaderData.metadataGroupDetails.details.title,
-										});
-									}}
+							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
+								Actions
+							</Tabs.Tab>
+							{!userPreferences.general.disableReviews ? (
+								<Tabs.Tab
+									value="reviews"
+									leftSection={<IconMessageCircle2 size={16} />}
 								>
-									Post a review
-								</Button>
-								<Button
-									variant="outline"
-									onClick={() => {
-										setAddEntityToCollectionsData({
-											entityLot: EntityLot.MetadataGroup,
-											entityId: loaderData.metadataGroupId,
-										});
-									}}
-								>
-									Add to collection
-								</Button>
-								<Menu shadow="md">
-									<Menu.Target>
-										<Button variant="outline">More actions</Button>
-									</Menu.Target>
-									<Menu.Dropdown>
-										<ToggleMediaMonitorMenuItem
-											inCollections={loaderData.userMetadataGroupDetails.collections.map(
-												(c) => c.details.collectionName,
-											)}
-											formValue={loaderData.metadataGroupId}
-											entityLot={EntityLot.MetadataGroup}
-										/>
-										<MarkEntityAsPartialMenuItem
-											entityLot={EntityLot.MetadataGroup}
-											entityId={loaderData.metadataGroupId}
-										/>
-									</Menu.Dropdown>
-								</Menu>
-							</SimpleGrid>
-						</MediaScrollArea>
-					</Tabs.Panel>
-					{!userPreferences.general.disableReviews ? (
-						<Tabs.Panel value="reviews">
+									Reviews
+								</Tabs.Tab>
+							) : null}
+							<Tabs.Tab
+								value="overview"
+								leftSection={<IconInfoCircle size={16} />}
+							>
+								Overview
+							</Tabs.Tab>
+						</Tabs.List>
+						<Tabs.Panel value="media">
 							<MediaScrollArea>
-								{loaderData.userMetadataGroupDetails.reviews.length > 0 ? (
-									<Stack>
-										{loaderData.userMetadataGroupDetails.reviews.map((r) => (
-											<ReviewItemDisplay
-												review={r}
-												key={r.id}
-												entityId={loaderData.metadataGroupId}
-												title={loaderData.metadataGroupDetails.details.title}
-												entityLot={EntityLot.MetadataGroup}
-											/>
-										))}
-									</Stack>
-								) : (
-									<Text>No reviews</Text>
-								)}
+								<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
+									{metadataGroupDetails.data.contents.map((media) => (
+										<PartialMetadataDisplay key={media} metadataId={media} />
+									))}
+								</SimpleGrid>
 							</MediaScrollArea>
 						</Tabs.Panel>
-					) : null}
-					<Tabs.Panel value="overview">
-						{loaderData.metadataGroupDetails.details.description ? (
-							<div
-								// biome-ignore lint/security/noDangerouslySetInnerHtml: generated by the backend securely
-								dangerouslySetInnerHTML={{
-									__html: loaderData.metadataGroupDetails.details.description,
-								}}
-							/>
-						) : (
-							<Text>No description</Text>
-						)}
-					</Tabs.Panel>
-				</Tabs>
-			</MediaDetailsLayout>
+						<Tabs.Panel value="actions">
+							<MediaScrollArea>
+								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+									<Button
+										variant="outline"
+										w="100%"
+										onClick={() => {
+											setEntityToReview({
+												entityLot: EntityLot.MetadataGroup,
+												entityId: loaderData.metadataGroupId,
+												entityTitle: metadataGroupDetails.data.details.title,
+											});
+										}}
+									>
+										Post a review
+									</Button>
+									<Button
+										variant="outline"
+										onClick={() => {
+											setAddEntityToCollectionsData({
+												entityLot: EntityLot.MetadataGroup,
+												entityId: loaderData.metadataGroupId,
+											});
+										}}
+									>
+										Add to collection
+									</Button>
+									<Menu shadow="md">
+										<Menu.Target>
+											<Button variant="outline">More actions</Button>
+										</Menu.Target>
+										<Menu.Dropdown>
+											<ToggleMediaMonitorMenuItem
+												inCollections={userMetadataGroupDetails.data.collections.map(
+													(c) => c.details.collectionName,
+												)}
+												formValue={loaderData.metadataGroupId}
+												entityLot={EntityLot.MetadataGroup}
+											/>
+											<MarkEntityAsPartialMenuItem
+												entityLot={EntityLot.MetadataGroup}
+												entityId={loaderData.metadataGroupId}
+											/>
+										</Menu.Dropdown>
+									</Menu>
+								</SimpleGrid>
+							</MediaScrollArea>
+						</Tabs.Panel>
+						{!userPreferences.general.disableReviews ? (
+							<Tabs.Panel value="reviews">
+								<MediaScrollArea>
+									{userMetadataGroupDetails.data.reviews.length > 0 ? (
+										<Stack>
+											{userMetadataGroupDetails.data.reviews.map((r) => (
+												<ReviewItemDisplay
+													review={r}
+													key={r.id}
+													entityLot={EntityLot.MetadataGroup}
+													entityId={loaderData.metadataGroupId}
+													title={metadataGroupDetails.data.details.title}
+												/>
+											))}
+										</Stack>
+									) : (
+										<Text>No reviews</Text>
+									)}
+								</MediaScrollArea>
+							</Tabs.Panel>
+						) : null}
+						<Tabs.Panel value="overview">
+							{metadataGroupDetails.data.details.description ? (
+								<div
+									// biome-ignore lint/security/noDangerouslySetInnerHtml: generated by the backend securely
+									dangerouslySetInnerHTML={{
+										__html: metadataGroupDetails.data.details.description,
+									}}
+								/>
+							) : (
+								<Text>No description</Text>
+							)}
+						</Tabs.Panel>
+					</Tabs>
+				</MediaDetailsLayout>
+			) : (
+				<SkeletonLoader />
+			)}
 		</Container>
 	);
 }
