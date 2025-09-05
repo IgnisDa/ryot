@@ -46,14 +46,6 @@ import {
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useCreateOrUpdateCollectionModal } from "~/lib/state/collection";
 
-const showSuccessNotification = (message: string) => {
-	notifications.show({ message, color: "green", title: "Success" });
-};
-
-const showErrorNotification = (message: string) => {
-	notifications.show({ message, color: "red", title: "Error" });
-};
-
 export const meta = () => {
 	return [{ title: "Your collections | Ryot" }];
 };
@@ -177,13 +169,21 @@ const DisplayCollection = (props: {
 			return deleteCollection;
 		},
 		onSuccess: () => {
-			showSuccessNotification("Collection deleted");
+			notifications.show({
+				color: "green",
+				title: "Success",
+				message: "Collection deleted",
+			});
 			queryClient.invalidateQueries({
 				queryKey: queryFactory.collections.userCollectionsList().queryKey,
 			});
 		},
 		onError: () => {
-			showErrorNotification("Cannot delete a default collection");
+			notifications.show({
+				color: "red",
+				title: "Error",
+				message: "Cannot delete a default collection",
+			});
 		},
 	});
 
