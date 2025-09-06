@@ -131,7 +131,7 @@ export const MediaDetailsLayout = (props: {
 					left={0}
 					right={0}
 					pos="absolute"
-					py={providerImage ? undefined : 5}
+					py={providerImage ? undefined : 10}
 					style={{
 						zIndex: 1,
 						display: "flex",
