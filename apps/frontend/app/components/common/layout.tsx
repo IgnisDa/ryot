@@ -1,14 +1,13 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Carousel } from "@mantine/carousel";
 import {
-	Anchor,
-	Badge,
 	Box,
 	Flex,
 	Group,
 	Image,
 	Loader,
 	Modal,
+	Paper,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -21,10 +20,9 @@ import {
 	type EntityLot,
 	GridPacking,
 	type MediaLot,
-	type MediaSource,
+	MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
-import { snakeCase } from "@ryot/ts-utils";
-import { IconExternalLink } from "@tabler/icons-react";
+import { changeCase } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useState } from "react";
 import { match } from "ts-pattern";
@@ -60,7 +58,7 @@ export const MediaDetailsLayout = (props: {
 	title: string;
 	assets: EntityAssets;
 	children: Array<ReactNode | (ReactNode | undefined)>;
-	externalLink?: {
+	externalLink: {
 		lot?: MediaLot;
 		source: MediaSource;
 		href?: string | null;
@@ -115,6 +113,26 @@ export const MediaDetailsLayout = (props: {
 
 	const images = [...props.assets.remoteImages, ...props.assets.s3Images];
 
+	const providerImage = match(props.externalLink.source)
+		.with(MediaSource.Anilist, () => "anilist.svg")
+		.with(MediaSource.Audible, () => "audible.svg")
+		.with(MediaSource.GoogleBooks, () => "google-books.svg")
+		.with(MediaSource.Igdb, () => "igdb.svg")
+		.with(MediaSource.Itunes, () => "itunes.svg")
+		.with(MediaSource.Listennotes, () => "listennotes.webp")
+		.with(MediaSource.Myanimelist, () => "mal.svg")
+		.with(MediaSource.MangaUpdates, () => "manga-updates.svg")
+		.with(MediaSource.Openlibrary, () => "openlibrary.svg")
+		.with(MediaSource.Tmdb, () => "tmdb.svg")
+		.with(MediaSource.Tvdb, () => "tvdb.svg")
+		.with(MediaSource.Vndb, () => "vndb.ico")
+		.with(MediaSource.YoutubeMusic, () => "youtube-music.png")
+		.with(MediaSource.Hardcover, () => "hardcover.png")
+		.with(MediaSource.GiantBomb, () => "giant-bomb.jpeg")
+		.with(MediaSource.Spotify, () => "spotify.svg")
+		.with(MediaSource.Custom, () => undefined)
+		.exhaustive();
+
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap="lg">
 			<Box
@@ -122,6 +140,44 @@ export const MediaDetailsLayout = (props: {
 				id="images-container"
 				className={classes.imagesContainer}
 			>
+				<Paper
+					px={10}
+					left={0}
+					right={0}
+					bottom={0}
+					pos="absolute"
+					py={providerImage ? undefined : 5}
+					style={{
+						zIndex: 1,
+						display: "flex",
+						alignItems: "center",
+						borderBottomLeftRadius: "1rem",
+						justifyContent: "space-between",
+						borderBottomRightRadius: "1rem",
+						backgroundColor: "rgba(0, 0, 0, 0.75)",
+					}}
+				>
+					<Text size="sm" fw="bold">
+						{changeCase(props.externalLink.lot || "")}
+					</Text>
+					{providerImage ? (
+						<Image
+							h={40}
+							w={40}
+							alt="Logo"
+							fit="contain"
+							src={`/provider-logos/${providerImage}`}
+							style={{
+								cursor: props.externalLink.href ? "pointer" : undefined,
+							}}
+							onClick={() => {
+								if (props.externalLink.href) {
+									window.open(props.externalLink.href, "_blank", "noreferrer");
+								}
+							}}
+						/>
+					) : null}
+				</Paper>
 				{images.length > 1 ? (
 					<Carousel w="100%" onSlideChange={setActiveImageId}>
 						{images.map((url, idx) => (
@@ -142,31 +198,6 @@ export const MediaDetailsLayout = (props: {
 						/>
 					</Box>
 				)}
-				{props.externalLink ? (
-					<Badge
-						size="lg"
-						top={10}
-						left={10}
-						color="dark"
-						pos="absolute"
-						id="data-source"
-						variant="filled"
-					>
-						<Flex gap={4} align="center">
-							<Text size="10">
-								{snakeCase(props.externalLink.source)}
-								{props.externalLink.lot
-									? `:${snakeCase(props.externalLink.lot)}`
-									: null}
-							</Text>
-							{props.externalLink.href ? (
-								<Anchor href={props.externalLink.href} target="_blank" mt={2}>
-									<IconExternalLink size={12.8} />
-								</Anchor>
-							) : null}
-						</Flex>
-					</Badge>
-				) : null}
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>
 				<Group wrap="nowrap">
