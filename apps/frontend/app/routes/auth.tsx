@@ -196,7 +196,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.run();
 };
 
-const registerSchema = passwordConfirmationSchema.extend({
+const registerSchema = passwordConfirmationSchema.safeExtend({
 	username: z.string(),
 });
 
