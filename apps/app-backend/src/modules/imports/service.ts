@@ -2,6 +2,7 @@ import { getTemporaryDirectory } from "~/lib/bun";
 import { config } from "~/lib/config";
 import { getQueues } from "~/lib/queue";
 import { type ServiceResult, serviceData, serviceError } from "~/lib/result";
+import { claimUploadToken } from "~/lib/temporary-upload-token";
 
 import {
 	cleanupImportFile,
@@ -30,12 +31,12 @@ export type ImportServiceResult<T> = ServiceResult<T, ImportServiceError>;
 
 const allowedExtensionsBySource: Record<string, string[]> = {
 	open_scale: ["csv"],
+	strong_app: ["csv"],
 };
 
-const buildOpenScaleInputSummary = (originalFilePath: string): Record<string, unknown> => {
-	const fileName = originalFilePath.split("/").pop() ?? originalFilePath;
-	return { source: "open_scale", fileName };
-};
+const buildFileInputSummary = (source: "open_scale" | "strong_app"): Record<string, unknown> => ({
+	source,
+});
 
 const buildTraktInputSummary = (username: string): Record<string, unknown> => ({
 	username,
@@ -49,24 +50,32 @@ export const startImportRun = async (input: {
 	userId: string;
 	body: CreateImportRunBody;
 }): Promise<ImportServiceResult<{ id: string }>> => {
-	if (input.body.source === "open_scale") {
+	if (input.body.source === "open_scale" || input.body.source === "strong_app") {
 		const tempDir = getTemporaryDirectory();
 		const allowedExtensions = allowedExtensionsBySource[input.body.source];
 		if (!allowedExtensions) {
 			return serviceError("validation", `Unsupported import source: ${input.body.source}`);
 		}
 
-		const safePathResult = resolveSafeImportFilePath(input.body.filePath, tempDir);
+		const claimResult = await claimUploadToken(input.body.uploadToken, input.userId);
+		if ("error" in claimResult) {
+			return serviceError("validation", claimResult.error);
+		}
+
+		// Defense-in-depth: verify the claimed path is still within the temp directory.
+		const safePathResult = resolveSafeImportFilePath(claimResult.resolvedPath, tempDir);
 		if ("error" in safePathResult) {
+			await cleanupImportFile(claimResult.resolvedPath);
 			return serviceError("validation", safePathResult.error);
 		}
 
 		const extResult = validateFileExtension(safePathResult.path, allowedExtensions);
 		if ("error" in extResult) {
+			await cleanupImportFile(safePathResult.path);
 			return serviceError("validation", extResult.error);
 		}
 
-		const inputSummary = buildOpenScaleInputSummary(input.body.filePath);
+		const inputSummary = buildFileInputSummary(input.body.source);
 
 		const run = await createImportRun({
 			inputSummary,
