@@ -58,13 +58,14 @@ const LeaveCommentInline = (props: {
 	onSubmit: (text: string) => Promise<void> | void;
 }) => {
 	const [text, setText] = useState("");
+
 	return (
 		<Group>
 			<TextInput
-				value={text}
-				onChange={(e) => setText(e.currentTarget.value)}
-				placeholder="Enter comment"
 				flex={1}
+				value={text}
+				placeholder="Enter comment"
+				onChange={(e) => setText(e.currentTarget.value)}
 			/>
 			<ActionIcon
 				color="green"
