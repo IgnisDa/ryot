@@ -7,6 +7,7 @@ import { useApiClient } from "@/lib/api-client";
 
 import { loadRelatedCollections } from "./collections";
 import { loadRelatedCompanies } from "./companies";
+import { loadRelatedGroups } from "./groups";
 import { isEntitySchemaSlug, toEntityDetail } from "./model";
 import { loadRelatedCreators, mergeCreators } from "./people";
 import { EntityDetailTabs } from "./tabs";
@@ -111,6 +112,24 @@ export function EntityDetailScreen(props: { entityId: string }) {
 		},
 	});
 
+	const relatedGroupsQuery = useQuery({
+		enabled: !!entityQuery.data?.data && !!entitySchemaQuery.data?.data.slug,
+		queryKey: ["entity-detail", entityId, "groups", entitySchemaQuery.data?.data.slug],
+		queryFn: async () => {
+			const entitySchemaSlug = entitySchemaQuery.data?.data.slug;
+			const entityData = entityQuery.data?.data;
+			if (!entityData || !entitySchemaSlug || !isEntitySchemaSlug(entitySchemaSlug)) {
+				return [];
+			}
+
+			try {
+				return await loadRelatedGroups(apiClient, { entityId, entitySchemaSlug });
+			} catch {
+				return [];
+			}
+		},
+	});
+
 	const relatedCollectionsQuery = useQuery({
 		enabled: !!entityQuery.data?.data,
 		queryKey: ["entity-detail", entityId, "collections"],
@@ -182,6 +201,7 @@ export function EntityDetailScreen(props: { entityId: string }) {
 		<EntityDetailTabs
 			entity={entity}
 			creators={people}
+			groups={relatedGroupsQuery.data ?? []}
 			companies={relatedCompaniesQuery.data ?? []}
 			collections={relatedCollectionsQuery.data ?? null}
 		/>
