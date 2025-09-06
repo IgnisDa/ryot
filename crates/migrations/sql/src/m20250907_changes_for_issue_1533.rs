@@ -10,12 +10,10 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
 
-        if manager.has_table("enriched_user_to_metadata").await? {
-            db.execute_unprepared("DROP VIEW enriched_user_to_metadata")
-                .await?;
-            db.execute_unprepared(ENRICHED_USER_TO_METADATA_VIEW_CREATION_SQL)
-                .await?;
-        }
+        db.execute_unprepared("DROP VIEW enriched_user_to_metadata")
+            .await?;
+        db.execute_unprepared(ENRICHED_USER_TO_METADATA_VIEW_CREATION_SQL)
+            .await?;
 
         Ok(())
     }
