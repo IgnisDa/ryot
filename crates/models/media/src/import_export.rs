@@ -28,7 +28,7 @@ pub struct ImportOrExportMetadataItemSeen {
     pub show_episode_number: Option<i32>,
     /// If for an anime, the episode which was seen.
     pub anime_episode_number: Option<i32>,
-    /// The amount of time spent watching the item manually.
+    /// The amount of time (in seconds) spent consuming the item manually.
     pub manual_time_spent: Option<Decimal>,
     /// If for a podcast, the episode which was seen.
     pub podcast_episode_number: Option<i32>,
