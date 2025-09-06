@@ -76,6 +76,12 @@ export const meta = () => {
 	return [{ title: "User Settings | Ryot" }];
 };
 
+const invalidateUsersList = async () => {
+	await queryClient.invalidateQueries({
+		queryKey: queryFactory.miscellaneous.usersList._def,
+	});
+};
+
 const UserInvitationModal = (props: {
 	opened: boolean;
 	onClose: () => void;
@@ -122,9 +128,7 @@ const UserInvitationModal = (props: {
 				title: "User Invitation Created",
 				description: "Share this URL with the user to set their password",
 			});
-			await queryClient.invalidateQueries({
-				queryKey: queryFactory.miscellaneous.usersList._def,
-			});
+			await invalidateUsersList();
 			handleClose();
 			createInvitationMutation.reset();
 		},
@@ -328,7 +332,8 @@ const UserActions = (props: {
 			);
 			return { updateUser, input };
 		},
-		onSuccess: ({ input }) => {
+		onSuccess: async ({ input }) => {
+			await invalidateUsersList();
 			const isCurrentUser = input.userId === userDetails.id;
 			showSuccessNotification("User status updated successfully");
 			if (isCurrentUser && input.isDisabled) {
@@ -346,7 +351,8 @@ const UserActions = (props: {
 			);
 			return deleteUser;
 		},
-		onSuccess: (deleteUser) => {
+		onSuccess: async (deleteUser) => {
+			await invalidateUsersList();
 			const message = deleteUser
 				? "User deleted successfully"
 				: "User can not be deleted";
@@ -368,8 +374,9 @@ const UserActions = (props: {
 			});
 			return resetUser;
 		},
-		onSuccess: (resetUser) => {
+		onSuccess: async (resetUser) => {
 			if (resetUser.__typename !== "UserResetResponse") return;
+			await invalidateUsersList();
 			const isCurrentUser = props.user.id === userDetails.id;
 			if (resetUser.passwordChangeUrl) {
 				if (!isCurrentUser) {
