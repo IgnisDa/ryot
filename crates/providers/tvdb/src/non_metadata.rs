@@ -135,9 +135,12 @@ impl MediaProvider for NonMediaTvdbService {
                     let metadata = PartialMetadataWithoutId {
                         lot: MediaLot::Movie,
                         source: MediaSource::Tvdb,
-                        title: character_name.clone(),
-                        image: character.image.clone(),
                         identifier: movie_id.to_string(),
+                        image: character.movie.as_ref().and_then(|m| m.image.clone()),
+                        title: character
+                            .movie
+                            .and_then(|m| m.name.clone())
+                            .unwrap_or_default(),
                         ..Default::default()
                     };
                     related_metadata.push(MetadataPersonRelated {
@@ -150,9 +153,12 @@ impl MediaProvider for NonMediaTvdbService {
                     let metadata = PartialMetadataWithoutId {
                         lot: MediaLot::Show,
                         source: MediaSource::Tvdb,
-                        title: character_name.clone(),
-                        image: character.image.clone(),
                         identifier: series_id.to_string(),
+                        image: character.series.as_ref().and_then(|s| s.image.clone()),
+                        title: character
+                            .series
+                            .and_then(|s| s.name.clone())
+                            .unwrap_or_default(),
                         ..Default::default()
                     };
                     related_metadata.push(MetadataPersonRelated {

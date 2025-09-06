@@ -189,6 +189,8 @@ pub struct TvdbCharacter {
     pub image: Option<String>,
     pub series_id: Option<i32>,
     pub people_type: Option<String>,
+    pub movie: Option<Box<TvdbCharacter>>,
+    pub series: Option<Box<TvdbCharacter>>,
 }
 
 #[derive(Debug, Deserialize)]
