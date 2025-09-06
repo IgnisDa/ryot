@@ -33,6 +33,7 @@ import {
 	type UserMetadataDetails,
 } from "../types";
 import { convertDurationToSeconds, convertSecondsToDuration } from "../utils";
+import { refreshEntityDetails } from "~/lib/shared/react-query";
 
 export const EditHistoryItemModal = (props: {
 	seen: History;
@@ -66,8 +67,11 @@ export const EditHistoryItemModal = (props: {
 			<Form
 				replace
 				method="POST"
-				onSubmit={props.onClose}
 				action={withQuery(".", { intent: "editSeenItem" })}
+				onSubmit={() => {
+					props.onClose();
+					refreshEntityDetails(props.metadataDetails.id);
+				}}
 			>
 				<input hidden name="seenId" defaultValue={id} />
 				<Stack>
