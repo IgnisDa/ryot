@@ -24,6 +24,7 @@ import {
 	useUserDetails,
 } from "~/lib/shared/hooks";
 import { getVerb } from "~/lib/shared/media-utils";
+import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { Verb } from "~/lib/types";
 import {
 	type DurationInput,
@@ -33,7 +34,6 @@ import {
 	type UserMetadataDetails,
 } from "../types";
 import { convertDurationToSeconds, convertSecondsToDuration } from "../utils";
-import { refreshEntityDetails } from "~/lib/shared/react-query";
 
 export const EditHistoryItemModal = (props: {
 	seen: History;
