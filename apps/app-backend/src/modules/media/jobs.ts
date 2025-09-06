@@ -10,7 +10,6 @@ export const mediaImportJobData = z.object({
 	scriptId: nonEmptyStringSchema,
 	externalId: nonEmptyStringSchema,
 	entitySchemaId: nonEmptyStringSchema,
-	schemaFieldKeys: z.array(nonEmptyStringSchema).optional(),
 	step: z.literal(mediaJobWaitingForSandboxStep).optional(),
 });
 

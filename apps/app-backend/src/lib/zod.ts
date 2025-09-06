@@ -67,6 +67,4 @@ export const createNameWithOptionalSlugSchema = <TShape extends z.ZodRawShape>(
 		...shape,
 	});
 
-export const remoteImagesAssetsSchema = z
-	.object({ images: z.array(ImageSchema), videos: z.array(ImageSchema) })
-	.strict();
+export const imagesSchema = z.array(ImageSchema);
