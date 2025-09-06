@@ -1,6 +1,9 @@
-import { entitySchemaScriptLinks } from "~/lib/db/seed/manifests";
+import { entitySchemaScriptLinks, groupSchemaScriptLinks } from "~/lib/db/seed/manifests";
 
-const builtinMediaEntitySchemaSlugValues = entitySchemaScriptLinks().map((link) => link.schemaSlug);
+const builtinMediaEntitySchemaSlugValues = [
+	...entitySchemaScriptLinks().map((link) => link.schemaSlug),
+	...groupSchemaScriptLinks().map((link) => link.schemaSlug),
+];
 
 export type BuiltinMediaEntitySchemaSlug = (typeof builtinMediaEntitySchemaSlugValues)[number];
 

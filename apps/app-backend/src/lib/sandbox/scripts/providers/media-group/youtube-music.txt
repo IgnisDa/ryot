@@ -46,135 +46,117 @@ async function makeFetch(input, init) {
   return new Response(rb, { status, statusText, headers: rh ?? {} });
 }
 
-function getThumbnailUrls(thumbnail) {
+function getLargestThumbnailUrl(thumbnail) {
   const arr = Array.isArray(thumbnail)
     ? thumbnail
     : Array.isArray(thumbnail?.contents)
       ? thumbnail.contents
       : [];
-  return arr
+  const sorted = arr
     .filter((t) => t?.url)
     .sort(
       (a, b) =>
         (b.width || 0) * (b.height || 0) - (a.width || 0) * (a.height || 0),
-    )
-    .map((t) => t.url);
-}
-
-function getBestThumbnailUrl(thumbnail) {
-  return getThumbnailUrls(thumbnail)[0] ?? null;
+    );
+  return sorted[0]?.url ?? null;
 }
 
 driver("search", async function (context) {
   const { z } = await import("npm:zod");
-  const { query, pageSize } = z.object({
-    query: z.string().trim().min(1, "query is required"),
-    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
-  }).parse(context ?? {});
+
+  const { query, pageSize } = z
+    .object({
+      query: z.string().trim().min(1, "query is required"),
+      pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+    })
+    .parse(context ?? {});
 
   const { Innertube } = await import("npm:youtubei.js");
   const yt = await Innertube.create({
     fetch: makeFetch,
     generate_session_locally: true,
   });
-  const results = await yt.music.search(query, { type: "song" });
+
+  const results = await yt.music.search(query, { type: "album" });
 
   const allItems = [];
   for (const shelf of results.contents ?? []) {
-    for (const track of shelf.contents ?? []) {
-      const id = track.id;
+    for (const album of shelf.contents ?? []) {
+      const id = album.id;
       if (!id) continue;
-
-      const title = track.title ?? id;
-      const year = track.year ?? null;
-      const thumb = getBestThumbnailUrl(track.thumbnail);
-
+      const name = album.title ?? id;
+      const imageUrl = getLargestThumbnailUrl(album.thumbnail);
       allItems.push({
         externalId: String(id),
         calloutProperty: { kind: "null", value: null },
-        titleProperty: { kind: "text", value: String(title) },
-        primarySubtitleProperty:
-          year === null
-            ? { kind: "null", value: null }
-            : { kind: "number", value: Number(year) },
+        titleProperty: { kind: "text", value: String(name) },
+        primarySubtitleProperty: { kind: "null", value: null },
         secondarySubtitleProperty: { kind: "null", value: null },
         imageProperty:
-          thumb === null
+          imageUrl === null
             ? { kind: "null", value: null }
-            : { kind: "image", value: { type: "remote", url: thumb } },
+            : { kind: "image", value: { type: "remote", url: imageUrl } },
       });
     }
   }
 
   const items = allItems.slice(0, pageSize);
-  return { items, details: { totalItems: items.length, nextPage: null } };
+  return {
+    items,
+    details: { totalItems: 100, nextPage: null },
+  };
 });
 
 driver("details", async function (context) {
   const { z } = await import("npm:zod");
-  const { externalId } = z.object({
-    externalId: z.string().trim().min(1, "externalId is required"),
-  }).parse(context ?? {});
+
+  const { externalId } = z
+    .object({ externalId: z.string().trim().min(1, "externalId is required") })
+    .parse(context ?? {});
 
   const { Innertube } = await import("npm:youtubei.js");
   const yt = await Innertube.create({
     fetch: makeFetch,
     generate_session_locally: true,
   });
-  const queue = await yt.music.getUpNext(externalId);
 
-  const contents = queue.contents ?? [];
-  const trackItem =
-    contents.find((item) => item.video_id === externalId) ?? contents[0];
+  const album = await yt.music.getAlbum(externalId);
 
-  if (!trackItem) {
-    throw new Error(`YouTube Music track not found: ${externalId}`);
+  const title = album?.title ?? album?.header?.title?.text ?? null;
+  if (!title) throw new Error(`YouTube Music album not found: ${externalId}`);
+
+  // Description may be HTML-formatted
+  const rawDescription = album?.description ?? album?.header?.description?.text ?? null;
+  let description = null;
+  if (rawDescription != null) {
+    const { load } = await import("npm:cheerio");
+    const $ = load(String(rawDescription));
+    $("br").replaceWith("\n");
+    const text = $.root().text().trim();
+    description = text || null;
   }
 
-  const title = trackItem.title?.text ?? String(trackItem.title ?? "");
-  if (!title) throw new Error("YouTube Music track is missing title");
+  const tracks = Array.isArray(album?.contents) ? album.contents : [];
+  const parts = tracks.length > 0 ? tracks.length : null;
 
-  const duration = trackItem.duration?.seconds ?? null;
-  const publishYear = trackItem.album?.year
-    ? parseInt(String(trackItem.album.year), 10) || null
+  const coverUrl = getLargestThumbnailUrl(
+    album?.thumbnail ?? album?.header?.thumbnail,
+  );
+  const images = coverUrl ? [{ type: "remote", url: coverUrl }] : [];
+
+  const playlistId =
+    typeof album?.playlist_id === "string" ? album.playlist_id : null;
+  const sourceUrl = playlistId
+    ? `https://music.youtube.com/playlist?list=${playlistId}`
     : null;
 
-  const people = (trackItem.artists ?? [])
-    .filter((a) => a.name && a.channel_id)
-    .map((a) => ({
-      name: a.name,
-      role: "Artist",
-      externalId: a.channel_id,
-      scriptSlug: "person.youtube-music",
-    }));
-
-  const byVariousArtists = people.length === 0 ? null : people.length > 1;
-
-  const album = trackItem.album;
-  const groups =
-    album && typeof album === "object" &&
-    typeof album.id === "string" && album.id.trim() &&
-    typeof album.name === "string" && album.name.trim()
-      ? [
-        {
-          name: album.name.trim(),
-          externalId: album.id.trim(),
-          scriptSlug: "music-group.youtube-music",
-        },
-      ]
-      : [];
-
   return {
-    name: title,
+    name: String(title),
     properties: {
-      people,
-      groups,
-      duration,
-      genres: [],
-      publishYear,
-      byVariousArtists,
-      sourceUrl: `https://music.youtube.com/watch?v=${externalId}`,
-      images: getThumbnailUrls(trackItem.thumbnail).map((url) => ({ type: "remote", url })),
+      parts,
+      images,
+      sourceUrl,
+      description,
     },
   };
 });

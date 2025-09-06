@@ -261,6 +261,18 @@ driver("details", async function(context) {
   const album = track?.album;
   const albumImages = Array.isArray(album?.images) ? album.images : [];
   const publishYear = getPublishYear(album?.release_date, dayjs);
+  const groups =
+    album && typeof album === "object" &&
+    typeof album.id === "string" && album.id.trim() &&
+    typeof album.name === "string" && album.name.trim()
+      ? [
+        {
+          name: album.name.trim(),
+          externalId: album.id.trim(),
+          scriptSlug: "music-group.spotify",
+        },
+      ]
+      : [];
 
   const durationMs =
     typeof track?.duration_ms === "number" &&
@@ -285,6 +297,7 @@ driver("details", async function(context) {
     name: title,
     properties: {
       people,
+      groups,
       isNsfw,
       duration,
       sourceUrl,

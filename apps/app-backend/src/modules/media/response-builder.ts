@@ -83,31 +83,31 @@ const roundToTwoDecimals = (value: number) => Math.round((value + Number.EPSILON
 
 const resolveUnitLabel = (entitySchemaSlug: BuiltInMediaOverviewSourceItem["entitySchemaSlug"]) =>
 	match(entitySchemaSlug)
-		.with("book", () => "pages")
-		.with("show", () => "episodes")
-		.with("music", () => "seconds")
-		.with("anime", () => "episodes")
 		.with("manga", () => "chapters")
-		.with("movie", () => "percent")
-		.with("podcast", () => "episodes")
-		.with("comic-book", () => "pages")
-		.with("audiobook", () => "minutes")
-		.with("video-game", () => "percent")
-		.with("visual-novel", () => "percent")
+		.with("music", "music-group", () => "seconds")
+		.with("audiobook", "audiobook-group", () => "minutes")
+		.with("show", "anime", "podcast", () => "episodes")
+		.with("book", "book-group", "comic-book", "comic-book-group", () => "pages")
+		.with("movie", "video-game", "movie-group", "visual-novel", "video-game-group", () => "percent")
 		.exhaustive();
 
 const resolveContinueCta = (entitySchemaSlug: BuiltInMediaOverviewSourceItem["entitySchemaSlug"]) =>
 	match(entitySchemaSlug)
-		.with("show", () => "Next Episode")
-		.with("anime", () => "Next Episode")
+		.with("show", "anime", () => "Next Episode")
 		.with(
 			"book",
+			"book-group",
 			"comic-book",
+			"comic-book-group",
 			"manga",
+			"audiobook-group",
 			"movie",
+			"movie-group",
 			"audiobook",
 			"podcast",
 			"video-game",
+			"video-game-group",
+			"music-group",
 			"visual-novel",
 			"music",
 			() => "Log Progress",

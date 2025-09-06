@@ -218,18 +218,29 @@ driver("details", async function(context) {
       ? Math.trunc(payload.page_count)
       : null;
   const image = getString(payload?.image);
+  const groups =
+    payload?.series && typeof payload.series === "object"
+      ? [
+        {
+          scriptSlug: "comic-book-group.metron",
+          externalId: getIdentifier(payload.series.id),
+          name: getString(payload.series.name) ?? "Unknown Series",
+        },
+      ].filter((group) => group.externalId !== null)
+      : [];
 
   return {
     name: title,
     properties: {
-		genres: [],
-		pages: pageCount,
-		people: buildPeople(payload?.credits),
-		description: getString(payload?.desc),
-		publishDate: parsePublishDate(payload?.cover_date),
-		images: image ? [{ type: "remote", url: image }] : [],
-		sourceUrl: `https://metron.cloud/issue/${externalId}`,
-		publishYear: parsePublishYear(payload?.cover_date, dayjs),
+      groups,
+      genres: [],
+      pages: pageCount,
+      people: buildPeople(payload?.credits),
+      description: getString(payload?.desc),
+      publishDate: parsePublishDate(payload?.cover_date),
+      images: image ? [{ type: "remote", url: image }] : [],
+      sourceUrl: `https://metron.cloud/issue/${externalId}`,
+      publishYear: parsePublishYear(payload?.cover_date, dayjs),
     },
   };
 });

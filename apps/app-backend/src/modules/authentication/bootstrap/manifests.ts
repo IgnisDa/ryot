@@ -15,6 +15,7 @@ import {
 	builtinMediaEntitySchemaSlugs,
 } from "~/lib/media/constants";
 import { mangaPropertiesJsonSchema } from "~/lib/media/manga";
+import { mediaGroupPropertiesJsonSchema } from "~/lib/media/media-group";
 import { moviePropertiesJsonSchema } from "~/lib/media/movie";
 import { musicPropertiesJsonSchema } from "~/lib/media/music";
 import { personPropertiesJsonSchema } from "~/lib/media/person";
@@ -224,6 +225,60 @@ export const authenticationBuiltinEntitySchemas = () => [
 		),
 	},
 	{
+		icon: "layers",
+		slug: "movie-group",
+		name: "Movie Group",
+		trackerSlug: "media",
+		accentColor: "#FACC15",
+		propertiesSchema: mediaGroupPropertiesJsonSchema,
+		eventSchemas: mediaLifecycleEventSchemas("movie-group").filter((s) => s.slug === "review"),
+	},
+	{
+		icon: "layers",
+		slug: "audiobook-group",
+		name: "Audiobook Group",
+		trackerSlug: "media",
+		accentColor: "#F97316",
+		propertiesSchema: mediaGroupPropertiesJsonSchema,
+		eventSchemas: mediaLifecycleEventSchemas("audiobook-group").filter((s) => s.slug === "review"),
+	},
+	{
+		icon: "layers",
+		slug: "book-group",
+		name: "Book Group",
+		trackerSlug: "media",
+		accentColor: "#3B82F6",
+		propertiesSchema: mediaGroupPropertiesJsonSchema,
+		eventSchemas: mediaLifecycleEventSchemas("book-group").filter((s) => s.slug === "review"),
+	},
+	{
+		icon: "layers",
+		slug: "comic-book-group",
+		name: "Comic Book Group",
+		trackerSlug: "media",
+		accentColor: "#FF6B35",
+		propertiesSchema: mediaGroupPropertiesJsonSchema,
+		eventSchemas: mediaLifecycleEventSchemas("comic-book-group").filter((s) => s.slug === "review"),
+	},
+	{
+		icon: "layers",
+		slug: "music-group",
+		name: "Music Group",
+		trackerSlug: "media",
+		accentColor: "#EC4899",
+		propertiesSchema: mediaGroupPropertiesJsonSchema,
+		eventSchemas: mediaLifecycleEventSchemas("music-group").filter((s) => s.slug === "review"),
+	},
+	{
+		icon: "layers",
+		slug: "video-game-group",
+		name: "Video Game Group",
+		trackerSlug: "media",
+		accentColor: "#10B981",
+		propertiesSchema: mediaGroupPropertiesJsonSchema,
+		eventSchemas: mediaLifecycleEventSchemas("video-game-group").filter((s) => s.slug === "review"),
+	},
+	{
 		slug: "book",
 		name: "Book",
 		icon: "book-open",
@@ -392,9 +447,15 @@ const getBuiltInSavedViewName = (slug: BuiltinMediaEntitySchemaSlug) => {
 		.with("movie", () => "All Movies")
 		.with("podcast", () => "All Podcasts")
 		.with("audiobook", () => "All Audiobooks")
+		.with("book-group", () => "All Book Groups")
 		.with("comic-book", () => "All Comic Books")
 		.with("video-game", () => "All Video Games")
+		.with("movie-group", () => "All Movie Groups")
+		.with("music-group", () => "All Music Groups")
 		.with("visual-novel", () => "All Visual Novels")
+		.with("audiobook-group", () => "All Audiobook Groups")
+		.with("comic-book-group", () => "All Comic Book Groups")
+		.with("video-game-group", () => "All Video Game Groups")
 		.exhaustive();
 };
 
@@ -476,7 +537,15 @@ export const authenticationBuiltinSavedViews = () => [
 	})),
 ];
 
-export const authenticationBuiltinRelationshipSchemas = () => [
+type BuiltinRelationshipSchema = {
+	slug: string;
+	name: string;
+	propertiesSchema: AppSchema;
+	sourceEntitySchemaSlug: string | null;
+	targetEntitySchemaSlug: string | null;
+};
+
+export const authenticationBuiltinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 	{
 		slug: "in-library",
 		name: "In Library",
@@ -542,4 +611,124 @@ export const authenticationBuiltinRelationshipSchemas = () => [
 			},
 		},
 	})),
+	{
+		slug: "movie-group-to-movie",
+		name: "Movie Group to Movie",
+		targetEntitySchemaSlug: "movie",
+		sourceEntitySchemaSlug: "movie-group",
+		propertiesSchema: {
+			fields: {
+				roles: {
+					label: "Roles",
+					type: "array" as const,
+					description: "Roles this group filled in this media",
+					items: {
+						label: "Role",
+						type: "string" as const,
+						description: "A specific role name",
+					},
+				},
+			},
+		},
+	},
+	{
+		targetEntitySchemaSlug: "audiobook",
+		slug: "audiobook-group-to-audiobook",
+		name: "Audiobook Group to Audiobook",
+		sourceEntitySchemaSlug: "audiobook-group",
+		propertiesSchema: {
+			fields: {
+				roles: {
+					label: "Roles",
+					type: "array" as const,
+					description: "Roles this group filled in this media",
+					items: {
+						label: "Role",
+						type: "string" as const,
+						description: "A specific role name",
+					},
+				},
+			},
+		},
+	},
+	{
+		slug: "book-group-to-book",
+		name: "Book Group to Book",
+		targetEntitySchemaSlug: "book",
+		sourceEntitySchemaSlug: "book-group",
+		propertiesSchema: {
+			fields: {
+				roles: {
+					label: "Roles",
+					type: "array" as const,
+					description: "Roles this group filled in this media",
+					items: {
+						label: "Role",
+						type: "string" as const,
+						description: "A specific role name",
+					},
+				},
+			},
+		},
+	},
+	{
+		targetEntitySchemaSlug: "comic-book",
+		slug: "comic-book-group-to-comic-book",
+		name: "Comic Book Group to Comic Book",
+		sourceEntitySchemaSlug: "comic-book-group",
+		propertiesSchema: {
+			fields: {
+				roles: {
+					label: "Roles",
+					type: "array" as const,
+					description: "Roles this group filled in this media",
+					items: {
+						label: "Role",
+						type: "string" as const,
+						description: "A specific role name",
+					},
+				},
+			},
+		},
+	},
+	{
+		slug: "music-group-to-music",
+		name: "Music Group to Music",
+		targetEntitySchemaSlug: "music",
+		sourceEntitySchemaSlug: "music-group",
+		propertiesSchema: {
+			fields: {
+				roles: {
+					label: "Roles",
+					type: "array" as const,
+					description: "Roles this group filled in this media",
+					items: {
+						label: "Role",
+						type: "string" as const,
+						description: "A specific role name",
+					},
+				},
+			},
+		},
+	},
+	{
+		targetEntitySchemaSlug: "video-game",
+		slug: "video-game-group-to-video-game",
+		name: "Video Game Group to Video Game",
+		sourceEntitySchemaSlug: "video-game-group",
+		propertiesSchema: {
+			fields: {
+				roles: {
+					label: "Roles",
+					type: "array" as const,
+					description: "Roles this group filled in this media",
+					items: {
+						label: "Role",
+						type: "string" as const,
+						description: "A specific role name",
+					},
+				},
+			},
+		},
+	},
 ];
