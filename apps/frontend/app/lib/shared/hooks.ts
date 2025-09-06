@@ -276,6 +276,10 @@ export const useAddEntitiesToCollectionMutation = () => {
 			await clientGqlService.request(DeployAddEntitiesToCollectionJobDocument, {
 				input,
 			});
+			return input;
+		},
+		onSettled: (d) => {
+			for (const e of d?.entities || []) refreshEntityDetails(e.entityId);
 		},
 	});
 	return mutation;
@@ -288,6 +292,10 @@ export const useRemoveEntitiesFromCollectionMutation = () => {
 				DeployRemoveEntitiesFromCollectionJobDocument,
 				{ input },
 			);
+			return input;
+		},
+		onSettled: (d) => {
+			for (const e of d?.entities || []) refreshEntityDetails(e.entityId);
 		},
 	});
 	return mutation;
