@@ -371,6 +371,7 @@ export const usePartialStatusMonitor = (props: {
 	}, [
 		props.onUpdate,
 		props.entityId,
+		props.entityLot,
 		props.partialStatus,
 		jobDeployedForEntity,
 		props.externalLinkSource,
