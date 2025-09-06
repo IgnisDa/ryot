@@ -1,6 +1,9 @@
 import type { MantineColor } from "@mantine/core";
 import {
+	DeployUpdateMediaEntityJobDocument,
+	EntityLot,
 	MediaLot,
+	MediaSource,
 	MetadataDetailsDocument,
 	SetLot,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -140,3 +143,47 @@ export const getMetadataDetails = async (metadataId: string) =>
 	clientGqlService
 		.request(MetadataDetailsDocument, { metadataId })
 		.then((d) => d.metadataDetails.response);
+
+export const deployUpdateJobIfNeeded = async (
+	metadataId: string,
+	externalLinkSource: MediaSource,
+) => {
+	if (externalLinkSource !== MediaSource.Custom) {
+		await clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
+			entityId: metadataId,
+			entityLot: EntityLot.Metadata,
+		});
+	}
+};
+
+const checkPartialStatus = async (metadataId: string): Promise<boolean> => {
+	const details = await getMetadataDetails(metadataId);
+	return details?.isPartial !== true;
+};
+
+export const executePartialStatusUpdate = async (props: {
+	metadataId: string;
+	externalLinkSource: MediaSource;
+}) => {
+	const { metadataId, externalLinkSource } = props;
+	const startTime = Date.now();
+
+	await deployUpdateJobIfNeeded(metadataId, externalLinkSource);
+
+	return new Promise<boolean>((resolve) => {
+		const checkAndWait = async () => {
+			const isNonPartial = await checkPartialStatus(metadataId);
+			if (isNonPartial) {
+				resolve(true);
+				return;
+			}
+			if (Date.now() - startTime >= 30000) {
+				resolve(false);
+				return;
+			}
+			setTimeout(checkAndWait, 1000);
+		};
+
+		checkAndWait();
+	});
+};

@@ -16,7 +16,7 @@ import {
 import { produce } from "immer";
 import invariant from "tiny-invariant";
 import { dayjsLib } from "~/lib/shared/date-utils";
-import { forceUpdateEverySecond } from "~/lib/shared/hooks";
+import { useForceUpdateEverySecond } from "~/lib/shared/hooks";
 import {
 	useCurrentWorkout,
 	useCurrentWorkoutStopwatchAtom,
@@ -41,7 +41,7 @@ export const TimerAndStopwatchDrawer = (props: {
 
 	invariant(currentWorkout);
 
-	forceUpdateEverySecond();
+	useForceUpdateEverySecond();
 
 	const stopwatchMilliSeconds = getStopwatchMilliSeconds(currentStopwatch);
 	const isStopwatchPaused = Boolean(currentStopwatch?.at(-1)?.to);
