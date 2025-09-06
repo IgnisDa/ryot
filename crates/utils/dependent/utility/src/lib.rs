@@ -8,7 +8,7 @@ use database_models::{
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ApplicationCacheValue, EmptyCacheValue,
-    ExpireCacheKeyInput,
+    EntityDetailsInput, ExpireCacheKeyInput,
 };
 use enum_models::EntityLot;
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel};
@@ -243,6 +243,22 @@ pub async fn expire_user_exercises_list_cache(
             user_id: Some(user_id.to_owned()),
             key: ApplicationCacheKeyDiscriminants::UserExercisesList,
         },
+    )
+    .await?;
+    Ok(())
+}
+
+pub async fn expire_metadata_details_cache(
+    metadata_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::MetadataDetails(
+            EntityDetailsInput {
+                entity_id: metadata_id.to_owned(),
+            },
+        ))),
     )
     .await?;
     Ok(())

@@ -21,6 +21,7 @@ database-utils = { workspace = true }
 dependent-jobs-utils = { workspace = true }
 dependent-models = { workspace = true }
 dependent-provider-utils = { workspace = true }
+dependent-utility-utils = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }
 supporting-service = { workspace = true }

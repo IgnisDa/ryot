@@ -21,6 +21,7 @@ use dependent_models::MetadataBaseData;
 use dependent_provider_utils::{
     details_from_provider, get_metadata_provider, get_non_metadata_provider,
 };
+use dependent_utility_utils::expire_metadata_details_cache;
 use enum_models::{MetadataToMetadataRelation, UserNotificationContent};
 use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
@@ -288,6 +289,7 @@ pub async fn update_metadata(
             );
         }
     };
+    expire_metadata_details_cache(metadata_id, ss).await?;
     Ok(result)
 }
 
