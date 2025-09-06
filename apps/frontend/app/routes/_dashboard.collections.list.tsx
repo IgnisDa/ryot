@@ -312,7 +312,8 @@ const DisplayCollection = (props: {
 									<IconEdit size={18} />
 								</ActionIcon>
 							) : null}
-							{!props.collection.isDefault ? (
+							{userDetails.id === props.collection.creator.id &&
+							!props.collection.isDefault ? (
 								<ActionIcon
 									color="red"
 									variant="outline"
