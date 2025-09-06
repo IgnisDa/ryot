@@ -12,8 +12,8 @@
 }
 
 .imagesContainer {
-  width: 100%;
   flex: none;
+  width: 100%;
   @media (min-width: $mantine-breakpoint-md) {
     width: 35%;
   }
