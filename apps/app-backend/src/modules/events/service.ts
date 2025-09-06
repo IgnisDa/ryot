@@ -31,6 +31,18 @@ export type CreatedEventData = ListedEvent & {
 
 type EventMutationError = "not_found" | "validation";
 
+export type CreateEventsBestEffortFailure = {
+	error: EventMutationError;
+	message: string;
+	itemIndex: number;
+};
+
+export type CreateEventsBestEffortData = {
+	count: number;
+	createdEvents: CreatedEventData[];
+	failures: CreateEventsBestEffortFailure[];
+};
+
 export type EventServiceDeps = {
 	createEventForUser: typeof createEventForUser;
 	getEntityScopeForUser: typeof getEntityScopeForUser;
@@ -426,6 +438,17 @@ export const createEvents = async (
 	input: { body: CreateEventBulkBody; userId: string },
 	deps: EventServiceDeps = eventServiceDeps,
 ): Promise<EventServiceResult<{ count: number; createdEvents: CreatedEventData[] }>> => {
+	for (const item of input.body) {
+		// oxlint-disable-next-line no-await-in-loop
+		const validationResult = await validateEventCreateInputForUser(
+			{ body: item, userId: input.userId },
+			deps,
+		);
+		if ("error" in validationResult) {
+			return validationResult;
+		}
+	}
+
 	const createdEvents: CreatedEventData[] = [];
 
 	for (const item of input.body) {
@@ -512,4 +535,59 @@ export const processEventSchemaTriggers = async (
 			console.warn("processEventSchemaTriggers: failed to enqueue trigger job", result.reason);
 		}
 	}
+};
+
+export const createEventsWithTriggers = async (
+	input: { body: CreateEventBulkBody; userId: string },
+	deps: EventServiceDeps = eventServiceDeps,
+): Promise<EventServiceResult<{ count: number; createdEvents: CreatedEventData[] }>> => {
+	const result = await createEvents(input, deps);
+	if ("error" in result) {
+		return result;
+	}
+
+	await processEventSchemaTriggers(
+		{
+			userId: input.userId,
+			createdEvents: result.data.createdEvents,
+		},
+		deps,
+	);
+
+	return result;
+};
+
+export const createEventsBestEffortWithTriggers = async (
+	input: { body: CreateEventBulkBody; userId: string },
+	deps: EventServiceDeps = eventServiceDeps,
+): Promise<{ data: CreateEventsBestEffortData }> => {
+	const failures: CreateEventsBestEffortFailure[] = [];
+	const createdEvents: CreatedEventData[] = [];
+
+	for (let itemIndex = 0; itemIndex < input.body.length; itemIndex++) {
+		const item = input.body[itemIndex];
+		if (!item) {
+			continue;
+		}
+
+		// oxlint-disable-next-line no-await-in-loop
+		const result = await createEvent({ body: item, userId: input.userId }, deps);
+		if ("error" in result) {
+			failures.push({
+				itemIndex,
+				error: result.error,
+				message: result.message,
+			});
+		} else {
+			createdEvents.push(result.data);
+		}
+	}
+
+	await processEventSchemaTriggers({ userId: input.userId, createdEvents }, deps);
+
+	return serviceData({
+		failures,
+		createdEvents,
+		count: createdEvents.length,
+	});
 };

@@ -77,6 +77,32 @@ export const createLibraryEntityForUser = async (
 	return assertPersisted(createdEntity, "library entity");
 };
 
+export const findCollectionByNameForUser = async (input: {
+	name: string;
+	userId: string;
+	entitySchemaId: string;
+}): Promise<CollectionResponse | undefined> => {
+	const [found] = await db
+		.select(collectionSelection)
+		.from(entity)
+		.where(
+			and(
+				eq(entity.name, input.name),
+				eq(entity.userId, input.userId),
+				isNull(entity.externalId),
+				isNull(entity.sandboxScriptId),
+				eq(entity.entitySchemaId, input.entitySchemaId),
+			),
+		)
+		.limit(1);
+
+	if (!found) {
+		return undefined;
+	}
+
+	return toCollectionResponse(found);
+};
+
 export const createCollectionForUser = async (input: {
 	name: string;
 	userId: string;
@@ -96,8 +122,7 @@ export const createCollectionForUser = async (input: {
 		})
 		.returning(collectionSelection);
 
-	// oxlint-disable-next-line no-unsafe-type-assertion
-	return toCollectionResponse(assertPersisted(createdEntity, "collection") as CollectionRow);
+	return toCollectionResponse(assertPersisted(createdEntity, "collection"));
 };
 
 const membershipSelection = {
@@ -231,8 +256,7 @@ export const getCollectionById = async (
 		return undefined;
 	}
 
-	// oxlint-disable-next-line no-unsafe-type-assertion
-	return toCollectionResponse(foundEntity as CollectionRow);
+	return toCollectionResponse(foundEntity);
 };
 
 export const getEntityById = async (
@@ -266,7 +290,7 @@ export const removeEntityFromCollection = async (input: {
 	}
 	const memberOfSchemaId = found.id;
 
-	const [deletedRel] = (await db
+	const [deletedRel] = await db
 		.delete(relationship)
 		.where(
 			and(
@@ -276,7 +300,7 @@ export const removeEntityFromCollection = async (input: {
 				eq(relationship.targetEntityId, input.collectionId),
 			),
 		)
-		.returning(membershipSelection)) as MembershipRow[];
+		.returning(membershipSelection);
 
 	if (!deletedRel) {
 		return undefined;
