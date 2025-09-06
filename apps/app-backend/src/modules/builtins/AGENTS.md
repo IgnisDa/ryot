@@ -61,10 +61,11 @@ For episodic media, progress/dropped/on_hold events carry additional fields:
 
 ### State Derivation
 
-Current lifecycle state is **derived** from the latest event per type — there is no stored
-"current state" column. The query engine's `latestEvent` join returns the most recent event per
-entity per schema slug. An event type is current when it exists and all other lifecycle event
-types are either absent or older than it.
+Current lifecycle state is **derived** from the latest event per type ordered by `occurredAt`,
+then `createdAt`, then `id` — there is no stored "current state" column. The query engine's
+`latestEvent` join returns the most recent event per entity per schema slug using that ordering.
+An event type is current when it exists and all other lifecycle event types are either absent or
+older than it.
 
 | State       | Predicate summary                                                                    |
 | ----------- | ------------------------------------------------------------------------------------ |
@@ -82,7 +83,8 @@ logged after a `dropped` or `on_hold` event resumes the in-progress state.
 **Log past consumption (no active tracking):**
 
 - One `complete` event with `completionMode: "custom_timestamps"` (if dates are known) or
-  `"unknown"`. No preceding progress events are required.
+  `"unknown"`. No preceding progress events are required. Set the event's top-level `occurredAt`
+  to the historical completion time; `completedOn` does not replace event chronology.
 
 **Log now (just finished):**
 
@@ -99,24 +101,28 @@ logged after a `dropped` or `on_hold` event resumes the in-progress state.
 **Re-watching / re-reading:**
 
 - After a `complete` event, logging a new `progress` event starts a new cycle. The state
-  derivation is timestamp-based so the new progress event's `createdAt` determines current state.
+  derivation is timestamp-based so the new progress event's `occurredAt` determines current state.
   Multiple `complete` events for the same entity are valid and represent multiple watches. The
-  built-in episodic auto-complete trigger only creates the first completion implied by cumulative
-  coverage; additional episodic watch-through completions must be logged explicitly or migrated.
+  built-in episodic auto-complete trigger walks qualifying `progress(100%)` events in chronological
+  `occurredAt` order, resets coverage after each full pass, and can emit repeated completions.
+  Missing or empty required episodic coverage data yields no completion.
 
 ### Auto-Complete Trigger
 
 The built-in sandbox trigger (`trigger.auto-complete-on-full-progress`) fires when a `progress`
 event is created with `progressPercent = 100`.
 
-- **Non-episodic media** (movie, book, audiobook, etc.): creates a `complete` event immediately.
+- **Non-episodic media** (movie, book, audiobook, etc.): creates a `complete` event immediately
+  using the triggering progress event's `occurredAt` for both the event timestamp and
+  `completedOn`.
 - **Episodic media** (show, anime, manga, podcast): only creates a `complete` event when **all**
   required coverage keys are satisfied — i.e., every episode/chapter of the entity has a
-  `progress(100%)` event. If coverage is not yet complete, the trigger exits without creating a
-  `complete` event.
+  `progress(100%)` event. If required coverage is missing or empty, the trigger exits without
+  creating a `complete` event.
 
 This means a `complete` event for a show represents the whole show being finished, not an
-individual episode. The trigger logic lives in:
+individual episode. The trigger logic walks coverage cycles chronologically and can emit repeated
+completions. The trigger logic lives in:
 `src/lib/sandbox/scripts/triggers/auto-complete-on-full-progress.txt`.
 
 `consumedOn` is propagated from the triggering progress event to the created complete event via
