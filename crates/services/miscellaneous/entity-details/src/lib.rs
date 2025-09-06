@@ -147,7 +147,7 @@ pub async fn metadata_group_details(
 ) -> Result<CachedResponse<MetadataGroupDetails>> {
     cache_service::get_or_set_with_callback(
         ss,
-        ApplicationCacheKey::MetadataDetails(metadata_group_id.to_owned()),
+        ApplicationCacheKey::MetadataGroupDetails(metadata_group_id.to_owned()),
         |f| ApplicationCacheValue::MetadataGroupDetails(Box::new(f)),
         || async {
             let mut details = MetadataGroup::find_by_id(&metadata_group_id)
