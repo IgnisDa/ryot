@@ -116,7 +116,7 @@ export default function Page() {
 				<Group justify="space-between" align="center">
 					<Box>
 						<Text display="inline" fw="bold">
-							{collections.length}
+							{filteredCollections.length}
 						</Text>{" "}
 						items found
 					</Box>
