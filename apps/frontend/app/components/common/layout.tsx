@@ -143,7 +143,7 @@ export const MediaDetailsLayout = (props: {
 					}}
 				>
 					<Text size="sm" fw="bold">
-						{changeCase(props.externalLink.lot || "")}
+						{changeCase(props.externalLink.lot || props.externalLink.source)}
 					</Text>
 					{providerImage ? (
 						<Image
