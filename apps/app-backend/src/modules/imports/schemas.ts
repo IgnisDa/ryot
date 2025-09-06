@@ -44,6 +44,12 @@ export const openScaleRunInput = z.object({
 });
 export type OpenScaleRunInput = z.infer<typeof openScaleRunInput>;
 
+export const hevyRunInput = z.object({
+	source: z.literal("hevy"),
+	uploadToken: nonEmptyStringSchema,
+});
+export type HevyRunInput = z.infer<typeof hevyRunInput>;
+
 export const strongAppRunInput = z.object({
 	source: z.literal("strong_app"),
 	uploadToken: nonEmptyStringSchema,
@@ -57,6 +63,7 @@ export const traktRunInput = z.object({
 export type TraktRunInput = z.infer<typeof traktRunInput>;
 
 export const createImportRunBody = z.discriminatedUnion("source", [
+	hevyRunInput,
 	traktRunInput,
 	openScaleRunInput,
 	strongAppRunInput,
