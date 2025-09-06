@@ -4,8 +4,7 @@ use anyhow::{Result, bail};
 use common_utils::generate_session_id;
 use database_utils::{admin_account_guard, user_by_id};
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput,
-    UserPasswordChangeSessionInput, UserPasswordChangeSessionValue,
+    ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput, UserPasswordChangeSessionValue,
 };
 use media_models::{GetPasswordChangeSessionInput, GetPasswordChangeSessionResponse};
 use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
@@ -26,10 +25,7 @@ pub async fn generate_password_change_session(
     }
 
     let session_id = generate_session_id(None);
-    let cache_key =
-        ApplicationCacheKey::UserPasswordChangeSession(UserPasswordChangeSessionInput {
-            session_id: session_id.clone(),
-        });
+    let cache_key = ApplicationCacheKey::UserPasswordChangeSession(session_id.to_owned());
     let cache_value =
         ApplicationCacheValue::UserPasswordChangeSession(UserPasswordChangeSessionValue {
             user_id: user.id,
@@ -44,10 +40,7 @@ pub async fn set_password_via_session(
     session_id: String,
     password: String,
 ) -> Result<bool> {
-    let cache_key =
-        ApplicationCacheKey::UserPasswordChangeSession(UserPasswordChangeSessionInput {
-            session_id,
-        });
+    let cache_key = ApplicationCacheKey::UserPasswordChangeSession(session_id);
 
     let Some((cache_id, session_data)) =
         cache_service::get_value::<UserPasswordChangeSessionValue>(ss, cache_key.clone()).await

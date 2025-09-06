@@ -10,8 +10,7 @@ use database_models::{
 use database_utils::{apply_columns_search, extract_pagination_params};
 use dependent_entity_utils::generic_metadata;
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, CollectionRecommendationsCachedInput,
-    CollectionRecommendationsInput, SearchResults,
+    ApplicationCacheKey, ApplicationCacheValue, CollectionRecommendationsInput, SearchResults,
 };
 use dependent_notification_utils::update_metadata_and_notify_users;
 use sea_orm::{
@@ -28,9 +27,7 @@ pub async fn collection_recommendations(
 ) -> Result<SearchResults<String>> {
     let cached_response = cache_service::get_or_set_with_callback(
         ss,
-        ApplicationCacheKey::CollectionRecommendations(CollectionRecommendationsCachedInput {
-            collection_id: input.collection_id.clone(),
-        }),
+        ApplicationCacheKey::CollectionRecommendations(input.collection_id.to_owned()),
         ApplicationCacheValue::CollectionRecommendations,
         || async {
             let mut data = vec![];

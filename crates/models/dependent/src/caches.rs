@@ -41,19 +41,6 @@ pub struct EmptyCacheValue {
 pub struct UserTwoFactorSetupCacheValue {
     pub secret: String,
 }
-
-#[skip_serializing_none]
-#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CollectionRecommendationsCachedInput {
-    pub collection_id: String,
-}
-
-#[skip_serializing_none]
-#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct UserSessionInput {
-    pub session_id: String,
-}
-
 #[skip_serializing_none]
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UserSessionValue {
@@ -61,19 +48,11 @@ pub struct UserSessionValue {
     pub access_link_id: Option<String>,
 }
 
-#[skip_serializing_none]
-#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct UserPasswordChangeSessionInput {
-    pub session_id: String,
-}
-
-#[skip_serializing_none]
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UserPasswordChangeSessionValue {
     pub user_id: String,
 }
 
-#[skip_serializing_none]
 #[derive(
     Eq,
     Hash,
@@ -94,11 +73,13 @@ pub enum ApplicationCacheKey {
     TvdbSettings,
     SpotifyAccessToken,
     ListennotesSettings,
+    UserSession(String),
     TrendingMetadataIds,
     PersonDetails(String),
     MetadataDetails(String),
     MetadataGroupDetails(String),
-    UserSession(UserSessionInput),
+    UserPasswordChangeSession(String),
+    CollectionRecommendations(String),
     MetadataLookup(MetadataLookupCacheInput),
     UserTwoFactorSetup(UserLevelCacheKey<()>),
     UserCollectionsList(UserLevelCacheKey<()>),
@@ -111,10 +92,8 @@ pub enum ApplicationCacheKey {
     UserMetadataRecommendationsSet(UserLevelCacheKey<()>),
     MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
     UserPeopleList(UserLevelCacheKey<UserPeopleListInput>),
-    UserPasswordChangeSession(UserPasswordChangeSessionInput),
     UserMetadataList(UserLevelCacheKey<UserMetadataListInput>),
     UserExercisesList(UserLevelCacheKey<UserExercisesListInput>),
-    CollectionRecommendations(CollectionRecommendationsCachedInput),
     MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
     UserCollectionContents(UserLevelCacheKey<CollectionContentsInput>),
     UserMeasurementsList(UserLevelCacheKey<UserMeasurementsListInput>),
