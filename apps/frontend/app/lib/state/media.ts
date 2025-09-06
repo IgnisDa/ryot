@@ -2,7 +2,6 @@ import {
 	type EntityLot,
 	MediaLot,
 	MediaSource,
-	MetadataDetailsDocument,
 	type ReviewItem,
 } from "@ryot/generated/graphql/backend/graphql";
 import { atom, useAtom } from "jotai";
@@ -17,6 +16,7 @@ import {
 	queryClient,
 } from "~/lib/shared/react-query";
 import { executePartialStatusUpdate } from "../shared/hooks";
+import { getMetadataDetails } from "../shared/metadata-utils";
 
 export type UpdateProgressData = {
 	metadataId: string;
@@ -52,9 +52,7 @@ const getUpdateMetadata = async (metadataId: string) => {
 		externalLinkSource: meta.source,
 	});
 
-	const metadataDetails = await clientGqlService
-		.request(MetadataDetailsDocument, { metadataId })
-		.then((m) => m.metadataDetails.response);
+	const metadataDetails = await getMetadataDetails(metadataId);
 	await queryClient.invalidateQueries({
 		queryKey: getMetadataDetailsQuery(metadataId).queryKey,
 	});

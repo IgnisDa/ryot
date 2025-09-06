@@ -11,7 +11,6 @@ import {
 	ExpireCacheKeyDocument,
 	type MediaLot,
 	MediaSource,
-	MetadataDetailsDocument,
 	type MetadataProgressUpdateInput,
 	UserCollectionsListDocument,
 	UsersListDocument,
@@ -24,6 +23,7 @@ import { useRouteLoaderData, useSubmit } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { useInterval, useMediaQuery } from "usehooks-ts";
+import { getMetadataDetails } from "~/lib/shared/metadata-utils";
 import {
 	clientGqlService,
 	getMetadataDetailsQuery,
@@ -350,11 +350,8 @@ const deployUpdateJobIfNeeded = async (
 };
 
 const checkPartialStatus = async (metadataId: string): Promise<boolean> => {
-	const { metadataDetails } = await clientGqlService.request(
-		MetadataDetailsDocument,
-		{ metadataId },
-	);
-	return metadataDetails?.response?.isPartial !== true;
+	const details = await getMetadataDetails(metadataId);
+	return details?.isPartial !== true;
 };
 
 export const executePartialStatusUpdate = async (props: {

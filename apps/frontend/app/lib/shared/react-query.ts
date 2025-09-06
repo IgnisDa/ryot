@@ -6,7 +6,6 @@ import {
 	type CollectionContentsInput,
 	type CollectionRecommendationsInput,
 	type GenreDetailsInput,
-	MetadataDetailsDocument,
 	MetadataGroupDetailsDocument,
 	type MetadataGroupSearchInput,
 	type MetadataSearchInput,
@@ -30,6 +29,7 @@ import { QueryClient, queryOptions, skipToken } from "@tanstack/react-query";
 import { GraphQLClient } from "graphql-request";
 import Cookies from "js-cookie";
 import { FRONTEND_AUTH_COOKIE_NAME, applicationBaseUrl } from "./constants";
+import { getMetadataDetails } from "./metadata-utils";
 
 export const queryClient = new QueryClient({
 	defaultOptions: {
@@ -175,12 +175,7 @@ export const queryFactory = mergeQueryKeys(
 export const getMetadataDetailsQuery = (metadataId?: string) =>
 	queryOptions({
 		queryKey: queryFactory.media.metadataDetails(metadataId).queryKey,
-		queryFn: metadataId
-			? () =>
-					clientGqlService
-						.request(MetadataDetailsDocument, { metadataId })
-						.then((data) => data.metadataDetails.response)
-			: skipToken,
+		queryFn: metadataId ? () => getMetadataDetails(metadataId) : skipToken,
 	});
 
 export const getUserMetadataDetailsQuery = (metadataId?: string) =>
