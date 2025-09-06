@@ -99,7 +99,10 @@ import {
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { getVerb } from "~/lib/shared/media-utils";
-import { openConfirmationModal } from "~/lib/shared/ui-utils";
+import {
+	getProviderSourceImage,
+	openConfirmationModal,
+} from "~/lib/shared/ui-utils";
 import { zodDateTimeString } from "~/lib/shared/validation";
 import {
 	useAddEntityToCollections,
@@ -411,31 +414,7 @@ export default function Page() {
 											h={24}
 											w={24}
 											alt="Logo"
-											src={`/provider-logos/${match(metadataDetails.data.source)
-												.with(MediaSource.Anilist, () => "anilist.svg")
-												.with(MediaSource.Audible, () => "audible.svg")
-												.with(MediaSource.GoogleBooks, () => "google-books.svg")
-												.with(MediaSource.Igdb, () => "igdb.svg")
-												.with(MediaSource.Itunes, () => "itunes.svg")
-												.with(MediaSource.Listennotes, () => "listennotes.webp")
-												.with(MediaSource.Myanimelist, () => "mal.svg")
-												.with(
-													MediaSource.MangaUpdates,
-													() => "manga-updates.svg",
-												)
-												.with(MediaSource.Openlibrary, () => "openlibrary.svg")
-												.with(MediaSource.Tmdb, () => "tmdb.svg")
-												.with(MediaSource.Tvdb, () => "tvdb.svg")
-												.with(MediaSource.Vndb, () => "vndb.ico")
-												.with(
-													MediaSource.YoutubeMusic,
-													() => "youtube-music.png",
-												)
-												.with(MediaSource.Hardcover, () => "hardcover.png")
-												.with(MediaSource.GiantBomb, () => "giant-bomb.jpeg")
-												.with(MediaSource.Spotify, () => "spotify.svg")
-												.with(MediaSource.Custom, () => undefined)
-												.exhaustive()}`}
+											src={`/provider-logos/${getProviderSourceImage(metadataDetails.data.source)}`}
 										/>
 										<Text fz="sm">
 											{Number(metadataDetails.data.providerRating).toFixed(1)}

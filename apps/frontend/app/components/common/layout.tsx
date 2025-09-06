@@ -20,7 +20,7 @@ import {
 	type EntityLot,
 	GridPacking,
 	type MediaLot,
-	MediaSource,
+	type MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
@@ -28,7 +28,10 @@ import { type ReactNode, useEffect, useState } from "react";
 import { match } from "ts-pattern";
 import { useFallbackImageUrl, useUserPreferences } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
-import { getSurroundingElements } from "~/lib/shared/ui-utils";
+import {
+	getProviderSourceImage,
+	getSurroundingElements,
+} from "~/lib/shared/ui-utils";
 import { useFullscreenImage } from "~/lib/state/general";
 import classes from "~/styles/common.module.css";
 
@@ -113,25 +116,7 @@ export const MediaDetailsLayout = (props: {
 
 	const images = [...props.assets.remoteImages, ...props.assets.s3Images];
 
-	const providerImage = match(props.externalLink.source)
-		.with(MediaSource.Anilist, () => "anilist.svg")
-		.with(MediaSource.Audible, () => "audible.svg")
-		.with(MediaSource.GoogleBooks, () => "google-books.svg")
-		.with(MediaSource.Igdb, () => "igdb.svg")
-		.with(MediaSource.Itunes, () => "itunes.svg")
-		.with(MediaSource.Listennotes, () => "listennotes.webp")
-		.with(MediaSource.Myanimelist, () => "mal.svg")
-		.with(MediaSource.MangaUpdates, () => "manga-updates.svg")
-		.with(MediaSource.Openlibrary, () => "openlibrary.svg")
-		.with(MediaSource.Tmdb, () => "tmdb.svg")
-		.with(MediaSource.Tvdb, () => "tvdb.svg")
-		.with(MediaSource.Vndb, () => "vndb.ico")
-		.with(MediaSource.YoutubeMusic, () => "youtube-music.png")
-		.with(MediaSource.Hardcover, () => "hardcover.png")
-		.with(MediaSource.GiantBomb, () => "giant-bomb.jpeg")
-		.with(MediaSource.Spotify, () => "spotify.svg")
-		.with(MediaSource.Custom, () => undefined)
-		.exhaustive();
+	const providerImage = getProviderSourceImage(props.externalLink.source);
 
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap="lg">

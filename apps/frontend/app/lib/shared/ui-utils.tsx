@@ -1,8 +1,12 @@
 import { Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
-import { PresignedPutS3UrlDocument } from "@ryot/generated/graphql/backend/graphql";
+import {
+	MediaSource,
+	PresignedPutS3UrlDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 import { isEqual, startCase } from "@ryot/ts-utils";
 import { $path } from "safe-routes";
+import { match } from "ts-pattern";
 import { clientGqlService } from "./react-query";
 
 export const forcedDashboardPath = $path("/", { ignoreLandingPath: "true" });
@@ -74,3 +78,24 @@ export const isFilterChanged = <T extends object>(
 		.filter((key) => !["page", "query"].includes(key))
 		.some((key) => !isEqual(current[key as keyof T], defaults[key as keyof T]));
 };
+
+export const getProviderSourceImage = (source: MediaSource) =>
+	match(source)
+		.with(MediaSource.Anilist, () => "anilist.svg")
+		.with(MediaSource.Audible, () => "audible.svg")
+		.with(MediaSource.GoogleBooks, () => "google-books.svg")
+		.with(MediaSource.Igdb, () => "igdb.svg")
+		.with(MediaSource.Itunes, () => "itunes.svg")
+		.with(MediaSource.Listennotes, () => "listennotes.webp")
+		.with(MediaSource.Myanimelist, () => "mal.svg")
+		.with(MediaSource.MangaUpdates, () => "manga-updates.svg")
+		.with(MediaSource.Openlibrary, () => "openlibrary.svg")
+		.with(MediaSource.Tmdb, () => "tmdb.svg")
+		.with(MediaSource.Tvdb, () => "tvdb.svg")
+		.with(MediaSource.Vndb, () => "vndb.ico")
+		.with(MediaSource.YoutubeMusic, () => "youtube-music.png")
+		.with(MediaSource.Hardcover, () => "hardcover.png")
+		.with(MediaSource.GiantBomb, () => "giant-bomb.jpeg")
+		.with(MediaSource.Spotify, () => "spotify.svg")
+		.with(MediaSource.Custom, () => undefined)
+		.exhaustive();
