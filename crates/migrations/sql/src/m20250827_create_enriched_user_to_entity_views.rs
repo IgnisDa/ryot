@@ -115,59 +115,60 @@ GROUP BY
 pub static ENRICHED_USER_TO_METADATA_VIEW_CREATION_SQL: &str = indoc! { r#"
 CREATE VIEW
   enriched_user_to_metadata AS
+WITH seen_aggregates AS (
+    SELECT
+        s.user_id,
+        s.metadata_id,
+        count(s.id) AS times_seen,
+        array_agg(DISTINCT s.state) AS seen_states,
+        max(s.finished_on) AS max_seen_finished_on,
+        max(s.last_updated_on) AS max_seen_last_updated_on
+    FROM seen s
+    GROUP BY s.user_id, s.metadata_id
+),
+review_aggregates AS (
+    SELECT
+        r.user_id,
+        r.entity_id,
+        r.entity_lot,
+        avg(r.rating) AS average_rating
+    FROM review r
+    WHERE r.rating IS NOT NULL
+    GROUP BY r.user_id, r.entity_id, r.entity_lot
+),
+collection_aggregates AS (
+    SELECT
+        cem.user_id,
+        cem.entity_id,
+        cem.entity_lot,
+        array_agg(DISTINCT cem.origin_collection_id) AS collection_ids
+    FROM collection_entity_membership cem
+    WHERE cem.origin_collection_id IS NOT NULL
+    GROUP BY cem.user_id, cem.entity_id, cem.entity_lot
+)
 SELECT
-  m.lot,
-  ute.id,
-  m.title,
-  ute.user_id,
-  m.description,
-  m.publish_date,
-  m.provider_rating,
-  ute.last_updated_on,
-  ute.entity_id as metadata_id,
-  AVG(r.rating) AS average_rating,
-  COUNT(DISTINCT s.id) AS times_seen,
-  COALESCE(ute.media_reason, ARRAY[]::TEXT[]) AS media_reason,
-  CASE
-    WHEN COUNT(s.id) = 0 THEN ARRAY[]::TEXT[]
-    ELSE ARRAY_AGG(DISTINCT s.state)
-  END AS seen_states,
-  CASE
-    WHEN COUNT(s.id) = 0 THEN NULL
-    ELSE MAX(s.finished_on)
-  END AS max_seen_finished_on,
-  CASE
-    WHEN COUNT(s.id) = 0 THEN NULL
-    ELSE MAX(s.last_updated_on)
-  END AS max_seen_last_updated_on,
-  CASE
-    WHEN COUNT(cem.origin_collection_id) = 0 THEN ARRAY[]::TEXT[]
-    ELSE ARRAY_AGG(DISTINCT cem.origin_collection_id)
-  END AS collection_ids
-FROM
-  user_to_entity ute
-  INNER JOIN metadata m ON ute.metadata_id = m.id
-  LEFT JOIN review r ON r.user_id = ute.user_id
-  AND r.entity_id = ute.entity_id
-  AND r.entity_lot = ute.entity_lot
-  LEFT JOIN seen s ON s.user_id = ute.user_id
-  AND s.metadata_id = ute.metadata_id
-  LEFT JOIN collection_entity_membership cem ON cem.user_id = ute.user_id
-  AND cem.entity_id = ute.entity_id
-  AND cem.entity_lot = ute.entity_lot
-WHERE
-  ute.metadata_id IS NOT NULL
-GROUP BY
-  m.lot,
-  ute.id,
-  m.title,
-  ute.user_id,
-  ute.entity_id,
-  m.description,
-  m.publish_date,
-  ute.media_reason,
-  m.provider_rating,
-  ute.last_updated_on;
+    m.lot,
+    ute.id,
+    m.title,
+    ute.user_id,
+    m.description,
+    m.publish_date,
+    m.provider_rating,
+    ute.last_updated_on,
+    ute.entity_id AS metadata_id,
+    ra.average_rating,
+    COALESCE(sa.times_seen, 0::bigint) AS times_seen,
+    COALESCE(ute.media_reason, ARRAY[]::text[]) AS media_reason,
+    COALESCE(sa.seen_states, ARRAY[]::text[]) AS seen_states,
+    sa.max_seen_finished_on,
+    sa.max_seen_last_updated_on,
+    COALESCE(ca.collection_ids, ARRAY[]::text[]) AS collection_ids
+FROM user_to_entity ute
+    JOIN metadata m ON ute.metadata_id = m.id
+    LEFT JOIN seen_aggregates sa ON sa.user_id = ute.user_id AND sa.metadata_id = ute.metadata_id
+    LEFT JOIN review_aggregates ra ON ra.user_id = ute.user_id AND ra.entity_id = ute.entity_id AND ra.entity_lot = ute.entity_lot
+    LEFT JOIN collection_aggregates ca ON ca.user_id = ute.user_id AND ca.entity_id = ute.entity_id AND ca.entity_lot = ute.entity_lot
+WHERE ute.metadata_id IS NOT NULL;
 "# };
 
 #[async_trait::async_trait]
