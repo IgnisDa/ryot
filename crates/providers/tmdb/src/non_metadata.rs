@@ -58,7 +58,7 @@ impl MediaProvider for NonMediaTmdbService {
             .send()
             .await?;
         let search: TmdbListResponse = rsp.json().await?;
-        let resp = search
+        let items = search
             .results
             .into_iter()
             .map(|d| PeopleSearchItem {
@@ -70,7 +70,7 @@ impl MediaProvider for NonMediaTmdbService {
             .collect_vec();
         let next_page = (page < search.total_pages).then(|| page + 1);
         Ok(SearchResults {
-            items: resp.to_vec(),
+            items,
             details: SearchDetails {
                 next_page,
                 total_items: search.total_results,
