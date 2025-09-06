@@ -87,7 +87,7 @@ export const getProviderSourceImage = (source: MediaSource) =>
 		.with(MediaSource.Igdb, () => "igdb.svg")
 		.with(MediaSource.Itunes, () => "itunes.svg")
 		.with(MediaSource.Listennotes, () => "listennotes.webp")
-		.with(MediaSource.Myanimelist, () => "mal.svg")
+		.with(MediaSource.Myanimelist, () => "myanimelist.svg")
 		.with(MediaSource.MangaUpdates, () => "manga-updates.svg")
 		.with(MediaSource.Openlibrary, () => "openlibrary.svg")
 		.with(MediaSource.Tmdb, () => "tmdb.svg")
