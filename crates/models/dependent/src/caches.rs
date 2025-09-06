@@ -6,7 +6,7 @@ use common_models::{
     YoutubeMusicSongListened,
 };
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
-use media_models::{MetadataLookupResponse, MetadataProgressUpdateCacheInput};
+use media_models::{GenreDetailsInput, MetadataLookupResponse, MetadataProgressUpdateCacheInput};
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -14,6 +14,7 @@ use strum::{Display, EnumDiscriminants};
 use uuid::Uuid;
 
 use crate::{
+    GenreDetails,
     analytics::UserAnalytics,
     core_systems::{CoreDetails, TmdbSettings, TvdbSettings},
     generic_types::{
@@ -36,6 +37,12 @@ pub struct EmptyCacheValue {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq)]
 pub struct UserTwoFactorSetupCacheValue {
     pub secret: String,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EntityDetailsInput {
+    pub entity_id: String,
 }
 
 #[skip_serializing_none]
@@ -97,6 +104,7 @@ pub enum ApplicationCacheKey {
     UserCollectionsList(UserLevelCacheKey<()>),
     UserTwoFactorRateLimit(UserLevelCacheKey<()>),
     UserAnalyticsParameters(UserLevelCacheKey<()>),
+    GenreDetails(UserLevelCacheKey<GenreDetailsInput>),
     UserMetadataRecommendations(UserLevelCacheKey<()>),
     PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),
     UserAnalytics(UserLevelCacheKey<UserAnalyticsInput>),
@@ -130,6 +138,7 @@ pub type ListennotesSettings = HashMap<i32, String>;
 pub enum ApplicationCacheValue {
     TmdbSettings(TmdbSettings),
     TvdbSettings(TvdbSettings),
+    GenreDetails(GenreDetails),
     IgdbSettings(IgdbSettings),
     UserAnalytics(UserAnalytics),
     CoreDetails(Box<CoreDetails>),

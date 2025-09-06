@@ -39,6 +39,7 @@ pub struct SortInput<T: InputType + Default> {
 }
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[graphql(concrete(name = "CachedGenreDetailsResponse", params(GenreDetails)))]
 #[graphql(concrete(name = "CachedUserAnalyticsResponse", params(UserAnalytics)))]
 #[graphql(concrete(name = "CachedSearchIdResponse", params(UserMetadataListResponse)))]
 #[graphql(concrete(name = "CachedMetadataLookupResponse", params(MetadataLookupResponse)))]
@@ -82,7 +83,7 @@ pub struct MetadataGroupDetails {
     pub details: metadata_group::Model,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct GenreDetails {
     pub details: GenreListItem,
     pub contents: SearchResults<String>,

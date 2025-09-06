@@ -1,7 +1,7 @@
 use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 
 use anyhow::{Result, anyhow};
-use common_models::SearchDetails;
+use common_models::{SearchDetails, UserLevelCacheKey};
 use database_models::{
     metadata_group_to_person, metadata_to_genre, metadata_to_metadata_group, metadata_to_person,
     prelude::{
@@ -12,7 +12,8 @@ use database_models::{
 use database_utils::{extract_pagination_params, transform_entity_assets};
 use dependent_entity_utils::generic_metadata;
 use dependent_models::{
-    GenreDetails, GraphqlPersonDetails, MetadataBaseData, MetadataGroupDetails, SearchResults,
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, GenreDetails, GraphqlPersonDetails,
+    MetadataBaseData, MetadataGroupDetails, SearchResults,
 };
 use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
@@ -88,37 +89,48 @@ pub async fn genre_details(
     ss: &Arc<SupportingService>,
     user_id: String,
     input: GenreDetailsInput,
-) -> Result<GenreDetails> {
-    let (take, page) = extract_pagination_params(input.search, &user_id, ss).await?;
-    let genre = Genre::find_by_id(input.genre_id.clone())
-        .one(&ss.db)
-        .await?
-        .unwrap();
-    let paginator = MetadataToGenre::find()
-        .filter(metadata_to_genre::Column::GenreId.eq(input.genre_id))
-        .paginate(&ss.db, take);
-    let ItemsAndPagesNumber {
-        number_of_items,
-        number_of_pages,
-    } = paginator.num_items_and_pages().await?;
-    let mut contents = vec![];
-    for association_items in paginator.fetch_page(page - 1).await? {
-        contents.push(association_items.metadata_id);
-    }
-    Ok(GenreDetails {
-        details: GenreListItem {
-            id: genre.id,
-            name: genre.name,
-            num_items: Some(number_of_items.try_into().unwrap()),
+) -> Result<CachedResponse<GenreDetails>> {
+    cache_service::get_or_set_with_callback(
+        ss,
+        ApplicationCacheKey::GenreDetails(UserLevelCacheKey {
+            input: input.clone(),
+            user_id: user_id.to_owned(),
+        }),
+        ApplicationCacheValue::GenreDetails,
+        || async {
+            let (take, page) = extract_pagination_params(input.search, &user_id, ss).await?;
+            let genre = Genre::find_by_id(input.genre_id.clone())
+                .one(&ss.db)
+                .await?
+                .unwrap();
+            let paginator = MetadataToGenre::find()
+                .filter(metadata_to_genre::Column::GenreId.eq(input.genre_id))
+                .paginate(&ss.db, take);
+            let ItemsAndPagesNumber {
+                number_of_items,
+                number_of_pages,
+            } = paginator.num_items_and_pages().await?;
+            let mut contents = vec![];
+            for association_items in paginator.fetch_page(page - 1).await? {
+                contents.push(association_items.metadata_id);
+            }
+            Ok(GenreDetails {
+                details: GenreListItem {
+                    id: genre.id,
+                    name: genre.name,
+                    num_items: Some(number_of_items.try_into().unwrap()),
+                },
+                contents: SearchResults {
+                    items: contents,
+                    details: SearchDetails {
+                        total_items: number_of_items,
+                        next_page: (page < number_of_pages).then(|| page + 1),
+                    },
+                },
+            })
         },
-        contents: SearchResults {
-            items: contents,
-            details: SearchDetails {
-                total_items: number_of_items,
-                next_page: (page < number_of_pages).then(|| page + 1),
-            },
-        },
-    })
+    )
+    .await
 }
 
 pub async fn metadata_group_details(

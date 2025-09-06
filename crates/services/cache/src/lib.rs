@@ -42,7 +42,8 @@ fn get_expiry_for_key(ss: &Arc<SupportingService>, key: &ApplicationCacheKey) ->
             Duration::hours(ss.config.server.progress_update_threshold)
         }
 
-        ApplicationCacheKey::UserCollectionsList { .. }
+        ApplicationCacheKey::GenreDetails { .. }
+        | ApplicationCacheKey::UserCollectionsList { .. }
         | ApplicationCacheKey::UserAnalyticsParameters { .. } => Duration::hours(8),
 
         ApplicationCacheKey::TrendingMetadataIds

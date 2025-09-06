@@ -54,7 +54,7 @@ impl MiscellaneousGroupingQueryResolver {
         &self,
         gql_ctx: &Context<'_>,
         input: GenreDetailsInput,
-    ) -> Result<GenreDetails> {
+    ) -> Result<CachedResponse<GenreDetails>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         Ok(service.genre_details(user_id, input).await?)
     }

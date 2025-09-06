@@ -303,7 +303,7 @@ impl MiscellaneousService {
         &self,
         user_id: String,
         input: GenreDetailsInput,
-    ) -> Result<GenreDetails> {
+    ) -> Result<CachedResponse<GenreDetails>> {
         miscellaneous_entity_details_service::genre_details(&self.0, user_id, input).await
     }
 

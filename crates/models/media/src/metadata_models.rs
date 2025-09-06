@@ -20,7 +20,7 @@ pub struct EntityWithLot {
     pub entity_lot: EntityLot,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]
 pub struct GenreListItem {
     pub id: String,
     pub name: String,
