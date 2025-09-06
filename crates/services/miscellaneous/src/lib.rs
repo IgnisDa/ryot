@@ -48,7 +48,7 @@ impl MiscellaneousService {
     pub async fn metadata_details(
         &self,
         input: MetadataDetailsInput,
-    ) -> Result<GraphqlMetadataDetails> {
+    ) -> Result<CachedResponse<GraphqlMetadataDetails>> {
         miscellaneous_entity_details_service::metadata_details(&self.0, input).await
     }
 

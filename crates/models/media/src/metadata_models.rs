@@ -221,7 +221,7 @@ pub struct MetadataLookupInput {
     pub document_title: Option<String>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, PartialEq, Eq, Default, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataCreator {
     pub name: String,
     pub id: Option<String>,
@@ -229,20 +229,20 @@ pub struct MetadataCreator {
     pub character: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataCreatorGroupedByRole {
     pub name: String,
     pub items: Vec<MetadataCreator>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct GraphqlMetadataGroup {
+    pub part: i32,
     pub id: String,
     pub name: String,
-    pub part: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct GraphqlMetadataDetails {
     pub id: String,
     pub title: String,
@@ -274,7 +274,5 @@ pub struct GraphqlMetadataDetails {
     pub creators: Vec<MetadataCreatorGroupedByRole>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
-    #[graphql(skip)]
-    pub external_identifiers: Option<MetadataExternalIdentifiers>,
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
 }
