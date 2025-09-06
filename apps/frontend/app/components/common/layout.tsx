@@ -15,21 +15,21 @@ import {
 	Title,
 } from "@mantine/core";
 import {
-	DeployUpdateMediaEntityJobDocument,
-	type DeployUpdateMediaEntityJobMutationVariables,
 	type EntityAssets,
 	type EntityLot,
 	GridPacking,
 	type MediaLot,
-	MediaSource,
+	type MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconExternalLink } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { match } from "ts-pattern";
-import { useFallbackImageUrl, useUserPreferences } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/react-query";
+import {
+	useFallbackImageUrl,
+	usePartialStatusMonitor,
+	useUserPreferences,
+} from "~/lib/shared/hooks";
 import {
 	getProviderSourceImage,
 	getSurroundingElements,
@@ -76,46 +76,15 @@ export const MediaDetailsLayout = (props: {
 	};
 }) => {
 	const [activeImageId, setActiveImageId] = useState(0);
-	const [jobDeployedForEntity, setJobDeployedForEntity] = useState<
-		string | null
-	>(null);
 	const fallbackImageUrl = useFallbackImageUrl();
 
-	const deployUpdateMediaEntity = useMutation({
-		mutationFn: (input: DeployUpdateMediaEntityJobMutationVariables) =>
-			clientGqlService.request(DeployUpdateMediaEntityJobDocument, input),
+	const { isPartialStatusActive } = usePartialStatusMonitor({
+		onUpdate: props.partialDetailsFetcher.fn,
+		externalLinkSource: props.externalLink.source,
+		entityId: props.partialDetailsFetcher.entityId,
+		entityLot: props.partialDetailsFetcher.entityLot,
+		partialStatus: props.partialDetailsFetcher.partialStatus,
 	});
-
-	useEffect(() => {
-		const { partialStatus, entityId, entityLot, fn } =
-			props.partialDetailsFetcher;
-
-		if (jobDeployedForEntity && jobDeployedForEntity !== entityId) {
-			setJobDeployedForEntity(null);
-		}
-
-		if (!partialStatus || props.externalLink.source === MediaSource.Custom) {
-			setJobDeployedForEntity(null);
-			return;
-		}
-
-		if (jobDeployedForEntity !== entityId) {
-			deployUpdateMediaEntity.mutate({ entityId, entityLot });
-			setJobDeployedForEntity(entityId);
-		}
-
-		const interval = setInterval(fn, 1000);
-
-		return () => clearInterval(interval);
-	}, [
-		jobDeployedForEntity,
-		props.externalLink.source,
-		deployUpdateMediaEntity.mutate,
-		props.partialDetailsFetcher.fn,
-		props.partialDetailsFetcher.entityId,
-		props.partialDetailsFetcher.entityLot,
-		props.partialDetailsFetcher.partialStatus,
-	]);
 
 	const images = [...props.assets.remoteImages, ...props.assets.s3Images];
 
@@ -196,10 +165,7 @@ export const MediaDetailsLayout = (props: {
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>
 				<Group wrap="nowrap">
-					{props.partialDetailsFetcher.partialStatus &&
-					props.externalLink.source !== MediaSource.Custom ? (
-						<Loader size="sm" />
-					) : null}
+					{isPartialStatusActive ? <Loader size="sm" /> : null}
 					<Title id="media-title">{props.title}</Title>
 				</Group>
 				{props.children}

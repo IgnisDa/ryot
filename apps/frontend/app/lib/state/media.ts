@@ -10,6 +10,7 @@ import { useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { METADATA_LOTS_WITH_GRANULAR_UPDATES } from "~/components/routes/media-item/constants";
+import { waitForNonPartialMetadata } from "~/lib/shared/hooks";
 import {
 	clientGqlService,
 	getMetadataDetailsQuery,
@@ -46,10 +47,11 @@ const getUpdateMetadata = async (metadataId: string) => {
 	)
 		return meta;
 
-	const { metadataDetails } = await clientGqlService.request(
-		MetadataDetailsDocument,
-		{ metadataId },
-	);
+	await waitForNonPartialMetadata({ metadataId });
+
+	const metadataDetails = await clientGqlService
+		.request(MetadataDetailsDocument, { metadataId })
+		.then((m) => m.metadataDetails.response);
 	await queryClient.invalidateQueries({
 		queryKey: getMetadataDetailsQuery(metadataId).queryKey,
 	});

@@ -12,7 +12,7 @@ import type { UpdateProgressData } from "~/lib/state/media";
 
 export interface MetadataProgressFormProps {
 	onSubmit: () => void;
-	metadataDetails: MetadataDetailsQuery["metadataDetails"];
+	metadataDetails: MetadataDetailsQuery["metadataDetails"]["response"];
 }
 
 export interface MetadataInProgressFormProps extends MetadataProgressFormProps {
@@ -25,7 +25,7 @@ export interface MetadataNewProgressFormProps
 }
 
 export interface MediaFormProps {
-	metadataDetails: MetadataDetailsQuery["metadataDetails"];
+	metadataDetails: MetadataDetailsQuery["metadataDetails"]["response"];
 }
 
 export interface BulkUpdateContext {
@@ -37,5 +37,5 @@ export interface BulkUpdateContext {
 	metadataToUpdate: UpdateProgressData;
 	updates: MetadataProgressUpdateInput[];
 	common: MetadataProgressUpdateCommonInput;
-	metadataDetails: MetadataDetailsQuery["metadataDetails"];
+	metadataDetails: MetadataDetailsQuery["metadataDetails"]["response"];
 }
