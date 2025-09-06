@@ -107,7 +107,7 @@ export const ReviewItemDisplay = (props: {
 			refreshEntityDetails(props.entityId);
 			const message =
 				variables.incrementLikes || variables.decrementLikes
-					? "Score changed successfully"
+					? "Likes updated"
 					: `Comment ${variables.shouldDelete ? "deleted" : "posted"} successfully`;
 			notifications.show({ color: "green", message });
 		},
