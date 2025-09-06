@@ -24,12 +24,9 @@ impl MiscellaneousMetadataQueryResolver {
         &self,
         gql_ctx: &Context<'_>,
         metadata_id: String,
-        ensure_updated: Option<bool>,
     ) -> Result<GraphqlMetadataDetails> {
         let service = self.svc(gql_ctx);
-        Ok(service
-            .metadata_details(&metadata_id, ensure_updated)
-            .await?)
+        Ok(service.metadata_details(&metadata_id).await?)
     }
 
     /// Get all the media items related to a user for a specific media type.

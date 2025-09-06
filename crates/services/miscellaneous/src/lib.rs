@@ -45,13 +45,8 @@ impl MiscellaneousService {
         core_details(&self.0).await
     }
 
-    pub async fn metadata_details(
-        &self,
-        metadata_id: &String,
-        ensure_updated: Option<bool>,
-    ) -> Result<GraphqlMetadataDetails> {
-        miscellaneous_entity_details_service::metadata_details(&self.0, metadata_id, ensure_updated)
-            .await
+    pub async fn metadata_details(&self, metadata_id: &String) -> Result<GraphqlMetadataDetails> {
+        miscellaneous_entity_details_service::metadata_details(&self.0, metadata_id).await
     }
 
     pub async fn user_metadata_details(
