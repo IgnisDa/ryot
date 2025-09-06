@@ -171,8 +171,8 @@ impl MediaProvider for NonMediaTmdbService {
             birth_date: details.birthday,
             death_date: details.deathday,
             source_specifics: source_specifics.to_owned(),
+            description: description.filter(|s| !s.is_empty()),
             place: details.origin_country.or(details.place_of_birth),
-            description: description.and_then(|s| if s.as_str() == "" { None } else { Some(s) }),
             source_url: Some(format!(
                 "https://www.themoviedb.org/person/{identifier}-{name}"
             )),
