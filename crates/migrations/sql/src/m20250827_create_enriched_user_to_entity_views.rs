@@ -120,8 +120,8 @@ WITH seen_aggregates AS (
         s.user_id,
         s.metadata_id,
         count(s.id) AS times_seen,
-        array_agg(DISTINCT s.state) AS seen_states,
         max(s.finished_on) AS max_seen_finished_on,
+        array_agg(DISTINCT s.state) AS seen_states,
         max(s.last_updated_on) AS max_seen_last_updated_on
     FROM seen s
     GROUP BY s.user_id, s.metadata_id
@@ -154,14 +154,14 @@ SELECT
     m.description,
     m.publish_date,
     m.provider_rating,
-    ute.last_updated_on,
-    ute.entity_id AS metadata_id,
     ra.average_rating,
-    COALESCE(sa.times_seen, 0::bigint) AS times_seen,
-    COALESCE(ute.media_reason, ARRAY[]::text[]) AS media_reason,
-    COALESCE(sa.seen_states, ARRAY[]::text[]) AS seen_states,
+    ute.last_updated_on,
     sa.max_seen_finished_on,
     sa.max_seen_last_updated_on,
+    ute.entity_id AS metadata_id,
+    COALESCE(sa.times_seen, 0::bigint) AS times_seen,
+    COALESCE(sa.seen_states, ARRAY[]::text[]) AS seen_states,
+    COALESCE(ute.media_reason, ARRAY[]::text[]) AS media_reason,
     COALESCE(ca.collection_ids, ARRAY[]::text[]) AS collection_ids
 FROM user_to_entity ute
     JOIN metadata m ON ute.metadata_id = m.id
