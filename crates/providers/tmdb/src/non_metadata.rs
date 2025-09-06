@@ -174,7 +174,7 @@ impl MediaProvider for NonMediaTmdbService {
             description: description.filter(|s| !s.is_empty()),
             place: details.origin_country.or(details.place_of_birth),
             source_url: Some(format!(
-                "https://www.themoviedb.org/person/{identifier}-{name}"
+                "https://www.themoviedb.org/{person_type}/{identifier}-{name}"
             )),
             gender: details.gender.and_then(|g| match g {
                 1 => Some("Female".to_owned()),
