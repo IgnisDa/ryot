@@ -4,7 +4,7 @@ use database_models::{collection, metadata_group};
 use enum_models::MediaLot;
 use media_models::{
     CollectionContentsFilter, CollectionContentsSortBy, EntityWithLot, GenreListItem,
-    GraphqlSortOrder, MediaFilter, MediaSortBy, MetadataLookupResponse,
+    GraphqlMetadataDetails, GraphqlSortOrder, MediaFilter, MediaSortBy, MetadataLookupResponse,
     PersonAndMetadataGroupsSortBy, ReviewItem,
 };
 use serde::{Deserialize, Serialize};
@@ -54,6 +54,10 @@ pub struct SortInput<T: InputType + Default> {
 #[graphql(concrete(
     params(UserMeasurementsListResponse),
     name = "CachedUserMeasurementsListResponse",
+))]
+#[graphql(concrete(
+    params(GraphqlMetadataDetails),
+    name = "CachedGraphqlMetadataDetailsResponse",
 ))]
 #[graphql(concrete(
     params(ApplicationDateRange),

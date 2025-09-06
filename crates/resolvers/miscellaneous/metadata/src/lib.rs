@@ -24,7 +24,7 @@ impl MiscellaneousMetadataQueryResolver {
         &self,
         gql_ctx: &Context<'_>,
         metadata_id: String,
-    ) -> Result<GraphqlMetadataDetails> {
+    ) -> Result<CachedResponse<GraphqlMetadataDetails>> {
         let service = self.svc(gql_ctx);
         Ok(service.metadata_details(&metadata_id).await?)
     }
