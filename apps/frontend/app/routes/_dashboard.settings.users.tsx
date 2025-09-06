@@ -355,7 +355,7 @@ const UserActions = (props: {
 			await invalidateUsersList();
 			const message = deleteUser
 				? "User deleted successfully"
-				: "User can not be deleted";
+				: "User cannot be deleted";
 			const color = deleteUser ? "green" : "red";
 			notifications.show({
 				color,
