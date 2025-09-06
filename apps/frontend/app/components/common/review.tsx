@@ -24,6 +24,7 @@ import {
 	CreateReviewCommentDocument,
 	type CreateReviewCommentInput,
 } from "@ryot/generated/graphql/backend/graphql";
+import { DeleteReviewDocument } from "@ryot/generated/graphql/backend/graphql";
 import { getInitials, isNumber } from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
@@ -37,8 +38,6 @@ import {
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import { useFetcher } from "react-router";
-import { $path } from "safe-routes";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { reviewYellow } from "~/lib/shared/constants";
@@ -52,7 +51,6 @@ import {
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useReviewEntity } from "~/lib/state/media";
 import { ThreePointSmileyRating } from "~/lib/types";
-import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
 
 const LeaveCommentInline = (props: {
@@ -111,7 +109,19 @@ export const ReviewItemDisplay = (props: {
 	const [opened, { toggle }] = useDisclosure(false);
 	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
 		useDisclosure(false);
-	const deleteReviewFetcher = useFetcher<typeof action>();
+	const deleteReviewMutation = useMutation({
+		mutationFn: (reviewId: string) =>
+			clientGqlService.request(DeleteReviewDocument, { reviewId }),
+		onSuccess: () => {
+			refreshEntityDetails(props.entityId);
+			notifications.show({
+				color: "green",
+				message: "Review deleted successfully",
+			});
+		},
+		onError: () =>
+			notifications.show({ color: "red", message: "Failed to delete review" }),
+	});
 	const [_, setEntityToReview] = useReviewEntity();
 	const seenItemsAssociatedWith =
 		props.review.seenItemsAssociatedWith?.length || 0;
@@ -148,10 +158,10 @@ export const ReviewItemDisplay = (props: {
 								<ActionIcon
 									onClick={() => {
 										setEntityToReview({
-											entityLot: props.entityLot,
+											metadataLot: props.lot,
 											entityId: props.entityId,
 											entityTitle: props.title,
-											metadataLot: props.lot,
+											entityLot: props.entityLot,
 											existingReview: props.review,
 										});
 									}}
@@ -163,19 +173,9 @@ export const ReviewItemDisplay = (props: {
 									onClick={() => {
 										openConfirmationModal(
 											"Are you sure you want to delete this review? This action cannot be undone.",
-											() => {
-												deleteReviewFetcher.submit(
-													{
-														shouldDelete: "true",
-														reviewId: props.review.id || null,
-													},
-													{
-														method: "post",
-														action: $path("/actions", {
-															intent: "performReviewAction",
-														}),
-													},
-												);
+											async () => {
+												if (!props.review.id) return;
+												await deleteReviewMutation.mutateAsync(props.review.id);
 											},
 										);
 									}}
@@ -285,8 +285,8 @@ export const ReviewItemDisplay = (props: {
 							reviewId={props.review.id || ""}
 							onSubmit={async (text) => {
 								await reviewCommentMutation.mutateAsync({
-									reviewId: props.review.id || "",
 									text,
+									reviewId: props.review.id || "",
 								});
 								toggleLeaveComment();
 							}}
