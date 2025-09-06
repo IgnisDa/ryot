@@ -218,7 +218,7 @@ export const getMetadataGroupDetailsQuery = (metadataGroupId?: string) =>
 			? () =>
 					clientGqlService
 						.request(MetadataGroupDetailsDocument, { metadataGroupId })
-						.then((data) => data.metadataGroupDetails)
+						.then((data) => data.metadataGroupDetails.response)
 			: skipToken,
 	});
 

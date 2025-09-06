@@ -305,19 +305,21 @@ query CollectionContents($input: CollectionContentsInput!) {
 
 query MetadataGroupDetails($metadataGroupId: String!) {
 	metadataGroupDetails(metadataGroupId: $metadataGroupId) {
-		contents
-		details {
-			id
-			lot
-			title
-			parts
-			source
-			isPartial
-			sourceUrl
-			identifier
-			description
-			assets {
-				...EntityAssetsPart
+		response {
+			contents
+			details {
+				id
+				lot
+				title
+				parts
+				source
+				isPartial
+				sourceUrl
+				identifier
+				description
+				assets {
+					...EntityAssetsPart
+				}
 			}
 		}
 	}

@@ -21,7 +21,9 @@ use dependent_models::MetadataBaseData;
 use dependent_provider_utils::{
     details_from_provider, get_metadata_provider, get_non_metadata_provider,
 };
-use dependent_utility_utils::{expire_metadata_details_cache, expire_person_details_cache};
+use dependent_utility_utils::{
+    expire_metadata_details_cache, expire_metadata_group_details_cache, expire_person_details_cache,
+};
 use enum_models::{MetadataToMetadataRelation, UserNotificationContent};
 use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
@@ -453,7 +455,7 @@ async fn generate_metadata_update_notifications(
 }
 
 pub async fn update_metadata_group(
-    metadata_group_id: &str,
+    metadata_group_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
     let metadata_group = MetadataGroup::find_by_id(metadata_group_id)
@@ -490,6 +492,7 @@ pub async fn update_metadata_group(
         };
         intermediate.insert(&ss.db).await.ok();
     }
+    expire_metadata_group_details_cache(metadata_group_id, ss).await?;
     Ok(UpdateMediaEntityResult::default())
 }
 

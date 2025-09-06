@@ -22,7 +22,7 @@ impl MiscellaneousGroupingQueryResolver {
         &self,
         gql_ctx: &Context<'_>,
         metadata_group_id: String,
-    ) -> Result<MetadataGroupDetails> {
+    ) -> Result<CachedResponse<MetadataGroupDetails>> {
         let service = self.svc(gql_ctx);
         Ok(service.metadata_group_details(metadata_group_id).await?)
     }

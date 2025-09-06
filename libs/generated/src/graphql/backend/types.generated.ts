@@ -154,6 +154,12 @@ export type CachedGraphqlPersonDetailsResponse = {
   response: GraphqlPersonDetails;
 };
 
+export type CachedMetadataGroupDetailsResponse = {
+  __typename?: 'CachedMetadataGroupDetailsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: MetadataGroupDetails;
+};
+
 export type CachedMetadataLookupResponse = {
   __typename?: 'CachedMetadataLookupResponse';
   cacheId: Scalars['UUID']['output'];
@@ -2071,7 +2077,7 @@ export type QueryRoot = {
   /** Get details about a media present in the database. */
   metadataDetails: CachedGraphqlMetadataDetailsResponse;
   /** Get details about a metadata group present in the database. */
-  metadataGroupDetails: MetadataGroupDetails;
+  metadataGroupDetails: CachedMetadataGroupDetailsResponse;
   /** Search for a list of groups from a given source. */
   metadataGroupSearch: CachedSearchIdResponse;
   /** Lookup metadata by title. */

@@ -311,7 +311,7 @@ impl MiscellaneousService {
     pub async fn metadata_group_details(
         &self,
         metadata_group_id: String,
-    ) -> Result<MetadataGroupDetails> {
+    ) -> Result<CachedResponse<MetadataGroupDetails>> {
         miscellaneous_entity_details_service::metadata_group_details(&self.0, metadata_group_id)
             .await
     }

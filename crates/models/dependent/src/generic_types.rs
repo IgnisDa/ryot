@@ -60,6 +60,10 @@ pub struct SortInput<T: InputType + Default> {
     name = "CachedGraphqlPersonDetailsResponse",
 ))]
 #[graphql(concrete(
+    params(MetadataGroupDetails),
+    name = "CachedMetadataGroupDetailsResponse",
+))]
+#[graphql(concrete(
     params(GraphqlMetadataDetails),
     name = "CachedGraphqlMetadataDetailsResponse",
 ))]
@@ -85,7 +89,7 @@ pub struct CollectionContents {
     pub results: SearchResults<EntityWithLot>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataGroupDetails {
     pub contents: Vec<String>,
     pub details: metadata_group::Model,

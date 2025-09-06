@@ -144,21 +144,29 @@ pub async fn genre_details(
 pub async fn metadata_group_details(
     ss: &Arc<SupportingService>,
     metadata_group_id: String,
-) -> Result<MetadataGroupDetails> {
-    let mut details = MetadataGroup::find_by_id(&metadata_group_id)
-        .one(&ss.db)
-        .await?
-        .unwrap();
-    transform_entity_assets(&mut details.assets, ss).await?;
-    let contents = MetadataToMetadataGroup::find()
-        .select_only()
-        .column(metadata_to_metadata_group::Column::MetadataId)
-        .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(metadata_group_id))
-        .order_by_asc(metadata_to_metadata_group::Column::Part)
-        .into_tuple::<String>()
-        .all(&ss.db)
-        .await?;
-    Ok(MetadataGroupDetails { details, contents })
+) -> Result<CachedResponse<MetadataGroupDetails>> {
+    cache_service::get_or_set_with_callback(
+        ss,
+        ApplicationCacheKey::MetadataDetails(metadata_group_id.to_owned()),
+        |f| ApplicationCacheValue::MetadataGroupDetails(Box::new(f)),
+        || async {
+            let mut details = MetadataGroup::find_by_id(&metadata_group_id)
+                .one(&ss.db)
+                .await?
+                .unwrap();
+            transform_entity_assets(&mut details.assets, ss).await?;
+            let contents = MetadataToMetadataGroup::find()
+                .select_only()
+                .column(metadata_to_metadata_group::Column::MetadataId)
+                .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(metadata_group_id))
+                .order_by_asc(metadata_to_metadata_group::Column::Part)
+                .into_tuple::<String>()
+                .all(&ss.db)
+                .await?;
+            Ok(MetadataGroupDetails { details, contents })
+        },
+    )
+    .await
 }
 
 pub async fn metadata_details(
