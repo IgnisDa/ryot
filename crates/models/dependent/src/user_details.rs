@@ -94,7 +94,7 @@ pub enum UserDetailsResult {
     Error(UserDetailsError),
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct GraphqlPersonDetails {
     pub details: person::Model,
     pub associated_metadata: Vec<PersonDetailsGroupedByRole>,

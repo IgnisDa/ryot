@@ -21,7 +21,7 @@ use dependent_models::MetadataBaseData;
 use dependent_provider_utils::{
     details_from_provider, get_metadata_provider, get_non_metadata_provider,
 };
-use dependent_utility_utils::expire_metadata_details_cache;
+use dependent_utility_utils::{expire_metadata_details_cache, expire_person_details_cache};
 use enum_models::{MetadataToMetadataRelation, UserNotificationContent};
 use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
@@ -629,6 +629,7 @@ pub async fn update_person(
     }
     to_update_person.state_changes = ActiveValue::Set(Some(current_state_changes));
     to_update_person.update(&ss.db).await.unwrap();
+    expire_person_details_cache(&person_id, ss).await?;
     Ok(UpdateMediaEntityResult { notifications })
 }
 

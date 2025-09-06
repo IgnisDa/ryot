@@ -6,7 +6,7 @@ use database_models::{
     prelude::{Metadata, MetadataGroup, Person},
 };
 use dependent_models::ExpireCacheKeyInput;
-use dependent_utility_utils::expire_metadata_details_cache;
+use dependent_utility_utils::{expire_metadata_details_cache, expire_person_details_cache};
 use enum_models::EntityLot;
 use media_models::MarkEntityAsPartialInput;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::Expr};
@@ -44,6 +44,7 @@ pub async fn mark_entity_as_partial(
                 .col_expr(person::Column::IsPartial, Expr::value(true))
                 .exec(&ss.db)
                 .await?;
+            expire_person_details_cache(&input.entity_id, ss).await?;
         }
         _ => bail!("Invalid entity lot".to_owned()),
     }

@@ -28,13 +28,13 @@ pub struct ReviewItem {
     pub podcast_extra_information: Option<SeenPodcastExtraOptionalInformation>,
 }
 
-#[derive(Debug, Serialize, Default, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, PartialEq, Eq, Serialize, Default, Deserialize, SimpleObject, Clone)]
 pub struct PersonDetailsItemWithCharacter {
     pub entity_id: String,
     pub character: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct PersonDetailsGroupedByRole {
     /// The name of the role performed.
     pub name: String,

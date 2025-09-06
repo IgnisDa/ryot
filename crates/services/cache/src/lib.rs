@@ -43,6 +43,7 @@ fn get_expiry_for_key(ss: &Arc<SupportingService>, key: &ApplicationCacheKey) ->
         }
 
         ApplicationCacheKey::GenreDetails { .. }
+        | ApplicationCacheKey::PersonDetails { .. }
         | ApplicationCacheKey::MetadataDetails { .. }
         | ApplicationCacheKey::UserCollectionsList { .. }
         | ApplicationCacheKey::UserAnalyticsParameters { .. } => Duration::hours(8),

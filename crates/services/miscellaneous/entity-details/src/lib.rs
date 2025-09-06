@@ -30,59 +30,67 @@ use supporting_service::SupportingService;
 pub async fn person_details(
     person_id: String,
     ss: &Arc<SupportingService>,
-) -> Result<GraphqlPersonDetails> {
-    let mut details = Person::find_by_id(person_id.clone())
-        .one(&ss.db)
-        .await?
-        .unwrap();
-    transform_entity_assets(&mut details.assets, ss).await?;
-    let metadata_associations = MetadataToPerson::find()
-        .filter(metadata_to_person::Column::PersonId.eq(&person_id))
-        .order_by_asc(metadata_to_person::Column::Index)
-        .all(&ss.db)
-        .await?;
-    let mut metadata_contents: HashMap<_, Vec<_>> = HashMap::new();
-    for assoc in metadata_associations {
-        let to_push = PersonDetailsItemWithCharacter {
-            character: assoc.character,
-            entity_id: assoc.metadata_id,
-        };
-        metadata_contents
-            .entry(assoc.role)
-            .and_modify(|e| e.push(to_push.clone()))
-            .or_insert(vec![to_push]);
-    }
-    let associated_metadata = metadata_contents
-        .into_iter()
-        .map(|(name, items)| PersonDetailsGroupedByRole { name, items })
-        .sorted_by_key(|f| Reverse(f.items.len()))
-        .collect_vec();
-    let associated_metadata_groups = MetadataGroupToPerson::find()
-        .filter(metadata_group_to_person::Column::PersonId.eq(person_id))
-        .order_by_asc(metadata_group_to_person::Column::Index)
-        .all(&ss.db)
-        .await?;
-    let mut metadata_group_contents: HashMap<_, Vec<_>> = HashMap::new();
-    for assoc in associated_metadata_groups {
-        let to_push = PersonDetailsItemWithCharacter {
-            entity_id: assoc.metadata_group_id,
-            ..Default::default()
-        };
-        metadata_group_contents
-            .entry(assoc.role)
-            .and_modify(|e| e.push(to_push.clone()))
-            .or_insert(vec![to_push]);
-    }
-    let associated_metadata_groups = metadata_group_contents
-        .into_iter()
-        .map(|(name, items)| PersonDetailsGroupedByRole { name, items })
-        .sorted_by_key(|f| Reverse(f.items.len()))
-        .collect_vec();
-    Ok(GraphqlPersonDetails {
-        details,
-        associated_metadata,
-        associated_metadata_groups,
-    })
+) -> Result<CachedResponse<GraphqlPersonDetails>> {
+    cache_service::get_or_set_with_callback(
+        ss,
+        ApplicationCacheKey::PersonDetails(person_id.clone()),
+        ApplicationCacheValue::PersonDetails,
+        || async {
+            let mut details = Person::find_by_id(person_id.clone())
+                .one(&ss.db)
+                .await?
+                .unwrap();
+            transform_entity_assets(&mut details.assets, ss).await?;
+            let metadata_associations = MetadataToPerson::find()
+                .filter(metadata_to_person::Column::PersonId.eq(&person_id))
+                .order_by_asc(metadata_to_person::Column::Index)
+                .all(&ss.db)
+                .await?;
+            let mut metadata_contents: HashMap<_, Vec<_>> = HashMap::new();
+            for assoc in metadata_associations {
+                let to_push = PersonDetailsItemWithCharacter {
+                    character: assoc.character,
+                    entity_id: assoc.metadata_id,
+                };
+                metadata_contents
+                    .entry(assoc.role)
+                    .and_modify(|e| e.push(to_push.clone()))
+                    .or_insert(vec![to_push]);
+            }
+            let associated_metadata = metadata_contents
+                .into_iter()
+                .map(|(name, items)| PersonDetailsGroupedByRole { name, items })
+                .sorted_by_key(|f| Reverse(f.items.len()))
+                .collect_vec();
+            let associated_metadata_groups = MetadataGroupToPerson::find()
+                .filter(metadata_group_to_person::Column::PersonId.eq(person_id))
+                .order_by_asc(metadata_group_to_person::Column::Index)
+                .all(&ss.db)
+                .await?;
+            let mut metadata_group_contents: HashMap<_, Vec<_>> = HashMap::new();
+            for assoc in associated_metadata_groups {
+                let to_push = PersonDetailsItemWithCharacter {
+                    entity_id: assoc.metadata_group_id,
+                    ..Default::default()
+                };
+                metadata_group_contents
+                    .entry(assoc.role)
+                    .and_modify(|e| e.push(to_push.clone()))
+                    .or_insert(vec![to_push]);
+            }
+            let associated_metadata_groups = metadata_group_contents
+                .into_iter()
+                .map(|(name, items)| PersonDetailsGroupedByRole { name, items })
+                .sorted_by_key(|f| Reverse(f.items.len()))
+                .collect_vec();
+            Ok(GraphqlPersonDetails {
+                details,
+                associated_metadata,
+                associated_metadata_groups,
+            })
+        },
+    )
+    .await
 }
 
 pub async fn genre_details(

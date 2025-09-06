@@ -293,7 +293,10 @@ impl MiscellaneousService {
         user_people_list(&user_id, input, &self.0).await
     }
 
-    pub async fn person_details(&self, person_id: String) -> Result<GraphqlPersonDetails> {
+    pub async fn person_details(
+        &self,
+        person_id: String,
+    ) -> Result<CachedResponse<GraphqlPersonDetails>> {
         miscellaneous_entity_details_service::person_details(person_id, &self.0).await
     }
 

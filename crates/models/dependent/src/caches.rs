@@ -17,7 +17,7 @@ use strum::{Display, EnumDiscriminants};
 use uuid::Uuid;
 
 use crate::{
-    GenreDetails,
+    GenreDetails, GraphqlPersonDetails,
     analytics::UserAnalytics,
     core_systems::{CoreDetails, TmdbSettings, TvdbSettings},
     generic_types::{
@@ -95,6 +95,7 @@ pub enum ApplicationCacheKey {
     SpotifyAccessToken,
     ListennotesSettings,
     TrendingMetadataIds,
+    PersonDetails(String),
     MetadataDetails(String),
     UserSession(UserSessionInput),
     MetadataLookup(MetadataLookupCacheInput),
@@ -142,6 +143,7 @@ pub enum ApplicationCacheValue {
     CoreDetails(Box<CoreDetails>),
     UserSession(UserSessionValue),
     PeopleSearch(PeopleSearchResponse),
+    PersonDetails(GraphqlPersonDetails),
     SpotifyAccessToken(SpotifyAccessToken),
     MetadataLookup(MetadataLookupResponse),
     MetadataSearch(MetadataSearchResponse),

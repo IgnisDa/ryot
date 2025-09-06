@@ -10,7 +10,7 @@ use media_models::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{BasicUserDetails, UserAnalytics};
+use crate::{BasicUserDetails, GraphqlPersonDetails, UserAnalytics};
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(
@@ -54,6 +54,10 @@ pub struct SortInput<T: InputType + Default> {
 #[graphql(concrete(
     params(UserMeasurementsListResponse),
     name = "CachedUserMeasurementsListResponse",
+))]
+#[graphql(concrete(
+    params(GraphqlPersonDetails),
+    name = "CachedGraphqlPersonDetailsResponse",
 ))]
 #[graphql(concrete(
     params(GraphqlMetadataDetails),
