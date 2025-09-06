@@ -156,9 +156,9 @@ const DisplayGenre = (props: { genreId: string }) => {
 			);
 
 			for (const image of results)
-				if (image && images.length < maxImages) images.push(image);
+				if (image && images.length <= maxImages) images.push(image);
 
-			if (images.length < maxImages)
+			if (images.length <= maxImages)
 				return { genreDetails, images: images.slice(0, 1) };
 
 			return { genreDetails, images };
