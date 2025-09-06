@@ -20,18 +20,23 @@ import { showPropertiesJsonSchema } from "~/lib/media/show";
 import { videoGamePropertiesJsonSchema } from "~/lib/media/video-game";
 import { visualNovelPropertiesJsonSchema } from "~/lib/media/visual-novel";
 
+const consumedOnField = {
+	consumedOn: {
+		label: "Consumed On",
+		type: "string" as const,
+		description: "The source or platform where this content was consumed (e.g. Netflix, Jellyfin)",
+	},
+};
+
 const progressPercentPropertiesSchema = () => ({
 	fields: {
+		...consumedOnField,
 		progressPercent: {
 			type: "number" as const,
 			label: "Progress Percent",
 			transform: { round: { mode: "half_up" as const, scale: 2 } },
 			description: "Percentage of the media completed so far (0 to 100)",
-			validation: {
-				maximum: 100,
-				exclusiveMinimum: 0,
-				required: true as const,
-			},
+			validation: { maximum: 100, exclusiveMinimum: 0, required: true as const },
 		},
 	},
 });
@@ -198,6 +203,7 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 		slug: "complete",
 		propertiesSchema: {
 			fields: {
+				...consumedOnField,
 				startedOn: {
 					label: "Started On",
 					type: "datetime" as const,

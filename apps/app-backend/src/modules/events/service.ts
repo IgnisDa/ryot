@@ -461,8 +461,15 @@ export const processEventSchemaTriggers = async (
 
 		return matchingTriggers.map(async (trigger) => {
 			const jobId = `event-schema-trigger-${trigger.id}-${createdEvent.id}`;
+			const inheritedKeys = trigger.metadata.inheritedProperties ?? [];
+			const inheritedProperties = Object.fromEntries(
+				inheritedKeys
+					.filter((key) => key in createdEvent.properties)
+					.map((key) => [key, createdEvent.properties[key]]),
+			);
 			const context = {
 				trigger: {
+					inheritedProperties,
 					eventId: createdEvent.id,
 					entityId: createdEvent.entityId,
 					properties: createdEvent.properties,
