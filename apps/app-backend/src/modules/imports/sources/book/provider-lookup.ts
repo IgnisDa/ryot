@@ -1,5 +1,6 @@
 import { appConfig } from "~/lib/config";
 
+import { sanitizeErrorMessage } from "../../helpers";
 import type { ImportEntityRef } from "../../jobs";
 import { normalizeIsbn } from "./shared";
 
@@ -21,13 +22,6 @@ const bookProviderLookupDeps: BookProviderLookupDeps = {
 		hardcoverApiKey: appConfig.books.hardcover.apiKey,
 		googleBooksApiKey: appConfig.books.googleBooks.apiKey,
 	}),
-};
-
-const sanitizeErrorMessage = (error: unknown, fallback: string): string => {
-	if (!(error instanceof Error)) {
-		return fallback;
-	}
-	return error.message;
 };
 
 const extractKeySegment = (value: string | undefined): string | undefined => {

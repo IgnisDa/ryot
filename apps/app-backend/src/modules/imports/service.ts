@@ -4,6 +4,7 @@ import { type ServiceResult, serviceData, serviceError } from "~/lib/result";
 import { claimUploadToken } from "~/lib/temporary-upload-token";
 
 import { cleanupImportFile, resolveSafeImportFilePath, validateFileExtension } from "./files";
+import { failImportRun } from "./helpers";
 import { importRunJobName } from "./jobs";
 import {
 	createImportRun,
@@ -11,7 +12,6 @@ import {
 	getImportRunById,
 	listImportRunFailuresByRunId,
 	listImportRunsByUser,
-	updateImportRun,
 } from "./repository";
 import type {
 	CreateImportRunBody,
@@ -83,12 +83,7 @@ export const startImportRun = async (input: {
 				filePath: safePathResult.path,
 			});
 		} catch {
-			await updateImportRun({
-				runId: run.id,
-				status: "failed",
-				finishedAt: new Date(),
-				errorSummary: "Failed to enqueue import job",
-			});
+			await failImportRun(run.id, "Failed to enqueue import job");
 			await cleanupImportFile(safePathResult.path);
 			return serviceError("validation", "Could not queue the import job; please try again");
 		}
@@ -109,12 +104,7 @@ export const startImportRun = async (input: {
 			sourcePayload: buildSourcePayload(input.body),
 		});
 	} catch {
-		await updateImportRun({
-			runId: run.id,
-			status: "failed",
-			finishedAt: new Date(),
-			errorSummary: "Failed to enqueue import job",
-		});
+		await failImportRun(run.id, "Failed to enqueue import job");
 		return serviceError("validation", "Could not queue the import job; please try again");
 	}
 
