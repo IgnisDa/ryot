@@ -1279,11 +1279,6 @@ export type MetadataCreatorGroupedByRole = {
   name: Scalars['String']['output'];
 };
 
-export type MetadataDetailsInput = {
-  ensureUpdated?: InputMaybe<Scalars['Boolean']['input']>;
-  metadataId: Scalars['String']['input'];
-};
-
 export type MetadataGroup = {
   __typename?: 'MetadataGroup';
   assets: EntityAssets;
@@ -2167,7 +2162,8 @@ export type QueryRootGetPresignedS3UrlArgs = {
 
 
 export type QueryRootMetadataDetailsArgs = {
-  input: MetadataDetailsInput;
+  ensureUpdated?: InputMaybe<Scalars['Boolean']['input']>;
+  metadataId: Scalars['String']['input'];
 };
 
 

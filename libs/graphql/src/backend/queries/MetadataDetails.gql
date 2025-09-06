@@ -1,5 +1,5 @@
-query MetadataDetails($input: MetadataDetailsInput!) {
-	metadataDetails(input: $input) {
+query MetadataDetails($metadataId: String!, $ensureUpdated: Boolean) {
+	metadataDetails(metadataId: $metadataId, ensureUpdated: $ensureUpdated) {
 		id
 		lot
 		title

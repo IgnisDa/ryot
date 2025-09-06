@@ -178,7 +178,7 @@ export const getMetadataDetailsQuery = (metadataId?: string) =>
 		queryFn: metadataId
 			? () =>
 					clientGqlService
-						.request(MetadataDetailsDocument, { input: { metadataId } })
+						.request(MetadataDetailsDocument, { metadataId })
 						.then((data) => data.metadataDetails)
 			: skipToken,
 	});

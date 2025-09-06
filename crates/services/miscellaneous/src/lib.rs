@@ -30,9 +30,9 @@ use enum_models::EntityLot;
 use media_models::{
     CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
     GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent,
-    MarkEntityAsPartialInput, MetadataDetailsInput, MetadataLookupResponse,
-    MetadataProgressUpdateInput, ReviewPostedEvent, UpdateCustomMetadataInput, UpdateSeenItemInput,
-    UserCalendarEventInput, UserUpcomingCalendarEventInput,
+    MarkEntityAsPartialInput, MetadataLookupResponse, MetadataProgressUpdateInput,
+    ReviewPostedEvent, UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
+    UserUpcomingCalendarEventInput,
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc, prelude::Expr};
 use supporting_service::SupportingService;
@@ -47,9 +47,11 @@ impl MiscellaneousService {
 
     pub async fn metadata_details(
         &self,
-        input: MetadataDetailsInput,
+        metadata_id: &String,
+        ensure_updated: Option<bool>,
     ) -> Result<GraphqlMetadataDetails> {
-        miscellaneous_entity_details_service::metadata_details(&self.0, input).await
+        miscellaneous_entity_details_service::metadata_details(&self.0, metadata_id, ensure_updated)
+            .await
     }
 
     pub async fn user_metadata_details(
