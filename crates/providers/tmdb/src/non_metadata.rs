@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
-use enum_models::MediaSource;
+use enum_models::{MediaLot, MediaSource};
 use futures::{
     stream::{self, StreamExt},
     try_join,
@@ -128,8 +128,8 @@ impl MediaProvider for NonMediaTmdbService {
                     title: media.title.or(media.name).unwrap_or_default(),
                     image: media.poster_path.map(|p| self.base.get_image_url(p)),
                     lot: match media.media_type.unwrap().as_ref() {
-                        "movie" => enum_models::MediaLot::Movie,
-                        "tv" => enum_models::MediaLot::Show,
+                        "tv" => MediaLot::Show,
+                        "movie" => MediaLot::Movie,
                         _ => continue,
                     },
                     ..Default::default()

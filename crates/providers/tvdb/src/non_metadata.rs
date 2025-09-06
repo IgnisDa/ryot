@@ -133,11 +133,11 @@ impl MediaProvider for NonMediaTvdbService {
 
                 if let Some(movie_id) = character.movie_id {
                     let metadata = media_models::PartialMetadataWithoutId {
+                        lot: MediaLot::Movie,
                         source: MediaSource::Tvdb,
-                        identifier: movie_id.to_string(),
                         title: character_name.clone(),
                         image: character.image.clone(),
-                        lot: enum_models::MediaLot::Movie,
+                        identifier: movie_id.to_string(),
                         ..Default::default()
                     };
                     related_metadata.push(MetadataPersonRelated {
