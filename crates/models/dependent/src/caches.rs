@@ -41,12 +41,6 @@ pub struct UserTwoFactorSetupCacheValue {
 
 #[skip_serializing_none]
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EntityDetailsInput {
-    pub entity_id: String,
-}
-
-#[skip_serializing_none]
-#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CollectionRecommendationsCachedInput {
     pub collection_id: String,
 }
