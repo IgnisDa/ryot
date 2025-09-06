@@ -127,18 +127,18 @@ export const MediaDetailsLayout = (props: {
 			>
 				<Paper
 					px={10}
+					top={0}
 					left={0}
 					right={0}
-					bottom={0}
 					pos="absolute"
 					py={providerImage ? undefined : 5}
 					style={{
 						zIndex: 1,
 						display: "flex",
 						alignItems: "center",
-						borderBottomLeftRadius: "1rem",
+						borderTopLeftRadius: "1rem",
+						borderTopRightRadius: "1rem",
 						justifyContent: "space-between",
-						borderBottomRightRadius: "1rem",
 						backgroundColor: "rgba(0, 0, 0, 0.75)",
 					}}
 				>
