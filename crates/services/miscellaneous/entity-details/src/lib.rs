@@ -156,76 +156,69 @@ pub async fn metadata_group_details(
 pub async fn metadata_details(
     ss: &Arc<SupportingService>,
     input: MetadataDetailsInput,
-) -> Result<CachedResponse<GraphqlMetadataDetails>> {
-    cache_service::get_or_set_with_callback(
-        ss,
-        ApplicationCacheKey::MetadataDetails(input.clone()),
-        ApplicationCacheValue::MetadataDetails,
-        || async {
-            let (
-                MetadataBaseData {
-                    model,
-                    genres,
-                    creators,
-                    suggestions,
-                },
-                associations,
-            ) = try_join!(
-                generic_metadata(&input.metadata_id, ss, input.ensure_updated),
-                MetadataToMetadataGroup::find()
-                    .filter(metadata_to_metadata_group::Column::MetadataId.eq(&input.metadata_id))
-                    .find_also_related(MetadataGroup)
-                    .all(&ss.db)
-                    .map_err(|_| anyhow!("Failed to fetch metadata associations"))
-            )?;
-
-            let mut group = vec![];
-            for association in associations {
-                let grp = association.1.unwrap();
-                group.push(GraphqlMetadataGroup {
-                    id: grp.id,
-                    name: grp.title,
-                    part: association.0.part,
-                });
-            }
-
-            let watch_providers = model.watch_providers.unwrap_or_default();
-
-            let resp = GraphqlMetadataDetails {
-                group,
-                genres,
-                creators,
-                suggestions,
-                id: model.id,
-                lot: model.lot,
-                watch_providers,
-                title: model.title,
-                assets: model.assets,
-                source: model.source,
-                is_nsfw: model.is_nsfw,
-                source_url: model.source_url,
-                is_partial: model.is_partial,
-                identifier: model.identifier,
-                description: model.description,
-                publish_date: model.publish_date,
-                publish_year: model.publish_year,
-                book_specifics: model.book_specifics,
-                show_specifics: model.show_specifics,
-                movie_specifics: model.movie_specifics,
-                music_specifics: model.music_specifics,
-                manga_specifics: model.manga_specifics,
-                anime_specifics: model.anime_specifics,
-                provider_rating: model.provider_rating,
-                production_status: model.production_status,
-                original_language: model.original_language,
-                podcast_specifics: model.podcast_specifics,
-                created_by_user_id: model.created_by_user_id,
-                video_game_specifics: model.video_game_specifics,
-                audio_book_specifics: model.audio_book_specifics,
-                visual_novel_specifics: model.visual_novel_specifics,
-            };
-            Ok(resp)
+) -> Result<GraphqlMetadataDetails> {
+    let (
+        MetadataBaseData {
+            model,
+            genres,
+            creators,
+            suggestions,
         },
-    )
-    .await
+        associations,
+    ) = try_join!(
+        generic_metadata(&input.metadata_id, ss, input.ensure_updated),
+        MetadataToMetadataGroup::find()
+            .filter(metadata_to_metadata_group::Column::MetadataId.eq(&input.metadata_id))
+            .find_also_related(MetadataGroup)
+            .all(&ss.db)
+            .map_err(|_| anyhow!("Failed to fetch metadata associations"))
+    )?;
+
+    let mut group = vec![];
+    for association in associations {
+        let grp = association.1.unwrap();
+        group.push(GraphqlMetadataGroup {
+            id: grp.id,
+            name: grp.title,
+            part: association.0.part,
+        });
+    }
+
+    let watch_providers = model.watch_providers.unwrap_or_default();
+
+    let resp = GraphqlMetadataDetails {
+        group,
+        genres,
+        creators,
+        suggestions,
+        id: model.id,
+        lot: model.lot,
+        watch_providers,
+        title: model.title,
+        assets: model.assets,
+        source: model.source,
+        is_nsfw: model.is_nsfw,
+        source_url: model.source_url,
+        is_partial: model.is_partial,
+        identifier: model.identifier,
+        description: model.description,
+        publish_date: model.publish_date,
+        publish_year: model.publish_year,
+        book_specifics: model.book_specifics,
+        show_specifics: model.show_specifics,
+        movie_specifics: model.movie_specifics,
+        music_specifics: model.music_specifics,
+        manga_specifics: model.manga_specifics,
+        anime_specifics: model.anime_specifics,
+        provider_rating: model.provider_rating,
+        production_status: model.production_status,
+        original_language: model.original_language,
+        podcast_specifics: model.podcast_specifics,
+        created_by_user_id: model.created_by_user_id,
+        external_identifiers: model.external_identifiers,
+        video_game_specifics: model.video_game_specifics,
+        audio_book_specifics: model.audio_book_specifics,
+        visual_novel_specifics: model.visual_novel_specifics,
+    };
+    Ok(resp)
 }

@@ -6,10 +6,7 @@ use common_models::{
     YoutubeMusicSongListened,
 };
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
-use media_models::{
-    GenreDetailsInput, GraphqlMetadataDetails, MetadataDetailsInput, MetadataLookupResponse,
-    MetadataProgressUpdateCacheInput,
-};
+use media_models::{GenreDetailsInput, MetadataLookupResponse, MetadataProgressUpdateCacheInput};
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -96,7 +93,6 @@ pub enum ApplicationCacheKey {
     ListennotesSettings,
     TrendingMetadataIds,
     UserSession(UserSessionInput),
-    MetadataDetails(MetadataDetailsInput),
     MetadataLookup(MetadataLookupCacheInput),
     UserTwoFactorSetup(UserLevelCacheKey<()>),
     UserCollectionsList(UserLevelCacheKey<()>),
@@ -146,7 +142,6 @@ pub enum ApplicationCacheValue {
     MetadataLookup(MetadataLookupResponse),
     MetadataSearch(MetadataSearchResponse),
     UserPeopleList(UserPeopleListResponse),
-    MetadataDetails(GraphqlMetadataDetails),
     UserTwoFactorRateLimit(EmptyCacheValue),
     ListennotesSettings(ListennotesSettings),
     MetadataRecentlyConsumed(EmptyCacheValue),

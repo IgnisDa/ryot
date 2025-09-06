@@ -142,12 +142,6 @@ export type CachedGenreDetailsResponse = {
   response: GenreDetails;
 };
 
-export type CachedGraphqlMetadataDetailsResponse = {
-  __typename?: 'CachedGraphqlMetadataDetailsResponse';
-  cacheId: Scalars['UUID']['output'];
-  response: GraphqlMetadataDetails;
-};
-
 export type CachedMetadataLookupResponse = {
   __typename?: 'CachedMetadataLookupResponse';
   cacheId: Scalars['UUID']['output'];
@@ -2068,7 +2062,7 @@ export type QueryRoot = {
   /** Get a presigned URL (valid for 90 minutes) for a given key. */
   getPresignedS3Url: Scalars['String']['output'];
   /** Get details about a media present in the database. */
-  metadataDetails: CachedGraphqlMetadataDetailsResponse;
+  metadataDetails: GraphqlMetadataDetails;
   /** Get details about a metadata group present in the database. */
   metadataGroupDetails: MetadataGroupDetails;
   /** Search for a list of groups from a given source. */

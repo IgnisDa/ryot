@@ -1,122 +1,120 @@
 query MetadataDetails($input: MetadataDetailsInput!) {
 	metadataDetails(input: $input) {
-		response {
+		id
+		lot
+		title
+		source
+		isNsfw
+		isPartial
+		sourceUrl
+		identifier
+		description
+		suggestions
+		publishYear
+		publishDate
+		providerRating
+		createdByUserId
+		productionStatus
+		originalLanguage
+		animeSpecifics {
+			episodes
+		}
+		audioBookSpecifics {
+			runtime
+		}
+		movieSpecifics {
+			runtime
+		}
+		genres {
 			id
-			lot
-			title
-			source
-			isNsfw
-			isPartial
-			sourceUrl
-			identifier
-			description
-			suggestions
-			publishYear
-			publishDate
-			providerRating
-			createdByUserId
-			productionStatus
-			originalLanguage
-			animeSpecifics {
-				episodes
-			}
-			audioBookSpecifics {
-				runtime
-			}
-			movieSpecifics {
-				runtime
-			}
-			genres {
+			name
+		}
+		group {
+			id
+			name
+			part
+		}
+		watchProviders {
+			name
+			image
+			languages
+		}
+		bookSpecifics {
+			pages
+			isCompilation
+		}
+		mangaSpecifics {
+			volumes
+			chapters
+		}
+		assets {
+			...EntityAssetsPart
+		}
+		creators {
+			name
+			items {
 				id
-				name
-			}
-			group {
-				id
-				name
-				part
-			}
-			watchProviders {
 				name
 				image
-				languages
+				character
 			}
-			bookSpecifics {
-				pages
-				isCompilation
+		}
+		podcastSpecifics {
+			episodes {
+				id
+				title
+				overview
+				thumbnail
+				number
+				runtime
+				publishDate
 			}
-			mangaSpecifics {
-				volumes
-				chapters
-			}
-			assets {
-				...EntityAssetsPart
-			}
-			creators {
+			totalEpisodes
+		}
+		showSpecifics {
+			totalSeasons
+			totalEpisodes
+			runtime
+			seasons {
+				id
+				seasonNumber
 				name
-				items {
-					id
-					name
-					image
-					character
-				}
-			}
-			podcastSpecifics {
+				overview
+				backdropImages
+				posterImages
 				episodes {
 					id
-					title
-					overview
-					thumbnail
-					number
-					runtime
-					publishDate
-				}
-				totalEpisodes
-			}
-			showSpecifics {
-				totalSeasons
-				totalEpisodes
-				runtime
-				seasons {
-					id
-					seasonNumber
 					name
-					overview
-					backdropImages
 					posterImages
-					episodes {
-						id
-						name
-						posterImages
-						episodeNumber
-						publishDate
-						name
-						overview
-						runtime
-					}
-				}
-			}
-			visualNovelSpecifics {
-				length
-			}
-			videoGameSpecifics {
-				platformReleases {
+					episodeNumber
+					publishDate
 					name
-					releaseDate
-					releaseRegion
-				}
-				timeToBeat {
-					hastily
-					normally
-					completely
+					overview
+					runtime
 				}
 			}
-			musicSpecifics {
-				duration
-				viewCount
-				discNumber
-				trackNumber
-				byVariousArtists
+		}
+		visualNovelSpecifics {
+			length
+		}
+		videoGameSpecifics {
+			platformReleases {
+				name
+				releaseDate
+				releaseRegion
 			}
+			timeToBeat {
+				hastily
+				normally
+				completely
+			}
+		}
+		musicSpecifics {
+			duration
+			viewCount
+			discNumber
+			trackNumber
+			byVariousArtists
 		}
 	}
 }
