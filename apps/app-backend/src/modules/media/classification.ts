@@ -8,7 +8,6 @@ type LifecycleSnapshot = {
 	backlogAt: NullableDate;
 	progressAt: NullableDate;
 	completeAt: NullableDate;
-	completedOn: NullableDate;
 };
 
 const toMilliseconds = (value: NullableDate) => (value ? dayjs(value).valueOf() : null);
@@ -49,12 +48,9 @@ export const compareUpNextItems = (
 };
 
 export const compareRateTheseItems = (
-	left: Pick<LifecycleSnapshot, "entityId" | "completeAt" | "completedOn">,
-	right: Pick<LifecycleSnapshot, "entityId" | "completeAt" | "completedOn">,
+	left: Pick<LifecycleSnapshot, "entityId" | "completeAt">,
+	right: Pick<LifecycleSnapshot, "entityId" | "completeAt">,
 ) => {
-	const leftCompletedAt = left.completedOn ?? left.completeAt;
-	const rightCompletedAt = right.completedOn ?? right.completeAt;
-	const timestampOrder = compareNullableDatesDesc(leftCompletedAt, rightCompletedAt);
-
+	const timestampOrder = compareNullableDatesDesc(left.completeAt, right.completeAt);
 	return timestampOrder !== 0 ? timestampOrder : compareEntityIds(left.entityId, right.entityId);
 };

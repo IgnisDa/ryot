@@ -245,8 +245,9 @@ export const entity = pgTable(
 export const event = pgTable(
 	"event",
 	{
-		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
+		occurredAt: timestamp({ withTimezone: true }).notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

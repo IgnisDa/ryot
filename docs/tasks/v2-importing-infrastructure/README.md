@@ -128,9 +128,8 @@ sources before porting every adapter.
 - Latest event joins sort by `occurredAt desc`, then `createdAt desc`, then `id desc`.
 - Query-engine event and event-join references expose both `createdAt` and `occurredAt`.
 - Sandbox trigger context includes `occurredAt`, `createdAt`, and `updatedAt` as ISO strings.
-- Complete events with `completionMode: "custom_timestamps"` default `occurredAt` from
-  `completedOn` when `occurredAt` is omitted.
-- Complete events with `completionMode: "just_now"` or `"unknown"` default `occurredAt` to now.
+- `occurredAt` is optional on event creation; if omitted, the event service defaults it to now.
+  Historical or backdated callers must pass `occurredAt` explicitly.
 - Existing events only need backfill if required by the generated migration for the new non-null
   column. Since the project is greenfield, no compatibility migration for seeded schemas or
   existing measurement rows is required.
@@ -448,15 +447,15 @@ sources before porting every adapter.
 
 ## Tasks
 
-**Overall Progress:** 0 of 11 tasks completed
+**Overall Progress:** 1 of 11 tasks completed
 
-**Current Task:** [Task 01](./01-event-occurrence-semantics.md) (todo)
+**Current Task:** [Task 02](./02-auto-complete-coverage-cycles.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                               | Type | Status |
 | --- | ---------------------------------------------------------------------------------- | ---- | ------ |
-| 01  | [Event Occurrence Semantics](./01-event-occurrence-semantics.md)                   | AFK  | todo   |
+| 01  | [Event Occurrence Semantics](./01-event-occurrence-semantics.md)                   | AFK  | done   |
 | 02  | [Auto-Complete Coverage Cycles](./02-auto-complete-coverage-cycles.md)             | AFK  | todo   |
 | 03  | [OpenScale Import Tracer Bullet](./03-openscale-import-tracer-bullet.md)           | AFK  | todo   |
 | 04  | [Shared Entity Population Refactor](./04-shared-entity-population-refactor.md)     | AFK  | todo   |

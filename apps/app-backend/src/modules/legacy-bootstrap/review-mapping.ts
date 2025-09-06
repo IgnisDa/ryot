@@ -50,7 +50,8 @@ BEGIN
 			"entity_id",
 			"event_schema_id",
 			"properties",
-			"created_at"
+			"created_at",
+			"occurred_at"
 		)
 		SELECT
 			r.id,
@@ -68,6 +69,7 @@ BEGIN
 				'mangaChapter',   NULLIF(r.manga_extra_information ->> 'chapter', '')::float8,
 				'podcastEpisode', (r.podcast_extra_information ->> 'episode')::int
 			)),
+			r.posted_on,
 			r.posted_on
 		FROM "review" r
 		INNER JOIN "entity" e ON e.id = r.entity_id
