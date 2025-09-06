@@ -12,8 +12,8 @@ use database_models::{
 use database_utils::{extract_pagination_params, transform_entity_assets};
 use dependent_entity_utils::generic_metadata;
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EntityDetailsInput, GenreDetails,
-    GraphqlPersonDetails, MetadataBaseData, MetadataGroupDetails, SearchResults,
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, GenreDetails, GraphqlPersonDetails,
+    MetadataBaseData, MetadataGroupDetails, SearchResults,
 };
 use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
@@ -159,9 +159,7 @@ pub async fn metadata_details(
 ) -> Result<CachedResponse<GraphqlMetadataDetails>> {
     cache_service::get_or_set_with_callback(
         ss,
-        ApplicationCacheKey::MetadataDetails(EntityDetailsInput {
-            entity_id: metadata_id.to_owned(),
-        }),
+        ApplicationCacheKey::MetadataDetails(metadata_id.to_owned()),
         ApplicationCacheValue::MetadataDetails,
         || async {
             let (

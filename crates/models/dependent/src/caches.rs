@@ -56,12 +56,6 @@ pub struct UserSessionInput {
 
 #[skip_serializing_none]
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EntityDetailsInput {
-    pub entity_id: String,
-}
-
-#[skip_serializing_none]
-#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UserSessionValue {
     pub user_id: String,
     pub access_link_id: Option<String>,
@@ -101,8 +95,8 @@ pub enum ApplicationCacheKey {
     SpotifyAccessToken,
     ListennotesSettings,
     TrendingMetadataIds,
+    MetadataDetails(String),
     UserSession(UserSessionInput),
-    MetadataDetails(EntityDetailsInput),
     MetadataLookup(MetadataLookupCacheInput),
     UserTwoFactorSetup(UserLevelCacheKey<()>),
     UserCollectionsList(UserLevelCacheKey<()>),

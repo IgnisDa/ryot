@@ -221,6 +221,7 @@ pub struct MetadataLookupInput {
     pub document_title: Option<String>,
 }
 
+#[skip_serializing_none]
 #[derive(Debug, PartialEq, Eq, Default, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataCreator {
     pub name: String,
@@ -242,6 +243,7 @@ pub struct GraphqlMetadataGroup {
     pub name: String,
 }
 
+#[skip_serializing_none]
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct GraphqlMetadataDetails {
     pub id: String,
