@@ -167,9 +167,9 @@ export const processTraktImport = async (
 		const result = await deps.populateMediaEntityRefs(job, token, {
 			runId,
 			userId,
-			traktUsername,
 			mediaEntityGroups,
 			adapterFailureCount,
+			jobData: { traktUsername },
 			entityIds: providerEntityIds,
 			entityRefs: providerEntityRefs,
 			failedIndices: providerFailedIndices,
