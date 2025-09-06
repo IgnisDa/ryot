@@ -75,11 +75,11 @@ export default function Page() {
 	const personDetails = usePersonDetails(loaderData.personId);
 
 	const [mediaRoleFilter, setMediaRoleFilter] = useLocalStorage(
-		"MediaTabRoleFilter",
+		"PersonMediaTabRoleFilter",
 		personDetails.data?.associatedMetadata.map((c) => c.name).at(0) || null,
 	);
 	const [groupRoleFilter, setGroupRoleFilter] = useLocalStorage(
-		"MediaTabRoleFilter",
+		"PersonGroupTabRoleFilter",
 		personDetails.data?.associatedMetadataGroups.map((c) => c.name).at(0) ||
 			null,
 	);
