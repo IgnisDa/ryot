@@ -2162,7 +2162,6 @@ export type QueryRootGetPresignedS3UrlArgs = {
 
 
 export type QueryRootMetadataDetailsArgs = {
-  ensureUpdated?: InputMaybe<Scalars['Boolean']['input']>;
   metadataId: Scalars['String']['input'];
 };
 
