@@ -34,7 +34,7 @@ pub async fn person_details(
     cache_service::get_or_set_with_callback(
         ss,
         ApplicationCacheKey::PersonDetails(person_id.clone()),
-        ApplicationCacheValue::PersonDetails,
+        |f| ApplicationCacheValue::PersonDetails(Box::new(f)),
         || async {
             let mut details = Person::find_by_id(person_id.clone())
                 .one(&ss.db)
@@ -168,7 +168,7 @@ pub async fn metadata_details(
     cache_service::get_or_set_with_callback(
         ss,
         ApplicationCacheKey::MetadataDetails(metadata_id.to_owned()),
-        ApplicationCacheValue::MetadataDetails,
+        |f| ApplicationCacheValue::MetadataDetails(Box::new(f)),
         || async {
             let (
                 MetadataBaseData {
