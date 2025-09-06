@@ -105,6 +105,7 @@ export function useMediaOverviewModalHandlers(deps: ModalHandlersDeps) {
 	const handleStartItem = (
 		entityId: string,
 		entitySchemaId: string,
+		entitySchemaSlug: string,
 		accentColor: string,
 	) => {
 		const startModalId = `builtin-media-start-${entityId}`;
@@ -124,6 +125,7 @@ export function useMediaOverviewModalHandlers(deps: ModalHandlersDeps) {
 					modalId={startModalId}
 					accentColor={accentColor}
 					entitySchemaId={entitySchemaId}
+					entitySchemaSlug={entitySchemaSlug}
 					onSaved={deps.invalidateOverview}
 				/>
 			),
@@ -134,6 +136,7 @@ export function useMediaOverviewModalHandlers(deps: ModalHandlersDeps) {
 		entityId: string,
 		accentColor: string,
 		entitySchemaId: string,
+		entitySchemaSlug: string,
 		initialPercent: number | null,
 	) => {
 		const continueModalId = `builtin-media-continue-${entityId}`;
@@ -155,6 +158,7 @@ export function useMediaOverviewModalHandlers(deps: ModalHandlersDeps) {
 					entitySchemaId={entitySchemaId}
 					initialPercent={initialPercent}
 					onSaved={deps.invalidateOverview}
+					entitySchemaSlug={entitySchemaSlug}
 				/>
 			),
 		});
