@@ -6,7 +6,10 @@ use common_models::{
     YoutubeMusicSongListened,
 };
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
-use media_models::{GenreDetailsInput, MetadataLookupResponse, MetadataProgressUpdateCacheInput};
+use media_models::{
+    GenreDetailsInput, GraphqlMetadataDetails, MetadataLookupResponse,
+    MetadataProgressUpdateCacheInput,
+};
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -53,6 +56,12 @@ pub struct UserSessionInput {
 
 #[skip_serializing_none]
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EntityDetailsInput {
+    pub entity_id: String,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UserSessionValue {
     pub user_id: String,
     pub access_link_id: Option<String>,
@@ -93,6 +102,7 @@ pub enum ApplicationCacheKey {
     ListennotesSettings,
     TrendingMetadataIds,
     UserSession(UserSessionInput),
+    MetadataDetails(EntityDetailsInput),
     MetadataLookup(MetadataLookupCacheInput),
     UserTwoFactorSetup(UserLevelCacheKey<()>),
     UserCollectionsList(UserLevelCacheKey<()>),
@@ -143,6 +153,7 @@ pub enum ApplicationCacheValue {
     MetadataSearch(MetadataSearchResponse),
     UserPeopleList(UserPeopleListResponse),
     UserTwoFactorRateLimit(EmptyCacheValue),
+    MetadataDetails(GraphqlMetadataDetails),
     ListennotesSettings(ListennotesSettings),
     MetadataRecentlyConsumed(EmptyCacheValue),
     UserWorkoutsList(UserWorkoutsListResponse),
