@@ -297,7 +297,6 @@ export const ReviewItemDisplay = (props: {
 							variant="subtle"
 							size="compact-md"
 							onClick={toggleLeaveComment}
-							type="submit"
 						>
 							Leave comment
 						</Button>
