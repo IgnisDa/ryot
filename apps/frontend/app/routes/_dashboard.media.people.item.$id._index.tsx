@@ -95,10 +95,8 @@ export default function Page() {
 			`Birth: ${personDetails.data?.details.birthDate}`,
 		personDetails.data?.details.deathDate &&
 			`Death: ${personDetails.data?.details.deathDate}`,
-		personDetails.data?.details.place &&
-			`Place: ${personDetails.data?.details.place}`,
-		personDetails.data?.details.gender &&
-			`Gender: ${personDetails.data?.details.gender}`,
+		personDetails.data?.details.place,
+		personDetails.data?.details.gender,
 		personDetails.data?.details.alternateNames &&
 			personDetails.data?.details.alternateNames.length > 0 &&
 			`Also called ${personDetails.data?.details.alternateNames.slice(0, 5).join(", ")}`,
