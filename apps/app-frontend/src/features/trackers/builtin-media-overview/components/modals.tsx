@@ -44,23 +44,13 @@ export function ContinueLoggingModalContent(
 		progressPercent <= 100 &&
 		progressPercent !== props.initialPercent;
 
-	const isComplete = progressPercent === 100;
-
 	const handleSave = async () => {
 		try {
-			const payload = isComplete
-				? createLogEventPayload({
-						startedOn: "",
-						logDate: "now",
-						completedOn: "",
-						entityId: props.entityId,
-						eventSchemas: eventSchemasQuery.eventSchemas,
-					})
-				: createProgressEventPayload({
-						entityId: props.entityId,
-						progressPercent: progressPercent as number,
-						eventSchemas: eventSchemasQuery.eventSchemas,
-					});
+			const payload = createProgressEventPayload({
+				entityId: props.entityId,
+				progressPercent: progressPercent as number,
+				eventSchemas: eventSchemasQuery.eventSchemas,
+			});
 			await createEvents.mutateAsync({ body: payload });
 			modals.close(props.modalId);
 			props.onSaved();
@@ -97,7 +87,7 @@ export function ContinueLoggingModalContent(
 					disabled={!isValid || createEvents.isPending}
 					style={{ backgroundColor: props.accentColor, color: "white" }}
 				>
-					{isComplete ? "Mark Complete" : "Save"}
+					Save
 				</Button>
 				<Button
 					variant="subtle"
