@@ -40,7 +40,11 @@ import { CopyableTextInput } from "~/components/common";
 import { DebouncedSearchInput } from "~/components/common/filters";
 import { redirectToQueryParam } from "~/lib/shared/constants";
 import { useUserDetails, useUsersList } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/react-query";
+import {
+	clientGqlService,
+	queryClient,
+	queryFactory,
+} from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 
 const showSuccessNotification = (message: string) => {
@@ -110,17 +114,20 @@ const UserInvitationModal = (props: {
 
 			return getPasswordChangeSession.passwordChangeUrl;
 		},
-		onSuccess: (createUserInvitation) => {
+		onError: () => showErrorNotification("Failed to create user invitation"),
+		onSuccess: async (createUserInvitation) => {
 			showSuccessNotification("User invitation created successfully");
 			props.onSuccess({
 				url: createUserInvitation,
 				title: "User Invitation Created",
 				description: "Share this URL with the user to set their password",
 			});
+			await queryClient.invalidateQueries({
+				queryKey: queryFactory.miscellaneous.usersList._def,
+			});
 			handleClose();
 			createInvitationMutation.reset();
 		},
-		onError: () => showErrorNotification("Failed to create user invitation"),
 	});
 
 	return (
