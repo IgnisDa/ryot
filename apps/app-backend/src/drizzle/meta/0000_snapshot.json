@@ -1,5 +1,5 @@
 {
-	"id": "d6a7fcb9-a27c-41ea-9a71-53d7031f0cc7",
+	"id": "bc3ee62c-cc0e-4ce7-a254-3a3bc5a1c662",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -1273,6 +1273,261 @@
 					"columns": ["user_id", "event_schema_id", "sandbox_script_id"]
 				}
 			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.import_run": {
+			"name": "import_run",
+			"schema": "",
+			"columns": {
+				"error_summary": {
+					"name": "error_summary",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"total_items": {
+					"name": "total_items",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"progress": {
+					"name": "progress",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"source": {
+					"name": "source",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"failed_items": {
+					"name": "failed_items",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"imported_items": {
+					"name": "imported_items",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"started_at": {
+					"name": "started_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"finished_at": {
+					"name": "finished_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"processed_items": {
+					"name": "processed_items",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'pending'"
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"input_summary": {
+					"name": "input_summary",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'{}'::jsonb"
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"import_run_user_id_created_at_idx": {
+					"name": "import_run_user_id_created_at_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "created_at",
+							"isExpression": false,
+							"asc": false,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"import_run_user_id_user_id_fk": {
+					"name": "import_run_user_id_user_id_fk",
+					"tableFrom": "import_run",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.import_run_failure": {
+			"name": "import_run_failure",
+			"schema": "",
+			"columns": {
+				"source_label": {
+					"name": "source_label",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"event_schema_slug": {
+					"name": "event_schema_slug",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"source_identifier": {
+					"name": "source_identifier",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"entity_schema_slug": {
+					"name": "entity_schema_slug",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"message": {
+					"name": "message",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"item_index": {
+					"name": "item_index",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"context": {
+					"name": "context",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"stage": {
+					"name": "stage",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"run_id": {
+					"name": "run_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"import_run_failure_run_id_created_at_idx": {
+					"name": "import_run_failure_run_id_created_at_idx",
+					"columns": [
+						{
+							"expression": "run_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "created_at",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"import_run_failure_run_id_import_run_id_fk": {
+					"name": "import_run_failure_run_id_import_run_id_fk",
+					"tableFrom": "import_run_failure",
+					"tableTo": "import_run",
+					"columnsFrom": ["run_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
 			"policies": {},
 			"checkConstraints": {},
 			"isRLSEnabled": false
