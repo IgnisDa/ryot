@@ -10,13 +10,12 @@ import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { METADATA_LOTS_WITH_GRANULAR_UPDATES } from "~/components/routes/media-item/constants";
 import {
-	clientGqlService,
 	getMetadataDetailsQuery,
 	getUserMetadataDetailsQuery,
 	queryClient,
 } from "~/lib/shared/react-query";
 import { executePartialStatusUpdate } from "../shared/hooks";
-import { getMetadataDetails } from "../shared/metadata-utils";
+import { getMetadataDetails } from "../shared/media-utils";
 
 export type UpdateProgressData = {
 	metadataId: string;

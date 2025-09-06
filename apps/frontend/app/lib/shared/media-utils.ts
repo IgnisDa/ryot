@@ -1,5 +1,9 @@
 import type { MantineColor } from "@mantine/core";
-import { MediaLot, SetLot } from "@ryot/generated/graphql/backend/graphql";
+import {
+	MediaLot,
+	MetadataDetailsDocument,
+	SetLot,
+} from "@ryot/generated/graphql/backend/graphql";
 import { inRange } from "@ryot/ts-utils";
 import {
 	IconBook,
@@ -16,6 +20,7 @@ import {
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { ThreePointSmileyRating, Verb } from "../types";
+import { clientGqlService } from "./react-query";
 
 export const getLot = (lot: unknown) => {
 	if (!lot) return undefined;
@@ -130,3 +135,8 @@ export const MediaColors: EntityColor = {
 	REVIEW: "green.5",
 	USER_MEASUREMENT: "indigo",
 };
+
+export const getMetadataDetails = async (metadataId: string) =>
+	clientGqlService
+		.request(MetadataDetailsDocument, { metadataId })
+		.then((d) => d.metadataDetails.response);

@@ -23,7 +23,6 @@ import { useRouteLoaderData, useSubmit } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { useInterval, useMediaQuery } from "usehooks-ts";
-import { getMetadataDetails } from "~/lib/shared/metadata-utils";
 import {
 	clientGqlService,
 	getMetadataDetailsQuery,
@@ -44,6 +43,7 @@ import {
 } from "~/lib/state/fitness";
 import type { FitnessAction } from "~/lib/types";
 import type { loader as dashboardLoader } from "~/routes/_dashboard";
+import { getMetadataDetails } from "./media-utils";
 
 export const useGetMantineColors = () => {
 	const theme = useMantineTheme();
