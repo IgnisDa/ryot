@@ -189,9 +189,6 @@ BEGIN
 
 		rows_inserted := rows_inserted + batch_rows_inserted;
 		cursor_id := next_cursor_id;
-		RAISE NOTICE 'exercise -> entity: % row(s) migrated so far (% seconds elapsed)',
-			rows_inserted,
-			round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 	END LOOP;
 
 	RAISE NOTICE 'exercise -> entity: % row(s) migrated total (% seconds elapsed)',

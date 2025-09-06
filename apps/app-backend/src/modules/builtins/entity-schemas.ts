@@ -28,12 +28,23 @@ const consumedOnField = {
 	},
 };
 
+const startedOnField = {
+	label: "Started On",
+	type: "datetime" as const,
+	description: "Date and time you started consuming this media",
+};
+
 const timeSpentField = {
 	label: "Time Spent",
 	type: "number" as const,
 	validation: { minimum: 0 },
 	description: "Time spent consuming this media in minutes",
 };
+
+const withStartedOn = (schema: AppSchema): AppSchema => ({
+	...schema,
+	fields: { startedOn: startedOnField, ...schema.fields },
+});
 
 const withTimeSpent = (schema: AppSchema): AppSchema => ({
 	...schema,
@@ -223,12 +234,16 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 	{
 		name: "Dropped",
 		slug: "dropped",
-		propertiesSchema: withTimeSpent(progressPropertiesSchemaByEntity(entitySchemaSlug)),
+		propertiesSchema: withStartedOn(
+			withTimeSpent(progressPropertiesSchemaByEntity(entitySchemaSlug)),
+		),
 	},
 	{
 		name: "On Hold",
 		slug: "on_hold",
-		propertiesSchema: withTimeSpent(progressPropertiesSchemaByEntity(entitySchemaSlug)),
+		propertiesSchema: withStartedOn(
+			withTimeSpent(progressPropertiesSchemaByEntity(entitySchemaSlug)),
+		),
 	},
 	{
 		name: "Complete",
@@ -245,11 +260,7 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 			fields: {
 				...consumedOnField,
 				timeSpent: timeSpentField,
-				startedOn: {
-					label: "Started On",
-					type: "datetime" as const,
-					description: "Date and time you started consuming this media",
-				},
+				startedOn: startedOnField,
 				completedOn: {
 					label: "Completed On",
 					type: "datetime" as const,
