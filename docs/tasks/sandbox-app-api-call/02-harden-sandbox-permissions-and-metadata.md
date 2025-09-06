@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,11 +14,15 @@ This slice should make sandbox permissions default-none, require valid metadata 
 
 ## Acceptance criteria
 
-- [ ] Sandbox execution treats `allowedHostFunctions` as fully authoritative, with omitted or empty allowlists yielding zero host functions.
-- [ ] Invalid metadata and unknown host-function names fail before sandbox code runs.
-- [ ] The create-script contract accepts metadata, persists `{}` when omitted, and stores metadata as non-null.
-- [ ] Database schema and migration changes enforce non-null sandbox script metadata while preserving builtin-script behavior.
-- [ ] Backend unit tests, end-to-end tests, and related sandbox documentation cover the default-none model, metadata validation, builtin-script preservation, and explicit granting of `appApiCall`.
+- [x] Sandbox execution treats `allowedHostFunctions` as fully authoritative, with omitted or empty allowlists yielding zero host functions.
+- [x] Invalid metadata and unknown host-function names fail before sandbox code runs.
+- [x] The create-script contract accepts metadata, persists `{}` when omitted, and stores metadata as non-null.
+- [x] Database schema and migration changes enforce non-null sandbox script metadata while preserving builtin-script behavior.
+- [x] Backend unit tests, end-to-end tests, and related sandbox documentation cover the default-none model, metadata validation, builtin-script preservation, and explicit granting of `appApiCall`.
+
+## Outcome
+
+Completed with create-time allowlist validation, default-none host-function resolution, non-null persisted metadata, and regression coverage for forbidden encoded sandbox paths.
 
 ## User stories addressed
 
