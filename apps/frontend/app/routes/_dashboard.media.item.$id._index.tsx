@@ -1079,7 +1079,14 @@ export default function Page() {
 												<Text>
 													JustWatch makes it easy to find out where you can
 													legally watch your favorite movies & TV shows online.
-													Visit <Anchor href={JUST_WATCH_URL}>JustWatch</Anchor>{" "}
+													Visit{" "}
+													<Anchor
+														target="_blank"
+														href={JUST_WATCH_URL}
+														rel="noopener noreferrer"
+													>
+														JustWatch
+													</Anchor>{" "}
 													for more information.
 												</Text>
 												<Text>
