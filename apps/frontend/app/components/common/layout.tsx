@@ -123,7 +123,7 @@ export const MediaDetailsLayout = (props: {
 				className={classes.imagesContainer}
 			>
 				{images.length > 1 ? (
-					<Carousel w={300} onSlideChange={setActiveImageId}>
+					<Carousel w="100%" onSlideChange={setActiveImageId}>
 						{images.map((url, idx) => (
 							<Carousel.Slide key={url} data-image-idx={idx}>
 								{getSurroundingElements(images, activeImageId).includes(idx) ? (
@@ -133,7 +133,7 @@ export const MediaDetailsLayout = (props: {
 						))}
 					</Carousel>
 				) : (
-					<Box w={300}>
+					<Box w="100%">
 						<Image
 							radius="lg"
 							height={400}
