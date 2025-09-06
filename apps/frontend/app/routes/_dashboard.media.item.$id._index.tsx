@@ -1090,10 +1090,10 @@ export default function Page() {
 												{metadataDetails.data.watchProviders.map((provider) => (
 													<Flex key={provider.name} align="center" gap="md">
 														<Image
-															src={provider.image}
 															h={80}
 															w={80}
 															radius="md"
+															src={provider.image}
 														/>
 														<Text lineClamp={3}>
 															{provider.name}:{" "}
