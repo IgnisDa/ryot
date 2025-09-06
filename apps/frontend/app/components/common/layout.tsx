@@ -134,7 +134,7 @@ export const MediaDetailsLayout = (props: {
 					left={0}
 					right={0}
 					pos="absolute"
-					py={providerImage ? undefined : 10}
+					py={providerImage ? 4 : 10}
 					style={{
 						zIndex: 1,
 						display: "flex",
@@ -148,11 +148,10 @@ export const MediaDetailsLayout = (props: {
 					<Text size="sm" fw="bold" c="blue">
 						{changeCase(props.externalLink.lot || props.externalLink.source)}
 					</Text>
-					<Group>
+					<Group wrap="nowrap">
 						{providerImage ? (
 							<Image
-								h={40}
-								w={40}
+								h={20}
 								alt="Logo"
 								fit="contain"
 								src={`/provider-logos/${providerImage}`}
