@@ -83,7 +83,6 @@ export function ShowSeasonsList(props: { entity: ShowDetail }) {
 
 	return (
 		<Box>
-			<SectionLabel label="Seasons" />
 			{seasons.map((season) => {
 				const isOpen = openId === season.id;
 				const seasonPoster = season.posterImages[0] ?? null;
@@ -199,7 +198,6 @@ export function PodcastEpisodesList(props: { entity: PodcastDetail }) {
 
 	return (
 		<Box>
-			<SectionLabel label="Episodes" />
 			{episodes.map((episode) => (
 				<Box
 					key={episode.id}
@@ -304,7 +302,6 @@ export function AnimeAiringSchedule(props: { entity: AnimeDetail }) {
 
 	return (
 		<Box>
-			<SectionLabel label="Airing Schedule" />
 			{schedule.map((item) => (
 				<Box
 					key={item.episode}
