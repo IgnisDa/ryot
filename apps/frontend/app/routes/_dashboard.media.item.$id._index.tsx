@@ -414,6 +414,7 @@ export default function Page() {
 											h={24}
 											w={24}
 											alt="Logo"
+											fit="contain"
 											src={`/provider-logos/${getProviderSourceImage(metadataDetails.data.source)}`}
 										/>
 										<Text fz="sm">
