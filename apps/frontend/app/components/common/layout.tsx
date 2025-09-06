@@ -145,7 +145,7 @@ export const MediaDetailsLayout = (props: {
 						backgroundColor: "rgba(0, 0, 0, 0.75)",
 					}}
 				>
-					<Text size="sm" fw="bold">
+					<Text size="sm" fw="bold" c="blue">
 						{changeCase(props.externalLink.lot || props.externalLink.source)}
 					</Text>
 					<Group>
