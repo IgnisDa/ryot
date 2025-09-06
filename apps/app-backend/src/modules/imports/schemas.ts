@@ -33,6 +33,7 @@ export const importRunFailureStage = z.enum([
 	"source_fetch",
 	"database_commit",
 	"provider_details",
+	"provider_resolution",
 	"input_transformation",
 ]);
 

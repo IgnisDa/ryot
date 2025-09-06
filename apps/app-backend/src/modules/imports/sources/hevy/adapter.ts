@@ -63,8 +63,6 @@ const parseHevyRow = (row: Record<string, string>, rowIdx: number): HevyRow => {
 	};
 };
 
-// Hevy exports timestamps like "01 Jan 2026, 10:00".
-// Some regional exports swap to "Jan 01 2026, 10:00", so both are tried.
 const HEVY_DATE_FORMATS = ["DD MMM YYYY, HH:mm", "MMM DD YYYY, HH:mm"];
 
 const parseHevyDate = (value: string): ReturnType<typeof dayjs> => {

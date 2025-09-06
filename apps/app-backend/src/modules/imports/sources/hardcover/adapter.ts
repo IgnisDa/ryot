@@ -64,6 +64,7 @@ export const adaptHardcoverCsv = (csvText: string): MediaImportAdapterResult => 
 			sourceLabel,
 			externalId: hardcoverId,
 			entitySchemaSlug: "book",
+			kind: "resolved" as const,
 			scriptSlug: "book.hardcover",
 		};
 		const group = getOrCreateMediaEntityGroup(groupMap, entityRef);

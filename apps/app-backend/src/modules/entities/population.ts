@@ -27,6 +27,10 @@ const entityDetailsResultSchema = z.object({
 	relatedEntities: z.array(relatedEntityReferenceSchema).default([]),
 });
 
+const entityResolveResultSchema = z.object({
+	externalId: z.string().nullable(),
+});
+
 const extractPrimaryImage = (images: unknown) => {
 	const parsedImages = imagesSchema.safeParse(images);
 	return parsedImages.success ? (parsedImages.data[0] ?? null) : null;
@@ -323,4 +327,51 @@ export const populateGlobalEntity = async (
 	});
 
 	return { entity: updatedEntity };
+};
+
+export type EntityResolutionResult = { externalId: string | null } | { error: { message: string } };
+
+export const resolveGlobalEntityExternalId = async (
+	job: Job,
+	token: string | undefined,
+	input: {
+		value: string;
+		userId: string;
+		scriptId: string;
+		identifierType: string;
+		sandboxChildJobId: string;
+		sandboxAlreadyQueued: boolean;
+		updatedJobData: Record<string, unknown>;
+	},
+): Promise<EntityResolutionResult> => {
+	const { userId, scriptId, identifierType, value } = input;
+
+	if (!input.sandboxAlreadyQueued) {
+		await queueSandboxChildRun({
+			job,
+			jobData: input.updatedJobData,
+			childJobId: input.sandboxChildJobId,
+			sandboxJobData: {
+				userId,
+				scriptId,
+				driverName: "resolve",
+				context: { identifierType, value },
+			},
+		});
+	}
+
+	await waitForSandboxChildRun(job, token);
+
+	const sandboxResult = await getSandboxChildRunResult(job, input.sandboxChildJobId);
+
+	if (!sandboxResult.success || sandboxResult.error) {
+		return { error: { message: sandboxResult.error ?? "Entity resolve script failed" } };
+	}
+
+	const parsed = entityResolveResultSchema.safeParse(sandboxResult.value);
+	if (!parsed.success) {
+		return { error: { message: "Entity resolve script returned an unexpected shape" } };
+	}
+
+	return { externalId: parsed.data.externalId };
 };
