@@ -1,9 +1,10 @@
 import type { Job } from "bullmq";
 
-import { failImportRun, recordImportRunFailure, sanitizeErrorMessage } from "../helpers";
 import { importEntityRefKey, type ImportMediaEntityGroup, type ImportRunJobData } from "../jobs";
 import { createImportRunFailure, updateImportRun } from "../repository";
-import { populateMediaEntityRefs, writeMediaEntityGroups } from "./processor";
+import { failImportRun, recordImportRunFailure, sanitizeErrorMessage } from "../runtime/failures";
+import { populateMediaEntityRefs } from "./populate";
+import { writeMediaEntityGroups } from "./write";
 
 export type MediaImportAdapterFailure = {
 	message: string;
