@@ -13,11 +13,12 @@ export const createQueues = () => {
 	const connection = getRedisConnection();
 	const eventsQueue = new Queue("event", { connection, defaultJobOptions });
 	const sandboxQueue = new Queue("sandbox", { connection, defaultJobOptions });
+	const importQueue = new Queue("import", { connection, defaultJobOptions });
 	const entityQueue = new Queue("entity", {
 		connection,
 		defaultJobOptions: { ...defaultJobOptions, attempts: 3 },
 	});
-	return { eventsQueue, entityQueue, sandboxQueue };
+	return { eventsQueue, entityQueue, importQueue, sandboxQueue };
 };
 
 export type Queues = ReturnType<typeof createQueues>;
