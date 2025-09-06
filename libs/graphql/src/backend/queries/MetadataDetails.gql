@@ -86,12 +86,11 @@ query MetadataDetails($metadataId: String!) {
 					episodes {
 						id
 						name
+						runtime
+						overview
+						publishDate
 						posterImages
 						episodeNumber
-						publishDate
-						name
-						overview
-						runtime
 					}
 				}
 			}
