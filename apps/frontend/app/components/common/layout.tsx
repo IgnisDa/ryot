@@ -1,6 +1,7 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Carousel } from "@mantine/carousel";
 import {
+	ActionIcon,
 	Box,
 	Flex,
 	Group,
@@ -23,6 +24,7 @@ import {
 	MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
+import { IconExternalLink } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useState } from "react";
 import { match } from "ts-pattern";
@@ -146,22 +148,31 @@ export const MediaDetailsLayout = (props: {
 					<Text size="sm" fw="bold">
 						{changeCase(props.externalLink.lot || props.externalLink.source)}
 					</Text>
-					{providerImage ? (
-						<Image
-							h={40}
-							w={40}
-							alt="Logo"
-							fit="contain"
-							src={`/provider-logos/${providerImage}`}
-							style={{
-								cursor: props.externalLink.href ? "pointer" : undefined,
-							}}
-							onClick={() => {
-								if (props.externalLink.href)
-									window.open(props.externalLink.href, "_blank", "noreferrer");
-							}}
-						/>
-					) : null}
+					<Group>
+						{providerImage ? (
+							<Image
+								h={40}
+								w={40}
+								alt="Logo"
+								fit="contain"
+								src={`/provider-logos/${providerImage}`}
+							/>
+						) : null}
+						{props.externalLink.href ? (
+							<ActionIcon
+								onClick={() => {
+									if (props.externalLink.href)
+										window.open(
+											props.externalLink.href,
+											"_blank",
+											"noreferrer",
+										);
+								}}
+							>
+								<IconExternalLink size={18} />
+							</ActionIcon>
+						) : null}
+					</Group>
 				</Paper>
 				{images.length > 1 ? (
 					<Carousel w="100%" onSlideChange={setActiveImageId}>
