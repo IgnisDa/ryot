@@ -165,7 +165,7 @@ export const MediaDetailsLayout = (props: {
 										window.open(
 											props.externalLink.href,
 											"_blank",
-											"noreferrer",
+											"noopener,noreferrer",
 										);
 								}}
 							>
