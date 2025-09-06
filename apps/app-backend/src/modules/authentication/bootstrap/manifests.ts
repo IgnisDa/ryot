@@ -523,6 +523,11 @@ export const authenticationBuiltinRelationshipSchemas = () => [
 		name: `Company to ${mediaSlug.charAt(0).toUpperCase() + mediaSlug.slice(1)}`,
 		propertiesSchema: {
 			fields: {
+				order: {
+					label: "Order",
+					type: "number" as const,
+					description: "Display order of this company in the production credits",
+				},
 				roles: {
 					label: "Roles",
 					type: "array" as const,
