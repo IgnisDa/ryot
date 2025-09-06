@@ -1,14 +1,19 @@
 import { Menu } from "@mantine/core";
-import type { EntityLot } from "@ryot/generated/graphql/backend/graphql";
-import { Form } from "react-router";
-import { $path } from "safe-routes";
-import { withQuery } from "ufo";
+import { notifications } from "@mantine/notifications";
+import {
+	type EntityLot,
+	MarkEntityAsPartialDocument,
+} from "@ryot/generated/graphql/backend/graphql";
+import { useMutation } from "@tanstack/react-query";
 import {
 	useAddEntitiesToCollectionMutation,
-	useConfirmSubmit,
 	useRemoveEntitiesFromCollectionMutation,
 	useUserDetails,
 } from "~/lib/shared/hooks";
+import {
+	clientGqlService,
+	refreshEntityDetails,
+} from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 
 export const ToggleMediaMonitorMenuItem = (props: {
@@ -62,20 +67,30 @@ export const MarkEntityAsPartialMenuItem = (props: {
 	entityId: string;
 	entityLot: EntityLot;
 }) => {
-	const submit = useConfirmSubmit();
+	const mutation = useMutation({
+		mutationFn: async (input: { entityId: string; entityLot: EntityLot }) =>
+			clientGqlService.request(MarkEntityAsPartialDocument, { input }),
+		onSuccess: () => {
+			refreshEntityDetails(props.entityId);
+			notifications.show({
+				color: "green",
+				title: "Success",
+				message: "Entity will be updated in the background",
+			});
+		},
+	});
 
 	return (
-		<Form
-			replace
-			method="POST"
-			onSubmit={(e) => submit(e)}
-			action={withQuery($path("/actions"), {
-				intent: "markEntityAsPartial",
-			})}
+		<Menu.Item
+			disabled={mutation.isPending}
+			onClick={() => {
+				mutation.mutate({
+					entityId: props.entityId,
+					entityLot: props.entityLot,
+				});
+			}}
 		>
-			<input hidden name="entityId" defaultValue={props.entityId} />
-			<input hidden name="entityLot" defaultValue={props.entityLot} />
-			<Menu.Item type="submit">Update details</Menu.Item>
-		</Form>
+			Update details
+		</Menu.Item>
 	);
 };

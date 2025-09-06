@@ -1,8 +1,6 @@
 import {
 	CreateReviewCommentDocument,
 	DeleteS3ObjectDocument,
-	EntityLot,
-	MarkEntityAsPartialDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	getActionIntent,
@@ -68,21 +66,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				}),
 			);
 		})
-		.with("markEntityAsPartial", async () => {
-			const submission = processSubmission(formData, markEntityAsPartialSchema);
-			await serverGqlService.authenticatedRequest(
-				request,
-				MarkEntityAsPartialDocument,
-				{ input: submission },
-			);
-			extendResponseHeaders(
-				headers,
-				await createToastHeaders({
-					message: "Entity will be updated in the background",
-					type: "success",
-				}),
-			);
-		})
 		.run();
 	return data(returnData, { headers });
 };
@@ -94,9 +77,4 @@ const reviewCommentSchema = z.object({
 	shouldDelete: zodBoolAsString.optional(),
 	decrementLikes: zodBoolAsString.optional(),
 	incrementLikes: zodBoolAsString.optional(),
-});
-
-const markEntityAsPartialSchema = z.object({
-	entityId: z.string(),
-	entityLot: z.enum(EntityLot),
 });
