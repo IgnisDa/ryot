@@ -117,7 +117,7 @@ export const ReviewItemDisplay = (props: {
 
 	return (
 		<>
-			<Box key={props.review.id} data-review-id={props.review.id} mb="md">
+			<Box data-review-id={props.review.id} mb="md">
 				<Group justify="space-between">
 					<Flex align="center" gap="sm">
 						<Avatar color="cyan" radius="xl">
