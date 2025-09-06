@@ -156,9 +156,8 @@ export const MediaDetailsLayout = (props: {
 								cursor: props.externalLink.href ? "pointer" : undefined,
 							}}
 							onClick={() => {
-								if (props.externalLink.href) {
+								if (props.externalLink.href)
 									window.open(props.externalLink.href, "_blank", "noreferrer");
-								}
 							}}
 						/>
 					) : null}
