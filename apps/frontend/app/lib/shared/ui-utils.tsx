@@ -9,7 +9,7 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { clientGqlService } from "./react-query";
 
-export const forcedDashboardPath = $path("/", { ignoreLandingPath: "true" });
+export const forcedDashboardPath = $path("/", { ignoreLandingPath: true });
 
 export const generateColor = (seed: number) => {
 	const color = Math.floor(Math.abs(Math.sin(seed) * 16777215));
