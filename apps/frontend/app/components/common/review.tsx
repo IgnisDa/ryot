@@ -53,34 +53,6 @@ import { useReviewEntity } from "~/lib/state/media";
 import { ThreePointSmileyRating } from "~/lib/types";
 import classes from "~/styles/common.module.css";
 
-const LeaveCommentInline = (props: {
-	reviewId: string;
-	onSubmit: (text: string) => Promise<void> | void;
-}) => {
-	const [text, setText] = useState("");
-
-	return (
-		<Group>
-			<TextInput
-				flex={1}
-				value={text}
-				placeholder="Enter comment"
-				onChange={(e) => setText(e.currentTarget.value)}
-			/>
-			<ActionIcon
-				color="green"
-				onClick={async () => {
-					if (!text.trim()) return;
-					await props.onSubmit(text.trim());
-					setText("");
-				}}
-			>
-				<IconCheck />
-			</ActionIcon>
-		</Group>
-	);
-};
-
 export const DisplayThreePointReview = (props: {
 	size?: number;
 	rating?: string | null;
@@ -106,6 +78,7 @@ export const ReviewItemDisplay = (props: {
 }) => {
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
+	const [text, setText] = useState("");
 	const reviewScale = userPreferences.general.reviewScale;
 	const [opened, { toggle }] = useDisclosure(false);
 	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
@@ -283,25 +256,29 @@ export const ReviewItemDisplay = (props: {
 						)
 					) : null}
 					{openedLeaveComment ? (
-						<LeaveCommentInline
-							reviewId={props.review.id || ""}
-							onSubmit={async (text) => {
-								await reviewCommentMutation.mutateAsync({
-									text,
-									reviewId: props.review.id || "",
-								});
-								toggleLeaveComment();
-							}}
-						/>
-					) : null}
-					{!openedLeaveComment ? (
-						<Button
-							variant="subtle"
-							size="compact-md"
-							onClick={toggleLeaveComment}
-						>
-							Leave comment
-						</Button>
+						<Group>
+							<TextInput
+								flex={1}
+								value={text}
+								placeholder="Enter comment"
+								onChange={(e) => setText(e.currentTarget.value)}
+							/>
+							<ActionIcon
+								color="green"
+								onClick={async () => {
+									if (!text.trim()) return;
+
+									await reviewCommentMutation.mutateAsync({
+										text,
+										reviewId: props.review.id || "",
+									});
+									toggleLeaveComment();
+									setText("");
+								}}
+							>
+								<IconCheck />
+							</ActionIcon>
+						</Group>
 					) : null}
 					{(props.review.comments?.length || 0) > 0 ? (
 						<Paper withBorder ml="xl" mt="sm" p="xs">
