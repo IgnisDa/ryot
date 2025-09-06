@@ -136,6 +136,12 @@ export type CachedCollectionsListResponse = {
   response: Array<CollectionItem>;
 };
 
+export type CachedGenreDetailsResponse = {
+  __typename?: 'CachedGenreDetailsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: GenreDetails;
+};
+
 export type CachedMetadataLookupResponse = {
   __typename?: 'CachedMetadataLookupResponse';
   cacheId: Scalars['UUID']['output'];
@@ -1342,6 +1348,7 @@ export type MetadataProgressUpdateCommonInput = {
   animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
+  manualTimeSpent?: InputMaybe<Scalars['Decimal']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   providersConsumedOn?: InputMaybe<Array<Scalars['String']['input']>>;
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
@@ -1357,6 +1364,7 @@ export type MetadataProgressUpdateNewInProgressInput = {
   animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
+  manualTimeSpent?: InputMaybe<Scalars['Decimal']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   providersConsumedOn?: InputMaybe<Array<Scalars['String']['input']>>;
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
@@ -1368,6 +1376,7 @@ export type MetadataProgressUpdateStartedAndFinishedOnDateInput = {
   animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
+  manualTimeSpent?: InputMaybe<Scalars['Decimal']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   providersConsumedOn?: InputMaybe<Array<Scalars['String']['input']>>;
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
@@ -1380,6 +1389,7 @@ export type MetadataProgressUpdateStartedOrFinishedOnDateInput = {
   animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
+  manualTimeSpent?: InputMaybe<Scalars['Decimal']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   providersConsumedOn?: InputMaybe<Array<Scalars['String']['input']>>;
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
@@ -2039,7 +2049,7 @@ export type QueryRoot = {
   /** Get details about an exercise. */
   exerciseDetails: Exercise;
   /** Get details about a genre present in the database. */
-  genreDetails: GenreDetails;
+  genreDetails: CachedGenreDetailsResponse;
   /** Get an authorization URL using the configured OIDC client. */
   getOidcRedirectUrl: Scalars['String']['output'];
   /** Get an access token using the configured OIDC client. */

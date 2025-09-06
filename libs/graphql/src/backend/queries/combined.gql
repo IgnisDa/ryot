@@ -257,16 +257,18 @@ query UserGenresList($input: SearchInput!) {
 
 query GenreDetails($input: GenreDetailsInput!) {
 	genreDetails(input: $input) {
-		details {
-			id
-			name
-			numItems
-		}
-		contents {
+		response {
 			details {
-				...SearchDetailsPart
+				id
+				name
+				numItems
 			}
-			items
+			contents {
+				details {
+					...SearchDetailsPart
+				}
+				items
+			}
 		}
 	}
 }

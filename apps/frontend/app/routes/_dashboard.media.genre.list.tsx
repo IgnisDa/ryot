@@ -137,7 +137,7 @@ const DisplayGenre = (props: { genreId: string }) => {
 				{ input: { genreId: props.genreId } },
 			);
 			let images = [];
-			for (const content of genreDetails.contents.items) {
+			for (const content of genreDetails.response.contents.items) {
 				if (images.length === 4) break;
 				const { assets } = await queryClient.ensureQueryData(
 					getMetadataDetailsQuery(content),
@@ -149,7 +149,7 @@ const DisplayGenre = (props: { genreId: string }) => {
 		},
 	});
 
-	const genreName = genreData?.genreDetails.details.name || "";
+	const genreName = genreData?.genreDetails.response.details.name || "";
 	const color = useGetRandomMantineColor(genreName);
 	const fallbackImageUrl = useFallbackImageUrl(getInitials(genreName));
 
