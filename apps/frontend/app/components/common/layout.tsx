@@ -20,7 +20,7 @@ import {
 	type EntityLot,
 	GridPacking,
 	type MediaLot,
-	type MediaSource,
+	MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
@@ -92,7 +92,7 @@ export const MediaDetailsLayout = (props: {
 			setJobDeployedForEntity(null);
 		}
 
-		if (!partialStatus) {
+		if (!partialStatus || props.externalLink.source === MediaSource.Custom) {
 			setJobDeployedForEntity(null);
 			return;
 		}
@@ -107,6 +107,7 @@ export const MediaDetailsLayout = (props: {
 		return () => clearInterval(interval);
 	}, [
 		jobDeployedForEntity,
+		props.externalLink.source,
 		deployUpdateMediaEntity.mutate,
 		props.partialDetailsFetcher.fn,
 		props.partialDetailsFetcher.entityId,
@@ -185,7 +186,8 @@ export const MediaDetailsLayout = (props: {
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>
 				<Group wrap="nowrap">
-					{props.partialDetailsFetcher.partialStatus ? (
+					{props.partialDetailsFetcher.partialStatus &&
+					props.externalLink.source !== MediaSource.Custom ? (
 						<Loader size="sm" />
 					) : null}
 					<Title id="media-title">{props.title}</Title>
