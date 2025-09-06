@@ -19,7 +19,7 @@ use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
 use media_models::{
     GenreDetailsInput, GenreListItem, GraphqlMetadataDetails, GraphqlMetadataGroup,
-    PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter,
+    MetadataDetailsInput, PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter,
 };
 use sea_orm::{
     ColumnTrait, EntityTrait, ItemsAndPagesNumber, PaginatorTrait, QueryFilter, QueryOrder,
@@ -155,8 +155,7 @@ pub async fn metadata_group_details(
 
 pub async fn metadata_details(
     ss: &Arc<SupportingService>,
-    metadata_id: &String,
-    ensure_updated: Option<bool>,
+    input: MetadataDetailsInput,
 ) -> Result<GraphqlMetadataDetails> {
     let (
         MetadataBaseData {
@@ -167,9 +166,9 @@ pub async fn metadata_details(
         },
         associations,
     ) = try_join!(
-        generic_metadata(metadata_id, ss, ensure_updated),
+        generic_metadata(&input.metadata_id, ss, input.ensure_updated),
         MetadataToMetadataGroup::find()
-            .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
+            .filter(metadata_to_metadata_group::Column::MetadataId.eq(&input.metadata_id))
             .find_also_related(MetadataGroup)
             .all(&ss.db)
             .map_err(|_| anyhow!("Failed to fetch metadata associations"))

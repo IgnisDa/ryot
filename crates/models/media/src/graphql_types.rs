@@ -96,6 +96,12 @@ pub struct GenreDetailsInput {
     pub search: Option<SearchInput>,
 }
 
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq, Eq, InputObject)]
+pub struct MetadataDetailsInput {
+    pub metadata_id: String,
+    pub ensure_updated: Option<bool>,
+}
+
 #[derive(Debug, Serialize, Hash, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum GraphqlSortOrder {
     #[default]

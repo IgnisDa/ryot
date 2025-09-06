@@ -71,7 +71,7 @@ export const loader = async ({ params, request }: Route.LoaderArgs) => {
 			const { metadataDetails } = await serverGqlService.authenticatedRequest(
 				request,
 				MetadataDetailsDocument,
-				{ metadataId: query.id },
+				{ input: { metadataId: query.id } },
 			);
 			return metadataDetails;
 		})

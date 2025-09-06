@@ -48,7 +48,7 @@ const getUpdateMetadata = async (metadataId: string) => {
 
 	const { metadataDetails } = await clientGqlService.request(
 		MetadataDetailsDocument,
-		{ metadataId, ensureUpdated: true },
+		{ input: { metadataId, ensureUpdated: true } },
 	);
 	await queryClient.invalidateQueries({
 		queryKey: getMetadataDetailsQuery(metadataId).queryKey,

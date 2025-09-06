@@ -5,7 +5,7 @@ use dependent_models::{
 };
 use media_models::{
     CreateCustomMetadataInput, GraphqlMetadataDetails, MarkEntityAsPartialInput,
-    UpdateCustomMetadataInput,
+    MetadataDetailsInput, UpdateCustomMetadataInput,
 };
 use miscellaneous_service::MiscellaneousService;
 use traits::{AuthProvider, GraphqlResolverSvc};
@@ -23,13 +23,10 @@ impl MiscellaneousMetadataQueryResolver {
     async fn metadata_details(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_id: String,
-        ensure_updated: Option<bool>,
+        input: MetadataDetailsInput,
     ) -> Result<GraphqlMetadataDetails> {
         let service = self.svc(gql_ctx);
-        Ok(service
-            .metadata_details(&metadata_id, ensure_updated)
-            .await?)
+        Ok(service.metadata_details(input).await?)
     }
 
     /// Get all the media items related to a user for a specific media type.
