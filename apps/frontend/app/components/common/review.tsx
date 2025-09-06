@@ -171,6 +171,7 @@ export const ReviewItemDisplay = (props: {
 								</ActionIcon>
 								<ActionIcon
 									color="red"
+									disabled={deleteReviewMutation.isPending}
 									onClick={() => {
 										openConfirmationModal(
 											"Are you sure you want to delete this review? This action cannot be undone.",
