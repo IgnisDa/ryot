@@ -6,7 +6,7 @@ use common_models::{EntityAssets, PersonSourceSpecifics};
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
-use media_models::PeopleSearchItem;
+use media_models::{PartialMetadataWithoutId, PeopleSearchItem};
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
@@ -132,7 +132,7 @@ impl MediaProvider for NonMediaTvdbService {
                     .unwrap_or_else(|| "Actor".to_owned());
 
                 if let Some(movie_id) = character.movie_id {
-                    let metadata = media_models::PartialMetadataWithoutId {
+                    let metadata = PartialMetadataWithoutId {
                         lot: MediaLot::Movie,
                         source: MediaSource::Tvdb,
                         title: character_name.clone(),
@@ -147,7 +147,7 @@ impl MediaProvider for NonMediaTvdbService {
                     });
                 }
                 if let Some(series_id) = character.series_id {
-                    let metadata = media_models::PartialMetadataWithoutId {
+                    let metadata = PartialMetadataWithoutId {
                         lot: MediaLot::Show,
                         source: MediaSource::Tvdb,
                         title: character_name.clone(),
