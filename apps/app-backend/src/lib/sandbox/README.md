@@ -21,7 +21,7 @@ The model is:
 
 ## How one execution works
 
-1. User creates a script via `POST /sandbox/scripts` with `{ name, slug?, code }`. Returns `{ data: { id, name, slug, code } }`.
+1. User creates a script via `POST /sandbox/scripts` with `{ name, slug?, code, metadata? }`. `metadata` defaults to `{}` when omitted. Returns `{ data: { id, name, slug, code, metadata } }`.
 2. User enqueues via `POST /sandbox/enqueue` with `{ scriptId, driverName, context? }`. Returns BullMQ `jobId` immediately.
 3. The route looks up the script, builds `apiFunctionDescriptors` server-side, and stores them in the job payload.
 4. A worker calls `SandboxService.executeQueuedRun(...)` for the job.
@@ -51,7 +51,7 @@ The model is:
 
 ## API shape
 
-- `POST /sandbox/scripts` creates a stored script with `{ name, slug?, code }`. Returns `{ data: { id, name, slug, code } }`.
+- `POST /sandbox/scripts` creates a stored script with `{ name, slug?, code, metadata? }`. `metadata.allowedHostFunctions` is authoritative and defaults to no host functions when omitted. Returns `{ data: { id, name, slug, code, metadata } }`.
 - `POST /sandbox/enqueue` enqueues a stored script by `scriptId` with `{ scriptId, driverName, context? }`. Returns `{ data: { jobId } }`.
 - `GET /sandbox/result/:jobId` returns one of:
   - `{ data: { status: "pending" } }`
@@ -101,9 +101,19 @@ The cache persists across restarts. In Docker deployments, mount the cache direc
 
 - The bridge server and runner file are created once on service startup and reused.
 - Deno subprocesses are still per-execution, which keeps run isolation while avoiding bridge re-creation overhead.
-- Redis session metadata allows TTL-based expiry and explicit cleanup on shutdown.
+- Redis session metadata allows TTL-based expiry and explicit cleanup on shutdown for bridge RPC calls.
 - Host functions are serialized as descriptors in the job payload, so any worker instance can reconstruct them.
 - Scripts are stored in the database, referenced by `scriptId` at enqueue time.
+
+## Host functions
+
+- `httpCall` performs outbound HTTP requests.
+- `appApiCall` executes authenticated in-process requests against app-owned routes mounted on `baseApp`.
+- `getCachedValue` and `setCachedValue` provide script-scoped cache access.
+- `getAppConfigValue` reads server configuration values exposed to sandbox scripts.
+- `getUserPreferences` reads the current user's stored preferences.
+
+`allowedHostFunctions` is authoritative. Scripts with no `allowedHostFunctions` entry receive no host functions.
 
 ## Adding a new host function
 
@@ -112,6 +122,8 @@ The cache persists across restarts. In Docker deployments, mount the cache direc
 3. Add a descriptor for it where sandbox jobs are enqueued.
 
 For stateless functions use an empty context object. For stateful functions, bind per-request data into the descriptor context before enqueueing.
+
+`appApiCall` is stateful and binds the executing `userId` into the descriptor context. It can target routes mounted on `baseApp`, but it rejects `/api/auth/*` and does not accept auth override headers such as `authorization`, `cookie`, or `x-api-key`.
 
 ## Driver functions
 

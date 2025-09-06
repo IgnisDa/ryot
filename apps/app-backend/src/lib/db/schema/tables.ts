@@ -179,10 +179,10 @@ export const eventSchema = pgTable(
 export const sandboxScript = pgTable(
 	"sandbox_script",
 	{
-		metadata: jsonb(),
 		slug: text().notNull(),
 		name: text().notNull(),
 		code: text().notNull(),
+		metadata: jsonb().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
 		isBuiltin: boolean().notNull().default(false),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),

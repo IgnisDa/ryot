@@ -128,10 +128,14 @@ export class SandboxService {
 		}
 
 		const metadata = sandboxScriptMetadataSchema.safeParse(script.metadata);
-		const allowedKeys = metadata.success
-			? (metadata.data.allowedHostFunctions ??
-				Object.keys(hostFunctionRegistry))
-			: Object.keys(hostFunctionRegistry);
+		if (!metadata.success) {
+			const errors = metadata.error.issues
+				.map((issue) => issue.message)
+				.join("; ");
+			throw new Error(`Sandbox script metadata is invalid: ${errors}`);
+		}
+
+		const allowedKeys = metadata.data.allowedHostFunctions ?? [];
 
 		const descriptors = buildApiFunctionDescriptors(
 			allowedKeys,
