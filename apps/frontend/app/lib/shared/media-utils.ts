@@ -145,13 +145,14 @@ export const getMetadataDetails = async (metadataId: string) =>
 		.then((d) => d.metadataDetails.response);
 
 export const deployUpdateJobIfNeeded = async (
-	metadataId: string,
+	entityId: string,
+	entityLot: EntityLot,
 	externalLinkSource: MediaSource,
 ) => {
 	if (externalLinkSource !== MediaSource.Custom) {
 		await clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
-			entityId: metadataId,
-			entityLot: EntityLot.Metadata,
+			entityId,
+			entityLot,
 		});
 	}
 };
@@ -168,7 +169,11 @@ export const executePartialStatusUpdate = async (props: {
 	const { metadataId, externalLinkSource } = props;
 	const startTime = Date.now();
 
-	await deployUpdateJobIfNeeded(metadataId, externalLinkSource);
+	await deployUpdateJobIfNeeded(
+		metadataId,
+		EntityLot.Metadata,
+		externalLinkSource,
+	);
 
 	return new Promise<boolean>((resolve) => {
 		const checkAndWait = async () => {

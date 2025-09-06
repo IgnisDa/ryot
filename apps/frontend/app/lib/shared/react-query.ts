@@ -196,7 +196,7 @@ export const getPersonDetailsQuery = (personId?: string) =>
 			? () =>
 					clientGqlService
 						.request(PersonDetailsDocument, { personId })
-						.then((data) => data.personDetails)
+						.then((data) => data.personDetails.response)
 			: skipToken,
 	});
 

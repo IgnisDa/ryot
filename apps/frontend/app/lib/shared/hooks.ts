@@ -338,6 +338,7 @@ export const useFormValidation = (dependency?: unknown) => {
 
 export const usePartialStatusMonitor = (props: {
 	entityId: string;
+	entityLot: EntityLot;
 	onUpdate: () => unknown;
 	partialStatus?: boolean | null;
 	externalLinkSource: MediaSource;
@@ -347,7 +348,8 @@ export const usePartialStatusMonitor = (props: {
 	>(null);
 
 	useEffect(() => {
-		const { partialStatus, entityId, onUpdate, externalLinkSource } = props;
+		const { partialStatus, entityId, entityLot, onUpdate, externalLinkSource } =
+			props;
 
 		if (jobDeployedForEntity && jobDeployedForEntity !== entityId) {
 			setJobDeployedForEntity(null);
@@ -359,7 +361,7 @@ export const usePartialStatusMonitor = (props: {
 		}
 
 		if (jobDeployedForEntity !== entityId) {
-			deployUpdateJobIfNeeded(entityId, externalLinkSource);
+			deployUpdateJobIfNeeded(entityId, entityLot, externalLinkSource);
 			setJobDeployedForEntity(entityId);
 		}
 
