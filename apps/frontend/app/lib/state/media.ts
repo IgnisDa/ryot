@@ -10,13 +10,13 @@ import { useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { METADATA_LOTS_WITH_GRANULAR_UPDATES } from "~/components/routes/media-item/constants";
-import { waitForNonPartialMetadata } from "~/lib/shared/hooks";
 import {
 	clientGqlService,
 	getMetadataDetailsQuery,
 	getUserMetadataDetailsQuery,
 	queryClient,
 } from "~/lib/shared/react-query";
+import { executePartialStatusUpdate } from "../shared/hooks";
 
 export type UpdateProgressData = {
 	metadataId: string;
@@ -47,7 +47,10 @@ const getUpdateMetadata = async (metadataId: string) => {
 	)
 		return meta;
 
-	await waitForNonPartialMetadata({ metadataId });
+	await executePartialStatusUpdate({
+		metadataId,
+		externalLinkSource: meta.source,
+	});
 
 	const metadataDetails = await clientGqlService
 		.request(MetadataDetailsDocument, { metadataId })

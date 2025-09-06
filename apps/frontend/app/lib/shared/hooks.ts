@@ -7,8 +7,7 @@ import {
 	DeployBulkMetadataProgressUpdateDocument,
 	DeployRemoveEntitiesFromCollectionJobDocument,
 	DeployUpdateMediaEntityJobDocument,
-	type DeployUpdateMediaEntityJobMutationVariables,
-	type EntityLot,
+	EntityLot,
 	ExpireCacheKeyDocument,
 	type MediaLot,
 	MediaSource,
@@ -338,25 +337,65 @@ export const useFormValidation = (dependency?: unknown) => {
 	return { formRef, isFormValid, checkFormValidity };
 };
 
+const deployUpdateJobIfNeeded = async (
+	metadataId: string,
+	externalLinkSource: MediaSource,
+) => {
+	if (externalLinkSource !== MediaSource.Custom) {
+		await clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
+			entityId: metadataId,
+			entityLot: EntityLot.Metadata,
+		});
+	}
+};
+
+const checkPartialStatus = async (metadataId: string): Promise<boolean> => {
+	const { metadataDetails } = await clientGqlService.request(
+		MetadataDetailsDocument,
+		{ metadataId },
+	);
+	return metadataDetails?.response?.isPartial !== true;
+};
+
+export const executePartialStatusUpdate = async (props: {
+	metadataId: string;
+	externalLinkSource: MediaSource;
+}) => {
+	const { metadataId, externalLinkSource } = props;
+	const startTime = Date.now();
+
+	await deployUpdateJobIfNeeded(metadataId, externalLinkSource);
+
+	return new Promise<boolean>((resolve) => {
+		const checkAndWait = async () => {
+			const isNonPartial = await checkPartialStatus(metadataId);
+			if (isNonPartial) {
+				resolve(true);
+				return;
+			}
+			if (Date.now() - startTime >= 30000) {
+				resolve(false);
+				return;
+			}
+			setTimeout(checkAndWait, 1000);
+		};
+
+		checkAndWait();
+	});
+};
+
 export const usePartialStatusMonitor = (props: {
 	entityId: string;
-	entityLot: EntityLot;
 	onUpdate: () => unknown;
 	partialStatus?: boolean | null;
-	externalLinkSource?: MediaSource;
+	externalLinkSource: MediaSource;
 }) => {
 	const [jobDeployedForEntity, setJobDeployedForEntity] = useState<
 		string | null
 	>(null);
 
-	const deployUpdateMediaEntity = useMutation({
-		mutationFn: (input: DeployUpdateMediaEntityJobMutationVariables) =>
-			clientGqlService.request(DeployUpdateMediaEntityJobDocument, input),
-	});
-
 	useEffect(() => {
-		const { partialStatus, entityId, entityLot, onUpdate, externalLinkSource } =
-			props;
+		const { partialStatus, entityId, onUpdate, externalLinkSource } = props;
 
 		if (jobDeployedForEntity && jobDeployedForEntity !== entityId) {
 			setJobDeployedForEntity(null);
@@ -368,7 +407,7 @@ export const usePartialStatusMonitor = (props: {
 		}
 
 		if (jobDeployedForEntity !== entityId) {
-			deployUpdateMediaEntity.mutate({ entityId, entityLot });
+			deployUpdateJobIfNeeded(entityId, externalLinkSource);
 			setJobDeployedForEntity(entityId);
 		}
 
@@ -378,60 +417,13 @@ export const usePartialStatusMonitor = (props: {
 	}, [
 		props.onUpdate,
 		props.entityId,
-		props.entityLot,
 		props.partialStatus,
 		jobDeployedForEntity,
 		props.externalLinkSource,
-		deployUpdateMediaEntity.mutate,
 	]);
 
 	return {
 		isPartialStatusActive:
 			props.partialStatus && props.externalLinkSource !== MediaSource.Custom,
 	};
-};
-
-export const waitForNonPartialMetadata = async (props: {
-	metadataId: string;
-	maxWaitTime?: number;
-	pollInterval?: number;
-}): Promise<boolean> => {
-	const { metadataId, maxWaitTime = 30000, pollInterval = 1000 } = props;
-	const startTime = Date.now();
-
-	const checkPartialStatus = async (): Promise<boolean> => {
-		try {
-			const { metadataDetails } = await clientGqlService.request(
-				MetadataDetailsDocument,
-				{ metadataId },
-			);
-			return metadataDetails?.response?.isPartial === false;
-		} catch {
-			return true;
-		}
-	};
-
-	return new Promise<boolean>((resolve, reject) => {
-		const checkAndWait = async () => {
-			try {
-				const isNonPartial = await checkPartialStatus();
-
-				if (isNonPartial) {
-					resolve(true);
-					return;
-				}
-
-				if (Date.now() - startTime >= maxWaitTime) {
-					resolve(false);
-					return;
-				}
-
-				setTimeout(checkAndWait, pollInterval);
-			} catch (error) {
-				reject(error);
-			}
-		};
-
-		checkAndWait();
-	});
 };

@@ -82,7 +82,6 @@ export const MediaDetailsLayout = (props: {
 		onUpdate: props.partialDetailsFetcher.fn,
 		externalLinkSource: props.externalLink.source,
 		entityId: props.partialDetailsFetcher.entityId,
-		entityLot: props.partialDetailsFetcher.entityLot,
 		partialStatus: props.partialDetailsFetcher.partialStatus,
 	});
 
