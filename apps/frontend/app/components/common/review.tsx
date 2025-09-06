@@ -13,11 +13,16 @@ import {
 	TextInput,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	type EntityLot,
 	type MediaLot,
 	type ReviewItem,
 	UserReviewScale,
+} from "@ryot/generated/graphql/backend/graphql";
+import {
+	CreateReviewCommentDocument,
+	type CreateReviewCommentInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { getInitials, isNumber } from "@ryot/ts-utils";
 import {
@@ -30,24 +35,52 @@ import {
 	IconStarFilled,
 	IconTrash,
 } from "@tabler/icons-react";
-import { Form, useFetcher } from "react-router";
+import { useMutation } from "@tanstack/react-query";
+import { useState } from "react";
+import { useFetcher } from "react-router";
 import { $path } from "safe-routes";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
 import { reviewYellow } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
-import {
-	useConfirmSubmit,
-	useUserDetails,
-	useUserPreferences,
-} from "~/lib/shared/hooks";
+import { useUserDetails, useUserPreferences } from "~/lib/shared/hooks";
 import { convertDecimalToThreePointSmiley } from "~/lib/shared/media-utils";
+import {
+	clientGqlService,
+	refreshEntityDetails,
+} from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useReviewEntity } from "~/lib/state/media";
 import { ThreePointSmileyRating } from "~/lib/types";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
+
+const LeaveCommentInline = (props: {
+	reviewId: string;
+	onSubmit: (text: string) => Promise<void> | void;
+}) => {
+	const [text, setText] = useState("");
+	return (
+		<Group>
+			<TextInput
+				value={text}
+				onChange={(e) => setText(e.currentTarget.value)}
+				placeholder="Enter comment"
+				flex={1}
+			/>
+			<ActionIcon
+				color="green"
+				onClick={async () => {
+					if (!text.trim()) return;
+					await props.onSubmit(text.trim());
+					setText("");
+				}}
+			>
+				<IconCheck />
+			</ActionIcon>
+		</Group>
+	);
+};
 
 export const DisplayThreePointReview = (props: {
 	size?: number;
@@ -74,7 +107,6 @@ export const ReviewItemDisplay = (props: {
 }) => {
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
-	const submit = useConfirmSubmit();
 	const reviewScale = userPreferences.general.reviewScale;
 	const [opened, { toggle }] = useDisclosure(false);
 	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
@@ -83,6 +115,21 @@ export const ReviewItemDisplay = (props: {
 	const [_, setEntityToReview] = useReviewEntity();
 	const seenItemsAssociatedWith =
 		props.review.seenItemsAssociatedWith?.length || 0;
+
+	const reviewCommentMutation = useMutation({
+		mutationFn: (input: CreateReviewCommentInput) =>
+			clientGqlService.request(CreateReviewCommentDocument, { input }),
+		onSuccess: (_d, variables) => {
+			refreshEntityDetails(props.entityId);
+			const message =
+				variables.incrementLikes || variables.decrementLikes
+					? "Score changed successfully"
+					: `Comment ${variables.shouldDelete ? "deleted" : "posted"} successfully`;
+			notifications.show({ color: "green", message });
+		},
+		onError: () =>
+			notifications.show({ color: "red", message: "Failed to update comment" }),
+	});
 
 	return (
 		<>
@@ -112,6 +159,7 @@ export const ReviewItemDisplay = (props: {
 									<IconEdit size={16} />
 								</ActionIcon>
 								<ActionIcon
+									color="red"
 									onClick={() => {
 										openConfirmationModal(
 											"Are you sure you want to delete this review? This action cannot be undone.",
@@ -131,7 +179,6 @@ export const ReviewItemDisplay = (props: {
 											},
 										);
 									}}
-									color="red"
 								>
 									<IconTrash size={16} />
 								</ActionIcon>
@@ -234,22 +281,16 @@ export const ReviewItemDisplay = (props: {
 						)
 					) : null}
 					{openedLeaveComment ? (
-						<Form
-							method="POST"
-							onSubmit={(e) => {
-								submit(e);
+						<LeaveCommentInline
+							reviewId={props.review.id || ""}
+							onSubmit={async (text) => {
+								await reviewCommentMutation.mutateAsync({
+									reviewId: props.review.id || "",
+									text,
+								});
 								toggleLeaveComment();
 							}}
-							action={withQuery("/actions", { intent: "createReviewComment" })}
-						>
-							<input hidden name="reviewId" defaultValue={props.review.id} />
-							<Group>
-								<TextInput name="text" placeholder="Enter comment" flex={1} />
-								<ActionIcon color="green" type="submit">
-									<IconCheck />
-								</ActionIcon>
-							</Group>
-						</Form>
+						/>
 					) : null}
 					{!openedLeaveComment ? (
 						<Button
@@ -278,81 +319,42 @@ export const ReviewItemDisplay = (props: {
 														) : null}
 													</Box>
 													{userDetails.id === c?.user?.id ? (
-														<Form
-															method="POST"
-															action={withQuery("/actions", {
-																intent: "createReviewComment",
-															})}
+														<ActionIcon
+															color="red"
+															onClick={(e) => {
+																e.preventDefault();
+																openConfirmationModal(
+																	"Are you sure you want to delete this comment?",
+																	async () =>
+																		await reviewCommentMutation.mutateAsync({
+																			commentId: c?.id,
+																			shouldDelete: true,
+																			reviewId: props.review.id || "",
+																		}),
+																);
+															}}
 														>
-															<input
-																hidden
-																name="reviewId"
-																defaultValue={props.review.id}
-															/>
-															<input
-																hidden
-																name="commentId"
-																defaultValue={c?.id}
-															/>
-															<input
-																hidden
-																name="shouldDelete"
-																defaultValue="true"
-															/>
-															<ActionIcon
-																color="red"
-																type="submit"
-																onClick={(e) => {
-																	const form = e.currentTarget.form;
-																	e.preventDefault();
-																	openConfirmationModal(
-																		"Are you sure you want to delete this comment?",
-																		() => submit(form),
-																	);
-																}}
-															>
-																<IconTrash size={16} />
-															</ActionIcon>
-														</Form>
-													) : null}
-													<Form
-														method="POST"
-														action={withQuery("/actions", {
-															intent: "createReviewComment",
-														})}
-														onSubmit={submit}
-													>
-														<input
-															hidden
-															name="reviewId"
-															defaultValue={props.review.id}
-														/>
-														<input
-															hidden
-															name="commentId"
-															defaultValue={c?.id}
-														/>
-														<input
-															hidden
-															name="incrementLikes"
-															value={String(
-																!c?.likedBy?.includes(userDetails.id),
-															)}
-															readOnly
-														/>
-														<input
-															hidden
-															name="decrementLikes"
-															value={String(
-																c?.likedBy?.includes(userDetails.id),
-															)}
-															readOnly
-														/>
-														<ActionIcon type="submit">
-															<IconArrowBigUp size={16} />
-															<Text>{c?.likedBy?.length}</Text>
+															<IconTrash size={16} />
 														</ActionIcon>
-													</Form>
+													) : null}
+													<ActionIcon
+														onClick={async (e) => {
+															e.preventDefault();
+															await reviewCommentMutation.mutateAsync({
+																commentId: c?.id,
+																reviewId: props.review.id || "",
+																incrementLikes: !c?.likedBy?.includes(
+																	userDetails.id,
+																),
+																decrementLikes: c?.likedBy?.includes(
+																	userDetails.id,
+																),
+															});
+														}}
+													>
+														<IconArrowBigUp size={16} />
+														<Text>{c?.likedBy?.length}</Text>
+													</ActionIcon>
 												</Flex>
 												<Text ml="xs">{c?.text}</Text>
 											</Stack>

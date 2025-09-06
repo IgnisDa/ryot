@@ -1,22 +1,9 @@
-import {
-	CreateReviewCommentDocument,
-	DeleteS3ObjectDocument,
-} from "@ryot/generated/graphql/backend/graphql";
-import {
-	getActionIntent,
-	processSubmission,
-	zodBoolAsString,
-} from "@ryot/ts-utils";
+import { DeleteS3ObjectDocument } from "@ryot/generated/graphql/backend/graphql";
+import { getActionIntent } from "@ryot/ts-utils";
 import { data, redirect } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { z } from "zod";
-import {
-	colorSchemeCookie,
-	createToastHeaders,
-	extendResponseHeaders,
-	serverGqlService,
-} from "~/lib/utilities.server";
+import { colorSchemeCookie, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/actions";
 
 export const loader = async () => redirect($path("/"));
@@ -46,35 +33,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				await colorSchemeCookie.serialize(newColorScheme),
 			);
 		})
-		.with("createReviewComment", async () => {
-			const submission = processSubmission(formData, reviewCommentSchema);
-			await serverGqlService.authenticatedRequest(
-				request,
-				CreateReviewCommentDocument,
-				{ input: submission },
-			);
-			extendResponseHeaders(
-				headers,
-				await createToastHeaders({
-					message:
-						submission.incrementLikes || submission.decrementLikes
-							? "Score changed successfully"
-							: `Comment ${
-									submission.shouldDelete ? "deleted" : "posted"
-								} successfully`,
-					type: "success",
-				}),
-			);
-		})
 		.run();
 	return data(returnData, { headers });
 };
 
-const reviewCommentSchema = z.object({
-	reviewId: z.string(),
-	text: z.string().optional(),
-	commentId: z.string().optional(),
-	shouldDelete: zodBoolAsString.optional(),
-	decrementLikes: zodBoolAsString.optional(),
-	incrementLikes: zodBoolAsString.optional(),
-});
+// No additional schemas needed since comment actions are now handled via useMutation on the client.
