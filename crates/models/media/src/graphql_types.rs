@@ -90,6 +90,7 @@ pub struct MetadataProgressUpdateCacheInput {
     pub common: MetadataProgressUpdateCommonInput,
 }
 
+#[skip_serializing_none]
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq, Eq, InputObject)]
 pub struct GenreDetailsInput {
     pub genre_id: String,
