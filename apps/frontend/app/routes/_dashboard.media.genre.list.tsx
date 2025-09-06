@@ -144,7 +144,7 @@ const DisplayGenre = (props: { genreId: string }) => {
 				);
 				if (assets.remoteImages.length > 0) images.push(assets.remoteImages[0]);
 			}
-			if (images.length < 4) images = images.splice(0, 1);
+			if (images.length < 4) images = images.slice(0, 1);
 			return { genreDetails, images };
 		},
 	});
