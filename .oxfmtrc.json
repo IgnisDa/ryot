@@ -14,7 +14,6 @@
 		"**/.vitepress/**",
 		"**/.react-router/**",
 		"apps/frontend/app/styles/*.css",
-		"apps/app-frontend/src/routeTree.gen.ts",
 		"apps/docs/src/includes/export-schema.ts",
 		"libs/generated/src/openapi/app-backend.d.ts"
 	]
