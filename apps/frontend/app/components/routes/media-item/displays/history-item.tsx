@@ -1,7 +1,11 @@
 import { ActionIcon, Anchor, Flex, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { changeCase, humanizeDuration, isInteger, isNumber, isString } from "@ryot/ts-utils";
+import { humanizeDuration } from "@ryot/ts-utils/format";
+import { isInteger } from "@ryot/ts-utils/lodash";
+import { isNumber } from "@ryot/ts-utils/lodash";
+import { isString } from "@ryot/ts-utils/lodash";
+import { changeCase } from "@ryot/ts-utils/string";
 import { IconBubble, IconEdit, IconX } from "@tabler/icons-react";
 import type { HumanizeDurationOptions } from "humanize-duration-ts";
 import { Fragment, type ReactNode, type RefObject } from "react";

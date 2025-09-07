@@ -1,4 +1,4 @@
-import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
+import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils/slug";
 import { generateId } from "better-auth";
 
 import { checkCustomAccess, checkReadAccess } from "~/lib/access";

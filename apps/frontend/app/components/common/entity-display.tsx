@@ -22,7 +22,7 @@ import {
 	UserReviewScale,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getInitials } from "@ryot/ts-utils";
+import { changeCase, getInitials } from "@ryot/ts-utils/string";
 import {
 	IconArchive,
 	IconBackpack,

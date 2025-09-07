@@ -1,5 +1,5 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
-import { extractErrorMessage } from "@ryot/ts-utils";
+import { extractErrorMessage } from "@ryot/ts-utils/error";
 import { sql } from "drizzle-orm";
 
 import { appConfigEnvIndex, getMaskedConfig, systemConfigEnvIndex } from "~/lib/config";

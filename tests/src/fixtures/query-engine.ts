@@ -1,5 +1,5 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
-import { getQueryEngineField } from "@ryot/ts-utils";
+import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
 
 import { type Client, createAuthenticatedClient } from "./auth";
 import { createEntitySchema } from "./entity-schemas";

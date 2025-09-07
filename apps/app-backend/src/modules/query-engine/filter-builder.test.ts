@@ -1,7 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import type { AppSchema } from "@ryot/ts-utils";
-import { createComputedFieldExpression, createEntityPropertyExpression } from "@ryot/ts-utils";
+import type { AppSchema } from "@ryot/ts-utils/app-schema";
+import {
+	createComputedFieldExpression,
+	createEntityPropertyExpression,
+} from "@ryot/ts-utils/view-language";
 
 import {
 	comparisonPredicate as comparison,

@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 
 export function hexToRgba(hex: string, alpha: number) {
 	const r = Number.parseInt(hex.slice(1, 3), 16);

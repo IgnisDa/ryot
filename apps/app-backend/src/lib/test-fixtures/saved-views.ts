@@ -1,7 +1,7 @@
 import {
 	createEntityColumnExpression,
 	createEntitySchemaExpression,
-} from "@ryot/ts-utils/src/view-language";
+} from "@ryot/ts-utils/view-language";
 
 import {
 	createCreatedAt,

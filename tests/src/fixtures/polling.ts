@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 
 export interface PollOptions {
 	timeoutMs?: number;

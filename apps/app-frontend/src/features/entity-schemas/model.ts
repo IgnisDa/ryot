@@ -1,4 +1,4 @@
-import type { AppSchema } from "@ryot/ts-utils";
+import type { AppSchema } from "@ryot/ts-utils/app-schema";
 
 import type { AppTracker } from "~/features/trackers/model";
 import type { ApiPostResponseData } from "~/lib/api/types";

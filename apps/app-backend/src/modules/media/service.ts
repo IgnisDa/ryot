@@ -1,4 +1,5 @@
-import { dayjs, getQueryEngineField } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
+import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
 
 import {
 	type BuiltinMediaEntitySchemaSlug,

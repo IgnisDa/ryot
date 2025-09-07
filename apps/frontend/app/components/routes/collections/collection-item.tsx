@@ -5,7 +5,7 @@ import {
 	ReorderCollectionEntityDocument,
 	type ReorderCollectionEntityInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber } from "@ryot/ts-utils";
+import { isNumber } from "@ryot/ts-utils/lodash";
 import { IconTrashFilled } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 

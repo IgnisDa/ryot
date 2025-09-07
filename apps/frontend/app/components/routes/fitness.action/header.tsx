@@ -4,7 +4,7 @@ import {
 	CreateOrUpdateUserWorkoutDocument,
 	CreateOrUpdateUserWorkoutTemplateDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { sum } from "@ryot/ts-utils";
+import { sum } from "@ryot/ts-utils/lodash";
 import { RESET } from "jotai/utils";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";

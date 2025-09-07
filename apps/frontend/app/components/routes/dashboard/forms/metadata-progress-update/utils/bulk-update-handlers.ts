@@ -3,7 +3,7 @@ import {
 	MediaLot,
 	type MetadataProgressUpdateCommonInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isFiniteNumber } from "@ryot/ts-utils";
+import { isFiniteNumber } from "@ryot/ts-utils/lodash";
 import { match } from "ts-pattern";
 
 import { WatchTimes } from "~/components/routes/dashboard/types";
