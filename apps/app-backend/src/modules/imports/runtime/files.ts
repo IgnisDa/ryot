@@ -6,9 +6,10 @@ import { pipeline } from "node:stream/promises";
 import * as yauzl from "yauzl";
 
 import { getTemporaryDirectory } from "~/lib/bun";
+import { temporaryUploadMaxFileBytes } from "~/lib/upload";
 
 const MAX_ZIP_ENTRY_COUNT = 100;
-const MAX_FILE_BYTES = 50 * 1024 * 1024;
+const MAX_FILE_BYTES = temporaryUploadMaxFileBytes;
 const MAX_ZIP_ENTRY_BYTES = 25 * 1024 * 1024;
 const MAX_ZIP_TOTAL_BYTES = 100 * 1024 * 1024;
 const ZIP_TEMP_DIRECTORY_PREFIX = "ryot-import-zip-";
