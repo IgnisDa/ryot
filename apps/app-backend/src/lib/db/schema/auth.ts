@@ -16,9 +16,9 @@ export const user = pgTable("user", {
 	id: text().primaryKey(),
 	preferences: jsonb().notNull(),
 	email: text().notNull().unique(),
-	createdAt: timestamp().defaultNow().notNull(),
 	emailVerified: boolean().default(false).notNull(),
-	updatedAt: timestamp()
+	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+	updatedAt: timestamp({ withTimezone: true })
 		.defaultNow()
 		.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 		.notNull(),
@@ -31,9 +31,9 @@ export const session = pgTable(
 		userAgent: text(),
 		id: text().primaryKey(),
 		token: text().notNull().unique(),
-		expiresAt: timestamp().notNull(),
-		createdAt: timestamp().defaultNow().notNull(),
-		updatedAt: timestamp()
+		expiresAt: timestamp({ withTimezone: true }).notNull(),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp({ withTimezone: true })
 			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
 		userId: text()
@@ -54,13 +54,13 @@ export const account = pgTable(
 		id: text().primaryKey(),
 		accountId: text().notNull(),
 		providerId: text().notNull(),
-		accessTokenExpiresAt: timestamp(),
-		refreshTokenExpiresAt: timestamp(),
-		createdAt: timestamp().defaultNow().notNull(),
+		accessTokenExpiresAt: timestamp({ withTimezone: true }),
+		refreshTokenExpiresAt: timestamp({ withTimezone: true }),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		updatedAt: timestamp()
+		updatedAt: timestamp({ withTimezone: true })
 			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
 	},
@@ -73,9 +73,9 @@ export const verification = pgTable(
 		id: text().primaryKey(),
 		value: text().notNull(),
 		identifier: text().notNull(),
-		expiresAt: timestamp().notNull(),
-		createdAt: timestamp().defaultNow().notNull(),
-		updatedAt: timestamp()
+		expiresAt: timestamp({ withTimezone: true }).notNull(),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
@@ -93,21 +93,21 @@ export const apikey = pgTable(
 		permissions: text(),
 		remaining: integer(),
 		key: text().notNull(),
-		expiresAt: timestamp(),
 		id: text().primaryKey(),
 		refillAmount: integer(),
-		lastRequest: timestamp(),
 		refillInterval: integer(),
-		lastRefillAt: timestamp(),
 		referenceId: text().notNull(),
-		createdAt: timestamp().notNull(),
-		updatedAt: timestamp().notNull(),
 		enabled: boolean().default(true),
 		requestCount: integer().default(0),
 		rateLimitMax: integer().default(10),
 		rateLimitEnabled: boolean().default(true),
 		configId: text().default("default").notNull(),
+		expiresAt: timestamp({ withTimezone: true }),
+		lastRequest: timestamp({ withTimezone: true }),
+		lastRefillAt: timestamp({ withTimezone: true }),
 		rateLimitTimeWindow: integer().default(86400000),
+		createdAt: timestamp({ withTimezone: true }).notNull(),
+		updatedAt: timestamp({ withTimezone: true }).notNull(),
 	},
 	(table) => [
 		index("apikey_configId_idx").on(table.configId),
