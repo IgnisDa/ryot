@@ -39,7 +39,6 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
-import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { reviewYellow } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
@@ -74,8 +73,8 @@ export const ReviewItemDisplay = (props: {
 	title: string;
 	lot?: MediaLot;
 	entityId: string;
+	review: ReviewItem;
 	entityLot: EntityLot;
-	review: DeepPartial<ReviewItem>;
 }) => {
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
@@ -97,8 +96,7 @@ export const ReviewItemDisplay = (props: {
 			notifications.show({ color: "red", message: "Failed to delete review" }),
 	});
 	const [_, setEntityToReview] = useReviewEntity();
-	const seenItemsAssociatedWith =
-		props.review.seenItemsAssociatedWith?.length || 0;
+	const seenItemsAssociatedWith = props.review.seenItemsAssociatedWith.length;
 
 	const reviewCommentMutation = useMutation({
 		mutationFn: (input: CreateReviewCommentInput) =>
@@ -117,19 +115,29 @@ export const ReviewItemDisplay = (props: {
 
 	const form = useForm({ initialValues: { comment: "" } });
 
+	const RenderedText = () =>
+		props.review.textRendered ? (
+			<div
+				// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
+				dangerouslySetInnerHTML={{
+					__html: props.review.textRendered,
+				}}
+			/>
+		) : null;
+
 	return (
 		<>
 			<Box data-review-id={props.review.id} mb="md">
 				<Group justify="space-between">
 					<Flex align="center" gap="sm">
 						<Avatar color="cyan" radius="xl">
-							{getInitials(props.review.postedBy?.name || "")}
+							{getInitials(props.review.postedBy.name)}
 						</Avatar>
 						<Box>
-							<Text>{props.review.postedBy?.name}</Text>
+							<Text>{props.review.postedBy.name}</Text>
 							<Text>{dayjsLib(props.review.postedOn).format("L")}</Text>
 						</Box>
-						{userDetails.id === props.review.postedBy?.id ? (
+						{userDetails.id === props.review.postedBy.id ? (
 							<>
 								<ActionIcon
 									onClick={() => {
@@ -150,10 +158,7 @@ export const ReviewItemDisplay = (props: {
 									onClick={() => {
 										openConfirmationModal(
 											"Are you sure you want to delete this review? This action cannot be undone.",
-											async () => {
-												if (!props.review.id) return;
-												await deleteReviewMutation.mutateAsync(props.review.id);
-											},
+											() => deleteReviewMutation.mutate(props.review.id),
 										);
 									}}
 								>
@@ -163,13 +168,7 @@ export const ReviewItemDisplay = (props: {
 						) : null}
 					</Flex>
 					{seenItemsAssociatedWith > 0 ? (
-						<Text
-							size="xs"
-							c="dimmed"
-							data-seen-items-associated-with={JSON.stringify(
-								props.review.seenItemsAssociatedWith,
-							)}
-						>
+						<Text size="xs" c="dimmed">
 							Associated with {seenItemsAssociatedWith} seen item
 							{seenItemsAssociatedWith > 1 ? "s" : ""}
 						</Text>
@@ -177,7 +176,7 @@ export const ReviewItemDisplay = (props: {
 				</Group>
 				<Box ml="sm" mt="xs">
 					<Group>
-						{(Number(props.review.rating) || 0) > 0
+						{Number(props.review.rating) > 0
 							? match(userPreferences.general.reviewScale)
 									.with(UserReviewScale.ThreePointSmiley, () => (
 										<DisplayThreePointReview rating={props.review.rating} />
@@ -231,14 +230,7 @@ export const ReviewItemDisplay = (props: {
 					</Group>
 					{props.review.textRendered ? (
 						!props.review.isSpoiler ? (
-							<>
-								<div
-									// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
-									dangerouslySetInnerHTML={{
-										__html: props.review.textRendered,
-									}}
-								/>
-							</>
+							<RenderedText />
 						) : (
 							<>
 								{!opened ? (
@@ -247,12 +239,7 @@ export const ReviewItemDisplay = (props: {
 									</Button>
 								) : null}
 								<Collapse in={opened}>
-									<Text
-										// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
-										dangerouslySetInnerHTML={{
-											__html: props.review.textRendered,
-										}}
-									/>
+									<RenderedText />
 								</Collapse>
 							</>
 						)
@@ -262,7 +249,7 @@ export const ReviewItemDisplay = (props: {
 							onSubmit={form.onSubmit(async (values) => {
 								await reviewCommentMutation.mutateAsync({
 									text: values.comment,
-									reviewId: props.review.id || "",
+									reviewId: props.review.id,
 								});
 								form.reset();
 								toggleLeaveComment();
@@ -292,62 +279,56 @@ export const ReviewItemDisplay = (props: {
 							Leave comment
 						</Button>
 					)}
-					{(props.review.comments?.length || 0) > 0 ? (
+					{props.review.comments.length > 0 ? (
 						<Paper withBorder ml="xl" mt="sm" p="xs">
 							<Stack>
-								{props.review.comments
-									? props.review.comments.map((c) => (
-											<Stack key={c?.id}>
-												<Flex align="center" gap="sm">
-													<Avatar color="cyan" radius="xl">
-														{getInitials(c?.user?.name || "")}{" "}
-													</Avatar>
-													<Box>
-														<Text>{c?.user?.name}</Text>
-														{c?.createdOn ? (
-															<Text>{dayjsLib(c.createdOn).format("L")}</Text>
-														) : null}
-													</Box>
-													{userDetails.id === c?.user?.id ? (
-														<ActionIcon
-															color="red"
-															onClick={() => {
-																openConfirmationModal(
-																	"Are you sure you want to delete this comment?",
-																	async () =>
-																		await reviewCommentMutation.mutateAsync({
-																			commentId: c?.id,
-																			shouldDelete: true,
-																			reviewId: props.review.id || "",
-																		}),
-																);
-															}}
-														>
-															<IconTrash size={16} />
-														</ActionIcon>
-													) : null}
-													<ActionIcon
-														onClick={async () => {
-															await reviewCommentMutation.mutateAsync({
-																commentId: c?.id,
-																reviewId: props.review.id || "",
-																incrementLikes: !c?.likedBy?.includes(
-																	userDetails.id,
-																),
-																decrementLikes: c?.likedBy?.includes(
-																	userDetails.id,
-																),
-															});
-														}}
-													>
-														<IconArrowBigUp size={16} />
-														<Text>{c?.likedBy?.length}</Text>
-													</ActionIcon>
-												</Flex>
-												<Text ml="xs">{c?.text}</Text>
-											</Stack>
-										))
-									: null}
+								{props.review.comments.map((c) => (
+									<Stack key={c.id}>
+										<Flex align="center" gap="sm">
+											<Avatar color="cyan" radius="xl">
+												{getInitials(c.user.name)}{" "}
+											</Avatar>
+											<Box>
+												<Text>{c.user.name}</Text>
+												{c.createdOn ? (
+													<Text>{dayjsLib(c.createdOn).format("L")}</Text>
+												) : null}
+											</Box>
+											{userDetails.id === c.user.id ? (
+												<ActionIcon
+													color="red"
+													onClick={() => {
+														openConfirmationModal(
+															"Are you sure you want to delete this comment?",
+															async () =>
+																await reviewCommentMutation.mutateAsync({
+																	commentId: c.id,
+																	shouldDelete: true,
+																	reviewId: props.review.id,
+																}),
+														);
+													}}
+												>
+													<IconTrash size={16} />
+												</ActionIcon>
+											) : null}
+											<ActionIcon
+												onClick={async () => {
+													await reviewCommentMutation.mutateAsync({
+														commentId: c.id,
+														reviewId: props.review.id,
+														incrementLikes: !c.likedBy.includes(userDetails.id),
+														decrementLikes: c.likedBy.includes(userDetails.id),
+													});
+												}}
+											>
+												<IconArrowBigUp size={16} />
+												<Text>{c.likedBy.length}</Text>
+											</ActionIcon>
+										</Flex>
+										<Text ml="xs">{c.text}</Text>
+									</Stack>
+								))}
 							</Stack>
 						</Paper>
 					) : null}
