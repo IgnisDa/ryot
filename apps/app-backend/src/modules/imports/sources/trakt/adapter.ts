@@ -1,7 +1,13 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
 import type { ImportEntityRef, ImportMediaEntityGroup } from "../../jobs";
-import { finalizeEntityGroups } from "../../media/book/shared";
+import {
+	addCollectionMembership,
+	createBacklogEvent,
+	createCompleteEvent,
+	createReviewEvent,
+	finalizeEntityGroups,
+} from "../../media/book/shared";
 import { getOrCreateMediaEntityGroup } from "../../media/groups";
 import type {
 	MediaImportAdapterFailure,
@@ -69,7 +75,7 @@ type TraktCollectionItem = {
 	movie?: TraktItem;
 };
 
-export type TraktImportAdapterDeps = {
+type TraktImportAdapterDeps = {
 	fetch: TraktFetch;
 	now: () => string;
 };
@@ -225,11 +231,9 @@ export const adaptTraktData = async (
 				continue;
 			}
 			const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
-			group.events.push({
-				eventSchemaSlug: "complete",
-				occurredAt: item.watched_at,
-				properties: { completedOn: item.watched_at, completionMode: "custom_timestamps" },
-			});
+			group.events.push(
+				createCompleteEvent({ occurredAt: item.watched_at, completedOn: item.watched_at }),
+			);
 		} else if (item.type === "episode" && item.show && item.episode) {
 			const ref = buildShowRef(item.show);
 			if (!ref) {
@@ -274,11 +278,13 @@ export const adaptTraktData = async (
 				continue;
 			}
 			const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
-			group.events.push({
+			const reviewEvent = createReviewEvent({
 				occurredAt: item.rated_at,
-				eventSchemaSlug: "review",
-				properties: { rating: item.rating * 10 },
+				rating: item.rating * 10,
 			});
+			if (reviewEvent) {
+				group.events.push(reviewEvent);
+			}
 		}
 	}
 
@@ -300,11 +306,7 @@ export const adaptTraktData = async (
 			continue;
 		}
 		const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
-		group.events.push({
-			properties: {},
-			eventSchemaSlug: "backlog",
-			occurredAt: item.listed_at ?? deps.now(),
-		});
+		group.events.push(createBacklogEvent(item.listed_at ?? deps.now()));
 	}
 
 	const lists = await client.fetchAll<TraktList>(`${userUrl}/lists`);
@@ -334,12 +336,7 @@ export const adaptTraktData = async (
 				continue;
 			}
 			const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
-			const alreadyMember = group.collectionMemberships.some(
-				(m) => m.collectionName === collectionName,
-			);
-			if (!alreadyMember) {
-				group.collectionMemberships.push({ collectionName });
-			}
+			addCollectionMembership(group, collectionName);
 		}
 	}
 
@@ -363,10 +360,7 @@ export const adaptTraktData = async (
 				continue;
 			}
 			const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
-			const alreadyMember = group.collectionMemberships.some((m) => m.collectionName === "Owned");
-			if (!alreadyMember) {
-				group.collectionMemberships.push({ collectionName: "Owned" });
-			}
+			addCollectionMembership(group, "Owned");
 		}
 	}
 
