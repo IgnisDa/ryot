@@ -32,12 +32,7 @@ import { FRONTEND_AUTH_COOKIE_NAME, applicationBaseUrl } from "./constants";
 import { getMetadataDetails } from "./media-utils";
 
 export const queryClient = new QueryClient({
-	defaultOptions: {
-		queries: {
-			staleTime: Number.POSITIVE_INFINITY,
-			placeholderData: (prev: unknown) => prev,
-		},
-	},
+	defaultOptions: { queries: { placeholderData: (prev: unknown) => prev } },
 });
 
 export const clientGqlService = new GraphQLClient(
