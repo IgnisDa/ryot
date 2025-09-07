@@ -15,9 +15,11 @@ use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use user_models::{UserExtraInformation, UserPreferences};
 use uuid::Uuid;
 
+#[skip_serializing_none]
 #[derive(Debug, PartialEq, Eq, Default, Serialize, Deserialize, SimpleObject, Clone, Schematic)]
 pub struct CollectionToEntityDetails {
     /// The rank of this entity in the collection. This is ignored during importing.
@@ -101,6 +103,7 @@ pub struct GraphqlPersonDetails {
     pub associated_metadata_groups: Vec<PersonDetailsGroupedByRole>,
 }
 
+#[skip_serializing_none]
 #[derive(Clone, SimpleObject, Debug, PartialEq, Serialize, Deserialize, Eq)]
 pub struct UserPersonDetails {
     pub has_interacted: bool,
@@ -110,6 +113,7 @@ pub struct UserPersonDetails {
     pub collections: Vec<GraphqlCollectionToEntityDetails>,
 }
 
+#[skip_serializing_none]
 #[derive(Clone, SimpleObject, Debug, PartialEq, Serialize, Deserialize, Eq)]
 pub struct UserMetadataGroupDetails {
     pub has_interacted: bool,

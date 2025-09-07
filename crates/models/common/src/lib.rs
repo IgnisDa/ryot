@@ -136,6 +136,7 @@ pub enum CollectionExtraInformationLot {
     StringArray,
 }
 
+#[skip_serializing_none]
 #[derive(
     Eq,
     Clone,
