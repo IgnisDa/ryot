@@ -195,10 +195,10 @@ pub async fn metadata_details(
                     .map_err(|_| anyhow!("Failed to fetch metadata associations"))
             )?;
 
-            let mut group = vec![];
+            let mut groups = vec![];
             for association in associations {
                 let grp = association.1.unwrap();
-                group.push(GraphqlMetadataGroup {
+                groups.push(GraphqlMetadataGroup {
                     id: grp.id,
                     part: association.0.part,
                 });
@@ -207,7 +207,7 @@ pub async fn metadata_details(
             let watch_providers = model.watch_providers.unwrap_or_default();
 
             let resp = GraphqlMetadataDetails {
-                group,
+                groups,
                 genres,
                 creators,
                 suggestions,

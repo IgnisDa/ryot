@@ -30,7 +30,7 @@ query MetadataDetails($metadataId: String!) {
 				id
 				name
 			}
-			group {
+			groups {
 				id
 				part
 			}
