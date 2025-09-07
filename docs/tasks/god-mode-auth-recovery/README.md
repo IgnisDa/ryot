@@ -193,18 +193,18 @@ Better Auth remains the owner of all normal auth operations. Outside the legacy 
 
 ## Tasks
 
-**Overall Progress:** 0 of 7 tasks completed
+**Overall Progress:** 7 of 7 tasks completed
 
-**Current Task:** [Task 01](./01-legacy-auth-state-migration.md) (todo)
+**Current Task:** All tasks complete
 
 ### Task List
 
 | #   | Task                                                               | Type | Status |
 | --- | ------------------------------------------------------------------ | ---- | ------ |
-| 01  | [Legacy Auth State Migration](./01-legacy-auth-state-migration.md) | AFK  | todo   |
-| 02  | [God Mode User List](./02-god-mode-user-list.md)                   | AFK  | todo   |
-| 03  | [Reset Link Capture API](./03-reset-link-capture-api.md)           | AFK  | todo   |
-| 04  | [App Client Reset Flow](./04-app-client-reset-flow.md)             | AFK  | todo   |
-| 05  | [Website Customer Reset Flow](./05-website-customer-reset-flow.md) | AFK  | todo   |
-| 06  | [E2E Auth Recovery Coverage](./06-e2e-auth-recovery-coverage.md)   | AFK  | todo   |
-| 07  | [Codebase Cleanup](./07-codebase-cleanup.md)                       | AFK  | todo   |
+| 01  | [Legacy Auth State Migration](./01-legacy-auth-state-migration.md) | AFK  | done   |
+| 02  | [God Mode User List](./02-god-mode-user-list.md)                   | AFK  | done   |
+| 03  | [Reset Link Capture API](./03-reset-link-capture-api.md)           | AFK  | done   |
+| 04  | [App Client Reset Flow](./04-app-client-reset-flow.md)             | AFK  | done   |
+| 05  | [Website Customer Reset Flow](./05-website-customer-reset-flow.md) | AFK  | done   |
+| 06  | [E2E Auth Recovery Coverage](./06-e2e-auth-recovery-coverage.md)   | AFK  | done   |
+| 07  | [Codebase Cleanup](./07-codebase-cleanup.md)                       | AFK  | done   |
