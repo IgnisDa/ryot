@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
 import { expectDefined, resolveMockResponse } from "../shared/test-utils";
-import { adaptMediatrackerData } from "./adapter";
+import { adaptMediaTrackerData } from "./adapter";
 
 const getGroup = (
-	result: Awaited<ReturnType<typeof adaptMediatrackerData>>,
+	result: Awaited<ReturnType<typeof adaptMediaTrackerData>>,
 	sourceLabel: string,
 ) => {
 	const group = result.entityGroups.find(
@@ -98,9 +98,9 @@ const createDeps = () => ({
 	},
 });
 
-describe("adaptMediatrackerData", () => {
+describe("adaptMediaTrackerData", () => {
 	it("maps lifecycle aliases, collections, reviews, and seen history", async () => {
-		const result = await adaptMediatrackerData(
+		const result = await adaptMediaTrackerData(
 			{ apiKey: "secret", apiUrl: "https://mediatracker.local" },
 			createDeps(),
 		);
