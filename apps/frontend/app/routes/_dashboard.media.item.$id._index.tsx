@@ -260,7 +260,7 @@ export default function Page() {
 
 	const inProgress = userMetadataDetails.data?.inProgress;
 	const nextEntry = userMetadataDetails.data?.nextEntry;
-	const firstGroupAssociated = metadataDetails.data?.group.at(0);
+	const firstGroupAssociated = metadataDetails.data?.groups.at(0);
 	const videos = [...(metadataDetails.data?.assets.remoteVideos || [])];
 	const { data: groupDetails } = useMetadataGroupDetails(
 		firstGroupAssociated?.id,
