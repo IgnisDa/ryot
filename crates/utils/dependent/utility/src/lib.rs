@@ -224,21 +224,6 @@ pub async fn expire_user_workout_templates_list_cache(
     Ok(())
 }
 
-pub async fn expire_user_metadata_list_cache(
-    user_id: &String,
-    ss: &Arc<SupportingService>,
-) -> Result<()> {
-    cache_service::expire_key(
-        ss,
-        ExpireCacheKeyInput::BySanitizedKey {
-            user_id: Some(user_id.to_owned()),
-            key: ApplicationCacheKeyDiscriminants::UserMetadataList,
-        },
-    )
-    .await?;
-    Ok(())
-}
-
 pub async fn expire_user_exercises_list_cache(
     user_id: &String,
     ss: &Arc<SupportingService>,
@@ -248,6 +233,21 @@ pub async fn expire_user_exercises_list_cache(
         ExpireCacheKeyInput::BySanitizedKey {
             user_id: Some(user_id.to_owned()),
             key: ApplicationCacheKeyDiscriminants::UserExercisesList,
+        },
+    )
+    .await?;
+    Ok(())
+}
+
+pub async fn expire_user_metadata_list_cache(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserMetadataList,
         },
     )
     .await?;
