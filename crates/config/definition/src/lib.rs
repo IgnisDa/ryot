@@ -548,12 +548,6 @@ pub struct AppConfig {
     pub disable_telemetry: bool,
 }
 
-impl AppConfig {
-    pub fn masked_value(&self) -> Self {
-        self.masked()
-    }
-}
-
 pub fn load_app_config() -> Result<AppConfig> {
     let config = "config";
     let app = PROJECT_NAME;
