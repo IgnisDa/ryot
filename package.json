@@ -10,7 +10,7 @@
 		"libs/graphql",
 		"libs/transactional",
 		"libs/ts-utils",
-		"tests/backend-api"
+		"tests"
 	],
 	"engines": {
 		"node": "24.4.0"

@@ -13,7 +13,7 @@
   moon run website:typecheck
   moon run frontend:typecheck
   moon run browser-extension:typecheck
-  moon run backend-api-tests:typecheck
+  moon run tests:typecheck
   ```
 
 - When running tests, compile the backend in release mode and implement the feature first,

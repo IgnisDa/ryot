@@ -7621,25 +7621,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ryot/backend-api-tests@workspace:tests/backend-api":
-  version: 0.0.0-use.local
-  resolution: "@ryot/backend-api-tests@workspace:tests/backend-api"
-  dependencies:
-    "@aws-sdk/client-s3": "npm:3.883.0"
-    "@faker-js/faker": "npm:10.0.0"
-    "@ryot/generated": "workspace:*"
-    "@ryot/graphql": "workspace:*"
-    "@testcontainers/postgresql": "npm:11.5.1"
-    dotenv: "npm:17.2.2"
-    get-port: "npm:7.1.0"
-    graphql: "npm:16.11.0"
-    graphql-request: "npm:7.2.0"
-    testcontainers: "npm:11.5.1"
-    vite-tsconfig-paths: "npm:5.1.4"
-    vitest: "npm:3.2.4"
-  languageName: unknown
-  linkType: soft
-
 "@ryot/browser-extension@workspace:apps/browser-extension":
   version: 0.0.0-use.local
   resolution: "@ryot/browser-extension@workspace:apps/browser-extension"
@@ -7782,6 +7763,25 @@ __metadata:
     "@biomejs/biome": "npm:1.9.4"
     tsconfig-moon: "npm:1.4.1"
     typescript: "npm:5.9.2"
+  languageName: unknown
+  linkType: soft
+
+"@ryot/tests@workspace:tests":
+  version: 0.0.0-use.local
+  resolution: "@ryot/tests@workspace:tests"
+  dependencies:
+    "@aws-sdk/client-s3": "npm:3.883.0"
+    "@faker-js/faker": "npm:10.0.0"
+    "@ryot/generated": "workspace:*"
+    "@ryot/graphql": "workspace:*"
+    "@testcontainers/postgresql": "npm:11.5.1"
+    dotenv: "npm:17.2.2"
+    get-port: "npm:7.1.0"
+    graphql: "npm:16.11.0"
+    graphql-request: "npm:7.2.0"
+    testcontainers: "npm:11.5.1"
+    vite-tsconfig-paths: "npm:5.1.4"
+    vitest: "npm:3.2.4"
   languageName: unknown
   linkType: soft
 

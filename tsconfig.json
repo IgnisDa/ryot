@@ -27,7 +27,7 @@
 			"path": "libs/ts-utils"
 		},
 		{
-			"path": "tests/backend-api"
+			"path": "tests"
 		}
 	]
 }

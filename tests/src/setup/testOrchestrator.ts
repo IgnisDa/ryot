@@ -33,13 +33,13 @@ export interface StartedServices {
 	pgContainer: StartedPostgreSqlContainer;
 }
 
-const MONOREPO_ROOT = path.resolve(__dirname, "../../../../");
-const MINIO_ACCESS_KEY = "minioadmin";
-const MINIO_SECRET_KEY = "minioadmin";
+const MONOREPO_ROOT = path.resolve(__dirname, "../../../");
+const MINIO_ACCESS_KEY = "minio-admin";
+const MINIO_SECRET_KEY = "minio-admin";
 const TEST_BUCKET_NAME = "test-bucket";
-const DB_USER = "testuser";
-const DB_PASSWORD = "testpassword";
-const DB_NAME = "testdb";
+const DB_USER = "test-user";
+const DB_PASSWORD = "test-password";
+const DB_NAME = "test-db";
 
 async function createMinioBucket(endpoint: string) {
 	const s3Client = new S3Client({

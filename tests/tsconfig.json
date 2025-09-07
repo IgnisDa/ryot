@@ -3,10 +3,16 @@
 	"include": ["src/**/*.ts", "vitest.config.ts"],
 	"references": [
 		{
-			"path": "../../libs/generated"
+			"path": "../libs/generated"
 		},
 		{
-			"path": "../../libs/graphql"
+			"path": "../libs/graphql"
+		},
+		{
+			"path": "../libs/generated"
+		},
+		{
+			"path": "../libs/graphql"
 		}
 	],
 	"compilerOptions": {
@@ -20,11 +26,11 @@
 		"esModuleInterop": true,
 		"moduleResolution": "node",
 		"types": ["vitest/globals", "node"],
+		"outDir": "../.moon/cache/types/tests",
 		"forceConsistentCasingInFileNames": true,
-		"outDir": "../../.moon/cache/types/tests/backend-api",
 		"paths": {
-			"@ryot/graphql/*": ["../../libs/graphql/src/*"],
-			"@ryot/generated/*": ["../../libs/generated/src/*"]
+			"@ryot/graphql/*": ["../libs/graphql/src/*"],
+			"@ryot/generated/*": ["../libs/generated/src/*"]
 		}
 	}
 }

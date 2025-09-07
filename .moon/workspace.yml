@@ -8,10 +8,10 @@ projects:
   assets: "libs/assets"
   generated: "libs/generated"
   graphql: "libs/graphql"
+  tests: "tests"
   transactional: "libs/transactional"
   ts-utils: "libs/ts-utils"
   website: "apps/website"
-  backend-api-tests: "tests/backend-api"
 
 vcs:
   manager: "git"

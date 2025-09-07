@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/backend-api-tests",
+	"name": "@ryot/tests",
 	"private": true,
 	"type": "module",
 	"devDependencies": {
