@@ -122,4 +122,47 @@ describe("adaptMyanimelistExports", () => {
 		expect(result.entityGroups).toEqual([]);
 		expect(result.failures).toEqual([{ itemIndex: 0, message: "series_animedb_id is empty" }]);
 	});
+
+	it("parses CDATA and XML entities in source labels", () => {
+		const animeXml = `
+			<myanimelist>
+				<anime>
+					<series_animedb_id>404</series_animedb_id>
+					<series_title><![CDATA[JoJo's Bizarre Adventure & Beyond]]></series_title>
+					<my_watched_episodes>0</my_watched_episodes>
+					<my_start_date>2026-01-01</my_start_date>
+					<my_finish_date>2026-01-02</my_finish_date>
+					<my_score>7</my_score>
+					<my_status>Watching</my_status>
+				</anime>
+				<anime>
+					<series_animedb_id>405</series_animedb_id>
+					<series_title>Tom &amp; Jerry&#39;s Show</series_title>
+					<my_watched_episodes>0</my_watched_episodes>
+					<my_start_date>2026-01-01</my_start_date>
+					<my_finish_date>2026-01-02</my_finish_date>
+					<my_score>6</my_score>
+					<my_status>Plan to Watch</my_status>
+				</anime>
+			</myanimelist>
+		`;
+
+		const result = adaptMyanimelistExports({ animeXml });
+
+		expect(result.failures).toEqual([]);
+		expect(result.entityGroups[0]?.entityRef.sourceLabel).toBe("JoJo's Bizarre Adventure & Beyond");
+		expect(result.entityGroups[1]?.entityRef.sourceLabel).toBe("Tom & Jerry's Show");
+	});
+
+	it("throws the parser error for invalid XML", () => {
+		const animeXml = `
+			<myanimelist>
+				<anime>
+					<series_animedb_id>101</series_animedb_id>
+					<series_title>Frieren</series_title>
+				</myanimelist>
+		`;
+
+		expect(() => adaptMyanimelistExports({ animeXml })).toThrow();
+	});
 });
