@@ -6,7 +6,7 @@ import {
 	DeployAddEntitiesToCollectionJobDocument,
 	DeployBulkMetadataProgressUpdateDocument,
 	DeployRemoveEntitiesFromCollectionJobDocument,
-	type EntityLot,
+	EntityLot,
 	ExpireCacheKeyDocument,
 	type MediaLot,
 	MediaSource,
@@ -101,8 +101,17 @@ export const useUserMetadataDetails = (
 	});
 };
 
-export const usePersonDetails = (personId?: string, enabled?: boolean) => {
+export const usePersonDetails = (personId: string, enabled?: boolean) => {
 	const query = useQuery({ ...getPersonDetailsQuery(personId), enabled });
+
+	usePartialStatusMonitor({
+		entityId: personId,
+		entityLot: EntityLot.Person,
+		onUpdate: () => query.refetch(),
+		partialStatus: enabled !== false && query.data?.details.isPartial,
+		externalLinkSource: query.data?.details.source || MediaSource.Custom,
+	});
+
 	return query;
 };
 
