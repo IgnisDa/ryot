@@ -184,6 +184,7 @@ pub async fn metadata_details(
                     genres,
                     creators,
                     suggestions,
+                    free_creators,
                 },
                 associations,
             ) = try_join!(
@@ -200,7 +201,6 @@ pub async fn metadata_details(
                 let grp = association.1.unwrap();
                 group.push(GraphqlMetadataGroup {
                     id: grp.id,
-                    name: grp.title,
                     part: association.0.part,
                 });
             }
@@ -213,6 +213,7 @@ pub async fn metadata_details(
                 creators,
                 suggestions,
                 id: model.id,
+                free_creators,
                 lot: model.lot,
                 watch_providers,
                 title: model.title,

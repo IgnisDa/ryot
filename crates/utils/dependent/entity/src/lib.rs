@@ -30,7 +30,7 @@ use itertools::Itertools;
 use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
 use media_models::{
     CommitMetadataGroupInput, CommitPersonInput, GenreListItem, MediaAssociatedPersonStateChanges,
-    MetadataCreator, MetadataCreatorGroupedByRole, MetadataDetails, PartialMetadataPerson,
+    MetadataCreator, MetadataCreatorsGroupedByRole, MetadataDetails, PartialMetadataPerson,
     PartialMetadataWithoutId, UniqueMediaIdentifier, UpdateMediaEntityResult,
 };
 use nanoid::nanoid;
@@ -729,9 +729,7 @@ pub async fn generic_metadata(
     #[derive(Debug, FromQueryResult)]
     struct PartialCreator {
         id: String,
-        name: String,
         role: String,
-        assets: EntityAssets,
         character: Option<String>,
     }
     let (genres, crts, suggestions, _) = try_join!(
@@ -774,10 +772,8 @@ pub async fn generic_metadata(
     let mut creators: HashMap<String, Vec<_>> = HashMap::new();
     for cr in crts {
         let creator = MetadataCreator {
-            name: cr.name,
-            id: Some(cr.id),
+            id: cr.id,
             character: cr.character,
-            image: cr.assets.remote_images.first().cloned(),
         };
         creators
             .entry(cr.role)
@@ -786,19 +782,15 @@ pub async fn generic_metadata(
             })
             .or_insert(vec![creator.clone()]);
     }
+    let mut free_creators_hash: HashMap<String, Vec<_>> = HashMap::new();
     if let Some(free_creators) = &meta.free_creators {
         for cr in free_creators.clone() {
-            let creator = MetadataCreator {
-                name: cr.name,
-                image: cr.image,
-                ..Default::default()
-            };
-            creators
+            free_creators_hash
                 .entry(cr.role)
                 .and_modify(|e| {
-                    e.push(creator.clone());
+                    e.push(cr.name.clone());
                 })
-                .or_insert(vec![creator.clone()]);
+                .or_insert(vec![cr.name.clone()]);
         }
     }
     if let Some(ref mut d) = meta.description {
@@ -818,12 +810,18 @@ pub async fn generic_metadata(
     let creators = creators
         .into_iter()
         .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
-        .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
+        .map(|(name, items)| MetadataCreatorsGroupedByRole { name, items })
+        .collect_vec();
+    let free_creators = free_creators_hash
+        .into_iter()
+        .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
+        .map(|(name, items)| MetadataCreatorsGroupedByRole { name, items })
         .collect_vec();
     Ok(MetadataBaseData {
         genres,
         creators,
         model: meta,
         suggestions,
+        free_creators,
     })
 }

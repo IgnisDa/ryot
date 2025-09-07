@@ -1,4 +1,4 @@
-use async_graphql::{InputObject, SimpleObject};
+use async_graphql::{InputObject, OutputType, SimpleObject};
 use boilermates::boilermates;
 use chrono::NaiveDate;
 use common_models::{EntityAssets, PersonSourceSpecifics};
@@ -86,7 +86,6 @@ pub struct MetadataExternalIdentifiers {
 pub struct MetadataFreeCreator {
     pub name: String,
     pub role: String,
-    pub image: Option<String>,
 }
 
 #[boilermates("PartialMetadataWithoutId")]
@@ -225,23 +224,22 @@ pub struct MetadataLookupInput {
 #[skip_serializing_none]
 #[derive(Debug, PartialEq, Eq, Default, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataCreator {
-    pub name: String,
-    pub id: Option<String>,
-    pub image: Option<String>,
+    pub id: String,
     pub character: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct MetadataCreatorGroupedByRole {
+#[graphql(concrete(name = "MetadataFreeCreatorsGroupedByRole", params(String)))]
+#[graphql(concrete(name = "MetadataCreatorsGroupedByRole", params(MetadataCreator)))]
+pub struct MetadataCreatorsGroupedByRole<T: OutputType> {
     pub name: String,
-    pub items: Vec<MetadataCreator>,
+    pub items: Vec<T>,
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct GraphqlMetadataGroup {
     pub part: i32,
     pub id: String,
-    pub name: String,
 }
 
 #[skip_serializing_none]
@@ -274,8 +272,9 @@ pub struct GraphqlMetadataDetails {
     pub manga_specifics: Option<MangaSpecifics>,
     pub anime_specifics: Option<AnimeSpecifics>,
     pub podcast_specifics: Option<PodcastSpecifics>,
-    pub creators: Vec<MetadataCreatorGroupedByRole>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
+    pub free_creators: Vec<MetadataCreatorsGroupedByRole<String>>,
+    pub creators: Vec<MetadataCreatorsGroupedByRole<MetadataCreator>>,
 }

@@ -5,7 +5,7 @@ use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     MediaLot, MediaSource, WorkoutSetPersonalBest,
 };
-use media_models::{GenreListItem, MetadataCreatorGroupedByRole};
+use media_models::{GenreListItem, MetadataCreator, MetadataCreatorsGroupedByRole};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -102,7 +102,8 @@ pub struct MetadataBaseData {
     pub model: metadata::Model,
     pub suggestions: Vec<String>,
     pub genres: Vec<GenreListItem>,
-    pub creators: Vec<MetadataCreatorGroupedByRole>,
+    pub free_creators: Vec<MetadataCreatorsGroupedByRole<String>>,
+    pub creators: Vec<MetadataCreatorsGroupedByRole<MetadataCreator>>,
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
