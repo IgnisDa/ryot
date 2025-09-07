@@ -32,7 +32,6 @@ query MetadataDetails($metadataId: String!) {
 			}
 			group {
 				id
-				name
 				part
 			}
 			watchProviders {
@@ -54,9 +53,8 @@ query MetadataDetails($metadataId: String!) {
 			creators {
 				name
 				items {
-					id
-					name
-					image
+					isFree
+					idOrName
 					character
 				}
 			}
