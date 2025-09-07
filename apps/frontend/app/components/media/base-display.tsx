@@ -1,5 +1,5 @@
 import { Anchor, Avatar, Box, ScrollArea, Text } from "@mantine/core";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { MEDIA_DETAILS_HEIGHT } from "~/lib/shared/constants";
@@ -20,6 +20,7 @@ export const BaseEntityDisplay = (props: {
 	title?: string;
 	extraText?: string;
 	hasInteracted?: boolean;
+	ref?: Ref<HTMLDivElement>;
 }) => {
 	return (
 		<WrapperComponent link={props.link}>
@@ -28,6 +29,7 @@ export const BaseEntityDisplay = (props: {
 				h={100}
 				mx="auto"
 				radius="sm"
+				ref={props.ref}
 				src={props.image}
 				name={props.title}
 				imageProps={{ loading: "lazy" }}
@@ -38,6 +40,7 @@ export const BaseEntityDisplay = (props: {
 				size="xs"
 				ta="center"
 				lineClamp={1}
+				ref={props.ref}
 				c={props.hasInteracted ? "yellow" : "dimmed"}
 			>
 				{props.title} {props.extraText}
