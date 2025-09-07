@@ -12,6 +12,7 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
+import { useForm } from "@mantine/form";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
@@ -35,9 +36,9 @@ import {
 	IconMoodSad,
 	IconStarFilled,
 	IconTrash,
+	IconX,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { reviewYellow } from "~/lib/shared/constants";
@@ -78,7 +79,6 @@ export const ReviewItemDisplay = (props: {
 }) => {
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
-	const [text, setText] = useState("");
 	const reviewScale = userPreferences.general.reviewScale;
 	const [opened, { toggle }] = useDisclosure(false);
 	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
@@ -114,6 +114,8 @@ export const ReviewItemDisplay = (props: {
 		onError: () =>
 			notifications.show({ color: "red", message: "Failed to update comment" }),
 	});
+
+	const form = useForm({ initialValues: { comment: "" } });
 
 	return (
 		<>
@@ -256,30 +258,40 @@ export const ReviewItemDisplay = (props: {
 						)
 					) : null}
 					{openedLeaveComment ? (
-						<Group>
-							<TextInput
-								flex={1}
-								value={text}
-								placeholder="Enter comment"
-								onChange={(e) => setText(e.currentTarget.value)}
-							/>
-							<ActionIcon
-								color="green"
-								onClick={async () => {
-									if (!text.trim()) return;
-
-									await reviewCommentMutation.mutateAsync({
-										text,
-										reviewId: props.review.id || "",
-									});
-									toggleLeaveComment();
-									setText("");
-								}}
-							>
-								<IconCheck />
-							</ActionIcon>
-						</Group>
-					) : null}
+						<form
+							onSubmit={form.onSubmit(async (values) => {
+								await reviewCommentMutation.mutateAsync({
+									text: values.comment,
+									reviewId: props.review.id || "",
+								});
+								form.reset();
+								toggleLeaveComment();
+							})}
+						>
+							<Group>
+								<TextInput
+									flex={1}
+									key={form.key("comment")}
+									placeholder="Enter comment"
+									{...form.getInputProps("comment")}
+								/>
+								<ActionIcon color="green" type="submit">
+									<IconCheck />
+								</ActionIcon>
+								<ActionIcon color="red" onClick={toggleLeaveComment}>
+									<IconX />
+								</ActionIcon>
+							</Group>
+						</form>
+					) : (
+						<Button
+							variant="outline"
+							size="compact-md"
+							onClick={toggleLeaveComment}
+						>
+							Leave comment
+						</Button>
+					)}
 					{(props.review.comments?.length || 0) > 0 ? (
 						<Paper withBorder ml="xl" mt="sm" p="xs">
 							<Stack>
@@ -299,8 +311,7 @@ export const ReviewItemDisplay = (props: {
 													{userDetails.id === c?.user?.id ? (
 														<ActionIcon
 															color="red"
-															onClick={(e) => {
-																e.preventDefault();
+															onClick={() => {
 																openConfirmationModal(
 																	"Are you sure you want to delete this comment?",
 																	async () =>
@@ -316,8 +327,7 @@ export const ReviewItemDisplay = (props: {
 														</ActionIcon>
 													) : null}
 													<ActionIcon
-														onClick={async (e) => {
-															e.preventDefault();
+														onClick={async () => {
 															await reviewCommentMutation.mutateAsync({
 																commentId: c?.id,
 																reviewId: props.review.id || "",
