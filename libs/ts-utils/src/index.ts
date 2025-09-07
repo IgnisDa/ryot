@@ -103,10 +103,6 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 	const submission = parseWithZod(formData, { schema });
 	if (submission.status !== "success")
 		throw Response.json({ status: "idle", submission } as const);
-	if (!submission.value)
-		throw Response.json({ status: "error", submission } as const, {
-			status: 400,
-		});
 	return submission.value;
 };
 
