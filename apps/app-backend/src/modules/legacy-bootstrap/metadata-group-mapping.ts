@@ -249,6 +249,23 @@ DECLARE
 BEGIN
 	RAISE NOTICE 'metadata_group -> relationship: migration started (% seconds elapsed)', 0.0;
 
+	IF EXISTS (
+		WITH lot_to_relationship_schema (lot, relationship_schema_id) AS (
+			VALUES ${buildRelationshipTargetValuesSql(targets)}
+		)
+		SELECT 1
+		FROM "metadata_to_metadata_group" m2mg
+		INNER JOIN "metadata_group" mg ON mg.id = m2mg.metadata_group_id
+		INNER JOIN "metadata" metadata ON metadata.id = m2mg.metadata_id
+		INNER JOIN lot_to_relationship_schema lrs ON lrs.lot = mg.lot
+		WHERE mg.created_by_user_id IS NOT NULL
+			AND metadata.created_by_user_id IS NOT NULL
+			AND mg.created_by_user_id <> metadata.created_by_user_id
+		LIMIT 1
+	) THEN
+		RAISE EXCEPTION 'metadata_group -> relationship: found relationship between entities owned by different users';
+	END IF;
+
 	LOOP
 		WITH lot_to_relationship_schema (lot, relationship_schema_id) AS (
 			VALUES ${buildRelationshipTargetValuesSql(targets)}
@@ -267,6 +284,31 @@ BEGIN
 
 		WITH lot_to_relationship_schema (lot, relationship_schema_id) AS (
 			VALUES ${buildRelationshipTargetValuesSql(targets)}
+		), legacy_relationships AS (
+			SELECT
+				m2mg.part,
+				m2mg.metadata_id,
+				m2mg.metadata_group_id,
+				lrs.relationship_schema_id,
+				CASE
+					WHEN mg.created_by_user_id IS NULL THEN metadata.created_by_user_id
+					WHEN metadata.created_by_user_id IS NULL THEN mg.created_by_user_id
+					WHEN mg.created_by_user_id = metadata.created_by_user_id THEN mg.created_by_user_id
+				END AS user_id
+			FROM "metadata_to_metadata_group" m2mg
+			INNER JOIN "metadata_group" mg ON mg.id = m2mg.metadata_group_id
+			INNER JOIN "metadata" metadata ON metadata.id = m2mg.metadata_id
+			INNER JOIN lot_to_relationship_schema lrs ON lrs.lot = mg.lot
+			WHERE m2mg.metadata_id::text > cursor_id AND m2mg.metadata_id::text <= next_cursor_id
+		), stale_global_relationships_deleted AS (
+			DELETE FROM relationship stale_relationship
+			USING legacy_relationships
+			WHERE legacy_relationships.user_id IS NOT NULL
+				AND stale_relationship.user_id IS NULL
+				AND stale_relationship.source_entity_id = legacy_relationships.metadata_group_id
+				AND stale_relationship.target_entity_id = legacy_relationships.metadata_id
+				AND stale_relationship.relationship_schema_id = legacy_relationships.relationship_schema_id
+			RETURNING stale_relationship.id
 		)
 		INSERT INTO relationship (
 			"id",
@@ -279,21 +321,18 @@ BEGIN
 		)
 		SELECT
 			gen_random_uuid()::text,
-			m2mg.metadata_group_id,
-			m2mg.metadata_id,
-			lrs.relationship_schema_id,
+			legacy_relationships.metadata_group_id,
+			legacy_relationships.metadata_id,
+			legacy_relationships.relationship_schema_id,
 			CASE
-				WHEN m2mg.part IS NULL THEN '{}'::jsonb
-				WHEN m2mg.part <= 0 THEN jsonb_build_object('order', 1)
-				ELSE jsonb_build_object('order', m2mg.part)
+				WHEN legacy_relationships.part IS NULL THEN '{}'::jsonb
+				WHEN legacy_relationships.part <= 0 THEN jsonb_build_object('order', 1)
+				ELSE jsonb_build_object('order', legacy_relationships.part)
 			END,
-			NULL,
+			legacy_relationships.user_id,
 			NOW()
-		FROM "metadata_to_metadata_group" m2mg
-		INNER JOIN "metadata_group" mg ON mg.id = m2mg.metadata_group_id
-		INNER JOIN lot_to_relationship_schema lrs ON lrs.lot = mg.lot
-		WHERE m2mg.metadata_id::text > cursor_id AND m2mg.metadata_id::text <= next_cursor_id
-		ON CONFLICT (source_entity_id, target_entity_id, relationship_schema_id) WHERE user_id IS NULL DO NOTHING;
+		FROM legacy_relationships
+		ON CONFLICT DO NOTHING;
 		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
 
 		rows_inserted := rows_inserted + batch_rows_inserted;

@@ -223,7 +223,7 @@ const buildRelationshipCtesSql = ({ kind, targets }: RelationshipMigrationInput)
 	legacy_people AS (
 		SELECT
 			legacy_person.id,
-			legacy_person.created_by_user_id AS user_id,
+			legacy_person.created_by_user_id AS person_user_id,
 			${companyFilterSql} AS is_company
 		FROM "person" legacy_person
 	),
@@ -234,7 +234,11 @@ const buildRelationshipCtesSql = ({ kind, targets }: RelationshipMigrationInput)
 			m2p.role,
 			m2p."character",
 			m2p."index" AS credit_index,
-			legacy_people.user_id,
+			CASE
+				WHEN legacy_people.person_user_id IS NULL THEN metadata.created_by_user_id
+				WHEN metadata.created_by_user_id IS NULL THEN legacy_people.person_user_id
+				WHEN legacy_people.person_user_id = metadata.created_by_user_id THEN legacy_people.person_user_id
+			END AS user_id,
 			relationship_targets.relationship_schema_id
 		FROM "metadata_to_person" m2p
 		INNER JOIN legacy_people ON legacy_people.id = m2p.person_id
@@ -304,6 +308,30 @@ DECLARE
 BEGIN
 	RAISE NOTICE '${kindNotice} -> relationship: migration started (% seconds elapsed)', 0.0;
 
+	IF EXISTS (
+		WITH relationship_targets (lot, relationship_schema_id) AS (
+			VALUES ${buildRelationshipTargetValuesSql(targets)}
+		), legacy_people AS (
+			SELECT
+				legacy_person.id,
+				legacy_person.created_by_user_id AS person_user_id,
+				${companyFilterSql} AS is_company
+			FROM "person" legacy_person
+		)
+		SELECT 1
+		FROM "metadata_to_person" m2p
+		INNER JOIN legacy_people ON legacy_people.id = m2p.person_id
+		INNER JOIN "metadata" metadata ON metadata.id = m2p.metadata_id
+		INNER JOIN relationship_targets ON relationship_targets.lot = metadata.lot
+		WHERE legacy_people.is_company = ${isCompanyFilter}
+			AND legacy_people.person_user_id IS NOT NULL
+			AND metadata.created_by_user_id IS NOT NULL
+			AND legacy_people.person_user_id <> metadata.created_by_user_id
+		LIMIT 1
+	) THEN
+		RAISE EXCEPTION '${kindNotice} -> relationship: found relationship between entities owned by different users';
+	END IF;
+
 	LOOP
 		WITH relationship_targets (lot, relationship_schema_id) AS (
 			VALUES ${buildRelationshipTargetValuesSql(targets)}
@@ -359,7 +387,17 @@ BEGIN
 		ON CONFLICT ("source_entity_id", "target_entity_id", "relationship_schema_id") WHERE user_id IS NULL DO NOTHING;
 		GET DIAGNOSTICS global_batch_rows_inserted = ROW_COUNT;
 
-		${cteSql}
+		${cteSql},
+		stale_global_relationships_deleted AS (
+			DELETE FROM relationship stale_relationship
+			USING rollups
+			WHERE rollups.user_id IS NOT NULL
+				AND stale_relationship.user_id IS NULL
+				AND stale_relationship.source_entity_id = rollups.person_id
+				AND stale_relationship.target_entity_id = rollups.metadata_id
+				AND stale_relationship.relationship_schema_id = rollups.relationship_schema_id
+			RETURNING stale_relationship.id
+		)
 		INSERT INTO relationship (
 			"id",
 			"source_entity_id",
@@ -418,6 +456,23 @@ DECLARE
 BEGIN
 	RAISE NOTICE 'group_person -> relationship: migration started (% seconds elapsed)', 0.0;
 
+	IF EXISTS (
+		WITH relationship_targets (lot, relationship_schema_id) AS (
+			VALUES ${buildRelationshipTargetValuesSql(targets)}
+		)
+		SELECT 1
+		FROM "metadata_group_to_person" mg2p
+		INNER JOIN "metadata_group" mg ON mg.id = mg2p.metadata_group_id
+		INNER JOIN relationship_targets ON relationship_targets.lot = mg.lot
+		INNER JOIN "person" legacy_person ON legacy_person.id = mg2p.person_id
+		WHERE legacy_person.created_by_user_id IS NOT NULL
+			AND mg.created_by_user_id IS NOT NULL
+			AND legacy_person.created_by_user_id <> mg.created_by_user_id
+		LIMIT 1
+	) THEN
+		RAISE EXCEPTION 'group_person -> relationship: found relationship between entities owned by different users';
+	END IF;
+
 	LOOP
 		WITH relationship_targets (lot, relationship_schema_id) AS (
 			VALUES ${buildRelationshipTargetValuesSql(targets)}
@@ -443,7 +498,11 @@ BEGIN
 				mg2p.person_id,
 				mg2p.role,
 				mg2p."index" AS credit_index,
-				legacy_person.created_by_user_id AS user_id,
+				CASE
+					WHEN legacy_person.created_by_user_id IS NULL THEN mg.created_by_user_id
+					WHEN mg.created_by_user_id IS NULL THEN legacy_person.created_by_user_id
+					WHEN legacy_person.created_by_user_id = mg.created_by_user_id THEN legacy_person.created_by_user_id
+				END AS user_id,
 				relationship_targets.relationship_schema_id
 			FROM "metadata_group_to_person" mg2p
 			INNER JOIN "metadata_group" mg ON mg.id = mg2p.metadata_group_id
@@ -523,7 +582,11 @@ BEGIN
 				mg2p.person_id,
 				mg2p.role,
 				mg2p."index" AS credit_index,
-				legacy_person.created_by_user_id AS user_id,
+				CASE
+					WHEN legacy_person.created_by_user_id IS NULL THEN mg.created_by_user_id
+					WHEN mg.created_by_user_id IS NULL THEN legacy_person.created_by_user_id
+					WHEN legacy_person.created_by_user_id = mg.created_by_user_id THEN legacy_person.created_by_user_id
+				END AS user_id,
 				relationship_targets.relationship_schema_id
 			FROM "metadata_group_to_person" mg2p
 			INNER JOIN "metadata_group" mg ON mg.id = mg2p.metadata_group_id
@@ -562,6 +625,16 @@ BEGIN
 				MIN(COALESCE(credit_index, 2147483647)) AS relationship_order
 			FROM legacy_relationships
 			GROUP BY metadata_group_id, person_id, relationship_schema_id, user_id
+		),
+		stale_global_relationships_deleted AS (
+			DELETE FROM relationship stale_relationship
+			USING rollups
+			WHERE rollups.user_id IS NOT NULL
+				AND stale_relationship.user_id IS NULL
+				AND stale_relationship.source_entity_id = rollups.person_id
+				AND stale_relationship.target_entity_id = rollups.metadata_group_id
+				AND stale_relationship.relationship_schema_id = rollups.relationship_schema_id
+			RETURNING stale_relationship.id
 		)
 		INSERT INTO relationship (
 			"id",
