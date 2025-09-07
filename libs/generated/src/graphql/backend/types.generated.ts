@@ -196,6 +196,12 @@ export type CachedUserMetadataRecommendationsResponse = {
   response: Array<Scalars['String']['output']>;
 };
 
+export type CachedUserPersonDetailsResponse = {
+  __typename?: 'CachedUserPersonDetailsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: UserPersonDetails;
+};
+
 export type ChangeCollectionToEntitiesInput = {
   collectionName: Scalars['String']['input'];
   creatorUserId: Scalars['String']['input'];
@@ -2131,7 +2137,7 @@ export type QueryRoot = {
   /** Get paginated list of people. */
   userPeopleList: CachedSearchIdResponse;
   /** Get details that can be displayed to a user for a creator. */
-  userPersonDetails: UserPersonDetails;
+  userPersonDetails: CachedUserPersonDetailsResponse;
   /** Get upcoming calendar events for the given filter. */
   userUpcomingCalendarEvents: Array<GraphqlCalendarEvent>;
   /** Get details about a workout. */

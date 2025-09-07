@@ -389,14 +389,16 @@ query UserMetadataGroupDetails($metadataGroupId: String!) {
 
 query UserPersonDetails($personId: String!) {
 	userPersonDetails(personId: $personId) {
-		hasInteracted
-		averageRating
-		isRecentlyConsumed
-		collections {
-			...CollectionToEntityDetailsPart
-		}
-		reviews {
-			...ReviewItemPart
+		response {
+			hasInteracted
+			averageRating
+			isRecentlyConsumed
+			collections {
+				...CollectionToEntityDetailsPart
+			}
+			reviews {
+				...ReviewItemPart
+			}
 		}
 	}
 }
