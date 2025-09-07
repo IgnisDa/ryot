@@ -10,7 +10,9 @@ use dependent_models::{
     GetCacheKeyResponse,
 };
 use itertools::Itertools;
-use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter, sea_query::OnConflict};
+use sea_orm::{
+    ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, sea_query::OnConflict,
+};
 use serde::de::DeserializeOwned;
 use supporting_service::SupportingService;
 use uuid::Uuid;
@@ -182,23 +184,31 @@ pub async fn get_values(
         .map(|k| serde_json::to_string(k).unwrap())
         .collect_vec();
     let caches = ApplicationCache::find()
+        .select_only()
+        .columns([
+            application_cache::Column::Id,
+            application_cache::Column::Key,
+            application_cache::Column::Value,
+            application_cache::Column::Version,
+        ])
         .filter(application_cache::Column::Key.is_in(string_keys))
         .filter(application_cache::Column::ExpiresAt.gt(Utc::now()))
+        .into_tuple::<(Uuid, String, serde_json::Value, Option<String>)>()
         .all(&ss.db)
         .await?;
 
     let mut values = HashMap::new();
-    for cache in caches {
-        if let Some(cache_version) = cache.version {
+    for (id, key, value, version) in caches {
+        if let Some(cache_version) = version {
             if cache_version != ss.server_start_time.to_string() {
                 continue;
             }
         }
         values.insert(
-            serde_json::from_str(&cache.key).unwrap(),
+            serde_json::from_str(&key).unwrap(),
             GetCacheKeyResponse {
-                id: cache.id,
-                value: serde_json::from_value(cache.value)?,
+                id,
+                value: serde_json::from_value(value)?,
             },
         );
     }
