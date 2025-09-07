@@ -102,7 +102,8 @@ export const useUserMetadataDetails = (
 };
 
 export const usePersonDetails = (personId?: string, enabled?: boolean) => {
-	return useQuery({ ...getPersonDetailsQuery(personId), enabled });
+	const query = useQuery({ ...getPersonDetailsQuery(personId), enabled });
+	return query;
 };
 
 export const useUserPersonDetails = (personId?: string, enabled?: boolean) => {
