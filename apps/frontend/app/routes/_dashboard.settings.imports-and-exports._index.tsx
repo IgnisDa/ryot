@@ -593,8 +593,8 @@ export default function Page() {
 								<Title order={2}>Export data</Title>
 								<Anchor
 									size="xs"
-									href={`${coreDetails.docsLink}/guides/exporting.html`}
 									target="_blank"
+									href={`${coreDetails.docsLink}/exporting.html`}
 								>
 									Docs
 								</Anchor>
