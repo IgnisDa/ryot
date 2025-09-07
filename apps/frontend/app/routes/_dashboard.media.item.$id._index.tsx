@@ -81,7 +81,7 @@ import {
 } from "~/components/routes/media-item/constants";
 import { GenreItem } from "~/components/routes/media-item/displays/genre-item";
 import { HistoryItem } from "~/components/routes/media-item/displays/history-item";
-import { MetadataCreator } from "~/components/routes/media-item/displays/metadata-creator";
+import { MetadataCreatorDisplay } from "~/components/routes/media-item/displays/metadata-creator";
 import { DisplayPodcastEpisode } from "~/components/routes/media-item/displays/podcast-episode";
 import { DisplayShowSeason } from "~/components/routes/media-item/displays/show-season";
 import { VideoGameSpecificsDisplay } from "~/components/routes/media-item/displays/video-game-specifics";
@@ -94,6 +94,7 @@ import {
 	useConfirmSubmit,
 	useDeployBulkMetadataProgressUpdateMutation,
 	useMetadataDetails,
+	useMetadataGroupDetails,
 	useUserDetails,
 	useUserMetadataDetails,
 	useUserPreferences,
@@ -261,6 +262,9 @@ export default function Page() {
 	const nextEntry = userMetadataDetails.data?.nextEntry;
 	const firstGroupAssociated = metadataDetails.data?.group.at(0);
 	const videos = [...(metadataDetails.data?.assets.remoteVideos || [])];
+	const { data: groupDetails } = useMetadataGroupDetails(
+		firstGroupAssociated?.id,
+	);
 	const additionalMetadataDetails = [
 		userPreferences.featuresEnabled.media.groups && firstGroupAssociated && (
 			<Link
@@ -271,7 +275,7 @@ export default function Page() {
 				})}
 			>
 				<Text c="dimmed" fs="italic" span>
-					{firstGroupAssociated.name} #{firstGroupAssociated.part}
+					{groupDetails?.details.title} #{firstGroupAssociated.part}
 				</Text>
 			</Link>
 		),
@@ -621,12 +625,9 @@ export default function Page() {
 														>
 															<Flex gap="md">
 																{c.items.map((creator) => (
-																	<MetadataCreator
-																		name={creator.name}
-																		image={creator.image}
-																		id={creator.id || undefined}
-																		character={creator.character}
-																		key={`${creator.id}-${creator.name}`}
+																	<MetadataCreatorDisplay
+																		data={creator}
+																		key={creator.idOrName}
 																	/>
 																))}
 															</Flex>

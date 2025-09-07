@@ -275,7 +275,7 @@ export default function Page() {
 						placeholder="Comma separated names"
 						defaultValue={loaderData.details?.creators
 							.flatMap((c) => c.items)
-							.map((c) => c.name)
+							.map((c) => c.idOrName)
 							.join(", ")}
 					/>
 					<TextInput
