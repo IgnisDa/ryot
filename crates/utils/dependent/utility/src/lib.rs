@@ -3,7 +3,9 @@ use chrono::Utc;
 use common_models::{MetadataRecentlyConsumedCacheInput, UserLevelCacheKey};
 use database_models::{
     functions::get_user_to_entity_association,
-    prelude::{Collection, Genre, Metadata, MetadataGroup, Person, Workout, WorkoutTemplate},
+    prelude::{
+        Collection, Exercise, Genre, Metadata, MetadataGroup, Person, Workout, WorkoutTemplate,
+    },
     user_to_entity,
 };
 use dependent_models::{
@@ -32,7 +34,7 @@ pub async fn get_entity_title_from_id_and_lot(
         }
         EntityLot::Person => Person::find_by_id(id).one(&ss.db).await?.unwrap().name,
         EntityLot::Collection => Collection::find_by_id(id).one(&ss.db).await?.unwrap().name,
-        EntityLot::Exercise => id.clone(),
+        EntityLot::Exercise => Exercise::find_by_id(id).one(&ss.db).await?.unwrap().name,
         EntityLot::Workout => Workout::find_by_id(id).one(&ss.db).await?.unwrap().name,
         EntityLot::WorkoutTemplate => {
             WorkoutTemplate::find_by_id(id)
