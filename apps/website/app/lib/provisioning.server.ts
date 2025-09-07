@@ -35,7 +35,7 @@ async function getCloudAuthDetails(
 	const { data, error } = await apiClient.POST("/god-mode/users/{userId}/reset-password", {
 		params: { path: { userId } },
 	});
-	if (error || !data?.data.resetUrl) {
+	if (error || !data.data.resetUrl) {
 		throw new Error("Failed to generate password reset link");
 	}
 
@@ -74,7 +74,7 @@ async function handleCloudPurchase(customer: Customer): Promise<{
 		"/god-mode/users/provision",
 		{ body: provisionBody },
 	);
-	if (provisionError || !provisionData?.data.userId) {
+	if (provisionError || !provisionData.data.userId) {
 		throw new Error("Failed to provision user");
 	}
 
