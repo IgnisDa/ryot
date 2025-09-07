@@ -6,7 +6,6 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { atom, useAtom } from "jotai";
 import { useState } from "react";
-import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { METADATA_LOTS_WITH_GRANULAR_UPDATES } from "~/components/routes/media-item/constants";
 import {
@@ -121,7 +120,7 @@ export type ReviewEntityData = {
 	entityLot: EntityLot;
 	entityTitle: string;
 	metadataLot?: MediaLot;
-	existingReview?: DeepPartial<ReviewItem>;
+	existingReview?: Partial<ReviewItem>;
 };
 
 export const reviewEntityAtom = atom<ReviewEntityData | null>(null);
