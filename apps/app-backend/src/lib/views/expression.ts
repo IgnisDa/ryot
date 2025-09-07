@@ -1,16 +1,9 @@
 import { z } from "@hono/zod-openapi";
 import type { RuntimeRef } from "@ryot/ts-utils/view-language";
 
+import { isJsonValue } from "~/lib/json-value";
 import { createNullableOpenApiRefSchema } from "~/lib/openapi";
 import { nonEmptyTrimmedStringSchema } from "~/lib/zod";
-
-export type JsonValue =
-	| null
-	| number
-	| string
-	| boolean
-	| JsonValue[]
-	| { [key: string]: JsonValue };
 
 export const runtimeReferenceSchema = z
 	.discriminatedUnion("type", [
@@ -102,31 +95,6 @@ export const computedFieldArraySchema = z
 	.optional();
 
 export type ViewComputedField = z.infer<typeof viewComputedFieldSchema>;
-
-const isJsonValue = (value: unknown): value is JsonValue => {
-	if (value === null) {
-		return true;
-	}
-
-	if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-		return true;
-	}
-
-	if (Array.isArray(value)) {
-		return value.every(isJsonValue);
-	}
-
-	if (typeof value === "object") {
-		const prototype = Object.getPrototypeOf(value);
-		if (prototype !== Object.prototype && prototype !== null) {
-			return false;
-		}
-
-		return Object.values(value).every(isJsonValue);
-	}
-
-	return false;
-};
 
 const jsonLiteralValueSchema = z
 	.unknown()
