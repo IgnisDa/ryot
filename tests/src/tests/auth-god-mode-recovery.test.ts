@@ -10,6 +10,9 @@ import { requireNonEmptyArray } from "../test-support/assertions";
 
 const WRONG_TOKEN = "wrong-token";
 const ADMIN_TOKEN = "test-admin-token";
+const ADMIN_ACCESS_TOKEN_HEADER = "Admin-Access-Token";
+
+const adminAccessTokenHeaders = (token: string) => ({ [ADMIN_ACCESS_TOKEN_HEADER]: token });
 
 async function createNoAccountUser(name: string) {
 	const userId = randomUUID();
@@ -46,10 +49,10 @@ describe("God-mode admin token enforcement", () => {
 		expect(response.status).toBe(401);
 	});
 
-	it("rejects user listing with wrong bearer token", async () => {
+	it("rejects user listing with wrong admin token", async () => {
 		const client = getBackendClient();
 		const { response } = await client.GET("/god-mode/users", {
-			headers: { Authorization: `Bearer ${WRONG_TOKEN}` },
+			headers: adminAccessTokenHeaders(WRONG_TOKEN),
 		});
 		expect(response.status).toBe(401);
 	});
@@ -62,11 +65,11 @@ describe("God-mode admin token enforcement", () => {
 		expect(response.status).toBe(401);
 	});
 
-	it("rejects reset generation with wrong bearer token", async () => {
+	it("rejects reset generation with wrong admin token", async () => {
 		const client = getBackendClient();
 		const { response } = await client.POST("/god-mode/users/{userId}/reset-password", {
 			params: { path: { userId: "any-id" } },
-			headers: { Authorization: `Bearer ${WRONG_TOKEN}` },
+			headers: adminAccessTokenHeaders(WRONG_TOKEN),
 		});
 		expect(response.status).toBe(401);
 	});
@@ -79,7 +82,7 @@ describe("User listing with correct admin token", () => {
 
 		const { data, response } = await client.GET("/god-mode/users", {
 			params: { query: { search: email } },
-			headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
 		expect(response.status).toBe(200);
 		const user = data?.data.users[0];
@@ -93,7 +96,7 @@ describe("User listing with correct admin token", () => {
 
 		const { data, response } = await client.GET("/god-mode/users", {
 			params: { query: { search: email } },
-			headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
 		expect(response.status).toBe(200);
 		expect(data?.data.users[0]?.authState).toBe("oidc");
@@ -105,7 +108,7 @@ describe("User listing with correct admin token", () => {
 
 		const { data, response } = await client.GET("/god-mode/users", {
 			params: { query: { search: email } },
-			headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
 		expect(response.status).toBe(200);
 		expect(data?.data.users[0]?.authState).toBe("credential");
@@ -133,7 +136,7 @@ describe("User listing with correct admin token", () => {
 
 		const { data, response } = await client.GET("/god-mode/users", {
 			params: { query: { search: email } },
-			headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
 		expect(response.status).toBe(200);
 		expect(data?.data.users[0]?.authState).toBe("mixed");
@@ -159,7 +162,7 @@ describe("Reset link generation and completion for credential user", () => {
 			"/god-mode/users/{userId}/reset-password",
 			{
 				params: { path: { userId } },
-				headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+				headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 			},
 		);
 		expect(resetResponse.status).toBe(200);
@@ -224,7 +227,7 @@ describe("Reset link generation and completion for credential user", () => {
 			"/god-mode/users/{userId}/reset-password",
 			{
 				params: { path: { userId } },
-				headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+				headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 			},
 		);
 		expect(resetResponse.status).toBe(200);
@@ -273,7 +276,7 @@ describe("Reset link generation and completion for no-account user", () => {
 			"/god-mode/users/{userId}/reset-password",
 			{
 				params: { path: { userId } },
-				headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+				headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 			},
 		);
 		expect(resetResponse.status).toBe(200);
@@ -313,7 +316,7 @@ describe("OIDC user restrictions", () => {
 
 		const { error, response } = await client.POST("/god-mode/users/{userId}/reset-password", {
 			params: { path: { userId } },
-			headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
 		expect(response.status).toBe(400);
 		expect(error?.error.message).toMatch(/oidc/i);
@@ -343,7 +346,7 @@ describe("Mixed auth user restrictions", () => {
 
 		const { error, response } = await client.POST("/god-mode/users/{userId}/reset-password", {
 			params: { path: { userId } },
-			headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
 		expect(response.status).toBe(400);
 		expect(error?.error.message).toMatch(/mixed/i);
