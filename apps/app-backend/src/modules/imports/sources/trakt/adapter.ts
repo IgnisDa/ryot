@@ -131,7 +131,7 @@ const extractTmdbId = (item: TraktItem): string | undefined => {
 
 const extractImdbId = (item: TraktItem): string | undefined => {
 	const imdbId = item.ids.imdb?.trim();
-	return imdbId || undefined;
+	return imdbId?.length ? imdbId : undefined;
 };
 
 const missingProviderIdMessage = (entityType: "Movie" | "Show") =>
