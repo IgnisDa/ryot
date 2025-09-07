@@ -184,7 +184,6 @@ pub async fn metadata_details(
                     genres,
                     creators,
                     suggestions,
-                    free_creators,
                 },
                 associations,
             ) = try_join!(
@@ -213,7 +212,6 @@ pub async fn metadata_details(
                 creators,
                 suggestions,
                 id: model.id,
-                free_creators,
                 lot: model.lot,
                 watch_providers,
                 title: model.title,

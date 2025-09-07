@@ -772,7 +772,8 @@ pub async fn generic_metadata(
     let mut creators: HashMap<String, Vec<_>> = HashMap::new();
     for cr in crts {
         let creator = MetadataCreator {
-            id: cr.id,
+            is_free: false,
+            id_or_name: cr.id,
             character: cr.character,
         };
         creators
@@ -782,15 +783,19 @@ pub async fn generic_metadata(
             })
             .or_insert(vec![creator.clone()]);
     }
-    let mut free_creators_hash: HashMap<String, Vec<_>> = HashMap::new();
     if let Some(free_creators) = &meta.free_creators {
         for cr in free_creators.clone() {
-            free_creators_hash
+            let creator = MetadataCreator {
+                is_free: true,
+                id_or_name: cr.name,
+                ..Default::default()
+            };
+            creators
                 .entry(cr.role)
                 .and_modify(|e| {
-                    e.push(cr.name.clone());
+                    e.push(creator.clone());
                 })
-                .or_insert(vec![cr.name.clone()]);
+                .or_insert(vec![creator.clone()]);
         }
     }
     if let Some(ref mut d) = meta.description {
@@ -812,16 +817,10 @@ pub async fn generic_metadata(
         .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
         .map(|(name, items)| MetadataCreatorsGroupedByRole { name, items })
         .collect_vec();
-    let free_creators = free_creators_hash
-        .into_iter()
-        .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
-        .map(|(name, items)| MetadataCreatorsGroupedByRole { name, items })
-        .collect_vec();
     Ok(MetadataBaseData {
         genres,
         creators,
         model: meta,
         suggestions,
-        free_creators,
     })
 }
