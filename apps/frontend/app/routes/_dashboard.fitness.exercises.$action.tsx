@@ -10,7 +10,6 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
-import { parseFormData } from "@mjackson/form-data-parser";
 import {
 	CreateCustomExerciseDocument,
 	ExerciseDetailsDocument,
@@ -20,6 +19,7 @@ import {
 	ExerciseLot,
 	ExerciseMechanic,
 	ExerciseMuscle,
+	ExerciseSource,
 	UpdateCustomExerciseDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -39,11 +39,12 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { convertEnumToSelectData, getExerciseDetailsPath } from "~/lib/common";
-import { useCoreDetails } from "~/lib/hooks";
+import { useCoreDetails } from "~/lib/shared/hooks";
+import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
-	createS3FileUploader,
 	createToastHeaders,
+	parseFormDataWithS3Upload,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.exercises.$action";
@@ -60,7 +61,7 @@ enum Action {
 export const loader = async ({ params, request }: Route.LoaderArgs) => {
 	const { action } = parseParameters(
 		params,
-		z.object({ action: z.nativeEnum(Action) }),
+		z.object({ action: z.enum(Action) }),
 	);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const details = await match(action)
@@ -83,28 +84,34 @@ export const meta = () => {
 };
 
 export const action = async ({ request }: Route.ActionArgs) => {
-	const uploader = createS3FileUploader("exercises");
-	const formData = await parseFormData(request.clone(), uploader);
+	const formData = await parseFormDataWithS3Upload(
+		request.clone(),
+		"exercises",
+	);
 	const submission = processSubmission(formData, schema);
 	const muscles = submission.muscles
 		? (submission.muscles.split(",") as Array<ExerciseMuscle>)
 		: [];
-	const instructions = submission.instructions;
+	const submissionInstructions = submission.instructions;
 	const newInput = cloneDeep(submission);
 	newInput.muscles = undefined;
 	newInput.instructions = undefined;
 	newInput.images = undefined;
+	const instructions =
+		submissionInstructions
+			?.split("\n")
+			.map((s) => s.trim())
+			.filter(Boolean) || [];
 	const input = {
 		...newInput,
 		muscles,
-		attributes: {
-			instructions: instructions?.split("\n").map((s) => s.trim()) || [],
-			assets: {
-				s3Videos: [],
-				remoteImages: [],
-				remoteVideos: [],
-				s3Images: submission.images || [],
-			},
+		instructions,
+		source: ExerciseSource.Custom,
+		assets: {
+			s3Videos: [],
+			remoteImages: [],
+			remoteVideos: [],
+			s3Images: submission.images || [],
 		},
 	};
 	try {
@@ -157,12 +164,12 @@ const schema = z.object({
 	muscles: optionalString,
 	images: optionalStringArray,
 	instructions: optionalString,
-	lot: z.nativeEnum(ExerciseLot),
+	lot: z.enum(ExerciseLot),
 	shouldDelete: zodBoolAsString.optional(),
-	level: z.nativeEnum(ExerciseLevel),
-	force: z.nativeEnum(ExerciseForce).optional(),
-	mechanic: z.nativeEnum(ExerciseMechanic).optional(),
-	equipment: z.nativeEnum(ExerciseEquipment).optional(),
+	level: z.enum(ExerciseLevel),
+	force: z.enum(ExerciseForce).optional(),
+	mechanic: z.enum(ExerciseMechanic).optional(),
+	equipment: z.enum(ExerciseEquipment).optional(),
 });
 
 export default function Page() {
@@ -246,17 +253,15 @@ export default function Page() {
 						name="instructions"
 						label="Instructions"
 						description="Separate each instruction with a newline"
-						defaultValue={loaderData.details?.attributes.instructions.join(
-							"\n",
-						)}
+						defaultValue={loaderData.details?.instructions.join("\n")}
 					/>
 					{!fileUploadNotAllowed ? (
 						<FileInput
 							multiple
 							name="images"
 							label="Images"
+							accept="image/*"
 							leftSection={<IconPhoto />}
-							accept="image/png,image/jpeg,image/jpg"
 							description={
 								loaderData.details &&
 								"Please re-upload the images while updating the exercise, old ones will be deleted"

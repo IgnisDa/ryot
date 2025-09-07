@@ -3,7 +3,7 @@ use std::{
     io::{BufReader, Read},
 };
 
-use async_graphql::Result;
+use anyhow::Result;
 use common_utils::{convert_naive_to_utc, convert_string_to_date};
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};
@@ -74,7 +74,7 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMetadataItem {
                 ended_on: get_date(item.my_finish_date.clone()),
                 anime_episode_number: anime_episode,
                 manga_chapter_number: manga_chapter,
-                provider_watched_on: Some(ImportSource::Myanimelist.to_string()),
+                providers_consumed_on: Some(vec![ImportSource::Myanimelist.to_string()]),
                 ..Default::default()
             }
         })

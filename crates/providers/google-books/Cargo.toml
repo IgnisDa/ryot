@@ -1,0 +1,21 @@
+[package]
+name = "google-books-provider"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+convert_case = { workspace = true }
+itertools = { workspace = true }
+reqwest = { workspace = true }
+rust_decimal = { workspace = true }
+serde = { workspace = true }
+
+application-utils = { workspace = true }
+common-models = { workspace = true }
+common-utils = { workspace = true }
+config-definition = { workspace = true }
+dependent-models = { workspace = true }
+media-models = { workspace = true }
+traits = { workspace = true }

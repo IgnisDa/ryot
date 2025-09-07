@@ -1,24 +1,25 @@
 import { eq } from "drizzle-orm";
+import * as openidClient from "openid-client";
 import { redirect } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { customers } from "~/drizzle/schema.server";
-import {
-	OAUTH_CALLBACK_URL,
-	db,
-	oauthClient,
-	websiteAuthCookie,
-} from "~/lib/config.server";
+import { OAUTH_CALLBACK_URL, db, websiteAuthCookie } from "~/lib/config.server";
+import { oauthConfig } from "~/lib/utilities.server";
 import type { Route } from "./+types/callback";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-	const client = await oauthClient();
-	const params = client.callbackParams(request.url);
-	const tokenSet = await client.callback(OAUTH_CALLBACK_URL, params, {
-		state: params.state,
-	});
+	const config = await oauthConfig();
+	const requestUrl = new URL(request.url);
+	const callbackUrl = new URL(OAUTH_CALLBACK_URL);
+	callbackUrl.search = requestUrl.search;
+	const tokenSet = await openidClient.authorizationCodeGrant(
+		config,
+		callbackUrl,
+	);
 	const claims = tokenSet.claims();
-	const email = claims.email;
+	if (!claims) throw new Error("No claims found in token set");
+	const email = claims.email?.toString();
 	if (!email || !claims.sub) throw new Error("Invalid claims");
 	const alreadyCustomer = await db.query.customers.findFirst({
 		where: eq(customers.email, email),

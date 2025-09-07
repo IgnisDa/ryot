@@ -5,11 +5,13 @@ edition = "2024"
 
 [dependencies]
 chrono = { workspace = true }
-compile-time = { workspace = true }
 const-str = { workspace = true }
-enum-models = { path = "../../models/enum" }
-env-utils = { path = "../env" }
+data-encoding = { workspace = true }
+rand = { workspace = true }
 reqwest = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
+
+enum-models = { workspace = true }
+env-utils = { workspace = true }

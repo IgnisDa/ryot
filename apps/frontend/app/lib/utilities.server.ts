@@ -1,13 +1,11 @@
 import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
-import type { FileUpload } from "@mjackson/form-data-parser";
+import { type FileUpload, parseFormData } from "@mjackson/form-data-parser";
 import {
 	BackendError,
 	CoreDetailsDocument,
 	PresignedPutS3UrlDocument,
-	UserCollectionsListDocument,
+	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { isEmpty } from "@ryot/ts-utils";
 import { type SerializeOptions, parse, serialize } from "cookie";
 import {
 	ClientError,
@@ -15,11 +13,11 @@ import {
 	type RequestDocument,
 	type Variables,
 } from "graphql-request";
-import { jwtDecode } from "jwt-decode";
 import type { VariablesAndRequestHeadersArgs } from "node_modules/graphql-request/build/legacy/helpers/types";
 import {
 	createCookie,
 	createCookieSessionStorage,
+	data,
 	redirect,
 } from "react-router";
 import { $path } from "safe-routes";
@@ -29,12 +27,10 @@ import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
 import {
 	FRONTEND_AUTH_COOKIE_NAME,
-	pageQueryParam,
 	redirectToQueryParam,
 	toastKey,
-	zodEmptyDecimalString,
-	zodEmptyNumberString,
-} from "~/lib/common";
+} from "~/lib/shared/constants";
+import { queryClient } from "~/lib/shared/react-query";
 
 export const API_URL = process.env.API_URL || "http://127.0.0.1:8000/backend";
 
@@ -55,8 +51,8 @@ class AuthenticatedGraphQLClient extends GraphQLClient {
 			const error = e.response.errors?.at(0)?.message || "";
 			throw await match(error)
 				.with(
-					BackendError.NoAuthToken,
 					BackendError.NoUserId,
+					BackendError.NoSessionId,
 					BackendError.SessionExpired,
 					async () => {
 						return redirect($path("/auth"), {
@@ -81,7 +77,7 @@ class AuthenticatedGraphQLClient extends GraphQLClient {
 							() => "You must be an admin to perform this action",
 						)
 						.otherwise(() => error);
-					return Response.json({ message });
+					return data({ message });
 				});
 		}
 	}
@@ -99,15 +95,15 @@ export const getAuthorizationCookie = (request: Request) =>
 	getCookieValue(request, FRONTEND_AUTH_COOKIE_NAME);
 
 export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
+	const getResponseInit = async (toastMessage: string) => ({
+		status: 302,
+		headers: combineHeaders(
+			await createToastHeaders({ type: "error", message: toastMessage }),
+			getLogoutCookies(),
+		),
+	});
 	try {
 		const userDetails = await getUserDetails(request);
-		const getResponseInit = async (toastMessage: string) => ({
-			status: 302,
-			headers: combineHeaders(
-				await createToastHeaders({ type: "error", message: toastMessage }),
-				getLogoutCookies(),
-			),
-		});
 		if (!userDetails || userDetails.__typename === "UserDetailsError") {
 			const nextUrl = withoutHost(request.url);
 			throw redirect(
@@ -123,15 +119,10 @@ export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 
 		return userDetails;
 	} catch {
-		throw redirect($path("/auth"), {
-			headers: combineHeaders(
-				await createToastHeaders({
-					type: "error",
-					message: "Your session has expired",
-				}),
-				getLogoutCookies(),
-			),
-		});
+		throw redirect(
+			$path("/auth"),
+			await getResponseInit("You must be logged in to view this page"),
+		);
 	}
 };
 
@@ -152,31 +143,18 @@ export const combineHeaders = (
 
 export const MetadataIdSchema = z.object({ metadataId: z.string() });
 
-export const MetadataSpecificsSchema = z.object({
-	showSeasonNumber: zodEmptyNumberString,
-	showEpisodeNumber: zodEmptyNumberString,
-	podcastEpisodeNumber: zodEmptyNumberString,
-	animeEpisodeNumber: zodEmptyNumberString,
-	mangaChapterNumber: zodEmptyDecimalString,
-	mangaVolumeNumber: zodEmptyNumberString,
-});
-
-export const getDecodedJwt = (request: Request) => {
-	const token = getAuthorizationCookie(request) ?? "";
-	return jwtDecode<{ sub: string; access_link_id?: string }>(token);
-};
-
 export const getCoreDetails = async () => {
-	return await serverGqlService
-		.request(CoreDetailsDocument)
-		.then((d) => d.coreDetails);
+	return await queryClient.ensureQueryData({
+		queryKey: ["coreDetails"],
+		queryFn: () =>
+			serverGqlService.request(CoreDetailsDocument).then((d) => d.coreDetails),
+	});
 };
 
 const getUserDetails = async (request: Request) => {
 	const { userDetails } = await serverGqlService.authenticatedRequest(
 		request,
 		UserDetailsDocument,
-		undefined,
 	);
 	return userDetails;
 };
@@ -186,39 +164,25 @@ export const getUserPreferences = async (request: Request) => {
 	return userDetails.preferences;
 };
 
-export const getUserCollectionsListRaw = async (request: Request) => {
-	const { userCollectionsList } = await serverGqlService.authenticatedRequest(
-		request,
-		UserCollectionsListDocument,
-		{},
-	);
-	return userCollectionsList;
-};
-
-export const getUserCollectionsList = async (request: Request) => {
-	const userCollectionsList = await getUserCollectionsListRaw(request);
-	return userCollectionsList.response;
-};
-
-export const uploadFileAndGetKey = async (
+const uploadFileAndGetKey = async (
 	fileName: string,
 	prefix: string,
 	contentType: string,
-	body: ArrayBuffer | Buffer,
+	body: BodyInit,
 ) => {
 	const { presignedPutS3Url } = await serverGqlService.request(
 		PresignedPutS3UrlDocument,
 		{ input: { fileName, prefix } },
 	);
 	await fetch(presignedPutS3Url.uploadUrl, {
-		method: "PUT",
 		body,
+		method: "PUT",
 		headers: { "Content-Type": contentType },
 	});
 	return presignedPutS3Url.key;
 };
 
-export const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
+const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
 	const formData = new FormData();
 	formData.append("files[]", fileUpload, fileUpload.name);
 	const resp = await fetch(`${API_URL}/upload`, {
@@ -229,7 +193,7 @@ export const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
 	return data[0];
 };
 
-export const createS3FileUploader = (prefix: string) => {
+const createS3FileUploader = (prefix: string) => {
 	return async (fileUpload: FileUpload) => {
 		if (!fileUpload.name) return null;
 		const key = await uploadFileAndGetKey(
@@ -242,12 +206,24 @@ export const createS3FileUploader = (prefix: string) => {
 	};
 };
 
-export const toastSessionStorage = createCookieSessionStorage({
+const toastSessionStorage = createCookieSessionStorage({
 	cookie: {
-		sameSite: "lax",
 		path: "/",
-		secrets: (process.env.SESSION_SECRET || "secret").split(","),
 		name: toastKey,
+		sameSite: "lax",
+		secrets: (process.env.SESSION_SECRET || "secret").split(","),
+	},
+});
+
+export const twoFactorSessionStorage = createCookieSessionStorage({
+	cookie: {
+		path: "/",
+		sameSite: "lax",
+		httpOnly: true,
+		maxAge: 60 * 10,
+		name: "TwoFactor",
+		secure: process.env.NODE_ENV === "production",
+		secrets: (process.env.SESSION_SECRET || "secret").split(","),
 	},
 });
 
@@ -258,14 +234,14 @@ export const colorSchemeCookie = createCookie("ColorScheme", {
 const TypeSchema = z.enum(["message", "success", "error"]);
 const ToastSchema = z.object({
 	message: z.string(),
-	id: z.string().default(() => randomUUID()),
 	title: z.string().optional(),
-	type: TypeSchema.default("message"),
 	closeAfter: z.number().optional(),
+	type: TypeSchema.default("message"),
+	id: z.string().default(() => randomUUID()),
 });
 
 export type Toast = z.infer<typeof ToastSchema>;
-export type OptionalToast = Omit<Toast, "id" | "type"> & {
+type OptionalToast = Omit<Toast, "id" | "type"> & {
 	id?: string;
 	type?: z.infer<typeof TypeSchema>;
 };
@@ -334,52 +310,26 @@ export const extendResponseHeaders = (
 		responseHeaders.append(key, value);
 };
 
-export const getEnhancedCookieName = async (input: {
-	name: string;
-	path?: string;
-	request: Request;
-}) => {
-	const userDetails = await redirectIfNotAuthenticatedOrUpdated(input.request);
-	return `${input.name}__${userDetails.id}${input.path ? `__${input.path}` : ""}`;
-};
-
-export const getSearchEnhancedCookieName = async (
-	path: string,
+const parseFormDataWithFileSize = async (
 	request: Request,
-) => getEnhancedCookieName({ path, name: "SearchParams", request });
-
-export const redirectUsingEnhancedCookieSearchParams = async (
-	request: Request,
-	cookieName: string,
+	uploader: (file: FileUpload) => Promise<string | null>,
 ) => {
-	const preferences = await getUserPreferences(request);
-	const { searchParams } = new URL(request.url);
-	if (searchParams.size > 0 || !preferences.general.persistQueries) return;
-	const cookies = parse(request.headers.get("cookie") || "");
-	const savedSearchParams = cookies[cookieName];
-	if (!isEmpty(savedSearchParams)) throw redirect(`?${savedSearchParams}`);
+	const coreDetails = await getCoreDetails();
+	return parseFormData(
+		request,
+		{ maxFileSize: coreDetails.maxFileSizeMb * 1024 * 1024 },
+		uploader,
+	);
 };
 
-export const redirectToFirstPageIfOnInvalidPage = async (input: {
-	request: Request;
-	currentPage: number;
-	totalResults: number;
-	respectCoreDetailsPageSize?: boolean;
-}) => {
-	const [coreDetails, userPreferences] = await Promise.all([
-		getCoreDetails(),
-		getUserPreferences(input.request),
-	]);
-	const totalPages = Math.ceil(
-		input.totalResults /
-			(input.respectCoreDetailsPageSize
-				? coreDetails.pageSize
-				: userPreferences.general.listPageSize),
-	);
-	if (input.currentPage > totalPages && input.currentPage !== 1) {
-		const { searchParams } = new URL(input.request.url);
-		searchParams.set(pageQueryParam, "1");
-		throw redirect(`?${searchParams.toString()}`);
-	}
-	return totalPages;
+export const parseFormDataWithTemporaryUpload = async (request: Request) => {
+	return parseFormDataWithFileSize(request, temporaryFileUploadHandler);
+};
+
+export const parseFormDataWithS3Upload = async (
+	request: Request,
+	prefix: string,
+) => {
+	const uploader = createS3FileUploader(prefix);
+	return parseFormDataWithFileSize(request, uploader);
 };

@@ -8,7 +8,7 @@ use common_models::{BackendError, PersonSourceSpecifics};
 use common_utils::ryot_log;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use database_utils::{check_token, deploy_job_to_mark_user_last_activity};
-use dependent_models::{PersonDetails, SearchResults};
+use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
 use media_models::{
     MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem, PartialMetadataWithoutId,
     PeopleSearchItem,
@@ -21,9 +21,10 @@ pub trait MediaProvider {
     #[allow(unused_variables)]
     async fn metadata_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         display_nsfw: bool,
+        source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         bail!("This provider does not support searching media")
     }
@@ -38,8 +39,8 @@ pub trait MediaProvider {
     #[allow(unused_variables)]
     async fn people_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
@@ -60,8 +61,8 @@ pub trait MediaProvider {
     #[allow(unused_variables)]
     async fn metadata_group_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         bail!("This provider does not support searching metadata groups")
@@ -89,19 +90,19 @@ pub trait AuthProvider {
         false
     }
 
-    fn user_auth_token_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
+    fn user_session_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
         let auth_ctx = ctx.data_unchecked::<AuthContext>();
         auth_ctx
-            .auth_token
+            .session_id
             .clone()
-            .ok_or_else(|| Error::new(BackendError::NoAuthToken.to_string()))
+            .ok_or_else(|| Error::new(BackendError::NoSessionId.to_string()))
     }
 
     async fn user_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
         let auth_ctx = ctx.data_unchecked::<AuthContext>();
         let ss = ctx.data_unchecked::<Arc<SupportingService>>();
-        if let Some(auth_token) = &auth_ctx.auth_token {
-            check_token(auth_token, self.is_mutation(), ss).await?;
+        if let Some(session_id) = &auth_ctx.session_id {
+            check_token(session_id, self.is_mutation(), ss).await?;
         }
         if let Some(user_id) = &auth_ctx.user_id {
             deploy_job_to_mark_user_last_activity(user_id, ss).await?;
@@ -110,6 +111,27 @@ pub trait AuthProvider {
             .user_id
             .clone()
             .ok_or_else(|| Error::new(BackendError::NoUserId.to_string()))
+    }
+}
+
+#[async_trait]
+pub trait GraphqlResolverSvc<T: Send + Sync + 'static>: AuthProvider {
+    fn svc<'a>(&self, ctx: &Context<'a>) -> &'a Arc<T> {
+        ctx.data_unchecked::<Arc<T>>()
+    }
+
+    async fn svc_and_maybe_user<'a>(
+        &self,
+        ctx: &Context<'a>,
+    ) -> GraphqlResult<(&'a Arc<T>, Option<String>)> {
+        let service = self.svc(ctx);
+        let user_id = self.user_id_from_ctx(ctx).await.ok();
+        Ok((service, user_id))
+    }
+
+    async fn svc_and_user<'a>(&self, ctx: &Context<'a>) -> GraphqlResult<(&'a Arc<T>, String)> {
+        let (service, user_id) = self.svc_and_maybe_user(ctx).await?;
+        Ok((service, user_id.unwrap()))
     }
 }
 

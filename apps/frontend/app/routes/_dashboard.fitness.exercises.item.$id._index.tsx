@@ -58,38 +58,31 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { Fragment, useState } from "react";
-import { Link, useLoaderData, useNavigate, useRevalidator } from "react-router";
+import { Link, useLoaderData, useNavigate } from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
+import { DisplayCollectionToEntity } from "~/components/common";
+import { ReviewItemDisplay } from "~/components/common/review";
+import { ExerciseHistory } from "~/components/fitness/components";
 import {
-	DisplayCollectionToEntity,
-	ReviewItemDisplay,
-} from "~/components/common";
-import {
-	ExerciseHistory,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
-} from "~/components/fitness";
-import { MediaScrollArea } from "~/components/media";
-import {
-	FitnessEntity,
-	TimeSpan,
-	clientGqlService,
-	convertEnumToSelectData,
-	dayjsLib,
-	getDateFromTimeSpan,
-} from "~/lib/common";
+} from "~/components/fitness/utils";
+import { MediaScrollArea } from "~/components/media/base-display";
+import { dayjsLib, getDateFromTimeSpan } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
 	useIsFitnessActionActive,
 	useUserDetails,
 	useUserPreferences,
 	useUserUnitSystem,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { clientGqlService } from "~/lib/shared/react-query";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
 	addExerciseToCurrentWorkout,
 	getExerciseImages,
@@ -98,6 +91,7 @@ import {
 	useMergingExercise,
 } from "~/lib/state/fitness";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
+import { FitnessEntity, TimeSpan } from "~/lib/types";
 import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.exercises.item.$id._index";
 
@@ -124,8 +118,8 @@ export const loader = async ({ params, request }: Route.LoaderArgs) => {
 	return { query, exerciseId, exerciseDetails, userExerciseDetails };
 };
 
-export const meta = ({ data }: Route.MetaArgs) => {
-	return [{ title: `${data?.exerciseDetails.name} | Ryot` }];
+export const meta = () => {
+	return [{ title: "Exercise Details | Ryot" }];
 };
 
 export default function Page() {
@@ -134,7 +128,6 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const userDetails = useUserDetails();
-	const revalidator = useRevalidator();
 	const canCurrentUserUpdate =
 		loaderData.exerciseDetails.source === ExerciseSource.Custom &&
 		userDetails.id === loaderData.exerciseDetails.createdByUserId;
@@ -250,7 +243,6 @@ export default function Page() {
 						loading={updateUserExerciseSettingsMutation.isPending}
 						onClick={async () => {
 							await updateUserExerciseSettingsMutation.mutateAsync();
-							revalidator.revalidate();
 							notifications.show({
 								color: "green",
 								title: "Settings updated",
@@ -400,19 +392,16 @@ export default function Page() {
 										</Group>
 									</>
 								) : null}
-								{loaderData.exerciseDetails.attributes.instructions.length >
-								0 ? (
+								{loaderData.exerciseDetails.instructions.length > 0 ? (
 									<>
 										<Divider />
 										<Text size="xl" fw="bold">
 											Instructions
 										</Text>
 										<List type="ordered" spacing="xs">
-											{loaderData.exerciseDetails.attributes.instructions.map(
-												(d) => (
-													<List.Item key={d}>{d}</List.Item>
-												),
-											)}
+											{loaderData.exerciseDetails.instructions.map((d) => (
+												<List.Item key={d}>{d}</List.Item>
+											))}
 										</List>
 									</>
 								) : null}
@@ -620,11 +609,7 @@ export default function Page() {
 										variant="outline"
 										onClick={() => {
 											setMergingExercise(loaderData.exerciseDetails.id);
-											navigate(
-												$path("/fitness/exercises/list", {
-													type: loaderData.exerciseDetails.lot,
-												}),
-											);
+											navigate($path("/fitness/exercises/list"));
 										}}
 									>
 										Merge exercise
@@ -670,7 +655,7 @@ export default function Page() {
 									setCurrentWorkout,
 									[
 										{
-											name: loaderData.exerciseDetails.id,
+											id: loaderData.exerciseDetails.id,
 											lot: loaderData.exerciseDetails.lot,
 										},
 									],

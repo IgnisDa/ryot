@@ -1,15 +1,18 @@
 use std::sync::Arc;
 
-use async_graphql::Result;
+use anyhow::Result;
 use background_models::{ApplicationJob, HpApplicationJob};
-use common_models::{ChangeCollectionToEntitiesInput, StringIdObject};
+use common_models::{
+    ChangeCollectionToEntitiesInput, ReorderCollectionEntityInput, StringIdObject,
+};
+use dependent_collection_utils::{
+    add_entities_to_collection, create_or_update_collection, remove_entities_from_collection,
+    reorder_collection_entity,
+};
+use dependent_entity_list_utils::user_collections_list;
 use dependent_models::{
     CachedResponse, CollectionContentsInput, CollectionContentsResponse,
     CollectionRecommendationsInput, SearchResults, UserCollectionsListResponse,
-};
-use dependent_utils::{
-    add_entities_to_collection, create_or_update_collection, remove_entities_from_collection,
-    user_collections_list,
 };
 use media_models::CreateOrUpdateCollectionInput;
 use supporting_service::SupportingService;
@@ -72,6 +75,14 @@ impl CollectionService {
         input: ChangeCollectionToEntitiesInput,
     ) -> Result<bool> {
         remove_entities_from_collection(user_id, input, &self.0).await
+    }
+
+    pub async fn reorder_collection_entity(
+        &self,
+        user_id: &String,
+        input: ReorderCollectionEntityInput,
+    ) -> Result<bool> {
+        reorder_collection_entity(user_id, input, &self.0).await
     }
 
     pub async fn deploy_add_entities_to_collection_job(

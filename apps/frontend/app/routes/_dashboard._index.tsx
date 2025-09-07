@@ -5,7 +5,6 @@ import {
 	Container,
 	Drawer,
 	Group,
-	Skeleton,
 	Stack,
 	Text,
 } from "@mantine/core";
@@ -13,15 +12,14 @@ import { useDisclosure } from "@mantine/hooks";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
+	CollectionContentsSortBy,
 	DailyUserActivitiesResponseGroupedBy,
 	DashboardElementLot,
-	ExpireCacheKeyDocument,
 	GraphqlSortOrder,
 	MediaLot,
 	MinimalUserAnalyticsDocument,
 	TrendingMetadataDocument,
 	UserMetadataRecommendationsDocument,
-	type UserPreferences,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber, parseSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
@@ -30,41 +28,33 @@ import {
 	IconPlayerPlay,
 	IconRotateClockwise,
 } from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import CryptoJS from "crypto-js";
 import type { ReactNode } from "react";
-import { redirect, useLoaderData } from "react-router";
+import { redirect } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
-import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import {
-	ApplicationGrid,
-	DisplaySummarySection,
-	ProRequiredAlert,
-} from "~/components/common";
+import { ProRequiredAlert, SkeletonLoader } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
-import { MetadataDisplayItem } from "~/components/media";
-import {
-	clientGqlService,
-	dayjsLib,
-	openConfirmationModal,
-	queryFactory,
-} from "~/lib/common";
+import { ApplicationGrid } from "~/components/common/layout";
+import { DisplaySummarySection } from "~/components/common/summary";
+import { MetadataDisplayItem } from "~/components/media/display-items";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
+	useExpireCacheKeyMutation,
 	useIsMobile,
 	useIsOnboardingTourCompleted,
+	useUserCollections,
 	useUserDetails,
 	useUserPreferences,
-} from "~/lib/hooks";
-import { useOnboardingTour } from "~/lib/state/general";
-import {
-	getUserCollectionsList,
-	getUserPreferences,
-	serverGqlService,
-} from "~/lib/utilities.server";
+} from "~/lib/shared/hooks";
+import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
+import { useOnboardingTour } from "~/lib/state/onboarding-tour";
+import { getUserPreferences } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard._index";
 
 const searchParamsSchema = z.object({
@@ -73,66 +63,13 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-const redirectToLandingPath = (
-	request: Request,
-	preferences: UserPreferences,
-) => {
-	const query = parseSearchQuery(request, searchParamsSchema);
-	const landingPath = preferences.general.landingPath;
-	if (landingPath === "/" || query.ignoreLandingPath) return;
-	throw redirect(landingPath);
-};
-
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const preferences = await getUserPreferences(request);
-	redirectToLandingPath(request, preferences);
-	const getTake = (el: DashboardElementLot) => {
-		const t = preferences.general.dashboard.find(
-			(de) => de.section === el,
-		)?.numElements;
-		invariant(isNumber(t));
-		return t;
-	};
-	const takeUpcoming = getTake(DashboardElementLot.Upcoming);
-	const takeInProgress = getTake(DashboardElementLot.InProgress);
-	const userCollectionsList = await getUserCollectionsList(request);
-	const foundInProgressCollection = userCollectionsList.find(
-		(c) => c.name === "In Progress",
-	);
-	invariant(foundInProgressCollection);
-	const [
-		{ collectionContents: inProgressCollectionContents },
-		{ userUpcomingCalendarEvents },
-		{ userAnalytics },
-	] = await Promise.all([
-		serverGqlService.authenticatedRequest(request, CollectionContentsDocument, {
-			input: {
-				search: { take: takeInProgress },
-				sort: { order: GraphqlSortOrder.Desc },
-				collectionId: foundInProgressCollection.id,
-			},
-		}),
-		serverGqlService.authenticatedRequest(
-			request,
-			UserUpcomingCalendarEventsDocument,
-			{ input: { nextMedia: takeUpcoming } },
-		),
-		serverGqlService.authenticatedRequest(
-			request,
-			MinimalUserAnalyticsDocument,
-			{
-				input: {
-					dateRange: {},
-					groupBy: DailyUserActivitiesResponseGroupedBy.AllTime,
-				},
-			},
-		),
-	]);
-	return {
-		userAnalytics,
-		userUpcomingCalendarEvents,
-		inProgressCollectionContents,
-	};
+	const query = parseSearchQuery(request, searchParamsSchema);
+	const landingPath = preferences.general.landingPath;
+	if (landingPath !== "/" && !query.ignoreLandingPath)
+		throw redirect(landingPath);
+	return {};
 };
 
 export const meta = () => {
@@ -140,16 +77,80 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
-	const userPreferences = useUserPreferences();
-	const userDetails = useUserDetails();
-	const { startOnboardingTour } = useOnboardingTour();
 	const isMobile = useIsMobile();
+	const coreDetails = useCoreDetails();
+	const userDetails = useUserDetails();
+	const userPreferences = useUserPreferences();
+	const { startOnboardingTour } = useOnboardingTour();
 	const isOnboardingTourCompleted = useIsOnboardingTourCompleted();
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
-	const latestUserSummary = loaderData.userAnalytics.activities.items.at(0);
+
+	const getTake = (el: DashboardElementLot) => {
+		const t = userPreferences.general.dashboard.find(
+			(de) => de.section === el,
+		)?.numElements;
+		return isNumber(t) ? t : 10;
+	};
+	const takeUpcoming = getTake(DashboardElementLot.Upcoming);
+	const takeInProgress = getTake(DashboardElementLot.InProgress);
+
+	const userCollections = useUserCollections();
+
+	const inProgressCollection = userCollections.find(
+		(c) => c.name === "In Progress",
+	);
+
+	const inProgressCollectionContentsQuery = useQuery({
+		queryKey: queryFactory.collections.collectionContents({
+			search: { take: takeInProgress },
+			collectionId: inProgressCollection?.id || "",
+			sort: {
+				order: GraphqlSortOrder.Desc,
+				by: CollectionContentsSortBy.LastUpdatedOn,
+			},
+		}).queryKey,
+		queryFn: inProgressCollection?.id
+			? () =>
+					clientGqlService.request(CollectionContentsDocument, {
+						input: {
+							search: { take: takeInProgress },
+							collectionId: inProgressCollection.id,
+							sort: {
+								order: GraphqlSortOrder.Desc,
+								by: CollectionContentsSortBy.LastUpdatedOn,
+							},
+						},
+					})
+			: skipToken,
+	});
+
+	const userUpcomingCalendarEventsQuery = useQuery({
+		queryKey: queryFactory.calendar.userUpcomingCalendarEvents({
+			nextMedia: takeUpcoming,
+		}).queryKey,
+		queryFn: () =>
+			clientGqlService.request(UserUpcomingCalendarEventsDocument, {
+				input: { nextMedia: takeUpcoming },
+			}),
+	});
+
+	const userAnalyticsQuery = useQuery({
+		queryKey: queryFactory.miscellaneous.userAnalytics({
+			dateRange: {},
+			groupBy: DailyUserActivitiesResponseGroupedBy.AllTime,
+		}).queryKey,
+		queryFn: () =>
+			clientGqlService.request(MinimalUserAnalyticsDocument, {
+				input: {
+					dateRange: {},
+					groupBy: DailyUserActivitiesResponseGroupedBy.AllTime,
+				},
+			}),
+	});
+
+	const latestUserSummary =
+		userAnalyticsQuery.data?.userAnalytics.response.activities.items.at(0);
 
 	const [isAlertDismissed, setIsAlertDismissed] = useLocalStorage(
 		`AlertDismissed-${userDetails.id}-${CryptoJS.SHA256(dashboardMessage)}`,
@@ -187,36 +188,52 @@ export default function Page() {
 				</ClientOnly>
 				{userPreferences.general.dashboard.map((de) =>
 					match([de.section, de.hidden])
-						.with([DashboardElementLot.Upcoming, false], ([v, _]) =>
-							loaderData.userUpcomingCalendarEvents.length > 0 ? (
-								<Section key={v} lot={v}>
-									<SectionTitle text="Upcoming" />
-									<ApplicationGrid>
-										{loaderData.userUpcomingCalendarEvents.map((um) => (
-											<UpComingMedia um={um} key={um.calendarEventId} />
-										))}
-									</ApplicationGrid>
-								</Section>
-							) : null,
-						)
+						.with([DashboardElementLot.Upcoming, false], ([v, _]) => (
+							<Section key={v} lot={v}>
+								<SectionTitle text="Upcoming" />
+								{userUpcomingCalendarEventsQuery.data ? (
+									userUpcomingCalendarEventsQuery.data
+										.userUpcomingCalendarEvents.length > 0 ? (
+										<ApplicationGrid>
+											{userUpcomingCalendarEventsQuery.data.userUpcomingCalendarEvents.map(
+												(um) => (
+													<UpcomingMediaSection
+														um={um}
+														key={um.calendarEventId}
+													/>
+												),
+											)}
+										</ApplicationGrid>
+									) : (
+										<Text c="dimmed">No upcoming media.</Text>
+									)
+								) : (
+									<SkeletonLoader />
+								)}
+							</Section>
+						))
 						.with([DashboardElementLot.InProgress, false], ([v, _]) => (
 							<Section key={v} lot={v}>
 								<SectionTitle text="In Progress" />
-								{loaderData.inProgressCollectionContents.response.results.items
-									.length > 0 ? (
-									<ApplicationGrid>
-										{loaderData.inProgressCollectionContents.response.results.items.map(
-											(lm) => (
-												<DisplayCollectionEntity
-													key={lm.entityId}
-													entityId={lm.entityId}
-													entityLot={lm.entityLot}
-												/>
-											),
-										)}
-									</ApplicationGrid>
+								{inProgressCollectionContentsQuery.data ? (
+									inProgressCollectionContentsQuery.data.collectionContents
+										.response.results.items.length > 0 ? (
+										<ApplicationGrid>
+											{inProgressCollectionContentsQuery.data.collectionContents.response.results.items.map(
+												(lm) => (
+													<DisplayCollectionEntity
+														key={lm.entityId}
+														entityId={lm.entityId}
+														entityLot={lm.entityLot}
+													/>
+												),
+											)}
+										</ApplicationGrid>
+									) : (
+										<Text c="dimmed">No media in progress.</Text>
+									)
 								) : (
-									<Text c="dimmed">No media in progress.</Text>
+									<SkeletonLoader />
 								)}
 							</Section>
 						))
@@ -228,15 +245,19 @@ export default function Page() {
 						.with([DashboardElementLot.Summary, false], ([v, _]) => (
 							<Section key={v} lot={v}>
 								<SectionTitle text="Summary" />
-								{latestUserSummary ? (
-									<DisplaySummarySection
-										latestUserSummary={latestUserSummary}
-									/>
+								{userAnalyticsQuery.data ? (
+									latestUserSummary ? (
+										<DisplaySummarySection
+											latestUserSummary={latestUserSummary}
+										/>
+									) : (
+										<Text c="dimmed">
+											No summary available. Please add some media to your
+											watched history.
+										</Text>
+									)
 								) : (
-									<Text c="dimmed">
-										No summary available. Please add some media to your watched
-										history.
-									</Text>
+									<SkeletonLoader />
 								)}
 							</Section>
 						))
@@ -255,53 +276,47 @@ export default function Page() {
 const RecommendationsSection = () => {
 	const coreDetails = useCoreDetails();
 
-	const recommendations = useQuery({
+	const expireCacheKey = useExpireCacheKeyMutation();
+	const { data, refetch } = useQuery({
 		queryKey: queryFactory.media.userMetadataRecommendations().queryKey,
 		queryFn: () =>
 			clientGqlService.request(UserMetadataRecommendationsDocument),
-	});
-
-	const expireCacheKey = useMutation({
-		mutationFn: () =>
-			clientGqlService.request(ExpireCacheKeyDocument, {
-				cacheId:
-					recommendations.data?.userMetadataRecommendations.cacheId ?? "",
-			}),
 	});
 
 	return (
 		<>
 			<Group justify="space-between">
 				<SectionTitle text="Recommendations" />
-				<ActionIcon
-					variant="subtle"
-					onClick={() => {
-						openConfirmationModal(
-							"Are you sure you want to refresh the recommendations?",
-							async () => {
-								await expireCacheKey.mutateAsync();
-								recommendations.refetch();
-							},
-						);
-					}}
-				>
-					<IconRotateClockwise />
-				</ActionIcon>
+				{data ? (
+					<ActionIcon
+						variant="subtle"
+						onClick={() => {
+							openConfirmationModal(
+								"Are you sure you want to refresh the recommendations?",
+								async () => {
+									await expireCacheKey.mutateAsync(
+										data.userMetadataRecommendations.cacheId,
+									);
+									refetch();
+								},
+							);
+						}}
+					>
+						<IconRotateClockwise />
+					</ActionIcon>
+				) : null}
 			</Group>
-			{recommendations.data ? (
+			{data ? (
 				coreDetails.isServerKeyValidated ? (
-					recommendations.data.userMetadataRecommendations.response.length >
-					0 ? (
+					data.userMetadataRecommendations.response.length > 0 ? (
 						<ApplicationGrid>
-							{recommendations.data.userMetadataRecommendations.response.map(
-								(lm) => (
-									<MetadataDisplayItem
-										key={lm}
-										metadataId={lm}
-										shouldHighlightNameIfInteracted
-									/>
-								),
-							)}
+							{data.userMetadataRecommendations.response.map((lm) => (
+								<MetadataDisplayItem
+									key={lm}
+									metadataId={lm}
+									shouldHighlightNameIfInteracted
+								/>
+							))}
 						</ApplicationGrid>
 					) : (
 						<Text c="dimmed">No recommendations available.</Text>
@@ -310,7 +325,7 @@ const RecommendationsSection = () => {
 					<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
 				)
 			) : (
-				<Skeleton height={100} />
+				<SkeletonLoader />
 			)}
 		</>
 	);
@@ -337,16 +352,16 @@ const TrendingSection = () => {
 
 	return (
 		<>
-			{isTrendingMetadataListOpen ? (
-				<Drawer
-					size="xl"
-					position="right"
-					title="Trending Media"
-					opened={isTrendingMetadataListOpen}
-					onClose={toggleTrendingMetadataList}
-				>
+			<Drawer
+				size="xl"
+				position="right"
+				title="Trending Media"
+				opened={isTrendingMetadataListOpen}
+				onClose={toggleTrendingMetadataList}
+			>
+				{trendingMetadata.data ? (
 					<ApplicationGrid>
-						{trendingMetadata.data?.trendingMetadata.map((lm) => (
+						{trendingMetadata.data.trendingMetadata.map((lm) => (
 							<MetadataDisplayItem
 								key={lm}
 								metadataId={lm}
@@ -354,8 +369,10 @@ const TrendingSection = () => {
 							/>
 						))}
 					</ApplicationGrid>
-				</Drawer>
-			) : null}
+				) : (
+					<SkeletonLoader />
+				)}
+			</Drawer>
 			<Group justify="space-between">
 				<SectionTitle text="Trending" />
 				{trendingMetadata.data &&
@@ -386,7 +403,7 @@ const TrendingSection = () => {
 					<Text c="dimmed">No trending media available.</Text>
 				)
 			) : (
-				<Skeleton height={100} />
+				<SkeletonLoader />
 			)}
 		</>
 	);
@@ -398,24 +415,24 @@ const SectionTitle = (props: { text: string }) => (
 	</Text>
 );
 
-const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
+const UpcomingMediaSection = (props: { um: CalendarEventPartFragment }) => {
 	const today = dayjsLib().startOf("day");
-	const numDaysLeft = dayjsLib(um.date).diff(today, "day");
+	const numDaysLeft = dayjsLib(props.um.date).diff(today, "day");
 
 	return (
 		<MetadataDisplayItem
 			noLeftLabel
-			altName={um.metadataText}
-			metadataId={um.metadataId}
-			rightLabel={`${match(um.metadataLot)
+			altName={props.um.metadataText}
+			metadataId={props.um.metadataId}
+			rightLabel={`${match(props.um.metadataLot)
 				.with(
 					MediaLot.Show,
 					() =>
-						`S${um.showExtraInformation?.season}-E${um.showExtraInformation?.episode}`,
+						`S${props.um.showExtraInformation?.season}-E${props.um.showExtraInformation?.episode}`,
 				)
 				.with(
 					MediaLot.Podcast,
-					() => `EP-${um.podcastExtraInformation?.episode}`,
+					() => `EP-${props.um.podcastExtraInformation?.episode}`,
 				)
 				.otherwise(() => "")} ${
 				numDaysLeft === 0

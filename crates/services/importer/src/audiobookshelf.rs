@@ -1,30 +1,28 @@
 use std::{result::Result as StdResult, sync::Arc};
 
-use anyhow::anyhow;
+use anyhow::Result;
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
-use async_graphql::Result;
 use common_utils::ryot_log;
 use data_encoding::BASE64;
-use dependent_models::ImportOrExportMetadataItem;
-use dependent_models::{ImportCompletedItem, ImportResult};
-use dependent_utils::{commit_metadata, get_identifier_from_book_isbn};
+use dependent_entity_utils::commit_metadata;
+use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
+use dependent_provider_utils::get_identifier_from_book_isbn;
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use external_models::audiobookshelf as audiobookshelf_models;
 use futures::stream::{self, StreamExt};
+use google_books_provider::GoogleBooksService;
+use hardcover_provider::HardcoverService;
 use media_models::{
     DeployUrlAndKeyImportInput, ImportOrExportMetadataItemSeen, PartialMetadataWithoutId,
 };
-use providers::{
-    google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
-};
+use openlibrary_provider::OpenlibraryService;
 use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},
 };
-use serde_json::json;
 use supporting_service::SupportingService;
 
-use super::{ImportFailStep, ImportFailedItem};
+use crate::{ImportFailStep, ImportFailedItem};
 
 struct ImportServices<'a> {
     ss: &'a Arc<SupportingService>,
@@ -56,25 +54,23 @@ pub async fn import(
     };
 
     let libraries_resp = client
-        .get(format!("{}/libraries", url))
+        .get(format!("{url}/libraries"))
         .send()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .json::<audiobookshelf_models::LibrariesListResponse>()
         .await
         .unwrap();
     for library in libraries_resp.libraries {
         ryot_log!(debug, "Importing library {:?}", library.name.unwrap());
-        let mut query = json!({ "expanded": "1" });
+        let mut query = serde_json:: json!({ "expanded": "1" });
         if let Some(audiobookshelf_models::MediaType::Book) = library.media_type {
-            query["filter"] = json!(format!("progress.{}", BASE64.encode(b"finished")));
+            query["filter"] = serde_json::json!(format!("progress.{}", BASE64.encode(b"finished")));
         }
         let finished_items = client
             .get(format!("{}/libraries/{}/items", url, library.id))
             .query(&query)
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json::<audiobookshelf_models::ListResponse>()
             .await
             .unwrap();
@@ -143,8 +139,8 @@ async fn process_item(
             let item_details = get_item_details(client, url, &item.id, None)
                 .await
                 .map_err(|e| ImportFailedItem {
-                    error: Some(e.message),
                     identifier: title.clone(),
+                    error: Some(e.to_string()),
                     step: ImportFailStep::ItemDetailsFromSource,
                     ..Default::default()
                 })?;
@@ -159,8 +155,8 @@ async fn process_item(
                             get_item_details(client, url, &item.id, Some(episode.id.unwrap()))
                                 .await
                                 .map_err(|e| ImportFailedItem {
-                                    error: Some(e.message),
                                     identifier: title.clone(),
+                                    error: Some(e.to_string()),
                                     step: ImportFailStep::ItemDetailsFromSource,
                                     ..Default::default()
                                 })?;
@@ -180,7 +176,7 @@ async fn process_item(
                             .await
                             .map_err(|e| ImportFailedItem {
                                 identifier: title.clone(),
-                                error: Some(e.message),
+                                error: Some(e.to_string()),
                                 step: ImportFailStep::ItemDetailsFromSource,
                                 ..Default::default()
                             })?;
@@ -203,11 +199,7 @@ async fn process_item(
                 }
             }
         } else {
-            ryot_log!(
-                debug,
-                "No ASIN, ISBN or iTunes ID found for item {:?}",
-                item
-            );
+            ryot_log!(debug, "No ASIN, ISBN or iTunes ID found {:?}", item);
             return Err(ImportFailedItem {
                 identifier: title,
                 step: ImportFailStep::InputTransformation,
@@ -220,13 +212,13 @@ async fn process_item(
         for episode in podcasts {
             seen_history.push(ImportOrExportMetadataItemSeen {
                 podcast_episode_number: Some(episode),
-                provider_watched_on: Some(ImportSource::Audiobookshelf.to_string()),
+                providers_consumed_on: Some(vec![ImportSource::Audiobookshelf.to_string()]),
                 ..Default::default()
             });
         }
     } else {
         seen_history.push(ImportOrExportMetadataItemSeen {
-            provider_watched_on: Some(ImportSource::Audiobookshelf.to_string()),
+            providers_consumed_on: Some(vec![ImportSource::Audiobookshelf.to_string()]),
             ..Default::default()
         });
     };
@@ -246,16 +238,15 @@ async fn get_item_details(
     id: &str,
     episode: Option<String>,
 ) -> Result<audiobookshelf_models::Item> {
-    let mut query = json!({ "expanded": "1", "include": "progress" });
+    let mut query = serde_json::json!({ "expanded": "1", "include": "progress" });
     if let Some(episode) = episode {
-        query["episode"] = json!(episode);
+        query["episode"] = serde_json::json!(episode);
     }
     let item = client
-        .get(format!("{}/items/{}", url, id))
+        .get(format!("{url}/items/{id}"))
         .query(&query)
         .send()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .json::<audiobookshelf_models::Item>()
         .await?;
     Ok(item)

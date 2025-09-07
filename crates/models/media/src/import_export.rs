@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use async_graphql::{InputObject, OneofObject, SimpleObject};
-use common_models::IdAndNamedObject;
+use common_models::StringIdAndNamedObject;
 use enum_models::{ImportSource, Visibility};
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -28,12 +28,14 @@ pub struct ImportOrExportMetadataItemSeen {
     pub show_episode_number: Option<i32>,
     /// If for an anime, the episode which was seen.
     pub anime_episode_number: Option<i32>,
-    /// The provider this item was watched on.
-    pub provider_watched_on: Option<String>,
+    /// The amount of time (in seconds) spent consuming the item manually.
+    pub manual_time_spent: Option<Decimal>,
     /// If for a podcast, the episode which was seen.
     pub podcast_episode_number: Option<i32>,
     /// If for a manga, the chapter which was seen.
     pub manga_chapter_number: Option<Decimal>,
+    /// The providers this item was consumed on.
+    pub providers_consumed_on: Option<Vec<String>>,
 }
 
 /// Review data associated to a rating.
@@ -69,10 +71,10 @@ pub struct ImportOrExportItemReview {
 pub struct ImportOrExportItemReviewComment {
     pub id: String,
     pub text: String,
-    pub user: IdAndNamedObject,
     pub created_on: DateTimeUtc,
     /// The user ids of all those who liked it.
     pub liked_by: HashSet<String>,
+    pub user: StringIdAndNamedObject,
 }
 
 /// A rating given to an entity.

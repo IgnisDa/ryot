@@ -1,11 +1,10 @@
 use std::{
     collections::{HashMap, hash_map::Entry},
-    sync::{Mutex, OnceLock},
+    sync::{Arc, Mutex, OnceLock},
 };
 
 use anyhow::{Context, Result, anyhow, bail};
 use application_utils::get_base_http_client;
-use async_graphql::futures_util::{StreamExt, stream};
 use common_models::DefaultCollection;
 use common_utils::{ryot_log, sleep_for_n_seconds};
 use database_models::{metadata, prelude::Metadata};
@@ -14,14 +13,15 @@ use dependent_models::{
 };
 use enum_models::{MediaLot, MediaSource};
 use eventsource_stream::Eventsource;
+use futures::{StreamExt, stream};
 use itertools::Itertools;
 use media_models::{ImportOrExportMetadataItemSeen, UniqueMediaIdentifier};
 use reqwest::Url;
 use rust_decimal::{Decimal, prelude::FromPrimitive};
 use rust_decimal_macros::dec;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
-use sea_query::Expr;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::Expr};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use supporting_service::SupportingService;
 use tokio::sync::{mpsc, mpsc::UnboundedReceiver, mpsc::error::TryRecvError};
 
 mod komga_book {
@@ -98,7 +98,7 @@ mod komga_series {
             Url::parse(&url).ok().and_then(|parsed_url| {
                 parsed_url
                     .path_segments()
-                    .and_then(|segments| segments.collect::<Vec<_>>().get(1).cloned())
+                    .and_then(|segments| segments.collect_vec().get(1).cloned())
                     .map(String::from)
             })
         }
@@ -202,12 +202,12 @@ async fn sse_listener(
     komga_username: String,
     komga_password: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let url = format!("{}/sse/v1", base_url);
+    let url = format!("{base_url}/sse/v1");
     let client = get_base_http_client(None);
 
     loop {
         let response = client
-            .get(format!("{}/events", url))
+            .get(format!("{url}/events"))
             .basic_auth(komga_username.to_string(), Some(komga_password.to_string()))
             .send()
             .await
@@ -265,7 +265,7 @@ async fn fetch_api<T: DeserializeOwned>(
     api_id: &str,
 ) -> Result<T> {
     client
-        .get(format!("{}/{}", api_endpoint, api_id))
+        .get(format!("{api_endpoint}/{api_id}"))
         .basic_auth(username, Some(password))
         .send()
         .await?
@@ -287,7 +287,7 @@ async fn fetch_api<T: DeserializeOwned>(
 /// returns: This contains the MediaSource and the ID of the series.
 async fn find_provider_and_id(
     source: MediaSource,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
     series: &komga_series::Item,
 ) -> Result<(MediaSource, Option<String>)> {
     let providers = series.metadata.find_providers();
@@ -302,7 +302,7 @@ async fn find_provider_and_id(
         let db_manga = Metadata::find()
             .filter(metadata::Column::Lot.eq(MediaLot::Manga))
             .filter(Expr::col(metadata::Column::Title).eq(&series.name))
-            .one(db)
+            .one(&ss.db)
             .await?;
 
         Ok(db_manga
@@ -324,10 +324,10 @@ async fn process_events(
     password: &String,
     base_url: &String,
     source: MediaSource,
-    db: &DatabaseConnection,
     data: komga_events::Data,
+    ss: &Arc<SupportingService>,
 ) -> Result<ProcessEventReturn> {
-    let url = format!("{}/api/v1", base_url);
+    let url = format!("{base_url}/api/v1");
     let client = get_base_http_client(None);
 
     let book: komga_book::Item = fetch_api(
@@ -347,7 +347,7 @@ async fn process_events(
     )
     .await?;
 
-    let (source, id) = find_provider_and_id(source, db, &series).await?;
+    let (source, id) = find_provider_and_id(source, ss, &series).await?;
 
     let Some(id) = id else {
         let msg = format!(
@@ -369,7 +369,7 @@ async fn process_events(
                 book.read_progress.page,
                 book.media.pages_count,
             )),
-            provider_watched_on: Some("Komga".to_string()),
+            providers_consumed_on: Some(vec!["Komga".to_string()]),
             manga_chapter_number: Some(book.metadata.number.parse().unwrap_or_default()),
             ..Default::default()
         },
@@ -381,7 +381,7 @@ pub async fn yank_progress(
     username: String,
     password: String,
     source: MediaSource,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
 ) -> Result<ImportResult> {
     let mut result = ImportResult::default();
     // DEV: This object needs global lifetime so we can continue to use the receiver if
@@ -429,8 +429,8 @@ pub async fn yank_progress(
                                 &password,
                                 &base_url,
                                 source,
-                                db,
                                 event.clone(),
+                                ss,
                             )
                             .await
                             {
@@ -477,10 +477,10 @@ pub async fn sync_to_owned_collection(
     username: String,
     password: String,
     source: MediaSource,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
 ) -> Result<ImportResult> {
     let mut result = ImportResult::default();
-    let url = &format!("{}/api/v1", base_url);
+    let url = &format!("{base_url}/api/v1");
     let client = get_base_http_client(None);
 
     let series: komga_series::Response = client
@@ -496,7 +496,7 @@ pub async fn sync_to_owned_collection(
     // multiple times this prevents us from double committing an identifier
     let unique_collection_updates: HashMap<String, _> = stream::iter(series.content)
         .filter_map(|book| async move {
-            match find_provider_and_id(source, db, &book).await {
+            match find_provider_and_id(source, ss, &book).await {
                 Ok((source, Some(id))) => Some((
                     id.clone(),
                     ImportCompletedItem::Metadata(ImportOrExportMetadataItem {

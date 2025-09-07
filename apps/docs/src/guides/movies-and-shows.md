@@ -1,14 +1,9 @@
-# Movies and shows
+# Movies and Shows
 
-Ryot supports tracking movies and shows via [TMDB](https://www.themoviedb.org/). To enable
-this functionality, you need to obtain an access token from TMDB.
+Ryot supports tracking movies and shows via [TMDB](https://www.themoviedb.org) and
+[TVDB](https://www.thetvdb.com). You can enable either TMDB, TVDB, or both.
 
-## Getting TMDB access token
-
-You can follow the below steps to obtain your own access token and enable movie and show
-tracking.
-
-### Steps
+## TMDB
 
 1. Create a [TMDB](https://www.themoviedb.org/) account.
 2. Go to your [account settings](https://www.themoviedb.org/settings/account).
@@ -21,3 +16,12 @@ tracking.
    the API key).
 8. Set the `MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN` environment variable as described in the
    [configuration](../configuration.md#important-parameters) docs.
+
+## TVDB
+
+- Create a [TVDB](https://www.thetvdb.com/) account.
+- Visit the [API](https://www.thetvdb.com/api-information) page and then click on "Get
+  Started".
+- Follow the prompts and then copy your **API Key**.
+- Set the `MOVIES_AND_SHOWS_TVDB_API_KEY` environment variable as described in the
+  [configuration](../configuration.md#all-parameters) docs.

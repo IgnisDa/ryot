@@ -12,12 +12,11 @@ use apalis::{
     prelude::{MemoryStorage, Monitor, WorkerBuilder, WorkerFactoryFn},
 };
 use apalis_cron::{CronStream, Schedule};
-use aws_sdk_s3::config::Region;
-use common_utils::{PROJECT_NAME, TEMPORARY_DIRECTORY, ryot_log};
+use common_utils::{PROJECT_NAME, get_temporary_directory, ryot_log};
 use dependent_models::CompleteExport;
 use env_utils::APP_VERSION;
 use logs_wheel::LogFileInitializer;
-use migrations::Migrator;
+use migrations_sql::Migrator;
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
@@ -50,7 +49,7 @@ async fn main() -> Result<()> {
     match env::var(LOGGING_ENV_VAR).ok() {
         Some(v) => {
             if !v.contains("sea_orm") {
-                unsafe { env::set_var(LOGGING_ENV_VAR, format!("{},sea_orm=info", v)) };
+                unsafe { env::set_var(LOGGING_ENV_VAR, format!("{v},sea_orm=info")) };
             }
         }
         None => unsafe { env::set_var(LOGGING_ENV_VAR, "ryot=info,sea_orm=info") },
@@ -59,7 +58,7 @@ async fn main() -> Result<()> {
 
     ryot_log!(info, "Running version: {}", APP_VERSION);
 
-    let config = Arc::new(config::load_app_config()?);
+    let config = Arc::new(config_definition::load_app_config()?);
     if config.server.sleep_before_startup_seconds > 0 {
         let duration = Duration::from_secs(config.server.sleep_before_startup_seconds);
         ryot_log!(warn, "Sleeping for {:?} before starting up...", duration);
@@ -73,34 +72,16 @@ async fn main() -> Result<()> {
     let infrequent_cron_jobs_hours_format =
         config.scheduler.infrequent_cron_jobs_hours_format.clone();
 
-    let config_dump_path = PathBuf::new().join(TEMPORARY_DIRECTORY).join("config.json");
+    let config_dump_path = PathBuf::new()
+        .join(get_temporary_directory())
+        .join("config.json");
     fs::write(config_dump_path, serde_json::to_string_pretty(&config)?)?;
-
-    let mut aws_conf = aws_sdk_s3::Config::builder()
-        .region(Region::new(config.file_storage.s3_region.clone()))
-        .force_path_style(true);
-    if !config.file_storage.s3_url.is_empty() {
-        aws_conf = aws_conf.endpoint_url(&config.file_storage.s3_url);
-    }
-    if !config.file_storage.s3_access_key_id.is_empty()
-        && !config.file_storage.s3_secret_access_key.is_empty()
-    {
-        aws_conf = aws_conf.credentials_provider(aws_sdk_s3::config::Credentials::new(
-            &config.file_storage.s3_access_key_id,
-            &config.file_storage.s3_secret_access_key,
-            None,
-            None,
-            PROJECT_NAME,
-        ));
-    }
-    let aws_conf = aws_conf.build();
-    let s3_client = aws_sdk_s3::Client::from_conf(aws_conf);
 
     let db = Database::connect(config.database.url.clone())
         .await
         .expect("Database connection failed");
 
-    if let Err(err) = migrate_from_v7_if_applicable(&db).await {
+    if let Err(err) = migrate_from_v8_if_applicable(&db).await {
         ryot_log!(error, "Migration from v7 failed: {}", err);
         bail!("There was an error migrating from v7.")
     }
@@ -123,7 +104,6 @@ async fn main() -> Result<()> {
         .db(db)
         .timezone(tz)
         .config(config)
-        .s3_client(s3_client)
         .lp_application_job(&lp_application_job_storage)
         .mp_application_job(&mp_application_job_storage)
         .hp_application_job(&hp_application_job_storage)
@@ -143,7 +123,7 @@ async fn main() -> Result<()> {
             .join("includes");
 
         let mut generator = SchemaGenerator::default();
-        generator.add::<config::AppConfig>();
+        generator.add::<config_definition::AppConfig>();
         generator
             .generate(
                 base_dir.join("backend-config-schema.yaml"),
@@ -171,7 +151,7 @@ async fn main() -> Result<()> {
                 .catch_panic()
                 .data(app_services.clone())
                 .backend(CronStream::new_with_timezone(
-                    Schedule::from_str(&format!("0 0 {} * * *", infrequent_cron_jobs_hours_format))
+                    Schedule::from_str(&format!("0 0 {infrequent_cron_jobs_hours_format} * * *"))
                         .unwrap(),
                     tz,
                 ))
@@ -183,11 +163,8 @@ async fn main() -> Result<()> {
                 .catch_panic()
                 .data(app_services.clone())
                 .backend(CronStream::new_with_timezone(
-                    Schedule::from_str(&format!(
-                        "0 */{} * * * *",
-                        frequent_cron_jobs_every_minutes
-                    ))
-                    .unwrap(),
+                    Schedule::from_str(&format!("0 */{frequent_cron_jobs_every_minutes} * * * *"))
+                        .unwrap(),
                     tz,
                 ))
                 .build_fn(run_frequent_cron_jobs),
@@ -233,7 +210,7 @@ async fn main() -> Result<()> {
 }
 
 fn init_tracing() -> Result<()> {
-    let tmp_dir = PathBuf::new().join(TEMPORARY_DIRECTORY);
+    let tmp_dir = PathBuf::new().join(get_temporary_directory());
     create_dir_all(&tmp_dir)?;
     let log_file = LogFileInitializer {
         max_n_old_files: 2,
@@ -253,7 +230,7 @@ fn init_tracing() -> Result<()> {
     Ok(())
 }
 
-async fn migrate_from_v7_if_applicable(db: &DatabaseConnection) -> Result<()> {
+async fn migrate_from_v8_if_applicable(db: &DatabaseConnection) -> Result<()> {
     db.execute_unprepared(
         r#"
 DO $$
@@ -264,13 +241,13 @@ BEGIN
     ) THEN
         IF EXISTS (
             SELECT 1 FROM seaql_migrations
-            WHERE version = 'm20240825_is_v7_migration'
+            WHERE version = 'm20250118_is_v8_migration'
         ) THEN
             IF NOT EXISTS (
                 SELECT 1 FROM seaql_migrations
-                WHERE version = 'm20250117_is_last_v7_migration'
+                WHERE version = 'm20250731_is_last_v8_migration'
             ) THEN
-                RAISE EXCEPTION 'Final migration for v7 does not exist, upgrade aborted.';
+                RAISE EXCEPTION 'Final migration for v8 does not exist, upgrade aborted.';
             END IF;
 
             DELETE FROM seaql_migrations;
@@ -280,14 +257,14 @@ BEGIN
                 ('m20230410_create_metadata', 1684693318),
                 ('m20230411_create_metadata_group', 1684693319),
                 ('m20230413_create_person', 1684693320),
-                ('m20230419_create_seen', 1684693321),
                 ('m20230502_create_genre', 1684693322),
                 ('m20230504_create_collection', 1684693323),
                 ('m20230505_create_exercise', 1684693324),
                 ('m20230506_create_workout_template', 1684693325),
                 ('m20230507_create_workout', 1684693326),
                 ('m20230508_create_review', 1684693327),
-                ('m20230509_create_import_report', 1684693328),
+                ('m20230510_create_seen', 1684693321),
+                ('m20230513_create_import_report', 1684693328),
                 ('m20230820_create_user_measurement', 1684693329),
                 ('m20230912_create_calendar_event', 1684693330),
                 ('m20231016_create_collection_to_entity', 1684693331),
@@ -298,8 +275,7 @@ BEGIN
                 ('m20240714_create_access_link', 1684693336),
                 ('m20240827_create_daily_user_activity', 1684693337),
                 ('m20240904_create_monitored_entity', 1684693338),
-                ('m20241004_create_application_cache', 1684693339),
-                ('m20241214_create_user_notification', 1684693340);
+                ('m20241004_create_application_cache', 1684693339);
         END IF;
     END IF;
 END $$;

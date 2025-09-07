@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs, sync::Arc};
 
-use async_graphql::Result;
+use anyhow::{Result, bail};
 use chrono::{Duration, NaiveDateTime};
 use common_utils::ryot_log;
 use csv::ReaderBuilder;
@@ -19,13 +19,11 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 
-use super::utils;
+use crate::utils;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "PascalCase")]
 struct Entry {
-    #[serde(alias = "Workout #")]
-    workout_number: String,
     date: String,
     #[serde(alias = "Workout Name")]
     workout_name: String,
@@ -67,15 +65,14 @@ async fn import_exercises(
     completed: &mut Vec<ImportCompletedItem>,
 ) -> Result<()> {
     let file_string = fs::read_to_string(&csv_path)?;
+    let first_line = file_string.lines().next().unwrap();
     // DEV: Delimiter is `;` on android and `,` on iOS, so we determine it by reading the first line
-    let data = file_string.clone();
-    let first_line = data.lines().next().unwrap();
     let delimiter = if first_line.contains(';') {
         b';'
     } else if first_line.contains(',') {
         b','
     } else {
-        return Err("Could not determine delimiter".into());
+        bail!("Could not determine delimiter");
     };
 
     let mut unique_exercises: HashMap<String, exercise::Model> = HashMap::new();
@@ -88,15 +85,17 @@ async fn import_exercises(
 
     let mut workouts_to_entries = IndexMap::new();
     for entry in entries_reader.clone() {
-        workouts_to_entries
-            .entry(entry.workout_number.clone())
-            .or_insert(vec![])
-            .push(entry);
+        if entry.set_order != "Rest Timer" && entry.set_order != "Note" {
+            workouts_to_entries
+                .entry(entry.date.clone())
+                .or_insert(vec![])
+                .push(entry);
+        }
     }
 
     let mut exercises_to_workouts = IndexMap::new();
 
-    for (workout_number, entries) in workouts_to_entries {
+    for (workout_date, entries) in workouts_to_entries {
         let mut exercises = IndexMap::new();
         for entry in entries {
             exercises
@@ -104,43 +103,35 @@ async fn import_exercises(
                 .or_insert(vec![])
                 .push(entry);
         }
-        exercises_to_workouts.insert(workout_number, exercises);
+        exercises_to_workouts.insert(workout_date, exercises);
     }
 
-    for (_workout_number, workout) in exercises_to_workouts {
+    for (_workout_date, workout) in exercises_to_workouts {
         let first_exercise = workout.first().unwrap().1.first().unwrap();
         let ndt = NaiveDateTime::parse_from_str(&first_exercise.date, "%Y-%m-%d %H:%M:%S")
             .expect("Failed to parse input string");
         let ndt = utils::get_date_time_with_offset(ndt, &ss.timezone);
-        let workout_duration =
-            Duration::try_seconds(first_exercise.workout_duration.parse().unwrap()).unwrap();
+        let workout_duration_seconds = parse_workout_duration(&first_exercise.workout_duration)?;
+        let workout_duration = Duration::try_seconds(workout_duration_seconds).unwrap();
         let mut collected_exercises = vec![];
         for (exercise_name, exercises) in workout.clone() {
             let mut collected_sets = vec![];
             let mut notes = vec![];
-            let valid_ex = exercises.iter().find(|e| e.set_order != "Note").unwrap();
-            let exercise_lot = if valid_ex.seconds.is_some() && valid_ex.distance.is_some() {
-                ExerciseLot::DistanceAndDuration
-            } else if valid_ex.seconds.is_some() {
-                ExerciseLot::Duration
-            } else if valid_ex.reps.is_some() && valid_ex.weight.is_some() {
-                ExerciseLot::RepsAndWeight
-            } else if valid_ex.reps.is_some() {
-                ExerciseLot::Reps
-            } else {
-                failed.push(ImportFailedItem {
-                    step: ImportFailStep::InputTransformation,
-                    identifier: format!(
-                        "Workout #{}, Set #{}",
-                        valid_ex.workout_number, valid_ex.set_order
-                    ),
-                    error: Some(format!(
-                        "Could not determine exercise lot: {}",
-                        serde_json::to_string(&valid_ex).unwrap()
-                    )),
-                    ..Default::default()
-                });
-                continue;
+
+            let exercise_lot = match determine_exercise_lot(&exercises) {
+                Some(lot) => lot,
+                None => {
+                    failed.push(ImportFailedItem {
+                        step: ImportFailStep::InputTransformation,
+                        identifier: format!("Exercise: {exercise_name}"),
+                        error: Some(format!(
+                            "Could not determine exercise lot from {} sets",
+                            exercises.len()
+                        )),
+                        ..Default::default()
+                    });
+                    continue;
+                }
             };
             let exercise_id = utils::associate_with_existing_or_new_exercise(
                 user_id,
@@ -197,4 +188,83 @@ async fn import_exercises(
             .map(ImportCompletedItem::Exercise),
     );
     Ok(())
+}
+
+fn has_meaningful_value(value: &Option<Decimal>) -> bool {
+    value.is_some_and(|v| v > dec!(0))
+}
+
+fn determine_exercise_lot(exercises: &[Entry]) -> Option<ExerciseLot> {
+    let valid_sets: Vec<_> = exercises
+        .iter()
+        .filter(|e| e.set_order != "Note" && e.set_order != "Rest Timer")
+        .collect();
+
+    if valid_sets.is_empty() {
+        return None;
+    }
+
+    let has_distance_and_duration = valid_sets
+        .iter()
+        .any(|e| has_meaningful_value(&e.seconds) && has_meaningful_value(&e.distance));
+    let has_duration_only = valid_sets.iter().any(|e| has_meaningful_value(&e.seconds));
+    let has_reps_and_weight = valid_sets
+        .iter()
+        .any(|e| has_meaningful_value(&e.reps) && has_meaningful_value(&e.weight));
+    let has_reps_only = valid_sets.iter().any(|e| has_meaningful_value(&e.reps));
+
+    if has_distance_and_duration {
+        Some(ExerciseLot::DistanceAndDuration)
+    } else if has_duration_only {
+        Some(ExerciseLot::Duration)
+    } else if has_reps_and_weight {
+        Some(ExerciseLot::RepsAndWeight)
+    } else if has_reps_only {
+        Some(ExerciseLot::Reps)
+    } else {
+        None
+    }
+}
+
+fn parse_workout_duration(duration_str: &str) -> Result<i64> {
+    if duration_str.chars().all(|c| c.is_ascii_digit()) {
+        return Ok(duration_str.parse()?);
+    }
+    let mut total_seconds = 0i64;
+    let duration_str = duration_str.to_lowercase();
+
+    if let Some(h_pos) = duration_str.find('h') {
+        let hours: i64 = duration_str[..h_pos].parse()?;
+        total_seconds += hours * 3600;
+    }
+
+    if let Some(m_pos) = duration_str.find('m') {
+        let start = if duration_str.contains('h') {
+            duration_str.find('h').unwrap() + 1
+        } else {
+            0
+        };
+        let minutes_str = duration_str[start..m_pos].trim();
+        if !minutes_str.is_empty() {
+            let minutes: i64 = minutes_str.parse()?;
+            total_seconds += minutes * 60;
+        }
+    }
+
+    if let Some(s_pos) = duration_str.find('s') {
+        let start = if duration_str.contains('m') {
+            duration_str.find('m').unwrap() + 1
+        } else if duration_str.contains('h') {
+            duration_str.find('h').unwrap() + 1
+        } else {
+            0
+        };
+        let seconds_str = duration_str[start..s_pos].trim();
+        if !seconds_str.is_empty() {
+            let seconds: i64 = seconds_str.parse()?;
+            total_seconds += seconds;
+        }
+    }
+
+    Ok(total_seconds)
 }

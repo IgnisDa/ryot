@@ -1,0 +1,19 @@
+{
+	"name": "@ryot/tests",
+	"private": true,
+	"type": "module",
+	"devDependencies": {
+		"@aws-sdk/client-s3": "3.883.0",
+		"@faker-js/faker": "10.0.0",
+		"@ryot/generated": "workspace:*",
+		"@ryot/graphql": "workspace:*",
+		"@testcontainers/postgresql": "11.5.1",
+		"dotenv": "17.2.2",
+		"get-port": "7.1.0",
+		"graphql": "16.11.0",
+		"graphql-request": "7.2.0",
+		"testcontainers": "11.5.1",
+		"vite-tsconfig-paths": "5.1.4",
+		"vitest": "3.2.4"
+	}
+}

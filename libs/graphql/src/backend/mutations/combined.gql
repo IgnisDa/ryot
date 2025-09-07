@@ -16,10 +16,17 @@ mutation LoginUser($input: AuthUserInput!) {
 		... on LoginError {
 			error
 		}
-		... on LoginResponse {
+		... on ApiKeyResponse {
 			apiKey
 		}
+		... on StringIdObject {
+			id
+		}
 	}
+}
+
+mutation LogoutUser {
+	logoutUser
 }
 
 mutation DeployAddEntitiesToCollectionJob(
@@ -106,7 +113,8 @@ mutation ResetUser($toResetUserId: String!) {
 	resetUser(toResetUserId: $toResetUserId) {
 		__typename
 		... on UserResetResponse {
-			password
+			userId
+			passwordChangeUrl
 		}
 	}
 }
@@ -197,6 +205,10 @@ mutation DeployRemoveEntitiesFromCollectionJob(
 	deployRemoveEntitiesFromCollectionJob(input: $input)
 }
 
+mutation ReorderCollectionEntity($input: ReorderCollectionEntityInput!) {
+	reorderCollectionEntity(input: $input)
+}
+
 mutation TestUserNotificationPlatforms {
 	testUserNotificationPlatforms
 }
@@ -255,4 +267,50 @@ mutation DeployBulkMetadataProgressUpdate(
 	$input: [MetadataProgressUpdateInput!]!
 ) {
 	deployBulkMetadataProgressUpdate(input: $input)
+}
+
+mutation InitiateTwoFactorSetup {
+	initiateTwoFactorSetup {
+		secret
+		qrCodeUrl
+	}
+}
+
+mutation CompleteTwoFactorSetup($input: UserTwoFactorSetupInput!) {
+	completeTwoFactorSetup(input: $input) {
+		backupCodes
+	}
+}
+
+mutation VerifyTwoFactor($input: UserTwoFactorVerifyInput!) {
+	verifyTwoFactor(input: $input) {
+		__typename
+		... on VerifyTwoFactorError {
+			error
+		}
+		... on ApiKeyResponse {
+			apiKey
+		}
+	}
+}
+
+mutation DisableTwoFactor {
+	disableTwoFactor
+}
+
+mutation RegenerateTwoFactorBackupCodes {
+	regenerateTwoFactorBackupCodes {
+		backupCodes
+	}
+}
+
+mutation GetPasswordChangeSession($input: GetPasswordChangeSessionInput!) {
+	getPasswordChangeSession(input: $input) {
+		userId
+		passwordChangeUrl
+	}
+}
+
+mutation SetPasswordViaSession($input: SetPasswordViaSessionInput!) {
+	setPasswordViaSession(input: $input)
 }

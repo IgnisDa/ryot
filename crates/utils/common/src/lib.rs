@@ -1,18 +1,32 @@
 use std::{convert::TryInto, fmt};
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use data_encoding::BASE32;
 use enum_models::MediaSource;
 use env_utils::APP_VERSION;
+use rand::{RngCore, rng};
 use reqwest::header::HeaderValue;
-use sea_orm::prelude::DateTimeUtc;
+use sea_orm::{
+    DatabaseBackend, Statement,
+    prelude::DateTimeUtc,
+    sea_query::{PostgresQueryBuilder, SelectStatement},
+};
 use serde::de;
 use tokio::time::{Duration, sleep};
 
-pub const PROJECT_NAME: &str = "ryot";
+pub const PAGE_SIZE: u64 = 20;
 pub const AUTHOR: &str = "ignisda";
-pub static BULK_APPLICATION_UPDATE_CHUNK_SIZE: usize = 5;
-pub static BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE: usize = 2000;
+pub const PROJECT_NAME: &str = "ryot";
+pub const TWO_FACTOR_BACKUP_CODES_COUNT: u8 = 12;
+pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
+pub const BULK_APPLICATION_UPDATE_CHUNK_SIZE: usize = 5;
+pub const MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE: usize = 5;
+pub const BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE: usize = 2000;
+pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
+pub const APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
+pub const AVATAR_URL: &str =
+    "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
 pub const USER_AGENT_STR: &str = const_str::concat!(
     AUTHOR,
     "/",
@@ -23,37 +37,57 @@ pub const USER_AGENT_STR: &str = const_str::concat!(
     AUTHOR_EMAIL,
     ")"
 );
-pub const COMPILATION_TIMESTAMP: i64 = compile_time::unix!();
-pub const MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE: usize = 5;
-pub const AVATAR_URL: &str =
-    "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
-#[cfg(not(debug_assertions))]
-pub const TEMPORARY_DIRECTORY: &str = "tmp";
-#[cfg(debug_assertions)]
-pub const TEMPORARY_DIRECTORY: &str = "/tmp";
-pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
-pub static APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
-pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
-pub const PAGE_SIZE: i32 = 20;
 
-pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 9] = [
-    MediaSource::Tmdb,
-    MediaSource::Anilist,
+pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 12] = [
     MediaSource::Vndb,
-    MediaSource::Openlibrary,
-    MediaSource::Audible,
-    MediaSource::MangaUpdates,
     MediaSource::Igdb,
-    MediaSource::YoutubeMusic,
+    MediaSource::Tmdb,
+    MediaSource::Tvdb,
+    MediaSource::Spotify,
+    MediaSource::Anilist,
+    MediaSource::Audible,
     MediaSource::Hardcover,
+    MediaSource::GiantBomb,
+    MediaSource::Openlibrary,
+    MediaSource::MangaUpdates,
+    MediaSource::YoutubeMusic,
 ];
 
-pub const MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS: [MediaSource; 4] = [
+pub const MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS: [MediaSource; 6] = [
+    MediaSource::Tvdb,
     MediaSource::Vndb,
     MediaSource::Itunes,
     MediaSource::Custom,
+    MediaSource::Spotify,
     MediaSource::GoogleBooks,
 ];
+
+/// Logging macro that targets the "ryot" tracing target
+#[macro_export]
+macro_rules! ryot_log {
+    (info, $($arg:tt)*) => {
+        tracing::info!(target: "ryot", $($arg)*);
+    };
+    (warn, $($arg:tt)*) => {
+        tracing::warn!(target: "ryot", $($arg)*);
+    };
+    (error, $($arg:tt)*) => {
+        tracing::error!(target: "ryot", $($arg)*);
+    };
+    (debug, $($arg:tt)*) => {
+        tracing::debug!(target: "ryot", $($arg)*);
+    };
+    (trace, $($arg:tt)*) => {
+        tracing::trace!(target: "ryot", $($arg)*);
+    };
+}
+
+pub fn get_temporary_directory() -> &'static str {
+    if cfg!(debug_assertions) {
+        return "/tmp";
+    }
+    "tmp"
+}
 
 pub fn get_first_and_last_day_of_month(year: i32, month: u32) -> (NaiveDate, NaiveDate) {
     let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
@@ -122,21 +156,14 @@ pub async fn sleep_for_n_seconds(sec: u64) {
     sleep(Duration::from_secs(sec)).await;
 }
 
-#[macro_export]
-macro_rules! ryot_log {
-    (info, $($arg:tt)*) => {
-        tracing::info!(target: "ryot", $($arg)*);
-    };
-    (warn, $($arg:tt)*) => {
-        tracing::warn!(target: "ryot", $($arg)*);
-    };
-    (error, $($arg:tt)*) => {
-        tracing::error!(target: "ryot", $($arg)*);
-    };
-    (debug, $($arg:tt)*) => {
-        tracing::debug!(target: "ryot", $($arg)*);
-    };
-    (trace, $($arg:tt)*) => {
-        tracing::trace!(target: "ryot", $($arg)*);
-    };
+pub fn generate_session_id(byte_length: Option<usize>) -> String {
+    let length = byte_length.unwrap_or(32);
+    let mut token_bytes = vec![0u8; length];
+    rng().fill_bytes(&mut token_bytes);
+    BASE32.encode(&token_bytes)
+}
+
+pub fn get_db_stmt(stmt: SelectStatement) -> Statement {
+    let (sql, values) = stmt.build(PostgresQueryBuilder {});
+    Statement::from_sql_and_values(DatabaseBackend::Postgres, sql, values)
 }

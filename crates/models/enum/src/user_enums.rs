@@ -35,18 +35,19 @@ pub enum UserLot {
     Deserialize,
     DeriveActiveEnum,
 )]
+#[serde(rename_all = "snake_case")]
 #[sea_orm(
     rs_type = "String",
     rename_all = "snake_case",
     db_type = "String(StringLen::None)"
 )]
-#[serde(rename_all = "snake_case")]
 pub enum EntityLot {
-    #[default]
-    Metadata,
+    Genre,
     Person,
     Review,
     Workout,
+    #[default]
+    Metadata,
     Exercise,
     Collection,
     MetadataGroup,
@@ -131,6 +132,7 @@ pub enum ImportSource {
     Trakt,
     Movary,
     Anilist,
+    Grouvee,
     Jellyfin,
     OpenScale,
     StrongApp,

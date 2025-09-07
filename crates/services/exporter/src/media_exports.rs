@@ -1,6 +1,6 @@
 use std::{fs::File as StdFile, sync::Arc};
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow};
 use common_models::SearchInput;
 use common_utils::ryot_log;
 use database_models::{
@@ -8,21 +8,23 @@ use database_models::{
     seen,
 };
 use database_utils::{entity_in_collections_with_details, item_reviews};
+use dependent_entity_list_utils::{
+    user_metadata_groups_list, user_metadata_list, user_people_list,
+};
 use dependent_models::{
     ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem, ImportOrExportPersonItem,
     UserMetadataGroupsListInput, UserMetadataListInput, UserPeopleListInput,
 };
-use dependent_utils::{user_metadata_groups_list, user_metadata_list, user_people_list};
 use enum_models::EntityLot;
 use media_models::ImportOrExportMetadataItemSeen;
 use sea_orm::{ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use supporting_service::SupportingService;
 
-use crate::export_utilities::ExportUtilities;
+use crate::export_utilities::get_review_export_item;
 
 pub async fn export_media(
-    service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     writer: &mut JsonStreamWriter<StdFile>,
 ) -> Result<()> {
@@ -38,19 +40,19 @@ pub async fn export_media(
                 }),
                 ..Default::default()
             },
-            service,
+            ss,
         )
         .await?;
         ryot_log!(debug, "Exporting metadata list page: {current_page}");
         for rm in related_metadata.response.items.iter() {
             let m = Metadata::find_by_id(rm)
-                .one(&service.db)
+                .one(&ss.db)
                 .await?
-                .ok_or_else(|| Error::new("Metadata with the given ID does not exist"))?;
+                .ok_or_else(|| anyhow!("Metadata with the given ID does not exist"))?;
             let seen_history = m
                 .find_related(Seen)
                 .filter(seen::Column::UserId.eq(user_id))
-                .all(&service.db)
+                .all(&ss.db)
                 .await?;
             let seen_history = seen_history
                 .into_iter()
@@ -74,25 +76,22 @@ pub async fn export_media(
                         ended_on: s.finished_on,
                         started_on: s.started_on,
                         progress: Some(s.progress),
-                        provider_watched_on: s.provider_watched_on,
+                        manual_time_spent: s.manual_time_spent,
+                        providers_consumed_on: Some(s.providers_consumed_on),
                     }
                 })
                 .collect();
-            let reviews = item_reviews(user_id, &m.id, EntityLot::Metadata, false, service)
+            let reviews = item_reviews(user_id, &m.id, EntityLot::Metadata, false, ss)
                 .await?
                 .into_iter()
-                .map(ExportUtilities::get_review_export_item)
+                .map(get_review_export_item)
                 .collect();
-            let collections = entity_in_collections_with_details(
-                &service.db,
-                user_id,
-                &m.id,
-                EntityLot::Metadata,
-            )
-            .await?
-            .into_iter()
-            .map(|c| c.details)
-            .collect();
+            let collections =
+                entity_in_collections_with_details(user_id, &m.id, EntityLot::Metadata, ss)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.details)
+                    .collect();
             let exp = ImportOrExportMetadataItem {
                 reviews,
                 lot: m.lot,
@@ -102,7 +101,7 @@ pub async fn export_media(
                 source_id: m.title,
                 identifier: m.identifier.clone(),
             };
-            writer.serialize_value(&exp).unwrap();
+            writer.serialize_value(&exp)?;
         }
         if let Some(next_page) = related_metadata.response.details.next_page {
             current_page = next_page;
@@ -114,7 +113,7 @@ pub async fn export_media(
 }
 
 pub async fn export_media_group(
-    service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     writer: &mut JsonStreamWriter<StdFile>,
 ) -> Result<()> {
@@ -122,7 +121,7 @@ pub async fn export_media_group(
     loop {
         let related_metadata = user_metadata_groups_list(
             user_id,
-            service,
+            ss,
             UserMetadataGroupsListInput {
                 search: Some(SearchInput {
                     take: Some(1000),
@@ -136,24 +135,20 @@ pub async fn export_media_group(
         ryot_log!(debug, "Exporting metadata groups list page: {current_page}");
         for rm in related_metadata.response.items.iter() {
             let m = MetadataGroup::find_by_id(rm)
-                .one(&service.db)
+                .one(&ss.db)
                 .await?
-                .ok_or_else(|| Error::new("Metadata group with the given ID does not exist"))?;
-            let reviews = item_reviews(user_id, &m.id, EntityLot::MetadataGroup, false, service)
+                .ok_or_else(|| anyhow!("Metadata group with the given ID does not exist"))?;
+            let reviews = item_reviews(user_id, &m.id, EntityLot::MetadataGroup, false, ss)
                 .await?
                 .into_iter()
-                .map(ExportUtilities::get_review_export_item)
+                .map(get_review_export_item)
                 .collect();
-            let collections = entity_in_collections_with_details(
-                &service.db,
-                user_id,
-                &m.id,
-                EntityLot::MetadataGroup,
-            )
-            .await?
-            .into_iter()
-            .map(|c| c.details)
-            .collect();
+            let collections =
+                entity_in_collections_with_details(user_id, &m.id, EntityLot::MetadataGroup, ss)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.details)
+                    .collect();
             let exp = ImportOrExportMetadataGroupItem {
                 reviews,
                 lot: m.lot,
@@ -162,7 +157,7 @@ pub async fn export_media_group(
                 source: m.source,
                 identifier: m.identifier.clone(),
             };
-            writer.serialize_value(&exp).unwrap();
+            writer.serialize_value(&exp)?;
         }
         if let Some(next_page) = related_metadata.response.details.next_page {
             current_page = next_page;
@@ -174,7 +169,7 @@ pub async fn export_media_group(
 }
 
 pub async fn export_people(
-    service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     writer: &mut JsonStreamWriter<StdFile>,
 ) -> Result<()> {
@@ -190,22 +185,22 @@ pub async fn export_people(
                 }),
                 ..Default::default()
             },
-            service,
+            ss,
         )
         .await?;
         ryot_log!(debug, "Exporting people list page: {current_page}");
         for rm in related_people.response.items.iter() {
             let p = Person::find_by_id(rm)
-                .one(&service.db)
+                .one(&ss.db)
                 .await?
-                .ok_or_else(|| Error::new("Person with the given ID does not exist"))?;
-            let reviews = item_reviews(user_id, &p.id, EntityLot::Person, false, service)
+                .ok_or_else(|| anyhow!("Person with the given ID does not exist"))?;
+            let reviews = item_reviews(user_id, &p.id, EntityLot::Person, false, ss)
                 .await?
                 .into_iter()
-                .map(ExportUtilities::get_review_export_item)
+                .map(get_review_export_item)
                 .collect();
             let collections =
-                entity_in_collections_with_details(&service.db, user_id, &p.id, EntityLot::Person)
+                entity_in_collections_with_details(user_id, &p.id, EntityLot::Person, ss)
                     .await?
                     .into_iter()
                     .map(|c| c.details)
@@ -218,7 +213,7 @@ pub async fn export_people(
                 identifier: p.identifier,
                 source_specifics: p.source_specifics,
             };
-            writer.serialize_value(&exp).unwrap();
+            writer.serialize_value(&exp)?;
         }
         if let Some(next_page) = related_people.response.details.next_page {
             current_page = next_page;

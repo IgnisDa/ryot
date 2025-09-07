@@ -95,16 +95,19 @@ query UserIntegrations {
 			radarrProfileId
 			radarrRootFolderPath
 			radarrSyncCollectionIds
+			radarrTagIds
 			sonarrProfileId
 			sonarrApiKey
 			sonarrBaseUrl
 			sonarrRootFolderPath
 			sonarrSyncCollectionIds
+			sonarrTagIds
 			jellyfinPushBaseUrl
 			jellyfinPushUsername
 			jellyfinPushPassword
 			youtubeMusicTimezone
 			youtubeMusicAuthCookie
+			ryotBrowserExtensionDisabledSites
 		}
 	}
 }
@@ -157,8 +160,7 @@ query UserMetadataGroupsList($input: UserMetadataGroupsListInput!) {
 		response {
 			items
 			details {
-				total
-				nextPage
+				...SearchDetailsPart
 			}
 		}
 	}
@@ -170,8 +172,7 @@ query UserPeopleList($input: UserPeopleListInput!) {
 		response {
 			items
 			details {
-				total
-				nextPage
+				...SearchDetailsPart
 			}
 		}
 	}
@@ -202,12 +203,10 @@ query ExerciseDetails($exerciseId: String!) {
 		muscles
 		mechanic
 		equipment
+		instructions
 		createdByUserId
-		attributes {
-			instructions
-			assets {
-				...EntityAssetsPart
-			}
+		assets {
+			...EntityAssetsPart
 		}
 	}
 }
@@ -218,8 +217,7 @@ query UserExercisesList($input: UserExercisesListInput!) {
 		response {
 			items
 			details {
-				total
-				nextPage
+				...SearchDetailsPart
 			}
 		}
 	}
@@ -248,29 +246,29 @@ query UserImportReports {
 	}
 }
 
-query GenresList($input: SearchInput!) {
-	genresList(input: $input) {
+query UserGenresList($input: SearchInput!) {
+	userGenresList(input: $input) {
 		items
 		details {
-			total
-			nextPage
+			...SearchDetailsPart
 		}
 	}
 }
 
 query GenreDetails($input: GenreDetailsInput!) {
 	genreDetails(input: $input) {
-		details {
-			id
-			name
-			numItems
-		}
-		contents {
+		response {
 			details {
-				total
-				nextPage
+				id
+				name
+				numItems
 			}
-			items
+			contents {
+				details {
+					...SearchDetailsPart
+				}
+				items
+			}
 		}
 	}
 }
@@ -294,8 +292,7 @@ query CollectionContents($input: CollectionContentsInput!) {
 			}
 			results {
 				details {
-					total
-					nextPage
+					...SearchDetailsPart
 				}
 				items {
 					entityId
@@ -306,78 +303,23 @@ query CollectionContents($input: CollectionContentsInput!) {
 	}
 }
 
-query CoreDetails {
-	coreDetails {
-		version
-		docsLink
-		pageSize
-		websiteUrl
-		smtpEnabled
-		oidcEnabled
-		signupAllowed
-		repositoryLink
-		isDemoInstance
-		disableTelemetry
-		tokenValidForDays
-		localAuthDisabled
-		fileStorageEnabled
-		peopleSearchSources
-		isServerKeyValidated
-		metadataGroupSourceLotMappings {
-			lot
-			source
-		}
-		metadataLotSourceMappings {
-			lot
-			sources
-		}
-		metadataProviderLanguages {
-			source
-			default
-			supported
-		}
-		frontend {
-			url
-			oidcButtonLabel
-			dashboardMessage
-			umami {
-				domains
-				scriptUrl
-				websiteId
-			}
-		}
-		exerciseParameters {
-			lotMapping {
-				lot
-				bests
-			}
-			filters {
-				type
-				level
-				force
-				muscle
-				mechanic
-				equipment
-			}
-		}
-	}
-}
-
 query MetadataGroupDetails($metadataGroupId: String!) {
 	metadataGroupDetails(metadataGroupId: $metadataGroupId) {
-		contents
-		details {
-			id
-			lot
-			title
-			parts
-			source
-			isPartial
-			sourceUrl
-			identifier
-			description
-			assets {
-				...EntityAssetsPart
+		response {
+			contents
+			details {
+				id
+				lot
+				title
+				parts
+				source
+				isPartial
+				sourceUrl
+				identifier
+				description
+				assets {
+					...EntityAssetsPart
+				}
 			}
 		}
 	}
@@ -385,10 +327,12 @@ query MetadataGroupDetails($metadataGroupId: String!) {
 
 query MetadataGroupSearch($input: MetadataGroupSearchInput!) {
 	metadataGroupSearch(input: $input) {
-		items
-		details {
-			total
-			nextPage
+		cacheId
+		response {
+			items
+			details {
+				...SearchDetailsPart
+			}
 		}
 	}
 }
@@ -399,8 +343,7 @@ query UserMetadataList($input: UserMetadataListInput!) {
 		response {
 			items
 			details {
-				total
-				nextPage
+				...SearchDetailsPart
 			}
 		}
 	}
@@ -408,20 +351,24 @@ query UserMetadataList($input: UserMetadataListInput!) {
 
 query MetadataSearch($input: MetadataSearchInput!) {
 	metadataSearch(input: $input) {
-		items
-		details {
-			total
-			nextPage
+		cacheId
+		response {
+			items
+			details {
+				...SearchDetailsPart
+			}
 		}
 	}
 }
 
 query PeopleSearch($input: PeopleSearchInput!) {
 	peopleSearch(input: $input) {
-		items
-		details {
-			total
-			nextPage
+		cacheId
+		response {
+			items
+			details {
+				...SearchDetailsPart
+			}
 		}
 	}
 }
@@ -485,8 +432,7 @@ query UserWorkoutsList($input: UserTemplatesOrWorkoutsListInput!) {
 		response {
 			items
 			details {
-				total
-				nextPage
+				...SearchDetailsPart
 			}
 		}
 	}
@@ -517,8 +463,7 @@ query UserWorkoutTemplatesList($input: UserTemplatesOrWorkoutsListInput!) {
 		response {
 			items
 			details {
-				total
-				nextPage
+				...SearchDetailsPart
 			}
 		}
 	}
@@ -526,8 +471,11 @@ query UserWorkoutTemplatesList($input: UserTemplatesOrWorkoutsListInput!) {
 
 query UserAnalyticsParameters {
 	userAnalyticsParameters {
-		endDate
-		startDate
+		cacheId
+		response {
+			endDate
+			startDate
+		}
 	}
 }
 
@@ -539,8 +487,29 @@ query CollectionRecommendations($input: CollectionRecommendationsInput!) {
 	collectionRecommendations(input: $input) {
 		items
 		details {
-			total
-			nextPage
+			...SearchDetailsPart
+		}
+	}
+}
+
+query MetadataLookup($title: String!) {
+	metadataLookup(title: $title) {
+		cacheId
+		response {
+			... on MetadataLookupFoundResult {
+				data {
+					lot
+					source
+					identifier
+				}
+				showInformation {
+					season
+					episode
+				}
+			}
+			... on MetadataLookupNotFound {
+				notFound
+			}
 		}
 	}
 }

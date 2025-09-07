@@ -1,6 +1,6 @@
 use std::{collections::HashMap, result::Result as StdResult, sync::Arc};
 
-use async_graphql::Result;
+use anyhow::Result;
 use common_utils::ryot_log;
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
@@ -10,10 +10,9 @@ use external_utils::jellyfin::{ItemResponse, ItemsResponse, MediaType, get_authe
 use futures::stream::{self, StreamExt};
 use media_models::{DeployJellyfinImportInput, ImportOrExportMetadataItemSeen};
 use reqwest::Client;
-use serde_json::json;
 use tokio::sync::Mutex;
 
-use super::{ImportFailStep, ImportFailedItem};
+use crate::{ImportFailStep, ImportFailedItem};
 
 pub async fn import(input: DeployJellyfinImportInput) -> Result<ImportResult> {
     let mut failed = vec![];
@@ -22,10 +21,9 @@ pub async fn import(input: DeployJellyfinImportInput) -> Result<ImportResult> {
     let (client, user_id) =
         get_authenticated_client(&base_url, &input.username, &input.password).await?;
 
-    let query = json!({ "recursive": true, "IsPlayed": true, "fields": "ProviderIds" });
     let library_data = client
-        .get(format!("{}/Users/{}/Items", base_url, user_id))
-        .query(&query)
+        .get(format!("{base_url}/Users/{user_id}/Items"))
+        .query(&serde_json::json!({ "recursive": true, "IsPlayed": true, "fields": "ProviderIds" }))
         .send()
         .await
         .unwrap()
@@ -116,7 +114,7 @@ async fn process_item(
                     Some(cached_id) => cached_id,
                     None => {
                         let details = client
-                            .get(format!("{}/Items/{}", base_url, series_id))
+                            .get(format!("{base_url}/Items/{series_id}"))
                             .send()
                             .await
                             .map_err(|e| ImportFailedItem {
@@ -158,7 +156,7 @@ async fn process_item(
             return Err(ImportFailedItem {
                 identifier: item.name,
                 step: ImportFailStep::ItemDetailsFromSource,
-                error: Some(format!("Unknown media type: {:?}", typ)),
+                error: Some(format!("Unknown media type: {typ:?}")),
                 ..Default::default()
             });
         }

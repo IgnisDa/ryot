@@ -2,7 +2,7 @@ use async_graphql::{InputObject, SimpleObject};
 use chrono::{NaiveDate, NaiveDateTime};
 use common_utils::deserialize_date;
 use rust_decimal::Decimal;
-use sea_orm::FromJsonQueryResult;
+use sea_orm::{FromJsonQueryResult, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -183,6 +183,48 @@ pub struct ShowEpisode {
 #[skip_serializing_none]
 #[derive(
     Eq,
+    Hash,
+    Debug,
+    Clone,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "VideoGameSpecificsTimeToBeatInput")]
+pub struct VideoGameSpecificsTimeToBeat {
+    pub hastily: Option<i32>,
+    pub normally: Option<i32>,
+    pub completely: Option<i32>,
+}
+
+#[skip_serializing_none]
+#[derive(
+    Eq,
+    Hash,
+    Debug,
+    Clone,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "VideoGameSpecificsPlatformReleaseInput")]
+pub struct VideoGameSpecificsPlatformRelease {
+    pub name: String,
+    pub release_region: Option<String>,
+    pub release_date: Option<DateTimeUtc>,
+}
+
+#[skip_serializing_none]
+#[derive(
+    Eq,
     Debug,
     Clone,
     Default,
@@ -195,7 +237,8 @@ pub struct ShowEpisode {
 )]
 #[graphql(input_name = "VideoGameSpecificsInput")]
 pub struct VideoGameSpecifics {
-    pub platforms: Vec<String>,
+    pub time_to_beat: Option<VideoGameSpecificsTimeToBeat>,
+    pub platform_releases: Option<Vec<VideoGameSpecificsPlatformRelease>>,
 }
 
 #[skip_serializing_none]
@@ -271,6 +314,8 @@ pub struct AnimeSpecifics {
 pub struct MusicSpecifics {
     pub duration: Option<i32>,
     pub view_count: Option<i32>,
+    pub disc_number: Option<i32>,
+    pub track_number: Option<i32>,
     pub by_various_artists: Option<bool>,
 }
 

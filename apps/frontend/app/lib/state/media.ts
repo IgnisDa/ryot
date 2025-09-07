@@ -1,32 +1,36 @@
 import {
 	type EntityLot,
 	MediaLot,
-	MetadataDetailsDocument,
+	MediaSource,
 	type ReviewItem,
 } from "@ryot/generated/graphql/backend/graphql";
 import { atom, useAtom } from "jotai";
 import { useState } from "react";
-import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
+import { METADATA_LOTS_WITH_GRANULAR_UPDATES } from "~/components/routes/media-item/constants";
 import {
-	clientGqlService,
+	executePartialStatusUpdate,
+	getMetadataDetails,
+} from "~/lib/shared/media-utils";
+import {
 	getMetadataDetailsQuery,
 	getUserMetadataDetailsQuery,
 	queryClient,
-} from "~/lib/common";
+} from "~/lib/shared/react-query";
 
 export type UpdateProgressData = {
 	metadataId: string;
-	providerWatchedOn?: string | null;
-	showSeasonNumber?: number | null;
-	showEpisodeNumber?: number | null;
-	podcastEpisodeNumber?: number | null;
-	animeEpisodeNumber?: number | null;
-	mangaChapterNumber?: string | null;
-	mangaVolumeNumber?: number | null;
+	showSeasonNumber?: number;
+	mangaVolumeNumber?: number;
+	showEpisodeNumber?: number;
+	animeEpisodeNumber?: number;
+	mangaChapterNumber?: string;
+	podcastEpisodeNumber?: number;
+	providersConsumedOn?: string[];
 	showAllEpisodesBefore?: boolean;
 	animeAllEpisodesBefore?: boolean;
 	podcastAllEpisodesBefore?: boolean;
+	showSeasonEpisodesBefore?: boolean;
 	mangaAllChaptersOrVolumesBefore?: boolean;
 };
 
@@ -36,16 +40,19 @@ const getUpdateMetadata = async (metadataId: string) => {
 	const meta = await queryClient.ensureQueryData(
 		getMetadataDetailsQuery(metadataId),
 	);
-	if (!meta.isPartial || ![MediaLot.Show, MediaLot.Podcast].includes(meta.lot))
+	if (
+		!meta.isPartial ||
+		meta.source === MediaSource.Custom ||
+		!METADATA_LOTS_WITH_GRANULAR_UPDATES.includes(meta.lot)
+	)
 		return meta;
 
-	const { metadataDetails } = await clientGqlService.request(
-		MetadataDetailsDocument,
-		{
-			metadataId,
-			ensureUpdated: true,
-		},
-	);
+	await executePartialStatusUpdate({
+		metadataId,
+		externalLinkSource: meta.source,
+	});
+
+	const metadataDetails = await getMetadataDetails(metadataId);
 	await queryClient.invalidateQueries({
 		queryKey: getMetadataDetailsQuery(metadataId).queryKey,
 	});
@@ -53,45 +60,59 @@ const getUpdateMetadata = async (metadataId: string) => {
 };
 
 export const useMetadataProgressUpdate = () => {
-	const [isLoading, setIsLoading] = useState(false);
-	const [metadataProgress, _setMetadataProgress] = useAtom(
-		metadataProgressUpdateAtom,
-	);
-	const setMetadataProgress = async (
+	const [isMetadataToUpdateLoading, setIsLoading] = useState(false);
+	const [metadataToUpdate, setProgress] = useAtom(metadataProgressUpdateAtom);
+
+	const initializeMetadataToUpdate = async (
 		draft: UpdateProgressData | null,
 		determineNext?: boolean,
 	) => {
 		setIsLoading(true);
-		if (draft && determineNext) {
+		if (draft) {
 			const [metadataDetails, userMetadataDetails] = await Promise.all([
 				getUpdateMetadata(draft.metadataId),
 				queryClient.ensureQueryData(
 					getUserMetadataDetailsQuery(draft.metadataId),
 				),
 			]);
-			const nextEntry = userMetadataDetails?.nextEntry;
-			if (nextEntry) {
-				match(metadataDetails.lot)
-					.with(MediaLot.Show, () => {
-						draft.showEpisodeNumber = nextEntry.episode;
-						draft.showSeasonNumber = nextEntry.season;
-					})
-					.with(MediaLot.Podcast, () => {
-						draft.podcastEpisodeNumber = nextEntry.episode;
-					})
-					.with(MediaLot.Anime, () => {
-						draft.animeEpisodeNumber = nextEntry.episode;
-					})
-					.with(MediaLot.Manga, () => {
-						draft.mangaChapterNumber = nextEntry.chapter;
-					})
-					.otherwise(() => undefined);
+			draft.providersConsumedOn = [
+				...(userMetadataDetails.history.at(0)?.providersConsumedOn || []),
+			];
+			if (determineNext) {
+				const nextEntry = userMetadataDetails?.nextEntry;
+				if (nextEntry) {
+					match(metadataDetails.lot)
+						.with(MediaLot.Manga, () => {
+							draft.mangaChapterNumber = nextEntry.chapter || undefined;
+						})
+						.with(MediaLot.Anime, () => {
+							draft.animeEpisodeNumber = nextEntry.episode || undefined;
+						})
+						.with(MediaLot.Podcast, () => {
+							draft.podcastEpisodeNumber = nextEntry.episode || undefined;
+						})
+						.with(MediaLot.Show, () => {
+							draft.showSeasonNumber = nextEntry.season || undefined;
+							draft.showEpisodeNumber = nextEntry.episode || undefined;
+						})
+						.otherwise(() => undefined);
+				}
 			}
 		}
 		setIsLoading(false);
-		_setMetadataProgress(draft);
+		setProgress(draft);
 	};
-	return [metadataProgress, setMetadataProgress, isLoading] as const;
+
+	const updateMetadataToUpdate = (draft: UpdateProgressData | null) => {
+		setProgress(draft);
+	};
+
+	return {
+		metadataToUpdate,
+		initializeMetadataToUpdate,
+		updateMetadataToUpdate,
+		isMetadataToUpdateLoading,
+	};
 };
 
 export type ReviewEntityData = {
@@ -99,7 +120,7 @@ export type ReviewEntityData = {
 	entityLot: EntityLot;
 	entityTitle: string;
 	metadataLot?: MediaLot;
-	existingReview?: DeepPartial<ReviewItem>;
+	existingReview?: Partial<ReviewItem>;
 };
 
 export const reviewEntityAtom = atom<ReviewEntityData | null>(null);

@@ -1,12 +1,13 @@
-use anyhow::{Result, bail};
-use dependent_models::ImportOrExportMetadataItem;
-use dependent_models::{ImportCompletedItem, ImportResult};
+use std::sync::Arc;
+
+use anyhow::{Result, anyhow, bail};
+use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use media_models::ImportOrExportMetadataItemSeen;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
+use supporting_service::SupportingService;
 
 use crate::utils::get_show_by_episode_identifier;
 
@@ -50,49 +51,50 @@ mod models {
 
 pub async fn sink_progress(
     payload: String,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
 ) -> Result<Option<ImportResult>> {
     let payload: models::EmbyWebhookPayload = serde_json::from_str(&payload)?;
     let runtime = payload
         .item
         .run_time_ticks
-        .ok_or_else(|| anyhow::anyhow!("No run time associated with this media"))?;
+        .ok_or_else(|| anyhow!("No run time associated with this media"))?;
     let position = payload
         .playback_info
         .position_ticks
-        .ok_or_else(|| anyhow::anyhow!("No position associated with this media"))?;
-    let (identifier, lot) =
-        match payload.item.item_type.as_str() {
-            "Movie" => {
-                let id = payload
-                    .item
-                    .provider_ids
-                    .tmdb
-                    .as_ref()
-                    .ok_or_else(|| anyhow::anyhow!("No TMDb ID associated with this media"))?;
-                (id.clone(), MediaLot::Movie)
-            }
-            "Episode" => {
-                let series_name =
-                    payload.item.series_name.as_ref().ok_or_else(|| {
-                        anyhow::anyhow!("No series name associated with this media")
-                    })?;
-                let episode_name =
-                    payload.item.episode_name.as_ref().ok_or_else(|| {
-                        anyhow::anyhow!("No episode name associated with this media")
-                    })?;
-                let db_show = get_show_by_episode_identifier(db, series_name, episode_name).await?;
-                (db_show.identifier, MediaLot::Show)
-            }
-            _ => bail!("Only movies and shows supported"),
-        };
+        .ok_or_else(|| anyhow!("No position associated with this media"))?;
+    let (identifier, lot) = match payload.item.item_type.as_str() {
+        "Movie" => {
+            let id = payload
+                .item
+                .provider_ids
+                .tmdb
+                .as_ref()
+                .ok_or_else(|| anyhow!("No TMDb ID associated with this media"))?;
+            (id.clone(), MediaLot::Movie)
+        }
+        "Episode" => {
+            let series_name = payload
+                .item
+                .series_name
+                .as_ref()
+                .ok_or_else(|| anyhow!("No series name associated with this media"))?;
+            let episode_name = payload
+                .item
+                .episode_name
+                .as_ref()
+                .ok_or_else(|| anyhow!("No episode name associated with this media"))?;
+            let db_show = get_show_by_episode_identifier(series_name, episode_name, ss).await?;
+            (db_show.identifier, MediaLot::Show)
+        }
+        _ => bail!("Only movies and shows supported"),
+    };
     Ok(Some(ImportResult {
         completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
             identifier,
             source: MediaSource::Tmdb,
             seen_history: vec![ImportOrExportMetadataItemSeen {
-                provider_watched_on: Some("Emby".to_string()),
+                providers_consumed_on: Some(vec!["Emby".to_string()]),
                 progress: Some(position / runtime * dec!(100)),
                 show_season_number: payload.item.season_number,
                 show_episode_number: payload.item.episode_number,

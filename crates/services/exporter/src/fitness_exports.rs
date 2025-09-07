@@ -1,6 +1,6 @@
 use std::{fs::File as StdFile, sync::Arc};
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow};
 use common_models::SearchInput;
 use common_utils::ryot_log;
 use database_models::prelude::Exercise;
@@ -8,10 +8,12 @@ use database_utils::{
     entity_in_collections_with_details, item_reviews, user_workout_details,
     user_workout_template_details,
 };
-use dependent_models::{ImportOrExportExerciseItem, UserTemplatesOrWorkoutsListInput};
-use dependent_models::{ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem};
-use dependent_utils::{
+use dependent_entity_list_utils::{
     user_exercises_list, user_measurements_list, user_workout_templates_list, user_workouts_list,
+};
+use dependent_models::{
+    ImportOrExportExerciseItem, ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem,
+    UserTemplatesOrWorkoutsListInput,
 };
 use enum_models::EntityLot;
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
@@ -20,10 +22,10 @@ use sea_orm::EntityTrait;
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use supporting_service::SupportingService;
 
-use crate::export_utilities::ExportUtilities;
+use crate::export_utilities::get_review_export_item;
 
 pub async fn export_workouts(
-    service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     writer: &mut JsonStreamWriter<StdFile>,
 ) -> Result<()> {
@@ -32,19 +34,19 @@ pub async fn export_workouts(
         let workout_ids = user_workouts_list(
             user_id,
             UserTemplatesOrWorkoutsListInput {
-                search: SearchInput {
+                search: Some(SearchInput {
                     take: Some(1000),
                     page: Some(current_page),
                     ..Default::default()
-                },
+                }),
                 ..Default::default()
             },
-            service,
+            ss,
         )
         .await?;
         ryot_log!(debug, "Exporting workouts list page: {current_page}");
         for workout_id in workout_ids.response.items {
-            let details = user_workout_details(user_id, workout_id, service).await?;
+            let details = user_workout_details(user_id, workout_id, ss).await?;
             let exp = ImportOrExportWorkoutItem {
                 details: details.details,
                 collections: details.collections.into_iter().map(|c| c.details).collect(),
@@ -61,20 +63,20 @@ pub async fn export_workouts(
 }
 
 pub async fn export_measurements(
-    service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     writer: &mut JsonStreamWriter<StdFile>,
 ) -> Result<()> {
     let measurements =
-        user_measurements_list(user_id, service, UserMeasurementsListInput::default()).await?;
+        user_measurements_list(user_id, ss, UserMeasurementsListInput::default()).await?;
     for measurement in measurements.response {
-        writer.serialize_value(&measurement).unwrap();
+        writer.serialize_value(&measurement)?;
     }
     Ok(())
 }
 
 pub async fn export_exercises(
-    service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     writer: &mut JsonStreamWriter<StdFile>,
 ) -> Result<()> {
@@ -83,46 +85,42 @@ pub async fn export_exercises(
         let exercises = user_exercises_list(
             user_id,
             UserExercisesListInput {
-                search: SearchInput {
+                search: Some(SearchInput {
                     take: Some(1000),
                     page: Some(current_page),
                     ..Default::default()
-                },
+                }),
                 ..Default::default()
             },
-            service,
+            ss,
         )
         .await?;
         for exercise_id in exercises.response.items {
-            let reviews = item_reviews(user_id, &exercise_id, EntityLot::Exercise, false, service)
+            let reviews = item_reviews(user_id, &exercise_id, EntityLot::Exercise, false, ss)
                 .await?
                 .into_iter()
-                .map(ExportUtilities::get_review_export_item)
+                .map(get_review_export_item)
                 .collect_vec();
-            let collections = entity_in_collections_with_details(
-                &service.db,
-                user_id,
-                &exercise_id,
-                EntityLot::Exercise,
-            )
-            .await?
-            .into_iter()
-            .map(|c| c.details)
-            .collect_vec();
+            let collections =
+                entity_in_collections_with_details(user_id, &exercise_id, EntityLot::Exercise, ss)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.details)
+                    .collect_vec();
             if reviews.is_empty() && collections.is_empty() {
                 continue;
             }
             let exercise = Exercise::find_by_id(exercise_id.clone())
-                .one(&service.db)
+                .one(&ss.db)
                 .await?
-                .ok_or_else(|| Error::new("Exercise with the given ID does not exist"))?;
+                .ok_or_else(|| anyhow!("Exercise with the given ID does not exist"))?;
             let exp = ImportOrExportExerciseItem {
                 reviews,
                 collections,
                 id: exercise_id,
                 name: exercise.name,
             };
-            writer.serialize_value(&exp).unwrap();
+            writer.serialize_value(&exp)?;
         }
         if let Some(next_page) = exercises.response.details.next_page {
             current_page = next_page;
@@ -134,7 +132,7 @@ pub async fn export_exercises(
 }
 
 pub async fn export_workout_templates(
-    service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     writer: &mut JsonStreamWriter<StdFile>,
 ) -> Result<()> {
@@ -142,29 +140,25 @@ pub async fn export_workout_templates(
     loop {
         let workout_template_ids = user_workout_templates_list(
             user_id,
-            service,
+            ss,
             UserTemplatesOrWorkoutsListInput {
-                search: SearchInput {
+                search: Some(SearchInput {
                     take: Some(1000),
                     page: Some(current_page),
                     ..Default::default()
-                },
+                }),
                 ..Default::default()
             },
         )
         .await?;
-        ryot_log!(
-            debug,
-            "Exporting workout templates list page: {current_page}"
-        );
+        ryot_log!(debug, "Exporting templates list page: {current_page}");
         for workout_template_id in workout_template_ids.response.items {
-            let details =
-                user_workout_template_details(&service.db, user_id, workout_template_id).await?;
+            let details = user_workout_template_details(user_id, workout_template_id, ss).await?;
             let exp = ImportOrExportWorkoutTemplateItem {
                 details: details.details,
                 collections: details.collections.into_iter().map(|c| c.details).collect(),
             };
-            writer.serialize_value(&exp).unwrap();
+            writer.serialize_value(&exp)?;
         }
         if let Some(next_page) = workout_template_ids.response.details.next_page {
             current_page = next_page;

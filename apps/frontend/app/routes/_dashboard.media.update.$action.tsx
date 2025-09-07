@@ -14,7 +14,7 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
-import { parseFormData } from "@mjackson/form-data-parser";
+import { DateInput } from "@mantine/dates";
 import {
 	CreateCustomMetadataDocument,
 	MediaLot,
@@ -27,25 +27,33 @@ import {
 	parseSearchQuery,
 	processSubmission,
 } from "@ryot/ts-utils";
-import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
+import {
+	IconCalendar,
+	IconCalendarEvent,
+	IconPhoto,
+	IconVideo,
+} from "@tabler/icons-react";
 import { Form, redirect, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { convertEnumToSelectData } from "~/lib/common";
-import { useCoreDetails } from "~/lib/hooks";
-import { createS3FileUploader, serverGqlService } from "~/lib/utilities.server";
+import { useCoreDetails } from "~/lib/shared/hooks";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+import {
+	parseFormDataWithS3Upload,
+	serverGqlService,
+} from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.update.$action";
 
 enum Action {
-	Create = "create",
 	Edit = "edit",
+	Create = "create",
 }
 
 const searchParamsSchema = z.object({
 	id: z.string().optional(),
-	lot: z.nativeEnum(MediaLot).optional(),
+	lot: z.enum(MediaLot).optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -53,18 +61,18 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = async ({ params, request }: Route.LoaderArgs) => {
 	const { action } = parseParameters(
 		params,
-		z.object({ action: z.nativeEnum(Action) }),
+		z.object({ action: z.enum(Action) }),
 	);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const details = await match(action)
 		.with(Action.Create, () => undefined)
 		.with(Action.Edit, async () => {
 			invariant(query.id);
-			const { metadataDetails } = await serverGqlService.authenticatedRequest(
-				request,
-				MetadataDetailsDocument,
-				{ metadataId: query.id },
-			);
+			const metadataDetails = await serverGqlService
+				.authenticatedRequest(request, MetadataDetailsDocument, {
+					metadataId: query.id,
+				})
+				.then((m) => m.metadataDetails.response);
 			return metadataDetails;
 		})
 		.exhaustive();
@@ -76,8 +84,7 @@ export const meta = () => {
 };
 
 export const action = async ({ request }: Route.ActionArgs) => {
-	const uploader = createS3FileUploader("metadata");
-	const formData = await parseFormData(request, uploader);
+	const formData = await parseFormDataWithS3Upload(request, "metadata");
 	const submission = processSubmission(formData, schema);
 	// biome-ignore lint/suspicious/noExplicitAny: required here
 	const input: any = {
@@ -99,6 +106,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	input.specifics = undefined;
 	input.genres = input.genres?.split(",");
 	input.creators = input.creators?.split(",");
+	input.publishDate = submission.publishDate || undefined;
 
 	const id = await match(submission.action)
 		.with(Action.Create, async () => {
@@ -135,10 +143,11 @@ const schema = z.object({
 	images: optionalStringArray,
 	videos: optionalStringArray,
 	description: optionalString,
-	action: z.nativeEnum(Action),
+	action: z.enum(Action),
 	isNsfw: z.boolean().optional(),
-	lot: z.nativeEnum(MediaLot),
+	lot: z.enum(MediaLot),
 	publishYear: z.number().optional(),
+	publishDate: optionalString,
 });
 
 export default function Page() {
@@ -218,8 +227,8 @@ export default function Page() {
 							multiple
 							name="images"
 							label="Images"
+							accept="image/*"
 							leftSection={<IconPhoto />}
-							accept="image/png,image/jpeg,image/jpg"
 							description={
 								loaderData.details &&
 								"Please re-upload the images while updating the metadata, old ones will be deleted"
@@ -231,27 +240,42 @@ export default function Page() {
 							multiple
 							name="videos"
 							label="Videos"
+							accept="video/*"
 							leftSection={<IconVideo />}
-							accept="video/mp4,video/x-m4v,video/*"
 							description={
 								loaderData.details &&
 								"Please re-upload the videos while updating the metadata, old ones will be deleted"
 							}
 						/>
 					) : null}
-					<NumberInput
-						name="publishYear"
-						label="Publish year"
-						leftSection={<IconCalendar />}
-						defaultValue={loaderData.details?.publishYear || undefined}
-					/>
+					<Group wrap="nowrap" justify="space-between">
+						<DateInput
+							flex={1}
+							name="publishDate"
+							label="Publish date"
+							valueFormat="YYYY-MM-DD"
+							leftSection={<IconCalendarEvent />}
+							defaultValue={
+								loaderData.details?.publishDate
+									? new Date(loaderData.details.publishDate)
+									: undefined
+							}
+						/>
+						<NumberInput
+							flex={1}
+							name="publishYear"
+							label="Publish year"
+							leftSection={<IconCalendar />}
+							defaultValue={loaderData.details?.publishYear || undefined}
+						/>
+					</Group>
 					<TextInput
 						name="creators"
 						label="Creators"
 						placeholder="Comma separated names"
 						defaultValue={loaderData.details?.creators
 							.flatMap((c) => c.items)
-							.map((c) => c.name)
+							.map((c) => c.idOrName)
 							.join(", ")}
 					/>
 					<TextInput

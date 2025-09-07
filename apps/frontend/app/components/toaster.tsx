@@ -3,11 +3,11 @@ import { useEffect } from "react";
 import { match } from "ts-pattern";
 import type { Toast } from "~/lib/utilities.server";
 
-export function Toaster({ toast }: { toast?: Toast | null }) {
+export function Toaster(props: { toast?: Toast | null }) {
 	return (
 		<>
 			<Notifications />
-			{toast ? <ShowToast toast={toast} /> : null}
+			{props.toast ? <ShowToast toast={props.toast} /> : null}
 		</>
 	);
 }

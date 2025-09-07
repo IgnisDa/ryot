@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow, bail};
 use database_models::{notification_platform, prelude::NotificationPlatform};
-use enum_models::{NotificationPlatformLot, UserNotificationContent};
+use enum_models::{NotificationPlatformLot, UserNotificationContentDiscriminants};
 use media_models::{CreateUserNotificationPlatformInput, UpdateUserNotificationPlatformInput};
 use notification_service::send_notification;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, Iterable, ModelTrait, QueryFilter,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, Iterable, ModelTrait,
+    QueryFilter,
 };
 use supporting_service::SupportingService;
 use user_models::NotificationPlatformSpecifics;
@@ -19,13 +20,11 @@ pub async fn update_user_notification_platform(
     let db_notification = NotificationPlatform::find_by_id(input.notification_id)
         .one(&ss.db)
         .await?
-        .ok_or_else(|| Error::new("Notification platform with the given id does not exist"))?;
+        .ok_or_else(|| anyhow!("Notification platform with the given id does not exist"))?;
     if db_notification.user_id != user_id {
-        return Err(Error::new(
-            "Notification platform does not belong to the user",
-        ));
+        bail!("Notification platform does not belong to the user",);
     }
-    let mut db_notification: notification_platform::ActiveModel = db_notification.into();
+    let mut db_notification = db_notification.into_active_model();
     if let Some(s) = input.is_disabled {
         db_notification.is_disabled = ActiveValue::Set(Some(s));
     }
@@ -44,11 +43,9 @@ pub async fn delete_user_notification_platform(
     let notification = NotificationPlatform::find_by_id(notification_id)
         .one(&ss.db)
         .await?
-        .ok_or_else(|| Error::new("Notification platform with the given id does not exist"))?;
+        .ok_or_else(|| anyhow!("Notification platform with the given id does not exist"))?;
     if notification.user_id != user_id {
-        return Err(Error::new(
-            "Notification platform does not belong to the user",
-        ));
+        bail!("Notification platform does not belong to the user",);
     }
     notification.delete(&ss.db).await?;
     Ok(true)
@@ -115,28 +112,28 @@ pub async fn create_user_notification_platform(
     };
     let description = match &specifics {
         NotificationPlatformSpecifics::Apprise { url, key } => {
-            format!("URL: {}, Key: {}", url, key)
+            format!("URL: {url}, Key: {key}")
         }
         NotificationPlatformSpecifics::Discord { url } => {
-            format!("Webhook: {}", url)
+            format!("Webhook: {url}")
         }
         NotificationPlatformSpecifics::Gotify { url, token, .. } => {
-            format!("URL: {}, Token: {}", url, token)
+            format!("URL: {url}, Token: {token}")
         }
         NotificationPlatformSpecifics::Ntfy { url, topic, .. } => {
-            format!("URL: {:?}, Topic: {}", url, topic)
+            format!("URL: {url:?}, Topic: {topic}")
         }
         NotificationPlatformSpecifics::PushBullet { api_token } => {
-            format!("API Token: {}", api_token)
+            format!("API Token: {api_token}")
         }
         NotificationPlatformSpecifics::PushOver { key, app_key } => {
-            format!("Key: {}, App Key: {:?}", key, app_key)
+            format!("Key: {key}, App Key: {app_key:?}")
         }
         NotificationPlatformSpecifics::PushSafer { key } => {
-            format!("Key: {}", key)
+            format!("Key: {key}")
         }
         NotificationPlatformSpecifics::Telegram { chat_id, .. } => {
-            format!("Chat ID: {}", chat_id)
+            format!("Chat ID: {chat_id}")
         }
     };
     let notification = notification_platform::ActiveModel {
@@ -144,7 +141,7 @@ pub async fn create_user_notification_platform(
         user_id: ActiveValue::Set(user_id),
         description: ActiveValue::Set(description),
         platform_specifics: ActiveValue::Set(specifics),
-        configured_events: ActiveValue::Set(UserNotificationContent::iter().collect()),
+        configured_events: ActiveValue::Set(UserNotificationContentDiscriminants::iter().collect()),
         ..Default::default()
     };
     let new_notification_id = notification.insert(&ss.db).await?.id;

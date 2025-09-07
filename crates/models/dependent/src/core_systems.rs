@@ -1,12 +1,11 @@
 use async_graphql::SimpleObject;
-use common_models::BackendError;
-use config::FrontendConfig;
+use common_models::{BackendError, IdAndNamedObject};
 use database_models::metadata;
 use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     MediaLot, MediaSource, WorkoutSetPersonalBest,
 };
-use media_models::{GenreListItem, MetadataCreatorGroupedByRole};
+use media_models::{GenreListItem, MetadataCreatorsGroupedByRole};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -55,9 +54,24 @@ pub struct ExerciseParameters {
     pub lot_mapping: Vec<ExerciseParametersLotMapping>,
 }
 
+#[derive(PartialEq, Default, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
+pub struct CoreDetailsProviderIgdbSpecifics {
+    pub themes: Vec<IdAndNamedObject>,
+    pub genres: Vec<IdAndNamedObject>,
+    pub platforms: Vec<IdAndNamedObject>,
+    pub game_types: Vec<IdAndNamedObject>,
+    pub game_modes: Vec<IdAndNamedObject>,
+    pub release_date_regions: Vec<IdAndNamedObject>,
+}
+
+#[derive(PartialEq, Default, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
+pub struct CoreDetailsProviderSpecifics {
+    pub igdb: CoreDetailsProviderIgdbSpecifics,
+}
+
 #[derive(PartialEq, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetails {
-    pub page_size: i32,
+    pub page_size: u64,
     pub version: String,
     pub docs_link: String,
     pub oidc_enabled: bool,
@@ -66,15 +80,18 @@ pub struct CoreDetails {
     pub signup_allowed: bool,
     pub is_demo_instance: bool,
     pub disable_telemetry: bool,
+    pub max_file_size_mb: usize,
     pub repository_link: String,
-    pub frontend: FrontendConfig,
     pub token_valid_for_days: i32,
     pub local_auth_disabled: bool,
     pub file_storage_enabled: bool,
     pub is_server_key_validated: bool,
     pub backend_errors: Vec<BackendError>,
+    pub two_factor_backup_codes_count: u8,
     pub people_search_sources: Vec<MediaSource>,
     pub exercise_parameters: ExerciseParameters,
+    pub frontend: config_definition::FrontendConfig,
+    pub provider_specifics: CoreDetailsProviderSpecifics,
     pub metadata_lot_source_mappings: Vec<MetadataLotSourceMappings>,
     pub metadata_provider_languages: Vec<ProviderLanguageInformation>,
     pub metadata_group_source_lot_mappings: Vec<MetadataGroupSourceLotMapping>,
@@ -85,17 +102,29 @@ pub struct MetadataBaseData {
     pub model: metadata::Model,
     pub suggestions: Vec<String>,
     pub genres: Vec<GenreListItem>,
-    pub creators: Vec<MetadataCreatorGroupedByRole>,
+    pub creators: Vec<MetadataCreatorsGroupedByRole>,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
 pub struct TmdbLanguage {
     pub iso_639_1: String,
     pub english_name: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
 pub struct TmdbSettings {
     pub image_url: String,
     pub languages: Vec<TmdbLanguage>,
+}
+
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+pub struct TvdbLanguage {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+pub struct TvdbSettings {
+    pub access_token: String,
+    pub languages: Vec<TvdbLanguage>,
 }

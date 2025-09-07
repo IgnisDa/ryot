@@ -1,7 +1,7 @@
 use std::result::Result as StdResult;
 
+use anyhow::Result;
 use application_utils::get_base_http_client;
-use async_graphql::Result;
 use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};
@@ -53,7 +53,7 @@ async fn process_metadata_item(
             identifier: tmdb_id.to_string(),
             seen_history: vec![ImportOrExportMetadataItemSeen {
                 ended_on: item.last_viewed_at,
-                provider_watched_on: Some(ImportSource::Plex.to_string()),
+                providers_consumed_on: Some(vec![ImportSource::Plex.to_string()]),
                 ..Default::default()
             }],
             ..Default::default()
@@ -104,7 +104,7 @@ async fn process_metadata_item(
                             ended_on: leaf.last_viewed_at,
                             show_episode_number: leaf.index,
                             show_season_number: leaf.parent_index,
-                            provider_watched_on: Some(ImportSource::Plex.to_string()),
+                            providers_consumed_on: Some(vec![ImportSource::Plex.to_string()]),
                             ..Default::default()
                         });
                 }
@@ -151,7 +151,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                 "{}/library/sections/{}/all",
                 input.api_url, dir.key
             ))
-            .query(&serde_json::json!({ "includeGuids": "1" }))
+            .query(&[("includeGuids", "1")])
             .send()
             .await?
             .json::<plex_models::PlexMediaResponse<plex_models::PlexMetadata>>()

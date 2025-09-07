@@ -2,7 +2,7 @@
 
 /* eslint-disable */
 
-export interface IdAndNamedObject {
+export interface StringIdAndNamedObject {
 	id: string;
 	name: string;
 }
@@ -12,7 +12,7 @@ export interface UserToCollectionExtraInformation {
 }
 
 export interface CollectionItemCollaboratorInformation {
-	collaborator: IdAndNamedObject;
+	collaborator: StringIdAndNamedObject;
 	extraInformation: UserToCollectionExtraInformation | null;
 }
 
@@ -34,7 +34,7 @@ export interface CollectionExtraInformation {
 export interface CollectionItem {
 	collaborators: CollectionItemCollaboratorInformation[];
 	count: number;
-	creator: IdAndNamedObject;
+	creator: StringIdAndNamedObject;
 	description: string | null;
 	id: string;
 	informationTemplate: CollectionExtraInformation[] | null;
@@ -46,8 +46,11 @@ export interface CollectionToEntityDetails {
 	collectionId: string;
 	collectionName: string;
 	createdOn: string;
+	creatorUserId: string;
 	information: unknown | null;
 	lastUpdatedOn: string;
+	/** The rank of this entity in the collection. This is ignored during importing. */
+	rank?: string;
 }
 
 /** Comments left in replies to posted reviews. */
@@ -57,7 +60,7 @@ export interface ImportOrExportItemReviewComment {
 	/** The user ids of all those who liked it. */
 	liked_by: string[];
 	text: string;
-	user: IdAndNamedObject;
+	user: StringIdAndNamedObject;
 }
 
 export type Visibility = 'public' | 'private';
@@ -170,12 +173,14 @@ export interface ImportOrExportMetadataItemSeen {
 	manga_chapter_number: string | null;
 	/** If for a manga, the volume which was seen. */
 	manga_volume_number: number | null;
+	/** The amount of time (in seconds) spent consuming the item manually. */
+	manual_time_spent: string | null;
 	/** If for a podcast, the episode which was seen. */
 	podcast_episode_number: number | null;
 	/** The progress of media done. If none, it is considered as done. */
 	progress: string | null;
-	/** The provider this item was watched on. */
-	provider_watched_on: string | null;
+	/** The providers this item was consumed on. */
+	providers_consumed_on: string[] | null;
 	/** If for a show, the episode which was seen. */
 	show_episode_number: number | null;
 	/** If for a show, the season which was seen. */
@@ -185,7 +190,7 @@ export interface ImportOrExportMetadataItemSeen {
 }
 
 /** The different sources (or providers) from which data can be obtained from. */
-export type MediaSource = 'igdb' | 'tmdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music';
+export type MediaSource = 'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music';
 
 /** Details about a specific media item that needs to be imported or exported. */
 export interface ImportOrExportMetadataItem {
@@ -208,7 +213,7 @@ export interface ImportOrExportMetadataItem {
 	 * The source of media.
 	 *
 	 * @default 'custom'
-	 * @type {'igdb' | 'tmdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
+	 * @type {'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
 	 */
 	source: MediaSource;
 	/** An string to help identify it in the original source. */
@@ -234,7 +239,7 @@ export interface ImportOrExportMetadataGroupItem {
 	 * The source of media.
 	 *
 	 * @default 'custom'
-	 * @type {'igdb' | 'tmdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
+	 * @type {'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
 	 */
 	source: MediaSource;
 	/** Name of the group. */
@@ -243,8 +248,10 @@ export interface ImportOrExportMetadataGroupItem {
 
 export interface PersonSourceSpecifics {
 	is_anilist_studio: boolean | null;
+	is_giant_bomb_company: boolean | null;
 	is_hardcover_publisher: boolean | null;
 	is_tmdb_company: boolean | null;
+	is_tvdb_company: boolean | null;
 }
 
 /** Details about a specific creator item that needs to be exported. */
@@ -261,7 +268,7 @@ export interface ImportOrExportPersonItem {
 	 * The source of data.
 	 *
 	 * @default 'custom'
-	 * @type {'igdb' | 'tmdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
+	 * @type {'igdb' | 'tmdb' | 'tvdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'spotify' | 'giant_bomb' | 'hardcover' | 'myanimelist' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
 	 */
 	source: MediaSource;
 	/** The source specific data. */

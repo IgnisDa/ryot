@@ -5,12 +5,13 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-common-utils = { path = "../../utils/common" }
 convert_case = { workspace = true }
 reqwest = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
-user-models = { path = "../../models/user" }
+
+common-utils = { workspace = true }
+user-models = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

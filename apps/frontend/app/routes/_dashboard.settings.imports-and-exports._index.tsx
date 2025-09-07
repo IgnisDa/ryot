@@ -10,6 +10,7 @@ import {
 	FileInput,
 	Group,
 	Indicator,
+	Paper,
 	Progress,
 	Select,
 	Skeleton,
@@ -22,12 +23,12 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
-import { parseFormData } from "@mjackson/form-data-parser";
 import {
 	DeployExportJobDocument,
 	DeployImportJobDocument,
 	ImportSource,
 	UserExportsDocument,
+	type UserExportsQuery,
 	UserImportReportsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -39,28 +40,28 @@ import {
 import { IconDownload, IconTrash } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { filesize } from "filesize";
-import { useState } from "react";
-import { Form, useLoaderData } from "react-router";
+import { useMemo, useState } from "react";
+import { Form, data, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import {
-	clientGqlService,
-	convertEnumToSelectData,
-	dayjsLib,
-	openConfirmationModal,
-} from "~/lib/common";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useApplicationEvents,
 	useConfirmSubmit,
 	useCoreDetails,
 	useNonHiddenUserCollections,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { clientGqlService } from "~/lib/shared/react-query";
+import {
+	convertEnumToSelectData,
+	openConfirmationModal,
+} from "~/lib/shared/ui-utils";
 import {
 	createToastHeaders,
+	parseFormDataWithTemporaryUpload,
 	serverGqlService,
-	temporaryFileUploadHandler,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.imports-and-exports._index";
 
@@ -76,10 +77,7 @@ export const meta = () => {
 };
 
 export const action = async ({ request }: Route.ActionArgs) => {
-	const formData = await parseFormData(
-		request.clone(),
-		temporaryFileUploadHandler,
-	);
+	const formData = await parseFormDataWithTemporaryUpload(request.clone());
 	const intent = getActionIntent(request);
 	return await match(intent)
 		.with("deployImport", async () => {
@@ -91,6 +89,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					ImportSource.Imdb,
 					ImportSource.OpenScale,
 					ImportSource.Goodreads,
+					ImportSource.Grouvee,
 					ImportSource.Hardcover,
 					ImportSource.Storygraph,
 					() => ({
@@ -132,7 +131,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				DeployImportJobDocument,
 				{ input: { source, ...values } },
 			);
-			return Response.json({ status: "success" } as const, {
+			return data({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Import job started in the background",
@@ -145,7 +144,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				DeployExportJobDocument,
 				{},
 			);
-			return Response.json({ status: "success" } as const, {
+			return data({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Export job started in the background",
@@ -171,13 +170,17 @@ const apiUrlImportFormSchema = z.object({
 	apiUrl: z.string(),
 });
 
-const urlAndKeyImportFormSchema = apiUrlImportFormSchema.merge(
-	z.object({ apiKey: z.string() }),
+const apiKeySchema = z.object({ apiKey: z.string() });
+
+const urlAndKeyImportFormSchema = apiUrlImportFormSchema.extend(
+	apiKeySchema.shape,
 );
 
+const optionalPasswordSchema = z.object({ password: z.string().optional() });
+
 const jellyfinImportFormSchema = usernameImportFormSchema
-	.merge(apiUrlImportFormSchema)
-	.merge(z.object({ password: z.string().optional() }));
+	.extend(apiUrlImportFormSchema.shape)
+	.extend(optionalPasswordSchema.shape);
 
 const genericCsvImportFormSchema = z.object({ csvPath: z.string() });
 
@@ -185,7 +188,7 @@ const strongAppImportFormSchema = z.object({ dataExportPath: z.string() });
 
 const igdbImportFormSchema = z
 	.object({ collection: z.string() })
-	.merge(genericCsvImportFormSchema);
+	.extend(genericCsvImportFormSchema.shape);
 
 const movaryImportFormSchema = z.object({
 	ratings: z.string(),
@@ -287,15 +290,16 @@ export default function Page() {
 												ImportSource.Imdb,
 												ImportSource.OpenScale,
 												ImportSource.Goodreads,
+												ImportSource.Grouvee,
 												ImportSource.Hardcover,
 												ImportSource.Storygraph,
 												() => (
 													<>
 														<FileInput
-															label="CSV file"
-															accept=".csv"
 															required
 															name="csvPath"
+															accept=".csv"
+															label="CSV file"
 														/>
 													</>
 												),
@@ -359,50 +363,50 @@ export default function Page() {
 											.with(ImportSource.Movary, () => (
 												<>
 													<FileInput
-														label="History CSV file"
-														accept=".csv"
 														required
+														accept=".csv"
 														name="history"
+														label="History CSV file"
 													/>
 													<FileInput
-														label="Ratings CSV file"
-														accept=".csv"
 														required
+														accept=".csv"
 														name="ratings"
+														label="Ratings CSV file"
 													/>
 													<FileInput
-														label="Watchlist CSV file"
-														accept=".csv"
 														required
+														accept=".csv"
 														name="watchlist"
+														label="Watchlist CSV file"
 													/>
 												</>
 											))
 											.with(ImportSource.Igdb, () => (
 												<>
 													<Select
-														label="Collection"
 														required
 														name="collection"
+														label="Collection"
 														data={userCollections.map((c) => c.name)}
 													/>
 													<FileInput
-														label="CSV File"
-														accept=".csv"
 														required
+														accept=".csv"
 														name="csvPath"
+														label="CSV File"
 													/>
 												</>
 											))
 											.with(ImportSource.Myanimelist, () => (
 												<>
 													<FileInput
-														label="Anime export file"
 														name="animePath"
+														label="Anime export file"
 													/>
 													<FileInput
-														label="Manga export file"
 														name="mangaPath"
+														label="Manga export file"
 													/>
 												</>
 											))
@@ -412,10 +416,10 @@ export default function Page() {
 												() => (
 													<>
 														<FileInput
-															label="JSON export file"
-															accept=".json"
 															required
 															name="export"
+															accept=".json"
+															label="JSON export file"
 														/>
 													</>
 												),
@@ -627,52 +631,7 @@ export default function Page() {
 							{loaderData.userExports.length > 0 ? (
 								<Stack>
 									{loaderData.userExports.map((exp) => (
-										<Box key={exp.startedAt} w="100%">
-											<Group justify="space-between" wrap="nowrap">
-												<Group gap="xs">
-													<Text span size="lg">
-														{changeCase(dayjsLib(exp.endedAt).fromNow())}
-													</Text>
-													<Text span size="xs" c="dimmed">
-														({filesize(exp.size)})
-													</Text>
-												</Group>
-												<Group>
-													<Anchor
-														href={exp.url}
-														target="_blank"
-														rel="noreferrer"
-													>
-														<ThemeIcon color="blue" variant="transparent">
-															<IconDownload />
-														</ThemeIcon>
-													</Anchor>
-													<Form
-														method="POST"
-														action={withQuery($path("/actions"), {
-															intent: "deleteS3Asset",
-														})}
-													>
-														<input hidden name="key" defaultValue={exp.key} />
-														<ActionIcon
-															color="red"
-															type="submit"
-															variant="transparent"
-															onClick={(e) => {
-																const form = e.currentTarget.form;
-																e.preventDefault();
-																openConfirmationModal(
-																	"Are you sure you want to delete this export? This action is irreversible.",
-																	() => submit(form),
-																);
-															}}
-														>
-															<IconTrash />
-														</ActionIcon>
-													</Form>
-												</Group>
-											</Group>
-										</Box>
+										<ExportItem key={exp.startedAt} item={exp} />
 									))}
 								</Stack>
 							) : (
@@ -685,3 +644,67 @@ export default function Page() {
 		</Container>
 	);
 }
+
+type ExportItemProps = {
+	item: UserExportsQuery["userExports"][number];
+};
+
+const ExportItem = (props: ExportItemProps) => {
+	const submit = useConfirmSubmit();
+
+	const duration = useMemo(() => {
+		const seconds = dayjsLib(props.item.endedAt).diff(
+			dayjsLib(props.item.startedAt),
+			"second",
+		);
+		if (seconds < 60) return `${seconds}s`;
+		const minutes = Math.floor(seconds / 60);
+		const remainingSeconds = seconds % 60;
+		return `${minutes}m ${remainingSeconds}s`;
+	}, [props.item.startedAt, props.item.endedAt]);
+
+	return (
+		<Paper withBorder p={{ base: "sm", md: "md" }}>
+			<Group justify="space-between" wrap="wrap">
+				<Stack gap="xs" flex={1} miw={0}>
+					<Text span>
+						{dayjsLib(props.item.startedAt).format("MMM DD, YYYY [at] h:mm A")}
+					</Text>
+					<Text span size="xs" c="dimmed">
+						(Took {duration}, {filesize(props.item.size)})
+					</Text>
+				</Stack>
+				<Group>
+					<Anchor href={props.item.url} target="_blank" rel="noreferrer">
+						<ThemeIcon color="blue" variant="transparent">
+							<IconDownload />
+						</ThemeIcon>
+					</Anchor>
+					<Form
+						method="POST"
+						action={withQuery($path("/actions"), {
+							intent: "deleteS3Asset",
+						})}
+					>
+						<input hidden name="key" defaultValue={props.item.key} />
+						<ActionIcon
+							color="red"
+							type="submit"
+							variant="transparent"
+							onClick={(e) => {
+								const form = e.currentTarget.form;
+								e.preventDefault();
+								openConfirmationModal(
+									"Are you sure you want to delete this export? This action is irreversible.",
+									() => submit(form),
+								);
+							}}
+						>
+							<IconTrash />
+						</ActionIcon>
+					</Form>
+				</Group>
+			</Group>
+		</Paper>
+	);
+};

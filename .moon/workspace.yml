@@ -1,16 +1,17 @@
 $schema: "https://moonrepo.dev/schemas/workspace.json"
 
 projects:
+  browser-extension: "apps/browser-extension"
   docs: "apps/docs"
   frontend: "apps/frontend"
   kodi: "apps/kodi"
   assets: "libs/assets"
   generated: "libs/generated"
   graphql: "libs/graphql"
+  tests: "tests"
   transactional: "libs/transactional"
   ts-utils: "libs/ts-utils"
   website: "apps/website"
-  backend-api-tests: "tests/backend-api"
 
 vcs:
   manager: "git"

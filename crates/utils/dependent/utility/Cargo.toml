@@ -1,0 +1,20 @@
+[package]
+name = "dependent-utility-utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+sea-orm = { workspace = true }
+tracing = { workspace = true }
+
+cache-service = { workspace = true }
+common-models = { workspace = true }
+database-models = { workspace = true }
+dependent-models = { workspace = true }
+enum-models = { workspace = true }
+supporting-service = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["tracing"]

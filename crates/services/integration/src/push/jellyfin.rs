@@ -3,7 +3,6 @@ use common_utils::ryot_log;
 use enum_models::MediaLot;
 use external_utils::jellyfin::{ItemsResponse, get_authenticated_client};
 use media_models::SeenShowExtraInformation;
-use serde_json::json;
 use traits::TraceOk;
 
 pub async fn push_progress(
@@ -11,7 +10,7 @@ pub async fn push_progress(
     username: String,
     password: Option<String>,
     metadata_lot: &MediaLot,
-    metadata_title: &String,
+    metadata_title: &str,
     show_extra_information: &Option<SeenShowExtraInformation>,
 ) -> Result<()> {
     match *metadata_lot {
@@ -26,10 +25,13 @@ pub async fn push_progress(
         }
     }
     let (client, user_id) = get_authenticated_client(&base_url, &username, &password).await?;
-    let json = json!({ "Recursive": true, "SearchTerm": metadata_title, "HasTmdbId": true });
     let items = client
-        .get(format!("{}/Users/{}/Items", base_url, user_id))
-        .query(&json)
+        .get(format!("{base_url}/Users/{user_id}/Items"))
+        .query(&[
+            ("Recursive", "true"),
+            ("HasTmdbId", "true"),
+            ("SearchTerm", metadata_title),
+        ])
         .send()
         .await?
         .json::<ItemsResponse>()
@@ -40,8 +42,8 @@ pub async fn push_progress(
                 let mut return_id = None;
                 let id = selected_item.id.clone();
                 let season = client
-                    .get(format!("{}/Shows/{}/Seasons", base_url, id))
-                    .query(&json!({ "UserId": user_id }))
+                    .get(format!("{base_url}/Shows/{id}/Seasons"))
+                    .query(&[("UserId", user_id.as_str())])
                     .send()
                     .await?
                     .json::<ItemsResponse>()
@@ -51,8 +53,11 @@ pub async fn push_progress(
                     .find(|s| s.index_number == Some(extra_information.season));
                 if let Some(season) = season {
                     let episode = client
-                        .get(format!("{}/Shows/{}/Episodes", base_url, id))
-                        .query(&json!({ "UserId": user_id, "SeasonId": season.id }))
+                        .get(format!("{base_url}/Shows/{id}/Episodes"))
+                        .query(&[
+                            ("UserId", user_id.as_str()),
+                            ("SeasonId", season.id.as_str()),
+                        ])
                         .send()
                         .await?
                         .json::<ItemsResponse>()
@@ -68,7 +73,7 @@ pub async fn push_progress(
         };
         if let Some(id) = id {
             client
-                .post(format!("{}/Users/{}/PlayedItems/{}", base_url, user_id, id))
+                .post(format!("{base_url}/Users/{user_id}/PlayedItems/{id}"))
                 .send()
                 .await?
                 .json::<serde_json::Value>()

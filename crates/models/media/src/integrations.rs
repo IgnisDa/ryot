@@ -1,12 +1,40 @@
-use async_graphql::{InputObject, SimpleObject};
+use async_graphql::{InputObject, SimpleObject, Union};
 use enum_models::{
-    IntegrationProvider, MediaSource, NotificationPlatformLot, UserNotificationContent,
+    IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot,
+    UserNotificationContentDiscriminants,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+
+use crate::{SeenShowExtraInformation, UniqueMediaIdentifier};
+
+#[derive(Debug, Clone, SimpleObject)]
+pub struct TmdbMetadataLookupResult {
+    pub lot: MediaLot,
+    pub title: String,
+    pub identifier: String,
+    pub publish_year: Option<i32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, SimpleObject)]
+pub struct MetadataLookupFoundResult {
+    pub data: UniqueMediaIdentifier,
+    pub show_information: Option<SeenShowExtraInformation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, SimpleObject)]
+pub struct MetadataLookupNotFound {
+    pub not_found: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Union)]
+pub enum MetadataLookupResponse {
+    Found(MetadataLookupFoundResult),
+    NotFound(MetadataLookupNotFound),
+}
 
 #[skip_serializing_none]
 #[derive(
@@ -57,15 +85,17 @@ pub struct IntegrationProviderSpecifics {
     pub komga_password: Option<String>,
     pub komga_provider: Option<MediaSource>,
 
-    pub radarr_base_url: Option<String>,
     pub radarr_api_key: Option<String>,
     pub radarr_profile_id: Option<i32>,
+    pub radarr_base_url: Option<String>,
+    pub radarr_tag_ids: Option<Vec<i32>>,
     pub radarr_root_folder_path: Option<String>,
     pub radarr_sync_collection_ids: Option<Vec<String>>,
 
     pub sonarr_profile_id: Option<i32>,
     pub sonarr_api_key: Option<String>,
     pub sonarr_base_url: Option<String>,
+    pub sonarr_tag_ids: Option<Vec<i32>>,
     pub sonarr_root_folder_path: Option<String>,
     pub sonarr_sync_collection_ids: Option<Vec<String>>,
 
@@ -75,6 +105,8 @@ pub struct IntegrationProviderSpecifics {
 
     pub youtube_music_timezone: Option<String>,
     pub youtube_music_auth_cookie: Option<String>,
+
+    pub ryot_browser_extension_disabled_sites: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -106,5 +138,5 @@ pub struct CreateUserNotificationPlatformInput {
 pub struct UpdateUserNotificationPlatformInput {
     pub notification_id: String,
     pub is_disabled: Option<bool>,
-    pub configured_events: Option<Vec<UserNotificationContent>>,
+    pub configured_events: Option<Vec<UserNotificationContentDiscriminants>>,
 }

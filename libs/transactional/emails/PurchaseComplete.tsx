@@ -4,14 +4,14 @@ import Layout from "../components/Layout";
 
 const applicationLink = "https://app.ryot.io";
 
-type PurchaseCompleteEmailProps = {
+export type PurchaseCompleteEmailProps = {
 	planType: string;
 	renewOn?: string;
 	details:
 		| { __typename: "self_hosted"; key: string }
 		| {
 				__typename: "cloud";
-				auth: string | { username: string; password: string };
+				auth: string | { username: string; passwordChangeUrl: string };
 		  };
 };
 
@@ -42,9 +42,12 @@ const PurchaseCompleteEmail = (props: PurchaseCompleteEmailProps) =>
 							`Google using the email ${props.details.auth}. Please login to get started`
 						) : (
 							<>
-								the username <strong>{props.details.auth.username}</strong> and
-								password <strong>{props.details.auth.password}</strong>. Please
-								login and change your password from the profile settings
+								the username <strong>{props.details.auth.username}</strong>.
+								Please{" "}
+								<Link href={props.details.auth.passwordChangeUrl}>
+									click here to set your password
+								</Link>{" "}
+								and then login to get started
 							</>
 						)}
 						.

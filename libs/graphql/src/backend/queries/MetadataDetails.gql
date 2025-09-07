@@ -1,109 +1,119 @@
-query MetadataDetails($metadataId: String!, $ensureUpdated: Boolean) {
-	metadataDetails(metadataId: $metadataId, ensureUpdated: $ensureUpdated) {
-		id
-		lot
-		title
-		source
-		isNsfw
-		isPartial
-		sourceUrl
-		identifier
-		description
-		suggestions
-		publishYear
-		publishDate
-		providerRating
-		createdByUserId
-		productionStatus
-		originalLanguage
-		animeSpecifics {
-			episodes
-		}
-		audioBookSpecifics {
-			runtime
-		}
-		movieSpecifics {
-			runtime
-		}
-		genres {
+query MetadataDetails($metadataId: String!) {
+	metadataDetails(metadataId: $metadataId) {
+		response {
 			id
-			name
-		}
-		group {
-			id
-			name
-			part
-		}
-		watchProviders {
-			name
-			image
-			languages
-		}
-		bookSpecifics {
-			pages
-			isCompilation
-		}
-		mangaSpecifics {
-			volumes
-			chapters
-		}
-		assets {
-			...EntityAssetsPart
-		}
-		creators {
-			name
-			items {
+			lot
+			title
+			source
+			isNsfw
+			isPartial
+			sourceUrl
+			identifier
+			description
+			suggestions
+			publishYear
+			publishDate
+			providerRating
+			createdByUserId
+			productionStatus
+			originalLanguage
+			animeSpecifics {
+				episodes
+			}
+			audioBookSpecifics {
+				runtime
+			}
+			movieSpecifics {
+				runtime
+			}
+			genres {
 				id
+				name
+			}
+			groups {
+				id
+				part
+			}
+			watchProviders {
 				name
 				image
-				character
+				languages
 			}
-		}
-		podcastSpecifics {
-			episodes {
-				id
-				title
-				overview
-				thumbnail
-				number
-				runtime
-				publishDate
+			bookSpecifics {
+				pages
+				isCompilation
 			}
-			totalEpisodes
-		}
-		showSpecifics {
-			totalSeasons
-			totalEpisodes
-			runtime
-			seasons {
-				id
-				seasonNumber
+			mangaSpecifics {
+				volumes
+				chapters
+			}
+			assets {
+				...EntityAssetsPart
+			}
+			creators {
 				name
-				overview
-				backdropImages
-				posterImages
-				episodes {
-					id
-					name
-					posterImages
-					episodeNumber
-					publishDate
-					name
-					overview
-					runtime
+				items {
+					isFree
+					idOrName
+					character
 				}
 			}
-		}
-		visualNovelSpecifics {
-			length
-		}
-		videoGameSpecifics {
-			platforms
-		}
-		musicSpecifics {
-			duration
-			viewCount
-			byVariousArtists
+			podcastSpecifics {
+				episodes {
+					id
+					title
+					overview
+					thumbnail
+					number
+					runtime
+					publishDate
+				}
+				totalEpisodes
+			}
+			showSpecifics {
+				totalSeasons
+				totalEpisodes
+				runtime
+				seasons {
+					id
+					seasonNumber
+					name
+					overview
+					backdropImages
+					posterImages
+					episodes {
+						id
+						name
+						runtime
+						overview
+						publishDate
+						posterImages
+						episodeNumber
+					}
+				}
+			}
+			visualNovelSpecifics {
+				length
+			}
+			videoGameSpecifics {
+				platformReleases {
+					name
+					releaseDate
+					releaseRegion
+				}
+				timeToBeat {
+					hastily
+					normally
+					completely
+				}
+			}
+			musicSpecifics {
+				duration
+				viewCount
+				discNumber
+				trackNumber
+				byVariousArtists
+			}
 		}
 	}
 }

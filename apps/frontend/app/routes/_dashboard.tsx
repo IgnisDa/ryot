@@ -17,7 +17,8 @@ import {
 	rem,
 	useMantineTheme,
 } from "@mantine/core";
-import { upperFirst, useDisclosure } from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
+import { startCase } from "@ryot/ts-utils";
 import {
 	IconArchive,
 	IconCalendar,
@@ -46,39 +47,33 @@ import {
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
 import { withQuery } from "ufo";
+import { LayoutModals } from "~/components/routes/dashboard/layout-modals";
+import { Footer } from "~/components/routes/dashboard/navigation/footer";
+import { LinksGroup } from "~/components/routes/dashboard/navigation/links-group";
 import {
-	Footer,
-	LayoutModals,
-	LinksGroup,
-	desktopSidebarCollapsedCookie,
 	getFitnessLinks,
 	getMediaLinks,
 	getSettingsLinks,
 	getThemeIcon,
-} from "~/components/dashboard";
-import {
-	FitnessAction,
-	LOGO_IMAGE_URL,
-	forcedDashboardPath,
-} from "~/lib/common";
+} from "~/components/routes/dashboard/navigation/navigation-config";
+import { desktopSidebarCollapsedCookie } from "~/components/routes/dashboard/utils";
+import { LOGO_IMAGE_URL } from "~/lib/shared/constants";
 import {
 	useConfirmSubmit,
 	useIsFitnessActionActive,
 	useUserDetails,
 	useUserPreferences,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { forcedDashboardPath } from "~/lib/shared/ui-utils";
+import { useOpenedSidebarLinks } from "~/lib/state/general";
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
-	useOpenedSidebarLinks,
-} from "~/lib/state/general";
+} from "~/lib/state/onboarding-tour";
+import { FitnessAction } from "~/lib/types";
 import {
 	getCookieValue,
 	getCoreDetails,
-	getDecodedJwt,
-	getEnhancedCookieName,
-	getUserCollectionsList,
-	getUserPreferences,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
@@ -86,11 +81,9 @@ import classes from "~/styles/dashboard.module.css";
 import type { Route } from "./+types/_dashboard";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
-	const [userPreferences, userCollections, coreDetails] = await Promise.all([
-		getUserPreferences(request),
-		getUserCollectionsList(request),
+	const [coreDetails, userDetails] = await Promise.all([
 		getCoreDetails(),
+		redirectIfNotAuthenticatedOrUpdated(request),
 	]);
 	const desktopSidebarCollapsed = getCookieValue(
 		request,
@@ -100,17 +93,13 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	const currentColorScheme = await colorSchemeCookie.parse(
 		request.headers.get("cookie") || "",
 	);
-	const onboardingTourCompletedCookie = await getEnhancedCookieName({
-		name: "OnboardingCompleted",
-		request,
-	});
+	const onboardingTourCompletedCookie = "OnboardingCompleted";
 	const isOnboardingTourCompleted = getCookieValue(
 		request,
 		onboardingTourCompletedCookie,
 	);
 
-	const decodedCookie = getDecodedJwt(request);
-	const isAccessLinkSession = Boolean(decodedCookie?.access_link_id);
+	const isAccessLinkSession = Boolean(userDetails.accessLinkId);
 	const isDemoInstance = coreDetails.isDemoInstance;
 
 	const shouldHaveUmami =
@@ -123,14 +112,13 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		userDetails,
 		coreDetails,
 		isDemoInstance,
-		userPreferences,
 		shouldHaveUmami,
-		userCollections,
 		currentColorScheme,
 		isAccessLinkSession,
 		desktopSidebarCollapsed,
 		isOnboardingTourCompleted,
 		onboardingTourCompletedCookie,
+		userPreferences: userDetails.preferences,
 	};
 };
 
@@ -154,12 +142,9 @@ export default function Layout() {
 		currentOnboardingTourStepIndex,
 	} = useOnboardingTour();
 
-	const mediaLinks = getMediaLinks(userPreferences, isOnboardingTourInProgress);
+	const mediaLinks = getMediaLinks(userPreferences);
 	const Icon = getThemeIcon(loaderData.currentColorScheme);
-	const fitnessLinks = getFitnessLinks(
-		userPreferences,
-		isOnboardingTourInProgress,
-	);
+	const fitnessLinks = getFitnessLinks(userPreferences);
 	const settingsLinks = getSettingsLinks(userDetails);
 
 	return (
@@ -396,7 +381,7 @@ export default function Layout() {
 										<Icon size={16.8} stroke={1.5} />
 									</Center>
 									<Text size="sm" className={classes.value}>
-										{upperFirst(
+										{startCase(
 											loaderData.currentColorScheme === "dark"
 												? "light"
 												: "dark",
@@ -406,22 +391,17 @@ export default function Layout() {
 								</UnstyledButton>
 							</Group>
 						</Form>
-						<Form
-							method="POST"
-							style={{ display: "flex" }}
-							action={withQuery("/actions", { intent: "logout" })}
+						<UnstyledButton
+							mx="auto"
+							component={Link}
+							className={classes.oldLink}
+							to={$path("/api/logout")}
 						>
-							<UnstyledButton
-								mx="auto"
-								type="submit"
-								className={classes.oldLink}
-							>
-								<Group>
-									<IconLogout size={19.2} />
-									<Text>Logout</Text>
-								</Group>
-							</UnstyledButton>
-						</Form>
+							<Group>
+								<IconLogout size={19.2} />
+								<Text>Logout</Text>
+							</Group>
+						</UnstyledButton>
 					</Flex>
 				</AppShell.Navbar>
 				<Flex direction="column" h="90%">
@@ -477,7 +457,6 @@ export default function Layout() {
 				<script
 					defer
 					src={loaderData.coreDetails.frontend.umami.scriptUrl}
-					data-domains={loaderData.coreDetails.frontend.umami.domains}
 					data-website-id={loaderData.coreDetails.frontend.umami.websiteId}
 				/>
 			) : null}
@@ -485,4 +464,4 @@ export default function Layout() {
 	);
 }
 
-export { ErrorBoundary } from "~/components/dashboard/error-boundary";
+export { ErrorBoundary } from "~/components/routes/dashboard/error-boundary";

@@ -1,16 +1,20 @@
 import { changeCase } from "@ryot/ts-utils";
-import { IconPlayerPlay } from "@tabler/icons-react";
+import {
+	CheckCircle,
+	Cloud,
+	Crown,
+	PlayIcon,
+	Server,
+	Sparkles,
+} from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import type { TPrices } from "../config.server";
+import { getIcon, getIconBg, isPopular } from "./pricing-utils";
+import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from "./ui/tooltip";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 
 export default function Pricing(props: {
 	prices: TPrices;
@@ -20,102 +24,261 @@ export default function Pricing(props: {
 	const [selectedProductTypeIndex, setSelectedProductTypeIndex] = useState(0);
 	const selectedProductType = props.prices[selectedProductTypeIndex];
 
+	const isThreeColumn = selectedProductType.prices.length === 3;
+	const isCloudType = selectedProductType.type === "cloud";
+	const isSelfHosted = selectedProductType.type === "self_hosted";
+
+	const getProductTypeButtonClass = (index: number) =>
+		`inline-flex items-center gap-1 underline hover:no-underline transition-colors ${
+			selectedProductTypeIndex === index
+				? "text-primary font-medium"
+				: "text-blue-500"
+		}`;
+
+	const getColorThemeClasses = (cloudClass: string, selfHostedClass: string) =>
+		isCloudType ? cloudClass : selfHostedClass;
+
 	return (
-		<section id="pricing" className="w-full py-12 md:py-24 lg:py-32 bg-muted">
-			<div className="container space-y-12 px-4 md:px-6">
-				<div className="flex flex-col items-center justify-center space-y-4 text-center">
-					<div className="space-y-2">
-						<div className="inline-block rounded-lg bg-white px-3 py-1 text-sm">
-							Pricing
+		<section id="pricing" className="py-20 relative overflow-hidden">
+			<div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+				<div className="text-center mb-16">
+					<Badge variant="outline" className="mb-4">
+						<Sparkles className="w-4 h-4 mr-2" />
+						Pricing
+					</Badge>
+					<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
+						Choose Your Perfect Plan
+					</h2>
+					<p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
+						Ryot Pro is available in two product types:{" "}
+						<button
+							type="button"
+							onClick={() => setSelectedProductTypeIndex(0)}
+							className={getProductTypeButtonClass(0)}
+						>
+							<Cloud className="w-4 h-4" />
+							Cloud
+						</button>{" "}
+						and{" "}
+						<button
+							type="button"
+							onClick={() => setSelectedProductTypeIndex(1)}
+							className={getProductTypeButtonClass(1)}
+						>
+							<Server className="w-4 h-4" />
+							Self Hosted
+						</button>
+						. Choose the one that best fits your needs.
+					</p>
+
+					<div className="flex items-center justify-center gap-4">
+						<div className="flex items-center gap-2 bg-muted/50 px-4 py-2 rounded-full">
+							<span className="text-muted-foreground">You have chosen:</span>
+							<div className="flex items-center gap-1 text-primary font-medium">
+								{isCloudType ? (
+									<Cloud className="w-4 h-4" />
+								) : (
+									<Server className="w-4 h-4" />
+								)}
+								{changeCase(selectedProductType.type)}
+							</div>
 						</div>
-						<h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">
-							Simple, Transparent Pricing
-						</h2>
-						<p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-							Ryot Pro is available in two product types:{" "}
-							<ProductType
-								title="Cloud"
-								description="Hosted on our secure servers, with automatic updates and backups."
-								onClick={() => setSelectedProductTypeIndex(0)}
-							/>{" "}
-							and{" "}
-							<ProductType
-								title="Self Hosted"
-								description="Hosted on your own server, with full control over your data."
-								onClick={() => setSelectedProductTypeIndex(1)}
-							/>
-							. Choose the one that best fits your needs.
-						</p>
-					</div>
-				</div>
-				<div className="space-y-4">
-					<p className="text-center">
-						You have chosen:{" "}
-						<span className="underline">
-							{changeCase(selectedProductType.type)}
-						</span>
-						.{" "}
-						{selectedProductType.type === "self_hosted" ? (
-							<Link to={$path("/features")} className="text-blue-400 underline">
-								See differences.
+						{isSelfHosted ? (
+							<Link
+								to={$path("/features")}
+								className="text-blue-500 underline hover:no-underline transition-colors"
+							>
+								See differences
 							</Link>
 						) : null}
-					</p>
-					<div className="mx-auto flex justify-center items-center gap-8 text-center flex-wrap">
+					</div>
+				</div>
+
+				<div className="max-w-6xl mx-auto mb-8">
+					<div
+						className={`grid gap-6 mx-auto ${
+							isThreeColumn
+								? "md:grid-cols-3 max-w-5xl"
+								: "md:grid-cols-4 max-w-6xl"
+						}`}
+					>
 						{selectedProductType.prices.map((p) => (
-							<div
-								className="grid gap-y-3 border rounded-xl py-3 w-72 bg-white"
+							<Card
 								key={p.name}
+								className={`border-2 rounded-xl transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
+									isPopular(p.name)
+										? "border-primary/50 relative hover:border-primary/70 hover:shadow-xl hover:-translate-y-2 bg-gradient-to-b from-primary/5 to-transparent"
+										: "hover:border-primary/30"
+								}`}
 							>
-								<p className="text-3xl">{changeCase(p.name)}</p>
-								<p className="text-xl font-bold text-muted-foreground">
-									{p.amount ? `$${p.amount}` : "Community Edition"}
-									{p.trial ? ` with a ${p.trial} days trial` : null}
-								</p>
-								<Link
-									to={
-										p.linkToGithub
-											? "https://docs.ryot.io"
-											: props.isLoggedIn
-												? $path("/me")
-												: "#start-here"
-									}
-									onClick={(e) => {
-										if (props.onClick && p.priceId) {
-											e.preventDefault();
-											props.onClick(p.priceId);
-										}
-									}}
+								{isPopular(p.name) && (
+									<div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+										<Badge className="bg-gradient-to-r from-orange-500 to-pink-500 text-white border-0">
+											<Crown className="w-4 h-4 mr-1" />
+											Most Popular
+										</Badge>
+									</div>
+								)}
+								<CardHeader
+									className={`text-center pt-8 ${isThreeColumn ? "pb-6" : "pb-4"}`}
 								>
-									<Button variant="outline" size="sm">
-										<IconPlayerPlay size={16} className="mr-2" />
-										<span>
-											{props.isLoggedIn ? "Choose this" : "Get started"}
-										</span>
-									</Button>
-								</Link>
-							</div>
+									<div
+										className={`${
+											isThreeColumn ? "w-12 h-12" : "w-10 h-10"
+										} ${getIconBg(
+											p.name,
+										)} rounded-full flex items-center justify-center mx-auto ${
+											isThreeColumn ? "mb-4" : "mb-3"
+										}`}
+									>
+										{getIcon(p.name)}
+									</div>
+									<CardTitle
+										className={`${
+											isThreeColumn ? "text-2xl mb-4" : "text-lg mb-3"
+										}`}
+									>
+										{changeCase(p.name)}
+									</CardTitle>
+									{p.amount ? (
+										<div
+											className={`flex items-center justify-center ${
+												isThreeColumn ? "mb-2" : ""
+											}`}
+										>
+											<span
+												className={`${
+													isThreeColumn ? "text-4xl" : "text-2xl"
+												} font-bold text-foreground`}
+											>
+												${p.amount}
+											</span>
+											{p.name.toLowerCase() === "monthly" && (
+												<span className="text-muted-foreground ml-2">
+													/month
+												</span>
+											)}
+											{p.name.toLowerCase() === "yearly" && (
+												<span className="text-muted-foreground ml-2">
+													/year
+												</span>
+											)}
+										</div>
+									) : (
+										<div className="text-xs text-muted-foreground">
+											Community Edition
+										</div>
+									)}
+									{p.trial && (
+										<div
+											className={`${
+												isThreeColumn ? "text-sm" : "text-xs"
+											} text-muted-foreground`}
+										>
+											{isPopular(p.name) && (
+												<>
+													<span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">
+														Save 17%
+													</span>
+													<br />
+												</>
+											)}
+											with a {p.trial} days trial
+										</div>
+									)}
+									{p.name.toLowerCase() === "lifetime" && (
+										<div
+											className={`${
+												isThreeColumn ? "text-sm" : "text-xs"
+											} text-muted-foreground`}
+										>
+											One-time payment
+										</div>
+									)}
+								</CardHeader>
+								<CardContent>
+									<Link
+										target={p.linkToGithub ? "_blank" : undefined}
+										to={
+											p.linkToGithub
+												? "https://docs.ryot.io"
+												: props.isLoggedIn
+													? $path("/me")
+													: "#start-here"
+										}
+										onClick={(e) => {
+											if (props.onClick && p.priceId) {
+												e.preventDefault();
+												props.onClick(p.priceId);
+											}
+										}}
+									>
+										<Button
+											variant={isPopular(p.name) ? "default" : "outline"}
+											className={`w-full ${!isThreeColumn ? "text-sm" : ""} ${
+												isPopular(p.name)
+													? "bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary"
+													: ""
+											}`}
+										>
+											<PlayIcon size={16} className="mr-2" />
+											<span>
+												{props.isLoggedIn ? "Choose this" : "Get started"}
+											</span>
+										</Button>
+									</Link>
+								</CardContent>
+							</Card>
 						))}
+					</div>
+				</div>
+
+				<div
+					className={`max-w-4xl mx-auto p-8 rounded-2xl border ${getColorThemeClasses(
+						"bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200",
+						"bg-gradient-to-r from-green-50 to-emerald-50 border-green-200",
+					)}`}
+				>
+					<div className="text-center">
+						<div className="flex items-center justify-center gap-3 mb-4">
+							<div
+								className={`w-10 h-10 rounded-full flex items-center justify-center ${getColorThemeClasses(
+									"bg-blue-100",
+									"bg-green-100",
+								)}`}
+							>
+								<CheckCircle
+									className={`w-6 h-6 ${getColorThemeClasses(
+										"text-blue-600",
+										"text-green-600",
+									)}`}
+								/>
+							</div>
+							<span
+								className={`text-xl font-semibold ${getColorThemeClasses(
+									"text-blue-900",
+									"text-green-900",
+								)}`}
+							>
+								All Pro Features Included
+							</span>
+						</div>
+						<p
+							className={`max-w-2xl mx-auto leading-relaxed ${getColorThemeClasses(
+								"text-blue-700",
+								"text-green-700",
+							)}`}
+						>
+							With any paid {isCloudType ? "cloud" : "self-hosted"} plan, you
+							get access to all Pro features.{" "}
+							{isCloudType
+								? "The only difference is the payment frequency and trial period - choose what works best for you."
+								: "The only difference is the payment frequency - choose what works best for you."}
+						</p>
 					</div>
 				</div>
 			</div>
 		</section>
 	);
 }
-
-type ProductTypeProps = {
-	title: string;
-	description: string;
-	onClick: () => void;
-};
-
-const ProductType = ({ title, description, onClick }: ProductTypeProps) => (
-	<TooltipProvider>
-		<Tooltip>
-			<TooltipTrigger className="text-blue-400" onClick={onClick}>
-				{title}
-			</TooltipTrigger>
-			<TooltipContent>{description}</TooltipContent>
-		</Tooltip>
-	</TooltipProvider>
-);

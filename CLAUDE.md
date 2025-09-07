@@ -8,16 +8,19 @@
   changes you are making do not break anything:
 
   ```bash
-  moon run frontend:typecheck # for frontend changes
-  moon run docs:build # for docs changes
-  moon run website:typecheck # for website changes
-  cargo check --workspace # for backend changes
+  moon run docs:build
+  cargo check --workspace
+  moon run website:typecheck
+  moon run frontend:typecheck
+  moon run browser-extension:typecheck
+  moon run tests:typecheck
   ```
 
 - When running tests, compile the backend in release mode and implement the feature first,
   then always ask the user's approval before executing tests to save iteration time.
 - After adding a GraphQL query or mutation to the backend, run `moon run
-  generated:backend-graphql` so that the frontend can use the new query or mutation.
+  generated:backend-graphql` so that the frontend can use the new query or mutation. Beforehand,
+  ensure the backend server is running in the background, and stop it after the generation completes.
 - Do not add code comments unless strictly necessary.
 - The migration files should be named `m<YYYYMMDD>_changes_for_issue_<number>`. Read other
   migration files for examples.
@@ -31,3 +34,6 @@
 - We try to keep the code files below 500 lines. If a file is larger than that, consider
   splitting it into smaller files (using functions, components, etc.) to improve
   readability.
+- React components should use a single `props` parameter instead of destructured props in
+  function arguments. Use `props.propertyName` syntax rather than destructuring
+  `{ propertyName }` in the function signature.

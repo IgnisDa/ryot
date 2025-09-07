@@ -9,6 +9,7 @@ import {
 	Text,
 	TextInput,
 	Title,
+	rem,
 } from "@mantine/core";
 import {
 	randomId,
@@ -19,7 +20,9 @@ import {
 import {
 	type MediaCollectionFilter,
 	MediaCollectionPresenceFilter,
+	MediaCollectionStrategyFilter,
 } from "@ryot/generated/graphql/backend/graphql";
+import { changeCase } from "@ryot/ts-utils";
 import {
 	IconFilterOff,
 	IconPlus,
@@ -27,27 +30,21 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { produce } from "immer";
-import Cookies from "js-cookie";
 import { type ReactNode, useState } from "react";
-import { useNavigate } from "react-router";
-import { convertEnumToSelectData } from "~/lib/common";
 import {
-	useAppSearchParam,
 	useCoreDetails,
 	useNonHiddenUserCollections,
-} from "~/lib/hooks";
-import type { OnboardingTourStepTargets } from "~/lib/state/general";
+} from "~/lib/shared/hooks";
+import type { OnboardingTourStepTargets } from "~/lib/state/onboarding-tour";
 import { ProRequiredAlert } from ".";
 
 export const FiltersModal = (props: {
 	title?: string;
 	opened: boolean;
-	cookieName: string;
 	children: ReactNode;
+	resetFilters: () => void;
 	closeFiltersModal: () => void;
 }) => {
-	const navigate = useNavigate();
-
 	return (
 		<Modal
 			centered
@@ -60,9 +57,8 @@ export const FiltersModal = (props: {
 					<Title order={3}>{props.title || "Filters"}</Title>
 					<ActionIcon
 						onClick={() => {
-							navigate(".");
+							props.resetFilters();
 							props.closeFiltersModal();
-							Cookies.remove(props.cookieName);
 						}}
 					>
 						<IconFilterOff size={24} />
@@ -75,26 +71,22 @@ export const FiltersModal = (props: {
 };
 
 export const CollectionsFilter = (props: {
-	cookieName: string;
 	applied: MediaCollectionFilter[];
+	onFiltersChanged: (val: MediaCollectionFilter[]) => void;
 }) => {
 	const coreDetails = useCoreDetails();
 	const collections = useNonHiddenUserCollections();
 	const [parent] = useAutoAnimate();
-	const [_p, { setP }] = useAppSearchParam(props.cookieName);
-	const [filters, filtersHandlers] = useListState<
-		MediaCollectionFilter & { id: string }
-	>((props.applied || []).map((a) => ({ ...a, id: randomId() })));
+	const [filters, filtersHandlers] = useListState<{
+		id: string;
+		data: MediaCollectionFilter;
+	}>(props.applied.map((a) => ({ data: a, id: randomId() })));
 
 	useDidUpdate(() => {
 		const applicableFilters = coreDetails.isServerKeyValidated
 			? filters
 			: filters.slice(0, 1);
-		const final = applicableFilters
-			.filter((f) => f.collectionId)
-			.map((a) => `${a.collectionId}:${a.presence}`)
-			.join(",");
-		setP("collections", final);
+		props.onFiltersChanged(applicableFilters.map((f) => f.data));
 	}, [filters]);
 
 	return (
@@ -110,8 +102,11 @@ export const CollectionsFilter = (props: {
 					onClick={() => {
 						filtersHandlers.append({
 							id: randomId(),
-							collectionId: "",
-							presence: MediaCollectionPresenceFilter.PresentIn,
+							data: {
+								collectionId: "",
+								strategy: MediaCollectionStrategyFilter.And,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
 						});
 					}}
 				>
@@ -119,33 +114,55 @@ export const CollectionsFilter = (props: {
 				</Button>
 			</Group>
 			{filters.length > 0 ? (
-				<Stack gap="xs" px={{ md: "xs" }} ref={parent}>
+				<Stack gap="xs" px={{ md: 4 }} ref={parent}>
 					{filters.map((f, idx) => (
-						<Group key={f.id} justify="space-between" wrap="nowrap">
+						<Group key={f.id} gap="xs" justify="space-between" wrap="nowrap">
 							{idx !== 0 ? (
-								<Text size="xs" c="dimmed">
-									OR
-								</Text>
+								<Button
+									size="compact-md"
+									w={rem(70)}
+									variant="default"
+									fz={{ base: 10, md: 12 }}
+									onClick={() => {
+										filtersHandlers.setItem(
+											idx,
+											produce(f, (d) => {
+												d.data.strategy =
+													d.data.strategy === MediaCollectionStrategyFilter.And
+														? MediaCollectionStrategyFilter.Or
+														: MediaCollectionStrategyFilter.And;
+											}),
+										);
+									}}
+								>
+									{f.data.strategy}
+								</Button>
 							) : null}
-							<Select
-								size="xs"
-								value={f.presence}
-								allowDeselect={false}
-								data={convertEnumToSelectData(MediaCollectionPresenceFilter)}
-								onChange={(v) =>
+							<Button
+								size="compact-md"
+								w={rem(170)}
+								variant="default"
+								fz={{ base: 10, md: 12 }}
+								onClick={() => {
 									filtersHandlers.setItem(
 										idx,
 										produce(f, (d) => {
-											d.presence = v as MediaCollectionPresenceFilter;
+											d.data.presence =
+												d.data.presence ===
+												MediaCollectionPresenceFilter.PresentIn
+													? MediaCollectionPresenceFilter.NotPresentIn
+													: MediaCollectionPresenceFilter.PresentIn;
 										}),
-									)
-								}
-							/>
+									);
+								}}
+							>
+								{changeCase(f.data.presence)}
+							</Button>
 							<Select
 								size="xs"
 								searchable
 								allowDeselect={false}
-								value={f.collectionId}
+								value={f.data.collectionId}
 								placeholder="Select a collection"
 								data={collections.map((c) => ({
 									label: c.name,
@@ -155,7 +172,7 @@ export const CollectionsFilter = (props: {
 									filtersHandlers.setItem(
 										idx,
 										produce(f, (d) => {
-											d.collectionId = v || "";
+											d.data.collectionId = v || "";
 										}),
 									)
 								}
@@ -179,30 +196,25 @@ export const CollectionsFilter = (props: {
 };
 
 export const DebouncedSearchInput = (props: {
-	queryParam?: string;
-	placeholder?: string;
-	initialValue?: string;
-	enhancedQueryParams?: string;
-	onChange?: (query: string) => void;
+	value: string;
+	placeholder: string;
+	onChange: (query: string) => void;
 	tourControl?: {
 		target: OnboardingTourStepTargets;
 		onQueryChange: (query: string) => void;
 	};
 }) => {
-	const [query, setQuery] = useState(props.initialValue || "");
+	const [query, setQuery] = useState(props.value);
 	const [debounced] = useDebouncedValue(query, 1000);
-	const [_e, { setP }] = useAppSearchParam(
-		props.enhancedQueryParams || "query",
-	);
 
 	useDidUpdate(() => {
-		const query = debounced.trim().toLowerCase();
-		if (props.onChange) {
-			props.onChange(query);
-			return;
-		}
-		setP(props.queryParam || "query", query);
-		props.tourControl?.onQueryChange(query);
+		setQuery(props.value);
+	}, [props.value]);
+
+	useDidUpdate(() => {
+		const normalizedQuery = debounced?.trim().toLowerCase() || "";
+		props.onChange(normalizedQuery);
+		props.tourControl?.onQueryChange(normalizedQuery);
 	}, [debounced]);
 
 	return (
@@ -213,8 +225,8 @@ export const DebouncedSearchInput = (props: {
 			autoCapitalize="none"
 			style={{ flexGrow: 1 }}
 			leftSection={<IconSearch />}
+			placeholder={props.placeholder}
 			className={props.tourControl?.target}
-			placeholder={props.placeholder || "Search..."}
 			onChange={(e) => setQuery(e.currentTarget.value)}
 			rightSection={
 				query ? (

@@ -4,26 +4,31 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-application-utils = { path = "../../utils/application" }
-async-graphql = { workspace = true }
-background-models = { path = "../../models/background" }
-common-models = { path = "../../models/common" }
-common-utils = { path = "../../utils/common" }
+anyhow = { workspace = true }
 chrono = { workspace = true }
-database-models = { path = "../../models/database" }
-database-utils = { path = "../../utils/database" }
-dependent-utils = { path = "../../utils/dependent" }
-dependent-models = { path = "../../models/dependent" }
-enum-models = { path = "../../models/enum" }
 futures = { workspace = true }
 itertools = { workspace = true }
-media-models = { path = "../../models/media" }
-migrations = { path = "../../migrations" }
 sea-orm = { workspace = true }
-sea-query = { workspace = true }
-supporting-service = { path = "../supporting" }
 tracing = { workspace = true }
 uuid = { workspace = true }
+
+application-utils = { workspace = true }
+background-models = { workspace = true }
+cache-service = { workspace = true }
+common-models = { workspace = true }
+common-utils = { workspace = true }
+database-models = { workspace = true }
+database-utils = { workspace = true }
+dependent-collection-utils = { workspace = true }
+dependent-entity-list-utils = { workspace = true }
+dependent-entity-utils = { workspace = true }
+dependent-notification-utils = { workspace = true }
+dependent-utility-utils = { workspace = true }
+dependent-models = { workspace = true }
+enum-models = { workspace = true }
+media-models = { workspace = true }
+migrations-sql = { workspace = true }
+supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]

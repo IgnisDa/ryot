@@ -1,4 +1,4 @@
-use async_graphql::Result;
+use anyhow::Result;
 use chrono::NaiveDate;
 use common_models::DefaultCollection;
 use common_utils::convert_naive_to_utc;
@@ -13,7 +13,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
-use super::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
+use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -53,7 +53,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                     lot: Some(lot),
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
-                    error: Some(format!("Ratings file: {:#?}", e)),
+                    error: Some(format!("Ratings file: {e:#?}")),
                 });
                 continue;
             }
@@ -80,7 +80,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                     lot: Some(lot),
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
-                    error: Some(format!("Watchlist file: {:#?}", e)),
+                    error: Some(format!("Watchlist file: {e:#?}")),
                 });
                 continue;
             }
@@ -106,7 +106,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                     lot: Some(lot),
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
-                    error: Some(format!("History file: {:#?}", e)),
+                    error: Some(format!("History file: {e:#?}")),
                 });
                 continue;
             }
@@ -114,7 +114,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
         let watched_at = Some(convert_naive_to_utc(record.watched_at));
         let seen_item = ImportOrExportMetadataItemSeen {
             ended_on: watched_at,
-            provider_watched_on: Some(ImportSource::Movary.to_string()),
+            providers_consumed_on: Some(vec![ImportSource::Movary.to_string()]),
             ..Default::default()
         };
         let review = record.comment.map(|c| ImportOrExportItemReview {

@@ -4,14 +4,11 @@ import {
 	Alert,
 	Avatar,
 	Box,
-	Center,
 	Checkbox,
 	Container,
 	Flex,
 	Group,
 	Indicator,
-	MantineThemeProvider,
-	Pagination,
 	Select,
 	SimpleGrid,
 	Skeleton,
@@ -27,24 +24,23 @@ import {
 	useListState,
 } from "@mantine/hooks";
 import {
-	ExerciseEquipment,
-	ExerciseForce,
-	ExerciseLevel,
-	ExerciseLot,
-	ExerciseMechanic,
-	ExerciseMuscle,
+	type ExerciseEquipment,
+	type ExerciseForce,
+	type ExerciseLevel,
+	type ExerciseLot,
+	type ExerciseMechanic,
+	type ExerciseMuscle,
 	ExerciseSortBy,
 	MergeExerciseDocument,
 	UserExercisesListDocument,
+	type UserExercisesListInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	getActionIntent,
 	isNumber,
-	parseSearchQuery,
 	processSubmission,
 	snakeCase,
 	startCase,
-	zodIntAsString,
 } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
@@ -54,30 +50,35 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
-import { Link, useLoaderData, useNavigate, useSubmit } from "react-router";
+import { Link, useNavigate, useSubmit } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
+import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {
-	DebouncedSearchInput,
+	ApplicationPagination,
 	DisplayListDetailsAndRefresh,
-	FiltersModal,
+	SkeletonLoader,
 } from "~/components/common";
 import {
-	convertEnumToSelectData,
-	dayjsLib,
-	getExerciseDetailsPath,
-	openConfirmationModal,
-	pageQueryParam,
-} from "~/lib/common";
+	DebouncedSearchInput,
+	FiltersModal,
+} from "~/components/common/filters";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import {
-	useAppSearchParam,
 	useCoreDetails,
 	useIsFitnessActionActive,
 	useNonHiddenUserCollections,
 	useUserPreferences,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
+import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
+import {
+	convertEnumToSelectData,
+	isFilterChanged,
+	openConfirmationModal,
+} from "~/lib/shared/ui-utils";
 import {
 	addExerciseToCurrentWorkout,
 	getExerciseDetailsQuery,
@@ -90,78 +91,35 @@ import {
 	OnboardingTourStepTargets,
 	TOUR_EXERCISE_TARGET_ID,
 	useOnboardingTour,
-} from "~/lib/state/general";
-import {
-	getSearchEnhancedCookieName,
-	redirectToFirstPageIfOnInvalidPage,
-	redirectUsingEnhancedCookieSearchParams,
-	redirectWithToast,
-	serverGqlService,
-} from "~/lib/utilities.server";
+} from "~/lib/state/onboarding-tour";
+import type { FilterUpdateFunction } from "~/lib/types";
+import { redirectWithToast, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.exercises.list";
 
-const defaultFiltersValue = {
-	muscle: undefined,
+interface FilterState {
+	page: number;
+	query: string;
+	type?: ExerciseLot;
+	collection?: string;
+	level?: ExerciseLevel;
+	force?: ExerciseForce;
+	sortBy: ExerciseSortBy;
+	muscle?: ExerciseMuscle;
+	mechanic?: ExerciseMechanic;
+	equipment?: ExerciseEquipment;
+}
+
+const defaultFilters: FilterState = {
+	page: 1,
+	query: "",
 	type: undefined,
-	equipment: undefined,
 	force: undefined,
 	level: undefined,
+	muscle: undefined,
 	mechanic: undefined,
-	sortBy: ExerciseSortBy.TimesPerformed,
+	equipment: undefined,
 	collection: undefined,
-};
-
-const searchParamsSchema = z.object({
-	query: z.string().optional(),
-	collection: z.string().optional(),
-	[pageQueryParam]: zodIntAsString.optional(),
-	type: z.nativeEnum(ExerciseLot).optional(),
-	level: z.nativeEnum(ExerciseLevel).optional(),
-	force: z.nativeEnum(ExerciseForce).optional(),
-	sortBy: z.nativeEnum(ExerciseSortBy).optional(),
-	muscle: z.nativeEnum(ExerciseMuscle).optional(),
-	mechanic: z.nativeEnum(ExerciseMechanic).optional(),
-	equipment: z.nativeEnum(ExerciseEquipment).optional(),
-});
-
-export type SearchParams = z.infer<typeof searchParamsSchema>;
-
-export const loader = async ({ request }: Route.LoaderArgs) => {
-	const cookieName = await getSearchEnhancedCookieName(
-		"exercises.list",
-		request,
-	);
-	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = parseSearchQuery(request, searchParamsSchema);
-	query.sortBy = query.sortBy ?? defaultFiltersValue.sortBy;
-	query[pageQueryParam] = query[pageQueryParam] ?? 1;
-	const [{ userExercisesList }] = await Promise.all([
-		serverGqlService.authenticatedRequest(
-			request.clone(),
-			UserExercisesListDocument,
-			{
-				input: {
-					sortBy: query.sortBy,
-					search: { page: query[pageQueryParam], query: query.query },
-					filter: {
-						type: query.type,
-						level: query.level,
-						force: query.force,
-						muscle: query.muscle,
-						mechanic: query.mechanic,
-						equipment: query.equipment,
-						collection: query.collection,
-					},
-				},
-			},
-		),
-	]);
-	const totalPages = await redirectToFirstPageIfOnInvalidPage({
-		request,
-		currentPage: query[pageQueryParam],
-		totalResults: userExercisesList.response.details.total,
-	});
-	return { query, totalPages, cookieName, userExercisesList };
+	sortBy: ExerciseSortBy.TimesPerformed,
 };
 
 export const meta = () => {
@@ -192,16 +150,18 @@ const mergeExerciseSchema = z.object({
 	mergeInto: z.string(),
 });
 
-type SelectExercise = { name: string; lot: ExerciseLot };
+type SelectExercise = { id: string; lot: ExerciseLot };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
 	const userPreferences = useUserPreferences();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const isFitnessActionActive = useIsFitnessActionActive();
 	const [mergingExercise, setMergingExercise] = useMergingExercise();
-	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
+	const [filters, setFilters] = useLocalStorage(
+		"ExerciseListFilters",
+		defaultFilters,
+	);
 	const [selectedExercises, setSelectedExercises] =
 		useListState<SelectExercise>([]);
 	const [
@@ -210,16 +170,34 @@ export default function Page() {
 	] = useDisclosure(false);
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
+	const queryInput: UserExercisesListInput = {
+		sortBy: filters.sortBy,
+		search: { page: filters.page, query: filters.query },
+		filter: {
+			type: filters.type,
+			level: filters.level,
+			force: filters.force,
+			muscle: filters.muscle,
+			mechanic: filters.mechanic,
+			equipment: filters.equipment,
+			collection: filters.collection,
+		},
+	};
+
+	const { data: userExercisesList, refetch: refetchUserExercisesList } =
+		useQuery({
+			queryKey: queryFactory.fitness.userExercisesList(queryInput).queryKey,
+			queryFn: () =>
+				clientGqlService
+					.request(UserExercisesListDocument, { input: queryInput })
+					.then((data) => data.userExercisesList),
+		});
+
 	const replacingExerciseId =
 		currentWorkout?.replacingExerciseIdx &&
 		currentWorkout.exercises[currentWorkout.replacingExerciseIdx].exerciseId;
 
-	const isFilterChanged = Object.keys(defaultFiltersValue)
-		.filter((k) => k !== pageQueryParam && k !== "query")
-		.some(
-			// biome-ignore lint/suspicious/noExplicitAny: required here
-			(k) => (loaderData.query as any)[k] !== (defaultFiltersValue as any)[k],
-		);
+	const areListFiltersActive = isFilterChanged(filters, defaultFilters);
 
 	const { data: replacingExercise } = useQuery({
 		enabled: !!replacingExerciseId,
@@ -230,6 +208,9 @@ export default function Page() {
 		currentWorkout &&
 		isFitnessActionActive &&
 		!isNumber(currentWorkout.replacingExerciseIdx);
+
+	const updateFilter: FilterUpdateFunction<FilterState> = (key, value) =>
+		setFilters((prev) => ({ ...prev, [key]: value }));
 
 	return (
 		<Container size="md">
@@ -247,9 +228,12 @@ export default function Page() {
 				</Flex>
 				<Group wrap="nowrap">
 					<DebouncedSearchInput
-						initialValue={loaderData.query.query}
-						enhancedQueryParams={loaderData.cookieName}
+						value={filters.query}
 						placeholder="Search for exercises by name or instructions"
+						onChange={(value) => {
+							updateFilter("query", value);
+							updateFilter("page", 1);
+						}}
 						tourControl={{
 							target: OnboardingTourStepTargets.SearchForExercise,
 							onQueryChange: (query) => {
@@ -261,16 +245,16 @@ export default function Page() {
 					/>
 					<ActionIcon
 						onClick={openFiltersModal}
-						color={isFilterChanged ? "blue" : "gray"}
+						color={areListFiltersActive ? "blue" : "gray"}
 					>
 						<IconFilter size={24} />
 					</ActionIcon>
 					<FiltersModal
-						closeFiltersModal={closeFiltersModal}
-						cookieName={loaderData.cookieName}
 						opened={filtersModalOpened}
+						closeFiltersModal={closeFiltersModal}
+						resetFilters={() => setFilters(defaultFilters)}
 					>
-						<FiltersModalForm />
+						<FiltersModalForm filter={filters} updateFilter={updateFilter} />
 					</FiltersModal>
 				</Group>
 				{currentWorkout?.replacingExerciseIdx ? (
@@ -283,51 +267,57 @@ export default function Page() {
 						You are merging exercise: {mergingExercise}
 					</Alert>
 				) : null}
-				{loaderData.userExercisesList.response.details.total > 0 ? (
+				{userExercisesList ? (
 					<>
-						<DisplayListDetailsAndRefresh
-							cacheId={loaderData.userExercisesList.cacheId}
-							total={loaderData.userExercisesList.response.details.total}
-							isRandomSortOrderSelected={
-								loaderData.query.sortBy === ExerciseSortBy.Random
-							}
-							rightSection={
-								allowAddingExerciseToWorkout ? (
-									<>
-										{" "}
-										and{" "}
-										<Text display="inline" fw="bold">
-											{selectedExercises.length}
-										</Text>{" "}
-										selected
-									</>
-								) : null
-							}
-						/>
-						<SimpleGrid cols={{ md: 2, lg: 3 }}>
-							{loaderData.userExercisesList.response.items.map((exercise) => (
-								<ExerciseItemDisplay
-									key={exercise}
-									exerciseId={exercise}
-									mergingExercise={mergingExercise}
-									setMergingExercise={setMergingExercise}
-									setSelectedExercises={setSelectedExercises}
-									allowAddingExerciseToWorkout={allowAddingExerciseToWorkout}
+						{userExercisesList.response.details.totalItems > 0 ? (
+							<>
+								<DisplayListDetailsAndRefresh
+									cacheId={userExercisesList.cacheId}
+									onRefreshButtonClicked={refetchUserExercisesList}
+									total={userExercisesList.response.details.totalItems}
+									isRandomSortOrderSelected={
+										filters.sortBy === ExerciseSortBy.Random
+									}
+									rightSection={
+										allowAddingExerciseToWorkout ? (
+											<>
+												{" "}
+												and{" "}
+												<Text display="inline" fw="bold">
+													{selectedExercises.length}
+												</Text>{" "}
+												selected
+											</>
+										) : null
+									}
 								/>
-							))}
-						</SimpleGrid>
+								<SimpleGrid cols={{ md: 2, lg: 3 }}>
+									{userExercisesList.response.items.map((exercise) => (
+										<ExerciseItemDisplay
+											key={exercise}
+											exerciseId={exercise}
+											mergingExercise={mergingExercise}
+											setMergingExercise={setMergingExercise}
+											setSelectedExercises={setSelectedExercises}
+											allowAddingExerciseToWorkout={
+												allowAddingExerciseToWorkout
+											}
+										/>
+									))}
+								</SimpleGrid>
+							</>
+						) : (
+							<Text>No information to display</Text>
+						)}
+						<ApplicationPagination
+							value={filters.page}
+							onChange={(v) => updateFilter("page", v)}
+							totalItems={userExercisesList.response.details.totalItems}
+						/>
 					</>
 				) : (
-					<Text>No information to display</Text>
+					<SkeletonLoader />
 				)}
-				<Center>
-					<Pagination
-						size="sm"
-						value={loaderData.query[pageQueryParam]}
-						onChange={(v) => setP(pageQueryParam, v.toString())}
-						total={loaderData.totalPages}
-					/>
-				</Center>
 			</Stack>
 			{allowAddingExerciseToWorkout ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
@@ -357,64 +347,61 @@ export default function Page() {
 	);
 }
 
-const FiltersModalForm = () => {
-	const loaderData = useLoaderData<typeof loader>();
+const FiltersModalForm = (props: {
+	filter: FilterState;
+	updateFilter: FilterUpdateFunction<FilterState>;
+}) => {
 	const coreDetails = useCoreDetails();
 	const collections = useNonHiddenUserCollections();
-	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	return (
-		<MantineThemeProvider
-			theme={{
-				components: {
-					Select: Select.extend({ defaultProps: { size: "xs" } }),
-				},
-			}}
-		>
-			<Stack gap={4}>
-				<Select
-					label="Sort by"
-					onChange={(v) => setP("sortBy", v)}
-					defaultValue={loaderData.query.sortBy}
-					data={convertEnumToSelectData(ExerciseSortBy)}
-				/>
-				{Object.keys(defaultFiltersValue)
-					.filter((f) => !["sortBy", "order", "collection"].includes(f))
-					.map((f) => (
-						<Select
-							key={f}
-							clearable
+		<Stack gap={4}>
+			<Select
+				size="xs"
+				label="Sort by"
+				defaultValue={props.filter.sortBy}
+				data={convertEnumToSelectData(ExerciseSortBy)}
+				onChange={(v) => props.updateFilter("sortBy", v as ExerciseSortBy)}
+			/>
+			{Object.keys(defaultFilters)
+				.filter((f) => !["sortBy", "collection", "page", "query"].includes(f))
+				.map((f) => (
+					<Select
+						key={f}
+						size="xs"
+						clearable
+						label={startCase(f)}
+						// biome-ignore lint/suspicious/noExplicitAny: required here
+						defaultValue={(props.filter as any)[f]}
+						onChange={(v) => props.updateFilter(f as keyof FilterState, v)}
+						// biome-ignore lint/suspicious/noExplicitAny: required here
+						data={(coreDetails.exerciseParameters.filters as any)[f].map(
 							// biome-ignore lint/suspicious/noExplicitAny: required here
-							data={(coreDetails.exerciseParameters.filters as any)[f].map(
-								// biome-ignore lint/suspicious/noExplicitAny: required here
-								(v: any) => ({
-									label: startCase(snakeCase(v)),
-									value: v,
-								}),
-							)}
-							label={startCase(f)}
-							// biome-ignore lint/suspicious/noExplicitAny: required here
-							defaultValue={(loaderData.query as any)[f]}
-							onChange={(v) => setP(f, v)}
-						/>
-					))}
-				<Select
-					label="Collection"
-					defaultValue={loaderData.query.collection?.toString()}
-					data={[
-						{
-							group: "My collections",
-							items: collections.map((c) => ({
-								value: c.id.toString(),
+							(v: any) => ({
+								value: v,
+								label: startCase(snakeCase(v)),
+							}),
+						)}
+					/>
+				))}
+			<Select
+				clearable
+				size="xs"
+				label="Collection"
+				defaultValue={props.filter.collection?.toString()}
+				onChange={(v) => props.updateFilter("collection", v)}
+				data={[
+					{
+						group: "My collections",
+						items:
+							collections?.map((c) => ({
 								label: c.name,
-							})),
-						},
-					]}
-					onChange={(v) => setP("collection", v)}
-					clearable
-				/>
-			</Stack>
-		</MantineThemeProvider>
+								value: c.id.toString(),
+							})) || [],
+					},
+				]}
+			/>
+		</Stack>
 	);
 };
 
@@ -462,13 +449,13 @@ const ExerciseItemDisplay = (props: {
 							onChange={(e) => {
 								if (e.currentTarget.checked) {
 									props.setSelectedExercises.append({
-										name: props.exerciseId,
 										lot: exercise.lot,
+										id: props.exerciseId,
 									});
 									if (isTourTargetExercise) advanceOnboardingTourStep();
 								} else
 									props.setSelectedExercises.filter(
-										(item) => item.name !== props.exerciseId,
+										(item) => item.id !== props.exerciseId,
 									);
 							}}
 						/>

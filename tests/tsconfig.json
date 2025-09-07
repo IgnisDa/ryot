@@ -1,0 +1,36 @@
+{
+	"exclude": ["node_modules", "dist"],
+	"include": ["src/**/*.ts", "vitest.config.ts"],
+	"references": [
+		{
+			"path": "../libs/generated"
+		},
+		{
+			"path": "../libs/graphql"
+		},
+		{
+			"path": "../libs/generated"
+		},
+		{
+			"path": "../libs/graphql"
+		}
+	],
+	"compilerOptions": {
+		"noEmit": true,
+		"strict": true,
+		"baseUrl": ".",
+		"target": "es2022",
+		"module": "ESNext",
+		"skipLibCheck": true,
+		"lib": ["ES2022", "DOM"],
+		"esModuleInterop": true,
+		"moduleResolution": "node",
+		"types": ["vitest/globals", "node"],
+		"outDir": "../.moon/cache/types/tests",
+		"forceConsistentCasingInFileNames": true,
+		"paths": {
+			"@ryot/graphql/*": ["../libs/graphql/src/*"],
+			"@ryot/generated/*": ["../libs/generated/src/*"]
+		}
+	}
+}

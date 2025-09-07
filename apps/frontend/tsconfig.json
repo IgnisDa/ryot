@@ -1,37 +1,5 @@
 {
 	"include": ["**/*.ts", "**/*.tsx", ".react-router/types/**/*"],
-	"compilerOptions": {
-		"lib": ["DOM", "DOM.Iterable", "ES2022"],
-		"isolatedModules": true,
-		"esModuleInterop": true,
-		"jsx": "react-jsx",
-		"module": "ESNext",
-		"moduleResolution": "Bundler",
-		"resolveJsonModule": true,
-		"noUnusedLocals": true,
-		"target": "es2022",
-		"strict": true,
-		"allowJs": true,
-		"forceConsistentCasingInFileNames": true,
-		"baseUrl": ".",
-		"paths": {
-			"@ryot/generated/*": ["../../libs/generated/src/*"],
-			"@ryot/graphql/*": ["../../libs/graphql/src/*"],
-			"@ryot/ts-utils": ["../../libs/ts-utils/src/index.ts"],
-			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"],
-			"~/*": ["./app/*"]
-		},
-		"rootDirs": [".", "./.react-router/types"],
-		"types": ["@react-router/node", "vite/client"],
-		"skipLibCheck": true,
-		"noEmit": true,
-		"outDir": "../../.moon/cache/types/apps/frontend",
-		"plugins": [
-			{
-				"name": "typescript-plugin-css-modules"
-			}
-		]
-	},
 	"references": [
 		{
 			"path": "../../libs/generated"
@@ -42,5 +10,32 @@
 		{
 			"path": "../../libs/ts-utils"
 		}
-	]
+	],
+	"compilerOptions": {
+		"baseUrl": ".",
+		"strict": true,
+		"noEmit": true,
+		"allowJs": true,
+		"jsx": "react-jsx",
+		"module": "ESNext",
+		"target": "es2022",
+		"skipLibCheck": true,
+		"noUnusedLocals": true,
+		"isolatedModules": true,
+		"esModuleInterop": true,
+		"resolveJsonModule": true,
+		"moduleResolution": "bundler",
+		"lib": ["DOM", "DOM.Iterable", "ES2022"],
+		"forceConsistentCasingInFileNames": true,
+		"rootDirs": [".", "./.react-router/types"],
+		"types": ["@react-router/node", "vite/client"],
+		"outDir": "../../.moon/cache/types/apps/frontend",
+		"paths": {
+			"~/*": ["./app/*"],
+			"@ryot/graphql/*": ["../../libs/graphql/src/*"],
+			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"],
+			"@ryot/generated/*": ["../../libs/generated/src/*"],
+			"@ryot/ts-utils": ["../../libs/ts-utils/src/index.ts"]
+		}
+	}
 }

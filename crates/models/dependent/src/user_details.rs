@@ -2,10 +2,10 @@ use async_graphql::{SimpleObject, Union};
 use chrono::NaiveDate;
 use common_models::{EntityAssets, PersonSourceSpecifics};
 use database_models::{
-    exercise, metadata_group::MetadataGroupWithoutId, person, seen, user, user_to_entity, workout,
+    exercise, metadata_group::MetadataGroupWithoutId, person, seen, user_to_entity, workout,
     workout_template,
 };
-use enum_models::{MediaSource, UserToMediaReason};
+use enum_models::{UserLot, UserToMediaReason};
 use fitness_models::UserToExerciseHistoryExtraInformation;
 use media_models::{
     PartialMetadataWithoutId, PersonDetailsGroupedByRole, ReviewItem, UserDetailsError,
@@ -15,13 +15,18 @@ use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
+use user_models::{UserExtraInformation, UserPreferences};
 use uuid::Uuid;
 
 #[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone, Schematic)]
 pub struct CollectionToEntityDetails {
+    /// The rank of this entity in the collection. This is ignored during importing.
+    #[serde(default)]
+    pub rank: Decimal,
     pub collection_id: String,
     pub collection_name: String,
     pub created_on: DateTimeUtc,
+    pub creator_user_id: String,
     pub last_updated_on: DateTimeUtc,
     pub information: Option<serde_json::Value>,
 }
@@ -48,8 +53,6 @@ pub struct MetadataGroupPersonRelated {
 #[derive(Debug, Default, Serialize, Deserialize, Clone, Hash)]
 pub struct PersonDetails {
     pub name: String,
-    pub identifier: String,
-    pub source: MediaSource,
     pub assets: EntityAssets,
     pub place: Option<String>,
     pub gender: Option<String>,
@@ -64,13 +67,34 @@ pub struct PersonDetails {
     pub related_metadata_groups: Vec<MetadataGroupPersonRelated>,
 }
 
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct BasicUserDetails {
+    pub id: String,
+    pub name: String,
+    pub lot: UserLot,
+    pub is_disabled: Option<bool>,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct UserDetails {
+    pub id: String,
+    pub name: String,
+    pub lot: UserLot,
+    pub is_disabled: Option<bool>,
+    pub preferences: UserPreferences,
+    pub oidc_issuer_id: Option<String>,
+    pub access_link_id: Option<String>,
+    pub extra_information: Option<UserExtraInformation>,
+    pub times_two_factor_backup_codes_used: Option<usize>,
+}
+
 #[derive(Union)]
 pub enum UserDetailsResult {
-    Ok(Box<user::Model>),
+    Ok(Box<UserDetails>),
     Error(UserDetailsError),
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct GraphqlPersonDetails {
     pub details: person::Model,
     pub associated_metadata: Vec<PersonDetailsGroupedByRole>,
@@ -99,10 +123,10 @@ pub struct UserMetadataGroupDetails {
 pub struct UserMetadataDetails {
     /// Whether this media has been interacted with
     pub has_interacted: bool,
-    /// The public reviews of this media.
-    pub reviews: Vec<ReviewItem>,
     /// The number of users who have seen this media.
     pub seen_by_all_count: i64,
+    /// The public reviews of this media.
+    pub reviews: Vec<ReviewItem>,
     /// The seen history of this media.
     pub history: Vec<seen::Model>,
     /// The number of times this user has seen this media.
@@ -113,12 +137,12 @@ pub struct UserMetadataDetails {
     pub average_rating: Option<Decimal>,
     /// The seen item if it is in progress.
     pub in_progress: Option<seen::Model>,
-    /// The collections in which this media is present.
-    pub collections: Vec<GraphqlCollectionToEntityDetails>,
     /// The next episode/chapter of this media.
     pub next_entry: Option<UserMediaNextEntry>,
     /// The reasons why this metadata is related to this user
     pub media_reason: Option<Vec<UserToMediaReason>>,
+    /// The collections in which this media is present.
+    pub collections: Vec<GraphqlCollectionToEntityDetails>,
     /// The seen progress of this media if it is a show.
     pub show_progress: Option<Vec<UserMetadataDetailsShowSeasonProgress>>,
     /// The seen progress of this media if it is a podcast.

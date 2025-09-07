@@ -1,53 +1,21 @@
-use async_graphql::{Error, Result};
+use std::sync::Arc;
+
+use anyhow::{Result, bail};
 use common_utils::ryot_log;
 use database_models::{
     prelude::{UserToEntity, Workout},
     user_to_entity, workout,
 };
-use database_utils::{
-    schedule_user_for_workout_revision, user_workout_details as get_user_workout_details,
-};
-use dependent_models::{
-    CachedResponse, UserTemplatesOrWorkoutsListInput, UserWorkoutDetails, UserWorkoutsListResponse,
-};
-use dependent_utils::{
-    create_or_update_user_workout as create_or_update_user_workout_util,
-    db_workout_to_workout_input, expire_user_workouts_list_cache,
-    user_workouts_list as get_user_workouts_list,
-};
-use fitness_models::{
-    UpdateUserWorkoutAttributesInput, UserToExerciseExtraInformation, UserWorkoutInput,
-};
-use futures::TryStreamExt;
+use database_utils::schedule_user_for_workout_revision;
+use dependent_fitness_utils::{create_or_update_user_workout, db_workout_to_workout_input};
+use dependent_utility_utils::expire_user_workouts_list_cache;
+use fitness_models::{UpdateUserWorkoutAttributesInput, UserToExerciseExtraInformation};
+use futures::{TryStreamExt, try_join};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, QueryOrder,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
+    QueryFilter, QueryOrder,
 };
-use std::sync::Arc;
 use supporting_service::SupportingService;
-
-pub async fn user_workout_details(
-    ss: &Arc<SupportingService>,
-    user_id: &String,
-    workout_id: String,
-) -> Result<UserWorkoutDetails> {
-    get_user_workout_details(user_id, workout_id, ss).await
-}
-
-pub async fn user_workouts_list(
-    ss: &Arc<SupportingService>,
-    user_id: String,
-    input: UserTemplatesOrWorkoutsListInput,
-) -> Result<CachedResponse<UserWorkoutsListResponse>> {
-    get_user_workouts_list(&user_id, input, ss).await
-}
-
-pub async fn create_or_update_user_workout(
-    ss: &Arc<SupportingService>,
-    user_id: &String,
-    input: UserWorkoutInput,
-) -> Result<String> {
-    create_or_update_user_workout_util(user_id, input, ss).await
-}
 
 pub async fn update_user_workout_attributes(
     ss: &Arc<SupportingService>,
@@ -60,9 +28,9 @@ pub async fn update_user_workout_attributes(
         .one(&ss.db)
         .await?
     else {
-        return Err(Error::new("Workout does not exist for user"));
+        bail!("Workout does not exist for user");
     };
-    let mut new_wkt: workout::ActiveModel = wkt.into();
+    let mut new_wkt = wkt.into_active_model();
     if let Some(d) = input.start_time {
         new_wkt.start_time = ActiveValue::Set(d);
     }
@@ -75,7 +43,7 @@ pub async fn update_user_workout_attributes(
             .end_time
             .signed_duration_since(new_workout.start_time)
             .num_seconds();
-        let mut new_workout: workout::ActiveModel = new_workout.into();
+        let mut new_workout = new_workout.into_active_model();
         new_workout.duration = ActiveValue::Set(new_duration.try_into().unwrap());
         new_workout.update(&ss.db).await?;
         schedule_user_for_workout_revision(&user_id, ss).await?;
@@ -95,7 +63,7 @@ pub async fn delete_user_workout(
         .one(&ss.db)
         .await?
     else {
-        return Err(Error::new("Workout does not exist for user"));
+        bail!("Workout does not exist for user");
     };
     for (idx, ex) in wkt.information.exercises.iter().enumerate() {
         let Some(association) = UserToEntity::find()
@@ -117,13 +85,15 @@ pub async fn delete_user_workout(
         {
             ei.history.remove(ex_idx);
         }
-        let mut association: user_to_entity::ActiveModel = association.into();
+        let mut association = association.into_active_model();
         association.exercise_extra_information = ActiveValue::Set(Some(ei));
         association.update(&ss.db).await?;
     }
     wkt.delete(&ss.db).await?;
-    expire_user_workouts_list_cache(&user_id, ss).await?;
-    schedule_user_for_workout_revision(&user_id, ss).await?;
+    try_join!(
+        expire_user_workouts_list_cache(&user_id, ss),
+        schedule_user_for_workout_revision(&user_id, ss)
+    )?;
     Ok(true)
 }
 
@@ -137,7 +107,7 @@ pub async fn revise_user_workouts(ss: &Arc<SupportingService>, user_id: String) 
         let mut new = UserToExerciseExtraInformation::default();
         let eei = ute.exercise_extra_information.clone().unwrap_or_default();
         new.settings = eei.settings;
-        let mut ute: user_to_entity::ActiveModel = ute.into();
+        let mut ute = ute.into_active_model();
         ute.exercise_num_times_interacted = ActiveValue::Set(None);
         ute.exercise_extra_information = ActiveValue::Set(Some(new));
         ute.update(&ss.db).await?;
@@ -151,7 +121,7 @@ pub async fn revise_user_workouts(ss: &Arc<SupportingService>, user_id: String) 
     for (idx, workout) in workouts.into_iter().enumerate() {
         workout.clone().delete(&ss.db).await?;
         let workout_input = db_workout_to_workout_input(workout);
-        create_or_update_user_workout_util(&user_id, workout_input, ss).await?;
+        create_or_update_user_workout(&user_id, workout_input, ss).await?;
         ryot_log!(debug, "Revised workout: {}/{}", idx + 1, total);
     }
     Ok(())

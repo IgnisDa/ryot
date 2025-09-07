@@ -5,7 +5,7 @@ import { useState } from "react";
 type MultiSelectCreatableProps = {
 	label: string;
 	data: string[];
-	value: string[];
+	values: string[];
 	required?: boolean;
 	description?: string;
 	setValue: (value: string[]) => void;
@@ -25,21 +25,21 @@ export const MultiSelectCreatable = (props: MultiSelectCreatableProps) => {
 	const handleValueSelect = (val: string) => {
 		if (val === "$create") {
 			setData((current) => [...current, search]);
-			props.setValue([...props.value, search]);
+			props.setValue([...(props.values || []), search]);
 		} else {
 			props.setValue(
-				props.value.includes(val)
-					? props.value.filter((v) => v !== val)
-					: [...props.value, val],
+				props.values?.includes(val)
+					? props.values.filter((v) => v !== val)
+					: [...(props.values || []), val],
 			);
 		}
 		setSearch("");
 	};
 
 	const handleValueRemove = (val: string) =>
-		props.setValue(props.value.filter((v) => v !== val));
+		props.setValue(props.values.filter((v) => v !== val));
 
-	const values = props.value.map((item) => (
+	const values = props.values?.map((item) => (
 		<Pill key={item} withRemoveButton onRemove={() => handleValueRemove(item)}>
 			{item}
 		</Pill>
@@ -51,10 +51,10 @@ export const MultiSelectCreatable = (props: MultiSelectCreatableProps) => {
 			<Combobox.Option
 				key={item}
 				value={item}
-				active={props.value.includes(item)}
+				active={props.values?.includes(item)}
 			>
 				<Group gap="sm">
-					{props.value.includes(item) ? <IconCheck size={12} /> : null}
+					{props.values?.includes(item) ? <IconCheck size={12} /> : null}
 					<span>{item}</span>
 				</Group>
 			</Combobox.Option>
@@ -88,7 +88,7 @@ export const MultiSelectCreatable = (props: MultiSelectCreatableProps) => {
 								onKeyDown={(event) => {
 									if (event.key === "Backspace" && search.length === 0) {
 										event.preventDefault();
-										handleValueRemove(props.value[props.value.length - 1]);
+										handleValueRemove(props.values[props.values.length - 1]);
 									}
 								}}
 							/>

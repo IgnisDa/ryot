@@ -56,18 +56,16 @@ import { useLoaderData, useRevalidator } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import {
-	FitnessEntity,
-	PRO_REQUIRED_MESSAGE,
-	clientGqlService,
-	convertEnumToSelectData,
-} from "~/lib/common";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useCoreDetails,
 	useDashboardLayoutData,
 	useIsFitnessActionActive,
 	useUserPreferences,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { clientGqlService } from "~/lib/shared/react-query";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+import { FitnessEntity } from "~/lib/types";
 import classes from "~/styles/preferences.module.css";
 import type { Route } from "./+types/_dashboard.settings.preferences";
 
@@ -277,6 +275,7 @@ export default function Page() {
 											</SimpleGrid>
 											{facet === "media" ? (
 												<MultiSelect
+													disabled={!!isEditDisabled}
 													defaultValue={
 														userPreferences.featuresEnabled[facet].specific
 													}
@@ -311,7 +310,6 @@ export default function Page() {
 										"disableVideos",
 										"disableReviews",
 										"disableWatchProviders",
-										"persistQueries",
 										"showSpoilersInCalendar",
 									] as const
 								).map((name) => (
@@ -343,11 +341,6 @@ export default function Page() {
 											.with(
 												"disableWatchProviders",
 												() => 'Do not display the "Watch On" tab',
-											)
-											.with(
-												"persistQueries",
-												() =>
-													"Persist queries in the URL so that you look at the same data next time you visit it",
 											)
 											.with(
 												"showSpoilersInCalendar",
@@ -555,7 +548,13 @@ export default function Page() {
 							</Input.Wrapper>
 							<Divider />
 							<Title order={4}>Workout logging</Title>
-							{(["muteSounds", "promptForRestTimer"] as const).map((option) => {
+							{(
+								[
+									"muteSounds",
+									"promptForRestTimer",
+									"startTimerForDurationExercises",
+								] as const
+							).map((option) => {
 								const [label, isGatedBehindServerKeyValidation] = match(option)
 									.with(
 										"muteSounds",
@@ -567,6 +566,13 @@ export default function Page() {
 											[
 												"Prompt for rest timer when confirming sets",
 												true,
+											] as const,
+									)
+									.with(
+										"startTimerForDurationExercises",
+										() =>
+											[
+												"Start timer for exercises where duration is set",
 											] as const,
 									)
 									.exhaustive();

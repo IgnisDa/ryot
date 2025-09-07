@@ -6,55 +6,80 @@ import {
 	Badge,
 	Box,
 	Button,
+	Center,
+	CopyButton,
 	Divider,
 	Flex,
 	Group,
 	Modal,
+	NumberInput,
+	Pagination,
 	Paper,
+	Select,
+	Skeleton,
 	Stack,
+	Switch,
 	Text,
+	TextInput,
 	Tooltip,
 	rem,
 } from "@mantine/core";
+import { DateInput, DateTimePicker } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	type CollectionExtraInformation,
+	CollectionExtraInformationLot,
 	type CollectionToEntityDetailsPartFragment,
 	EntityLot,
+	type Scalars,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase } from "@ryot/ts-utils";
-import { IconArrowsShuffle, IconCancel, IconX } from "@tabler/icons-react";
-import type { ReactNode } from "react";
-import { Form, Link } from "react-router";
+import {
+	IconArrowsShuffle,
+	IconCancel,
+	IconCheck,
+	IconChevronLeft,
+	IconChevronRight,
+	IconCopy,
+	IconPencil,
+	IconX,
+} from "@tabler/icons-react";
+import type { CSSProperties, ReactNode } from "react";
+import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import {
-	PRO_REQUIRED_MESSAGE,
-	dayjsLib,
-	openConfirmationModal,
-} from "~/lib/common";
-import {
-	useAddEntitiesToCollection,
-	useConfirmSubmit,
+	useAddEntitiesToCollectionMutation,
 	useCoreDetails,
+	useExpireCacheKeyMutation,
 	useGetRandomMantineColor,
-	useRemoveEntitiesFromCollection,
-} from "~/lib/hooks";
+	useRemoveEntitiesFromCollectionMutation,
+	useUserCollections,
+	useUserPreferences,
+} from "~/lib/shared/hooks";
+import { refreshEntityDetails } from "~/lib/shared/react-query";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
 	type BulkAddEntities,
 	useBulkEditCollection,
+	useEditEntityCollectionInformation,
 } from "~/lib/state/collection";
 import {
 	ExerciseDisplayItem,
 	WorkoutDisplayItem,
 	WorkoutTemplateDisplayItem,
-} from "../fitness";
+} from "../fitness/display-items";
 import {
 	MetadataDisplayItem,
 	MetadataGroupDisplayItem,
 	PersonDisplayItem,
-} from "../media";
+} from "../media/display-items";
+import { MultiSelectCreatable } from "./multi-select-creatable";
+
+export const SkeletonLoader = () => <Skeleton height={100} />;
 
 export const ProRequiredAlert = (props: {
 	alertText?: string;
@@ -74,12 +99,14 @@ export const ProRequiredAlert = (props: {
 export const DisplayCollectionEntity = (props: {
 	entityId: string;
 	entityLot: EntityLot;
+	topLeft?: ReactNode;
 	topRight?: ReactNode;
 }) =>
 	match(props.entityLot)
 		.with(EntityLot.Metadata, () => (
 			<MetadataDisplayItem
 				rightLabelLot
+				topLeft={props.topLeft}
 				topRight={props.topRight}
 				metadataId={props.entityId}
 			/>
@@ -87,6 +114,7 @@ export const DisplayCollectionEntity = (props: {
 		.with(EntityLot.MetadataGroup, () => (
 			<MetadataGroupDisplayItem
 				noLeftLabel
+				topLeft={props.topLeft}
 				topRight={props.topRight}
 				metadataGroupId={props.entityId}
 				rightLabel={changeCase(snakeCase(props.entityLot))}
@@ -94,6 +122,7 @@ export const DisplayCollectionEntity = (props: {
 		))
 		.with(EntityLot.Person, () => (
 			<PersonDisplayItem
+				topLeft={props.topLeft}
 				personId={props.entityId}
 				topRight={props.topRight}
 				rightLabel={changeCase(snakeCase(props.entityLot))}
@@ -101,6 +130,7 @@ export const DisplayCollectionEntity = (props: {
 		))
 		.with(EntityLot.Exercise, () => (
 			<ExerciseDisplayItem
+				topLeft={props.topLeft}
 				topRight={props.topRight}
 				exerciseId={props.entityId}
 				rightLabel={changeCase(snakeCase(props.entityLot))}
@@ -108,6 +138,7 @@ export const DisplayCollectionEntity = (props: {
 		))
 		.with(EntityLot.Workout, () => (
 			<WorkoutDisplayItem
+				topLeft={props.topLeft}
 				topRight={props.topRight}
 				workoutId={props.entityId}
 				rightLabel={changeCase(snakeCase(props.entityLot))}
@@ -115,6 +146,7 @@ export const DisplayCollectionEntity = (props: {
 		))
 		.with(EntityLot.WorkoutTemplate, () => (
 			<WorkoutTemplateDisplayItem
+				topLeft={props.topLeft}
 				topRight={props.topRight}
 				workoutTemplateId={props.entityId}
 			/>
@@ -126,9 +158,17 @@ export const DisplayCollectionToEntity = (props: {
 	entityLot: EntityLot;
 	col: CollectionToEntityDetailsPartFragment;
 }) => {
+	const userCollections = useUserCollections();
 	const color = useGetRandomMantineColor(props.col.details.collectionName);
-	const removeEntitiesFromCollection = useRemoveEntitiesFromCollection();
+	const removeEntitiesFromCollection =
+		useRemoveEntitiesFromCollectionMutation();
 	const [opened, { open, close }] = useDisclosure(false);
+	const [, setEditEntityCollectionInformationData] =
+		useEditEntityCollectionInformation();
+
+	const thisCollection = userCollections.find(
+		(c) => c.id === props.col.details.collectionId,
+	);
 
 	const handleRemove = () => {
 		openConfirmationModal(
@@ -136,14 +176,15 @@ export const DisplayCollectionToEntity = (props: {
 			() => {
 				removeEntitiesFromCollection.mutate(
 					{
+						creatorUserId: props.col.details.creatorUserId,
 						collectionName: props.col.details.collectionName,
-						creatorUserId: props.col.details.collectionId,
 						entities: [
 							{ entityId: props.entityId, entityLot: props.entityLot },
 						],
 					},
 					{
 						onSuccess: () => {
+							refreshEntityDetails(props.entityId);
 							notifications.show({
 								color: "green",
 								title: "Success",
@@ -154,6 +195,18 @@ export const DisplayCollectionToEntity = (props: {
 				);
 			},
 		);
+	};
+
+	const handleEdit = () => {
+		close();
+		setEditEntityCollectionInformationData({
+			entityId: props.entityId,
+			entityLot: props.entityLot,
+			collectionId: props.col.details.collectionId,
+			creatorUserId: props.col.details.creatorUserId,
+			collectionName: props.col.details.collectionName,
+			existingInformation: props.col.details.information || {},
+		});
 	};
 
 	return (
@@ -207,22 +260,46 @@ export const DisplayCollectionToEntity = (props: {
 							{dayjsLib(props.col.details.lastUpdatedOn).format("LLL")}
 						</Text>
 					</Group>
-					{props.col.details.information && (
+					{Object.keys(props.col.details.information || {}).length > 0 && (
 						<>
 							<Divider />
-							<Text size="sm" fw={500}>
-								Additional Information:
-							</Text>
+							<Group justify="space-between">
+								<Text size="sm" fw={500}>
+									Additional Information:
+								</Text>
+								<ActionIcon size="sm" variant="subtle" onClick={handleEdit}>
+									<IconPencil size={16} />
+								</ActionIcon>
+							</Group>
 							<Stack gap="xs">
 								{Object.entries(props.col.details.information).map(
-									([key, value]) => (
-										<Group key={key}>
-											<Text size="sm" c="dimmed">
-												{key}:
-											</Text>
-											<Text size="sm">{String(value)}</Text>
-										</Group>
-									),
+									([key, value]) => {
+										const stringValue = String(value);
+										const lot = thisCollection?.informationTemplate?.find(
+											(v) => v.name === key,
+										)?.lot;
+										return (
+											<Group key={key}>
+												<Text size="sm" c="dimmed">
+													{key}:
+												</Text>
+												<Text size="sm">
+													{match(lot)
+														.with(CollectionExtraInformationLot.DateTime, () =>
+															dayjsLib(stringValue).format("LLL"),
+														)
+														.with(CollectionExtraInformationLot.Date, () =>
+															dayjsLib(stringValue).format("LL"),
+														)
+														.with(
+															CollectionExtraInformationLot.StringArray,
+															() => (value as string[]).join(", "),
+														)
+														.otherwise(() => stringValue)}
+												</Text>
+											</Group>
+										);
+									},
 								)}
 							</Stack>
 						</>
@@ -237,9 +314,10 @@ export const DisplayListDetailsAndRefresh = (props: {
 	total: number;
 	cacheId?: string;
 	rightSection?: ReactNode;
+	onRefreshButtonClicked?: () => void;
 	isRandomSortOrderSelected?: boolean;
 }) => {
-	const submit = useConfirmSubmit();
+	const expireCacheKey = useExpireCacheKeyMutation();
 
 	return (
 		<Group justify="space-between" wrap="nowrap">
@@ -251,22 +329,17 @@ export const DisplayListDetailsAndRefresh = (props: {
 				{props.rightSection}
 			</Box>
 			{props.cacheId && props.isRandomSortOrderSelected ? (
-				<Form
-					replace
-					method="POST"
-					onSubmit={submit}
-					action={withQuery($path("/actions"), { intent: "expireCacheKey" })}
+				<Button
+					size="xs"
+					variant="subtle"
+					leftSection={<IconArrowsShuffle size={20} />}
+					onClick={async () => {
+						await expireCacheKey.mutateAsync(props.cacheId ?? "");
+						props.onRefreshButtonClicked?.();
+					}}
 				>
-					<input type="hidden" name="cacheId" value={props.cacheId} />
-					<Button
-						size="xs"
-						type="submit"
-						variant="subtle"
-						leftSection={<IconArrowsShuffle size={20} />}
-					>
-						Refresh
-					</Button>
-				</Form>
+					Refresh
+				</Button>
 			) : null}
 		</Group>
 	);
@@ -276,45 +349,45 @@ export const BulkCollectionEditingAffix = (props: {
 	bulkAddEntities: BulkAddEntities;
 }) => {
 	const bulkEditingCollection = useBulkEditCollection();
-	const addEntitiesToCollection = useAddEntitiesToCollection();
-	const removeEntitiesFromCollection = useRemoveEntitiesFromCollection();
+	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
+	const removeEntitiesFromCollection =
+		useRemoveEntitiesFromCollectionMutation();
 
 	const bulkEditingCollectionState = bulkEditingCollection.state;
 
 	if (!bulkEditingCollectionState) return null;
 
 	const handleBulkAction = async () => {
-		const { action, collection, entities } = bulkEditingCollectionState.data;
+		const { action, collection, targetEntities } =
+			bulkEditingCollectionState.data;
 
-		if (action === "remove") {
-			await removeEntitiesFromCollection.mutateAsync({
-				entities,
-				collectionName: collection.name,
-				creatorUserId: collection.creatorUserId,
-			});
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: `Removing ${entities.length} item${entities.length === 1 ? "" : "s"} from collection`,
-			});
-		} else {
-			await addEntitiesToCollection.mutateAsync({
-				entities,
-				collectionName: collection.name,
-				creatorUserId: collection.creatorUserId,
-			});
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: `Adding ${entities.length} item${entities.length === 1 ? "" : "s"} to collection`,
-			});
-		}
+		const isRemoving = action === "remove";
+		const mutation = isRemoving
+			? removeEntitiesFromCollection
+			: addEntitiesToCollection;
+		const actionText = isRemoving ? "Removing" : "Adding";
+
+		await mutation.mutateAsync({
+			entities: targetEntities,
+			collectionName: collection.name,
+			creatorUserId: collection.creatorUserId,
+		});
+
+		notifications.show({
+			color: "green",
+			title: "Success",
+			message: `${actionText} ${targetEntities.length} item${targetEntities.length === 1 ? "" : "s"} ${isRemoving ? "from" : "to"} collection`,
+		});
 
 		bulkEditingCollectionState.stop();
 	};
 
 	const handleConfirmBulkAction = () => {
-		const { action, collection, entities } = bulkEditingCollectionState.data;
+		const {
+			action,
+			collection,
+			targetEntities: entities,
+		} = bulkEditingCollectionState.data;
 		const actionText = action === "remove" ? "remove" : "add";
 		const itemCount = entities.length;
 		const message = `Are you sure you want to ${actionText} ${itemCount} item${itemCount === 1 ? "" : "s"} ${action === "remove" ? "from" : "to"} "${collection.name}"?`;
@@ -330,7 +403,8 @@ export const BulkCollectionEditingAffix = (props: {
 			<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
 				<Group wrap="nowrap" justify="space-between">
 					<Text fz={{ base: "xs", md: "md" }}>
-						{bulkEditingCollectionState.data.entities.length} items selected
+						{bulkEditingCollectionState.data.targetEntities.length} items
+						selected
 					</Text>
 					<Group wrap="nowrap">
 						<ActionIcon
@@ -353,7 +427,9 @@ export const BulkCollectionEditingAffix = (props: {
 							size="xs"
 							loading={isLoading}
 							onClick={handleConfirmBulkAction}
-							disabled={bulkEditingCollectionState.data.entities.length === 0}
+							disabled={
+								bulkEditingCollectionState.data.targetEntities.length === 0
+							}
 							color={
 								bulkEditingCollectionState.data.action === "remove"
 									? "red"
@@ -369,9 +445,180 @@ export const BulkCollectionEditingAffix = (props: {
 	);
 };
 
-export * from "./entity-display";
-export * from "./filters";
-export * from "./layout";
-export * from "./multi-select-creatable";
-export * from "./review";
-export * from "./summary";
+export const CollectionTemplateRenderer = (props: {
+	value: Scalars["JSON"]["input"];
+	template: CollectionExtraInformation;
+	onChange: (value: Scalars["JSON"]["input"]) => void;
+}) => {
+	return (
+		<>
+			{match(props.template.lot)
+				.with(CollectionExtraInformationLot.String, () => (
+					<TextInput
+						value={props.value || ""}
+						label={props.template.name}
+						required={!!props.template.required}
+						description={props.template.description}
+						onChange={(e) => props.onChange(e.currentTarget.value)}
+					/>
+				))
+				.with(CollectionExtraInformationLot.Boolean, () => (
+					<Switch
+						label={props.template.name}
+						checked={props.value === "true"}
+						required={!!props.template.required}
+						description={props.template.description}
+						onChange={(e) =>
+							props.onChange(e.currentTarget.checked ? "true" : "false")
+						}
+					/>
+				))
+				.with(CollectionExtraInformationLot.Number, () => (
+					<NumberInput
+						value={props.value}
+						label={props.template.name}
+						required={!!props.template.required}
+						description={props.template.description}
+						onChange={(v) => props.onChange(v)}
+					/>
+				))
+				.with(CollectionExtraInformationLot.Date, () => (
+					<DateInput
+						value={props.value}
+						label={props.template.name}
+						required={!!props.template.required}
+						description={props.template.description}
+						onChange={(v) => props.onChange(v)}
+					/>
+				))
+				.with(CollectionExtraInformationLot.DateTime, () => (
+					<DateTimePicker
+						value={props.value}
+						label={props.template.name}
+						required={!!props.template.required}
+						description={props.template.description}
+						onChange={(v) => props.onChange(dayjsLib(v).toISOString())}
+					/>
+				))
+				.with(CollectionExtraInformationLot.StringArray, () => (
+					<MultiSelectCreatable
+						values={props.value}
+						label={props.template.name}
+						required={!!props.template.required}
+						description={props.template.description}
+						data={props.template.possibleValues || []}
+						setValue={(newValue: string[]) => props.onChange(newValue)}
+					/>
+				))
+				.exhaustive()}
+		</>
+	);
+};
+
+export const ApplicationPagination = (props: {
+	value: number;
+	totalItems: number;
+	onChange: (value: number) => void;
+}) => {
+	const userPreferences = useUserPreferences();
+	const pageSize = userPreferences.general.listPageSize;
+	const totalPages = Math.ceil(props.totalItems / pageSize);
+
+	if (!props.totalItems || totalPages <= 1) return null;
+
+	if (totalPages <= 7) {
+		return (
+			<Center>
+				<Pagination
+					size="sm"
+					total={totalPages}
+					value={props.value}
+					onChange={props.onChange}
+				/>
+			</Center>
+		);
+	}
+
+	const pageOptions = Array.from({ length: totalPages }, (_, i) => ({
+		value: String(i + 1),
+		label: `Page ${i + 1}`,
+	}));
+
+	return (
+		<Center>
+			<Group gap="xs">
+				{props.value > 1 && (
+					<ActionIcon
+						size="sm"
+						variant="default"
+						onClick={() => props.onChange(props.value - 1)}
+					>
+						<IconChevronLeft size={16} />
+					</ActionIcon>
+				)}
+
+				<Button size="compact-xs" onClick={() => props.onChange(1)}>
+					1
+				</Button>
+
+				<Select
+					size="xs"
+					searchable
+					w={rem(100)}
+					data={pageOptions}
+					value={String(props.value)}
+					onChange={(value) => value && props.onChange(Number(value))}
+				/>
+
+				{props.value < totalPages && (
+					<>
+						<Button
+							size="compact-xs"
+							onClick={() => props.onChange(totalPages)}
+						>
+							{totalPages}
+						</Button>
+						<ActionIcon
+							size="sm"
+							variant="default"
+							onClick={() => props.onChange(props.value + 1)}
+						>
+							<IconChevronRight size={16} />
+						</ActionIcon>
+					</>
+				)}
+			</Group>
+		</Center>
+	);
+};
+
+export const CopyableTextInput = (props: {
+	value?: string;
+	description?: string;
+	containerStyle?: CSSProperties;
+}) => {
+	return (
+		<TextInput
+			readOnly
+			value={props.value}
+			style={props.containerStyle}
+			description={props.description}
+			onClick={(e) => e.currentTarget.select()}
+			rightSection={
+				<CopyButton value={props.value || ""}>
+					{({ copied, copy }) => (
+						<Tooltip
+							withArrow
+							position="left"
+							label={copied ? "Copied" : "Copy"}
+						>
+							<ActionIcon onClick={copy} color={copied ? "teal" : "gray"}>
+								{copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+							</ActionIcon>
+						</Tooltip>
+					)}
+				</CopyButton>
+			}
+		/>
+	);
+};

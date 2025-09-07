@@ -1,5 +1,5 @@
+use anyhow::Result;
 use application_utils::get_base_http_client;
-use async_graphql::Result;
 use common_utils::{APPLICATION_JSON_HEADER, ryot_log};
 use convert_case::{Case, Casing};
 use dependent_models::{CollectionToEntityDetails, ImportCompletedItem, ImportResult};
@@ -15,7 +15,7 @@ use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 
-use super::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
+use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 const API_URL: &str = "https://api.trakt.tv";
 const API_VERSION: &str = "2";
@@ -101,7 +101,7 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
             let username = url_parts[4];
             let list_slug = url_parts[6].split('?').next().unwrap_or(url_parts[6]);
 
-            let api_url = format!("{}/users/{}/lists/{}/items", API_URL, username, list_slug);
+            let api_url = format!("{API_URL}/users/{username}/lists/{list_slug}/items");
 
             let items: Vec<ListItemResponse> = fetch_json(&client, &api_url, None).await?;
 
@@ -122,9 +122,9 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
         }
         DeployTraktImportInput::User(username) => {
             let mut completed = vec![];
-            let url = format!("{}/users/{}", API_URL, username);
+            let url = format!("{API_URL}/users/{username}");
             let mut lists: Vec<ListResponse> =
-                fetch_json(&client, &format!("{}/lists", url), None).await?;
+                fetch_json(&client, &format!("{url}/lists"), None).await?;
 
             for list in lists.iter_mut() {
                 let items: Vec<ListItemResponse> = fetch_json(
@@ -137,7 +137,7 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
             }
             for list in ["watchlist", "favorites"] {
                 let items: Vec<ListItemResponse> =
-                    fetch_json(&client, &format!("{}/{}", url, list), None).await?;
+                    fetch_json(&client, &format!("{url}/{list}"), None).await?;
                 lists.push(ListResponse {
                     items,
                     name: list.to_owned(),
@@ -147,7 +147,7 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
 
             for typ in ["movies", "shows"] {
                 let items: Vec<ListItemResponse> =
-                    fetch_json(&client, &format!("{}/collection/{}", url, typ), None).await?;
+                    fetch_json(&client, &format!("{url}/collection/{typ}"), None).await?;
                 for item in items.iter() {
                     match process_item(item) {
                         Ok(mut d) => {
@@ -161,7 +161,7 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
                     }
                 }
                 let ratings: Vec<ListItemResponse> =
-                    fetch_json(&client, &format!("{}/ratings/{}", url, typ), None).await?;
+                    fetch_json(&client, &format!("{url}/ratings/{typ}"), None).await?;
                 for item in ratings.iter() {
                     match process_item(item) {
                         Ok(mut d) => {
@@ -201,8 +201,8 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
 
             let mut histories = vec![];
             let rsp = client
-                .head(format!("{}/history", url))
-                .query(&serde_json::json!({ "limit": 1000 }))
+                .head(format!("{url}/history"))
+                .query(&[("limit", "1000")])
                 .send()
                 .await
                 .unwrap();
@@ -218,7 +218,7 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
                 ryot_log!(debug, "Fetching user history {page:?}/{total_history:?}");
                 let history: Vec<ListItemResponse> = fetch_json(
                     &client,
-                    &format!("{}/history", url),
+                    &format!("{url}/history"),
                     Some(&serde_json::json!({ "page": page, "limit": 1000 })),
                 )
                 .await?;
@@ -254,7 +254,7 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
                             show_season_number,
                             show_episode_number,
                             ended_on: item.watched_at,
-                            provider_watched_on: Some(ImportSource::Trakt.to_string()),
+                            providers_consumed_on: Some(vec![ImportSource::Trakt.to_string()]),
                             ..Default::default()
                         });
                         completed.push(d);
@@ -290,7 +290,7 @@ fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMetadataItem, Impo
         (d.ids.trakt, d.ids.tmdb, MediaLot::Show)
     } else {
         return Err(ImportFailedItem {
-            identifier: format!("{:#?}", i),
+            identifier: format!("{i:#?}"),
             step: ImportFailStep::ItemDetailsFromSource,
             error: Some("Item is neither a movie or a show".to_owned()),
             ..Default::default()
@@ -305,7 +305,7 @@ fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMetadataItem, Impo
             ..Default::default()
         }),
         None => Err(ImportFailedItem {
-            identifier: format!("{:#?}", i),
+            identifier: format!("{i:#?}"),
             step: ImportFailStep::ItemDetailsFromSource,
             error: Some("Item does not have an associated TMDB id".to_owned()),
             ..Default::default()

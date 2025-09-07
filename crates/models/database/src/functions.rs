@@ -1,8 +1,8 @@
-use async_graphql::Result;
+use anyhow::Result;
 use enum_models::EntityLot;
 use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter};
 
-use super::{prelude::UserToEntity, user_to_entity};
+use crate::{prelude::UserToEntity, user_to_entity};
 
 pub async fn get_user_to_entity_association<C>(
     db: &C,
@@ -18,10 +18,11 @@ where
         EntityLot::Person => user_to_entity::Column::PersonId,
         EntityLot::Exercise => user_to_entity::Column::ExerciseId,
         EntityLot::MetadataGroup => user_to_entity::Column::MetadataGroupId,
-        EntityLot::Collection
-        | EntityLot::Workout
-        | EntityLot::WorkoutTemplate
+        EntityLot::Genre
         | EntityLot::Review
+        | EntityLot::Workout
+        | EntityLot::Collection
+        | EntityLot::WorkoutTemplate
         | EntityLot::UserMeasurement => unreachable!(),
     };
     let ute = UserToEntity::find()

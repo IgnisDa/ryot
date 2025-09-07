@@ -1,12 +1,10 @@
 import {
 	Anchor,
 	Box,
-	Center,
 	Container,
 	Flex,
 	Group,
 	Image,
-	Pagination,
 	Paper,
 	Skeleton,
 	Stack,
@@ -16,66 +14,40 @@ import {
 import { useInViewport } from "@mantine/hooks";
 import {
 	GenreDetailsDocument,
-	GenresListDocument,
+	UserGenresListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	getInitials,
-	parseSearchQuery,
-	truncate,
-	zodIntAsString,
-} from "@ryot/ts-utils";
+import { getInitials, truncate } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useLoaderData } from "react-router";
+import { Link } from "react-router";
 import { $path } from "safe-routes";
-import { z } from "zod";
+import { useLocalStorage } from "usehooks-ts";
 import {
-	ApplicationGrid,
-	DebouncedSearchInput,
+	ApplicationPagination,
 	ProRequiredAlert,
+	SkeletonLoader,
 } from "~/components/common";
+import { DebouncedSearchInput } from "~/components/common/filters";
+import { ApplicationGrid } from "~/components/common/layout";
+import {
+	useCoreDetails,
+	useFallbackImageUrl,
+	useGetRandomMantineColor,
+} from "~/lib/shared/hooks";
 import {
 	clientGqlService,
 	getMetadataDetailsQuery,
 	queryClient,
 	queryFactory,
-} from "~/lib/common";
-import { pageQueryParam } from "~/lib/common";
-import {
-	useAppSearchParam,
-	useCoreDetails,
-	useFallbackImageUrl,
-	useGetRandomMantineColor,
-} from "~/lib/hooks";
-import {
-	getSearchEnhancedCookieName,
-	redirectToFirstPageIfOnInvalidPage,
-	redirectUsingEnhancedCookieSearchParams,
-	serverGqlService,
-} from "~/lib/utilities.server";
-import type { Route } from "./+types/_dashboard.media.genre.list";
+} from "~/lib/shared/react-query";
 
-const searchParamsSchema = z.object({
-	query: z.string().optional(),
-	[pageQueryParam]: zodIntAsString.default("1"),
-});
+interface FilterState {
+	page: number;
+	query: string;
+}
 
-export type SearchParams = z.infer<typeof searchParamsSchema>;
-
-export const loader = async ({ request }: Route.LoaderArgs) => {
-	const cookieName = await getSearchEnhancedCookieName("genre.list", request);
-	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = parseSearchQuery(request, searchParamsSchema);
-	const [{ genresList }] = await Promise.all([
-		serverGqlService.authenticatedRequest(request, GenresListDocument, {
-			input: { page: query[pageQueryParam], query: query.query },
-		}),
-	]);
-	const totalPages = await redirectToFirstPageIfOnInvalidPage({
-		request,
-		currentPage: query[pageQueryParam],
-		totalResults: genresList.details.total,
-	});
-	return { query, genresList, cookieName, totalPages };
+const defaultFilterState: FilterState = {
+	page: 1,
+	query: "",
 };
 
 export const meta = () => {
@@ -83,47 +55,71 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
+	const [filters, setFilters] = useLocalStorage(
+		"GenreListFilters",
+		defaultFilterState,
+	);
+
+	const { data: userGenresList } = useQuery({
+		queryKey: queryFactory.media.userGenresList({
+			page: filters.page,
+			query: filters.query,
+		}).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(UserGenresListDocument, {
+					input: { page: filters.page, query: filters.query },
+				})
+				.then((data) => data.userGenresList),
+	});
+
+	const updateFilter = (
+		key: keyof FilterState,
+		value: string | number | null,
+	) => setFilters((prev) => ({ ...prev, [key]: value }));
 
 	return (
 		<Container>
 			<Stack>
-				<Flex align="center" gap="md">
-					<Title>Genres</Title>
-				</Flex>
-				<DebouncedSearchInput
-					placeholder="Search for genres"
-					initialValue={loaderData.query.query}
-					enhancedQueryParams={loaderData.cookieName}
-				/>
-				{loaderData.genresList.details.total > 0 ? (
+				{userGenresList ? (
 					<>
-						<Box>
-							<Text display="inline" fw="bold">
-								{loaderData.genresList.details.total}
-							</Text>{" "}
-							items found
-						</Box>
-						<ApplicationGrid>
-							{loaderData.genresList.items.map((genreId) => (
-								<DisplayGenre key={genreId} genreId={genreId} />
-							))}
-						</ApplicationGrid>
+						<Group justify="space-between">
+							<Title>Genres</Title>
+							<ApplicationPagination
+								value={filters.page}
+								onChange={(v) => updateFilter("page", v)}
+								totalItems={userGenresList.details.totalItems}
+							/>
+						</Group>
+						<DebouncedSearchInput
+							value={filters.query}
+							placeholder="Search for genres"
+							onChange={(value) => {
+								updateFilter("query", value);
+								updateFilter("page", 1);
+							}}
+						/>
+						{userGenresList.details.totalItems > 0 ? (
+							<>
+								<Box>
+									<Text display="inline" fw="bold">
+										{userGenresList.details.totalItems}
+									</Text>{" "}
+									items found
+								</Box>
+								<ApplicationGrid>
+									{userGenresList.items.map((genreId) => (
+										<DisplayGenre key={genreId} genreId={genreId} />
+									))}
+								</ApplicationGrid>
+							</>
+						) : (
+							<Text>No information to display</Text>
+						)}
 					</>
 				) : (
-					<Text>No information to display</Text>
+					<SkeletonLoader />
 				)}
-				{loaderData.genresList ? (
-					<Center mt="xl">
-						<Pagination
-							size="sm"
-							total={loaderData.totalPages}
-							value={loaderData.query[pageQueryParam]}
-							onChange={(v) => setP(pageQueryParam, v.toString())}
-						/>
-					</Center>
-				) : null}
 			</Stack>
 		</Container>
 	);
@@ -140,24 +136,42 @@ const DisplayGenre = (props: { genreId: string }) => {
 				GenreDetailsDocument,
 				{ input: { genreId: props.genreId } },
 			);
-			let images = [];
-			for (const content of genreDetails.contents.items) {
-				if (images.length === 4) break;
-				const { assets } = await queryClient.ensureQueryData(
-					getMetadataDetailsQuery(content),
-				);
-				if (assets.remoteImages.length > 0) images.push(assets.remoteImages[0]);
-			}
-			if (images.length < 4) images = images.splice(0, 1);
+
+			const images = [];
+			const maxImages = 4;
+			const batchSize = 6;
+
+			const contentsBatch = genreDetails.response.contents.items.slice(
+				0,
+				batchSize,
+			);
+
+			const results = await Promise.all(
+				contentsBatch.map(async (content) => {
+					const { assets } = await queryClient.ensureQueryData(
+						getMetadataDetailsQuery(content),
+					);
+					return assets.remoteImages.length > 0 ? assets.remoteImages[0] : null;
+				}),
+			);
+
+			for (const image of results)
+				if (image && images.length <= maxImages) images.push(image);
+
+			if (images.length <= maxImages)
+				return { genreDetails, images: images.slice(0, 1) };
+
 			return { genreDetails, images };
 		},
 	});
 
-	const genreName = genreData?.genreDetails.details.name || "";
+	const genreName = genreData?.genreDetails.response.details.name || "";
 	const color = useGetRandomMantineColor(genreName);
 	const fallbackImageUrl = useFallbackImageUrl(getInitials(genreName));
 
-	return genreData ? (
+	if (!genreData) return <Skeleton height={290} ref={ref} />;
+
+	return (
 		<Anchor
 			component={Link}
 			to={$path("/media/genre/:id", { id: props.genreId })}
@@ -198,7 +212,5 @@ const DisplayGenre = (props: { genreId: string }) => {
 				</Group>
 			</Stack>
 		</Anchor>
-	) : (
-		<Skeleton height={290} ref={ref} />
 	);
 };

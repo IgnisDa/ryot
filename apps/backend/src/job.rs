@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use apalis::prelude::*;
+use apalis::prelude::{Data, Error};
 use apalis_cron::CronContext;
 use background_models::{HpApplicationJob, LpApplicationJob, MpApplicationJob, ScheduledJob};
 use common_utils::ryot_log;
@@ -90,7 +90,7 @@ pub async fn perform_hp_application_job(
             .await
             .map(|_| ()),
     };
-    status.map_err(|e| Error::Failed(Arc::new(e.message.into())))
+    status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }
 
 pub async fn perform_mp_application_job(
@@ -154,7 +154,7 @@ pub async fn perform_mp_application_job(
                 .await
         }
     };
-    status.map_err(|e| Error::Failed(Arc::new(e.message.into())))
+    status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }
 
 pub async fn perform_lp_application_job(
@@ -186,6 +186,12 @@ pub async fn perform_lp_application_job(
                 .update_user_last_activity_performed(user_id, timestamp)
                 .await
         }
+        LpApplicationJob::HandleMetadataEligibleForSmartCollectionMoving(metadata_id) => {
+            app_services
+                .miscellaneous_service
+                .handle_metadata_eligible_for_smart_collection_moving(metadata_id)
+                .await
+        }
     };
-    status.map_err(|e| Error::Failed(Arc::new(e.message.into())))
+    status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }

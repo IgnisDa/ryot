@@ -31,10 +31,6 @@ books:
     # @envvar BOOKS_GOOGLE_BOOKS_API_KEY
     api_key: ""
 
-    # Whether to pass the raw query string to the search API.
-    # @envvar BOOKS_GOOGLE_BOOKS_PASS_RAW_QUERY
-    pass_raw_query: false
-
   # Settings related to Hardcover.
   hardcover:
     # The API key to be used.
@@ -97,9 +93,6 @@ frontend:
 
   # Settings related to Umami analytics.
   umami:
-    # @envvar FRONTEND_UMAMI_DOMAINS
-    domains: ""
-
     # For example: https://umami.is/script.js.
     # @envvar FRONTEND_UMAMI_SCRIPT_URL
     script_url: ""
@@ -110,12 +103,6 @@ frontend:
   # Used as the base URL when generating item links for the frontend.
   # @envvar FRONTEND_URL
   url: "https://app.ryot.io"
-
-# Settings related to media.
-media:
-  # Number of days after which a media should be removed from the Monitoring collection.
-  # @envvar MEDIA_MONITORING_REMOVE_AFTER_DAYS
-  monitoring_remove_after_days: 30
 
 # Settings related to movies and shows.
 movies_and_shows:
@@ -129,8 +116,23 @@ movies_and_shows:
     # @envvar MOVIES_AND_SHOWS_TMDB_LOCALE
     locale: "en"
 
+  # Settings related to TVDB.
+  tvdb:
+    # The API key for the TVDB API.
+    # @envvar MOVIES_AND_SHOWS_TVDB_API_KEY
+    api_key: ""
+
 # Settings related to music.
-music: {}
+music:
+  # Settings related to Spotify.
+  spotify:
+    # The client ID for the Spotify API.
+    # @envvar MUSIC_SPOTIFY_CLIENT_ID
+    client_id: ""
+
+    # The client secret for the Spotify API.
+    # @envvar MUSIC_SPOTIFY_CLIENT_SECRET
+    client_secret: ""
 
 # Settings related to podcasts.
 podcasts:
@@ -207,7 +209,7 @@ server:
     # @envvar SERVER_OIDC_ISSUER_URL
     issuer_url: ""
 
-  # The pro key assigned to the user.
+  # The key that can be used to enable Ryot Pro features.
   # @envvar SERVER_PRO_KEY
   pro_key: ""
 
@@ -224,7 +226,7 @@ server:
   # The mailer related settings.
   smtp:
     # @envvar SERVER_SMTP_MAILBOX
-    mailbox: "Ryot <no-reply@mailer.io>"
+    mailbox: "Ryot <no-reply@ryot.io>"
 
     # @envvar SERVER_SMTP_PASSWORD
     password: ""
@@ -245,16 +247,18 @@ users:
   # @envvar USERS_DISABLE_LOCAL_AUTH
   disable_local_auth: false
 
-  # The secret used for generating JWT tokens.
-  # @envvar USERS_JWT_SECRET
-  jwt_secret: ""
-
   # The number of days till login authentication token is valid.
   # @envvar USERS_TOKEN_VALID_FOR_DAYS
   token_valid_for_days: 90
 
 # Settings related to video games.
 video_games:
+  # Settings related to GiantBomb.
+  giant_bomb:
+    # The API key to be used for the GiantBomb API.
+    # @envvar VIDEO_GAMES_GIANT_BOMB_API_KEY
+    api_key: ""
+
   # Settings related to IGDB.
   igdb:
     # The image sizes to fetch from IGDB.

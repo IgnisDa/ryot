@@ -1,6 +1,6 @@
 use std::result::Result as StdResult;
 
-use async_graphql::Result;
+use anyhow::Result;
 use common_models::IdObject;
 use common_utils::{USER_AGENT_STR, ryot_log};
 use dependent_models::{CollectionToEntityDetails, ImportCompletedItem, ImportResult};
@@ -10,7 +10,7 @@ use media_models::{
     CreateOrUpdateCollectionInput, DeployUrlAndKeyImportInput, ImportOrExportItemRating,
     ImportOrExportItemReview, ImportOrExportMetadataItemSeen,
 };
-use providers::openlibrary::get_key;
+use openlibrary_provider::get_key;
 use reqwest::{
     ClientBuilder,
     header::{HeaderMap, HeaderValue, USER_AGENT},
@@ -21,7 +21,7 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_with::{TimestampMilliSeconds, formats::Flexible, serde_as};
 
-use super::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
+use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -150,11 +150,7 @@ async fn get_item_details_with_source(
             error: Some(e.to_string()),
         })?;
     let details: ItemDetails = rsp.json().await.map_err(|e| {
-        ryot_log!(
-            debug,
-            "Encountered error for id = {id:?}: {e:?}",
-            id = item.id
-        );
+        ryot_log!(debug, "Error for id = {id:?}: {e:?}", id = item.id);
         ImportFailedItem {
             lot: Some(lot),
             step: ImportFailStep::ItemDetailsFromSource,
@@ -247,7 +243,7 @@ async fn process_item(
                     ended_on: s.date,
                     show_season_number: season_number,
                     show_episode_number: episode_number,
-                    provider_watched_on: Some(ImportSource::Mediatracker.to_string()),
+                    providers_consumed_on: Some(vec![ImportSource::Mediatracker.to_string()]),
                     ..Default::default()
                 }
             })
@@ -262,13 +258,13 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let mut headers = HeaderMap::new();
     headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
     headers.insert("Access-Token", input.api_key.parse().unwrap());
-    let url = format!("{}/api", api_url);
+    let url = format!("{api_url}/api");
     let client = ClientBuilder::new()
         .default_headers(headers)
         .build()
         .unwrap();
 
-    let rsp = client.get(format!("{}/user", url)).send().await.unwrap();
+    let rsp = client.get(format!("{url}/user")).send().await.unwrap();
     let data = rsp.json::<IdObject>().await.unwrap();
 
     let user_id: i32 = data.id;
@@ -277,8 +273,8 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let mut completed = vec![];
 
     let rsp = client
-        .get(format!("{}/lists", url))
-        .query(&serde_json::json!({ "userId": user_id }))
+        .get(format!("{url}/lists"))
+        .query(&[("userId", &user_id.to_string())])
         .send()
         .await
         .unwrap();
@@ -297,8 +293,8 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
 
     for list in lists {
         let rsp = client
-            .get(format!("{}/list/items", url))
-            .query(&serde_json::json!({ "listId": list.id }))
+            .get(format!("{url}/list/items"))
+            .query(&[("listId", &list.id.to_string())])
             .send()
             .await
             .unwrap();
@@ -326,7 +322,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     }
 
     // all items returned here are seen at least once
-    let rsp = client.get(format!("{}/items", url)).send().await.unwrap();
+    let rsp = client.get(format!("{url}/items")).send().await.unwrap();
     let data: Vec<Item> = rsp.json().await.unwrap();
 
     let data_len = data.len();

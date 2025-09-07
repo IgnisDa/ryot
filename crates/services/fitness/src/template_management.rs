@@ -1,52 +1,30 @@
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow, bail};
 use database_models::{
     exercise,
     prelude::{Exercise, WorkoutTemplate},
     workout_template,
 };
-use database_utils::{
-    server_key_validation_guard, user_workout_template_details as get_user_workout_template_details,
-};
-use dependent_models::{
-    CachedResponse, UserTemplatesOrWorkoutsListInput, UserWorkoutTemplateDetails,
-    UserWorkoutsTemplatesListResponse,
-};
-use dependent_utils::{
-    expire_user_workout_templates_list_cache, get_focused_workout_summary_with_exercises,
-    user_workout_templates_list as get_user_workout_templates_list,
-};
+use database_utils::server_key_validation_guard;
+use dependent_core_utils::is_server_key_validated;
+use dependent_fitness_utils::get_focused_workout_summary_with_exercises;
+use dependent_utility_utils::expire_user_workout_templates_list_cache;
 use fitness_models::{
     ProcessedExercise, UserWorkoutInput, WorkoutInformation, WorkoutSetRecord, WorkoutSummary,
     WorkoutSummaryExercise,
 };
 use nanoid::nanoid;
-use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
-use sea_query::OnConflict;
+use sea_orm::{
+    ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, sea_query::OnConflict,
+};
 use std::{collections::HashMap, sync::Arc};
 use supporting_service::SupportingService;
-
-pub async fn user_workout_templates_list(
-    ss: &Arc<SupportingService>,
-    user_id: String,
-    input: UserTemplatesOrWorkoutsListInput,
-) -> Result<CachedResponse<UserWorkoutsTemplatesListResponse>> {
-    get_user_workout_templates_list(&user_id, ss, input).await
-}
-
-pub async fn user_workout_template_details(
-    ss: &Arc<SupportingService>,
-    user_id: String,
-    workout_template_id: String,
-) -> Result<UserWorkoutTemplateDetails> {
-    get_user_workout_template_details(&ss.db, &user_id, workout_template_id).await
-}
 
 pub async fn create_or_update_user_workout_template(
     ss: &Arc<SupportingService>,
     user_id: String,
     input: UserWorkoutInput,
 ) -> Result<String> {
-    server_key_validation_guard(ss.is_server_key_validated().await?).await?;
+    server_key_validation_guard(is_server_key_validated(ss).await?).await?;
     let mut summary = WorkoutSummary::default();
     let mut information = WorkoutInformation {
         comment: input.comment,
@@ -69,7 +47,7 @@ pub async fn create_or_update_user_workout_template(
 
     for exercise in input.exercises {
         let db_ex = exercise_map.get(&exercise.exercise_id).ok_or_else(|| {
-            Error::new(format!(
+            anyhow!(format!(
                 "Exercise with ID {} not found",
                 exercise.exercise_id
             ))
@@ -136,13 +114,13 @@ pub async fn delete_user_workout_template(
     user_id: String,
     workout_template_id: String,
 ) -> Result<bool> {
-    server_key_validation_guard(ss.is_server_key_validated().await?).await?;
+    server_key_validation_guard(is_server_key_validated(ss).await?).await?;
     let Some(wkt) = WorkoutTemplate::find_by_id(workout_template_id)
         .filter(workout_template::Column::UserId.eq(&user_id))
         .one(&ss.db)
         .await?
     else {
-        return Err(Error::new("Workout template does not exist for user"));
+        bail!("Workout template does not exist for user");
     };
     wkt.delete(&ss.db).await?;
     expire_user_workout_templates_list_cache(&user_id, ss).await?;

@@ -51,7 +51,7 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
-import { Form, Link, useLoaderData } from "react-router";
+import { Form, Link, data, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -61,19 +61,14 @@ import {
 	DisplayCollectionToEntity,
 	ProRequiredAlert,
 } from "~/components/common";
+import { ExerciseHistory } from "~/components/fitness/components";
+import { WorkoutRevisionScheduledAlert } from "~/components/fitness/display-items";
 import {
-	ExerciseHistory,
-	WorkoutRevisionScheduledAlert,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
-} from "~/components/fitness";
-import {
-	FitnessAction,
-	FitnessEntity,
-	PRO_REQUIRED_MESSAGE,
-	dayjsLib,
-	openConfirmationModal,
-} from "~/lib/common";
+} from "~/components/fitness/utils";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
@@ -81,10 +76,12 @@ import {
 	useMetadataDetails,
 	useUserPreferences,
 	useUserUnitSystem,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { duplicateOldWorkout } from "~/lib/state/fitness";
 import { useFullscreenImage } from "~/lib/state/general";
 import { useAddEntityToCollections } from "~/lib/state/media";
+import { FitnessAction, FitnessEntity } from "~/lib/types";
 import {
 	createToastHeaders,
 	redirectWithToast,
@@ -95,7 +92,7 @@ import type { Route } from "./+types/_dashboard.fitness.$entity.$id._index";
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const { id: entityId, entity } = parseParameters(
 		params,
-		z.object({ id: z.string(), entity: z.nativeEnum(FitnessEntity) }),
+		z.object({ id: z.string(), entity: z.enum(FitnessEntity) }),
 	);
 	const resp = await match(entity)
 		.with(FitnessEntity.Workouts, async () => {
@@ -172,8 +169,8 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	return { entityId, entity, ...resp };
 };
 
-export const meta = ({ data }: Route.MetaArgs) => {
-	return [{ title: `${data?.entityName} | Ryot` }];
+export const meta = () => {
+	return [{ title: "Fitness Entity | Ryot" }];
 };
 
 export const action = async ({ request }: Route.ActionArgs) => {
@@ -189,7 +186,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				UpdateUserWorkoutAttributesDocument,
 				{ input: submission },
 			);
-			return Response.json({ status: "success", submission } as const, {
+			return data({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Workout edited successfully",
@@ -222,7 +219,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 const deleteSchema = z.object({
 	workoutId: z.string().optional(),
 	templateId: z.string().optional(),
-	entity: z.nativeEnum(FitnessEntity),
+	entity: z.enum(FitnessEntity),
 });
 
 const editWorkoutSchema = z.object({

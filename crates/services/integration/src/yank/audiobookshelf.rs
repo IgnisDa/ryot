@@ -1,18 +1,20 @@
 use std::sync::Arc;
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
-use dependent_models::{CollectionToEntityDetails, ImportOrExportMetadataItem};
-use dependent_models::{ImportCompletedItem, ImportResult};
-use dependent_utils::{commit_metadata, get_identifier_from_book_isbn};
+use dependent_entity_utils::commit_metadata;
+use dependent_models::{
+    CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
+};
+use dependent_provider_utils::get_identifier_from_book_isbn;
 use enum_models::{MediaLot, MediaSource};
 use external_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
+use google_books_provider::GoogleBooksService;
+use hardcover_provider::HardcoverService;
 use media_models::{ImportOrExportMetadataItemSeen, PartialMetadataWithoutId};
-use providers::{
-    google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
-};
+use openlibrary_provider::OpenlibraryService;
 use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},
@@ -23,7 +25,7 @@ use supporting_service::SupportingService;
 fn get_http_client(access_token: &String) -> Client {
     get_base_http_client(Some(vec![(
         AUTHORIZATION,
-        HeaderValue::from_str(&format!("Bearer {}", access_token)).unwrap(),
+        HeaderValue::from_str(&format!("Bearer {access_token}")).unwrap(),
     )]))
 }
 
@@ -35,17 +37,15 @@ pub async fn yank_progress(
     google_books_service: &GoogleBooksService,
     open_library_service: &OpenlibraryService,
 ) -> Result<ImportResult> {
-    let url = format!("{}/api", base_url);
+    let url = format!("{base_url}/api");
     let client = get_http_client(&access_token);
 
     let resp = client
-        .get(format!("{}/me/items-in-progress", url))
+        .get(format!("{url}/me/items-in-progress"))
         .send()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .json::<audiobookshelf::Response>()
-        .await
-        .map_err(|e| anyhow!(e))?;
+        .await?;
 
     ryot_log!(debug, "Got response for items in progress {:?}", resp);
 
@@ -119,13 +119,11 @@ pub async fn yank_progress(
             continue;
         };
         match client
-            .get(format!("{}/me/progress/{}", url, progress_id))
+            .get(format!("{url}/me/progress/{progress_id}"))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json::<audiobookshelf::ItemProgress>()
             .await
-            .map_err(|e| anyhow!(e))
         {
             Ok(resp) => {
                 ryot_log!(
@@ -152,7 +150,7 @@ pub async fn yank_progress(
                         seen_history: vec![ImportOrExportMetadataItemSeen {
                             podcast_episode_number,
                             progress: Some(progress * dec!(100)),
-                            provider_watched_on: Some("Audiobookshelf".to_string()),
+                            providers_consumed_on: Some(vec!["Audiobookshelf".to_string()]),
                             ..Default::default()
                         }],
                         ..Default::default()
@@ -179,8 +177,7 @@ pub async fn sync_to_owned_collection(
     let libraries_resp = client
         .get("libraries")
         .send()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .json::<LibrariesListResponse>()
         .await
         .unwrap();
@@ -188,8 +185,7 @@ pub async fn sync_to_owned_collection(
         let items = client
             .get(format!("libraries/{}/items", library.id))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json::<ListResponse>()
             .await
             .unwrap();

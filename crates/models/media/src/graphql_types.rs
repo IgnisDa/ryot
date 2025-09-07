@@ -1,6 +1,6 @@
 use async_graphql::{Enum, InputObject, OneofObject, SimpleObject};
 use chrono::NaiveDate;
-use common_models::ApplicationDateRange;
+use common_models::{ApplicationDateRange, SearchInput};
 use enum_models::{EntityLot, MediaLot, SeenState, UserNotificationContent, Visibility};
 use rust_decimal::Decimal;
 use sea_orm::{prelude::DateTimeUtc, strum::Display};
@@ -35,9 +35,10 @@ pub struct MetadataProgressUpdateCommonInput {
     pub show_episode_number: Option<i32>,
     pub manga_volume_number: Option<i32>,
     pub anime_episode_number: Option<i32>,
+    pub manual_time_spent: Option<Decimal>,
     pub podcast_episode_number: Option<i32>,
-    pub provider_watched_on: Option<String>,
     pub manga_chapter_number: Option<Decimal>,
+    pub providers_consumed_on: Option<Vec<String>>,
 }
 
 #[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone)]
@@ -52,12 +53,6 @@ pub struct MetadataProgressUpdateStartedAndFinishedOnDateInput {
     pub started_on: DateTimeUtc,
     #[graphql(flatten)]
     pub data: MetadataProgressUpdateStartedOrFinishedOnDateInput,
-}
-
-#[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
-pub enum MetadataProgressUpdateChangeLatestInProgressInput {
-    State(SeenState),
-    Progress(Decimal),
 }
 
 #[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
@@ -77,9 +72,10 @@ pub struct MetadataProgressUpdateNewInProgressInput {
 
 #[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
 pub enum MetadataProgressUpdateChange {
+    ChangeLatestState(SeenState),
+    ChangeLatestInProgress(Decimal),
     CreateNewInProgress(MetadataProgressUpdateNewInProgressInput),
     CreateNewCompleted(MetadataProgressUpdateChangeCreateNewCompletedInput),
-    ChangeLatestInProgress(MetadataProgressUpdateChangeLatestInProgressInput),
 }
 
 #[derive(InputObject, Debug, Deserialize, Serialize, Clone)]
@@ -94,10 +90,11 @@ pub struct MetadataProgressUpdateCacheInput {
     pub common: MetadataProgressUpdateCommonInput,
 }
 
-#[derive(Debug, InputObject)]
+#[skip_serializing_none]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq, Eq, InputObject)]
 pub struct GenreDetailsInput {
     pub genre_id: String,
-    pub page: Option<u64>,
+    pub search: Option<SearchInput>,
 }
 
 #[derive(Debug, Serialize, Hash, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -111,11 +108,11 @@ pub enum GraphqlSortOrder {
 pub enum MediaSortBy {
     Title,
     Random,
-    LastSeen,
     UserRating,
     #[default]
     ReleaseDate,
     LastUpdated,
+    LastConsumed,
     TimesConsumed,
     ProviderRating,
 }
@@ -140,6 +137,13 @@ pub enum MediaGeneralFilter {
 }
 
 #[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Default)]
+pub enum MediaCollectionStrategyFilter {
+    Or,
+    #[default]
+    And,
+}
+
+#[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Default)]
 pub enum MediaCollectionPresenceFilter {
     #[default]
     PresentIn,
@@ -149,6 +153,7 @@ pub enum MediaCollectionPresenceFilter {
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct MediaCollectionFilter {
     pub collection_id: String,
+    pub strategy: MediaCollectionStrategyFilter,
     pub presence: MediaCollectionPresenceFilter,
 }
 
@@ -176,8 +181,8 @@ pub struct UserMetadataDetailsShowSeasonProgress {
 pub struct UserMediaNextEntry {
     pub season: Option<i32>,
     pub volume: Option<i32>,
-    pub chapter: Option<Decimal>,
     pub episode: Option<i32>,
+    pub chapter: Option<Decimal>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -187,7 +192,7 @@ pub struct UpdateSeenItemInput {
     pub started_on: Option<DateTimeUtc>,
     pub finished_on: Option<DateTimeUtc>,
     pub manual_time_spent: Option<Decimal>,
-    pub provider_watched_on: Option<String>,
+    pub providers_consumed_on: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -196,21 +201,15 @@ pub struct MarkEntityAsPartialInput {
     pub entity_lot: EntityLot,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct PresignedPutUrlResponse {
-    pub upload_url: String,
-    pub key: String,
-}
-
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateReviewCommentInput {
     /// The review this comment belongs to.
     pub review_id: String,
-    pub comment_id: Option<String>,
     pub text: Option<String>,
+    pub comment_id: Option<String>,
+    pub should_delete: Option<bool>,
     pub increment_likes: Option<bool>,
     pub decrement_likes: Option<bool>,
-    pub should_delete: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
@@ -234,10 +233,10 @@ pub struct UserCalendarEventInput {
 
 #[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
 pub enum UserUpcomingCalendarEventInput {
-    /// The number of media to select
-    NextMedia(u64),
     /// The number of days to select
     NextDays(u64),
+    /// The number of media to select
+    NextMedia(u64),
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -248,11 +247,11 @@ pub struct PresignedPutUrlInput {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
 pub struct GroupedCalendarEvent {
-    pub events: Vec<GraphqlCalendarEvent>,
     pub date: NaiveDate,
+    pub events: Vec<GraphqlCalendarEvent>,
 }
 
 #[derive(Debug, Default)]
 pub struct UpdateMediaEntityResult {
-    pub notifications: Vec<(String, UserNotificationContent)>,
+    pub notifications: Vec<UserNotificationContent>,
 }

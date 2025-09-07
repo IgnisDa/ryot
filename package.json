@@ -2,6 +2,7 @@
 	"name": "@ryot/root",
 	"packageManager": "yarn@4.1.1",
 	"workspaces": [
+		"apps/browser-extension",
 		"apps/docs",
 		"apps/frontend",
 		"apps/website",
@@ -9,17 +10,14 @@
 		"libs/graphql",
 		"libs/transactional",
 		"libs/ts-utils",
-		"tests/backend-api"
+		"tests"
 	],
 	"engines": {
-		"node": "20.10.0"
+		"node": "24.4.0"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.0.2",
-		"tsconfig-moon": "1.4.0",
-		"typescript": "5.8.3"
-	},
-	"resolutions": {
-		"@types/react": "18.3.4"
+		"tsconfig-moon": "1.4.1",
+		"typescript": "5.9.2"
 	}
 }

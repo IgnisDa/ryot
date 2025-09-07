@@ -1,22 +1,23 @@
 use std::sync::Arc;
 
-use async_graphql::Result;
-
+use anyhow::Result;
 use common_models::StringIdObject;
-
-use database_models::{access_link, integration, notification_platform, user};
+use database_models::{access_link, integration, notification_platform};
 use database_utils::server_key_validation_guard;
-use dependent_models::{CachedResponse, UserDetailsResult, UserMetadataRecommendationsResponse};
-
+use dependent_core_utils::is_server_key_validated;
+use dependent_models::{
+    BasicUserDetails, CachedResponse, UserDetailsResult, UserMetadataRecommendationsResponse,
+};
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
-    CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
-    ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
-    UpdateUserNotificationPlatformInput, UserResetResult,
+    CreateUserNotificationPlatformInput, GetPasswordChangeSessionInput,
+    GetPasswordChangeSessionResponse, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
+    ProcessAccessLinkResult, RegisterResult, RegisterUserInput, SetPasswordViaSessionInput,
+    UpdateUserNotificationPlatformInput, UserResetResult, UserTwoFactorBackupCodesResponse,
+    UserTwoFactorInitiateResponse, UserTwoFactorSetupInput, UserTwoFactorVerifyInput,
+    VerifyTwoFactorResult,
 };
-
 use openidconnect::Nonce;
-
 use supporting_service::SupportingService;
 use user_models::{UpdateUserInput, UserPreferences};
 
@@ -25,7 +26,9 @@ mod authentication_operations;
 mod integration_operations;
 mod notification_operations;
 mod oidc_operations;
+mod password_change_operations;
 mod recommendation_operations;
+mod two_factor_operations;
 mod user_data_operations;
 mod user_management_operations;
 mod user_preferences_operations;
@@ -64,11 +67,11 @@ impl UserService {
     }
 
     pub async fn revoke_access_link(&self, access_link_id: String) -> Result<bool> {
-        server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
+        server_key_validation_guard(is_server_key_validated(&self.0).await?).await?;
         authentication_operations::revoke_access_link(&self.0, access_link_id).await
     }
 
-    pub async fn users_list(&self, query: Option<String>) -> Result<Vec<user::Model>> {
+    pub async fn users_list(&self, query: Option<String>) -> Result<Vec<BasicUserDetails>> {
         user_data_operations::users_list(&self.0, query).await
     }
 
@@ -88,8 +91,12 @@ impl UserService {
         user_management_operations::reset_user(&self.0, admin_user_id, to_reset_user_id).await
     }
 
-    pub async fn register_user(&self, input: RegisterUserInput) -> Result<RegisterResult> {
-        user_management_operations::register_user(&self.0, input).await
+    pub async fn register_user(
+        &self,
+        requester_user_id: Option<String>,
+        input: RegisterUserInput,
+    ) -> Result<RegisterResult> {
+        user_management_operations::register_user(&self.0, requester_user_id, input).await
     }
 
     pub async fn generate_auth_token(&self, user_id: String) -> Result<String> {
@@ -100,12 +107,16 @@ impl UserService {
         authentication_operations::login_user(&self.0, input).await
     }
 
+    pub async fn logout_user(&self, session_id: String) -> Result<bool> {
+        authentication_operations::logout_user(&self.0, session_id).await
+    }
+
     pub async fn update_user(
         &self,
-        user_id: Option<String>,
+        requester_user_id: Option<String>,
         input: UpdateUserInput,
     ) -> Result<StringIdObject> {
-        user_management_operations::update_user(&self.0, user_id, input).await
+        user_management_operations::update_user(&self.0, requester_user_id, input).await
     }
 
     pub async fn update_user_preference(
@@ -165,8 +176,8 @@ impl UserService {
         notification_operations::test_user_notification_platforms(&self.0, user_id).await
     }
 
-    pub async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
-        authentication_operations::user_details(&self.0, token).await
+    pub async fn user_details(&self, session_id: &str) -> Result<UserDetailsResult> {
+        authentication_operations::user_details(&self.0, session_id).await
     }
 
     pub async fn user_integrations(&self, user_id: &String) -> Result<Vec<integration::Model>> {
@@ -190,5 +201,59 @@ impl UserService {
 
     pub async fn user_by_oidc_issuer_id(&self, oidc_issuer_id: String) -> Result<Option<String>> {
         user_data_operations::user_by_oidc_issuer_id(&self.0, oidc_issuer_id).await
+    }
+
+    pub async fn verify_two_factor(
+        &self,
+        input: UserTwoFactorVerifyInput,
+    ) -> Result<VerifyTwoFactorResult> {
+        two_factor_operations::verify_two_factor(&self.0, input).await
+    }
+
+    pub async fn initiate_two_factor_setup(
+        &self,
+        user_id: String,
+    ) -> Result<UserTwoFactorInitiateResponse> {
+        two_factor_operations::initiate_two_factor_setup(&self.0, user_id).await
+    }
+
+    pub async fn complete_two_factor_setup(
+        &self,
+        user_id: String,
+        input: UserTwoFactorSetupInput,
+    ) -> Result<UserTwoFactorBackupCodesResponse> {
+        two_factor_operations::complete_two_factor_setup(&self.0, user_id, input).await
+    }
+
+    pub async fn disable_two_factor(&self, user_id: String) -> Result<bool> {
+        two_factor_operations::disable_two_factor(&self.0, user_id).await
+    }
+
+    pub async fn regenerate_two_factor_backup_codes(
+        &self,
+        user_id: String,
+    ) -> Result<UserTwoFactorBackupCodesResponse> {
+        two_factor_operations::regenerate_two_factor_backup_codes(&self.0, user_id).await
+    }
+
+    pub async fn get_password_change_session(
+        &self,
+        requester_user_id: Option<String>,
+        input: GetPasswordChangeSessionInput,
+    ) -> Result<GetPasswordChangeSessionResponse> {
+        password_change_operations::get_password_change_session(&self.0, requester_user_id, input)
+            .await
+    }
+
+    pub async fn set_password_via_session(
+        &self,
+        input: SetPasswordViaSessionInput,
+    ) -> Result<bool> {
+        password_change_operations::set_password_via_session(
+            &self.0,
+            input.session_id,
+            input.password,
+        )
+        .await
     }
 }

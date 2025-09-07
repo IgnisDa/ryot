@@ -2,7 +2,7 @@
 
 use async_graphql::SimpleObject;
 use common_models::UserToCollectionExtraInformation;
-use enum_models::UserToMediaReason;
+use enum_models::{EntityLot, UserToMediaReason};
 use fitness_models::UserToExerciseExtraInformation;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -16,6 +16,8 @@ pub struct Model {
     #[graphql(skip)]
     pub id: Uuid,
     pub user_id: String,
+    pub entity_id: String,
+    pub entity_lot: EntityLot,
     pub created_on: DateTimeUtc,
     pub person_id: Option<String>,
     pub metadata_id: Option<String>,

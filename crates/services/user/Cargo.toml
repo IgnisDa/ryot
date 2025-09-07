@@ -4,29 +4,41 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+aes-gcm = { workspace = true }
+anyhow = { workspace = true }
 argon2 = { workspace = true }
-async-graphql = { workspace = true }
-application-utils = { path = "../../utils/application" }
 chrono = { workspace = true }
-common-models = { path = "../../models/common" }
-common-utils = { path = "../../utils/common" }
-database-models = { path = "../../models/database" }
-database-utils = { path = "../../utils/database" }
-dependent-models = { path = "../../models/dependent" }
-dependent-utils = { path = "../../utils/dependent" }
+data-encoding = { workspace = true }
 enum_meta = { workspace = true }
-enum-models = { path = "../../models/enum" }
+futures = { workspace = true }
 itertools = { workspace = true }
-jwt-service = { path = "../../services/jwt" }
-media-models = { path = "../../models/media" }
 nanoid = { workspace = true }
-notification-service = { path = "../../services/notification" }
 openidconnect = { workspace = true }
 rand = { workspace = true }
+ring = { workspace = true }
 sea-orm = { workspace = true }
-supporting-service = { path = "../supporting" }
+subtle = { workspace = true }
+tokio = { workspace = true }
+totp-lite = { workspace = true }
 tracing = { workspace = true }
-user-models = { path = "../../models/user" }
+
+application-utils = { workspace = true }
+cache-service = { workspace = true }
+common-models = { workspace = true }
+common-utils = { workspace = true }
+database-models = { workspace = true }
+dependent-collection-utils = { workspace = true }
+dependent-core-utils = { workspace = true }
+dependent-entity-utils = { workspace = true }
+dependent-notification-utils = { workspace = true }
+database-utils = { workspace = true }
+dependent-models = { workspace = true }
+enum-models = { workspace = true }
+media-models = { workspace = true }
+notification-service = { workspace = true }
+session-service = { workspace = true }
+supporting-service = { workspace = true }
+user-models = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

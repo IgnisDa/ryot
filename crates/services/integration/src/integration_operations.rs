@@ -1,13 +1,14 @@
 use std::{collections::VecDeque, sync::Arc};
 
-use async_graphql::Result;
+use anyhow::Result;
 use chrono::Utc;
 use database_models::{integration, prelude::Integration};
-use dependent_utils::send_notification_for_user;
+use dependent_notification_utils::send_notification_for_user;
 use enum_models::{IntegrationLot, IntegrationProvider, UserNotificationContent};
 use media_models::IntegrationTriggerResult;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QueryTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
+    QueryOrder, QueryTrait,
 };
 use supporting_service::SupportingService;
 use traits::TraceOk;
@@ -15,7 +16,7 @@ use traits::TraceOk;
 static MAX_ERRORS_BEFORE_DISABLE: usize = 5;
 
 pub async fn set_trigger_result(
-    service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     error: Option<String>,
     integration: &integration::Model,
 ) -> Result<()> {
@@ -37,7 +38,7 @@ pub async fn set_trigger_result(
 
     let should_disable = integration.extra_settings.disable_on_continuous_errors && are_all_errors;
 
-    let mut integration: integration::ActiveModel = integration.clone().into();
+    let mut integration = integration.clone().into_active_model();
     integration.last_finished_at = last_finished_at;
     integration.trigger_result = ActiveValue::Set(new_trigger_result.into());
 
@@ -45,19 +46,15 @@ pub async fn set_trigger_result(
         integration.is_disabled = ActiveValue::Set(Some(true));
     }
 
-    let integration = integration.update(&service.db).await?;
+    let integration = integration.update(&ss.db).await?;
 
     if should_disable {
         send_notification_for_user(
             &integration.user_id,
-            service,
-            &(
-                format!(
-                    "Integration {} has been disabled due to too many errors",
-                    integration.provider,
-                ),
-                UserNotificationContent::IntegrationDisabledDueToTooManyErrors,
-            ),
+            ss,
+            UserNotificationContent::IntegrationDisabledDueToTooManyErrors {
+                provider_name: integration.provider.to_string(),
+            },
         )
         .await
         .trace_ok();
@@ -66,7 +63,7 @@ pub async fn set_trigger_result(
 }
 
 pub async fn select_integrations_to_process(
-    service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     lot: IntegrationLot,
     provider: Option<IntegrationProvider>,
@@ -83,7 +80,7 @@ pub async fn select_integrations_to_process(
             query.filter(integration::Column::Provider.eq(provider))
         })
         .order_by_asc(integration::Column::CreatedOn)
-        .all(&service.db)
+        .all(&ss.db)
         .await?;
     Ok(integrations)
 }

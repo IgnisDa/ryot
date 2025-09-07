@@ -25,15 +25,14 @@ import type { NavigateFunction } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { v4 as randomUUID } from "uuid";
+import { CURRENT_WORKOUT_KEY } from "~/lib/shared/constants";
+import { dayjsLib, getTimeOfDay } from "~/lib/shared/date-utils";
 import {
-	CURRENT_WORKOUT_KEY,
-	FitnessAction,
 	clientGqlService,
-	dayjsLib,
-	getTimeOfDay,
 	queryClient,
 	queryFactory,
-} from "~/lib/common";
+} from "~/lib/shared/react-query";
+import { FitnessAction } from "~/lib/types";
 
 export type WorkoutDuration = {
 	from: string;
@@ -45,6 +44,7 @@ export type ExerciseSet = {
 	identifier: string;
 	rpe?: number | null;
 	restTimerStartedAt?: string;
+	durationTimerTriggered?: true;
 	statistic: WorkoutSetStatistic;
 	note?: boolean | string | null;
 	displayRestTimeTrigger?: boolean;
@@ -92,7 +92,7 @@ export type InProgressWorkout = {
 	timerDrawerLot: "timer" | "stopwatch";
 };
 
-type CurrentWorkout = InProgressWorkout | null;
+export type CurrentWorkout = InProgressWorkout | null;
 
 const currentWorkoutAtom = atomWithStorage<CurrentWorkout>(
 	CURRENT_WORKOUT_KEY,
@@ -270,11 +270,17 @@ export const currentWorkoutToCreateWorkoutInput = (
 	return input;
 };
 
+export type SetIdentifier = {
+	setIdentifier: string;
+	exerciseIdentifier: string;
+};
+
 export type CurrentWorkoutTimer = {
 	willEndAt: string;
 	totalTime: number;
 	wasPausedAt?: string;
-	triggeredBy?: { exerciseIdentifier: string; setIdentifier: string };
+	triggeredBy?: SetIdentifier;
+	confirmSetOnFinish?: SetIdentifier;
 };
 
 const currentWorkoutTimerAtom = atomWithStorage<CurrentWorkoutTimer | null>(
@@ -382,14 +388,14 @@ export const addExerciseToCurrentWorkout = async (
 	currentWorkout: InProgressWorkout,
 	userFitnessPreferences: UserFitnessPreferences,
 	setCurrentWorkout: (v: InProgressWorkout) => void,
-	selectedExercises: Array<{ name: string; lot: ExerciseLot }>,
+	selectedExercises: Array<{ id: string; lot: ExerciseLot }>,
 ) => {
 	const draft = createDraft(currentWorkout);
 	for (const [_exerciseIdx, ex] of selectedExercises.entries()) {
 		const setLot = SetLot.Normal;
 		const restTimer = await getRestTimerForSet(
 			setLot,
-			ex.name,
+			ex.id,
 			userFitnessPreferences.exercises.setRestTimers,
 		);
 		let sets: ExerciseSet[] = [
@@ -401,7 +407,7 @@ export const addExerciseToCurrentWorkout = async (
 				restTimer: restTimer ? { duration: restTimer } : undefined,
 			},
 		];
-		const exerciseDetails = await getExerciseDetails(ex.name);
+		const exerciseDetails = await getExerciseDetails(ex.id);
 		const history = (exerciseDetails.userDetails.history || []).at(0);
 		if (history) {
 			const workout = await getWorkoutDetails(history.workoutId);
@@ -415,7 +421,7 @@ export const addExerciseToCurrentWorkout = async (
 			images: [],
 			videos: [],
 			lot: ex.lot,
-			exerciseId: ex.name,
+			exerciseId: ex.id,
 			identifier: randomUUID(),
 			unitSystem: userFitnessPreferences.exercises.unitSystem,
 		});
@@ -429,7 +435,7 @@ export const getExerciseImages = (
 	exercise?: ExerciseDetailsQuery["exerciseDetails"],
 ) => {
 	return [
-		...(exercise?.attributes.assets.s3Images || []),
-		...(exercise?.attributes.assets.remoteImages || []),
+		...(exercise?.assets.s3Images || []),
+		...(exercise?.assets.remoteImages || []),
 	];
 };

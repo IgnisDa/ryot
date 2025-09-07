@@ -1,5 +1,4 @@
-use async_graphql::{Enum, InputObject, SimpleObject};
-use common_models::EntityAssets;
+use async_graphql::{Enum, SimpleObject};
 use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,
 };
@@ -17,26 +16,6 @@ pub enum ExerciseCategory {
     OlympicWeightlifting,
     Strongman,
     Plyometrics,
-}
-
-#[derive(
-    Eq,
-    Hash,
-    Debug,
-    Clone,
-    Default,
-    Serialize,
-    PartialEq,
-    InputObject,
-    Deserialize,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[serde(rename_all = "camelCase")]
-#[graphql(input_name = "ExerciseAttributesInput")]
-pub struct ExerciseAttributes {
-    pub assets: EntityAssets,
-    pub instructions: Vec<String>,
 }
 
 #[derive(

@@ -33,8 +33,8 @@ hosted tracker you will ever need!
 ## Pro version
 
 Ryot is available in two versions - community and pro. The pro version has additional
-features like profile sharing, recommendations, supercharged collections etc. Learn more
-about the pro version [here](https://ryot.io).
+features like profile sharing, recommendations, supercharged collections etc. [Learn
+more](https://ryot.io) about the pro version.
 
 ## 💻 Demo
 
@@ -65,8 +65,10 @@ You can also open an issue on GitHub if you find any bugs or have feature reques
 
 - ✅ [Supports](https://github.com/IgnisDa/ryot/discussions/4) tracking media
   and fitness
-- ✅ Import data from Goodreads, Trakt, Strong App [etc](https://docs.ryot.io/importing.html)
-- ✅ Integration with Jellyfin, Kodi, Plex, Emby, Audiobookshelf [etc](https://docs.ryot.io/integrations.html)
+- ✅ Import data from Goodreads, Trakt, Strong App
+  [etc.](https://docs.ryot.io/importing/overview.html)
+- ✅ Integration with Jellyfin, Kodi, Plex, Emby, Audiobookshelf
+  [etc.](https://docs.ryot.io/integrations/overview.html)
 - ✅ [Supports](https://docs.ryot.io/guides/authentication.html) OpenID Connect
 - ✅ Sends notifications to Discord, Ntfy, Apprise etc
 - ✅ Self-hosted
@@ -78,6 +80,7 @@ You can also open an issue on GitHub if you find any bugs or have feature reques
 
 ## 🙏 Acknowledgements
 
-Ryot is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker) and other
-similar projects. Also a massive thanks to all the
-[contributors](https://github.com/IgnisDa/ryot/graphs/contributors).
+- Ryot is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker) and
+  other similar projects.
+- [Free Exercise DB](https://github.com/yuhonas/free-exercise-db) for exercise information.
+- Massive thanks to all the [contributors](https://github.com/IgnisDa/ryot/graphs/contributors).

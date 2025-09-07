@@ -63,24 +63,23 @@ import { ProRequiredAlert } from "~/components/common";
 import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
-} from "~/components/fitness";
+} from "~/components/fitness/utils";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
-	ApplicationTimeRange,
-	MediaColors,
-	PRO_REQUIRED_MESSAGE,
-	clientGqlService,
 	convertUtcHourToLocalHour,
 	dayjsLib,
 	getStartTimeFromRange,
-	queryFactory,
-	selectRandomElement,
-} from "~/lib/common";
+} from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
 	useGetMantineColors,
 	useUserPreferences,
 	useUserUnitSystem,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { MediaColors } from "~/lib/shared/media-utils";
+import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
+import { selectRandomElement } from "~/lib/shared/ui-utils";
+import { ApplicationTimeRange } from "~/lib/types";
 import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.analytics";
 
@@ -113,7 +112,7 @@ const useTimeSpanSettings = () => {
 	const startDate =
 		timeSpanSettings.startDate ||
 		(timeSpanSettings.range === "All Time" &&
-			loaderData.userAnalyticsParameters.startDate) ||
+			loaderData.userAnalyticsParameters.response.startDate) ||
 		formatDateToNaiveDate(
 			getStartTimeFromRange(timeSpanSettings.range) || new Date(),
 		);
@@ -121,7 +120,7 @@ const useTimeSpanSettings = () => {
 	const endDate =
 		timeSpanSettings.endDate ||
 		(timeSpanSettings.range === "All Time" &&
-			loaderData.userAnalyticsParameters.endDate) ||
+			loaderData.userAnalyticsParameters.response.endDate) ||
 		formatDateToNaiveDate(dayjsLib());
 	return { timeSpanSettings, setTimeSpanSettings, startDate, endDate };
 };
@@ -131,11 +130,11 @@ const useGetUserAnalytics = () => {
 	const input = { dateRange: { startDate, endDate } };
 
 	const { data: userAnalytics } = useQuery({
-		queryKey: queryFactory.miscellaneous.userAnalytics({ input }).queryKey,
+		queryKey: queryFactory.miscellaneous.userAnalytics(input).queryKey,
 		queryFn: async () => {
 			return await clientGqlService
 				.request(UserAnalyticsDocument, { input })
-				.then((data) => data.userAnalytics);
+				.then((data) => data.userAnalytics.response);
 		},
 	});
 	return userAnalytics;
@@ -452,10 +451,10 @@ const CustomDateSelectModal = (props: {
 					w="fit-content"
 					onChange={setValue}
 					minDate={dayjsLib(
-						loaderData.userAnalyticsParameters.startDate,
+						loaderData.userAnalyticsParameters.response.startDate,
 					).toDate()}
 					maxDate={dayjsLib(
-						loaderData.userAnalyticsParameters.endDate,
+						loaderData.userAnalyticsParameters.response.endDate,
 					).toDate()}
 				/>
 				<Button
@@ -726,7 +725,7 @@ type ChartContainerProps = {
 	disableCounter?: boolean;
 	children: (
 		count: number,
-		data: UserAnalyticsQuery["userAnalytics"],
+		data: UserAnalyticsQuery["userAnalytics"]["response"],
 	) => {
 		render: ReactNode;
 		totalItems: number;

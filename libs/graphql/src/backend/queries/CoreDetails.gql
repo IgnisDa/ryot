@@ -1,0 +1,79 @@
+query CoreDetails {
+	coreDetails {
+		version
+		docsLink
+		pageSize
+		websiteUrl
+		smtpEnabled
+		oidcEnabled
+		signupAllowed
+		maxFileSizeMb
+		repositoryLink
+		isDemoInstance
+		disableTelemetry
+		tokenValidForDays
+		localAuthDisabled
+		fileStorageEnabled
+		peopleSearchSources
+		isServerKeyValidated
+		twoFactorBackupCodesCount
+		metadataGroupSourceLotMappings {
+			lot
+			source
+		}
+		metadataLotSourceMappings {
+			lot
+			sources
+		}
+		providerSpecifics {
+			igdb {
+				themes {
+					...IdAndNamedObjectPart
+				}
+				genres {
+					...IdAndNamedObjectPart
+				}
+				platforms {
+					...IdAndNamedObjectPart
+				}
+				gameModes {
+					...IdAndNamedObjectPart
+				}
+				gameTypes {
+					...IdAndNamedObjectPart
+				}
+				releaseDateRegions {
+					...IdAndNamedObjectPart
+				}
+			}
+		}
+		metadataProviderLanguages {
+			source
+			default
+			supported
+		}
+		frontend {
+			url
+			oidcButtonLabel
+			dashboardMessage
+			umami {
+				scriptUrl
+				websiteId
+			}
+		}
+		exerciseParameters {
+			lotMapping {
+				lot
+				bests
+			}
+			filters {
+				type
+				level
+				force
+				muscle
+				mechanic
+				equipment
+			}
+		}
+	}
+}

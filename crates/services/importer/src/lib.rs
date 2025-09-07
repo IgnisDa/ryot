@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use async_graphql::Result;
+use anyhow::Result;
 use background_models::{ApplicationJob, MpApplicationJob};
 use chrono::{Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use common_models::BackgroundJob;
@@ -9,10 +9,13 @@ use database_models::{
     exercise, import_report,
     prelude::{Exercise, ImportReport},
 };
+use dependent_fitness_utils::generate_exercise_id;
+use dependent_import_utils::process_import;
+use dependent_jobs_utils::deploy_background_job;
 use dependent_models::ImportOrExportMetadataItem;
-use dependent_utils::{
-    deploy_background_job, generate_exercise_id, get_google_books_service, get_hardcover_service,
-    get_openlibrary_service, get_tmdb_non_media_service, process_import,
+use dependent_provider_utils::{
+    get_google_books_service, get_hardcover_service, get_openlibrary_service,
+    get_tmdb_non_media_service,
 };
 use enum_models::ImportSource;
 use enum_models::{ExerciseLot, ExerciseSource};
@@ -20,8 +23,8 @@ use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::DeployImportJobInput;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder,
-    prelude::DateTimeUtc, prelude::Expr,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
+    QueryOrder, prelude::DateTimeUtc, prelude::Expr,
 };
 use supporting_service::SupportingService;
 use traits::TraceOk;
@@ -30,6 +33,7 @@ mod anilist;
 mod audiobookshelf;
 mod generic_json;
 mod goodreads;
+mod grouvee;
 mod hardcover;
 mod hevy;
 mod igdb;
@@ -102,6 +106,7 @@ impl ImporterService {
                 )
                 .await
             }
+            ImportSource::Grouvee => grouvee::import(input.generic_csv.unwrap()).await,
             ImportSource::Trakt => {
                 trakt::import(
                     input.trakt.unwrap(),
@@ -145,7 +150,7 @@ impl ImporterService {
             ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await,
             ImportSource::Plex => plex::import(input.url_and_key.unwrap()).await,
         };
-        let mut model: import_report::ActiveModel = db_import_job.into();
+        let mut model = db_import_job.into_active_model();
         match maybe_import {
             Ok(import) => {
                 let mut quick_update_model = model.clone();
@@ -201,7 +206,6 @@ impl ImporterService {
 }
 
 pub mod utils {
-
     use super::*;
 
     pub fn get_date_time_with_offset(

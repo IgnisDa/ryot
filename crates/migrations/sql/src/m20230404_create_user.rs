@@ -1,0 +1,82 @@
+use migrations_utils::create_trigram_index_if_required;
+use sea_orm_migration::prelude::*;
+
+#[derive(DeriveMigrationName)]
+pub struct Migration;
+
+pub static IS_DISABLED_INDEX: &str = "user_is_disabled_idx";
+pub static USER_NAME_TRIGRAM_INDEX: &str = "user_name_trigram_idx";
+
+#[derive(Iden)]
+pub enum User {
+    Id,
+    Lot,
+    Name,
+    Table,
+    Password,
+    CreatedOn,
+    IsDisabled,
+    LastLoginOn,
+    Preferences,
+    OidcIssuerId,
+    LastActivityOn,
+    ExtraInformation,
+    TwoFactorInformation,
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for Migration {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .create_table(
+                Table::create()
+                    .table(User::Table)
+                    .col(ColumnDef::new(User::Id).text().not_null().primary_key())
+                    .col(ColumnDef::new(User::Name).text().not_null())
+                    .col(ColumnDef::new(User::Password).text())
+                    .col(ColumnDef::new(User::Lot).text().not_null())
+                    .col(ColumnDef::new(User::Preferences).json_binary().not_null())
+                    .col(ColumnDef::new(User::OidcIssuerId).text())
+                    .col(
+                        ColumnDef::new(User::CreatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(ColumnDef::new(User::ExtraInformation).json_binary())
+                    .col(ColumnDef::new(User::IsDisabled).boolean())
+                    .col(ColumnDef::new(User::LastLoginOn).timestamp_with_time_zone())
+                    .col(ColumnDef::new(User::LastActivityOn).timestamp_with_time_zone())
+                    .col(ColumnDef::new(User::TwoFactorInformation).json_binary())
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name("user__oidc_issuer_id__index")
+                    .table(User::Table)
+                    .col(User::OidcIssuerId)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(IS_DISABLED_INDEX)
+                    .table(User::Table)
+                    .col(User::IsDisabled)
+                    .to_owned(),
+            )
+            .await?;
+
+        create_trigram_index_if_required(manager, "user", "name", USER_NAME_TRIGRAM_INDEX).await?;
+
+        Ok(())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
+        Ok(())
+    }
+}

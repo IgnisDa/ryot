@@ -1,16 +1,14 @@
 use std::sync::Arc;
 
-use async_graphql::Result;
+use anyhow::Result;
 use database_models::{
     access_link, integration, notification_platform,
     prelude::{AccessLink, Integration, NotificationPlatform, User},
     user,
 };
-use database_utils::{get_enabled_users_query, ilike_sql};
-use sea_orm::{
-    ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QueryTrait, prelude::Expr,
-    sea_query::extension::postgres::PgExpr,
-};
+use database_utils::{apply_columns_search, get_enabled_users_query};
+use dependent_models::BasicUserDetails;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QueryTrait, prelude::Expr};
 use supporting_service::SupportingService;
 
 pub async fn user_access_links(
@@ -28,18 +26,27 @@ pub async fn user_access_links(
 pub async fn users_list(
     ss: &Arc<SupportingService>,
     query: Option<String>,
-) -> Result<Vec<user::Model>> {
+) -> Result<Vec<BasicUserDetails>> {
     let users = User::find()
         .apply_if(query, |query, value| {
-            query.filter(
-                Expr::col(user::Column::Name)
-                    .ilike(ilike_sql(&value))
-                    .or(Expr::col(user::Column::Id).ilike(ilike_sql(&value))),
+            apply_columns_search(
+                &value,
+                query,
+                [Expr::col(user::Column::Name), Expr::col(user::Column::Id)],
             )
         })
         .order_by_asc(user::Column::Name)
         .all(&ss.db)
         .await?;
+    let users = users
+        .into_iter()
+        .map(|user| BasicUserDetails {
+            id: user.id,
+            lot: user.lot,
+            name: user.name,
+            is_disabled: user.is_disabled,
+        })
+        .collect();
     Ok(users)
 }
 

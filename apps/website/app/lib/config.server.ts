@@ -1,13 +1,6 @@
-import { Environment, Paddle } from "@paddle/paddle-node-sdk";
-import { render } from "@react-email/render";
-import { formatDateToNaiveDate, zodBoolAsString } from "@ryot/ts-utils";
-import { Unkey } from "@unkey/api";
-import type { Dayjs } from "dayjs";
-import { eq } from "drizzle-orm";
+import { zodBoolAsString } from "@ryot/ts-utils";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { GraphQLClient } from "graphql-request";
-import { createTransport } from "nodemailer";
-import { Issuer } from "openid-client";
 import { createCookie } from "react-router";
 import { Honeypot } from "remix-utils/honeypot/server";
 import { z } from "zod";
@@ -17,8 +10,9 @@ import { PlanTypes, ProductTypes } from "~/drizzle/schema.server";
 // The number of days after a subscription expires that we allow access
 export const GRACE_PERIOD = 7;
 
-export const TEMP_DIRECTORY =
-	process.env.NODE_ENV === "development" ? "/tmp" : "tmp";
+export const IS_DEVELOPMENT_ENV = process.env.NODE_ENV === "development";
+
+export const TEMP_DIRECTORY = IS_DEVELOPMENT_ENV ? "/tmp" : "tmp";
 
 export const serverVariablesSchema = z.object({
 	FRONTEND_URL: z.string(),
@@ -29,15 +23,16 @@ export const serverVariablesSchema = z.object({
 	PADDLE_PRICE_IDS: z.string(),
 	SERVER_SMTP_USER: z.string(),
 	SERVER_SMTP_SERVER: z.string(),
+	TURNSTILE_SITE_KEY: z.string(),
 	PADDLE_CLIENT_TOKEN: z.string(),
 	PADDLE_SERVER_TOKEN: z.string(),
 	SERVER_SMTP_MAILBOX: z.string(),
-	NODE_ENV: z.string().optional(),
+	TURNSTILE_SECRET_KEY: z.string(),
 	SERVER_SMTP_PASSWORD: z.string(),
 	SERVER_OIDC_CLIENT_ID: z.string(),
 	SERVER_OIDC_ISSUER_URL: z.string(),
-	SERVER_OIDC_CLIENT_SECRET: z.string(),
 	SERVER_ADMIN_ACCESS_TOKEN: z.string(),
+	SERVER_OIDC_CLIENT_SECRET: z.string(),
 	PADDLE_WEBHOOK_SECRET_KEY: z.string(),
 	SERVER_SMTP_PORT: z.string().optional(),
 	PADDLE_SANDBOX: zodBoolAsString.optional(),
@@ -50,14 +45,14 @@ export const OAUTH_CALLBACK_URL = `${serverVariables.FRONTEND_URL}/callback`;
 
 export const pricesSchema = z.array(
 	z.object({
-		type: z.nativeEnum(ProductTypes.Values),
+		type: z.enum(ProductTypes.enum),
 		prices: z.array(
 			z.object({
 				trial: z.number().optional(),
 				amount: z.number().optional(),
 				priceId: z.string().optional(),
 				linkToGithub: z.boolean().optional(),
-				name: z.nativeEnum(PlanTypes.Values),
+				name: z.enum(PlanTypes.enum),
 			}),
 		),
 	}),
@@ -69,86 +64,15 @@ export const prices = pricesSchema.parse(
 	JSON.parse(serverVariables.PADDLE_PRICE_IDS),
 );
 
-export const getProductAndPlanTypeByPriceId = (priceId: string) => {
-	for (const product of prices)
-		for (const price of product.prices)
-			if (price.priceId === priceId)
-				return { productType: product.type, planType: price.name };
-	throw new Error("Price ID not found");
-};
-
-export const db = drizzle(serverVariables.DATABASE_URL, {
-	schema,
-	logger: serverVariables.NODE_ENV === "development",
-});
-
-export const oauthClient = async () => {
-	const issuer = await Issuer.discover(serverVariables.SERVER_OIDC_ISSUER_URL);
-	const client = new issuer.Client({
-		client_id: serverVariables.SERVER_OIDC_CLIENT_ID,
-		client_secret: serverVariables.SERVER_OIDC_CLIENT_SECRET,
-		redirect_uris: [OAUTH_CALLBACK_URL],
-	});
-	return client;
-};
-
-export const getPaddleServerClient = () =>
-	new Paddle(serverVariables.PADDLE_SERVER_TOKEN, {
-		environment: serverVariables.PADDLE_SANDBOX
-			? Environment.sandbox
-			: undefined,
-	});
-
-export const sendEmail = async (input: {
-	recipient: string;
-	subject: string;
-	element: JSX.Element;
-	cc?: string;
-}) => {
-	const client = createTransport({
-		host: serverVariables.SERVER_SMTP_SERVER,
-		secure: serverVariables.SERVER_SMTP_SECURE,
-		port: serverVariables.SERVER_SMTP_PORT
-			? Number(serverVariables.SERVER_SMTP_PORT)
-			: undefined,
-		auth: {
-			user: serverVariables.SERVER_SMTP_USER,
-			pass: serverVariables.SERVER_SMTP_PASSWORD,
-		},
-	});
-	const html = await render(input.element, { pretty: true });
-	const text = await render(input.element, { plainText: true });
-	const log = {
-		cc: input.cc,
-		subject: input.subject,
-		recipient: input.recipient,
-	};
-	console.log("Sending email:", log);
-	const resp = await client.sendMail({
-		text,
-		html,
-		cc: input.cc,
-		to: input.recipient,
-		subject: input.subject,
-		from: serverVariables.SERVER_SMTP_MAILBOX,
-	});
-	console.log("Sent email:", log);
-	return resp.messageId;
-};
-
 export const websiteAuthCookie = createCookie("WebsiteAuth", {
 	maxAge: 60 * 60 * 24 * 365,
 	path: "/",
 });
 
-export const getCustomerFromCookie = async (request: Request) => {
-	const cookie = await websiteAuthCookie.parse(request.headers.get("cookie"));
-	if (!cookie || Object.keys(cookie).length === 0) return null;
-	const customerId = z.string().parse(cookie);
-	return await db.query.customers.findFirst({
-		where: eq(schema.customers.id, customerId),
-	});
-};
+export const db = drizzle(serverVariables.DATABASE_URL, {
+	schema,
+	logger: IS_DEVELOPMENT_ENV,
+});
 
 export const serverGqlService = new GraphQLClient(
 	`${serverVariables.RYOT_BASE_URL}/graphql`,
@@ -157,23 +81,8 @@ export const serverGqlService = new GraphQLClient(
 
 export const honeypot = new Honeypot();
 
-export const customDataSchema = z.object({
+export const paddleCustomDataSchema = z.object({
 	customerId: z.string(),
 });
 
-export type CustomData = z.infer<typeof customDataSchema>;
-
-export const createUnkeyKey = async (
-	customer: typeof schema.customers.$inferSelect,
-	renewOn?: Dayjs,
-) => {
-	const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
-	const created = await unkey.keys.create({
-		name: customer.email,
-		externalId: customer.id,
-		apiId: serverVariables.UNKEY_API_ID,
-		meta: renewOn ? { expiry: formatDateToNaiveDate(renewOn) } : undefined,
-	});
-	if (created.error) throw new Error(created.error.message);
-	return created.result;
-};
+export type PaddleCustomData = z.infer<typeof paddleCustomDataSchema>;

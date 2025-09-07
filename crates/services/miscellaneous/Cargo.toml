@@ -4,35 +4,35 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-application-utils = { path = "../../utils/application" }
-async-graphql = { workspace = true }
-background-models = { path = "../../models/background" }
-chrono = { workspace = true }
-common-models = { path = "../../models/common" }
-common-utils = { path = "../../utils/common" }
-convert_case = { workspace = true }
-database-models = { path = "../../models/database" }
-database-utils = { path = "../../utils/database" }
-dependent-models = { path = "../../models/dependent" }
-dependent-utils = { path = "../../utils/dependent" }
-enum-models = { path = "../../models/enum" }
-enum_meta = { workspace = true }
-futures = { workspace = true }
-itertools = { workspace = true }
-media-models = { path = "../../models/media" }
-migrations = { path = "../../migrations" }
-nanoid = { workspace = true }
+anyhow = { workspace = true }
 rust_decimal = { workspace = true }
-rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
-sea-query = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-supporting-service = { path = "../supporting" }
 tracing = { workspace = true }
-traits = { path = "../../traits" }
-user-models = { path = "../../models/user" }
 uuid = { workspace = true }
+
+background-models = { workspace = true }
+common-models = { workspace = true }
+database-models = { workspace = true }
+dependent-core-utils = { workspace = true }
+dependent-entity-list-utils = { workspace = true }
+dependent-jobs-utils = { workspace = true }
+dependent-models = { workspace = true }
+dependent-notification-utils = { workspace = true }
+dependent-review-utils = { workspace = true }
+enum-models = { workspace = true }
+media-models = { workspace = true }
+miscellaneous-background-service = { workspace = true }
+miscellaneous-calendar-service = { workspace = true }
+miscellaneous-entity-details-service = { workspace = true }
+miscellaneous-entity-user-details-service = { workspace = true }
+miscellaneous-general-service = { workspace = true }
+miscellaneous-lookup-service = { workspace = true }
+miscellaneous-metadata-operations-service = { workspace = true }
+miscellaneous-progress-service = { workspace = true }
+miscellaneous-review-service = { workspace = true }
+miscellaneous-search-service = { workspace = true }
+miscellaneous-trending-and-events-service = { workspace = true }
+supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]

@@ -2,8 +2,9 @@ use anyhow::Result;
 use application_utils::get_base_http_client;
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
-use dependent_models::{CollectionToEntityDetails, ImportOrExportMetadataItem};
-use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_models::{
+    CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
+};
 use enum_models::{MediaLot, MediaSource};
 use external_models::plex as plex_models;
 use reqwest::header::{ACCEPT, HeaderName, HeaderValue};
@@ -17,7 +18,7 @@ pub async fn sync_to_owned_collection(base_url: String, token: String) -> Result
         (ACCEPT, HeaderValue::from_static("application/json")),
     ]));
     let libraries = client
-        .get(format!("{}/library/sections", base_url))
+        .get(format!("{base_url}/library/sections"))
         .send()
         .await?
         .json::<plex_models::PlexMediaResponse<plex_models::PlexLibrary>>()
@@ -38,7 +39,7 @@ pub async fn sync_to_owned_collection(base_url: String, token: String) -> Result
         };
         let items = client
             .get(format!("{}/library/sections/{}/all", base_url, dir.key))
-            .query(&serde_json::json!({ "includeGuids": "1" }))
+            .query(&[("includeGuids", "1")])
             .send()
             .await?
             .json::<plex_models::PlexMediaResponse<plex_models::PlexMetadata>>()

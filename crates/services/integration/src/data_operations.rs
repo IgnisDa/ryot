@@ -1,20 +1,27 @@
 use std::collections::HashSet;
 
-use async_graphql::Result;
+use anyhow::Result;
 use common_utils::ryot_log;
 use database_models::{
     integration,
     prelude::{Integration, User},
     user,
 };
-use database_utils::user_by_id;
-use dependent_utils::{get_google_books_service, get_hardcover_service, get_openlibrary_service};
+use database_utils::{server_key_validation_guard, user_by_id};
+use dependent_core_utils::is_server_key_validated;
+use dependent_provider_utils::{
+    get_google_books_service, get_hardcover_service, get_openlibrary_service,
+};
 use enum_models::{IntegrationLot, IntegrationProvider};
+use futures::try_join;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use traits::TraceOk;
 
-use crate::integration_operations::{select_integrations_to_process, set_trigger_result};
-use crate::{IntegrationService, yank};
+use crate::{
+    IntegrationService,
+    integration_operations::{select_integrations_to_process, set_trigger_result},
+    yank,
+};
 
 impl IntegrationService {
     async fn yank_integrations_data_for_user(&self, user_id: &String) -> Result<()> {
@@ -29,13 +36,18 @@ impl IntegrationService {
             let specifics = integration.clone().provider_specifics.unwrap();
             let response = match integration.provider {
                 IntegrationProvider::Audiobookshelf => {
+                    let (hardcover, google_books, openlibrary) = try_join!(
+                        get_hardcover_service(&self.0.config),
+                        get_google_books_service(&self.0.config),
+                        get_openlibrary_service(&self.0.config)
+                    )?;
                     yank::audiobookshelf::yank_progress(
                         specifics.audiobookshelf_base_url.unwrap(),
                         specifics.audiobookshelf_token.unwrap(),
                         &self.0,
-                        &get_hardcover_service(&self.0.config).await.unwrap(),
-                        &get_google_books_service(&self.0.config).await.unwrap(),
-                        &get_openlibrary_service(&self.0.config).await.unwrap(),
+                        &hardcover,
+                        &google_books,
+                        &openlibrary,
                     )
                     .await
                 }
@@ -45,15 +57,12 @@ impl IntegrationService {
                         specifics.komga_username.unwrap(),
                         specifics.komga_password.unwrap(),
                         specifics.komga_provider.unwrap(),
-                        &self.0.db,
+                        &self.0,
                     )
                     .await
                 }
                 IntegrationProvider::YoutubeMusic => {
-                    database_utils::server_key_validation_guard(
-                        self.0.is_server_key_validated().await?,
-                    )
-                    .await?;
+                    server_key_validation_guard(is_server_key_validated(&self.0).await?).await?;
                     yank::youtube_music::yank_progress(
                         user_id,
                         specifics.youtube_music_timezone.unwrap(),
@@ -120,11 +129,16 @@ impl IntegrationService {
             let specifics = integration.clone().provider_specifics.unwrap();
             let response = match integration.provider {
                 IntegrationProvider::Audiobookshelf => {
+                    let (hardcover, google_books, openlibrary) = try_join!(
+                        get_hardcover_service(&self.0.config),
+                        get_google_books_service(&self.0.config),
+                        get_openlibrary_service(&self.0.config)
+                    )?;
                     yank::audiobookshelf::sync_to_owned_collection(
                         specifics.audiobookshelf_base_url.unwrap(),
-                        &get_hardcover_service(&self.0.config).await.unwrap(),
-                        &get_google_books_service(&self.0.config).await.unwrap(),
-                        &get_openlibrary_service(&self.0.config).await.unwrap(),
+                        &hardcover,
+                        &google_books,
+                        &openlibrary,
                     )
                     .await
                 }
@@ -134,7 +148,7 @@ impl IntegrationService {
                         specifics.komga_username.unwrap(),
                         specifics.komga_password.unwrap(),
                         specifics.komga_provider.unwrap(),
-                        &self.0.db,
+                        &self.0,
                     )
                     .await
                 }
@@ -173,11 +187,7 @@ impl IntegrationService {
             .into_iter()
             .collect::<HashSet<String>>();
         for user_id in users_with_integrations {
-            ryot_log!(
-                debug,
-                "Syncing integrations data to owned collection for user {}",
-                user_id
-            );
+            ryot_log!(debug, "Syncing data to owned for user {}", user_id);
             self.sync_integrations_data_to_owned_collection_for_user(&user_id)
                 .await?;
         }
@@ -192,8 +202,10 @@ impl IntegrationService {
     }
 
     pub async fn sync_integrations_data(&self) -> Result<()> {
-        self.yank_integrations_data().await?;
-        self.sync_integrations_data_to_owned_collection().await?;
+        try_join!(
+            self.yank_integrations_data(),
+            self.sync_integrations_data_to_owned_collection()
+        )?;
         Ok(())
     }
 }

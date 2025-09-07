@@ -1,6 +1,5 @@
 use common_models::PersonSourceSpecifics;
-use database_models::exercise;
-use database_models::{user_measurement, workout, workout_template};
+use database_models::{exercise, user_measurement, workout, workout_template};
 use enum_models::{MediaLot, MediaSource};
 use fitness_models::UserWorkoutInput;
 use importer_models::ImportFailedItem;
@@ -45,10 +44,10 @@ pub struct ImportOrExportMetadataItem {
     pub identifier: String,
     /// The source of media.
     pub source: MediaSource,
-    /// The collections this entity was added to.
-    pub collections: Vec<CollectionToEntityDetails>,
     /// The review history for the user.
     pub reviews: Vec<ImportOrExportItemRating>,
+    /// The collections this entity was added to.
+    pub collections: Vec<CollectionToEntityDetails>,
     /// The seen history for the user.
     pub seen_history: Vec<ImportOrExportMetadataItemSeen>,
 }

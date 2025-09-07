@@ -1,23 +1,26 @@
 use async_graphql::{InputObject, InputType, OutputType, SimpleObject};
-use common_models::{SearchDetails, SearchInput};
-use database_models::{collection, metadata_group, user};
+use common_models::{ApplicationDateRange, SearchDetails, SearchInput};
+use database_models::{collection, metadata_group};
 use enum_models::MediaLot;
 use media_models::{
     CollectionContentsFilter, CollectionContentsSortBy, EntityWithLot, GenreListItem,
-    GraphqlSortOrder, MediaFilter, MediaSortBy, PersonAndMetadataGroupsSortBy, ReviewItem,
+    GraphqlMetadataDetails, GraphqlSortOrder, MediaFilter, MediaSortBy, MetadataLookupResponse,
+    PersonAndMetadataGroupsSortBy, ReviewItem,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::{BasicUserDetails, GraphqlPersonDetails, UserAnalytics};
+
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(
-    name = "MediaCollectionContentsResults",
-    params(media_models::EntityWithLot)
+    params(media_models::EntityWithLot),
+    name = "MediaCollectionContentsResults"
 ))]
 #[graphql(concrete(name = "IdResults", params(String)))]
 pub struct SearchResults<T: OutputType> {
-    pub details: SearchDetails,
     pub items: Vec<T>,
+    pub details: SearchDetails,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, InputObject, Clone, Default)]
@@ -36,22 +39,41 @@ pub struct SortInput<T: InputType + Default> {
 }
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[graphql(concrete(name = "CachedGenreDetailsResponse", params(GenreDetails)))]
+#[graphql(concrete(name = "CachedUserAnalyticsResponse", params(UserAnalytics)))]
 #[graphql(concrete(name = "CachedSearchIdResponse", params(UserMetadataListResponse)))]
+#[graphql(concrete(name = "CachedMetadataLookupResponse", params(MetadataLookupResponse)))]
 #[graphql(concrete(
+    params(UserCollectionsListResponse),
     name = "CachedCollectionsListResponse",
-    params(UserCollectionsListResponse)
 ))]
 #[graphql(concrete(
+    params(CollectionContentsResponse),
     name = "CachedCollectionContentsResponse",
-    params(CollectionContentsResponse)
 ))]
 #[graphql(concrete(
-    name = "CachedUserMetadataRecommendationsResponse",
-    params(UserMetadataRecommendationsResponse)
-))]
-#[graphql(concrete(
+    params(UserMeasurementsListResponse),
     name = "CachedUserMeasurementsListResponse",
-    params(UserMeasurementsListResponse)
+))]
+#[graphql(concrete(
+    params(GraphqlPersonDetails),
+    name = "CachedGraphqlPersonDetailsResponse",
+))]
+#[graphql(concrete(
+    params(MetadataGroupDetails),
+    name = "CachedMetadataGroupDetailsResponse",
+))]
+#[graphql(concrete(
+    params(GraphqlMetadataDetails),
+    name = "CachedGraphqlMetadataDetailsResponse",
+))]
+#[graphql(concrete(
+    params(ApplicationDateRange),
+    name = "CachedUserAnalyticsParametersResponse",
+))]
+#[graphql(concrete(
+    params(UserMetadataRecommendationsResponse),
+    name = "CachedUserMetadataRecommendationsResponse",
 ))]
 pub struct CachedResponse<T: OutputType> {
     pub response: T,
@@ -61,19 +83,19 @@ pub struct CachedResponse<T: OutputType> {
 #[derive(Debug, PartialEq, Eq, SimpleObject, Serialize, Deserialize, Clone)]
 pub struct CollectionContents {
     pub total_items: u64,
-    pub user: user::Model,
+    pub user: BasicUserDetails,
     pub reviews: Vec<ReviewItem>,
     pub details: collection::Model,
     pub results: SearchResults<EntityWithLot>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataGroupDetails {
-    pub details: metadata_group::Model,
     pub contents: Vec<String>,
+    pub details: metadata_group::Model,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct GenreDetails {
     pub details: GenreListItem,
     pub contents: SearchResults<String>,
@@ -126,7 +148,7 @@ pub enum UserTemplatesOrWorkoutsListSortBy {
 
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct UserTemplatesOrWorkoutsListInput {
-    pub search: SearchInput,
+    pub search: Option<SearchInput>,
     pub sort: Option<SortInput<UserTemplatesOrWorkoutsListSortBy>>,
 }
 

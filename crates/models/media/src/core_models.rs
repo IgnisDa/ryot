@@ -1,9 +1,10 @@
 use async_graphql::SimpleObject;
-use common_models::IdAndNamedObject;
+use common_models::StringIdAndNamedObject;
 use enum_models::Visibility;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
 use crate::{
     ImportOrExportItemReviewComment, SeenAnimeExtraInformation, SeenMangaExtraInformation,
@@ -17,7 +18,7 @@ pub struct ReviewItem {
     pub posted_on: DateTimeUtc,
     pub visibility: Visibility,
     pub rating: Option<Decimal>,
-    pub posted_by: IdAndNamedObject,
+    pub posted_by: StringIdAndNamedObject,
     pub text_original: Option<String>,
     pub text_rendered: Option<String>,
     pub seen_items_associated_with: Vec<String>,
@@ -28,13 +29,14 @@ pub struct ReviewItem {
     pub podcast_extra_information: Option<SeenPodcastExtraOptionalInformation>,
 }
 
-#[derive(Debug, Serialize, Default, Deserialize, SimpleObject, Clone)]
+#[skip_serializing_none]
+#[derive(Debug, PartialEq, Eq, Serialize, Default, Deserialize, SimpleObject, Clone)]
 pub struct PersonDetailsItemWithCharacter {
     pub entity_id: String,
     pub character: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct PersonDetailsGroupedByRole {
     /// The name of the role performed.
     pub name: String,

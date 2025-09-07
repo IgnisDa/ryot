@@ -1,7 +1,10 @@
 {
-	"extends": "./tsconfig.options.json",
 	"files": [],
+	"extends": "./tsconfig.options.json",
 	"references": [
+		{
+			"path": "apps/browser-extension"
+		},
 		{
 			"path": "apps/docs"
 		},
@@ -24,7 +27,7 @@
 			"path": "libs/ts-utils"
 		},
 		{
-			"path": "tests/backend-api"
+			"path": "tests"
 		}
 	]
 }

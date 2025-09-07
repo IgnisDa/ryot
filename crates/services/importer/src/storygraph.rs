@@ -1,24 +1,24 @@
-use async_graphql::Result;
+use anyhow::Result;
 use chrono::NaiveDate;
 use common_utils::{convert_naive_to_utc, ryot_log};
 use convert_case::{Case, Casing};
 use csv::Reader;
 use dependent_models::{CollectionToEntityDetails, ImportCompletedItem, ImportResult};
-use dependent_utils::get_identifier_from_book_isbn;
+use dependent_provider_utils::get_identifier_from_book_isbn;
 use enum_models::{ImportSource, MediaLot};
+use google_books_provider::GoogleBooksService;
+use hardcover_provider::HardcoverService;
 use itertools::Itertools;
 use media_models::{
     DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMetadataItemSeen,
 };
-use providers::{
-    google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
-};
+use openlibrary_provider::OpenlibraryService;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
-use super::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
+use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -77,11 +77,7 @@ pub async fn import(
                 continue;
             }
         };
-        ryot_log!(
-            debug,
-            "Getting details for {title:?} ({idx}/{total})",
-            title = record.title
-        );
+        ryot_log!(debug, "Details for {} ({idx}/{total})", record.title);
         let Some(isbn) = record.isbn else {
             failed.push(ImportFailedItem {
                 lot: Some(lot),
@@ -104,19 +100,15 @@ pub async fn import(
                 step: ImportFailStep::InputTransformation,
                 identifier: record.title,
                 error: Some(format!(
-                    "Could not convert ISBN: {} to any metadata provider",
-                    isbn
+                    "Could not convert ISBN: {isbn} to any metadata provider"
                 )),
             });
             continue;
         };
-        ryot_log!(
-            debug,
-            "Got identifier = {identifier:?} from source = {source:?}"
-        );
+        ryot_log!(debug, "Identifier = {identifier:?}, Source = {source:?}");
         let mut seen_history = vec![
             ImportOrExportMetadataItemSeen {
-                provider_watched_on: Some(ImportSource::Storygraph.to_string()),
+                providers_consumed_on: Some(vec![ImportSource::Storygraph.to_string()]),
                 ..Default::default()
             };
             record.read_count

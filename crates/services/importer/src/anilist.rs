@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs, sync::Arc};
 
-use async_graphql::Result;
+use anyhow::Result;
 use chrono::NaiveDateTime;
 use common_utils::convert_naive_to_utc_datetime;
 use dependent_models::{
@@ -17,7 +17,7 @@ use rust_decimal_macros::dec;
 use serde::Deserialize;
 use supporting_service::SupportingService;
 
-use super::utils;
+use crate::utils;
 
 #[nest_struct]
 #[derive(Debug, Deserialize)]
@@ -91,7 +91,7 @@ pub async fn import(
         };
         for num in 1..progress.unwrap_or_default() + 1 {
             let mut history = ImportOrExportMetadataItemSeen {
-                provider_watched_on: Some(ImportSource::Anilist.to_string()),
+                providers_consumed_on: Some(vec![ImportSource::Anilist.to_string()]),
                 ended_on: item
                     .updated_at
                     .clone()

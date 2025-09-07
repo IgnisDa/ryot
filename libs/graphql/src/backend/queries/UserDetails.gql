@@ -1,12 +1,14 @@
 query UserDetails {
 	userDetails {
 		__typename
-		... on User {
+		... on UserDetails {
 			id
 			lot
 			name
 			isDisabled
 			oidcIssuerId
+			accessLinkId
+			timesTwoFactorBackupCodesUsed
 			extraInformation {
 				scheduledForWorkoutRevision
 			}
@@ -18,7 +20,6 @@ query UserDetails {
 					landingPath
 					listPageSize
 					disableVideos
-					persistQueries
 					disableReviews
 					disableIntegrations
 					disableWatchProviders
@@ -46,6 +47,7 @@ query UserDetails {
 						muteSounds
 						caloriesBurntUnit
 						promptForRestTimer
+						startTimerForDurationExercises
 					}
 					measurements {
 						statistics {

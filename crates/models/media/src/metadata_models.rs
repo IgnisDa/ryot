@@ -20,7 +20,7 @@ pub struct EntityWithLot {
     pub entity_lot: EntityLot,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]
 pub struct GenreListItem {
     pub id: String,
     pub name: String,
@@ -70,6 +70,7 @@ pub struct MetadataExternalIdentifiers {
     pub tvdb_id: Option<i32>,
 }
 
+#[skip_serializing_none]
 #[derive(
     Eq,
     Hash,
@@ -85,7 +86,6 @@ pub struct MetadataExternalIdentifiers {
 pub struct MetadataFreeCreator {
     pub name: String,
     pub role: String,
-    pub image: Option<String>,
 }
 
 #[boilermates("PartialMetadataWithoutId")]
@@ -107,11 +107,8 @@ pub struct PartialMetadata {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct MetadataDetails {
-    pub lot: MediaLot,
     pub title: String,
-    pub identifier: String,
     pub genres: Vec<String>,
-    pub source: MediaSource,
     pub assets: EntityAssets,
     pub is_nsfw: Option<bool>,
     pub publish_year: Option<i32>,
@@ -158,17 +155,19 @@ pub struct MetadataGroupSearchItem {
 
 #[skip_serializing_none]
 #[derive(
-    Debug,
-    Serialize,
-    Deserialize,
-    Clone,
-    FromJsonQueryResult,
     Eq,
-    PartialEq,
-    Default,
-    InputObject,
     Hash,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    InputObject,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
+#[graphql(input_name = "UniqueMediaIdentifierInput")]
 pub struct UniqueMediaIdentifier {
     pub lot: MediaLot,
     pub identifier: String,
@@ -190,12 +189,13 @@ pub struct CommitMetadataGroupInput {
 pub struct CreateCustomMetadataInput {
     pub title: String,
     pub lot: MediaLot,
-    pub is_nsfw: Option<bool>,
     pub assets: EntityAssets,
+    pub is_nsfw: Option<bool>,
     pub publish_year: Option<i32>,
     pub description: Option<String>,
     pub genres: Option<Vec<String>>,
     pub creators: Option<Vec<String>>,
+    pub publish_date: Option<NaiveDate>,
     pub show_specifics: Option<ShowSpecifics>,
     pub book_specifics: Option<BookSpecifics>,
     pub music_specifics: Option<MusicSpecifics>,
@@ -214,28 +214,35 @@ pub struct UpdateCustomMetadataInput {
     pub update: CreateCustomMetadataInput,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct MetadataLookupInput {
+    pub title: String,
+    pub runtime: Option<Decimal>,
+    pub document_title: Option<String>,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, PartialEq, Eq, Default, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataCreator {
-    pub name: String,
-    pub id: Option<String>,
-    pub image: Option<String>,
+    pub is_free: bool,
+    pub id_or_name: String,
     pub character: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct MetadataCreatorGroupedByRole {
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct MetadataCreatorsGroupedByRole {
     pub name: String,
     pub items: Vec<MetadataCreator>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct GraphqlMetadataGroup {
-    pub id: String,
-    pub name: String,
     pub part: i32,
+    pub id: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[skip_serializing_none]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct GraphqlMetadataDetails {
     pub id: String,
     pub title: String,
@@ -251,8 +258,8 @@ pub struct GraphqlMetadataDetails {
     pub genres: Vec<GenreListItem>,
     pub description: Option<String>,
     pub publish_date: Option<NaiveDate>,
-    pub group: Vec<GraphqlMetadataGroup>,
     pub provider_rating: Option<Decimal>,
+    pub groups: Vec<GraphqlMetadataGroup>,
     pub original_language: Option<String>,
     pub production_status: Option<String>,
     pub created_by_user_id: Option<String>,
@@ -264,10 +271,8 @@ pub struct GraphqlMetadataDetails {
     pub manga_specifics: Option<MangaSpecifics>,
     pub anime_specifics: Option<AnimeSpecifics>,
     pub podcast_specifics: Option<PodcastSpecifics>,
-    pub creators: Vec<MetadataCreatorGroupedByRole>,
+    pub creators: Vec<MetadataCreatorsGroupedByRole>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
-    #[graphql(skip)]
-    pub external_identifiers: Option<MetadataExternalIdentifiers>,
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
 }

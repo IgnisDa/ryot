@@ -4,7 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-async-graphql = { workspace = true }
+anyhow = { workspace = true }
 aws-sdk-s3 = { workspace = true }
 chrono = { workspace = true }
 nanoid = { workspace = true }
+
+common-utils = { workspace = true }
+config-definition = { workspace = true }
+supporting-service = { workspace = true }

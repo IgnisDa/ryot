@@ -6,7 +6,7 @@ import {
 	UserByOidcIssuerIdDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseSearchQuery } from "@ryot/ts-utils";
-import { redirect } from "react-router";
+import { data, redirect } from "react-router";
 import { $path } from "safe-routes";
 import { z } from "zod";
 import {
@@ -14,6 +14,7 @@ import {
 	getCoreDetails,
 	redirectWithToast,
 	serverGqlService,
+	twoFactorSessionStorage,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/api.auth";
 
@@ -54,10 +55,19 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	const { loginUser } = await serverGqlService.request(LoginUserDocument, {
 		input: { oidc: oidcInput },
 	});
-	if (loginUser.__typename === "LoginResponse") {
+	if (loginUser.__typename === "ApiKeyResponse") {
 		const headers = await getCookiesForApplication(loginUser.apiKey);
 		return redirect($path("/"), { headers });
 	}
+	if (loginUser.__typename === "StringIdObject") {
+		const session = await twoFactorSessionStorage.getSession();
+		session.set("userId", loginUser.id);
+		const twoFactorCookie =
+			await twoFactorSessionStorage.commitSession(session);
+		return redirect($path("/two-factor"), {
+			headers: new Headers({ "set-cookie": twoFactorCookie }),
+		});
+	}
 	console.error("Login failed:", loginUser);
-	return Response.json({ input });
+	return data({ input });
 };

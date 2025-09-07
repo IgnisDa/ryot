@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use async_graphql::{Error, Result};
+use anyhow::Result;
 use axum::{
     Extension, RequestPartsExt,
     extract::FromRequestParts,
@@ -29,17 +29,12 @@ use reqwest::{
 };
 use rust_decimal::Decimal;
 use sea_orm::Order;
-
-pub fn user_id_from_token(token: &str, jwt_secret: &str) -> Result<String> {
-    jwt_service::verify(token, jwt_secret)
-        .map(|c| c.sub)
-        .map_err(|e| Error::new(format!("Encountered error: {:?}", e)))
-}
+use supporting_service::SupportingService;
 
 #[derive(Debug, Default)]
 pub struct AuthContext {
-    pub auth_token: Option<String>,
     pub user_id: Option<String>,
+    pub session_id: Option<String>,
 }
 
 impl<S> FromRequestParts<S> for AuthContext
@@ -52,20 +47,28 @@ where
         let mut ctx = AuthContext {
             ..Default::default()
         };
+
         if let Some(h) = parts.headers.get(AUTHORIZATION) {
-            ctx.auth_token = h.to_str().map(|s| s.replace("Bearer ", "")).ok();
+            ctx.session_id = h.to_str().map(|s| s.replace("Bearer ", "")).ok();
         } else if let Some(h) = parts.headers.get("x-auth-token") {
-            ctx.auth_token = h.to_str().map(String::from).ok();
+            ctx.session_id = h.to_str().map(String::from).ok();
         }
-        if let Some(auth_token) = ctx.auth_token.as_ref() {
-            let Extension(config) = parts
-                .extract::<Extension<Arc<config::AppConfig>>>()
+        if let Some(session_id) = ctx.session_id.as_ref() {
+            let Extension(ss) = parts
+                .extract::<Extension<Arc<SupportingService>>>()
                 .await
-                .unwrap();
-            if let Ok(user_id) = user_id_from_token(auth_token, &config.users.jwt_secret) {
-                ctx.user_id = Some(user_id);
+                .map_err(|_| {
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "Supporting service not available",
+                    )
+                })?;
+
+            if let Ok(Some(session)) = session_service::validate_session(&ss, session_id).await {
+                ctx.user_id = Some(session.user_id);
             }
         }
+
         Ok(ctx)
     }
 }
@@ -156,7 +159,7 @@ pub type ApplicationOidcClient<
 >;
 
 pub async fn create_oidc_client(
-    config: &config::AppConfig,
+    config: &config_definition::AppConfig,
 ) -> Option<(reqwest::Client, ApplicationOidcClient)> {
     match RedirectUrl::new(config.frontend.url.clone() + FRONTEND_OAUTH_ENDPOINT) {
         Ok(redirect_url) => match IssuerUrl::new(config.server.oidc.issuer_url.clone()) {

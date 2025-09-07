@@ -4,17 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = { workspace = true }
 argon2 = { workspace = true }
 async-graphql = { workspace = true }
 async-trait = { workspace = true }
 boilermates = { workspace = true }
 chrono = { workspace = true }
-common-models = { path = "../../models/common" }
 educe = { workspace = true }
-enum-models = { path = "../../models/enum" }
-importer-models = { path = "../../models/importer" }
-fitness-models = { path = "../../models/fitness" }
-media-models = { path = "../../models/media" }
 nanoid = { workspace = true }
 rust_decimal = { workspace = true }
 schematic = { workspace = true }
@@ -22,5 +18,11 @@ sea-orm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
-user-models = { path = "../../models/user" }
 uuid = { workspace = true }
+
+common-models = { workspace = true }
+enum-models = { workspace = true }
+fitness-models = { workspace = true }
+importer-models = { workspace = true }
+media-models = { workspace = true }
+user-models = { workspace = true }

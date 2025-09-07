@@ -2,7 +2,7 @@ use async_graphql::{Enum, InputObject, SimpleObject};
 use educe::Educe;
 use enum_models::{MediaLot, UserLot};
 use fitness_models::{SetRestTimersSettings, UserUnitSystem};
-use sea_orm::{FromJsonQueryResult, Iterable};
+use sea_orm::{FromJsonQueryResult, Iterable, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::EnumString;
@@ -110,6 +110,8 @@ pub struct UserFitnessLoggingPreferences {
     #[educe(Default = "kcal")]
     pub calories_burnt_unit: String,
     pub prompt_for_rest_timer: bool,
+    #[educe(Default = true)]
+    pub start_timer_for_duration_exercises: bool,
 }
 
 #[derive(
@@ -359,8 +361,6 @@ pub struct UserGeneralPreferences {
     pub disable_videos: bool,
     #[educe(Default = false)]
     pub disable_reviews: bool,
-    #[educe(Default = true)]
-    pub persist_queries: bool,
     #[educe(Default = GridPacking::Dense)]
     pub grid_packing: GridPacking,
     #[educe(Default = UserReviewScale::OutOfHundred)]
@@ -483,12 +483,22 @@ pub struct UserExtraInformation {
     pub scheduled_for_workout_revision: bool,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct UserTwoFactorInformationBackupCode {
+    pub code: String,
+    pub used_at: Option<DateTimeUtc>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, FromJsonQueryResult)]
+pub struct UserTwoFactorInformation {
+    pub secret: String,
+    pub backup_codes: Vec<UserTwoFactorInformationBackupCode>,
+}
+
 #[derive(Debug, InputObject)]
 pub struct UpdateUserInput {
     pub user_id: String,
     pub lot: Option<UserLot>,
-    #[graphql(secret)]
-    pub password: Option<String>,
     pub username: Option<String>,
     pub is_disabled: Option<bool>,
     pub admin_access_token: Option<String>,

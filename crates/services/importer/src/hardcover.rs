@@ -1,6 +1,6 @@
 use std::result::Result as StdResult;
 
-use async_graphql::Result;
+use anyhow::Result;
 use chrono::{NaiveDate, NaiveDateTime};
 use common_models::DefaultCollection;
 use common_utils::{convert_naive_to_utc, ryot_log};
@@ -18,7 +18,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::Deserialize;
 
-use super::{ImportFailStep, ImportFailedItem};
+use crate::{ImportFailStep, ImportFailedItem};
 
 #[derive(Debug, Deserialize)]
 struct HardcoverBook {
@@ -129,7 +129,7 @@ fn process_hardcover_record(
     let mut seen_history = vec![];
     if record.status == "Read" || record.date_finished.is_some() {
         let mut seen_item = ImportOrExportMetadataItemSeen {
-            provider_watched_on: Some(ImportSource::Hardcover.to_string()),
+            providers_consumed_on: Some(vec![ImportSource::Hardcover.to_string()]),
             ..Default::default()
         };
 

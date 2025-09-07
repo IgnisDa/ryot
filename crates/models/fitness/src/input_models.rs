@@ -81,7 +81,7 @@ pub enum ExerciseSortBy {
 
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct UserExercisesListInput {
-    pub search: SearchInput,
+    pub search: Option<SearchInput>,
     pub sort_by: Option<ExerciseSortBy>,
     pub filter: Option<ExerciseListFilter>,
 }

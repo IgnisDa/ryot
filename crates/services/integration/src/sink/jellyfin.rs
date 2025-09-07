@@ -1,6 +1,5 @@
-use anyhow::Result;
-use dependent_models::ImportOrExportMetadataItem;
-use dependent_models::{ImportCompletedItem, ImportResult};
+use anyhow::{Result, anyhow};
+use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use media_models::ImportOrExportMetadataItemSeen;
 use rust_decimal::Decimal;
@@ -60,7 +59,7 @@ pub async fn sink_progress(payload: String) -> Result<Option<ImportResult>> {
                 .as_ref()
                 .and_then(|s| s.provider_ids.tmdb.as_ref())
         })
-        .ok_or_else(|| anyhow::anyhow!("No TMDb ID associated with this media"))?
+        .ok_or_else(|| anyhow!("No TMDb ID associated with this media"))?
         .clone();
 
     let lot = match payload.item.item_type.as_str() {
@@ -72,27 +71,22 @@ pub async fn sink_progress(payload: String) -> Result<Option<ImportResult>> {
     let mut seen_item = ImportOrExportMetadataItemSeen {
         show_season_number: payload.item.season_number,
         show_episode_number: payload.item.episode_number,
-        provider_watched_on: Some("Jellyfin".to_string()),
+        providers_consumed_on: Some(vec!["Jellyfin".to_string()]),
         ..Default::default()
     };
 
-    match payload.event.unwrap_or_default().as_str() {
-        "MarkPlayed" => {}
-        _ => {
-            let runtime = payload
-                .item
-                .run_time_ticks
-                .ok_or_else(|| anyhow::anyhow!("No run time associated with this media"))?;
+    let runtime = payload
+        .item
+        .run_time_ticks
+        .ok_or_else(|| anyhow!("No run time associated with this media"))?;
 
-            let position = payload
-                .session
-                .as_ref()
-                .and_then(|s| s.play_state.position_ticks.as_ref())
-                .ok_or_else(|| anyhow::anyhow!("No position associated with this media"))?;
+    let position = payload
+        .session
+        .as_ref()
+        .and_then(|s| s.play_state.position_ticks.as_ref())
+        .ok_or_else(|| anyhow!("No position associated with this media"))?;
 
-            seen_item.progress = Some(position / runtime * dec!(100));
-        }
-    }
+    seen_item.progress = Some(position / runtime * dec!(100));
 
     Ok(Some(ImportResult {
         completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {

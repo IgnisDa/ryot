@@ -1,28 +1,29 @@
 use std::result::Result as StdResult;
 
-use async_graphql::Result;
+use anyhow::Result;
 use chrono::NaiveDate;
 use common_utils::{convert_naive_to_utc, ryot_log};
 use convert_case::{Case, Casing};
 use csv::Reader;
-use dependent_models::{CollectionToEntityDetails, ImportOrExportMetadataItem};
-use dependent_models::{ImportCompletedItem, ImportResult};
-use dependent_utils::get_identifier_from_book_isbn;
+use dependent_models::{
+    CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
+};
+use dependent_provider_utils::get_identifier_from_book_isbn;
 use enum_models::{ImportSource, MediaLot};
 use futures::stream::{self, StreamExt};
+use google_books_provider::GoogleBooksService;
+use hardcover_provider::HardcoverService;
 use itertools::Itertools;
 use media_models::{
     DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMetadataItemSeen,
 };
-use providers::{
-    google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
-};
+use openlibrary_provider::OpenlibraryService;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::Deserialize;
 
-use super::{ImportFailStep, ImportFailedItem};
+use crate::{ImportFailStep, ImportFailedItem};
 
 #[derive(Debug, Deserialize)]
 struct Book {
@@ -103,11 +104,7 @@ async fn process_book_record(
         }
     };
 
-    ryot_log!(
-        debug,
-        "Getting details for {title:?} ({idx}/{total})",
-        title = record.title
-    );
+    ryot_log!(debug, "Details for {} ({idx}/{total})", record.title);
 
     let isbn = record.isbn13[2..record.isbn13.len() - 1].to_owned();
     if isbn.is_empty() {
@@ -131,16 +128,13 @@ async fn process_book_record(
             lot: Some(lot),
             step: ImportFailStep::InputTransformation,
             identifier: record.title,
-            error: Some(format!(
-                "Could not convert ISBN: {} to Google Books ID",
-                isbn,
-            )),
+            error: Some(format!("Could not convert ISBN: {isbn} to Google Books ID",)),
         });
     };
 
     let mut seen_history = vec![
         ImportOrExportMetadataItemSeen {
-            provider_watched_on: Some(ImportSource::Goodreads.to_string()),
+            providers_consumed_on: Some(vec![ImportSource::Goodreads.to_string()]),
             ..Default::default()
         };
         record.read_count

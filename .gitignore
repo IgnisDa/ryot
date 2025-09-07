@@ -49,11 +49,12 @@ web-build/
 docs/site
 apps/docs/.vitepress/dist
 apps/docs/.vitepress/cache
-.plasmo
+.wxt
+web-ext.config.ts
 node_modules
 .cache
 .astro
 dist
 .vscode/settings.json
 templates
-.claude
+.claude/settings.local.json

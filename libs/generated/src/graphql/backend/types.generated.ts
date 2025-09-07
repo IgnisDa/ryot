@@ -56,6 +56,11 @@ export type AnimeSpecificsInput = {
   episodes?: InputMaybe<Scalars['Int']['input']>;
 };
 
+export type ApiKeyResponse = {
+  __typename?: 'ApiKeyResponse';
+  apiKey: Scalars['String']['output'];
+};
+
 /** The start date must be before the end date. */
 export type ApplicationDateRange = {
   __typename?: 'ApplicationDateRange';
@@ -86,7 +91,7 @@ export type AuthUserInput = {
 export enum BackendError {
   AdminOnlyAction = 'ADMIN_ONLY_ACTION',
   MutationNotAllowed = 'MUTATION_NOT_ALLOWED',
-  NoAuthToken = 'NO_AUTH_TOKEN',
+  NoSessionId = 'NO_SESSION_ID',
   NoUserId = 'NO_USER_ID',
   SessionExpired = 'SESSION_EXPIRED'
 }
@@ -99,6 +104,14 @@ export enum BackgroundJob {
   UpdateAllExercises = 'UPDATE_ALL_EXERCISES',
   UpdateAllMetadata = 'UPDATE_ALL_METADATA'
 }
+
+export type BasicUserDetails = {
+  __typename?: 'BasicUserDetails';
+  id: Scalars['String']['output'];
+  isDisabled?: Maybe<Scalars['Boolean']['output']>;
+  lot: UserLot;
+  name: Scalars['String']['output'];
+};
 
 export type BookSpecifics = {
   __typename?: 'BookSpecifics';
@@ -123,10 +136,52 @@ export type CachedCollectionsListResponse = {
   response: Array<CollectionItem>;
 };
 
+export type CachedGenreDetailsResponse = {
+  __typename?: 'CachedGenreDetailsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: GenreDetails;
+};
+
+export type CachedGraphqlMetadataDetailsResponse = {
+  __typename?: 'CachedGraphqlMetadataDetailsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: GraphqlMetadataDetails;
+};
+
+export type CachedGraphqlPersonDetailsResponse = {
+  __typename?: 'CachedGraphqlPersonDetailsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: GraphqlPersonDetails;
+};
+
+export type CachedMetadataGroupDetailsResponse = {
+  __typename?: 'CachedMetadataGroupDetailsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: MetadataGroupDetails;
+};
+
+export type CachedMetadataLookupResponse = {
+  __typename?: 'CachedMetadataLookupResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: MetadataLookupResponse;
+};
+
 export type CachedSearchIdResponse = {
   __typename?: 'CachedSearchIdResponse';
   cacheId: Scalars['UUID']['output'];
   response: IdResults;
+};
+
+export type CachedUserAnalyticsParametersResponse = {
+  __typename?: 'CachedUserAnalyticsParametersResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: ApplicationDateRange;
+};
+
+export type CachedUserAnalyticsResponse = {
+  __typename?: 'CachedUserAnalyticsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: UserAnalytics;
 };
 
 export type CachedUserMeasurementsListResponse = {
@@ -164,7 +219,7 @@ export type CollectionContents = {
   results: MediaCollectionContentsResults;
   reviews: Array<ReviewItem>;
   totalItems: Scalars['Int']['output'];
-  user: User;
+  user: BasicUserDetails;
 };
 
 export type CollectionContentsFilter = {
@@ -183,6 +238,7 @@ export enum CollectionContentsSortBy {
   Date = 'DATE',
   LastUpdatedOn = 'LAST_UPDATED_ON',
   Random = 'RANDOM',
+  Rank = 'RANK',
   Title = 'TITLE'
 }
 
@@ -223,7 +279,7 @@ export type CollectionItem = {
   __typename?: 'CollectionItem';
   collaborators: Array<CollectionItemCollaboratorInformation>;
   count: Scalars['Int']['output'];
-  creator: IdAndNamedObject;
+  creator: StringIdAndNamedObject;
   description?: Maybe<Scalars['String']['output']>;
   id: Scalars['String']['output'];
   informationTemplate?: Maybe<Array<CollectionExtraInformation>>;
@@ -233,7 +289,7 @@ export type CollectionItem = {
 
 export type CollectionItemCollaboratorInformation = {
   __typename?: 'CollectionItemCollaboratorInformation';
-  collaborator: IdAndNamedObject;
+  collaborator: StringIdAndNamedObject;
   extraInformation?: Maybe<UserToCollectionExtraInformation>;
 };
 
@@ -247,8 +303,11 @@ export type CollectionToEntityDetails = {
   collectionId: Scalars['String']['output'];
   collectionName: Scalars['String']['output'];
   createdOn: Scalars['DateTime']['output'];
+  creatorUserId: Scalars['String']['output'];
   information?: Maybe<Scalars['JSON']['output']>;
   lastUpdatedOn: Scalars['DateTime']['output'];
+  /** The rank of this entity in the collection. This is ignored during importing. */
+  rank: Scalars['Decimal']['output'];
 };
 
 export type CoreDetails = {
@@ -262,18 +321,36 @@ export type CoreDetails = {
   isDemoInstance: Scalars['Boolean']['output'];
   isServerKeyValidated: Scalars['Boolean']['output'];
   localAuthDisabled: Scalars['Boolean']['output'];
+  maxFileSizeMb: Scalars['Int']['output'];
   metadataGroupSourceLotMappings: Array<MetadataGroupSourceLotMapping>;
   metadataLotSourceMappings: Array<MetadataLotSourceMappings>;
   metadataProviderLanguages: Array<ProviderLanguageInformation>;
   oidcEnabled: Scalars['Boolean']['output'];
   pageSize: Scalars['Int']['output'];
   peopleSearchSources: Array<MediaSource>;
+  providerSpecifics: CoreDetailsProviderSpecifics;
   repositoryLink: Scalars['String']['output'];
   signupAllowed: Scalars['Boolean']['output'];
   smtpEnabled: Scalars['Boolean']['output'];
   tokenValidForDays: Scalars['Int']['output'];
+  twoFactorBackupCodesCount: Scalars['Int']['output'];
   version: Scalars['String']['output'];
   websiteUrl: Scalars['String']['output'];
+};
+
+export type CoreDetailsProviderIgdbSpecifics = {
+  __typename?: 'CoreDetailsProviderIgdbSpecifics';
+  gameModes: Array<IdAndNamedObject>;
+  gameTypes: Array<IdAndNamedObject>;
+  genres: Array<IdAndNamedObject>;
+  platforms: Array<IdAndNamedObject>;
+  releaseDateRegions: Array<IdAndNamedObject>;
+  themes: Array<IdAndNamedObject>;
+};
+
+export type CoreDetailsProviderSpecifics = {
+  __typename?: 'CoreDetailsProviderSpecifics';
+  igdb: CoreDetailsProviderIgdbSpecifics;
 };
 
 export type CreateAccessLinkInput = {
@@ -299,6 +376,7 @@ export type CreateCustomMetadataInput = {
   movieSpecifics?: InputMaybe<MovieSpecificsInput>;
   musicSpecifics?: InputMaybe<MusicSpecificsInput>;
   podcastSpecifics?: InputMaybe<PodcastSpecificsInput>;
+  publishDate?: InputMaybe<Scalars['NaiveDate']['input']>;
   publishYear?: InputMaybe<Scalars['Int']['input']>;
   showSpecifics?: InputMaybe<ShowSpecificsInput>;
   title: Scalars['String']['input'];
@@ -533,6 +611,7 @@ export type EntityAssetsInput = {
 export enum EntityLot {
   Collection = 'COLLECTION',
   Exercise = 'EXERCISE',
+  Genre = 'GENRE',
   Metadata = 'METADATA',
   MetadataGroup = 'METADATA_GROUP',
   Person = 'PERSON',
@@ -574,28 +653,18 @@ export type EntityWithLot = {
 
 export type Exercise = {
   __typename?: 'Exercise';
-  attributes: ExerciseAttributes;
+  assets: EntityAssets;
   createdByUserId?: Maybe<Scalars['String']['output']>;
   equipment?: Maybe<ExerciseEquipment>;
   force?: Maybe<ExerciseForce>;
   id: Scalars['String']['output'];
+  instructions: Array<Scalars['String']['output']>;
   level: ExerciseLevel;
   lot: ExerciseLot;
   mechanic?: Maybe<ExerciseMechanic>;
   muscles: Array<ExerciseMuscle>;
   name: Scalars['String']['output'];
   source: ExerciseSource;
-};
-
-export type ExerciseAttributes = {
-  __typename?: 'ExerciseAttributes';
-  assets: EntityAssets;
-  instructions: Array<Scalars['String']['output']>;
-};
-
-export type ExerciseAttributesInput = {
-  assets: EntityAssetsInput;
-  instructions: Array<Scalars['String']['input']>;
 };
 
 export type ExerciseBestSetRecord = {
@@ -637,15 +706,17 @@ export enum ExerciseForce {
 }
 
 export type ExerciseInput = {
-  attributes: ExerciseAttributesInput;
+  assets: EntityAssetsInput;
   equipment?: InputMaybe<ExerciseEquipment>;
   force?: InputMaybe<ExerciseForce>;
   id: Scalars['String']['input'];
+  instructions: Array<Scalars['String']['input']>;
   level: ExerciseLevel;
   lot: ExerciseLot;
   mechanic?: InputMaybe<ExerciseMechanic>;
   muscles: Array<ExerciseMuscle>;
   name: Scalars['String']['input'];
+  source: ExerciseSource;
 };
 
 export enum ExerciseLevel {
@@ -770,7 +841,6 @@ export type FrontendConfig = {
  */
 export type FrontendUmamiConfig = {
   __typename?: 'FrontendUmamiConfig';
-  domains: Scalars['String']['output'];
   /** For example: https://umami.is/script.js. */
   scriptUrl: Scalars['String']['output'];
   websiteId: Scalars['String']['output'];
@@ -784,7 +854,7 @@ export type GenreDetails = {
 
 export type GenreDetailsInput = {
   genreId: Scalars['String']['input'];
-  page?: InputMaybe<Scalars['Int']['input']>;
+  search?: InputMaybe<SearchInput>;
 };
 
 export type GenreListItem = {
@@ -792,6 +862,18 @@ export type GenreListItem = {
   id: Scalars['String']['output'];
   name: Scalars['String']['output'];
   numItems?: Maybe<Scalars['Int']['output']>;
+};
+
+export type GetPasswordChangeSessionInput = {
+  /** If user details are not present in the request, this can be used to override it */
+  adminAccessToken?: InputMaybe<Scalars['String']['input']>;
+  userId: Scalars['String']['input'];
+};
+
+export type GetPasswordChangeSessionResponse = {
+  __typename?: 'GetPasswordChangeSessionResponse';
+  passwordChangeUrl: Scalars['String']['output'];
+  userId: Scalars['String']['output'];
 };
 
 export type GraphqlCalendarEvent = {
@@ -820,10 +902,10 @@ export type GraphqlMetadataDetails = {
   audioBookSpecifics?: Maybe<AudioBookSpecifics>;
   bookSpecifics?: Maybe<BookSpecifics>;
   createdByUserId?: Maybe<Scalars['String']['output']>;
-  creators: Array<MetadataCreatorGroupedByRole>;
+  creators: Array<MetadataCreatorsGroupedByRole>;
   description?: Maybe<Scalars['String']['output']>;
   genres: Array<GenreListItem>;
-  group: Array<GraphqlMetadataGroup>;
+  groups: Array<GraphqlMetadataGroup>;
   id: Scalars['String']['output'];
   identifier: Scalars['String']['output'];
   isNsfw?: Maybe<Scalars['Boolean']['output']>;
@@ -851,7 +933,6 @@ export type GraphqlMetadataDetails = {
 export type GraphqlMetadataGroup = {
   __typename?: 'GraphqlMetadataGroup';
   id: Scalars['String']['output'];
-  name: Scalars['String']['output'];
   part: Scalars['Int']['output'];
 };
 
@@ -880,7 +961,7 @@ export type GroupedCalendarEvent = {
 
 export type IdAndNamedObject = {
   __typename?: 'IdAndNamedObject';
-  id: Scalars['String']['output'];
+  id: Scalars['Int']['output'];
   name: Scalars['String']['output'];
 };
 
@@ -923,7 +1004,7 @@ export type ImportOrExportItemReviewComment = {
   /** The user ids of all those who liked it. */
   likedBy: Array<Scalars['String']['output']>;
   text: Scalars['String']['output'];
-  user: IdAndNamedObject;
+  user: StringIdAndNamedObject;
 };
 
 export type ImportReport = {
@@ -950,6 +1031,7 @@ export enum ImportSource {
   Audiobookshelf = 'AUDIOBOOKSHELF',
   GenericJson = 'GENERIC_JSON',
   Goodreads = 'GOODREADS',
+  Grouvee = 'GROUVEE',
   Hardcover = 'HARDCOVER',
   Hevy = 'HEVY',
   Igdb = 'IGDB',
@@ -1008,6 +1090,7 @@ export enum IntegrationProvider {
   PlexSink = 'PLEX_SINK',
   PlexYank = 'PLEX_YANK',
   Radarr = 'RADARR',
+  RyotBrowserExtension = 'RYOT_BROWSER_EXTENSION',
   Sonarr = 'SONARR',
   YoutubeMusic = 'YOUTUBE_MUSIC'
 }
@@ -1031,11 +1114,14 @@ export type IntegrationProviderSpecifics = {
   radarrProfileId?: Maybe<Scalars['Int']['output']>;
   radarrRootFolderPath?: Maybe<Scalars['String']['output']>;
   radarrSyncCollectionIds?: Maybe<Array<Scalars['String']['output']>>;
+  radarrTagIds?: Maybe<Array<Scalars['Int']['output']>>;
+  ryotBrowserExtensionDisabledSites?: Maybe<Array<Scalars['String']['output']>>;
   sonarrApiKey?: Maybe<Scalars['String']['output']>;
   sonarrBaseUrl?: Maybe<Scalars['String']['output']>;
   sonarrProfileId?: Maybe<Scalars['Int']['output']>;
   sonarrRootFolderPath?: Maybe<Scalars['String']['output']>;
   sonarrSyncCollectionIds?: Maybe<Array<Scalars['String']['output']>>;
+  sonarrTagIds?: Maybe<Array<Scalars['Int']['output']>>;
   youtubeMusicAuthCookie?: Maybe<Scalars['String']['output']>;
   youtubeMusicTimezone?: Maybe<Scalars['String']['output']>;
 };
@@ -1058,11 +1144,14 @@ export type IntegrationSourceSpecificsInput = {
   radarrProfileId?: InputMaybe<Scalars['Int']['input']>;
   radarrRootFolderPath?: InputMaybe<Scalars['String']['input']>;
   radarrSyncCollectionIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  radarrTagIds?: InputMaybe<Array<Scalars['Int']['input']>>;
+  ryotBrowserExtensionDisabledSites?: InputMaybe<Array<Scalars['String']['input']>>;
   sonarrApiKey?: InputMaybe<Scalars['String']['input']>;
   sonarrBaseUrl?: InputMaybe<Scalars['String']['input']>;
   sonarrProfileId?: InputMaybe<Scalars['Int']['input']>;
   sonarrRootFolderPath?: InputMaybe<Scalars['String']['input']>;
   sonarrSyncCollectionIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  sonarrTagIds?: InputMaybe<Array<Scalars['Int']['input']>>;
   youtubeMusicAuthCookie?: InputMaybe<Scalars['String']['input']>;
   youtubeMusicTimezone?: InputMaybe<Scalars['String']['input']>;
 };
@@ -1085,12 +1174,7 @@ export enum LoginErrorVariant {
   UsernameDoesNotExist = 'USERNAME_DOES_NOT_EXIST'
 }
 
-export type LoginResponse = {
-  __typename?: 'LoginResponse';
-  apiKey: Scalars['String']['output'];
-};
-
-export type LoginResult = LoginError | LoginResponse;
+export type LoginResult = ApiKeyResponse | LoginError | StringIdObject;
 
 export type MangaSpecifics = {
   __typename?: 'MangaSpecifics';
@@ -1119,11 +1203,17 @@ export type MediaCollectionContentsResults = {
 export type MediaCollectionFilter = {
   collectionId: Scalars['String']['input'];
   presence: MediaCollectionPresenceFilter;
+  strategy: MediaCollectionStrategyFilter;
 };
 
 export enum MediaCollectionPresenceFilter {
   NotPresentIn = 'NOT_PRESENT_IN',
   PresentIn = 'PRESENT_IN'
+}
+
+export enum MediaCollectionStrategyFilter {
+  And = 'AND',
+  Or = 'OR'
 }
 
 export type MediaFilter = {
@@ -1156,7 +1246,7 @@ export enum MediaLot {
 }
 
 export enum MediaSortBy {
-  LastSeen = 'LAST_SEEN',
+  LastConsumed = 'LAST_CONSUMED',
   LastUpdated = 'LAST_UPDATED',
   ProviderRating = 'PROVIDER_RATING',
   Random = 'RANDOM',
@@ -1176,6 +1266,7 @@ export enum MediaSource {
   Anilist = 'ANILIST',
   Audible = 'AUDIBLE',
   Custom = 'CUSTOM',
+  GiantBomb = 'GIANT_BOMB',
   GoogleBooks = 'GOOGLE_BOOKS',
   Hardcover = 'HARDCOVER',
   Igdb = 'IGDB',
@@ -1184,7 +1275,9 @@ export enum MediaSource {
   MangaUpdates = 'MANGA_UPDATES',
   Myanimelist = 'MYANIMELIST',
   Openlibrary = 'OPENLIBRARY',
+  Spotify = 'SPOTIFY',
   Tmdb = 'TMDB',
+  Tvdb = 'TVDB',
   Vndb = 'VNDB',
   YoutubeMusic = 'YOUTUBE_MUSIC'
 }
@@ -1192,13 +1285,12 @@ export enum MediaSource {
 export type MetadataCreator = {
   __typename?: 'MetadataCreator';
   character?: Maybe<Scalars['String']['output']>;
-  id?: Maybe<Scalars['String']['output']>;
-  image?: Maybe<Scalars['String']['output']>;
-  name: Scalars['String']['output'];
+  idOrName: Scalars['String']['output'];
+  isFree: Scalars['Boolean']['output'];
 };
 
-export type MetadataCreatorGroupedByRole = {
-  __typename?: 'MetadataCreatorGroupedByRole';
+export type MetadataCreatorsGroupedByRole = {
+  __typename?: 'MetadataCreatorsGroupedByRole';
   items: Array<MetadataCreator>;
   name: Scalars['String']['output'];
 };
@@ -1235,6 +1327,19 @@ export type MetadataGroupSourceLotMapping = {
   source: MediaSource;
 };
 
+export type MetadataLookupFoundResult = {
+  __typename?: 'MetadataLookupFoundResult';
+  data: UniqueMediaIdentifier;
+  showInformation?: Maybe<SeenShowExtraInformation>;
+};
+
+export type MetadataLookupNotFound = {
+  __typename?: 'MetadataLookupNotFound';
+  notFound: Scalars['Boolean']['output'];
+};
+
+export type MetadataLookupResponse = MetadataLookupFoundResult | MetadataLookupNotFound;
+
 export type MetadataLotSourceMappings = {
   __typename?: 'MetadataLotSourceMappings';
   lot: MediaLot;
@@ -1242,7 +1347,8 @@ export type MetadataLotSourceMappings = {
 };
 
 export type MetadataProgressUpdateChange = {
-  changeLatestInProgress?: InputMaybe<MetadataProgressUpdateChangeLatestInProgressInput>;
+  changeLatestInProgress?: InputMaybe<Scalars['Decimal']['input']>;
+  changeLatestState?: InputMaybe<SeenState>;
   createNewCompleted?: InputMaybe<MetadataProgressUpdateChangeCreateNewCompletedInput>;
   createNewInProgress?: InputMaybe<MetadataProgressUpdateNewInProgressInput>;
 };
@@ -1254,17 +1360,13 @@ export type MetadataProgressUpdateChangeCreateNewCompletedInput = {
   withoutDates?: InputMaybe<MetadataProgressUpdateCommonInput>;
 };
 
-export type MetadataProgressUpdateChangeLatestInProgressInput = {
-  progress?: InputMaybe<Scalars['Decimal']['input']>;
-  state?: InputMaybe<SeenState>;
-};
-
 export type MetadataProgressUpdateCommonInput = {
   animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
+  manualTimeSpent?: InputMaybe<Scalars['Decimal']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  providersConsumedOn?: InputMaybe<Array<Scalars['String']['input']>>;
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
 };
@@ -1278,8 +1380,9 @@ export type MetadataProgressUpdateNewInProgressInput = {
   animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
+  manualTimeSpent?: InputMaybe<Scalars['Decimal']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  providersConsumedOn?: InputMaybe<Array<Scalars['String']['input']>>;
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
   startedOn: Scalars['DateTime']['input'];
@@ -1289,8 +1392,9 @@ export type MetadataProgressUpdateStartedAndFinishedOnDateInput = {
   animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
+  manualTimeSpent?: InputMaybe<Scalars['Decimal']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  providersConsumedOn?: InputMaybe<Array<Scalars['String']['input']>>;
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
   startedOn: Scalars['DateTime']['input'];
@@ -1301,8 +1405,9 @@ export type MetadataProgressUpdateStartedOrFinishedOnDateInput = {
   animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
+  manualTimeSpent?: InputMaybe<Scalars['Decimal']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  providersConsumedOn?: InputMaybe<Array<Scalars['String']['input']>>;
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
   timestamp: Scalars['DateTime']['input'];
@@ -1312,6 +1417,30 @@ export type MetadataSearchInput = {
   lot: MediaLot;
   search: SearchInput;
   source: MediaSource;
+  sourceSpecifics?: InputMaybe<MetadataSearchSourceSpecificsInput>;
+};
+
+export type MetadataSearchSourceGoogleBooksSpecifics = {
+  passRawQuery?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+export type MetadataSearchSourceIgdbFilterSpecifics = {
+  allowGamesWithParent?: InputMaybe<Scalars['Boolean']['input']>;
+  gameModeIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  gameTypeIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  genreIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  platformIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  releaseDateRegionIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  themeIds?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
+export type MetadataSearchSourceIgdbSpecifics = {
+  filters?: InputMaybe<MetadataSearchSourceIgdbFilterSpecifics>;
+};
+
+export type MetadataSearchSourceSpecificsInput = {
+  googleBooks?: InputMaybe<MetadataSearchSourceGoogleBooksSpecifics>;
+  igdb?: InputMaybe<MetadataSearchSourceIgdbSpecifics>;
 };
 
 export type MovieSpecifics = {
@@ -1326,18 +1455,24 @@ export type MovieSpecificsInput = {
 export type MusicSpecifics = {
   __typename?: 'MusicSpecifics';
   byVariousArtists?: Maybe<Scalars['Boolean']['output']>;
+  discNumber?: Maybe<Scalars['Int']['output']>;
   duration?: Maybe<Scalars['Int']['output']>;
+  trackNumber?: Maybe<Scalars['Int']['output']>;
   viewCount?: Maybe<Scalars['Int']['output']>;
 };
 
 export type MusicSpecificsInput = {
   byVariousArtists?: InputMaybe<Scalars['Boolean']['input']>;
+  discNumber?: InputMaybe<Scalars['Int']['input']>;
   duration?: InputMaybe<Scalars['Int']['input']>;
+  trackNumber?: InputMaybe<Scalars['Int']['input']>;
   viewCount?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type MutationRoot = {
   __typename?: 'MutationRoot';
+  /** Complete two-factor authentication setup by verifying the TOTP code. */
+  completeTwoFactorSetup: UserTwoFactorBackupCodesResponse;
   /** Create or edit an access link. */
   createAccessLink: StringIdObject;
   /** Create a custom exercise. */
@@ -1402,6 +1537,8 @@ export type MutationRoot = {
    * It is only available in development mode.
    */
   developmentMutation: Scalars['Boolean']['output'];
+  /** Disable two-factor authentication for the currently logged in user. */
+  disableTwoFactor: Scalars['Boolean']['output'];
   /**
    * Delete all history and reviews for a given media item and remove it from all
    * collections for the user.
@@ -1411,8 +1548,14 @@ export type MutationRoot = {
   expireCacheKey: Scalars['Boolean']['output'];
   /** Generate an auth token without any expiry. */
   generateAuthToken: Scalars['String']['output'];
+  /** Get a URL which can be used to set a new password for the user. */
+  getPasswordChangeSession: GetPasswordChangeSessionResponse;
+  /** Initiate two-factor authentication setup by generating a TOTP secret. */
+  initiateTwoFactorSetup: UserTwoFactorInitiateResponse;
   /** Login a user using their username and password and return an auth token. */
   loginUser: LoginResult;
+  /** Logout the current user by invalidating their session. */
+  logoutUser: Scalars['Boolean']['output'];
   /** Mark an entity as partial. */
   markEntityAsPartial: Scalars['Boolean']['output'];
   /** Merge an exercise into another. */
@@ -1426,11 +1569,15 @@ export type MutationRoot = {
   presignedPutS3Url: PresignedPutUrlResponse;
   /** Get an access token using an access link. */
   processAccessLink: ProcessAccessLinkResult;
+  /** Regenerate backup codes for the currently logged in user. */
+  regenerateTwoFactorBackupCodes: UserTwoFactorBackupCodesResponse;
   /**
    * Create a new user for the service. Also set their `lot` as admin if
    * they are the first user.
    */
   registerUser: RegisterResult;
+  /** Reorder an entity within a collection. */
+  reorderCollectionEntity: Scalars['Boolean']['output'];
   /**
    * Reset a user by deleting and recreating them with the same ID. The account
    * resetting the user must be an `Admin`.
@@ -1438,6 +1585,8 @@ export type MutationRoot = {
   resetUser: UserResetResult;
   /** Revoke an access link. */
   revokeAccessLink: Scalars['Boolean']['output'];
+  /** Set password using a valid session ID (non-authenticated route). */
+  setPasswordViaSession: Scalars['Boolean']['output'];
   /** Test all notification platforms for the currently logged in user. */
   testUserNotificationPlatforms: Scalars['Boolean']['output'];
   /** Update a custom exercise. */
@@ -1456,6 +1605,13 @@ export type MutationRoot = {
   updateUserPreference: Scalars['Boolean']['output'];
   /** Change the details about a user's workout. */
   updateUserWorkoutAttributes: Scalars['Boolean']['output'];
+  /** Verify a two-factor authentication code (TOTP or backup code). */
+  verifyTwoFactor: VerifyTwoFactorResult;
+};
+
+
+export type MutationRootCompleteTwoFactorSetupArgs = {
+  input: UserTwoFactorSetupInput;
 };
 
 
@@ -1605,6 +1761,11 @@ export type MutationRootExpireCacheKeyArgs = {
 };
 
 
+export type MutationRootGetPasswordChangeSessionArgs = {
+  input: GetPasswordChangeSessionInput;
+};
+
+
 export type MutationRootLoginUserArgs = {
   input: AuthUserInput;
 };
@@ -1642,6 +1803,11 @@ export type MutationRootRegisterUserArgs = {
 };
 
 
+export type MutationRootReorderCollectionEntityArgs = {
+  input: ReorderCollectionEntityInput;
+};
+
+
 export type MutationRootResetUserArgs = {
   toResetUserId: Scalars['String']['input'];
 };
@@ -1649,6 +1815,11 @@ export type MutationRootResetUserArgs = {
 
 export type MutationRootRevokeAccessLinkArgs = {
   accessLinkId: Scalars['String']['input'];
+};
+
+
+export type MutationRootSetPasswordViaSessionArgs = {
+  input: SetPasswordViaSessionInput;
 };
 
 
@@ -1691,9 +1862,14 @@ export type MutationRootUpdateUserWorkoutAttributesArgs = {
   input: UpdateUserWorkoutAttributesInput;
 };
 
+
+export type MutationRootVerifyTwoFactorArgs = {
+  input: UserTwoFactorVerifyInput;
+};
+
 export type NotificationPlatform = {
   __typename?: 'NotificationPlatform';
-  configuredEvents: Array<UserNotificationContent>;
+  configuredEvents: Array<UserNotificationContentDiscriminants>;
   createdOn: Scalars['DateTime']['output'];
   description: Scalars['String']['output'];
   id: Scalars['String']['output'];
@@ -1784,8 +1960,10 @@ export type PersonSortInput = {
 
 export type PersonSourceSpecificsInput = {
   isAnilistStudio?: InputMaybe<Scalars['Boolean']['input']>;
+  isGiantBombCompany?: InputMaybe<Scalars['Boolean']['input']>;
   isHardcoverPublisher?: InputMaybe<Scalars['Boolean']['input']>;
   isTmdbCompany?: InputMaybe<Scalars['Boolean']['input']>;
+  isTvdbCompany?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type PodcastEpisode = {
@@ -1887,9 +2065,7 @@ export type QueryRoot = {
   /** Get details about an exercise. */
   exerciseDetails: Exercise;
   /** Get details about a genre present in the database. */
-  genreDetails: GenreDetails;
-  /** Get paginated list of genres. */
-  genresList: IdResults;
+  genreDetails: CachedGenreDetailsResponse;
   /** Get an authorization URL using the configured OIDC client. */
   getOidcRedirectUrl: Scalars['String']['output'];
   /** Get an access token using the configured OIDC client. */
@@ -1897,25 +2073,27 @@ export type QueryRoot = {
   /** Get a presigned URL (valid for 90 minutes) for a given key. */
   getPresignedS3Url: Scalars['String']['output'];
   /** Get details about a media present in the database. */
-  metadataDetails: GraphqlMetadataDetails;
+  metadataDetails: CachedGraphqlMetadataDetailsResponse;
   /** Get details about a metadata group present in the database. */
-  metadataGroupDetails: MetadataGroupDetails;
+  metadataGroupDetails: CachedMetadataGroupDetailsResponse;
   /** Search for a list of groups from a given source. */
-  metadataGroupSearch: IdResults;
+  metadataGroupSearch: CachedSearchIdResponse;
+  /** Lookup metadata by title. */
+  metadataLookup: CachedMetadataLookupResponse;
   /** Search for a list of media for a given type. */
-  metadataSearch: IdResults;
+  metadataSearch: CachedSearchIdResponse;
   /** Search for a list of people from a given source. */
-  peopleSearch: IdResults;
+  peopleSearch: CachedSearchIdResponse;
   /** Get details about a creator present in the database. */
-  personDetails: GraphqlPersonDetails;
+  personDetails: CachedGraphqlPersonDetailsResponse;
   /** Get trending media items. */
   trendingMetadata: Array<Scalars['String']['output']>;
   /** Get all access links generated by the currently logged in user. */
   userAccessLinks: Array<AccessLink>;
   /** Get the analytics for the currently logged in user. */
-  userAnalytics: UserAnalytics;
+  userAnalytics: CachedUserAnalyticsResponse;
   /** Get the analytics parameters for the currently logged in user. */
-  userAnalyticsParameters: ApplicationDateRange;
+  userAnalyticsParameters: CachedUserAnalyticsParametersResponse;
   /** Get user by OIDC issuer ID. */
   userByOidcIssuerId?: Maybe<Scalars['String']['output']>;
   /** Get calendar events for a user between a given date range. */
@@ -1930,6 +2108,8 @@ export type QueryRoot = {
   userExercisesList: CachedSearchIdResponse;
   /** Get all the export jobs for the current user. */
   userExports: Array<ExportJob>;
+  /** Get paginated list of genres for the user. */
+  userGenresList: IdResults;
   /** Get all the import jobs deployed by the user. */
   userImportReports: Array<ImportReport>;
   /** Get all the integrations for the currently logged in user. */
@@ -1963,7 +2143,7 @@ export type QueryRoot = {
   /** Get a paginated list of workouts done by the user. */
   userWorkoutsList: CachedSearchIdResponse;
   /** Get details about all the users in the service. */
-  usersList: Array<User>;
+  usersList: Array<BasicUserDetails>;
 };
 
 
@@ -1987,11 +2167,6 @@ export type QueryRootGenreDetailsArgs = {
 };
 
 
-export type QueryRootGenresListArgs = {
-  input: SearchInput;
-};
-
-
 export type QueryRootGetOidcTokenArgs = {
   code: Scalars['String']['input'];
 };
@@ -2003,7 +2178,6 @@ export type QueryRootGetPresignedS3UrlArgs = {
 
 
 export type QueryRootMetadataDetailsArgs = {
-  ensureUpdated?: InputMaybe<Scalars['Boolean']['input']>;
   metadataId: Scalars['String']['input'];
 };
 
@@ -2015,6 +2189,11 @@ export type QueryRootMetadataGroupDetailsArgs = {
 
 export type QueryRootMetadataGroupSearchArgs = {
   input: MetadataGroupSearchInput;
+};
+
+
+export type QueryRootMetadataLookupArgs = {
+  title: Scalars['String']['input'];
 };
 
 
@@ -2055,6 +2234,11 @@ export type QueryRootUserExerciseDetailsArgs = {
 
 export type QueryRootUserExercisesListArgs = {
   input: UserExercisesListInput;
+};
+
+
+export type QueryRootUserGenresListArgs = {
+  input?: InputMaybe<SearchInput>;
 };
 
 
@@ -2138,6 +2322,14 @@ export type RegisterUserInput = {
   /** If registration is disabled, this can be used to override it. */
   adminAccessToken?: InputMaybe<Scalars['String']['input']>;
   data: AuthUserInput;
+  /** Specific user lot (role) to assign. */
+  lot?: InputMaybe<UserLot>;
+};
+
+export type ReorderCollectionEntityInput = {
+  collectionName: Scalars['String']['input'];
+  entityId: Scalars['String']['input'];
+  newPosition: Scalars['Int']['input'];
 };
 
 export type ReviewItem = {
@@ -2148,7 +2340,7 @@ export type ReviewItem = {
   isSpoiler: Scalars['Boolean']['output'];
   mangaExtraInformation?: Maybe<SeenMangaExtraInformation>;
   podcastExtraInformation?: Maybe<SeenPodcastExtraOptionalInformation>;
-  postedBy: IdAndNamedObject;
+  postedBy: StringIdAndNamedObject;
   postedOn: Scalars['DateTime']['output'];
   rating?: Maybe<Scalars['Decimal']['output']>;
   seenItemsAssociatedWith: Array<Scalars['String']['output']>;
@@ -2161,7 +2353,7 @@ export type ReviewItem = {
 export type SearchDetails = {
   __typename?: 'SearchDetails';
   nextPage?: Maybe<Scalars['Int']['output']>;
-  total: Scalars['Int']['output'];
+  totalItems: Scalars['Int']['output'];
 };
 
 export type SearchInput = {
@@ -2182,7 +2374,7 @@ export type Seen = {
   numTimesUpdated: Scalars['Int']['output'];
   podcastExtraInformation?: Maybe<SeenPodcastExtraInformation>;
   progress: Scalars['Decimal']['output'];
-  providerWatchedOn?: Maybe<Scalars['String']['output']>;
+  providersConsumedOn: Array<Scalars['String']['output']>;
   reviewId?: Maybe<Scalars['String']['output']>;
   showExtraInformation?: Maybe<SeenShowExtraInformation>;
   startedOn?: Maybe<Scalars['DateTime']['output']>;
@@ -2237,6 +2429,11 @@ export enum SetLot {
   Normal = 'NORMAL',
   WarmUp = 'WARM_UP'
 }
+
+export type SetPasswordViaSessionInput = {
+  password: Scalars['String']['input'];
+  sessionId: Scalars['String']['input'];
+};
 
 export type SetRestTimersSettings = {
   __typename?: 'SetRestTimersSettings';
@@ -2323,22 +2520,37 @@ export type ShowSpecificsInput = {
   totalSeasons?: InputMaybe<Scalars['Int']['input']>;
 };
 
+export type StringIdAndNamedObject = {
+  __typename?: 'StringIdAndNamedObject';
+  id: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+};
+
 export type StringIdObject = {
   __typename?: 'StringIdObject';
   id: Scalars['String']['output'];
 };
 
+export type UniqueMediaIdentifier = {
+  __typename?: 'UniqueMediaIdentifier';
+  identifier: Scalars['String']['output'];
+  lot: MediaLot;
+  source: MediaSource;
+};
+
 export type UpdateCustomExerciseInput = {
-  attributes: ExerciseAttributesInput;
+  assets: EntityAssetsInput;
   equipment?: InputMaybe<ExerciseEquipment>;
   force?: InputMaybe<ExerciseForce>;
   id: Scalars['String']['input'];
+  instructions: Array<Scalars['String']['input']>;
   level: ExerciseLevel;
   lot: ExerciseLot;
   mechanic?: InputMaybe<ExerciseMechanic>;
   muscles: Array<ExerciseMuscle>;
   name: Scalars['String']['input'];
   shouldDelete?: InputMaybe<Scalars['Boolean']['input']>;
+  source: ExerciseSource;
 };
 
 export type UpdateCustomMetadataInput = {
@@ -2349,7 +2561,7 @@ export type UpdateCustomMetadataInput = {
 export type UpdateSeenItemInput = {
   finishedOn?: InputMaybe<Scalars['DateTime']['input']>;
   manualTimeSpent?: InputMaybe<Scalars['Decimal']['input']>;
-  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  providersConsumedOn?: InputMaybe<Array<Scalars['String']['input']>>;
   reviewId?: InputMaybe<Scalars['String']['input']>;
   seenId: Scalars['String']['input'];
   startedOn?: InputMaybe<Scalars['DateTime']['input']>;
@@ -2364,13 +2576,12 @@ export type UpdateUserInput = {
   adminAccessToken?: InputMaybe<Scalars['String']['input']>;
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   lot?: InputMaybe<UserLot>;
-  password?: InputMaybe<Scalars['String']['input']>;
   userId: Scalars['String']['input'];
   username?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpdateUserNotificationPlatformInput = {
-  configuredEvents?: InputMaybe<Array<UserNotificationContent>>;
+  configuredEvents?: InputMaybe<Array<UserNotificationContentDiscriminants>>;
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   notificationId: Scalars['String']['input'];
 };
@@ -2379,18 +2590,6 @@ export type UpdateUserWorkoutAttributesInput = {
   endTime?: InputMaybe<Scalars['DateTime']['input']>;
   id: Scalars['String']['input'];
   startTime?: InputMaybe<Scalars['DateTime']['input']>;
-};
-
-export type User = {
-  __typename?: 'User';
-  createdOn: Scalars['DateTime']['output'];
-  extraInformation?: Maybe<UserExtraInformation>;
-  id: Scalars['String']['output'];
-  isDisabled?: Maybe<Scalars['Boolean']['output']>;
-  lot: UserLot;
-  name: Scalars['String']['output'];
-  oidcIssuerId?: Maybe<Scalars['String']['output']>;
-  preferences: UserPreferences;
 };
 
 export type UserAnalytics = {
@@ -2424,16 +2623,29 @@ export type UserCustomMeasurementInput = {
   unit?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type UserDetails = {
+  __typename?: 'UserDetails';
+  accessLinkId?: Maybe<Scalars['String']['output']>;
+  extraInformation?: Maybe<UserExtraInformation>;
+  id: Scalars['String']['output'];
+  isDisabled?: Maybe<Scalars['Boolean']['output']>;
+  lot: UserLot;
+  name: Scalars['String']['output'];
+  oidcIssuerId?: Maybe<Scalars['String']['output']>;
+  preferences: UserPreferences;
+  timesTwoFactorBackupCodesUsed?: Maybe<Scalars['Int']['output']>;
+};
+
 export type UserDetailsError = {
   __typename?: 'UserDetailsError';
   error: UserDetailsErrorVariant;
 };
 
 export enum UserDetailsErrorVariant {
-  AuthTokenInvalid = 'AUTH_TOKEN_INVALID'
+  SessionInvalid = 'SESSION_INVALID'
 }
 
-export type UserDetailsResult = User | UserDetailsError;
+export type UserDetailsResult = UserDetails | UserDetailsError;
 
 export type UserExerciseDetails = {
   __typename?: 'UserExerciseDetails';
@@ -2453,7 +2665,7 @@ export type UserExerciseInput = {
 
 export type UserExercisesListInput = {
   filter?: InputMaybe<ExerciseListFilter>;
-  search: SearchInput;
+  search?: InputMaybe<SearchInput>;
   sortBy?: InputMaybe<ExerciseSortBy>;
 };
 
@@ -2524,12 +2736,14 @@ export type UserFitnessLoggingPreferences = {
   caloriesBurntUnit: Scalars['String']['output'];
   muteSounds: Scalars['Boolean']['output'];
   promptForRestTimer: Scalars['Boolean']['output'];
+  startTimerForDurationExercises: Scalars['Boolean']['output'];
 };
 
 export type UserFitnessLoggingPreferencesInput = {
   caloriesBurntUnit: Scalars['String']['input'];
   muteSounds: Scalars['Boolean']['input'];
   promptForRestTimer: Scalars['Boolean']['input'];
+  startTimerForDurationExercises: Scalars['Boolean']['input'];
 };
 
 export type UserFitnessMeasurementsPreferences = {
@@ -2581,7 +2795,6 @@ export type UserGeneralPreferences = {
   gridPacking: GridPacking;
   landingPath: Scalars['String']['output'];
   listPageSize: Scalars['Int']['output'];
-  persistQueries: Scalars['Boolean']['output'];
   reviewScale: UserReviewScale;
   showSpoilersInCalendar: Scalars['Boolean']['output'];
   watchProviders: Array<UserGeneralWatchProvider>;
@@ -2598,7 +2811,6 @@ export type UserGeneralPreferencesInput = {
   gridPacking: GridPacking;
   landingPath: Scalars['String']['input'];
   listPageSize: Scalars['Int']['input'];
-  persistQueries: Scalars['Boolean']['input'];
   reviewScale: UserReviewScale;
   showSpoilersInCalendar: Scalars['Boolean']['input'];
   watchProviders: Array<UserGeneralWatchProviderInput>;
@@ -2764,13 +2976,14 @@ export type UserMetadataListInput = {
   sort?: InputMaybe<MediaSortInput>;
 };
 
-export enum UserNotificationContent {
-  EntityRemovedFromMonitoringCollection = 'ENTITY_REMOVED_FROM_MONITORING_COLLECTION',
+/** Auto-generated discriminant enum variants */
+export enum UserNotificationContentDiscriminants {
   IntegrationDisabledDueToTooManyErrors = 'INTEGRATION_DISABLED_DUE_TO_TOO_MANY_ERRORS',
   MetadataChaptersOrEpisodesChanged = 'METADATA_CHAPTERS_OR_EPISODES_CHANGED',
   MetadataEpisodeImagesChanged = 'METADATA_EPISODE_IMAGES_CHANGED',
   MetadataEpisodeNameChanged = 'METADATA_EPISODE_NAME_CHANGED',
   MetadataEpisodeReleased = 'METADATA_EPISODE_RELEASED',
+  MetadataMovedFromCompletedToWatchlistCollection = 'METADATA_MOVED_FROM_COMPLETED_TO_WATCHLIST_COLLECTION',
   MetadataNumberOfSeasonsChanged = 'METADATA_NUMBER_OF_SEASONS_CHANGED',
   MetadataPublished = 'METADATA_PUBLISHED',
   MetadataReleaseDateChanged = 'METADATA_RELEASE_DATE_CHANGED',
@@ -2824,8 +3037,8 @@ export type UserPreferencesInput = {
 
 export type UserResetResponse = {
   __typename?: 'UserResetResponse';
-  id: Scalars['String']['output'];
-  password?: Maybe<Scalars['String']['output']>;
+  passwordChangeUrl?: Maybe<Scalars['String']['output']>;
+  userId: Scalars['String']['output'];
 };
 
 export type UserResetResult = RegisterError | UserResetResponse;
@@ -2844,7 +3057,7 @@ export type UserStatisticsMeasurement = {
 };
 
 export type UserTemplatesOrWorkoutsListInput = {
-  search: SearchInput;
+  search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<UserWorkoutsListSortInput>;
 };
 
@@ -2867,6 +3080,8 @@ export type UserToEntity = {
   collectionExtraInformation?: Maybe<UserToCollectionExtraInformation>;
   collectionId?: Maybe<Scalars['String']['output']>;
   createdOn: Scalars['DateTime']['output'];
+  entityId: Scalars['String']['output'];
+  entityLot: EntityLot;
   exerciseExtraInformation?: Maybe<UserToExerciseExtraInformation>;
   exerciseId?: Maybe<Scalars['String']['output']>;
   exerciseNumTimesInteracted?: Maybe<Scalars['Int']['output']>;
@@ -2919,6 +3134,32 @@ export enum UserToMediaReason {
   Reviewed = 'REVIEWED',
   Seen = 'SEEN',
   Watchlist = 'WATCHLIST'
+}
+
+export type UserTwoFactorBackupCodesResponse = {
+  __typename?: 'UserTwoFactorBackupCodesResponse';
+  backupCodes: Array<Scalars['String']['output']>;
+};
+
+export type UserTwoFactorInitiateResponse = {
+  __typename?: 'UserTwoFactorInitiateResponse';
+  qrCodeUrl: Scalars['String']['output'];
+  secret: Scalars['String']['output'];
+};
+
+export type UserTwoFactorSetupInput = {
+  totpCode: Scalars['String']['input'];
+};
+
+export type UserTwoFactorVerifyInput = {
+  code: Scalars['String']['input'];
+  method: UserTwoFactorVerifyMethod;
+  userId: Scalars['String']['input'];
+};
+
+export enum UserTwoFactorVerifyMethod {
+  BackupCode = 'BACKUP_CODE',
+  Totp = 'TOTP'
 }
 
 export enum UserUnitSystem {
@@ -2977,13 +3218,53 @@ export type UserWorkoutsListSortInput = {
   order?: GraphqlSortOrder;
 };
 
+export type VerifyTwoFactorError = {
+  __typename?: 'VerifyTwoFactorError';
+  error: VerifyTwoFactorErrorVariant;
+};
+
+export enum VerifyTwoFactorErrorVariant {
+  Invalid = 'INVALID',
+  RateLimited = 'RATE_LIMITED'
+}
+
+export type VerifyTwoFactorResult = ApiKeyResponse | VerifyTwoFactorError;
+
 export type VideoGameSpecifics = {
   __typename?: 'VideoGameSpecifics';
-  platforms: Array<Scalars['String']['output']>;
+  platformReleases?: Maybe<Array<VideoGameSpecificsPlatformRelease>>;
+  timeToBeat?: Maybe<VideoGameSpecificsTimeToBeat>;
 };
 
 export type VideoGameSpecificsInput = {
-  platforms: Array<Scalars['String']['input']>;
+  platformReleases?: InputMaybe<Array<VideoGameSpecificsPlatformReleaseInput>>;
+  timeToBeat?: InputMaybe<VideoGameSpecificsTimeToBeatInput>;
+};
+
+export type VideoGameSpecificsPlatformRelease = {
+  __typename?: 'VideoGameSpecificsPlatformRelease';
+  name: Scalars['String']['output'];
+  releaseDate?: Maybe<Scalars['DateTime']['output']>;
+  releaseRegion?: Maybe<Scalars['String']['output']>;
+};
+
+export type VideoGameSpecificsPlatformReleaseInput = {
+  name: Scalars['String']['input'];
+  releaseDate?: InputMaybe<Scalars['DateTime']['input']>;
+  releaseRegion?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type VideoGameSpecificsTimeToBeat = {
+  __typename?: 'VideoGameSpecificsTimeToBeat';
+  completely?: Maybe<Scalars['Int']['output']>;
+  hastily?: Maybe<Scalars['Int']['output']>;
+  normally?: Maybe<Scalars['Int']['output']>;
+};
+
+export type VideoGameSpecificsTimeToBeatInput = {
+  completely?: InputMaybe<Scalars['Int']['input']>;
+  hastily?: InputMaybe<Scalars['Int']['input']>;
+  normally?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export enum Visibility {
