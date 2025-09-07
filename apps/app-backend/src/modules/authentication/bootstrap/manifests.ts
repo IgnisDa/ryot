@@ -203,9 +203,9 @@ const buildMediaGroupEntitySchema = (
 ) => ({
 	slug,
 	name,
+	icon,
 	accentColor,
 	trackerSlug: "media",
-	icon,
 	propertiesSchema: mediaGroupPropertiesJsonSchema,
 	eventSchemas: mediaLifecycleEventSchemas(slug).filter((s) => s.slug === "review"),
 });
@@ -216,6 +216,7 @@ export const authenticationBuiltinEntitySchemas = () => [
 		name: "Library",
 		icon: "library",
 		eventSchemas: [],
+		trackerSlug: undefined,
 		accentColor: "#9CA3AF",
 		propertiesSchema: { fields: {} },
 	},
