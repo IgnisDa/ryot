@@ -116,9 +116,7 @@ docker compose up -d ryot-postgres ryot-redis
 bun run dev
 ```
 
-The backend starts on port 3000 and the frontend proxies to it on port 8000. Configure environment variables in `apps/app-backend/.env` (requires at minimum `DATABASE_URL`, `REDIS_URL`, `SERVER_ADMIN_ACCESS_TOKEN`, `FRONTEND_URL`).
-
-Other commands: `bun run test`, `bun run typecheck`, `bun run lint`.
+Configure `apps/app-backend/.env` with at minimum `DATABASE_URL`, `REDIS_URL`, `SERVER_ADMIN_ACCESS_TOKEN`, `FRONTEND_URL`. Other commands: `bun run test`, `bun run typecheck`, `bun run lint`.
 
 ## Project Structure
 
