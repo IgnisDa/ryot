@@ -1,5 +1,6 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
+import { config } from "~/lib/config";
 import { createEntity } from "~/modules/entities";
 import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas";
 
@@ -46,7 +47,7 @@ export const processOpenScaleImport = async (input: {
 
 		let adapterResult: Awaited<ReturnType<typeof adaptOpenScaleCsv>>;
 		try {
-			adapterResult = adaptOpenScaleCsv(csvText);
+			adapterResult = adaptOpenScaleCsv(csvText, config.timezone);
 		} catch (error) {
 			await failImportRun(
 				input.runId,
