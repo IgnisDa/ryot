@@ -10,6 +10,7 @@ export const user = pgTable("user", {
 	id: text().primaryKey(),
 	twoFactorEnabled: boolean(),
 	email: text().notNull().unique(),
+	bannedAt: timestamp({ withTimezone: true }),
 	preferences: jsonb().$type<UserPreferences>().notNull(),
 	emailVerified: boolean().default(false).notNull(),
 	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
