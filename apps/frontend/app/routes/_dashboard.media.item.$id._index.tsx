@@ -1037,6 +1037,12 @@ export default function Page() {
 							<Tabs.Panel value="suggestions" h={MEDIA_DETAILS_HEIGHT}>
 								{metadataDetails.data.suggestions.length > 0 ? (
 									<VirtuosoGrid
+										totalCount={metadataDetails.data.suggestions.length}
+										itemContent={(index) => (
+											<PartialMetadataDisplay
+												metadataId={metadataDetails.data.suggestions[index]}
+											/>
+										)}
 										components={{
 											List: forwardRef((props, ref) => (
 												<SimpleGrid
@@ -1046,12 +1052,6 @@ export default function Page() {
 												/>
 											)),
 										}}
-										totalCount={metadataDetails.data.suggestions.length}
-										itemContent={(index) => (
-											<PartialMetadataDisplay
-												metadataId={metadataDetails.data.suggestions[index]}
-											/>
-										)}
 									/>
 								) : (
 									<Text>No suggestions</Text>
