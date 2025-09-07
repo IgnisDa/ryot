@@ -70,6 +70,7 @@ pub struct MetadataExternalIdentifiers {
     pub tvdb_id: Option<i32>,
 }
 
+#[skip_serializing_none]
 #[derive(
     Eq,
     Hash,
