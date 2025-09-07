@@ -135,7 +135,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			await serverGqlService.authenticatedRequest(
 				request,
 				DeployExportJobDocument,
-				{},
 			);
 			return data({ status: "success" } as const, {
 				headers: await createToastHeaders({
