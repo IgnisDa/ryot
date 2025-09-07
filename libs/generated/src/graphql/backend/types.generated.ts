@@ -902,7 +902,7 @@ export type GraphqlMetadataDetails = {
   audioBookSpecifics?: Maybe<AudioBookSpecifics>;
   bookSpecifics?: Maybe<BookSpecifics>;
   createdByUserId?: Maybe<Scalars['String']['output']>;
-  creators: Array<MetadataCreatorGroupedByRole>;
+  creators: Array<MetadataCreatorsGroupedByRole>;
   description?: Maybe<Scalars['String']['output']>;
   genres: Array<GenreListItem>;
   group: Array<GraphqlMetadataGroup>;
@@ -933,7 +933,6 @@ export type GraphqlMetadataDetails = {
 export type GraphqlMetadataGroup = {
   __typename?: 'GraphqlMetadataGroup';
   id: Scalars['String']['output'];
-  name: Scalars['String']['output'];
   part: Scalars['Int']['output'];
 };
 
@@ -1286,13 +1285,12 @@ export enum MediaSource {
 export type MetadataCreator = {
   __typename?: 'MetadataCreator';
   character?: Maybe<Scalars['String']['output']>;
-  id?: Maybe<Scalars['String']['output']>;
-  image?: Maybe<Scalars['String']['output']>;
-  name: Scalars['String']['output'];
+  idOrName: Scalars['String']['output'];
+  isFree: Scalars['Boolean']['output'];
 };
 
-export type MetadataCreatorGroupedByRole = {
-  __typename?: 'MetadataCreatorGroupedByRole';
+export type MetadataCreatorsGroupedByRole = {
+  __typename?: 'MetadataCreatorsGroupedByRole';
   items: Array<MetadataCreator>;
   name: Scalars['String']['output'];
 };
