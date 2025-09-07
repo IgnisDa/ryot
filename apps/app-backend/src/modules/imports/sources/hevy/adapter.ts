@@ -105,10 +105,10 @@ const toWorkoutSet = (row: HevyRow): WorkoutImportSet => {
 		set.reps = row.reps;
 	}
 	if (row.weight !== undefined) {
-		set.weight = row.weight;
+		set.weight = row.weight || 1;
 	}
 	if (row.durationSeconds !== undefined) {
-		set.duration = row.durationSeconds;
+		set.duration = row.durationSeconds / 60;
 	}
 	if (row.distanceMeters !== undefined) {
 		set.distance = row.distanceMeters / 1000;
