@@ -353,42 +353,53 @@ export const usePartialStatusMonitor = (props: {
 	partialStatus?: boolean | null;
 	externalLinkSource: MediaSource;
 }) => {
+	const { entityId, entityLot, onUpdate, partialStatus, externalLinkSource } =
+		props;
+
 	const [jobDeployedForEntity, setJobDeployedForEntity] = useState<
 		string | null
 	>(null);
+	const intervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
 	useEffect(() => {
-		const { partialStatus, entityId, entityLot, onUpdate, externalLinkSource } =
-			props;
-
-		if (jobDeployedForEntity && jobDeployedForEntity !== entityId) {
-			setJobDeployedForEntity(null);
+		if (intervalRef.current) {
+			clearInterval(intervalRef.current);
+			intervalRef.current = undefined;
 		}
 
-		if (!partialStatus || externalLinkSource === MediaSource.Custom) {
-			setJobDeployedForEntity(null);
-			return;
-		}
+		const isJobForDifferentEntity =
+			jobDeployedForEntity && jobDeployedForEntity !== entityId;
+		const shouldPoll =
+			partialStatus && externalLinkSource !== MediaSource.Custom;
+
+		if (isJobForDifferentEntity) setJobDeployedForEntity(null);
+
+		if (!shouldPoll) return;
 
 		if (jobDeployedForEntity !== entityId) {
 			deployUpdateJobIfNeeded(entityId, entityLot, externalLinkSource);
 			setJobDeployedForEntity(entityId);
 		}
 
-		const interval = setInterval(onUpdate, 1000);
+		intervalRef.current = setInterval(onUpdate, 1000);
 
-		return () => clearInterval(interval);
+		return () => {
+			if (intervalRef.current) {
+				clearInterval(intervalRef.current);
+				intervalRef.current = undefined;
+			}
+		};
 	}, [
-		props.onUpdate,
-		props.entityId,
-		props.entityLot,
-		props.partialStatus,
+		entityId,
+		onUpdate,
+		entityLot,
+		partialStatus,
+		externalLinkSource,
 		jobDeployedForEntity,
-		props.externalLinkSource,
 	]);
 
 	return {
 		isPartialStatusActive:
-			props.partialStatus && props.externalLinkSource !== MediaSource.Custom,
+			partialStatus && externalLinkSource !== MediaSource.Custom,
 	};
 };
