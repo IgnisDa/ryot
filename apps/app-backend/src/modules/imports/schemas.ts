@@ -40,19 +40,48 @@ export const importRunFailureStage = z.enum([
 export type ImportRunFailureStage = z.infer<typeof importRunFailureStage>;
 
 export const fileImportRunSources = [
-	"anilist",
 	"hevy",
 	"igdb",
 	"imdb",
+	"anilist",
 	"grouvee",
+	"watcharr",
 	"goodreads",
 	"hardcover",
-	"myanimelist",
-	"open_scale",
 	"strong_app",
+	"open_scale",
 	"storygraph",
-	"watcharr",
+	"myanimelist",
 ] as const;
+
+const sourceApiUrlSchema = z
+	.string()
+	.trim()
+	.superRefine((value, ctx) => {
+		try {
+			const url = new URL(value);
+			if (!["http:", "https:"].includes(url.protocol)) {
+				throw new Error();
+			}
+		} catch {
+			ctx.addIssue({
+				code: "custom",
+				message: "Import source URL must be a valid http or https URL",
+			});
+		}
+	});
+
+const allowInsecureConnectionsField = {
+	allowInsecureConnections: z.boolean().optional(),
+};
+
+const urlAndKeyRunInput = <Source extends ImportRunSource>(source: Source) =>
+	z.object({
+		apiUrl: sourceApiUrlSchema,
+		apiKey: nonEmptyStringSchema,
+		source: z.literal(source),
+		...allowInsecureConnectionsField,
+	});
 
 const uploadTokenRunInput = <Source extends (typeof fileImportRunSources)[number]>(
 	source: Source,
@@ -106,13 +135,33 @@ export const traktRunInput = z.object({
 });
 export type TraktRunInput = z.infer<typeof traktRunInput>;
 
+export const plexRunInput = urlAndKeyRunInput("plex");
+export type PlexRunInput = z.infer<typeof plexRunInput>;
+
+export const mediatrackerRunInput = urlAndKeyRunInput("mediatracker");
+export type MediatrackerRunInput = z.infer<typeof mediatrackerRunInput>;
+
+export const audiobookshelfRunInput = urlAndKeyRunInput("audiobookshelf");
+export type AudiobookshelfRunInput = z.infer<typeof audiobookshelfRunInput>;
+
+export const jellyfinRunInput = z.object({
+	apiUrl: sourceApiUrlSchema,
+	username: nonEmptyStringSchema,
+	source: z.literal("jellyfin"),
+	password: nonEmptyStringSchema.optional(),
+	...allowInsecureConnectionsField,
+});
+export type JellyfinRunInput = z.infer<typeof jellyfinRunInput>;
+
 export const createImportRunBody = z.discriminatedUnion("source", [
 	hevyRunInput,
 	igdbRunInput,
 	imdbRunInput,
+	plexRunInput,
 	traktRunInput,
 	anilistRunInput,
 	grouveeRunInput,
+	jellyfinRunInput,
 	watcharrRunInput,
 	openScaleRunInput,
 	goodreadsRunInput,
@@ -120,6 +169,8 @@ export const createImportRunBody = z.discriminatedUnion("source", [
 	strongAppRunInput,
 	storygraphRunInput,
 	myanimelistRunInput,
+	mediatrackerRunInput,
+	audiobookshelfRunInput,
 ]);
 export type CreateImportRunBody = z.infer<typeof createImportRunBody>;
 

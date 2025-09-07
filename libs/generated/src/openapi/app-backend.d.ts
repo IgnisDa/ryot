@@ -4610,6 +4610,12 @@ export interface paths {
                         /** @enum {string} */
                         source: "imdb";
                     } | {
+                        apiUrl: string;
+                        apiKey: string;
+                        /** @enum {string} */
+                        source: "plex";
+                        allowInsecureConnections?: boolean;
+                    } | {
                         username: string;
                         /** @enum {string} */
                         source: "trakt";
@@ -4621,6 +4627,13 @@ export interface paths {
                         uploadToken: string;
                         /** @enum {string} */
                         source: "grouvee";
+                    } | {
+                        apiUrl: string;
+                        username: string;
+                        /** @enum {string} */
+                        source: "jellyfin";
+                        password?: string;
+                        allowInsecureConnections?: boolean;
                     } | {
                         uploadToken: string;
                         /** @enum {string} */
@@ -4650,6 +4663,18 @@ export interface paths {
                         source: "myanimelist";
                         animeUploadToken?: string;
                         mangaUploadToken?: string;
+                    } | {
+                        apiUrl: string;
+                        apiKey: string;
+                        /** @enum {string} */
+                        source: "mediatracker";
+                        allowInsecureConnections?: boolean;
+                    } | {
+                        apiUrl: string;
+                        apiKey: string;
+                        /** @enum {string} */
+                        source: "audiobookshelf";
+                        allowInsecureConnections?: boolean;
                     };
                 };
             };
