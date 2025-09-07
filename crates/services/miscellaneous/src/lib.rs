@@ -69,7 +69,7 @@ impl MiscellaneousService {
         &self,
         user_id: String,
         person_id: String,
-    ) -> Result<UserPersonDetails> {
+    ) -> Result<CachedResponse<UserPersonDetails>> {
         miscellaneous_entity_user_details_service::user_person_details(&self.0, user_id, person_id)
             .await
     }

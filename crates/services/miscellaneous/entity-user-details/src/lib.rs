@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{Result, anyhow};
 use application_utils::calculate_average_rating_for_user;
+use common_models::UserLevelCacheKey;
 use database_models::{
     functions::get_user_to_entity_association,
     prelude::{Metadata, Seen},
@@ -9,7 +10,10 @@ use database_models::{
 };
 use database_utils::{entity_in_collections_with_details, item_reviews};
 use dependent_entity_utils::generic_metadata;
-use dependent_models::{UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails};
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, UserMetadataDetails,
+    UserMetadataGroupDetails, UserPersonDetails,
+};
 use dependent_seen_utils::is_metadata_finished_by_user;
 use dependent_utility_utils::get_entity_recently_consumed;
 use enum_models::{EntityLot, SeenState};
@@ -188,21 +192,32 @@ pub async fn user_person_details(
     ss: &Arc<SupportingService>,
     user_id: String,
     person_id: String,
-) -> Result<UserPersonDetails> {
-    let (reviews, collections, is_recently_consumed, person_meta) = try_join!(
-        item_reviews(&user_id, &person_id, EntityLot::Person, true, ss),
-        entity_in_collections_with_details(&user_id, &person_id, EntityLot::Person, ss),
-        get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, ss),
-        get_user_to_entity_association(&ss.db, &user_id, &person_id, EntityLot::Person)
-    )?;
-    let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
-    Ok(UserPersonDetails {
-        reviews,
-        collections,
-        average_rating,
-        is_recently_consumed,
-        has_interacted: person_meta.is_some(),
-    })
+) -> Result<CachedResponse<UserPersonDetails>> {
+    cache_service::get_or_set_with_callback(
+        ss,
+        ApplicationCacheKey::UserPersonDetails(UserLevelCacheKey {
+            user_id: user_id.clone(),
+            input: person_id.clone(),
+        }),
+        |f| ApplicationCacheValue::UserPersonDetails(Box::new(f)),
+        || async {
+            let (reviews, collections, is_recently_consumed, person_meta) = try_join!(
+                item_reviews(&user_id, &person_id, EntityLot::Person, true, ss),
+                entity_in_collections_with_details(&user_id, &person_id, EntityLot::Person, ss),
+                get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, ss),
+                get_user_to_entity_association(&ss.db, &user_id, &person_id, EntityLot::Person)
+            )?;
+            let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
+            Ok(UserPersonDetails {
+                reviews,
+                collections,
+                average_rating,
+                is_recently_consumed,
+                has_interacted: person_meta.is_some(),
+            })
+        },
+    )
+    .await
 }
 
 pub async fn user_metadata_group_details(

@@ -17,7 +17,7 @@ use strum::{Display, EnumDiscriminants};
 use uuid::Uuid;
 
 use crate::{
-    GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
+    GenreDetails, GraphqlPersonDetails, MetadataGroupDetails, UserPersonDetails,
     analytics::UserAnalytics,
     core_systems::{CoreDetails, TmdbSettings, TvdbSettings},
     generic_types::{
@@ -83,6 +83,7 @@ pub enum ApplicationCacheKey {
     MetadataLookup(MetadataLookupCacheInput),
     UserTwoFactorSetup(UserLevelCacheKey<()>),
     UserCollectionsList(UserLevelCacheKey<()>),
+    UserPersonDetails(UserLevelCacheKey<String>),
     UserTwoFactorRateLimit(UserLevelCacheKey<()>),
     UserAnalyticsParameters(UserLevelCacheKey<()>),
     GenreDetails(UserLevelCacheKey<GenreDetailsInput>),
@@ -130,6 +131,7 @@ pub enum ApplicationCacheValue {
     UserTwoFactorRateLimit(EmptyCacheValue),
     PersonDetails(Box<GraphqlPersonDetails>),
     ListennotesSettings(ListennotesSettings),
+    UserPersonDetails(Box<UserPersonDetails>),
     MetadataRecentlyConsumed(EmptyCacheValue),
     UserWorkoutsList(UserWorkoutsListResponse),
     UserMetadataList(UserMetadataListResponse),

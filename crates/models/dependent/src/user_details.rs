@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use user_models::{UserExtraInformation, UserPreferences};
 use uuid::Uuid;
 
-#[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone, Schematic)]
+#[derive(Debug, PartialEq, Eq, Default, Serialize, Deserialize, SimpleObject, Clone, Schematic)]
 pub struct CollectionToEntityDetails {
     /// The rank of this entity in the collection. This is ignored during importing.
     #[serde(default)]
@@ -31,7 +31,7 @@ pub struct CollectionToEntityDetails {
     pub information: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct GraphqlCollectionToEntityDetails {
     pub id: Uuid,
     pub details: CollectionToEntityDetails,
@@ -101,7 +101,7 @@ pub struct GraphqlPersonDetails {
     pub associated_metadata_groups: Vec<PersonDetailsGroupedByRole>,
 }
 
-#[derive(SimpleObject)]
+#[derive(Clone, SimpleObject, Debug, PartialEq, Serialize, Deserialize, Eq)]
 pub struct UserPersonDetails {
     pub has_interacted: bool,
     pub reviews: Vec<ReviewItem>,

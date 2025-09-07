@@ -125,7 +125,16 @@ pub async fn associate_user_with_entity(
     };
     try_join!(
         expire_user_metadata_list_cache(user_id, ss),
-        mark_entity_as_recently_consumed(user_id, entity_id, entity_lot, ss)
+        mark_entity_as_recently_consumed(user_id, entity_id, entity_lot, ss),
+        cache_service::expire_key(
+            ss,
+            ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::UserPersonDetails(
+                UserLevelCacheKey {
+                    user_id: user_id.to_owned(),
+                    input: entity_id.to_owned(),
+                }
+            )))
+        )
     )?;
     Ok(())
 }
