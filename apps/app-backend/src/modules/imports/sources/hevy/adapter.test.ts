@@ -15,7 +15,7 @@ describe("adaptHevyCsv", () => {
 			"Push Day,2026-01-01T10:00:00,2026-01-01T11:03:43,Good session,Timed Push Up,,,1,,10,normal,,60",
 		].join("\n");
 
-		const result = adaptHevyCsv(csv);
+		const result = adaptHevyCsv(csv, "Etc/GMT");
 
 		expect(result.failures).toEqual([]);
 		expect(result.items.length).toBe(1);
@@ -54,7 +54,7 @@ describe("adaptHevyCsv", () => {
 			'"Leg Day","01 Jan 2026, 10:00","01 Jan 2026, 11:00",,Squat,,,1,80,5,normal,,,',
 		].join("\n");
 
-		const result = adaptHevyCsv(csv);
+		const result = adaptHevyCsv(csv, "Etc/GMT");
 
 		expect(result.failures).toEqual([]);
 		expect(result.items[0]?.startedAt).toMatch(/^2026-01-01T/);
@@ -70,7 +70,7 @@ describe("adaptHevyCsv", () => {
 			"Workout,2026-01-01T10:00:00,2026-01-01T11:00:00,,Bench Press,,,4,70,8,dropset,,,",
 		].join("\n");
 
-		const result = adaptHevyCsv(csv);
+		const result = adaptHevyCsv(csv, "Etc/GMT");
 
 		expect(result.failures).toEqual([]);
 		const sets = result.items[0]?.exercises[0]?.sets ?? [];
@@ -84,7 +84,7 @@ describe("adaptHevyCsv", () => {
 			"Evening,2026-01-01T10:00:00,2026-01-01T11:00:00,,Squat,,,1,,12,normal,,,",
 		].join("\n");
 
-		const result = adaptHevyCsv(csv);
+		const result = adaptHevyCsv(csv, "Etc/GMT");
 
 		expect(result.failures).toEqual([]);
 		expect(result.items.map((item) => item.name)).toEqual(["Morning", "Evening"]);
@@ -100,7 +100,7 @@ describe("adaptHevyCsv", () => {
 			"Run Day,2026-01-01T09:00:00,2026-01-01T10:00:00,,Run,,,1,,,normal,10000,3600",
 		].join("\n");
 
-		const result = adaptHevyCsv(csv);
+		const result = adaptHevyCsv(csv, "Etc/GMT");
 
 		expect(result.failures).toEqual([]);
 		expect(result.items[0]?.exercises[0]?.sets[0]?.distance).toBe(10);
@@ -112,7 +112,7 @@ describe("adaptHevyCsv", () => {
 			"Push Day,2026-01-01T10:00:00,2026-01-01T11:00:00,,Bench Press,,,1,220.462262,5,normal,,,",
 		].join("\n");
 
-		const result = adaptHevyCsv(csv);
+		const result = adaptHevyCsv(csv, "Etc/GMT");
 
 		expect(result.failures).toEqual([]);
 		expect(result.items[0]?.exercises[0]?.sets[0]?.weight).toBeCloseTo(100, 5);
@@ -124,7 +124,7 @@ describe("adaptHevyCsv", () => {
 			"Empty,2026-01-01T10:00:00,2026-01-01T11:00:00,,Mystery,,,1,,,normal,,,",
 		].join("\n");
 
-		const result = adaptHevyCsv(csv);
+		const result = adaptHevyCsv(csv, "Etc/GMT");
 
 		expect(result.items).toEqual([]);
 		expect(result.failures).toEqual([
@@ -142,6 +142,6 @@ describe("adaptHevyCsv", () => {
 	});
 
 	it("throws when the CSV has no headers", () => {
-		expect(() => adaptHevyCsv("")).toThrow("Hevy CSV is empty or has no header row");
+		expect(() => adaptHevyCsv("", "Etc/GMT")).toThrow("Hevy CSV is empty or has no header row");
 	});
 });
