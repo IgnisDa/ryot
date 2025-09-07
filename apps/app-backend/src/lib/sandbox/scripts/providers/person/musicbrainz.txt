@@ -109,9 +109,10 @@ driver("search", async function (context) {
 
       return {
         externalId: id,
-        badgeProperty: { kind: "null", value: null },
+        calloutProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: name },
-        subtitleProperty: { kind: "null", value: null },
+        primarySubtitleProperty: { kind: "null", value: null },
+        secondarySubtitleProperty: { kind: "null", value: null },
         imageProperty: { kind: "null", value: null },
       };
     })
