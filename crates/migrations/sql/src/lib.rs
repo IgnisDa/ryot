@@ -31,6 +31,7 @@ mod m20250814_changes_for_issue_1483;
 mod m20250826_changes_for_issue_1529;
 mod m20250827_create_enriched_user_to_entity_views;
 mod m20250907_changes_for_issue_1533;
+mod m20250908_changes_for_issue_1551;
 
 pub use m20230404_create_user::User as AliasedUser;
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
@@ -79,6 +80,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250826_changes_for_issue_1529::Migration),
             Box::new(m20250827_create_enriched_user_to_entity_views::Migration),
             Box::new(m20250907_changes_for_issue_1533::Migration),
+            Box::new(m20250908_changes_for_issue_1551::Migration),
         ]
     }
 }
