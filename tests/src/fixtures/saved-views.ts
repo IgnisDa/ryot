@@ -1,5 +1,9 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
-import { createEntityColumnExpression, createEntityPropertyExpression } from "@ryot/ts-utils";
+import {
+	createEntityColumnExpression,
+	createEntityPropertyExpression,
+	createEntitySchemaExpression,
+} from "@ryot/ts-utils";
 
 import type { Client } from "./auth";
 import {
@@ -34,9 +38,10 @@ export type CardDisplayConfigurationInput = {
 };
 
 export type DisplayConfigurationInput = {
-	table: { columns: DisplayColumnInput[] };
 	grid: CardDisplayConfigurationInput;
 	list: CardDisplayConfigurationInput;
+	table: { columns: DisplayColumnInput[] };
+	entityIdProperty?: ExpressionInput | null;
 };
 
 type CreateSavedViewInput = Partial<
@@ -57,14 +62,18 @@ const normalizeCardDisplayConfiguration = (
 	input: CardDisplayConfigurationInput,
 	allowNulls: boolean,
 ): CardDisplayConfiguration => ({
+	eyebrowProperty:
+		(input.eyebrowProperty === null && allowNulls
+			? null
+			: toRequiredExpression(input.eyebrowProperty ?? null)) ?? null,
 	calloutProperty:
 		(input.calloutProperty === null && allowNulls
 			? null
 			: toRequiredExpression(input.calloutProperty ?? null)) ?? null,
 	titleProperty:
-		(input.titleProperty === null && allowNulls
-			? null
-			: toRequiredExpression(input.titleProperty ?? null)) ?? null,
+		input.titleProperty === null && allowNulls
+			? toRequiredExpression(null)
+			: toRequiredExpression(input.titleProperty ?? null),
 	imageProperty:
 		(input.imageProperty === null && allowNulls
 			? null
@@ -92,9 +101,26 @@ const normalizeDisplayConfiguration = (
 	input: DisplayConfigurationInput,
 	allowNulls = true,
 ): DisplayConfiguration => ({
+	table: normalizeTableDisplayConfiguration(input.table),
 	grid: normalizeCardDisplayConfiguration(input.grid, allowNulls),
 	list: normalizeCardDisplayConfiguration(input.list, allowNulls),
-	table: normalizeTableDisplayConfiguration(input.table),
+	entityIdProperty: toRequiredExpression(
+		input.entityIdProperty === undefined
+			? defaultDisplayConfiguration.entityIdProperty
+			: input.entityIdProperty,
+	),
+});
+
+const mergeDisplayConfigurationInput = (
+	input: DisplayConfigurationInput,
+): DisplayConfigurationInput => ({
+	table: input.table,
+	grid: { ...defaultDisplayConfiguration.grid, ...input.grid },
+	list: { ...defaultDisplayConfiguration.list, ...input.list },
+	entityIdProperty:
+		input.entityIdProperty === undefined
+			? defaultDisplayConfiguration.entityIdProperty
+			: input.entityIdProperty,
 });
 
 const defaultQueryDefinition: QueryDefinition = {
@@ -109,13 +135,13 @@ const defaultQueryDefinition: QueryDefinition = {
 };
 
 const defaultDisplayConfiguration = {
-	table: {
-		columns: [{ label: "Name", expression: [entityField("book", "name")] }],
-	},
+	entityIdProperty: createEntityColumnExpression("book", "id"),
+	table: { columns: [{ label: "Name", expression: [entityField("book", "name")] }] },
 	grid: {
 		calloutProperty: null,
 		primarySubtitleProperty: null,
 		secondarySubtitleProperty: null,
+		eyebrowProperty: createEntitySchemaExpression("name"),
 		titleProperty: [entityField("book", "name")],
 		imageProperty: [entityField("book", "image")],
 	},
@@ -123,6 +149,7 @@ const defaultDisplayConfiguration = {
 		calloutProperty: null,
 		primarySubtitleProperty: null,
 		secondarySubtitleProperty: null,
+		eyebrowProperty: createEntitySchemaExpression("name"),
 		titleProperty: [entityField("book", "name")],
 		imageProperty: [entityField("book", "image")],
 	},
@@ -132,10 +159,7 @@ const defaultUpdatedQueryDefinition: QueryDefinition = {
 	eventJoins: [],
 	computedFields: [],
 	scope: ["book", "anime"],
-	sort: {
-		direction: "desc",
-		expression: createEntityColumnExpression("book", "createdAt"),
-	},
+	sort: { direction: "desc", expression: createEntityColumnExpression("book", "createdAt") },
 	filter: {
 		operator: "gte",
 		type: "comparison",
@@ -147,15 +171,15 @@ const defaultUpdatedQueryDefinition: QueryDefinition = {
 export function buildSavedViewBody(overrides: CreateSavedViewInput = {}): CreateSavedViewBody {
 	const { displayConfiguration: displayOverride, queryDefinition, ...rest } = overrides;
 	const displayConfiguration = displayOverride
-		? normalizeDisplayConfiguration(displayOverride)
+		? normalizeDisplayConfiguration(mergeDisplayConfigurationInput(displayOverride))
 		: normalizeDisplayConfiguration(defaultDisplayConfiguration);
 
 	return {
+		...rest,
 		icon: "star",
+		displayConfiguration,
 		accentColor: "#FF5733",
 		name: `Saved View ${crypto.randomUUID()}`,
-		...rest,
-		displayConfiguration,
 		queryDefinition: queryDefinition ?? defaultQueryDefinition,
 	};
 }
@@ -165,8 +189,9 @@ export function buildUpdatedSavedViewBody(
 ): UpdateSavedViewBody {
 	const { displayConfiguration: displayOverride, queryDefinition, ...rest } = overrides;
 	const displayConfiguration = displayOverride
-		? normalizeDisplayConfiguration(displayOverride, false)
+		? normalizeDisplayConfiguration(mergeDisplayConfigurationInput(displayOverride), false)
 		: normalizeDisplayConfiguration({
+				entityIdProperty: createEntityColumnExpression("book", "id"),
 				table: {
 					columns: [
 						{ label: "Name", expression: [entityField("book", "name")] },
@@ -175,28 +200,30 @@ export function buildUpdatedSavedViewBody(
 				},
 				grid: {
 					imageProperty: null,
-					titleProperty: null,
 					calloutProperty: null,
 					primarySubtitleProperty: null,
 					secondarySubtitleProperty: null,
+					eyebrowProperty: createEntitySchemaExpression("name"),
+					titleProperty: [entityField("book", "name")],
 				},
 				list: {
+					secondarySubtitleProperty: null,
+					eyebrowProperty: createEntitySchemaExpression("name"),
 					titleProperty: [entityField("book", "name")],
 					imageProperty: [entityField("book", "image")],
 					calloutProperty: [entityField("anime", "productionStatus")],
 					primarySubtitleProperty: [entityField("book", "publishYear")],
-					secondarySubtitleProperty: null,
 				},
 			});
 
 	return {
+		...rest,
 		icon: "heart",
 		isDisabled: false,
+		displayConfiguration,
 		accentColor: "#00AA88",
 		name: `Updated View ${crypto.randomUUID()}`,
-		...rest,
 		queryDefinition: queryDefinition ?? defaultUpdatedQueryDefinition,
-		displayConfiguration,
 	};
 }
 

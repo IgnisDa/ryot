@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -16,20 +16,20 @@ Use React Query for saved-view metadata and query-engine execution. Use infinite
 
 ## Acceptance criteria
 
-- [ ] The saved-view route no longer renders placeholder skeleton cards for supported entity saved views
-- [ ] The route fetches saved-view detail by slug through the shared API client and React Query
-- [ ] Query-engine execution uses React Query and the runtime request builder from the previous slice
-- [ ] Layout switching supports grid and list and persists per saved view
-- [ ] Switching layouts resets accumulated query-engine pages to page 1
-- [ ] Grid cards render configured eyebrow, image, title, subtitle, and callout slots where present
-- [ ] List rows render configured eyebrow, image, title, subtitle, and callout slots where present
-- [ ] Grid cards and list rows navigate to entity detail using the configured entity ID field
-- [ ] Null configured titles render as `Untitled`
-- [ ] Optional null grid/list slots are hidden
-- [ ] Image URL resolution works for grid/list image slots
-- [ ] Load-more behavior fetches additional query-engine pages
-- [ ] Loading, empty, error with retry, disabled-direct-render, and unsupported-mode states are handled
-- [ ] Result rendering uses virtualized primitives where practical and does not add new dependencies
+- [x] The saved-view route no longer renders placeholder skeleton cards for supported entity saved views
+- [x] The route fetches saved-view detail by slug through the shared API client and React Query
+- [x] Query-engine execution uses React Query and the runtime request builder from the previous slice
+- [x] Layout switching supports grid and list and persists per saved view
+- [x] Switching layouts resets accumulated query-engine pages to page 1
+- [x] Grid cards render configured eyebrow, image, title, subtitle, and callout slots where present
+- [x] List rows render configured eyebrow, image, title, subtitle, and callout slots where present
+- [x] Grid cards and list rows navigate to entity detail using the configured entity ID field
+- [x] Null configured titles render as `Untitled`
+- [x] Optional null grid/list slots are hidden
+- [x] Image URL resolution works for grid/list image slots
+- [x] Load-more behavior fetches additional query-engine pages
+- [x] Loading, empty, error with retry, disabled-direct-render, and unsupported-mode states are handled
+- [x] Result rendering uses virtualized primitives where practical and does not add new dependencies
 
 ## User stories addressed
 
