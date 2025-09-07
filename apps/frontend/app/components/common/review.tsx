@@ -286,7 +286,7 @@ export const ReviewItemDisplay = (props: {
 									<Stack key={c.id}>
 										<Flex align="center" gap="sm">
 											<Avatar color="cyan" radius="xl">
-												{getInitials(c.user.name)}{" "}
+												{getInitials(c.user.name)}
 											</Avatar>
 											<Box>
 												<Text>{c.user.name}</Text>
