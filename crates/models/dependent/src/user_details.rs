@@ -110,7 +110,7 @@ pub struct UserPersonDetails {
     pub collections: Vec<GraphqlCollectionToEntityDetails>,
 }
 
-#[derive(SimpleObject)]
+#[derive(Clone, SimpleObject, Debug, PartialEq, Serialize, Deserialize, Eq)]
 pub struct UserMetadataGroupDetails {
     pub has_interacted: bool,
     pub reviews: Vec<ReviewItem>,

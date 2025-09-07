@@ -17,7 +17,8 @@ use strum::{Display, EnumDiscriminants};
 use uuid::Uuid;
 
 use crate::{
-    GenreDetails, GraphqlPersonDetails, MetadataGroupDetails, UserPersonDetails,
+    GenreDetails, GraphqlPersonDetails, MetadataGroupDetails, UserMetadataGroupDetails,
+    UserPersonDetails,
     analytics::UserAnalytics,
     core_systems::{CoreDetails, TmdbSettings, TvdbSettings},
     generic_types::{
@@ -89,6 +90,7 @@ pub enum ApplicationCacheKey {
     GenreDetails(UserLevelCacheKey<GenreDetailsInput>),
     UserMetadataRecommendations(UserLevelCacheKey<()>),
     PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),
+    UserMetadataGroupDetails(UserLevelCacheKey<String>),
     UserAnalytics(UserLevelCacheKey<UserAnalyticsInput>),
     UserMetadataRecommendationsSet(UserLevelCacheKey<()>),
     MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
@@ -148,6 +150,7 @@ pub enum ApplicationCacheValue {
     MetadataProgressUpdateInProgressCache(EmptyCacheValue),
     UserMetadataGroupsList(UserMetadataGroupsListResponse),
     UserCollectionContents(Box<CollectionContentsResponse>),
+    UserMetadataGroupDetails(Box<UserMetadataGroupDetails>),
     UserPasswordChangeSession(UserPasswordChangeSessionValue),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
     UserMetadataRecommendationsSet(ApplicationRecommendations),

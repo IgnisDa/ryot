@@ -134,6 +134,15 @@ pub async fn associate_user_with_entity(
                     input: entity_id.to_owned(),
                 }
             )))
+        ),
+        cache_service::expire_key(
+            ss,
+            ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::UserMetadataGroupDetails(
+                UserLevelCacheKey {
+                    user_id: user_id.to_owned(),
+                    input: entity_id.to_owned(),
+                }
+            )))
         )
     )?;
     Ok(())

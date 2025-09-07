@@ -375,14 +375,16 @@ query PeopleSearch($input: PeopleSearchInput!) {
 
 query UserMetadataGroupDetails($metadataGroupId: String!) {
 	userMetadataGroupDetails(metadataGroupId: $metadataGroupId) {
-		hasInteracted
-		averageRating
-		isRecentlyConsumed
-		reviews {
-			...ReviewItemPart
-		}
-		collections {
-			...CollectionToEntityDetailsPart
+		response {
+			hasInteracted
+			averageRating
+			isRecentlyConsumed
+			reviews {
+				...ReviewItemPart
+			}
+			collections {
+				...CollectionToEntityDetailsPart
+			}
 		}
 	}
 }
