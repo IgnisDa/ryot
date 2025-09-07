@@ -7744,7 +7744,6 @@ __metadata:
     safe-routes: "npm:1.0.18"
     tailwind-merge: "npm:3.3.1"
     tiny-invariant: "npm:1.3.3"
-    ts-essentials: "npm:10.1.1"
     ts-pattern: "npm:5.8.0"
     typescript: "npm:5.9.2"
     ufo: "npm:1.6.1"
@@ -20590,18 +20589,6 @@ __metadata:
   version: 3.0.1
   resolution: "trim-lines@npm:3.0.1"
   checksum: 10/7a1325e4ce8ff7e9e52007600e9c9862a166d0db1f1cf0c9357e359e410acab1278fcd91cc279dfa5123fc37b69f080de02f471e91dbbc61b155b9ca92597929
-  languageName: node
-  linkType: hard
-
-"ts-essentials@npm:10.1.1":
-  version: 10.1.1
-  resolution: "ts-essentials@npm:10.1.1"
-  peerDependencies:
-    typescript: ">=4.5.0"
-  peerDependenciesMeta:
-    typescript:
-      optional: true
-  checksum: 10/ab0a468175ba6a7162aa80a55fcd936a8d830ae302f5561ca918d29a5212b4cd2e619c447bf5bc253f9d1faf186f5728c4ef8684ceaace3a7c6bbdffa54dd1bd
   languageName: node
   linkType: hard
 
