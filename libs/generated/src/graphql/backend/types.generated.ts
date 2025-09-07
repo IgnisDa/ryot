@@ -190,6 +190,12 @@ export type CachedUserMeasurementsListResponse = {
   response: Array<UserMeasurement>;
 };
 
+export type CachedUserMetadataDetailsResponse = {
+  __typename?: 'CachedUserMetadataDetailsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: UserMetadataDetails;
+};
+
 export type CachedUserMetadataGroupDetailsResponse = {
   __typename?: 'CachedUserMetadataGroupDetailsResponse';
   cacheId: Scalars['UUID']['output'];
@@ -2129,7 +2135,7 @@ export type QueryRoot = {
   /** Get all the measurements for a user. */
   userMeasurementsList: CachedUserMeasurementsListResponse;
   /** Get details that can be displayed to a user for a media. */
-  userMetadataDetails: UserMetadataDetails;
+  userMetadataDetails: CachedUserMetadataDetailsResponse;
   /** Get details that can be displayed to a user for a metadata group. */
   userMetadataGroupDetails: CachedUserMetadataGroupDetailsResponse;
   /** Get paginated list of metadata groups. */

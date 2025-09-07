@@ -180,7 +180,7 @@ export const getUserMetadataDetailsQuery = (metadataId?: string) =>
 			? () =>
 					clientGqlService
 						.request(UserMetadataDetailsDocument, { metadataId })
-						.then((data) => data.userMetadataDetails)
+						.then((data) => data.userMetadataDetails.response)
 			: skipToken,
 	});
 
