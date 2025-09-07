@@ -29,10 +29,13 @@ Permitted silent-skip patterns: idempotent guards (work already done on a previo
 - Preserve legacy ids. Derive new emails from the old user name: if the name is a valid email address (`^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$` after lowercasing), use it directly; otherwise synthesize `normalized_name@ryot.local`. Collisions (duplicate real emails or duplicate synthetic local parts) append `+{id}` before the `@`. New users get `email_verified = true`.
 - After `old_user` is migrated, each legacy user is passed through `bootstrapNewUser` so migrated accounts receive the built-in trackers, saved views, and library entity that auth-created users get.
 - All V1 entities (`metadata`, `metadata_group`, `person`, `collection`, `exercise`, `workout_template`, `workout`) are migrated to the V2 `entity` table with `entity_schema_id`/`sandbox_script_id` derived from the V1 `lot`/`source`. Relationship tables are migrated to V2 `relationship` rows. Workout sets become `event` rows. The authoritative field-level mappings live in the migration SQL — do not duplicate them here.
+- V1 `user_measurement` rows are migrated to the V2 `entity` table under the `measurement` entity schema. The composite PK `(user_id, timestamp)` has no UUID equivalent; entity ids are derived as `md5(user_id || '|' || timestamp::text)`. Entity name uses the V1 `name` when not null/empty, falling back to `Measurement - YYYY-MM-DD HH24:MI`. The primary image from `information.assets` is migrated to `entity.image`; assets beyond the primary image are not migrated. V1 has no per-statistic unit field; `unit` has been removed from the V2 measurement statistics schema entirely. Statistics `key` is a normalized snake_case version of the V1 `name` field.
 - V1 `seen` rows become V2 `event` rows. Each row expands into one or more events; the full expansion and clamping logic is in `seen-mapping.ts`, and the episodic completion backfill is in `seen-completion-mapping.ts`.
 - V1 scheduled a post-import workout revision job after workout writes. V2 does not have an equivalent workout revision scheduler, and legacy bootstrap intentionally does not schedule one after workout/entity/set-event migration.
 
 ## Ignored For Now
+
+**user_measurement**: Assets beyond the primary image (additional remote/S3 images) are not migrated to V2.
 
 **metadata_group**: Groups for lots without V2 entity schemas (`anime`, `manga`, `show`, `podcast`, `visual_novel`) are silently skipped. `metadata_group_to_person` is migrated only for music and video game groups (`person-to-music-group`, `person-to-video-game-group`).
 
