@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    BasicUserDetails, GraphqlPersonDetails, UserAnalytics, UserMetadataGroupDetails,
-    UserPersonDetails,
+    BasicUserDetails, GraphqlPersonDetails, UserAnalytics, UserMetadataDetails,
+    UserMetadataGroupDetails, UserPersonDetails,
 };
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
@@ -54,6 +54,10 @@ pub struct SortInput<T: InputType + Default> {
 #[graphql(concrete(
     params(CollectionContentsResponse),
     name = "CachedCollectionContentsResponse",
+))]
+#[graphql(concrete(
+    params(UserMetadataDetails),
+    name = "CachedUserMetadataDetailsResponse",
 ))]
 #[graphql(concrete(
     params(UserMeasurementsListResponse),

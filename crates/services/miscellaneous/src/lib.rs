@@ -56,7 +56,7 @@ impl MiscellaneousService {
         &self,
         user_id: String,
         metadata_id: String,
-    ) -> Result<UserMetadataDetails> {
+    ) -> Result<CachedResponse<UserMetadataDetails>> {
         miscellaneous_entity_user_details_service::user_metadata_details(
             &self.0,
             user_id,
