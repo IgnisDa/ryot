@@ -14,7 +14,7 @@ export default function handleRequest(
 	reactRouterContext: EntryContext,
 	_loadContext: AppLoadContext,
 ) {
-	return isbot(request.headers.get("user-agent") || "")
+	return isbot(request.headers.get("user-agent") ?? "")
 		? handleBotRequest(request, responseStatusCode, responseHeaders, reactRouterContext)
 		: handleBrowserRequest(request, responseStatusCode, responseHeaders, reactRouterContext);
 }

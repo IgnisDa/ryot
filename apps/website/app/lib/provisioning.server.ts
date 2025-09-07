@@ -1,4 +1,3 @@
-
 import PurchaseCompleteEmail, {
 	type PurchaseCompleteEmailProps,
 } from "@ryot/transactional/emails/purchase-complete";
@@ -12,8 +11,8 @@ import {
 	type TProductTypes,
 } from "~/drizzle/schema.server";
 
-import { GRACE_PERIOD, getDb, getUnkeyClient } from "./config.server";
 import { getAppBackendApiClient } from "./api.server";
+import { GRACE_PERIOD, getDb, getUnkeyClient } from "./config.server";
 import { calculateRenewalDate, createUnkeyKey, sendEmail } from "./utilities.server";
 
 type Customer = InferSelectModel<typeof customers>;
