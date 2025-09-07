@@ -1,13 +1,13 @@
 import { RingProgress, Text } from "@mantine/core";
 import { dayjsLib } from "~/lib/shared/date-utils";
-import { forceUpdateEverySecond } from "~/lib/shared/hooks";
+import { useForceUpdateEverySecond } from "~/lib/shared/hooks";
 import { useCurrentWorkoutTimerAtom } from "~/lib/state/fitness";
 
 export const DisplayExerciseSetRestTimer = (props: {
 	openTimerDrawer: () => void;
 }) => {
 	const [currentTimer] = useCurrentWorkoutTimerAtom();
-	forceUpdateEverySecond();
+	useForceUpdateEverySecond();
 
 	if (!currentTimer) return null;
 

@@ -6,7 +6,6 @@ use common_utils::{PAGE_SIZE, convert_date_to_year};
 use convert_case::{Case, Casing};
 use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::SearchResults;
-use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{BookSpecifics, MetadataDetails, MetadataFreeCreator, MetadataSearchItem};
 use reqwest::{
@@ -70,7 +69,7 @@ struct ItemResponse {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct SearchResponse {
-    total_items: i32,
+    total_items: u64,
     items: Option<Vec<ItemResponse>>,
 }
 
@@ -89,12 +88,11 @@ impl MediaProvider for GoogleBooksService {
 
     async fn metadata_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let page = page.unwrap_or(1);
         let index = (page - 1) * PAGE_SIZE;
         let pass_raw_query = source_specifics
             .as_ref()
@@ -103,15 +101,18 @@ impl MediaProvider for GoogleBooksService {
         let rsp = self
             .client
             .get(URL)
-            .query(&serde_json::json!({
-                "startIndex": index,
-                "printType": "books",
-                "maxResults": PAGE_SIZE,
-                "q": match pass_raw_query {
-                    true => query.to_owned(),
-                    false => format!("intitle:{query}")
-                },
-            }))
+            .query(&[
+                ("printType", "books"),
+                ("startIndex", &index.to_string()),
+                ("maxResults", &PAGE_SIZE.to_string()),
+                (
+                    "q",
+                    &match pass_raw_query {
+                        true => query.to_owned(),
+                        false => format!("intitle:{query}"),
+                    },
+                ),
+            ])
             .send()
             .await?;
         let search: SearchResponse = rsp.json().await?;
@@ -123,20 +124,19 @@ impl MediaProvider for GoogleBooksService {
                 let MetadataDetails {
                     title,
                     assets,
-                    identifier,
                     publish_year,
                     ..
-                } = self.google_books_response_to_search_response(b.volume_info, b.id);
+                } = self.google_books_response_to_search_response(b.volume_info, b.id.clone());
                 let image = assets.remote_images.first().cloned();
                 MetadataSearchItem {
                     title,
                     image,
-                    identifier,
                     publish_year,
+                    identifier: b.id,
                 }
             })
             .collect();
-        let next_page = (search.total_items - ((page) * PAGE_SIZE) > 0).then(|| page + 1);
+        let next_page = (search.total_items - (page * PAGE_SIZE) > 0).then(|| page + 1);
         Ok(SearchResults {
             items: resp,
             details: SearchDetails {
@@ -207,11 +207,8 @@ impl GoogleBooksService {
         };
         MetadataDetails {
             assets,
-            lot: MediaLot::Book,
-            identifier: id.clone(),
             title: item.title.clone(),
             description: item.description,
-            source: MediaSource::GoogleBooks,
             provider_rating: item.average_rating,
             genres: genres.into_iter().unique().collect(),
             creators: creators.into_iter().unique().collect(),
@@ -233,7 +230,7 @@ impl GoogleBooksService {
         let resp = self
             .client
             .get(URL)
-            .query(&serde_json::json!({ "q": format!("isbn:{}", isbn) }))
+            .query(&[("q", &format!("isbn:{}", isbn))])
             .send()
             .await
             .ok()?;

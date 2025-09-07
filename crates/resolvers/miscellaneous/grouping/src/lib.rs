@@ -22,7 +22,7 @@ impl MiscellaneousGroupingQueryResolver {
         &self,
         gql_ctx: &Context<'_>,
         metadata_group_id: String,
-    ) -> Result<MetadataGroupDetails> {
+    ) -> Result<CachedResponse<MetadataGroupDetails>> {
         let service = self.svc(gql_ctx);
         Ok(service.metadata_group_details(metadata_group_id).await?)
     }
@@ -54,7 +54,7 @@ impl MiscellaneousGroupingQueryResolver {
         &self,
         gql_ctx: &Context<'_>,
         input: GenreDetailsInput,
-    ) -> Result<GenreDetails> {
+    ) -> Result<CachedResponse<GenreDetails>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         Ok(service.genre_details(user_id, input).await?)
     }
@@ -63,7 +63,7 @@ impl MiscellaneousGroupingQueryResolver {
     async fn user_genres_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: SearchInput,
+        input: Option<SearchInput>,
     ) -> Result<SearchResults<String>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         Ok(service.user_genres_list(user_id, input).await?)

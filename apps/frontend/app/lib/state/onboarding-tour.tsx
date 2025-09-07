@@ -12,14 +12,14 @@ import type { ReactNode } from "react";
 import type { Step } from "react-joyride";
 import { useNavigate, useRevalidator } from "react-router";
 import { match } from "ts-pattern";
-import { dayjsLib } from "../shared/date-utils";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useApplicationEvents,
 	useDashboardLayoutData,
 	useUserPreferences,
-} from "../shared/hooks";
-import { clientGqlService } from "../shared/react-query";
-import { forcedDashboardPath } from "../shared/ui-utils";
+} from "~/lib/shared/hooks";
+import { clientGqlService } from "~/lib/shared/react-query";
+import { forcedDashboardPath } from "~/lib/shared/ui-utils";
 import { defaultSidebarLinksState, useOpenedSidebarLinks } from "./general";
 
 export const TOUR_EXERCISE_TARGET_ID = "Leg Press";
@@ -171,11 +171,11 @@ export const useOnboardingTour = () => {
 				<Group>
 					{isOnboardingTourLoading ? <Loader size="xs" /> : null}
 					<Button
+						variant="outline"
 						size="compact-xs"
-						variant="default"
-						onClick={() => {
-							setTourState({ currentStepIndex: onboardingTourSteps.length });
-						}}
+						onClick={() =>
+							setTourState({ currentStepIndex: onboardingTourSteps.length })
+						}
 					>
 						Complete tour
 					</Button>

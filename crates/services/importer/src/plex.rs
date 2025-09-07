@@ -151,7 +151,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                 "{}/library/sections/{}/all",
                 input.api_url, dir.key
             ))
-            .query(&serde_json::json!({ "includeGuids": "1" }))
+            .query(&[("includeGuids", "1")])
             .send()
             .await?
             .json::<plex_models::PlexMediaResponse<plex_models::PlexMetadata>>()

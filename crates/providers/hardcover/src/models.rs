@@ -20,7 +20,7 @@ pub struct Response<T> {
 pub struct Search {
     pub search: nest! {
         pub results: nest! {
-            pub found: i32,
+            pub found: u64,
             pub hits: Vec<nest! { pub document: Item<String> }>,
         }
     },
@@ -109,7 +109,7 @@ pub struct ImageOrLink {
 
 pub async fn get_search_response(
     query: &str,
-    page: i32,
+    page: u64,
     query_type: &str,
     client: &Client,
 ) -> Result<SearchSearchResults> {

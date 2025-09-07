@@ -39,7 +39,7 @@ pub async fn sync_to_owned_collection(base_url: String, token: String) -> Result
         };
         let items = client
             .get(format!("{}/library/sections/{}/all", base_url, dir.key))
-            .query(&serde_json::json!({ "includeGuids": "1" }))
+            .query(&[("includeGuids", "1")])
             .send()
             .await?
             .json::<plex_models::PlexMediaResponse<plex_models::PlexMetadata>>()

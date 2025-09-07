@@ -74,10 +74,7 @@ impl MediaProvider for YoutubeMusicService {
         let identifier = details.track.id;
         Ok(MetadataDetails {
             suggestions,
-            lot: MediaLot::Music,
             title: details.track.name,
-            identifier: identifier.clone(),
-            source: MediaSource::YoutubeMusic,
             source_url: Some(format!("https://music.youtube.com/watch?v={identifier}")),
             music_specifics: Some(MusicSpecifics {
                 by_various_artists: Some(details.track.by_va),
@@ -127,8 +124,8 @@ impl MediaProvider for YoutubeMusicService {
 
     async fn metadata_search(
         &self,
+        _page: u64,
         query: &str,
-        _page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
@@ -196,8 +193,8 @@ impl MediaProvider for YoutubeMusicService {
 
     async fn metadata_group_search(
         &self,
+        _page: u64,
         query: &str,
-        _page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let data = self.client.music_search_albums(query).await?;
@@ -277,8 +274,6 @@ impl MediaProvider for YoutubeMusicService {
             related_metadata,
             related_metadata_groups,
             description: data.description,
-            identifier: identifier.clone(),
-            source: MediaSource::YoutubeMusic,
             source_url: Some(format!("https://music.youtube.com/channel/{identifier}")),
             assets: EntityAssets {
                 remote_images: self
@@ -294,8 +289,8 @@ impl MediaProvider for YoutubeMusicService {
 
     async fn people_search(
         &self,
+        _page: u64,
         query: &str,
-        _page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {

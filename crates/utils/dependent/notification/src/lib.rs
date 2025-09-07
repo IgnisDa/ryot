@@ -13,9 +13,7 @@ use enum_models::{EntityLot, UserNotificationContent};
 use itertools::Itertools;
 use media_models::UpdateMediaEntityResult;
 use notification_service::send_notification;
-use sea_orm::{
-    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, prelude::Expr,
-};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect, prelude::Expr};
 use supporting_service::SupportingService;
 use traits::TraceOk;
 use uuid::Uuid;
@@ -47,7 +45,7 @@ fn get_entity_details_frontend_url(
 pub async fn get_users_and_cte_monitoring_entity(
     entity_id: &String,
     entity_lot: EntityLot,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
 ) -> Result<Vec<(String, Uuid)>> {
     let all_entities = CollectionEntityMembership::find()
         .select_only()
@@ -60,7 +58,7 @@ pub async fn get_users_and_cte_monitoring_entity(
                 .eq(DefaultCollection::Monitoring.to_string()),
         )
         .into_tuple::<(String, Uuid)>()
-        .all(db)
+        .all(&ss.db)
         .await?;
     Ok(all_entities)
 }
@@ -68,10 +66,10 @@ pub async fn get_users_and_cte_monitoring_entity(
 pub async fn get_users_monitoring_entity(
     entity_id: &String,
     entity_lot: EntityLot,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
 ) -> Result<Vec<String>> {
     Ok(
-        get_users_and_cte_monitoring_entity(entity_id, entity_lot, db)
+        get_users_and_cte_monitoring_entity(entity_id, entity_lot, ss)
             .await?
             .into_iter()
             .map(|(u, _)| u)
@@ -301,7 +299,7 @@ pub async fn send_notification_for_user(
 
 pub async fn refresh_collection_to_entity_association(
     cte_id: &Uuid,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
 ) -> Result<()> {
     ryot_log!(
         debug,
@@ -313,7 +311,7 @@ pub async fn refresh_collection_to_entity_association(
             Expr::value(Utc::now()),
         )
         .filter(collection_to_entity::Column::Id.eq(cte_id.to_owned()))
-        .exec(db)
+        .exec(&ss.db)
         .await?;
     Ok(())
 }
@@ -325,13 +323,13 @@ pub async fn update_metadata_and_notify_users(
     let result = update_metadata(metadata_id, ss).await?;
     if !result.notifications.is_empty() {
         let users_to_notify =
-            get_users_and_cte_monitoring_entity(metadata_id, EntityLot::Metadata, &ss.db).await?;
+            get_users_and_cte_monitoring_entity(metadata_id, EntityLot::Metadata, ss).await?;
         for notification in result.notifications.iter() {
             for (user_id, cte_id) in users_to_notify.iter() {
                 send_notification_for_user(user_id, ss, notification.clone())
                     .await
                     .trace_ok();
-                refresh_collection_to_entity_association(cte_id, &ss.db)
+                refresh_collection_to_entity_association(cte_id, ss)
                     .await
                     .trace_ok();
             }
@@ -347,13 +345,13 @@ pub async fn update_person_and_notify_users(
     let result = update_person(person_id.clone(), ss).await?;
     if !result.notifications.is_empty() {
         let users_to_notify =
-            get_users_and_cte_monitoring_entity(person_id, EntityLot::Person, &ss.db).await?;
+            get_users_and_cte_monitoring_entity(person_id, EntityLot::Person, ss).await?;
         for notification in result.notifications.iter() {
             for (user_id, cte_id) in users_to_notify.iter() {
                 send_notification_for_user(user_id, ss, notification.clone())
                     .await
                     .trace_ok();
-                refresh_collection_to_entity_association(cte_id, &ss.db)
+                refresh_collection_to_entity_association(cte_id, ss)
                     .await
                     .trace_ok();
             }
@@ -368,18 +366,15 @@ pub async fn update_metadata_group_and_notify_users(
 ) -> Result<UpdateMediaEntityResult> {
     let result = update_metadata_group(metadata_group_id, ss).await?;
     if !result.notifications.is_empty() {
-        let users_to_notify = get_users_and_cte_monitoring_entity(
-            metadata_group_id,
-            EntityLot::MetadataGroup,
-            &ss.db,
-        )
-        .await?;
+        let users_to_notify =
+            get_users_and_cte_monitoring_entity(metadata_group_id, EntityLot::MetadataGroup, ss)
+                .await?;
         for notification in result.notifications.iter() {
             for (user_id, cte_id) in users_to_notify.iter() {
                 send_notification_for_user(user_id, ss, notification.clone())
                     .await
                     .trace_ok();
-                refresh_collection_to_entity_association(cte_id, &ss.db)
+                refresh_collection_to_entity_association(cte_id, ss)
                     .await
                     .trace_ok();
             }

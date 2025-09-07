@@ -25,7 +25,7 @@ pub async fn revoke_access_link(
     ss: &Arc<SupportingService>,
     access_link_id: String,
 ) -> Result<bool> {
-    db_revoke_access_link(&ss.db, access_link_id).await
+    db_revoke_access_link(access_link_id, ss).await
 }
 
 pub async fn user_details(

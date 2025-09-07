@@ -25,7 +25,7 @@ import { IconTrash } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useState } from "react";
-import { Form, useRevalidator } from "react-router";
+import { Form } from "react-router";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useCoreDetails,
@@ -34,7 +34,11 @@ import {
 	useUserDetails,
 	useUsersList,
 } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/react-query";
+import {
+	clientGqlService,
+	queryClient,
+	queryFactory,
+} from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { useCreateOrUpdateCollectionModal } from "~/lib/state/collection";
 
@@ -44,7 +48,6 @@ export const CreateOrUpdateCollectionModal = (props: {
 	const coreDetails = useCoreDetails();
 	const userDetails = useUserDetails();
 	const userCollections = useUserCollections();
-	const revalidator = useRevalidator();
 	const [parent] = useAutoAnimate();
 
 	const { data: modalData } = useCreateOrUpdateCollectionModal();
@@ -98,7 +101,9 @@ export const CreateOrUpdateCollectionModal = (props: {
 					? "Collection updated"
 					: "Collection created",
 			});
-			revalidator.revalidate();
+			queryClient.invalidateQueries({
+				queryKey: queryFactory.collections.userCollectionsList().queryKey,
+			});
 			props.onClose();
 		},
 		onError: (_error) =>

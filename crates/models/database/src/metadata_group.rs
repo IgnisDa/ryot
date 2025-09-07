@@ -8,7 +8,9 @@ use enum_models::{MediaLot, MediaSource};
 use nanoid::nanoid;
 use sea_orm::{ActiveValue, entity::prelude::*};
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
+#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "metadata_group")]
 #[graphql(name = "MetadataGroup")]

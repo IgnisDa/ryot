@@ -36,7 +36,7 @@ pub async fn recalculate_calendar_events(ss: &Arc<SupportingService>) -> Result<
         );
 
     let mut meta_stream = selected_metadata.clone().stream(&ss.db).await?;
-    let mut calendar_event_ids_to_delete = Vec::new();
+    let mut calendar_event_ids_to_delete = vec![];
 
     while let Some(meta) = meta_stream.try_next().await? {
         ryot_log!(trace, "Processing metadata id = {:#?}", meta.id);
@@ -203,7 +203,7 @@ pub async fn notify_users_for_released_media(ss: &Arc<SupportingService>) -> Res
         .collect_vec();
     for (metadata_id, notification) in notifications.into_iter() {
         let users_to_notify =
-            get_users_monitoring_entity(&metadata_id, EntityLot::Metadata, &ss.db).await?;
+            get_users_monitoring_entity(&metadata_id, EntityLot::Metadata, ss).await?;
         for user in users_to_notify {
             send_notification_for_user(&user, ss, notification.clone()).await?;
         }

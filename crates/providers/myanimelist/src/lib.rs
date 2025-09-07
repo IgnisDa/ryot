@@ -16,7 +16,6 @@ use reqwest::{
 };
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use traits::MediaProvider;
 
 static URL: &str = "https://api.myanimelist.net/v2";
@@ -61,8 +60,8 @@ impl MediaProvider for MalAnimeService {
 
     async fn metadata_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
@@ -101,8 +100,8 @@ impl MediaProvider for MalMangaService {
 
     async fn metadata_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
@@ -129,9 +128,8 @@ async fn search(
     client: &Client,
     media_type: &str,
     query: &str,
-    page: Option<i32>,
-) -> Result<(Vec<MetadataSearchItem>, i32, Option<i32>)> {
-    let page = page.unwrap_or(1);
+    page: u64,
+) -> Result<(Vec<MetadataSearchItem>, u64, Option<u64>)> {
     let offset = (page - 1) * PAGE_SIZE;
     #[derive(Serialize, Deserialize, Debug)]
     struct SearchPaging {
@@ -144,7 +142,12 @@ async fn search(
     }
     let search: SearchResponse = client
         .get(format!("{URL}/{media_type}"))
-        .query(&json!({ "q": query, "limit": PAGE_SIZE, "offset": offset, "fields": "start_date" }))
+        .query(&[
+            ("q", query),
+            ("fields", "start_date"),
+            ("offset", &offset.to_string()),
+            ("limit", &PAGE_SIZE.to_string()),
+        ])
         .send()
         .await?
         .json()
@@ -195,7 +198,7 @@ struct ItemData {
 async fn details(client: &Client, media_type: &str, id: &str) -> Result<MetadataDetails> {
     let details: ItemNode = client
         .get(format!("{URL}/{media_type}/{id}"))
-        .query(&json!({ "fields": "start_date,end_date,synopsis,genres,status,num_episodes,num_volumes,num_chapters,recommendations,related_manga,related_anime,mean,nsfw" }))
+        .query(&[("fields", "start_date,end_date,synopsis,genres,status,num_episodes,num_volumes,num_chapters,recommendations,related_manga,related_anime,mean,nsfw")])
         .send()
         .await
         ?
@@ -256,16 +259,13 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
     let identifier = details.id.to_string();
     let title = details.title;
     let data = MetadataDetails {
-        lot,
         is_nsfw,
         suggestions,
         anime_specifics,
         manga_specifics,
         title: title.clone(),
-        source: MediaSource::Myanimelist,
         description: details.synopsis,
         provider_rating: details.mean,
-        identifier: identifier.clone(),
         source_url: Some(format!(
             "https://myanimelist.net/{media_type}/{identifier}/{title}"
         )),

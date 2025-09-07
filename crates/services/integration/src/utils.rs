@@ -1,13 +1,16 @@
+use std::sync::Arc;
+
 use anyhow::{Result, bail};
 use database_models::metadata;
 use database_utils::apply_columns_search;
 use enum_models::{MediaLot, MediaSource};
 use rust_decimal::Decimal;
 use sea_orm::{
-    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    ColumnTrait, EntityTrait, QueryFilter, QueryTrait,
     sea_query::{Alias, Expr, Func},
 };
 use serde::{Deserialize, Serialize};
+use supporting_service::SupportingService;
 
 #[derive(Debug, Clone)]
 pub enum ArrPushConfigExternalId {
@@ -28,25 +31,27 @@ pub struct ArrPushConfig {
 }
 
 pub async fn get_show_by_episode_identifier(
-    db: &DatabaseConnection,
     series: &str,
     episode: &str,
+    ss: &Arc<SupportingService>,
 ) -> Result<metadata::Model> {
     let db_show = metadata::Entity::find()
         .filter(metadata::Column::Lot.eq(MediaLot::Show))
         .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
-        .filter(apply_columns_search(
-            episode,
-            [Expr::expr(Func::cast_as(
-                Expr::col(metadata::Column::ShowSpecifics),
-                Alias::new("text"),
-            ))],
-        ))
-        .filter(apply_columns_search(
-            series,
-            [Expr::col(metadata::Column::Title)],
-        ))
-        .one(db)
+        .apply_if(Some(episode), |query, episode| {
+            apply_columns_search(
+                episode,
+                query,
+                [Expr::expr(Func::cast_as(
+                    Expr::col(metadata::Column::ShowSpecifics),
+                    Alias::new("text"),
+                ))],
+            )
+        })
+        .apply_if(Some(series), |query, series| {
+            apply_columns_search(series, query, [Expr::col(metadata::Column::Title)])
+        })
+        .one(&ss.db)
         .await?;
     match db_show {
         Some(show) => Ok(show),

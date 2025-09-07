@@ -48,10 +48,8 @@ impl MiscellaneousService {
     pub async fn metadata_details(
         &self,
         metadata_id: &String,
-        ensure_updated: Option<bool>,
-    ) -> Result<GraphqlMetadataDetails> {
-        miscellaneous_entity_details_service::metadata_details(&self.0, metadata_id, ensure_updated)
-            .await
+    ) -> Result<CachedResponse<GraphqlMetadataDetails>> {
+        miscellaneous_entity_details_service::metadata_details(&self.0, metadata_id).await
     }
 
     pub async fn user_metadata_details(
@@ -274,7 +272,7 @@ impl MiscellaneousService {
     pub async fn user_genres_list(
         &self,
         user_id: String,
-        input: SearchInput,
+        input: Option<SearchInput>,
     ) -> Result<SearchResults<String>> {
         user_genres_list(&self.0, user_id, input).await
     }
@@ -295,7 +293,10 @@ impl MiscellaneousService {
         user_people_list(&user_id, input, &self.0).await
     }
 
-    pub async fn person_details(&self, person_id: String) -> Result<GraphqlPersonDetails> {
+    pub async fn person_details(
+        &self,
+        person_id: String,
+    ) -> Result<CachedResponse<GraphqlPersonDetails>> {
         miscellaneous_entity_details_service::person_details(person_id, &self.0).await
     }
 
@@ -303,14 +304,14 @@ impl MiscellaneousService {
         &self,
         user_id: String,
         input: GenreDetailsInput,
-    ) -> Result<GenreDetails> {
+    ) -> Result<CachedResponse<GenreDetails>> {
         miscellaneous_entity_details_service::genre_details(&self.0, user_id, input).await
     }
 
     pub async fn metadata_group_details(
         &self,
         metadata_group_id: String,
-    ) -> Result<MetadataGroupDetails> {
+    ) -> Result<CachedResponse<MetadataGroupDetails>> {
         miscellaneous_entity_details_service::metadata_group_details(&self.0, metadata_group_id)
             .await
     }

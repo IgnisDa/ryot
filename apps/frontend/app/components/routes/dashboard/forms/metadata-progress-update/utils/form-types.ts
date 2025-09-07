@@ -1,5 +1,4 @@
 import type {
-	MetadataDetailsQuery,
 	MetadataProgressUpdateCommonInput,
 	MetadataProgressUpdateInput,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -8,11 +7,12 @@ import type {
 	MetadataHistory,
 	WatchTimes,
 } from "~/components/routes/dashboard/types";
+import type { MetadataDetails } from "~/components/routes/media-item/types";
 import type { UpdateProgressData } from "~/lib/state/media";
 
 export interface MetadataProgressFormProps {
 	onSubmit: () => void;
-	metadataDetails: MetadataDetailsQuery["metadataDetails"];
+	metadataDetails: MetadataDetails;
 }
 
 export interface MetadataInProgressFormProps extends MetadataProgressFormProps {
@@ -25,17 +25,17 @@ export interface MetadataNewProgressFormProps
 }
 
 export interface MediaFormProps {
-	metadataDetails: MetadataDetailsQuery["metadataDetails"];
+	metadataDetails: MetadataDetails;
 }
 
 export interface BulkUpdateContext {
 	history: MetadataHistory;
 	watchTime: WatchTimes;
 	currentDateFormatted: string;
+	metadataDetails: MetadataDetails;
 	startDateFormatted: string | null;
 	finishDateFormatted: string | null;
 	metadataToUpdate: UpdateProgressData;
 	updates: MetadataProgressUpdateInput[];
 	common: MetadataProgressUpdateCommonInput;
-	metadataDetails: MetadataDetailsQuery["metadataDetails"];
 }

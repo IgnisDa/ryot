@@ -16,7 +16,6 @@ use media_models::{
     MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
 };
 use rust_decimal_macros::dec;
-use serde_json::json;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
@@ -38,22 +37,21 @@ impl TmdbMovieService {
 impl MediaProvider for TmdbMovieService {
     async fn metadata_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let page = page.unwrap_or(1);
         let rsp = self
             .base
             .client
             .get(format!("{URL}/search/movie"))
-            .query(&json!({
-                "query": query.to_owned(),
-                "page": page,
-                "language": self.base.language,
-                "include_adult": display_nsfw,
-            }))
+            .query(&[
+                ("query", query),
+                ("page", &page.to_string()),
+                ("language", self.base.language.as_str()),
+                ("include_adult", &display_nsfw.to_string()),
+            ])
             .send()
             .await?;
         let search: TmdbListResponse = rsp.json().await?;
@@ -83,10 +81,10 @@ impl MediaProvider for TmdbMovieService {
             .base
             .client
             .get(format!("{URL}/movie/{identifier}"))
-            .query(&json!({
-                "language": self.base.language,
-                "append_to_response": "videos",
-            }))
+            .query(&[
+                ("append_to_response", "videos"),
+                ("language", self.base.language.as_str()),
+            ])
             .send()
             .await?;
         let data: TmdbMediaEntry = rsp.json().await?;
@@ -101,9 +99,7 @@ impl MediaProvider for TmdbMovieService {
             .base
             .client
             .get(format!("{URL}/movie/{identifier}/credits"))
-            .query(&json!({
-                "language": self.base.language,
-            }))
+            .query(&[("language", self.base.language.as_str())])
             .send()
             .await?;
         let credits: TmdbCreditsResponse = rsp.json().await?;
@@ -186,10 +182,7 @@ impl MediaProvider for TmdbMovieService {
             watch_providers,
             is_nsfw: data.adult,
             title: title.clone(),
-            lot: MediaLot::Movie,
-            source: MediaSource::Tmdb,
             description: data.overview,
-            identifier: data.id.to_string(),
             production_status: data.status.clone(),
             external_identifiers: Some(external_identifiers),
             original_language: self.base.get_language_name(data.original_language.clone()),
@@ -241,21 +234,20 @@ impl MediaProvider for TmdbMovieService {
 
     async fn metadata_group_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
-        let page = page.unwrap_or(1);
         let rsp = self
             .base
             .client
             .get(format!("{URL}/search/collection"))
-            .query(&json!({
-                "query": query.to_owned(),
-                "page": page,
-                "language": self.base.language,
-                "include_adult": display_nsfw,
-            }))
+            .query(&[
+                ("query", query),
+                ("page", &page.to_string()),
+                ("language", self.base.language.as_str()),
+                ("include_adult", &display_nsfw.to_string()),
+            ])
             .send()
             .await?;
         let search: TmdbListResponse = rsp.json().await?;
@@ -287,7 +279,7 @@ impl MediaProvider for TmdbMovieService {
             .base
             .client
             .get(format!("{URL}/collection/{identifier}"))
-            .query(&json!({ "language": self.base.language }))
+            .query(&[("language", self.base.language.as_str())])
             .send()
             .await?
             .json()

@@ -116,7 +116,7 @@ fn process_grouvee_record(
 
     let collections = parse_shelves(&record.shelves);
 
-    let mut reviews = Vec::new();
+    let mut reviews = vec![];
 
     if let Ok(statuses) = parse_statuses(&record.statuses) {
         for status in statuses {
@@ -173,7 +173,7 @@ fn process_grouvee_record(
 
 fn parse_shelves(shelves_str: &str) -> Vec<CollectionToEntityDetails> {
     if shelves_str.is_empty() || shelves_str == "{}" {
-        return Vec::new();
+        return vec![];
     }
 
     let shelves: Result<HashMap<String, ShelfEntry>, _> = serde_json::from_str(shelves_str);
@@ -193,19 +193,19 @@ fn parse_shelves(shelves_str: &str) -> Vec<CollectionToEntityDetails> {
                 }
             })
             .collect(),
-        Err(_) => Vec::new(),
+        Err(_) => vec![],
     }
 }
 
 fn parse_statuses(statuses_str: &str) -> Result<Vec<StatusEntry>, serde_json::Error> {
     if statuses_str.is_empty() || statuses_str == "[]" {
-        return Ok(Vec::new());
+        return Ok(vec![]);
     }
 
     let statuses: Result<Vec<Value>, _> = serde_json::from_str(statuses_str);
     match statuses {
         Ok(status_array) => {
-            let mut parsed_statuses = Vec::new();
+            let mut parsed_statuses = vec![];
             for status_value in status_array {
                 if let Some(status_obj) = status_value.as_object() {
                     let status_text = status_obj
@@ -231,7 +231,7 @@ fn parse_statuses(statuses_str: &str) -> Result<Vec<StatusEntry>, serde_json::Er
 
 fn parse_dates(dates_str: &str) -> Vec<ImportOrExportMetadataItemSeen> {
     if dates_str.is_empty() || dates_str == "[]" {
-        return Vec::new();
+        return vec![];
     }
 
     let dates: Result<Vec<DateEntry>, _> = serde_json::from_str(dates_str);
@@ -250,7 +250,7 @@ fn parse_dates(dates_str: &str) -> Vec<ImportOrExportMetadataItemSeen> {
                 },
             )
             .collect(),
-        Err(_) => Vec::new(),
+        Err(_) => vec![],
     }
 }
 

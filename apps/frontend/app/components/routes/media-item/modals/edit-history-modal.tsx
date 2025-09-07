@@ -24,6 +24,7 @@ import {
 	useUserDetails,
 } from "~/lib/shared/hooks";
 import { getVerb } from "~/lib/shared/media-utils";
+import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { Verb } from "~/lib/types";
 import {
 	type DurationInput,
@@ -66,8 +67,11 @@ export const EditHistoryItemModal = (props: {
 			<Form
 				replace
 				method="POST"
-				onSubmit={props.onClose}
 				action={withQuery(".", { intent: "editSeenItem" })}
+				onSubmit={() => {
+					props.onClose();
+					refreshEntityDetails(props.metadataDetails.id);
+				}}
 			>
 				<input hidden name="seenId" defaultValue={id} />
 				<Stack>

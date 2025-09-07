@@ -257,16 +257,18 @@ query UserGenresList($input: SearchInput!) {
 
 query GenreDetails($input: GenreDetailsInput!) {
 	genreDetails(input: $input) {
-		details {
-			id
-			name
-			numItems
-		}
-		contents {
+		response {
 			details {
-				...SearchDetailsPart
+				id
+				name
+				numItems
 			}
-			items
+			contents {
+				details {
+					...SearchDetailsPart
+				}
+				items
+			}
 		}
 	}
 }
@@ -303,19 +305,21 @@ query CollectionContents($input: CollectionContentsInput!) {
 
 query MetadataGroupDetails($metadataGroupId: String!) {
 	metadataGroupDetails(metadataGroupId: $metadataGroupId) {
-		contents
-		details {
-			id
-			lot
-			title
-			parts
-			source
-			isPartial
-			sourceUrl
-			identifier
-			description
-			assets {
-				...EntityAssetsPart
+		response {
+			contents
+			details {
+				id
+				lot
+				title
+				parts
+				source
+				isPartial
+				sourceUrl
+				identifier
+				description
+				assets {
+					...EntityAssetsPart
+				}
 			}
 		}
 	}

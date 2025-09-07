@@ -37,9 +37,9 @@ pub async fn user_metadata_details(
         is_recently_consumed,
     ) = try_join!(
         generic_metadata(&metadata_id, ss, None),
-        entity_in_collections_with_details(&ss.db, &user_id, &metadata_id, EntityLot::Metadata),
+        entity_in_collections_with_details(&user_id, &metadata_id, EntityLot::Metadata, ss),
         item_reviews(&user_id, &metadata_id, EntityLot::Metadata, true, ss),
-        is_metadata_finished_by_user(&user_id, &metadata_id, &ss.db),
+        is_metadata_finished_by_user(&user_id, &metadata_id, ss),
         Metadata::find_by_id(&metadata_id)
             .select_only()
             .column_as(seen::Column::Id.count(), "num_times_seen")
@@ -191,7 +191,7 @@ pub async fn user_person_details(
 ) -> Result<UserPersonDetails> {
     let (reviews, collections, is_recently_consumed, person_meta) = try_join!(
         item_reviews(&user_id, &person_id, EntityLot::Person, true, ss),
-        entity_in_collections_with_details(&ss.db, &user_id, &person_id, EntityLot::Person),
+        entity_in_collections_with_details(&user_id, &person_id, EntityLot::Person, ss),
         get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, ss),
         get_user_to_entity_association(&ss.db, &user_id, &person_id, EntityLot::Person)
     )?;
@@ -212,10 +212,10 @@ pub async fn user_metadata_group_details(
 ) -> Result<UserMetadataGroupDetails> {
     let (collections, reviews, is_recently_consumed, metadata_group_meta) = try_join!(
         entity_in_collections_with_details(
-            &ss.db,
             &user_id,
             &metadata_group_id,
             EntityLot::MetadataGroup,
+            ss
         ),
         item_reviews(
             &user_id,

@@ -35,7 +35,6 @@ import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { useRevalidator } from "react-router";
 import { match } from "ts-pattern";
 import {
 	useApplicationEvents,
@@ -54,7 +53,6 @@ import { convertThreePointSmileyToDecimal } from "../utils";
 export const ReviewEntityForm = (props: {
 	closeReviewEntityModal: () => void;
 }) => {
-	const revalidator = useRevalidator();
 	const userPreferences = useUserPreferences();
 	const events = useApplicationEvents();
 	const [entityToReview] = useReviewEntity();
@@ -111,7 +109,6 @@ export const ReviewEntityForm = (props: {
 		mutationFn: (body: { input: CreateOrUpdateReviewInput }) =>
 			clientGqlService.request(CreateOrUpdateReviewDocument, body),
 		onSuccess: () => {
-			revalidator.revalidate();
 			refreshEntityDetails(entityToReview?.entityId || "");
 			notifications.show({
 				color: "green",

@@ -28,12 +28,11 @@ use crate::{
 impl MediaProvider for GiantBombService {
     async fn metadata_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let page = page.unwrap_or(1);
         let offset = (page - 1) * PAGE_SIZE;
 
         ryot_log!(debug, "Searching GiantBomb for: {}", query);
@@ -95,7 +94,7 @@ impl MediaProvider for GiantBombService {
 
         let game = details_response.results;
 
-        let mut people = Vec::new();
+        let mut people = vec![];
 
         let mut add_people_from_entries =
             |entries: Option<Vec<GiantBombResource>>, role: Option<&str>, is_company: bool| {
@@ -125,7 +124,7 @@ impl MediaProvider for GiantBombService {
         add_people_from_entries(game.publishers, Some(ROLE_PUBLISHER), true);
         add_people_from_entries(game.people, None, false);
 
-        let mut groups = Vec::new();
+        let mut groups = vec![];
         if let Some(franchises) = game.franchises {
             for franchise in franchises {
                 if let Some(api_url) = franchise.api_detail_url {
@@ -142,7 +141,7 @@ impl MediaProvider for GiantBombService {
             }
         }
 
-        let mut suggestions = Vec::new();
+        let mut suggestions = vec![];
         if let Some(similar_games) = game.similar_games {
             for similar in similar_games {
                 if let Some(api_url) = similar.api_detail_url {
@@ -157,7 +156,7 @@ impl MediaProvider for GiantBombService {
             }
         }
 
-        let mut genres = Vec::new();
+        let mut genres = vec![];
         if let Some(game_genres) = game.genres {
             for genre in game_genres {
                 genres.push(genre.name.unwrap());
@@ -169,7 +168,7 @@ impl MediaProvider for GiantBombService {
             }
         }
 
-        let mut platforms = Vec::new();
+        let mut platforms = vec![];
         if let Some(game_platforms) = game.platforms {
             for platform in game_platforms {
                 platforms.push(VideoGameSpecificsPlatformRelease {
@@ -189,10 +188,7 @@ impl MediaProvider for GiantBombService {
             groups,
             description,
             suggestions,
-            lot: MediaLot::VideoGame,
             title: game.name.unwrap(),
-            identifier: game.guid.unwrap(),
-            source: MediaSource::GiantBomb,
             source_url: game.site_detail_url,
             publish_year: extract_year_from_date(game.original_release_date),
             assets: EntityAssets {
@@ -213,12 +209,11 @@ impl MediaProvider for GiantBombService {
 
     async fn people_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let page = page.unwrap_or(1);
         let offset = (page - 1) * PAGE_SIZE;
 
         let search_type = match source_specifics {
@@ -314,8 +309,8 @@ impl MediaProvider for GiantBombService {
                 .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
 
         let resource = details_response.results;
-        let mut related_games = Vec::new();
-        let mut related_groups = Vec::new();
+        let mut related_games = vec![];
+        let mut related_groups = vec![];
 
         let mut add_games_to_related = |games: Option<Vec<GiantBombResource>>, role: &str| {
             games
@@ -377,9 +372,7 @@ impl MediaProvider for GiantBombService {
         Ok(PersonDetails {
             birth_date,
             name: resource.name.unwrap(),
-            source: MediaSource::GiantBomb,
             related_metadata: related_games,
-            identifier: resource.guid.unwrap(),
             source_url: resource.site_detail_url,
             related_metadata_groups: related_groups,
             description: combine_description(resource.deck, resource.description),
@@ -400,11 +393,10 @@ impl MediaProvider for GiantBombService {
 
     async fn metadata_group_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
-        let page = page.unwrap_or(1);
         let offset = (page - 1) * PAGE_SIZE;
 
         ryot_log!(debug, "Searching GiantBomb franchises for: {}", query);
@@ -487,7 +479,7 @@ impl MediaProvider for GiantBombService {
                 .unwrap_or(0) as i32,
         };
 
-        let mut games = Vec::new();
+        let mut games = vec![];
         if let Some(franchise_games) = franchise.games {
             for game in franchise_games {
                 if let Some(api_url) = game.api_detail_url {

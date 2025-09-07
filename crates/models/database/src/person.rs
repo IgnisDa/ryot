@@ -9,7 +9,9 @@ use media_models::PersonStateChanges;
 use nanoid::nanoid;
 use sea_orm::{ActiveValue, entity::prelude::*};
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
+#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[graphql(name = "Person")]
 #[sea_orm(table_name = "person")]

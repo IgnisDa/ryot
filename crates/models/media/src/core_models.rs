@@ -4,6 +4,7 @@ use enum_models::Visibility;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
 use crate::{
     ImportOrExportItemReviewComment, SeenAnimeExtraInformation, SeenMangaExtraInformation,
@@ -28,13 +29,14 @@ pub struct ReviewItem {
     pub podcast_extra_information: Option<SeenPodcastExtraOptionalInformation>,
 }
 
-#[derive(Debug, Serialize, Default, Deserialize, SimpleObject, Clone)]
+#[skip_serializing_none]
+#[derive(Debug, PartialEq, Eq, Serialize, Default, Deserialize, SimpleObject, Clone)]
 pub struct PersonDetailsItemWithCharacter {
     pub entity_id: String,
     pub character: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct PersonDetailsGroupedByRole {
     /// The name of the role performed.
     pub name: String,

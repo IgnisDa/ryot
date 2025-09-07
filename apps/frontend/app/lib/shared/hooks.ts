@@ -9,14 +9,16 @@ import {
 	type EntityLot,
 	ExpireCacheKeyDocument,
 	type MediaLot,
+	MediaSource,
 	type MetadataProgressUpdateInput,
+	UserCollectionsListDocument,
 	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { useRevalidator, useRouteLoaderData, useSubmit } from "react-router";
+import { useRouteLoaderData, useSubmit } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { useInterval, useMediaQuery } from "usehooks-ts";
@@ -40,6 +42,7 @@ import {
 } from "~/lib/state/fitness";
 import type { FitnessAction } from "~/lib/types";
 import type { loader as dashboardLoader } from "~/routes/_dashboard";
+import { deployUpdateJobIfNeeded } from "./media-utils";
 
 export const useGetMantineColors = () => {
 	const theme = useMantineTheme();
@@ -70,7 +73,6 @@ export const useConfirmSubmit = () => {
 };
 
 export const useGetWorkoutStarter = () => {
-	const revalidator = useRevalidator();
 	const navigate = useNavigate();
 	const [_w, setCurrentWorkout] = useCurrentWorkout();
 	const [_t, setTimer] = useCurrentWorkoutTimerAtom();
@@ -81,7 +83,6 @@ export const useGetWorkoutStarter = () => {
 		setStopwatch(null);
 		setCurrentWorkout(wkt);
 		navigate($path("/fitness/:action", { action }));
-		revalidator.revalidate();
 	};
 	return fn;
 };
@@ -138,8 +139,18 @@ export const useDashboardLayoutData = () => {
 export const useCoreDetails = () => useDashboardLayoutData().coreDetails;
 export const useUserDetails = () => useDashboardLayoutData().userDetails;
 export const useUserPreferences = () => useUserDetails().preferences;
-export const useUserCollections = () =>
-	useDashboardLayoutData().userCollections;
+
+export const useUserCollections = () => {
+	const query = useQuery({
+		queryKey: queryFactory.collections.userCollectionsList().queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(UserCollectionsListDocument)
+				.then((d) => d.userCollectionsList.response),
+	});
+
+	return query.data || [];
+};
 
 export const useNonHiddenUserCollections = () => {
 	const userCollections = useUserCollections();
@@ -205,7 +216,7 @@ export const useApplicationEvents = () => {
 	};
 };
 
-export const forceUpdateEverySecond = () => {
+export const useForceUpdateEverySecond = () => {
 	const forceUpdate = useForceUpdate();
 	useInterval(forceUpdate, 1000);
 };
@@ -234,8 +245,7 @@ export const useIsOnboardingTourCompleted = () => {
 	return dashboardData.isOnboardingTourCompleted;
 };
 
-export const useDeployBulkMetadataProgressUpdateMutation = (title: string) => {
-	const revalidator = useRevalidator();
+export const useDeployBulkMetadataProgressUpdateMutation = (title?: string) => {
 	const events = useApplicationEvents();
 
 	const mutation = useMutation({
@@ -255,10 +265,7 @@ export const useDeployBulkMetadataProgressUpdateMutation = (title: string) => {
 				title: "Progress Updated",
 				message: "Progress will be updated shortly",
 			});
-			events.updateProgress(title);
-			setTimeout(() => {
-				revalidator.revalidate();
-			}, 1500);
+			events.updateProgress(title || "");
 		},
 	});
 
@@ -266,33 +273,33 @@ export const useDeployBulkMetadataProgressUpdateMutation = (title: string) => {
 };
 
 export const useAddEntitiesToCollectionMutation = () => {
-	const revalidator = useRevalidator();
-
 	const mutation = useMutation({
-		onSuccess: () => revalidator.revalidate(),
 		mutationFn: async (input: ChangeCollectionToEntitiesInput) => {
 			await clientGqlService.request(DeployAddEntitiesToCollectionJobDocument, {
 				input,
 			});
+			return input;
+		},
+		onSettled: (d) => {
+			for (const e of d?.entities || []) refreshEntityDetails(e.entityId);
 		},
 	});
-
 	return mutation;
 };
 
 export const useRemoveEntitiesFromCollectionMutation = () => {
-	const revalidator = useRevalidator();
-
 	const mutation = useMutation({
-		onSuccess: () => revalidator.revalidate(),
 		mutationFn: async (input: ChangeCollectionToEntitiesInput) => {
 			await clientGqlService.request(
 				DeployRemoveEntitiesFromCollectionJobDocument,
 				{ input },
 			);
+			return input;
+		},
+		onSettled: (d) => {
+			for (const e of d?.entities || []) refreshEntityDetails(e.entityId);
 		},
 	});
-
 	return mutation;
 };
 
@@ -327,4 +334,51 @@ export const useFormValidation = (dependency?: unknown) => {
 	}, [checkFormValidity, dependency]);
 
 	return { formRef, isFormValid, checkFormValidity };
+};
+
+export const usePartialStatusMonitor = (props: {
+	entityId: string;
+	entityLot: EntityLot;
+	onUpdate: () => unknown;
+	partialStatus?: boolean | null;
+	externalLinkSource: MediaSource;
+}) => {
+	const [jobDeployedForEntity, setJobDeployedForEntity] = useState<
+		string | null
+	>(null);
+
+	useEffect(() => {
+		const { partialStatus, entityId, entityLot, onUpdate, externalLinkSource } =
+			props;
+
+		if (jobDeployedForEntity && jobDeployedForEntity !== entityId) {
+			setJobDeployedForEntity(null);
+		}
+
+		if (!partialStatus || externalLinkSource === MediaSource.Custom) {
+			setJobDeployedForEntity(null);
+			return;
+		}
+
+		if (jobDeployedForEntity !== entityId) {
+			deployUpdateJobIfNeeded(entityId, entityLot, externalLinkSource);
+			setJobDeployedForEntity(entityId);
+		}
+
+		const interval = setInterval(onUpdate, 1000);
+
+		return () => clearInterval(interval);
+	}, [
+		props.onUpdate,
+		props.entityId,
+		props.entityLot,
+		props.partialStatus,
+		jobDeployedForEntity,
+		props.externalLinkSource,
+	]);
+
+	return {
+		isPartialStatusActive:
+			props.partialStatus && props.externalLinkSource !== MediaSource.Custom,
+	};
 };

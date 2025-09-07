@@ -58,7 +58,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { Fragment, useState } from "react";
-import { Link, useLoaderData, useNavigate, useRevalidator } from "react-router";
+import { Link, useLoaderData, useNavigate } from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
@@ -128,7 +128,6 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const userDetails = useUserDetails();
-	const revalidator = useRevalidator();
 	const canCurrentUserUpdate =
 		loaderData.exerciseDetails.source === ExerciseSource.Custom &&
 		userDetails.id === loaderData.exerciseDetails.createdByUserId;
@@ -244,7 +243,6 @@ export default function Page() {
 						loading={updateUserExerciseSettingsMutation.isPending}
 						onClick={async () => {
 							await updateUserExerciseSettingsMutation.mutateAsync();
-							revalidator.revalidate();
 							notifications.show({
 								color: "green",
 								title: "Settings updated",

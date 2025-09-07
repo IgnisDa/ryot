@@ -38,12 +38,13 @@ pub async fn commit_import_seen_item(
     input: ImportOrExportMetadataItemSeen,
 ) -> Result<()> {
     let common = MetadataProgressUpdateCommonInput {
+        manual_time_spent: input.manual_time_spent,
         show_season_number: input.show_season_number,
-        providers_consumed_on: input.providers_consumed_on,
         manga_volume_number: input.manga_volume_number,
         show_episode_number: input.show_episode_number,
         anime_episode_number: input.anime_episode_number,
         manga_chapter_number: input.manga_chapter_number,
+        providers_consumed_on: input.providers_consumed_on,
         podcast_episode_number: input.podcast_episode_number,
     };
     if is_import {
@@ -252,6 +253,7 @@ async fn commit(input: CommitInput<'_>) -> Result<seen::Model> {
         anime_extra_information: ActiveValue::Set(extra_info.anime_ei),
         manga_extra_information: ActiveValue::Set(extra_info.manga_ei),
         podcast_extra_information: ActiveValue::Set(extra_info.podcast_ei),
+        manual_time_spent: ActiveValue::Set(input.payload.manual_time_spent),
         providers_consumed_on: ActiveValue::Set(
             input.payload.providers_consumed_on.unwrap_or_default(),
         ),

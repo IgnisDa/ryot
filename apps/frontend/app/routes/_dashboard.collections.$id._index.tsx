@@ -41,7 +41,7 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useNavigate, useRevalidator } from "react-router";
+import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { useLocalStorage } from "usehooks-ts";
@@ -492,6 +492,7 @@ const RecommendationsSection = ({ collectionId }: { collectionId: string }) => {
 		<Stack gap="xs">
 			<DebouncedSearchInput
 				value={search.query}
+				placeholder="Search recommendations"
 				onChange={(query) => setSearchInput({ ...search, query })}
 			/>
 			{recommendations.data ? (
@@ -538,14 +539,9 @@ const CollectionItem = (props: CollectionItemProps) => {
 	const bulkEditingCollection = useBulkEditCollection();
 	const state = bulkEditingCollection.state;
 	const isAdded = bulkEditingCollection.isAdded(props.item);
-	const revalidator = useRevalidator();
-
 	const reorderMutation = useMutation({
 		mutationFn: (input: ReorderCollectionEntityInput) =>
 			clientGqlService.request(ReorderCollectionEntityDocument, { input }),
-		onSuccess: () => {
-			revalidator.revalidate();
-		},
 		onError: (_error) => {
 			notifications.show({
 				color: "red",

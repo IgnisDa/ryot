@@ -56,11 +56,11 @@ pub struct GiantBombResource {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GiantBombSearchResponse<T> {
-    pub offset: i32,
+    pub offset: u64,
     pub error: String,
     pub results: Vec<T>,
-    pub number_of_page_results: i32,
-    pub number_of_total_results: i32,
+    pub number_of_page_results: u64,
+    pub number_of_total_results: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -86,7 +86,7 @@ pub fn extract_giant_bomb_guid(api_detail_url: &str) -> String {
 }
 
 pub fn get_prioritized_images(image: Option<GiantBombImage>) -> Vec<String> {
-    image.map_or(Vec::new(), |img| {
+    image.map_or(vec![], |img| {
         [
             img.original_url,
             img.super_url,

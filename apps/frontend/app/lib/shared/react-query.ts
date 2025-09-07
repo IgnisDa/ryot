@@ -6,7 +6,6 @@ import {
 	type CollectionContentsInput,
 	type CollectionRecommendationsInput,
 	type GenreDetailsInput,
-	MetadataDetailsDocument,
 	MetadataGroupDetailsDocument,
 	type MetadataGroupSearchInput,
 	type MetadataSearchInput,
@@ -30,6 +29,7 @@ import { QueryClient, queryOptions, skipToken } from "@tanstack/react-query";
 import { GraphQLClient } from "graphql-request";
 import Cookies from "js-cookie";
 import { FRONTEND_AUTH_COOKIE_NAME, applicationBaseUrl } from "./constants";
+import { getMetadataDetails } from "./media-utils";
 
 export const queryClient = new QueryClient({
 	defaultOptions: {
@@ -114,6 +114,9 @@ const mediaQueryKeys = createQueryKeys("media", {
 });
 
 const collectionQueryKeys = createQueryKeys("collections", {
+	userCollectionsList: () => ({
+		queryKey: ["userCollectionsList"],
+	}),
 	collectionDetailsImages: (collectionId: string) => ({
 		queryKey: ["collectionDetails", "images", collectionId],
 	}),
@@ -172,12 +175,7 @@ export const queryFactory = mergeQueryKeys(
 export const getMetadataDetailsQuery = (metadataId?: string) =>
 	queryOptions({
 		queryKey: queryFactory.media.metadataDetails(metadataId).queryKey,
-		queryFn: metadataId
-			? () =>
-					clientGqlService
-						.request(MetadataDetailsDocument, { metadataId })
-						.then((data) => data.metadataDetails)
-			: skipToken,
+		queryFn: metadataId ? () => getMetadataDetails(metadataId) : skipToken,
 	});
 
 export const getUserMetadataDetailsQuery = (metadataId?: string) =>
@@ -198,7 +196,7 @@ export const getPersonDetailsQuery = (personId?: string) =>
 			? () =>
 					clientGqlService
 						.request(PersonDetailsDocument, { personId })
-						.then((data) => data.personDetails)
+						.then((data) => data.personDetails.response)
 			: skipToken,
 	});
 
@@ -220,7 +218,7 @@ export const getMetadataGroupDetailsQuery = (metadataGroupId?: string) =>
 			? () =>
 					clientGqlService
 						.request(MetadataGroupDetailsDocument, { metadataGroupId })
-						.then((data) => data.metadataGroupDetails)
+						.then((data) => data.metadataGroupDetails.response)
 			: skipToken,
 	});
 

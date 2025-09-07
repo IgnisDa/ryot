@@ -5,7 +5,6 @@ use chrono::Datelike;
 use common_models::{EntityAssets, NamedObject, SearchDetails};
 use common_utils::PAGE_SIZE;
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
-use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataFreeCreator, MetadataSearchItem, PodcastEpisode, PodcastSpecifics,
@@ -71,12 +70,12 @@ impl MediaProvider for ITunesService {
         let rsp = self
             .client
             .get(format!("{URL}/lookup"))
-            .query(&serde_json::json!({
-                "id": identifier,
-                "media": "podcast",
-                "entity": "podcast",
-                "lang": self.language
-            }))
+            .query(&[
+                ("id", identifier),
+                ("media", "podcast"),
+                ("entity", "podcast"),
+                ("lang", self.language.as_str()),
+            ])
             .send()
             .await?;
         let details: SearchResponse = rsp.json().await?;
@@ -105,13 +104,13 @@ impl MediaProvider for ITunesService {
         let rsp = self
             .client
             .get(format!("{URL}/lookup"))
-            .query(&serde_json::json!({
-                "id": identifier,
-                "media": "podcast",
-                "entity": "podcastEpisode",
-                "limit": total_episodes,
-                "lang": self.language
-            }))
+            .query(&[
+                ("id", identifier),
+                ("media", "podcast"),
+                ("entity", "podcastEpisode"),
+                ("limit", &total_episodes.to_string()),
+                ("lang", self.language.as_str()),
+            ])
             .send()
             .await?;
         let remote_images = details.image.into_iter().collect();
@@ -146,10 +145,7 @@ impl MediaProvider for ITunesService {
             creators,
             description,
             publish_date,
-            lot: MediaLot::Podcast,
-            source: MediaSource::Itunes,
             title: details.title.clone(),
-            identifier: details.identifier,
             publish_year: publish_date.map(|d| d.year()),
             source_url: Some(format!(
                 "https://podcasts.apple.com/us/podcast/{}/id{}",
@@ -165,21 +161,20 @@ impl MediaProvider for ITunesService {
 
     async fn metadata_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let page = page.unwrap_or(1);
         let rsp = self
             .client
             .get(format!("{URL}/search"))
-            .query(&serde_json::json!({
-                "term": query,
-                "media": "podcast",
-                "entity": "podcast",
-                "lang": self.language
-            }))
+            .query(&[
+                ("term", query),
+                ("media", "podcast"),
+                ("entity", "podcast"),
+                ("lang", self.language.as_str()),
+            ])
             .send()
             .await?;
         let search: SearchResponse = rsp.json().await?;

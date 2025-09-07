@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob};
 use chrono::Utc;
-use common_models::{BackendError, EntityAssets, StringIdAndNamedObject};
+use common_models::{BackendError, EntityAssets, SearchInput, StringIdAndNamedObject};
 use common_utils::ryot_log;
 use database_models::{
     access_link, collection, collection_entity_membership,
@@ -24,8 +24,8 @@ use media_models::{
 };
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
-    IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, Select,
+    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, EntityTrait, IntoActiveModel,
+    QueryFilter, QueryOrder, QuerySelect, Select,
     prelude::Expr,
     sea_query::{PgFunc, SimpleExpr, extension::postgres::PgExpr},
 };
@@ -33,24 +33,38 @@ use supporting_service::SupportingService;
 use user_models::UserReviewScale;
 use uuid::Uuid;
 
-pub async fn revoke_access_link(db: &DatabaseConnection, access_link_id: String) -> Result<bool> {
+pub async fn revoke_access_link(
+    access_link_id: String,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
     AccessLink::update(access_link::ActiveModel {
         id: ActiveValue::Set(access_link_id),
         is_revoked: ActiveValue::Set(Some(true)),
         ..Default::default()
     })
-    .exec(db)
+    .exec(&ss.db)
     .await?;
     Ok(true)
 }
 
-pub fn apply_columns_search(value: &str, columns: impl IntoIterator<Item = Expr>) -> Condition {
+pub fn apply_columns_search<D>(
+    value: &str,
+    query: Select<D>,
+    columns: impl IntoIterator<Item = Expr>,
+) -> Select<D>
+where
+    D: EntityTrait,
+{
+    if value.is_empty() {
+        return query;
+    }
+
     let pattern = format!("%{value}%");
     let mut condition = Condition::any();
     for column in columns {
         condition = condition.add(column.ilike(pattern.clone()));
     }
-    condition
+    query.filter(condition)
 }
 
 pub async fn user_by_id(user_id: &String, ss: &Arc<SupportingService>) -> Result<user::Model> {
@@ -61,12 +75,16 @@ pub async fn user_by_id(user_id: &String, ss: &Arc<SupportingService>) -> Result
     Ok(user)
 }
 
-pub async fn user_preferences_list_page_size(
+pub async fn extract_pagination_params(
+    search: Option<SearchInput>,
     user_id: &String,
     ss: &Arc<SupportingService>,
-) -> Result<u64> {
+) -> Result<(u64, u64)> {
     let user = user_by_id(user_id, ss).await?;
-    Ok(user.preferences.general.list_page_size)
+    let page_size = user.preferences.general.list_page_size;
+    let take = search.as_ref().and_then(|s| s.take).unwrap_or(page_size);
+    let page: u64 = search.as_ref().and_then(|s| s.page).unwrap_or(1);
+    Ok((take, page))
 }
 
 pub async fn admin_account_guard(user_id: &String, ss: &Arc<SupportingService>) -> Result<()> {
@@ -85,12 +103,12 @@ pub async fn server_key_validation_guard(is_server_key_validated: bool) -> Resul
 }
 
 pub async fn entity_in_collections_with_collection_to_entity_ids(
-    db: &DatabaseConnection,
     user_id: &String,
     entity_id: &String,
     entity_lot: EntityLot,
+    ss: &Arc<SupportingService>,
 ) -> Result<Vec<(collection::Model, Uuid)>> {
-    let details = entity_in_collections_with_details(db, user_id, entity_id, entity_lot).await?;
+    let details = entity_in_collections_with_details(user_id, entity_id, entity_lot, ss).await?;
     Ok(details
         .into_iter()
         .map(|d| {
@@ -107,17 +125,17 @@ pub async fn entity_in_collections_with_collection_to_entity_ids(
 }
 
 pub async fn entity_in_collections_with_details(
-    db: &DatabaseConnection,
     user_id: &String,
     entity_id: &String,
     entity_lot: EntityLot,
+    ss: &Arc<SupportingService>,
 ) -> Result<Vec<GraphqlCollectionToEntityDetails>> {
     let memberships = CollectionEntityMembership::find()
         .filter(collection_entity_membership::Column::UserId.eq(user_id))
         .filter(collection_entity_membership::Column::EntityId.eq(entity_id))
         .filter(collection_entity_membership::Column::EntityLot.eq(entity_lot))
         .order_by_desc(collection_entity_membership::Column::CollectionToEntityLastUpdatedOn)
-        .all(db)
+        .all(&ss.db)
         .await?;
     let resp = memberships
         .into_iter()
@@ -150,8 +168,7 @@ pub async fn user_workout_details(
         bail!("Workout with the given ID could not be found for this user.");
     };
     let collections =
-        entity_in_collections_with_details(&ss.db, user_id, &workout_id, EntityLot::Workout)
-            .await?;
+        entity_in_collections_with_details(user_id, &workout_id, EntityLot::Workout, ss).await?;
     let details = {
         if let Some(ref mut assets) = e.information.assets {
             transform_entity_assets(assets, ss).await?;
@@ -180,21 +197,21 @@ pub async fn user_workout_details(
 }
 
 pub async fn user_workout_template_details(
-    db: &DatabaseConnection,
     user_id: &String,
     workout_template_id: String,
+    ss: &Arc<SupportingService>,
 ) -> Result<UserWorkoutTemplateDetails> {
     let maybe_template = WorkoutTemplate::find_by_id(workout_template_id.clone())
-        .one(db)
+        .one(&ss.db)
         .await?;
     let Some(details) = maybe_template else {
         bail!("Workout template with the given ID could not be found.");
     };
     let collections = entity_in_collections_with_details(
-        db,
         user_id,
         &workout_template_id,
         EntityLot::WorkoutTemplate,
+        ss,
     )
     .await?;
     Ok(UserWorkoutTemplateDetails {

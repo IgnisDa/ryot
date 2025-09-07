@@ -21,8 +21,8 @@ pub trait MediaProvider {
     #[allow(unused_variables)]
     async fn metadata_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         display_nsfw: bool,
         source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
@@ -39,8 +39,8 @@ pub trait MediaProvider {
     #[allow(unused_variables)]
     async fn people_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
@@ -61,8 +61,8 @@ pub trait MediaProvider {
     #[allow(unused_variables)]
     async fn metadata_group_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         bail!("This provider does not support searching metadata groups")

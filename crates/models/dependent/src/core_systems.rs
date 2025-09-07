@@ -5,7 +5,7 @@ use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     MediaLot, MediaSource, WorkoutSetPersonalBest,
 };
-use media_models::{GenreListItem, MetadataCreatorGroupedByRole};
+use media_models::{GenreListItem, MetadataCreatorsGroupedByRole};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -71,7 +71,7 @@ pub struct CoreDetailsProviderSpecifics {
 
 #[derive(PartialEq, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetails {
-    pub page_size: i32,
+    pub page_size: u64,
     pub version: String,
     pub docs_link: String,
     pub oidc_enabled: bool,
@@ -102,17 +102,29 @@ pub struct MetadataBaseData {
     pub model: metadata::Model,
     pub suggestions: Vec<String>,
     pub genres: Vec<GenreListItem>,
-    pub creators: Vec<MetadataCreatorGroupedByRole>,
+    pub creators: Vec<MetadataCreatorsGroupedByRole>,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
 pub struct TmdbLanguage {
     pub iso_639_1: String,
     pub english_name: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
 pub struct TmdbSettings {
     pub image_url: String,
     pub languages: Vec<TmdbLanguage>,
+}
+
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+pub struct TvdbLanguage {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+pub struct TvdbSettings {
+    pub access_token: String,
+    pub languages: Vec<TvdbLanguage>,
 }

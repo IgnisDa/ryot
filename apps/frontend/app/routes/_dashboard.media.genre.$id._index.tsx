@@ -32,12 +32,12 @@ export default function Page(props: { params: { id: string } }) {
 	const { data: genreDetails } = useQuery({
 		queryKey: queryFactory.media.genreDetails({
 			genreId,
-			page: pagination.page,
+			search: { page: pagination.page },
 		}).queryKey,
 		queryFn: () =>
 			clientGqlService
 				.request(GenreDetailsDocument, {
-					input: { genreId, page: pagination.page },
+					input: { genreId, search: { page: pagination.page } },
 				})
 				.then((data) => data.genreDetails),
 	});
@@ -52,17 +52,21 @@ export default function Page(props: { params: { id: string } }) {
 					<>
 						<Group justify="space-between">
 							<Box>
-								<Title id="genre-title">{genreDetails.details.name}</Title>
-								<Text>{genreDetails.details.numItems} media items</Text>
+								<Title id="genre-title">
+									{genreDetails.response.details.name}
+								</Title>
+								<Text>
+									{genreDetails.response.details.numItems} media items
+								</Text>
 							</Box>
 							<ApplicationPagination
 								onChange={updatePage}
 								value={pagination.page}
-								totalItems={genreDetails.contents.details.totalItems}
+								totalItems={genreDetails.response.contents.details.totalItems}
 							/>
 						</Group>
 						<ApplicationGrid>
-							{genreDetails.contents.items.map((media) => (
+							{genreDetails.response.contents.items.map((media) => (
 								<MetadataDisplayItem key={media} metadataId={media} />
 							))}
 						</ApplicationGrid>

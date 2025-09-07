@@ -197,8 +197,7 @@ export const CollectionsFilter = (props: {
 
 export const DebouncedSearchInput = (props: {
 	value: string;
-	queryParam?: string;
-	placeholder?: string;
+	placeholder: string;
 	onChange: (query: string) => void;
 	tourControl?: {
 		target: OnboardingTourStepTargets;
@@ -213,12 +212,9 @@ export const DebouncedSearchInput = (props: {
 	}, [props.value]);
 
 	useDidUpdate(() => {
-		const query = debounced?.trim().toLowerCase() || "";
-		if (props.onChange) {
-			props.onChange(query);
-			return;
-		}
-		props.tourControl?.onQueryChange(query);
+		const normalizedQuery = debounced?.trim().toLowerCase() || "";
+		props.onChange(normalizedQuery);
+		props.tourControl?.onQueryChange(normalizedQuery);
 	}, [debounced]);
 
 	return (
@@ -229,8 +225,8 @@ export const DebouncedSearchInput = (props: {
 			autoCapitalize="none"
 			style={{ flexGrow: 1 }}
 			leftSection={<IconSearch />}
+			placeholder={props.placeholder}
 			className={props.tourControl?.target}
-			placeholder={props.placeholder || "Search..."}
 			onChange={(e) => setQuery(e.currentTarget.value)}
 			rightSection={
 				query ? (

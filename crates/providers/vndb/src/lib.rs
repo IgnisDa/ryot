@@ -1,11 +1,13 @@
 use anyhow::Result;
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use common_models::{EntityAssets, NamedObject, PersonSourceSpecifics, SearchDetails};
+use common_models::{
+    EntityAssets, NamedObject, PersonSourceSpecifics, SearchDetails, StringIdAndNamedObject,
+};
 use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
 use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::{PersonDetails, SearchResults};
-use enum_models::{MediaLot, MediaSource};
+use enum_models::MediaSource;
 use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataSearchItem, PartialMetadataPerson, PeopleSearchItem,
@@ -36,36 +38,30 @@ impl VndbService {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Clone, Deserialize, Debug)]
 struct ImageLinks {
     url: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct Developer {
-    id: String,
-    name: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Clone, Deserialize, Debug)]
 struct ItemResponse {
     id: String,
     #[serde(alias = "name")]
     title: Option<String>,
+    devstatus: Option<i32>,
     rating: Option<Decimal>,
     released: Option<String>,
-    description: Option<String>,
     image: Option<ImageLinks>,
     length_minutes: Option<i32>,
-    devstatus: Option<i32>,
-    developers: Option<Vec<Developer>>,
-    screenshots: Option<Vec<ImageLinks>>,
+    description: Option<String>,
     tags: Option<Vec<NamedObject>>,
+    screenshots: Option<Vec<ImageLinks>>,
+    developers: Option<Vec<StringIdAndNamedObject>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct SearchResponse {
-    count: i32,
+    count: u64,
     more: bool,
     results: Option<Vec<ItemResponse>>,
 }
@@ -74,8 +70,8 @@ struct SearchResponse {
 impl MediaProvider for VndbService {
     async fn people_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
@@ -103,7 +99,7 @@ impl MediaProvider for VndbService {
                 ..Default::default()
             })
             .collect();
-        let next_page = data.more.then(|| page.unwrap_or(1) + 1);
+        let next_page = data.more.then(|| page + 1);
         Ok(SearchResults {
             items: resp,
             details: SearchDetails {
@@ -131,9 +127,7 @@ impl MediaProvider for VndbService {
         let data: SearchResponse = rsp.json().await?;
         let item = data.results.unwrap_or_default().pop().unwrap();
         Ok(PersonDetails {
-            identifier: item.id,
             name: item.title.unwrap(),
-            source: MediaSource::Vndb,
             description: item.description,
             ..Default::default()
         })
@@ -158,12 +152,11 @@ impl MediaProvider for VndbService {
 
     async fn metadata_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let page = page.unwrap_or(1);
         let rsp = self
             .client
             .post(format!("{URL}/vn"))
@@ -185,16 +178,15 @@ impl MediaProvider for VndbService {
                 let MetadataDetails {
                     title,
                     assets,
-                    identifier,
                     publish_year,
                     ..
-                } = self.vndb_response_to_search_response(b);
+                } = self.vndb_response_to_search_response(b.clone());
                 let image = assets.remote_images.first().cloned();
                 MetadataSearchItem {
                     title,
                     image,
-                    identifier,
                     publish_year,
+                    identifier: b.id,
                 }
             })
             .collect();
@@ -239,9 +231,6 @@ impl VndbService {
             .collect_vec();
         let identifier = item.id;
         MetadataDetails {
-            source: MediaSource::Vndb,
-            lot: MediaLot::VisualNovel,
-            identifier: identifier.clone(),
             production_status: item.devstatus.map(|s| match s {
                 0 => "Finished".to_owned(),
                 1 => "In development".to_owned(),

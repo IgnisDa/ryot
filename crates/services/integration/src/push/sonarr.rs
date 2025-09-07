@@ -2,7 +2,6 @@ use anyhow::Result;
 use common_utils::ryot_log;
 use enum_models::MediaLot;
 use reqwest::{Client, header::HeaderMap};
-use serde_json::json;
 
 use crate::utils::{ArrPushConfig, ArrPushConfigExternalId};
 
@@ -18,20 +17,18 @@ pub async fn push_progress(config: ArrPushConfig) -> Result<()> {
             return Ok(());
         }
     };
-    let mut resource = json!({
+    let mut resource = serde_json::json!({
         "monitored": true,
         "seasonFolder": true,
         "title": config.metadata_title,
         "qualityProfileId": config.profile_id,
         "rootFolderPath": config.root_folder_path,
         "tvdbId": tvdb_id.parse::<i32>().unwrap(),
-        "addOptions": {
-            "searchForMissingEpisodes": true
-        }
+        "addOptions": { "searchForMissingEpisodes": true }
     });
 
     if let Some(tags) = config.tag_ids {
-        resource["tags"] = json!(tags);
+        resource["tags"] = serde_json::json!(tags);
     }
     ryot_log!(debug, "Pushing series to Sonarr {:?}", resource);
     let client = Client::new();

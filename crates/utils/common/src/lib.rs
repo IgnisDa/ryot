@@ -14,7 +14,7 @@ use sea_orm::{
 use serde::de;
 use tokio::time::{Duration, sleep};
 
-pub const PAGE_SIZE: i32 = 20;
+pub const PAGE_SIZE: u64 = 20;
 pub const AUTHOR: &str = "ignisda";
 pub const PROJECT_NAME: &str = "ryot";
 pub const TWO_FACTOR_BACKUP_CODES_COUNT: u8 = 12;
@@ -38,21 +38,23 @@ pub const USER_AGENT_STR: &str = const_str::concat!(
     ")"
 );
 
-pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 11] = [
-    MediaSource::Tmdb,
-    MediaSource::Anilist,
+pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 12] = [
     MediaSource::Vndb,
-    MediaSource::Openlibrary,
-    MediaSource::Audible,
-    MediaSource::MangaUpdates,
     MediaSource::Igdb,
-    MediaSource::YoutubeMusic,
+    MediaSource::Tmdb,
+    MediaSource::Tvdb,
+    MediaSource::Spotify,
+    MediaSource::Anilist,
+    MediaSource::Audible,
     MediaSource::Hardcover,
     MediaSource::GiantBomb,
-    MediaSource::Spotify,
+    MediaSource::Openlibrary,
+    MediaSource::MangaUpdates,
+    MediaSource::YoutubeMusic,
 ];
 
-pub const MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS: [MediaSource; 5] = [
+pub const MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS: [MediaSource; 6] = [
+    MediaSource::Tvdb,
     MediaSource::Vndb,
     MediaSource::Itunes,
     MediaSource::Custom,

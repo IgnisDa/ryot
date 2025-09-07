@@ -33,7 +33,7 @@ use rust_decimal::Decimal;
 use rust_iso3166::from_numeric;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use serde_json::{Value, json};
+use serde_json::Value;
 use serde_with::{TimestampSeconds, formats::Flexible, serde_as};
 use slug::slugify;
 use supporting_service::SupportingService;
@@ -125,7 +125,7 @@ struct IgdbRegionResponse {
 }
 
 #[serde_as]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Clone, Deserialize, Debug)]
 struct IgdbCompany {
     country: Option<i32>,
     logo: Option<IgdbImage>,
@@ -139,12 +139,12 @@ struct IgdbCompany {
     published: Option<Vec<IgdbItemResponse>>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Clone, Deserialize, Debug)]
 struct IgdbVideo {
     video_id: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Clone, Deserialize, Debug)]
 struct IgdbInvolvedCompany {
     id: i32,
     porting: bool,
@@ -170,7 +170,7 @@ struct IgdbReleaseDate {
 }
 
 #[serde_as]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Clone, Deserialize, Debug)]
 struct IgdbItemResponse {
     id: i32,
     name: Option<String>,
@@ -210,11 +210,11 @@ impl IgdbService {
     }
 }
 
-fn extract_count_from_response(rsp: &Response) -> Result<i32> {
+fn extract_count_from_response(rsp: &Response) -> Result<u64> {
     rsp.headers()
         .get("x-count")
         .and_then(|h| h.to_str().ok())
-        .and_then(|v| v.parse::<i32>().ok())
+        .and_then(|v| v.parse::<u64>().ok())
         .ok_or_else(|| anyhow!("Failed to extract count from response headers"))
 }
 
@@ -223,9 +223,9 @@ impl MediaProvider for IgdbService {
     #[allow(unused_variables)]
     async fn metadata_group_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
-        _display_nsfw: bool,
+        display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let client = self.get_client_config().await?;
         let req_body = format!(
@@ -238,7 +238,7 @@ offset: {offset};
             query = query,
             limit = PAGE_SIZE,
             fields = COLLECTION_FIELDS,
-            offset = (page.unwrap_or(1) - 1) * PAGE_SIZE
+            offset = (page - 1) * PAGE_SIZE
         );
         let rsp = client
             .post(format!("{URL}/collections"))
@@ -256,8 +256,7 @@ offset: {offset};
                 image: d.cover.map(|c| self.get_cover_image_url(c.image_id)),
             })
             .collect_vec();
-        let next_page =
-            (total_items - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
+        let next_page = (total_items - (page * PAGE_SIZE) > 0).then(|| page + 1);
         Ok(SearchResults {
             items: resp.clone(),
             details: SearchDetails {
@@ -326,8 +325,8 @@ where id = {identifier};
 
     async fn people_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
@@ -342,7 +341,7 @@ offset: {offset};
             query = query,
             limit = PAGE_SIZE,
             fields = COMPANY_FIELDS,
-            offset = (page.unwrap_or(1) - 1) * PAGE_SIZE
+            offset = (page - 1) * PAGE_SIZE
         );
         let rsp = client
             .post(format!("{URL}/companies"))
@@ -363,8 +362,7 @@ offset: {offset};
                 }
             })
             .collect_vec();
-        let next_page =
-            (total_items - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
+        let next_page = (total_items - (page * PAGE_SIZE) > 0).then(|| page + 1);
         Ok(SearchResults {
             items: resp.clone(),
             details: SearchDetails {
@@ -435,9 +433,7 @@ where id = {identity};
         Ok(PersonDetails {
             related_metadata,
             name: name.clone(),
-            source: MediaSource::Igdb,
             description: detail.description,
-            identifier: detail.id_and_name.id.to_string(),
             source_url: Some(format!("https://www.igdb.com/companies/{}", slugify(name))),
             place: detail
                 .country
@@ -501,12 +497,11 @@ where id = {identity};
 
     async fn metadata_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let page = page.unwrap_or(1);
         let client = self.get_client_config().await?;
         let search_filters = source_specifics
             .as_ref()
@@ -533,7 +528,7 @@ where id = {identity};
             ),
         ];
 
-        let mut filters = Vec::new();
+        let mut filters = vec![];
 
         if !allow_games_with_parent {
             filters.push("version_parent = null".to_string());
@@ -584,10 +579,10 @@ offset: {offset};
         let resp = search
             .into_iter()
             .map(|r| {
-                let a = self.igdb_response_to_search_response(r, None);
+                let a = self.igdb_response_to_search_response(r.clone(), None);
                 MetadataSearchItem {
                     title: a.title,
-                    identifier: a.identifier,
+                    identifier: r.id.to_string(),
                     publish_year: a.publish_year,
                     image: a.assets.remote_images.first().cloned(),
                 }
@@ -620,11 +615,14 @@ impl IgdbService {
         }
         let access_res = client
             .post(AUTH_URL)
-            .query(&json!({
-                "grant_type": "client_credentials".to_owned(),
-                "client_id": self.ss.config.video_games.twitch.client_id.to_owned(),
-                "client_secret": self.ss.config.video_games.twitch.client_secret.to_owned(),
-            }))
+            .query(&[
+                ("grant_type", "client_credentials"),
+                ("client_id", &self.ss.config.video_games.twitch.client_id),
+                (
+                    "client_secret",
+                    &self.ss.config.video_games.twitch.client_secret,
+                ),
+            ])
             .send()
             .await?;
         let access = access_res.json::<AccessResponse>().await?;
@@ -717,11 +715,8 @@ impl IgdbService {
         MetadataDetails {
             people,
             title: title.clone(),
-            lot: MediaLot::VideoGame,
-            source: MediaSource::Igdb,
             description: item.summary,
             provider_rating: item.rating,
-            identifier: item.id.to_string(),
             publish_year: item.first_release_date.map(|d| d.year()),
             publish_date: item.first_release_date.map(|d| d.date_naive()),
             source_url: Some(format!("https://www.igdb.com/games/{}", slugify(title))),

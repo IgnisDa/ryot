@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, hash_map::Entry},
-    sync::{Mutex, OnceLock},
+    sync::{Arc, Mutex, OnceLock},
 };
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -19,8 +19,9 @@ use media_models::{ImportOrExportMetadataItemSeen, UniqueMediaIdentifier};
 use reqwest::Url;
 use rust_decimal::{Decimal, prelude::FromPrimitive};
 use rust_decimal_macros::dec;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, prelude::Expr};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::Expr};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use supporting_service::SupportingService;
 use tokio::sync::{mpsc, mpsc::UnboundedReceiver, mpsc::error::TryRecvError};
 
 mod komga_book {
@@ -97,7 +98,7 @@ mod komga_series {
             Url::parse(&url).ok().and_then(|parsed_url| {
                 parsed_url
                     .path_segments()
-                    .and_then(|segments| segments.collect::<Vec<_>>().get(1).cloned())
+                    .and_then(|segments| segments.collect_vec().get(1).cloned())
                     .map(String::from)
             })
         }
@@ -286,7 +287,7 @@ async fn fetch_api<T: DeserializeOwned>(
 /// returns: This contains the MediaSource and the ID of the series.
 async fn find_provider_and_id(
     source: MediaSource,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
     series: &komga_series::Item,
 ) -> Result<(MediaSource, Option<String>)> {
     let providers = series.metadata.find_providers();
@@ -301,7 +302,7 @@ async fn find_provider_and_id(
         let db_manga = Metadata::find()
             .filter(metadata::Column::Lot.eq(MediaLot::Manga))
             .filter(Expr::col(metadata::Column::Title).eq(&series.name))
-            .one(db)
+            .one(&ss.db)
             .await?;
 
         Ok(db_manga
@@ -323,8 +324,8 @@ async fn process_events(
     password: &String,
     base_url: &String,
     source: MediaSource,
-    db: &DatabaseConnection,
     data: komga_events::Data,
+    ss: &Arc<SupportingService>,
 ) -> Result<ProcessEventReturn> {
     let url = format!("{base_url}/api/v1");
     let client = get_base_http_client(None);
@@ -346,7 +347,7 @@ async fn process_events(
     )
     .await?;
 
-    let (source, id) = find_provider_and_id(source, db, &series).await?;
+    let (source, id) = find_provider_and_id(source, ss, &series).await?;
 
     let Some(id) = id else {
         let msg = format!(
@@ -380,7 +381,7 @@ pub async fn yank_progress(
     username: String,
     password: String,
     source: MediaSource,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
 ) -> Result<ImportResult> {
     let mut result = ImportResult::default();
     // DEV: This object needs global lifetime so we can continue to use the receiver if
@@ -428,8 +429,8 @@ pub async fn yank_progress(
                                 &password,
                                 &base_url,
                                 source,
-                                db,
                                 event.clone(),
+                                ss,
                             )
                             .await
                             {
@@ -476,7 +477,7 @@ pub async fn sync_to_owned_collection(
     username: String,
     password: String,
     source: MediaSource,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
 ) -> Result<ImportResult> {
     let mut result = ImportResult::default();
     let url = &format!("{base_url}/api/v1");
@@ -495,7 +496,7 @@ pub async fn sync_to_owned_collection(
     // multiple times this prevents us from double committing an identifier
     let unique_collection_updates: HashMap<String, _> = stream::iter(series.content)
         .filter_map(|book| async move {
-            match find_provider_and_id(source, db, &book).await {
+            match find_provider_and_id(source, ss, &book).await {
                 Ok((source, Some(id))) => Some((
                     id.clone(),
                     ImportCompletedItem::Metadata(ImportOrExportMetadataItem {

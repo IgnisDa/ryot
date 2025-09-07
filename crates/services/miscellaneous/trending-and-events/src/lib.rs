@@ -61,7 +61,7 @@ pub async fn handle_review_posted_event(
     ss: &Arc<SupportingService>,
     event: ReviewPostedEvent,
 ) -> Result<()> {
-    let monitored_by = get_users_monitoring_entity(&event.obj_id, event.entity_lot, &ss.db).await?;
+    let monitored_by = get_users_monitoring_entity(&event.obj_id, event.entity_lot, ss).await?;
     for user_id in monitored_by {
         send_notification_for_user(
             &user_id,

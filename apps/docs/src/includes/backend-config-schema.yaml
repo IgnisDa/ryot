@@ -116,6 +116,12 @@ movies_and_shows:
     # @envvar MOVIES_AND_SHOWS_TMDB_LOCALE
     locale: "en"
 
+  # Settings related to TVDB.
+  tvdb:
+    # The API key for the TVDB API.
+    # @envvar MOVIES_AND_SHOWS_TVDB_API_KEY
+    api_key: ""
+
 # Settings related to music.
 music:
   # Settings related to Spotify.
@@ -203,7 +209,7 @@ server:
     # @envvar SERVER_OIDC_ISSUER_URL
     issuer_url: ""
 
-  # The pro key assigned to the user.
+  # The key that can be used to enable Ryot Pro features.
   # @envvar SERVER_PRO_KEY
   pro_key: ""
 
@@ -220,7 +226,7 @@ server:
   # The mailer related settings.
   smtp:
     # @envvar SERVER_SMTP_MAILBOX
-    mailbox: "Ryot <no-reply@mailer.io>"
+    mailbox: "Ryot <no-reply@ryot.io>"
 
     # @envvar SERVER_SMTP_PASSWORD
     password: ""

@@ -13,9 +13,9 @@ impl OpenlibraryService {
     pub async fn new(config: &config_definition::OpenlibraryConfig) -> Result<Self> {
         let client = get_base_http_client(None);
         Ok(Self {
+            client,
             image_url: IMAGE_BASE_URL.to_owned(),
             image_size: config.cover_image_size.to_string(),
-            client,
         })
     }
 

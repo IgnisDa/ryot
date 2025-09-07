@@ -29,7 +29,7 @@ import { getActionIntent, processSubmission } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
-import { Form, data, useNavigate, useRevalidator } from "react-router";
+import { Form, data, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -197,7 +197,6 @@ const TwoFactorAuthSection = () => {
 	const userDetails = useUserDetails();
 	const coreDetails = useCoreDetails();
 	const navigate = useNavigate();
-	const revalidator = useRevalidator();
 	const dashboardData = useDashboardLayoutData();
 	const isEditDisabled = dashboardData.isDemoInstance;
 	const [setupModalOpened, { open: openSetupModal, close: closeSetupModal }] =
@@ -219,7 +218,6 @@ const TwoFactorAuthSection = () => {
 				color: "yellow",
 				message: "Two-Factor Authentication Disabled",
 			});
-			revalidator.revalidate();
 			navigate($path("/api/logout"));
 		},
 	});
@@ -238,13 +236,11 @@ const TwoFactorAuthSection = () => {
 				message: "Backup codes regenerated successfully",
 			});
 			setRegeneratedBackupCodes(data.backupCodes);
-			revalidator.revalidate();
 		},
 	});
 
 	const onCloseSetupModal = () => {
 		closeSetupModal();
-		revalidator.revalidate();
 	};
 
 	return (

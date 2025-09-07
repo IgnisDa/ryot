@@ -2,16 +2,17 @@ import {
 	type EntityLot,
 	MediaLot,
 	MediaSource,
-	MetadataDetailsDocument,
 	type ReviewItem,
 } from "@ryot/generated/graphql/backend/graphql";
 import { atom, useAtom } from "jotai";
 import { useState } from "react";
-import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { METADATA_LOTS_WITH_GRANULAR_UPDATES } from "~/components/routes/media-item/constants";
 import {
-	clientGqlService,
+	executePartialStatusUpdate,
+	getMetadataDetails,
+} from "~/lib/shared/media-utils";
+import {
 	getMetadataDetailsQuery,
 	getUserMetadataDetailsQuery,
 	queryClient,
@@ -46,10 +47,12 @@ const getUpdateMetadata = async (metadataId: string) => {
 	)
 		return meta;
 
-	const { metadataDetails } = await clientGqlService.request(
-		MetadataDetailsDocument,
-		{ metadataId, ensureUpdated: true },
-	);
+	await executePartialStatusUpdate({
+		metadataId,
+		externalLinkSource: meta.source,
+	});
+
+	const metadataDetails = await getMetadataDetails(metadataId);
 	await queryClient.invalidateQueries({
 		queryKey: getMetadataDetailsQuery(metadataId).queryKey,
 	});
@@ -117,7 +120,7 @@ export type ReviewEntityData = {
 	entityLot: EntityLot;
 	entityTitle: string;
 	metadataLot?: MediaLot;
-	existingReview?: DeepPartial<ReviewItem>;
+	existingReview?: Partial<ReviewItem>;
 };
 
 export const reviewEntityAtom = atom<ReviewEntityData | null>(null);

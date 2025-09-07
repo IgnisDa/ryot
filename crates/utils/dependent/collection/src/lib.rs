@@ -18,6 +18,7 @@ use dependent_utility_utils::{
 };
 use enum_models::EntityLot;
 use futures::try_join;
+use itertools::Itertools;
 use media_models::CreateOrUpdateCollectionInput;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -167,7 +168,7 @@ pub async fn create_or_update_collection(
                     let already = Collection::find_by_id(i.clone()).one(&txn).await?.unwrap();
                     if DefaultCollection::iter()
                         .map(|s| s.to_string())
-                        .collect::<Vec<_>>()
+                        .collect_vec()
                         .contains(&already.name)
                     {
                         new_name = already.name;

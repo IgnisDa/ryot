@@ -2,14 +2,13 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Carousel } from "@mantine/carousel";
 import {
 	ActionIcon,
-	Anchor,
-	Badge,
 	Box,
 	Flex,
 	Group,
 	Image,
 	Loader,
 	Modal,
+	Paper,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -17,19 +16,24 @@ import {
 } from "@mantine/core";
 import {
 	type EntityAssets,
+	type EntityLot,
 	GridPacking,
 	type MediaLot,
 	type MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
-import { snakeCase } from "@ryot/ts-utils";
-import { IconExternalLink, IconRefresh } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { changeCase } from "@ryot/ts-utils";
+import { IconExternalLink } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
-import { useRevalidator } from "react-router";
 import { match } from "ts-pattern";
-import { useFallbackImageUrl, useUserPreferences } from "~/lib/shared/hooks";
-import { refreshEntityDetails } from "~/lib/shared/react-query";
-import { getSurroundingElements } from "~/lib/shared/ui-utils";
+import {
+	useFallbackImageUrl,
+	usePartialStatusMonitor,
+	useUserPreferences,
+} from "~/lib/shared/hooks";
+import {
+	getProviderSourceImage,
+	getSurroundingElements,
+} from "~/lib/shared/ui-utils";
 import { useFullscreenImage } from "~/lib/state/general";
 import classes from "~/styles/common.module.css";
 
@@ -59,32 +63,32 @@ export const MediaDetailsLayout = (props: {
 	title: string;
 	assets: EntityAssets;
 	children: Array<ReactNode | (ReactNode | undefined)>;
-	externalLink?: {
+	externalLink: {
 		lot?: MediaLot;
 		source: MediaSource;
 		href?: string | null;
 	};
 	partialDetailsFetcher: {
 		entityId: string;
-		isAlreadyPartial?: boolean | null;
-		fn: () => Promise<boolean | undefined | null>;
+		fn: () => unknown;
+		entityLot: EntityLot;
+		partialStatus?: boolean | null;
 	};
 }) => {
 	const [activeImageId, setActiveImageId] = useState(0);
 	const fallbackImageUrl = useFallbackImageUrl();
-	const revalidator = useRevalidator();
 
-	const { data: isPartialData } = useQuery({
-		queryFn: props.partialDetailsFetcher.fn,
-		enabled: Boolean(props.partialDetailsFetcher.isAlreadyPartial),
-		queryKey: ["pollDetails", props.partialDetailsFetcher.entityId],
-		refetchInterval: (query) => {
-			if (query.state.data === true) return 500;
-			return false;
-		},
+	const { isPartialStatusActive } = usePartialStatusMonitor({
+		onUpdate: props.partialDetailsFetcher.fn,
+		externalLinkSource: props.externalLink.source,
+		entityId: props.partialDetailsFetcher.entityId,
+		entityLot: props.partialDetailsFetcher.entityLot,
+		partialStatus: props.partialDetailsFetcher.partialStatus,
 	});
 
 	const images = [...props.assets.remoteImages, ...props.assets.s3Images];
+
+	const providerImage = getProviderSourceImage(props.externalLink.source);
 
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap="lg">
@@ -93,8 +97,53 @@ export const MediaDetailsLayout = (props: {
 				id="images-container"
 				className={classes.imagesContainer}
 			>
+				<Paper
+					px={10}
+					top={0}
+					left={0}
+					right={0}
+					pos="absolute"
+					py={providerImage ? 4 : 10}
+					style={{
+						zIndex: 1,
+						display: "flex",
+						alignItems: "center",
+						borderTopLeftRadius: "1rem",
+						borderTopRightRadius: "1rem",
+						justifyContent: "space-between",
+						backgroundColor: "rgba(0, 0, 0, 0.75)",
+					}}
+				>
+					<Text size="sm" fw="bold" c="blue">
+						{changeCase(props.externalLink.lot || props.externalLink.source)}
+					</Text>
+					<Group wrap="nowrap">
+						{providerImage ? (
+							<Image
+								h={20}
+								alt="Logo"
+								fit="contain"
+								src={`/provider-logos/${providerImage}`}
+							/>
+						) : null}
+						{props.externalLink.href ? (
+							<ActionIcon
+								onClick={() => {
+									if (props.externalLink.href)
+										window.open(
+											props.externalLink.href,
+											"_blank",
+											"noopener,noreferrer",
+										);
+								}}
+							>
+								<IconExternalLink size={18} />
+							</ActionIcon>
+						) : null}
+					</Group>
+				</Paper>
 				{images.length > 1 ? (
-					<Carousel w={300} onSlideChange={setActiveImageId}>
+					<Carousel w="100%" onSlideChange={setActiveImageId}>
 						{images.map((url, idx) => (
 							<Carousel.Slide key={url} data-image-idx={idx}>
 								{getSurroundingElements(images, activeImageId).includes(idx) ? (
@@ -104,7 +153,7 @@ export const MediaDetailsLayout = (props: {
 						))}
 					</Carousel>
 				) : (
-					<Box w={300}>
+					<Box w="100%">
 						<Image
 							radius="lg"
 							height={400}
@@ -113,49 +162,10 @@ export const MediaDetailsLayout = (props: {
 						/>
 					</Box>
 				)}
-				{props.externalLink ? (
-					<Badge
-						size="lg"
-						top={10}
-						left={10}
-						color="dark"
-						pos="absolute"
-						id="data-source"
-						variant="filled"
-					>
-						<Flex gap={4} align="center">
-							<Text size="10">
-								{snakeCase(props.externalLink.source)}
-								{props.externalLink.lot
-									? `:${snakeCase(props.externalLink.lot)}`
-									: null}
-							</Text>
-							{props.externalLink.href ? (
-								<Anchor href={props.externalLink.href} target="_blank" mt={2}>
-									<IconExternalLink size={12.8} />
-								</Anchor>
-							) : null}
-						</Flex>
-					</Badge>
-				) : null}
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>
 				<Group wrap="nowrap">
-					{props.partialDetailsFetcher.isAlreadyPartial ? (
-						isPartialData ? (
-							<Loader size="sm" />
-						) : (
-							<ActionIcon
-								size="sm"
-								onClick={() => {
-									refreshEntityDetails(props.partialDetailsFetcher.entityId);
-									revalidator.revalidate();
-								}}
-							>
-								<IconRefresh />
-							</ActionIcon>
-						)
-					) : null}
+					{isPartialStatusActive ? <Loader size="sm" /> : null}
 					<Title id="media-title">{props.title}</Title>
 				</Group>
 				{props.children}

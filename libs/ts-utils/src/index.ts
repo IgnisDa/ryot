@@ -99,13 +99,11 @@ export const changeCase = (name: string) =>
 export const processSubmission = <Schema extends ZodTypeAny>(
 	formData: FormData,
 	schema: Schema,
-): output<Schema> => {
+) => {
 	const submission = parseWithZod(formData, { schema });
 	if (submission.status !== "success")
-		throw Response.json({ status: "idle", submission } as const);
-	if (!submission.value)
-		throw Response.json({ status: "error", submission } as const, {
-			status: 400,
+		throw Response.json({ status: "idle", submission } as const, {
+			status: 422,
 		});
 	return submission.value;
 };

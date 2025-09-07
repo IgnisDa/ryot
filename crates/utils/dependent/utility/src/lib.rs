@@ -247,3 +247,45 @@ pub async fn expire_user_exercises_list_cache(
     .await?;
     Ok(())
 }
+
+pub async fn expire_person_details_cache(
+    person_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::PersonDetails(
+            person_id.to_owned(),
+        ))),
+    )
+    .await?;
+    Ok(())
+}
+
+pub async fn expire_metadata_group_details_cache(
+    metadata_group_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::MetadataGroupDetails(
+            metadata_group_id.to_owned(),
+        ))),
+    )
+    .await?;
+    Ok(())
+}
+
+pub async fn expire_metadata_details_cache(
+    metadata_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::MetadataDetails(
+            metadata_id.to_owned(),
+        ))),
+    )
+    .await?;
+    Ok(())
+}

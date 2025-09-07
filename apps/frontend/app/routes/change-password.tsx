@@ -73,7 +73,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	});
 };
 
-const setPasswordSchema = passwordConfirmationSchema.extend({
+const setPasswordSchema = passwordConfirmationSchema.safeExtend({
 	sessionId: z.string(),
 });
 

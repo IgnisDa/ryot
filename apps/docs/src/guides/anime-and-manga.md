@@ -7,12 +7,6 @@ Ryot supports various providers for tracking anime and manga.
 To enable using MyAnimeList as provider, you need to register an application to obtain a
 client ID.
 
-## Getting MyAnimeList client ID
-
-You can follow the below steps to obtain your own client ID and enable MyAnimeList import.
-
-### Steps
-
 1. Create a [MyAnimeList](https://myanimelist.net) account.
 2. Go to [API](https://myanimelist.net/apiconfig) in your account preferences.
 3. Click on "Create ID".

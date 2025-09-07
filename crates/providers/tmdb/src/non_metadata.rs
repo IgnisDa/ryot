@@ -4,14 +4,13 @@ use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
-use enum_models::MediaSource;
+use enum_models::{MediaLot, MediaSource};
 use futures::{
     stream::{self, StreamExt},
     try_join,
 };
 use itertools::Itertools;
 use media_models::PeopleSearchItem;
-use serde_json::json;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
@@ -33,8 +32,8 @@ impl NonMediaTmdbService {
 impl MediaProvider for NonMediaTmdbService {
     async fn people_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
@@ -46,21 +45,20 @@ impl MediaProvider for NonMediaTmdbService {
             }) => "company",
             _ => "person",
         };
-        let page = page.unwrap_or(1);
         let rsp = self
             .base
             .client
             .get(format!("{URL}/search/{person_type}"))
-            .query(&json!({
-                "page": page,
-                "language": language,
-                "query": query.to_owned(),
-                "include_adult": display_nsfw,
-            }))
+            .query(&[
+                ("language", language),
+                ("page", &page.to_string()),
+                ("query", &query.to_owned()),
+                ("include_adult", &display_nsfw.to_string()),
+            ])
             .send()
             .await?;
         let search: TmdbListResponse = rsp.json().await?;
-        let resp = search
+        let items = search
             .results
             .into_iter()
             .map(|d| PeopleSearchItem {
@@ -72,7 +70,7 @@ impl MediaProvider for NonMediaTmdbService {
             .collect_vec();
         let next_page = (page < search.total_pages).then(|| page + 1);
         Ok(SearchResults {
-            items: resp.to_vec(),
+            items,
             details: SearchDetails {
                 next_page,
                 total_items: search.total_results,
@@ -96,7 +94,7 @@ impl MediaProvider for NonMediaTmdbService {
             .base
             .client
             .get(format!("{URL}/{person_type}/{identifier}"))
-            .query(&json!({ "language": self.base.language }))
+            .query(&[("language", self.base.language.as_str())])
             .send()
             .await?
             .json()
@@ -113,7 +111,7 @@ impl MediaProvider for NonMediaTmdbService {
                         .base
                         .client
                         .get(format!("{URL}/{person_type}/{identifier}/combined_credits"))
-                        .query(&json!({ "language": self.base.language }))
+                        .query(&[("language", self.base.language.as_str())])
                         .send()
                         .await?;
                     resp.json::<TmdbCreditsResponse>()
@@ -130,8 +128,8 @@ impl MediaProvider for NonMediaTmdbService {
                     title: media.title.or(media.name).unwrap_or_default(),
                     image: media.poster_path.map(|p| self.base.get_image_url(p)),
                     lot: match media.media_type.unwrap().as_ref() {
-                        "movie" => enum_models::MediaLot::Movie,
-                        "tv" => enum_models::MediaLot::Show,
+                        "tv" => MediaLot::Show,
+                        "movie" => MediaLot::Movie,
                         _ => continue,
                     },
                     ..Default::default()
@@ -169,16 +167,14 @@ impl MediaProvider for NonMediaTmdbService {
         let resp = PersonDetails {
             related_metadata,
             name: name.clone(),
-            source: MediaSource::Tmdb,
             website: details.homepage,
             birth_date: details.birthday,
             death_date: details.deathday,
-            identifier: details.id.to_string(),
             source_specifics: source_specifics.to_owned(),
+            description: description.filter(|s| !s.is_empty()),
             place: details.origin_country.or(details.place_of_birth),
-            description: description.and_then(|s| if s.as_str() == "" { None } else { Some(s) }),
             source_url: Some(format!(
-                "https://www.themoviedb.org/person/{identifier}-{name}"
+                "https://www.themoviedb.org/{person_type}/{identifier}-{name}"
             )),
             gender: details.gender.and_then(|g| match g {
                 1 => Some("Female".to_owned()),
@@ -206,7 +202,10 @@ impl NonMediaTmdbService {
             .base
             .client
             .get(format!("{URL}/find/{external_id}"))
-            .query(&json!({ "language": self.base.language, "external_source": external_source }))
+            .query(&[
+                ("external_source", external_source),
+                ("language", self.base.language.as_str()),
+            ])
             .send()
             .await?
             .json()

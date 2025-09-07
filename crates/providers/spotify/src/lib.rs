@@ -25,7 +25,6 @@ use reqwest::{
 };
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
@@ -81,7 +80,7 @@ struct SpotifyImage {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyResponse<T> {
-    total: i32,
+    total: u64,
     items: Vec<T>,
 }
 
@@ -115,7 +114,7 @@ pub struct SpotifyService {
 }
 
 async fn fetch_artist_albums(client: &Client, artist_id: &str) -> Result<Vec<SpotifyAlbum>> {
-    let mut all_albums = Vec::new();
+    let mut all_albums = vec![];
     let mut offset = 0;
     let limit = 50;
 
@@ -222,8 +221,8 @@ impl SpotifyService {
         &self,
         query: &str,
         search_type: &str,
-        page: Option<i32>,
-    ) -> Result<(T, i32)>
+        page: Option<u64>,
+    ) -> Result<(T, u64)>
     where
         T: for<'de> Deserialize<'de>,
     {
@@ -233,12 +232,12 @@ impl SpotifyService {
         let response = self
             .client
             .get(format!("{SPOTIFY_API_URL}/search"))
-            .query(&json!({
-                "q": query,
-                "type": search_type,
-                "offset": offset,
-                "limit": PAGE_SIZE,
-            }))
+            .query(&[
+                ("q", query),
+                ("type", search_type),
+                ("offset", &offset.to_string()),
+                ("limit", &PAGE_SIZE.to_string()),
+            ])
             .send()
             .await?;
 
@@ -312,9 +311,6 @@ impl MediaProvider for SpotifyService {
             publish_year,
             publish_date,
             title: track.name,
-            lot: MediaLot::Music,
-            identifier: track.id,
-            source: MediaSource::Spotify,
             is_nsfw: track.explicit,
             music_specifics: Some(music_specifics),
             source_url: track
@@ -328,13 +324,13 @@ impl MediaProvider for SpotifyService {
 
     async fn metadata_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let (search_response, page): (SpotifySearchResponse, i32) =
-            self.search_spotify(query, "track", page).await?;
+        let (search_response, page): (SpotifySearchResponse, u64) =
+            self.search_spotify(query, "track", Some(page)).await?;
 
         let next_page = (search_response.tracks.total > (page * PAGE_SIZE)).then(|| page + 1);
 
@@ -421,12 +417,12 @@ impl MediaProvider for SpotifyService {
 
     async fn metadata_group_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
-        let (search_response, page): (SpotifyAlbumSearchResponse, i32) =
-            self.search_spotify(query, "album", page).await?;
+        let (search_response, page): (SpotifyAlbumSearchResponse, u64) =
+            self.search_spotify(query, "album", Some(page)).await?;
 
         let next_page = (search_response.albums.total > (page * PAGE_SIZE)).then(|| page + 1);
 
@@ -500,8 +496,7 @@ impl MediaProvider for SpotifyService {
                         remote_images: get_images_ordered_by_size(&album.images),
                         ..Default::default()
                     },
-                    source_url: None,
-                    description: None,
+                    ..Default::default()
                 },
             })
             .collect();
@@ -534,9 +529,7 @@ impl MediaProvider for SpotifyService {
             description,
             related_metadata,
             name: artist.name,
-            identifier: artist.id,
             related_metadata_groups,
-            source: MediaSource::Spotify,
             source_url: artist
                 .external_urls
                 .as_ref()
@@ -547,13 +540,13 @@ impl MediaProvider for SpotifyService {
 
     async fn people_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let (search_response, page): (SpotifyArtistSearchResponse, i32) =
-            self.search_spotify(query, "artist", page).await?;
+        let (search_response, page): (SpotifyArtistSearchResponse, u64) =
+            self.search_spotify(query, "artist", Some(page)).await?;
 
         let next_page = (search_response.artists.total > (page * PAGE_SIZE)).then(|| page + 1);
 

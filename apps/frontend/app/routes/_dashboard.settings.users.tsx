@@ -33,14 +33,18 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { DataTable } from "mantine-datatable";
 import { useState } from "react";
-import { useNavigate, useRevalidator } from "react-router";
+import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { withQuery } from "ufo";
 import { CopyableTextInput } from "~/components/common";
 import { DebouncedSearchInput } from "~/components/common/filters";
 import { redirectToQueryParam } from "~/lib/shared/constants";
 import { useUserDetails, useUsersList } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/react-query";
+import {
+	clientGqlService,
+	queryClient,
+	queryFactory,
+} from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 
 const showSuccessNotification = (message: string) => {
@@ -72,12 +76,16 @@ export const meta = () => {
 	return [{ title: "User Settings | Ryot" }];
 };
 
+const invalidateUsersList = () =>
+	queryClient.invalidateQueries({
+		queryKey: queryFactory.miscellaneous.usersList._def,
+	});
+
 const UserInvitationModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	onSuccess: (data: UrlDisplayData) => void;
 }) => {
-	const revalidator = useRevalidator();
 	const [username, setUsername] = useState("");
 
 	const handleClose = () => {
@@ -111,18 +119,18 @@ const UserInvitationModal = (props: {
 
 			return getPasswordChangeSession.passwordChangeUrl;
 		},
-		onSuccess: (createUserInvitation) => {
+		onError: () => showErrorNotification("Failed to create user invitation"),
+		onSuccess: async (createUserInvitation) => {
 			showSuccessNotification("User invitation created successfully");
-			revalidator.revalidate();
 			props.onSuccess({
 				url: createUserInvitation,
 				title: "User Invitation Created",
 				description: "Share this URL with the user to set their password",
 			});
+			invalidateUsersList();
 			handleClose();
 			createInvitationMutation.reset();
 		},
-		onError: () => showErrorNotification("Failed to create user invitation"),
 	});
 
 	return (
@@ -309,7 +317,6 @@ const UserActions = (props: {
 	user: User;
 	setUrlDisplayData: (data: UrlDisplayData) => void;
 }) => {
-	const revalidator = useRevalidator();
 	const userDetails = useUserDetails();
 	const navigate = useNavigate();
 
@@ -324,10 +331,10 @@ const UserActions = (props: {
 			);
 			return { updateUser, input };
 		},
-		onSuccess: ({ input }) => {
+		onSuccess: async ({ input }) => {
+			invalidateUsersList();
 			const isCurrentUser = input.userId === userDetails.id;
 			showSuccessNotification("User status updated successfully");
-			revalidator.revalidate();
 			if (isCurrentUser && input.isDisabled) {
 				handleCurrentUserLogout(navigate);
 			}
@@ -343,17 +350,17 @@ const UserActions = (props: {
 			);
 			return deleteUser;
 		},
-		onSuccess: (deleteUser) => {
+		onSuccess: async (deleteUser) => {
+			invalidateUsersList();
 			const message = deleteUser
 				? "User deleted successfully"
-				: "User can not be deleted";
+				: "User cannot be deleted";
 			const color = deleteUser ? "green" : "red";
 			notifications.show({
 				color,
 				message,
 				title: deleteUser ? "Success" : "Error",
 			});
-			if (deleteUser) revalidator.revalidate();
 		},
 		onError: () => showErrorNotification("Failed to delete user"),
 	});
@@ -366,8 +373,9 @@ const UserActions = (props: {
 			});
 			return resetUser;
 		},
-		onSuccess: (resetUser) => {
+		onSuccess: async (resetUser) => {
 			if (resetUser.__typename !== "UserResetResponse") return;
+			invalidateUsersList();
 			const isCurrentUser = props.user.id === userDetails.id;
 			if (resetUser.passwordChangeUrl) {
 				if (!isCurrentUser) {

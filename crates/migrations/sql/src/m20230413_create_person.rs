@@ -221,7 +221,8 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        create_trigram_index_if_required(manager, "person", "name", PERSON_NAME_TRIGRAM_INDEX).await?;
+        create_trigram_index_if_required(manager, "person", "name", PERSON_NAME_TRIGRAM_INDEX)
+            .await?;
         create_trigram_index_if_required(
             manager,
             "person",

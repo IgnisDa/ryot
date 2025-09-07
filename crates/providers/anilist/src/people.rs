@@ -34,8 +34,8 @@ impl NonMediaAnilistService {
 impl MediaProvider for NonMediaAnilistService {
     async fn people_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
@@ -47,7 +47,7 @@ impl MediaProvider for NonMediaAnilistService {
             })
         );
         let (items, total_items, next_page) = if is_studio {
-            let body = build_studio_search_query(query, page.unwrap_or(1), PAGE_SIZE);
+            let body = build_studio_search_query(query, page, PAGE_SIZE);
             let search = self
                 .base
                 .client
@@ -62,8 +62,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .page
                 .unwrap();
             let total = search.page_info.unwrap().total.unwrap();
-            let next_page =
-                (total - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
+            let next_page = (total - (page * PAGE_SIZE) > 0).then(|| page + 1);
             let items = search
                 .studios
                 .unwrap_or_default()
@@ -77,7 +76,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .collect();
             (items, total, next_page)
         } else {
-            let body = build_staff_search_query(query, page.unwrap_or(1), PAGE_SIZE);
+            let body = build_staff_search_query(query, page, PAGE_SIZE);
             let search = self
                 .base
                 .client
@@ -92,8 +91,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .page
                 .unwrap();
             let total_items = search.page_info.unwrap().total.unwrap();
-            let next_page =
-                (total_items - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
+            let next_page = (total_items - (page * PAGE_SIZE) > 0).then(|| page + 1);
             let items = search
                 .staff
                 .unwrap_or_default()
@@ -173,8 +171,6 @@ impl MediaProvider for NonMediaAnilistService {
                 related_metadata,
                 name: details.name,
                 website: details.site_url,
-                source: MediaSource::Anilist,
-                identifier: details.id.to_string(),
                 source_specifics: source_specifics.to_owned(),
                 ..Default::default()
             }
@@ -194,20 +190,18 @@ impl MediaProvider for NonMediaAnilistService {
                 .staff
                 .unwrap();
             let images = Vec::from_iter(details.image.and_then(|i| i.large));
-            let birth_date = details.date_of_birth.and_then(|d| {
-                if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
-                    NaiveDate::from_ymd_opt(y, m.try_into().unwrap(), d.try_into().unwrap())
-                } else {
-                    None
-                }
-            });
-            let death_date = details.date_of_death.and_then(|d| {
-                if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
-                    NaiveDate::from_ymd_opt(y, m.try_into().unwrap(), d.try_into().unwrap())
-                } else {
-                    None
-                }
-            });
+            let birth_date = details
+                .date_of_birth
+                .and_then(|d| match (d.year, d.month, d.day) {
+                    (Some(y), Some(m), Some(d)) => NaiveDate::from_ymd_opt(y, m, d),
+                    _ => None,
+                });
+            let death_date = details
+                .date_of_death
+                .and_then(|d| match (d.year, d.month, d.day) {
+                    (Some(y), Some(m), Some(d)) => NaiveDate::from_ymd_opt(y, m, d),
+                    _ => None,
+                });
             let mut related_metadata = vec![];
             details
                 .character_media
@@ -299,20 +293,18 @@ impl MediaProvider for NonMediaAnilistService {
                     }),
             );
             PersonDetails {
-                related_metadata,
                 death_date,
                 birth_date,
+                related_metadata,
+                gender: details.gender,
+                place: details.home_town,
+                description: details.description,
+                source_specifics: source_specifics.to_owned(),
+                name: details.name.and_then(|n| n.full).unwrap_or_default(),
                 assets: EntityAssets {
                     remote_images: images,
                     ..Default::default()
                 },
-                gender: details.gender,
-                place: details.home_town,
-                source: MediaSource::Anilist,
-                description: details.description,
-                identifier: details.id.to_string(),
-                name: details.name.and_then(|n| n.full).unwrap_or_default(),
-                source_specifics: source_specifics.to_owned(),
                 ..Default::default()
             }
         };

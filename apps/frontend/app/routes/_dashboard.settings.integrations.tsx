@@ -751,8 +751,8 @@ const ProviderField = (props: {
 					description={props.field.description}
 					defaultValue={(value as string[]) || undefined}
 					data={collections.map((c) => ({
-						label: c.name,
 						value: c.id,
+						label: c.name,
 					}))}
 				/>
 			);

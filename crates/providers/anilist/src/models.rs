@@ -39,7 +39,7 @@ pub struct MediaSearchResponse {
         nest! {
             #[serde(rename = "pageInfo")]
             pub page_info: Option<nest! {
-                pub total: Option<i32>,
+                pub total: Option<u64>,
             }>,
             pub media: Option<Vec<Option<MediaSearchItem>>>,
             pub staff: Option<Vec<Option<StaffSearchItem>>>,
@@ -251,17 +251,17 @@ pub struct StaffDetails {
     #[serde(rename = "dateOfBirth")]
     pub date_of_birth: Option<
         nest! {
+            pub day: Option<u32>,
             pub year: Option<i32>,
-            pub month: Option<i32>,
-            pub day: Option<i32>,
+            pub month: Option<u32>,
         },
     >,
     #[serde(rename = "dateOfDeath")]
     pub date_of_death: Option<
         nest! {
+            pub day: Option<u32>,
             pub year: Option<i32>,
-            pub month: Option<i32>,
-            pub day: Option<i32>,
+            pub month: Option<u32>,
         },
     >,
     #[serde(rename = "homeTown")]
@@ -598,7 +598,6 @@ pub async fn media_details(
     );
     let identifier = media.id.to_string();
     Ok(MetadataDetails {
-        lot,
         people,
         assets,
         suggestions,
@@ -608,8 +607,6 @@ pub async fn media_details(
         title: title.clone(),
         provider_rating: score,
         is_nsfw: media.is_adult,
-        source: MediaSource::Anilist,
-        identifier: identifier.clone(),
         description: media.description,
         genres: genres.into_iter().unique().collect(),
         production_status: media_status_string(media.status),
@@ -622,13 +619,11 @@ pub async fn search(
     client: &Client,
     media_type: MediaType,
     query: &str,
-    page: Option<i32>,
-    page_size: i32,
+    page: u64,
+    page_size: u64,
     _is_adult: bool,
     preferred_language: &config_definition::AnilistPreferredLanguage,
-) -> Result<(Vec<MetadataSearchItem>, i32, Option<i32>)> {
-    let page = page.unwrap_or(1);
-
+) -> Result<(Vec<MetadataSearchItem>, u64, Option<u64>)> {
     let query_str = r#"
         query MediaSearchQuery(
           $search: String!
@@ -708,7 +703,7 @@ pub async fn search(
     Ok((media, total, next_page))
 }
 
-pub fn build_staff_search_query(search: &str, page: i32, per_page: i32) -> serde_json::Value {
+pub fn build_staff_search_query(search: &str, page: u64, per_page: u64) -> serde_json::Value {
     let query = r#"
         query StaffSearchQuery(
           $search: String!
@@ -745,7 +740,7 @@ pub fn build_staff_search_query(search: &str, page: i32, per_page: i32) -> serde
     })
 }
 
-pub fn build_studio_search_query(search: &str, page: i32, per_page: i32) -> serde_json::Value {
+pub fn build_studio_search_query(search: &str, page: u64, per_page: u64) -> serde_json::Value {
     let query = r#"
         query StudioSearchQuery(
           $search: String!

@@ -11,13 +11,11 @@ itertools = { workspace = true }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 
 application-utils = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
 config-definition = { workspace = true }
 dependent-models = { workspace = true }
-enum-models = { workspace = true }
 media-models = { workspace = true }
 traits = { workspace = true }

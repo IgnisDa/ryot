@@ -21,7 +21,6 @@ use reqwest::{
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use serde_with::{TimestampMilliSeconds, formats::Flexible, serde_as};
 use supporting_service::SupportingService;
 use traits::MediaProvider;
@@ -113,12 +112,11 @@ impl MediaProvider for ListennotesService {
 
     async fn metadata_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let page = page.unwrap_or(1);
         #[serde_as]
         #[derive(Serialize, Deserialize, Debug)]
         struct Podcast {
@@ -131,7 +129,7 @@ impl MediaProvider for ListennotesService {
         }
         #[derive(Serialize, Deserialize, Debug)]
         struct SearchResponse {
-            total: i32,
+            total: u64,
             results: Vec<Podcast>,
             next_offset: Option<i32>,
         }
@@ -139,11 +137,11 @@ impl MediaProvider for ListennotesService {
         let rsp = self
             .client
             .get(format!("{}/search", self.url))
-            .query(&json!({
-                "type": "podcast",
-                "q": query.to_owned(),
-                "offset": (page - 1) * PAGE_SIZE,
-            }))
+            .query(&[
+                ("q", query),
+                ("type", "podcast"),
+                ("offset", &((page - 1) * PAGE_SIZE).to_string()),
+            ])
             .send()
             .await?;
 
@@ -224,19 +222,20 @@ impl ListennotesService {
         let resp = self
             .client
             .get(format!("{}/podcasts/{}", self.url, identifier))
-            .query(&json!({
-                "sort": "oldest_first",
-                "next_episode_pub_date": next_pub_date.map(|d| d.to_string()).unwrap_or_else(|| "null".to_owned())
-            }))
+            .query(&[
+                ("sort", "oldest_first"),
+                (
+                    "next_episode_pub_date",
+                    &next_pub_date
+                        .map(|d| d.to_string())
+                        .unwrap_or_else(|| "null".to_owned()),
+                ),
+            ])
             .send()
-            .await
-            ?;
+            .await?;
         let podcast_data: Podcast = resp.json().await?;
         let genres = self.get_genres().await?;
         Ok(MetadataDetails {
-            lot: MediaLot::Podcast,
-            identifier: podcast_data.id,
-            source: MediaSource::Listennotes,
             title: podcast_data.title.clone(),
             description: podcast_data.description,
             is_nsfw: podcast_data.explicit_content,

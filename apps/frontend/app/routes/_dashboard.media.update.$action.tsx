@@ -68,11 +68,11 @@ export const loader = async ({ params, request }: Route.LoaderArgs) => {
 		.with(Action.Create, () => undefined)
 		.with(Action.Edit, async () => {
 			invariant(query.id);
-			const { metadataDetails } = await serverGqlService.authenticatedRequest(
-				request,
-				MetadataDetailsDocument,
-				{ metadataId: query.id },
-			);
+			const metadataDetails = await serverGqlService
+				.authenticatedRequest(request, MetadataDetailsDocument, {
+					metadataId: query.id,
+				})
+				.then((m) => m.metadataDetails.response);
 			return metadataDetails;
 		})
 		.exhaustive();
@@ -275,7 +275,7 @@ export default function Page() {
 						placeholder="Comma separated names"
 						defaultValue={loaderData.details?.creators
 							.flatMap((c) => c.items)
-							.map((c) => c.name)
+							.map((c) => c.idOrName)
 							.join(", ")}
 					/>
 					<TextInput

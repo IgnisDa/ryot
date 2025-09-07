@@ -4,7 +4,6 @@ import {
 	BackendError,
 	CoreDetailsDocument,
 	PresignedPutS3UrlDocument,
-	UserCollectionsListDocument,
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { type SerializeOptions, parse, serialize } from "cookie";
@@ -163,19 +162,6 @@ const getUserDetails = async (request: Request) => {
 export const getUserPreferences = async (request: Request) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	return userDetails.preferences;
-};
-
-export const getUserCollectionsListRaw = async (request: Request) => {
-	const { userCollectionsList } = await serverGqlService.authenticatedRequest(
-		request,
-		UserCollectionsListDocument,
-	);
-	return userCollectionsList;
-};
-
-export const getUserCollectionsList = async (request: Request) => {
-	const userCollectionsList = await getUserCollectionsListRaw(request);
-	return userCollectionsList.response;
 };
 
 const uploadFileAndGetKey = async (

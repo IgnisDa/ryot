@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use common_models::{MetadataGroupSearchInput, PeopleSearchInput, UserLevelCacheKey};
 use database_utils::user_by_id;
 use dependent_entity_utils::{commit_metadata, commit_metadata_group, commit_person};
@@ -15,6 +15,7 @@ use media_models::{
     CommitMetadataGroupInput, CommitPersonInput, PartialMetadataWithoutId, UniqueMediaIdentifier,
 };
 use supporting_service::SupportingService;
+use traits::TraceOk;
 
 pub async fn metadata_search(
     ss: &Arc<SupportingService>,
@@ -35,14 +36,18 @@ pub async fn metadata_search(
             }
             let preferences = user_by_id(user_id, ss).await?.preferences;
             let provider = get_metadata_provider(input.lot, input.source, ss).await?;
-            let results = provider
+            let Some(results) = provider
                 .metadata_search(
+                    input.search.page.unwrap_or(1),
                     &query,
-                    input.search.page,
                     preferences.general.display_nsfw,
                     &input.source_specifics,
                 )
-                .await?;
+                .await
+                .trace_ok()
+            else {
+                bail!("Failed to search metadata");
+            };
             let promises = results.items.iter().map(|i| {
                 commit_metadata(
                     PartialMetadataWithoutId {
@@ -93,8 +98,8 @@ pub async fn people_search(
             let provider = get_non_metadata_provider(input.source, ss).await?;
             let results = provider
                 .people_search(
+                    input.search.page.unwrap_or(1),
                     &query,
-                    input.search.page,
                     preferences.general.display_nsfw,
                     &input.source_specifics,
                 )
@@ -146,7 +151,11 @@ pub async fn metadata_group_search(
             let preferences = user_by_id(user_id, ss).await?.preferences;
             let provider = get_metadata_provider(input.lot, input.source, ss).await?;
             let results = provider
-                .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
+                .metadata_group_search(
+                    input.search.page.unwrap_or(1),
+                    &query,
+                    preferences.general.display_nsfw,
+                )
                 .await?;
             let promises = results.items.iter().map(|i| {
                 commit_metadata_group(

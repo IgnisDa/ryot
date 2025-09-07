@@ -274,7 +274,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
 
     let rsp = client
         .get(format!("{url}/lists"))
-        .query(&serde_json::json!({ "userId": user_id }))
+        .query(&[("userId", &user_id.to_string())])
         .send()
         .await
         .unwrap();
@@ -294,7 +294,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     for list in lists {
         let rsp = client
             .get(format!("{url}/list/items"))
-            .query(&serde_json::json!({ "listId": list.id }))
+            .query(&[("listId", &list.id.to_string())])
             .send()
             .await
             .unwrap();

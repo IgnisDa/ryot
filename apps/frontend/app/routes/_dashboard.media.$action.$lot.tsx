@@ -627,8 +627,7 @@ const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => {
 						onFiltersChange("googleBooksPassRawQuery", e.target.checked)
 					}
 				/>
-			) : null}
-			{filters.source === MediaSource.Igdb ? (
+			) : filters.source === MediaSource.Igdb ? (
 				<>
 					<IgdbMultiselect
 						label="Select themes"
@@ -680,7 +679,9 @@ const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => {
 						}
 					/>
 				</>
-			) : null}
+			) : (
+				<Text>No filters are available for {startCase(filters.source)}</Text>
+			)}
 		</Stack>
 	);
 };

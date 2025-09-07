@@ -72,7 +72,13 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        create_trigram_index_if_required(manager, "collection", "name", COLLECTION_NAME_TRIGRAM_INDEX).await?;
+        create_trigram_index_if_required(
+            manager,
+            "collection",
+            "name",
+            COLLECTION_NAME_TRIGRAM_INDEX,
+        )
+        .await?;
 
         Ok(())
     }

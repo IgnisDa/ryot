@@ -6,12 +6,11 @@ use common_utils::{PAGE_SIZE, ryot_log};
 use convert_case::{Case, Casing};
 use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::{PersonDetails, SearchResults};
-use enum_models::{MediaLot, MediaSource};
+use enum_models::MediaSource;
 use itertools::Itertools;
 use media_models::{
     BookSpecifics, MetadataDetails, MetadataSearchItem, PartialMetadataPerson, PeopleSearchItem,
 };
-use serde_json::json;
 use traits::MediaProvider;
 
 use crate::{
@@ -28,20 +27,19 @@ use crate::{
 impl MediaProvider for OpenlibraryService {
     async fn people_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let page = page.unwrap_or(1);
         let rsp = self
             .client
             .get(format!("{URL}/search/authors.json"))
-            .query(&json!({
-                "q": query.to_owned(),
-                "offset": (page - 1) * PAGE_SIZE,
-                "limit": PAGE_SIZE,
-            }))
+            .query(&[
+                ("q", query),
+                ("limit", &PAGE_SIZE.to_string()),
+                ("offset", &((page - 1) * PAGE_SIZE).to_string()),
+            ])
             .send()
             .await?;
         let search: AuthorLibrarySearchResponse = rsp.json().await?;
@@ -98,13 +96,11 @@ impl MediaProvider for OpenlibraryService {
         let birth_date = data.birth_date.and_then(|d| parse_date_flexible(&d));
         let death_date = data.death_date.and_then(|d| parse_date_flexible(&d));
         Ok(PersonDetails {
-            name: data.name,
             death_date,
             birth_date,
             description,
+            name: data.name,
             source_url: Some(source_url),
-            source: MediaSource::Openlibrary,
-            identifier: get_key(&data.key),
             assets: EntityAssets {
                 remote_images: images,
                 ..Default::default()
@@ -202,10 +198,7 @@ impl MediaProvider for OpenlibraryService {
             people,
             genres,
             description,
-            lot: MediaLot::Book,
             title: data.title.clone(),
-            identifier: identifier.clone(),
-            source: MediaSource::Openlibrary,
             publish_year: first_release_date.map(|d| d.year()),
             source_url: Some(format!(
                 "https://openlibrary.org/works/{}/{}",
@@ -225,12 +218,11 @@ impl MediaProvider for OpenlibraryService {
 
     async fn metadata_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let page = page.unwrap_or(1);
         let fields = [
             "key",
             "title",
@@ -242,13 +234,13 @@ impl MediaProvider for OpenlibraryService {
         let rsp = self
             .client
             .get(format!("{URL}/search.json"))
-            .query(&json!({
-                "q": query.to_owned(),
-                "fields": fields,
-                "offset": (page - 1) * PAGE_SIZE,
-                "limit": PAGE_SIZE,
-                "type": "work".to_owned(),
-            }))
+            .query(&[
+                ("q", query),
+                ("type", "work"),
+                ("fields", &fields),
+                ("limit", &PAGE_SIZE.to_string()),
+                ("offset", &((page - 1) * PAGE_SIZE).to_string()),
+            ])
             .send()
             .await?;
         let search: MediaLibrarySearchResponse = rsp.json().await?;

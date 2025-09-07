@@ -11,6 +11,7 @@ rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
 
+cache-service = { workspace = true }
 common-models = { workspace = true }
 dependent-entity-utils = { workspace = true }
 database-models = { workspace = true }

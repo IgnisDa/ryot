@@ -79,14 +79,11 @@ query {{
         };
         let details = MetadataDetails {
             assets,
-            lot: MediaLot::Book,
             title: data.title.unwrap(),
             provider_rating: data.rating,
             description: data.description,
-            source: MediaSource::Hardcover,
             publish_date: data.release_date,
             publish_year: data.release_year,
-            identifier: data.id.to_string(),
             book_specifics: Some(BookSpecifics {
                 pages: data.pages,
                 is_compilation: data.compilation,
@@ -155,12 +152,11 @@ query {{
 
     async fn metadata_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let page = page.unwrap_or(1);
         let response = get_search_response(query, page, "book", &self.client).await?;
         let items = response
             .hits
@@ -251,11 +247,10 @@ query {{
 
     async fn metadata_group_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
-        let page = page.unwrap_or(1);
         let response = get_search_response(query, page, "series", &self.client).await?;
         let items = response
             .hits
@@ -327,8 +322,6 @@ query {{
                     name: data.name.unwrap(),
                     birth_date: data.born_date,
                     death_date: data.death_date,
-                    source: MediaSource::Hardcover,
-                    identifier: data.id.to_string(),
                     alternate_names: data.alternate_names,
                     source_specifics: source_specifics.clone(),
                     source_url: data
@@ -387,8 +380,6 @@ query {{
                 let data = data.data.publishers_by_pk;
                 let details = PersonDetails {
                     name: data.name.unwrap(),
-                    source: MediaSource::Hardcover,
-                    identifier: data.id.to_string(),
                     source_specifics: source_specifics.clone(),
                     source_url: data
                         .slug
@@ -421,12 +412,11 @@ query {{
 
     async fn people_search(
         &self,
+        page: u64,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let page = page.unwrap_or(1);
         let query_type = query_type_from_specifics(source_specifics);
         let response = get_search_response(query, page, &query_type, &self.client).await?;
         let items = response

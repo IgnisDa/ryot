@@ -29,7 +29,7 @@ pub enum Description {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BookSearchResults {
-    pub total: i32,
+    pub total: u64,
     pub items: Vec<BookSearchItem>,
 }
 
@@ -59,14 +59,14 @@ pub struct OpenlibraryService {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MediaLibrarySearchResponse {
-    pub num_found: i32,
+    pub num_found: u64,
     pub docs: Vec<MetadataSearchBook>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AuthorLibrarySearchResponse {
     #[serde(alias = "numFound")]
-    pub num_found: i32,
+    pub num_found: u64,
     pub docs: Vec<PeopleSearchAuthor>,
 }
 

@@ -13,6 +13,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDidUpdate, useHover, useListState } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
@@ -21,20 +22,16 @@ import {
 	GraphqlSortOrder,
 	type UserCollectionsListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { getActionIntent, processSubmission, truncate } from "@ryot/ts-utils";
+import { truncate } from "@ryot/ts-utils";
 import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
-import { Form, Link, data } from "react-router";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Link } from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "safe-routes";
-import { match } from "ts-pattern";
-import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
-import { z } from "zod";
 import { ProRequiredAlert } from "~/components/common";
 import { DebouncedSearchInput } from "~/components/common/filters";
 import {
-	useConfirmSubmit,
 	useCoreDetails,
 	useFallbackImageUrl,
 	useUserCollections,
@@ -48,45 +45,9 @@ import {
 } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useCreateOrUpdateCollectionModal } from "~/lib/state/collection";
-import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
-import type { Route } from "./+types/_dashboard.collections.list";
 
 export const meta = () => {
 	return [{ title: "Your collections | Ryot" }];
-};
-
-export const action = async ({ request }: Route.ActionArgs) => {
-	const formData = await request.clone().formData();
-	const intent = getActionIntent(request);
-	return await match(intent)
-		.with("delete", async () => {
-			const submission = processSubmission(
-				formData,
-				z.object({ collectionName: z.string() }),
-			);
-			let wasSuccessful = true;
-			try {
-				await serverGqlService.authenticatedRequest(
-					request,
-					DeleteCollectionDocument,
-					submission,
-				);
-			} catch {
-				wasSuccessful = false;
-			}
-			return data(
-				{},
-				{
-					headers: await createToastHeaders({
-						type: wasSuccessful ? "success" : "error",
-						message: wasSuccessful
-							? "Collection deleted"
-							: "Can not delete a default collection",
-					}),
-				},
-			);
-		})
-		.run();
 };
 
 interface SearchFilters {
@@ -155,7 +116,7 @@ export default function Page() {
 				<Group justify="space-between" align="center">
 					<Box>
 						<Text display="inline" fw="bold">
-							{collections.length}
+							{filteredCollections.length}
 						</Text>{" "}
 						items found
 					</Box>
@@ -195,10 +156,36 @@ const DisplayCollection = (props: {
 }) => {
 	const userDetails = useUserDetails();
 	const coreDetails = useCoreDetails();
-	const submit = useConfirmSubmit();
 	const fallbackImageUrl = useFallbackImageUrl(props.collection.name);
 	const { open: openCollectionModal } = useCreateOrUpdateCollectionModal();
 	const additionalDisplay = [];
+
+	const deleteCollectionMutation = useMutation({
+		mutationFn: async (collectionName: string) => {
+			const { deleteCollection } = await clientGqlService.request(
+				DeleteCollectionDocument,
+				{ collectionName },
+			);
+			return deleteCollection;
+		},
+		onSuccess: () => {
+			notifications.show({
+				color: "green",
+				title: "Success",
+				message: "Collection deleted",
+			});
+			queryClient.invalidateQueries({
+				queryKey: queryFactory.collections.userCollectionsList().queryKey,
+			});
+		},
+		onError: () => {
+			notifications.show({
+				color: "red",
+				title: "Error",
+				message: "Cannot delete a default collection",
+			});
+		},
+	});
 
 	const { data: collectionImages } = useQuery({
 		queryKey: queryFactory.collections.collectionDetailsImages(
@@ -325,32 +312,22 @@ const DisplayCollection = (props: {
 									<IconEdit size={18} />
 								</ActionIcon>
 							) : null}
-							{!props.collection.isDefault ? (
-								<Form
-									method="POST"
-									action={withQuery(".", { intent: "delete" })}
+							{userDetails.id === props.collection.creator.id &&
+							!props.collection.isDefault ? (
+								<ActionIcon
+									color="red"
+									variant="outline"
+									loading={deleteCollectionMutation.isPending}
+									onClick={() => {
+										openConfirmationModal(
+											"Are you sure you want to delete this collection?",
+											() =>
+												deleteCollectionMutation.mutate(props.collection.name),
+										);
+									}}
 								>
-									<input
-										hidden
-										name="collectionName"
-										defaultValue={props.collection.name}
-									/>
-									<ActionIcon
-										type="submit"
-										color="red"
-										variant="outline"
-										onClick={(e) => {
-											const form = e.currentTarget.form;
-											e.preventDefault();
-											openConfirmationModal(
-												"Are you sure you want to delete this collection?",
-												() => submit(form),
-											);
-										}}
-									>
-										<IconTrashFilled size={18} />
-									</ActionIcon>
-								</Form>
+									<IconTrashFilled size={18} />
+								</ActionIcon>
 							) : null}
 						</Group>
 					</Group>

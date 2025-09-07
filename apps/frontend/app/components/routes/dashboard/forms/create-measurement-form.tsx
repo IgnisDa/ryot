@@ -16,14 +16,12 @@ import { changeCase, snakeCase } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useState } from "react";
-import { useRevalidator } from "react-router";
 import { useApplicationEvents, useUserPreferences } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
 
 export const CreateMeasurementForm = (props: {
 	closeMeasurementModal: () => void;
 }) => {
-	const revalidator = useRevalidator();
 	const events = useApplicationEvents();
 	const userPreferences = useUserPreferences();
 
@@ -123,7 +121,6 @@ export const CreateMeasurementForm = (props: {
 				onClick={async () => {
 					events.createMeasurement();
 					await createMeasurementMutation.mutateAsync();
-					revalidator.revalidate();
 					notifications.show({
 						color: "green",
 						message: "Your measurement has been created",

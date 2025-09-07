@@ -136,20 +136,36 @@ const DisplayGenre = (props: { genreId: string }) => {
 				GenreDetailsDocument,
 				{ input: { genreId: props.genreId } },
 			);
-			let images = [];
-			for (const content of genreDetails.contents.items) {
-				if (images.length === 4) break;
-				const { assets } = await queryClient.ensureQueryData(
-					getMetadataDetailsQuery(content),
-				);
-				if (assets.remoteImages.length > 0) images.push(assets.remoteImages[0]);
-			}
-			if (images.length < 4) images = images.splice(0, 1);
+
+			const images = [];
+			const maxImages = 4;
+			const batchSize = 6;
+
+			const contentsBatch = genreDetails.response.contents.items.slice(
+				0,
+				batchSize,
+			);
+
+			const results = await Promise.all(
+				contentsBatch.map(async (content) => {
+					const { assets } = await queryClient.ensureQueryData(
+						getMetadataDetailsQuery(content),
+					);
+					return assets.remoteImages.length > 0 ? assets.remoteImages[0] : null;
+				}),
+			);
+
+			for (const image of results)
+				if (image && images.length <= maxImages) images.push(image);
+
+			if (images.length <= maxImages)
+				return { genreDetails, images: images.slice(0, 1) };
+
 			return { genreDetails, images };
 		},
 	});
 
-	const genreName = genreData?.genreDetails.details.name || "";
+	const genreName = genreData?.genreDetails.response.details.name || "";
 	const color = useGetRandomMantineColor(genreName);
 	const fallbackImageUrl = useFallbackImageUrl(getInitials(genreName));
 

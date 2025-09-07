@@ -4,7 +4,7 @@ import { produce } from "immer";
 import { type RefObject, useEffect, useRef } from "react";
 import { useOnClickOutside } from "usehooks-ts";
 import { dayjsLib } from "~/lib/shared/date-utils";
-import { forceUpdateEverySecond } from "~/lib/shared/hooks";
+import { useForceUpdateEverySecond } from "~/lib/shared/hooks";
 import {
 	type CurrentWorkoutTimer,
 	useCurrentWorkout,
@@ -61,7 +61,7 @@ export const DisplaySetRestTimer = (props: {
 	onClick: () => void;
 	currentTimer: CurrentWorkoutTimer;
 }) => {
-	forceUpdateEverySecond();
+	useForceUpdateEverySecond();
 
 	return (
 		<Progress

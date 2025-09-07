@@ -1,5 +1,12 @@
 import type { MantineColor } from "@mantine/core";
-import { MediaLot, SetLot } from "@ryot/generated/graphql/backend/graphql";
+import {
+	DeployUpdateMediaEntityJobDocument,
+	EntityLot,
+	MediaLot,
+	MediaSource,
+	MetadataDetailsDocument,
+	SetLot,
+} from "@ryot/generated/graphql/backend/graphql";
 import { inRange } from "@ryot/ts-utils";
 import {
 	IconBook,
@@ -16,6 +23,7 @@ import {
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { ThreePointSmileyRating, Verb } from "../types";
+import { clientGqlService } from "./react-query";
 
 export const getLot = (lot: unknown) => {
 	if (!lot) return undefined;
@@ -129,4 +137,58 @@ export const MediaColors: EntityColor = {
 	WORKOUT: "violet",
 	REVIEW: "green.5",
 	USER_MEASUREMENT: "indigo",
+};
+
+export const getMetadataDetails = async (metadataId: string) =>
+	clientGqlService
+		.request(MetadataDetailsDocument, { metadataId })
+		.then((d) => d.metadataDetails.response);
+
+export const deployUpdateJobIfNeeded = async (
+	entityId: string,
+	entityLot: EntityLot,
+	externalLinkSource: MediaSource,
+) => {
+	if (externalLinkSource !== MediaSource.Custom) {
+		await clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
+			entityId,
+			entityLot,
+		});
+	}
+};
+
+const checkPartialStatus = async (metadataId: string): Promise<boolean> => {
+	const details = await getMetadataDetails(metadataId);
+	return details?.isPartial !== true;
+};
+
+export const executePartialStatusUpdate = async (props: {
+	metadataId: string;
+	externalLinkSource: MediaSource;
+}) => {
+	const { metadataId, externalLinkSource } = props;
+	const startTime = Date.now();
+
+	await deployUpdateJobIfNeeded(
+		metadataId,
+		EntityLot.Metadata,
+		externalLinkSource,
+	);
+
+	return new Promise<boolean>((resolve) => {
+		const checkAndWait = async () => {
+			const isNonPartial = await checkPartialStatus(metadataId);
+			if (isNonPartial) {
+				resolve(true);
+				return;
+			}
+			if (Date.now() - startTime >= 30000) {
+				resolve(false);
+				return;
+			}
+			setTimeout(checkAndWait, 1000);
+		};
+
+		checkAndWait();
+	});
 };

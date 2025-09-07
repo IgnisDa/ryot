@@ -87,7 +87,7 @@ pub async fn export_media(
                 .map(get_review_export_item)
                 .collect();
             let collections =
-                entity_in_collections_with_details(&ss.db, user_id, &m.id, EntityLot::Metadata)
+                entity_in_collections_with_details(user_id, &m.id, EntityLot::Metadata, ss)
                     .await?
                     .into_iter()
                     .map(|c| c.details)
@@ -143,16 +143,12 @@ pub async fn export_media_group(
                 .into_iter()
                 .map(get_review_export_item)
                 .collect();
-            let collections = entity_in_collections_with_details(
-                &ss.db,
-                user_id,
-                &m.id,
-                EntityLot::MetadataGroup,
-            )
-            .await?
-            .into_iter()
-            .map(|c| c.details)
-            .collect();
+            let collections =
+                entity_in_collections_with_details(user_id, &m.id, EntityLot::MetadataGroup, ss)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.details)
+                    .collect();
             let exp = ImportOrExportMetadataGroupItem {
                 reviews,
                 lot: m.lot,
@@ -204,7 +200,7 @@ pub async fn export_people(
                 .map(get_review_export_item)
                 .collect();
             let collections =
-                entity_in_collections_with_details(&ss.db, user_id, &p.id, EntityLot::Person)
+                entity_in_collections_with_details(user_id, &p.id, EntityLot::Person, ss)
                     .await?
                     .into_iter()
                     .map(|c| c.details)
