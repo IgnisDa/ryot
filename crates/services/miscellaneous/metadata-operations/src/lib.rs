@@ -258,7 +258,6 @@ fn get_data_for_custom_metadata(
         .map(|c| MetadataFreeCreator {
             name: c,
             role: "Creator".to_string(),
-            ..Default::default()
         })
         .collect_vec();
     let is_partial = match input.lot {

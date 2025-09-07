@@ -248,7 +248,6 @@ impl ListennotesService {
             creators: Vec::from_iter(podcast_data.publisher.map(|p| MetadataFreeCreator {
                 name: p,
                 role: "Publishing".to_owned(),
-                ..Default::default()
             })),
             genres: podcast_data
                 .genre_ids

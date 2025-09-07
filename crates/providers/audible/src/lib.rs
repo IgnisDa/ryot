@@ -407,7 +407,6 @@ impl AudibleService {
             .map(|a| MetadataFreeCreator {
                 name: a.name,
                 role: "Narrator".to_owned(),
-                ..Default::default()
             })
             .collect_vec();
         let description = item.publisher_summary.or(item.merchandising_summary);
