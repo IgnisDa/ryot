@@ -164,20 +164,21 @@ pub struct MediaFilter {
     pub collections: Option<Vec<MediaCollectionFilter>>,
 }
 
-#[derive(SimpleObject, Debug)]
+#[derive(Clone, SimpleObject, Debug, PartialEq, Serialize, Deserialize, Eq)]
 pub struct UserMetadataDetailsEpisodeProgress {
     pub times_seen: usize,
     pub episode_number: i32,
 }
 
-#[derive(SimpleObject, Debug)]
+#[derive(Clone, SimpleObject, Debug, PartialEq, Serialize, Deserialize, Eq)]
 pub struct UserMetadataDetailsShowSeasonProgress {
     pub times_seen: usize,
     pub season_number: i32,
     pub episodes: Vec<UserMetadataDetailsEpisodeProgress>,
 }
 
-#[derive(SimpleObject, Debug, Clone, Default)]
+#[skip_serializing_none]
+#[derive(Clone, SimpleObject, Default, Debug, PartialEq, Serialize, Deserialize, Eq)]
 pub struct UserMediaNextEntry {
     pub season: Option<i32>,
     pub volume: Option<i32>,

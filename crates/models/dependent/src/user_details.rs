@@ -123,7 +123,8 @@ pub struct UserMetadataGroupDetails {
     pub collections: Vec<GraphqlCollectionToEntityDetails>,
 }
 
-#[derive(SimpleObject)]
+#[skip_serializing_none]
+#[derive(Clone, SimpleObject, Debug, PartialEq, Serialize, Deserialize, Eq)]
 pub struct UserMetadataDetails {
     /// Whether this media has been interacted with
     pub has_interacted: bool,
