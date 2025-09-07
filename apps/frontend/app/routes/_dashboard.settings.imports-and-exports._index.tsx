@@ -156,12 +156,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 const traktImportFormSchema = z.object({
 	user: z.string().optional(),
-	list: z
-		.object({
-			url: z.string(),
-			collection: z.string(),
-		})
-		.optional(),
+	list: z.object({ url: z.string(), collection: z.string() }).optional(),
 });
 
 const usernameImportFormSchema = z.object({ username: z.string() });
