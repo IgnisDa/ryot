@@ -6,9 +6,7 @@ use common_models::StringIdObject;
 use common_utils::ryot_log;
 use database_models::review;
 use database_utils::user_by_id;
-use dependent_utility_utils::{
-    associate_user_with_entity, get_entity_title_from_id_and_lot, mark_entity_as_recently_consumed,
-};
+use dependent_utility_utils::{associate_user_with_entity, get_entity_title_from_id_and_lot};
 use enum_models::{EntityLot, Visibility};
 use media_models::{
     CreateOrUpdateReviewInput, ImportOrExportItemRating, ReviewPostedEvent,
@@ -126,7 +124,6 @@ pub async fn post_review(
             .await?;
         }
     }
-    mark_entity_as_recently_consumed(user_id, &input.entity_id, input.entity_lot, ss).await?;
     associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss).await?;
     Ok(StringIdObject {
         id: insert.id.unwrap(),

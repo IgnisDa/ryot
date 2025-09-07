@@ -13,6 +13,7 @@ use dependent_models::{
     ExpireCacheKeyInput,
 };
 use enum_models::EntityLot;
+use futures::try_join;
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel};
 use std::sync::Arc;
 use supporting_service::SupportingService;
@@ -50,7 +51,7 @@ pub async fn get_entity_title_from_id_and_lot(
     Ok(obj_title)
 }
 
-pub async fn mark_entity_as_recently_consumed(
+async fn mark_entity_as_recently_consumed(
     user_id: &String,
     entity_id: &String,
     entity_lot: EntityLot,
@@ -122,7 +123,10 @@ pub async fn associate_user_with_entity(
             new_user_to_entity.insert(&ss.db).await.unwrap();
         }
     };
-    expire_user_metadata_list_cache(user_id, ss).await?;
+    try_join!(
+        expire_user_metadata_list_cache(user_id, ss),
+        mark_entity_as_recently_consumed(user_id, entity_id, entity_lot, ss)
+    )?;
     Ok(())
 }
 

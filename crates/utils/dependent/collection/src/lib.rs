@@ -14,7 +14,6 @@ use dependent_core_utils::is_server_key_validated;
 use dependent_utility_utils::{
     associate_user_with_entity, expire_user_collection_contents_cache,
     expire_user_collections_list_cache, expire_user_metadata_list_cache,
-    mark_entity_as_recently_consumed,
 };
 use enum_models::EntityLot;
 use futures::try_join;
@@ -106,23 +105,13 @@ async fn add_single_entity_to_collection(
             }
             let created = created_collection.insert(&ss.db).await?;
             ryot_log!(debug, "Created collection to entity: {:?}", created);
-            match entity.entity_lot {
-                EntityLot::Workout
-                | EntityLot::WorkoutTemplate
-                | EntityLot::Review
-                | EntityLot::UserMeasurement => {}
-                _ => {
-                    associate_user_with_entity(user_id, &entity.entity_id, entity.entity_lot, ss)
-                        .await
-                        .ok();
-                }
-            }
+
             created
         }
     };
     try_join!(
+        associate_user_with_entity(user_id, &entity.entity_id, entity.entity_lot, ss),
         expire_user_collection_contents_cache(user_id, &collection.id, ss),
-        mark_entity_as_recently_consumed(user_id, &entity.entity_id, entity.entity_lot, ss),
         ss.perform_application_job(ApplicationJob::Lp(
             LpApplicationJob::HandleEntityAddedToCollectionEvent(resp.id),
         ))
