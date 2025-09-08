@@ -413,8 +413,8 @@ export default function Page() {
 										<Menu.Item
 											onClick={() =>
 												performDecision({
+													repeatedFromId: entityId,
 													action: FitnessAction.LogWorkout,
-													repeatedFromId: loaderData.entityId,
 												})
 											}
 											leftSection={<IconRepeat size={14} />}
@@ -424,8 +424,8 @@ export default function Page() {
 										<Menu.Item
 											onClick={() =>
 												performDecision({
+													updateWorkoutId: entityId,
 													action: FitnessAction.UpdateWorkout,
-													updateWorkoutId: loaderData.entityId,
 												})
 											}
 											leftSection={<IconPencil size={14} />}
@@ -461,10 +461,7 @@ export default function Page() {
 							<Menu.Item
 								leftSection={<IconArchive size={14} />}
 								onClick={() =>
-									setAddEntityToCollectionsData({
-										entityLot,
-										entityId: loaderData.entityId,
-									})
+									setAddEntityToCollectionsData({ entityId, entityLot })
 								}
 							>
 								Add to collection
@@ -472,19 +469,19 @@ export default function Page() {
 							<Form method="POST" action={withQuery(".", { intent: "delete" })}>
 								<input
 									type="hidden"
-									value={loaderData.entityId}
-									name={match(loaderData.entity)
+									value={entityId}
+									name={match(entity)
 										.with(FitnessEntity.Workouts, () => "workoutId")
 										.with(FitnessEntity.Templates, () => "templateId")
 										.exhaustive()}
 								/>
-								<input type="hidden" name="entity" value={loaderData.entity} />
+								<input type="hidden" name="entity" value={entity} />
 								<Menu.Item
 									onClick={(e) => {
 										const form = e.currentTarget.form;
 										e.preventDefault();
 										openConfirmationModal(
-											`Are you sure you want to delete this ${loaderData.entity}? This action is not reversible.`,
+											`Are you sure you want to delete this ${entity}? This action is not reversible.`,
 											() => submit(form),
 										);
 									}}
@@ -504,8 +501,8 @@ export default function Page() {
 							<DisplayCollectionToEntity
 								col={col}
 								key={col.id}
+								entityId={entityId}
 								entityLot={entityLot}
-								entityId={loaderData.entityId}
 							/>
 						))}
 					</Group>
@@ -659,9 +656,9 @@ export default function Page() {
 				{loaderData.information.exercises.map((exercise, idx) => (
 					<ExerciseHistory
 						exerciseIdx={idx}
+						entityId={entityId}
+						entityType={entity}
 						key={`${exercise.id}-${idx}`}
-						entityId={loaderData.entityId}
-						entityType={loaderData.entity}
 						supersetInformation={loaderData.information.supersets}
 					/>
 				))}
