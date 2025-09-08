@@ -128,8 +128,8 @@ export const DisplaySet = (props: {
 export const ExerciseHistory = (props: {
 	entityId: string;
 	exerciseIdx: number;
-	entityType: FitnessEntity;
 	hideExerciseDetails?: boolean;
+	fitnessEntityType: FitnessEntity;
 	hideExtraDetailsButton?: boolean;
 	onCopyButtonClick?: () => Promise<void>;
 	supersetInformation?: WorkoutSupersetsInformation[];
@@ -139,7 +139,7 @@ export const ExerciseHistory = (props: {
 	const [parent] = useAutoAnimate();
 	const { data: workoutDetails } = useQuery(
 		// @ts-ignore: Too complicated to fix and it just works this way
-		match(props.entityType)
+		match(props.fitnessEntityType)
 			.with(FitnessEntity.Workouts, () =>
 				getWorkoutDetailsQuery(props.entityId),
 			)

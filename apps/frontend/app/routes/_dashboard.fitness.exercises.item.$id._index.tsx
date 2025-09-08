@@ -418,7 +418,7 @@ export default function Page() {
 												key={history.workoutId}
 												exerciseIdx={history.idx}
 												entityId={history.workoutId}
-												entityType={FitnessEntity.Workouts}
+												fitnessEntityType={FitnessEntity.Workouts}
 											/>
 										</Box>
 									)}

@@ -657,7 +657,7 @@ export default function Page() {
 					<ExerciseHistory
 						exerciseIdx={idx}
 						entityId={entityId}
-						entityType={entity}
+						fitnessEntityType={entity}
 						key={`${exercise.id}-${idx}`}
 						supersetInformation={loaderData.information.supersets}
 					/>

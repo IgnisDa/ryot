@@ -122,7 +122,7 @@ export const ExerciseDetailsModal = ({
 										hideExtraDetailsButton
 										exerciseIdx={history.idx}
 										entityId={history.workoutId}
-										entityType={FitnessEntity.Workouts}
+										fitnessEntityType={FitnessEntity.Workouts}
 										onCopyButtonClick={async () => {
 											const workout = await getWorkoutDetails(
 												history.workoutId,
