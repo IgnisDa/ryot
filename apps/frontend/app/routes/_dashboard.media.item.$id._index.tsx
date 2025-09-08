@@ -222,7 +222,9 @@ export default function Page() {
 	const userDetails = useUserDetails();
 	const submit = useConfirmSubmit();
 
-	const [metadataDetails] = useMetadataDetails(loaderData.metadataId);
+	const [metadataDetails, isMetadataStillLoading] = useMetadataDetails(
+		loaderData.metadataId,
+	);
 	const userMetadataDetails = useUserMetadataDetails(loaderData.metadataId);
 
 	const canCurrentUserUpdate =
@@ -370,16 +372,11 @@ export default function Page() {
 					<MediaDetailsLayout
 						title={metadataDetails.data.title}
 						assets={metadataDetails.data.assets}
+						isMediaStillLoading={isMetadataStillLoading}
 						externalLink={{
 							lot: metadataDetails.data.lot,
 							source: metadataDetails.data.source,
 							href: metadataDetails.data.sourceUrl,
-						}}
-						partialDetailsFetcher={{
-							fn: metadataDetails.refetch,
-							entityLot: EntityLot.Metadata,
-							entityId: metadataDetails.data.id,
-							partialStatus: metadataDetails.data.isPartial,
 						}}
 					>
 						{userMetadataDetails.data.collections.length > 0 ? (

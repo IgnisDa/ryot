@@ -71,8 +71,10 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
+	const [personDetails, isPersonStillLoading] = usePersonDetails(
+		loaderData.personId,
+	);
 	const userPersonDetails = useUserPersonDetails(loaderData.personId);
-	const [personDetails] = usePersonDetails(loaderData.personId);
 
 	const [mediaRoleFilter, setMediaRoleFilter] = useLocalStorage(
 		"PersonMediaTabRoleFilter",
@@ -117,15 +119,10 @@ export default function Page() {
 				<MediaDetailsLayout
 					title={personDetails.data.details.name}
 					assets={personDetails.data.details.assets}
+					isMediaStillLoading={isPersonStillLoading}
 					externalLink={{
 						source: personDetails.data.details.source,
 						href: personDetails.data.details.sourceUrl,
-					}}
-					partialDetailsFetcher={{
-						fn: personDetails.refetch,
-						entityLot: EntityLot.Person,
-						entityId: personDetails.data.details.id,
-						partialStatus: personDetails.data.details.isPartial,
 					}}
 				>
 					{additionalPersonDetails.length > 0 ? (

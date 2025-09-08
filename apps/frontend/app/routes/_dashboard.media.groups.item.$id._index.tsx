@@ -64,9 +64,8 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
-	const [metadataGroupDetailsData] = useMetadataGroupDetails(
-		loaderData.metadataGroupId,
-	);
+	const [metadataGroupDetailsData, isMetadataGroupStillLoading] =
+		useMetadataGroupDetails(loaderData.metadataGroupId);
 	const userMetadataGroupDetails = useUserMetadataGroupDetails(
 		loaderData.metadataGroupId,
 	);
@@ -75,18 +74,13 @@ export default function Page() {
 		<Container>
 			{metadataGroupDetailsData.data && userMetadataGroupDetails.data ? (
 				<MediaDetailsLayout
+					isMediaStillLoading={isMetadataGroupStillLoading}
 					title={metadataGroupDetailsData.data.details.title}
 					assets={metadataGroupDetailsData.data.details.assets}
 					externalLink={{
 						lot: metadataGroupDetailsData.data.details.lot,
 						source: metadataGroupDetailsData.data.details.source,
 						href: metadataGroupDetailsData.data.details.sourceUrl,
-					}}
-					partialDetailsFetcher={{
-						fn: metadataGroupDetailsData.refetch,
-						entityLot: EntityLot.MetadataGroup,
-						entityId: metadataGroupDetailsData.data.details.id,
-						partialStatus: metadataGroupDetailsData.data.details.isPartial,
 					}}
 				>
 					<Flex id="group-details" wrap="wrap" gap={4}>
