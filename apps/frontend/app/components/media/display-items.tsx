@@ -215,7 +215,7 @@ export const MetadataGroupDisplayItem = (props: {
 	shouldHighlightNameIfInteracted?: boolean;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
+	const [{ data: metadataDetails, isLoading: isMetadataDetailsLoading }] =
 		useMetadataGroupDetails(props.metadataGroupId, inViewport);
 	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
 		props.metadataGroupId,

@@ -228,7 +228,7 @@ export const useMetadataGroupDetails = (
 		enabled,
 	});
 
-	usePartialStatusMonitor({
+	const { isPartialStatusActive } = usePartialStatusMonitor({
 		entityId: metadataGroupId,
 		onUpdate: () => query.refetch(),
 		entityLot: EntityLot.MetadataGroup,
@@ -236,7 +236,7 @@ export const useMetadataGroupDetails = (
 		externalLinkSource: query.data?.details.source || MediaSource.Custom,
 	});
 
-	return query;
+	return [query, isPartialStatusActive] as const;
 };
 
 export const useUserMetadataGroupDetails = (

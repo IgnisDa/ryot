@@ -365,7 +365,7 @@ const MetadataDisplay = (props: {
 const MetadataGroupDisplay = (props: {
 	metadataGroupId: string;
 }) => {
-	const { data: metadataGroupDetails } = useMetadataGroupDetails(
+	const [{ data: metadataGroupDetails }] = useMetadataGroupDetails(
 		props.metadataGroupId,
 	);
 

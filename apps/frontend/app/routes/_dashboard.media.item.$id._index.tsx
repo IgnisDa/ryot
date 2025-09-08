@@ -262,7 +262,7 @@ export default function Page() {
 	const nextEntry = userMetadataDetails.data?.nextEntry;
 	const firstGroupAssociated = metadataDetails.data?.groups.at(0);
 	const videos = [...(metadataDetails.data?.assets.remoteVideos || [])];
-	const { data: groupDetails } = useMetadataGroupDetails(
+	const [{ data: metadataGroupDetails }] = useMetadataGroupDetails(
 		firstGroupAssociated?.id,
 	);
 	const additionalMetadataDetails = [
@@ -275,7 +275,7 @@ export default function Page() {
 				})}
 			>
 				<Text c="dimmed" fs="italic" span>
-					{groupDetails?.details.title} #{firstGroupAssociated.part}
+					{metadataGroupDetails?.details.title} #{firstGroupAssociated.part}
 				</Text>
 			</Link>
 		),
