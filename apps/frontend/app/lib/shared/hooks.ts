@@ -359,13 +359,47 @@ export const usePartialStatusMonitor = (props: {
 	const [jobDeployedForEntity, setJobDeployedForEntity] = useState<
 		string | null
 	>(null);
-	const intervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
+	const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+	const attemptCountRef = useRef(0);
+	const isPollingRef = useRef(false);
+	const pollIntervalRef = useRef(1000);
+
+	const scheduleNextPoll = useCallback(() => {
+		if (!isPollingRef.current) return;
+
+		const currentInterval = pollIntervalRef.current;
+
+		if (currentInterval >= 30000) {
+			onUpdate();
+			isPollingRef.current = false;
+			return;
+		}
+
+		timeoutRef.current = setTimeout(async () => {
+			if (!isPollingRef.current) return;
+			await onUpdate();
+			attemptCountRef.current += 1;
+			pollIntervalRef.current = Math.min(
+				1000 * 2 ** attemptCountRef.current,
+				30000,
+			);
+
+			scheduleNextPoll();
+		}, currentInterval);
+	}, [onUpdate]);
+
+	const resetPollingState = useCallback(() => {
+		if (timeoutRef.current) {
+			clearTimeout(timeoutRef.current);
+			timeoutRef.current = undefined;
+		}
+		pollIntervalRef.current = 1000;
+		attemptCountRef.current = 0;
+		isPollingRef.current = false;
+	}, []);
 
 	useEffect(() => {
-		if (intervalRef.current) {
-			clearInterval(intervalRef.current);
-			intervalRef.current = undefined;
-		}
+		resetPollingState();
 
 		const isJobForDifferentEntity =
 			jobDeployedForEntity && jobDeployedForEntity !== entityId;
@@ -381,19 +415,17 @@ export const usePartialStatusMonitor = (props: {
 			setJobDeployedForEntity(entityId);
 		}
 
-		intervalRef.current = setInterval(onUpdate, 1000);
+		isPollingRef.current = true;
+		scheduleNextPoll();
 
-		return () => {
-			if (intervalRef.current) {
-				clearInterval(intervalRef.current);
-				intervalRef.current = undefined;
-			}
-		};
+		return resetPollingState;
 	}, [
 		entityId,
-		onUpdate,
 		entityLot,
+		onUpdate,
 		partialStatus,
+		scheduleNextPoll,
+		resetPollingState,
 		externalLinkSource,
 		jobDeployedForEntity,
 	]);
