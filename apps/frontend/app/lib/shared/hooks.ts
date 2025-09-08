@@ -88,7 +88,17 @@ export const useGetWorkoutStarter = () => {
 };
 
 export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
-	return useQuery({ ...getMetadataDetailsQuery(metadataId), enabled });
+	const query = useQuery({ ...getMetadataDetailsQuery(metadataId), enabled });
+
+	usePartialStatusMonitor({
+		entityId: metadataId,
+		entityLot: EntityLot.Metadata,
+		onUpdate: () => query.refetch(),
+		partialStatus: enabled !== false && query.data?.isPartial,
+		externalLinkSource: query.data?.source || MediaSource.Custom,
+	});
+
+	return query;
 };
 
 export const useUserMetadataDetails = (
