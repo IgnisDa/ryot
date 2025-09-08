@@ -165,20 +165,20 @@ const WorkoutAssetsList = (props: { images: string[]; videos: string[] }) => {
 
 	return (
 		<Avatar.Group>
-			{props.images.map((i) => (
+			{props.images.map((src) => (
 				<Avatar
-					key={i}
-					src={i}
+					key={src}
+					src={src}
 					style={{ cursor: "pointer" }}
-					onClick={() => setFullscreenImage({ src: i })}
+					onClick={() => setFullscreenImage({ src })}
 				/>
 			))}
-			{props.videos.map((v) => (
+			{props.videos.map((src) => (
 				<Avatar
-					key={v}
+					key={src}
 					name="Video"
 					style={{ cursor: "pointer" }}
-					onClick={() => setFullscreenImage({ src: v })}
+					onClick={() => setFullscreenImage({ src })}
 				/>
 			))}
 		</Avatar.Group>
