@@ -472,11 +472,11 @@ export default function Page() {
 							<Form method="POST" action={withQuery(".", { intent: "delete" })}>
 								<input
 									type="hidden"
+									value={loaderData.entityId}
 									name={match(loaderData.entity)
 										.with(FitnessEntity.Workouts, () => "workoutId")
 										.with(FitnessEntity.Templates, () => "templateId")
 										.exhaustive()}
-									value={loaderData.entityId}
 								/>
 								<input type="hidden" name="entity" value={loaderData.entity} />
 								<Menu.Item
