@@ -100,6 +100,7 @@ export const usePartialStatusMonitor = (props: {
 	const [jobDeployedForEntity, setJobDeployedForEntity] = useState<
 		string | null
 	>(null);
+	const [isActivelyPolling, setIsActivelyPolling] = useState(false);
 	const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 	const attemptCountRef = useRef(0);
 	const isPollingRef = useRef(false);
@@ -113,6 +114,7 @@ export const usePartialStatusMonitor = (props: {
 		if (currentInterval >= 30000) {
 			onUpdate();
 			isPollingRef.current = false;
+			setIsActivelyPolling(false);
 			return;
 		}
 
@@ -137,6 +139,7 @@ export const usePartialStatusMonitor = (props: {
 		pollIntervalRef.current = 1000;
 		attemptCountRef.current = 0;
 		isPollingRef.current = false;
+		setIsActivelyPolling(false);
 	}, []);
 
 	useEffect(() => {
@@ -160,6 +163,7 @@ export const usePartialStatusMonitor = (props: {
 		}
 
 		isPollingRef.current = true;
+		setIsActivelyPolling(true);
 		scheduleNextPoll();
 
 		return resetPollingState;
@@ -174,7 +178,7 @@ export const usePartialStatusMonitor = (props: {
 		jobDeployedForEntity,
 	]);
 
-	return { isPartialStatusActive: isPollingRef.current };
+	return { isPartialStatusActive: isActivelyPolling };
 };
 
 export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
