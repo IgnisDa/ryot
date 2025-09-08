@@ -87,6 +87,99 @@ export const useGetWorkoutStarter = () => {
 	return fn;
 };
 
+export const usePartialStatusMonitor = (props: {
+	entityId?: string;
+	entityLot: EntityLot;
+	onUpdate: () => unknown;
+	partialStatus?: boolean | null;
+	externalLinkSource: MediaSource;
+}) => {
+	const { entityId, entityLot, onUpdate, partialStatus, externalLinkSource } =
+		props;
+
+	const [jobDeployedForEntity, setJobDeployedForEntity] = useState<
+		string | null
+	>(null);
+	const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+	const attemptCountRef = useRef(0);
+	const isPollingRef = useRef(false);
+	const pollIntervalRef = useRef(1000);
+
+	const scheduleNextPoll = useCallback(() => {
+		if (!isPollingRef.current) return;
+
+		const currentInterval = pollIntervalRef.current;
+
+		if (currentInterval >= 30000) {
+			onUpdate();
+			isPollingRef.current = false;
+			return;
+		}
+
+		timeoutRef.current = setTimeout(async () => {
+			if (!isPollingRef.current) return;
+			await onUpdate();
+			attemptCountRef.current += 1;
+			pollIntervalRef.current = Math.min(
+				1000 * 2 ** attemptCountRef.current,
+				30000,
+			);
+
+			scheduleNextPoll();
+		}, currentInterval);
+	}, [onUpdate]);
+
+	const resetPollingState = useCallback(() => {
+		if (timeoutRef.current) {
+			clearTimeout(timeoutRef.current);
+			timeoutRef.current = undefined;
+		}
+		pollIntervalRef.current = 1000;
+		attemptCountRef.current = 0;
+		isPollingRef.current = false;
+	}, []);
+
+	useEffect(() => {
+		resetPollingState();
+
+		const isJobForDifferentEntity =
+			jobDeployedForEntity && jobDeployedForEntity !== entityId;
+		const shouldPoll =
+			entityId && partialStatus && externalLinkSource !== MediaSource.Custom;
+
+		if (isJobForDifferentEntity || !entityId) setJobDeployedForEntity(null);
+
+		if (!shouldPoll) return;
+
+		if (jobDeployedForEntity !== entityId && entityId) {
+			clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
+				entityId,
+				entityLot,
+			});
+			setJobDeployedForEntity(entityId);
+		}
+
+		isPollingRef.current = true;
+		scheduleNextPoll();
+
+		return resetPollingState;
+	}, [
+		onUpdate,
+		entityId,
+		entityLot,
+		partialStatus,
+		scheduleNextPoll,
+		resetPollingState,
+		externalLinkSource,
+		jobDeployedForEntity,
+	]);
+
+	return {
+		isPartialStatusActive:
+			entityId && partialStatus && externalLinkSource !== MediaSource.Custom,
+	};
+};
+
 export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
 	const query = useQuery({ ...getMetadataDetailsQuery(metadataId), enabled });
 
@@ -364,97 +457,4 @@ export const useFormValidation = (dependency?: unknown) => {
 	}, [checkFormValidity, dependency]);
 
 	return { formRef, isFormValid, checkFormValidity };
-};
-
-export const usePartialStatusMonitor = (props: {
-	entityId?: string;
-	entityLot: EntityLot;
-	onUpdate: () => unknown;
-	partialStatus?: boolean | null;
-	externalLinkSource: MediaSource;
-}) => {
-	const { entityId, entityLot, onUpdate, partialStatus, externalLinkSource } =
-		props;
-
-	const [jobDeployedForEntity, setJobDeployedForEntity] = useState<
-		string | null
-	>(null);
-	const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
-	const attemptCountRef = useRef(0);
-	const isPollingRef = useRef(false);
-	const pollIntervalRef = useRef(1000);
-
-	const scheduleNextPoll = useCallback(() => {
-		if (!isPollingRef.current) return;
-
-		const currentInterval = pollIntervalRef.current;
-
-		if (currentInterval >= 30000) {
-			onUpdate();
-			isPollingRef.current = false;
-			return;
-		}
-
-		timeoutRef.current = setTimeout(async () => {
-			if (!isPollingRef.current) return;
-			await onUpdate();
-			attemptCountRef.current += 1;
-			pollIntervalRef.current = Math.min(
-				1000 * 2 ** attemptCountRef.current,
-				30000,
-			);
-
-			scheduleNextPoll();
-		}, currentInterval);
-	}, [onUpdate]);
-
-	const resetPollingState = useCallback(() => {
-		if (timeoutRef.current) {
-			clearTimeout(timeoutRef.current);
-			timeoutRef.current = undefined;
-		}
-		pollIntervalRef.current = 1000;
-		attemptCountRef.current = 0;
-		isPollingRef.current = false;
-	}, []);
-
-	useEffect(() => {
-		resetPollingState();
-
-		const isJobForDifferentEntity =
-			jobDeployedForEntity && jobDeployedForEntity !== entityId;
-		const shouldPoll =
-			entityId && partialStatus && externalLinkSource !== MediaSource.Custom;
-
-		if (isJobForDifferentEntity || !entityId) setJobDeployedForEntity(null);
-
-		if (!shouldPoll) return;
-
-		if (jobDeployedForEntity !== entityId && entityId) {
-			clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
-				entityId,
-				entityLot,
-			});
-			setJobDeployedForEntity(entityId);
-		}
-
-		isPollingRef.current = true;
-		scheduleNextPoll();
-
-		return resetPollingState;
-	}, [
-		onUpdate,
-		entityId,
-		entityLot,
-		partialStatus,
-		scheduleNextPoll,
-		resetPollingState,
-		externalLinkSource,
-		jobDeployedForEntity,
-	]);
-
-	return {
-		isPartialStatusActive:
-			entityId && partialStatus && externalLinkSource !== MediaSource.Custom,
-	};
 };
