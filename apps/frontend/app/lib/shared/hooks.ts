@@ -6,6 +6,7 @@ import {
 	DeployAddEntitiesToCollectionJobDocument,
 	DeployBulkMetadataProgressUpdateDocument,
 	DeployRemoveEntitiesFromCollectionJobDocument,
+	DeployUpdateMediaEntityJobDocument,
 	EntityLot,
 	ExpireCacheKeyDocument,
 	type MediaLot,
@@ -42,7 +43,6 @@ import {
 } from "~/lib/state/fitness";
 import type { FitnessAction } from "~/lib/types";
 import type { loader as dashboardLoader } from "~/routes/_dashboard";
-import { deployUpdateJobIfNeeded } from "./media-utils";
 
 export const useGetMantineColors = () => {
 	const theme = useMantineTheme();
@@ -431,7 +431,10 @@ export const usePartialStatusMonitor = (props: {
 		if (!shouldPoll) return;
 
 		if (jobDeployedForEntity !== entityId && entityId) {
-			deployUpdateJobIfNeeded(entityId, entityLot, externalLinkSource);
+			clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
+				entityId,
+				entityLot,
+			});
 			setJobDeployedForEntity(entityId);
 		}
 

@@ -1,17 +1,11 @@
 import {
 	type EntityLot,
 	MediaLot,
-	MediaSource,
 	type ReviewItem,
 } from "@ryot/generated/graphql/backend/graphql";
 import { atom, useAtom } from "jotai";
 import { useState } from "react";
 import { match } from "ts-pattern";
-import { METADATA_LOTS_WITH_GRANULAR_UPDATES } from "~/components/routes/media-item/constants";
-import {
-	executePartialStatusUpdate,
-	getMetadataDetails,
-} from "~/lib/shared/media-utils";
 import {
 	getMetadataDetailsQuery,
 	getUserMetadataDetailsQuery,
@@ -40,23 +34,8 @@ const getUpdateMetadata = async (metadataId: string) => {
 	const meta = await queryClient.ensureQueryData(
 		getMetadataDetailsQuery(metadataId),
 	);
-	if (
-		!meta.isPartial ||
-		meta.source === MediaSource.Custom ||
-		!METADATA_LOTS_WITH_GRANULAR_UPDATES.includes(meta.lot)
-	)
-		return meta;
 
-	await executePartialStatusUpdate({
-		metadataId,
-		externalLinkSource: meta.source,
-	});
-
-	const metadataDetails = await getMetadataDetails(metadataId);
-	await queryClient.invalidateQueries({
-		queryKey: getMetadataDetailsQuery(metadataId).queryKey,
-	});
-	return metadataDetails;
+	return meta;
 };
 
 export const useMetadataProgressUpdate = () => {
