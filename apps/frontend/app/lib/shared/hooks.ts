@@ -347,7 +347,7 @@ export const useFormValidation = (dependency?: unknown) => {
 };
 
 export const usePartialStatusMonitor = (props: {
-	entityId: string;
+	entityId?: string;
 	entityLot: EntityLot;
 	onUpdate: () => unknown;
 	partialStatus?: boolean | null;
@@ -404,13 +404,13 @@ export const usePartialStatusMonitor = (props: {
 		const isJobForDifferentEntity =
 			jobDeployedForEntity && jobDeployedForEntity !== entityId;
 		const shouldPoll =
-			partialStatus && externalLinkSource !== MediaSource.Custom;
+			entityId && partialStatus && externalLinkSource !== MediaSource.Custom;
 
-		if (isJobForDifferentEntity) setJobDeployedForEntity(null);
+		if (isJobForDifferentEntity || !entityId) setJobDeployedForEntity(null);
 
 		if (!shouldPoll) return;
 
-		if (jobDeployedForEntity !== entityId) {
+		if (jobDeployedForEntity !== entityId && entityId) {
 			deployUpdateJobIfNeeded(entityId, entityLot, externalLinkSource);
 			setJobDeployedForEntity(entityId);
 		}
@@ -420,9 +420,9 @@ export const usePartialStatusMonitor = (props: {
 
 		return resetPollingState;
 	}, [
+		onUpdate,
 		entityId,
 		entityLot,
-		onUpdate,
 		partialStatus,
 		scheduleNextPoll,
 		resetPollingState,
@@ -432,6 +432,6 @@ export const usePartialStatusMonitor = (props: {
 
 	return {
 		isPartialStatusActive:
-			partialStatus && externalLinkSource !== MediaSource.Custom,
+			entityId && partialStatus && externalLinkSource !== MediaSource.Custom,
 	};
 };
