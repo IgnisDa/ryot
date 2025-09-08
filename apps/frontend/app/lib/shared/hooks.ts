@@ -204,7 +204,7 @@ export const useUserMetadataDetails = (
 export const usePersonDetails = (personId: string, enabled?: boolean) => {
 	const query = useQuery({ ...getPersonDetailsQuery(personId), enabled });
 
-	usePartialStatusMonitor({
+	const { isPartialStatusActive } = usePartialStatusMonitor({
 		entityId: personId,
 		entityLot: EntityLot.Person,
 		onUpdate: () => query.refetch(),
@@ -212,7 +212,7 @@ export const usePersonDetails = (personId: string, enabled?: boolean) => {
 		externalLinkSource: query.data?.details.source || MediaSource.Custom,
 	});
 
-	return query;
+	return [query, isPartialStatusActive] as const;
 };
 
 export const useUserPersonDetails = (personId?: string, enabled?: boolean) => {

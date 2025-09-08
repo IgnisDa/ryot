@@ -72,7 +72,7 @@ export default function Page() {
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
 	const userPersonDetails = useUserPersonDetails(loaderData.personId);
-	const personDetails = usePersonDetails(loaderData.personId);
+	const [personDetails] = usePersonDetails(loaderData.personId);
 
 	const [mediaRoleFilter, setMediaRoleFilter] = useLocalStorage(
 		"PersonMediaTabRoleFilter",

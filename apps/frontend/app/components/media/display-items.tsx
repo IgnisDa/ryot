@@ -274,7 +274,7 @@ export const PersonDisplayItem = (props: {
 	shouldHighlightNameIfInteracted?: boolean;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const { data: personDetails, isLoading: isPersonDetailsLoading } =
+	const [{ data: personDetails, isLoading: isPersonDetailsLoading }] =
 		usePersonDetails(props.personId, inViewport);
 	const { data: userPersonDetails } = useUserPersonDetails(
 		props.personId,

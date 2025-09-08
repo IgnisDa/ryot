@@ -9,7 +9,7 @@ export const MetadataCreatorDisplay = (props: {
 	data: MetadataCreator;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const { data } = usePersonDetails(
+	const [{ data }] = usePersonDetails(
 		props.data.idOrName,
 		inViewport && !props.data.isFree,
 	);
