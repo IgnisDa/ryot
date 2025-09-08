@@ -16,7 +16,7 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { useDisclosure, useInViewport } from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	DeleteUserWorkoutDocument,
@@ -673,11 +673,7 @@ export default function Page() {
 const ConsumedMetadataDisplay = (props: {
 	metadataId: string;
 }) => {
-	const { ref, inViewport } = useInViewport();
-	const [{ data: metadataDetails }] = useMetadataDetails(
-		props.metadataId,
-		inViewport,
-	);
+	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
 
 	const images = [
 		...(metadataDetails?.assets.remoteImages || []),
@@ -685,7 +681,7 @@ const ConsumedMetadataDisplay = (props: {
 	];
 
 	return (
-		<Link to={$path("/media/item/:id", { id: props.metadataId })} ref={ref}>
+		<Link to={$path("/media/item/:id", { id: props.metadataId })}>
 			<Tooltip label={metadataDetails?.title}>
 				<Avatar src={images.at(0)} />
 			</Tooltip>
