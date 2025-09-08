@@ -174,10 +174,7 @@ export const usePartialStatusMonitor = (props: {
 		jobDeployedForEntity,
 	]);
 
-	return {
-		isPartialStatusActive:
-			entityId && partialStatus && externalLinkSource !== MediaSource.Custom,
-	};
+	return { isPartialStatusActive: isPollingRef.current };
 };
 
 export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
