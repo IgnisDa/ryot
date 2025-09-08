@@ -256,9 +256,9 @@ export const useDashboardLayoutData = () => {
 	return loaderData;
 };
 
+export const useUserPreferences = () => useUserDetails().preferences;
 export const useCoreDetails = () => useDashboardLayoutData().coreDetails;
 export const useUserDetails = () => useDashboardLayoutData().userDetails;
-export const useUserPreferences = () => useUserDetails().preferences;
 
 export const useUserCollections = () => {
 	const query = useQuery({
