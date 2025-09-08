@@ -657,7 +657,7 @@ const ConsumedMetadataDisplay = (props: {
 	metadataId: string;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const { data: metadataDetails } = useMetadataDetails(
+	const [{ data: metadataDetails }] = useMetadataDetails(
 		props.metadataId,
 		inViewport,
 	);

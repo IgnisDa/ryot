@@ -49,7 +49,7 @@ export const MetadataDisplayItem = (props: {
 	const { ref, inViewport } = useInViewport();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
-	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
+	const [{ data: metadataDetails, isLoading: isMetadataDetailsLoading }] =
 		useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,

@@ -222,7 +222,7 @@ export default function Page() {
 	const userDetails = useUserDetails();
 	const submit = useConfirmSubmit();
 
-	const metadataDetails = useMetadataDetails(loaderData.metadataId);
+	const [metadataDetails] = useMetadataDetails(loaderData.metadataId);
 	const userMetadataDetails = useUserMetadataDetails(loaderData.metadataId);
 
 	const canCurrentUserUpdate =

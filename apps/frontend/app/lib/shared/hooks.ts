@@ -180,7 +180,7 @@ export const usePartialStatusMonitor = (props: {
 export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
 	const query = useQuery({ ...getMetadataDetailsQuery(metadataId), enabled });
 
-	usePartialStatusMonitor({
+	const { isPartialStatusActive } = usePartialStatusMonitor({
 		entityId: metadataId,
 		entityLot: EntityLot.Metadata,
 		onUpdate: () => query.refetch(),
@@ -188,7 +188,7 @@ export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
 		externalLinkSource: query.data?.source || MediaSource.Custom,
 	});
 
-	return query;
+	return [query, isPartialStatusActive] as const;
 };
 
 export const useUserMetadataDetails = (

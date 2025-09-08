@@ -28,7 +28,7 @@ export const MetadataProgressUpdateForm = ({
 	const { metadataToUpdate } = useMetadataProgressUpdate();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
-	const { data: metadataDetails } = useMetadataDetails(
+	const [{ data: metadataDetails }] = useMetadataDetails(
 		metadataToUpdate?.metadataId,
 	);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
