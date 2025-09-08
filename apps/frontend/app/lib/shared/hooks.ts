@@ -123,10 +123,20 @@ export const useMetadataGroupDetails = (
 	metadataGroupId?: string,
 	enabled?: boolean,
 ) => {
-	return useQuery({
+	const query = useQuery({
 		...getMetadataGroupDetailsQuery(metadataGroupId),
 		enabled,
 	});
+
+	usePartialStatusMonitor({
+		entityId: metadataGroupId,
+		onUpdate: () => query.refetch(),
+		entityLot: EntityLot.MetadataGroup,
+		partialStatus: enabled !== false && query.data?.details.isPartial,
+		externalLinkSource: query.data?.details.source || MediaSource.Custom,
+	});
+
+	return query;
 };
 
 export const useUserMetadataGroupDetails = (
