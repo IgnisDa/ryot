@@ -116,9 +116,9 @@ export const MetadataDisplayItem = (props: {
 			imageUrl={images.at(0)}
 			altName={props.altName}
 			progress={currentProgress}
-			isLoading={isMetadataDetailsLoading}
 			imageClassName={props.imageClassName}
 			name={props.name ?? metadataDetails?.title}
+			isDetailsLoading={isMetadataDetailsLoading}
 			highlightImage={userMetadataDetails?.isRecentlyConsumed}
 			highlightName={
 				props.shouldHighlightNameIfInteracted &&
@@ -215,7 +215,7 @@ export const MetadataGroupDisplayItem = (props: {
 	shouldHighlightNameIfInteracted?: boolean;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const [{ data: metadataDetails, isLoading: isMetadataDetailsLoading }] =
+	const [{ data: metadataDetails, isLoading: isMetadataGroupDetailsLoading }] =
 		useMetadataGroupDetails(props.metadataGroupId, inViewport);
 	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
 		props.metadataGroupId,
@@ -227,8 +227,8 @@ export const MetadataGroupDisplayItem = (props: {
 	return (
 		<BaseEntityDisplayItem
 			innerRef={ref}
-			isLoading={isMetadataDetailsLoading}
 			name={metadataDetails?.details.title}
+			isDetailsLoading={isMetadataGroupDetailsLoading}
 			imageUrl={metadataDetails?.details.assets.remoteImages.at(0)}
 			highlightImage={userMetadataGroupDetails?.isRecentlyConsumed}
 			onImageClickBehavior={[
@@ -287,7 +287,7 @@ export const PersonDisplayItem = (props: {
 		<BaseEntityDisplayItem
 			innerRef={ref}
 			name={personDetails?.details.name}
-			isLoading={isPersonDetailsLoading}
+			isDetailsLoading={isPersonDetailsLoading}
 			highlightImage={userPersonDetails?.isRecentlyConsumed}
 			imageUrl={personDetails?.details.assets.remoteImages.at(0)}
 			onImageClickBehavior={[

@@ -33,11 +33,11 @@ export const BaseEntityDisplayItem = (props: {
 	name?: string;
 	altName?: string;
 	progress?: string;
-	isLoading: boolean;
 	imageClassName?: string;
 	highlightName?: boolean;
 	highlightImage?: boolean;
 	imageUrl?: string | null;
+	isDetailsLoading: boolean;
 	innerRef?: Ref<HTMLDivElement>;
 	labels?: { right?: ReactNode; left?: ReactNode };
 	onImageClickBehavior: [string, (() => Promise<void>)?];
@@ -96,7 +96,7 @@ export const BaseEntityDisplayItem = (props: {
 									},
 								}}
 								fallbackSrc={useFallbackImageUrl(
-									props.isLoading
+									props.isDetailsLoading
 										? "Loading..."
 										: props.name
 											? getInitials(props.name)
@@ -145,7 +145,7 @@ export const BaseEntityDisplayItem = (props: {
 					</Center>
 				) : null}
 			</Box>
-			{props.isLoading ? (
+			{props.isDetailsLoading ? (
 				<>
 					<Skeleton height={22} mt={10} />
 					<Skeleton height={22} mt={8} />
