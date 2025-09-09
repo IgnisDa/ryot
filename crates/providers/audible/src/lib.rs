@@ -384,7 +384,7 @@ impl MediaProvider for AudibleService {
 
 impl AudibleService {
     fn audible_response_to_search_response(&self, item: AudibleItem) -> MetadataDetails {
-        let images = Vec::from_iter(item.product_images.unwrap().image_2400);
+        let images = Vec::from_iter(item.product_images.and_then(|i| i.image_2400));
         let release_date = item.release_date.unwrap_or_default();
         let people = item
             .authors
