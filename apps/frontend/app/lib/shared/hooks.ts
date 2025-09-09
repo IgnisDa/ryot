@@ -101,7 +101,9 @@ export const usePartialStatusMonitor = (props: {
 		string | null
 	>(null);
 	const [isActivelyPolling, setIsActivelyPolling] = useState(false);
-	const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+	const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+		undefined,
+	);
 	const attemptCountRef = useRef(0);
 	const isPollingRef = useRef(false);
 	const pollIntervalRef = useRef(1000);
