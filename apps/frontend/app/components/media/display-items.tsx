@@ -49,8 +49,10 @@ export const MetadataDisplayItem = (props: {
 	const { ref, inViewport } = useInViewport();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
-	const [{ data: metadataDetails, isLoading: isMetadataDetailsLoading }] =
-		useMetadataDetails(props.metadataId, inViewport);
+	const [
+		{ data: metadataDetails, isLoading: isMetadataDetailsLoading },
+		isMetadataPartialDetailsLoading,
+	] = useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 		inViewport,
@@ -120,6 +122,7 @@ export const MetadataDisplayItem = (props: {
 			name={props.name ?? metadataDetails?.title}
 			isDetailsLoading={isMetadataDetailsLoading}
 			highlightImage={userMetadataDetails?.isRecentlyConsumed}
+			isPartialDetailsLoading={isMetadataPartialDetailsLoading}
 			highlightName={
 				props.shouldHighlightNameIfInteracted &&
 				userMetadataDetails?.hasInteracted
@@ -215,8 +218,10 @@ export const MetadataGroupDisplayItem = (props: {
 	shouldHighlightNameIfInteracted?: boolean;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const [{ data: metadataDetails, isLoading: isMetadataGroupDetailsLoading }] =
-		useMetadataGroupDetails(props.metadataGroupId, inViewport);
+	const [
+		{ data: metadataDetails, isLoading: isMetadataGroupDetailsLoading },
+		isMetadataGroupPartialDetailsLoading,
+	] = useMetadataGroupDetails(props.metadataGroupId, inViewport);
 	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
 		props.metadataGroupId,
 		inViewport,
@@ -231,6 +236,7 @@ export const MetadataGroupDisplayItem = (props: {
 			isDetailsLoading={isMetadataGroupDetailsLoading}
 			imageUrl={metadataDetails?.details.assets.remoteImages.at(0)}
 			highlightImage={userMetadataGroupDetails?.isRecentlyConsumed}
+			isPartialDetailsLoading={isMetadataGroupPartialDetailsLoading}
 			onImageClickBehavior={[
 				$path("/media/groups/item/:id", { id: props.metadataGroupId }),
 			]}
@@ -274,8 +280,10 @@ export const PersonDisplayItem = (props: {
 	shouldHighlightNameIfInteracted?: boolean;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const [{ data: personDetails, isLoading: isPersonDetailsLoading }] =
-		usePersonDetails(props.personId, inViewport);
+	const [
+		{ data: personDetails, isLoading: isPersonDetailsLoading },
+		isPersonPartialDetailsLoading,
+	] = usePersonDetails(props.personId, inViewport);
 	const { data: userPersonDetails } = useUserPersonDetails(
 		props.personId,
 		inViewport,
@@ -289,6 +297,7 @@ export const PersonDisplayItem = (props: {
 			name={personDetails?.details.name}
 			isDetailsLoading={isPersonDetailsLoading}
 			highlightImage={userPersonDetails?.isRecentlyConsumed}
+			isPartialDetailsLoading={isPersonPartialDetailsLoading}
 			imageUrl={personDetails?.details.assets.remoteImages.at(0)}
 			onImageClickBehavior={[
 				$path("/media/people/item/:id", { id: props.personId }),
