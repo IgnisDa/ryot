@@ -164,8 +164,8 @@ pub struct UserWorkoutDetails {
 #[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct UserExerciseDetails {
     pub reviews: Vec<ReviewItem>,
-    pub collections: Vec<GraphqlCollectionToEntityDetails>,
     pub details: Option<user_to_entity::Model>,
+    pub collections: Vec<GraphqlCollectionToEntityDetails>,
     pub history: Option<Vec<UserToExerciseHistoryExtraInformation>>,
 }
 
