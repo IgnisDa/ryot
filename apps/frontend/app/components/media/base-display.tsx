@@ -1,4 +1,5 @@
 import { Anchor, Avatar, Box, ScrollArea, Text } from "@mantine/core";
+import { useInViewport } from "@mantine/hooks";
 import type { ReactNode, Ref } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
@@ -58,10 +59,12 @@ export const PartialMetadataDisplay = (props: {
 	metadataId: string;
 	extraText?: string;
 }) => {
+	const { ref, inViewport } = useInViewport();
 	const [{ data: metadataDetails }, isPartialDetailsLoading] =
-		useMetadataDetails(props.metadataId);
+		useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
+		inViewport,
 	);
 
 	const images = [
@@ -71,6 +74,7 @@ export const PartialMetadataDisplay = (props: {
 
 	return (
 		<BaseEntityDisplay
+			ref={ref}
 			image={images.at(0)}
 			extraText={props.extraText}
 			title={metadataDetails?.title || undefined}
