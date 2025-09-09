@@ -52,7 +52,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { type Draft, produce } from "immer";
 import { Fragment, useState } from "react";
-import { useFetcher, useLoaderData, useRevalidator } from "react-router";
+import { useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -60,6 +60,7 @@ import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useCoreDetails,
 	useDashboardLayoutData,
+	useInvalidateUserDetails,
 	useIsFitnessActionActive,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -120,13 +121,12 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
-	const revalidator = useRevalidator();
 	const isFitnessActionActive = useIsFitnessActionActive();
 	const [defaultTab, setDefaultTab] = useState(
 		loaderData.query.defaultTab || "dashboard",
 	);
-	const fetcher = useFetcher();
 	const dashboardData = useDashboardLayoutData();
+	const invalidateUserDetails = useInvalidateUserDetails();
 	const [changingUserPreferences, setChangingUserPreferences] = useState({
 		isChanged: false,
 		value: userPreferences,
@@ -138,15 +138,7 @@ export default function Page() {
 			await clientGqlService.request(UpdateUserPreferenceDocument, {
 				input: changingUserPreferences.value,
 			});
-			fetcher.submit(
-				{ dummy: "data" },
-				{
-					method: "POST",
-					action: $path("/actions", { intent: "invalidateUserDetails" }),
-				},
-			);
-			await new Promise((r) => setTimeout(r, 1000));
-			revalidator.revalidate();
+			await invalidateUserDetails();
 		},
 	});
 

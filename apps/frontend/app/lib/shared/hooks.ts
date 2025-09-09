@@ -19,7 +19,12 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { useRouteLoaderData, useSubmit } from "react-router";
+import {
+	useFetcher,
+	useRevalidator,
+	useRouteLoaderData,
+	useSubmit,
+} from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { useInterval, useMediaQuery } from "usehooks-ts";
@@ -460,4 +465,23 @@ export const useFormValidation = (dependency?: unknown) => {
 	}, [checkFormValidity, dependency]);
 
 	return { formRef, isFormValid, checkFormValidity };
+};
+
+export const useInvalidateUserDetails = () => {
+	const fetcher = useFetcher();
+	const revalidator = useRevalidator();
+
+	const invalidateUserDetails = useCallback(async () => {
+		fetcher.submit(
+			{ dummy: "data" },
+			{
+				method: "POST",
+				action: $path("/actions", { intent: "invalidateUserDetails" }),
+			},
+		);
+		await new Promise((r) => setTimeout(r, 1000));
+		revalidator.revalidate();
+	}, [fetcher, revalidator]);
+
+	return invalidateUserDetails;
 };

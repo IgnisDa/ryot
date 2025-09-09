@@ -30,7 +30,7 @@ import {
 	redirectToQueryParam,
 	toastKey,
 } from "~/lib/shared/constants";
-import { queryClient } from "~/lib/shared/react-query";
+import { queryClient, queryFactory } from "~/lib/shared/react-query";
 
 export const API_URL = process.env.API_URL || "http://127.0.0.1:8000/backend";
 
@@ -153,7 +153,7 @@ export const getCoreDetails = async () => {
 
 const getUserDetails = async (request: Request) => {
 	return await queryClient.ensureQueryData({
-		queryKey: ["userDetails"],
+		queryKey: queryFactory.miscellaneous.userDetails().queryKey,
 		queryFn: () =>
 			serverGqlService
 				.authenticatedRequest(request, UserDetailsDocument)

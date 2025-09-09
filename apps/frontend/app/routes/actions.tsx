@@ -3,7 +3,7 @@ import { getActionIntent } from "@ryot/ts-utils";
 import { data, redirect } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { queryClient } from "~/lib/shared/react-query";
+import { queryClient, queryFactory } from "~/lib/shared/react-query";
 import { colorSchemeCookie, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/actions";
 
@@ -16,7 +16,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const headers = new Headers();
 	await match(intent)
 		.with("invalidateUserDetails", () => {
-			queryClient.removeQueries({ queryKey: ["userDetails"] });
+			queryClient.removeQueries({
+				queryKey: queryFactory.miscellaneous.userDetails().queryKey,
+			});
 		})
 		.with("deleteS3Asset", async () => {
 			const key = formData.get("key") as string;

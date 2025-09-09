@@ -148,6 +148,9 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 });
 
 const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
+	userDetails: () => ({
+		queryKey: ["userDetails"],
+	}),
 	usersList: (query?: string) => ({
 		queryKey: ["usersList", query],
 	}),
