@@ -266,7 +266,7 @@ export default function Page() {
 	const videos = [...(metadataDetails.data?.assets.remoteVideos || [])];
 	const [{ data: metadataGroupDetails }] = useMetadataGroupDetails(
 		firstGroupAssociated?.id,
-		!!firstGroupAssociated?.id,
+		userPreferences.featuresEnabled.media.groups && !!firstGroupAssociated?.id,
 	);
 	const additionalMetadataDetails = [
 		userPreferences.featuresEnabled.media.groups && firstGroupAssociated && (
