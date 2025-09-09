@@ -30,14 +30,6 @@ export type UpdateProgressData = {
 
 const metadataProgressUpdateAtom = atom<UpdateProgressData | null>(null);
 
-const getUpdateMetadata = async (metadataId: string) => {
-	const meta = await queryClient.ensureQueryData(
-		getMetadataDetailsQuery(metadataId),
-	);
-
-	return meta;
-};
-
 export const useMetadataProgressUpdate = () => {
 	const [isMetadataToUpdateLoading, setIsLoading] = useState(false);
 	const [metadataToUpdate, setProgress] = useAtom(metadataProgressUpdateAtom);
@@ -49,7 +41,7 @@ export const useMetadataProgressUpdate = () => {
 		setIsLoading(true);
 		if (draft) {
 			const [metadataDetails, userMetadataDetails] = await Promise.all([
-				getUpdateMetadata(draft.metadataId),
+				queryClient.ensureQueryData(getMetadataDetailsQuery(draft.metadataId)),
 				queryClient.ensureQueryData(
 					getUserMetadataDetailsQuery(draft.metadataId),
 				),
