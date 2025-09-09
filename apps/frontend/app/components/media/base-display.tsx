@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { MEDIA_DETAILS_HEIGHT } from "~/lib/shared/constants";
 import { useMetadataDetails, useUserMetadataDetails } from "~/lib/shared/hooks";
+import classes from "~/styles/common.module.css";
 
 const WrapperComponent = (props: { link?: string; children: ReactNode }) =>
 	props.link ? (
@@ -21,6 +22,7 @@ export const BaseEntityDisplay = (props: {
 	extraText?: string;
 	hasInteracted?: boolean;
 	ref?: Ref<HTMLDivElement>;
+	isPartialDetailsLoading?: boolean;
 }) => {
 	return (
 		<WrapperComponent link={props.link}>
@@ -42,6 +44,9 @@ export const BaseEntityDisplay = (props: {
 				lineClamp={1}
 				ref={props.ref}
 				c={props.hasInteracted ? "yellow" : "dimmed"}
+				className={
+					props.isPartialDetailsLoading ? classes.fadeInOut : undefined
+				}
 			>
 				{props.title} {props.extraText}
 			</Text>
