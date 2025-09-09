@@ -552,7 +552,9 @@ export default function Page() {
 				) : null}
 				<Box>
 					<Text c="dimmed" span>
-						Done on{" "}
+						{loaderData.entity === FitnessEntity.Templates
+							? "Created on"
+							: "Done on"}{" "}
 					</Text>
 					<Text span>{dayjsLib(loaderData.startTime).format("dddd, LLL")}</Text>
 					<SimpleGrid mt="xs" cols={{ base: 3, md: 4, xl: 5 }}>
