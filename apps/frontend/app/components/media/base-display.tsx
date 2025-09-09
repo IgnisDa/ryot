@@ -58,7 +58,8 @@ export const PartialMetadataDisplay = (props: {
 	metadataId: string;
 	extraText?: string;
 }) => {
-	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
+	const [{ data: metadataDetails }, isPartialDetailsLoading] =
+		useMetadataDetails(props.metadataId);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 	);
@@ -73,6 +74,7 @@ export const PartialMetadataDisplay = (props: {
 			image={images.at(0)}
 			extraText={props.extraText}
 			title={metadataDetails?.title || undefined}
+			isPartialDetailsLoading={isPartialDetailsLoading}
 			hasInteracted={userMetadataDetails?.hasInteracted}
 			link={$path("/media/item/:id", { id: props.metadataId })}
 		/>
