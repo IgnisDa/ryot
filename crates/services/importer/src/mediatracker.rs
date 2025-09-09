@@ -255,7 +255,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let api_url = input.api_url.trim_end_matches('/');
     let url = format!("{api_url}/api");
     let client = get_base_http_client(Some(vec![(
-        HeaderName::from_static("Access-Token"),
+        HeaderName::from_static("access-token"),
         HeaderValue::from_str(&input.api_key).unwrap(),
     )]));
 
