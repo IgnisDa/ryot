@@ -39,6 +39,7 @@ export const BaseEntityDisplayItem = (props: {
 	imageUrl?: string | null;
 	isDetailsLoading: boolean;
 	innerRef?: Ref<HTMLDivElement>;
+	isPartialDetailsLoading?: boolean;
 	labels?: { right?: ReactNode; left?: ReactNode };
 	onImageClickBehavior: [string, (() => Promise<void>)?];
 	imageOverlay?: {
@@ -178,6 +179,9 @@ export const BaseEntityDisplayItem = (props: {
 						truncate
 						fw="bold"
 						c={props.highlightName ? "yellow" : undefined}
+						className={
+							props.isPartialDetailsLoading ? classes.fadeInOut : undefined
+						}
 					>
 						{props.altName ?? props.name}
 					</Text>
