@@ -123,29 +123,28 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 };
 
 export default function Layout() {
-	const loaderData = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
-	const userDetails = useUserDetails();
+	const navigate = useNavigate();
+	const location = useLocation();
+	const theme = useMantineTheme();
 	const [parent] = useAutoAnimate();
-	const { revalidate } = useRevalidator();
 	const submit = useConfirmSubmit();
+	const userDetails = useUserDetails();
+	const revalidator = useRevalidator();
+	const userPreferences = useUserPreferences();
+	const loaderData = useLoaderData<typeof loader>();
+	const mediaLinks = getMediaLinks(userPreferences);
+	const settingsLinks = getSettingsLinks(userDetails);
+	const fitnessLinks = getFitnessLinks(userPreferences);
+	const Icon = getThemeIcon(loaderData.currentColorScheme);
 	const isFitnessActionActive = useIsFitnessActionActive();
 	const { openedSidebarLinks, setOpenedSidebarLinks } = useOpenedSidebarLinks();
 	const [mobileNavbarOpened, { toggle: toggleMobileNavbar }] =
 		useDisclosure(false);
-	const theme = useMantineTheme();
-	const navigate = useNavigate();
-	const location = useLocation();
 	const {
 		onboardingTourSteps,
 		isOnboardingTourInProgress,
 		currentOnboardingTourStepIndex,
 	} = useOnboardingTour();
-
-	const mediaLinks = getMediaLinks(userPreferences);
-	const Icon = getThemeIcon(loaderData.currentColorScheme);
-	const fitnessLinks = getFitnessLinks(userPreferences);
-	const settingsLinks = getSettingsLinks(userDetails);
 
 	return (
 		<>
@@ -232,7 +231,7 @@ export default function Layout() {
 						style={{ zIndex: 20 }}
 						onClick={() => {
 							Cookies.remove(desktopSidebarCollapsedCookie);
-							revalidate();
+							revalidator.revalidate();
 						}}
 					>
 						<IconChevronsRight size={30} />
@@ -354,7 +353,7 @@ export default function Layout() {
 							leftSection={<IconChevronsLeft />}
 							onClick={() => {
 								Cookies.set(desktopSidebarCollapsedCookie, "true");
-								revalidate();
+								revalidator.revalidate();
 							}}
 						>
 							Collapse
