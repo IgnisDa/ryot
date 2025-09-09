@@ -10,7 +10,8 @@ import { atomWithStorage } from "jotai/utils";
 import Cookies from "js-cookie";
 import type { ReactNode } from "react";
 import type { Step } from "react-joyride";
-import { useNavigate, useRevalidator } from "react-router";
+import { useFetcher, useNavigate, useRevalidator } from "react-router";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
@@ -69,13 +70,14 @@ const onboardingTourAtom = atomWithStorage<
 >("OnboardingTour", undefined);
 
 export const useOnboardingTour = () => {
-	const [tourState, setTourState] = useAtom(onboardingTourAtom);
-	const userPreferences = useUserPreferences();
-	const applicationEvents = useApplicationEvents();
-	const revalidator = useRevalidator();
+	const fetcher = useFetcher();
 	const navigate = useNavigate();
+	const revalidator = useRevalidator();
+	const userPreferences = useUserPreferences();
 	const dashboardData = useDashboardLayoutData();
+	const applicationEvents = useApplicationEvents();
 	const { setOpenedSidebarLinks } = useOpenedSidebarLinks();
+	const [tourState, setTourState] = useAtom(onboardingTourAtom);
 	const isOnboardingTourInProgress =
 		isNumber(tourState?.currentStepIndex) && !tourState?.isCompleted;
 
@@ -102,6 +104,14 @@ export const useOnboardingTour = () => {
 		await clientGqlService.request(UpdateUserPreferenceDocument, {
 			input: newPreferences,
 		});
+		fetcher.submit(
+			{ dummy: "data" },
+			{
+				method: "POST",
+				action: $path("/actions", { intent: "invalidateUserDetails" }),
+			},
+		);
+		await new Promise((r) => setTimeout(r, 1000));
 		revalidator.revalidate();
 		setOpenedSidebarLinks(defaultSidebarLinksState);
 		applicationEvents.startOnboardingTour();

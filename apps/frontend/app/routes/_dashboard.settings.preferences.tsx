@@ -52,7 +52,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { type Draft, produce } from "immer";
 import { Fragment, useState } from "react";
-import { useLoaderData, useRevalidator } from "react-router";
+import { useFetcher, useLoaderData, useRevalidator } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -125,6 +125,7 @@ export default function Page() {
 	const [defaultTab, setDefaultTab] = useState(
 		loaderData.query.defaultTab || "dashboard",
 	);
+	const fetcher = useFetcher();
 	const dashboardData = useDashboardLayoutData();
 	const [changingUserPreferences, setChangingUserPreferences] = useState({
 		isChanged: false,
@@ -137,6 +138,13 @@ export default function Page() {
 			await clientGqlService.request(UpdateUserPreferenceDocument, {
 				input: changingUserPreferences.value,
 			});
+			fetcher.submit(
+				{ dummy: "data" },
+				{
+					method: "POST",
+					action: $path("/actions", { intent: "invalidateUserDetails" }),
+				},
+			);
 			await new Promise((r) => setTimeout(r, 1000));
 			revalidator.revalidate();
 		},
