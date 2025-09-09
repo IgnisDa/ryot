@@ -227,73 +227,79 @@ export default function Page() {
 		),
 	});
 
-	const loaderData = useMemo(
-		() =>
-			match(entity)
-				.with(FitnessEntity.Workouts, () => {
-					if (!workoutData) return null;
+	const loaderData = useMemo(() => {
+		const baseData = match(entity)
+			.with(FitnessEntity.Workouts, () => {
+				if (!workoutData) return null;
 
-					const repeatedWorkout =
-						repeatedWorkoutData && workoutData.details.repeatedFrom
-							? {
-									id: workoutData.details.repeatedFrom,
-									name: repeatedWorkoutData.details.name,
-									doneOn: repeatedWorkoutData.details.startTime,
-								}
-							: null;
+				const repeatedWorkout =
+					repeatedWorkoutData && workoutData.details.repeatedFrom
+						? {
+								id: workoutData.details.repeatedFrom,
+								name: repeatedWorkoutData.details.name,
+								doneOn: repeatedWorkoutData.details.startTime,
+							}
+						: null;
 
-					const template =
-						templateDetailsData && workoutData.details.templateId
-							? {
-									id: workoutData.details.templateId,
-									name: templateDetailsData.details.name,
-								}
-							: null;
+				const template =
+					templateDetailsData && workoutData.details.templateId
+						? {
+								id: workoutData.details.templateId,
+								name: templateDetailsData.details.name,
+							}
+						: null;
 
-					return {
-						entityId,
-						entity,
-						template,
-						repeatedWorkout,
-						collections: workoutData.collections,
-						endTime: workoutData.details.endTime,
-						summary: workoutData.details.summary,
-						entityName: workoutData.details.name,
-						duration: workoutData.details.duration,
-						startTime: workoutData.details.startTime,
-						information: workoutData.details.information,
-						metadataConsumed: workoutData.metadataConsumed,
-						caloriesBurnt: workoutData.details.caloriesBurnt,
-					};
-				})
-				.with(FitnessEntity.Templates, () => {
-					if (!templateData) return null;
+				return {
+					entityId,
+					entity,
+					template,
+					repeatedWorkout,
+					collections: workoutData.collections,
+					endTime: workoutData.details.endTime,
+					summary: workoutData.details.summary,
+					entityName: workoutData.details.name,
+					duration: workoutData.details.duration,
+					startTime: workoutData.details.startTime,
+					information: workoutData.details.information,
+					metadataConsumed: workoutData.metadataConsumed,
+					caloriesBurnt: workoutData.details.caloriesBurnt,
+				};
+			})
+			.with(FitnessEntity.Templates, () => {
+				if (!templateData) return null;
 
-					return {
-						entityId,
-						entity,
-						endTime: null,
-						template: null,
-						caloriesBurnt: null,
-						metadataConsumed: [],
-						repeatedWorkout: null,
-						collections: templateData.collections,
-						summary: templateData.details.summary,
-						entityName: templateData.details.name,
-						startTime: templateData.details.createdOn,
-						information: templateData.details.information,
-					};
-				})
-				.exhaustive(),
-		[
-			entity,
-			entityId,
-			workoutData,
-			templateData,
-			repeatedWorkoutData,
-			templateDetailsData,
-		],
-	);
+				return {
+					entityId,
+					entity,
+					endTime: null,
+					template: null,
+					caloriesBurnt: null,
+					metadataConsumed: [],
+					repeatedWorkout: null,
+					collections: templateData.collections,
+					summary: templateData.details.summary,
+					entityName: templateData.details.name,
+					startTime: templateData.details.createdOn,
+					information: templateData.details.information,
+				};
+			})
+			.exhaustive();
+
+		if (!baseData) return null;
+
+		const images = baseData.information.assets?.s3Images || [];
+		const videos = baseData.information.assets?.s3Videos || [];
+		const hasAssets = images.length > 0 || videos.length > 0;
+
+		return { ...baseData, images, videos, hasAssets };
+	}, [
+		entity,
+		entityId,
+		workoutData,
+		templateData,
+		repeatedWorkoutData,
+		templateDetailsData,
+	]);
 
 	if (!loaderData)
 		return (
@@ -306,9 +312,7 @@ export default function Page() {
 		.with(FitnessEntity.Workouts, () => EntityLot.Workout)
 		.with(FitnessEntity.Templates, () => EntityLot.WorkoutTemplate)
 		.exhaustive();
-	const images = loaderData?.information.assets?.s3Images || [];
-	const videos = loaderData?.information.assets?.s3Videos || [];
-	const hasAssets = images.length > 0 || videos.length > 0;
+	const { images, videos, hasAssets } = loaderData;
 
 	const performDecision = async (params: {
 		templateId?: string;
