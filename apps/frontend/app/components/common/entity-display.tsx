@@ -172,16 +172,15 @@ export const BaseEntityDisplayItem = (props: {
 							{props.labels?.right}
 						</Text>
 					</Flex>
-					<Flex mb="xs" align="center" justify="space-between">
-						<Text
-							w="100%"
-							truncate
-							fw="bold"
-							c={props.highlightName ? "yellow" : undefined}
-						>
-							{props.altName ?? props.name}
-						</Text>
-					</Flex>
+					<Text
+						mb="xs"
+						w="100%"
+						truncate
+						fw="bold"
+						c={props.highlightName ? "yellow" : undefined}
+					>
+						{props.altName ?? props.name}
+					</Text>
 				</Flex>
 			)}
 		</Flex>
