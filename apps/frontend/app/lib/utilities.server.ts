@@ -152,11 +152,13 @@ export const getCoreDetails = async () => {
 };
 
 const getUserDetails = async (request: Request) => {
-	const { userDetails } = await serverGqlService.authenticatedRequest(
-		request,
-		UserDetailsDocument,
-	);
-	return userDetails;
+	return await queryClient.ensureQueryData({
+		queryKey: ["userDetails"],
+		queryFn: () =>
+			serverGqlService
+				.authenticatedRequest(request, UserDetailsDocument)
+				.then((d) => d.userDetails),
+	});
 };
 
 export const getUserPreferences = async (request: Request) => {
