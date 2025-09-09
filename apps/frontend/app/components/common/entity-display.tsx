@@ -42,10 +42,10 @@ export const BaseEntityDisplayItem = (props: {
 	labels?: { right?: ReactNode; left?: ReactNode };
 	onImageClickBehavior: [string, (() => Promise<void>)?];
 	imageOverlay?: {
-		topRight?: ReactNode;
 		topLeft?: ReactNode;
-		bottomRight?: ReactNode;
+		topRight?: ReactNode;
 		bottomLeft?: ReactNode;
+		bottomRight?: ReactNode;
 	};
 }) => {
 	const coreDetails = useCoreDetails();
