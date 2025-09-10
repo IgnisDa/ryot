@@ -680,7 +680,7 @@ pub async fn create_or_update_user_workout(
     try_join!(
         expire_user_workouts_list_cache(user_id, ss),
         expire_user_exercises_list_cache(user_id, ss),
-        expire_user_workout_details_cache(&data.id, user_id, ss)
+        expire_user_workout_details_cache(user_id, &data.id, ss)
     )?;
     Ok(data.id)
 }
