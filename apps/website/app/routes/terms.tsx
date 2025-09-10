@@ -205,7 +205,7 @@ export default function Index() {
 													receive your tracked content or activity from your
 													instance. For self-hosted purchases we store minimal
 													licensing and subscription metadata (e.g., email, plan
-													type, renewal dates) to issue and manage your Pro key.
+													type, renewal dates) to issue and manage your Pro Key.
 												</span>
 											</li>
 											<li className="flex items-start">
