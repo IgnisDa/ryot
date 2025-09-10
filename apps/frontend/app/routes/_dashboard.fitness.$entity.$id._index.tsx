@@ -250,9 +250,9 @@ export default function Page() {
 						: null;
 
 				return {
-					entityId,
 					entity,
 					template,
+					entityId,
 					repeatedWorkout,
 					collections: workoutData.collections,
 					endTime: workoutData.details.endTime,
@@ -269,8 +269,8 @@ export default function Page() {
 				if (!templateData) return null;
 
 				return {
-					entityId,
 					entity,
+					entityId,
 					endTime: null,
 					template: null,
 					caloriesBurnt: null,

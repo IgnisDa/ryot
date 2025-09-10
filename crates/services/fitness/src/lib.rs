@@ -56,7 +56,7 @@ impl FitnessService {
         &self,
         user_id: String,
         workout_template_id: String,
-    ) -> Result<UserWorkoutTemplateDetails> {
+    ) -> Result<CachedResponse<UserWorkoutTemplateDetails>> {
         user_workout_template_details(&user_id, workout_template_id, &self.0).await
     }
 

@@ -171,7 +171,7 @@ export const getWorkoutTemplateDetailsQuery = (workoutTemplateId: string) =>
 		queryFn: () =>
 			clientGqlService
 				.request(UserWorkoutTemplateDetailsDocument, { workoutTemplateId })
-				.then((data) => data.userWorkoutTemplateDetails),
+				.then((data) => data.userWorkoutTemplateDetails.response),
 	});
 
 type TWorkoutDetails = UserWorkoutDetailsQuery["userWorkoutDetails"];

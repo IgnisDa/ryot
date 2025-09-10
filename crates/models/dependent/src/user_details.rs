@@ -169,7 +169,7 @@ pub struct UserExerciseDetails {
     pub history: Option<Vec<UserToExerciseHistoryExtraInformation>>,
 }
 
-#[derive(Debug, SimpleObject, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, SimpleObject, Clone, Serialize, Deserialize)]
 pub struct UserWorkoutTemplateDetails {
     pub details: workout_template::Model,
     pub collections: Vec<GraphqlCollectionToEntityDetails>,

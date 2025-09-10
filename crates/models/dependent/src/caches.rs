@@ -18,7 +18,7 @@ use uuid::Uuid;
 
 use crate::{
     GenreDetails, GraphqlPersonDetails, MetadataGroupDetails, UserMetadataDetails,
-    UserMetadataGroupDetails, UserPersonDetails,
+    UserMetadataGroupDetails, UserPersonDetails, UserWorkoutTemplateDetails,
     analytics::UserAnalytics,
     core_systems::{CoreDetails, TmdbSettings, TvdbSettings},
     generic_types::{
@@ -93,6 +93,7 @@ pub enum ApplicationCacheKey {
     PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),
     UserMetadataGroupDetails(UserLevelCacheKey<String>),
     UserAnalytics(UserLevelCacheKey<UserAnalyticsInput>),
+    UserWorkoutTemplateDetails(UserLevelCacheKey<String>),
     UserMetadataRecommendationsSet(UserLevelCacheKey<()>),
     MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
     UserPeopleList(UserLevelCacheKey<UserPeopleListInput>),
@@ -156,6 +157,7 @@ pub enum ApplicationCacheValue {
     UserPasswordChangeSession(UserPasswordChangeSessionValue),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
     UserMetadataRecommendationsSet(ApplicationRecommendations),
+    UserWorkoutTemplateDetails(Box<UserWorkoutTemplateDetails>),
     UserWorkoutTemplatesList(UserWorkoutsTemplatesListResponse),
     CollectionRecommendations(CollectionRecommendationsResponse),
     UserMetadataRecommendations(UserMetadataRecommendationsResponse),

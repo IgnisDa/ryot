@@ -444,18 +444,20 @@ query UserWorkoutsList($input: UserTemplatesOrWorkoutsListInput!) {
 
 query UserWorkoutTemplateDetails($workoutTemplateId: String!) {
 	userWorkoutTemplateDetails(workoutTemplateId: $workoutTemplateId) {
-		collections {
-			...CollectionToEntityDetailsPart
-		}
-		details {
-			id
-			name
-			createdOn
-			summary {
-				...WorkoutSummaryPart
+		response {
+			collections {
+				...CollectionToEntityDetailsPart
 			}
-			information {
-				...WorkoutInformationPart
+			details {
+				id
+				name
+				createdOn
+				summary {
+					...WorkoutSummaryPart
+				}
+				information {
+					...WorkoutInformationPart
+				}
 			}
 		}
 	}

@@ -287,12 +287,12 @@ const DisplayFitnessEntity = (props: {
 						.request(UserWorkoutTemplateDetailsDocument, {
 							workoutTemplateId: props.entityId,
 						})
-						.then(({ userWorkoutTemplateDetails }) => ({
-							name: userWorkoutTemplateDetails.details.name,
-							summary: userWorkoutTemplateDetails.details.summary,
-							timestamp: userWorkoutTemplateDetails.details.createdOn,
-							information: userWorkoutTemplateDetails.details.information,
-							detail: `${userWorkoutTemplateDetails.details.information.exercises.length} exercises`,
+						.then(({ userWorkoutTemplateDetails: { response } }) => ({
+							name: response.details.name,
+							summary: response.details.summary,
+							timestamp: response.details.createdOn,
+							information: response.details.information,
+							detail: `${response.details.information.exercises.length} exercises`,
 						})),
 				)
 				.exhaustive(),

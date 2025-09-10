@@ -3,7 +3,9 @@ use std::sync::Arc;
 use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob};
 use chrono::Utc;
-use common_models::{BackendError, EntityAssets, SearchInput, StringIdAndNamedObject};
+use common_models::{
+    BackendError, EntityAssets, SearchInput, StringIdAndNamedObject, UserLevelCacheKey,
+};
 use common_utils::ryot_log;
 use database_models::{
     access_link, collection, collection_entity_membership,
@@ -13,8 +15,8 @@ use database_models::{
     review, seen, user, workout,
 };
 use dependent_models::{
-    CollectionToEntityDetails, GraphqlCollectionToEntityDetails, UserWorkoutDetails,
-    UserWorkoutTemplateDetails,
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CollectionToEntityDetails,
+    GraphqlCollectionToEntityDetails, UserWorkoutDetails, UserWorkoutTemplateDetails,
 };
 use enum_models::{EntityLot, UserLot, Visibility};
 use itertools::Itertools;
@@ -200,24 +202,35 @@ pub async fn user_workout_template_details(
     user_id: &String,
     workout_template_id: String,
     ss: &Arc<SupportingService>,
-) -> Result<UserWorkoutTemplateDetails> {
-    let maybe_template = WorkoutTemplate::find_by_id(workout_template_id.clone())
-        .one(&ss.db)
-        .await?;
-    let Some(details) = maybe_template else {
-        bail!("Workout template with the given ID could not be found.");
-    };
-    let collections = entity_in_collections_with_details(
-        user_id,
-        &workout_template_id,
-        EntityLot::WorkoutTemplate,
+) -> Result<CachedResponse<UserWorkoutTemplateDetails>> {
+    cache_service::get_or_set_with_callback(
         ss,
+        ApplicationCacheKey::UserWorkoutTemplateDetails(UserLevelCacheKey {
+            user_id: user_id.clone(),
+            input: workout_template_id.clone(),
+        }),
+        |f| ApplicationCacheValue::UserWorkoutTemplateDetails(Box::new(f)),
+        || async {
+            let maybe_template = WorkoutTemplate::find_by_id(workout_template_id.clone())
+                .one(&ss.db)
+                .await?;
+            let Some(details) = maybe_template else {
+                bail!("Workout template with the given ID could not be found.");
+            };
+            let collections = entity_in_collections_with_details(
+                user_id,
+                &workout_template_id,
+                EntityLot::WorkoutTemplate,
+                ss,
+            )
+            .await?;
+            Ok(UserWorkoutTemplateDetails {
+                details,
+                collections,
+            })
+        },
     )
-    .await?;
-    Ok(UserWorkoutTemplateDetails {
-        details,
-        collections,
-    })
+    .await
 }
 
 fn build_collection_condition<C>(

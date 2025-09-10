@@ -1889,6 +1889,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "background-models",
+ "cache-service",
  "chrono",
  "common-models",
  "common-utils",

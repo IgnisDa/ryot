@@ -214,6 +214,12 @@ export type CachedUserPersonDetailsResponse = {
   response: UserPersonDetails;
 };
 
+export type CachedUserWorkoutTemplateDetailsResponse = {
+  __typename?: 'CachedUserWorkoutTemplateDetailsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: UserWorkoutTemplateDetails;
+};
+
 export type ChangeCollectionToEntitiesInput = {
   collectionName: Scalars['String']['input'];
   creatorUserId: Scalars['String']['input'];
@@ -2155,7 +2161,7 @@ export type QueryRoot = {
   /** Get details about a workout. */
   userWorkoutDetails: UserWorkoutDetails;
   /** Get information about a workout template. */
-  userWorkoutTemplateDetails: UserWorkoutTemplateDetails;
+  userWorkoutTemplateDetails: CachedUserWorkoutTemplateDetailsResponse;
   /** Get a paginated list of templates created by the user. */
   userWorkoutTemplatesList: CachedSearchIdResponse;
   /** Get a paginated list of workouts done by the user. */
