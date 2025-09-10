@@ -278,7 +278,8 @@ export default function Page() {
 				})}
 			>
 				<Text c="dimmed" fs="italic" span>
-					{metadataGroupDetails?.details.title} #{firstGroupAssociated.part}
+					{metadataGroupDetails?.details.title || "Group"} #
+					{firstGroupAssociated.part}
 				</Text>
 			</Link>
 		),
