@@ -312,7 +312,6 @@ export default function Page() {
 		.with(FitnessEntity.Workouts, () => EntityLot.Workout)
 		.with(FitnessEntity.Templates, () => EntityLot.WorkoutTemplate)
 		.exhaustive();
-	const { images, videos, hasAssets } = loaderData;
 
 	const performDecision = async (params: {
 		templateId?: string;
@@ -656,8 +655,11 @@ export default function Page() {
 						<Text span>{loaderData.information.comment}</Text>
 					</Box>
 				) : null}
-				{hasAssets ? (
-					<WorkoutAssetsList images={images} videos={videos} />
+				{loaderData.hasAssets ? (
+					<WorkoutAssetsList
+						images={loaderData.images}
+						videos={loaderData.videos}
+					/>
 				) : null}
 				{loaderData.information.exercises.map((exercise, idx) => (
 					<ExerciseHistory
