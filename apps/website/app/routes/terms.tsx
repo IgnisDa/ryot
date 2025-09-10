@@ -183,11 +183,121 @@ export default function Index() {
 										Data Privacy
 									</h2>
 								</div>
-								<p className="text-muted-foreground leading-relaxed">
-									Ryot is committed to protecting user data. We collect, store,
-									and use personal data in accordance with our Privacy Policy.
-									By using the Service, you consent to such collection and use.
-								</p>
+								<div className="space-y-4 text-muted-foreground leading-relaxed">
+									<p>
+										We care about your privacy and collect the minimum data
+										necessary to operate Ryot. We do not sell your data. This
+										section explains what we collect and how we use it.
+									</p>
+
+									<div className="bg-muted/50 p-4 sm:p-6 rounded-lg">
+										<h4 className="font-semibold text-foreground mb-3">
+											Self-hosted vs Cloud
+										</h4>
+										<ul className="space-y-2">
+											<li className="flex items-start">
+												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 flex-shrink-0" />
+												<span>
+													<strong className="text-foreground">
+														Self-hosted:
+													</strong>{" "}
+													Your data stays on your own infrastructure. We do not
+													receive your tracked content or activity from your
+													instance. For self-hosted purchases we store minimal
+													licensing and subscription metadata (e.g., email, plan
+													type, renewal dates) to issue and manage your Pro key.
+												</span>
+											</li>
+											<li className="flex items-start">
+												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 flex-shrink-0" />
+												<span>
+													<strong className="text-foreground">
+														Ryot Cloud (hosted by us):
+													</strong>{" "}
+													We store account information (such as your email) and
+													the data you add to the service to provide and
+													maintain your account. You can request export or
+													deletion at any time by contacting
+													<a
+														href={`mailto:${contactEmail}`}
+														className="text-primary hover:underline"
+													>
+														{" "}
+														{contactEmail}
+													</a>
+													.
+												</span>
+											</li>
+										</ul>
+									</div>
+
+									<div className="bg-muted/50 p-4 sm:p-6 rounded-lg">
+										<h4 className="font-semibold text-foreground mb-3">
+											Website analytics
+										</h4>
+										<p>
+											We use Umami (a privacy-friendly analytics tool) on our
+											website to understand aggregate usage and improve the
+											site. It does not identify you personally. No behavioral
+											profiling or ad targeting is performed.
+										</p>
+									</div>
+
+									<div className="bg-muted/50 p-4 sm:p-6 rounded-lg">
+										<h4 className="font-semibold text-foreground mb-3">
+											Payments and processors
+										</h4>
+										<ul className="space-y-2">
+											<li className="flex items-start">
+												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 flex-shrink-0" />
+												<span>
+													Payments are processed by Paddle. We receive
+													transaction and subscription metadata from Paddle to
+													provision your purchase and manage renewals.
+												</span>
+											</li>
+											<li className="flex items-start">
+												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 flex-shrink-0" />
+												<span>
+													We use an email provider to send receipts and account
+													emails, and Unkey to issue and manage self-hosted Pro
+													keys. These providers receive only the data needed to
+													perform their services.
+												</span>
+											</li>
+										</ul>
+									</div>
+
+									<div className="bg-muted/50 p-4 sm:p-6 rounded-lg">
+										<h4 className="font-semibold text-foreground mb-3">
+											Cookies
+										</h4>
+										<p>
+											We use limited first-party cookies where necessary (for
+											example, to authenticate customers in the website portal).
+											We do not use cookies for advertising.
+										</p>
+									</div>
+
+									<p>
+										<strong className="text-foreground">Your choices:</strong>{" "}
+										You may request access, export, correction, or deletion of
+										your account data by emailing
+										<a
+											href={`mailto:${contactEmail}`}
+											className="text-primary hover:underline"
+										>
+											{" "}
+											{contactEmail}
+										</a>
+										.
+									</p>
+
+									<p>
+										If we make material changes to these privacy practices, we
+										will notify you via email or through the Service.
+									</p>
+								</div>
 							</div>
 
 							{/* Section 9: Dispute Resolution */}
