@@ -74,9 +74,9 @@ export default function Page() {
 		<Container>
 			{metadataGroupDetailsData.data && userMetadataGroupDetails.data ? (
 				<MediaDetailsLayout
-					isPartialStatusActive={isMetadataGroupPartialStatusActive}
 					title={metadataGroupDetailsData.data.details.title}
 					assets={metadataGroupDetailsData.data.details.assets}
+					isPartialStatusActive={isMetadataGroupPartialStatusActive}
 					externalLink={{
 						lot: metadataGroupDetailsData.data.details.lot,
 						source: metadataGroupDetailsData.data.details.source,
