@@ -91,7 +91,7 @@ export const serverGqlService = new AuthenticatedGraphQLClient(
 export const getCookieValue = (request: Request, cookieName: string) =>
 	parse(request.headers.get("cookie") || "")[cookieName];
 
-const getAuthorizationCookie = (request: Request) =>
+export const getAuthorizationCookie = (request: Request) =>
 	getCookieValue(request, FRONTEND_AUTH_COOKIE_NAME);
 
 export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {

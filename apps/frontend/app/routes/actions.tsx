@@ -4,7 +4,11 @@ import { data, redirect } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { queryClient, queryFactory } from "~/lib/shared/react-query";
-import { colorSchemeCookie, serverGqlService } from "~/lib/utilities.server";
+import {
+	colorSchemeCookie,
+	getAuthorizationCookie,
+	serverGqlService,
+} from "~/lib/utilities.server";
 import type { Route } from "./+types/actions";
 
 export const loader = async () => redirect($path("/"));
@@ -16,8 +20,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const headers = new Headers();
 	await match(intent)
 		.with("invalidateUserDetails", () => {
+			const cookie = getAuthorizationCookie(request);
 			queryClient.removeQueries({
-				queryKey: queryFactory.miscellaneous.userDetails().queryKey,
+				queryKey: queryFactory.miscellaneous.userDetails(cookie).queryKey,
 			});
 		})
 		.with("deleteS3Asset", async () => {
