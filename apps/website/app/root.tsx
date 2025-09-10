@@ -137,16 +137,6 @@ export default function App() {
 									>
 										Contact
 									</Link>
-									<Link
-										to={$path("/terms")}
-										className={`transition-colors ${
-											isActivePage("/terms")
-												? "text-primary font-medium"
-												: "text-muted-foreground hover:text-foreground"
-										}`}
-									>
-										Terms
-									</Link>
 									<a
 										target="_blank"
 										href="https://docs.ryot.io"
