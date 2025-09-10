@@ -57,7 +57,7 @@ export const ApplicationGrid = (props: {
 export const MediaDetailsLayout = (props: {
 	title: string;
 	assets: EntityAssets;
-	isMediaStillLoading: boolean;
+	isPartialStatusActive: boolean;
 	children: Array<ReactNode | (ReactNode | undefined)>;
 	externalLink: {
 		lot?: MediaLot;
@@ -147,7 +147,7 @@ export const MediaDetailsLayout = (props: {
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>
 				<Group wrap="nowrap">
-					{props.isMediaStillLoading ? <Loader size="sm" /> : null}
+					{props.isPartialStatusActive ? <Loader size="sm" /> : null}
 					<Title id="media-title">{props.title}</Title>
 				</Group>
 				{props.children}

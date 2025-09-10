@@ -71,7 +71,7 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
-	const [personDetails, isPersonStillLoading] = usePersonDetails(
+	const [personDetails, isPersonPartialStatusActive] = usePersonDetails(
 		loaderData.personId,
 	);
 	const userPersonDetails = useUserPersonDetails(loaderData.personId);
@@ -119,7 +119,7 @@ export default function Page() {
 				<MediaDetailsLayout
 					title={personDetails.data.details.name}
 					assets={personDetails.data.details.assets}
-					isMediaStillLoading={isPersonStillLoading}
+					isPartialStatusActive={isPersonPartialStatusActive}
 					externalLink={{
 						source: personDetails.data.details.source,
 						href: personDetails.data.details.sourceUrl,

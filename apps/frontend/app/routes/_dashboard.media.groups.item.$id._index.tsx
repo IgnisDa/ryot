@@ -64,7 +64,7 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
-	const [metadataGroupDetailsData, isMetadataGroupStillLoading] =
+	const [metadataGroupDetailsData, isMetadataGroupPartialStatusActive] =
 		useMetadataGroupDetails(loaderData.metadataGroupId);
 	const userMetadataGroupDetails = useUserMetadataGroupDetails(
 		loaderData.metadataGroupId,
@@ -74,7 +74,7 @@ export default function Page() {
 		<Container>
 			{metadataGroupDetailsData.data && userMetadataGroupDetails.data ? (
 				<MediaDetailsLayout
-					isMediaStillLoading={isMetadataGroupStillLoading}
+					isPartialStatusActive={isMetadataGroupPartialStatusActive}
 					title={metadataGroupDetailsData.data.details.title}
 					assets={metadataGroupDetailsData.data.details.assets}
 					externalLink={{
