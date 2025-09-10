@@ -352,7 +352,7 @@ export const useOnboardingTour = () => {
 				data: { isSecondaryStep: true },
 				target: OnboardingTourStepTargets.ClickOnMeasurementSidebarSection,
 				content:
-					"You can use track your measurements like body weight, sugar levels, etc. to track your fitness goals.",
+					"You can track your measurements like body weight, sugar levels, etc. to track your fitness goals.",
 			},
 			{
 				target: OnboardingTourStepTargets.ClickOnAnalyticsSidebarSection,
