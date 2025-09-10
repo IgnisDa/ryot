@@ -94,7 +94,7 @@ export const MetadataDisplayItem = (props: {
 		}
 
 		return metadataDetails.publishYear;
-	}, [metadataDetails, userMetadataDetails]);
+	}, [metadataDetails, userMetadataDetails, props.noLeftLabel]);
 
 	const surroundReason = (
 		idx: number,
