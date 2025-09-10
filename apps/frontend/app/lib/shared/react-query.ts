@@ -148,11 +148,11 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 });
 
 const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
-	userDetails: () => ({
-		queryKey: ["userDetails"],
-	}),
 	usersList: (query?: string) => ({
 		queryKey: ["usersList", query],
+	}),
+	userDetails: (userId?: string) => ({
+		queryKey: ["userDetails", userId],
 	}),
 	presignedS3Url: (key: string) => ({
 		queryKey: ["presignedS3Url", key],

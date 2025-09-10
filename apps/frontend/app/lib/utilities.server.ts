@@ -152,8 +152,9 @@ export const getCoreDetails = async () => {
 };
 
 const getUserDetails = async (request: Request) => {
+	const cookie = getAuthorizationCookie(request);
 	return await queryClient.ensureQueryData({
-		queryKey: queryFactory.miscellaneous.userDetails().queryKey,
+		queryKey: queryFactory.miscellaneous.userDetails(cookie).queryKey,
 		queryFn: () =>
 			serverGqlService
 				.authenticatedRequest(request, UserDetailsDocument)
