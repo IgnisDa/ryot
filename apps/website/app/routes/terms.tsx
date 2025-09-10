@@ -10,7 +10,6 @@ export const meta = () => {
 export default function Index() {
 	return (
 		<>
-			{/* Hero Section */}
 			<section className="py-10 lg:py-20 bg-muted/30">
 				<div className="max-w-4xl mx-auto px-4">
 					<div className="text-center mb-16">
@@ -30,12 +29,10 @@ export default function Index() {
 				</div>
 			</section>
 
-			{/* Terms Content */}
 			<section className="py-10">
 				<div className="max-w-4xl mx-auto px-4">
 					<Card className="mb-8">
 						<CardContent className="p-4 sm:p-8">
-							{/* Section 1: Introduction */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -52,7 +49,6 @@ export default function Index() {
 								</p>
 							</div>
 
-							{/* Section 2: Company Information */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -82,7 +78,6 @@ export default function Index() {
 								</div>
 							</div>
 
-							{/* Section 3: User Eligibility */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -101,7 +96,6 @@ export default function Index() {
 								</p>
 							</div>
 
-							{/* Section 4: User Accounts and Pro Key */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -120,7 +114,6 @@ export default function Index() {
 								</p>
 							</div>
 
-							{/* Section 5: Subscription and Payments */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -138,7 +131,6 @@ export default function Index() {
 								</p>
 							</div>
 
-							{/* Section 6: User Conduct */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -157,7 +149,6 @@ export default function Index() {
 								</p>
 							</div>
 
-							{/* Section 7: Content Ownership */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -176,7 +167,6 @@ export default function Index() {
 								</p>
 							</div>
 
-							{/* Section 8: Data Privacy */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -304,7 +294,6 @@ export default function Index() {
 								</div>
 							</div>
 
-							{/* Section 9: Dispute Resolution */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -321,7 +310,6 @@ export default function Index() {
 								</p>
 							</div>
 
-							{/* Section 10: Changes to Terms */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -339,7 +327,6 @@ export default function Index() {
 								</p>
 							</div>
 
-							{/* Section 11: Termination */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -357,7 +344,6 @@ export default function Index() {
 								</p>
 							</div>
 
-							{/* Section 12: Cancellation and Refund Policies */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
@@ -418,7 +404,6 @@ export default function Index() {
 								</div>
 							</div>
 
-							{/* Final Agreement */}
 							<div className="border-t border-border pt-8">
 								<div className="bg-primary/5 p-6 rounded-lg">
 									<div className="flex items-start">

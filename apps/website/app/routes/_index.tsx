@@ -253,7 +253,6 @@ export default function Page() {
 
 	return (
 		<>
-			{/* Hero Section */}
 			<section className="relative py-20 lg:py-32 overflow-hidden">
 				<div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
@@ -301,7 +300,7 @@ export default function Page() {
 					</div>
 				</div>
 			</section>
-			{/* Features Section */}
+
 			<section className="py-20 bg-muted/30">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="text-center mb-16">
@@ -367,7 +366,7 @@ export default function Page() {
 					</div>
 				</div>
 			</section>
-			{/* Testimonials Section */}
+
 			<section className="py-20">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="text-center mb-16">
@@ -479,7 +478,7 @@ export default function Page() {
 					</div>
 				</div>
 			</section>
-			{/* Upgrade Section */}
+
 			<section id="start-here" className="py-20 bg-muted/30">
 				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
 					<Badge variant="outline" className="mb-4">
@@ -630,7 +629,7 @@ export default function Page() {
 				prices={loaderData.prices}
 				isLoggedIn={rootLoaderData?.isLoggedIn}
 			/>
-			{/* Contact Section */}
+
 			<section id="contact" className="py-20 bg-muted/30">
 				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="text-center mb-16">
@@ -721,7 +720,7 @@ export default function Page() {
 					)}
 				</div>
 			</section>
-			{/* Community Section */}
+
 			<section className="py-20">
 				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
 					<Badge variant="outline" className="mb-4">
