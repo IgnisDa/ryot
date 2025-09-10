@@ -48,8 +48,13 @@ pub async fn export_workouts(
         for workout_id in workout_ids.response.items {
             let details = user_workout_details(user_id, workout_id, ss).await?;
             let exp = ImportOrExportWorkoutItem {
-                details: details.details,
-                collections: details.collections.into_iter().map(|c| c.details).collect(),
+                details: details.response.details,
+                collections: details
+                    .response
+                    .collections
+                    .into_iter()
+                    .map(|c| c.details)
+                    .collect(),
             };
             writer.serialize_value(&exp)?;
         }

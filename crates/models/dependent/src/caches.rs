@@ -18,7 +18,7 @@ use uuid::Uuid;
 
 use crate::{
     GenreDetails, GraphqlPersonDetails, MetadataGroupDetails, UserMetadataDetails,
-    UserMetadataGroupDetails, UserPersonDetails, UserWorkoutTemplateDetails,
+    UserMetadataGroupDetails, UserPersonDetails, UserWorkoutDetails, UserWorkoutTemplateDetails,
     analytics::UserAnalytics,
     core_systems::{CoreDetails, TmdbSettings, TvdbSettings},
     generic_types::{
@@ -86,6 +86,7 @@ pub enum ApplicationCacheKey {
     UserCollectionsList(UserLevelCacheKey<()>),
     UserPersonDetails(UserLevelCacheKey<String>),
     UserTwoFactorRateLimit(UserLevelCacheKey<()>),
+    UserWorkoutDetails(UserLevelCacheKey<String>),
     UserAnalyticsParameters(UserLevelCacheKey<()>),
     UserMetadataDetails(UserLevelCacheKey<String>),
     GenreDetails(UserLevelCacheKey<GenreDetailsInput>),
@@ -139,6 +140,7 @@ pub enum ApplicationCacheValue {
     MetadataRecentlyConsumed(EmptyCacheValue),
     UserWorkoutsList(UserWorkoutsListResponse),
     UserMetadataList(UserMetadataListResponse),
+    UserWorkoutDetails(Box<UserWorkoutDetails>),
     MetadataDetails(Box<GraphqlMetadataDetails>),
     UserExercisesList(UserExercisesListResponse),
     UserAnalyticsParameters(ApplicationDateRange),

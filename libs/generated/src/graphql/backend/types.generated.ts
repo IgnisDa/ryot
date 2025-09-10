@@ -214,6 +214,12 @@ export type CachedUserPersonDetailsResponse = {
   response: UserPersonDetails;
 };
 
+export type CachedUserWorkoutDetailsResponse = {
+  __typename?: 'CachedUserWorkoutDetailsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: UserWorkoutDetails;
+};
+
 export type CachedUserWorkoutTemplateDetailsResponse = {
   __typename?: 'CachedUserWorkoutTemplateDetailsResponse';
   cacheId: Scalars['UUID']['output'];
@@ -2159,7 +2165,7 @@ export type QueryRoot = {
   /** Get upcoming calendar events for the given filter. */
   userUpcomingCalendarEvents: Array<GraphqlCalendarEvent>;
   /** Get details about a workout. */
-  userWorkoutDetails: UserWorkoutDetails;
+  userWorkoutDetails: CachedUserWorkoutDetailsResponse;
   /** Get information about a workout template. */
   userWorkoutTemplateDetails: CachedUserWorkoutTemplateDetailsResponse;
   /** Get a paginated list of templates created by the user. */

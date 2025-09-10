@@ -161,41 +161,59 @@ pub async fn user_workout_details(
     user_id: &String,
     workout_id: String,
     ss: &Arc<SupportingService>,
-) -> Result<UserWorkoutDetails> {
-    let maybe_workout = Workout::find_by_id(workout_id.clone())
-        .filter(workout::Column::UserId.eq(user_id))
-        .one(&ss.db)
-        .await?;
-    let Some(mut e) = maybe_workout else {
-        bail!("Workout with the given ID could not be found for this user.");
-    };
-    let collections =
-        entity_in_collections_with_details(user_id, &workout_id, EntityLot::Workout, ss).await?;
-    let details = {
-        if let Some(ref mut assets) = e.information.assets {
-            transform_entity_assets(assets, ss).await?;
-        }
-        for exercise in e.information.exercises.iter_mut() {
-            if let Some(ref mut assets) = exercise.assets {
-                transform_entity_assets(assets, ss).await?;
-            }
-        }
-        e
-    };
-    let metadata_consumed = Seen::find()
-        .select_only()
-        .column(seen::Column::MetadataId)
-        .distinct()
-        .filter(Expr::val(details.start_time).lte(PgFunc::any(Expr::col(seen::Column::UpdatedAt))))
-        .filter(Expr::val(details.end_time).gte(PgFunc::any(Expr::col(seen::Column::UpdatedAt))))
-        .into_tuple::<String>()
-        .all(&ss.db)
-        .await?;
-    Ok(UserWorkoutDetails {
-        details,
-        collections,
-        metadata_consumed,
-    })
+) -> Result<CachedResponse<UserWorkoutDetails>> {
+    cache_service::get_or_set_with_callback(
+        ss,
+        ApplicationCacheKey::UserWorkoutDetails(UserLevelCacheKey {
+            user_id: user_id.clone(),
+            input: workout_id.clone(),
+        }),
+        |f| ApplicationCacheValue::UserWorkoutDetails(Box::new(f)),
+        || async {
+            let maybe_workout = Workout::find_by_id(workout_id.clone())
+                .filter(workout::Column::UserId.eq(user_id))
+                .one(&ss.db)
+                .await?;
+            let Some(mut e) = maybe_workout else {
+                bail!("Workout with the given ID could not be found for this user.");
+            };
+            let collections =
+                entity_in_collections_with_details(user_id, &workout_id, EntityLot::Workout, ss)
+                    .await?;
+            let details = {
+                if let Some(ref mut assets) = e.information.assets {
+                    transform_entity_assets(assets, ss).await?;
+                }
+                for exercise in e.information.exercises.iter_mut() {
+                    if let Some(ref mut assets) = exercise.assets {
+                        transform_entity_assets(assets, ss).await?;
+                    }
+                }
+                e
+            };
+            let metadata_consumed = Seen::find()
+                .select_only()
+                .column(seen::Column::MetadataId)
+                .distinct()
+                .filter(
+                    Expr::val(details.start_time)
+                        .lte(PgFunc::any(Expr::col(seen::Column::UpdatedAt))),
+                )
+                .filter(
+                    Expr::val(details.end_time)
+                        .gte(PgFunc::any(Expr::col(seen::Column::UpdatedAt))),
+                )
+                .into_tuple::<String>()
+                .all(&ss.db)
+                .await?;
+            Ok(UserWorkoutDetails {
+                details,
+                collections,
+                metadata_consumed,
+            })
+        },
+    )
+    .await
 }
 
 pub async fn user_workout_template_details(

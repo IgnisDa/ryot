@@ -269,14 +269,14 @@ const DisplayFitnessEntity = (props: {
 				.with(FitnessEntity.Workouts, () =>
 					clientGqlService
 						.request(UserWorkoutDetailsDocument, { workoutId: props.entityId })
-						.then(({ userWorkoutDetails }) => ({
-							name: userWorkoutDetails.details.name,
-							summary: userWorkoutDetails.details.summary,
-							timestamp: userWorkoutDetails.details.startTime,
-							information: userWorkoutDetails.details.information,
+						.then(({ userWorkoutDetails: { response } }) => ({
+							name: response.details.name,
+							summary: response.details.summary,
+							timestamp: response.details.startTime,
+							information: response.details.information,
 							detail: humanizeDuration(
 								dayjsLib
-									.duration(userWorkoutDetails.details.duration, "second")
+									.duration(response.details.duration, "second")
 									.asMilliseconds(),
 								{ round: true, units: ["h", "m"] },
 							),

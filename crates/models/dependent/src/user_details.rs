@@ -154,7 +154,7 @@ pub struct UserMetadataDetails {
     pub podcast_progress: Option<Vec<UserMetadataDetailsEpisodeProgress>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct UserWorkoutDetails {
     pub details: workout::Model,
     pub metadata_consumed: Vec<String>,

@@ -79,7 +79,7 @@ impl FitnessQueryResolver {
         &self,
         gql_ctx: &Context<'_>,
         workout_id: String,
-    ) -> Result<UserWorkoutDetails> {
+    ) -> Result<CachedResponse<UserWorkoutDetails>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         Ok(service.user_workout_details(&user_id, workout_id).await?)
     }

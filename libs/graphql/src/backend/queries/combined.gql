@@ -407,24 +407,26 @@ query UserPersonDetails($personId: String!) {
 
 query UserWorkoutDetails($workoutId: String!) {
 	userWorkoutDetails(workoutId: $workoutId) {
-		metadataConsumed
-		collections {
-			...CollectionToEntityDetailsPart
-		}
-		details {
-			id
-			name
-			endTime
-			duration
-			startTime
-			templateId
-			repeatedFrom
-			caloriesBurnt
-			summary {
-				...WorkoutSummaryPart
+		response {
+			metadataConsumed
+			collections {
+				...CollectionToEntityDetailsPart
 			}
-			information {
-				...WorkoutInformationPart
+			details {
+				id
+				name
+				endTime
+				duration
+				startTime
+				templateId
+				repeatedFrom
+				caloriesBurnt
+				summary {
+					...WorkoutSummaryPart
+				}
+				information {
+					...WorkoutInformationPart
+				}
 			}
 		}
 	}

@@ -21,7 +21,6 @@ import {
 	type ExerciseLot,
 	SetLot,
 	type UserUnitSystem,
-	type UserWorkoutDetailsQuery,
 	type WorkoutSupersetsInformation,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
@@ -49,6 +48,7 @@ import {
 	getExerciseImages,
 	getWorkoutDetailsQuery,
 	getWorkoutTemplateDetailsQuery,
+	type TWorkoutDetails,
 } from "~/lib/state/fitness";
 import { FitnessEntity } from "~/lib/types";
 import { ExerciseImagesList } from "./display-items";
@@ -58,8 +58,7 @@ import {
 	displayWeightWithUnit,
 } from "./utils";
 
-type Exercise =
-	UserWorkoutDetailsQuery["userWorkoutDetails"]["details"]["information"]["exercises"][number];
+type Exercise = TWorkoutDetails["details"]["information"]["exercises"][number];
 type Set = Exercise["sets"][number];
 
 export const DisplaySet = (props: {

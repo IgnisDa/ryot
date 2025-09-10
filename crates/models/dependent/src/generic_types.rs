@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::{
     BasicUserDetails, GraphqlPersonDetails, UserAnalytics, UserMetadataDetails,
-    UserMetadataGroupDetails, UserPersonDetails, UserWorkoutTemplateDetails,
+    UserMetadataGroupDetails, UserPersonDetails, UserWorkoutDetails, UserWorkoutTemplateDetails,
 };
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
@@ -46,6 +46,7 @@ pub struct SortInput<T: InputType + Default> {
 #[graphql(concrete(name = "CachedUserAnalyticsResponse", params(UserAnalytics)))]
 #[graphql(concrete(name = "CachedSearchIdResponse", params(UserMetadataListResponse)))]
 #[graphql(concrete(name = "CachedUserPersonDetailsResponse", params(UserPersonDetails)))]
+#[graphql(concrete(name = "CachedUserWorkoutDetailsResponse", params(UserWorkoutDetails)))]
 #[graphql(concrete(name = "CachedMetadataLookupResponse", params(MetadataLookupResponse)))]
 #[graphql(concrete(
     params(UserCollectionsListResponse),

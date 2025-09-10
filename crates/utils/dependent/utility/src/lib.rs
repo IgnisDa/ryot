@@ -80,6 +80,7 @@ pub async fn expire_entity_details_cache(
 ) -> Result<()> {
     try_join!(
         expire_user_metadata_list_cache(user_id, ss),
+        expire_user_workout_details_cache(user_id, entity_id, ss),
         expire_user_workout_template_details_cache(user_id, entity_id, ss),
         mark_entity_as_recently_consumed(user_id, entity_id, entity_lot, ss),
         cache_service::expire_key(
@@ -354,6 +355,24 @@ pub async fn expire_user_workout_template_details_cache(
             UserLevelCacheKey {
                 user_id: user_id.to_owned(),
                 input: workout_template_id.to_owned(),
+            },
+        ))),
+    )
+    .await?;
+    Ok(())
+}
+
+pub async fn expire_user_workout_details_cache(
+    user_id: &String,
+    workout_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::UserWorkoutDetails(
+            UserLevelCacheKey {
+                user_id: user_id.to_owned(),
+                input: workout_id.to_owned(),
             },
         ))),
     )
