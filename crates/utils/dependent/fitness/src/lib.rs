@@ -106,7 +106,7 @@ pub fn calculate_one_rm(value: &WorkoutSetRecord) -> Option<Decimal> {
         true => (weight * dec!(36.0)).checked_div(dec!(37.0) - reps), // Brzycki
         false => weight.checked_mul((dec!(1).checked_add(reps.checked_div(dec!(30))?))?), // Epley
     };
-    val.filter(|v| v <= &dec!(0))
+    val.filter(|v| v >= &dec!(0))
 }
 
 pub fn calculate_volume(value: &WorkoutSetRecord) -> Option<Decimal> {
