@@ -273,9 +273,10 @@ export default function Index() {
 											Cookies
 										</h4>
 										<p>
-											We use limited first-party cookies where necessary (for
-											example, to authenticate customers in the website portal).
-											We do not use cookies for advertising.
+											We use strictly necessary first-party cookies only where
+											required (for example, to authenticate customers in the
+											website portal). We do not use cookies for advertising.
+											Our analytics is cookie-free.
 										</p>
 									</div>
 
