@@ -197,11 +197,11 @@ pub async fn register_user(
         .user_id
         .unwrap_or_else(|| format!("usr_{}", nanoid!(12)));
     let user = user::ActiveModel {
+        lot: ActiveValue::Set(lot),
         id: ActiveValue::Set(user_id),
         name: ActiveValue::Set(username),
         password: ActiveValue::Set(password),
         oidc_issuer_id: ActiveValue::Set(oidc_issuer_id),
-        lot: ActiveValue::Set(lot),
         preferences: ActiveValue::Set(UserPreferences::default()),
         ..Default::default()
     };
