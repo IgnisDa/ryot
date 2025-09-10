@@ -222,7 +222,7 @@ export default function Page() {
 	const userDetails = useUserDetails();
 	const submit = useConfirmSubmit();
 
-	const [metadataDetails, isMetadataStillLoading] = useMetadataDetails(
+	const [metadataDetails, isMetadataPartialDetailsLoading] = useMetadataDetails(
 		loaderData.metadataId,
 	);
 	const userMetadataDetails = useUserMetadataDetails(loaderData.metadataId);
@@ -374,7 +374,7 @@ export default function Page() {
 					<MediaDetailsLayout
 						title={metadataDetails.data.title}
 						assets={metadataDetails.data.assets}
-						isMediaStillLoading={isMetadataStillLoading}
+						isMediaStillLoading={isMetadataPartialDetailsLoading}
 						externalLink={{
 							lot: metadataDetails.data.lot,
 							source: metadataDetails.data.source,
