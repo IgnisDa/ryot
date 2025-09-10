@@ -44,11 +44,11 @@ import { dayjsLib } from "~/lib/shared/date-utils";
 import { useGetRandomMantineColor } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath, getSetColor } from "~/lib/shared/media-utils";
 import {
+	type TWorkoutDetails,
 	getExerciseDetailsQuery,
 	getExerciseImages,
 	getWorkoutDetailsQuery,
 	getWorkoutTemplateDetailsQuery,
-	type TWorkoutDetails,
 } from "~/lib/state/fitness";
 import { FitnessEntity } from "~/lib/types";
 import { ExerciseImagesList } from "./display-items";
