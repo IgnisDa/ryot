@@ -93,8 +93,11 @@ export default function Index() {
 									</h2>
 								</div>
 								<p className="text-muted-foreground leading-relaxed">
-									The Service is available to users worldwide with no specific
-									age or residency restrictions.
+									The Service is not directed to children. You may use the
+									Service only if you are at least 13 years old (or 16 where
+									required by local law). By using the Service, you represent
+									that you meet the minimum age requirement and have the
+									capacity to enter into these Terms.
 								</p>
 							</div>
 
