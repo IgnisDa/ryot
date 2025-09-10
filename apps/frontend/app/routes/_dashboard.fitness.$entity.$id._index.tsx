@@ -637,9 +637,14 @@ export default function Page() {
 									verticalSpacing="xs"
 									cols={{ base: 7, sm: 8, md: 10 }}
 								>
-									{loaderData.metadataConsumed.map((m) => (
-										<ConsumedMetadataDisplay key={m} metadataId={m} />
-									))}
+									{metadataConsumedOpened &&
+										loaderData.metadataConsumed.map((m) => (
+											<ConsumedMetadataDisplay
+												key={m}
+												metadataId={m}
+												enabled={metadataConsumedOpened}
+											/>
+										))}
 								</SimpleGrid>
 							) : (
 								<ProRequiredAlert />
@@ -676,9 +681,13 @@ export default function Page() {
 }
 
 const ConsumedMetadataDisplay = (props: {
+	enabled: boolean;
 	metadataId: string;
 }) => {
-	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
+	const [{ data: metadataDetails }] = useMetadataDetails(
+		props.metadataId,
+		props.enabled,
+	);
 
 	const images = [
 		...(metadataDetails?.assets.remoteImages || []),
