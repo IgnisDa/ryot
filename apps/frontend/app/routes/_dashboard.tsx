@@ -249,7 +249,7 @@ export default function Layout() {
 							href={forcedDashboardPath}
 							toggle={toggleMobileNavbar}
 						/>
-						{loaderData.userPreferences.featuresEnabled.media.enabled ? (
+						{userPreferences.featuresEnabled.media.enabled ? (
 							<LinksGroup
 								label="Media"
 								links={mediaLinks}
@@ -266,7 +266,7 @@ export default function Layout() {
 								}
 							/>
 						) : null}
-						{loaderData.userPreferences.featuresEnabled.fitness.enabled ? (
+						{userPreferences.featuresEnabled.fitness.enabled ? (
 							<LinksGroup
 								label="Fitness"
 								links={fitnessLinks}
@@ -283,7 +283,7 @@ export default function Layout() {
 								}
 							/>
 						) : null}
-						{loaderData.userPreferences.featuresEnabled.analytics.enabled ? (
+						{userPreferences.featuresEnabled.analytics.enabled ? (
 							<LinksGroup
 								opened={false}
 								icon={IconGraph}
@@ -296,7 +296,7 @@ export default function Layout() {
 								}
 							/>
 						) : null}
-						{loaderData.userPreferences.featuresEnabled.others.calendar ? (
+						{userPreferences.featuresEnabled.others.calendar ? (
 							<LinksGroup
 								opened={false}
 								label="Calendar"
@@ -306,7 +306,7 @@ export default function Layout() {
 								href={$path("/calendar")}
 							/>
 						) : null}
-						{loaderData.userPreferences.featuresEnabled.others.collections ? (
+						{userPreferences.featuresEnabled.others.collections ? (
 							<LinksGroup
 								opened={false}
 								icon={IconArchive}
@@ -434,7 +434,7 @@ export default function Layout() {
 							mih="90%"
 							style={{ flexGrow: 1 }}
 							ref={
-								loaderData.userPreferences.general.disableNavigationAnimation
+								userPreferences.general.disableNavigationAnimation
 									? undefined
 									: parent
 							}
