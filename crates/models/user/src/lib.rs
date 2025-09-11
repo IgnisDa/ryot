@@ -503,4 +503,5 @@ pub struct UpdateUserInput {
     pub username: Option<String>,
     pub is_disabled: Option<bool>,
     pub admin_access_token: Option<String>,
+    pub is_onboarding_tour_completed: Option<bool>,
 }

@@ -21,8 +21,7 @@ use sea_orm::{
 };
 use sea_orm::{IntoActiveModel, Iterable};
 use supporting_service::SupportingService;
-use user_models::UpdateUserInput;
-use user_models::UserPreferences;
+use user_models::{UpdateUserInput, UserPreferences};
 
 use crate::{password_change_operations, user_data_operations};
 
@@ -41,11 +40,9 @@ pub async fn update_user(
     } else if input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token {
         bail!("Admin access token required".to_owned());
     }
-    let mut user_obj = User::find_by_id(input.user_id)
-        .one(&ss.db)
-        .await?
-        .unwrap()
-        .into_active_model();
+    let db_user = User::find_by_id(input.user_id).one(&ss.db).await?.unwrap();
+    let mut extra_information = db_user.extra_information.clone().unwrap_or_default();
+    let mut user_obj = db_user.into_active_model();
     if let Some(n) = input.username {
         user_obj.name = ActiveValue::Set(n);
     }
@@ -54,6 +51,10 @@ pub async fn update_user(
     }
     if let Some(d) = input.is_disabled {
         user_obj.is_disabled = ActiveValue::Set(Some(d));
+    }
+    if let Some(p) = input.is_onboarding_tour_completed {
+        extra_information.is_onboarding_tour_completed = p;
+        user_obj.extra_information = ActiveValue::Set(Some(extra_information));
     }
     let user_obj = user_obj.update(&ss.db).await?;
     ryot_log!(debug, "Updated user with id {:?}", user_obj.id);

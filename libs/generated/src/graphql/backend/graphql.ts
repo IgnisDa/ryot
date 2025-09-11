@@ -2523,6 +2523,7 @@ export type UpdateUserExerciseSettings = {
 export type UpdateUserInput = {
   adminAccessToken?: InputMaybe<Scalars['String']['input']>;
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
+  isOnboardingTourCompleted?: InputMaybe<Scalars['Boolean']['input']>;
   lot?: InputMaybe<UserLot>;
   userId: Scalars['String']['input'];
   username?: InputMaybe<Scalars['String']['input']>;
