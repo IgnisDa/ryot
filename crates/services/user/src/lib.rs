@@ -113,10 +113,10 @@ impl UserService {
 
     pub async fn update_user(
         &self,
-        requester_user_id: Option<String>,
         input: UpdateUserInput,
+        requester_user_id: Option<String>,
     ) -> Result<StringIdObject> {
-        user_management_operations::update_user(&self.0, requester_user_id, input).await
+        user_management_operations::update_user(input, &self.0, requester_user_id).await
     }
 
     pub async fn update_user_preference(

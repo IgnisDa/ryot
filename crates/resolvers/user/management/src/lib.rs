@@ -78,7 +78,7 @@ impl UserManagementMutationResolver {
         input: UpdateUserInput,
     ) -> Result<StringIdObject> {
         let (service, requester_user_id) = self.svc_and_maybe_user(gql_ctx).await?;
-        Ok(service.update_user(requester_user_id, input).await?)
+        Ok(service.update_user(input, requester_user_id).await?)
     }
 
     /// Change a user's preferences.

@@ -27,9 +27,9 @@ use user_models::UserPreferences;
 use crate::{password_change_operations, user_data_operations};
 
 pub async fn update_user(
+    input: UpdateUserInput,
     ss: &Arc<SupportingService>,
     requester_user_id: Option<String>,
-    input: UpdateUserInput,
 ) -> Result<StringIdObject> {
     if let Some(ref uid) = requester_user_id {
         if uid != &input.user_id
