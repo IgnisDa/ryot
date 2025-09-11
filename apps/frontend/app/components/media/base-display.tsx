@@ -23,7 +23,7 @@ export const BaseEntityDisplay = (props: {
 	extraText?: string;
 	hasInteracted?: boolean;
 	ref?: Ref<HTMLDivElement>;
-	isPartialDetailsLoading?: boolean;
+	isPartialStatusActive?: boolean;
 }) => {
 	return (
 		<WrapperComponent link={props.link}>
@@ -45,9 +45,7 @@ export const BaseEntityDisplay = (props: {
 				lineClamp={1}
 				ref={props.ref}
 				c={props.hasInteracted ? "yellow" : "dimmed"}
-				className={
-					props.isPartialDetailsLoading ? classes.fadeInOut : undefined
-				}
+				className={props.isPartialStatusActive ? classes.fadeInOut : undefined}
 			>
 				{props.title} {props.extraText}
 			</Text>
@@ -60,8 +58,10 @@ export const PartialMetadataDisplay = (props: {
 	extraText?: string;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const [{ data: metadataDetails }, isPartialDetailsLoading] =
-		useMetadataDetails(props.metadataId, inViewport);
+	const [{ data: metadataDetails }, isPartialStatusActive] = useMetadataDetails(
+		props.metadataId,
+		inViewport,
+	);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 		inViewport,
@@ -78,7 +78,7 @@ export const PartialMetadataDisplay = (props: {
 			image={images.at(0)}
 			extraText={props.extraText}
 			title={metadataDetails?.title || undefined}
-			isPartialDetailsLoading={isPartialDetailsLoading}
+			isPartialStatusActive={isPartialStatusActive}
 			hasInteracted={userMetadataDetails?.hasInteracted}
 			link={$path("/media/item/:id", { id: props.metadataId })}
 		/>

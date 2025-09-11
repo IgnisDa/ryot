@@ -368,7 +368,7 @@ const MetadataGroupDisplay = (props: {
 	return (
 		<BaseEntityDisplay
 			title={metadataGroupDetails?.details.title}
-			isPartialDetailsLoading={isMetadataGroupPartialStatusActive}
+			isPartialStatusActive={isMetadataGroupPartialStatusActive}
 			image={metadataGroupDetails?.details.assets.remoteImages.at(0)}
 			link={$path("/media/groups/item/:id", { id: props.metadataGroupId })}
 		/>
