@@ -72,7 +72,7 @@ export default function Page() {
 		<Container size="lg">
 			<Stack>
 				<Flex align="center" gap="md">
-					<Title>User settings</Title>
+					<Title>Users settings</Title>
 					<ActionIcon
 						color="green"
 						variant="outline"
