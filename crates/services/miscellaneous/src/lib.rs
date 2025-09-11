@@ -262,7 +262,7 @@ impl MiscellaneousService {
 
     pub async fn update_custom_metadata(
         &self,
-        user_id: &str,
+        user_id: &String,
         input: UpdateCustomMetadataInput,
     ) -> Result<bool> {
         miscellaneous_metadata_operations_service::update_custom_metadata(&self.0, user_id, input)

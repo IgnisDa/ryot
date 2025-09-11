@@ -19,7 +19,7 @@ use dependent_collection_utils::{add_entities_to_collection, remove_entities_fro
 use dependent_entity_utils::change_metadata_associations;
 use dependent_notification_utils::send_notification_for_user;
 use dependent_seen_utils::is_metadata_finished_by_user;
-use dependent_utility_utils::expire_user_metadata_list_cache;
+use dependent_utility_utils::{expire_metadata_details_cache, expire_user_metadata_list_cache};
 use enum_models::{EntityLot, MediaLot, MediaSource, UserNotificationContent};
 use futures::try_join;
 use itertools::Itertools;
@@ -206,7 +206,7 @@ pub async fn create_custom_metadata(
 
 pub async fn update_custom_metadata(
     ss: &Arc<SupportingService>,
-    user_id: &str,
+    user_id: &String,
     input: UpdateCustomMetadataInput,
 ) -> Result<bool> {
     let metadata = Metadata::find_by_id(&input.existing_metadata_id)
@@ -242,7 +242,10 @@ pub async fn update_custom_metadata(
         ss,
     )
     .await?;
-    expire_user_metadata_list_cache(&user_id.to_string(), ss).await?;
+    try_join!(
+        expire_user_metadata_list_cache(user_id, ss),
+        expire_metadata_details_cache(&metadata.id, ss)
+    )?;
     Ok(true)
 }
 
