@@ -40,6 +40,7 @@ import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useDashboardLayoutData,
+	useInvalidateUserDetails,
 	useUserDetails,
 } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
@@ -96,11 +97,12 @@ export default function Page() {
 }
 
 const PasswordSection = () => {
+	const navigate = useNavigate();
 	const submit = useConfirmSubmit();
 	const userDetails = useUserDetails();
 	const dashboardData = useDashboardLayoutData();
-	const navigate = useNavigate();
 	const isEditDisabled = dashboardData.isDemoInstance;
+	const invalidateUserDetails = useInvalidateUserDetails();
 
 	const generatePasswordChangeSessionMutation = useMutation({
 		mutationFn: async () => {
@@ -133,7 +135,11 @@ const PasswordSection = () => {
 
 	return (
 		<Stack>
-			<Form method="POST" action={withQuery(".", { intent: "updateProfile" })}>
+			<Form
+				method="POST"
+				onSubmit={() => invalidateUserDetails()}
+				action={withQuery(".", { intent: "updateProfile" })}
+			>
 				<input type="hidden" name="userId" defaultValue={userDetails.id} />
 				<Stack>
 					<CopyableTextInput
