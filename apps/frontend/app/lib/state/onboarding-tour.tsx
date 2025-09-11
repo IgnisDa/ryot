@@ -74,9 +74,9 @@ export const useOnboardingTour = () => {
 	const userPreferences = useUserPreferences();
 	const dashboardData = useDashboardLayoutData();
 	const applicationEvents = useApplicationEvents();
+	const invalidateUserDetails = useInvalidateUserDetails();
 	const { setOpenedSidebarLinks } = useOpenedSidebarLinks();
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);
-	const invalidateUserDetails = useInvalidateUserDetails();
 	const isOnboardingTourInProgress =
 		isNumber(tourState?.currentStepIndex) && !tourState?.isCompleted;
 
