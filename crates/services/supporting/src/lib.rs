@@ -5,14 +5,15 @@ use apalis::prelude::{MemoryStorage, MessageQueue};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use bon::bon;
 use chrono::Utc;
+use config_definition::AppConfig;
 use sea_orm::{DatabaseConnection, prelude::DateTimeUtc};
 
 pub struct SupportingService {
     pub is_oidc_enabled: bool,
+    pub config: Arc<AppConfig>,
     pub db: DatabaseConnection,
     pub timezone: chrono_tz::Tz,
     pub server_start_time: DateTimeUtc,
-    pub config: Arc<config_definition::AppConfig>,
 
     lp_application_job: MemoryStorage<LpApplicationJob>,
     hp_application_job: MemoryStorage<HpApplicationJob>,
@@ -24,9 +25,9 @@ impl SupportingService {
     #[builder]
     pub async fn new(
         is_oidc_enabled: bool,
+        config: Arc<AppConfig>,
         db: &DatabaseConnection,
         timezone: chrono_tz::Tz,
-        config: Arc<config_definition::AppConfig>,
         lp_application_job: &MemoryStorage<LpApplicationJob>,
         mp_application_job: &MemoryStorage<MpApplicationJob>,
         hp_application_job: &MemoryStorage<HpApplicationJob>,

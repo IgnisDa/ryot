@@ -21,7 +21,6 @@ import {
 	type ExerciseLot,
 	SetLot,
 	type UserUnitSystem,
-	type UserWorkoutDetailsQuery,
 	type WorkoutSupersetsInformation,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
@@ -45,6 +44,7 @@ import { dayjsLib } from "~/lib/shared/date-utils";
 import { useGetRandomMantineColor } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath, getSetColor } from "~/lib/shared/media-utils";
 import {
+	type TWorkoutDetails,
 	getExerciseDetailsQuery,
 	getExerciseImages,
 	getWorkoutDetailsQuery,
@@ -58,8 +58,7 @@ import {
 	displayWeightWithUnit,
 } from "./utils";
 
-type Exercise =
-	UserWorkoutDetailsQuery["userWorkoutDetails"]["details"]["information"]["exercises"][number];
+type Exercise = TWorkoutDetails["details"]["information"]["exercises"][number];
 type Set = Exercise["sets"][number];
 
 export const DisplaySet = (props: {
@@ -128,8 +127,8 @@ export const DisplaySet = (props: {
 export const ExerciseHistory = (props: {
 	entityId: string;
 	exerciseIdx: number;
-	entityType: FitnessEntity;
 	hideExerciseDetails?: boolean;
+	fitnessEntityType: FitnessEntity;
 	hideExtraDetailsButton?: boolean;
 	onCopyButtonClick?: () => Promise<void>;
 	supersetInformation?: WorkoutSupersetsInformation[];
@@ -139,7 +138,7 @@ export const ExerciseHistory = (props: {
 	const [parent] = useAutoAnimate();
 	const { data: workoutDetails } = useQuery(
 		// @ts-ignore: Too complicated to fix and it just works this way
-		match(props.entityType)
+		match(props.fitnessEntityType)
 			.with(FitnessEntity.Workouts, () =>
 				getWorkoutDetailsQuery(props.entityId),
 			)

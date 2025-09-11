@@ -27,3 +27,19 @@
     box-shadow: 0px 0px 8px 3px rgba(24, 142, 245, 1);
   }
 }
+
+.fadeInOut {
+  animation: fadeInOut 1.5s ease-in-out infinite;
+}
+
+@keyframes fadeInOut {
+  0% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+  }
+}

@@ -1,8 +1,6 @@
-import type {
-	UserCollectionsListQuery,
-	UserMetadataDetailsQuery,
-} from "@ryot/generated/graphql/backend/graphql";
+import type { UserCollectionsListQuery } from "@ryot/generated/graphql/backend/graphql";
 import type { ComponentType } from "react";
+import type { UserMetadataDetails } from "../media-item/types";
 
 export enum WatchTimes {
 	JustCompletedNow = "Just Completed Now",
@@ -25,7 +23,5 @@ export interface LinksGroupProps {
 export type Collection =
 	UserCollectionsListQuery["userCollectionsList"]["response"][number];
 
-export type InProgress =
-	UserMetadataDetailsQuery["userMetadataDetails"]["inProgress"];
-export type MetadataHistory =
-	UserMetadataDetailsQuery["userMetadataDetails"]["history"];
+export type InProgress = UserMetadataDetails["inProgress"];
+export type MetadataHistory = UserMetadataDetails["history"];

@@ -56,7 +56,7 @@ impl MiscellaneousService {
         &self,
         user_id: String,
         metadata_id: String,
-    ) -> Result<UserMetadataDetails> {
+    ) -> Result<CachedResponse<UserMetadataDetails>> {
         miscellaneous_entity_user_details_service::user_metadata_details(
             &self.0,
             user_id,
@@ -69,7 +69,7 @@ impl MiscellaneousService {
         &self,
         user_id: String,
         person_id: String,
-    ) -> Result<UserPersonDetails> {
+    ) -> Result<CachedResponse<UserPersonDetails>> {
         miscellaneous_entity_user_details_service::user_person_details(&self.0, user_id, person_id)
             .await
     }
@@ -78,7 +78,7 @@ impl MiscellaneousService {
         &self,
         user_id: String,
         metadata_group_id: String,
-    ) -> Result<UserMetadataGroupDetails> {
+    ) -> Result<CachedResponse<UserMetadataGroupDetails>> {
         miscellaneous_entity_user_details_service::user_metadata_group_details(
             &self.0,
             user_id,
@@ -262,7 +262,7 @@ impl MiscellaneousService {
 
     pub async fn update_custom_metadata(
         &self,
-        user_id: &str,
+        user_id: &String,
         input: UpdateCustomMetadataInput,
     ) -> Result<bool> {
         miscellaneous_metadata_operations_service::update_custom_metadata(&self.0, user_id, input)

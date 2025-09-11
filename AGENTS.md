@@ -37,3 +37,6 @@
 - React components should use a single `props` parameter instead of destructured props in
   function arguments. Use `props.propertyName` syntax rather than destructuring
   `{ propertyName }` in the function signature.
+- When asked to create a git commit, read all the dirty changes in the repository and then
+  create logical commits, grouping related changes together. Commit messages should be
+  verbose and explain the reasoning behind the changes, not just what was changed.

@@ -1,5 +1,6 @@
-import { ActionIcon, Group, Loader, ThemeIcon, Tooltip } from "@mantine/core";
+import { ActionIcon, Group, ThemeIcon, Tooltip } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	EntityLot,
 	MediaLot,
@@ -13,6 +14,7 @@ import {
 	IconPlayerPlay,
 	IconRosetteDiscountCheck,
 } from "@tabler/icons-react";
+import clsx from "clsx";
 import { type ReactNode, useMemo } from "react";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -26,6 +28,7 @@ import {
 } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import { useOnboardingTour } from "~/lib/state/onboarding-tour";
+import classes from "~/styles/common.module.css";
 import { BaseEntityDisplayItem } from "../common/entity-display";
 import { DisplayAverageRatingOverlay } from "./rating-overlay";
 
@@ -44,13 +47,14 @@ export const MetadataDisplayItem = (props: {
 	bottomRightImageOverlayClassName?: string;
 	onImageClickBehavior?: () => Promise<void>;
 }) => {
-	const { initializeMetadataToUpdate, isMetadataToUpdateLoading } =
-		useMetadataProgressUpdate();
+	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
 	const { ref, inViewport } = useInViewport();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
-	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
-		useMetadataDetails(props.metadataId, inViewport);
+	const [
+		{ data: metadataDetails, isLoading: isMetadataDetailsLoading },
+		isMetadataPartialStatusActive,
+	] = useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 		inViewport,
@@ -92,7 +96,7 @@ export const MetadataDisplayItem = (props: {
 		}
 
 		return metadataDetails.publishYear;
-	}, [metadataDetails, userMetadataDetails]);
+	}, [metadataDetails, userMetadataDetails, props.noLeftLabel]);
 
 	const surroundReason = (
 		idx: number,
@@ -116,9 +120,10 @@ export const MetadataDisplayItem = (props: {
 			imageUrl={images.at(0)}
 			altName={props.altName}
 			progress={currentProgress}
-			isLoading={isMetadataDetailsLoading}
 			imageClassName={props.imageClassName}
 			name={props.name ?? metadataDetails?.title}
+			isDetailsLoading={isMetadataDetailsLoading}
+			isPartialStatusActive={isMetadataPartialStatusActive}
 			highlightImage={userMetadataDetails?.isRecentlyConsumed}
 			highlightName={
 				props.shouldHighlightNameIfInteracted &&
@@ -179,15 +184,22 @@ export const MetadataDisplayItem = (props: {
 								.map((data, idx) => surroundReason(idx, data))}
 						</Group>
 					) : null,
-				bottomRight: isMetadataToUpdateLoading ? (
-					<Loader color="red" size="xs" m={2} />
-				) : (
+				bottomRight: (
 					<ActionIcon
 						color="blue"
 						size="compact-md"
 						variant="transparent"
 						className={props.bottomRightImageOverlayClassName}
 						onClick={async () => {
+							if (isMetadataDetailsLoading || isMetadataPartialStatusActive) {
+								notifications.show({
+									color: "yellow",
+									title: "Please wait",
+									message: "Details are still loading",
+								});
+								return;
+							}
+
 							initializeMetadataToUpdate(
 								{ metadataId: props.metadataId },
 								true,
@@ -198,7 +210,12 @@ export const MetadataDisplayItem = (props: {
 							}
 						}}
 					>
-						<IconPlayerPlay size={20} />
+						<IconPlayerPlay
+							size={20}
+							className={clsx({
+								[classes.fadeInOut]: isMetadataPartialStatusActive,
+							})}
+						/>
 					</ActionIcon>
 				),
 			}}
@@ -215,8 +232,10 @@ export const MetadataGroupDisplayItem = (props: {
 	shouldHighlightNameIfInteracted?: boolean;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
-		useMetadataGroupDetails(props.metadataGroupId, inViewport);
+	const [
+		{ data: metadataDetails, isLoading: isMetadataGroupDetailsLoading },
+		isMetadataGroupPartialStatusActive,
+	] = useMetadataGroupDetails(props.metadataGroupId, inViewport);
 	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
 		props.metadataGroupId,
 		inViewport,
@@ -227,8 +246,9 @@ export const MetadataGroupDisplayItem = (props: {
 	return (
 		<BaseEntityDisplayItem
 			innerRef={ref}
-			isLoading={isMetadataDetailsLoading}
 			name={metadataDetails?.details.title}
+			isDetailsLoading={isMetadataGroupDetailsLoading}
+			isPartialStatusActive={isMetadataGroupPartialStatusActive}
 			imageUrl={metadataDetails?.details.assets.remoteImages.at(0)}
 			highlightImage={userMetadataGroupDetails?.isRecentlyConsumed}
 			onImageClickBehavior={[
@@ -274,8 +294,10 @@ export const PersonDisplayItem = (props: {
 	shouldHighlightNameIfInteracted?: boolean;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const { data: personDetails, isLoading: isPersonDetailsLoading } =
-		usePersonDetails(props.personId, inViewport);
+	const [
+		{ data: personDetails, isLoading: isPersonDetailsLoading },
+		isPersonPartialStatusActive,
+	] = usePersonDetails(props.personId, inViewport);
 	const { data: userPersonDetails } = useUserPersonDetails(
 		props.personId,
 		inViewport,
@@ -287,7 +309,8 @@ export const PersonDisplayItem = (props: {
 		<BaseEntityDisplayItem
 			innerRef={ref}
 			name={personDetails?.details.name}
-			isLoading={isPersonDetailsLoading}
+			isDetailsLoading={isPersonDetailsLoading}
+			isPartialStatusActive={isPersonPartialStatusActive}
 			highlightImage={userPersonDetails?.isRecentlyConsumed}
 			imageUrl={personDetails?.details.assets.remoteImages.at(0)}
 			onImageClickBehavior={[

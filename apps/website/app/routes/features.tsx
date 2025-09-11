@@ -360,7 +360,6 @@ const FEATURE_CARDS = [
 export default function Page() {
 	return (
 		<div className="min-h-screen">
-			{/* Hero Section */}
 			<section className="py-20 lg:py-32">
 				<div className={SECTION_STYLES}>
 					<div className="text-center mb-16">
@@ -380,7 +379,6 @@ export default function Page() {
 				</div>
 			</section>
 
-			{/* Feature Categories Grid */}
 			<section className="py-20">
 				<div className={SECTION_STYLES}>
 					<div className="text-center mb-16">
@@ -421,7 +419,6 @@ export default function Page() {
 				</div>
 			</section>
 
-			{/* Feature Sections */}
 			{FEATURE_DATA.map((data, index) => (
 				<FeatureSection
 					key={data.heading}
@@ -432,7 +429,6 @@ export default function Page() {
 				/>
 			))}
 
-			{/* Pro Features Callout */}
 			<section className="py-20 bg-gradient-to-r from-orange-50 to-pink-50">
 				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
 					<div className="flex items-center justify-center gap-3 mb-6">

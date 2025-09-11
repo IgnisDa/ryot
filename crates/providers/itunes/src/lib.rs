@@ -86,7 +86,6 @@ impl MediaProvider for ITunesService {
             .map(|a| MetadataFreeCreator {
                 name: a,
                 role: "Artist".to_owned(),
-                ..Default::default()
             })
             .collect();
         let genres = ht

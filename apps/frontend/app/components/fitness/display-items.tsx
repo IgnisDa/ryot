@@ -43,7 +43,7 @@ export const ExerciseDisplayItem = (props: {
 			innerRef={ref}
 			imageUrl={images.at(0)}
 			name={exerciseDetails?.name}
-			isLoading={isExerciseDetailsLoading}
+			isDetailsLoading={isExerciseDetailsLoading}
 			onImageClickBehavior={[getExerciseDetailsPath(props.exerciseId)]}
 			labels={{
 				left: isNumber(times)
@@ -71,7 +71,7 @@ export const WorkoutDisplayItem = (props: {
 		<BaseEntityDisplayItem
 			innerRef={ref}
 			name={workoutDetails?.details.name}
-			isLoading={isWorkoutDetailsLoading}
+			isDetailsLoading={isWorkoutDetailsLoading}
 			imageOverlay={{ topLeft: props.topLeft, topRight: props.topRight }}
 			onImageClickBehavior={[
 				$path("/fitness/:entity/:id", {
@@ -105,7 +105,7 @@ export const WorkoutTemplateDisplayItem = (props: {
 		<BaseEntityDisplayItem
 			innerRef={ref}
 			name={workoutTemplateDetails?.details.name}
-			isLoading={isWorkoutTemplateDetailsLoading}
+			isDetailsLoading={isWorkoutTemplateDetailsLoading}
 			imageOverlay={{ topLeft: props.topLeft, topRight: props.topRight }}
 			onImageClickBehavior={[
 				$path("/fitness/:entity/:id", {

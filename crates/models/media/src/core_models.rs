@@ -11,6 +11,7 @@ use crate::{
     SeenPodcastExtraOptionalInformation, SeenShowExtraOptionalInformation,
 };
 
+#[skip_serializing_none]
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, SimpleObject)]
 pub struct ReviewItem {
     pub id: String,
@@ -18,9 +19,9 @@ pub struct ReviewItem {
     pub posted_on: DateTimeUtc,
     pub visibility: Visibility,
     pub rating: Option<Decimal>,
-    pub posted_by: StringIdAndNamedObject,
     pub text_original: Option<String>,
     pub text_rendered: Option<String>,
+    pub posted_by: StringIdAndNamedObject,
     pub seen_items_associated_with: Vec<String>,
     pub comments: Vec<ImportOrExportItemReviewComment>,
     pub anime_extra_information: Option<SeenAnimeExtraInformation>,

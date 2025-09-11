@@ -1889,6 +1889,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "background-models",
+ "cache-service",
  "chrono",
  "common-models",
  "common-utils",
@@ -1922,7 +1923,6 @@ dependencies = [
  "database-models",
  "dependent-entity-list-utils",
  "dependent-models",
- "dependent-utility-utils",
  "enum-models",
  "futures",
  "media-models",
@@ -2160,7 +2160,6 @@ dependencies = [
  "database-models",
  "dependent-models",
  "dependent-seen-utils",
- "dependent-utility-utils",
  "enum-models",
  "futures",
  "media-models",
@@ -2252,6 +2251,7 @@ dependencies = [
  "database-models",
  "dependent-models",
  "enum-models",
+ "futures",
  "sea-orm",
  "supporting-service",
  "tracing",
@@ -2705,6 +2705,7 @@ name = "external-utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "application-utils",
  "common-utils",
  "reqwest",
  "sea-orm",
@@ -4413,6 +4414,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "application-utils",
+ "cache-service",
+ "common-models",
  "database-models",
  "database-utils",
  "dependent-entity-utils",

@@ -16,7 +16,6 @@ import {
 } from "@mantine/core";
 import {
 	type EntityAssets,
-	type EntityLot,
 	GridPacking,
 	type MediaLot,
 	type MediaSource,
@@ -25,11 +24,7 @@ import { changeCase } from "@ryot/ts-utils";
 import { IconExternalLink } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
 import { match } from "ts-pattern";
-import {
-	useFallbackImageUrl,
-	usePartialStatusMonitor,
-	useUserPreferences,
-} from "~/lib/shared/hooks";
+import { useFallbackImageUrl, useUserPreferences } from "~/lib/shared/hooks";
 import {
 	getProviderSourceImage,
 	getSurroundingElements,
@@ -62,29 +57,16 @@ export const ApplicationGrid = (props: {
 export const MediaDetailsLayout = (props: {
 	title: string;
 	assets: EntityAssets;
+	isPartialStatusActive: boolean;
 	children: Array<ReactNode | (ReactNode | undefined)>;
 	externalLink: {
 		lot?: MediaLot;
 		source: MediaSource;
 		href?: string | null;
 	};
-	partialDetailsFetcher: {
-		entityId: string;
-		fn: () => unknown;
-		entityLot: EntityLot;
-		partialStatus?: boolean | null;
-	};
 }) => {
 	const [activeImageId, setActiveImageId] = useState(0);
 	const fallbackImageUrl = useFallbackImageUrl();
-
-	const { isPartialStatusActive } = usePartialStatusMonitor({
-		onUpdate: props.partialDetailsFetcher.fn,
-		externalLinkSource: props.externalLink.source,
-		entityId: props.partialDetailsFetcher.entityId,
-		entityLot: props.partialDetailsFetcher.entityLot,
-		partialStatus: props.partialDetailsFetcher.partialStatus,
-	});
 
 	const images = [...props.assets.remoteImages, ...props.assets.s3Images];
 
@@ -165,7 +147,7 @@ export const MediaDetailsLayout = (props: {
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>
 				<Group wrap="nowrap">
-					{isPartialStatusActive ? <Loader size="sm" /> : null}
+					{props.isPartialStatusActive ? <Loader size="sm" /> : null}
 					<Title id="media-title">{props.title}</Title>
 				</Group>
 				{props.children}

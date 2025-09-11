@@ -44,7 +44,7 @@ impl MiscellaneousMetadataQueryResolver {
         &self,
         gql_ctx: &Context<'_>,
         metadata_id: String,
-    ) -> Result<UserMetadataDetails> {
+    ) -> Result<CachedResponse<UserMetadataDetails>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         Ok(service.user_metadata_details(user_id, metadata_id).await?)
     }

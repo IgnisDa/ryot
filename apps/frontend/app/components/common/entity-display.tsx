@@ -33,19 +33,20 @@ export const BaseEntityDisplayItem = (props: {
 	name?: string;
 	altName?: string;
 	progress?: string;
-	isLoading: boolean;
 	imageClassName?: string;
 	highlightName?: boolean;
 	highlightImage?: boolean;
 	imageUrl?: string | null;
+	isDetailsLoading: boolean;
 	innerRef?: Ref<HTMLDivElement>;
+	isPartialStatusActive?: boolean;
 	labels?: { right?: ReactNode; left?: ReactNode };
 	onImageClickBehavior: [string, (() => Promise<void>)?];
 	imageOverlay?: {
-		topRight?: ReactNode;
 		topLeft?: ReactNode;
-		bottomRight?: ReactNode;
+		topRight?: ReactNode;
 		bottomLeft?: ReactNode;
+		bottomRight?: ReactNode;
 	};
 }) => {
 	const coreDetails = useCoreDetails();
@@ -96,7 +97,7 @@ export const BaseEntityDisplayItem = (props: {
 									},
 								}}
 								fallbackSrc={useFallbackImageUrl(
-									props.isLoading
+									props.isDetailsLoading
 										? "Loading..."
 										: props.name
 											? getInitials(props.name)
@@ -145,7 +146,7 @@ export const BaseEntityDisplayItem = (props: {
 					</Center>
 				) : null}
 			</Box>
-			{props.isLoading ? (
+			{props.isDetailsLoading ? (
 				<>
 					<Skeleton height={22} mt={10} />
 					<Skeleton height={22} mt={8} />
@@ -172,16 +173,18 @@ export const BaseEntityDisplayItem = (props: {
 							{props.labels?.right}
 						</Text>
 					</Flex>
-					<Flex mb="xs" align="center" justify="space-between">
-						<Text
-							w="100%"
-							truncate
-							fw="bold"
-							c={props.highlightName ? "yellow" : undefined}
-						>
-							{props.altName ?? props.name}
-						</Text>
-					</Flex>
+					<Text
+						mb="xs"
+						w="100%"
+						truncate
+						fw="bold"
+						c={props.highlightName ? "yellow" : undefined}
+						className={
+							props.isPartialStatusActive ? classes.fadeInOut : undefined
+						}
+					>
+						{props.altName ?? props.name}
+					</Text>
 				</Flex>
 			)}
 		</Flex>

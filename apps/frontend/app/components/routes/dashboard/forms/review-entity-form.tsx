@@ -76,7 +76,7 @@ export const ReviewEntityForm = (props: {
 	>(
 		entityToReview?.existingReview?.podcastExtraInformation?.episode?.toString(),
 	);
-	const { data: metadataDetails } = useMetadataDetails(
+	const [{ data: metadataDetails }] = useMetadataDetails(
 		entityToReview?.entityId,
 		entityToReview?.entityLot === EntityLot.Metadata,
 	);

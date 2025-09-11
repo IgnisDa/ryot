@@ -9,7 +9,7 @@ export const MetadataCreatorDisplay = (props: {
 	data: MetadataCreator;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const { data } = usePersonDetails(
+	const [{ data }, isPartialStatusActive] = usePersonDetails(
 		props.data.idOrName,
 		inViewport && !props.data.isFree,
 	);
@@ -24,6 +24,7 @@ export const MetadataCreatorDisplay = (props: {
 		<BaseEntityDisplay
 			ref={ref}
 			title={title}
+			isPartialStatusActive={isPartialStatusActive}
 			image={data?.details.assets.remoteImages.at(0) || undefined}
 			link={
 				props.data.isFree

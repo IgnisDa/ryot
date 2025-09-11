@@ -375,52 +375,58 @@ query PeopleSearch($input: PeopleSearchInput!) {
 
 query UserMetadataGroupDetails($metadataGroupId: String!) {
 	userMetadataGroupDetails(metadataGroupId: $metadataGroupId) {
-		hasInteracted
-		averageRating
-		isRecentlyConsumed
-		reviews {
-			...ReviewItemPart
-		}
-		collections {
-			...CollectionToEntityDetailsPart
+		response {
+			hasInteracted
+			averageRating
+			isRecentlyConsumed
+			reviews {
+				...ReviewItemPart
+			}
+			collections {
+				...CollectionToEntityDetailsPart
+			}
 		}
 	}
 }
 
 query UserPersonDetails($personId: String!) {
 	userPersonDetails(personId: $personId) {
-		hasInteracted
-		averageRating
-		isRecentlyConsumed
-		collections {
-			...CollectionToEntityDetailsPart
-		}
-		reviews {
-			...ReviewItemPart
+		response {
+			hasInteracted
+			averageRating
+			isRecentlyConsumed
+			collections {
+				...CollectionToEntityDetailsPart
+			}
+			reviews {
+				...ReviewItemPart
+			}
 		}
 	}
 }
 
 query UserWorkoutDetails($workoutId: String!) {
 	userWorkoutDetails(workoutId: $workoutId) {
-		metadataConsumed
-		collections {
-			...CollectionToEntityDetailsPart
-		}
-		details {
-			id
-			name
-			endTime
-			duration
-			startTime
-			templateId
-			repeatedFrom
-			caloriesBurnt
-			summary {
-				...WorkoutSummaryPart
+		response {
+			metadataConsumed
+			collections {
+				...CollectionToEntityDetailsPart
 			}
-			information {
-				...WorkoutInformationPart
+			details {
+				id
+				name
+				endTime
+				duration
+				startTime
+				templateId
+				repeatedFrom
+				caloriesBurnt
+				summary {
+					...WorkoutSummaryPart
+				}
+				information {
+					...WorkoutInformationPart
+				}
 			}
 		}
 	}
@@ -440,18 +446,20 @@ query UserWorkoutsList($input: UserTemplatesOrWorkoutsListInput!) {
 
 query UserWorkoutTemplateDetails($workoutTemplateId: String!) {
 	userWorkoutTemplateDetails(workoutTemplateId: $workoutTemplateId) {
-		collections {
-			...CollectionToEntityDetailsPart
-		}
-		details {
-			id
-			name
-			createdOn
-			summary {
-				...WorkoutSummaryPart
+		response {
+			collections {
+				...CollectionToEntityDetailsPart
 			}
-			information {
-				...WorkoutInformationPart
+			details {
+				id
+				name
+				createdOn
+				summary {
+					...WorkoutSummaryPart
+				}
+				information {
+					...WorkoutInformationPart
+				}
 			}
 		}
 	}

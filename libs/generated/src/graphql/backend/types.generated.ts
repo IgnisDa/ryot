@@ -190,10 +190,40 @@ export type CachedUserMeasurementsListResponse = {
   response: Array<UserMeasurement>;
 };
 
+export type CachedUserMetadataDetailsResponse = {
+  __typename?: 'CachedUserMetadataDetailsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: UserMetadataDetails;
+};
+
+export type CachedUserMetadataGroupDetailsResponse = {
+  __typename?: 'CachedUserMetadataGroupDetailsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: UserMetadataGroupDetails;
+};
+
 export type CachedUserMetadataRecommendationsResponse = {
   __typename?: 'CachedUserMetadataRecommendationsResponse';
   cacheId: Scalars['UUID']['output'];
   response: Array<Scalars['String']['output']>;
+};
+
+export type CachedUserPersonDetailsResponse = {
+  __typename?: 'CachedUserPersonDetailsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: UserPersonDetails;
+};
+
+export type CachedUserWorkoutDetailsResponse = {
+  __typename?: 'CachedUserWorkoutDetailsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: UserWorkoutDetails;
+};
+
+export type CachedUserWorkoutTemplateDetailsResponse = {
+  __typename?: 'CachedUserWorkoutTemplateDetailsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: UserWorkoutTemplateDetails;
 };
 
 export type ChangeCollectionToEntitiesInput = {
@@ -2117,9 +2147,9 @@ export type QueryRoot = {
   /** Get all the measurements for a user. */
   userMeasurementsList: CachedUserMeasurementsListResponse;
   /** Get details that can be displayed to a user for a media. */
-  userMetadataDetails: UserMetadataDetails;
+  userMetadataDetails: CachedUserMetadataDetailsResponse;
   /** Get details that can be displayed to a user for a metadata group. */
-  userMetadataGroupDetails: UserMetadataGroupDetails;
+  userMetadataGroupDetails: CachedUserMetadataGroupDetailsResponse;
   /** Get paginated list of metadata groups. */
   userMetadataGroupsList: CachedSearchIdResponse;
   /** Get all the media items related to a user for a specific media type. */
@@ -2131,13 +2161,13 @@ export type QueryRoot = {
   /** Get paginated list of people. */
   userPeopleList: CachedSearchIdResponse;
   /** Get details that can be displayed to a user for a creator. */
-  userPersonDetails: UserPersonDetails;
+  userPersonDetails: CachedUserPersonDetailsResponse;
   /** Get upcoming calendar events for the given filter. */
   userUpcomingCalendarEvents: Array<GraphqlCalendarEvent>;
   /** Get details about a workout. */
-  userWorkoutDetails: UserWorkoutDetails;
+  userWorkoutDetails: CachedUserWorkoutDetailsResponse;
   /** Get information about a workout template. */
-  userWorkoutTemplateDetails: UserWorkoutTemplateDetails;
+  userWorkoutTemplateDetails: CachedUserWorkoutTemplateDetailsResponse;
   /** Get a paginated list of templates created by the user. */
   userWorkoutTemplatesList: CachedSearchIdResponse;
   /** Get a paginated list of workouts done by the user. */
@@ -2575,6 +2605,7 @@ export type UpdateUserExerciseSettings = {
 export type UpdateUserInput = {
   adminAccessToken?: InputMaybe<Scalars['String']['input']>;
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
+  isOnboardingTourCompleted?: InputMaybe<Scalars['Boolean']['input']>;
   lot?: InputMaybe<UserLot>;
   userId: Scalars['String']['input'];
   username?: InputMaybe<Scalars['String']['input']>;
@@ -2671,6 +2702,7 @@ export type UserExercisesListInput = {
 
 export type UserExtraInformation = {
   __typename?: 'UserExtraInformation';
+  isOnboardingTourCompleted: Scalars['Boolean']['output'];
   scheduledForWorkoutRevision: Scalars['Boolean']['output'];
 };
 

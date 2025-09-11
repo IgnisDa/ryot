@@ -180,6 +180,7 @@ export const ExerciseDisplay = (props: {
 								) : null}
 								<ActionIcon
 									variant="transparent"
+									onClick={() => toggleExerciseCollapse()}
 									style={{
 										transition: "rotate 0.3s",
 										rotate: exercise.isCollapsed ? "180deg" : undefined,
@@ -188,7 +189,6 @@ export const ExerciseDisplay = (props: {
 										.with("complete", () => "green")
 										.with("in-progress", () => "blue")
 										.otherwise(() => undefined)}
-									onClick={() => toggleExerciseCollapse()}
 								>
 									<IconChevronUp />
 								</ActionIcon>

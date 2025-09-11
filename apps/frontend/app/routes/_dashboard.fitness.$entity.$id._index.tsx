@@ -16,15 +16,13 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { useDisclosure, useInViewport } from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	DeleteUserWorkoutDocument,
 	DeleteUserWorkoutTemplateDocument,
 	EntityLot,
 	UpdateUserWorkoutAttributesDocument,
-	UserWorkoutDetailsDocument,
-	UserWorkoutTemplateDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -50,7 +48,8 @@ import {
 	IconWeight,
 	IconZzz,
 } from "@tabler/icons-react";
-import { type ReactNode, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { type ReactNode, useMemo, useState } from "react";
 import { Form, Link, data, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -60,6 +59,7 @@ import { z } from "zod";
 import {
 	DisplayCollectionToEntity,
 	ProRequiredAlert,
+	SkeletonLoader,
 } from "~/components/common";
 import { ExerciseHistory } from "~/components/fitness/components";
 import { WorkoutRevisionScheduledAlert } from "~/components/fitness/display-items";
@@ -78,7 +78,11 @@ import {
 	useUserUnitSystem,
 } from "~/lib/shared/hooks";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
-import { duplicateOldWorkout } from "~/lib/state/fitness";
+import {
+	duplicateOldWorkout,
+	getWorkoutDetailsQuery,
+	getWorkoutTemplateDetailsQuery,
+} from "~/lib/state/fitness";
 import { useFullscreenImage } from "~/lib/state/general";
 import { useAddEntityToCollections } from "~/lib/state/media";
 import { FitnessAction, FitnessEntity } from "~/lib/types";
@@ -89,84 +93,12 @@ import {
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.$entity.$id._index";
 
-export const loader = async ({ request, params }: Route.LoaderArgs) => {
+export const loader = async ({ params }: Route.LoaderArgs) => {
 	const { id: entityId, entity } = parseParameters(
 		params,
 		z.object({ id: z.string(), entity: z.enum(FitnessEntity) }),
 	);
-	const resp = await match(entity)
-		.with(FitnessEntity.Workouts, async () => {
-			const [{ userWorkoutDetails }] = await Promise.all([
-				serverGqlService.authenticatedRequest(
-					request,
-					UserWorkoutDetailsDocument,
-					{ workoutId: entityId },
-				),
-			]);
-			let repeatedWorkout = null;
-			if (userWorkoutDetails.details.repeatedFrom) {
-				const { userWorkoutDetails: repeatedWorkoutData } =
-					await serverGqlService.authenticatedRequest(
-						request,
-						UserWorkoutDetailsDocument,
-						{ workoutId: userWorkoutDetails.details.repeatedFrom },
-					);
-				repeatedWorkout = {
-					id: userWorkoutDetails.details.repeatedFrom,
-					name: repeatedWorkoutData.details.name,
-					doneOn: repeatedWorkoutData.details.startTime,
-				};
-			}
-			let template = null;
-			if (userWorkoutDetails.details.templateId) {
-				const { userWorkoutTemplateDetails } =
-					await serverGqlService.authenticatedRequest(
-						request,
-						UserWorkoutTemplateDetailsDocument,
-						{ workoutTemplateId: userWorkoutDetails.details.templateId },
-					);
-				template = {
-					id: userWorkoutDetails.details.templateId,
-					name: userWorkoutTemplateDetails.details.name,
-				};
-			}
-			return {
-				template,
-				repeatedWorkout: repeatedWorkout,
-				collections: userWorkoutDetails.collections,
-				endTime: userWorkoutDetails.details.endTime,
-				summary: userWorkoutDetails.details.summary,
-				entityName: userWorkoutDetails.details.name,
-				duration: userWorkoutDetails.details.duration,
-				startTime: userWorkoutDetails.details.startTime,
-				information: userWorkoutDetails.details.information,
-				metadataConsumed: userWorkoutDetails.metadataConsumed,
-				caloriesBurnt: userWorkoutDetails.details.caloriesBurnt,
-			};
-		})
-		.with(FitnessEntity.Templates, async () => {
-			const [{ userWorkoutTemplateDetails }] = await Promise.all([
-				serverGqlService.authenticatedRequest(
-					request,
-					UserWorkoutTemplateDetailsDocument,
-					{ workoutTemplateId: entityId },
-				),
-			]);
-			return {
-				endTime: null,
-				template: null,
-				caloriesBurnt: null,
-				metadataConsumed: [],
-				repeatedWorkout: null,
-				collections: userWorkoutTemplateDetails.collections,
-				summary: userWorkoutTemplateDetails.details.summary,
-				entityName: userWorkoutTemplateDetails.details.name,
-				startTime: userWorkoutTemplateDetails.details.createdOn,
-				information: userWorkoutTemplateDetails.details.information,
-			};
-		})
-		.exhaustive();
-	return { entityId, entity, ...resp };
+	return { entityId, entity };
 };
 
 export const meta = () => {
@@ -233,20 +165,20 @@ const WorkoutAssetsList = (props: { images: string[]; videos: string[] }) => {
 
 	return (
 		<Avatar.Group>
-			{props.images.map((i) => (
+			{props.images.map((src) => (
 				<Avatar
-					key={i}
-					src={i}
+					key={src}
+					src={src}
 					style={{ cursor: "pointer" }}
-					onClick={() => setFullscreenImage({ src: i })}
+					onClick={() => setFullscreenImage({ src })}
 				/>
 			))}
-			{props.videos.map((v) => (
+			{props.videos.map((src) => (
 				<Avatar
-					key={v}
+					key={src}
 					name="Video"
 					style={{ cursor: "pointer" }}
-					onClick={() => setFullscreenImage({ src: v })}
+					onClick={() => setFullscreenImage({ src })}
 				/>
 			))}
 		</Avatar.Group>
@@ -254,34 +186,137 @@ const WorkoutAssetsList = (props: { images: string[]; videos: string[] }) => {
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
-	const userPreferences = useUserPreferences();
+	const coreDetails = useCoreDetails();
 	const unitSystem = useUserUnitSystem();
+	const userPreferences = useUserPreferences();
+	const { entityId, entity } = useLoaderData<typeof loader>();
 	const [
 		adjustTimeModalOpened,
 		{ open: adjustTimeModalOpen, close: adjustTimeModalClose },
 	] = useDisclosure(false);
 	const [metadataConsumedOpened, setMetadataConsumedOpened] = useLocalStorage(
-		`MetadataConsumedOpened-${loaderData.entityId}`,
+		`MetadataConsumedOpened-${entityId}`,
 		false,
 	);
 	const [isWorkoutLoading, setIsWorkoutLoading] = useState(false);
 	const startWorkout = useGetWorkoutStarter();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
+
+	const { data: workoutData } = useQuery({
+		...getWorkoutDetailsQuery(entityId),
+		enabled: entity === FitnessEntity.Workouts,
+	});
+
+	const { data: templateData } = useQuery({
+		...getWorkoutTemplateDetailsQuery(entityId),
+		enabled: entity === FitnessEntity.Templates,
+	});
+
+	const { data: repeatedWorkoutData } = useQuery({
+		...getWorkoutDetailsQuery(workoutData?.details.repeatedFrom || ""),
+		enabled: !!(
+			workoutData?.details.repeatedFrom && entity === FitnessEntity.Workouts
+		),
+	});
+
+	const { data: templateDetailsData } = useQuery({
+		...getWorkoutTemplateDetailsQuery(workoutData?.details.templateId || ""),
+		enabled: !!(
+			workoutData?.details.templateId && entity === FitnessEntity.Workouts
+		),
+	});
+
+	const loaderData = useMemo(() => {
+		const baseData = match(entity)
+			.with(FitnessEntity.Workouts, () => {
+				if (!workoutData) return null;
+
+				const repeatedWorkout =
+					repeatedWorkoutData && workoutData.details.repeatedFrom
+						? {
+								id: workoutData.details.repeatedFrom,
+								name: repeatedWorkoutData.details.name,
+								doneOn: repeatedWorkoutData.details.startTime,
+							}
+						: null;
+
+				const template =
+					templateDetailsData && workoutData.details.templateId
+						? {
+								id: workoutData.details.templateId,
+								name: templateDetailsData.details.name,
+							}
+						: null;
+
+				return {
+					entity,
+					template,
+					entityId,
+					repeatedWorkout,
+					collections: workoutData.collections,
+					endTime: workoutData.details.endTime,
+					summary: workoutData.details.summary,
+					entityName: workoutData.details.name,
+					duration: workoutData.details.duration,
+					startTime: workoutData.details.startTime,
+					information: workoutData.details.information,
+					metadataConsumed: workoutData.metadataConsumed,
+					caloriesBurnt: workoutData.details.caloriesBurnt,
+				};
+			})
+			.with(FitnessEntity.Templates, () => {
+				if (!templateData) return null;
+
+				return {
+					entity,
+					entityId,
+					endTime: null,
+					template: null,
+					caloriesBurnt: null,
+					metadataConsumed: [],
+					repeatedWorkout: null,
+					collections: templateData.collections,
+					summary: templateData.details.summary,
+					entityName: templateData.details.name,
+					startTime: templateData.details.createdOn,
+					information: templateData.details.information,
+				};
+			})
+			.exhaustive();
+
+		if (!baseData) return null;
+
+		const images = baseData.information.assets?.s3Images || [];
+		const videos = baseData.information.assets?.s3Videos || [];
+		const hasAssets = images.length > 0 || videos.length > 0;
+
+		return { ...baseData, images, videos, hasAssets };
+	}, [
+		entity,
+		entityId,
+		workoutData,
+		templateData,
+		repeatedWorkoutData,
+		templateDetailsData,
+	]);
+
+	if (!loaderData)
+		return (
+			<Container>
+				<SkeletonLoader />
+			</Container>
+		);
+
 	const entityLot = match(loaderData.entity)
 		.with(FitnessEntity.Workouts, () => EntityLot.Workout)
 		.with(FitnessEntity.Templates, () => EntityLot.WorkoutTemplate)
 		.exhaustive();
-	const images = loaderData.information.assets?.s3Images || [];
-	const videos = loaderData.information.assets?.s3Videos || [];
-	const hasAssets = images.length > 0 || videos.length > 0;
 
 	const performDecision = async (params: {
+		templateId?: string;
 		action: FitnessAction;
 		repeatedFromId?: string;
-		templateId?: string;
 		updateWorkoutId?: string;
 		updateWorkoutTemplateId?: string;
 	}) => {
@@ -298,13 +333,13 @@ export default function Page() {
 	};
 
 	return (
-		<>
+		<Container size="xs">
 			{loaderData.startTime && loaderData.endTime ? (
 				<Modal
+					centered
+					withCloseButton={false}
 					opened={adjustTimeModalOpened}
 					onClose={adjustTimeModalClose}
-					withCloseButton={false}
-					centered
 				>
 					<Form
 						replace
@@ -338,328 +373,320 @@ export default function Page() {
 					</Form>
 				</Modal>
 			) : null}
-			<Container size="xs">
-				<Stack>
-					<WorkoutRevisionScheduledAlert />
-					<Group justify="space-between" wrap="nowrap">
-						<Title>{loaderData.entityName}</Title>
-						<Menu shadow="md" position="bottom-end">
-							<Menu.Target>
-								<ActionIcon variant="transparent" loading={isWorkoutLoading}>
-									<IconDotsVertical />
-								</ActionIcon>
-							</Menu.Target>
-							<Menu.Dropdown>
-								{match(loaderData.entity)
-									.with(FitnessEntity.Templates, () => (
-										<>
-											<Menu.Item
-												onClick={() =>
-													performDecision({
-														action: FitnessAction.LogWorkout,
-														templateId: loaderData.entityId,
-													})
-												}
-												leftSection={<IconPlayerPlay size={14} />}
-											>
-												Start workout
-											</Menu.Item>
-											<Menu.Item
-												onClick={() =>
-													performDecision({
-														action: FitnessAction.CreateTemplate,
-														updateWorkoutTemplateId: loaderData.entityId,
-													})
-												}
-												leftSection={<IconPencil size={14} />}
-											>
-												Edit template
-											</Menu.Item>
-										</>
-									))
-									.with(FitnessEntity.Workouts, () => (
-										<>
-											<Menu.Item
-												onClick={() =>
-													performDecision({
-														action: FitnessAction.LogWorkout,
-														repeatedFromId: loaderData.entityId,
-													})
-												}
-												leftSection={<IconRepeat size={14} />}
-											>
-												Duplicate
-											</Menu.Item>
-											<Menu.Item
-												onClick={() =>
-													performDecision({
-														action: FitnessAction.UpdateWorkout,
-														updateWorkoutId: loaderData.entityId,
-													})
-												}
-												leftSection={<IconPencil size={14} />}
-											>
-												Edit workout
-											</Menu.Item>
-											<Menu.Item
-												onClick={adjustTimeModalOpen}
-												leftSection={<IconClockEdit size={14} />}
-											>
-												Adjust time
-											</Menu.Item>
-											<Menu.Item
-												onClick={() => {
-													if (!coreDetails.isServerKeyValidated) {
-														notifications.show({
-															color: "red",
-															message: PRO_REQUIRED_MESSAGE,
-														});
-														return;
-													}
-													performDecision({
-														action: FitnessAction.CreateTemplate,
+			<Stack>
+				<WorkoutRevisionScheduledAlert />
+				<Group justify="space-between" wrap="nowrap">
+					<Title>{loaderData.entityName}</Title>
+					<Menu shadow="md" position="bottom-end">
+						<Menu.Target>
+							<ActionIcon variant="transparent" loading={isWorkoutLoading}>
+								<IconDotsVertical />
+							</ActionIcon>
+						</Menu.Target>
+						<Menu.Dropdown>
+							{match(loaderData.entity)
+								.with(FitnessEntity.Templates, () => (
+									<>
+										<Menu.Item
+											onClick={() =>
+												performDecision({
+													action: FitnessAction.LogWorkout,
+													templateId: loaderData.entityId,
+												})
+											}
+											leftSection={<IconPlayerPlay size={14} />}
+										>
+											Start workout
+										</Menu.Item>
+										<Menu.Item
+											onClick={() =>
+												performDecision({
+													action: FitnessAction.CreateTemplate,
+													updateWorkoutTemplateId: loaderData.entityId,
+												})
+											}
+											leftSection={<IconPencil size={14} />}
+										>
+											Edit template
+										</Menu.Item>
+									</>
+								))
+								.with(FitnessEntity.Workouts, () => (
+									<>
+										<Menu.Item
+											onClick={() =>
+												performDecision({
+													repeatedFromId: entityId,
+													action: FitnessAction.LogWorkout,
+												})
+											}
+											leftSection={<IconRepeat size={14} />}
+										>
+											Duplicate
+										</Menu.Item>
+										<Menu.Item
+											onClick={() =>
+												performDecision({
+													updateWorkoutId: entityId,
+													action: FitnessAction.UpdateWorkout,
+												})
+											}
+											leftSection={<IconPencil size={14} />}
+										>
+											Edit workout
+										</Menu.Item>
+										<Menu.Item
+											onClick={adjustTimeModalOpen}
+											leftSection={<IconClockEdit size={14} />}
+										>
+											Adjust time
+										</Menu.Item>
+										<Menu.Item
+											onClick={() => {
+												if (!coreDetails.isServerKeyValidated) {
+													notifications.show({
+														color: "red",
+														message: PRO_REQUIRED_MESSAGE,
 													});
-												}}
-												leftSection={<IconTemplate size={14} />}
-											>
-												Create template
-											</Menu.Item>
-										</>
-									))
-									.exhaustive()}
-								<Menu.Item
-									leftSection={<IconArchive size={14} />}
-									onClick={() =>
-										setAddEntityToCollectionsData({
-											entityLot,
-											entityId: loaderData.entityId,
-										})
-									}
-								>
-									Add to collection
-								</Menu.Item>
-								<Form
-									method="POST"
-									action={withQuery(".", { intent: "delete" })}
-								>
-									<input
-										type="hidden"
-										name={match(loaderData.entity)
-											.with(FitnessEntity.Workouts, () => "workoutId")
-											.with(FitnessEntity.Templates, () => "templateId")
-											.exhaustive()}
-										value={loaderData.entityId}
-									/>
-									<input
-										type="hidden"
-										name="entity"
-										value={loaderData.entity}
-									/>
-									<Menu.Item
-										onClick={(e) => {
-											const form = e.currentTarget.form;
-											e.preventDefault();
-											openConfirmationModal(
-												`Are you sure you want to delete this ${loaderData.entity}? This action is not reversible.`,
-												() => submit(form),
-											);
-										}}
-										color="red"
-										leftSection={<IconTrash size={14} />}
-										type="submit"
-									>
-										Delete
-									</Menu.Item>
-								</Form>
-							</Menu.Dropdown>
-						</Menu>
-					</Group>
-					{loaderData.collections.length > 0 ? (
-						<Group>
-							{loaderData.collections.map((col) => (
-								<DisplayCollectionToEntity
-									col={col}
-									key={col.id}
-									entityLot={entityLot}
-									entityId={loaderData.entityId}
-								/>
-							))}
-						</Group>
-					) : null}
-					{loaderData.repeatedWorkout ? (
-						<Box>
-							<Text c="dimmed" span size="sm">
-								Repeated from{" "}
-							</Text>
-							<Anchor
-								size="sm"
-								component={Link}
-								to={$path("/fitness/:entity/:id", {
-									entity: "workouts",
-									id: loaderData.repeatedWorkout.id,
-								})}
-							>
-								{loaderData.repeatedWorkout.name}
-							</Anchor>
-							<Text c="dimmed" span size="sm">
-								{" "}
-								on{" "}
-								{dayjsLib(loaderData.repeatedWorkout.doneOn).format(
-									"dddd, LLL",
-								)}
-							</Text>
-						</Box>
-					) : null}
-					{loaderData.template ? (
-						<Box>
-							<Text c="dimmed" span size="sm">
-								Template used:
-							</Text>{" "}
-							<Anchor
-								size="sm"
-								component={Link}
-								to={$path("/fitness/:entity/:id", {
-									entity: "templates",
-									id: loaderData.template.id,
-								})}
-							>
-								{loaderData.template.name}
-							</Anchor>
-						</Box>
-					) : null}
-					<Box>
-						<Text c="dimmed" span>
-							Done on{" "}
-						</Text>
-						<Text span>
-							{dayjsLib(loaderData.startTime).format("dddd, LLL")}
-						</Text>
-						<SimpleGrid mt="xs" cols={{ base: 3, md: 4, xl: 5 }}>
-							{loaderData.endTime && loaderData.startTime ? (
-								<DisplayStat
-									icon={<IconClock size={16} />}
-									data={humanizeDuration(
-										dayjsLib
-											.duration(loaderData.duration, "second")
-											.asMilliseconds(),
-										{
-											round: true,
-											units: ["h", "m"],
-										},
-									)}
-								/>
-							) : null}
-							{loaderData.summary.total ? (
-								<>
-									{Number(loaderData.summary.total.weight) !== 0 ? (
-										<DisplayStat
-											icon={<IconWeight size={16} />}
-											data={displayWeightWithUnit(
-												unitSystem,
-												loaderData.summary.total.weight,
-											)}
-										/>
-									) : null}
-									{Number(loaderData.summary.total.distance) > 0 ? (
-										<DisplayStat
-											icon={<IconRoad size={16} />}
-											data={displayDistanceWithUnit(
-												unitSystem,
-												loaderData.summary.total.distance,
-											)}
-										/>
-									) : null}
-									<DisplayStat
-										icon={<IconBarbell size={16} />}
-										data={`${loaderData.summary.exercises.length} Exercises`}
-									/>
-									{Number(loaderData.summary.total.personalBestsAchieved) !==
-									0 ? (
-										<DisplayStat
-											icon={<IconTrophy size={16} />}
-											data={`${loaderData.summary.total.personalBestsAchieved} PRs`}
-										/>
-									) : null}
-									{loaderData.summary.total.restTime > 0 ? (
-										<DisplayStat
-											icon={<IconZzz size={16} />}
-											data={humanizeDuration(
-												loaderData.summary.total.restTime * 1e3,
-												{ round: true, units: ["m", "s"] },
-											)}
-										/>
-									) : null}
-									{loaderData.caloriesBurnt &&
-									Number(loaderData.caloriesBurnt) > 0 ? (
-										<DisplayStat
-											icon={<IconFlame size={16} />}
-											data={`${loaderData.caloriesBurnt} ${userPreferences.fitness.logging.caloriesBurntUnit}`}
-										/>
-									) : null}
-								</>
-							) : null}
-						</SimpleGrid>
-					</Box>
-					{loaderData.metadataConsumed.length > 0 ? (
-						<Stack gap="xs">
-							<Anchor
-								size="xs"
+													return;
+												}
+												performDecision({
+													action: FitnessAction.CreateTemplate,
+												});
+											}}
+											leftSection={<IconTemplate size={14} />}
+										>
+											Create template
+										</Menu.Item>
+									</>
+								))
+								.exhaustive()}
+							<Menu.Item
+								leftSection={<IconArchive size={14} />}
 								onClick={() =>
-									setMetadataConsumedOpened(!metadataConsumedOpened)
+									setAddEntityToCollectionsData({ entityId, entityLot })
 								}
 							>
-								Consumed {loaderData.metadataConsumed.length} items during this
-								workout [{metadataConsumedOpened ? "collapse" : "expand"}]
-							</Anchor>
-							<Collapse in={metadataConsumedOpened}>
-								{coreDetails.isServerKeyValidated ? (
-									<SimpleGrid
-										verticalSpacing="xs"
-										cols={{ base: 7, sm: 8, md: 10 }}
-									>
-										{loaderData.metadataConsumed.map((m) => (
-											<ConsumedMetadataDisplay key={m} metadataId={m} />
-										))}
-									</SimpleGrid>
-								) : (
-									<ProRequiredAlert />
+								Add to collection
+							</Menu.Item>
+							<Form method="POST" action={withQuery(".", { intent: "delete" })}>
+								<input
+									type="hidden"
+									value={entityId}
+									name={match(entity)
+										.with(FitnessEntity.Workouts, () => "workoutId")
+										.with(FitnessEntity.Templates, () => "templateId")
+										.exhaustive()}
+								/>
+								<input type="hidden" name="entity" value={entity} />
+								<Menu.Item
+									onClick={(e) => {
+										const form = e.currentTarget.form;
+										e.preventDefault();
+										openConfirmationModal(
+											`Are you sure you want to delete this ${entity}? This action is not reversible.`,
+											() => submit(form),
+										);
+									}}
+									color="red"
+									leftSection={<IconTrash size={14} />}
+									type="submit"
+								>
+									Delete
+								</Menu.Item>
+							</Form>
+						</Menu.Dropdown>
+					</Menu>
+				</Group>
+				{loaderData.collections.length > 0 ? (
+					<Group>
+						{loaderData.collections.map((col) => (
+							<DisplayCollectionToEntity
+								col={col}
+								key={col.id}
+								entityId={entityId}
+								entityLot={entityLot}
+							/>
+						))}
+					</Group>
+				) : null}
+				{loaderData.repeatedWorkout ? (
+					<Box>
+						<Text c="dimmed" span size="sm">
+							Repeated from{" "}
+						</Text>
+						<Anchor
+							size="sm"
+							component={Link}
+							to={$path("/fitness/:entity/:id", {
+								entity: "workouts",
+								id: loaderData.repeatedWorkout.id,
+							})}
+						>
+							{loaderData.repeatedWorkout.name}
+						</Anchor>
+						<Text c="dimmed" span size="sm">
+							{" "}
+							on{" "}
+							{dayjsLib(loaderData.repeatedWorkout.doneOn).format("dddd, LLL")}
+						</Text>
+					</Box>
+				) : null}
+				{loaderData.template ? (
+					<Box>
+						<Text c="dimmed" span size="sm">
+							Template used:
+						</Text>{" "}
+						<Anchor
+							size="sm"
+							component={Link}
+							to={$path("/fitness/:entity/:id", {
+								entity: "templates",
+								id: loaderData.template.id,
+							})}
+						>
+							{loaderData.template.name}
+						</Anchor>
+					</Box>
+				) : null}
+				<Box>
+					<Text c="dimmed" span>
+						{loaderData.entity === FitnessEntity.Templates
+							? "Created on"
+							: "Done on"}{" "}
+					</Text>
+					<Text span>{dayjsLib(loaderData.startTime).format("dddd, LLL")}</Text>
+					<SimpleGrid mt="xs" cols={{ base: 3, md: 4, xl: 5 }}>
+						{loaderData.endTime && loaderData.startTime ? (
+							<DisplayStat
+								icon={<IconClock size={16} />}
+								data={humanizeDuration(
+									dayjsLib
+										.duration(loaderData.duration, "second")
+										.asMilliseconds(),
+									{
+										round: true,
+										units: ["h", "m"],
+									},
 								)}
-							</Collapse>
-						</Stack>
-					) : null}
-					{loaderData.information.comment ? (
-						<Box>
-							<Text c="dimmed" span>
-								Commented:{" "}
-							</Text>
-							<Text span>{loaderData.information.comment}</Text>
-						</Box>
-					) : null}
-					{hasAssets ? (
-						<WorkoutAssetsList images={images} videos={videos} />
-					) : null}
-					{loaderData.information.exercises.map((exercise, idx) => (
-						<ExerciseHistory
-							exerciseIdx={idx}
-							key={`${exercise.id}-${idx}`}
-							entityId={loaderData.entityId}
-							entityType={loaderData.entity}
-							supersetInformation={loaderData.information.supersets}
-						/>
-					))}
-				</Stack>
-			</Container>
-		</>
+							/>
+						) : null}
+						{loaderData.summary.total ? (
+							<>
+								{Number(loaderData.summary.total.weight) !== 0 ? (
+									<DisplayStat
+										icon={<IconWeight size={16} />}
+										data={displayWeightWithUnit(
+											unitSystem,
+											loaderData.summary.total.weight,
+										)}
+									/>
+								) : null}
+								{Number(loaderData.summary.total.distance) > 0 ? (
+									<DisplayStat
+										icon={<IconRoad size={16} />}
+										data={displayDistanceWithUnit(
+											unitSystem,
+											loaderData.summary.total.distance,
+										)}
+									/>
+								) : null}
+								<DisplayStat
+									icon={<IconBarbell size={16} />}
+									data={`${loaderData.summary.exercises.length} Exercises`}
+								/>
+								{Number(loaderData.summary.total.personalBestsAchieved) !==
+								0 ? (
+									<DisplayStat
+										icon={<IconTrophy size={16} />}
+										data={`${loaderData.summary.total.personalBestsAchieved} PRs`}
+									/>
+								) : null}
+								{loaderData.summary.total.restTime > 0 ? (
+									<DisplayStat
+										icon={<IconZzz size={16} />}
+										data={humanizeDuration(
+											loaderData.summary.total.restTime * 1e3,
+											{ round: true, units: ["m", "s"] },
+										)}
+									/>
+								) : null}
+								{loaderData.caloriesBurnt &&
+								Number(loaderData.caloriesBurnt) > 0 ? (
+									<DisplayStat
+										icon={<IconFlame size={16} />}
+										data={`${loaderData.caloriesBurnt} ${userPreferences.fitness.logging.caloriesBurntUnit}`}
+									/>
+								) : null}
+							</>
+						) : null}
+					</SimpleGrid>
+				</Box>
+				{loaderData.metadataConsumed.length > 0 ? (
+					<Stack gap="xs">
+						<Anchor
+							size="xs"
+							onClick={() => setMetadataConsumedOpened(!metadataConsumedOpened)}
+						>
+							Consumed {loaderData.metadataConsumed.length} items during this
+							workout [{metadataConsumedOpened ? "collapse" : "expand"}]
+						</Anchor>
+						<Collapse in={metadataConsumedOpened}>
+							{coreDetails.isServerKeyValidated ? (
+								<SimpleGrid
+									verticalSpacing="xs"
+									cols={{ base: 7, sm: 8, md: 10 }}
+								>
+									{metadataConsumedOpened &&
+										loaderData.metadataConsumed.map((m) => (
+											<ConsumedMetadataDisplay
+												key={m}
+												metadataId={m}
+												enabled={metadataConsumedOpened}
+											/>
+										))}
+								</SimpleGrid>
+							) : (
+								<ProRequiredAlert />
+							)}
+						</Collapse>
+					</Stack>
+				) : null}
+				{loaderData.information.comment ? (
+					<Box>
+						<Text c="dimmed" span>
+							Commented:{" "}
+						</Text>
+						<Text span>{loaderData.information.comment}</Text>
+					</Box>
+				) : null}
+				{loaderData.hasAssets ? (
+					<WorkoutAssetsList
+						images={loaderData.images}
+						videos={loaderData.videos}
+					/>
+				) : null}
+				{loaderData.information.exercises.map((exercise, idx) => (
+					<ExerciseHistory
+						exerciseIdx={idx}
+						entityId={entityId}
+						fitnessEntityType={entity}
+						key={`${exercise.id}-${idx}`}
+						supersetInformation={loaderData.information.supersets}
+					/>
+				))}
+			</Stack>
+		</Container>
 	);
 }
 
 const ConsumedMetadataDisplay = (props: {
+	enabled: boolean;
 	metadataId: string;
 }) => {
-	const { ref, inViewport } = useInViewport();
-	const { data: metadataDetails } = useMetadataDetails(
+	const [{ data: metadataDetails }] = useMetadataDetails(
 		props.metadataId,
-		inViewport,
+		props.enabled,
 	);
 
 	const images = [
@@ -668,7 +695,7 @@ const ConsumedMetadataDisplay = (props: {
 	];
 
 	return (
-		<Link to={$path("/media/item/:id", { id: props.metadataId })} ref={ref}>
+		<Link to={$path("/media/item/:id", { id: props.metadataId })}>
 			<Tooltip label={metadataDetails?.title}>
 				<Avatar src={images.at(0)} />
 			</Tooltip>

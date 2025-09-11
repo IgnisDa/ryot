@@ -40,6 +40,7 @@ import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useDashboardLayoutData,
+	useInvalidateUserDetails,
 	useUserDetails,
 } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
@@ -96,11 +97,12 @@ export default function Page() {
 }
 
 const PasswordSection = () => {
+	const navigate = useNavigate();
 	const submit = useConfirmSubmit();
 	const userDetails = useUserDetails();
 	const dashboardData = useDashboardLayoutData();
-	const navigate = useNavigate();
 	const isEditDisabled = dashboardData.isDemoInstance;
+	const invalidateUserDetails = useInvalidateUserDetails();
 
 	const generatePasswordChangeSessionMutation = useMutation({
 		mutationFn: async () => {
@@ -157,7 +159,10 @@ const PasswordSection = () => {
 							e.preventDefault();
 							openConfirmationModal(
 								"Are you sure you want to update your profile?",
-								() => submit(form),
+								async () => {
+									submit(form);
+									await invalidateUserDetails();
+								},
 							);
 						}}
 					>

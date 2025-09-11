@@ -3,7 +3,12 @@ import { getActionIntent } from "@ryot/ts-utils";
 import { data, redirect } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { colorSchemeCookie, serverGqlService } from "~/lib/utilities.server";
+import { queryClient, queryFactory } from "~/lib/shared/react-query";
+import {
+	colorSchemeCookie,
+	getAuthorizationCookie,
+	serverGqlService,
+} from "~/lib/utilities.server";
 import type { Route } from "./+types/actions";
 
 export const loader = async () => redirect($path("/"));
@@ -14,6 +19,12 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	let returnData = {};
 	const headers = new Headers();
 	await match(intent)
+		.with("invalidateUserDetails", () => {
+			const cookie = getAuthorizationCookie(request);
+			queryClient.removeQueries({
+				queryKey: queryFactory.miscellaneous.userDetails(cookie).queryKey,
+			});
+		})
 		.with("deleteS3Asset", async () => {
 			const key = formData.get("key") as string;
 			const { deleteS3Object } = await serverGqlService.authenticatedRequest(
@@ -36,5 +47,3 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.run();
 	return data(returnData, { headers });
 };
-
-// No additional schemas needed since comment actions are now handled via useMutation on the client.

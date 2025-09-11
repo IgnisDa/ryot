@@ -13,7 +13,6 @@ import {
 	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { processSubmission } from "@ryot/ts-utils";
-import Cookies from "js-cookie";
 import { Form, data, useNavigate } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
@@ -23,6 +22,7 @@ import {
 	useDashboardLayoutData,
 	useIsMobile,
 	useIsOnboardingTourCompleted,
+	useMarkUserOnboardingTourStatus,
 	useUserDetails,
 } from "~/lib/shared/hooks";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
@@ -56,10 +56,10 @@ const jobSchema = z.object({
 
 export default function Page() {
 	const navigate = useNavigate();
-	const dashboardData = useDashboardLayoutData();
 	const isMobile = useIsMobile();
-	const isOnboardingTourCompleted = useIsOnboardingTourCompleted();
 	const { startOnboardingTour } = useOnboardingTour();
+	const isOnboardingTourCompleted = useIsOnboardingTourCompleted();
+	const markUserOnboardingStatus = useMarkUserOnboardingTourStatus();
 
 	return (
 		<Container size="lg">
@@ -85,9 +85,7 @@ export default function Page() {
 										variant="light"
 										onClick={async () => {
 											await startOnboardingTour();
-											Cookies.remove(
-												dashboardData.onboardingTourCompletedCookie,
-											);
+											await markUserOnboardingStatus.mutateAsync(false);
 											navigate("/");
 										}}
 									>

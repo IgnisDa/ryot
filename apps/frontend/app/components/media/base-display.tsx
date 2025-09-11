@@ -1,9 +1,11 @@
 import { Anchor, Avatar, Box, ScrollArea, Text } from "@mantine/core";
+import { useInViewport } from "@mantine/hooks";
 import type { ReactNode, Ref } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { MEDIA_DETAILS_HEIGHT } from "~/lib/shared/constants";
 import { useMetadataDetails, useUserMetadataDetails } from "~/lib/shared/hooks";
+import classes from "~/styles/common.module.css";
 
 const WrapperComponent = (props: { link?: string; children: ReactNode }) =>
 	props.link ? (
@@ -21,6 +23,7 @@ export const BaseEntityDisplay = (props: {
 	extraText?: string;
 	hasInteracted?: boolean;
 	ref?: Ref<HTMLDivElement>;
+	isPartialStatusActive?: boolean;
 }) => {
 	return (
 		<WrapperComponent link={props.link}>
@@ -42,6 +45,7 @@ export const BaseEntityDisplay = (props: {
 				lineClamp={1}
 				ref={props.ref}
 				c={props.hasInteracted ? "yellow" : "dimmed"}
+				className={props.isPartialStatusActive ? classes.fadeInOut : undefined}
 			>
 				{props.title} {props.extraText}
 			</Text>
@@ -53,9 +57,14 @@ export const PartialMetadataDisplay = (props: {
 	metadataId: string;
 	extraText?: string;
 }) => {
-	const { data: metadataDetails } = useMetadataDetails(props.metadataId);
+	const { ref, inViewport } = useInViewport();
+	const [{ data: metadataDetails }, isPartialStatusActive] = useMetadataDetails(
+		props.metadataId,
+		inViewport,
+	);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
+		inViewport,
 	);
 
 	const images = [
@@ -65,9 +74,11 @@ export const PartialMetadataDisplay = (props: {
 
 	return (
 		<BaseEntityDisplay
+			ref={ref}
 			image={images.at(0)}
 			extraText={props.extraText}
 			title={metadataDetails?.title || undefined}
+			isPartialStatusActive={isPartialStatusActive}
 			hasInteracted={userMetadataDetails?.hasInteracted}
 			link={$path("/media/item/:id", { id: props.metadataId })}
 		/>

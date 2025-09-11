@@ -269,14 +269,14 @@ const DisplayFitnessEntity = (props: {
 				.with(FitnessEntity.Workouts, () =>
 					clientGqlService
 						.request(UserWorkoutDetailsDocument, { workoutId: props.entityId })
-						.then(({ userWorkoutDetails }) => ({
-							name: userWorkoutDetails.details.name,
-							summary: userWorkoutDetails.details.summary,
-							timestamp: userWorkoutDetails.details.startTime,
-							information: userWorkoutDetails.details.information,
+						.then(({ userWorkoutDetails: { response } }) => ({
+							name: response.details.name,
+							summary: response.details.summary,
+							timestamp: response.details.startTime,
+							information: response.details.information,
 							detail: humanizeDuration(
 								dayjsLib
-									.duration(userWorkoutDetails.details.duration, "second")
+									.duration(response.details.duration, "second")
 									.asMilliseconds(),
 								{ round: true, units: ["h", "m"] },
 							),
@@ -287,12 +287,12 @@ const DisplayFitnessEntity = (props: {
 						.request(UserWorkoutTemplateDetailsDocument, {
 							workoutTemplateId: props.entityId,
 						})
-						.then(({ userWorkoutTemplateDetails }) => ({
-							name: userWorkoutTemplateDetails.details.name,
-							summary: userWorkoutTemplateDetails.details.summary,
-							timestamp: userWorkoutTemplateDetails.details.createdOn,
-							information: userWorkoutTemplateDetails.details.information,
-							detail: `${userWorkoutTemplateDetails.details.information.exercises.length} exercises`,
+						.then(({ userWorkoutTemplateDetails: { response } }) => ({
+							name: response.details.name,
+							summary: response.details.summary,
+							timestamp: response.details.createdOn,
+							information: response.details.information,
+							detail: `${response.details.information.exercises.length} exercises`,
 						})),
 				)
 				.exhaustive(),

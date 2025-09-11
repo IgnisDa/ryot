@@ -10,7 +10,10 @@ use media_models::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{BasicUserDetails, GraphqlPersonDetails, UserAnalytics};
+use crate::{
+    BasicUserDetails, GraphqlPersonDetails, UserAnalytics, UserMetadataDetails,
+    UserMetadataGroupDetails, UserPersonDetails, UserWorkoutDetails, UserWorkoutTemplateDetails,
+};
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(
@@ -42,6 +45,8 @@ pub struct SortInput<T: InputType + Default> {
 #[graphql(concrete(name = "CachedGenreDetailsResponse", params(GenreDetails)))]
 #[graphql(concrete(name = "CachedUserAnalyticsResponse", params(UserAnalytics)))]
 #[graphql(concrete(name = "CachedSearchIdResponse", params(UserMetadataListResponse)))]
+#[graphql(concrete(name = "CachedUserPersonDetailsResponse", params(UserPersonDetails)))]
+#[graphql(concrete(name = "CachedUserWorkoutDetailsResponse", params(UserWorkoutDetails)))]
 #[graphql(concrete(name = "CachedMetadataLookupResponse", params(MetadataLookupResponse)))]
 #[graphql(concrete(
     params(UserCollectionsListResponse),
@@ -50,6 +55,10 @@ pub struct SortInput<T: InputType + Default> {
 #[graphql(concrete(
     params(CollectionContentsResponse),
     name = "CachedCollectionContentsResponse",
+))]
+#[graphql(concrete(
+    params(UserMetadataDetails),
+    name = "CachedUserMetadataDetailsResponse",
 ))]
 #[graphql(concrete(
     params(UserMeasurementsListResponse),
@@ -70,6 +79,14 @@ pub struct SortInput<T: InputType + Default> {
 #[graphql(concrete(
     params(ApplicationDateRange),
     name = "CachedUserAnalyticsParametersResponse",
+))]
+#[graphql(concrete(
+    params(UserMetadataGroupDetails),
+    name = "CachedUserMetadataGroupDetailsResponse",
+))]
+#[graphql(concrete(
+    params(UserWorkoutTemplateDetails),
+    name = "CachedUserWorkoutTemplateDetailsResponse",
 ))]
 #[graphql(concrete(
     params(UserMetadataRecommendationsResponse),

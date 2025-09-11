@@ -48,8 +48,13 @@ pub async fn export_workouts(
         for workout_id in workout_ids.response.items {
             let details = user_workout_details(user_id, workout_id, ss).await?;
             let exp = ImportOrExportWorkoutItem {
-                details: details.details,
-                collections: details.collections.into_iter().map(|c| c.details).collect(),
+                details: details.response.details,
+                collections: details
+                    .response
+                    .collections
+                    .into_iter()
+                    .map(|c| c.details)
+                    .collect(),
             };
             writer.serialize_value(&exp)?;
         }
@@ -155,8 +160,13 @@ pub async fn export_workout_templates(
         for workout_template_id in workout_template_ids.response.items {
             let details = user_workout_template_details(user_id, workout_template_id, ss).await?;
             let exp = ImportOrExportWorkoutTemplateItem {
-                details: details.details,
-                collections: details.collections.into_iter().map(|c| c.details).collect(),
+                details: details.response.details,
+                collections: details
+                    .response
+                    .collections
+                    .into_iter()
+                    .map(|c| c.details)
+                    .collect(),
             };
             writer.serialize_value(&exp)?;
         }

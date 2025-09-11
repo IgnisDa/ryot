@@ -1,8 +1,9 @@
 use anyhow::Result;
-use common_utils::{APPLICATION_JSON_HEADER, USER_AGENT_STR, ryot_log};
+use application_utils::get_base_http_client;
+use common_utils::{APPLICATION_JSON_HEADER, ryot_log};
 use reqwest::{
-    Client, ClientBuilder,
-    header::{ACCEPT, AUTHORIZATION, HeaderMap, HeaderValue, USER_AGENT},
+    Client,
+    header::{ACCEPT, AUTHORIZATION, HeaderValue},
 };
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
@@ -93,17 +94,13 @@ pub mod jellyfin {
 
         emby_header_value.push_str(&format!(r#", Token="{}""#, authenticate.access_token));
 
-        let mut headers = HeaderMap::new();
-        headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
-        headers.insert(ACCEPT, APPLICATION_JSON_HEADER.clone());
-        headers.insert(
-            AUTHORIZATION,
-            HeaderValue::from_str(&emby_header_value).unwrap(),
-        );
-        let client: Client = ClientBuilder::new()
-            .default_headers(headers)
-            .build()
-            .unwrap();
+        let client = get_base_http_client(Some(vec![
+            (ACCEPT, APPLICATION_JSON_HEADER),
+            (
+                AUTHORIZATION,
+                HeaderValue::from_str(&emby_header_value).unwrap(),
+            ),
+        ]));
         let user_id = authenticate.user.id;
         ryot_log!(debug, "Authenticated as user id: {}", user_id);
 

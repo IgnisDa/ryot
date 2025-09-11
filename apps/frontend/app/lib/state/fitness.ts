@@ -158,7 +158,7 @@ export const getWorkoutDetailsQuery = (workoutId: string) =>
 		queryFn: () =>
 			clientGqlService
 				.request(UserWorkoutDetailsDocument, { workoutId })
-				.then((data) => data.userWorkoutDetails),
+				.then((data) => data.userWorkoutDetails.response),
 	});
 
 export const getWorkoutDetails = async (workoutId: string) =>
@@ -171,10 +171,11 @@ export const getWorkoutTemplateDetailsQuery = (workoutTemplateId: string) =>
 		queryFn: () =>
 			clientGqlService
 				.request(UserWorkoutTemplateDetailsDocument, { workoutTemplateId })
-				.then((data) => data.userWorkoutTemplateDetails),
+				.then((data) => data.userWorkoutTemplateDetails.response),
 	});
 
-type TWorkoutDetails = UserWorkoutDetailsQuery["userWorkoutDetails"];
+export type TWorkoutDetails =
+	UserWorkoutDetailsQuery["userWorkoutDetails"]["response"];
 type TSet =
 	TWorkoutDetails["details"]["information"]["exercises"][number]["sets"][number];
 

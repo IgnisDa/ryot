@@ -6,11 +6,13 @@ import {
 	DeployAddEntitiesToCollectionJobDocument,
 	DeployBulkMetadataProgressUpdateDocument,
 	DeployRemoveEntitiesFromCollectionJobDocument,
-	type EntityLot,
+	DeployUpdateMediaEntityJobDocument,
+	EntityLot,
 	ExpireCacheKeyDocument,
 	type MediaLot,
 	MediaSource,
 	type MetadataProgressUpdateInput,
+	UpdateUserDocument,
 	UserCollectionsListDocument,
 	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -18,7 +20,12 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { useRouteLoaderData, useSubmit } from "react-router";
+import {
+	useFetcher,
+	useRevalidator,
+	useRouteLoaderData,
+	useSubmit,
+} from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { useInterval, useMediaQuery } from "usehooks-ts";
@@ -42,7 +49,6 @@ import {
 } from "~/lib/state/fitness";
 import type { FitnessAction } from "~/lib/types";
 import type { loader as dashboardLoader } from "~/routes/_dashboard";
-import { deployUpdateJobIfNeeded } from "./media-utils";
 
 export const useGetMantineColors = () => {
 	const theme = useMantineTheme();
@@ -87,8 +93,114 @@ export const useGetWorkoutStarter = () => {
 	return fn;
 };
 
+export const usePartialStatusMonitor = (props: {
+	entityId?: string;
+	entityLot: EntityLot;
+	onUpdate: () => unknown;
+	partialStatus?: boolean | null;
+	externalLinkSource: MediaSource;
+}) => {
+	const { entityId, entityLot, onUpdate, partialStatus, externalLinkSource } =
+		props;
+
+	const [jobDeployedForEntity, setJobDeployedForEntity] = useState<
+		string | null
+	>(null);
+	const [isActivelyPolling, setIsActivelyPolling] = useState(false);
+	const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+		undefined,
+	);
+	const attemptCountRef = useRef(0);
+	const isPollingRef = useRef(false);
+	const pollIntervalRef = useRef(1000);
+
+	const scheduleNextPoll = useCallback(() => {
+		if (!isPollingRef.current) return;
+
+		const currentInterval = pollIntervalRef.current;
+
+		if (currentInterval >= 30000) {
+			onUpdate();
+			isPollingRef.current = false;
+			setIsActivelyPolling(false);
+			return;
+		}
+
+		timeoutRef.current = setTimeout(async () => {
+			if (!isPollingRef.current) return;
+			await onUpdate();
+			attemptCountRef.current += 1;
+			pollIntervalRef.current = Math.min(
+				1000 * 2 ** attemptCountRef.current,
+				30000,
+			);
+
+			scheduleNextPoll();
+		}, currentInterval);
+	}, [onUpdate]);
+
+	const resetPollingState = useCallback(() => {
+		if (timeoutRef.current) {
+			clearTimeout(timeoutRef.current);
+			timeoutRef.current = undefined;
+		}
+		pollIntervalRef.current = 1000;
+		attemptCountRef.current = 0;
+		isPollingRef.current = false;
+		setIsActivelyPolling(false);
+	}, []);
+
+	useEffect(() => {
+		resetPollingState();
+
+		const isJobForDifferentEntity =
+			jobDeployedForEntity && jobDeployedForEntity !== entityId;
+		const shouldPoll =
+			entityId && partialStatus && externalLinkSource !== MediaSource.Custom;
+
+		if (isJobForDifferentEntity || !entityId) setJobDeployedForEntity(null);
+
+		if (!shouldPoll) return;
+
+		if (jobDeployedForEntity !== entityId && entityId) {
+			clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
+				entityId,
+				entityLot,
+			});
+			setJobDeployedForEntity(entityId);
+		}
+
+		isPollingRef.current = true;
+		setIsActivelyPolling(true);
+		scheduleNextPoll();
+
+		return resetPollingState;
+	}, [
+		onUpdate,
+		entityId,
+		entityLot,
+		partialStatus,
+		scheduleNextPoll,
+		resetPollingState,
+		externalLinkSource,
+		jobDeployedForEntity,
+	]);
+
+	return { isPartialStatusActive: isActivelyPolling };
+};
+
 export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
-	return useQuery({ ...getMetadataDetailsQuery(metadataId), enabled });
+	const query = useQuery({ ...getMetadataDetailsQuery(metadataId), enabled });
+
+	const { isPartialStatusActive } = usePartialStatusMonitor({
+		entityId: metadataId,
+		entityLot: EntityLot.Metadata,
+		onUpdate: () => query.refetch(),
+		partialStatus: enabled !== false && query.data?.isPartial,
+		externalLinkSource: query.data?.source || MediaSource.Custom,
+	});
+
+	return [query, isPartialStatusActive] as const;
 };
 
 export const useUserMetadataDetails = (
@@ -101,8 +213,18 @@ export const useUserMetadataDetails = (
 	});
 };
 
-export const usePersonDetails = (personId?: string, enabled?: boolean) => {
-	return useQuery({ ...getPersonDetailsQuery(personId), enabled });
+export const usePersonDetails = (personId: string, enabled?: boolean) => {
+	const query = useQuery({ ...getPersonDetailsQuery(personId), enabled });
+
+	const { isPartialStatusActive } = usePartialStatusMonitor({
+		entityId: personId,
+		entityLot: EntityLot.Person,
+		onUpdate: () => query.refetch(),
+		partialStatus: enabled !== false && query.data?.details.isPartial,
+		externalLinkSource: query.data?.details.source || MediaSource.Custom,
+	});
+
+	return [query, isPartialStatusActive] as const;
 };
 
 export const useUserPersonDetails = (personId?: string, enabled?: boolean) => {
@@ -113,10 +235,20 @@ export const useMetadataGroupDetails = (
 	metadataGroupId?: string,
 	enabled?: boolean,
 ) => {
-	return useQuery({
+	const query = useQuery({
 		...getMetadataGroupDetailsQuery(metadataGroupId),
 		enabled,
 	});
+
+	const { isPartialStatusActive } = usePartialStatusMonitor({
+		entityId: metadataGroupId,
+		onUpdate: () => query.refetch(),
+		entityLot: EntityLot.MetadataGroup,
+		partialStatus: enabled !== false && query.data?.details.isPartial,
+		externalLinkSource: query.data?.details.source || MediaSource.Custom,
+	});
+
+	return [query, isPartialStatusActive] as const;
 };
 
 export const useUserMetadataGroupDetails = (
@@ -136,9 +268,9 @@ export const useDashboardLayoutData = () => {
 	return loaderData;
 };
 
+export const useUserPreferences = () => useUserDetails().preferences;
 export const useCoreDetails = () => useDashboardLayoutData().coreDetails;
 export const useUserDetails = () => useDashboardLayoutData().userDetails;
-export const useUserPreferences = () => useUserDetails().preferences;
 
 export const useUserCollections = () => {
 	const query = useQuery({
@@ -336,49 +468,39 @@ export const useFormValidation = (dependency?: unknown) => {
 	return { formRef, isFormValid, checkFormValidity };
 };
 
-export const usePartialStatusMonitor = (props: {
-	entityId: string;
-	entityLot: EntityLot;
-	onUpdate: () => unknown;
-	partialStatus?: boolean | null;
-	externalLinkSource: MediaSource;
-}) => {
-	const [jobDeployedForEntity, setJobDeployedForEntity] = useState<
-		string | null
-	>(null);
+export const useInvalidateUserDetails = () => {
+	const fetcher = useFetcher();
+	const revalidator = useRevalidator();
 
-	useEffect(() => {
-		const { partialStatus, entityId, entityLot, onUpdate, externalLinkSource } =
-			props;
+	const invalidateUserDetails = useCallback(async () => {
+		fetcher.submit(
+			{ dummy: "data" },
+			{
+				method: "POST",
+				action: $path("/actions", { intent: "invalidateUserDetails" }),
+			},
+		);
+		await new Promise((r) => setTimeout(r, 1000));
+		revalidator.revalidate();
+	}, [fetcher, revalidator]);
 
-		if (jobDeployedForEntity && jobDeployedForEntity !== entityId) {
-			setJobDeployedForEntity(null);
-		}
+	return invalidateUserDetails;
+};
 
-		if (!partialStatus || externalLinkSource === MediaSource.Custom) {
-			setJobDeployedForEntity(null);
-			return;
-		}
+export const useMarkUserOnboardingTourStatus = () => {
+	const userDetails = useUserDetails();
+	const invalidateUserDetails = useInvalidateUserDetails();
 
-		if (jobDeployedForEntity !== entityId) {
-			deployUpdateJobIfNeeded(entityId, entityLot, externalLinkSource);
-			setJobDeployedForEntity(entityId);
-		}
+	const markUserOnboardingTourAsCompleted = useMutation({
+		mutationFn: async (isComplete: boolean) =>
+			clientGqlService.request(UpdateUserDocument, {
+				input: {
+					userId: userDetails.id,
+					isOnboardingTourCompleted: isComplete,
+				},
+			}),
+		onSuccess: () => invalidateUserDetails(),
+	});
 
-		const interval = setInterval(onUpdate, 1000);
-
-		return () => clearInterval(interval);
-	}, [
-		props.onUpdate,
-		props.entityId,
-		props.entityLot,
-		props.partialStatus,
-		jobDeployedForEntity,
-		props.externalLinkSource,
-	]);
-
-	return {
-		isPartialStatusActive:
-			props.partialStatus && props.externalLinkSource !== MediaSource.Custom,
-	};
+	return markUserOnboardingTourAsCompleted;
 };

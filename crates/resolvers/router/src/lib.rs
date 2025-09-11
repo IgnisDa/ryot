@@ -9,6 +9,7 @@ use axum::{
     response::{Html, IntoResponse},
 };
 use common_utils::{get_temporary_directory, ryot_log};
+use config_definition::{AppConfig, MaskedConfig};
 use integration_service::IntegrationService;
 use nanoid::nanoid;
 
@@ -18,10 +19,8 @@ pub async fn graphql_playground_handler() -> impl IntoResponse {
     )))
 }
 
-pub async fn config_handler(
-    Extension(config): Extension<Arc<config_definition::AppConfig>>,
-) -> impl IntoResponse {
-    Json(config.masked_value())
+pub async fn config_handler(Extension(config): Extension<Arc<AppConfig>>) -> impl IntoResponse {
+    Json(config.masked())
 }
 
 /// Upload a file to the temporary file system. Primarily to be used for uploading

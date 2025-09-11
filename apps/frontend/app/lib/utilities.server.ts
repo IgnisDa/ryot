@@ -30,7 +30,7 @@ import {
 	redirectToQueryParam,
 	toastKey,
 } from "~/lib/shared/constants";
-import { queryClient } from "~/lib/shared/react-query";
+import { queryClient, queryFactory } from "~/lib/shared/react-query";
 
 export const API_URL = process.env.API_URL || "http://127.0.0.1:8000/backend";
 
@@ -152,11 +152,14 @@ export const getCoreDetails = async () => {
 };
 
 const getUserDetails = async (request: Request) => {
-	const { userDetails } = await serverGqlService.authenticatedRequest(
-		request,
-		UserDetailsDocument,
-	);
-	return userDetails;
+	const cookie = getAuthorizationCookie(request);
+	return await queryClient.ensureQueryData({
+		queryKey: queryFactory.miscellaneous.userDetails(cookie).queryKey,
+		queryFn: () =>
+			serverGqlService
+				.authenticatedRequest(request, UserDetailsDocument)
+				.then((d) => d.userDetails),
+	});
 };
 
 export const getUserPreferences = async (request: Request) => {

@@ -71,8 +71,10 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
+	const [personDetails, isPersonPartialStatusActive] = usePersonDetails(
+		loaderData.personId,
+	);
 	const userPersonDetails = useUserPersonDetails(loaderData.personId);
-	const personDetails = usePersonDetails(loaderData.personId);
 
 	const [mediaRoleFilter, setMediaRoleFilter] = useLocalStorage(
 		"PersonMediaTabRoleFilter",
@@ -117,15 +119,10 @@ export default function Page() {
 				<MediaDetailsLayout
 					title={personDetails.data.details.name}
 					assets={personDetails.data.details.assets}
+					isPartialStatusActive={isPersonPartialStatusActive}
 					externalLink={{
 						source: personDetails.data.details.source,
 						href: personDetails.data.details.sourceUrl,
-					}}
-					partialDetailsFetcher={{
-						fn: personDetails.refetch,
-						entityLot: EntityLot.Person,
-						entityId: personDetails.data.details.id,
-						partialStatus: personDetails.data.details.isPartial,
 					}}
 				>
 					{additionalPersonDetails.length > 0 ? (
@@ -365,13 +362,13 @@ const MetadataDisplay = (props: {
 const MetadataGroupDisplay = (props: {
 	metadataGroupId: string;
 }) => {
-	const { data: metadataGroupDetails } = useMetadataGroupDetails(
-		props.metadataGroupId,
-	);
+	const [{ data: metadataGroupDetails }, isMetadataGroupPartialStatusActive] =
+		useMetadataGroupDetails(props.metadataGroupId);
 
 	return (
 		<BaseEntityDisplay
 			title={metadataGroupDetails?.details.title}
+			isPartialStatusActive={isMetadataGroupPartialStatusActive}
 			image={metadataGroupDetails?.details.assets.remoteImages.at(0)}
 			link={$path("/media/groups/item/:id", { id: props.metadataGroupId })}
 		/>

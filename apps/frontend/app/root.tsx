@@ -100,7 +100,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const headers = new Headers();
 	const defaultColorScheme = colorScheme || "light";
 	if (toastHeaders) extendResponseHeaders(headers, toastHeaders);
-	return data({ toast, defaultColorScheme }, { headers });
+	return data(
+		{
+			toast,
+			defaultColorScheme,
+			isDevelopmentMode: process.env.NODE_ENV === "development",
+		},
+		{ headers },
+	);
 };
 
 export default function App() {
@@ -110,6 +117,9 @@ export default function App() {
 	return (
 		<html lang="en">
 			<head>
+				{loaderData.isDevelopmentMode ? (
+					<script src="https://unpkg.com/react-scan/dist/auto.global.js" />
+				) : null}
 				<meta charSet="utf-8" />
 				<meta
 					name="viewport"

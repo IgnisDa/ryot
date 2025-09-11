@@ -9,7 +9,7 @@ use dependent_collection_utils::add_entities_to_collection;
 use dependent_notification_utils::send_notification_for_user;
 use dependent_utility_utils::{
     expire_user_exercises_list_cache, expire_user_measurements_list_cache,
-    expire_user_workouts_list_cache,
+    expire_user_workout_details_cache, expire_user_workouts_list_cache,
 };
 use enum_meta::Meta;
 use enum_models::{
@@ -106,7 +106,7 @@ pub fn calculate_one_rm(value: &WorkoutSetRecord) -> Option<Decimal> {
         true => (weight * dec!(36.0)).checked_div(dec!(37.0) - reps), // Brzycki
         false => weight.checked_mul((dec!(1).checked_add(reps.checked_div(dec!(30))?))?), // Epley
     };
-    val.filter(|v| v <= &dec!(0))
+    val.filter(|v| v >= &dec!(0))
 }
 
 pub fn calculate_volume(value: &WorkoutSetRecord) -> Option<Decimal> {
@@ -679,7 +679,8 @@ pub async fn create_or_update_user_workout(
     };
     try_join!(
         expire_user_workouts_list_cache(user_id, ss),
-        expire_user_exercises_list_cache(user_id, ss)
+        expire_user_exercises_list_cache(user_id, ss),
+        expire_user_workout_details_cache(user_id, &data.id, ss)
     )?;
     Ok(data.id)
 }

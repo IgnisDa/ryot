@@ -15,7 +15,6 @@ use database_models::{
 };
 use dependent_entity_list_utils::user_collections_list;
 use dependent_models::{ApplicationCacheKeyDiscriminants, ExpireCacheKeyInput};
-use dependent_utility_utils::expire_user_collections_list_cache;
 use enum_models::{EntityLot, MediaLot, SeenState};
 use futures::{TryStreamExt, try_join};
 use media_models::{
@@ -331,7 +330,6 @@ pub async fn calculate_user_activities_and_summary(
         }
     }
 
-    expire_user_collections_list_cache(user_id, ss).await?;
     let collections_response = user_collections_list(user_id, ss).await?;
 
     let user_owned_collection_ids: Vec<String> = collections_response

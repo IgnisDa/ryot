@@ -1,8 +1,9 @@
 use std::result::Result as StdResult;
 
 use anyhow::Result;
+use application_utils::get_base_http_client;
 use common_models::IdObject;
-use common_utils::{USER_AGENT_STR, ryot_log};
+use common_utils::ryot_log;
 use dependent_models::{CollectionToEntityDetails, ImportCompletedItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use futures::stream::{self, StreamExt};
@@ -11,10 +12,7 @@ use media_models::{
     ImportOrExportItemReview, ImportOrExportMetadataItemSeen,
 };
 use openlibrary_provider::get_key;
-use reqwest::{
-    ClientBuilder,
-    header::{HeaderMap, HeaderValue, USER_AGENT},
-};
+use reqwest::header::{HeaderName, HeaderValue};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
@@ -255,14 +253,11 @@ async fn process_item(
 
 pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let api_url = input.api_url.trim_end_matches('/');
-    let mut headers = HeaderMap::new();
-    headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
-    headers.insert("Access-Token", input.api_key.parse().unwrap());
     let url = format!("{api_url}/api");
-    let client = ClientBuilder::new()
-        .default_headers(headers)
-        .build()
-        .unwrap();
+    let client = get_base_http_client(Some(vec![(
+        HeaderName::from_static("access-token"),
+        HeaderValue::from_str(&input.api_key).unwrap(),
+    )]));
 
     let rsp = client.get(format!("{url}/user")).send().await.unwrap();
     let data = rsp.json::<IdObject>().await.unwrap();

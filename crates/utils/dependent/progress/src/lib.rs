@@ -10,8 +10,7 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, EmptyCacheValue, ExpireCacheKeyInput,
 };
 use dependent_seen_utils::handle_after_metadata_seen_tasks;
-use dependent_utility_utils::mark_entity_as_recently_consumed;
-use enum_models::{EntityLot, MediaLot, SeenState};
+use enum_models::{MediaLot, SeenState};
 use futures::{join, try_join};
 use media_models::{
     ImportOrExportMetadataItemSeen, MetadataProgressUpdateCacheInput, MetadataProgressUpdateChange,
@@ -407,7 +406,6 @@ pub async fn metadata_progress_update(
         }
     };
     ryot_log!(debug, "Seen created: {:?}", seen);
-    mark_entity_as_recently_consumed(user_id, &input.metadata_id, EntityLot::Metadata, ss).await?;
     handle_after_metadata_seen_tasks(seen, ss).await?;
     ryot_log!(debug, "Progress update completed: {}", input.metadata_id);
     Ok(())

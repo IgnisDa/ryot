@@ -146,7 +146,7 @@ async fn get_is_server_key_validated(ss: &Arc<SupportingService>) -> bool {
     if pro_key.is_empty() {
         return false;
     }
-    ryot_log!(debug, "Verifying pro key for API ID: {:#?}", UNKEY_API_ID);
+    ryot_log!(debug, "Verifying Pro Key for API ID: {:#?}", UNKEY_API_ID);
     #[derive(Debug, Serialize, Clone, Deserialize)]
     struct Meta {
         expiry: Option<Date>,
@@ -156,13 +156,13 @@ async fn get_is_server_key_validated(ss: &Arc<SupportingService>) -> bool {
     let validated_key = match unkey_client.verify_key(verify_request).await {
         Ok(verify_response) => {
             if !verify_response.valid {
-                ryot_log!(debug, "Pro key is no longer valid.");
+                ryot_log!(debug, "Pro Key is no longer valid.");
                 return false;
             }
             verify_response
         }
         Err(verify_error) => {
-            ryot_log!(debug, "Pro key verification error: {:?}", verify_error);
+            ryot_log!(debug, "Pro Key verification error: {:?}", verify_error);
             return false;
         }
     };
@@ -173,12 +173,12 @@ async fn get_is_server_key_validated(ss: &Arc<SupportingService>) -> bool {
     if let Some(meta) = key_meta {
         if let Some(expiry) = meta.expiry {
             if ss.server_start_time > convert_naive_to_utc(expiry) {
-                ryot_log!(warn, "Pro key has expired. Please renew your subscription.");
+                ryot_log!(warn, "Pro Key has expired. Please renew your subscription.");
                 return false;
             }
         }
     }
-    ryot_log!(debug, "Pro key verified successfully");
+    ryot_log!(debug, "Pro Key verified successfully");
     true
 }
 

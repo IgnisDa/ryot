@@ -29,8 +29,8 @@ services:
       - "8000:8000"
     environment:
       - TZ=Europe/Amsterdam
-      - SERVER_ADMIN_ACCESS_TOKEN=28ebb3ae554fa9867ba0 # CHANGE THIS
       - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
+      - SERVER_ADMIN_ACCESS_TOKEN=28ebb3ae554fa9867ba0 # REQUIRED: set to a long random string
 
 volumes:
   postgres_storage:

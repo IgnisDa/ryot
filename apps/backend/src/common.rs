@@ -14,6 +14,7 @@ use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpAp
 use bon::builder;
 use collection_resolver::{CollectionMutationResolver, CollectionQueryResolver};
 use collection_service::CollectionService;
+use config_definition::AppConfig;
 use exporter_resolver::{ExporterMutationResolver, ExporterQueryResolver};
 use exporter_service::ExporterService;
 use file_storage_resolver::{FileStorageMutationResolver, FileStorageQueryResolver};
@@ -76,8 +77,8 @@ pub struct AppServices {
 #[builder]
 pub async fn create_app_services(
     db: DatabaseConnection,
+    config: Arc<AppConfig>,
     timezone: chrono_tz::Tz,
-    config: Arc<config_definition::AppConfig>,
     lp_application_job: &MemoryStorage<LpApplicationJob>,
     mp_application_job: &MemoryStorage<MpApplicationJob>,
     hp_application_job: &MemoryStorage<HpApplicationJob>,

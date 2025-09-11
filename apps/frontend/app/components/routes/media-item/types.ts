@@ -6,7 +6,7 @@ import type {
 export type MetadataDetails =
 	MetadataDetailsQuery["metadataDetails"]["response"];
 export type UserMetadataDetails =
-	UserMetadataDetailsQuery["userMetadataDetails"];
+	UserMetadataDetailsQuery["userMetadataDetails"]["response"];
 export type Season = NonNullable<
 	MetadataDetails["showSpecifics"]
 >["seasons"][number];
