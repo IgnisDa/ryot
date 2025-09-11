@@ -30,7 +30,9 @@ export type UpdateProgressData = {
 const metadataProgressUpdateAtom = atom<UpdateProgressData | null>(null);
 
 export const useMetadataProgressUpdate = () => {
-	const [metadataToUpdate, setProgress] = useAtom(metadataProgressUpdateAtom);
+	const [metadataToUpdate, updateMetadataToUpdate] = useAtom(
+		metadataProgressUpdateAtom,
+	);
 
 	const initializeMetadataToUpdate = async (
 		draft: UpdateProgressData | null,
@@ -67,11 +69,7 @@ export const useMetadataProgressUpdate = () => {
 				}
 			}
 		}
-		setProgress(draft);
-	};
-
-	const updateMetadataToUpdate = (draft: UpdateProgressData | null) => {
-		setProgress(draft);
+		updateMetadataToUpdate(draft);
 	};
 
 	return {
