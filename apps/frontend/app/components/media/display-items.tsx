@@ -1,4 +1,4 @@
-import { ActionIcon, Group, Loader, ThemeIcon, Tooltip } from "@mantine/core";
+import { ActionIcon, Group, ThemeIcon, Tooltip } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
 import {
 	EntityLot,
@@ -13,6 +13,7 @@ import {
 	IconPlayerPlay,
 	IconRosetteDiscountCheck,
 } from "@tabler/icons-react";
+import clsx from "clsx";
 import { type ReactNode, useMemo } from "react";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -26,6 +27,7 @@ import {
 } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import { useOnboardingTour } from "~/lib/state/onboarding-tour";
+import classes from "~/styles/common.module.css";
 import { BaseEntityDisplayItem } from "../common/entity-display";
 import { DisplayAverageRatingOverlay } from "./rating-overlay";
 
@@ -44,8 +46,7 @@ export const MetadataDisplayItem = (props: {
 	bottomRightImageOverlayClassName?: string;
 	onImageClickBehavior?: () => Promise<void>;
 }) => {
-	const { initializeMetadataToUpdate, isMetadataToUpdateLoading } =
-		useMetadataProgressUpdate();
+	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
 	const { ref, inViewport } = useInViewport();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
@@ -182,14 +183,16 @@ export const MetadataDisplayItem = (props: {
 								.map((data, idx) => surroundReason(idx, data))}
 						</Group>
 					) : null,
-				bottomRight: isMetadataToUpdateLoading ? (
-					<Loader color="red" size="xs" m={2} />
-				) : (
+				bottomRight: (
 					<ActionIcon
 						color="blue"
 						size="compact-md"
 						variant="transparent"
-						className={props.bottomRightImageOverlayClassName}
+						disabled={isMetadataDetailsLoading || isMetadataPartialStatusActive}
+						className={clsx(
+							props.bottomRightImageOverlayClassName,
+							isMetadataPartialStatusActive ? classes.fadeInOut : undefined,
+						)}
 						onClick={async () => {
 							initializeMetadataToUpdate(
 								{ metadataId: props.metadataId },

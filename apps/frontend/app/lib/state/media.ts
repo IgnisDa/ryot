@@ -4,7 +4,6 @@ import {
 	type ReviewItem,
 } from "@ryot/generated/graphql/backend/graphql";
 import { atom, useAtom } from "jotai";
-import { useState } from "react";
 import { match } from "ts-pattern";
 import {
 	getMetadataDetailsQuery,
@@ -31,14 +30,12 @@ export type UpdateProgressData = {
 const metadataProgressUpdateAtom = atom<UpdateProgressData | null>(null);
 
 export const useMetadataProgressUpdate = () => {
-	const [isMetadataToUpdateLoading, setIsLoading] = useState(false);
 	const [metadataToUpdate, setProgress] = useAtom(metadataProgressUpdateAtom);
 
 	const initializeMetadataToUpdate = async (
 		draft: UpdateProgressData | null,
 		determineNext?: boolean,
 	) => {
-		setIsLoading(true);
 		if (draft) {
 			const [metadataDetails, userMetadataDetails] = await Promise.all([
 				queryClient.ensureQueryData(getMetadataDetailsQuery(draft.metadataId)),
@@ -70,7 +67,6 @@ export const useMetadataProgressUpdate = () => {
 				}
 			}
 		}
-		setIsLoading(false);
 		setProgress(draft);
 	};
 
@@ -80,9 +76,8 @@ export const useMetadataProgressUpdate = () => {
 
 	return {
 		metadataToUpdate,
-		initializeMetadataToUpdate,
 		updateMetadataToUpdate,
-		isMetadataToUpdateLoading,
+		initializeMetadataToUpdate,
 	};
 };
 
