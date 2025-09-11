@@ -20,6 +20,7 @@ import {
 	RegisterUserDocument,
 	ResetUserDocument,
 	UpdateUserDocument,
+	type UpdateUserInput,
 	UserLot,
 	type UsersListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -321,10 +322,7 @@ const UserActions = (props: {
 	const navigate = useNavigate();
 
 	const toggleUserStatusMutation = useMutation({
-		mutationFn: async (input: {
-			userId: string;
-			isDisabled: boolean;
-		}) => {
+		mutationFn: async (input: UpdateUserInput) => {
 			const { updateUser } = await clientGqlService.request(
 				UpdateUserDocument,
 				{ input },
