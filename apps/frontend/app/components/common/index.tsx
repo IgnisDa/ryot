@@ -449,71 +449,73 @@ export const CollectionTemplateRenderer = (props: {
 	value: Scalars["JSON"]["input"];
 	template: CollectionExtraInformation;
 	onChange: (value: Scalars["JSON"]["input"]) => void;
-}) => {
-	return (
-		<>
-			{match(props.template.lot)
-				.with(CollectionExtraInformationLot.String, () => (
-					<TextInput
-						value={props.value || ""}
-						label={props.template.name}
-						required={!!props.template.required}
-						description={props.template.description}
-						onChange={(e) => props.onChange(e.currentTarget.value)}
-					/>
-				))
-				.with(CollectionExtraInformationLot.Boolean, () => (
-					<Switch
-						label={props.template.name}
-						checked={props.value === "true"}
-						required={!!props.template.required}
-						description={props.template.description}
-						onChange={(e) =>
-							props.onChange(e.currentTarget.checked ? "true" : "false")
-						}
-					/>
-				))
-				.with(CollectionExtraInformationLot.Number, () => (
-					<NumberInput
-						value={props.value}
-						label={props.template.name}
-						required={!!props.template.required}
-						description={props.template.description}
-						onChange={(v) => props.onChange(v)}
-					/>
-				))
-				.with(CollectionExtraInformationLot.Date, () => (
-					<DateInput
-						value={props.value}
-						label={props.template.name}
-						required={!!props.template.required}
-						description={props.template.description}
-						onChange={(v) => props.onChange(v)}
-					/>
-				))
-				.with(CollectionExtraInformationLot.DateTime, () => (
-					<DateTimePicker
-						value={props.value}
-						label={props.template.name}
-						required={!!props.template.required}
-						description={props.template.description}
-						onChange={(v) => props.onChange(dayjsLib(v).toISOString())}
-					/>
-				))
-				.with(CollectionExtraInformationLot.StringArray, () => (
-					<MultiSelectCreatable
-						values={props.value}
-						label={props.template.name}
-						required={!!props.template.required}
-						description={props.template.description}
-						data={props.template.possibleValues || []}
-						setValue={(newValue: string[]) => props.onChange(newValue)}
-					/>
-				))
-				.exhaustive()}
-		</>
-	);
-};
+}) => (
+	<>
+		{match(props.template.lot)
+			.with(CollectionExtraInformationLot.String, () => (
+				<TextInput
+					value={props.value || ""}
+					label={props.template.name}
+					required={!!props.template.required}
+					description={props.template.description}
+					onChange={(e) => props.onChange(e.currentTarget.value)}
+				/>
+			))
+			.with(CollectionExtraInformationLot.Boolean, () => (
+				<Switch
+					label={props.template.name}
+					checked={props.value === "true"}
+					required={!!props.template.required}
+					description={props.template.description}
+					onChange={(e) =>
+						props.onChange(e.currentTarget.checked ? "true" : "false")
+					}
+				/>
+			))
+			.with(CollectionExtraInformationLot.Number, () => (
+				<NumberInput
+					value={props.value}
+					label={props.template.name}
+					required={!!props.template.required}
+					description={props.template.description}
+					onChange={(v) => props.onChange(v)}
+				/>
+			))
+			.with(CollectionExtraInformationLot.Date, () => (
+				<DateInput
+					clearable
+					value={props.value}
+					label={props.template.name}
+					required={!!props.template.required}
+					description={props.template.description}
+					onChange={(v) => props.onChange(v)}
+				/>
+			))
+			.with(CollectionExtraInformationLot.DateTime, () => (
+				<DateTimePicker
+					clearable
+					value={props.value}
+					label={props.template.name}
+					required={!!props.template.required}
+					description={props.template.description}
+					onChange={(v) =>
+						props.onChange(v ? dayjsLib(v).toISOString() : undefined)
+					}
+				/>
+			))
+			.with(CollectionExtraInformationLot.StringArray, () => (
+				<MultiSelectCreatable
+					values={props.value}
+					label={props.template.name}
+					required={!!props.template.required}
+					description={props.template.description}
+					data={props.template.possibleValues || []}
+					setValue={(newValue: string[]) => props.onChange(newValue)}
+				/>
+			))
+			.exhaustive()}
+	</>
+);
 
 export const ApplicationPagination = (props: {
 	value: number;
