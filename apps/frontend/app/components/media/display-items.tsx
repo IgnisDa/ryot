@@ -1,5 +1,6 @@
 import { ActionIcon, Group, ThemeIcon, Tooltip } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	EntityLot,
 	MediaLot,
@@ -188,12 +189,17 @@ export const MetadataDisplayItem = (props: {
 						color="blue"
 						size="compact-md"
 						variant="transparent"
-						disabled={isMetadataDetailsLoading || isMetadataPartialStatusActive}
-						className={clsx(
-							props.bottomRightImageOverlayClassName,
-							isMetadataPartialStatusActive ? classes.fadeInOut : undefined,
-						)}
+						className={props.bottomRightImageOverlayClassName}
 						onClick={async () => {
+							if (isMetadataDetailsLoading || isMetadataPartialStatusActive) {
+								notifications.show({
+									color: "yellow",
+									title: "Please wait",
+									message: "Details are still loading",
+								});
+								return;
+							}
+
 							initializeMetadataToUpdate(
 								{ metadataId: props.metadataId },
 								true,
@@ -204,7 +210,12 @@ export const MetadataDisplayItem = (props: {
 							}
 						}}
 					>
-						<IconPlayerPlay size={20} />
+						<IconPlayerPlay
+							size={20}
+							className={clsx({
+								[classes.fadeInOut]: isMetadataPartialStatusActive,
+							})}
+						/>
 					</ActionIcon>
 				),
 			}}
