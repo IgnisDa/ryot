@@ -117,6 +117,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		isAccessLinkSession,
 		desktopSidebarCollapsed,
 		isOnboardingTourCompleted,
+		onboardingTourCompletedCookie,
 		userPreferences: userDetails.preferences,
 	};
 };
