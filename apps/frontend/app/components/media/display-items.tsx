@@ -51,7 +51,7 @@ export const MetadataDisplayItem = (props: {
 
 	const [
 		{ data: metadataDetails, isLoading: isMetadataDetailsLoading },
-		isMetadataPartialDetailsLoading,
+		isMetadataPartialStatusActive,
 	] = useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
@@ -121,8 +121,8 @@ export const MetadataDisplayItem = (props: {
 			imageClassName={props.imageClassName}
 			name={props.name ?? metadataDetails?.title}
 			isDetailsLoading={isMetadataDetailsLoading}
+			isPartialStatusActive={isMetadataPartialStatusActive}
 			highlightImage={userMetadataDetails?.isRecentlyConsumed}
-			isPartialDetailsLoading={isMetadataPartialDetailsLoading}
 			highlightName={
 				props.shouldHighlightNameIfInteracted &&
 				userMetadataDetails?.hasInteracted
@@ -220,7 +220,7 @@ export const MetadataGroupDisplayItem = (props: {
 	const { ref, inViewport } = useInViewport();
 	const [
 		{ data: metadataDetails, isLoading: isMetadataGroupDetailsLoading },
-		isMetadataGroupPartialDetailsLoading,
+		isMetadataGroupPartialStatusActive,
 	] = useMetadataGroupDetails(props.metadataGroupId, inViewport);
 	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
 		props.metadataGroupId,
@@ -234,9 +234,9 @@ export const MetadataGroupDisplayItem = (props: {
 			innerRef={ref}
 			name={metadataDetails?.details.title}
 			isDetailsLoading={isMetadataGroupDetailsLoading}
+			isPartialStatusActive={isMetadataGroupPartialStatusActive}
 			imageUrl={metadataDetails?.details.assets.remoteImages.at(0)}
 			highlightImage={userMetadataGroupDetails?.isRecentlyConsumed}
-			isPartialDetailsLoading={isMetadataGroupPartialDetailsLoading}
 			onImageClickBehavior={[
 				$path("/media/groups/item/:id", { id: props.metadataGroupId }),
 			]}
@@ -282,7 +282,7 @@ export const PersonDisplayItem = (props: {
 	const { ref, inViewport } = useInViewport();
 	const [
 		{ data: personDetails, isLoading: isPersonDetailsLoading },
-		isPersonPartialDetailsLoading,
+		isPersonPartialStatusActive,
 	] = usePersonDetails(props.personId, inViewport);
 	const { data: userPersonDetails } = useUserPersonDetails(
 		props.personId,
@@ -296,8 +296,8 @@ export const PersonDisplayItem = (props: {
 			innerRef={ref}
 			name={personDetails?.details.name}
 			isDetailsLoading={isPersonDetailsLoading}
+			isPartialStatusActive={isPersonPartialStatusActive}
 			highlightImage={userPersonDetails?.isRecentlyConsumed}
-			isPartialDetailsLoading={isPersonPartialDetailsLoading}
 			imageUrl={personDetails?.details.assets.remoteImages.at(0)}
 			onImageClickBehavior={[
 				$path("/media/people/item/:id", { id: props.personId }),
