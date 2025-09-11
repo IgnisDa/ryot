@@ -2701,6 +2701,7 @@ export type UserExercisesListInput = {
 
 export type UserExtraInformation = {
   __typename?: 'UserExtraInformation';
+  isOnboardingTourCompleted: Scalars['Boolean']['output'];
   scheduledForWorkoutRevision: Scalars['Boolean']['output'];
 };
 

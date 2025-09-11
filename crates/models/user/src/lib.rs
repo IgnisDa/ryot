@@ -480,6 +480,7 @@ pub enum NotificationPlatformSpecifics {
     FromJsonQueryResult,
 )]
 pub struct UserExtraInformation {
+    pub is_onboarding_tour_completed: bool,
     pub scheduled_for_workout_revision: bool,
 }
 
