@@ -489,6 +489,7 @@ export const useInvalidateUserDetails = () => {
 
 export const useMarkUserOnboardingTourStatus = () => {
 	const userDetails = useUserDetails();
+	const invalidateUserDetails = useInvalidateUserDetails();
 
 	const markUserOnboardingTourAsCompleted = useMutation({
 		mutationFn: async (isComplete: boolean) => {
@@ -499,6 +500,7 @@ export const useMarkUserOnboardingTourStatus = () => {
 				},
 			});
 		},
+		onSuccess: () => invalidateUserDetails(),
 	});
 
 	return markUserOnboardingTourAsCompleted;

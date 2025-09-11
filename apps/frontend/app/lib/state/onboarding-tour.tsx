@@ -13,7 +13,6 @@ import { useNavigate } from "react-router";
 import { match } from "ts-pattern";
 import {
 	useApplicationEvents,
-	useInvalidateUserDetails,
 	useMarkUserOnboardingTourStatus,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -71,7 +70,6 @@ export const useOnboardingTour = () => {
 	const navigate = useNavigate();
 	const userPreferences = useUserPreferences();
 	const applicationEvents = useApplicationEvents();
-	const invalidateUserDetails = useInvalidateUserDetails();
 	const { setOpenedSidebarLinks } = useOpenedSidebarLinks();
 	const markUserOnboardingStatus = useMarkUserOnboardingTourStatus();
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);
@@ -101,7 +99,7 @@ export const useOnboardingTour = () => {
 		await clientGqlService.request(UpdateUserPreferenceDocument, {
 			input: newPreferences,
 		});
-		await invalidateUserDetails();
+		await markUserOnboardingStatus.mutateAsync(false);
 		setOpenedSidebarLinks(defaultSidebarLinksState);
 		applicationEvents.startOnboardingTour();
 		setTourState({ currentStepIndex: 0 });
@@ -114,7 +112,6 @@ export const useOnboardingTour = () => {
 			}),
 		);
 		await markUserOnboardingStatus.mutateAsync(true);
-		await invalidateUserDetails();
 		applicationEvents.completeOnboardingTour();
 		navigate(forcedDashboardPath);
 	};
