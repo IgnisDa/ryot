@@ -492,14 +492,13 @@ export const useMarkUserOnboardingTourStatus = () => {
 	const invalidateUserDetails = useInvalidateUserDetails();
 
 	const markUserOnboardingTourAsCompleted = useMutation({
-		mutationFn: async (isComplete: boolean) => {
+		mutationFn: async (isComplete: boolean) =>
 			clientGqlService.request(UpdateUserDocument, {
 				input: {
 					userId: userDetails.id,
 					isOnboardingTourCompleted: isComplete,
 				},
-			});
-		},
+			}),
 		onSuccess: () => invalidateUserDetails(),
 	});
 
