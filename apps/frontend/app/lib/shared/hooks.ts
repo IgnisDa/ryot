@@ -12,6 +12,7 @@ import {
 	type MediaLot,
 	MediaSource,
 	type MetadataProgressUpdateInput,
+	UpdateUserDocument,
 	UserCollectionsListDocument,
 	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -484,4 +485,21 @@ export const useInvalidateUserDetails = () => {
 	}, [fetcher, revalidator]);
 
 	return invalidateUserDetails;
+};
+
+export const useMarkUserOnboardingTourStatus = () => {
+	const userDetails = useUserDetails();
+
+	const markUserOnboardingTourAsCompleted = useMutation({
+		mutationFn: async (isComplete: boolean) => {
+			clientGqlService.request(UpdateUserDocument, {
+				input: {
+					userId: userDetails.id,
+					isOnboardingTourCompleted: isComplete,
+				},
+			});
+		},
+	});
+
+	return markUserOnboardingTourAsCompleted;
 };

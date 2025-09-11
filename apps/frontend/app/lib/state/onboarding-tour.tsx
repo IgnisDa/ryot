@@ -7,16 +7,14 @@ import { cloneDeep, isNumber } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
-import Cookies from "js-cookie";
 import type { ReactNode } from "react";
 import type { Step } from "react-joyride";
 import { useNavigate } from "react-router";
 import { match } from "ts-pattern";
-import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useApplicationEvents,
-	useDashboardLayoutData,
 	useInvalidateUserDetails,
+	useMarkUserOnboardingTourStatus,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
@@ -72,10 +70,10 @@ const onboardingTourAtom = atomWithStorage<
 export const useOnboardingTour = () => {
 	const navigate = useNavigate();
 	const userPreferences = useUserPreferences();
-	const dashboardData = useDashboardLayoutData();
 	const applicationEvents = useApplicationEvents();
 	const invalidateUserDetails = useInvalidateUserDetails();
 	const { setOpenedSidebarLinks } = useOpenedSidebarLinks();
+	const markUserOnboardingStatus = useMarkUserOnboardingTourStatus();
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);
 	const isOnboardingTourInProgress =
 		isNumber(tourState?.currentStepIndex) && !tourState?.isCompleted;
@@ -109,15 +107,14 @@ export const useOnboardingTour = () => {
 		setTourState({ currentStepIndex: 0 });
 	};
 
-	const completeOnboardingTour = () => {
+	const completeOnboardingTour = async () => {
 		setTourState(
 			produce(tourState, (draft) => {
 				if (draft) draft.isCompleted = true;
 			}),
 		);
-		Cookies.set(dashboardData.onboardingTourCompletedCookie, "true", {
-			expires: dayjsLib().add(1, "year").toDate(),
-		});
+		await markUserOnboardingStatus.mutateAsync(true);
+		await invalidateUserDetails();
 		applicationEvents.completeOnboardingTour();
 		navigate(forcedDashboardPath);
 	};

@@ -93,11 +93,6 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	const currentColorScheme = await colorSchemeCookie.parse(
 		request.headers.get("cookie") || "",
 	);
-	const onboardingTourCompletedCookie = "OnboardingCompleted";
-	const isOnboardingTourCompleted = getCookieValue(
-		request,
-		onboardingTourCompletedCookie,
-	);
 
 	const isAccessLinkSession = Boolean(userDetails.accessLinkId);
 	const isDemoInstance = coreDetails.isDemoInstance;
@@ -116,9 +111,9 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		currentColorScheme,
 		isAccessLinkSession,
 		desktopSidebarCollapsed,
-		isOnboardingTourCompleted,
-		onboardingTourCompletedCookie,
 		userPreferences: userDetails.preferences,
+		isOnboardingTourCompleted:
+			userDetails.extraInformation?.isOnboardingTourCompleted,
 	};
 };
 
