@@ -191,7 +191,6 @@ pub async fn get_values(
             application_cache::Column::Id,
             application_cache::Column::Key,
             application_cache::Column::Value,
-            application_cache::Column::Version,
         ])
         .filter(application_cache::Column::Key.is_in(string_keys))
         .filter(application_cache::Column::ExpiresAt.gt(Utc::now()))
@@ -200,12 +199,12 @@ pub async fn get_values(
                 .is_null()
                 .or(application_cache::Column::Version.eq(ss.server_start_time.to_string())),
         )
-        .into_tuple::<(Uuid, String, serde_json::Value, Option<String>)>()
+        .into_tuple::<(Uuid, String, serde_json::Value)>()
         .all(&ss.db)
         .await?;
 
     let mut values = HashMap::new();
-    for (id, key, value, version) in caches {
+    for (id, key, value) in caches {
         values.insert(
             serde_json::from_str(&key).unwrap(),
             GetCacheKeyResponse {
