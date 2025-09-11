@@ -48,144 +48,6 @@ import {
 } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 
-const showSuccessNotification = (message: string) => {
-	notifications.show({ message, color: "green", title: "Success" });
-};
-
-const showErrorNotification = (message: string) => {
-	notifications.show({ message, color: "red", title: "Error" });
-};
-
-const handleCurrentUserLogout = (
-	navigate: ReturnType<typeof useNavigate>,
-	passwordChangeUrl?: string,
-) => {
-	const changePasswordUrl = passwordChangeUrl || $path("/auth");
-	const logoutRoute = withQuery($path("/api/logout"), {
-		[redirectToQueryParam]: changePasswordUrl,
-	});
-	navigate(logoutRoute);
-};
-
-type UrlDisplayData = {
-	url: string;
-	title: string;
-	description: string;
-} | null;
-
-export const meta = () => {
-	return [{ title: "User Settings | Ryot" }];
-};
-
-const invalidateUsersList = () =>
-	queryClient.invalidateQueries({
-		queryKey: queryFactory.miscellaneous.usersList._def,
-	});
-
-const UserInvitationModal = (props: {
-	opened: boolean;
-	onClose: () => void;
-	onSuccess: (data: UrlDisplayData) => void;
-}) => {
-	const [username, setUsername] = useState("");
-
-	const handleClose = () => {
-		setUsername("");
-		props.onClose();
-	};
-
-	const handleCreateInvitation = () => {
-		if (username.trim()) {
-			createInvitationMutation.mutate(username.trim());
-		}
-	};
-
-	const createInvitationMutation = useMutation({
-		mutationFn: async (username: string) => {
-			const { registerUser } = await clientGqlService.request(
-				RegisterUserDocument,
-				{
-					input: { data: { password: { username, password: "" } } },
-				},
-			);
-
-			if (registerUser.__typename !== "StringIdObject") {
-				throw new Error("Failed to register user");
-			}
-
-			const { getPasswordChangeSession } = await clientGqlService.request(
-				GetPasswordChangeSessionDocument,
-				{ input: { userId: registerUser.id } },
-			);
-
-			return getPasswordChangeSession.passwordChangeUrl;
-		},
-		onError: () => showErrorNotification("Failed to create user invitation"),
-		onSuccess: async (createUserInvitation) => {
-			showSuccessNotification("User invitation created successfully");
-			props.onSuccess({
-				url: createUserInvitation,
-				title: "User Invitation Created",
-				description: "Share this URL with the user to set their password",
-			});
-			invalidateUsersList();
-			handleClose();
-			createInvitationMutation.reset();
-		},
-	});
-
-	return (
-		<Modal
-			centered
-			opened={props.opened}
-			onClose={handleClose}
-			title="Create User Invitation"
-		>
-			<Stack>
-				<TextInput
-					required
-					autoFocus
-					value={username}
-					label="Username"
-					onChange={(e) => setUsername(e.currentTarget.value)}
-				/>
-				{!createInvitationMutation.data && (
-					<Button
-						disabled={!username.trim()}
-						onClick={handleCreateInvitation}
-						loading={createInvitationMutation.isPending}
-					>
-						Create Invitation
-					</Button>
-				)}
-			</Stack>
-		</Modal>
-	);
-};
-
-const UrlDisplayModal = (props: {
-	opened: boolean;
-	onClose: () => void;
-	data: UrlDisplayData;
-}) => {
-	return (
-		<Modal
-			centered
-			opened={props.opened}
-			onClose={props.onClose}
-			title={props.data?.title}
-		>
-			<Stack>
-				<CopyableTextInput
-					value={props.data?.url}
-					description={props.data?.description}
-				/>
-				<Button onClick={props.onClose}>Close</Button>
-			</Stack>
-		</Modal>
-	);
-};
-
 export default function Page() {
 	const [
 		registerUserModalOpened,
@@ -210,7 +72,7 @@ export default function Page() {
 		<Container size="lg">
 			<Stack>
 				<Flex align="center" gap="md">
-					<Title>Users settings</Title>
+					<Title>User settings</Title>
 					<ActionIcon
 						color="green"
 						variant="outline"
@@ -451,5 +313,143 @@ const UserActions = (props: {
 				</ActionIcon>
 			</Group>
 		</>
+	);
+};
+
+const showSuccessNotification = (message: string) => {
+	notifications.show({ message, color: "green", title: "Success" });
+};
+
+const showErrorNotification = (message: string) => {
+	notifications.show({ message, color: "red", title: "Error" });
+};
+
+const handleCurrentUserLogout = (
+	navigate: ReturnType<typeof useNavigate>,
+	passwordChangeUrl?: string,
+) => {
+	const changePasswordUrl = passwordChangeUrl || $path("/auth");
+	const logoutRoute = withQuery($path("/api/logout"), {
+		[redirectToQueryParam]: changePasswordUrl,
+	});
+	navigate(logoutRoute);
+};
+
+type UrlDisplayData = {
+	url: string;
+	title: string;
+	description: string;
+} | null;
+
+export const meta = () => {
+	return [{ title: "User Settings | Ryot" }];
+};
+
+const invalidateUsersList = () =>
+	queryClient.invalidateQueries({
+		queryKey: queryFactory.miscellaneous.usersList._def,
+	});
+
+const UserInvitationModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	onSuccess: (data: UrlDisplayData) => void;
+}) => {
+	const [username, setUsername] = useState("");
+
+	const handleClose = () => {
+		setUsername("");
+		props.onClose();
+	};
+
+	const handleCreateInvitation = () => {
+		if (username.trim()) {
+			createInvitationMutation.mutate(username.trim());
+		}
+	};
+
+	const createInvitationMutation = useMutation({
+		mutationFn: async (username: string) => {
+			const { registerUser } = await clientGqlService.request(
+				RegisterUserDocument,
+				{
+					input: { data: { password: { username, password: "" } } },
+				},
+			);
+
+			if (registerUser.__typename !== "StringIdObject") {
+				throw new Error("Failed to register user");
+			}
+
+			const { getPasswordChangeSession } = await clientGqlService.request(
+				GetPasswordChangeSessionDocument,
+				{ input: { userId: registerUser.id } },
+			);
+
+			return getPasswordChangeSession.passwordChangeUrl;
+		},
+		onError: () => showErrorNotification("Failed to create user invitation"),
+		onSuccess: async (createUserInvitation) => {
+			showSuccessNotification("User invitation created successfully");
+			props.onSuccess({
+				url: createUserInvitation,
+				title: "User Invitation Created",
+				description: "Share this URL with the user to set their password",
+			});
+			invalidateUsersList();
+			handleClose();
+			createInvitationMutation.reset();
+		},
+	});
+
+	return (
+		<Modal
+			centered
+			opened={props.opened}
+			onClose={handleClose}
+			title="Create User Invitation"
+		>
+			<Stack>
+				<TextInput
+					required
+					autoFocus
+					value={username}
+					label="Username"
+					onChange={(e) => setUsername(e.currentTarget.value)}
+				/>
+				{!createInvitationMutation.data && (
+					<Button
+						disabled={!username.trim()}
+						onClick={handleCreateInvitation}
+						loading={createInvitationMutation.isPending}
+					>
+						Create Invitation
+					</Button>
+				)}
+			</Stack>
+		</Modal>
+	);
+};
+
+const UrlDisplayModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	data: UrlDisplayData;
+}) => {
+	return (
+		<Modal
+			centered
+			opened={props.opened}
+			onClose={props.onClose}
+			title={props.data?.title}
+		>
+			<Stack>
+				<CopyableTextInput
+					value={props.data?.url}
+					description={props.data?.description}
+				/>
+				<Button onClick={props.onClose}>Close</Button>
+			</Stack>
+		</Modal>
 	);
 };
