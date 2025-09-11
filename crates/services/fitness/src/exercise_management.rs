@@ -165,8 +165,10 @@ pub async fn merge_exercise(
         .one(&ss.db)
         .await?
         .ok_or_else(|| anyhow!("Exercise does not exist"))?;
-    change_exercise_id_in_history(ss, merge_into, old_entity).await?;
-    schedule_user_for_workout_revision(&user_id, ss).await?;
+    try_join!(
+        schedule_user_for_workout_revision(&user_id, ss),
+        change_exercise_id_in_history(ss, merge_into, old_entity),
+    )?;
     Ok(true)
 }
 
