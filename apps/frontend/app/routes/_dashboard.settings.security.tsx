@@ -135,11 +135,7 @@ const PasswordSection = () => {
 
 	return (
 		<Stack>
-			<Form
-				method="POST"
-				onSubmit={() => invalidateUserDetails()}
-				action={withQuery(".", { intent: "updateProfile" })}
-			>
+			<Form method="POST" action={withQuery(".", { intent: "updateProfile" })}>
 				<input type="hidden" name="userId" defaultValue={userDetails.id} />
 				<Stack>
 					<CopyableTextInput
@@ -163,7 +159,10 @@ const PasswordSection = () => {
 							e.preventDefault();
 							openConfirmationModal(
 								"Are you sure you want to update your profile?",
-								() => submit(form),
+								async () => {
+									submit(form);
+									await invalidateUserDetails();
+								},
 							);
 						}}
 					>
