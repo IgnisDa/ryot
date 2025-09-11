@@ -195,17 +195,17 @@ pub async fn get_values(
         ])
         .filter(application_cache::Column::Key.is_in(string_keys))
         .filter(application_cache::Column::ExpiresAt.gt(Utc::now()))
+        .filter(
+            application_cache::Column::Version
+                .is_null()
+                .or(application_cache::Column::Version.eq(ss.server_start_time.to_string())),
+        )
         .into_tuple::<(Uuid, String, serde_json::Value, Option<String>)>()
         .all(&ss.db)
         .await?;
 
     let mut values = HashMap::new();
     for (id, key, value, version) in caches {
-        if let Some(cache_version) = version {
-            if cache_version != ss.server_start_time.to_string() {
-                continue;
-            }
-        }
         values.insert(
             serde_json::from_str(&key).unwrap(),
             GetCacheKeyResponse {
