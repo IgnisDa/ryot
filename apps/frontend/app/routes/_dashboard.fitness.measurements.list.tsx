@@ -1,4 +1,4 @@
-import { LineChart } from "@mantine/charts";
+import { CompositeChart } from "@mantine/charts";
 import {
 	ActionIcon,
 	Box,
@@ -150,7 +150,7 @@ export default function Page() {
 					<Tabs.Panel value="graph">
 						<Stack gap="md" mt="md">
 							{selectedStatistics.map((stat) => (
-								<StatChart
+								<SyncedMeasurementChart
 									stat={stat}
 									key={stat.value}
 									formattedData={formattedData}
@@ -231,12 +231,12 @@ const calculateYAxisDomain = (data: Data, statValue: string) => {
 	return [Math.max(0, minValue - padding), maxValue + padding];
 };
 
-interface StatChartProps {
+interface SyncedMeasurementChartProps {
 	formattedData: Data;
 	stat: { value: string; label: string };
 }
 
-const StatChart = (props: StatChartProps) => {
+const SyncedMeasurementChart = (props: SyncedMeasurementChartProps) => {
 	const yAxisDomain = useMemo(
 		() => calculateYAxisDomain(props.formattedData, props.stat.value),
 		[props.formattedData, props.stat.value],
@@ -248,17 +248,17 @@ const StatChart = (props: StatChartProps) => {
 				{props.stat.label}
 			</Text>
 			<Box w="100%" ml={-15}>
-				<LineChart
+				<CompositeChart
 					h={250}
-					connectNulls
-					curveType="monotone"
 					data={props.formattedData}
 					dataKey="formattedTimestamp"
 					yAxisProps={{ domain: yAxisDomain }}
+					composedChartProps={{ syncId: "measurements" }}
 					valueFormatter={(val) => Number(val).toFixed(2)}
 					series={[
 						{
 							name: props.stat.value,
+							type: "line",
 							color: generateColor(getStringAsciiValue(props.stat.value)),
 						},
 					]}
