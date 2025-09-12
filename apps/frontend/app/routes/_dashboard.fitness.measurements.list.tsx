@@ -160,7 +160,7 @@ export default function Page() {
 						</Tabs.Tab>
 					</Tabs.List>
 					<Tabs.Panel value="graph">
-						<SimpleGrid cols={{ base: 1, md: 2 }} spacing="md" mt="md">
+						<Stack gap="md" mt="md">
 							{selectedStatistics.map((stat) => (
 								<StatChart
 									stat={stat}
@@ -168,7 +168,7 @@ export default function Page() {
 									formattedData={formattedData}
 								/>
 							))}
-						</SimpleGrid>
+						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="table">
 						<DataTable
