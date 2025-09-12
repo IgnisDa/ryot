@@ -4,7 +4,6 @@ import {
 	Box,
 	Container,
 	Flex,
-	MultiSelect,
 	Select,
 	SimpleGrid,
 	Stack,
@@ -94,18 +93,11 @@ export default function Page() {
 		"MeasurementsListFilters",
 		defaultFilterState,
 	);
-	const [selectedStats, setSelectedStats] = useLocalStorage(
-		"SavedMeasurementsDisplaySelectedStats",
-		["weight"],
-	);
 
 	const input: UserMeasurementsListInput = useMemo(() => {
 		const now = dayjsLib();
 		const startTime = getDateFromTimeSpan(filters.timeSpan);
-		return {
-			endTime: now.toISOString(),
-			startTime: startTime?.toISOString(),
-		};
+		return { endTime: now.toISOString(), startTime: startTime?.toISOString() };
 	}, [filters.timeSpan]);
 
 	const { data: userMeasurementsList } = useQuery({
@@ -168,31 +160,15 @@ export default function Page() {
 						</Tabs.Tab>
 					</Tabs.List>
 					<Tabs.Panel value="graph">
-						<SimpleGrid cols={{ base: 1, md: 2 }}>
-							<MultiSelect
-								value={selectedStats}
-								data={selectedStatistics}
-								label="Statistics to display"
-								onChange={(s) => {
-									if (s) setSelectedStats(s);
-								}}
-							/>
-						</SimpleGrid>
-						<Box w="100%" ml={-15} mt="md">
-							{selectedStats ? (
-								<LineChart
-									h={300}
-									connectNulls
-									curveType="monotone"
-									data={formattedData}
-									dataKey="formattedTimestamp"
-									series={selectedStats.map((name) => ({
-										name,
-										color: generateColor(getStringAsciiValue(name)),
-									}))}
+						<SimpleGrid cols={{ base: 1, md: 2 }} spacing="md" mt="md">
+							{selectedStatistics.map((stat) => (
+								<StatChart
+									stat={stat}
+									key={stat.value}
+									formattedData={formattedData}
 								/>
-							) : null}
-						</Box>
+							))}
+						</SimpleGrid>
 					</Tabs.Panel>
 					<Tabs.Panel value="table">
 						<DataTable
@@ -255,3 +231,33 @@ export default function Page() {
 }
 
 const tickFormatter = (date: string) => dayjsLib(date).format("L");
+
+interface StatChartProps {
+	stat: { value: string; label: string };
+	formattedData: Array<Record<string, string>>;
+}
+
+const StatChart = (props: StatChartProps) => {
+	return (
+		<Stack gap="xs">
+			<Text fw={500} ta="center">
+				{props.stat.label}
+			</Text>
+			<Box w="100%" ml={-15}>
+				<LineChart
+					h={250}
+					connectNulls
+					curveType="monotone"
+					data={props.formattedData}
+					dataKey="formattedTimestamp"
+					series={[
+						{
+							name: props.stat.value,
+							color: generateColor(getStringAsciiValue(props.stat.value)),
+						},
+					]}
+				/>
+			</Box>
+		</Stack>
+	);
+};
