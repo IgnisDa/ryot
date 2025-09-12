@@ -119,7 +119,7 @@ export const useCreateOrUpdateCollectionModal = () => {
 	};
 };
 
-export type EditEntityCollectionInformationData = {
+type EditEntityCollectionInformationData = {
 	entityId: string;
 	collectionId: string;
 	entityLot: EntityLot;
