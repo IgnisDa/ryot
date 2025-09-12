@@ -240,7 +240,7 @@ interface StatChartProps {
 const StatChart = (props: StatChartProps) => {
 	return (
 		<Stack gap="xs">
-			<Text fw={500} ta="center">
+			<Text fw="bold" ta="center">
 				{props.stat.label}
 			</Text>
 			<Box w="100%" ml={-15}>
