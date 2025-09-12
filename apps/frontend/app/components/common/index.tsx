@@ -394,13 +394,10 @@ export const BulkCollectionEditingAffix = (props: {
 	};
 
 	const handleConfirmBulkAction = () => {
-		const {
-			action,
-			collection,
-			targetEntities: entities,
-		} = bulkEditingCollectionState.data;
+		const { action, collection, targetEntities } =
+			bulkEditingCollectionState.data;
 		const actionText = action === "remove" ? "remove" : "add";
-		const itemCount = entities.length;
+		const itemCount = targetEntities.length;
 		const message = `Are you sure you want to ${actionText} ${itemCount} item${itemCount === 1 ? "" : "s"} ${action === "remove" ? "from" : "to"} "${collection.name}"?`;
 
 		openConfirmationModal(message, handleBulkAction);
