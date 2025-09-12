@@ -232,12 +232,40 @@ export default function Page() {
 
 const tickFormatter = (date: string) => dayjsLib(date).format("L");
 
+type Data = Array<Record<string, string>>;
+
+const calculateYAxisDomain = (data: Data, statValue: string) => {
+	const values = data
+		.map((item) => Number.parseFloat(item[statValue]))
+		.filter((val) => !Number.isNaN(val));
+
+	if (values.length === 0) return [0, 100];
+
+	const minValue = Math.min(...values);
+	const maxValue = Math.max(...values);
+
+	if (minValue === maxValue) {
+		const padding = Math.abs(minValue) * 0.1 || 10;
+		return [minValue - padding, maxValue + padding];
+	}
+
+	const range = maxValue - minValue;
+	const padding = range * 0.1;
+
+	return [Math.max(0, minValue - padding), maxValue + padding];
+};
+
 interface StatChartProps {
+	formattedData: Data;
 	stat: { value: string; label: string };
-	formattedData: Array<Record<string, string>>;
 }
 
 const StatChart = (props: StatChartProps) => {
+	const yAxisDomain = useMemo(
+		() => calculateYAxisDomain(props.formattedData, props.stat.value),
+		[props.formattedData, props.stat.value],
+	);
+
 	return (
 		<Stack gap="xs">
 			<Text fw="bold" ta="center">
@@ -250,6 +278,7 @@ const StatChart = (props: StatChartProps) => {
 					curveType="monotone"
 					data={props.formattedData}
 					dataKey="formattedTimestamp"
+					yAxisProps={{ domain: yAxisDomain }}
 					series={[
 						{
 							name: props.stat.value,
