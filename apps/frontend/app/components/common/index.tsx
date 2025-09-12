@@ -171,9 +171,10 @@ export const DisplayCollectionToEntity = (props: {
 	);
 	const hasExtraInformationFields =
 		!!thisCollection?.informationTemplate?.length;
-	const hasUserAddedAdditionalInformation = Object.keys(
+	const userAddedInfoCount = Object.keys(
 		props.col.details.information || {},
 	).length;
+	const hasUserAddedAdditionalInformation = userAddedInfoCount > 0;
 
 	const handleRemove = () => {
 		openConfirmationModal(
@@ -278,7 +279,7 @@ export const DisplayCollectionToEntity = (props: {
 									<IconPencil size={16} />
 								</ActionIcon>
 							</Group>
-							{hasUserAddedAdditionalInformation > 0 && (
+							{hasUserAddedAdditionalInformation ? (
 								<Stack gap="xs">
 									{Object.entries(props.col.details.information).map(
 										([key, value]) => {
@@ -311,7 +312,7 @@ export const DisplayCollectionToEntity = (props: {
 										},
 									)}
 								</Stack>
-							)}
+							) : null}
 						</>
 					) : null}
 				</Stack>
