@@ -63,7 +63,7 @@ import {
 import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
-	type BulkAddEntities,
+	type BulkEditEntitiesToCollection,
 	useBulkEditCollection,
 	useEditEntityCollectionInformation,
 } from "~/lib/state/collection";
@@ -357,7 +357,7 @@ export const DisplayListDetailsAndRefresh = (props: {
 };
 
 export const BulkCollectionEditingAffix = (props: {
-	bulkAddEntities: BulkAddEntities;
+	bulkAddEntities: BulkEditEntitiesToCollection;
 }) => {
 	const bulkEditingCollection = useBulkEditCollection();
 	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();

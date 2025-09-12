@@ -24,7 +24,7 @@ type BulkEditingCollectionData = {
 	alreadyPresentEntities: Array<Entity>;
 };
 
-export type BulkAddEntities = () => Promise<Array<Entity>>;
+export type BulkEditEntitiesToCollection = () => Promise<Array<Entity>>;
 
 const bulkEditingCollectionAtom = atom<BulkEditingCollectionData | null>(null);
 
@@ -66,7 +66,7 @@ export const useBulkEditCollection = () => {
 						setBec(null);
 						navigate(bec.locationStartedFrom);
 					},
-					bulkAdd: async (getEntities: BulkAddEntities) => {
+					bulkAdd: async (getEntities: BulkEditEntitiesToCollection) => {
 						setBec({ ...bec, isLoading: true });
 						const entities = await getEntities();
 						setBec({ ...bec, isLoading: false, targetEntities: entities });
