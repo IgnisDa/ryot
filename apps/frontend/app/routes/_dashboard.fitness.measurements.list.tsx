@@ -11,33 +11,25 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import {
 	DeleteUserMeasurementDocument,
 	UserMeasurementsListDocument,
 	type UserMeasurementsListInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	getActionIntent,
-	processSubmission,
-	reverse,
-	startCase,
-} from "@ryot/ts-utils";
+import { reverse, startCase } from "@ryot/ts-utils";
 import {
 	IconChartArea,
 	IconPlus,
 	IconTable,
 	IconTrash,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { DataTable } from "mantine-datatable";
 import { useMemo } from "react";
-import { Form, data } from "react-router";
-import { match } from "ts-pattern";
-import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
-import { z } from "zod";
 import { dayjsLib, getDateFromTimeSpan } from "~/lib/shared/date-utils";
-import { useConfirmSubmit, useUserPreferences } from "~/lib/shared/hooks";
+import { useUserPreferences } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
 	convertEnumToSelectData,
@@ -47,8 +39,6 @@ import {
 } from "~/lib/shared/ui-utils";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import { TimeSpan } from "~/lib/types";
-import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
-import type { Route } from "./+types/_dashboard.fitness.measurements.list";
 
 interface FilterState {
 	timeSpan: TimeSpan;
@@ -62,31 +52,7 @@ export const meta = () => {
 	return [{ title: "Measurements | Ryot" }];
 };
 
-export const action = async ({ request }: Route.ActionArgs) => {
-	const formData = await request.clone().formData();
-	const intent = getActionIntent(request);
-	return await match(intent)
-		.with("delete", async () => {
-			const submission = processSubmission(formData, deleteSchema);
-			await serverGqlService.authenticatedRequest(
-				request,
-				DeleteUserMeasurementDocument,
-				submission,
-			);
-			return data({ status: "success", submission } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Measurement deleted successfully",
-				}),
-			});
-		})
-		.run();
-};
-
-const deleteSchema = z.object({ timestamp: z.string() });
-
 export default function Page() {
-	const submit = useConfirmSubmit();
 	const userPreferences = useUserPreferences();
 	const [, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
 	const [filters, setFilters] = useLocalStorage(
@@ -100,12 +66,34 @@ export default function Page() {
 		return { endTime: now.toISOString(), startTime: startTime?.toISOString() };
 	}, [filters.timeSpan]);
 
-	const { data: userMeasurementsList } = useQuery({
+	const { data: userMeasurementsList, refetch } = useQuery({
 		queryKey: queryFactory.fitness.userMeasurementsList(input).queryKey,
 		queryFn: () =>
 			clientGqlService
 				.request(UserMeasurementsListDocument, { input })
 				.then((data) => data.userMeasurementsList),
+	});
+
+	const deleteUserMeasurementMutation = useMutation({
+		mutationFn: (timestamp: string) =>
+			clientGqlService.request(DeleteUserMeasurementDocument, {
+				timestamp,
+			}),
+		onSuccess: () => {
+			notifications.show({
+				color: "green",
+				title: "Success",
+				message: "Measurement deleted successfully",
+			});
+			refetch();
+		},
+		onError: () => {
+			notifications.show({
+				color: "red",
+				title: "Error",
+				message: "Failed to delete measurement",
+			});
+		},
 	});
 
 	const selectedStatistics =
@@ -192,30 +180,18 @@ export default function Page() {
 									accessor: "Delete",
 									textAlign: "center",
 									render: ({ timestamp }) => (
-										<Form
-											method="POST"
-											action={withQuery(".", { intent: "delete" })}
+										<ActionIcon
+											color="red"
+											loading={deleteUserMeasurementMutation.isPending}
+											onClick={() => {
+												openConfirmationModal(
+													"This action can not be undone. Are you sure you want to delete this measurement?",
+													() => deleteUserMeasurementMutation.mutate(timestamp),
+												);
+											}}
 										>
-											<input
-												type="hidden"
-												name="timestamp"
-												defaultValue={timestamp}
-											/>
-											<ActionIcon
-												color="red"
-												type="submit"
-												onClick={(e) => {
-													const form = e.currentTarget.form;
-													e.preventDefault();
-													openConfirmationModal(
-														"This action can not be undone. Are you sure you want to delete this measurement?",
-														() => submit(form),
-													);
-												}}
-											>
-												<IconTrash />
-											</ActionIcon>
-										</Form>
+											<IconTrash />
+										</ActionIcon>
 									),
 								},
 							]}
