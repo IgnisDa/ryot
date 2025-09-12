@@ -279,6 +279,7 @@ const StatChart = (props: StatChartProps) => {
 					data={props.formattedData}
 					dataKey="formattedTimestamp"
 					yAxisProps={{ domain: yAxisDomain }}
+					valueFormatter={(val) => Number(val).toFixed(2)}
 					series={[
 						{
 							name: props.stat.value,
