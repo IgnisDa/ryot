@@ -213,7 +213,7 @@ type Data = Array<Record<string, string>>;
 const calculateYAxisDomain = (data: Data, statValue: string) => {
 	const values = data
 		.map((item) => Number.parseFloat(item[statValue]))
-		.filter((val) => !Number.isNaN(val));
+		.filter((val) => !Number.isFinite(val));
 
 	if (values.length === 0) return [0, 100];
 
@@ -228,7 +228,7 @@ const calculateYAxisDomain = (data: Data, statValue: string) => {
 	const range = maxValue - minValue;
 	const padding = range * 0.1;
 
-	return [Math.max(0, minValue - padding), maxValue + padding];
+	return [minValue - padding, maxValue + padding];
 };
 
 interface SyncedMeasurementChartProps {
