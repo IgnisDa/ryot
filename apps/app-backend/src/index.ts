@@ -4,12 +4,12 @@ import { auth } from "./utils/auth";
 
 const app = new Hono().basePath("/api");
 
-app.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw));
+const route = app
+  .on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw))
+  .get("/", (c) => {
+    return c.text("Hello Hono!");
+  });
 
-app.get("/", (c) => {
-  return c.text("Hello Hono!");
-});
-
-export type AppType = typeof app;
+export type AppType = typeof route;
 
 export default app;
