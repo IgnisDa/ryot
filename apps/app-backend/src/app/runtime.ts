@@ -15,7 +15,6 @@ import {
 	initializeSandboxService,
 	shutdownSandboxService,
 } from "~/lib/sandbox";
-import { dispatchExerciseSeedJob } from "~/modules/fitness";
 import { initializeMetrics } from "~/modules/system";
 import { getServer } from "./server";
 
@@ -42,7 +41,6 @@ export const startServer = async () => {
 	await initializeQueues();
 	await initializeSandboxService();
 	await initializeWorkers();
-	await dispatchExerciseSeedJob();
 
 	const app = getServer();
 	const server = serve({ port: config.port, fetch: app.fetch }, (c) => {
