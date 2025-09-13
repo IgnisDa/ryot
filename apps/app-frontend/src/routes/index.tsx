@@ -10,7 +10,10 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
+import type { AppType } from "@ryot/app-backend";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { hc } from "hono/client";
 import {
 	Route as RouteIcon,
 	Server,
@@ -22,7 +25,17 @@ import {
 
 export const Route = createFileRoute("/")({ component: App });
 
+const api = hc<AppType>("");
+
 function App() {
+	const { data } = useQuery({
+		queryKey: ["hello"],
+		queryFn: async () => {
+			const res = await api.api.$get();
+			return res.text();
+		},
+	});
+
 	const features = [
 		{
 			icon: <Zap size={48} color="#22d3ee" />,
@@ -69,6 +82,7 @@ function App() {
 				background: "linear-gradient(to bottom, #0f172a, #1e293b, #0f172a)",
 			}}
 		>
+			{JSON.stringify(data)}
 			<Box
 				style={{
 					position: "relative",
@@ -147,13 +161,13 @@ function App() {
 				<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
 					{features.map((feature, index) => (
 						<Card
-							key={index}
-							padding="lg"
-							radius="md"
 							withBorder
+							key={index}
+							radius="md"
+							padding="lg"
 							style={{
-								background: "rgba(30, 41, 59, 0.5)",
 								backdropFilter: "blur(4px)",
+								background: "rgba(30, 41, 59, 0.5)",
 							}}
 						>
 							<Box mb="md">{feature.icon}</Box>

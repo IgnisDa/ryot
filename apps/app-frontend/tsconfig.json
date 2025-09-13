@@ -1,25 +1,26 @@
 {
 	"include": ["**/*.ts", "**/*.tsx"],
 	"compilerOptions": {
+		"baseUrl": ".",
+		"noEmit": true,
+		"strict": true,
 		"target": "ES2022",
 		"jsx": "react-jsx",
 		"module": "ESNext",
-		"baseUrl": ".",
+		"skipLibCheck": true,
+		"noUnusedLocals": true,
+		"types": ["vite/client"],
+		"noUnusedParameters": true,
+		"verbatimModuleSyntax": true,
+		"moduleResolution": "bundler",
+		"noFallthroughCasesInSwitch": true,
+		"allowImportingTsExtensions": true,
+		"noUncheckedSideEffectImports": true,
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
 		"paths": {
 			"@/*": ["./src/*"],
-			"#/*": ["./src/*"]
-		},
-		"lib": ["ES2022", "DOM", "DOM.Iterable"],
-		"types": ["vite/client"],
-		"moduleResolution": "bundler",
-		"allowImportingTsExtensions": true,
-		"verbatimModuleSyntax": true,
-		"noEmit": true,
-		"skipLibCheck": true,
-		"strict": true,
-		"noUnusedLocals": true,
-		"noUnusedParameters": true,
-		"noFallthroughCasesInSwitch": true,
-		"noUncheckedSideEffectImports": true
+			"#/*": ["./src/*"],
+			"@ryot/app-backend/*": ["../app-backend/src/*"]
+		}
 	}
 }
