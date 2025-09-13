@@ -1,5 +1,5 @@
 {
-	"id": "d9eee513-b147-4fe0-a518-b4f87056d397",
+	"id": "81c85e19-951e-4d53-8fe6-3f598998b640",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -494,6 +494,28 @@
 					],
 					"isUnique": true,
 					"where": "\"entity\".\"user_id\" is null",
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"entity_global_no_script_external_id_unique": {
+					"name": "entity_global_no_script_external_id_unique",
+					"columns": [
+						{
+							"expression": "external_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "entity_schema_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"where": "\"entity\".\"user_id\" IS NULL AND \"entity\".\"sandbox_script_id\" IS NULL",
 					"concurrently": false,
 					"method": "btree",
 					"with": {}
@@ -1664,6 +1686,12 @@
 			"name": "saved_view",
 			"schema": "",
 			"columns": {
+				"slug": {
+					"name": "slug",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
 				"name": {
 					"name": "name",
 					"type": "text",
@@ -1801,7 +1829,13 @@
 				}
 			},
 			"compositePrimaryKeys": {},
-			"uniqueConstraints": {},
+			"uniqueConstraints": {
+				"saved_view_user_slug_unique": {
+					"name": "saved_view_user_slug_unique",
+					"nullsNotDistinct": false,
+					"columns": ["user_id", "slug"]
+				}
+			},
 			"policies": {},
 			"checkConstraints": {},
 			"isRLSEnabled": false

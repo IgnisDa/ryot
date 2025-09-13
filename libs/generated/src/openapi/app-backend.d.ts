@@ -2638,11 +2638,11 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    filter?: components["schemas"]["NullableViewPredicate"];
                                     /** @default [] */
                                     relationships: {
                                         relationshipSchemaSlug: string;
                                     }[];
+                                    filter?: components["schemas"]["NullableViewPredicate"];
                                 };
                                 displayConfiguration: {
                                     grid: {
@@ -2725,11 +2725,11 @@ export interface paths {
                                 kind: "latestEvent";
                                 eventSchemaSlug: string;
                             }[];
-                            filter?: components["schemas"]["NullableViewPredicate"];
                             /** @default [] */
                             relationships?: {
                                 relationshipSchemaSlug: string;
                             }[];
+                            filter?: components["schemas"]["NullableViewPredicate"];
                         };
                         displayConfiguration: {
                             grid: {
@@ -2795,11 +2795,11 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    filter?: components["schemas"]["NullableViewPredicate"];
                                     /** @default [] */
                                     relationships: {
                                         relationshipSchemaSlug: string;
                                     }[];
+                                    filter?: components["schemas"]["NullableViewPredicate"];
                                 };
                                 displayConfiguration: {
                                     grid: {
@@ -2913,11 +2913,11 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    filter?: components["schemas"]["NullableViewPredicate"];
                                     /** @default [] */
                                     relationships: {
                                         relationshipSchemaSlug: string;
                                     }[];
+                                    filter?: components["schemas"]["NullableViewPredicate"];
                                 };
                                 displayConfiguration: {
                                     grid: {
@@ -3005,11 +3005,11 @@ export interface paths {
                                 kind: "latestEvent";
                                 eventSchemaSlug: string;
                             }[];
-                            filter?: components["schemas"]["NullableViewPredicate"];
                             /** @default [] */
                             relationships?: {
                                 relationshipSchemaSlug: string;
                             }[];
+                            filter?: components["schemas"]["NullableViewPredicate"];
                         };
                         displayConfiguration: {
                             grid: {
@@ -3075,11 +3075,11 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    filter?: components["schemas"]["NullableViewPredicate"];
                                     /** @default [] */
                                     relationships: {
                                         relationshipSchemaSlug: string;
                                     }[];
+                                    filter?: components["schemas"]["NullableViewPredicate"];
                                 };
                                 displayConfiguration: {
                                     grid: {
@@ -3192,11 +3192,11 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    filter?: components["schemas"]["NullableViewPredicate"];
                                     /** @default [] */
                                     relationships: {
                                         relationshipSchemaSlug: string;
                                     }[];
+                                    filter?: components["schemas"]["NullableViewPredicate"];
                                 };
                                 displayConfiguration: {
                                     grid: {
@@ -3322,11 +3322,11 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    filter?: components["schemas"]["NullableViewPredicate"];
                                     /** @default [] */
                                     relationships: {
                                         relationshipSchemaSlug: string;
                                     }[];
+                                    filter?: components["schemas"]["NullableViewPredicate"];
                                 };
                                 displayConfiguration: {
                                     grid: {
