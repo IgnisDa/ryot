@@ -70,7 +70,7 @@ export const resolveAuthenticatedUser = async (
 	}
 
 	const session = await deps.getSession({ headers: request.headers });
-	return session ? await deps.getUserById(session.user.id) : null;
+	return session ? session.user : null;
 };
 
 export const requireAuth = createMiddleware<{ Variables: MaybeAuthType }>(async (c, next) => {
