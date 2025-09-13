@@ -66,9 +66,9 @@ Add a first-class integrations module to V2 that supports all three integration 
 - **New:** `src/modules/integrations/` — the integrations module containing CRUD, scheduling, webhook handling, and provider adapters.
 - **Modified:** `src/modules/events/` — add before-trigger phase, position ordering, EventWriteContext threading, skip results in best-effort creation.
 - **Modified:** `src/modules/collections/` — emit `add-entity-to-collection` and `remove-entity-from-collection` events after membership writes.
-- **Modified:** `src/modules/entities/` — add ownership property merging to `in-library` relationship helper.
+- **Modified:** `src/modules/entities/` — keep library membership helpers generic and reusable for the imports ownership write path.
 - **Modified:** `src/modules/builtins/` — seed new event schemas, new builtin event schema trigger links, new relationship schema properties for `in-library`, update user preferences schema.
-- **Modified:** `src/modules/imports/` — thread EventWriteContext through the media pipeline write phase; accept optional integrationId.
+- **Modified:** `src/modules/imports/` — thread EventWriteContext through the media pipeline write phase; accept optional integrationId; merge ownership into the `in-library` relationship during media writes.
 - **Modified:** `src/modules/legacy-bootstrap/` — rename/drop the V1 `integration` table, add integration migration, add V1 Owned-collection ownership migration, update user preference migration.
 - **Modified:** `src/lib/sandbox/` — add `claimCachedValue` host function; add before-trigger driver validation; add sandbox script files for push and progress-policy triggers.
 - **Modified:** `src/lib/config/` — add scheduler and threshold config fields.
@@ -502,12 +502,13 @@ The events module exposes a new public service function `createEventBySchemaSlug
 
 The `in-library` builtin relationship schema is widened to include optional `owned`, `ownershipSources`, and `ownershipSyncedAt` properties.
 
-The `entities` module gains a new helper: `writeOwnershipToLibrary(userId, entityId, provider, syncedAt)` which:
+Ownership sync is implemented in the imports media write path via a local `writeOwnershipToLibrary` helper in `src/modules/imports/media/write.ts`, which reuses generic entity helpers rather than adding integration-specific code to `src/modules/entities/`:
 
 1. Ensures the entity is in the user's library (`ensureEntityInLibrary`).
-2. Reads current `in-library` relationship properties.
-3. Merges: sets `owned = true`, appends provider to `ownershipSources` if not already present (deduped), sets `ownershipSyncedAt = now`.
-4. Writes updated properties back to the relationship row.
+2. Resolves the builtin library entity and `in-library` relationship schema IDs.
+3. Reads current `in-library` relationship properties.
+4. Merges: sets `owned = true`, appends provider to `ownershipSources` if not already present (deduped), sets `ownershipSyncedAt = now`.
+5. Writes updated properties back through the generic relationship write path.
 
 Integration `syncOwnership = true` triggers this helper for each owned item returned by the Yank adapter's owned-items fetch.
 
@@ -635,8 +636,6 @@ src/modules/integrations/
       plex-sink.ts
       jellyfin-sink.ts
       ryot-browser-extension.ts
-    shared/
-      ownership.ts
 ```
 
 Push behavior lives in sandbox scripts only, not in this directory.
@@ -713,9 +712,9 @@ Test atomic claim behavior: first call claims and returns `claimed: true`; secon
 
 Test that `addToCollection` emits `add-entity-to-collection` on new insert and not on upsert update. Test that `removeFromCollection` emits `remove-entity-from-collection` only when a row was actually deleted. Test transaction rollback if event creation fails. Prior art: `apps/app-backend/src/modules/entities/service.test.ts`.
 
-### Ownership Helper Tests
+### Ownership Merge Tests
 
-Test `writeOwnershipToLibrary`: merges sources correctly, does not duplicate provider in `ownershipSources`, updates `ownershipSyncedAt`, sets `owned = true`. Prior art: `apps/app-backend/src/modules/entities/service.test.ts`.
+Test the imports ownership merge path: it merges sources correctly, does not duplicate a provider in `ownershipSources`, updates `ownershipSyncedAt`, and sets `owned = true`. Prior art: `apps/app-backend/src/modules/entities/service.test.ts`.
 
 ## Out of Scope
 
@@ -750,7 +749,7 @@ Test `writeOwnershipToLibrary`: merges sources correctly, does not duplicate pro
 
 **Overall Progress:** 10 of 10 tasks completed
 
-**Current Task:** [Task 10 — Codebase Cleanup](./10-codebase-cleanup.md) (todo)
+**Current Task:** [Task 10 — Codebase Cleanup](./10-codebase-cleanup.md) (done)
 
 ### Task List
 
@@ -765,4 +764,4 @@ Test `writeOwnershipToLibrary`: merges sources correctly, does not duplicate pro
 | 07  | [Push and Progress-Policy Sandbox Scripts](./07-push-and-progress-policy-scripts.md)                       | AFK  | done   |
 | 08  | [Legacy Bootstrap Migration](./08-legacy-bootstrap-migration.md)                                           | AFK  | done   |
 | 09  | [E2E Tests](./09-e2e-tests.md)                                                                             | AFK  | done   |
-| 10  | [Codebase Cleanup](./10-codebase-cleanup.md)                                                               | AFK  | todo   |
+| 10  | [Codebase Cleanup](./10-codebase-cleanup.md)                                                               | AFK  | done   |
