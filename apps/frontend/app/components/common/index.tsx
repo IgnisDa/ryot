@@ -63,7 +63,7 @@ import {
 import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
-	type BulkAddEntities,
+	type BulkEditEntitiesToCollection,
 	useBulkEditCollection,
 	useEditEntityCollectionInformation,
 } from "~/lib/state/collection";
@@ -169,6 +169,12 @@ export const DisplayCollectionToEntity = (props: {
 	const thisCollection = userCollections.find(
 		(c) => c.id === props.col.details.collectionId,
 	);
+	const hasExtraInformationFields =
+		!!thisCollection?.informationTemplate?.length;
+	const userAddedInfoCount = Object.keys(
+		props.col.details.information || {},
+	).length;
+	const hasUserAddedAdditionalInformation = userAddedInfoCount > 0;
 
 	const handleRemove = () => {
 		openConfirmationModal(
@@ -260,50 +266,55 @@ export const DisplayCollectionToEntity = (props: {
 							{dayjsLib(props.col.details.lastUpdatedOn).format("LLL")}
 						</Text>
 					</Group>
-					{Object.keys(props.col.details.information || {}).length > 0 && (
+					{hasExtraInformationFields ? (
 						<>
 							<Divider />
 							<Group justify="space-between">
-								<Text size="sm" fw={500}>
-									Additional Information:
+								<Text td="underline">
+									{hasUserAddedAdditionalInformation
+										? "Additional Information"
+										: "No Additional Information"}
 								</Text>
-								<ActionIcon size="sm" variant="subtle" onClick={handleEdit}>
+								<ActionIcon size="sm" variant="default" onClick={handleEdit}>
 									<IconPencil size={16} />
 								</ActionIcon>
 							</Group>
-							<Stack gap="xs">
-								{Object.entries(props.col.details.information).map(
-									([key, value]) => {
-										const stringValue = String(value);
-										const lot = thisCollection?.informationTemplate?.find(
-											(v) => v.name === key,
-										)?.lot;
-										return (
-											<Group key={key}>
-												<Text size="sm" c="dimmed">
-													{key}:
-												</Text>
-												<Text size="sm">
-													{match(lot)
-														.with(CollectionExtraInformationLot.DateTime, () =>
-															dayjsLib(stringValue).format("LLL"),
-														)
-														.with(CollectionExtraInformationLot.Date, () =>
-															dayjsLib(stringValue).format("LL"),
-														)
-														.with(
-															CollectionExtraInformationLot.StringArray,
-															() => (value as string[]).join(", "),
-														)
-														.otherwise(() => stringValue)}
-												</Text>
-											</Group>
-										);
-									},
-								)}
-							</Stack>
+							{hasUserAddedAdditionalInformation ? (
+								<Stack gap="xs">
+									{Object.entries(props.col.details.information).map(
+										([key, value]) => {
+											const stringValue = String(value);
+											const lot = thisCollection?.informationTemplate?.find(
+												(v) => v.name === key,
+											)?.lot;
+											return (
+												<Group key={key}>
+													<Text size="sm" c="dimmed">
+														{key}:
+													</Text>
+													<Text size="sm">
+														{match(lot)
+															.with(
+																CollectionExtraInformationLot.DateTime,
+																() => dayjsLib(stringValue).format("LLL"),
+															)
+															.with(CollectionExtraInformationLot.Date, () =>
+																dayjsLib(stringValue).format("LL"),
+															)
+															.with(
+																CollectionExtraInformationLot.StringArray,
+																() => (value as string[]).join(", "),
+															)
+															.otherwise(() => stringValue)}
+													</Text>
+												</Group>
+											);
+										},
+									)}
+								</Stack>
+							) : null}
 						</>
-					)}
+					) : null}
 				</Stack>
 			</Modal>
 		</>
@@ -346,7 +357,7 @@ export const DisplayListDetailsAndRefresh = (props: {
 };
 
 export const BulkCollectionEditingAffix = (props: {
-	bulkAddEntities: BulkAddEntities;
+	bulkAddEntities: BulkEditEntitiesToCollection;
 }) => {
 	const bulkEditingCollection = useBulkEditCollection();
 	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
@@ -383,14 +394,10 @@ export const BulkCollectionEditingAffix = (props: {
 	};
 
 	const handleConfirmBulkAction = () => {
-		const {
-			action,
-			collection,
-			targetEntities: entities,
-		} = bulkEditingCollectionState.data;
-		const actionText = action === "remove" ? "remove" : "add";
-		const itemCount = entities.length;
-		const message = `Are you sure you want to ${actionText} ${itemCount} item${itemCount === 1 ? "" : "s"} ${action === "remove" ? "from" : "to"} "${collection.name}"?`;
+		const { action, collection, targetEntities } =
+			bulkEditingCollectionState.data;
+		const itemCount = targetEntities.length;
+		const message = `Are you sure you want to ${action} ${itemCount} item${itemCount === 1 ? "" : "s"} ${action === "remove" ? "from" : "to"} "${collection.name}"?`;
 
 		openConfirmationModal(message, handleBulkAction);
 	};
@@ -449,71 +456,73 @@ export const CollectionTemplateRenderer = (props: {
 	value: Scalars["JSON"]["input"];
 	template: CollectionExtraInformation;
 	onChange: (value: Scalars["JSON"]["input"]) => void;
-}) => {
-	return (
-		<>
-			{match(props.template.lot)
-				.with(CollectionExtraInformationLot.String, () => (
-					<TextInput
-						value={props.value || ""}
-						label={props.template.name}
-						required={!!props.template.required}
-						description={props.template.description}
-						onChange={(e) => props.onChange(e.currentTarget.value)}
-					/>
-				))
-				.with(CollectionExtraInformationLot.Boolean, () => (
-					<Switch
-						label={props.template.name}
-						checked={props.value === "true"}
-						required={!!props.template.required}
-						description={props.template.description}
-						onChange={(e) =>
-							props.onChange(e.currentTarget.checked ? "true" : "false")
-						}
-					/>
-				))
-				.with(CollectionExtraInformationLot.Number, () => (
-					<NumberInput
-						value={props.value}
-						label={props.template.name}
-						required={!!props.template.required}
-						description={props.template.description}
-						onChange={(v) => props.onChange(v)}
-					/>
-				))
-				.with(CollectionExtraInformationLot.Date, () => (
-					<DateInput
-						value={props.value}
-						label={props.template.name}
-						required={!!props.template.required}
-						description={props.template.description}
-						onChange={(v) => props.onChange(v)}
-					/>
-				))
-				.with(CollectionExtraInformationLot.DateTime, () => (
-					<DateTimePicker
-						value={props.value}
-						label={props.template.name}
-						required={!!props.template.required}
-						description={props.template.description}
-						onChange={(v) => props.onChange(dayjsLib(v).toISOString())}
-					/>
-				))
-				.with(CollectionExtraInformationLot.StringArray, () => (
-					<MultiSelectCreatable
-						values={props.value}
-						label={props.template.name}
-						required={!!props.template.required}
-						description={props.template.description}
-						data={props.template.possibleValues || []}
-						setValue={(newValue: string[]) => props.onChange(newValue)}
-					/>
-				))
-				.exhaustive()}
-		</>
-	);
-};
+}) => (
+	<>
+		{match(props.template.lot)
+			.with(CollectionExtraInformationLot.String, () => (
+				<TextInput
+					value={props.value || ""}
+					label={props.template.name}
+					required={!!props.template.required}
+					description={props.template.description}
+					onChange={(e) => props.onChange(e.currentTarget.value)}
+				/>
+			))
+			.with(CollectionExtraInformationLot.Boolean, () => (
+				<Switch
+					label={props.template.name}
+					checked={props.value === "true"}
+					required={!!props.template.required}
+					description={props.template.description}
+					onChange={(e) =>
+						props.onChange(e.currentTarget.checked ? "true" : "false")
+					}
+				/>
+			))
+			.with(CollectionExtraInformationLot.Number, () => (
+				<NumberInput
+					value={props.value}
+					label={props.template.name}
+					required={!!props.template.required}
+					description={props.template.description}
+					onChange={(v) => props.onChange(v)}
+				/>
+			))
+			.with(CollectionExtraInformationLot.Date, () => (
+				<DateInput
+					clearable
+					value={props.value}
+					label={props.template.name}
+					required={!!props.template.required}
+					description={props.template.description}
+					onChange={(v) => props.onChange(v)}
+				/>
+			))
+			.with(CollectionExtraInformationLot.DateTime, () => (
+				<DateTimePicker
+					clearable
+					value={props.value}
+					label={props.template.name}
+					required={!!props.template.required}
+					description={props.template.description}
+					onChange={(v) =>
+						props.onChange(v ? dayjsLib(v).toISOString() : undefined)
+					}
+				/>
+			))
+			.with(CollectionExtraInformationLot.StringArray, () => (
+				<MultiSelectCreatable
+					values={props.value}
+					label={props.template.name}
+					required={!!props.template.required}
+					description={props.template.description}
+					data={props.template.possibleValues || []}
+					setValue={(newValue: string[]) => props.onChange(newValue)}
+				/>
+			))
+			.exhaustive()}
+	</>
+);
 
 export const ApplicationPagination = (props: {
 	value: number;
