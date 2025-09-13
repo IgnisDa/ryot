@@ -331,6 +331,7 @@ All references must be explicit. There are two reference types plus computed fie
 
 - `{ "type": "entity", "slug": "...", "path": [...] }` — references an entity field
 - `{ "type": "event", "joinKey": "...", "path": [...] }` — references an event join field
+- `{ "type": "event-aggregate", "eventSchemaSlug": "...", "path": [...], "aggregation": "..." }` — aggregates across a user's events for each entity
 - `{ "type": "computed-field", "key": "..." }` — references a declared computed field
 
 The `path` array encodes which DB location to access:
@@ -385,6 +386,71 @@ String shorthand → `RuntimeRef` JSON:
 - `event.review.properties.rating` → `{ "type": "event", "joinKey": "review", "path": ["properties", "rating"] }`
 - `event.review.properties.note` → `{ "type": "event", "joinKey": "review", "path": ["properties", "note"] }`
 - `event.purchase.properties.price` → `{ "type": "event", "joinKey": "purchase", "path": ["properties", "price"] }`
+
+### Event Aggregates
+
+Event aggregate references compute an aggregation (e.g. average, count) across all of the
+current user's events for a given event schema, per entity. Unlike event joins, they do not
+require an `eventJoins` entry — they run a correlated subquery scoped to the authenticated user.
+
+Supported aggregations: `avg`, `count`, `max`, `min`, `sum`.
+
+```json
+{
+  "type": "event-aggregate",
+  "eventSchemaSlug": "review",
+  "path": ["rating"],
+  "aggregation": "avg"
+}
+```
+
+This computes the average `rating` property across all of the current user's `review` events
+for each entity. Type inference returns `integer` for `count` and `number` for all other
+aggregations.
+
+Notes:
+
+- Event aggregates are always scoped to the authenticated user — user A sees only their own averages.
+- The `eventSchemaSlug` must be a valid event schema available for the entity schemas in the query.
+- For `count`, the `path` field is required by the schema but not used in the SQL — it counts all matching events regardless of the property.
+- For non-`count` aggregations, the `path` must reference a numeric property. Non-numeric values are treated as NULL and excluded from the aggregation.
+- Event aggregates can be used anywhere expressions are accepted: fields, sort, filter, computed fields, and display configuration slots.
+
+Examples:
+
+Average user rating callout:
+
+```json
+{
+  "key": "callout",
+  "expression": {
+    "type": "reference",
+    "reference": {
+      "type": "event-aggregate",
+      "eventSchemaSlug": "review",
+      "path": ["rating"],
+      "aggregation": "avg"
+    }
+  }
+}
+```
+
+Count of user reviews:
+
+```json
+{
+  "key": "reviewCount",
+  "expression": {
+    "type": "reference",
+    "reference": {
+      "type": "event-aggregate",
+      "eventSchemaSlug": "review",
+      "path": ["rating"],
+      "aggregation": "count"
+    }
+  }
+}
+```
 
 ## Event Joins
 
@@ -804,6 +870,7 @@ Use latest review rating when present, otherwise show publish year.
 - All references must be explicit; shorthand like `book.title` is invalid.
 - `fields` may be empty, but then `items[].fields` will also be empty.
 - `event.*` references require the join to be declared in `eventJoins`.
+- `event-aggregate` references do not require an entry in `eventJoins` — they operate independently via correlated subqueries.
 - Sort/filter references must point to schemas included in `entitySchemaSlugs`.
 - `image` is display-only, not filterable.
 - Duplicate field keys are rejected.
@@ -818,3 +885,4 @@ Common validation failures are reported with direct payload-oriented messages:
 - Dependency cycle: `Computed field dependency cycle detected: first -> second -> first`
 - Type mismatch: `Filter operator 'eq' requires compatible expression types, received 'integer' and 'string'`
 - Non-display image usage: `Image expressions are display-only and cannot be used in sorting`
+- Invalid event-aggregate slug: `Event schema 'reviw' is not available for the requested entity schemas`
