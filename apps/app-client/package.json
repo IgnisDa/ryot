@@ -4,10 +4,10 @@
 	"private": true,
 	"main": "expo-router/entry",
 	"scripts": {
+		"test": "bun test",
 		"ios": "expo run:ios",
 		"android": "expo run:android",
 		"dev": "expo start --port 3005",
-		"test": "bun test --only-failures",
 		"build": "expo export --platform web --output-dir dist",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
