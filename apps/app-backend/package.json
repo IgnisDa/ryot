@@ -5,9 +5,11 @@
 	},
 	"dependencies": {
 		"better-auth": "1.4.18",
+		"drizzle-orm": "0.45.1",
 		"hono": "4.12.1"
 	},
 	"devDependencies": {
-		"@types/bun": "latest"
+		"@types/bun": "latest",
+		"drizzle-kit": "0.31.9"
 	}
 }
