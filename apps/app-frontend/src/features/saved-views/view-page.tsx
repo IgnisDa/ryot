@@ -33,6 +33,7 @@ import {
 import { TrackerIcon } from "~/features/trackers/icons";
 import { useApiClient } from "~/hooks/api";
 import { useThemeTokens } from "~/hooks/theme";
+import type { ApiGetResponseData } from "~/lib/api/types";
 import { STORAGE_KEYS } from "~/lib/storage-keys";
 import { getAccentMuted } from "~/lib/theme";
 import { SavedViewDrawerContent } from "./components/saved-view-drawer-content";
@@ -43,8 +44,10 @@ import {
 	getPageLimit,
 	getRuntimeField,
 	isRuntimeField,
-	type ViewLayout,
 } from "./view-page-utils";
+
+type ViewLayout =
+	keyof ApiGetResponseData<"/saved-views/{viewId}">["displayConfiguration"];
 
 const isViewLayout = (value: string): value is ViewLayout => {
 	return ["grid", "list", "table"].includes(value);
