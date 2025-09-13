@@ -1,3 +1,4 @@
+import type { DbClient } from "~/lib/db";
 import { type ServiceResult, serviceData, serviceError } from "~/lib/result";
 import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
 
@@ -9,6 +10,7 @@ const memberOfRelationshipSchemaNotFoundError = "member-of relationship schema n
 type CollectionMembershipRow = Awaited<ReturnType<typeof upsertRelationship>>;
 
 type CollectionMembershipData = {
+	wasInserted: boolean;
 	memberOf: {
 		id: string;
 		createdAt: string;
@@ -19,9 +21,13 @@ type CollectionMembershipData = {
 	};
 };
 
-const toCollectionMembershipData = (row: CollectionMembershipRow): CollectionMembershipData => ({
-	memberOf: { ...row, createdAt: row.createdAt.toISOString() },
-});
+const toCollectionMembershipData = (row: CollectionMembershipRow): CollectionMembershipData => {
+	const { wasInserted, ...relationshipData } = row;
+	return {
+		wasInserted,
+		memberOf: { ...relationshipData, createdAt: relationshipData.createdAt.toISOString() },
+	};
+};
 
 export type WriteCollectionMembershipDeps = {
 	upsertRelationship: typeof upsertRelationship;
@@ -47,6 +53,7 @@ export const writeCollectionMembership = async (
 	input: {
 		userId: string;
 		entityId: string;
+		database?: DbClient;
 		collectionId: string;
 		properties: Record<string, unknown>;
 	},
@@ -59,13 +66,16 @@ export const writeCollectionMembership = async (
 		return serviceError("not_found", memberOfRelationshipSchemaNotFoundError);
 	}
 
-	const membership = await deps.upsertRelationship({
-		userId: input.userId,
-		properties: input.properties,
-		sourceEntityId: input.entityId,
-		targetEntityId: input.collectionId,
-		relationshipSchemaId: memberOfSchema.id,
-	});
+	const membership = await deps.upsertRelationship(
+		{
+			userId: input.userId,
+			properties: input.properties,
+			sourceEntityId: input.entityId,
+			targetEntityId: input.collectionId,
+			relationshipSchemaId: memberOfSchema.id,
+		},
+		input.database,
+	);
 
 	return serviceData(toCollectionMembershipData(membership));
 };
@@ -88,5 +98,12 @@ export const deleteCollectionMembership = async (
 		relationshipSchemaId: memberOfSchema.id,
 	});
 
-	return serviceData(membership ? toCollectionMembershipData(membership) : undefined);
+	if (!membership) {
+		return serviceData(undefined);
+	}
+
+	return serviceData({
+		wasInserted: false,
+		memberOf: { ...membership, createdAt: membership.createdAt.toISOString() },
+	});
 };
