@@ -16,7 +16,6 @@ import { eventSchemasApi } from "~/modules/event-schemas/routes";
 import { eventsApi } from "~/modules/events/routes";
 import { godModeApi } from "~/modules/god-mode/routes";
 import { importsApi } from "~/modules/imports";
-import { mediaApi } from "~/modules/media/routes";
 import { queryEngineApi } from "~/modules/query-engine/routes";
 import { sandboxApi } from "~/modules/sandbox/routes";
 import { savedViewsApi } from "~/modules/saved-views/routes";
@@ -38,10 +37,6 @@ const openApiTags = [
 	{
 		name: "sandbox",
 		description: "Execute sandboxed JavaScript code for custom computations",
-	},
-	{
-		name: "media",
-		description: "Convenience endpoints for the built-in media tracker",
 	},
 	{
 		name: "trackers",
@@ -119,7 +114,6 @@ const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	})
 	.route("/system", systemApi)
 	.route("/sandbox", sandboxApi)
-	.route("/media", mediaApi)
 	.route("/trackers", trackersApi)
 	.route("/entity-schemas", entitySchemasApi)
 	.route("/entities", entitiesApi)
