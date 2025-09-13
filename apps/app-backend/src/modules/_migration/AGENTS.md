@@ -8,13 +8,13 @@ TypeScript backend (apps/app-backend) during startup.
 - Keep all migration-specific logic inside this module.
 - `index.ts` must stay small and only re-export the startup entrypoints.
 - Run the legacy table rename before Drizzle migrations.
-- Run the legacy user data copy after Drizzle migrations have created the new tables.
+- Run the legacy table data copy after Drizzle migrations have created the new tables.
 - Prefer SQL for set-based work. Use TypeScript only for orchestration.
 
 ## Current Decisions
 
 - V1 `user` is renamed to `old_user` so the new Drizzle `user` table can be created.
-- Preserve legacy user ids.
+- Preserve legacy ids.
 - Derive new emails from the old user name as `name@ryot.local`, with normalization and a stable fallback for collisions.
 - New users get `email_verified = true` because the legacy account was already trusted.
 
