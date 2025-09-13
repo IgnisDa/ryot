@@ -4429,6 +4429,799 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List integrations for the current user */
+        get: {
+            parameters: {
+                query?: {
+                    provider?: string;
+                    isDisabled?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Integrations for the current user */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                id: string;
+                                /** @enum {string} */
+                                lot: "yank" | "sink" | "push";
+                                name: string | null;
+                                provider: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                                /** Format: date-time */
+                                updatedAt: string;
+                                isDisabled: boolean;
+                                syncOwnership: boolean;
+                                /** Format: date-time */
+                                lastFinishedAt: string | null;
+                                minimumProgress: string;
+                                maximumProgress: string;
+                                webhookUrl?: string;
+                                extraSettings: {
+                                    disableOnContinuousErrors: boolean;
+                                };
+                                providerSpecifics: {
+                                    /** @enum {string} */
+                                    kind: "kodi";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "emby";
+                                } | {
+                                    apiKey: string;
+                                    baseUrl: string;
+                                    /** @enum {string} */
+                                    kind: "komga";
+                                } | {
+                                    apiKey: string;
+                                    baseUrl: string;
+                                    profileId: string;
+                                    rootFolderPath: string;
+                                    /** @enum {string} */
+                                    kind: "radarr";
+                                    syncCollectionIds: string[];
+                                    tagIds?: number[];
+                                } | {
+                                    apiKey: string;
+                                    baseUrl: string;
+                                    profileId: string;
+                                    rootFolderPath: string;
+                                    /** @enum {string} */
+                                    kind: "sonarr";
+                                    tagIds?: number;
+                                    syncCollectionIds: string[];
+                                } | {
+                                    token: string;
+                                    baseUrl: string;
+                                    /** @enum {string} */
+                                    kind: "plex_yank";
+                                } | {
+                                    username?: string;
+                                    /** @enum {string} */
+                                    kind: "plex_sink";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "generic_json";
+                                } | {
+                                    timezone: string;
+                                    authCookie: string;
+                                    /** @enum {string} */
+                                    kind: "youtube_music";
+                                } | {
+                                    username?: string;
+                                    /** @enum {string} */
+                                    kind: "jellyfin_sink";
+                                    /** @enum {string} */
+                                    metadataProvider?: "tmdb" | "tvdb";
+                                } | {
+                                    baseUrl: string;
+                                    username: string;
+                                    password?: string;
+                                    /** @enum {string} */
+                                    kind: "jellyfin_push";
+                                } | {
+                                    token: string;
+                                    baseUrl: string;
+                                    /** @enum {string} */
+                                    kind: "audiobookshelf";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "ryot_browser_extension";
+                                    disabledSites?: string[];
+                                };
+                            }[];
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create a new integration */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        provider: string;
+                        name?: string;
+                        isDisabled?: boolean;
+                        syncOwnership?: boolean;
+                        minimumProgress?: number;
+                        maximumProgress?: number;
+                        extraSettings?: {
+                            disableOnContinuousErrors: boolean;
+                        };
+                        providerSpecifics: {
+                            /** @enum {string} */
+                            kind: "kodi";
+                        } | {
+                            /** @enum {string} */
+                            kind: "emby";
+                        } | {
+                            apiKey: string;
+                            baseUrl: string;
+                            /** @enum {string} */
+                            kind: "komga";
+                        } | {
+                            apiKey: string;
+                            baseUrl: string;
+                            profileId: string;
+                            rootFolderPath: string;
+                            /** @enum {string} */
+                            kind: "radarr";
+                            syncCollectionIds: string[];
+                            tagIds?: number[];
+                        } | {
+                            apiKey: string;
+                            baseUrl: string;
+                            profileId: string;
+                            rootFolderPath: string;
+                            /** @enum {string} */
+                            kind: "sonarr";
+                            tagIds?: number;
+                            syncCollectionIds: string[];
+                        } | {
+                            token: string;
+                            baseUrl: string;
+                            /** @enum {string} */
+                            kind: "plex_yank";
+                        } | {
+                            username?: string;
+                            /** @enum {string} */
+                            kind: "plex_sink";
+                        } | {
+                            /** @enum {string} */
+                            kind: "generic_json";
+                        } | {
+                            timezone: string;
+                            authCookie: string;
+                            /** @enum {string} */
+                            kind: "youtube_music";
+                        } | {
+                            username?: string;
+                            /** @enum {string} */
+                            kind: "jellyfin_sink";
+                            /** @enum {string} */
+                            metadataProvider?: "tmdb" | "tvdb";
+                        } | {
+                            baseUrl: string;
+                            username: string;
+                            password?: string;
+                            /** @enum {string} */
+                            kind: "jellyfin_push";
+                        } | {
+                            token: string;
+                            baseUrl: string;
+                            /** @enum {string} */
+                            kind: "audiobookshelf";
+                        } | {
+                            /** @enum {string} */
+                            kind: "ryot_browser_extension";
+                            disabledSites?: string[];
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description Integration created */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                id: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/integrations/{integrationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an integration by ID */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    integrationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Integration details */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                id: string;
+                                /** @enum {string} */
+                                lot: "yank" | "sink" | "push";
+                                name: string | null;
+                                provider: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                                /** Format: date-time */
+                                updatedAt: string;
+                                isDisabled: boolean;
+                                syncOwnership: boolean;
+                                /** Format: date-time */
+                                lastFinishedAt: string | null;
+                                minimumProgress: string;
+                                maximumProgress: string;
+                                webhookUrl?: string;
+                                extraSettings: {
+                                    disableOnContinuousErrors: boolean;
+                                };
+                                providerSpecifics: {
+                                    /** @enum {string} */
+                                    kind: "kodi";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "emby";
+                                } | {
+                                    apiKey: string;
+                                    baseUrl: string;
+                                    /** @enum {string} */
+                                    kind: "komga";
+                                } | {
+                                    apiKey: string;
+                                    baseUrl: string;
+                                    profileId: string;
+                                    rootFolderPath: string;
+                                    /** @enum {string} */
+                                    kind: "radarr";
+                                    syncCollectionIds: string[];
+                                    tagIds?: number[];
+                                } | {
+                                    apiKey: string;
+                                    baseUrl: string;
+                                    profileId: string;
+                                    rootFolderPath: string;
+                                    /** @enum {string} */
+                                    kind: "sonarr";
+                                    tagIds?: number;
+                                    syncCollectionIds: string[];
+                                } | {
+                                    token: string;
+                                    baseUrl: string;
+                                    /** @enum {string} */
+                                    kind: "plex_yank";
+                                } | {
+                                    username?: string;
+                                    /** @enum {string} */
+                                    kind: "plex_sink";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "generic_json";
+                                } | {
+                                    timezone: string;
+                                    authCookie: string;
+                                    /** @enum {string} */
+                                    kind: "youtube_music";
+                                } | {
+                                    username?: string;
+                                    /** @enum {string} */
+                                    kind: "jellyfin_sink";
+                                    /** @enum {string} */
+                                    metadataProvider?: "tmdb" | "tvdb";
+                                } | {
+                                    baseUrl: string;
+                                    username: string;
+                                    password?: string;
+                                    /** @enum {string} */
+                                    kind: "jellyfin_push";
+                                } | {
+                                    token: string;
+                                    baseUrl: string;
+                                    /** @enum {string} */
+                                    kind: "audiobookshelf";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "ryot_browser_extension";
+                                    disabledSites?: string[];
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+                /** @description Integration not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["NotFoundError"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Delete an integration and its run history */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    integrationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Integration deleted */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                id: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+                /** @description Integration not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["NotFoundError"];
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Update an integration */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    integrationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        name?: string;
+                        isDisabled?: boolean;
+                        syncOwnership?: boolean;
+                        minimumProgress?: number;
+                        maximumProgress?: number;
+                        extraSettings?: {
+                            disableOnContinuousErrors: boolean;
+                        };
+                        providerSpecifics?: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description Integration updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                id: string;
+                                /** @enum {string} */
+                                lot: "yank" | "sink" | "push";
+                                name: string | null;
+                                provider: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                                /** Format: date-time */
+                                updatedAt: string;
+                                isDisabled: boolean;
+                                syncOwnership: boolean;
+                                /** Format: date-time */
+                                lastFinishedAt: string | null;
+                                minimumProgress: string;
+                                maximumProgress: string;
+                                webhookUrl?: string;
+                                extraSettings: {
+                                    disableOnContinuousErrors: boolean;
+                                };
+                                providerSpecifics: {
+                                    /** @enum {string} */
+                                    kind: "kodi";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "emby";
+                                } | {
+                                    apiKey: string;
+                                    baseUrl: string;
+                                    /** @enum {string} */
+                                    kind: "komga";
+                                } | {
+                                    apiKey: string;
+                                    baseUrl: string;
+                                    profileId: string;
+                                    rootFolderPath: string;
+                                    /** @enum {string} */
+                                    kind: "radarr";
+                                    syncCollectionIds: string[];
+                                    tagIds?: number[];
+                                } | {
+                                    apiKey: string;
+                                    baseUrl: string;
+                                    profileId: string;
+                                    rootFolderPath: string;
+                                    /** @enum {string} */
+                                    kind: "sonarr";
+                                    tagIds?: number;
+                                    syncCollectionIds: string[];
+                                } | {
+                                    token: string;
+                                    baseUrl: string;
+                                    /** @enum {string} */
+                                    kind: "plex_yank";
+                                } | {
+                                    username?: string;
+                                    /** @enum {string} */
+                                    kind: "plex_sink";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "generic_json";
+                                } | {
+                                    timezone: string;
+                                    authCookie: string;
+                                    /** @enum {string} */
+                                    kind: "youtube_music";
+                                } | {
+                                    username?: string;
+                                    /** @enum {string} */
+                                    kind: "jellyfin_sink";
+                                    /** @enum {string} */
+                                    metadataProvider?: "tmdb" | "tvdb";
+                                } | {
+                                    baseUrl: string;
+                                    username: string;
+                                    password?: string;
+                                    /** @enum {string} */
+                                    kind: "jellyfin_push";
+                                } | {
+                                    token: string;
+                                    baseUrl: string;
+                                    /** @enum {string} */
+                                    kind: "audiobookshelf";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "ryot_browser_extension";
+                                    disabledSites?: string[];
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+                /** @description Integration not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["NotFoundError"];
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/integrations/{integrationId}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List import runs for an integration */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    integrationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Import runs for the integration */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                id: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                                /** Format: date-time */
+                                updatedAt: string;
+                                /** @enum {string} */
+                                source: "emby" | "hevy" | "igdb" | "imdb" | "kodi" | "plex" | "komga" | "trakt" | "movary" | "radarr" | "sonarr" | "anilist" | "grouvee" | "netflix" | "jellyfin" | "watcharr" | "goodreads" | "hardcover" | "plex_sink" | "plex_yank" | "open_scale" | "storygraph" | "strong_app" | "myanimelist" | "generic_json" | "media_tracker" | "jellyfin_push" | "jellyfin_sink" | "youtube_music" | "audiobookshelf" | "ryot_browser_extension";
+                                /** @enum {string} */
+                                status: "pending" | "running" | "completed" | "failed";
+                                progress: number;
+                                failedItems: number;
+                                /** Format: date-time */
+                                startedAt: string | null;
+                                /** Format: date-time */
+                                finishedAt: string | null;
+                                importedItems: number;
+                                processedItems: number;
+                                errorSummary: string | null;
+                                totalItems: number | null;
+                                inputSummary: {
+                                    [key: string]: unknown;
+                                };
+                            }[];
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+                /** @description Integration not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["NotFoundError"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks/integrations/{integrationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Receive a webhook payload for a Sink integration */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    integrationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Webhook accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                runId: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Not a sink integration */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                message: string;
+                                code: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Integration not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                message: string;
+                                code: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/query-engine/execute": {
         parameters: {
             query?: never;
