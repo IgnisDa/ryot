@@ -6,10 +6,10 @@
 		"#/*": "./src/*"
 	},
 	"scripts": {
+		"dev": "vite dev",
 		"typecheck": "tsc",
 		"build": "vite build",
-		"preview": "vite preview",
-		"dev": "vite dev --port 3000"
+		"preview": "vite preview"
 	},
 	"installConfig": {
 		"hoistingLimits": "workspaces"
