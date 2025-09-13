@@ -18,7 +18,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormEvent } from "react";
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
 	useFetcher,
@@ -93,52 +93,6 @@ export const useGetWorkoutStarter = () => {
 	return fn;
 };
 
-type PollingState = {
-	jobDeployedForEntity: string | null;
-	isPartialStatusActive: boolean;
-	attemptCount: number;
-	isPolling: boolean;
-};
-
-type PollingAction =
-	| { type: "RESET" }
-	| { type: "SET_JOB_DEPLOYED"; entityId: string | null }
-	| { type: "START_POLLING" }
-	| { type: "STOP_POLLING" }
-	| { type: "INCREMENT_ATTEMPT" };
-
-const initialPollingState: PollingState = {
-	jobDeployedForEntity: null,
-	isPartialStatusActive: false,
-	attemptCount: 0,
-	isPolling: false,
-};
-
-const pollingReducer = (
-	state: PollingState,
-	action: PollingAction,
-): PollingState => {
-	switch (action.type) {
-		case "RESET":
-			return initialPollingState;
-		case "SET_JOB_DEPLOYED":
-			return { ...state, jobDeployedForEntity: action.entityId };
-		case "START_POLLING":
-			return {
-				...state,
-				isPolling: true,
-				isPartialStatusActive: true,
-				attemptCount: 0,
-			};
-		case "STOP_POLLING":
-			return { ...state, isPolling: false, isPartialStatusActive: false };
-		case "INCREMENT_ATTEMPT":
-			return { ...state, attemptCount: state.attemptCount + 1 };
-		default:
-			return state;
-	}
-};
-
 export const usePartialStatusMonitor = (props: {
 	entityId?: string;
 	entityLot: EntityLot;
@@ -149,30 +103,31 @@ export const usePartialStatusMonitor = (props: {
 	const { entityId, entityLot, onUpdate, partialStatus, externalLinkSource } =
 		props;
 
-	const [pollingState, dispatch] = useReducer(
-		pollingReducer,
-		initialPollingState,
-	);
+	const [jobDeployedForEntity, setJobDeployedForEntity] = useState<
+		string | null
+	>(null);
+	const [isPartialStatusActive, setIsPartialStatusActive] = useState(false);
 	const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
 		undefined,
 	);
-	const pollingStateRef = useRef(pollingState);
-	pollingStateRef.current = pollingState;
+	const attemptCountRef = useRef(0);
+	const isPollingRef = useRef(false);
 
 	const scheduleNextPoll = useCallback(() => {
-		const currentState = pollingStateRef.current;
-		if (!currentState.isPolling) return;
+		if (!isPollingRef.current) return;
 
-		if (currentState.attemptCount >= 30) {
+		if (attemptCountRef.current >= 30) {
 			onUpdate();
-			dispatch({ type: "STOP_POLLING" });
+			isPollingRef.current = false;
+			setIsPartialStatusActive(false);
 			return;
 		}
 
 		timeoutRef.current = setTimeout(async () => {
-			if (!pollingStateRef.current.isPolling) return;
+			if (!isPollingRef.current) return;
 			await onUpdate();
-			dispatch({ type: "INCREMENT_ATTEMPT" });
+			attemptCountRef.current += 1;
+
 			scheduleNextPoll();
 		}, 1000);
 	}, [onUpdate]);
@@ -182,33 +137,33 @@ export const usePartialStatusMonitor = (props: {
 			clearTimeout(timeoutRef.current);
 			timeoutRef.current = undefined;
 		}
-		dispatch({ type: "RESET" });
+		attemptCountRef.current = 0;
+		isPollingRef.current = false;
+		setIsPartialStatusActive(false);
 	}, []);
 
 	useEffect(() => {
 		resetPollingState();
 
 		const isJobForDifferentEntity =
-			pollingState.jobDeployedForEntity &&
-			pollingState.jobDeployedForEntity !== entityId;
+			jobDeployedForEntity && jobDeployedForEntity !== entityId;
 		const shouldPoll =
 			entityId && partialStatus && externalLinkSource !== MediaSource.Custom;
 
-		if (isJobForDifferentEntity || !entityId) {
-			dispatch({ type: "SET_JOB_DEPLOYED", entityId: null });
-		}
+		if (isJobForDifferentEntity || !entityId) setJobDeployedForEntity(null);
 
 		if (!shouldPoll) return;
 
-		if (pollingState.jobDeployedForEntity !== entityId && entityId) {
+		if (jobDeployedForEntity !== entityId && entityId) {
 			clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
 				entityId,
 				entityLot,
 			});
-			dispatch({ type: "SET_JOB_DEPLOYED", entityId });
+			setJobDeployedForEntity(entityId);
 		}
 
-		dispatch({ type: "START_POLLING" });
+		isPollingRef.current = true;
+		setIsPartialStatusActive(true);
 		scheduleNextPoll();
 
 		return resetPollingState;
@@ -220,10 +175,10 @@ export const usePartialStatusMonitor = (props: {
 		scheduleNextPoll,
 		resetPollingState,
 		externalLinkSource,
-		pollingState.jobDeployedForEntity,
+		jobDeployedForEntity,
 	]);
 
-	return { isPartialStatusActive: pollingState.isPartialStatusActive };
+	return { isPartialStatusActive };
 };
 
 export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
