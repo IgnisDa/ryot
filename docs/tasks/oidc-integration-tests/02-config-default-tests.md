@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -44,10 +44,10 @@ Follow the exact pattern of `tests/src/tests/health.test.ts` and `tests/src/test
 
 ## Acceptance criteria
 
-- [ ] `tests/src/tests/auth.test.ts` exists and contains all four `GET /system/config` default assertions
-- [ ] The email sign-up regression test passes: a new user has tracker rows in the database after signing up
-- [ ] The duplicate email test passes: second sign-up returns a non-200 response
-- [ ] `bun run check`, `bun run test`, and `bun run format` pass in the `tests` directory
+- [x] `tests/src/tests/auth.test.ts` exists and contains all four `GET /system/config` default assertions
+- [x] The email sign-up regression test passes: a new user has tracker rows in the database after signing up
+- [x] The duplicate email test passes: second sign-up returns a non-200 response
+- [x] `bun run check`, `bun run test`, and `bun run format` pass in the `tests` directory
 
 ## User stories addressed
 
