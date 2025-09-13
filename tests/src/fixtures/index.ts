@@ -12,3 +12,4 @@ export * from "./saved-views";
 export * from "./trackers";
 export * from "./view-language";
 export * from "./workouts";
+export * from "./workout-templates";

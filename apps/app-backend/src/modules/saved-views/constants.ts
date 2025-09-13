@@ -54,10 +54,7 @@ const buildSecondarySubtitleForSlug = (slug: string): ViewExpression | null => {
 };
 
 const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
-	const nameColumn = {
-		label: "Name",
-		expression: createEntityColumnExpression(slug, "name"),
-	};
+	const nameColumn = { label: "Name", expression: createEntityColumnExpression(slug, "name") };
 	const yearColumn = {
 		label: "Year",
 		expression: createEntityPropertyExpression(slug, "publishYear"),
@@ -65,10 +62,7 @@ const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
 	return match(slug)
 		.with("person", () => [
 			nameColumn,
-			{
-				label: "Birth Place",
-				expression: createEntityPropertyExpression(slug, "birthPlace"),
-			},
+			{ label: "Birth Place", expression: createEntityPropertyExpression(slug, "birthPlace") },
 		])
 		.with("exercise", () => [
 			nameColumn,
@@ -89,98 +83,64 @@ const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
 		])
 		.with("workout", () => [
 			nameColumn,
-			{
-				label: "Started At",
-				expression: createEntityPropertyExpression(slug, "startedAt"),
-			},
-			{
-				label: "Ended At",
-				expression: createEntityPropertyExpression(slug, "endedAt"),
-			},
+			{ label: "Started At", expression: createEntityPropertyExpression(slug, "startedAt") },
+			{ label: "Ended At", expression: createEntityPropertyExpression(slug, "endedAt") },
+		])
+		.with("workout-template", () => [
+			nameColumn,
+			{ label: "Created At", expression: createEntityColumnExpression(slug, "createdAt") },
+			{ label: "Comment", expression: createEntityPropertyExpression(slug, "comment") },
 		])
 		.with("measurement", () => [
 			nameColumn,
-			{
-				label: "Recorded At",
-				expression: createEntityPropertyExpression(slug, "recordedAt"),
-			},
-			{
-				label: "Weight",
-				expression: createEntityPropertyExpression(slug, "weight"),
-			},
+			{ label: "Recorded At", expression: createEntityPropertyExpression(slug, "recordedAt") },
+			{ label: "Weight", expression: createEntityPropertyExpression(slug, "weight") },
 		])
 		.with("collection", () => [nameColumn])
 		.with("book", () => [
 			nameColumn,
 			yearColumn,
-			{
-				label: "Pages",
-				expression: createEntityPropertyExpression(slug, "pages"),
-			},
+			{ label: "Pages", expression: createEntityPropertyExpression(slug, "pages") },
 		])
 		.with("show", () => [
 			nameColumn,
 			yearColumn,
-			{
-				label: "Status",
-				expression: createEntityPropertyExpression(slug, "productionStatus"),
-			},
+			{ label: "Status", expression: createEntityPropertyExpression(slug, "productionStatus") },
 		])
 		.with("movie", () => [
 			nameColumn,
 			yearColumn,
-			{
-				label: "Runtime",
-				expression: createEntityPropertyExpression(slug, "runtime"),
-			},
+			{ label: "Runtime", expression: createEntityPropertyExpression(slug, "runtime") },
 		])
 		.with("anime", () => [
 			nameColumn,
 			yearColumn,
-			{
-				label: "Episodes",
-				expression: createEntityPropertyExpression(slug, "episodes"),
-			},
+			{ label: "Episodes", expression: createEntityPropertyExpression(slug, "episodes") },
 		])
 		.with("manga", () => [
 			nameColumn,
 			yearColumn,
-			{
-				label: "Chapters",
-				expression: createEntityPropertyExpression(slug, "chapters"),
-			},
+			{ label: "Chapters", expression: createEntityPropertyExpression(slug, "chapters") },
 		])
 		.with("audiobook", () => [
 			nameColumn,
 			yearColumn,
-			{
-				label: "Runtime",
-				expression: createEntityPropertyExpression(slug, "runtime"),
-			},
+			{ label: "Runtime", expression: createEntityPropertyExpression(slug, "runtime") },
 		])
 		.with("podcast", () => [
 			nameColumn,
 			yearColumn,
-			{
-				label: "Episodes",
-				expression: createEntityPropertyExpression(slug, "totalEpisodes"),
-			},
+			{ label: "Episodes", expression: createEntityPropertyExpression(slug, "totalEpisodes") },
 		])
 		.with("comic-book", () => [
 			nameColumn,
 			yearColumn,
-			{
-				label: "Pages",
-				expression: createEntityPropertyExpression(slug, "pages"),
-			},
+			{ label: "Pages", expression: createEntityPropertyExpression(slug, "pages") },
 		])
 		.with("visual-novel", () => [
 			nameColumn,
 			yearColumn,
-			{
-				label: "Length",
-				expression: createEntityPropertyExpression(slug, "lengthMinutes"),
-			},
+			{ label: "Length", expression: createEntityPropertyExpression(slug, "lengthMinutes") },
 		])
 		.otherwise(() => [nameColumn, yearColumn]);
 };
@@ -235,6 +195,14 @@ const createEntityCardConfig = (slug?: string): EntityCardConfig => {
 			eyebrowProperty: createEntitySchemaExpression("name"),
 			primarySubtitleProperty: createEntityPropertyExpression(slug, "startedAt"),
 			secondarySubtitleProperty: createEntityPropertyExpression(slug, "endedAt"),
+		};
+	}
+	if (slug === "workout-template") {
+		return {
+			calloutProperty: null,
+			eyebrowProperty: createEntitySchemaExpression("name"),
+			primarySubtitleProperty: createEntityColumnExpression(slug, "createdAt"),
+			secondarySubtitleProperty: createEntityPropertyExpression(slug, "comment"),
 		};
 	}
 	if (slug === "measurement") {
