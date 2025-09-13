@@ -25,6 +25,19 @@ if (Number.isNaN(parsedPort)) {
 	throw new Error(`PORT must be a valid integer, got "${rawSystem.port}"`);
 }
 
+const schedulerDef = systemConfigDef.children.scheduler;
+const parsedProgressUpdateThresholdHours = Number.parseInt(
+	rawSystem.scheduler.progressUpdateThresholdHours ??
+		schedulerDef.children.progressUpdateThresholdHours.default ??
+		"2",
+	10,
+);
+if (Number.isNaN(parsedProgressUpdateThresholdHours)) {
+	throw new Error(
+		`SERVER_PROGRESS_UPDATE_THRESHOLD must be a valid integer, got "${rawSystem.scheduler.progressUpdateThresholdHours}"`,
+	);
+}
+
 export const config = {
 	port: parsedPort,
 	fileStorage: rawSystem.fileStorage,
@@ -56,6 +69,17 @@ export const config = {
 				rawSystem.server.oidc.clientSecret
 			),
 		},
+	},
+	scheduler: {
+		progressUpdateThresholdHours: parsedProgressUpdateThresholdHours,
+		frequentCronJobsSchedule:
+			rawSystem.scheduler.frequentCronJobsSchedule ??
+			schedulerDef.children.frequentCronJobsSchedule.default ??
+			"every 5 minutes",
+		infrequentCronJobsSchedule:
+			rawSystem.scheduler.infrequentCronJobsSchedule ??
+			schedulerDef.children.infrequentCronJobsSchedule.default ??
+			"every midnight",
 	},
 };
 

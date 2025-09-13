@@ -196,6 +196,8 @@ export const ensureBuiltinRelationshipSchema = async (input: {
 
 export const ensureBuiltinEventSchemaTrigger = async (input: {
 	name: string;
+	phase: string;
+	position: number;
 	database: DbClient;
 	eventSchemaId: string;
 	sandboxScriptId: string;
@@ -220,6 +222,8 @@ export const ensureBuiltinEventSchemaTrigger = async (input: {
 				isActive: true,
 				isBuiltin: true,
 				name: input.name,
+				phase: input.phase,
+				position: input.position,
 				metadata: input.metadata,
 			})
 			.where(eq(eventSchemaTrigger.id, existing.id));
@@ -233,6 +237,8 @@ export const ensureBuiltinEventSchemaTrigger = async (input: {
 		isActive: true,
 		isBuiltin: true,
 		name: input.name,
+		phase: input.phase,
+		position: input.position,
 		metadata: input.metadata,
 		eventSchemaId: input.eventSchemaId,
 		sandboxScriptId: input.sandboxScriptId,
