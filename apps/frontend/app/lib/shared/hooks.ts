@@ -106,23 +106,20 @@ export const usePartialStatusMonitor = (props: {
 	const [jobDeployedForEntity, setJobDeployedForEntity] = useState<
 		string | null
 	>(null);
-	const [isActivelyPolling, setIsActivelyPolling] = useState(false);
+	const [isPartialStatusActive, setIsPartialStatusActive] = useState(false);
 	const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
 		undefined,
 	);
 	const attemptCountRef = useRef(0);
 	const isPollingRef = useRef(false);
-	const pollIntervalRef = useRef(1000);
 
 	const scheduleNextPoll = useCallback(() => {
 		if (!isPollingRef.current) return;
 
-		const currentInterval = pollIntervalRef.current;
-
-		if (currentInterval >= 30000) {
+		if (attemptCountRef.current >= 30) {
 			onUpdate();
 			isPollingRef.current = false;
-			setIsActivelyPolling(false);
+			setIsPartialStatusActive(false);
 			return;
 		}
 
@@ -130,13 +127,9 @@ export const usePartialStatusMonitor = (props: {
 			if (!isPollingRef.current) return;
 			await onUpdate();
 			attemptCountRef.current += 1;
-			pollIntervalRef.current = Math.min(
-				1000 * 2 ** attemptCountRef.current,
-				30000,
-			);
 
 			scheduleNextPoll();
-		}, currentInterval);
+		}, 1000);
 	}, [onUpdate]);
 
 	const resetPollingState = useCallback(() => {
@@ -144,10 +137,9 @@ export const usePartialStatusMonitor = (props: {
 			clearTimeout(timeoutRef.current);
 			timeoutRef.current = undefined;
 		}
-		pollIntervalRef.current = 1000;
 		attemptCountRef.current = 0;
 		isPollingRef.current = false;
-		setIsActivelyPolling(false);
+		setIsPartialStatusActive(false);
 	}, []);
 
 	useEffect(() => {
@@ -171,7 +163,7 @@ export const usePartialStatusMonitor = (props: {
 		}
 
 		isPollingRef.current = true;
-		setIsActivelyPolling(true);
+		setIsPartialStatusActive(true);
 		scheduleNextPoll();
 
 		return resetPollingState;
@@ -186,7 +178,7 @@ export const usePartialStatusMonitor = (props: {
 		jobDeployedForEntity,
 	]);
 
-	return { isPartialStatusActive: isActivelyPolling };
+	return { isPartialStatusActive };
 };
 
 export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {

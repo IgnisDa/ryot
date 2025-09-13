@@ -17,6 +17,7 @@ use media_models::{
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
     model::{Thumbnail, richtext::ToHtml},
+    param::{LANGUAGES, Language},
 };
 use traits::MediaProvider;
 
@@ -33,9 +34,15 @@ impl YoutubeMusicService {
             client: client.query(),
         })
     }
-}
 
-impl YoutubeMusicService {
+    pub fn get_all_languages(&self) -> Vec<String> {
+        LANGUAGES.iter().map(|l| l.name().to_owned()).collect()
+    }
+
+    pub fn get_default_language(&self) -> String {
+        Language::En.name().to_owned()
+    }
+
     fn order_images_by_size(&self, images: &[Thumbnail]) -> Vec<Thumbnail> {
         images
             .iter()

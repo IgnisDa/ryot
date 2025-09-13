@@ -37,6 +37,10 @@ impl TvdbService {
             .collect()
     }
 
+    pub fn get_default_language(&self) -> String {
+        "en".to_owned()
+    }
+
     pub fn get_language_name(&self, iso: Option<String>) -> Option<String> {
         iso.and_then(|i| {
             self.settings

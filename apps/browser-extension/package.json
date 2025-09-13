@@ -9,14 +9,14 @@
 		"@tailwindcss/vite": "4.1.13",
 		"graphql": "16.11.0",
 		"graphql-request": "7.2.0",
-		"lucide-react": "0.543.0",
+		"lucide-react": "0.544.0",
 		"react": "19.1.1",
 		"react-dom": "19.1.1",
 		"tailwindcss": "4.1.13",
 		"ts-pattern": "5.8.0"
 	},
 	"devDependencies": {
-		"@types/react": "19.1.12",
+		"@types/react": "19.1.13",
 		"@types/react-dom": "19.1.9",
 		"@wxt-dev/auto-icons": "1.1.0",
 		"@wxt-dev/module-react": "1.1.5",

@@ -135,16 +135,16 @@ pub struct AudibleService {
 impl AudibleService {
     fn url_from_locale(locale: &str) -> String {
         let suffix = match locale {
-            "us" => "com",
+            "es" => "es",
             "ca" => "ca",
-            "uk" => "co.uk",
-            "au" => "com.au",
             "fr" => "fr",
             "de" => "de",
-            "jp" => "co.jp",
+            "us" => "com",
             "it" => "it",
+            "jp" => "co.jp",
             "in" => "co.in",
-            "es" => "es",
+            "au" => "com.au",
+            "gb" | "uk" => "co.uk",
             _ => unreachable!(),
         };
         format!("https://api.audible.{suffix}/1.0/catalog/products")
@@ -159,6 +159,25 @@ impl AudibleService {
             locale: config.locale.clone(),
         })
     }
+
+    pub fn get_all_languages(&self) -> Vec<String> {
+        vec![
+            "au".to_string(),
+            "ca".to_string(),
+            "de".to_string(),
+            "es".to_string(),
+            "fr".to_string(),
+            "in".to_string(),
+            "it".to_string(),
+            "jp".to_string(),
+            "gb".to_string(),
+            "us".to_string(),
+        ]
+    }
+
+    pub fn get_default_language(&self) -> String {
+        "us".to_owned()
+    }
 }
 
 #[async_trait]
@@ -172,8 +191,8 @@ impl MediaProvider for AudibleService {
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let internal_page: usize = page.try_into().unwrap();
         let req_internal_page = internal_page - 1;
-        let client = Client::new();
-        let data: Vec<AudibleAuthor> = client
+        let data: Vec<AudibleAuthor> = self
+            .client
             .get(format!("{AUDNEX_URL}/authors"))
             .query(&[("region", self.locale.as_str()), ("name", query)])
             .send()
@@ -207,8 +226,8 @@ impl MediaProvider for AudibleService {
         identity: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PersonDetails> {
-        let client = Client::new();
-        let data: AudnexResponse = client
+        let data: AudnexResponse = self
+            .client
             .get(format!("{AUDNEX_URL}/authors/{identity}"))
             .query(&[("region", self.locale.as_str())])
             .send()
