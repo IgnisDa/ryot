@@ -244,7 +244,6 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
                 &audible_service,
                 &youtube_music_service,
             )?;
-
             let provider_specifics = build_provider_specifics(&igdb_service).await?;
 
             let core_details = CoreDetails {
