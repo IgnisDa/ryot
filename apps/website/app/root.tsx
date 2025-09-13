@@ -21,7 +21,8 @@ import { Button } from "./lib/components/ui/button";
 import { Toaster } from "./lib/components/ui/sonner";
 import { logoUrl, queryClient, startUrl, useConfigData } from "./lib/general";
 
-import _tailwind from "./tailwind.css";
+// oxlint-disable-next-line import/no-unassigned-import
+import "./tailwind.css";
 
 function HeaderActions() {
 	const { data: configData } = useConfigData();
