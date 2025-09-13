@@ -73,7 +73,6 @@ export const eventsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const body = c.req.valid("json");
 
-		// Validate all events before enqueueing
 		const validationResults = await Promise.all(
 			body.map((item) => validateEventCreateInputForUser({ body: item, userId: user.id })),
 		);
