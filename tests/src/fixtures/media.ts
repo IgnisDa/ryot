@@ -1,5 +1,7 @@
 import { getPgClient } from "../setup";
 import { requirePresent } from "../test-support/assertions";
+import type { Client } from "./auth";
+import { findBuiltinSchemaWithProviders, getFirstProviderScriptId } from "./entity-schemas";
 
 export async function createRelationshipSchema(input: {
 	slug: string;
@@ -201,6 +203,24 @@ export async function seedMediaEntity(input: {
 		entitySchemaId: input.entitySchemaId,
 		sandboxScriptId: input.sandboxScriptId,
 	};
+}
+
+export async function createGlobalBookEntityFixture(
+	client: Client,
+	cookies: string,
+	options: { name?: string; externalId?: string } = {},
+) {
+	const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+	const entity = await seedMediaEntity({
+		image: null,
+		userId: null,
+		properties: {},
+		entitySchemaId: schema.id,
+		sandboxScriptId: getFirstProviderScriptId(schema),
+		externalId: options.externalId ?? `global-book-${crypto.randomUUID()}`,
+		name: options.name ?? `Global Built-in Book ${crypto.randomUUID()}`,
+	});
+	return { entity, schema };
 }
 
 export async function insertLibraryMembership(input: { userId: string; mediaEntityId: string }) {
