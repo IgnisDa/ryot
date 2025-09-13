@@ -25,6 +25,7 @@ import {
 } from "./metadata-group-mapping";
 import {
 	buildMetadataMigrationSql,
+	buildMetadataToMetadataRelationshipMigrationSql,
 	getUnsupportedMetadataSources,
 	metadataMigrationTargets,
 } from "./metadata-mapping";
@@ -99,17 +100,13 @@ const resolveEntityMigrationTargets = <
 			throw new Error(`Missing sandbox script id for slug "${target.sandboxScriptSlug}"`);
 		}
 
-		return {
-			...target,
-			entitySchemaId,
-			sandboxScriptId,
-		};
+		return { ...target, entitySchemaId, sandboxScriptId };
 	});
 
 const resolveRelationshipMigrationTargets = (input: {
-	sourceEntitySchemaSlug: "person" | "company";
 	lotToEntitySchemaSlug: Map<string, string>;
 	relationshipSchemaIds: Map<string, string>;
+	sourceEntitySchemaSlug: "person" | "company";
 }) => {
 	const targets: Array<{ lot: string; relationshipSchemaId: string }> = [];
 
@@ -159,10 +156,7 @@ export const migrateLegacyTables = async (database: DbClient) => {
 	}
 
 	const entitySchemas = await database
-		.select({
-			id: entitySchema.id,
-			slug: entitySchema.slug,
-		})
+		.select({ id: entitySchema.id, slug: entitySchema.slug })
 		.from(entitySchema)
 		.where(isNull(entitySchema.userId));
 
@@ -172,18 +166,12 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		.where(and(isNull(eventSchema.userId), eq(eventSchema.slug, "workout-set")));
 
 	const sandboxScripts = await database
-		.select({
-			id: sandboxScript.id,
-			slug: sandboxScript.slug,
-		})
+		.select({ id: sandboxScript.id, slug: sandboxScript.slug })
 		.from(sandboxScript)
 		.where(and(isNull(sandboxScript.userId), eq(sandboxScript.isBuiltin, true)));
 
 	const relationshipSchemas = await database
-		.select({
-			id: relationshipSchema.id,
-			slug: relationshipSchema.slug,
-		})
+		.select({ id: relationshipSchema.id, slug: relationshipSchema.slug })
 		.from(relationshipSchema)
 		.where(isNull(relationshipSchema.userId));
 
@@ -231,14 +219,14 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		"company",
 	);
 	const resolvedPersonRelationshipTargets = resolveRelationshipMigrationTargets({
+		relationshipSchemaIds,
 		sourceEntitySchemaSlug: "person",
 		lotToEntitySchemaSlug: metadataEntitySchemaSlugByLot,
-		relationshipSchemaIds,
 	});
 	const resolvedCompanyRelationshipTargets = resolveRelationshipMigrationTargets({
+		relationshipSchemaIds,
 		sourceEntitySchemaSlug: "company",
 		lotToEntitySchemaSlug: metadataEntitySchemaSlugByLot,
-		relationshipSchemaIds,
 	});
 
 	const groupPersonRelationshipLots = [
@@ -306,6 +294,11 @@ export const migrateLegacyTables = async (database: DbClient) => {
 	const inLibraryRelationshipSchemaId = relationshipSchemaIds.get("in-library");
 	if (inLibraryRelationshipSchemaId === undefined) {
 		throw new Error('Missing relationship schema id for slug "in-library"');
+	}
+
+	const mediaSuggestionRelationshipSchemaId = relationshipSchemaIds.get("media-suggestion");
+	if (mediaSuggestionRelationshipSchemaId === undefined) {
+		throw new Error('Missing relationship schema id for slug "media-suggestion"');
 	}
 
 	const unsupportedMetadataSources = await getUnsupportedMetadataSources(database);
@@ -416,6 +409,9 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		);
 		await client.query(
 			buildCollectionToEntityRelationshipMigrationSql(memberOfRelationshipSchemaId),
+		);
+		await client.query(
+			buildMetadataToMetadataRelationshipMigrationSql(mediaSuggestionRelationshipSchemaId),
 		);
 		await client.query(
 			buildUserToEntityInLibraryMigrationSql(inLibraryRelationshipSchemaId, libraryEntitySchemaId),
