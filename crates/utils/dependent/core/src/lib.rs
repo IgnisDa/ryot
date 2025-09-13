@@ -229,9 +229,9 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
                 tmdb_service,
                 tvdb_service,
                 igdb_service,
-                youtube_music_service,
                 itunes_service,
                 audible_service,
+                youtube_music_service,
             ) = create_providers(ss).await?;
 
             let (metadata_lot_source_mappings, metadata_group_source_lot_mappings) =
@@ -240,9 +240,9 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
             let metadata_provider_languages = build_provider_language_information(
                 &tmdb_service,
                 &tvdb_service,
-                &youtube_music_service,
                 &itunes_service,
                 &audible_service,
+                &youtube_music_service,
             )?;
 
             let provider_specifics = build_provider_specifics(&igdb_service).await?;
