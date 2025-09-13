@@ -66,7 +66,10 @@ pub async fn user_metadata_list(
                     apply_columns_search(
                         &v,
                         query,
-                        [Expr::col(enriched_user_to_metadata::Column::QueryText)],
+                        [
+                            Expr::col(enriched_user_to_metadata::Column::Title),
+                            Expr::col(enriched_user_to_metadata::Column::Description),
+                        ],
                     )
                 })
                 .apply_if(
@@ -123,7 +126,7 @@ pub async fn user_metadata_list(
                 .apply_if(input.sort.map(|s| s.by), |query, v| match v {
                     MediaSortBy::Random => query.order_by(Expr::expr(Func::random()), order_by),
                     MediaSortBy::Title => {
-                        query.order_by(enriched_user_to_metadata::Column::QueryText, order_by)
+                        query.order_by(enriched_user_to_metadata::Column::Title, order_by)
                     }
                     MediaSortBy::TimesConsumed => {
                         query.order_by(enriched_user_to_metadata::Column::TimesSeen, order_by)
@@ -307,7 +310,7 @@ pub async fn user_metadata_groups_list(
                             Expr::col(enriched_user_to_metadata_group::Column::Parts)
                         }
                         PersonAndMetadataGroupsSortBy::Name => {
-                            Expr::col(enriched_user_to_metadata_group::Column::QueryText)
+                            Expr::col(enriched_user_to_metadata_group::Column::Title)
                         }
                     },
                     graphql_to_db_order(ord.order),
@@ -322,9 +325,10 @@ pub async fn user_metadata_groups_list(
                     apply_columns_search(
                         &v,
                         query,
-                        [Expr::col(
-                            enriched_user_to_metadata_group::Column::QueryText,
-                        )],
+                        [
+                            Expr::col(enriched_user_to_metadata_group::Column::Title),
+                            Expr::col(enriched_user_to_metadata_group::Column::Description),
+                        ],
                     )
                 })
                 .apply_if(
@@ -379,7 +383,7 @@ pub async fn user_people_list(
                     match ord.by {
                         PersonAndMetadataGroupsSortBy::Random => Expr::expr(Func::random()),
                         PersonAndMetadataGroupsSortBy::Name => {
-                            Expr::col(enriched_user_to_person::Column::QueryText)
+                            Expr::col(enriched_user_to_person::Column::Name)
                         }
                         PersonAndMetadataGroupsSortBy::AssociatedEntityCount => {
                             Expr::col(enriched_user_to_person::Column::AssociatedEntityCount)
@@ -397,7 +401,10 @@ pub async fn user_people_list(
                     apply_columns_search(
                         &v,
                         query,
-                        [Expr::col(enriched_user_to_person::Column::QueryText)],
+                        [
+                            Expr::col(enriched_user_to_person::Column::Name),
+                            Expr::col(enriched_user_to_person::Column::Description),
+                        ],
                     )
                 })
                 .apply_if(
@@ -606,11 +613,14 @@ pub async fn user_exercises_list(
                     apply_columns_search(
                         &v,
                         query,
-                        [Expr::col(enriched_user_to_exercise::Column::QueryText)],
+                        [
+                            Expr::col(enriched_user_to_exercise::Column::Name),
+                            Expr::col(enriched_user_to_exercise::Column::Instructions),
+                        ],
                     )
                 })
                 .order_by_desc(order_by_col)
-                .order_by_asc(enriched_user_to_exercise::Column::QueryText)
+                .order_by_asc(enriched_user_to_exercise::Column::Name)
                 .into_tuple::<String>()
                 .paginate(&ss.db, take);
             let ItemsAndPagesNumber {

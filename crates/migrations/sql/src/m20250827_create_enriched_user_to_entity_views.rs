@@ -9,6 +9,7 @@ CREATE VIEW
   enriched_user_to_exercise AS
 SELECT
   e.lot,
+  e.name,
   e.level,
   e.force,
   e.source,
@@ -18,8 +19,8 @@ SELECT
   e.id as exercise_id,
   ute.last_updated_on,
   e.created_by_user_id,
+  e.aggregated_instructions AS instructions,
   ute.exercise_num_times_interacted as num_times_interacted,
-  (e.name || ' ' || e.aggregated_instructions) AS query_text,
   CASE
     WHEN COUNT(cem.origin_collection_id) = 0 THEN ARRAY[]::TEXT[]
     ELSE ARRAY_AGG(DISTINCT cem.origin_collection_id)
@@ -53,11 +54,12 @@ pub static ENRICHED_USER_TO_PERSON_VIEW_CREATION_SQL: &str = indoc! { r#"
 CREATE VIEW
   enriched_user_to_person AS
 SELECT
+  p.name,
   ute.id,
   ute.user_id,
+  p.description,
   p.id AS person_id,
   p.associated_entity_count,
-  (p.name || ' ' || p.description) AS query_text,
   CASE
     WHEN COUNT(cem.origin_collection_id) = 0 THEN ARRAY[]::TEXT[]
     ELSE ARRAY_AGG(DISTINCT cem.origin_collection_id)
@@ -85,9 +87,10 @@ CREATE VIEW
 SELECT
   ute.id,
   mg.parts,
+  mg.title,
   ute.user_id,
+  mg.description,
   mg.id AS metadata_group_id,
-  (mg.title || ' ' || mg.description) AS query_text,
   CASE
     WHEN COUNT(cem.origin_collection_id) = 0 THEN ARRAY[]::TEXT[]
     ELSE ARRAY_AGG(DISTINCT cem.origin_collection_id)
@@ -146,7 +149,9 @@ collection_aggregates AS (
 SELECT
     m.lot,
     ute.id,
+    m.title,
     ute.user_id,
+    m.description,
     m.publish_date,
     m.provider_rating,
     ra.average_rating,
@@ -154,7 +159,6 @@ SELECT
     sa.max_seen_finished_on,
     sa.max_seen_last_updated_on,
     ute.entity_id AS metadata_id,
-    (m.title || ' ' || m.description) AS query_text,
     COALESCE(sa.times_seen, 0::bigint) AS times_seen,
     COALESCE(sa.seen_states, ARRAY[]::text[]) AS seen_states,
     COALESCE(ute.media_reason, ARRAY[]::text[]) AS media_reason,
