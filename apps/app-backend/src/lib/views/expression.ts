@@ -43,6 +43,12 @@ export const runtimeReferenceSchema = z
 				path: z.array(nonEmptyTrimmedStringSchema).min(1),
 			})
 			.strict(),
+		z
+			.object({
+				type: z.literal("entity-schema"),
+				path: z.array(nonEmptyTrimmedStringSchema).min(1),
+			})
+			.strict(),
 	])
 	.openapi("QueryEngineReference");
 

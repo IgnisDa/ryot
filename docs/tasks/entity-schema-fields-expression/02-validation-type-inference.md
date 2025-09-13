@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -24,16 +24,24 @@ Add validation and type inference branches for `entity-schema` references so the
 
 ## Acceptance criteria
 
-- [ ] `{ type: "entity-schema", path: ["slug"] }` passes validation
-- [ ] `{ type: "entity-schema", path: ["nonexistent"] }` fails validation with a descriptive error
-- [ ] `{ type: "entity-schema", path: [] }` fails validation with an empty-path error
-- [ ] `{ type: "entity-schema", path: ["slug", "nested"] }` fails validation (no nested traversal)
-- [ ] `inferViewExpressionType` returns `{ kind: "property", propertyType: "string" }` for slug
-- [ ] `inferViewExpressionType` returns `{ kind: "property", propertyType: "boolean" }` for isBuiltin
-- [ ] `inferViewExpressionType` returns `{ kind: "property", propertyType: "datetime" }` for createdAt
-- [ ] Entity schema columns that are filterable pass `assertSortableExpression` and `assertComparableExpression`
-- [ ] Entity schema columns that are not filterable (icon, accentColor) are accepted for display but rejected for sort/filter
+- [x] `{ type: "entity-schema", path: ["slug"] }` passes validation
+- [x] `{ type: "entity-schema", path: ["nonexistent"] }` fails validation with a descriptive error
+- [x] `{ type: "entity-schema", path: [] }` fails validation with an empty-path error
+- [x] `{ type: "entity-schema", path: ["slug", "nested"] }` fails validation (no nested traversal)
+- [x] `inferViewExpressionType` returns `{ kind: "property", propertyType: "date" }` for slug
+- [x] `inferViewExpressionType` returns `{ kind: "property", propertyType: "boolean" }` for isBuiltin
+- [x] `inferViewExpressionType` returns `{ kind: "property", propertyType: "date" }` for createdAt
+- [x] Entity schema columns that are filterable pass `assertSortableExpression` and `assertComparableExpression`
+- [x] Entity schema columns that are not filterable (icon, accentColor) are accepted for display but rejected for sort/filter
 
 ## User stories addressed
 
 None directly — enables all user stories that use entity schema fields in expressions.
+
+## Implementation notes
+
+- `validateRuntimeReferenceAgainstSchemas` validates entity-schema columns against `validBuiltins` (context-specific: `sortFilterBuiltins` or `displayBuiltins`) and `entitySchemaBuiltinColumns` (existence check).
+- `inferViewExpressionType` resolves entity-schema column types via `getEntitySchemaColumnPropertyDefinition`, which returns the full `AppPropertyDefinition` from `entitySchemaRuntimeColumns`.
+- `getEntitySchemaColumnPropertyDefinition` was added to `reference.ts` to provide a type-safe definition (replaces passing raw `{ label, type }` objects).
+- `validateViewPredicateAgainstSchemas` gained an optional `validBuiltins` parameter. Filter expressions are validated through a new `validateFilterExpression` wrapper that checks entity-schema reference columns against the provided builtins set. Both call sites (conditional expressions and `validateQueryEngineReferences`) pass appropriate builtins sets.
+- `normalizeExpressionPropertyType("datetime")` produces `"date"` for consistency with entity column handling. Acceptance criteria reflect this.
