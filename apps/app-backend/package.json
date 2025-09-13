@@ -1,4 +1,5 @@
 {
+	"main": "src/index.ts",
 	"name": "@ryot/app-backend",
 	"scripts": {
 		"dev": "bun run --hot src/index.ts",
