@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -22,7 +22,7 @@ Create `src/modules/legacy-bootstrap/integration-mapping.ts` with a function tha
 
 **The block must:**
 
-1. Verify the old `integration` table exists: `IF to_regclass('"integration"') IS NULL THEN RAISE EXCEPTION ...`. Note: after `rename-tables.ts` runs, the V1 `integration` table is still named `integration` (it is not renamed, because the V2 `integration` table uses the same name and Drizzle migration will have already created it). Clarify the rename situation: if the old and new tables share the same name, the migration may need to check whether the old table has V1 columns (e.g., `lot` as a text column) vs V2 columns. Use a column-existence check to guard if needed.
+1. **Rename situation (resolved):** the V2 schema reuses the `integration` table name and the Drizzle `CREATE TABLE "integration"` has no `IF NOT EXISTS`, so the pre-existing V1 `integration` table would make the Drizzle migration step fail. It is therefore renamed to `old_integration` in `rename-tables.ts` (before Drizzle runs), exactly mirroring the `user → old_user` pattern; its `integration_pkey` constraint is also renamed (its backing index name would otherwise collide with the V2 table's `integration_pkey`). `drop-tables.ts` drops `old_integration` at the end. The mapping reads from `old_integration` and guards with `IF to_regclass('"old_integration"') IS NULL THEN RAISE EXCEPTION ...`. No V1-vs-V2 column-existence check is needed because the rename happens before the V2 table exists.
 2. For each row in the V1 `integration` table, transform and insert into the V2 `integration` table.
 
 **Transformation rules:**
@@ -102,18 +102,30 @@ Add this field alongside the existing `isNsfw` and `languages` fields in the `js
 
 ## Acceptance criteria
 
-- [ ] After running the legacy bootstrap against a V1 DB dump, all integration rows appear in the V2 `integration` table with correct `id`, `lot`, `provider`, `providerSpecifics` (camelCase, with `kind`), and coalesced defaults.
-- [ ] `syncOwnership` is set correctly from V1 `sync_to_owned_collection`.
-- [ ] `extraSettings.disableOnContinuousErrors` is set from V1 `extra_settings`.
-- [ ] Legacy integration IDs are preserved exactly (not regenerated).
-- [ ] `trigger_result` is not migrated.
-- [ ] Integration with missing required provider-specific fields raises an exception (fail fast).
-- [ ] GenericJson integrations migrate successfully with `{ kind: "generic_json" }` specifics.
-- [ ] The migration is restart-safe (`ON CONFLICT (id) DO NOTHING`).
-- [ ] V1 Owned collection entities and `member-of` relationships are migrated as normal V2 collections.
-- [ ] Additionally, entities from V1 Owned collections have `in-library.properties.owned = true` and `ownershipSources = ["legacy"]`.
-- [ ] User `disableIntegrations` preference is migrated from `preferences.general.disable_integrations`, defaulting to `false`.
-- [ ] Bootstrap runs cleanly on both test dump files (`tmp/file.sql` and `tmp/file2.sql`) without errors.
+- [x] After running the legacy bootstrap against a V1 DB dump, all integration rows appear in the V2 `integration` table with correct `id`, `lot`, `provider`, `providerSpecifics` (camelCase, with `kind`), and coalesced defaults.
+- [x] `syncOwnership` is set correctly from V1 `sync_to_owned_collection`.
+- [x] `extraSettings.disableOnContinuousErrors` is set from V1 `extra_settings`.
+- [x] Legacy integration IDs are preserved exactly (not regenerated).
+- [x] `trigger_result` is not migrated.
+- [x] Integration with missing required provider-specific fields raises an exception (fail fast).
+- [x] GenericJson integrations migrate successfully with `{ kind: "generic_json" }` specifics.
+- [x] The migration is restart-safe (`ON CONFLICT (id) DO NOTHING`).
+- [x] V1 Owned collection entities and `member-of` relationships are migrated as normal V2 collections.
+- [x] Additionally, entities from V1 Owned collections have `in-library.properties.owned = true` and `ownershipSources = ["legacy"]`.
+- [x] User `disableIntegrations` preference is migrated from `preferences.general.disable_integrations`, defaulting to `false`.
+- [x] Bootstrap runs cleanly on both test dump files (`tmp/file.sql` and `tmp/file2.sql`) without errors.
+
+### Validation notes
+
+Both dumps were restored and migrated via `bun run run-migration`, then inspected:
+
+- `tmp/file.sql`: 5 integrations migrated; 72 Owned entities marked owned; user `disableIntegrations = false`.
+- `tmp/file2.sql`: 35 integrations across all 12 providers present (no `komga` rows in either dump); 23,883 Owned entities marked owned; 1 user migrated with `disableIntegrations = true`, 279 with `false`.
+- All 35 migrated `providerSpecifics` parse against the strict V2 `integrationProviderSpecifics` discriminated union (`radarr`/`sonarr` `profileId` becomes a JSON string, `syncCollectionIds` stays an array, optional fields omitted when absent).
+- IDs preserved verbatim (`int_*`), `extraSettings` transformed to camelCase, `kodi`/`emby`/`generic_json`/null-specifics rows reduce to `{ kind }`.
+- Re-running the migration on the completed DB is a clean no-op (legacy tables already dropped); integration count stays at 35.
+
+**Rename clarification:** the V1 `integration` table is renamed to `old_integration` in `rename-tables.ts` before Drizzle runs. The V2 schema reuses the `integration` name and the Drizzle `CREATE TABLE "integration"` has no `IF NOT EXISTS`, so the V1 table must be moved aside (and its `integration_pkey` constraint renamed to avoid an index-name collision) or the Drizzle migration step fails. `integration-mapping.ts` reads from `old_integration`; `drop-tables.ts` drops it.
 
 ## User stories addressed
 

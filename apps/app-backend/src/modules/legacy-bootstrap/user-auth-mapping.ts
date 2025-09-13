@@ -113,6 +113,10 @@ BEGIN
 		END,
 		jsonb_build_object(
 			'isNsfw', COALESCE((legacy_users.preferences -> 'general' ->> 'display_nsfw')::boolean, false),
+			'disableIntegrations', COALESCE(
+				(legacy_users.preferences -> 'general' ->> 'disable_integrations')::boolean,
+				false
+			),
 			'languages', jsonb_build_object(
 				'providers', COALESCE(
 					(
