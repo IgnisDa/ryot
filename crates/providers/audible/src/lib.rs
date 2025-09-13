@@ -191,8 +191,8 @@ impl MediaProvider for AudibleService {
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let internal_page: usize = page.try_into().unwrap();
         let req_internal_page = internal_page - 1;
-        let client = Client::new();
-        let data: Vec<AudibleAuthor> = client
+        let data: Vec<AudibleAuthor> = self
+            .client
             .get(format!("{AUDNEX_URL}/authors"))
             .query(&[("region", self.locale.as_str()), ("name", query)])
             .send()
@@ -226,8 +226,8 @@ impl MediaProvider for AudibleService {
         identity: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PersonDetails> {
-        let client = Client::new();
-        let data: AudnexResponse = client
+        let data: AudnexResponse = self
+            .client
             .get(format!("{AUDNEX_URL}/authors/{identity}"))
             .query(&[("region", self.locale.as_str())])
             .send()
