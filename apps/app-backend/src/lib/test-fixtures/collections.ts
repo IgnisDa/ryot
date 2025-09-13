@@ -42,13 +42,31 @@ export const createAddToCollectionData = (
 	overrides: Partial<AddToCollectionData> = {},
 ): AddToCollectionData => withOverrides(addToCollectionDataDefaults, overrides);
 
+const collectionEntityPropertiesSchema = {
+	fields: {
+		description: {
+			label: "Description",
+			type: "string" as const,
+			description: "A short summary or description of this collection",
+		},
+		membershipPropertiesSchema: {
+			properties: {},
+			type: "object" as const,
+			unknownKeys: "passthrough" as const,
+			label: "Membership Properties Schema",
+			description:
+				"JSON object schema defining extra properties attached to each collection member",
+		},
+	},
+};
+
 export const createCollectionDeps = (
 	overrides: Partial<CollectionServiceDeps> = {},
 ): CollectionServiceDeps => ({
 	getBuiltinCollectionSchema: () =>
 		Promise.resolve({
 			id: "schema_collection",
-			propertiesSchema: { fields: {} },
+			propertiesSchema: collectionEntityPropertiesSchema,
 		}),
 	createCollectionForUser: (input) =>
 		Promise.resolve(
@@ -64,10 +82,10 @@ export const createCollectionDeps = (
 export const createAddToCollectionDeps = (
 	overrides: Partial<AddToCollectionServiceDeps> = {},
 ): AddToCollectionServiceDeps => ({
+	upsertInLibraryRelationship: () => Promise.resolve(),
+	getUserLibraryEntityId: () => Promise.resolve("library_1"),
 	getCollectionById: () => Promise.resolve(createCollectionResponse()),
 	getEntityById: (entityId) => Promise.resolve({ id: entityId, userId: "user_1" }),
-	getUserLibraryEntityId: () => Promise.resolve("library_1"),
-	upsertInLibraryRelationship: () => Promise.resolve(),
 	addEntityToCollection: (input) =>
 		Promise.resolve(
 			createAddToCollectionData({

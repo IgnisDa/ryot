@@ -92,7 +92,7 @@ describe("parseEventProperties", () => {
 				propertiesSchema,
 				properties: { note: "Missing rating" },
 			}),
-		).toThrow("Event properties validation failed");
+		).toThrow("Event payload is invalid");
 	});
 
 	it("rejects wrong property types", () => {
@@ -112,7 +112,7 @@ describe("parseEventProperties", () => {
 				propertiesSchema,
 				properties: { rating: "bad" },
 			}),
-		).toThrow("Event properties validation failed");
+		).toThrow("Event payload is invalid");
 	});
 
 	it("rejects non-object properties", () => {
@@ -155,7 +155,7 @@ describe("parseEventProperties", () => {
 				properties: { extra: true },
 				propertiesSchema: { fields: {} },
 			}),
-		).toThrow("Event properties validation failed");
+		).toThrow("Event payload is invalid");
 	});
 });
 
@@ -559,7 +559,7 @@ describe("createEvent", () => {
 
 		expect(result).toEqual({
 			error: "validation",
-			message: expect.stringContaining("Event properties validation failed"),
+			message: expect.stringContaining("Event payload is invalid"),
 		});
 		expect(upsertCalls).toBe(0);
 	});
@@ -728,7 +728,7 @@ describe("createEvent", () => {
 
 		expect(result).toEqual({
 			error: "validation",
-			message: expect.stringContaining("Event properties validation failed"),
+			message: expect.stringContaining("Event payload is invalid"),
 		});
 	});
 
@@ -773,7 +773,7 @@ describe("createEvent", () => {
 
 		expect(result).toEqual({
 			error: "validation",
-			message: expect.stringContaining("Event properties validation failed"),
+			message: expect.stringContaining("Event payload is invalid"),
 		});
 	});
 
@@ -809,7 +809,7 @@ describe("createEvent", () => {
 
 		expect(result).toEqual({
 			error: "validation",
-			message: expect.stringContaining("Event properties validation failed"),
+			message: expect.stringContaining("Event payload is invalid"),
 		});
 	});
 
@@ -830,7 +830,7 @@ describe("createEvent", () => {
 
 		expect(result).toEqual({
 			error: "validation",
-			message: expect.stringContaining("Event properties validation failed"),
+			message: expect.stringContaining("Event payload is invalid"),
 		});
 	});
 
@@ -889,7 +889,7 @@ describe("createEvent", () => {
 
 		expect(result).toEqual({
 			error: "validation",
-			message: expect.stringContaining("Event properties validation failed"),
+			message: expect.stringContaining("Event payload is invalid"),
 		});
 	});
 
@@ -909,7 +909,7 @@ describe("createEvent", () => {
 
 		expect(result).toEqual({
 			error: "validation",
-			message: expect.stringContaining("Event properties validation failed"),
+			message: expect.stringContaining("Event payload is invalid"),
 		});
 	});
 
@@ -926,7 +926,7 @@ describe("createEvent", () => {
 
 		expect(result).toEqual({
 			error: "validation",
-			message: expect.stringContaining("Event properties validation failed"),
+			message: expect.stringContaining("Event payload is invalid"),
 		});
 	});
 
@@ -1012,7 +1012,7 @@ describe("createEvent", () => {
 
 		expect(result).toEqual({
 			error: "validation",
-			message: expect.stringContaining("Event properties validation failed"),
+			message: expect.stringContaining("Event payload is invalid"),
 		});
 	});
 
