@@ -117,9 +117,7 @@ export const usePartialStatusMonitor = (props: {
 	const scheduleNextPoll = useCallback(() => {
 		if (!isPollingRef.current) return;
 
-		const currentInterval = pollIntervalRef.current;
-
-		if (currentInterval >= 30000) {
+		if (attemptCountRef.current >= 30) {
 			onUpdate();
 			isPollingRef.current = false;
 			setIsActivelyPolling(false);
@@ -130,13 +128,9 @@ export const usePartialStatusMonitor = (props: {
 			if (!isPollingRef.current) return;
 			await onUpdate();
 			attemptCountRef.current += 1;
-			pollIntervalRef.current = Math.min(
-				1000 * 2 ** attemptCountRef.current,
-				30000,
-			);
 
 			scheduleNextPoll();
-		}, currentInterval);
+		}, 1000);
 	}, [onUpdate]);
 
 	const resetPollingState = useCallback(() => {
