@@ -1,9 +1,12 @@
 import { describe, expect, it } from "bun:test";
+import {
+	createEntityColumnExpression,
+	createEntityPropertyExpression,
+} from "@ryot/ts-utils";
 import type { Client } from "../fixtures";
 import {
 	buildGridRequest,
 	createAuthenticatedClient,
-	entityColumnExpression,
 	entityField,
 	executeQueryEngine,
 	getQueryEngineFieldOrThrow,
@@ -11,7 +14,6 @@ import {
 	listSavedViews,
 	listTrackers,
 	literalExpression,
-	schemaPropertyExpression,
 } from "../fixtures";
 import { pollUntil } from "../fixtures/polling";
 
@@ -52,14 +54,14 @@ const waitForSeededExercise = async (client: Client, cookies: string) => {
 						titleProperty: [entityField("exercise", "name")],
 						imageProperty: [entityField("exercise", "image")],
 						calloutProperty: [entityField("exercise", "level")],
-						primarySubtitleProperty: [entityField("exercise", "lot")],
+						primarySubtitleProperty: [entityField("exercise", "kind")],
 						secondarySubtitleProperty: [entityField("exercise", "equipment")],
 					},
 					filter: {
 						operator: "eq",
 						type: "comparison",
 						right: literalExpression(seededExerciseName),
-						left: entityColumnExpression("exercise", "name"),
+						left: createEntityColumnExpression("exercise", "name"),
 					},
 				}),
 			);
@@ -141,34 +143,34 @@ describe("Exercises E2E", () => {
 					columns: [
 						{
 							label: "Name",
-							expression: entityColumnExpression("exercise", "name"),
+							expression: createEntityColumnExpression("exercise", "name"),
 						},
 						{
 							label: "Level",
-							expression: schemaPropertyExpression("exercise", "level"),
+							expression: createEntityPropertyExpression("exercise", "level"),
 						},
 						{
 							label: "Equipment",
-							expression: schemaPropertyExpression("exercise", "equipment"),
+							expression: createEntityPropertyExpression("exercise", "equipment"),
 						},
 					],
 				},
 				grid: {
-					titleProperty: entityColumnExpression("exercise", "name"),
-					imageProperty: entityColumnExpression("exercise", "image"),
-					calloutProperty: schemaPropertyExpression("exercise", "level"),
-					primarySubtitleProperty: schemaPropertyExpression("exercise", "lot"),
-					secondarySubtitleProperty: schemaPropertyExpression(
+					titleProperty: createEntityColumnExpression("exercise", "name"),
+					imageProperty: createEntityColumnExpression("exercise", "image"),
+					calloutProperty: createEntityPropertyExpression("exercise", "level"),
+					primarySubtitleProperty: createEntityPropertyExpression("exercise", "kind"),
+					secondarySubtitleProperty: createEntityPropertyExpression(
 						"exercise",
 						"equipment",
 					),
 				},
 				list: {
-					titleProperty: entityColumnExpression("exercise", "name"),
-					imageProperty: entityColumnExpression("exercise", "image"),
-					calloutProperty: schemaPropertyExpression("exercise", "level"),
-					primarySubtitleProperty: schemaPropertyExpression("exercise", "lot"),
-					secondarySubtitleProperty: schemaPropertyExpression(
+					titleProperty: createEntityColumnExpression("exercise", "name"),
+					imageProperty: createEntityColumnExpression("exercise", "image"),
+					calloutProperty: createEntityPropertyExpression("exercise", "level"),
+					primarySubtitleProperty: createEntityPropertyExpression("exercise", "kind"),
+					secondarySubtitleProperty: createEntityPropertyExpression(
 						"exercise",
 						"equipment",
 					),

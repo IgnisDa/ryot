@@ -34,7 +34,7 @@ const exercisePropertiesZodSchema = z
 		force: z.enum(["pull", "push", "static"]).nullish(),
 		level: z.enum(["beginner", "intermediate", "expert"]),
 		mechanic: z.enum(["compound", "isolation"]).nullish(),
-		lot: z.enum([
+		kind: z.enum([
 			"reps",
 			"duration",
 			"reps_and_weight",
