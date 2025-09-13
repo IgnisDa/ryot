@@ -4134,6 +4134,12 @@ export interface components {
             /** @enum {string} */
             type: "conditional";
             condition: components["schemas"]["ViewPredicate"];
+        } | {
+            /** @enum {string} */
+            name: "titleCase" | "kebabCase";
+            expression: components["schemas"]["ViewExpression"];
+            /** @enum {string} */
+            type: "transform";
         };
         QueryEngineReference: {
             /** @enum {string} */
