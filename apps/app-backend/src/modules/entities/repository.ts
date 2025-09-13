@@ -38,6 +38,15 @@ const entitySchemaScopeSelection = {
 	propertiesSchema: entitySchema.propertiesSchema,
 };
 
+const relationshipSelection = {
+	id: relationship.id,
+	createdAt: relationship.createdAt,
+	properties: relationship.properties,
+	sourceEntityId: relationship.sourceEntityId,
+	targetEntityId: relationship.targetEntityId,
+	relationshipSchemaId: relationship.relationshipSchemaId,
+};
+
 export const getEntitySchemaScopeForUser = async (input: {
 	userId: string;
 	entitySchemaId: string;
@@ -318,6 +327,57 @@ export const insertRelationship = async (input: {
 				relationship.relationshipSchemaId,
 			],
 		});
+};
+
+export const upsertRelationship = async (input: {
+	userId: string;
+	sourceEntityId: string;
+	targetEntityId: string;
+	relationshipSchemaId: string;
+	properties: Record<string, unknown>;
+}) => {
+	const [savedRelationship] = await db
+		.insert(relationship)
+		.values({
+			userId: input.userId,
+			properties: input.properties,
+			sourceEntityId: input.sourceEntityId,
+			targetEntityId: input.targetEntityId,
+			relationshipSchemaId: input.relationshipSchemaId,
+		})
+		.onConflictDoUpdate({
+			set: { properties: input.properties },
+			target: [
+				relationship.userId,
+				relationship.sourceEntityId,
+				relationship.targetEntityId,
+				relationship.relationshipSchemaId,
+			],
+		})
+		.returning(relationshipSelection);
+
+	return assertPersisted(savedRelationship, "relationship");
+};
+
+export const deleteRelationship = async (input: {
+	userId: string;
+	sourceEntityId: string;
+	targetEntityId: string;
+	relationshipSchemaId: string;
+}) => {
+	const [deletedRelationship] = await db
+		.delete(relationship)
+		.where(
+			and(
+				eq(relationship.userId, input.userId),
+				eq(relationship.sourceEntityId, input.sourceEntityId),
+				eq(relationship.targetEntityId, input.targetEntityId),
+				eq(relationship.relationshipSchemaId, input.relationshipSchemaId),
+			),
+		)
+		.returning(relationshipSelection);
+
+	return deletedRelationship;
 };
 
 export const upsertInLibraryRelationship = async (
