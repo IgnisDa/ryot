@@ -19,11 +19,20 @@
 | `SERVER_CORS_ORIGINS` | Comma-separated list of additional allowed CORS origins | No | `—` | No |
 | `SERVER_ADMIN_ACCESS_TOKEN` | Secret token required for admin API operations | Yes | `—` | Yes |
 
+#### OIDC provider
+
+| Variable | Description | Required | Default | Sensitive |
+|---|---|---|---|---|
+| `SERVER_OIDC_CLIENT_ID` | Client ID for the OIDC provider | No | `—` | No |
+| `SERVER_OIDC_ISSUER_URL` | Issuer/discovery URL for the OIDC provider | No | `—` | No |
+| `SERVER_OIDC_CLIENT_SECRET` | Client secret for the OIDC provider | No | `—` | Yes |
+
 ### User account settings
 
 | Variable | Description | Required | Default | Sensitive |
 |---|---|---|---|---|
 | `USERS_ALLOW_REGISTRATION` | Allow new users to self-register on this instance | No | `true` | No |
+| `USERS_DISABLE_LOCAL_AUTH` | Disable email/password authentication, forcing OAuth-only login | No | `—` | No |
 
 ### S3-compatible file storage
 
@@ -34,6 +43,12 @@
 | `FILE_STORAGE_S3_BUCKET_NAME` | Name of the storage bucket. Required to enable file storage | No | `—` | No |
 | `FILE_STORAGE_S3_ACCESS_KEY_ID` | Access key ID credential for storage authentication | No | `—` | Yes |
 | `FILE_STORAGE_S3_SECRET_ACCESS_KEY` | Secret access key credential for storage authentication | No | `—` | Yes |
+
+### Frontend display settings
+
+| Variable | Description | Required | Default | Sensitive |
+|---|---|---|---|---|
+| `FRONTEND_OIDC_BUTTON_LABEL` | Label shown on the OIDC sign-in button in the client | No | `—` | No |
 
 ## Provider integration configuration
 
