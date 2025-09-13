@@ -135,16 +135,16 @@ pub struct AudibleService {
 impl AudibleService {
     fn url_from_locale(locale: &str) -> String {
         let suffix = match locale {
-            "us" => "com",
+            "es" => "es",
             "ca" => "ca",
-            "uk" => "co.uk",
-            "au" => "com.au",
             "fr" => "fr",
             "de" => "de",
-            "jp" => "co.jp",
+            "us" => "com",
             "it" => "it",
+            "jp" => "co.jp",
             "in" => "co.in",
-            "es" => "es",
+            "au" => "com.au",
+            "gb" | "uk" => "co.uk",
             _ => unreachable!(),
         };
         format!("https://api.audible.{suffix}/1.0/catalog/products")
