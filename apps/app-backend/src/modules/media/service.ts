@@ -178,6 +178,7 @@ const buildBaseRequest = (): Omit<
 
 	return {
 		entitySchemaSlugs: [...builtinMediaEntitySchemaSlugs],
+		relationships: [{ relationshipSchemaSlug: "in-library" }],
 		eventJoins: [
 			{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
 			{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },

@@ -248,10 +248,13 @@ export const createDefaultDisplayConfiguration = (
 
 export const createDefaultQueryDefinition = (
 	entitySchemaSlugs: string[],
+	options?: { relationships?: SavedViewQueryDefinition["relationships"] },
 ): SavedViewQueryDefinition => ({
 	filter: null,
 	eventJoins: [],
 	entitySchemaSlugs,
+	computedFields: [],
+	relationships: options?.relationships ?? [],
 	sort: {
 		direction: "asc",
 		expression: entitySchemaSlugs[0]
