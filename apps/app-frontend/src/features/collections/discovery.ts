@@ -1,7 +1,5 @@
-import {
-	createEntityPropertyExpression,
-	createEntityRuntimeRequest,
-} from "~/features/entities/model";
+import { createEntityPropertyExpression } from "@ryot/ts-utils";
+import { createEntityRuntimeRequest } from "~/features/entities/model";
 import { useApiClient } from "~/hooks/api";
 import {
 	type AppCollection,
