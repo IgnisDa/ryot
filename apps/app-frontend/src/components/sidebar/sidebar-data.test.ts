@@ -38,6 +38,7 @@ describe("toSidebarData", () => {
 			}),
 			createSavedViewFixture({
 				id: "view-2",
+				slug: "view-2",
 				trackerId: null,
 				icon: "sparkles",
 				isBuiltin: false,
@@ -77,6 +78,7 @@ describe("toSidebarData", () => {
 					{
 						id: "view-1",
 						sortOrder: 1,
+						slug: "view-1",
 						isBuiltin: true,
 						icon: "book-open",
 						isDisabled: false,
@@ -115,6 +117,7 @@ describe("toSidebarData", () => {
 			{
 				id: "view-2",
 				sortOrder: 1,
+				slug: "view-2",
 				trackerId: null,
 				icon: "sparkles",
 				isBuiltin: false,

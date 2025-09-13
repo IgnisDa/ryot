@@ -29,6 +29,7 @@ export function toSidebarData(input: {
 			accentColor: tracker.accentColor,
 			views: trackerViews.map((view) => ({
 				id: view.id,
+				slug: view.slug,
 				icon: view.icon,
 				name: view.name,
 				sortOrder: view.sortOrder,
@@ -43,6 +44,7 @@ export function toSidebarData(input: {
 		input.views.filter((view) => view.trackerId === null),
 	).map((view) => ({
 		id: view.id,
+		slug: view.slug,
 		icon: view.icon,
 		name: view.name,
 		sortOrder: view.sortOrder,

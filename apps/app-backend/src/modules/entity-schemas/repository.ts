@@ -1,3 +1,4 @@
+import { normalizeSlug } from "@ryot/ts-utils";
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { assertPersisted, type DbClient, db } from "~/lib/db";
 import {
@@ -304,15 +305,17 @@ export const createEntitySchemaForUser = async (input: {
 			"tracker entity schema link",
 		);
 
+		const builtinSavedViewName = buildBuiltinSavedViewName(input.name);
 		const [maybeSavedView] = await tx
 			.insert(savedView)
 			.values({
 				isBuiltin: true,
 				icon: input.icon,
 				userId: input.userId,
+				name: builtinSavedViewName,
 				trackerId: input.trackerId,
 				accentColor: input.accentColor,
-				name: buildBuiltinSavedViewName(input.name),
+				slug: normalizeSlug(builtinSavedViewName),
 				displayConfiguration: createDefaultDisplayConfiguration(
 					createdEntitySchema.slug,
 				),

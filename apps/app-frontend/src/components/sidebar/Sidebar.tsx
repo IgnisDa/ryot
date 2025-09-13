@@ -78,7 +78,7 @@ function SortableView(props: {
 	onClick: () => void;
 	isMutationBusy: boolean;
 	isCustomizeMode: boolean;
-	onToggleViewEnabled: (viewId: string) => void;
+	onToggleViewEnabled: (viewSlug: string) => void;
 }) {
 	const { isDark } = useThemeTokens();
 	const {
@@ -134,8 +134,8 @@ function SortableView(props: {
 						: (rootProps) => (
 								<Link
 									{...rootProps}
-									to="/views/$viewId"
-									params={{ viewId: props.view.id }}
+									to="/views/$viewSlug"
+									params={{ viewSlug: props.view.slug }}
 								/>
 							)
 				}
@@ -152,7 +152,7 @@ function SortableView(props: {
 								onClick={(event) => {
 									event.preventDefault();
 									event.stopPropagation();
-									props.onToggleViewEnabled(props.view.id);
+									props.onToggleViewEnabled(props.view.slug);
 								}}
 							>
 								{props.view.isDisabled ? (
@@ -188,7 +188,7 @@ function SortableTracker(props: {
 	onEditTracker?: (trackerId: string) => void;
 	onExpandTracker: (trackerId: string) => void;
 	onToggleTracker: (trackerId: string) => void;
-	onToggleViewEnabled: (viewId: string) => void;
+	onToggleViewEnabled: (viewSlug: string) => void;
 	onToggleTrackerEnabled?: (trackerId: string) => void;
 }) {
 	const { isDark } = useThemeTokens();
@@ -366,7 +366,7 @@ function SortableTrackerViews(props: {
 	tracker: SidebarTracker;
 	isCustomizeMode: boolean;
 	onNavLinkClick: () => void;
-	onToggleViewEnabled: (viewId: string) => void;
+	onToggleViewEnabled: (viewSlug: string) => void;
 }) {
 	if (!props.tracker.views?.length) {
 		return null;
@@ -401,7 +401,7 @@ function SortableStandaloneViews(props: {
 	isCustomizeMode: boolean;
 	isMutationBusy: boolean;
 	onNavLinkClick: () => void;
-	onToggleViewEnabled: (viewId: string) => void;
+	onToggleViewEnabled: (viewSlug: string) => void;
 }) {
 	return (
 		<SortableContext
@@ -529,8 +529,8 @@ export function Sidebar(props: SidebarProps) {
 
 			nextViews.splice(activeViewIndex, 1);
 			nextViews.splice(overViewIndex, 0, movedView);
-			void savedViewMutations.reorderViewIds({
-				viewIds: nextViews.map((view) => view.id),
+			void savedViewMutations.reorderViewSlugs({
+				viewSlugs: nextViews.map((view) => view.slug),
 				trackerId: activeTracker.id,
 			});
 			return;
@@ -555,8 +555,8 @@ export function Sidebar(props: SidebarProps) {
 
 		nextViews.splice(activeStandaloneIndex, 1);
 		nextViews.splice(overStandaloneIndex, 0, movedView);
-		void savedViewMutations.reorderViewIds({
-			viewIds: nextViews.map((view) => view.id),
+		void savedViewMutations.reorderViewSlugs({
+			viewSlugs: nextViews.map((view) => view.slug),
 		});
 	};
 
@@ -722,9 +722,9 @@ export function Sidebar(props: SidebarProps) {
 									onToggleTrackerEnabled={(trackerId) =>
 										void actions.toggleTrackerById(trackerId)
 									}
-									onToggleViewEnabled={(viewId) =>
-										void savedViewMutations.toggleViewById(
-											viewId,
+									onToggleViewEnabled={(viewSlug) =>
+										void savedViewMutations.toggleViewBySlug(
+											viewSlug,
 											savedViewsQuery.savedViews,
 										)
 									}
@@ -783,9 +783,9 @@ export function Sidebar(props: SidebarProps) {
 						hoverColor="rgba(212, 165, 116, 0.06)"
 						isCustomizeMode={state.isCustomizeMode}
 						isMutationBusy={savedViewMutations.isPending}
-						onToggleViewEnabled={(viewId) =>
-							void savedViewMutations.toggleViewById(
-								viewId,
+						onToggleViewEnabled={(viewSlug) =>
+							void savedViewMutations.toggleViewBySlug(
+								viewSlug,
 								savedViewsQuery.savedViews,
 							)
 						}
