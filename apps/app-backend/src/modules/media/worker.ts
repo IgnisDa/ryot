@@ -53,25 +53,6 @@ const extractPrimaryImage = (images: unknown) => {
 	return parsedImages.success ? (parsedImages.data[0] ?? null) : null;
 };
 
-const normalizeLegacyImages = (properties: Record<string, unknown>) => {
-	if (properties.images !== undefined) {
-		return properties;
-	}
-
-	const assets = properties.assets;
-	if (!assets || typeof assets !== "object" || Array.isArray(assets)) {
-		return properties;
-	}
-
-	const parsedImages = imagesSchema.safeParse(
-		(assets as Record<string, unknown>).images,
-	);
-	if (!parsedImages.success) {
-		return properties;
-	}
-
-	return { ...properties, images: parsedImages.data };
-};
 
 export const hasImportedEntityDetails = (
 	entity: Pick<ListedEntity, "image" | "properties" | "populatedAt">,
@@ -360,14 +341,13 @@ export const processMediaImportJob = async (
 	if (!scope) {
 		throw new Error("Entity schema not found");
 	}
-	const normalizedProperties = normalizeLegacyImages(details.properties);
 	const schemaFieldKeys = Object.keys(
 		(scope.propertiesSchema as AppSchema).fields,
 	);
 	const properties: Record<string, unknown> = {};
 	for (const key of schemaFieldKeys) {
-		if (normalizedProperties[key] !== undefined) {
-			properties[key] = normalizedProperties[key];
+		if (details.properties[key] !== undefined) {
+			properties[key] = details.properties[key];
 		}
 	}
 	const validatedProperties = parseAppSchemaProperties({
@@ -492,11 +472,10 @@ export const processPersonPopulateJob = async (
 	const schemaFieldKeys = Object.keys(
 		(personSchema.propertiesSchema as AppSchema).fields,
 	);
-	const normalizedProperties = normalizeLegacyImages(details.properties);
 	const filteredProperties: Record<string, unknown> = {};
 	for (const key of schemaFieldKeys) {
-		if (normalizedProperties[key] !== undefined) {
-			filteredProperties[key] = normalizedProperties[key];
+		if (details.properties[key] !== undefined) {
+			filteredProperties[key] = details.properties[key];
 		}
 	}
 
