@@ -34,6 +34,10 @@ impl ITunesService {
     pub fn get_all_languages(&self) -> Vec<String> {
         vec!["en_us".to_string(), "ja_jp".to_string()]
     }
+
+    pub fn get_default_language(&self) -> String {
+        "en_us".to_owned()
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

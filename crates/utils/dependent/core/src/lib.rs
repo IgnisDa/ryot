@@ -21,7 +21,6 @@ use futures::try_join;
 use igdb_provider::IgdbService;
 use itertools::Itertools;
 use itunes_provider::ITunesService;
-use rustypipe::param::Language;
 use sea_orm::{Iterable, prelude::Date};
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
@@ -119,14 +118,26 @@ fn build_provider_language_information(
     let information = MediaSource::iter()
         .map(|source| {
             let (supported, default) = match source {
-                MediaSource::Tmdb => (tmdb_service.get_all_languages(), "en".to_owned()),
-                MediaSource::Tvdb => (tvdb_service.get_all_languages(), "en".to_owned()),
+                MediaSource::Tmdb => (
+                    tmdb_service.get_all_languages(),
+                    tmdb_service.get_default_language(),
+                ),
+                MediaSource::Tvdb => (
+                    tvdb_service.get_all_languages(),
+                    tvdb_service.get_default_language(),
+                ),
                 MediaSource::YoutubeMusic => (
                     youtube_music_service.get_all_languages(),
-                    Language::En.name().to_owned(),
+                    youtube_music_service.get_default_language(),
                 ),
-                MediaSource::Itunes => (itunes_service.get_all_languages(), "en_us".to_owned()),
-                MediaSource::Audible => (audible_service.get_all_languages(), "us".to_owned()),
+                MediaSource::Itunes => (
+                    itunes_service.get_all_languages(),
+                    itunes_service.get_default_language(),
+                ),
+                MediaSource::Audible => (
+                    audible_service.get_all_languages(),
+                    audible_service.get_default_language(),
+                ),
                 MediaSource::Igdb
                 | MediaSource::Vndb
                 | MediaSource::Custom

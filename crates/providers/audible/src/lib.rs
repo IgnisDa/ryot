@@ -174,6 +174,10 @@ impl AudibleService {
             "us".to_string(),
         ]
     }
+
+    pub fn get_default_language(&self) -> String {
+        "us".to_owned()
+    }
 }
 
 #[async_trait]

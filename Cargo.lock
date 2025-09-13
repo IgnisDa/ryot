@@ -1977,7 +1977,6 @@ dependencies = [
  "igdb-provider",
  "itertools 0.14.0",
  "itunes-provider",
- "rustypipe",
  "sea-orm",
  "serde",
  "serde_json",
