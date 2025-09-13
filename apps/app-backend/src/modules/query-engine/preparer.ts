@@ -15,13 +15,13 @@ import {
 	validateQueryEngineReferences,
 	validateSavedViewDisplayConfiguration,
 } from "~/lib/views/validator";
-import { getSavedViewBySlugForUser } from "~/modules/saved-views/repository";
 import type {
 	DisplayConfiguration,
 	EventJoinDefinition,
 	LatestRelationshipJoinDefinition,
 	SavedViewQueryDefinition,
-} from "~/modules/saved-views/schemas";
+} from "~/modules/saved-views";
+import { getSavedViewBySlugForUser } from "~/modules/saved-views";
 
 import { executeAggregateQuery } from "./aggregate-query-builder";
 import type { PreparedQueryContext } from "./context";
