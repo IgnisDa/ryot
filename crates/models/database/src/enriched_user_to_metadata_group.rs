@@ -9,10 +9,9 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     pub parts: i32,
-    pub title: String,
     pub user_id: String,
+    pub query_text: String,
     pub metadata_group_id: String,
-    pub description: Option<String>,
     pub collection_ids: Vec<String>,
 }
 

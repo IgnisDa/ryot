@@ -9,15 +9,14 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    pub title: String,
     pub lot: MediaLot,
     pub times_seen: i64,
     pub user_id: String,
+    pub query_text: String,
     pub metadata_id: String,
     pub publish_date: Option<Date>,
     pub seen_states: Vec<SeenState>,
     pub collection_ids: Vec<String>,
-    pub description: Option<String>,
     pub last_updated_on: DateTimeUtc,
     pub average_rating: Option<Decimal>,
     pub provider_rating: Option<Decimal>,
