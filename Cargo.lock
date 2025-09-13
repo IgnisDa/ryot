@@ -1964,6 +1964,7 @@ name = "dependent-core-utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "audible-provider",
  "cache-service",
  "common-models",
  "common-utils",
@@ -1975,6 +1976,7 @@ dependencies = [
  "futures",
  "igdb-provider",
  "itertools 0.14.0",
+ "itunes-provider",
  "rustypipe",
  "sea-orm",
  "serde",
@@ -1984,6 +1986,7 @@ dependencies = [
  "tracing",
  "tvdb-provider",
  "unkey",
+ "youtube-music-provider",
 ]
 
 [[package]]

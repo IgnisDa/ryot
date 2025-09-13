@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+use audible_provider::AudibleService;
 use common_models::BackendError;
 use common_utils::{
     PAGE_SIZE, PEOPLE_SEARCH_SOURCES, TWO_FACTOR_BACKUP_CODES_COUNT, convert_naive_to_utc, ryot_log,
@@ -19,13 +20,15 @@ use env_utils::{APP_VERSION, UNKEY_API_ID};
 use futures::try_join;
 use igdb_provider::IgdbService;
 use itertools::Itertools;
-use rustypipe::param::{LANGUAGES, Language};
+use itunes_provider::ITunesService;
+use rustypipe::param::Language;
 use sea_orm::{Iterable, prelude::Date};
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 use tmdb_provider::TmdbService;
 use tvdb_provider::TvdbService;
 use unkey::{Client, models::VerifyKeyRequest};
+use youtube_music_provider::YoutubeMusicService;
 
 fn build_metadata_mappings() -> (
     Vec<MetadataLotSourceMappings>,
@@ -73,18 +76,45 @@ fn build_exercise_parameters() -> ExerciseParameters {
 
 async fn create_providers(
     ss: &Arc<SupportingService>,
-) -> Result<(TmdbService, TvdbService, IgdbService)> {
-    let (tmdb_service, tvdb_service, igdb_service) = try_join!(
+) -> Result<(
+    TmdbService,
+    TvdbService,
+    IgdbService,
+    ITunesService,
+    AudibleService,
+    YoutubeMusicService,
+)> {
+    let (
+        tmdb_service,
+        tvdb_service,
+        igdb_service,
+        youtube_music_service,
+        itunes_service,
+        audible_service,
+    ) = try_join!(
         TmdbService::new(ss.clone()),
         TvdbService::new(ss.clone()),
-        IgdbService::new(ss.clone())
+        IgdbService::new(ss.clone()),
+        YoutubeMusicService::new(),
+        ITunesService::new(&ss.config.podcasts.itunes),
+        AudibleService::new(&ss.config.audio_books.audible)
     )?;
-    Ok((tmdb_service, tvdb_service, igdb_service))
+    Ok((
+        tmdb_service,
+        tvdb_service,
+        igdb_service,
+        itunes_service,
+        audible_service,
+        youtube_music_service,
+    ))
 }
 
 fn build_provider_language_information(
     tmdb_service: &TmdbService,
     tvdb_service: &TvdbService,
+    itunes_service: &ITunesService,
+    audible_service: &AudibleService,
+    youtube_music_service: &YoutubeMusicService,
 ) -> Result<Vec<ProviderLanguageInformation>> {
     let information = MediaSource::iter()
         .map(|source| {
@@ -92,20 +122,11 @@ fn build_provider_language_information(
                 MediaSource::Tmdb => (tmdb_service.get_all_languages(), "en".to_owned()),
                 MediaSource::Tvdb => (tvdb_service.get_all_languages(), "en".to_owned()),
                 MediaSource::YoutubeMusic => (
-                    LANGUAGES.iter().map(|l| l.name().to_owned()).collect(),
+                    youtube_music_service.get_all_languages(),
                     Language::En.name().to_owned(),
                 ),
-                MediaSource::Itunes => (
-                    ["en_us", "ja_jp"].into_iter().map(String::from).collect(),
-                    "en_us".to_owned(),
-                ),
-                MediaSource::Audible => (
-                    ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"]
-                        .into_iter()
-                        .map(String::from)
-                        .collect(),
-                    "us".to_owned(),
-                ),
+                MediaSource::Itunes => (itunes_service.get_all_languages(), "en_us".to_owned()),
+                MediaSource::Audible => (audible_service.get_all_languages(), "us".to_owned()),
                 MediaSource::Igdb
                 | MediaSource::Vndb
                 | MediaSource::Custom
@@ -193,13 +214,25 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
                 files_enabled = false;
             }
 
-            let (tmdb_service, tvdb_service, igdb_service) = create_providers(ss).await?;
+            let (
+                tmdb_service,
+                tvdb_service,
+                igdb_service,
+                youtube_music_service,
+                itunes_service,
+                audible_service,
+            ) = create_providers(ss).await?;
 
             let (metadata_lot_source_mappings, metadata_group_source_lot_mappings) =
                 build_metadata_mappings();
             let exercise_parameters = build_exercise_parameters();
-            let metadata_provider_languages =
-                build_provider_language_information(&tmdb_service, &tvdb_service)?;
+            let metadata_provider_languages = build_provider_language_information(
+                &tmdb_service,
+                &tvdb_service,
+                &youtube_music_service,
+                &itunes_service,
+                &audible_service,
+            )?;
 
             let provider_specifics = build_provider_specifics(&igdb_service).await?;
 

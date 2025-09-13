@@ -30,6 +30,10 @@ impl ITunesService {
             language: config.locale.clone(),
         })
     }
+
+    pub fn get_all_languages(&self) -> Vec<String> {
+        vec!["en_us".to_string(), "ja_jp".to_string()]
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

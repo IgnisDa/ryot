@@ -159,6 +159,21 @@ impl AudibleService {
             locale: config.locale.clone(),
         })
     }
+
+    pub fn get_all_languages(&self) -> Vec<String> {
+        vec![
+            "au".to_string(),
+            "ca".to_string(),
+            "de".to_string(),
+            "es".to_string(),
+            "fr".to_string(),
+            "in".to_string(),
+            "it".to_string(),
+            "jp".to_string(),
+            "gb".to_string(),
+            "us".to_string(),
+        ]
+    }
 }
 
 #[async_trait]
