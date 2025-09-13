@@ -13,13 +13,6 @@ This module owns one-time import runs. It normalizes third-party exports into Ry
 - `measurement/`: OpenScale import pipeline.
 - `workout/`: Hevy and Strong import pipeline.
 
-## Source vs provider boundary
-
-- Source adapters and processors stay in app code.
-- Provider API knowledge must live in sandbox scripts, not in import adapters.
-- If a source only has a foreign identifier like an ISBN, emit an unresolved ref and let the media resolution phase call sandbox `resolve` drivers.
-- If a source already has a provider-native identifier like a TMDB id or Hardcover id, emit a resolved ref directly.
-
 ## Media pipeline
 
 Media imports run in four phases:
@@ -62,7 +55,7 @@ For a new source:
 2. Register the processor in `runtime/processor-registry.ts`.
 3. Prefer a small source adapter in `sources/<source>/adapter.ts` that only parses and maps source data.
 4. Reuse `processMediaImport`, `processWorkoutCsvImport`, or `processOpenScaleImport` unless the source truly needs a custom pipeline.
-5. Keep provider fallback policy in app code and provider-specific HTTP inside sandbox scripts.
+5. Follow the backend provider/sandbox boundary rules.
 6. Add focused adapter or processor tests beside the new source.
 
 ## Existing source patterns
