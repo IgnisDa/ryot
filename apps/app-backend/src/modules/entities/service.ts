@@ -2,13 +2,13 @@ import { type AppSchema, resolveRequiredString } from "@ryot/ts-utils";
 import { checkReadAccess } from "~/lib/access";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
-import { ImageSchema, type ImageSchemaType } from "~/lib/db/schema/tables";
 import {
 	type ServiceResult,
 	serviceData,
 	serviceError,
 	wrapServiceValidator,
 } from "~/lib/result";
+import { ImageSchema, type ImageSchemaType } from "~/lib/zod";
 import {
 	createEntityForUser,
 	findEntityByExternalIdForUser,
