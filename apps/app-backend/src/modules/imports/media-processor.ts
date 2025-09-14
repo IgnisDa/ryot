@@ -1,6 +1,7 @@
 import type { Job } from "bullmq";
 
 import { addToCollection, getOrCreateCollection } from "~/modules/collections";
+import { ensureEntityInLibrary } from "~/modules/entities";
 import { populateGlobalEntity } from "~/modules/entities/population";
 import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas";
 import { getBuiltinEventSchemaBySlug } from "~/modules/event-schemas";
@@ -16,6 +17,7 @@ export const entityRefKey = (ref: ImportEntityRef) =>
 export type MediaProcessorDeps = {
 	addToCollection: typeof addToCollection;
 	populateGlobalEntity: typeof populateGlobalEntity;
+	ensureEntityInLibrary: typeof ensureEntityInLibrary;
 	getOrCreateCollection: typeof getOrCreateCollection;
 	createImportRunFailure: typeof createImportRunFailure;
 	getBuiltinEventSchemaBySlug: typeof getBuiltinEventSchemaBySlug;
@@ -27,6 +29,7 @@ export type MediaProcessorDeps = {
 export const mediaProcessorDeps: MediaProcessorDeps = {
 	addToCollection,
 	populateGlobalEntity,
+	ensureEntityInLibrary,
 	getOrCreateCollection,
 	createImportRunFailure,
 	getBuiltinEventSchemaBySlug,
@@ -53,6 +56,7 @@ export const populateMediaEntityRefs = async (
 	deps: Pick<
 		MediaProcessorDeps,
 		| "populateGlobalEntity"
+		| "ensureEntityInLibrary"
 		| "createImportRunFailure"
 		| "getBuiltinEntitySchemaBySlug"
 		| "getBuiltinSandboxScriptBySlug"
@@ -140,7 +144,6 @@ export const populateMediaEntityRefs = async (
 			updatedJobData,
 			sandboxChildJobId,
 			scriptId: script.id,
-			linkToLibrary: true,
 			userId: input.userId,
 			sandboxAlreadyQueued,
 			entitySchemaId: schema.id,
@@ -162,7 +165,26 @@ export const populateMediaEntityRefs = async (
 				entitySchemaSlug: ref.entitySchemaSlug,
 			});
 		} else {
-			entityIds[i] = result.entity.id;
+			const libraryResult = await deps.ensureEntityInLibrary({
+				userId: input.userId,
+				entityId: result.entity.id,
+			});
+			if ("error" in libraryResult) {
+				failedIndices.push(i);
+				entityIds[i] = null;
+				await deps.createImportRunFailure({
+					itemIndex: i,
+					context: null,
+					runId: input.runId,
+					stage: "database_commit",
+					sourceLabel: ref.sourceLabel,
+					message: libraryResult.message,
+					sourceIdentifier: ref.externalId,
+					entitySchemaSlug: ref.entitySchemaSlug,
+				});
+			} else {
+				entityIds[i] = result.entity.id;
+			}
 		}
 
 		await job.updateData({
