@@ -38,8 +38,11 @@ export const startImportRun = async (input: {
 	body: CreateImportRunBody;
 }): Promise<ImportServiceResult<{ id: string }>> => {
 	if (
+		input.body.source === "goodreads" ||
+		input.body.source === "hardcover" ||
 		input.body.source === "hevy" ||
 		input.body.source === "open_scale" ||
+		input.body.source === "storygraph" ||
 		input.body.source === "strong_app"
 	) {
 		const tempDir = getTemporaryDirectory();
