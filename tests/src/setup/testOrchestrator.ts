@@ -84,7 +84,7 @@ async function startFrontendProcess(
 
 		const frontendProcess = spawn(
 			"bun",
-			["react-router-serve", "./build/server/index.js"],
+			["x", "react-router-serve", "./build/server/index.js"],
 			{
 				stdio: ["ignore", "pipe", "pipe"],
 				cwd: path.join(MONOREPO_ROOT, "apps/frontend"),
