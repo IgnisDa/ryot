@@ -44,8 +44,12 @@ pub enum Relation {
     Integration,
     #[sea_orm(has_many = "super::metadata::Entity")]
     Metadata,
+    #[sea_orm(has_many = "super::metadata_group::Entity")]
+    MetadataGroup,
     #[sea_orm(has_many = "super::notification_platform::Entity")]
     NotificationPlatform,
+    #[sea_orm(has_many = "super::person::Entity")]
+    Person,
     #[sea_orm(has_many = "super::review::Entity")]
     Review,
     #[sea_orm(has_many = "super::seen::Entity")]
