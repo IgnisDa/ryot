@@ -4,6 +4,9 @@ import type { PropertyType } from "~/lib/views/reference";
 
 export type SqlExpression = ReturnType<typeof sql>;
 
+export const getEventJoinColumnName = (joinKey: string) =>
+	`event_join_${joinKey}`;
+
 export const buildCastedValueExpression = (
 	propertyType: PropertyType,
 	input: { propertyText: SqlExpression; propertyJson: SqlExpression },
