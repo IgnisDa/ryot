@@ -392,6 +392,14 @@ export type CreateAccessLinkInput = {
   redirectTo?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type CreateCustomMetadataGroupInput = {
+  assets: EntityAssetsInput;
+  description?: InputMaybe<Scalars['String']['input']>;
+  lot: MediaLot;
+  parts?: InputMaybe<Scalars['Int']['input']>;
+  title: Scalars['String']['input'];
+};
+
 export type CreateCustomMetadataInput = {
   animeSpecifics?: InputMaybe<AnimeSpecificsInput>;
   assets: EntityAssetsInput;
@@ -1516,6 +1524,8 @@ export type MutationRoot = {
   createCustomExercise: Scalars['String']['output'];
   /** Create a custom media item. */
   createCustomMetadata: StringIdObject;
+  /** Create a custom metadata group. */
+  createCustomMetadataGroup: StringIdObject;
   /** Create a new collection for the logged in user or edit details of an existing one. */
   createOrUpdateCollection: StringIdObject;
   /** Create or update a review. */
@@ -1664,6 +1674,11 @@ export type MutationRootCreateCustomExerciseArgs = {
 
 export type MutationRootCreateCustomMetadataArgs = {
   input: CreateCustomMetadataInput;
+};
+
+
+export type MutationRootCreateCustomMetadataGroupArgs = {
+  input: CreateCustomMetadataGroupInput;
 };
 
 
