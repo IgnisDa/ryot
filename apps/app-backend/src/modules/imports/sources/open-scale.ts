@@ -23,6 +23,7 @@ const normalizeKey = (label: string): string =>
 		.replace(/^_|_$/g, "");
 
 export type OpenScaleNormalizedItem = {
+	itemIndex: number;
 	sourceLabel: string;
 	sourceIdentifier: string;
 	properties: {
@@ -168,6 +169,7 @@ export const adaptOpenScaleCsv = (csvText: string): OpenScaleAdapterResult => {
 		}
 
 		items.push({
+			itemIndex: rowIdx,
 			sourceLabel,
 			sourceIdentifier,
 			properties: { recordedAt, comment, statistics },

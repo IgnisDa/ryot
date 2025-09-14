@@ -116,6 +116,38 @@ CREATE TABLE "event_schema_trigger" (
 	CONSTRAINT "event_schema_trigger_user_unique" UNIQUE("user_id","event_schema_id","sandbox_script_id")
 );
 --> statement-breakpoint
+CREATE TABLE "import_run" (
+	"error_summary" text,
+	"total_items" integer,
+	"progress" integer DEFAULT 0 NOT NULL,
+	"source" text NOT NULL,
+	"failed_items" integer DEFAULT 0 NOT NULL,
+	"imported_items" integer DEFAULT 0 NOT NULL,
+	"started_at" timestamp with time zone,
+	"finished_at" timestamp with time zone,
+	"processed_items" integer DEFAULT 0 NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"input_summary" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"user_id" text NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "import_run_failure" (
+	"source_label" text,
+	"event_schema_slug" text,
+	"source_identifier" text,
+	"entity_schema_slug" text,
+	"message" text NOT NULL,
+	"item_index" integer NOT NULL,
+	"context" jsonb,
+	"stage" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"run_id" text NOT NULL,
+	"id" text PRIMARY KEY NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "relationship" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text,
@@ -257,6 +289,8 @@ ALTER TABLE "event_schema" ADD CONSTRAINT "event_schema_entity_schema_id_entity_
 ALTER TABLE "event_schema_trigger" ADD CONSTRAINT "event_schema_trigger_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event_schema_trigger" ADD CONSTRAINT "event_schema_trigger_event_schema_id_event_schema_id_fk" FOREIGN KEY ("event_schema_id") REFERENCES "public"."event_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event_schema_trigger" ADD CONSTRAINT "event_schema_trigger_sandbox_script_id_sandbox_script_id_fk" FOREIGN KEY ("sandbox_script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "import_run" ADD CONSTRAINT "import_run_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "import_run_failure" ADD CONSTRAINT "import_run_failure_run_id_import_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."import_run"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_source_entity_id_entity_id_fk" FOREIGN KEY ("source_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_target_entity_id_entity_id_fk" FOREIGN KEY ("target_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -297,6 +331,8 @@ CREATE UNIQUE INDEX "event_schema_builtin_entity_schema_slug_unique" ON "event_s
 CREATE INDEX "event_schema_trigger_user_id_idx" ON "event_schema_trigger" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "event_schema_trigger_event_schema_id_idx" ON "event_schema_trigger" USING btree ("event_schema_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "event_schema_trigger_builtin_unique" ON "event_schema_trigger" USING btree ("event_schema_id","sandbox_script_id") WHERE "event_schema_trigger"."user_id" is null;--> statement-breakpoint
+CREATE INDEX "import_run_user_id_created_at_idx" ON "import_run" USING btree ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "import_run_failure_run_id_created_at_idx" ON "import_run_failure" USING btree ("run_id","created_at");--> statement-breakpoint
 CREATE INDEX "relationship_schema_id_idx" ON "relationship" USING btree ("relationship_schema_id");--> statement-breakpoint
 CREATE INDEX "relationship_source_entity_id_idx" ON "relationship" USING btree ("source_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_target_entity_id_idx" ON "relationship" USING btree ("target_entity_id");--> statement-breakpoint
