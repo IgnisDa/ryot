@@ -15,7 +15,6 @@ use bon::builder;
 use collection_resolver::{CollectionMutationResolver, CollectionQueryResolver};
 use collection_service::CollectionService;
 use config_definition::AppConfig;
-use custom_resolver::CustomMutationResolver;
 use exporter_resolver::{ExporterMutationResolver, ExporterQueryResolver};
 use exporter_service::ExporterService;
 use file_storage_resolver::{FileStorageMutationResolver, FileStorageQueryResolver};
@@ -226,7 +225,6 @@ pub struct QueryRoot(
 
 #[derive(MergedObject, Default)]
 pub struct MutationRoot(
-    CustomMutationResolver,
     FitnessMutationResolver,
     ExporterMutationResolver,
     ImporterMutationResolver,
