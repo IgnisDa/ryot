@@ -27,6 +27,7 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
+      FRONTEND_URL: http://localhost:3000
       REDIS_URL: redis://backend-redis:6379
       DATABASE_URL: postgresql://postgres:postgres@backend-postgres:5432/postgres
     depends_on:
