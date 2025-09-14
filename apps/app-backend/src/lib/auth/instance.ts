@@ -1,4 +1,5 @@
 import { apiKey } from "@better-auth/api-key";
+import { expo } from "@better-auth/expo";
 import { redisStorage } from "@better-auth/redis-storage";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -18,12 +19,17 @@ export const auth = betterAuth({
 	secret: config.server.adminAccessToken,
 	secondaryStorage: redisStorage({ client: redis }),
 	database: drizzleAdapter(db, { provider: "pg", schema }),
-	trustedOrigins: [config.frontendUrl, ...config.server.corsOrigins],
 	// Sign-up is handled by our custom POST /authentication/email route.
 	disabledPaths: ["/sign-up/email", ...(config.users.disableLocalAuth ? ["/sign-in/email"] : [])],
 	account: {
 		accountLinking: { enabled: true, trustedProviders: ["email-password", OIDC_PROVIDER_ID] },
 	},
+	trustedOrigins: [
+		"ryot://",
+		config.frontendUrl,
+		...config.server.corsOrigins,
+		...(IS_DEVELOPMENT ? ["exp://"] : []),
+	],
 	user: {
 		additionalFields: {
 			preferences: { type: "json", required: true, defaultValue: defaultUserPreferences },
@@ -51,6 +57,7 @@ export const auth = betterAuth({
 		},
 	},
 	plugins: [
+		expo(),
 		apiKey({
 			fallbackToDatabase: true,
 			storage: "secondary-storage",
