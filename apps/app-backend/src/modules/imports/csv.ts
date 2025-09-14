@@ -21,6 +21,48 @@ const detectCsvDelimiter = (text: string, hint?: string): string => {
 	return ",";
 };
 
+export const normalizeCsvHeader = (value: string): string =>
+	value.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+export const readCsvCell = (row: Record<string, string>, aliases: string[]): string | undefined => {
+	const wanted = new Set(aliases.map(normalizeCsvHeader));
+	for (const [key, value] of Object.entries(row)) {
+		if (wanted.has(normalizeCsvHeader(key))) {
+			const trimmed = value.trim();
+			return trimmed.length > 0 ? trimmed : undefined;
+		}
+	}
+	return undefined;
+};
+
+export const readRequiredCsvCell = (
+	row: Record<string, string>,
+	aliases: string[],
+	label: string,
+): string => {
+	const value = readCsvCell(row, aliases);
+	if (!value) {
+		throw new Error(`Row is missing ${label}`);
+	}
+	return value;
+};
+
+export const readOptionalCsvNumber = (
+	row: Record<string, string>,
+	aliases: string[],
+): number | undefined => {
+	const value = readCsvCell(row, aliases);
+	if (!value) {
+		return undefined;
+	}
+	const normalized = value.includes(".") ? value : value.replace(",", ".");
+	const parsed = Number(normalized);
+	if (Number.isNaN(parsed)) {
+		throw new Error(`Could not parse numeric value "${value}"`);
+	}
+	return parsed;
+};
+
 /**
  * Parses CSV text using a full-text state machine that correctly handles
  * quoted fields containing embedded newlines (RFC 4180). Records where all

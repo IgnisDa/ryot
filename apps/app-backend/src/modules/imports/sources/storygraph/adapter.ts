@@ -1,6 +1,7 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
 import { parseCsvText } from "../../csv";
+import { getOrCreateMediaEntityGroup } from "../../media/groups";
 import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
@@ -16,7 +17,6 @@ import {
 	createProgressEvent,
 	createReviewEvent,
 	finalizeEntityGroups,
-	getOrCreateGroup,
 	isValidIsbn,
 	isLifecycleAlias,
 	normalizeIsbn,
@@ -36,13 +36,6 @@ const storyGraphAdapterDeps: StoryGraphAdapterDeps = {
 	resolveBookEntityRef: resolveBookEntityRefByIsbn,
 };
 
-const recordFailure = (
-	failures: MediaImportAdapterFailure[],
-	input: MediaImportAdapterFailure,
-): void => {
-	failures.push(input);
-};
-
 export const adaptStorygraphCsv = async (
 	csvText: string,
 	deps: StoryGraphAdapterDeps = storyGraphAdapterDeps,
@@ -51,7 +44,7 @@ export const adaptStorygraphCsv = async (
 	assertRequiredHeaders(headers, ["Title", "ISBN/UID", "Read Status"], "StoryGraph");
 
 	const failures: MediaImportAdapterFailure[] = [];
-	const groupMap = new Map<string, ReturnType<typeof getOrCreateGroup>>();
+	const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
 
 	// oxlint-disable no-await-in-loop
 	for (let itemIndex = 0; itemIndex < rows.length; itemIndex++) {
@@ -67,11 +60,11 @@ export const adaptStorygraphCsv = async (
 		}
 		const isbn = normalizeIsbn(row["ISBN/UID"] ?? "");
 		if (!isbn) {
-			recordFailure(failures, { itemIndex, sourceLabel, message: "No ISBN found" });
+			failures.push({ itemIndex, sourceLabel, message: "No ISBN found" });
 			continue;
 		}
 		if (!isValidIsbn(isbn)) {
-			recordFailure(failures, {
+			failures.push({
 				itemIndex,
 				sourceLabel,
 				context: { isbn },
@@ -85,7 +78,7 @@ export const adaptStorygraphCsv = async (
 		try {
 			entityRef = await deps.resolveBookEntityRef({ isbn, sourceLabel });
 		} catch (error) {
-			recordFailure(failures, {
+			failures.push({
 				itemIndex,
 				sourceLabel,
 				context: { isbn },
@@ -96,7 +89,7 @@ export const adaptStorygraphCsv = async (
 		}
 
 		if (!entityRef) {
-			recordFailure(failures, {
+			failures.push({
 				itemIndex,
 				sourceLabel,
 				context: { isbn },
@@ -106,7 +99,7 @@ export const adaptStorygraphCsv = async (
 			continue;
 		}
 
-		const group = getOrCreateGroup(groupMap, entityRef);
+		const group = getOrCreateMediaEntityGroup(groupMap, entityRef);
 		const lifecycleStatus = normalizeLifecycleStatus(row["Read Status"] ?? "");
 		const completedOn = parseDateWithFormat(row["Last Date Read"] ?? "", "YYYY/MM/DD");
 		const fallbackOccurredAt = completedOn ?? dayjs().toISOString();
