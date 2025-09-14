@@ -104,7 +104,7 @@ export function useMediaOverviewData() {
 						direction: "desc",
 						expression: {
 							type: "reference",
-							reference: { type: "event-join", joinKey: "backlog", path: ["createdAt"] },
+							reference: { type: "event-join", joinKey: "backlog", path: ["occurredAt"] },
 						},
 					},
 					filter: {
@@ -114,7 +114,7 @@ export function useMediaOverviewData() {
 								type: "isNotNull",
 								expression: {
 									type: "reference",
-									reference: { type: "event-join", joinKey: "backlog", path: ["createdAt"] },
+									reference: { type: "event-join", joinKey: "backlog", path: ["occurredAt"] },
 								},
 							},
 							{
@@ -124,7 +124,7 @@ export function useMediaOverviewData() {
 										type: "isNull",
 										expression: {
 											type: "reference",
-											reference: { type: "event-join", path: ["createdAt"], joinKey: "progress" },
+											reference: { type: "event-join", path: ["occurredAt"], joinKey: "progress" },
 										},
 									},
 									{
@@ -132,11 +132,11 @@ export function useMediaOverviewData() {
 										type: "comparison",
 										left: {
 											type: "reference",
-											reference: { type: "event-join", joinKey: "backlog", path: ["createdAt"] },
+											reference: { type: "event-join", joinKey: "backlog", path: ["occurredAt"] },
 										},
 										right: {
 											type: "reference",
-											reference: { type: "event-join", path: ["createdAt"], joinKey: "progress" },
+											reference: { type: "event-join", path: ["occurredAt"], joinKey: "progress" },
 										},
 									},
 								],
@@ -148,7 +148,7 @@ export function useMediaOverviewData() {
 										type: "isNull",
 										expression: {
 											type: "reference",
-											reference: { type: "event-join", path: ["createdAt"], joinKey: "complete" },
+											reference: { type: "event-join", path: ["occurredAt"], joinKey: "complete" },
 										},
 									},
 									{
@@ -156,11 +156,11 @@ export function useMediaOverviewData() {
 										type: "comparison",
 										left: {
 											type: "reference",
-											reference: { type: "event-join", joinKey: "backlog", path: ["createdAt"] },
+											reference: { type: "event-join", joinKey: "backlog", path: ["occurredAt"] },
 										},
 										right: {
 											type: "reference",
-											reference: { type: "event-join", joinKey: "complete", path: ["createdAt"] },
+											reference: { type: "event-join", joinKey: "complete", path: ["occurredAt"] },
 										},
 									},
 								],
@@ -172,7 +172,7 @@ export function useMediaOverviewData() {
 										type: "isNull",
 										expression: {
 											type: "reference",
-											reference: { type: "event-join", path: ["createdAt"], joinKey: "dropped" },
+											reference: { type: "event-join", path: ["occurredAt"], joinKey: "dropped" },
 										},
 									},
 									{
@@ -180,11 +180,11 @@ export function useMediaOverviewData() {
 										type: "comparison",
 										left: {
 											type: "reference",
-											reference: { type: "event-join", joinKey: "backlog", path: ["createdAt"] },
+											reference: { type: "event-join", joinKey: "backlog", path: ["occurredAt"] },
 										},
 										right: {
 											type: "reference",
-											reference: { type: "event-join", joinKey: "dropped", path: ["createdAt"] },
+											reference: { type: "event-join", joinKey: "dropped", path: ["occurredAt"] },
 										},
 									},
 								],
@@ -196,7 +196,7 @@ export function useMediaOverviewData() {
 										type: "isNull",
 										expression: {
 											type: "reference",
-											reference: { type: "event-join", path: ["createdAt"], joinKey: "on_hold" },
+											reference: { type: "event-join", path: ["occurredAt"], joinKey: "on_hold" },
 										},
 									},
 									{
@@ -204,11 +204,11 @@ export function useMediaOverviewData() {
 										type: "comparison",
 										left: {
 											type: "reference",
-											reference: { type: "event-join", joinKey: "backlog", path: ["createdAt"] },
+											reference: { type: "event-join", joinKey: "backlog", path: ["occurredAt"] },
 										},
 										right: {
 											type: "reference",
-											reference: { type: "event-join", joinKey: "on_hold", path: ["createdAt"] },
+											reference: { type: "event-join", joinKey: "on_hold", path: ["occurredAt"] },
 										},
 									},
 								],
@@ -305,7 +305,7 @@ export function useMediaOverviewData() {
 						direction: "desc",
 						expression: {
 							type: "reference",
-							reference: { type: "event-join", joinKey: "progress", path: ["createdAt"] },
+							reference: { type: "event-join", joinKey: "progress", path: ["occurredAt"] },
 						},
 					},
 					filter: {
@@ -315,7 +315,7 @@ export function useMediaOverviewData() {
 								type: "isNotNull",
 								expression: {
 									type: "reference",
-									reference: { type: "event-join", joinKey: "progress", path: ["createdAt"] },
+									reference: { type: "event-join", joinKey: "progress", path: ["occurredAt"] },
 								},
 							},
 							{
@@ -325,7 +325,7 @@ export function useMediaOverviewData() {
 										type: "isNull",
 										expression: {
 											type: "reference",
-											reference: { type: "event-join", joinKey: "complete", path: ["createdAt"] },
+											reference: { type: "event-join", joinKey: "complete", path: ["occurredAt"] },
 										},
 									},
 									{
@@ -333,11 +333,11 @@ export function useMediaOverviewData() {
 										operator: "gt",
 										left: {
 											type: "reference",
-											reference: { type: "event-join", joinKey: "progress", path: ["createdAt"] },
+											reference: { type: "event-join", joinKey: "progress", path: ["occurredAt"] },
 										},
 										right: {
 											type: "reference",
-											reference: { type: "event-join", joinKey: "complete", path: ["createdAt"] },
+											reference: { type: "event-join", joinKey: "complete", path: ["occurredAt"] },
 										},
 									},
 								],
@@ -349,7 +349,7 @@ export function useMediaOverviewData() {
 										type: "isNull",
 										expression: {
 											type: "reference",
-											reference: { type: "event-join", joinKey: "dropped", path: ["createdAt"] },
+											reference: { type: "event-join", joinKey: "dropped", path: ["occurredAt"] },
 										},
 									},
 									{
@@ -357,11 +357,11 @@ export function useMediaOverviewData() {
 										operator: "gt",
 										left: {
 											type: "reference",
-											reference: { type: "event-join", joinKey: "progress", path: ["createdAt"] },
+											reference: { type: "event-join", joinKey: "progress", path: ["occurredAt"] },
 										},
 										right: {
 											type: "reference",
-											reference: { type: "event-join", joinKey: "dropped", path: ["createdAt"] },
+											reference: { type: "event-join", joinKey: "dropped", path: ["occurredAt"] },
 										},
 									},
 								],
@@ -373,7 +373,7 @@ export function useMediaOverviewData() {
 										type: "isNull",
 										expression: {
 											type: "reference",
-											reference: { type: "event-join", joinKey: "on_hold", path: ["createdAt"] },
+											reference: { type: "event-join", joinKey: "on_hold", path: ["occurredAt"] },
 										},
 									},
 									{
@@ -381,11 +381,11 @@ export function useMediaOverviewData() {
 										operator: "gt",
 										left: {
 											type: "reference",
-											reference: { type: "event-join", joinKey: "progress", path: ["createdAt"] },
+											reference: { type: "event-join", joinKey: "progress", path: ["occurredAt"] },
 										},
 										right: {
 											type: "reference",
-											reference: { type: "event-join", joinKey: "on_hold", path: ["createdAt"] },
+											reference: { type: "event-join", joinKey: "on_hold", path: ["occurredAt"] },
 										},
 									},
 								],
@@ -543,21 +543,8 @@ export function useMediaOverviewData() {
 					sort: {
 						direction: "desc",
 						expression: {
-							type: "coalesce",
-							values: [
-								{
-									type: "reference",
-									reference: {
-										type: "event-join",
-										joinKey: "complete",
-										path: ["properties", "completedOn"],
-									},
-								},
-								{
-									type: "reference",
-									reference: { type: "event-join", joinKey: "complete", path: ["createdAt"] },
-								},
-							],
+							type: "reference",
+							reference: { type: "event-join", joinKey: "complete", path: ["occurredAt"] },
 						},
 					},
 					filter: {
@@ -567,7 +554,7 @@ export function useMediaOverviewData() {
 								type: "isNotNull",
 								expression: {
 									type: "reference",
-									reference: { type: "event-join", path: ["createdAt"], joinKey: "complete" },
+									reference: { type: "event-join", path: ["occurredAt"], joinKey: "complete" },
 								},
 							},
 							{
@@ -577,7 +564,7 @@ export function useMediaOverviewData() {
 										type: "isNull",
 										expression: {
 											type: "reference",
-											reference: { joinKey: "review", type: "event-join", path: ["createdAt"] },
+											reference: { joinKey: "review", type: "event-join", path: ["occurredAt"] },
 										},
 									},
 									{
@@ -585,15 +572,11 @@ export function useMediaOverviewData() {
 										operator: "gt",
 										left: {
 											type: "reference",
-											reference: {
-												type: "event-join",
-												joinKey: "complete",
-												path: ["properties", "completedOn"],
-											},
+											reference: { type: "event-join", joinKey: "complete", path: ["occurredAt"] },
 										},
 										right: {
 											type: "reference",
-											reference: { joinKey: "review", type: "event-join", path: ["createdAt"] },
+											reference: { joinKey: "review", type: "event-join", path: ["occurredAt"] },
 										},
 									},
 								],
@@ -606,18 +589,7 @@ export function useMediaOverviewData() {
 							key: "completeAt",
 							expression: {
 								type: "reference",
-								reference: { type: "event-join", joinKey: "complete", path: ["createdAt"] },
-							},
-						},
-						{
-							key: "completedOn",
-							expression: {
-								type: "reference",
-								reference: {
-									type: "event-join",
-									joinKey: "complete",
-									path: ["properties", "completedOn"],
-								},
+								reference: { type: "event-join", joinKey: "complete", path: ["occurredAt"] },
 							},
 						},
 						{
@@ -653,8 +625,7 @@ export function useMediaOverviewData() {
 					return [];
 				}
 
-				const completedOnVal = getVal("completedOn");
-				const completedAt = typeof completedOnVal === "string" ? completedOnVal : completeAt;
+				const completedAt = completeAt;
 
 				const ratingVal = getVal("reviewRating");
 				const rating = typeof ratingVal === "number" ? ratingVal : null;
@@ -684,7 +655,7 @@ export function useMediaOverviewData() {
 					eventSchemas: ["review", "backlog", "progress", "complete"],
 					sort: {
 						direction: "desc",
-						expression: { type: "reference", reference: { type: "event", path: ["createdAt"] } },
+						expression: { type: "reference", reference: { type: "event", path: ["occurredAt"] } },
 					},
 					fields: [
 						{
@@ -692,25 +663,14 @@ export function useMediaOverviewData() {
 							expression: { type: "reference", reference: { type: "event", path: ["id"] } },
 						},
 						{
-							key: "eventCreatedAt",
-							expression: { type: "reference", reference: { type: "event", path: ["createdAt"] } },
+							key: "eventOccurredAt",
+							expression: { type: "reference", reference: { type: "event", path: ["occurredAt"] } },
 						},
 						{
 							key: "eventSchemaSlug",
 							expression: {
 								type: "reference",
 								reference: { type: "event-schema", path: ["slug"] },
-							},
-						},
-						{
-							key: "eventCompletedOn",
-							expression: {
-								type: "reference",
-								reference: {
-									type: "event",
-									eventSchemaSlug: "complete",
-									path: ["properties", "completedOn"],
-								},
 							},
 						},
 						{
@@ -741,7 +701,7 @@ export function useMediaOverviewData() {
 				const eventId = getVal("eventId");
 				const entityId = getVal("entityId");
 				const entityName = getVal("entityName");
-				const eventCreatedAt = getVal("eventCreatedAt");
+				const occurredAt = getVal("eventOccurredAt");
 				const eventSchemaSlug = getVal("eventSchemaSlug");
 				const entitySchemaSlug = getVal("entitySchemaSlug");
 
@@ -749,18 +709,12 @@ export function useMediaOverviewData() {
 					typeof eventId !== "string" ||
 					typeof entityId !== "string" ||
 					typeof entityName !== "string" ||
-					typeof eventCreatedAt !== "string" ||
+					typeof occurredAt !== "string" ||
 					typeof eventSchemaSlug !== "string" ||
 					typeof entitySchemaSlug !== "string"
 				) {
 					return [];
 				}
-
-				const completedOn = getVal("eventCompletedOn");
-				const occurredAt =
-					eventSchemaSlug === "complete" && typeof completedOn === "string"
-						? completedOn
-						: eventCreatedAt;
 
 				const ratingVal = getVal("eventRating");
 				const rating = typeof ratingVal === "number" ? ratingVal : null;
