@@ -11,6 +11,7 @@ import {
 	findBuiltinSchemaBySlug,
 	findBuiltinTrackerBySlug,
 	findWorkoutSetEventSchema,
+	getEntity,
 	getQueryEngineFieldOrThrow,
 	listEntitySchemas,
 	listSavedViews,
@@ -109,6 +110,18 @@ describe("Workouts E2E", () => {
 					),
 				},
 			},
+		});
+	});
+
+	it("creates a workout entity and retrieves it by id", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { workoutId } = await createWorkoutEntityFixture(client, cookies);
+		const entity = await getEntity(client, cookies, workoutId);
+
+		expect(entity.id).toBe(workoutId);
+		expect(entity.properties).toMatchObject({
+			endedAt: "2026-04-27T11:00:00Z",
+			startedAt: "2026-04-27T10:00:00Z",
 		});
 	});
 
