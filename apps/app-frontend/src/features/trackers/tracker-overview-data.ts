@@ -206,7 +206,7 @@ export function useTrackerOverviewData(input: {
 			.filter((item) => item.schema.id === schema.id)
 			.map((item) => item.entity);
 		const savedView = trackerSavedViews.find((view) =>
-			view.queryDefinition.entitySchemaSlugs.includes(schema.slug),
+			view.queryDefinition.scope.includes(schema.slug),
 		);
 
 		return {

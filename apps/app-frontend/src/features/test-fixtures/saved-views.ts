@@ -50,9 +50,7 @@ export function createSavedViewFixture(
 		eventJoins: queryDefinitionOverride?.eventJoins ?? [],
 		relationships: queryDefinitionOverride?.relationships ?? [],
 		computedFields: queryDefinitionOverride?.computedFields ?? [],
-		entitySchemaSlugs: queryDefinitionOverride?.entitySchemaSlugs ?? [
-			"schema-1",
-		],
+		scope: queryDefinitionOverride?.scope ?? ["schema-1"],
 		sort: queryDefinitionOverride?.sort ?? {
 			direction: "asc",
 			expression: nameExpression,

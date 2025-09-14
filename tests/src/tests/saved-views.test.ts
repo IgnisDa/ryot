@@ -65,7 +65,7 @@ describe("Saved views E2E", () => {
 			queryDefinition: {
 				filter: null,
 				eventJoins: [],
-				entitySchemaSlugs: ["collection"],
+				scope: ["collection"],
 			},
 			displayConfiguration: {
 				table: {
@@ -161,7 +161,7 @@ describe("Saved views E2E", () => {
 				eventJoins: allShowsView.queryDefinition.eventJoins,
 				relationships: allShowsView.queryDefinition.relationships,
 				computedFields: allShowsView.queryDefinition.computedFields,
-				entitySchemaSlugs: allShowsView.queryDefinition.entitySchemaSlugs,
+				scope: allShowsView.queryDefinition.scope,
 				filter: {
 					operator: "eq",
 					type: "comparison",
@@ -217,9 +217,7 @@ describe("Saved views E2E", () => {
 		expect(fetchedView.name).toBe("Lifecycle View");
 		expect(fetchedView.isBuiltin).toBe(false);
 		expect(fetchedView.isDisabled).toBe(false);
-		expect(Array.isArray(fetchedView.queryDefinition.entitySchemaSlugs)).toBe(
-			true,
-		);
+		expect(Array.isArray(fetchedView.queryDefinition.scope)).toBe(true);
 		expect(fetchedView.queryDefinition.filter).toBeNull();
 		expect(Number.isNaN(Date.parse(String(fetchedView.createdAt)))).toBe(false);
 		expect(Number.isNaN(Date.parse(String(fetchedView.updatedAt)))).toBe(false);
@@ -234,7 +232,7 @@ describe("Saved views E2E", () => {
 			queryDefinition: {
 				eventJoins: [],
 				computedFields: [],
-				entitySchemaSlugs: ["anime", "manga"],
+				scope: ["anime", "manga"],
 				sort: {
 					direction: "desc",
 					expression: createEntityColumnExpression("anime", "createdAt"),
@@ -703,7 +701,7 @@ describe("Saved views E2E", () => {
 					filter: null,
 					eventJoins: [],
 					computedFields: [],
-					entitySchemaSlugs: ["book"],
+					scope: ["book"],
 					sort: { expression: literalExpression(null), direction: "asc" },
 				},
 			}),
@@ -716,7 +714,7 @@ describe("Saved views E2E", () => {
 					filter: null,
 					eventJoins: [],
 					computedFields: [],
-					entitySchemaSlugs: ["book"],
+					scope: ["book"],
 					sort: { expression: literalExpression(null), direction: "asc" },
 				},
 			}),
@@ -750,7 +748,7 @@ describe("Saved views E2E", () => {
 			name: "Computed Saved View",
 			queryDefinition: {
 				eventJoins: [],
-				entitySchemaSlugs: ["book"],
+				scope: ["book"],
 				sort: { direction: "desc", expression: nextYearReference },
 				filter: {
 					operator: "gte",
@@ -808,7 +806,7 @@ describe("Saved views E2E", () => {
 				name: "Computed Saved View Updated",
 				queryDefinition: {
 					eventJoins: [],
-					entitySchemaSlugs: ["book"],
+					scope: ["book"],
 					sort: { direction: "desc", expression: nextYearReference },
 					filter: {
 						type: "comparison",
@@ -899,7 +897,7 @@ describe("Saved views E2E", () => {
 		const invalidQueryDefinition = {
 			filter: null,
 			eventJoins: [],
-			entitySchemaSlugs: ["book"],
+			scope: ["book"],
 			sort: {
 				direction: "asc",
 				expression: createEntityColumnExpression("book", "name"),
@@ -947,7 +945,7 @@ describe("Saved views E2E", () => {
 		const invalidQueryDefinition = {
 			filter: null,
 			eventJoins: [],
-			entitySchemaSlugs: ["book"],
+			scope: ["book"],
 			sort: {
 				direction: "asc",
 				expression: createComputedFieldExpression("cover"),
@@ -994,7 +992,7 @@ describe("Saved views E2E", () => {
 				...buildSavedViewBody({ name: "Broken Qualification View" }),
 				queryDefinition: {
 					eventJoins: [],
-					entitySchemaSlugs: ["book"],
+					scope: ["book"],
 					sort: { direction: "asc", expression: "year" },
 					filter: {
 						left: "status",
@@ -1012,7 +1010,7 @@ describe("Saved views E2E", () => {
 				...buildUpdatedSavedViewBody(),
 				queryDefinition: {
 					eventJoins: [],
-					entitySchemaSlugs: ["book"],
+					scope: ["book"],
 					sort: { direction: "asc", expression: "year" },
 					filter: {
 						left: "status",
@@ -1037,7 +1035,7 @@ describe("Saved views E2E", () => {
 			filter: null,
 			eventJoins: [],
 			computedFields: [],
-			entitySchemaSlugs: ["book"],
+			scope: ["book"],
 			sort: {
 				direction: "asc",
 				expression: createEntityPropertyExpression(
@@ -1108,7 +1106,7 @@ describe("Saved views E2E", () => {
 					filter: null,
 					eventJoins: [],
 					computedFields: [],
-					entitySchemaSlugs: ["does-not-exist"],
+					scope: ["does-not-exist"],
 					sort: {
 						direction: "asc",
 						expression: createEntityColumnExpression("does-not-exist", "name"),

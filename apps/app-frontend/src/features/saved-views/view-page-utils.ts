@@ -76,7 +76,7 @@ const buildRuntimeRequestBase = (input: {
 	pagination: { page: input.page, limit: input.limit },
 	relationships: input.view.queryDefinition.relationships,
 	computedFields: input.view.queryDefinition.computedFields,
-	entitySchemaSlugs: input.view.queryDefinition.entitySchemaSlugs,
+	scope: input.view.queryDefinition.scope,
 });
 
 const buildCardRuntimeFields = (configuration: CardDisplayConfiguration) => {
@@ -101,9 +101,7 @@ export function createQueryEngineRequest(input: {
 		.with("grid", () => ({
 			...base,
 			fields: [
-				...createEntityIdentityFields(
-					input.view.queryDefinition.entitySchemaSlugs,
-				),
+				...createEntityIdentityFields(input.view.queryDefinition.scope),
 				...buildCardRuntimeFields(input.view.displayConfiguration.grid),
 				entitySchemaSlugField,
 			],
@@ -111,9 +109,7 @@ export function createQueryEngineRequest(input: {
 		.with("list", () => ({
 			...base,
 			fields: [
-				...createEntityIdentityFields(
-					input.view.queryDefinition.entitySchemaSlugs,
-				),
+				...createEntityIdentityFields(input.view.queryDefinition.scope),
 				...buildCardRuntimeFields(input.view.displayConfiguration.list),
 				entitySchemaSlugField,
 			],
@@ -121,10 +117,9 @@ export function createQueryEngineRequest(input: {
 		.with("table", () => ({
 			...base,
 			fields: [
-				...createEntityIdentityFields(
-					input.view.queryDefinition.entitySchemaSlugs,
-					{ includeImage: false },
-				),
+				...createEntityIdentityFields(input.view.queryDefinition.scope, {
+					includeImage: false,
+				}),
 				...input.view.displayConfiguration.table.columns.map((column, index) =>
 					createRuntimeField(`column_${index}`, column.expression),
 				),
@@ -139,7 +134,7 @@ export function createDisabledQueryEngineRequest(): QueryEngineRequest {
 		eventJoins: [],
 		relationships: [],
 		computedFields: [],
-		entitySchemaSlugs: ["book"],
+		scope: ["book"],
 		pagination: { page: 1, limit: GRID_LIMIT },
 		sort: {
 			direction: "asc",

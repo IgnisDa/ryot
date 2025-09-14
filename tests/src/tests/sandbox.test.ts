@@ -113,15 +113,19 @@ describe("sandbox async flow", () => {
 driver("main", async function() {
   const result = await appApiCall("POST", "/query-engine/execute", {
     body: {
-      entitySchemaSlugs: [${JSON.stringify(slug)}],
+      scope: [${JSON.stringify(slug)}],
       pagination: { page: 1, limit: 10 },
-      sort: { direction: "asc", expression: { type: "reference", reference: { path: ["name"], type: "entity", slug: ${JSON.stringify(slug)} } } }
+      sort: { direction: "asc", expression: { type: "reference", reference: { path: ["name"], type: "entity", slug: ${JSON.stringify(slug)} } } },
+      fields: [
+        { key: "id", expression: { type: "reference", reference: { path: ["id"], type: "entity", slug: ${JSON.stringify(slug)} } } },
+        { key: "name", expression: { type: "reference", reference: { path: ["name"], type: "entity", slug: ${JSON.stringify(slug)} } } }
+      ]
     }
   });
   if (!result.success) {
     throw new Error(result.error);
   }
-  return result.data.body.data.items;
+  return result.data.body.data.items.map((fields) => Object.fromEntries(fields.map((field) => [field.key, field.value])));
 });
 `,
 		});
@@ -139,12 +143,7 @@ driver("main", async function() {
 
 		expect(result.error).toBeNull();
 
-		const value = result.value as Array<{
-			id: string;
-			name: string;
-			slug: string;
-			trackerId: string;
-		}>;
+		const value = result.value as Array<{ id?: string; name?: string }>;
 
 		expect(Array.isArray(value)).toBe(true);
 		expect(value.length).toBe(1);
@@ -162,7 +161,7 @@ driver("main", async function() {
 driver("main", async function() {
   const result = await appApiCall("POST", "/query-engine/execute", {
     body: {
-      entitySchemaSlugs: ["does-not-exist"],
+      scope: ["does-not-exist"],
       pagination: { page: 1, limit: 10 },
       sort: {
         direction: "asc",

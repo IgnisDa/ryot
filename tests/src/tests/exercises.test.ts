@@ -49,7 +49,7 @@ const waitForSeededExercise = async (client: Client, cookies: string) => {
 				client,
 				cookies,
 				buildGridRequest({
-					entitySchemaSlugs: ["exercise"],
+					scope: ["exercise"],
 					pagination: { page: 1, limit: 1 },
 					displayConfiguration: {
 						titleProperty: [entityField("exercise", "name")],
@@ -138,7 +138,7 @@ describe("Exercises E2E", () => {
 				computedFields: [],
 				filter: null,
 				eventJoins: [],
-				entitySchemaSlugs: ["exercise"],
+				scope: ["exercise"],
 				relationships: [],
 				sort: {
 					direction: "asc",
