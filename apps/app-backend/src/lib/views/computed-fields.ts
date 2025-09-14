@@ -1,3 +1,5 @@
+import { match } from "ts-pattern";
+
 import { QueryEngineValidationError } from "./errors";
 import type { ViewComputedField, ViewExpression, ViewPredicate } from "./expression";
 
@@ -32,82 +34,78 @@ export const getComputedFieldOrThrow = (
 };
 
 const collectExpressionDependencies = (expression: ViewExpression, dependencies: string[]) => {
-	if (expression.type === "literal") {
-		return dependencies;
-	}
-
-	if (expression.type === "reference") {
-		if (expression.reference.type === "computed-field") {
-			dependencies.push(expression.reference.key);
-		}
-
-		return dependencies;
-	}
-
-	if (expression.type === "arithmetic") {
-		collectExpressionDependencies(expression.left, dependencies);
-		collectExpressionDependencies(expression.right, dependencies);
-		return dependencies;
-	}
-
-	if (
-		expression.type === "round" ||
-		expression.type === "floor" ||
-		expression.type === "integer" ||
-		expression.type === "transform"
-	) {
-		collectExpressionDependencies(expression.expression, dependencies);
-		return dependencies;
-	}
-
-	if (expression.type === "conditional") {
-		collectPredicateDependencies(expression.condition, dependencies);
-		collectExpressionDependencies(expression.whenTrue, dependencies);
-		collectExpressionDependencies(expression.whenFalse, dependencies);
-		return dependencies;
-	}
-
-	for (const value of expression.values) {
-		collectExpressionDependencies(value, dependencies);
-	}
-
-	return dependencies;
+	return match(expression)
+		.with({ type: "literal" }, () => dependencies)
+		.with({ type: "reference" }, (expr) => {
+			if (expr.reference.type === "computed-field") {
+				dependencies.push(expr.reference.key);
+			}
+			return dependencies;
+		})
+		.with({ type: "arithmetic" }, (expr) => {
+			collectExpressionDependencies(expr.left, dependencies);
+			collectExpressionDependencies(expr.right, dependencies);
+			return dependencies;
+		})
+		.with(
+			{ type: "round" },
+			{ type: "floor" },
+			{ type: "integer" },
+			{ type: "transform" },
+			(expr) => {
+				collectExpressionDependencies(expr.expression, dependencies);
+				return dependencies;
+			},
+		)
+		.with({ type: "conditional" }, (expr) => {
+			collectPredicateDependencies(expr.condition, dependencies);
+			collectExpressionDependencies(expr.whenTrue, dependencies);
+			collectExpressionDependencies(expr.whenFalse, dependencies);
+			return dependencies;
+		})
+		.with({ type: "coalesce" }, { type: "concat" }, (expr) => {
+			for (const value of expr.values) {
+				collectExpressionDependencies(value, dependencies);
+			}
+			return dependencies;
+		})
+		.exhaustive();
 };
 
 const collectPredicateDependencies = (predicate: ViewPredicate, dependencies: string[]) => {
-	if (predicate.type === "and" || predicate.type === "or") {
-		for (const child of predicate.predicates) {
-			collectPredicateDependencies(child, dependencies);
-		}
-
-		return dependencies;
-	}
-
-	if (predicate.type === "not") {
-		collectPredicateDependencies(predicate.predicate, dependencies);
-		return dependencies;
-	}
-
-	if (predicate.type === "comparison") {
-		collectExpressionDependencies(predicate.left, dependencies);
-		collectExpressionDependencies(predicate.right, dependencies);
-		return dependencies;
-	}
-
-	if (predicate.type === "contains") {
-		collectExpressionDependencies(predicate.expression, dependencies);
-		collectExpressionDependencies(predicate.value, dependencies);
-		return dependencies;
-	}
-
-	collectExpressionDependencies(predicate.expression, dependencies);
-	if (predicate.type === "in") {
-		for (const value of predicate.values) {
-			collectExpressionDependencies(value, dependencies);
-		}
-	}
-
-	return dependencies;
+	return match(predicate)
+		.with({ type: "and" }, { type: "or" }, (pred) => {
+			for (const child of pred.predicates) {
+				collectPredicateDependencies(child, dependencies);
+			}
+			return dependencies;
+		})
+		.with({ type: "not" }, (pred) => {
+			collectPredicateDependencies(pred.predicate, dependencies);
+			return dependencies;
+		})
+		.with({ type: "comparison" }, (pred) => {
+			collectExpressionDependencies(pred.left, dependencies);
+			collectExpressionDependencies(pred.right, dependencies);
+			return dependencies;
+		})
+		.with({ type: "contains" }, (pred) => {
+			collectExpressionDependencies(pred.expression, dependencies);
+			collectExpressionDependencies(pred.value, dependencies);
+			return dependencies;
+		})
+		.with({ type: "isNull" }, { type: "isNotNull" }, (pred) => {
+			collectExpressionDependencies(pred.expression, dependencies);
+			return dependencies;
+		})
+		.with({ type: "in" }, (pred) => {
+			collectExpressionDependencies(pred.expression, dependencies);
+			for (const value of pred.values) {
+				collectExpressionDependencies(value, dependencies);
+			}
+			return dependencies;
+		})
+		.exhaustive();
 };
 
 export const getComputedFieldDependencies = (expression: ViewExpression) => {
