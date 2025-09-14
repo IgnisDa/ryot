@@ -310,6 +310,9 @@ describe("Registration gating for OIDC (Backend C)", () => {
 			redirect: "manual",
 			headers: { Cookie: cookieValue },
 		});
+		const step3Location = step3Response.headers.get("location");
+		expect(step3Response.status).toBe(302);
+		expect(step3Location).toMatch(/signup_disabled/i);
 
 		const sessionCookie = step3Response.headers.get("set-cookie");
 		const hasSessionCookie = sessionCookie?.includes("session_token") ?? false;
@@ -382,6 +385,19 @@ describe("OIDC account linking (Backend A)", () => {
 		]);
 		expect(afterResult.rows.length).toBe(1);
 		expect(afterResult.rows[0]?.id).toBe(localUserId);
+
+		const accountResult = await pg.query<{
+			accountId: string;
+			providerId: string;
+			userId: string;
+		}>(
+			`SELECT account_id AS "accountId", provider_id AS "providerId", user_id AS "userId" FROM account WHERE user_id = $1 AND provider_id = $2`,
+			[localUserId, "oidc"],
+		);
+		expect(accountResult.rows.length).toBe(1);
+		expect(accountResult.rows[0]?.providerId).toBe("oidc");
+		expect(accountResult.rows[0]?.userId).toBe(localUserId);
+		expect(accountResult.rows[0]?.accountId).toBe(username);
 
 		const client = createClient<paths>({ baseUrl: getBackendUrlA() });
 		const { response } = await client.GET("/trackers", { headers: { Cookie: sessionCookie } });
