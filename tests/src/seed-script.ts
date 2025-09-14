@@ -4,11 +4,21 @@ import { faker } from "@faker-js/faker";
 import type { components, paths } from "@ryot/generated/openapi/app-backend";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
+import { config } from "dotenv";
 import createClient from "openapi-fetch";
+import { fileURLToPath } from "node:url";
 
 import { cookieHeaderFromSetCookies, enableTwoFactorForSession } from "./fixtures/auth-2fa";
+import { requirePresent } from "./test-support/assertions";
+
+config({ path: fileURLToPath(new URL("../.env", import.meta.url)) });
+config({ path: fileURLToPath(new URL("../../.env", import.meta.url)) });
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8000/api";
+const FRONTEND_URL = requirePresent(
+	process.env.FRONTEND_URL,
+	"FRONTEND_URL is required to seed two-factor authentication",
+);
 
 async function createAndSignIn(): Promise<{
 	email: string;
@@ -49,6 +59,7 @@ async function createAndSignIn(): Promise<{
 
 	const twoFactor = await enableTwoFactorForSession({
 		baseUrl: API_BASE_URL,
+		origin: FRONTEND_URL,
 		cookies,
 		password,
 	});
