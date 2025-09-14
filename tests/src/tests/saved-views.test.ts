@@ -35,6 +35,7 @@ import {
 	updateSavedView,
 	waitForEventCount,
 } from "../fixtures";
+import { assertPresent } from "../test-support/assertions";
 
 type SavedViewBodyOverrides = NonNullable<Parameters<typeof buildSavedViewBody>[0]>;
 
@@ -92,9 +93,7 @@ describe("Saved views E2E", () => {
 		const { client, cookies, userId } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaBySlug(client, cookies, "show");
 		const provider = schema.providers[0];
-		if (!provider) {
-			throw new Error("No provider found");
-		}
+		assertPresent(provider, "No provider found");
 
 		const entity = await seedMediaEntity({
 			image: null,
@@ -124,9 +123,7 @@ describe("Saved views E2E", () => {
 
 		const eventSchemas = await listEventSchemas(client, cookies, schema.id);
 		const reviewEventSchemaId = eventSchemas.find((item) => item.slug === "review")?.id;
-		if (!reviewEventSchemaId) {
-			throw new Error("Missing review event schema");
-		}
+		assertPresent(reviewEventSchemaId, "Missing review event schema");
 
 		const createReviews = await client.POST("/events", {
 			headers: { Cookie: cookies },
@@ -188,9 +185,7 @@ describe("Saved views E2E", () => {
 		const { client, cookies, userId } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaBySlug(client, cookies, "show");
 		const provider = schema.providers[0];
-		if (!provider) {
-			throw new Error("No provider found");
-		}
+		assertPresent(provider, "No provider found");
 
 		const entity = await seedMediaEntity({
 			image: null,
@@ -220,9 +215,7 @@ describe("Saved views E2E", () => {
 
 		const eventSchemas = await listEventSchemas(client, cookies, schema.id);
 		const reviewEventSchemaId = eventSchemas.find((item) => item.slug === "review")?.id;
-		if (!reviewEventSchemaId) {
-			throw new Error("Missing review event schema");
-		}
+		assertPresent(reviewEventSchemaId, "Missing review event schema");
 
 		const createReviews = await client.POST("/events", {
 			headers: { Cookie: cookies },
@@ -1329,9 +1322,7 @@ describe("Saved views E2E", () => {
 		const gridItem = gridResult.data.data.items[0];
 		const tableItem = tableResult.data.data.items[0];
 		const alphaId = entityIdsByName["Alpha Phone"];
-		if (!alphaId) {
-			throw new Error("Missing runtime entity fixture id for saved view test");
-		}
+		assertPresent(alphaId, "Missing runtime entity fixture id for saved view test");
 
 		expect(getQueryEngineFieldOrThrow(gridItem, "entityId")).toEqual({
 			kind: "text",

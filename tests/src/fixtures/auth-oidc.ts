@@ -1,3 +1,5 @@
+import { requirePresent } from "../test-support/assertions";
+
 export async function oidcSignIn(
 	username: string,
 	backendUrl: string,
@@ -11,12 +13,15 @@ export async function oidcSignIn(
 		body: JSON.stringify({ providerId: "oidc", callbackURL: `${new URL(backendUrl).origin}/` }),
 		redirect: "manual",
 	});
-	const stateCookieHeader = step1Response.headers.get("set-cookie");
 	const step1Data: { url?: string; redirect?: boolean } = await step1Response.json();
-	const authorizeUrl = step1Data.url;
-	if (!authorizeUrl || !stateCookieHeader) {
-		throw new Error(`oidcSignIn step 1 failed: url=${authorizeUrl}, cookie=${stateCookieHeader}`);
-	}
+	const authorizeUrl = requirePresent(
+		step1Data.url,
+		`oidcSignIn step 1 failed: url=${step1Data.url}, cookie=${step1Response.headers.get("set-cookie")}`,
+	);
+	const stateCookieHeader = requirePresent(
+		step1Response.headers.get("set-cookie"),
+		`oidcSignIn step 1 failed: url=${authorizeUrl}, cookie=${step1Response.headers.get("set-cookie")}`,
+	);
 	const [stateCookie] = stateCookieHeader.split(";");
 
 	// Step 2: POST the authorization URL to the mock OIDC server with the username.
@@ -35,10 +40,10 @@ export async function oidcSignIn(
 		body: formBody.toString(),
 		headers: { "Content-Type": "application/x-www-form-urlencoded" },
 	});
-	const callbackUrl = step2Response.headers.get("location");
-	if (!callbackUrl) {
-		throw new Error("oidcSignIn step 2 failed: no location header");
-	}
+	const callbackUrl = requirePresent(
+		step2Response.headers.get("location"),
+		"oidcSignIn step 2 failed: no location header",
+	);
 
 	// Step 3: GET the backend callback URL with the state cookie.
 	// Better Auth exchanges the code, creates/looks up the user, and sets a session cookie.
@@ -47,16 +52,14 @@ export async function oidcSignIn(
 		redirect: "manual",
 		headers: { Cookie: cookieValue },
 	});
-	const sessionCookieHeader = step3Response.headers.get("set-cookie");
-	if (!sessionCookieHeader) {
-		throw new Error(
-			`oidcSignIn step 3 failed: status=${step3Response.status}, location=${step3Response.headers.get("location")}, no set-cookie header`,
-		);
-	}
-	const sessionCookie = sessionCookieHeader.match(/better-auth\.session_token=[^;]+/);
-	if (!sessionCookie) {
-		throw new Error(`oidcSignIn step 3 failed: session cookie missing from ${sessionCookieHeader}`);
-	}
+	const sessionCookieHeader = requirePresent(
+		step3Response.headers.get("set-cookie"),
+		`oidcSignIn step 3 failed: status=${step3Response.status}, location=${step3Response.headers.get("location")}, no set-cookie header`,
+	);
+	const sessionCookie = requirePresent(
+		sessionCookieHeader.match(/better-auth\.session_token=[^;]+/),
+		`oidcSignIn step 3 failed: session cookie missing from ${sessionCookieHeader}`,
+	);
 
 	return sessionCookie[0];
 }

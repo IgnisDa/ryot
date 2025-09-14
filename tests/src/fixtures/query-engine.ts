@@ -1,6 +1,7 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
 import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
 
+import { requirePresent, requireResponseData } from "../test-support/assertions";
 import { type Client, createAuthenticatedClient } from "./auth";
 import { createEntitySchema } from "./entity-schemas";
 import { waitForEventCount } from "./events";
@@ -298,11 +299,7 @@ export function buildTableRequest(
 
 export function getQueryEngineFieldOrThrow(item: QueryEngineResponseItem | undefined, key: string) {
 	const field = getQueryEngineField(item, key);
-	if (!field) {
-		throw new Error(`Expected query engine field '${key}'`);
-	}
-
-	return field;
+	return requirePresent(field, `Expected query engine field '${key}'`);
 }
 
 type EntitiesQueryEngineResponse = Extract<ExecuteQueryEngineResponse, { mode: "entities" }>;
@@ -344,11 +341,8 @@ export async function createQueryEngineEntity(input: CreateEntityInput) {
 		},
 	});
 
-	if (response.status !== 200 || !data?.data.id) {
-		throw new Error(`Failed to create entity '${input.name}'`);
-	}
-
-	return data.data.id;
+	const entity = requireResponseData(response, data, `Failed to create entity '${input.name}'`);
+	return requirePresent(entity.id, `Failed to create entity '${input.name}'`);
 }
 
 export async function createQueryEngineEvent(input: CreateQueryEngineEventInput) {
@@ -369,7 +363,12 @@ export async function createQueryEngineEvent(input: CreateQueryEngineEventInput)
 		],
 	});
 
-	if (response.status !== 200 || data?.data.count !== 1) {
+	const createdEvent = requireResponseData(
+		response,
+		data,
+		`Failed to create event for '${input.entityId}'`,
+	);
+	if (createdEvent.count !== 1) {
 		throw new Error(`Failed to create event for '${input.entityId}'`);
 	}
 
