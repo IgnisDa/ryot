@@ -58,12 +58,12 @@ describe("OpenScale Import E2E", () => {
 		expect(response.status).toBe(404);
 	});
 
-	it("rejects a file path outside the temp directory", async () => {
+	it("rejects an invalid upload token", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
 		const { response } = await client.POST("/imports/runs", {
 			headers: { Cookie: cookies },
-			body: { source: "open_scale", filePath: "/etc/passwd" },
+			body: { source: "open_scale", uploadToken: "bogus-token" },
 		});
 
 		expect(response.status).toBe(400);
@@ -72,7 +72,7 @@ describe("OpenScale Import E2E", () => {
 	it("rejects a non-CSV file extension", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const filePath = await uploadTemporaryFile(
+		const uploadToken = await uploadTemporaryFile(
 			cookies,
 			'{"data": "not csv"}',
 			"export.json",
@@ -81,7 +81,7 @@ describe("OpenScale Import E2E", () => {
 
 		const { response } = await client.POST("/imports/runs", {
 			headers: { Cookie: cookies },
-			body: { source: "open_scale", filePath },
+			body: { source: "open_scale", uploadToken },
 		});
 
 		expect(response.status).toBe(400);
@@ -111,9 +111,9 @@ describe("OpenScale Import E2E", () => {
 
 		const badCsv = `dateTime,weight\n2026-01-01 08:00:00,75.0\n,invalid-no-date\n2026-01-03 08:00:00,not-a-number\n`;
 
-		const filePath = await uploadTemporaryFile(cookies, badCsv, "openscale-bad.csv", "text/csv");
+		const uploadToken = await uploadTemporaryFile(cookies, badCsv, "openscale-bad.csv", "text/csv");
 
-		const runId = await startOpenScaleImport(client, cookies, filePath);
+		const runId = await startOpenScaleImport(client, cookies, uploadToken);
 		const completedRun = await pollImportRunUntilTerminal(client, cookies, runId);
 
 		expect(completedRun.status).toBe("completed");

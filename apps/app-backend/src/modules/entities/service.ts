@@ -19,6 +19,7 @@ import { entityImportJobData, entityImportJobName } from "./jobs";
 import {
 	createEntityForUser,
 	findEntityByExternalIdForUser,
+	listEntityMatchCandidatesBySchemaForUser,
 	getEntityByIdForUser,
 	getEntitySchemaScopeForUser,
 	getUserLibraryEntityId,
@@ -46,6 +47,10 @@ export type EntityServiceDeps = {
 };
 
 export type EntityServiceResult<T> = ServiceResult<T, EntityMutationError>;
+
+export type EntityMatchCandidate = Awaited<
+	ReturnType<typeof listEntityMatchCandidatesBySchemaForUser>
+>[number];
 
 export type EnsureEntityInLibraryDeps = {
 	getUserLibraryEntityId: typeof getUserLibraryEntityId;
@@ -269,6 +274,23 @@ export const createEntity = async (
 
 		throw error;
 	}
+};
+
+export const listEntityMatchCandidates = async (input: {
+	userId: string;
+	entitySchemaId: string;
+}): Promise<ServiceResult<EntityMatchCandidate[], "validation">> => {
+	const entitySchemaIdResult = resolveEntitySchemaIdResult(input.entitySchemaId);
+	if ("error" in entitySchemaIdResult) {
+		return entitySchemaIdResult;
+	}
+
+	return serviceData(
+		await listEntityMatchCandidatesBySchemaForUser({
+			userId: input.userId,
+			entitySchemaId: entitySchemaIdResult.data,
+		}),
+	);
 };
 
 const relationshipSchemaNotFoundError = "Relationship schema not found";
