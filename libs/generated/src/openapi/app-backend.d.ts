@@ -4440,7 +4440,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    provider?: string;
+                    provider?: "audiobookshelf" | "emby" | "generic_json" | "jellyfin_push" | "jellyfin_sink" | "kodi" | "komga" | "plex_sink" | "plex_yank" | "radarr" | "ryot_browser_extension" | "sonarr" | "youtube_music";
                     isDisabled?: string;
                 };
                 header?: never;
@@ -4464,7 +4464,8 @@ export interface paths {
                                 updatedAt: string;
                                 /** @enum {string} */
                                 lot: "yank" | "sink" | "push";
-                                provider: string;
+                                /** @enum {string} */
+                                provider: "audiobookshelf" | "emby" | "generic_json" | "jellyfin_push" | "jellyfin_sink" | "kodi" | "komga" | "plex_sink" | "plex_yank" | "radarr" | "ryot_browser_extension" | "sonarr" | "youtube_music";
                                 isDisabled: boolean;
                                 syncOwnership: boolean;
                                 name: string | null;
@@ -4573,7 +4574,8 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        provider: string;
+                        /** @enum {string} */
+                        provider: "audiobookshelf" | "emby" | "generic_json" | "jellyfin_push" | "jellyfin_sink" | "kodi" | "komga" | "plex_sink" | "plex_yank" | "radarr" | "ryot_browser_extension" | "sonarr" | "youtube_music";
                         name?: string;
                         isDisabled?: boolean;
                         syncOwnership?: boolean;
@@ -4731,7 +4733,8 @@ export interface paths {
                                 updatedAt: string;
                                 /** @enum {string} */
                                 lot: "yank" | "sink" | "push";
-                                provider: string;
+                                /** @enum {string} */
+                                provider: "audiobookshelf" | "emby" | "generic_json" | "jellyfin_push" | "jellyfin_sink" | "kodi" | "komga" | "plex_sink" | "plex_yank" | "radarr" | "ryot_browser_extension" | "sonarr" | "youtube_music";
                                 isDisabled: boolean;
                                 syncOwnership: boolean;
                                 name: string | null;
@@ -4946,7 +4949,8 @@ export interface paths {
                                 updatedAt: string;
                                 /** @enum {string} */
                                 lot: "yank" | "sink" | "push";
-                                provider: string;
+                                /** @enum {string} */
+                                provider: "audiobookshelf" | "emby" | "generic_json" | "jellyfin_push" | "jellyfin_sink" | "kodi" | "komga" | "plex_sink" | "plex_yank" | "radarr" | "ryot_browser_extension" | "sonarr" | "youtube_music";
                                 isDisabled: boolean;
                                 syncOwnership: boolean;
                                 name: string | null;
