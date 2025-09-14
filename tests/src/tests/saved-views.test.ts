@@ -150,7 +150,7 @@ describe("Saved views E2E", () => {
 
 		const allShowsView = await getSavedView(client, cookies, "all-shows");
 		expect(allShowsView.displayConfiguration.grid.calloutProperty).toEqual(
-			createEventAggregateExpression("review", ["rating"], "avg"),
+			createEventAggregateExpression("review", ["properties", "rating"], "avg"),
 		);
 
 		const { data, response } = await executeQueryEngine(
