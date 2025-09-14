@@ -4,6 +4,7 @@ import {
 	type EntityLot,
 	MarkEntityAsPartialDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { IconSearch } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import {
 	useAddEntitiesToCollectionMutation,
@@ -59,6 +60,20 @@ export const ToggleMediaMonitorMenuItem = (props: {
 			}
 		>
 			{isMonitored ? "Stop" : "Start"} monitoring
+		</Menu.Item>
+	);
+};
+
+export const WebSearchMenuItem = (props: { title: string }) => {
+	return (
+		<Menu.Item
+			component="a"
+			target="_blank"
+			rel="noopener noreferrer"
+			leftSection={<IconSearch size={14} />}
+			href={`https://www.google.com/search?q=${encodeURIComponent(props.title)}`}
+		>
+			Search web
 		</Menu.Item>
 	);
 };
