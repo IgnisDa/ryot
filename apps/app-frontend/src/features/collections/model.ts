@@ -1,6 +1,5 @@
-import type { AppSchema } from "@ryot/ts-utils";
-import type { AppEntityImage } from "~/features/entities/model";
-import { toAppEntityImage } from "~/features/entities/model";
+import { type AppSchema, getQueryEngineField } from "@ryot/ts-utils";
+import { type AppEntityImage, toAppEntity } from "~/features/entities/model";
 import type { AppSavedView } from "~/features/saved-views/model";
 import type { ApiPostResponseData } from "~/lib/api/types";
 
@@ -26,11 +25,9 @@ export type CollectionDiscoveryState =
 	| { type: "collections"; collections: AppCollection[] };
 
 export function extractMembershipPropertiesSchema(
-	fields: ApiQueryEngineCollection["fields"],
+	fields: ApiQueryEngineCollection,
 ): CollectionMembershipPropertiesSchema | null {
-	const schemaField = fields.find(
-		(field) => field.key === "membershipPropertiesSchema",
-	);
+	const schemaField = getQueryEngineField(fields, "membershipPropertiesSchema");
 	if (!schemaField || schemaField.kind !== "json" || !schemaField.value) {
 		return null;
 	}
@@ -44,18 +41,15 @@ export function extractMembershipPropertiesSchema(
 export function toAppCollection(
 	entity: ApiQueryEngineCollection,
 ): AppCollection {
-	const entitySchemaSlugField = entity.fields.find(
-		(field) => field.key === "entitySchemaSlug",
-	);
+	const appEntity = toAppEntity(entity);
+	const entitySchemaSlugField = getQueryEngineField(entity, "entitySchemaSlug");
 	return {
-		id: entity.id,
-		name: entity.name,
-		image: toAppEntityImage(entity.image),
-		createdAt: new Date(entity.createdAt),
-		updatedAt: new Date(entity.updatedAt),
-		membershipPropertiesSchema: extractMembershipPropertiesSchema(
-			entity.fields,
-		),
+		id: appEntity.id,
+		name: appEntity.name,
+		image: appEntity.image,
+		createdAt: appEntity.createdAt,
+		updatedAt: appEntity.updatedAt,
+		membershipPropertiesSchema: extractMembershipPropertiesSchema(entity),
 		entitySchemaSlug:
 			entitySchemaSlugField?.value != null
 				? String(entitySchemaSlugField.value)

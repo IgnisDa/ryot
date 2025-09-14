@@ -1,4 +1,8 @@
-import { createEntityColumnExpression, dayjs } from "@ryot/ts-utils";
+import {
+	createEntityColumnExpression,
+	dayjs,
+	getQueryEngineField,
+} from "@ryot/ts-utils";
 import {
 	keepPreviousData,
 	useQueries,
@@ -11,7 +15,11 @@ import { useApiClient } from "~/hooks/api";
 import type { ApiPostResponseData } from "~/lib/api/types";
 import { getErrorMessage } from "~/lib/errors";
 import { sleep } from "~/lib/sleep";
-import { createEntityRuntimeRequest, type SearchResultItem } from "./model";
+import {
+	createEntityRuntimeRequest,
+	queryEngineEntityFieldKeys,
+	type SearchResultItem,
+} from "./model";
 
 type AddStatus = "idle" | "loading" | "done" | "error" | "partial_error";
 
@@ -290,8 +298,9 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 			return null;
 		}
 		const schemaSlug = props.entitySchema.slug;
+		const base = createEntityRuntimeRequest(schemaSlug);
 		return {
-			fields: [],
+			fields: base.fields,
 			eventJoins: [],
 			computedFields: [],
 			entitySchemaSlugs: [schemaSlug],
@@ -350,7 +359,11 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 		const items = trackedEntitiesQuery.data?.data.items ?? [];
 		return new Set(
 			items
-				.map((item) => item.externalId)
+				.map(
+					(item) =>
+						getQueryEngineField(item, queryEngineEntityFieldKeys.externalId)
+							?.value,
+				)
 				.filter((id): id is string => id !== null),
 		);
 	}, [trackedEntitiesQuery.data]);

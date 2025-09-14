@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs, getQueryEngineField } from "@ryot/ts-utils";
 import {
 	builtinMediaEntitySchemaSlugSet,
 	builtinMediaEntitySchemaSlugs,
@@ -44,7 +44,10 @@ const computedFieldExpression = (key: string) => ({
 	reference: { key, type: "computed-field" as const },
 });
 
-const entityColumnExpression = (slug: string, column: "createdAt") => ({
+const entityColumnExpression = (
+	slug: string,
+	column: "createdAt" | "id" | "name" | "image",
+) => ({
 	type: "reference" as const,
 	reference: { slug, path: [column], type: "entity" as const },
 });
@@ -84,10 +87,19 @@ const coalesceExpression = (
 	>
 ) => ({ values, type: "coalesce" as const });
 
+const mediaEntityColumnExpression = (
+	column: "createdAt" | "id" | "name" | "image",
+) =>
+	coalesceExpression(
+		...builtinMediaEntitySchemaSlugs.map((slug) =>
+			entityColumnExpression(slug, column),
+		),
+	);
+
 const getFieldValue = (
 	item: QueryEngineResponseData["items"][number],
 	key: string,
-) => item.fields.find((field) => field.key === key)?.value;
+) => getQueryEngineField(item, key)?.value;
 
 const toNullableNumber = (value: unknown) => {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -120,11 +132,16 @@ const toBuiltinMediaSourceItem = (
 	if (typeof slug !== "string" || !isBuiltInMediaEntitySchemaSlug(slug)) {
 		return null;
 	}
+	const entityId = getFieldValue(item, "entityId");
+	const entityName = getFieldValue(item, "entityName");
+	if (typeof entityId !== "string" || typeof entityName !== "string") {
+		return null;
+	}
 
 	return {
-		id: item.id,
-		title: item.name,
-		image: item.image,
+		id: entityId,
+		title: entityName,
+		image: toNullableImage(getFieldValue(item, "entityImage")),
 		entitySchemaSlug: slug,
 		reviewAt: toNullableDate(getFieldValue(item, "reviewAt")),
 		backlogAt: toNullableDate(getFieldValue(item, "backlogAt")),
@@ -146,21 +163,41 @@ function isBuiltInMediaEntitySchemaSlug(
 	);
 }
 
+const toNullableImage = (
+	value: unknown,
+): BuiltInMediaOverviewSourceItem["image"] => {
+	if (!value || typeof value !== "object") {
+		return null;
+	}
+	if ("kind" in value && value.kind === "s3" && "key" in value) {
+		return typeof value.key === "string"
+			? { kind: "s3", key: value.key }
+			: null;
+	}
+	if ("kind" in value && value.kind === "remote" && "url" in value) {
+		return typeof value.url === "string"
+			? { kind: "remote", url: value.url }
+			: null;
+	}
+
+	return null;
+};
+
+type BuildBaseRequestOptions = {
+	includeEntityIdentity?: boolean;
+};
+
 const buildBaseRequest = (): Omit<
 	QueryEngineRequest,
 	"filter" | "pagination" | "sort"
 > => {
-	const entityCreatedAt = coalesceExpression(
-		entityColumnExpression("book", "createdAt"),
-		entityColumnExpression("show", "createdAt"),
-		entityColumnExpression("movie", "createdAt"),
-		entityColumnExpression("comic-book", "createdAt"),
-		entityColumnExpression("anime", "createdAt"),
-		entityColumnExpression("manga", "createdAt"),
-		entityColumnExpression("audiobook", "createdAt"),
-		entityColumnExpression("podcast", "createdAt"),
-		entityColumnExpression("music", "createdAt"),
-	);
+	return buildBaseRequestWithOptions();
+};
+
+const buildBaseRequestWithOptions = (
+	options: BuildBaseRequestOptions = {},
+): Omit<QueryEngineRequest, "filter" | "pagination" | "sort"> => {
+	const entityCreatedAt = mediaEntityColumnExpression("createdAt");
 	const publishYear = coalesceExpression(
 		entityPropertyExpression("book", "publishYear"),
 		entityPropertyExpression("show", "publishYear"),
@@ -197,6 +234,19 @@ const buildBaseRequest = (): Omit<
 			{ key: "entityCreatedAt", expression: entityCreatedAt },
 		],
 		fields: [
+			...(options.includeEntityIdentity === false
+				? []
+				: [
+						{ key: "entityId", expression: mediaEntityColumnExpression("id") },
+						{
+							key: "entityName",
+							expression: mediaEntityColumnExpression("name"),
+						},
+						{
+							key: "entityImage",
+							expression: mediaEntityColumnExpression("image"),
+						},
+					]),
 			{
 				key: "entitySchemaSlug",
 				expression: entitySchemaExpression("slug"),
@@ -525,7 +575,7 @@ export const getLibraryStats = async (
 	// stats will be incomplete. Consider pagination or database-level
 	// aggregation if this becomes a constraint.
 	const request: QueryEngineRequest = {
-		...buildBaseRequest(),
+		...buildBaseRequestWithOptions({ includeEntityIdentity: false }),
 		filter: null,
 		pagination: { page: 1, limit: 10000 },
 		sort: {
