@@ -4,15 +4,15 @@ import { createQueryDefinition } from "~/lib/test-fixtures";
 import { createDefaultDisplayConfiguration } from "~/modules/saved-views";
 
 import {
-	buildAuthenticationSavedViewInputs,
-	buildAuthenticationTrackerEntitySchemaLinks,
+	buildBuiltinSavedViewInputs,
+	buildBuiltinTrackerEntitySchemaLinks,
 	buildLibraryEntityInput,
-} from "./service";
+} from "./builders";
 
-describe("authentication bootstrap helpers", () => {
+describe("builtin bootstrap helpers", () => {
 	it("builds tracker entity schema links from built-in manifests", () => {
 		expect(
-			buildAuthenticationTrackerEntitySchemaLinks({
+			buildBuiltinTrackerEntitySchemaLinks({
 				trackers: [{ id: "tracker-1", slug: "media" }],
 				entitySchemas: [{ id: "schema-1", slug: "book" }],
 				schemaLinks: [{ slug: "book", trackerSlug: "media" }],
@@ -22,7 +22,7 @@ describe("authentication bootstrap helpers", () => {
 
 	it("throws when a schema link references a missing tracker", () => {
 		expect(() =>
-			buildAuthenticationTrackerEntitySchemaLinks({
+			buildBuiltinTrackerEntitySchemaLinks({
 				trackers: [],
 				entitySchemas: [{ id: "schema-1", slug: "book" }],
 				schemaLinks: [{ slug: "book", trackerSlug: "media" }],
@@ -53,7 +53,7 @@ describe("authentication bootstrap helpers", () => {
 		const displayConfiguration = createDefaultDisplayConfiguration("book");
 
 		expect(
-			buildAuthenticationSavedViewInputs({
+			buildBuiltinSavedViewInputs({
 				trackers: [{ id: "tracker-1", slug: "media" }],
 				entitySchemas: [
 					{
@@ -124,17 +124,17 @@ describe("authentication bootstrap helpers", () => {
 		const displayConfiguration = createDefaultDisplayConfiguration("collection");
 
 		expect(
-			buildAuthenticationSavedViewInputs({
+			buildBuiltinSavedViewInputs({
 				entitySchemas: [],
 				trackers: [{ id: "tracker-1", slug: "media" }],
 				savedViews: [
 					{
 						icon: "folders",
-						slug: "collections",
 						queryDefinition,
+						slug: "collections",
 						name: "Collections",
-						accentColor: "#F59E0B",
 						displayConfiguration,
+						accentColor: "#F59E0B",
 					},
 				],
 			}),
@@ -154,7 +154,7 @@ describe("authentication bootstrap helpers", () => {
 
 	it("throws when a saved view references a missing built-in entity schema", () => {
 		expect(() =>
-			buildAuthenticationSavedViewInputs({
+			buildBuiltinSavedViewInputs({
 				entitySchemas: [],
 				trackers: [{ id: "tracker-1", slug: "media" }],
 				savedViews: [

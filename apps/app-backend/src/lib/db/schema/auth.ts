@@ -2,7 +2,7 @@ import { dayjs } from "@ryot/ts-utils/dayjs";
 import { relations } from "drizzle-orm";
 import { boolean, index, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
-import type { UserPreferences } from "~/modules/authentication";
+import type { UserPreferences } from "~/modules/builtins";
 
 export const user = pgTable("user", {
 	image: text(),
