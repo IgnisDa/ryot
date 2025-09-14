@@ -15,35 +15,33 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
+import { useForm } from "@mantine/form";
+import { notifications } from "@mantine/notifications";
 import {
 	CreateCustomMetadataDocument,
 	MediaLot,
-	MetadataDetailsDocument,
 	UpdateCustomMetadataDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	camelCase,
-	parseParameters,
-	parseSearchQuery,
-	processSubmission,
-} from "@ryot/ts-utils";
+import { camelCase, parseParameters, parseSearchQuery } from "@ryot/ts-utils";
 import {
 	IconCalendar,
 	IconCalendarEvent,
 	IconPhoto,
 	IconVideo,
 } from "@tabler/icons-react";
-import { Form, redirect, useLoaderData } from "react-router";
+import { useMutation } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
-import { match } from "ts-pattern";
 import { z } from "zod";
-import { useCoreDetails } from "~/lib/shared/hooks";
-import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+import { useCoreDetails, useMetadataDetails } from "~/lib/shared/hooks";
 import {
-	parseFormDataWithS3Upload,
-	serverGqlService,
-} from "~/lib/utilities.server";
+	clientGqlService,
+	refreshEntityDetails,
+} from "~/lib/shared/react-query";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+import { clientSideFileUpload } from "~/lib/shared/ui-utils";
 import type { Route } from "./+types/_dashboard.media.update.$action";
 
 enum Action {
@@ -64,148 +62,230 @@ export const loader = async ({ params, request }: Route.LoaderArgs) => {
 		z.object({ action: z.enum(Action) }),
 	);
 	const query = parseSearchQuery(request, searchParamsSchema);
-	const details = await match(action)
-		.with(Action.Create, () => undefined)
-		.with(Action.Edit, async () => {
-			invariant(query.id);
-			const metadataDetails = await serverGqlService
-				.authenticatedRequest(request, MetadataDetailsDocument, {
-					metadataId: query.id,
-				})
-				.then((m) => m.metadataDetails.response);
-			return metadataDetails;
-		})
-		.exhaustive();
-	return { query, action, details };
+	return { query, action };
 };
 
 export const meta = () => {
 	return [{ title: "Create Media | Ryot" }];
 };
 
-export const action = async ({ request }: Route.ActionArgs) => {
-	const formData = await parseFormDataWithS3Upload(request, "metadata");
-	const submission = processSubmission(formData, schema);
-	// biome-ignore lint/suspicious/noExplicitAny: required here
-	const input: any = {
-		...submission,
-		[`${camelCase(submission.lot)}Specifics`]: submission.specifics
-			? JSON.parse(submission.specifics)
-			: undefined,
-	};
-	input.assets = {
-		remoteImages: [],
-		remoteVideos: [],
-		s3Images: input.images || [],
-		s3Videos: input.videos || [],
-	};
-	input.id = undefined;
-	input.action = undefined;
-	input.images = undefined;
-	input.videos = undefined;
-	input.specifics = undefined;
-	input.genres = input.genres?.split(",");
-	input.creators = input.creators?.split(",");
-	input.publishDate = submission.publishDate || undefined;
-
-	const id = await match(submission.action)
-		.with(Action.Create, async () => {
-			const { createCustomMetadata } =
-				await serverGqlService.authenticatedRequest(
-					request,
-					CreateCustomMetadataDocument,
-					{ input },
-				);
-			return createCustomMetadata.id;
-		})
-		.with(Action.Edit, async () => {
-			invariant(submission.id);
-			await serverGqlService.authenticatedRequest(
-				request,
-				UpdateCustomMetadataDocument,
-				{ input: { existingMetadataId: submission.id, update: input } },
-			);
-			return submission.id;
-		})
-		.exhaustive();
-	return redirect($path("/media/item/:id", { id }));
-};
-
-const optionalString = z.string().optional();
-const optionalStringArray = z.array(z.string()).optional();
-
-const schema = z.object({
-	title: z.string(),
-	id: optionalString,
-	genres: optionalString,
-	creators: optionalString,
-	specifics: optionalString,
-	images: optionalStringArray,
-	videos: optionalStringArray,
-	description: optionalString,
-	action: z.enum(Action),
-	isNsfw: z.boolean().optional(),
-	lot: z.enum(MediaLot),
-	publishYear: z.number().optional(),
-	publishDate: optionalString,
-});
-
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const navigate = useNavigate();
 	const coreDetails = useCoreDetails();
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
+	const [{ data: details }] = useMetadataDetails(
+		loaderData.query.id,
+		loaderData.action === Action.Edit && Boolean(loaderData.query.id),
+	);
+
+	const form = useForm({
+		initialValues: {
+			id: (loaderData.query.id as string | undefined) || "",
+			title: "",
+			lot: (loaderData.query.lot as string | undefined) || "",
+			isNsfw: false,
+			specifics: "{}",
+			description: "",
+			images: [] as File[],
+			videos: [] as File[],
+			publishDate: "",
+			publishYear: undefined as number | undefined,
+			creators: "",
+			genres: "",
+		},
+	});
+
+	useEffect(() => {
+		if (loaderData.action === Action.Edit && details) {
+			const specifics =
+				details.movieSpecifics ||
+				details.showSpecifics ||
+				details.mangaSpecifics ||
+				details.animeSpecifics ||
+				details.podcastSpecifics ||
+				details.bookSpecifics ||
+				details.audioBookSpecifics ||
+				details.visualNovelSpecifics ||
+				details.videoGameSpecifics ||
+				details.musicSpecifics;
+			form.initialize({
+				id: details.id || "",
+				title: details.title || "",
+				lot: (details.lot as string) || "",
+				isNsfw: Boolean(details.isNsfw),
+				specifics: specifics ? JSON.stringify(specifics) : "{}",
+				description: details.description || "",
+				images: [],
+				videos: [],
+				publishDate: details.publishDate || "",
+				publishYear: details.publishYear || undefined,
+				creators:
+					details.creators
+						?.flatMap((c) => c.items)
+						.map((c) => c.idOrName)
+						.join(", ") || "",
+				genres: details.genres?.map((g) => g.name).join(", ") || "",
+			});
+		}
+	}, [details, loaderData.action]);
+
+	const createMutation = useMutation({
+		mutationFn: async (values: typeof form.values) => {
+			const s3Images = await Promise.all(
+				values.images.map((f) => clientSideFileUpload(f, "metadata")),
+			);
+			const s3Videos = await Promise.all(
+				values.videos.map((f) => clientSideFileUpload(f, "metadata")),
+			);
+			const specificsKey = `${camelCase(values.lot)}Specifics`;
+			const input = {
+				title: values.title,
+				lot: values.lot as MediaLot,
+				isNsfw: values.isNsfw || undefined,
+				description: values.description || undefined,
+				[specificsKey]: values.specifics
+					? JSON.parse(values.specifics)
+					: undefined,
+				creators: values.creators
+					? values.creators
+							.split(",")
+							.map((s) => s.trim())
+							.filter(Boolean)
+					: undefined,
+				genres: values.genres
+					? values.genres
+							.split(",")
+							.map((s) => s.trim())
+							.filter(Boolean)
+					: undefined,
+				publishDate: values.publishDate || undefined,
+				publishYear: values.publishYear || undefined,
+				assets: {
+					s3Images,
+					s3Videos,
+					remoteImages: [],
+					remoteVideos: [],
+				},
+			};
+			const { createCustomMetadata } = await clientGqlService.request(
+				CreateCustomMetadataDocument,
+				{ input },
+			);
+			return createCustomMetadata.id as string;
+		},
+		onSuccess: (id) => {
+			notifications.show({
+				color: "green",
+				title: "Success",
+				message: "Media created",
+			});
+			navigate($path("/media/item/:id", { id }));
+		},
+		onError: () =>
+			notifications.show({
+				color: "red",
+				title: "Error",
+				message: "Failed to create",
+			}),
+	});
+
+	const updateMutation = useMutation({
+		mutationFn: async (values: typeof form.values) => {
+			invariant(values.id);
+			const s3Images = await Promise.all(
+				values.images.map((f) => clientSideFileUpload(f, "metadata")),
+			);
+			const s3Videos = await Promise.all(
+				values.videos.map((f) => clientSideFileUpload(f, "metadata")),
+			);
+			const specificsKey = `${camelCase(values.lot)}Specifics`;
+			const update = {
+				title: values.title,
+				lot: values.lot as MediaLot,
+				isNsfw: values.isNsfw || undefined,
+				description: values.description || undefined,
+				[specificsKey]: values.specifics
+					? JSON.parse(values.specifics)
+					: undefined,
+				creators: values.creators
+					? values.creators
+							.split(",")
+							.map((s) => s.trim())
+							.filter(Boolean)
+					: undefined,
+				genres: values.genres
+					? values.genres
+							.split(",")
+							.map((s) => s.trim())
+							.filter(Boolean)
+					: undefined,
+				publishDate: values.publishDate || undefined,
+				publishYear: values.publishYear || undefined,
+				assets: {
+					s3Images,
+					s3Videos,
+					remoteImages: [],
+					remoteVideos: [],
+				},
+			};
+			await clientGqlService.request(UpdateCustomMetadataDocument, {
+				input: { existingMetadataId: values.id, update },
+			});
+			return values.id as string;
+		},
+		onSuccess: (id) => {
+			refreshEntityDetails(id);
+			notifications.show({
+				color: "green",
+				title: "Success",
+				message: "Media updated",
+			});
+			navigate($path("/media/item/:id", { id }));
+		},
+		onError: () =>
+			notifications.show({
+				color: "red",
+				title: "Error",
+				message: "Failed to update",
+			}),
+	});
+
+	const handleSubmit = form.onSubmit((values) => {
+		if (loaderData.action === Action.Create) createMutation.mutate(values);
+		else updateMutation.mutate(values);
+	});
+
 	return (
 		<Container>
-			<Form method="POST" encType="multipart/form-data">
-				<input hidden name="action" defaultValue={loaderData.action} />
-				{loaderData.details ? (
-					<input hidden name="id" defaultValue={loaderData.details.id} />
-				) : null}
+			<form onSubmit={handleSubmit} encType="multipart/form-data">
 				<Stack>
 					<Title>
-						{loaderData.details
-							? `Updating ${loaderData.details.title}`
-							: "Create Media"}
+						{details ? `Updating ${details.title}` : "Create Media"}
 					</Title>
 					<TextInput
 						required
 						autoFocus
-						name="title"
 						label="Title"
-						defaultValue={loaderData.details?.title}
+						{...form.getInputProps("title")}
 					/>
 					<Group wrap="nowrap">
 						<Select
 							required
-							name="lot"
 							label="Type"
 							data={convertEnumToSelectData(MediaLot)}
-							defaultValue={loaderData.details?.lot || loaderData.query.lot}
+							{...form.getInputProps("lot")}
 						/>
 						<Switch
 							mt="md"
-							name="isNsfw"
 							label="Is it NSFW?"
-							defaultChecked={loaderData.details?.isNsfw || undefined}
+							{...form.getInputProps("isNsfw", { type: "checkbox" })}
 						/>
 					</Group>
 					<JsonInput
 						formatOnBlur
-						name="specifics"
 						label="Specifics"
-						defaultValue={JSON.stringify(
-							loaderData.details?.movieSpecifics ||
-								loaderData.details?.showSpecifics ||
-								loaderData.details?.mangaSpecifics ||
-								loaderData.details?.animeSpecifics ||
-								loaderData.details?.podcastSpecifics ||
-								loaderData.details?.bookSpecifics ||
-								loaderData.details?.audioBookSpecifics ||
-								loaderData.details?.visualNovelSpecifics ||
-								loaderData.details?.videoGameSpecifics ||
-								loaderData.details?.musicSpecifics,
-						)}
 						description={
 							<>
 								Please search for <Code>Specifics</Code> inputs at the{" "}
@@ -215,22 +295,25 @@ export default function Page() {
 								for the required JSON structure
 							</>
 						}
+						{...form.getInputProps("specifics")}
 					/>
 					<Textarea
 						label="Description"
-						name="description"
 						description="Markdown is supported"
-						defaultValue={loaderData.details?.description || undefined}
+						{...form.getInputProps("description")}
 					/>
 					{!fileUploadNotAllowed ? (
 						<FileInput
 							multiple
-							name="images"
 							label="Images"
 							accept="image/*"
 							leftSection={<IconPhoto />}
+							value={form.values.images}
+							onChange={(files) =>
+								form.setFieldValue("images", (files as File[]) || [])
+							}
 							description={
-								loaderData.details &&
+								details &&
 								"Please re-upload the images while updating the metadata, old ones will be deleted"
 							}
 						/>
@@ -238,12 +321,15 @@ export default function Page() {
 					{!fileUploadNotAllowed ? (
 						<FileInput
 							multiple
-							name="videos"
 							label="Videos"
 							accept="video/*"
 							leftSection={<IconVideo />}
+							value={form.values.videos}
+							onChange={(files) =>
+								form.setFieldValue("videos", (files as File[]) || [])
+							}
 							description={
-								loaderData.details &&
+								details &&
 								"Please re-upload the videos while updating the metadata, old ones will be deleted"
 							}
 						/>
@@ -251,45 +337,46 @@ export default function Page() {
 					<Group wrap="nowrap" justify="space-between">
 						<DateInput
 							flex={1}
-							name="publishDate"
 							label="Publish date"
 							valueFormat="YYYY-MM-DD"
 							leftSection={<IconCalendarEvent />}
-							defaultValue={
-								loaderData.details?.publishDate
-									? new Date(loaderData.details.publishDate)
+							value={
+								form.values.publishDate
+									? new Date(form.values.publishDate)
 									: undefined
+							}
+							onChange={(d) =>
+								form.setFieldValue(
+									"publishDate",
+									d ? new Date(d).toISOString().slice(0, 10) : "",
+								)
 							}
 						/>
 						<NumberInput
 							flex={1}
-							name="publishYear"
 							label="Publish year"
 							leftSection={<IconCalendar />}
-							defaultValue={loaderData.details?.publishYear || undefined}
+							{...form.getInputProps("publishYear")}
 						/>
 					</Group>
 					<TextInput
-						name="creators"
 						label="Creators"
 						placeholder="Comma separated names"
-						defaultValue={loaderData.details?.creators
-							.flatMap((c) => c.items)
-							.map((c) => c.idOrName)
-							.join(", ")}
+						{...form.getInputProps("creators")}
 					/>
 					<TextInput
-						name="genres"
 						label="Genres"
 						placeholder="Comma separated values"
-						defaultValue={
-							loaderData.details?.genres.map((g) => g.name).join(", ") ||
-							undefined
-						}
+						{...form.getInputProps("genres")}
 					/>
-					<Button type="submit">Create</Button>
+					<Button
+						type="submit"
+						loading={createMutation.isPending || updateMutation.isPending}
+					>
+						{loaderData.action === Action.Create ? "Create" : "Update"}
+					</Button>
 				</Stack>
-			</Form>
+			</form>
 		</Container>
 	);
 }
