@@ -28,16 +28,17 @@ import { produce } from "immer";
 import { useState } from "react";
 import invariant from "tiny-invariant";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
-import { useCoreDetails, useUserPreferences } from "~/lib/shared/hooks";
+import {
+	useCoreDetails,
+	useExerciseDetails,
+	useUserPreferences,
+} from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
 	clientSideFileUpload,
 	openConfirmationModal,
 } from "~/lib/shared/ui-utils";
-import {
-	getExerciseDetailsQuery,
-	useCurrentWorkout,
-} from "~/lib/state/fitness";
+import { useCurrentWorkout } from "~/lib/state/fitness";
 import { useFullscreenImage } from "~/lib/state/general";
 import { deleteUploadedAsset } from "./utils";
 
@@ -243,10 +244,10 @@ export const UploadAssetsModal = (props: {
 		}
 	};
 
-	const { data: exerciseDetails } = useQuery({
-		...getExerciseDetailsQuery(exercise?.exerciseId || ""),
-		enabled: exercise !== null,
-	});
+	const { data: exerciseDetails } = useExerciseDetails(
+		exercise?.exerciseId || "",
+		exercise !== null,
+	);
 
 	const imagesToDisplay = isString(props.modalOpenedBy)
 		? exercise?.images || []

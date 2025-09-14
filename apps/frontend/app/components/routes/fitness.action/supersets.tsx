@@ -1,17 +1,15 @@
 import { Button, Group, Modal, Select, Stack, Text, rem } from "@mantine/core";
 import { type UseListStateHandlers, useListState } from "@mantine/hooks";
 import { changeCase, isString } from "@ryot/ts-utils";
-import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useEffect, useMemo, useState } from "react";
 import invariant from "tiny-invariant";
 import { v4 as randomUUID } from "uuid";
-import { useGetMantineColors } from "~/lib/shared/hooks";
+import { useExerciseDetails, useGetMantineColors } from "~/lib/shared/hooks";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
 	type Exercise,
 	type Superset,
-	getExerciseDetailsQuery,
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
 
@@ -135,8 +133,8 @@ const CreateSupersetExerciseButton = (props: {
 	);
 	invariant(cw);
 
-	const { data: exerciseDetails } = useQuery(
-		getExerciseDetailsQuery(props.exercise.exerciseId),
+	const { data: exerciseDetails } = useExerciseDetails(
+		props.exercise.exerciseId,
 	);
 
 	return (
@@ -238,8 +236,8 @@ const EditSupersetExerciseButton = (props: {
 	);
 	invariant(cw);
 
-	const { data: exerciseDetails } = useQuery(
-		getExerciseDetailsQuery(props.exercise.exerciseId),
+	const { data: exerciseDetails } = useExerciseDetails(
+		props.exercise.exerciseId,
 	);
 
 	return (

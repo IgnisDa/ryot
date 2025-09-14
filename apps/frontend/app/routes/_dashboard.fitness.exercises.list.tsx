@@ -68,6 +68,7 @@ import {
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
+	useExerciseDetails,
 	useIsFitnessActionActive,
 	useNonHiddenUserCollections,
 	useUserPreferences,
@@ -81,7 +82,6 @@ import {
 } from "~/lib/shared/ui-utils";
 import {
 	addExerciseToCurrentWorkout,
-	getExerciseDetailsQuery,
 	getExerciseImages,
 	getUserExerciseDetailsQuery,
 	useCurrentWorkout,
@@ -199,10 +199,10 @@ export default function Page() {
 
 	const areListFiltersActive = isFilterChanged(filters, defaultFilters);
 
-	const { data: replacingExercise } = useQuery({
-		enabled: !!replacingExerciseId,
-		...getExerciseDetailsQuery(replacingExerciseId || ""),
-	});
+	const { data: replacingExercise } = useExerciseDetails(
+		replacingExerciseId || "",
+		!!replacingExerciseId,
+	);
 
 	const allowAddingExerciseToWorkout =
 		currentWorkout &&
@@ -417,10 +417,7 @@ const ExerciseItemDisplay = (props: {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const { ref, inViewport } = useInViewport();
-	const { data: exercise } = useQuery({
-		...getExerciseDetailsQuery(props.exerciseId),
-		enabled: inViewport,
-	});
+	const { data: exercise } = useExerciseDetails(props.exerciseId, inViewport);
 	const { data: userExerciseDetails } = useQuery({
 		...getUserExerciseDetailsQuery(props.exerciseId),
 		enabled: inViewport,

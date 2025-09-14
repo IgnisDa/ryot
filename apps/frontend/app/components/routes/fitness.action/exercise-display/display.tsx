@@ -38,10 +38,13 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { v4 as randomUUID } from "uuid";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
-import { useCoreDetails, useUserPreferences } from "~/lib/shared/hooks";
+import {
+	useCoreDetails,
+	useExerciseDetails,
+	useUserPreferences,
+} from "~/lib/shared/hooks";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
-	getExerciseDetailsQuery,
 	getRestTimerForSet,
 	getUserExerciseDetailsQuery,
 	useCurrentWorkout,
@@ -82,9 +85,7 @@ export const ExerciseDisplay = (props: {
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
 	const coreDetails = useCoreDetails();
-	const { data: exerciseDetails } = useQuery(
-		getExerciseDetailsQuery(exercise.exerciseId),
-	);
+	const { data: exerciseDetails } = useExerciseDetails(exercise.exerciseId);
 	const { data: userExerciseDetails } = useQuery(
 		getUserExerciseDetailsQuery(exercise.exerciseId),
 	);

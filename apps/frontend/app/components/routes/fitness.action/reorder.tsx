@@ -7,15 +7,11 @@ import {
 	IconDropletFilled,
 	IconDropletHalf2Filled,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import {
-	type Exercise,
-	getExerciseDetailsQuery,
-	useCurrentWorkout,
-} from "~/lib/state/fitness";
+import { useExerciseDetails } from "~/lib/shared/hooks";
+import { type Exercise, useCurrentWorkout } from "~/lib/state/fitness";
 import { focusOnExercise, getProgressOfExercise } from "./hooks";
 import { styles } from "./utils";
 
@@ -102,8 +98,8 @@ const ReorderDrawerExerciseElement = (props: {
 
 	invariant(currentWorkout);
 
-	const { data: exerciseDetails } = useQuery(
-		getExerciseDetailsQuery(props.exercise.exerciseId),
+	const { data: exerciseDetails } = useExerciseDetails(
+		props.exercise.exerciseId,
 	);
 
 	return (
