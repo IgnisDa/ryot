@@ -75,6 +75,7 @@ describe("import run schema enums", () => {
 	});
 
 	it("importRunSource includes implemented CSV sources", () => {
+		expect(importRunSource.options).toContain("hevy");
 		expect(importRunSource.options).toContain("open_scale");
 		expect(importRunSource.options).toContain("strong_app");
 	});
