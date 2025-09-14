@@ -208,6 +208,18 @@ pub struct CreateCustomPersonInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct UpdateCustomMetadataGroupInput {
+    pub existing_metadata_group_id: String,
+    pub update: CreateCustomMetadataGroupInput,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct UpdateCustomPersonInput {
+    pub existing_person_id: String,
+    pub update: CreateCustomPersonInput,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateCustomMetadataInput {
     pub title: String,
     pub lot: MediaLot,

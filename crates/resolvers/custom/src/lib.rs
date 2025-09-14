@@ -76,6 +76,18 @@ impl CustomMutationResolver {
         Ok(StringIdObject { id: group.id })
     }
 
+    /// Update a custom metadata group.
+    async fn update_custom_metadata_group(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: media_models::UpdateCustomMetadataGroupInput,
+    ) -> Result<bool> {
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
+        Ok(service
+            .update_custom_metadata_group(&user_id, input)
+            .await?)
+    }
+
     /// Create a custom person.
     async fn create_custom_person(
         &self,
@@ -85,5 +97,15 @@ impl CustomMutationResolver {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let p = service.create_custom_person(&user_id, input).await?;
         Ok(StringIdObject { id: p.id })
+    }
+
+    /// Update a custom person.
+    async fn update_custom_person(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: media_models::UpdateCustomPersonInput,
+    ) -> Result<bool> {
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
+        Ok(service.update_custom_person(&user_id, input).await?)
     }
 }

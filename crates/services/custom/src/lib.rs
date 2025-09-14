@@ -63,6 +63,18 @@ impl CustomService {
         .await
     }
 
+    /// Update a custom metadata group.
+    pub async fn update_custom_metadata_group(
+        &self,
+        user_id: &String,
+        input: media_models::UpdateCustomMetadataGroupInput,
+    ) -> Result<bool> {
+        miscellaneous_metadata_operations_service::update_custom_metadata_group(
+            &self.0, user_id, input,
+        )
+        .await
+    }
+
     /// Create a custom person.
     pub async fn create_custom_person(
         &self,
@@ -75,5 +87,15 @@ impl CustomService {
             input,
         )
         .await
+    }
+
+    /// Update a custom person.
+    pub async fn update_custom_person(
+        &self,
+        user_id: &String,
+        input: media_models::UpdateCustomPersonInput,
+    ) -> Result<bool> {
+        miscellaneous_metadata_operations_service::update_custom_person(&self.0, user_id, input)
+            .await
     }
 }

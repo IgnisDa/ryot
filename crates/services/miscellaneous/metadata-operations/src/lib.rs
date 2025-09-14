@@ -9,8 +9,8 @@ use database_models::{
     functions::get_user_to_entity_association,
     metadata, metadata_group, metadata_to_genre, person,
     prelude::{
-        Collection, CollectionEntityMembership, CollectionToEntity, Metadata, MetadataToGenre,
-        Review, Seen, UserToEntity,
+        Collection, CollectionEntityMembership, CollectionToEntity, Metadata, MetadataGroup,
+        MetadataToGenre, Review, Seen, UserToEntity,
     },
     review, seen, user_to_entity,
 };
@@ -20,9 +20,11 @@ use dependent_details_utils::metadata_details;
 use dependent_entity_utils::change_metadata_associations;
 use dependent_notification_utils::send_notification_for_user;
 use dependent_seen_utils::is_metadata_finished_by_user;
-use dependent_utility_utils::expire_user_metadata_groups_list_cache;
-use dependent_utility_utils::expire_user_people_list_cache;
-use dependent_utility_utils::{expire_metadata_details_cache, expire_user_metadata_list_cache};
+use dependent_utility_utils::{
+    expire_metadata_details_cache, expire_metadata_group_details_cache,
+    expire_person_details_cache, expire_user_metadata_groups_list_cache,
+    expire_user_metadata_list_cache, expire_user_people_list_cache,
+};
 use enum_models::{EntityLot, MediaLot, MediaSource, UserNotificationContent};
 use futures::try_join;
 use itertools::Itertools;
@@ -337,6 +339,87 @@ pub async fn create_custom_person(
     expire_user_people_list_cache(&user_id, ss).await?;
 
     Ok(person)
+}
+
+pub async fn update_custom_metadata_group(
+    ss: &Arc<SupportingService>,
+    user_id: &String,
+    input: media_models::UpdateCustomMetadataGroupInput,
+) -> Result<bool> {
+    let group = MetadataGroup::find_by_id(&input.existing_metadata_group_id)
+        .one(&ss.db)
+        .await?
+        .unwrap();
+    if group.source != MediaSource::Custom {
+        bail!("This metadata group is not custom and cannot be updated");
+    }
+    if group.created_by_user_id != Some(user_id.to_owned()) {
+        bail!("You are not authorized to update this metadata group");
+    }
+    for image in group.assets.s3_images.clone() {
+        file_storage_service::delete_object(ss, image).await?;
+    }
+    for video in group.assets.s3_videos.clone() {
+        file_storage_service::delete_object(ss, video).await?;
+    }
+    let new_group = metadata_group::ActiveModel {
+        lot: ActiveValue::Set(input.update.lot),
+        is_partial: ActiveValue::Set(Some(false)),
+        title: ActiveValue::Set(input.update.title),
+        assets: ActiveValue::Set(input.update.assets),
+        description: ActiveValue::Set(input.update.description),
+        parts: ActiveValue::Set(input.update.parts.unwrap_or(0)),
+        id: ActiveValue::Unchanged(input.existing_metadata_group_id),
+        ..Default::default()
+    };
+    new_group.update(&ss.db).await?;
+    try_join!(
+        expire_user_metadata_groups_list_cache(user_id, ss),
+        expire_metadata_group_details_cache(&group.id, ss)
+    )?;
+    Ok(true)
+}
+
+pub async fn update_custom_person(
+    ss: &Arc<SupportingService>,
+    user_id: &String,
+    input: media_models::UpdateCustomPersonInput,
+) -> Result<bool> {
+    let person_model = person::Entity::find_by_id(&input.existing_person_id)
+        .one(&ss.db)
+        .await?
+        .unwrap();
+    if person_model.source != MediaSource::Custom {
+        bail!("This person is not custom and cannot be updated");
+    }
+    if person_model.created_by_user_id != Some(user_id.to_owned()) {
+        bail!("You are not authorized to update this person");
+    }
+    for image in person_model.assets.s3_images.clone() {
+        file_storage_service::delete_object(ss, image).await?;
+    }
+    for video in person_model.assets.s3_videos.clone() {
+        file_storage_service::delete_object(ss, video).await?;
+    }
+    let new_person = person::ActiveModel {
+        name: ActiveValue::Set(input.update.name),
+        place: ActiveValue::Set(input.update.place),
+        assets: ActiveValue::Set(input.update.assets),
+        gender: ActiveValue::Set(input.update.gender),
+        website: ActiveValue::Set(input.update.website),
+        id: ActiveValue::Unchanged(input.existing_person_id),
+        birth_date: ActiveValue::Set(input.update.birth_date),
+        death_date: ActiveValue::Set(input.update.death_date),
+        description: ActiveValue::Set(input.update.description),
+        alternate_names: ActiveValue::Set(input.update.alternate_names),
+        ..Default::default()
+    };
+    new_person.update(&ss.db).await?;
+    try_join!(
+        expire_user_people_list_cache(user_id, ss),
+        expire_person_details_cache(&person_model.id, ss)
+    )?;
+    Ok(true)
 }
 
 fn get_data_for_custom_metadata(
