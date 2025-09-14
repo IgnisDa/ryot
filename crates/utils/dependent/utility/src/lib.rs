@@ -1,55 +1,16 @@
 use anyhow::Result;
 use chrono::Utc;
 use common_models::{MetadataRecentlyConsumedCacheInput, UserLevelCacheKey};
-use database_models::{
-    functions::get_user_to_entity_association,
-    prelude::{
-        Collection, Exercise, Genre, Metadata, MetadataGroup, Person, Workout, WorkoutTemplate,
-    },
-    user_to_entity,
-};
+use database_models::{functions::get_user_to_entity_association, user_to_entity};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ApplicationCacheValue, EmptyCacheValue,
     ExpireCacheKeyInput,
 };
 use enum_models::EntityLot;
 use futures::try_join;
-use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel};
+use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
 use std::sync::Arc;
 use supporting_service::SupportingService;
-
-pub async fn get_entity_title_from_id_and_lot(
-    id: &String,
-    lot: EntityLot,
-    ss: &Arc<SupportingService>,
-) -> Result<String> {
-    let obj_title = match lot {
-        EntityLot::Genre => Genre::find_by_id(id).one(&ss.db).await?.unwrap().name,
-        EntityLot::Metadata => Metadata::find_by_id(id).one(&ss.db).await?.unwrap().title,
-        EntityLot::MetadataGroup => {
-            MetadataGroup::find_by_id(id)
-                .one(&ss.db)
-                .await?
-                .unwrap()
-                .title
-        }
-        EntityLot::Person => Person::find_by_id(id).one(&ss.db).await?.unwrap().name,
-        EntityLot::Collection => Collection::find_by_id(id).one(&ss.db).await?.unwrap().name,
-        EntityLot::Exercise => Exercise::find_by_id(id).one(&ss.db).await?.unwrap().name,
-        EntityLot::Workout => Workout::find_by_id(id).one(&ss.db).await?.unwrap().name,
-        EntityLot::WorkoutTemplate => {
-            WorkoutTemplate::find_by_id(id)
-                .one(&ss.db)
-                .await?
-                .unwrap()
-                .name
-        }
-        EntityLot::Review | EntityLot::UserMeasurement => {
-            unreachable!()
-        }
-    };
-    Ok(obj_title)
-}
 
 async fn mark_entity_as_recently_consumed(
     user_id: &String,

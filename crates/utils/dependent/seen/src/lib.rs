@@ -5,6 +5,7 @@ use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityTo
 use common_utils::SHOW_SPECIAL_SEASON_NAMES;
 use database_models::{prelude::*, seen};
 use dependent_collection_utils::{add_entities_to_collection, remove_entities_from_collection};
+use dependent_details_utils::metadata_details;
 use dependent_models::{ApplicationCacheKeyDiscriminants, ExpireCacheKeyInput};
 use enum_models::{EntityLot, MediaLot, SeenState};
 use itertools::Itertools;
@@ -160,15 +161,11 @@ pub async fn handle_after_metadata_seen_tasks(
                 .ok();
         }
         SeenState::Completed => {
-            let metadata = Metadata::find_by_id(&seen.metadata_id)
-                .one(&ss.db)
-                .await?
-                .unwrap();
-            if metadata.lot == MediaLot::Podcast
-                || metadata.lot == MediaLot::Show
-                || metadata.lot == MediaLot::Anime
-                || metadata.lot == MediaLot::Manga
-            {
+            let metadata = metadata_details(ss, &seen.metadata_id).await?;
+            if matches!(
+                metadata.response.lot,
+                MediaLot::Podcast | MediaLot::Show | MediaLot::Anime | MediaLot::Manga
+            ) {
                 let (is_complete, _) =
                     is_metadata_finished_by_user(&seen.user_id, &seen.metadata_id, ss).await?;
                 if is_complete {
@@ -184,9 +181,9 @@ pub async fn handle_after_metadata_seen_tasks(
                 add_entities_to_collection(&DefaultCollection::Completed.to_string())
                     .await
                     .ok();
-                remove_entities_from_collection(&DefaultCollection::InProgress.to_string())
-                    .await
-                    .ok();
+                for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
+                    remove_entities_from_collection(&col.to_string()).await.ok();
+                }
             };
         }
     };

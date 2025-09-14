@@ -18,6 +18,7 @@ common-utils = { workspace = true }
 database-models = { workspace = true }
 database-utils = { workspace = true }
 dependent-collection-utils = { workspace = true }
+dependent-details-utils = { workspace = true }
 dependent-entity-utils = { workspace = true }
 dependent-notification-utils = { workspace = true }
 dependent-seen-utils = { workspace = true }

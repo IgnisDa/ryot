@@ -5,7 +5,8 @@ use background_models::{ApplicationJob, LpApplicationJob};
 use chrono::Utc;
 use common_models::UserLevelCacheKey;
 use common_utils::ryot_log;
-use database_models::{metadata, prelude::*, seen};
+use database_models::{prelude::Seen, seen};
+use dependent_details_utils::metadata_details;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, EmptyCacheValue, ExpireCacheKeyInput,
 };
@@ -231,15 +232,16 @@ struct CommitInput<'a> {
     state: SeenState,
     progress: Decimal,
     user_id: &'a String,
-    meta: metadata::Model,
+    metadata_lot: MediaLot,
+    metadata_id: &'a String,
+    ss: &'a Arc<SupportingService>,
     started_on: Option<DateTimeUtc>,
     finished_on: Option<DateTimeUtc>,
-    ss: &'a Arc<SupportingService>,
     payload: MetadataProgressUpdateCommonInput,
 }
 
 async fn commit(input: CommitInput<'_>) -> Result<seen::Model> {
-    let extra_info = create_extra_information(&input.meta.lot, &input.payload)?;
+    let extra_info = create_extra_information(&input.metadata_lot, &input.payload)?;
 
     let seen_insert = seen::ActiveModel {
         state: ActiveValue::Set(input.state),
@@ -247,7 +249,7 @@ async fn commit(input: CommitInput<'_>) -> Result<seen::Model> {
         started_on: ActiveValue::Set(input.started_on),
         finished_on: ActiveValue::Set(input.finished_on),
         user_id: ActiveValue::Set(input.user_id.to_owned()),
-        metadata_id: ActiveValue::Set(input.meta.id.clone()),
+        metadata_id: ActiveValue::Set(input.metadata_id.clone()),
         show_extra_information: ActiveValue::Set(extra_info.show_ei),
         anime_extra_information: ActiveValue::Set(extra_info.anime_ei),
         manga_extra_information: ActiveValue::Set(extra_info.manga_ei),
@@ -291,10 +293,7 @@ pub async fn metadata_progress_update(
     ss: &Arc<SupportingService>,
     input: MetadataProgressUpdateInput,
 ) -> Result<()> {
-    let meta = Metadata::find_by_id(&input.metadata_id)
-        .one(&ss.db)
-        .await?
-        .ok_or_else(|| anyhow!("Metadata not found"))?;
+    let meta = metadata_details(ss, &input.metadata_id).await?.response;
     ryot_log!(debug, "Metadata progress update: {:?}", input);
     let seen = match input.change {
         MetadataProgressUpdateChange::ChangeLatestInProgress(new_progress) => {
@@ -363,11 +362,12 @@ pub async fn metadata_progress_update(
             };
             commit(CommitInput {
                 ss,
-                meta,
                 user_id,
                 progress: dec!(0),
                 finished_on: None,
+                metadata_lot: meta.lot,
                 state: SeenState::InProgress,
+                metadata_id: &input.metadata_id,
                 payload: create_new_in_progress.data,
                 started_on: Some(create_new_in_progress.started_on),
             })
@@ -394,13 +394,14 @@ pub async fn metadata_progress_update(
             };
             commit(CommitInput {
                 ss,
-                meta,
                 user_id,
                 payload,
                 started_on,
                 finished_on,
                 progress: dec!(100),
+                metadata_lot: meta.lot,
                 state: SeenState::Completed,
+                metadata_id: &input.metadata_id,
             })
             .await?
         }

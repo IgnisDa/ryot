@@ -49,7 +49,7 @@ impl MiscellaneousService {
         &self,
         metadata_id: &String,
     ) -> Result<CachedResponse<GraphqlMetadataDetails>> {
-        miscellaneous_entity_details_service::metadata_details(&self.0, metadata_id).await
+        dependent_details_utils::metadata_details(&self.0, metadata_id).await
     }
 
     pub async fn user_metadata_details(
@@ -297,7 +297,7 @@ impl MiscellaneousService {
         &self,
         person_id: String,
     ) -> Result<CachedResponse<GraphqlPersonDetails>> {
-        miscellaneous_entity_details_service::person_details(person_id, &self.0).await
+        dependent_details_utils::person_details(&person_id, &self.0).await
     }
 
     pub async fn genre_details(
@@ -305,15 +305,14 @@ impl MiscellaneousService {
         user_id: String,
         input: GenreDetailsInput,
     ) -> Result<CachedResponse<GenreDetails>> {
-        miscellaneous_entity_details_service::genre_details(&self.0, user_id, input).await
+        dependent_details_utils::genre_details(&self.0, user_id, input).await
     }
 
     pub async fn metadata_group_details(
         &self,
         metadata_group_id: String,
     ) -> Result<CachedResponse<MetadataGroupDetails>> {
-        miscellaneous_entity_details_service::metadata_group_details(&self.0, metadata_group_id)
-            .await
+        dependent_details_utils::metadata_group_details(&self.0, &metadata_group_id).await
     }
 
     pub async fn create_review_comment(

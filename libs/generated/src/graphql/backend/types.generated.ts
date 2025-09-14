@@ -934,6 +934,7 @@ export type GraphqlMetadataDetails = {
   createdByUserId?: Maybe<Scalars['String']['output']>;
   creators: Array<MetadataCreatorsGroupedByRole>;
   description?: Maybe<Scalars['String']['output']>;
+  externalIdentifiers?: Maybe<MetadataExternalIdentifiers>;
   genres: Array<GenreListItem>;
   groups: Array<GraphqlMetadataGroup>;
   id: Scalars['String']['output'];
@@ -1323,6 +1324,11 @@ export type MetadataCreatorsGroupedByRole = {
   __typename?: 'MetadataCreatorsGroupedByRole';
   items: Array<MetadataCreator>;
   name: Scalars['String']['output'];
+};
+
+export type MetadataExternalIdentifiers = {
+  __typename?: 'MetadataExternalIdentifiers';
+  tvdbId?: Maybe<Scalars['Int']['output']>;
 };
 
 export type MetadataGroup = {

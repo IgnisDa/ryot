@@ -275,4 +275,5 @@ pub struct GraphqlMetadataDetails {
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
+    pub external_identifiers: Option<MetadataExternalIdentifiers>,
 }

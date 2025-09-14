@@ -17,8 +17,8 @@ cache-service = { workspace = true }
 common-models = { workspace = true }
 database-models = { workspace = true }
 database-utils = { workspace = true }
-dependent-models = { workspace = true }
 dependent-entity-utils = { workspace = true }
+dependent-models = { workspace = true }
 dependent-seen-utils = { workspace = true }
 dependent-utility-utils = { workspace = true }
 enum-models = { workspace = true }

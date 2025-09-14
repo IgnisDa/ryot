@@ -57,7 +57,6 @@ members = [
     "crates/services/miscellaneous",
     "crates/services/miscellaneous/background",
     "crates/services/miscellaneous/calendar",
-    "crates/services/miscellaneous/entity-details",
     "crates/services/miscellaneous/entity-user-details",
     "crates/services/miscellaneous/general",
     "crates/services/miscellaneous/lookup",
@@ -78,6 +77,7 @@ members = [
     "crates/utils/dependent/analytics",
     "crates/utils/dependent/collection",
     "crates/utils/dependent/core",
+    "crates/utils/dependent/details",
     "crates/utils/dependent/entity-list",
     "crates/utils/dependent/fitness",
     "crates/utils/dependent/import",
@@ -230,6 +230,7 @@ database-utils = { path = "crates/utils/database" }
 dependent-analytics-utils = { path = "crates/utils/dependent/analytics" }
 dependent-collection-utils = { path = "crates/utils/dependent/collection" }
 dependent-core-utils = { path = "crates/utils/dependent/core" }
+dependent-details-utils = { path = "crates/utils/dependent/details" }
 dependent-entity-list-utils = { path = "crates/utils/dependent/entity-list" }
 dependent-entity-utils = { path = "crates/utils/dependent/entity" }
 dependent-fitness-utils = { path = "crates/utils/dependent/fitness" }
@@ -269,7 +270,6 @@ migrations-sql = { path = "crates/migrations/sql" }
 migrations-utils = { path = "crates/migrations/utils" }
 miscellaneous-background-service = { path = "crates/services/miscellaneous/background" }
 miscellaneous-calendar-service = { path = "crates/services/miscellaneous/calendar" }
-miscellaneous-entity-details-service = { path = "crates/services/miscellaneous/entity-details" }
 miscellaneous-entity-user-details-service = { path = "crates/services/miscellaneous/entity-user-details" }
 miscellaneous-general-service = { path = "crates/services/miscellaneous/general" }
 miscellaneous-lookup-service = { path = "crates/services/miscellaneous/lookup" }

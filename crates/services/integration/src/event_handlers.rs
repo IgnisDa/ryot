@@ -6,6 +6,7 @@ use database_models::{
 };
 use database_utils::server_key_validation_guard;
 use dependent_core_utils::is_server_key_validated;
+use dependent_details_utils::metadata_details;
 use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use media_models::SeenShowExtraInformation;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
@@ -58,10 +59,7 @@ impl IntegrationService {
                     continue;
                 }
                 let specifics = integration.provider_specifics.clone().unwrap();
-                let metadata = Metadata::find_by_id(&cte.entity_id)
-                    .one(&self.0.db)
-                    .await?
-                    .ok_or(anyhow!("Metadata does not exist"))?;
+                let metadata = metadata_details(&self.0, &cte.entity_id).await?.response;
                 let maybe_entity_id = match metadata.lot {
                     MediaLot::Show => metadata
                         .external_identifiers

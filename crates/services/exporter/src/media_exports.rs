@@ -1,13 +1,11 @@
 use std::{fs::File as StdFile, sync::Arc};
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use common_models::SearchInput;
 use common_utils::ryot_log;
-use database_models::{
-    prelude::{Metadata, MetadataGroup, Person, Seen},
-    seen,
-};
+use database_models::{prelude::Seen, seen};
 use database_utils::{entity_in_collections_with_details, item_reviews};
+use dependent_details_utils::{metadata_details, metadata_group_details, person_details};
 use dependent_entity_list_utils::{
     user_metadata_groups_list, user_metadata_list, user_people_list,
 };
@@ -17,7 +15,7 @@ use dependent_models::{
 };
 use enum_models::EntityLot;
 use media_models::ImportOrExportMetadataItemSeen;
-use sea_orm::{ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use supporting_service::SupportingService;
 
@@ -45,13 +43,11 @@ pub async fn export_media(
         .await?;
         ryot_log!(debug, "Exporting metadata list page: {current_page}");
         for rm in related_metadata.response.items.iter() {
-            let m = Metadata::find_by_id(rm)
-                .one(&ss.db)
-                .await?
-                .ok_or_else(|| anyhow!("Metadata with the given ID does not exist"))?;
-            let seen_history = m
-                .find_related(Seen)
+            let m = metadata_details(ss, rm).await?.response;
+            let seen_history = Seen::find()
                 .filter(seen::Column::UserId.eq(user_id))
+                .filter(seen::Column::MetadataId.eq(&m.id))
+                .order_by_desc(seen::Column::LastUpdatedOn)
                 .all(&ss.db)
                 .await?;
             let seen_history = seen_history
@@ -134,10 +130,7 @@ pub async fn export_media_group(
         .await?;
         ryot_log!(debug, "Exporting metadata groups list page: {current_page}");
         for rm in related_metadata.response.items.iter() {
-            let m = MetadataGroup::find_by_id(rm)
-                .one(&ss.db)
-                .await?
-                .ok_or_else(|| anyhow!("Metadata group with the given ID does not exist"))?;
+            let m = metadata_group_details(ss, rm).await?.response.details;
             let reviews = item_reviews(user_id, &m.id, EntityLot::MetadataGroup, false, ss)
                 .await?
                 .into_iter()
@@ -190,10 +183,7 @@ pub async fn export_people(
         .await?;
         ryot_log!(debug, "Exporting people list page: {current_page}");
         for rm in related_people.response.items.iter() {
-            let p = Person::find_by_id(rm)
-                .one(&ss.db)
-                .await?
-                .ok_or_else(|| anyhow!("Person with the given ID does not exist"))?;
+            let p = person_details(rm, ss).await?.response.details;
             let reviews = item_reviews(user_id, &p.id, EntityLot::Person, false, ss)
                 .await?
                 .into_iter()

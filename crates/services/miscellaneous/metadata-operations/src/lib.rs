@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Result, bail};
 use chrono::Datelike;
 use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
 use common_utils::ryot_log;
@@ -16,6 +16,7 @@ use database_models::{
 };
 use database_utils::entity_in_collections_with_collection_to_entity_ids;
 use dependent_collection_utils::{add_entities_to_collection, remove_entities_from_collection};
+use dependent_details_utils::metadata_details;
 use dependent_entity_utils::change_metadata_associations;
 use dependent_notification_utils::send_notification_for_user;
 use dependent_seen_utils::is_metadata_finished_by_user;
@@ -313,10 +314,7 @@ pub async fn handle_metadata_eligible_for_smart_collection_moving(
     ss: &Arc<SupportingService>,
     metadata_id: String,
 ) -> Result<()> {
-    let meta = Metadata::find_by_id(&metadata_id)
-        .one(&ss.db)
-        .await?
-        .ok_or_else(|| anyhow!("Metadata not found"))?;
+    let meta = metadata_details(ss, &metadata_id).await?.response;
     if meta.lot != MediaLot::Show {
         return Ok(());
     }

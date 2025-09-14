@@ -14,6 +14,7 @@ background-models = { workspace = true }
 common-models = { workspace = true }
 database-models = { workspace = true }
 dependent-core-utils = { workspace = true }
+dependent-details-utils = { workspace = true }
 dependent-entity-list-utils = { workspace = true }
 dependent-jobs-utils = { workspace = true }
 dependent-models = { workspace = true }
@@ -23,7 +24,6 @@ enum-models = { workspace = true }
 media-models = { workspace = true }
 miscellaneous-background-service = { workspace = true }
 miscellaneous-calendar-service = { workspace = true }
-miscellaneous-entity-details-service = { workspace = true }
 miscellaneous-entity-user-details-service = { workspace = true }
 miscellaneous-general-service = { workspace = true }
 miscellaneous-lookup-service = { workspace = true }

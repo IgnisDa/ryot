@@ -910,6 +910,7 @@ export type GraphqlMetadataDetails = {
   createdByUserId?: Maybe<Scalars['String']['output']>;
   creators: Array<MetadataCreatorsGroupedByRole>;
   description?: Maybe<Scalars['String']['output']>;
+  externalIdentifiers?: Maybe<MetadataExternalIdentifiers>;
   genres: Array<GenreListItem>;
   groups: Array<GraphqlMetadataGroup>;
   id: Scalars['String']['output'];
@@ -1280,6 +1281,10 @@ export type MetadataCreator = {
 export type MetadataCreatorsGroupedByRole = {
   items: Array<MetadataCreator>;
   name: Scalars['String']['output'];
+};
+
+export type MetadataExternalIdentifiers = {
+  tvdbId?: Maybe<Scalars['Int']['output']>;
 };
 
 export type MetadataGroup = {
@@ -3340,14 +3345,21 @@ export type RegisterUserMutationVariables = Exact<{
 }>;
 
 
-export type RegisterUserMutation = { registerUser: { __typename: 'RegisterError', error: RegisterErrorVariant } | { __typename: 'StringIdObject', id: string } };
+export type RegisterUserMutation = { registerUser:
+    | { __typename: 'RegisterError', error: RegisterErrorVariant }
+    | { __typename: 'StringIdObject', id: string }
+   };
 
 export type LoginUserMutationVariables = Exact<{
   input: AuthUserInput;
 }>;
 
 
-export type LoginUserMutation = { loginUser: { __typename: 'ApiKeyResponse', apiKey: string } | { __typename: 'LoginError', error: LoginErrorVariant } | { __typename: 'StringIdObject', id: string } };
+export type LoginUserMutation = { loginUser:
+    | { __typename: 'ApiKeyResponse', apiKey: string }
+    | { __typename: 'LoginError', error: LoginErrorVariant }
+    | { __typename: 'StringIdObject', id: string }
+   };
 
 export type LogoutUserMutationVariables = Exact<{ [key: string]: never; }>;
 
@@ -3478,7 +3490,10 @@ export type ResetUserMutationVariables = Exact<{
 }>;
 
 
-export type ResetUserMutation = { resetUser: { __typename: 'RegisterError' } | { __typename: 'UserResetResponse', userId: string, passwordChangeUrl?: string | null } };
+export type ResetUserMutation = { resetUser:
+    | { __typename: 'RegisterError' }
+    | { __typename: 'UserResetResponse', userId: string, passwordChangeUrl?: string | null }
+   };
 
 export type DeleteUserIntegrationMutationVariables = Exact<{
   integrationId: Scalars['String']['input'];
@@ -3642,7 +3657,10 @@ export type ProcessAccessLinkMutationVariables = Exact<{
 }>;
 
 
-export type ProcessAccessLinkMutation = { processAccessLink: { __typename: 'ProcessAccessLinkError', error: ProcessAccessLinkErrorVariant } | { __typename: 'ProcessAccessLinkResponse', apiKey: string, redirectTo?: string | null, tokenValidForDays: number } };
+export type ProcessAccessLinkMutation = { processAccessLink:
+    | { __typename: 'ProcessAccessLinkError', error: ProcessAccessLinkErrorVariant }
+    | { __typename: 'ProcessAccessLinkResponse', apiKey: string, redirectTo?: string | null, tokenValidForDays: number }
+   };
 
 export type RevokeAccessLinkMutationVariables = Exact<{
   accessLinkId: Scalars['String']['input'];
@@ -3704,7 +3722,10 @@ export type VerifyTwoFactorMutationVariables = Exact<{
 }>;
 
 
-export type VerifyTwoFactorMutation = { verifyTwoFactor: { __typename: 'ApiKeyResponse', apiKey: string } | { __typename: 'VerifyTwoFactorError', error: VerifyTwoFactorErrorVariant } };
+export type VerifyTwoFactorMutation = { verifyTwoFactor:
+    | { __typename: 'ApiKeyResponse', apiKey: string }
+    | { __typename: 'VerifyTwoFactorError', error: VerifyTwoFactorErrorVariant }
+   };
 
 export type DisableTwoFactorMutationVariables = Exact<{ [key: string]: never; }>;
 
@@ -3766,7 +3787,10 @@ export type MinimalUserAnalyticsQuery = { userAnalytics: { cacheId: string, resp
 export type UserDetailsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type UserDetailsQuery = { userDetails: { __typename: 'UserDetails', id: string, lot: UserLot, name: string, isDisabled?: boolean | null, oidcIssuerId?: string | null, accessLinkId?: string | null, timesTwoFactorBackupCodesUsed?: number | null, extraInformation?: { isOnboardingTourCompleted: boolean, scheduledForWorkoutRevision: boolean } | null, preferences: { general: { reviewScale: UserReviewScale, gridPacking: GridPacking, displayNsfw: boolean, landingPath: string, listPageSize: number, disableVideos: boolean, disableReviews: boolean, disableIntegrations: boolean, disableWatchProviders: boolean, showSpoilersInCalendar: boolean, disableNavigationAnimation: boolean, dashboard: Array<{ hidden: boolean, section: DashboardElementLot, numElements?: number | null, deduplicateMedia?: boolean | null }>, watchProviders: Array<{ lot: MediaLot, values: Array<string> }> }, fitness: { exercises: { unitSystem: UserUnitSystem, setRestTimers: { drop?: number | null, warmup?: number | null, normal?: number | null, failure?: number | null } }, logging: { muteSounds: boolean, caloriesBurntUnit: string, promptForRestTimer: boolean, startTimerForDurationExercises: boolean }, measurements: { statistics: Array<{ name: string, unit?: string | null }> } }, featuresEnabled: { analytics: { enabled: boolean }, others: { calendar: boolean, collections: boolean }, fitness: { enabled: boolean, workouts: boolean, templates: boolean, measurements: boolean }, media: { enabled: boolean, groups: boolean, people: boolean, genres: boolean, specific: Array<MediaLot> } } } } | { __typename: 'UserDetailsError' } };
+export type UserDetailsQuery = { userDetails:
+    | { __typename: 'UserDetails', id: string, lot: UserLot, name: string, isDisabled?: boolean | null, oidcIssuerId?: string | null, accessLinkId?: string | null, timesTwoFactorBackupCodesUsed?: number | null, extraInformation?: { isOnboardingTourCompleted: boolean, scheduledForWorkoutRevision: boolean } | null, preferences: { general: { reviewScale: UserReviewScale, gridPacking: GridPacking, displayNsfw: boolean, landingPath: string, listPageSize: number, disableVideos: boolean, disableReviews: boolean, disableIntegrations: boolean, disableWatchProviders: boolean, showSpoilersInCalendar: boolean, disableNavigationAnimation: boolean, dashboard: Array<{ hidden: boolean, section: DashboardElementLot, numElements?: number | null, deduplicateMedia?: boolean | null }>, watchProviders: Array<{ lot: MediaLot, values: Array<string> }> }, fitness: { exercises: { unitSystem: UserUnitSystem, setRestTimers: { drop?: number | null, warmup?: number | null, normal?: number | null, failure?: number | null } }, logging: { muteSounds: boolean, caloriesBurntUnit: string, promptForRestTimer: boolean, startTimerForDurationExercises: boolean }, measurements: { statistics: Array<{ name: string, unit?: string | null }> } }, featuresEnabled: { analytics: { enabled: boolean }, others: { calendar: boolean, collections: boolean }, fitness: { enabled: boolean, workouts: boolean, templates: boolean, measurements: boolean }, media: { enabled: boolean, groups: boolean, people: boolean, genres: boolean, specific: Array<MediaLot> } } } }
+    | { __typename: 'UserDetailsError' }
+   };
 
 export type UserExerciseDetailsQueryVariables = Exact<{
   exerciseId: Scalars['String']['input'];
@@ -4019,7 +4043,10 @@ export type MetadataLookupQueryVariables = Exact<{
 }>;
 
 
-export type MetadataLookupQuery = { metadataLookup: { cacheId: string, response: { data: { lot: MediaLot, source: MediaSource, identifier: string }, showInformation?: { season: number, episode: number } | null } | { notFound: boolean } } };
+export type MetadataLookupQuery = { metadataLookup: { cacheId: string, response:
+      | { data: { lot: MediaLot, source: MediaSource, identifier: string }, showInformation?: { season: number, episode: number } | null }
+      | { notFound: boolean }
+     } };
 
 export type SearchDetailsPartFragment = { nextPage?: number | null, totalItems: number };
 

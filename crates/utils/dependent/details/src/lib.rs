@@ -28,7 +28,7 @@ use sea_orm::{
 use supporting_service::SupportingService;
 
 pub async fn person_details(
-    person_id: String,
+    person_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<CachedResponse<GraphqlPersonDetails>> {
     cache_service::get_or_set_with_callback(
@@ -42,7 +42,7 @@ pub async fn person_details(
                 .unwrap();
             transform_entity_assets(&mut details.assets, ss).await?;
             let metadata_associations = MetadataToPerson::find()
-                .filter(metadata_to_person::Column::PersonId.eq(&person_id))
+                .filter(metadata_to_person::Column::PersonId.eq(person_id))
                 .order_by_asc(metadata_to_person::Column::Index)
                 .all(&ss.db)
                 .await?;
@@ -143,14 +143,14 @@ pub async fn genre_details(
 
 pub async fn metadata_group_details(
     ss: &Arc<SupportingService>,
-    metadata_group_id: String,
+    metadata_group_id: &String,
 ) -> Result<CachedResponse<MetadataGroupDetails>> {
     cache_service::get_or_set_with_callback(
         ss,
         ApplicationCacheKey::MetadataGroupDetails(metadata_group_id.to_owned()),
         |f| ApplicationCacheValue::MetadataGroupDetails(Box::new(f)),
         || async {
-            let mut details = MetadataGroup::find_by_id(&metadata_group_id)
+            let mut details = MetadataGroup::find_by_id(metadata_group_id)
                 .one(&ss.db)
                 .await?
                 .unwrap();
@@ -236,6 +236,7 @@ pub async fn metadata_details(
                 podcast_specifics: model.podcast_specifics,
                 created_by_user_id: model.created_by_user_id,
                 video_game_specifics: model.video_game_specifics,
+                external_identifiers: model.external_identifiers,
                 audio_book_specifics: model.audio_book_specifics,
                 visual_novel_specifics: model.visual_novel_specifics,
             };

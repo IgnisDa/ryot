@@ -4,9 +4,13 @@ use anyhow::{Result, bail};
 use background_models::{ApplicationJob, HpApplicationJob};
 use common_models::StringIdObject;
 use common_utils::ryot_log;
-use database_models::review;
+use database_models::{
+    prelude::{Collection, Exercise, Genre, Workout, WorkoutTemplate},
+    review,
+};
 use database_utils::user_by_id;
-use dependent_utility_utils::{associate_user_with_entity, get_entity_title_from_id_and_lot};
+use dependent_details_utils::{metadata_details, metadata_group_details, person_details};
+use dependent_utility_utils::associate_user_with_entity;
 use enum_models::{EntityLot, Visibility};
 use media_models::{
     CreateOrUpdateReviewInput, ImportOrExportItemRating, ReviewPostedEvent,
@@ -14,7 +18,7 @@ use media_models::{
     SeenShowExtraOptionalInformation,
 };
 use rust_decimal_macros::dec;
-use sea_orm::{ActiveModelTrait, ActiveValue};
+use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait};
 use supporting_service::SupportingService;
 use user_models::{UserPreferences, UserReviewScale};
 
@@ -162,4 +166,31 @@ pub fn convert_review_into_input(
         visibility: review.review.clone().and_then(|r| r.visibility),
         ..Default::default()
     })
+}
+
+async fn get_entity_title_from_id_and_lot(
+    id: &String,
+    lot: EntityLot,
+    ss: &Arc<SupportingService>,
+) -> Result<String> {
+    let obj_title = match lot {
+        EntityLot::Genre => Genre::find_by_id(id).one(&ss.db).await?.unwrap().name,
+        EntityLot::Metadata => metadata_details(ss, id).await?.response.title,
+        EntityLot::MetadataGroup => metadata_group_details(ss, id).await?.response.details.title,
+        EntityLot::Person => person_details(id, ss).await?.response.details.name,
+        EntityLot::Collection => Collection::find_by_id(id).one(&ss.db).await?.unwrap().name,
+        EntityLot::Exercise => Exercise::find_by_id(id).one(&ss.db).await?.unwrap().name,
+        EntityLot::Workout => Workout::find_by_id(id).one(&ss.db).await?.unwrap().name,
+        EntityLot::WorkoutTemplate => {
+            WorkoutTemplate::find_by_id(id)
+                .one(&ss.db)
+                .await?
+                .unwrap()
+                .name
+        }
+        EntityLot::Review | EntityLot::UserMeasurement => {
+            unreachable!()
+        }
+    };
+    Ok(obj_title)
 }

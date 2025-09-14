@@ -1979,6 +1979,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "dependent-details-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "common-models",
+ "database-models",
+ "database-utils",
+ "dependent-entity-utils",
+ "dependent-models",
+ "futures",
+ "itertools 0.14.0",
+ "media-models",
+ "rust_decimal",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
 name = "dependent-entity-list-utils"
 version = "0.1.0"
 dependencies = [
@@ -2150,6 +2170,7 @@ dependencies = [
  "common-models",
  "common-utils",
  "database-models",
+ "dependent-details-utils",
  "dependent-models",
  "dependent-seen-utils",
  "enum-models",
@@ -2202,6 +2223,7 @@ dependencies = [
  "common-utils",
  "database-models",
  "database-utils",
+ "dependent-details-utils",
  "dependent-utility-utils",
  "enum-models",
  "media-models",
@@ -2223,6 +2245,7 @@ dependencies = [
  "common-utils",
  "database-models",
  "dependent-collection-utils",
+ "dependent-details-utils",
  "dependent-models",
  "enum-models",
  "itertools 0.14.0",
@@ -2662,6 +2685,7 @@ dependencies = [
  "common-utils",
  "database-models",
  "database-utils",
+ "dependent-details-utils",
  "dependent-entity-list-utils",
  "dependent-models",
  "enum-models",
@@ -3855,6 +3879,7 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-core-utils",
+ "dependent-details-utils",
  "dependent-entity-utils",
  "dependent-import-utils",
  "dependent-models",
@@ -4369,26 +4394,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "miscellaneous-entity-details-service"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cache-service",
- "common-models",
- "database-models",
- "database-utils",
- "dependent-entity-utils",
- "dependent-models",
- "futures",
- "itertools 0.14.0",
- "media-models",
- "rust_decimal",
- "sea-orm",
- "supporting-service",
- "tracing",
-]
-
-[[package]]
 name = "miscellaneous-entity-user-details-service"
 version = "0.1.0"
 dependencies = [
@@ -4472,6 +4477,7 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-collection-utils",
+ "dependent-details-utils",
  "dependent-entity-utils",
  "dependent-notification-utils",
  "dependent-seen-utils",
@@ -4579,6 +4585,7 @@ dependencies = [
  "common-models",
  "database-models",
  "dependent-core-utils",
+ "dependent-details-utils",
  "dependent-entity-list-utils",
  "dependent-jobs-utils",
  "dependent-models",
@@ -4588,7 +4595,6 @@ dependencies = [
  "media-models",
  "miscellaneous-background-service",
  "miscellaneous-calendar-service",
- "miscellaneous-entity-details-service",
  "miscellaneous-entity-user-details-service",
  "miscellaneous-general-service",
  "miscellaneous-lookup-service",
