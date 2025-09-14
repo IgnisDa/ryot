@@ -44,6 +44,7 @@ type PropertySchemaFieldName =
 	| "properties"
 	| `properties[${number}].key`
 	| `properties[${number}].label`
+	| `properties[${number}].description`
 	| `properties[${number}].type`
 	| `properties[${number}].required`;
 
@@ -192,6 +193,37 @@ export function PropertySchemasBuilder(props: PropertySchemasBuilderProps) {
 											}}
 										</props.form.AppField>
 									</Group>
+
+									<props.form.AppField
+										name={`properties[${index}].description`}
+									>
+										{(descriptionField) => {
+											const field =
+												descriptionField as PropertySchemaValueField<string>;
+											const descriptionValue = field.state.value;
+											const descriptionError =
+												getErrorMessage(field.state.meta.errors) ??
+												(descriptionValue.trim().length === 0 &&
+												(field.state.meta.isBlurred || field.state.meta.isDirty)
+													? "Description is required"
+													: undefined);
+
+											return (
+												<TextInput
+													required
+													label="Description"
+													value={descriptionValue}
+													error={descriptionError}
+													onBlur={field.handleBlur}
+													disabled={props.isLoading}
+													placeholder="Property description"
+													onChange={(event) =>
+														field.handleChange(event.currentTarget.value)
+													}
+												/>
+											);
+										}}
+									</props.form.AppField>
 
 									<Group justify="space-between" align="center">
 										<props.form.AppField name={`properties[${index}].required`}>

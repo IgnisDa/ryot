@@ -48,20 +48,33 @@ const createLiteralTypeInfo = (
 	}
 
 	if (typeof value === "string") {
-		return createPropertyTypeInfo("string", { label: "Value", type: "string" });
+		return createPropertyTypeInfo("string", {
+			label: "Value",
+			type: "string",
+			description: "Literal value",
+		});
 	}
 
 	if (typeof value === "boolean") {
 		return createPropertyTypeInfo("boolean", {
 			label: "Value",
 			type: "boolean",
+			description: "Literal value",
 		});
 	}
 
 	if (typeof value === "number") {
 		return Number.isInteger(value)
-			? createPropertyTypeInfo("integer", { label: "Value", type: "integer" })
-			: createPropertyTypeInfo("number", { label: "Value", type: "number" });
+			? createPropertyTypeInfo("integer", {
+					label: "Value",
+					type: "integer",
+					description: "Literal value",
+				})
+			: createPropertyTypeInfo("number", {
+					label: "Value",
+					type: "number",
+					description: "Literal value",
+				});
 	}
 
 	if (Array.isArray(value)) {
@@ -241,8 +254,16 @@ export const inferViewExpressionType = <
 		return input.expression.operator === "divide" ||
 			leftType.propertyType === "number" ||
 			rightType.propertyType === "number"
-			? createPropertyTypeInfo("number", { label: "Value", type: "number" })
-			: createPropertyTypeInfo("integer", { label: "Value", type: "integer" });
+			? createPropertyTypeInfo("number", {
+					label: "Value",
+					type: "number",
+					description: "Computed numeric value",
+				})
+			: createPropertyTypeInfo("integer", {
+					label: "Value",
+					type: "integer",
+					description: "Computed numeric value",
+				});
 	}
 
 	if (
@@ -260,6 +281,7 @@ export const inferViewExpressionType = <
 		return createPropertyTypeInfo("integer", {
 			label: "Value",
 			type: "integer",
+			description: "Normalized integer value",
 		});
 	}
 
@@ -275,7 +297,11 @@ export const inferViewExpressionType = <
 			);
 		}
 
-		return createPropertyTypeInfo("string", { label: "Value", type: "string" });
+		return createPropertyTypeInfo("string", {
+			label: "Value",
+			type: "string",
+			description: "Computed text value",
+		});
 	}
 
 	if (input.expression.type === "transform") {
@@ -286,7 +312,11 @@ export const inferViewExpressionType = <
 			expression: input.expression.expression,
 		});
 		assertConcatCompatibleExpression(innerType);
-		return createPropertyTypeInfo("string", { label: "Value", type: "string" });
+		return createPropertyTypeInfo("string", {
+			label: "Value",
+			type: "string",
+			description: "Transformed text value",
+		});
 	}
 
 	if (input.expression.type === "conditional") {
@@ -375,6 +405,7 @@ export const inferViewExpressionType = <
 		return createPropertyTypeInfo(propertyType, {
 			type: propertyType,
 			label: "Event Aggregate",
+			description: "Aggregated event value",
 		});
 	}
 

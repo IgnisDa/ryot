@@ -62,6 +62,8 @@ const unknownKeysPolicySchema: z.ZodType<AppSchemaUnknownKeysPolicy> = z.enum([
 
 const propertyLabelSchema = z.string().trim().min(1);
 
+const propertyDescriptionSchema = z.string().trim().min(1);
+
 const hasValidNumericBounds = (value: {
 	maximum?: number;
 	minimum?: number;
@@ -177,6 +179,7 @@ const stringPropertySchema = z
 	.strictObject({
 		label: propertyLabelSchema,
 		type: z.literal("string"),
+		description: propertyDescriptionSchema,
 		validation: stringValidationSchema.optional(),
 	})
 	.openapi("AppStringProperty");
@@ -185,6 +188,7 @@ const numberPropertySchema = z
 	.strictObject({
 		label: propertyLabelSchema,
 		type: z.literal("number"),
+		description: propertyDescriptionSchema,
 		transform: numberTransformSchema.optional(),
 		validation: numberValidationSchema.optional(),
 	})
@@ -194,6 +198,7 @@ const integerPropertySchema = z
 	.strictObject({
 		label: propertyLabelSchema,
 		type: z.literal("integer"),
+		description: propertyDescriptionSchema,
 		transform: numberTransformSchema.optional(),
 		validation: numberValidationSchema.optional(),
 	})
@@ -203,6 +208,7 @@ const booleanPropertySchema = z
 	.strictObject({
 		label: propertyLabelSchema,
 		type: z.literal("boolean"),
+		description: propertyDescriptionSchema,
 		validation: requiredOnlyValidationSchema.optional(),
 	})
 	.openapi("AppBooleanProperty");
@@ -211,6 +217,7 @@ const datePropertySchema = z
 	.strictObject({
 		label: propertyLabelSchema,
 		type: z.literal("date"),
+		description: propertyDescriptionSchema,
 		validation: requiredOnlyValidationSchema.optional(),
 	})
 	.openapi("AppDateProperty");
@@ -219,6 +226,7 @@ const datetimePropertySchema = z
 	.strictObject({
 		label: propertyLabelSchema,
 		type: z.literal("datetime"),
+		description: propertyDescriptionSchema,
 		validation: requiredOnlyValidationSchema.optional(),
 	})
 	.openapi("AppDateTimeProperty");
@@ -227,6 +235,7 @@ const arrayPropertySchema = z
 	.strictObject({
 		label: propertyLabelSchema,
 		type: z.literal("array"),
+		description: propertyDescriptionSchema,
 		validation: arrayValidationSchema.optional(),
 		items: z.lazy(() => propertyDefinitionSchema),
 	})
@@ -236,6 +245,7 @@ const objectPropertySchema = z
 	.strictObject({
 		label: propertyLabelSchema,
 		type: z.literal("object"),
+		description: propertyDescriptionSchema,
 		unknownKeys: unknownKeysPolicySchema.optional(),
 		validation: requiredOnlyValidationSchema.optional(),
 		properties: z.record(
@@ -252,6 +262,7 @@ const enumPropertySchema = z
 		options: enumOptionsSchema,
 		label: propertyLabelSchema,
 		type: z.literal("enum"),
+		description: propertyDescriptionSchema,
 		validation: requiredOnlyValidationSchema.optional(),
 	})
 	.openapi("AppEnumProperty");
@@ -261,6 +272,7 @@ const enumArrayPropertySchema = z
 		label: propertyLabelSchema,
 		options: enumOptionsSchema,
 		type: z.literal("enum-array"),
+		description: propertyDescriptionSchema,
 		validation: arrayValidationSchema.optional(),
 	})
 	.openapi("AppEnumArrayProperty");

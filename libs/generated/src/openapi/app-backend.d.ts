@@ -3943,6 +3943,7 @@ export interface components {
              * @enum {string}
              */
             type: "date";
+            description: string;
             validation?: components["schemas"]["AppRequiredPropertyValidation"];
         };
         AppRequiredPropertyValidation: {
@@ -3957,6 +3958,7 @@ export interface components {
              * @enum {string}
              */
             type: "enum";
+            description: string;
             validation?: components["schemas"]["AppRequiredPropertyValidation"];
         };
         AppArrayProperty: {
@@ -3966,6 +3968,7 @@ export interface components {
              * @enum {string}
              */
             type: "array";
+            description: string;
             validation?: components["schemas"]["AppArrayPropertyValidation"];
             items: components["schemas"]["AppPropertyDefinition"];
         };
@@ -3982,6 +3985,7 @@ export interface components {
              * @enum {string}
              */
             type: "object";
+            description: string;
             /** @enum {string} */
             unknownKeys?: "strip" | "strict" | "passthrough";
             validation?: components["schemas"]["AppRequiredPropertyValidation"];
@@ -3996,6 +4000,7 @@ export interface components {
              * @enum {string}
              */
             type: "string";
+            description: string;
             validation?: components["schemas"]["AppStringPropertyValidation"];
         };
         AppStringPropertyValidation: {
@@ -4012,6 +4017,7 @@ export interface components {
              * @enum {string}
              */
             type: "number";
+            description: string;
             transform?: components["schemas"]["AppNumberPropertyTransform"];
             validation?: components["schemas"]["AppNumberPropertyValidation"];
         };
@@ -4039,6 +4045,7 @@ export interface components {
              * @enum {string}
              */
             type: "integer";
+            description: string;
             transform?: components["schemas"]["AppNumberPropertyTransform"];
             validation?: components["schemas"]["AppNumberPropertyValidation"];
         };
@@ -4049,6 +4056,7 @@ export interface components {
              * @enum {string}
              */
             type: "boolean";
+            description: string;
             validation?: components["schemas"]["AppRequiredPropertyValidation"];
         };
         AppDateTimeProperty: {
@@ -4058,6 +4066,7 @@ export interface components {
              * @enum {string}
              */
             type: "datetime";
+            description: string;
             validation?: components["schemas"]["AppRequiredPropertyValidation"];
         };
         AppEnumArrayProperty: {
@@ -4068,6 +4077,7 @@ export interface components {
              * @enum {string}
              */
             type: "enum-array";
+            description: string;
             validation?: components["schemas"]["AppArrayPropertyValidation"];
         };
         InternalServerError: {

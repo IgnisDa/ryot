@@ -75,7 +75,7 @@ export function createAppCollectionFixture(
 }
 
 export function createMembershipPropertiesSchema(
-	fields: Record<string, { type: string; label: string }>,
+	fields: Record<string, { type: string; label: string; description: string }>,
 ) {
 	return { fields };
 }
@@ -83,7 +83,12 @@ export function createMembershipPropertiesSchema(
 export function createQueryEngineCollectionWithSchema(
 	id: string,
 	name: string,
-	schema: { fields: Record<string, { type: string; label: string }> },
+	schema: {
+		fields: Record<
+			string,
+			{ type: string; label: string; description: string }
+		>;
+	},
 ): ApiQueryEngineCollection {
 	return createQueryEngineCollectionFixture({
 		id,

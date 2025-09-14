@@ -6,6 +6,7 @@ import {
 import {
 	buildSchemaMap,
 	getEntitySchemaColumnPropertyType,
+	getEventJoinPropertyDefinition,
 	getPropertyType,
 } from "./reference";
 
@@ -54,12 +55,18 @@ describe("getPropertyType", () => {
 					meta: {
 						label: "Meta",
 						type: "object" as const,
+						description: "Metadata",
 						properties: {
 							source: {
 								label: "Source",
 								type: "object" as const,
+								description: "Source details",
 								properties: {
-									origin: { label: "Origin", type: "string" as const },
+									origin: {
+										label: "Origin",
+										type: "string" as const,
+										description: "Origin value",
+									},
 								},
 							},
 						},
@@ -86,6 +93,61 @@ describe("buildSchemaMap", () => {
 		expect(schemaMap.get("smartphones")).toEqual(smartphoneSchema);
 		expect(schemaMap.get("tablets")).toEqual(tabletSchema);
 		expect(schemaMap.size).toBe(2);
+	});
+});
+
+describe("getEventJoinPropertyDefinition", () => {
+	it("accepts event schemas that only differ by label or description", () => {
+		const definition = getEventJoinPropertyDefinition(
+			{
+				key: "review",
+				kind: "latestEvent",
+				eventSchemaSlug: "review",
+				eventSchemaMap: new Map(),
+				eventSchemas: [
+					{
+						slug: "review",
+						id: "event-schema-1",
+						entitySchemaId: "schema-1",
+						entitySchemaSlug: "smartphones",
+						propertiesSchema: {
+							fields: {
+								rating: {
+									type: "number",
+									label: "Rating",
+									validation: { required: true },
+									description: "Phone review score",
+								},
+							},
+						},
+					},
+					{
+						slug: "review",
+						id: "event-schema-2",
+						entitySchemaId: "schema-2",
+						entitySchemaSlug: "tablets",
+						propertiesSchema: {
+							fields: {
+								rating: {
+									type: "number",
+									label: "Score",
+									validation: { required: true },
+									description: "Tablet review score",
+								},
+							},
+						},
+					},
+				],
+			},
+			["rating"],
+		);
+
+		expect(definition).toEqual({
+			type: "number",
+			label: "Rating",
+			validation: { required: true },
+			description: "Phone review score",
+		});
 	});
 });
 

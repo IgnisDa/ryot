@@ -47,6 +47,7 @@ const progressPercentPropertiesSchema = () => ({
 		progressPercent: {
 			type: "number" as const,
 			label: "Progress Percent",
+			description: "Percentage of the media completed so far (0–100)",
 			transform: { round: { mode: "half_up" as const, scale: 2 } },
 			validation: {
 				maximum: 100,
@@ -64,8 +65,16 @@ const progressPropertiesSchemaByEntity = (
 		.with("show", () => ({
 			fields: {
 				...progressPercentPropertiesSchema().fields,
-				showSeason: { label: "Show Season", type: "integer" as const },
-				showEpisode: { label: "Show Episode", type: "integer" as const },
+				showSeason: {
+					label: "Show Season",
+					type: "integer" as const,
+					description: "Season number being tracked",
+				},
+				showEpisode: {
+					label: "Show Episode",
+					type: "integer" as const,
+					description: "Episode number within the current season",
+				},
 			},
 			rules: [
 				{
@@ -85,20 +94,36 @@ const progressPropertiesSchemaByEntity = (
 		.with("anime", () => ({
 			fields: {
 				...progressPercentPropertiesSchema().fields,
-				animeEpisode: { label: "Anime Episode", type: "integer" as const },
+				animeEpisode: {
+					label: "Anime Episode",
+					type: "integer" as const,
+					description: "Episode number of the anime being tracked",
+				},
 			},
 		}))
 		.with("manga", () => ({
 			fields: {
 				...progressPercentPropertiesSchema().fields,
-				mangaVolume: { label: "Manga Volume", type: "integer" as const },
-				mangaChapter: { label: "Manga Chapter", type: "number" as const },
+				mangaVolume: {
+					label: "Manga Volume",
+					type: "integer" as const,
+					description: "Volume number of the manga being tracked",
+				},
+				mangaChapter: {
+					label: "Manga Chapter",
+					type: "number" as const,
+					description: "Chapter number of the manga being tracked",
+				},
 			},
 		}))
 		.with("podcast", () => ({
 			fields: {
 				...progressPercentPropertiesSchema().fields,
-				podcastEpisode: { label: "Podcast Episode", type: "integer" as const },
+				podcastEpisode: {
+					label: "Podcast Episode",
+					type: "integer" as const,
+					description: "Episode number of the podcast being tracked",
+				},
 			},
 		}))
 		.otherwise(() => progressPercentPropertiesSchema());
@@ -110,11 +135,21 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 		slug: "complete",
 		propertiesSchema: {
 			fields: {
-				startedOn: { label: "Started On", type: "datetime" as const },
-				completedOn: { label: "Completed On", type: "datetime" as const },
+				startedOn: {
+					label: "Started On",
+					type: "datetime" as const,
+					description: "Date and time you started consuming this media",
+				},
+				completedOn: {
+					label: "Completed On",
+					type: "datetime" as const,
+					description: "Date and time you finished consuming this media",
+				},
 				completionMode: {
-					label: "Completion Mode",
 					type: "string" as const,
+					label: "Completion Mode",
+					description:
+						"How the completion timestamps were determined: just_now, unknown, or custom_timestamps",
 					validation: {
 						required: true as const,
 						pattern: "^(just_now|unknown|custom_timestamps)$",
@@ -127,9 +162,9 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 					kind: "validation" as const,
 					validation: { required: true as const },
 					when: {
-						value: "custom_timestamps",
 						operator: "eq" as const,
 						path: ["completionMode"],
+						value: "custom_timestamps",
 					},
 				},
 			],
@@ -145,9 +180,14 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 		slug: "review",
 		propertiesSchema: {
 			fields: {
-				review: { label: "Review", type: "string" as const },
+				review: {
+					label: "Review",
+					description: "Your written thoughts or notes about this media",
+					type: "string" as const,
+				},
 				rating: {
 					label: "Rating",
+					description: "Your personal rating from 1 (lowest) to 5 (highest)",
 					type: "integer" as const,
 					validation: { maximum: 5, minimum: 1, required: true as const },
 				},
@@ -284,12 +324,18 @@ export const authenticationBuiltinEntitySchemas = () => [
 		accentColor: "#F59E0B",
 		propertiesSchema: {
 			fields: {
-				description: { label: "Description", type: "string" as const },
+				description: {
+					label: "Description",
+					type: "string" as const,
+					description: "A short summary or description of this collection",
+				},
 				membershipPropertiesSchema: {
 					properties: {},
 					type: "object" as const,
 					unknownKeys: "passthrough" as const,
 					label: "Membership Properties Schema",
+					description:
+						"JSON object schema defining extra properties attached to each collection member",
 				},
 			},
 		},
@@ -399,8 +445,14 @@ export const authenticationBuiltinRelationshipSchemas = () => [
 			fields: {
 				roles: {
 					label: "Roles",
+					description:
+						"Roles this person filled in this production (e.g. Director, Actor, Writer)",
 					type: "array" as const,
-					items: { label: "Role", type: "string" as const },
+					items: {
+						label: "Role",
+						description: "A specific role name (e.g. Director, Actor, Writer)",
+						type: "string" as const,
+					},
 				},
 			},
 		},
