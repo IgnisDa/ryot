@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use chrono::Utc;
 use common_models::{MetadataRecentlyConsumedCacheInput, UserLevelCacheKey};
@@ -9,7 +11,6 @@ use dependent_models::{
 use enum_models::EntityLot;
 use futures::try_join;
 use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
-use std::sync::Arc;
 use supporting_service::SupportingService;
 
 async fn mark_entity_as_recently_consumed(
@@ -42,20 +43,12 @@ pub async fn expire_entity_details_cache(
     try_join!(
         expire_user_metadata_list_cache(user_id, ss),
         expire_user_workout_details_cache(user_id, entity_id, ss),
+        expire_user_metadata_details_cache(user_id, entity_id, ss),
         expire_user_workout_template_details_cache(user_id, entity_id, ss),
         mark_entity_as_recently_consumed(user_id, entity_id, entity_lot, ss),
         cache_service::expire_key(
             ss,
             ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::UserPersonDetails(
-                UserLevelCacheKey {
-                    user_id: user_id.to_owned(),
-                    input: entity_id.to_owned(),
-                }
-            )))
-        ),
-        cache_service::expire_key(
-            ss,
-            ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::UserMetadataDetails(
                 UserLevelCacheKey {
                     user_id: user_id.to_owned(),
                     input: entity_id.to_owned(),
@@ -135,8 +128,7 @@ pub async fn associate_user_with_entity(
             }
         };
     }
-    expire_entity_details_cache(user_id, entity_id, entity_lot, ss).await?;
-    Ok(())
+    expire_entity_details_cache(user_id, entity_id, entity_lot, ss).await
 }
 
 pub async fn get_entity_recently_consumed(
@@ -168,8 +160,24 @@ pub async fn expire_user_collections_list_cache(
         input: (),
         user_id: user_id.to_owned(),
     });
-    cache_service::expire_key(ss, ExpireCacheKeyInput::ByKey(Box::new(cache_key))).await?;
-    Ok(())
+    cache_service::expire_key(ss, ExpireCacheKeyInput::ByKey(Box::new(cache_key))).await
+}
+
+pub async fn expire_user_metadata_details_cache(
+    user_id: &String,
+    metadata_id: &str,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::UserMetadataDetails(
+            UserLevelCacheKey {
+                user_id: user_id.to_owned(),
+                input: metadata_id.to_owned(),
+            },
+        ))),
+    )
+    .await
 }
 
 pub async fn expire_user_collection_contents_cache(
@@ -184,8 +192,7 @@ pub async fn expire_user_collection_contents_cache(
             key: ApplicationCacheKeyDiscriminants::UserCollectionContents,
         },
     )
-    .await?;
-    Ok(())
+    .await
 }
 
 pub async fn expire_user_workouts_list_cache(
@@ -199,8 +206,7 @@ pub async fn expire_user_workouts_list_cache(
             key: ApplicationCacheKeyDiscriminants::UserWorkoutsList,
         },
     )
-    .await?;
-    Ok(())
+    .await
 }
 
 pub async fn expire_user_measurements_list_cache(
@@ -214,8 +220,7 @@ pub async fn expire_user_measurements_list_cache(
             key: ApplicationCacheKeyDiscriminants::UserMeasurementsList,
         },
     )
-    .await?;
-    Ok(())
+    .await
 }
 
 pub async fn expire_user_workout_templates_list_cache(
@@ -229,8 +234,7 @@ pub async fn expire_user_workout_templates_list_cache(
             key: ApplicationCacheKeyDiscriminants::UserWorkoutTemplatesList,
         },
     )
-    .await?;
-    Ok(())
+    .await
 }
 
 pub async fn expire_user_exercises_list_cache(
@@ -244,8 +248,7 @@ pub async fn expire_user_exercises_list_cache(
             key: ApplicationCacheKeyDiscriminants::UserExercisesList,
         },
     )
-    .await?;
-    Ok(())
+    .await
 }
 
 pub async fn expire_user_metadata_list_cache(
@@ -259,8 +262,7 @@ pub async fn expire_user_metadata_list_cache(
             key: ApplicationCacheKeyDiscriminants::UserMetadataList,
         },
     )
-    .await?;
-    Ok(())
+    .await
 }
 
 pub async fn expire_person_details_cache(
@@ -273,8 +275,7 @@ pub async fn expire_person_details_cache(
             person_id.to_owned(),
         ))),
     )
-    .await?;
-    Ok(())
+    .await
 }
 
 pub async fn expire_metadata_group_details_cache(
@@ -287,8 +288,7 @@ pub async fn expire_metadata_group_details_cache(
             metadata_group_id.to_owned(),
         ))),
     )
-    .await?;
-    Ok(())
+    .await
 }
 
 pub async fn expire_metadata_details_cache(
@@ -301,8 +301,7 @@ pub async fn expire_metadata_details_cache(
             metadata_id.to_owned(),
         ))),
     )
-    .await?;
-    Ok(())
+    .await
 }
 
 pub async fn expire_user_workout_template_details_cache(
@@ -319,8 +318,7 @@ pub async fn expire_user_workout_template_details_cache(
             },
         ))),
     )
-    .await?;
-    Ok(())
+    .await
 }
 
 pub async fn expire_user_workout_details_cache(
@@ -337,6 +335,5 @@ pub async fn expire_user_workout_details_cache(
             },
         ))),
     )
-    .await?;
-    Ok(())
+    .await
 }

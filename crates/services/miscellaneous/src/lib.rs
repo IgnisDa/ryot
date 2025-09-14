@@ -373,6 +373,10 @@ impl MiscellaneousService {
         miscellaneous_background_service::invalidate_import_jobs(&self.0).await
     }
 
+    pub async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
+        miscellaneous_background_service::cleanup_user_and_metadata_association(&self.0).await
+    }
+
     pub async fn perform_background_jobs(&self) -> Result<()> {
         miscellaneous_background_service::perform_background_jobs(&self.0).await
     }

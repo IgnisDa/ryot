@@ -24,7 +24,6 @@ use crate::{
     },
     notifications::send_notifications_for_outdated_seen_entries,
     summaries::regenerate_user_summaries,
-    user::cleanup_user_and_metadata_association,
 };
 
 mod access;
@@ -55,8 +54,6 @@ pub async fn perform_background_jobs(ss: &Arc<SupportingService>) -> Result<()> 
     recalculate_calendar_events(ss).await.trace_ok();
     ryot_log!(trace, "Queuing notifications for released media");
     notify_users_for_released_media(ss).await.trace_ok();
-    ryot_log!(trace, "Cleaning up user and metadata association");
-    cleanup_user_and_metadata_association(ss).await.trace_ok();
     ryot_log!(trace, "Removing old user summaries and regenerating them");
     regenerate_user_summaries(ss).await.trace_ok();
     ryot_log!(trace, "Syncing integrations data to owned collection");
@@ -95,4 +92,8 @@ pub async fn invalidate_import_jobs(ss: &Arc<SupportingService>) -> Result<()> {
         .await?;
     ryot_log!(debug, "Invalidated {} import jobs", result.rows_affected);
     Ok(())
+}
+
+pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) -> Result<()> {
+    user::cleanup_user_and_metadata_association(ss).await
 }

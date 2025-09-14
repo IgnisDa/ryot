@@ -13,7 +13,9 @@ use database_models::{
 };
 use database_utils::{entity_in_collections_with_details, get_enabled_users_query};
 use dependent_seen_utils::is_metadata_finished_by_user;
-use dependent_utility_utils::expire_user_metadata_list_cache;
+use dependent_utility_utils::{
+    expire_user_metadata_details_cache, expire_user_metadata_list_cache,
+};
 use enum_models::{EntityLot, UserToMediaReason};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
@@ -147,6 +149,7 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
                 ute.needs_to_be_updated = ActiveValue::Set(None);
                 ute.update(&ss.db).await?;
             }
+            expire_user_metadata_details_cache(&user_id, &entity_id, ss).await?;
         }
         expire_user_metadata_list_cache(&user_id, ss).await?;
     }

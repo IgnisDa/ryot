@@ -43,6 +43,11 @@ pub async fn run_frequent_cron_jobs(
         .invalidate_import_jobs()
         .await
         .trace_ok();
+    app_services
+        .miscellaneous_service
+        .cleanup_user_and_metadata_association()
+        .await
+        .trace_ok();
     Ok(())
 }
 
