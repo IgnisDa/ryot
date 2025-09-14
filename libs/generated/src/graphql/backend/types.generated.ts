@@ -1654,6 +1654,10 @@ export type MutationRoot = {
   updateCustomExercise: Scalars['Boolean']['output'];
   /** Update custom metadata. */
   updateCustomMetadata: Scalars['Boolean']['output'];
+  /** Update a custom metadata group. */
+  updateCustomMetadataGroup: Scalars['Boolean']['output'];
+  /** Update a custom person. */
+  updateCustomPerson: Scalars['Boolean']['output'];
   /** Update the attributes of a seen item. */
   updateSeenItem: Scalars['Boolean']['output'];
   /** Update a user's profile details. */
@@ -1901,6 +1905,16 @@ export type MutationRootUpdateCustomExerciseArgs = {
 
 export type MutationRootUpdateCustomMetadataArgs = {
   input: UpdateCustomMetadataInput;
+};
+
+
+export type MutationRootUpdateCustomMetadataGroupArgs = {
+  input: UpdateCustomMetadataGroupInput;
+};
+
+
+export type MutationRootUpdateCustomPersonArgs = {
+  input: UpdateCustomPersonInput;
 };
 
 
@@ -2625,9 +2639,19 @@ export type UpdateCustomExerciseInput = {
   source: ExerciseSource;
 };
 
+export type UpdateCustomMetadataGroupInput = {
+  existingMetadataGroupId: Scalars['String']['input'];
+  update: CreateCustomMetadataGroupInput;
+};
+
 export type UpdateCustomMetadataInput = {
   existingMetadataId: Scalars['String']['input'];
   update: CreateCustomMetadataInput;
+};
+
+export type UpdateCustomPersonInput = {
+  existingPersonId: Scalars['String']['input'];
+  update: CreateCustomPersonInput;
 };
 
 export type UpdateSeenItemInput = {
