@@ -422,6 +422,18 @@ export type CreateCustomMetadataInput = {
   visualNovelSpecifics?: InputMaybe<VisualNovelSpecificsInput>;
 };
 
+export type CreateCustomPersonInput = {
+  alternateNames?: InputMaybe<Array<Scalars['String']['input']>>;
+  assets: EntityAssetsInput;
+  birthDate?: InputMaybe<Scalars['NaiveDate']['input']>;
+  deathDate?: InputMaybe<Scalars['NaiveDate']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  gender?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  place?: InputMaybe<Scalars['String']['input']>;
+  website?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type CreateOrUpdateCollectionInput = {
   collaborators?: InputMaybe<Array<Scalars['String']['input']>>;
   description?: InputMaybe<Scalars['String']['input']>;
@@ -1526,6 +1538,8 @@ export type MutationRoot = {
   createCustomMetadata: StringIdObject;
   /** Create a custom metadata group. */
   createCustomMetadataGroup: StringIdObject;
+  /** Create a custom person. */
+  createCustomPerson: StringIdObject;
   /** Create a new collection for the logged in user or edit details of an existing one. */
   createOrUpdateCollection: StringIdObject;
   /** Create or update a review. */
@@ -1679,6 +1693,11 @@ export type MutationRootCreateCustomMetadataArgs = {
 
 export type MutationRootCreateCustomMetadataGroupArgs = {
   input: CreateCustomMetadataGroupInput;
+};
+
+
+export type MutationRootCreateCustomPersonArgs = {
+  input: CreateCustomPersonInput;
 };
 
 
