@@ -1,4 +1,4 @@
-ARG NODE_BASE_IMAGE=node:24.4.0-bookworm-slim
+ARG NODE_BASE_IMAGE=oven/bun:1.2.21
 
 FROM --platform=$BUILDPLATFORM $NODE_BASE_IMAGE AS node-build-base
 
@@ -6,7 +6,7 @@ FROM node-build-base AS website-build-base
 ENV MOON_TOOLCHAIN_FORCE_GLOBALS=true
 WORKDIR /app
 RUN apt update && apt install -y --no-install-recommends git curl ca-certificates xz-utils
-RUN npm install -g @moonrepo/cli && moon --version
+RUN bun install -g @moonrepo/cli && moon --version
 
 FROM website-build-base AS website-workspace
 WORKDIR /app

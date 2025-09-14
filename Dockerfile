@@ -4,7 +4,7 @@ FROM $NODE_BASE_IMAGE AS frontend-build-base
 ENV MOON_TOOLCHAIN_FORCE_GLOBALS=true
 WORKDIR /app
 RUN apt update && apt install -y --no-install-recommends git curl ca-certificates xz-utils
-RUN npm install -g @moonrepo/cli && moon --version
+RUN bun install -g @moonrepo/cli && moon --version
 
 FROM frontend-build-base AS frontend-workspace
 WORKDIR /app
@@ -35,7 +35,7 @@ ENV FRONTEND_UMAMI_SCRIPT_URL="https://umami.diptesh.me/script.js"
 ENV FRONTEND_UMAMI_WEBSITE_ID="5ecd6915-d542-4fda-aa5f-70f09f04e2e0"
 RUN apt-get update && apt-get install -y --no-install-recommends wget curl ca-certificates procps libc6 && rm -rf /var/lib/apt/lists/*
 COPY --from=caddy:2.9.1 /usr/bin/caddy /usr/local/bin/caddy
-RUN npm install --global concurrently@9.1.2 && concurrently --version
+RUN bun install --global concurrently@9.1.2 && concurrently --version
 RUN useradd -m -u 1001 ryot
 WORKDIR /home/ryot
 USER ryot
