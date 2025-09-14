@@ -1,12 +1,7 @@
 $schema: "https://moonrepo.dev/schemas/toolchain.json"
 
-node:
-  version: "24.4.0"
-  packageManager: "bun"
-  bun:
-    version: "1.2.21"
-  addEnginesConstraint: true
-  dedupeOnLockfileChange: false
+bun:
+  version: "1.2.21"
   inferTasksFromScripts: false
   syncProjectWorkspaceDependencies: true
 
