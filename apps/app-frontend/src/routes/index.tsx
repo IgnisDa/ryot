@@ -1,4 +1,4 @@
-import { authClient } from "@/lib/auth";
+import { useAuthClient } from "@/hooks/auth";
 import {
 	Box,
 	Button,
@@ -30,6 +30,7 @@ export const Route = createFileRoute("/")({ component: App });
 const api = hc<AppType>("");
 
 function App() {
+	const authClient = useAuthClient();
 	const { data } = useQuery({
 		queryKey: ["hello"],
 		queryFn: async () => {
@@ -40,7 +41,7 @@ function App() {
 
 	useEffect(() => {
 		authClient.signIn.anonymous();
-	}, []);
+	}, [authClient]);
 
 	const features = [
 		{
