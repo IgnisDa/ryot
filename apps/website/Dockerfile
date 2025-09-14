@@ -5,7 +5,7 @@ FROM --platform=$BUILDPLATFORM $NODE_BASE_IMAGE AS node-build-base
 FROM node-build-base AS website-build-base
 ENV MOON_TOOLCHAIN_FORCE_GLOBALS=true
 WORKDIR /app
-RUN apt update && apt install -y --no-install-recommends git curl ca-certificates xz-utils
+RUN apt update && apt install -y --no-install-recommends git curl ca-certificates xz-utils && rm -rf /var/lib/apt/lists/*
 RUN bun install -g @moonrepo/cli && moon --version
 
 FROM website-build-base AS website-workspace
