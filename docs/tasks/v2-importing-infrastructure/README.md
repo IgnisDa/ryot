@@ -397,6 +397,8 @@ sources before porting every adapter.
   `import_run_failure`.
 - Built-in seed schema updates do not need backward-compatible migrations because this is a
   greenfield project and the dev database can be reset.
+- Migration history may be reset between tasks. Squashing or replacing earlier migration files is
+  acceptable; the dev database is expected to be recreated from scratch.
 - If the generated migration needs manual SQL to satisfy a non-null `event.occurredAt` addition, it
   is acceptable to edit that generated migration directly.
 - The dev server regenerates OpenAPI/client types; the PRD does not require a manual generated-types
@@ -447,9 +449,9 @@ sources before porting every adapter.
 
 ## Tasks
 
-**Overall Progress:** 2 of 11 tasks completed
+**Overall Progress:** 3 of 11 tasks completed
 
-**Current Task:** [Task 03](./03-openscale-import-tracer-bullet.md) (todo)
+**Current Task:** [Task 04](./04-shared-entity-population-refactor.md) (todo)
 
 ### Task List
 
@@ -457,7 +459,7 @@ sources before porting every adapter.
 | --- | ---------------------------------------------------------------------------------- | ---- | ------ |
 | 01  | [Event Occurrence Semantics](./01-event-occurrence-semantics.md)                   | AFK  | done   |
 | 02  | [Auto-Complete Coverage Cycles](./02-auto-complete-coverage-cycles.md)             | AFK  | done   |
-| 03  | [OpenScale Import Tracer Bullet](./03-openscale-import-tracer-bullet.md)           | AFK  | todo   |
+| 03  | [OpenScale Import Tracer Bullet](./03-openscale-import-tracer-bullet.md)           | AFK  | done   |
 | 04  | [Shared Entity Population Refactor](./04-shared-entity-population-refactor.md)     | AFK  | todo   |
 | 05  | [Provider-Backed Media Import Tracer](./05-provider-backed-media-import-tracer.md) | AFK  | todo   |
 | 06  | [Workout Import Tracer Bullet](./06-workout-import-tracer-bullet.md)               | AFK  | todo   |
