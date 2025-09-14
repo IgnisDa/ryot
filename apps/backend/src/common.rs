@@ -15,6 +15,7 @@ use bon::builder;
 use collection_resolver::{CollectionMutationResolver, CollectionQueryResolver};
 use collection_service::CollectionService;
 use config_definition::AppConfig;
+use custom_resolver::CustomMutationResolver;
 use exporter_resolver::{ExporterMutationResolver, ExporterQueryResolver};
 use exporter_service::ExporterService;
 use file_storage_resolver::{FileStorageMutationResolver, FileStorageQueryResolver};
@@ -206,37 +207,38 @@ impl KeyExtractor for RateLimitExtractor {
 
 #[derive(MergedObject, Default)]
 pub struct QueryRoot(
-    MiscellaneousMetadataQueryResolver,
-    MiscellaneousSearchQueryResolver,
-    MiscellaneousSocialQueryResolver,
-    MiscellaneousGroupingQueryResolver,
-    MiscellaneousTrackingQueryResolver,
-    MiscellaneousSystemQueryResolver,
-    UserAuthenticationQueryResolver,
-    UserManagementQueryResolver,
-    UserServicesQueryResolver,
+    FitnessQueryResolver,
     ImporterQueryResolver,
     ExporterQueryResolver,
-    FitnessQueryResolver,
-    FileStorageQueryResolver,
     StatisticsQueryResolver,
     CollectionQueryResolver,
+    FileStorageQueryResolver,
+    UserServicesQueryResolver,
+    UserManagementQueryResolver,
+    UserAuthenticationQueryResolver,
+    MiscellaneousSearchQueryResolver,
+    MiscellaneousSocialQueryResolver,
+    MiscellaneousSystemQueryResolver,
+    MiscellaneousGroupingQueryResolver,
+    MiscellaneousTrackingQueryResolver,
+    MiscellaneousMetadataQueryResolver,
 );
 
 #[derive(MergedObject, Default)]
 pub struct MutationRoot(
-    MiscellaneousMetadataMutationResolver,
-    MiscellaneousSocialMutationResolver,
-    MiscellaneousTrackingMutationResolver,
-    MiscellaneousSystemMutationResolver,
-    UserAuthenticationMutationResolver,
-    UserManagementMutationResolver,
-    UserServicesMutationResolver,
-    ImporterMutationResolver,
-    ExporterMutationResolver,
+    CustomMutationResolver,
     FitnessMutationResolver,
-    FileStorageMutationResolver,
+    ExporterMutationResolver,
+    ImporterMutationResolver,
     CollectionMutationResolver,
+    FileStorageMutationResolver,
+    UserServicesMutationResolver,
+    UserManagementMutationResolver,
+    UserAuthenticationMutationResolver,
+    MiscellaneousSocialMutationResolver,
+    MiscellaneousSystemMutationResolver,
+    MiscellaneousTrackingMutationResolver,
+    MiscellaneousMetadataMutationResolver,
 );
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
