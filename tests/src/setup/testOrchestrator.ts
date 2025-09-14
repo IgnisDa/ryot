@@ -83,7 +83,7 @@ async function startFrontendProcess(
 		);
 
 		const frontendProcess = spawn(
-			"yarn",
+			"bun",
 			["react-router-serve", "./build/server/index.js"],
 			{
 				stdio: ["ignore", "pipe", "pipe"],
