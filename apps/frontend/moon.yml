@@ -10,8 +10,8 @@ tasks:
 
   build:
     command: "react-router build"
-    inputs: ["@group(remix)"]
+    inputs: ["**/*.{ts,tsx}"]
     outputs: ["build"]
 
   typecheck:
-    inputs: ["@group(remix)"]
+    inputs: ["**/*.{ts,tsx}"]

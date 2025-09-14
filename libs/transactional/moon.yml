@@ -13,4 +13,4 @@ tasks:
     local: true
 
   typecheck:
-    inputs: ["@group(email)"]
+    inputs: ["**/*.{ts,tsx}"]
