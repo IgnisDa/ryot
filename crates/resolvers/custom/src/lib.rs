@@ -4,7 +4,8 @@ use custom_service::CustomService;
 use database_models::exercise;
 use dependent_models::UpdateCustomExerciseInput;
 use media_models::{
-    CreateCustomMetadataGroupInput, CreateCustomMetadataInput, UpdateCustomMetadataInput,
+    CreateCustomMetadataGroupInput, CreateCustomMetadataInput, CreateCustomPersonInput,
+    UpdateCustomMetadataInput,
 };
 use traits::{AuthProvider, GraphqlResolverSvc};
 
@@ -73,5 +74,16 @@ impl CustomMutationResolver {
             .create_custom_metadata_group(&user_id, input)
             .await?;
         Ok(StringIdObject { id: group.id })
+    }
+
+    /// Create a custom person.
+    async fn create_custom_person(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CreateCustomPersonInput,
+    ) -> Result<StringIdObject> {
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
+        let p = service.create_custom_person(&user_id, input).await?;
+        Ok(StringIdObject { id: p.id })
     }
 }

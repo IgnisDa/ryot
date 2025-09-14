@@ -265,6 +265,20 @@ pub async fn expire_user_metadata_groups_list_cache(
     .await
 }
 
+pub async fn expire_user_people_list_cache(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserPeopleList,
+        },
+    )
+    .await
+}
+
 pub async fn expire_user_metadata_list_cache(
     user_id: &String,
     ss: &Arc<SupportingService>,

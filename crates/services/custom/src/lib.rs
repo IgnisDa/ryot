@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use database_models::{exercise, metadata, metadata_group};
+use database_models::{exercise, metadata, metadata_group, person};
 use dependent_fitness_utils::{create_custom_exercise, update_custom_exercise};
 use dependent_models::UpdateCustomExerciseInput;
 use media_models::{
-    CreateCustomMetadataGroupInput, CreateCustomMetadataInput, UpdateCustomMetadataInput,
+    CreateCustomMetadataGroupInput, CreateCustomMetadataInput, CreateCustomPersonInput,
+    UpdateCustomMetadataInput,
 };
 use supporting_service::SupportingService;
 
@@ -58,6 +59,20 @@ impl CustomService {
     ) -> Result<metadata_group::Model> {
         miscellaneous_metadata_operations_service::create_custom_metadata_group(
             &self.0, user_id, input,
+        )
+        .await
+    }
+
+    /// Create a custom person.
+    pub async fn create_custom_person(
+        &self,
+        user_id: &String,
+        input: CreateCustomPersonInput,
+    ) -> Result<person::Model> {
+        miscellaneous_metadata_operations_service::create_custom_person(
+            &self.0,
+            user_id.to_owned(),
+            input,
         )
         .await
     }

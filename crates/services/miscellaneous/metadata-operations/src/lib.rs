@@ -7,7 +7,7 @@ use common_utils::ryot_log;
 use database_models::{
     collection, collection_entity_membership, collection_to_entity,
     functions::get_user_to_entity_association,
-    metadata, metadata_group, metadata_to_genre,
+    metadata, metadata_group, metadata_to_genre, person,
     prelude::{
         Collection, CollectionEntityMembership, CollectionToEntity, Metadata, MetadataToGenre,
         Review, Seen, UserToEntity,
@@ -21,6 +21,7 @@ use dependent_entity_utils::change_metadata_associations;
 use dependent_notification_utils::send_notification_for_user;
 use dependent_seen_utils::is_metadata_finished_by_user;
 use dependent_utility_utils::expire_user_metadata_groups_list_cache;
+use dependent_utility_utils::expire_user_people_list_cache;
 use dependent_utility_utils::{expire_metadata_details_cache, expire_user_metadata_list_cache};
 use enum_models::{EntityLot, MediaLot, MediaSource, UserNotificationContent};
 use futures::try_join;
@@ -292,6 +293,50 @@ pub async fn create_custom_metadata_group(
     expire_user_metadata_groups_list_cache(user_id, ss).await?;
 
     Ok(group)
+}
+
+pub async fn create_custom_person(
+    ss: &Arc<SupportingService>,
+    user_id: String,
+    input: media_models::CreateCustomPersonInput,
+) -> Result<person::Model> {
+    let identifier = nanoid!(10);
+    let new_person = person::ActiveModel {
+        name: ActiveValue::Set(input.name),
+        place: ActiveValue::Set(input.place),
+        assets: ActiveValue::Set(input.assets),
+        gender: ActiveValue::Set(input.gender),
+        website: ActiveValue::Set(input.website),
+        identifier: ActiveValue::Set(identifier),
+        is_partial: ActiveValue::Set(Some(false)),
+        source: ActiveValue::Set(MediaSource::Custom),
+        birth_date: ActiveValue::Set(input.birth_date),
+        death_date: ActiveValue::Set(input.death_date),
+        description: ActiveValue::Set(input.description),
+        alternate_names: ActiveValue::Set(input.alternate_names),
+        created_by_user_id: ActiveValue::Set(Some(user_id.clone())),
+        ..Default::default()
+    };
+    let person = new_person.insert(&ss.db).await?;
+
+    add_entities_to_collection(
+        &user_id,
+        ChangeCollectionToEntitiesInput {
+            creator_user_id: user_id.to_owned(),
+            collection_name: DefaultCollection::Custom.to_string(),
+            entities: vec![EntityToCollectionInput {
+                information: None,
+                entity_id: person.id.clone(),
+                entity_lot: EntityLot::Person,
+            }],
+        },
+        ss,
+    )
+    .await?;
+
+    expire_user_people_list_cache(&user_id, ss).await?;
+
+    Ok(person)
 }
 
 fn get_data_for_custom_metadata(
