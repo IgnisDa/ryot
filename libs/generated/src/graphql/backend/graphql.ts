@@ -1289,6 +1289,7 @@ export type MetadataExternalIdentifiers = {
 
 export type MetadataGroup = {
   assets: EntityAssets;
+  createdByUserId?: Maybe<Scalars['String']['output']>;
   description?: Maybe<Scalars['String']['output']>;
   id: Scalars['String']['output'];
   identifier: Scalars['String']['output'];
@@ -1898,6 +1899,7 @@ export type Person = {
   associatedMetadataCount: Scalars['Int']['output'];
   associatedMetadataGroupsCount: Scalars['Int']['output'];
   birthDate?: Maybe<Scalars['NaiveDate']['output']>;
+  createdByUserId?: Maybe<Scalars['String']['output']>;
   createdOn: Scalars['DateTime']['output'];
   deathDate?: Maybe<Scalars['NaiveDate']['output']>;
   description?: Maybe<Scalars['String']['output']>;
