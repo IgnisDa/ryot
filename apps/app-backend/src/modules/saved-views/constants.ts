@@ -103,6 +103,17 @@ const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
 				),
 			},
 		])
+		.with("workout", () => [
+			nameColumn,
+			{
+				label: "Started At",
+				expression: createEntityPropertyExpression(slug, "startedAt"),
+			},
+			{
+				label: "Ended At",
+				expression: createEntityPropertyExpression(slug, "endedAt"),
+			},
+		])
 		.with("collection", () => [nameColumn])
 		.with("book", () => [
 			nameColumn,
@@ -222,6 +233,19 @@ const createEntityCardConfig = (slug?: string): EntityCardConfig => {
 			primarySubtitleProperty: createTransformExpression(
 				"titleCase",
 				createEntityPropertyExpression(slug, "kind"),
+			),
+		};
+	}
+	if (slug === "workout") {
+		return {
+			calloutProperty: null,
+			primarySubtitleProperty: createEntityPropertyExpression(
+				slug,
+				"startedAt",
+			),
+			secondarySubtitleProperty: createEntityPropertyExpression(
+				slug,
+				"endedAt",
 			),
 		};
 	}
