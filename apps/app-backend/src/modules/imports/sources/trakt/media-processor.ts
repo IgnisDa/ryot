@@ -8,8 +8,8 @@ import { getBuiltinEventSchemaBySlug } from "~/modules/event-schemas";
 import { createEventsBestEffortWithTriggers, type CreateEventBody } from "~/modules/events";
 import { getBuiltinSandboxScriptBySlug } from "~/modules/sandbox";
 
-import type { ImportEntityRef, ImportMediaEntityGroup } from "./jobs";
-import { createImportRunFailure } from "./repository";
+import type { ImportEntityRef, ImportMediaEntityGroup } from "../../jobs";
+import { createImportRunFailure } from "../../repository";
 
 export const entityRefKey = (ref: ImportEntityRef) =>
 	`${ref.entitySchemaSlug}|${ref.scriptSlug}|${ref.externalId}`;
