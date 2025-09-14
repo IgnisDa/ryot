@@ -7,7 +7,7 @@ use common_utils::ryot_log;
 use database_models::{
     collection, collection_entity_membership, collection_to_entity,
     functions::get_user_to_entity_association,
-    metadata, metadata_to_genre,
+    metadata, metadata_group, metadata_to_genre,
     prelude::{
         Collection, CollectionEntityMembership, CollectionToEntity, Metadata, MetadataToGenre,
         Review, Seen, UserToEntity,
@@ -20,11 +20,15 @@ use dependent_details_utils::metadata_details;
 use dependent_entity_utils::change_metadata_associations;
 use dependent_notification_utils::send_notification_for_user;
 use dependent_seen_utils::is_metadata_finished_by_user;
+use dependent_utility_utils::expire_user_metadata_groups_list_cache;
 use dependent_utility_utils::{expire_metadata_details_cache, expire_user_metadata_list_cache};
 use enum_models::{EntityLot, MediaLot, MediaSource, UserNotificationContent};
 use futures::try_join;
 use itertools::Itertools;
-use media_models::{CreateCustomMetadataInput, MetadataFreeCreator, UpdateCustomMetadataInput};
+use media_models::{
+    CreateCustomMetadataGroupInput, CreateCustomMetadataInput, MetadataFreeCreator,
+    UpdateCustomMetadataInput,
+};
 use nanoid::nanoid;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
@@ -248,6 +252,46 @@ pub async fn update_custom_metadata(
         expire_metadata_details_cache(&metadata.id, ss)
     )?;
     Ok(true)
+}
+
+pub async fn create_custom_metadata_group(
+    ss: &Arc<SupportingService>,
+    user_id: &String,
+    input: CreateCustomMetadataGroupInput,
+) -> Result<metadata_group::Model> {
+    let identifier = nanoid!(10);
+    let new_group = metadata_group::ActiveModel {
+        lot: ActiveValue::Set(input.lot),
+        title: ActiveValue::Set(input.title),
+        assets: ActiveValue::Set(input.assets),
+        identifier: ActiveValue::Set(identifier),
+        is_partial: ActiveValue::Set(Some(false)),
+        source: ActiveValue::Set(MediaSource::Custom),
+        description: ActiveValue::Set(input.description),
+        parts: ActiveValue::Set(input.parts.unwrap_or(0)),
+        created_by_user_id: ActiveValue::Set(Some(user_id.clone())),
+        ..Default::default()
+    };
+    let group = new_group.insert(&ss.db).await?;
+
+    add_entities_to_collection(
+        user_id,
+        ChangeCollectionToEntitiesInput {
+            creator_user_id: user_id.to_owned(),
+            collection_name: DefaultCollection::Custom.to_string(),
+            entities: vec![EntityToCollectionInput {
+                information: None,
+                entity_id: group.id.clone(),
+                entity_lot: EntityLot::MetadataGroup,
+            }],
+        },
+        ss,
+    )
+    .await?;
+
+    expire_user_metadata_groups_list_cache(user_id, ss).await?;
+
+    Ok(group)
 }
 
 fn get_data_for_custom_metadata(

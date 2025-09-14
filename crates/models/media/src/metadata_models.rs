@@ -186,6 +186,15 @@ pub struct CommitMetadataGroupInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct CreateCustomMetadataGroupInput {
+    pub title: String,
+    pub lot: MediaLot,
+    pub parts: Option<i32>,
+    pub assets: EntityAssets,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateCustomMetadataInput {
     pub title: String,
     pub lot: MediaLot,
