@@ -1,6 +1,10 @@
 {
 	"name": "@ryot/root",
-	"packageManager": "yarn@4.1.1",
+	"devDependencies": {
+		"@biomejs/biome": "1.9.4",
+		"tsconfig-moon": "1.4.1",
+		"typescript": "5.9.2"
+	},
 	"workspaces": [
 		"apps/browser-extension",
 		"apps/docs",
@@ -14,10 +18,5 @@
 	],
 	"engines": {
 		"node": "24.4.0"
-	},
-	"devDependencies": {
-		"@biomejs/biome": "1.9.4",
-		"tsconfig-moon": "1.4.1",
-		"typescript": "5.9.2"
 	}
 }

@@ -57,6 +57,7 @@
 		"react-dom": "19.1.1",
 		"react-joyride": "2.9.3",
 		"react-router": "7.9.1",
+		"react-router-dom": "7.9.1",
 		"react-virtuoso": "4.14.0",
 		"recharts": "3.2.0",
 		"remix-utils": "8.8.0",

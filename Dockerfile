@@ -1,4 +1,4 @@
-ARG NODE_BASE_IMAGE=node:24.4.0-bookworm-slim
+ARG NODE_BASE_IMAGE=oven/bun:1.2.21
 
 FROM $NODE_BASE_IMAGE AS frontend-build-base
 ENV MOON_TOOLCHAIN_FORCE_GLOBALS=true
@@ -46,7 +46,7 @@ COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/build ./build
 COPY --from=artifact --chown=ryot:ryot /artifact/backend /usr/local/bin/backend
 CMD [ \
     "concurrently", "--names", "frontend,backend,proxy", "--kill-others", \
-    "PORT=3000 npx react-router-serve ./build/server/index.js", \
+    "PORT=3000 bunx react-router-serve ./build/server/index.js", \
     "BACKEND_PORT=5000 /usr/local/bin/backend", \
     "caddy run --config /etc/caddy/Caddyfile" \
     ]
