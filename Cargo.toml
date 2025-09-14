@@ -32,6 +32,7 @@ members = [
     "crates/providers/vndb",
     "crates/providers/youtube-music",
     "crates/resolvers/collection",
+    "crates/resolvers/custom",
     "crates/resolvers/exporter",
     "crates/resolvers/file-storage",
     "crates/resolvers/fitness",
@@ -49,6 +50,7 @@ members = [
     "crates/resolvers/user/services",
     "crates/services/cache",
     "crates/services/collection",
+    "crates/services/custom",
     "crates/services/exporter",
     "crates/services/file-storage",
     "crates/services/fitness",
@@ -222,6 +224,8 @@ cache-service = { path = "crates/services/cache" }
 collection-resolver = { path = "crates/resolvers/collection" }
 collection-service = { path = "crates/services/collection" }
 common-models = { path = "crates/models/common" }
+custom-resolver = { path = "crates/resolvers/custom" }
+custom-service = { path = "crates/services/custom" }
 common-utils = { path = "crates/utils/common" }
 config-definition = { path = "crates/config/definition" }
 config-macros = { path = "crates/config/macros" }

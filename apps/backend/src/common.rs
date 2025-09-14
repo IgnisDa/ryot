@@ -15,6 +15,8 @@ use bon::builder;
 use collection_resolver::{CollectionMutationResolver, CollectionQueryResolver};
 use collection_service::CollectionService;
 use config_definition::AppConfig;
+use custom_resolver::CustomMutationResolver;
+use custom_service::CustomService;
 use exporter_resolver::{ExporterMutationResolver, ExporterQueryResolver};
 use exporter_service::ExporterService;
 use file_storage_resolver::{FileStorageMutationResolver, FileStorageQueryResolver};
@@ -106,6 +108,7 @@ pub async fn create_app_services(
             .await,
     );
     let user_service = Arc::new(UserService(supporting_service.clone()));
+    let custom_service = Arc::new(CustomService(supporting_service.clone()));
     let fitness_service = Arc::new(FitnessService(supporting_service.clone()));
     let exporter_service = Arc::new(ExporterService(supporting_service.clone()));
     let importer_service = Arc::new(ImporterService(supporting_service.clone()));
@@ -121,6 +124,7 @@ pub async fn create_app_services(
     )
     .extension(Tracing)
     .data(user_service.clone())
+    .data(custom_service.clone())
     .data(fitness_service.clone())
     .data(importer_service.clone())
     .data(exporter_service.clone())
@@ -225,6 +229,7 @@ pub struct QueryRoot(
 
 #[derive(MergedObject, Default)]
 pub struct MutationRoot(
+    CustomMutationResolver,
     FitnessMutationResolver,
     ExporterMutationResolver,
     ImporterMutationResolver,

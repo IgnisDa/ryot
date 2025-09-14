@@ -1,7 +1,7 @@
 use async_graphql::{Context, Object, Result};
 use database_models::{exercise, user_measurement};
 use dependent_models::{
-    CachedResponse, UpdateCustomExerciseInput, UserExerciseDetails, UserExercisesListResponse,
+    CachedResponse, UserExerciseDetails, UserExercisesListResponse,
     UserTemplatesOrWorkoutsListInput, UserWorkoutDetails, UserWorkoutTemplateDetails,
     UserWorkoutsListResponse, UserWorkoutsTemplatesListResponse,
 };
@@ -190,26 +190,6 @@ impl FitnessMutationResolver {
     async fn delete_user_workout(&self, gql_ctx: &Context<'_>, workout_id: String) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         Ok(service.delete_user_workout(user_id, workout_id).await?)
-    }
-
-    /// Create a custom exercise.
-    async fn create_custom_exercise(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: exercise::Model,
-    ) -> Result<String> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.create_custom_exercise(&user_id, input).await?)
-    }
-
-    /// Update a custom exercise.
-    async fn update_custom_exercise(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: UpdateCustomExerciseInput,
-    ) -> Result<bool> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.update_custom_exercise(user_id, input).await?)
     }
 
     /// Update a user's exercise settings.

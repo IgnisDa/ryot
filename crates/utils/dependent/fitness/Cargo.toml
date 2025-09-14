@@ -19,9 +19,11 @@ common-utils = { workspace = true }
 database-models = { workspace = true }
 database-utils = { workspace = true }
 dependent-collection-utils = { workspace = true }
+dependent-models = { workspace = true }
 dependent-notification-utils = { workspace = true }
 dependent-utility-utils = { workspace = true }
 enum-models = { workspace = true }
+file-storage-service = { workspace = true }
 fitness-models = { workspace = true }
 supporting-service = { workspace = true }
 user-models = { workspace = true }

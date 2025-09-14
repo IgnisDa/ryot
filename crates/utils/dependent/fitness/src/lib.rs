@@ -6,6 +6,7 @@ use common_utils::ryot_log;
 use database_models::{exercise, prelude::*, user_measurement, user_to_entity, workout};
 use database_utils::{schedule_user_for_workout_revision, user_by_id};
 use dependent_collection_utils::add_entities_to_collection;
+use dependent_models::UpdateCustomExerciseInput;
 use dependent_notification_utils::send_notification_for_user;
 use dependent_utility_utils::{
     expire_user_exercises_list_cache, expire_user_measurements_list_cache,
@@ -683,4 +684,39 @@ pub async fn create_or_update_user_workout(
         expire_user_workout_details_cache(user_id, &data.id, ss)
     )?;
     Ok(data.id)
+}
+
+pub async fn update_custom_exercise(
+    ss: &Arc<SupportingService>,
+    user_id: String,
+    input: UpdateCustomExerciseInput,
+) -> Result<bool> {
+    let id = input.update.id.clone();
+    let mut update = input.update.clone();
+    let old_exercise = Exercise::find_by_id(&id).one(&ss.db).await?.unwrap();
+    for image in old_exercise.assets.s3_images.clone() {
+        file_storage_service::delete_object(ss, image).await?;
+    }
+    if input.should_delete.unwrap_or_default() {
+        let ute = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(&user_id))
+            .filter(user_to_entity::Column::ExerciseId.eq(&id))
+            .one(&ss.db)
+            .await?
+            .ok_or_else(|| anyhow!("Exercise does not exist"))?;
+        if let Some(exercise_extra_information) = ute.exercise_extra_information {
+            if !exercise_extra_information.history.is_empty() {
+                bail!("Exercise is associated with one or more workouts.",);
+            }
+        }
+        old_exercise.delete(&ss.db).await?;
+        return Ok(true);
+    }
+    update.source = ExerciseSource::Custom;
+    update.created_by_user_id = Some(user_id.clone());
+    let input = update.into_active_model();
+    let mut input = input.reset_all();
+    input.id = ActiveValue::Unchanged(id);
+    input.update(&ss.db).await?;
+    Ok(true)
 }

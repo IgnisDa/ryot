@@ -1,0 +1,13 @@
+[package]
+name = "custom-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+database-models = { workspace = true }
+dependent-fitness-utils = { workspace = true }
+dependent-models = { workspace = true }
+media-models = { workspace = true }
+miscellaneous-metadata-operations-service = { workspace = true }
+supporting-service = { workspace = true }
