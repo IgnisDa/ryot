@@ -439,6 +439,10 @@ describe("createEvent", () => {
 		const result = await createEvent(
 			{ body: createEventBody(), userId: "user_1" },
 			createEventDeps({
+				onGlobalEntityScope: (input) => {
+					calls.push(input);
+					return Promise.resolve({ data: undefined });
+				},
 				getEventCreateScopeForUser: (input) =>
 					Promise.resolve(
 						createEventCreateScope({
@@ -447,10 +451,6 @@ describe("createEvent", () => {
 							eventSchemaId: input.eventSchemaId,
 						}),
 					),
-				ensureEntityInLibrary: (input) => {
-					calls.push(input);
-					return Promise.resolve({ data: undefined });
-				},
 			}),
 		);
 
@@ -472,7 +472,7 @@ describe("createEvent", () => {
 							eventSchemaId: input.eventSchemaId,
 						}),
 					),
-				ensureEntityInLibrary: () => {
+				onGlobalEntityScope: () => {
 					ensureCalls++;
 					return Promise.resolve({ data: undefined });
 				},
@@ -489,7 +489,7 @@ describe("createEvent", () => {
 		const result = await createEvent(
 			{ body: createEventBody(), userId: "user_1" },
 			createEventDeps({
-				ensureEntityInLibrary: () => {
+				onGlobalEntityScope: () => {
 					ensureCalls++;
 					return Promise.resolve({ data: undefined });
 				},
@@ -512,6 +512,8 @@ describe("createEvent", () => {
 		const result = await createEvent(
 			{ body: createEventBody(), userId: "user_1" },
 			createEventDeps({
+				onGlobalEntityScope: () =>
+					Promise.resolve({ error: "validation", message: "User library entity not found" }),
 				getEventCreateScopeForUser: (input) =>
 					Promise.resolve(
 						createEventCreateScope({
@@ -520,15 +522,10 @@ describe("createEvent", () => {
 							eventSchemaId: input.eventSchemaId,
 						}),
 					),
-				ensureEntityInLibrary: () =>
-					Promise.resolve({ error: "validation", message: "User library entity not found" }),
 			}),
 		);
 
-		expect(result).toEqual({
-			error: "validation",
-			message: "User library entity not found",
-		});
+		expect(result).toEqual({ error: "validation", message: "User library entity not found" });
 	});
 
 	it("ensures in-library before validation for a global entity (before-trigger requires library membership)", async () => {
@@ -537,7 +534,7 @@ describe("createEvent", () => {
 		const result = await createEvent(
 			{ userId: "user_1", body: createEventBody({ properties: { note: "Missing rating" } }) },
 			createEventDeps({
-				ensureEntityInLibrary: () => {
+				onGlobalEntityScope: () => {
 					ensureCalls++;
 					return Promise.resolve({ data: undefined });
 				},
