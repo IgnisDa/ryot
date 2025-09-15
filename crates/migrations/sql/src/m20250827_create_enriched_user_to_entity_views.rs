@@ -56,6 +56,7 @@ CREATE VIEW
 SELECT
   p.name,
   ute.id,
+  p.source,
   ute.user_id,
   p.description,
   p.id AS person_id,
@@ -88,6 +89,7 @@ SELECT
   ute.id,
   mg.parts,
   mg.title,
+  mg.source,
   ute.user_id,
   mg.description,
   mg.id AS metadata_group_id,
@@ -150,6 +152,7 @@ SELECT
     m.lot,
     ute.id,
     m.title,
+    m.source,
     ute.user_id,
     m.description,
     m.publish_date,
