@@ -151,14 +151,17 @@ pub async fn change_metadata_associations(
             ss,
         )
         .await?;
-        let intermediate = metadata_to_person::ActiveModel {
-            role: ActiveValue::Set(role),
-            person_id: ActiveValue::Set(db_person.id),
-            character: ActiveValue::Set(person.character),
-            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
-            index: ActiveValue::Set(Some(index.try_into().unwrap())),
-        };
-        intermediate.insert(&ss.db).await.ok();
+        insert_metadata_person_links(
+            ss,
+            metadata_id,
+            vec![(
+                db_person.id,
+                role,
+                person.character,
+                Some(index.try_into().unwrap()),
+            )],
+        )
+        .await?;
     }
 
     for name in genres {
@@ -206,6 +209,24 @@ pub async fn change_metadata_associations(
         intermediate.insert(&ss.db).await.ok();
     }
 
+    Ok(())
+}
+
+pub async fn insert_metadata_person_links(
+    ss: &Arc<SupportingService>,
+    metadata_id: &String,
+    links: Vec<(String, String, Option<String>, Option<i32>)>,
+) -> Result<()> {
+    for (person_id, role, character, index) in links.into_iter() {
+        let intermediate = metadata_to_person::ActiveModel {
+            role: ActiveValue::Set(role),
+            index: ActiveValue::Set(index),
+            person_id: ActiveValue::Set(person_id),
+            character: ActiveValue::Set(character),
+            metadata_id: ActiveValue::Set(metadata_id.clone()),
+        };
+        intermediate.insert(&ss.db).await.ok();
+    }
     Ok(())
 }
 

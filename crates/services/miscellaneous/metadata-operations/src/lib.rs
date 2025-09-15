@@ -17,7 +17,7 @@ use database_models::{
 use database_utils::entity_in_collections_with_collection_to_entity_ids;
 use dependent_collection_utils::{add_entities_to_collection, remove_entities_from_collection};
 use dependent_details_utils::metadata_details;
-use dependent_entity_utils::change_metadata_associations;
+use dependent_entity_utils::{change_metadata_associations, insert_metadata_person_links};
 use dependent_notification_utils::send_notification_for_user;
 use dependent_seen_utils::is_metadata_finished_by_user;
 use dependent_utility_utils::{
@@ -27,10 +27,8 @@ use dependent_utility_utils::{
 };
 use enum_models::{EntityLot, MediaLot, MediaSource, UserNotificationContent};
 use futures::try_join;
-use itertools::Itertools;
 use media_models::{
-    CreateCustomMetadataGroupInput, CreateCustomMetadataInput, MetadataFreeCreator,
-    UpdateCustomMetadataInput,
+    CreateCustomMetadataGroupInput, CreateCustomMetadataInput, UpdateCustomMetadataInput,
 };
 use nanoid::nanoid;
 use sea_orm::{
@@ -194,6 +192,14 @@ pub async fn create_custom_metadata(
         ss,
     )
     .await?;
+    if let Some(creators) = input.creators.clone() {
+        let links = creators
+            .into_iter()
+            .enumerate()
+            .map(|(idx, person_id)| (person_id, "Creator".to_string(), None, Some(idx as i32)))
+            .collect();
+        insert_metadata_person_links(ss, &metadata.id, links).await?;
+    }
     add_entities_to_collection(
         &user_id,
         ChangeCollectionToEntitiesInput {
@@ -250,6 +256,14 @@ pub async fn update_custom_metadata(
         ss,
     )
     .await?;
+    if let Some(creators) = input.update.creators.clone() {
+        let links = creators
+            .into_iter()
+            .enumerate()
+            .map(|(idx, person_id)| (person_id, "Creator".to_string(), None, Some(idx as i32)))
+            .collect();
+        insert_metadata_person_links(ss, &metadata.id, links).await?;
+    }
     try_join!(
         expire_user_metadata_list_cache(user_id, ss),
         expire_metadata_details_cache(&metadata.id, ss)
@@ -426,15 +440,6 @@ fn get_data_for_custom_metadata(
     identifier: String,
     user_id: &str,
 ) -> metadata::ActiveModel {
-    let free_creators = input
-        .creators
-        .unwrap_or_default()
-        .into_iter()
-        .map(|c| MetadataFreeCreator {
-            name: c,
-            role: "Creator".to_string(),
-        })
-        .collect_vec();
     let is_partial = match input.lot {
         MediaLot::Show => input.show_specifics.is_none(),
         MediaLot::Book => input.book_specifics.is_none(),
@@ -468,10 +473,6 @@ fn get_data_for_custom_metadata(
         audio_book_specifics: ActiveValue::Set(input.audio_book_specifics),
         video_game_specifics: ActiveValue::Set(input.video_game_specifics),
         visual_novel_specifics: ActiveValue::Set(input.visual_novel_specifics),
-        free_creators: ActiveValue::Set(match free_creators.is_empty() {
-            true => None,
-            false => Some(free_creators),
-        }),
         publish_year: ActiveValue::Set(
             input
                 .publish_year
