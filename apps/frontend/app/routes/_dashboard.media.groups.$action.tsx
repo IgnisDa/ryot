@@ -1,6 +1,7 @@
 import {
 	ActionIcon,
 	Box,
+	Button,
 	Container,
 	Divider,
 	Flex,
@@ -28,13 +29,14 @@ import {
 	IconCheck,
 	IconFilter,
 	IconListCheck,
+	IconPhotoPlus,
 	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
 import {
@@ -197,6 +199,16 @@ export default function Page(props: { params: { action: string } }) {
 								<Text>Search</Text>
 							</Tabs.Tab>
 						</Tabs.List>
+						<Box ml="auto" visibleFrom="md">
+							<Button
+								component={Link}
+								variant="transparent"
+								leftSection={<IconPhotoPlus />}
+								to={$path("/media/groups/update/:action", { action: "create" })}
+							>
+								Create
+							</Button>
+						</Box>
 					</Tabs>
 					<Group wrap="nowrap">
 						<DebouncedSearchInput
