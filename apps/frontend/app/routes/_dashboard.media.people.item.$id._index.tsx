@@ -90,10 +90,9 @@ export default function Page() {
 			null,
 	);
 
-	const totalMetadata =
-		personDetails.data?.details.associatedMetadataCount || 0;
+	const totalMetadata = personDetails.data?.associatedMetadata.length || 0;
 	const totalMetadataGroups =
-		personDetails.data?.details.associatedMetadataGroupsCount || 0;
+		personDetails.data?.associatedMetadataGroups.length || 0;
 	const additionalPersonDetails = [
 		totalMetadata ? `${totalMetadata} media items` : null,
 		totalMetadataGroups ? `${totalMetadataGroups} groups` : null,
