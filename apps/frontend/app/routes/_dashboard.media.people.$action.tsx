@@ -51,7 +51,7 @@ import {
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { PersonDisplayItem } from "~/components/media/display-items";
-import { useCoreDetails } from "~/lib/shared/hooks";
+import { useCoreDetails, useUserPeopleList } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
 	convertEnumToSelectData,
@@ -132,14 +132,8 @@ export default function Page(props: { params: { action: string } }) {
 		[listFilters],
 	);
 
-	const { data: userPeopleList, refetch: refetchUserPeopleList } = useQuery({
-		enabled: action === "list",
-		queryKey: queryFactory.media.userPeopleList(listInput).queryKey,
-		queryFn: () =>
-			clientGqlService
-				.request(UserPeopleListDocument, { input: listInput })
-				.then((data) => data.userPeopleList),
-	});
+	const { data: userPeopleList, refetch: refetchUserPeopleList } =
+		useUserPeopleList(listInput, action === "list");
 
 	const searchInput = useMemo(
 		() => ({

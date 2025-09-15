@@ -14,6 +14,12 @@ import {
 	type MetadataProgressUpdateInput,
 	UpdateUserDocument,
 	UserCollectionsListDocument,
+	UserMetadataGroupsListDocument,
+	type UserMetadataGroupsListInput,
+	UserMetadataListDocument,
+	type UserMetadataListInput,
+	UserPeopleListDocument,
+	type UserPeopleListInput,
 	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -273,6 +279,45 @@ export const useUserMetadataGroupDetails = (
 		enabled,
 	});
 };
+
+export const useUserPeopleList = (
+	input: UserPeopleListInput,
+	enabled?: boolean,
+) =>
+	useQuery({
+		enabled,
+		queryKey: queryFactory.media.userPeopleList(input).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(UserPeopleListDocument, { input })
+				.then((data) => data.userPeopleList),
+	});
+
+export const useUserMetadataList = (
+	input: UserMetadataListInput,
+	enabled?: boolean,
+) =>
+	useQuery({
+		enabled,
+		queryKey: queryFactory.media.userMetadataList(input).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(UserMetadataListDocument, { input })
+				.then((data) => data.userMetadataList),
+	});
+
+export const useUserMetadataGroupList = (
+	input: UserMetadataGroupsListInput,
+	enabled?: boolean,
+) =>
+	useQuery({
+		enabled,
+		queryKey: queryFactory.media.userMetadataGroupsList(input).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(UserMetadataGroupsListDocument, { input })
+				.then((data) => data.userMetadataGroupsList),
+	});
 
 export const useDashboardLayoutData = () => {
 	const loaderData =

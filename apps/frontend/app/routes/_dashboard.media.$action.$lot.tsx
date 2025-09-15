@@ -58,7 +58,7 @@ import {
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
 import { dayjsLib, getStartTimeFromRange } from "~/lib/shared/date-utils";
-import { useCoreDetails } from "~/lib/shared/hooks";
+import { useCoreDetails, useUserMetadataList } from "~/lib/shared/hooks";
 import { getLot } from "~/lib/shared/media-utils";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
@@ -187,16 +187,8 @@ export default function Page(props: {
 		[lot, searchFilters],
 	);
 
-	const { data: userMetadataList, refetch: refetchUserMetadataList } = useQuery(
-		{
-			enabled: action === "list",
-			queryKey: queryFactory.media.userMetadataList(listInput).queryKey,
-			queryFn: () =>
-				clientGqlService
-					.request(UserMetadataListDocument, { input: listInput })
-					.then((data) => data.userMetadataList),
-		},
-	);
+	const { data: userMetadataList, refetch: refetchUserMetadataList } =
+		useUserMetadataList(listInput, action === "list");
 
 	const { data: metadataSearch } = useQuery({
 		enabled: action === "search",
