@@ -1,7 +1,6 @@
 import {
 	ActionIcon,
 	Box,
-	Button,
 	Checkbox,
 	Container,
 	Divider,
@@ -40,7 +39,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
 import {
