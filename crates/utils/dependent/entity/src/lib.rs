@@ -137,6 +137,10 @@ pub async fn change_metadata_associations(
         .filter(metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion))
         .exec(&ss.db)
         .await?;
+    MetadataToMetadataGroup::delete_many()
+        .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
+        .exec(&ss.db)
+        .await?;
 
     for (index, person) in people.into_iter().enumerate() {
         let role = person.role.clone();
@@ -224,6 +228,22 @@ pub async fn insert_metadata_person_links(
             person_id: ActiveValue::Set(person_id),
             character: ActiveValue::Set(character),
             metadata_id: ActiveValue::Set(metadata_id.clone()),
+        };
+        intermediate.insert(&ss.db).await.ok();
+    }
+    Ok(())
+}
+
+pub async fn insert_metadata_group_links(
+    ss: &Arc<SupportingService>,
+    metadata_id: &String,
+    links: Vec<(String, Option<i32>)>,
+) -> Result<()> {
+    for (metadata_group_id, part) in links.into_iter() {
+        let intermediate = metadata_to_metadata_group::ActiveModel {
+            part: ActiveValue::Set(part.unwrap_or(0)),
+            metadata_id: ActiveValue::Set(metadata_id.clone()),
+            metadata_group_id: ActiveValue::Set(metadata_group_id),
         };
         intermediate.insert(&ss.db).await.ok();
     }

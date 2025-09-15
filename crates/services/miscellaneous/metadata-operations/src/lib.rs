@@ -7,17 +7,19 @@ use common_utils::ryot_log;
 use database_models::{
     collection, collection_entity_membership, collection_to_entity,
     functions::get_user_to_entity_association,
-    metadata, metadata_group, metadata_to_genre, person,
+    metadata, metadata_group, metadata_to_genre, metadata_to_metadata_group, person,
     prelude::{
         Collection, CollectionEntityMembership, CollectionToEntity, Metadata, MetadataGroup,
-        MetadataToGenre, Review, Seen, UserToEntity,
+        MetadataToGenre, MetadataToMetadataGroup, Review, Seen, UserToEntity,
     },
     review, seen, user_to_entity,
 };
 use database_utils::entity_in_collections_with_collection_to_entity_ids;
 use dependent_collection_utils::{add_entities_to_collection, remove_entities_from_collection};
 use dependent_details_utils::metadata_details;
-use dependent_entity_utils::{change_metadata_associations, insert_metadata_person_links};
+use dependent_entity_utils::{
+    change_metadata_associations, insert_metadata_group_links, insert_metadata_person_links,
+};
 use dependent_notification_utils::send_notification_for_user;
 use dependent_seen_utils::is_metadata_finished_by_user;
 use dependent_utility_utils::{
@@ -192,6 +194,14 @@ pub async fn create_custom_metadata(
         ss,
     )
     .await?;
+    if let Some(groups) = input.groups.clone() {
+        let links = groups
+            .into_iter()
+            .enumerate()
+            .map(|(idx, group_id)| (group_id, Some(idx as i32)))
+            .collect();
+        insert_metadata_group_links(ss, &metadata.id, links).await?;
+    }
     if let Some(creators) = input.creators.clone() {
         let links = creators
             .into_iter()
@@ -247,6 +257,10 @@ pub async fn update_custom_metadata(
         get_data_for_custom_metadata(input.update.clone(), metadata.identifier, user_id);
     new_metadata.id = ActiveValue::Unchanged(input.existing_metadata_id);
     let metadata = new_metadata.update(&ss.db).await?;
+    MetadataToMetadataGroup::delete_many()
+        .filter(metadata_to_metadata_group::Column::MetadataId.eq(&metadata.id))
+        .exec(&ss.db)
+        .await?;
     change_metadata_associations(
         &metadata.id,
         input.update.genres.unwrap_or_default(),
@@ -256,6 +270,14 @@ pub async fn update_custom_metadata(
         ss,
     )
     .await?;
+    if let Some(groups) = input.update.groups.clone() {
+        let links = groups
+            .into_iter()
+            .enumerate()
+            .map(|(idx, group_id)| (group_id, Some(idx as i32)))
+            .collect();
+        insert_metadata_group_links(ss, &metadata.id, links).await?;
+    }
     if let Some(creators) = input.update.creators.clone() {
         let links = creators
             .into_iter()

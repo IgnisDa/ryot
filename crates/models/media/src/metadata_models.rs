@@ -228,6 +228,7 @@ pub struct CreateCustomMetadataInput {
     pub description: Option<String>,
     pub genres: Option<Vec<String>>,
     pub creators: Option<Vec<String>>,
+    pub groups: Option<Vec<String>>,
     pub publish_date: Option<NaiveDate>,
     pub show_specifics: Option<ShowSpecifics>,
     pub book_specifics: Option<BookSpecifics>,
