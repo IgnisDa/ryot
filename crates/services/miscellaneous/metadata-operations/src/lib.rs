@@ -300,6 +300,7 @@ pub async fn create_custom_metadata_group(
 ) -> Result<metadata_group::Model> {
     let identifier = nanoid!(10);
     let new_group = metadata_group::ActiveModel {
+        parts: ActiveValue::Set(1),
         lot: ActiveValue::Set(input.lot),
         title: ActiveValue::Set(input.title),
         assets: ActiveValue::Set(input.assets),
@@ -307,7 +308,6 @@ pub async fn create_custom_metadata_group(
         is_partial: ActiveValue::Set(Some(false)),
         source: ActiveValue::Set(MediaSource::Custom),
         description: ActiveValue::Set(input.description),
-        parts: ActiveValue::Set(0),
         created_by_user_id: ActiveValue::Set(Some(user_id.clone())),
         ..Default::default()
     };
@@ -348,6 +348,7 @@ pub async fn create_custom_person(
         identifier: ActiveValue::Set(identifier),
         is_partial: ActiveValue::Set(Some(false)),
         source: ActiveValue::Set(MediaSource::Custom),
+        associated_metadata_count: ActiveValue::Set(1),
         birth_date: ActiveValue::Set(input.birth_date),
         death_date: ActiveValue::Set(input.death_date),
         description: ActiveValue::Set(input.description),
@@ -399,6 +400,7 @@ pub async fn update_custom_metadata_group(
         file_storage_service::delete_object(ss, video).await?;
     }
     let new_group = metadata_group::ActiveModel {
+        parts: ActiveValue::Set(1),
         lot: ActiveValue::Set(input.update.lot),
         is_partial: ActiveValue::Set(Some(false)),
         title: ActiveValue::Set(input.update.title),
@@ -441,6 +443,7 @@ pub async fn update_custom_person(
         place: ActiveValue::Set(input.update.place),
         assets: ActiveValue::Set(input.update.assets),
         gender: ActiveValue::Set(input.update.gender),
+        associated_metadata_count: ActiveValue::Set(1),
         website: ActiveValue::Set(input.update.website),
         id: ActiveValue::Unchanged(input.existing_person_id),
         birth_date: ActiveValue::Set(input.update.birth_date),
