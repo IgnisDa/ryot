@@ -6,6 +6,7 @@ import {
 	FileInput,
 	Group,
 	JsonInput,
+	MultiSelect,
 	NumberInput,
 	Select,
 	Stack,
@@ -20,6 +21,7 @@ import { notifications } from "@mantine/notifications";
 import {
 	CreateCustomMetadataDocument,
 	MediaLot,
+	MediaSource,
 	UpdateCustomMetadataDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { camelCase, parseParameters, parseSearchQuery } from "@ryot/ts-utils";
@@ -35,7 +37,11 @@ import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { z } from "zod";
-import { useCoreDetails, useMetadataDetails } from "~/lib/shared/hooks";
+import {
+	useCoreDetails,
+	useMetadataDetails,
+	useUserPeopleList,
+} from "~/lib/shared/hooks";
 import {
 	clientGqlService,
 	refreshEntityDetails,
@@ -82,18 +88,18 @@ export default function Page() {
 
 	const form = useForm({
 		initialValues: {
-			id: (loaderData.query.id as string | undefined) || "",
 			title: "",
-			lot: (loaderData.query.lot as string | undefined) || "",
+			genres: "",
 			isNsfw: false,
 			specifics: "{}",
 			description: "",
+			publishDate: "",
 			images: [] as File[],
 			videos: [] as File[],
-			publishDate: "",
+			creators: [] as string[],
 			publishYear: undefined as number | undefined,
-			creators: "",
-			genres: "",
+			id: (loaderData.query.id as string | undefined) || "",
+			lot: (loaderData.query.lot as string | undefined) || "",
 		},
 	});
 
@@ -111,25 +117,28 @@ export default function Page() {
 				details.videoGameSpecifics ||
 				details.musicSpecifics;
 			form.initialize({
+				images: [],
+				videos: [],
 				id: details.id || "",
 				title: details.title || "",
 				lot: (details.lot as string) || "",
 				isNsfw: Boolean(details.isNsfw),
-				specifics: specifics ? JSON.stringify(specifics) : "{}",
 				description: details.description || "",
-				images: [],
-				videos: [],
 				publishDate: details.publishDate || "",
 				publishYear: details.publishYear || undefined,
-				creators:
-					details.creators
-						?.flatMap((c) => c.items)
-						.map((c) => c.idOrName)
-						.join(", ") || "",
+				specifics: specifics ? JSON.stringify(specifics) : "{}",
 				genres: details.genres?.map((g) => g.name).join(", ") || "",
+				creators:
+					details.creators?.flatMap((c) => c.items).map((c) => c.idOrName) ||
+					[],
 			});
 		}
 	}, [details, loaderData.action]);
+
+	const { data: peopleList } = useUserPeopleList({
+		filter: { source: MediaSource.Custom },
+		search: { take: Number.MAX_SAFE_INTEGER },
+	});
 
 	const createMutation = useMutation({
 		mutationFn: async (values: typeof form.values) => {
@@ -145,23 +154,21 @@ export default function Page() {
 				lot: values.lot as MediaLot,
 				isNsfw: values.isNsfw || undefined,
 				description: values.description || undefined,
+				publishDate: values.publishDate || undefined,
+				publishYear: values.publishYear || undefined,
 				[specificsKey]: values.specifics
 					? JSON.parse(values.specifics)
 					: undefined,
-				creators: values.creators
-					? values.creators
-							.split(",")
-							.map((s) => s.trim())
-							.filter(Boolean)
-					: undefined,
+				creators:
+					values.creators && values.creators.length > 0
+						? values.creators
+						: undefined,
 				genres: values.genres
 					? values.genres
 							.split(",")
 							.map((s) => s.trim())
 							.filter(Boolean)
 					: undefined,
-				publishDate: values.publishDate || undefined,
-				publishYear: values.publishYear || undefined,
 				assets: {
 					s3Images,
 					s3Videos,
@@ -206,23 +213,21 @@ export default function Page() {
 				lot: values.lot as MediaLot,
 				isNsfw: values.isNsfw || undefined,
 				description: values.description || undefined,
+				publishDate: values.publishDate || undefined,
+				publishYear: values.publishYear || undefined,
 				[specificsKey]: values.specifics
 					? JSON.parse(values.specifics)
 					: undefined,
-				creators: values.creators
-					? values.creators
-							.split(",")
-							.map((s) => s.trim())
-							.filter(Boolean)
-					: undefined,
+				creators:
+					values.creators && values.creators.length > 0
+						? values.creators
+						: undefined,
 				genres: values.genres
 					? values.genres
 							.split(",")
 							.map((s) => s.trim())
 							.filter(Boolean)
 					: undefined,
-				publishDate: values.publishDate || undefined,
-				publishYear: values.publishYear || undefined,
 				assets: {
 					s3Images,
 					s3Videos,
@@ -359,10 +364,15 @@ export default function Page() {
 							{...form.getInputProps("publishYear")}
 						/>
 					</Group>
-					<TextInput
+					<MultiSelect
+						clearable
+						searchable
 						label="Creators"
-						placeholder="Comma separated names"
-						{...form.getInputProps("creators")}
+						hidePickedOptions
+						value={form.values.creators}
+						placeholder="Select or type creators"
+						data={peopleList?.response.items || []}
+						onChange={(v) => form.setFieldValue("creators", v)}
 					/>
 					<TextInput
 						label="Genres"
