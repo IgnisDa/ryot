@@ -44,12 +44,14 @@ pub async fn deploy_background_job(
     job_name: BackgroundJob,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
-    match job_name {
-        BackgroundJob::UpdateAllExercises | BackgroundJob::PerformBackgroundTasks => {
-            admin_account_guard(user_id, ss).await?;
-        }
-        _ => {}
+    let requires_admin = matches!(
+        job_name,
+        BackgroundJob::UpdateAllExercises | BackgroundJob::PerformBackgroundTasks
+    );
+    if requires_admin {
+        admin_account_guard(user_id, ss).await?;
     }
+
     match job_name {
         BackgroundJob::UpdateAllExercises => {
             ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateExerciseLibrary))
