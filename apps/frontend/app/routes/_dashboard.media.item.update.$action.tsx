@@ -424,7 +424,7 @@ export default function Page() {
 						data={peopleListData.data}
 						value={form.values.creatorIds}
 						placeholder="Select or type creators"
-						onChange={(v) => form.setFieldValue("creators", v)}
+						onChange={(v) => form.setFieldValue("creatorIds", v)}
 					/>
 					{userPreferences.featuresEnabled.media.groups ? (
 						<MultiSelect
@@ -435,7 +435,7 @@ export default function Page() {
 							data={groupsListData.data}
 							placeholder="Select groups"
 							value={form.values.groupIds}
-							onChange={(v) => form.setFieldValue("groups", v)}
+							onChange={(v) => form.setFieldValue("groupIds", v)}
 						/>
 					) : null}
 					<TextInput
