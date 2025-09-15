@@ -16,7 +16,7 @@ import {
 	UpdateCustomMetadataGroupDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
-import { IconPhoto, IconVideo } from "@tabler/icons-react";
+import { IconPhoto } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useLoaderData, useNavigate } from "react-router";
@@ -220,22 +220,7 @@ export default function Page() {
 							}
 						/>
 					) : null}
-					{!fileUploadNotAllowed ? (
-						<FileInput
-							multiple
-							label="Videos"
-							accept="video/*"
-							leftSection={<IconVideo />}
-							value={form.values.videos}
-							onChange={(files) =>
-								form.setFieldValue("videos", (files as File[]) || [])
-							}
-							description={
-								details &&
-								"Please re-upload the videos while updating the group, old ones will be deleted"
-							}
-						/>
-					) : null}
+
 					<Button
 						type="submit"
 						loading={createMutation.isPending || updateMutation.isPending}
