@@ -406,6 +406,7 @@ export type CreateCustomMetadataInput = {
   creators?: InputMaybe<Array<Scalars['String']['input']>>;
   description?: InputMaybe<Scalars['String']['input']>;
   genres?: InputMaybe<Array<Scalars['String']['input']>>;
+  groups?: InputMaybe<Array<Scalars['String']['input']>>;
   isNsfw?: InputMaybe<Scalars['Boolean']['input']>;
   lot: MediaLot;
   mangaSpecifics?: InputMaybe<MangaSpecificsInput>;
