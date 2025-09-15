@@ -209,7 +209,7 @@ export const useUserMetadataDetails = (
 	});
 };
 
-export const usePersonDetails = (personId: string, enabled?: boolean) => {
+export const usePersonDetails = (personId?: string, enabled?: boolean) => {
 	const query = useQuery({ ...getPersonDetailsQuery(personId), enabled });
 
 	const { isPartialStatusActive } = usePartialStatusMonitor({
