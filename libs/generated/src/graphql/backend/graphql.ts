@@ -2955,6 +2955,7 @@ export type UserMetadataGroupDetails = {
 
 export type UserMetadataGroupsListInput = {
   filter?: InputMaybe<MediaFilter>;
+  lot?: InputMaybe<MediaLot>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<PersonSortInput>;
 };
