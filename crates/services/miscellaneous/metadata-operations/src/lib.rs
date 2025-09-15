@@ -271,7 +271,7 @@ pub async fn create_custom_metadata_group(
         is_partial: ActiveValue::Set(Some(false)),
         source: ActiveValue::Set(MediaSource::Custom),
         description: ActiveValue::Set(input.description),
-        parts: ActiveValue::Set(input.parts.unwrap_or(0)),
+        parts: ActiveValue::Set(0),
         created_by_user_id: ActiveValue::Set(Some(user_id.clone())),
         ..Default::default()
     };
@@ -368,7 +368,6 @@ pub async fn update_custom_metadata_group(
         title: ActiveValue::Set(input.update.title),
         assets: ActiveValue::Set(input.update.assets),
         description: ActiveValue::Set(input.update.description),
-        parts: ActiveValue::Set(input.update.parts.unwrap_or(0)),
         id: ActiveValue::Unchanged(input.existing_metadata_group_id),
         ..Default::default()
     };

@@ -395,7 +395,6 @@ export type CreateCustomMetadataGroupInput = {
   assets: EntityAssetsInput;
   description?: InputMaybe<Scalars['String']['input']>;
   lot: MediaLot;
-  parts?: InputMaybe<Scalars['Int']['input']>;
   title: Scalars['String']['input'];
 };
 

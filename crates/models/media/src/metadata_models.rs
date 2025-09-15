@@ -189,7 +189,6 @@ pub struct CommitMetadataGroupInput {
 pub struct CreateCustomMetadataGroupInput {
     pub title: String,
     pub lot: MediaLot,
-    pub parts: Option<i32>,
     pub assets: EntityAssets,
     pub description: Option<String>,
 }

@@ -2,8 +2,6 @@ import {
 	Button,
 	Container,
 	FileInput,
-	Group,
-	NumberInput,
 	Select,
 	Stack,
 	TextInput,
@@ -75,7 +73,6 @@ export default function Page() {
 			id: (loaderData.query.id as string | undefined) || "",
 			title: "",
 			lot: (loaderData.query.lot as string | undefined) || "",
-			parts: undefined as number | undefined,
 			description: "",
 			images: [] as File[],
 			videos: [] as File[],
@@ -88,7 +85,6 @@ export default function Page() {
 				id: details.details.id,
 				title: details.details.title || "",
 				lot: (details.details.lot as string) || "",
-				parts: details.details.parts || undefined,
 				description: details.details.description || "",
 				images: [],
 				videos: [],
@@ -107,7 +103,6 @@ export default function Page() {
 			const input = {
 				title: values.title,
 				lot: values.lot as MediaLot,
-				parts: values.parts || undefined,
 				description: values.description || undefined,
 				assets: {
 					s3Images,
@@ -150,7 +145,6 @@ export default function Page() {
 			const update = {
 				title: values.title,
 				lot: values.lot as MediaLot,
-				parts: values.parts || undefined,
 				description: values.description || undefined,
 				assets: {
 					s3Images,
@@ -199,19 +193,12 @@ export default function Page() {
 						label="Title"
 						{...form.getInputProps("title")}
 					/>
-					<Group wrap="nowrap">
-						<Select
-							required
-							label="Type"
-							data={convertEnumToSelectData(MediaLot)}
-							{...form.getInputProps("lot")}
-						/>
-						<NumberInput
-							label="Parts"
-							placeholder="Number of items in the group"
-							{...form.getInputProps("parts")}
-						/>
-					</Group>
+					<Select
+						required
+						label="Type"
+						data={convertEnumToSelectData(MediaLot)}
+						{...form.getInputProps("lot")}
+					/>
 					<Textarea
 						label="Description"
 						description="Markdown is supported"
