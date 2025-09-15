@@ -75,19 +75,17 @@ export default function Page() {
 			lot: (loaderData.query.lot as string | undefined) || "",
 			description: "",
 			images: [] as File[],
-			videos: [] as File[],
 		},
 	});
 
 	useEffect(() => {
 		if (loaderData.action === Action.Edit && details) {
 			form.initialize({
+				images: [],
 				id: details.details.id,
 				title: details.details.title || "",
 				lot: (details.details.lot as string) || "",
 				description: details.details.description || "",
-				images: [],
-				videos: [],
 			});
 		}
 	}, [details, loaderData.action]);
@@ -97,16 +95,13 @@ export default function Page() {
 			const s3Images = await Promise.all(
 				values.images.map((f) => clientSideFileUpload(f, "metadata-group")),
 			);
-			const s3Videos = await Promise.all(
-				values.videos.map((f) => clientSideFileUpload(f, "metadata-group")),
-			);
 			const input = {
 				title: values.title,
 				lot: values.lot as MediaLot,
 				description: values.description || undefined,
 				assets: {
 					s3Images,
-					s3Videos,
+					s3Videos: [],
 					remoteImages: [],
 					remoteVideos: [],
 				},
@@ -139,16 +134,13 @@ export default function Page() {
 			const s3Images = await Promise.all(
 				values.images.map((f) => clientSideFileUpload(f, "metadata-group")),
 			);
-			const s3Videos = await Promise.all(
-				values.videos.map((f) => clientSideFileUpload(f, "metadata-group")),
-			);
 			const update = {
 				title: values.title,
 				lot: values.lot as MediaLot,
 				description: values.description || undefined,
 				assets: {
 					s3Images,
-					s3Videos,
+					s3Videos: [],
 					remoteImages: [],
 					remoteVideos: [],
 				},
