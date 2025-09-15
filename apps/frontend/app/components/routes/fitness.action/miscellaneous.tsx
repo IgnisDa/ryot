@@ -246,7 +246,7 @@ export const UploadAssetsModal = (props: {
 
 	const { data: exerciseDetails } = useExerciseDetails(
 		exercise?.exerciseId || "",
-		exercise !== null,
+		!!exercise?.exerciseId,
 	);
 
 	const imagesToDisplay = isString(props.modalOpenedBy)
