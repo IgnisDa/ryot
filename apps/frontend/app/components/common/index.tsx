@@ -47,7 +47,7 @@ import {
 	IconPhotoPlus,
 	IconX,
 } from "@tabler/icons-react";
-import { useMemo, type CSSProperties, type ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useMemo } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
