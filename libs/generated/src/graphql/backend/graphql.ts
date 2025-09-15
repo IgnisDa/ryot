@@ -129,8 +129,7 @@ export enum BackgroundJob {
   PerformBackgroundTasks = 'PERFORM_BACKGROUND_TASKS',
   ReviseUserWorkouts = 'REVISE_USER_WORKOUTS',
   SyncIntegrationsData = 'SYNC_INTEGRATIONS_DATA',
-  UpdateAllExercises = 'UPDATE_ALL_EXERCISES',
-  UpdateAllMetadata = 'UPDATE_ALL_METADATA'
+  UpdateAllExercises = 'UPDATE_ALL_EXERCISES'
 }
 
 export type BasicUserDetails = {

@@ -3,9 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
 use common_models::BackgroundJob;
-use database_models::{metadata, prelude::Metadata};
 use database_utils::admin_account_guard;
-use sea_orm::{EntityTrait, QueryOrder, QuerySelect, prelude::Expr};
 use supporting_service::SupportingService;
 
 pub async fn deploy_update_metadata_job(
@@ -47,30 +45,12 @@ pub async fn deploy_background_job(
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
     match job_name {
-        BackgroundJob::UpdateAllMetadata
-        | BackgroundJob::UpdateAllExercises
-        | BackgroundJob::PerformBackgroundTasks => {
+        BackgroundJob::UpdateAllExercises | BackgroundJob::PerformBackgroundTasks => {
             admin_account_guard(user_id, ss).await?;
         }
         _ => {}
     }
     match job_name {
-        BackgroundJob::UpdateAllMetadata => {
-            Metadata::update_many()
-                .col_expr(metadata::Column::IsPartial, Expr::value(true))
-                .exec(&ss.db)
-                .await?;
-            let many_metadata = Metadata::find()
-                .select_only()
-                .column(metadata::Column::Id)
-                .order_by_asc(metadata::Column::LastUpdatedOn)
-                .into_tuple::<String>()
-                .all(&ss.db)
-                .await?;
-            for metadata_id in many_metadata {
-                deploy_update_metadata_job(&metadata_id, ss).await?;
-            }
-        }
         BackgroundJob::UpdateAllExercises => {
             ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateExerciseLibrary))
                 .await?;

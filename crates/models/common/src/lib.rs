@@ -212,7 +212,6 @@ meta! {
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum BackgroundJob {
-    UpdateAllMetadata,
     ReviseUserWorkouts,
     UpdateAllExercises,
     SyncIntegrationsData,

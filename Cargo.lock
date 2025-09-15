@@ -2135,10 +2135,8 @@ dependencies = [
  "anyhow",
  "background-models",
  "common-models",
- "database-models",
  "database-utils",
  "rust_decimal",
- "sea-orm",
  "supporting-service",
  "tracing",
 ]

@@ -104,15 +104,6 @@ export default function Page() {
 const getJobDetails = (job: BackgroundJob) =>
 	match(job)
 		.with(
-			BackgroundJob.UpdateAllMetadata,
-			() =>
-				[
-					"Update all metadata",
-					"Fetch and update the metadata for all the media items that are stored. The more media you have, the longer this will take. This also updates people and group data from remote providers.",
-					true,
-				] as const,
-		)
-		.with(
 			BackgroundJob.UpdateAllExercises,
 			() =>
 				[
