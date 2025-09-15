@@ -317,6 +317,7 @@ query MetadataGroupDetails($metadataGroupId: String!) {
 				sourceUrl
 				identifier
 				description
+				createdByUserId
 				assets {
 					...EntityAssetsPart
 				}
