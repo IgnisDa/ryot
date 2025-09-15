@@ -61,7 +61,7 @@ export const loader = async ({ params, request }: Route.LoaderArgs) => {
 };
 
 export const meta = () => {
-	return [{ title: "Create Exercise | Ryot" }];
+	return [{ title: "Create Or Update Exercise | Ryot" }];
 };
 
 export default function Page() {

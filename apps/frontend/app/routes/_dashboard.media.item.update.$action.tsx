@@ -66,7 +66,7 @@ export const loader = async ({ params, request }: Route.LoaderArgs) => {
 };
 
 export const meta = () => {
-	return [{ title: "Create Media | Ryot" }];
+	return [{ title: "Create Or Update Media | Ryot" }];
 };
 
 export default function Page() {
