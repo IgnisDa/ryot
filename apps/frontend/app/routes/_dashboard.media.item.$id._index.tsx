@@ -926,7 +926,7 @@ export default function Page() {
 												component={Link}
 												variant="outline"
 												to={$path(
-													"/media/update/:action",
+													"/media/item/update/:action",
 													{ action: "edit" },
 													{ id: metadataDetails.data.id },
 												)}

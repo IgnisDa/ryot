@@ -275,7 +275,7 @@ export default function Page(props: {
 								variant="transparent"
 								leftSection={<IconPhotoPlus />}
 								to={$path(
-									"/media/update/:action",
+									"/media/item/update/:action",
 									{ action: "create" },
 									{ lot },
 								)}

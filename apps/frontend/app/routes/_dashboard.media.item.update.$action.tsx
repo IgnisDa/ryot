@@ -42,7 +42,7 @@ import {
 } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { clientSideFileUpload } from "~/lib/shared/ui-utils";
-import type { Route } from "./+types/_dashboard.media.update.$action";
+import type { Route } from "./+types/_dashboard.media.item.update.$action";
 
 enum Action {
 	Edit = "edit",
