@@ -40,10 +40,13 @@ import { z } from "zod";
 import {
 	useCoreDetails,
 	useMetadataDetails,
+	useUserMetadataGroupList,
 	useUserPeopleList,
+	useUserPreferences,
 } from "~/lib/shared/hooks";
 import {
 	clientGqlService,
+	getMetadataGroupDetailsQuery,
 	getPersonDetailsQuery,
 	queryClient,
 	refreshEntityDetails,
@@ -81,6 +84,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
 	const coreDetails = useCoreDetails();
+	const userPreferences = useUserPreferences();
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
 	const [{ data: details }] = useMetadataDetails(
@@ -99,6 +103,7 @@ export default function Page() {
 			images: [] as File[],
 			videos: [] as File[],
 			creators: [] as string[],
+			groups: [] as string[],
 			publishYear: undefined as number | undefined,
 			id: (loaderData.query.id as string | undefined) || "",
 			lot: (loaderData.query.lot as string | undefined) || "",
@@ -133,6 +138,9 @@ export default function Page() {
 				creators:
 					details.creators?.flatMap((c) => c.items).map((c) => c.idOrName) ||
 					[],
+				groups: details.groups
+					? [...details.groups].sort((a, b) => a.part - b.part).map((g) => g.id)
+					: [],
 			});
 		}
 	}, [details, loaderData.action]);
@@ -153,6 +161,26 @@ export default function Page() {
 				),
 			);
 			return allPeopleDetails;
+		},
+	});
+
+	const { data: groupsList } = useUserMetadataGroupList({
+		filter: { source: MediaSource.Custom },
+		search: { take: Number.MAX_SAFE_INTEGER },
+		lot: form.values.lot as MediaLot | undefined,
+	});
+
+	const groupsListData = useQuery({
+		queryKey: ["user-groups-list", groupsList, form.values.lot],
+		queryFn: async () => {
+			const allGroupDetails = await Promise.all(
+				(groupsList?.response.items || []).map((g) =>
+					queryClient
+						.ensureQueryData(getMetadataGroupDetailsQuery(g))
+						.then((r) => ({ value: r.details.id, label: r.details.title })),
+				),
+			);
+			return allGroupDetails;
 		},
 	});
 
@@ -179,6 +207,8 @@ export default function Page() {
 					values.creators && values.creators.length > 0
 						? values.creators
 						: undefined,
+				groups:
+					values.groups && values.groups.length > 0 ? values.groups : undefined,
 				genres: values.genres
 					? values.genres
 							.split(",")
@@ -238,6 +268,8 @@ export default function Page() {
 					values.creators && values.creators.length > 0
 						? values.creators
 						: undefined,
+				groups:
+					values.groups && values.groups.length > 0 ? values.groups : undefined,
 				genres: values.genres
 					? values.genres
 							.split(",")
@@ -390,6 +422,18 @@ export default function Page() {
 						placeholder="Select or type creators"
 						onChange={(v) => form.setFieldValue("creators", v)}
 					/>
+					{userPreferences.featuresEnabled.media.groups ? (
+						<MultiSelect
+							clearable
+							searchable
+							label="Groups"
+							hidePickedOptions
+							data={groupsListData.data}
+							value={form.values.groups}
+							placeholder="Select groups"
+							onChange={(v) => form.setFieldValue("groups", v)}
+						/>
+					) : null}
 					<TextInput
 						label="Genres"
 						placeholder="Comma separated values"
