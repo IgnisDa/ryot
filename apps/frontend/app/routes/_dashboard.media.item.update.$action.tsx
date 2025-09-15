@@ -31,7 +31,7 @@ import {
 	IconPhoto,
 	IconVideo,
 } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
@@ -44,6 +44,8 @@ import {
 } from "~/lib/shared/hooks";
 import {
 	clientGqlService,
+	getPersonDetailsQuery,
+	queryClient,
 	refreshEntityDetails,
 } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
@@ -138,6 +140,20 @@ export default function Page() {
 	const { data: peopleList } = useUserPeopleList({
 		filter: { source: MediaSource.Custom },
 		search: { take: Number.MAX_SAFE_INTEGER },
+	});
+
+	const peopleListData = useQuery({
+		queryKey: ["user-people-list", peopleList],
+		queryFn: async () => {
+			const allPeopleDetails = await Promise.all(
+				(peopleList?.response.items || []).map((p) =>
+					queryClient
+						.ensureQueryData(getPersonDetailsQuery(p))
+						.then((r) => ({ label: r.details.name, value: r.details.id })),
+				),
+			);
+			return allPeopleDetails;
+		},
 	});
 
 	const createMutation = useMutation({
@@ -369,9 +385,9 @@ export default function Page() {
 						searchable
 						label="Creators"
 						hidePickedOptions
+						data={peopleListData.data}
 						value={form.values.creators}
 						placeholder="Select or type creators"
-						data={peopleList?.response.items || []}
 						onChange={(v) => form.setFieldValue("creators", v)}
 					/>
 					<TextInput
