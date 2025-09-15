@@ -61,7 +61,11 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { DisplayCollectionToEntity, SkeletonLoader } from "~/components/common";
+import {
+	DisplayCollectionToEntity,
+	EditButton,
+	SkeletonLoader,
+} from "~/components/common";
 import { MediaDetailsLayout } from "~/components/common/layout";
 import {
 	DisplayThreePointReview,
@@ -95,7 +99,6 @@ import {
 	useDeployBulkMetadataProgressUpdateMutation,
 	useMetadataDetails,
 	useMetadataGroupDetails,
-	useUserDetails,
 	useUserMetadataDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -219,7 +222,6 @@ const editSeenItem = z.object({
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
-	const userDetails = useUserDetails();
 	const submit = useConfirmSubmit();
 
 	const [metadataDetails, isMetadataPartialStatusActive] = useMetadataDetails(
@@ -227,9 +229,6 @@ export default function Page() {
 	);
 	const userMetadataDetails = useUserMetadataDetails(loaderData.metadataId);
 
-	const canCurrentUserUpdate =
-		metadataDetails.data?.source === MediaSource.Custom &&
-		userDetails.id === metadataDetails.data?.createdByUserId;
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
 	);
@@ -921,19 +920,15 @@ export default function Page() {
 												/>
 											</Menu.Dropdown>
 										</Menu>
-										{canCurrentUserUpdate ? (
-											<Button
-												component={Link}
-												variant="outline"
-												to={$path(
-													"/media/item/update/:action",
-													{ action: "edit" },
-													{ id: metadataDetails.data.id },
-												)}
-											>
-												Edit metadata
-											</Button>
-										) : null}
+										{metadataDetails.data && (
+											<EditButton
+												editRouteType="media"
+												label="Edit metadata"
+												entityId={metadataDetails.data.id}
+												source={metadataDetails.data.source}
+												createdByUserId={metadataDetails.data.createdByUserId}
+											/>
+										)}
 									</SimpleGrid>
 								</MediaScrollArea>
 							</Tabs.Panel>
