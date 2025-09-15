@@ -68,17 +68,16 @@ export default function Page() {
 
 	const form = useForm({
 		initialValues: {
-			id: (loaderData.query.id as string | undefined) || "",
 			name: "",
-			alternateNames: "",
-			description: "",
-			birthDate: "",
-			deathDate: "",
-			gender: "",
 			place: "",
+			gender: "",
 			website: "",
+			deathDate: "",
+			birthDate: "",
+			description: "",
+			alternateNames: "",
 			images: [] as File[],
-			videos: [] as File[],
+			id: (loaderData.query.id as string | undefined) || "",
 		},
 		validate: {
 			name: (value) => (value.trim() ? null : "Name is required"),
@@ -105,17 +104,16 @@ export default function Page() {
 	useEffect(() => {
 		if (loaderData.action === Action.Edit && details?.details) {
 			form.initialize({
+				images: [],
 				id: details.details.id || "",
 				name: details.details.name || "",
-				alternateNames: details.details.alternateNames?.join(", ") || "",
-				description: details.details.description || "",
-				birthDate: details.details.birthDate || "",
-				deathDate: details.details.deathDate || "",
-				gender: details.details.gender || "",
 				place: details.details.place || "",
+				gender: details.details.gender || "",
 				website: details.details.website || "",
-				images: [],
-				videos: [],
+				deathDate: details.details.deathDate || "",
+				birthDate: details.details.birthDate || "",
+				description: details.details.description || "",
+				alternateNames: details.details.alternateNames?.join(", ") || "",
 			});
 		}
 	}, [details, loaderData.action]);
@@ -125,26 +123,23 @@ export default function Page() {
 			const s3Images = await Promise.all(
 				values.images.map((f) => clientSideFileUpload(f, "person")),
 			);
-			const s3Videos = await Promise.all(
-				values.videos.map((f) => clientSideFileUpload(f, "person")),
-			);
 			const input = {
 				name: values.name,
+				place: values.place || undefined,
+				gender: values.gender || undefined,
+				website: values.website || undefined,
+				birthDate: values.birthDate || undefined,
+				deathDate: values.deathDate || undefined,
+				description: values.description || undefined,
 				alternateNames: values.alternateNames
 					? values.alternateNames
 							.split(",")
 							.map((s) => s.trim())
 							.filter(Boolean)
 					: undefined,
-				description: values.description || undefined,
-				birthDate: values.birthDate || undefined,
-				deathDate: values.deathDate || undefined,
-				gender: values.gender || undefined,
-				place: values.place || undefined,
-				website: values.website || undefined,
 				assets: {
 					s3Images,
-					s3Videos,
+					s3Videos: [],
 					remoteImages: [],
 					remoteVideos: [],
 				},
@@ -177,26 +172,23 @@ export default function Page() {
 			const s3Images = await Promise.all(
 				values.images.map((f) => clientSideFileUpload(f, "person")),
 			);
-			const s3Videos = await Promise.all(
-				values.videos.map((f) => clientSideFileUpload(f, "person")),
-			);
 			const update = {
 				name: values.name,
+				place: values.place || undefined,
+				gender: values.gender || undefined,
+				website: values.website || undefined,
+				deathDate: values.deathDate || undefined,
+				birthDate: values.birthDate || undefined,
+				description: values.description || undefined,
 				alternateNames: values.alternateNames
 					? values.alternateNames
 							.split(",")
 							.map((s) => s.trim())
 							.filter(Boolean)
 					: undefined,
-				description: values.description || undefined,
-				birthDate: values.birthDate || undefined,
-				deathDate: values.deathDate || undefined,
-				gender: values.gender || undefined,
-				place: values.place || undefined,
-				website: values.website || undefined,
 				assets: {
 					s3Images,
-					s3Videos,
+					s3Videos: [],
 					remoteImages: [],
 					remoteVideos: [],
 				},
