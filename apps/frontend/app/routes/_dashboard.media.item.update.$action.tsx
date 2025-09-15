@@ -102,8 +102,8 @@ export default function Page() {
 			publishDate: "",
 			images: [] as File[],
 			videos: [] as File[],
-			creators: [] as string[],
-			groups: [] as string[],
+			groupIds: [] as string[],
+			creatorIds: [] as string[],
 			publishYear: undefined as number | undefined,
 			id: (loaderData.query.id as string | undefined) || "",
 			lot: (loaderData.query.lot as string | undefined) || "",
@@ -135,10 +135,10 @@ export default function Page() {
 				publishYear: details.publishYear || undefined,
 				specifics: specifics ? JSON.stringify(specifics) : "{}",
 				genres: details.genres?.map((g) => g.name).join(", ") || "",
-				creators:
+				creatorIds:
 					details.creators?.flatMap((c) => c.items).map((c) => c.idOrName) ||
 					[],
-				groups: details.groups
+				groupIds: details.groups
 					? [...details.groups].sort((a, b) => a.part - b.part).map((g) => g.id)
 					: [],
 			});
@@ -203,12 +203,14 @@ export default function Page() {
 				[specificsKey]: values.specifics
 					? JSON.parse(values.specifics)
 					: undefined,
-				creators:
-					values.creators && values.creators.length > 0
-						? values.creators
+				creatorIds:
+					values.creatorIds && values.creatorIds.length > 0
+						? values.creatorIds
 						: undefined,
-				groups:
-					values.groups && values.groups.length > 0 ? values.groups : undefined,
+				groupIds:
+					values.groupIds && values.groupIds.length > 0
+						? values.groupIds
+						: undefined,
 				genres: values.genres
 					? values.genres
 							.split(",")
@@ -264,12 +266,14 @@ export default function Page() {
 				[specificsKey]: values.specifics
 					? JSON.parse(values.specifics)
 					: undefined,
-				creators:
-					values.creators && values.creators.length > 0
-						? values.creators
+				creatorIds:
+					values.creatorIds && values.creatorIds.length > 0
+						? values.creatorIds
 						: undefined,
-				groups:
-					values.groups && values.groups.length > 0 ? values.groups : undefined,
+				groupIds:
+					values.groupIds && values.groupIds.length > 0
+						? values.groupIds
+						: undefined,
 				genres: values.genres
 					? values.genres
 							.split(",")
@@ -418,7 +422,7 @@ export default function Page() {
 						label="Creators"
 						hidePickedOptions
 						data={peopleListData.data}
-						value={form.values.creators}
+						value={form.values.creatorIds}
 						placeholder="Select or type creators"
 						onChange={(v) => form.setFieldValue("creators", v)}
 					/>
@@ -429,8 +433,8 @@ export default function Page() {
 							label="Groups"
 							hidePickedOptions
 							data={groupsListData.data}
-							value={form.values.groups}
 							placeholder="Select groups"
+							value={form.values.groupIds}
 							onChange={(v) => form.setFieldValue("groups", v)}
 						/>
 					) : null}
