@@ -41,7 +41,10 @@ import {
 	refreshEntityDetails,
 } from "~/lib/shared/react-query";
 import { selectRandomElement } from "~/lib/shared/ui-utils";
-import { getExerciseDetailsQuery } from "~/lib/state/fitness";
+import {
+	getExerciseDetailsQuery,
+	getUserExerciseDetailsQuery,
+} from "~/lib/state/fitness";
 import {
 	type InProgressWorkout,
 	useCurrentWorkout,
@@ -227,6 +230,16 @@ export const useUserPersonDetails = (personId?: string, enabled?: boolean) => {
 export const useExerciseDetails = (exerciseId?: string, enabled?: boolean) => {
 	return useQuery({
 		...getExerciseDetailsQuery(exerciseId || ""),
+		enabled,
+	});
+};
+
+export const useUserExerciseDetails = (
+	exerciseId?: string,
+	enabled?: boolean,
+) => {
+	return useQuery({
+		...getUserExerciseDetailsQuery(exerciseId || ""),
 		enabled,
 	});
 };

@@ -6,14 +6,13 @@ import { isString } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { dayjsLib } from "~/lib/shared/date-utils";
-import { useUserPreferences } from "~/lib/shared/hooks";
+import { useUserExerciseDetails, useUserPreferences } from "~/lib/shared/hooks";
 import {
 	type CurrentWorkout,
 	type CurrentWorkoutTimer,
 	type Exercise,
 	type ExerciseSet,
 	type InProgressWorkout,
-	getUserExerciseDetailsQuery,
 	getWorkoutDetails,
 	useCurrentWorkout,
 	useCurrentWorkoutTimerAtom,
@@ -48,8 +47,8 @@ export const usePreviousSetData = (input: {
 	exerciseIdx: number;
 	currentWorkout: InProgressWorkout;
 }) => {
-	const { data: userExerciseDetails } = useQuery(
-		getUserExerciseDetailsQuery(input.exerciseId),
+	const { data: userExerciseDetails } = useUserExerciseDetails(
+		input.exerciseId,
 	);
 
 	return useQuery({

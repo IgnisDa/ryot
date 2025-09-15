@@ -6,11 +6,14 @@ import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { $path } from "safe-routes";
 import { dayjsLib } from "~/lib/shared/date-utils";
-import { useExerciseDetails, useUserDetails } from "~/lib/shared/hooks";
+import {
+	useExerciseDetails,
+	useUserDetails,
+	useUserExerciseDetails,
+} from "~/lib/shared/hooks";
 import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
 import {
 	getExerciseImages,
-	getUserExerciseDetailsQuery,
 	getWorkoutDetailsQuery,
 	getWorkoutTemplateDetailsQuery,
 } from "~/lib/state/fitness";
@@ -27,10 +30,10 @@ export const ExerciseDisplayItem = (props: {
 	const { ref, inViewport } = useInViewport();
 	const { data: exerciseDetails, isLoading: isExerciseDetailsLoading } =
 		useExerciseDetails(props.exerciseId, inViewport);
-	const { data: userExerciseDetails } = useQuery({
-		...getUserExerciseDetailsQuery(props.exerciseId),
-		enabled: inViewport,
-	});
+	const { data: userExerciseDetails } = useUserExerciseDetails(
+		props.exerciseId,
+		inViewport,
+	);
 	const times = userExerciseDetails?.details?.exerciseNumTimesInteracted;
 	const images = getExerciseImages(exerciseDetails);
 

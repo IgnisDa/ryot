@@ -71,6 +71,7 @@ import {
 	useExerciseDetails,
 	useIsFitnessActionActive,
 	useNonHiddenUserCollections,
+	useUserExerciseDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
@@ -83,7 +84,6 @@ import {
 import {
 	addExerciseToCurrentWorkout,
 	getExerciseImages,
-	getUserExerciseDetailsQuery,
 	useCurrentWorkout,
 	useMergingExercise,
 } from "~/lib/state/fitness";
@@ -420,10 +420,10 @@ const ExerciseItemDisplay = (props: {
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const { ref, inViewport } = useInViewport();
 	const { data: exercise } = useExerciseDetails(props.exerciseId, inViewport);
-	const { data: userExerciseDetails } = useQuery({
-		...getUserExerciseDetailsQuery(props.exerciseId),
-		enabled: inViewport,
-	});
+	const { data: userExerciseDetails } = useUserExerciseDetails(
+		props.exerciseId,
+		inViewport,
+	);
 
 	const firstMuscle = exercise?.muscles?.at(0);
 	const numTimesInteracted =
