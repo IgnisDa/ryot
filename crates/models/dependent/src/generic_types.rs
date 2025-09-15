@@ -149,6 +149,7 @@ pub struct UserPeopleListInput {
 
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct UserMetadataGroupsListInput {
+    pub lot: Option<MediaLot>,
     pub search: Option<SearchInput>,
     pub filter: Option<MediaFilter>,
     pub sort: Option<SortInput<PersonAndMetadataGroupsSortBy>>,

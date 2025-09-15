@@ -87,6 +87,7 @@ CREATE VIEW
   enriched_user_to_metadata_group AS
 SELECT
   ute.id,
+  mg.lot,
   mg.parts,
   mg.title,
   mg.source,

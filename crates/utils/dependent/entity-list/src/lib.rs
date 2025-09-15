@@ -324,6 +324,9 @@ pub async fn user_metadata_groups_list(
                 .select_only()
                 .column(enriched_user_to_metadata_group::Column::MetadataGroupId)
                 .filter(enriched_user_to_metadata_group::Column::UserId.eq(user_id))
+                .apply_if(input.lot, |query, v| {
+                    query.filter(enriched_user_to_metadata_group::Column::Lot.eq(v))
+                })
                 .apply_if(input.filter.clone().and_then(|f| f.source), |query, v| {
                     query.filter(enriched_user_to_metadata_group::Column::Source.eq(v))
                 })
