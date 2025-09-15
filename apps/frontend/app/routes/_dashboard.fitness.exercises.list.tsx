@@ -68,8 +68,10 @@ import {
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
+	useExerciseDetails,
 	useIsFitnessActionActive,
 	useNonHiddenUserCollections,
+	useUserExerciseDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
@@ -81,9 +83,7 @@ import {
 } from "~/lib/shared/ui-utils";
 import {
 	addExerciseToCurrentWorkout,
-	getExerciseDetailsQuery,
 	getExerciseImages,
-	getUserExerciseDetailsQuery,
 	useCurrentWorkout,
 	useMergingExercise,
 } from "~/lib/state/fitness";
@@ -199,10 +199,10 @@ export default function Page() {
 
 	const areListFiltersActive = isFilterChanged(filters, defaultFilters);
 
-	const { data: replacingExercise } = useQuery({
-		enabled: !!replacingExerciseId,
-		...getExerciseDetailsQuery(replacingExerciseId || ""),
-	});
+	const { data: replacingExercise } = useExerciseDetails(
+		replacingExerciseId || "",
+		!!replacingExerciseId,
+	);
 
 	const allowAddingExerciseToWorkout =
 		currentWorkout &&
@@ -221,7 +221,9 @@ export default function Page() {
 						color="green"
 						component={Link}
 						variant="outline"
-						to={$path("/fitness/exercises/:action", { action: "create" })}
+						to={$path("/fitness/exercises/update/:action", {
+							action: "create",
+						})}
 					>
 						<IconPlus size={16} />
 					</ActionIcon>
@@ -417,14 +419,11 @@ const ExerciseItemDisplay = (props: {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const { ref, inViewport } = useInViewport();
-	const { data: exercise } = useQuery({
-		...getExerciseDetailsQuery(props.exerciseId),
-		enabled: inViewport,
-	});
-	const { data: userExerciseDetails } = useQuery({
-		...getUserExerciseDetailsQuery(props.exerciseId),
-		enabled: inViewport,
-	});
+	const { data: exercise } = useExerciseDetails(props.exerciseId, inViewport);
+	const { data: userExerciseDetails } = useUserExerciseDetails(
+		props.exerciseId,
+		inViewport,
+	);
 
 	const firstMuscle = exercise?.muscles?.at(0);
 	const numTimesInteracted =

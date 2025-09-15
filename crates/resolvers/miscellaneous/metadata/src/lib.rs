@@ -1,12 +1,8 @@
 use async_graphql::{Context, Object, Result};
-use common_models::StringIdObject;
 use dependent_models::{
     CachedResponse, UserMetadataDetails, UserMetadataListInput, UserMetadataListResponse,
 };
-use media_models::{
-    CreateCustomMetadataInput, GraphqlMetadataDetails, MarkEntityAsPartialInput,
-    UpdateCustomMetadataInput,
-};
+use media_models::{GraphqlMetadataDetails, MarkEntityAsPartialInput};
 use miscellaneous_service::MiscellaneousService;
 use traits::{AuthProvider, GraphqlResolverSvc};
 
@@ -63,27 +59,6 @@ impl GraphqlResolverSvc<MiscellaneousService> for MiscellaneousMetadataMutationR
 
 #[Object]
 impl MiscellaneousMetadataMutationResolver {
-    /// Create a custom media item.
-    async fn create_custom_metadata(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: CreateCustomMetadataInput,
-    ) -> Result<StringIdObject> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let metadata = service.create_custom_metadata(user_id, input).await?;
-        Ok(StringIdObject { id: metadata.id })
-    }
-
-    /// Update custom metadata.
-    async fn update_custom_metadata(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: UpdateCustomMetadataInput,
-    ) -> Result<bool> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.update_custom_metadata(&user_id, input).await?)
-    }
-
     /// Merge a media item into another. This will move all `seen`, `collection`
     /// and `review` associations with to the metadata.
     async fn merge_metadata(

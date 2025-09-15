@@ -26,20 +26,11 @@ import {
 	zodNumAsString,
 } from "@ryot/ts-utils";
 import { IconAt } from "@tabler/icons-react";
-import {
-	Form,
-	Link,
-	data,
-	redirect,
-	useLoaderData,
-	useSearchParams,
-} from "react-router";
-import { safeRedirect } from "remix-utils/safe-redirect";
+import { Form, Link, data, redirect, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { redirectToQueryParam } from "~/lib/shared/constants";
 import { passwordConfirmationSchema } from "~/lib/shared/validation";
 import {
 	createToastHeaders,
@@ -147,28 +138,16 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			});
 			if (loginUser.__typename === "ApiKeyResponse") {
 				const headers = await getCookiesForApplication(loginUser.apiKey);
-				const redirectTo = submission[redirectToQueryParam];
-				return redirect(
-					redirectTo
-						? safeRedirect(submission[redirectToQueryParam])
-						: $path("/"),
-					{ headers },
-				);
+				return redirect($path("/"), { headers });
 			}
 			if (loginUser.__typename === "StringIdObject") {
-				const redirectTo = submission[redirectToQueryParam];
 				const session = await twoFactorSessionStorage.getSession();
 				session.set("userId", loginUser.id);
 				const twoFactorCookie =
 					await twoFactorSessionStorage.commitSession(session);
-				return redirect(
-					redirectTo
-						? withQuery($path("/two-factor"), {
-								[redirectToQueryParam]: redirectTo,
-							})
-						: $path("/two-factor"),
-					{ headers: new Headers({ "set-cookie": twoFactorCookie }) },
-				);
+				return redirect($path("/two-factor"), {
+					headers: new Headers({ "set-cookie": twoFactorCookie }),
+				});
 			}
 			const message = match(loginUser.error)
 				.with(
@@ -204,15 +183,12 @@ const loginSchema = z.object({
 	username: z.string(),
 	password: z.string(),
 	tokenValidForDays: zodNumAsString,
-	[redirectToQueryParam]: z.string().optional(),
 });
 
 export default function Page() {
 	const [form, fields] = useForm({});
 	const loaderData = useLoaderData<typeof loader>();
 	const [parent] = useAutoAnimate();
-	const [searchParams] = useSearchParams();
-	const redirectValue = searchParams.get(redirectToQueryParam);
 	const intent = loaderData.intent;
 
 	return (
@@ -238,13 +214,6 @@ export default function Page() {
 						name="tokenValidForDays"
 						defaultValue={loaderData.tokenValidForDays}
 					/>
-					{redirectValue ? (
-						<input
-							type="hidden"
-							name={redirectToQueryParam}
-							defaultValue={redirectValue}
-						/>
-					) : null}
 					<TextInput
 						{...getInputProps(fields.username, { type: "text" })}
 						label="Username"

@@ -186,16 +186,50 @@ pub struct CommitMetadataGroupInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct CreateCustomMetadataInput {
+pub struct CreateCustomMetadataGroupInput {
     pub title: String,
     pub lot: MediaLot,
+    pub assets: EntityAssets,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct CreateCustomPersonInput {
+    pub name: String,
+    pub assets: EntityAssets,
+    pub description: Option<String>,
+    pub place: Option<String>,
+    pub gender: Option<String>,
+    pub website: Option<String>,
+    pub birth_date: Option<NaiveDate>,
+    pub death_date: Option<NaiveDate>,
+    pub alternate_names: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct UpdateCustomMetadataGroupInput {
+    pub existing_metadata_group_id: String,
+    pub update: CreateCustomMetadataGroupInput,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct UpdateCustomPersonInput {
+    pub existing_person_id: String,
+    pub update: CreateCustomPersonInput,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct CreateCustomMetadataInput {
+    pub lot: MediaLot,
+    pub title: String,
     pub assets: EntityAssets,
     pub is_nsfw: Option<bool>,
     pub publish_year: Option<i32>,
     pub description: Option<String>,
     pub genres: Option<Vec<String>>,
-    pub creators: Option<Vec<String>>,
+    pub group_ids: Option<Vec<String>>,
     pub publish_date: Option<NaiveDate>,
+    pub creator_ids: Option<Vec<String>>,
     pub show_specifics: Option<ShowSpecifics>,
     pub book_specifics: Option<BookSpecifics>,
     pub music_specifics: Option<MusicSpecifics>,

@@ -32,6 +32,7 @@ import {
 	CollectionExtraInformationLot,
 	type CollectionToEntityDetailsPartFragment,
 	EntityLot,
+	MediaSource,
 	type Scalars,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase } from "@ryot/ts-utils";
@@ -43,9 +44,10 @@ import {
 	IconChevronRight,
 	IconCopy,
 	IconPencil,
+	IconPhotoPlus,
 	IconX,
 } from "@tabler/icons-react";
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useMemo } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -58,6 +60,7 @@ import {
 	useGetRandomMantineColor,
 	useRemoveEntitiesFromCollectionMutation,
 	useUserCollections,
+	useUserDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { refreshEntityDetails } from "~/lib/shared/react-query";
@@ -629,5 +632,66 @@ export const CopyableTextInput = (props: {
 				</CopyButton>
 			}
 		/>
+	);
+};
+
+export const CreateButton = (props: { to: string }) => (
+	<Box ml="auto" visibleFrom="md">
+		<Button
+			component={Link}
+			variant="transparent"
+			leftSection={<IconPhotoPlus />}
+			to={props.to}
+		>
+			Create
+		</Button>
+	</Box>
+);
+
+interface EditButtonProps {
+	label: string;
+	entityId: string;
+	source: MediaSource;
+	createdByUserId?: string | null;
+	editRouteType: "media" | "groups" | "people";
+}
+
+export const EditButton = (props: EditButtonProps) => {
+	const userDetails = useUserDetails();
+	const canCurrentUserUpdate =
+		props.source === MediaSource.Custom &&
+		userDetails.id === props.createdByUserId;
+
+	if (!canCurrentUserUpdate) return null;
+
+	const editPath = useMemo(() => {
+		switch (props.editRouteType) {
+			case "media":
+				return $path(
+					"/media/item/update/:action",
+					{ action: "edit" },
+					{ id: props.entityId },
+				);
+			case "groups":
+				return $path(
+					"/media/groups/update/:action",
+					{ action: "edit" },
+					{ id: props.entityId },
+				);
+			case "people":
+				return $path(
+					"/media/people/update/:action",
+					{ action: "edit" },
+					{ id: props.entityId },
+				);
+			default:
+				throw new Error(`Unknown edit route type: ${props.editRouteType}`);
+		}
+	}, [props.editRouteType, props.entityId]);
+
+	return (
+		<Button component={Link} variant="outline" to={editPath}>
+			{props.label}
+		</Button>
 	);
 };

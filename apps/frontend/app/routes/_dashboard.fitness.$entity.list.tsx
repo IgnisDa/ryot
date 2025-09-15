@@ -65,6 +65,7 @@ import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
+	useExerciseDetails,
 	useGetWorkoutStarter,
 	useUserUnitSystem,
 } from "~/lib/shared/hooks";
@@ -73,10 +74,7 @@ import {
 	convertEnumToSelectData,
 	isFilterChanged,
 } from "~/lib/shared/ui-utils";
-import {
-	getDefaultWorkout,
-	getExerciseDetailsQuery,
-} from "~/lib/state/fitness";
+import { getDefaultWorkout } from "~/lib/state/fitness";
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
@@ -424,9 +422,7 @@ const DisplayStat = (props: { icon: ReactElement; data: string }) => {
 const ExerciseDisplay = (props: {
 	exercise: WorkoutSummary["exercises"][number];
 }) => {
-	const { data: exerciseDetails } = useQuery(
-		getExerciseDetailsQuery(props.exercise.id),
-	);
+	const { data: exerciseDetails } = useExerciseDetails(props.exercise.id);
 	const stat = match(props.exercise.bestSet)
 		.with(undefined, null, () => {})
 		.otherwise((value) => {

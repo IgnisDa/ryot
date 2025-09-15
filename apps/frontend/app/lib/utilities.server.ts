@@ -22,14 +22,9 @@ import {
 } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
-import {
-	FRONTEND_AUTH_COOKIE_NAME,
-	redirectToQueryParam,
-	toastKey,
-} from "~/lib/shared/constants";
+import { FRONTEND_AUTH_COOKIE_NAME, toastKey } from "~/lib/shared/constants";
 import { queryClient, queryFactory } from "~/lib/shared/react-query";
 
 export const API_URL = process.env.API_URL || "http://127.0.0.1:8000/backend";
@@ -105,9 +100,8 @@ export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 	try {
 		const userDetails = await getUserDetails(request);
 		if (!userDetails || userDetails.__typename === "UserDetailsError") {
-			const nextUrl = withoutHost(request.url);
 			throw redirect(
-				$path("/auth", { [redirectToQueryParam]: nextUrl }),
+				$path("/auth"),
 				await getResponseInit("You must be logged in to view this page"),
 			);
 		}

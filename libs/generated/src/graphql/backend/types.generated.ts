@@ -101,8 +101,7 @@ export enum BackgroundJob {
   PerformBackgroundTasks = 'PERFORM_BACKGROUND_TASKS',
   ReviseUserWorkouts = 'REVISE_USER_WORKOUTS',
   SyncIntegrationsData = 'SYNC_INTEGRATIONS_DATA',
-  UpdateAllExercises = 'UPDATE_ALL_EXERCISES',
-  UpdateAllMetadata = 'UPDATE_ALL_METADATA'
+  UpdateAllExercises = 'UPDATE_ALL_EXERCISES'
 }
 
 export type BasicUserDetails = {
@@ -392,14 +391,22 @@ export type CreateAccessLinkInput = {
   redirectTo?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type CreateCustomMetadataGroupInput = {
+  assets: EntityAssetsInput;
+  description?: InputMaybe<Scalars['String']['input']>;
+  lot: MediaLot;
+  title: Scalars['String']['input'];
+};
+
 export type CreateCustomMetadataInput = {
   animeSpecifics?: InputMaybe<AnimeSpecificsInput>;
   assets: EntityAssetsInput;
   audioBookSpecifics?: InputMaybe<AudioBookSpecificsInput>;
   bookSpecifics?: InputMaybe<BookSpecificsInput>;
-  creators?: InputMaybe<Array<Scalars['String']['input']>>;
+  creatorIds?: InputMaybe<Array<Scalars['String']['input']>>;
   description?: InputMaybe<Scalars['String']['input']>;
   genres?: InputMaybe<Array<Scalars['String']['input']>>;
+  groupIds?: InputMaybe<Array<Scalars['String']['input']>>;
   isNsfw?: InputMaybe<Scalars['Boolean']['input']>;
   lot: MediaLot;
   mangaSpecifics?: InputMaybe<MangaSpecificsInput>;
@@ -412,6 +419,18 @@ export type CreateCustomMetadataInput = {
   title: Scalars['String']['input'];
   videoGameSpecifics?: InputMaybe<VideoGameSpecificsInput>;
   visualNovelSpecifics?: InputMaybe<VisualNovelSpecificsInput>;
+};
+
+export type CreateCustomPersonInput = {
+  alternateNames?: InputMaybe<Array<Scalars['String']['input']>>;
+  assets: EntityAssetsInput;
+  birthDate?: InputMaybe<Scalars['NaiveDate']['input']>;
+  deathDate?: InputMaybe<Scalars['NaiveDate']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  gender?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  place?: InputMaybe<Scalars['String']['input']>;
+  website?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type CreateOrUpdateCollectionInput = {
@@ -1251,6 +1270,7 @@ export type MediaFilter = {
   collections?: InputMaybe<Array<MediaCollectionFilter>>;
   dateRange?: InputMaybe<ApplicationDateRangeInput>;
   general?: InputMaybe<MediaGeneralFilter>;
+  source?: InputMaybe<MediaSource>;
 };
 
 export enum MediaGeneralFilter {
@@ -1334,6 +1354,7 @@ export type MetadataExternalIdentifiers = {
 export type MetadataGroup = {
   __typename?: 'MetadataGroup';
   assets: EntityAssets;
+  createdByUserId?: Maybe<Scalars['String']['output']>;
   description?: Maybe<Scalars['String']['output']>;
   id: Scalars['String']['output'];
   identifier: Scalars['String']['output'];
@@ -1515,6 +1536,10 @@ export type MutationRoot = {
   createCustomExercise: Scalars['String']['output'];
   /** Create a custom media item. */
   createCustomMetadata: StringIdObject;
+  /** Create a custom metadata group. */
+  createCustomMetadataGroup: StringIdObject;
+  /** Create a custom person. */
+  createCustomPerson: StringIdObject;
   /** Create a new collection for the logged in user or edit details of an existing one. */
   createOrUpdateCollection: StringIdObject;
   /** Create or update a review. */
@@ -1629,6 +1654,10 @@ export type MutationRoot = {
   updateCustomExercise: Scalars['Boolean']['output'];
   /** Update custom metadata. */
   updateCustomMetadata: Scalars['Boolean']['output'];
+  /** Update a custom metadata group. */
+  updateCustomMetadataGroup: Scalars['Boolean']['output'];
+  /** Update a custom person. */
+  updateCustomPerson: Scalars['Boolean']['output'];
   /** Update the attributes of a seen item. */
   updateSeenItem: Scalars['Boolean']['output'];
   /** Update a user's profile details. */
@@ -1663,6 +1692,16 @@ export type MutationRootCreateCustomExerciseArgs = {
 
 export type MutationRootCreateCustomMetadataArgs = {
   input: CreateCustomMetadataInput;
+};
+
+
+export type MutationRootCreateCustomMetadataGroupArgs = {
+  input: CreateCustomMetadataGroupInput;
+};
+
+
+export type MutationRootCreateCustomPersonArgs = {
+  input: CreateCustomPersonInput;
 };
 
 
@@ -1869,6 +1908,16 @@ export type MutationRootUpdateCustomMetadataArgs = {
 };
 
 
+export type MutationRootUpdateCustomMetadataGroupArgs = {
+  input: UpdateCustomMetadataGroupInput;
+};
+
+
+export type MutationRootUpdateCustomPersonArgs = {
+  input: UpdateCustomPersonInput;
+};
+
+
 export type MutationRootUpdateSeenItemArgs = {
   input: UpdateSeenItemInput;
 };
@@ -1954,6 +2003,7 @@ export type Person = {
   associatedMetadataCount: Scalars['Int']['output'];
   associatedMetadataGroupsCount: Scalars['Int']['output'];
   birthDate?: Maybe<Scalars['NaiveDate']['output']>;
+  createdByUserId?: Maybe<Scalars['String']['output']>;
   createdOn: Scalars['DateTime']['output'];
   deathDate?: Maybe<Scalars['NaiveDate']['output']>;
   description?: Maybe<Scalars['String']['output']>;
@@ -2589,9 +2639,19 @@ export type UpdateCustomExerciseInput = {
   source: ExerciseSource;
 };
 
+export type UpdateCustomMetadataGroupInput = {
+  existingMetadataGroupId: Scalars['String']['input'];
+  update: CreateCustomMetadataGroupInput;
+};
+
 export type UpdateCustomMetadataInput = {
   existingMetadataId: Scalars['String']['input'];
   update: CreateCustomMetadataInput;
+};
+
+export type UpdateCustomPersonInput = {
+  existingPersonId: Scalars['String']['input'];
+  update: CreateCustomPersonInput;
 };
 
 export type UpdateSeenItemInput = {
@@ -3003,6 +3063,7 @@ export type UserMetadataGroupDetails = {
 
 export type UserMetadataGroupsListInput = {
   filter?: InputMaybe<MediaFilter>;
+  lot?: InputMaybe<MediaLot>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<PersonSortInput>;
 };

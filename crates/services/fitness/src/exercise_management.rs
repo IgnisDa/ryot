@@ -12,7 +12,7 @@ use database_utils::{
     entity_in_collections_with_details, item_reviews, schedule_user_for_workout_revision,
     transform_entity_assets,
 };
-use dependent_models::{UpdateCustomExerciseInput, UserExerciseDetails};
+use dependent_models::UserExerciseDetails;
 use enum_models::{EntityLot, ExerciseLot, ExerciseSource};
 use fitness_models::{
     ExerciseCategory, GithubExercise, GithubExerciseAttributes, UpdateUserExerciseSettings,
@@ -20,8 +20,7 @@ use fitness_models::{
 };
 use futures::try_join;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
-    QueryFilter,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
 };
 use supporting_service::SupportingService;
 
@@ -69,41 +68,6 @@ pub async fn user_exercise_details(
         resp.details = Some(association);
     }
     Ok(resp)
-}
-
-pub async fn update_custom_exercise(
-    ss: &Arc<SupportingService>,
-    user_id: String,
-    input: UpdateCustomExerciseInput,
-) -> Result<bool> {
-    let id = input.update.id.clone();
-    let mut update = input.update.clone();
-    let old_exercise = Exercise::find_by_id(&id).one(&ss.db).await?.unwrap();
-    for image in old_exercise.assets.s3_images.clone() {
-        file_storage_service::delete_object(ss, image).await?;
-    }
-    if input.should_delete.unwrap_or_default() {
-        let ute = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(&user_id))
-            .filter(user_to_entity::Column::ExerciseId.eq(&id))
-            .one(&ss.db)
-            .await?
-            .ok_or_else(|| anyhow!("Exercise does not exist"))?;
-        if let Some(exercise_extra_information) = ute.exercise_extra_information {
-            if !exercise_extra_information.history.is_empty() {
-                bail!("Exercise is associated with one or more workouts.",);
-            }
-        }
-        old_exercise.delete(&ss.db).await?;
-        return Ok(true);
-    }
-    update.source = ExerciseSource::Custom;
-    update.created_by_user_id = Some(user_id.clone());
-    let input = update.into_active_model();
-    let mut input = input.reset_all();
-    input.id = ActiveValue::Unchanged(id);
-    input.update(&ss.db).await?;
-    Ok(true)
 }
 
 pub async fn update_user_exercise_settings(

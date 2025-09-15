@@ -1,7 +1,9 @@
 use async_graphql::{Enum, InputObject, OneofObject, SimpleObject};
 use chrono::NaiveDate;
 use common_models::{ApplicationDateRange, SearchInput};
-use enum_models::{EntityLot, MediaLot, SeenState, UserNotificationContent, Visibility};
+use enum_models::{
+    EntityLot, MediaLot, MediaSource, SeenState, UserNotificationContent, Visibility,
+};
 use rust_decimal::Decimal;
 use sea_orm::{prelude::DateTimeUtc, strum::Display};
 use serde::{Deserialize, Serialize};
@@ -159,6 +161,7 @@ pub struct MediaCollectionFilter {
 
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct MediaFilter {
+    pub source: Option<MediaSource>,
     pub general: Option<MediaGeneralFilter>,
     pub date_range: Option<ApplicationDateRange>,
     pub collections: Option<Vec<MediaCollectionFilter>>,

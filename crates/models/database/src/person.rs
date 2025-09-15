@@ -35,6 +35,7 @@ pub struct Model {
     pub birth_date: Option<NaiveDate>,
     pub death_date: Option<NaiveDate>,
     pub associated_metadata_count: i32,
+    pub created_by_user_id: Option<String>,
     pub alternate_names: Option<Vec<String>>,
     pub associated_metadata_groups_count: i32,
     #[graphql(skip)]
@@ -55,6 +56,14 @@ pub enum Relation {
     Review,
     #[sea_orm(has_many = "super::user_to_entity::Entity")]
     UserToEntity,
+    #[sea_orm(
+        belongs_to = "super::user::Entity",
+        from = "Column::CreatedByUserId",
+        to = "super::user::Column::Id",
+        on_update = "Cascade",
+        on_delete = "SetNull"
+    )]
+    User,
 }
 
 impl Related<super::collection_to_entity::Entity> for Entity {
@@ -78,6 +87,12 @@ impl Related<super::metadata_to_person::Entity> for Entity {
 impl Related<super::review::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Review.def()
+    }
+}
+
+impl Related<super::user::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::User.def()
     }
 }
 

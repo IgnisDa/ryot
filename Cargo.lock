@@ -890,6 +890,8 @@ dependencies = [
  "collection-service",
  "common-utils",
  "config-definition",
+ "custom-resolver",
+ "custom-service",
  "dependent-models",
  "dotenvy",
  "env-utils",
@@ -1757,6 +1759,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "custom-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "common-models",
+ "custom-service",
+ "database-models",
+ "dependent-models",
+ "media-models",
+ "traits",
+]
+
+[[package]]
+name = "custom-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "database-models",
+ "dependent-fitness-utils",
+ "dependent-models",
+ "media-models",
+ "miscellaneous-metadata-operations-service",
+ "supporting-service",
+]
+
+[[package]]
 name = "darling"
 version = "0.20.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2056,10 +2084,12 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-collection-utils",
+ "dependent-models",
  "dependent-notification-utils",
  "dependent-utility-utils",
  "enum-models",
  "enum_meta",
+ "file-storage-service",
  "fitness-models",
  "futures",
  "itertools 0.14.0",
@@ -2105,10 +2135,8 @@ dependencies = [
  "anyhow",
  "background-models",
  "common-models",
- "database-models",
  "database-utils",
  "rust_decimal",
- "sea-orm",
  "supporting-service",
  "tracing",
 ]
@@ -2859,7 +2887,6 @@ dependencies = [
  "dependent-models",
  "dependent-utility-utils",
  "enum-models",
- "file-storage-service",
  "fitness-models",
  "futures",
  "nanoid",
@@ -4499,7 +4526,6 @@ name = "miscellaneous-metadata-resolver"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
- "common-models",
  "dependent-models",
  "media-models",
  "miscellaneous-service",

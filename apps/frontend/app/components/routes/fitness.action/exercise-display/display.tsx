@@ -29,7 +29,6 @@ import {
 	IconReplace,
 	IconTrash,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { produce } from "immer";
 import { useNavigate } from "react-router";
@@ -38,12 +37,15 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { v4 as randomUUID } from "uuid";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
-import { useCoreDetails, useUserPreferences } from "~/lib/shared/hooks";
+import {
+	useCoreDetails,
+	useExerciseDetails,
+	useUserExerciseDetails,
+	useUserPreferences,
+} from "~/lib/shared/hooks";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
-	getExerciseDetailsQuery,
 	getRestTimerForSet,
-	getUserExerciseDetailsQuery,
 	useCurrentWorkout,
 	useCurrentWorkoutTimerAtom,
 	useGetExerciseAtIndex,
@@ -82,12 +84,11 @@ export const ExerciseDisplay = (props: {
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
 	const coreDetails = useCoreDetails();
-	const { data: exerciseDetails } = useQuery(
-		getExerciseDetailsQuery(exercise.exerciseId),
+	const { data: exerciseDetails } = useExerciseDetails(exercise.exerciseId);
+	const { data: userExerciseDetails } = useUserExerciseDetails(
+		exercise.exerciseId,
 	);
-	const { data: userExerciseDetails } = useQuery(
-		getUserExerciseDetailsQuery(exercise.exerciseId),
-	);
+
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const [
 		isDetailsModalOpen,

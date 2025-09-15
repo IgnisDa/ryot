@@ -40,6 +40,7 @@ import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
 	BulkCollectionEditingAffix,
+	CreateButton,
 	DisplayListDetailsAndRefresh,
 	SkeletonLoader,
 } from "~/components/common";
@@ -50,7 +51,7 @@ import {
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataGroupDisplayItem } from "~/components/media/display-items";
-import { useCoreDetails } from "~/lib/shared/hooks";
+import { useCoreDetails, useUserMetadataGroupList } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
 	convertEnumToSelectData,
@@ -120,14 +121,7 @@ export default function Page(props: { params: { action: string } }) {
 	const {
 		data: userMetadataGroupsList,
 		refetch: refetchUserMetadataGroupsList,
-	} = useQuery({
-		enabled: action === "list",
-		queryKey: queryFactory.media.userMetadataGroupsList(listInput).queryKey,
-		queryFn: () =>
-			clientGqlService
-				.request(UserMetadataGroupsListDocument, { input: listInput })
-				.then((data) => data.userMetadataGroupsList),
-	});
+	} = useUserMetadataGroupList(listInput, action === "list");
 
 	const searchInput: MetadataGroupSearchInput = useMemo(() => {
 		const lot = coreDetails.metadataGroupSourceLotMappings.find(
@@ -196,6 +190,9 @@ export default function Page(props: { params: { action: string } }) {
 							<Tabs.Tab value="search" leftSection={<IconSearch size={24} />}>
 								<Text>Search</Text>
 							</Tabs.Tab>
+							<CreateButton
+								to={$path("/media/groups/update/:action", { action: "create" })}
+							/>
 						</Tabs.List>
 					</Tabs>
 					<Group wrap="nowrap">

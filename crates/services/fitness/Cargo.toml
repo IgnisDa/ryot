@@ -23,7 +23,6 @@ dependent-utility-utils = { workspace = true }
 database-utils = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
-file-storage-service = { workspace = true }
 fitness-models = { workspace = true }
 supporting-service = { workspace = true }
 

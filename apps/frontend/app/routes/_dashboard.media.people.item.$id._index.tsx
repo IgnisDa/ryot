@@ -24,7 +24,11 @@ import { useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import { DisplayCollectionToEntity, SkeletonLoader } from "~/components/common";
+import {
+	DisplayCollectionToEntity,
+	EditButton,
+	SkeletonLoader,
+} from "~/components/common";
 import { MediaDetailsLayout } from "~/components/common/layout";
 import { ReviewItemDisplay } from "~/components/common/review";
 import {
@@ -86,10 +90,9 @@ export default function Page() {
 			null,
 	);
 
-	const totalMetadata =
-		personDetails.data?.details.associatedMetadataCount || 0;
+	const totalMetadata = personDetails.data?.associatedMetadata.length || 0;
 	const totalMetadataGroups =
-		personDetails.data?.details.associatedMetadataGroupsCount || 0;
+		personDetails.data?.associatedMetadataGroups.length || 0;
 	const additionalPersonDetails = [
 		totalMetadata ? `${totalMetadata} media items` : null,
 		totalMetadataGroups ? `${totalMetadataGroups} groups` : null,
@@ -314,6 +317,17 @@ export default function Page() {
 											/>
 										</Menu.Dropdown>
 									</Menu>
+									{personDetails.data && (
+										<EditButton
+											label="Edit person"
+											editRouteType="people"
+											entityId={personDetails.data.details.id}
+											source={personDetails.data.details.source}
+											createdByUserId={
+												personDetails.data.details.createdByUserId
+											}
+										/>
+									)}
 								</SimpleGrid>
 							</MediaScrollArea>
 						</Tabs.Panel>

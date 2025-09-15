@@ -41,11 +41,13 @@ import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { dayjsLib } from "~/lib/shared/date-utils";
-import { useGetRandomMantineColor } from "~/lib/shared/hooks";
+import {
+	useExerciseDetails,
+	useGetRandomMantineColor,
+} from "~/lib/shared/hooks";
 import { getExerciseDetailsPath, getSetColor } from "~/lib/shared/media-utils";
 import {
 	type TWorkoutDetails,
-	getExerciseDetailsQuery,
 	getExerciseImages,
 	getWorkoutDetailsQuery,
 	getWorkoutTemplateDetailsQuery,
@@ -149,8 +151,9 @@ export const ExerciseHistory = (props: {
 	);
 	const exercise =
 		workoutDetails?.details.information.exercises[props.exerciseIdx];
-	const { data: exerciseDetails } = useQuery(
-		getExerciseDetailsQuery(exercise?.id || ""),
+	const { data: exerciseDetails } = useExerciseDetails(
+		exercise?.id,
+		!!exercise?.id,
 	);
 	const isInSuperset = props.supersetInformation?.find((s) =>
 		s.exercises.includes(props.exerciseIdx),

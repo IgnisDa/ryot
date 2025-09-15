@@ -7,24 +7,31 @@ use common_utils::ryot_log;
 use database_models::{
     collection, collection_entity_membership, collection_to_entity,
     functions::get_user_to_entity_association,
-    metadata, metadata_to_genre,
+    metadata, metadata_group, metadata_to_genre, person,
     prelude::{
-        Collection, CollectionEntityMembership, CollectionToEntity, Metadata, MetadataToGenre,
-        Review, Seen, UserToEntity,
+        Collection, CollectionEntityMembership, CollectionToEntity, Metadata, MetadataGroup,
+        MetadataToGenre, Review, Seen, UserToEntity,
     },
     review, seen, user_to_entity,
 };
 use database_utils::entity_in_collections_with_collection_to_entity_ids;
 use dependent_collection_utils::{add_entities_to_collection, remove_entities_from_collection};
 use dependent_details_utils::metadata_details;
-use dependent_entity_utils::change_metadata_associations;
+use dependent_entity_utils::{
+    change_metadata_associations, insert_metadata_group_links, insert_metadata_person_links,
+};
 use dependent_notification_utils::send_notification_for_user;
 use dependent_seen_utils::is_metadata_finished_by_user;
-use dependent_utility_utils::{expire_metadata_details_cache, expire_user_metadata_list_cache};
+use dependent_utility_utils::{
+    expire_metadata_details_cache, expire_metadata_group_details_cache,
+    expire_person_details_cache, expire_user_metadata_groups_list_cache,
+    expire_user_metadata_list_cache, expire_user_people_list_cache,
+};
 use enum_models::{EntityLot, MediaLot, MediaSource, UserNotificationContent};
 use futures::try_join;
-use itertools::Itertools;
-use media_models::{CreateCustomMetadataInput, MetadataFreeCreator, UpdateCustomMetadataInput};
+use media_models::{
+    CreateCustomMetadataGroupInput, CreateCustomMetadataInput, UpdateCustomMetadataInput,
+};
 use nanoid::nanoid;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
@@ -187,6 +194,22 @@ pub async fn create_custom_metadata(
         ss,
     )
     .await?;
+    if let Some(groups) = input.group_ids.clone() {
+        let links = groups
+            .into_iter()
+            .enumerate()
+            .map(|(idx, group_id)| (group_id, Some(idx as i32)))
+            .collect();
+        insert_metadata_group_links(ss, &metadata.id, links).await?;
+    }
+    if let Some(creators) = input.creator_ids.clone() {
+        let links = creators
+            .into_iter()
+            .enumerate()
+            .map(|(idx, person_id)| (person_id, "Creator".to_string(), None, Some(idx as i32)))
+            .collect();
+        insert_metadata_person_links(ss, &metadata.id, links).await?;
+    }
     add_entities_to_collection(
         &user_id,
         ChangeCollectionToEntitiesInput {
@@ -243,9 +266,190 @@ pub async fn update_custom_metadata(
         ss,
     )
     .await?;
+    if let Some(groups) = input.update.group_ids.clone() {
+        let links = groups
+            .into_iter()
+            .enumerate()
+            .map(|(idx, group_id)| (group_id, Some(idx as i32)))
+            .collect();
+        insert_metadata_group_links(ss, &metadata.id, links).await?;
+    }
+    if let Some(creators) = input.update.creator_ids.clone() {
+        let links = creators
+            .into_iter()
+            .enumerate()
+            .map(|(idx, person_id)| (person_id, "Creator".to_string(), None, Some(idx as i32)))
+            .collect();
+        insert_metadata_person_links(ss, &metadata.id, links).await?;
+    }
     try_join!(
         expire_user_metadata_list_cache(user_id, ss),
         expire_metadata_details_cache(&metadata.id, ss)
+    )?;
+    Ok(true)
+}
+
+pub async fn create_custom_metadata_group(
+    ss: &Arc<SupportingService>,
+    user_id: &String,
+    input: CreateCustomMetadataGroupInput,
+) -> Result<metadata_group::Model> {
+    let identifier = nanoid!(10);
+    let new_group = metadata_group::ActiveModel {
+        parts: ActiveValue::Set(1),
+        lot: ActiveValue::Set(input.lot),
+        title: ActiveValue::Set(input.title),
+        assets: ActiveValue::Set(input.assets),
+        identifier: ActiveValue::Set(identifier),
+        is_partial: ActiveValue::Set(Some(false)),
+        source: ActiveValue::Set(MediaSource::Custom),
+        description: ActiveValue::Set(input.description),
+        created_by_user_id: ActiveValue::Set(Some(user_id.clone())),
+        ..Default::default()
+    };
+    let group = new_group.insert(&ss.db).await?;
+
+    add_entities_to_collection(
+        user_id,
+        ChangeCollectionToEntitiesInput {
+            creator_user_id: user_id.to_owned(),
+            collection_name: DefaultCollection::Custom.to_string(),
+            entities: vec![EntityToCollectionInput {
+                information: None,
+                entity_id: group.id.clone(),
+                entity_lot: EntityLot::MetadataGroup,
+            }],
+        },
+        ss,
+    )
+    .await?;
+
+    expire_user_metadata_groups_list_cache(user_id, ss).await?;
+
+    Ok(group)
+}
+
+pub async fn create_custom_person(
+    ss: &Arc<SupportingService>,
+    user_id: String,
+    input: media_models::CreateCustomPersonInput,
+) -> Result<person::Model> {
+    let identifier = nanoid!(10);
+    let new_person = person::ActiveModel {
+        name: ActiveValue::Set(input.name),
+        place: ActiveValue::Set(input.place),
+        assets: ActiveValue::Set(input.assets),
+        gender: ActiveValue::Set(input.gender),
+        website: ActiveValue::Set(input.website),
+        identifier: ActiveValue::Set(identifier),
+        is_partial: ActiveValue::Set(Some(false)),
+        source: ActiveValue::Set(MediaSource::Custom),
+        birth_date: ActiveValue::Set(input.birth_date),
+        death_date: ActiveValue::Set(input.death_date),
+        description: ActiveValue::Set(input.description),
+        alternate_names: ActiveValue::Set(input.alternate_names),
+        created_by_user_id: ActiveValue::Set(Some(user_id.clone())),
+        ..Default::default()
+    };
+    let person = new_person.insert(&ss.db).await?;
+
+    add_entities_to_collection(
+        &user_id,
+        ChangeCollectionToEntitiesInput {
+            creator_user_id: user_id.to_owned(),
+            collection_name: DefaultCollection::Custom.to_string(),
+            entities: vec![EntityToCollectionInput {
+                information: None,
+                entity_id: person.id.clone(),
+                entity_lot: EntityLot::Person,
+            }],
+        },
+        ss,
+    )
+    .await?;
+
+    expire_user_people_list_cache(&user_id, ss).await?;
+
+    Ok(person)
+}
+
+pub async fn update_custom_metadata_group(
+    ss: &Arc<SupportingService>,
+    user_id: &String,
+    input: media_models::UpdateCustomMetadataGroupInput,
+) -> Result<bool> {
+    let group = MetadataGroup::find_by_id(&input.existing_metadata_group_id)
+        .one(&ss.db)
+        .await?
+        .unwrap();
+    if group.source != MediaSource::Custom {
+        bail!("This metadata group is not custom and cannot be updated");
+    }
+    if group.created_by_user_id != Some(user_id.to_owned()) {
+        bail!("You are not authorized to update this metadata group");
+    }
+    for image in group.assets.s3_images.clone() {
+        file_storage_service::delete_object(ss, image).await?;
+    }
+    for video in group.assets.s3_videos.clone() {
+        file_storage_service::delete_object(ss, video).await?;
+    }
+    let new_group = metadata_group::ActiveModel {
+        parts: ActiveValue::Set(1),
+        lot: ActiveValue::Set(input.update.lot),
+        is_partial: ActiveValue::Set(Some(false)),
+        title: ActiveValue::Set(input.update.title),
+        assets: ActiveValue::Set(input.update.assets),
+        description: ActiveValue::Set(input.update.description),
+        id: ActiveValue::Unchanged(input.existing_metadata_group_id),
+        ..Default::default()
+    };
+    new_group.update(&ss.db).await?;
+    try_join!(
+        expire_user_metadata_groups_list_cache(user_id, ss),
+        expire_metadata_group_details_cache(&group.id, ss)
+    )?;
+    Ok(true)
+}
+
+pub async fn update_custom_person(
+    ss: &Arc<SupportingService>,
+    user_id: &String,
+    input: media_models::UpdateCustomPersonInput,
+) -> Result<bool> {
+    let person_model = person::Entity::find_by_id(&input.existing_person_id)
+        .one(&ss.db)
+        .await?
+        .unwrap();
+    if person_model.source != MediaSource::Custom {
+        bail!("This person is not custom and cannot be updated");
+    }
+    if person_model.created_by_user_id != Some(user_id.to_owned()) {
+        bail!("You are not authorized to update this person");
+    }
+    for image in person_model.assets.s3_images.clone() {
+        file_storage_service::delete_object(ss, image).await?;
+    }
+    for video in person_model.assets.s3_videos.clone() {
+        file_storage_service::delete_object(ss, video).await?;
+    }
+    let new_person = person::ActiveModel {
+        name: ActiveValue::Set(input.update.name),
+        place: ActiveValue::Set(input.update.place),
+        assets: ActiveValue::Set(input.update.assets),
+        gender: ActiveValue::Set(input.update.gender),
+        website: ActiveValue::Set(input.update.website),
+        id: ActiveValue::Unchanged(input.existing_person_id),
+        birth_date: ActiveValue::Set(input.update.birth_date),
+        death_date: ActiveValue::Set(input.update.death_date),
+        description: ActiveValue::Set(input.update.description),
+        alternate_names: ActiveValue::Set(input.update.alternate_names),
+        ..Default::default()
+    };
+    new_person.update(&ss.db).await?;
+    try_join!(
+        expire_user_people_list_cache(user_id, ss),
+        expire_person_details_cache(&person_model.id, ss)
     )?;
     Ok(true)
 }
@@ -255,15 +459,6 @@ fn get_data_for_custom_metadata(
     identifier: String,
     user_id: &str,
 ) -> metadata::ActiveModel {
-    let free_creators = input
-        .creators
-        .unwrap_or_default()
-        .into_iter()
-        .map(|c| MetadataFreeCreator {
-            name: c,
-            role: "Creator".to_string(),
-        })
-        .collect_vec();
     let is_partial = match input.lot {
         MediaLot::Show => input.show_specifics.is_none(),
         MediaLot::Book => input.book_specifics.is_none(),
@@ -297,10 +492,6 @@ fn get_data_for_custom_metadata(
         audio_book_specifics: ActiveValue::Set(input.audio_book_specifics),
         video_game_specifics: ActiveValue::Set(input.video_game_specifics),
         visual_novel_specifics: ActiveValue::Set(input.visual_novel_specifics),
-        free_creators: ActiveValue::Set(match free_creators.is_empty() {
-            true => None,
-            false => Some(free_creators),
-        }),
         publish_year: ActiveValue::Set(
             input
                 .publish_year

@@ -5,7 +5,7 @@ use background_models::{ApplicationJob, HpApplicationJob};
 use common_models::{
     BackgroundJob, MetadataGroupSearchInput, PeopleSearchInput, SearchInput, StringIdObject,
 };
-use database_models::{metadata, prelude::User, user};
+use database_models::{prelude::User, user};
 use dependent_core_utils::core_details;
 use dependent_entity_list_utils::{
     user_genres_list, user_metadata_groups_list, user_metadata_list, user_people_list,
@@ -28,10 +28,9 @@ use dependent_notification_utils::{
 use dependent_review_utils::post_review;
 use enum_models::EntityLot;
 use media_models::{
-    CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
-    GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent,
-    MarkEntityAsPartialInput, MetadataLookupResponse, MetadataProgressUpdateInput,
-    ReviewPostedEvent, UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
+    CreateOrUpdateReviewInput, CreateReviewCommentInput, GenreDetailsInput, GraphqlCalendarEvent,
+    GraphqlMetadataDetails, GroupedCalendarEvent, MarkEntityAsPartialInput, MetadataLookupResponse,
+    MetadataProgressUpdateInput, ReviewPostedEvent, UpdateSeenItemInput, UserCalendarEventInput,
     UserUpcomingCalendarEventInput,
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc, prelude::Expr};
@@ -249,24 +248,6 @@ impl MiscellaneousService {
         seen_id: String,
     ) -> Result<StringIdObject> {
         miscellaneous_progress_service::delete_seen_item(&self.0, user_id, seen_id).await
-    }
-
-    pub async fn create_custom_metadata(
-        &self,
-        user_id: String,
-        input: CreateCustomMetadataInput,
-    ) -> Result<metadata::Model> {
-        miscellaneous_metadata_operations_service::create_custom_metadata(&self.0, user_id, input)
-            .await
-    }
-
-    pub async fn update_custom_metadata(
-        &self,
-        user_id: &String,
-        input: UpdateCustomMetadataInput,
-    ) -> Result<bool> {
-        miscellaneous_metadata_operations_service::update_custom_metadata(&self.0, user_id, input)
-            .await
     }
 
     pub async fn user_genres_list(

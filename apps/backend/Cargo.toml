@@ -35,6 +35,8 @@ collection-resolver = { workspace = true }
 collection-service = { workspace = true }
 common-utils = { workspace = true }
 config-definition = { workspace = true }
+custom-resolver = { workspace = true }
+custom-service = { workspace = true }
 dependent-models = { workspace = true }
 env-utils = { workspace = true }
 exporter-resolver = { workspace = true }

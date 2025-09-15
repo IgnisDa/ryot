@@ -62,6 +62,9 @@ pub async fn user_metadata_list(
                 .apply_if(input.lot, |query, v| {
                     query.filter(enriched_user_to_metadata::Column::Lot.eq(v))
                 })
+                .apply_if(input.filter.clone().and_then(|f| f.source), |query, v| {
+                    query.filter(enriched_user_to_metadata::Column::Source.eq(v))
+                })
                 .apply_if(input.search.and_then(|s| s.query), |query, v| {
                     apply_columns_search(
                         &v,
@@ -321,6 +324,12 @@ pub async fn user_metadata_groups_list(
                 .select_only()
                 .column(enriched_user_to_metadata_group::Column::MetadataGroupId)
                 .filter(enriched_user_to_metadata_group::Column::UserId.eq(user_id))
+                .apply_if(input.lot, |query, v| {
+                    query.filter(enriched_user_to_metadata_group::Column::Lot.eq(v))
+                })
+                .apply_if(input.filter.clone().and_then(|f| f.source), |query, v| {
+                    query.filter(enriched_user_to_metadata_group::Column::Source.eq(v))
+                })
                 .apply_if(input.search.and_then(|f| f.query), |query, v| {
                     apply_columns_search(
                         &v,
@@ -397,6 +406,9 @@ pub async fn user_people_list(
                 .select_only()
                 .column(enriched_user_to_person::Column::PersonId)
                 .filter(enriched_user_to_person::Column::UserId.eq(user_id))
+                .apply_if(input.filter.clone().and_then(|f| f.source), |query, v| {
+                    query.filter(enriched_user_to_person::Column::Source.eq(v))
+                })
                 .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
                     apply_columns_search(
                         &v,

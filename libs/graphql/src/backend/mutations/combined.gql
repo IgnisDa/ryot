@@ -53,6 +53,26 @@ mutation UpdateCustomMetadata($input: UpdateCustomMetadataInput!) {
 	updateCustomMetadata(input: $input)
 }
 
+mutation CreateCustomMetadataGroup($input: CreateCustomMetadataGroupInput!) {
+	createCustomMetadataGroup(input: $input) {
+		id
+	}
+}
+
+mutation UpdateCustomMetadataGroup($input: UpdateCustomMetadataGroupInput!) {
+	updateCustomMetadataGroup(input: $input)
+}
+
+mutation CreateCustomPerson($input: CreateCustomPersonInput!) {
+	createCustomPerson(input: $input) {
+		id
+	}
+}
+
+mutation UpdateCustomPerson($input: UpdateCustomPersonInput!) {
+	updateCustomPerson(input: $input)
+}
+
 mutation CreateOrUpdateCollection($input: CreateOrUpdateCollectionInput!) {
 	createOrUpdateCollection(input: $input) {
 		id

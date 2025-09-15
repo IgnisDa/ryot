@@ -1,7 +1,6 @@
 import {
 	ActionIcon,
 	Box,
-	Button,
 	Checkbox,
 	Container,
 	Divider,
@@ -34,19 +33,19 @@ import {
 	IconCheck,
 	IconFilter,
 	IconListCheck,
-	IconPhotoPlus,
 	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
 	BulkCollectionEditingAffix,
+	CreateButton,
 	DisplayListDetailsAndRefresh,
 	ProRequiredAlert,
 	SkeletonLoader,
@@ -59,7 +58,7 @@ import {
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
 import { dayjsLib, getStartTimeFromRange } from "~/lib/shared/date-utils";
-import { useCoreDetails } from "~/lib/shared/hooks";
+import { useCoreDetails, useUserMetadataList } from "~/lib/shared/hooks";
 import { getLot } from "~/lib/shared/media-utils";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
@@ -188,16 +187,8 @@ export default function Page(props: {
 		[lot, searchFilters],
 	);
 
-	const { data: userMetadataList, refetch: refetchUserMetadataList } = useQuery(
-		{
-			enabled: action === "list",
-			queryKey: queryFactory.media.userMetadataList(listInput).queryKey,
-			queryFn: () =>
-				clientGqlService
-					.request(UserMetadataListDocument, { input: listInput })
-					.then((data) => data.userMetadataList),
-		},
-	);
+	const { data: userMetadataList, refetch: refetchUserMetadataList } =
+		useUserMetadataList(listInput, action === "list");
 
 	const { data: metadataSearch } = useQuery({
 		enabled: action === "search",
@@ -269,20 +260,13 @@ export default function Page(props: {
 						>
 							<Text>Search</Text>
 						</Tabs.Tab>
-						<Box ml="auto" visibleFrom="md">
-							<Button
-								component={Link}
-								variant="transparent"
-								leftSection={<IconPhotoPlus />}
-								to={$path(
-									"/media/update/:action",
-									{ action: "create" },
-									{ lot },
-								)}
-							>
-								Create
-							</Button>
-						</Box>
+						<CreateButton
+							to={$path(
+								"/media/item/update/:action",
+								{ action: "create" },
+								{ lot },
+							)}
+						/>
 					</Tabs.List>
 				</Tabs>
 

@@ -19,7 +19,11 @@ import {
 } from "@tabler/icons-react";
 import { useLoaderData } from "react-router";
 import { z } from "zod";
-import { DisplayCollectionToEntity, SkeletonLoader } from "~/components/common";
+import {
+	DisplayCollectionToEntity,
+	EditButton,
+	SkeletonLoader,
+} from "~/components/common";
 import { MediaDetailsLayout } from "~/components/common/layout";
 import { ReviewItemDisplay } from "~/components/common/review";
 import {
@@ -178,6 +182,17 @@ export default function Page() {
 											/>
 										</Menu.Dropdown>
 									</Menu>
+									{metadataGroupDetailsData.data && (
+										<EditButton
+											label="Edit group"
+											editRouteType="groups"
+											entityId={metadataGroupDetailsData.data.details.id}
+											source={metadataGroupDetailsData.data.details.source}
+											createdByUserId={
+												metadataGroupDetailsData.data.details.createdByUserId
+											}
+										/>
+									)}
 								</SimpleGrid>
 							</MediaScrollArea>
 						</Tabs.Panel>
