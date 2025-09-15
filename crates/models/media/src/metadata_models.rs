@@ -220,16 +220,16 @@ pub struct UpdateCustomPersonInput {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateCustomMetadataInput {
-    pub title: String,
     pub lot: MediaLot,
+    pub title: String,
     pub assets: EntityAssets,
     pub is_nsfw: Option<bool>,
     pub publish_year: Option<i32>,
     pub description: Option<String>,
     pub genres: Option<Vec<String>>,
-    pub creators: Option<Vec<String>>,
-    pub groups: Option<Vec<String>>,
+    pub group_ids: Option<Vec<String>>,
     pub publish_date: Option<NaiveDate>,
+    pub creator_ids: Option<Vec<String>>,
     pub show_specifics: Option<ShowSpecifics>,
     pub book_specifics: Option<BookSpecifics>,
     pub music_specifics: Option<MusicSpecifics>,

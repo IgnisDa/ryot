@@ -194,7 +194,7 @@ pub async fn create_custom_metadata(
         ss,
     )
     .await?;
-    if let Some(groups) = input.groups.clone() {
+    if let Some(groups) = input.group_ids.clone() {
         let links = groups
             .into_iter()
             .enumerate()
@@ -202,7 +202,7 @@ pub async fn create_custom_metadata(
             .collect();
         insert_metadata_group_links(ss, &metadata.id, links).await?;
     }
-    if let Some(creators) = input.creators.clone() {
+    if let Some(creators) = input.creator_ids.clone() {
         let links = creators
             .into_iter()
             .enumerate()
@@ -270,7 +270,7 @@ pub async fn update_custom_metadata(
         ss,
     )
     .await?;
-    if let Some(groups) = input.update.groups.clone() {
+    if let Some(groups) = input.update.group_ids.clone() {
         let links = groups
             .into_iter()
             .enumerate()
@@ -278,7 +278,7 @@ pub async fn update_custom_metadata(
             .collect();
         insert_metadata_group_links(ss, &metadata.id, links).await?;
     }
-    if let Some(creators) = input.update.creators.clone() {
+    if let Some(creators) = input.update.creator_ids.clone() {
         let links = creators
             .into_iter()
             .enumerate()
