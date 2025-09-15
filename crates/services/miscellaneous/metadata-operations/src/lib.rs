@@ -7,10 +7,10 @@ use common_utils::ryot_log;
 use database_models::{
     collection, collection_entity_membership, collection_to_entity,
     functions::get_user_to_entity_association,
-    metadata, metadata_group, metadata_to_genre, metadata_to_metadata_group, person,
+    metadata, metadata_group, metadata_to_genre, person,
     prelude::{
         Collection, CollectionEntityMembership, CollectionToEntity, Metadata, MetadataGroup,
-        MetadataToGenre, MetadataToMetadataGroup, Review, Seen, UserToEntity,
+        MetadataToGenre, Review, Seen, UserToEntity,
     },
     review, seen, user_to_entity,
 };
@@ -257,10 +257,6 @@ pub async fn update_custom_metadata(
         get_data_for_custom_metadata(input.update.clone(), metadata.identifier, user_id);
     new_metadata.id = ActiveValue::Unchanged(input.existing_metadata_id);
     let metadata = new_metadata.update(&ss.db).await?;
-    MetadataToMetadataGroup::delete_many()
-        .filter(metadata_to_metadata_group::Column::MetadataId.eq(&metadata.id))
-        .exec(&ss.db)
-        .await?;
     change_metadata_associations(
         &metadata.id,
         input.update.genres.unwrap_or_default(),
