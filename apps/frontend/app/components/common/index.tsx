@@ -43,6 +43,7 @@ import {
 	IconChevronRight,
 	IconCopy,
 	IconPencil,
+	IconPhotoPlus,
 	IconX,
 } from "@tabler/icons-react";
 import type { CSSProperties, ReactNode } from "react";
@@ -629,5 +630,23 @@ export const CopyableTextInput = (props: {
 				</CopyButton>
 			}
 		/>
+	);
+};
+
+export const CreateButton = (props: {
+	to: string;
+	children?: React.ReactNode;
+}) => {
+	return (
+		<Box ml="auto" visibleFrom="md">
+			<Button
+				component={Link}
+				variant="transparent"
+				leftSection={<IconPhotoPlus />}
+				to={props.to}
+			>
+				{props.children || "Create"}
+			</Button>
+		</Box>
 	);
 };

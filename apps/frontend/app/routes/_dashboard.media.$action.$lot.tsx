@@ -34,7 +34,6 @@ import {
 	IconCheck,
 	IconFilter,
 	IconListCheck,
-	IconPhotoPlus,
 	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
@@ -47,6 +46,7 @@ import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
 	BulkCollectionEditingAffix,
+	CreateButton,
 	DisplayListDetailsAndRefresh,
 	ProRequiredAlert,
 	SkeletonLoader,
@@ -269,20 +269,13 @@ export default function Page(props: {
 						>
 							<Text>Search</Text>
 						</Tabs.Tab>
-						<Box ml="auto" visibleFrom="md">
-							<Button
-								component={Link}
-								variant="transparent"
-								leftSection={<IconPhotoPlus />}
-								to={$path(
-									"/media/item/update/:action",
-									{ action: "create" },
-									{ lot },
-								)}
-							>
-								Create
-							</Button>
-						</Box>
+						<CreateButton
+							to={$path(
+								"/media/item/update/:action",
+								{ action: "create" },
+								{ lot },
+							)}
+						/>
 					</Tabs.List>
 				</Tabs>
 
