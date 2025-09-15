@@ -40,15 +40,15 @@ import {
 	clientSideFileUpload,
 	convertEnumToSelectData,
 } from "~/lib/shared/ui-utils";
-import type { Route } from "./+types/_dashboard.fitness.exercises.$action";
+import type { Route } from "./+types/_dashboard.fitness.exercises.update.$action";
 
 const searchParamsSchema = z.object({
 	id: z.string().optional(),
 });
 
 enum Action {
+	Edit = "edit",
 	Create = "create",
-	Update = "update",
 }
 
 export const loader = async ({ params, request }: Route.LoaderArgs) => {
@@ -73,7 +73,7 @@ export default function Page() {
 
 	const { data: details } = useExerciseDetails(
 		loaderData.id,
-		loaderData.action === Action.Update && Boolean(loaderData.id),
+		loaderData.action === Action.Edit && Boolean(loaderData.id),
 	);
 
 	const form = useForm({
@@ -92,7 +92,7 @@ export default function Page() {
 	});
 
 	useEffect(() => {
-		if (loaderData.action === Action.Update && details) {
+		if (loaderData.action === Action.Edit && details) {
 			form.initialize({
 				images: [],
 				shouldDelete: undefined,
@@ -150,7 +150,7 @@ export default function Page() {
 		[loaderData.id, form.values, exerciseImages.data],
 	);
 
-	const createExerciseMutation = useMutation({
+	const createMutation = useMutation({
 		mutationFn: async () => {
 			const { createCustomExercise } = await clientGqlService.request(
 				CreateCustomExerciseDocument,
@@ -175,7 +175,7 @@ export default function Page() {
 		},
 	});
 
-	const updateExerciseMutation = useMutation({
+	const updateMutation = useMutation({
 		mutationFn: async () => {
 			invariant(loaderData.id);
 			await clientGqlService.request(UpdateCustomExerciseDocument, {
@@ -207,9 +207,9 @@ export default function Page() {
 
 	const handleSubmit = form.onSubmit(async () => {
 		if (loaderData.action === Action.Create) {
-			createExerciseMutation.mutate();
+			createMutation.mutate();
 		} else {
-			updateExerciseMutation.mutate();
+			updateMutation.mutate();
 		}
 	});
 
@@ -228,7 +228,7 @@ export default function Page() {
 						required
 						label="Type"
 						data={convertEnumToSelectData(ExerciseLot)}
-						readOnly={loaderData.action === Action.Update}
+						readOnly={loaderData.action === Action.Edit}
 						{...form.getInputProps("lot")}
 					/>
 					<Group wrap="nowrap">
@@ -293,7 +293,7 @@ export default function Page() {
 							<Button
 								color="red"
 								type="submit"
-								disabled={updateExerciseMutation.isPending}
+								disabled={updateMutation.isPending}
 								onClick={() => {
 									form.setFieldValue("shouldDelete", true);
 								}}
@@ -303,10 +303,7 @@ export default function Page() {
 						) : null}
 						<Button
 							type="submit"
-							loading={
-								createExerciseMutation.isPending ||
-								updateExerciseMutation.isPending
-							}
+							loading={createMutation.isPending || updateMutation.isPending}
 						>
 							{title}
 						</Button>

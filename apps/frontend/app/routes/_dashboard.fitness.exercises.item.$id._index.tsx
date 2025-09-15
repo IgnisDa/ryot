@@ -597,8 +597,8 @@ export default function Page() {
 											variant="outline"
 											component={Link}
 											to={$path(
-												"/fitness/exercises/:action",
-												{ action: "update" },
+												"/fitness/exercises/update/:action",
+												{ action: "edit" },
 												{ id: loaderData.exerciseDetails.id },
 											)}
 										>
