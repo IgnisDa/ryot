@@ -24,6 +24,7 @@ import {
 	useListState,
 } from "@mantine/hooks";
 import {
+	EntityLot,
 	type ExerciseEquipment,
 	type ExerciseForce,
 	type ExerciseLevel,
@@ -36,6 +37,7 @@ import {
 	type UserExercisesListInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
+	cloneDeep,
 	getActionIntent,
 	isNumber,
 	processSubmission,
@@ -58,6 +60,7 @@ import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {
 	ApplicationPagination,
+	BulkCollectionEditingAffix,
 	DisplayListDetailsAndRefresh,
 	SkeletonLoader,
 } from "~/components/common";
@@ -81,6 +84,7 @@ import {
 	isFilterChanged,
 	openConfirmationModal,
 } from "~/lib/shared/ui-utils";
+import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	addExerciseToCurrentWorkout,
 	getExerciseImages,
@@ -169,6 +173,9 @@ export default function Page() {
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const bulkEditingCollection = useBulkEditCollection();
+	const bulkEditingState =
+		bulkEditingCollection.state === false ? null : bulkEditingCollection.state;
 
 	const queryInput: UserExercisesListInput = {
 		sortBy: filters.sortBy,
@@ -214,6 +221,26 @@ export default function Page() {
 
 	return (
 		<>
+			<BulkCollectionEditingAffix
+				bulkAddEntities={async () => {
+					if (bulkEditingState?.data.action !== "add") return [];
+					const bulkQueryInput = cloneDeep(queryInput);
+					bulkQueryInput.search = {
+						...(bulkQueryInput.search ?? {}),
+						take: Number.MAX_SAFE_INTEGER,
+						page: 1,
+					};
+
+					const { userExercisesList } = await clientGqlService.request(
+						UserExercisesListDocument,
+						{ input: bulkQueryInput },
+					);
+					return userExercisesList.response.items.map((exerciseId) => ({
+						entityId: exerciseId,
+						entityLot: EntityLot.Exercise,
+					}));
+				}}
+			/>
 			<Container size="md">
 				<Stack>
 					<Flex align="center" gap="md">
@@ -426,6 +453,13 @@ const ExerciseItemDisplay = (props: {
 		props.exerciseId,
 		inViewport,
 	);
+	const bulkEditingCollection = useBulkEditCollection();
+	const rawBulkEditingState = bulkEditingCollection.state;
+	const bulkEditingState =
+		rawBulkEditingState === false ? null : rawBulkEditingState;
+	const becItem = { entityId: props.exerciseId, entityLot: EntityLot.Exercise };
+	const isAlreadyPresent = bulkEditingCollection.isAlreadyPresent(becItem);
+	const isAdded = bulkEditingCollection.isAdded(becItem);
 
 	const firstMuscle = exercise?.muscles?.at(0);
 	const numTimesInteracted =
@@ -532,6 +566,21 @@ const ExerciseItemDisplay = (props: {
 							</Flex>
 						</Flex>
 					</Link>
+					{bulkEditingState &&
+					bulkEditingState.data.action === "add" &&
+					!isAlreadyPresent ? (
+						<ActionIcon
+							ml="auto"
+							color="green"
+							variant={isAdded ? "filled" : "transparent"}
+							onClick={() => {
+								if (isAdded) bulkEditingState.remove(becItem);
+								else bulkEditingState.add(becItem);
+							}}
+						>
+							<IconCheck size={18} />
+						</ActionIcon>
+					) : null}
 				</Flex>
 			) : (
 				<Skeleton height={56} ref={ref} />
