@@ -213,139 +213,141 @@ export default function Page() {
 		setFilters((prev) => ({ ...prev, [key]: value }));
 
 	return (
-		<Container size="md">
-			<Stack>
-				<Flex align="center" gap="md">
-					<Title>Exercises</Title>
-					<ActionIcon
-						color="green"
-						component={Link}
-						variant="outline"
-						to={$path("/fitness/exercises/update/:action", {
-							action: "create",
-						})}
-					>
-						<IconPlus size={16} />
-					</ActionIcon>
-				</Flex>
-				<Group wrap="nowrap">
-					<DebouncedSearchInput
-						value={filters.query}
-						placeholder="Search for exercises by name or instructions"
-						onChange={(value) => {
-							updateFilter("query", value);
-							updateFilter("page", 1);
-						}}
-						tourControl={{
-							target: OnboardingTourStepTargets.SearchForExercise,
-							onQueryChange: (query) => {
-								if (query === TOUR_EXERCISE_TARGET_ID.toLowerCase()) {
-									advanceOnboardingTourStep();
-								}
-							},
-						}}
-					/>
-					<ActionIcon
-						onClick={openFiltersModal}
-						color={areListFiltersActive ? "blue" : "gray"}
-					>
-						<IconFilter size={24} />
-					</ActionIcon>
-					<FiltersModal
-						opened={filtersModalOpened}
-						closeFiltersModal={closeFiltersModal}
-						resetFilters={() => setFilters(defaultFilters)}
-					>
-						<FiltersModalForm filter={filters} updateFilter={updateFilter} />
-					</FiltersModal>
-				</Group>
-				{currentWorkout?.replacingExerciseIdx ? (
-					<Alert icon={<IconAlertCircle />}>
-						You are replacing exercise: {replacingExercise?.name}
-					</Alert>
-				) : null}
-				{mergingExercise ? (
-					<Alert icon={<IconAlertCircle />}>
-						You are merging exercise: {mergingExercise}
-					</Alert>
-				) : null}
-				{userExercisesList ? (
-					<>
-						{userExercisesList.response.details.totalItems > 0 ? (
-							<>
-								<DisplayListDetailsAndRefresh
-									cacheId={userExercisesList.cacheId}
-									onRefreshButtonClicked={refetchUserExercisesList}
-									total={userExercisesList.response.details.totalItems}
-									isRandomSortOrderSelected={
-										filters.sortBy === ExerciseSortBy.Random
+		<>
+			<Container size="md">
+				<Stack>
+					<Flex align="center" gap="md">
+						<Title>Exercises</Title>
+						<ActionIcon
+							color="green"
+							component={Link}
+							variant="outline"
+							to={$path("/fitness/exercises/update/:action", {
+								action: "create",
+							})}
+						>
+							<IconPlus size={16} />
+						</ActionIcon>
+					</Flex>
+					<Group wrap="nowrap">
+						<DebouncedSearchInput
+							value={filters.query}
+							placeholder="Search for exercises by name or instructions"
+							onChange={(value) => {
+								updateFilter("query", value);
+								updateFilter("page", 1);
+							}}
+							tourControl={{
+								target: OnboardingTourStepTargets.SearchForExercise,
+								onQueryChange: (query) => {
+									if (query === TOUR_EXERCISE_TARGET_ID.toLowerCase()) {
+										advanceOnboardingTourStep();
 									}
-									rightSection={
-										allowAddingExerciseToWorkout ? (
-											<>
-												{" "}
-												and{" "}
-												<Text display="inline" fw="bold">
-													{selectedExercises.length}
-												</Text>{" "}
-												selected
-											</>
-										) : null
-									}
-								/>
-								<SimpleGrid cols={{ md: 2, lg: 3 }}>
-									{userExercisesList.response.items.map((exercise) => (
-										<ExerciseItemDisplay
-											key={exercise}
-											exerciseId={exercise}
-											mergingExercise={mergingExercise}
-											setMergingExercise={setMergingExercise}
-											setSelectedExercises={setSelectedExercises}
-											allowAddingExerciseToWorkout={
-												allowAddingExerciseToWorkout
-											}
-										/>
-									))}
-								</SimpleGrid>
-							</>
-						) : (
-							<Text>No information to display</Text>
-						)}
-						<ApplicationPagination
-							value={filters.page}
-							onChange={(v) => updateFilter("page", v)}
-							totalItems={userExercisesList.response.details.totalItems}
+								},
+							}}
 						/>
-					</>
-				) : (
-					<SkeletonLoader />
-				)}
-			</Stack>
-			{allowAddingExerciseToWorkout ? (
-				<Affix position={{ bottom: rem(40), right: rem(30) }}>
-					<ActionIcon
-						size="xl"
-						radius="xl"
-						color="blue"
-						variant="light"
-						disabled={selectedExercises.length === 0}
-						className={OnboardingTourStepTargets.AddSelectedExerciseToWorkout}
-						onClick={async () => {
-							await addExerciseToCurrentWorkout(
-								navigate,
-								currentWorkout,
-								userPreferences.fitness,
-								setCurrentWorkout,
-								selectedExercises,
-							);
-							advanceOnboardingTourStep();
-						}}
-					>
-						<IconCheck size={32} />
-					</ActionIcon>
-				</Affix>
-			) : null}
-		</Container>
+						<ActionIcon
+							onClick={openFiltersModal}
+							color={areListFiltersActive ? "blue" : "gray"}
+						>
+							<IconFilter size={24} />
+						</ActionIcon>
+						<FiltersModal
+							opened={filtersModalOpened}
+							closeFiltersModal={closeFiltersModal}
+							resetFilters={() => setFilters(defaultFilters)}
+						>
+							<FiltersModalForm filter={filters} updateFilter={updateFilter} />
+						</FiltersModal>
+					</Group>
+					{currentWorkout?.replacingExerciseIdx ? (
+						<Alert icon={<IconAlertCircle />}>
+							You are replacing exercise: {replacingExercise?.name}
+						</Alert>
+					) : null}
+					{mergingExercise ? (
+						<Alert icon={<IconAlertCircle />}>
+							You are merging exercise: {mergingExercise}
+						</Alert>
+					) : null}
+					{userExercisesList ? (
+						<>
+							{userExercisesList.response.details.totalItems > 0 ? (
+								<>
+									<DisplayListDetailsAndRefresh
+										cacheId={userExercisesList.cacheId}
+										onRefreshButtonClicked={refetchUserExercisesList}
+										total={userExercisesList.response.details.totalItems}
+										isRandomSortOrderSelected={
+											filters.sortBy === ExerciseSortBy.Random
+										}
+										rightSection={
+											allowAddingExerciseToWorkout ? (
+												<>
+													{" "}
+													and{" "}
+													<Text display="inline" fw="bold">
+														{selectedExercises.length}
+													</Text>{" "}
+													selected
+												</>
+											) : null
+										}
+									/>
+									<SimpleGrid cols={{ md: 2, lg: 3 }}>
+										{userExercisesList.response.items.map((exercise) => (
+											<ExerciseItemDisplay
+												key={exercise}
+												exerciseId={exercise}
+												mergingExercise={mergingExercise}
+												setMergingExercise={setMergingExercise}
+												setSelectedExercises={setSelectedExercises}
+												allowAddingExerciseToWorkout={
+													allowAddingExerciseToWorkout
+												}
+											/>
+										))}
+									</SimpleGrid>
+								</>
+							) : (
+								<Text>No information to display</Text>
+							)}
+							<ApplicationPagination
+								value={filters.page}
+								onChange={(v) => updateFilter("page", v)}
+								totalItems={userExercisesList.response.details.totalItems}
+							/>
+						</>
+					) : (
+						<SkeletonLoader />
+					)}
+				</Stack>
+				{allowAddingExerciseToWorkout ? (
+					<Affix position={{ bottom: rem(40), right: rem(30) }}>
+						<ActionIcon
+							size="xl"
+							radius="xl"
+							color="blue"
+							variant="light"
+							disabled={selectedExercises.length === 0}
+							className={OnboardingTourStepTargets.AddSelectedExerciseToWorkout}
+							onClick={async () => {
+								await addExerciseToCurrentWorkout(
+									navigate,
+									currentWorkout,
+									userPreferences.fitness,
+									setCurrentWorkout,
+									selectedExercises,
+								);
+								advanceOnboardingTourStep();
+							}}
+						>
+							<IconCheck size={32} />
+						</ActionIcon>
+					</Affix>
+				) : null}
+			</Container>
+		</>
 	);
 }
 
