@@ -572,7 +572,7 @@ const ExerciseItemDisplay = (props: {
 						<ActionIcon
 							ml="auto"
 							color="green"
-							variant={isAdded ? "filled" : "transparent"}
+							variant={isAdded ? "filled" : "outline"}
 							onClick={() => {
 								if (isAdded) bulkEditingState.remove(becItem);
 								else bulkEditingState.add(becItem);
