@@ -1,7 +1,7 @@
 # Contributing
 
 :::info
-CLAUDE.md is an excellent place to start reading on coding conventions followed in this project.
+`AGENTS.md` is an excellent place to start reading on coding conventions followed in this project.
 :::
 
 - Install [Rust](https://www.rust-lang.org), [Moon](https://moonrepo.dev) and
