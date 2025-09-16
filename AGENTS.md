@@ -4,6 +4,8 @@
   checking, running tests, etc.) should use `moon` commands.
 - You can read @apps/docs/src/contributing.md for an overview of the project architecture
   and some common commands.
+- When running bash commands (`git`, `sed` etc.), especially for the frontend projects, please remember to
+  quote the paths properly since they often contain special characters.
 - When making changes to the code, run the following commands generously to ensure that the
   changes you are making do not break anything:
 
