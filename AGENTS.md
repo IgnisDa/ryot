@@ -18,7 +18,7 @@
   moon run tests:typecheck
   ```
 
-- When running tests, compile the backend in release mode and implement the feature first,
+- When running tests, implement the feature first and compile the backend in release mode,
   then always ask the user's approval before executing tests to save iteration time.
 - After adding a GraphQL query or mutation to the backend, run `moon run
   generated:backend-graphql` so that the frontend can use the new query or mutation. Beforehand,
