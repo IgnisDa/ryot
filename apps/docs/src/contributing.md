@@ -13,7 +13,7 @@
   ```bash title=".env"
   DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres
   UNKEY_API_ID=dummy-api-id
-  APP_VERSION=v5.2.1
+  APP_VERSION=v9.2.2
   ```
 
 - Run the following commands in separate terminals:
