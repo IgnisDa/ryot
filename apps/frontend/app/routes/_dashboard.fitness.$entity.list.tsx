@@ -452,8 +452,8 @@ const DisplayFitnessEntity = (props: {
 						bulkEditingState.data.action === "add" &&
 						!isAlreadyPresent ? (
 							<ActionIcon
-								variant={isAdded ? "filled" : "transparent"}
 								color="green"
+								variant={isAdded ? "filled" : "outline"}
 								onClick={() => {
 									if (isAdded) bulkEditingState.remove(becItem);
 									else bulkEditingState.add(becItem);
