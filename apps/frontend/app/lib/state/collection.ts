@@ -74,7 +74,10 @@ export const useBulkEditCollection = () => {
 					remove: (toRemove: Entity) => {
 						setBec(
 							produce(bec, (draft) => {
-								draft.targetEntities.splice(findIndex(toRemove), 1);
+								draft.targetEntities.splice(
+									findIndex(toRemove, bec.targetEntities),
+									1,
+								);
 							}),
 						);
 					},
