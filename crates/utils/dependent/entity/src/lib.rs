@@ -218,7 +218,7 @@ pub async fn change_metadata_associations(
 
 pub async fn insert_metadata_person_links(
     ss: &Arc<SupportingService>,
-    metadata_id: &String,
+    metadata_id: &str,
     links: Vec<(String, String, Option<String>, Option<i32>)>,
 ) -> Result<()> {
     for (person_id, role, character, index) in links.into_iter() {
@@ -227,7 +227,7 @@ pub async fn insert_metadata_person_links(
             index: ActiveValue::Set(index),
             person_id: ActiveValue::Set(person_id),
             character: ActiveValue::Set(character),
-            metadata_id: ActiveValue::Set(metadata_id.clone()),
+            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
         };
         intermediate.insert(&ss.db).await.ok();
     }
@@ -236,13 +236,13 @@ pub async fn insert_metadata_person_links(
 
 pub async fn insert_metadata_group_links(
     ss: &Arc<SupportingService>,
-    metadata_id: &String,
+    metadata_id: &str,
     links: Vec<(String, Option<i32>)>,
 ) -> Result<()> {
     for (metadata_group_id, part) in links.into_iter() {
         let intermediate = metadata_to_metadata_group::ActiveModel {
             part: ActiveValue::Set(part.unwrap_or(0)),
-            metadata_id: ActiveValue::Set(metadata_id.clone()),
+            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
             metadata_group_id: ActiveValue::Set(metadata_group_id),
         };
         intermediate.insert(&ss.db).await.ok();
