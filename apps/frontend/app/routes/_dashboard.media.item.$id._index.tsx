@@ -102,7 +102,12 @@ import {
 	useUserMetadataDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
-import { getVerb } from "~/lib/shared/media-utils";
+import {
+	convertRatingToUserScale,
+	formatRatingForDisplay,
+	getRatingUnitSuffix,
+	getVerb,
+} from "~/lib/shared/media-utils";
 import {
 	getProviderSourceImage,
 	openConfirmationModal,
@@ -228,6 +233,20 @@ export default function Page() {
 		loaderData.metadataId,
 	);
 	const userMetadataDetails = useUserMetadataDetails(loaderData.metadataId);
+	const averageRatingValue = convertRatingToUserScale(
+		userMetadataDetails.data?.averageRating,
+		userPreferences.general.reviewScale,
+	);
+	const averageRatingDisplay =
+		averageRatingValue == null
+			? null
+			: formatRatingForDisplay(
+					averageRatingValue,
+					userPreferences.general.reviewScale,
+				);
+	const averageRatingSuffix = getRatingUnitSuffix(
+		userPreferences.general.reviewScale,
+	);
 
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
@@ -400,7 +419,7 @@ export default function Page() {
 							</Text>
 						) : null}
 						{metadataDetails.data.providerRating ||
-						userMetadataDetails.data.averageRating ? (
+						averageRatingValue != null ? (
 							<Group>
 								{metadataDetails.data.providerRating ? (
 									<Paper
@@ -455,12 +474,12 @@ export default function Page() {
 										</Text>
 									</Paper>
 								) : null}
-								{userMetadataDetails.data.averageRating
+								{averageRatingValue != null
 									? match(userPreferences.general.reviewScale)
 											.with(UserReviewScale.ThreePointSmiley, () => (
 												<DisplayThreePointReview
 													size={40}
-													rating={userMetadataDetails.data.averageRating}
+													rating={averageRatingValue}
 												/>
 											))
 											.otherwise(() => (
@@ -478,17 +497,8 @@ export default function Page() {
 														style={{ color: reviewYellow }}
 													/>
 													<Text fz="sm">
-														{Number(
-															userMetadataDetails.data.averageRating,
-														).toFixed(1)}
-														{userPreferences.general.reviewScale ===
-														UserReviewScale.OutOfHundred
-															? "%"
-															: undefined}
-														{userPreferences.general.reviewScale ===
-														UserReviewScale.OutOfTen
-															? "/10"
-															: undefined}
+														{averageRatingDisplay}
+														{averageRatingSuffix}
 													</Text>
 												</Paper>
 											))

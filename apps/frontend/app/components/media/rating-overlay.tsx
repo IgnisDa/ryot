@@ -8,6 +8,11 @@ import { IconStarFilled } from "@tabler/icons-react";
 import { match } from "ts-pattern";
 import { reviewYellow } from "~/lib/shared/constants";
 import { useUserPreferences } from "~/lib/shared/hooks";
+import {
+	convertRatingToUserScale,
+	formatRatingForDisplay,
+	getRatingUnitSuffix,
+} from "~/lib/shared/media-utils";
 import { useReviewEntity } from "~/lib/state/media";
 import classes from "~/styles/common.module.css";
 import { DisplayThreePointReview } from "../common/review";
@@ -22,25 +27,29 @@ export const DisplayAverageRatingOverlay = (props: {
 	const userPreferences = useUserPreferences();
 	const [_r, setEntityToReview] = useReviewEntity();
 
-	return props.averageRating ? (
-		match(userPreferences.general.reviewScale)
+	const averageRatingValue = convertRatingToUserScale(
+		props.averageRating,
+		userPreferences.general.reviewScale,
+	);
+
+	const scale = userPreferences.general.reviewScale;
+	const ratingSuffix = getRatingUnitSuffix(scale);
+	const formattedRating =
+		averageRatingValue == null
+			? null
+			: formatRatingForDisplay(averageRatingValue, scale);
+
+	return formattedRating != null ? (
+		match(scale)
 			.with(UserReviewScale.ThreePointSmiley, () => (
-				<DisplayThreePointReview rating={props.averageRating} />
+				<DisplayThreePointReview rating={averageRatingValue} />
 			))
 			.otherwise(() => (
 				<Group gap={4}>
 					<IconStarFilled size={12} style={{ color: reviewYellow }} />
 					<Text c="white" size="xs" fw="bold" pr={4}>
-						{Number(props.averageRating) % 1 === 0
-							? Math.round(Number(props.averageRating)).toString()
-							: Number(props.averageRating).toFixed(1)}
-						{userPreferences.general.reviewScale ===
-						UserReviewScale.OutOfHundred
-							? "%"
-							: undefined}
-						{userPreferences.general.reviewScale === UserReviewScale.OutOfTen
-							? "/10"
-							: undefined}
+						{formattedRating}
+						{ratingSuffix}
 					</Text>
 				</Group>
 			))

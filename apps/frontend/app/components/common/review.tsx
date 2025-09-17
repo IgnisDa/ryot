@@ -43,7 +43,12 @@ import { match } from "ts-pattern";
 import { reviewYellow } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useUserDetails, useUserPreferences } from "~/lib/shared/hooks";
-import { convertDecimalToThreePointSmiley } from "~/lib/shared/media-utils";
+import {
+	convertDecimalToThreePointSmiley,
+	convertRatingToUserScale,
+	formatRatingForDisplay,
+	getRatingUnitSuffix,
+} from "~/lib/shared/media-utils";
 import {
 	clientGqlService,
 	refreshEntityDetails,
@@ -55,9 +60,10 @@ import classes from "~/styles/common.module.css";
 
 export const DisplayThreePointReview = (props: {
 	size?: number;
-	rating?: string | null;
-}) =>
-	match(convertDecimalToThreePointSmiley(Number(props.rating || "")))
+	rating?: number | null;
+}) => {
+	if (props.rating == null) return null;
+	return match(convertDecimalToThreePointSmiley(props.rating))
 		.with(ThreePointSmileyRating.Happy, () => (
 			<IconMoodHappy size={props.size || 20} color={reviewYellow} />
 		))
@@ -68,6 +74,7 @@ export const DisplayThreePointReview = (props: {
 			<IconMoodSad size={props.size || 20} color={reviewYellow} />
 		))
 		.exhaustive();
+};
 
 export const ReviewItemDisplay = (props: {
 	title: string;
@@ -79,6 +86,15 @@ export const ReviewItemDisplay = (props: {
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
 	const reviewScale = userPreferences.general.reviewScale;
+	const ratingValue = convertRatingToUserScale(
+		props.review.rating,
+		reviewScale,
+	);
+	const ratingStringForScale =
+		ratingValue == null
+			? null
+			: formatRatingForDisplay(ratingValue, reviewScale);
+	const ratingSuffix = getRatingUnitSuffix(reviewScale);
 	const [opened, { toggle }] = useDisclosure(false);
 	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
 		useDisclosure(false);
@@ -141,12 +157,19 @@ export const ReviewItemDisplay = (props: {
 							<>
 								<ActionIcon
 									onClick={() => {
+										const existingReview =
+											ratingValue == null
+												? props.review
+												: {
+														...props.review,
+														rating: ratingStringForScale ?? undefined,
+													};
 										setEntityToReview({
 											metadataLot: props.lot,
 											entityId: props.entityId,
 											entityTitle: props.title,
 											entityLot: props.entityLot,
-											existingReview: props.review,
+											existingReview,
 										});
 									}}
 								>
@@ -176,10 +199,10 @@ export const ReviewItemDisplay = (props: {
 				</Group>
 				<Box ml="sm" mt="xs">
 					<Group>
-						{Number(props.review.rating) > 0
+						{ratingValue != null && ratingValue > 0
 							? match(userPreferences.general.reviewScale)
 									.with(UserReviewScale.ThreePointSmiley, () => (
-										<DisplayThreePointReview rating={props.review.rating} />
+										<DisplayThreePointReview rating={ratingValue} />
 									))
 									.otherwise(() => (
 										<Flex align="center" gap={4}>
@@ -188,13 +211,8 @@ export const ReviewItemDisplay = (props: {
 												style={{ color: reviewYellow }}
 											/>
 											<Text className={classes.text} fw="bold">
-												{props.review.rating}
-												{reviewScale === UserReviewScale.OutOfHundred
-													? "%"
-													: undefined}
-												{reviewScale === UserReviewScale.OutOfTen
-													? "/10"
-													: undefined}
+												{ratingStringForScale}
+												{ratingSuffix}
 											</Text>
 										</Flex>
 									))
