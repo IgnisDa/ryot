@@ -47,11 +47,11 @@ import invariant from "tiny-invariant";
 import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
-	BulkCollectionEditingAffix,
 	DisplayCollectionEntity,
 	DisplayListDetailsAndRefresh,
 	SkeletonLoader,
 } from "~/components/common";
+import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
 	DebouncedSearchInput,
 	FiltersModal,

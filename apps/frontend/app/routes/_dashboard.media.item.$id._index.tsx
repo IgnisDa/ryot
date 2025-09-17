@@ -882,11 +882,11 @@ export default function Page() {
 											</Menu.Target>
 											<Menu.Dropdown>
 												<ToggleMediaMonitorMenuItem
+													entityLot={EntityLot.Metadata}
+													formValue={loaderData.metadataId}
 													inCollections={userMetadataDetails.data.collections.map(
 														(c) => c.details.collectionName,
 													)}
-													formValue={loaderData.metadataId}
-													entityLot={EntityLot.Metadata}
 												/>
 												<Menu.Item onClick={mergeMetadataModalOpen}>
 													Merge media

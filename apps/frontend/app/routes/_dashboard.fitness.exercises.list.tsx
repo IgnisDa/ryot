@@ -24,6 +24,7 @@ import {
 	useListState,
 } from "@mantine/hooks";
 import {
+	EntityLot,
 	type ExerciseEquipment,
 	type ExerciseForce,
 	type ExerciseLevel,
@@ -36,6 +37,7 @@ import {
 	type UserExercisesListInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
+	cloneDeep,
 	getActionIntent,
 	isNumber,
 	processSubmission,
@@ -61,6 +63,7 @@ import {
 	DisplayListDetailsAndRefresh,
 	SkeletonLoader,
 } from "~/components/common";
+import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
 	DebouncedSearchInput,
 	FiltersModal,
@@ -81,6 +84,7 @@ import {
 	isFilterChanged,
 	openConfirmationModal,
 } from "~/lib/shared/ui-utils";
+import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	addExerciseToCurrentWorkout,
 	getExerciseImages,
@@ -169,6 +173,9 @@ export default function Page() {
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const bulkEditingCollection = useBulkEditCollection();
+	const bulkEditingState =
+		bulkEditingCollection.state === false ? null : bulkEditingCollection.state;
 
 	const queryInput: UserExercisesListInput = {
 		sortBy: filters.sortBy,
@@ -213,139 +220,161 @@ export default function Page() {
 		setFilters((prev) => ({ ...prev, [key]: value }));
 
 	return (
-		<Container size="md">
-			<Stack>
-				<Flex align="center" gap="md">
-					<Title>Exercises</Title>
-					<ActionIcon
-						color="green"
-						component={Link}
-						variant="outline"
-						to={$path("/fitness/exercises/update/:action", {
-							action: "create",
-						})}
-					>
-						<IconPlus size={16} />
-					</ActionIcon>
-				</Flex>
-				<Group wrap="nowrap">
-					<DebouncedSearchInput
-						value={filters.query}
-						placeholder="Search for exercises by name or instructions"
-						onChange={(value) => {
-							updateFilter("query", value);
-							updateFilter("page", 1);
-						}}
-						tourControl={{
-							target: OnboardingTourStepTargets.SearchForExercise,
-							onQueryChange: (query) => {
-								if (query === TOUR_EXERCISE_TARGET_ID.toLowerCase()) {
-									advanceOnboardingTourStep();
-								}
-							},
-						}}
-					/>
-					<ActionIcon
-						onClick={openFiltersModal}
-						color={areListFiltersActive ? "blue" : "gray"}
-					>
-						<IconFilter size={24} />
-					</ActionIcon>
-					<FiltersModal
-						opened={filtersModalOpened}
-						closeFiltersModal={closeFiltersModal}
-						resetFilters={() => setFilters(defaultFilters)}
-					>
-						<FiltersModalForm filter={filters} updateFilter={updateFilter} />
-					</FiltersModal>
-				</Group>
-				{currentWorkout?.replacingExerciseIdx ? (
-					<Alert icon={<IconAlertCircle />}>
-						You are replacing exercise: {replacingExercise?.name}
-					</Alert>
-				) : null}
-				{mergingExercise ? (
-					<Alert icon={<IconAlertCircle />}>
-						You are merging exercise: {mergingExercise}
-					</Alert>
-				) : null}
-				{userExercisesList ? (
-					<>
-						{userExercisesList.response.details.totalItems > 0 ? (
-							<>
-								<DisplayListDetailsAndRefresh
-									cacheId={userExercisesList.cacheId}
-									onRefreshButtonClicked={refetchUserExercisesList}
-									total={userExercisesList.response.details.totalItems}
-									isRandomSortOrderSelected={
-										filters.sortBy === ExerciseSortBy.Random
+		<>
+			<BulkCollectionEditingAffix
+				bulkAddEntities={async () => {
+					if (bulkEditingState?.data.action !== "add") return [];
+					const bulkQueryInput = cloneDeep(queryInput);
+					bulkQueryInput.search = {
+						...(bulkQueryInput.search ?? {}),
+						take: Number.MAX_SAFE_INTEGER,
+						page: 1,
+					};
+
+					const { userExercisesList } = await clientGqlService.request(
+						UserExercisesListDocument,
+						{ input: bulkQueryInput },
+					);
+					return userExercisesList.response.items.map((exerciseId) => ({
+						entityId: exerciseId,
+						entityLot: EntityLot.Exercise,
+					}));
+				}}
+			/>
+			<Container size="md">
+				<Stack>
+					<Flex align="center" gap="md">
+						<Title>Exercises</Title>
+						<ActionIcon
+							color="green"
+							component={Link}
+							variant="outline"
+							to={$path("/fitness/exercises/update/:action", {
+								action: "create",
+							})}
+						>
+							<IconPlus size={16} />
+						</ActionIcon>
+					</Flex>
+					<Group wrap="nowrap">
+						<DebouncedSearchInput
+							value={filters.query}
+							placeholder="Search for exercises by name or instructions"
+							onChange={(value) => {
+								updateFilter("query", value);
+								updateFilter("page", 1);
+							}}
+							tourControl={{
+								target: OnboardingTourStepTargets.SearchForExercise,
+								onQueryChange: (query) => {
+									if (query === TOUR_EXERCISE_TARGET_ID.toLowerCase()) {
+										advanceOnboardingTourStep();
 									}
-									rightSection={
-										allowAddingExerciseToWorkout ? (
-											<>
-												{" "}
-												and{" "}
-												<Text display="inline" fw="bold">
-													{selectedExercises.length}
-												</Text>{" "}
-												selected
-											</>
-										) : null
-									}
-								/>
-								<SimpleGrid cols={{ md: 2, lg: 3 }}>
-									{userExercisesList.response.items.map((exercise) => (
-										<ExerciseItemDisplay
-											key={exercise}
-											exerciseId={exercise}
-											mergingExercise={mergingExercise}
-											setMergingExercise={setMergingExercise}
-											setSelectedExercises={setSelectedExercises}
-											allowAddingExerciseToWorkout={
-												allowAddingExerciseToWorkout
-											}
-										/>
-									))}
-								</SimpleGrid>
-							</>
-						) : (
-							<Text>No information to display</Text>
-						)}
-						<ApplicationPagination
-							value={filters.page}
-							onChange={(v) => updateFilter("page", v)}
-							totalItems={userExercisesList.response.details.totalItems}
+								},
+							}}
 						/>
-					</>
-				) : (
-					<SkeletonLoader />
-				)}
-			</Stack>
-			{allowAddingExerciseToWorkout ? (
-				<Affix position={{ bottom: rem(40), right: rem(30) }}>
-					<ActionIcon
-						size="xl"
-						radius="xl"
-						color="blue"
-						variant="light"
-						disabled={selectedExercises.length === 0}
-						className={OnboardingTourStepTargets.AddSelectedExerciseToWorkout}
-						onClick={async () => {
-							await addExerciseToCurrentWorkout(
-								navigate,
-								currentWorkout,
-								userPreferences.fitness,
-								setCurrentWorkout,
-								selectedExercises,
-							);
-							advanceOnboardingTourStep();
-						}}
-					>
-						<IconCheck size={32} />
-					</ActionIcon>
-				</Affix>
-			) : null}
-		</Container>
+						<ActionIcon
+							onClick={openFiltersModal}
+							color={areListFiltersActive ? "blue" : "gray"}
+						>
+							<IconFilter size={24} />
+						</ActionIcon>
+						<FiltersModal
+							opened={filtersModalOpened}
+							closeFiltersModal={closeFiltersModal}
+							resetFilters={() => setFilters(defaultFilters)}
+						>
+							<FiltersModalForm filter={filters} updateFilter={updateFilter} />
+						</FiltersModal>
+					</Group>
+					{currentWorkout?.replacingExerciseIdx ? (
+						<Alert icon={<IconAlertCircle />}>
+							You are replacing exercise: {replacingExercise?.name}
+						</Alert>
+					) : null}
+					{mergingExercise ? (
+						<Alert icon={<IconAlertCircle />}>
+							You are merging exercise: {mergingExercise}
+						</Alert>
+					) : null}
+					{userExercisesList ? (
+						<>
+							{userExercisesList.response.details.totalItems > 0 ? (
+								<>
+									<DisplayListDetailsAndRefresh
+										cacheId={userExercisesList.cacheId}
+										onRefreshButtonClicked={refetchUserExercisesList}
+										total={userExercisesList.response.details.totalItems}
+										isRandomSortOrderSelected={
+											filters.sortBy === ExerciseSortBy.Random
+										}
+										rightSection={
+											allowAddingExerciseToWorkout ? (
+												<>
+													{" "}
+													and{" "}
+													<Text display="inline" fw="bold">
+														{selectedExercises.length}
+													</Text>{" "}
+													selected
+												</>
+											) : null
+										}
+									/>
+									<SimpleGrid cols={{ md: 2, lg: 3 }}>
+										{userExercisesList.response.items.map((exercise) => (
+											<ExerciseItemDisplay
+												key={exercise}
+												exerciseId={exercise}
+												mergingExercise={mergingExercise}
+												setMergingExercise={setMergingExercise}
+												setSelectedExercises={setSelectedExercises}
+												allowAddingExerciseToWorkout={
+													allowAddingExerciseToWorkout
+												}
+											/>
+										))}
+									</SimpleGrid>
+								</>
+							) : (
+								<Text>No information to display</Text>
+							)}
+							<ApplicationPagination
+								value={filters.page}
+								onChange={(v) => updateFilter("page", v)}
+								totalItems={userExercisesList.response.details.totalItems}
+							/>
+						</>
+					) : (
+						<SkeletonLoader />
+					)}
+				</Stack>
+				{allowAddingExerciseToWorkout ? (
+					<Affix position={{ bottom: rem(40), right: rem(30) }}>
+						<ActionIcon
+							size="xl"
+							radius="xl"
+							color="blue"
+							variant="light"
+							disabled={selectedExercises.length === 0}
+							className={OnboardingTourStepTargets.AddSelectedExerciseToWorkout}
+							onClick={async () => {
+								await addExerciseToCurrentWorkout(
+									navigate,
+									currentWorkout,
+									userPreferences.fitness,
+									setCurrentWorkout,
+									selectedExercises,
+								);
+								advanceOnboardingTourStep();
+							}}
+						>
+							<IconCheck size={32} />
+						</ActionIcon>
+					</Affix>
+				) : null}
+			</Container>
+		</>
 	);
 }
 
@@ -424,6 +453,13 @@ const ExerciseItemDisplay = (props: {
 		props.exerciseId,
 		inViewport,
 	);
+	const bulkEditingCollection = useBulkEditCollection();
+	const rawBulkEditingState = bulkEditingCollection.state;
+	const bulkEditingState =
+		rawBulkEditingState === false ? null : rawBulkEditingState;
+	const becItem = { entityId: props.exerciseId, entityLot: EntityLot.Exercise };
+	const isAlreadyPresent = bulkEditingCollection.isAlreadyPresent(becItem);
+	const isAdded = bulkEditingCollection.isAdded(becItem);
 
 	const firstMuscle = exercise?.muscles?.at(0);
 	const numTimesInteracted =
@@ -530,6 +566,22 @@ const ExerciseItemDisplay = (props: {
 							</Flex>
 						</Flex>
 					</Link>
+					{bulkEditingState &&
+					bulkEditingState.data.action === "add" &&
+					!isAlreadyPresent ? (
+						<ActionIcon
+							ml="auto"
+							color="green"
+							variant={isAdded ? "filled" : "outline"}
+							disabled={bulkEditingState.data.isLoading}
+							onClick={() => {
+								if (isAdded) bulkEditingState.remove(becItem);
+								else bulkEditingState.add(becItem);
+							}}
+						>
+							<IconCheck size={18} />
+						</ActionIcon>
+					) : null}
 				</Flex>
 			) : (
 				<Skeleton height={56} ref={ref} />

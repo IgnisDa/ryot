@@ -1,7 +1,7 @@
 # Contributing
 
 :::info
-CLAUDE.md is an excellent place to start reading on coding conventions followed in this project.
+`AGENTS.md` is an excellent place to start reading on coding conventions followed in this project.
 :::
 
 - Install [Rust](https://www.rust-lang.org), [Moon](https://moonrepo.dev) and
@@ -13,7 +13,7 @@ CLAUDE.md is an excellent place to start reading on coding conventions followed 
   ```bash title=".env"
   DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres
   UNKEY_API_ID=dummy-api-id
-  APP_VERSION=v5.2.1
+  APP_VERSION=v9.2.2
   ```
 
 - Run the following commands in separate terminals:

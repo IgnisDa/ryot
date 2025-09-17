@@ -39,11 +39,11 @@ import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
-	BulkCollectionEditingAffix,
 	CreateButton,
 	DisplayListDetailsAndRefresh,
 	SkeletonLoader,
 } from "~/components/common";
+import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
 	CollectionsFilter,
 	DebouncedSearchInput,

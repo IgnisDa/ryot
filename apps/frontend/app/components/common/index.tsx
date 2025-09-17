@@ -1,6 +1,5 @@
 import {
 	ActionIcon,
-	Affix,
 	Alert,
 	Anchor,
 	Badge,
@@ -12,33 +11,26 @@ import {
 	Flex,
 	Group,
 	Modal,
-	NumberInput,
 	Pagination,
-	Paper,
 	Select,
 	Skeleton,
 	Stack,
-	Switch,
 	Text,
 	TextInput,
 	Tooltip,
 	rem,
 } from "@mantine/core";
-import { DateInput, DateTimePicker } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	type CollectionExtraInformation,
 	CollectionExtraInformationLot,
 	type CollectionToEntityDetailsPartFragment,
 	EntityLot,
 	MediaSource,
-	type Scalars,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase } from "@ryot/ts-utils";
 import {
 	IconArrowsShuffle,
-	IconCancel,
 	IconCheck,
 	IconChevronLeft,
 	IconChevronRight,
@@ -54,7 +46,6 @@ import { match } from "ts-pattern";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
-	useAddEntitiesToCollectionMutation,
 	useCoreDetails,
 	useExpireCacheKeyMutation,
 	useGetRandomMantineColor,
@@ -65,11 +56,7 @@ import {
 } from "~/lib/shared/hooks";
 import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
-import {
-	type BulkEditEntitiesToCollection,
-	useBulkEditCollection,
-	useEditEntityCollectionInformation,
-} from "~/lib/state/collection";
+import { useEditEntityCollectionInformation } from "~/lib/state/collection";
 import {
 	ExerciseDisplayItem,
 	WorkoutDisplayItem,
@@ -80,7 +67,6 @@ import {
 	MetadataGroupDisplayItem,
 	PersonDisplayItem,
 } from "../media/display-items";
-import { MultiSelectCreatable } from "./multi-select-creatable";
 
 export const SkeletonLoader = () => <Skeleton height={100} />;
 
@@ -358,174 +344,6 @@ export const DisplayListDetailsAndRefresh = (props: {
 		</Group>
 	);
 };
-
-export const BulkCollectionEditingAffix = (props: {
-	bulkAddEntities: BulkEditEntitiesToCollection;
-}) => {
-	const bulkEditingCollection = useBulkEditCollection();
-	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
-	const removeEntitiesFromCollection =
-		useRemoveEntitiesFromCollectionMutation();
-
-	const bulkEditingCollectionState = bulkEditingCollection.state;
-
-	if (!bulkEditingCollectionState) return null;
-
-	const handleBulkAction = async () => {
-		const { action, collection, targetEntities } =
-			bulkEditingCollectionState.data;
-
-		const isRemoving = action === "remove";
-		const mutation = isRemoving
-			? removeEntitiesFromCollection
-			: addEntitiesToCollection;
-		const actionText = isRemoving ? "Removing" : "Adding";
-
-		await mutation.mutateAsync({
-			entities: targetEntities,
-			collectionName: collection.name,
-			creatorUserId: collection.creatorUserId,
-		});
-
-		notifications.show({
-			color: "green",
-			title: "Success",
-			message: `${actionText} ${targetEntities.length} item${targetEntities.length === 1 ? "" : "s"} ${isRemoving ? "from" : "to"} collection`,
-		});
-
-		bulkEditingCollectionState.stop();
-	};
-
-	const handleConfirmBulkAction = () => {
-		const { action, collection, targetEntities } =
-			bulkEditingCollectionState.data;
-		const itemCount = targetEntities.length;
-		const message = `Are you sure you want to ${action} ${itemCount} item${itemCount === 1 ? "" : "s"} ${action === "remove" ? "from" : "to"} "${collection.name}"?`;
-
-		openConfirmationModal(message, handleBulkAction);
-	};
-
-	const isLoading =
-		addEntitiesToCollection.isPending || removeEntitiesFromCollection.isPending;
-
-	return (
-		<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
-			<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
-				<Group wrap="nowrap" justify="space-between">
-					<Text fz={{ base: "xs", md: "md" }}>
-						{bulkEditingCollectionState.data.targetEntities.length} items
-						selected
-					</Text>
-					<Group wrap="nowrap">
-						<ActionIcon
-							size="md"
-							onClick={() => bulkEditingCollectionState.stop()}
-						>
-							<IconCancel />
-						</ActionIcon>
-						<Button
-							size="xs"
-							color="blue"
-							loading={bulkEditingCollectionState.data.isLoading}
-							onClick={() =>
-								bulkEditingCollectionState.bulkAdd(props.bulkAddEntities)
-							}
-						>
-							Select all items
-						</Button>
-						<Button
-							size="xs"
-							loading={isLoading}
-							onClick={handleConfirmBulkAction}
-							disabled={
-								bulkEditingCollectionState.data.targetEntities.length === 0
-							}
-							color={
-								bulkEditingCollectionState.data.action === "remove"
-									? "red"
-									: "green"
-							}
-						>
-							{changeCase(bulkEditingCollectionState.data.action)}
-						</Button>
-					</Group>
-				</Group>
-			</Paper>
-		</Affix>
-	);
-};
-
-export const CollectionTemplateRenderer = (props: {
-	value: Scalars["JSON"]["input"];
-	template: CollectionExtraInformation;
-	onChange: (value: Scalars["JSON"]["input"]) => void;
-}) => (
-	<>
-		{match(props.template.lot)
-			.with(CollectionExtraInformationLot.String, () => (
-				<TextInput
-					value={props.value || ""}
-					label={props.template.name}
-					required={!!props.template.required}
-					description={props.template.description}
-					onChange={(e) => props.onChange(e.currentTarget.value)}
-				/>
-			))
-			.with(CollectionExtraInformationLot.Boolean, () => (
-				<Switch
-					label={props.template.name}
-					checked={props.value === "true"}
-					required={!!props.template.required}
-					description={props.template.description}
-					onChange={(e) =>
-						props.onChange(e.currentTarget.checked ? "true" : "false")
-					}
-				/>
-			))
-			.with(CollectionExtraInformationLot.Number, () => (
-				<NumberInput
-					value={props.value}
-					label={props.template.name}
-					required={!!props.template.required}
-					description={props.template.description}
-					onChange={(v) => props.onChange(v)}
-				/>
-			))
-			.with(CollectionExtraInformationLot.Date, () => (
-				<DateInput
-					clearable
-					value={props.value}
-					label={props.template.name}
-					required={!!props.template.required}
-					description={props.template.description}
-					onChange={(v) => props.onChange(v)}
-				/>
-			))
-			.with(CollectionExtraInformationLot.DateTime, () => (
-				<DateTimePicker
-					clearable
-					value={props.value}
-					label={props.template.name}
-					required={!!props.template.required}
-					description={props.template.description}
-					onChange={(v) =>
-						props.onChange(v ? dayjsLib(v).toISOString() : undefined)
-					}
-				/>
-			))
-			.with(CollectionExtraInformationLot.StringArray, () => (
-				<MultiSelectCreatable
-					values={props.value}
-					label={props.template.name}
-					required={!!props.template.required}
-					description={props.template.description}
-					data={props.template.possibleValues || []}
-					setValue={(newValue: string[]) => props.onChange(newValue)}
-				/>
-			))
-			.exhaustive()}
-	</>
-);
 
 export const ApplicationPagination = (props: {
 	value: number;
