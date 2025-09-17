@@ -376,7 +376,7 @@ export const BulkCollectionEditingAffix = (props: {
 		useRemoveEntitiesFromCollectionMutation();
 	const userCollections = useUserCollections();
 	const [bulkExtraInformation, setBulkExtraInformation] = useState<
-		Scalars["JSON"]["input"]
+		Record<string, unknown>
 	>({});
 	const [
 		extraInformationModalOpened,
@@ -484,7 +484,7 @@ export const BulkCollectionEditingAffix = (props: {
 								template={template}
 								value={bulkExtraInformation[template.name]}
 								onChange={(value) =>
-									setBulkExtraInformation((prev: Scalars["JSON"]["input"]) => ({
+									setBulkExtraInformation((prev) => ({
 										...prev,
 										[template.name]: value,
 									}))
