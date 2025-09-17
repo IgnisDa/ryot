@@ -60,10 +60,10 @@ import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {
 	ApplicationPagination,
-	BulkCollectionEditingAffix,
 	DisplayListDetailsAndRefresh,
 	SkeletonLoader,
 } from "~/components/common";
+import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
 	DebouncedSearchInput,
 	FiltersModal,

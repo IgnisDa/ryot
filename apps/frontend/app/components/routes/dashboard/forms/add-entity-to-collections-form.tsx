@@ -12,7 +12,7 @@ import { Form } from "react-router";
 import { Fragment } from "react/jsx-runtime";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { CollectionTemplateRenderer } from "~/components/common";
+import { CollectionTemplateRenderer } from "~/components/common/CollectionTemplateRenderer";
 import {
 	useAddEntitiesToCollectionMutation,
 	useApplicationEvents,

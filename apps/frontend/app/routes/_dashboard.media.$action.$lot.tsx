@@ -44,12 +44,12 @@ import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
-	BulkCollectionEditingAffix,
 	CreateButton,
 	DisplayListDetailsAndRefresh,
 	ProRequiredAlert,
 	SkeletonLoader,
 } from "~/components/common";
+import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
 	CollectionsFilter,
 	DebouncedSearchInput,

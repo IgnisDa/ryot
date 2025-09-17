@@ -50,10 +50,10 @@ import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
-	BulkCollectionEditingAffix,
 	DisplayListDetailsAndRefresh,
 	SkeletonLoader,
 } from "~/components/common";
+import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
 	DebouncedSearchInput,
 	FiltersModal,

@@ -1,6 +1,5 @@
 import {
 	ActionIcon,
-	Affix,
 	Alert,
 	Anchor,
 	Badge,
@@ -12,34 +11,26 @@ import {
 	Flex,
 	Group,
 	Modal,
-	NumberInput,
 	Pagination,
-	Paper,
 	Select,
 	Skeleton,
 	Stack,
-	Switch,
 	Text,
 	TextInput,
 	Tooltip,
 	rem,
 } from "@mantine/core";
-import { DateInput, DateTimePicker } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	type CollectionExtraInformation,
 	CollectionExtraInformationLot,
 	type CollectionToEntityDetailsPartFragment,
 	EntityLot,
-	type EntityToCollectionInput,
 	MediaSource,
-	type Scalars,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase } from "@ryot/ts-utils";
 import {
 	IconArrowsShuffle,
-	IconCancel,
 	IconCheck,
 	IconChevronLeft,
 	IconChevronRight,
@@ -48,23 +39,15 @@ import {
 	IconPhotoPlus,
 	IconX,
 } from "@tabler/icons-react";
-import {
-	type CSSProperties,
-	type FormEvent,
-	type ReactNode,
-	useMemo,
-	useState,
-} from "react";
+import { type CSSProperties, type ReactNode, useMemo } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
-	useAddEntitiesToCollectionMutation,
 	useCoreDetails,
 	useExpireCacheKeyMutation,
-	useFormValidation,
 	useGetRandomMantineColor,
 	useRemoveEntitiesFromCollectionMutation,
 	useUserCollections,
@@ -73,11 +56,7 @@ import {
 } from "~/lib/shared/hooks";
 import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
-import {
-	type BulkEditEntitiesToCollection,
-	useBulkEditCollection,
-	useEditEntityCollectionInformation,
-} from "~/lib/state/collection";
+import { useEditEntityCollectionInformation } from "~/lib/state/collection";
 import {
 	ExerciseDisplayItem,
 	WorkoutDisplayItem,
@@ -88,7 +67,6 @@ import {
 	MetadataGroupDisplayItem,
 	PersonDisplayItem,
 } from "../media/display-items";
-import { MultiSelectCreatable } from "./multi-select-creatable";
 
 export const SkeletonLoader = () => <Skeleton height={100} />;
 
@@ -366,264 +344,6 @@ export const DisplayListDetailsAndRefresh = (props: {
 		</Group>
 	);
 };
-
-export const BulkCollectionEditingAffix = (props: {
-	bulkAddEntities: BulkEditEntitiesToCollection;
-}) => {
-	const bulkEditingCollection = useBulkEditCollection();
-	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
-	const removeEntitiesFromCollection =
-		useRemoveEntitiesFromCollectionMutation();
-	const userCollections = useUserCollections();
-	const [bulkExtraInformation, setBulkExtraInformation] = useState<
-		Record<string, unknown>
-	>({});
-	const [
-		extraInformationModalOpened,
-		{ open: openExtraInformationModal, close: closeExtraInformationModal },
-	] = useDisclosure(false);
-	const { formRef, isFormValid } = useFormValidation([bulkExtraInformation]);
-
-	const bulkEditingCollectionState = bulkEditingCollection.state;
-
-	if (!bulkEditingCollectionState) return null;
-
-	const { action, collection, targetEntities } =
-		bulkEditingCollectionState.data;
-	const isRemoving = action === "remove";
-	const collectionDetails = userCollections.find((c) => c.id === collection.id);
-	const requiresExtraInformation =
-		!isRemoving && !!collectionDetails?.informationTemplate?.length;
-
-	const resetExtraInformation = () => setBulkExtraInformation({});
-
-	const buildPayloadEntities = (
-		information?: Scalars["JSON"]["input"],
-	): EntityToCollectionInput[] =>
-		targetEntities.map((entity) => {
-			const payload: EntityToCollectionInput = {
-				entityId: entity.entityId,
-				entityLot: entity.entityLot,
-			};
-			if (!isRemoving && information && Object.keys(information).length > 0) {
-				payload.information = information;
-			}
-			return payload;
-		});
-
-	const handleBulkAction = async (information?: Scalars["JSON"]["input"]) => {
-		const mutation = isRemoving
-			? removeEntitiesFromCollection
-			: addEntitiesToCollection;
-		const actionText = isRemoving ? "Removing" : "Adding";
-
-		await mutation.mutateAsync({
-			collectionName: collection.name,
-			creatorUserId: collection.creatorUserId,
-			entities: buildPayloadEntities(information),
-		});
-
-		notifications.show({
-			color: "green",
-			title: "Success",
-			message: `${actionText} ${targetEntities.length} item${targetEntities.length === 1 ? "" : "s"} ${isRemoving ? "from" : "to"} collection`,
-		});
-
-		resetExtraInformation();
-		bulkEditingCollectionState.stop();
-	};
-
-	const getConfirmationMessage = () => {
-		const itemCount = targetEntities.length;
-		return `Are you sure you want to ${action} ${itemCount} item${itemCount === 1 ? "" : "s"} ${isRemoving ? "from" : "to"} "${collection.name}"?`;
-	};
-
-	const handleConfirmBulkAction = () => {
-		if (requiresExtraInformation) {
-			openExtraInformationModal();
-			return;
-		}
-		openConfirmationModal(getConfirmationMessage(), () => {
-			void handleBulkAction();
-		});
-	};
-
-	const closeExtraInformation = () => {
-		closeExtraInformationModal();
-		resetExtraInformation();
-	};
-
-	const handleExtraInformationSubmit = (event: FormEvent<HTMLFormElement>) => {
-		event.preventDefault();
-		const information = bulkExtraInformation;
-		openConfirmationModal(getConfirmationMessage(), async () => {
-			handleBulkAction(information).then(() => closeExtraInformation());
-		});
-	};
-
-	const isLoading =
-		addEntitiesToCollection.isPending || removeEntitiesFromCollection.isPending;
-
-	return (
-		<>
-			<Modal
-				centered
-				opened={extraInformationModalOpened}
-				onClose={closeExtraInformation}
-				title={`Add extra information to "${collection.name}"`}
-			>
-				<form ref={formRef} onSubmit={handleExtraInformationSubmit}>
-					<Stack>
-						<Text size="sm" c="dimmed">
-							The details below will be applied to all selected items.
-						</Text>
-						{collectionDetails?.informationTemplate?.map((template) => (
-							<CollectionTemplateRenderer
-								key={template.name}
-								template={template}
-								value={bulkExtraInformation[template.name]}
-								onChange={(value) =>
-									setBulkExtraInformation((prev) => ({
-										...prev,
-										[template.name]: value,
-									}))
-								}
-							/>
-						))}
-						<Group justify="flex-end">
-							<Button
-								type="button"
-								variant="subtle"
-								onClick={closeExtraInformation}
-							>
-								Cancel
-							</Button>
-							<Button
-								type="submit"
-								variant="outline"
-								loading={isLoading}
-								disabled={!isFormValid || targetEntities.length === 0}
-							>
-								{changeCase(action)}
-							</Button>
-						</Group>
-					</Stack>
-				</form>
-			</Modal>
-			<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
-				<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
-					<Group wrap="nowrap" justify="space-between">
-						<Text fz={{ base: "xs", md: "md" }}>
-							{targetEntities.length} items selected
-						</Text>
-						<Group wrap="nowrap">
-							<ActionIcon
-								size="md"
-								onClick={() => bulkEditingCollectionState.stop()}
-							>
-								<IconCancel />
-							</ActionIcon>
-							<Button
-								size="xs"
-								color="blue"
-								loading={bulkEditingCollectionState.data.isLoading}
-								onClick={() =>
-									bulkEditingCollectionState.bulkAdd(props.bulkAddEntities)
-								}
-							>
-								Select all items
-							</Button>
-							<Button
-								size="xs"
-								loading={isLoading}
-								onClick={handleConfirmBulkAction}
-								color={isRemoving ? "red" : "green"}
-								disabled={
-									targetEntities.length === 0 ||
-									(!isRemoving && !collectionDetails)
-								}
-							>
-								{changeCase(action)}
-							</Button>
-						</Group>
-					</Group>
-				</Paper>
-			</Affix>
-		</>
-	);
-};
-
-export const CollectionTemplateRenderer = (props: {
-	value: Scalars["JSON"]["input"];
-	template: CollectionExtraInformation;
-	onChange: (value: Scalars["JSON"]["input"]) => void;
-}) => (
-	<>
-		{match(props.template.lot)
-			.with(CollectionExtraInformationLot.String, () => (
-				<TextInput
-					value={props.value || ""}
-					label={props.template.name}
-					required={!!props.template.required}
-					description={props.template.description}
-					onChange={(e) => props.onChange(e.currentTarget.value)}
-				/>
-			))
-			.with(CollectionExtraInformationLot.Boolean, () => (
-				<Switch
-					label={props.template.name}
-					checked={props.value === "true"}
-					required={!!props.template.required}
-					description={props.template.description}
-					onChange={(e) =>
-						props.onChange(e.currentTarget.checked ? "true" : "false")
-					}
-				/>
-			))
-			.with(CollectionExtraInformationLot.Number, () => (
-				<NumberInput
-					value={props.value}
-					label={props.template.name}
-					required={!!props.template.required}
-					description={props.template.description}
-					onChange={(v) => props.onChange(v)}
-				/>
-			))
-			.with(CollectionExtraInformationLot.Date, () => (
-				<DateInput
-					clearable
-					value={props.value}
-					label={props.template.name}
-					required={!!props.template.required}
-					description={props.template.description}
-					onChange={(v) => props.onChange(v)}
-				/>
-			))
-			.with(CollectionExtraInformationLot.DateTime, () => (
-				<DateTimePicker
-					clearable
-					value={props.value}
-					label={props.template.name}
-					required={!!props.template.required}
-					description={props.template.description}
-					onChange={(v) =>
-						props.onChange(v ? dayjsLib(v).toISOString() : undefined)
-					}
-				/>
-			))
-			.with(CollectionExtraInformationLot.StringArray, () => (
-				<MultiSelectCreatable
-					values={props.value}
-					label={props.template.name}
-					required={!!props.template.required}
-					description={props.template.description}
-					data={props.template.possibleValues || []}
-					setValue={(newValue: string[]) => props.onChange(newValue)}
-				/>
-			))
-			.exhaustive()}
-	</>
-);
 
 export const ApplicationPagination = (props: {
 	value: number;
