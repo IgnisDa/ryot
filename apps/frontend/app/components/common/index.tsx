@@ -456,9 +456,8 @@ export const BulkCollectionEditingAffix = (props: {
 	const handleExtraInformationSubmit = (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		const information = bulkExtraInformation;
-		openConfirmationModal(getConfirmationMessage(), () => {
-			closeExtraInformation();
-			void handleBulkAction(information);
+		openConfirmationModal(getConfirmationMessage(), async () => {
+			handleBulkAction(information).then(() => closeExtraInformation());
 		});
 	};
 
