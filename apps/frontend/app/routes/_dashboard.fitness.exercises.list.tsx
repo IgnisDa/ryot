@@ -573,6 +573,7 @@ const ExerciseItemDisplay = (props: {
 							ml="auto"
 							color="green"
 							variant={isAdded ? "filled" : "outline"}
+							disabled={bulkEditingState.data.isLoading}
 							onClick={() => {
 								if (isAdded) bulkEditingState.remove(becItem);
 								else bulkEditingState.add(becItem);
