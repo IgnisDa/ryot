@@ -537,8 +537,11 @@ export const BulkCollectionEditingAffix = (props: {
 								size="xs"
 								loading={isLoading}
 								onClick={handleConfirmBulkAction}
-								disabled={targetEntities.length === 0}
 								color={isRemoving ? "red" : "green"}
+								disabled={
+									targetEntities.length === 0 ||
+									(!isRemoving && !collectionDetails)
+								}
 							>
 								{changeCase(action)}
 							</Button>
