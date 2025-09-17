@@ -32,6 +32,7 @@ import {
 	CollectionExtraInformationLot,
 	type CollectionToEntityDetailsPartFragment,
 	EntityLot,
+	type EntityToCollectionInput,
 	MediaSource,
 	type Scalars,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -47,7 +48,13 @@ import {
 	IconPhotoPlus,
 	IconX,
 } from "@tabler/icons-react";
-import { type CSSProperties, type ReactNode, useMemo } from "react";
+import {
+	type CSSProperties,
+	type FormEvent,
+	type ReactNode,
+	useMemo,
+	useState,
+} from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -57,6 +64,7 @@ import {
 	useAddEntitiesToCollectionMutation,
 	useCoreDetails,
 	useExpireCacheKeyMutation,
+	useFormValidation,
 	useGetRandomMantineColor,
 	useRemoveEntitiesFromCollectionMutation,
 	useUserCollections,
@@ -366,25 +374,53 @@ export const BulkCollectionEditingAffix = (props: {
 	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
 	const removeEntitiesFromCollection =
 		useRemoveEntitiesFromCollectionMutation();
+	const userCollections = useUserCollections();
+	const [bulkExtraInformation, setBulkExtraInformation] = useState<
+		Scalars["JSON"]["input"]
+	>({});
+	const [
+		extraInformationModalOpened,
+		{ open: openExtraInformationModal, close: closeExtraInformationModal },
+	] = useDisclosure(false);
+	const { formRef, isFormValid } = useFormValidation([bulkExtraInformation]);
 
 	const bulkEditingCollectionState = bulkEditingCollection.state;
 
 	if (!bulkEditingCollectionState) return null;
 
-	const handleBulkAction = async () => {
-		const { action, collection, targetEntities } =
-			bulkEditingCollectionState.data;
+	const { action, collection, targetEntities } =
+		bulkEditingCollectionState.data;
+	const isRemoving = action === "remove";
+	const collectionDetails = userCollections.find((c) => c.id === collection.id);
+	const requiresExtraInformation =
+		!isRemoving && !!collectionDetails?.informationTemplate?.length;
 
-		const isRemoving = action === "remove";
+	const resetExtraInformation = () => setBulkExtraInformation({});
+
+	const buildPayloadEntities = (
+		information?: Scalars["JSON"]["input"],
+	): EntityToCollectionInput[] =>
+		targetEntities.map((entity) => {
+			const payload: EntityToCollectionInput = {
+				entityId: entity.entityId,
+				entityLot: entity.entityLot,
+			};
+			if (!isRemoving && information && Object.keys(information).length > 0) {
+				payload.information = information;
+			}
+			return payload;
+		});
+
+	const handleBulkAction = async (information?: Scalars["JSON"]["input"]) => {
 		const mutation = isRemoving
 			? removeEntitiesFromCollection
 			: addEntitiesToCollection;
 		const actionText = isRemoving ? "Removing" : "Adding";
 
 		await mutation.mutateAsync({
-			entities: targetEntities,
 			collectionName: collection.name,
 			creatorUserId: collection.creatorUserId,
+			entities: buildPayloadEntities(information),
 		});
 
 		notifications.show({
@@ -393,65 +429,125 @@ export const BulkCollectionEditingAffix = (props: {
 			message: `${actionText} ${targetEntities.length} item${targetEntities.length === 1 ? "" : "s"} ${isRemoving ? "from" : "to"} collection`,
 		});
 
+		resetExtraInformation();
 		bulkEditingCollectionState.stop();
 	};
 
-	const handleConfirmBulkAction = () => {
-		const { action, collection, targetEntities } =
-			bulkEditingCollectionState.data;
+	const getConfirmationMessage = () => {
 		const itemCount = targetEntities.length;
-		const message = `Are you sure you want to ${action} ${itemCount} item${itemCount === 1 ? "" : "s"} ${action === "remove" ? "from" : "to"} "${collection.name}"?`;
+		return `Are you sure you want to ${action} ${itemCount} item${itemCount === 1 ? "" : "s"} ${isRemoving ? "from" : "to"} "${collection.name}"?`;
+	};
 
-		openConfirmationModal(message, handleBulkAction);
+	const handleConfirmBulkAction = () => {
+		if (requiresExtraInformation) {
+			openExtraInformationModal();
+			return;
+		}
+		openConfirmationModal(getConfirmationMessage(), () => {
+			void handleBulkAction();
+		});
+	};
+
+	const closeExtraInformation = () => {
+		closeExtraInformationModal();
+		resetExtraInformation();
+	};
+
+	const handleExtraInformationSubmit = (event: FormEvent<HTMLFormElement>) => {
+		event.preventDefault();
+		const information = bulkExtraInformation;
+		openConfirmationModal(getConfirmationMessage(), () => {
+			closeExtraInformation();
+			void handleBulkAction(information);
+		});
 	};
 
 	const isLoading =
 		addEntitiesToCollection.isPending || removeEntitiesFromCollection.isPending;
 
 	return (
-		<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
-			<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
-				<Group wrap="nowrap" justify="space-between">
-					<Text fz={{ base: "xs", md: "md" }}>
-						{bulkEditingCollectionState.data.targetEntities.length} items
-						selected
-					</Text>
-					<Group wrap="nowrap">
-						<ActionIcon
-							size="md"
-							onClick={() => bulkEditingCollectionState.stop()}
-						>
-							<IconCancel />
-						</ActionIcon>
-						<Button
-							size="xs"
-							color="blue"
-							loading={bulkEditingCollectionState.data.isLoading}
-							onClick={() =>
-								bulkEditingCollectionState.bulkAdd(props.bulkAddEntities)
-							}
-						>
-							Select all items
-						</Button>
-						<Button
-							size="xs"
-							loading={isLoading}
-							onClick={handleConfirmBulkAction}
-							disabled={
-								bulkEditingCollectionState.data.targetEntities.length === 0
-							}
-							color={
-								bulkEditingCollectionState.data.action === "remove"
-									? "red"
-									: "green"
-							}
-						>
-							{changeCase(bulkEditingCollectionState.data.action)}
-						</Button>
+		<>
+			<Modal
+				centered
+				opened={extraInformationModalOpened}
+				onClose={closeExtraInformation}
+				title={`Add extra information to "${collection.name}"`}
+			>
+				<form ref={formRef} onSubmit={handleExtraInformationSubmit}>
+					<Stack>
+						<Text size="sm" c="dimmed">
+							The details below will be applied to all selected items.
+						</Text>
+						{collectionDetails?.informationTemplate?.map((template) => (
+							<CollectionTemplateRenderer
+								key={template.name}
+								template={template}
+								value={bulkExtraInformation[template.name]}
+								onChange={(value) =>
+									setBulkExtraInformation((prev: Scalars["JSON"]["input"]) => ({
+										...prev,
+										[template.name]: value,
+									}))
+								}
+							/>
+						))}
+						<Group justify="flex-end">
+							<Button
+								type="button"
+								variant="subtle"
+								onClick={closeExtraInformation}
+							>
+								Cancel
+							</Button>
+							<Button
+								type="submit"
+								variant="outline"
+								loading={isLoading}
+								disabled={!isFormValid || targetEntities.length === 0}
+							>
+								{changeCase(action)}
+							</Button>
+						</Group>
+					</Stack>
+				</form>
+			</Modal>
+			<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
+				<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
+					<Group wrap="nowrap" justify="space-between">
+						<Text fz={{ base: "xs", md: "md" }}>
+							{targetEntities.length} items selected
+						</Text>
+						<Group wrap="nowrap">
+							<ActionIcon
+								size="md"
+								onClick={() => bulkEditingCollectionState.stop()}
+							>
+								<IconCancel />
+							</ActionIcon>
+							<Button
+								size="xs"
+								color="blue"
+								loading={bulkEditingCollectionState.data.isLoading}
+								onClick={() =>
+									bulkEditingCollectionState.bulkAdd(props.bulkAddEntities)
+								}
+							>
+								Select all items
+							</Button>
+							<Button
+								size="xs"
+								loading={isLoading}
+								onClick={handleConfirmBulkAction}
+								disabled={targetEntities.length === 0}
+								color={isRemoving ? "red" : "green"}
+							>
+								{changeCase(action)}
+							</Button>
+						</Group>
 					</Group>
-				</Group>
-			</Paper>
-		</Affix>
+				</Paper>
+			</Affix>
+		</>
 	);
 };
 
