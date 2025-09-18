@@ -20,6 +20,7 @@ import { z } from "zod";
 import {
 	useConfirmSubmit,
 	useDashboardLayoutData,
+	useInvalidateUserDetails,
 	useIsMobile,
 	useIsOnboardingTourCompleted,
 	useMarkUserOnboardingTourStatus,
@@ -157,17 +158,18 @@ const getJobDetails = (job: BackgroundJob) =>
 		.exhaustive();
 
 const DisplayJobBtn = (props: { job: BackgroundJob }) => {
+	const submit = useConfirmSubmit();
 	const userDetails = useUserDetails();
 	const dashboardData = useDashboardLayoutData();
 	const isEditDisabled = dashboardData.isDemoInstance;
-	const submit = useConfirmSubmit();
+	const invalidateUserDetails = useInvalidateUserDetails();
 
 	const [title, description, isAdminOnly] = getJobDetails(props.job);
 
 	if (isAdminOnly && userDetails.lot !== UserLot.Admin) return null;
 
 	return (
-		<Form replace method="POST">
+		<Form replace method="POST" onSubmit={() => invalidateUserDetails()}>
 			<input hidden name="jobName" defaultValue={props.job} />
 			<Stack>
 				<Box>
