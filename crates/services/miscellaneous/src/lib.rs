@@ -26,6 +26,7 @@ use dependent_notification_utils::{
     update_person_and_notify_users,
 };
 use dependent_review_utils::post_review;
+use dependent_utility_utils::get_entity_recently_consumed;
 use enum_models::EntityLot;
 use media_models::{
     CreateOrUpdateReviewInput, CreateReviewCommentInput, GenreDetailsInput, GraphqlCalendarEvent,
@@ -84,6 +85,15 @@ impl MiscellaneousService {
             metadata_group_id,
         )
         .await
+    }
+
+    pub async fn is_entity_recently_consumed(
+        &self,
+        user_id: String,
+        entity_id: String,
+        entity_lot: EntityLot,
+    ) -> Result<bool> {
+        get_entity_recently_consumed(&user_id, &entity_id, entity_lot, &self.0).await
     }
 
     pub async fn user_calendar_events(
