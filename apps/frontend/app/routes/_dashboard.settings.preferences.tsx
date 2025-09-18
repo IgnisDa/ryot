@@ -26,7 +26,6 @@ import {
 import { notifications } from "@mantine/notifications";
 import {
 	DashboardElementLot,
-	GridPacking,
 	MediaLot,
 	UpdateUserPreferenceDocument,
 	type UserPreferences,
@@ -407,26 +406,6 @@ export default function Page() {
 											if (val) {
 												updatePreference((draft) => {
 													draft.general.reviewScale = val as UserReviewScale;
-												});
-											}
-										}}
-									/>
-								</Input.Wrapper>
-								<Input.Wrapper
-									label="Grid packing"
-									description="Display size for library user interface elements"
-								>
-									<SegmentedControl
-										mt="xs"
-										size="xs"
-										fullWidth
-										disabled={!!isEditDisabled}
-										defaultValue={userPreferences.general.gridPacking}
-										data={convertEnumToSelectData(GridPacking)}
-										onChange={(val) => {
-											if (val) {
-												updatePreference((draft) => {
-													draft.general.gridPacking = val as GridPacking;
 												});
 											}
 										}}
