@@ -277,7 +277,7 @@ const RecommendationsSection = () => {
 	const coreDetails = useCoreDetails();
 
 	const expireCacheKey = useExpireCacheKeyMutation();
-	const { data, refetch } = useQuery({
+	const { data, refetch, isFetching } = useQuery({
 		queryKey: queryFactory.media.userMetadataRecommendations().queryKey,
 		queryFn: () =>
 			clientGqlService.request(UserMetadataRecommendationsDocument),
@@ -290,6 +290,7 @@ const RecommendationsSection = () => {
 				{data ? (
 					<ActionIcon
 						variant="subtle"
+						loading={isFetching}
 						onClick={() => {
 							openConfirmationModal(
 								"Are you sure you want to refresh the recommendations?",
