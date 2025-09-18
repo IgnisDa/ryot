@@ -379,7 +379,6 @@ pub async fn item_reviews(
     let mut reviews = vec![];
     for (review, user) in all_reviews {
         let user = user.unwrap();
-        let rating = review.rating;
         let seen_items_associated_with = Seen::find()
             .select_only()
             .column(seen::Column::Id)
@@ -388,8 +387,8 @@ pub async fn item_reviews(
             .all(&ss.db)
             .await?;
         let to_push = ReviewItem {
-            rating,
             id: review.id,
+            rating: review.rating,
             comments: review.comments,
             seen_items_associated_with,
             posted_on: review.posted_on,
