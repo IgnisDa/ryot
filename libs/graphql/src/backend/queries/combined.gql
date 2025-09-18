@@ -379,7 +379,6 @@ query UserMetadataGroupDetails($metadataGroupId: String!) {
 		response {
 			hasInteracted
 			averageRating
-			isRecentlyConsumed
 			reviews {
 				...ReviewItemPart
 			}
@@ -395,7 +394,6 @@ query UserPersonDetails($personId: String!) {
 		response {
 			hasInteracted
 			averageRating
-			isRecentlyConsumed
 			collections {
 				...CollectionToEntityDetailsPart
 			}
@@ -521,4 +519,8 @@ query MetadataLookup($title: String!) {
 			}
 		}
 	}
+}
+
+query UserEntityRecentlyConsumed($entityId: String!, $entityLot: EntityLot!) {
+	userEntityRecentlyConsumed(entityId: $entityId, entityLot: $entityLot)
 }
