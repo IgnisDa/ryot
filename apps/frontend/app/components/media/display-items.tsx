@@ -22,6 +22,7 @@ import {
 	useMetadataDetails,
 	useMetadataGroupDetails,
 	usePersonDetails,
+	useUserEntityRecentlyConsumed,
 	useUserMetadataDetails,
 	useUserMetadataGroupDetails,
 	useUserPersonDetails,
@@ -57,6 +58,11 @@ export const MetadataDisplayItem = (props: {
 	] = useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
+		inViewport,
+	);
+	const { data: isMetadataRecentlyConsumed } = useUserEntityRecentlyConsumed(
+		props.metadataId,
+		EntityLot.Metadata,
 		inViewport,
 	);
 
@@ -121,10 +127,10 @@ export const MetadataDisplayItem = (props: {
 			altName={props.altName}
 			progress={currentProgress}
 			imageClassName={props.imageClassName}
+			highlightImage={isMetadataRecentlyConsumed}
 			name={props.name ?? metadataDetails?.title}
 			isDetailsLoading={isMetadataDetailsLoading}
 			isPartialStatusActive={isMetadataPartialStatusActive}
-			highlightImage={userMetadataDetails?.isRecentlyConsumed}
 			highlightName={
 				props.shouldHighlightNameIfInteracted &&
 				userMetadataDetails?.hasInteracted
@@ -240,6 +246,12 @@ export const MetadataGroupDisplayItem = (props: {
 		props.metadataGroupId,
 		inViewport,
 	);
+	const { data: isMetadataGroupRecentlyConsumed } =
+		useUserEntityRecentlyConsumed(
+			props.metadataGroupId,
+			EntityLot.MetadataGroup,
+			inViewport,
+		);
 
 	const averageRating = userMetadataGroupDetails?.averageRating;
 
@@ -247,10 +259,10 @@ export const MetadataGroupDisplayItem = (props: {
 		<BaseEntityDisplayItem
 			innerRef={ref}
 			name={metadataDetails?.details.title}
+			highlightImage={isMetadataGroupRecentlyConsumed}
 			isDetailsLoading={isMetadataGroupDetailsLoading}
 			isPartialStatusActive={isMetadataGroupPartialStatusActive}
 			imageUrl={metadataDetails?.details.assets.remoteImages.at(0)}
-			highlightImage={userMetadataGroupDetails?.isRecentlyConsumed}
 			onImageClickBehavior={[
 				$path("/media/groups/item/:id", { id: props.metadataGroupId }),
 			]}
@@ -302,6 +314,11 @@ export const PersonDisplayItem = (props: {
 		props.personId,
 		inViewport,
 	);
+	const { data: isPersonRecentlyConsumed } = useUserEntityRecentlyConsumed(
+		props.personId,
+		EntityLot.Person,
+		inViewport,
+	);
 
 	const averageRating = userPersonDetails?.averageRating;
 
@@ -309,9 +326,9 @@ export const PersonDisplayItem = (props: {
 		<BaseEntityDisplayItem
 			innerRef={ref}
 			name={personDetails?.details.name}
+			highlightImage={isPersonRecentlyConsumed}
 			isDetailsLoading={isPersonDetailsLoading}
 			isPartialStatusActive={isPersonPartialStatusActive}
-			highlightImage={userPersonDetails?.isRecentlyConsumed}
 			imageUrl={personDetails?.details.assets.remoteImages.at(0)}
 			onImageClickBehavior={[
 				$path("/media/people/item/:id", { id: props.personId }),

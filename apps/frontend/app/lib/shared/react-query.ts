@@ -5,6 +5,7 @@ import {
 import {
 	type CollectionContentsInput,
 	type CollectionRecommendationsInput,
+	EntityLot,
 	type GenreDetailsInput,
 	MetadataGroupDetailsDocument,
 	type MetadataGroupSearchInput,
@@ -14,6 +15,7 @@ import {
 	type SearchInput,
 	type UserAnalyticsInput,
 	type UserCalendarEventInput,
+	UserEntityRecentlyConsumedDocument,
 	type UserExercisesListInput,
 	type UserMeasurementsListInput,
 	UserMetadataDetailsDocument,
@@ -99,6 +101,12 @@ const mediaQueryKeys = createQueryKeys("media", {
 	}),
 	userMetadataGroupDetails: (metadataGroupId?: string) => ({
 		queryKey: ["userMetadataGroupDetails", metadataGroupId],
+	}),
+	userEntityRecentlyConsumed: (input: {
+		entityId?: string;
+		entityLot?: EntityLot;
+	}) => ({
+		queryKey: ["userEntityRecentlyConsumed", input.entityLot, input.entityId],
 	}),
 	metadataGroupSearch: (input: MetadataGroupSearchInput) => ({
 		queryKey: ["metadataGroupSearch", input],
@@ -232,6 +240,27 @@ export const getUserMetadataGroupDetailsQuery = (metadataGroupId?: string) =>
 			: skipToken,
 	});
 
+export const getUserEntityRecentlyConsumedQuery = (
+	entityId?: string,
+	entityLot?: EntityLot,
+) =>
+	queryOptions({
+		queryKey: queryFactory.media.userEntityRecentlyConsumed({
+			entityId,
+			entityLot,
+		}).queryKey,
+		queryFn:
+			entityId && entityLot
+				? () =>
+						clientGqlService
+							.request(UserEntityRecentlyConsumedDocument, {
+								entityId,
+								entityLot,
+							})
+							.then((data) => data.userEntityRecentlyConsumed)
+				: skipToken,
+	});
+
 export const refreshEntityDetails = (entityId: string) =>
 	setTimeout(async () => {
 		await Promise.all(
@@ -243,6 +272,18 @@ export const refreshEntityDetails = (entityId: string) =>
 				queryFactory.media.userMetadataDetails(entityId).queryKey,
 				queryFactory.media.metadataGroupDetails(entityId).queryKey,
 				queryFactory.media.userMetadataGroupDetails(entityId).queryKey,
+				queryFactory.media.userEntityRecentlyConsumed({
+					entityId,
+					entityLot: EntityLot.Metadata,
+				}).queryKey,
+				queryFactory.media.userEntityRecentlyConsumed({
+					entityId,
+					entityLot: EntityLot.MetadataGroup,
+				}).queryKey,
+				queryFactory.media.userEntityRecentlyConsumed({
+					entityId,
+					entityLot: EntityLot.Person,
+				}).queryKey,
 				queryFactory.fitness.workoutTemplateDetails(entityId).queryKey,
 				queryFactory.media.userGenresList._def,
 				queryFactory.media.userPeopleList._def,

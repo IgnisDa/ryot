@@ -40,6 +40,7 @@ import {
 	getMetadataDetailsQuery,
 	getMetadataGroupDetailsQuery,
 	getPersonDetailsQuery,
+	getUserEntityRecentlyConsumedQuery,
 	getUserMetadataDetailsQuery,
 	getUserMetadataGroupDetailsQuery,
 	getUserPersonDetailsQuery,
@@ -276,6 +277,17 @@ export const useUserMetadataGroupDetails = (
 ) => {
 	return useQuery({
 		...getUserMetadataGroupDetailsQuery(metadataGroupId),
+		enabled,
+	});
+};
+
+export const useUserEntityRecentlyConsumed = (
+	entityId?: string,
+	entityLot?: EntityLot,
+	enabled?: boolean,
+) => {
+	return useQuery({
+		...getUserEntityRecentlyConsumedQuery(entityId, entityLot),
 		enabled,
 	});
 };
