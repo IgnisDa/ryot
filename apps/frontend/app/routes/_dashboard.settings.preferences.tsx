@@ -164,37 +164,51 @@ export default function Page() {
 						right: rem(isFitnessActionActive ? 100 : 40),
 					}}
 				>
-					<Button
-						color="green"
-						variant="outline"
-						leftSection={<IconCheckbox size={20} />}
-						loading={updateUserPreferencesMutation.isPending}
-						onClick={async () => {
-							const preferenceChanges = collectPreferenceChanges(
-								userPreferences,
-								changingUserPreferences.value,
-							);
-							await updateUserPreferencesMutation.mutateAsync();
-							for (const change of preferenceChanges) {
-								applicationEvents.updatePreference(
-									change.property,
-									cloneDeep(change.previousValue),
-									cloneDeep(change.newValue),
+					<Group gap="xs">
+						<Button
+							color="green"
+							variant="outline"
+							leftSection={<IconCheckbox size={20} />}
+							loading={updateUserPreferencesMutation.isPending}
+							onClick={async () => {
+								const preferenceChanges = collectPreferenceChanges(
+									userPreferences,
+									changingUserPreferences.value,
 								);
-							}
-							notifications.show({
-								color: "green",
-								title: "Preferences updated",
-								message: "Preferences have been updated.",
-							});
-							setChangingUserPreferences({
-								isChanged: false,
-								value: userPreferences,
-							});
-						}}
-					>
-						Save changes
-					</Button>
+								await updateUserPreferencesMutation.mutateAsync();
+								for (const change of preferenceChanges) {
+									applicationEvents.updatePreference(
+										change.property,
+										cloneDeep(change.previousValue),
+										cloneDeep(change.newValue),
+									);
+								}
+								notifications.show({
+									color: "green",
+									title: "Preferences updated",
+									message: "Preferences have been updated.",
+								});
+								setChangingUserPreferences({
+									isChanged: false,
+									value: userPreferences,
+								});
+							}}
+						>
+							Save changes
+						</Button>
+						<Button
+							variant="light"
+							disabled={updateUserPreferencesMutation.isPending}
+							onClick={() => {
+								setChangingUserPreferences({
+									isChanged: false,
+									value: userPreferences,
+								});
+							}}
+						>
+							Cancel changes
+						</Button>
+					</Group>
 				</Affix>
 			) : null}
 			<Stack>
