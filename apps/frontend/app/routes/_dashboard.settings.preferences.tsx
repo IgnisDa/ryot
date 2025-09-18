@@ -166,6 +166,19 @@ export default function Page() {
 				>
 					<Group gap="xs">
 						<Button
+							variant="outline"
+							color="red"
+							disabled={updateUserPreferencesMutation.isPending}
+							onClick={() => {
+								setChangingUserPreferences({
+									isChanged: false,
+									value: userPreferences,
+								});
+							}}
+						>
+							Cancel changes
+						</Button>
+						<Button
 							color="green"
 							variant="outline"
 							leftSection={<IconCheckbox size={20} />}
@@ -195,18 +208,6 @@ export default function Page() {
 							}}
 						>
 							Save changes
-						</Button>
-						<Button
-							variant="light"
-							disabled={updateUserPreferencesMutation.isPending}
-							onClick={() => {
-								setChangingUserPreferences({
-									isChanged: false,
-									value: userPreferences,
-								});
-							}}
-						>
-							Cancel changes
 						</Button>
 					</Group>
 				</Affix>
