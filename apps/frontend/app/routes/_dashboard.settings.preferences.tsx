@@ -147,10 +147,10 @@ export default function Page() {
 	});
 
 	const updatePreference = (makeChange: UpdatePreferenceFunc) => {
-		setChangingUserPreferences(
-			produce(changingUserPreferences, (draft) => {
-				draft.isChanged = true;
+		setChangingUserPreferences((previous) =>
+			produce(previous, (draft) => {
 				makeChange(draft.value);
+				draft.isChanged = !isEqual(draft.value, userPreferences);
 			}),
 		);
 	};
