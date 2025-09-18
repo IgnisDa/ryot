@@ -999,11 +999,6 @@ export enum GraphqlSortOrder {
   Desc = 'DESC'
 }
 
-export enum GridPacking {
-  Dense = 'DENSE',
-  Normal = 'NORMAL'
-}
-
 export type GroupedCalendarEvent = {
   __typename?: 'GroupedCalendarEvent';
   date: Scalars['NaiveDate']['output'];
@@ -2898,7 +2893,6 @@ export type UserGeneralPreferences = {
   disableVideos: Scalars['Boolean']['output'];
   disableWatchProviders: Scalars['Boolean']['output'];
   displayNsfw: Scalars['Boolean']['output'];
-  gridPacking: GridPacking;
   landingPath: Scalars['String']['output'];
   listPageSize: Scalars['Int']['output'];
   reviewScale: UserReviewScale;
@@ -2914,7 +2908,6 @@ export type UserGeneralPreferencesInput = {
   disableVideos: Scalars['Boolean']['input'];
   disableWatchProviders: Scalars['Boolean']['input'];
   displayNsfw: Scalars['Boolean']['input'];
-  gridPacking: GridPacking;
   landingPath: Scalars['String']['input'];
   listPageSize: Scalars['Int']['input'];
   reviewScale: UserReviewScale;
