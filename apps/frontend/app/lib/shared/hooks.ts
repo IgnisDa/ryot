@@ -404,6 +404,13 @@ export const useApplicationEvents = () => {
 			provider,
 		});
 	};
+	const updatePreference = (
+		property: string,
+		previousValue: unknown,
+		newValue: unknown,
+	) => {
+		sendEvent("Update Preference", { property, newValue, previousValue });
+	};
 
 	return {
 		postReview,
@@ -411,6 +418,7 @@ export const useApplicationEvents = () => {
 		createWorkout,
 		updateProgress,
 		addToCollection,
+		updatePreference,
 		createMeasurement,
 		startOnboardingTour,
 		completeOnboardingTour,

@@ -17,6 +17,7 @@ import isEqual from "lodash/isEqual";
 import isFiniteNumber from "lodash/isFinite";
 import isInteger from "lodash/isInteger";
 import isNumber from "lodash/isNumber";
+import isPlainObject from "lodash/isPlainObject";
 import isString from "lodash/isString";
 import kebabCase from "lodash/kebabCase";
 import mapValues from "lodash/mapValues";
@@ -30,6 +31,7 @@ import startCase from "lodash/startCase";
 import sum from "lodash/sum";
 import throttle from "lodash/throttle";
 import truncate from "lodash/truncate";
+import union from "lodash/union";
 import type { Params } from "react-router";
 import { twMerge } from "tailwind-merge";
 import invariant from "tiny-invariant";
@@ -147,6 +149,7 @@ export {
 	isFiniteNumber,
 	isInteger,
 	isNumber,
+	isPlainObject,
 	isString,
 	kebabCase,
 	mapValues,
@@ -160,4 +163,5 @@ export {
 	sum,
 	throttle,
 	truncate,
+	union,
 };

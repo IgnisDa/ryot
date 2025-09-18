@@ -37,10 +37,13 @@ import {
 	cloneDeep,
 	cn,
 	isBoolean,
+	isEqual,
 	isNumber,
+	isPlainObject,
 	parseSearchQuery,
 	snakeCase,
 	startCase,
+	union,
 } from "@ryot/ts-utils";
 import { IconCheckbox, IconMinus } from "@tabler/icons-react";
 import {
@@ -57,6 +60,7 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
+	useApplicationEvents,
 	useCoreDetails,
 	useDashboardLayoutData,
 	useInvalidateUserDetails,
@@ -117,9 +121,10 @@ const notificationContent = {
 type UpdatePreferenceFunc = (draft: Draft<UserPreferences>) => void;
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
+	const applicationEvents = useApplicationEvents();
+	const loaderData = useLoaderData<typeof loader>();
 	const isFitnessActionActive = useIsFitnessActionActive();
 	const [defaultTab, setDefaultTab] = useState(
 		loaderData.query.defaultTab || "dashboard",
@@ -165,7 +170,18 @@ export default function Page() {
 						leftSection={<IconCheckbox size={20} />}
 						loading={updateUserPreferencesMutation.isPending}
 						onClick={async () => {
+							const preferenceChanges = collectPreferenceChanges(
+								userPreferences,
+								changingUserPreferences.value,
+							);
 							await updateUserPreferencesMutation.mutateAsync();
+							for (const change of preferenceChanges) {
+								applicationEvents.updatePreference(
+									change.property,
+									cloneDeep(change.previousValue),
+									cloneDeep(change.newValue),
+								);
+							}
 							notifications.show({
 								color: "green",
 								title: "Preferences updated",
@@ -794,6 +810,39 @@ const EditDashboardElement = (props: {
 			)}
 		</Draggable>
 	);
+};
+
+type PreferenceChange = {
+	property: string;
+	newValue: unknown;
+	previousValue: unknown;
+};
+
+const collectPreferenceChanges = (
+	previous: unknown,
+	current: unknown,
+	path: string[] = [],
+): PreferenceChange[] => {
+	if (isEqual(previous, current)) return [];
+	if (isPlainObject(previous) && isPlainObject(current)) {
+		const previousRecord = previous as Record<string, unknown>;
+		const currentRecord = current as Record<string, unknown>;
+		const keys = union(Object.keys(previousRecord), Object.keys(currentRecord));
+		return keys.flatMap((key) =>
+			collectPreferenceChanges(previousRecord[key], currentRecord[key], [
+				...path,
+				key,
+			]),
+		);
+	}
+	const property = path.length ? path.join(".") : "preferences";
+	return [
+		{
+			property,
+			previousValue: previous,
+			newValue: current,
+		},
+	];
 };
 
 const reorder = <T,>(
