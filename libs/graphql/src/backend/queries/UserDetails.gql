@@ -16,7 +16,6 @@ query UserDetails {
 			preferences {
 				general {
 					reviewScale
-					gridPacking
 					displayNsfw
 					landingPath
 					listPageSize
