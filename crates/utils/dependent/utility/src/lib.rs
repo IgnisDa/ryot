@@ -131,27 +131,6 @@ pub async fn associate_user_with_entity(
     expire_entity_details_cache(user_id, entity_id, entity_lot, ss).await
 }
 
-pub async fn get_entity_recently_consumed(
-    user_id: &String,
-    entity_id: &String,
-    entity_lot: EntityLot,
-    ss: &Arc<SupportingService>,
-) -> Result<bool> {
-    let entity_value = cache_service::get_value::<EmptyCacheValue>(
-        ss,
-        ApplicationCacheKey::MetadataRecentlyConsumed(UserLevelCacheKey {
-            user_id: user_id.to_owned(),
-            input: MetadataRecentlyConsumedCacheInput {
-                entity_lot,
-                entity_id: entity_id.to_owned(),
-            },
-        }),
-    )
-    .await
-    .is_some();
-    Ok(entity_value)
-}
-
 pub async fn expire_user_collections_list_cache(
     user_id: &String,
     ss: &Arc<SupportingService>,

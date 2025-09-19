@@ -2,17 +2,20 @@ use std::sync::Arc;
 
 use anyhow::{Result, anyhow};
 use application_utils::calculate_average_rating_for_user;
-use common_models::UserLevelCacheKey;
+use common_models::{MetadataRecentlyConsumedCacheInput, UserLevelCacheKey};
 use database_models::{
     functions::get_user_to_entity_association,
     prelude::{Metadata, Seen},
     seen,
 };
-use database_utils::{entity_in_collections_with_details, item_reviews};
+use database_utils::{
+    entity_in_collections_with_details, item_reviews, server_key_validation_guard,
+};
+use dependent_core_utils::is_server_key_validated;
 use dependent_entity_utils::generic_metadata;
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, UserMetadataDetails,
-    UserMetadataGroupDetails, UserPersonDetails,
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EmptyCacheValue,
+    UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use dependent_seen_utils::is_metadata_finished_by_user;
 use enum_models::{EntityLot, SeenState};
@@ -271,4 +274,26 @@ pub async fn user_metadata_group_details(
         },
     )
     .await
+}
+
+pub async fn get_entity_recently_consumed(
+    user_id: &String,
+    entity_id: &String,
+    entity_lot: EntityLot,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    server_key_validation_guard(is_server_key_validated(ss).await?).await?;
+    let entity_value = cache_service::get_value::<EmptyCacheValue>(
+        ss,
+        ApplicationCacheKey::MetadataRecentlyConsumed(UserLevelCacheKey {
+            user_id: user_id.to_owned(),
+            input: MetadataRecentlyConsumedCacheInput {
+                entity_lot,
+                entity_id: entity_id.to_owned(),
+            },
+        }),
+    )
+    .await
+    .is_some();
+    Ok(entity_value)
 }

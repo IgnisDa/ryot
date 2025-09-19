@@ -20,7 +20,6 @@ dependent-jobs-utils = { workspace = true }
 dependent-models = { workspace = true }
 dependent-notification-utils = { workspace = true }
 dependent-review-utils = { workspace = true }
-dependent-utility-utils = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }
 miscellaneous-background-service = { workspace = true }
