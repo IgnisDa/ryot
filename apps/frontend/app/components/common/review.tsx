@@ -157,19 +157,12 @@ export const ReviewItemDisplay = (props: {
 							<>
 								<ActionIcon
 									onClick={() => {
-										const existingReview =
-											ratingValue == null
-												? props.review
-												: {
-														...props.review,
-														rating: ratingStringForScale ?? undefined,
-													};
 										setEntityToReview({
 											metadataLot: props.lot,
 											entityId: props.entityId,
 											entityTitle: props.title,
 											entityLot: props.entityLot,
-											existingReview,
+											existingReview: props.review,
 										});
 									}}
 								>
