@@ -46,6 +46,7 @@ impl MiscellaneousMetadataQueryResolver {
         Ok(service.user_metadata_details(user_id, metadata_id).await?)
     }
 
+    /// Returns whether the current user has recently consumed the specified entity.
     async fn user_entity_recently_consumed(
         &self,
         gql_ctx: &Context<'_>,

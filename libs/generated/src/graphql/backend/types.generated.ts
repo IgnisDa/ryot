@@ -2184,6 +2184,7 @@ export type QueryRoot = {
   userCollectionsList: CachedCollectionsListResponse;
   /** Get details about the currently logged in user. */
   userDetails: UserDetailsResult;
+  /** Returns whether the current user has recently consumed the specified entity. */
   userEntityRecentlyConsumed: Scalars['Boolean']['output'];
   /** Get information about an exercise for a user. */
   userExerciseDetails: UserExerciseDetails;
