@@ -10,17 +10,11 @@ import {
 	Text,
 	Tooltip,
 } from "@mantine/core";
-import { GridPacking } from "@ryot/generated/graphql/backend/graphql";
 import { getInitials } from "@ryot/ts-utils";
 import clsx from "clsx";
 import type { ReactNode, Ref } from "react";
 import { Link } from "react-router";
-import { match } from "ts-pattern";
-import {
-	useCoreDetails,
-	useFallbackImageUrl,
-	useUserPreferences,
-} from "~/lib/shared/hooks";
+import { useCoreDetails, useFallbackImageUrl } from "~/lib/shared/hooks";
 import classes from "~/styles/common.module.css";
 
 const blackBgStyles = {
@@ -50,8 +44,6 @@ export const BaseEntityDisplayItem = (props: {
 	};
 }) => {
 	const coreDetails = useCoreDetails();
-	const userPreferences = useUserPreferences();
-	const gridPacking = userPreferences.general.gridPacking;
 	const defaultOverlayProps = {
 		pos: "absolute",
 		style: { zIndex: 10, ...blackBgStyles },
@@ -84,10 +76,7 @@ export const BaseEntityDisplayItem = (props: {
 								alt={`Image for ${props.name}`}
 								style={{
 									cursor: "pointer",
-									...match(gridPacking)
-										.with(GridPacking.Normal, () => ({ height: 260 }))
-										.with(GridPacking.Dense, () => ({ height: 180 }))
-										.exhaustive(),
+									height: 180,
 								}}
 								styles={{
 									root: {
@@ -152,21 +141,9 @@ export const BaseEntityDisplayItem = (props: {
 					<Skeleton height={22} mt={8} />
 				</>
 			) : (
-				<Flex
-					mt={2}
-					w="100%"
-					direction="column"
-					px={match(gridPacking)
-						.with(GridPacking.Normal, () => ({ base: 6, md: 3 }))
-						.with(GridPacking.Dense, () => ({ md: 2 }))
-						.exhaustive()}
-				>
+				<Flex mt={2} w="100%" direction="column" px={{ md: 2 }}>
 					<Flex w="100%" direction="row" justify="space-between">
-						<Text
-							size="sm"
-							c="dimmed"
-							visibleFrom={gridPacking === GridPacking.Dense ? "md" : undefined}
-						>
+						<Text size="sm" c="dimmed" visibleFrom="md">
 							{props.labels?.left}
 						</Text>
 						<Text c="dimmed" size="sm">

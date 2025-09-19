@@ -108,7 +108,6 @@ pub struct GraphqlPersonDetails {
 pub struct UserPersonDetails {
     pub has_interacted: bool,
     pub reviews: Vec<ReviewItem>,
-    pub is_recently_consumed: bool,
     pub average_rating: Option<Decimal>,
     pub collections: Vec<GraphqlCollectionToEntityDetails>,
 }
@@ -118,7 +117,6 @@ pub struct UserPersonDetails {
 pub struct UserMetadataGroupDetails {
     pub has_interacted: bool,
     pub reviews: Vec<ReviewItem>,
-    pub is_recently_consumed: bool,
     pub average_rating: Option<Decimal>,
     pub collections: Vec<GraphqlCollectionToEntityDetails>,
 }
@@ -136,8 +134,6 @@ pub struct UserMetadataDetails {
     pub history: Vec<seen::Model>,
     /// The number of times this user has seen this media.
     pub seen_by_user_count: usize,
-    /// Whether this media has been recently interacted with
-    pub is_recently_consumed: bool,
     /// The average rating of this media in this service.
     pub average_rating: Option<Decimal>,
     /// The seen item if it is in progress.

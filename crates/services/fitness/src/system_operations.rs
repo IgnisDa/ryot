@@ -10,7 +10,7 @@ use sea_orm::{
 use std::sync::Arc;
 use supporting_service::SupportingService;
 
-use crate::exercise_management;
+use crate::{exercise_management, workout_operations};
 
 pub async fn deploy_update_exercise_library_job(ss: &Arc<SupportingService>) -> Result<()> {
     if Exercise::find().count(&ss.db).await? > 0 {
@@ -46,7 +46,7 @@ pub async fn process_users_scheduled_for_workout_revision(
     }
     for user in revisions {
         ryot_log!(debug, "Revising workouts for {}", user.id);
-        crate::workout_operations::revise_user_workouts(ss, user.id.clone()).await?;
+        workout_operations::revise_user_workouts(ss, user.id.clone()).await?;
         let mut extra_information = user.extra_information.clone().unwrap_or_default();
         extra_information.scheduled_for_workout_revision = false;
         let mut user = user.into_active_model();

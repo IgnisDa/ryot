@@ -20,6 +20,7 @@ import { z } from "zod";
 import {
 	useConfirmSubmit,
 	useDashboardLayoutData,
+	useInvalidateUserDetails,
 	useIsMobile,
 	useIsOnboardingTourCompleted,
 	useMarkUserOnboardingTourStatus,
@@ -157,10 +158,11 @@ const getJobDetails = (job: BackgroundJob) =>
 		.exhaustive();
 
 const DisplayJobBtn = (props: { job: BackgroundJob }) => {
+	const submit = useConfirmSubmit();
 	const userDetails = useUserDetails();
 	const dashboardData = useDashboardLayoutData();
 	const isEditDisabled = dashboardData.isDemoInstance;
-	const submit = useConfirmSubmit();
+	const invalidateUserDetails = useInvalidateUserDetails();
 
 	const [title, description, isAdminOnly] = getJobDetails(props.job);
 
@@ -184,7 +186,10 @@ const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 						e.preventDefault();
 						openConfirmationModal(
 							"Are you sure you want to perform this task?",
-							() => submit(form),
+							async () => {
+								submit(form);
+								await invalidateUserDetails();
+							},
 						);
 					}}
 				>

@@ -40,6 +40,7 @@ import {
 	getMetadataDetailsQuery,
 	getMetadataGroupDetailsQuery,
 	getPersonDetailsQuery,
+	getUserEntityRecentlyConsumedQuery,
 	getUserMetadataDetailsQuery,
 	getUserMetadataGroupDetailsQuery,
 	getUserPersonDetailsQuery,
@@ -280,6 +281,17 @@ export const useUserMetadataGroupDetails = (
 	});
 };
 
+export const useUserEntityRecentlyConsumed = (
+	entityId?: string,
+	entityLot?: EntityLot,
+	enabled?: boolean,
+) => {
+	return useQuery({
+		...getUserEntityRecentlyConsumedQuery(entityId, entityLot),
+		enabled,
+	});
+};
+
 export const useUserPeopleList = (
 	input: UserPeopleListInput,
 	enabled?: boolean,
@@ -392,6 +404,13 @@ export const useApplicationEvents = () => {
 			provider,
 		});
 	};
+	const updatePreference = (
+		property: string,
+		previousValue: unknown,
+		newValue: unknown,
+	) => {
+		sendEvent("Update Preference", { property, newValue, previousValue });
+	};
 
 	return {
 		postReview,
@@ -399,6 +418,7 @@ export const useApplicationEvents = () => {
 		createWorkout,
 		updateProgress,
 		addToCollection,
+		updatePreference,
 		createMeasurement,
 		startOnboardingTour,
 		completeOnboardingTour,

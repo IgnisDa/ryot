@@ -73,6 +73,7 @@ import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useGetWorkoutStarter,
+	useInvalidateUserDetails,
 	useMetadataDetails,
 	useUserPreferences,
 	useUserUnitSystem,
@@ -190,6 +191,7 @@ export default function Page() {
 	const coreDetails = useCoreDetails();
 	const unitSystem = useUserUnitSystem();
 	const userPreferences = useUserPreferences();
+	const invalidateUserDetails = useInvalidateUserDetails();
 	const { entityId, entity } = useLoaderData<typeof loader>();
 	const [
 		adjustTimeModalOpened,
@@ -344,8 +346,11 @@ export default function Page() {
 					<Form
 						replace
 						method="POST"
-						onSubmit={() => adjustTimeModalClose()}
 						action={withQuery(".", { intent: "edit" })}
+						onSubmit={() => {
+							adjustTimeModalClose();
+							invalidateUserDetails();
+						}}
 					>
 						<Stack>
 							<Title order={3}>Adjust times</Title>

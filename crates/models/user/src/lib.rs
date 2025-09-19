@@ -254,26 +254,6 @@ pub struct UserFitnessPreferences {
     EnumString,
 )]
 #[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
-pub enum GridPacking {
-    Normal,
-    #[default]
-    Dense,
-}
-
-#[derive(
-    Debug,
-    Serialize,
-    Default,
-    Deserialize,
-    Enum,
-    Clone,
-    Eq,
-    PartialEq,
-    FromJsonQueryResult,
-    Copy,
-    EnumString,
-)]
-#[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
 pub enum UserReviewScale {
     OutOfTen,
     OutOfFive,
@@ -361,8 +341,6 @@ pub struct UserGeneralPreferences {
     pub disable_videos: bool,
     #[educe(Default = false)]
     pub disable_reviews: bool,
-    #[educe(Default = GridPacking::Dense)]
-    pub grid_packing: GridPacking,
     #[educe(Default = UserReviewScale::OutOfHundred)]
     pub review_scale: UserReviewScale,
     #[educe(Default = false)]
