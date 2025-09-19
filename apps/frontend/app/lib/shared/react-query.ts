@@ -102,17 +102,17 @@ const mediaQueryKeys = createQueryKeys("media", {
 	userMetadataGroupDetails: (metadataGroupId?: string) => ({
 		queryKey: ["userMetadataGroupDetails", metadataGroupId],
 	}),
-	userEntityRecentlyConsumed: (input: {
-		entityId?: string;
-		entityLot?: EntityLot;
-	}) => ({
-		queryKey: ["userEntityRecentlyConsumed", input.entityLot, input.entityId],
-	}),
 	metadataGroupSearch: (input: MetadataGroupSearchInput) => ({
 		queryKey: ["metadataGroupSearch", input],
 	}),
 	userMetadataGroupsList: (input: UserMetadataGroupsListInput) => ({
 		queryKey: ["userMetadataGroupsList", input],
+	}),
+	userEntityRecentlyConsumed: (input: {
+		entityId?: string;
+		entityLot?: EntityLot;
+	}) => ({
+		queryKey: ["userEntityRecentlyConsumed", input],
 	}),
 });
 
