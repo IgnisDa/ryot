@@ -169,7 +169,7 @@ const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 	if (isAdminOnly && userDetails.lot !== UserLot.Admin) return null;
 
 	return (
-		<Form replace method="POST" onSubmit={() => invalidateUserDetails()}>
+		<Form replace method="POST">
 			<input hidden name="jobName" defaultValue={props.job} />
 			<Stack>
 				<Box>
@@ -186,7 +186,10 @@ const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 						e.preventDefault();
 						openConfirmationModal(
 							"Are you sure you want to perform this task?",
-							() => submit(form),
+							async () => {
+								submit(form);
+								await invalidateUserDetails();
+							},
 						);
 					}}
 				>
