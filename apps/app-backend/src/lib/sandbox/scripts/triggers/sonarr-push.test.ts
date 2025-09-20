@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import integrationPushHelperCode from "../shared/integration-push.txt";
 import sonarrPushScriptCode from "./sonarr-push.txt";
-import { appApiFailure, appApiSuccess, httpSuccess, runTriggerScript } from "./test-utils";
+import { hostFailure, hostSuccess, httpSuccess, runTriggerScript } from "./test-utils";
 
 const sonarrCode = `${integrationPushHelperCode}\n\n${sonarrPushScriptCode}`;
 
@@ -42,24 +42,14 @@ const createTrigger = (properties: Record<string, unknown>) => ({
 	},
 });
 
-const createAppApiCall = (options: {
+const createHostFunctions = (options: {
 	integrations?: unknown[];
 	entity?: Record<string, unknown> | null;
-}) => {
-	return (_method: unknown, path: unknown) => {
-		const stringPath = String(path);
-		if (stringPath.startsWith("/api/integrations?")) {
-			return appApiSuccess(options.integrations ?? []);
-		}
-		if (stringPath.startsWith("/api/entities/")) {
-			return options.entity ? appApiSuccess(options.entity) : appApiFailure();
-		}
-		if (stringPath.startsWith("/api/entity-schemas/")) {
-			return appApiSuccess({ providers: tvdbProviders });
-		}
-		return appApiFailure();
-	};
-};
+}) => ({
+	listIntegrations: () => hostSuccess(options.integrations ?? []),
+	getEntity: () => (options.entity ? hostSuccess(options.entity) : hostFailure()),
+	getEntitySchema: () => hostSuccess({ providers: tvdbProviders }),
+});
 
 const userPreferences = () => () => ({ success: true, data: { disableIntegrations: false } });
 
@@ -81,9 +71,9 @@ describe("sonarr-push sandbox script", () => {
 			sonarrCode,
 			createTrigger({ entitySchemaSlug: "show", entityId: "show_1" }),
 			{
+				...createHostFunctions({ entity: showEntity, integrations: [sonarrIntegration] }),
 				getUserPreferences: userPreferences(),
 				httpCall: createHttpCall(httpCalls),
-				appApiCall: createAppApiCall({ entity: showEntity, integrations: [sonarrIntegration] }),
 			},
 		);
 
@@ -106,9 +96,9 @@ describe("sonarr-push sandbox script", () => {
 			sonarrCode,
 			createTrigger({ entitySchemaSlug: "movie", entityId: "movie_1" }),
 			{
+				...createHostFunctions({ entity: showEntity, integrations: [sonarrIntegration] }),
 				getUserPreferences: userPreferences(),
 				httpCall: createHttpCall(httpCalls),
-				appApiCall: createAppApiCall({ entity: showEntity, integrations: [sonarrIntegration] }),
 			},
 		);
 
@@ -122,12 +112,12 @@ describe("sonarr-push sandbox script", () => {
 			sonarrCode,
 			createTrigger({ entitySchemaSlug: "show", entityId: "show_1" }),
 			{
-				getUserPreferences: userPreferences(),
-				httpCall: createHttpCall(httpCalls),
-				appApiCall: createAppApiCall({
+				...createHostFunctions({
 					integrations: [sonarrIntegration],
 					entity: { ...showEntity, sandboxScriptId: "script_show_tmdb" },
 				}),
+				getUserPreferences: userPreferences(),
+				httpCall: createHttpCall(httpCalls),
 			},
 		);
 

@@ -248,7 +248,7 @@ describe("createSandboxScript", () => {
 				body: {
 					code: mockCode,
 					name: "My Script",
-					metadata: { allowedHostFunctions: ["appApiCall"] },
+					metadata: { allowedHostFunctions: ["executeQueryEngine"] },
 				},
 			},
 			createSandboxScriptDeps({
@@ -265,7 +265,7 @@ describe("createSandboxScript", () => {
 			}),
 		);
 
-		expect(capturedMetadata).toEqual({ allowedHostFunctions: ["appApiCall"] });
+		expect(capturedMetadata).toEqual({ allowedHostFunctions: ["executeQueryEngine"] });
 	});
 
 	it("returns validation when metadata references an unknown host function", async () => {
