@@ -6,7 +6,12 @@ import { createEventsWithTriggers, parseEventProperties } from "~/modules/events
 import type { CreateEventBulkBody } from "~/modules/events";
 
 import { createImportRunFailure, updateImportRun } from "../repository";
-import { failImportRun, recordImportRunFailure, sanitizeErrorMessage } from "../runtime/failures";
+import {
+	PROGRESS_UPDATE_INTERVAL,
+	failImportRun,
+	recordImportRunFailure,
+	sanitizeErrorMessage,
+} from "../runtime/failures";
 import {
 	buildWorkoutSetEventProperties,
 	normalizeExerciseIdentityName,
@@ -15,8 +20,6 @@ import {
 	type WorkoutImportExercise,
 	type WorkoutImportItem,
 } from "./domain";
-
-const PROGRESS_UPDATE_INTERVAL = 10;
 
 type BuiltinEntitySchema = NonNullable<Awaited<ReturnType<typeof getBuiltinEntitySchemaBySlug>>>;
 type BuiltinEventSchema = NonNullable<Awaited<ReturnType<typeof getBuiltinEventSchemaBySlug>>>;
@@ -43,7 +46,7 @@ export type WorkoutImportProcessorDeps = {
 	getBuiltinEntitySchemaBySlug: typeof getBuiltinEntitySchemaBySlug;
 };
 
-const workoutImportProcessorDeps: WorkoutImportProcessorDeps = {
+export const workoutImportProcessorDeps: WorkoutImportProcessorDeps = {
 	createEntity,
 	updateImportRun,
 	createImportRunFailure,
@@ -310,12 +313,6 @@ const recordAdapterFailures = async (input: {
 	}
 	// oxlint-enable no-await-in-loop
 };
-
-export const processWorkoutImportResult = async (input: {
-	runId: string;
-	userId: string;
-	adapterResult: WorkoutAdapterResult;
-}): Promise<void> => processWorkoutImportResultWithDeps(input, workoutImportProcessorDeps);
 
 export const processWorkoutImportResultWithDeps = async (
 	input: {

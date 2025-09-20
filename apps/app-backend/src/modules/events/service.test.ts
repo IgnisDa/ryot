@@ -1395,14 +1395,4 @@ describe("resolveOccurredAt", () => {
 		expect(result.getTime()).toBeGreaterThanOrEqual(before);
 		expect(result.getTime()).toBeLessThanOrEqual(after);
 	});
-
-	it("defaults to now for a complete event with custom_timestamps and completedOn when occurredAt is omitted", () => {
-		const before = Date.now();
-		const result = resolveOccurredAt({});
-		const after = Date.now();
-
-		// completedOn must not be read — the service does not inspect properties
-		expect(result.getTime()).toBeGreaterThanOrEqual(before);
-		expect(result.getTime()).toBeLessThanOrEqual(after);
-	});
 });
