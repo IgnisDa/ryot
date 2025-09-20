@@ -5,16 +5,19 @@ import {
 } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { createEntityIdentityFields } from "~/features/entities/model";
-import type {
-	ApiGetResponseData,
-	ApiPostRequestBody,
-	ApiPostResponseData,
-} from "~/lib/api/types";
+import type { AppEntitySavedView } from "~/features/saved-views/model";
+import type { ApiPostRequestBody, ApiPostResponseData } from "~/lib/api/types";
 
-type SavedView = ApiGetResponseData<"/saved-views/{viewSlug}">;
-type QueryEngineRequest = ApiPostRequestBody<"/query-engine/execute">;
-type QueryEngineResponse = ApiPostResponseData<"/query-engine/execute">;
-type RuntimeItem = QueryEngineResponse["items"][number];
+type SavedView = AppEntitySavedView;
+type QueryEngineRequest = Extract<
+	ApiPostRequestBody<"/query-engine/execute">,
+	{ mode: "entities" }
+>;
+type QueryEngineResponse = Extract<
+	ApiPostResponseData<"/query-engine/execute">,
+	{ mode: "entities" }
+>;
+type RuntimeItem = QueryEngineResponse["data"]["items"][number];
 type RuntimeField = RuntimeItem[number];
 type RuntimeRequestField = NonNullable<QueryEngineRequest["fields"]>[number];
 type ViewExpression = RuntimeRequestField["expression"];
@@ -70,6 +73,7 @@ const buildRuntimeRequestBase = (input: {
 	limit: number;
 	view: SavedView;
 }) => ({
+	mode: "entities" as const,
 	sort: input.view.queryDefinition.sort,
 	filter: input.view.queryDefinition.filter ?? null,
 	eventJoins: input.view.queryDefinition.eventJoins,
@@ -130,6 +134,7 @@ export function createQueryEngineRequest(input: {
 
 export function createDisabledQueryEngineRequest(): QueryEngineRequest {
 	return {
+		mode: "entities",
 		filter: null,
 		eventJoins: [],
 		relationships: [],

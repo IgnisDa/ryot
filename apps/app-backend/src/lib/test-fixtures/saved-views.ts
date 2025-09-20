@@ -16,6 +16,7 @@ import type {
 const queryDefinitionDefaults: SavedViewQueryDefinition = {
 	filter: null,
 	eventJoins: [],
+	mode: "entities",
 	relationships: [],
 	computedFields: [],
 	scope: ["books"],
@@ -82,7 +83,9 @@ const reorderSavedViewsBodyDefaults: ReorderSavedViewsBody = {
 };
 
 export const createQueryDefinition = (
-	overrides: Partial<SavedViewQueryDefinition> = {},
+	overrides: Partial<
+		Extract<SavedViewQueryDefinition, { mode: "entities" }>
+	> = {},
 ): SavedViewQueryDefinition =>
 	withOverrides(queryDefinitionDefaults, overrides);
 

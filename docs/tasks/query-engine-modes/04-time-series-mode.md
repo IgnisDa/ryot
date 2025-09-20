@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -129,22 +129,22 @@ Validate that `startAt` < `endAt`. Both must be valid ISO 8601 timestamps. No ha
 
 ## Acceptance criteria
 
-- [ ] Time-series request schema validates correctly (scope, eventSchemas, dateRange, bucket, metric, filter, computedFields)
-- [ ] Response includes `mode: "timeSeries"` and `buckets` array
-- [ ] Count metric returns correct event counts per bucket
-- [ ] Sum metric with ViewExpression returns correct sums per bucket
-- [ ] Sum metric rejects non-numeric expressions at request time
-- [ ] Empty buckets appear with `value: 0` (no gaps in the series)
-- [ ] All four bucket types work: hour, day, week, month
-- [ ] Filter narrows events before bucketing (event properties, entity properties both work)
-- [ ] Computed fields work in time-series filters and metric expressions
-- [ ] `event-join` and `event-aggregate` references are rejected in time-series mode
-- [ ] `event` and `event-schema` references work correctly in time-series filters and metric
-- [ ] Date range validation rejects startAt >= endAt
-- [ ] UTC bucketing is consistent (no timezone-dependent bucket boundaries)
-- [ ] Unit tests cover the time-series query builder (all bucket types, both metrics, empty buckets, filters)
-- [ ] E2E tests exercise time-series mode through the HTTP endpoint
-- [ ] `bun run typecheck`, `bun run test`, and `bun run lint` pass
+- [x] Time-series request schema validates correctly (scope, eventSchemas, dateRange, bucket, metric, filter, computedFields)
+- [x] Response includes `mode: "timeSeries"` and `buckets` array
+- [x] Count metric returns correct event counts per bucket
+- [x] Sum metric with ViewExpression returns correct sums per bucket
+- [x] Sum metric rejects non-numeric expressions at request time
+- [x] Empty buckets appear with `value: 0` (no gaps in the series)
+- [x] All four bucket types work: hour, day, week, month
+- [x] Filter narrows events before bucketing (event properties, entity properties both work)
+- [x] Computed fields work in time-series filters and metric expressions
+- [x] `event-join` and `event-aggregate` references are rejected in time-series mode
+- [x] `event` and `event-schema` references work correctly in time-series filters and metric
+- [x] Date range validation rejects startAt >= endAt
+- [x] UTC bucketing is consistent (no timezone-dependent bucket boundaries)
+- [x] Unit tests cover the time-series query builder (all bucket types, both metrics, empty buckets, filters)
+- [x] E2E tests exercise time-series mode through the HTTP endpoint
+- [x] `bun run typecheck`, `bun run test`, and `bun run lint` pass
 
 ## User stories addressed
 

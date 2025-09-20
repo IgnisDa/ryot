@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { createSavedViewFixture } from "~/features/test-fixtures";
+import { createEntitySavedViewFixture } from "~/features/test-fixtures";
 import { createQueryEngineRequest } from "./view-page-utils";
 
 describe("createQueryEngineRequest", () => {
 	it("does not request hidden entityImage for table layouts", () => {
-		const view = createSavedViewFixture({
+		const view = createEntitySavedViewFixture({
 			queryDefinition: { scope: ["show"] },
 		});
 
@@ -21,7 +21,7 @@ describe("createQueryEngineRequest", () => {
 	});
 
 	it("preserves saved view relationships in runtime requests", () => {
-		const view = createSavedViewFixture({
+		const view = createEntitySavedViewFixture({
 			queryDefinition: {
 				scope: ["show"],
 				relationships: [{ relationshipSchemaSlug: "in-library" }],

@@ -153,15 +153,20 @@ describe("Saved views E2E", () => {
 			createEventAggregateExpression("review", ["properties", "rating"], "avg"),
 		);
 
+		// all-shows is a built-in entities-mode view
+		const allShowsQD = allShowsView.queryDefinition as Extract<
+			typeof allShowsView.queryDefinition,
+			{ mode: "entities" }
+		>;
 		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
-				sort: allShowsView.queryDefinition.sort,
-				eventJoins: allShowsView.queryDefinition.eventJoins,
-				relationships: allShowsView.queryDefinition.relationships,
-				computedFields: allShowsView.queryDefinition.computedFields,
-				scope: allShowsView.queryDefinition.scope,
+				sort: allShowsQD.sort,
+				scope: allShowsQD.scope,
+				eventJoins: allShowsQD.eventJoins,
+				relationships: allShowsQD.relationships,
+				computedFields: allShowsQD.computedFields,
 				filter: {
 					operator: "eq",
 					type: "comparison",
@@ -198,10 +203,18 @@ describe("Saved views E2E", () => {
 			"all-shows",
 		);
 
-		expect(userAView.queryDefinition.relationships).toEqual([
+		const userAQD = userAView.queryDefinition as Extract<
+			typeof userAView.queryDefinition,
+			{ mode: "entities" }
+		>;
+		const userBQD = userBView.queryDefinition as Extract<
+			typeof userBView.queryDefinition,
+			{ mode: "entities" }
+		>;
+		expect(userAQD.relationships).toEqual([
 			{ relationshipSchemaSlug: "in-library" },
 		]);
-		expect(userBView.queryDefinition.relationships).toEqual([
+		expect(userBQD.relationships).toEqual([
 			{ relationshipSchemaSlug: "in-library" },
 		]);
 	});
@@ -296,10 +309,20 @@ describe("Saved views E2E", () => {
 
 		expect(updatedClone.name).toBe("Lifecycle View (Copy) Revised");
 		expect(fetchedUpdatedClone.id).toBe(clonedView.id);
-		expect(fetchedUpdatedClone.queryDefinition).toEqual({
+		const { mode: queryMode, ...queryDefinitionWithoutMode } =
+			fetchedUpdatedClone.queryDefinition as { mode?: string } & Record<
+				string,
+				unknown
+			>;
+		expect(queryMode).toBe("entities");
+		const updatedCloneQD = updatedCloneInput.queryDefinition as {
+			eventJoins?: unknown[];
+			relationships?: unknown[];
+		};
+		expect(queryDefinitionWithoutMode).toEqual({
 			...updatedCloneInput.queryDefinition,
-			eventJoins: updatedCloneInput.queryDefinition.eventJoins ?? [],
-			relationships: updatedCloneInput.queryDefinition.relationships ?? [],
+			eventJoins: updatedCloneQD.eventJoins ?? [],
+			relationships: updatedCloneQD.relationships ?? [],
 		});
 		expect(fetchedUpdatedClone.displayConfiguration).toEqual(
 			updatedCloneInput.displayConfiguration,
@@ -720,6 +743,9 @@ describe("Saved views E2E", () => {
 			}),
 		});
 		const refreshedView = await getSavedView(client, cookies, createdView.slug);
+		const refreshedQD = refreshedView.queryDefinition as {
+			sort: { expression: unknown };
+		};
 
 		expect(createResult.response.status).toBe(400);
 		expect(updateResult.response.status).toBe(400);
@@ -729,9 +755,33 @@ describe("Saved views E2E", () => {
 		expect(updateResult.error?.error?.message).toContain(
 			"Sort expressions must resolve to a sortable scalar value",
 		);
-		expect(refreshedView.queryDefinition.sort.expression).toEqual(
+		expect(refreshedQD.sort.expression).toEqual(
 			createEntityColumnExpression("book", "name"),
 		);
+	});
+
+	it("rejects creating saved views with aggregate query definitions", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const { data, response, error } = await client.POST("/saved-views", {
+			headers: { Cookie: cookies },
+			body: buildSavedViewBody({
+				name: "Aggregate Stats View",
+				queryDefinition: {
+					filter: null,
+					eventJoins: [],
+					scope: ["book"],
+					mode: "aggregate",
+					relationships: [],
+					computedFields: [],
+					aggregations: [{ key: "total", aggregation: { type: "count" } }],
+				},
+			}),
+		});
+
+		expect(response.status).toBe(400);
+		expect(data).toBeUndefined();
+		expect(error?.error?.message).toContain("Invalid input");
 	});
 
 	it("persists computed fields across saved view create and update flows", async () => {
