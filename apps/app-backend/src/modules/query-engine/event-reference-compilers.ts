@@ -150,8 +150,13 @@ export const buildEventExpression = (input: {
 				if (schema) {
 					return getPropertyType(schema, propertyPath) ?? "string";
 				}
+
+				throw new QueryEngineValidationError(
+					`Event schema '${eventSchemaSlug}' is not available for the requested entity schemas`,
+				);
 			}
 
+			// No eventSchemaSlug provided — display-only path without type inference
 			return "string" as const;
 		})();
 
