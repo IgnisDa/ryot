@@ -1,8 +1,8 @@
-import type { paths } from "@ryot/generated/openapi/app-backend";
 import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
 
 import { requirePresent, requireResponseData } from "../test-support/assertions";
 import { type Client, createAuthenticatedClient } from "./auth";
+import { createEntity } from "./entities";
 import { createEntitySchema } from "./entity-schemas";
 import { waitForEventCount } from "./events";
 import type { CardDisplayConfigurationInput, DisplayConfigurationInput } from "./saved-views";
@@ -16,17 +16,54 @@ import {
 	type ViewPredicate,
 } from "./view-language";
 
-type ExecuteQueryEngineBody = NonNullable<
-	paths["/query-engine/execute"]["post"]["requestBody"]
->["content"]["application/json"];
-type ExecuteQueryEngineResponse =
-	paths["/query-engine/execute"]["post"]["responses"][200]["content"]["application/json"];
-type EntitiesBody = Extract<ExecuteQueryEngineBody, { mode: "entities" }>;
-type ComputedField = NonNullable<ExecuteQueryEngineBody["computedFields"]>[number];
-type QueryEngineResponseItem = Extract<
-	ExecuteQueryEngineResponse,
-	{ mode: "entities" }
->["data"]["items"][number];
+// TODO(Task 22): Replace these tests-only query engine types with the public
+// AppContract types once the query engine payload and response fields are typed.
+type ComputedField = {
+	key: string;
+	expression: ViewExpression;
+};
+
+type QueryEngineEventJoin = {
+	key: string;
+	kind: "latestEvent";
+	eventSchemaSlug: string;
+};
+
+type QueryEngineRelationshipJoin = {
+	key: string;
+	kind: "latestRelationship";
+	required: boolean;
+	direction: "incoming" | "outgoing";
+	relationshipSchemaSlug: string;
+	sourceEntityId?: string;
+	targetEntityId?: string;
+	filter?: ViewPredicate | null;
+};
+
+type QueryEngineFieldValue = {
+	kind: string;
+	value: unknown;
+};
+
+type QueryEngineResponseItem = Readonly<Record<string, QueryEngineFieldValue>>;
+
+type EntitiesQueryEngineResponse = {
+	mode: "entities";
+	data: {
+		items: QueryEngineResponseItem[];
+		meta: {
+			fieldOrder: string[];
+			pagination: {
+				page: number;
+				limit: number;
+				total: number;
+				totalPages?: number;
+				hasNextPage?: boolean;
+				hasPreviousPage?: boolean;
+			};
+		};
+	};
+};
 
 type QueryEngineField = {
 	key: string;
@@ -39,9 +76,16 @@ type RuntimeField = {
 	expression: ViewExpression;
 };
 
-export type QueryEngineRequest = Omit<EntitiesBody, "fields" | "mode"> & {
+export type QueryEngineRequest = {
+	mode?: "entities";
+	filter?: ViewPredicate | null;
+	scope: string[];
 	fields: RuntimeField[];
-	mode?: ExecuteQueryEngineBody["mode"];
+	eventJoins?: QueryEngineEventJoin[];
+	computedFields?: ComputedField[];
+	relationshipJoins?: QueryEngineRelationshipJoin[];
+	pagination?: { page: number; limit: number };
+	sort?: { direction: "asc" | "desc"; expression: ViewExpression };
 };
 
 type TableDisplayConfiguration = DisplayConfigurationInput["table"];
@@ -161,7 +205,7 @@ function toQueryEngineFields(input: RuntimeFieldsInput): RuntimeField[] {
 	];
 }
 
-const defaultSort = (schemaSlugs: string[]): EntitiesBody["sort"] => ({
+const defaultSort = (schemaSlugs: string[]): QueryEngineRequest["sort"] => ({
 	direction: "asc",
 	expression: toRequiredExpression(
 		schemaSlugs.length ? qualifyBuiltinFields(schemaSlugs, "name") : [],
@@ -175,6 +219,7 @@ const buildQueryEngineRequest = (
 		sort?: QueryEngineRequest["sort"];
 	},
 ): QueryEngineRequest => ({
+	filter: null,
 	eventJoins: [],
 	mode: "entities",
 	computedFields: [],
@@ -310,8 +355,6 @@ export function getQueryEngineFieldValue(
 	return getQueryEngineFieldOrThrow(item, key).value;
 }
 
-type EntitiesQueryEngineResponse = Extract<ExecuteQueryEngineResponse, { mode: "entities" }>;
-
 export async function executeQueryEngine(
 	client: Client,
 	cookies: string,
@@ -319,48 +362,46 @@ export async function executeQueryEngine(
 ) {
 	const mode = body.mode ?? "entities";
 	const result = await client.POST("/query-engine/execute", {
-		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-		body: { ...body, mode } as unknown as ExecuteQueryEngineBody,
+		// TODO(Task 22): Remove this tests-only query-engine compatibility path once
+		// tests call the contract client directly with public query-engine types.
+		body: { ...body, mode },
 		headers: { Cookie: cookies },
 	});
 
 	return {
 		error: result.error,
 		response: result.response,
-		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
+		// TODO(Task 22): Remove this tests-only response assertion once the public
+		// AppContract exposes typed query engine response fields.
 		data: result.data as unknown as EntitiesQueryEngineResponse,
 	};
 }
 
 export async function createQueryEngineEntity(input: CreateEntityInput) {
-	const { data, response } = await input.client.POST("/entities", {
-		headers: { Cookie: input.cookies },
-		body: {
-			name: input.name,
-			properties: input.properties,
-			entitySchemaId: input.entitySchemaId,
-			image:
-				input.image === undefined
-					? ({
-							type: "remote",
-							url: `https://example.com/${input.name.toLowerCase().replace(/\s+/g, "-")}.png`,
-						} as const)
-					: input.image,
-		},
+	const entity = await createEntity(input.client, input.cookies, {
+		name: input.name,
+		properties: input.properties,
+		entitySchemaId: input.entitySchemaId,
+		image:
+			input.image === undefined
+				? {
+						type: "remote",
+						url: `https://example.com/${input.name.toLowerCase().replace(/\s+/g, "-")}.png`,
+					}
+				: input.image,
 	});
 
-	const entity = requireResponseData(response, data, `Failed to create entity '${input.name}'`);
 	return requirePresent(entity.id, `Failed to create entity '${input.name}'`);
 }
 
 export async function createQueryEngineEvent(input: CreateQueryEngineEventInput) {
-	const before = await input.client.GET("/events", {
+	const before = await input.client.events.list({
 		headers: { Cookie: input.cookies },
 		params: { query: { entityId: input.entityId } },
 	});
-	const beforeCount = before.data?.data.length ?? 0;
+	const beforeCount = before.data?.length ?? 0;
 
-	const { data, response } = await input.client.POST("/events", {
+	const { data, response } = await input.client.events.create({
 		headers: { Cookie: input.cookies },
 		body: [
 			{

@@ -1,5 +1,10 @@
 import { requirePresent, requireResponseData } from "../test-support/assertions";
 import type { Client } from "./auth";
+import type { ClientSuccess } from "./backend-client";
+
+type CollectionRecord = Omit<ClientSuccess<"collections", "create">, "properties"> & {
+	properties: Record<string, unknown>;
+};
 
 export interface CreateCollectionOptions {
 	name?: string;
@@ -18,12 +23,15 @@ export async function createCollection(
 		membershipPropertiesSchema,
 	} = options;
 
-	const { data, response } = await client.POST("/collections", {
+	const { data, response } = await client.collections.create({
 		headers: { Cookie: cookies },
 		body: { name, description, ...(membershipPropertiesSchema && { membershipPropertiesSchema }) },
 	});
 
 	const collection = requireResponseData(response, data, `Failed to create collection '${name}'`);
 	requirePresent(collection.id, `Failed to create collection '${name}'`);
-	return collection;
+
+	// TODO(Task 22): Remove this tests-only collection assertion once the public
+	// AppContract exposes typed collection properties.
+	return collection as CollectionRecord;
 }

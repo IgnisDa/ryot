@@ -23,8 +23,8 @@ describe("Integration CRUD", () => {
 
 		expect(integration.isDisabled).toBe(false);
 		expect(integration.syncOwnership).toBe(false);
-		expect(Number(integration.minimumProgress)).toBe(2);
-		expect(Number(integration.maximumProgress)).toBe(95);
+		expect(integration.minimumProgress).toBe(2);
+		expect(integration.maximumProgress).toBe(95);
 		expect(integration.extraSettings.disableOnContinuousErrors).toBe(false);
 	});
 
@@ -96,7 +96,7 @@ describe("Integration CRUD", () => {
 
 		const enabled = await listIntegrations(client, cookies, {
 			provider: "kodi",
-			isDisabled: "false",
+			isDisabled: false,
 		});
 		expect(enabled).toHaveLength(1);
 		expect(requirePresent(enabled[0], "Expected enabled integration").isDisabled).toBe(false);
@@ -278,7 +278,7 @@ describe("Import run visibility", () => {
 			headers: { Cookie: cookies },
 		});
 		const allRuns = listData?.data ?? [];
-		expect(allRuns.find((r) => r.id === runId)).toBeUndefined();
+		expect(allRuns.find((r: { id: string }) => r.id === runId)).toBeUndefined();
 
 		const run = await getImportRun(client, cookies, runId);
 		expect(run.id).toBe(runId);
@@ -288,6 +288,6 @@ describe("Import run visibility", () => {
 			params: { path: { integrationId } },
 		});
 		const integrationRuns = integrationRunsData?.data ?? [];
-		expect(integrationRuns.find((r) => r.id === runId)).toBeDefined();
+		expect(integrationRuns.find((r: { id: string }) => r.id === runId)).toBeDefined();
 	});
 });

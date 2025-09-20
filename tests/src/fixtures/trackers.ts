@@ -22,7 +22,7 @@ export async function createTracker(
 		description = "Test tracker description",
 	} = options;
 
-	const { data, response } = await client.POST("/trackers", {
+	const { data, response } = await client.trackers.create({
 		headers: { Cookie: cookies },
 		body: { icon, name, slug, accentColor, description },
 	});
@@ -36,10 +36,9 @@ export async function listTrackers(
 	cookies: string,
 	options: { includeDisabled?: boolean } = {},
 ) {
-	const includeDisabled = options.includeDisabled ? "true" : undefined;
-	const { data, response } = await client.GET("/trackers", {
+	const { data, response } = await client.trackers.list({
 		headers: { Cookie: cookies },
-		params: { query: { includeDisabled } },
+		params: { query: { includeDisabled: options.includeDisabled ?? false } },
 	});
 
 	return requireResponseData(response, data, "Failed to list trackers");
@@ -66,7 +65,7 @@ export async function disableTracker(input: {
 	cookies: string;
 	client: Client;
 }) {
-	const result = await input.client.PATCH("/trackers/{trackerId}", {
+	const result = await input.client.trackers.update({
 		body: { isDisabled: true },
 		headers: { Cookie: input.cookies },
 		params: { path: { trackerId: input.trackerId } },

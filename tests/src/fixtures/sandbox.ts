@@ -1,23 +1,25 @@
-import type { paths } from "@ryot/generated/openapi/app-backend";
-
 import { requirePresent, requireResponseData } from "../test-support/assertions";
 import type { Client } from "./auth";
+import type { ClientBody, ClientSuccess } from "./backend-client";
 import { type PollOptions, pollUntil } from "./polling";
 
-type CreateSandboxScriptBody = NonNullable<
-	paths["/sandbox/scripts"]["post"]["requestBody"]
->["content"]["application/json"];
+type CreateSandboxScriptBody = ClientBody<"sandbox", "createScript">;
 
-type EnqueueSandboxBody = NonNullable<
-	paths["/sandbox/enqueue"]["post"]["requestBody"]
->["content"]["application/json"];
+type EnqueueSandboxBody = ClientBody<"sandbox", "enqueue">;
+type SandboxResult = Exclude<ClientSuccess<"sandbox", "getResult">, { status: "pending" }> | null;
+type SandboxCompletedResult = Extract<NonNullable<SandboxResult>, { status: "completed" }>;
+type TypedSandboxResult =
+	| Exclude<NonNullable<SandboxResult>, { status: "completed" }>
+	| (Omit<SandboxCompletedResult, "timing"> & {
+			timing?: { totalMs?: number; executionMs?: number };
+	  });
 
 export async function createSandboxScript(
 	client: Client,
 	cookies: string,
 	body: CreateSandboxScriptBody,
 ) {
-	const { data, response } = await client.POST("/sandbox/scripts", {
+	const { data, response } = await client.sandbox.createScript({
 		body,
 		headers: { Cookie: cookies },
 	});
@@ -32,7 +34,7 @@ export async function enqueueSandboxScript(
 	cookies: string,
 	body: EnqueueSandboxBody,
 ) {
-	const { data, response } = await client.POST("/sandbox/enqueue", {
+	const { data, response } = await client.sandbox.enqueue({
 		body,
 		headers: { Cookie: cookies },
 	});
@@ -54,7 +56,7 @@ export async function pollSandboxResult(
 	return pollUntil(
 		`sandbox job '${jobId}'`,
 		async () => {
-			const { data, response } = await client.GET("/sandbox/result/{jobId}", {
+			const { data, response } = await client.sandbox.getResult({
 				params: { path: { jobId } },
 				headers: { Cookie: cookies },
 			});
@@ -63,7 +65,10 @@ export async function pollSandboxResult(
 				data,
 				`Failed to poll sandbox result '${jobId}'`,
 			);
-			return result.status !== "pending" ? result : null;
+
+			// TODO(Task 22): Remove this tests-only sandbox assertion once the public
+			// AppContract exposes typed sandbox timing details.
+			return result.status !== "pending" ? (result as TypedSandboxResult) : null;
 		},
 		options,
 	);
