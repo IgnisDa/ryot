@@ -40,7 +40,7 @@ export class AuthMiddleware extends HttpApiMiddleware.Tag<AuthMiddleware>()("Aut
 export class AdminMiddleware extends HttpApiMiddleware.Tag<AdminMiddleware>()("AdminMiddleware", {
 	failure: Unauthorized,
 	provides: AdminAccess,
-	security: { adminToken: HttpApiSecurity.apiKey({ in: "header", key: "x-admin-access-token" }) },
+	security: { adminToken: HttpApiSecurity.apiKey({ in: "header", key: "Admin-Access-Token" }) },
 }) {}
 
 const makeAuthInstance = (args: {
