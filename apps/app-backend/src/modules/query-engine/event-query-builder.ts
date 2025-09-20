@@ -1,8 +1,8 @@
 import { sql } from "drizzle-orm";
 import { buildResolvedFieldsExpression } from "./display-builder";
 import { buildFilterWhereClause } from "./filter-builder";
+import { executePaginatedQuery } from "./paginated-query-sql";
 import type { PreparedQueryContext } from "./preparer";
-import { executePaginatedQuery } from "./query-builder";
 import {
 	buildEventFirstCte,
 	buildJoinedCte,
