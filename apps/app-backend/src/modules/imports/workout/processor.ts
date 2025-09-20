@@ -5,8 +5,8 @@ import { getBuiltinEventSchemaBySlug } from "~/modules/event-schemas";
 import { createEventsWithTriggers, parseEventProperties } from "~/modules/events";
 import type { CreateEventBulkBody } from "~/modules/events";
 
-import { failImportRun, recordImportRunFailure, sanitizeErrorMessage } from "../helpers";
 import { createImportRunFailure, updateImportRun } from "../repository";
+import { failImportRun, recordImportRunFailure, sanitizeErrorMessage } from "../runtime/failures";
 import {
 	buildWorkoutSetEventProperties,
 	normalizeExerciseIdentityName,

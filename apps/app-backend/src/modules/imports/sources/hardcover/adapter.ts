@@ -1,11 +1,5 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
-import { parseCsvText } from "../../csv";
-import { getOrCreateMediaEntityGroup } from "../../media/groups";
-import type {
-	MediaImportAdapterFailure,
-	MediaImportAdapterResult,
-} from "../../media/import-processor";
 import {
 	addCollectionMembership,
 	assertRequiredHeaders,
@@ -23,7 +17,13 @@ import {
 	parseDateTime,
 	parseDateWithFormat,
 	splitCommaList,
-} from "../book/shared";
+} from "../../media/book/shared";
+import { getOrCreateMediaEntityGroup } from "../../media/groups";
+import type {
+	MediaImportAdapterFailure,
+	MediaImportAdapterResult,
+} from "../../media/import-processor";
+import { parseCsvText } from "../../runtime/csv";
 
 const sanitizeListName = (value: string): string => value.replace(/\s*\(#\d+\)\s*$/, "").trim();
 
