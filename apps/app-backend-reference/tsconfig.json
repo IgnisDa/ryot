@@ -1,0 +1,32 @@
+{
+	"compilerOptions": {
+		"noEmit": true,
+		"strict": true,
+		"lib": ["ESNext"],
+		"jsx": "react-jsx",
+		"target": "ES2022",
+		"module": "ESNext",
+		"skipLibCheck": true,
+		"types": ["bun-types"],
+		"moduleResolution": "bundler",
+		"jsxImportSource": "hono/jsx",
+		"paths": { "~/*": ["./src/*"] },
+		"noUncheckedIndexedAccess": true,
+		"plugins": [
+			{
+				"name": "@effect/language-service",
+				"diagnostics": {
+					"newPromise": "warning",
+					"asyncFunction": "warning",
+					"processEnvInEffect": "error",
+					"nodeBuiltinImport": "warning",
+					"globalFetchInEffect": "error",
+					"globalDateInEffect": "warning",
+					"globalTimersInEffect": "warning",
+					"preferSchemaOverJson": "warning",
+					"globalConsoleInEffect": "warning"
+				}
+			}
+		]
+	}
+}
