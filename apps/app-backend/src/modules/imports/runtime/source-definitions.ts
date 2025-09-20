@@ -142,7 +142,7 @@ export const buildSourcePayload = (
 	}
 	if (
 		body.source === "plex" ||
-		body.source === "mediatracker" ||
+		body.source === "media_tracker" ||
 		body.source === "audiobookshelf"
 	) {
 		return {

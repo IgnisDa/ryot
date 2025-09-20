@@ -63,9 +63,10 @@ describe("processTraktImport", () => {
 			undefined,
 			createInput(undefined),
 			createDeps({
-				processMediaImport: async (_job, _token, input) => {
+				processMediaImport: (_job, _token, input) => {
 					processorCalls += 1;
 					expect(() => input.loadAdapterResult()).toThrow("Import job is missing Trakt username");
+					return Promise.resolve();
 				},
 			}),
 		);

@@ -24,7 +24,7 @@ export const importRunSource = z.enum([
 	"strong_app",
 	"storygraph",
 	"myanimelist",
-	"mediatracker",
+	"media_tracker",
 	"audiobookshelf",
 ]);
 export type ImportRunSource = z.infer<typeof importRunSource>;
@@ -138,8 +138,8 @@ export type TraktRunInput = z.infer<typeof traktRunInput>;
 export const plexRunInput = urlAndKeyRunInput("plex");
 export type PlexRunInput = z.infer<typeof plexRunInput>;
 
-export const mediatrackerRunInput = urlAndKeyRunInput("mediatracker");
-export type MediatrackerRunInput = z.infer<typeof mediatrackerRunInput>;
+export const mediaTrackerRunInput = urlAndKeyRunInput("media_tracker");
+export type MediaTrackerRunInput = z.infer<typeof mediaTrackerRunInput>;
 
 export const audiobookshelfRunInput = urlAndKeyRunInput("audiobookshelf");
 export type AudiobookshelfRunInput = z.infer<typeof audiobookshelfRunInput>;
@@ -169,7 +169,7 @@ export const createImportRunBody = z.discriminatedUnion("source", [
 	strongAppRunInput,
 	storygraphRunInput,
 	myanimelistRunInput,
-	mediatrackerRunInput,
+	mediaTrackerRunInput,
 	audiobookshelfRunInput,
 ]);
 export type CreateImportRunBody = z.infer<typeof createImportRunBody>;
