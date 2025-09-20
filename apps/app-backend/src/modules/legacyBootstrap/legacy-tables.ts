@@ -4,19 +4,19 @@ import type { DbClient } from "~/lib/db";
 import { entitySchema, sandboxScript } from "~/lib/db/schema";
 
 const legacyMigrationsTableExistsSql = sql`
-SELECT to_regclass('public.seaql_migrations') IS NOT NULL AS "present";
+SELECT to_regclass('"seaql_migrations"') IS NOT NULL AS "present";
 `;
 
 const dropLegacyMigrationsTableSql = sql`
-DROP TABLE IF EXISTS public.seaql_migrations CASCADE;
+DROP TABLE IF EXISTS "seaql_migrations" CASCADE;
 `;
 
 const dropLegacyMetadataTableSql = sql`
-DROP TABLE IF EXISTS public.metadata CASCADE;
+DROP TABLE IF EXISTS "metadata" CASCADE;
 `;
 
 const dropLegacyUserTableSql = sql`
-DROP TABLE IF EXISTS public.old_user CASCADE;
+DROP TABLE IF EXISTS "old_user" CASCADE;
 `;
 
 type MetadataMigrationTarget = {
@@ -205,14 +205,13 @@ const buildUniqueSlugMap = (
 const renameLegacyTablesSql = sql`
 DO $$
 BEGIN
-	IF to_regclass('public.old_user') IS NULL
-		AND EXISTS (
-			SELECT 1
-			FROM information_schema.columns
-			WHERE table_schema = 'public'
-				AND table_name = 'user'
-				AND column_name = 'lot'
-		)
+ 	IF to_regclass('"old_user"') IS NULL
+ 		AND EXISTS (
+ 			SELECT 1
+ 			FROM information_schema.columns
+ 			WHERE table_name = 'user'
+ 				AND column_name = 'lot'
+ 		)
 	THEN
 		ALTER TABLE "user" RENAME TO old_user;
 		ALTER TABLE "old_user" RENAME CONSTRAINT "user_pkey" TO "old_user_pkey";
@@ -273,7 +272,7 @@ export const renameLegacyTables = async (database: DbClient) => {
 const migrateUserTableSql = sql`
 DO $$
 BEGIN
-	IF to_regclass('public.old_user') IS NULL THEN
+	IF to_regclass('"old_user"') IS NULL THEN
 		RETURN;
 	END IF;
 
