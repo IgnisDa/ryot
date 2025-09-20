@@ -26,6 +26,8 @@
 		"better-auth": "1.6.13",
 		"bullmq": "5.77.6",
 		"drizzle-orm": "0.45.2",
+		"fast-xml-parser": "5.8.0",
+		"fast-xml-validator": "1.1.0",
 		"hono": "4.12.23",
 		"ioredis": "5.11.0",
 		"papaparse": "5.5.3",
