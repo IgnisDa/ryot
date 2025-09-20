@@ -18,6 +18,7 @@ import { processJellyfinImport } from "../sources/jellyfin/processor";
 import { processMediaTrackerImport } from "../sources/media-tracker/processor";
 import { processMovaryImport } from "../sources/movary/processor";
 import { processMyanimelistImport } from "../sources/myanimelist/processor";
+import { processNetflixImport } from "../sources/netflix/processor";
 import { processPlexImport } from "../sources/plex/processor";
 import { adaptStorygraphCsv } from "../sources/storygraph/adapter";
 import { adaptStrongAppCsv } from "../sources/strong-app/adapter";
@@ -133,6 +134,15 @@ const importSourceProcessors: Partial<Record<ImportRunSource, ImportSourceProces
 		inputKind: "file",
 		process: (input) =>
 			processMovaryImport(input.job, input.token, {
+				...mediaProcessorInput(input),
+				filePath: input.filePath,
+				sourcePayload: input.sourcePayload,
+			}),
+	},
+	netflix: {
+		inputKind: "file",
+		process: (input) =>
+			processNetflixImport(input.job, input.token, {
 				...mediaProcessorInput(input),
 				filePath: input.filePath,
 				sourcePayload: input.sourcePayload,

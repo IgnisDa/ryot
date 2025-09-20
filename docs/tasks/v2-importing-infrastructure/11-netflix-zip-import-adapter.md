@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,16 +14,16 @@ Follow the parent PRD sections "File Handling And Security" and "Normalized Adap
 
 ## Acceptance criteria
 
-- [ ] Netflix source input schema is available through `POST /imports/runs`.
-- [ ] ZIP file validation and extraction go through import file helpers.
-- [ ] ZIP extraction rejects path traversal, excessive file counts, and excessive decompressed size.
-- [ ] Extracted files are cleaned up best-effort by worker/helper cleanup and cleanup failures do not fail successful imports.
-- [ ] Netflix viewing activity maps to non-episodic `complete` events or episodic `progress(100)` coverage according to matched media type and available episode data.
-- [ ] Netflix ratings map to `review` events with historical dates where available.
-- [ ] Netflix My List data maps to `backlog` events, not a watchlist collection.
-- [ ] Source lookup or title-matching failures become item-level failures with useful `sourceLabel`/`sourceIdentifier` details.
-- [ ] Raw Netflix CSV rows and raw ZIP contents are not stored in run summaries or failure context.
-- [ ] Tests cover ZIP safety helpers and representative Netflix adapter success/failure cases.
+- [x] Netflix source input schema is available through `POST /imports/runs`.
+- [x] ZIP file validation and extraction go through import file helpers.
+- [x] ZIP extraction rejects path traversal, excessive file counts, and excessive decompressed size.
+- [x] Extracted files are cleaned up best-effort by worker/helper cleanup and cleanup failures do not fail successful imports.
+- [x] Netflix viewing activity maps to non-episodic `complete` events or episodic `progress(100)` coverage according to matched media type and available episode data.
+- [x] Netflix ratings map to `review` events with historical dates where available.
+- [x] Netflix My List data maps to `backlog` events, not a watchlist collection.
+- [x] Source lookup or title-matching failures become item-level failures with useful `sourceLabel`/`sourceIdentifier` details.
+- [x] Raw Netflix CSV rows and raw ZIP contents are not stored in run summaries or failure context.
+- [x] Tests cover ZIP safety helpers and representative Netflix adapter success/failure cases.
 
 ## User stories addressed
 
