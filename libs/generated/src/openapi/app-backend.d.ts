@@ -1382,8 +1382,6 @@ export interface paths {
                                     createdAt: string;
                                     /** Format: date-time */
                                     updatedAt: string;
-                                    /** Format: date-time */
-                                    populatedAt: string;
                                     entitySchemaId: string;
                                     image: {
                                         key: string;
@@ -1394,6 +1392,8 @@ export interface paths {
                                         /** @enum {string} */
                                         type: "remote";
                                     } | unknown;
+                                    /** Format: date-time */
+                                    populatedAt: string | null;
                                     externalId: string | null;
                                     properties: {
                                         [key: string]: unknown;
@@ -1960,8 +1960,6 @@ export interface paths {
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
-                                /** Format: date-time */
-                                populatedAt: string;
                                 entitySchemaId: string;
                                 image: {
                                     key: string;
@@ -1972,6 +1970,8 @@ export interface paths {
                                     /** @enum {string} */
                                     type: "remote";
                                 } | unknown;
+                                /** Format: date-time */
+                                populatedAt: string | null;
                                 externalId: string | null;
                                 properties: {
                                     [key: string]: unknown;
@@ -2078,8 +2078,6 @@ export interface paths {
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
-                                /** Format: date-time */
-                                populatedAt: string;
                                 entitySchemaId: string;
                                 image: {
                                     key: string;
@@ -2090,6 +2088,8 @@ export interface paths {
                                     /** @enum {string} */
                                     type: "remote";
                                 } | unknown;
+                                /** Format: date-time */
+                                populatedAt: string | null;
                                 externalId: string | null;
                                 properties: {
                                     [key: string]: unknown;
