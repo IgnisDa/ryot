@@ -14,7 +14,7 @@ The sample domain is an Audible sync backend that matches the real backend archi
 
 - `HttpApi` contracts shared with `HttpApiClient` across a package boundary
 - Better Auth bridged into Effect without an Effect-native adapter
-- Effect services and layers replacing default-deps seams
+- `Effect.Service` classes replacing the `Context.Tag` + separate `*Live` layer pattern
 - Drizzle repositories wrapped in services and layers, returning `Effect`s
 - Redis-backed coordination for notifications and sandbox bridge sessions (not a queue backend)
 - PostgreSQL-backed `@effect/workflow` orchestration
@@ -380,14 +380,35 @@ Migration rule: if a service file still imports `serviceData` or `serviceError`,
 
 The `deps` parameter pattern used in `apps/app-backend` (e.g., `async function fn(input, deps = defaultDeps)`) is also a legacy pattern. It will **not** be preserved or wrapped.
 
-Cross-module dependencies are expressed through Effect's `Context.Tag` and `Layer` system:
+Cross-module dependencies are expressed through `Effect.Service` and Effect's layer system:
 
-- Each repository and service is a `Context.Tag` with a typed interface.
+- Each repository and service is declared as an `Effect.Service` class, which simultaneously defines the `Context.Tag` (for yielding the service) and the default `Layer` (via the `.Default` static property).
 - Dependencies are declared in the `R` channel of `Effect.Effect<A, E, R>`.
 - Callers provide dependencies through `Layer.provide` rather than through explicit function parameters.
 - There is no transitional wrapper that injects `deps` objects into `Effect` programs.
 
-Why this matters: the `deps` pattern exists only to enable ad-hoc test-time substitution. Effect's `Layer` and `Context.Tag` solve the same problem with a unified, type-safe mechanism that does not require every function to accept a `deps` parameter. Keeping the `deps` pattern would mean maintaining two parallel dependency systems.
+Each repository and service is declared as a single `Effect.Service` class. The class is simultaneously the `Context.Tag` (yielded with `yield*`) and the source of its default `Layer` (via the `.Default` static property used in `Layer.provide`).
+
+`Effect.Service` supports four implementation modes:
+
+| Mode       | Replaces                     | When to use                               |
+| ---------- | ---------------------------- | ----------------------------------------- |
+| `effect:`  | `Layer.effect`               | Effectful construction with dependencies  |
+| `scoped:`  | `Layer.scoped`               | Resource with acquire/release lifecycle   |
+| `sync:`    | `Layer.succeed` with factory | Synchronous construction, no dependencies |
+| `succeed:` | `Layer.succeed` with value   | Static value                              |
+
+The `dependencies:` option on `Effect.Service` lets a service pre-bundle its internal sub-services into its own `.Default` layer, removing the need for callers to list those sub-services separately in `Layer.provide` chains. The sandbox services use this pattern: `ProcessPool` bundles `BridgeService` and `RunnerFile`; `SandboxService` bundles `ProcessPool` and `BridgeService`. `layers.ts` only provides `SandboxService.Default`.
+
+**What is not converted to `Effect.Service`:**
+
+- `HttpApiMiddleware.Tag` subclasses (`AuthMiddleware`, `AdminMiddleware`) — these extend a different base class that carries HTTP security scheme metadata.
+- `Layer.scopedDiscard` side-effect layers (`ServerLive`, `SchedulerLive`) — these run forever and produce no service value.
+- Ambient per-request context values (`CurrentUser`, `AdminAccess`, `CurrentDb`) — these are injected by middleware or transaction runners, not by a Layer lifecycle.
+- `TransactionRunner` — its service type is a generic function, not an object with named methods.
+- Workflow/Activity/DurableQueue definitions — these extend Effect Cluster primitives.
+
+Why this matters: the `deps` pattern exists only to enable ad-hoc test-time substitution. `Effect.Service` and `Layer` solve the same problem with a unified, type-safe mechanism that does not require every function to accept a `deps` parameter. Keeping the `deps` pattern would mean maintaining two parallel dependency systems.
 
 Migration rule: if a service file still accepts `deps` as an optional parameter, it has not been rewritten.
 

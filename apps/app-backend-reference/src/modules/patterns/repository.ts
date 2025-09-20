@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from "effect";
+import { Effect } from "effect";
 
 import { CurrentDb, dbEffect, isUniqueConstraintError, schema } from "../../lib/db";
 import { DbError, PatternsDuplicateItem } from "../../lib/errors";
@@ -12,86 +12,79 @@ const duplicateItem = (query: string) =>
 		message: "Audible item query already exists for this run",
 	});
 
-export class PatternsRepository extends Context.Tag("PatternsRepository")<
-	PatternsRepository,
-	{
-		readonly createItem: (
+export class PatternsRepository extends Effect.Service<PatternsRepository>()("PatternsRepository", {
+	sync: () => ({
+		createItem: (
 			runId: string,
 			query: string,
-		) => Effect.Effect<PatternsItem, DbError | PatternsDuplicateItem, CurrentDb>;
-		readonly createRun: (userId: string) => Effect.Effect<PatternsRun, DbError, CurrentDb>;
-		readonly createStep: (runId: string) => Effect.Effect<PatternsStep, DbError, CurrentDb>;
-	}
->() {}
+		): Effect.Effect<PatternsItem, DbError | PatternsDuplicateItem, CurrentDb> =>
+			Effect.gen(function* () {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.insert(schema.audibleItem)
+						.values({
+							runId,
+							query,
+							status: "created",
+							details: { source: "patterns" },
+						})
+						.returning({
+							id: schema.audibleItem.id,
+							query: schema.audibleItem.query,
+						}),
+				).pipe(
+					Effect.catchIf(isUniqueConstraintError(audibleItemRunQueryConstraint), () =>
+						Effect.fail(duplicateItem(query)),
+					),
+				);
 
-export const PatternsRepositoryLive = Layer.succeed(PatternsRepository, {
-	createItem: (runId, query) =>
-		Effect.gen(function* () {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
-				db
-					.insert(schema.audibleItem)
-					.values({
-						runId,
-						query,
-						status: "created",
-						details: { source: "patterns" },
-					})
-					.returning({
-						id: schema.audibleItem.id,
-						query: schema.audibleItem.query,
-					}),
-			).pipe(
-				Effect.catchIf(isUniqueConstraintError(audibleItemRunQueryConstraint), () =>
-					Effect.fail(duplicateItem(query)),
-				),
-			);
+				if (!row) {
+					return yield* new DbError({ message: "Patterns item insert returned no row" });
+				}
 
-			if (!row) {
-				return yield* new DbError({ message: "Patterns item insert returned no row" });
-			}
+				return row;
+			}),
+		createRun: (userId: string): Effect.Effect<PatternsRun, DbError, CurrentDb> =>
+			Effect.gen(function* () {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.insert(schema.audibleRun)
+						.values({
+							userId,
+							status: "queued",
+							query: "patterns",
+						})
+						.returning({ id: schema.audibleRun.id }),
+				);
 
-			return row;
-		}),
-	createRun: (userId) =>
-		Effect.gen(function* () {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
-				db
-					.insert(schema.audibleRun)
-					.values({
-						userId,
-						status: "queued",
-						query: "patterns",
-					})
-					.returning({ id: schema.audibleRun.id }),
-			);
+				if (!row) {
+					return yield* new DbError({ message: "Patterns run insert returned no row" });
+				}
 
-			if (!row) {
-				return yield* new DbError({ message: "Patterns run insert returned no row" });
-			}
+				return row;
+			}),
+		createStep: (runId: string): Effect.Effect<PatternsStep, DbError, CurrentDb> =>
+			Effect.gen(function* () {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.insert(schema.workflowStep)
+						.values({
+							runId,
+							status: "created",
+							name: "patterns",
+							details: { source: "patterns" },
+						})
+						.returning({ id: schema.workflowStep.id }),
+				);
 
-			return row;
-		}),
-	createStep: (runId) =>
-		Effect.gen(function* () {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
-				db
-					.insert(schema.workflowStep)
-					.values({
-						runId,
-						status: "created",
-						name: "patterns",
-						details: { source: "patterns" },
-					})
-					.returning({ id: schema.workflowStep.id }),
-			);
+				if (!row) {
+					return yield* new DbError({ message: "Patterns step insert returned no row" });
+				}
 
-			if (!row) {
-				return yield* new DbError({ message: "Patterns step insert returned no row" });
-			}
-
-			return row;
-		}),
-});
+				return row;
+			}),
+	}),
+}) {}

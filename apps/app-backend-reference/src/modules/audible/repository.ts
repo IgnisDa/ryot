@@ -1,5 +1,5 @@
 import { and, desc, eq, sql } from "drizzle-orm";
-import { Context, Effect, Layer, Option, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 
 import { DbService, dbEffect, schema } from "../../lib/db";
 import { AudibleRunNotFound, DbError } from "../../lib/errors";
@@ -79,53 +79,8 @@ const mapSchedule = (row: AudibleScheduleRow): AudibleSchedule => ({
 const mapFinalResult = (value: unknown): AudibleRunResultType | null =>
 	Option.getOrNull(decodeFinalResult(value));
 
-export class AudibleRepository extends Context.Tag("AudibleRepository")<
-	AudibleRepository,
-	{
-		readonly addStep: (
-			runId: string,
-			name: string,
-			status: string,
-			details?: unknown,
-		) => Effect.Effect<WorkflowStep, DbError>;
-		readonly cleanupItems: (runId: string) => Effect.Effect<void, DbError>;
-		readonly createRun: (
-			userId: string,
-			input: CreateAudibleRunPayload,
-		) => Effect.Effect<AudibleRun, DbError>;
-		readonly createSchedulerRun: (query: string) => Effect.Effect<AudibleRun, DbError>;
-		readonly expireImport: (runId: string) => Effect.Effect<void, DbError>;
-		readonly getConfirmationToken: (
-			userId: string,
-			runId: string,
-		) => Effect.Effect<AudibleRunConfirmation, DbError | AudibleRunNotFound>;
-		readonly getDetail: (
-			userId: string,
-			runId: string,
-			workflowPoll?: string | null,
-		) => Effect.Effect<AudibleRunDetail, DbError | AudibleRunNotFound>;
-		readonly getRunById: (runId: string) => Effect.Effect<AudibleRun, DbError | AudibleRunNotFound>;
-		readonly listEnabledSchedules: () => Effect.Effect<ReadonlyArray<AudibleSchedule>, DbError>;
-		readonly listForUser: (userId: string) => Effect.Effect<ReadonlyArray<AudibleRun>, DbError>;
-		readonly saveFinalResult: (
-			runId: string,
-			result: AudibleRunResultType,
-		) => Effect.Effect<void, DbError>;
-		readonly saveConfirmationToken: (runId: string, token: string) => Effect.Effect<void, DbError>;
-		readonly updateStatus: (
-			runId: string,
-			status: typeof AudibleRunStatus.Type,
-		) => Effect.Effect<void, DbError>;
-		readonly upsertItem: (
-			runId: string,
-			item: AudibleImportItem,
-		) => Effect.Effect<AudibleItem, DbError>;
-	}
->() {}
-
-export const AudibleRepositoryLive = Layer.effect(
-	AudibleRepository,
-	Effect.gen(function* () {
+export class AudibleRepository extends Effect.Service<AudibleRepository>()("AudibleRepository", {
+	effect: Effect.gen(function* () {
 		const { db } = yield* DbService;
 
 		const readDetail = (
@@ -170,7 +125,7 @@ export const AudibleRepositoryLive = Layer.effect(
 				: Effect.fail(new AudibleRunNotFound({ id: runId }));
 
 		return {
-			addStep: (runId, name, status, details) =>
+			addStep: (runId: string, name: string, status: string, details?: unknown) =>
 				dbEffect(() =>
 					db
 						.insert(schema.workflowStep)
@@ -183,11 +138,11 @@ export const AudibleRepositoryLive = Layer.effect(
 							: Effect.fail(new DbError({ message: "Workflow step insert returned no row" })),
 					),
 				),
-			cleanupItems: (runId) =>
+			cleanupItems: (runId: string) =>
 				dbEffect(() =>
 					db.delete(schema.audibleItem).where(eq(schema.audibleItem.runId, runId)),
 				).pipe(Effect.asVoid),
-			createRun: (userId, input) =>
+			createRun: (userId: string, input: CreateAudibleRunPayload) =>
 				dbEffect(() =>
 					db
 						.insert(schema.audibleRun)
@@ -217,7 +172,7 @@ export const AudibleRepositoryLive = Layer.effect(
 							: Effect.fail(new DbError({ message: "Audible run insert returned no row" })),
 					),
 				),
-			createSchedulerRun: (query) =>
+			createSchedulerRun: (query: string) =>
 				dbEffect(() =>
 					db
 						.insert(schema.audibleRun)
@@ -244,14 +199,14 @@ export const AudibleRepositoryLive = Layer.effect(
 							: Effect.fail(new DbError({ message: "Scheduled run insert returned no row" })),
 					),
 				),
-			expireImport: (runId) =>
+			expireImport: (runId: string) =>
 				dbEffect(() =>
 					db
 						.update(schema.audibleRun)
 						.set({ confirmationToken: null, status: "expired", updatedAt: sql`now()` })
 						.where(eq(schema.audibleRun.id, runId)),
 				).pipe(Effect.asVoid),
-			getConfirmationToken: (userId, runId) =>
+			getConfirmationToken: (userId: string, runId: string) =>
 				dbEffect(() =>
 					db
 						.select()
@@ -268,7 +223,7 @@ export const AudibleRepositoryLive = Layer.effect(
 							: Effect.fail(new AudibleRunNotFound({ id: runId })),
 					),
 				),
-			getDetail: (userId, runId, workflowPoll = null) =>
+			getDetail: (userId: string, runId: string, workflowPoll: string | null = null) =>
 				dbEffect(() =>
 					db
 						.select()
@@ -276,7 +231,7 @@ export const AudibleRepositoryLive = Layer.effect(
 						.where(and(eq(schema.audibleRun.id, runId), eq(schema.audibleRun.userId, userId)))
 						.limit(1),
 				).pipe(Effect.flatMap(([row]) => readDetailOrNotFound(row, runId, workflowPoll))),
-			getRunById: (runId) =>
+			getRunById: (runId: string) =>
 				dbEffect(() =>
 					db.select().from(schema.audibleRun).where(eq(schema.audibleRun.id, runId)).limit(1),
 				).pipe(
@@ -288,7 +243,7 @@ export const AudibleRepositoryLive = Layer.effect(
 				dbEffect(() =>
 					db.select().from(schema.audibleSchedule).where(eq(schema.audibleSchedule.enabled, true)),
 				).pipe(Effect.map((rows) => rows.map(mapSchedule))),
-			listForUser: (userId) =>
+			listForUser: (userId: string) =>
 				dbEffect(() =>
 					db
 						.select()
@@ -296,7 +251,7 @@ export const AudibleRepositoryLive = Layer.effect(
 						.where(eq(schema.audibleRun.userId, userId))
 						.orderBy(desc(schema.audibleRun.createdAt)),
 				).pipe(Effect.map((rows) => rows.map(mapRun))),
-			saveFinalResult: (runId, result) =>
+			saveFinalResult: (runId: string, result: AudibleRunResultType) =>
 				dbEffect(() =>
 					db
 						.update(schema.audibleRun)
@@ -308,7 +263,7 @@ export const AudibleRepositoryLive = Layer.effect(
 						})
 						.where(eq(schema.audibleRun.id, runId)),
 				).pipe(Effect.asVoid),
-			saveConfirmationToken: (runId, token) =>
+			saveConfirmationToken: (runId: string, token: string) =>
 				dbEffect(() =>
 					db
 						.update(schema.audibleRun)
@@ -319,14 +274,14 @@ export const AudibleRepositoryLive = Layer.effect(
 						})
 						.where(eq(schema.audibleRun.id, runId)),
 				).pipe(Effect.asVoid),
-			updateStatus: (runId, status) =>
+			updateStatus: (runId: string, status: typeof AudibleRunStatus.Type) =>
 				dbEffect(() =>
 					db
 						.update(schema.audibleRun)
 						.set({ status, updatedAt: sql`now()` })
 						.where(eq(schema.audibleRun.id, runId)),
 				).pipe(Effect.asVoid),
-			upsertItem: (runId, item) =>
+			upsertItem: (runId: string, item: AudibleImportItem) =>
 				dbEffect(() =>
 					db
 						.insert(schema.audibleItem)
@@ -363,4 +318,4 @@ export const AudibleRepositoryLive = Layer.effect(
 				),
 		};
 	}),
-);
+}) {}
