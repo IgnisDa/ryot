@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -16,13 +16,13 @@ This slice should not introduce new product behavior; it should keep integration
 
 ## Acceptance criteria
 
-- [ ] Entity import E2E helpers still support enqueueing and polling imports through the existing public endpoint.
-- [ ] Existing entity import/search lifecycle E2E assertions still cover authentication, missing jobs, cross-user isolation, enqueue success, and terminal polling.
-- [ ] E2E support code can verify related entity placeholder rows and relationship rows where tests need direct database assertions.
-- [ ] Import tests using OpenLibrary still pass without requiring provider API keys.
-- [ ] The standalone seed script no longer assumes linked related entities live in primary `people`, `companies`, or `groups` properties.
-- [ ] The standalone seed script continues importing and searching seeded media items successfully.
-- [ ] No E2E helper retains obsolete assumptions about person/company/group populate jobs.
+- [x] Entity import E2E helpers still support enqueueing and polling imports through the existing public endpoint.
+- [x] Existing entity import/search lifecycle E2E assertions still cover authentication, missing jobs, cross-user isolation, enqueue success, and terminal polling.
+- [x] E2E support code can verify related entity placeholder rows and relationship rows where tests need direct database assertions.
+- [x] Import tests using OpenLibrary still pass without requiring provider API keys.
+- [x] The standalone seed script no longer assumes linked related entities live in primary `people`, `companies`, or `groups` properties.
+- [x] The standalone seed script continues importing and searching seeded media items successfully.
+- [x] No E2E helper retains obsolete assumptions about person/company/group populate jobs.
 
 ## User stories addressed
 
