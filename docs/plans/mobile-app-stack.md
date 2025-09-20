@@ -210,18 +210,25 @@ for web. You write `className="bg-stone-900 dark:bg-white"` and it works on all
 three platforms. The full Tailwind v4 utility set is available on web; a supported
 subset works on native.
 
-**Gluestack UI v3** — A component library built on NativeWind. Critically, it
+**Gluestack UI v5** (alpha) — A component library built on NativeWind. Critically, it
 uses the **shadcn/ui model**: components are copied into the repo via CLI rather
 than installed as a package dependency. You own the source and modify it freely.
 This is better than a traditional component library for a product with a strong
 visual identity — you bend the component to the design rather than fighting the
 library.
 
+v5 is chosen over the stable v3 because v3 targets NativeWind v4 (Tailwind v3),
+while v5 targets NativeWind v5 + Tailwind v4 — which is what the design token
+setup below requires. v5 is currently alpha (`main-v5-alpha` branch); `lightningcss`
+must be pinned to `1.30.1` in `package.json` overrides. Since all component source
+is owned in-repo, graduating to a stable release later is just re-running the add
+command.
+
 ```bash
 # Add a component — copies the source into src/components/ui/
-npx gluestack-ui add button
-npx gluestack-ui add input
-npx gluestack-ui add modal
+npx gluestack-ui@alpha add button
+npx gluestack-ui@alpha add input
+npx gluestack-ui@alpha add modal
 ```
 
 ### Design Tokens
@@ -371,7 +378,7 @@ export const atomWithPlatformStorage = <T>(key: string, initial: T) =>
 | Concern | Library | Why |
 |---|---|---|
 | Styling | NativeWind v5 | Tailwind CSS for React Native. Build-time compilation to native styles. Full web support. |
-| Component primitives | Gluestack UI v3 | Copy-owned components (shadcn model). No fighting library defaults. |
+| Component primitives | Gluestack UI v5 (alpha) | Copy-owned components (shadcn model). No fighting library defaults. Targets NativeWind v5 + Tailwind v4. |
 | Icons | `lucide-react-native` | Direct port of `lucide-react` (used in web frontend). Same icons, same API. |
 | Animations | `react-native-reanimated` v3 | Bundled with Expo. GPU-thread animations. |
 | Gestures | `react-native-gesture-handler` v2 | Bundled with Expo. Required by Reanimated and drag-and-drop. |
