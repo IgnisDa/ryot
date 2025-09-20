@@ -1,0 +1,352 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("Audible returned invalid JSON");
+  }
+}
+
+function parseReleaseYear(releaseDate, dayjs) {
+  if (typeof releaseDate !== "string" || !releaseDate.trim()) return null;
+  const d = dayjs(releaseDate.trim());
+  return d.isValid() ? d.year() : null;
+}
+
+function parseReleaseDate(releaseDate, dayjs) {
+  if (typeof releaseDate !== "string" || !releaseDate.trim()) return null;
+  const d = dayjs(releaseDate.trim());
+  return d.isValid() ? d.toISOString().split("T")[0] : null;
+}
+
+async function cleanHtmlDescription(html) {
+  if (typeof html !== "string" || !html.trim()) return null;
+  const { load } = await import("npm:cheerio");
+  const $ = load(html);
+  $("br").replaceWith("\n");
+  return $.root().text().trim() || null;
+}
+
+const LOCALE_SUFFIX_MAP = {
+  AU: "com.au",
+  CA: "ca",
+  DE: "de",
+  ES: "es",
+  FR: "fr",
+  GB: "co.uk",
+  IN: "co.in",
+  IT: "it",
+  JP: "co.jp",
+  UK: "co.uk",
+  US: "com",
+};
+
+async function getAudibleLocale() {
+  const prefsResult = await getUserPreferences();
+  if (!prefsResult?.success) {
+    return "com";
+  }
+
+  const providers = prefsResult?.data?.languages?.providers;
+  if (!Array.isArray(providers)) {
+    return "com";
+  }
+
+  const audiblePref = providers.find(
+    (p) => p && typeof p === "object" && p.source === "audible",
+  );
+  const lang =
+    audiblePref &&
+    typeof audiblePref.preferredLanguage === "string" &&
+    audiblePref.preferredLanguage.trim()
+      ? audiblePref.preferredLanguage.trim().toUpperCase()
+      : "US";
+
+  return LOCALE_SUFFIX_MAP[lang] ?? "com";
+}
+
+const PAGE_SIZE = 20;
+
+driver("search", async function(context) {
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(PAGE_SIZE),
+  }).parse(context ?? {});
+
+  const localeSuffix = await getAudibleLocale();
+  const baseUrl = `https://api.audible.${localeSuffix}/1.0/catalog/products`;
+
+  const params = new URLSearchParams({
+    title: query,
+    num_results: String(pageSize),
+    page: String(currentPage - 1),
+    response_groups: "media,product_attrs",
+    products_sort_by: "Relevance",
+  });
+
+  const response = await httpCall("GET", `${baseUrl}?${params.toString()}`);
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Audible search request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  const totalItems =
+    typeof payload?.total_results === "number" &&
+    Number.isFinite(payload.total_results)
+      ? payload.total_results
+      : 0;
+
+  const products = Array.isArray(payload?.products) ? payload.products : [];
+  const items = products
+    .map((product) => {
+      const externalId =
+        typeof product?.asin === "string" ? product.asin.trim() : "";
+      if (!externalId) {
+        return null;
+      }
+
+      const title =
+        typeof product?.title === "string" ? product.title : "";
+      const publishYear = parseReleaseYear(product?.release_date, dayjs);
+      const imageUrl =
+        product?.product_images?.["500"] ??
+        product?.product_images?.["2400"] ??
+        null;
+
+      return {
+        externalId,
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        primarySubtitleProperty:
+          publishYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: publishYear },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          imageUrl === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { type: "remote", url: imageUrl } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
+  }).parse(context ?? {});
+
+  const localeSuffix = await getAudibleLocale();
+  const baseUrl = `https://api.audible.${localeSuffix}/1.0/catalog/products`;
+
+  const params = new URLSearchParams({
+    response_groups:
+      "contributors,category_ladders,media,product_attrs,product_extended_attrs,series,rating",
+    image_sizes: "2400",
+  });
+
+  const response = await httpCall(
+    "GET",
+    `${baseUrl}/${externalId}?${params.toString()}`,
+  );
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Audible details request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+  const product = payload?.product;
+  if (!product || typeof product !== "object") {
+    throw new Error("Audible returned no product data");
+  }
+
+  const title = typeof product.title === "string" ? product.title : "";
+  if (!title) {
+    throw new Error("Audible product is missing title");
+  }
+
+  const imageUrl =
+    product?.product_images?.["2400"] ??
+    product?.product_images?.["500"] ??
+    null;
+  const images = imageUrl ? [{ type: "remote", url: imageUrl }] : [];
+
+  const publishYear = parseReleaseYear(product?.release_date, dayjs);
+
+  const runtime =
+    typeof product?.runtime_length_min === "number" &&
+    Number.isFinite(product.runtime_length_min)
+      ? Math.trunc(product.runtime_length_min)
+      : null;
+
+  const rawDescription =
+    product?.publisher_summary ?? product?.merchandising_summary ?? null;
+  const description = await cleanHtmlDescription(rawDescription);
+
+  const isNsfw =
+    typeof product?.is_adult_product === "boolean"
+      ? product.is_adult_product
+      : null;
+
+  const ratingData = product?.rating?.overall_distribution;
+  const numReviews =
+    typeof product?.rating?.num_reviews === "number"
+      ? product.rating.num_reviews
+      : 0;
+  const providerRating =
+    numReviews > 0 && ratingData?.display_average_rating != null
+      ? Number(ratingData.display_average_rating)
+      : null;
+
+  const genreSet = new Set();
+  const categoryLadders = Array.isArray(product?.category_ladders)
+    ? product.category_ladders
+    : [];
+  for (const ladder of categoryLadders) {
+    const steps = Array.isArray(ladder?.ladder) ? ladder.ladder : [];
+    for (const step of steps) {
+      const name = typeof step?.name === "string" ? step.name.trim() : "";
+      for (const part of name.split(" & ")) {
+        const genre = toTitleCase(part.trim());
+        if (genre) {
+          genreSet.add(genre);
+        }
+      }
+    }
+  }
+
+  const relatedEntityByKey = new Map();
+  const addRelatedEntity = (relatedEntity) => {
+    const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+    const existing = relatedEntityByKey.get(key);
+    if (!existing) {
+      relatedEntityByKey.set(key, relatedEntity);
+      return;
+    }
+
+    const roles = new Set([
+      ...(Array.isArray(existing.relationshipProperties.roles)
+        ? existing.relationshipProperties.roles
+        : []),
+      ...(Array.isArray(relatedEntity.relationshipProperties.roles)
+        ? relatedEntity.relationshipProperties.roles
+        : []),
+    ]);
+    existing.relationshipProperties.roles = [...roles];
+    if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+      existing.name = relatedEntity.name;
+    }
+  };
+
+  const unlinkedCreators = [];
+
+  const authors = Array.isArray(product?.authors) ? product.authors : [];
+  for (const author of authors) {
+    if (!author || typeof author !== "object") {
+      continue;
+    }
+    const name = typeof author.name === "string" ? author.name.trim() : "";
+    const asin = typeof author.asin === "string" ? author.asin.trim() : "";
+    const relatedName = name || "Loading...";
+    if (asin) {
+      addRelatedEntity({
+        name: relatedName,
+        externalId: asin,
+        scriptSlug: "person.audible",
+        relationshipProperties: {
+          roles: ["Author"],
+        },
+      });
+    } else {
+      unlinkedCreators.push({ role: "Author", name: relatedName });
+    }
+  }
+
+  const narrators = Array.isArray(product?.narrators) ? product.narrators : [];
+  for (const narrator of narrators) {
+    if (!narrator || typeof narrator !== "object") {
+      continue;
+    }
+    const name =
+      typeof narrator.name === "string" ? narrator.name.trim() : "";
+    const asin =
+      typeof narrator.asin === "string" ? narrator.asin.trim() : "";
+    const relatedName = name || "Loading...";
+    if (asin) {
+      addRelatedEntity({
+        name: relatedName,
+        externalId: asin,
+        scriptSlug: "person.audible",
+        relationshipProperties: {
+          roles: ["Narrator"],
+        },
+      });
+    } else {
+      unlinkedCreators.push({ role: "Narrator", name: relatedName });
+    }
+  }
+
+  const groupRelatedEntities = Array.isArray(product?.series)
+    ? product.series
+      .map((series) => {
+        const externalId =
+          typeof series?.asin === "string" && series.asin.trim()
+            ? series.asin.trim()
+            : null;
+        const name =
+          typeof series?.title === "string" && series.title.trim()
+            ? series.title.trim()
+            : "Loading...";
+        if (!externalId) {
+          return null;
+        }
+
+        return {
+          name,
+          externalId,
+          scriptSlug: "audiobook-group.audible",
+          relationshipProperties: {
+            roles: ["Member"],
+          },
+        };
+      })
+      .filter((group) => group !== null)
+    : [];
+
+  for (const groupRelatedEntity of groupRelatedEntities) {
+    addRelatedEntity(groupRelatedEntity);
+  }
+
+  const sourceUrl = `https://www.audible.${localeSuffix}/pd/${externalId}`;
+
+  return {
+    name: title,
+    properties: {
+      images,
+      isNsfw,
+      runtime,
+      sourceUrl,
+      publishYear,
+      description,
+      providerRating,
+      unlinkedCreators,
+      genres: [...genreSet],
+      publishDate: parseReleaseDate(product?.release_date, dayjs),
+    },
+    relatedEntities: [...relatedEntityByKey.values()],
+  };
+});

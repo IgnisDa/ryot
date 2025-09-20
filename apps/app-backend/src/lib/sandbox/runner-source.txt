@@ -1,0 +1,120 @@
+const denoStartupMs = performance.now();
+
+const stdinBytes = await new Response(Deno.stdin.readable).arrayBuffer();
+const payload = JSON.parse(new TextDecoder().decode(stdinBytes));
+
+const code = payload.code;
+const token = payload.token;
+const apiBase = payload.apiBase;
+const scriptId = payload.scriptId;
+const driverName = payload.driverName;
+const context = payload.context ?? {};
+const executionId = payload.executionId;
+const apiFunctions = payload.apiFunctions ?? [];
+
+const driverRegistry = {};
+const driver = (name, fn) => { driverRegistry[name] = fn; };
+
+const stderrEncoder = new TextEncoder();
+
+const writeStderr = (value) => {
+	Deno.stderr.writeSync(stderrEncoder.encode(`${String(value)}\\n`));
+};
+
+const formatArg = (value) => {
+	if (typeof value === "string") {
+		return value;
+	}
+	try {
+		return JSON.stringify(value);
+	} catch {
+		return String(value);
+	}
+};
+
+console.log = (...args) => writeStderr(args.map(formatArg).join(" "));
+console.warn = (...args) =>
+	writeStderr(`[warn] ${args.map(formatArg).join(" ")}`);
+console.error = (...args) =>
+	writeStderr(`[error] ${args.map(formatArg).join(" ")}`);
+console.info = console.log;
+console.debug = console.log;
+
+const writeResult = (payload) => {
+	Deno.stdout.writeSync(stderrEncoder.encode(JSON.stringify(payload)));
+};
+
+const buildDenoMetrics = (scriptExecMs) => {
+	const mem = Deno.memoryUsage();
+	return {
+		scriptExecMs,
+		memoryRssBytes: mem.rss,
+		memoryHeapUsedBytes: mem.heapUsed,
+		startupMs: Math.round(denoStartupMs),
+	};
+};
+
+const createApiStub = (fnName) => {
+	return async (...args) => {
+		const response = await fetch(`${apiBase}/rpc/${executionId}/${fnName}`, {
+			method: "POST",
+			body: JSON.stringify({ args }),
+			headers: {
+				Authorization: `Bearer ${token}`,
+				"Content-Type": "application/json",
+			},
+		});
+
+		const body = await response.json();
+
+		if (!response.ok) {
+			throw new Error(body.error ?? "API call failed");
+		}
+
+		return body.result;
+	};
+};
+
+const stubs = {};
+for (const fnName of apiFunctions) {
+	stubs[fnName] = createApiStub(fnName);
+}
+
+try {
+	const stubNames = Object.keys(stubs);
+	const wrapperCode =
+		"const driver = arguments[0]; " +
+		"return (async function sandboxMain({ " +
+		stubNames.join(", ") +
+		" }, context) {\n" +
+		code +
+		"\n})";
+
+	const factory = new Function(wrapperCode);
+	const userFunction = factory(driver);
+
+	const execT0 = performance.now();
+	await userFunction(stubs, context);
+
+	if (!driverName) {
+		writeResult({ success: false, error: "driverName is required", denoMetrics: buildDenoMetrics(0) });
+		Deno.exit(0);
+	}
+
+	const driverFn = driverRegistry[driverName];
+	if (!driverFn) {
+		writeResult({ success: false, error: `Driver "${driverName}" is not defined in this script`, denoMetrics: buildDenoMetrics(0) });
+		Deno.exit(0);
+	}
+
+	const meta = scriptId ? { sandboxScriptId: scriptId } : undefined;
+	const driverResult = await driverFn(context, meta);
+	const scriptExecMs = Math.round(performance.now() - execT0);
+	writeResult({ success: true, value: driverResult ?? null, denoMetrics: buildDenoMetrics(scriptExecMs) });
+} catch (error) {
+	writeResult({
+		success: false,
+		denoMetrics: buildDenoMetrics(0),
+		error: error instanceof Error ? error.message : String(error),
+	});
+}
