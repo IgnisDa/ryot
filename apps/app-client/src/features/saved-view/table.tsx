@@ -134,7 +134,7 @@ export function SavedViewTableResults(props: {
 			</Box>
 			<ScrollView
 				horizontal
-				style={{ flex: 1 }}
+				className="flex-1"
 				showsHorizontalScrollIndicator={false}
 				contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 28, paddingTop: 16 }}
 			>
