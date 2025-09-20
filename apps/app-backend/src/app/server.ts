@@ -62,6 +62,7 @@ export const ServerLive = Layer.scopedDiscard(
 
 		const { dispose, handler } = HttpApiBuilder.toWebHandler(apiLayer);
 
+		// @effect-diagnostics-next-line asyncFunction:off
 		const serveStatic = async (pathname: string) => {
 			const path = pathname === "/" ? "./client/index.html" : `./client${pathname}`;
 			const runPromise = Runtime.runPromise(runtime);
@@ -73,6 +74,7 @@ export const ServerLive = Layer.scopedDiscard(
 
 		const server = Bun.serve({
 			port: config.port,
+			// @effect-diagnostics-next-line asyncFunction:off
 			fetch: async (request) => {
 				const url = new URL(request.url);
 				if (url.pathname.startsWith("/api/auth/")) {
@@ -91,6 +93,7 @@ export const ServerLive = Layer.scopedDiscard(
 
 		yield* Effect.logInfo(`app backend listening on ${String(server.url)}`);
 		yield* Effect.addFinalizer(() =>
+			// @effect-diagnostics-next-line asyncFunction:off
 			Effect.promise(async () => {
 				await server.stop(true);
 				await dispose();
