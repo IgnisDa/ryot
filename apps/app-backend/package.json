@@ -1,6 +1,10 @@
 {
 	"name": "@ryot/app-backend",
 	"main": "src/index.ts",
+	"exports": {
+		".": "./src/index.ts",
+		"./contract": "./src/contract.ts"
+	},
 	"scripts": {
 		"dev": "bun run --watch src/index.ts",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
