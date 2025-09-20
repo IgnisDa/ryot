@@ -27,6 +27,7 @@ export const finalizeEntityGroups = (
 ): ImportMediaEntityGroup[] =>
 	[...groupMap.values()].map((group) => ({
 		entityRef: group.entityRef,
+		itemIndex: group.itemIndex,
 		collectionMemberships: group.collectionMemberships,
 		events: [...group.events].sort(
 			(a, b) => getOccurredAtValue(a.occurredAt) - getOccurredAtValue(b.occurredAt),

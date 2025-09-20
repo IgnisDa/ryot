@@ -81,13 +81,17 @@ export const adaptGoodreadsCsv = (csvText: string): MediaImportAdapterResult => 
 			continue;
 		}
 
-		const group = getOrCreateMediaEntityGroup(groupMap, {
-			sourceLabel,
-			kind: "unresolved",
-			identifierValue: isbn,
-			identifierType: "isbn",
-			entitySchemaSlug: "book",
-		});
+		const group = getOrCreateMediaEntityGroup(
+			groupMap,
+			{
+				sourceLabel,
+				kind: "unresolved",
+				identifierValue: isbn,
+				identifierType: "isbn",
+				entitySchemaSlug: "book",
+			},
+			itemIndex,
+		);
 		const shelves = splitCommaList(row.Bookshelves ?? "");
 		const lifecycleStatus = selectLifecycleStatus(shelves);
 		const completedOn = parseDateWithFormat(row["Date Read"] ?? "", "YYYY/MM/DD");
