@@ -7,6 +7,7 @@ import { failImportRun, sanitizeErrorMessage } from "./failures";
 import { cleanupImportFile, resolveSafeImportFilePath, validateFileExtension } from "./files";
 import { getImportSourceProcessor, type SourceProcessorInput } from "./processor-registry";
 import { getKnownImportExtensions } from "./source-definitions";
+import { deleteImportSourcePayload, getImportSourcePayload } from "./source-payload-store";
 
 const resolveImportJobFilePath = async (input: {
 	runId: string;
@@ -48,6 +49,9 @@ const processWithFailureHandling = async (
 	}
 };
 
+const hasResumableImportState = (input: SourceProcessorInput): boolean =>
+	Boolean(input.importStep || input.mediaEntityGroups || input.providerEntityRefs);
+
 export const processImportJob = async (input: SourceProcessorInput): Promise<void> => {
 	const { runId, userId } = input;
 
@@ -67,6 +71,11 @@ export const processImportJob = async (input: SourceProcessorInput): Promise<voi
 	}
 
 	if (sourceProcessor.inputKind === "file") {
+		if (hasResumableImportState(input)) {
+			await processWithFailureHandling(runId, () => sourceProcessor.process(input));
+			return;
+		}
+
 		const safePath = await resolveImportJobFilePath({ runId, filePath: input.filePath });
 		await processWithFailureHandling(runId, () =>
 			sourceProcessor.process({ ...input, filePath: safePath }),
@@ -74,5 +83,21 @@ export const processImportJob = async (input: SourceProcessorInput): Promise<voi
 		return;
 	}
 
-	await processWithFailureHandling(runId, () => sourceProcessor.process(input));
+	const sourcePayload = input.sourcePayloadKey
+		? await getImportSourcePayload(input.sourcePayloadKey)
+		: input.sourcePayload;
+	if (!sourcePayload && !hasResumableImportState(input)) {
+		await failImportRun(runId, `Import job is missing ${run.source} payload`);
+		return;
+	}
+
+	try {
+		await processWithFailureHandling(runId, () =>
+			sourceProcessor.process({ ...input, sourcePayload: sourcePayload ?? undefined }),
+		);
+	} finally {
+		if (input.sourcePayloadKey && sourcePayload) {
+			await deleteImportSourcePayload(input.sourcePayloadKey);
+		}
+	}
 };
