@@ -3,14 +3,21 @@ import type { Job } from "bullmq";
 import type { ImportRunJobData } from "../jobs";
 import { processOpenScaleImport } from "../measurement/processor";
 import { processBookCsvImport } from "../media/book/processor";
+import { processMediaTextFileImport } from "../media/file-processor";
 import type { MediaImportAdapterResult, MediaImportJobInput } from "../media/import-processor";
 import type { ImportRunSource } from "../schemas";
+import { adaptAnilistExport } from "../sources/anilist/adapter";
 import { adaptGoodreadsCsv } from "../sources/goodreads/adapter";
+import { adaptGrouveeCsv } from "../sources/grouvee/adapter";
 import { adaptHardcoverCsv } from "../sources/hardcover/adapter";
 import { adaptHevyCsv } from "../sources/hevy/adapter";
+import { adaptIgdbCsv } from "../sources/igdb/adapter";
+import { adaptImdbCsv } from "../sources/imdb/adapter";
+import { processMyanimelistImport } from "../sources/myanimelist/processor";
 import { adaptStorygraphCsv } from "../sources/storygraph/adapter";
 import { adaptStrongAppCsv } from "../sources/strong-app/adapter";
 import { processTraktImport } from "../sources/trakt/processor";
+import { adaptWatcharrExport } from "../sources/watcharr/adapter";
 import type { WorkoutAdapterResult } from "../workout/domain";
 import { processWorkoutCsvImport } from "../workout/import-processor";
 
@@ -63,6 +70,21 @@ const sourcePayloadInput = (input: SourceProcessorInput) => {
 	return username ? { username } : undefined;
 };
 
+const mediaTextFileProcessor = (
+	sourceName: string,
+	adapt: (fileText: string) => Promise<MediaImportAdapterResult> | MediaImportAdapterResult,
+): ImportSourceProcessorConfig => ({
+	inputKind: "file",
+	process: (input) =>
+		processMediaTextFileImport(input.job, input.token, {
+			...mediaProcessorInput(input),
+			sourceName,
+			filePath: input.filePath,
+			jobData: { filePath: input.filePath },
+			loadAdapterResult: (fileText) => adapt(fileText),
+		}),
+});
+
 const bookCsvProcessor = (
 	sourceName: string,
 	adapt: BookCsvAdapter,
@@ -94,10 +116,31 @@ const workoutCsvProcessor = (
 
 const importSourceProcessors: Partial<Record<ImportRunSource, ImportSourceProcessorConfig>> = {
 	hevy: workoutCsvProcessor("Hevy", adaptHevyCsv),
+	imdb: mediaTextFileProcessor("IMDb", adaptImdbCsv),
+	grouvee: mediaTextFileProcessor("Grouvee", adaptGrouveeCsv),
 	goodreads: bookCsvProcessor("Goodreads", adaptGoodreadsCsv),
 	hardcover: bookCsvProcessor("Hardcover", adaptHardcoverCsv),
+	anilist: mediaTextFileProcessor("Anilist", adaptAnilistExport),
 	storygraph: bookCsvProcessor("StoryGraph", adaptStorygraphCsv),
 	strong_app: workoutCsvProcessor("StrongApp", adaptStrongAppCsv),
+	watcharr: mediaTextFileProcessor("Watcharr", adaptWatcharrExport),
+	myanimelist: {
+		inputKind: "file",
+		process: (input) =>
+			processMyanimelistImport(input.job, input.token, {
+				...mediaProcessorInput(input),
+				filePath: input.filePath,
+				sourcePayload: input.sourcePayload,
+			}),
+	},
+	trakt: {
+		inputKind: "source_payload",
+		process: (input) =>
+			processTraktImport(input.job, input.token, {
+				...mediaProcessorInput(input),
+				sourcePayload: sourcePayloadInput(input),
+			}),
+	},
 	open_scale: {
 		inputKind: "file",
 		process: (input) =>
@@ -107,12 +150,21 @@ const importSourceProcessors: Partial<Record<ImportRunSource, ImportSourceProces
 				filePath: input.filePath,
 			}),
 	},
-	trakt: {
-		inputKind: "source_payload",
+	igdb: {
+		inputKind: "file",
 		process: (input) =>
-			processTraktImport(input.job, input.token, {
+			processMediaTextFileImport(input.job, input.token, {
 				...mediaProcessorInput(input),
-				sourcePayload: sourcePayloadInput(input),
+				sourceName: "IGDB",
+				filePath: input.filePath,
+				jobData: { filePath: input.filePath, sourcePayload: input.sourcePayload },
+				loadAdapterResult: (fileText) => {
+					const collection = input.sourcePayload?.collection;
+					if (typeof collection !== "string" || collection.trim().length === 0) {
+						throw new Error("Import job is missing IGDB collection");
+					}
+					return adaptIgdbCsv(fileText, { collection: collection.trim() });
+				},
 			}),
 	},
 };

@@ -4,6 +4,7 @@ import node_path from "node:path";
 import {
 	cleanupImportFile,
 	readImportFile,
+	readImportFileBytes,
 	resolveSafeImportFilePath,
 	validateFileExtension,
 } from "./files";
@@ -91,6 +92,37 @@ describe("readImportFile", () => {
 		const maxBytes = 10;
 		try {
 			await readImportFile(testFilePath, maxBytes);
+			expect(true).toBe(false);
+		} catch (error) {
+			expect(error instanceof Error).toBe(true);
+			if (error instanceof Error) {
+				expect(error.message).toContain("exceeds maximum");
+			}
+		}
+	});
+});
+
+describe("readImportFileBytes", () => {
+	const testFilePath = `${TEST_TEMP_DIR}/read-bytes-test.bin`;
+
+	beforeEach(async () => {
+		await Bun.write(testFilePath, new Uint8Array([1, 2, 3, 4]));
+	});
+
+	afterEach(async () => {
+		await Bun.file(testFilePath)
+			.delete()
+			.catch(() => undefined);
+	});
+
+	it("reads file bytes", async () => {
+		const bytes = await readImportFileBytes(testFilePath);
+		expect([...bytes]).toEqual([1, 2, 3, 4]);
+	});
+
+	it("rejects byte reads exceeding the size limit", async () => {
+		try {
+			await readImportFileBytes(testFilePath, 2);
 			expect(true).toBe(false);
 		} catch (error) {
 			expect(error instanceof Error).toBe(true);
