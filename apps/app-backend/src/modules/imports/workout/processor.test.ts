@@ -102,7 +102,7 @@ describe("processWorkoutImportResult", () => {
 						{
 							name: "Run",
 							kind: "distance_and_duration",
-							sets: [{ setLot: "normal", distance: 5, duration: 1800 }],
+							sets: [{ setLot: "normal", distance: 5, duration: 30 }],
 						},
 					],
 				},
@@ -118,7 +118,7 @@ describe("processWorkoutImportResult", () => {
 						{
 							name: "RUN",
 							kind: "distance_and_duration",
-							sets: [{ setLot: "normal", distance: 3, duration: 1200 }],
+							sets: [{ setLot: "normal", distance: 3, duration: 20 }],
 						},
 					],
 				},
@@ -163,12 +163,12 @@ describe("processWorkoutImportResult", () => {
 			properties: {
 				distance: 5,
 				setOrder: 0,
-				duration: 1800,
+				duration: 30,
 				setLot: "normal",
 				exerciseOrder: 1,
 			},
 		});
-		expect(Number(firstWorkoutEvents[1]?.properties.pace)).toBeCloseTo(5 / 1800, 5);
+		expect(Number(firstWorkoutEvents[1]?.properties.pace)).toBeCloseTo(5 / 30, 5);
 
 		const secondWorkoutEvents = createdEvents[1] ?? [];
 		expect(secondWorkoutEvents[0]).toMatchObject({
