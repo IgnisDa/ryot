@@ -1,6 +1,7 @@
 import { extractErrorMessage } from "@ryot/ts-utils/error";
 
 import { redis } from "~/lib/redis";
+import { redisKeys, redisValues } from "~/lib/redis-keys";
 import {
 	apiFailure,
 	apiSuccess,
@@ -21,16 +22,20 @@ export const getCachedValue: HostFunction<CachedValueContext> = async (
 		return apiFailure("getCachedValue expects a non-empty key string");
 	}
 
+	const trimmedKey = key.trim();
+
 	try {
-		const cached = await redis.get(`sandbox:cache:${context.scriptId}:${key.trim()}`);
+		const cached = await redis.get(redisKeys.sandbox.cache(context.scriptId, trimmedKey));
 		if (cached === null) {
 			return apiSuccess(null);
 		}
-		try {
-			return apiSuccess(JSON.parse(cached));
-		} catch {
+
+		const parsed = redisValues.sandbox.cache.safeParse(cached);
+		if (!parsed.success) {
 			return apiFailure("getCachedValue: stored value is not valid JSON");
 		}
+
+		return apiSuccess(parsed.data);
 	} catch (error) {
 		return apiFailure(extractErrorMessage(error, "getCachedValue failed"));
 	}

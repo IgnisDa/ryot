@@ -2,6 +2,7 @@ import { dayjs } from "@ryot/ts-utils/dayjs";
 import { extractErrorMessage } from "@ryot/ts-utils/error";
 
 import { redis } from "~/lib/redis";
+import { redisKeys, redisValues, type SandboxSessionRedisValue } from "~/lib/redis-keys";
 
 import { requestBodyLimit } from "./constants";
 import { sendJson } from "./utils";
@@ -17,7 +18,6 @@ export interface ExecutionSession {
 export class BridgeServer {
 	private port: number | null = null;
 	private server: Bun.Server<undefined> | null = null;
-	private readonly keyPrefix = "sandbox:session:";
 	private readonly apiFunctions = new Map<string, Record<string, BoundHostFunction>>();
 
 	start() {
@@ -51,33 +51,29 @@ export class BridgeServer {
 	}
 
 	async addSession(executionId: string, session: ExecutionSession) {
-		const key = this.getKey(executionId);
+		const key = redisKeys.sandbox.session(executionId);
 		const ttlSeconds = Math.ceil(dayjs(session.expiresAt).diff(dayjs(), "second", true));
-		const data = {
+		const data: SandboxSessionRedisValue = {
 			token: session.token,
 			expiresAt: session.expiresAt,
 		};
-		await redis.setex(key, ttlSeconds, JSON.stringify(data));
+		await redis.setex(key, ttlSeconds, redisValues.sandbox.session.stringify(data));
 		this.apiFunctions.set(executionId, session.apiFunctions);
 	}
 
 	async removeSession(executionId: string) {
-		const key = this.getKey(executionId);
+		const key = redisKeys.sandbox.session(executionId);
 		await redis.del(key);
 		this.apiFunctions.delete(executionId);
 	}
 
 	async clearSessions() {
-		const pattern = `${this.keyPrefix}*`;
+		const pattern = redisKeys.sandbox.sessionPattern();
 		const keys = await redis.keys(pattern);
 		if (keys.length > 0) {
 			await redis.del(...keys);
 		}
 		this.apiFunctions.clear();
-	}
-
-	private getKey(executionId: string): string {
-		return `${this.keyPrefix}${executionId}`;
 	}
 
 	private async handleRequest(req: Request) {
@@ -95,17 +91,13 @@ export class BridgeServer {
 			const executionId = decodeURIComponent(segments[1] ?? "");
 			const fnName = decodeURIComponent(segments[2] ?? "");
 
-			const key = this.getKey(executionId);
+			const key = redisKeys.sandbox.session(executionId);
 			const value = await redis.get(key);
 			if (!value) {
 				return sendJson(404, { error: "Execution not found" });
 			}
 
-			// oxlint-disable-next-line no-unsafe-type-assertion
-			const sessionData = JSON.parse(value) as {
-				token: string;
-				expiresAt: number;
-			};
+			const sessionData = redisValues.sandbox.session.parse(value);
 
 			if (dayjs().isAfter(dayjs(sessionData.expiresAt))) {
 				await this.removeSession(executionId);
