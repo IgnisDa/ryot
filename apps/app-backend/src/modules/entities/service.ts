@@ -18,11 +18,6 @@ import {
 } from "./repository";
 import type { CreateEntityBody, ListedEntity } from "./schemas";
 
-const manuallyCreatableBuiltinEntitySchemaSlugs = new Set([
-	"workout",
-	"measurement",
-]);
-
 export type EntityPropertiesShape = Record<string, unknown>;
 
 type EntityMutationError = "not_found" | "validation";
@@ -42,8 +37,6 @@ const entityProvenanceUniqueConstraint =
 const entityNotFoundError = "Entity not found";
 const partialProvenanceError =
 	"externalId and sandboxScriptId must both be provided or both be omitted";
-const customEntitySchemaError =
-	"Built-in entity schemas do not support manual entity creation";
 const entitySchemaNotFoundError = "Entity schema not found";
 const libraryEntityNotFoundError = "User library entity not found";
 
@@ -217,13 +210,6 @@ export const createEntity = async (
 	});
 	if (!scope) {
 		return serviceError("not_found", entitySchemaNotFoundError);
-	}
-
-	if (
-		scope.isBuiltin &&
-		!manuallyCreatableBuiltinEntitySchemaSlugs.has(scope.slug)
-	) {
-		return serviceError("validation", customEntitySchemaError);
 	}
 
 	const provenance =
