@@ -1,5 +1,42 @@
 import { Schema } from "effect";
 
+export class DbError extends Schema.TaggedError<DbError>()("DbError", {
+	message: Schema.String,
+	code: Schema.optional(Schema.String),
+	table: Schema.optional(Schema.String),
+	column: Schema.optional(Schema.String),
+	constraint: Schema.optional(Schema.String),
+}) {}
+
+type PgErrorLike = {
+	readonly code?: unknown;
+	readonly table?: unknown;
+	readonly column?: unknown;
+	readonly constraint?: unknown;
+};
+
+const pgStringField = (cause: unknown, field: keyof PgErrorLike) => {
+	if (!cause || typeof cause !== "object") {
+		return undefined;
+	}
+	const value = (cause as PgErrorLike)[field];
+	return typeof value === "string" ? value : undefined;
+};
+
+export const unknownToMessage = (cause: unknown) =>
+	cause instanceof Error ? cause.message : String(cause);
+
+export const unknownToDbError = (cause: unknown) =>
+	new DbError({
+		message: unknownToMessage(cause),
+		...(pgStringField(cause, "code") ? { code: pgStringField(cause, "code") } : {}),
+		...(pgStringField(cause, "table") ? { table: pgStringField(cause, "table") } : {}),
+		...(pgStringField(cause, "column") ? { column: pgStringField(cause, "column") } : {}),
+		...(pgStringField(cause, "constraint")
+			? { constraint: pgStringField(cause, "constraint") }
+			: {}),
+	});
+
 export class BadRequest extends Schema.TaggedError<BadRequest>()("BadRequest", {
 	message: Schema.String,
 }) {}
