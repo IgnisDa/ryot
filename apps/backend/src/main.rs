@@ -24,6 +24,7 @@ use sea_orm_migration::MigratorTrait;
 use tokio::{
     join,
     net::TcpListener,
+    runtime::Builder,
     time::{Duration, sleep},
 };
 use tracing_subscriber::{fmt, layer::SubscriberExt};
@@ -42,8 +43,7 @@ mod job;
 static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 static LOGGING_ENV_VAR: &str = "RUST_LOG";
 
-#[tokio::main]
-async fn main() -> Result<()> {
+async fn async_main() -> Result<()> {
     #[cfg(debug_assertions)]
     dotenvy::dotenv().ok();
 
@@ -284,4 +284,14 @@ END $$;
     )
     .await?;
     Ok(())
+}
+
+fn main() -> Result<()> {
+    let runtime = Builder::new_multi_thread()
+        .thread_stack_size(10 * 1024 * 1024)
+        .enable_io()
+        .enable_time()
+        .build()
+        .unwrap();
+    runtime.block_on(async_main())
 }
