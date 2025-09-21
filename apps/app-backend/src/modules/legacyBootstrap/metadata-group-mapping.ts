@@ -2,6 +2,8 @@ import { sql } from "drizzle-orm";
 
 import type { DbClient } from "~/lib/db";
 
+import { quoteNullableSqlString, quoteSqlString } from "./shared";
+
 type MetadataGroupEntityTarget = {
 	lot: string;
 	source: string;
@@ -133,22 +135,26 @@ const metadataGroupEntityTargetValuesSql = sql.join(
 );
 
 const buildMetadataGroupEntityTargetValuesSql = (targets: ResolvedMetadataGroupEntityTarget[]) =>
-	sql.join(
-		targets.map((t) => sql`(${t.lot}, ${t.source}, ${t.entitySchemaId}, ${t.sandboxScriptId})`),
-		sql`, `,
-	);
+	targets
+		.map(
+			(t) =>
+				`(${quoteSqlString(t.lot)}, ${quoteSqlString(t.source)}, ${quoteSqlString(t.entitySchemaId)}, ${quoteNullableSqlString(t.sandboxScriptId)})`,
+		)
+		.join(", ");
 
 const buildMetadataGroupRelationshipTargetValuesSql = (
 	targets: ResolvedMetadataGroupRelationshipTarget[],
 ) =>
-	sql.join(
-		targets.map((t) => sql`(${t.lot}, ${t.relationshipSchemaId})`),
-		sql`, `,
-	);
+	targets
+		.map((t) => `(${quoteSqlString(t.lot)}, ${quoteSqlString(t.relationshipSchemaId)})`)
+		.join(", ");
 
 export const buildMetadataGroupEntityMigrationSql = (
 	targets: ResolvedMetadataGroupEntityTarget[],
-) => sql`
+) => `
+DO $$
+DECLARE rows_inserted int;
+BEGIN
 	WITH metadata_group_targets (lot, source, entity_schema_id, sandbox_script_id) AS (
 		VALUES ${buildMetadataGroupEntityTargetValuesSql(targets)}
 	)
@@ -190,11 +196,17 @@ export const buildMetadataGroupEntityMigrationSql = (
 	FROM "metadata_group" mg
 	INNER JOIN metadata_group_targets mgt ON mgt.lot = mg.lot AND mgt.source = mg.source
 	ON CONFLICT ("id") DO NOTHING;
+	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
+	RAISE NOTICE 'metadata_group -> entity: % row(s) migrated', rows_inserted;
+END $$;
 `;
 
 export const buildMetadataGroupRelationshipMigrationSql = (
 	targets: ResolvedMetadataGroupRelationshipTarget[],
-) => sql`
+) => `
+DO $$
+DECLARE rows_inserted int;
+BEGIN
 	WITH lot_to_relationship_schema (lot, relationship_schema_id) AS (
 		VALUES ${buildMetadataGroupRelationshipTargetValuesSql(targets)}
 	)
@@ -219,6 +231,9 @@ export const buildMetadataGroupRelationshipMigrationSql = (
 	INNER JOIN "metadata_group" mg ON mg.id = m2mg.metadata_group_id
 	INNER JOIN lot_to_relationship_schema lrs ON lrs.lot = mg.lot
 	ON CONFLICT (source_entity_id, target_entity_id, relationship_schema_id) WHERE user_id IS NULL DO NOTHING;
+	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
+	RAISE NOTICE 'metadata_group -> relationship: % row(s) migrated', rows_inserted;
+END $$;
 `;
 
 // Only checks for unsupported source values within lots that DO have V2 group schemas.
