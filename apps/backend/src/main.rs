@@ -288,10 +288,8 @@ END $$;
 
 fn main() -> Result<()> {
     let runtime = Builder::new_multi_thread()
+        .enable_all()
         .thread_stack_size(10 * 1024 * 1024)
-        .enable_io()
-        .enable_time()
-        .build()
-        .unwrap();
+        .build()?;
     runtime.block_on(async_main())
 }
