@@ -12,12 +12,14 @@ const userLanguagePreferencesSchema = z.object({
 export const userPreferencesSchema = z.object({
 	isNsfw: z.boolean().default(false),
 	languages: userLanguagePreferencesSchema,
+	disableIntegrations: z.boolean().default(false),
 });
 
 export type UserPreferences = z.infer<typeof userPreferencesSchema>;
 
 export const defaultUserPreferences: UserPreferences = {
 	isNsfw: false,
+	disableIntegrations: false,
 	languages: {
 		providers: [
 			{ source: "audible", preferredLanguage: "US" },

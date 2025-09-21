@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -85,16 +85,16 @@ In the builtins manifests (`src/modules/builtins/manifests.ts` or wherever `buil
 
 ## Acceptance criteria
 
-- [ ] `integration` table exists in the DB after running Drizzle migrations with all columns, constraints, and indexes matching the PRD spec.
-- [ ] `import_run` table has a nullable `integrationId` FK column with cascade delete and the new index.
-- [ ] `event_schema_trigger` table has `phase` (default `"after_create"`) and `position` (default `1000`) columns. Existing rows get the defaults.
-- [ ] Builtin `in-library` relationship schema includes the three optional ownership fields after seeding.
-- [ ] `"event_before_trigger"` is a valid value for `importRunFailureStage`.
-- [ ] All integration provider IDs are valid values for `importRunSource`.
-- [ ] `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE`, `SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE`, and `SERVER_PROGRESS_UPDATE_THRESHOLD` are documented in generated config docs.
-- [ ] `config.scheduler.frequentCronJobsSchedule`, `config.scheduler.infrequentCronJobsSchedule`, and `config.scheduler.progressUpdateThresholdHours` are accessible at runtime.
-- [ ] `defaultUserPreferences.disableIntegrations === false` and the field parses correctly from stored JSON.
-- [ ] Drizzle migration runs cleanly on a fresh DB and on a DB with existing rows (restart-safe).
+- [x] `integration` table exists in the DB after running Drizzle migrations with all columns, constraints, and indexes matching the PRD spec.
+- [x] `import_run` table has a nullable `integrationId` FK column with cascade delete and the new index.
+- [x] `event_schema_trigger` table has `phase` (default `"after_create"`) and `position` (default `1000`) columns. Existing rows get the defaults.
+- [x] Builtin `in-library` relationship schema includes the three optional ownership fields after seeding.
+- [x] `"event_before_trigger"` is a valid value for `importRunFailureStage`.
+- [x] All integration provider IDs are valid values for `importRunSource`.
+- [x] `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE`, `SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE`, and `SERVER_PROGRESS_UPDATE_THRESHOLD` are documented in generated config docs.
+- [x] `config.scheduler.frequentCronJobsSchedule`, `config.scheduler.infrequentCronJobsSchedule`, and `config.scheduler.progressUpdateThresholdHours` are accessible at runtime.
+- [x] `defaultUserPreferences.disableIntegrations === false` and the field parses correctly from stored JSON.
+- [x] Drizzle migration runs cleanly on a fresh DB and on a DB with existing rows (restart-safe).
 
 ## User stories addressed
 
