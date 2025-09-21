@@ -1,7 +1,5 @@
 # Builtins Module Agent Notes
 
-> Inherits from `apps/app-backend/AGENTS.md`. Rules below are additive.
-
 ## Module Purpose
 
 Owns all built-in entity schemas, event schemas, relationship schemas, and saved views. Provides
