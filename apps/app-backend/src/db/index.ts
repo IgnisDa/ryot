@@ -7,7 +7,7 @@ import { config } from "../config";
 
 const migrationsFolder = resolve(process.cwd(), "drizzle");
 
-export const db = drizzle(config.DATABASE_URL);
+export const db = drizzle(config.DATABASE_URL, { casing: "snake_case" });
 
 export const migrateDB = async () => {
 	await migrate(db, { migrationsFolder });
