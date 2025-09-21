@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -182,22 +182,22 @@ In the webhook handler (this task), check preference and create a failed `import
 
 ## Acceptance criteria
 
-- [ ] `GET /api/integrations` returns the authenticated user's integrations including derived `webhookUrl` for Sink providers.
-- [ ] `GET /api/integrations?provider=radarr&isDisabled=false` filters correctly.
-- [ ] `POST /api/integrations` creates an integration with defaults applied, validates progress thresholds, and validates `providerSpecifics.kind === provider`.
-- [ ] `PATCH /api/integrations/:id` preserves omitted secret fields, validates merged providerSpecifics.
-- [ ] `DELETE /api/integrations/:id` removes the integration and cascades to import_run rows.
-- [ ] `GET /api/integrations/:id/runs` returns only runs for that integration.
-- [ ] `POST /api/webhooks/integrations/:id` and `POST /_i/:id` both return `202 { data: { runId } }` for valid Sink integrations.
-- [ ] Both webhook routes return `404` for unknown integration IDs.
-- [ ] Both webhook routes return `202` with a failed run for disabled integrations.
-- [ ] Both webhook routes return `202` with a failed run when `user.preferences.disableIntegrations = true`.
-- [ ] `GET /imports` (main list) excludes integration-triggered runs by default.
-- [ ] `GET /imports/:id` allows fetching an integration-owned run if the user owns it.
-- [ ] `reconcileIntegrationScheduler()` is called at startup in the correct position.
-- [ ] Creating a Yank integration adds a BullMQ repeat job; disabling removes it; deleting removes it.
-- [ ] `english-to-cron` is a pinned dependency in `apps/app-backend/package.json`.
-- [ ] Integration service unit tests cover: defaults, threshold validation, kind/provider mismatch, auto-disable trigger (5 consecutive failures).
+- [x] `GET /api/integrations` returns the authenticated user's integrations including derived `webhookUrl` for Sink providers.
+- [x] `GET /api/integrations?provider=radarr&isDisabled=false` filters correctly.
+- [x] `POST /api/integrations` creates an integration with defaults applied, validates progress thresholds, and validates `providerSpecifics.kind === provider`.
+- [x] `PATCH /api/integrations/:id` preserves omitted secret fields, validates merged providerSpecifics.
+- [x] `DELETE /api/integrations/:id` removes the integration and cascades to import_run rows.
+- [x] `GET /api/integrations/:id/runs` returns only runs for that integration.
+- [x] `POST /api/webhooks/integrations/:id` and `POST /_i/:id` both return `202 { data: { runId } }` for valid Sink integrations.
+- [x] Both webhook routes return `404` for unknown integration IDs.
+- [x] Both webhook routes return `202` with a failed run for disabled integrations.
+- [x] Both webhook routes return `202` with a failed run when `user.preferences.disableIntegrations = true`.
+- [x] `GET /imports` (main list) excludes integration-triggered runs by default.
+- [x] `GET /imports/:id` allows fetching an integration-owned run if the user owns it.
+- [x] `reconcileIntegrationScheduler()` is called at startup in the correct position.
+- [x] Creating a Yank integration adds a BullMQ repeat job; disabling removes it; deleting removes it.
+- [x] `english-to-cron` is a pinned dependency in `apps/app-backend/package.json`.
+- [x] Integration service unit tests cover: defaults, threshold validation, kind/provider mismatch, auto-disable trigger (5 consecutive failures).
 
 ## User stories addressed
 
