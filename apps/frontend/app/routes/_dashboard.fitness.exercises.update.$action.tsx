@@ -274,6 +274,7 @@ export default function Page() {
 					{!fileUploadNotAllowed ? (
 						<FileInput
 							multiple
+							clearable
 							name="images"
 							label="Images"
 							accept="image/*"

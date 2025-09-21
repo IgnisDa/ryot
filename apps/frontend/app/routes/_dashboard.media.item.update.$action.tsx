@@ -362,6 +362,7 @@ export default function Page() {
 					{!fileUploadNotAllowed ? (
 						<FileInput
 							multiple
+							clearable
 							label="Images"
 							accept="image/*"
 							leftSection={<IconPhoto />}
@@ -378,6 +379,7 @@ export default function Page() {
 					{!fileUploadNotAllowed ? (
 						<FileInput
 							multiple
+							clearable
 							label="Videos"
 							accept="video/*"
 							leftSection={<IconVideo />}
