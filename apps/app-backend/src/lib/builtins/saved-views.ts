@@ -1,4 +1,4 @@
-import type { DisplayConfiguration, SavedViewQueryDefinition } from "~/query-language";
+import type { DisplayConfiguration, SavedViewQueryDefinition } from "~/lib/query-language";
 
 import {
 	buildDefaultQueryDefinition,
