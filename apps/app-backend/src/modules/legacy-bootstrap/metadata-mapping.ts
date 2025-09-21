@@ -7,6 +7,7 @@ import {
 	type ResolvedLotEntityMigrationTarget,
 	buildLotEntityTargetValuesSql,
 	buildPrimaryImageSql,
+	quoteSqlString,
 } from "./shared";
 
 export const metadataMigrationTargets = [
@@ -445,6 +446,77 @@ BEGIN
 	END LOOP;
 
 	RAISE NOTICE 'metadata -> entity: % row(s) migrated total (% seconds elapsed)',
+		rows_inserted,
+		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+END $$;
+`;
+
+export const buildMetadataToMetadataRelationshipMigrationSql = (relationshipSchemaId: string) => `
+DO $$
+DECLARE
+	batch_size constant int := 10000;
+	batch_rows_inserted int;
+	cursor_id text := '';
+	next_cursor_id text;
+	rows_inserted int := 0;
+	started_at timestamptz := clock_timestamp();
+BEGIN
+	RAISE NOTICE 'metadata_to_metadata -> relationship: migration started (% seconds elapsed)', 0.0;
+
+	IF EXISTS (
+		SELECT 1
+		FROM "metadata_to_metadata" m2m
+		INNER JOIN "entity" src ON src.id = m2m.from_metadata_id
+		INNER JOIN "entity" tgt ON tgt.id = m2m.to_metadata_id
+		WHERE src.user_id IS NOT NULL OR tgt.user_id IS NOT NULL
+		LIMIT 1
+	) THEN
+		RAISE EXCEPTION 'metadata_to_metadata -> relationship: found user-owned metadata entity references';
+	END IF;
+
+	LOOP
+		WITH batch AS (
+			SELECT m2m.id::text AS id
+			FROM "metadata_to_metadata" m2m
+			INNER JOIN "entity" src ON src.id = m2m.from_metadata_id
+			INNER JOIN "entity" tgt ON tgt.id = m2m.to_metadata_id
+			WHERE m2m.id::text > cursor_id
+			ORDER BY m2m.id::text
+			LIMIT batch_size
+		)
+		SELECT MAX(batch.id) INTO next_cursor_id FROM batch;
+
+		EXIT WHEN next_cursor_id IS NULL;
+
+		INSERT INTO relationship (
+			"id",
+			"source_entity_id",
+			"target_entity_id",
+			"relationship_schema_id",
+			"properties",
+			"user_id",
+			"created_at"
+		)
+		SELECT
+			gen_random_uuid()::text,
+			m2m.from_metadata_id,
+			m2m.to_metadata_id,
+			${quoteSqlString(relationshipSchemaId)},
+			'{}'::jsonb,
+			NULL,
+			NOW()
+		FROM "metadata_to_metadata" m2m
+		INNER JOIN "entity" src ON src.id = m2m.from_metadata_id
+		INNER JOIN "entity" tgt ON tgt.id = m2m.to_metadata_id
+		WHERE m2m.id::text > cursor_id AND m2m.id::text <= next_cursor_id
+		ON CONFLICT ("source_entity_id", "target_entity_id", "relationship_schema_id") WHERE user_id IS NULL DO NOTHING;
+		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
+
+		rows_inserted := rows_inserted + batch_rows_inserted;
+		cursor_id := next_cursor_id;
+	END LOOP;
+
+	RAISE NOTICE 'metadata_to_metadata -> relationship: % row(s) migrated total (% seconds elapsed)',
 		rows_inserted,
 		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 END $$;

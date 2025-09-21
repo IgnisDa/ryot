@@ -7,6 +7,7 @@ DO $$
 DECLARE started_at timestamptz := clock_timestamp();
 BEGIN
 	DROP TABLE IF EXISTS "seaql_migrations" CASCADE;
+	DROP TABLE IF EXISTS "metadata_to_metadata" CASCADE;
 	DROP TABLE IF EXISTS "metadata_to_metadata_group" CASCADE;
 	DROP TABLE IF EXISTS "metadata_group_to_person" CASCADE;
 	DROP TABLE IF EXISTS "metadata_to_person" CASCADE;
