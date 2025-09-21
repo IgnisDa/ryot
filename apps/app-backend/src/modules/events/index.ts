@@ -11,6 +11,7 @@ export type {
 	EventWriteContext,
 } from "./service";
 export {
+	createEventBySchemaSlugWithTriggers,
 	createEventsBestEffortWithTriggers,
 	createEventsWithTriggers,
 	listEntityEvents,

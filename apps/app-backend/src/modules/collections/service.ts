@@ -2,13 +2,14 @@ import type { AppSchema } from "@ryot/ts-utils/app-schema";
 import { resolveRequiredString } from "@ryot/ts-utils/slug";
 
 import { formatValidationIssues, parseAppSchemaPropertiesSafe } from "~/lib/app/schema-validation";
-import type { DbClient } from "~/lib/db";
+import { db, type DbClient } from "~/lib/db";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 import { ensureEntityInLibrary } from "~/modules/entities";
 import {
 	deleteCollectionMembership,
 	writeCollectionMembership,
 } from "~/modules/entities/relationships";
+import { createEventBySchemaSlugWithTriggers } from "~/modules/events";
 import { parseLabeledPropertySchemaInput } from "~/modules/property-schemas";
 
 import {
@@ -44,6 +45,12 @@ const formatSchemaValidationError = (error: unknown) => {
 	return invalidMembershipSchemaError;
 };
 
+class CollectionTxAbortError extends Error {
+	constructor(readonly serviceResult: { error: "not_found" | "validation"; message: string }) {
+		super("transaction aborted");
+	}
+}
+
 export type CollectionServiceDeps = {
 	createCollectionForUser: typeof createCollectionForUser;
 	getBuiltinCollectionSchema: typeof getBuiltinCollectionSchema;
@@ -62,12 +69,15 @@ export type AddToCollectionServiceDeps = {
 	getCollectionById: typeof getCollectionById;
 	ensureEntityInLibrary: typeof ensureEntityInLibrary;
 	writeCollectionMembership: typeof writeCollectionMembership;
+	executeTransaction: <T>(fn: (tx: DbClient) => Promise<T>) => Promise<T>;
+	createEventBySchemaSlugWithTriggers: typeof createEventBySchemaSlugWithTriggers;
 };
 
 export type RemoveFromCollectionServiceDeps = {
 	getEntityById: typeof getEntityById;
 	getCollectionById: typeof getCollectionById;
 	deleteCollectionMembership: typeof deleteCollectionMembership;
+	createEventBySchemaSlugWithTriggers: typeof createEventBySchemaSlugWithTriggers;
 };
 
 export type CollectionServiceResult<T> = ServiceResult<T, "not_found" | "validation">;
@@ -185,6 +195,8 @@ const addToCollectionServiceDeps: AddToCollectionServiceDeps = {
 	getCollectionById,
 	ensureEntityInLibrary,
 	writeCollectionMembership,
+	createEventBySchemaSlugWithTriggers,
+	executeTransaction: (fn) => db.transaction(fn),
 };
 
 export const addToCollection = async (
@@ -236,23 +248,64 @@ export const addToCollection = async (
 		}
 	}
 
-	const membershipResult = await deps.writeCollectionMembership({
-		userId: input.userId,
-		entityId: input.body.entityId,
-		properties: validatedProperties,
-		collectionId: input.body.collectionId,
-	});
-	if ("error" in membershipResult) {
-		return membershipResult;
+	let memberOf: AddToCollectionData["memberOf"];
+
+	try {
+		await deps.executeTransaction(async (tx) => {
+			const membershipResult = await deps.writeCollectionMembership({
+				database: tx,
+				userId: input.userId,
+				entityId: input.body.entityId,
+				properties: validatedProperties,
+				collectionId: input.body.collectionId,
+			});
+			if ("error" in membershipResult) {
+				throw new CollectionTxAbortError(membershipResult);
+			}
+
+			const { wasInserted } = membershipResult.data;
+			memberOf = membershipResult.data.memberOf;
+
+			if (wasInserted) {
+				const eventResult = await deps.createEventBySchemaSlugWithTriggers({
+					database: tx,
+					userId: input.userId,
+					entityId: input.body.collectionId,
+					eventSchemaSlug: "add-entity-to-collection",
+					properties: {
+						entityId: input.body.entityId,
+						entitySchemaSlug: entity.entitySchemaSlug,
+						relationshipId: membershipResult.data.memberOf.id,
+						relationshipProperties: membershipResult.data.memberOf.properties,
+					},
+				});
+				if ("error" in eventResult) {
+					throw new CollectionTxAbortError(eventResult);
+				}
+				if ("skipped" in eventResult) {
+					throw new CollectionTxAbortError({
+						error: "validation",
+						message: `Collection event skipped: ${eventResult.reason}`,
+					});
+				}
+			}
+		});
+	} catch (error) {
+		if (error instanceof CollectionTxAbortError) {
+			return error.serviceResult;
+		}
+		throw error;
 	}
 
-	return serviceData(membershipResult.data);
+	// oxlint-disable-next-line no-non-null-assertion
+	return serviceData({ memberOf: memberOf! });
 };
 
 const removeFromCollectionServiceDeps: RemoveFromCollectionServiceDeps = {
 	getEntityById,
 	getCollectionById,
 	deleteCollectionMembership,
+	createEventBySchemaSlugWithTriggers,
 };
 
 export const removeFromCollection = async (
@@ -268,6 +321,7 @@ export const removeFromCollection = async (
 	if (!entity) {
 		return serviceError("not_found", entityNotFoundError);
 	}
+
 	const membershipResult = await deps.deleteCollectionMembership({
 		userId: input.userId,
 		entityId: input.body.entityId,
@@ -281,5 +335,22 @@ export const removeFromCollection = async (
 		return serviceError("not_found", "Entity is not in collection");
 	}
 
-	return serviceData(membershipResult.data);
+	const { memberOf } = membershipResult.data;
+
+	const eventResult = await deps.createEventBySchemaSlugWithTriggers({
+		userId: input.userId,
+		entityId: input.body.collectionId,
+		eventSchemaSlug: "remove-entity-from-collection",
+		properties: {
+			relationshipId: memberOf.id,
+			entityId: input.body.entityId,
+			entitySchemaSlug: entity.entitySchemaSlug,
+			relationshipProperties: memberOf.properties,
+		},
+	});
+	if ("error" in eventResult) {
+		return eventResult;
+	}
+
+	return serviceData({ memberOf });
 };
