@@ -293,6 +293,21 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		await client.query(migrateUserTableSql);
 		await client.query(buildPersonEntityMigrationSql(resolvedPersonEntityTargets));
 		await client.query(buildCompanyEntityMigrationSql(resolvedCompanyEntityTargets));
+		await client.query(`
+			DO $$
+			DECLARE
+				rec RECORD;
+			BEGIN
+				FOR rec IN
+					SELECT schemaname, tablename
+					FROM pg_tables
+					WHERE schemaname = ANY (current_schemas(false))
+					ORDER BY schemaname, tablename
+				LOOP
+					EXECUTE format('ANALYZE %I.%I', rec.schemaname, rec.tablename);
+				END LOOP;
+			END $$;
+		`);
 		await client.query(buildPersonRelationshipMigrationSql(resolvedPersonRelationshipTargets));
 		await client.query(buildCompanyRelationshipMigrationSql(resolvedCompanyRelationshipTargets));
 	});
