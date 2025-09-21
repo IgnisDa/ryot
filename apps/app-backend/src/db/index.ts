@@ -3,10 +3,11 @@ export * as schema from "./schema";
 import { resolve } from "node:path";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { config } from "../config";
 
 const migrationsFolder = resolve(process.cwd(), "drizzle");
 
-export const db = drizzle(process.env.DATABASE_URL);
+export const db = drizzle(config.databaseUrl);
 
 export const migrateDB = async () => {
 	await migrate(db, { migrationsFolder });
