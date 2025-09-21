@@ -1,12 +1,13 @@
 import { useAtomValue, useSetAtom } from "jotai";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Box } from "@/components/ui/box";
+import { Pressable } from "@/components/ui/pressable";
+import { Text } from "@/components/ui/text";
 import {
 	activeSubItemAtom,
 	activeTrackerIdAtom,
 	searchOpenAtom,
 	trackersAtom,
 } from "@/lib/navigation";
-import { C, F } from "@/lib/theme";
 
 export function BreadcrumbChip() {
 	const trackers = useAtomValue(trackersAtom);
@@ -21,58 +22,25 @@ export function BreadcrumbChip() {
 
 	return (
 		<Pressable
-			style={styles.chip}
+			className="gap-2 pl-2 pr-3 rounded-[14px] border-[0.5px] py-1.25 flex-row border-ink/20 items-center self-start bg-paper-deep"
 			accessibilityRole="button"
 			onPress={() => setSearchOpen(true)}
 			accessibilityLabel={`Current location: ${activeTracker.name}${activeSubItem ? ` › ${activeSubItem}` : ""}. Tap to search.`}
 		>
-			<View style={styles.dot} />
-			<Text style={styles.trackerName}>{activeTracker.name}</Text>
+			<Box className="w-1.5 h-1.5 rounded-full bg-terra" />
+			<Text className="text-[11px] text-ink tracking-[0.3px] font-sans-medium">
+				{activeTracker.name}
+			</Text>
 			{activeSubItem != null && (
 				<>
-					<Text style={styles.chevron}>›</Text>
-					<Text style={styles.subItemText}>{activeSubItem}</Text>
+					<Text className="text-[11px] opacity-40 text-ink-soft font-sans">
+						›
+					</Text>
+					<Text className="text-[12px] text-ink-soft font-serif-italic">
+						{activeSubItem}
+					</Text>
 				</>
 			)}
 		</Pressable>
 	);
 }
-
-const styles = StyleSheet.create({
-	chip: {
-		gap: 8,
-		paddingLeft: 8,
-		paddingRight: 12,
-		borderRadius: 14,
-		borderWidth: 0.5,
-		paddingVertical: 5,
-		flexDirection: "row",
-		borderColor: C.rule,
-		alignItems: "center",
-		alignSelf: "flex-start",
-		backgroundColor: C.paperDeep,
-	},
-	dot: {
-		width: 6,
-		height: 6,
-		borderRadius: 3,
-		backgroundColor: C.accent,
-	},
-	trackerName: {
-		fontSize: 11,
-		color: C.ink,
-		letterSpacing: 0.3,
-		fontFamily: F.sansMedium,
-	},
-	chevron: {
-		fontSize: 11,
-		opacity: 0.4,
-		color: C.inkSoft,
-		fontFamily: F.sans,
-	},
-	subItemText: {
-		fontSize: 12,
-		color: C.inkSoft,
-		fontFamily: F.serifItalic,
-	},
-});
