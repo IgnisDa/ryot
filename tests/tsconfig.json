@@ -12,7 +12,7 @@
 		"noUncheckedIndexedAccess": true,
 		"forceConsistentCasingInFileNames": true,
 		"paths": {
-			"~/*": ["./src/*"]
+			"~/*": ["./src/*", "../apps/app-backend/src/*"]
 		}
 	}
 }

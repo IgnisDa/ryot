@@ -1,10 +1,10 @@
+import type { DisplayConfiguration, SavedViewQueryDefinition } from "~/query-language";
+
 import {
 	buildDefaultQueryDefinition,
 	buildDisplayConfig,
 	inLibraryRelationshipJoin,
 	toSlug,
-	type DisplayConfig,
-	type QueryDefinition,
 } from "./view-helpers";
 
 export type BuiltinSavedView = {
@@ -15,8 +15,8 @@ export type BuiltinSavedView = {
 	readonly accentColor?: string;
 	readonly entitySchemaSlug?: string;
 	readonly relationshipJoins?: unknown[];
-	readonly queryDefinition?: QueryDefinition;
-	readonly displayConfiguration: DisplayConfig;
+	readonly queryDefinition?: SavedViewQueryDefinition;
+	readonly displayConfiguration: DisplayConfiguration;
 };
 
 const mediaEntitySchemaSlugs = [
