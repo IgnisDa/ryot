@@ -27,14 +27,14 @@ import { useAuthClient } from "@/hooks/auth";
 
 export const Route = createFileRoute("/")({ component: App });
 
-const api = hc<AppType>("");
+const api = hc<AppType>("/api");
 
 function App() {
 	const authClient = useAuthClient();
 	const { data } = useQuery({
 		queryKey: ["hello"],
 		queryFn: async () => {
-			const res = await api.api.protected.me.$get();
+			const res = await api.protected.me.$get();
 			return res.json();
 		},
 	});
