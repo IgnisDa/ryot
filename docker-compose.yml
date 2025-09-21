@@ -14,10 +14,10 @@ services:
     restart: unless-stopped
     image: postgres:18-alpine
     command: postgres -c shared_preload_libraries=pg_stat_statements -c wal_level=logical
-    volumes:
-      - backend_postgres_storage:/var/lib/postgresql
     ports:
       - "5432:5432"
+    volumes:
+      - backend_postgres_storage:/var/lib/postgresql
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
@@ -29,23 +29,22 @@ services:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
 
   app-backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
     restart: unless-stopped
     ports:
       - "8000:8000"
-    environment:
-      NODE_ENV: production
-      FRONTEND_URL: http://localhost:8000
-      REDIS_URL: redis://backend-redis:6379
-      SERVER_ADMIN_ACCESS_TOKEN: super-secret-token-that-should-be-changed
-      DATABASE_URL: postgresql://postgres:postgres@backend-postgres:5432/postgres
+    build:
+      context: .
+      dockerfile: Dockerfile
     depends_on:
       backend-redis:
         condition: service_healthy
       backend-postgres:
         condition: service_healthy
+    environment:
+      FRONTEND_URL: http://localhost:8000
+      REDIS_URL: redis://backend-redis:6379
+      SERVER_ADMIN_ACCESS_TOKEN: super-secret-token-that-should-be-changed
+      DATABASE_URL: postgresql://postgres:postgres@backend-postgres:5432/postgres
 
 volumes:
   backend_postgres_storage:
