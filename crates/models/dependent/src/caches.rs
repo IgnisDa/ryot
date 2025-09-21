@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use common_models::{
-    ApplicationDateRange, MetadataGroupSearchInput, MetadataLookupCacheInput,
-    MetadataRecentlyConsumedCacheInput, PeopleSearchInput, UserAnalyticsInput, UserLevelCacheKey,
+    ApplicationDateRange, EntityRecentlyConsumedCacheInput, MetadataGroupSearchInput,
+    MetadataLookupCacheInput, PeopleSearchInput, UserAnalyticsInput, UserLevelCacheKey,
     YoutubeMusicSongListened,
 };
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
@@ -106,8 +106,8 @@ pub enum ApplicationCacheKey {
     YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
     UserWorkoutsList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     UserMetadataGroupsList(UserLevelCacheKey<UserMetadataGroupsListInput>),
+    EntityRecentlyConsumed(UserLevelCacheKey<EntityRecentlyConsumedCacheInput>),
     UserWorkoutTemplatesList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
-    MetadataRecentlyConsumed(UserLevelCacheKey<MetadataRecentlyConsumedCacheInput>),
     MetadataProgressUpdateCompletedCache(UserLevelCacheKey<MetadataProgressUpdateCacheInput>),
     MetadataProgressUpdateInProgressCache(UserLevelCacheKey<MetadataProgressUpdateCacheInput>),
 }
@@ -133,11 +133,11 @@ pub enum ApplicationCacheValue {
     MetadataLookup(MetadataLookupResponse),
     MetadataSearch(MetadataSearchResponse),
     UserPeopleList(UserPeopleListResponse),
+    EntityRecentlyConsumed(EmptyCacheValue),
     UserTwoFactorRateLimit(EmptyCacheValue),
     PersonDetails(Box<GraphqlPersonDetails>),
     ListennotesSettings(ListennotesSettings),
     UserPersonDetails(Box<UserPersonDetails>),
-    MetadataRecentlyConsumed(EmptyCacheValue),
     UserWorkoutsList(UserWorkoutsListResponse),
     UserMetadataList(UserMetadataListResponse),
     UserWorkoutDetails(Box<UserWorkoutDetails>),

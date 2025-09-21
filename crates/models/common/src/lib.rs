@@ -402,7 +402,7 @@ pub struct UserLevelCacheKey<T> {
 
 #[skip_serializing_none]
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MetadataRecentlyConsumedCacheInput {
+pub struct EntityRecentlyConsumedCacheInput {
     pub entity_id: String,
     pub entity_lot: EntityLot,
 }

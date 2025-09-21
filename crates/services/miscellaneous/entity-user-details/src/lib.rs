@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{Result, anyhow};
 use application_utils::calculate_average_rating_for_user;
-use common_models::{MetadataRecentlyConsumedCacheInput, UserLevelCacheKey};
+use common_models::{EntityRecentlyConsumedCacheInput, UserLevelCacheKey};
 use database_models::{
     functions::get_user_to_entity_association,
     prelude::{Metadata, Seen},
@@ -285,9 +285,9 @@ pub async fn get_entity_recently_consumed(
     server_key_validation_guard(is_server_key_validated(ss).await?).await?;
     let entity_value = cache_service::get_value::<EmptyCacheValue>(
         ss,
-        ApplicationCacheKey::MetadataRecentlyConsumed(UserLevelCacheKey {
+        ApplicationCacheKey::EntityRecentlyConsumed(UserLevelCacheKey {
             user_id: user_id.to_owned(),
-            input: MetadataRecentlyConsumedCacheInput {
+            input: EntityRecentlyConsumedCacheInput {
                 entity_lot,
                 entity_id: entity_id.to_owned(),
             },

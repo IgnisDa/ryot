@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use chrono::Utc;
-use common_models::{MetadataRecentlyConsumedCacheInput, UserLevelCacheKey};
+use common_models::{EntityRecentlyConsumedCacheInput, UserLevelCacheKey};
 use database_models::{functions::get_user_to_entity_association, user_to_entity};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ApplicationCacheValue, EmptyCacheValue,
@@ -21,14 +21,14 @@ async fn mark_entity_as_recently_consumed(
 ) -> Result<()> {
     cache_service::set_key(
         ss,
-        ApplicationCacheKey::MetadataRecentlyConsumed(UserLevelCacheKey {
+        ApplicationCacheKey::EntityRecentlyConsumed(UserLevelCacheKey {
             user_id: user_id.to_owned(),
-            input: MetadataRecentlyConsumedCacheInput {
+            input: EntityRecentlyConsumedCacheInput {
                 entity_lot,
                 entity_id: entity_id.to_owned(),
             },
         }),
-        ApplicationCacheValue::MetadataRecentlyConsumed(EmptyCacheValue::default()),
+        ApplicationCacheValue::EntityRecentlyConsumed(EmptyCacheValue::default()),
     )
     .await?;
     Ok(())
