@@ -87,7 +87,7 @@ The `beforeAll`/`afterAll` structure must mirror `tests/src/setup.ts` exactly (s
 - [x] `tests/src/fixtures/auth-oidc.ts` exists and exports a functional `oidcSignIn` helper
 - [x] The four config assertions (two for backend A, two for backend B) pass
 - [x] `afterAll` stops all three backend processes and all four containers cleanly
-- [x] `bun run check`, `bun run test`, and `bun run format` pass in the `tests` directory
+- [x] `bun run check` and `bun run test` pass in the `tests` directory
 
 ## User stories addressed
 

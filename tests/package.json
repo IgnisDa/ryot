@@ -3,9 +3,8 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"format": "oxfmt . --write",
 		"test": "bun test --only-failures",
-		"check": "tsc && oxlint . --type-aware --fix"
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"devDependencies": {
 		"@aws-sdk/client-s3": "3.1032.0",

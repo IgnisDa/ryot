@@ -4,11 +4,10 @@
 	"type": "module",
 	"scripts": {
 		"preview": "vite preview",
-		"format": "oxfmt . --write",
 		"dev": "bun --bun vite dev",
 		"build": "bun --bun vite build",
 		"test": "bun test --only-failures",
-		"check": "tsc && oxlint . --type-aware --fix"
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.6.11",
