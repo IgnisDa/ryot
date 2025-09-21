@@ -427,6 +427,7 @@ export default function Page() {
 						value={form.values.creatorIds}
 						placeholder="Select or type creators"
 						onChange={(v) => form.setFieldValue("creatorIds", v)}
+						description="Only custom creators are allowed and must be created beforehand"
 					/>
 					{userPreferences.featuresEnabled.media.groups ? (
 						<MultiSelect
@@ -438,6 +439,7 @@ export default function Page() {
 							placeholder="Select groups"
 							value={form.values.groupIds}
 							onChange={(v) => form.setFieldValue("groupIds", v)}
+							description="Only custom groups are allowed and must be created beforehand"
 						/>
 					) : null}
 					<TextInput
