@@ -39,6 +39,7 @@ services:
       NODE_ENV: production
       FRONTEND_URL: http://localhost:3000
       REDIS_URL: redis://backend-redis:6379
+      SERVER_ADMIN_ACCESS_TOKEN: super-secret-token-that-should-be-changed
       DATABASE_URL: postgresql://postgres:postgres@backend-postgres:5432/postgres
     depends_on:
       backend-redis:
