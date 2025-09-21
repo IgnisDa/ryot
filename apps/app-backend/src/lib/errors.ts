@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 export class DbError extends Schema.TaggedError<DbError>()("DbError", {
 	message: Schema.String,
@@ -74,3 +74,13 @@ export const rateLimited = (message: string) => new RateLimited({ message });
 export const unauthorized = () => new Unauthorized({ message: "Unauthorized" });
 export const internalError = (message: string) => new InternalError({ message });
 export const notImplemented = () => new NotImplemented({ message: "Not implemented" });
+
+// Unexpected database failures are not part of any route contract; convert them to
+// defects so they surface as 500s without leaking PostgreSQL metadata to clients.
+export const dieOnDbError = <A, E, R>(self: Effect.Effect<A, E, R>) =>
+	self.pipe(
+		Effect.catchIf(
+			(error): error is Extract<E, DbError> => error instanceof DbError,
+			(error) => Effect.die(error),
+		),
+	);

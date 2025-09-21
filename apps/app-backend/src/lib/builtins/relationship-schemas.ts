@@ -1,4 +1,5 @@
 import type { AppSchema } from "~/lib/schema";
+import { slugify } from "~/lib/slug";
 
 type BuiltinRelationshipSchema = {
 	slug: string;
@@ -7,13 +8,6 @@ type BuiltinRelationshipSchema = {
 	sourceEntitySchemaSlug: string | null;
 	targetEntitySchemaSlug: string | null;
 };
-
-const normalizeSlug = (input: string): string =>
-	input
-		.toLowerCase()
-		.replace(/\s+/g, "-")
-		.replace(/[^a-z0-9-]/g, "")
-		.replace(/-+/g, "-");
 
 const builtinMediaEntitySchemaSlugs = [
 	"book",
@@ -60,7 +54,7 @@ const buildCreditRelationshipSchemas = (input: {
 	(input.targetEntitySchemaSlugs ?? builtinMediaEntitySchemaSlugs).map((mediaSlug) => ({
 		sourceEntitySchemaSlug: input.sourceSlug,
 		targetEntitySchemaSlug: mediaSlug,
-		slug: normalizeSlug(`${input.sourceSlug} to ${mediaSlug}`),
+		slug: slugify(`${input.sourceSlug} to ${mediaSlug}`),
 		name: `${input.sourceSlug.charAt(0).toUpperCase() + input.sourceSlug.slice(1)} to ${mediaSlug.charAt(0).toUpperCase() + mediaSlug.slice(1)}`,
 		propertiesSchema: {
 			fields: {
