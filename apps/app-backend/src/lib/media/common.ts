@@ -5,7 +5,9 @@ import {
 	nullableIntSchema,
 	nullableNumberSchema,
 	nullableStringSchema,
+	nonEmptyStringSchema,
 	stringArraySchema,
+	stringUnknownRecordSchema,
 } from "../zod";
 
 export const mediaPropertiesSchema = z
@@ -52,33 +54,12 @@ export type MediaWithUnlinkedCreatorsProperties = z.infer<
 
 export type UnlinkedCreator = z.infer<typeof unlinkedCreatorSchema>;
 
-export const personStubSchema = z
+export const relatedEntityReferenceSchema = z
 	.object({
-		role: z.string(),
-		name: z.string(),
-		scriptSlug: z.string(),
-		externalId: z.string(),
-		character: z.string().optional(),
-		order: z.number().int().optional(),
+		name: nonEmptyStringSchema,
+		externalId: nonEmptyStringSchema,
+		scriptSlug: nonEmptyStringSchema,
+		relationshipProperties: stringUnknownRecordSchema,
 	})
 	.strict();
-
-export const companyStubSchema = z
-	.object({
-		role: z.string(),
-		name: z.string(),
-		scriptSlug: z.string(),
-		externalId: z.string(),
-		order: z.number().int().optional(),
-	})
-	.strict();
-
-export const groupStubSchema = z
-	.object({
-		name: z.string(),
-		scriptSlug: z.string(),
-		externalId: z.string(),
-	})
-	.strict();
-
-export type GroupStub = z.infer<typeof groupStubSchema>;
+export type RelatedEntityReference = z.infer<typeof relatedEntityReferenceSchema>;

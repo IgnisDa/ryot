@@ -1,17 +1,14 @@
 export {
 	createGlobalEntity,
 	findGlobalEntityByExternalId,
-	updateGlobalEntityById,
-} from "./repository";
-export {
 	getEntitySchemaScopeForUser,
 	getUserLibraryEntityId,
+	updateGlobalEntityById,
 	upsertInLibraryRelationship,
 } from "./repository";
 export type { CreateEntityBody, ListedEntity } from "./schemas";
 export { listedEntitySchema } from "./schemas";
 export type {
-	EntityPropertiesShape,
 	EntityServiceDeps,
 	EntityServiceResult,
 	WriteEntityRelationshipDeps,
