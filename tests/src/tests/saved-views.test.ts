@@ -24,6 +24,7 @@ import {
 	executeQueryEngine,
 	findBuiltinSavedView,
 	findBuiltinSchemaBySlug,
+	getFirstProviderScriptId,
 	getQueryEngineFieldOrThrow,
 	getSavedView,
 	insertLibraryMembership,
@@ -92,14 +93,12 @@ describe("Saved views E2E", () => {
 	it("seeds built-in media views with average user rating callouts", async () => {
 		const { client, cookies, userId } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaBySlug(client, cookies, "show");
-		const provider = schema.providers[0];
-		assertPresent(provider, "No provider found");
 
 		const entity = await seedMediaEntity({
 			image: null,
 			userId: null,
 			entitySchemaId: schema.id,
-			sandboxScriptId: provider.scriptId,
+			sandboxScriptId: getFirstProviderScriptId(schema),
 			name: `Saved View Show ${crypto.randomUUID()}`,
 			externalId: `saved-view-show-${crypto.randomUUID()}`,
 			properties: {
@@ -184,14 +183,12 @@ describe("Saved views E2E", () => {
 	it("keeps built-in media saved views executable after refetching their definitions", async () => {
 		const { client, cookies, userId } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaBySlug(client, cookies, "show");
-		const provider = schema.providers[0];
-		assertPresent(provider, "No provider found");
 
 		const entity = await seedMediaEntity({
 			image: null,
 			userId: null,
 			entitySchemaId: schema.id,
-			sandboxScriptId: provider.scriptId,
+			sandboxScriptId: getFirstProviderScriptId(schema),
 			name: `Refetched Saved View Show ${crypto.randomUUID()}`,
 			externalId: `refetched-saved-view-show-${crypto.randomUUID()}`,
 			properties: {
