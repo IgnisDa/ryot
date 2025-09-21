@@ -94,9 +94,9 @@ export const createAddToCollectionDeps = (
 	ensureEntityInLibrary: () => Promise.resolve({ data: undefined }),
 	getCollectionById: () => Promise.resolve(createCollectionResponse()),
 	getEntityById: (entityId) => Promise.resolve({ id: entityId, userId: "user_1" }),
-	addEntityToCollection: (input) =>
-		Promise.resolve(
-			createAddToCollectionData({
+	writeCollectionMembership: (input) =>
+		Promise.resolve({
+			data: createAddToCollectionData({
 				memberOf: {
 					id: "rel_1",
 					properties: {},
@@ -106,7 +106,7 @@ export const createAddToCollectionDeps = (
 					relationshipSchemaId: "rel_schema_member_of",
 				},
 			}),
-		),
+		}),
 	...overrides,
 });
 
@@ -114,7 +114,7 @@ export const createRemoveFromCollectionDeps = (
 	overrides: Partial<RemoveFromCollectionServiceDeps> = {},
 ): RemoveFromCollectionServiceDeps => ({
 	getCollectionById: () => Promise.resolve(createCollectionResponse()),
-	removeEntityFromCollection: () => Promise.resolve(createAddToCollectionData()),
 	getEntityById: (entityId) => Promise.resolve({ id: entityId, userId: "user_1" }),
+	deleteCollectionMembership: () => Promise.resolve({ data: createAddToCollectionData() }),
 	...overrides,
 });
