@@ -7,6 +7,8 @@ import { AppConfigLive } from "../lib/config";
 import { DbLive, TransactionRunnerLive } from "../lib/db";
 import { MigrationsLive } from "../lib/db/migrate";
 import { RedisLive } from "../lib/redis";
+import { TrackersRepositoryLive } from "../modules/trackers/repository";
+import { TrackersServiceLive } from "../modules/trackers/service";
 import { ServerLive } from "./server";
 
 const RuntimeAfterMigrationsLive = MigrationsLive.pipe(
@@ -14,7 +16,9 @@ const RuntimeAfterMigrationsLive = MigrationsLive.pipe(
 );
 
 export const AppLive = RuntimeAfterMigrationsLive.pipe(
+	Layer.provide(TrackersServiceLive),
 	Layer.provide(TransactionRunnerLive),
+	Layer.provide(TrackersRepositoryLive),
 	Layer.provide(AuthLive),
 	Layer.provide(DbLive),
 	Layer.provide(RedisLive),

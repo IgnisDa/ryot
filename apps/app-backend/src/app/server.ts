@@ -18,6 +18,7 @@ import { SandboxRoutesLive } from "../modules/sandbox/routes";
 import { SavedViewsRoutesLive } from "../modules/saved-views/routes";
 import { SystemRoutesLive } from "../modules/system/routes";
 import { TrackersRoutesLive } from "../modules/trackers/routes";
+import { TrackersService } from "../modules/trackers/service";
 import { UploadsRoutesLive } from "../modules/uploads/routes";
 
 const mimeType = (path: string) => {
@@ -59,10 +60,15 @@ export const ServerLive = Layer.scopedDiscard(
 		const config = yield* AppConfig;
 		const fs = yield* FileSystem.FileSystem;
 		const runtime = yield* Effect.runtime();
+		const trackers = yield* TrackersService;
 
 		const apiLayer = ApiWithScalarLive.pipe(
 			Layer.provide(
-				Layer.mergeAll(Layer.succeed(AppConfig, config), Layer.succeed(AuthService, auth)),
+				Layer.mergeAll(
+					Layer.succeed(AppConfig, config),
+					Layer.succeed(AuthService, auth),
+					Layer.succeed(TrackersService, trackers),
+				),
 			),
 			Layer.provideMerge(BunHttpServer.layerContext),
 		);
