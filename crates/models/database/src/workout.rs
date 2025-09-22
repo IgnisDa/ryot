@@ -36,7 +36,6 @@ pub struct Model {
     pub start_time: DateTimeUtc,
     pub summary: WorkoutSummary,
     pub template_id: Option<String>,
-    #[serde(skip)]
     pub repeated_from: Option<String>,
     pub information: WorkoutInformation,
     pub calories_burnt: Option<Decimal>,
