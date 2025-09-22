@@ -172,22 +172,22 @@ pub async fn user_workout_details(
                 .filter(workout::Column::UserId.eq(user_id))
                 .one(&ss.db)
                 .await?;
-            let Some(mut e) = maybe_workout else {
+            let Some(mut workout) = maybe_workout else {
                 bail!("Workout with the given ID could not be found for this user.");
             };
             let collections =
                 entity_in_collections_with_details(user_id, &workout_id, EntityLot::Workout, ss)
                     .await?;
             let details = {
-                if let Some(ref mut assets) = e.information.assets {
+                if let Some(ref mut assets) = workout.information.assets {
                     transform_entity_assets(assets, ss).await?;
                 }
-                for exercise in e.information.exercises.iter_mut() {
+                for exercise in workout.information.exercises.iter_mut() {
                     if let Some(ref mut assets) = exercise.assets {
                         transform_entity_assets(assets, ss).await?;
                     }
                 }
-                e
+                workout
             };
             let metadata_consumed = Seen::find()
                 .select_only()
