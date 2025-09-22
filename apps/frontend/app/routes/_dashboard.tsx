@@ -10,6 +10,7 @@ import {
 	Flex,
 	Group,
 	Image,
+	type MantineColorScheme,
 	ScrollArea,
 	Text,
 	Tooltip,
@@ -90,7 +91,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		desktopSidebarCollapsedCookie,
 	);
 
-	const currentColorScheme = await colorSchemeCookie.parse(
+	const currentColorScheme: MantineColorScheme = await colorSchemeCookie.parse(
 		request.headers.get("cookie") || "",
 	);
 
