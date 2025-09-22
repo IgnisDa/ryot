@@ -283,7 +283,7 @@ pub async fn get_entity_recently_consumed(
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
     server_key_validation_guard(is_server_key_validated(ss).await?).await?;
-    let entity_value = cache_service::get_value::<EmptyCacheValue>(
+    let is_recently_consumed = cache_service::get_value::<EmptyCacheValue>(
         ss,
         ApplicationCacheKey::EntityRecentlyConsumed(UserLevelCacheKey {
             user_id: user_id.to_owned(),
@@ -295,5 +295,5 @@ pub async fn get_entity_recently_consumed(
     )
     .await
     .is_some();
-    Ok(entity_value)
+    Ok(is_recently_consumed)
 }
