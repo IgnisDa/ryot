@@ -89,6 +89,17 @@ export const useConfirmSubmit = () => {
 	return fn;
 };
 
+export const useDashboardLayoutData = () => {
+	const loaderData =
+		useRouteLoaderData<typeof dashboardLoader>("routes/_dashboard");
+	invariant(loaderData);
+	return loaderData;
+};
+
+export const useUserPreferences = () => useUserDetails().preferences;
+export const useCoreDetails = () => useDashboardLayoutData().coreDetails;
+export const useUserDetails = () => useDashboardLayoutData().userDetails;
+
 export const useGetWorkoutStarter = () => {
 	const navigate = useNavigate();
 	const [_w, setCurrentWorkout] = useCurrentWorkout();
@@ -330,17 +341,6 @@ export const useUserMetadataGroupList = (
 				.request(UserMetadataGroupsListDocument, { input })
 				.then((data) => data.userMetadataGroupsList),
 	});
-
-export const useDashboardLayoutData = () => {
-	const loaderData =
-		useRouteLoaderData<typeof dashboardLoader>("routes/_dashboard");
-	invariant(loaderData);
-	return loaderData;
-};
-
-export const useUserPreferences = () => useUserDetails().preferences;
-export const useCoreDetails = () => useDashboardLayoutData().coreDetails;
-export const useUserDetails = () => useDashboardLayoutData().userDetails;
 
 export const useUserCollections = () => {
 	const query = useQuery({
