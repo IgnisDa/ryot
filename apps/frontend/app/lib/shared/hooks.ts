@@ -99,6 +99,8 @@ export const useDashboardLayoutData = () => {
 export const useUserPreferences = () => useUserDetails().preferences;
 export const useCoreDetails = () => useDashboardLayoutData().coreDetails;
 export const useUserDetails = () => useDashboardLayoutData().userDetails;
+export const useCurrentColorSchema = () =>
+	useDashboardLayoutData().currentColorScheme;
 
 export const useGetWorkoutStarter = () => {
 	const navigate = useNavigate();
