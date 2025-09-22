@@ -365,11 +365,9 @@ export default function Page() {
 							clearable
 							label="Images"
 							accept="image/*"
-							leftSection={<IconPhoto />}
 							value={form.values.images}
-							onChange={(files) =>
-								form.setFieldValue("images", (files as File[]) || [])
-							}
+							leftSection={<IconPhoto />}
+							onChange={(files) => form.setFieldValue("images", files ?? [])}
 							description={
 								details &&
 								"Please re-upload the images while updating the metadata, old ones will be deleted"
@@ -382,11 +380,9 @@ export default function Page() {
 							clearable
 							label="Videos"
 							accept="video/*"
-							leftSection={<IconVideo />}
 							value={form.values.videos}
-							onChange={(files) =>
-								form.setFieldValue("videos", (files as File[]) || [])
-							}
+							leftSection={<IconVideo />}
+							onChange={(files) => form.setFieldValue("videos", files ?? [])}
 							description={
 								details &&
 								"Please re-upload the videos while updating the metadata, old ones will be deleted"

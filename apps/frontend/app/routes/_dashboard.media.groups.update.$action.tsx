@@ -202,11 +202,9 @@ export default function Page() {
 							clearable
 							label="Images"
 							accept="image/*"
-							leftSection={<IconPhoto />}
 							value={form.values.images}
-							onChange={(files) =>
-								form.setFieldValue("images", (files as File[]) || [])
-							}
+							leftSection={<IconPhoto />}
+							onChange={(files) => form.setFieldValue("images", files ?? [])}
 							description={
 								details &&
 								"Please re-upload the images while updating the group, old ones will be deleted"
