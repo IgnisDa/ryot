@@ -91,7 +91,7 @@ pub async fn associate_user_with_entity(
                 let mut to_update = u.into_active_model();
                 to_update.last_updated_on = ActiveValue::Set(Utc::now());
                 to_update.needs_to_be_updated = ActiveValue::Set(Some(true));
-                to_update.update(&ss.db).await.unwrap();
+                to_update.update(&ss.db).await?;
             }
             None => {
                 let mut new_user_to_entity = user_to_entity::ActiveModel {
@@ -124,7 +124,7 @@ pub async fn associate_user_with_entity(
                         unreachable!()
                     }
                 }
-                new_user_to_entity.insert(&ss.db).await.unwrap();
+                new_user_to_entity.insert(&ss.db).await?;
             }
         };
     }
