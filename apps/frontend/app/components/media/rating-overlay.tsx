@@ -17,7 +17,7 @@ import { useReviewEntity } from "~/lib/state/media";
 import classes from "~/styles/common.module.css";
 import { DisplayThreePointReview } from "../common/review";
 
-export const DisplayAverageRatingOverlay = (props: {
+export const Old__DisplayAverageRatingOverlay = (props: {
 	entityId: string;
 	entityLot: EntityLot;
 	entityTitle?: string;

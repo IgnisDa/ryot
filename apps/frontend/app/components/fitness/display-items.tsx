@@ -19,9 +19,9 @@ import {
 } from "~/lib/state/fitness";
 import { useFullscreenImage } from "~/lib/state/general";
 import { FitnessEntity } from "~/lib/types";
-import { BaseEntityDisplayItem } from "../common/entity-display";
+import { Old__BaseEntityDisplayItem } from "../common/entity-display";
 
-export const ExerciseDisplayItem = (props: {
+export const Old__ExerciseDisplayItem = (props: {
 	exerciseId: string;
 	topLeft?: ReactNode;
 	topRight?: ReactNode;
@@ -38,7 +38,7 @@ export const ExerciseDisplayItem = (props: {
 	const images = getExerciseImages(exerciseDetails);
 
 	return (
-		<BaseEntityDisplayItem
+		<Old__BaseEntityDisplayItem
 			innerRef={ref}
 			imageUrl={images.at(0)}
 			name={exerciseDetails?.name}
@@ -55,7 +55,7 @@ export const ExerciseDisplayItem = (props: {
 	);
 };
 
-export const WorkoutDisplayItem = (props: {
+export const Old__WorkoutDisplayItem = (props: {
 	workoutId: string;
 	topLeft?: ReactNode;
 	topRight?: ReactNode;
@@ -67,7 +67,7 @@ export const WorkoutDisplayItem = (props: {
 	);
 
 	return (
-		<BaseEntityDisplayItem
+		<Old__BaseEntityDisplayItem
 			innerRef={ref}
 			name={workoutDetails?.details.name}
 			isDetailsLoading={isWorkoutDetailsLoading}
@@ -86,7 +86,7 @@ export const WorkoutDisplayItem = (props: {
 	);
 };
 
-export const WorkoutTemplateDisplayItem = (props: {
+export const Old__WorkoutTemplateDisplayItem = (props: {
 	topLeft?: ReactNode;
 	topRight?: ReactNode;
 	workoutTemplateId: string;
@@ -101,7 +101,7 @@ export const WorkoutTemplateDisplayItem = (props: {
 	});
 
 	return (
-		<BaseEntityDisplayItem
+		<Old__BaseEntityDisplayItem
 			innerRef={ref}
 			name={workoutTemplateDetails?.details.name}
 			isDetailsLoading={isWorkoutTemplateDetailsLoading}

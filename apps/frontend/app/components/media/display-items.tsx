@@ -30,10 +30,10 @@ import {
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import { useOnboardingTour } from "~/lib/state/onboarding-tour";
 import classes from "~/styles/common.module.css";
-import { BaseEntityDisplayItem } from "../common/entity-display";
-import { DisplayAverageRatingOverlay } from "./rating-overlay";
+import { Old__BaseEntityDisplayItem } from "../common/entity-display";
+import { Old__DisplayAverageRatingOverlay } from "./rating-overlay";
 
-export const MetadataDisplayItem = (props: {
+export const Old__MetadataDisplayItem = (props: {
 	name?: string;
 	altName?: string;
 	metadataId: string;
@@ -121,7 +121,7 @@ export const MetadataDisplayItem = (props: {
 	];
 
 	return (
-		<BaseEntityDisplayItem
+		<Old__BaseEntityDisplayItem
 			innerRef={ref}
 			imageUrl={images.at(0)}
 			altName={props.altName}
@@ -159,7 +159,7 @@ export const MetadataDisplayItem = (props: {
 			imageOverlay={{
 				topLeft: props.topLeft,
 				topRight: props.topRight || (
-					<DisplayAverageRatingOverlay
+					<Old__DisplayAverageRatingOverlay
 						entityId={props.metadataId}
 						averageRating={averageRating}
 						entityLot={EntityLot.Metadata}
@@ -229,7 +229,7 @@ export const MetadataDisplayItem = (props: {
 	);
 };
 
-export const MetadataGroupDisplayItem = (props: {
+export const Old__MetadataGroupDisplayItem = (props: {
 	topLeft?: ReactNode;
 	topRight?: ReactNode;
 	noLeftLabel?: boolean;
@@ -256,7 +256,7 @@ export const MetadataGroupDisplayItem = (props: {
 	const averageRating = userMetadataGroupDetails?.averageRating;
 
 	return (
-		<BaseEntityDisplayItem
+		<Old__BaseEntityDisplayItem
 			innerRef={ref}
 			name={metadataDetails?.details.title}
 			highlightImage={isMetadataGroupRecentlyConsumed}
@@ -273,7 +273,7 @@ export const MetadataGroupDisplayItem = (props: {
 			imageOverlay={{
 				topLeft: props.topLeft,
 				topRight: props.topRight || (
-					<DisplayAverageRatingOverlay
+					<Old__DisplayAverageRatingOverlay
 						averageRating={averageRating}
 						entityId={props.metadataGroupId}
 						entityLot={EntityLot.MetadataGroup}
@@ -298,7 +298,7 @@ export const MetadataGroupDisplayItem = (props: {
 	);
 };
 
-export const PersonDisplayItem = (props: {
+export const Old__PersonDisplayItem = (props: {
 	personId: string;
 	topLeft?: ReactNode;
 	topRight?: ReactNode;
@@ -323,7 +323,7 @@ export const PersonDisplayItem = (props: {
 	const averageRating = userPersonDetails?.averageRating;
 
 	return (
-		<BaseEntityDisplayItem
+		<Old__BaseEntityDisplayItem
 			innerRef={ref}
 			name={personDetails?.details.name}
 			highlightImage={isPersonRecentlyConsumed}
@@ -340,7 +340,7 @@ export const PersonDisplayItem = (props: {
 			imageOverlay={{
 				topLeft: props.topLeft,
 				topRight: props.topRight || (
-					<DisplayAverageRatingOverlay
+					<Old__DisplayAverageRatingOverlay
 						entityId={props.personId}
 						entityLot={EntityLot.Person}
 						averageRating={averageRating}

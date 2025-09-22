@@ -20,7 +20,7 @@ import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { SkeletonLoader } from "~/components/common";
 import { ApplicationGrid } from "~/components/common/layout";
-import { MetadataDisplayItem } from "~/components/media/display-items";
+import { Old__MetadataDisplayItem } from "~/components/media/display-items";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 
@@ -135,7 +135,7 @@ const CalendarEvent = (props: {
 			</Group>
 			<ApplicationGrid>
 				{props.data.events.map((calEvent) => (
-					<MetadataDisplayItem
+					<Old__MetadataDisplayItem
 						noLeftLabel
 						key={calEvent.calendarEventId}
 						altName={calEvent.metadataText}

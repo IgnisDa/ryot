@@ -58,14 +58,14 @@ import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useEditEntityCollectionInformation } from "~/lib/state/collection";
 import {
-	ExerciseDisplayItem,
-	WorkoutDisplayItem,
-	WorkoutTemplateDisplayItem,
+	Old__ExerciseDisplayItem,
+	Old__WorkoutDisplayItem,
+	Old__WorkoutTemplateDisplayItem,
 } from "../fitness/display-items";
 import {
-	MetadataDisplayItem,
-	MetadataGroupDisplayItem,
-	PersonDisplayItem,
+	Old__MetadataDisplayItem,
+	Old__MetadataGroupDisplayItem,
+	Old__PersonDisplayItem,
 } from "../media/display-items";
 
 export const SkeletonLoader = () => <Skeleton height={100} />;
@@ -93,7 +93,7 @@ export const DisplayCollectionEntity = (props: {
 }) =>
 	match(props.entityLot)
 		.with(EntityLot.Metadata, () => (
-			<MetadataDisplayItem
+			<Old__MetadataDisplayItem
 				rightLabelLot
 				topLeft={props.topLeft}
 				topRight={props.topRight}
@@ -101,7 +101,7 @@ export const DisplayCollectionEntity = (props: {
 			/>
 		))
 		.with(EntityLot.MetadataGroup, () => (
-			<MetadataGroupDisplayItem
+			<Old__MetadataGroupDisplayItem
 				noLeftLabel
 				topLeft={props.topLeft}
 				topRight={props.topRight}
@@ -110,7 +110,7 @@ export const DisplayCollectionEntity = (props: {
 			/>
 		))
 		.with(EntityLot.Person, () => (
-			<PersonDisplayItem
+			<Old__PersonDisplayItem
 				topLeft={props.topLeft}
 				personId={props.entityId}
 				topRight={props.topRight}
@@ -118,7 +118,7 @@ export const DisplayCollectionEntity = (props: {
 			/>
 		))
 		.with(EntityLot.Exercise, () => (
-			<ExerciseDisplayItem
+			<Old__ExerciseDisplayItem
 				topLeft={props.topLeft}
 				topRight={props.topRight}
 				exerciseId={props.entityId}
@@ -126,7 +126,7 @@ export const DisplayCollectionEntity = (props: {
 			/>
 		))
 		.with(EntityLot.Workout, () => (
-			<WorkoutDisplayItem
+			<Old__WorkoutDisplayItem
 				topLeft={props.topLeft}
 				topRight={props.topRight}
 				workoutId={props.entityId}
@@ -134,7 +134,7 @@ export const DisplayCollectionEntity = (props: {
 			/>
 		))
 		.with(EntityLot.WorkoutTemplate, () => (
-			<WorkoutTemplateDisplayItem
+			<Old__WorkoutTemplateDisplayItem
 				topLeft={props.topLeft}
 				topRight={props.topRight}
 				workoutTemplateId={props.entityId}

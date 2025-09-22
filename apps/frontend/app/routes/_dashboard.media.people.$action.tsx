@@ -50,7 +50,7 @@ import {
 	FiltersModal,
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
-import { PersonDisplayItem } from "~/components/media/display-items";
+import { Old__PersonDisplayItem } from "~/components/media/display-items";
 import { useCoreDetails, useUserPeopleList } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
@@ -320,7 +320,7 @@ export default function Page(props: { params: { action: string } }) {
 								{peopleSearch.response.details.totalItems > 0 ? (
 									<ApplicationGrid>
 										{peopleSearch.response.items.map((person) => (
-											<PersonDisplayItem
+											<Old__PersonDisplayItem
 												key={person}
 												personId={person}
 												shouldHighlightNameIfInteracted
@@ -454,7 +454,7 @@ const PersonListItem = (props: PersonListItemProps) => {
 	const isAdded = bulkEditingCollection.isAdded(becItem);
 
 	return (
-		<PersonDisplayItem
+		<Old__PersonDisplayItem
 			personId={props.item}
 			topRight={
 				bulkEditingState &&

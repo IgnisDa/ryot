@@ -23,7 +23,7 @@ const blackBgStyles = {
 	padding: 2,
 } satisfies MantineStyleProp;
 
-export const BaseEntityDisplayItem = (props: {
+export const Old__BaseEntityDisplayItem = (props: {
 	name?: string;
 	altName?: string;
 	progress?: string;

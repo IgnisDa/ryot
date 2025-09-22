@@ -56,7 +56,7 @@ import {
 	FiltersModal,
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
-import { MetadataDisplayItem } from "~/components/media/display-items";
+import { Old__MetadataDisplayItem } from "~/components/media/display-items";
 import { dayjsLib, getStartTimeFromRange } from "~/lib/shared/date-utils";
 import { useCoreDetails, useUserMetadataList } from "~/lib/shared/hooks";
 import { getLot } from "~/lib/shared/media-utils";
@@ -441,7 +441,7 @@ const MediaSearchItem = (props: {
 		: undefined;
 
 	return (
-		<MetadataDisplayItem
+		<Old__MetadataDisplayItem
 			metadataId={props.item}
 			shouldHighlightNameIfInteracted
 			bottomRightImageOverlayClassName={tourControlTwo}
@@ -683,7 +683,7 @@ const MediaListItem = (props: MediaListItemProps) => {
 	const isAdded = bulkEditingCollection.isAdded(becItem);
 
 	return (
-		<MetadataDisplayItem
+		<Old__MetadataDisplayItem
 			rightLabelHistory
 			metadataId={props.item}
 			topRight={

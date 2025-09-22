@@ -50,7 +50,7 @@ import {
 	FiltersModal,
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
-import { MetadataGroupDisplayItem } from "~/components/media/display-items";
+import { Old__MetadataGroupDisplayItem } from "~/components/media/display-items";
 import { useCoreDetails, useUserMetadataGroupList } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
@@ -283,7 +283,7 @@ export default function Page(props: { params: { action: string } }) {
 								{metadataGroupSearch.response.details.totalItems > 0 ? (
 									<ApplicationGrid>
 										{metadataGroupSearch.response.items.map((group) => (
-											<MetadataGroupDisplayItem
+											<Old__MetadataGroupDisplayItem
 												key={group}
 												metadataGroupId={group}
 												shouldHighlightNameIfInteracted
@@ -364,7 +364,7 @@ const MetadataGroupListItem = (props: MetadataGroupListItemProps) => {
 	const isAdded = bulkEditingCollection.isAdded(becItem);
 
 	return (
-		<MetadataGroupDisplayItem
+		<Old__MetadataGroupDisplayItem
 			metadataGroupId={props.item}
 			topRight={
 				bulkEditingState &&
