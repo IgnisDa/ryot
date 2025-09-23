@@ -299,9 +299,10 @@ export const useUserEntityRecentlyConsumed = (
 	entityLot?: EntityLot,
 	enabled?: boolean,
 ) => {
+	const coreDetails = useCoreDetails();
 	return useQuery({
 		...getUserEntityRecentlyConsumedQuery(entityId, entityLot),
-		enabled,
+		enabled: enabled && coreDetails.isServerKeyValidated,
 	});
 };
 
