@@ -81,6 +81,9 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
                 (metadata_group_id, EntityLot::MetadataGroup)
             } else {
                 ryot_log!(debug, "Skipping user_to_entity = {:?}", ute.id);
+                let mut ute = ute.into_active_model();
+                ute.needs_to_be_updated = ActiveValue::Set(None);
+                ute.update(&ss.db).await?;
                 continue;
             };
 
