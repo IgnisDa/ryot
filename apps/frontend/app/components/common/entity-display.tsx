@@ -313,10 +313,10 @@ type BaseEntityDisplayItemCard = {
 	year?: number;
 	title?: string;
 	image?: string;
-	lot?: MediaLot;
 	rating?: string;
 	entityId: string;
 	progress?: string;
+	mediaLot?: MediaLot;
 	entityLot: EntityLot;
 	imageClassName?: string;
 	hasInteracted?: boolean;
@@ -343,7 +343,7 @@ export const BaseEntityDisplayItem = forwardRef<
 	const [_r, setEntityToReview] = useReviewEntity();
 	const ratingScale = userPreferences.general.reviewScale;
 	const { advanceOnboardingTourStep } = useOnboardingTour();
-	const MediaIcon = props.lot ? getMetadataIcon(props.lot) : null;
+	const MediaIcon = props.mediaLot ? getMetadataIcon(props.mediaLot) : null;
 	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
 	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
@@ -568,7 +568,7 @@ export const BaseEntityDisplayItem = forwardRef<
 									entityButtonProps={entityButtonProps}
 									onClick={() => {
 										setEntityToReview({
-											metadataLot: props.lot,
+											metadataLot: props.mediaLot,
 											entityId: props.entityId,
 											entityLot: props.entityLot,
 											entityTitle: props.title ?? "Unknown Title",

@@ -50,7 +50,7 @@ import {
 	FiltersModal,
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
-import { Old__MetadataGroupDisplayItem } from "~/components/media/display-items";
+import { MetadataGroupDisplayItem } from "~/components/media/display-items";
 import { useCoreDetails, useUserMetadataGroupList } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
@@ -283,7 +283,7 @@ export default function Page(props: { params: { action: string } }) {
 								{metadataGroupSearch.response.details.totalItems > 0 ? (
 									<ApplicationGrid>
 										{metadataGroupSearch.response.items.map((group) => (
-											<Old__MetadataGroupDisplayItem
+											<MetadataGroupDisplayItem
 												key={group}
 												metadataGroupId={group}
 												shouldHighlightNameIfInteracted
@@ -364,15 +364,16 @@ const MetadataGroupListItem = (props: MetadataGroupListItemProps) => {
 	const isAdded = bulkEditingCollection.isAdded(becItem);
 
 	return (
-		<Old__MetadataGroupDisplayItem
+		<MetadataGroupDisplayItem
+			noEntityLot
 			metadataGroupId={props.item}
-			topRight={
+			centerElement={
 				bulkEditingState &&
 				bulkEditingState.data.action === "add" &&
 				!isAlreadyPresent ? (
 					<ActionIcon
-						variant={isAdded ? "filled" : "transparent"}
 						color="green"
+						variant={isAdded ? "filled" : "transparent"}
 						onClick={() => {
 							if (isAdded) bulkEditingState.remove(becItem);
 							else bulkEditingState.add(becItem);

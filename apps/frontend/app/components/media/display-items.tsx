@@ -97,7 +97,7 @@ export const MetadataDisplayItem = (props: {
 			image={images.at(0)}
 			progress={currentProgress}
 			entityId={props.metadataId}
-			lot={metadataDetails?.lot}
+			mediaLot={metadataDetails?.lot}
 			userToMediaReasons={reasons}
 			entityLot={EntityLot.Metadata}
 			rating={averageRating ?? undefined}
@@ -123,17 +123,15 @@ export const MetadataDisplayItem = (props: {
 	);
 };
 
-export const Old__MetadataGroupDisplayItem = (props: {
-	topLeft?: ReactNode;
-	topRight?: ReactNode;
-	noLeftLabel?: boolean;
-	rightLabel?: ReactNode;
+export const MetadataGroupDisplayItem = (props: {
+	noEntityLot?: boolean;
 	metadataGroupId: string;
+	centerElement?: ReactNode;
 	shouldHighlightNameIfInteracted?: boolean;
 }) => {
 	const { ref, inViewport } = useInViewport();
 	const [
-		{ data: metadataDetails, isLoading: isMetadataGroupDetailsLoading },
+		{ data: metadataGroupDetails, isLoading: isMetadataGroupDetailsLoading },
 		isMetadataGroupPartialStatusActive,
 	] = useMetadataGroupDetails(props.metadataGroupId, inViewport);
 	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
@@ -149,44 +147,43 @@ export const Old__MetadataGroupDisplayItem = (props: {
 
 	const averageRating = userMetadataGroupDetails?.averageRating;
 
+	const defaultAdditionalInformation = useMemo(() => {
+		const final = [];
+		if (!props.noEntityLot)
+			final.push(changeCase(snakeCase(EntityLot.MetadataGroup)));
+
+		if (metadataGroupDetails)
+			final.push(`${metadataGroupDetails.details.parts} items`);
+
+		return final;
+	}, [metadataGroupDetails]);
+
+	const images = [
+		...(metadataGroupDetails?.details.assets.remoteImages || []),
+		...(metadataGroupDetails?.details.assets.s3Images || []),
+	];
+
 	return (
-		<Old__BaseEntityDisplayItem
-			innerRef={ref}
-			name={metadataDetails?.details.title}
-			highlightImage={isMetadataGroupRecentlyConsumed}
+		<BaseEntityDisplayItem
+			ref={ref}
+			image={images.at(0)}
+			entityId={props.metadataGroupId}
+			rating={averageRating?.toString()}
+			entityLot={EntityLot.MetadataGroup}
+			centerElement={props.centerElement}
+			title={metadataGroupDetails?.details.title}
+			mediaLot={metadataGroupDetails?.details.lot}
 			isDetailsLoading={isMetadataGroupDetailsLoading}
+			additionalInformation={defaultAdditionalInformation}
+			wasRecentlyConsumed={isMetadataGroupRecentlyConsumed}
+			interactionButtons={["collection", "review", "watchlist"]}
 			isPartialStatusActive={isMetadataGroupPartialStatusActive}
-			imageUrl={metadataDetails?.details.assets.remoteImages.at(0)}
 			onImageClickBehavior={[
 				$path("/media/groups/item/:id", { id: props.metadataGroupId }),
 			]}
-			highlightName={
+			hasInteracted={
 				props.shouldHighlightNameIfInteracted &&
 				userMetadataGroupDetails?.hasInteracted
-			}
-			imageOverlay={{
-				topLeft: props.topLeft,
-				topRight: props.topRight || (
-					<Old__DisplayAverageRatingOverlay
-						averageRating={averageRating}
-						entityId={props.metadataGroupId}
-						entityLot={EntityLot.MetadataGroup}
-						entityTitle={metadataDetails?.details.title}
-					/>
-				),
-			}}
-			labels={
-				metadataDetails
-					? {
-							left:
-								props.noLeftLabel !== true
-									? `${metadataDetails.details.parts} items`
-									: undefined,
-							right:
-								props.rightLabel ||
-								changeCase(snakeCase(metadataDetails.details.lot)),
-						}
-					: undefined
 			}
 		/>
 	);

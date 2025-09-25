@@ -64,7 +64,7 @@ import {
 } from "../fitness/display-items";
 import {
 	MetadataDisplayItem,
-	Old__MetadataGroupDisplayItem,
+	MetadataGroupDisplayItem,
 	Old__PersonDisplayItem,
 } from "../media/display-items";
 
@@ -99,12 +99,9 @@ export const DisplayCollectionEntity = (props: {
 			/>
 		))
 		.with(EntityLot.MetadataGroup, () => (
-			<Old__MetadataGroupDisplayItem
-				noLeftLabel
-				topLeft={props.topLeft}
-				topRight={props.topRight}
+			<MetadataGroupDisplayItem
 				metadataGroupId={props.entityId}
-				rightLabel={changeCase(snakeCase(props.entityLot))}
+				centerElement={props.topLeft || props.topRight}
 			/>
 		))
 		.with(EntityLot.Person, () => (
