@@ -373,6 +373,10 @@ export default function Page(props: { params: { id: string } }) {
 													});
 													return;
 												}
+												setFilters({
+													...defaultFilters,
+													sortBy: CollectionContentsSortBy.Rank,
+												});
 												setTab(TabNames.Contents);
 												setIsReorderMode(true);
 											}}
