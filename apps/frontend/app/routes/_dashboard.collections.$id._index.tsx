@@ -375,6 +375,7 @@ export default function Page(props: { params: { id: string } }) {
 												}
 												setFilters({
 													...defaultFilters,
+													orderBy: GraphqlSortOrder.Asc,
 													sortBy: CollectionContentsSortBy.Rank,
 												});
 												setTab(TabNames.Contents);
