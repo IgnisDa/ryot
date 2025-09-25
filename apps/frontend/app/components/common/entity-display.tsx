@@ -92,27 +92,26 @@ const ratingBadgeStyle = {
 } satisfies MantineStyleProp;
 
 const EntityActionButton = (props: {
-	mode: string;
 	label: string;
 	colorName: string;
 	className?: string;
 	onClick: () => void;
 	entityButtonProps: ActionIconProps;
 	icon: React.ComponentType<{ size: number; color: string }>;
-}) => (
-	<Tooltip label={props.label}>
-		<ActionIcon
-			onClick={props.onClick}
-			className={props.className}
-			{...props.entityButtonProps}
-		>
-			<props.icon
-				size={20}
-				color={getThemeColor(props.colorName, props.mode)}
-			/>
-		</ActionIcon>
-	</Tooltip>
-);
+}) => {
+	const mode = useCurrentColorSchema();
+	return (
+		<Tooltip label={props.label}>
+			<ActionIcon
+				onClick={props.onClick}
+				className={props.className}
+				{...props.entityButtonProps}
+			>
+				<props.icon size={20} color={getThemeColor(props.colorName, mode)} />
+			</ActionIcon>
+		</Tooltip>
+	);
+};
 
 export const Old__BaseEntityDisplayItem = (props: {
 	name?: string;
@@ -505,7 +504,10 @@ export const BaseEntityDisplayItem = forwardRef<
 						<Group gap={6} justify="center" wrap="nowrap">
 							{props.interactionButtons.includes("consume") && (
 								<EntityActionButton
+									icon={IconEye}
+									colorName="green"
 									label="Add to history"
+									entityButtonProps={entityButtonProps}
 									className={props.consumeButtonClassName}
 									onClick={() => {
 										if (props.consumeButtonClassName)
@@ -515,14 +517,13 @@ export const BaseEntityDisplayItem = forwardRef<
 											true,
 										);
 									}}
-									icon={IconEye}
-									colorName="green"
-									mode={mode}
-									entityButtonProps={entityButtonProps}
 								/>
 							)}
 							{props.interactionButtons.includes("watchlist") && (
 								<EntityActionButton
+									colorName="blue"
+									entityButtonProps={entityButtonProps}
+									icon={alreadyInWatchlist ? IconBookmarkOff : IconBookmark}
 									label={`${alreadyInWatchlist ? "Remove from" : "Add to"} watchlist`}
 									onClick={async () => {
 										const mutation = alreadyInWatchlist
@@ -543,30 +544,24 @@ export const BaseEntityDisplayItem = forwardRef<
 											message: `${alreadyInWatchlist ? "Removed from" : "Added to"} your watchlist`,
 										});
 									}}
-									icon={alreadyInWatchlist ? IconBookmarkOff : IconBookmark}
-									colorName="blue"
-									mode={mode}
-									entityButtonProps={entityButtonProps}
 								/>
 							)}
 							{props.interactionButtons.includes("collection") && (
 								<EntityActionButton
+									icon={IconArchive}
+									colorName="violet"
 									label="Add to collections"
+									entityButtonProps={entityButtonProps}
 									onClick={() => {
 										setAddEntityToCollectionsData({
 											entityId: props.entityId,
 											entityLot: props.entityLot,
 										});
 									}}
-									icon={IconArchive}
-									colorName="violet"
-									mode={mode}
-									entityButtonProps={entityButtonProps}
 								/>
 							)}
 							{props.interactionButtons.includes("review") && (
 								<EntityActionButton
-									mode={mode}
 									icon={IconMessage}
 									colorName="orange"
 									label="Leave a review"
