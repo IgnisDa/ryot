@@ -143,6 +143,7 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
                 HashSet::from_iter(ute.media_reason.clone().unwrap_or_default().into_iter());
             if new_reasons.is_empty() {
                 ryot_log!(debug, "Deleting user_to_entity = {id:?}", id = (&ute.id));
+                has_user_level_changes = true;
                 ute.delete(&ss.db).await?;
             } else {
                 let mut ute = ute.into_active_model();
