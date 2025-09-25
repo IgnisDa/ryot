@@ -282,9 +282,9 @@ export const BaseEntityDisplayItem = forwardRef<
 						entityButtonProps={entityButtonProps}
 						onClick={() => {
 							setEntityToReview({
-								metadataLot: props.mediaLot,
 								entityId: props.entityId,
 								entityLot: props.entityLot,
+								metadataLot: props.mediaLot,
 								entityTitle: props.title ?? "Unknown Title",
 							});
 						}}
