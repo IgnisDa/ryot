@@ -92,18 +92,18 @@ const ratingBadgeStyle = {
 } satisfies MantineStyleProp;
 
 const EntityActionButton = (props: {
-	label: string;
-	onClick: () => void;
-	icon: React.ComponentType<{ size: number; color: string }>;
-	colorName: string;
 	mode: string;
+	label: string;
+	colorName: string;
 	className?: string;
+	onClick: () => void;
 	entityButtonProps: ActionIconProps;
+	icon: React.ComponentType<{ size: number; color: string }>;
 }) => (
 	<Tooltip label={props.label}>
 		<ActionIcon
-			className={props.className}
 			onClick={props.onClick}
+			className={props.className}
 			{...props.entityButtonProps}
 		>
 			<props.icon
@@ -567,9 +567,9 @@ export const BaseEntityDisplayItem = forwardRef<
 							{props.interactionButtons.includes("review") && (
 								<EntityActionButton
 									mode={mode}
-									label="Leave a review"
 									icon={IconMessage}
 									colorName="orange"
+									label="Leave a review"
 									entityButtonProps={entityButtonProps}
 									onClick={() => {
 										setEntityToReview({
