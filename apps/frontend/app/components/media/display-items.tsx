@@ -157,7 +157,7 @@ export const MetadataGroupDisplayItem = (props: {
 			final.push(`${metadataGroupDetails.details.parts} items`);
 
 		return final;
-	}, [metadataGroupDetails]);
+	}, [metadataGroupDetails, props.noEntityLot]);
 
 	const images = [
 		...(metadataGroupDetails?.details.assets.remoteImages || []),
