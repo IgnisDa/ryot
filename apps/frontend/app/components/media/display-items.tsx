@@ -226,15 +226,15 @@ export const PersonDisplayItem = (props: {
 			ref={ref}
 			image={images.at(0)}
 			entityId={props.personId}
-			rating={averageRating?.toString()}
 			entityLot={EntityLot.Person}
-			centerElement={props.centerElement}
 			title={personDetails?.details.name}
+			rating={averageRating ?? undefined}
+			centerElement={props.centerElement}
 			isDetailsLoading={isPersonDetailsLoading}
-			additionalInformation={defaultAdditionalInformation}
+			interactionButtons={["collection", "review"]}
 			wasRecentlyConsumed={isPersonRecentlyConsumed}
-			interactionButtons={["collection", "review", "watchlist"]}
 			isPartialStatusActive={isPersonPartialStatusActive}
+			additionalInformation={defaultAdditionalInformation}
 			onImageClickBehavior={[
 				$path("/media/people/item/:id", { id: props.personId }),
 			]}
