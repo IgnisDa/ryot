@@ -66,7 +66,11 @@ import {
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
-import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
+import {
+	clientGqlService,
+	queryClient,
+	queryFactory,
+} from "~/lib/shared/react-query";
 import {
 	convertEnumToSelectData,
 	isFilterChanged,
@@ -541,6 +545,11 @@ const CollectionItem = (props: CollectionItemProps) => {
 	const reorderMutation = useMutation({
 		mutationFn: (input: ReorderCollectionEntityInput) =>
 			clientGqlService.request(ReorderCollectionEntityDocument, { input }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({
+				queryKey: queryFactory.collections.collectionContents._def,
+			});
+		},
 		onError: (_error) => {
 			notifications.show({
 				color: "red",
