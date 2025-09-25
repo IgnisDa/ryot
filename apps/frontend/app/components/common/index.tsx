@@ -63,7 +63,7 @@ import {
 	Old__WorkoutTemplateDisplayItem,
 } from "../fitness/display-items";
 import {
-	Old__MetadataDisplayItem,
+	MetadataDisplayItem,
 	Old__MetadataGroupDisplayItem,
 	Old__PersonDisplayItem,
 } from "../media/display-items";
@@ -93,7 +93,7 @@ export const DisplayCollectionEntity = (props: {
 }) =>
 	match(props.entityLot)
 		.with(EntityLot.Metadata, () => (
-			<Old__MetadataDisplayItem
+			<MetadataDisplayItem
 				metadataId={props.entityId}
 				centerElement={props.topLeft || props.topRight}
 			/>

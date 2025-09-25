@@ -58,7 +58,7 @@ import {
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { ReviewItemDisplay } from "~/components/common/review";
-import { Old__MetadataDisplayItem } from "~/components/media/display-items";
+import { MetadataDisplayItem } from "~/components/media/display-items";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
@@ -501,7 +501,7 @@ const RecommendationsSection = ({ collectionId }: { collectionId: string }) => {
 					<>
 						<ApplicationGrid>
 							{recommendations.data.collectionRecommendations.items.map((r) => (
-								<Old__MetadataDisplayItem
+								<MetadataDisplayItem
 									key={r}
 									metadataId={r}
 									shouldHighlightNameIfInteracted

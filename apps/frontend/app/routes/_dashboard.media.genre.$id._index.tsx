@@ -5,7 +5,7 @@ import invariant from "tiny-invariant";
 import { useLocalStorage } from "usehooks-ts";
 import { ApplicationPagination, SkeletonLoader } from "~/components/common";
 import { ApplicationGrid } from "~/components/common/layout";
-import { Old__MetadataDisplayItem } from "~/components/media/display-items";
+import { MetadataDisplayItem } from "~/components/media/display-items";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 
 interface PaginationState {
@@ -67,7 +67,7 @@ export default function Page(props: { params: { id: string } }) {
 						</Group>
 						<ApplicationGrid>
 							{genreDetails.response.contents.items.map((media) => (
-								<Old__MetadataDisplayItem key={media} metadataId={media} />
+								<MetadataDisplayItem key={media} metadataId={media} />
 							))}
 						</ApplicationGrid>
 					</>

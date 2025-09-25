@@ -23,7 +23,7 @@ import {
 } from "../common/entity-display";
 import { Old__DisplayAverageRatingOverlay } from "./rating-overlay";
 
-export const Old__MetadataDisplayItem = (props: {
+export const MetadataDisplayItem = (props: {
 	altName?: string;
 	metadataId: string;
 	imageClassName?: string;

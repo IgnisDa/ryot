@@ -40,7 +40,7 @@ import { ProRequiredAlert, SkeletonLoader } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { ApplicationGrid } from "~/components/common/layout";
 import { DisplaySummarySection } from "~/components/common/summary";
-import { Old__MetadataDisplayItem } from "~/components/media/display-items";
+import { MetadataDisplayItem } from "~/components/media/display-items";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
@@ -312,7 +312,7 @@ const RecommendationsSection = () => {
 					data.userMetadataRecommendations.response.length > 0 ? (
 						<ApplicationGrid>
 							{data.userMetadataRecommendations.response.map((lm) => (
-								<Old__MetadataDisplayItem
+								<MetadataDisplayItem
 									key={lm}
 									metadataId={lm}
 									shouldHighlightNameIfInteracted
@@ -363,7 +363,7 @@ const TrendingSection = () => {
 				{trendingMetadata.data ? (
 					<ApplicationGrid>
 						{trendingMetadata.data.trendingMetadata.map((lm) => (
-							<Old__MetadataDisplayItem
+							<MetadataDisplayItem
 								key={lm}
 								metadataId={lm}
 								shouldHighlightNameIfInteracted
@@ -393,7 +393,7 @@ const TrendingSection = () => {
 				trendingMetadataSelection.length > 0 ? (
 					<ApplicationGrid>
 						{trendingMetadataSelection.map((lm) => (
-							<Old__MetadataDisplayItem
+							<MetadataDisplayItem
 								key={lm}
 								metadataId={lm}
 								shouldHighlightNameIfInteracted
@@ -421,7 +421,7 @@ const UpcomingMediaSection = (props: { um: CalendarEventPartFragment }) => {
 	const numDaysLeft = dayjsLib(props.um.date).diff(today, "day");
 
 	return (
-		<Old__MetadataDisplayItem
+		<MetadataDisplayItem
 			altName={props.um.metadataText}
 			metadataId={props.um.metadataId}
 			additionalInformation={`${match(props.um.metadataLot)
