@@ -271,16 +271,18 @@ export const BaseEntityDisplayItem = forwardRef<
 				{props.userToMediaReasons?.map((reason) => (
 					<BaseEntityDisplayItemReason key={reason} reason={reason} />
 				))}
-				{MediaIcon && topRowCount <= 3 ? (
-					<Flex
-						w={24}
-						h={24}
-						align="center"
-						justify="center"
-						style={mediaIconBoxStyle}
-					>
-						<MediaIcon size={16} color="white" />
-					</Flex>
+				{MediaIcon && topRowCount <= 3 && props.mediaLot ? (
+					<Tooltip label={changeCase(props.mediaLot)}>
+						<Flex
+							w={24}
+							h={24}
+							align="center"
+							justify="center"
+							style={mediaIconBoxStyle}
+						>
+							<MediaIcon size={16} color="white" />
+						</Flex>
+					</Tooltip>
 				) : null}
 				{props.rating && (
 					<Badge
