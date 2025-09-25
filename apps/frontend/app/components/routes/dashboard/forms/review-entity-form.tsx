@@ -25,12 +25,7 @@ import {
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
-import {
-	IconMoodEmpty,
-	IconMoodHappy,
-	IconMoodSad,
-	IconPercentage,
-} from "@tabler/icons-react";
+import { IconPercentage } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
 import type { ReactNode } from "react";
@@ -47,7 +42,7 @@ import {
 	refreshEntityDetails,
 } from "~/lib/shared/react-query";
 import { useReviewEntity } from "~/lib/state/media";
-import { ThreePointSmileyRating } from "~/lib/types";
+import { ThreePointSmileyRating, getThreePointSmileyEmoji } from "~/lib/types";
 import { convertThreePointSmileyToDecimal } from "../utils";
 
 export const ReviewEntityForm = (props: {
@@ -132,6 +127,7 @@ export const ReviewEntityForm = (props: {
 	}) => (
 		<ThemeIcon
 			size="xl"
+			style={{ cursor: "pointer" }}
 			variant={
 				props.smileyRating === ratingInThreePointSmiley
 					? "outline"
@@ -224,13 +220,19 @@ export const ReviewEntityForm = (props: {
 							</Text>
 							<Group justify="space-around">
 								<SmileySurround smileyRating={ThreePointSmileyRating.Happy}>
-									<IconMoodHappy size={36} />
+									<Text size="xl">
+										{getThreePointSmileyEmoji(ThreePointSmileyRating.Happy)}
+									</Text>
 								</SmileySurround>
 								<SmileySurround smileyRating={ThreePointSmileyRating.Neutral}>
-									<IconMoodEmpty size={36} />
+									<Text size="xl">
+										{getThreePointSmileyEmoji(ThreePointSmileyRating.Neutral)}
+									</Text>
 								</SmileySurround>
 								<SmileySurround smileyRating={ThreePointSmileyRating.Sad}>
-									<IconMoodSad size={36} />
+									<Text size="xl">
+										{getThreePointSmileyEmoji(ThreePointSmileyRating.Sad)}
+									</Text>
 								</SmileySurround>
 							</Group>
 						</Stack>

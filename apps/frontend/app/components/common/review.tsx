@@ -31,9 +31,6 @@ import {
 	IconArrowBigUp,
 	IconCheck,
 	IconEdit,
-	IconMoodEmpty,
-	IconMoodHappy,
-	IconMoodSad,
 	IconStarFilled,
 	IconTrash,
 	IconX,
@@ -55,7 +52,7 @@ import {
 } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useReviewEntity } from "~/lib/state/media";
-import { ThreePointSmileyRating } from "~/lib/types";
+import { getThreePointSmileyEmoji } from "~/lib/types";
 import classes from "~/styles/common.module.css";
 
 export const DisplayThreePointReview = (props: {
@@ -63,17 +60,14 @@ export const DisplayThreePointReview = (props: {
 	rating?: number | null;
 }) => {
 	if (props.rating == null) return null;
-	return match(convertDecimalToThreePointSmiley(props.rating))
-		.with(ThreePointSmileyRating.Happy, () => (
-			<IconMoodHappy size={props.size || 20} color={reviewYellow} />
-		))
-		.with(ThreePointSmileyRating.Neutral, () => (
-			<IconMoodEmpty size={props.size || 20} color={reviewYellow} />
-		))
-		.with(ThreePointSmileyRating.Sad, () => (
-			<IconMoodSad size={props.size || 20} color={reviewYellow} />
-		))
-		.exhaustive();
+	const smileyRating = convertDecimalToThreePointSmiley(props.rating);
+	const fontSize = props.size ? `${props.size}px` : "20px";
+
+	return (
+		<Text style={{ fontSize, lineHeight: 1 }} component="span">
+			{getThreePointSmileyEmoji(smileyRating)}
+		</Text>
+	);
 };
 
 export const ReviewItemDisplay = (props: {
