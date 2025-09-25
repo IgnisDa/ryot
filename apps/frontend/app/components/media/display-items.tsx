@@ -66,17 +66,17 @@ export const MetadataDisplayItem = (props: {
 		const inProgress = userMetadataDetails.inProgress;
 		if (inProgress) {
 			if (inProgress.podcastExtraInformation)
-				return `EP-${inProgress.podcastExtraInformation.episode}`;
+				return `Current: EP-${inProgress.podcastExtraInformation.episode}`;
 			if (inProgress.showExtraInformation)
-				return `S${inProgress.showExtraInformation.season}-E${inProgress.showExtraInformation.episode}`;
+				return `Current: S${inProgress.showExtraInformation.season}-E${inProgress.showExtraInformation.episode}`;
 		}
 
 		const nextEntry = userMetadataDetails.nextEntry;
 		if (nextEntry) {
 			if (metadataDetails.lot === MediaLot.Show)
-				return `S${nextEntry.season}-E${nextEntry.episode}`;
+				return `Next: S${nextEntry.season}-E${nextEntry.episode}`;
 			if (metadataDetails.lot === MediaLot.Podcast)
-				return `EP-${nextEntry.episode}`;
+				return `Next: EP-${nextEntry.episode}`;
 		}
 
 		return "";

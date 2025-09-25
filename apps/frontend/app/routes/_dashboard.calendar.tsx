@@ -143,11 +143,12 @@ const CalendarEvent = (props: {
 							.with(
 								MediaLot.Show,
 								() =>
-									`S${calEvent.showExtraInformation?.season}-E${calEvent.showExtraInformation?.episode}`,
+									`Upcoming: S${calEvent.showExtraInformation?.season}-E${calEvent.showExtraInformation?.episode}`,
 							)
 							.with(
 								MediaLot.Podcast,
-								() => `EP-${calEvent.podcastExtraInformation?.episode}`,
+								() =>
+									`Upcoming: EP-${calEvent.podcastExtraInformation?.episode}`,
 							)
 							.otherwise(() => "")}`}
 					/>
