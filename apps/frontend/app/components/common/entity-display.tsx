@@ -65,54 +65,6 @@ const blackBgStyles = {
 	padding: 2,
 } satisfies MantineStyleProp;
 
-const getThemeColor = (colorName: string, mode: string): string => {
-	const shade = mode === "dark" ? "3" : "7";
-	return `var(--mantine-color-${colorName}-${shade})`;
-};
-
-const overlayIconBoxStyle = {
-	borderRadius: 4,
-	backgroundColor: "rgba(0, 0, 0, 0.9)",
-	boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
-	border: "1px solid rgba(255, 255, 255, 0.4)",
-} satisfies MantineStyleProp;
-
-const mediaIconBoxStyle = {
-	borderRadius: 4,
-	backgroundColor: "rgba(0, 0, 0, 0.95)",
-	boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
-	border: "1px solid rgba(255, 255, 255, 0.3)",
-} satisfies MantineStyleProp;
-
-const ratingBadgeStyle = {
-	color: "white",
-	backgroundColor: "rgba(0, 0, 0, 0.95)",
-	boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
-	border: "1px solid rgba(255, 255, 255, 0.2)",
-} satisfies MantineStyleProp;
-
-const EntityActionButton = (props: {
-	label: string;
-	colorName: string;
-	className?: string;
-	onClick: () => void;
-	entityButtonProps: ActionIconProps;
-	icon: React.ComponentType<{ size: number; color: string }>;
-}) => {
-	const mode = useCurrentColorSchema();
-	return (
-		<Tooltip label={props.label}>
-			<ActionIcon
-				onClick={props.onClick}
-				className={props.className}
-				{...props.entityButtonProps}
-			>
-				<props.icon size={20} color={getThemeColor(props.colorName, mode)} />
-			</ActionIcon>
-		</Tooltip>
-	);
-};
-
 export const Old__BaseEntityDisplayItem = (props: {
 	name?: string;
 	altName?: string;
@@ -255,6 +207,54 @@ export const Old__BaseEntityDisplayItem = (props: {
 				</Flex>
 			)}
 		</Flex>
+	);
+};
+
+const getThemeColor = (colorName: string, mode: string): string => {
+	const shade = mode === "dark" ? "3" : "7";
+	return `var(--mantine-color-${colorName}-${shade})`;
+};
+
+const overlayIconBoxStyle = {
+	borderRadius: 4,
+	backgroundColor: "rgba(0, 0, 0, 0.9)",
+	boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
+	border: "1px solid rgba(255, 255, 255, 0.4)",
+} satisfies MantineStyleProp;
+
+const mediaIconBoxStyle = {
+	borderRadius: 4,
+	backgroundColor: "rgba(0, 0, 0, 0.95)",
+	boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
+	border: "1px solid rgba(255, 255, 255, 0.3)",
+} satisfies MantineStyleProp;
+
+const ratingBadgeStyle = {
+	color: "white",
+	backgroundColor: "rgba(0, 0, 0, 0.95)",
+	boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
+	border: "1px solid rgba(255, 255, 255, 0.2)",
+} satisfies MantineStyleProp;
+
+const EntityActionButton = (props: {
+	label: string;
+	colorName: string;
+	className?: string;
+	onClick: () => void;
+	entityButtonProps: ActionIconProps;
+	icon: React.ComponentType<{ size: number; color: string }>;
+}) => {
+	const mode = useCurrentColorSchema();
+	return (
+		<Tooltip label={props.label}>
+			<ActionIcon
+				onClick={props.onClick}
+				className={props.className}
+				{...props.entityButtonProps}
+			>
+				<props.icon size={20} color={getThemeColor(props.colorName, mode)} />
+			</ActionIcon>
+		</Tooltip>
 	);
 };
 
