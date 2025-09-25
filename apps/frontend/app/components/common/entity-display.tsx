@@ -295,160 +295,164 @@ export const BaseEntityDisplayItem = forwardRef<
 	};
 
 	return (
-		<Card
-			p={0}
-			ref={ref}
-			pos="relative"
-			w={{ base: 108, sm: 146 }}
-			h={{ base: 180, sm: 240 }}
-			className={props.imageClassName}
-			withBorder={!shouldHighlightImage}
-			style={{
-				overflow: "hidden",
-				boxShadow: shouldHighlightImage
-					? mode === "dark"
-						? "0px 0px 4px 1px rgba(242, 183, 22, 1)"
-						: "0px 0px 8px 3px rgba(24, 142, 245, 1)"
-					: undefined,
-			}}
-		>
-			{props.centerElement ? (
-				<>
-					<Overlay />
-					<Paper
-						top="50%"
-						left="50%"
-						withBorder
-						pos="absolute"
-						style={{ zIndex: 1000, transform: "translate(-50%, -50%)" }}
-					>
-						{props.centerElement}
-					</Paper>
-				</>
-			) : null}
-			<Link
-				to={props.onImageClickBehavior[0]}
-				onClick={props.onImageClickBehavior[1]}
-				style={{ width: "100%", height: "100%" }}
-			>
-				<Image
-					w="100%"
-					h="100%"
-					fit="cover"
-					src={props.image}
-					fallbackSrc={fallback}
-				/>
-			</Link>
-
-			<Flex
-				gap={2}
-				top={0}
-				h="100%"
-				right={4}
-				bottom={0}
-				pos="absolute"
-				hiddenFrom="sm"
-				justify="center"
-				direction="column"
-				style={{ zIndex: 10 }}
-			>
-				<ActionButtons />
-			</Flex>
-			<Group pos="absolute" wrap="nowrap" w="100%" gap={2} p={2}>
-				{props.userToMediaReasons?.map((reason) => (
-					<BaseEntityDisplayItemReason key={reason} reason={reason} />
-				))}
-				{MediaIcon && topRowCount <= 3 && props.mediaLot ? (
-					<Tooltip label={changeCase(props.mediaLot)}>
-						<Flex
-							w={24}
-							h={24}
-							align="center"
-							justify="center"
-							style={mediaIconBoxStyle}
-						>
-							<MediaIcon size={16} color="white" />
-						</Flex>
-					</Tooltip>
-				) : null}
-				{props.rating && (
-					<Badge
-						ml="auto"
-						size="sm"
-						style={{
-							...ratingBadgeStyle,
-							fontSize:
-								ratingScale === UserReviewScale.ThreePointSmiley
-									? "12px"
-									: "10px",
-						}}
-					>
-						{formatBaseEntityDisplayItemRating(
-							Number(props.rating),
-							ratingScale,
-						)}
-					</Badge>
-				)}
-			</Group>
-			<Box
-				pt={32}
-				left={0}
-				right={0}
-				bottom={0}
-				pos="absolute"
-				pb={progress ? 8 : 4}
+		<Stack ref={ref} gap={4}>
+			<Card
+				p={0}
+				pos="relative"
+				w={{ base: 108, sm: 146 }}
+				h={{ base: 180, sm: 240 }}
+				className={props.imageClassName}
+				withBorder={!shouldHighlightImage}
 				style={{
-					background:
-						mode === "dark"
-							? "linear-gradient(to top, black, rgba(31, 41, 55, 0.95), transparent)"
-							: "linear-gradient(to top, black, rgba(0, 0, 0, 0.85), transparent)",
+					overflow: "hidden",
+					boxShadow: shouldHighlightImage
+						? mode === "dark"
+							? "0px 0px 4px 1px rgba(242, 183, 22, 1)"
+							: "0px 0px 8px 3px rgba(24, 142, 245, 1)"
+						: undefined,
 				}}
 			>
-				<Stack gap={8}>
-					<Box ta="center" px="xs">
-						<Text
-							size="xs"
-							c="gray.1"
-							visibleFrom="sm"
-							style={{ textShadow: "1px 1px 1px rgba(0, 0, 0, 0.8)" }}
+				{props.centerElement ? (
+					<>
+						<Overlay />
+						<Paper
+							top="50%"
+							left="50%"
+							withBorder
+							pos="absolute"
+							style={{ zIndex: 1000, transform: "translate(-50%, -50%)" }}
 						>
-							{entityInformation}
-						</Text>
-						<Tooltip label={props.title}>
-							<Text
-								fw={700}
-								size="sm"
-								lineClamp={1}
-								c={props.hasInteracted ? "yellow.4" : "white"}
-								style={{ textShadow: "1px 1px 2px rgba(0, 0, 0, 0.5)" }}
-								className={
-									props.isPartialStatusActive ? classes.fadeInOut : undefined
-								}
+							{props.centerElement}
+						</Paper>
+					</>
+				) : null}
+				<Link
+					to={props.onImageClickBehavior[0]}
+					onClick={props.onImageClickBehavior[1]}
+					style={{ width: "100%", height: "100%" }}
+				>
+					<Image
+						w="100%"
+						h="100%"
+						fit="cover"
+						src={props.image}
+						fallbackSrc={fallback}
+					/>
+				</Link>
+
+				<Flex
+					gap={2}
+					top={0}
+					h="100%"
+					right={4}
+					bottom={0}
+					pos="absolute"
+					hiddenFrom="sm"
+					justify="center"
+					direction="column"
+					style={{ zIndex: 10 }}
+				>
+					<ActionButtons />
+				</Flex>
+				<Group pos="absolute" wrap="nowrap" w="100%" gap={2} p={2}>
+					{props.userToMediaReasons?.map((reason) => (
+						<BaseEntityDisplayItemReason key={reason} reason={reason} />
+					))}
+					{MediaIcon && topRowCount <= 3 && props.mediaLot ? (
+						<Tooltip label={changeCase(props.mediaLot)}>
+							<Flex
+								w={24}
+								h={24}
+								align="center"
+								justify="center"
+								style={mediaIconBoxStyle}
 							>
-								{props.title}
-							</Text>
+								<MediaIcon size={16} color="white" />
+							</Flex>
 						</Tooltip>
-					</Box>
-					<Group gap={6} justify="center" wrap="nowrap" visibleFrom="sm">
-						<ActionButtons />
-					</Group>
-				</Stack>
-			</Box>
-			{progress ? (
+					) : null}
+					{props.rating && (
+						<Badge
+							ml="auto"
+							size="sm"
+							style={{
+								...ratingBadgeStyle,
+								fontSize:
+									ratingScale === UserReviewScale.ThreePointSmiley
+										? "12px"
+										: "10px",
+							}}
+						>
+							{formatBaseEntityDisplayItemRating(
+								Number(props.rating),
+								ratingScale,
+							)}
+						</Badge>
+					)}
+				</Group>
 				<Box
-					h={4}
+					pt={32}
 					left={0}
 					right={0}
 					bottom={0}
 					pos="absolute"
-					w={`${progress}%`}
+					pb={progress ? 8 : 4}
 					style={{
-						transition: "width 500ms ease",
-						backgroundColor: "var(--mantine-color-red-4)",
-						filter: "drop-shadow(0 0 1px rgba(239, 68, 68, 0.8))",
+						background:
+							mode === "dark"
+								? "linear-gradient(to top, black, rgba(31, 41, 55, 0.95), transparent)"
+								: "linear-gradient(to top, black, rgba(0, 0, 0, 0.85), transparent)",
 					}}
-				/>
-			) : null}
-		</Card>
+				>
+					<Stack gap={8}>
+						<Box ta="center" px="xs">
+							<Text
+								size="xs"
+								c="gray.1"
+								visibleFrom="sm"
+								style={{ textShadow: "1px 1px 1px rgba(0, 0, 0, 0.8)" }}
+							>
+								{entityInformation}
+							</Text>
+							<Tooltip label={props.title}>
+								<Text
+									fw={700}
+									size="sm"
+									lineClamp={1}
+									c={props.hasInteracted ? "yellow.4" : "white"}
+									style={{ textShadow: "1px 1px 2px rgba(0, 0, 0, 0.5)" }}
+									className={
+										props.isPartialStatusActive ? classes.fadeInOut : undefined
+									}
+								>
+									{props.title}
+								</Text>
+							</Tooltip>
+						</Box>
+						<Group gap={6} justify="center" wrap="nowrap" visibleFrom="sm">
+							<ActionButtons />
+						</Group>
+					</Stack>
+				</Box>
+				{progress ? (
+					<Box
+						h={4}
+						left={0}
+						right={0}
+						bottom={0}
+						pos="absolute"
+						w={`${progress}%`}
+						style={{
+							transition: "width 500ms ease",
+							backgroundColor: "var(--mantine-color-red-4)",
+							filter: "drop-shadow(0 0 1px rgba(239, 68, 68, 0.8))",
+						}}
+					/>
+				) : null}
+			</Card>
+			<Text size="xs" c="dimmed" ta="center" hiddenFrom="sm">
+				{entityInformation}
+			</Text>
+		</Stack>
 	);
 });
