@@ -20,14 +20,13 @@ export enum ThreePointSmileyRating {
 export const getThreePointSmileyEmoji = (
 	rating: ThreePointSmileyRating,
 ): string => {
-	switch (rating) {
-		case ThreePointSmileyRating.Happy:
-			return "😊";
-		case ThreePointSmileyRating.Neutral:
-			return "😐";
-		case ThreePointSmileyRating.Sad:
-			return "😞";
-	}
+	const emojiByRating = {
+		[ThreePointSmileyRating.Happy]: "😊",
+		[ThreePointSmileyRating.Neutral]: "😐",
+		[ThreePointSmileyRating.Sad]: "😞",
+	} satisfies Record<ThreePointSmileyRating, string>;
+
+	return emojiByRating[rating];
 };
 
 export enum FitnessAction {
