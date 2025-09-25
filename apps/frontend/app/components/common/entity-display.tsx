@@ -256,6 +256,7 @@ export const BaseEntityDisplayItem = forwardRef<
 			<Link
 				to={props.onImageClickBehavior[0]}
 				onClick={props.onImageClickBehavior[1]}
+				style={{ width: "100%", height: "100%" }}
 			>
 				<Image
 					w="100%"
