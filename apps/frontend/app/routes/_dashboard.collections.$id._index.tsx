@@ -110,22 +110,21 @@ export const meta = () => {
 };
 
 export default function Page(props: { params: { id: string } }) {
+	const navigate = useNavigate();
+	const userDetails = useUserDetails();
+	const coreDetails = useCoreDetails();
 	const { id: collectionId } = props.params;
 	const userPreferences = useUserPreferences();
-	const userDetails = useUserDetails();
-	const navigate = useNavigate();
 	const userCollections = useUserCollections();
-	const coreDetails = useCoreDetails();
-
+	const [_r, setEntityToReview] = useReviewEntity();
+	const bulkEditingCollection = useBulkEditCollection();
+	const [isReorderMode, setIsReorderMode] = useState(false);
+	const [tab, setTab] = useState<string | null>(DEFAULT_TAB);
 	const { open: openCollectionModal } = useCreateOrUpdateCollectionModal();
 	const [filters, setFilters] = useLocalStorage(
 		`CollectionFilters-${collectionId}`,
 		defaultFilters,
 	);
-	const [tab, setTab] = useState<string | null>(DEFAULT_TAB);
-	const [isReorderMode, setIsReorderMode] = useState(false);
-	const [_r, setEntityToReview] = useReviewEntity();
-	const bulkEditingCollection = useBulkEditCollection();
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -150,6 +149,9 @@ export default function Page(props: { params: { id: string } }) {
 					.then((data) => data.collectionContents),
 		});
 
+	const updateFilter: FilterUpdateFunction<FilterState> = (key, value) =>
+		setFilters((prev) => ({ ...prev, [key]: value }));
+
 	const details = collectionContents?.response;
 	const colDetails = details && {
 		id: collectionId,
@@ -157,10 +159,6 @@ export default function Page(props: { params: { id: string } }) {
 		creatorUserId: details.user.id,
 	};
 	const thisCollection = userCollections.find((c) => c.id === collectionId);
-
-	const updateFilter: FilterUpdateFunction<FilterState> = (key, value) =>
-		setFilters((prev) => ({ ...prev, [key]: value }));
-
 	const areListFiltersActive = isFilterChanged(filters, defaultFilters);
 
 	return (
@@ -539,6 +537,7 @@ const CollectionItem = (props: CollectionItemProps) => {
 	const bulkEditingCollection = useBulkEditCollection();
 	const state = bulkEditingCollection.state;
 	const isAdded = bulkEditingCollection.isAdded(props.item);
+
 	const reorderMutation = useMutation({
 		mutationFn: (input: ReorderCollectionEntityInput) =>
 			clientGqlService.request(ReorderCollectionEntityDocument, { input }),
