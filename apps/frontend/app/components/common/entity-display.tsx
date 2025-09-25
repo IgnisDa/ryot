@@ -231,108 +231,108 @@ export const BaseEntityDisplayItem = forwardRef<
 	}, [props]);
 
 	return (
-		<Tooltip label={props.title}>
-			<Card
-				p={0}
-				w={140}
-				h={240}
-				ref={ref}
-				pos="relative"
-				className={props.imageClassName}
-				withBorder={!shouldHighlightImage}
+		<Card
+			p={0}
+			w={140}
+			h={240}
+			ref={ref}
+			pos="relative"
+			className={props.imageClassName}
+			withBorder={!shouldHighlightImage}
+			style={{
+				overflow: "hidden",
+				boxShadow: shouldHighlightImage
+					? mode === "dark"
+						? "0px 0px 4px 1px rgba(242, 183, 22, 1)"
+						: "0px 0px 8px 3px rgba(24, 142, 245, 1)"
+					: undefined,
+			}}
+		>
+			{props.centerElement ? (
+				<>
+					<Overlay />
+					<Paper
+						top="50%"
+						left="50%"
+						withBorder
+						pos="absolute"
+						style={{ zIndex: 1000, transform: "translate(-50%, -50%)" }}
+					>
+						{props.centerElement}
+					</Paper>
+				</>
+			) : null}
+			<Link
+				to={props.onImageClickBehavior[0]}
+				onClick={props.onImageClickBehavior[1]}
+			>
+				<Image
+					w="100%"
+					h="100%"
+					fit="cover"
+					src={props.image}
+					fallbackSrc={fallback}
+				/>
+			</Link>
+
+			<Group pos="absolute" wrap="nowrap" w="100%" gap={2} p={2}>
+				{props.userToMediaReasons?.map((reason) => (
+					<BaseEntityDisplayItemReason key={reason} reason={reason} />
+				))}
+				{MediaIcon && topRowCount <= 3 ? (
+					<Flex
+						w={24}
+						h={24}
+						align="center"
+						justify="center"
+						style={mediaIconBoxStyle}
+					>
+						<MediaIcon size={16} color="white" />
+					</Flex>
+				) : null}
+				{props.rating && (
+					<Badge
+						ml="auto"
+						size="sm"
+						style={{
+							...ratingBadgeStyle,
+							fontSize:
+								ratingScale === UserReviewScale.ThreePointSmiley
+									? "12px"
+									: "10px",
+						}}
+					>
+						{formatBaseEntityDisplayItemRating(
+							Number(props.rating),
+							ratingScale,
+						)}
+					</Badge>
+				)}
+			</Group>
+			<Box
+				pt={32}
+				left={0}
+				right={0}
+				bottom={0}
+				pos="absolute"
+				pb={progress ? 8 : 4}
 				style={{
-					overflow: "hidden",
-					boxShadow: shouldHighlightImage
-						? mode === "dark"
-							? "0px 0px 4px 1px rgba(242, 183, 22, 1)"
-							: "0px 0px 8px 3px rgba(24, 142, 245, 1)"
-						: undefined,
+					background:
+						mode === "dark"
+							? "linear-gradient(to top, black, rgba(31, 41, 55, 0.95), transparent)"
+							: "linear-gradient(to top, black, rgba(0, 0, 0, 0.85), transparent)",
 				}}
 			>
-				{props.centerElement ? (
-					<>
-						<Overlay />
-						<Paper
-							top="50%"
-							left="50%"
-							withBorder
-							pos="absolute"
-							style={{ zIndex: 1000, transform: "translate(-50%, -50%)" }}
+				<Stack gap={8}>
+					<Box ta="center" px="xs">
+						<Text
+							size="xs"
+							c="gray.1"
+							style={{ textShadow: "1px 1px 1px rgba(0, 0, 0, 0.8)" }}
 						>
-							{props.centerElement}
-						</Paper>
-					</>
-				) : null}
-				<Link
-					to={props.onImageClickBehavior[0]}
-					onClick={props.onImageClickBehavior[1]}
-				>
-					<Image
-						w="100%"
-						h="100%"
-						fit="cover"
-						src={props.image}
-						fallbackSrc={fallback}
-					/>
-				</Link>
-
-				<Group pos="absolute" wrap="nowrap" w="100%" gap={2} p={2}>
-					{props.userToMediaReasons?.map((reason) => (
-						<BaseEntityDisplayItemReason key={reason} reason={reason} />
-					))}
-					{MediaIcon && topRowCount <= 3 ? (
-						<Flex
-							w={24}
-							h={24}
-							align="center"
-							justify="center"
-							style={mediaIconBoxStyle}
-						>
-							<MediaIcon size={16} color="white" />
-						</Flex>
-					) : null}
-					{props.rating && (
-						<Badge
-							ml="auto"
-							size="sm"
-							style={{
-								...ratingBadgeStyle,
-								fontSize:
-									ratingScale === UserReviewScale.ThreePointSmiley
-										? "12px"
-										: "10px",
-							}}
-						>
-							{formatBaseEntityDisplayItemRating(
-								Number(props.rating),
-								ratingScale,
-							)}
-						</Badge>
-					)}
-				</Group>
-				<Box
-					pt={32}
-					left={0}
-					right={0}
-					bottom={0}
-					pos="absolute"
-					pb={progress ? 8 : 4}
-					style={{
-						background:
-							mode === "dark"
-								? "linear-gradient(to top, black, rgba(31, 41, 55, 0.95), transparent)"
-								: "linear-gradient(to top, black, rgba(0, 0, 0, 0.85), transparent)",
-					}}
-				>
-					<Stack gap={8}>
-						<Box ta="center" px="xs">
-							<Text
-								size="xs"
-								c="gray.1"
-								style={{ textShadow: "1px 1px 1px rgba(0, 0, 0, 0.8)" }}
-							>
-								{entityInformation}
-							</Text>
+							{entityInformation}
+						</Text>
+						<Tooltip label={props.title}>
 							<Text
 								fw={700}
 								size="sm"
@@ -345,101 +345,100 @@ export const BaseEntityDisplayItem = forwardRef<
 							>
 								{props.title}
 							</Text>
-						</Box>
-						<Group gap={6} justify="center" wrap="nowrap">
-							{props.interactionButtons.includes("consume") && (
-								<EntityActionButton
-									icon={IconEye}
-									colorName="green"
-									label="Add to history"
-									entityButtonProps={entityButtonProps}
-									className={props.consumeButtonClassName}
-									onClick={() => {
-										if (props.consumeButtonClassName)
-											advanceOnboardingTourStep();
-										initializeMetadataToUpdate(
-											{ metadataId: props.entityId },
-											true,
-										);
-									}}
-								/>
-							)}
-							{props.interactionButtons.includes("watchlist") && (
-								<EntityActionButton
-									colorName="blue"
-									entityButtonProps={entityButtonProps}
-									icon={alreadyInWatchlist ? IconBookmarkOff : IconBookmark}
-									label={`${alreadyInWatchlist ? "Remove from" : "Add to"} watchlist`}
-									onClick={async () => {
-										const mutation = alreadyInWatchlist
-											? removeEntitiesFromCollection
-											: addEntitiesToCollection;
-										await mutation.mutateAsync({
-											collectionName: "Watchlist",
-											creatorUserId: userDetails.id,
-											entities: [
-												{
-													entityId: props.entityId,
-													entityLot: props.entityLot,
-												},
-											],
-										});
-										notifications.show({
-											color: "green",
-											message: `${alreadyInWatchlist ? "Removed from" : "Added to"} your watchlist`,
-										});
-									}}
-								/>
-							)}
-							{props.interactionButtons.includes("collection") && (
-								<EntityActionButton
-									icon={IconArchive}
-									colorName="violet"
-									label="Add to collections"
-									entityButtonProps={entityButtonProps}
-									onClick={() => {
-										setAddEntityToCollectionsData({
-											entityId: props.entityId,
-											entityLot: props.entityLot,
-										});
-									}}
-								/>
-							)}
-							{props.interactionButtons.includes("review") && (
-								<EntityActionButton
-									icon={IconMessage}
-									colorName="orange"
-									label="Leave a review"
-									entityButtonProps={entityButtonProps}
-									onClick={() => {
-										setEntityToReview({
-											metadataLot: props.mediaLot,
-											entityId: props.entityId,
-											entityLot: props.entityLot,
-											entityTitle: props.title ?? "Unknown Title",
-										});
-									}}
-								/>
-							)}
-						</Group>
-					</Stack>
-				</Box>
-				{progress ? (
-					<Box
-						h={4}
-						left={0}
-						right={0}
-						bottom={0}
-						pos="absolute"
-						w={`${progress}%`}
-						style={{
-							transition: "width 500ms ease",
-							backgroundColor: "var(--mantine-color-red-4)",
-							filter: "drop-shadow(0 0 1px rgba(239, 68, 68, 0.8))",
-						}}
-					/>
-				) : null}
-			</Card>
-		</Tooltip>
+						</Tooltip>
+					</Box>
+					<Group gap={6} justify="center" wrap="nowrap">
+						{props.interactionButtons.includes("consume") && (
+							<EntityActionButton
+								icon={IconEye}
+								colorName="green"
+								label="Add to history"
+								entityButtonProps={entityButtonProps}
+								className={props.consumeButtonClassName}
+								onClick={() => {
+									if (props.consumeButtonClassName) advanceOnboardingTourStep();
+									initializeMetadataToUpdate(
+										{ metadataId: props.entityId },
+										true,
+									);
+								}}
+							/>
+						)}
+						{props.interactionButtons.includes("watchlist") && (
+							<EntityActionButton
+								colorName="blue"
+								entityButtonProps={entityButtonProps}
+								icon={alreadyInWatchlist ? IconBookmarkOff : IconBookmark}
+								label={`${alreadyInWatchlist ? "Remove from" : "Add to"} watchlist`}
+								onClick={async () => {
+									const mutation = alreadyInWatchlist
+										? removeEntitiesFromCollection
+										: addEntitiesToCollection;
+									await mutation.mutateAsync({
+										collectionName: "Watchlist",
+										creatorUserId: userDetails.id,
+										entities: [
+											{
+												entityId: props.entityId,
+												entityLot: props.entityLot,
+											},
+										],
+									});
+									notifications.show({
+										color: "green",
+										message: `${alreadyInWatchlist ? "Removed from" : "Added to"} your watchlist`,
+									});
+								}}
+							/>
+						)}
+						{props.interactionButtons.includes("collection") && (
+							<EntityActionButton
+								icon={IconArchive}
+								colorName="violet"
+								label="Add to collections"
+								entityButtonProps={entityButtonProps}
+								onClick={() => {
+									setAddEntityToCollectionsData({
+										entityId: props.entityId,
+										entityLot: props.entityLot,
+									});
+								}}
+							/>
+						)}
+						{props.interactionButtons.includes("review") && (
+							<EntityActionButton
+								icon={IconMessage}
+								colorName="orange"
+								label="Leave a review"
+								entityButtonProps={entityButtonProps}
+								onClick={() => {
+									setEntityToReview({
+										metadataLot: props.mediaLot,
+										entityId: props.entityId,
+										entityLot: props.entityLot,
+										entityTitle: props.title ?? "Unknown Title",
+									});
+								}}
+							/>
+						)}
+					</Group>
+				</Stack>
+			</Box>
+			{progress ? (
+				<Box
+					h={4}
+					left={0}
+					right={0}
+					bottom={0}
+					pos="absolute"
+					w={`${progress}%`}
+					style={{
+						transition: "width 500ms ease",
+						backgroundColor: "var(--mantine-color-red-4)",
+						filter: "drop-shadow(0 0 1px rgba(239, 68, 68, 0.8))",
+					}}
+				/>
+			) : null}
+		</Card>
 	);
 });
