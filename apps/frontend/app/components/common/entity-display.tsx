@@ -212,22 +212,95 @@ export const BaseEntityDisplayItem = forwardRef<
 				: undefined,
 	);
 
-	const entityButtonProps: ActionIconProps = {
-		size: 28,
-		variant: "default",
-	};
-
 	const entityInformation = (props.additionalInformation || [])
 		.filter(Boolean)
 		.join(" • ");
 
+	const ActionButtons = () => {
+		const entityButtonProps: ActionIconProps = { size: 28, variant: "default" };
+		return (
+			<>
+				{props.interactionButtons.includes("consume") && (
+					<EntityActionButton
+						icon={IconEye}
+						colorName="green"
+						label="Add to history"
+						entityButtonProps={entityButtonProps}
+						className={props.consumeButtonClassName}
+						onClick={() => {
+							if (props.consumeButtonClassName) advanceOnboardingTourStep();
+							initializeMetadataToUpdate({ metadataId: props.entityId }, true);
+						}}
+					/>
+				)}
+				{props.interactionButtons.includes("watchlist") && (
+					<EntityActionButton
+						colorName="blue"
+						entityButtonProps={entityButtonProps}
+						icon={alreadyInWatchlist ? IconBookmarkOff : IconBookmark}
+						label={`${alreadyInWatchlist ? "Remove from" : "Add to"} watchlist`}
+						onClick={async () => {
+							const mutation = alreadyInWatchlist
+								? removeEntitiesFromCollection
+								: addEntitiesToCollection;
+							await mutation.mutateAsync({
+								collectionName: "Watchlist",
+								creatorUserId: userDetails.id,
+								entities: [
+									{
+										entityId: props.entityId,
+										entityLot: props.entityLot,
+									},
+								],
+							});
+							notifications.show({
+								color: "green",
+								message: `${alreadyInWatchlist ? "Removed from" : "Added to"} your watchlist`,
+							});
+						}}
+					/>
+				)}
+				{props.interactionButtons.includes("collection") && (
+					<EntityActionButton
+						icon={IconArchive}
+						colorName="violet"
+						label="Add to collections"
+						entityButtonProps={entityButtonProps}
+						onClick={() => {
+							setAddEntityToCollectionsData({
+								entityId: props.entityId,
+								entityLot: props.entityLot,
+							});
+						}}
+					/>
+				)}
+				{props.interactionButtons.includes("review") && (
+					<EntityActionButton
+						icon={IconMessage}
+						colorName="orange"
+						label="Leave a review"
+						entityButtonProps={entityButtonProps}
+						onClick={() => {
+							setEntityToReview({
+								metadataLot: props.mediaLot,
+								entityId: props.entityId,
+								entityLot: props.entityLot,
+								entityTitle: props.title ?? "Unknown Title",
+							});
+						}}
+					/>
+				)}
+			</>
+		);
+	};
+
 	return (
 		<Card
 			p={0}
-			w={140}
-			h={240}
 			ref={ref}
 			pos="relative"
+			w={{ base: 108, sm: 146 }}
+			h={{ base: 180, sm: 240 }}
 			className={props.imageClassName}
 			withBorder={!shouldHighlightImage}
 			style={{
@@ -267,6 +340,20 @@ export const BaseEntityDisplayItem = forwardRef<
 				/>
 			</Link>
 
+			<Flex
+				gap={2}
+				top={0}
+				h="100%"
+				right={4}
+				bottom={0}
+				align="center"
+				pos="absolute"
+				justify="center"
+				direction="column"
+				style={{ zIndex: 10 }}
+			>
+				<ActionButtons />
+			</Flex>
 			<Group pos="absolute" wrap="nowrap" w="100%" gap={2} p={2}>
 				{props.userToMediaReasons?.map((reason) => (
 					<BaseEntityDisplayItemReason key={reason} reason={reason} />
@@ -322,6 +409,7 @@ export const BaseEntityDisplayItem = forwardRef<
 						<Text
 							size="xs"
 							c="gray.1"
+							visibleFrom="sm"
 							style={{ textShadow: "1px 1px 1px rgba(0, 0, 0, 0.8)" }}
 						>
 							{entityInformation}
@@ -341,80 +429,8 @@ export const BaseEntityDisplayItem = forwardRef<
 							</Text>
 						</Tooltip>
 					</Box>
-					<Group gap={6} justify="center" wrap="nowrap">
-						{props.interactionButtons.includes("consume") && (
-							<EntityActionButton
-								icon={IconEye}
-								colorName="green"
-								label="Add to history"
-								entityButtonProps={entityButtonProps}
-								className={props.consumeButtonClassName}
-								onClick={() => {
-									if (props.consumeButtonClassName) advanceOnboardingTourStep();
-									initializeMetadataToUpdate(
-										{ metadataId: props.entityId },
-										true,
-									);
-								}}
-							/>
-						)}
-						{props.interactionButtons.includes("watchlist") && (
-							<EntityActionButton
-								colorName="blue"
-								entityButtonProps={entityButtonProps}
-								icon={alreadyInWatchlist ? IconBookmarkOff : IconBookmark}
-								label={`${alreadyInWatchlist ? "Remove from" : "Add to"} watchlist`}
-								onClick={async () => {
-									const mutation = alreadyInWatchlist
-										? removeEntitiesFromCollection
-										: addEntitiesToCollection;
-									await mutation.mutateAsync({
-										collectionName: "Watchlist",
-										creatorUserId: userDetails.id,
-										entities: [
-											{
-												entityId: props.entityId,
-												entityLot: props.entityLot,
-											},
-										],
-									});
-									notifications.show({
-										color: "green",
-										message: `${alreadyInWatchlist ? "Removed from" : "Added to"} your watchlist`,
-									});
-								}}
-							/>
-						)}
-						{props.interactionButtons.includes("collection") && (
-							<EntityActionButton
-								icon={IconArchive}
-								colorName="violet"
-								label="Add to collections"
-								entityButtonProps={entityButtonProps}
-								onClick={() => {
-									setAddEntityToCollectionsData({
-										entityId: props.entityId,
-										entityLot: props.entityLot,
-									});
-								}}
-							/>
-						)}
-						{props.interactionButtons.includes("review") && (
-							<EntityActionButton
-								icon={IconMessage}
-								colorName="orange"
-								label="Leave a review"
-								entityButtonProps={entityButtonProps}
-								onClick={() => {
-									setEntityToReview({
-										metadataLot: props.mediaLot,
-										entityId: props.entityId,
-										entityLot: props.entityLot,
-										entityTitle: props.title ?? "Unknown Title",
-									});
-								}}
-							/>
-						)}
+					<Group gap={6} justify="center" wrap="nowrap" visibleFrom="sm">
+						<ActionButtons />
 					</Group>
 				</Stack>
 			</Box>
