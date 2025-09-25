@@ -31,7 +31,7 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
         .all(&ss.db)
         .await?;
     for user_id in all_users {
-        let mut has_changes = false;
+        let mut has_user_level_changes = false;
         let collections = Collection::find()
             .filter(collection::Column::UserId.eq(&user_id))
             .all(&ss.db)
@@ -152,11 +152,11 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
                 }
                 ute.needs_to_be_updated = ActiveValue::Set(None);
                 ute.update(&ss.db).await?;
-                has_changes = true;
+                has_user_level_changes = true;
             }
             expire_user_metadata_details_cache(&user_id, &entity_id, ss).await?;
         }
-        if has_changes {
+        if has_user_level_changes {
             expire_user_metadata_list_cache(&user_id, ss).await?;
         }
     }
