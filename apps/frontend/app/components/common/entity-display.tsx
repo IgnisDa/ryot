@@ -21,7 +21,7 @@ import {
 	UserReviewScale,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
-import { getInitials } from "@ryot/ts-utils";
+import { changeCase, getInitials } from "@ryot/ts-utils";
 import {
 	IconArchive,
 	IconBackpack,
@@ -142,15 +142,17 @@ const BaseEntityDisplayItemReason = (props: {
 	if (!Icon || !color) return null;
 
 	return (
-		<Flex
-			w={24}
-			h={24}
-			align="center"
-			justify="center"
-			style={overlayIconBoxStyle}
-		>
-			<Icon size={16} color={color} />
-		</Flex>
+		<Tooltip label={changeCase(props.reason)}>
+			<Flex
+				w={24}
+				h={24}
+				align="center"
+				justify="center"
+				style={overlayIconBoxStyle}
+			>
+				<Icon size={16} color={color} />
+			</Flex>
+		</Tooltip>
 	);
 };
 
