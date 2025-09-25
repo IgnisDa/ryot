@@ -65,6 +65,55 @@ const blackBgStyles = {
 	padding: 2,
 } satisfies MantineStyleProp;
 
+const getThemeColor = (colorName: string, mode: string): string => {
+	const shade = mode === "dark" ? "3" : "7";
+	return `var(--mantine-color-${colorName}-${shade})`;
+};
+
+const overlayIconBoxStyle = {
+	borderRadius: 4,
+	backgroundColor: "rgba(0, 0, 0, 0.9)",
+	boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
+	border: "1px solid rgba(255, 255, 255, 0.4)",
+} satisfies MantineStyleProp;
+
+const mediaIconBoxStyle = {
+	borderRadius: 4,
+	backgroundColor: "rgba(0, 0, 0, 0.95)",
+	boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
+	border: "1px solid rgba(255, 255, 255, 0.3)",
+} satisfies MantineStyleProp;
+
+const ratingBadgeStyle = {
+	color: "white",
+	backgroundColor: "rgba(0, 0, 0, 0.95)",
+	boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
+	border: "1px solid rgba(255, 255, 255, 0.2)",
+} satisfies MantineStyleProp;
+
+const EntityActionButton = (props: {
+	label: string;
+	onClick: () => void;
+	icon: React.ComponentType<{ size: number; color: string }>;
+	colorName: string;
+	mode: string;
+	className?: string;
+	entityButtonProps: ActionIconProps;
+}) => (
+	<Tooltip label={props.label}>
+		<ActionIcon
+			className={props.className}
+			onClick={props.onClick}
+			{...props.entityButtonProps}
+		>
+			<props.icon
+				size={20}
+				color={getThemeColor(props.colorName, props.mode)}
+			/>
+		</ActionIcon>
+	</Tooltip>
+);
+
 export const Old__BaseEntityDisplayItem = (props: {
 	name?: string;
 	altName?: string;
@@ -254,12 +303,7 @@ const BaseEntityDisplayItemReason = (props: {
 			h={24}
 			align="center"
 			justify="center"
-			style={{
-				borderRadius: 4,
-				backgroundColor: "rgba(0, 0, 0, 0.9)",
-				boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
-				border: "1px solid rgba(255, 255, 255, 0.4)",
-			}}
+			style={overlayIconBoxStyle}
 		>
 			<Icon size={16} color={color} />
 		</Flex>
@@ -398,12 +442,7 @@ export const BaseEntityDisplayItem = forwardRef<
 							h={24}
 							align="center"
 							justify="center"
-							style={{
-								borderRadius: 4,
-								backgroundColor: "rgba(0, 0, 0, 0.95)",
-								boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
-								border: "1px solid rgba(255, 255, 255, 0.3)",
-							}}
+							style={mediaIconBoxStyle}
 						>
 							<MediaIcon size={16} color="white" />
 						</Flex>
@@ -413,10 +452,7 @@ export const BaseEntityDisplayItem = forwardRef<
 							ml="auto"
 							size="sm"
 							style={{
-								color: "white",
-								backgroundColor: "rgba(0, 0, 0, 0.95)",
-								boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
-								border: "1px solid rgba(255, 255, 255, 0.2)",
+								...ratingBadgeStyle,
 								fontSize:
 									ratingScale === UserReviewScale.ThreePointSmiley
 										? "12px"
@@ -468,123 +504,82 @@ export const BaseEntityDisplayItem = forwardRef<
 						</Box>
 						<Group gap={6} justify="center" wrap="nowrap">
 							{props.interactionButtons.includes("consume") && (
-								<Tooltip label="Add to history">
-									<ActionIcon
-										className={props.consumeButtonClassName}
-										onClick={() => {
-											if (props.consumeButtonClassName)
-												advanceOnboardingTourStep();
-											initializeMetadataToUpdate(
-												{ metadataId: props.entityId },
-												true,
-											);
-										}}
-										{...entityButtonProps}
-									>
-										<IconEye
-											size={20}
-											color={
-												mode === "dark"
-													? "var(--mantine-color-green-3)"
-													: "var(--mantine-color-green-7)"
-											}
-										/>
-									</ActionIcon>
-								</Tooltip>
+								<EntityActionButton
+									label="Add to history"
+									className={props.consumeButtonClassName}
+									onClick={() => {
+										if (props.consumeButtonClassName)
+											advanceOnboardingTourStep();
+										initializeMetadataToUpdate(
+											{ metadataId: props.entityId },
+											true,
+										);
+									}}
+									icon={IconEye}
+									colorName="green"
+									mode={mode}
+									entityButtonProps={entityButtonProps}
+								/>
 							)}
 							{props.interactionButtons.includes("watchlist") && (
-								<Tooltip
+								<EntityActionButton
 									label={`${alreadyInWatchlist ? "Remove from" : "Add to"} watchlist`}
-								>
-									<ActionIcon
-										onClick={async () => {
-											const mutation = alreadyInWatchlist
-												? removeEntitiesFromCollection
-												: addEntitiesToCollection;
-											await mutation.mutateAsync({
-												collectionName: "Watchlist",
-												creatorUserId: userDetails.id,
-												entities: [
-													{
-														entityId: props.entityId,
-														entityLot: props.entityLot,
-													},
-												],
-											});
-											notifications.show({
-												color: "green",
-												message: `${alreadyInWatchlist ? "Removed from" : "Added to"} your watchlist`,
-											});
-										}}
-										{...entityButtonProps}
-									>
-										{alreadyInWatchlist ? (
-											<IconBookmarkOff
-												size={20}
-												color={
-													mode === "dark"
-														? "var(--mantine-color-blue-3)"
-														: "var(--mantine-color-blue-7)"
-												}
-											/>
-										) : (
-											<IconBookmark
-												size={20}
-												color={
-													mode === "dark"
-														? "var(--mantine-color-blue-3)"
-														: "var(--mantine-color-blue-7)"
-												}
-											/>
-										)}
-									</ActionIcon>
-								</Tooltip>
+									onClick={async () => {
+										const mutation = alreadyInWatchlist
+											? removeEntitiesFromCollection
+											: addEntitiesToCollection;
+										await mutation.mutateAsync({
+											collectionName: "Watchlist",
+											creatorUserId: userDetails.id,
+											entities: [
+												{
+													entityId: props.entityId,
+													entityLot: props.entityLot,
+												},
+											],
+										});
+										notifications.show({
+											color: "green",
+											message: `${alreadyInWatchlist ? "Removed from" : "Added to"} your watchlist`,
+										});
+									}}
+									icon={alreadyInWatchlist ? IconBookmarkOff : IconBookmark}
+									colorName="blue"
+									mode={mode}
+									entityButtonProps={entityButtonProps}
+								/>
 							)}
 							{props.interactionButtons.includes("collection") && (
-								<Tooltip label="Add to collections">
-									<ActionIcon
-										onClick={() => {
-											setAddEntityToCollectionsData({
-												entityId: props.entityId,
-												entityLot: props.entityLot,
-											});
-										}}
-										{...entityButtonProps}
-									>
-										<IconArchive
-											size={20}
-											color={
-												mode === "dark"
-													? "var(--mantine-color-violet-3)"
-													: "var(--mantine-color-violet-7)"
-											}
-										/>
-									</ActionIcon>
-								</Tooltip>
+								<EntityActionButton
+									label="Add to collections"
+									onClick={() => {
+										setAddEntityToCollectionsData({
+											entityId: props.entityId,
+											entityLot: props.entityLot,
+										});
+									}}
+									icon={IconArchive}
+									colorName="violet"
+									mode={mode}
+									entityButtonProps={entityButtonProps}
+								/>
 							)}
 							{props.interactionButtons.includes("review") && (
-								<Tooltip label="Leave a review">
-									<ActionIcon
-										onClick={() => {
-											setEntityToReview({
-												metadataLot: props.lot,
-												entityId: props.entityId,
-												entityLot: props.entityLot,
-												entityTitle: props.title ?? "Unknown Title",
-											});
-										}}
-										{...entityButtonProps}
-									>
-										<IconMessage
-											size={20}
-											color={
-												mode === "dark"
-													? "var(--mantine-color-orange-3)"
-													: "var(--mantine-color-orange-7)"
-											}
-										/>
-									</ActionIcon>
-								</Tooltip>
+								<EntityActionButton
+									mode={mode}
+									label="Leave a review"
+									icon={IconMessage}
+									colorName="orange"
+									entityButtonProps={entityButtonProps}
+									onClick={() => {
+										setEntityToReview({
+											metadataLot: props.lot,
+											entityId: props.entityId,
+											entityLot: props.entityLot,
+											entityTitle: props.title ?? "Unknown Title",
+										});
+									}}
+								/>
 							)}
 						</Group>
 					</Stack>
