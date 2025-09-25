@@ -480,13 +480,16 @@ const FiltersModalForm = (props: {
 	);
 };
 
-const RecommendationsSection = ({ collectionId }: { collectionId: string }) => {
+const RecommendationsSection = (props: { collectionId: string }) => {
 	const [search, setSearchInput] = useLocalStorage(
 		"CollectionRecommendationsSearchInput",
 		{ page: 1, query: "" },
 	);
 
-	const input: CollectionRecommendationsInput = { collectionId, search };
+	const input: CollectionRecommendationsInput = {
+		search,
+		collectionId: props.collectionId,
+	};
 
 	const recommendations = useQuery({
 		queryKey:
