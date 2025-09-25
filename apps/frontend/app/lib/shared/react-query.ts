@@ -5,7 +5,7 @@ import {
 import {
 	type CollectionContentsInput,
 	type CollectionRecommendationsInput,
-	EntityLot,
+	type EntityLot,
 	type GenreDetailsInput,
 	MetadataGroupDetailsDocument,
 	type MetadataGroupSearchInput,
@@ -108,11 +108,8 @@ const mediaQueryKeys = createQueryKeys("media", {
 	userMetadataGroupsList: (input: UserMetadataGroupsListInput) => ({
 		queryKey: ["userMetadataGroupsList", input],
 	}),
-	userEntityRecentlyConsumed: (input: {
-		entityId?: string;
-		entityLot?: EntityLot;
-	}) => ({
-		queryKey: ["userEntityRecentlyConsumed", input],
+	userEntityRecentlyConsumed: (entityId?: string) => ({
+		queryKey: ["userEntityRecentlyConsumed", entityId],
 	}),
 });
 
@@ -245,10 +242,7 @@ export const getUserEntityRecentlyConsumedQuery = (
 	entityLot?: EntityLot,
 ) =>
 	queryOptions({
-		queryKey: queryFactory.media.userEntityRecentlyConsumed({
-			entityId,
-			entityLot,
-		}).queryKey,
+		queryKey: queryFactory.media.userEntityRecentlyConsumed(entityId).queryKey,
 		queryFn:
 			entityId && entityLot
 				? () =>
@@ -272,18 +266,7 @@ export const refreshEntityDetails = (entityId: string) =>
 				queryFactory.media.userMetadataDetails(entityId).queryKey,
 				queryFactory.media.metadataGroupDetails(entityId).queryKey,
 				queryFactory.media.userMetadataGroupDetails(entityId).queryKey,
-				queryFactory.media.userEntityRecentlyConsumed({
-					entityId,
-					entityLot: EntityLot.Metadata,
-				}).queryKey,
-				queryFactory.media.userEntityRecentlyConsumed({
-					entityId,
-					entityLot: EntityLot.MetadataGroup,
-				}).queryKey,
-				queryFactory.media.userEntityRecentlyConsumed({
-					entityId,
-					entityLot: EntityLot.Person,
-				}).queryKey,
+				queryFactory.media.userEntityRecentlyConsumed(entityId).queryKey,
 				queryFactory.fitness.workoutTemplateDetails(entityId).queryKey,
 				queryFactory.media.userGenresList._def,
 				queryFactory.media.userPeopleList._def,

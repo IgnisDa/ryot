@@ -2,7 +2,6 @@ import { Alert, Avatar } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
 import { isNumber } from "@ryot/ts-utils";
 import { IconBellRinging } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { $path } from "safe-routes";
 import { dayjsLib } from "~/lib/shared/date-utils";
@@ -10,13 +9,11 @@ import {
 	useExerciseDetails,
 	useUserDetails,
 	useUserExerciseDetails,
+	useUserWorkoutDetails,
+	useUserWorkoutTemplateDetails,
 } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
-import {
-	getExerciseImages,
-	getWorkoutDetailsQuery,
-	getWorkoutTemplateDetailsQuery,
-} from "~/lib/state/fitness";
+import { getExerciseImages } from "~/lib/state/fitness";
 import { useFullscreenImage } from "~/lib/state/general";
 import { FitnessEntity } from "~/lib/types";
 import { Old__BaseEntityDisplayItem } from "../common/entity-display";
@@ -62,9 +59,8 @@ export const Old__WorkoutDisplayItem = (props: {
 	rightLabel?: ReactNode;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const { data: workoutDetails, isLoading: isWorkoutDetailsLoading } = useQuery(
-		{ ...getWorkoutDetailsQuery(props.workoutId), enabled: inViewport },
-	);
+	const { data: workoutDetails, isLoading: isWorkoutDetailsLoading } =
+		useUserWorkoutDetails(props.workoutId, inViewport);
 
 	return (
 		<Old__BaseEntityDisplayItem
@@ -95,10 +91,7 @@ export const Old__WorkoutTemplateDisplayItem = (props: {
 	const {
 		data: workoutTemplateDetails,
 		isLoading: isWorkoutTemplateDetailsLoading,
-	} = useQuery({
-		...getWorkoutTemplateDetailsQuery(props.workoutTemplateId),
-		enabled: inViewport,
-	});
+	} = useUserWorkoutTemplateDetails(props.workoutTemplateId, inViewport);
 
 	return (
 		<Old__BaseEntityDisplayItem

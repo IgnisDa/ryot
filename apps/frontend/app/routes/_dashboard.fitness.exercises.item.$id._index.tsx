@@ -55,7 +55,7 @@ import {
 	IconTrophy,
 	IconUser,
 } from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
 import { Fragment, useState } from "react";
 import { Link, useLoaderData, useNavigate } from "react-router";
@@ -80,13 +80,13 @@ import {
 	useUserDetails,
 	useUserPreferences,
 	useUserUnitSystem,
+	useUserWorkoutDetails,
 } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
 	addExerciseToCurrentWorkout,
 	getExerciseImages,
-	getWorkoutDetailsQuery,
 	useCurrentWorkout,
 	useMergingExercise,
 } from "~/lib/state/fitness";
@@ -705,7 +705,7 @@ const DisplayPersonalBest = (props: {
 	personalBestLot: WorkoutSetPersonalBest;
 }) => {
 	const unitSystem = useUserUnitSystem();
-	const { data } = useQuery(getWorkoutDetailsQuery(props.set.workoutId));
+	const { data } = useUserWorkoutDetails(props.set.workoutId);
 	const set =
 		data?.details.information.exercises[props.set.exerciseIdx].sets[
 			props.set.setIdx

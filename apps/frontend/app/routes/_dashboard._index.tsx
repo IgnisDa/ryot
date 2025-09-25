@@ -422,10 +422,9 @@ const UpcomingMediaSection = (props: { um: CalendarEventPartFragment }) => {
 
 	return (
 		<Old__MetadataDisplayItem
-			noLeftLabel
 			altName={props.um.metadataText}
 			metadataId={props.um.metadataId}
-			rightLabel={`${match(props.um.metadataLot)
+			additionalInformation={`${match(props.um.metadataLot)
 				.with(
 					MediaLot.Show,
 					() =>

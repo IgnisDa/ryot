@@ -1,37 +1,21 @@
 import { Button, MultiSelect, Stack } from "@mantine/core";
 import { useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import {
-	EntityLot,
-	type Scalars,
-} from "@ryot/generated/graphql/backend/graphql";
+import type { Scalars } from "@ryot/generated/graphql/backend/graphql";
 import { groupBy } from "@ryot/ts-utils";
-import { useQuery } from "@tanstack/react-query";
 import { type FormEvent, useMemo } from "react";
 import { Form } from "react-router";
 import { Fragment } from "react/jsx-runtime";
-import invariant from "tiny-invariant";
-import { match } from "ts-pattern";
 import { CollectionTemplateRenderer } from "~/components/common/CollectionTemplateRenderer";
 import {
 	useAddEntitiesToCollectionMutation,
 	useApplicationEvents,
+	useEntityAlreadyInCollections,
 	useFormValidation,
 	useNonHiddenUserCollections,
 	useUserDetails,
 } from "~/lib/shared/hooks";
-import {
-	getUserMetadataDetailsQuery,
-	getUserMetadataGroupDetailsQuery,
-	getUserPersonDetailsQuery,
-	queryClient,
-	refreshEntityDetails,
-} from "~/lib/shared/react-query";
-import {
-	getUserExerciseDetailsQuery,
-	getWorkoutDetailsQuery,
-	getWorkoutTemplateDetailsQuery,
-} from "~/lib/state/fitness";
+import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { useAddEntityToCollections } from "~/lib/state/media";
 import type { Collection } from "../types";
 
@@ -45,51 +29,10 @@ export const AddEntityToCollectionsForm = ({
 	const events = useApplicationEvents();
 	const [addEntityToCollectionData] = useAddEntityToCollections();
 	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
-
-	const alreadyInCollectionsQueryKey = [
-		"alreadyInCollections",
+	const { alreadyInCollectionIds } = useEntityAlreadyInCollections(
 		addEntityToCollectionData?.entityId,
-	];
-
-	const { data: alreadyInCollections } = useQuery({
-		queryKey: alreadyInCollectionsQueryKey,
-		queryFn: async () => {
-			const entityId = addEntityToCollectionData?.entityId;
-			invariant(entityId);
-			return match(addEntityToCollectionData?.entityLot)
-				.with(EntityLot.Exercise, () =>
-					queryClient
-						.ensureQueryData(getUserExerciseDetailsQuery(entityId))
-						.then((d) => d.collections.map((c) => c.details.collectionId)),
-				)
-				.with(EntityLot.Workout, () =>
-					queryClient
-						.ensureQueryData(getWorkoutDetailsQuery(entityId))
-						.then((d) => d.collections.map((c) => c.details.collectionId)),
-				)
-				.with(EntityLot.WorkoutTemplate, () =>
-					queryClient
-						.ensureQueryData(getWorkoutTemplateDetailsQuery(entityId))
-						.then((d) => d.collections.map((c) => c.details.collectionId)),
-				)
-				.with(EntityLot.Metadata, () =>
-					queryClient
-						.ensureQueryData(getUserMetadataDetailsQuery(entityId))
-						.then((d) => d.collections.map((c) => c.details.collectionId)),
-				)
-				.with(EntityLot.MetadataGroup, () =>
-					queryClient
-						.ensureQueryData(getUserMetadataGroupDetailsQuery(entityId))
-						.then((d) => d.collections.map((c) => c.details.collectionId)),
-				)
-				.with(EntityLot.Person, () =>
-					queryClient
-						.ensureQueryData(getUserPersonDetailsQuery(entityId))
-						.then((d) => d.collections.map((c) => c.details.collectionId)),
-				)
-				.run();
-		},
-	});
+		addEntityToCollectionData?.entityLot,
+	);
 
 	const [selectedCollections, selectedCollectionsHandlers] = useListState<
 		Collection & { userExtraInformationData: Scalars["JSON"]["input"] }
@@ -108,10 +51,10 @@ export const AddEntityToCollectionsForm = ({
 				items: items.map((c) => ({
 					label: c.name,
 					value: c.id.toString(),
-					disabled: alreadyInCollections?.includes(c.id.toString()),
+					disabled: alreadyInCollectionIds?.includes(c.id.toString()),
 				})),
 			})),
-		[collections, userDetails.id, alreadyInCollections],
+		[collections, userDetails.id, alreadyInCollectionIds],
 	);
 
 	if (!addEntityToCollectionData) return null;
@@ -171,7 +114,6 @@ export const AddEntityToCollectionsForm = ({
 			title: "Added to collection",
 			message: `Entity added to ${selectedCollections.length} collection(s)`,
 		});
-		queryClient.removeQueries({ queryKey: alreadyInCollectionsQueryKey });
 		refreshEntityDetails(addEntityToCollectionData.entityId);
 		closeAddEntityToCollectionsDrawer();
 		events.addToCollection(addEntityToCollectionData.entityLot);

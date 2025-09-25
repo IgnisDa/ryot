@@ -575,7 +575,7 @@ const CollectionItem = (props: CollectionItemProps) => {
 			entityLot={props.item.entityLot}
 			topLeft={
 				props.isReorderMode ? (
-					<ActionIcon color="blue" variant="filled" onClick={handleRankClick}>
+					<ActionIcon variant="filled" onClick={handleRankClick}>
 						<Text size="xs" fw={700} c="white">
 							{props.rankNumber}
 						</Text>

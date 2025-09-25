@@ -94,10 +94,8 @@ export const DisplayCollectionEntity = (props: {
 	match(props.entityLot)
 		.with(EntityLot.Metadata, () => (
 			<Old__MetadataDisplayItem
-				rightLabelLot
-				topLeft={props.topLeft}
-				topRight={props.topRight}
 				metadataId={props.entityId}
+				centerElement={props.topLeft || props.topRight}
 			/>
 		))
 		.with(EntityLot.MetadataGroup, () => (

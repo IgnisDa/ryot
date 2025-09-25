@@ -1,6 +1,4 @@
-import { ActionIcon, Group, ThemeIcon, Tooltip } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
 import {
 	EntityLot,
 	MediaLot,
@@ -8,16 +6,8 @@ import {
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase } from "@ryot/ts-utils";
-import {
-	IconBackpack,
-	IconBookmarks,
-	IconPlayerPlay,
-	IconRosetteDiscountCheck,
-} from "@tabler/icons-react";
-import clsx from "clsx";
 import { type ReactNode, useMemo } from "react";
 import { $path } from "safe-routes";
-import { match } from "ts-pattern";
 import {
 	useMetadataDetails,
 	useMetadataGroupDetails,
@@ -27,30 +17,23 @@ import {
 	useUserMetadataGroupDetails,
 	useUserPersonDetails,
 } from "~/lib/shared/hooks";
-import { useMetadataProgressUpdate } from "~/lib/state/media";
-import { useOnboardingTour } from "~/lib/state/onboarding-tour";
-import classes from "~/styles/common.module.css";
-import { Old__BaseEntityDisplayItem } from "../common/entity-display";
+import {
+	BaseEntityDisplayItem,
+	Old__BaseEntityDisplayItem,
+} from "../common/entity-display";
 import { Old__DisplayAverageRatingOverlay } from "./rating-overlay";
 
 export const Old__MetadataDisplayItem = (props: {
-	name?: string;
 	altName?: string;
 	metadataId: string;
-	topLeft?: ReactNode;
-	topRight?: ReactNode;
-	noLeftLabel?: boolean;
-	rightLabel?: ReactNode;
-	rightLabelLot?: boolean;
 	imageClassName?: string;
-	rightLabelHistory?: boolean;
+	centerElement?: ReactNode;
+	additionalInformation?: string;
 	shouldHighlightNameIfInteracted?: boolean;
 	bottomRightImageOverlayClassName?: string;
 	onImageClickBehavior?: () => Promise<void>;
 }) => {
-	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
 	const { ref, inViewport } = useInViewport();
-	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const [
 		{ data: metadataDetails, isLoading: isMetadataDetailsLoading },
@@ -81,9 +64,8 @@ export const Old__MetadataDisplayItem = (props: {
 		].includes(r),
 	);
 
-	const leftLabel = useMemo(() => {
-		if (props.noLeftLabel || !metadataDetails || !userMetadataDetails)
-			return null;
+	const extraInformation = useMemo(() => {
+		if (!metadataDetails || !userMetadataDetails) return "";
 
 		const inProgress = userMetadataDetails.inProgress;
 		if (inProgress) {
@@ -101,19 +83,8 @@ export const Old__MetadataDisplayItem = (props: {
 				return `EP-${nextEntry.episode}`;
 		}
 
-		return metadataDetails.publishYear;
-	}, [metadataDetails, userMetadataDetails, props.noLeftLabel]);
-
-	const surroundReason = (
-		idx: number,
-		data: readonly [UserToMediaReason, ReactNode],
-	) => (
-		<Tooltip label={changeCase(data[0])} key={idx}>
-			<ThemeIcon variant="transparent" size="sm" color="cyan">
-				{data[1]}
-			</ThemeIcon>
-		</Tooltip>
-	);
+		return "";
+	}, [metadataDetails, userMetadataDetails]);
 
 	const images = [
 		...(metadataDetails?.assets.remoteImages || []),
@@ -121,17 +92,26 @@ export const Old__MetadataDisplayItem = (props: {
 	];
 
 	return (
-		<Old__BaseEntityDisplayItem
-			innerRef={ref}
-			imageUrl={images.at(0)}
-			altName={props.altName}
+		<BaseEntityDisplayItem
+			ref={ref}
+			image={images.at(0)}
 			progress={currentProgress}
+			entityId={props.metadataId}
+			lot={metadataDetails?.lot}
+			userToMediaReasons={reasons}
+			entityLot={EntityLot.Metadata}
+			rating={averageRating ?? undefined}
+			centerElement={props.centerElement}
 			imageClassName={props.imageClassName}
-			highlightImage={isMetadataRecentlyConsumed}
-			name={props.name ?? metadataDetails?.title}
+			consumptionCount={completedHistory.length}
 			isDetailsLoading={isMetadataDetailsLoading}
+			title={props.altName ?? metadataDetails?.title}
+			wasRecentlyConsumed={isMetadataRecentlyConsumed}
+			year={metadataDetails?.publishYear ?? undefined}
 			isPartialStatusActive={isMetadataPartialStatusActive}
-			highlightName={
+			interactionButtons={["collection", "consume", "review", "watchlist"]}
+			additionalInformation={[extraInformation, props.additionalInformation]}
+			hasInteracted={
 				props.shouldHighlightNameIfInteracted &&
 				userMetadataDetails?.hasInteracted
 			}
@@ -139,92 +119,6 @@ export const Old__MetadataDisplayItem = (props: {
 				$path("/media/item/:id", { id: props.metadataId }),
 				props.onImageClickBehavior,
 			]}
-			labels={
-				metadataDetails
-					? {
-							left: leftLabel,
-							right:
-								props.rightLabel ||
-								(props.rightLabelLot
-									? changeCase(snakeCase(metadataDetails.lot))
-									: undefined) ||
-								(props.rightLabelHistory
-									? completedHistory.length > 0
-										? `${completedHistory.length} time${completedHistory.length === 1 ? "" : "s"}`
-										: null
-									: changeCase(snakeCase(metadataDetails.lot))),
-						}
-					: undefined
-			}
-			imageOverlay={{
-				topLeft: props.topLeft,
-				topRight: props.topRight || (
-					<Old__DisplayAverageRatingOverlay
-						entityId={props.metadataId}
-						averageRating={averageRating}
-						entityLot={EntityLot.Metadata}
-						metadataLot={metadataDetails?.lot}
-						entityTitle={metadataDetails?.title}
-					/>
-				),
-				bottomLeft:
-					reasons && reasons.length > 0 ? (
-						<Group gap={3}>
-							{reasons
-								.map((r) =>
-									match(r)
-										.with(
-											UserToMediaReason.Finished,
-											() => [r, <IconRosetteDiscountCheck key={r} />] as const,
-										)
-										.with(
-											UserToMediaReason.Watchlist,
-											() => [r, <IconBookmarks key={r} />] as const,
-										)
-										.with(
-											UserToMediaReason.Owned,
-											() => [r, <IconBackpack key={r} />] as const,
-										)
-										.run(),
-								)
-								.map((data, idx) => surroundReason(idx, data))}
-						</Group>
-					) : null,
-				bottomRight: (
-					<ActionIcon
-						color="blue"
-						size="compact-md"
-						variant="transparent"
-						className={props.bottomRightImageOverlayClassName}
-						onClick={async () => {
-							if (isMetadataDetailsLoading || isMetadataPartialStatusActive) {
-								notifications.show({
-									color: "yellow",
-									title: "Please wait",
-									message: "Details are still loading",
-								});
-								return;
-							}
-
-							initializeMetadataToUpdate(
-								{ metadataId: props.metadataId },
-								true,
-							);
-
-							if (props.bottomRightImageOverlayClassName) {
-								advanceOnboardingTourStep();
-							}
-						}}
-					>
-						<IconPlayerPlay
-							size={20}
-							className={clsx({
-								[classes.fadeInOut]: isMetadataPartialStatusActive,
-							})}
-						/>
-					</ActionIcon>
-				),
-			}}
 		/>
 	);
 };

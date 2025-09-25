@@ -24,7 +24,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormEvent } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
 	useFetcher,
@@ -34,6 +34,7 @@ import {
 } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
+import { match } from "ts-pattern";
 import { useInterval, useMediaQuery } from "usehooks-ts";
 import {
 	clientGqlService,
@@ -51,6 +52,8 @@ import { selectRandomElement } from "~/lib/shared/ui-utils";
 import {
 	getExerciseDetailsQuery,
 	getUserExerciseDetailsQuery,
+	getWorkoutDetailsQuery,
+	getWorkoutTemplateDetailsQuery,
 } from "~/lib/state/fitness";
 import {
 	type InProgressWorkout,
@@ -260,6 +263,26 @@ export const useUserExerciseDetails = (
 ) => {
 	return useQuery({
 		...getUserExerciseDetailsQuery(exerciseId || ""),
+		enabled,
+	});
+};
+
+export const useUserWorkoutDetails = (
+	workoutId?: string | null,
+	enabled?: boolean,
+) => {
+	return useQuery({
+		...getWorkoutDetailsQuery(workoutId || ""),
+		enabled,
+	});
+};
+
+export const useUserWorkoutTemplateDetails = (
+	workoutTemplateId?: string | null,
+	enabled?: boolean,
+) => {
+	return useQuery({
+		...getWorkoutTemplateDetailsQuery(workoutTemplateId || ""),
 		enabled,
 	});
 };
@@ -584,4 +607,86 @@ export const useMarkUserOnboardingTourStatus = () => {
 	});
 
 	return markUserOnboardingTourAsCompleted;
+};
+
+export const useEntityAlreadyInCollections = (
+	entityId?: string,
+	entityLot?: EntityLot,
+) => {
+	const userCollections = useUserCollections();
+
+	const userMetadataDetails = useUserMetadataDetails(
+		entityId,
+		entityLot === EntityLot.Metadata,
+	);
+	const userExerciseDetails = useUserExerciseDetails(
+		entityId,
+		entityLot === EntityLot.Exercise,
+	);
+	const userWorkoutDetails = useUserWorkoutDetails(
+		entityId,
+		entityLot === EntityLot.Workout,
+	);
+	const userWorkoutTemplateDetails = useUserWorkoutTemplateDetails(
+		entityId,
+		entityLot === EntityLot.WorkoutTemplate,
+	);
+	const userMetadataGroupDetails = useUserMetadataGroupDetails(
+		entityId,
+		entityLot === EntityLot.MetadataGroup,
+	);
+	const userPersonDetails = useUserPersonDetails(
+		entityId,
+		entityLot === EntityLot.Person,
+	);
+
+	const alreadyInCollectionIds = useMemo(() => {
+		if (!entityId) return undefined;
+
+		return match(entityLot)
+			.with(EntityLot.Exercise, () =>
+				userExerciseDetails.data?.collections.map(
+					(c) => c.details.collectionId,
+				),
+			)
+			.with(EntityLot.Workout, () =>
+				userWorkoutDetails.data?.collections.map((c) => c.details.collectionId),
+			)
+			.with(EntityLot.WorkoutTemplate, () =>
+				userWorkoutTemplateDetails.data?.collections.map(
+					(c) => c.details.collectionId,
+				),
+			)
+			.with(EntityLot.Metadata, () =>
+				userMetadataDetails.data?.collections.map(
+					(c) => c.details.collectionId,
+				),
+			)
+			.with(EntityLot.MetadataGroup, () =>
+				userMetadataGroupDetails.data?.collections.map(
+					(c) => c.details.collectionId,
+				),
+			)
+			.with(EntityLot.Person, () =>
+				userPersonDetails.data?.collections.map((c) => c.details.collectionId),
+			)
+			.run();
+	}, [
+		entityId,
+		entityLot,
+		userPersonDetails.data,
+		userWorkoutDetails.data,
+		userMetadataDetails.data,
+		userExerciseDetails.data,
+		userMetadataGroupDetails.data,
+		userWorkoutTemplateDetails.data,
+	]);
+
+	const alreadyInCollectionNames = useMemo(() => {
+		return (alreadyInCollectionIds || []).map(
+			(c) => userCollections.find((uc) => uc.id === c)?.name,
+		);
+	}, [userCollections, alreadyInCollectionIds]);
+
+	return { alreadyInCollectionIds, alreadyInCollectionNames };
 };

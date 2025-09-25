@@ -684,9 +684,8 @@ const MediaListItem = (props: MediaListItemProps) => {
 
 	return (
 		<Old__MetadataDisplayItem
-			rightLabelHistory
 			metadataId={props.item}
-			topRight={
+			centerElement={
 				bulkEditingState &&
 				bulkEditingState.data.action === "add" &&
 				!isAlreadyPresent ? (

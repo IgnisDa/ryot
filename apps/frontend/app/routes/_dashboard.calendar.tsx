@@ -136,11 +136,10 @@ const CalendarEvent = (props: {
 			<ApplicationGrid>
 				{props.data.events.map((calEvent) => (
 					<Old__MetadataDisplayItem
-						noLeftLabel
 						key={calEvent.calendarEventId}
 						altName={calEvent.metadataText}
 						metadataId={calEvent.metadataId}
-						rightLabel={`${match(calEvent.metadataLot)
+						additionalInformation={`${match(calEvent.metadataLot)
 							.with(
 								MediaLot.Show,
 								() =>

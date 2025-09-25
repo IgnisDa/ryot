@@ -48,7 +48,6 @@ import {
 	IconWeight,
 	IconZzz,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useMemo, useState } from "react";
 import { Form, Link, data, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
@@ -77,13 +76,11 @@ import {
 	useMetadataDetails,
 	useUserPreferences,
 	useUserUnitSystem,
+	useUserWorkoutDetails,
+	useUserWorkoutTemplateDetails,
 } from "~/lib/shared/hooks";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
-import {
-	duplicateOldWorkout,
-	getWorkoutDetailsQuery,
-	getWorkoutTemplateDetailsQuery,
-} from "~/lib/state/fitness";
+import { duplicateOldWorkout } from "~/lib/state/fitness";
 import { useFullscreenImage } from "~/lib/state/general";
 import { useAddEntityToCollections } from "~/lib/state/media";
 import { FitnessAction, FitnessEntity } from "~/lib/types";
@@ -205,29 +202,25 @@ export default function Page() {
 	const startWorkout = useGetWorkoutStarter();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
-	const { data: workoutData } = useQuery({
-		...getWorkoutDetailsQuery(entityId),
-		enabled: entity === FitnessEntity.Workouts,
-	});
+	const { data: workoutData } = useUserWorkoutDetails(
+		entityId,
+		entity === FitnessEntity.Workouts,
+	);
 
-	const { data: templateData } = useQuery({
-		...getWorkoutTemplateDetailsQuery(entityId),
-		enabled: entity === FitnessEntity.Templates,
-	});
+	const { data: templateData } = useUserWorkoutTemplateDetails(
+		entityId,
+		entity === FitnessEntity.Templates,
+	);
 
-	const { data: repeatedWorkoutData } = useQuery({
-		...getWorkoutDetailsQuery(workoutData?.details.repeatedFrom || ""),
-		enabled: !!(
-			workoutData?.details.repeatedFrom && entity === FitnessEntity.Workouts
-		),
-	});
+	const { data: repeatedWorkoutData } = useUserWorkoutDetails(
+		workoutData?.details.repeatedFrom,
+		!!(workoutData?.details.repeatedFrom && entity === FitnessEntity.Workouts),
+	);
 
-	const { data: templateDetailsData } = useQuery({
-		...getWorkoutTemplateDetailsQuery(workoutData?.details.templateId || ""),
-		enabled: !!(
-			workoutData?.details.templateId && entity === FitnessEntity.Workouts
-		),
-	});
+	const { data: templateDetailsData } = useUserWorkoutTemplateDetails(
+		workoutData?.details.templateId || "",
+		!!(workoutData?.details.templateId && entity === FitnessEntity.Workouts),
+	);
 
 	const loaderData = useMemo(() => {
 		const baseData = match(entity)
