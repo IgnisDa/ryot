@@ -28,7 +28,6 @@ import {
 	EntityLot,
 	MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, snakeCase } from "@ryot/ts-utils";
 import {
 	IconArrowsShuffle,
 	IconCheck,
@@ -112,25 +111,20 @@ export const DisplayCollectionEntity = (props: {
 		))
 		.with(EntityLot.Exercise, () => (
 			<ExerciseDisplayItem
-				topLeft={props.topLeft}
-				topRight={props.topRight}
 				exerciseId={props.entityId}
-				rightLabel={changeCase(snakeCase(props.entityLot))}
+				centerElement={props.topLeft || props.topRight}
 			/>
 		))
 		.with(EntityLot.Workout, () => (
 			<WorkoutDisplayItem
-				topLeft={props.topLeft}
-				topRight={props.topRight}
 				workoutId={props.entityId}
-				rightLabel={changeCase(snakeCase(props.entityLot))}
+				centerElement={props.topLeft || props.topRight}
 			/>
 		))
 		.with(EntityLot.WorkoutTemplate, () => (
 			<WorkoutTemplateDisplayItem
-				topLeft={props.topLeft}
-				topRight={props.topRight}
 				workoutTemplateId={props.entityId}
+				centerElement={props.topLeft || props.topRight}
 			/>
 		))
 		.run();
