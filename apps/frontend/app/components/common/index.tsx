@@ -87,44 +87,43 @@ export const ProRequiredAlert = (props: {
 export const DisplayCollectionEntity = (props: {
 	entityId: string;
 	entityLot: EntityLot;
-	topLeft?: ReactNode;
-	topRight?: ReactNode;
+	centerElement?: ReactNode;
 }) =>
 	match(props.entityLot)
 		.with(EntityLot.Metadata, () => (
 			<MetadataDisplayItem
 				metadataId={props.entityId}
-				centerElement={props.topLeft || props.topRight}
+				centerElement={props.centerElement}
 			/>
 		))
 		.with(EntityLot.MetadataGroup, () => (
 			<MetadataGroupDisplayItem
 				metadataGroupId={props.entityId}
-				centerElement={props.topLeft || props.topRight}
+				centerElement={props.centerElement}
 			/>
 		))
 		.with(EntityLot.Person, () => (
 			<PersonDisplayItem
 				personId={props.entityId}
-				centerElement={props.topLeft || props.topRight}
+				centerElement={props.centerElement}
 			/>
 		))
 		.with(EntityLot.Exercise, () => (
 			<ExerciseDisplayItem
 				exerciseId={props.entityId}
-				centerElement={props.topLeft || props.topRight}
+				centerElement={props.centerElement}
 			/>
 		))
 		.with(EntityLot.Workout, () => (
 			<WorkoutDisplayItem
 				workoutId={props.entityId}
-				centerElement={props.topLeft || props.topRight}
+				centerElement={props.centerElement}
 			/>
 		))
 		.with(EntityLot.WorkoutTemplate, () => (
 			<WorkoutTemplateDisplayItem
 				workoutTemplateId={props.entityId}
-				centerElement={props.topLeft || props.topRight}
+				centerElement={props.centerElement}
 			/>
 		))
 		.run();

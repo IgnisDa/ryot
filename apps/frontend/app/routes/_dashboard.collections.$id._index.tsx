@@ -586,17 +586,14 @@ const CollectionItem = (props: CollectionItemProps) => {
 		<DisplayCollectionEntity
 			entityId={props.item.entityId}
 			entityLot={props.item.entityLot}
-			topLeft={
+			centerElement={
 				props.isReorderMode ? (
 					<ActionIcon variant="filled" onClick={handleRankClick}>
 						<Text size="xs" fw={700} c="white">
 							{props.rankNumber}
 						</Text>
 					</ActionIcon>
-				) : null
-			}
-			topRight={
-				state && state.data.action === "remove" ? (
+				) : state && state.data.action === "remove" ? (
 					<ActionIcon
 						color="red"
 						variant={isAdded ? "filled" : "transparent"}
