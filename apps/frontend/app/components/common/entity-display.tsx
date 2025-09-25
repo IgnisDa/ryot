@@ -295,7 +295,7 @@ export const BaseEntityDisplayItem = forwardRef<
 	};
 
 	return (
-		<Stack ref={ref} gap={4}>
+		<Stack ref={ref} gap={6}>
 			<Card
 				p={0}
 				pos="relative"
@@ -450,7 +450,13 @@ export const BaseEntityDisplayItem = forwardRef<
 					/>
 				) : null}
 			</Card>
-			<Text size="xs" c="dimmed" ta="center" hiddenFrom="sm">
+			<Text
+				size="xs"
+				c="dimmed"
+				ta="center"
+				hiddenFrom="sm"
+				style={{ lineHeight: 1.2 }}
+			>
 				{entityInformation}
 			</Text>
 		</Stack>
