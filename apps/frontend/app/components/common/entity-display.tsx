@@ -36,7 +36,7 @@ import {
 	IconRosetteDiscountCheck,
 } from "@tabler/icons-react";
 import clsx from "clsx";
-import type { ReactNode, Ref } from "react";
+import type { ComponentType, ReactNode, Ref } from "react";
 import { forwardRef, useMemo } from "react";
 import { Link } from "react-router";
 import { match } from "ts-pattern";
@@ -242,7 +242,7 @@ const EntityActionButton = (props: {
 	className?: string;
 	onClick: () => void;
 	entityButtonProps: ActionIconProps;
-	icon: React.ComponentType<{ size: number; color: string }>;
+	icon: ComponentType<{ size: number; color: string }>;
 }) => {
 	const mode = useCurrentColorSchema();
 	return (
