@@ -17,11 +17,7 @@ import {
 	useUserMetadataGroupDetails,
 	useUserPersonDetails,
 } from "~/lib/shared/hooks";
-import {
-	BaseEntityDisplayItem,
-	Old__BaseEntityDisplayItem,
-} from "../common/entity-display";
-import { Old__DisplayAverageRatingOverlay } from "./rating-overlay";
+import { BaseEntityDisplayItem } from "../common/entity-display";
 
 export const MetadataDisplayItem = (props: {
 	altName?: string;
@@ -189,11 +185,9 @@ export const MetadataGroupDisplayItem = (props: {
 	);
 };
 
-export const Old__PersonDisplayItem = (props: {
+export const PersonDisplayItem = (props: {
 	personId: string;
-	topLeft?: ReactNode;
-	topRight?: ReactNode;
-	rightLabel?: ReactNode;
+	centerElement?: ReactNode;
 	shouldHighlightNameIfInteracted?: boolean;
 }) => {
 	const { ref, inViewport } = useInViewport();
@@ -213,38 +207,41 @@ export const Old__PersonDisplayItem = (props: {
 
 	const averageRating = userPersonDetails?.averageRating;
 
+	const defaultAdditionalInformation = useMemo(() => {
+		const final = [];
+
+		if (personDetails)
+			final.push(`${personDetails.details.associatedEntityCount} items`);
+
+		return final;
+	}, [personDetails]);
+
+	const images = [
+		...(personDetails?.details.assets.remoteImages || []),
+		...(personDetails?.details.assets.s3Images || []),
+	];
+
 	return (
-		<Old__BaseEntityDisplayItem
-			innerRef={ref}
-			name={personDetails?.details.name}
-			highlightImage={isPersonRecentlyConsumed}
+		<BaseEntityDisplayItem
+			ref={ref}
+			image={images.at(0)}
+			entityId={props.personId}
+			rating={averageRating?.toString()}
+			entityLot={EntityLot.Person}
+			centerElement={props.centerElement}
+			title={personDetails?.details.name}
 			isDetailsLoading={isPersonDetailsLoading}
+			additionalInformation={defaultAdditionalInformation}
+			wasRecentlyConsumed={isPersonRecentlyConsumed}
+			interactionButtons={["collection", "review", "watchlist"]}
 			isPartialStatusActive={isPersonPartialStatusActive}
-			imageUrl={personDetails?.details.assets.remoteImages.at(0)}
 			onImageClickBehavior={[
 				$path("/media/people/item/:id", { id: props.personId }),
 			]}
-			highlightName={
+			hasInteracted={
 				props.shouldHighlightNameIfInteracted &&
 				userPersonDetails?.hasInteracted
 			}
-			imageOverlay={{
-				topLeft: props.topLeft,
-				topRight: props.topRight || (
-					<Old__DisplayAverageRatingOverlay
-						entityId={props.personId}
-						entityLot={EntityLot.Person}
-						averageRating={averageRating}
-						entityTitle={personDetails?.details.name}
-					/>
-				),
-			}}
-			labels={{
-				right: props.rightLabel,
-				left: personDetails
-					? `${personDetails.details.associatedEntityCount} items`
-					: undefined,
-			}}
 		/>
 	);
 };

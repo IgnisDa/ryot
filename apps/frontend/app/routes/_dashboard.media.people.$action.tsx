@@ -50,7 +50,7 @@ import {
 	FiltersModal,
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
-import { Old__PersonDisplayItem } from "~/components/media/display-items";
+import { PersonDisplayItem } from "~/components/media/display-items";
 import { useCoreDetails, useUserPeopleList } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
@@ -320,7 +320,7 @@ export default function Page(props: { params: { action: string } }) {
 								{peopleSearch.response.details.totalItems > 0 ? (
 									<ApplicationGrid>
 										{peopleSearch.response.items.map((person) => (
-											<Old__PersonDisplayItem
+											<PersonDisplayItem
 												key={person}
 												personId={person}
 												shouldHighlightNameIfInteracted
@@ -454,15 +454,15 @@ const PersonListItem = (props: PersonListItemProps) => {
 	const isAdded = bulkEditingCollection.isAdded(becItem);
 
 	return (
-		<Old__PersonDisplayItem
+		<PersonDisplayItem
 			personId={props.item}
-			topRight={
+			centerElement={
 				bulkEditingState &&
 				bulkEditingState.data.action === "add" &&
 				!isAlreadyPresent ? (
 					<ActionIcon
-						variant={isAdded ? "filled" : "transparent"}
 						color="green"
+						variant={isAdded ? "filled" : "transparent"}
 						onClick={() => {
 							if (isAdded) bulkEditingState.remove(becItem);
 							else bulkEditingState.add(becItem);

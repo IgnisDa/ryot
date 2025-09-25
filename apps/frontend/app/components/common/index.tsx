@@ -65,7 +65,7 @@ import {
 import {
 	MetadataDisplayItem,
 	MetadataGroupDisplayItem,
-	Old__PersonDisplayItem,
+	PersonDisplayItem,
 } from "../media/display-items";
 
 export const SkeletonLoader = () => <Skeleton height={100} />;
@@ -105,11 +105,9 @@ export const DisplayCollectionEntity = (props: {
 			/>
 		))
 		.with(EntityLot.Person, () => (
-			<Old__PersonDisplayItem
-				topLeft={props.topLeft}
+			<PersonDisplayItem
 				personId={props.entityId}
-				topRight={props.topRight}
-				rightLabel={changeCase(snakeCase(props.entityLot))}
+				centerElement={props.topLeft || props.topRight}
 			/>
 		))
 		.with(EntityLot.Exercise, () => (
