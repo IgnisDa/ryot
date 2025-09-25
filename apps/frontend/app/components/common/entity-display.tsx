@@ -33,7 +33,7 @@ import {
 	IconRosetteDiscountCheck,
 } from "@tabler/icons-react";
 import type { ComponentType, ReactNode } from "react";
-import { forwardRef, useMemo } from "react";
+import { forwardRef } from "react";
 import { Link } from "react-router";
 import { match } from "ts-pattern";
 import {
@@ -157,7 +157,6 @@ const BaseEntityDisplayItemReason = (props: {
 };
 
 type BaseEntityDisplayItemCard = {
-	year?: number;
 	title?: string;
 	image?: string;
 	rating?: string;
@@ -167,15 +166,14 @@ type BaseEntityDisplayItemCard = {
 	entityLot: EntityLot;
 	imageClassName?: string;
 	hasInteracted?: boolean;
-	consumptionCount?: number;
 	centerElement?: ReactNode;
 	isDetailsLoading: boolean;
 	wasRecentlyConsumed?: boolean;
 	consumeButtonClassName?: string;
 	isPartialStatusActive?: boolean;
 	userToMediaReasons?: UserToMediaReason[];
-	additionalInformation?: (string | undefined)[];
 	onImageClickBehavior: [string, (() => Promise<void>)?];
+	additionalInformation?: (string | number | null | undefined)[];
 	interactionButtons: ("consume" | "watchlist" | "collection" | "review")[];
 };
 
@@ -219,18 +217,9 @@ export const BaseEntityDisplayItem = forwardRef<
 		variant: "default",
 	};
 
-	const entityInformation = useMemo(() => {
-		const final = [];
-		final.push(...(props.additionalInformation || []));
-		if (props.year) final.push(String(props.year));
-		if ((props.consumptionCount || 0) > 0)
-			final.push(
-				`${props.consumptionCount} ${
-					props.consumptionCount === 1 ? "time" : "times"
-				}`,
-			);
-		return final.filter(Boolean).join(" • ");
-	}, [props]);
+	const entityInformation = (props.additionalInformation || [])
+		.filter(Boolean)
+		.join(" • ");
 
 	return (
 		<Card

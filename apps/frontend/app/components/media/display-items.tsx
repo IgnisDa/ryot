@@ -99,14 +99,19 @@ export const MetadataDisplayItem = (props: {
 			rating={averageRating ?? undefined}
 			centerElement={props.centerElement}
 			imageClassName={props.imageClassName}
-			consumptionCount={completedHistory.length}
 			isDetailsLoading={isMetadataDetailsLoading}
 			title={props.altName ?? metadataDetails?.title}
 			wasRecentlyConsumed={isMetadataRecentlyConsumed}
-			year={metadataDetails?.publishYear ?? undefined}
 			isPartialStatusActive={isMetadataPartialStatusActive}
 			interactionButtons={["collection", "consume", "review", "watchlist"]}
-			additionalInformation={[extraInformation, props.additionalInformation]}
+			additionalInformation={[
+				extraInformation,
+				props.additionalInformation,
+				metadataDetails?.publishYear,
+				completedHistory.length > 0
+					? `${completedHistory.length} ${completedHistory.length === 1 ? "time" : "times"}`
+					: undefined,
+			]}
 			hasInteracted={
 				props.shouldHighlightNameIfInteracted &&
 				userMetadataDetails?.hasInteracted
