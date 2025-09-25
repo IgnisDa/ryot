@@ -58,9 +58,9 @@ import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useEditEntityCollectionInformation } from "~/lib/state/collection";
 import {
-	Old__ExerciseDisplayItem,
-	Old__WorkoutDisplayItem,
-	Old__WorkoutTemplateDisplayItem,
+	ExerciseDisplayItem,
+	WorkoutDisplayItem,
+	WorkoutTemplateDisplayItem,
 } from "../fitness/display-items";
 import {
 	MetadataDisplayItem,
@@ -111,7 +111,7 @@ export const DisplayCollectionEntity = (props: {
 			/>
 		))
 		.with(EntityLot.Exercise, () => (
-			<Old__ExerciseDisplayItem
+			<ExerciseDisplayItem
 				topLeft={props.topLeft}
 				topRight={props.topRight}
 				exerciseId={props.entityId}
@@ -119,7 +119,7 @@ export const DisplayCollectionEntity = (props: {
 			/>
 		))
 		.with(EntityLot.Workout, () => (
-			<Old__WorkoutDisplayItem
+			<WorkoutDisplayItem
 				topLeft={props.topLeft}
 				topRight={props.topRight}
 				workoutId={props.entityId}
@@ -127,7 +127,7 @@ export const DisplayCollectionEntity = (props: {
 			/>
 		))
 		.with(EntityLot.WorkoutTemplate, () => (
-			<Old__WorkoutTemplateDisplayItem
+			<WorkoutTemplateDisplayItem
 				topLeft={props.topLeft}
 				topRight={props.topRight}
 				workoutTemplateId={props.entityId}

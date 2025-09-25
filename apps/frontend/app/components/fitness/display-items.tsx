@@ -18,7 +18,7 @@ import { useFullscreenImage } from "~/lib/state/general";
 import { FitnessEntity } from "~/lib/types";
 import { Old__BaseEntityDisplayItem } from "../common/entity-display";
 
-export const Old__ExerciseDisplayItem = (props: {
+export const ExerciseDisplayItem = (props: {
 	exerciseId: string;
 	topLeft?: ReactNode;
 	topRight?: ReactNode;
@@ -52,7 +52,7 @@ export const Old__ExerciseDisplayItem = (props: {
 	);
 };
 
-export const Old__WorkoutDisplayItem = (props: {
+export const WorkoutDisplayItem = (props: {
 	workoutId: string;
 	topLeft?: ReactNode;
 	topRight?: ReactNode;
@@ -82,7 +82,7 @@ export const Old__WorkoutDisplayItem = (props: {
 	);
 };
 
-export const Old__WorkoutTemplateDisplayItem = (props: {
+export const WorkoutTemplateDisplayItem = (props: {
 	topLeft?: ReactNode;
 	topRight?: ReactNode;
 	workoutTemplateId: string;
