@@ -42,6 +42,7 @@ pub async fn expire_entity_details_cache(
 ) -> Result<()> {
     try_join!(
         expire_user_metadata_list_cache(user_id, ss),
+        expire_user_exercises_list_cache(user_id, ss),
         expire_user_workout_details_cache(user_id, entity_id, ss),
         expire_user_metadata_details_cache(user_id, entity_id, ss),
         expire_user_workout_template_details_cache(user_id, entity_id, ss),
