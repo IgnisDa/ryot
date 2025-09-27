@@ -1440,7 +1440,7 @@ describe("createEventsBestEffortWithTriggers", () => {
 		expect(result.failures).toHaveLength(1);
 		expect(result.failures[0]).toMatchObject({
 			itemIndex: 0,
-			error: "validation",
+			error: "before_trigger",
 			message: expect.stringContaining("Before trigger failed: Script timed out"),
 		});
 		expect(result.skipped).toHaveLength(0);
@@ -1615,7 +1615,7 @@ describe("createEvent before-trigger flow", () => {
 		);
 
 		expect(result).toEqual({
-			error: "validation",
+			error: "before_trigger",
 			message: "Before trigger failed: Sandbox timed out",
 		});
 		expect(createCalled).toBe(false);
