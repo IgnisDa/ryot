@@ -1,4 +1,12 @@
-import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
+import {
+	getQueryEngineField,
+	type QueryComputedField,
+	type QueryEventJoin,
+	type QueryFilter,
+	type QueryRelationshipJoin,
+	type RuntimeField,
+	type SavedViewSort,
+} from "@ryot/app-backend/query-language";
 
 import { requirePresent, requireResponseData } from "../test-support/assertions";
 import { type Client, createAuthenticatedClient } from "./auth";
@@ -12,39 +20,9 @@ import {
 	entityField,
 	qualifyBuiltinFields,
 	toRequiredExpression,
-	type ViewExpression,
-	type ViewPredicate,
 } from "./view-language";
 
-// TODO(Task 22): Replace these tests-only query engine types with the public
-// AppContract types once the query engine payload and response fields are typed.
-type ComputedField = {
-	key: string;
-	expression: ViewExpression;
-};
-
-type QueryEngineEventJoin = {
-	key: string;
-	kind: "latestEvent";
-	eventSchemaSlug: string;
-};
-
-type QueryEngineRelationshipJoin = {
-	key: string;
-	kind: "latestRelationship";
-	required: boolean;
-	direction: "incoming" | "outgoing";
-	relationshipSchemaSlug: string;
-	sourceEntityId?: string;
-	targetEntityId?: string;
-	filter?: ViewPredicate | null;
-};
-
-type QueryEngineFieldValue = {
-	kind: string;
-	value: unknown;
-};
-
+type QueryEngineFieldValue = { kind: string; value: unknown };
 type QueryEngineResponseItem = Readonly<Record<string, QueryEngineFieldValue>>;
 
 type EntitiesQueryEngineResponse = {
@@ -67,25 +45,20 @@ type EntitiesQueryEngineResponse = {
 
 type QueryEngineField = {
 	key: string;
-	kind: QueryEngineResponseItem[string]["kind"];
-	value: QueryEngineResponseItem[string]["value"];
-};
-
-type RuntimeField = {
-	key: string;
-	expression: ViewExpression;
+	kind: QueryEngineFieldValue["kind"];
+	value: QueryEngineFieldValue["value"];
 };
 
 export type QueryEngineRequest = {
 	mode?: "entities";
-	filter?: ViewPredicate | null;
-	scope: string[];
+	sort?: SavedViewSort;
 	fields: RuntimeField[];
-	eventJoins?: QueryEngineEventJoin[];
-	computedFields?: ComputedField[];
-	relationshipJoins?: QueryEngineRelationshipJoin[];
+	scope: readonly string[];
+	filter?: QueryFilter | null;
+	eventJoins?: ReadonlyArray<QueryEventJoin>;
 	pagination?: { page: number; limit: number };
-	sort?: { direction: "asc" | "desc"; expression: ViewExpression };
+	computedFields?: ReadonlyArray<QueryComputedField>;
+	relationshipJoins?: ReadonlyArray<QueryRelationshipJoin>;
 };
 
 type TableDisplayConfiguration = DisplayConfigurationInput["table"];
@@ -132,7 +105,7 @@ type QueryEngineEntityFixture = {
 };
 
 const buildCardDisplayConfiguration = (
-	schemaSlugs: string[],
+	schemaSlugs: readonly string[],
 	overrides: Partial<CardDisplayConfigurationInput> = {},
 ): CardDisplayConfigurationInput => {
 	const schemaSlug = schemaSlugs[0];
@@ -149,14 +122,14 @@ const buildCardDisplayConfiguration = (
 
 export function buildGridDisplayConfiguration(
 	overrides: Partial<CardDisplayConfigurationInput> = {},
-	schemaSlugs: string[] = [],
+	schemaSlugs: readonly string[] = [],
 ): CardDisplayConfigurationInput {
 	return buildCardDisplayConfiguration(schemaSlugs, overrides);
 }
 
 export function buildTableDisplayConfiguration(
 	columns?: TableDisplayConfiguration["columns"],
-	schemaSlugs: string[] = [],
+	schemaSlugs: readonly string[] = [],
 ): TableDisplayConfiguration {
 	return {
 		columns:
@@ -205,7 +178,7 @@ function toQueryEngineFields(input: RuntimeFieldsInput): RuntimeField[] {
 	];
 }
 
-const defaultSort = (schemaSlugs: string[]): QueryEngineRequest["sort"] => ({
+const defaultSort = (schemaSlugs: readonly string[]): QueryEngineRequest["sort"] => ({
 	direction: "asc",
 	expression: toRequiredExpression(
 		schemaSlugs.length ? qualifyBuiltinFields(schemaSlugs, "name") : [],
@@ -215,7 +188,7 @@ const defaultSort = (schemaSlugs: string[]): QueryEngineRequest["sort"] => ({
 const buildQueryEngineRequest = (
 	input: Partial<Omit<QueryEngineRequest, "fields" | "sort">> & {
 		fields: RuntimeField[];
-		scope: string[];
+		scope: readonly string[];
 		sort?: QueryEngineRequest["sort"];
 	},
 ): QueryEngineRequest => ({
@@ -230,17 +203,11 @@ const buildQueryEngineRequest = (
 });
 
 export function buildQueryEngineField(key: string, expression: ExpressionInput): RuntimeField {
-	return {
-		key,
-		expression: toRequiredExpression(expression),
-	};
+	return { key, expression: toRequiredExpression(expression) };
 }
 
-export function buildComputedField(key: string, expression: ExpressionInput): ComputedField {
-	return {
-		key,
-		expression: toRequiredExpression(expression),
-	};
+export function buildComputedField(key: string, expression: ExpressionInput): QueryComputedField {
+	return { key, expression: toRequiredExpression(expression) };
 }
 
 type RelationshipJoinInput = {
@@ -248,31 +215,31 @@ type RelationshipJoinInput = {
 	required?: boolean;
 	sourceEntityId?: string;
 	targetEntityId?: string;
-	filter?: ViewPredicate | null;
+	filter?: QueryFilter | null;
 	relationshipSchemaSlug: string;
 	direction: "outgoing" | "incoming";
 };
 
-export function buildLatestRelationshipJoin(input: RelationshipJoinInput) {
+export function buildLatestRelationshipJoin(input: RelationshipJoinInput): QueryRelationshipJoin {
 	return {
 		key: input.key,
 		direction: input.direction,
 		required: input.required ?? false,
 		kind: "latestRelationship" as const,
 		relationshipSchemaSlug: input.relationshipSchemaSlug,
+		...(input.filter !== undefined && { filter: input.filter }),
 		...(input.sourceEntityId !== undefined && { sourceEntityId: input.sourceEntityId }),
 		...(input.targetEntityId !== undefined && { targetEntityId: input.targetEntityId }),
-		...(input.filter !== undefined && { filter: input.filter }),
 	};
 }
 
 export function buildRequiredLatestRelationshipJoin(
 	input: Omit<RelationshipJoinInput, "required">,
-) {
+): QueryRelationshipJoin {
 	return buildLatestRelationshipJoin({ ...input, required: true });
 }
 
-export const buildInLibraryRelationshipJoin = (required = true) =>
+export const buildInLibraryRelationshipJoin = (required = true): QueryRelationshipJoin =>
 	buildLatestRelationshipJoin({
 		required,
 		key: "inLibrary",
@@ -282,7 +249,7 @@ export const buildInLibraryRelationshipJoin = (required = true) =>
 
 export function buildGridRequest(
 	overrides: Partial<Omit<QueryEngineRequest, "fields">> & {
-		scope: string[];
+		scope: readonly string[];
 		displayConfiguration?: CardDisplayConfigurationInput;
 	},
 ): QueryEngineRequest {
@@ -303,7 +270,7 @@ export function buildGridRequest(
 
 export function buildListRequest(
 	overrides: Partial<Omit<QueryEngineRequest, "fields">> & {
-		scope: string[];
+		scope: readonly string[];
 		displayConfiguration?: CardDisplayConfigurationInput;
 	},
 ): QueryEngineRequest {
@@ -324,7 +291,7 @@ export function buildListRequest(
 
 export function buildTableRequest(
 	overrides: Partial<Omit<QueryEngineRequest, "fields">> & {
-		scope: string[];
+		scope: readonly string[];
 		displayConfiguration?: TableDisplayConfiguration;
 	},
 ): QueryEngineRequest {
@@ -361,18 +328,16 @@ export async function executeQueryEngine(
 	body: QueryEngineRequest,
 ) {
 	const mode = body.mode ?? "entities";
-	const result = await client.POST("/query-engine/execute", {
-		// TODO(Task 22): Remove this tests-only query-engine compatibility path once
-		// tests call the contract client directly with public query-engine types.
-		body: { ...body, mode },
+	const result = await client["query-engine"].execute({
+		// oxlint-disable-next-line typescript-eslint/no-explicit-any
+		body: { ...body, mode } as any,
 		headers: { Cookie: cookies },
 	});
 
 	return {
 		error: result.error,
 		response: result.response,
-		// TODO(Task 22): Remove this tests-only response assertion once the public
-		// AppContract exposes typed query engine response fields.
+		// oxlint-disable-next-line typescript-eslint/no-explicit-any
 		data: result.data as unknown as EntitiesQueryEngineResponse,
 	};
 }
