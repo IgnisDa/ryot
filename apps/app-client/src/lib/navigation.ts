@@ -1,31 +1,15 @@
-import type { paths } from "@ryot/generated/openapi/app-backend";
 import { useQuery } from "@tanstack/react-query";
 import { atom, useAtomValue, useSetAtom } from "jotai";
 import { useMemo } from "react";
 import { useApiClient } from "@/lib/api-client";
+import {
+	buildNavigationItems,
+	type NavigationItem,
+	type NavigationSubItem,
+	unwrapData,
+} from "@/lib/navigation-data";
 
-type ApiTracker =
-	paths["/trackers"]["get"]["responses"][200]["content"]["application/json"]["data"][number];
-type ApiSavedView =
-	paths["/saved-views"]["get"]["responses"][200]["content"]["application/json"]["data"][number];
-
-export type NavigationSubItem = {
-	key: string;
-	slug: string;
-	name: string;
-	icon: string;
-	accentColor: string | null;
-};
-
-export type NavigationItem = {
-	key: string;
-	slug: string;
-	name: string;
-	icon: string;
-	accentColor: string | null;
-	subItems: NavigationSubItem[];
-	kind: "home" | "tracker" | "view" | "separator" | "user";
-};
+export type { NavigationItem, NavigationSubItem };
 
 const navSheetOpenAtom = atom(false);
 const searchOpenAtom = atom(false);
@@ -34,21 +18,6 @@ export const useNavSheetOpen = () => useAtomValue(navSheetOpenAtom);
 export const useSetNavSheetOpen = () => useSetAtom(navSheetOpenAtom);
 export const useSearchOpen = () => useAtomValue(searchOpenAtom);
 export const useSetSearchOpen = () => useSetAtom(searchOpenAtom);
-
-function sortByOrderThenName<T extends { sortOrder: number; name: string }>(
-	items: T[],
-): T[] {
-	return [...items].sort((a, b) => {
-		if (a.sortOrder !== b.sortOrder) {
-			return a.sortOrder - b.sortOrder;
-		}
-		return a.name.localeCompare(b.name);
-	});
-}
-
-function unwrapData<T>(body: { data: T[] } | undefined): T[] {
-	return body?.data ?? [];
-}
 
 interface UseNavigationDataResult {
 	isError: boolean;
@@ -108,52 +77,9 @@ export function useNavigationData(userName?: string): UseNavigationDataResult {
 	};
 
 	const data = useMemo(() => {
-		const rawTrackers: ApiTracker[] = unwrapData(trackersQuery.data);
-		const rawViews: ApiSavedView[] = unwrapData(viewsQuery.data);
-
-		const enabledTrackers = rawTrackers.filter((t) => !t.isDisabled);
-		const sortedTrackers = sortByOrderThenName(enabledTrackers);
-
-		const enabledViews = rawViews.filter((v) => !v.isDisabled);
-		const sortedViews = sortByOrderThenName(enabledViews);
-
-		const trackerItems: NavigationItem[] = sortedTrackers.map((tracker) => {
-			const trackerViews = sortedViews.filter(
-				(view) => view.trackerId === tracker.id,
-			);
-
-			return {
-				key: tracker.id,
-				slug: tracker.slug,
-				name: tracker.name,
-				icon: tracker.icon,
-				kind: "tracker" as const,
-				accentColor: tracker.accentColor,
-				subItems: trackerViews.map((view) => ({
-					key: view.id,
-					slug: view.slug,
-					name: view.name,
-					icon: view.icon,
-					accentColor: view.accentColor,
-				})),
-			};
-		});
-
-		const standaloneViews = sortedViews.filter(
-			(view) => view.trackerId === null,
-		);
-
-		const libraryViews: NavigationItem[] = standaloneViews.map((view) => ({
-			key: view.id,
-			subItems: [],
-			slug: view.slug,
-			name: view.name,
-			icon: view.icon,
-			kind: "view" as const,
-			accentColor: view.accentColor,
-		}));
-
-		return { trackerItems, libraryViews };
+		const rawTrackers = unwrapData(trackersQuery.data);
+		const rawViews = unwrapData(viewsQuery.data);
+		return buildNavigationItems(rawTrackers, rawViews);
 	}, [trackersQuery.data, viewsQuery.data]);
 
 	const allTrackers = [homeItem, ...data.trackerItems];
