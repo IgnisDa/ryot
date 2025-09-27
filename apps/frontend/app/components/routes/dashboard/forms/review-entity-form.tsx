@@ -218,7 +218,7 @@ export const ReviewEntityForm = (props: {
 							<Text size="xs" c="dimmed">
 								How did it make you feel?
 							</Text>
-							<Group justify="space-around">
+							<Group justify="space-around" wrap="nowrap">
 								<SmileySurround smileyRating={ThreePointSmileyRating.Happy}>
 									<Text size="xl">
 										{getThreePointSmileyEmoji(ThreePointSmileyRating.Happy)}
