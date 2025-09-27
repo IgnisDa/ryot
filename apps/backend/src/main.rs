@@ -83,8 +83,8 @@ async fn async_main() -> Result<()> {
         .expect("Database connection failed");
 
     if let Err(err) = migrate_from_v8_if_applicable(&db).await {
-        ryot_log!(error, "Migration from v7 failed: {}", err);
-        bail!("There was an error migrating from v7.")
+        ryot_log!(error, "Migration from v8 failed: {}", err);
+        bail!("There was an error migrating from v8.")
     }
 
     if let Err(err) = Migrator::up(&db, None).await {
