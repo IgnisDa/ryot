@@ -130,15 +130,13 @@ export const usePartialStatusMonitor = (props: {
 	const { entityId, entityLot, onUpdate, partialStatus, externalLinkSource } =
 		props;
 
-	const [jobDeployedForEntity, setJobDeployedForEntity] = useState<
-		string | null
-	>(null);
+	const attemptCountRef = useRef(0);
+	const isPollingRef = useRef(false);
 	const [isPartialStatusActive, setIsPartialStatusActive] = useState(false);
+	const jobDeployedForEntityRef = useRef<string | null>(null);
 	const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
 		undefined,
 	);
-	const attemptCountRef = useRef(0);
-	const isPollingRef = useRef(false);
 
 	const scheduleNextPoll = useCallback(() => {
 		if (!isPollingRef.current) return;
@@ -170,28 +168,46 @@ export const usePartialStatusMonitor = (props: {
 	}, []);
 
 	useEffect(() => {
-		resetPollingState();
+		const jobDeployedForEntity = jobDeployedForEntityRef.current;
+		const shouldPoll = Boolean(
+			entityId && partialStatus && externalLinkSource !== MediaSource.Custom,
+		);
+		const isJobForDifferentEntity = Boolean(
+			jobDeployedForEntity && jobDeployedForEntity !== entityId,
+		);
 
-		const isJobForDifferentEntity =
-			jobDeployedForEntity && jobDeployedForEntity !== entityId;
-		const shouldPoll =
-			entityId && partialStatus && externalLinkSource !== MediaSource.Custom;
-
-		if (isJobForDifferentEntity || !entityId) setJobDeployedForEntity(null);
-
-		if (!shouldPoll) return;
-
-		if (jobDeployedForEntity !== entityId && entityId) {
-			clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
-				entityId,
-				entityLot,
-			});
-			setJobDeployedForEntity(entityId);
+		if (isJobForDifferentEntity || !entityId) {
+			jobDeployedForEntityRef.current = null;
 		}
 
-		isPollingRef.current = true;
-		setIsPartialStatusActive(true);
-		scheduleNextPoll();
+		if (!shouldPoll) {
+			if (isPollingRef.current) resetPollingState();
+			return;
+		}
+
+		if (isJobForDifferentEntity) {
+			resetPollingState();
+		}
+
+		if (!isPollingRef.current) {
+			if (jobDeployedForEntityRef.current !== entityId && entityId) {
+				clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
+					entityId,
+					entityLot,
+				});
+				jobDeployedForEntityRef.current = entityId;
+			}
+
+			if (timeoutRef.current) {
+				clearTimeout(timeoutRef.current);
+				timeoutRef.current = undefined;
+			}
+
+			attemptCountRef.current = 0;
+			isPollingRef.current = true;
+			setIsPartialStatusActive(true);
+			scheduleNextPoll();
+		}
 
 		return resetPollingState;
 	}, [
@@ -202,7 +218,6 @@ export const usePartialStatusMonitor = (props: {
 		scheduleNextPoll,
 		resetPollingState,
 		externalLinkSource,
-		jobDeployedForEntity,
 	]);
 
 	return { isPartialStatusActive };
