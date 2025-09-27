@@ -584,8 +584,8 @@ export default function Page() {
 										w="100%"
 										onClick={() => {
 											setEntityToReview({
-												entityId: loaderData.exerciseId,
 												entityLot: EntityLot.Exercise,
+												entityId: loaderData.exerciseId,
 												entityTitle: loaderData.exerciseDetails.name,
 											});
 										}}
@@ -628,7 +628,7 @@ export default function Page() {
 													key={r.id}
 													entityLot={EntityLot.Exercise}
 													entityId={loaderData.exerciseId}
-													title={loaderData.exerciseDetails.id}
+													title={loaderData.exerciseDetails.name}
 												/>
 											))}
 										</Stack>
