@@ -406,7 +406,6 @@ export const BaseEntityDisplayItem = forwardRef<
 						<Text
 							size="xs"
 							c="gray.1"
-							// visibleFrom="sm"
 							style={{ textShadow: "1px 1px 1px rgba(0, 0, 0, 0.8)" }}
 						>
 							{entityInformation}
