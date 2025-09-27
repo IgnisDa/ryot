@@ -6,7 +6,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use apalis::{
     layers::WorkerBuilderExt,
     prelude::{MemoryStorage, Monitor, WorkerBuilder, WorkerFactoryFn},
@@ -82,10 +82,9 @@ async fn main() -> Result<()> {
         .await
         .expect("Database connection failed");
 
-    if let Err(err) = migrate_from_v8_if_applicable(&db).await {
-        ryot_log!(error, "Migration from v8 failed: {}", err);
-        bail!("There was an error migrating from v8.")
-    }
+    migrate_from_v8_if_applicable(&db)
+        .await
+        .context("There was an error migrating from v8")?;
 
     if let Err(err) = Migrator::up(&db, None).await {
         ryot_log!(error, "Database migration failed: {}", err);
