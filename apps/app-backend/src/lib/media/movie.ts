@@ -5,8 +5,8 @@ import { imagesSchema, nullableIntSchema } from "../zod";
 import { mediaPropertiesSchema } from "./common";
 
 export const moviePropertiesSchema = mediaPropertiesSchema.extend({
-	images: imagesSchema.describe("Cover and promotional images for this movie"),
 	runtime: nullableIntSchema.describe("Runtime in minutes"),
+	images: imagesSchema.describe("Cover and promotional images for this movie"),
 });
 
 export const moviePropertiesJsonSchema = toAppSchemaProperties(moviePropertiesSchema);

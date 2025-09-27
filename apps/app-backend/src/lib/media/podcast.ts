@@ -6,11 +6,11 @@ import { mediaWithUnlinkedCreatorsPropertiesSchema } from "./common";
 
 const podcastEpisodeSchema = z
 	.object({
-		id: z.string().describe("Unique identifier for this episode"),
 		title: z.string().describe("Episode title"),
-		publishDate: z.string().describe("Date this episode was published"),
+		id: z.string().describe("Unique identifier for this episode"),
 		number: z.number().int().describe("Episode number in the feed"),
 		runtime: nullableIntSchema.describe("Episode runtime in minutes"),
+		publishDate: z.string().describe("Date this episode was published"),
 		overview: nullableStringSchema.describe("Episode description or show notes"),
 		thumbnail: nullableStringSchema.describe("Thumbnail image URL for this episode"),
 	})
