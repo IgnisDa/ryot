@@ -153,10 +153,10 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
                     ryot_log!(debug, "Updating user_to_entity = {id:?}", id = (&ute.id));
                     ute.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
                     has_entity_level_changes = true;
+                    has_user_level_changes = true;
                 }
                 ute.needs_to_be_updated = ActiveValue::Set(None);
                 ute.update(&ss.db).await?;
-                has_user_level_changes = true;
             }
             if has_entity_level_changes {
                 expire_user_metadata_details_cache(&user_id, &entity_id, ss).await?;
