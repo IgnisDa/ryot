@@ -100,6 +100,7 @@ const entityInfoTextShadowStyle = {
 } as const;
 
 const titleTextShadowStyle = {
+	transition: "color 200ms ease",
 	textShadow: "1px 1px 2px rgba(0, 0, 0, 0.5)",
 } as const;
 
@@ -325,6 +326,7 @@ const BaseEntityDisplayItemComponent = forwardRef<
 	const cardStyle = useMemo<MantineStyleProp>(
 		() => ({
 			overflow: "hidden",
+			transition: "box-shadow 200ms ease",
 			boxShadow: shouldHighlightImage
 				? mode === "dark"
 					? "0px 0px 4px 1px rgba(242, 183, 22, 1)"
