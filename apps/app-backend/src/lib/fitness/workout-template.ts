@@ -2,6 +2,8 @@ import { z } from "@hono/zod-openapi";
 import type { AppSchema } from "@ryot/ts-utils/app-schema";
 import { toAppSchemaProperties } from "@ryot/ts-utils/app-schema";
 
+import { entityAssetsSchema, workoutSupersetSchema } from "./schemas";
+
 const workoutTemplateSetSchema = z
 	.object({
 		note: z.string().nullish().describe("Optional note specific to this set"),
@@ -48,21 +50,12 @@ const workoutTemplateExerciseSchema = z
 	.strict()
 	.describe("Exercise in this template");
 
-const workoutTemplateSupersetSchema = z
-	.object({
-		color: z.string().describe("Display color for this superset"),
-		exercises: z
-			.array(z.number().int().nonnegative())
-			.describe("Zero-based exercise positions in this superset"),
-	})
-	.strict()
-	.describe("Superset in this template");
-
 const workoutTemplatePropertiesSchema = z
 	.object({
 		comment: z.string().nullish().describe("Optional notes about this workout template"),
+		assets: entityAssetsSchema.nullish().describe("Media assets attached to this template"),
 		exercises: z.array(workoutTemplateExerciseSchema).describe("Exercises in this template"),
-		supersets: z.array(workoutTemplateSupersetSchema).describe("Supersets in this template"),
+		supersets: z.array(workoutSupersetSchema).describe("Supersets in this template"),
 	})
 	.strict();
 
