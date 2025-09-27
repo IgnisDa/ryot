@@ -42,7 +42,8 @@ mod job;
 static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 static LOGGING_ENV_VAR: &str = "RUST_LOG";
 
-async fn async_main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     #[cfg(debug_assertions)]
     dotenvy::dotenv().ok();
 
@@ -283,9 +284,4 @@ END $$;
     )
     .await?;
     Ok(())
-}
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    async_main().await
 }
