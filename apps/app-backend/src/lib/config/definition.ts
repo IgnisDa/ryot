@@ -16,6 +16,13 @@ export const systemConfigDef = Config.all({
 		allowRegistration: Config.boolean("USERS_ALLOW_REGISTRATION").pipe(Config.withDefault(true)),
 		disableLocalAuth: Config.boolean("USERS_DISABLE_LOCAL_AUTH").pipe(Config.withDefault(false)),
 	}),
+	sandbox: Config.all({
+		timeoutMs: Config.integer("SANDBOX_TIMEOUT_MS").pipe(Config.withDefault(10_000)),
+		denoDir: Config.string("SANDBOX_DENO_DIR").pipe(Config.withDefault("/tmp/ryot-sandbox-deno")),
+		jobIdSecret: Config.redacted("SANDBOX_JOB_ID_SECRET").pipe(
+			Config.withDefault(Redacted.make("changeme")),
+		),
+	}),
 	server: Config.all({
 		corsOrigins: Config.string("SERVER_CORS_ORIGINS").pipe(Config.option),
 		adminAccessToken: Config.redacted("SERVER_ADMIN_ACCESS_TOKEN").pipe(
