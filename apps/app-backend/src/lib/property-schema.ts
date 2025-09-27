@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Either, Schema } from "effect";
 
 import { strictStruct } from "./schema-utils";
 
@@ -232,16 +232,9 @@ const numberValidationSchema = strictStruct({
 const stringValidationSchema = strictStruct({
 	pattern: Schema.optional(
 		Schema.String.pipe(
-			Schema.filter(
-				(value) => {
-					try {
-						return new RegExp(value) instanceof RegExp;
-					} catch {
-						return false;
-					}
-				},
-				{ message: () => "Pattern must be a valid regular expression" },
-			),
+			Schema.filter((value) => Either.isRight(Either.try(() => new RegExp(value))), {
+				message: () => "Pattern must be a valid regular expression",
+			}),
 		),
 	),
 	required: Schema.optional(Schema.Literal(true)),
