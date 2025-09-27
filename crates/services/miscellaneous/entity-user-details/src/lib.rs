@@ -2,20 +2,22 @@ use std::sync::Arc;
 
 use anyhow::{Result, anyhow};
 use application_utils::calculate_average_rating_for_user;
-use common_models::UserLevelCacheKey;
+use common_models::{EntityRecentlyConsumedCacheInput, UserLevelCacheKey};
 use database_models::{
     functions::get_user_to_entity_association,
     prelude::{Metadata, Seen},
     seen,
 };
-use database_utils::{entity_in_collections_with_details, item_reviews};
+use database_utils::{
+    entity_in_collections_with_details, item_reviews, server_key_validation_guard,
+};
+use dependent_core_utils::is_server_key_validated;
 use dependent_entity_utils::generic_metadata;
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, UserMetadataDetails,
-    UserMetadataGroupDetails, UserPersonDetails,
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EmptyCacheValue,
+    UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use dependent_seen_utils::is_metadata_finished_by_user;
-use dependent_utility_utils::get_entity_recently_consumed;
 use enum_models::{EntityLot, SeenState};
 use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
@@ -46,7 +48,6 @@ pub async fn user_metadata_details(
                 (_, history),
                 seen_by,
                 user_to_meta,
-                is_recently_consumed,
             ) = try_join!(
                 generic_metadata(&metadata_id, ss, None),
                 entity_in_collections_with_details(&user_id, &metadata_id, EntityLot::Metadata, ss),
@@ -59,8 +60,7 @@ pub async fn user_metadata_details(
                     .into_tuple::<(i64,)>()
                     .one(&ss.db)
                     .map_err(|_| anyhow!("Metadata not found")),
-                get_user_to_entity_association(&ss.db, &user_id, &metadata_id, EntityLot::Metadata),
-                get_entity_recently_consumed(&user_id, &metadata_id, EntityLot::Metadata, ss)
+                get_user_to_entity_association(&ss.db, &user_id, &metadata_id, EntityLot::Metadata)
             )?;
 
             let in_progress = history
@@ -191,7 +191,6 @@ pub async fn user_metadata_details(
                 average_rating,
                 podcast_progress,
                 seen_by_user_count,
-                is_recently_consumed,
                 has_interacted: user_to_meta.is_some(),
                 media_reason: user_to_meta.and_then(|n| n.media_reason),
                 seen_by_all_count: seen_by.map(|s| s.0).unwrap_or_default(),
@@ -214,10 +213,9 @@ pub async fn user_person_details(
         }),
         |f| ApplicationCacheValue::UserPersonDetails(Box::new(f)),
         || async {
-            let (reviews, collections, is_recently_consumed, person_meta) = try_join!(
+            let (reviews, collections, person_meta) = try_join!(
                 item_reviews(&user_id, &person_id, EntityLot::Person, true, ss),
                 entity_in_collections_with_details(&user_id, &person_id, EntityLot::Person, ss),
-                get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, ss),
                 get_user_to_entity_association(&ss.db, &user_id, &person_id, EntityLot::Person)
             )?;
             let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
@@ -225,7 +223,6 @@ pub async fn user_person_details(
                 reviews,
                 collections,
                 average_rating,
-                is_recently_consumed,
                 has_interacted: person_meta.is_some(),
             })
         },
@@ -246,7 +243,7 @@ pub async fn user_metadata_group_details(
         }),
         |f| ApplicationCacheValue::UserMetadataGroupDetails(Box::new(f)),
         || async {
-            let (collections, reviews, is_recently_consumed, metadata_group_meta) = try_join!(
+            let (collections, reviews, metadata_group_meta) = try_join!(
                 entity_in_collections_with_details(
                     &user_id,
                     &metadata_group_id,
@@ -260,12 +257,6 @@ pub async fn user_metadata_group_details(
                     true,
                     ss,
                 ),
-                get_entity_recently_consumed(
-                    &user_id,
-                    &metadata_group_id,
-                    EntityLot::MetadataGroup,
-                    ss
-                ),
                 get_user_to_entity_association(
                     &ss.db,
                     &user_id,
@@ -278,10 +269,31 @@ pub async fn user_metadata_group_details(
                 reviews,
                 collections,
                 average_rating,
-                is_recently_consumed,
                 has_interacted: metadata_group_meta.is_some(),
             })
         },
     )
     .await
+}
+
+pub async fn get_entity_recently_consumed(
+    user_id: &String,
+    entity_id: &String,
+    entity_lot: EntityLot,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    server_key_validation_guard(is_server_key_validated(ss).await?).await?;
+    let is_recently_consumed = cache_service::get_value::<EmptyCacheValue>(
+        ss,
+        ApplicationCacheKey::EntityRecentlyConsumed(UserLevelCacheKey {
+            user_id: user_id.to_owned(),
+            input: EntityRecentlyConsumedCacheInput {
+                entity_lot,
+                entity_id: entity_id.to_owned(),
+            },
+        }),
+    )
+    .await
+    .is_some();
+    Ok(is_recently_consumed)
 }

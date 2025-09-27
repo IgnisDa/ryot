@@ -365,14 +365,15 @@ const MetadataGroupListItem = (props: MetadataGroupListItemProps) => {
 
 	return (
 		<MetadataGroupDisplayItem
+			noEntityLot
 			metadataGroupId={props.item}
-			topRight={
+			centerElement={
 				bulkEditingState &&
 				bulkEditingState.data.action === "add" &&
 				!isAlreadyPresent ? (
 					<ActionIcon
-						variant={isAdded ? "filled" : "transparent"}
 						color="green"
+						variant={isAdded ? "filled" : "transparent"}
 						onClick={() => {
 							if (isAdded) bulkEditingState.remove(becItem);
 							else bulkEditingState.add(becItem);

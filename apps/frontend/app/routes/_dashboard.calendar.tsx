@@ -136,19 +136,19 @@ const CalendarEvent = (props: {
 			<ApplicationGrid>
 				{props.data.events.map((calEvent) => (
 					<MetadataDisplayItem
-						noLeftLabel
 						key={calEvent.calendarEventId}
 						altName={calEvent.metadataText}
 						metadataId={calEvent.metadataId}
-						rightLabel={`${match(calEvent.metadataLot)
+						additionalInformation={`${match(calEvent.metadataLot)
 							.with(
 								MediaLot.Show,
 								() =>
-									`S${calEvent.showExtraInformation?.season}-E${calEvent.showExtraInformation?.episode}`,
+									`Upcoming: S${calEvent.showExtraInformation?.season}-E${calEvent.showExtraInformation?.episode}`,
 							)
 							.with(
 								MediaLot.Podcast,
-								() => `EP-${calEvent.podcastExtraInformation?.episode}`,
+								() =>
+									`Upcoming: EP-${calEvent.podcastExtraInformation?.episode}`,
 							)
 							.otherwise(() => "")}`}
 					/>

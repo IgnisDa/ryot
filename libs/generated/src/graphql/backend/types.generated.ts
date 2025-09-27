@@ -999,11 +999,6 @@ export enum GraphqlSortOrder {
   Desc = 'DESC'
 }
 
-export enum GridPacking {
-  Dense = 'DENSE',
-  Normal = 'NORMAL'
-}
-
 export type GroupedCalendarEvent = {
   __typename?: 'GroupedCalendarEvent';
   date: Scalars['NaiveDate']['output'];
@@ -2189,6 +2184,8 @@ export type QueryRoot = {
   userCollectionsList: CachedCollectionsListResponse;
   /** Get details about the currently logged in user. */
   userDetails: UserDetailsResult;
+  /** Returns whether the current user has recently consumed the specified entity. */
+  userEntityRecentlyConsumed: Scalars['Boolean']['output'];
   /** Get information about an exercise for a user. */
   userExerciseDetails: UserExerciseDetails;
   /** Get a paginated list of exercises in the database. */
@@ -2311,6 +2308,12 @@ export type QueryRootUserByOidcIssuerIdArgs = {
 
 export type QueryRootUserCalendarEventsArgs = {
   input: UserCalendarEventInput;
+};
+
+
+export type QueryRootUserEntityRecentlyConsumedArgs = {
+  entityId: Scalars['String']['input'];
+  entityLot: EntityLot;
 };
 
 
@@ -2891,7 +2894,6 @@ export type UserGeneralPreferences = {
   disableVideos: Scalars['Boolean']['output'];
   disableWatchProviders: Scalars['Boolean']['output'];
   displayNsfw: Scalars['Boolean']['output'];
-  gridPacking: GridPacking;
   landingPath: Scalars['String']['output'];
   listPageSize: Scalars['Int']['output'];
   reviewScale: UserReviewScale;
@@ -2907,7 +2909,6 @@ export type UserGeneralPreferencesInput = {
   disableVideos: Scalars['Boolean']['input'];
   disableWatchProviders: Scalars['Boolean']['input'];
   displayNsfw: Scalars['Boolean']['input'];
-  gridPacking: GridPacking;
   landingPath: Scalars['String']['input'];
   listPageSize: Scalars['Int']['input'];
   reviewScale: UserReviewScale;
@@ -3022,8 +3023,6 @@ export type UserMetadataDetails = {
   history: Array<Seen>;
   /** The seen item if it is in progress. */
   inProgress?: Maybe<Seen>;
-  /** Whether this media has been recently interacted with */
-  isRecentlyConsumed: Scalars['Boolean']['output'];
   /** The reasons why this metadata is related to this user */
   mediaReason?: Maybe<Array<UserToMediaReason>>;
   /** The next episode/chapter of this media. */
@@ -3058,7 +3057,6 @@ export type UserMetadataGroupDetails = {
   averageRating?: Maybe<Scalars['Decimal']['output']>;
   collections: Array<GraphqlCollectionToEntityDetails>;
   hasInteracted: Scalars['Boolean']['output'];
-  isRecentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
 };
 
@@ -3118,7 +3116,6 @@ export type UserPersonDetails = {
   averageRating?: Maybe<Scalars['Decimal']['output']>;
   collections: Array<GraphqlCollectionToEntityDetails>;
   hasInteracted: Scalars['Boolean']['output'];
-  isRecentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
 };
 

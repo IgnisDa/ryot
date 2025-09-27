@@ -335,6 +335,14 @@ pub async fn reorder_collection_entity(
         (prev_rank + next_rank) / dec!(2)
     };
 
+    ryot_log!(
+        debug,
+        "Reordering entity {} to position {} with new rank {}",
+        entity_to_reorder.entity_id,
+        input.new_position,
+        new_rank
+    );
+
     CollectionToEntity::update_many()
         .filter(collection_to_entity::Column::Id.eq(entity_to_reorder.id))
         .col_expr(collection_to_entity::Column::Rank, Expr::value(new_rank))

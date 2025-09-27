@@ -24,7 +24,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormEvent } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
 	useFetcher,
@@ -34,12 +34,14 @@ import {
 } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
+import { match } from "ts-pattern";
 import { useInterval, useMediaQuery } from "usehooks-ts";
 import {
 	clientGqlService,
 	getMetadataDetailsQuery,
 	getMetadataGroupDetailsQuery,
 	getPersonDetailsQuery,
+	getUserEntityRecentlyConsumedQuery,
 	getUserMetadataDetailsQuery,
 	getUserMetadataGroupDetailsQuery,
 	getUserPersonDetailsQuery,
@@ -50,6 +52,8 @@ import { selectRandomElement } from "~/lib/shared/ui-utils";
 import {
 	getExerciseDetailsQuery,
 	getUserExerciseDetailsQuery,
+	getWorkoutDetailsQuery,
+	getWorkoutTemplateDetailsQuery,
 } from "~/lib/state/fitness";
 import {
 	type InProgressWorkout,
@@ -88,6 +92,19 @@ export const useConfirmSubmit = () => {
 	return fn;
 };
 
+export const useDashboardLayoutData = () => {
+	const loaderData =
+		useRouteLoaderData<typeof dashboardLoader>("routes/_dashboard");
+	invariant(loaderData);
+	return loaderData;
+};
+
+export const useUserPreferences = () => useUserDetails().preferences;
+export const useCoreDetails = () => useDashboardLayoutData().coreDetails;
+export const useUserDetails = () => useDashboardLayoutData().userDetails;
+export const useCurrentColorSchema = () =>
+	useDashboardLayoutData().currentColorScheme;
+
 export const useGetWorkoutStarter = () => {
 	const navigate = useNavigate();
 	const [_w, setCurrentWorkout] = useCurrentWorkout();
@@ -113,15 +130,13 @@ export const usePartialStatusMonitor = (props: {
 	const { entityId, entityLot, onUpdate, partialStatus, externalLinkSource } =
 		props;
 
-	const [jobDeployedForEntity, setJobDeployedForEntity] = useState<
-		string | null
-	>(null);
+	const attemptCountRef = useRef(0);
+	const isPollingRef = useRef(false);
 	const [isPartialStatusActive, setIsPartialStatusActive] = useState(false);
+	const jobDeployedForEntityRef = useRef<string | null>(null);
 	const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
 		undefined,
 	);
-	const attemptCountRef = useRef(0);
-	const isPollingRef = useRef(false);
 
 	const scheduleNextPoll = useCallback(() => {
 		if (!isPollingRef.current) return;
@@ -153,28 +168,46 @@ export const usePartialStatusMonitor = (props: {
 	}, []);
 
 	useEffect(() => {
-		resetPollingState();
+		const jobDeployedForEntity = jobDeployedForEntityRef.current;
+		const shouldPoll = Boolean(
+			entityId && partialStatus && externalLinkSource !== MediaSource.Custom,
+		);
+		const isJobForDifferentEntity = Boolean(
+			jobDeployedForEntity && jobDeployedForEntity !== entityId,
+		);
 
-		const isJobForDifferentEntity =
-			jobDeployedForEntity && jobDeployedForEntity !== entityId;
-		const shouldPoll =
-			entityId && partialStatus && externalLinkSource !== MediaSource.Custom;
-
-		if (isJobForDifferentEntity || !entityId) setJobDeployedForEntity(null);
-
-		if (!shouldPoll) return;
-
-		if (jobDeployedForEntity !== entityId && entityId) {
-			clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
-				entityId,
-				entityLot,
-			});
-			setJobDeployedForEntity(entityId);
+		if (isJobForDifferentEntity || !entityId) {
+			jobDeployedForEntityRef.current = null;
 		}
 
-		isPollingRef.current = true;
-		setIsPartialStatusActive(true);
-		scheduleNextPoll();
+		if (!shouldPoll) {
+			if (isPollingRef.current) resetPollingState();
+			return;
+		}
+
+		if (isJobForDifferentEntity) {
+			resetPollingState();
+		}
+
+		if (!isPollingRef.current) {
+			if (jobDeployedForEntityRef.current !== entityId && entityId) {
+				clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
+					entityId,
+					entityLot,
+				});
+				jobDeployedForEntityRef.current = entityId;
+			}
+
+			if (timeoutRef.current) {
+				clearTimeout(timeoutRef.current);
+				timeoutRef.current = undefined;
+			}
+
+			attemptCountRef.current = 0;
+			isPollingRef.current = true;
+			setIsPartialStatusActive(true);
+			scheduleNextPoll();
+		}
 
 		return resetPollingState;
 	}, [
@@ -185,7 +218,6 @@ export const usePartialStatusMonitor = (props: {
 		scheduleNextPoll,
 		resetPollingState,
 		externalLinkSource,
-		jobDeployedForEntity,
 	]);
 
 	return { isPartialStatusActive };
@@ -250,6 +282,26 @@ export const useUserExerciseDetails = (
 	});
 };
 
+export const useUserWorkoutDetails = (
+	workoutId?: string | null,
+	enabled?: boolean,
+) => {
+	return useQuery({
+		...getWorkoutDetailsQuery(workoutId || ""),
+		enabled,
+	});
+};
+
+export const useUserWorkoutTemplateDetails = (
+	workoutTemplateId?: string | null,
+	enabled?: boolean,
+) => {
+	return useQuery({
+		...getWorkoutTemplateDetailsQuery(workoutTemplateId || ""),
+		enabled,
+	});
+};
+
 export const useMetadataGroupDetails = (
 	metadataGroupId?: string,
 	enabled?: boolean,
@@ -277,6 +329,18 @@ export const useUserMetadataGroupDetails = (
 	return useQuery({
 		...getUserMetadataGroupDetailsQuery(metadataGroupId),
 		enabled,
+	});
+};
+
+export const useUserEntityRecentlyConsumed = (
+	entityId?: string,
+	entityLot?: EntityLot,
+	enabled?: boolean,
+) => {
+	const coreDetails = useCoreDetails();
+	return useQuery({
+		...getUserEntityRecentlyConsumedQuery(entityId, entityLot),
+		enabled: enabled && coreDetails.isServerKeyValidated,
 	});
 };
 
@@ -318,17 +382,6 @@ export const useUserMetadataGroupList = (
 				.request(UserMetadataGroupsListDocument, { input })
 				.then((data) => data.userMetadataGroupsList),
 	});
-
-export const useDashboardLayoutData = () => {
-	const loaderData =
-		useRouteLoaderData<typeof dashboardLoader>("routes/_dashboard");
-	invariant(loaderData);
-	return loaderData;
-};
-
-export const useUserPreferences = () => useUserDetails().preferences;
-export const useCoreDetails = () => useDashboardLayoutData().coreDetails;
-export const useUserDetails = () => useDashboardLayoutData().userDetails;
 
 export const useUserCollections = () => {
 	const query = useQuery({
@@ -392,6 +445,13 @@ export const useApplicationEvents = () => {
 			provider,
 		});
 	};
+	const updatePreference = (
+		property: string,
+		previousValue: unknown,
+		newValue: unknown,
+	) => {
+		sendEvent("Update Preference", { property, newValue, previousValue });
+	};
 
 	return {
 		postReview,
@@ -399,6 +459,7 @@ export const useApplicationEvents = () => {
 		createWorkout,
 		updateProgress,
 		addToCollection,
+		updatePreference,
 		createMeasurement,
 		startOnboardingTour,
 		completeOnboardingTour,
@@ -561,4 +622,86 @@ export const useMarkUserOnboardingTourStatus = () => {
 	});
 
 	return markUserOnboardingTourAsCompleted;
+};
+
+export const useEntityAlreadyInCollections = (
+	entityId?: string,
+	entityLot?: EntityLot,
+) => {
+	const userCollections = useUserCollections();
+
+	const userMetadataDetails = useUserMetadataDetails(
+		entityId,
+		entityLot === EntityLot.Metadata,
+	);
+	const userExerciseDetails = useUserExerciseDetails(
+		entityId,
+		entityLot === EntityLot.Exercise,
+	);
+	const userWorkoutDetails = useUserWorkoutDetails(
+		entityId,
+		entityLot === EntityLot.Workout,
+	);
+	const userWorkoutTemplateDetails = useUserWorkoutTemplateDetails(
+		entityId,
+		entityLot === EntityLot.WorkoutTemplate,
+	);
+	const userMetadataGroupDetails = useUserMetadataGroupDetails(
+		entityId,
+		entityLot === EntityLot.MetadataGroup,
+	);
+	const userPersonDetails = useUserPersonDetails(
+		entityId,
+		entityLot === EntityLot.Person,
+	);
+
+	const alreadyInCollectionIds = useMemo(() => {
+		if (!entityId) return undefined;
+
+		return match(entityLot)
+			.with(EntityLot.Exercise, () =>
+				userExerciseDetails.data?.collections.map(
+					(c) => c.details.collectionId,
+				),
+			)
+			.with(EntityLot.Workout, () =>
+				userWorkoutDetails.data?.collections.map((c) => c.details.collectionId),
+			)
+			.with(EntityLot.WorkoutTemplate, () =>
+				userWorkoutTemplateDetails.data?.collections.map(
+					(c) => c.details.collectionId,
+				),
+			)
+			.with(EntityLot.Metadata, () =>
+				userMetadataDetails.data?.collections.map(
+					(c) => c.details.collectionId,
+				),
+			)
+			.with(EntityLot.MetadataGroup, () =>
+				userMetadataGroupDetails.data?.collections.map(
+					(c) => c.details.collectionId,
+				),
+			)
+			.with(EntityLot.Person, () =>
+				userPersonDetails.data?.collections.map((c) => c.details.collectionId),
+			)
+			.run();
+	}, [
+		entityId,
+		entityLot,
+		userPersonDetails.data,
+		userWorkoutDetails.data,
+		userMetadataDetails.data,
+		userExerciseDetails.data,
+		userMetadataGroupDetails.data,
+		userWorkoutTemplateDetails.data,
+	]);
+
+	const alreadyInCollectionNames = useMemo(() => {
+		return (alreadyInCollectionIds || []).map(
+			(c) => userCollections.find((uc) => uc.id === c)?.name,
+		);
+	}, [userCollections, alreadyInCollectionIds]);
+
+	return { alreadyInCollectionIds, alreadyInCollectionNames };
 };

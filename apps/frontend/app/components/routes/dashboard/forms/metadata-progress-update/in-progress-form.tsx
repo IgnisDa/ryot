@@ -18,6 +18,7 @@ import {
 } from "@tabler/icons-react";
 import { useState } from "react";
 import { match } from "ts-pattern";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import { useDeployBulkMetadataProgressUpdateMutation } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MetadataInProgressFormProps } from "./utils/form-types";
@@ -60,33 +61,38 @@ export const MetadataInProgressUpdateForm = ({
 		.otherwise(() => [null, null]);
 
 	return (
-		<Stack mt="sm">
-			<Group>
-				<Slider
-					min={0}
-					step={1}
-					max={100}
-					value={value}
-					onChange={setValue}
-					style={{ flexGrow: 1 }}
-					showLabelOnHover={false}
-				/>
-				<NumberInput
-					w="20%"
-					min={0}
-					step={1}
-					max={100}
-					size="xs"
-					hideControls
-					value={value}
-					onFocus={(e) => e.target.select()}
-					rightSection={<IconPercentage size={16} />}
-					onChange={(v) => {
-						if (isNumber(v)) setValue(v);
-						else setValue(undefined);
-					}}
-				/>
-			</Group>
+		<Stack>
+			<Stack gap="xs">
+				<Text size="xs" c="dimmed">
+					Last updated on {dayjsLib(inProgress.lastUpdatedOn).format("LLL")}
+				</Text>
+				<Group>
+					<Slider
+						min={0}
+						step={1}
+						max={100}
+						value={value}
+						onChange={setValue}
+						style={{ flexGrow: 1 }}
+						showLabelOnHover={false}
+					/>
+					<NumberInput
+						w="20%"
+						min={0}
+						step={1}
+						max={100}
+						size="xs"
+						hideControls
+						value={value}
+						onFocus={(e) => e.target.select()}
+						rightSection={<IconPercentage size={16} />}
+						onChange={(v) => {
+							if (isNumber(v)) setValue(v);
+							else setValue(undefined);
+						}}
+					/>
+				</Group>
+			</Stack>
 			{total ? (
 				<>
 					<Text ta="center" fw="bold">

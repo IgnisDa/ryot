@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use chrono::Utc;
-use common_models::{MetadataRecentlyConsumedCacheInput, UserLevelCacheKey};
+use common_models::{EntityRecentlyConsumedCacheInput, UserLevelCacheKey};
 use database_models::{functions::get_user_to_entity_association, user_to_entity};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ApplicationCacheValue, EmptyCacheValue,
@@ -21,14 +21,14 @@ async fn mark_entity_as_recently_consumed(
 ) -> Result<()> {
     cache_service::set_key(
         ss,
-        ApplicationCacheKey::MetadataRecentlyConsumed(UserLevelCacheKey {
+        ApplicationCacheKey::EntityRecentlyConsumed(UserLevelCacheKey {
             user_id: user_id.to_owned(),
-            input: MetadataRecentlyConsumedCacheInput {
+            input: EntityRecentlyConsumedCacheInput {
                 entity_lot,
                 entity_id: entity_id.to_owned(),
             },
         }),
-        ApplicationCacheValue::MetadataRecentlyConsumed(EmptyCacheValue::default()),
+        ApplicationCacheValue::EntityRecentlyConsumed(EmptyCacheValue::default()),
     )
     .await?;
     Ok(())
@@ -42,6 +42,7 @@ pub async fn expire_entity_details_cache(
 ) -> Result<()> {
     try_join!(
         expire_user_metadata_list_cache(user_id, ss),
+        expire_user_exercises_list_cache(user_id, ss),
         expire_user_workout_details_cache(user_id, entity_id, ss),
         expire_user_metadata_details_cache(user_id, entity_id, ss),
         expire_user_workout_template_details_cache(user_id, entity_id, ss),
@@ -91,7 +92,7 @@ pub async fn associate_user_with_entity(
                 let mut to_update = u.into_active_model();
                 to_update.last_updated_on = ActiveValue::Set(Utc::now());
                 to_update.needs_to_be_updated = ActiveValue::Set(Some(true));
-                to_update.update(&ss.db).await.unwrap();
+                to_update.update(&ss.db).await?;
             }
             None => {
                 let mut new_user_to_entity = user_to_entity::ActiveModel {
@@ -124,32 +125,11 @@ pub async fn associate_user_with_entity(
                         unreachable!()
                     }
                 }
-                new_user_to_entity.insert(&ss.db).await.unwrap();
+                new_user_to_entity.insert(&ss.db).await?;
             }
         };
     }
     expire_entity_details_cache(user_id, entity_id, entity_lot, ss).await
-}
-
-pub async fn get_entity_recently_consumed(
-    user_id: &String,
-    entity_id: &String,
-    entity_lot: EntityLot,
-    ss: &Arc<SupportingService>,
-) -> Result<bool> {
-    let entity_value = cache_service::get_value::<EmptyCacheValue>(
-        ss,
-        ApplicationCacheKey::MetadataRecentlyConsumed(UserLevelCacheKey {
-            user_id: user_id.to_owned(),
-            input: MetadataRecentlyConsumedCacheInput {
-                entity_lot,
-                entity_id: entity_id.to_owned(),
-            },
-        }),
-    )
-    .await
-    .is_some();
-    Ok(entity_value)
 }
 
 pub async fn expire_user_collections_list_cache(

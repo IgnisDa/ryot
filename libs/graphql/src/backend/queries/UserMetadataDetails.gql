@@ -6,7 +6,6 @@ query UserMetadataDetails($metadataId: String!) {
 			averageRating
 			seenByAllCount
 			seenByUserCount
-			isRecentlyConsumed
 			reviews {
 				...ReviewItemPart
 			}

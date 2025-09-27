@@ -55,7 +55,7 @@ import {
 	IconTrophy,
 	IconUser,
 } from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
 import { Fragment, useState } from "react";
 import { Link, useLoaderData, useNavigate } from "react-router";
@@ -80,13 +80,13 @@ import {
 	useUserDetails,
 	useUserPreferences,
 	useUserUnitSystem,
+	useUserWorkoutDetails,
 } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
 	addExerciseToCurrentWorkout,
 	getExerciseImages,
-	getWorkoutDetailsQuery,
 	useCurrentWorkout,
 	useMergingExercise,
 } from "~/lib/state/fitness";
@@ -157,8 +157,8 @@ export default function Page() {
 		mutationFn: async () => {
 			await clientGqlService.request(UpdateUserExerciseSettingsDocument, {
 				input: {
-					exerciseId: loaderData.exerciseId,
 					change: changingExerciseSettings.value,
+					exerciseId: loaderData.exerciseDetails.id,
 				},
 			});
 		},
@@ -572,8 +572,8 @@ export default function Page() {
 										variant="outline"
 										onClick={() => {
 											setAddEntityToCollectionsData({
-												entityId: loaderData.exerciseId,
 												entityLot: EntityLot.Exercise,
+												entityId: loaderData.exerciseDetails.id,
 											});
 										}}
 									>
@@ -584,8 +584,8 @@ export default function Page() {
 										w="100%"
 										onClick={() => {
 											setEntityToReview({
-												entityId: loaderData.exerciseId,
 												entityLot: EntityLot.Exercise,
+												entityId: loaderData.exerciseDetails.id,
 												entityTitle: loaderData.exerciseDetails.name,
 											});
 										}}
@@ -627,8 +627,8 @@ export default function Page() {
 													review={r}
 													key={r.id}
 													entityLot={EntityLot.Exercise}
-													entityId={loaderData.exerciseId}
-													title={loaderData.exerciseDetails.id}
+													title={loaderData.exerciseDetails.name}
+													entityId={loaderData.exerciseDetails.id}
 												/>
 											))}
 										</Stack>
@@ -705,7 +705,7 @@ const DisplayPersonalBest = (props: {
 	personalBestLot: WorkoutSetPersonalBest;
 }) => {
 	const unitSystem = useUserUnitSystem();
-	const { data } = useQuery(getWorkoutDetailsQuery(props.set.workoutId));
+	const { data } = useUserWorkoutDetails(props.set.workoutId);
 	const set =
 		data?.details.information.exercises[props.set.exerciseIdx].sets[
 			props.set.setIdx

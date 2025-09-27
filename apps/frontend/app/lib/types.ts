@@ -17,6 +17,18 @@ export enum ThreePointSmileyRating {
 	Sad = "Sad",
 }
 
+export const getThreePointSmileyEmoji = (
+	rating: ThreePointSmileyRating,
+): string => {
+	const emojiByRating = {
+		[ThreePointSmileyRating.Happy]: "😊",
+		[ThreePointSmileyRating.Neutral]: "😐",
+		[ThreePointSmileyRating.Sad]: "😞",
+	} satisfies Record<ThreePointSmileyRating, string>;
+
+	return emojiByRating[rating];
+};
+
 export enum FitnessAction {
 	LogWorkout = "log-workout",
 	UpdateWorkout = "update-workout",

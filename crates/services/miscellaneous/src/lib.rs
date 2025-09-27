@@ -86,6 +86,18 @@ impl MiscellaneousService {
         .await
     }
 
+    pub async fn is_entity_recently_consumed(
+        &self,
+        user_id: String,
+        entity_id: String,
+        entity_lot: EntityLot,
+    ) -> Result<bool> {
+        miscellaneous_entity_user_details_service::get_entity_recently_consumed(
+            &user_id, &entity_id, entity_lot, &self.0,
+        )
+        .await
+    }
+
     pub async fn user_calendar_events(
         &self,
         user_id: String,

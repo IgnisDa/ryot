@@ -28,7 +28,6 @@ import {
 	EntityLot,
 	MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, snakeCase } from "@ryot/ts-utils";
 import {
 	IconArrowsShuffle,
 	IconCheck,
@@ -88,56 +87,43 @@ export const ProRequiredAlert = (props: {
 export const DisplayCollectionEntity = (props: {
 	entityId: string;
 	entityLot: EntityLot;
-	topLeft?: ReactNode;
-	topRight?: ReactNode;
+	centerElement?: ReactNode;
 }) =>
 	match(props.entityLot)
 		.with(EntityLot.Metadata, () => (
 			<MetadataDisplayItem
-				rightLabelLot
-				topLeft={props.topLeft}
-				topRight={props.topRight}
 				metadataId={props.entityId}
+				centerElement={props.centerElement}
 			/>
 		))
 		.with(EntityLot.MetadataGroup, () => (
 			<MetadataGroupDisplayItem
-				noLeftLabel
-				topLeft={props.topLeft}
-				topRight={props.topRight}
 				metadataGroupId={props.entityId}
-				rightLabel={changeCase(snakeCase(props.entityLot))}
+				centerElement={props.centerElement}
 			/>
 		))
 		.with(EntityLot.Person, () => (
 			<PersonDisplayItem
-				topLeft={props.topLeft}
 				personId={props.entityId}
-				topRight={props.topRight}
-				rightLabel={changeCase(snakeCase(props.entityLot))}
+				centerElement={props.centerElement}
 			/>
 		))
 		.with(EntityLot.Exercise, () => (
 			<ExerciseDisplayItem
-				topLeft={props.topLeft}
-				topRight={props.topRight}
 				exerciseId={props.entityId}
-				rightLabel={changeCase(snakeCase(props.entityLot))}
+				centerElement={props.centerElement}
 			/>
 		))
 		.with(EntityLot.Workout, () => (
 			<WorkoutDisplayItem
-				topLeft={props.topLeft}
-				topRight={props.topRight}
 				workoutId={props.entityId}
-				rightLabel={changeCase(snakeCase(props.entityLot))}
+				centerElement={props.centerElement}
 			/>
 		))
 		.with(EntityLot.WorkoutTemplate, () => (
 			<WorkoutTemplateDisplayItem
-				topLeft={props.topLeft}
-				topRight={props.topRight}
 				workoutTemplateId={props.entityId}
+				centerElement={props.centerElement}
 			/>
 		))
 		.run();

@@ -31,6 +31,7 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
         .all(&ss.db)
         .await?;
     for user_id in all_users {
+        let mut has_user_level_changes = false;
         let collections = Collection::find()
             .filter(collection::Column::UserId.eq(&user_id))
             .all(&ss.db)
@@ -63,6 +64,7 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
             .all(&ss.db)
             .await?;
         for ute in all_user_to_entities {
+            let mut has_entity_level_changes = false;
             let mut new_reasons = HashSet::new();
             let (entity_id, entity_lot) = if let Some(metadata_id) = ute.metadata_id.clone() {
                 let (is_finished, seen_history) =
@@ -80,6 +82,9 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
                 (metadata_group_id, EntityLot::MetadataGroup)
             } else {
                 ryot_log!(debug, "Skipping user_to_entity = {:?}", ute.id);
+                let mut ute = ute.into_active_model();
+                ute.needs_to_be_updated = ActiveValue::Set(None);
+                ute.update(&ss.db).await?;
                 continue;
             };
 
@@ -139,19 +144,27 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
                 HashSet::from_iter(ute.media_reason.clone().unwrap_or_default().into_iter());
             if new_reasons.is_empty() {
                 ryot_log!(debug, "Deleting user_to_entity = {id:?}", id = (&ute.id));
+                has_user_level_changes = true;
+                has_entity_level_changes = true;
                 ute.delete(&ss.db).await?;
             } else {
                 let mut ute = ute.into_active_model();
                 if new_reasons != previous_reasons {
                     ryot_log!(debug, "Updating user_to_entity = {id:?}", id = (&ute.id));
                     ute.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
+                    has_entity_level_changes = true;
+                    has_user_level_changes = true;
                 }
                 ute.needs_to_be_updated = ActiveValue::Set(None);
                 ute.update(&ss.db).await?;
             }
-            expire_user_metadata_details_cache(&user_id, &entity_id, ss).await?;
+            if has_entity_level_changes {
+                expire_user_metadata_details_cache(&user_id, &entity_id, ss).await?;
+            }
         }
-        expire_user_metadata_list_cache(&user_id, ss).await?;
+        if has_user_level_changes {
+            expire_user_metadata_list_cache(&user_id, ss).await?;
+        }
     }
     Ok(())
 }

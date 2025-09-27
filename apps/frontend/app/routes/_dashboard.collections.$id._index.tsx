@@ -66,7 +66,11 @@ import {
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
-import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
+import {
+	clientGqlService,
+	queryClient,
+	queryFactory,
+} from "~/lib/shared/react-query";
 import {
 	convertEnumToSelectData,
 	isFilterChanged,
@@ -110,22 +114,21 @@ export const meta = () => {
 };
 
 export default function Page(props: { params: { id: string } }) {
+	const navigate = useNavigate();
+	const userDetails = useUserDetails();
+	const coreDetails = useCoreDetails();
 	const { id: collectionId } = props.params;
 	const userPreferences = useUserPreferences();
-	const userDetails = useUserDetails();
-	const navigate = useNavigate();
 	const userCollections = useUserCollections();
-	const coreDetails = useCoreDetails();
-
+	const [_r, setEntityToReview] = useReviewEntity();
+	const bulkEditingCollection = useBulkEditCollection();
+	const [isReorderMode, setIsReorderMode] = useState(false);
+	const [tab, setTab] = useState<string | null>(DEFAULT_TAB);
 	const { open: openCollectionModal } = useCreateOrUpdateCollectionModal();
 	const [filters, setFilters] = useLocalStorage(
 		`CollectionFilters-${collectionId}`,
 		defaultFilters,
 	);
-	const [tab, setTab] = useState<string | null>(DEFAULT_TAB);
-	const [isReorderMode, setIsReorderMode] = useState(false);
-	const [_r, setEntityToReview] = useReviewEntity();
-	const bulkEditingCollection = useBulkEditCollection();
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -150,6 +153,9 @@ export default function Page(props: { params: { id: string } }) {
 					.then((data) => data.collectionContents),
 		});
 
+	const updateFilter: FilterUpdateFunction<FilterState> = (key, value) =>
+		setFilters((prev) => ({ ...prev, [key]: value }));
+
 	const details = collectionContents?.response;
 	const colDetails = details && {
 		id: collectionId,
@@ -157,10 +163,6 @@ export default function Page(props: { params: { id: string } }) {
 		creatorUserId: details.user.id,
 	};
 	const thisCollection = userCollections.find((c) => c.id === collectionId);
-
-	const updateFilter: FilterUpdateFunction<FilterState> = (key, value) =>
-		setFilters((prev) => ({ ...prev, [key]: value }));
-
 	const areListFiltersActive = isFilterChanged(filters, defaultFilters);
 
 	return (
@@ -371,6 +373,11 @@ export default function Page(props: { params: { id: string } }) {
 													});
 													return;
 												}
+												setFilters({
+													...defaultFilters,
+													orderBy: GraphqlSortOrder.Asc,
+													sortBy: CollectionContentsSortBy.Rank,
+												});
 												setTab(TabNames.Contents);
 												setIsReorderMode(true);
 											}}
@@ -473,13 +480,16 @@ const FiltersModalForm = (props: {
 	);
 };
 
-const RecommendationsSection = ({ collectionId }: { collectionId: string }) => {
+const RecommendationsSection = (props: { collectionId: string }) => {
 	const [search, setSearchInput] = useLocalStorage(
-		"CollectionRecommendationsSearchInput",
+		`CollectionRecommendationsSearchInput-${props.collectionId}`,
 		{ page: 1, query: "" },
 	);
 
-	const input: CollectionRecommendationsInput = { collectionId, search };
+	const input: CollectionRecommendationsInput = {
+		search,
+		collectionId: props.collectionId,
+	};
 
 	const recommendations = useQuery({
 		queryKey:
@@ -539,9 +549,15 @@ const CollectionItem = (props: CollectionItemProps) => {
 	const bulkEditingCollection = useBulkEditCollection();
 	const state = bulkEditingCollection.state;
 	const isAdded = bulkEditingCollection.isAdded(props.item);
+
 	const reorderMutation = useMutation({
 		mutationFn: (input: ReorderCollectionEntityInput) =>
 			clientGqlService.request(ReorderCollectionEntityDocument, { input }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({
+				queryKey: queryFactory.collections.collectionContents._def,
+			});
+		},
 		onError: (_error) => {
 			notifications.show({
 				color: "red",
@@ -573,22 +589,14 @@ const CollectionItem = (props: CollectionItemProps) => {
 		<DisplayCollectionEntity
 			entityId={props.item.entityId}
 			entityLot={props.item.entityLot}
-			topLeft={
+			centerElement={
 				props.isReorderMode ? (
-					<ActionIcon
-						color="blue"
-						variant="filled"
-						onClick={handleRankClick}
-						style={{ cursor: "pointer" }}
-					>
+					<ActionIcon variant="filled" onClick={handleRankClick}>
 						<Text size="xs" fw={700} c="white">
 							{props.rankNumber}
 						</Text>
 					</ActionIcon>
-				) : null
-			}
-			topRight={
-				state && state.data.action === "remove" ? (
+				) : state && state.data.action === "remove" ? (
 					<ActionIcon
 						color="red"
 						variant={isAdded ? "filled" : "transparent"}

@@ -14,17 +14,15 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import {
-	type EntityAssets,
-	GridPacking,
-	type MediaLot,
-	type MediaSource,
+import type {
+	EntityAssets,
+	MediaLot,
+	MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconExternalLink } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
-import { match } from "ts-pattern";
-import { useFallbackImageUrl, useUserPreferences } from "~/lib/shared/hooks";
+import { useFallbackImageUrl } from "~/lib/shared/hooks";
 import {
 	getProviderSourceImage,
 	getSurroundingElements,
@@ -36,18 +34,14 @@ export const ApplicationGrid = (props: {
 	className?: string;
 	children: ReactNode | Array<ReactNode>;
 }) => {
-	const userPreferences = useUserPreferences();
 	const [parent] = useAutoAnimate();
 
 	return (
 		<SimpleGrid
-			spacing="lg"
 			ref={parent}
 			className={props.className}
-			cols={match(userPreferences.general.gridPacking)
-				.with(GridPacking.Normal, () => ({ base: 2, sm: 3, md: 4, lg: 5 }))
-				.with(GridPacking.Dense, () => ({ base: 3, sm: 4, md: 5, lg: 6 }))
-				.exhaustive()}
+			spacing={{ base: "sm", sm: "lg" }}
+			cols={{ base: 3, sm: 4, md: 5, lg: 6 }}
 		>
 			{props.children}
 		</SimpleGrid>

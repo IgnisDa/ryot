@@ -243,16 +243,16 @@ pub async fn update_custom_metadata(
     if metadata.created_by_user_id != Some(user_id.to_owned()) {
         bail!("You are not authorized to update this metadata");
     }
-    MetadataToGenre::delete_many()
-        .filter(metadata_to_genre::Column::MetadataId.eq(&input.existing_metadata_id))
-        .exec(&ss.db)
-        .await?;
     for image in metadata.assets.s3_images.clone() {
         file_storage_service::delete_object(ss, image).await?;
     }
     for video in metadata.assets.s3_videos.clone() {
         file_storage_service::delete_object(ss, video).await?;
     }
+    MetadataToGenre::delete_many()
+        .filter(metadata_to_genre::Column::MetadataId.eq(&input.existing_metadata_id))
+        .exec(&ss.db)
+        .await?;
     let mut new_metadata =
         get_data_for_custom_metadata(input.update.clone(), metadata.identifier, user_id);
     new_metadata.id = ActiveValue::Unchanged(input.existing_metadata_id);

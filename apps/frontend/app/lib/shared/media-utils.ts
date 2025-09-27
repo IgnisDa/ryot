@@ -3,6 +3,7 @@ import {
 	MediaLot,
 	MetadataDetailsDocument,
 	SetLot,
+	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { inRange } from "@ryot/ts-utils";
 import {
@@ -112,6 +113,47 @@ export const convertDecimalToThreePointSmiley = (rating: number) =>
 		: inRange(rating, 33.4, 66.8)
 			? ThreePointSmileyRating.Neutral
 			: ThreePointSmileyRating.Happy;
+
+export const convertRatingToUserScale = (
+	rating: string | null | undefined,
+	scale: UserReviewScale,
+) => {
+	if (rating == null) return null;
+	const value = Number(rating);
+	if (Number.isNaN(value)) return null;
+
+	const scaled = match(scale)
+		.with(UserReviewScale.OutOfHundred, () => value)
+		.with(UserReviewScale.OutOfTen, () => value / 10)
+		.with(UserReviewScale.OutOfFive, () => value / 20)
+		.with(UserReviewScale.ThreePointSmiley, () => value)
+		.exhaustive();
+	return scale === UserReviewScale.OutOfHundred ||
+		scale === UserReviewScale.ThreePointSmiley
+		? scaled
+		: Math.round(scaled * 10) / 10;
+};
+
+export const formatRatingForDisplay = (
+	rating: number,
+	scale: UserReviewScale,
+) =>
+	match(scale)
+		.with(UserReviewScale.OutOfHundred, () =>
+			Number.isInteger(rating)
+				? Math.round(rating).toString()
+				: rating.toFixed(1),
+		)
+		.with(UserReviewScale.OutOfTen, () => rating.toFixed(1))
+		.with(UserReviewScale.OutOfFive, () => rating.toFixed(1))
+		.with(UserReviewScale.ThreePointSmiley, () => rating.toFixed(2))
+		.exhaustive();
+
+export const getRatingUnitSuffix = (scale: UserReviewScale) =>
+	match(scale)
+		.with(UserReviewScale.OutOfHundred, () => "%")
+		.with(UserReviewScale.OutOfTen, () => "/10")
+		.otherwise(() => undefined);
 
 export const getExerciseDetailsPath = (exerciseId: string) =>
 	$path("/fitness/exercises/item/:id", {

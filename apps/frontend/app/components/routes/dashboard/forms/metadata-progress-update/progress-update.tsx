@@ -1,24 +1,8 @@
-import {
-	Center,
-	Divider,
-	Loader,
-	SegmentedControl,
-	Stack,
-	Text,
-} from "@mantine/core";
-import { EntityLot } from "@ryot/generated/graphql/backend/graphql";
+import { Center, Loader, Stack, Text } from "@mantine/core";
 import { useMetadataDetails, useUserMetadataDetails } from "~/lib/shared/hooks";
-import {
-	useAddEntityToCollections,
-	useMetadataProgressUpdate,
-} from "~/lib/state/media";
+import { useMetadataProgressUpdate } from "~/lib/state/media";
 import { MetadataInProgressUpdateForm } from "./in-progress-form";
 import { MetadataNewProgressUpdateForm } from "./new-progress-form";
-
-enum Target {
-	Progress = "progress",
-	Collection = "collection",
-}
 
 export const MetadataProgressUpdateForm = ({
 	closeMetadataProgressUpdateModal,
@@ -26,7 +10,6 @@ export const MetadataProgressUpdateForm = ({
 	closeMetadataProgressUpdateModal: () => void;
 }) => {
 	const { metadataToUpdate } = useMetadataProgressUpdate();
-	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
 	const [{ data: metadataDetails }] = useMetadataDetails(
 		metadataToUpdate?.metadataId,
@@ -47,28 +30,10 @@ export const MetadataProgressUpdateForm = ({
 	};
 
 	return (
-		<Stack gap="lg">
+		<Stack>
 			<Text fw="bold" ta="center" truncate>
 				{metadataDetails.title}
 			</Text>
-			<SegmentedControl
-				fullWidth
-				defaultValue={Target.Progress}
-				data={[
-					{ label: "Update Progress", value: Target.Progress },
-					{ label: "Add to Collection", value: Target.Collection },
-				]}
-				onChange={(value) => {
-					if (value === Target.Collection) {
-						setAddEntityToCollectionsData({
-							entityLot: EntityLot.Metadata,
-							entityId: metadataToUpdate.metadataId,
-						});
-						closeMetadataProgressUpdateModal();
-					}
-				}}
-			/>
-			<Divider />
 			{userMetadataDetails.inProgress ? (
 				<MetadataInProgressUpdateForm
 					onSubmit={onSubmit}
