@@ -293,7 +293,7 @@ describe("Events bulk POST", () => {
 				{
 					entityId,
 					eventSchemaId: reviewEventSchemaId,
-					properties: { review: "Even better", rating: 5 },
+					properties: { text: "Even better", rating: 5 },
 				},
 			],
 		});
@@ -305,7 +305,7 @@ describe("Events bulk POST", () => {
 		expect(events).toHaveLength(2);
 		expect(events.map((event) => event.eventSchemaSlug)).toEqual(["review", "review"]);
 		expect(events.map((event) => event.properties)).toEqual([
-			{ review: "Even better", rating: 5 },
+			{ text: "Even better", rating: 5 },
 			{ rating: 4 },
 		]);
 	});

@@ -158,16 +158,16 @@ describe("GET /event-schemas", () => {
 			expect(reviewSchema.propertiesSchema).toBeDefined();
 			expect(reviewSchema.propertiesSchema as Record<string, unknown>).toMatchObject({
 				fields: {
-					review: {
+					text: {
 						type: "string",
 						label: "Review",
 						description: "Your written thoughts or notes about this media",
 					},
 					rating: {
-						type: "integer",
+						type: "number",
 						label: "Rating",
-						description: "Your personal rating from 1 (lowest) to 5 (highest)",
-						validation: { required: true, maximum: 5, minimum: 1 },
+						validation: { maximum: 100, minimum: 0 },
+						description: "Your personal rating from 0 (lowest) to 100 (highest)",
 					},
 				},
 			});
