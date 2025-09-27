@@ -87,15 +87,23 @@ function SchemaSearchPage() {
 			return payload;
 		},
 		refetchInterval: (context) =>
-			context.state.data?.status === "pending" ? 1000 : false,
+			context.state.data && "state" in context.state.data ? 1000 : false,
 	});
 
 	const failedStatus =
-		searchStatus.data?.status === "failed" ? searchStatus.data.error : null;
+		searchStatus.data &&
+		"error" in searchStatus.data &&
+		typeof searchStatus.data.error === "string"
+			? searchStatus.data.error
+			: null;
 	const pendingState =
-		searchStatus.data?.status === "pending" ? searchStatus.data.state : null;
+		searchStatus.data && "state" in searchStatus.data
+			? searchStatus.data.state
+			: null;
 	const completedResult =
-		searchStatus.data?.status === "completed" ? searchStatus.data.result : null;
+		searchStatus.data && "result" in searchStatus.data
+			? searchStatus.data.result
+			: null;
 
 	const isQueueing = searchJobRequest.isPending;
 	const isPolling = Boolean(searchJobRequest.data) && searchStatus.isFetching;
