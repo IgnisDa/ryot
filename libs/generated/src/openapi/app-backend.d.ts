@@ -4187,7 +4187,10 @@ export interface paths {
         /** Get an import run by ID */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    page?: number;
+                    limit?: number;
+                };
                 header?: never;
                 path: {
                     runId: string;
@@ -4225,6 +4228,28 @@ export interface paths {
                                 totalItems: number | null;
                                 inputSummary: {
                                     [key: string]: unknown;
+                                };
+                                failures: {
+                                    page: number;
+                                    total: number;
+                                    limit: number;
+                                    items: {
+                                        id: string;
+                                        runId: string;
+                                        message: string;
+                                        /** Format: date-time */
+                                        createdAt: string;
+                                        itemIndex: number;
+                                        /** @enum {string} */
+                                        stage: "source_fetch" | "database_commit" | "provider_details" | "provider_resolution" | "event_before_trigger" | "input_transformation";
+                                        sourceLabel: string | null;
+                                        eventSchemaSlug: string | null;
+                                        sourceIdentifier: string | null;
+                                        entitySchemaSlug: string | null;
+                                        context: {
+                                            [key: string]: unknown;
+                                        } | null;
+                                    }[];
                                 };
                             };
                         };
@@ -4327,103 +4352,6 @@ export interface paths {
                 };
             };
         };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/imports/runs/{runId}/failures": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List failures for an import run */
-        get: {
-            parameters: {
-                query?: {
-                    page?: number;
-                    limit?: number;
-                };
-                header?: never;
-                path: {
-                    runId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Failure records for the import run */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            data: {
-                                page: number;
-                                limit: number;
-                                total: number;
-                                items: {
-                                    id: string;
-                                    runId: string;
-                                    message: string;
-                                    /** Format: date-time */
-                                    createdAt: string;
-                                    itemIndex: number;
-                                    /** @enum {string} */
-                                    stage: "source_fetch" | "database_commit" | "provider_details" | "provider_resolution" | "event_before_trigger" | "input_transformation";
-                                    sourceLabel: string | null;
-                                    eventSchemaSlug: string | null;
-                                    sourceIdentifier: string | null;
-                                    entitySchemaSlug: string | null;
-                                    context: {
-                                        [key: string]: unknown;
-                                    } | null;
-                                }[];
-                            };
-                        };
-                    };
-                };
-                /** @description Request payload validation failed */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["ValidationFailedError"];
-                        };
-                    };
-                };
-                /** @description Request is unauthenticated */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["UnauthenticatedError"];
-                        };
-                    };
-                };
-                /** @description Import run not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["NotFoundError"];
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
