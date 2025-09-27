@@ -1,10 +1,9 @@
-import { useSetAtom } from "jotai";
 import Animated, { SlideInDown, SlideOutUp } from "react-native-reanimated";
 import { Box } from "@/components/ui/box";
 import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { searchOpenAtom } from "@/lib/navigation";
+import { useSetSearchOpen } from "@/lib/navigation";
 
 // TODO: wire query string to the search API
 const MOCK_RESULTS = [
@@ -14,7 +13,7 @@ const MOCK_RESULTS = [
 ];
 
 export function SearchOverlay() {
-	const setSearchOpen = useSetAtom(searchOpenAtom);
+	const setSearchOpen = useSetSearchOpen();
 
 	return (
 		<Animated.View
