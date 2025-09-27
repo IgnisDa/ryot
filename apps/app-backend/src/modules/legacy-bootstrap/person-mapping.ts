@@ -27,6 +27,7 @@ const legacyPersonCompanyPredicateSql = (tableAlias: string) => `(
 	OR COALESCE((${tableAlias}.source_specifics ->> 'is_anilist_studio')::boolean, false)
 	OR COALESCE((${tableAlias}.source_specifics ->> 'is_giant_bomb_company')::boolean, false)
 	OR COALESCE((${tableAlias}.source_specifics ->> 'is_hardcover_publisher')::boolean, false)
+	OR ${tableAlias}.source = 'igdb'
 )`;
 
 const buildLegacyImageArraySql = (tableAlias: string) => `(
@@ -81,10 +82,13 @@ export const personEntityTargets = [
 	{ source: "anilist", entitySchemaSlug: "person", sandboxScriptSlug: "person.anilist" },
 	{ source: "audible", entitySchemaSlug: "person", sandboxScriptSlug: "person.audible" },
 	{ source: "custom", entitySchemaSlug: "person", sandboxScriptSlug: null },
-	{ source: "giant_bomb", entitySchemaSlug: "person", sandboxScriptSlug: null },
+	{ source: "giant_bomb", entitySchemaSlug: "person", sandboxScriptSlug: "person.giant-bomb" },
 	{ source: "hardcover", entitySchemaSlug: "person", sandboxScriptSlug: "person.hardcover" },
-	{ source: "igdb", entitySchemaSlug: "person", sandboxScriptSlug: null },
-	{ source: "manga_updates", entitySchemaSlug: "person", sandboxScriptSlug: null },
+	{
+		source: "manga_updates",
+		entitySchemaSlug: "person",
+		sandboxScriptSlug: "person.manga-updates",
+	},
 	{ source: "metron", entitySchemaSlug: "person", sandboxScriptSlug: "person.metron" },
 	{ source: "music_brainz", entitySchemaSlug: "person", sandboxScriptSlug: "person.musicbrainz" },
 	{ source: "openlibrary", entitySchemaSlug: "person", sandboxScriptSlug: "person.openlibrary" },
