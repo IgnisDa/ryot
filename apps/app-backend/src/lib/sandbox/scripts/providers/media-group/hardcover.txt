@@ -158,6 +158,28 @@ driver("details", async function (context) {
   const parts =
     typeof data.books_count === "number" ? data.books_count : null;
 
+  const bookSeriesEntries = Array.isArray(data.book_series) ? data.book_series : [];
+  const relatedEntities = bookSeriesEntries
+    .map((entry, idx) => {
+      const book = entry?.book;
+      if (!book || typeof book !== "object") return null;
+      const memberId =
+        book.id != null ? String(book.id).trim() : null;
+      if (!memberId) return null;
+      const memberName =
+        typeof book.title === "string" && book.title.trim()
+          ? book.title.trim()
+          : "Loading...";
+      return {
+        name: memberName,
+        externalId: memberId,
+        reverseDirection: true,
+        scriptSlug: "book.hardcover",
+        relationshipProperties: { order: idx + 1 },
+      };
+    })
+    .filter((e) => e !== null);
+
   const sourceUrl =
     typeof data.slug === "string" && data.slug.trim()
       ? `https://hardcover.app/series/${data.slug.trim()}`
@@ -165,6 +187,7 @@ driver("details", async function (context) {
 
   return {
     name: title,
+    relatedEntities,
     properties: {
       parts,
       sourceUrl,

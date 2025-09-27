@@ -84,10 +84,24 @@ driver("details", async function (context) {
     })
     .map((r) => r.asin);
 
+  const relatedEntities = sortedAsins
+    .map((asin, idx) => {
+      if (!asin) return null;
+      return {
+        externalId: asin,
+        name: "Loading...",
+        reverseDirection: true,
+        scriptSlug: "audiobook.audible",
+        relationshipProperties: { order: idx + 1 },
+      };
+    })
+    .filter((e) => e !== null);
+
   const parts = sortedAsins.length;
 
   return {
     name: title,
+    relatedEntities,
     properties: {
       parts,
       images: [],
