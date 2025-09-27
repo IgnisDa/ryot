@@ -157,8 +157,8 @@ export default function Page() {
 		mutationFn: async () => {
 			await clientGqlService.request(UpdateUserExerciseSettingsDocument, {
 				input: {
-					exerciseId: loaderData.exerciseId,
 					change: changingExerciseSettings.value,
+					exerciseId: loaderData.exerciseDetails.id,
 				},
 			});
 		},
@@ -572,8 +572,8 @@ export default function Page() {
 										variant="outline"
 										onClick={() => {
 											setAddEntityToCollectionsData({
-												entityId: loaderData.exerciseId,
 												entityLot: EntityLot.Exercise,
+												entityId: loaderData.exerciseDetails.id,
 											});
 										}}
 									>
@@ -585,7 +585,7 @@ export default function Page() {
 										onClick={() => {
 											setEntityToReview({
 												entityLot: EntityLot.Exercise,
-												entityId: loaderData.exerciseId,
+												entityId: loaderData.exerciseDetails.id,
 												entityTitle: loaderData.exerciseDetails.name,
 											});
 										}}
@@ -627,8 +627,8 @@ export default function Page() {
 													review={r}
 													key={r.id}
 													entityLot={EntityLot.Exercise}
-													entityId={loaderData.exerciseId}
 													title={loaderData.exerciseDetails.name}
+													entityId={loaderData.exerciseDetails.id}
 												/>
 											))}
 										</Stack>
