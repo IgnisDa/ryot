@@ -2,36 +2,24 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, Multipart } from "@effect
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../lib/auth";
-import { InternalError, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
-
-const CreatePresignedUploadBody = Schema.Struct({ contentType: Schema.String });
-
-const PresignedUploadResponse = Schema.Struct({
-	key: Schema.String,
-	uploadUrl: Schema.String,
-});
-
-const CreatePresignedDownloadBody = Schema.Struct({ keys: Schema.Array(Schema.String) });
-
-const PresignedDownloadResponse = Schema.Array(
-	Schema.Struct({ key: Schema.String, downloadUrl: Schema.String }),
-);
+import { BadRequest, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
+import { PresignedDownloadResponse, PresignedUploadResponse } from "./schemas";
 
 export const UploadsGroup = HttpApiGroup.make("uploads")
 	.addError(Unauthorized, { status: 401 })
 	.addError(RateLimited, { status: 429 })
 	.add(
 		HttpApiEndpoint.post("createPresigned", "/uploads/presigned")
-			.setPayload(CreatePresignedUploadBody)
+			.setPayload(Schema.Struct({ contentType: Schema.String }))
 			.addSuccess(PresignedUploadResponse)
-			.addError(InternalError, { status: 500 })
+			.addError(BadRequest, { status: 400 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.post("createPresignedDownload", "/uploads/presigned/download")
-			.setPayload(CreatePresignedDownloadBody)
+			.setPayload(Schema.Struct({ keys: Schema.Array(Schema.String).pipe(Schema.minItems(1)) }))
 			.addSuccess(PresignedDownloadResponse)
-			.addError(InternalError, { status: 500 })
+			.addError(BadRequest, { status: 400 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
@@ -39,7 +27,7 @@ export const UploadsGroup = HttpApiGroup.make("uploads")
 			.setPayload(HttpApiSchema.Multipart(Schema.Struct({ files: Multipart.FilesSchema })))
 			.addSuccess(Schema.Array(Schema.String), { status: 201 })
 			.addError(Multipart.MultipartError, { status: 413 })
-			.addError(InternalError, { status: 500 })
+			.addError(BadRequest, { status: 400 })
 			.middleware(AuthMiddleware),
 	)
 	.addError(NotImplemented, { status: 501 });
