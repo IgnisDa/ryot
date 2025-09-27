@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ This slice should avoid BullMQ and should model asynchronous progress with durab
 
 ## Acceptance criteria
 
-- [ ] Authenticated users can start provider-backed entity searches
-- [ ] Authenticated users can poll entity search results
-- [ ] Authenticated users can start provider-backed entity imports
-- [ ] Authenticated users can poll entity import results
-- [ ] Imported primary entities validate properties and are added to the user's library
-- [ ] Entity-schema search/import E2E scenarios pass through the Effect client
+- [x] Authenticated users can start provider-backed entity searches
+- [x] Authenticated users can poll entity search results
+- [x] Authenticated users can start provider-backed entity imports
+- [x] Authenticated users can poll entity import results
+- [x] Imported primary entities validate properties and are added to the user's library
+- [x] Entity-schema search/import E2E scenarios pass through the Effect client
 
 ## User stories addressed
 
