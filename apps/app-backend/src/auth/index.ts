@@ -1,12 +1,12 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { anonymous } from "better-auth/plugins";
+import { anonymous, apiKey } from "better-auth/plugins";
 import { config } from "../config";
 import { db, schema } from "../db";
 
 export const auth = betterAuth({
-	plugins: [anonymous()],
 	baseURL: config.FRONTEND_URL,
+	plugins: [anonymous(), apiKey()],
 	emailAndPassword: { enabled: true },
 	secret: config.SERVER_ADMIN_ACCESS_TOKEN,
 	database: drizzleAdapter(db, { provider: "pg", schema }),
