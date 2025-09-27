@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
-use common_utils::{PAGE_SIZE, ryot_log};
+use common_utils::{PAGE_SIZE, compute_next_page, ryot_log};
 use convert_case::{Case, Casing};
 use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::{PersonDetails, SearchResults};
@@ -57,7 +57,7 @@ impl MediaProvider for OpenlibraryService {
             items: resp,
             details: SearchDetails {
                 total_items: search.num_found,
-                next_page: (search.num_found - (page * PAGE_SIZE) > 0).then(|| page + 1),
+                next_page: compute_next_page(page, PAGE_SIZE, search.num_found),
             },
         };
         Ok(data)
@@ -263,7 +263,7 @@ impl MediaProvider for OpenlibraryService {
             total: search.num_found,
             items: resp,
         };
-        let next_page = (search.num_found - ((page) * PAGE_SIZE) > 0).then(|| page + 1);
+        let next_page = compute_next_page(page, PAGE_SIZE, search.num_found);
         Ok(SearchResults {
             details: SearchDetails {
                 next_page,

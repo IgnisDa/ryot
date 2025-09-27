@@ -52,7 +52,10 @@ import {
 	useMetadataProgressUpdate,
 	useReviewEntity,
 } from "~/lib/state/media";
-import { useOnboardingTour } from "~/lib/state/onboarding-tour";
+import {
+	OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/onboarding-tour";
 import classes from "~/styles/common.module.css";
 
 const getThemeColor = (colorName: string, mode: string): string => {
@@ -118,22 +121,20 @@ const EntityActionButton = (props: {
 	entityButtonProps: ActionIconProps;
 	onClick: () => void | Promise<void>;
 	icon: ComponentType<{ size: number; color: string }>;
-}) => {
-	return (
-		<Tooltip label={props.label}>
-			<ActionIcon
-				onClick={props.onClick}
-				className={props.className}
-				{...props.entityButtonProps}
-			>
-				<props.icon
-					size={20}
-					color={getThemeColor(props.colorName, props.mode)}
-				/>
-			</ActionIcon>
-		</Tooltip>
-	);
-};
+}) => (
+	<Tooltip label={props.label}>
+		<ActionIcon
+			onClick={props.onClick}
+			className={props.className}
+			{...props.entityButtonProps}
+		>
+			<props.icon
+				size={20}
+				color={getThemeColor(props.colorName, props.mode)}
+			/>
+		</ActionIcon>
+	</Tooltip>
+);
 
 const formatBaseEntityDisplayItemRating = (
 	rating: number,
@@ -196,12 +197,12 @@ type BaseEntityDisplayItemCard = {
 	progress?: string;
 	mediaLot?: MediaLot;
 	entityLot: EntityLot;
+	isFirstItem?: boolean;
 	imageClassName?: string;
 	hasInteracted?: boolean;
 	centerElement?: ReactNode;
 	isDetailsLoading: boolean;
 	wasRecentlyConsumed?: boolean;
-	consumeButtonClassName?: string;
 	isPartialStatusActive?: boolean;
 	userToMediaReasons?: UserToMediaReason[];
 	onImageClickBehavior: [string, (() => Promise<void>)?];
@@ -213,9 +214,9 @@ type ActionButtonsProps = {
 	mode: string;
 	onReview: () => void;
 	onConsume: () => void;
+	isFirstItem?: boolean;
 	alreadyInWatchlist: boolean;
 	onOpenCollections: () => void;
-	consumeButtonClassName?: string;
 	onToggleWatchlist: () => Promise<void>;
 	interactionButtons: BaseEntityDisplayItemCard["interactionButtons"];
 };
@@ -236,7 +237,11 @@ const ActionButtons = memo((props: ActionButtonsProps) => {
 					label="Add to history"
 					onClick={props.onConsume}
 					entityButtonProps={entityButtonProps}
-					className={props.consumeButtonClassName}
+					className={
+						props.isFirstItem
+							? OnboardingTourStepTargets.OpenMetadataProgressForm
+							: undefined
+					}
 				/>
 			)}
 			{props.interactionButtons.includes("watchlist") && (
@@ -284,29 +289,28 @@ const BaseEntityDisplayItemComponent = forwardRef<
 	const [_r, setEntityToReview] = useReviewEntity();
 	const ratingScale = userPreferences.general.reviewScale;
 	const { advanceOnboardingTourStep } = useOnboardingTour();
-	const MediaIcon = props.mediaLot ? getMetadataIcon(props.mediaLot) : null;
 	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
 	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
-	const progress = useMemo(() => {
-		if (props.progress === undefined || props.progress === null) {
-			return undefined;
-		}
-		const value = Number(props.progress);
-		return Number.isNaN(value) ? undefined : value;
-	}, [props.progress]);
+	const MediaIcon = props.mediaLot ? getMetadataIcon(props.mediaLot) : null;
 	const removeEntitiesFromCollection =
 		useRemoveEntitiesFromCollectionMutation();
 	const shouldHighlightImage =
 		coreDetails.isServerKeyValidated && props.wasRecentlyConsumed;
-	const topRowCount = useMemo(() => {
-		const reasonsLength = props.userToMediaReasons?.length ?? 0;
-		return reasonsLength + (props.rating ? 1 : 0);
-	}, [props.userToMediaReasons, props.rating]);
 	const { alreadyInCollectionNames } = useEntityAlreadyInCollections(
 		props.entityId,
 		props.entityLot,
 	);
+	const progress = useMemo(() => {
+		if (props.progress === undefined || props.progress === null)
+			return undefined;
+		const value = Number(props.progress);
+		return Number.isNaN(value) ? undefined : value;
+	}, [props.progress]);
+	const topRowCount = useMemo(() => {
+		const reasonsLength = props.userToMediaReasons?.length ?? 0;
+		return reasonsLength + (props.rating ? 1 : 0);
+	}, [props.userToMediaReasons, props.rating]);
 	const alreadyInWatchlist = useMemo(
 		() => alreadyInCollectionNames.includes("Watchlist"),
 		[alreadyInCollectionNames],
@@ -353,16 +357,9 @@ const BaseEntityDisplayItemComponent = forwardRef<
 		[ratingScale],
 	);
 	const handleConsume = useCallback(() => {
-		if (props.consumeButtonClassName) {
-			advanceOnboardingTourStep();
-		}
+		advanceOnboardingTourStep();
 		initializeMetadataToUpdate({ metadataId: props.entityId }, true);
-	}, [
-		props.entityId,
-		advanceOnboardingTourStep,
-		initializeMetadataToUpdate,
-		props.consumeButtonClassName,
-	]);
+	}, [props.entityId, advanceOnboardingTourStep, initializeMetadataToUpdate]);
 	const handleToggleWatchlist = useCallback(async () => {
 		const mutation = alreadyInWatchlist
 			? removeEntitiesFromCollection
@@ -410,20 +407,20 @@ const BaseEntityDisplayItemComponent = forwardRef<
 			alreadyInWatchlist,
 			onReview: handleReview,
 			onConsume: handleConsume,
+			isFirstItem: props.isFirstItem,
 			onToggleWatchlist: handleToggleWatchlist,
 			onOpenCollections: handleOpenCollections,
 			interactionButtons: props.interactionButtons,
-			consumeButtonClassName: props.consumeButtonClassName,
 		}),
 		[
 			mode,
 			handleReview,
 			handleConsume,
+			props.isFirstItem,
 			alreadyInWatchlist,
 			handleOpenCollections,
 			handleToggleWatchlist,
 			props.interactionButtons,
-			props.consumeButtonClassName,
 		],
 	);
 
@@ -465,18 +462,6 @@ const BaseEntityDisplayItemComponent = forwardRef<
 					fallbackSrc={fallback}
 				/>
 			</Link>
-			<Flex
-				top={30}
-				h="100%"
-				gap={10}
-				right={2}
-				pos="absolute"
-				hiddenFrom="sm"
-				direction="column"
-				style={actionButtonsColumnStyle}
-			>
-				<ActionButtons {...actionButtonsProps} />
-			</Flex>
 			<Group pos="absolute" wrap="nowrap" w="100%" gap={2} p={2}>
 				{props.userToMediaReasons?.map((reason) => (
 					<BaseEntityDisplayItemReason key={reason} reason={reason} />
@@ -537,6 +522,18 @@ const BaseEntityDisplayItemComponent = forwardRef<
 					</Group>
 				</Stack>
 			</Box>
+			<Flex
+				gap={4}
+				h="100%"
+				top={30}
+				right={2}
+				pos="absolute"
+				hiddenFrom="sm"
+				direction="column"
+				style={actionButtonsColumnStyle}
+			>
+				<ActionButtons {...actionButtonsProps} />
+			</Flex>
 			{progress ? (
 				<Box
 					h={4}

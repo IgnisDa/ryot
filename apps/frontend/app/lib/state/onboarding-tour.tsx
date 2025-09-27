@@ -118,6 +118,7 @@ export const useOnboardingTour = () => {
 
 	type AdvanceOnboardingTourStep = {
 		collapseSidebar?: true;
+		increaseWaitBy?: number;
 		skipSecondarySteps?: true;
 	};
 
@@ -136,26 +137,29 @@ export const useOnboardingTour = () => {
 			if (input?.skipSecondarySteps || input?.collapseSidebar)
 				setOpenedSidebarLinks(defaultSidebarLinksState);
 
-			setTimeout(() => {
-				setTourState(
-					produce(tourState, (draft) => {
-						draft.isLoading = undefined;
-						const nextStepIndex = tourState.currentStepIndex + 1;
-						const newIndex = match(input?.skipSecondarySteps)
-							.with(undefined, () => nextStepIndex)
-							.with(true, () => {
-								const target = onboardingTourSteps.findIndex(
-									(step, index) =>
-										index > nextStepIndex && !step.data?.isSecondaryStep,
-								);
-								return target !== -1 ? target : nextStepIndex;
-							})
-							.exhaustive();
-						draft.currentStepIndex = newIndex;
-					}),
-				);
-				resolve();
-			}, 2000);
+			setTimeout(
+				() => {
+					setTourState(
+						produce(tourState, (draft) => {
+							draft.isLoading = undefined;
+							const nextStepIndex = tourState.currentStepIndex + 1;
+							const newIndex = match(input?.skipSecondarySteps)
+								.with(undefined, () => nextStepIndex)
+								.with(true, () => {
+									const target = onboardingTourSteps.findIndex(
+										(step, index) =>
+											index > nextStepIndex && !step.data?.isSecondaryStep,
+									);
+									return target !== -1 ? target : nextStepIndex;
+								})
+								.exhaustive();
+							draft.currentStepIndex = newIndex;
+						}),
+					);
+					resolve();
+				},
+				2000 + (input?.increaseWaitBy || 0),
+			);
 		});
 	};
 
@@ -376,6 +380,7 @@ export const useOnboardingTour = () => {
 		target: `.${step.target}`,
 		content: <StepWrapper>{step.content}</StepWrapper>,
 	}));
+
 	const isOnLastOnboardingTourStep =
 		tourState?.currentStepIndex === onboardingTourSteps.length &&
 		!tourState?.isCompleted;

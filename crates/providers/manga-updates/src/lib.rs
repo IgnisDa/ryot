@@ -3,7 +3,7 @@ use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
-use common_utils::PAGE_SIZE;
+use common_utils::{PAGE_SIZE, compute_next_page};
 use dependent_models::{
     MetadataPersonRelated, MetadataSearchSourceSpecifics, PersonDetails, SearchResults,
 };
@@ -189,7 +189,7 @@ impl MediaProvider for MangaUpdatesService {
             items,
             details: SearchDetails {
                 total_items: data.total_hits,
-                next_page: (data.total_hits - (page * PAGE_SIZE) > 0).then(|| page + 1),
+                next_page: compute_next_page(page, PAGE_SIZE, data.total_hits),
             },
         })
     }
@@ -368,7 +368,7 @@ impl MediaProvider for MangaUpdatesService {
                 publish_year: s.record.year.and_then(|y| y.parse().ok()),
             })
             .collect();
-        let next_page = (search.total_hits - ((page) * PAGE_SIZE) > 0).then(|| page + 1);
+        let next_page = compute_next_page(page, PAGE_SIZE, search.total_hits);
         Ok(SearchResults {
             items,
             details: SearchDetails {

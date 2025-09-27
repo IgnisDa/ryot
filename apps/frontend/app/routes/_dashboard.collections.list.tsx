@@ -252,9 +252,9 @@ const DisplayCollection = (props: {
 			<Flex gap="xs" direction={{ base: "column", md: "row" }}>
 				<Flex
 					h={180}
-					w={{ md: IMAGES_CONTAINER_WIDTH }}
 					pos="relative"
 					style={{ overflow: "hidden" }}
+					w={{ md: IMAGES_CONTAINER_WIDTH }}
 				>
 					{coreDetails.isServerKeyValidated ? (
 						collectionImages && collectionImages.length > 0 ? (

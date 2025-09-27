@@ -2,7 +2,7 @@ use anyhow::Result;
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::{EntityAssets, NamedObject, PersonSourceSpecifics, SearchDetails};
-use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
+use common_utils::{PAGE_SIZE, compute_next_page, convert_date_to_year, convert_string_to_date};
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
@@ -390,7 +390,7 @@ impl MediaProvider for AudibleService {
                 }
             })
             .collect_vec();
-        let next_page = (search.total_results - (page * PAGE_SIZE) > 0).then(|| page + 1);
+        let next_page = compute_next_page(page, PAGE_SIZE, search.total_results);
         Ok(SearchResults {
             items: resp,
             details: SearchDetails {

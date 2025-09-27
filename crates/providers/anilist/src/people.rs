@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
-use common_utils::PAGE_SIZE;
+use common_utils::{PAGE_SIZE, compute_next_page};
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{PartialMetadataWithoutId, PeopleSearchItem};
@@ -62,7 +62,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .page
                 .unwrap();
             let total = search.page_info.unwrap().total.unwrap();
-            let next_page = (total - (page * PAGE_SIZE) > 0).then(|| page + 1);
+            let next_page = compute_next_page(page, PAGE_SIZE, total);
             let items = search
                 .studios
                 .unwrap_or_default()
@@ -91,7 +91,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .page
                 .unwrap();
             let total_items = search.page_info.unwrap().total.unwrap();
-            let next_page = (total_items - (page * PAGE_SIZE) > 0).then(|| page + 1);
+            let next_page = compute_next_page(page, PAGE_SIZE, total_items);
             let items = search
                 .staff
                 .unwrap_or_default()

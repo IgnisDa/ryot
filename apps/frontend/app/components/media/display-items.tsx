@@ -22,11 +22,11 @@ import { BaseEntityDisplayItem } from "../common/entity-display";
 export const MetadataDisplayItem = (props: {
 	altName?: string;
 	metadataId: string;
+	isFirstItem?: boolean;
 	imageClassName?: string;
 	centerElement?: ReactNode;
 	additionalInformation?: string;
 	shouldHighlightNameIfInteracted?: boolean;
-	bottomRightImageOverlayClassName?: string;
 	onImageClickBehavior?: () => Promise<void>;
 }) => {
 	const { ref, inViewport } = useInViewport();
@@ -93,9 +93,10 @@ export const MetadataDisplayItem = (props: {
 			image={images.at(0)}
 			progress={currentProgress}
 			entityId={props.metadataId}
-			mediaLot={metadataDetails?.lot}
 			userToMediaReasons={reasons}
 			entityLot={EntityLot.Metadata}
+			isFirstItem={props.isFirstItem}
+			mediaLot={metadataDetails?.lot}
 			rating={averageRating ?? undefined}
 			centerElement={props.centerElement}
 			imageClassName={props.imageClassName}

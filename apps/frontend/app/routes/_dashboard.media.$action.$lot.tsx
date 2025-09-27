@@ -116,10 +116,14 @@ export const meta = () => {
 export default function Page(props: {
 	params: { action: string; lot: string };
 }) {
-	const action = props.params.action;
-	const lot = getLot(props.params.lot) as MediaLot;
-	const coreDetails = useCoreDetails();
 	const navigate = useNavigate();
+	const action = props.params.action;
+	const coreDetails = useCoreDetails();
+	const lot = getLot(props.params.lot) as MediaLot;
+	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const metadataLotSourceMapping = coreDetails.metadataLotSourceMappings.find(
+		(m) => m.lot === lot,
+	);
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -128,11 +132,6 @@ export default function Page(props: {
 		searchFiltersModalOpened,
 		{ open: openSearchFiltersModal, close: closeSearchFiltersModal },
 	] = useDisclosure(false);
-	const { advanceOnboardingTourStep } = useOnboardingTour();
-	const metadataLotSourceMapping = coreDetails.metadataLotSourceMappings.find(
-		(m) => m.lot === lot,
-	);
-
 	const [listFilters, setListFilters] = useLocalStorage<ListFilterState>(
 		`MediaListFilters_${lot}`,
 		defaultListFilters,
@@ -233,8 +232,8 @@ export default function Page(props: {
 			<Container>
 				<Tabs
 					mt="sm"
-					variant="default"
 					value={action}
+					variant="default"
 					onChange={(v) => {
 						if (v) {
 							navigate(
@@ -338,7 +337,7 @@ export default function Page(props: {
 					{action === "search" ? (
 						metadataSearch ? (
 							<>
-								<Flex gap="xs" direction={{ base: "column", md: "row" }}>
+								<Group wrap="nowrap">
 									<DebouncedSearchInput
 										value={searchFilters.query}
 										placeholder={`Search for ${changeCase(
@@ -352,7 +351,7 @@ export default function Page(props: {
 											target: OnboardingTourStepTargets.SearchAudiobook,
 											onQueryChange: (query) => {
 												if (query === TOUR_METADATA_TARGET_ID.toLowerCase()) {
-													advanceOnboardingTourStep();
+													advanceOnboardingTourStep({ increaseWaitBy: 2000 });
 												}
 											},
 										}}
@@ -386,7 +385,7 @@ export default function Page(props: {
 											/>
 										</FiltersModal>
 									</Group>
-								</Flex>
+								</Group>
 								{metadataSearch.response.details.totalItems > 0 ? (
 									<>
 										<Box>
@@ -432,10 +431,6 @@ const MediaSearchItem = (props: {
 }) => {
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
-	const tourControlTwo = props.isFirstItem
-		? OnboardingTourStepTargets.OpenMetadataProgressForm
-		: undefined;
-
 	const tourControlThree = props.isFirstItem
 		? OnboardingTourStepTargets.GoToAudiobooksSectionAgain
 		: undefined;
@@ -443,8 +438,8 @@ const MediaSearchItem = (props: {
 	return (
 		<MetadataDisplayItem
 			metadataId={props.item}
+			isFirstItem={props.isFirstItem}
 			shouldHighlightNameIfInteracted
-			bottomRightImageOverlayClassName={tourControlTwo}
 			imageClassName={OnboardingTourStepTargets.GoToAudiobooksSectionAgain}
 			onImageClickBehavior={async () => {
 				if (tourControlThree) advanceOnboardingTourStep();

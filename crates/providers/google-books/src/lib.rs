@@ -2,7 +2,7 @@ use anyhow::Result;
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::{EntityAssets, SearchDetails};
-use common_utils::{PAGE_SIZE, convert_date_to_year};
+use common_utils::{PAGE_SIZE, compute_next_page, convert_date_to_year};
 use convert_case::{Case, Casing};
 use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::SearchResults;
@@ -136,7 +136,7 @@ impl MediaProvider for GoogleBooksService {
                 }
             })
             .collect();
-        let next_page = (search.total_items - (page * PAGE_SIZE) > 0).then(|| page + 1);
+        let next_page = compute_next_page(page, PAGE_SIZE, search.total_items);
         Ok(SearchResults {
             items: resp,
             details: SearchDetails {
