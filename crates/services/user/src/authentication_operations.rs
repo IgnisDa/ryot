@@ -94,7 +94,7 @@ pub async fn login_user(ss: &Arc<SupportingService>, input: AuthUserInput) -> Re
             }
         }
     }
-    if user.two_factor_information.is_some() {
+    if user.two_factor_information.is_some() && ss.config.users.validate_password {
         return Ok(LoginResult::TwoFactorRequired(StringIdObject {
             id: user.id.clone(),
         }));
