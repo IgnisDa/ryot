@@ -6,10 +6,10 @@ import { db, schema } from "../db";
 
 export const auth = betterAuth({
 	baseURL: config.FRONTEND_URL,
-	plugins: [anonymous(), apiKey()],
 	emailAndPassword: { enabled: true },
 	secret: config.SERVER_ADMIN_ACCESS_TOKEN,
 	database: drizzleAdapter(db, { provider: "pg", schema }),
+	plugins: [anonymous(), apiKey({ enableSessionForAPIKeys: true })],
 });
 
 export type AuthType = {
