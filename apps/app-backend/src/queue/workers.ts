@@ -1,32 +1,57 @@
 import { type Job, Worker } from "bullmq";
+import {
+	entitySchemaSearchJobData,
+	entitySchemaSearchJobName,
+	schemaSearchResponse,
+} from "../entity-schema-search";
+import { getSandboxService } from "../sandbox";
 import { getRedisConnection } from "./connection";
 
-type ExampleJobData = {
-	message: string;
+const processEntitySchemaSearchJob = async (job: Job) => {
+	const parsed = entitySchemaSearchJobData.safeParse(job.data);
+	if (!parsed.success) throw new Error("Search job payload is invalid");
+
+	const sandbox = getSandboxService();
+	const result = await sandbox.run({
+		code: parsed.data.scriptCode,
+		context: {
+			page: parsed.data.page,
+			query: parsed.data.query,
+			schemaSlug: parsed.data.schemaSlug,
+		},
+	});
+
+	if (!result.success) {
+		let errorMessage = "Search script execution failed";
+		if (result.error) errorMessage = `${errorMessage}: ${result.error}`;
+		if (result.logs) errorMessage = `${errorMessage}\n${result.logs}`;
+		throw new Error(errorMessage);
+	}
+
+	const parsedResult = schemaSearchResponse.safeParse(result.value);
+	if (!parsedResult.success)
+		throw new Error("Search script returned invalid payload");
+
+	return parsedResult.data;
 };
 
-const processExampleJob = async (job: Job<ExampleJobData>) => {
-	console.info(`Processing example job ${job.id}:`, job.data.message);
-	await new Promise((resolve) => setTimeout(resolve, 1000));
-	console.info(`Completed example job ${job.id}`);
+const processSandboxScriptJob = async (job: Job) => {
+	if (job.name === entitySchemaSearchJobName)
+		return processEntitySchemaSearchJob(job);
+
+	throw new Error(`Unsupported sandbox script job: ${job.name}`);
 };
 
 export const createWorkers = () => {
 	const connection = getRedisConnection();
 
-	const exampleWorker = new Worker("example", processExampleJob, {
-		connection,
-	});
+	const sandboxScriptWorker = new Worker(
+		"sandboxScript",
+		processSandboxScriptJob,
+		{ connection },
+	);
 
-	exampleWorker.on("completed", (job) => {
-		console.info(`Job ${job.id} completed`);
-	});
-
-	exampleWorker.on("failed", (job, err) => {
-		console.error(`Job ${job?.id} failed:`, err);
-	});
-
-	return { exampleWorker };
+	return { sandboxScriptWorker };
 };
 
 export type Workers = ReturnType<typeof createWorkers>;
