@@ -263,19 +263,30 @@ export default function Page() {
 							if (!current) return;
 							setIsCaptureLoading(true);
 							setTimeout(async () => {
+								let downloadUrl: string | undefined;
+								let anchor: HTMLAnchorElement | undefined;
 								try {
-									const canvasPromise = await html2canvas(current);
-									const dataURL = canvasPromise.toDataURL("image/png");
-									const img = new Image();
-									img.setAttribute("src", dataURL);
-									img.setAttribute("download", dataURL);
-									const a = document.createElement("a");
-									a.setAttribute("download", dataURL);
-									a.setAttribute("href", img.src);
-									a.setAttribute("target", "_blank");
-									a.innerHTML = "DOWNLOAD";
-									document.body.appendChild(a);
-									a.click();
+									const canvas = await html2canvas(current);
+									const dataUrl = canvas.toDataURL("image/png");
+									let blob: Blob;
+									if (canvas.toBlob) {
+										blob = await new Promise<Blob>((resolve, reject) => {
+											canvas.toBlob((value) => {
+												if (value) return resolve(value);
+												reject(new Error("Failed to create canvas blob"));
+											}, "image/png");
+										});
+									} else {
+										blob = await fetch(dataUrl).then((response) =>
+											response.blob(),
+										);
+									}
+									downloadUrl = URL.createObjectURL(blob);
+									anchor = document.createElement("a");
+									anchor.href = downloadUrl;
+									anchor.download = "download.png";
+									document.body.appendChild(anchor);
+									anchor.click();
 								} catch {
 									notifications.show({
 										color: "red",
@@ -283,6 +294,8 @@ export default function Page() {
 										message: "Something went wrong while capturing the image",
 									});
 								} finally {
+									if (anchor) anchor.remove();
+									if (downloadUrl) URL.revokeObjectURL(downloadUrl);
 									setIsCaptureLoading(false);
 								}
 							}, 1500);
