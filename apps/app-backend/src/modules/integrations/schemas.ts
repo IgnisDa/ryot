@@ -6,6 +6,23 @@ import { createIdParamsSchema, nonEmptyStringSchema } from "~/lib/zod";
 export const integrationLot = z.enum(["yank", "sink", "push"]);
 export type IntegrationLot = z.infer<typeof integrationLot>;
 
+export const integrationProvider = z.enum([
+	"audiobookshelf",
+	"emby",
+	"generic_json",
+	"jellyfin_push",
+	"jellyfin_sink",
+	"kodi",
+	"komga",
+	"plex_sink",
+	"plex_yank",
+	"radarr",
+	"ryot_browser_extension",
+	"sonarr",
+	"youtube_music",
+]);
+export type IntegrationProvider = z.infer<typeof integrationProvider>;
+
 const sinkProviders = [
 	"kodi",
 	"emby",
@@ -15,9 +32,8 @@ const sinkProviders = [
 	"ryot_browser_extension",
 ] as const;
 
-export const isSinkProvider = (provider: string): boolean =>
-	// oxlint-disable-next-line no-unsafe-type-assertion
-	sinkProviders.includes(provider as (typeof sinkProviders)[number]);
+export const isSinkProvider = (provider: string): provider is (typeof sinkProviders)[number] =>
+	sinkProviders.some((sinkProvider) => sinkProvider === provider);
 
 const kodiSpecifics = z.object({ kind: z.literal("kodi") }).strict();
 const embySpecifics = z.object({ kind: z.literal("emby") }).strict();
@@ -134,7 +150,7 @@ export const integrationExtraSettings = z.object({
 export type IntegrationExtraSettings = z.infer<typeof integrationExtraSettings>;
 
 export const createIntegrationBody = z.object({
-	provider: z.string(),
+	provider: integrationProvider,
 	name: z.string().optional(),
 	isDisabled: z.boolean().optional(),
 	syncOwnership: z.boolean().optional(),
@@ -161,7 +177,7 @@ export const listedIntegrationSchema = z.object({
 	createdAt: z.date(),
 	updatedAt: z.date(),
 	lot: integrationLot,
-	provider: z.string(),
+	provider: integrationProvider,
 	isDisabled: z.boolean(),
 	syncOwnership: z.boolean(),
 	name: z.string().nullable(),
@@ -177,7 +193,7 @@ export type ListedIntegration = z.infer<typeof listedIntegrationSchema>;
 export const integrationIdParams = createIdParamsSchema("integrationId");
 
 export const listIntegrationsQuery = z.object({
-	provider: z.string().optional(),
+	provider: integrationProvider.optional(),
 	isDisabled: z
 		.string()
 		.optional()
