@@ -24,7 +24,6 @@ use sea_orm_migration::MigratorTrait;
 use tokio::{
     join,
     net::TcpListener,
-    runtime::Builder,
     time::{Duration, sleep},
 };
 use tracing_subscriber::{fmt, layer::SubscriberExt};
@@ -286,10 +285,7 @@ END $$;
     Ok(())
 }
 
-fn main() -> Result<()> {
-    let runtime = Builder::new_multi_thread()
-        .enable_all()
-        .thread_stack_size(10 * 1024 * 1024)
-        .build()?;
-    runtime.block_on(async_main())
+#[tokio::main]
+async fn main() -> Result<()> {
+    async_main().await
 }
