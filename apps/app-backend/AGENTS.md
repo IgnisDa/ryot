@@ -1,6 +1,8 @@
 # App Backend Guidelines
 
-> Inherits from root `AGENTS.md`. Keep this file limited to backend-specific rules.
+## Testing
+
+- `bun test` does not work in this app. Use `bun run test` instead.
 
 ## Module Boundaries
 
