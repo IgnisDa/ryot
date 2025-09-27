@@ -8129,7 +8129,7 @@ __metadata:
     lucide-react: "npm:0.544.0"
     next-themes: "npm:0.4.6"
     nodemailer: "npm:7.0.6"
-    openid-client: "npm:6.8.0"
+    openid-client: "npm:6.8.1"
     postgres: "npm:3.4.7"
     react: "npm:19.1.1"
     react-dom: "npm:19.1.1"
@@ -17194,10 +17194,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"oauth4webapi@npm:^3.8.1":
-  version: 3.8.1
-  resolution: "oauth4webapi@npm:3.8.1"
-  checksum: 10/e6d35b187736529e3f2479d917f2bf90f66badfad805c9ddb038671e53b6383b7d9793686fe2d5363906fdeeebdff58b55bf111b44bc3c9ae8c431a46dd15b6a
+"oauth4webapi@npm:^3.8.2":
+  version: 3.8.2
+  resolution: "oauth4webapi@npm:3.8.2"
+  checksum: 10/5f96b50dd50298402a15d5d545decab0ef20aa14fdd0fe6d6ccc9e47d645d795f0aebb0c1fd452e2504170d8880b89021a87a168aed4df64bf39a1ba7e85f245
   languageName: node
   linkType: hard
 
@@ -17333,13 +17333,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"openid-client@npm:6.8.0":
-  version: 6.8.0
-  resolution: "openid-client@npm:6.8.0"
+"openid-client@npm:6.8.1":
+  version: 6.8.1
+  resolution: "openid-client@npm:6.8.1"
   dependencies:
     jose: "npm:^6.1.0"
-    oauth4webapi: "npm:^3.8.1"
-  checksum: 10/735248046cddca18083502406e71f647f127846da0d07b64f082b089b888e3aae539746fc20a529704a8ebf92003c5a21ed45a2fe6bc60cd835b9a7119b5abdd
+    oauth4webapi: "npm:^3.8.2"
+  checksum: 10/94d18d39f8e9d4a194acdba85793a1e39a0f6fe50fdf2bdea4aa57409da629a8966a3673738510c5e9f6a32715259e26fb6e56e83b1b8d2de31346353aa437ad
   languageName: node
   linkType: hard
 
