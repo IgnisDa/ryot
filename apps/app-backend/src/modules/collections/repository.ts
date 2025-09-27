@@ -76,6 +76,26 @@ export const createLibraryEntityForUser = async (
 	return assertPersisted(createdEntity, "library entity");
 };
 
+export const getUserLibraryEntityId = async (
+	input: { userId: string },
+	database: DbClient = db,
+) => {
+	const [found] = await database
+		.select({ id: entity.id })
+		.from(entity)
+		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
+		.where(
+			and(
+				eq(entity.userId, input.userId),
+				eq(entitySchema.slug, "library"),
+				isNull(entitySchema.userId),
+			),
+		)
+		.limit(1);
+
+	return found?.id;
+};
+
 export const findCollectionByNameForUser = async (input: {
 	name: string;
 	userId: string;

@@ -1,3 +1,4 @@
+import { ensureEntityInLibrary } from "~/modules/collections";
 import { createEntityImportWorker } from "~/modules/entities/worker";
 import { createEventsWorker } from "~/modules/events";
 import { createImportWorker } from "~/modules/imports";
@@ -5,10 +6,14 @@ import { createImportWorker } from "~/modules/imports";
 import { getSandboxService } from "../sandbox";
 
 const createWorkers = () => ({
-	eventsWorker: createEventsWorker(),
 	importWorker: createImportWorker(),
-	entityImportWorker: createEntityImportWorker(),
 	sandboxWorker: getSandboxService().createWorker(),
+	entityImportWorker: createEntityImportWorker({
+		onEntityImported: (input) => ensureEntityInLibrary(input),
+	}),
+	eventsWorker: createEventsWorker({
+		onGlobalEntityScope: (input) => ensureEntityInLibrary(input),
+	}),
 });
 
 export type Workers = ReturnType<typeof createWorkers>;
