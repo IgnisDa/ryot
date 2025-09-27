@@ -1,11 +1,14 @@
 import { expect, it } from "@effect/vitest";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Effect, Exit, Layer } from "effect";
 
 import type { CurrentUserValue } from "../../lib/auth";
 import { CurrentDb, DbRunner } from "../../lib/db";
 import { BadRequest, NotFound } from "../../lib/errors";
+import { SandboxService } from "../../lib/sandbox";
 import { EntitiesRepository } from "../entities/repository";
 import { EventSchemasRepository } from "../event-schemas/repository";
+import { SandboxRepository } from "../sandbox/repository";
 import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
 
@@ -48,6 +51,40 @@ const dbRunnerLayer = Layer.succeed(
 		Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
+const makeWorkflowEngine = (): WorkflowEngine["Type"] =>
+	({
+		poll: () => Effect.die("unused"),
+		resume: () => Effect.die("unused"),
+		execute: () => Effect.die("unused"),
+		register: () => Effect.die("unused"),
+		interrupt: () => Effect.die("unused"),
+		deferredDone: () => Effect.die("unused"),
+		scheduleClock: () => Effect.die("unused"),
+		deferredResult: () => Effect.die("unused"),
+		activityExecute: () => Effect.die("unused"),
+	}) as WorkflowEngine["Type"];
+
+const defaultSandboxRunResult = {
+	logs: [],
+	error: null,
+	success: true,
+	executionId: "exec-1",
+	value: { action: "allow" },
+	timing: { totalMs: 1, executionMs: 1 },
+};
+
+type FakeSandboxService = {
+	run: () => Effect.Effect<typeof defaultSandboxRunResult | { [key: string]: unknown }>;
+};
+
+const defaultSandboxService = (): SandboxService =>
+	Object.assign(Object.create(null), {
+		run: () => Effect.succeed(defaultSandboxRunResult),
+	});
+
+const makeSandboxService = (overrides: Partial<FakeSandboxService> = {}): SandboxService =>
+	Object.assign(Object.create(null), defaultSandboxService(), overrides);
+
 const defaultEntitiesRepository = (): EntitiesRepository =>
 	Object.assign(Object.create(null), {
 		_tag: "EntitiesRepository" as const,
@@ -79,6 +116,16 @@ const defaultEventsRepository = (): EventsRepository =>
 		_tag: "EventsRepository" as const,
 		listForUser: () => Effect.die("unused"),
 		createEvent: () => Effect.die("unused"),
+		getActiveAfterCreateTriggers: () => Effect.succeed([]),
+		getActiveBeforeCreateTriggers: () => Effect.succeed([]),
+	});
+
+const defaultSandboxRepository = (): SandboxRepository =>
+	Object.assign(Object.create(null), {
+		_tag: "SandboxRepository" as const,
+		createScript: () => Effect.die("unused"),
+		getScriptForUser: () => Effect.succeed(null),
+		findScriptBySlugForUser: () => Effect.die("unused"),
 	});
 
 const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}): EntitiesRepository =>
@@ -93,7 +140,10 @@ const makeEventsRepository = (overrides: Partial<EventsRepository> = {}): Events
 	Object.assign(Object.create(null), defaultEventsRepository(), overrides);
 
 const makeServiceLayer = (input: {
+	sandboxService?: SandboxService;
 	eventsRepository?: EventsRepository;
+	sandboxRepository?: SandboxRepository;
+	workflowEngine?: WorkflowEngine["Type"];
 	entitiesRepository?: EntitiesRepository;
 	eventSchemasRepository?: EventSchemasRepository;
 }) =>
@@ -101,6 +151,9 @@ const makeServiceLayer = (input: {
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
+				Layer.succeed(WorkflowEngine, input.workflowEngine ?? makeWorkflowEngine()),
+				Layer.succeed(SandboxService, input.sandboxService ?? makeSandboxService()),
+				Layer.succeed(SandboxRepository, input.sandboxRepository ?? defaultSandboxRepository()),
 				Layer.succeed(EntitiesRepository, input.entitiesRepository ?? makeEntitiesRepository()),
 				Layer.succeed(
 					EventSchemasRepository,
@@ -355,5 +408,183 @@ it.effect("creates events with resolved scope and returns the created count", ()
 				eventSchemaId: "event-schema-1",
 			},
 		]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("before-create trigger skip prevents event creation", () => {
+	const sandboxRepo = Object.assign(Object.create(null), defaultSandboxRepository(), {
+		getScriptForUser: () =>
+			Effect.succeed({
+				id: "script-1",
+				userId: user.id,
+				metadata: { allowedHostFunctions: [] },
+				code: `driver("trigger", async () => ({ action: "skip", reason: "test" }))`,
+			}),
+	});
+
+	const layer = makeServiceLayer({
+		sandboxRepository: sandboxRepo,
+		entitiesRepository: makeEntitiesRepository({
+			getEntityScopeForUser: () => Effect.succeed(entityScope),
+		}),
+		eventSchemasRepository: makeEventSchemasRepository({
+			getScopeForUser: () => Effect.succeed(eventSchemaScope),
+		}),
+		sandboxService: makeSandboxService({
+			run: () =>
+				Effect.succeed({
+					...defaultSandboxRunResult,
+					value: { action: "skip", reason: "test_skip" },
+				}),
+		}),
+		eventsRepository: makeEventsRepository({
+			getActiveBeforeCreateTriggers: () =>
+				Effect.succeed([
+					{
+						position: 100,
+						id: "trigger-1",
+						sandboxScriptId: "script-1",
+						eventSchemaId: "event-schema-1",
+					},
+				]),
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* EventsService;
+		const result = yield* service.create(user, [
+			{ properties: { rating: 5 }, entityId: "entity-1", eventSchemaId: "event-schema-1" },
+		]);
+
+		expect(result).toEqual({ count: 0 });
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("before-create trigger replace modifies event properties", () => {
+	const createCalls: unknown[] = [];
+	const sandboxRepo = Object.assign(Object.create(null), defaultSandboxRepository(), {
+		getScriptForUser: () =>
+			Effect.succeed({
+				id: "script-1",
+				userId: user.id,
+				metadata: { allowedHostFunctions: [] },
+				code: `driver("trigger", async () => ({ action: "replace", body: { properties: { rating: 10 } } }))`,
+			}),
+	});
+
+	const eventSchemaWithNoRequired = {
+		...eventSchemaScope,
+		propertiesSchema: {
+			fields: { rating: { label: "Rating", description: "Rating", type: "number" as const } },
+		},
+	};
+
+	const layer = makeServiceLayer({
+		sandboxRepository: sandboxRepo,
+		entitiesRepository: makeEntitiesRepository({
+			getEntityScopeForUser: () => Effect.succeed(entityScope),
+		}),
+		eventSchemasRepository: makeEventSchemasRepository({
+			getScopeForUser: () => Effect.succeed(eventSchemaWithNoRequired),
+		}),
+		sandboxService: makeSandboxService({
+			run: () =>
+				Effect.succeed({
+					...defaultSandboxRunResult,
+					value: { action: "replace", body: { properties: { rating: 10 } } },
+				}),
+		}),
+		eventsRepository: makeEventsRepository({
+			getActiveBeforeCreateTriggers: () =>
+				Effect.succeed([
+					{
+						position: 100,
+						id: "trigger-1",
+						sandboxScriptId: "script-1",
+						eventSchemaId: "event-schema-1",
+					},
+				]),
+			createEvent: (input) =>
+				Effect.sync(() => {
+					createCalls.push(input);
+					return {
+						id: "event-1",
+						entityId: input.entityId,
+						properties: input.properties,
+						eventSchemaId: input.eventSchemaId,
+						createdAt: "2026-01-01T00:00:00.000Z",
+						updatedAt: "2026-01-01T00:00:00.000Z",
+						eventSchemaName: input.eventSchemaName,
+						eventSchemaSlug: input.eventSchemaSlug,
+						sessionEntityId: input.sessionEntityId,
+						occurredAt: input.occurredAt.toISOString(),
+					};
+				}),
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* EventsService;
+		const result = yield* service.create(user, [
+			{ properties: { rating: 1 }, entityId: "entity-1", eventSchemaId: "event-schema-1" },
+		]);
+
+		expect(result).toEqual({ count: 1 });
+		expect(createCalls).toMatchObject([{ properties: { rating: 10 } }]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("before-create trigger failure prevents event creation", () => {
+	const sandboxRepo = Object.assign(Object.create(null), defaultSandboxRepository(), {
+		getScriptForUser: () =>
+			Effect.succeed({
+				id: "script-1",
+				userId: user.id,
+				metadata: { allowedHostFunctions: [] },
+				code: `driver("trigger", async () => { throw new Error("test_error"); })`,
+			}),
+	});
+
+	const layer = makeServiceLayer({
+		sandboxRepository: sandboxRepo,
+		entitiesRepository: makeEntitiesRepository({
+			getEntityScopeForUser: () => Effect.succeed(entityScope),
+		}),
+		eventSchemasRepository: makeEventSchemasRepository({
+			getScopeForUser: () => Effect.succeed(eventSchemaScope),
+		}),
+		sandboxService: makeSandboxService({
+			run: () =>
+				Effect.succeed({
+					...defaultSandboxRunResult,
+					value: null,
+					success: false,
+					error: "test_error",
+				}),
+		}),
+		eventsRepository: makeEventsRepository({
+			getActiveBeforeCreateTriggers: () =>
+				Effect.succeed([
+					{
+						position: 100,
+						id: "trigger-1",
+						sandboxScriptId: "script-1",
+						eventSchemaId: "event-schema-1",
+					},
+				]),
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* EventsService;
+		const exit = yield* Effect.exit(
+			service.create(user, [
+				{ properties: { rating: 5 }, entityId: "entity-1", eventSchemaId: "event-schema-1" },
+			]),
+		);
+
+		expect(exit).toEqual(
+			Exit.fail(new BadRequest({ message: "Before trigger failed: test_error" })),
+		);
 	}).pipe(Effect.provide(layer));
 });

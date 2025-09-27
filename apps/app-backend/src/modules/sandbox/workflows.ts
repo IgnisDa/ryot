@@ -1,22 +1,13 @@
-import { DurableQueue, Workflow } from "@effect/workflow";
+import { DurableQueue, type Workflow } from "@effect/workflow";
 import { Cause, Effect, Exit, Layer, Match, Option } from "effect";
 
 import { SandboxRunError, unknownToMessage } from "../../lib/errors";
+import { RunSandboxWorkflow } from "./definitions";
 import { SandboxExecutionQueue, SandboxExecutionQueueWorkerLive } from "./durable-queues";
-import {
-	SandboxCompletedResult,
-	SandboxExecutionPayload,
-	type SandboxCompletedResult as SandboxCompletedResultValue,
-	type SandboxRunResult,
+import type {
+	SandboxCompletedResult as SandboxCompletedResultValue,
+	SandboxRunResult,
 } from "./schemas";
-
-export const RunSandboxWorkflow = Workflow.make({
-	error: SandboxRunError,
-	name: "RunSandboxWorkflow",
-	payload: SandboxExecutionPayload,
-	success: SandboxCompletedResult,
-	idempotencyKey: ({ executionId }) => executionId,
-});
 
 const toWorkflowError = (cause: unknown) =>
 	cause instanceof SandboxRunError
