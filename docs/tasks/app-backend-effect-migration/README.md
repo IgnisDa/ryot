@@ -120,7 +120,7 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 - Static builtin definitions and seed manifests migrate early because many modules assume built-in entity schemas, event schemas, relationship schemas, sandbox scripts, and trigger links exist.
 - User bootstrap is migrated early but can be implemented in a minimal tracer shape first, then expanded as modules become available.
 - The user bootstrap path ultimately creates default trackers, tracker-to-entity-schema links, default saved views, and the library entity.
-- The E2E package keeps testing a real spawned backend server. It may use Effect internally for client calls but must not call backend services, repositories, layers, or runtime programs directly.
+- The E2E (`tests` directory) package keeps testing a real spawned backend server. It may use Effect internally for client calls but must not call backend services, repositories, layers, or runtime programs directly.
 - E2E tests may import pure public backend contract and query-language exports.
 - E2E raw fetch remains appropriate for Better Auth endpoints, invalid payload tests, invalid multipart tests, missing/wrong auth header tests, and any test that intentionally sits outside the contract.
 - Backend unit tests move with migrated modules and use Vitest plus `@effect/vitest`.
