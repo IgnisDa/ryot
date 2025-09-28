@@ -208,6 +208,10 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 
 		return {
 			auth,
+			deleteUserSessions: (userId: string) =>
+				Effect.promise(() =>
+					auth.$context.then((ctx) => ctx.internalAdapter.deleteUserSessions(userId)),
+				).pipe(Effect.orDie),
 			currentUser: (headers: Headers) =>
 				Effect.tryPromise({
 					try: () => auth.api.getSession({ headers }),
@@ -219,30 +223,15 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 						return unauthorized();
 					},
 				}).pipe(
-					// Ban enforcement reads bannedAt straight from the database: Better Auth serves
-					// getSession from a cached snapshot (Redis secondary storage), and API-key auth
-					// is not backed by a revocable session, so session.user.bannedAt can lag behind a
-					// just-applied ban. The cached session flag is kept as a fallback.
 					Effect.flatMap((session) =>
 						session
-							? Effect.tryPromise(() =>
-									db.db
-										.select({ bannedAt: schema.user.bannedAt })
-										.from(schema.user)
-										.where(eq(schema.user.id, session.user.id))
-										.limit(1),
-								).pipe(
-									Effect.orDie,
-									Effect.flatMap(([user]) =>
-										user?.bannedAt || session.user.bannedAt
-											? Effect.fail(unauthorized())
-											: Effect.succeed({
-													id: session.user.id,
-													name: session.user.name,
-													email: session.user.email,
-												}),
-									),
-								)
+							? session.user.bannedAt
+								? Effect.fail(unauthorized())
+								: Effect.succeed({
+										id: session.user.id,
+										name: session.user.name,
+										email: session.user.email,
+									})
 							: Effect.fail(unauthorized()),
 					),
 				),
