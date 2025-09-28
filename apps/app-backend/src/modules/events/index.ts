@@ -11,6 +11,7 @@ export type {
 	EventServiceResult,
 	EventWriteContext,
 } from "./service";
+export type { DeleteUserEventsForEntityDeps } from "./deletion";
 export {
 	createEventBySchemaSlugWithTriggers,
 	createEventsBestEffortWithTriggers,
@@ -23,4 +24,5 @@ export {
 	resolveEventSchemaId,
 	validateEventCreateInputForUser,
 } from "./service";
+export { deleteUserEventsForEntity } from "./deletion";
 export { createEventsWorker } from "./worker";
