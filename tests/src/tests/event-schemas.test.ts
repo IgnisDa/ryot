@@ -163,6 +163,11 @@ describe("GET /event-schemas", () => {
 						label: "Review",
 						description: "Your written thoughts or notes about this media",
 					},
+					isSpoiler: {
+						type: "boolean",
+						label: "Is Spoiler?",
+						description: "Whether this review contains spoilers",
+					},
 					rating: {
 						type: "number",
 						label: "Rating",
