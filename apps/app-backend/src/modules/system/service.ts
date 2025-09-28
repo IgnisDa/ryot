@@ -84,7 +84,11 @@ let lastCommandsProcessed = 0;
 
 export const updateRedisMetrics = async () => {
 	try {
-		redisConnected.set(redis.status === "ready" ? 1 : 0);
+		const isRedisReady = redis.status === "ready";
+		redisConnected.set(isRedisReady ? 1 : 0);
+		if (!isRedisReady) {
+			return;
+		}
 
 		const info = await redis.info();
 		const lines = info.split("\r\n");
