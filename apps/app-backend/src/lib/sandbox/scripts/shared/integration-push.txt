@@ -1,6 +1,5 @@
-function getApiResponseData(result) {
-  const body = result && result.data && result.data.body;
-  return body && body.data;
+function normalizeBaseUrl(value) {
+  return typeof value === "string" ? value.trim().replace(/\/+$/, "") : "";
 }
 
 function parseJsonBody(result) {
@@ -11,10 +10,6 @@ function parseJsonBody(result) {
   } catch {
     return null;
   }
-}
-
-function normalizeBaseUrl(value) {
-  return typeof value === "string" ? value.trim().replace(/\/+$/, "") : "";
 }
 
 async function integrationsDisabledForUser() {
@@ -28,20 +23,17 @@ async function integrationsDisabledForUser() {
 }
 
 async function listActiveIntegrations(provider) {
-  const result = await appApiCall(
-    "GET",
-    "/api/integrations?provider=" + encodeURIComponent(provider) + "&isDisabled=false",
-  );
+  const result = await listIntegrations({ provider: provider, isDisabled: false });
   if (!result.success) return [];
-  const integrations = getApiResponseData(result);
+  const integrations = result.data;
   return Array.isArray(integrations) ? integrations : [];
 }
 
 async function fetchEntity(entityId) {
   if (typeof entityId !== "string" || !entityId) return null;
-  const result = await appApiCall("GET", "/api/entities/" + encodeURIComponent(entityId));
+  const result = await getEntity(entityId);
   if (!result.success) return null;
-  return getApiResponseData(result) || null;
+  return result.data || null;
 }
 
 async function resolveEntityProviderName(entity) {
@@ -53,13 +45,10 @@ async function resolveEntityProviderName(entity) {
     return null;
   }
 
-  const schemaResult = await appApiCall(
-    "GET",
-    "/api/entity-schemas/" + encodeURIComponent(entity.entitySchemaId),
-  );
+  const schemaResult = await getEntitySchema(entity.entitySchemaId);
   if (!schemaResult.success) return null;
 
-  const schema = getApiResponseData(schemaResult);
+  const schema = schemaResult.data;
   const providers = schema && Array.isArray(schema.providers) ? schema.providers : [];
   const matched = providers.find(function (provider) {
     return provider && provider.scriptId === entity.sandboxScriptId;

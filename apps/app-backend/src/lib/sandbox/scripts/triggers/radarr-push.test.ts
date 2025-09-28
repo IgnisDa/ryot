@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import integrationPushHelperCode from "../shared/integration-push.txt";
 import radarrPushScriptCode from "./radarr-push.txt";
-import { appApiFailure, appApiSuccess, httpSuccess, runTriggerScript } from "./test-utils";
+import { hostFailure, hostSuccess, httpSuccess, runTriggerScript } from "./test-utils";
 
 const radarrCode = `${integrationPushHelperCode}\n\n${radarrPushScriptCode}`;
 
@@ -42,26 +42,15 @@ const createTrigger = (properties: Record<string, unknown>) => ({
 	},
 });
 
-const createAppApiCall = (options: {
+const createHostFunctions = (options: {
 	integrations?: unknown[];
 	entity?: Record<string, unknown> | null;
 	providers?: Array<{ name: string; scriptId: string }>;
-}) => {
-	const appApiCall = (_method: unknown, path: unknown) => {
-		const stringPath = String(path);
-		if (stringPath.startsWith("/api/integrations?")) {
-			return appApiSuccess(options.integrations ?? []);
-		}
-		if (stringPath.startsWith("/api/entities/")) {
-			return options.entity ? appApiSuccess(options.entity) : appApiFailure();
-		}
-		if (stringPath.startsWith("/api/entity-schemas/")) {
-			return appApiSuccess({ providers: options.providers ?? tmdbProviders });
-		}
-		return appApiFailure();
-	};
-	return appApiCall;
-};
+}) => ({
+	listIntegrations: () => hostSuccess(options.integrations ?? []),
+	getEntity: () => (options.entity ? hostSuccess(options.entity) : hostFailure()),
+	getEntitySchema: () => hostSuccess({ providers: options.providers ?? tmdbProviders }),
+});
 
 const userPreferences =
 	(disableIntegrations = false) =>
@@ -88,9 +77,9 @@ describe("radarr-push sandbox script", () => {
 			radarrCode,
 			createTrigger({ entitySchemaSlug: "movie", entityId: "movie_1" }),
 			{
+				...createHostFunctions({ entity: movieEntity, integrations: [radarrIntegration] }),
 				getUserPreferences: userPreferences(),
 				httpCall: createHttpCall(httpCalls),
-				appApiCall: createAppApiCall({ entity: movieEntity, integrations: [radarrIntegration] }),
 			},
 		);
 
@@ -118,9 +107,9 @@ describe("radarr-push sandbox script", () => {
 			radarrCode,
 			createTrigger({ entitySchemaSlug: "show", entityId: "show_1" }),
 			{
+				...createHostFunctions({ entity: movieEntity, integrations: [radarrIntegration] }),
 				getUserPreferences: userPreferences(),
 				httpCall: createHttpCall(httpCalls),
-				appApiCall: createAppApiCall({ entity: movieEntity, integrations: [radarrIntegration] }),
 			},
 		);
 
@@ -134,12 +123,12 @@ describe("radarr-push sandbox script", () => {
 			radarrCode,
 			createTrigger({ entitySchemaSlug: "movie", entityId: "movie_1" }),
 			{
-				getUserPreferences: userPreferences(),
-				httpCall: createHttpCall(httpCalls),
-				appApiCall: createAppApiCall({
+				...createHostFunctions({
 					integrations: [radarrIntegration],
 					entity: { ...movieEntity, sandboxScriptId: "script_movie_tvdb" },
 				}),
+				getUserPreferences: userPreferences(),
+				httpCall: createHttpCall(httpCalls),
 			},
 		);
 
@@ -153,9 +142,7 @@ describe("radarr-push sandbox script", () => {
 			radarrCode,
 			createTrigger({ entitySchemaSlug: "movie", entityId: "movie_1" }),
 			{
-				getUserPreferences: userPreferences(),
-				httpCall: createHttpCall(httpCalls),
-				appApiCall: createAppApiCall({
+				...createHostFunctions({
 					entity: movieEntity,
 					integrations: [
 						{
@@ -167,6 +154,8 @@ describe("radarr-push sandbox script", () => {
 						},
 					],
 				}),
+				getUserPreferences: userPreferences(),
+				httpCall: createHttpCall(httpCalls),
 			},
 		);
 
@@ -180,9 +169,9 @@ describe("radarr-push sandbox script", () => {
 			radarrCode,
 			createTrigger({ entitySchemaSlug: "movie", entityId: "movie_1" }),
 			{
+				...createHostFunctions({ entity: movieEntity, integrations: [radarrIntegration] }),
 				httpCall: createHttpCall(httpCalls),
 				getUserPreferences: userPreferences(true),
-				appApiCall: createAppApiCall({ entity: movieEntity, integrations: [radarrIntegration] }),
 			},
 		);
 
