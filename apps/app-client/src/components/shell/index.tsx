@@ -22,15 +22,17 @@ type Props = { children: ReactNode };
 export function ShellNavigation({ children }: Props) {
 	const navSheetOpen = useNavSheetOpen();
 	const subFlyoutOpen = useSubFlyoutOpen();
-	const setSubFlyoutOpen = useSetSubFlyoutOpen();
 	const { trackers } = useNavigationData();
-	const { width: screenWidth } = useWindowDimensions();
 	const { activeTrackerSlug } = useActiveNav();
+	const setSubFlyoutOpen = useSetSubFlyoutOpen();
+	const { width: screenWidth } = useWindowDimensions();
+
 	const activeTracker = trackers.find((t) => t.slug === activeTrackerSlug);
+	const subItemCount = activeTracker?.subItems?.length;
 
 	useEffect(() => {
-		setSubFlyoutOpen((activeTracker?.subItems?.length ?? 0) > 0);
-	}, [activeTracker?.key]);
+		setSubFlyoutOpen((subItemCount ?? 0) > 0);
+	}, [activeTracker?.key, setSubFlyoutOpen, subItemCount]);
 
 	const isTablet = screenWidth >= TABLET_BREAKPOINT;
 
