@@ -1,21 +1,115 @@
-import type { paths } from "@ryot/generated/openapi/app-backend";
 import {
 	entityBuiltinColumns,
 	entitySchemaBuiltinColumns,
 	eventJoinBuiltinColumns,
 	relationshipJoinBuiltinColumns,
 	type RuntimeRef,
+	type RuntimeReferenceExpression,
+	type TransformExpression,
 } from "@ryot/ts-utils/view-language";
 
-type CreateSavedViewBody = NonNullable<
-	paths["/saved-views"]["post"]["requestBody"]
->["content"]["application/json"];
+// TODO(Task 22): Replace these tests-only DSL types with the public AppContract types
+// once queryDefinition and displayConfiguration stop being `unknown` in the contract.
+type ArithmeticOperator = "add" | "subtract" | "multiply" | "divide";
+type ComparisonOperator = "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
 
-export type ViewExpression = Extract<
-	CreateSavedViewBody["queryDefinition"],
-	{ sort: unknown }
->["sort"]["expression"];
-export type ViewPredicate = NonNullable<CreateSavedViewBody["queryDefinition"]["filter"]>;
+type LiteralExpression = {
+	type: "literal";
+	value: unknown;
+};
+
+type ArithmeticExpression = {
+	type: "arithmetic";
+	operator: ArithmeticOperator;
+	left: ViewExpression;
+	right: ViewExpression;
+};
+
+type ConcatExpression = {
+	type: "concat";
+	values: ViewExpression[];
+};
+
+type CoalesceExpression = {
+	type: "coalesce";
+	values: ViewExpression[];
+};
+
+type RoundExpression = {
+	type: "round";
+	expression: ViewExpression;
+};
+
+type FloorExpression = {
+	type: "floor";
+	expression: ViewExpression;
+};
+
+type IntegerExpression = {
+	type: "integer";
+	expression: ViewExpression;
+};
+
+type ConditionalExpression = {
+	type: "conditional";
+	condition: ViewPredicate;
+	whenTrue: ViewExpression;
+	whenFalse: ViewExpression;
+};
+
+export type ViewExpression =
+	| ArithmeticExpression
+	| CoalesceExpression
+	| ConcatExpression
+	| ConditionalExpression
+	| FloorExpression
+	| IntegerExpression
+	| LiteralExpression
+	| RoundExpression
+	| RuntimeReferenceExpression
+	| TransformExpression;
+
+type ComparisonPredicate = {
+	type: "comparison";
+	operator: ComparisonOperator;
+	left: ViewExpression;
+	right: ViewExpression;
+};
+
+type ContainsPredicate = {
+	type: "contains";
+	expression: ViewExpression;
+	value: ViewExpression;
+};
+
+type InPredicate = {
+	type: "in";
+	expression: ViewExpression;
+	values: ViewExpression[];
+};
+
+type UnaryPredicate = {
+	type: "isNull" | "isNotNull";
+	expression: ViewExpression;
+};
+
+type LogicalPredicate = {
+	type: "and" | "or";
+	predicates: ViewPredicate[];
+};
+
+type NotPredicate = {
+	type: "not";
+	predicate: ViewPredicate;
+};
+
+export type ViewPredicate =
+	| ComparisonPredicate
+	| ContainsPredicate
+	| InPredicate
+	| LogicalPredicate
+	| NotPredicate
+	| UnaryPredicate;
 export type ExpressionInput = ViewExpression | string[];
 
 export const literalExpression = (value: unknown): ViewExpression => ({

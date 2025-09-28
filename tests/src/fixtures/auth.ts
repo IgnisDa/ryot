@@ -1,12 +1,11 @@
-import type { paths } from "@ryot/generated/openapi/app-backend";
 import { createAuthClient } from "better-auth/client";
-import type createClient from "openapi-fetch";
 
 import { getBackendClient, getBackendUrl, getPgClient } from "../setup";
 import { requireNonEmptyArray, requirePresent } from "../test-support/assertions";
 import { cookieHeaderFromSetCookies } from "./auth-2fa";
+import type { BackendClient } from "./backend-client";
 
-export type Client = ReturnType<typeof createClient<paths>>;
+export type Client = BackendClient;
 
 export const createTestAuthClient = (baseUrl = getBackendUrl()) =>
 	createAuthClient({ baseURL: new URL(baseUrl).origin });

@@ -1,36 +1,64 @@
-import type { paths } from "@ryot/generated/openapi/app-backend";
-
 import { getPgClient } from "../setup";
 import { requirePresent, requireResponseData } from "../test-support/assertions";
 import type { Client } from "./auth";
+import type { ClientBody, ClientSuccess } from "./backend-client";
 import { createTrackerWithSchema } from "./entity-schemas";
 
-type CreateEntityBody = NonNullable<
-	paths["/entities"]["post"]["requestBody"]
->["content"]["application/json"];
+type CreateEntityBody = ClientBody<"entities", "create">;
+type EntityRecord = Omit<ClientSuccess<"entities", "create">, "properties"> & {
+	properties: Record<string, unknown>;
+};
+type CreateEntityInput = Omit<CreateEntityBody, "image"> & {
+	image?: CreateEntityBody["image"] | { type: "remote"; url: string } | null;
+};
 
-type ClearEntityUserStateData = NonNullable<
-	paths["/entities/{entityId}/user-state"]["delete"]["responses"][200]["content"]["application/json"]
->["data"];
+type ClearEntityUserStateData = ClientSuccess<"entities", "clearUserState">;
 
-export async function createEntity(client: Client, cookies: string, body: CreateEntityBody) {
-	const { data, response } = await client.POST("/entities", {
-		body,
+function normalizeEntityImage(
+	image: CreateEntityInput["image"],
+): CreateEntityBody["image"] | undefined {
+	if (image === undefined || image === null) {
+		return undefined;
+	}
+
+	if (typeof image === "string") {
+		return image;
+	}
+
+	// TODO(Task 22): Remove this tests-only image compatibility bridge once tests
+	// pass the AppContract string URL directly.
+	return image.url;
+}
+
+export async function createEntity(client: Client, cookies: string, body: CreateEntityInput) {
+	const { image, ...rest } = body;
+	const { data, response } = await client.entities.create({
+		body: {
+			...rest,
+			...(normalizeEntityImage(image) !== undefined && {
+				image: normalizeEntityImage(image),
+			}),
+		},
 		headers: { Cookie: cookies },
 	});
 
 	const entity = requireResponseData(response, data, "Failed to create entity");
 	requirePresent(entity.id, "Failed to create entity");
-	return entity;
+
+	// TODO(Task 22): Remove this tests-only entity assertion once the public
+	// AppContract exposes typed entity properties.
+	return entity as EntityRecord;
 }
 
 export async function getEntity(client: Client, cookies: string, entityId: string) {
-	const { data, response } = await client.GET("/entities/{entityId}", {
+	const { data, response } = await client.entities.get({
 		headers: { Cookie: cookies },
 		params: { path: { entityId } },
 	});
 
-	return requireResponseData(response, data, `Failed to get entity '${entityId}'`);
+	// TODO(Task 22): Remove this tests-only entity assertion once the public
+	// AppContract exposes typed entity properties.
+	return requireResponseData(response, data, `Failed to get entity '${entityId}'`) as EntityRecord;
 }
 
 export async function clearEntityUserState(
@@ -38,7 +66,7 @@ export async function clearEntityUserState(
 	cookies: string,
 	entityId: string,
 ): Promise<ClearEntityUserStateData> {
-	const { data, response } = await client.DELETE("/entities/{entityId}/user-state", {
+	const { data, response } = await client.entities.clearUserState({
 		headers: { Cookie: cookies },
 		params: { path: { entityId } },
 	});
