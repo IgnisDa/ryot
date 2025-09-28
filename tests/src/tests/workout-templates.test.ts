@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import type { WorkoutTemplateProperties } from "@ryot/app-backend/lib/fitness/workout-template";
+import type { WorkoutTemplateProperties } from "@ryot/app-backend-legacy/lib/fitness/workout-template";
 import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,

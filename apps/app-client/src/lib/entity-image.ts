@@ -1,4 +1,4 @@
-import type { ImageSchemaType } from "@ryot/app-backend/lib/zod";
+import type { ImageSchemaType } from "@ryot/app-backend-legacy/lib/zod";
 
 export type EntityImage = ImageSchemaType | null;
 
