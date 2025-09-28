@@ -7,11 +7,10 @@ import {
 	commonErrors,
 	createErrorResponse,
 	dataSchema,
-	ERROR_CODES,
-	errorResponse,
 	jsonResponse,
 	successResponse,
 } from "~/lib/openapi";
+import { ERROR_CODES, errorResponse } from "~/lib/openapi/errors";
 import { redis } from "~/lib/redis";
 
 import { getMetricsAsText } from "./service";

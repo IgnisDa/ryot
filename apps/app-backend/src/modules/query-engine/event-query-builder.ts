@@ -1,18 +1,14 @@
 import { sql } from "drizzle-orm";
 
+import { buildQueryContext, type PreparedQueryContext } from "./context";
 import { buildResolvedFieldsExpression } from "./display-builder";
+import { buildLatestEventJoinCte, buildJoinedCte } from "./event-join-ctes";
+import { buildEventFirstCte } from "./event-query-ctes";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";
 import { executePaginatedQuery } from "./paginated-query-sql";
-import { buildQueryContext, type PreparedQueryContext } from "./preparer";
-import {
-	buildEventFirstCte,
-	buildJoinedCte,
-	buildLatestEventJoinCte,
-	EVENT_CTE_ALIASES,
-	EVENT_FIRST_ENTITY_COLUMN_OVERRIDES,
-} from "./query-ctes";
+import { EVENT_FIRST_ENTITY_COLUMN_OVERRIDES, EVENT_CTE_ALIASES } from "./query-cte-shared";
 import type { EventsQueryEngineRequest, QueryEngineEventsResponse } from "./schemas";
 import { buildSortExpression } from "./sort-builder";
 

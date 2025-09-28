@@ -16,12 +16,12 @@ import {
 import { match } from "ts-pattern";
 
 import { QueryEngineValidationError } from "~/lib/views/errors";
+import type { ViewPredicate } from "~/lib/views/expression";
 import {
 	assertContainsCompatibleExpression,
 	normalizeExpressionPropertyType,
 	type ViewExpressionTypeInfo,
 } from "~/lib/views/expression-analysis";
-import type { ViewPredicate } from "~/lib/views/filtering";
 
 import type { ExpressionCompiler } from "./expression-compiler";
 import type { SqlExpression } from "./sql-expression-helpers";
