@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../lib/auth";
-import { NotFound, NotImplemented, Unauthorized } from "../../lib/errors";
+import { NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
 
 const ImportRunStatus = Schema.Literal("pending", "running", "completed", "failed");
 
@@ -58,17 +58,17 @@ const CreateImportRunBody = Schema.Struct({ source: Schema.String });
 const runIdParam = HttpApiSchema.param("runId", Schema.String);
 
 export const ImportsGroup = HttpApiGroup.make("imports")
+	.addError(Unauthorized, { status: 401 })
+	.addError(RateLimited, { status: 429 })
 	.add(
 		HttpApiEndpoint.post("createRun", "/imports/runs")
 			.setPayload(CreateImportRunBody)
 			.addSuccess(Schema.Struct({ id: Schema.String }), { status: 201 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.get("listRuns", "/imports/runs")
 			.addSuccess(Schema.Array(ListedImportRun))
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
@@ -81,14 +81,12 @@ export const ImportsGroup = HttpApiGroup.make("imports")
 			)
 			.addSuccess(DetailedImportRun)
 			.addError(NotFound, { status: 404 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.del("deleteRun")`/imports/runs/${runIdParam}`
 			.addSuccess(Schema.Struct({ id: Schema.String }))
 			.addError(NotFound, { status: 404 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.addError(NotImplemented, { status: 501 });

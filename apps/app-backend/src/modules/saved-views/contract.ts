@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../lib/auth";
-import { NotFound, NotImplemented, Unauthorized } from "../../lib/errors";
+import { NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
 
 export const ListedSavedView = Schema.Struct({
 	id: Schema.String,
@@ -49,6 +49,8 @@ const ReorderSavedViewsResponse = Schema.Struct({ viewSlugs: Schema.Array(Schema
 const viewSlugParam = HttpApiSchema.param("viewSlug", Schema.String);
 
 export const SavedViewsGroup = HttpApiGroup.make("saved-views")
+	.addError(Unauthorized, { status: 401 })
+	.addError(RateLimited, { status: 429 })
 	.add(
 		HttpApiEndpoint.get("list", "/saved-views")
 			.setUrlParams(
@@ -60,21 +62,18 @@ export const SavedViewsGroup = HttpApiGroup.make("saved-views")
 				}),
 			)
 			.addSuccess(Schema.Array(ListedSavedView))
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.post("create", "/saved-views")
 			.setPayload(CreateSavedViewBody)
 			.addSuccess(ListedSavedView, { status: 201 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.get("get")`/saved-views/${viewSlugParam}`
 			.addSuccess(ListedSavedView)
 			.addError(NotFound, { status: 404 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
@@ -82,28 +81,24 @@ export const SavedViewsGroup = HttpApiGroup.make("saved-views")
 			.setPayload(UpdateSavedViewBody)
 			.addSuccess(ListedSavedView)
 			.addError(NotFound, { status: 404 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.del("delete")`/saved-views/${viewSlugParam}`
 			.addSuccess(ListedSavedView)
 			.addError(NotFound, { status: 404 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.post("clone")`/saved-views/${viewSlugParam}/clone`
 			.addSuccess(ListedSavedView, { status: 201 })
 			.addError(NotFound, { status: 404 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.post("reorder", "/saved-views/reorder")
 			.setPayload(ReorderSavedViewsBody)
 			.addSuccess(ReorderSavedViewsResponse)
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.addError(NotImplemented, { status: 501 });
