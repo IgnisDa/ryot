@@ -11,8 +11,8 @@
 		"test": "bun test --only-failures",
 		"dev": "bun run --watch src/index.ts",
 		"db:generate": "bun --bun drizzle-kit generate",
-		"run-migration": "MIGRATE_ONLY=true bun run src/index.ts",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
+		"run-migration": "RUN_LEGACY_BOOTSTRAP_ONLY=true bun run src/index.ts",
 		"build": "bun build src/index.ts --outdir dist --target bun --sourcemap"
 	},
 	"dependencies": {
