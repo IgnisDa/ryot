@@ -4,8 +4,8 @@
 	"scripts": {
 		"typecheck": "tsc",
 		"build": "email export",
+		"lint": "oxlint . && oxfmt .",
 		"dev": "email dev --port 6200",
-		"lint": "oxlint . && oxfmt --check .",
 		"copy-templates": "cp -r out/. ../../crates/services/notification/templates"
 	},
 	"dependencies": {
