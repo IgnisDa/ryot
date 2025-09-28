@@ -198,6 +198,58 @@ export const createReviewPropertiesSchema = () => ({
 	},
 });
 
+export const createShowReviewPropertiesSchema = () => ({
+	fields: {
+		...createReviewPropertiesSchema().fields,
+		showSeason: { label: "Show Season", type: "integer" as const, description: "Show Season" },
+		showEpisode: { label: "Show Episode", type: "integer" as const, description: "Show Episode" },
+	},
+	rules: [
+		{
+			path: ["showSeason"],
+			kind: "validation" as const,
+			validation: { required: true as const },
+			when: { operator: "exists" as const, path: ["showEpisode"] },
+		},
+		{
+			path: ["showEpisode"],
+			kind: "validation" as const,
+			validation: { required: true as const },
+			when: { operator: "exists" as const, path: ["showSeason"] },
+		},
+	],
+});
+
+export const createAnimeReviewPropertiesSchema = () => ({
+	fields: {
+		...createReviewPropertiesSchema().fields,
+		animeEpisode: {
+			label: "Anime Episode",
+			type: "integer" as const,
+			description: "Anime Episode",
+		},
+	},
+});
+
+export const createMangaReviewPropertiesSchema = () => ({
+	fields: {
+		...createReviewPropertiesSchema().fields,
+		mangaVolume: { label: "Manga Volume", type: "integer" as const, description: "Manga Volume" },
+		mangaChapter: { label: "Manga Chapter", type: "number" as const, description: "Manga Chapter" },
+	},
+});
+
+export const createPodcastReviewPropertiesSchema = () => ({
+	fields: {
+		...createReviewPropertiesSchema().fields,
+		podcastEpisode: {
+			label: "Podcast Episode",
+			type: "integer" as const,
+			description: "Podcast Episode",
+		},
+	},
+});
+
 export const createWorkoutSetPropertiesSchema = () => workoutSetPropertiesJsonSchema;
 
 export const createNestedMetadataPropertiesSchema = () => ({
@@ -208,11 +260,7 @@ export const createNestedMetadataPropertiesSchema = () => ({
 			type: "object" as const,
 			properties: {
 				year: { label: "Year", description: "Year", type: "integer" as const },
-				author: {
-					label: "Author",
-					description: "Author",
-					type: "string" as const,
-				},
+				author: { label: "Author", description: "Author", type: "string" as const },
 			},
 		},
 	},
@@ -229,16 +277,8 @@ export const createNestedPeoplePropertySchema = () => ({
 				description: "Item",
 				type: "object" as const,
 				properties: {
-					role: {
-						label: "Role",
-						description: "Role",
-						type: "string" as const,
-					},
-					externalId: {
-						label: "External ID",
-						type: "string" as const,
-						description: "External ID",
-					},
+					role: { label: "Role", description: "Role", type: "string" as const },
+					externalId: { label: "External ID", type: "string" as const, description: "External ID" },
 				},
 			},
 		},
@@ -255,11 +295,7 @@ export const createNestedMatrixPropertySchema = () => ({
 				label: "Item",
 				description: "Item",
 				type: "array" as const,
-				items: {
-					label: "Item",
-					description: "Item",
-					type: "number" as const,
-				},
+				items: { label: "Item", description: "Item", type: "number" as const },
 			},
 		},
 	},
