@@ -15,7 +15,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	const query = parseSearchQuery(request, searchParamsSchema);
 	await serverGqlService.authenticatedRequest(request, LogoutUserDocument);
 
-	return redirect(query[redirectToQueryParam] || $path("/"), {
+	return redirect(query[redirectToQueryParam] || $path("/auth"), {
 		headers: getLogoutCookies(),
 	});
 };

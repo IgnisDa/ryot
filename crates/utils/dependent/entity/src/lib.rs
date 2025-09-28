@@ -348,17 +348,16 @@ async fn generate_metadata_update_notifications(
     };
     let mut notifications = vec![];
 
-    if let (Some(p1), Some(p2)) = (&meta.production_status, &details.production_status) {
-        if p1 != p2 {
+    if let (Some(p1), Some(p2)) = (&meta.production_status, &details.production_status)
+        && p1 != p2 {
             notifications.push(UserNotificationContent::MetadataStatusChanged {
                 old_status: format!("{p1:#?}"),
                 new_status: format!("{p2:#?}"),
                 entity_title: meta.title.clone(),
             });
         }
-    }
-    if let (Some(p1), Some(p2)) = (meta.publish_year, details.publish_year) {
-        if p1 != p2 {
+    if let (Some(p1), Some(p2)) = (meta.publish_year, details.publish_year)
+        && p1 != p2 {
             notifications.push(UserNotificationContent::MetadataReleaseDateChanged {
                 season_number: None,
                 episode_number: None,
@@ -367,7 +366,6 @@ async fn generate_metadata_update_notifications(
                 entity_title: meta.title.clone(),
             });
         }
-    }
     if let (Some(s1), Some(s2)) = (&meta.show_specifics, &details.show_specifics) {
         if s1.seasons.len() != s2.seasons.len() {
             notifications.push(UserNotificationContent::MetadataNumberOfSeasonsChanged {
@@ -417,8 +415,7 @@ async fn generate_metadata_update_notifications(
                         }
                         if let (Some(pd1), Some(pd2)) =
                             (before_episode.publish_date, after_episode.publish_date)
-                        {
-                            if pd1 != pd2 {
+                            && pd1 != pd2 {
                                 notifications.push(
                                     UserNotificationContent::MetadataReleaseDateChanged {
                                         old_date: format!("{:?}", pd1),
@@ -429,15 +426,14 @@ async fn generate_metadata_update_notifications(
                                     },
                                 );
                             }
-                        }
                     }
                 }
             }
         }
     }
-    if let (Some(a1), Some(a2)) = (&meta.anime_specifics, &details.anime_specifics) {
-        if let (Some(e1), Some(e2)) = (a1.episodes, a2.episodes) {
-            if e1 != e2 {
+    if let (Some(a1), Some(a2)) = (&meta.anime_specifics, &details.anime_specifics)
+        && let (Some(e1), Some(e2)) = (a1.episodes, a2.episodes)
+            && e1 != e2 {
                 notifications.push(UserNotificationContent::MetadataChaptersOrEpisodesChanged {
                     old_count: e1.into(),
                     new_count: e2.into(),
@@ -446,11 +442,9 @@ async fn generate_metadata_update_notifications(
                 });
                 make_eligible_for_smart_collection().await?;
             }
-        }
-    }
-    if let (Some(m1), Some(m2)) = (&meta.manga_specifics, &details.manga_specifics) {
-        if let (Some(c1), Some(c2)) = (m1.chapters, m2.chapters) {
-            if c1 != c2 {
+    if let (Some(m1), Some(m2)) = (&meta.manga_specifics, &details.manga_specifics)
+        && let (Some(c1), Some(c2)) = (m1.chapters, m2.chapters)
+            && c1 != c2 {
                 notifications.push(UserNotificationContent::MetadataChaptersOrEpisodesChanged {
                     old_count: c1,
                     new_count: c2,
@@ -459,8 +453,6 @@ async fn generate_metadata_update_notifications(
                 });
                 make_eligible_for_smart_collection().await?;
             }
-        }
-    }
     if let (Some(p1), Some(p2)) = (&meta.podcast_specifics, &details.podcast_specifics) {
         if p1.episodes.len() != p2.episodes.len() {
             notifications.push(UserNotificationContent::MetadataEpisodeReleased {

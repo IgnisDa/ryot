@@ -53,11 +53,7 @@ export const MetadataDisplayItem = (props: {
 		(h) => h.state === SeenState.InProgress,
 	)?.progress;
 	const reasons = userMetadataDetails?.mediaReason?.filter((r) =>
-		[
-			UserToMediaReason.Finished,
-			UserToMediaReason.Watchlist,
-			UserToMediaReason.Owned,
-		].includes(r),
+		[UserToMediaReason.Finished, UserToMediaReason.Owned].includes(r),
 	);
 
 	const extraInformation = useMemo(() => {
@@ -105,14 +101,6 @@ export const MetadataDisplayItem = (props: {
 			wasRecentlyConsumed={isMetadataRecentlyConsumed}
 			isPartialStatusActive={isMetadataPartialStatusActive}
 			interactionButtons={["collection", "consume", "review", "watchlist"]}
-			additionalInformation={[
-				extraInformation,
-				props.additionalInformation,
-				metadataDetails?.publishYear,
-				completedHistory.length > 0
-					? `${completedHistory.length} ${completedHistory.length === 1 ? "time" : "times"}`
-					: undefined,
-			]}
 			hasInteracted={
 				props.shouldHighlightNameIfInteracted &&
 				userMetadataDetails?.hasInteracted
@@ -120,6 +108,14 @@ export const MetadataDisplayItem = (props: {
 			onImageClickBehavior={[
 				$path("/media/item/:id", { id: props.metadataId }),
 				props.onImageClickBehavior,
+			]}
+			consumeButtonIndicatorLabel={
+				completedHistory.length > 0 ? `${completedHistory.length}` : undefined
+			}
+			additionalInformation={[
+				extraInformation,
+				props.additionalInformation,
+				metadataDetails?.publishYear,
 			]}
 		/>
 	);

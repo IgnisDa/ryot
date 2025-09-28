@@ -75,8 +75,8 @@ pub async fn login_user(ss: &Arc<SupportingService>, input: AuthUserInput) -> Re
             error: LoginErrorVariant::AccountDisabled,
         }));
     }
-    if ss.config.users.validate_password {
-        if let AuthUserInput::Password(PasswordUserInput { password, .. }) = input {
+    if ss.config.users.validate_password
+        && let AuthUserInput::Password(PasswordUserInput { password, .. }) = input {
             if let Some(hashed_password) = &user.password {
                 let parsed_hash = PasswordHash::new(hashed_password).unwrap();
                 if Argon2::default()
@@ -93,7 +93,6 @@ pub async fn login_user(ss: &Arc<SupportingService>, input: AuthUserInput) -> Re
                 }));
             }
         }
-    }
     if user.two_factor_information.is_some() && ss.config.users.validate_password {
         return Ok(LoginResult::TwoFactorRequired(StringIdObject {
             id: user.id.clone(),

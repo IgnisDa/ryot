@@ -199,13 +199,11 @@ async fn smart_search(
     ]);
 
     for strategy in strategies {
-        if !strategy.trim().is_empty() {
-            if let Ok(results) = tmdb_service.multi_search(&strategy).await {
-                if !results.is_empty() {
+        if !strategy.trim().is_empty()
+            && let Ok(results) = tmdb_service.multi_search(&strategy).await
+                && !results.is_empty() {
                     return Ok(results);
                 }
-            }
-        }
     }
 
     Ok(vec![])

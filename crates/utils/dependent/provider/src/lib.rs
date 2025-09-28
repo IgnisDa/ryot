@@ -22,7 +22,7 @@ use tvdb_provider::{NonMediaTvdbService, TvdbMovieService, TvdbShowService};
 use vndb_provider::VndbService;
 use youtube_music_provider::YoutubeMusicService;
 
-pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
+pub type Provider = Box<dyn MediaProvider + Send + Sync>;
 
 pub async fn get_openlibrary_service(
     config: &config_definition::AppConfig,

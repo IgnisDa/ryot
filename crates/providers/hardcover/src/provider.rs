@@ -63,11 +63,10 @@ query {{
             .unwrap();
         let data = data.data.books_by_pk;
         let mut images = vec![];
-        if let Some(i) = data.image {
-            if let Some(image) = i.url {
+        if let Some(i) = data.image
+            && let Some(image) = i.url {
                 images.push(image);
             }
-        }
         for i in data.images.into_iter().flatten() {
             if let Some(image) = i.url {
                 images.push(image);
@@ -308,11 +307,10 @@ query {{
                     .unwrap();
                 let data = data.data.authors_by_pk;
                 let mut images = vec![];
-                if let Some(i) = data.image {
-                    if let Some(image) = i.url {
+                if let Some(i) = data.image
+                    && let Some(image) = i.url {
                         images.push(image);
                     }
-                }
                 let details = PersonDetails {
                     assets: EntityAssets {
                         remote_images: images,

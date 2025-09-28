@@ -316,20 +316,6 @@ pub enum MediaType {
     Manga,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum MediaStatus {
-    #[serde(rename = "FINISHED")]
-    Finished,
-    #[serde(rename = "RELEASING")]
-    Releasing,
-    #[serde(rename = "NOT_YET_RELEASED")]
-    NotYetReleased,
-    #[serde(rename = "CANCELLED")]
-    Cancelled,
-    #[serde(rename = "HIATUS")]
-    Hiatus,
-}
-
 pub fn media_status_string(status: Option<String>) -> Option<String> {
     status.map(|f| f.to_case(Case::Title))
 }

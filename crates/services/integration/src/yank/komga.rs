@@ -29,13 +29,6 @@ mod komga_book {
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct Link {
-        pub label: String,
-        pub url: String,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
     pub struct Media {
         pub pages_count: i32,
     }
@@ -57,10 +50,10 @@ mod komga_book {
     #[serde(rename_all = "camelCase")]
     pub struct Item {
         pub id: String,
-        pub name: String,
-        pub series_id: String,
-        pub media: Media,
         pub number: i32,
+        pub name: String,
+        pub media: Media,
+        pub series_id: String,
         pub metadata: Metadata,
         pub read_progress: ReadProgress,
     }
@@ -72,8 +65,8 @@ mod komga_series {
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct Link {
-        pub label: String,
         pub url: String,
+        pub label: String,
     }
 
     #[derive(Debug, Serialize, Deserialize)]

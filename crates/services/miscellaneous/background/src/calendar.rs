@@ -44,30 +44,23 @@ pub async fn recalculate_calendar_events(ss: &Arc<SupportingService>) -> Result<
         for cal_event in calendar_events {
             let mut need_to_delete = true;
             if let Some(show) = cal_event.metadata_show_extra_information {
-                if let Some(show_info) = &meta.show_specifics {
-                    if let Some((season, ep)) =
+                if let Some(show_info) = &meta.show_specifics
+                    && let Some((season, ep)) =
                         get_show_episode_by_numbers(show_info, show.season, show.episode)
-                    {
-                        if !SHOW_SPECIAL_SEASON_NAMES.contains(&season.name.as_str()) {
-                            if let Some(publish_date) = ep.publish_date {
-                                if publish_date == cal_event.date {
+                        && !SHOW_SPECIAL_SEASON_NAMES.contains(&season.name.as_str())
+                            && let Some(publish_date) = ep.publish_date
+                                && publish_date == cal_event.date {
                                     need_to_delete = false;
                                 }
-                            }
-                        }
-                    }
-                }
             } else if let Some(podcast) = cal_event.metadata_podcast_extra_information {
-                if let Some(podcast_info) = &meta.podcast_specifics {
-                    if let Some(ep) = get_podcast_episode_by_number(podcast_info, podcast.episode) {
-                        if ep.publish_date == cal_event.date {
+                if let Some(podcast_info) = &meta.podcast_specifics
+                    && let Some(ep) = get_podcast_episode_by_number(podcast_info, podcast.episode)
+                        && ep.publish_date == cal_event.date {
                             need_to_delete = false;
                         }
-                    }
-                }
             } else if let Some(anime) = cal_event.metadata_anime_extra_information {
-                if let Some(anime_info) = &meta.anime_specifics {
-                    if let Some(schedule) = &anime_info.airing_schedule {
+                if let Some(anime_info) = &meta.anime_specifics
+                    && let Some(schedule) = &anime_info.airing_schedule {
                         schedule.iter().for_each(|s| {
                             if Some(s.episode) == anime.episode
                                 && s.airing_at == cal_event.timestamp
@@ -76,12 +69,10 @@ pub async fn recalculate_calendar_events(ss: &Arc<SupportingService>) -> Result<
                             }
                         });
                     }
-                }
-            } else if let Some(date) = meta.publish_date {
-                if cal_event.date == date {
+            } else if let Some(date) = meta.publish_date
+                && cal_event.date == date {
                     need_to_delete = false;
-                }
-            };
+                };
 
             if need_to_delete {
                 ryot_log!(

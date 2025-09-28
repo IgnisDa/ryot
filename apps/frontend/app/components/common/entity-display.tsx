@@ -7,6 +7,7 @@ import {
 	Flex,
 	Group,
 	Image,
+	Indicator,
 	type MantineStyleProp,
 	Overlay,
 	Paper,
@@ -27,7 +28,6 @@ import {
 	IconBackpack,
 	IconBookmark,
 	IconBookmarkOff,
-	IconBookmarks,
 	IconEye,
 	IconMessage,
 	IconRosetteDiscountCheck,
@@ -120,19 +120,28 @@ const EntityActionButton = (props: {
 	className?: string;
 	entityButtonProps: ActionIconProps;
 	onClick: () => void | Promise<void>;
+	consumeButtonIndicatorLabel?: string;
 	icon: ComponentType<{ size: number; color: string }>;
 }) => (
 	<Tooltip label={props.label}>
-		<ActionIcon
-			onClick={props.onClick}
-			className={props.className}
-			{...props.entityButtonProps}
+		<Indicator
+			offset={4}
+			color="violet"
+			position="bottom-center"
+			disabled={!props.consumeButtonIndicatorLabel}
+			label={<Text fz={10}>{props.consumeButtonIndicatorLabel}</Text>}
 		>
-			<props.icon
-				size={20}
-				color={getThemeColor(props.colorName, props.mode)}
-			/>
-		</ActionIcon>
+			<ActionIcon
+				onClick={props.onClick}
+				className={props.className}
+				{...props.entityButtonProps}
+			>
+				<props.icon
+					size={20}
+					color={getThemeColor(props.colorName, props.mode)}
+				/>
+			</ActionIcon>
+		</Indicator>
 	</Tooltip>
 );
 
@@ -163,10 +172,6 @@ const BaseEntityDisplayItemReason = (props: {
 			() => [IconBackpack, "var(--mantine-color-blue-4)"] as const,
 		)
 		.with(
-			UserToMediaReason.Watchlist,
-			() => [IconBookmarks, "var(--mantine-color-yellow-4)"] as const,
-		)
-		.with(
 			UserToMediaReason.Finished,
 			() => [IconRosetteDiscountCheck, "var(--mantine-color-green-4)"] as const,
 		)
@@ -189,27 +194,6 @@ const BaseEntityDisplayItemReason = (props: {
 	);
 };
 
-type BaseEntityDisplayItemCard = {
-	title?: string;
-	image?: string;
-	rating?: string;
-	entityId: string;
-	progress?: string;
-	mediaLot?: MediaLot;
-	entityLot: EntityLot;
-	isFirstItem?: boolean;
-	imageClassName?: string;
-	hasInteracted?: boolean;
-	centerElement?: ReactNode;
-	isDetailsLoading: boolean;
-	wasRecentlyConsumed?: boolean;
-	isPartialStatusActive?: boolean;
-	userToMediaReasons?: UserToMediaReason[];
-	onImageClickBehavior: [string, (() => Promise<void>)?];
-	additionalInformation?: (string | number | null | undefined)[];
-	interactionButtons: ("consume" | "watchlist" | "collection" | "review")[];
-};
-
 type ActionButtonsProps = {
 	mode: string;
 	onReview: () => void;
@@ -217,6 +201,7 @@ type ActionButtonsProps = {
 	isFirstItem?: boolean;
 	alreadyInWatchlist: boolean;
 	onOpenCollections: () => void;
+	consumeButtonIndicatorLabel?: string;
 	onToggleWatchlist: () => Promise<void>;
 	interactionButtons: BaseEntityDisplayItemCard["interactionButtons"];
 };
@@ -237,6 +222,7 @@ const ActionButtons = memo((props: ActionButtonsProps) => {
 					label="Add to history"
 					onClick={props.onConsume}
 					entityButtonProps={entityButtonProps}
+					consumeButtonIndicatorLabel={props.consumeButtonIndicatorLabel}
 					className={
 						props.isFirstItem
 							? OnboardingTourStepTargets.OpenMetadataProgressForm
@@ -278,6 +264,28 @@ const ActionButtons = memo((props: ActionButtonsProps) => {
 	);
 });
 
+type BaseEntityDisplayItemCard = {
+	title?: string;
+	image?: string;
+	rating?: string;
+	entityId: string;
+	progress?: string;
+	mediaLot?: MediaLot;
+	entityLot: EntityLot;
+	isFirstItem?: boolean;
+	imageClassName?: string;
+	hasInteracted?: boolean;
+	centerElement?: ReactNode;
+	isDetailsLoading: boolean;
+	wasRecentlyConsumed?: boolean;
+	isPartialStatusActive?: boolean;
+	consumeButtonIndicatorLabel?: string;
+	userToMediaReasons?: UserToMediaReason[];
+	onImageClickBehavior: [string, (() => Promise<void>)?];
+	additionalInformation?: (string | number | null | undefined)[];
+	interactionButtons: ("consume" | "watchlist" | "collection" | "review")[];
+};
+
 const BaseEntityDisplayItemComponent = forwardRef<
 	HTMLDivElement,
 	BaseEntityDisplayItemCard
@@ -295,26 +303,20 @@ const BaseEntityDisplayItemComponent = forwardRef<
 	const MediaIcon = props.mediaLot ? getMetadataIcon(props.mediaLot) : null;
 	const removeEntitiesFromCollection =
 		useRemoveEntitiesFromCollectionMutation();
-	const shouldHighlightImage =
-		coreDetails.isServerKeyValidated && props.wasRecentlyConsumed;
 	const { alreadyInCollectionNames } = useEntityAlreadyInCollections(
 		props.entityId,
 		props.entityLot,
 	);
+	const alreadyInWatchlist = alreadyInCollectionNames.includes("Watchlist");
+	const shouldHighlightImage =
+		coreDetails.isServerKeyValidated && props.wasRecentlyConsumed;
+
 	const progress = useMemo(() => {
 		if (props.progress === undefined || props.progress === null)
 			return undefined;
 		const value = Number(props.progress);
 		return Number.isNaN(value) ? undefined : value;
 	}, [props.progress]);
-	const topRowCount = useMemo(() => {
-		const reasonsLength = props.userToMediaReasons?.length ?? 0;
-		return reasonsLength + (props.rating ? 1 : 0);
-	}, [props.userToMediaReasons, props.rating]);
-	const alreadyInWatchlist = useMemo(
-		() => alreadyInCollectionNames.includes("Watchlist"),
-		[alreadyInCollectionNames],
-	);
 	const fallback = useFallbackImageUrl(
 		props.isDetailsLoading
 			? "Loading..."
@@ -411,6 +413,7 @@ const BaseEntityDisplayItemComponent = forwardRef<
 			onToggleWatchlist: handleToggleWatchlist,
 			onOpenCollections: handleOpenCollections,
 			interactionButtons: props.interactionButtons,
+			consumeButtonIndicatorLabel: props.consumeButtonIndicatorLabel,
 		}),
 		[
 			mode,
@@ -421,6 +424,7 @@ const BaseEntityDisplayItemComponent = forwardRef<
 			handleOpenCollections,
 			handleToggleWatchlist,
 			props.interactionButtons,
+			props.consumeButtonIndicatorLabel,
 		],
 	);
 
@@ -466,7 +470,7 @@ const BaseEntityDisplayItemComponent = forwardRef<
 				{props.userToMediaReasons?.map((reason) => (
 					<BaseEntityDisplayItemReason key={reason} reason={reason} />
 				))}
-				{MediaIcon && topRowCount <= 3 && props.mediaLot ? (
+				{MediaIcon && props.mediaLot ? (
 					<Tooltip label={changeCase(props.mediaLot)}>
 						<Flex
 							w={24}
