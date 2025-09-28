@@ -6,6 +6,9 @@ services:
       - "3002:3000"
     environment:
       REDIS_HOST: backend-redis
+    depends_on:
+      backend-redis:
+        condition: service_healthy
 
   backend-redis:
     image: redis:alpine
