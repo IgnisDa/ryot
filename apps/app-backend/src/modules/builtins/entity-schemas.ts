@@ -28,6 +28,18 @@ const consumedOnField = {
 	},
 };
 
+const timeSpentField = {
+	label: "Time Spent",
+	type: "number" as const,
+	validation: { minimum: 0 },
+	description: "Time spent consuming this media in minutes",
+};
+
+const withTimeSpent = (schema: AppSchema): AppSchema => ({
+	...schema,
+	fields: { ...schema.fields, timeSpent: timeSpentField },
+});
+
 const progressPercentPropertiesSchema = () => ({
 	fields: {
 		...consumedOnField,
@@ -199,49 +211,6 @@ const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): A
 const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 	{ name: "Backlog", slug: "backlog", propertiesSchema: { fields: {} } },
 	{
-		name: "Complete",
-		slug: "complete",
-		propertiesSchema: {
-			fields: {
-				...consumedOnField,
-				startedOn: {
-					label: "Started On",
-					type: "datetime" as const,
-					description: "Date and time you started consuming this media",
-				},
-				completedOn: {
-					label: "Completed On",
-					type: "datetime" as const,
-					description: "Date and time you finished consuming this media",
-				},
-				timeSpent: {
-					label: "Time Spent",
-					type: "number" as const,
-					validation: { minimum: 0 },
-					description: "Time spent consuming this media in minutes",
-				},
-				completionMode: {
-					type: "string" as const,
-					label: "Completion Mode",
-					description:
-						"How the completion timestamps were determined: just_now, unknown, or custom_timestamps",
-					validation: {
-						required: true as const,
-						pattern: "^(just_now|unknown|custom_timestamps)$",
-					},
-				},
-			},
-			rules: [
-				{
-					path: ["completedOn"],
-					kind: "validation" as const,
-					validation: { required: true as const },
-					when: { operator: "eq" as const, path: ["completionMode"], value: "custom_timestamps" },
-				},
-			],
-		},
-	},
-	{
 		name: "Progress",
 		slug: "progress",
 		propertiesSchema: progressPropertiesSchemaByEntity(entitySchemaSlug),
@@ -254,12 +223,50 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 	{
 		name: "Dropped",
 		slug: "dropped",
-		propertiesSchema: progressPropertiesSchemaByEntity(entitySchemaSlug),
+		propertiesSchema: withTimeSpent(progressPropertiesSchemaByEntity(entitySchemaSlug)),
 	},
 	{
 		name: "On Hold",
 		slug: "on_hold",
-		propertiesSchema: progressPropertiesSchemaByEntity(entitySchemaSlug),
+		propertiesSchema: withTimeSpent(progressPropertiesSchemaByEntity(entitySchemaSlug)),
+	},
+	{
+		name: "Complete",
+		slug: "complete",
+		propertiesSchema: {
+			rules: [
+				{
+					path: ["completedOn"],
+					kind: "validation" as const,
+					validation: { required: true as const },
+					when: { operator: "eq" as const, path: ["completionMode"], value: "custom_timestamps" },
+				},
+			],
+			fields: {
+				...consumedOnField,
+				timeSpent: timeSpentField,
+				startedOn: {
+					label: "Started On",
+					type: "datetime" as const,
+					description: "Date and time you started consuming this media",
+				},
+				completedOn: {
+					label: "Completed On",
+					type: "datetime" as const,
+					description: "Date and time you finished consuming this media",
+				},
+				completionMode: {
+					type: "string" as const,
+					label: "Completion Mode",
+					description:
+						"How the completion timestamps were determined: just_now, unknown, or custom_timestamps",
+					validation: {
+						required: true as const,
+						pattern: "^(just_now|unknown|custom_timestamps)$",
+					},
+				},
+			},
+		},
 	},
 ];
 
