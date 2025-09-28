@@ -28,6 +28,12 @@ export const startServer = async () => {
 
 	initializeMetrics();
 	await migrateDB();
+
+	if (process.env.MIGRATE_ONLY === "true") {
+		console.info("MIGRATE_ONLY=true, exiting after migrations");
+		process.exit(0);
+	}
+
 	await initializeRedis();
 	await initializeQueues();
 	await initializeSandboxService();
