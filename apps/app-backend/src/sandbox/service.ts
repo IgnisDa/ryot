@@ -140,6 +140,8 @@ export class SandboxService {
 				"--deny-env",
 				"--deny-ffi",
 				"--no-prompt",
+				"--no-remote",
+				"--no-npm",
 				"--deny-write",
 				`--allow-read=${runnerPath}`,
 				`--allow-net=127.0.0.1:${bridgePort}`,
