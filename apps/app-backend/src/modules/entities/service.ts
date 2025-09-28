@@ -86,7 +86,7 @@ type EntitiesServiceShape = {
 		relationshipSchemaId: string;
 		properties: Record<string, unknown>;
 	}) => Effect.Effect<SavedRelationship, BadRequest | DbError | NotFound>;
-	readonly writeRelationship: (input: {
+	readonly insertUserRelationship: (input: {
 		userId: string;
 		sourceEntityId: string;
 		targetEntityId: string;
@@ -330,7 +330,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 						}),
 					);
 				}),
-			writeRelationship: (input: {
+			insertUserRelationship: (input: {
 				userId: string;
 				sourceEntityId: string;
 				targetEntityId: string;

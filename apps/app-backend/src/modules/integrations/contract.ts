@@ -5,6 +5,7 @@ import { AuthMiddleware } from "~/lib/auth";
 import { NotFound, NotImplemented, RateLimited, Unauthorized } from "~/lib/errors";
 import { ListedImportRun } from "~/modules/imports/contract";
 
+import { CreateIntegrationBody, UpdateIntegrationBody } from "./schemas";
 import { integrationLots, type IntegrationLot as IntegrationLotType } from "./types";
 
 export const IntegrationLot = Schema.Literal(...integrationLots);
@@ -26,27 +27,6 @@ export const ListedIntegration = Schema.Struct({
 	name: Schema.optional(Schema.String),
 	webhookUrl: Schema.optional(Schema.String),
 	lastFinishedAt: Schema.optional(Schema.String),
-});
-
-const CreateIntegrationBody = Schema.Struct({
-	provider: Schema.String,
-	providerSpecifics: Schema.Unknown,
-	name: Schema.optional(Schema.String),
-	isDisabled: Schema.optional(Schema.Boolean),
-	syncOwnership: Schema.optional(Schema.Boolean),
-	extraSettings: Schema.optional(Schema.Unknown),
-	minimumProgress: Schema.optional(Schema.Number),
-	maximumProgress: Schema.optional(Schema.Number),
-});
-
-const UpdateIntegrationBody = Schema.Struct({
-	name: Schema.optional(Schema.String),
-	isDisabled: Schema.optional(Schema.Boolean),
-	syncOwnership: Schema.optional(Schema.Boolean),
-	extraSettings: Schema.optional(Schema.Unknown),
-	minimumProgress: Schema.optional(Schema.Number),
-	maximumProgress: Schema.optional(Schema.Number),
-	providerSpecifics: Schema.optional(Schema.Unknown),
 });
 
 const integrationIdParam = HttpApiSchema.param("integrationId", Schema.String);
