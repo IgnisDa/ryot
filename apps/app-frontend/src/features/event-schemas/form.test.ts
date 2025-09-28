@@ -16,7 +16,7 @@ import {
 } from "./form";
 
 const input = createPropertySchemaInputFixture;
-const row = createPropertySchemaRowFixture;
+const rowFixture = createPropertySchemaRowFixture;
 
 describe("buildDefaultEventSchemaPropertyRow", () => {
 	it("returns an empty optional string property row", () => {
@@ -152,7 +152,7 @@ describe("createEventSchemaFormSchema", () => {
 		const result = createEventSchemaFormSchema.safeParse({
 			name: "  \n\t ",
 			slug: "  \n\t ",
-			properties: [row({ id: "rating", key: "rating", type: "number" })],
+			properties: [rowFixture({ id: "rating", key: "rating", type: "number" })],
 		});
 
 		expect(result.success).toBeFalse();
@@ -172,7 +172,7 @@ describe("createEventSchemaFormSchema", () => {
 		const result = createEventSchemaFormSchema.safeParse({
 			name: "Tasting",
 			slug: "  \n\t ",
-			properties: [row({ id: "rating", key: "rating", type: "number" })],
+			properties: [rowFixture({ id: "rating", key: "rating", type: "number" })],
 		});
 
 		expect(result.success).toBeTrue();
@@ -200,8 +200,8 @@ describe("createEventSchemaFormSchema", () => {
 
 	it("rejects duplicate trimmed property keys", () => {
 		const properties = [
-			row({ id: "rating", key: "rating", type: "number" }),
-			row({ id: "score", key: " rating ", type: "integer", required: true }),
+			rowFixture({ id: "rating", key: "rating", type: "number" }),
+			rowFixture({ id: "score", key: " rating ", type: "integer", required: true }),
 		] as const;
 		const result = createEventSchemaFormSchema.safeParse({
 			properties,
@@ -223,7 +223,7 @@ describe("createEventSchemaFormSchema", () => {
 	});
 
 	it("rejects a whitespace-only property key after trimming", () => {
-		const properties = [row({ id: "rating", key: " \n\t ", type: "number" })] as const;
+		const properties = [rowFixture({ id: "rating", key: " \n\t ", type: "number" })] as const;
 		const result = createEventSchemaFormSchema.safeParse({
 			properties,
 			name: "Tasting",
@@ -296,7 +296,7 @@ describe("toCreateEventSchemaPayload", () => {
 				{
 					name: "  Tasting  ",
 					slug: "  \n\t ",
-					properties: [row({ id: "rating", key: "rating", type: "number" })],
+					properties: [rowFixture({ id: "rating", key: "rating", type: "number" })],
 				},
 				"entity-schema-123",
 			),
@@ -322,13 +322,13 @@ describe("toCreateEventSchemaPayload", () => {
 					slug: " tasting ",
 					name: "  Tasting  ",
 					properties: [
-						row({
+						rowFixture({
 							type: "date",
 							required: true,
 							id: "occurred-on",
 							key: " occurredOn ",
 						}),
-						row({ id: "rating", key: "rating", type: "number" }),
+						rowFixture({ id: "rating", key: "rating", type: "number" }),
 					],
 				},
 				"entity-schema-123",
