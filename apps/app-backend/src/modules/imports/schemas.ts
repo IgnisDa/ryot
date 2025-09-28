@@ -60,7 +60,13 @@ const uploadTokenInput = <const S extends string>(source: S) =>
 
 export const CreateImportRunBody = Schema.Union(
 	uploadTokenInput("hevy"),
+	uploadTokenInput("imdb"),
+	uploadTokenInput("grouvee"),
+	uploadTokenInput("watcharr"),
+	uploadTokenInput("hardcover"),
+	uploadTokenInput("goodreads"),
 	uploadTokenInput("open_scale"),
+	uploadTokenInput("storygraph"),
 	uploadTokenInput("strong_app"),
 );
 
