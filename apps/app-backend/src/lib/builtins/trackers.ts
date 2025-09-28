@@ -6,7 +6,7 @@ export type BuiltinTracker = {
 	readonly description: string;
 };
 
-export const builtinTrackers = (): BuiltinTracker[] => [
+export const builtinTrackers = () => [
 	{
 		icon: "film",
 		name: "Media",

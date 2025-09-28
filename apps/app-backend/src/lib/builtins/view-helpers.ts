@@ -8,28 +8,24 @@ import {
 	createIsNotNullExpression,
 	createLiteralExpression,
 	createTransformExpression,
-	type DisplayConfiguration,
 	type QueryExpression,
 	type QueryRelationshipJoin,
-	type SavedViewQueryDefinition,
 } from "~/lib/query-language";
 
-const entityColumn = (slug: string, column: string): QueryExpression =>
-	createEntityColumnExpression(slug, column);
+const entityColumn = (slug: string, column: string) => createEntityColumnExpression(slug, column);
 
-const entityProperty = (slug: string, property: string): QueryExpression =>
+const entityProperty = (slug: string, property: string) =>
 	createEntityPropertyExpression(slug, property);
 
-const entitySchemaColumn = (column: string): QueryExpression =>
-	createEntitySchemaExpression(column);
+const entitySchemaColumn = (column: string) => createEntitySchemaExpression(column);
 
-const eventAggregateAvg = (eventSchemaSlug: string, propertyPath: string[]): QueryExpression =>
+const eventAggregateAvg = (eventSchemaSlug: string, propertyPath: string[]) =>
 	createEventAggregateExpression(eventSchemaSlug, "avg", propertyPath);
 
-const titleCase = (expression: QueryExpression): QueryExpression =>
+const titleCase = (expression: QueryExpression) =>
 	createTransformExpression("titleCase", expression);
 
-const conditionalConcat = (slug: string, property: string, unit: string): QueryExpression =>
+const conditionalConcat = (slug: string, property: string, unit: string) =>
 	createConditionalExpression({
 		whenFalse: createLiteralExpression(null),
 		condition: createIsNotNullExpression(entityProperty(slug, property)),
@@ -43,14 +39,7 @@ const avgRatingCallout = eventAggregateAvg("review", ["properties", "rating"]);
 
 const eyebrowSchemaName = entitySchemaColumn("name");
 
-type CardConfig = {
-	calloutProperty: QueryExpression | null;
-	eyebrowProperty: QueryExpression | null;
-	primarySubtitleProperty: QueryExpression | null;
-	secondarySubtitleProperty: QueryExpression | null;
-};
-
-const buildSecondarySubtitle = (slug: string): QueryExpression | null => {
+const buildSecondarySubtitle = (slug: string) => {
 	switch (slug) {
 		case "book":
 		case "show":
@@ -75,7 +64,7 @@ const buildSecondarySubtitle = (slug: string): QueryExpression | null => {
 	}
 };
 
-const buildCardConfig = (slug: string): CardConfig => {
+const buildCardConfig = (slug: string) => {
 	switch (slug) {
 		case "exercise":
 			return {
@@ -131,7 +120,7 @@ const buildCardConfig = (slug: string): CardConfig => {
 
 type TableColumn = { expression: QueryExpression; label: string };
 
-const buildTableColumns = (slug: string): TableColumn[] => {
+const buildTableColumns = (slug: string) => {
 	const nameCol: TableColumn = { expression: entityColumn(slug, "name"), label: "Name" };
 	const yearCol: TableColumn = { expression: entityProperty(slug, "publishYear"), label: "Year" };
 	switch (slug) {
@@ -204,7 +193,7 @@ const buildTableColumns = (slug: string): TableColumn[] => {
 	}
 };
 
-export const buildDisplayConfig = (slug: string): typeof DisplayConfiguration.Type => {
+export const buildDisplayConfig = (slug: string) => {
 	const cardConfig = buildCardConfig(slug);
 	const card = {
 		titleProperty: entityColumn(slug, "name"),
@@ -222,18 +211,19 @@ export const buildDisplayConfig = (slug: string): typeof DisplayConfiguration.Ty
 export const buildDefaultQueryDefinition = (
 	scope: string[],
 	options?: { relationshipJoins?: QueryRelationshipJoin[] },
-): typeof SavedViewQueryDefinition.Type => ({
-	scope,
-	filter: null,
-	eventJoins: [],
-	mode: "entities",
-	computedFields: [],
-	relationshipJoins: options?.relationshipJoins ?? [],
-	sort: {
-		direction: "asc",
-		expression: scope[0] ? entityColumn(scope[0], "name") : createLiteralExpression(""),
-	},
-});
+) =>
+	({
+		scope,
+		filter: null,
+		eventJoins: [],
+		mode: "entities",
+		computedFields: [],
+		relationshipJoins: options?.relationshipJoins ?? [],
+		sort: {
+			direction: "asc",
+			expression: scope[0] ? entityColumn(scope[0], "name") : createLiteralExpression(""),
+		},
+	}) as const;
 
 export const inLibraryRelationshipJoin: QueryRelationshipJoin = {
 	required: true,
