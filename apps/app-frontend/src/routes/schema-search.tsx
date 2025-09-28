@@ -2,6 +2,7 @@ import {
 	Alert,
 	Badge,
 	Box,
+	Button,
 	Card,
 	Container,
 	Group,
@@ -14,7 +15,7 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useApiClient } from "@/hooks/api";
@@ -26,10 +27,14 @@ export const Route = createFileRoute("/schema-search")({
 
 function SchemaSearchPage() {
 	const apiClient = useApiClient();
+	const navigate = Route.useNavigate();
 	const authClient = useAuthClient();
 	const [page, setPage] = useState(1);
 	const [query, setQuery] = useState("harry potter");
 	const [schemaSlug, setSchemaSlug] = useState("book");
+	const [importingIdentifier, setImportingIdentifier] = useState<string | null>(
+		null,
+	);
 
 	const trimmedQuery = query.trim();
 	const trimmedSchemaSlug = schemaSlug.trim();
@@ -63,6 +68,54 @@ function SchemaSearchPage() {
 	const isSearching = searchRequest.isFetching || searchRequest.isPending;
 	const loadingLabel = "Searching...";
 	const searchError = searchRequest.error?.message;
+
+	const importEntityRequest = useMutation({
+		mutationFn: async (identifier: string) => {
+			if (!trimmedSchemaSlug) throw new Error("Schema slug is required");
+
+			const response = await apiClient.protected["entity-schemas"][
+				":schemaSlug"
+			].import.$post({
+				json: { identifier },
+				param: { schemaSlug: trimmedSchemaSlug },
+			});
+
+			const payload = await response.json();
+
+			if (!response.ok) {
+				if (
+					payload &&
+					typeof payload === "object" &&
+					"error" in payload &&
+					typeof payload.error === "string"
+				)
+					throw new Error(payload.error);
+
+				throw new Error("Import failed");
+			}
+
+			if (
+				!payload ||
+				typeof payload !== "object" ||
+				!("entity_id" in payload) ||
+				typeof payload.entity_id !== "string"
+			)
+				throw new Error("Import returned invalid payload");
+
+			return payload.entity_id;
+		},
+		onMutate: (identifier) => {
+			setImportingIdentifier(identifier);
+		},
+		onSuccess: (entityId) => {
+			void navigate({ params: { entityId }, to: "/entities/$entityId" });
+		},
+		onSettled: () => {
+			setImportingIdentifier(null);
+		},
+	});
+
+	const importError = importEntityRequest.error?.message;
 
 	return (
 		<Box
@@ -115,6 +168,12 @@ function SchemaSearchPage() {
 						</Alert>
 					) : null}
 
+					{importError ? (
+						<Alert color="red" title="Import failed">
+							{importError}
+						</Alert>
+					) : null}
+
 					{completedResult ? (
 						<Group>
 							<Badge color="blue" variant="light">
@@ -146,6 +205,17 @@ function SchemaSearchPage() {
 									<Text size="sm" c="dimmed">
 										Publish year: {item.publish_year ?? "unknown"}
 									</Text>
+									<Button
+										variant="light"
+										disabled={importEntityRequest.isPending}
+										loading={
+											importEntityRequest.isPending &&
+											importingIdentifier === item.identifier
+										}
+										onClick={() => importEntityRequest.mutate(item.identifier)}
+									>
+										Import
+									</Button>
 								</Stack>
 							</Card>
 						))}
