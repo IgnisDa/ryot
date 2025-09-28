@@ -1,13 +1,8 @@
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { Context, Effect, Layer } from "effect";
+import { Effect } from "effect";
 
 import { DbService } from "./db";
 import { unknownToDbError } from "./errors";
-
-export class MigrationsComplete extends Context.Tag("MigrationsComplete")<
-	MigrationsComplete,
-	{ readonly done: true }
->() {}
 
 export const migrateDB = Effect.gen(function* () {
 	const { db } = yield* DbService;
@@ -20,7 +15,6 @@ export const migrateDB = Effect.gen(function* () {
 	yield* Effect.logInfo("reference database migrations complete");
 });
 
-export const MigrationsLive = Layer.effect(
-	MigrationsComplete,
-	migrateDB.pipe(Effect.as({ done: true as const })),
-);
+export class MigrationsComplete extends Effect.Service<MigrationsComplete>()("MigrationsComplete", {
+	effect: migrateDB.pipe(Effect.as({ done: true as const })),
+}) {}

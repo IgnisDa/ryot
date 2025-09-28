@@ -8,7 +8,7 @@ import * as schema from "./schema";
 
 const makeDb = (pool: Pool) => drizzle(pool, { schema, casing: "snake_case" });
 
-type DbRoot = ReturnType<typeof makeDb>;
+export type DbRoot = ReturnType<typeof makeDb>;
 
 export type DbTransaction = Parameters<Parameters<DbRoot["transaction"]>[0]>[0];
 export type DbExecutor = DbRoot | DbTransaction;
@@ -16,10 +16,14 @@ export type DbExecutor = DbRoot | DbTransaction;
 /** @effect-leakable-service */
 export class CurrentDb extends Context.Tag("CurrentDb")<CurrentDb, DbExecutor>() {}
 
-export class DbService extends Context.Tag("DbService")<
-	DbService,
-	{ readonly pool: Pool; readonly db: DbRoot }
->() {}
+export class DbService extends Effect.Service<DbService>()("DbService", {
+	scoped: Effect.gen(function* () {
+		const config = yield* AppConfig;
+		const pool = new Pool({ connectionString: Redacted.value(config.databaseUrl) });
+		yield* Effect.addFinalizer(() => Effect.promise(() => pool.end()).pipe(Effect.orDie));
+		return { pool, db: makeDb(pool) };
+	}),
+}) {}
 
 export const dbEffect = <A>(try_: () => Promise<A>): Effect.Effect<A, DbError> =>
 	Effect.tryPromise({ try: try_, catch: unknownToDbError });
@@ -83,16 +87,6 @@ export const TransactionRunnerLive = Layer.effect(
 			effect: Effect.Effect<A, E, R>,
 		): Effect.Effect<A, E | DbError, Exclude<R, CurrentDb>> =>
 			withTransaction(effect).pipe(Effect.provideService(DbService, dbService));
-	}),
-);
-
-export const DbLive = Layer.scoped(
-	DbService,
-	Effect.gen(function* () {
-		const config = yield* AppConfig;
-		const pool = new Pool({ connectionString: Redacted.value(config.databaseUrl) });
-		yield* Effect.addFinalizer(() => Effect.promise(() => pool.end()).pipe(Effect.orDie));
-		return { pool, db: makeDb(pool) };
 	}),
 );
 

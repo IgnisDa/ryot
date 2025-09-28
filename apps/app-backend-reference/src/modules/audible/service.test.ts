@@ -7,7 +7,7 @@ import { ValidationError } from "../../lib/errors";
 import { UploadsRepository } from "../uploads/repository";
 import { AudibleRepository } from "./repository";
 import type { AudibleRun, AudibleRunDetail } from "./schemas";
-import { AudibleService, AudibleServiceLive } from "./service";
+import { AudibleService } from "./service";
 
 const user = {
 	id: "user-id",
@@ -36,13 +36,14 @@ const makeDetail = (run: AudibleRun, workflowPoll: string | null) =>
 		finalResult: null,
 	}) satisfies AudibleRunDetail;
 
-const TestAudibleService = AudibleServiceLive.pipe(
+const TestAudibleService = AudibleService.Default.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			Layer.mock(WorkflowEngine, {
 				execute: () => Effect.succeed("run-id"),
 			}),
 			Layer.mock(AudibleRepository, {
+				_tag: "AudibleRepository" as const,
 				createRun: (_userId, input) => Effect.succeed(makeRun(input)),
 				getConfirmationToken: () =>
 					Effect.succeed({
@@ -53,6 +54,7 @@ const TestAudibleService = AudibleServiceLive.pipe(
 					Effect.succeed(makeDetail(makeRun({ query: "Dune" }), workflowPoll ?? null)),
 			}),
 			Layer.mock(UploadsRepository, {
+				_tag: "UploadsRepository" as const,
 				getOwnedById: () =>
 					Effect.succeed({
 						id: "upload-id",
