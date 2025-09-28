@@ -4,6 +4,7 @@ import {
 	createAuthenticatedClient,
 	getImportRun,
 	pollImportRunUntilTerminal,
+	runHevyImportFixture,
 	runOpenScaleImportFixture,
 	startOpenScaleImport,
 	uploadTemporaryFile,
@@ -38,21 +39,21 @@ describe("OpenScale Import E2E", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		await runOpenScaleImportFixture(client, cookies);
 
-		const { data, response } = await client.GET("/imports/runs", {
+		const { data, response } = await client.imports.listRuns({
 			headers: { Cookie: cookies },
 		});
 
 		expect(response.status).toBe(200);
-		expect(data?.data.length).toBeGreaterThan(0);
-		expect(data?.data[0]?.source).toBe("open_scale");
+		expect(data?.length).toBeGreaterThan(0);
+		expect(data?.[0]?.source).toBe("open_scale");
 	});
 
 	it("returns 404 for unknown run id", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { response } = await client.GET("/imports/runs/{runId}", {
+		const { response } = await client.imports.getRun({
 			headers: { Cookie: cookies },
-			params: { path: { runId: "nonexistent-run-id" } },
+			params: { path: { runId: "nonexistent-run-id" }, query: {} },
 		});
 
 		expect(response.status).toBe(404);
@@ -61,7 +62,7 @@ describe("OpenScale Import E2E", () => {
 	it("rejects an invalid upload token", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { response } = await client.POST("/imports/runs", {
+		const { response } = await client.imports.createRun({
 			headers: { Cookie: cookies },
 			body: { source: "open_scale", uploadToken: "bogus-token" },
 		});
@@ -76,10 +77,10 @@ describe("OpenScale Import E2E", () => {
 			cookies,
 			'{"data": "not csv"}',
 			"export.json",
-			"application/json",
+			"application/octet-stream",
 		);
 
-		const { response } = await client.POST("/imports/runs", {
+		const { response } = await client.imports.createRun({
 			headers: { Cookie: cookies },
 			body: { source: "open_scale", uploadToken },
 		});
@@ -91,16 +92,16 @@ describe("OpenScale Import E2E", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { runId } = await runOpenScaleImportFixture(client, cookies);
 
-		const { response: deleteResponse } = await client.DELETE("/imports/runs/{runId}", {
+		const { response: deleteResponse } = await client.imports.deleteRun({
 			params: { path: { runId } },
 			headers: { Cookie: cookies },
 		});
 
 		expect(deleteResponse.status).toBe(200);
 
-		const { response: getResponse } = await client.GET("/imports/runs/{runId}", {
-			params: { path: { runId } },
+		const { response: getResponse } = await client.imports.getRun({
 			headers: { Cookie: cookies },
+			params: { path: { runId }, query: {} },
 		});
 
 		expect(getResponse.status).toBe(404);
@@ -120,12 +121,26 @@ describe("OpenScale Import E2E", () => {
 		expect(completedRun.failedItems).toBeGreaterThan(0);
 		expect(completedRun.importedItems).toBeGreaterThan(0);
 
-		const { data: runData, response } = await client.GET("/imports/runs/{runId}", {
+		const { data: runData, response } = await client.imports.getRun({
 			headers: { Cookie: cookies },
 			params: { path: { runId }, query: { page: 1, limit: 20 } },
 		});
 
 		expect(response.status).toBe(200);
-		expect(runData?.data.failures.items.length).toBeGreaterThan(0);
+		expect(runData?.failures.items.length).toBeGreaterThan(0);
+	});
+});
+
+describe("Hevy Workout Import E2E", () => {
+	it("imports a Hevy workout into exercise/workout entities and events", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { runId, completedRun } = await runHevyImportFixture(client, cookies);
+
+		expect(completedRun.id).toBe(runId);
+		expect(completedRun.source).toBe("hevy");
+		expect(completedRun.status).toBe("completed");
+		expect(completedRun.failedItems).toBe(0);
+		expect(completedRun.importedItems).toBeGreaterThan(0);
+		expect(completedRun.progress).toBe(100);
 	});
 });
