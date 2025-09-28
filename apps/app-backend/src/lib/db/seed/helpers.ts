@@ -11,7 +11,7 @@ import {
 	relationshipSchema,
 	sandboxScript,
 } from "~/lib/db/schema";
-import type { SandboxScriptMetadata } from "~/lib/sandbox/types";
+import type { EventSchemaTriggerMetadata, SandboxScriptMetadata } from "~/lib/sandbox/types";
 
 export const ensureBuiltinEntitySchema = async (input: {
 	slug: string;
@@ -199,6 +199,7 @@ export const ensureBuiltinEventSchemaTrigger = async (input: {
 	database: DbClient;
 	eventSchemaId: string;
 	sandboxScriptId: string;
+	metadata: EventSchemaTriggerMetadata;
 }) => {
 	const [existing] = await input.database
 		.select({ id: eventSchemaTrigger.id })
@@ -219,6 +220,7 @@ export const ensureBuiltinEventSchemaTrigger = async (input: {
 				isActive: true,
 				isBuiltin: true,
 				name: input.name,
+				metadata: input.metadata,
 			})
 			.where(eq(eventSchemaTrigger.id, existing.id));
 
@@ -231,6 +233,7 @@ export const ensureBuiltinEventSchemaTrigger = async (input: {
 		isActive: true,
 		isBuiltin: true,
 		name: input.name,
+		metadata: input.metadata,
 		eventSchemaId: input.eventSchemaId,
 		sandboxScriptId: input.sandboxScriptId,
 	});
