@@ -1,0 +1,184 @@
+async function makeFetch(input, init) {
+  let url, method = "GET", headers = {}, body;
+  if (input && typeof input === "object" && typeof input.url === "string") {
+    url = input.url;
+    method = input.method ?? "GET";
+    if (input.headers && typeof input.headers.entries === "function") {
+      for (const [k, v] of input.headers.entries()) headers[k] = v;
+    }
+    try { const t = await input.text(); if (t) body = t; } catch {}
+  } else {
+    url = typeof input === "string" ? input : String(input);
+  }
+  if (init) {
+    if (init.method) method = init.method;
+    if (init.headers) {
+      if (typeof init.headers.entries === "function") {
+        for (const [k, v] of init.headers.entries()) headers[k] = v;
+      } else if (Array.isArray(init.headers)) {
+        for (const [k, v] of init.headers) headers[k] = v;
+      } else if (typeof init.headers === "object") {
+        Object.assign(headers, init.headers);
+      }
+    }
+    if (init.body != null) {
+      if (typeof init.body === "string") {
+        body = init.body;
+      } else if (ArrayBuffer.isView(init.body)) {
+        body = new TextDecoder().decode(init.body);
+      } else if (init.body instanceof ArrayBuffer) {
+        body = new TextDecoder().decode(new Uint8Array(init.body));
+      } else if (typeof init.body.toString === "function") {
+        body = init.body.toString();
+      }
+    }
+  }
+  const result = await httpCall(method, url, {
+    body,
+    headers: Object.keys(headers).length ? headers : undefined,
+  });
+  if (!result?.success) {
+    return new Response(result?.error ?? "Request failed", {
+      status: result?.data?.status ?? 500,
+    });
+  }
+  const { body: rb, status, statusText, headers: rh } = result.data;
+  return new Response(rb, { status, statusText, headers: rh ?? {} });
+}
+
+function getLargestThumbnailUrl(thumbnail) {
+  const arr = Array.isArray(thumbnail)
+    ? thumbnail
+    : Array.isArray(thumbnail?.contents)
+      ? thumbnail.contents
+      : [];
+  const sorted = arr
+    .filter((t) => t?.url)
+    .sort(
+      (a, b) =>
+        (b.width || 0) * (b.height || 0) - (a.width || 0) * (a.height || 0),
+    );
+  return sorted[0]?.url ?? null;
+}
+
+driver("search", async function (context) {
+  const { z } = await import("npm:zod");
+
+  const { query, pageSize } = z
+    .object({
+      query: z.string().trim().min(1, "query is required"),
+      pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+    })
+    .parse(context ?? {});
+
+  const { Innertube } = await import("npm:youtubei.js");
+  const yt = await Innertube.create({
+    fetch: makeFetch,
+    generate_session_locally: true,
+  });
+
+  const results = await yt.music.search(query, { type: "album" });
+
+  const allItems = [];
+  for (const shelf of results.contents ?? []) {
+    for (const album of shelf.contents ?? []) {
+      const id = album.id;
+      if (!id) continue;
+      const name = album.title ?? id;
+      const imageUrl = getLargestThumbnailUrl(album.thumbnail);
+      allItems.push({
+        externalId: String(id),
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: String(name) },
+        primarySubtitleProperty: { kind: "null", value: null },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          imageUrl === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { type: "remote", url: imageUrl } },
+      });
+    }
+  }
+
+  const items = allItems.slice(0, pageSize);
+  return {
+    items,
+    details: { totalItems: 100, nextPage: null },
+  };
+});
+
+driver("details", async function (context) {
+  const { z } = await import("npm:zod");
+
+  const { externalId } = z
+    .object({ externalId: z.string().trim().min(1, "externalId is required") })
+    .parse(context ?? {});
+
+  const { Innertube } = await import("npm:youtubei.js");
+  const yt = await Innertube.create({
+    fetch: makeFetch,
+    generate_session_locally: true,
+  });
+
+  const album = await yt.music.getAlbum(externalId);
+
+  const title = album?.title ?? album?.header?.title?.text ?? null;
+  if (!title) throw new Error(`YouTube Music album not found: ${externalId}`);
+
+  // Description may be HTML-formatted
+  const rawDescription = album?.description ?? album?.header?.description?.text ?? null;
+  let description = null;
+  if (rawDescription != null) {
+    const { load } = await import("npm:cheerio");
+    const $ = load(String(rawDescription));
+    $("br").replaceWith("\n");
+    const text = $.root().text().trim();
+    description = text || null;
+  }
+
+  const tracks = Array.isArray(album?.contents) ? album.contents : [];
+  const parts = tracks.length > 0 ? tracks.length : null;
+
+  const relatedEntities = tracks
+    .map((track, idx) => {
+      const memberId =
+        typeof track?.id === "string" && track.id.trim() ? track.id.trim() : null;
+      if (!memberId) return null;
+      const memberName =
+        typeof track?.title === "string" && track.title.trim()
+          ? track.title.trim()
+          : typeof track?.info?.title === "string" && track.info.title.trim()
+            ? track.info.title.trim()
+            : "Loading...";
+      return {
+        name: memberName,
+        externalId: memberId,
+        reverseDirection: true,
+        scriptSlug: "music.youtube-music",
+        relationshipProperties: { order: idx + 1 },
+      };
+    })
+    .filter((e) => e !== null);
+
+  const coverUrl = getLargestThumbnailUrl(
+    album?.thumbnail ?? album?.header?.thumbnail,
+  );
+  const images = coverUrl ? [{ type: "remote", url: coverUrl }] : [];
+
+  const playlistId =
+    typeof album?.playlist_id === "string" ? album.playlist_id : null;
+  const sourceUrl = playlistId
+    ? `https://music.youtube.com/playlist?list=${playlistId}`
+    : null;
+
+  return {
+    relatedEntities,
+    name: String(title),
+    properties: {
+      parts,
+      images,
+      sourceUrl,
+      description,
+    },
+  };
+});
