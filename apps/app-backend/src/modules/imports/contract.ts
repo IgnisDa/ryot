@@ -1,8 +1,9 @@
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
-import { AuthMiddleware } from "../../lib/auth";
-import { NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
+import { AuthMiddleware } from "~/lib/auth";
+import { NotFound, NotImplemented, RateLimited, Unauthorized } from "~/lib/errors";
+
 import { importRunStatuses, type ImportRunStatus as ImportRunStatusType } from "./types";
 
 export const ImportRunStatus = Schema.Literal(...importRunStatuses);
