@@ -275,6 +275,76 @@ describe("Events bulk POST", () => {
 		]);
 	});
 
+	it("persists timeSpent on a complete event and returns it", async () => {
+		const { cookies, client: apiClient } = await createAuthenticatedClient();
+		const { entityId, completeEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			apiClient,
+			cookies,
+		);
+
+		const createResult = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					eventSchemaId: completeEventSchemaId,
+					properties: { completionMode: "just_now", timeSpent: 120 },
+				},
+			],
+		});
+
+		expect(createResult.response.status).toBe(200);
+		expect(createResult.data?.data.count).toBe(1);
+
+		const events = await waitForEventCount(apiClient, cookies, entityId, 1);
+		expect(events).toHaveLength(1);
+		expect(events[0]?.eventSchemaSlug).toBe("complete");
+		expect(events[0]?.properties).toMatchObject({ completionMode: "just_now", timeSpent: 120 });
+	});
+
+	it("accepts a complete event without timeSpent (optional field)", async () => {
+		const { cookies, client: apiClient } = await createAuthenticatedClient();
+		const { entityId, completeEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			apiClient,
+			cookies,
+		);
+
+		const createResult = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					eventSchemaId: completeEventSchemaId,
+					properties: { completionMode: "unknown" },
+				},
+			],
+		});
+
+		expect(createResult.response.status).toBe(200);
+		expect(createResult.data?.data.count).toBe(1);
+	});
+
+	it("rejects a complete event with a negative timeSpent", async () => {
+		const { cookies, client: apiClient } = await createAuthenticatedClient();
+		const { entityId, completeEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			apiClient,
+			cookies,
+		);
+
+		const createResult = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					eventSchemaId: completeEventSchemaId,
+					properties: { completionMode: "just_now", timeSpent: -10 },
+				},
+			],
+		});
+
+		expect(createResult.response.status).toBe(400);
+	});
+
 	it("creates repeated built-in review events before completion exists", async () => {
 		const { cookies, client: apiClient } = await createAuthenticatedClient();
 		const { entityId, reviewEventSchemaId } = await createBuiltinMediaLifecycleFixture(
