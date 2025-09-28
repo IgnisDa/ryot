@@ -126,9 +126,6 @@ BEGIN
 
 		rows_inserted := rows_inserted + batch_rows_inserted;
 		cursor_id := next_cursor_id;
-		RAISE NOTICE 'workout_template -> entity: % row(s) migrated so far (% seconds elapsed)',
-			rows_inserted,
-			round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 	END LOOP;
 
 	RAISE NOTICE 'workout_template -> entity: % row(s) migrated total (% seconds elapsed)',
@@ -204,9 +201,6 @@ BEGIN
 
 		rows_inserted := rows_inserted + batch_rows_inserted;
 		cursor_id := next_cursor_id;
-		RAISE NOTICE 'workout -> entity: % row(s) migrated so far (% seconds elapsed)',
-			rows_inserted,
-			round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 	END LOOP;
 
 	RAISE NOTICE 'workout -> entity: % row(s) migrated total (% seconds elapsed)',
@@ -300,9 +294,6 @@ BEGIN
 
 		rows_inserted := rows_inserted + batch_rows_inserted;
 		cursor_id := next_cursor_id;
-		RAISE NOTICE 'workout sets -> event: % row(s) migrated so far (% seconds elapsed)',
-			rows_inserted,
-			round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 	END LOOP;
 
 	RAISE NOTICE 'workout sets -> event: % row(s) migrated total (% seconds elapsed)',

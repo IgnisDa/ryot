@@ -148,6 +148,88 @@ const metadataMigrationTargetValuesSql = sql.join(
 	sql`, `,
 );
 
+const buildMetadataPropertiesSql = () => `
+COALESCE(jsonb_strip_nulls(
+	CASE
+		WHEN metadata.lot = 'show' THEN jsonb_build_object(
+			'showSeasons', COALESCE((
+				SELECT jsonb_agg(
+					jsonb_strip_nulls(jsonb_build_object(
+						'id',             (season.value ->> 'id')::int,
+						'name',           season.value ->> 'name',
+						'overview',       season.value ->> 'overview',
+						'episodes',       COALESCE((
+							SELECT jsonb_agg(
+								jsonb_strip_nulls(jsonb_build_object(
+									'id',            (episode.value ->> 'id')::int,
+									'name',          episode.value ->> 'name',
+									'runtime',       (episode.value ->> 'runtime')::int,
+									'overview',      episode.value ->> 'overview',
+									'publishDate',   episode.value ->> 'publish_date',
+									'posterImages',  COALESCE(episode.value -> 'poster_images', '[]'::jsonb),
+									'episodeNumber', (episode.value ->> 'episode_number')::int
+								))
+								ORDER BY (episode.value ->> 'episode_number')::int
+							)
+							FROM jsonb_array_elements(
+								CASE
+									WHEN jsonb_typeof(season.value -> 'episodes') = 'array'
+									THEN season.value -> 'episodes'
+									ELSE '[]'::jsonb
+								END
+							) AS episode(value)
+						), '[]'::jsonb),
+						'publishDate',     season.value ->> 'publish_date',
+						'posterImages',    COALESCE(season.value -> 'poster_images', '[]'::jsonb),
+						'seasonNumber',    (season.value ->> 'season_number')::int,
+						'backdropImages',  COALESCE(season.value -> 'backdrop_images', '[]'::jsonb)
+					))
+					ORDER BY (season.value ->> 'season_number')::int
+				)
+				FROM jsonb_array_elements(
+					CASE
+						WHEN jsonb_typeof(metadata.show_specifics -> 'seasons') = 'array'
+						THEN metadata.show_specifics -> 'seasons'
+						ELSE '[]'::jsonb
+					END
+				) AS season(value)
+			), '[]'::jsonb)
+		)
+		WHEN metadata.lot = 'anime' THEN jsonb_build_object(
+			'episodes', (metadata.anime_specifics ->> 'episodes')::int
+		)
+		WHEN metadata.lot = 'manga' THEN jsonb_build_object(
+			'volumes',  (metadata.manga_specifics ->> 'volumes')::int,
+			'chapters', NULLIF(metadata.manga_specifics ->> 'chapters', '')::float8
+		)
+		WHEN metadata.lot = 'podcast' THEN jsonb_build_object(
+			'episodes', COALESCE((
+				SELECT jsonb_agg(
+					jsonb_strip_nulls(jsonb_build_object(
+						'id',          episode.value ->> 'id',
+						'title',       episode.value ->> 'title',
+						'number',      (episode.value ->> 'number')::int,
+						'runtime',     (episode.value ->> 'runtime')::int,
+						'overview',    episode.value ->> 'overview',
+						'thumbnail',   episode.value ->> 'thumbnail',
+						'publishDate', episode.value ->> 'publish_date'
+					))
+					ORDER BY (episode.value ->> 'number')::int
+				)
+				FROM jsonb_array_elements(
+					CASE
+						WHEN jsonb_typeof(metadata.podcast_specifics -> 'episodes') = 'array'
+						THEN metadata.podcast_specifics -> 'episodes'
+						ELSE '[]'::jsonb
+					END
+				) AS episode(value)
+			), '[]'::jsonb),
+			'totalEpisodes', (metadata.podcast_specifics ->> 'total_episodes')::int
+		)
+	END
+), '{}'::jsonb)
+`;
+
 export const buildMetadataMigrationSql = (targets: ResolvedLotEntityMigrationTarget[]) => `
 DO $$
 DECLARE
@@ -199,21 +281,20 @@ BEGIN
 			metadata.created_on,
 			NULL,
 			NULL,
-			'{}'::jsonb,
+			${buildMetadataPropertiesSql()},
 			metadata_targets.entity_schema_id,
 			metadata_targets.sandbox_script_id,
 			metadata.last_updated_on
 		FROM metadata
 		INNER JOIN metadata_targets ON metadata_targets.lot = metadata.lot AND metadata_targets.source = metadata.source
 		WHERE metadata.id::text > cursor_id AND metadata.id::text <= next_cursor_id
-		ON CONFLICT ("id") DO NOTHING;
+		ON CONFLICT ("id") DO UPDATE
+			SET "properties" = EXCLUDED."properties"
+			WHERE entity."properties" = '{}'::jsonb;
 		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
 
 		rows_inserted := rows_inserted + batch_rows_inserted;
 		cursor_id := next_cursor_id;
-		RAISE NOTICE 'metadata -> entity: % row(s) migrated so far (% seconds elapsed)',
-			rows_inserted,
-			round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 	END LOOP;
 
 	RAISE NOTICE 'metadata -> entity: % row(s) migrated total (% seconds elapsed)',
