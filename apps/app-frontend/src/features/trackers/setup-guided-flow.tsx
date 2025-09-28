@@ -1,6 +1,8 @@
 import { Stack, Text } from "@mantine/core";
+
 import type { AppEntitySchema } from "~/features/entity-schemas/model";
 import type { AppTracker } from "~/features/trackers/model";
+
 import { SetupStepCard } from "./setup-step-card";
 
 interface SetupGuidedFlowProps {

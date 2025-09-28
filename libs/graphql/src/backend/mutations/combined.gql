@@ -29,9 +29,7 @@ mutation LogoutUser {
 	logoutUser
 }
 
-mutation DeployAddEntitiesToCollectionJob(
-	$input: ChangeCollectionToEntitiesInput!
-) {
+mutation DeployAddEntitiesToCollectionJob($input: ChangeCollectionToEntitiesInput!) {
 	deployAddEntitiesToCollectionJob(input: $input)
 }
 
@@ -87,15 +85,11 @@ mutation CreateOrUpdateUserMeasurement($input: UserMeasurementInput!) {
 	createOrUpdateUserMeasurement(input: $input)
 }
 
-mutation CreateUserNotificationPlatform(
-	$input: CreateUserNotificationPlatformInput!
-) {
+mutation CreateUserNotificationPlatform($input: CreateUserNotificationPlatformInput!) {
 	createUserNotificationPlatform(input: $input)
 }
 
-mutation CreateOrUpdateUserIntegration(
-	$input: CreateOrUpdateUserIntegrationInput!
-) {
+mutation CreateOrUpdateUserIntegration($input: CreateOrUpdateUserIntegrationInput!) {
 	createOrUpdateUserIntegration(input: $input)
 }
 
@@ -187,15 +181,11 @@ mutation UpdateSeenItem($input: UpdateSeenItemInput!) {
 	updateSeenItem(input: $input)
 }
 
-mutation UpdateUserNotificationPlatform(
-	$input: UpdateUserNotificationPlatformInput!
-) {
+mutation UpdateUserNotificationPlatform($input: UpdateUserNotificationPlatformInput!) {
 	updateUserNotificationPlatform(input: $input)
 }
 
-mutation UpdateUserWorkoutAttributes(
-	$input: UpdateUserWorkoutAttributesInput!
-) {
+mutation UpdateUserWorkoutAttributes($input: UpdateUserWorkoutAttributesInput!) {
 	updateUserWorkoutAttributes(input: $input)
 }
 
@@ -224,9 +214,7 @@ mutation PresignedPutS3Url($prefix: String!) {
 	}
 }
 
-mutation DeployRemoveEntitiesFromCollectionJob(
-	$input: ChangeCollectionToEntitiesInput!
-) {
+mutation DeployRemoveEntitiesFromCollectionJob($input: ChangeCollectionToEntitiesInput!) {
 	deployRemoveEntitiesFromCollectionJob(input: $input)
 }
 
@@ -288,9 +276,7 @@ mutation ExpireCacheKey($cacheId: UUID!) {
 	expireCacheKey(cacheId: $cacheId)
 }
 
-mutation DeployBulkMetadataProgressUpdate(
-	$input: [MetadataProgressUpdateInput!]!
-) {
+mutation DeployBulkMetadataProgressUpdate($input: [MetadataProgressUpdateInput!]!) {
 	deployBulkMetadataProgressUpdate(input: $input)
 }
 

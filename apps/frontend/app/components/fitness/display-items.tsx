@@ -5,6 +5,7 @@ import { changeCase, isNumber, snakeCase } from "@ryot/ts-utils";
 import { IconBellRinging } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { $path } from "safe-routes";
+
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useExerciseDetails,
@@ -17,19 +18,16 @@ import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
 import { useExerciseImages } from "~/lib/state/fitness";
 import { useFullscreenImage } from "~/lib/state/general";
 import { FitnessEntity } from "~/lib/types";
+
 import { BaseEntityDisplayItem } from "../common/entity-display";
 
-export const ExerciseDisplayItem = (props: {
-	exerciseId: string;
-	centerElement?: ReactNode;
-}) => {
+export const ExerciseDisplayItem = (props: { exerciseId: string; centerElement?: ReactNode }) => {
 	const { ref, inViewport } = useInViewport();
-	const { data: exerciseDetails, isLoading: isExerciseDetailsLoading } =
-		useExerciseDetails(props.exerciseId, inViewport);
-	const { data: userExerciseDetails } = useUserExerciseDetails(
+	const { data: exerciseDetails, isLoading: isExerciseDetailsLoading } = useExerciseDetails(
 		props.exerciseId,
 		inViewport,
 	);
+	const { data: userExerciseDetails } = useUserExerciseDetails(props.exerciseId, inViewport);
 	const images = useExerciseImages(exerciseDetails);
 	const times = userExerciseDetails?.details?.exerciseNumTimesInteracted;
 
@@ -52,13 +50,12 @@ export const ExerciseDisplayItem = (props: {
 	);
 };
 
-export const WorkoutDisplayItem = (props: {
-	workoutId: string;
-	centerElement?: ReactNode;
-}) => {
+export const WorkoutDisplayItem = (props: { workoutId: string; centerElement?: ReactNode }) => {
 	const { ref, inViewport } = useInViewport();
-	const { data: workoutDetails, isLoading: isWorkoutDetailsLoading } =
-		useUserWorkoutDetails(props.workoutId, inViewport);
+	const { data: workoutDetails, isLoading: isWorkoutDetailsLoading } = useUserWorkoutDetails(
+		props.workoutId,
+		inViewport,
+	);
 
 	const workoutDateText = workoutDetails?.details.startTime
 		? dayjsLib(workoutDetails.details.startTime).format("l")
@@ -73,10 +70,7 @@ export const WorkoutDisplayItem = (props: {
 			centerElement={props.centerElement}
 			title={workoutDetails?.details.name}
 			isDetailsLoading={isWorkoutDetailsLoading}
-			additionalInformation={[
-				workoutDateText,
-				changeCase(snakeCase(EntityLot.Workout)),
-			]}
+			additionalInformation={[workoutDateText, changeCase(snakeCase(EntityLot.Workout))]}
 			onImageClickBehavior={[
 				$path("/fitness/:entity/:id", {
 					entity: "workouts",
@@ -92,10 +86,8 @@ export const WorkoutTemplateDisplayItem = (props: {
 	workoutTemplateId: string;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const {
-		data: workoutTemplateDetails,
-		isLoading: isWorkoutTemplateDetailsLoading,
-	} = useUserWorkoutTemplateDetails(props.workoutTemplateId, inViewport);
+	const { data: workoutTemplateDetails, isLoading: isWorkoutTemplateDetailsLoading } =
+		useUserWorkoutTemplateDetails(props.workoutTemplateId, inViewport);
 
 	const createdDateText = workoutTemplateDetails?.details.createdOn
 		? dayjsLib(workoutTemplateDetails.details.createdOn).format("l")
@@ -110,10 +102,7 @@ export const WorkoutTemplateDisplayItem = (props: {
 			entityLot={EntityLot.WorkoutTemplate}
 			title={workoutTemplateDetails?.details.name}
 			isDetailsLoading={isWorkoutTemplateDetailsLoading}
-			additionalInformation={[
-				createdDateText,
-				changeCase(snakeCase(EntityLot.WorkoutTemplate)),
-			]}
+			additionalInformation={[createdDateText, changeCase(snakeCase(EntityLot.WorkoutTemplate))]}
 			onImageClickBehavior={[
 				$path("/fitness/:entity/:id", {
 					id: props.workoutTemplateId,
@@ -146,8 +135,8 @@ export const WorkoutRevisionScheduledAlert = () => {
 
 	return userDetails.extraInformation?.scheduledForWorkoutRevision ? (
 		<Alert icon={<IconBellRinging />}>
-			A workout revision has been scheduled. Workout details might be outdated
-			until revision is complete.
+			A workout revision has been scheduled. Workout details might be outdated until revision is
+			complete.
 		</Alert>
 	) : null;
 };

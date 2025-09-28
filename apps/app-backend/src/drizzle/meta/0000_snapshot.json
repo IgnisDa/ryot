@@ -555,12 +555,7 @@
 				"entity_user_schema_script_external_id_unique": {
 					"name": "entity_user_schema_script_external_id_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"user_id",
-						"external_id",
-						"entity_schema_id",
-						"sandbox_script_id"
-					]
+					"columns": ["user_id", "external_id", "entity_schema_id", "sandbox_script_id"]
 				}
 			},
 			"policies": {},
@@ -1396,12 +1391,7 @@
 				"relationship_user_source_target_schema_unique": {
 					"name": "relationship_user_source_target_schema_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"user_id",
-						"source_entity_id",
-						"target_entity_id",
-						"relationship_schema_id"
-					]
+					"columns": ["user_id", "source_entity_id", "target_entity_id", "relationship_schema_id"]
 				}
 			},
 			"policies": {},

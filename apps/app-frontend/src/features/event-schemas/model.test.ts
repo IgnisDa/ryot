@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
+
 import { createEventSchemaFixture } from "~/features/test-fixtures";
+
 import { getEntityEventSchemaViewState } from "./model";
 
 describe("getEntityEventSchemaViewState", () => {
@@ -20,10 +22,6 @@ describe("getEntityEventSchemaViewState", () => {
 		if (state.type !== "list") {
 			throw new Error("Expected list state");
 		}
-		expect(state.eventSchemas.map((schema) => schema.slug)).toEqual([
-			"alpha",
-			"zulu",
-			"progress",
-		]);
+		expect(state.eventSchemas.map((schema) => schema.slug)).toEqual(["alpha", "zulu", "progress"]);
 	});
 });

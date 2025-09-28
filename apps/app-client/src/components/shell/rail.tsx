@@ -3,23 +3,16 @@ import { router } from "expo-router";
 import { ChevronRight } from "lucide-react-native";
 import { ScrollView } from "react-native";
 import type { SharedValue } from "react-native-reanimated";
-import Animated, {
-	useAnimatedStyle,
-	withSpring,
-} from "react-native-reanimated";
+import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
+
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { useUser } from "@/lib/atoms";
 import { TrackerIcon } from "@/lib/icons";
 import type { NavigationItem } from "@/lib/navigation";
-import {
-	navHref,
-	useActiveNav,
-	useNavigationData,
-	useSetSubFlyoutOpen,
-} from "@/lib/navigation";
+import { navHref, useActiveNav, useNavigationData, useSetSubFlyoutOpen } from "@/lib/navigation";
 
 export const RAIL_WIDTH = 168;
 export const SPRING_CONFIG = { damping: 22, stiffness: 280 };
@@ -59,9 +52,7 @@ function RailItem({
 			<Text
 				className={clsx(
 					"text-[17px] tracking-[0.2px]",
-					isActive
-						? "text-foreground font-heading-semibold"
-						: "text-muted-foreground font-heading",
+					isActive ? "text-foreground font-heading-semibold" : "text-muted-foreground font-heading",
 				)}
 			>
 				{item.name}
@@ -78,9 +69,7 @@ function RailItem({
 export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 	const user = useUser();
 	const setSubFlyoutOpen = useSetSubFlyoutOpen();
-	const { trackers, libraryViews, userItem, isLoading } = useNavigationData(
-		user?.name,
-	);
+	const { trackers, libraryViews, userItem, isLoading } = useNavigationData(user?.name);
 	const { isViewPath, activeTrackerSlug, activeSubItemSlug } = useActiveNav();
 
 	const railStyle = useAnimatedStyle(() => ({
@@ -115,9 +104,7 @@ export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 			showsVerticalScrollIndicator={false}
 		>
 			{isLoading ? (
-				<Text className="text-[14px] text-muted-foreground font-heading px-2">
-					Loading...
-				</Text>
+				<Text className="text-[14px] text-muted-foreground font-heading px-2">Loading...</Text>
 			) : (
 				<>
 					{trackers.map((tracker) => (
@@ -157,9 +144,7 @@ export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 				<Box className="opacity-50">
 					<TrackerIcon icon="user" size={14} />
 				</Box>
-				<Text className="text-[13px] text-muted-foreground font-sans">
-					{userItem.name}
-				</Text>
+				<Text className="text-[13px] text-muted-foreground font-sans">{userItem.name}</Text>
 			</Box>
 		</Box>
 	);

@@ -1,9 +1,8 @@
 import { sql } from "drizzle-orm";
+
 import { entitySchema, eventSchema } from "~/lib/db/schema";
-import type {
-	EntityColumnOverrides,
-	QueryEngineSchemaLike,
-} from "~/lib/views/reference";
+import type { EntityColumnOverrides, QueryEngineSchemaLike } from "~/lib/views/reference";
+
 import type { SqlExpression } from "./sql-expression-helpers";
 
 export type QueryEngineSchemaRow = QueryEngineSchemaLike & {
@@ -69,8 +68,7 @@ export const buildEventSchemaDataExpression = () =>
 		'updatedAt', ${eventSchema.updatedAt}
 	)`;
 
-export const getEventJoinCteName = (joinKey: string) =>
-	`latest_event_join_${joinKey}`;
+export const getEventJoinCteName = (joinKey: string) => `latest_event_join_${joinKey}`;
 
 export type PaginatedQueryInput = PaginationConfig & {
 	direction: SqlExpression;

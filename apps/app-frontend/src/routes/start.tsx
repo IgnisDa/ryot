@@ -2,6 +2,7 @@ import { Center, Paper, Stack, Tabs, Text, Title } from "@mantine/core";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
+
 import { getNameFromEmail } from "~/features/authentication/model";
 import { useApiClient } from "~/hooks/api";
 import { useAppForm } from "~/hooks/forms";
@@ -50,11 +51,9 @@ function StartPage() {
 	const navigate = Route.useNavigate();
 	const [mode, setMode] = useState<AuthMode>("login");
 	const [submitError, setSubmitError] = useState<string | null>(null);
-	const signupMutation = apiClient.useMutation(
-		"post",
-		"/authentication/email",
-		{ onError: (error) => setSubmitError(error.error.message) },
-	);
+	const signupMutation = apiClient.useMutation("post", "/authentication/email", {
+		onError: (error) => setSubmitError(error.error.message),
+	});
 
 	const authForm = useAppForm({
 		validators: { onChange: schema },

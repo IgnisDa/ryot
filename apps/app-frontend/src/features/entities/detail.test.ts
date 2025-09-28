@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
+
 import { createEntityFixture } from "~/features/test-fixtures";
+
 import { getEntityDetailProperties } from "./detail";
 
 describe("getEntityDetailProperties", () => {

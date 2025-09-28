@@ -8,11 +8,8 @@ import { data, Form, redirect, useFetcher, useLoaderData } from "react-router";
 import { toast } from "sonner";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
-import {
-	customers,
-	type TPlanTypes,
-	type TProductTypes,
-} from "~/drizzle/schema.server";
+
+import { customers, type TPlanTypes, type TProductTypes } from "~/drizzle/schema.server";
 import {
 	getCancellation,
 	getPurchaseInProgress,
@@ -41,6 +38,7 @@ import {
 	getPaddleServerClient,
 	sendEmail,
 } from "~/lib/utilities.server";
+
 import type { Route } from "./+types/me";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
@@ -87,8 +85,7 @@ const getAllPolarSubscriptionsForCustomer = async (customerId: string) => {
 		externalCustomerId: customerId,
 	});
 
-	for await (const page of subscriptionsIterator)
-		allSubscriptions.push(...page.result.items);
+	for await (const page of subscriptionsIterator) allSubscriptions.push(...page.result.items);
 
 	return allSubscriptions;
 };
@@ -106,9 +103,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				enabled: false,
 				keyId: customer.unkeyKeyId,
 			});
-			const renewOnDayjs = customer.renewOn
-				? dayjs(customer.renewOn)
-				: undefined;
+			const renewOnDayjs = customer.renewOn ? dayjs(customer.renewOn) : undefined;
 			const created = await createUnkeyKey(
 				customer,
 				renewOnDayjs ? renewOnDayjs.add(GRACE_PERIOD, "days") : undefined,
@@ -134,19 +129,15 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			if (!customer) throw new Error("No customer found");
 
 			if (customer.paymentProvider === "polar") {
-				if (!customer.polarCustomerId)
-					throw new Error("No Polar customer ID found");
+				if (!customer.polarCustomerId) throw new Error("No Polar customer ID found");
 
-				const subscriptionsResponse = await getAllPolarSubscriptionsForCustomer(
-					customer.id,
-				);
+				const subscriptionsResponse = await getAllPolarSubscriptionsForCustomer(customer.id);
 
 				const activeSubscription = subscriptionsResponse.find((sub) =>
 					["active", "trialing"].includes(sub.status),
 				);
 
-				if (!activeSubscription)
-					throw new Error("No active subscription found");
+				if (!activeSubscription) throw new Error("No active subscription found");
 
 				console.log("Active Polar Subscription:", {
 					customerId: customer.id,
@@ -163,13 +154,10 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				});
 			}
 
-			if (!customer.paddleCustomerId)
-				throw new Error("No Paddle customer ID found");
+			if (!customer.paddleCustomerId) throw new Error("No Paddle customer ID found");
 			const paddleClient = getPaddleServerClient();
 
-			const subscriptionsResponse = await getAllSubscriptionsForCustomer(
-				customer.paddleCustomerId,
-			);
+			const subscriptionsResponse = await getAllSubscriptionsForCustomer(customer.paddleCustomerId);
 
 			const activeSubscription = subscriptionsResponse.find((sub) =>
 				["active", "trialing"].includes(sub.status),
@@ -194,17 +182,13 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		})
 		.with("checkoutPolar", async () => {
 			if (!customer) throw new Error("No customer found");
-			if (customer.paymentProvider !== "polar")
-				throw new Error("Customer is not on Polar");
+			if (customer.paymentProvider !== "polar") throw new Error("Customer is not on Polar");
 
 			const formData = await request.formData();
-			const productType = formData
-				.get("productType")
-				?.toString() as TProductTypes;
+			const productType = formData.get("productType")?.toString() as TProductTypes;
 			const planType = formData.get("planType")?.toString() as TPlanTypes;
 
-			if (!productType || !planType)
-				throw new Error("Product type and plan type are required");
+			if (!productType || !planType) throw new Error("Product type and plan type are required");
 
 			const productId = findPolarProductId(productType, planType);
 
@@ -300,9 +284,7 @@ export default function Index() {
 					<div className="grid grid-cols-2 gap-4">
 						<div className="col-span-2">
 							<Label>Email</Label>
-							<p className="text-muted-foreground">
-								{loaderData.customerDetails.email}
-							</p>
+							<p className="text-muted-foreground">{loaderData.customerDetails.email}</p>
 						</div>
 						<div>
 							<Label>Product Type</Label>
@@ -319,27 +301,20 @@ export default function Index() {
 						{loaderData.renewOn ? (
 							<div>
 								<Label>Renewal Status</Label>
-								<p className="text-muted-foreground">
-									Renews on {loaderData.renewOn}
-								</p>
+								<p className="text-muted-foreground">Renews on {loaderData.renewOn}</p>
 							</div>
 						) : null}
 						{loaderData.customerDetails.ryotUserId ? (
 							<div>
 								<Label>User ID</Label>
-								<p className="text-muted-foreground">
-									{loaderData.customerDetails.ryotUserId}
-								</p>
+								<p className="text-muted-foreground">{loaderData.customerDetails.ryotUserId}</p>
 							</div>
 						) : null}
 						{loaderData.customerDetails.unkeyKeyId ? (
 							<div className="col-span-2">
 								<div className="flex items-center justify-between">
 									<Label>Key ID</Label>
-									<Form
-										method="POST"
-										action={withQuery(".", { intent: "regenerateUnkeyKey" })}
-									>
+									<Form method="POST" action={withQuery(".", { intent: "regenerateUnkeyKey" })}>
 										<button
 											type="submit"
 											className="text-xs underline text-right cursor-pointer"
@@ -354,9 +329,7 @@ export default function Index() {
 										</button>
 									</Form>
 								</div>
-								<p className="text-muted-foreground">
-									{loaderData.customerDetails.unkeyKeyId}
-								</p>
+								<p className="text-muted-foreground">{loaderData.customerDetails.unkeyKeyId}</p>
 								<p className="text-xs text-gray-500">
 									(This is the key ID; the pro key has been sent to your email)
 								</p>
@@ -375,9 +348,7 @@ export default function Index() {
 							const prices = loaderData.prices;
 
 							for (const product of prices) {
-								const matchingPrice = product.prices.find(
-									(p) => p.priceId === priceId,
-								);
+								const matchingPrice = product.prices.find((p) => p.priceId === priceId);
 								if (matchingPrice) {
 									productType = product.type;
 									planType = matchingPrice.name;
@@ -433,11 +404,7 @@ export default function Index() {
 							</Button>
 						</fetcher.Form>
 					)}
-				<Form
-					method="POST"
-					className="pb-6"
-					action={withQuery(".", { intent: "logout" })}
-				>
+				<Form method="POST" className="pb-6" action={withQuery(".", { intent: "logout" })}>
 					<Button type="submit">Sign out</Button>
 				</Form>
 			</div>

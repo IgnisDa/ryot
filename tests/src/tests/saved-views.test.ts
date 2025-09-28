@@ -1,10 +1,12 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createComputedFieldExpression,
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 	createEventAggregateExpression,
 } from "@ryot/ts-utils";
+
 import {
 	buildGridRequest,
 	buildSavedViewBody,
@@ -30,9 +32,7 @@ import {
 	waitForEventCount,
 } from "../fixtures";
 
-type SavedViewBodyOverrides = NonNullable<
-	Parameters<typeof buildSavedViewBody>[0]
->;
+type SavedViewBodyOverrides = NonNullable<Parameters<typeof buildSavedViewBody>[0]>;
 
 const builtinViewError = "Cannot modify built-in saved views";
 const missingViewSlug = "non-existent-view-slug";
@@ -123,9 +123,7 @@ describe("Saved views E2E", () => {
 		});
 
 		const eventSchemas = await listEventSchemas(client, cookies, schema.id);
-		const reviewEventSchemaId = eventSchemas.find(
-			(item) => item.slug === "review",
-		)?.id;
+		const reviewEventSchemaId = eventSchemas.find((item) => item.slug === "review")?.id;
 		if (!reviewEventSchemaId) {
 			throw new Error("Missing review event schema");
 		}
@@ -224,9 +222,7 @@ describe("Saved views E2E", () => {
 		});
 
 		const eventSchemas = await listEventSchemas(client, cookies, schema.id);
-		const reviewEventSchemaId = eventSchemas.find(
-			(item) => item.slug === "review",
-		)?.id;
+		const reviewEventSchemaId = eventSchemas.find((item) => item.slug === "review")?.id;
 		if (!reviewEventSchemaId) {
 			throw new Error("Missing review event schema");
 		}
@@ -289,16 +285,8 @@ describe("Saved views E2E", () => {
 	it("returns built-in all-shows with in-library scoping for each user", async () => {
 		const userA = await createAuthenticatedClient();
 		const userB = await createAuthenticatedClient();
-		const userAView = await getSavedView(
-			userA.client,
-			userA.cookies,
-			"all-shows",
-		);
-		const userBView = await getSavedView(
-			userB.client,
-			userB.cookies,
-			"all-shows",
-		);
+		const userAView = await getSavedView(userA.client, userA.cookies, "all-shows");
+		const userBView = await getSavedView(userB.client, userB.cookies, "all-shows");
 
 		const userAQD = userAView.queryDefinition as Extract<
 			typeof userAView.queryDefinition,
@@ -308,12 +296,8 @@ describe("Saved views E2E", () => {
 			typeof userBView.queryDefinition,
 			{ mode: "entities" }
 		>;
-		expect(userAQD.relationships).toEqual([
-			{ relationshipSchemaSlug: "in-library" },
-		]);
-		expect(userBQD.relationships).toEqual([
-			{ relationshipSchemaSlug: "in-library" },
-		]);
+		expect(userAQD.relationships).toEqual([{ relationshipSchemaSlug: "in-library" }]);
+		expect(userBQD.relationships).toEqual([{ relationshipSchemaSlug: "in-library" }]);
 	});
 
 	it("supports the full create-get-update-clone-delete lifecycle", async () => {
@@ -364,25 +348,16 @@ describe("Saved views E2E", () => {
 				},
 				list: {
 					calloutProperty: [entityField("anime", "productionStatus")],
-					imageProperty: [
-						entityField("anime", "image"),
-						entityField("manga", "image"),
-					],
+					imageProperty: [entityField("anime", "image"), entityField("manga", "image")],
 					primarySubtitleProperty: [entityField("manga", "publishYear")],
 					secondarySubtitleProperty: null,
-					titleProperty: [
-						entityField("anime", "name"),
-						entityField("manga", "name"),
-					],
+					titleProperty: [entityField("anime", "name"), entityField("manga", "name")],
 				},
 				table: {
 					columns: [
 						{
 							label: "Name",
-							property: [
-								entityField("anime", "name"),
-								entityField("manga", "name"),
-							],
+							property: [entityField("anime", "name"), entityField("manga", "name")],
 						},
 						{
 							label: "Status",
@@ -392,25 +367,13 @@ describe("Saved views E2E", () => {
 				},
 			},
 		});
-		const updatedClone = await updateSavedView(
-			client,
-			cookies,
-			clonedView.slug,
-			updatedCloneInput,
-		);
-		const fetchedUpdatedClone = await getSavedView(
-			client,
-			cookies,
-			clonedView.slug,
-		);
+		const updatedClone = await updateSavedView(client, cookies, clonedView.slug, updatedCloneInput);
+		const fetchedUpdatedClone = await getSavedView(client, cookies, clonedView.slug);
 
 		expect(updatedClone.name).toBe("Lifecycle View (Copy) Revised");
 		expect(fetchedUpdatedClone.id).toBe(clonedView.id);
 		const { mode: queryMode, ...queryDefinitionWithoutMode } =
-			fetchedUpdatedClone.queryDefinition as { mode?: string } & Record<
-				string,
-				unknown
-			>;
+			fetchedUpdatedClone.queryDefinition as { mode?: string } & Record<string, unknown>;
 		expect(queryMode).toBe("entities");
 		const updatedCloneQD = updatedCloneInput.queryDefinition as {
 			eventJoins?: unknown[];
@@ -425,16 +388,8 @@ describe("Saved views E2E", () => {
 			updatedCloneInput.displayConfiguration,
 		);
 
-		const deletedOriginal = await deleteSavedView(
-			client,
-			cookies,
-			createdView.slug,
-		);
-		const deletedClone = await deleteSavedView(
-			client,
-			cookies,
-			clonedView.slug,
-		);
+		const deletedOriginal = await deleteSavedView(client, cookies, createdView.slug);
+		const deletedClone = await deleteSavedView(client, cookies, clonedView.slug);
 		const remainingViews = await listSavedViews(client, cookies);
 		const remainingIds = remainingViews.map((view) => view.id);
 
@@ -452,16 +407,8 @@ describe("Saved views E2E", () => {
 		expect(clonedView.name).toBe(`${builtinView.name} (Copy)`);
 		expect(clonedView.isBuiltin).toBe(false);
 
-		const deletedClone = await deleteSavedView(
-			client,
-			cookies,
-			clonedView.slug,
-		);
-		const refreshedBuiltin = await getSavedView(
-			client,
-			cookies,
-			builtinView.slug,
-		);
+		const deletedClone = await deleteSavedView(client, cookies, clonedView.slug);
+		const refreshedBuiltin = await getSavedView(client, cookies, builtinView.slug);
 		const remainingViews = await listSavedViews(client, cookies);
 
 		expect(deletedClone.id).toBe(clonedView.id);
@@ -528,11 +475,7 @@ describe("Saved views E2E", () => {
 			},
 		});
 		expect(reEnableResult.response.status).toBe(200);
-		const fetchedReEnabled = await getSavedView(
-			client,
-			cookies,
-			builtinView.slug,
-		);
+		const fetchedReEnabled = await getSavedView(client, cookies, builtinView.slug);
 
 		expect(fetchedReEnabled.isDisabled).toBe(false);
 		expect(fetchedReEnabled.name).toBe(builtinView.name);
@@ -559,12 +502,7 @@ describe("Saved views E2E", () => {
 			params: { path: { viewSlug: missingViewSlug } },
 		});
 
-		for (const result of [
-			readResult,
-			updateResult,
-			cloneResult,
-			deleteResult,
-		]) {
+		for (const result of [readResult, updateResult, cloneResult, deleteResult]) {
 			expect(result.response.status).toBe(404);
 			expect(result.error?.error?.message).toBe("Saved view not found");
 		}
@@ -597,34 +535,18 @@ describe("Saved views E2E", () => {
 
 		expect(createdView.isDisabled).toBe(false);
 
-		const disabledView = await updateSavedView(
-			client,
-			cookies,
-			createdView.slug,
-			{
-				isDisabled: true,
-			},
-		);
-		const fetchedDisabled = await getSavedView(
-			client,
-			cookies,
-			createdView.slug,
-		);
+		const disabledView = await updateSavedView(client, cookies, createdView.slug, {
+			isDisabled: true,
+		});
+		const fetchedDisabled = await getSavedView(client, cookies, createdView.slug);
 
 		expect(disabledView.isDisabled).toBe(true);
 		expect(fetchedDisabled.isDisabled).toBe(true);
 
-		const reEnabledView = await updateSavedView(
-			client,
-			cookies,
-			createdView.slug,
-			{ isDisabled: false },
-		);
-		const fetchedReEnabled = await getSavedView(
-			client,
-			cookies,
-			createdView.slug,
-		);
+		const reEnabledView = await updateSavedView(client, cookies, createdView.slug, {
+			isDisabled: false,
+		});
+		const fetchedReEnabled = await getSavedView(client, cookies, createdView.slug);
 
 		expect(reEnabledView.isDisabled).toBe(false);
 		expect(fetchedReEnabled.isDisabled).toBe(false);
@@ -676,10 +598,7 @@ describe("Saved views E2E", () => {
 		expect(new Set(listedViews.map((view) => view.id))).toEqual(
 			new Set([disabledTrackedView.id, enabledTrackedView.id]),
 		);
-		expect(listedViews.map((view) => view.trackerId)).toEqual([
-			trackerId,
-			trackerId,
-		]);
+		expect(listedViews.map((view) => view.trackerId)).toEqual([trackerId, trackerId]);
 		expect(listedViews.some((view) => view.isDisabled)).toBe(true);
 	});
 
@@ -713,10 +632,7 @@ describe("Saved views E2E", () => {
 		});
 
 		expect(reordered.viewSlugs.slice(0, 2)).toEqual([second.slug, first.slug]);
-		expect(scopedViews.map((view) => view.slug).slice(0, 2)).toEqual([
-			second.slug,
-			first.slug,
-		]);
+		expect(scopedViews.map((view) => view.slug).slice(0, 2)).toEqual([second.slug, first.slug]);
 		expect(topLevelViews.some((view) => view.id === standalone.id)).toBe(true);
 	});
 
@@ -802,9 +718,7 @@ describe("Saved views E2E", () => {
 		});
 
 		expect(result.response.status).toBe(400);
-		expect(result.error?.error?.message).toBe(
-			"Saved view slugs contain unknown saved views",
-		);
+		expect(result.error?.error?.message).toBe("Saved view slugs contain unknown saved views");
 	});
 
 	it("rejects empty sort fields when creating or updating saved views", async () => {
@@ -852,9 +766,7 @@ describe("Saved views E2E", () => {
 		expect(updateResult.error?.error?.message).toContain(
 			"Sort expressions must resolve to a sortable scalar value",
 		);
-		expect(refreshedQD.sort.expression).toEqual(
-			createEntityColumnExpression("book", "name"),
-		);
+		expect(refreshedQD.sort.expression).toEqual(createEntityColumnExpression("book", "name"));
 	});
 
 	it("rejects creating saved views with aggregate query definitions", async () => {
@@ -886,10 +798,7 @@ describe("Saved views E2E", () => {
 		const nextYearReference = createComputedFieldExpression("nextYear");
 		const labelReference = createComputedFieldExpression("label");
 		const yearBandReference = createComputedFieldExpression("yearBand");
-		const publishYearExpression = createEntityPropertyExpression(
-			"book",
-			"publishYear",
-		);
+		const publishYearExpression = createEntityPropertyExpression("book", "publishYear");
 
 		const createdView = await createSavedView(client, cookies, {
 			name: "Computed Saved View",
@@ -945,94 +854,81 @@ describe("Saved views E2E", () => {
 				},
 			},
 		});
-		const updatedView = await updateSavedView(
-			client,
-			cookies,
-			createdView.slug,
-			{
-				name: "Computed Saved View Updated",
-				queryDefinition: {
-					eventJoins: [],
-					scope: ["book"],
-					sort: { direction: "desc", expression: nextYearReference },
-					filter: {
-						type: "comparison",
-						operator: "gte",
-						left: nextYearReference,
-						right: { type: "literal", value: 2021 },
-					},
-					computedFields: [
-						{
-							key: "nextYear",
-							expression: {
-								type: "arithmetic",
-								operator: "add",
-								left: publishYearExpression,
-								right: { type: "literal", value: 1 },
-							},
-						},
-						{
-							key: "label",
-							expression: {
-								type: "concat",
-								values: [
-									{ type: "literal", value: "Book: " },
-									createEntityColumnExpression("book", "name"),
-								],
-							},
-						},
-						{
-							key: "yearBand",
-							expression: {
-								type: "conditional",
-								whenTrue: { type: "literal", value: "modern" },
-								whenFalse: { type: "literal", value: "classic" },
-								condition: {
-									type: "comparison",
-									operator: "gte",
-									left: nextYearReference,
-									right: { type: "literal", value: 2021 },
-								},
-							},
-						},
-					],
+		const updatedView = await updateSavedView(client, cookies, createdView.slug, {
+			name: "Computed Saved View Updated",
+			queryDefinition: {
+				eventJoins: [],
+				scope: ["book"],
+				sort: { direction: "desc", expression: nextYearReference },
+				filter: {
+					type: "comparison",
+					operator: "gte",
+					left: nextYearReference,
+					right: { type: "literal", value: 2021 },
 				},
-				displayConfiguration: {
-					table: {
-						columns: [{ label: "Band", expression: yearBandReference }],
+				computedFields: [
+					{
+						key: "nextYear",
+						expression: {
+							type: "arithmetic",
+							operator: "add",
+							left: publishYearExpression,
+							right: { type: "literal", value: 1 },
+						},
 					},
-					grid: {
-						calloutProperty: yearBandReference,
-						titleProperty: labelReference,
-						imageProperty: [entityField("book", "image")],
-						primarySubtitleProperty: nextYearReference,
-						secondarySubtitleProperty: null,
+					{
+						key: "label",
+						expression: {
+							type: "concat",
+							values: [
+								{ type: "literal", value: "Book: " },
+								createEntityColumnExpression("book", "name"),
+							],
+						},
 					},
-					list: {
-						calloutProperty: yearBandReference,
-						titleProperty: labelReference,
-						imageProperty: [entityField("book", "image")],
-						primarySubtitleProperty: nextYearReference,
-						secondarySubtitleProperty: null,
+					{
+						key: "yearBand",
+						expression: {
+							type: "conditional",
+							whenTrue: { type: "literal", value: "modern" },
+							whenFalse: { type: "literal", value: "classic" },
+							condition: {
+								type: "comparison",
+								operator: "gte",
+								left: nextYearReference,
+								right: { type: "literal", value: 2021 },
+							},
+						},
 					},
+				],
+			},
+			displayConfiguration: {
+				table: {
+					columns: [{ label: "Band", expression: yearBandReference }],
+				},
+				grid: {
+					calloutProperty: yearBandReference,
+					titleProperty: labelReference,
+					imageProperty: [entityField("book", "image")],
+					primarySubtitleProperty: nextYearReference,
+					secondarySubtitleProperty: null,
+				},
+				list: {
+					calloutProperty: yearBandReference,
+					titleProperty: labelReference,
+					imageProperty: [entityField("book", "image")],
+					primarySubtitleProperty: nextYearReference,
+					secondarySubtitleProperty: null,
 				},
 			},
-		);
-		const fetchedUpdatedView = await getSavedView(
-			client,
-			cookies,
-			createdView.slug,
-		);
+		});
+		const fetchedUpdatedView = await getSavedView(client, cookies, createdView.slug);
 
 		expect(createdView.queryDefinition.computedFields).toHaveLength(2);
 		expect(updatedView.queryDefinition.computedFields).toHaveLength(3);
 		expect(fetchedUpdatedView.name).toBe("Computed Saved View Updated");
-		expect(fetchedUpdatedView.queryDefinition).toEqual(
-			updatedView.queryDefinition,
-		);
-		expect(fetchedUpdatedView.displayConfiguration).toEqual(
-			updatedView.displayConfiguration,
-		);
+		expect(fetchedUpdatedView.queryDefinition).toEqual(updatedView.queryDefinition);
+		expect(fetchedUpdatedView.displayConfiguration).toEqual(updatedView.displayConfiguration);
 	});
 
 	it("rejects computed field cycles when creating or updating saved views", async () => {
@@ -1185,10 +1081,7 @@ describe("Saved views E2E", () => {
 			scope: ["book"],
 			sort: {
 				direction: "asc",
-				expression: createEntityPropertyExpression(
-					"book",
-					"nonexistent_property",
-				),
+				expression: createEntityPropertyExpression("book", "nonexistent_property"),
 			},
 		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
 
@@ -1238,9 +1131,7 @@ describe("Saved views E2E", () => {
 		});
 
 		expect(result.response.status).toBe(400);
-		expect(result.error?.error?.message).toContain(
-			"Unsupported entity column 'entity.book.nam'",
-		);
+		expect(result.error?.error?.message).toContain("Unsupported entity column 'entity.book.nam'");
 	});
 
 	it("rejects a view referencing a schema slug that does not exist", async () => {

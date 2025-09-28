@@ -27,10 +27,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useLoaderData } from "react-router";
 import { z } from "zod";
-import {
-	CustomEntityImageInput,
-	ExistingImageList,
-} from "~/components/common/custom-entities";
+
+import { CustomEntityImageInput, ExistingImageList } from "~/components/common/custom-entities";
 import { useEntityCrud } from "~/lib/hooks/use-entity-crud";
 import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import {
@@ -48,6 +46,7 @@ import {
 	queryClient,
 } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+
 import type { Route } from "./+types/_dashboard.media.item.update.$action";
 
 enum Action {
@@ -63,10 +62,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ params, request }: Route.LoaderArgs) => {
-	const { action } = parseParameters(
-		params,
-		z.object({ action: z.enum(Action) }),
-	);
+	const { action } = parseParameters(params, z.object({ action: z.enum(Action) }));
 	const query = parseSearchQuery(request, searchParamsSchema);
 	return { query, action };
 };
@@ -93,8 +89,7 @@ export default function Page() {
 		onSuccessCleanup: () => form.clearSavedState(),
 		extractIdFromUpdateResult: () => loaderData.query.id as string,
 		extractIdFromCreateResult: (result) =>
-			(result as { createCustomMetadata: { id: string } }).createCustomMetadata
-				.id as string,
+			(result as { createCustomMetadata: { id: string } }).createCustomMetadata.id as string,
 		transformToCreateInput: (values, s3Images) => {
 			const lot = values.lot as string;
 			const specifics = values.specifics as string;
@@ -111,8 +106,7 @@ export default function Page() {
 				publishYear: (values.publishYear as number) || undefined,
 				assets: buildImageAssets(s3Images),
 				[specificsKey]: specifics ? JSON.parse(specifics) : undefined,
-				creatorIds:
-					creatorIds && creatorIds.length > 0 ? creatorIds : undefined,
+				creatorIds: creatorIds && creatorIds.length > 0 ? creatorIds : undefined,
 				groupIds: groupIds && groupIds.length > 0 ? groupIds : undefined,
 				genres: genres
 					? genres
@@ -140,8 +134,7 @@ export default function Page() {
 					publishYear: (values.publishYear as number) || undefined,
 					assets: buildImageAssets(s3Images),
 					[specificsKey]: specifics ? JSON.parse(specifics) : undefined,
-					creatorIds:
-						creatorIds && creatorIds.length > 0 ? creatorIds : undefined,
+					creatorIds: creatorIds && creatorIds.length > 0 ? creatorIds : undefined,
 					groupIds: groupIds && groupIds.length > 0 ? groupIds : undefined,
 					genres: genres
 						? genres
@@ -198,13 +191,9 @@ export default function Page() {
 				existingImages: details.assets?.s3Images || [],
 				specifics: specifics ? JSON.stringify(specifics) : "{}",
 				genres: details.genres?.map((g) => g.name).join(", ") || "",
-				creatorIds:
-					details.creators?.flatMap((c) => c.items).map((c) => c.idOrName) ||
-					[],
+				creatorIds: details.creators?.flatMap((c) => c.items).map((c) => c.idOrName) || [],
 				groupIds: details.groups
-					? [...details.groups]
-							.sort((a, b) => (a.part || 0) - (b.part || 0))
-							.map((g) => g.id)
+					? [...details.groups].sort((a, b) => (a.part || 0) - (b.part || 0)).map((g) => g.id)
 					: [],
 			});
 		}
@@ -251,20 +240,10 @@ export default function Page() {
 
 	return (
 		<Container>
-			<form
-				encType="multipart/form-data"
-				onSubmit={form.onSubmit(handleSubmit)}
-			>
+			<form encType="multipart/form-data" onSubmit={form.onSubmit(handleSubmit)}>
 				<Stack>
-					<Title>
-						{details ? `Updating ${details.title}` : "Create Media"}
-					</Title>
-					<TextInput
-						required
-						autoFocus
-						label="Title"
-						{...form.getInputProps("title")}
-					/>
+					<Title>{details ? `Updating ${details.title}` : "Create Media"}</Title>
+					<TextInput required autoFocus label="Title" {...form.getInputProps("title")} />
 					<Group wrap="nowrap">
 						<Select
 							required
@@ -303,9 +282,7 @@ export default function Page() {
 							onRemove={(key) => {
 								form.setFieldValue(
 									"existingImages",
-									form.values.existingImages.filter(
-										(imageKey) => imageKey !== key,
-									),
+									form.values.existingImages.filter((imageKey) => imageKey !== key),
 								);
 							}}
 						/>
@@ -328,16 +305,9 @@ export default function Page() {
 							label="Publish date"
 							valueFormat="YYYY-MM-DD"
 							leftSection={<IconCalendarEvent />}
-							value={
-								form.values.publishDate
-									? new Date(form.values.publishDate)
-									: undefined
-							}
+							value={form.values.publishDate ? new Date(form.values.publishDate) : undefined}
 							onChange={(d) =>
-								form.setFieldValue(
-									"publishDate",
-									d ? new Date(d).toISOString().slice(0, 10) : "",
-								)
+								form.setFieldValue("publishDate", d ? new Date(d).toISOString().slice(0, 10) : "")
 							}
 						/>
 						<NumberInput

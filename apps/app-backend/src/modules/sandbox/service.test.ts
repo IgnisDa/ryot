@@ -1,9 +1,8 @@
 import { describe, expect, it } from "bun:test";
+
 import type { SandboxEnqueueOptions } from "~/lib/sandbox/types";
-import {
-	createSandboxDeps,
-	createSandboxScriptDeps,
-} from "~/lib/test-fixtures";
+import { createSandboxDeps, createSandboxScriptDeps } from "~/lib/test-fixtures";
+
 import {
 	createSandboxScript,
 	enqueueSandbox,
@@ -17,9 +16,7 @@ describe("resolveSandboxJobId", () => {
 	});
 
 	it("throws when the job id is blank", () => {
-		expect(() => resolveSandboxJobId("   ")).toThrow(
-			"Sandbox job id is required",
-		);
+		expect(() => resolveSandboxJobId("   ")).toThrow("Sandbox job id is required");
 	});
 });
 
@@ -92,10 +89,7 @@ describe("enqueueSandbox", () => {
 
 describe("getSandboxResult", () => {
 	it("returns validation when the job id is blank", async () => {
-		const result = await getSandboxResult(
-			{ jobId: "   ", userId: "user_1" },
-			createSandboxDeps(),
-		);
+		const result = await getSandboxResult({ jobId: "   ", userId: "user_1" }, createSandboxDeps());
 
 		expect(result).toEqual({
 			error: "validation",

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import type { NavigationItem } from "./navigation-data";
 import { buildNavigationItems, sortByOrderThenName } from "./navigation-data";
 
@@ -105,10 +106,7 @@ describe("buildNavigationItems", () => {
 
 	it("excludes disabled views", () => {
 		const disabledView = makeView({ ...view, id: "v2", isDisabled: true });
-		const { trackerItems } = buildNavigationItems(
-			[tracker],
-			[view, disabledView],
-		);
+		const { trackerItems } = buildNavigationItems([tracker], [view, disabledView]);
 		expect(trackerItems[0].subItems).toHaveLength(1);
 		expect(trackerItems[0].subItems[0].key).toBe("v1");
 	});
@@ -132,10 +130,7 @@ describe("buildNavigationItems", () => {
 			name: "Games",
 			slug: "games",
 		});
-		const { trackerItems } = buildNavigationItems(
-			[tracker, otherTracker],
-			[view],
-		);
+		const { trackerItems } = buildNavigationItems([tracker, otherTracker], [view]);
 		const books = trackerItems.find((t) => t.key === "t1");
 		const games = trackerItems.find((t) => t.key === "t2");
 		expect(books?.subItems).toHaveLength(1);
@@ -144,10 +139,7 @@ describe("buildNavigationItems", () => {
 
 	it("places views with trackerId null into libraryViews", () => {
 		const standalone = makeView({ ...view, id: "v2", trackerId: null });
-		const { trackerItems, libraryViews } = buildNavigationItems(
-			[tracker],
-			[view, standalone],
-		);
+		const { trackerItems, libraryViews } = buildNavigationItems([tracker], [view, standalone]);
 		expect(libraryViews).toHaveLength(1);
 		expect(libraryViews[0].key).toBe("v2");
 		expect(trackerItems[0].subItems).toHaveLength(1);
@@ -155,10 +147,7 @@ describe("buildNavigationItems", () => {
 
 	it("sets kind to 'tracker' for tracker items and 'view' for library views", () => {
 		const standalone = makeView({ ...view, id: "v2", trackerId: null });
-		const { trackerItems, libraryViews } = buildNavigationItems(
-			[tracker],
-			[standalone],
-		);
+		const { trackerItems, libraryViews } = buildNavigationItems([tracker], [standalone]);
 		expect(trackerItems[0].kind).toBe("tracker");
 		expect(libraryViews[0].kind).toBe("view");
 	});

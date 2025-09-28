@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
+
 import { db } from "~/lib/db";
+
 import type { PaginatedQueryInput } from "./query-cte-shared";
 import type { QueryEngineItem } from "./schemas";
 import { sanitizeIdentifier } from "./sql-expression-helpers";
@@ -22,11 +24,8 @@ type PaginationResult = PaginationInput & {
 	hasPreviousPage: boolean;
 };
 
-export const calculatePagination = (
-	input: PaginationInput,
-): PaginationResult => {
-	const totalPages =
-		input.total === 0 ? 0 : Math.ceil(input.total / input.limit);
+export const calculatePagination = (input: PaginationInput): PaginationResult => {
+	const totalPages = input.total === 0 ? 0 : Math.ceil(input.total / input.limit);
 
 	return {
 		...input,

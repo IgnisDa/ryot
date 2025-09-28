@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
+
 import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
@@ -7,6 +8,7 @@ import {
 	createSuccessResult,
 	jsonBody,
 } from "~/lib/openapi";
+
 import {
 	createEntityBody,
 	createEntityResponseSchema,

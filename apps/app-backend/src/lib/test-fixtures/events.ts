@@ -14,11 +14,7 @@ import {
 	createShowProgressPropertiesSchema,
 	createWorkoutSetPropertiesSchema,
 } from "~/lib/test-fixtures/property-schemas";
-import type {
-	CreateEventBody,
-	EventServiceDeps,
-	ListedEvent,
-} from "~/modules/events";
+import type { CreateEventBody, EventServiceDeps, ListedEvent } from "~/modules/events";
 
 const listedEventDefaults: ListedEvent = {
 	id: "event_1",
@@ -42,13 +38,11 @@ type EventCreateScope = NonNullable<
 	Awaited<ReturnType<EventServiceDeps["getEventCreateScopeForUser"]>>
 >;
 
-export const createEventBody = (
-	overrides: Partial<CreateEventBody> = {},
-): CreateEventBody => withOverrides(eventBodyDefaults, overrides);
+export const createEventBody = (overrides: Partial<CreateEventBody> = {}): CreateEventBody =>
+	withOverrides(eventBodyDefaults, overrides);
 
-export const createListedEvent = (
-	overrides: Partial<ListedEvent> = {},
-): ListedEvent => withOverrides(listedEventDefaults, overrides);
+export const createListedEvent = (overrides: Partial<ListedEvent> = {}): ListedEvent =>
+	withOverrides(listedEventDefaults, overrides);
 
 export const createEventCreateScope = (
 	overrides: Partial<EventCreateScope> = {},
@@ -66,9 +60,7 @@ export const createEventCreateScope = (
 	...overrides,
 });
 
-export const createEventDeps = (
-	overrides: Partial<EventServiceDeps> = {},
-): EventServiceDeps => ({
+export const createEventDeps = (overrides: Partial<EventServiceDeps> = {}): EventServiceDeps => ({
 	upsertInLibraryRelationship: async () => {},
 	enqueueEventSchemaTriggerJob: async () => {},
 	getUserLibraryEntityId: async () => "library_1",

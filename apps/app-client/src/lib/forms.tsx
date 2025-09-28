@@ -1,5 +1,6 @@
 import { createFormHook, createFormHookContexts } from "@tanstack/react-form";
 import type { ComponentProps } from "react";
+
 import { Box } from "@/components/ui/box";
 import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
 import { Input, InputField } from "@/components/ui/input";
@@ -73,8 +74,7 @@ function SubmitButton(props: SubmitButtonProps) {
 	);
 }
 
-const { fieldContext, useFieldContext, formContext, useFormContext } =
-	createFormHookContexts();
+const { fieldContext, useFieldContext, formContext, useFormContext } = createFormHookContexts();
 
 export const { useAppForm } = createFormHook({
 	formContext,

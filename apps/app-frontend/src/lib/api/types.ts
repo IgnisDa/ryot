@@ -10,9 +10,7 @@ type ApiResponseContent<TResponses> = {
 	[TStatus in keyof TResponses]: ApiJsonContent<TResponses[TStatus]>;
 }[keyof TResponses];
 
-type ApiDataValue<TValue> = TValue extends { data: infer TData }
-	? TData
-	: never;
+type ApiDataValue<TValue> = TValue extends { data: infer TData } ? TData : never;
 
 export type ApiRequestBody<TOperation> = TOperation extends {
 	requestBody?: infer TRequestBody;

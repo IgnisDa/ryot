@@ -16,9 +16,11 @@ import {
 } from "react-router";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
+
 import { Button } from "./lib/components/ui/button";
 import { Toaster } from "./lib/components/ui/sonner";
 import { logoUrl, queryClient, startUrl, useConfigData } from "./lib/general";
+
 import "./tailwind.css";
 
 function HeaderActions() {
@@ -108,18 +110,9 @@ export default function App() {
 							<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 								<div className="flex items-center justify-between h-16">
 									<div className="flex items-center space-x-3">
-										<Link
-											to={$path("/")}
-											className="flex items-center space-x-3"
-										>
-											<img
-												alt="Ryot"
-												src={logoUrl}
-												className="w-8 h-8 object-contain"
-											/>
-											<span className="text-xl font-semibold text-foreground">
-												Ryot
-											</span>
+										<Link to={$path("/")} className="flex items-center space-x-3">
+											<img alt="Ryot" src={logoUrl} className="w-8 h-8 object-contain" />
+											<span className="text-xl font-semibold text-foreground">Ryot</span>
 										</Link>
 									</div>
 
@@ -190,14 +183,8 @@ export default function App() {
 							<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 								<div className="flex flex-col md:flex-row justify-between items-center">
 									<div className="flex items-center space-x-3 mb-4 md:mb-0">
-										<img
-											src={logoUrl}
-											alt="Ryot Logo"
-											className="w-8 h-8 object-contain"
-										/>
-										<span className="text-xl font-semibold text-foreground">
-											Ryot
-										</span>
+										<img src={logoUrl} alt="Ryot Logo" className="w-8 h-8 object-contain" />
+										<span className="text-xl font-semibold text-foreground">Ryot</span>
 									</div>
 									<div className="flex items-center space-x-6 text-muted-foreground">
 										<Link
@@ -237,9 +224,7 @@ export default function App() {
 									</div>
 								</div>
 								<div className="border-t border-border/50 mt-8 pt-8 text-center text-muted-foreground">
-									<p>
-										&copy; {new Date().getFullYear()} Ryot. All Rights Reserved.
-									</p>
+									<p>&copy; {new Date().getFullYear()} Ryot. All Rights Reserved.</p>
 								</div>
 							</div>
 						</footer>
@@ -254,9 +239,7 @@ export default function App() {
 
 export function ErrorBoundary() {
 	const error = useRouteError() as Error;
-	const message = isRouteErrorResponse(error)
-		? error.data.message
-		: error.message;
+	const message = isRouteErrorResponse(error) ? error.data.message : error.message;
 
 	return (
 		<div>

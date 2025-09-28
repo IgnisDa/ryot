@@ -1,8 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import {
-	alignDateRangeToBucket,
-	buildBucketInterval,
-} from "./time-series-query-builder";
+
+import { alignDateRangeToBucket, buildBucketInterval } from "./time-series-query-builder";
 
 describe("buildBucketInterval", () => {
 	it("maps hour to '1 hour'", () => {

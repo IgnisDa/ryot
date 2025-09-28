@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
+
 import { PutObjectCommand } from "@aws-sdk/client-s3";
+
 import { createAuthenticatedClient } from "../fixtures";
 import { getBackendClient, getS3BucketName, getS3Client } from "../setup";
 
@@ -44,10 +46,10 @@ describe("POST /uploads/presigned/download", () => {
 		);
 
 		const { client, cookies } = await createAuthenticatedClient();
-		const { data, response } = await client.POST(
-			"/uploads/presigned/download",
-			{ body: { keys: [key] }, headers: { Cookie: cookies } },
-		);
+		const { data, response } = await client.POST("/uploads/presigned/download", {
+			body: { keys: [key] },
+			headers: { Cookie: cookies },
+		});
 
 		expect(response.status).toBe(200);
 		expect(data).toBeDefined();

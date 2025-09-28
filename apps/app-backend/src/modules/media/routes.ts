@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
+
 import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
@@ -8,6 +9,7 @@ import {
 	notFoundResponse,
 	validationErrorResponse,
 } from "~/lib/openapi";
+
 import {
 	builtInMediaOverviewContinueResponseSchema,
 	builtInMediaOverviewLibraryResponseSchema,
@@ -37,9 +39,7 @@ const getMediaOverviewUpNextRoute = createAuthRoute(
 				successSchema: builtInMediaOverviewUpNextResponseSchema,
 				successDescription: "Up next section items",
 			}),
-			400: validationErrorResponse(
-				"Built-in media overview configuration is invalid",
-			),
+			400: validationErrorResponse("Built-in media overview configuration is invalid"),
 			404: notFoundResponse(
 				"Built-in media overview configuration is missing required built-in schemas",
 			),
@@ -59,9 +59,7 @@ const getMediaOverviewContinueRoute = createAuthRoute(
 				successSchema: builtInMediaOverviewContinueResponseSchema,
 				successDescription: "Continue section items",
 			}),
-			400: validationErrorResponse(
-				"Built-in media overview configuration is invalid",
-			),
+			400: validationErrorResponse("Built-in media overview configuration is invalid"),
 			404: notFoundResponse(
 				"Built-in media overview configuration is missing required built-in schemas",
 			),
@@ -81,9 +79,7 @@ const getMediaOverviewRateTheseRoute = createAuthRoute(
 				successSchema: builtInMediaOverviewRateTheseResponseSchema,
 				successDescription: "Review section items",
 			}),
-			400: validationErrorResponse(
-				"Built-in media overview configuration is invalid",
-			),
+			400: validationErrorResponse("Built-in media overview configuration is invalid"),
 			404: notFoundResponse(
 				"Built-in media overview configuration is missing required built-in schemas",
 			),
@@ -103,9 +99,7 @@ const getMediaOverviewRecentActivityRoute = createAuthRoute(
 				successDescription: "Recent media activity items",
 				successSchema: builtInMediaOverviewRecentActivityResponseSchema,
 			}),
-			400: validationErrorResponse(
-				"Built-in media overview configuration is invalid",
-			),
+			400: validationErrorResponse("Built-in media overview configuration is invalid"),
 			404: notFoundResponse(
 				"Built-in media overview configuration is missing required built-in schemas",
 			),
@@ -125,9 +119,7 @@ const getMediaOverviewWeekActivityRoute = createAuthRoute(
 				successDescription: "Current week media activity buckets",
 				successSchema: builtInMediaOverviewWeekActivityResponseSchema,
 			}),
-			400: validationErrorResponse(
-				"Built-in media overview configuration is invalid",
-			),
+			400: validationErrorResponse("Built-in media overview configuration is invalid"),
 			404: notFoundResponse(
 				"Built-in media overview configuration is missing required built-in schemas",
 			),
@@ -147,9 +139,7 @@ const getMediaOverviewLibraryRoute = createAuthRoute(
 				successDescription: "Library statistics overview",
 				successSchema: builtInMediaOverviewLibraryResponseSchema,
 			}),
-			400: validationErrorResponse(
-				"Built-in media overview configuration is invalid",
-			),
+			400: validationErrorResponse("Built-in media overview configuration is invalid"),
 			404: notFoundResponse(
 				"Built-in media overview configuration is missing required built-in schemas",
 			),

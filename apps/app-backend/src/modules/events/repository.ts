@@ -1,5 +1,6 @@
 import type { AppSchema } from "@ryot/ts-utils";
 import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
+
 import { assertPersisted, db } from "~/lib/db";
 import {
 	entity,
@@ -9,6 +10,7 @@ import {
 	eventSchema,
 	eventSchemaTrigger,
 } from "~/lib/db/schema";
+
 import type { ListedEvent } from "./schemas";
 import type { EventPropertiesShape } from "./service";
 
@@ -47,10 +49,7 @@ const eventSchemaVisibleToUserClause = (userId: string) => {
 	return or(isNull(eventSchema.userId), eq(eventSchema.userId, userId));
 };
 
-export const getEntityScopeForUser = async (input: {
-	userId: string;
-	entityId: string;
-}) => {
+export const getEntityScopeForUser = async (input: { userId: string; entityId: string }) => {
 	const [foundEntity] = await db
 		.select(entityAccessScopeWithSchemaJoinSelection)
 		.from(entity)
@@ -88,10 +87,7 @@ export const getEventCreateScopeForUser = async (input: {
 		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
 		.leftJoin(
 			eventSchema,
-			and(
-				eq(eventSchema.id, input.eventSchemaId),
-				eventSchemaVisibleToUserClause(input.userId),
-			),
+			and(eq(eventSchema.id, input.eventSchemaId), eventSchemaVisibleToUserClause(input.userId)),
 		)
 		.where(
 			and(
@@ -130,9 +126,7 @@ export const listEventsByEntityForUser = async (input: {
 		.where(
 			and(
 				...whereClauses,
-				input.eventSchemaSlug
-					? eq(eventSchema.slug, input.eventSchemaSlug)
-					: undefined,
+				input.eventSchemaSlug ? eq(eventSchema.slug, input.eventSchemaSlug) : undefined,
 			),
 		)
 		.orderBy(desc(event.createdAt));
@@ -192,10 +186,7 @@ export const getActiveEventSchemaTriggersForEventSchemas = async (input: {
 			and(
 				inArray(eventSchemaTrigger.eventSchemaId, input.eventSchemaIds),
 				eq(eventSchemaTrigger.isActive, true),
-				or(
-					isNull(eventSchemaTrigger.userId),
-					eq(eventSchemaTrigger.userId, input.userId),
-				),
+				or(isNull(eventSchemaTrigger.userId), eq(eventSchemaTrigger.userId, input.userId)),
 			),
 		);
 };

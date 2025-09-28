@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
+
 import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
@@ -8,6 +9,7 @@ import {
 	createValidationServiceErrorResult,
 	jsonBody,
 } from "~/lib/openapi";
+
 import { listTrackersByUser } from "./repository";
 import {
 	createTrackerBody,

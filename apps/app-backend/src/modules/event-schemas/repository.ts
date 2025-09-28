@@ -1,10 +1,8 @@
 import { and, asc, eq, isNull, or } from "drizzle-orm";
+
 import { assertPersisted, db } from "~/lib/db";
-import {
-	entitySchema,
-	entitySchemaAccessScopeSelection,
-	eventSchema,
-} from "~/lib/db/schema";
+import { entitySchema, entitySchemaAccessScopeSelection, eventSchema } from "~/lib/db/schema";
+
 import type { ListedEventSchema } from "./schemas";
 import type { EventSchemaPropertiesShape } from "./service";
 
@@ -37,10 +35,7 @@ export const getEntitySchemaScopeForUser = async (input: {
 		.select(entitySchemaAccessScopeSelection)
 		.from(entitySchema)
 		.where(
-			and(
-				eq(entitySchema.id, input.entitySchemaId),
-				entitySchemaVisibleToUserClause(input.userId),
-			),
+			and(eq(entitySchema.id, input.entitySchemaId), entitySchemaVisibleToUserClause(input.userId)),
 		)
 		.limit(1);
 
@@ -103,7 +98,5 @@ export const createEventSchemaForUser = async (input: {
 		})
 		.returning(listedEventSchemaSelection);
 
-	return toListedEventSchema(
-		assertPersisted(createdEventSchema, "event schema"),
-	);
+	return toListedEventSchema(assertPersisted(createdEventSchema, "event schema"));
 };

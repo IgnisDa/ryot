@@ -1,4 +1,5 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
+
 import type { Client } from "./auth";
 import type { AppSchema } from "./entity-schemas";
 
@@ -6,10 +7,9 @@ type GeneratedCreateEventSchemaBody = NonNullable<
 	paths["/event-schemas"]["post"]["requestBody"]
 >["content"]["application/json"];
 
-type CreateEventSchemaBody = Omit<
-	GeneratedCreateEventSchemaBody,
-	"propertiesSchema"
-> & { propertiesSchema: AppSchema };
+type CreateEventSchemaBody = Omit<GeneratedCreateEventSchemaBody, "propertiesSchema"> & {
+	propertiesSchema: AppSchema;
+};
 
 export function requireEventSchemaBySlug<T extends { slug: string }>(
 	schemas: T[],
@@ -39,11 +39,7 @@ export async function createEventSchema(
 	return data.data;
 }
 
-export async function listEventSchemas(
-	client: Client,
-	cookies: string,
-	entitySchemaId: string,
-) {
+export async function listEventSchemas(client: Client, cookies: string, entitySchemaId: string) {
 	const { data, response } = await client.GET("/event-schemas", {
 		headers: { Cookie: cookies },
 		params: { query: { entitySchemaId } },

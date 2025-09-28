@@ -6,6 +6,7 @@ import { isNumber, sortBy } from "@ryot/ts-utils";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { useMemo } from "react";
+
 import { useUserPreferences } from "~/lib/shared/hooks";
 import { queryClient } from "~/lib/shared/react-query";
 import {
@@ -14,6 +15,7 @@ import {
 	type InProgressWorkout,
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
+
 import { DEFAULT_SET_TIMEOUT_DELAY_MS } from "./utils";
 
 export const focusOnExercise = (idx: number) => {
@@ -26,10 +28,7 @@ export const focusOnExercise = (idx: number) => {
 export const sortSupersetExercisesByWorkoutOrder = (
 	supersetExercises: string[],
 	workoutExercises: InProgressWorkout["exercises"],
-) =>
-	sortBy(supersetExercises, (s) =>
-		workoutExercises.findIndex((e) => e.identifier === s),
-	);
+) => sortBy(supersetExercises, (s) => workoutExercises.findIndex((e) => e.identifier === s));
 
 export const getProgressOfExercise = (cw: InProgressWorkout, index: number) => {
 	const isCompleted = cw.exercises[index].sets.every((s) => s.confirmedAt);
@@ -65,20 +64,13 @@ const getNextSetInWorkout = (
 			const exerciseIdx = currentWorkout.exercises.findIndex(
 				(e) => e.identifier === nextExerciseWithIncompleteSets.identifier,
 			);
-			const setIdx = nextExerciseWithIncompleteSets.sets.findIndex(
-				(s) => !s.confirmedAt,
-			);
+			const setIdx = nextExerciseWithIncompleteSets.sets.findIndex((s) => !s.confirmedAt);
 			return { exerciseIdx, setIdx: setIdx, wasLastSet: areAllSetsConfirmed };
 		}
 	}
 	if (areAllSetsConfirmed) {
-		for (
-			let i = currentExerciseIdx + 1;
-			i < currentWorkout.exercises.length;
-			i++
-		) {
-			const exerciseProgress =
-				getProgressOfExercise(currentWorkout, i) !== "complete";
+		for (let i = currentExerciseIdx + 1; i < currentWorkout.exercises.length; i++) {
+			const exerciseProgress = getProgressOfExercise(currentWorkout, i) !== "complete";
 			if (exerciseProgress)
 				return {
 					setIdx: 0,
@@ -89,8 +81,7 @@ const getNextSetInWorkout = (
 	}
 	const isLastSetOfLastExercise =
 		currentExerciseIdx === currentWorkout.exercises.length - 1 &&
-		currentSetIdx ===
-			currentWorkout.exercises[currentExerciseIdx].sets.length - 1;
+		currentSetIdx === currentWorkout.exercises[currentExerciseIdx].sets.length - 1;
 	if (isLastSetOfLastExercise) return { wasLastSet: true };
 	return {
 		wasLastSet: false,
@@ -102,19 +93,11 @@ const getNextSetInWorkout = (
 type ExerciseDetails = ExerciseDetailsQuery["exerciseDetails"];
 type UserExerciseDetails = UserExerciseDetailsQuery["userExerciseDetails"];
 
-const getExerciseImages = (
-	exercise?: ExerciseDetailsQuery["exerciseDetails"],
-) => {
-	return [
-		...(exercise?.assets.s3Images || []),
-		...(exercise?.assets.remoteImages || []),
-	];
+const getExerciseImages = (exercise?: ExerciseDetailsQuery["exerciseDetails"]) => {
+	return [...(exercise?.assets.s3Images || []), ...(exercise?.assets.remoteImages || [])];
 };
 
-const exerciseHasDetailsToShow = (
-	details?: ExerciseDetails,
-	userDetails?: UserExerciseDetails,
-) => {
+const exerciseHasDetailsToShow = (details?: ExerciseDetails, userDetails?: UserExerciseDetails) => {
 	const images = getExerciseImages(details);
 	return (images.length || 0) > 0 || (userDetails?.history?.length || 0) > 0;
 };
@@ -125,9 +108,7 @@ export const usePerformTasksAfterSetConfirmed = () => {
 	const performTask = async (setIdx: number, exerciseIdx: number) => {
 		const exerciseId = currentWorkout?.exercises[exerciseIdx].exerciseId;
 		if (!exerciseId) return;
-		const exerciseDetails = await queryClient.ensureQueryData(
-			getExerciseDetailsQuery(exerciseId),
-		);
+		const exerciseDetails = await queryClient.ensureQueryData(getExerciseDetailsQuery(exerciseId));
 		const userExerciseDetails = await queryClient.ensureQueryData(
 			getUserExerciseDetailsQuery(exerciseId),
 		);
@@ -143,8 +124,7 @@ export const usePerformTasksAfterSetConfirmed = () => {
 					if (isNumber(nextSet.exerciseIdx)) {
 						const nextExercise = draft.exercises[nextSet.exerciseIdx];
 						const nextExerciseHasDetailsToShow =
-							nextExercise &&
-							exerciseHasDetailsToShow(exerciseDetails, userExerciseDetails);
+							nextExercise && exerciseHasDetailsToShow(exerciseDetails, userExerciseDetails);
 						if (nextExerciseHasDetailsToShow) nextExercise.isCollapsed = false;
 					}
 				}
@@ -160,10 +140,7 @@ export const usePerformTasksAfterSetConfirmed = () => {
 
 export const usePlayFitnessSound = (fileName: string) => {
 	const userPreferences = useUserPreferences();
-	const sound = useMemo(
-		() => new Howl({ src: [`/sounds/${fileName}.mp3`] }),
-		[],
-	);
+	const sound = useMemo(() => new Howl({ src: [`/sounds/${fileName}.mp3`] }), []);
 
 	const playSound = () => {
 		if (!userPreferences.fitness.logging.muteSounds) sound.play();

@@ -8,10 +8,7 @@ const { config: rawSystem, envIndex: systemConfigEnvIndex } = parseGroupDef(
 	process.env,
 );
 
-const { config: rawApp, envIndex: rawAppEnvIndex } = parseGroupDef(
-	appConfigDef,
-	process.env,
-);
+const { config: rawApp, envIndex: rawAppEnvIndex } = parseGroupDef(appConfigDef, process.env);
 
 function requireField(value: string | undefined, envKey: string): string {
 	if (value === undefined) {
@@ -37,10 +34,7 @@ export const config = {
 	databaseUrl: requireField(rawSystem.databaseUrl, "DATABASE_URL"),
 	frontendUrl: requireField(rawSystem.frontendUrl, "FRONTEND_URL"),
 	server: {
-		adminAccessToken: requireField(
-			rawSystem.server.adminAccessToken,
-			"SERVER_ADMIN_ACCESS_TOKEN",
-		),
+		adminAccessToken: requireField(rawSystem.server.adminAccessToken, "SERVER_ADMIN_ACCESS_TOKEN"),
 	},
 };
 
@@ -51,10 +45,7 @@ export type AppConfig = typeof rawApp;
 
 export type AppConfigEnvKey = ExtractEnvKeys<typeof appConfigDef.children>;
 
-export const appConfigEnvIndex = rawAppEnvIndex as Record<
-	AppConfigEnvKey,
-	string | undefined
->;
+export const appConfigEnvIndex = rawAppEnvIndex as Record<AppConfigEnvKey, string | undefined>;
 
 export type AppConfigPath = ExtractPaths<typeof appConfigDef.children>;
 

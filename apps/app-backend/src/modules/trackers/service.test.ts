@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createListedTracker,
 	createReorderTrackersBody,
@@ -7,6 +8,7 @@ import {
 	createUpdateTrackerBody,
 } from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
+
 import {
 	buildTrackerOrder,
 	createTracker,
@@ -230,11 +232,7 @@ describe("reorderTrackers", () => {
 			),
 		);
 
-		expect(reordered.trackerIds).toEqual([
-			"tracker_2",
-			"tracker_1",
-			"tracker_3",
-		]);
+		expect(reordered.trackerIds).toEqual(["tracker_2", "tracker_1", "tracker_3"]);
 	});
 
 	it("returns validation for unknown tracker ids", async () => {

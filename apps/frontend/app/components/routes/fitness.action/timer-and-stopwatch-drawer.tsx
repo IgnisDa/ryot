@@ -1,20 +1,9 @@
-import {
-	Button,
-	Divider,
-	Drawer,
-	Group,
-	RingProgress,
-	Stack,
-	Text,
-} from "@mantine/core";
+import { Button, Divider, Drawer, Group, RingProgress, Stack, Text } from "@mantine/core";
 import { isNumber } from "@ryot/ts-utils";
-import {
-	IconDeviceWatch,
-	IconDeviceWatchCancel,
-	IconDeviceWatchPause,
-} from "@tabler/icons-react";
+import { IconDeviceWatch, IconDeviceWatchCancel, IconDeviceWatchPause } from "@tabler/icons-react";
 import { produce } from "immer";
 import invariant from "tiny-invariant";
+
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useForceUpdateEverySecond } from "~/lib/shared/hooks";
 import {
@@ -22,6 +11,7 @@ import {
 	useCurrentWorkoutStopwatchAtom,
 	useCurrentWorkoutTimerAtom,
 } from "~/lib/state/fitness";
+
 import type { FuncStartTimer } from "./types";
 import { formatTimerDuration, getStopwatchMilliSeconds, styles } from "./utils";
 
@@ -36,8 +26,7 @@ export const TimerAndStopwatchDrawer = (props: {
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [currentTimer, setCurrentTimer] = useCurrentWorkoutTimerAtom();
-	const [currentStopwatch, setCurrentStopwatch] =
-		useCurrentWorkoutStopwatchAtom();
+	const [currentStopwatch, setCurrentStopwatch] = useCurrentWorkoutStopwatchAtom();
 
 	invariant(currentWorkout);
 
@@ -46,10 +35,7 @@ export const TimerAndStopwatchDrawer = (props: {
 	const stopwatchMilliSeconds = getStopwatchMilliSeconds(currentStopwatch);
 	const isStopwatchPaused = Boolean(currentStopwatch?.at(-1)?.to);
 	const isTimerTooShortToReduce = currentTimer
-		? dayjsLib(currentTimer.willEndAt).diff(
-				currentTimer.wasPausedAt,
-				"seconds",
-			) <= 30
+		? dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt, "seconds") <= 30
 		: false;
 
 	return (
@@ -135,13 +121,7 @@ export const TimerAndStopwatchDrawer = (props: {
 						<Button
 							color="orange"
 							variant="outline"
-							leftSection={
-								isStopwatchPaused ? (
-									<IconDeviceWatch />
-								) : (
-									<IconDeviceWatchPause />
-								)
-							}
+							leftSection={isStopwatchPaused ? <IconDeviceWatch /> : <IconDeviceWatchPause />}
 							onClick={() => {
 								setCurrentStopwatch(
 									produce(currentStopwatch, (draft) => {
@@ -209,10 +189,7 @@ export const TimerAndStopwatchDrawer = (props: {
 								{
 									color: currentTimer.wasPausedAt ? "gray" : "orange",
 									value:
-										(dayjsLib(currentTimer.willEndAt).diff(
-											currentTimer.wasPausedAt,
-											"seconds",
-										) *
+										(dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt, "seconds") *
 											100) /
 										currentTimer.totalTime,
 								},
@@ -221,9 +198,7 @@ export const TimerAndStopwatchDrawer = (props: {
 								<>
 									<Text ta="center" fz={64}>
 										{formatTimerDuration(
-											dayjsLib(currentTimer.willEndAt).diff(
-												currentTimer.wasPausedAt,
-											),
+											dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt),
 										)}
 									</Text>
 									<Text ta="center" c="dimmed" fz="lg" mt="-md">

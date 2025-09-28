@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
+
 import { SandboxService } from "~/lib/sandbox/service";
+
 import autoCompleteOnFullProgressScriptCode from "./auto-complete-on-full-progress.txt";
 
 type TestSandboxExecutor = {
@@ -11,9 +13,7 @@ type TestSandboxExecutor = {
 			driverName: string;
 			context?: Record<string, unknown>;
 		},
-		scriptFetcher?: (
-			scriptId: string,
-		) => Promise<{ code: string; metadata: object } | null>,
+		scriptFetcher?: (scriptId: string) => Promise<{ code: string; metadata: object } | null>,
 	) => Promise<unknown>;
 };
 
@@ -39,8 +39,7 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 	it("creates a completion event after anime coverage is complete", async () => {
 		const service = new SandboxService();
 		const testService = service as unknown as TestSandboxExecutor;
-		const calls: Array<{ method: unknown; path: unknown; options: unknown }> =
-			[];
+		const calls: Array<{ method: unknown; path: unknown; options: unknown }> = [];
 
 		testService.execute = async (options: unknown) => {
 			const executeOptions = options as {
@@ -52,15 +51,8 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 				};
 			};
 
-			const driverRegistry: Record<
-				string,
-				(context: unknown) => Promise<unknown>
-			> = {};
-			const respond = async (
-				method: unknown,
-				path: unknown,
-				apiOptions?: unknown,
-			) => {
+			const driverRegistry: Record<string, (context: unknown) => Promise<unknown>> = {};
+			const respond = async (method: unknown, path: unknown, apiOptions?: unknown) => {
 				calls.push({ method, path, options: apiOptions });
 				if (path === "/event-schemas?entitySchemaId=entity_schema_1") {
 					return {
@@ -101,9 +93,7 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 					return { success: true, data: { body: { data: { count: 1 } } } };
 				}
 
-				throw new Error(
-					`Unexpected appApiCall: ${String(method)} ${String(path)}`,
-				);
+				throw new Error(`Unexpected appApiCall: ${String(method)} ${String(path)}`);
 			};
 
 			new Function("driver", "appApiCall", executeOptions.code)(function driver(

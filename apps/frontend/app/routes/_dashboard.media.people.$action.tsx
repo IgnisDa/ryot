@@ -22,12 +22,7 @@ import {
 	type UserPeopleListInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { cloneDeep, startCase } from "@ryot/ts-utils";
-import {
-	IconCheck,
-	IconFilter,
-	IconListCheck,
-	IconSearch,
-} from "@tabler/icons-react";
+import { IconCheck, IconFilter, IconListCheck, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import {
 	type inferParserType,
@@ -39,6 +34,7 @@ import {
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
+
 import {
 	ApplicationPagination,
 	CreateButton,
@@ -46,10 +42,7 @@ import {
 	SkeletonLoader,
 } from "~/components/common";
 import { BulkCollectionEditingAffix } from "~/components/common/bulk-collection-editing-affix";
-import {
-	FilterPresetBar,
-	FilterPresetModalManager,
-} from "~/components/common/filter-presets";
+import { FilterPresetBar, FilterPresetModalManager } from "~/components/common/filter-presets";
 import {
 	CollectionsFilter,
 	DebouncedSearchInput,
@@ -72,12 +65,10 @@ const defaultListQueryState = {
 	page: parseAsInteger.withDefault(1),
 	query: parseAsString.withDefault(""),
 	collections: parseAsCollectionsFilter.withDefault([]),
-	orderBy: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(
-		GraphqlSortOrder.Desc,
+	orderBy: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(GraphqlSortOrder.Desc),
+	sortBy: parseAsStringEnum(Object.values(PersonAndMetadataGroupsSortBy)).withDefault(
+		PersonAndMetadataGroupsSortBy.AssociatedEntityCount,
 	),
-	sortBy: parseAsStringEnum(
-		Object.values(PersonAndMetadataGroupsSortBy),
-	).withDefault(PersonAndMetadataGroupsSortBy.AssociatedEntityCount),
 };
 
 const defaultSearchQueryState = {
@@ -88,9 +79,7 @@ const defaultSearchQueryState = {
 	isAnilistStudio: parseAsBoolean.withDefault(false),
 	isGiantBombCompany: parseAsBoolean.withDefault(false),
 	isHardcoverPublisher: parseAsBoolean.withDefault(false),
-	source: parseAsStringEnum(Object.values(MediaSource)).withDefault(
-		MediaSource.Tmdb,
-	),
+	source: parseAsStringEnum(Object.values(MediaSource)).withDefault(MediaSource.Tmdb),
 };
 
 type ListFilterState = inferParserType<typeof defaultListQueryState>;
@@ -145,8 +134,10 @@ export default function Page(props: { params: { action: string } }) {
 		[listFilters],
 	);
 
-	const { data: userPeopleList, refetch: refetchUserPeopleList } =
-		useUserPeopleList(listInput, action === "list");
+	const { data: userPeopleList, refetch: refetchUserPeopleList } = useUserPeopleList(
+		listInput,
+		action === "list",
+	);
 
 	const searchInput = useMemo(
 		() => ({
@@ -172,8 +163,7 @@ export default function Page(props: { params: { action: string } }) {
 				.then((data) => data.peopleSearch),
 	});
 
-	const searchInputValue =
-		action === "list" ? listFilters.query : searchFilters.query;
+	const searchInputValue = action === "list" ? listFilters.query : searchFilters.query;
 
 	return (
 		<>
@@ -194,14 +184,12 @@ export default function Page(props: { params: { action: string } }) {
 					if (action !== "list") return [];
 					const input = cloneDeep(listInput);
 					input.search = { ...input.search, take: Number.MAX_SAFE_INTEGER };
-					return await clientGqlService
-						.request(UserPeopleListDocument, { input })
-						.then((r) =>
-							r.userPeopleList.response.items.map((p) => ({
-								entityId: p,
-								entityLot: EntityLot.Person,
-							})),
-						);
+					return await clientGqlService.request(UserPeopleListDocument, { input }).then((r) =>
+						r.userPeopleList.response.items.map((p) => ({
+							entityId: p,
+							entityLot: EntityLot.Person,
+						})),
+					);
 				}}
 			/>
 			<Container>
@@ -221,9 +209,7 @@ export default function Page(props: { params: { action: string } }) {
 							<Tabs.Tab value="search" leftSection={<IconSearch size={24} />}>
 								<Text>Search</Text>
 							</Tabs.Tab>
-							<CreateButton
-								to={$path("/media/people/update/:action", { action: "create" })}
-							/>
+							<CreateButton to={$path("/media/people/update/:action", { action: "create" })} />
 						</Tabs.List>
 					</Tabs>
 
@@ -252,9 +238,7 @@ export default function Page(props: { params: { action: string } }) {
 								>
 									<FiltersModalForm
 										filters={listFilters}
-										onFiltersChange={(key, value) =>
-											updateListFilters({ [key]: value })
-										}
+										onFiltersChange={(key, value) => updateListFilters({ [key]: value })}
 									/>
 								</FiltersModal>
 							</>
@@ -289,20 +273,14 @@ export default function Page(props: { params: { action: string } }) {
 								>
 									<SearchFiltersModalForm
 										filters={searchFilters}
-										onFiltersChange={(key, value) =>
-											updateSearchFilters({ [key]: value })
-										}
+										onFiltersChange={(key, value) => updateSearchFilters({ [key]: value })}
 									/>
 								</FiltersModal>
 							</>
 						) : null}
 					</Group>
-					{action === "list" ? (
-						<FilterPresetBar presetManager={listPresets} />
-					) : null}
-					{action === "search" ? (
-						<FilterPresetBar presetManager={searchPresets} />
-					) : null}
+					{action === "list" ? <FilterPresetBar presetManager={listPresets} /> : null}
+					{action === "search" ? <FilterPresetBar presetManager={searchPresets} /> : null}
 					{action === "list" ? (
 						userPeopleList ? (
 							<>
@@ -337,9 +315,7 @@ export default function Page(props: { params: { action: string } }) {
 					{action === "search" ? (
 						peopleSearch ? (
 							<>
-								<DisplayListDetailsAndRefresh
-									total={peopleSearch.response.details.totalItems}
-								/>
+								<DisplayListDetailsAndRefresh total={peopleSearch.response.details.totalItems} />
 								{peopleSearch.response.details.totalItems > 0 ? (
 									<ApplicationGrid>
 										{peopleSearch.response.items.map((person) => (
@@ -381,10 +357,7 @@ const FiltersModalForm = (props: FiltersModalFormProps) => (
 				w="100%"
 				value={props.filters.sortBy}
 				data={convertEnumToSelectData(PersonAndMetadataGroupsSortBy)}
-				onChange={(v) =>
-					v &&
-					props.onFiltersChange("sortBy", v as PersonAndMetadataGroupsSortBy)
-				}
+				onChange={(v) => v && props.onFiltersChange("sortBy", v as PersonAndMetadataGroupsSortBy)}
 			/>
 			{props.filters.sortBy !== PersonAndMetadataGroupsSortBy.Random ? (
 				<SortOrderToggle
@@ -412,45 +385,35 @@ const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => (
 			<Checkbox
 				label="Company"
 				checked={props.filters.isTvdbCompany}
-				onChange={(e) =>
-					props.onFiltersChange("isTvdbCompany", e.target.checked)
-				}
+				onChange={(e) => props.onFiltersChange("isTvdbCompany", e.target.checked)}
 			/>
 		) : null}
 		{props.filters.source === MediaSource.Tmdb ? (
 			<Checkbox
 				label="Company"
 				checked={props.filters.isTmdbCompany}
-				onChange={(e) =>
-					props.onFiltersChange("isTmdbCompany", e.target.checked)
-				}
+				onChange={(e) => props.onFiltersChange("isTmdbCompany", e.target.checked)}
 			/>
 		) : null}
 		{props.filters.source === MediaSource.Anilist ? (
 			<Checkbox
 				label="Studio"
 				checked={props.filters.isAnilistStudio}
-				onChange={(e) =>
-					props.onFiltersChange("isAnilistStudio", e.target.checked)
-				}
+				onChange={(e) => props.onFiltersChange("isAnilistStudio", e.target.checked)}
 			/>
 		) : null}
 		{props.filters.source === MediaSource.Hardcover ? (
 			<Checkbox
 				label="Publisher"
 				checked={props.filters.isHardcoverPublisher}
-				onChange={(e) =>
-					props.onFiltersChange("isHardcoverPublisher", e.target.checked)
-				}
+				onChange={(e) => props.onFiltersChange("isHardcoverPublisher", e.target.checked)}
 			/>
 		) : null}
 		{props.filters.source === MediaSource.GiantBomb ? (
 			<Checkbox
 				label="Company"
 				checked={props.filters.isGiantBombCompany}
-				onChange={(e) =>
-					props.onFiltersChange("isGiantBombCompany", e.target.checked)
-				}
+				onChange={(e) => props.onFiltersChange("isGiantBombCompany", e.target.checked)}
 			/>
 		) : null}
 	</Stack>
@@ -472,9 +435,7 @@ const PersonListItem = (props: PersonListItemProps) => {
 		<PersonDisplayItem
 			personId={props.item}
 			centerElement={
-				bulkEditingState &&
-				bulkEditingState.data.action === "add" &&
-				!isAlreadyPresent ? (
+				bulkEditingState && bulkEditingState.data.action === "add" && !isAlreadyPresent ? (
 					<ActionIcon
 						color="green"
 						variant={isAdded ? "filled" : "transparent"}

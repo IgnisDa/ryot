@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
+
 import { dayjs } from "@ryot/ts-utils";
+
 import { createEventSchemaFixture } from "~/features/test-fixtures";
+
 import {
 	createBacklogEventPayload,
 	createLogEventPayload,
@@ -21,15 +24,11 @@ function createLifecycleSchemas() {
 
 describe("getMediaLifecycleUnavailableMessage", () => {
 	it("returns null when all lifecycle schemas exist", () => {
-		expect(
-			getMediaLifecycleUnavailableMessage(createLifecycleSchemas()),
-		).toBeNull();
+		expect(getMediaLifecycleUnavailableMessage(createLifecycleSchemas())).toBeNull();
 	});
 
 	it("lists missing lifecycle schemas when any are absent", () => {
-		const schemas = createLifecycleSchemas().filter(
-			(schema) => schema.slug !== "review",
-		);
+		const schemas = createLifecycleSchemas().filter((schema) => schema.slug !== "review");
 
 		expect(getMediaLifecycleUnavailableMessage(schemas)).toBe(
 			"Some actions are unavailable. Please check your event schemas configuration.",
@@ -44,9 +43,7 @@ describe("createBacklogEventPayload", () => {
 				entityId: "entity-1",
 				eventSchemas: createLifecycleSchemas(),
 			}),
-		).toEqual([
-			{ entityId: "entity-1", eventSchemaId: "backlog-id", properties: {} },
-		]);
+		).toEqual([{ entityId: "entity-1", eventSchemaId: "backlog-id", properties: {} }]);
 	});
 });
 
@@ -265,12 +262,8 @@ describe("createReviewEventPayload", () => {
 describe("getMediaDoneActionLabel", () => {
 	it("labels action badges for media search results", () => {
 		expect(getMediaDoneActionLabel("track")).toBe("Added");
-		expect(
-			getMediaDoneActionLabel("log", { logDate: "started", rateStars: 0 }),
-		).toBe("Started");
-		expect(
-			getMediaDoneActionLabel("rate", { logDate: "now", rateStars: 5 }),
-		).toBe("Rated 5/5");
+		expect(getMediaDoneActionLabel("log", { logDate: "started", rateStars: 0 })).toBe("Started");
+		expect(getMediaDoneActionLabel("rate", { logDate: "now", rateStars: 5 })).toBe("Rated 5/5");
 	});
 
 	it("labels collection action as 'In collection'", () => {

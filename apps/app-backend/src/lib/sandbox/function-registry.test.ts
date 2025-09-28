@@ -1,8 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import {
-	buildApiFunctionDescriptors,
-	hostFunctionRegistry,
-} from "./function-registry";
+
+import { buildApiFunctionDescriptors, hostFunctionRegistry } from "./function-registry";
 
 describe("buildApiFunctionDescriptors", () => {
 	it("returns an empty array for an empty allowedKeys list", () => {
@@ -10,11 +8,7 @@ describe("buildApiFunctionDescriptors", () => {
 	});
 
 	it("binds userId into context for appApiCall", () => {
-		const [descriptor] = buildApiFunctionDescriptors(
-			["appApiCall"],
-			"user_1",
-			"script_1",
-		);
+		const [descriptor] = buildApiFunctionDescriptors(["appApiCall"], "user_1", "script_1");
 
 		expect(descriptor).toEqual({
 			functionKey: "appApiCall",
@@ -23,11 +17,7 @@ describe("buildApiFunctionDescriptors", () => {
 	});
 
 	it("binds userId into context for getUserPreferences", () => {
-		const [descriptor] = buildApiFunctionDescriptors(
-			["getUserPreferences"],
-			"user_1",
-			"script_1",
-		);
+		const [descriptor] = buildApiFunctionDescriptors(["getUserPreferences"], "user_1", "script_1");
 
 		expect(descriptor).toEqual({
 			context: { userId: "user_1" },
@@ -36,11 +26,7 @@ describe("buildApiFunctionDescriptors", () => {
 	});
 
 	it("binds scriptId into context for getCachedValue", () => {
-		const [descriptor] = buildApiFunctionDescriptors(
-			["getCachedValue"],
-			"user_1",
-			"script_1",
-		);
+		const [descriptor] = buildApiFunctionDescriptors(["getCachedValue"], "user_1", "script_1");
 
 		expect(descriptor).toEqual({
 			functionKey: "getCachedValue",
@@ -49,11 +35,7 @@ describe("buildApiFunctionDescriptors", () => {
 	});
 
 	it("binds scriptId into context for setCachedValue", () => {
-		const [descriptor] = buildApiFunctionDescriptors(
-			["setCachedValue"],
-			"user_1",
-			"script_1",
-		);
+		const [descriptor] = buildApiFunctionDescriptors(["setCachedValue"], "user_1", "script_1");
 
 		expect(descriptor).toEqual({
 			functionKey: "setCachedValue",

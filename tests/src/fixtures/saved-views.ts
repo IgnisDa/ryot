@@ -1,8 +1,6 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
-import {
-	createEntityColumnExpression,
-	createEntityPropertyExpression,
-} from "@ryot/ts-utils";
+import { createEntityColumnExpression, createEntityPropertyExpression } from "@ryot/ts-utils";
+
 import type { Client } from "./auth";
 import {
 	type ExpressionInput,
@@ -86,9 +84,7 @@ const normalizeTableDisplayConfiguration = (input: {
 }): TableDisplayConfiguration => ({
 	columns: input.columns.map((column) => ({
 		label: column.label,
-		expression: toRequiredExpression(
-			column.expression ?? column.property ?? [],
-		),
+		expression: toRequiredExpression(column.expression ?? column.property ?? []),
 	})),
 });
 
@@ -148,14 +144,8 @@ const defaultUpdatedQueryDefinition: QueryDefinition = {
 	},
 };
 
-export function buildSavedViewBody(
-	overrides: CreateSavedViewInput = {},
-): CreateSavedViewBody {
-	const {
-		displayConfiguration: displayOverride,
-		queryDefinition,
-		...rest
-	} = overrides;
+export function buildSavedViewBody(overrides: CreateSavedViewInput = {}): CreateSavedViewBody {
+	const { displayConfiguration: displayOverride, queryDefinition, ...rest } = overrides;
 	const displayConfiguration = displayOverride
 		? normalizeDisplayConfiguration(displayOverride)
 		: normalizeDisplayConfiguration(defaultDisplayConfiguration);
@@ -173,11 +163,7 @@ export function buildSavedViewBody(
 export function buildUpdatedSavedViewBody(
 	overrides: UpdateSavedViewInput = {},
 ): UpdateSavedViewBody {
-	const {
-		displayConfiguration: displayOverride,
-		queryDefinition,
-		...rest
-	} = overrides;
+	const { displayConfiguration: displayOverride, queryDefinition, ...rest } = overrides;
 	const displayConfiguration = displayOverride
 		? normalizeDisplayConfiguration(displayOverride, false)
 		: normalizeDisplayConfiguration({
@@ -260,11 +246,7 @@ export async function findBuiltinSavedView(client: Client, cookies: string) {
 	return builtinView;
 }
 
-export async function getSavedView(
-	client: Client,
-	cookies: string,
-	viewSlug: string,
-) {
+export async function getSavedView(client: Client, cookies: string, viewSlug: string) {
 	const { data, response } = await client.GET("/saved-views/{viewSlug}", {
 		headers: { Cookie: cookies },
 		params: { path: { viewSlug } },
@@ -296,18 +278,11 @@ export async function updateSavedView(
 	return data.data;
 }
 
-export async function cloneSavedView(
-	client: Client,
-	cookies: string,
-	viewSlug: string,
-) {
-	const { data, response } = await client.POST(
-		"/saved-views/{viewSlug}/clone",
-		{
-			headers: { Cookie: cookies },
-			params: { path: { viewSlug } },
-		},
-	);
+export async function cloneSavedView(client: Client, cookies: string, viewSlug: string) {
+	const { data, response } = await client.POST("/saved-views/{viewSlug}/clone", {
+		headers: { Cookie: cookies },
+		params: { path: { viewSlug } },
+	});
 
 	if (response.status !== 200 || !data?.data) {
 		throw new Error(`Failed to clone saved view '${viewSlug}'`);
@@ -316,11 +291,7 @@ export async function cloneSavedView(
 	return data.data;
 }
 
-export async function deleteSavedView(
-	client: Client,
-	cookies: string,
-	viewSlug: string,
-) {
+export async function deleteSavedView(client: Client, cookies: string, viewSlug: string) {
 	const { data, response } = await client.DELETE("/saved-views/{viewSlug}", {
 		headers: { Cookie: cookies },
 		params: { path: { viewSlug } },

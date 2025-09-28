@@ -7,9 +7,7 @@ import type {
 	UpdateTrackerBody,
 } from "~/modules/trackers";
 
-type OwnedTracker = NonNullable<
-	Awaited<ReturnType<TrackerServiceDeps["getOwnedTrackerById"]>>
->;
+type OwnedTracker = NonNullable<Awaited<ReturnType<TrackerServiceDeps["getOwnedTrackerById"]>>>;
 
 const listedTrackerDefaults: ListedTracker = {
 	config: null,
@@ -52,17 +50,14 @@ const reorderTrackersBodyDefaults: ReorderTrackersBody = {
 	trackerIds: ["tracker_2", "tracker_1"],
 };
 
-export const createListedTracker = (
-	overrides: Partial<ListedTracker> = {},
-): ListedTracker => withOverrides(listedTrackerDefaults, overrides);
+export const createListedTracker = (overrides: Partial<ListedTracker> = {}): ListedTracker =>
+	withOverrides(listedTrackerDefaults, overrides);
 
-export const createOwnedTracker = (
-	overrides: Partial<OwnedTracker> = {},
-): OwnedTracker => withOverrides(ownedTrackerDefaults, overrides);
+export const createOwnedTracker = (overrides: Partial<OwnedTracker> = {}): OwnedTracker =>
+	withOverrides(ownedTrackerDefaults, overrides);
 
-export const createTrackerBody = (
-	overrides: Partial<CreateTrackerBody> = {},
-): CreateTrackerBody => withOverrides(trackerBodyDefaults, overrides);
+export const createTrackerBody = (overrides: Partial<CreateTrackerBody> = {}): CreateTrackerBody =>
+	withOverrides(trackerBodyDefaults, overrides);
 
 export const createUpdateTrackerBody = (
 	overrides: Partial<UpdateTrackerBody> = {},
@@ -84,14 +79,9 @@ export const createTrackerDeps = (
 			description: input.description ?? null,
 		}),
 	countVisibleTrackersByIdsForUser: async (input) => input.trackerIds.length,
-	getOwnedTrackerById: async (input) =>
-		createOwnedTracker({ id: input.trackerId }),
+	getOwnedTrackerById: async (input) => createOwnedTracker({ id: input.trackerId }),
 	getTrackerBySlugForUser: async () => undefined,
-	listUserTrackerIdsInOrder: async () => [
-		"tracker_1",
-		"tracker_2",
-		"tracker_3",
-	],
+	listUserTrackerIdsInOrder: async () => ["tracker_1", "tracker_2", "tracker_3"],
 	persistTrackerOrderForUser: async (input) => input.trackerIds,
 	updateTrackerForUser: async (input) =>
 		createListedTracker({

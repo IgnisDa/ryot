@@ -80,16 +80,12 @@ export const createEventAggregateExpression = (
 	reference: { type: "event-aggregate", eventSchemaSlug, path, aggregation },
 });
 
-export const createComputedFieldExpression = (
-	key: string,
-): RuntimeReferenceExpression => ({
+export const createComputedFieldExpression = (key: string): RuntimeReferenceExpression => ({
 	type: "reference",
 	reference: { key, type: "computed-field" },
 });
 
-export const createEntitySchemaExpression = (
-	column: string,
-): RuntimeReferenceExpression => ({
+export const createEntitySchemaExpression = (column: string): RuntimeReferenceExpression => ({
 	type: "reference",
 	reference: { type: "entity-schema", path: [column] },
 });

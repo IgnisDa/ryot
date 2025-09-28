@@ -1,12 +1,4 @@
-import {
-	Button,
-	Container,
-	Select,
-	Stack,
-	Textarea,
-	TextInput,
-	Title,
-} from "@mantine/core";
+import { Button, Container, Select, Stack, Textarea, TextInput, Title } from "@mantine/core";
 import {
 	CreateCustomMetadataGroupDocument,
 	MediaLot,
@@ -16,16 +8,15 @@ import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
 import { useEffect } from "react";
 import { useLoaderData } from "react-router";
 import { z } from "zod";
-import {
-	CustomEntityImageInput,
-	ExistingImageList,
-} from "~/components/common/custom-entities";
+
+import { CustomEntityImageInput, ExistingImageList } from "~/components/common/custom-entities";
 import { useEntityCrud } from "~/lib/hooks/use-entity-crud";
 import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { useCoreDetails, useMetadataGroupDetails } from "~/lib/shared/hooks";
 import { buildImageAssets } from "~/lib/shared/image-utils";
 import { getMetadataGroupDetailsPath } from "~/lib/shared/media-utils";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+
 import type { Route } from "./+types/_dashboard.media.groups.update.$action";
 
 enum Action {
@@ -41,10 +32,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ params, request }: Route.LoaderArgs) => {
-	const { action } = parseParameters(
-		params,
-		z.object({ action: z.enum(Action) }),
-	);
+	const { action } = parseParameters(params, z.object({ action: z.enum(Action) }));
 	const query = parseSearchQuery(request, searchParamsSchema);
 	return { query, action };
 };
@@ -92,8 +80,7 @@ export default function Page() {
 		createDocument: CreateCustomMetadataGroupDocument,
 		updateDocument: UpdateCustomMetadataGroupDocument,
 		extractIdFromUpdateResult: () => loaderData.query.id as string,
-		extractIdFromCreateResult: (result) =>
-			result.createCustomMetadataGroup.id as string,
+		extractIdFromCreateResult: (result) => result.createCustomMetadataGroup.id as string,
 		transformToCreateInput: (values, s3Images) => ({
 			title: values.title,
 			lot: values.lot as MediaLot,
@@ -126,20 +113,10 @@ export default function Page() {
 
 	return (
 		<Container>
-			<form
-				onSubmit={form.onSubmit(handleSubmit)}
-				encType="multipart/form-data"
-			>
+			<form onSubmit={form.onSubmit(handleSubmit)} encType="multipart/form-data">
 				<Stack>
-					<Title>
-						{details ? `Updating ${details.details.title}` : "Create Group"}
-					</Title>
-					<TextInput
-						required
-						autoFocus
-						label="Title"
-						{...form.getInputProps("title")}
-					/>
+					<Title>{details ? `Updating ${details.details.title}` : "Create Group"}</Title>
+					<TextInput required autoFocus label="Title" {...form.getInputProps("title")} />
 					<Select
 						required
 						label="Type"
@@ -157,9 +134,7 @@ export default function Page() {
 							onRemove={(key) => {
 								form.setFieldValue(
 									"existingImages",
-									form.values.existingImages.filter(
-										(imageKey) => imageKey !== key,
-									),
+									form.values.existingImages.filter((imageKey) => imageKey !== key),
 								);
 							}}
 						/>

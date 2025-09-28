@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
+
 import { createElement, isValidElement } from "react";
+
 import { GeneratedPropertyField } from "../features/generated-property-fields";
 import { normalizeNumberInputValue } from "./forms";
 
@@ -29,9 +31,8 @@ describe("GeneratedPropertyField", () => {
 
 		expect(isValidElement(element)).toBe(true);
 
-		const renderField = (
-			element as { props: { children: (field: object) => unknown } }
-		).props.children;
+		const renderField = (element as { props: { children: (field: object) => unknown } }).props
+			.children;
 
 		const rendered = renderField({
 			TextField: (props: object) => createElement("input", props),
@@ -40,8 +41,6 @@ describe("GeneratedPropertyField", () => {
 		});
 
 		expect(isValidElement(rendered)).toBe(true);
-		expect((rendered as { props: { required?: boolean } }).props.required).toBe(
-			true,
-		);
+		expect((rendered as { props: { required?: boolean } }).props.required).toBe(true);
 	});
 });

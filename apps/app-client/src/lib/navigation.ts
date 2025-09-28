@@ -3,6 +3,7 @@ import type { Href } from "expo-router";
 import { usePathname } from "expo-router";
 import { atom, useAtomValue, useSetAtom } from "jotai";
 import { useMemo } from "react";
+
 import { useApiClient } from "@/lib/api-client";
 import {
 	buildNavigationItems,
@@ -114,9 +115,7 @@ export function useActiveNav() {
 	const isTrackerPath = segments[0] === "tracker";
 	const activeSubItemSlug = isViewPath ? (segments[1] ?? null) : null;
 	const activeTrackerSlug = isViewPath
-		? (trackers.find((t) =>
-				t.subItems.some((s) => s.slug === activeSubItemSlug),
-			)?.slug ?? "home")
+		? (trackers.find((t) => t.subItems.some((s) => s.slug === activeSubItemSlug))?.slug ?? "home")
 		: isTrackerPath
 			? segments[1] || "home"
 			: segments[0] || "home";

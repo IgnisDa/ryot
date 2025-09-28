@@ -1,7 +1,9 @@
 import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils";
 import { getDefaultPropertyLabel, isAppPropertyRequired } from "@ryot/ts-utils";
 import { z } from "zod";
+
 import type { AppEntity } from "~/features/entities/model";
+
 import {
 	buildPrimitivePropertiesSchema,
 	getUnsupportedRequiredProperties,
@@ -32,9 +34,7 @@ export function getSelectedCollection(
 	return collections.find((c) => c.id === trimmedId) ?? collections[0];
 }
 
-export const buildMembershipPropertyDefaults = (
-	schema: AppSchema,
-): Record<string, unknown> => {
+export const buildMembershipPropertyDefaults = (schema: AppSchema): Record<string, unknown> => {
 	return reconcileMembershipProperties(schema, {});
 };
 
@@ -71,9 +71,7 @@ export function deriveInitialValuesFromEntity(
 
 	return {
 		collectionId: selectedCollection?.id ?? "",
-		properties: schema
-			? reconcileMembershipProperties(schema, entityProperties)
-			: {},
+		properties: schema ? reconcileMembershipProperties(schema, entityProperties) : {},
 	};
 }
 
@@ -85,9 +83,7 @@ export function syncMembershipFormValues(
 
 	return {
 		collectionId: selectedCollection?.id ?? values.collectionId,
-		properties: schema
-			? reconcileMembershipProperties(schema, values.properties)
-			: {},
+		properties: schema ? reconcileMembershipProperties(schema, values.properties) : {},
 	};
 }
 
@@ -98,9 +94,7 @@ export function buildCollectionSelectionPatch(
 	return syncMembershipFormValues(selectedCollection, values);
 }
 
-export function getMembershipFormReconciliationState(
-	selectedCollection?: AppCollection,
-) {
+export function getMembershipFormReconciliationState(selectedCollection?: AppCollection) {
 	return {
 		collectionId: selectedCollection?.id ?? "",
 		propertiesSchema: selectedCollection?.membershipPropertiesSchema ?? {
@@ -109,18 +103,14 @@ export function getMembershipFormReconciliationState(
 	};
 }
 
-export const buildMembershipFormSchema = (
-	collections: AppCollection[] = [],
-) => {
+export const buildMembershipFormSchema = (collections: AppCollection[] = []) => {
 	return z
 		.object({
 			collectionId: z.string().trim().min(1, "Collection is required"),
 			properties: z.record(z.string(), z.unknown()),
 		})
 		.superRefine((value, ctx) => {
-			const collection = collections.find(
-				(item) => item.id === value.collectionId.trim(),
-			);
+			const collection = collections.find((item) => item.id === value.collectionId.trim());
 			if (!collection) {
 				ctx.addIssue({
 					code: "custom",
@@ -140,9 +130,7 @@ export const buildMembershipFormSchema = (
 				ctx.addIssue({
 					code: "custom",
 					path: ["properties"],
-					message: getUnsupportedRequiredPropertiesMessage(
-						unsupportedRequiredKeys,
-					),
+					message: getUnsupportedRequiredPropertiesMessage(unsupportedRequiredKeys),
 				});
 			}
 
@@ -167,9 +155,7 @@ export const buildMembershipFormSchema = (
 				}
 			}
 
-			const result = buildPrimitivePropertiesSchema(schema).safeParse(
-				value.properties,
-			);
+			const result = buildPrimitivePropertiesSchema(schema).safeParse(value.properties);
 
 			if (result.success) {
 				return;
@@ -229,8 +215,6 @@ export function getMembershipPropertyEntries(
 	return entries;
 }
 
-export function getUnsupportedRequiredPropertiesMessage(
-	propertyKeys: string[],
-): string {
+export function getUnsupportedRequiredPropertiesMessage(propertyKeys: string[]): string {
 	return `This collection requires unsupported properties: ${propertyKeys.join(", ")}.`;
 }

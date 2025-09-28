@@ -1,12 +1,6 @@
 import { useDisclosure } from "@mantine/hooks";
-import {
-	createContext,
-	type ReactNode,
-	useCallback,
-	useContext,
-	useMemo,
-	useState,
-} from "react";
+import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
+
 import type { CreateTrackerPayload, UpdateTrackerPayload } from "./form";
 import { useTrackerMutations, useTrackersQuery } from "./hooks";
 import type { AppTracker } from "./model";
@@ -36,21 +30,15 @@ interface TrackerSidebarActions {
 	) => Promise<void>;
 }
 
-const TrackerSidebarStateContext = createContext<
-	TrackerSidebarState | undefined
->(undefined);
+const TrackerSidebarStateContext = createContext<TrackerSidebarState | undefined>(undefined);
 
-const TrackerSidebarActionsContext = createContext<
-	TrackerSidebarActions | undefined
->(undefined);
+const TrackerSidebarActionsContext = createContext<TrackerSidebarActions | undefined>(undefined);
 
 export function useTrackerSidebarState() {
 	const context = useContext(TrackerSidebarStateContext);
 
 	if (!context) {
-		throw new Error(
-			"useTrackerSidebarState must be used within TrackerSidebarProvider",
-		);
+		throw new Error("useTrackerSidebarState must be used within TrackerSidebarProvider");
 	}
 
 	return context;
@@ -60,9 +48,7 @@ export function useTrackerSidebarActions() {
 	const context = useContext(TrackerSidebarActionsContext);
 
 	if (!context) {
-		throw new Error(
-			"useTrackerSidebarActions must be used within TrackerSidebarProvider",
-		);
+		throw new Error("useTrackerSidebarActions must be used within TrackerSidebarProvider");
 	}
 
 	return context;
@@ -73,11 +59,9 @@ export default function TrackerSidebarProvider(props: { children: ReactNode }) {
 	const [isCustomizeMode, setIsCustomizeMode] = useState(false);
 	const trackersQuery = useTrackersQuery({ includeDisabled: isCustomizeMode });
 	const [activeTrackerId, setActiveTrackerId] = useState<string | null>(null);
-	const [modalOpened, { close: closeDisclosure, open: openDisclosure }] =
-		useDisclosure(false);
+	const [modalOpened, { close: closeDisclosure, open: openDisclosure }] = useDisclosure(false);
 	const activeTracker = useMemo(
-		() =>
-			trackersQuery.trackers.find((tracker) => tracker.id === activeTrackerId),
+		() => trackersQuery.trackers.find((tracker) => tracker.id === activeTrackerId),
 		[activeTrackerId, trackersQuery.trackers],
 	);
 
@@ -118,9 +102,7 @@ export default function TrackerSidebarProvider(props: { children: ReactNode }) {
 
 	const toggleTrackerById = useCallback(
 		async (trackerId: string) => {
-			const targetTracker = trackersQuery.trackers.find(
-				(tracker) => tracker.id === trackerId,
-			);
+			const targetTracker = trackersQuery.trackers.find((tracker) => tracker.id === trackerId);
 
 			if (!targetTracker) {
 				return;
@@ -132,9 +114,7 @@ export default function TrackerSidebarProvider(props: { children: ReactNode }) {
 	);
 
 	const submitModal = useCallback(
-		async (
-			payload: CreateTrackerPayload | Omit<UpdateTrackerPayload, "isDisabled">,
-		) => {
+		async (payload: CreateTrackerPayload | Omit<UpdateTrackerPayload, "isDisabled">) => {
 			if (activeTracker !== undefined) {
 				await mutations.update.mutateAsync({
 					params: { path: { trackerId: activeTracker.id } },
@@ -165,12 +145,9 @@ export default function TrackerSidebarProvider(props: { children: ReactNode }) {
 	}, []);
 
 	const isMutationBusy =
-		mutations.create.isPending ||
-		mutations.update.isPending ||
-		mutations.toggle.isPending;
+		mutations.create.isPending || mutations.update.isPending || mutations.toggle.isPending;
 
-	const isModalSubmitting =
-		mutations.create.isPending || mutations.update.isPending;
+	const isModalSubmitting = mutations.create.isPending || mutations.update.isPending;
 
 	const stateValue = useMemo(
 		() => ({

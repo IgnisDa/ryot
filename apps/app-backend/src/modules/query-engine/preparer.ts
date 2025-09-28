@@ -1,10 +1,8 @@
 import { match } from "ts-pattern";
+
 import { QueryEngineNotFoundError } from "~/lib/views/errors";
 import { nullViewExpression } from "~/lib/views/expression";
-import type {
-	QueryEngineEventJoinLike,
-	QueryEngineEventSchemaLike,
-} from "~/lib/views/reference";
+import type { QueryEngineEventJoinLike, QueryEngineEventSchemaLike } from "~/lib/views/reference";
 import {
 	buildEventJoinMap,
 	buildSchemaMap,
@@ -14,6 +12,7 @@ import {
 	validateQueryEngineReferences,
 	validateSavedViewDisplayConfiguration,
 } from "~/lib/views/validator";
+
 import { getSavedViewBySlugForUser } from "../saved-views/repository";
 import type {
 	DisplayConfiguration,
@@ -77,9 +76,7 @@ export const buildQueryContext = (
 	...overrides,
 });
 
-export const normalizeRequestPerMode = (
-	request: QueryEngineRequest,
-): PrepareContextInput => {
+export const normalizeRequestPerMode = (request: QueryEngineRequest): PrepareContextInput => {
 	return match(request)
 		.with({ mode: "entities" }, { mode: "aggregate" }, (r) => ({
 			mode: r.mode,
@@ -109,9 +106,7 @@ const buildPreparedFields = (input: {
 	layout: SavedViewLayout;
 	displayConfiguration: DisplayConfiguration;
 }): QueryEngineField[] => {
-	const buildCardPreparedFields = (
-		configuration: DisplayConfiguration["grid"],
-	) => {
+	const buildCardPreparedFields = (configuration: DisplayConfiguration["grid"]) => {
 		return [
 			{
 				key: "image",
@@ -127,8 +122,7 @@ const buildPreparedFields = (input: {
 			},
 			{
 				key: "secondarySubtitle",
-				expression:
-					configuration.secondarySubtitleProperty ?? nullViewExpression,
+				expression: configuration.secondarySubtitleProperty ?? nullViewExpression,
 			},
 			{
 				key: "callout",
@@ -138,12 +132,8 @@ const buildPreparedFields = (input: {
 	};
 
 	return match(input.layout)
-		.with("grid", () =>
-			buildCardPreparedFields(input.displayConfiguration.grid),
-		)
-		.with("list", () =>
-			buildCardPreparedFields(input.displayConfiguration.list),
-		)
+		.with("grid", () => buildCardPreparedFields(input.displayConfiguration.grid))
+		.with("list", () => buildCardPreparedFields(input.displayConfiguration.list))
 		.with("table", () => {
 			return input.displayConfiguration.table.columns.map((column, index) => ({
 				key: `column_${index}`,
@@ -213,18 +203,17 @@ const prepareContext = async (input: {
 	const isEventMode = query.mode === "events" || query.mode === "timeSeries";
 	const eventJoinsForMode = query.mode === "timeSeries" ? [] : query.eventJoins;
 
-	const [eventJoins, relationshipSchemaIds, eventSchemaSlugs] =
-		await Promise.all([
-			loadVisibleEventJoins({
-				runtimeSchemas,
-				userId: input.userId,
-				eventJoins: eventJoinsForMode,
-			}),
-			isEventMode
-				? (Promise.resolve([]) as Promise<string[]>)
-				: loadRelationshipSchemaIds(query.relationships),
-			loadEventSchemaSlugs({ runtimeSchemas, userId: input.userId }),
-		]);
+	const [eventJoins, relationshipSchemaIds, eventSchemaSlugs] = await Promise.all([
+		loadVisibleEventJoins({
+			runtimeSchemas,
+			userId: input.userId,
+			eventJoins: eventJoinsForMode,
+		}),
+		isEventMode
+			? (Promise.resolve([]) as Promise<string[]>)
+			: loadRelationshipSchemaIds(query.relationships),
+		loadEventSchemaSlugs({ runtimeSchemas, userId: input.userId }),
+	]);
 
 	const eventSchemaMap = await loadEventSchemasBySlug({
 		runtimeSchemas,
