@@ -9,7 +9,7 @@ import {
 	Image,
 	Loader,
 	NumberInput,
-	SegmentedControl,
+	Select,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -26,8 +26,18 @@ export const Route = createFileRoute("/schema-search")({
 	component: SchemaSearchPage,
 });
 
-const openLibrarySearchScriptSlug = "openlibrary.book.search";
-const googleBooksSearchScriptSlug = "google-books.book.search";
+type EntitySchemaScript = {
+	id: string;
+	name: string;
+	type: string;
+};
+
+type EntitySchema = {
+	id: string;
+	slug: string;
+	name: string;
+	scripts: EntitySchemaScript[];
+};
 
 function SchemaSearchPage() {
 	const apiClient = useApiClient();
@@ -35,9 +45,9 @@ function SchemaSearchPage() {
 	const navigate = Route.useNavigate();
 	const [page, setPage] = useState(1);
 	const [query, setQuery] = useState("harry potter");
-	const [searchScriptSlug, setSearchScriptSlug] = useState(
-		openLibrarySearchScriptSlug,
-	);
+	const [selectedSearchScriptId, setSelectedSearchScriptId] = useState<
+		string | null
+	>(null);
 	const [importingIdentifier, setImportingIdentifier] = useState<string | null>(
 		null,
 	);
@@ -48,19 +58,56 @@ function SchemaSearchPage() {
 		void authClient.signIn.anonymous();
 	}, [authClient]);
 
+	const schemasQuery = useQuery({
+		refetchOnMount: false,
+		refetchOnReconnect: false,
+		refetchOnWindowFocus: false,
+		queryKey: ["entity-schemas-list"],
+		queryFn: async () => {
+			const response = await apiClient.protected["entity-schemas"].list.$get();
+			const payload = await response.json();
+			if ("error" in payload && typeof payload.error === "string")
+				throw new Error(payload.error);
+			return payload as { schemas: EntitySchema[] };
+		},
+	});
+
+	const searchScripts = schemasQuery.data?.schemas.flatMap((schema) =>
+		schema.scripts
+			.filter((script) => script.type === "search")
+			.map((script) => ({
+				value: script.id,
+				label: `${schema.name} - ${script.name}`,
+				schemaId: schema.id,
+			})),
+	);
+
+	useEffect(() => {
+		if (searchScripts && searchScripts.length > 0 && !selectedSearchScriptId) {
+			setSelectedSearchScriptId(searchScripts[0].value);
+		}
+	}, [searchScripts, selectedSearchScriptId]);
+
 	const searchRequest = useQuery({
 		refetchOnMount: false,
 		refetchOnReconnect: false,
 		refetchOnWindowFocus: false,
-		enabled: Boolean(trimmedQuery),
-		queryKey: ["entity-schema-search", trimmedQuery, searchScriptSlug, page],
+		enabled: Boolean(trimmedQuery && selectedSearchScriptId),
+		queryKey: [
+			"entity-schema-search",
+			trimmedQuery,
+			selectedSearchScriptId,
+			page,
+		],
 		queryFn: async () => {
+			if (!selectedSearchScriptId) throw new Error("No search script selected");
+
 			const response = await apiClient.protected["entity-schemas"].search.$post(
 				{
 					json: {
 						page,
 						query: trimmedQuery,
-						search_script_slug: searchScriptSlug,
+						search_script_id: selectedSearchScriptId,
 					},
 				},
 			);
@@ -77,11 +124,23 @@ function SchemaSearchPage() {
 	const loadingLabel = "Searching...";
 	const searchError = searchRequest.error?.message;
 
+	const detailsScripts = schemasQuery.data?.schemas
+		.find((schema) =>
+			schema.scripts.some(
+				(script) =>
+					script.type === "search" && script.id === selectedSearchScriptId,
+			),
+		)
+		?.scripts.filter((script) => script.type === "details");
+
 	const importEntityRequest = useMutation({
 		mutationFn: async (identifier: string) => {
+			const detailsScript = detailsScripts?.[0];
+			if (!detailsScript) throw new Error("No details script available");
+
 			const response = await apiClient.protected["entity-schemas"].import.$post(
 				{
-					json: { identifier, search_script_slug: searchScriptSlug },
+					json: { identifier, details_script_id: detailsScript.id },
 				},
 			);
 
@@ -134,9 +193,8 @@ function SchemaSearchPage() {
 					<Stack gap={4}>
 						<Title order={2}>Entity Schema Search</Title>
 						<Text c="dimmed">
-							Runs `/api/protected/entity-schemas/search` and returns results
-							directly. Use the source picker below to switch between
-							OpenLibrary and Google Books.
+							Search and import entities from various sources. Select a search
+							script below to get started.
 						</Text>
 					</Stack>
 
@@ -154,14 +212,18 @@ function SchemaSearchPage() {
 						/>
 					</Group>
 
-					<SegmentedControl
-						fullWidth
-						value={searchScriptSlug}
-						data={[
-							{ label: "OpenLibrary", value: openLibrarySearchScriptSlug },
-							{ label: "Google Books", value: googleBooksSearchScriptSlug },
-						]}
-						onChange={(value) => setSearchScriptSlug(value)}
+					<Select
+						searchable
+						label="Search Script"
+						data={searchScripts ?? []}
+						value={selectedSearchScriptId}
+						onChange={(value) => setSelectedSearchScriptId(value)}
+						placeholder={
+							schemasQuery.isPending
+								? "Loading schemas..."
+								: "Select a search script"
+						}
+						disabled={schemasQuery.isPending || !searchScripts?.length}
 					/>
 
 					{isSearching ? (
