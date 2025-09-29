@@ -57,6 +57,7 @@ export const MediaDetailsLayout = (props: {
 		source: MediaSource;
 		href?: string | null;
 	};
+	children?: ReactNode;
 }) => {
 	const [activeImageId, setActiveImageId] = useState(0);
 	const fallbackImageUrl = useFallbackImageUrl();
@@ -143,6 +144,7 @@ export const MediaDetailsLayout = (props: {
 					{props.isPartialStatusActive ? <Loader size="sm" /> : null}
 					<Title id="media-title">{props.title}</Title>
 				</Group>
+				{props.children}
 			</Stack>
 		</Flex>
 	);
