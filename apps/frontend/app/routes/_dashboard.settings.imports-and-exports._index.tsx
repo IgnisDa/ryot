@@ -191,12 +191,14 @@ const malImportFormSchema = z.object({
 });
 
 export default function Page() {
-	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
+	const coreDetails = useCoreDetails();
+	const events = useApplicationEvents();
 	const { inViewport, ref } = useInViewport();
 	const userCollections = useNonHiddenUserCollections();
-	const events = useApplicationEvents();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
+
+	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
 	const userImportsReportsQuery = useQuery({
 		enabled: inViewport,
@@ -218,8 +220,6 @@ export default function Page() {
 			return userExports;
 		},
 	});
-
-	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
 	return (
 		<Container size="xs">
