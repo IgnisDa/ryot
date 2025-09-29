@@ -1,4 +1,4 @@
-import { changeCase } from "@ryot/ts-utils";
+import { changeCase, cn } from "@ryot/ts-utils";
 import {
 	CheckCircle,
 	Cloud,
@@ -29,11 +29,12 @@ export default function Pricing(props: {
 	const isSelfHosted = selectedProductType.type === "self_hosted";
 
 	const getProductTypeButtonClass = (index: number) =>
-		`inline-flex items-center gap-1 underline hover:no-underline transition-colors ${
+		cn(
+			"inline-flex items-center gap-1 underline hover:no-underline transition-colors",
 			selectedProductTypeIndex === index
 				? "text-primary font-medium"
-				: "text-blue-500"
-		}`;
+				: "text-blue-500",
+		);
 
 	const getColorThemeClasses = (cloudClass: string, selfHostedClass: string) =>
 		isCloudType ? cloudClass : selfHostedClass;
@@ -54,8 +55,8 @@ export default function Pricing(props: {
 						Ryot Pro is available in two product types:{" "}
 						<button
 							type="button"
-							onClick={() => setSelectedProductTypeIndex(0)}
 							className={getProductTypeButtonClass(0)}
+							onClick={() => setSelectedProductTypeIndex(0)}
 						>
 							<Cloud className="w-4 h-4" />
 							Cloud
@@ -63,8 +64,8 @@ export default function Pricing(props: {
 						and{" "}
 						<button
 							type="button"
-							onClick={() => setSelectedProductTypeIndex(1)}
 							className={getProductTypeButtonClass(1)}
+							onClick={() => setSelectedProductTypeIndex(1)}
 						>
 							<Server className="w-4 h-4" />
 							Self Hosted
@@ -97,20 +98,22 @@ export default function Pricing(props: {
 
 				<div className="max-w-6xl mx-auto mb-8">
 					<div
-						className={`grid gap-6 mx-auto ${
+						className={cn(
+							"grid gap-6 mx-auto",
 							isThreeColumn
 								? "md:grid-cols-3 max-w-5xl"
-								: "md:grid-cols-4 max-w-6xl"
-						}`}
+								: "md:grid-cols-4 max-w-6xl",
+						)}
 					>
 						{selectedProductType.prices.map((p) => (
 							<Card
 								key={p.name}
-								className={`border-2 rounded-xl transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
+								className={cn(
+									"border-2 rounded-xl transition-all duration-300 hover:shadow-lg hover:-translate-y-1",
 									isPopular(p.name)
 										? "border-primary/50 relative hover:border-primary/70 hover:shadow-xl hover:-translate-y-2 bg-gradient-to-b from-primary/5 to-transparent"
-										: "hover:border-primary/30"
-								}`}
+										: "hover:border-primary/30",
+								)}
 							>
 								{isPopular(p.name) && (
 									<div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
@@ -121,36 +124,41 @@ export default function Pricing(props: {
 									</div>
 								)}
 								<CardHeader
-									className={`text-center pt-8 ${isThreeColumn ? "pb-6" : "pb-4"}`}
+									className={cn(
+										"text-center pt-8",
+										isThreeColumn ? "pb-6" : "pb-4",
+									)}
 								>
 									<div
-										className={`${
-											isThreeColumn ? "w-12 h-12" : "w-10 h-10"
-										} ${getIconBg(
-											p.name,
-										)} rounded-full flex items-center justify-center mx-auto ${
-											isThreeColumn ? "mb-4" : "mb-3"
-										}`}
+										className={cn(
+											isThreeColumn ? "w-12 h-12" : "w-10 h-10",
+											getIconBg(p.name),
+											"rounded-full flex items-center justify-center mx-auto",
+											isThreeColumn ? "mb-4" : "mb-3",
+										)}
 									>
 										{getIcon(p.name)}
 									</div>
 									<CardTitle
-										className={`${
-											isThreeColumn ? "text-2xl mb-4" : "text-lg mb-3"
-										}`}
+										className={cn(
+											isThreeColumn ? "text-2xl" : "text-lg",
+											isThreeColumn ? "mb-4" : "mb-3",
+										)}
 									>
 										{changeCase(p.name)}
 									</CardTitle>
 									{p.amount ? (
 										<div
-											className={`flex items-center justify-center ${
-												isThreeColumn ? "mb-2" : ""
-											}`}
+											className={cn(
+												"flex items-center justify-center",
+												isThreeColumn && "mb-2",
+											)}
 										>
 											<span
-												className={`${
-													isThreeColumn ? "text-4xl" : "text-2xl"
-												} font-bold text-foreground`}
+												className={cn(
+													isThreeColumn ? "text-4xl" : "text-2xl",
+													"font-bold text-foreground",
+												)}
 											>
 												${p.amount}
 											</span>
@@ -172,9 +180,10 @@ export default function Pricing(props: {
 									)}
 									{p.trial && (
 										<div
-											className={`${
-												isThreeColumn ? "text-sm" : "text-xs"
-											} text-muted-foreground`}
+											className={cn(
+												isThreeColumn ? "text-sm" : "text-xs",
+												"text-muted-foreground",
+											)}
 										>
 											{isPopular(p.name) && (
 												<>
@@ -189,9 +198,10 @@ export default function Pricing(props: {
 									)}
 									{p.name.toLowerCase() === "lifetime" && (
 										<div
-											className={`${
-												isThreeColumn ? "text-sm" : "text-xs"
-											} text-muted-foreground`}
+											className={cn(
+												isThreeColumn ? "text-sm" : "text-xs",
+												"text-muted-foreground",
+											)}
 										>
 											One-time payment
 										</div>
@@ -216,11 +226,12 @@ export default function Pricing(props: {
 									>
 										<Button
 											variant={isPopular(p.name) ? "default" : "outline"}
-											className={`w-full ${!isThreeColumn ? "text-sm" : ""} ${
-												isPopular(p.name)
-													? "bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary"
-													: ""
-											}`}
+											className={cn(
+												"w-full",
+												!isThreeColumn && "text-sm",
+												isPopular(p.name) &&
+													"bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary",
+											)}
 										>
 											<PlayIcon size={16} className="mr-2" />
 											<span>
@@ -235,40 +246,43 @@ export default function Pricing(props: {
 				</div>
 
 				<div
-					className={`max-w-4xl mx-auto p-8 rounded-2xl border ${getColorThemeClasses(
-						"bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200",
-						"bg-gradient-to-r from-green-50 to-emerald-50 border-green-200",
-					)}`}
+					className={cn(
+						"max-w-4xl mx-auto p-8 rounded-2xl border",
+						getColorThemeClasses(
+							"bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200",
+							"bg-gradient-to-r from-green-50 to-emerald-50 border-green-200",
+						),
+					)}
 				>
 					<div className="text-center">
 						<div className="flex items-center justify-center gap-3 mb-4">
 							<div
-								className={`w-10 h-10 rounded-full flex items-center justify-center ${getColorThemeClasses(
-									"bg-blue-100",
-									"bg-green-100",
-								)}`}
+								className={cn(
+									"w-10 h-10 rounded-full flex items-center justify-center",
+									getColorThemeClasses("bg-blue-100", "bg-green-100"),
+								)}
 							>
 								<CheckCircle
-									className={`w-6 h-6 ${getColorThemeClasses(
-										"text-blue-600",
-										"text-green-600",
-									)}`}
+									className={cn(
+										"w-6 h-6",
+										getColorThemeClasses("text-blue-600", "text-green-600"),
+									)}
 								/>
 							</div>
 							<span
-								className={`text-xl font-semibold ${getColorThemeClasses(
-									"text-blue-900",
-									"text-green-900",
-								)}`}
+								className={cn(
+									"text-xl font-semibold",
+									getColorThemeClasses("text-blue-900", "text-green-900"),
+								)}
 							>
 								All Pro Features Included
 							</span>
 						</div>
 						<p
-							className={`max-w-2xl mx-auto leading-relaxed ${getColorThemeClasses(
-								"text-blue-700",
-								"text-green-700",
-							)}`}
+							className={cn(
+								"max-w-2xl mx-auto leading-relaxed",
+								getColorThemeClasses("text-blue-700", "text-green-700"),
+							)}
 						>
 							With any paid {isCloudType ? "cloud" : "self-hosted"} plan, you
 							get access to all Pro features.{" "}

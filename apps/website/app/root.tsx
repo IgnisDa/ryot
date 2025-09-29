@@ -1,3 +1,4 @@
+import { cn } from "@ryot/ts-utils";
 import {
 	Link,
 	Links,
@@ -112,41 +113,45 @@ export default function App() {
 								<nav className="hidden md:flex items-center space-x-8">
 									<Link
 										to={$path("/")}
-										className={`transition-colors ${
+										className={cn(
+											"transition-colors",
 											isActivePage("/")
 												? "text-primary font-medium"
-												: "text-muted-foreground hover:text-foreground"
-										}`}
+												: "text-muted-foreground hover:text-foreground",
+										)}
 									>
 										Home
 									</Link>
 									<Link
 										to={$path("/features")}
-										className={`transition-colors ${
+										className={cn(
+											"transition-colors",
 											isActivePage("/features")
 												? "text-primary font-medium"
-												: "text-muted-foreground hover:text-foreground"
-										}`}
+												: "text-muted-foreground hover:text-foreground",
+										)}
 									>
 										Features
 									</Link>
 									<Link
 										to={withFragment($path("/"), "pricing")}
-										className={`transition-colors ${
+										className={cn(
+											"transition-colors",
 											isActiveFragment("pricing")
 												? "text-primary font-medium"
-												: "text-muted-foreground hover:text-foreground"
-										}`}
+												: "text-muted-foreground hover:text-foreground",
+										)}
 									>
 										Pricing
 									</Link>
 									<Link
 										to={withFragment($path("/"), "contact")}
-										className={`transition-colors ${
+										className={cn(
+											"transition-colors",
 											isActiveFragment("contact")
 												? "text-primary font-medium"
-												: "text-muted-foreground hover:text-foreground"
-										}`}
+												: "text-muted-foreground hover:text-foreground",
+										)}
 									>
 										Contact
 									</Link>
