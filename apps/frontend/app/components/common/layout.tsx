@@ -32,7 +32,7 @@ import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {
 	className?: string;
-	children: ReactNode | Array<ReactNode>;
+	children: ReactNode;
 }) => {
 	const [parent] = useAutoAnimate();
 
