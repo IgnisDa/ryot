@@ -204,21 +204,16 @@ export default function Page() {
 		enabled: inViewport,
 		refetchInterval: 5000,
 		queryKey: ["userImportsReports"],
-		queryFn: async () => {
-			const { userImportReports } = await clientGqlService.request(
-				UserImportReportsDocument,
-			);
-			return userImportReports;
-		},
+		queryFn: () =>
+			clientGqlService
+				.request(UserImportReportsDocument)
+				.then((u) => u.userImportReports),
 	});
 
 	const userExportsQuery = useQuery({
 		queryKey: ["userExports"],
-		queryFn: async () => {
-			const { userExports } =
-				await clientGqlService.request(UserExportsDocument);
-			return userExports;
-		},
+		queryFn: () =>
+			clientGqlService.request(UserExportsDocument).then((u) => u.userExports),
 	});
 
 	return (
