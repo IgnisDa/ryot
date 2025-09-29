@@ -52,7 +52,6 @@ export const MediaDetailsLayout = (props: {
 	title: string;
 	assets: EntityAssets;
 	isPartialStatusActive: boolean;
-	children: Array<ReactNode | (ReactNode | undefined)>;
 	externalLink: {
 		lot?: MediaLot;
 		source: MediaSource;
@@ -144,7 +143,6 @@ export const MediaDetailsLayout = (props: {
 					{props.isPartialStatusActive ? <Loader size="sm" /> : null}
 					<Title id="media-title">{props.title}</Title>
 				</Group>
-				{props.children}
 			</Stack>
 		</Flex>
 	);
