@@ -7,6 +7,7 @@ import {
 	DeployBulkMetadataProgressUpdateDocument,
 	DeployRemoveEntitiesFromCollectionJobDocument,
 	DeployUpdateMediaEntityJobDocument,
+	DeleteS3ObjectDocument,
 	EntityLot,
 	ExpireCacheKeyDocument,
 	type MediaLot,
@@ -551,6 +552,14 @@ export const useExpireCacheKeyMutation = () =>
 		mutationFn: async (cacheId: string) => {
 			await clientGqlService.request(ExpireCacheKeyDocument, { cacheId });
 		},
+	});
+
+export const useDeleteS3AssetMutation = () =>
+	useMutation({
+		mutationFn: (key: string) =>
+			clientGqlService
+				.request(DeleteS3ObjectDocument, { key })
+				.then((g) => g.deleteS3Object),
 	});
 
 export const useUsersList = (query?: string) =>

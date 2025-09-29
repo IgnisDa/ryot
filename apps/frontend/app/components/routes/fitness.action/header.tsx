@@ -10,7 +10,11 @@ import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { displayWeightWithUnit } from "~/components/fitness/utils";
-import { useApplicationEvents, useUserUnitSystem } from "~/lib/shared/hooks";
+import {
+	useApplicationEvents,
+	useDeleteS3AssetMutation,
+	useUserUnitSystem,
+} from "~/lib/shared/hooks";
 import {
 	clientGqlService,
 	queryClient,
@@ -29,7 +33,6 @@ import { FitnessAction, FitnessEntity } from "~/lib/types";
 import { NameAndOtherInputs } from "./miscellaneous";
 import { RestTimer, WorkoutDurationTimer } from "./rest-timer";
 import { StatDisplay } from "./stat-display-and-input";
-import { deleteUploadedAsset } from "./utils";
 
 interface HeaderProps {
 	stopTimer: () => void;
@@ -71,6 +74,7 @@ export function WorkoutHeader({
 	const events = useApplicationEvents();
 	const navigate = useNavigate();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const deleteS3AssetMutation = useDeleteS3AssetMutation();
 
 	if (!currentWorkout) return null;
 
@@ -258,8 +262,8 @@ export function WorkoutHeader({
 								}?`,
 								() => {
 									for (const e of currentWorkout.exercises) {
-										const assets = [...e.images, ...e.videos];
-										for (const asset of assets) deleteUploadedAsset(asset);
+											const assets = [...e.images, ...e.videos];
+											for (const asset of assets) deleteS3AssetMutation.mutate(asset);
 									}
 									navigate($path("/"), { replace: true });
 									setCurrentWorkout(RESET);

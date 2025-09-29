@@ -41,7 +41,6 @@ import { useQuery } from "@tanstack/react-query";
 import { filesize } from "filesize";
 import { useMemo, useState } from "react";
 import { Form, data } from "react-router";
-import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -51,6 +50,7 @@ import {
 	useApplicationEvents,
 	useConfirmSubmit,
 	useCoreDetails,
+	useDeleteS3AssetMutation,
 	useNonHiddenUserCollections,
 } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
@@ -657,7 +657,7 @@ type ExportItemProps = {
 };
 
 const DisplayExport = (props: ExportItemProps) => {
-	const submit = useConfirmSubmit();
+	const deleteS3AssetMutation = useDeleteS3AssetMutation();
 
 	const duration = useMemo(() => {
 		const seconds = dayjsLib(props.item.endedAt).diff(
@@ -687,32 +687,23 @@ const DisplayExport = (props: ExportItemProps) => {
 							<IconDownload />
 						</ThemeIcon>
 					</Anchor>
-					<Form
-						method="POST"
-						action={withQuery($path("/actions"), {
-							intent: "deleteS3Asset",
-						})}
+					<ActionIcon
+						color="red"
+						variant="transparent"
+						disabled={deleteS3AssetMutation.isPending}
+						onClick={() => {
+							openConfirmationModal(
+								"Are you sure you want to delete this export? This action is irreversible.",
+								() => {
+									deleteS3AssetMutation
+										.mutateAsync(props.item.key)
+										.then(() => props.refetch());
+								},
+							);
+						}}
 					>
-						<input hidden name="key" defaultValue={props.item.key} />
-						<ActionIcon
-							color="red"
-							type="submit"
-							variant="transparent"
-							onClick={(e) => {
-								const form = e.currentTarget.form;
-								e.preventDefault();
-								openConfirmationModal(
-									"Are you sure you want to delete this export? This action is irreversible.",
-									() => {
-										submit(form);
-										props.refetch();
-									},
-								);
-							}}
-						>
-							<IconTrash />
-						</ActionIcon>
-					</Form>
+						<IconTrash />
+					</ActionIcon>
 				</Group>
 			</Group>
 		</Paper>

@@ -30,6 +30,7 @@ import invariant from "tiny-invariant";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useCoreDetails,
+	useDeleteS3AssetMutation,
 	useExerciseDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -40,7 +41,6 @@ import {
 } from "~/lib/shared/ui-utils";
 import { useCurrentWorkout } from "~/lib/state/fitness";
 import { useFullscreenImage } from "~/lib/state/general";
-import { deleteUploadedAsset } from "./utils";
 
 export const NameAndOtherInputs = (props: {
 	isCreatingTemplate: boolean;
@@ -199,6 +199,7 @@ export const UploadAssetsModal = (props: {
 	const fileUploadAllowed = coreDetails.fileStorageEnabled;
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [isFileUploading, setIsFileUploading] = useState(false);
+	const deleteS3AssetMutation = useDeleteS3AssetMutation();
 
 	if (!currentWorkout) return null;
 
@@ -260,7 +261,7 @@ export const UploadAssetsModal = (props: {
 	const hasAssets = imagesToDisplay.length > 0 || videosToDisplay.length > 0;
 
 	const onRemoveAsset = (key: string, type: "image" | "video") => {
-		deleteUploadedAsset(key);
+		deleteS3AssetMutation.mutate(key);
 		setCurrentWorkout(
 			produce(currentWorkout, (draft) => {
 				if (type === "image") {
