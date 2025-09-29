@@ -67,8 +67,13 @@ export default function App() {
 	const location = useLocation();
 
 	const isActivePage = (path: string) => {
-		if (path === "/") return location.pathname === "/";
+		if (path === "/") return location.pathname === "/" && location.hash === "";
 		return location.pathname.startsWith(path);
+	};
+
+	const isActiveFragment = (fragment: string) => {
+		if (location.pathname !== "/") return false;
+		return location.hash === `#${fragment}`;
 	};
 
 	return (
@@ -108,7 +113,7 @@ export default function App() {
 									<Link
 										to={$path("/")}
 										className={`transition-colors ${
-											isActivePage("/") && location.pathname === "/"
+											isActivePage("/")
 												? "text-primary font-medium"
 												: "text-muted-foreground hover:text-foreground"
 										}`}
@@ -127,13 +132,21 @@ export default function App() {
 									</Link>
 									<Link
 										to={withFragment($path("/"), "pricing")}
-										className="text-muted-foreground hover:text-foreground transition-colors"
+										className={`transition-colors ${
+											isActiveFragment("pricing")
+												? "text-primary font-medium"
+												: "text-muted-foreground hover:text-foreground"
+										}`}
 									>
 										Pricing
 									</Link>
 									<Link
 										to={withFragment($path("/"), "contact")}
-										className="text-muted-foreground hover:text-foreground transition-colors"
+										className={`transition-colors ${
+											isActiveFragment("contact")
+												? "text-primary font-medium"
+												: "text-muted-foreground hover:text-foreground"
+										}`}
 									>
 										Contact
 									</Link>
