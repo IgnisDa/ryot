@@ -635,7 +635,11 @@ export default function Page() {
 								userExportsQuery.data.length > 0 ? (
 									<Stack>
 										{userExportsQuery.data.map((exp) => (
-											<DisplayExport key={exp.startedAt} item={exp} />
+											<DisplayExport
+												item={exp}
+												key={exp.startedAt}
+												refetch={userExportsQuery.refetch}
+											/>
 										))}
 									</Stack>
 								) : (
@@ -653,6 +657,7 @@ export default function Page() {
 }
 
 type ExportItemProps = {
+	refetch: () => void;
 	item: UserExportsQuery["userExports"][number];
 };
 
@@ -703,7 +708,10 @@ const DisplayExport = (props: ExportItemProps) => {
 								e.preventDefault();
 								openConfirmationModal(
 									"Are you sure you want to delete this export? This action is irreversible.",
-									() => submit(form),
+									() => {
+										submit(form);
+										props.refetch();
+									},
 								);
 							}}
 						>
