@@ -37,7 +37,7 @@
 		"cookie": "1.0.2",
 		"crypto-js": "4.2.0",
 		"dayjs": "1.11.18",
-		"dotenv": "17.2.2",
+		"dotenv": "17.2.3",
 		"embla-carousel": "8.6.0",
 		"embla-carousel-react": "8.6.0",
 		"filesize": "11.0.13",
