@@ -15,7 +15,6 @@ import {
 	Text,
 	Tooltip,
 } from "@mantine/core";
-import { useMergedRef } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	type EntityLot,
@@ -292,7 +291,6 @@ const BaseEntityDisplayItemComponent = forwardRef<
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
 	const [_r, setEntityToReview] = useReviewEntity();
-	const mergedRef = useMergedRef(viewportRef);
 	const ratingScale = userPreferences.general.reviewScale;
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
@@ -432,8 +430,8 @@ const BaseEntityDisplayItemComponent = forwardRef<
 			h={240}
 			w="100%"
 			pos="relative"
-			ref={mergedRef}
 			style={cardStyle}
+			ref={viewportRef}
 			className={props.imageClassName}
 			withBorder={!shouldHighlightImage}
 		>
