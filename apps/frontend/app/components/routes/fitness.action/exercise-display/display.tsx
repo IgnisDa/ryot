@@ -278,7 +278,8 @@ export const ExerciseDisplay = (props: {
 										`This removes '${exerciseDetails?.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
 										() => {
 											const assets = [...exercise.images, ...exercise.videos];
-											for (const asset of assets) deleteS3AssetMutation.mutate(asset);
+											for (const asset of assets)
+												deleteS3AssetMutation.mutate(asset);
 
 											setCurrentWorkout(
 												produce(currentWorkout, (draft) => {
