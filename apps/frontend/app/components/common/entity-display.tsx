@@ -110,38 +110,6 @@ const progressBarBaseStyle = {
 	filter: "drop-shadow(0 0 1px rgba(239, 68, 68, 0.8))",
 } as const;
 
-const EntityActionButton = (props: {
-	mode: string;
-	label: string;
-	colorName: string;
-	className?: string;
-	entityButtonProps: ActionIconProps;
-	onClick: () => void | Promise<void>;
-	consumeButtonIndicatorLabel?: string;
-	icon: ComponentType<{ size: number; color: string }>;
-}) => (
-	<Tooltip label={props.label}>
-		<Indicator
-			offset={4}
-			color="violet"
-			position="bottom-center"
-			disabled={!props.consumeButtonIndicatorLabel}
-			label={<Text fz={10}>{props.consumeButtonIndicatorLabel}</Text>}
-		>
-			<ActionIcon
-				onClick={props.onClick}
-				className={props.className}
-				{...props.entityButtonProps}
-			>
-				<props.icon
-					size={20}
-					color={getThemeColor(props.colorName, props.mode)}
-				/>
-			</ActionIcon>
-		</Indicator>
-	</Tooltip>
-);
-
 const formatBaseEntityDisplayItemRating = (
 	rating: number,
 	scale: UserReviewScale,
@@ -190,6 +158,38 @@ const BaseEntityDisplayItemReason = (props: {
 		</Tooltip>
 	);
 };
+
+const EntityActionButton = (props: {
+	mode: string;
+	label: string;
+	colorName: string;
+	className?: string;
+	entityButtonProps: ActionIconProps;
+	onClick: () => void | Promise<void>;
+	consumeButtonIndicatorLabel?: string;
+	icon: ComponentType<{ size: number; color: string }>;
+}) => (
+	<Tooltip label={props.label}>
+		<Indicator
+			offset={4}
+			color="violet"
+			position="bottom-center"
+			disabled={!props.consumeButtonIndicatorLabel}
+			label={<Text fz={10}>{props.consumeButtonIndicatorLabel}</Text>}
+		>
+			<ActionIcon
+				onClick={props.onClick}
+				className={props.className}
+				{...props.entityButtonProps}
+			>
+				<props.icon
+					size={20}
+					color={getThemeColor(props.colorName, props.mode)}
+				/>
+			</ActionIcon>
+		</Indicator>
+	</Tooltip>
+);
 
 type ActionButtonsProps = {
 	mode: string;
