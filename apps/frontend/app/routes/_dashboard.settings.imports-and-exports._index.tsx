@@ -632,7 +632,7 @@ export default function Page() {
 										{userExportsQuery.data.map((exp) => (
 											<DisplayExport
 												item={exp}
-												key={exp.startedAt}
+												key={exp.key}
 												refetch={userExportsQuery.refetch}
 											/>
 										))}
