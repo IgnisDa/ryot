@@ -289,7 +289,7 @@ type BaseEntityDisplayItemCard = {
 const BaseEntityDisplayItemComponent = forwardRef<
 	HTMLDivElement,
 	BaseEntityDisplayItemCard
->((props, ref) => {
+>((props, viewportRef) => {
 	const mode = useCurrentColorSchema();
 	const coreDetails = useCoreDetails();
 	const userDetails = useUserDetails();
@@ -432,7 +432,7 @@ const BaseEntityDisplayItemComponent = forwardRef<
 		<Card
 			p={0}
 			h={240}
-			ref={ref}
+			ref={viewportRef}
 			pos="relative"
 			style={cardStyle}
 			w={{ base: 108, sm: 146 }}
