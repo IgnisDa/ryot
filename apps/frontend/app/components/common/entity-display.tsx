@@ -90,10 +90,6 @@ const fullSizeStyle = {
 	height: "100%",
 } as const;
 
-const actionButtonsColumnStyle = {
-	zIndex: 10,
-} satisfies MantineStyleProp;
-
 const centerElementPaperStyle = {
 	zIndex: 1000,
 	transform: "translate(-50%, -50%)",
@@ -437,7 +433,7 @@ const BaseEntityDisplayItemComponent = forwardRef<
 			pos="relative"
 			ref={mergedRef}
 			style={cardStyle}
-			w={{ base: 108, sm: 146 }}
+			w={{ base: 160, sm: 146 }}
 			className={props.imageClassName}
 			withBorder={!shouldHighlightImage}
 		>
@@ -523,23 +519,11 @@ const BaseEntityDisplayItemComponent = forwardRef<
 							</Text>
 						</Tooltip>
 					</Box>
-					<Group gap={6} justify="center" wrap="nowrap" visibleFrom="sm">
+					<Group gap={6} justify="center" wrap="nowrap">
 						<ActionButtons {...actionButtonsProps} />
 					</Group>
 				</Stack>
 			</Box>
-			<Flex
-				gap={4}
-				h="100%"
-				top={30}
-				right={2}
-				pos="absolute"
-				hiddenFrom="sm"
-				direction="column"
-				style={actionButtonsColumnStyle}
-			>
-				<ActionButtons {...actionButtonsProps} />
-			</Flex>
 			{progress ? (
 				<Box
 					h={4}
