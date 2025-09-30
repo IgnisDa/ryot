@@ -89,10 +89,6 @@ const fullSizeStyle = {
 	height: "100%",
 } as const;
 
-const actionButtonsColumnStyle = {
-	zIndex: 10,
-} satisfies MantineStyleProp;
-
 const centerElementPaperStyle = {
 	zIndex: 1000,
 	transform: "translate(-50%, -50%)",
@@ -113,45 +109,13 @@ const progressBarBaseStyle = {
 	filter: "drop-shadow(0 0 1px rgba(239, 68, 68, 0.8))",
 } as const;
 
-const EntityActionButton = (props: {
-	mode: string;
-	label: string;
-	colorName: string;
-	className?: string;
-	entityButtonProps: ActionIconProps;
-	onClick: () => void | Promise<void>;
-	consumeButtonIndicatorLabel?: string;
-	icon: ComponentType<{ size: number; color: string }>;
-}) => (
-	<Tooltip label={props.label}>
-		<Indicator
-			offset={4}
-			color="violet"
-			position="bottom-center"
-			disabled={!props.consumeButtonIndicatorLabel}
-			label={<Text fz={10}>{props.consumeButtonIndicatorLabel}</Text>}
-		>
-			<ActionIcon
-				onClick={props.onClick}
-				className={props.className}
-				{...props.entityButtonProps}
-			>
-				<props.icon
-					size={20}
-					color={getThemeColor(props.colorName, props.mode)}
-				/>
-			</ActionIcon>
-		</Indicator>
-	</Tooltip>
-);
-
 const formatBaseEntityDisplayItemRating = (
 	rating: number,
 	scale: UserReviewScale,
 ): string => {
 	switch (scale) {
 		case UserReviewScale.OutOfHundred:
-			return `${rating}%`;
+			return `${rating.toFixed(1)}%`;
 		case UserReviewScale.OutOfTen:
 			return `${(rating / 10).toFixed(1)}/10`;
 		case UserReviewScale.OutOfFive:
@@ -193,6 +157,38 @@ const BaseEntityDisplayItemReason = (props: {
 		</Tooltip>
 	);
 };
+
+const EntityActionButton = (props: {
+	mode: string;
+	label: string;
+	colorName: string;
+	className?: string;
+	entityButtonProps: ActionIconProps;
+	onClick: () => void | Promise<void>;
+	consumeButtonIndicatorLabel?: string;
+	icon: ComponentType<{ size: number; color: string }>;
+}) => (
+	<Tooltip label={props.label}>
+		<Indicator
+			offset={4}
+			color="violet"
+			position="bottom-center"
+			disabled={!props.consumeButtonIndicatorLabel}
+			label={<Text fz={10}>{props.consumeButtonIndicatorLabel}</Text>}
+		>
+			<ActionIcon
+				onClick={props.onClick}
+				className={props.className}
+				{...props.entityButtonProps}
+			>
+				<props.icon
+					size={20}
+					color={getThemeColor(props.colorName, props.mode)}
+				/>
+			</ActionIcon>
+		</Indicator>
+	</Tooltip>
+);
 
 type ActionButtonsProps = {
 	mode: string;
@@ -289,7 +285,7 @@ type BaseEntityDisplayItemCard = {
 const BaseEntityDisplayItemComponent = forwardRef<
 	HTMLDivElement,
 	BaseEntityDisplayItemCard
->((props, ref) => {
+>((props, viewportRef) => {
 	const mode = useCurrentColorSchema();
 	const coreDetails = useCoreDetails();
 	const userDetails = useUserDetails();
@@ -432,10 +428,10 @@ const BaseEntityDisplayItemComponent = forwardRef<
 		<Card
 			p={0}
 			h={240}
-			ref={ref}
+			w="100%"
 			pos="relative"
 			style={cardStyle}
-			w={{ base: 108, sm: 146 }}
+			ref={viewportRef}
 			className={props.imageClassName}
 			withBorder={!shouldHighlightImage}
 		>
@@ -521,23 +517,11 @@ const BaseEntityDisplayItemComponent = forwardRef<
 							</Text>
 						</Tooltip>
 					</Box>
-					<Group gap={6} justify="center" wrap="nowrap" visibleFrom="sm">
+					<Group gap="xs" justify="center" wrap="nowrap">
 						<ActionButtons {...actionButtonsProps} />
 					</Group>
 				</Stack>
 			</Box>
-			<Flex
-				gap={4}
-				h="100%"
-				top={30}
-				right={2}
-				pos="absolute"
-				hiddenFrom="sm"
-				direction="column"
-				style={actionButtonsColumnStyle}
-			>
-				<ActionButtons {...actionButtonsProps} />
-			</Flex>
 			{progress ? (
 				<Box
 					h={4}

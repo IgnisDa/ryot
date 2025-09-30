@@ -980,8 +980,7 @@ export default function Page() {
 								)}
 							</Tabs.Panel>
 							<Tabs.Panel value="showSeasons" h={MEDIA_DETAILS_HEIGHT}>
-								{metadataDetails.data.showSpecifics &&
-								userMetadataDetails.data.showProgress ? (
+								{metadataDetails.data.showSpecifics ? (
 									<Virtuoso
 										data={metadataDetails.data.showSpecifics.seasons}
 										itemContent={(seasonIdx, season) => (

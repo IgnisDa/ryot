@@ -3,6 +3,7 @@ import { useForceUpdate } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	type ChangeCollectionToEntitiesInput,
+	DeleteS3ObjectDocument,
 	DeployAddEntitiesToCollectionJobDocument,
 	DeployBulkMetadataProgressUpdateDocument,
 	DeployRemoveEntitiesFromCollectionJobDocument,
@@ -551,6 +552,14 @@ export const useExpireCacheKeyMutation = () =>
 		mutationFn: async (cacheId: string) => {
 			await clientGqlService.request(ExpireCacheKeyDocument, { cacheId });
 		},
+	});
+
+export const useDeleteS3AssetMutation = () =>
+	useMutation({
+		mutationFn: (key: string) =>
+			clientGqlService
+				.request(DeleteS3ObjectDocument, { key })
+				.then((g) => g.deleteS3Object),
 	});
 
 export const useUsersList = (query?: string) =>

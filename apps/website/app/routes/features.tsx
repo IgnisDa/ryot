@@ -1,3 +1,4 @@
+import { cn } from "@ryot/ts-utils";
 import Autoplay from "embla-carousel-autoplay";
 import {
 	AreaChart,
@@ -87,7 +88,7 @@ const FeatureSection = (props: {
 		customGrid = "lg:grid-cols-2",
 	} = props;
 	return (
-		<section className={`py-20 ${!isEven ? "bg-muted/30" : ""}`}>
+		<section className={cn("py-20", !isEven && "bg-muted/30")}>
 			<div className={SECTION_STYLES}>
 				<div className="text-center mb-16">
 					<Badge variant="outline" className="mb-6">
@@ -117,7 +118,12 @@ const FeatureSection = (props: {
 				)}
 
 				<div
-					className={`${customGrid === "single" ? "max-w-4xl mx-auto" : `grid ${customGrid} gap-2`} ${!isEven ? "mb-16" : ""}`}
+					className={cn(
+						customGrid === "single"
+							? "max-w-4xl mx-auto"
+							: cn("grid", customGrid, "gap-2"),
+						!isEven && "mb-16",
+					)}
 				>
 					{customGrid === "single" ? (
 						<div className="space-y-2">

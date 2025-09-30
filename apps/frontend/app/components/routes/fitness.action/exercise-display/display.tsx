@@ -39,6 +39,7 @@ import { v4 as randomUUID } from "uuid";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useCoreDetails,
+	useDeleteS3AssetMutation,
 	useExerciseDetails,
 	useUserExerciseDetails,
 	useUserPreferences,
@@ -57,7 +58,6 @@ import {
 import { getProgressOfExercise, usePlayFitnessSound } from "../hooks";
 import { SetDisplay } from "../set-display/display";
 import type { FuncStartTimer } from "../types";
-import { deleteUploadedAsset } from "../utils";
 import { ExerciseDetailsModal } from "./details-modal";
 import { NoteInput } from "./note-input";
 import { DisplayExerciseSetRestTimer } from "./set-rest-timer";
@@ -88,6 +88,7 @@ export const ExerciseDisplay = (props: {
 	const { data: userExerciseDetails } = useUserExerciseDetails(
 		exercise.exerciseId,
 	);
+	const deleteS3AssetMutation = useDeleteS3AssetMutation();
 
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const [
@@ -277,7 +278,8 @@ export const ExerciseDisplay = (props: {
 										`This removes '${exerciseDetails?.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
 										() => {
 											const assets = [...exercise.images, ...exercise.videos];
-											for (const asset of assets) deleteUploadedAsset(asset);
+											for (const asset of assets)
+												deleteS3AssetMutation.mutate(asset);
 
 											setCurrentWorkout(
 												produce(currentWorkout, (draft) => {

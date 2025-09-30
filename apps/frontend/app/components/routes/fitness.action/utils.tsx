@@ -1,4 +1,3 @@
-import { $path } from "safe-routes";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import type { CurrentWorkoutStopwatch } from "~/lib/state/fitness";
 
@@ -26,12 +25,3 @@ export const styles = {
 
 export const formatTimerDuration = (duration: number) =>
 	dayjsLib.duration(duration).format("mm:ss");
-
-export const deleteUploadedAsset = (key: string) => {
-	const formData = new FormData();
-	formData.append("key", key);
-	fetch($path("/actions", { intent: "deleteS3Asset" }), {
-		method: "POST",
-		body: formData,
-	});
-};

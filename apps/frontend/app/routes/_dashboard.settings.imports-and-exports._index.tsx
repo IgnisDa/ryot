@@ -41,7 +41,6 @@ import { useQuery } from "@tanstack/react-query";
 import { filesize } from "filesize";
 import { useMemo, useState } from "react";
 import { Form, data } from "react-router";
-import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -51,6 +50,7 @@ import {
 	useApplicationEvents,
 	useConfirmSubmit,
 	useCoreDetails,
+	useDeleteS3AssetMutation,
 	useNonHiddenUserCollections,
 } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
@@ -191,35 +191,30 @@ const malImportFormSchema = z.object({
 });
 
 export default function Page() {
-	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
+	const coreDetails = useCoreDetails();
+	const events = useApplicationEvents();
 	const { inViewport, ref } = useInViewport();
 	const userCollections = useNonHiddenUserCollections();
-	const events = useApplicationEvents();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
+
+	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
 	const userImportsReportsQuery = useQuery({
 		enabled: inViewport,
 		refetchInterval: 5000,
 		queryKey: ["userImportsReports"],
-		queryFn: async () => {
-			const { userImportReports } = await clientGqlService.request(
-				UserImportReportsDocument,
-			);
-			return userImportReports;
-		},
+		queryFn: () =>
+			clientGqlService
+				.request(UserImportReportsDocument)
+				.then((u) => u.userImportReports),
 	});
 
 	const userExportsQuery = useQuery({
 		queryKey: ["userExports"],
-		queryFn: async () => {
-			const { userExports } =
-				await clientGqlService.request(UserExportsDocument);
-			return userExports;
-		},
+		queryFn: () =>
+			clientGqlService.request(UserExportsDocument).then((u) => u.userExports),
 	});
-
-	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
 	return (
 		<Container size="xs">
@@ -635,7 +630,11 @@ export default function Page() {
 								userExportsQuery.data.length > 0 ? (
 									<Stack>
 										{userExportsQuery.data.map((exp) => (
-											<DisplayExport key={exp.startedAt} item={exp} />
+											<DisplayExport
+												item={exp}
+												key={exp.key}
+												refetch={userExportsQuery.refetch}
+											/>
 										))}
 									</Stack>
 								) : (
@@ -653,11 +652,12 @@ export default function Page() {
 }
 
 type ExportItemProps = {
+	refetch: () => void;
 	item: UserExportsQuery["userExports"][number];
 };
 
 const DisplayExport = (props: ExportItemProps) => {
-	const submit = useConfirmSubmit();
+	const deleteS3AssetMutation = useDeleteS3AssetMutation();
 
 	const duration = useMemo(() => {
 		const seconds = dayjsLib(props.item.endedAt).diff(
@@ -687,29 +687,23 @@ const DisplayExport = (props: ExportItemProps) => {
 							<IconDownload />
 						</ThemeIcon>
 					</Anchor>
-					<Form
-						method="POST"
-						action={withQuery($path("/actions"), {
-							intent: "deleteS3Asset",
-						})}
+					<ActionIcon
+						color="red"
+						variant="transparent"
+						disabled={deleteS3AssetMutation.isPending}
+						onClick={() => {
+							openConfirmationModal(
+								"Are you sure you want to delete this export? This action is irreversible.",
+								() => {
+									deleteS3AssetMutation
+										.mutateAsync(props.item.key)
+										.then(() => props.refetch());
+								},
+							);
+						}}
 					>
-						<input hidden name="key" defaultValue={props.item.key} />
-						<ActionIcon
-							color="red"
-							type="submit"
-							variant="transparent"
-							onClick={(e) => {
-								const form = e.currentTarget.form;
-								e.preventDefault();
-								openConfirmationModal(
-									"Are you sure you want to delete this export? This action is irreversible.",
-									() => submit(form),
-								);
-							}}
-						>
-							<IconTrash />
-						</ActionIcon>
-					</Form>
+						<IconTrash />
+					</ActionIcon>
 				</Group>
 			</Group>
 		</Paper>

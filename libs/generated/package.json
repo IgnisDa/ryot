@@ -6,6 +6,6 @@
 	},
 	"devDependencies": {
 		"@graphql-codegen/cli": "6.0.0",
-		"@graphql-codegen/client-preset": "5.0.1"
+		"@graphql-codegen/client-preset": "5.0.2"
 	}
 }

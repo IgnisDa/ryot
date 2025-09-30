@@ -32,16 +32,16 @@ import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {
 	className?: string;
-	children: ReactNode | Array<ReactNode>;
+	children: ReactNode;
 }) => {
 	const [parent] = useAutoAnimate();
 
 	return (
 		<SimpleGrid
 			ref={parent}
+			spacing="sm"
 			className={props.className}
-			spacing={{ base: "sm", sm: "lg" }}
-			cols={{ base: 3, sm: 4, md: 5, lg: 6 }}
+			cols={{ base: 2, sm: 3, md: 5 }}
 		>
 			{props.children}
 		</SimpleGrid>
@@ -50,9 +50,9 @@ export const ApplicationGrid = (props: {
 
 export const MediaDetailsLayout = (props: {
 	title: string;
+	children: ReactNode;
 	assets: EntityAssets;
 	isPartialStatusActive: boolean;
-	children: Array<ReactNode | (ReactNode | undefined)>;
 	externalLink: {
 		lot?: MediaLot;
 		source: MediaSource;
