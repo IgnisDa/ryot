@@ -116,7 +116,7 @@ const formatBaseEntityDisplayItemRating = (
 ): string => {
 	switch (scale) {
 		case UserReviewScale.OutOfHundred:
-			return `${rating}%`;
+			return `${rating.toFixed(1)}%`;
 		case UserReviewScale.OutOfTen:
 			return `${(rating / 10).toFixed(1)}/10`;
 		case UserReviewScale.OutOfFive:
