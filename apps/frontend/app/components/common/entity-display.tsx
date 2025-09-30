@@ -430,10 +430,10 @@ const BaseEntityDisplayItemComponent = forwardRef<
 		<Card
 			p={0}
 			h={240}
+			w="100%"
 			pos="relative"
 			ref={mergedRef}
 			style={cardStyle}
-			w={{ base: 160, sm: 146 }}
 			className={props.imageClassName}
 			withBorder={!shouldHighlightImage}
 		>
@@ -519,7 +519,7 @@ const BaseEntityDisplayItemComponent = forwardRef<
 							</Text>
 						</Tooltip>
 					</Box>
-					<Group gap={6} justify="center" wrap="nowrap">
+					<Group gap="xs" justify="center" wrap="nowrap">
 						<ActionButtons {...actionButtonsProps} />
 					</Group>
 				</Stack>
