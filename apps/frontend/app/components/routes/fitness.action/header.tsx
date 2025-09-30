@@ -260,11 +260,14 @@ export function WorkoutHeader({
 								`Are you sure you want to cancel this ${
 									loaderData.isCreatingTemplate ? "template" : "workout"
 								}?`,
-								() => {
-									for (const e of currentWorkout.exercises) {
-											const assets = [...e.images, ...e.videos];
-											for (const asset of assets) deleteS3AssetMutation.mutate(asset);
-									}
+								async () => {
+									await Promise.all(
+										currentWorkout.exercises.flatMap((e) =>
+											[...e.images, ...e.videos].map((asset) =>
+												deleteS3AssetMutation.mutateAsync(asset),
+											),
+										),
+									);
 									navigate($path("/"), { replace: true });
 									setCurrentWorkout(RESET);
 								},
