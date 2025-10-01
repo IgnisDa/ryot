@@ -170,8 +170,8 @@ const EntityActionButton = (props: {
 }) => (
 	<Tooltip label={props.label}>
 		<Indicator
-			zIndex={0}
 			offset={4}
+			zIndex={10}
 			color="violet"
 			position="bottom-center"
 			disabled={!props.consumeButtonIndicatorLabel}
