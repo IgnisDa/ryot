@@ -107,9 +107,9 @@ interface FilterState {
 	page: number;
 	query: string;
 	types: ExerciseLot[];
+	sortBy: ExerciseSortBy;
 	levels: ExerciseLevel[];
 	forces: ExerciseForce[];
-	sortBy: ExerciseSortBy;
 	muscles: ExerciseMuscle[];
 	mechanics: ExerciseMechanic[];
 	equipments: ExerciseEquipment[];
