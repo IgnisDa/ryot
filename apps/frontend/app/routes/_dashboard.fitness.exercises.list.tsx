@@ -394,27 +394,31 @@ const FiltersModalForm = (props: {
 				data={convertEnumToSelectData(ExerciseSortBy)}
 				onChange={(v) => props.updateFilter("sortBy", v as ExerciseSortBy)}
 			/>
-			{Object.keys(defaultFilters)
-				.filter((f) => !["sortBy", "collections", "page", "query"].includes(f))
-				.map((f) => (
-					<Select
-						key={f}
-						size="xs"
-						clearable
-						label={startCase(f)}
-						// biome-ignore lint/suspicious/noExplicitAny: required here
-						defaultValue={(props.filter as any)[f]}
-						onChange={(v) => props.updateFilter(f as keyof FilterState, v)}
-						// biome-ignore lint/suspicious/noExplicitAny: required here
-						data={(coreDetails.exerciseParameters.filters as any)[f].map(
+			<SimpleGrid cols={2}>
+				{Object.keys(defaultFilters)
+					.filter(
+						(f) => !["sortBy", "collections", "page", "query"].includes(f),
+					)
+					.map((f) => (
+						<Select
+							key={f}
+							size="xs"
+							clearable
+							label={startCase(f)}
 							// biome-ignore lint/suspicious/noExplicitAny: required here
-							(v: any) => ({
-								value: v,
-								label: startCase(snakeCase(v)),
-							}),
-						)}
-					/>
-				))}
+							defaultValue={(props.filter as any)[f]}
+							onChange={(v) => props.updateFilter(f as keyof FilterState, v)}
+							// biome-ignore lint/suspicious/noExplicitAny: required here
+							data={(coreDetails.exerciseParameters.filters as any)[f].map(
+								// biome-ignore lint/suspicious/noExplicitAny: required here
+								(v: any) => ({
+									value: v,
+									label: startCase(snakeCase(v)),
+								}),
+							)}
+						/>
+					))}
+			</SimpleGrid>
 			<CollectionsFilter
 				applied={props.filter.collections}
 				onFiltersChanged={(val) => props.updateFilter("collections", val)}
