@@ -767,12 +767,12 @@ export enum ExerciseLevel {
 
 export type ExerciseListFilter = {
   collections?: InputMaybe<Array<MediaCollectionFilter>>;
-  equipment?: InputMaybe<ExerciseEquipment>;
-  force?: InputMaybe<ExerciseForce>;
-  level?: InputMaybe<ExerciseLevel>;
-  mechanic?: InputMaybe<ExerciseMechanic>;
-  muscle?: InputMaybe<ExerciseMuscle>;
-  type?: InputMaybe<ExerciseLot>;
+  equipments?: InputMaybe<Array<ExerciseEquipment>>;
+  forces?: InputMaybe<Array<ExerciseForce>>;
+  levels?: InputMaybe<Array<ExerciseLevel>>;
+  mechanics?: InputMaybe<Array<ExerciseMechanic>>;
+  muscles?: InputMaybe<Array<ExerciseMuscle>>;
+  types?: InputMaybe<Array<ExerciseLot>>;
 };
 
 /** The different types of exercises that can be done. */
