@@ -766,7 +766,7 @@ export enum ExerciseLevel {
 }
 
 export type ExerciseListFilter = {
-  collection?: InputMaybe<Scalars['String']['input']>;
+  collections?: InputMaybe<Array<MediaCollectionFilter>>;
   equipment?: InputMaybe<ExerciseEquipment>;
   force?: InputMaybe<ExerciseForce>;
   level?: InputMaybe<ExerciseLevel>;
