@@ -32,6 +32,7 @@ import {
 	type ExerciseMechanic,
 	type ExerciseMuscle,
 	ExerciseSortBy,
+	type MediaCollectionFilter,
 	MergeExerciseDocument,
 	UserExercisesListDocument,
 	type UserExercisesListInput,
@@ -65,6 +66,7 @@ import {
 } from "~/components/common";
 import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
+	CollectionsFilter,
 	DebouncedSearchInput,
 	FiltersModal,
 } from "~/components/common/filters";
@@ -73,7 +75,6 @@ import {
 	useCoreDetails,
 	useExerciseDetails,
 	useIsFitnessActionActive,
-	useNonHiddenUserCollections,
 	useUserExerciseDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -104,25 +105,25 @@ interface FilterState {
 	page: number;
 	query: string;
 	type?: ExerciseLot;
-	collection?: string;
 	level?: ExerciseLevel;
 	force?: ExerciseForce;
 	sortBy: ExerciseSortBy;
 	muscle?: ExerciseMuscle;
 	mechanic?: ExerciseMechanic;
 	equipment?: ExerciseEquipment;
+	collections: MediaCollectionFilter[];
 }
 
 const defaultFilters: FilterState = {
 	page: 1,
 	query: "",
+	collections: [],
 	type: undefined,
 	force: undefined,
 	level: undefined,
 	muscle: undefined,
 	mechanic: undefined,
 	equipment: undefined,
-	collection: undefined,
 	sortBy: ExerciseSortBy.TimesPerformed,
 };
 
@@ -187,7 +188,7 @@ export default function Page() {
 			muscle: filters.muscle,
 			mechanic: filters.mechanic,
 			equipment: filters.equipment,
-			collection: filters.collection,
+			collections: filters.collections,
 		},
 	};
 
@@ -383,10 +384,9 @@ const FiltersModalForm = (props: {
 	updateFilter: FilterUpdateFunction<FilterState>;
 }) => {
 	const coreDetails = useCoreDetails();
-	const collections = useNonHiddenUserCollections();
 
 	return (
-		<Stack gap={4}>
+		<Stack gap="sm">
 			<Select
 				size="xs"
 				label="Sort by"
@@ -395,7 +395,7 @@ const FiltersModalForm = (props: {
 				onChange={(v) => props.updateFilter("sortBy", v as ExerciseSortBy)}
 			/>
 			{Object.keys(defaultFilters)
-				.filter((f) => !["sortBy", "collection", "page", "query"].includes(f))
+				.filter((f) => !["sortBy", "collections", "page", "query"].includes(f))
 				.map((f) => (
 					<Select
 						key={f}
@@ -415,22 +415,9 @@ const FiltersModalForm = (props: {
 						)}
 					/>
 				))}
-			<Select
-				clearable
-				size="xs"
-				label="Collection"
-				defaultValue={props.filter.collection?.toString()}
-				onChange={(v) => props.updateFilter("collection", v)}
-				data={[
-					{
-						group: "My collections",
-						items:
-							collections?.map((c) => ({
-								label: c.name,
-								value: c.id.toString(),
-							})) || [],
-					},
-				]}
+			<CollectionsFilter
+				applied={props.filter.collections}
+				onFiltersChanged={(val) => props.updateFilter("collections", val)}
 			/>
 		</Stack>
 	);
