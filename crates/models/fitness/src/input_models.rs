@@ -3,6 +3,7 @@ use common_models::{EntityAssets, SearchInput};
 use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
 };
+use media_models::MediaCollectionFilter;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
@@ -64,10 +65,10 @@ pub struct ExerciseListFilter {
     pub lot: Option<ExerciseLot>,
     pub level: Option<ExerciseLevel>,
     pub force: Option<ExerciseForce>,
+    pub muscle: Option<ExerciseMuscle>,
     pub mechanic: Option<ExerciseMechanic>,
     pub equipment: Option<ExerciseEquipment>,
-    pub muscle: Option<ExerciseMuscle>,
-    pub collection: Option<String>,
+    pub collections: Option<Vec<MediaCollectionFilter>>,
 }
 
 #[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]

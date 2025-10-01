@@ -615,10 +615,12 @@ pub async fn user_exercises_list(
                         .apply_if(q.equipment, |q, v| {
                             q.filter(enriched_user_to_exercise::Column::Equipment.eq(v))
                         })
-                        .apply_if(q.collection, |q, v| {
-                            q.filter(Expr::val(v).eq(PgFunc::any(Expr::col(
+                        .apply_if(q.collections, |q, v| {
+                            apply_collection_filters(
                                 enriched_user_to_exercise::Column::CollectionIds,
-                            ))))
+                                q,
+                                v,
+                            )
                         })
                 })
                 .apply_if(input.search.and_then(|s| s.query), |query, v| {
