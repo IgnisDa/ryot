@@ -86,8 +86,8 @@ import { clientGqlService } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
 	addExerciseToCurrentWorkout,
-	getExerciseImages,
 	useCurrentWorkout,
+	useExerciseImages,
 	useMergingExercise,
 } from "~/lib/state/fitness";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
@@ -180,7 +180,7 @@ export default function Page() {
 		coreDetails.exerciseParameters.lotMapping.find(
 			(lm) => lm.lot === exerciseDetails?.lot,
 		)?.bests || [];
-	const images = getExerciseImages(exerciseDetails);
+	const images = useExerciseImages(exerciseDetails);
 
 	if (!exerciseDetails || !userExerciseDetails) {
 		return (

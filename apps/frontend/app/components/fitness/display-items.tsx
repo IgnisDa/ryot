@@ -14,7 +14,7 @@ import {
 	useUserWorkoutTemplateDetails,
 } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
-import { getExerciseImages } from "~/lib/state/fitness";
+import { useExerciseImages } from "~/lib/state/fitness";
 import { useFullscreenImage } from "~/lib/state/general";
 import { FitnessEntity } from "~/lib/types";
 import { BaseEntityDisplayItem } from "../common/entity-display";
@@ -30,7 +30,7 @@ export const ExerciseDisplayItem = (props: {
 		props.exerciseId,
 		inViewport,
 	);
-	const images = getExerciseImages(exerciseDetails);
+	const images = useExerciseImages(exerciseDetails);
 	const times = userExerciseDetails?.details?.exerciseNumTimesInteracted;
 
 	return (

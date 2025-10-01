@@ -29,9 +29,9 @@ import {
 } from "~/lib/shared/ui-utils";
 import {
 	convertHistorySetToCurrentSet,
-	getExerciseImages,
 	getWorkoutDetails,
 	useCurrentWorkout,
+	useExerciseImages,
 } from "~/lib/state/fitness";
 import { FitnessEntity } from "~/lib/types";
 
@@ -61,7 +61,7 @@ export const ExerciseDetailsModal = ({
 	const [activeHistoryIdx, setActiveHistoryIdx] = useState(0);
 
 	const exerciseHistory = userExerciseDetails?.history;
-	const images = getExerciseImages(exerciseDetails);
+	const images = useExerciseImages(exerciseDetails);
 
 	return (
 		<Modal

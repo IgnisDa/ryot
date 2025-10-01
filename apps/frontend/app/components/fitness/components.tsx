@@ -44,13 +44,14 @@ import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useExerciseDetails,
 	useGetRandomMantineColor,
+	useS3PresignedUrls,
 } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath, getSetColor } from "~/lib/shared/media-utils";
 import {
 	type TWorkoutDetails,
-	getExerciseImages,
 	getWorkoutDetailsQuery,
 	getWorkoutTemplateDetailsQuery,
+	useExerciseImages,
 } from "~/lib/state/fitness";
 import { FitnessEntity } from "~/lib/types";
 import { ExerciseImagesList } from "./display-items";
@@ -159,7 +160,15 @@ export const ExerciseHistory = (props: {
 		s.exercises.includes(props.exerciseIdx),
 	);
 
-	const images = getExerciseImages(exerciseDetails);
+	const exerciseS3ImagesPresigned = useS3PresignedUrls(
+		exercise?.assets?.s3Images,
+	);
+	const exerciseImages = [
+		...(exercise?.assets?.remoteImages || []),
+		...(exerciseS3ImagesPresigned.data || []),
+	];
+
+	const images = useExerciseImages(exerciseDetails);
 	const hasExtraDetailsToShow = Boolean(images.length > 0 || exercise?.total);
 
 	return (
@@ -277,8 +286,8 @@ export const ExerciseHistory = (props: {
 								{exercise.notes.length === 1 ? undefined : `${idxN + 1})`} {n}
 							</Text>
 						))}
-						{exercise.assets && exercise.assets.s3Images.length > 0 ? (
-							<ExerciseImagesList images={exercise.assets.s3Images} />
+						{exerciseImages.length > 0 ? (
+							<ExerciseImagesList images={exerciseImages} />
 						) : null}
 					</Stack>
 					{exercise.sets.map((set, idx) => (

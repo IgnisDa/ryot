@@ -22,7 +22,7 @@ import type {
 import { changeCase } from "@ryot/ts-utils";
 import { IconExternalLink } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
-import { useFallbackImageUrl } from "~/lib/shared/hooks";
+import { useFallbackImageUrl, useS3PresignedUrls } from "~/lib/shared/hooks";
 import {
 	getProviderSourceImage,
 	getSurroundingElements,
@@ -62,7 +62,11 @@ export const MediaDetailsLayout = (props: {
 	const [activeImageId, setActiveImageId] = useState(0);
 	const fallbackImageUrl = useFallbackImageUrl();
 
-	const images = [...props.assets.remoteImages, ...props.assets.s3Images];
+	const s3PresignedUrls = useS3PresignedUrls(props.assets.s3Images);
+	const images = [
+		...props.assets.remoteImages,
+		...(s3PresignedUrls.data || []),
+	];
 
 	const providerImage = getProviderSourceImage(props.externalLink.source);
 

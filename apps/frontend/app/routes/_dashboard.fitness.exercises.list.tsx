@@ -87,8 +87,8 @@ import {
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	addExerciseToCurrentWorkout,
-	getExerciseImages,
 	useCurrentWorkout,
+	useExerciseImages,
 	useMergingExercise,
 } from "~/lib/state/fitness";
 import {
@@ -466,7 +466,7 @@ const ExerciseItemDisplay = (props: {
 		userExerciseDetails?.details?.exerciseNumTimesInteracted;
 	const lastUpdatedOn = userExerciseDetails?.details?.lastUpdatedOn;
 	const isTourTargetExercise = props.exerciseId === TOUR_EXERCISE_TARGET_ID;
-	const images = getExerciseImages(exercise);
+	const images = useExerciseImages(exercise);
 
 	return (
 		<Box
