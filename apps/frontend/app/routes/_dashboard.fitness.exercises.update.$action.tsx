@@ -9,7 +9,6 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
-import { IMAGE_MIME_TYPE } from "@mantine/dropzone";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
@@ -33,8 +32,8 @@ import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import {
+	CustomEntityImageInput,
 	ExistingImageList,
-	FileDropzone,
 } from "~/components/common/custom-entities";
 import { useCoreDetails, useExerciseDetails } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
@@ -295,12 +294,11 @@ export default function Page() {
 						/>
 					) : null}
 					{!fileUploadNotAllowed ? (
-						<FileDropzone
-							accept={IMAGE_MIME_TYPE}
+						<CustomEntityImageInput
 							files={form.values.images}
 							onDrop={(files) => form.setFieldValue("images", files)}
 							onClear={() => form.setFieldValue("images", [])}
-							instructions="Drag images here or click to select files"
+							instructions="Select images to upload"
 							description={
 								loaderData.action === Action.Edit
 									? "Existing images are retained unless removed below"

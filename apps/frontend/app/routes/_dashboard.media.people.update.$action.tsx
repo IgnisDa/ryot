@@ -8,7 +8,6 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
-import { IMAGE_MIME_TYPE } from "@mantine/dropzone";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
@@ -24,8 +23,8 @@ import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import {
+	CustomEntityImageInput,
 	ExistingImageList,
-	FileDropzone,
 } from "~/components/common/custom-entities";
 import { useCoreDetails, usePersonDetails } from "~/lib/shared/hooks";
 import {
@@ -307,8 +306,8 @@ export default function Page() {
 						/>
 					</Group>
 					<TextInput
-						label="Website"
 						type="url"
+						label="Website"
 						placeholder="https://example.com"
 						description="Official website or main online presence"
 						{...form.getInputProps("website")}
@@ -327,12 +326,11 @@ export default function Page() {
 						/>
 					) : null}
 					{!fileUploadNotAllowed ? (
-						<FileDropzone
-							accept={IMAGE_MIME_TYPE}
+						<CustomEntityImageInput
 							files={form.values.images}
-							onDrop={(files) => form.setFieldValue("images", files)}
+							instructions="Select images to upload"
 							onClear={() => form.setFieldValue("images", [])}
-							instructions="Drag images here or click to select files"
+							onDrop={(files) => form.setFieldValue("images", files)}
 							description={
 								loaderData.action === Action.Edit
 									? "Existing images are retained unless removed below"

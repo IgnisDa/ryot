@@ -2,14 +2,14 @@ import {
 	ActionIcon,
 	Button,
 	Card,
+	FileInput,
 	Group,
 	Image,
 	SimpleGrid,
 	Stack,
 	Text,
 } from "@mantine/core";
-import { Dropzone, type DropzoneProps } from "@mantine/dropzone";
-import { IconPhoto, IconUpload, IconX } from "@tabler/icons-react";
+import { IconX } from "@tabler/icons-react";
 import { useS3PresignedUrls } from "~/lib/shared/hooks";
 
 type ExistingImageListProps = {
@@ -62,58 +62,54 @@ export function ExistingImageList(props: ExistingImageListProps) {
 	);
 }
 
-type FileDropzoneProps = {
+type CustomEntityImageInputProps = {
 	files: File[];
 	onClear?: () => void;
 	description?: string;
 	instructions?: string;
-	accept: DropzoneProps["accept"];
 	onDrop: (files: File[]) => void;
 };
 
-export const FileDropzone = (props: FileDropzoneProps) => {
+export const CustomEntityImageInput = (props: CustomEntityImageInputProps) => {
 	const files = props.files || [];
-	const instructions =
-		props.instructions || "Drag files here or click to select files";
+	const instructions = props.instructions || "Select files to upload";
 
 	const handleClear = () => {
 		if (props.onClear) props.onClear();
 		else props.onDrop([]);
 	};
 
+	const handleChange = (value: File | File[] | null) => {
+		if (value === null) {
+			props.onDrop([]);
+			return;
+		}
+
+		if (Array.isArray(value)) {
+			props.onDrop(value);
+			return;
+		}
+
+		props.onDrop([value]);
+	};
+
 	return (
 		<Card>
 			<Stack gap="xs">
-				<Dropzone
+				<Stack gap={4}>
+					<Text size="lg">{instructions}</Text>
+					{props.description ? (
+						<Text size="sm" c="dimmed">
+							{props.description}
+						</Text>
+					) : null}
+				</Stack>
+				<FileInput
 					multiple
-					accept={props.accept}
-					onDrop={(dropzoneFiles) => props.onDrop(dropzoneFiles)}
-				>
-					<Group
-						gap="xl"
-						mih={120}
-						justify="center"
-						style={{ pointerEvents: "none" }}
-					>
-						<Dropzone.Accept>
-							<IconUpload size={48} stroke={1.5} />
-						</Dropzone.Accept>
-						<Dropzone.Reject>
-							<IconX size={48} stroke={1.5} />
-						</Dropzone.Reject>
-						<Dropzone.Idle>
-							<IconPhoto size={48} stroke={1.5} />
-						</Dropzone.Idle>
-						<Stack gap={4} align="center">
-							<Text size="lg">{instructions}</Text>
-							{props.description ? (
-								<Text size="sm" c="dimmed">
-									{props.description}
-								</Text>
-							) : null}
-						</Stack>
-					</Group>
-				</Dropzone>
+					accept="image/*"
+					onChange={handleChange}
+					value={files.length ? files : undefined}
+				/>
 				{files.length ? (
 					<Stack gap={4}>
 						{files.map((file, index) => (
