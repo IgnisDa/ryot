@@ -706,9 +706,10 @@ pub async fn update_custom_exercise(
             .await?
             .ok_or_else(|| anyhow!("Exercise does not exist"))?;
         if let Some(exercise_extra_information) = ute.exercise_extra_information
-            && !exercise_extra_information.history.is_empty() {
-                bail!("Exercise is associated with one or more workouts.",);
-            }
+            && !exercise_extra_information.history.is_empty()
+        {
+            bail!("Exercise is associated with one or more workouts.",);
+        }
         old_exercise.delete(&ss.db).await?;
         return Ok(true);
     }

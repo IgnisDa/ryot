@@ -141,12 +141,13 @@ pub async fn import(
             default_review.rating = Some(item.score);
         }
         if let Some(notes) = item.notes
-            && !notes.is_empty() {
-                default_review.review = Some(ImportOrExportItemReview {
-                    text: Some(notes),
-                    ..Default::default()
-                });
-            }
+            && !notes.is_empty()
+        {
+            default_review.review = Some(ImportOrExportItemReview {
+                text: Some(notes),
+                ..Default::default()
+            });
+        }
         to_push_item.reviews.push(default_review);
         completed.push(ImportCompletedItem::Metadata(to_push_item));
     }

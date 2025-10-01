@@ -33,10 +33,11 @@ impl IntegrationService {
                 metadata.seen_history.iter_mut().for_each(|update| {
                     update.ended_on = Some(update.ended_on.unwrap_or(Utc::now()));
                     if let Some(progress) = update.progress
-                        && progress > integration.maximum_progress.unwrap() {
-                            ryot_log!(debug, "Changing progress to 100 for {}", integration.id);
-                            update.progress = Some(dec!(100));
-                        }
+                        && progress > integration.maximum_progress.unwrap()
+                    {
+                        ryot_log!(debug, "Changing progress to 100 for {}", integration.id);
+                        update.progress = Some(dec!(100));
+                    }
                 });
             }
         });

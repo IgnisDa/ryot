@@ -204,10 +204,11 @@ async fn get_is_server_key_validated(ss: &Arc<SupportingService>) -> bool {
     ryot_log!(debug, "Expiry: {:?}", key_meta.clone().map(|m| m.expiry));
     if let Some(meta) = key_meta
         && let Some(expiry) = meta.expiry
-            && ss.server_start_time > convert_naive_to_utc(expiry) {
-                ryot_log!(warn, "Pro Key has expired. Please renew your subscription.");
-                return false;
-            }
+        && ss.server_start_time > convert_naive_to_utc(expiry)
+    {
+        ryot_log!(warn, "Pro Key has expired. Please renew your subscription.");
+        return false;
+    }
     ryot_log!(debug, "Pro Key verified successfully");
     true
 }

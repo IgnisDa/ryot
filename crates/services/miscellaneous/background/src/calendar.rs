@@ -47,32 +47,34 @@ pub async fn recalculate_calendar_events(ss: &Arc<SupportingService>) -> Result<
                 if let Some(show_info) = &meta.show_specifics
                     && let Some((season, ep)) =
                         get_show_episode_by_numbers(show_info, show.season, show.episode)
-                        && !SHOW_SPECIAL_SEASON_NAMES.contains(&season.name.as_str())
-                            && let Some(publish_date) = ep.publish_date
-                                && publish_date == cal_event.date {
-                                    need_to_delete = false;
-                                }
+                    && !SHOW_SPECIAL_SEASON_NAMES.contains(&season.name.as_str())
+                    && let Some(publish_date) = ep.publish_date
+                    && publish_date == cal_event.date
+                {
+                    need_to_delete = false;
+                }
             } else if let Some(podcast) = cal_event.metadata_podcast_extra_information {
                 if let Some(podcast_info) = &meta.podcast_specifics
                     && let Some(ep) = get_podcast_episode_by_number(podcast_info, podcast.episode)
-                        && ep.publish_date == cal_event.date {
-                            need_to_delete = false;
-                        }
+                    && ep.publish_date == cal_event.date
+                {
+                    need_to_delete = false;
+                }
             } else if let Some(anime) = cal_event.metadata_anime_extra_information {
                 if let Some(anime_info) = &meta.anime_specifics
-                    && let Some(schedule) = &anime_info.airing_schedule {
-                        schedule.iter().for_each(|s| {
-                            if Some(s.episode) == anime.episode
-                                && s.airing_at == cal_event.timestamp
-                            {
-                                need_to_delete = false;
-                            }
-                        });
-                    }
+                    && let Some(schedule) = &anime_info.airing_schedule
+                {
+                    schedule.iter().for_each(|s| {
+                        if Some(s.episode) == anime.episode && s.airing_at == cal_event.timestamp {
+                            need_to_delete = false;
+                        }
+                    });
+                }
             } else if let Some(date) = meta.publish_date
-                && cal_event.date == date {
-                    need_to_delete = false;
-                };
+                && cal_event.date == date
+            {
+                need_to_delete = false;
+            };
 
             if need_to_delete {
                 ryot_log!(

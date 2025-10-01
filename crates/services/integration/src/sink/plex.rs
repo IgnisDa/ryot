@@ -99,9 +99,10 @@ pub async fn sink_progress(
     let payload = parse_payload(&payload)?;
 
     if let Some(plex_user) = &plex_user
-        && *plex_user != payload.account.plex_user {
-            return Ok(None);
-        }
+        && *plex_user != payload.account.plex_user
+    {
+        return Ok(None);
+    }
 
     match payload.event_type.as_str() {
         "media.scrobble" | "media.play" | "media.pause" | "media.resume" | "media.stop" => {}

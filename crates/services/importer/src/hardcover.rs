@@ -115,9 +115,10 @@ fn process_hardcover_record(
         for list_entry in record.lists.split(',') {
             let list_name = list_entry.trim();
             if let Some(clean_name) = list_name.split(" (#").next()
-                && !clean_name.is_empty() {
-                    collections.push(clean_name.to_owned());
-                }
+                && !clean_name.is_empty()
+            {
+                collections.push(clean_name.to_owned());
+            }
         }
     }
 
@@ -134,15 +135,17 @@ fn process_hardcover_record(
 
         if let Some(date_started) = &record.date_started
             && !date_started.is_empty()
-                && let Ok(date) = NaiveDate::parse_from_str(date_started, "%Y-%m-%d") {
-                    seen_item.started_on = Some(convert_naive_to_utc(date));
-                }
+            && let Ok(date) = NaiveDate::parse_from_str(date_started, "%Y-%m-%d")
+        {
+            seen_item.started_on = Some(convert_naive_to_utc(date));
+        }
 
         if let Some(date_finished) = &record.date_finished
             && !date_finished.is_empty()
-                && let Ok(date) = NaiveDate::parse_from_str(date_finished, "%Y-%m-%d") {
-                    seen_item.ended_on = Some(convert_naive_to_utc(date));
-                }
+            && let Ok(date) = NaiveDate::parse_from_str(date_finished, "%Y-%m-%d")
+        {
+            seen_item.ended_on = Some(convert_naive_to_utc(date));
+        }
 
         seen_history.push(seen_item);
     }
@@ -156,29 +159,30 @@ fn process_hardcover_record(
         };
 
         if let Some(review_text) = &record.review
-            && !review_text.is_empty() {
-                let spoiler = record
-                    .review_contains_spoilers
-                    .as_ref()
-                    .map(|s| s.to_lowercase() == "true")
-                    .unwrap_or(false);
+            && !review_text.is_empty()
+        {
+            let spoiler = record
+                .review_contains_spoilers
+                .as_ref()
+                .map(|s| s.to_lowercase() == "true")
+                .unwrap_or(false);
 
-                let mut review = ImportOrExportItemReview {
-                    text: Some(review_text.clone()),
-                    spoiler: Some(spoiler),
-                    ..Default::default()
-                };
+            let mut review = ImportOrExportItemReview {
+                text: Some(review_text.clone()),
+                spoiler: Some(spoiler),
+                ..Default::default()
+            };
 
-                if let Some(review_date) = &record.review_date
-                    && !review_date.is_empty()
-                        && let Ok(datetime) =
-                            NaiveDateTime::parse_from_str(review_date, "%Y-%m-%dT%H:%M:%SZ")
-                        {
-                            review.date = Some(datetime.and_utc());
-                        }
-
-                rating_review.review = Some(review);
+            if let Some(review_date) = &record.review_date
+                && !review_date.is_empty()
+                && let Ok(datetime) =
+                    NaiveDateTime::parse_from_str(review_date, "%Y-%m-%dT%H:%M:%SZ")
+            {
+                review.date = Some(datetime.and_utc());
             }
+
+            rating_review.review = Some(review);
+        }
 
         reviews.push(rating_review);
     }
