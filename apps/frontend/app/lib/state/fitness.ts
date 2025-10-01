@@ -438,7 +438,7 @@ export const useExerciseImages = (
 ) => {
 	const s3PresignedUrls = useS3PresignedUrls(exercise?.assets.s3Images);
 	return [
-		...(exercise?.assets.remoteImages || []),
 		...(s3PresignedUrls.data || []),
+		...(exercise?.assets.remoteImages || []),
 	];
 };
