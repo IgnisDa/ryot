@@ -36,6 +36,21 @@ use sea_orm::{
 };
 use supporting_service::SupportingService;
 
+fn apply_is_in_filter<E, T, C>(
+    query: sea_orm::Select<E>,
+    values: Option<&Vec<T>>,
+    column: C,
+) -> sea_orm::Select<E>
+where
+    E: sea_orm::EntityTrait,
+    T: Clone + Into<sea_orm::Value>,
+    C: sea_orm::ColumnTrait + Copy,
+{
+    query.apply_if(values.filter(|v| !v.is_empty()), move |q, v| {
+        q.filter(column.is_in(v.clone()))
+    })
+}
+
 pub async fn user_metadata_list(
     user_id: &String,
     input: UserMetadataListInput,
@@ -594,7 +609,7 @@ pub async fn user_exercises_list(
                         .or(enriched_user_to_exercise::Column::CreatedByUserId.eq(&user_id)),
                 )
                 .apply_if(input.filter, |query, q| {
-                    query
+                    let query = query
                         .apply_if(q.lots.as_ref().filter(|v| !v.is_empty()), |q, v| {
                             q.filter(enriched_user_to_exercise::Column::Lot.is_in(v.clone()))
                         })
@@ -604,26 +619,36 @@ pub async fn user_exercises_list(
                                     enriched_user_to_exercise::Column::Muscles,
                                 ))))
                             }))
-                        })
-                        .apply_if(q.levels.as_ref().filter(|v| !v.is_empty()), |q, v| {
-                            q.filter(enriched_user_to_exercise::Column::Level.is_in(v.clone()))
-                        })
-                        .apply_if(q.forces.as_ref().filter(|v| !v.is_empty()), |q, v| {
-                            q.filter(enriched_user_to_exercise::Column::Force.is_in(v.clone()))
-                        })
-                        .apply_if(q.mechanics.as_ref().filter(|v| !v.is_empty()), |q, v| {
-                            q.filter(enriched_user_to_exercise::Column::Mechanic.is_in(v.clone()))
-                        })
-                        .apply_if(q.equipments.as_ref().filter(|v| !v.is_empty()), |q, v| {
-                            q.filter(enriched_user_to_exercise::Column::Equipment.is_in(v.clone()))
-                        })
-                        .apply_if(q.collections, |q, v| {
-                            apply_collection_filters(
-                                enriched_user_to_exercise::Column::CollectionIds,
-                                q,
-                                v,
-                            )
-                        })
+                        });
+
+                    let query = apply_is_in_filter(
+                        query,
+                        q.levels.as_ref(),
+                        enriched_user_to_exercise::Column::Level,
+                    );
+                    let query = apply_is_in_filter(
+                        query,
+                        q.forces.as_ref(),
+                        enriched_user_to_exercise::Column::Force,
+                    );
+                    let query = apply_is_in_filter(
+                        query,
+                        q.mechanics.as_ref(),
+                        enriched_user_to_exercise::Column::Mechanic,
+                    );
+                    let query = apply_is_in_filter(
+                        query,
+                        q.equipments.as_ref(),
+                        enriched_user_to_exercise::Column::Equipment,
+                    );
+
+                    query.apply_if(q.collections, |q, v| {
+                        apply_collection_filters(
+                            enriched_user_to_exercise::Column::CollectionIds,
+                            q,
+                            v,
+                        )
+                    })
                 })
                 .apply_if(input.search.and_then(|s| s.query), |query, v| {
                     apply_columns_search(
