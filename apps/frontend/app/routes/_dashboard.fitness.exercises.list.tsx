@@ -119,13 +119,13 @@ interface FilterState {
 const defaultFilters: FilterState = {
 	page: 1,
 	query: "",
-	collections: [],
 	types: [],
 	forces: [],
 	levels: [],
 	muscles: [],
 	mechanics: [],
 	equipments: [],
+	collections: [],
 	sortBy: ExerciseSortBy.TimesPerformed,
 };
 
