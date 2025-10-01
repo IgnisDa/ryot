@@ -64,7 +64,7 @@ type CustomEntityImageInputProps = {
 	files: File[];
 	description?: string;
 	instructions?: string;
-	onDrop: (files: File[]) => void;
+	onFilesChanged: (files: File[]) => void;
 };
 
 export const CustomEntityImageInput = (props: CustomEntityImageInputProps) => {
@@ -73,16 +73,16 @@ export const CustomEntityImageInput = (props: CustomEntityImageInputProps) => {
 
 	const handleChange = (value: File | File[] | null) => {
 		if (value === null) {
-			props.onDrop([]);
+			props.onFilesChanged([]);
 			return;
 		}
 
 		if (Array.isArray(value)) {
-			props.onDrop(value);
+			props.onFilesChanged(value);
 			return;
 		}
 
-		props.onDrop([value]);
+		props.onFilesChanged([value]);
 	};
 
 	return (
