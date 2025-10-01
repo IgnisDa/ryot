@@ -1,13 +1,13 @@
 import {
 	Button,
 	Container,
-	FileInput,
 	Select,
 	Stack,
 	TextInput,
 	Textarea,
 	Title,
 } from "@mantine/core";
+import { IMAGE_MIME_TYPE } from "@mantine/dropzone";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
@@ -16,13 +16,13 @@ import {
 	UpdateCustomMetadataGroupDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
-import { IconPhoto } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { z } from "zod";
+import { FileDropzone } from "~/components/common/file-dropzone";
 import { useCoreDetails, useMetadataGroupDetails } from "~/lib/shared/hooks";
 import {
 	clientGqlService,
@@ -197,17 +197,16 @@ export default function Page() {
 						{...form.getInputProps("description")}
 					/>
 					{!fileUploadNotAllowed ? (
-						<FileInput
-							multiple
-							clearable
-							label="Images"
-							accept="image/*"
-							value={form.values.images}
-							leftSection={<IconPhoto />}
-							onChange={(files) => form.setFieldValue("images", files ?? [])}
+						<FileDropzone
+							accept={IMAGE_MIME_TYPE}
+							files={form.values.images}
+							onDrop={(files) => form.setFieldValue("images", files)}
+							onClear={() => form.setFieldValue("images", [])}
+							instructions="Drag images here or click to select files"
 							description={
-								details &&
-								"Please re-upload the images while updating the group, old ones will be deleted"
+								details
+									? "Please re-upload the images while updating the group, old ones will be deleted"
+									: "Attach images to this group"
 							}
 						/>
 					) : null}

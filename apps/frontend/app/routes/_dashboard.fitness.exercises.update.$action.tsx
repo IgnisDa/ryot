@@ -1,7 +1,6 @@
 import {
 	Button,
 	Container,
-	FileInput,
 	Group,
 	MultiSelect,
 	Select,
@@ -10,6 +9,7 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
+import { IMAGE_MIME_TYPE } from "@mantine/dropzone";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
@@ -25,7 +25,6 @@ import {
 	type UpdateCustomExerciseInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseParameters, parseSearchQuery, startCase } from "@ryot/ts-utils";
-import { IconPhoto } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ClientError } from "graphql-request";
 import { useEffect, useMemo } from "react";
@@ -33,6 +32,7 @@ import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { z } from "zod";
+import { FileDropzone } from "~/components/common/file-dropzone";
 import { useCoreDetails, useExerciseDetails } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
 import { clientGqlService } from "~/lib/shared/react-query";
@@ -272,20 +272,16 @@ export default function Page() {
 						{...form.getInputProps("instructions")}
 					/>
 					{!fileUploadNotAllowed ? (
-						<FileInput
-							multiple
-							clearable
-							name="images"
-							label="Images"
-							accept="image/*"
-							value={form.values.images}
-							leftSection={<IconPhoto />}
-							onChange={(files) =>
-								form.setFieldValue("images", (files as File[]) || [])
-							}
+						<FileDropzone
+							accept={IMAGE_MIME_TYPE}
+							files={form.values.images}
+							onDrop={(files) => form.setFieldValue("images", files)}
+							onClear={() => form.setFieldValue("images", [])}
+							instructions="Drag images here or click to select files"
 							description={
-								details &&
-								"Please re-upload the images while updating the exercise, old ones will be deleted"
+								details
+									? "Please re-upload the images while updating the exercise, old ones will be deleted"
+									: "Attach images to this exercise"
 							}
 						/>
 					) : null}

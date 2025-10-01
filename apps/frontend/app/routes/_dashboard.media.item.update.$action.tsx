@@ -3,7 +3,6 @@ import {
 	Button,
 	Code,
 	Container,
-	FileInput,
 	Group,
 	JsonInput,
 	MultiSelect,
@@ -16,6 +15,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
+import { IMAGE_MIME_TYPE } from "@mantine/dropzone";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
@@ -25,18 +25,14 @@ import {
 	UpdateCustomMetadataDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { camelCase, parseParameters, parseSearchQuery } from "@ryot/ts-utils";
-import {
-	IconCalendar,
-	IconCalendarEvent,
-	IconPhoto,
-	IconVideo,
-} from "@tabler/icons-react";
+import { IconCalendar, IconCalendarEvent } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { z } from "zod";
+import { FileDropzone } from "~/components/common/file-dropzone";
 import {
 	useCoreDetails,
 	useMetadataDetails,
@@ -101,7 +97,6 @@ export default function Page() {
 			description: "",
 			publishDate: "",
 			images: [] as File[],
-			videos: [] as File[],
 			groupIds: [] as string[],
 			creatorIds: [] as string[],
 			publishYear: undefined as number | undefined,
@@ -125,7 +120,6 @@ export default function Page() {
 				details.musicSpecifics;
 			form.initialize({
 				images: [],
-				videos: [],
 				id: details.id || "",
 				title: details.title || "",
 				lot: (details.lot as string) || "",
@@ -189,9 +183,6 @@ export default function Page() {
 			const s3Images = await Promise.all(
 				values.images.map((f) => clientSideFileUpload(f, "metadata")),
 			);
-			const s3Videos = await Promise.all(
-				values.videos.map((f) => clientSideFileUpload(f, "metadata")),
-			);
 			const specificsKey = `${camelCase(values.lot)}Specifics`;
 			const input = {
 				title: values.title,
@@ -217,12 +208,7 @@ export default function Page() {
 							.map((s) => s.trim())
 							.filter(Boolean)
 					: undefined,
-				assets: {
-					s3Images,
-					s3Videos,
-					remoteImages: [],
-					remoteVideos: [],
-				},
+				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
 			};
 			const { createCustomMetadata } = await clientGqlService.request(
 				CreateCustomMetadataDocument,
@@ -252,9 +238,6 @@ export default function Page() {
 			const s3Images = await Promise.all(
 				values.images.map((f) => clientSideFileUpload(f, "metadata")),
 			);
-			const s3Videos = await Promise.all(
-				values.videos.map((f) => clientSideFileUpload(f, "metadata")),
-			);
 			const specificsKey = `${camelCase(values.lot)}Specifics`;
 			const update = {
 				title: values.title,
@@ -280,12 +263,7 @@ export default function Page() {
 							.map((s) => s.trim())
 							.filter(Boolean)
 					: undefined,
-				assets: {
-					s3Images,
-					s3Videos,
-					remoteImages: [],
-					remoteVideos: [],
-				},
+				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
 			};
 			await clientGqlService.request(UpdateCustomMetadataDocument, {
 				input: { existingMetadataId: values.id, update },
@@ -360,32 +338,16 @@ export default function Page() {
 						{...form.getInputProps("description")}
 					/>
 					{!fileUploadNotAllowed ? (
-						<FileInput
-							multiple
-							clearable
-							label="Images"
-							accept="image/*"
-							value={form.values.images}
-							leftSection={<IconPhoto />}
-							onChange={(files) => form.setFieldValue("images", files ?? [])}
+						<FileDropzone
+							accept={IMAGE_MIME_TYPE}
+							files={form.values.images}
+							onDrop={(files) => form.setFieldValue("images", files)}
+							onClear={() => form.setFieldValue("images", [])}
+							instructions="Drag images here or click to select files"
 							description={
-								details &&
-								"Please re-upload the images while updating the metadata, old ones will be deleted"
-							}
-						/>
-					) : null}
-					{!fileUploadNotAllowed ? (
-						<FileInput
-							multiple
-							clearable
-							label="Videos"
-							accept="video/*"
-							value={form.values.videos}
-							leftSection={<IconVideo />}
-							onChange={(files) => form.setFieldValue("videos", files ?? [])}
-							description={
-								details &&
-								"Please re-upload the videos while updating the metadata, old ones will be deleted"
+								details
+									? "Please re-upload the images while updating the metadata, old ones will be deleted"
+									: "Attach images to this media item"
 							}
 						/>
 					) : null}

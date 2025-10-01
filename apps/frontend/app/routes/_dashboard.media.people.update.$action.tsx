@@ -1,7 +1,6 @@
 import {
 	Button,
 	Container,
-	FileInput,
 	Group,
 	Stack,
 	TextInput,
@@ -9,6 +8,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
+import { IMAGE_MIME_TYPE } from "@mantine/dropzone";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
@@ -16,13 +16,14 @@ import {
 	UpdateCustomPersonDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
-import { IconCalendar, IconPhoto } from "@tabler/icons-react";
+import { IconCalendar } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { z } from "zod";
+import { FileDropzone } from "~/components/common/file-dropzone";
 import { useCoreDetails, usePersonDetails } from "~/lib/shared/hooks";
 import {
 	clientGqlService,
@@ -305,17 +306,16 @@ export default function Page() {
 						{...form.getInputProps("website")}
 					/>
 					{!fileUploadNotAllowed ? (
-						<FileInput
-							multiple
-							clearable
-							label="Images"
-							accept="image/*"
-							value={form.values.images}
-							leftSection={<IconPhoto />}
-							onChange={(files) => form.setFieldValue("images", files ?? [])}
+						<FileDropzone
+							accept={IMAGE_MIME_TYPE}
+							files={form.values.images}
+							onDrop={(files) => form.setFieldValue("images", files)}
+							onClear={() => form.setFieldValue("images", [])}
+							instructions="Drag images here or click to select files"
 							description={
-								details &&
-								"Please re-upload the images while updating the person, old ones will be deleted"
+								details
+									? "Please re-upload the images while updating the person, old ones will be deleted"
+									: "Attach images to this person"
 							}
 						/>
 					) : null}
