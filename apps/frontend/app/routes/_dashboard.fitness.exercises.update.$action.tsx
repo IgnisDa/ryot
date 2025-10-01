@@ -32,7 +32,10 @@ import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { z } from "zod";
-import { FileDropzone } from "~/components/common/file-dropzone";
+import {
+	ExistingImageList,
+	FileDropzone,
+} from "~/components/common/custom-entities";
 import { useCoreDetails, useExerciseDetails } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
 import { clientGqlService } from "~/lib/shared/react-query";
@@ -86,6 +89,7 @@ export default function Page() {
 			equipment: "",
 			instructions: "",
 			images: [] as File[],
+			existingImages: [] as string[],
 			muscles: [] as string[],
 			shouldDelete: undefined as boolean | undefined,
 		},
@@ -96,6 +100,7 @@ export default function Page() {
 			form.initialize({
 				images: [],
 				shouldDelete: undefined,
+				existingImages: details.assets?.s3Images || [],
 				name: details.name || "",
 				lot: (details.lot as string) || "",
 				level: (details.level as string) || "",
@@ -118,8 +123,14 @@ export default function Page() {
 		},
 	});
 
-	const memoizedInput = useMemo<UpdateCustomExerciseInput>(
-		() => ({
+	const memoizedInput = useMemo<UpdateCustomExerciseInput>(() => {
+		const s3Images = Array.from(
+			new Set([
+				...(form.values.existingImages || []),
+				...((exerciseImages.data as string[] | undefined) || []),
+			]),
+		);
+		return {
 			name: form.values.name,
 			id: loaderData.id || "dummy",
 			source: ExerciseSource.Custom,
@@ -144,11 +155,10 @@ export default function Page() {
 				s3Videos: [],
 				remoteImages: [],
 				remoteVideos: [],
-				s3Images: exerciseImages.data || [],
+				s3Images,
 			},
-		}),
-		[loaderData.id, form.values, exerciseImages.data],
-	);
+		};
+	}, [loaderData.id, form.values, exerciseImages.data]);
 
 	const createMutation = useMutation({
 		mutationFn: async () => {
@@ -271,6 +281,19 @@ export default function Page() {
 						description="Separate each instruction with a newline"
 						{...form.getInputProps("instructions")}
 					/>
+					{form.values.existingImages.length > 0 && !fileUploadNotAllowed ? (
+						<ExistingImageList
+							keys={form.values.existingImages}
+							onRemove={(key) => {
+								form.setFieldValue(
+									"existingImages",
+									form.values.existingImages.filter(
+										(imageKey) => imageKey !== key,
+									),
+								);
+							}}
+						/>
+					) : null}
 					{!fileUploadNotAllowed ? (
 						<FileDropzone
 							accept={IMAGE_MIME_TYPE}
@@ -279,8 +302,8 @@ export default function Page() {
 							onClear={() => form.setFieldValue("images", [])}
 							instructions="Drag images here or click to select files"
 							description={
-								details
-									? "Please re-upload the images while updating the exercise, old ones will be deleted"
+								loaderData.action === Action.Edit
+									? "Existing images are retained unless removed below"
 									: "Attach images to this exercise"
 							}
 						/>

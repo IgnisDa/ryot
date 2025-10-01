@@ -23,7 +23,10 @@ import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { z } from "zod";
-import { FileDropzone } from "~/components/common/file-dropzone";
+import {
+	ExistingImageList,
+	FileDropzone,
+} from "~/components/common/custom-entities";
 import { useCoreDetails, usePersonDetails } from "~/lib/shared/hooks";
 import {
 	clientGqlService,
@@ -78,6 +81,7 @@ export default function Page() {
 			description: "",
 			alternateNames: "",
 			images: [] as File[],
+			existingImages: [] as string[],
 			id: (loaderData.query.id as string | undefined) || "",
 		},
 		validate: {
@@ -106,6 +110,7 @@ export default function Page() {
 		if (loaderData.action === Action.Edit && details?.details) {
 			form.initialize({
 				images: [],
+				existingImages: details.details.assets?.s3Images || [],
 				id: details.details.id || "",
 				name: details.details.name || "",
 				place: details.details.place || "",
@@ -170,8 +175,11 @@ export default function Page() {
 	const updateMutation = useMutation({
 		mutationFn: async (values: typeof form.values) => {
 			invariant(values.id);
-			const s3Images = await Promise.all(
+			const uploadedImages = await Promise.all(
 				values.images.map((f) => clientSideFileUpload(f, "person")),
+			);
+			const s3Images = Array.from(
+				new Set([...(values.existingImages || []), ...uploadedImages]),
 			);
 			const update = {
 				name: values.name,
@@ -305,6 +313,19 @@ export default function Page() {
 						description="Official website or main online presence"
 						{...form.getInputProps("website")}
 					/>
+					{form.values.existingImages.length > 0 && !fileUploadNotAllowed ? (
+						<ExistingImageList
+							keys={form.values.existingImages}
+							onRemove={(key) => {
+								form.setFieldValue(
+									"existingImages",
+									form.values.existingImages.filter(
+										(imageKey) => imageKey !== key,
+									),
+								);
+							}}
+						/>
+					) : null}
 					{!fileUploadNotAllowed ? (
 						<FileDropzone
 							accept={IMAGE_MIME_TYPE}
@@ -313,13 +334,12 @@ export default function Page() {
 							onClear={() => form.setFieldValue("images", [])}
 							instructions="Drag images here or click to select files"
 							description={
-								details
-									? "Please re-upload the images while updating the person, old ones will be deleted"
+								loaderData.action === Action.Edit
+									? "Existing images are retained unless removed below"
 									: "Attach images to this person"
 							}
 						/>
 					) : null}
-
 					<Button
 						type="submit"
 						loading={createMutation.isPending || updateMutation.isPending}

@@ -32,7 +32,10 @@ import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { z } from "zod";
-import { FileDropzone } from "~/components/common/file-dropzone";
+import {
+	ExistingImageList,
+	FileDropzone,
+} from "~/components/common/custom-entities";
 import {
 	useCoreDetails,
 	useMetadataDetails,
@@ -97,6 +100,7 @@ export default function Page() {
 			description: "",
 			publishDate: "",
 			images: [] as File[],
+			existingImages: [] as string[],
 			groupIds: [] as string[],
 			creatorIds: [] as string[],
 			publishYear: undefined as number | undefined,
@@ -120,6 +124,7 @@ export default function Page() {
 				details.musicSpecifics;
 			form.initialize({
 				images: [],
+				existingImages: details.assets?.s3Images || [],
 				id: details.id || "",
 				title: details.title || "",
 				lot: (details.lot as string) || "",
@@ -235,8 +240,11 @@ export default function Page() {
 	const updateMutation = useMutation({
 		mutationFn: async (values: typeof form.values) => {
 			invariant(values.id);
-			const s3Images = await Promise.all(
+			const uploadedImages = await Promise.all(
 				values.images.map((f) => clientSideFileUpload(f, "metadata")),
+			);
+			const s3Images = Array.from(
+				new Set([...(values.existingImages || []), ...uploadedImages]),
 			);
 			const specificsKey = `${camelCase(values.lot)}Specifics`;
 			const update = {
@@ -337,6 +345,19 @@ export default function Page() {
 						description="Markdown is supported"
 						{...form.getInputProps("description")}
 					/>
+					{form.values.existingImages.length > 0 && !fileUploadNotAllowed ? (
+						<ExistingImageList
+							keys={form.values.existingImages}
+							onRemove={(key) => {
+								form.setFieldValue(
+									"existingImages",
+									form.values.existingImages.filter(
+										(imageKey) => imageKey !== key,
+									),
+								);
+							}}
+						/>
+					) : null}
 					{!fileUploadNotAllowed ? (
 						<FileDropzone
 							accept={IMAGE_MIME_TYPE}
@@ -345,8 +366,8 @@ export default function Page() {
 							onClear={() => form.setFieldValue("images", [])}
 							instructions="Drag images here or click to select files"
 							description={
-								details
-									? "Please re-upload the images while updating the metadata, old ones will be deleted"
+								loaderData.action === Action.Edit
+									? "Existing images are retained unless removed below"
 									: "Attach images to this media item"
 							}
 						/>

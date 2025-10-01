@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use anyhow::{Result, bail};
 use chrono::Datelike;
@@ -10,7 +10,7 @@ use database_models::{
     metadata, metadata_group, metadata_to_genre, person,
     prelude::{
         Collection, CollectionEntityMembership, CollectionToEntity, Metadata, MetadataGroup,
-        MetadataToGenre, Review, Seen, UserToEntity,
+        MetadataToGenre, Person, Review, Seen, UserToEntity,
     },
     review, seen, user_to_entity,
 };
@@ -30,7 +30,8 @@ use dependent_utility_utils::{
 use enum_models::{EntityLot, MediaLot, MediaSource, UserNotificationContent};
 use futures::try_join;
 use media_models::{
-    CreateCustomMetadataGroupInput, CreateCustomMetadataInput, UpdateCustomMetadataInput,
+    CreateCustomMetadataGroupInput, CreateCustomMetadataInput, UpdateCustomMetadataGroupInput,
+    UpdateCustomMetadataInput, UpdateCustomPersonInput,
 };
 use nanoid::nanoid;
 use sea_orm::{
@@ -233,7 +234,11 @@ pub async fn update_custom_metadata(
     user_id: &String,
     input: UpdateCustomMetadataInput,
 ) -> Result<bool> {
-    let metadata = Metadata::find_by_id(&input.existing_metadata_id)
+    let UpdateCustomMetadataInput {
+        update,
+        existing_metadata_id,
+    } = input;
+    let metadata = Metadata::find_by_id(&existing_metadata_id)
         .one(&ss.db)
         .await?
         .unwrap();
@@ -243,30 +248,36 @@ pub async fn update_custom_metadata(
     if metadata.created_by_user_id != Some(user_id.to_owned()) {
         bail!("You are not authorized to update this metadata");
     }
-    for image in metadata.assets.s3_images.clone() {
-        file_storage_service::delete_object(ss, image).await?;
+    let new_image_keys: HashSet<String> = update.assets.s3_images.iter().cloned().collect();
+    for image in metadata.assets.s3_images.iter() {
+        if !new_image_keys.contains(image) {
+            file_storage_service::delete_object(ss, image.clone()).await?;
+        }
     }
-    for video in metadata.assets.s3_videos.clone() {
-        file_storage_service::delete_object(ss, video).await?;
+    let new_video_keys: HashSet<String> = update.assets.s3_videos.iter().cloned().collect();
+    for video in metadata.assets.s3_videos.iter() {
+        if !new_video_keys.contains(video) {
+            file_storage_service::delete_object(ss, video.clone()).await?;
+        }
     }
     MetadataToGenre::delete_many()
-        .filter(metadata_to_genre::Column::MetadataId.eq(&input.existing_metadata_id))
+        .filter(metadata_to_genre::Column::MetadataId.eq(&existing_metadata_id))
         .exec(&ss.db)
         .await?;
     let mut new_metadata =
-        get_data_for_custom_metadata(input.update.clone(), metadata.identifier, user_id);
-    new_metadata.id = ActiveValue::Unchanged(input.existing_metadata_id);
+        get_data_for_custom_metadata(update.clone(), metadata.identifier, user_id);
+    new_metadata.id = ActiveValue::Unchanged(existing_metadata_id.clone());
     let metadata = new_metadata.update(&ss.db).await?;
     change_metadata_associations(
         &metadata.id,
-        input.update.genres.unwrap_or_default(),
+        update.genres.clone().unwrap_or_default(),
         vec![],
         vec![],
         vec![],
         ss,
     )
     .await?;
-    if let Some(groups) = input.update.group_ids.clone() {
+    if let Some(groups) = update.group_ids.clone() {
         let links = groups
             .into_iter()
             .enumerate()
@@ -274,7 +285,7 @@ pub async fn update_custom_metadata(
             .collect();
         insert_metadata_group_links(ss, &metadata.id, links).await?;
     }
-    if let Some(creators) = input.update.creator_ids.clone() {
+    if let Some(creators) = update.creator_ids.clone() {
         let links = creators
             .into_iter()
             .enumerate()
@@ -376,9 +387,13 @@ pub async fn create_custom_person(
 pub async fn update_custom_metadata_group(
     ss: &Arc<SupportingService>,
     user_id: &String,
-    input: media_models::UpdateCustomMetadataGroupInput,
+    input: UpdateCustomMetadataGroupInput,
 ) -> Result<bool> {
-    let group = MetadataGroup::find_by_id(&input.existing_metadata_group_id)
+    let UpdateCustomMetadataGroupInput {
+        update,
+        existing_metadata_group_id,
+    } = input;
+    let group = MetadataGroup::find_by_id(&existing_metadata_group_id)
         .one(&ss.db)
         .await?
         .unwrap();
@@ -388,20 +403,26 @@ pub async fn update_custom_metadata_group(
     if group.created_by_user_id != Some(user_id.to_owned()) {
         bail!("You are not authorized to update this metadata group");
     }
-    for image in group.assets.s3_images.clone() {
-        file_storage_service::delete_object(ss, image).await?;
+    let new_image_keys: HashSet<String> = update.assets.s3_images.iter().cloned().collect();
+    for image in group.assets.s3_images.iter() {
+        if !new_image_keys.contains(image) {
+            file_storage_service::delete_object(ss, image.clone()).await?;
+        }
     }
-    for video in group.assets.s3_videos.clone() {
-        file_storage_service::delete_object(ss, video).await?;
+    let new_video_keys: HashSet<String> = update.assets.s3_videos.iter().cloned().collect();
+    for video in group.assets.s3_videos.iter() {
+        if !new_video_keys.contains(video) {
+            file_storage_service::delete_object(ss, video.clone()).await?;
+        }
     }
     let new_group = metadata_group::ActiveModel {
         parts: ActiveValue::Set(1),
-        lot: ActiveValue::Set(input.update.lot),
+        lot: ActiveValue::Set(update.lot),
         is_partial: ActiveValue::Set(Some(false)),
-        title: ActiveValue::Set(input.update.title),
-        assets: ActiveValue::Set(input.update.assets),
-        description: ActiveValue::Set(input.update.description),
-        id: ActiveValue::Unchanged(input.existing_metadata_group_id),
+        title: ActiveValue::Set(update.title),
+        assets: ActiveValue::Set(update.assets),
+        description: ActiveValue::Set(update.description),
+        id: ActiveValue::Unchanged(existing_metadata_group_id),
         ..Default::default()
     };
     new_group.update(&ss.db).await?;
@@ -415,9 +436,13 @@ pub async fn update_custom_metadata_group(
 pub async fn update_custom_person(
     ss: &Arc<SupportingService>,
     user_id: &String,
-    input: media_models::UpdateCustomPersonInput,
+    input: UpdateCustomPersonInput,
 ) -> Result<bool> {
-    let person_model = person::Entity::find_by_id(&input.existing_person_id)
+    let UpdateCustomPersonInput {
+        update,
+        existing_person_id,
+    } = input;
+    let person_model = Person::find_by_id(&existing_person_id)
         .one(&ss.db)
         .await?
         .unwrap();
@@ -427,23 +452,29 @@ pub async fn update_custom_person(
     if person_model.created_by_user_id != Some(user_id.to_owned()) {
         bail!("You are not authorized to update this person");
     }
-    for image in person_model.assets.s3_images.clone() {
-        file_storage_service::delete_object(ss, image).await?;
+    let new_image_keys: HashSet<String> = update.assets.s3_images.iter().cloned().collect();
+    for image in person_model.assets.s3_images.iter() {
+        if !new_image_keys.contains(image) {
+            file_storage_service::delete_object(ss, image.clone()).await?;
+        }
     }
-    for video in person_model.assets.s3_videos.clone() {
-        file_storage_service::delete_object(ss, video).await?;
+    let new_video_keys: HashSet<String> = update.assets.s3_videos.iter().cloned().collect();
+    for video in person_model.assets.s3_videos.iter() {
+        if !new_video_keys.contains(video) {
+            file_storage_service::delete_object(ss, video.clone()).await?;
+        }
     }
     let new_person = person::ActiveModel {
-        name: ActiveValue::Set(input.update.name),
-        place: ActiveValue::Set(input.update.place),
-        assets: ActiveValue::Set(input.update.assets),
-        gender: ActiveValue::Set(input.update.gender),
-        website: ActiveValue::Set(input.update.website),
-        id: ActiveValue::Unchanged(input.existing_person_id),
-        birth_date: ActiveValue::Set(input.update.birth_date),
-        death_date: ActiveValue::Set(input.update.death_date),
-        description: ActiveValue::Set(input.update.description),
-        alternate_names: ActiveValue::Set(input.update.alternate_names),
+        name: ActiveValue::Set(update.name),
+        place: ActiveValue::Set(update.place),
+        assets: ActiveValue::Set(update.assets),
+        gender: ActiveValue::Set(update.gender),
+        website: ActiveValue::Set(update.website),
+        id: ActiveValue::Unchanged(existing_person_id),
+        birth_date: ActiveValue::Set(update.birth_date),
+        death_date: ActiveValue::Set(update.death_date),
+        description: ActiveValue::Set(update.description),
+        alternate_names: ActiveValue::Set(update.alternate_names),
         ..Default::default()
     };
     new_person.update(&ss.db).await?;

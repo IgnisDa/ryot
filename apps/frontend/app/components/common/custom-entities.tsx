@@ -1,6 +1,66 @@
-import { Button, Card, Group, Stack, Text } from "@mantine/core";
+import {
+	ActionIcon,
+	Button,
+	Card,
+	Group,
+	Image,
+	SimpleGrid,
+	Stack,
+	Text,
+} from "@mantine/core";
 import { Dropzone, type DropzoneProps } from "@mantine/dropzone";
 import { IconPhoto, IconUpload, IconX } from "@tabler/icons-react";
+import { useS3PresignedUrls } from "~/lib/shared/hooks";
+
+type ExistingImageListProps = {
+	keys: string[];
+	onRemove: (key: string) => void;
+};
+
+export function ExistingImageList(props: ExistingImageListProps) {
+	const presignedUrls = useS3PresignedUrls(props.keys);
+
+	if (props.keys.length === 0) return null;
+
+	return (
+		<Stack gap="xs">
+			<Text size="sm" fw={500}>
+				Existing images
+			</Text>
+			<SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
+				{props.keys.map((key, index) => {
+					const url = presignedUrls.data?.[index];
+					return (
+						<Card
+							p="xs"
+							key={key}
+							withBorder
+							radius="md"
+							style={{ position: "relative" }}
+						>
+							<ActionIcon
+								size="sm"
+								color="red"
+								variant="filled"
+								onClick={() => props.onRemove(key)}
+								style={{ position: "absolute", top: 8, right: 8 }}
+							>
+								<IconX size={14} />
+							</ActionIcon>
+							<Stack gap="xs">
+								{url ? (
+									<Image src={url} alt={key} radius="sm" h={160} fit="cover" />
+								) : (
+									<Text size="sm">{key}</Text>
+								)}
+							</Stack>
+						</Card>
+					);
+				})}
+			</SimpleGrid>
+		</Stack>
+	);
+}
 
 type FileDropzoneProps = {
 	files: File[];
