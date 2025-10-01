@@ -412,7 +412,7 @@ const FiltersModalForm = (props: {
 								searchable
 								label={startCase(f)}
 								// biome-ignore lint/suspicious/noExplicitAny: required here
-								defaultValue={(props.filter as any)[f]}
+								value={(props.filter as any)[f]}
 								onChange={(v) =>
 									// biome-ignore lint/suspicious/noExplicitAny: required here
 									props.updateFilter(f as keyof FilterState, v as any)
