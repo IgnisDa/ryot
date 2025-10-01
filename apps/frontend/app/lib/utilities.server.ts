@@ -191,7 +191,6 @@ const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
 
 const createS3FileUploader = (prefix: string) => {
 	return async (fileUpload: FileUpload) => {
-		if (!fileUpload.name) return null;
 		const key = await uploadFileAndGetKey(
 			prefix,
 			fileUpload.type,
