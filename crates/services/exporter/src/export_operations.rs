@@ -92,12 +92,6 @@ pub async fn perform_export(ss: &Arc<SupportingService>, user_id: String) -> Res
     let ended_at = Utc::now();
     let (_key, url) = file_storage_service::get_presigned_put_url(
         ss,
-        export_path
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string(),
         format!("exports/{user_id}"),
         false,
         Some(HashMap::from([

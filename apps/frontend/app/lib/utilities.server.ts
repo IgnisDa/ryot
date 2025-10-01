@@ -162,14 +162,13 @@ export const getUserPreferences = async (request: Request) => {
 };
 
 const uploadFileAndGetKey = async (
-	fileName: string,
 	prefix: string,
 	contentType: string,
 	body: BodyInit,
 ) => {
 	const { presignedPutS3Url } = await serverGqlService.request(
 		PresignedPutS3UrlDocument,
-		{ input: { fileName, prefix } },
+		{ prefix },
 	);
 	await fetch(presignedPutS3Url.uploadUrl, {
 		body,
@@ -194,7 +193,6 @@ const createS3FileUploader = (prefix: string) => {
 	return async (fileUpload: FileUpload) => {
 		if (!fileUpload.name) return null;
 		const key = await uploadFileAndGetKey(
-			fileUpload.name,
 			prefix,
 			fileUpload.type,
 			await fileUpload.arrayBuffer(),

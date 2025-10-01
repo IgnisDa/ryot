@@ -1622,7 +1622,7 @@ export type MutationRoot = {
    * and `review` associations with to the metadata.
    */
   mergeMetadata: Scalars['Boolean']['output'];
-  /** Get a presigned URL (valid for 10 minutes) for a given file name. */
+  /** Get a presigned URL (valid for 10 minutes) for uploads under a prefix. */
   presignedPutS3Url: PresignedPutUrlResponse;
   /** Get an access token using an access link. */
   processAccessLink: ProcessAccessLinkResult;
@@ -1860,7 +1860,7 @@ export type MutationRootMergeMetadataArgs = {
 
 
 export type MutationRootPresignedPutS3UrlArgs = {
-  input: PresignedPutUrlInput;
+  prefix: Scalars['String']['input'];
 };
 
 
@@ -2078,11 +2078,6 @@ export type PodcastSpecifics = {
 export type PodcastSpecificsInput = {
   episodes: Array<PodcastEpisodeInput>;
   totalEpisodes: Scalars['Int']['input'];
-};
-
-export type PresignedPutUrlInput = {
-  fileName: Scalars['String']['input'];
-  prefix: Scalars['String']['input'];
 };
 
 export type PresignedPutUrlResponse = {

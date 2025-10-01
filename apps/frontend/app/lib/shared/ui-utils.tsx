@@ -50,7 +50,7 @@ export const clientSideFileUpload = async (file: File, prefix: string) => {
 	const body = await file.arrayBuffer();
 	const { presignedPutS3Url } = await clientGqlService.request(
 		PresignedPutS3UrlDocument,
-		{ input: { fileName: file.name, prefix } },
+		{ prefix },
 	);
 	await fetch(presignedPutS3Url.uploadUrl, {
 		body,

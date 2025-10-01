@@ -2817,7 +2817,6 @@ dependencies = [
  "async-graphql",
  "common-models",
  "file-storage-service",
- "media-models",
  "traits",
 ]
 

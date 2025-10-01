@@ -75,14 +75,18 @@ pub async fn delete_object(ss: &Arc<SupportingService>, key: String) -> Result<b
 
 pub async fn get_presigned_put_url(
     ss: &Arc<SupportingService>,
-    filename: String,
     prefix: String,
     with_uploads: bool,
     metadata: Option<HashMap<String, String>>,
 ) -> Result<(String, String)> {
     let (s3_client, bucket_name) = get_client_and_bucket_name(&ss.config);
     let first = if with_uploads { "uploads/" } else { "" };
-    let key = format!("{}{}/{}-{}", first, prefix, nanoid!(10), filename);
+    let id = nanoid!(10);
+    let key = if prefix.is_empty() {
+        format!("{}{}", first, id)
+    } else {
+        format!("{}{}/{}", first, prefix, id)
+    };
     let url = s3_client
         .put_object()
         .bucket(bucket_name)
