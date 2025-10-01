@@ -161,21 +161,22 @@ type SelectExercise = { id: string; lot: ExerciseLot };
 export default function Page() {
 	const navigate = useNavigate();
 	const userPreferences = useUserPreferences();
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const bulkEditingCollection = useBulkEditCollection();
 	const isFitnessActionActive = useIsFitnessActionActive();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [mergingExercise, setMergingExercise] = useMergingExercise();
+	const [selectedExercises, setSelectedExercises] =
+		useListState<SelectExercise>([]);
 	const [filters, setFilters] = useLocalStorage(
 		"ExerciseListFilters",
 		defaultFilters,
 	);
-	const [selectedExercises, setSelectedExercises] =
-		useListState<SelectExercise>([]);
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const { advanceOnboardingTourStep } = useOnboardingTour();
-	const bulkEditingCollection = useBulkEditCollection();
+
 	const bulkEditingState =
 		bulkEditingCollection.state === false ? null : bulkEditingCollection.state;
 
