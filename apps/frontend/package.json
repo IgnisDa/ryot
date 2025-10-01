@@ -17,6 +17,7 @@
 		"@mantine/code-highlight": "8.3.2",
 		"@mantine/core": "8.3.2",
 		"@mantine/dates": "8.3.2",
+		"@mantine/dropzone": "8.3.2",
 		"@mantine/form": "8.3.2",
 		"@mantine/hooks": "8.3.2",
 		"@mantine/modals": "8.3.2",
