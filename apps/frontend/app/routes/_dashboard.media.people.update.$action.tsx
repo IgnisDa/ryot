@@ -329,7 +329,6 @@ export default function Page() {
 						<CustomEntityImageInput
 							files={form.values.images}
 							instructions="Select images to upload"
-							onClear={() => form.setFieldValue("images", [])}
 							onDrop={(files) => form.setFieldValue("images", files)}
 							description={
 								loaderData.action === Action.Edit

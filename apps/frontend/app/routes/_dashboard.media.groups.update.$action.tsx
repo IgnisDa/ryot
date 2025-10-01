@@ -219,9 +219,8 @@ export default function Page() {
 					{!fileUploadNotAllowed ? (
 						<CustomEntityImageInput
 							files={form.values.images}
-							onDrop={(files) => form.setFieldValue("images", files)}
-							onClear={() => form.setFieldValue("images", [])}
 							instructions="Select images to upload"
+							onDrop={(files) => form.setFieldValue("images", files)}
 							description={
 								loaderData.action === Action.Edit
 									? "Existing images are retained unless removed below"

@@ -62,7 +62,6 @@ export function ExistingImageList(props: ExistingImageListProps) {
 
 type CustomEntityImageInputProps = {
 	files: File[];
-	onClear?: () => void;
 	description?: string;
 	instructions?: string;
 	onDrop: (files: File[]) => void;
