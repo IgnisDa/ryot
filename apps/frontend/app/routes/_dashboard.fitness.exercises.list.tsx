@@ -6,6 +6,7 @@ import {
 	Box,
 	Checkbox,
 	Container,
+	Divider,
 	Flex,
 	Group,
 	Indicator,
@@ -386,7 +387,7 @@ const FiltersModalForm = (props: {
 	const coreDetails = useCoreDetails();
 
 	return (
-		<Stack gap="sm">
+		<Stack gap={4}>
 			<Select
 				size="xs"
 				label="Sort by"
@@ -419,6 +420,7 @@ const FiltersModalForm = (props: {
 						/>
 					))}
 			</SimpleGrid>
+			<Divider mt="md" mb="xs" />
 			<CollectionsFilter
 				applied={props.filter.collections}
 				onFiltersChanged={(val) => props.updateFilter("collections", val)}
