@@ -1,9 +1,7 @@
 import {
 	ActionIcon,
-	Button,
 	Card,
 	FileInput,
-	Group,
 	Image,
 	SimpleGrid,
 	Stack,
@@ -74,11 +72,6 @@ export const CustomEntityImageInput = (props: CustomEntityImageInputProps) => {
 	const files = props.files || [];
 	const instructions = props.instructions || "Select files to upload";
 
-	const handleClear = () => {
-		if (props.onClear) props.onClear();
-		else props.onDrop([]);
-	};
-
 	const handleChange = (value: File | File[] | null) => {
 		if (value === null) {
 			props.onDrop([]);
@@ -110,20 +103,6 @@ export const CustomEntityImageInput = (props: CustomEntityImageInputProps) => {
 					onChange={handleChange}
 					value={files.length ? files : undefined}
 				/>
-				{files.length ? (
-					<Stack gap={4}>
-						{files.map((file, index) => (
-							<Text key={`${file.name}-${index}`} size="sm">
-								{file.name}
-							</Text>
-						))}
-						<Group justify="flex-end">
-							<Button variant="light" size="xs" onClick={handleClear}>
-								Clear selection
-							</Button>
-						</Group>
-					</Stack>
-				) : null}
 			</Stack>
 		</Card>
 	);
