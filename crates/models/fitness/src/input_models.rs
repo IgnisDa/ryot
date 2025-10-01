@@ -61,13 +61,13 @@ pub struct UserWorkoutInput {
 
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone)]
 pub struct ExerciseListFilter {
-    #[graphql(name = "type")]
-    pub lot: Option<ExerciseLot>,
-    pub level: Option<ExerciseLevel>,
-    pub force: Option<ExerciseForce>,
-    pub muscle: Option<ExerciseMuscle>,
-    pub mechanic: Option<ExerciseMechanic>,
-    pub equipment: Option<ExerciseEquipment>,
+    #[graphql(name = "types")]
+    pub lots: Option<Vec<ExerciseLot>>,
+    pub levels: Option<Vec<ExerciseLevel>>,
+    pub forces: Option<Vec<ExerciseForce>>,
+    pub muscles: Option<Vec<ExerciseMuscle>>,
+    pub mechanics: Option<Vec<ExerciseMechanic>>,
+    pub equipments: Option<Vec<ExerciseEquipment>>,
     pub collections: Option<Vec<MediaCollectionFilter>>,
 }
 

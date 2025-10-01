@@ -29,8 +29,8 @@ use migrations_sql::{
 use sea_orm::Iterable;
 use sea_orm::sea_query::{Query, SimpleExpr};
 use sea_orm::{
-    ColumnTrait, EntityTrait, ItemsAndPagesNumber, JoinType, Order, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, QueryTrait, RelationTrait,
+    ColumnTrait, Condition, EntityTrait, ItemsAndPagesNumber, JoinType, Order, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait,
     prelude::Expr,
     sea_query::{Alias, Func, NullOrdering, PgFunc},
 };
@@ -595,25 +595,27 @@ pub async fn user_exercises_list(
                 )
                 .apply_if(input.filter, |query, q| {
                     query
-                        .apply_if(q.lot, |q, v| {
-                            q.filter(enriched_user_to_exercise::Column::Lot.eq(v))
+                        .apply_if(q.lots.as_ref().filter(|v| !v.is_empty()), |q, v| {
+                            q.filter(enriched_user_to_exercise::Column::Lot.is_in(v.clone()))
                         })
-                        .apply_if(q.muscle, |q, v| {
-                            q.filter(Expr::val(v).eq(PgFunc::any(Expr::col(
-                                enriched_user_to_exercise::Column::Muscles,
-                            ))))
+                        .apply_if(q.muscles.as_ref().filter(|v| !v.is_empty()), |q, v| {
+                            q.filter(v.iter().fold(Condition::any(), |cond, muscle| {
+                                cond.add(Expr::val(*muscle).eq(PgFunc::any(Expr::col(
+                                    enriched_user_to_exercise::Column::Muscles,
+                                ))))
+                            }))
                         })
-                        .apply_if(q.level, |q, v| {
-                            q.filter(enriched_user_to_exercise::Column::Level.eq(v))
+                        .apply_if(q.levels.as_ref().filter(|v| !v.is_empty()), |q, v| {
+                            q.filter(enriched_user_to_exercise::Column::Level.is_in(v.clone()))
                         })
-                        .apply_if(q.force, |q, v| {
-                            q.filter(enriched_user_to_exercise::Column::Force.eq(v))
+                        .apply_if(q.forces.as_ref().filter(|v| !v.is_empty()), |q, v| {
+                            q.filter(enriched_user_to_exercise::Column::Force.is_in(v.clone()))
                         })
-                        .apply_if(q.mechanic, |q, v| {
-                            q.filter(enriched_user_to_exercise::Column::Mechanic.eq(v))
+                        .apply_if(q.mechanics.as_ref().filter(|v| !v.is_empty()), |q, v| {
+                            q.filter(enriched_user_to_exercise::Column::Mechanic.is_in(v.clone()))
                         })
-                        .apply_if(q.equipment, |q, v| {
-                            q.filter(enriched_user_to_exercise::Column::Equipment.eq(v))
+                        .apply_if(q.equipments.as_ref().filter(|v| !v.is_empty()), |q, v| {
+                            q.filter(enriched_user_to_exercise::Column::Equipment.is_in(v.clone()))
                         })
                         .apply_if(q.collections, |q, v| {
                             apply_collection_filters(
