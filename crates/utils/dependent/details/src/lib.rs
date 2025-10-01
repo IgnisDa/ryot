@@ -9,7 +9,7 @@ use database_models::{
         MetadataToPerson, Person,
     },
 };
-use database_utils::{extract_pagination_params, transform_entity_assets};
+use database_utils::extract_pagination_params;
 use dependent_entity_utils::generic_metadata;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, GenreDetails, GraphqlPersonDetails,
@@ -36,11 +36,10 @@ pub async fn person_details(
         ApplicationCacheKey::PersonDetails(person_id.clone()),
         |f| ApplicationCacheValue::PersonDetails(Box::new(f)),
         || async {
-            let mut details = Person::find_by_id(person_id.clone())
+            let details = Person::find_by_id(person_id.clone())
                 .one(&ss.db)
                 .await?
                 .unwrap();
-            transform_entity_assets(&mut details.assets, ss).await?;
             let metadata_associations = MetadataToPerson::find()
                 .filter(metadata_to_person::Column::PersonId.eq(person_id))
                 .order_by_asc(metadata_to_person::Column::Index)
@@ -150,11 +149,10 @@ pub async fn metadata_group_details(
         ApplicationCacheKey::MetadataGroupDetails(metadata_group_id.to_owned()),
         |f| ApplicationCacheValue::MetadataGroupDetails(Box::new(f)),
         || async {
-            let mut details = MetadataGroup::find_by_id(metadata_group_id)
+            let details = MetadataGroup::find_by_id(metadata_group_id)
                 .one(&ss.db)
                 .await?
                 .unwrap();
-            transform_entity_assets(&mut details.assets, ss).await?;
             let contents = MetadataToMetadataGroup::find()
                 .select_only()
                 .column(metadata_to_metadata_group::Column::MetadataId)
