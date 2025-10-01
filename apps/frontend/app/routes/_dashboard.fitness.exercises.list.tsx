@@ -10,6 +10,7 @@ import {
 	Flex,
 	Group,
 	Indicator,
+	MultiSelect,
 	Select,
 	SimpleGrid,
 	Skeleton,
@@ -105,13 +106,13 @@ import type { Route } from "./+types/_dashboard.fitness.exercises.list";
 interface FilterState {
 	page: number;
 	query: string;
-	type?: ExerciseLot;
-	level?: ExerciseLevel;
-	force?: ExerciseForce;
+	types: ExerciseLot[];
+	levels: ExerciseLevel[];
+	forces: ExerciseForce[];
 	sortBy: ExerciseSortBy;
-	muscle?: ExerciseMuscle;
-	mechanic?: ExerciseMechanic;
-	equipment?: ExerciseEquipment;
+	muscles: ExerciseMuscle[];
+	mechanics: ExerciseMechanic[];
+	equipments: ExerciseEquipment[];
 	collections: MediaCollectionFilter[];
 }
 
@@ -119,12 +120,12 @@ const defaultFilters: FilterState = {
 	page: 1,
 	query: "",
 	collections: [],
-	type: undefined,
-	force: undefined,
-	level: undefined,
-	muscle: undefined,
-	mechanic: undefined,
-	equipment: undefined,
+	types: [],
+	forces: [],
+	levels: [],
+	muscles: [],
+	mechanics: [],
+	equipments: [],
 	sortBy: ExerciseSortBy.TimesPerformed,
 };
 
@@ -184,12 +185,12 @@ export default function Page() {
 		sortBy: filters.sortBy,
 		search: { page: filters.page, query: filters.query },
 		filter: {
-			type: filters.type,
-			level: filters.level,
-			force: filters.force,
-			muscle: filters.muscle,
-			mechanic: filters.mechanic,
-			equipment: filters.equipment,
+			types: filters.types,
+			levels: filters.levels,
+			forces: filters.forces,
+			muscles: filters.muscles,
+			mechanics: filters.mechanics,
+			equipments: filters.equipments,
 			collections: filters.collections,
 		},
 	};
@@ -396,31 +397,40 @@ const FiltersModalForm = (props: {
 				data={convertEnumToSelectData(ExerciseSortBy)}
 				onChange={(v) => props.updateFilter("sortBy", v as ExerciseSortBy)}
 			/>
-			<SimpleGrid cols={2}>
+			<Stack gap={2}>
 				{Object.keys(defaultFilters)
 					.filter(
 						(f) => !["sortBy", "collections", "page", "query"].includes(f),
 					)
-					.map((f) => (
-						<Select
-							key={f}
-							size="xs"
-							clearable
-							label={startCase(f)}
-							// biome-ignore lint/suspicious/noExplicitAny: required here
-							defaultValue={(props.filter as any)[f]}
-							onChange={(v) => props.updateFilter(f as keyof FilterState, v)}
-							// biome-ignore lint/suspicious/noExplicitAny: required here
-							data={(coreDetails.exerciseParameters.filters as any)[f].map(
+					.map((f) => {
+						const singularKey = f.endsWith("s") ? f.slice(0, -1) : f;
+						return (
+							<MultiSelect
+								key={f}
+								size="xs"
+								clearable
+								searchable
+								label={startCase(f)}
 								// biome-ignore lint/suspicious/noExplicitAny: required here
-								(v: any) => ({
-									value: v,
-									label: startCase(snakeCase(v)),
-								}),
-							)}
-						/>
-					))}
-			</SimpleGrid>
+								defaultValue={(props.filter as any)[f]}
+								onChange={(v) =>
+									// biome-ignore lint/suspicious/noExplicitAny: required here
+									props.updateFilter(f as keyof FilterState, v as any)
+								}
+								// biome-ignore lint/suspicious/noExplicitAny: required here
+								data={(coreDetails.exerciseParameters.filters as any)[
+									singularKey
+								].map(
+									// biome-ignore lint/suspicious/noExplicitAny: required here
+									(v: any) => ({
+										value: v,
+										label: startCase(snakeCase(v)),
+									}),
+								)}
+							/>
+						);
+					})}
+			</Stack>
 			<Divider mt="md" mb="xs" />
 			<CollectionsFilter
 				applied={props.filter.collections}
