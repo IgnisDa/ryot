@@ -302,10 +302,10 @@ supporting-service = { path = "crates/services/supporting" }
 tmdb-provider = { path = "crates/providers/tmdb" }
 tvdb-provider = { path = "crates/providers/tvdb" }
 traits = { path = "crates/traits" }
-user-models = { path = "crates/models/user" }
-user-resolver = { path = "crates/resolvers/user" }
 user-authentication-resolver = { path = "crates/resolvers/user/authentication" }
 user-management-resolver = { path = "crates/resolvers/user/management" }
+user-models = { path = "crates/models/user" }
+user-resolver = { path = "crates/resolvers/user" }
 user-services-resolver = { path = "crates/resolvers/user/services" }
 user-service = { path = "crates/services/user" }
 vndb-provider = { path = "crates/providers/vndb" }
