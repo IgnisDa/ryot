@@ -10,6 +10,7 @@ import {
 	DeployUpdateMediaEntityJobDocument,
 	EntityLot,
 	ExpireCacheKeyDocument,
+	GetPresignedS3UrlDocument,
 	type MediaLot,
 	MediaSource,
 	type MetadataProgressUpdateInput,
@@ -705,4 +706,22 @@ export const useEntityAlreadyInCollections = (
 	}, [userCollections, alreadyInCollectionIds]);
 
 	return { alreadyInCollectionIds, alreadyInCollectionNames };
+};
+
+export const useS3PresignedUrls = (keys: string[] | undefined) => {
+	return useQuery({
+		enabled: !!keys && keys.length > 0,
+		queryKey: queryFactory.miscellaneous.presignedS3Urls(keys).queryKey,
+		queryFn: async () => {
+			if (!keys) return [];
+			const results = await Promise.all(
+				keys.map((key) =>
+					clientGqlService
+						.request(GetPresignedS3UrlDocument, { key })
+						.then((v) => v.getPresignedS3Url),
+				),
+			);
+			return results;
+		},
+	});
 };
