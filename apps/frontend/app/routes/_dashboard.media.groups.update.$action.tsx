@@ -60,9 +60,9 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
 	const coreDetails = useCoreDetails();
+	const loaderData = useLoaderData<typeof loader>();
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
 	const [{ data: details }] = useMetadataGroupDetails(
@@ -72,12 +72,12 @@ export default function Page() {
 
 	const form = useForm({
 		initialValues: {
-			id: (loaderData.query.id as string | undefined) || "",
 			title: "",
-			lot: (loaderData.query.lot as string | undefined) || "",
 			description: "",
 			images: [] as File[],
 			existingImages: [] as string[],
+			id: (loaderData.query.id as string | undefined) || "",
+			lot: (loaderData.query.lot as string | undefined) || "",
 		},
 	});
 
@@ -103,12 +103,7 @@ export default function Page() {
 				title: values.title,
 				lot: values.lot as MediaLot,
 				description: values.description || undefined,
-				assets: {
-					s3Images,
-					s3Videos: [],
-					remoteImages: [],
-					remoteVideos: [],
-				},
+				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
 			};
 			const { createCustomMetadataGroup } = await clientGqlService.request(
 				CreateCustomMetadataGroupDocument,
@@ -145,12 +140,7 @@ export default function Page() {
 				title: values.title,
 				lot: values.lot as MediaLot,
 				description: values.description || undefined,
-				assets: {
-					s3Images,
-					s3Videos: [],
-					remoteImages: [],
-					remoteVideos: [],
-				},
+				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
 			};
 			await clientGqlService.request(UpdateCustomMetadataGroupDocument, {
 				input: { existingMetadataGroupId: values.id, update },
