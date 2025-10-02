@@ -203,6 +203,7 @@ where
                     if let Err(e) =
                         commit_import_seen_item(is_import, user_id, &db_metadata_id, ss, seen).await
                     {
+                        ryot_log!(debug, "Failed to commit seen item: {}", e);
                         import.failed.push(ImportFailedItem {
                             lot: Some(metadata.lot),
                             error: Some(e.to_string()),
