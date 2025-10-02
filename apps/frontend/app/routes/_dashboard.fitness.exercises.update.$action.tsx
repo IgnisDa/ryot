@@ -1,7 +1,6 @@
 import {
 	Button,
 	Container,
-	FileInput,
 	Group,
 	MultiSelect,
 	Select,
@@ -25,7 +24,6 @@ import {
 	type UpdateCustomExerciseInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseParameters, parseSearchQuery, startCase } from "@ryot/ts-utils";
-import { IconPhoto } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ClientError } from "graphql-request";
 import { useEffect, useMemo } from "react";
@@ -33,6 +31,10 @@ import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { z } from "zod";
+import {
+	CustomEntityImageInput,
+	ExistingImageList,
+} from "~/components/common/custom-entities";
 import { useCoreDetails, useExerciseDetails } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
 import { clientGqlService } from "~/lib/shared/react-query";
@@ -87,6 +89,7 @@ export default function Page() {
 			instructions: "",
 			images: [] as File[],
 			muscles: [] as string[],
+			existingImages: [] as string[],
 			shouldDelete: undefined as boolean | undefined,
 		},
 	});
@@ -102,6 +105,7 @@ export default function Page() {
 				force: (details.force as string) || "",
 				mechanic: (details.mechanic as string) || "",
 				equipment: (details.equipment as string) || "",
+				existingImages: details.assets?.s3Images || [],
 				muscles: (details.muscles as string[] | undefined) || [],
 				instructions: (details.instructions || []).join("\n"),
 			});
@@ -118,14 +122,22 @@ export default function Page() {
 		},
 	});
 
-	const memoizedInput = useMemo<UpdateCustomExerciseInput>(
-		() => ({
+	const memoizedInput = useMemo<UpdateCustomExerciseInput>(() => {
+		const s3Images = Array.from(
+			new Set([
+				...(form.values.existingImages || []),
+				...((exerciseImages.data as string[] | undefined) || []),
+			]),
+		);
+		return {
 			name: form.values.name,
 			id: loaderData.id || "dummy",
 			source: ExerciseSource.Custom,
 			lot: form.values.lot as ExerciseLot,
 			shouldDelete: form.values.shouldDelete,
 			level: form.values.level as ExerciseLevel,
+			muscles: (form.values.muscles || []) as ExerciseMuscle[],
+			assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
 			force: form.values.force
 				? (form.values.force as ExerciseForce)
 				: undefined,
@@ -135,29 +147,18 @@ export default function Page() {
 			equipment: form.values.equipment
 				? (form.values.equipment as ExerciseEquipment)
 				: undefined,
-			muscles: (form.values.muscles || []) as ExerciseMuscle[],
 			instructions: form.values.instructions
 				.split("\n")
 				.map((s) => s.trim())
 				.filter(Boolean),
-			assets: {
-				s3Videos: [],
-				remoteImages: [],
-				remoteVideos: [],
-				s3Images: exerciseImages.data || [],
-			},
-		}),
-		[loaderData.id, form.values, exerciseImages.data],
-	);
+		};
+	}, [loaderData.id, form.values, exerciseImages.data]);
 
 	const createMutation = useMutation({
-		mutationFn: async () => {
-			const { createCustomExercise } = await clientGqlService.request(
-				CreateCustomExerciseDocument,
-				{ input: memoizedInput },
-			);
-			return createCustomExercise;
-		},
+		mutationFn: async () =>
+			clientGqlService
+				.request(CreateCustomExerciseDocument, { input: memoizedInput })
+				.then((res) => res.createCustomExercise),
 		onSuccess: (id) => {
 			notifications.show({
 				color: "green",
@@ -206,11 +207,8 @@ export default function Page() {
 	});
 
 	const handleSubmit = form.onSubmit(async () => {
-		if (loaderData.action === Action.Create) {
-			createMutation.mutate();
-		} else {
-			updateMutation.mutate();
-		}
+		if (loaderData.action === Action.Create) createMutation.mutate();
+		else updateMutation.mutate();
 	});
 
 	return (
@@ -271,21 +269,28 @@ export default function Page() {
 						description="Separate each instruction with a newline"
 						{...form.getInputProps("instructions")}
 					/>
+					{form.values.existingImages.length > 0 && !fileUploadNotAllowed ? (
+						<ExistingImageList
+							keys={form.values.existingImages}
+							onRemove={(key) => {
+								form.setFieldValue(
+									"existingImages",
+									form.values.existingImages.filter(
+										(imageKey) => imageKey !== key,
+									),
+								);
+							}}
+						/>
+					) : null}
 					{!fileUploadNotAllowed ? (
-						<FileInput
-							multiple
-							clearable
-							name="images"
-							label="Images"
-							accept="image/*"
-							value={form.values.images}
-							leftSection={<IconPhoto />}
-							onChange={(files) =>
-								form.setFieldValue("images", (files as File[]) || [])
-							}
+						<CustomEntityImageInput
+							files={form.values.images}
+							instructions="Select images to upload"
+							onFilesChanged={(files) => form.setFieldValue("images", files)}
 							description={
-								details &&
-								"Please re-upload the images while updating the exercise, old ones will be deleted"
+								loaderData.action === Action.Edit
+									? "Existing images are retained unless removed below"
+									: "Attach images to this exercise"
 							}
 						/>
 					) : null}

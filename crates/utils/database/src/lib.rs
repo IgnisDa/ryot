@@ -3,9 +3,7 @@ use std::sync::Arc;
 use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob};
 use chrono::Utc;
-use common_models::{
-    BackendError, EntityAssets, SearchInput, StringIdAndNamedObject, UserLevelCacheKey,
-};
+use common_models::{BackendError, SearchInput, StringIdAndNamedObject, UserLevelCacheKey};
 use common_utils::ryot_log;
 use database_models::{
     access_link, collection, collection_entity_membership,
@@ -172,23 +170,13 @@ pub async fn user_workout_details(
                 .filter(workout::Column::UserId.eq(user_id))
                 .one(&ss.db)
                 .await?;
-            let Some(mut workout) = maybe_workout else {
+            let Some(workout) = maybe_workout else {
                 bail!("Workout with the given ID could not be found for this user.");
             };
             let collections =
                 entity_in_collections_with_details(user_id, &workout_id, EntityLot::Workout, ss)
                     .await?;
-            let details = {
-                if let Some(ref mut assets) = workout.information.assets {
-                    transform_entity_assets(assets, ss).await?;
-                }
-                for exercise in workout.information.exercises.iter_mut() {
-                    if let Some(ref mut assets) = exercise.assets {
-                        transform_entity_assets(assets, ss).await?;
-                    }
-                }
-                workout
-            };
+            let details = workout;
             let metadata_consumed = Seen::find()
                 .select_only()
                 .column(seen::Column::MetadataId)
@@ -455,17 +443,4 @@ pub fn get_enabled_users_query() -> Select<User> {
             .eq(false)
             .or(user::Column::IsDisabled.is_null()),
     )
-}
-
-pub async fn transform_entity_assets(
-    assets: &mut EntityAssets,
-    ss: &Arc<SupportingService>,
-) -> Result<()> {
-    for image in assets.s3_images.iter_mut() {
-        *image = file_storage_service::get_presigned_url(ss, image.clone()).await?;
-    }
-    for video in assets.s3_videos.iter_mut() {
-        *video = file_storage_service::get_presigned_url(ss, video.clone()).await?;
-    }
-    Ok(())
 }

@@ -204,21 +204,23 @@ async fn get_calendar_events(
 
         if let Some(s) = evt.metadata_show_extra_information {
             if let Some(sh) = evt.m_show_specifics
-                && let Some((_, ep)) = get_show_episode_by_numbers(&sh, s.season, s.episode) {
-                    image = ep.poster_images.first().cloned();
-                    if show_spoilers_in_calendar {
-                        calc.metadata_text = ep.name.clone();
-                    }
+                && let Some((_, ep)) = get_show_episode_by_numbers(&sh, s.season, s.episode)
+            {
+                image = ep.poster_images.first().cloned();
+                if show_spoilers_in_calendar {
+                    calc.metadata_text = ep.name.clone();
                 }
+            }
             calc.show_extra_information = Some(s);
         } else if let Some(p) = evt.metadata_podcast_extra_information {
             if let Some(po) = evt.m_podcast_specifics
-                && let Some(ep) = get_podcast_episode_by_number(&po, p.episode) {
-                    image = ep.thumbnail.clone();
-                    if show_spoilers_in_calendar {
-                        calc.metadata_text = ep.title.clone();
-                    }
-                };
+                && let Some(ep) = get_podcast_episode_by_number(&po, p.episode)
+            {
+                image = ep.thumbnail.clone();
+                if show_spoilers_in_calendar {
+                    calc.metadata_text = ep.title.clone();
+                }
+            };
             calc.podcast_extra_information = Some(p);
         } else if let Some(a) = evt.metadata_anime_extra_information {
             calc.anime_extra_information = Some(a);

@@ -4,7 +4,11 @@ import type { ReactNode, Ref } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { MEDIA_DETAILS_HEIGHT } from "~/lib/shared/constants";
-import { useMetadataDetails, useUserMetadataDetails } from "~/lib/shared/hooks";
+import {
+	useMetadataDetails,
+	useS3PresignedUrls,
+	useUserMetadataDetails,
+} from "~/lib/shared/hooks";
 import classes from "~/styles/common.module.css";
 
 const WrapperComponent = (props: { link?: string; children: ReactNode }) =>
@@ -67,9 +71,10 @@ export const PartialMetadataDisplay = (props: {
 		inViewport,
 	);
 
+	const s3PresignedUrls = useS3PresignedUrls(metadataDetails?.assets.s3Images);
 	const images = [
 		...(metadataDetails?.assets.remoteImages || []),
-		...(metadataDetails?.assets.s3Images || []),
+		...(s3PresignedUrls.data || []),
 	];
 
 	return (

@@ -68,17 +68,19 @@ pub async fn process_access_link(
         Some(l) => l,
     };
     if let Some(expiration_time) = link.expires_on
-        && expiration_time < Utc::now() {
-            return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
-                error: ProcessAccessLinkErrorVariant::Expired,
-            }));
-        }
+        && expiration_time < Utc::now()
+    {
+        return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
+            error: ProcessAccessLinkErrorVariant::Expired,
+        }));
+    }
     if let Some(max_uses) = link.maximum_uses
-        && link.times_used >= max_uses {
-            return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
-                error: ProcessAccessLinkErrorVariant::MaximumUsesReached,
-            }));
-        }
+        && link.times_used >= max_uses
+    {
+        return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
+            error: ProcessAccessLinkErrorVariant::MaximumUsesReached,
+        }));
+    }
     if let Some(true) = link.is_revoked {
         return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
             error: ProcessAccessLinkErrorVariant::Revoked,

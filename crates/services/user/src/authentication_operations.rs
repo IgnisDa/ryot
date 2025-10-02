@@ -76,23 +76,24 @@ pub async fn login_user(ss: &Arc<SupportingService>, input: AuthUserInput) -> Re
         }));
     }
     if ss.config.users.validate_password
-        && let AuthUserInput::Password(PasswordUserInput { password, .. }) = input {
-            if let Some(hashed_password) = &user.password {
-                let parsed_hash = PasswordHash::new(hashed_password).unwrap();
-                if Argon2::default()
-                    .verify_password(password.as_bytes(), &parsed_hash)
-                    .is_err()
-                {
-                    return Ok(LoginResult::Error(LoginError {
-                        error: LoginErrorVariant::CredentialsMismatch,
-                    }));
-                }
-            } else {
+        && let AuthUserInput::Password(PasswordUserInput { password, .. }) = input
+    {
+        if let Some(hashed_password) = &user.password {
+            let parsed_hash = PasswordHash::new(hashed_password).unwrap();
+            if Argon2::default()
+                .verify_password(password.as_bytes(), &parsed_hash)
+                .is_err()
+            {
                 return Ok(LoginResult::Error(LoginError {
-                    error: LoginErrorVariant::IncorrectProviderChosen,
+                    error: LoginErrorVariant::CredentialsMismatch,
                 }));
             }
+        } else {
+            return Ok(LoginResult::Error(LoginError {
+                error: LoginErrorVariant::IncorrectProviderChosen,
+            }));
         }
+    }
     if user.two_factor_information.is_some() && ss.config.users.validate_password {
         return Ok(LoginResult::TwoFactorRequired(StringIdObject {
             id: user.id.clone(),

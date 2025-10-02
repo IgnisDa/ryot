@@ -1,7 +1,6 @@
 import {
 	Button,
 	Container,
-	FileInput,
 	Select,
 	Stack,
 	TextInput,
@@ -16,13 +15,16 @@ import {
 	UpdateCustomMetadataGroupDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
-import { IconPhoto } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { z } from "zod";
+import {
+	CustomEntityImageInput,
+	ExistingImageList,
+} from "~/components/common/custom-entities";
 import { useCoreDetails, useMetadataGroupDetails } from "~/lib/shared/hooks";
 import {
 	clientGqlService,
@@ -58,9 +60,9 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
 	const coreDetails = useCoreDetails();
+	const loaderData = useLoaderData<typeof loader>();
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
 	const [{ data: details }] = useMetadataGroupDetails(
@@ -70,11 +72,12 @@ export default function Page() {
 
 	const form = useForm({
 		initialValues: {
-			id: (loaderData.query.id as string | undefined) || "",
 			title: "",
-			lot: (loaderData.query.lot as string | undefined) || "",
 			description: "",
 			images: [] as File[],
+			existingImages: [] as string[],
+			id: (loaderData.query.id as string | undefined) || "",
+			lot: (loaderData.query.lot as string | undefined) || "",
 		},
 	});
 
@@ -86,6 +89,7 @@ export default function Page() {
 				title: details.details.title || "",
 				lot: (details.details.lot as string) || "",
 				description: details.details.description || "",
+				existingImages: details.details.assets?.s3Images || [],
 			});
 		}
 	}, [details, loaderData.action]);
@@ -99,12 +103,7 @@ export default function Page() {
 				title: values.title,
 				lot: values.lot as MediaLot,
 				description: values.description || undefined,
-				assets: {
-					s3Images,
-					s3Videos: [],
-					remoteImages: [],
-					remoteVideos: [],
-				},
+				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
 			};
 			const { createCustomMetadataGroup } = await clientGqlService.request(
 				CreateCustomMetadataGroupDocument,
@@ -131,19 +130,17 @@ export default function Page() {
 	const updateMutation = useMutation({
 		mutationFn: async (values: typeof form.values) => {
 			invariant(values.id);
-			const s3Images = await Promise.all(
+			const uploadedImages = await Promise.all(
 				values.images.map((f) => clientSideFileUpload(f, "metadata-group")),
+			);
+			const s3Images = Array.from(
+				new Set([...(values.existingImages || []), ...uploadedImages]),
 			);
 			const update = {
 				title: values.title,
 				lot: values.lot as MediaLot,
 				description: values.description || undefined,
-				assets: {
-					s3Images,
-					s3Videos: [],
-					remoteImages: [],
-					remoteVideos: [],
-				},
+				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
 			};
 			await clientGqlService.request(UpdateCustomMetadataGroupDocument, {
 				input: { existingMetadataGroupId: values.id, update },
@@ -196,22 +193,31 @@ export default function Page() {
 						description="Markdown is supported"
 						{...form.getInputProps("description")}
 					/>
+					{form.values.existingImages.length > 0 && !fileUploadNotAllowed ? (
+						<ExistingImageList
+							keys={form.values.existingImages}
+							onRemove={(key) => {
+								form.setFieldValue(
+									"existingImages",
+									form.values.existingImages.filter(
+										(imageKey) => imageKey !== key,
+									),
+								);
+							}}
+						/>
+					) : null}
 					{!fileUploadNotAllowed ? (
-						<FileInput
-							multiple
-							clearable
-							label="Images"
-							accept="image/*"
-							value={form.values.images}
-							leftSection={<IconPhoto />}
-							onChange={(files) => form.setFieldValue("images", files ?? [])}
+						<CustomEntityImageInput
+							files={form.values.images}
+							instructions="Select images to upload"
+							onFilesChanged={(files) => form.setFieldValue("images", files)}
 							description={
-								details &&
-								"Please re-upload the images while updating the group, old ones will be deleted"
+								loaderData.action === Action.Edit
+									? "Existing images are retained unless removed below"
+									: "Attach images to this group"
 							}
 						/>
 					) : null}
-
 					<Button
 						type="submit"
 						loading={createMutation.isPending || updateMutation.isPending}

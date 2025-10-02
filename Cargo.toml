@@ -111,7 +111,7 @@ async-graphql = { version = "=7.0.17", features = [
 async-graphql-axum = "=7.0.17"
 async-trait = "=0.1.89"
 aws-sdk-s3 = { version = "=1.106.0", features = ["behavior-version-latest"] }
-axum = { version = "=0.8.5", features = ["macros", "multipart"] }
+axum = { version = "=0.8.6", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
 bon = "=3.7.2"
 chrono = "=0.4.42"
@@ -302,10 +302,10 @@ supporting-service = { path = "crates/services/supporting" }
 tmdb-provider = { path = "crates/providers/tmdb" }
 tvdb-provider = { path = "crates/providers/tvdb" }
 traits = { path = "crates/traits" }
-user-models = { path = "crates/models/user" }
-user-resolver = { path = "crates/resolvers/user" }
 user-authentication-resolver = { path = "crates/resolvers/user/authentication" }
 user-management-resolver = { path = "crates/resolvers/user/management" }
+user-models = { path = "crates/models/user" }
+user-resolver = { path = "crates/resolvers/user" }
 user-services-resolver = { path = "crates/resolvers/user/services" }
 user-service = { path = "crates/services/user" }
 vndb-provider = { path = "crates/providers/vndb" }

@@ -20,7 +20,6 @@ common-utils = { workspace = true }
 database-models = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
-file-storage-service = { workspace = true }
 media-models = { workspace = true }
 session-service = { workspace = true }
 supporting-service = { workspace = true }

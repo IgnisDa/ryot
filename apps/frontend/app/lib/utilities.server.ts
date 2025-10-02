@@ -3,7 +3,6 @@ import { type FileUpload, parseFormData } from "@mjackson/form-data-parser";
 import {
 	BackendError,
 	CoreDetailsDocument,
-	PresignedPutS3UrlDocument,
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { type SerializeOptions, parse, serialize } from "cookie";
@@ -161,24 +160,6 @@ export const getUserPreferences = async (request: Request) => {
 	return userDetails.preferences;
 };
 
-const uploadFileAndGetKey = async (
-	fileName: string,
-	prefix: string,
-	contentType: string,
-	body: BodyInit,
-) => {
-	const { presignedPutS3Url } = await serverGqlService.request(
-		PresignedPutS3UrlDocument,
-		{ input: { fileName, prefix } },
-	);
-	await fetch(presignedPutS3Url.uploadUrl, {
-		body,
-		method: "PUT",
-		headers: { "Content-Type": contentType },
-	});
-	return presignedPutS3Url.key;
-};
-
 const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
 	const formData = new FormData();
 	formData.append("files[]", fileUpload, fileUpload.name);
@@ -188,19 +169,6 @@ const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
 	});
 	const data = await resp.json();
 	return data[0];
-};
-
-const createS3FileUploader = (prefix: string) => {
-	return async (fileUpload: FileUpload) => {
-		if (!fileUpload.name) return null;
-		const key = await uploadFileAndGetKey(
-			fileUpload.name,
-			prefix,
-			fileUpload.type,
-			await fileUpload.arrayBuffer(),
-		);
-		return key;
-	};
 };
 
 const toastSessionStorage = createCookieSessionStorage({
@@ -321,12 +289,4 @@ const parseFormDataWithFileSize = async (
 
 export const parseFormDataWithTemporaryUpload = async (request: Request) => {
 	return parseFormDataWithFileSize(request, temporaryFileUploadHandler);
-};
-
-export const parseFormDataWithS3Upload = async (
-	request: Request,
-	prefix: string,
-) => {
-	const uploader = createS3FileUploader(prefix);
-	return parseFormDataWithFileSize(request, uploader);
 };

@@ -1,7 +1,6 @@
 use async_graphql::{Context, Object, Result};
 use common_models::PresignedPutUrlResponse;
 use file_storage_service::FileStorageService;
-use media_models::PresignedPutUrlInput;
 use traits::{AuthProvider, GraphqlResolverSvc};
 
 #[derive(Default)]
@@ -27,16 +26,14 @@ impl GraphqlResolverSvc<FileStorageService> for FileStorageMutationResolver {}
 
 #[Object]
 impl FileStorageMutationResolver {
-    /// Get a presigned URL (valid for 10 minutes) for a given file name.
+    /// Get a presigned URL (valid for 10 minutes) for uploads under a prefix.
     async fn presigned_put_s3_url(
         &self,
         gql_ctx: &Context<'_>,
-        input: PresignedPutUrlInput,
+        prefix: String,
     ) -> Result<PresignedPutUrlResponse> {
         let service = self.svc(gql_ctx);
-        let (key, upload_url) = service
-            .get_presigned_put_url(input.file_name, input.prefix, true, None)
-            .await?;
+        let (key, upload_url) = service.get_presigned_put_url(prefix, true, None).await?;
         Ok(PresignedPutUrlResponse { upload_url, key })
     }
 

@@ -74,6 +74,7 @@ import {
 	useGetWorkoutStarter,
 	useInvalidateUserDetails,
 	useMetadataDetails,
+	useS3PresignedUrls,
 	useUserPreferences,
 	useUserUnitSystem,
 	useUserWorkoutDetails,
@@ -222,6 +223,15 @@ export default function Page() {
 		!!(workoutData?.details.templateId && entity === FitnessEntity.Workouts),
 	);
 
+	const currentData =
+		entity === FitnessEntity.Workouts ? workoutData : templateData;
+	const s3ImagesPresigned = useS3PresignedUrls(
+		currentData?.details.information.assets?.s3Images,
+	);
+	const s3VideosPresigned = useS3PresignedUrls(
+		currentData?.details.information.assets?.s3Videos,
+	);
+
 	const loaderData = useMemo(() => {
 		const baseData = match(entity)
 			.with(FitnessEntity.Workouts, () => {
@@ -282,8 +292,11 @@ export default function Page() {
 
 		if (!baseData) return null;
 
-		const images = baseData.information.assets?.s3Images || [];
-		const videos = baseData.information.assets?.s3Videos || [];
+		const remoteImages = baseData.information.assets?.remoteImages || [];
+		const remoteVideoUrls =
+			baseData.information.assets?.remoteVideos.map((v) => v.url) || [];
+		const images = [...remoteImages, ...(s3ImagesPresigned.data || [])];
+		const videos = [...remoteVideoUrls, ...(s3VideosPresigned.data || [])];
 		const hasAssets = images.length > 0 || videos.length > 0;
 
 		return { ...baseData, images, videos, hasAssets };
@@ -294,6 +307,8 @@ export default function Page() {
 		templateData,
 		repeatedWorkoutData,
 		templateDetailsData,
+		s3ImagesPresigned.data,
+		s3VideosPresigned.data,
 	]);
 
 	if (!loaderData)
@@ -687,9 +702,10 @@ const ConsumedMetadataDisplay = (props: {
 		props.enabled,
 	);
 
+	const s3PresignedUrls = useS3PresignedUrls(metadataDetails?.assets.s3Images);
 	const images = [
 		...(metadataDetails?.assets.remoteImages || []),
-		...(metadataDetails?.assets.s3Images || []),
+		...(s3PresignedUrls.data || []),
 	];
 
 	return (

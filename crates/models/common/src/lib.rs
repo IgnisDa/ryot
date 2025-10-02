@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::NaiveDate;
 use enum_meta::{Meta, meta};
@@ -123,6 +125,26 @@ pub struct EntityAssets {
     pub remote_images: Vec<String>,
     /// The urls of the remote videos.
     pub remote_videos: Vec<EntityRemoteVideo>,
+}
+
+impl EntityAssets {
+    pub fn removed_s3_objects(&self, updated: &EntityAssets) -> (Vec<String>, Vec<String>) {
+        let new_image_keys: HashSet<&String> = updated.s3_images.iter().collect();
+        let images_to_delete = self
+            .s3_images
+            .iter()
+            .filter(|image| !new_image_keys.contains(image))
+            .cloned()
+            .collect();
+        let new_video_keys: HashSet<&String> = updated.s3_videos.iter().collect();
+        let videos_to_delete = self
+            .s3_videos
+            .iter()
+            .filter(|video| !new_video_keys.contains(video))
+            .cloned()
+            .collect();
+        (images_to_delete, videos_to_delete)
+    }
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Enum, ConfigEnum)]

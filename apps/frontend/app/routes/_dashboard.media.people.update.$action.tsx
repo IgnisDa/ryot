@@ -1,7 +1,6 @@
 import {
 	Button,
 	Container,
-	FileInput,
 	Group,
 	Stack,
 	TextInput,
@@ -16,13 +15,17 @@ import {
 	UpdateCustomPersonDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
-import { IconCalendar, IconPhoto } from "@tabler/icons-react";
+import { IconCalendar } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { z } from "zod";
+import {
+	CustomEntityImageInput,
+	ExistingImageList,
+} from "~/components/common/custom-entities";
 import { useCoreDetails, usePersonDetails } from "~/lib/shared/hooks";
 import {
 	clientGqlService,
@@ -56,9 +59,9 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
 	const coreDetails = useCoreDetails();
+	const loaderData = useLoaderData<typeof loader>();
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
 	const [{ data: details }] = usePersonDetails(
@@ -77,6 +80,7 @@ export default function Page() {
 			description: "",
 			alternateNames: "",
 			images: [] as File[],
+			existingImages: [] as string[],
 			id: (loaderData.query.id as string | undefined) || "",
 		},
 		validate: {
@@ -113,6 +117,7 @@ export default function Page() {
 				deathDate: details.details.deathDate || "",
 				birthDate: details.details.birthDate || "",
 				description: details.details.description || "",
+				existingImages: details.details.assets?.s3Images || [],
 				alternateNames: details.details.alternateNames?.join(", ") || "",
 			});
 		}
@@ -131,24 +136,19 @@ export default function Page() {
 				birthDate: values.birthDate || undefined,
 				deathDate: values.deathDate || undefined,
 				description: values.description || undefined,
+				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
 				alternateNames: values.alternateNames
 					? values.alternateNames
 							.split(",")
 							.map((s) => s.trim())
 							.filter(Boolean)
 					: undefined,
-				assets: {
-					s3Images,
-					s3Videos: [],
-					remoteImages: [],
-					remoteVideos: [],
-				},
 			};
 			const { createCustomPerson } = await clientGqlService.request(
 				CreateCustomPersonDocument,
 				{ input },
 			);
-			return createCustomPerson.id as string;
+			return createCustomPerson.id;
 		},
 		onSuccess: (id) => {
 			notifications.show({
@@ -169,8 +169,11 @@ export default function Page() {
 	const updateMutation = useMutation({
 		mutationFn: async (values: typeof form.values) => {
 			invariant(values.id);
-			const s3Images = await Promise.all(
+			const uploadedImages = await Promise.all(
 				values.images.map((f) => clientSideFileUpload(f, "person")),
+			);
+			const s3Images = Array.from(
+				new Set([...(values.existingImages || []), ...uploadedImages]),
 			);
 			const update = {
 				name: values.name,
@@ -180,18 +183,13 @@ export default function Page() {
 				deathDate: values.deathDate || undefined,
 				birthDate: values.birthDate || undefined,
 				description: values.description || undefined,
+				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
 				alternateNames: values.alternateNames
 					? values.alternateNames
 							.split(",")
 							.map((s) => s.trim())
 							.filter(Boolean)
 					: undefined,
-				assets: {
-					s3Images,
-					s3Videos: [],
-					remoteImages: [],
-					remoteVideos: [],
-				},
 			};
 			await clientGqlService.request(UpdateCustomPersonDocument, {
 				input: { existingPersonId: values.id, update },
@@ -298,28 +296,37 @@ export default function Page() {
 						/>
 					</Group>
 					<TextInput
-						label="Website"
 						type="url"
+						label="Website"
 						placeholder="https://example.com"
 						description="Official website or main online presence"
 						{...form.getInputProps("website")}
 					/>
+					{form.values.existingImages.length > 0 && !fileUploadNotAllowed ? (
+						<ExistingImageList
+							keys={form.values.existingImages}
+							onRemove={(key) => {
+								form.setFieldValue(
+									"existingImages",
+									form.values.existingImages.filter(
+										(imageKey) => imageKey !== key,
+									),
+								);
+							}}
+						/>
+					) : null}
 					{!fileUploadNotAllowed ? (
-						<FileInput
-							multiple
-							clearable
-							label="Images"
-							accept="image/*"
-							value={form.values.images}
-							leftSection={<IconPhoto />}
-							onChange={(files) => form.setFieldValue("images", files ?? [])}
+						<CustomEntityImageInput
+							files={form.values.images}
+							instructions="Select images to upload"
+							onFilesChanged={(files) => form.setFieldValue("images", files)}
 							description={
-								details &&
-								"Please re-upload the images while updating the person, old ones will be deleted"
+								loaderData.action === Action.Edit
+									? "Existing images are retained unless removed below"
+									: "Attach images to this person"
 							}
 						/>
 					) : null}
-
 					<Button
 						type="submit"
 						loading={createMutation.isPending || updateMutation.isPending}

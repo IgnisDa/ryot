@@ -6,9 +6,11 @@ import {
 	Box,
 	Checkbox,
 	Container,
+	Divider,
 	Flex,
 	Group,
 	Indicator,
+	MultiSelect,
 	Select,
 	SimpleGrid,
 	Skeleton,
@@ -32,6 +34,7 @@ import {
 	type ExerciseMechanic,
 	type ExerciseMuscle,
 	ExerciseSortBy,
+	type MediaCollectionFilter,
 	MergeExerciseDocument,
 	UserExercisesListDocument,
 	type UserExercisesListInput,
@@ -65,6 +68,7 @@ import {
 } from "~/components/common";
 import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
+	CollectionsFilter,
 	DebouncedSearchInput,
 	FiltersModal,
 } from "~/components/common/filters";
@@ -73,7 +77,6 @@ import {
 	useCoreDetails,
 	useExerciseDetails,
 	useIsFitnessActionActive,
-	useNonHiddenUserCollections,
 	useUserExerciseDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -87,8 +90,8 @@ import {
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	addExerciseToCurrentWorkout,
-	getExerciseImages,
 	useCurrentWorkout,
+	useExerciseImages,
 	useMergingExercise,
 } from "~/lib/state/fitness";
 import {
@@ -103,26 +106,26 @@ import type { Route } from "./+types/_dashboard.fitness.exercises.list";
 interface FilterState {
 	page: number;
 	query: string;
-	type?: ExerciseLot;
-	collection?: string;
-	level?: ExerciseLevel;
-	force?: ExerciseForce;
+	types: ExerciseLot[];
 	sortBy: ExerciseSortBy;
-	muscle?: ExerciseMuscle;
-	mechanic?: ExerciseMechanic;
-	equipment?: ExerciseEquipment;
+	levels: ExerciseLevel[];
+	forces: ExerciseForce[];
+	muscles: ExerciseMuscle[];
+	mechanics: ExerciseMechanic[];
+	equipments: ExerciseEquipment[];
+	collections: MediaCollectionFilter[];
 }
 
 const defaultFilters: FilterState = {
 	page: 1,
 	query: "",
-	type: undefined,
-	force: undefined,
-	level: undefined,
-	muscle: undefined,
-	mechanic: undefined,
-	equipment: undefined,
-	collection: undefined,
+	types: [],
+	forces: [],
+	levels: [],
+	muscles: [],
+	mechanics: [],
+	equipments: [],
+	collections: [],
 	sortBy: ExerciseSortBy.TimesPerformed,
 };
 
@@ -159,21 +162,22 @@ type SelectExercise = { id: string; lot: ExerciseLot };
 export default function Page() {
 	const navigate = useNavigate();
 	const userPreferences = useUserPreferences();
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const bulkEditingCollection = useBulkEditCollection();
 	const isFitnessActionActive = useIsFitnessActionActive();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [mergingExercise, setMergingExercise] = useMergingExercise();
+	const [selectedExercises, setSelectedExercises] =
+		useListState<SelectExercise>([]);
 	const [filters, setFilters] = useLocalStorage(
 		"ExerciseListFilters",
 		defaultFilters,
 	);
-	const [selectedExercises, setSelectedExercises] =
-		useListState<SelectExercise>([]);
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const { advanceOnboardingTourStep } = useOnboardingTour();
-	const bulkEditingCollection = useBulkEditCollection();
+
 	const bulkEditingState =
 		bulkEditingCollection.state === false ? null : bulkEditingCollection.state;
 
@@ -181,13 +185,13 @@ export default function Page() {
 		sortBy: filters.sortBy,
 		search: { page: filters.page, query: filters.query },
 		filter: {
-			type: filters.type,
-			level: filters.level,
-			force: filters.force,
-			muscle: filters.muscle,
-			mechanic: filters.mechanic,
-			equipment: filters.equipment,
-			collection: filters.collection,
+			types: filters.types,
+			levels: filters.levels,
+			forces: filters.forces,
+			muscles: filters.muscles,
+			mechanics: filters.mechanics,
+			equipments: filters.equipments,
+			collections: filters.collections,
 		},
 	};
 
@@ -383,7 +387,6 @@ const FiltersModalForm = (props: {
 	updateFilter: FilterUpdateFunction<FilterState>;
 }) => {
 	const coreDetails = useCoreDetails();
-	const collections = useNonHiddenUserCollections();
 
 	return (
 		<Stack gap={4}>
@@ -394,43 +397,44 @@ const FiltersModalForm = (props: {
 				data={convertEnumToSelectData(ExerciseSortBy)}
 				onChange={(v) => props.updateFilter("sortBy", v as ExerciseSortBy)}
 			/>
-			{Object.keys(defaultFilters)
-				.filter((f) => !["sortBy", "collection", "page", "query"].includes(f))
-				.map((f) => (
-					<Select
-						key={f}
-						size="xs"
-						clearable
-						label={startCase(f)}
-						// biome-ignore lint/suspicious/noExplicitAny: required here
-						defaultValue={(props.filter as any)[f]}
-						onChange={(v) => props.updateFilter(f as keyof FilterState, v)}
-						// biome-ignore lint/suspicious/noExplicitAny: required here
-						data={(coreDetails.exerciseParameters.filters as any)[f].map(
-							// biome-ignore lint/suspicious/noExplicitAny: required here
-							(v: any) => ({
-								value: v,
-								label: startCase(snakeCase(v)),
-							}),
-						)}
-					/>
-				))}
-			<Select
-				clearable
-				size="xs"
-				label="Collection"
-				defaultValue={props.filter.collection?.toString()}
-				onChange={(v) => props.updateFilter("collection", v)}
-				data={[
-					{
-						group: "My collections",
-						items:
-							collections?.map((c) => ({
-								label: c.name,
-								value: c.id.toString(),
-							})) || [],
-					},
-				]}
+			<Stack gap={2}>
+				{Object.keys(defaultFilters)
+					.filter(
+						(f) => !["sortBy", "collections", "page", "query"].includes(f),
+					)
+					.map((f) => {
+						const singularKey = f.endsWith("s") ? f.slice(0, -1) : f;
+						return (
+							<MultiSelect
+								key={f}
+								size="xs"
+								clearable
+								searchable
+								label={startCase(f)}
+								// biome-ignore lint/suspicious/noExplicitAny: required here
+								value={(props.filter as any)[f]}
+								onChange={(v) =>
+									// biome-ignore lint/suspicious/noExplicitAny: required here
+									props.updateFilter(f as keyof FilterState, v as any)
+								}
+								// biome-ignore lint/suspicious/noExplicitAny: required here
+								data={(coreDetails.exerciseParameters.filters as any)[
+									singularKey
+								].map(
+									// biome-ignore lint/suspicious/noExplicitAny: required here
+									(v: any) => ({
+										value: v,
+										label: startCase(snakeCase(v)),
+									}),
+								)}
+							/>
+						);
+					})}
+			</Stack>
+			<Divider mt="md" mb="xs" />
+			<CollectionsFilter
+				applied={props.filter.collections}
+				onFiltersChanged={(val) => props.updateFilter("collections", val)}
 			/>
 		</Stack>
 	);
@@ -466,7 +470,7 @@ const ExerciseItemDisplay = (props: {
 		userExerciseDetails?.details?.exerciseNumTimesInteracted;
 	const lastUpdatedOn = userExerciseDetails?.details?.lastUpdatedOn;
 	const isTourTargetExercise = props.exerciseId === TOUR_EXERCISE_TARGET_ID;
-	const images = getExerciseImages(exercise);
+	const images = useExerciseImages(exercise);
 
 	return (
 		<Box

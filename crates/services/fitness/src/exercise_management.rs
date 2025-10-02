@@ -10,7 +10,6 @@ use database_models::{
 };
 use database_utils::{
     entity_in_collections_with_details, item_reviews, schedule_user_for_workout_revision,
-    transform_entity_assets,
 };
 use dependent_models::UserExerciseDetails;
 use enum_models::{EntityLot, ExerciseLot, ExerciseSource};
@@ -30,14 +29,10 @@ pub async fn exercise_details(
     ss: &Arc<SupportingService>,
     exercise_id: String,
 ) -> Result<exercise::Model> {
-    let maybe_exercise = Exercise::find_by_id(exercise_id).one(&ss.db).await?;
-    match maybe_exercise {
-        None => bail!("Exercise with the given ID could not be found."),
-        Some(mut e) => {
-            transform_entity_assets(&mut e.assets, ss).await?;
-            Ok(e)
-        }
-    }
+    Exercise::find_by_id(exercise_id)
+        .one(&ss.db)
+        .await?
+        .ok_or(anyhow!("Exercise with the given ID could not be found."))
 }
 
 pub async fn user_exercise_details(

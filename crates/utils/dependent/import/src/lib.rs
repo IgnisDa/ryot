@@ -203,6 +203,7 @@ where
                     if let Err(e) =
                         commit_import_seen_item(is_import, user_id, &db_metadata_id, ss, seen).await
                     {
+                        ryot_log!(debug, "Failed to commit seen item: {}", e);
                         import.failed.push(ImportFailedItem {
                             lot: Some(metadata.lot),
                             error: Some(e.to_string()),
@@ -217,15 +218,15 @@ where
                         &preferences,
                         db_metadata_id.clone(),
                         EntityLot::Metadata,
-                    )
-                        && let Err(e) = post_review(user_id, input, ss).await {
-                            import.failed.push(ImportFailedItem {
-                                lot: Some(metadata.lot),
-                                error: Some(e.to_string()),
-                                step: ImportFailStep::DatabaseCommit,
-                                identifier: metadata.source_id.to_owned(),
-                            });
-                        };
+                    ) && let Err(e) = post_review(user_id, input, ss).await
+                    {
+                        import.failed.push(ImportFailedItem {
+                            lot: Some(metadata.lot),
+                            error: Some(e.to_string()),
+                            step: ImportFailStep::DatabaseCommit,
+                            identifier: metadata.source_id.to_owned(),
+                        });
+                    };
                 }
                 for col in metadata.collections.into_iter() {
                     create_collection_and_add_entity_to_it(
@@ -273,15 +274,15 @@ where
                         &preferences,
                         db_metadata_group_id.clone(),
                         EntityLot::MetadataGroup,
-                    )
-                        && let Err(e) = post_review(user_id, input, ss).await {
-                            import.failed.push(ImportFailedItem {
-                                error: Some(e.to_string()),
-                                lot: Some(metadata_group.lot),
-                                step: ImportFailStep::DatabaseCommit,
-                                identifier: metadata_group.title.to_owned(),
-                            });
-                        };
+                    ) && let Err(e) = post_review(user_id, input, ss).await
+                    {
+                        import.failed.push(ImportFailedItem {
+                            error: Some(e.to_string()),
+                            lot: Some(metadata_group.lot),
+                            step: ImportFailStep::DatabaseCommit,
+                            identifier: metadata_group.title.to_owned(),
+                        });
+                    };
                 }
                 for col in metadata_group.collections.into_iter() {
                     create_collection_and_add_entity_to_it(
@@ -327,15 +328,15 @@ where
                         &preferences,
                         db_person_id.clone(),
                         EntityLot::Person,
-                    )
-                        && let Err(e) = post_review(user_id, input, ss).await {
-                            import.failed.push(ImportFailedItem {
-                                error: Some(e.to_string()),
-                                identifier: person.name.to_owned(),
-                                step: ImportFailStep::DatabaseCommit,
-                                ..Default::default()
-                            });
-                        };
+                    ) && let Err(e) = post_review(user_id, input, ss).await
+                    {
+                        import.failed.push(ImportFailedItem {
+                            error: Some(e.to_string()),
+                            identifier: person.name.to_owned(),
+                            step: ImportFailStep::DatabaseCommit,
+                            ..Default::default()
+                        });
+                    };
                 }
                 for col in person.collections.into_iter() {
                     create_collection_and_add_entity_to_it(

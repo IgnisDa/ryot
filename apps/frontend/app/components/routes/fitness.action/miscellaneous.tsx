@@ -15,7 +15,6 @@ import {
 } from "@mantine/core";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { GetPresignedS3UrlDocument } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber, isString } from "@ryot/ts-utils";
 import {
 	IconCamera,
@@ -23,7 +22,6 @@ import {
 	IconTrash,
 	IconVideo,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useState } from "react";
 import invariant from "tiny-invariant";
@@ -32,9 +30,9 @@ import {
 	useCoreDetails,
 	useDeleteS3AssetMutation,
 	useExerciseDetails,
+	useS3PresignedUrls,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
-import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
 	clientSideFileUpload,
 	openConfirmationModal,
@@ -147,13 +145,8 @@ const AssetDisplay = (props: {
 	removeAsset: () => void;
 }) => {
 	const { setFullscreenImage } = useFullscreenImage();
-	const srcUrlQuery = useQuery({
-		queryKey: queryFactory.miscellaneous.presignedS3Url(props.s3Key).queryKey,
-		queryFn: () =>
-			clientGqlService
-				.request(GetPresignedS3UrlDocument, { key: props.s3Key })
-				.then((v) => v.getPresignedS3Url),
-	});
+	const srcUrlQueryData = useS3PresignedUrls([props.s3Key]);
+	const srcUrl = srcUrlQueryData.data?.[0] ?? "";
 
 	return (
 		<Box pos="relative">
@@ -162,14 +155,14 @@ const AssetDisplay = (props: {
 					size="lg"
 					name="Video"
 					style={{ cursor: "pointer" }}
-					onClick={() => setFullscreenImage({ src: srcUrlQuery.data ?? "" })}
+					onClick={() => setFullscreenImage({ src: srcUrl ?? "" })}
 				/>
 			) : (
 				<Avatar
 					size="lg"
-					src={srcUrlQuery.data}
+					src={srcUrl}
 					style={{ cursor: "pointer" }}
-					onClick={() => setFullscreenImage({ src: srcUrlQuery.data ?? "" })}
+					onClick={() => setFullscreenImage({ src: srcUrl ?? "" })}
 				/>
 			)}
 			<ActionIcon

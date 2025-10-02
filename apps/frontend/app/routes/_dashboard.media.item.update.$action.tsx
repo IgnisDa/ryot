@@ -3,7 +3,6 @@ import {
 	Button,
 	Code,
 	Container,
-	FileInput,
 	Group,
 	JsonInput,
 	MultiSelect,
@@ -25,18 +24,17 @@ import {
 	UpdateCustomMetadataDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { camelCase, parseParameters, parseSearchQuery } from "@ryot/ts-utils";
-import {
-	IconCalendar,
-	IconCalendarEvent,
-	IconPhoto,
-	IconVideo,
-} from "@tabler/icons-react";
+import { IconCalendar, IconCalendarEvent } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { z } from "zod";
+import {
+	CustomEntityImageInput,
+	ExistingImageList,
+} from "~/components/common/custom-entities";
 import {
 	useCoreDetails,
 	useMetadataDetails,
@@ -81,10 +79,10 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
+	const loaderData = useLoaderData<typeof loader>();
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
 	const [{ data: details }] = useMetadataDetails(
@@ -101,9 +99,9 @@ export default function Page() {
 			description: "",
 			publishDate: "",
 			images: [] as File[],
-			videos: [] as File[],
 			groupIds: [] as string[],
 			creatorIds: [] as string[],
+			existingImages: [] as string[],
 			publishYear: undefined as number | undefined,
 			id: (loaderData.query.id as string | undefined) || "",
 			lot: (loaderData.query.lot as string | undefined) || "",
@@ -125,7 +123,6 @@ export default function Page() {
 				details.musicSpecifics;
 			form.initialize({
 				images: [],
-				videos: [],
 				id: details.id || "",
 				title: details.title || "",
 				lot: (details.lot as string) || "",
@@ -133,6 +130,7 @@ export default function Page() {
 				description: details.description || "",
 				publishDate: details.publishDate || "",
 				publishYear: details.publishYear || undefined,
+				existingImages: details.assets?.s3Images || [],
 				specifics: specifics ? JSON.stringify(specifics) : "{}",
 				genres: details.genres?.map((g) => g.name).join(", ") || "",
 				creatorIds:
@@ -189,9 +187,6 @@ export default function Page() {
 			const s3Images = await Promise.all(
 				values.images.map((f) => clientSideFileUpload(f, "metadata")),
 			);
-			const s3Videos = await Promise.all(
-				values.videos.map((f) => clientSideFileUpload(f, "metadata")),
-			);
 			const specificsKey = `${camelCase(values.lot)}Specifics`;
 			const input = {
 				title: values.title,
@@ -200,6 +195,7 @@ export default function Page() {
 				description: values.description || undefined,
 				publishDate: values.publishDate || undefined,
 				publishYear: values.publishYear || undefined,
+				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
 				[specificsKey]: values.specifics
 					? JSON.parse(values.specifics)
 					: undefined,
@@ -217,12 +213,6 @@ export default function Page() {
 							.map((s) => s.trim())
 							.filter(Boolean)
 					: undefined,
-				assets: {
-					s3Images,
-					s3Videos,
-					remoteImages: [],
-					remoteVideos: [],
-				},
 			};
 			const { createCustomMetadata } = await clientGqlService.request(
 				CreateCustomMetadataDocument,
@@ -249,11 +239,11 @@ export default function Page() {
 	const updateMutation = useMutation({
 		mutationFn: async (values: typeof form.values) => {
 			invariant(values.id);
-			const s3Images = await Promise.all(
+			const uploadedImages = await Promise.all(
 				values.images.map((f) => clientSideFileUpload(f, "metadata")),
 			);
-			const s3Videos = await Promise.all(
-				values.videos.map((f) => clientSideFileUpload(f, "metadata")),
+			const s3Images = Array.from(
+				new Set([...(values.existingImages || []), ...uploadedImages]),
 			);
 			const specificsKey = `${camelCase(values.lot)}Specifics`;
 			const update = {
@@ -263,6 +253,7 @@ export default function Page() {
 				description: values.description || undefined,
 				publishDate: values.publishDate || undefined,
 				publishYear: values.publishYear || undefined,
+				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
 				[specificsKey]: values.specifics
 					? JSON.parse(values.specifics)
 					: undefined,
@@ -280,12 +271,6 @@ export default function Page() {
 							.map((s) => s.trim())
 							.filter(Boolean)
 					: undefined,
-				assets: {
-					s3Images,
-					s3Videos,
-					remoteImages: [],
-					remoteVideos: [],
-				},
 			};
 			await clientGqlService.request(UpdateCustomMetadataDocument, {
 				input: { existingMetadataId: values.id, update },
@@ -359,33 +344,28 @@ export default function Page() {
 						description="Markdown is supported"
 						{...form.getInputProps("description")}
 					/>
-					{!fileUploadNotAllowed ? (
-						<FileInput
-							multiple
-							clearable
-							label="Images"
-							accept="image/*"
-							value={form.values.images}
-							leftSection={<IconPhoto />}
-							onChange={(files) => form.setFieldValue("images", files ?? [])}
-							description={
-								details &&
-								"Please re-upload the images while updating the metadata, old ones will be deleted"
-							}
+					{form.values.existingImages.length > 0 && !fileUploadNotAllowed ? (
+						<ExistingImageList
+							keys={form.values.existingImages}
+							onRemove={(key) => {
+								form.setFieldValue(
+									"existingImages",
+									form.values.existingImages.filter(
+										(imageKey) => imageKey !== key,
+									),
+								);
+							}}
 						/>
 					) : null}
 					{!fileUploadNotAllowed ? (
-						<FileInput
-							multiple
-							clearable
-							label="Videos"
-							accept="video/*"
-							value={form.values.videos}
-							leftSection={<IconVideo />}
-							onChange={(files) => form.setFieldValue("videos", files ?? [])}
+						<CustomEntityImageInput
+							files={form.values.images}
+							instructions="Select images to upload"
+							onFilesChanged={(files) => form.setFieldValue("images", files)}
 							description={
-								details &&
-								"Please re-upload the videos while updating the metadata, old ones will be deleted"
+								loaderData.action === Action.Edit
+									? "Existing images are retained unless removed below"
+									: "Attach images to this media item"
 							}
 						/>
 					) : null}

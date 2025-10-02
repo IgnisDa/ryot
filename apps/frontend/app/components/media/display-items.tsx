@@ -12,6 +12,7 @@ import {
 	useMetadataDetails,
 	useMetadataGroupDetails,
 	usePersonDetails,
+	useS3PresignedUrls,
 	useUserEntityRecentlyConsumed,
 	useUserMetadataDetails,
 	useUserMetadataGroupDetails,
@@ -78,9 +79,10 @@ export const MetadataDisplayItem = (props: {
 		return "";
 	}, [metadataDetails, userMetadataDetails]);
 
+	const s3PresignedUrls = useS3PresignedUrls(metadataDetails?.assets.s3Images);
 	const images = [
 		...(metadataDetails?.assets.remoteImages || []),
-		...(metadataDetails?.assets.s3Images || []),
+		...(s3PresignedUrls.data || []),
 	];
 
 	return (
@@ -156,9 +158,12 @@ export const MetadataGroupDisplayItem = (props: {
 		return final;
 	}, [metadataGroupDetails, props.noEntityLot]);
 
+	const s3PresignedUrls = useS3PresignedUrls(
+		metadataGroupDetails?.details.assets.s3Images,
+	);
 	const images = [
 		...(metadataGroupDetails?.details.assets.remoteImages || []),
-		...(metadataGroupDetails?.details.assets.s3Images || []),
+		...(s3PresignedUrls.data || []),
 	];
 
 	return (
@@ -218,9 +223,12 @@ export const PersonDisplayItem = (props: {
 		return final;
 	}, [personDetails]);
 
+	const s3PresignedUrls = useS3PresignedUrls(
+		personDetails?.details.assets.s3Images,
+	);
 	const images = [
 		...(personDetails?.details.assets.remoteImages || []),
-		...(personDetails?.details.assets.s3Images || []),
+		...(s3PresignedUrls.data || []),
 	];
 
 	return (

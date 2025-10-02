@@ -214,10 +214,11 @@ pub async fn calculate_user_activities_and_summary(
                 activity.visual_novel_duration += runtime;
             }
         } else if let Some(_video_game_extra) = seen.video_game_specifics
-            && let Some(manual_time_spent) = seen.manual_time_spent {
-                activity.video_game_duration +=
-                    (manual_time_spent / dec!(60)).to_i32().unwrap_or_default();
-            }
+            && let Some(manual_time_spent) = seen.manual_time_spent
+        {
+            activity.video_game_duration +=
+                (manual_time_spent / dec!(60)).to_i32().unwrap_or_default();
+        }
         match seen.metadata_lot {
             MediaLot::Book => activity.book_count += 1,
             MediaLot::Show => activity.show_count += 1,

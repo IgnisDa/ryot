@@ -212,8 +212,8 @@ mutation CreateOrUpdateReview($input: CreateOrUpdateReviewInput!) {
 	}
 }
 
-mutation PresignedPutS3Url($input: PresignedPutUrlInput!) {
-	presignedPutS3Url(input: $input) {
+mutation PresignedPutS3Url($prefix: String!) {
+	presignedPutS3Url(prefix: $prefix) {
 		key
 		uploadUrl
 	}

@@ -159,11 +159,11 @@ const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
 	userDetails: (userId?: string) => ({
 		queryKey: ["userDetails", userId],
 	}),
-	presignedS3Url: (key: string) => ({
-		queryKey: ["presignedS3Url", key],
-	}),
 	userAnalytics: (input: UserAnalyticsInput) => ({
 		queryKey: ["userAnalytics", input],
+	}),
+	presignedS3Urls: (key: string[] | undefined) => ({
+		queryKey: ["presignedS3Urls", key],
 	}),
 });
 

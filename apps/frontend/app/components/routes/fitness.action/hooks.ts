@@ -11,7 +11,6 @@ import { queryClient } from "~/lib/shared/react-query";
 import {
 	type InProgressWorkout,
 	getExerciseDetailsQuery,
-	getExerciseImages,
 	getUserExerciseDetailsQuery,
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
@@ -93,6 +92,15 @@ const getNextSetInWorkout = (
 
 type ExerciseDetails = ExerciseDetailsQuery["exerciseDetails"];
 type UserExerciseDetails = UserExerciseDetailsQuery["userExerciseDetails"];
+
+const getExerciseImages = (
+	exercise?: ExerciseDetailsQuery["exerciseDetails"],
+) => {
+	return [
+		...(exercise?.assets.s3Images || []),
+		...(exercise?.assets.remoteImages || []),
+	];
+};
 
 const exerciseHasDetailsToShow = (
 	details?: ExerciseDetails,

@@ -24,12 +24,11 @@ impl FileStorageService {
 
     pub async fn get_presigned_put_url(
         &self,
-        filename: String,
         prefix: String,
         with_uploads: bool,
         metadata: Option<HashMap<String, String>>,
     ) -> Result<(String, String)> {
-        operations::get_presigned_put_url(&self.0, filename, prefix, with_uploads, metadata).await
+        operations::get_presigned_put_url(&self.0, prefix, with_uploads, metadata).await
     }
 
     pub async fn list_objects_at_prefix(&self, prefix: String) -> Result<Vec<(i64, String)>> {

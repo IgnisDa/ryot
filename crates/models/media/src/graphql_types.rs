@@ -243,12 +243,6 @@ pub enum UserUpcomingCalendarEventInput {
     NextMedia(u64),
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct PresignedPutUrlInput {
-    pub prefix: String,
-    pub file_name: String,
-}
-
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
 pub struct GroupedCalendarEvent {
     pub date: NaiveDate,
