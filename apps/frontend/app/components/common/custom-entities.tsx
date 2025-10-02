@@ -22,26 +22,20 @@ export function ExistingImageList(props: ExistingImageListProps) {
 
 	return (
 		<Stack gap="xs">
-			<Text size="sm" fw={500}>
-				Existing images
-			</Text>
+			<Text size="sm">Existing images</Text>
 			<SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="sm">
 				{props.keys.map((key, index) => {
 					const url = presignedUrls.data?.[index];
 					return (
-						<Card
-							p="xs"
-							key={key}
-							withBorder
-							radius="md"
-							style={{ position: "relative" }}
-						>
+						<Card p="xs" key={key} withBorder radius="md" pos="relative">
 							<ActionIcon
+								top={8}
 								size="sm"
+								right={8}
 								color="red"
+								pos="absolute"
 								variant="filled"
 								onClick={() => props.onRemove(key)}
-								style={{ position: "absolute", top: 8, right: 8 }}
 							>
 								<IconX size={14} />
 							</ActionIcon>
