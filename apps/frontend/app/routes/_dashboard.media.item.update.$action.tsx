@@ -79,10 +79,10 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
+	const loaderData = useLoaderData<typeof loader>();
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
 	const [{ data: details }] = useMetadataDetails(
@@ -99,9 +99,9 @@ export default function Page() {
 			description: "",
 			publishDate: "",
 			images: [] as File[],
-			existingImages: [] as string[],
 			groupIds: [] as string[],
 			creatorIds: [] as string[],
+			existingImages: [] as string[],
 			publishYear: undefined as number | undefined,
 			id: (loaderData.query.id as string | undefined) || "",
 			lot: (loaderData.query.lot as string | undefined) || "",
@@ -123,7 +123,6 @@ export default function Page() {
 				details.musicSpecifics;
 			form.initialize({
 				images: [],
-				existingImages: details.assets?.s3Images || [],
 				id: details.id || "",
 				title: details.title || "",
 				lot: (details.lot as string) || "",
@@ -131,6 +130,7 @@ export default function Page() {
 				description: details.description || "",
 				publishDate: details.publishDate || "",
 				publishYear: details.publishYear || undefined,
+				existingImages: details.assets?.s3Images || [],
 				specifics: specifics ? JSON.stringify(specifics) : "{}",
 				genres: details.genres?.map((g) => g.name).join(", ") || "",
 				creatorIds:
@@ -195,6 +195,7 @@ export default function Page() {
 				description: values.description || undefined,
 				publishDate: values.publishDate || undefined,
 				publishYear: values.publishYear || undefined,
+				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
 				[specificsKey]: values.specifics
 					? JSON.parse(values.specifics)
 					: undefined,
@@ -212,7 +213,6 @@ export default function Page() {
 							.map((s) => s.trim())
 							.filter(Boolean)
 					: undefined,
-				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
 			};
 			const { createCustomMetadata } = await clientGqlService.request(
 				CreateCustomMetadataDocument,
@@ -253,6 +253,7 @@ export default function Page() {
 				description: values.description || undefined,
 				publishDate: values.publishDate || undefined,
 				publishYear: values.publishYear || undefined,
+				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
 				[specificsKey]: values.specifics
 					? JSON.parse(values.specifics)
 					: undefined,
@@ -270,7 +271,6 @@ export default function Page() {
 							.map((s) => s.trim())
 							.filter(Boolean)
 					: undefined,
-				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
 			};
 			await clientGqlService.request(UpdateCustomMetadataDocument, {
 				input: { existingMetadataId: values.id, update },
