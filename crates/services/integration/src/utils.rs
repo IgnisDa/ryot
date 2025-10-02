@@ -48,9 +48,6 @@ pub async fn get_show_by_episode_identifier(
                 ))],
             )
         })
-        .apply_if(Some(series), |query, series| {
-            apply_columns_search(series, query, [Expr::col(metadata::Column::Title)])
-        })
         .one(&ss.db)
         .await?;
     match db_show {
