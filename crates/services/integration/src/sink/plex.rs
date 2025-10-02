@@ -18,19 +18,19 @@ mod models {
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct PlexWebhookMetadataPayload {
+        pub duration: Decimal,
         #[serde(rename = "type")]
         pub item_type: String,
-        #[serde(rename = "viewOffset")]
-        pub view_offset: Option<Decimal>,
-        pub duration: Decimal,
         #[serde(rename = "grandparentTitle")]
         pub show_name: Option<String>,
         #[serde(rename = "parentIndex")]
         pub season_number: Option<i32>,
-        #[serde(rename = "index")]
-        pub episode_number: Option<i32>,
         #[serde(rename = "Guid")]
         pub guids: Vec<StringIdObject>,
+        #[serde(rename = "index")]
+        pub episode_number: Option<i32>,
+        #[serde(rename = "viewOffset")]
+        pub view_offset: Option<Decimal>,
     }
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct PlexWebhookAccount {
