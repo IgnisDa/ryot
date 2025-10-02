@@ -39,14 +39,14 @@ mod models {
     }
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct PlexWebhookPayload {
-        #[serde(rename = "event")]
-        pub event_type: String,
         pub user: bool,
         pub owner: bool,
-        #[serde(rename = "Metadata")]
-        pub metadata: PlexWebhookMetadataPayload,
+        #[serde(rename = "event")]
+        pub event_type: String,
         #[serde(rename = "Account")]
         pub account: PlexWebhookAccount,
+        #[serde(rename = "Metadata")]
+        pub metadata: PlexWebhookMetadataPayload,
     }
 }
 
