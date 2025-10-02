@@ -17,7 +17,6 @@ background-models = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { workspace = true }
-database-utils = { workspace = true }
 dependent-jobs-utils = { workspace = true }
 dependent-models = { workspace = true }
 dependent-provider-utils = { workspace = true }
