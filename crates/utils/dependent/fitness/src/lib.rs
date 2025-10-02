@@ -1,8 +1,4 @@
-use std::{
-    cmp::Reverse,
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 
 use anyhow::{Result, anyhow, bail};
 use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
@@ -702,34 +698,18 @@ pub async fn update_custom_exercise(
     } = input;
     let id = update.id.clone();
     let delete_entity = should_delete.unwrap_or_default();
-    let new_image_keys: HashSet<String> = update.assets.s3_images.iter().cloned().collect();
-    let new_video_keys: HashSet<String> = update.assets.s3_videos.iter().cloned().collect();
     let old_exercise = Exercise::find_by_id(&id).one(&ss.db).await?.unwrap();
-    let images_to_delete: Vec<String> = if delete_entity {
-        old_exercise.assets.s3_images.clone()
+    let (images_to_delete, videos_to_delete) = if delete_entity {
+        (
+            old_exercise.assets.s3_images.clone(),
+            old_exercise.assets.s3_videos.clone(),
+        )
     } else {
-        old_exercise
-            .assets
-            .s3_images
-            .iter()
-            .filter(|image| !new_image_keys.contains(*image))
-            .cloned()
-            .collect()
+        old_exercise.assets.removed_s3_objects(&update.assets)
     };
     for image in images_to_delete {
         file_storage_service::delete_object(ss, image).await?;
     }
-    let videos_to_delete: Vec<String> = if delete_entity {
-        old_exercise.assets.s3_videos.clone()
-    } else {
-        old_exercise
-            .assets
-            .s3_videos
-            .iter()
-            .filter(|video| !new_video_keys.contains(*video))
-            .cloned()
-            .collect()
-    };
     for video in videos_to_delete {
         file_storage_service::delete_object(ss, video).await?;
     }

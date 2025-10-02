@@ -1,8 +1,10 @@
-use std::{collections::HashSet, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::{Result, bail};
 use chrono::Datelike;
-use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
+use common_models::{
+    ChangeCollectionToEntitiesInput, DefaultCollection, EntityAssets, EntityToCollectionInput,
+};
 use common_utils::ryot_log;
 use database_models::{
     collection, collection_entity_membership, collection_to_entity,
@@ -242,24 +244,13 @@ pub async fn update_custom_metadata(
         .one(&ss.db)
         .await?
         .unwrap();
-    if metadata.source != MediaSource::Custom {
-        bail!("This metadata is not custom and cannot be updated",);
-    }
-    if metadata.created_by_user_id != Some(user_id.to_owned()) {
-        bail!("You are not authorized to update this metadata");
-    }
-    let new_image_keys: HashSet<String> = update.assets.s3_images.iter().cloned().collect();
-    for image in metadata.assets.s3_images.iter() {
-        if !new_image_keys.contains(image) {
-            file_storage_service::delete_object(ss, image.clone()).await?;
-        }
-    }
-    let new_video_keys: HashSet<String> = update.assets.s3_videos.iter().cloned().collect();
-    for video in metadata.assets.s3_videos.iter() {
-        if !new_video_keys.contains(video) {
-            file_storage_service::delete_object(ss, video.clone()).await?;
-        }
-    }
+    ensure_user_can_update_custom_entity(
+        "metadata",
+        metadata.source,
+        metadata.created_by_user_id.clone(),
+        user_id,
+    )?;
+    delete_removed_s3_assets(ss, &metadata.assets, &update.assets).await?;
     MetadataToGenre::delete_many()
         .filter(metadata_to_genre::Column::MetadataId.eq(&existing_metadata_id))
         .exec(&ss.db)
@@ -397,24 +388,13 @@ pub async fn update_custom_metadata_group(
         .one(&ss.db)
         .await?
         .unwrap();
-    if group.source != MediaSource::Custom {
-        bail!("This metadata group is not custom and cannot be updated");
-    }
-    if group.created_by_user_id != Some(user_id.to_owned()) {
-        bail!("You are not authorized to update this metadata group");
-    }
-    let new_image_keys: HashSet<String> = update.assets.s3_images.iter().cloned().collect();
-    for image in group.assets.s3_images.iter() {
-        if !new_image_keys.contains(image) {
-            file_storage_service::delete_object(ss, image.clone()).await?;
-        }
-    }
-    let new_video_keys: HashSet<String> = update.assets.s3_videos.iter().cloned().collect();
-    for video in group.assets.s3_videos.iter() {
-        if !new_video_keys.contains(video) {
-            file_storage_service::delete_object(ss, video.clone()).await?;
-        }
-    }
+    ensure_user_can_update_custom_entity(
+        "metadata group",
+        group.source,
+        group.created_by_user_id.clone(),
+        user_id,
+    )?;
+    delete_removed_s3_assets(ss, &group.assets, &update.assets).await?;
     let new_group = metadata_group::ActiveModel {
         parts: ActiveValue::Set(1),
         lot: ActiveValue::Set(update.lot),
@@ -446,24 +426,13 @@ pub async fn update_custom_person(
         .one(&ss.db)
         .await?
         .unwrap();
-    if person_model.source != MediaSource::Custom {
-        bail!("This person is not custom and cannot be updated");
-    }
-    if person_model.created_by_user_id != Some(user_id.to_owned()) {
-        bail!("You are not authorized to update this person");
-    }
-    let new_image_keys: HashSet<String> = update.assets.s3_images.iter().cloned().collect();
-    for image in person_model.assets.s3_images.iter() {
-        if !new_image_keys.contains(image) {
-            file_storage_service::delete_object(ss, image.clone()).await?;
-        }
-    }
-    let new_video_keys: HashSet<String> = update.assets.s3_videos.iter().cloned().collect();
-    for video in person_model.assets.s3_videos.iter() {
-        if !new_video_keys.contains(video) {
-            file_storage_service::delete_object(ss, video.clone()).await?;
-        }
-    }
+    ensure_user_can_update_custom_entity(
+        "person",
+        person_model.source,
+        person_model.created_by_user_id.clone(),
+        user_id,
+    )?;
+    delete_removed_s3_assets(ss, &person_model.assets, &update.assets).await?;
     let new_person = person::ActiveModel {
         name: ActiveValue::Set(update.name),
         place: ActiveValue::Set(update.place),
@@ -483,6 +452,36 @@ pub async fn update_custom_person(
         expire_person_details_cache(&person_model.id, ss)
     )?;
     Ok(true)
+}
+
+async fn delete_removed_s3_assets(
+    ss: &Arc<SupportingService>,
+    existing_assets: &EntityAssets,
+    updated_assets: &EntityAssets,
+) -> Result<()> {
+    let (images_to_delete, videos_to_delete) = existing_assets.removed_s3_objects(updated_assets);
+    for image in images_to_delete {
+        file_storage_service::delete_object(ss, image).await?;
+    }
+    for video in videos_to_delete {
+        file_storage_service::delete_object(ss, video).await?;
+    }
+    Ok(())
+}
+
+fn ensure_user_can_update_custom_entity(
+    kind: &str,
+    source: MediaSource,
+    created_by_user_id: Option<String>,
+    user_id: &str,
+) -> Result<()> {
+    if source != MediaSource::Custom {
+        bail!("This {kind} is not custom and cannot be updated");
+    }
+    if created_by_user_id.as_deref() != Some(user_id) {
+        bail!("You are not authorized to update this {kind}");
+    }
+    Ok(())
 }
 
 fn get_data_for_custom_metadata(
