@@ -59,9 +59,9 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
 	const coreDetails = useCoreDetails();
+	const loaderData = useLoaderData<typeof loader>();
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
 	const [{ data: details }] = usePersonDetails(
@@ -109,7 +109,6 @@ export default function Page() {
 		if (loaderData.action === Action.Edit && details?.details) {
 			form.initialize({
 				images: [],
-				existingImages: details.details.assets?.s3Images || [],
 				id: details.details.id || "",
 				name: details.details.name || "",
 				place: details.details.place || "",
@@ -118,6 +117,7 @@ export default function Page() {
 				deathDate: details.details.deathDate || "",
 				birthDate: details.details.birthDate || "",
 				description: details.details.description || "",
+				existingImages: details.details.assets?.s3Images || [],
 				alternateNames: details.details.alternateNames?.join(", ") || "",
 			});
 		}
@@ -136,24 +136,19 @@ export default function Page() {
 				birthDate: values.birthDate || undefined,
 				deathDate: values.deathDate || undefined,
 				description: values.description || undefined,
+				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
 				alternateNames: values.alternateNames
 					? values.alternateNames
 							.split(",")
 							.map((s) => s.trim())
 							.filter(Boolean)
 					: undefined,
-				assets: {
-					s3Images,
-					s3Videos: [],
-					remoteImages: [],
-					remoteVideos: [],
-				},
 			};
 			const { createCustomPerson } = await clientGqlService.request(
 				CreateCustomPersonDocument,
 				{ input },
 			);
-			return createCustomPerson.id as string;
+			return createCustomPerson.id;
 		},
 		onSuccess: (id) => {
 			notifications.show({
@@ -188,18 +183,13 @@ export default function Page() {
 				deathDate: values.deathDate || undefined,
 				birthDate: values.birthDate || undefined,
 				description: values.description || undefined,
+				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
 				alternateNames: values.alternateNames
 					? values.alternateNames
 							.split(",")
 							.map((s) => s.trim())
 							.filter(Boolean)
 					: undefined,
-				assets: {
-					s3Images,
-					s3Videos: [],
-					remoteImages: [],
-					remoteVideos: [],
-				},
 			};
 			await clientGqlService.request(UpdateCustomPersonDocument, {
 				input: { existingPersonId: values.id, update },
