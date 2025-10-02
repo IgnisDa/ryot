@@ -88,8 +88,8 @@ export default function Page() {
 			equipment: "",
 			instructions: "",
 			images: [] as File[],
-			existingImages: [] as string[],
 			muscles: [] as string[],
+			existingImages: [] as string[],
 			shouldDelete: undefined as boolean | undefined,
 		},
 	});
@@ -99,13 +99,13 @@ export default function Page() {
 			form.initialize({
 				images: [],
 				shouldDelete: undefined,
-				existingImages: details.assets?.s3Images || [],
 				name: details.name || "",
 				lot: (details.lot as string) || "",
 				level: (details.level as string) || "",
 				force: (details.force as string) || "",
 				mechanic: (details.mechanic as string) || "",
 				equipment: (details.equipment as string) || "",
+				existingImages: details.assets?.s3Images || [],
 				muscles: (details.muscles as string[] | undefined) || [],
 				instructions: (details.instructions || []).join("\n"),
 			});
@@ -136,6 +136,8 @@ export default function Page() {
 			lot: form.values.lot as ExerciseLot,
 			shouldDelete: form.values.shouldDelete,
 			level: form.values.level as ExerciseLevel,
+			muscles: (form.values.muscles || []) as ExerciseMuscle[],
+			assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
 			force: form.values.force
 				? (form.values.force as ExerciseForce)
 				: undefined,
@@ -145,28 +147,18 @@ export default function Page() {
 			equipment: form.values.equipment
 				? (form.values.equipment as ExerciseEquipment)
 				: undefined,
-			muscles: (form.values.muscles || []) as ExerciseMuscle[],
 			instructions: form.values.instructions
 				.split("\n")
 				.map((s) => s.trim())
 				.filter(Boolean),
-			assets: {
-				s3Videos: [],
-				remoteImages: [],
-				remoteVideos: [],
-				s3Images,
-			},
 		};
 	}, [loaderData.id, form.values, exerciseImages.data]);
 
 	const createMutation = useMutation({
-		mutationFn: async () => {
-			const { createCustomExercise } = await clientGqlService.request(
-				CreateCustomExerciseDocument,
-				{ input: memoizedInput },
-			);
-			return createCustomExercise;
-		},
+		mutationFn: async () =>
+			clientGqlService
+				.request(CreateCustomExerciseDocument, { input: memoizedInput })
+				.then((res) => res.createCustomExercise),
 		onSuccess: (id) => {
 			notifications.show({
 				color: "green",
@@ -215,11 +207,8 @@ export default function Page() {
 	});
 
 	const handleSubmit = form.onSubmit(async () => {
-		if (loaderData.action === Action.Create) {
-			createMutation.mutate();
-		} else {
-			updateMutation.mutate();
-		}
+		if (loaderData.action === Action.Create) createMutation.mutate();
+		else updateMutation.mutate();
 	});
 
 	return (
