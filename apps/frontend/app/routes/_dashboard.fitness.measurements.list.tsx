@@ -257,8 +257,8 @@ const SyncedMeasurementChart = (props: SyncedMeasurementChartProps) => {
 					valueFormatter={(val) => Number(val).toFixed(2)}
 					series={[
 						{
-							name: props.stat.value,
 							type: "line",
+							name: props.stat.value,
 							color: generateColor(getStringAsciiValue(props.stat.value)),
 						},
 					]}
