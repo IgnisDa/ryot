@@ -25,6 +25,8 @@ serde_with = { workspace = true }
 serde-xml-rs = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+uuid = { workspace = true }
+zip = { workspace = true }
 
 application-utils = { workspace = true }
 background-models = { workspace = true }
@@ -45,6 +47,7 @@ google-books-provider = { workspace = true }
 hardcover-provider = { workspace = true }
 importer-models = { workspace = true }
 media-models = { workspace = true }
+miscellaneous-lookup-service = { workspace = true }
 openlibrary-provider = { workspace = true }
 supporting-service = { workspace = true }
 tmdb-provider = { workspace = true }

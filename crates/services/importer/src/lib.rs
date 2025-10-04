@@ -42,6 +42,7 @@ mod jellyfin;
 mod mediatracker;
 mod movary;
 mod myanimelist;
+mod netflix;
 mod open_scale;
 mod plex;
 mod storygraph;
@@ -149,6 +150,7 @@ impl ImporterService {
             ImportSource::Hardcover => hardcover::import(input.generic_csv.unwrap()).await,
             ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await,
             ImportSource::Plex => plex::import(input.url_and_key.unwrap()).await,
+            ImportSource::Netflix => netflix::import(input.netflix.unwrap(), &self.0).await,
         };
         let mut model = db_import_job.into_active_model();
         match maybe_import {
