@@ -1,5 +1,10 @@
 # Netflix
 
+::: info
+It is necessary to setup TMDB for this import to work. Please follow the configuration
+[guide](../configuration.md) for instructions.
+:::
+
 You can import your Netflix watch activity, ratings, and My List entries into Ryot.
 
 1. Visit [Netflix GetMyInfo](https://www.netflix.com/account/getmyinfo) while signed in to
