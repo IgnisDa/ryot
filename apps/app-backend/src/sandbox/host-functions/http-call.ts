@@ -1,13 +1,8 @@
-import {
-	apiFailure,
-	apiSuccess,
-	type HttpCallOptions,
-	type HttpCallResult,
-} from "~/sandbox/types";
+import { apiFailure, apiSuccess, type HttpCallOptions } from "~/sandbox/types";
 
 const httpCallTimeoutMs = 8_000;
 
-const parseHttpCallOptions = (options: unknown): HttpCallOptions => {
+const parseHttpCallOptions = (options: unknown) => {
 	if (options === undefined || options === null) return {};
 	if (typeof options !== "object" || Array.isArray(options))
 		throw new Error("httpCall options must be an object");
@@ -57,7 +52,7 @@ export const httpCall = async (
 	method: unknown,
 	url: unknown,
 	options?: unknown,
-): Promise<HttpCallResult> => {
+) => {
 	if (typeof method !== "string" || !method.trim())
 		return apiFailure("httpCall expects a non-empty method string");
 
