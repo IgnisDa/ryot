@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use async_graphql::{InputObject, SimpleObject};
 use boilermates::boilermates;
 use chrono::NaiveDate;
@@ -7,7 +9,6 @@ use rust_decimal::Decimal;
 use sea_orm::{FromJsonQueryResult, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use std::collections::HashSet;
 
 use crate::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MovieSpecifics,

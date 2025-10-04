@@ -579,11 +579,11 @@ export type DeployIgdbImportInput = {
 
 export type DeployImportJobInput = {
   genericCsv?: InputMaybe<DeployGenericCsvImportInput>;
-  genericJson?: InputMaybe<DeployJsonImportInput>;
   igdb?: InputMaybe<DeployIgdbImportInput>;
   jellyfin?: InputMaybe<DeployJellyfinImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
+  path?: InputMaybe<DeployPathImportInput>;
   source: ImportSource;
   strongApp?: InputMaybe<DeployStrongAppImportInput>;
   trakt?: InputMaybe<DeployTraktImportInput>;
@@ -594,10 +594,6 @@ export type DeployJellyfinImportInput = {
   apiUrl: Scalars['String']['input'];
   password?: InputMaybe<Scalars['String']['input']>;
   username: Scalars['String']['input'];
-};
-
-export type DeployJsonImportInput = {
-  export: Scalars['String']['input'];
 };
 
 export type DeployMalImportInput = {
@@ -611,6 +607,10 @@ export type DeployMovaryImportInput = {
   history: Scalars['String']['input'];
   ratings: Scalars['String']['input'];
   watchlist: Scalars['String']['input'];
+};
+
+export type DeployPathImportInput = {
+  exportPath: Scalars['String']['input'];
 };
 
 export type DeployStrongAppImportInput = {
@@ -1086,6 +1086,7 @@ export enum ImportSource {
   Mediatracker = 'MEDIATRACKER',
   Movary = 'MOVARY',
   Myanimelist = 'MYANIMELIST',
+  Netflix = 'NETFLIX',
   OpenScale = 'OPEN_SCALE',
   Plex = 'PLEX',
   Storygraph = 'STORYGRAPH',

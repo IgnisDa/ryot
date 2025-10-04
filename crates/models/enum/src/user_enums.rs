@@ -133,6 +133,7 @@ pub enum ImportSource {
     Movary,
     Anilist,
     Grouvee,
+    Netflix,
     Jellyfin,
     OpenScale,
     StrongApp,

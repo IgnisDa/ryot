@@ -1,5 +1,10 @@
 # IGDb
 
+::: info
+It is necessary to setup IGDB for this import to work. Please follow the configuration
+[guide](../configuration.md) for instructions.
+:::
+
 You can import your lists from [IGDb](https://www.igdb.com). Each list has to be imported
 separately. All items in the list will be added to the collection you choose.
 

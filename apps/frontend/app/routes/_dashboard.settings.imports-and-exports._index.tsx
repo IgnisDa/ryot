@@ -109,9 +109,14 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				.with(ImportSource.Myanimelist, async () => ({
 					mal: processSubmission(formData, malImportFormSchema),
 				}))
-				.with(ImportSource.GenericJson, ImportSource.Anilist, async () => ({
-					genericJson: processSubmission(formData, jsonImportFormSchema),
-				}))
+				.with(
+					ImportSource.GenericJson,
+					ImportSource.Anilist,
+					ImportSource.Netflix,
+					async () => ({
+						path: processSubmission(formData, exportPathImportFormSchema),
+					}),
+				)
 				.with(ImportSource.Jellyfin, async () => ({
 					jellyfin: processSubmission(formData, jellyfinImportFormSchema),
 				}))
@@ -183,7 +188,7 @@ const movaryImportFormSchema = z.object({
 	watchlist: z.string(),
 });
 
-const jsonImportFormSchema = z.object({ export: z.string() });
+const exportPathImportFormSchema = z.object({ exportPath: z.string() });
 
 const malImportFormSchema = z.object({
 	animePath: z.string().optional(),
@@ -414,13 +419,23 @@ export default function Page() {
 														<>
 															<FileInput
 																required
-																name="export"
 																accept=".json"
+																name="exportPath"
 																label="JSON export file"
 															/>
 														</>
 													),
 												)
+												.with(ImportSource.Netflix, () => (
+													<>
+														<FileInput
+															required
+															accept=".zip"
+															name="exportPath"
+															label="Netflix ZIP export file"
+														/>
+													</>
+												))
 												.exhaustive()}
 											<Button
 												mt="md"

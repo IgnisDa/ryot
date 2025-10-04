@@ -1,4 +1,8 @@
-use std::{collections::HashMap, future::Future, sync::Arc};
+use std::{
+    collections::{HashMap, hash_map::Entry},
+    future::Future,
+    sync::Arc,
+};
 
 use anyhow::Result;
 use common_models::{ChangeCollectionToEntitiesInput, EntityToCollectionInput};
@@ -23,7 +27,6 @@ use media_models::{
 use rand::seq::SliceRandom;
 use rust_decimal::{Decimal, prelude::FromPrimitive};
 use rust_decimal_macros::dec;
-use std::collections::hash_map::Entry;
 use supporting_service::SupportingService;
 
 async fn create_collection_and_add_entity_to_it(

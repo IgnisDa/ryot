@@ -1,5 +1,10 @@
 # Movary
 
+::: info
+It is necessary to setup TMDB for this import to work. Please follow the configuration
+[guide](../configuration.md) for instructions.
+:::
+
 The Watchlist and all movies can be imported from [Movary](https://movary.org)
 along with ratings, history, and comments.
 
