@@ -89,20 +89,19 @@ export const ServerLive = Layer.scopedDiscard(
 
 		const { dispose, handler } = HttpApiBuilder.toWebHandler(apiLayer);
 
-		// @effect-diagnostics-next-line asyncFunction:off
-		const serveStatic = async (pathname: string) => {
-			const path = pathname === "/" ? "./client/index.html" : `./client${pathname}`;
-			const runPromise = Runtime.runPromise(runtime);
-			const exists = await runPromise(fs.exists(path));
-			const target = exists ? path : "./client/index.html";
-			const bytes = await runPromise(fs.readFile(target));
-			return new Response(bytes, { headers: { "Content-Type": mimeType(target) } });
-		};
+		const runPromise = Runtime.runPromise(runtime);
+		const serveStatic = (pathname: string) =>
+			Effect.gen(function* () {
+				const path = pathname === "/" ? "./client/index.html" : `./client${pathname}`;
+				const exists = yield* fs.exists(path);
+				const target = exists ? path : "./client/index.html";
+				const bytes = yield* fs.readFile(target);
+				return new Response(bytes, { headers: { "Content-Type": mimeType(target) } });
+			});
 
 		const server = Bun.serve({
 			port: config.port,
-			// @effect-diagnostics-next-line asyncFunction:off
-			fetch: async (request) => {
+			fetch: (request) => {
 				const url = new URL(request.url);
 				if (url.pathname.startsWith("/api/auth/")) {
 					return auth.auth.handler(request);
@@ -114,17 +113,15 @@ export const ServerLive = Layer.scopedDiscard(
 					url.pathname = url.pathname.slice(4);
 					return handler(new Request(url.toString(), request));
 				}
-				return serveStatic(url.pathname);
+				return runPromise(serveStatic(url.pathname));
 			},
 		});
 
 		yield* Effect.logInfo(`app backend listening on ${String(server.url)}`);
 		yield* Effect.addFinalizer(() =>
-			// @effect-diagnostics-next-line asyncFunction:off
-			Effect.promise(async () => {
-				await server.stop(true);
-				await dispose();
-			}).pipe(Effect.orDie),
+			Effect.promise(() => Promise.resolve(server.stop(true)).then(() => dispose())).pipe(
+				Effect.orDie,
+			),
 		);
 		return yield* Effect.never;
 	}),
