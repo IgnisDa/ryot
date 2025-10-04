@@ -17,7 +17,7 @@ import {
 	UserMeasurementsListDocument,
 	type UserMeasurementsListInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { reverse, startCase } from "@ryot/ts-utils";
+import { cloneDeep, reverse, startCase } from "@ryot/ts-utils";
 import {
 	IconChartArea,
 	IconPlus,
@@ -164,7 +164,7 @@ export default function Page() {
 							borderRadius="sm"
 							withColumnBorders
 							withTableBorder={false}
-							records={reverse(formattedData)}
+							records={reverse(cloneDeep(formattedData))}
 							columns={[
 								{
 									width: 200,
