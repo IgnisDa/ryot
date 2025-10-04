@@ -17,7 +17,7 @@ import {
 	UserMeasurementsListDocument,
 	type UserMeasurementsListInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { reverse, startCase } from "@ryot/ts-utils";
+import { cloneDeep, reverse, startCase } from "@ryot/ts-utils";
 import {
 	IconChartArea,
 	IconPlus,
@@ -52,6 +52,11 @@ export const meta = () => {
 	return [{ title: "Measurements | Ryot" }];
 };
 
+type DataPoint = Record<string, string>;
+type CompleteData = Array<DataPoint>;
+
+const tickFormatter = (date: string) => dayjsLib(date).format("L");
+
 export default function Page() {
 	const userPreferences = useUserPreferences();
 	const [, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
@@ -71,7 +76,7 @@ export default function Page() {
 		queryFn: () =>
 			clientGqlService
 				.request(UserMeasurementsListDocument, { input })
-				.then((data) => data.userMeasurementsList),
+				.then((data) => data.userMeasurementsList.response),
 	});
 
 	const deleteUserMeasurementMutation = useMutation({
@@ -103,8 +108,8 @@ export default function Page() {
 		}));
 
 	const formattedData =
-		userMeasurementsList?.response?.map((m) => {
-			const local: Record<string, string> = {
+		userMeasurementsList?.map((m) => {
+			const local: DataPoint = {
 				timestamp: m.timestamp,
 				formattedTimestamp: tickFormatter(m.timestamp),
 			};
@@ -164,7 +169,7 @@ export default function Page() {
 							borderRadius="sm"
 							withColumnBorders
 							withTableBorder={false}
-							records={reverse(formattedData)}
+							records={reverse(cloneDeep(formattedData))}
 							columns={[
 								{
 									width: 200,
@@ -199,21 +204,17 @@ export default function Page() {
 					</Tabs.Panel>
 				</Tabs>
 				<Text ta="right" mt="xl" fw="bold">
-					{userMeasurementsList?.response?.length || 0} data points
+					{userMeasurementsList?.length || 0} data points
 				</Text>
 			</Stack>
 		</Container>
 	);
 }
 
-const tickFormatter = (date: string) => dayjsLib(date).format("L");
-
-type Data = Array<Record<string, string>>;
-
-const calculateYAxisDomain = (data: Data, statValue: string) => {
+const calculateYAxisDomain = (data: CompleteData, statValue: string) => {
 	const values = data
 		.map((item) => Number.parseFloat(item[statValue]))
-		.filter((val) => !Number.isFinite(val));
+		.filter((val) => Number.isFinite(val));
 
 	if (values.length === 0) return [0, 100];
 
@@ -232,7 +233,7 @@ const calculateYAxisDomain = (data: Data, statValue: string) => {
 };
 
 interface SyncedMeasurementChartProps {
-	formattedData: Data;
+	formattedData: CompleteData;
 	stat: { value: string; label: string };
 }
 
@@ -257,8 +258,8 @@ const SyncedMeasurementChart = (props: SyncedMeasurementChartProps) => {
 					valueFormatter={(val) => Number(val).toFixed(2)}
 					series={[
 						{
-							name: props.stat.value,
 							type: "line",
+							name: props.stat.value,
 							color: generateColor(getStringAsciiValue(props.stat.value)),
 						},
 					]}
