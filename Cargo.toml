@@ -110,7 +110,7 @@ async-graphql = { version = "=7.0.17", features = [
 ] }
 async-graphql-axum = "=7.0.17"
 async-trait = "=0.1.89"
-aws-sdk-s3 = { version = "=1.106.0", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "=1.107.0", features = ["behavior-version-latest"] }
 axum = { version = "=0.8.6", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
 bon = "=3.7.2"
@@ -149,7 +149,7 @@ nanoid = "=0.4.0"
 nest_struct = "=0.5.5"
 openidconnect = "=4.0.1"
 paginate = "=1.1.11"
-quote = "=1.0.40"
+quote = "=1.0.41"
 rand = "=0.9.2"
 ring = "=0.17.14"
 regex = "=1.11.3"
@@ -197,7 +197,7 @@ sea-orm-migration = { version = "=1.1.16", features = [
 ] }
 serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = "=1.0.145"
-serde_with = { version = "=3.14.1", features = ["chrono_0_4"] }
+serde_with = { version = "=3.15.0", features = ["chrono_0_4"] }
 serde-xml-rs = "=0.8.1"
 slug = "=0.1.6"
 strum = { version = "=0.26.3", features = ["derive"] }
