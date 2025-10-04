@@ -9,6 +9,7 @@ import { createEventsForUser } from "~/modules/events/create-core";
 import type { EventsRepository } from "~/modules/events/repository";
 import { CreateEventItem } from "~/modules/events/schemas";
 import type { IntegrationsRepository } from "~/modules/integrations/repository";
+import { isIntegrationProvider } from "~/modules/integrations/types";
 import type { SandboxRepository } from "~/modules/sandbox/repository";
 
 import type { AppConfigValue } from "./config";
@@ -415,6 +416,9 @@ export const makeAdditionalSandboxApiFunctions = (
 		const isDisabled = options.isDisabled;
 		if (provider !== undefined && typeof provider !== "string") {
 			return Promise.resolve(apiFailure("listIntegrations provider must be a string"));
+		}
+		if (typeof provider === "string" && !isIntegrationProvider(provider)) {
+			return Promise.resolve(apiFailure("listIntegrations provider must be a supported provider"));
 		}
 		if (isDisabled !== undefined && typeof isDisabled !== "boolean") {
 			return Promise.resolve(apiFailure("listIntegrations isDisabled must be a boolean"));
