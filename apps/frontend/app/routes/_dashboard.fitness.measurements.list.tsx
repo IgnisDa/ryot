@@ -214,7 +214,7 @@ export default function Page() {
 const calculateYAxisDomain = (data: CompleteData, statValue: string) => {
 	const values = data
 		.map((item) => Number.parseFloat(item[statValue]))
-		.filter((val) => !Number.isFinite(val));
+		.filter((val) => Number.isFinite(val));
 
 	if (values.length === 0) return [0, 100];
 
