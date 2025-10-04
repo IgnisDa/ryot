@@ -71,7 +71,7 @@ export default function Page() {
 		queryFn: () =>
 			clientGqlService
 				.request(UserMeasurementsListDocument, { input })
-				.then((data) => data.userMeasurementsList),
+				.then((data) => data.userMeasurementsList.response),
 	});
 
 	const deleteUserMeasurementMutation = useMutation({
@@ -103,7 +103,7 @@ export default function Page() {
 		}));
 
 	const formattedData =
-		userMeasurementsList?.response?.map((m) => {
+		userMeasurementsList?.map((m) => {
 			const local: Record<string, string> = {
 				timestamp: m.timestamp,
 				formattedTimestamp: tickFormatter(m.timestamp),
@@ -199,7 +199,7 @@ export default function Page() {
 					</Tabs.Panel>
 				</Tabs>
 				<Text ta="right" mt="xl" fw="bold">
-					{userMeasurementsList?.response?.length || 0} data points
+					{userMeasurementsList?.length || 0} data points
 				</Text>
 			</Stack>
 		</Container>
