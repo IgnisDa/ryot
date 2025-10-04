@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     env,
     fs::{self, File},
     io::{self, BufReader},
@@ -14,6 +14,7 @@ use common_utils::ryot_log;
 use csv::Reader;
 use dependent_models::{CollectionToEntityDetails, ImportCompletedItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};
+use futures::stream::{self, StreamExt};
 use indexmap::IndexMap;
 use media_models::{
     DeployPathImportInput, ImportOrExportItemRating, ImportOrExportMetadataItemSeen,
@@ -36,6 +37,8 @@ struct LookupCacheItem {
     season: Option<i32>,
     episode: Option<i32>,
 }
+
+const METADATA_LOOKUP_CONCURRENCY: usize = 8;
 
 #[derive(Debug, Deserialize)]
 struct ViewingActivityItem {
@@ -180,45 +183,40 @@ fn find_content_interaction_dir(root: &Path) -> Option<PathBuf> {
 async fn lookup_title(
     ss: &Arc<SupportingService>,
     title: &str,
-    title_cache: &mut HashMap<String, Option<LookupCacheItem>>,
-    failed_items: &mut Vec<ImportFailedItem>,
-) -> Option<LookupCacheItem> {
-    if let Some(cached) = title_cache.get(title) {
-        return cached.clone();
-    }
-
+) -> (Option<LookupCacheItem>, Option<ImportFailedItem>) {
     let lookup_result = miscellaneous_lookup_service::metadata_lookup(ss, title.to_string()).await;
-    let item = match lookup_result {
+    match lookup_result {
         Ok(result) => match result.response {
-            MetadataLookupResponse::Found(found) => Some(LookupCacheItem {
-                lot: found.data.lot,
-                source: found.data.source,
-                identifier: found.data.identifier,
-                season: found.show_information.as_ref().map(|s| s.season),
-                episode: found.show_information.as_ref().map(|s| s.episode),
-            }),
-            MetadataLookupResponse::NotFound(_) => {
-                failed_items.push(ImportFailedItem {
+            MetadataLookupResponse::Found(found) => (
+                Some(LookupCacheItem {
+                    lot: found.data.lot,
+                    source: found.data.source,
+                    identifier: found.data.identifier,
+                    season: found.show_information.as_ref().map(|s| s.season),
+                    episode: found.show_information.as_ref().map(|s| s.episode),
+                }),
+                None,
+            ),
+            MetadataLookupResponse::NotFound(_) => (
+                None,
+                Some(ImportFailedItem {
                     lot: None,
-                    step: ImportFailStep::ItemDetailsFromSource,
                     identifier: title.to_string(),
+                    step: ImportFailStep::ItemDetailsFromSource,
                     error: Some("Metadata not found".to_string()),
-                });
-                None
-            }
+                }),
+            ),
         },
-        Err(e) => {
-            failed_items.push(ImportFailedItem {
+        Err(e) => (
+            None,
+            Some(ImportFailedItem {
                 lot: None,
-                step: ImportFailStep::ItemDetailsFromSource,
                 identifier: title.to_string(),
+                step: ImportFailStep::ItemDetailsFromSource,
                 error: Some(format!("Metadata lookup error: {e:#?}")),
-            });
-            None
-        }
-    };
-    title_cache.insert(title.to_string(), item.clone());
-    item
+            }),
+        ),
+    }
 }
 
 pub async fn import(
@@ -238,14 +236,15 @@ pub async fn import(
     let ratings_path = content_dir.join("Ratings.csv");
     let my_list_path = content_dir.join("MyList.csv");
 
-    let mut media_map: IndexMap<String, ImportOrExportMetadataItem> = IndexMap::new();
     let mut failed_items = vec![];
-    let mut title_cache: HashMap<String, Option<LookupCacheItem>> = HashMap::new();
+    let mut rating_items: Vec<RatingItem> = vec![];
+    let mut my_list_items: Vec<MyListItem> = vec![];
+    let mut viewing_items: Vec<ViewingActivityItem> = vec![];
+    let mut media_map: IndexMap<String, ImportOrExportMetadataItem> = IndexMap::new();
 
     if viewing_activity_path.exists() {
         ryot_log!(debug, "Processing ViewingActivity.csv");
         let mut reader = Reader::from_path(&viewing_activity_path)?;
-        let mut viewing_items = vec![];
 
         for (idx, result) in reader.deserialize().enumerate() {
             let record: ViewingActivityItem = match result {
@@ -253,8 +252,8 @@ pub async fn import(
                 Err(e) => {
                     failed_items.push(ImportFailedItem {
                         lot: None,
-                        step: ImportFailStep::InputTransformation,
                         identifier: idx.to_string(),
+                        step: ImportFailStep::InputTransformation,
                         error: Some(format!("ViewingActivity CSV parsing error: {e:#?}")),
                     });
                     continue;
@@ -273,60 +272,6 @@ pub async fn import(
             "Processing {} viewing activity entries",
             viewing_items.len()
         );
-
-        for (idx, record) in viewing_items.into_iter().enumerate() {
-            if idx % 100 == 0 {
-                ryot_log!(debug, "Processed {idx} viewing entries");
-            }
-
-            if let Some(lookup) =
-                lookup_title(ss, &record.title, &mut title_cache, &mut failed_items).await
-            {
-                let ended_on = parse_netflix_timestamp(&record.start_time);
-                let bookmark_seconds = parse_time_to_seconds(&record.bookmark);
-                let duration_seconds = parse_time_to_seconds(&record.duration);
-
-                let progress = if let (Some(bookmark), Some(duration)) =
-                    (bookmark_seconds, duration_seconds)
-                {
-                    if duration > 0 {
-                        Some(Decimal::from(bookmark * 100 / duration))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-
-                let seen_item = ImportOrExportMetadataItemSeen {
-                    ended_on,
-                    progress,
-                    show_season_number: lookup.season,
-                    show_episode_number: lookup.episode,
-                    providers_consumed_on: Some(vec![ImportSource::Netflix.to_string()]),
-                    ..Default::default()
-                };
-
-                let key = format!(
-                    "{}:{}:{}",
-                    lookup.identifier,
-                    lookup.season.unwrap_or(0),
-                    lookup.episode.unwrap_or(0)
-                );
-
-                media_map
-                    .entry(key)
-                    .or_insert_with(|| ImportOrExportMetadataItem {
-                        lot: lookup.lot,
-                        source: lookup.source,
-                        identifier: lookup.identifier.clone(),
-                        source_id: record.title.clone(),
-                        ..Default::default()
-                    })
-                    .seen_history
-                    .push(seen_item);
-            }
-        }
     }
 
     if ratings_path.exists() {
@@ -339,52 +284,15 @@ pub async fn import(
                 Err(e) => {
                     failed_items.push(ImportFailedItem {
                         lot: None,
-                        step: ImportFailStep::InputTransformation,
                         identifier: idx.to_string(),
+                        step: ImportFailStep::InputTransformation,
                         error: Some(format!("Ratings CSV parsing error: {e:#?}")),
                     });
                     continue;
                 }
             };
 
-            let rating_value = convert_rating(record.thumbs_value, record.star_value);
-            if rating_value.is_none() {
-                continue;
-            }
-
-            if let Some(lookup) =
-                lookup_title(ss, &record.title_name, &mut title_cache, &mut failed_items).await
-            {
-                let review_date = parse_netflix_timestamp(&record.event_utc_ts);
-                let rating = ImportOrExportItemRating {
-                    rating: rating_value,
-                    review: Some(media_models::ImportOrExportItemReview {
-                        date: review_date,
-                        spoiler: Some(false),
-                        ..Default::default()
-                    }),
-                    ..Default::default()
-                };
-
-                let key = format!(
-                    "{}:{}:{}",
-                    lookup.identifier,
-                    lookup.season.unwrap_or(0),
-                    lookup.episode.unwrap_or(0)
-                );
-
-                media_map
-                    .entry(key)
-                    .or_insert_with(|| ImportOrExportMetadataItem {
-                        lot: lookup.lot,
-                        source: lookup.source,
-                        identifier: lookup.identifier.clone(),
-                        source_id: record.title_name.clone(),
-                        ..Default::default()
-                    })
-                    .reviews
-                    .push(rating);
-            }
+            rating_items.push(record);
         }
     }
 
@@ -398,39 +306,183 @@ pub async fn import(
                 Err(e) => {
                     failed_items.push(ImportFailedItem {
                         lot: None,
-                        step: ImportFailStep::InputTransformation,
                         identifier: idx.to_string(),
+                        step: ImportFailStep::InputTransformation,
                         error: Some(format!("MyList CSV parsing error: {e:#?}")),
                     });
                     continue;
                 }
             };
 
-            if let Some(lookup) =
-                lookup_title(ss, &record.title_name, &mut title_cache, &mut failed_items).await
-            {
-                let key = format!(
-                    "{}:{}:{}",
-                    lookup.identifier,
-                    lookup.season.unwrap_or(0),
-                    lookup.episode.unwrap_or(0)
-                );
+            my_list_items.push(record);
+        }
+    }
 
-                media_map
-                    .entry(key)
-                    .or_insert_with(|| ImportOrExportMetadataItem {
-                        lot: lookup.lot,
-                        source: lookup.source,
-                        identifier: lookup.identifier.clone(),
-                        source_id: record.title_name.clone(),
-                        ..Default::default()
-                    })
-                    .collections
-                    .push(CollectionToEntityDetails {
-                        collection_name: DefaultCollection::Watchlist.to_string(),
-                        ..Default::default()
-                    });
+    let mut title_cache: HashMap<String, Option<LookupCacheItem>> = HashMap::new();
+
+    if !viewing_items.is_empty() || !rating_items.is_empty() || !my_list_items.is_empty() {
+        let mut titles_to_lookup: HashSet<String> = HashSet::new();
+
+        for item in &viewing_items {
+            titles_to_lookup.insert(item.title.clone());
+        }
+        for item in &rating_items {
+            titles_to_lookup.insert(item.title_name.clone());
+        }
+        for item in &my_list_items {
+            titles_to_lookup.insert(item.title_name.clone());
+        }
+
+        if !titles_to_lookup.is_empty() {
+            let titles: Vec<String> = titles_to_lookup.into_iter().collect();
+            ryot_log!(
+                debug,
+                "Running metadata lookups for {} titles",
+                titles.len()
+            );
+
+            let lookup_results = stream::iter(titles.into_iter().map(|title| {
+                let ss = Arc::clone(ss);
+                async move {
+                    let (lookup, failure) = lookup_title(&ss, &title).await;
+                    (title, lookup, failure)
+                }
+            }))
+            .buffer_unordered(METADATA_LOOKUP_CONCURRENCY)
+            .collect::<Vec<_>>()
+            .await;
+
+            for (title, lookup, failure) in lookup_results {
+                if let Some(failure) = failure {
+                    failed_items.push(failure);
+                }
+                title_cache.insert(title, lookup);
             }
+        }
+    }
+
+    for (idx, record) in viewing_items.into_iter().enumerate() {
+        if idx % 100 == 0 {
+            ryot_log!(debug, "Processed {idx} viewing entries");
+        }
+
+        if let Some(lookup) = title_cache
+            .get(&record.title)
+            .and_then(|cached| cached.clone())
+        {
+            let ended_on = parse_netflix_timestamp(&record.start_time);
+            let bookmark_seconds = parse_time_to_seconds(&record.bookmark);
+            let duration_seconds = parse_time_to_seconds(&record.duration);
+
+            let progress =
+                if let (Some(bookmark), Some(duration)) = (bookmark_seconds, duration_seconds) {
+                    if duration > 0 {
+                        Some(Decimal::from(bookmark * 100 / duration))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+            let seen_item = ImportOrExportMetadataItemSeen {
+                ended_on,
+                progress,
+                show_season_number: lookup.season,
+                show_episode_number: lookup.episode,
+                providers_consumed_on: Some(vec![ImportSource::Netflix.to_string()]),
+                ..Default::default()
+            };
+
+            let key = format!(
+                "{}:{}:{}",
+                lookup.identifier,
+                lookup.season.unwrap_or(0),
+                lookup.episode.unwrap_or(0)
+            );
+
+            media_map
+                .entry(key)
+                .or_insert_with(|| ImportOrExportMetadataItem {
+                    lot: lookup.lot,
+                    source: lookup.source,
+                    identifier: lookup.identifier.clone(),
+                    source_id: record.title.clone(),
+                    ..Default::default()
+                })
+                .seen_history
+                .push(seen_item);
+        }
+    }
+
+    for record in rating_items.into_iter() {
+        let rating_value = convert_rating(record.thumbs_value, record.star_value);
+        if rating_value.is_none() {
+            continue;
+        }
+
+        if let Some(lookup) = title_cache
+            .get(&record.title_name)
+            .and_then(|cached| cached.clone())
+        {
+            let review_date = parse_netflix_timestamp(&record.event_utc_ts);
+            let rating = ImportOrExportItemRating {
+                rating: rating_value,
+                review: Some(media_models::ImportOrExportItemReview {
+                    date: review_date,
+                    spoiler: Some(false),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            };
+
+            let key = format!(
+                "{}:{}:{}",
+                lookup.identifier,
+                lookup.season.unwrap_or(0),
+                lookup.episode.unwrap_or(0)
+            );
+
+            media_map
+                .entry(key)
+                .or_insert_with(|| ImportOrExportMetadataItem {
+                    lot: lookup.lot,
+                    source: lookup.source,
+                    identifier: lookup.identifier.clone(),
+                    source_id: record.title_name.clone(),
+                    ..Default::default()
+                })
+                .reviews
+                .push(rating);
+        }
+    }
+
+    for record in my_list_items.into_iter() {
+        if let Some(lookup) = title_cache
+            .get(&record.title_name)
+            .and_then(|cached| cached.clone())
+        {
+            let key = format!(
+                "{}:{}:{}",
+                lookup.identifier,
+                lookup.season.unwrap_or(0),
+                lookup.episode.unwrap_or(0)
+            );
+
+            media_map
+                .entry(key)
+                .or_insert_with(|| ImportOrExportMetadataItem {
+                    lot: lookup.lot,
+                    source: lookup.source,
+                    identifier: lookup.identifier.clone(),
+                    source_id: record.title_name.clone(),
+                    ..Default::default()
+                })
+                .collections
+                .push(CollectionToEntityDetails {
+                    collection_name: DefaultCollection::Watchlist.to_string(),
+                    ..Default::default()
+                });
         }
     }
 
