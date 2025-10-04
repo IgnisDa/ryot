@@ -26,13 +26,13 @@ describe("CORS", () => {
 		expect(response.headers.get("access-control-allow-credentials")).toBe("true");
 	});
 
-	it("allows preflight requests for CRUD routes and api keys", async () => {
+	it("allows preflight requests for CRUD routes and admin tokens", async () => {
 		const response = await app.fetch(
 			new Request("http://localhost/api/saved-views/example", {
 				method: "OPTIONS",
 				headers: {
 					origin: additionalOrigin,
-					"access-control-request-headers": "X-Api-Key, Content-Type",
+					"access-control-request-headers": "Admin-Access-Token, Content-Type",
 					"access-control-request-method": "PUT",
 				},
 			}),
@@ -42,6 +42,6 @@ describe("CORS", () => {
 		expect(response.headers.get("access-control-allow-origin")).toBe(additionalOrigin);
 		expect(response.headers.get("access-control-allow-credentials")).toBe("true");
 		expect(response.headers.get("access-control-allow-methods")).toContain("PUT");
-		expect(response.headers.get("access-control-allow-headers")).toContain("X-Api-Key");
+		expect(response.headers.get("access-control-allow-headers")).toContain("Admin-Access-Token");
 	});
 });
