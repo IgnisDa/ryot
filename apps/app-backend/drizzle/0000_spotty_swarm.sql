@@ -46,10 +46,10 @@ CREATE TABLE "entity" (
 	"user_id" text,
 	"search_vector" "tsvector" GENERATED ALWAYS AS (to_tsvector('english', name)) STORED NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
-	"schema_id" text NOT NULL,
+	"entity_schema_id" text NOT NULL,
 	"details_sandbox_script_id" text NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "entity_user_schema_script_external_id_unique" UNIQUE("user_id","schema_id","external_id","details_sandbox_script_id")
+	CONSTRAINT "entity_user_schema_script_external_id_unique" UNIQUE("user_id","external_id","entity_schema_id","details_sandbox_script_id")
 );
 --> statement-breakpoint
 CREATE TABLE "entity_schema" (
@@ -153,7 +153,7 @@ CREATE TABLE "verification" (
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "apikey" ADD CONSTRAINT "apikey_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "entity" ADD CONSTRAINT "entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "entity" ADD CONSTRAINT "entity_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_details_sandbox_script_id_sandbox_script_id_fk" FOREIGN KEY ("details_sandbox_script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity_schema" ADD CONSTRAINT "entity_schema_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity_schema_sandbox_script" ADD CONSTRAINT "entity_schema_sandbox_script_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -172,8 +172,8 @@ CREATE INDEX "account_userId_idx" ON "account" USING btree ("user_id");--> state
 CREATE INDEX "apikey_key_idx" ON "apikey" USING btree ("key");--> statement-breakpoint
 CREATE INDEX "apikey_userId_idx" ON "apikey" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "entity_user_id_idx" ON "entity" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "entity_schema_id_idx" ON "entity" USING btree ("schema_id");--> statement-breakpoint
 CREATE INDEX "entity_external_id_idx" ON "entity" USING btree ("external_id");--> statement-breakpoint
+CREATE INDEX "entity_entity_schema_id_idx" ON "entity" USING btree ("entity_schema_id");--> statement-breakpoint
 CREATE INDEX "entity_properties_idx" ON "entity" USING gin ("properties");--> statement-breakpoint
 CREATE INDEX "entity_search_vector_idx" ON "entity" USING gin ("search_vector");--> statement-breakpoint
 CREATE INDEX "entity_details_sandbox_script_id_idx" ON "entity" USING btree ("details_sandbox_script_id");--> statement-breakpoint
