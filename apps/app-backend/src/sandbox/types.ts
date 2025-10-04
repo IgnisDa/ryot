@@ -6,6 +6,7 @@ export type ApiFunction = (
 
 export interface SandboxRunOptions {
 	code: string;
+	userId: string;
 	maxHeapMB?: number;
 	timeoutMs?: number;
 	context?: Record<string, unknown>;
