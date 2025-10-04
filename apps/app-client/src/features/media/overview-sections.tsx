@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { LinearGradient } from "expo-linear-gradient";
 import { Star } from "lucide-react-native";
 import { useState } from "react";
-import { Image, ImageBackground, ScrollView, useWindowDimensions } from "react-native";
+import { Image, ImageBackground, ScrollView } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
 import { Box } from "@/components/ui/box";
@@ -34,10 +34,11 @@ export const SECTION_ACCENTS = {
 // Story ring geometry configs
 const RING_SM = { gap: 2.5, size: 72, stroke: 3.5 };
 const RING_LG = { gap: 3, size: 96, stroke: 4 };
+const RING_XL = { gap: 3, size: 112, stroke: 4 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function hexToRgba(hex: string, alpha: number) {
+export function hexToRgba(hex: string, alpha: number) {
 	const r = Number.parseInt(hex.slice(1, 3), 16);
 	const g = Number.parseInt(hex.slice(3, 5), 16);
 	const b = Number.parseInt(hex.slice(5, 7), 16);
@@ -133,6 +134,26 @@ export function StatPill({ color, label }: { color: string; label: string }) {
 	);
 }
 
+export function StatCard({ color, count, label }: { color: string; count: number; label: string }) {
+	return (
+		<Box
+			className="min-w-[110] rounded-xl px-4 py-3"
+			style={{
+				borderWidth: 1,
+				borderColor: hexToRgba(color, 0.18),
+				backgroundColor: hexToRgba(color, 0.09),
+			}}
+		>
+			<Text className="text-[30px] font-heading-semibold leading-[32px]" style={{ color }}>
+				{count}
+			</Text>
+			<Text className="mt-0.5 text-[10px] font-sans-medium uppercase tracking-[1px] text-muted-foreground">
+				{label}
+			</Text>
+		</Box>
+	);
+}
+
 function SectionLabel({ color, label }: { color: string; label: string }) {
 	return (
 		<Box className="mb-4 mt-8 flex-row items-center gap-3">
@@ -165,8 +186,8 @@ function StarRating({ rating, onChange }: { rating: number; onChange: (r: number
 
 // ─── Story rings (Continue section) ──────────────────────────────────────────
 
-function StoryRing({ item, large }: { item: ContinueItem; large?: boolean }) {
-	const { gap, size, stroke } = large ? RING_LG : RING_SM;
+function StoryRing({ item, large, xlarge }: { item: ContinueItem; large?: boolean; xlarge?: boolean }) {
+	const { gap, size, stroke } = xlarge ? RING_XL : large ? RING_LG : RING_SM;
 	const thumbSize = size - stroke * 2 - gap * 2;
 	const r = (size - stroke) / 2;
 	const circ = 2 * Math.PI * r;
@@ -252,15 +273,15 @@ function StoryRing({ item, large }: { item: ContinueItem; large?: boolean }) {
 	);
 }
 
-export function StoryRingRow({ items, large, wrap }: { items: ContinueItem[]; large?: boolean; wrap?: boolean }) {
+export function StoryRingRow({ items, large, wrap, wrapGap, xlarge }: { items: ContinueItem[]; large?: boolean; wrap?: boolean; wrapGap?: number; xlarge?: boolean }) {
 	if (items.length === 0) {
 		return null;
 	}
 	if (wrap) {
 		return (
-			<Box className="flex-row flex-wrap" style={{ gap: 16 }}>
+			<Box className="flex-row flex-wrap" style={{ gap: wrapGap ?? 16 }}>
 				{items.map((item) => (
-					<StoryRing key={item.id} item={item} large={large} />
+					<StoryRing key={item.id} item={item} large={large} xlarge={xlarge} />
 				))}
 			</Box>
 		);
@@ -272,7 +293,7 @@ export function StoryRingRow({ items, large, wrap }: { items: ContinueItem[]; la
 			contentContainerStyle={{ gap: 16, paddingHorizontal: 28 }}
 		>
 			{items.map((item) => (
-				<StoryRing key={item.id} item={item} large={large} />
+				<StoryRing key={item.id} item={item} large={large} xlarge={xlarge} />
 			))}
 		</ScrollView>
 	);
@@ -281,29 +302,18 @@ export function StoryRingRow({ items, large, wrap }: { items: ContinueItem[]; la
 // ─── Up Next (responsive grid) ────────────────────────────────────────────────
 
 export function UpNextSection({ items }: { items: UpNextItem[] }) {
-	const { width } = useWindowDimensions();
-	const [availableWidth, setAvailableWidth] = useState(0);
-	const effectiveWidth = Math.min(availableWidth > 0 ? availableWidth : width - 56, 1200);
-	const cols = effectiveWidth >= 900 ? 4 : effectiveWidth >= 640 ? 3 : 2;
-	const cardWidth = (effectiveWidth - 12 * (cols - 1)) / cols;
-	const posterHeight = cardWidth * 1.5;
-
 	return (
 		<Box>
 			<SectionLabel color={SECTION_ACCENTS.upNext} label="Up Next" />
-			<Box
-				className="flex-row flex-wrap"
-				style={{ gap: 12 }}
-				onLayout={(e) => setAvailableWidth(e.nativeEvent.layout.width)}
-			>
+			<Box className="flex-row flex-wrap gap-3">
 				{items.map((item) => {
 					const color = schemaColor(item.entitySchemaSlug);
 					return (
-						<Pressable key={item.id} style={{ width: cardWidth }}>
+						<Pressable key={item.id} className="w-[48%] sm:w-[32%]">
 							<Box
+								className="aspect-[2/3] sm:max-h-60"
 								style={{
 									borderRadius: 10,
-									height: posterHeight,
 									overflow: "hidden",
 									backgroundColor: hexToRgba(color, 0.13),
 								}}
@@ -311,7 +321,7 @@ export function UpNextSection({ items }: { items: UpNextItem[] }) {
 								{item.imageUri ? (
 									<Image
 										source={{ uri: item.imageUri }}
-										style={{ height: posterHeight, width: cardWidth }}
+										style={{ flex: 1 }}
 										resizeMode="cover"
 									/>
 								) : (
