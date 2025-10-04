@@ -72,7 +72,9 @@ export const CreateOrUpdateMeasurementForm = (props: {
 				queryClient.invalidateQueries({
 					queryKey: queryFactory.fitness.userMeasurementsList._def,
 				});
-				if (!props.measurementToUpdate) events.createMeasurement();
+				if (!props.measurementToUpdate) {
+					events.createMeasurement();
+				}
 				form.clearSavedState();
 				props.closeMeasurementModal();
 			})}
@@ -100,12 +102,14 @@ export const CreateOrUpdateMeasurementForm = (props: {
 							onChange={(v) => {
 								const idx = form.values.information.statistics.findIndex((s) => s.name === name);
 								const newStatistics = [...form.values.information.statistics];
-								if (idx !== -1)
+								if (idx !== -1) {
 									newStatistics[idx] = {
 										...newStatistics[idx],
 										value: v.toString(),
 									};
-								else newStatistics.push({ name, value: v.toString() });
+								} else {
+									newStatistics.push({ name, value: v.toString() });
+								}
 
 								form.setFieldValue("information.statistics", newStatistics);
 							}}

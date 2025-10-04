@@ -7,6 +7,10 @@
 	"plugins": ["react", "typescript", "unicorn", "import", "oxc", "node", "promise"],
 	"overrides": [
 		{
+			"files": ["**/property-schemas/schemas.ts"],
+			"rules": { "import/no-mutable-exports": "off" }
+		},
+		{
 			"files": ["*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx"],
 			"rules": {
 				"typescript/no-unsafe-argument": "off",
@@ -28,11 +32,13 @@
 	],
 	"rules": {
 		"curly": "error",
+		"import/first": "error",
 		"no-else-return": "warn",
 		"import/no-cycle": "error",
 		"react-in-jsx-scope": "off",
 		"no-param-reassign": "error",
 		"eqeqeq": ["error", "smart"],
+		"promise/no-nesting": "warn",
 		"default-param-last": "error",
 		"react/rules-of-hooks": "error",
 		"import/no-duplicates": "error",
@@ -41,7 +47,9 @@
 		"react/self-closing-comp": "error",
 		"typescript/require-await": "warn",
 		"react/no-array-index-key": "warn",
+		"unicorn/no-useless-spread": "warn",
 		"import/no-named-as-default": "off",
+		"import/no-mutable-exports": "error",
 		"typescript/no-explicit-any": "warn",
 		"typescript/prefer-as-const": "error",
 		"react-hooks/exhaustive-deps": "error",
@@ -55,6 +63,7 @@
 		"unicorn/no-await-expression-member": "warn",
 		"typescript/consistent-type-imports": "warn",
 		"typescript/prefer-enum-initializers": "error",
+		"unicorn/prefer-string-starts-ends-with": "warn",
 		"typescript/no-import-type-side-effects": "warn",
 		"react/jsx-no-constructed-context-values": "warn",
 		"typescript/no-unused-vars": [

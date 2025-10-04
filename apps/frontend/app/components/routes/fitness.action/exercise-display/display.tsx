@@ -171,7 +171,9 @@ export const ExerciseDisplay = (props: {
 											const nextExerciseIdx = currentWorkout.exercises.findIndex(
 												(e) => e.identifier === nextExerciseIdentifier,
 											);
-											if (nextExerciseIdx !== -1) focusOnExercise(nextExerciseIdx);
+											if (nextExerciseIdx !== -1) {
+												focusOnExercise(nextExerciseIdx);
+											}
 										}}
 									>
 										<IconCirclesRelation style={{ width: "90%", height: "90%" }} />
@@ -212,7 +214,9 @@ export const ExerciseDisplay = (props: {
 									<ActionIcon
 										color="blue"
 										onClick={() => {
-											if (isOnboardingTourStep) advanceOnboardingTourStep();
+											if (isOnboardingTourStep) {
+												advanceOnboardingTourStep();
+											}
 										}}
 										className={clsx(
 											isOnboardingTourStep && OnboardingTourStepTarget.OpenExerciseMenuDetails,

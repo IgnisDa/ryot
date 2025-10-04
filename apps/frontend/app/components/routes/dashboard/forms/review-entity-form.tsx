@@ -130,7 +130,9 @@ export const ReviewEntityForm = (props: { closeReviewEntityModal: () => void }) 
 		</ThemeIcon>
 	);
 
-	if (!entityToReview) return null;
+	if (!entityToReview) {
+		return null;
+	}
 
 	return (
 		<form

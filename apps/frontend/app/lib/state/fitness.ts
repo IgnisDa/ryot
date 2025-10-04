@@ -228,7 +228,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 	};
 	for (const exercise of currentWorkout.exercises) {
 		const sets: UserWorkoutSetRecord[] = [];
-		for (const set of exercise.sets)
+		for (const set of exercise.sets) {
 			if (isCreatingTemplate || set.confirmedAt) {
 				const note = isString(set.note) ? set.note : undefined;
 				if (Object.keys(set.statistic).length === 0) continue;
@@ -245,9 +245,14 @@ export const currentWorkoutToCreateWorkoutInput = (
 							: null,
 				});
 			}
-		if (!isCreatingTemplate && sets.length === 0) continue;
+		}
+		if (!isCreatingTemplate && sets.length === 0) {
+			continue;
+		}
 		const notes: string[] = [];
-		for (const note of exercise.notes) if (note) notes.push(note);
+		for (const note of exercise.notes) {
+			if (note) notes.push(note);
+		}
 		input.input.exercises.push({
 			sets,
 			notes,
@@ -356,8 +361,12 @@ export const getRestTimerForSet = async (
 		exerciseDetails.userDetails.details?.exerciseExtraInformation?.settings.setRestTimers || {},
 		userPreferencesRestTimer,
 		(objValue?: number, srcValue?: number) => {
-			if (isNumber(objValue)) return objValue;
-			if (isNumber(srcValue)) return srcValue;
+			if (isNumber(objValue)) {
+				return objValue;
+			}
+			if (isNumber(srcValue)) {
+				return srcValue;
+			}
 			return undefined;
 		},
 	);

@@ -6,12 +6,13 @@ export const usePaddleInitialization = (paddleCustomerId?: string) => {
 	const { data: configData, isLoading } = useConfigData();
 
 	useEffect(() => {
-		if (configData)
+		if (configData) {
 			initializePaddleForApplication(
 				configData.clientToken,
 				configData.isSandbox,
 				paddleCustomerId,
 			);
+		}
 	}, [configData, paddleCustomerId]);
 
 	return { configData, isLoading };

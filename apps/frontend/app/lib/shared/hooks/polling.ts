@@ -16,10 +16,11 @@ import { clientGqlService, queryFactory, refreshEntityDetails } from "~/lib/shar
 
 export const createDeployMediaEntityJob =
 	(entityId: string | undefined, entityLot: EntityLot) => () => {
-		if (entityId)
+		if (entityId) {
 			clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
 				input: { entityId, entityLot },
 			});
+		}
 	};
 
 export const useEntityUpdateMonitor = (props: {
@@ -39,10 +40,14 @@ export const useEntityUpdateMonitor = (props: {
 	const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
 	const scheduleNextPoll = useCallback(() => {
-		if (!isPollingRef.current) return;
+		if (!isPollingRef.current) {
+			return;
+		}
 
 		if (attemptCountRef.current >= 30) {
-			if (pollingEntityIdRef.current) refreshEntityDetails(pollingEntityIdRef.current);
+			if (pollingEntityIdRef.current) {
+				refreshEntityDetails(pollingEntityIdRef.current);
+			}
 			onUpdate();
 			isPollingRef.current = false;
 			setIsPartialStatusActive(false);
@@ -50,7 +55,9 @@ export const useEntityUpdateMonitor = (props: {
 		}
 
 		timeoutRef.current = setTimeout(async () => {
-			if (!isPollingRef.current) return;
+			if (!isPollingRef.current) {
+				return;
+			}
 			await onUpdate();
 			attemptCountRef.current += 1;
 
@@ -91,14 +98,18 @@ export const useEntityUpdateMonitor = (props: {
 		if (!shouldPoll) {
 			if (isPollingRef.current) {
 				const entityToRefresh = jobDeployedForEntity || entityId;
-				if (entityToRefresh) refreshEntityDetails(entityToRefresh);
+				if (entityToRefresh) {
+					refreshEntityDetails(entityToRefresh);
+				}
 				resetPollingState();
 			}
 			return;
 		}
 
 		if (isJobForDifferentEntity) {
-			if (jobDeployedForEntity) refreshEntityDetails(jobDeployedForEntity);
+			if (jobDeployedForEntity) {
+				refreshEntityDetails(jobDeployedForEntity);
+			}
 			resetPollingState();
 		}
 
@@ -153,7 +164,7 @@ export const useTranslationValue = (props: {
 			props.podcastExtraInformation,
 		).queryKey,
 		queryFn: () => {
-			if (props.entityId && props.entityLot)
+			if (props.entityId && props.entityLot) {
 				return clientGqlService
 					.request(MediaTranslationDocument, {
 						input: {
@@ -165,6 +176,7 @@ export const useTranslationValue = (props: {
 						},
 					})
 					.then((data) => data.mediaTranslation);
+			}
 		},
 	});
 
@@ -179,7 +191,7 @@ export const useTranslationValue = (props: {
 		onUpdate: () => translationQuery.refetch(),
 		needsRefetch: props.enabled !== false && isPending && props.mediaSource !== MediaSource.Custom,
 		deployJob: () => {
-			if (props.entityId && isNotFetched)
+			if (props.entityId && isNotFetched) {
 				clientGqlService.request(DeployUpdateMediaTranslationsJobDocument, {
 					input: {
 						variant: props.variant,
@@ -189,6 +201,7 @@ export const useTranslationValue = (props: {
 						podcastExtraInformation: props.podcastExtraInformation,
 					},
 				});
+			}
 		},
 	});
 
