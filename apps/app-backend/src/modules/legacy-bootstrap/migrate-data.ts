@@ -390,12 +390,12 @@ export const migrateLegacyTables = async (database: DbClient) => {
 	);
 
 	await withLegacyBootstrapNoticeClient(database, async (client) => {
+		await client.query(migrateUserTableSql);
 		await client.query(buildMetadataMigrationSql(resolvedMetadataTargets));
 		await client.query(buildMetadataGroupEntityMigrationSql(resolvedMetadataGroupEntityTargets));
 		await client.query(
 			buildMetadataGroupRelationshipMigrationSql(resolvedMetadataGroupRelationshipTargets),
 		);
-		await client.query(migrateUserTableSql);
 		await client.query(buildPersonEntityMigrationSql(resolvedPersonEntityTargets));
 		await client.query(buildCompanyEntityMigrationSql(resolvedCompanyEntityTargets));
 		await client.query(buildCollectionEntityMigrationSql(collectionEntitySchemaId));
