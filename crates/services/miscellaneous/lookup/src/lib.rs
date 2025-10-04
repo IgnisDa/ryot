@@ -15,6 +15,26 @@ use regex::Regex;
 use supporting_service::SupportingService;
 use tmdb_provider::TmdbService;
 
+static COMPILED_SPACE_REGEX: OnceLock<Regex> = OnceLock::new();
+static COMPILED_CLEANING_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
+static COMPILED_SEASON_EPISODE_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
+static COMPILED_YEAR_EXTRACTION_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
+static COMPILED_BASE_EXTRACTION_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
+
+static YEAR_EXTRACTION_PATTERNS: &[&str] = &[r"\(([12]\d{3})\)", r"\[([12]\d{3})\]"];
+static BASE_EXTRACTION_PATTERNS: &[&str] = &[
+    r"^(.+?)\s+\([12]\d{3}\)",
+    r"^(.+?)\s+S\d+E\d+",
+    r"^(.+?)\s+Season\s+\d+",
+    r"^(.+?)\s+season\s+\d+",
+];
+static SEASON_EPISODE_PATTERNS: &[&str] = &[
+    r"S(\d+)E(\d+)",
+    r"Season\s+(\d+)\s+Episode\s+(\d+)",
+    r"season\s+(\d+)\s+episode\s+(\d+)",
+    r"S(\d+)\s+E(\d+)",
+    r"(?i)Season\s+(\d+).*?Episode\s+(\d+)",
+];
 static CLEANING_PATTERNS: &[&str] = &[
     r"\([12]\d{3}\)",
     r"\[[12]\d{3}\]",
@@ -27,29 +47,6 @@ static CLEANING_PATTERNS: &[&str] = &[
     r"\[.*?\]",
     r"\{.*?\}",
 ];
-
-static BASE_EXTRACTION_PATTERNS: &[&str] = &[
-    r"^(.+?)\s+\([12]\d{3}\)",
-    r"^(.+?)\s+S\d+E\d+",
-    r"^(.+?)\s+Season\s+\d+",
-    r"^(.+?)\s+season\s+\d+",
-];
-
-static SEASON_EPISODE_PATTERNS: &[&str] = &[
-    r"S(\d+)E(\d+)",
-    r"Season\s+(\d+)\s+Episode\s+(\d+)",
-    r"season\s+(\d+)\s+episode\s+(\d+)",
-    r"S(\d+)\s+E(\d+)",
-    r"(?i)Season\s+(\d+).*?Episode\s+(\d+)",
-];
-
-static YEAR_EXTRACTION_PATTERNS: &[&str] = &[r"\(([12]\d{3})\)", r"\[([12]\d{3})\]"];
-
-static COMPILED_CLEANING_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
-static COMPILED_BASE_EXTRACTION_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
-static COMPILED_SEASON_EPISODE_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
-static COMPILED_YEAR_EXTRACTION_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
-static COMPILED_SPACE_REGEX: OnceLock<Regex> = OnceLock::new();
 
 fn get_compiled_patterns<'a>(patterns: &[&str], cache: &'a OnceLock<Vec<Regex>>) -> &'a Vec<Regex> {
     cache.get_or_init(|| {
@@ -142,51 +139,6 @@ fn find_two_capture_groups(text: &str, patterns: &[&str]) -> Option<(i32, i32)> 
         let second = captures.get(2)?.as_str().parse().ok()?;
         Some((first, second))
     })
-}
-
-pub async fn metadata_lookup(
-    ss: &Arc<SupportingService>,
-    title: String,
-) -> Result<CachedResponse<MetadataLookupResponse>> {
-    cache_service::get_or_set_with_callback(
-        ss,
-        ApplicationCacheKey::MetadataLookup(MetadataLookupCacheInput {
-            title: title.clone(),
-        }),
-        ApplicationCacheValue::MetadataLookup,
-        || async {
-            let tmdb_service = TmdbService::new(ss.clone()).await?;
-            let search_results = smart_search(&tmdb_service, &title).await?;
-
-            let response = match search_results.is_empty() {
-                true => {
-                    MetadataLookupResponse::NotFound(MetadataLookupNotFound { not_found: true })
-                }
-                false => {
-                    let publish_year = extract_year_from_title(&title);
-                    let best_match = find_best_match(&search_results, &title, publish_year)?;
-
-                    let data = UniqueMediaIdentifier {
-                        lot: best_match.lot,
-                        source: MediaSource::Tmdb,
-                        identifier: best_match.identifier.clone(),
-                    };
-
-                    let show_information = extract_show_information(&title, &best_match.lot);
-
-                    let found_result = MetadataLookupFoundResult {
-                        data,
-                        show_information,
-                    };
-
-                    MetadataLookupResponse::Found(found_result)
-                }
-            };
-
-            Ok(response)
-        },
-    )
-    .await
 }
 
 async fn smart_search(
@@ -318,6 +270,51 @@ fn extract_show_information(title: &str, media_lot: &MediaLot) -> Option<SeenSho
 fn extract_season_episode(title: &str) -> Option<SeenShowExtraInformation> {
     find_two_capture_groups(title, SEASON_EPISODE_PATTERNS)
         .map(|(season, episode)| SeenShowExtraInformation { season, episode })
+}
+
+pub async fn metadata_lookup(
+    ss: &Arc<SupportingService>,
+    title: String,
+) -> Result<CachedResponse<MetadataLookupResponse>> {
+    cache_service::get_or_set_with_callback(
+        ss,
+        ApplicationCacheKey::MetadataLookup(MetadataLookupCacheInput {
+            title: title.clone(),
+        }),
+        ApplicationCacheValue::MetadataLookup,
+        || async {
+            let tmdb_service = TmdbService::new(ss.clone()).await?;
+            let search_results = smart_search(&tmdb_service, &title).await?;
+
+            let response = match search_results.is_empty() {
+                true => {
+                    MetadataLookupResponse::NotFound(MetadataLookupNotFound { not_found: true })
+                }
+                false => {
+                    let publish_year = extract_year_from_title(&title);
+                    let best_match = find_best_match(&search_results, &title, publish_year)?;
+
+                    let data = UniqueMediaIdentifier {
+                        lot: best_match.lot,
+                        source: MediaSource::Tmdb,
+                        identifier: best_match.identifier.clone(),
+                    };
+
+                    let show_information = extract_show_information(&title, &best_match.lot);
+
+                    let found_result = MetadataLookupFoundResult {
+                        data,
+                        show_information,
+                    };
+
+                    MetadataLookupResponse::Found(found_result)
+                }
+            };
+
+            Ok(response)
+        },
+    )
+    .await
 }
 
 #[cfg(test)]
