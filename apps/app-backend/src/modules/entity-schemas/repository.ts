@@ -224,13 +224,18 @@ export const createTrackerEntitySchemas = async (input: {
 
 	const database = input.database ?? db;
 
-	await database.insert(trackerEntitySchema).values(
-		input.links.map((link) => ({
-			trackerId: link.trackerId,
-			entitySchemaId: link.entitySchemaId,
-			isDisabled: link.isDisabled ?? false,
-		})),
-	);
+	await database
+		.insert(trackerEntitySchema)
+		.values(
+			input.links.map((link) => ({
+				trackerId: link.trackerId,
+				entitySchemaId: link.entitySchemaId,
+				isDisabled: link.isDisabled ?? false,
+			})),
+		)
+		.onConflictDoNothing({
+			target: [trackerEntitySchema.trackerId, trackerEntitySchema.entitySchemaId],
+		});
 };
 
 export const createEntitySchemaForUser = async (input: {
