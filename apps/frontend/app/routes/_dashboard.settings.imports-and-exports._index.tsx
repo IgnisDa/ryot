@@ -110,7 +110,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					mal: processSubmission(formData, malImportFormSchema),
 				}))
 				.with(ImportSource.GenericJson, ImportSource.Anilist, async () => ({
-					genericJson: processSubmission(formData, jsonImportFormSchema),
+					genericJson: processSubmission(formData, exportPathImportFormSchema),
 				}))
 				.with(ImportSource.Jellyfin, async () => ({
 					jellyfin: processSubmission(formData, jellyfinImportFormSchema),
@@ -183,7 +183,7 @@ const movaryImportFormSchema = z.object({
 	watchlist: z.string(),
 });
 
-const jsonImportFormSchema = z.object({ export: z.string() });
+const exportPathImportFormSchema = z.object({ exportPath: z.string() });
 
 const malImportFormSchema = z.object({
 	animePath: z.string().optional(),
