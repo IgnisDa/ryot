@@ -43,12 +43,14 @@ import { ServerLive } from "./server";
 
 const ConfigLive = Layer.mergeAll(AppConfig.Default, BunContext.layer);
 
-const BaseInfrastructureLive = Layer.mergeAll(
+const BaseInfrastructureServicesLive = Layer.mergeAll(
 	DbService.Default,
 	RedisService.Default,
 	S3Service.Default,
 	FetchHttpClient.layer,
-).pipe(Layer.provide(ConfigLive));
+);
+
+const BaseInfrastructureLive = Layer.provide(BaseInfrastructureServicesLive, ConfigLive);
 
 const RepositoriesLive = Layer.mergeAll(
 	CollectionsRepository.Default,
@@ -64,37 +66,47 @@ const RepositoriesLive = Layer.mergeAll(
 	TrackersRepository.Default,
 );
 
-const CoreInfrastructureLive = Layer.mergeAll(
+const CoreInfrastructureDependenciesLive = Layer.mergeAll(BaseInfrastructureLive, ConfigLive);
+
+const CoreInfrastructureServicesLive = Layer.mergeAll(
 	PersistedQueueLive,
 	WorkflowEngineLive,
 	DbRunnerLive,
 	RepositoriesLive,
 	TransactionRunnerLive,
-).pipe(Layer.provide(BaseInfrastructureLive), Layer.provide(ConfigLive));
+);
+
+const CoreInfrastructureLive = Layer.provide(
+	CoreInfrastructureServicesLive,
+	CoreInfrastructureDependenciesLive,
+);
+
+const ApplicationInfrastructureLive = Layer.mergeAll(
+	CoreInfrastructureLive,
+	CoreInfrastructureDependenciesLive,
+);
 
 const SandboxServicesLive = Layer.mergeAll(SandboxApiService.Default, SandboxService.Default);
 
-const ServicesLive = Layer.mergeAll(
+const ServicesBaseLive = Layer.mergeAll(
 	AuthService.Default,
 	CollectionsService.Default,
 	EntitiesService.Default,
 	EntitySchemasService.Default,
 	EventSchemasService.Default,
 	EventsService.Default,
-	GodModeService.Default.pipe(Layer.provide(AuthService.Default)),
-	ImportsService.Default.pipe(Layer.provide(UploadsService.Default)),
+	Layer.provide(GodModeService.Default, AuthService.Default),
+	Layer.provide(ImportsService.Default, UploadsService.Default),
 	QueryEngineService.Default,
 	RelationshipSchemasService.Default,
 	SavedViewsService.Default,
 	TrackersService.Default,
 	UploadsService.Default,
-).pipe(Layer.provideMerge(SandboxServicesLive));
-
-const ServiceDependenciesLive = ServicesLive.pipe(
-	Layer.provide(CoreInfrastructureLive),
-	Layer.provide(BaseInfrastructureLive),
-	Layer.provide(ConfigLive),
 );
+
+const ServicesLive = Layer.provideMerge(ServicesBaseLive, SandboxServicesLive);
+
+const ServiceDependenciesLive = Layer.provide(ServicesLive, ApplicationInfrastructureLive);
 
 const RuntimeLive = Layer.mergeAll(
 	EntityImportWorkflowDefinitionsLive,
@@ -107,9 +119,9 @@ const RuntimeAfterMigrationsLive = MigrationsComplete.Default.pipe(
 	Layer.flatMap(() => SeedService.Default.pipe(Layer.flatMap(() => RuntimeLive))),
 );
 
-export const AppLive = RuntimeAfterMigrationsLive.pipe(
-	Layer.provide(ServiceDependenciesLive),
-	Layer.provide(CoreInfrastructureLive),
-	Layer.provide(BaseInfrastructureLive),
-	Layer.provide(ConfigLive),
+const RuntimeDependenciesLive = Layer.mergeAll(
+	ServiceDependenciesLive,
+	ApplicationInfrastructureLive,
 );
+
+export const AppLive = Layer.provide(RuntimeAfterMigrationsLive, RuntimeDependenciesLive);
