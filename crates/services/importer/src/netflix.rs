@@ -221,6 +221,29 @@ async fn lookup_title(
     }
 }
 
+fn media_map_entry<'a>(
+    media_map: &'a mut IndexMap<String, ImportOrExportMetadataItem>,
+    lookup: &LookupCacheItem,
+    source_id: &str,
+) -> &'a mut ImportOrExportMetadataItem {
+    let key = format!(
+        "{}:{}:{}",
+        lookup.identifier,
+        lookup.season.unwrap_or(0),
+        lookup.episode.unwrap_or(0)
+    );
+
+    media_map
+        .entry(key)
+        .or_insert_with(|| ImportOrExportMetadataItem {
+            lot: lookup.lot,
+            source: lookup.source,
+            source_id: source_id.to_string(),
+            identifier: lookup.identifier.clone(),
+            ..Default::default()
+        })
+}
+
 pub async fn import(
     input: DeployPathImportInput,
     ss: &Arc<SupportingService>,
@@ -368,17 +391,18 @@ pub async fn import(
             ryot_log!(debug, "Processed {idx} viewing entries");
         }
 
-        if let Some(lookup) = title_cache
+        let lookup = title_cache
             .get(&record.title)
-            .and_then(|cached| cached.clone())
-        {
+            .and_then(|cached| cached.clone());
+
+        if let Some(lookup) = lookup {
             let ended_on = parse_netflix_timestamp(&record.start_time);
             let bookmark_seconds = parse_time_to_seconds(&record.bookmark);
             let duration_seconds = parse_time_to_seconds(&record.duration);
 
             let progress = match (bookmark_seconds, duration_seconds) {
                 (Some(bookmark), Some(duration)) if duration > 0 => {
-                    Some(Decimal::from(bookmark * 100 / duration))
+                    Some((Decimal::from(bookmark) * dec!(100)) / Decimal::from(duration))
                 }
                 _ => None,
             };
@@ -392,24 +416,16 @@ pub async fn import(
                 ..Default::default()
             };
 
-            let key = format!(
-                "{}:{}:{}",
-                lookup.identifier,
-                lookup.season.unwrap_or(0),
-                lookup.episode.unwrap_or(0)
-            );
-
-            media_map
-                .entry(key)
-                .or_insert_with(|| ImportOrExportMetadataItem {
-                    lot: lookup.lot,
-                    source: lookup.source,
-                    source_id: record.title.clone(),
-                    identifier: lookup.identifier.clone(),
-                    ..Default::default()
-                })
+            media_map_entry(&mut media_map, &lookup, &record.title)
                 .seen_history
                 .push(seen_item);
+        } else {
+            failed_items.push(ImportFailedItem {
+                lot: None,
+                identifier: record.title.clone(),
+                step: ImportFailStep::ItemDetailsFromSource,
+                error: Some("Metadata not found".to_string()),
+            });
         }
     }
 
@@ -419,10 +435,11 @@ pub async fn import(
             continue;
         }
 
-        if let Some(lookup) = title_cache
+        let lookup = title_cache
             .get(&record.title_name)
-            .and_then(|cached| cached.clone())
-        {
+            .and_then(|cached| cached.clone());
+
+        if let Some(lookup) = lookup {
             let review_date = parse_netflix_timestamp(&record.event_utc_ts);
             let rating = ImportOrExportItemRating {
                 rating: rating_value,
@@ -434,53 +451,38 @@ pub async fn import(
                 ..Default::default()
             };
 
-            let key = format!(
-                "{}:{}:{}",
-                lookup.identifier,
-                lookup.season.unwrap_or(0),
-                lookup.episode.unwrap_or(0)
-            );
-
-            media_map
-                .entry(key)
-                .or_insert_with(|| ImportOrExportMetadataItem {
-                    lot: lookup.lot,
-                    source: lookup.source,
-                    source_id: record.title_name.clone(),
-                    identifier: lookup.identifier.clone(),
-                    ..Default::default()
-                })
+            media_map_entry(&mut media_map, &lookup, &record.title_name)
                 .reviews
                 .push(rating);
+        } else {
+            failed_items.push(ImportFailedItem {
+                lot: None,
+                identifier: record.title_name.clone(),
+                step: ImportFailStep::ItemDetailsFromSource,
+                error: Some("Metadata not found".to_string()),
+            });
         }
     }
 
     for record in my_list_items.into_iter() {
-        if let Some(lookup) = title_cache
+        let lookup = title_cache
             .get(&record.title_name)
-            .and_then(|cached| cached.clone())
-        {
-            let key = format!(
-                "{}:{}:{}",
-                lookup.identifier,
-                lookup.season.unwrap_or(0),
-                lookup.episode.unwrap_or(0)
-            );
+            .and_then(|cached| cached.clone());
 
-            media_map
-                .entry(key)
-                .or_insert_with(|| ImportOrExportMetadataItem {
-                    lot: lookup.lot,
-                    source: lookup.source,
-                    source_id: record.title_name.clone(),
-                    identifier: lookup.identifier.clone(),
-                    ..Default::default()
-                })
+        if let Some(lookup) = lookup {
+            media_map_entry(&mut media_map, &lookup, &record.title_name)
                 .collections
                 .push(CollectionToEntityDetails {
                     collection_name: DefaultCollection::Watchlist.to_string(),
                     ..Default::default()
                 });
+        } else {
+            failed_items.push(ImportFailedItem {
+                lot: None,
+                identifier: record.title_name.clone(),
+                step: ImportFailStep::ItemDetailsFromSource,
+                error: Some("Metadata not found".to_string()),
+            });
         }
     }
 
