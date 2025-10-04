@@ -21,14 +21,32 @@ import { TrackersRoutesLive } from "../modules/trackers/routes";
 import { TrackersService } from "../modules/trackers/service";
 import { UploadsRoutesLive } from "../modules/uploads/routes";
 
+const mimeTypes: Record<string, string> = {
+	ttf: "font/ttf",
+	otf: "font/otf",
+	png: "image/png",
+	gif: "image/gif",
+	jpg: "image/jpeg",
+	woff: "font/woff",
+	jpeg: "image/jpeg",
+	webp: "image/webp",
+	avif: "image/avif",
+	ico: "image/x-icon",
+	woff2: "font/woff2",
+	svg: "image/svg+xml",
+	wasm: "application/wasm",
+	css: "text/css; charset=utf-8",
+	txt: "text/plain; charset=utf-8",
+	map: "application/json; charset=utf-8",
+	json: "application/json; charset=utf-8",
+	webmanifest: "application/manifest+json",
+	js: "application/javascript; charset=utf-8",
+	mjs: "application/javascript; charset=utf-8",
+};
+
 const mimeType = (path: string) => {
-	if (path.endsWith(".css")) {
-		return "text/css; charset=utf-8";
-	}
-	if (path.endsWith(".js")) {
-		return "application/javascript; charset=utf-8";
-	}
-	return "text/html; charset=utf-8";
+	const extension = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
+	return mimeTypes[extension] ?? "text/html; charset=utf-8";
 };
 
 const ApiLive = HttpApiBuilder.api(AppContract).pipe(
