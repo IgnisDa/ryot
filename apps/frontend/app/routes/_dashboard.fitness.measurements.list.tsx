@@ -52,6 +52,11 @@ export const meta = () => {
 	return [{ title: "Measurements | Ryot" }];
 };
 
+type DataPoint = Record<string, string>;
+type CompleteData = Array<DataPoint>;
+
+const tickFormatter = (date: string) => dayjsLib(date).format("L");
+
 export default function Page() {
 	const userPreferences = useUserPreferences();
 	const [, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
@@ -104,7 +109,7 @@ export default function Page() {
 
 	const formattedData =
 		userMeasurementsList?.map((m) => {
-			const local: Record<string, string> = {
+			const local: DataPoint = {
 				timestamp: m.timestamp,
 				formattedTimestamp: tickFormatter(m.timestamp),
 			};
@@ -206,11 +211,7 @@ export default function Page() {
 	);
 }
 
-const tickFormatter = (date: string) => dayjsLib(date).format("L");
-
-type Data = Array<Record<string, string>>;
-
-const calculateYAxisDomain = (data: Data, statValue: string) => {
+const calculateYAxisDomain = (data: CompleteData, statValue: string) => {
 	const values = data
 		.map((item) => Number.parseFloat(item[statValue]))
 		.filter((val) => !Number.isFinite(val));
@@ -232,7 +233,7 @@ const calculateYAxisDomain = (data: Data, statValue: string) => {
 };
 
 interface SyncedMeasurementChartProps {
-	formattedData: Data;
+	formattedData: CompleteData;
 	stat: { value: string; label: string };
 }
 
