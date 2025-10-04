@@ -29,45 +29,45 @@ use zip::ZipArchive;
 
 use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
+const METADATA_LOOKUP_CONCURRENCY: usize = 100;
+
 #[derive(Debug, Clone)]
 struct LookupCacheItem {
     lot: MediaLot,
-    source: MediaSource,
     identifier: String,
     season: Option<i32>,
+    source: MediaSource,
     episode: Option<i32>,
 }
 
-const METADATA_LOOKUP_CONCURRENCY: usize = 8;
-
 #[derive(Debug, Deserialize)]
 struct ViewingActivityItem {
+    #[serde(rename = "Title")]
+    title: String,
+    #[serde(rename = "Bookmark")]
+    bookmark: String,
     #[serde(rename = "Duration")]
     duration: String,
     #[serde(rename = "Start Time")]
     start_time: String,
-    #[serde(rename = "Bookmark")]
-    bookmark: String,
+    #[serde(rename = "Attributes")]
+    attributes: String,
     #[serde(rename = "Latest Bookmark")]
     latest_bookmark: String,
     #[serde(rename = "Supplemental Video Type")]
     supplemental_video_type: String,
-    #[serde(rename = "Attributes")]
-    attributes: String,
-    #[serde(rename = "Title")]
-    title: String,
 }
 
 #[derive(Debug, Deserialize)]
 struct RatingItem {
     #[serde(rename = "Title Name")]
     title_name: String,
+    #[serde(rename = "Event Utc Ts")]
+    event_utc_ts: String,
     #[serde(rename = "Star Value")]
     star_value: Option<i32>,
     #[serde(rename = "Thumbs Value")]
     thumbs_value: Option<i32>,
-    #[serde(rename = "Event Utc Ts")]
-    event_utc_ts: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -406,8 +406,8 @@ pub async fn import(
                 .or_insert_with(|| ImportOrExportMetadataItem {
                     lot: lookup.lot,
                     source: lookup.source,
-                    identifier: lookup.identifier.clone(),
                     source_id: record.title.clone(),
+                    identifier: lookup.identifier.clone(),
                     ..Default::default()
                 })
                 .seen_history
@@ -448,8 +448,8 @@ pub async fn import(
                 .or_insert_with(|| ImportOrExportMetadataItem {
                     lot: lookup.lot,
                     source: lookup.source,
-                    identifier: lookup.identifier.clone(),
                     source_id: record.title_name.clone(),
+                    identifier: lookup.identifier.clone(),
                     ..Default::default()
                 })
                 .reviews
@@ -474,8 +474,8 @@ pub async fn import(
                 .or_insert_with(|| ImportOrExportMetadataItem {
                     lot: lookup.lot,
                     source: lookup.source,
-                    identifier: lookup.identifier.clone(),
                     source_id: record.title_name.clone(),
+                    identifier: lookup.identifier.clone(),
                     ..Default::default()
                 })
                 .collections
