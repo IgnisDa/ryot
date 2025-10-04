@@ -30,7 +30,7 @@ use zip::ZipArchive;
 
 use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
-const METADATA_LOOKUP_CONCURRENCY: usize = 100;
+const METADATA_LOOKUP_CONCURRENCY: usize = 50;
 
 #[derive(Debug, Clone)]
 struct LookupCacheItem {
