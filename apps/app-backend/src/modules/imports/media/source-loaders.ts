@@ -1,6 +1,5 @@
 import type { FileSystem, HttpClient, Path } from "@effect/platform";
-import type { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import { AppConfig } from "~/lib/config";
 import type { DbRunner } from "~/lib/db";
@@ -43,6 +42,7 @@ import {
 	type LoadedMediaImportAdapterError,
 	type LoadedMediaImportAdapterResult,
 } from "./file-processor";
+import { MediaImportAdapterResultSchema } from "./import-processor";
 
 type MediaImportLoadInput = Pick<ImportRunJobData, "runId" | "source" | "userId"> & {
 	filePath?: string;
@@ -54,15 +54,56 @@ type MediaImportLoadRequirements =
 	| AppConfig
 	| Path.Path
 	| RedisService
-	| WorkflowEngine
 	| EntitiesRepository
 	| HttpClient.HttpClient
 	| FileSystem.FileSystem;
 
+const SearchScriptSlugSchema = Schema.Literal("movie.tmdb", "show.tmdb");
+
+export const MediaImportEntitySearchJob = Schema.Struct({
+	query: Schema.String,
+	jobKey: Schema.String,
+	scriptId: Schema.String,
+	scriptSlug: SearchScriptSlugSchema,
+});
+
+const LoadedMediaImportAdapterLoaded = Schema.TaggedStruct("loaded", {
+	cleanupPaths: Schema.Array(Schema.String),
+	adapterResult: MediaImportAdapterResultSchema,
+});
+
+const LoadedMediaImportAdapterNetflixSearchPlanned = Schema.TaggedStruct("netflix-search-planned", {
+	myListPath: Schema.String,
+	ratingsPath: Schema.String,
+	viewingActivityPath: Schema.String,
+	cleanupPaths: Schema.Array(Schema.String),
+	profileName: Schema.optional(Schema.String),
+	searchJobs: Schema.Array(MediaImportEntitySearchJob),
+});
+
+export const LoadedMediaImportAdapterSuccess = Schema.Union(
+	LoadedMediaImportAdapterLoaded,
+	LoadedMediaImportAdapterNetflixSearchPlanned,
+);
+
+export type LoadedMediaImportAdapterSuccess = typeof LoadedMediaImportAdapterSuccess.Type;
+
+const asLoadedMediaImportAdapterSuccess = (
+	input: LoadedMediaImportAdapterResult,
+): LoadedMediaImportAdapterSuccess => ({
+	_tag: "loaded",
+	adapterResult: input.adapterResult,
+	cleanupPaths: [...input.cleanupPaths],
+});
+
 const noCleanup = <R>(
 	effect: Effect.Effect<LoadedMediaImportAdapterResult["adapterResult"], unknown, R>,
-): Effect.Effect<LoadedMediaImportAdapterResult, unknown, R> =>
-	effect.pipe(Effect.map((adapterResult) => ({ adapterResult, cleanupPaths: [] as const })));
+): Effect.Effect<LoadedMediaImportAdapterSuccess, unknown, R> =>
+	effect.pipe(
+		Effect.map((adapterResult) =>
+			asLoadedMediaImportAdapterSuccess({ adapterResult, cleanupPaths: [] as const }),
+		),
+	);
 
 const validateImportJobFilePath = (filePath: string) => {
 	const safePathResult = resolveSafeImportFilePath(filePath, getTemporaryDirectory());
@@ -86,7 +127,7 @@ const validateImportJobFilePath = (filePath: string) => {
 
 const withLoadFallback = <R>(
 	fallback: string,
-	effect: Effect.Effect<LoadedMediaImportAdapterResult, unknown, R>,
+	effect: Effect.Effect<LoadedMediaImportAdapterSuccess, unknown, R>,
 ) =>
 	effect.pipe(
 		Effect.mapError((error) => {
@@ -115,7 +156,7 @@ const oneTimeMediaImportSourceLoaders: Partial<
 		(
 			input: MediaImportLoadInput,
 		) => Effect.Effect<
-			LoadedMediaImportAdapterResult,
+			LoadedMediaImportAdapterSuccess,
 			LoadedMediaImportAdapterError,
 			MediaImportLoadRequirements
 		>
@@ -128,7 +169,7 @@ const oneTimeMediaImportSourceLoaders: Partial<
 				...input,
 				sourceName: "IMDb",
 				loadAdapterResult: adaptImdbCsv,
-			}),
+			}).pipe(Effect.map(asLoadedMediaImportAdapterSuccess)),
 		),
 	igdb: (input) =>
 		withLoadFallback(
@@ -143,7 +184,7 @@ const oneTimeMediaImportSourceLoaders: Partial<
 					}
 					return adaptIgdbCsv(fileText, { collection: collection.trim() });
 				},
-			}),
+			}).pipe(Effect.map(asLoadedMediaImportAdapterSuccess)),
 		),
 	anilist: (input) =>
 		withLoadFallback(
@@ -154,7 +195,7 @@ const oneTimeMediaImportSourceLoaders: Partial<
 					...input,
 					sourceName: "Anilist",
 					loadAdapterResult: (fileText) => adaptAnilistExport(fileText, config.timezone),
-				});
+				}).pipe(Effect.map(asLoadedMediaImportAdapterSuccess));
 			}),
 		),
 	grouvee: (input) =>
@@ -164,7 +205,7 @@ const oneTimeMediaImportSourceLoaders: Partial<
 				...input,
 				sourceName: "Grouvee",
 				loadAdapterResult: adaptGrouveeCsv,
-			}),
+			}).pipe(Effect.map(asLoadedMediaImportAdapterSuccess)),
 		),
 	watcharr: (input) =>
 		withLoadFallback(
@@ -173,7 +214,7 @@ const oneTimeMediaImportSourceLoaders: Partial<
 				...input,
 				sourceName: "Watcharr",
 				loadAdapterResult: adaptWatcharrExport,
-			}),
+			}).pipe(Effect.map(asLoadedMediaImportAdapterSuccess)),
 		),
 	hardcover: (input) =>
 		withLoadFallback(
@@ -182,7 +223,7 @@ const oneTimeMediaImportSourceLoaders: Partial<
 				...input,
 				sourceName: "Hardcover",
 				loadAdapterResult: adaptHardcoverCsv,
-			}),
+			}).pipe(Effect.map(asLoadedMediaImportAdapterSuccess)),
 		),
 	goodreads: (input) =>
 		withLoadFallback(
@@ -191,7 +232,7 @@ const oneTimeMediaImportSourceLoaders: Partial<
 				...input,
 				sourceName: "Goodreads",
 				loadAdapterResult: adaptGoodreadsCsv,
-			}),
+			}).pipe(Effect.map(asLoadedMediaImportAdapterSuccess)),
 		),
 	storygraph: (input) =>
 		withLoadFallback(
@@ -200,16 +241,19 @@ const oneTimeMediaImportSourceLoaders: Partial<
 				...input,
 				sourceName: "StoryGraph",
 				loadAdapterResult: adaptStorygraphCsv,
-			}),
+			}).pipe(Effect.map(asLoadedMediaImportAdapterSuccess)),
 		),
 	movary: (input) =>
-		withLoadFallback("Could not parse Movary export data", loadMovaryAdapterResult(input)),
+		withLoadFallback(
+			"Could not parse Movary export data",
+			loadMovaryAdapterResult(input).pipe(Effect.map(asLoadedMediaImportAdapterSuccess)),
+		),
 	netflix: (input) =>
 		withLoadFallback("Could not parse Netflix export data", loadNetflixAdapterResult(input)),
 	myanimelist: (input) =>
 		withLoadFallback(
 			"Could not parse MyAnimeList export data",
-			loadMyanimelistAdapterResult(input),
+			loadMyanimelistAdapterResult(input).pipe(Effect.map(asLoadedMediaImportAdapterSuccess)),
 		),
 	trakt: (input) =>
 		withLoadFallback(

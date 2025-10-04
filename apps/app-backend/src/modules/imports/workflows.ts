@@ -5,6 +5,7 @@ import { DbRunner } from "~/lib/db";
 import type { SandboxRunError } from "~/lib/errors";
 import { unknownToMessage } from "~/lib/errors";
 import { CollectionsService } from "~/modules/collections/service";
+import type { EntitySearchItem } from "~/modules/entities/population";
 import { EntitiesRepository } from "~/modules/entities/repository";
 import { EntitySchemasRepository } from "~/modules/entity-schemas/repository";
 import { EventSchemasRepository } from "~/modules/event-schemas/repository";
@@ -14,6 +15,7 @@ import type { ImportRunJobData } from "./jobs";
 import { mediaEntityGroupItemIndex } from "./media/groups";
 import { MediaImportAdapterResultSchema } from "./media/import-processor";
 import { getResolutionCandidates } from "./media/resolution-candidates";
+import { LoadedMediaImportAdapterSuccess } from "./media/source-loaders";
 import { type ImportEntityRef, importEntityRefKey } from "./media/types";
 import { ImportsRepository } from "./repository";
 import {
@@ -21,6 +23,7 @@ import {
 	failImportRun,
 	recordImportRunFailure,
 } from "./runtime/failures";
+import { buildNetflixAdapterResult } from "./sources/netflix/processor";
 
 export class ImportRunError extends Schema.TaggedError<ImportRunError>()("ImportRunError", {
 	message: Schema.String,
@@ -36,36 +39,31 @@ const PopulationScript = Schema.Struct({
 	sandboxScriptId: Schema.String,
 });
 
-const LoadMediaImportSuccess = Schema.Struct({
-	adapterResult: MediaImportAdapterResultSchema,
-	cleanupPaths: Schema.Array(Schema.String),
-});
-
 const LoadMediaImportFailed = Schema.TaggedStruct("failed", {
 	message: Schema.String,
 	cleanupPaths: Schema.Array(Schema.String),
 });
 
-const LoadMediaImportLoaded = Schema.TaggedStruct("loaded", {
-	...LoadMediaImportSuccess.fields,
-});
-
-const LoadMediaImportOutcome = Schema.Union(LoadMediaImportFailed, LoadMediaImportLoaded);
+const LoadMediaImportOutcome = Schema.Union(LoadMediaImportFailed, LoadedMediaImportAdapterSuccess);
 
 const EnsureLibraryMembershipOutcome = Schema.Struct({
 	message: Schema.NullOr(Schema.String),
 });
 
-type MediaImportWorkflowOperations<RLoad, RResolve, RImport, RCleanup> = {
+type LoadedMediaImportAdapterResult = {
+	cleanupPaths: ReadonlyArray<string>;
+	adapterResult: typeof MediaImportAdapterResultSchema.Type;
+};
+
+type MediaImportWorkflowOperations<RLoad, RResolve, RImport, RSearch, RCleanup> = {
 	cleanupArtifacts: (input: {
 		cleanupPaths: ReadonlyArray<string>;
 		sourcePayloadKey?: string;
 	}) => Effect.Effect<void, unknown, RCleanup>;
-	loadAdapterResult: (payload: ImportRunJobData) => Effect.Effect<
-		{
-			cleanupPaths: ReadonlyArray<string>;
-			adapterResult: typeof MediaImportAdapterResultSchema.Type;
-		},
+	loadAdapterResult: (
+		payload: ImportRunJobData,
+	) => Effect.Effect<
+		typeof LoadedMediaImportAdapterSuccess.Type | LoadedMediaImportAdapterResult,
 		{ cleanupPaths: ReadonlyArray<string>; message: string },
 		RLoad
 	>;
@@ -76,6 +74,12 @@ type MediaImportWorkflowOperations<RLoad, RResolve, RImport, RCleanup> = {
 		executionId: string;
 		identifierType: string;
 	}) => Effect.Effect<{ externalId: string | null }, SandboxRunError, RResolve>;
+	searchEntities?: (input: {
+		query: string;
+		userId: string;
+		scriptId: string;
+		executionId: string;
+	}) => Effect.Effect<ReadonlyArray<EntitySearchItem>, SandboxRunError, RSearch>;
 	importEntity: (input: {
 		userId: string;
 		scriptId: string;
@@ -107,10 +111,10 @@ const isProgressUpdateDue = (processed: number, groups: number) =>
 
 const activityKey = (value: string) => Buffer.from(value, "utf8").toString("base64url") || "empty";
 
-export const runOneTimeMediaImportWorkflow = <RLoad, RResolve, RImport, RCleanup>(
+export const runOneTimeMediaImportWorkflow = <RLoad, RResolve, RImport, RSearch, RCleanup>(
 	payload: ImportRunJobData,
 	executionId: string,
-	operations: MediaImportWorkflowOperations<RLoad, RResolve, RImport, RCleanup>,
+	operations: MediaImportWorkflowOperations<RLoad, RResolve, RImport, RSearch, RCleanup>,
 	options: { skipMarkStarted?: boolean } = {},
 ) =>
 	Effect.gen(function* () {
@@ -216,11 +220,15 @@ export const runOneTimeMediaImportWorkflow = <RLoad, RResolve, RImport, RCleanup
 				name: "load-media-import-adapter-result",
 				success: LoadMediaImportOutcome,
 				execute: operations.loadAdapterResult(payload).pipe(
-					Effect.map(({ adapterResult, cleanupPaths: loadedCleanupPaths }) => ({
-						adapterResult,
-						_tag: "loaded" as const,
-						cleanupPaths: [...loadedCleanupPaths],
-					})),
+					Effect.map((loaded) =>
+						"_tag" in loaded
+							? { ...loaded, cleanupPaths: [...loaded.cleanupPaths] }
+							: {
+									...loaded,
+									_tag: "loaded" as const,
+									cleanupPaths: [...loaded.cleanupPaths],
+								},
+					),
 					Effect.catchAll((error) =>
 						Effect.succeed({
 							message: error.message,
@@ -249,13 +257,60 @@ export const runOneTimeMediaImportWorkflow = <RLoad, RResolve, RImport, RCleanup
 				return;
 			}
 
-			const entityGroups = loadOutcome.adapterResult.entityGroups.map((group) => ({
+			const adapterResult =
+				loadOutcome._tag === "netflix-search-planned"
+					? yield* Effect.gen(function* () {
+							const searchEntities = operations.searchEntities;
+							if (!searchEntities) {
+								return yield* new ImportRunError({
+									message: "Netflix search planning requires a workflow-owned search operation",
+								});
+							}
+
+							const searchResponses = yield* Effect.forEach(loadOutcome.searchJobs, (searchJob) =>
+								searchEntities({
+									query: searchJob.query,
+									userId: payload.userId,
+									scriptId: searchJob.scriptId,
+									executionId: `${executionId}-search-${activityKey(searchJob.jobKey)}`,
+								}).pipe(
+									Effect.match({
+										onFailure: (error) => ({
+											error: error.message,
+											jobKey: searchJob.jobKey,
+											items: [] as ReadonlyArray<EntitySearchItem>,
+										}),
+										onSuccess: (items) => ({
+											error: null,
+											jobKey: searchJob.jobKey,
+											items,
+										}),
+									}),
+								),
+							);
+
+							return yield* Activity.make({
+								error: ImportRunError,
+								name: "build-netflix-adapter-result",
+								success: MediaImportAdapterResultSchema,
+								execute: buildNetflixAdapterResult({
+									searchResponses,
+									myListPath: loadOutcome.myListPath,
+									profileName: loadOutcome.profileName,
+									ratingsPath: loadOutcome.ratingsPath,
+									viewingActivityPath: loadOutcome.viewingActivityPath,
+								}).pipe(Effect.mapError(toWorkflowError)),
+							});
+						})
+					: loadOutcome.adapterResult;
+
+			const entityGroups = adapterResult.entityGroups.map((group) => ({
 				...group,
 				events: [...group.events],
 				entityRef: { ...group.entityRef },
 				collectionMemberships: [...group.collectionMemberships],
 			}));
-			const failures = loadOutcome.adapterResult.failures.map((failure) => ({
+			const failures = adapterResult.failures.map((failure) => ({
 				stage: failure.stage,
 				message: failure.message,
 				itemIndex: failure.itemIndex,
