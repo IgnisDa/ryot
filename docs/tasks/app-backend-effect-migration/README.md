@@ -178,9 +178,9 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 
 ## Tasks
 
-**Overall Progress:** 27 of 33 tasks completed
+**Overall Progress:** 28 of 33 tasks completed
 
-**Current Task:** [Task 28](./28-legacy-bootstrap-v1-data-migration.md) (todo)
+**Current Task:** [Task 29](./29-app-client-effect-client-foundation.md) (todo)
 
 ### Task List
 
@@ -213,7 +213,7 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 | 25  | [God Mode Admin Operations](./25-god-mode-admin-operations.md)                                       | AFK  | done   |
 | 26  | [Imports One Time Runs](./26-imports-one-time-runs.md)                                               | AFK  | done   |
 | 27  | [Integrations And Webhooks](./27-integrations-and-webhooks.md)                                       | AFK  | done   |
-| 28  | [Legacy Bootstrap V1 Data Migration](./28-legacy-bootstrap-v1-data-migration.md)                     | AFK  | todo   |
+| 28  | [Legacy Bootstrap V1 Data Migration](./28-legacy-bootstrap-v1-data-migration.md)                     | AFK  | done   |
 | 29  | [App Client Effect Client Foundation](./29-app-client-effect-client-foundation.md)                   | AFK  | todo   |
 | 30  | [App Client Navigation And Media Queries](./30-app-client-navigation-and-media-queries.md)           | AFK  | todo   |
 | 31  | [App Client Admin Detail Upload Saved Views](./31-app-client-admin-detail-upload-saved-views.md)     | AFK  | todo   |

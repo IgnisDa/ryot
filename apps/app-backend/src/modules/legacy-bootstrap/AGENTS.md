@@ -5,9 +5,6 @@ This is a living document and must be kept up to date as the module evolves.
 The purpose of this module is to migrate legacy V1 Rust data (`apps/backend`) into the V2
 TypeScript backend (`apps/app-backend`) during startup.
 
-> Note: This module is legacy and may not be fully functional in the Effect backend. It is preserved
-> for reference during migration.
-
 ## Fail-Fast Requirement
 
 Every step in this module must fail loudly on unexpected state. Use `throw new Error(...)` in TypeScript and `RAISE EXCEPTION '...'` in PL/pgSQL DO blocks — never `RETURN` from a DO block when the missing object signals an error rather than an already-completed step.
