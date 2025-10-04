@@ -20,6 +20,7 @@ use media_models::{
     DeployPathImportInput, ImportOrExportItemRating, ImportOrExportMetadataItemSeen,
     MetadataLookupResponse,
 };
+use miscellaneous_lookup_service::metadata_lookup;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::Deserialize;
@@ -184,7 +185,7 @@ async fn lookup_title(
     ss: &Arc<SupportingService>,
     title: &str,
 ) -> (Option<LookupCacheItem>, Option<ImportFailedItem>) {
-    let lookup_result = miscellaneous_lookup_service::metadata_lookup(ss, title.to_string()).await;
+    let lookup_result = metadata_lookup(ss, title.to_string()).await;
     match lookup_result {
         Ok(result) => match result.response {
             MetadataLookupResponse::Found(found) => (
