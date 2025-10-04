@@ -140,10 +140,10 @@ fn extract_zip(zip_path: &str) -> Result<PathBuf> {
         if file.name().ends_with('/') {
             fs::create_dir_all(&output_path)?;
         } else {
-            if let Some(p) = output_path.parent() {
-                if !p.exists() {
-                    fs::create_dir_all(p)?;
-                }
+            if let Some(p) = output_path.parent()
+                && !p.exists()
+            {
+                fs::create_dir_all(p)?;
             }
             let mut output_file = File::create(&output_path)?;
             io::copy(&mut file, &mut output_file)?;
