@@ -107,20 +107,17 @@ fn parse_time_to_seconds(time_str: &str) -> Option<i32> {
     let seconds: i32 = parts[2].parse().ok()?;
     Some(hours * 3600 + minutes * 60 + seconds)
 }
-
 fn convert_rating(thumbs: Option<i32>, stars: Option<i32>) -> Option<Decimal> {
-    if let Some(star_value) = stars {
-        Some(Decimal::from(star_value * 20))
-    } else if let Some(thumbs_value) = thumbs {
-        match thumbs_value {
+    match (stars, thumbs) {
+        (Some(star_value), _) => Some(Decimal::from(star_value * 20)),
+        (None, Some(thumbs_value)) => match thumbs_value {
             0 => None,
             1 => Some(dec!(33)),
             2 => Some(dec!(67)),
             3 => Some(dec!(100)),
             _ => None,
-        }
-    } else {
-        None
+        },
+        (None, None) => None,
     }
 }
 
