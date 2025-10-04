@@ -1,5 +1,3 @@
-import type { Config } from "~/lib/config";
-
 export type ApiFunction = (
 	...args: Array<unknown>
 ) => unknown | Promise<unknown>;
@@ -62,4 +60,4 @@ export type HttpCallResult =
 	| ApiSuccess<HttpCallSuccessData>
 	| (ApiFailure & { data?: HttpCallErrorData });
 
-export type ConfigValueResult = ApiResult<Config[keyof Config]>;
+export type ConfigValueResult = ApiResult<unknown>;
