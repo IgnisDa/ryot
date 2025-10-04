@@ -131,7 +131,8 @@ pub trait GraphqlResolverSvc<T: Send + Sync + 'static>: AuthProvider {
 
     async fn svc_and_user<'a>(&self, ctx: &Context<'a>) -> GraphqlResult<(&'a Arc<T>, String)> {
         let (service, user_id) = self.svc_and_maybe_user(ctx).await?;
-        Ok((service, user_id.unwrap()))
+        let user_id = user_id.ok_or_else(|| Error::new(BackendError::NoUserId.to_string()))?;
+        Ok((service, user_id))
     }
 }
 

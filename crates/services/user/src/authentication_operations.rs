@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use chrono::Utc;
 use common_models::StringIdObject;
@@ -79,7 +79,8 @@ pub async fn login_user(ss: &Arc<SupportingService>, input: AuthUserInput) -> Re
         && let AuthUserInput::Password(PasswordUserInput { password, .. }) = input
     {
         if let Some(hashed_password) = &user.password {
-            let parsed_hash = PasswordHash::new(hashed_password).unwrap();
+            let parsed_hash = PasswordHash::new(hashed_password)
+                .map_err(|_| anyhow!("Invalid password hash format"))?;
             if Argon2::default()
                 .verify_password(password.as_bytes(), &parsed_hash)
                 .is_err()

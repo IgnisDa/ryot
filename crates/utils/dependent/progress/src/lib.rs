@@ -308,7 +308,7 @@ pub async fn metadata_progress_update(
             let mut updated_at = previous_seen.updated_at.clone();
 
             if new_progress == progress {
-                bail!("No progress update required");
+                bail!("Update progress is the same as current progress");
             }
             progress = new_progress;
             state = SeenState::InProgress;
