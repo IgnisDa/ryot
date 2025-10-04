@@ -5,84 +5,37 @@ import { builtinEntitySchemas } from "../../lib/builtins/entity-schemas";
 import { DbRunner, TransactionRunner } from "../../lib/db";
 import { BadRequest, badRequest, conflict, notFound } from "../../lib/errors";
 import { parseLabeledPropertySchemaInput } from "../../lib/property-schema-runtime";
+import { slugify } from "../../lib/slug";
+import { requireText, trimToNull } from "../../lib/validation";
 import { TrackersRepository } from "../trackers/repository";
 import { EntitySchemasRepository } from "./repository";
 import type { CreateEntitySchemaBody } from "./schemas";
 
-const normalizeSlug = (value: string): string =>
-	value
-		.replaceAll("_", "-")
-		.trim()
-		.toLowerCase()
-		.replace(/\s+/g, "-")
-		.replace(/[^a-z0-9-]/g, "")
-		.replace(/-+/g, "-")
-		.replace(/^-+|-+$/g, "");
-
-const resolveRequiredText = (value: string) => {
-	const trimmed = value.trim();
-	return trimmed.length > 0 ? trimmed : null;
-};
-
-const resolveEntitySchemaName = (name: string) => {
-	const resolved = resolveRequiredText(name);
-	if (!resolved) {
-		return badRequest("Entity schema name is required");
-	}
-	return resolved;
-};
-
-const resolveEntitySchemaIcon = (icon: string) => {
-	const resolved = resolveRequiredText(icon);
-	if (!resolved) {
-		return badRequest("Entity schema icon is required");
-	}
-	return resolved;
-};
-
-const resolveEntitySchemaAccentColor = (accentColor: string) => {
-	const resolved = resolveRequiredText(accentColor);
-	if (!resolved) {
-		return badRequest("Entity schema accent color is required");
-	}
-	return resolved;
-};
-
-const resolveEntitySchemaTrackerId = (trackerId: string) => {
-	const resolved = trackerId.trim();
-	return resolved.length > 0 ? resolved : null;
-};
+const reservedEntitySchemaSlugs = new Set(builtinEntitySchemas().map((s) => s.slug));
 
 const resolveEntitySchemaSlug = (input: { name: string; slug?: string }) => {
 	const candidate = input.slug?.trim() ?? input.name;
-	const slug = candidate ? normalizeSlug(candidate) : null;
+	const slug = candidate ? slugify(candidate) : null;
 	if (!slug) {
 		return badRequest("Entity schema slug is required");
 	}
 	return slug;
 };
 
-const validateSlugNotReserved = (slug: string): void => {
-	const reservedSlugs = builtinEntitySchemas().map((s) => s.slug);
-	if (reservedSlugs.includes(slug)) {
-		throw new Error(`Entity schema slug "${slug}" is reserved for built-in schemas`);
-	}
-};
-
 const resolveEntitySchemaCreateInput = (
 	input: Pick<CreateEntitySchemaBody, "icon" | "name" | "slug" | "accentColor">,
 ) => {
-	const icon = resolveEntitySchemaIcon(input.icon);
+	const icon = requireText(input.icon, "Entity schema icon is required");
 	if (icon instanceof BadRequest) {
 		return icon;
 	}
 
-	const name = resolveEntitySchemaName(input.name);
+	const name = requireText(input.name, "Entity schema name is required");
 	if (name instanceof BadRequest) {
 		return name;
 	}
 
-	const accentColor = resolveEntitySchemaAccentColor(input.accentColor);
+	const accentColor = requireText(input.accentColor, "Entity schema accent color is required");
 	if (accentColor instanceof BadRequest) {
 		return accentColor;
 	}
@@ -92,10 +45,8 @@ const resolveEntitySchemaCreateInput = (
 		return slug;
 	}
 
-	try {
-		validateSlugNotReserved(slug);
-	} catch (error) {
-		return badRequest(error instanceof Error ? error.message : String(error));
+	if (reservedEntitySchemaSlugs.has(slug)) {
+		return badRequest(`Entity schema slug "${slug}" is reserved for built-in schemas`);
 	}
 
 	return { icon, name, slug, accentColor };
@@ -117,7 +68,7 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 				) =>
 					Effect.gen(function* () {
 						if (input.trackerId) {
-							const trackerId = resolveEntitySchemaTrackerId(input.trackerId);
+							const trackerId = trimToNull(input.trackerId);
 							if (!trackerId) {
 								return yield* badRequest("Tracker id is required");
 							}
@@ -138,7 +89,7 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 					}),
 				create: (user: CurrentUserValue, payload: CreateEntitySchemaBody) =>
 					Effect.gen(function* () {
-						const trackerId = resolveEntitySchemaTrackerId(payload.trackerId);
+						const trackerId = trimToNull(payload.trackerId);
 						if (!trackerId) {
 							return yield* badRequest("Tracker id is required");
 						}

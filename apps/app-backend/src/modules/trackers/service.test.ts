@@ -25,42 +25,56 @@ const transactionLayer = Layer.succeed(
 		Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
-it.effect("normalizes tracker slugs before creating custom trackers", () => {
-	let createdSlug = "";
+const defaultTrackersRepository = (): TrackersRepository =>
+	Object.assign(Object.create(null), {
+		_tag: "TrackersRepository" as const,
+		create: () => Effect.die("unused"),
+		findBySlug: () => Effect.die("unused"),
+		listByUser: () => Effect.die("unused"),
+		updateOwned: () => Effect.die("unused"),
+		getOwnedById: () => Effect.die("unused"),
+		persistOrder: () => Effect.die("unused"),
+		listIdsInOrder: () => Effect.die("unused"),
+		countOwnedByIds: () => Effect.die("unused"),
+	});
 
-	const layer = TrackersService.Default.pipe(
+const makeTrackersRepository = (overrides: Partial<TrackersRepository> = {}): TrackersRepository =>
+	Object.assign(Object.create(null), defaultTrackersRepository(), overrides);
+
+const makeServiceLayer = (repository: TrackersRepository) =>
+	TrackersService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
-				Layer.mock(TrackersRepository, {
-					_tag: "TrackersRepository" as const,
-					listByUser: () => Effect.succeed([]),
-					findBySlug: () => Effect.succeed(null),
-					getOwnedById: () => Effect.succeed(null),
-					countOwnedByIds: () => Effect.succeed(0),
-					listIdsInOrder: () => Effect.succeed([]),
-					persistOrder: (_userId, trackerIds) => Effect.succeed(trackerIds),
-					updateOwned: () => Effect.succeed(null),
-					create: (_userId, input) =>
-						Effect.sync(() => {
-							createdSlug = input.slug;
-							return {
-								config: {},
-								sortOrder: 0,
-								id: "tracker-id",
-								slug: input.slug,
-								name: input.name,
-								icon: input.icon,
-								isBuiltin: false,
-								isDisabled: false,
-								accentColor: input.accentColor,
-								description: input.description ?? null,
-							};
-						}),
-				}),
+				Layer.succeed(TrackersRepository, repository),
 			),
 		),
+	);
+
+it.effect("normalizes tracker slugs before creating custom trackers", () => {
+	let createdSlug = "";
+
+	const layer = makeServiceLayer(
+		makeTrackersRepository({
+			findBySlug: () => Effect.succeed(null),
+			create: (_userId, input) =>
+				Effect.sync(() => {
+					createdSlug = input.slug;
+					return {
+						config: {},
+						sortOrder: 0,
+						id: "tracker-id",
+						slug: input.slug,
+						name: input.name,
+						icon: input.icon,
+						isBuiltin: false,
+						isDisabled: false,
+						accentColor: input.accentColor,
+						description: input.description ?? null,
+					};
+				}),
+		}),
 	);
 
 	return Effect.gen(function* () {
@@ -77,24 +91,8 @@ it.effect("normalizes tracker slugs before creating custom trackers", () => {
 });
 
 it.effect("returns not found when updating a tracker the user does not own", () => {
-	const layer = TrackersService.Default.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				transactionLayer,
-				Layer.mock(TrackersRepository, {
-					_tag: "TrackersRepository" as const,
-					create: () => Effect.die("unused"),
-					listByUser: () => Effect.succeed([]),
-					findBySlug: () => Effect.succeed(null),
-					updateOwned: () => Effect.succeed(null),
-					countOwnedByIds: () => Effect.succeed(0),
-					listIdsInOrder: () => Effect.succeed([]),
-					getOwnedById: () => Effect.succeed(null),
-					persistOrder: (_userId, trackerIds) => Effect.succeed(trackerIds),
-				}),
-			),
-		),
+	const layer = makeServiceLayer(
+		makeTrackersRepository({ getOwnedById: () => Effect.succeed(null) }),
 	);
 
 	return Effect.gen(function* () {
@@ -108,28 +106,16 @@ it.effect("returns not found when updating a tracker the user does not own", () 
 it.effect("reorders requested trackers and appends the remaining ids", () => {
 	let persistedIds: ReadonlyArray<string> = [];
 
-	const layer = TrackersService.Default.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				transactionLayer,
-				Layer.mock(TrackersRepository, {
-					_tag: "TrackersRepository" as const,
-					create: () => Effect.die("unused"),
-					listByUser: () => Effect.succeed([]),
-					findBySlug: () => Effect.succeed(null),
-					updateOwned: () => Effect.succeed(null),
-					getOwnedById: () => Effect.succeed(null),
-					countOwnedByIds: () => Effect.succeed(2),
-					listIdsInOrder: () => Effect.succeed(["tracker-a", "tracker-b", "tracker-c"]),
-					persistOrder: (_userId, trackerIds) =>
-						Effect.sync(() => {
-							persistedIds = trackerIds;
-							return trackerIds;
-						}),
+	const layer = makeServiceLayer(
+		makeTrackersRepository({
+			countOwnedByIds: () => Effect.succeed(2),
+			listIdsInOrder: () => Effect.succeed(["tracker-a", "tracker-b", "tracker-c"]),
+			persistOrder: (_userId, trackerIds) =>
+				Effect.sync(() => {
+					persistedIds = trackerIds;
+					return trackerIds;
 				}),
-			),
-		),
+		}),
 	);
 
 	return Effect.gen(function* () {
@@ -142,24 +128,8 @@ it.effect("reorders requested trackers and appends the remaining ids", () => {
 });
 
 it.effect("rejects reorder requests containing unknown tracker ids", () => {
-	const layer = TrackersService.Default.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				transactionLayer,
-				Layer.mock(TrackersRepository, {
-					_tag: "TrackersRepository" as const,
-					create: () => Effect.die("unused"),
-					listByUser: () => Effect.succeed([]),
-					findBySlug: () => Effect.succeed(null),
-					updateOwned: () => Effect.succeed(null),
-					getOwnedById: () => Effect.succeed(null),
-					countOwnedByIds: () => Effect.succeed(1),
-					listIdsInOrder: () => Effect.succeed([]),
-					persistOrder: (_userId, trackerIds) => Effect.succeed(trackerIds),
-				}),
-			),
-		),
+	const layer = makeServiceLayer(
+		makeTrackersRepository({ countOwnedByIds: () => Effect.succeed(1) }),
 	);
 
 	return Effect.gen(function* () {
