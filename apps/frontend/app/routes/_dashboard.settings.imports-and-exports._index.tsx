@@ -112,6 +112,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				.with(ImportSource.GenericJson, ImportSource.Anilist, async () => ({
 					genericJson: processSubmission(formData, exportPathImportFormSchema),
 				}))
+				.with(ImportSource.Netflix, async () => ({
+					netflix: processSubmission(formData, exportPathImportFormSchema),
+				}))
 				.with(ImportSource.Jellyfin, async () => ({
 					jellyfin: processSubmission(formData, jellyfinImportFormSchema),
 				}))
@@ -414,13 +417,23 @@ export default function Page() {
 														<>
 															<FileInput
 																required
-																name="export"
 																accept=".json"
+																name="exportPath"
 																label="JSON export file"
 															/>
 														</>
 													),
 												)
+												.with(ImportSource.Netflix, () => (
+													<>
+														<FileInput
+															required
+															accept=".zip"
+															name="exportPath"
+															label="Netflix ZIP export file"
+														/>
+													</>
+												))
 												.exhaustive()}
 											<Button
 												mt="md"
