@@ -107,6 +107,7 @@ fn parse_time_to_seconds(time_str: &str) -> Option<i32> {
     let seconds: i32 = parts[2].parse().ok()?;
     Some(hours * 3600 + minutes * 60 + seconds)
 }
+
 fn convert_rating(thumbs: Option<i32>, stars: Option<i32>) -> Option<Decimal> {
     match (stars, thumbs) {
         (Some(star_value), _) => match star_value {
