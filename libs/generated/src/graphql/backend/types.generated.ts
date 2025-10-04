@@ -579,7 +579,7 @@ export type DeployIgdbImportInput = {
 
 export type DeployImportJobInput = {
   genericCsv?: InputMaybe<DeployGenericCsvImportInput>;
-  genericJson?: InputMaybe<DeployJsonImportInput>;
+  genericJson?: InputMaybe<DeployPathImportInput>;
   igdb?: InputMaybe<DeployIgdbImportInput>;
   jellyfin?: InputMaybe<DeployJellyfinImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
@@ -596,10 +596,6 @@ export type DeployJellyfinImportInput = {
   username: Scalars['String']['input'];
 };
 
-export type DeployJsonImportInput = {
-  export: Scalars['String']['input'];
-};
-
 export type DeployMalImportInput = {
   /** The anime export file path (uploaded via temporary upload). */
   animePath?: InputMaybe<Scalars['String']['input']>;
@@ -611,6 +607,10 @@ export type DeployMovaryImportInput = {
   history: Scalars['String']['input'];
   ratings: Scalars['String']['input'];
   watchlist: Scalars['String']['input'];
+};
+
+export type DeployPathImportInput = {
+  exportPath: Scalars['String']['input'];
 };
 
 export type DeployStrongAppImportInput = {
