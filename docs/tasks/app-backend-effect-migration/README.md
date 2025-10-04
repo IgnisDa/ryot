@@ -178,9 +178,9 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 
 ## Tasks
 
-**Overall Progress:** 10 of 32 tasks completed
+**Overall Progress:** 11 of 32 tasks completed
 
-**Current Task:** [Task 11](./11-property-schema-effect-dsl.md) (todo)
+**Current Task:** [Task 12](./12-relationship-schema-reads.md) (todo)
 
 ### Task List
 
@@ -196,7 +196,7 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 | 08  | [Auth Middleware And Security Schemes](./08-auth-middleware-and-security-schemes.md)                 | AFK  | done   |
 | 09  | [Trackers Domain Slice](./09-trackers-domain-slice.md)                                               | AFK  | done   |
 | 10  | [User Bootstrap Tracer](./10-user-bootstrap-tracer.md)                                               | AFK  | done   |
-| 11  | [Property Schema Effect DSL](./11-property-schema-effect-dsl.md)                                     | AFK  | todo   |
+| 11  | [Property Schema Effect DSL](./11-property-schema-effect-dsl.md)                                     | AFK  | done   |
 | 12  | [Relationship Schema Reads](./12-relationship-schema-reads.md)                                       | AFK  | todo   |
 | 13  | [Entity Schema Basic CRUD](./13-entity-schema-basic-crud.md)                                         | AFK  | todo   |
 | 14  | [Event Schema Basic CRUD](./14-event-schema-basic-crud.md)                                           | AFK  | todo   |

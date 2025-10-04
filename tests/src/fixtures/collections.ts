@@ -1,6 +1,7 @@
 import { requirePresent, requireResponseData } from "../test-support/assertions";
 import type { Client } from "./auth";
 import type { ClientSuccess } from "./backend-client";
+import type { AppSchema } from "./entity-schemas";
 
 type CollectionRecord = Omit<ClientSuccess<"collections", "create">, "properties"> & {
 	properties: Record<string, unknown>;
@@ -9,7 +10,7 @@ type CollectionRecord = Omit<ClientSuccess<"collections", "create">, "properties
 export interface CreateCollectionOptions {
 	name?: string;
 	description?: string;
-	membershipPropertiesSchema?: Record<string, unknown>;
+	membershipPropertiesSchema?: AppSchema;
 }
 
 export async function createCollection(
