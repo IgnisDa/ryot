@@ -91,13 +91,38 @@ impl ImporterService {
         let import_id = db_import_job.id.clone();
         ryot_log!(debug, "Started import job with id {import_id}");
         let maybe_import = match input.source {
+            ImportSource::Igdb => igdb::import(input.igdb.unwrap()).await,
+            ImportSource::Movary => movary::import(input.movary.unwrap()).await,
+            ImportSource::Plex => plex::import(input.url_and_key.unwrap()).await,
+            ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await,
+            ImportSource::Myanimelist => myanimelist::import(input.mal.unwrap()).await,
+            ImportSource::Grouvee => grouvee::import(input.generic_csv.unwrap()).await,
+            ImportSource::Hardcover => hardcover::import(input.generic_csv.unwrap()).await,
+            ImportSource::Netflix => netflix::import(input.netflix.unwrap(), &self.0).await,
+            ImportSource::GenericJson => generic_json::import(input.generic_json.unwrap()).await,
+            ImportSource::Mediatracker => mediatracker::import(input.url_and_key.unwrap()).await,
             ImportSource::Anilist => anilist::import(input.generic_json.unwrap(), &self.0).await,
+            ImportSource::Hevy => hevy::import(input.generic_csv.unwrap(), &self.0, &user_id).await,
+            ImportSource::OpenScale => {
+                open_scale::import(input.generic_csv.unwrap(), &self.0.timezone).await
+            }
             ImportSource::StrongApp => {
                 strong_app::import(input.strong_app.unwrap(), &self.0, &user_id).await
             }
-            ImportSource::Hevy => hevy::import(input.generic_csv.unwrap(), &self.0, &user_id).await,
-            ImportSource::Mediatracker => mediatracker::import(input.url_and_key.unwrap()).await,
-            ImportSource::Myanimelist => myanimelist::import(input.mal.unwrap()).await,
+            ImportSource::Trakt => {
+                trakt::import(
+                    input.trakt.unwrap(),
+                    self.0.config.server.importer.trakt_client_id.as_str(),
+                )
+                .await
+            }
+            ImportSource::Imdb => {
+                imdb::import(
+                    input.generic_csv.unwrap(),
+                    &get_tmdb_non_media_service(&self.0).await?,
+                )
+                .await
+            }
             ImportSource::Goodreads => {
                 goodreads::import(
                     input.generic_csv.unwrap(),
@@ -107,15 +132,6 @@ impl ImporterService {
                 )
                 .await
             }
-            ImportSource::Grouvee => grouvee::import(input.generic_csv.unwrap()).await,
-            ImportSource::Trakt => {
-                trakt::import(
-                    input.trakt.unwrap(),
-                    self.0.config.server.importer.trakt_client_id.as_str(),
-                )
-                .await
-            }
-            ImportSource::Movary => movary::import(input.movary.unwrap()).await,
             ImportSource::Storygraph => {
                 storygraph::import(
                     input.generic_csv.unwrap(),
@@ -135,22 +151,6 @@ impl ImporterService {
                 )
                 .await
             }
-            ImportSource::Igdb => igdb::import(input.igdb.unwrap()).await,
-            ImportSource::Imdb => {
-                imdb::import(
-                    input.generic_csv.unwrap(),
-                    &get_tmdb_non_media_service(&self.0).await?,
-                )
-                .await
-            }
-            ImportSource::GenericJson => generic_json::import(input.generic_json.unwrap()).await,
-            ImportSource::OpenScale => {
-                open_scale::import(input.generic_csv.unwrap(), &self.0.timezone).await
-            }
-            ImportSource::Hardcover => hardcover::import(input.generic_csv.unwrap()).await,
-            ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await,
-            ImportSource::Plex => plex::import(input.url_and_key.unwrap()).await,
-            ImportSource::Netflix => netflix::import(input.netflix.unwrap(), &self.0).await,
         };
         let mut model = db_import_job.into_active_model();
         match maybe_import {
