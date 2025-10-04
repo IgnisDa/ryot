@@ -40,6 +40,7 @@ static SEASON_EPISODE_PATTERNS: &[&str] = &[
     r"Season\s+(\d+)\s+Episode\s+(\d+)",
     r"season\s+(\d+)\s+episode\s+(\d+)",
     r"S(\d+)\s+E(\d+)",
+    r"(?i)Season\s+(\d+).*?Episode\s+(\d+)",
 ];
 
 static YEAR_EXTRACTION_PATTERNS: &[&str] = &[r"\(([12]\d{3})\)", r"\[([12]\d{3})\]"];
@@ -335,6 +336,7 @@ mod tests {
     const BREAKING_BAD_SEASON_EPISODE: &str = "Breaking Bad Season 1 Episode 2";
     const BREAKING_BAD_SEASON_EPISODE_COMPLEX: &str =
         "Breaking Bad Season 1 Episode 2 1080p BluRay";
+    const HOUSE_EPISODE: &str = "House, M.D.: Season 7: Two Stories (Episode 13)";
 
     #[rstest]
     #[case(ANDOR_WITH_YEAR, ANDOR_CLEAN)]
@@ -391,6 +393,7 @@ mod tests {
     #[case("The Office season 2 episode 10", 2, 10)]
     #[case(ANDOR_COMPLEX, 1, 1)]
     #[case(BREAKING_BAD_SEASON_EPISODE_COMPLEX, 1, 2)]
+    #[case(HOUSE_EPISODE, 7, 13)]
     fn test_extract_season_episode_valid(
         #[case] input: &str,
         #[case] expected_season: i32,
