@@ -3,7 +3,7 @@ use std::{
     env,
     fs::{self, File},
     io::{self, BufReader},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
@@ -152,6 +152,31 @@ fn extract_zip(zip_path: &str) -> Result<PathBuf> {
     Ok(temp_dir)
 }
 
+fn find_content_interaction_dir(root: &Path) -> Option<PathBuf> {
+    let mut stack = vec![root.to_path_buf()];
+
+    while let Some(dir) = stack.pop() {
+        let candidate = dir.join("CONTENT_INTERACTION");
+        if candidate.is_dir() {
+            return Some(candidate);
+        }
+
+        let entries = match fs::read_dir(&dir) {
+            Ok(entries) => entries,
+            Err(_) => continue,
+        };
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+            }
+        }
+    }
+
+    None
+}
+
 async fn lookup_title(
     ss: &Arc<SupportingService>,
     title: &str,
@@ -205,10 +230,9 @@ pub async fn import(
     let extracted_dir = extract_zip(&input.export_path)?;
     ryot_log!(debug, "Extracted ZIP to: {:?}", extracted_dir);
 
-    let content_dir = extracted_dir.join("CONTENT_INTERACTION");
-    if !content_dir.exists() {
+    let Some(content_dir) = find_content_interaction_dir(&extracted_dir) else {
         bail!("CONTENT_INTERACTION folder not found in Netflix export");
-    }
+    };
 
     let viewing_activity_path = content_dir.join("ViewingActivity.csv");
     let ratings_path = content_dir.join("Ratings.csv");
