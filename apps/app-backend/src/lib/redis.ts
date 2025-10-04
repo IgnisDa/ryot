@@ -7,6 +7,7 @@ export const redisKeys = {
 	uploadToken: (token: string) => `ryot:upload:token:${token}`,
 	godModePendingReset: (email: string) => `ryot:god-mode:pending:${email}`,
 	sandboxSession: (executionId: string) => `ryot:sandbox:session:${executionId}`,
+	importSourcePayload: (runId: string) => `ryot:imports:source-payload:${runId}`,
 	godModeResetChannel: (correlationId: string) => `ryot:god-mode:reset:${correlationId}`,
 	sandboxCache: (scriptId: string, key: string) => `ryot:sandbox:cache:${scriptId}:${key}`,
 };
