@@ -154,9 +154,9 @@ pub struct DeployIgdbImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployJsonImportInput {
-    // The file path of the uploaded JSON export.
-    pub export: String,
+pub struct DeployPathImportInput {
+    // The file path of the uploaded export.
+    pub export_path: String,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -179,7 +179,7 @@ pub struct DeployImportJobInput {
     pub igdb: Option<DeployIgdbImportInput>,
     pub trakt: Option<DeployTraktImportInput>,
     pub movary: Option<DeployMovaryImportInput>,
-    pub generic_json: Option<DeployJsonImportInput>,
+    pub generic_json: Option<DeployPathImportInput>,
     pub jellyfin: Option<DeployJellyfinImportInput>,
     pub strong_app: Option<DeployStrongAppImportInput>,
     pub url_and_key: Option<DeployUrlAndKeyImportInput>,
