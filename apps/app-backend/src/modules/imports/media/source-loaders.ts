@@ -73,6 +73,7 @@ const LoadedMediaImportAdapterLoaded = Schema.TaggedStruct("loaded", {
 });
 
 const LoadedMediaImportAdapterNetflixSearchPlanned = Schema.TaggedStruct("netflix-search-planned", {
+	importedAt: Schema.String,
 	myListPath: Schema.String,
 	ratingsPath: Schema.String,
 	viewingActivityPath: Schema.String,
