@@ -372,16 +372,12 @@ pub async fn import(
             let bookmark_seconds = parse_time_to_seconds(&record.bookmark);
             let duration_seconds = parse_time_to_seconds(&record.duration);
 
-            let progress =
-                if let (Some(bookmark), Some(duration)) = (bookmark_seconds, duration_seconds) {
-                    if duration > 0 {
-                        Some(Decimal::from(bookmark * 100 / duration))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
+            let progress = match (bookmark_seconds, duration_seconds) {
+                (Some(bookmark), Some(duration)) if duration > 0 => {
+                    Some(Decimal::from(bookmark * 100 / duration))
+                }
+                _ => None,
+            };
 
             let seen_item = ImportOrExportMetadataItemSeen {
                 ended_on,
