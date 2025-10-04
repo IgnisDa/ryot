@@ -2,6 +2,8 @@ import { generateId } from "better-auth";
 import { and, eq, isNull } from "drizzle-orm";
 import googleBooksBookDetailsScriptCode from "../sandbox/scripts/google-books-book-details-source.txt";
 import googleBooksBookSearchScriptCode from "../sandbox/scripts/google-books-book-search-source.txt";
+import hardcoverBookDetailsScriptCode from "../sandbox/scripts/hardcover-book-details-source.txt";
+import hardcoverBookSearchScriptCode from "../sandbox/scripts/hardcover-book-search-source.txt";
 import openLibraryBookDetailsScriptCode from "../sandbox/scripts/openlibrary-book-details-source.txt";
 import openLibraryBookSearchScriptCode from "../sandbox/scripts/openlibrary-book-search-source.txt";
 import { db } from ".";
@@ -15,6 +17,8 @@ import { bookPropertiesJsonSchema } from "./schema/book";
 
 const googleBooksImportScriptSlug = "google-books.book.details";
 const googleBooksSearchScriptSlug = "google-books.book.search";
+const hardcoverImportScriptSlug = "hardcover.book.details";
+const hardcoverSearchScriptSlug = "hardcover.book.search";
 const openLibraryImportScriptSlug = "openlibrary.book.details";
 const openLibrarySearchScriptSlug = "openlibrary.book.search";
 
@@ -82,7 +86,12 @@ const ensureBuiltinSandboxScript = async (input: {
 	slug: string;
 }) => {
 	const [existingScript] = await db
-		.select({ id: sandboxScript.id })
+		.select({
+			id: sandboxScript.id,
+			code: sandboxScript.code,
+			name: sandboxScript.name,
+			isBuiltin: sandboxScript.isBuiltin,
+		})
 		.from(sandboxScript)
 		.where(
 			and(eq(sandboxScript.slug, input.slug), isNull(sandboxScript.userId)),
@@ -91,14 +100,20 @@ const ensureBuiltinSandboxScript = async (input: {
 
 	const scriptId = existingScript?.id ?? generateId();
 
-	const values = { isBuiltin: true, code: input.code, name: input.name };
+	const values = { code: input.code, name: input.name, isBuiltin: true };
 
-	if (existingScript)
-		await db
-			.update(sandboxScript)
-			.set(values)
-			.where(eq(sandboxScript.id, scriptId));
-	else
+	if (existingScript) {
+		const shouldUpdateScript =
+			existingScript.code !== input.code ||
+			existingScript.name !== input.name ||
+			!existingScript.isBuiltin;
+
+		if (shouldUpdateScript)
+			await db
+				.update(sandboxScript)
+				.set(values)
+				.where(eq(sandboxScript.id, scriptId));
+	} else
 		await db
 			.insert(sandboxScript)
 			.values({ id: scriptId, slug: input.slug, ...values });
@@ -166,6 +181,18 @@ export const seedEntitySchemas = async () => {
 		scriptId: googleBooksSearchScriptId,
 	});
 
+	const hardcoverSearchScriptId = await ensureBuiltinSandboxScript({
+		name: "Hardcover Book Search",
+		slug: hardcoverSearchScriptSlug,
+		code: hardcoverBookSearchScriptCode,
+	});
+
+	await linkScriptToEntitySchema({
+		scriptType: "search",
+		entitySchemaId: bookSchemaId,
+		scriptId: hardcoverSearchScriptId,
+	});
+
 	const openLibraryImportScriptId = await ensureBuiltinSandboxScript({
 		name: "OpenLibrary Book Import",
 		slug: openLibraryImportScriptSlug,
@@ -188,6 +215,18 @@ export const seedEntitySchemas = async () => {
 		scriptType: "details",
 		entitySchemaId: bookSchemaId,
 		scriptId: googleBooksImportScriptId,
+	});
+
+	const hardcoverImportScriptId = await ensureBuiltinSandboxScript({
+		name: "Hardcover Book Import",
+		slug: hardcoverImportScriptSlug,
+		code: hardcoverBookDetailsScriptCode,
+	});
+
+	await linkScriptToEntitySchema({
+		scriptType: "details",
+		entitySchemaId: bookSchemaId,
+		scriptId: hardcoverImportScriptId,
 	});
 
 	console.info("Entity schemas seeded successfully");
