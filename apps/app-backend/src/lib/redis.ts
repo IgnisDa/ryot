@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Redacted } from "effect";
+import { Effect, Redacted } from "effect";
 import Redis from "ioredis";
 
 import { AppConfig } from "./config";
@@ -7,20 +7,8 @@ export const redisKeys = {
 	sandboxSession: (executionId: string) => `ryot:sandbox:session:${executionId}`,
 };
 
-export class RedisService extends Context.Tag("RedisService")<
-	RedisService,
-	{
-		readonly client: Redis;
-		readonly get: (key: string) => Effect.Effect<string | null>;
-		readonly del: (...keys: ReadonlyArray<string>) => Effect.Effect<number>;
-		readonly publish: (channel: string, message: string) => Effect.Effect<number>;
-		readonly set: (key: string, value: string, ttlSeconds?: number) => Effect.Effect<void>;
-	}
->() {}
-
-export const RedisLive = Layer.scoped(
-	RedisService,
-	Effect.gen(function* () {
+export class RedisService extends Effect.Service<RedisService>()("RedisService", {
+	scoped: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const client = new Redis(Redacted.value(config.redisUrl), {
 			lazyConnect: true,
@@ -31,14 +19,15 @@ export const RedisLive = Layer.scoped(
 
 		return {
 			client,
-			get: (key) => Effect.tryPromise(() => client.get(key)).pipe(Effect.orDie),
-			del: (...keys) => Effect.tryPromise(() => client.del(...keys)).pipe(Effect.orDie),
-			publish: (channel, message) =>
+			get: (key: string) => Effect.tryPromise(() => client.get(key)).pipe(Effect.orDie),
+			del: (...keys: ReadonlyArray<string>) =>
+				Effect.tryPromise(() => client.del(...keys)).pipe(Effect.orDie),
+			publish: (channel: string, message: string) =>
 				Effect.tryPromise(() => client.publish(channel, message)).pipe(Effect.orDie),
-			set: (key, value, ttlSeconds) =>
+			set: (key: string, value: string, ttlSeconds?: number) =>
 				Effect.tryPromise(() =>
 					ttlSeconds ? client.set(key, value, "EX", ttlSeconds) : client.set(key, value),
 				).pipe(Effect.asVoid, Effect.orDie),
 		};
 	}),
-);
+}) {}
