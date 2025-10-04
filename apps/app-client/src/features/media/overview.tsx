@@ -228,62 +228,62 @@ export function MediaTrackerOverview() {
 						<Text className="mt-0.5 text-[38px] font-heading-semibold leading-[40px] tracking-[-0.5px] text-foreground">
 							Overview
 						</Text>
-					{isDesktop ? (
-						<Box className="mt-4 flex-row items-center justify-between">
-							<Box className="flex-row gap-3">
-								<StatCard color={SECTION_ACCENTS.continue} count={3} label="In Progress" />
-								<StatCard color={SECTION_ACCENTS.upNext} count={8} label="Queued" />
-								<StatCard color={SECTION_ACCENTS.rateThese} count={2} label="To Rate" />
+						{isDesktop ? (
+							<Box className="mt-4 flex-row items-center justify-between">
+								<Box className="flex-row gap-3">
+									<StatCard color={SECTION_ACCENTS.continue} count={3} label="In Progress" />
+									<StatCard color={SECTION_ACCENTS.upNext} count={8} label="Queued" />
+									<StatCard color={SECTION_ACCENTS.rateThese} count={2} label="To Rate" />
+								</Box>
+								<Pressable
+									className="flex-row items-center gap-2 rounded-full bg-primary px-5 py-3"
+									accessibilityLabel="Track Something"
+									accessibilityRole="button"
+									onPress={() => console.log("Track Something pressed")}
+								>
+									<Plus color="#1c1917" size={16} strokeWidth={2} />
+									<Text className="text-[13px] font-sans-semibold text-primary-foreground">
+										Track Something
+									</Text>
+								</Pressable>
 							</Box>
-							<Pressable
-								className="flex-row items-center gap-2 rounded-full bg-primary px-5 py-3"
-								accessibilityLabel="Track Something"
-								accessibilityRole="button"
-								onPress={() => console.log("Track Something pressed")}
-							>
-								<Plus color="#1c1917" size={16} strokeWidth={2} />
-								<Text className="text-[13px] font-sans-semibold text-primary-foreground">
-									Track Something
-								</Text>
-							</Pressable>
-						</Box>
-					) : (
-						<Box className="mt-4 flex-row flex-wrap gap-2">
-							<StatPill color={SECTION_ACCENTS.continue} label="3 in progress" />
-							<StatPill color={SECTION_ACCENTS.upNext} label="8 queued" />
-							<StatPill color={SECTION_ACCENTS.rateThese} label="2 to rate" />
-						</Box>
-					)}
+						) : (
+							<Box className="mt-4 flex-row flex-wrap gap-2">
+								<StatPill color={SECTION_ACCENTS.continue} label="3 in progress" />
+								<StatPill color={SECTION_ACCENTS.upNext} label="8 queued" />
+								<StatPill color={SECTION_ACCENTS.rateThese} label="2 to rate" />
+							</Box>
+						)}
 					</Box>
 
-				{isDesktop ? (
-					<Box className="mt-6 flex-row px-[28]" style={{ gap: 32 }}>
-						{/* Left column — main content */}
-						<Box className="flex-1">
-							<Box
-								className="rounded-2xl p-5"
-								style={{
-									borderWidth: 1,
-									borderColor: hexToRgba(SECTION_ACCENTS.continue, 0.15),
-									backgroundColor: hexToRgba(SECTION_ACCENTS.continue, 0.06),
-								}}
-							>
-								<Text
-									className="mb-4 text-[10px] font-sans-semibold uppercase tracking-[2px]"
-									style={{ color: SECTION_ACCENTS.continue }}
+					{isDesktop ? (
+						<Box className="mt-6 flex-row px-[28]" style={{ gap: 32 }}>
+							{/* Left column — main content */}
+							<Box className="flex-1">
+								<Box
+									className="rounded-2xl p-5"
+									style={{
+										borderWidth: 1,
+										borderColor: hexToRgba(SECTION_ACCENTS.continue, 0.15),
+										backgroundColor: hexToRgba(SECTION_ACCENTS.continue, 0.06),
+									}}
 								>
-									In Progress
-								</Text>
-								<StoryRingRow items={FAKE_CONTINUE} xlarge wrap wrapGap={28} />
+									<Text
+										className="mb-4 text-[10px] font-sans-semibold uppercase tracking-[2px]"
+										style={{ color: SECTION_ACCENTS.continue }}
+									>
+										In Progress
+									</Text>
+									<StoryRingRow items={FAKE_CONTINUE} xlarge wrap wrapGap={28} />
+								</Box>
+								<UpNextSection items={FAKE_UP_NEXT} />
 							</Box>
-							<UpNextSection items={FAKE_UP_NEXT} />
+							{/* Right column — sidebar */}
+							<Box style={{ maxWidth: 400, width: "35%" }}>
+								<RateTheseSection items={FAKE_RATE_THESE} />
+								<ActivitySection items={FAKE_ACTIVITY} />
+							</Box>
 						</Box>
-						{/* Right column — sidebar */}
-						<Box style={{ maxWidth: 400, width: "35%" }}>
-							<RateTheseSection items={FAKE_RATE_THESE} />
-							<ActivitySection items={FAKE_ACTIVITY} />
-						</Box>
-					</Box>
 					) : (
 						<>
 							{/* Story rings — scrolls edge-to-edge with its own padding */}
