@@ -394,6 +394,8 @@ mod tests {
     #[case(ANDOR_COMPLEX, 1, 1)]
     #[case(BREAKING_BAD_SEASON_EPISODE_COMPLEX, 1, 2)]
     #[case(HOUSE_EPISODE, 7, 13)]
+    #[case("HOUSE: SEASON 7: EPISODE 13", 7, 13)]
+    #[case("show: season 5: episode 10", 5, 10)]
     fn test_extract_season_episode_valid(
         #[case] input: &str,
         #[case] expected_season: i32,
