@@ -1,8 +1,8 @@
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
-import { db } from "../db";
-import { redis } from "../lib/redis";
-import { errorResponse, successResponse } from "../lib/response";
+import { db } from "~/db";
+import { redis } from "~/lib/redis";
+import { errorResponse, successResponse } from "~/lib/response";
 
 export const healthApi = new Hono().get("/", async (c) => {
 	try {

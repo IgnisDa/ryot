@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { requireAuth } from "../auth/middleware";
-import { successResponse } from "../lib/response";
+import { requireAuth } from "~/auth/middleware";
+import { successResponse } from "~/lib/response";
 import { entitiesApi } from "./entities";
 import { entitySchemasApi } from "./entity-schemas";
 import { sandboxApi } from "./sandbox";
