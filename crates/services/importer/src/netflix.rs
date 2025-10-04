@@ -109,7 +109,10 @@ fn parse_time_to_seconds(time_str: &str) -> Option<i32> {
 }
 fn convert_rating(thumbs: Option<i32>, stars: Option<i32>) -> Option<Decimal> {
     match (stars, thumbs) {
-        (Some(star_value), _) => Some(Decimal::from(star_value * 20)),
+        (Some(star_value), _) => match star_value {
+            1..=5 => Some(Decimal::from(star_value * 20)),
+            _ => None,
+        },
         (None, Some(thumbs_value)) => match thumbs_value {
             0 => None,
             1 => Some(dec!(33)),
