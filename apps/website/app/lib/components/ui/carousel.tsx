@@ -1,5 +1,4 @@
 import { cn } from "@ryot/ts-utils/cn";
-import { Button } from "app/lib/components/ui/button";
 import useEmblaCarousel, { type UseEmblaCarouselType } from "embla-carousel-react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import {
@@ -13,6 +12,8 @@ import {
 	useEffect,
 	useState,
 } from "react";
+
+import { Button } from "~/lib/components/ui/button";
 
 type CarouselApi = UseEmblaCarouselType[1];
 type UseCarouselParameters = Parameters<typeof useEmblaCarousel>;

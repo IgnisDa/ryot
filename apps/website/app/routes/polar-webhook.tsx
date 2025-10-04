@@ -50,7 +50,7 @@ async function handleOrderPaid(
 
 	const { data: order } = event;
 	const polarCustomerId = order.customer.id;
-	const externalCustomerId = order.customer.externalId || undefined;
+	const externalCustomerId = order.customer.externalId ?? undefined;
 
 	console.log("Received order.paid event", {
 		polarCustomerId,
@@ -91,7 +91,7 @@ async function handleSubscriptionRevoked(
 
 	const { data: subscription } = event;
 	const polarCustomerId = subscription.customer.id;
-	const externalCustomerId = subscription.customer.externalId || undefined;
+	const externalCustomerId = subscription.customer.externalId ?? undefined;
 
 	console.log("Received subscription.revoked event", {
 		polarCustomerId,

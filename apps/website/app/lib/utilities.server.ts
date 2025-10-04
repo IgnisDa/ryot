@@ -1,7 +1,7 @@
 import { Environment, Paddle } from "@paddle/paddle-node-sdk";
 import { render } from "@react-email/components";
+import { dayjs, type Dayjs } from "@ryot/ts-utils/dayjs";
 import { formatDateToNaiveDate } from "@ryot/ts-utils/format";
-import dayjs, { type Dayjs } from "dayjs";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { createTransport } from "nodemailer";
 import * as openidClient from "openid-client";
@@ -40,7 +40,7 @@ export const getClientIp = (request: Request): string | undefined => {
 export const getProductAndPlanTypeByPriceId = (priceId: string) => {
 	for (const product of getPrices()) {
 		for (const price of product.prices) {
-			if (price.priceId === priceId) return { productType: product.type, planType: price.name };
+			if (price.priceId === priceId) {return { productType: product.type, planType: price.name };}
 		}
 	}
 	throw new Error("Price ID not found");
@@ -103,7 +103,7 @@ export const sendEmail = async (input: {
 	return resp.messageId;
 };
 
-export const calculateRenewalDate = (planType: TPlanTypes, baseDate?: Date | dayjs.Dayjs) => {
+export const calculateRenewalDate = (planType: TPlanTypes, baseDate?: Date | Dayjs) => {
 	const date = baseDate ? dayjs(baseDate) : dayjs();
 	return match(planType)
 		.with("free", "lifetime", () => null)
@@ -141,9 +141,9 @@ export const getCustomerWithActivePurchase = async (request: Request) => {
 	return {
 		...customer,
 		activePurchase,
-		planType: activePurchase?.planType || null,
+		planType: activePurchase?.planType ?? null,
 		hasCancelled: !!activePurchase?.cancelledOn,
-		productType: activePurchase?.productType || null,
+		productType: activePurchase?.productType ?? null,
 		ryotUserId: activePurchase?.productType === "cloud" ? customer.ryotUserId : null,
 		renewOn: activePurchase?.renewOn ? formatDateToNaiveDate(activePurchase.renewOn) : null,
 		unkeyKeyId: activePurchase?.productType === "self_hosted" ? customer.unkeyKeyId : null,
