@@ -575,12 +575,11 @@ export type DeployIgdbImportInput = {
 
 export type DeployImportJobInput = {
   genericCsv?: InputMaybe<DeployGenericCsvImportInput>;
-  genericJson?: InputMaybe<DeployPathImportInput>;
   igdb?: InputMaybe<DeployIgdbImportInput>;
   jellyfin?: InputMaybe<DeployJellyfinImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
-  netflix?: InputMaybe<DeployPathImportInput>;
+  path?: InputMaybe<DeployPathImportInput>;
   source: ImportSource;
   strongApp?: InputMaybe<DeployStrongAppImportInput>;
   trakt?: InputMaybe<DeployTraktImportInput>;

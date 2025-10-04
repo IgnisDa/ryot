@@ -97,11 +97,11 @@ impl ImporterService {
             ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await,
             ImportSource::Myanimelist => myanimelist::import(input.mal.unwrap()).await,
             ImportSource::Grouvee => grouvee::import(input.generic_csv.unwrap()).await,
+            ImportSource::GenericJson => generic_json::import(input.path.unwrap()).await,
             ImportSource::Hardcover => hardcover::import(input.generic_csv.unwrap()).await,
-            ImportSource::Netflix => netflix::import(input.netflix.unwrap(), &self.0).await,
-            ImportSource::GenericJson => generic_json::import(input.generic_json.unwrap()).await,
+            ImportSource::Netflix => netflix::import(input.path.unwrap(), &self.0).await,
+            ImportSource::Anilist => anilist::import(input.path.unwrap(), &self.0).await,
             ImportSource::Mediatracker => mediatracker::import(input.url_and_key.unwrap()).await,
-            ImportSource::Anilist => anilist::import(input.generic_json.unwrap(), &self.0).await,
             ImportSource::Hevy => hevy::import(input.generic_csv.unwrap(), &self.0, &user_id).await,
             ImportSource::OpenScale => {
                 open_scale::import(input.generic_csv.unwrap(), &self.0.timezone).await

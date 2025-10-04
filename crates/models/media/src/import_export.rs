@@ -176,11 +176,10 @@ pub struct DeployJellyfinImportInput {
 pub struct DeployImportJobInput {
     pub source: ImportSource,
     pub mal: Option<DeployMalImportInput>,
+    pub path: Option<DeployPathImportInput>,
     pub igdb: Option<DeployIgdbImportInput>,
     pub trakt: Option<DeployTraktImportInput>,
-    pub netflix: Option<DeployPathImportInput>,
     pub movary: Option<DeployMovaryImportInput>,
-    pub generic_json: Option<DeployPathImportInput>,
     pub jellyfin: Option<DeployJellyfinImportInput>,
     pub strong_app: Option<DeployStrongAppImportInput>,
     pub url_and_key: Option<DeployUrlAndKeyImportInput>,

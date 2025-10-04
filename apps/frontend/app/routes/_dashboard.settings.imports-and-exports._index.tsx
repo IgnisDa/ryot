@@ -109,12 +109,14 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				.with(ImportSource.Myanimelist, async () => ({
 					mal: processSubmission(formData, malImportFormSchema),
 				}))
-				.with(ImportSource.GenericJson, ImportSource.Anilist, async () => ({
-					genericJson: processSubmission(formData, exportPathImportFormSchema),
-				}))
-				.with(ImportSource.Netflix, async () => ({
-					netflix: processSubmission(formData, exportPathImportFormSchema),
-				}))
+				.with(
+					ImportSource.GenericJson,
+					ImportSource.Anilist,
+					ImportSource.Netflix,
+					async () => ({
+						path: processSubmission(formData, exportPathImportFormSchema),
+					}),
+				)
 				.with(ImportSource.Jellyfin, async () => ({
 					jellyfin: processSubmission(formData, jellyfinImportFormSchema),
 				}))
