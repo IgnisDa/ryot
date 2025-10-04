@@ -584,6 +584,7 @@ export type DeployImportJobInput = {
   jellyfin?: InputMaybe<DeployJellyfinImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
+  netflix?: InputMaybe<DeployPathImportInput>;
   source: ImportSource;
   strongApp?: InputMaybe<DeployStrongAppImportInput>;
   trakt?: InputMaybe<DeployTraktImportInput>;
@@ -1086,6 +1087,7 @@ export enum ImportSource {
   Mediatracker = 'MEDIATRACKER',
   Movary = 'MOVARY',
   Myanimelist = 'MYANIMELIST',
+  Netflix = 'NETFLIX',
   OpenScale = 'OPEN_SCALE',
   Plex = 'PLEX',
   Storygraph = 'STORYGRAPH',
