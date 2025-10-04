@@ -17,6 +17,7 @@ interface UserLike {
 	name: string;
 	email: string;
 	createdAt: Date;
+	bannedAt?: Date | null;
 	twoFactorEnabled?: boolean | null;
 }
 
@@ -70,6 +71,7 @@ export const listUsers = async (
 					email: u.email,
 					createdAt: u.createdAt.toISOString(),
 					authState: classifyAuthState(accounts),
+					bannedAt: u.bannedAt?.toISOString() ?? null,
 					twoFactorEnabled: u.twoFactorEnabled ?? null,
 				};
 			}),
@@ -101,4 +103,39 @@ export const checkResetEligibility = async (
 	}
 
 	return serviceData({ authState });
+};
+
+export interface ToggleUserBanDeps {
+	now: () => Date;
+	deleteSessions: (userId: string) => Promise<void>;
+	findUserById: (userId: string) => Promise<UserLike | null>;
+	updateUser: (
+		userId: string,
+		input: { bannedAt: Date | null; updatedAt: Date },
+	) => Promise<unknown>;
+}
+
+export const toggleUserBan = async (
+	userId: string,
+	deps: ToggleUserBanDeps,
+): Promise<GodModeServiceResult<{ id: string; bannedAt: string | null }>> => {
+	try {
+		const foundUser = await deps.findUserById(userId);
+		if (!foundUser) {
+			return serviceError("validation", `User with id '${userId}' not found`);
+		}
+
+		const updatedAt = deps.now();
+		const bannedAt = foundUser.bannedAt ? null : updatedAt;
+		await deps.updateUser(foundUser.id, { updatedAt, bannedAt });
+
+		if (bannedAt) {
+			await deps.deleteSessions(foundUser.id);
+		}
+
+		return serviceData({ id: foundUser.id, bannedAt: bannedAt?.toISOString() ?? null });
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "Failed to toggle user ban";
+		return serviceError("internal", message);
+	}
 };

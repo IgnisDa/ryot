@@ -1,5 +1,6 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { dayjs } from "@ryot/ts-utils/dayjs";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { Redirect } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -15,6 +16,8 @@ import { useServerUrl } from "@/lib/atoms";
 
 type GodModeUser =
 	paths["/god-mode/users"]["get"]["responses"][200]["content"]["application/json"]["data"]["users"][number];
+
+const godModeUsersQueryKey = (token: string) => ["god-mode-users", token] as const;
 
 export default function GodMode() {
 	const serverUrl = useServerUrl();
@@ -100,21 +103,18 @@ function TokenForm(props: {
 }
 
 function UserList(props: { token: string; serverUrl: string; onReset: () => void }) {
+	const queryKey = godModeUsersQueryKey(props.token);
 	const apiClient = createApiClient(props.serverUrl);
 
 	const query = useQuery({
-		queryKey: ["god-mode-users", props.token],
+		queryKey,
 		queryFn: async () => {
 			const { data, error } = await apiClient.GET("/god-mode/users", {
 				params: { query: { limit: 100 } },
 				headers: { "Admin-Access-Token": props.token },
 			});
 			if (error) {
-				throw new Error(
-					typeof error === "object" && "message" in error
-						? String(error.message)
-						: "Failed to fetch users",
-				);
+				throw new Error(error.error.message);
 			}
 			return data.data;
 		},
@@ -154,8 +154,9 @@ function UserList(props: { token: string; serverUrl: string; onReset: () => void
 
 	return (
 		<Box className="flex-1 px-4 gap-1">
-			<Box className="flex-row px-3 py-2 border-b border-border">
+			<Box className="flex-row px-3 py-2 border-b border-border gap-2">
 				<Text className="flex-1 text-muted-foreground text-xs font-medium">Email</Text>
+				<Text className="text-muted-foreground text-xs font-medium w-20 text-center">Status</Text>
 				<Text className="text-muted-foreground text-xs font-medium w-20 text-center">Auth</Text>
 			</Box>
 			<FlatList
@@ -177,6 +178,7 @@ function UserRowWithReset(props: {
 	const { user, token, apiClient } = props;
 	const [copied, setCopied] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const queryClient = useQueryClient();
 	const copyTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const [result, setResult] = useState<{ resetUrl: string; email: string } | null>(null);
 
@@ -204,16 +206,33 @@ function UserRowWithReset(props: {
 				},
 			);
 			if (apiError) {
-				throw new Error(
-					typeof apiError === "object" && "message" in apiError
-						? String(apiError.message)
-						: "Reset link generation failed",
-				);
+				throw new Error(apiError.error.message);
 			}
 			return data.data;
 		},
 	});
 
+	const toggleBanMutation = useMutation({
+		onError: (err) => setError(err.message),
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: godModeUsersQueryKey(token) });
+		},
+		onMutate: () => {
+			setError(null);
+			setResult(null);
+		},
+		mutationFn: async () => {
+			const { error: apiError } = await apiClient.POST("/god-mode/users/{userId}/ban/toggle", {
+				params: { path: { userId: user.id } },
+				headers: { "Admin-Access-Token": token },
+			});
+			if (apiError) {
+				throw new Error(apiError.error.message);
+			}
+		},
+	});
+
+	const isDisabled = !!user.bannedAt;
 	const canReset = user.authState === "credential" || user.authState === "none";
 
 	async function handleCopy() {
@@ -236,14 +255,27 @@ function UserRowWithReset(props: {
 
 	return (
 		<Box className="border-b border-border/50">
-			<Box className="flex-row items-center px-3 py-3">
+			<Box className="flex-row items-center px-3 py-3 gap-2">
 				<Box className="flex-1 gap-0.5">
-					<Text className="text-foreground text-sm">{user.email}</Text>
+					<Text
+						className={clsx(
+							"text-sm",
+							isDisabled ? "text-muted-foreground line-through" : "text-foreground",
+						)}
+					>
+						{user.email}
+					</Text>
 					<Text className="text-muted-foreground text-xs">{user.name}</Text>
+					{user.bannedAt && (
+						<Text className="text-muted-foreground text-xs">
+							Disabled since {dayjs(user.bannedAt).format("MMM D, YYYY")}
+						</Text>
+					)}
 				</Box>
+				<StatusBadge bannedAt={user.bannedAt} />
 				<AuthBadge state={user.authState} />
 			</Box>
-			<Box className="flex-row items-center px-3 pb-3 gap-2">
+			<Box className="flex-row flex-wrap items-center px-3 pb-3 gap-2">
 				<Button
 					size="sm"
 					onPress={() => resetMutation.mutate()}
@@ -251,6 +283,15 @@ function UserRowWithReset(props: {
 				>
 					{resetMutation.isPending && <ButtonSpinner />}
 					<ButtonText>Generate reset link</ButtonText>
+				</Button>
+				<Button
+					size="sm"
+					isDisabled={toggleBanMutation.isPending}
+					onPress={() => toggleBanMutation.mutate()}
+					variant={isDisabled ? "outline" : "destructive"}
+				>
+					{toggleBanMutation.isPending && <ButtonSpinner />}
+					<ButtonText>{isDisabled ? "Enable user" : "Disable user"}</ButtonText>
 				</Button>
 				{!canReset && (
 					<Text className="text-muted-foreground text-xs">
@@ -276,6 +317,17 @@ function UserRowWithReset(props: {
 					</Box>
 				</Box>
 			)}
+		</Box>
+	);
+}
+
+function StatusBadge(props: { bannedAt: string | null }) {
+	const isDisabled = !!props.bannedAt;
+	const color = isDisabled ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700";
+
+	return (
+		<Box className={clsx("rounded-full px-2.5 py-0.5 w-20 items-center", color)}>
+			<Text className="text-xs font-medium">{isDisabled ? "Disabled" : "Enabled"}</Text>
 		</Box>
 	);
 }
