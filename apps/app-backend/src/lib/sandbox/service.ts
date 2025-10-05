@@ -45,7 +45,7 @@ export class SandboxService {
 	};
 
 	async start() {
-		await this.bridgeServer.start();
+		this.bridgeServer.start();
 		await this.runnerManager.create();
 		await this.packageCache.populate(vendoredPackages);
 
@@ -209,6 +209,7 @@ export class SandboxService {
 			const poolHit = pooledProc !== null;
 			const proc = pooledProc ?? this.spawnProcess(bridgePort, runnerPath, maxHeapMB);
 
+			// oxlint-disable-next-line no-unnecessary-condition
 			if (!proc.stdin) {
 				return { success: false, error: "Sandbox stdin is unavailable" };
 			}
@@ -229,8 +230,8 @@ export class SandboxService {
 			});
 
 			try {
-				proc.stdin.write(payload);
-				proc.stdin.end();
+				void proc.stdin.write(payload);
+				void proc.stdin.end();
 			} catch {
 				clearTimeoutGuard();
 				proc.kill("SIGKILL");
@@ -257,6 +258,7 @@ export class SandboxService {
 			const logs = stderrText.trim() || undefined;
 			const resultText = stdoutText.trim();
 
+			// oxlint-disable-next-line no-unnecessary-condition
 			if (timedOut) {
 				const outcome = "timeout";
 				sandboxExecutionsTotal.inc({ outcome });
@@ -277,6 +279,7 @@ export class SandboxService {
 			}
 
 			try {
+				// oxlint-disable-next-line no-unsafe-type-assertion
 				const parsed = JSON.parse(resultText) as DenoRunOutput;
 				const outcome = parsed.success ? "success" : "error";
 				const executionMs = parsed.denoMetrics?.scriptExecMs ?? 0;
@@ -297,7 +300,7 @@ export class SandboxService {
 					value: parsed.value,
 					error: parsed.error,
 					timing: { totalMs, executionMs },
-					success: Boolean(parsed.success),
+					success: parsed.success,
 				};
 			} catch {
 				const outcome = "error";

@@ -43,7 +43,7 @@ describe("executeInternalAppRequest", () => {
 	it("registers internal request auth before execution", async () => {
 		let capturedRequest: Request | undefined;
 
-		registerInternalAppRequestHandler(async (request) => {
+		registerInternalAppRequestHandler((request) => {
 			capturedRequest = request;
 			return Response.json({ ok: true });
 		});
@@ -61,14 +61,16 @@ describe("executeInternalAppRequest", () => {
 		expect(capturedRequest?.url).toBe("http://ryot.internal/query-engine/execute");
 		expect(capturedRequest?.headers.get("x-test")).toBe("1");
 		expect(capturedRequest?.headers.get("content-type")).toBe("application/json");
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		expect(getInternalRequestAuth(capturedRequest as Request)).toEqual({
 			userId: "user_1",
 		});
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		expect(await (capturedRequest as Request).text()).toBe('{"hello":"world"}');
 	});
 
-	it("throws when the internal handler is missing", async () => {
-		expect(
+	it("throws when the internal handler is missing", () => {
+		return expect(
 			executeInternalAppRequest({
 				method: "POST",
 				userId: "user_1",

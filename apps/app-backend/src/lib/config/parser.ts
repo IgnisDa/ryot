@@ -18,18 +18,19 @@ export function parseGroupDef<T extends Record<string, ConfigNode>>(
 			return raw;
 		}
 		const result: Record<string, unknown> = {};
-		for (const [key, child] of Object.entries(node.children as Record<string, ConfigNode>)) {
+		for (const [key, child] of Object.entries(node.children)) {
 			result[key] = walk(child);
 		}
 		return result;
 	}
 
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	return { envIndex, config: walk(def) as ParsedChildren<T> };
 }
 
 export function buildPathIndex(def: GroupDef, prefix = ""): Record<string, string> {
 	const result: Record<string, string> = {};
-	for (const [key, child] of Object.entries(def.children as Record<string, ConfigNode>)) {
+	for (const [key, child] of Object.entries(def.children)) {
 		const path = prefix ? `${prefix}.${key}` : key;
 		if (child.kind === "field") {
 			result[path] = child.envKey;

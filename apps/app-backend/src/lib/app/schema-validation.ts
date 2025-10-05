@@ -30,7 +30,7 @@ export const parseAppSchemaProperties = (input: {
 		throw new Error(`${input.kind} properties validation failed: ${result.error.message}`);
 	}
 
-	return result.data as Record<string, unknown>;
+	return result.data;
 };
 
 export const parseAppSchemaPropertiesSafe = (input: {
@@ -72,5 +72,5 @@ export const parseAppSchemaPropertiesSafe = (input: {
 		return { success: false, issues };
 	}
 
-	return { success: true, data: result.data as Record<string, unknown> };
+	return { success: true, data: result.data };
 };

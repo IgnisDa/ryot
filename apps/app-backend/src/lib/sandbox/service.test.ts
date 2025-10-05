@@ -27,17 +27,19 @@ const createJobData = (overrides: Partial<SandboxRunJobData> = {}): SandboxRunJo
 	...overrides,
 });
 
-const createScriptFetcher = (metadata?: object) => async (_scriptId: string) => ({
-	metadata: metadata ?? {},
-	code: 'driver("main", async function() { return 1; });',
-});
+const createScriptFetcher = (metadata?: object) => (_scriptId: string) =>
+	Promise.resolve({
+		metadata: metadata ?? {},
+		code: 'driver("main", async function() { return 1; });',
+	});
 
 describe("SandboxService.executeQueuedRun", () => {
 	it("returns error when the script is not found", async () => {
 		const service = new SandboxService();
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const testService = service as unknown as TestSandboxExecutor;
 
-		const result = await testService.executeQueuedRun(createJobData(), async () => null);
+		const result = await testService.executeQueuedRun(createJobData(), () => Promise.resolve(null));
 
 		expect(result).toEqual({
 			success: false,
@@ -47,12 +49,13 @@ describe("SandboxService.executeQueuedRun", () => {
 
 	it("builds descriptors from allowedHostFunctions in metadata", async () => {
 		const service = new SandboxService();
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const testService = service as unknown as TestSandboxExecutor;
 		let capturedOptions: unknown;
 
-		testService.execute = async (options: unknown) => {
+		testService.execute = (options: unknown) => {
 			capturedOptions = options;
-			return { value: "ok", success: true, logs: null, error: null };
+			return Promise.resolve({ value: "ok", success: true, logs: null, error: null });
 		};
 
 		await testService.executeQueuedRun(
@@ -66,6 +69,7 @@ describe("SandboxService.executeQueuedRun", () => {
 			code: 'driver("main", async function() { return 1; });',
 		});
 
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const apiFunctions = (
 			capturedOptions as {
 				apiFunctions: Record<string, (...args: Array<unknown>) => Promise<unknown>>;
@@ -76,16 +80,18 @@ describe("SandboxService.executeQueuedRun", () => {
 
 	it("uses no registry functions when metadata has no allowedHostFunctions", async () => {
 		const service = new SandboxService();
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const testService = service as unknown as TestSandboxExecutor;
 		let capturedOptions: unknown;
 
-		testService.execute = async (options: unknown) => {
+		testService.execute = (options: unknown) => {
 			capturedOptions = options;
-			return { value: "ok", success: true, logs: null, error: null };
+			return Promise.resolve({ value: "ok", success: true, logs: null, error: null });
 		};
 
 		await testService.executeQueuedRun(createJobData(), createScriptFetcher());
 
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const apiFunctions = (
 			capturedOptions as {
 				apiFunctions: Record<string, (...args: Array<unknown>) => Promise<unknown>>;
@@ -96,12 +102,13 @@ describe("SandboxService.executeQueuedRun", () => {
 
 	it("returns error before execute when metadata is invalid", async () => {
 		const service = new SandboxService();
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const testService = service as unknown as TestSandboxExecutor;
 		let executeCalled = false;
 
-		testService.execute = async () => {
+		testService.execute = () => {
 			executeCalled = true;
-			return { success: true };
+			return Promise.resolve({ success: true });
 		};
 
 		const result = await testService.executeQueuedRun(
@@ -109,19 +116,22 @@ describe("SandboxService.executeQueuedRun", () => {
 			createScriptFetcher({ allowedHostFunctions: "not-an-array" }),
 		);
 
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		expect((result as { success: boolean }).success).toBe(false);
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		expect((result as { error: string }).error).toContain("Sandbox script metadata is invalid");
 		expect(executeCalled).toBe(false);
 	});
 
 	it("returns error before execute when metadata has an unknown function key", async () => {
 		const service = new SandboxService();
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const testService = service as unknown as TestSandboxExecutor;
 		let executeCalled = false;
 
-		testService.execute = async () => {
+		testService.execute = () => {
 			executeCalled = true;
-			return { success: true };
+			return Promise.resolve({ success: true });
 		};
 
 		const result = await testService.executeQueuedRun(
@@ -129,7 +139,9 @@ describe("SandboxService.executeQueuedRun", () => {
 			createScriptFetcher({ allowedHostFunctions: ["missingFunction"] }),
 		);
 
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		expect((result as { success: boolean }).success).toBe(false);
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		expect((result as { error: string }).error).toBe(
 			"Unknown sandbox host function: missingFunction",
 		);
@@ -138,12 +150,13 @@ describe("SandboxService.executeQueuedRun", () => {
 
 	it("forwards driverName in execute payload", async () => {
 		const service = new SandboxService();
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const testService = service as unknown as TestSandboxExecutor;
 		let capturedOptions: unknown;
 
-		testService.execute = async (options: unknown) => {
+		testService.execute = (options: unknown) => {
 			capturedOptions = options;
-			return { success: true, logs: null, error: null, value: null };
+			return Promise.resolve({ value: "ok", success: true, logs: null, error: null });
 		};
 
 		await testService.executeQueuedRun(
@@ -156,76 +169,90 @@ describe("SandboxService.executeQueuedRun", () => {
 });
 
 describe("SandboxService.getJobByIdForUser", () => {
-	it("returns the job when it belongs to the user and payload is valid", async () => {
+	it("returns the job when it belongs to the user and payload is valid", () => {
 		const service = new SandboxService();
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const testService = service as unknown as TestSandboxQueueAccessor;
 		const job = {
 			data: createJobData(),
 			returnvalue: undefined,
 			failedReason: undefined,
-			getState: async () => "completed" as const,
+			getState: () => Promise.resolve("completed" as const),
 		};
 
 		testService.getQueue = () => ({
-			getJob: async (jobId: string) => {
+			getJob: (jobId: string) => {
 				expect(jobId).toBe("job_1");
-				return job;
+				return Promise.resolve(job);
 			},
 		});
 
-		expect(service.getJobByIdForUser({ jobId: "job_1", userId: "user_1" })).resolves.toEqual({
-			job,
-			jobData: createJobData(),
-		});
+		return expect(service.getJobByIdForUser({ jobId: "job_1", userId: "user_1" })).resolves.toEqual(
+			{
+				job,
+				jobData: createJobData(),
+			},
+		);
 	});
 
-	it("returns null when the job does not exist", async () => {
+	it("returns null when the job does not exist", () => {
 		const service = new SandboxService();
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const testService = service as unknown as TestSandboxQueueAccessor;
 
-		testService.getQueue = () => ({ getJob: async () => null });
+		testService.getQueue = () => ({ getJob: () => Promise.resolve(null) });
 
-		expect(service.getJobByIdForUser({ jobId: "missing", userId: "user_1" })).resolves.toBeNull();
+		return expect(
+			service.getJobByIdForUser({ jobId: "missing", userId: "user_1" }),
+		).resolves.toBeNull();
 	});
 
-	it("returns null when the job belongs to another user", async () => {
+	it("returns null when the job belongs to another user", () => {
 		const service = new SandboxService();
-		const testService = service as unknown as TestSandboxQueueAccessor;
-
-		testService.getQueue = () => ({
-			getJob: async () => ({ data: createJobData({ userId: "user_2" }) }),
-		});
-
-		expect(service.getJobByIdForUser({ jobId: "job_1", userId: "user_1" })).resolves.toBeNull();
-	});
-
-	it("returns null when the job payload is invalid", async () => {
-		const service = new SandboxService();
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const testService = service as unknown as TestSandboxQueueAccessor;
 
 		testService.getQueue = () => ({
-			getJob: async () => ({ data: { userId: "user_1" } }),
+			getJob: () => Promise.resolve({ data: createJobData({ userId: "user_2" }) }),
 		});
 
-		expect(service.getJobByIdForUser({ jobId: "job_1", userId: "user_1" })).resolves.toBeNull();
+		return expect(
+			service.getJobByIdForUser({ jobId: "job_1", userId: "user_1" }),
+		).resolves.toBeNull();
+	});
+
+	it("returns null when the job payload is invalid", () => {
+		const service = new SandboxService();
+		// oxlint-disable-next-line no-unsafe-type-assertion
+		const testService = service as unknown as TestSandboxQueueAccessor;
+
+		testService.getQueue = () => ({
+			getJob: () => Promise.resolve({ data: { userId: "user_1" } }),
+		});
+
+		return expect(
+			service.getJobByIdForUser({ jobId: "job_1", userId: "user_1" }),
+		).resolves.toBeNull();
 	});
 });
 
 describe("SandboxService worker job processing", () => {
-	it("rejects unsupported sandbox jobs", async () => {
+	it("rejects unsupported sandbox jobs", () => {
 		const service = new SandboxService();
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const testService = service as unknown as TestSandboxWorkerProcessor;
 
-		expect(testService.processJob({ name: "unknown", data: {} })).rejects.toThrow(
+		return expect(testService.processJob({ name: "unknown", data: {} })).rejects.toThrow(
 			"Unsupported sandbox job: unknown",
 		);
 	});
 
-	it("rejects invalid sandbox job payloads", async () => {
+	it("rejects invalid sandbox job payloads", () => {
 		const service = new SandboxService();
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const testService = service as unknown as TestSandboxWorkerProcessor;
 
-		expect(
+		return expect(
 			testService.processJob({
 				name: sandboxRunJobName,
 				data: { userId: "user_1" },
@@ -233,17 +260,18 @@ describe("SandboxService worker job processing", () => {
 		).rejects.toThrow("Sandbox run payload is invalid");
 	});
 
-	it("routes valid execute jobs through queued execution", async () => {
+	it("routes valid execute jobs through queued execution", () => {
 		const service = new SandboxService();
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const testService = service as unknown as TestSandboxWorkerProcessor;
 		let capturedJobData: SandboxRunJobData | undefined;
 
-		testService.executeQueuedRun = async (jobData) => {
+		testService.executeQueuedRun = (jobData) => {
 			capturedJobData = jobData;
-			return { success: true, error: null, logs: null, value: null };
+			return Promise.resolve({ success: true, error: null, logs: null, value: null });
 		};
 
-		expect(
+		const promise = expect(
 			testService.processJob({
 				name: sandboxRunJobName,
 				data: createJobData({ driverName: "details" }),
@@ -251,22 +279,25 @@ describe("SandboxService worker job processing", () => {
 		).resolves.toEqual({ success: true, error: null, logs: null, value: null });
 
 		expect(capturedJobData).toEqual(createJobData({ driverName: "details" }));
+		return promise;
 	});
 });
 
 describe("SandboxService.enqueue", () => {
 	it("includes driverName in job data when enqueuing", async () => {
 		const service = new SandboxService();
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const testService = service as unknown as TestSandboxQueueAccessor;
 		const addedJobs: Array<{ name: string; data: unknown; opts: unknown }> = [];
 
 		testService.getQueue = () =>
+			// oxlint-disable-next-line no-unsafe-type-assertion
 			({
-				add: async (name: string, data: unknown, opts: unknown) => {
+				add: (name: string, data: unknown, opts: unknown) => {
 					addedJobs.push({ name, data, opts });
-					return { id: "job_1" };
+					return Promise.resolve({ id: "job_1" });
 				},
-				getJob: async () => null,
+				getJob: () => Promise.resolve(null),
 			}) as unknown as ReturnType<TestSandboxQueueAccessor["getQueue"]>;
 
 		await service.enqueue({
@@ -276,6 +307,7 @@ describe("SandboxService.enqueue", () => {
 		});
 
 		expect(addedJobs).toHaveLength(1);
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const jobData = addedJobs[0]?.data as { driverName?: string } | undefined;
 		expect(jobData?.driverName).toBe("search");
 	});
