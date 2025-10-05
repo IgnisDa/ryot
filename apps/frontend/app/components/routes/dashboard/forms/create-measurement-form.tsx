@@ -16,7 +16,7 @@ import {
 import { changeCase, snakeCase } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useApplicationEvents, useUserPreferences } from "~/lib/shared/hooks";
 import {
 	clientGqlService,
@@ -31,13 +31,18 @@ export const CreateMeasurementForm = (props: {
 	const events = useApplicationEvents();
 	const userPreferences = useUserPreferences();
 
-	const [input, setInput] = useState<UserMeasurementInput>(() => {
+	const buildInput = (
+		measurement?: UserMeasurement | null,
+	): UserMeasurementInput => {
 		return {
-			name: props.measurementToEdit?.name || "",
-			comment: props.measurementToEdit?.comment || "",
-			timestamp: props.measurementToEdit?.timestamp || new Date().toISOString(),
+			name: measurement?.name || "",
+			comment: measurement?.comment || "",
+			timestamp: measurement?.timestamp || new Date().toISOString(),
 			information: {
-				statistics: props.measurementToEdit?.information.statistics || [],
+				statistics:
+					measurement?.information?.statistics?.map((statistic) => ({
+						...statistic,
+					})) || [],
 				assets: {
 					s3Images: [],
 					s3Videos: [],
@@ -46,7 +51,15 @@ export const CreateMeasurementForm = (props: {
 				},
 			},
 		};
+	};
+
+	const [input, setInput] = useState<UserMeasurementInput>(() => {
+		return buildInput(props.measurementToEdit);
 	});
+
+	useEffect(() => {
+		setInput(buildInput(props.measurementToEdit));
+	}, [props.measurementToEdit]);
 
 	const createMeasurementMutation = useMutation({
 		mutationFn: () =>
