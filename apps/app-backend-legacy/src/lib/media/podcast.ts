@@ -1,5 +1,4 @@
 import { z } from "@hono/zod-openapi";
-import { toAppSchemaProperties } from "@ryot/ts-utils/app-schema";
 
 import { imagesSchema, nullableIntSchema, nullableStringSchema } from "../zod";
 import { mediaWithUnlinkedCreatorsPropertiesSchema } from "./common";
@@ -22,7 +21,6 @@ export const podcastPropertiesSchema = mediaWithUnlinkedCreatorsPropertiesSchema
 	episodes: z.array(podcastEpisodeSchema).describe("List of podcast episodes"),
 });
 
-export const podcastPropertiesJsonSchema = toAppSchemaProperties(podcastPropertiesSchema);
 
 export type PodcastEpisode = z.infer<typeof podcastEpisodeSchema>;
 

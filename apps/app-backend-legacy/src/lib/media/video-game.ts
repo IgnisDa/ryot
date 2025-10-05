@@ -1,5 +1,4 @@
 import { z } from "@hono/zod-openapi";
-import { toAppSchemaProperties } from "@ryot/ts-utils/app-schema";
 
 import { imagesSchema, nullableIntSchema, nullableStringSchema } from "../zod";
 import { mediaPropertiesSchema } from "./common";
@@ -33,7 +32,6 @@ export const videoGamePropertiesSchema = mediaPropertiesSchema.extend({
 		.describe("Platform-specific release information"),
 });
 
-export const videoGamePropertiesJsonSchema = toAppSchemaProperties(videoGamePropertiesSchema);
 
 export type VideoGameTimeToBeat = z.infer<typeof videoGameTimeToBeatSchema>;
 
