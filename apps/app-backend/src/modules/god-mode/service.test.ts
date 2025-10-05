@@ -199,8 +199,8 @@ describe("setUserBan", () => {
 	};
 
 	it("bans an unbanned user and deletes sessions", async () => {
-		let deletedUserId = "";
 		let updatedInput: unknown;
+		let deletedUserId = [] as string[];
 
 		const result = await setUserBan(
 			"user_1",
@@ -208,8 +208,8 @@ describe("setUserBan", () => {
 			{
 				now: () => now,
 				findUserById: () => Promise.resolve(baseUser),
-				deleteSessions: (id) => {
-					deletedUserId = id;
+				deleteSessions: (ids) => {
+					deletedUserId = ids;
 					return Promise.resolve();
 				},
 				updateUser: (_id, input) => {
@@ -220,7 +220,7 @@ describe("setUserBan", () => {
 		);
 
 		expect(result).toEqual({ data: { id: "user_1", bannedAt: "2024-03-04T05:06:07.000Z" } });
-		expect(deletedUserId).toBe("user_1");
+		expect(deletedUserId).toBe(["user_1"]);
 		expect(updatedInput).toEqual({ updatedAt: now, bannedAt: now });
 	});
 
