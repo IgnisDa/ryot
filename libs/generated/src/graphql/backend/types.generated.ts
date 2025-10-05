@@ -1542,14 +1542,14 @@ export type MutationRoot = {
   createOrUpdateReview: StringIdObject;
   /** Create or update an integration for the currently logged in user. */
   createOrUpdateUserIntegration: Scalars['Boolean']['output'];
+  /** Create or update a user measurement. */
+  createOrUpdateUserMeasurement: Scalars['DateTime']['output'];
   /** Take a user workout, process it and commit it to database. */
   createOrUpdateUserWorkout: Scalars['String']['output'];
   /** Create or update a workout template. */
   createOrUpdateUserWorkoutTemplate: Scalars['String']['output'];
   /** Create, like or delete a comment on a review. */
   createReviewComment: Scalars['Boolean']['output'];
-  /** Create a user measurement. */
-  createUserMeasurement: Scalars['DateTime']['output'];
   /** Add a notification platform for the currently logged in user. */
   createUserNotificationPlatform: Scalars['String']['output'];
   /** Delete a collection. */
@@ -1716,6 +1716,11 @@ export type MutationRootCreateOrUpdateUserIntegrationArgs = {
 };
 
 
+export type MutationRootCreateOrUpdateUserMeasurementArgs = {
+  input: UserMeasurementInput;
+};
+
+
 export type MutationRootCreateOrUpdateUserWorkoutArgs = {
   input: UserWorkoutInput;
 };
@@ -1728,11 +1733,6 @@ export type MutationRootCreateOrUpdateUserWorkoutTemplateArgs = {
 
 export type MutationRootCreateReviewCommentArgs = {
   input: CreateReviewCommentInput;
-};
-
-
-export type MutationRootCreateUserMeasurementArgs = {
-  input: UserMeasurementInput;
 };
 
 
