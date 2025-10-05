@@ -161,7 +161,7 @@ export const provisionUser = async (
 
 export interface SetUserBanDeps {
 	now: () => Date;
-	deleteSessions: (userIds: string[]) => Promise<void>;
+	deleteUserSessions: (userId: string) => Promise<void>;
 	findUserById: (userId: string) => Promise<UserLike | null>;
 	updateUser: (
 		userId: string,
@@ -184,8 +184,8 @@ export const setUserBan = async (
 		const bannedAt = input.banned ? (foundUser.bannedAt ?? updatedAt) : null;
 		await deps.updateUser(foundUser.id, { updatedAt, bannedAt });
 
-		if (input.banned && !foundUser.bannedAt) {
-			await deps.deleteSessions([foundUser.id]);
+		if (input.banned) {
+			await deps.deleteUserSessions(foundUser.id);
 		}
 
 		return serviceData({ id: foundUser.id, bannedAt: bannedAt?.toISOString() ?? null });
