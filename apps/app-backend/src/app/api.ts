@@ -3,8 +3,11 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { auth, type MaybeAuthType } from "~/auth";
 import {
 	createAuthRoute,
+	dataSchema,
+	ERROR_CODES,
 	errorJsonResponse,
 	jsonResponse,
+	successResponse,
 } from "~/lib/openapi";
 import { appConfigApi } from "~/modules/app-config/routes";
 import { entitiesApi } from "~/modules/entities/routes";
@@ -18,10 +21,12 @@ const openApiInfo = {
 	description: "OpenAPI specification for app-owned backend routes",
 };
 
-const meResponseSchema = z.object({
-	user: z.unknown(),
-	session: z.unknown().nullable(),
-});
+const meResponseSchema = dataSchema(
+	z.object({
+		user: z.unknown(),
+		session: z.unknown().nullable(),
+	}),
+);
 
 const meRoute = createAuthRoute(
 	createRoute({
