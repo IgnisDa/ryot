@@ -11,7 +11,7 @@ import {
 	listBuiltinEntitySchemas,
 	listEventSchemas,
 } from "../fixtures";
-import { assertPresent, requireObjectRecord } from "../test-support/assertions";
+import { assertPresent, assertTaggedError, requireObjectRecord } from "../test-support/assertions";
 
 describe("GET /event-schemas", () => {
 	it("returns seeded built-in media lifecycle event schemas", async () => {
@@ -481,13 +481,13 @@ describe("GET /event-schemas", () => {
 			slug: "owner-entity",
 		});
 
-		const { error, response } = await intruder.client.eventSchemas.list({
-			headers: { Cookie: intruder.cookies },
-			params: { query: { entitySchemaId } },
-		});
+		const error = await intruder.client.runError(
+			(c) => c.eventSchemas.list({ urlParams: { entitySchemaId } }),
+			{ Cookie: intruder.cookies },
+		);
 
-		expect(response.status).toBe(404);
-		expect(error?.error.message).toBe("Entity schema not found");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toBe("Entity schema not found");
 	});
 });
 
@@ -503,22 +503,24 @@ describe("POST /event-schemas", () => {
 			slug: "custom-entity",
 		});
 
-		const { data, response } = await client.eventSchemas.create({
-			headers: { Cookie: cookies },
-			body: {
-				entitySchemaId,
-				name: "My Event",
-				slug: "my-event",
-				propertiesSchema: {
-					fields: { note: { type: "string", label: "Note", description: "Note" } },
-				},
-			},
-		});
+		const data = await client.run(
+			(c) =>
+				c.eventSchemas.create({
+					payload: {
+						entitySchemaId,
+						name: "My Event",
+						slug: "my-event",
+						propertiesSchema: {
+							fields: { note: { type: "string", label: "Note", description: "Note" } },
+						},
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(201);
-		expect(data?.name).toBe("My Event");
-		expect(data?.slug).toBe("my-event");
-		expect(data?.entitySchemaId).toBe(entitySchemaId);
+		expect(data.name).toBe("My Event");
+		expect(data.slug).toBe("my-event");
+		expect(data.entitySchemaId).toBe(entitySchemaId);
 	});
 
 	it("returns 400 when event schema properties schema is invalid", async () => {
@@ -532,28 +534,31 @@ describe("POST /event-schemas", () => {
 			slug: "custom-entity",
 		});
 
-		const { error, response } = await client.eventSchemas.create({
-			headers: { Cookie: cookies },
-			body: {
-				entitySchemaId,
-				name: "Invalid Event",
-				slug: "invalid-event",
-				propertiesSchema: {
-					fields: { status: { type: "string", label: "Status", description: "Status" } },
-					rules: [
-						{
-							path: ["missing"],
-							kind: "validation",
-							validation: { required: true },
-							when: { operator: "eq", path: ["status"], value: "completed" },
+		const error = await client.runError(
+			(c) =>
+				c.eventSchemas.create({
+					payload: {
+						entitySchemaId,
+						name: "Invalid Event",
+						slug: "invalid-event",
+						propertiesSchema: {
+							fields: { status: { type: "string", label: "Status", description: "Status" } },
+							rules: [
+								{
+									path: ["missing"],
+									kind: "validation",
+									validation: { required: true },
+									when: { operator: "eq", path: ["status"], value: "completed" },
+								},
+							],
 						},
-					],
-				},
-			},
-		});
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(400);
-		expect(error?.error.message).toContain("Rule path 'missing' does not exist");
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toContain("Rule path 'missing' does not exist");
 	});
 
 	it("returns 400 when event schema slug already exists for the same entity schema", async () => {
@@ -576,20 +581,22 @@ describe("POST /event-schemas", () => {
 			},
 		});
 
-		const { response, error } = await client.eventSchemas.create({
-			headers: { Cookie: cookies },
-			body: {
-				entitySchemaId,
-				name: "Second Event",
-				slug: "duplicate-event-slug",
-				propertiesSchema: {
-					fields: { note: { type: "string", label: "Note", description: "Note" } },
-				},
-			},
-		});
+		const error = await client.runError(
+			(c) =>
+				c.eventSchemas.create({
+					payload: {
+						entitySchemaId,
+						name: "Second Event",
+						slug: "duplicate-event-slug",
+						propertiesSchema: {
+							fields: { note: { type: "string", label: "Note", description: "Note" } },
+						},
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(409);
-		expect(error?.error).toBeDefined();
-		expect(error?.error.message).toBe("Event schema slug already exists");
+		assertTaggedError(error, "Conflict");
+		expect(error.message).toBe("Event schema slug already exists");
 	});
 });

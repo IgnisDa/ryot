@@ -6,7 +6,7 @@ import {
 	disableTracker,
 	listTrackers,
 } from "../fixtures";
-import { requireResponseData } from "../test-support/assertions";
+import { assertTaggedError } from "../test-support/assertions";
 
 const normalizeSlug = (value: string) =>
 	value
@@ -24,28 +24,32 @@ describe("Trackers E2E", () => {
 		const name = "My Cool Tracker";
 		const slug = normalizeSlug(name);
 
-		const { data, response } = await client.trackers.create({
-			headers: { Cookie: cookies },
-			body: {
-				name,
-				icon: "rocket",
-				accentColor: "#FF5733",
-				description: "Test tracker description",
-			},
-		});
+		const tracker = await client.run(
+			(c) =>
+				c.trackers.create({
+					payload: {
+						name,
+						icon: "rocket",
+						accentColor: "#FF5733",
+						description: "Test tracker description",
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		const tracker = requireResponseData(response, data, "Failed to create tracker");
-		expect(response.status).toBe(201);
 		expect(tracker.slug).toBe(slug);
 		expect(tracker.isBuiltin).toBe(false);
 
-		const duplicate = await client.trackers.create({
-			headers: { Cookie: cookies },
-			body: { slug, icon: "rocket", name: `${name} Copy`, accentColor: "#FF5733" },
-		});
+		const duplicateError = await client.runError(
+			(c) =>
+				c.trackers.create({
+					payload: { slug, icon: "rocket", name: `${name} Copy`, accentColor: "#FF5733" },
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(duplicate.response.status).toBe(409);
-		expect(duplicate.error?.error.message).toBe("Tracker slug already exists");
+		assertTaggedError(duplicateError, "Conflict");
+		expect(duplicateError.message).toBe("Tracker slug already exists");
 	});
 
 	it("lists only enabled trackers by default and includes disabled when requested", async () => {
@@ -81,33 +85,37 @@ describe("Trackers E2E", () => {
 			name: `Update Target ${crypto.randomUUID()}`,
 		});
 
-		const updated = await owner.client.trackers.update({
-			headers: { Cookie: owner.cookies },
-			params: { path: { trackerId: created.trackerId } },
-			body: {
-				icon: "flame",
-				isDisabled: false,
-				accentColor: "#123456",
-				name: "Updated Tracker",
-				description: "Updated description",
-			},
-		});
+		const tracker = await owner.client.run(
+			(c) =>
+				c.trackers.update({
+					path: { trackerId: created.trackerId },
+					payload: {
+						icon: "flame",
+						isDisabled: false,
+						accentColor: "#123456",
+						name: "Updated Tracker",
+						description: "Updated description",
+					},
+				}),
+			{ Cookie: owner.cookies },
+		);
 
-		const tracker = requireResponseData(updated.response, updated.data, "Failed to update tracker");
-		expect(updated.response.status).toBe(200);
 		expect(tracker.name).toBe("Updated Tracker");
 		expect(tracker.icon).toBe("flame");
 		expect(tracker.accentColor).toBe("#123456");
 		expect(tracker.description).toBe("Updated description");
 
-		const crossUser = await otherUser.client.trackers.update({
-			body: { isDisabled: false },
-			headers: { Cookie: otherUser.cookies },
-			params: { path: { trackerId: created.trackerId } },
-		});
+		const crossUserError = await otherUser.client.runError(
+			(c) =>
+				c.trackers.update({
+					path: { trackerId: created.trackerId },
+					payload: { isDisabled: false },
+				}),
+			{ Cookie: otherUser.cookies },
+		);
 
-		expect(crossUser.response.status).toBe(404);
-		expect(crossUser.error?.error.message).toBe("Tracker not found");
+		assertTaggedError(crossUserError, "NotFound");
+		expect(crossUserError.message).toBe("Tracker not found");
 	});
 
 	it("reorders trackers while keeping omitted trackers at the end", async () => {
@@ -122,17 +130,11 @@ describe("Trackers E2E", () => {
 			name: `Third ${crypto.randomUUID()}`,
 		});
 
-		const reordered = await client.trackers.reorder({
-			headers: { Cookie: cookies },
-			body: { trackerIds: [third.trackerId, first.trackerId] },
-		});
-
-		const reorderedBody = requireResponseData(
-			reordered.response,
-			reordered.data,
-			"Failed to reorder trackers",
+		const reorderedBody = await client.run(
+			(c) => c.trackers.reorder({ payload: { trackerIds: [third.trackerId, first.trackerId] } }),
+			{ Cookie: cookies },
 		);
-		expect(reordered.response.status).toBe(200);
+
 		expect(reorderedBody.trackerIds).toEqual([third.trackerId, first.trackerId, second.trackerId]);
 
 		const trackers = await listTrackers(client, cookies);

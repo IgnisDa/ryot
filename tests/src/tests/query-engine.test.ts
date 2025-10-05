@@ -38,15 +38,16 @@ import {
 	literalExpression,
 	relationshipJoinField,
 	seedMediaEntity,
+	executeQueryEngineError,
 	toQueryEngineItem,
 	waitForEventCount,
 } from "../fixtures";
-import type { ClientSuccess } from "../fixtures/backend-client";
-import { assertPresent } from "../test-support/assertions";
+import type { ContractSuccess } from "../fixtures/contract-client";
+import { assertPresent, assertTaggedError } from "../test-support/assertions";
 import { registerQueryEnginePresentationAndErrorTests } from "../test-support/query-engine-suite";
 
 type QueryEngineItems = Extract<
-	ClientSuccess<"queryEngine", "execute">,
+	ContractSuccess<"queryEngine", "execute">,
 	{ mode: "entities" }
 >["data"]["items"];
 
@@ -70,7 +71,7 @@ describe("Query engine E2E", () => {
 		});
 		await insertLibraryMembership({ mediaEntityId: entity.id, userId });
 
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -93,7 +94,6 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(getItemTitles(data.data.items)).toEqual([entity.name]);
 	});
 
@@ -135,33 +135,37 @@ describe("Query engine E2E", () => {
 		const reviewEventSchemaId = eventSchemas.find((item) => item.slug === "review")?.id;
 		assertPresent(reviewEventSchemaId, "Missing review event schema");
 
-		const createUserAReviews = await userA.client.events.create({
-			headers: { Cookie: userA.cookies },
-			body: [
-				{
-					entityId: entity.id,
-					eventSchemaId: reviewEventSchemaId,
-					properties: { rating: 2, text: "Fine" },
-				},
-				{
-					entityId: entity.id,
-					eventSchemaId: reviewEventSchemaId,
-					properties: { rating: 4, text: "Better" },
-				},
-			],
-		});
-		const createUserBReview = await userB.client.events.create({
-			headers: { Cookie: userB.cookies },
-			body: [
-				{
-					entityId: entity.id,
-					eventSchemaId: reviewEventSchemaId,
-					properties: { rating: 5, text: "Excellent" },
-				},
-			],
-		});
-		expect(createUserAReviews.response.status).toBe(200);
-		expect(createUserBReview.response.status).toBe(200);
+		await userA.client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: entity.id,
+							eventSchemaId: reviewEventSchemaId,
+							properties: { rating: 2, text: "Fine" },
+						},
+						{
+							entityId: entity.id,
+							eventSchemaId: reviewEventSchemaId,
+							properties: { rating: 4, text: "Better" },
+						},
+					],
+				}),
+			{ Cookie: userA.cookies },
+		);
+		await userB.client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: entity.id,
+							eventSchemaId: reviewEventSchemaId,
+							properties: { rating: 5, text: "Excellent" },
+						},
+					],
+				}),
+			{ Cookie: userB.cookies },
+		);
 		await waitForEventCount(userA.client, userA.cookies, entity.id, 2);
 		await waitForEventCount(userB.client, userB.cookies, entity.id, 1);
 
@@ -190,8 +194,6 @@ describe("Query engine E2E", () => {
 		const userAResult = await executeQueryEngine(userA.client, userA.cookies, request);
 		const userBResult = await executeQueryEngine(userB.client, userB.cookies, request);
 
-		expect(userAResult.response.status).toBe(200);
-		expect(userBResult.response.status).toBe(200);
 		expect(getQueryEngineFieldOrThrow(userAResult.data.data.items[0], "callout")).toEqual({
 			value: 3,
 			key: "callout",
@@ -234,9 +236,7 @@ describe("Query engine E2E", () => {
 		const userAResult = await executeQueryEngine(userA.client, userA.cookies, request);
 		const userBResult = await executeQueryEngine(userB.client, userB.cookies, request);
 
-		expect(userAResult.response.status).toBe(200);
 		expect(getItemTitles(userAResult.data.data.items)).toEqual([entity.name]);
-		expect(userBResult.response.status).toBe(200);
 		expect(userBResult.data.data.items).toEqual([]);
 	});
 
@@ -251,13 +251,15 @@ describe("Query engine E2E", () => {
 		const collection = await createCollection(client, cookies, {
 			name: `Query Engine Multi Match ${crypto.randomUUID()}`,
 		});
-		const addToCollection = await client.collections.createMembership({
-			headers: { Cookie: cookies },
-			body: { entityId: entity.id, collectionId: collection.id },
-		});
-		expect(addToCollection.response.status).toBe(200);
+		await client.run(
+			(c) =>
+				c.collections.createMembership({
+					payload: { entityId: entity.id, collectionId: collection.id },
+				}),
+			{ Cookie: cookies },
+		);
 
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -287,38 +289,38 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(getItemTitles(data.data.items)).toEqual([entity.name]);
 		expect(data.data.meta.pagination.total).toBe(1);
 
-		const aggregateResult = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				eventJoins: [],
-				mode: "aggregate",
-				computedFields: [],
-				scope: [schema.slug],
-				aggregations: [{ key: "total", aggregation: { type: "count" } }],
-				filter: {
-					operator: "eq",
-					type: "comparison",
-					right: literalExpression(entity.name),
-					left: createEntityColumnExpression(schema.slug, "name"),
-				},
-				relationshipJoins: [
-					buildInLibraryRelationshipJoin(),
-					buildRequiredLatestRelationshipJoin({
-						key: "memberOf",
-						direction: "outgoing",
-						relationshipSchemaSlug: "member-of",
-					}),
-				],
-			},
-		});
+		const aggregateResult = await client.run(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						eventJoins: [],
+						mode: "aggregate",
+						computedFields: [],
+						scope: [schema.slug],
+						aggregations: [{ key: "total", aggregation: { type: "count" } }],
+						filter: {
+							operator: "eq",
+							type: "comparison",
+							right: literalExpression(entity.name),
+							left: createEntityColumnExpression(schema.slug, "name"),
+						},
+						relationshipJoins: [
+							buildInLibraryRelationshipJoin(),
+							buildRequiredLatestRelationshipJoin({
+								key: "memberOf",
+								direction: "outgoing",
+								relationshipSchemaSlug: "member-of",
+							}),
+						],
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(aggregateResult.response.status).toBe(200);
-		const aggregateValues =
-			aggregateResult.data?.mode === "aggregate" ? aggregateResult.data.data.values : [];
+		const aggregateValues = aggregateResult.mode === "aggregate" ? aggregateResult.data.values : [];
 		expect(getAggregateValue(aggregateValues, "total")).toEqual({
 			value: 1,
 			key: "total",
@@ -351,7 +353,7 @@ describe("Query engine E2E", () => {
 			slug: `optional-rel-${crypto.randomUUID()}`,
 		});
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -372,7 +374,6 @@ describe("Query engine E2E", () => {
 			],
 		});
 
-		expect(response.status).toBe(200);
 		expect(data.data.items.length).toBeGreaterThan(0);
 		const relCreatedAtField = getQueryEngineFieldOrThrow(data.data.items[0], "relCreatedAt");
 		expect(relCreatedAtField).toEqual({ key: "relCreatedAt", kind: "null", value: null });
@@ -430,7 +431,7 @@ describe("Query engine E2E", () => {
 			relationshipSchemaId: relSchema.id,
 		});
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -465,7 +466,6 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		expect(response.status).toBe(200);
 		const titles = data.data.items.map((i) => getQueryEngineFieldOrThrow(i, "title").value);
 		expect(titles).toContain(nameA);
 		expect(titles).not.toContain(nameB);
@@ -479,7 +479,7 @@ describe("Query engine E2E", () => {
 		});
 		await insertLibraryMembership({ userId, mediaEntityId: entity.id });
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -499,7 +499,6 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		expect(response.status).toBe(200);
 		expect(data.data.items).toHaveLength(1);
 		const createdAtField = getQueryEngineFieldOrThrow(data.data.items[0], "libCreatedAt");
 		expect(createdAtField.kind).toBe("date");
@@ -551,7 +550,7 @@ describe("Query engine E2E", () => {
 			relationshipSchemaId: relSchema.id,
 		});
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -580,7 +579,6 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		expect(response.status).toBe(200);
 		expect(data.data.items).toHaveLength(1);
 		expect(getQueryEngineFieldOrThrow(data.data.items[0], "rating")).toEqual({
 			value: 8,
@@ -659,7 +657,7 @@ describe("Query engine E2E", () => {
 			},
 		};
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -699,7 +697,6 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		expect(response.status).toBe(200);
 		expect(data.data.items).toHaveLength(2);
 		expect(getQueryEngineFieldOrThrow(data.data.items[0], "rating").value).toBe(2);
 		expect(getQueryEngineFieldOrThrow(data.data.items[1], "rating").value).toBe(9);
@@ -791,7 +788,7 @@ describe("Query engine E2E", () => {
 			},
 		};
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -848,7 +845,6 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		expect(response.status).toBe(200);
 		const ratings = data.data.items.map((i) => getQueryEngineFieldOrThrow(i, "rating").value);
 		expect(ratings).toContain(7);
 		expect(ratings).toContain(10);
@@ -932,7 +928,7 @@ describe("Query engine E2E", () => {
 			},
 		};
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -977,7 +973,6 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		expect(response.status).toBe(200);
 		const titles = data.data.items.map((i) => getQueryEngineFieldOrThrow(i, "title").value);
 		expect(titles).toContain(directorName);
 		expect(titles).not.toContain(actorName);
@@ -1053,7 +1048,7 @@ describe("Query engine E2E", () => {
 			},
 		};
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -1088,7 +1083,6 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		expect(response.status).toBe(200);
 		expect(data.data.items).toHaveLength(1);
 		expect(getQueryEngineFieldOrThrow(data.data.items[0], "rating")).toEqual({
 			value: 1,
@@ -1154,7 +1148,7 @@ describe("Query engine E2E", () => {
 			relationshipSchemaId: relSchema.id,
 		});
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -1185,7 +1179,6 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		expect(response.status).toBe(200);
 		expect(data.data.items).toHaveLength(1);
 		expect(getQueryEngineFieldOrThrow(data.data.items[0], "targetId")).toEqual({
 			kind: "text",
@@ -1250,7 +1243,7 @@ describe("Query engine E2E", () => {
 			relationshipSchemaId: relSchema.id,
 		});
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -1281,7 +1274,6 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		expect(response.status).toBe(200);
 		expect(data.data.items).toHaveLength(1);
 		expect(getQueryEngineFieldOrThrow(data.data.items[0], "targetId")).toEqual({
 			kind: "text",
@@ -1323,13 +1315,15 @@ describe("Query engine E2E", () => {
 			entitySchemaId: memberSchema.schemaId,
 		});
 
-		const addResult = await client.collections.createMembership({
-			headers: { Cookie: cookies },
-			body: { entityId: memberId, collectionId: collection.id },
-		});
-		expect(addResult.response.status).toBe(200);
+		await client.run(
+			(c) =>
+				c.collections.createMembership({
+					payload: { entityId: memberId, collectionId: collection.id },
+				}),
+			{ Cookie: cookies },
+		);
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -1356,7 +1350,6 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		expect(response.status).toBe(200);
 		const titles = data.data.items.map((i) => getQueryEngineFieldOrThrow(i, "title").value);
 		expect(titles).toContain(collection.name);
 	});
@@ -1387,13 +1380,12 @@ describe("Query engine E2E", () => {
 			entitySchemaId: schema.schemaId,
 		});
 
-		const addResult = await client.collections.createMembership({
-			headers: { Cookie: cookies },
-			body: { entityId, collectionId: collection.id },
-		});
-		expect(addResult.response.status).toBe(200);
+		await client.run(
+			(c) => c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
+			{ Cookie: cookies },
+		);
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -1421,7 +1413,6 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		expect(response.status).toBe(200);
 		expect(data.data.items).toHaveLength(1);
 		expect(getQueryEngineFieldOrThrow(data.data.items[0], "collectionName")).toEqual({
 			kind: "text",
@@ -1473,19 +1464,15 @@ describe("Query engine E2E", () => {
 			[zEntityId, zCollection.id],
 			[aEntityId, aCollection.id],
 		] as const;
-		const addResults = await Promise.all(
+		await Promise.all(
 			membershipPairs.map(([entityId, collectionId]) =>
-				client.collections.createMembership({
-					headers: { Cookie: cookies },
-					body: { entityId, collectionId },
+				client.run((c) => c.collections.createMembership({ payload: { entityId, collectionId } }), {
+					Cookie: cookies,
 				}),
 			),
 		);
-		for (const addResult of addResults) {
-			expect(addResult.response.status).toBe(200);
-		}
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -1518,7 +1505,6 @@ describe("Query engine E2E", () => {
 			filter: null,
 		});
 
-		expect(response.status).toBe(200);
 		expect(data.data.items.map((item) => getItemFieldValue(item, "title"))).toEqual([
 			aEntityName,
 			zEntityName,
@@ -1550,34 +1536,37 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		const { response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				mode: "events",
-				scope: [schema.slug],
-				eventSchemas: [eventSchema.slug],
-				pagination: { page: 1, limit: 10 },
-				sort: {
-					direction: "asc",
-					expression: createEntityColumnExpression(schema.slug, "name"),
-				},
-				fields: [
-					{
-						key: "relField",
-						expression: {
-							type: "reference",
-							reference: {
-								joinKey: "someRel",
-								path: ["createdAt"],
-								type: "relationship-join",
-							},
+		const error = await client.runError(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						mode: "events",
+						scope: [schema.slug],
+						eventSchemas: [eventSchema.slug],
+						pagination: { page: 1, limit: 10 },
+						sort: {
+							direction: "asc",
+							expression: createEntityColumnExpression(schema.slug, "name"),
 						},
+						fields: [
+							{
+								key: "relField",
+								expression: {
+									type: "reference",
+									reference: {
+										joinKey: "someRel",
+										path: ["createdAt"],
+										type: "relationship-join",
+									},
+								},
+							},
+						],
 					},
-				],
-			},
-		});
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(400);
+		assertTaggedError(error, "BadRequest");
 	});
 
 	it("rejects join-local filter referencing a computed field", async () => {
@@ -1599,45 +1588,54 @@ describe("Query engine E2E", () => {
 			slug: `computed-filter-rel-${crypto.randomUUID()}`,
 		});
 
-		const { response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				eventJoins: [],
-				mode: "entities",
-				scope: [schema.slug],
-				pagination: { page: 1, limit: 10 },
-				sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
-				computedFields: [
-					{ key: "computedTitle", expression: createEntityColumnExpression(schema.slug, "name") },
-				],
-				relationshipJoins: [
-					{
-						required: false,
-						direction: "outgoing",
-						key: "computedFilterRel",
-						kind: "latestRelationship",
-						relationshipSchemaSlug: relSchema.slug,
-						filter: {
-							operator: "eq",
-							type: "comparison",
-							right: literalExpression("test"),
-							left: {
-								type: "reference",
-								reference: { key: "computedTitle", type: "computed-field" },
-							},
+		const error = await client.runError(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						eventJoins: [],
+						mode: "entities",
+						scope: [schema.slug],
+						pagination: { page: 1, limit: 10 },
+						sort: {
+							direction: "asc",
+							expression: createEntityColumnExpression(schema.slug, "name"),
 						},
+						computedFields: [
+							{
+								key: "computedTitle",
+								expression: createEntityColumnExpression(schema.slug, "name"),
+							},
+						],
+						relationshipJoins: [
+							{
+								required: false,
+								direction: "outgoing",
+								key: "computedFilterRel",
+								kind: "latestRelationship",
+								relationshipSchemaSlug: relSchema.slug,
+								filter: {
+									operator: "eq",
+									type: "comparison",
+									right: literalExpression("test"),
+									left: {
+										type: "reference",
+										reference: { key: "computedTitle", type: "computed-field" },
+									},
+								},
+							},
+						],
+						fields: [buildQueryEngineField("title", [entityField(schema.slug, "name")])],
 					},
-				],
-				fields: [buildQueryEngineField("title", [entityField(schema.slug, "name")])],
-			},
-		});
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(400);
+		assertTaggedError(error, "BadRequest");
 	});
 
 	it("executes a simple single-schema query with the full response shape", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({ scope: [schema.slug] }),
@@ -1645,7 +1643,6 @@ describe("Query engine E2E", () => {
 		const result = data.data;
 		const firstItem = result.items[0];
 
-		expect(response.status).toBe(200);
 		expect(result.items).toHaveLength(5);
 		expect(getItemFieldValue(firstItem, "title")).toBe("Alpha Phone");
 		expect(getItemFieldValue(firstItem, "image")).toEqual({
@@ -1690,68 +1687,70 @@ describe("Query engine E2E", () => {
 	it("executes aggregate mode counts and numeric aggregations inside the filtered set", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
 
-		const { data, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				eventJoins: [],
-				mode: "aggregate",
-				computedFields: [],
-				scope: [schema.slug],
-				relationshipJoins: [],
-				filter: {
-					type: "in",
-					expression: createEntityPropertyExpression(schema.slug, "category"),
-					values: [literalExpression("phone"), literalExpression("wearable")],
-				},
-				aggregations: [
-					{ key: "total", aggregation: { type: "count" } },
-					{
-						key: "recent",
-						aggregation: {
-							type: "countWhere",
-							predicate: {
-								operator: "gte",
-								type: "comparison",
-								right: literalExpression(2020),
-								left: createEntityPropertyExpression(schema.slug, "year"),
+		const data = await client.run(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						eventJoins: [],
+						mode: "aggregate",
+						computedFields: [],
+						scope: [schema.slug],
+						relationshipJoins: [],
+						filter: {
+							type: "in",
+							expression: createEntityPropertyExpression(schema.slug, "category"),
+							values: [literalExpression("phone"), literalExpression("wearable")],
+						},
+						aggregations: [
+							{ key: "total", aggregation: { type: "count" } },
+							{
+								key: "recent",
+								aggregation: {
+									type: "countWhere",
+									predicate: {
+										operator: "gte",
+										type: "comparison",
+										right: literalExpression(2020),
+										left: createEntityPropertyExpression(schema.slug, "year"),
+									},
+								},
 							},
-						},
+							{
+								key: "sumYear",
+								aggregation: {
+									type: "sum",
+									expression: createEntityPropertyExpression(schema.slug, "year"),
+								},
+							},
+							{
+								key: "avgYear",
+								aggregation: {
+									type: "avg",
+									expression: createEntityPropertyExpression(schema.slug, "year"),
+								},
+							},
+							{
+								key: "minYear",
+								aggregation: {
+									type: "min",
+									expression: createEntityPropertyExpression(schema.slug, "year"),
+								},
+							},
+							{
+								key: "maxYear",
+								aggregation: {
+									type: "max",
+									expression: createEntityPropertyExpression(schema.slug, "year"),
+								},
+							},
+						],
 					},
-					{
-						key: "sumYear",
-						aggregation: {
-							type: "sum",
-							expression: createEntityPropertyExpression(schema.slug, "year"),
-						},
-					},
-					{
-						key: "avgYear",
-						aggregation: {
-							type: "avg",
-							expression: createEntityPropertyExpression(schema.slug, "year"),
-						},
-					},
-					{
-						key: "minYear",
-						aggregation: {
-							type: "min",
-							expression: createEntityPropertyExpression(schema.slug, "year"),
-						},
-					},
-					{
-						key: "maxYear",
-						aggregation: {
-							type: "max",
-							expression: createEntityPropertyExpression(schema.slug, "year"),
-						},
-					},
-				],
-			},
-		});
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		expect(data?.mode).toBe("aggregate");
-		const values = data?.mode === "aggregate" ? data.data.values : [];
+		expect(data.mode).toBe("aggregate");
+		const values = data.mode === "aggregate" ? data.data.values : [];
 		expect(getAggregateValue(values, "total")).toEqual({
 			value: 3,
 			key: "total",
@@ -1783,72 +1782,75 @@ describe("Query engine E2E", () => {
 	it("returns countBy maps and SQL empty-set defaults in aggregate mode", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
 
-		const aggregateResult = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				eventJoins: [],
-				mode: "aggregate",
-				computedFields: [],
-				scope: [schema.slug],
-				relationshipJoins: [],
-				aggregations: [
-					{
-						key: "byCategory",
-						aggregation: {
-							type: "countBy",
-							groupBy: createEntityPropertyExpression(schema.slug, "category"),
-						},
+		const aggregateResult = await client.run(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						eventJoins: [],
+						mode: "aggregate",
+						computedFields: [],
+						scope: [schema.slug],
+						relationshipJoins: [],
+						aggregations: [
+							{
+								key: "byCategory",
+								aggregation: {
+									type: "countBy",
+									groupBy: createEntityPropertyExpression(schema.slug, "category"),
+								},
+							},
+						],
 					},
-				],
-			},
-		});
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(aggregateResult.response.status).toBe(200);
-		const aggregateValues =
-			aggregateResult.data?.mode === "aggregate" ? aggregateResult.data.data.values : [];
+		const aggregateValues = aggregateResult.mode === "aggregate" ? aggregateResult.data.values : [];
 		expect(getAggregateValue(aggregateValues, "byCategory")).toEqual({
 			key: "byCategory",
 			kind: "json",
 			value: { phone: 2, tablet: 1, wearable: 1 },
 		});
 
-		const emptyResult = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				eventJoins: [],
-				mode: "aggregate",
-				computedFields: [],
-				scope: [schema.slug],
-				relationshipJoins: [],
-				filter: {
-					operator: "eq",
-					type: "comparison",
-					right: literalExpression("Missing Device"),
-					left: createEntityColumnExpression(schema.slug, "name"),
-				},
-				aggregations: [
-					{ key: "total", aggregation: { type: "count" } },
-					{
-						key: "avgYear",
-						aggregation: {
-							type: "avg",
-							expression: createEntityPropertyExpression(schema.slug, "year"),
+		const emptyResult = await client.run(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						eventJoins: [],
+						mode: "aggregate",
+						computedFields: [],
+						scope: [schema.slug],
+						relationshipJoins: [],
+						filter: {
+							operator: "eq",
+							type: "comparison",
+							right: literalExpression("Missing Device"),
+							left: createEntityColumnExpression(schema.slug, "name"),
 						},
+						aggregations: [
+							{ key: "total", aggregation: { type: "count" } },
+							{
+								key: "avgYear",
+								aggregation: {
+									type: "avg",
+									expression: createEntityPropertyExpression(schema.slug, "year"),
+								},
+							},
+							{
+								key: "byCategory",
+								aggregation: {
+									type: "countBy",
+									groupBy: createEntityPropertyExpression(schema.slug, "category"),
+								},
+							},
+						],
 					},
-					{
-						key: "byCategory",
-						aggregation: {
-							type: "countBy",
-							groupBy: createEntityPropertyExpression(schema.slug, "category"),
-						},
-					},
-				],
-			},
-		});
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(emptyResult.response.status).toBe(200);
-		const emptyValues = emptyResult.data?.mode === "aggregate" ? emptyResult.data.data.values : [];
+		const emptyValues = emptyResult.mode === "aggregate" ? emptyResult.data.values : [];
 		expect(getAggregateValue(emptyValues, "total")).toEqual({
 			value: 0,
 			key: "total",
@@ -1869,29 +1871,32 @@ describe("Query engine E2E", () => {
 	it("rejects non-numeric aggregate expressions at request time", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
 
-		const { error, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				eventJoins: [],
-				mode: "aggregate",
-				computedFields: [],
-				scope: [schema.slug],
-				relationshipJoins: [],
-				aggregations: [
-					{
-						key: "sumName",
-						aggregation: {
-							type: "sum",
-							expression: createEntityColumnExpression(schema.slug, "name"),
-						},
+		const error = await client.runError(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						eventJoins: [],
+						mode: "aggregate",
+						computedFields: [],
+						scope: [schema.slug],
+						relationshipJoins: [],
+						aggregations: [
+							{
+								key: "sumName",
+								aggregation: {
+									type: "sum",
+									expression: createEntityColumnExpression(schema.slug, "name"),
+								},
+							},
+						],
 					},
-				],
-			},
-		});
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(400);
-		expect(error?.error.message).toContain("sum aggregation requires a numeric expression");
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toContain("sum aggregation requires a numeric expression");
 	});
 
 	it("rejects non-numeric event-aggregate expressions at request time", async () => {
@@ -1905,7 +1910,7 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		const { error, response } = await executeQueryEngine(client, cookies, {
+		const error = await executeQueryEngineError(client, cookies, {
 			filter: null,
 			eventJoins: [],
 			computedFields: [],
@@ -1920,8 +1925,8 @@ describe("Query engine E2E", () => {
 			],
 		});
 
-		expect(response.status).toBe(400);
-		expect(error?.error.message).toBe(
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toBe(
 			"avg event aggregate requires a numeric property, received 'string'",
 		);
 	});
@@ -1929,36 +1934,37 @@ describe("Query engine E2E", () => {
 	it("rejects primary event references in aggregate mode", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
 
-		const { error, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				eventJoins: [],
-				mode: "aggregate",
-				computedFields: [],
-				scope: [schema.slug],
-				relationshipJoins: [],
-				aggregations: [
-					{
-						key: "byEvent",
-						aggregation: {
-							type: "countBy",
-							groupBy: { type: "reference", reference: { type: "event", path: ["createdAt"] } },
-						},
+		const error = await client.runError(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						eventJoins: [],
+						mode: "aggregate",
+						computedFields: [],
+						scope: [schema.slug],
+						relationshipJoins: [],
+						aggregations: [
+							{
+								key: "byEvent",
+								aggregation: {
+									type: "countBy",
+									groupBy: { type: "reference", reference: { type: "event", path: ["createdAt"] } },
+								},
+							},
+						],
 					},
-				],
-			},
-		});
-
-		expect(response.status).toBe(400);
-		expect(error?.error.message).toBe(
-			"Primary event references are not supported in this query mode",
+				}),
+			{ Cookie: cookies },
 		);
+
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toBe("Primary event references are not supported in this query mode");
 	});
 
 	it("accepts literal and coalesce expressions in raw runtime fields", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 1 },
@@ -1979,7 +1985,6 @@ describe("Query engine E2E", () => {
 			],
 		});
 
-		expect(response.status).toBe(200);
 		expect(data.data.items[0]).toEqual(
 			toQueryEngineItem([
 				{ key: "label", kind: "text", value: "Pinned" },
@@ -2002,7 +2007,7 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 5 },
 			eventJoins: [{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" }],
@@ -2025,7 +2030,6 @@ describe("Query engine E2E", () => {
 			],
 		});
 
-		expect(response.status).toBe(200);
 		expect(data.data.items[0]).toEqual(
 			toQueryEngineItem([
 				{ key: "title", kind: "text", value: "Alpha Phone" },
@@ -2041,7 +2045,7 @@ describe("Query engine E2E", () => {
 		const nextYearReference = createComputedFieldExpression("nextYear");
 		const labelReference = createComputedFieldExpression("label");
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 5 },
@@ -2076,7 +2080,6 @@ describe("Query engine E2E", () => {
 			],
 		});
 
-		expect(response.status).toBe(200);
 		expect(data.data.items.map((item) => getItemFieldValue(item, "label"))).toEqual([
 			"Release 2022",
 			"Release 2021",
@@ -2097,7 +2100,7 @@ describe("Query engine E2E", () => {
 
 	it("rejects invalid computed field references and cycles in raw runtime requests", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const missingComputedFieldResult = await executeQueryEngine(client, cookies, {
+		const missingComputedFieldError = await executeQueryEngineError(client, cookies, {
 			eventJoins: [],
 			computedFields: [],
 			scope: [schema.slug],
@@ -2109,7 +2112,7 @@ describe("Query engine E2E", () => {
 			filter: null,
 			fields: [buildQueryEngineField("title", ["computed.missingLabel"])],
 		});
-		const cycleResult = await executeQueryEngine(client, cookies, {
+		const cycleError = await executeQueryEngineError(client, cookies, {
 			eventJoins: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 5 },
@@ -2125,19 +2128,19 @@ describe("Query engine E2E", () => {
 			fields: [buildQueryEngineField("title", ["computed.first"])],
 		});
 
-		expect(missingComputedFieldResult.response.status).toBe(400);
-		expect(missingComputedFieldResult.error?.error.message).toBe(
+		assertTaggedError(missingComputedFieldError, "BadRequest");
+		expect(missingComputedFieldError.message).toBe(
 			"Computed field 'missingLabel' is not part of this runtime request",
 		);
-		expect(cycleResult.response.status).toBe(400);
-		expect(cycleResult.error?.error.message).toBe(
+		assertTaggedError(cycleError, "BadRequest");
+		expect(cycleError.message).toBe(
 			"Computed field dependency cycle detected: first -> second -> first",
 		);
 	});
 
 	it("rejects invalid computed field types and non-display image usage in raw runtime requests", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const imageSortResult = await executeQueryEngine(client, cookies, {
+		const imageSortError = await executeQueryEngineError(client, cookies, {
 			filter: null,
 			eventJoins: [],
 			scope: [schema.slug],
@@ -2154,7 +2157,7 @@ describe("Query engine E2E", () => {
 			],
 			fields: [buildQueryEngineField("image", [entityField(schema.slug, "image")])],
 		});
-		const mismatchedFilterResult = await executeQueryEngine(client, cookies, {
+		const mismatchedFilterError = await executeQueryEngineError(client, cookies, {
 			eventJoins: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 5 },
@@ -2189,26 +2192,26 @@ describe("Query engine E2E", () => {
 			fields: [buildQueryEngineField("title", [entityField(schema.slug, "name")])],
 		});
 
-		expect(imageSortResult.response.status).toBe(400);
-		expect(imageSortResult.error?.error.message).toBe(
+		assertTaggedError(imageSortError, "BadRequest");
+		expect(imageSortError.message).toBe(
 			"Image expressions are display-only and cannot be used in sorting",
 		);
-		expect(mismatchedFilterResult.response.status).toBe(400);
-		expect(mismatchedFilterResult.error?.error.message).toBe(
+		assertTaggedError(mismatchedFilterError, "BadRequest");
+		expect(mismatchedFilterError.message).toBe(
 			"Filter operator 'eq' requires compatible expression types, received 'integer' and 'string'",
 		);
 	});
 
 	it("returns 404 when the runtime request references a schema slug that is not visible", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const result = await executeQueryEngine(
+		const error = await executeQueryEngineError(
 			client,
 			cookies,
 			buildGridRequest({ scope: ["does-not-exist"] }),
 		);
 
-		expect(result.response.status).toBe(404);
-		expect(result.error?.error.message).toContain("Schema 'does-not-exist' not found");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toContain("Schema 'does-not-exist' not found");
 	});
 
 	it("supports arithmetic, normalization, concat, and conditionals in runtime expressions", async () => {
@@ -2217,7 +2220,7 @@ describe("Query engine E2E", () => {
 		const nameExpression = createEntityColumnExpression(schema.slug, "name");
 		const yearExpression = createEntityPropertyExpression(schema.slug, "year");
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 1 },
@@ -2286,7 +2289,6 @@ describe("Query engine E2E", () => {
 			],
 		});
 
-		expect(response.status).toBe(200);
 		expect(data.data.items[0]).toEqual(
 			toQueryEngineItem([
 				{ key: "nextYear", kind: "number", value: 2021 },
@@ -2301,7 +2303,7 @@ describe("Query engine E2E", () => {
 
 	it("supports titleCase and kebabCase transforms in runtime expressions", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			computedFields: [],
 			scope: [schema.slug],
@@ -2330,7 +2332,6 @@ describe("Query engine E2E", () => {
 			],
 		});
 
-		expect(response.status).toBe(200);
 		expect(data.data.items[0]).toEqual(
 			toQueryEngineItem([
 				{ key: "titleCased", kind: "text", value: "Phone" },
@@ -2343,7 +2344,7 @@ describe("Query engine E2E", () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
 		const yearExpression = createEntityPropertyExpression(schema.slug, "year");
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			computedFields: [],
 			scope: [schema.slug],
@@ -2371,7 +2372,6 @@ describe("Query engine E2E", () => {
 			],
 		});
 
-		expect(response.status).toBe(200);
 		expect(data.data.items[0]).toEqual(
 			toQueryEngineItem([{ key: "integerNormalized", kind: "number", value: 5 }]),
 		);
@@ -2470,15 +2470,14 @@ describe("Query engine E2E", () => {
 		);
 
 		for (const { result, scenario } of results) {
-			const { data, response } = result;
-			expect(response.status).toBe(200);
+			const { data } = result;
 			expect(getItemTitles(data.data.items)).toEqual(scenario.expected);
 		}
 	});
 
 	it("supports not predicate to negate filters", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -2495,13 +2494,12 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(getItemTitles(data.data.items)).toEqual(["Beta Tablet", "Delta Watch"]);
 	});
 
 	it("ands multiple filters within a single schema", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -2526,14 +2524,13 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(getItemTitles(data.data.items)).toEqual(["Gamma Phone"]);
 	});
 
 	it("applies explicit entity name filters across every schema", async () => {
 		const { client, cookies, smartphoneSlug, tabletSlug } =
 			await createCrossSchemaQueryEngineFixture();
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -2564,14 +2561,13 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(getItemTitles(data.data.items)).toEqual(["Alpha Phone", "Delta Tablet"]);
 	});
 
 	it("ors schema-qualified filters across different schemas", async () => {
 		const { client, cookies, smartphoneSlug, tabletSlug } =
 			await createCrossSchemaQueryEngineFixture();
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -2604,7 +2600,6 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(getItemTitles(data.data.items)).toEqual(["Delta Tablet", "Gamma Phone", "Omega Phone"]);
 	});
 
@@ -2667,7 +2662,7 @@ describe("Query engine E2E", () => {
 		const targetId = entityIdsByName["Gamma Phone"];
 		assertPresent(targetId, "Missing runtime entity fixture id for @id test");
 
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildTableRequest({
@@ -2689,7 +2684,6 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(data.data.items).toHaveLength(1);
 		expect(data.data.meta.fieldOrder).toEqual(["column_0", "column_1"]);
 		expect(data.data.items[0]).toEqual(
@@ -2707,7 +2701,7 @@ describe("Query engine E2E", () => {
 		assertPresent(targetId, "Missing runtime entity fixture id for @id contains test");
 		const suffix = targetId.slice(-8);
 
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -2728,7 +2722,6 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(getItemTitles(data.data.items)).toEqual(["Beta Tablet"]);
 		expect(getQueryEngineFieldOrThrow(data.data.items[0], "callout")).toEqual({
 			key: "callout",
@@ -2786,7 +2779,6 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(coalesceResult.response.status).toBe(200);
 		expect(getItemTitles(coalesceResult.data.data.items)).toEqual([
 			"Alpha Phone",
 			"Beta Tablet",
@@ -2794,7 +2786,6 @@ describe("Query engine E2E", () => {
 			"Delta Tablet",
 			"Omega Phone",
 		]);
-		expect(nullsLastResult.response.status).toBe(200);
 		expect(getItemFieldValue(nullsLastResult.data.data.items.at(-1), "title")).toBe("Null Tablet");
 	});
 
@@ -2851,8 +2842,7 @@ describe("Query engine E2E", () => {
 		);
 
 		for (const { result, scenario } of results) {
-			const { data, response } = result;
-			expect(response.status).toBe(200);
+			const { data } = result;
 			expect(getItemTitles(data.data.items)).toEqual(scenario.expectedNames);
 			expect(data.data.meta.pagination).toEqual(scenario.expectedMeta);
 		}
@@ -2882,7 +2872,6 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(emptyPageResult.response.status).toBe(200);
 		expect(emptyPageResult.data.data.items).toEqual([]);
 		expect(emptyPageResult.data.data.meta.pagination).toEqual({
 			total: 5,
@@ -2893,7 +2882,6 @@ describe("Query engine E2E", () => {
 			hasPreviousPage: true,
 		});
 
-		expect(emptyResult.response.status).toBe(200);
 		expect(emptyResult.data.data.items).toHaveLength(0);
 		expect(emptyResult.data.data.meta.pagination).toEqual({
 			page: 1,
@@ -2936,7 +2924,6 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(outOfRangeFilteredResult.response.status).toBe(200);
 		expect(outOfRangeFilteredResult.data.data.items).toEqual([]);
 		expect(outOfRangeFilteredResult.data.data.meta.pagination).toEqual({
 			page: 2,
@@ -2947,7 +2934,6 @@ describe("Query engine E2E", () => {
 			hasPreviousPage: true,
 		});
 
-		expect(zeroResultsLaterPage.response.status).toBe(200);
 		expect(zeroResultsLaterPage.data.data.items).toEqual([]);
 		expect(zeroResultsLaterPage.data.data.meta.pagination).toEqual({
 			page: 3,
@@ -2961,7 +2947,7 @@ describe("Query engine E2E", () => {
 
 	it("rejects empty runtime sort fields at payload validation time", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const result = await executeQueryEngine(
+		const error = await executeQueryEngineError(
 			client,
 			cookies,
 			buildGridRequest({
@@ -2970,10 +2956,8 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(result.response.status).toBe(400);
-		expect(result.error?.error.message).toContain(
-			"Sort expressions must resolve to a sortable scalar value",
-		);
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toContain("Sort expressions must resolve to a sortable scalar value");
 	});
 
 	it("filters with contains using ilike on string properties and entity @name", async () => {
@@ -3004,10 +2988,7 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(nameResult.response.status).toBe(200);
 		expect(getItemTitles(nameResult.data.data.items)).toEqual(["Alpha Phone", "Gamma Phone"]);
-
-		expect(categoryResult.response.status).toBe(200);
 		expect(getItemTitles(categoryResult.data.data.items)).toEqual(["Alpha Phone", "Gamma Phone"]);
 	});
 
@@ -3056,7 +3037,7 @@ describe("Query engine E2E", () => {
 			properties: { tags: ["action"] },
 		});
 
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -3077,7 +3058,6 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(getItemTitles(data.data.items)).toEqual(["Action Movie", "Sci-Fi Movie"]);
 	});
 
@@ -3155,10 +3135,7 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(percentResult.response.status).toBe(200);
 		expect(getItemTitles(percentResult.data.data.items)).toEqual(["Percent Item"]);
-
-		expect(underscoreResult.response.status).toBe(200);
 		expect(getItemTitles(underscoreResult.data.data.items)).toEqual(["Underscore Item"]);
 	});
 
@@ -3182,7 +3159,7 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		const result = await executeQueryEngine(
+		const error = await executeQueryEngineError(
 			client,
 			cookies,
 			buildGridRequest({
@@ -3200,8 +3177,8 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(result.response.status).toBe(400);
-		expect(result.error?.error.message).toContain("requires a scalar or object item expression");
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toContain("requires a scalar or object item expression");
 	});
 
 	it("displays and filters by externalId and sandboxScriptId on global entities", async () => {
@@ -3214,7 +3191,7 @@ describe("Query engine E2E", () => {
 		await insertLibraryMembership({ mediaEntityId: entity.id, userId });
 		const sandboxScriptId = entity.sandboxScriptId;
 
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildTableRequest({
@@ -3238,7 +3215,6 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(data.data.items).toHaveLength(1);
 		expect(data.data.items[0]).toEqual(
 			toQueryEngineItem([
@@ -3251,7 +3227,7 @@ describe("Query engine E2E", () => {
 	it("resolves externalId and sandboxScriptId as null for regular user entities", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
 
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildTableRequest({
@@ -3276,7 +3252,6 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(data.data.items).toHaveLength(1);
 		expect(data.data.items[0]).toEqual(
 			toQueryEngineItem([
@@ -3289,7 +3264,7 @@ describe("Query engine E2E", () => {
 	it("filters with isNull on externalId to find entities without an external id", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
 
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -3306,7 +3281,6 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(data.data.items.length).toBeGreaterThan(0);
 		for (const item of data.data.items) {
 			expect(getQueryEngineFieldOrThrow(item, "callout").kind).toBe("null");
@@ -3349,7 +3323,7 @@ describe("Query engine E2E", () => {
 			entitySchemaId: userSchema.schemaId,
 		});
 
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildTableRequest({
@@ -3387,7 +3361,6 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(data.data.items).toHaveLength(2);
 
 		const globalItem = data.data.items.find(

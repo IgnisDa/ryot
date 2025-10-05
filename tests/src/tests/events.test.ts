@@ -9,7 +9,7 @@ import {
 	createRuleEventFixture,
 	waitForEventCount,
 } from "../fixtures";
-import { requireNumber, requireObjectRecord } from "../test-support/assertions";
+import { assertTaggedError, requireNumber, requireObjectRecord } from "../test-support/assertions";
 
 const getProgressPercent = (properties: unknown) =>
 	requireNumber(
@@ -22,72 +22,79 @@ describe("Events bulk POST", () => {
 		const { client: apiClient, cookies } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(apiClient, cookies);
 
-		const result = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId,
-					properties: { rating: 4 },
-				},
-				{
-					entityId,
-					eventSchemaId,
-					properties: { rating: 5 },
-				},
-				{
-					entityId,
-					eventSchemaId,
-					properties: { rating: 3 },
-				},
-			],
-		});
+		const result = await apiClient.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId,
+							properties: { rating: 4 },
+						},
+						{
+							entityId,
+							eventSchemaId,
+							properties: { rating: 5 },
+						},
+						{
+							entityId,
+							eventSchemaId,
+							properties: { rating: 3 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(result.response.status).toBe(200);
-		expect(result.data?.count).toBe(3);
+		expect(result.count).toBe(3);
 	});
 
 	it("returns zero count for an empty array", async () => {
 		const { client: apiClient, cookies } = await createAuthenticatedClient();
 
-		const result = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [],
+		const result = await apiClient.run((c) => c.events.create({ payload: [] }), {
+			Cookie: cookies,
 		});
 
-		expect(result.response.status).toBe(200);
-		expect(result.data?.count).toBe(0);
+		expect(result.count).toBe(0);
 	});
 
 	it("enforces conditional required rules end to end", async () => {
 		const { client: apiClient, cookies } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createRuleEventFixture(apiClient, cookies);
 
-		const optionalResult = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [{ entityId, eventSchemaId, properties: { status: "draft" } }],
-		});
-		expect(optionalResult.response.status).toBe(200);
-		expect(optionalResult.data?.count).toBe(1);
+		const optionalResult = await apiClient.run(
+			(c) =>
+				c.events.create({
+					payload: [{ entityId, eventSchemaId, properties: { status: "draft" } }],
+				}),
+			{ Cookie: cookies },
+		);
+		expect(optionalResult.count).toBe(1);
 
-		const rejectedResult = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [{ entityId, eventSchemaId, properties: { status: "completed" } }],
-		});
-		expect(rejectedResult.response.status).toBe(400);
+		const rejectedError = await apiClient.runError(
+			(c) =>
+				c.events.create({
+					payload: [{ entityId, eventSchemaId, properties: { status: "completed" } }],
+				}),
+			{ Cookie: cookies },
+		);
+		assertTaggedError(rejectedError, "BadRequest");
 
-		const acceptedResult = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId,
-					properties: { status: "completed", progressPercent: 75 },
-				},
-			],
-		});
-		expect(acceptedResult.response.status).toBe(200);
-		expect(acceptedResult.data?.count).toBe(1);
+		const acceptedResult = await apiClient.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId,
+							properties: { status: "completed", progressPercent: 75 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
+		expect(acceptedResult.count).toBe(1);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events.map((event) => event.properties)).toEqual([
@@ -99,25 +106,28 @@ describe("Events bulk POST", () => {
 	it("returns 404 when listing events for a non-existent entity", async () => {
 		const { client: apiClient, cookies } = await createAuthenticatedClient();
 
-		const result = await apiClient.events.list({
-			headers: { Cookie: cookies },
-			params: { query: { entityId: crypto.randomUUID() } },
-		});
+		const error = await apiClient.runError(
+			(c) => c.events.list({ urlParams: { entityId: crypto.randomUUID() } }),
+			{ Cookie: cookies },
+		);
 
-		expect(result.response.status).toBe(404);
+		assertTaggedError(error, "NotFound");
 	});
 
 	it("persists events and they appear in the list", async () => {
 		const { client: apiClient, cookies } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(apiClient, cookies);
 
-		await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{ entityId, eventSchemaId, properties: { rating: 4 } },
-				{ entityId, eventSchemaId, properties: { rating: 5 } },
-			],
-		});
+		await apiClient.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{ entityId, eventSchemaId, properties: { rating: 4 } },
+						{ entityId, eventSchemaId, properties: { rating: 5 } },
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events.length).toBe(2);
@@ -128,58 +138,51 @@ describe("Events bulk POST", () => {
 		const { entityId, completeEventSchemaId, progressEventSchemaId } =
 			await createBuiltinMediaLifecycleFixture(apiClient, cookies);
 
-		const createResult = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: progressEventSchemaId,
-					properties: { progressPercent: 25 },
-				},
-				{
-					entityId,
-					eventSchemaId: completeEventSchemaId,
-					properties: { completionMode: "just_now" },
-				},
-			],
-		});
+		const createResult = await apiClient.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 25 },
+						},
+						{
+							entityId,
+							eventSchemaId: completeEventSchemaId,
+							properties: { completionMode: "just_now" },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.count).toBe(2);
+		expect(createResult.count).toBe(2);
 
 		await waitForEventCount(apiClient, cookies, entityId, 2);
 
-		const allEventsResult = await apiClient.events.list({
-			headers: { Cookie: cookies },
-			params: { query: { entityId } },
+		const allEvents = await apiClient.run((c) => c.events.list({ urlParams: { entityId } }), {
+			Cookie: cookies,
 		});
-		expect(allEventsResult.response.status).toBe(200);
-		expect(allEventsResult.data).toHaveLength(2);
+		expect(allEvents).toHaveLength(2);
 
-		const progressEventsResult = await apiClient.events.list({
-			headers: { Cookie: cookies },
-			params: { query: { entityId, eventSchemaSlug: "progress" } },
-		});
-		expect(progressEventsResult.response.status).toBe(200);
-		expect(
-			progressEventsResult.data?.map((event: { eventSchemaSlug: string }) => event.eventSchemaSlug),
-		).toEqual(["progress"]);
+		const progressEvents = await apiClient.run(
+			(c) => c.events.list({ urlParams: { entityId, eventSchemaSlug: "progress" } }),
+			{ Cookie: cookies },
+		);
+		expect(progressEvents.map((event) => event.eventSchemaSlug)).toEqual(["progress"]);
 
-		const completeEventsResult = await apiClient.events.list({
-			headers: { Cookie: cookies },
-			params: { query: { entityId, eventSchemaSlug: "complete" } },
-		});
-		expect(completeEventsResult.response.status).toBe(200);
-		expect(
-			completeEventsResult.data?.map((event: { eventSchemaSlug: string }) => event.eventSchemaSlug),
-		).toEqual(["complete"]);
+		const completeEvents = await apiClient.run(
+			(c) => c.events.list({ urlParams: { entityId, eventSchemaSlug: "complete" } }),
+			{ Cookie: cookies },
+		);
+		expect(completeEvents.map((event) => event.eventSchemaSlug)).toEqual(["complete"]);
 
-		const missingEventsResult = await apiClient.events.list({
-			headers: { Cookie: cookies },
-			params: { query: { entityId, eventSchemaSlug: "nonexistent" } },
-		});
-		expect(missingEventsResult.response.status).toBe(200);
-		expect(missingEventsResult.data).toEqual([]);
+		const missingEvents = await apiClient.run(
+			(c) => c.events.list({ urlParams: { entityId, eventSchemaSlug: "nonexistent" } }),
+			{ Cookie: cookies },
+		);
+		expect(missingEvents).toEqual([]);
 	});
 
 	it("creates repeated built-in backlog events and lists them", async () => {
@@ -189,16 +192,18 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{ entityId, properties: {}, eventSchemaId: backlogEventSchemaId },
-				{ entityId, properties: {}, eventSchemaId: backlogEventSchemaId },
-			],
-		});
+		const createResult = await apiClient.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{ entityId, properties: {}, eventSchemaId: backlogEventSchemaId },
+						{ entityId, properties: {}, eventSchemaId: backlogEventSchemaId },
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.count).toBe(2);
+		expect(createResult.count).toBe(2);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
@@ -213,24 +218,26 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: progressEventSchemaId,
-					properties: { progressPercent: 25.555 },
-				},
-				{
-					entityId,
-					eventSchemaId: progressEventSchemaId,
-					properties: { progressPercent: 50.444 },
-				},
-			],
-		});
+		const createResult = await apiClient.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 25.555 },
+						},
+						{
+							entityId,
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 50.444 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.count).toBe(2);
+		expect(createResult.count).toBe(2);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
@@ -247,27 +254,29 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: completeEventSchemaId,
-					properties: { completionMode: "just_now" },
-				},
-				{
-					entityId,
-					eventSchemaId: completeEventSchemaId,
-					properties: {
-						completionMode: "custom_timestamps",
-						completedOn: "2026-03-27T18:30:00Z",
-					},
-				},
-			],
-		});
+		const createResult = await apiClient.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: completeEventSchemaId,
+							properties: { completionMode: "just_now" },
+						},
+						{
+							entityId,
+							eventSchemaId: completeEventSchemaId,
+							properties: {
+								completionMode: "custom_timestamps",
+								completedOn: "2026-03-27T18:30:00Z",
+							},
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.count).toBe(2);
+		expect(createResult.count).toBe(2);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
@@ -288,19 +297,21 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: completeEventSchemaId,
-					properties: { completionMode: "just_now", timeSpent: 120 },
-				},
-			],
-		});
+		const createResult = await apiClient.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: completeEventSchemaId,
+							properties: { completionMode: "just_now", timeSpent: 120 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.count).toBe(1);
+		expect(createResult.count).toBe(1);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 1);
 		expect(events).toHaveLength(1);
@@ -315,19 +326,21 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: completeEventSchemaId,
-					properties: { completionMode: "unknown" },
-				},
-			],
-		});
+		const createResult = await apiClient.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: completeEventSchemaId,
+							properties: { completionMode: "unknown" },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.count).toBe(1);
+		expect(createResult.count).toBe(1);
 	});
 
 	it("rejects a complete event with a negative timeSpent", async () => {
@@ -337,18 +350,21 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: completeEventSchemaId,
-					properties: { completionMode: "just_now", timeSpent: -10 },
-				},
-			],
-		});
+		const error = await apiClient.runError(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: completeEventSchemaId,
+							properties: { completionMode: "just_now", timeSpent: -10 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(400);
+		assertTaggedError(error, "BadRequest");
 	});
 
 	it("creates repeated built-in review events before completion exists", async () => {
@@ -358,24 +374,26 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					properties: { rating: 4 },
-					eventSchemaId: reviewEventSchemaId,
-				},
-				{
-					entityId,
-					eventSchemaId: reviewEventSchemaId,
-					properties: { text: "Even better", rating: 5 },
-				},
-			],
-		});
+		const createResult = await apiClient.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							properties: { rating: 4 },
+							eventSchemaId: reviewEventSchemaId,
+						},
+						{
+							entityId,
+							eventSchemaId: reviewEventSchemaId,
+							properties: { text: "Even better", rating: 5 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.count).toBe(2);
+		expect(createResult.count).toBe(2);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
@@ -393,19 +411,21 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: droppedEventSchemaId,
-					properties: { progressPercent: 40, timeSpent: 90 },
-				},
-			],
-		});
+		const createResult = await apiClient.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: droppedEventSchemaId,
+							properties: { progressPercent: 40, timeSpent: 90 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.count).toBe(1);
+		expect(createResult.count).toBe(1);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 1);
 		expect(events[0]?.eventSchemaSlug).toBe("dropped");
@@ -419,19 +439,21 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: onHoldEventSchemaId,
-					properties: { progressPercent: 60, timeSpent: 45 },
-				},
-			],
-		});
+		const createResult = await apiClient.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: onHoldEventSchemaId,
+							properties: { progressPercent: 60, timeSpent: 45 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.count).toBe(1);
+		expect(createResult.count).toBe(1);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 1);
 		expect(events[0]?.eventSchemaSlug).toBe("on_hold");
@@ -445,18 +467,21 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: droppedEventSchemaId,
-					properties: { progressPercent: 50, timeSpent: -5 },
-				},
-			],
-		});
+		const error = await apiClient.runError(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: droppedEventSchemaId,
+							properties: { progressPercent: 50, timeSpent: -5 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(400);
+		assertTaggedError(error, "BadRequest");
 	});
 
 	it("creates built-in dropped events with rounded progress values", async () => {
@@ -466,24 +491,26 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: droppedEventSchemaId,
-					properties: { progressPercent: 33.333 },
-				},
-				{
-					entityId,
-					eventSchemaId: droppedEventSchemaId,
-					properties: { progressPercent: 66.666 },
-				},
-			],
-		});
+		const createResult = await apiClient.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: droppedEventSchemaId,
+							properties: { progressPercent: 33.333 },
+						},
+						{
+							entityId,
+							eventSchemaId: droppedEventSchemaId,
+							properties: { progressPercent: 66.666 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.count).toBe(2);
+		expect(createResult.count).toBe(2);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
@@ -500,24 +527,26 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: onHoldEventSchemaId,
-					properties: { progressPercent: 45.555 },
-				},
-				{
-					entityId,
-					eventSchemaId: onHoldEventSchemaId,
-					properties: { progressPercent: 75.444 },
-				},
-			],
-		});
+		const createResult = await apiClient.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: onHoldEventSchemaId,
+							properties: { progressPercent: 45.555 },
+						},
+						{
+							entityId,
+							eventSchemaId: onHoldEventSchemaId,
+							properties: { progressPercent: 75.444 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.count).toBe(2);
+		expect(createResult.count).toBe(2);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
@@ -534,24 +563,26 @@ describe("Events bulk POST", () => {
 				entitySchemaSlug: "show",
 			});
 
-		const createResult = await apiClient.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: droppedEventSchemaId,
-					properties: { progressPercent: 50, showSeason: 2, showEpisode: 5 },
-				},
-				{
-					entityId,
-					eventSchemaId: onHoldEventSchemaId,
-					properties: { progressPercent: 75, showSeason: 3, showEpisode: 10 },
-				},
-			],
-		});
+		const createResult = await apiClient.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: droppedEventSchemaId,
+							properties: { progressPercent: 50, showSeason: 2, showEpisode: 5 },
+						},
+						{
+							entityId,
+							eventSchemaId: onHoldEventSchemaId,
+							properties: { progressPercent: 75, showSeason: 3, showEpisode: 10 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.count).toBe(2);
+		expect(createResult.count).toBe(2);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
