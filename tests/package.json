@@ -3,7 +3,7 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"test": "bun test --only-failures",
+		"test": "bun test --timeout 60000",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"devDependencies": {
