@@ -56,16 +56,16 @@ pub struct ImportOrExportItemReview {
 /// Comments left in replies to posted reviews.
 #[skip_serializing_none]
 #[derive(
+    Eq,
     Clone,
     Debug,
+    Default,
+    Schematic,
     PartialEq,
-    FromJsonQueryResult,
-    Eq,
     Serialize,
     Deserialize,
-    Default,
     SimpleObject,
-    Schematic,
+    FromJsonQueryResult,
 )]
 #[serde(rename_all = "snake_case")]
 pub struct ImportOrExportItemReviewComment {
@@ -155,7 +155,7 @@ pub struct DeployIgdbImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployPathImportInput {
-    // The file path of the uploaded export.
+    /// The path of the uploaded artifact.
     pub export_path: String,
 }
 

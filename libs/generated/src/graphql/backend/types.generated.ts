@@ -610,6 +610,7 @@ export type DeployMovaryImportInput = {
 };
 
 export type DeployPathImportInput = {
+  /** The path of the uploaded artifact. */
   exportPath: Scalars['String']['input'];
 };
 
