@@ -9,7 +9,7 @@ import {
 import { DateTimePicker } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import {
-	CreateUserMeasurementDocument,
+	CreateOrUpdateUserMeasurementDocument,
 	type UserMeasurementInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase } from "@ryot/ts-utils";
@@ -42,7 +42,9 @@ export const CreateMeasurementForm = (props: {
 
 	const createMeasurementMutation = useMutation({
 		mutationFn: () =>
-			clientGqlService.request(CreateUserMeasurementDocument, { input }),
+			clientGqlService.request(CreateOrUpdateUserMeasurementDocument, {
+				input,
+			}),
 	});
 
 	return (
