@@ -57,6 +57,14 @@ const FAKE_CONTINUE: ContinueItem[] = [
 		labels: { cta: "Continue", progress: "Ep 2 / 8" },
 		progress: { currentUnits: 2, progressPercent: 25, totalUnits: 8 },
 	},
+	{
+		id: "c5",
+		entitySchemaSlug: "game",
+		title: "GTA V",
+		imageUri: "https://media.rawg.io/media/games/456/456dea5e1c7e3cd07060c14e96612001.jpg",
+		labels: { cta: "Continue", progress: "2h played" },
+		progress: { currentUnits: 120, progressPercent: 100, totalUnits: 120 },
+	},
 ];
 
 const FAKE_UP_NEXT: UpNextItem[] = [
@@ -222,10 +230,10 @@ export function MediaTrackerOverview() {
 								</Pressable>
 							</Box>
 						)}
-						<Text className="mt-2 text-[10px] font-sans uppercase tracking-[2px] text-muted-foreground web:text-xs">
+						<Text className="mt-2 text-xs font-sans uppercase tracking-[2px] text-muted-foreground web:text-[14px]">
 							Media
 						</Text>
-						<Text className="mt-0.5 text-[38px] font-heading-semibold leading-[40px] tracking-[-0.5px] text-foreground web:text-[52px] web:leading-[56px]">
+						<Text className="mt-0.5 text-[44px] font-heading-semibold leading-[48px] tracking-[-0.5px] text-foreground web:text-[58px] web:leading-[62px]">
 							Overview
 						</Text>
 						{isDesktop ? (
@@ -242,7 +250,7 @@ export function MediaTrackerOverview() {
 									onPress={() => console.log("Track Something pressed")}
 								>
 									<Plus color="#1c1917" size={16} strokeWidth={2} />
-									<Text className="text-[13px] font-sans-semibold text-primary-foreground web:text-[15px]">
+									<Text className="text-[15px] font-sans-semibold text-primary-foreground web:text-[17px]">
 										Track Something
 									</Text>
 								</Pressable>
@@ -269,7 +277,7 @@ export function MediaTrackerOverview() {
 									}}
 								>
 									<Text
-										className="mb-4 text-[10px] font-sans-semibold uppercase tracking-[2px] web:text-xs"
+										className="mb-4 text-xs font-sans-semibold uppercase tracking-[2px] web:text-[14px]"
 										style={{ color: SECTION_ACCENTS.continue }}
 									>
 										In Progress
@@ -309,7 +317,7 @@ export function MediaTrackerOverview() {
 					onPress={() => console.log("Track Something pressed")}
 				>
 					<Plus color="#1c1917" size={16} strokeWidth={2} />
-					<Text className="text-[13px] font-sans-semibold text-primary-foreground web:text-[15px]">
+					<Text className="text-[15px] font-sans-semibold text-primary-foreground web:text-[17px]">
 						Track Something
 					</Text>
 				</Pressable>
