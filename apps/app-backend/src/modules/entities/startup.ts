@@ -1,7 +1,6 @@
-import { createHash } from "node:crypto";
-
 import { and, eq, isNull, sql } from "drizzle-orm";
 
+import { sha1Hex } from "~/lib/bun";
 import { db } from "~/lib/db";
 import { entity } from "~/lib/db/schema";
 import { getQueues } from "~/lib/queue";
@@ -22,7 +21,7 @@ const builtinEntityPreloads = [
 ] as const;
 
 const createPreloadJobId = (input: Record<string, unknown>) => {
-	const hash = createHash("sha1").update(JSON.stringify(input)).digest("hex");
+	const hash = sha1Hex(JSON.stringify(input));
 	return `entity_preload_${hash}`;
 };
 

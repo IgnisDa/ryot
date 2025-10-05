@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { tmpdir } from "node:os";
+
+import { getTemporaryDirectory } from "~/lib/bun";
 
 import {
 	createPresignedDownloads,
@@ -7,6 +8,8 @@ import {
 	createTemporaryUploads,
 	resolvePresignedUploadInput,
 } from "./service";
+
+const temporaryDirectory = getTemporaryDirectory();
 
 describe("createPresignedUpload", () => {
 	it("rejects unsupported content types", () => {
@@ -112,8 +115,20 @@ describe("createTemporaryUploads", () => {
 		]);
 	});
 
+	it("strips trailing separators from file names", async () => {
+		const result = await createTemporaryUploads(
+			{ files: [new File(["csv data"], "folder/report.csv/", { type: "text/csv" })] },
+			{
+				generateObjectId: () => "temp_1",
+				writeFile: () => Promise.resolve(),
+				temporaryDirectory: "/tmp/ryot-uploads",
+			},
+		);
+
+		expect(result).toEqual({ data: ["/tmp/ryot-uploads/temp_1-report.csv"] });
+	});
+
 	it("cleans up successful writes when a later file fails", async () => {
-		const temporaryDirectory = tmpdir();
 		const runId = crypto.randomUUID();
 		let sequence = 0;
 
@@ -125,8 +140,8 @@ describe("createTemporaryUploads", () => {
 				],
 			},
 			{
-				generateObjectId: () => `${runId}_${++sequence}`,
 				temporaryDirectory,
+				generateObjectId: () => `${runId}_${++sequence}`,
 				writeFile: async (path, file) => {
 					if (file.name === "report.csv") {
 						await Bun.write(path, file);
@@ -138,19 +153,14 @@ describe("createTemporaryUploads", () => {
 			},
 		);
 
-		expect(result).toEqual({
-			error: "internal",
-			message: "write failed",
-		});
+		expect(result).toEqual({ error: "internal", message: "write failed" });
 		expect(await Bun.file(`${temporaryDirectory}/${runId}_1-report.csv`).exists()).toBe(false);
 	});
 
 	it("rejects unsupported temporary upload file types", async () => {
 		let wrote = false;
 		const result = await createTemporaryUploads(
-			{
-				files: [new File(["pdf data"], "document.pdf", { type: "application/pdf" })],
-			},
+			{ files: [new File(["pdf data"], "document.pdf", { type: "application/pdf" })] },
 			{
 				temporaryDirectory: "/tmp/ryot-uploads",
 				writeFile: () => {
