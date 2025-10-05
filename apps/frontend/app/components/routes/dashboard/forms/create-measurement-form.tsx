@@ -39,10 +39,7 @@ export const CreateMeasurementForm = (props: {
 			comment: measurement?.comment || "",
 			timestamp: measurement?.timestamp || new Date().toISOString(),
 			information: {
-				statistics:
-					measurement?.information?.statistics?.map((statistic) => ({
-						...statistic,
-					})) || [],
+				statistics: measurement?.information?.statistics || [],
 				assets: {
 					s3Images: [],
 					s3Videos: [],
