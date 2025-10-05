@@ -63,43 +63,69 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 		const entitiesRepository = yield* EntitiesRepository;
 		const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
-		const memberOfSchema = yield* runWithDb(
-			relationshipSchemasRepository.findBuiltinBySlug("member-of"),
-		);
-		if (!memberOfSchema) {
-			return yield* Effect.die("member-of relationship schema not found in database");
-		}
-
-		const inLibrarySchema = yield* runWithDb(
-			relationshipSchemasRepository.findBuiltinBySlug("in-library"),
-		);
-		if (!inLibrarySchema) {
-			return yield* Effect.die("in-library relationship schema not found in database");
-		}
-
-		const collectionEntitySchema = yield* runWithDb(repository.getBuiltinCollectionSchema());
-		if (!collectionEntitySchema) {
-			return yield* Effect.die("builtin collection entity schema not found in database");
-		}
-
-		const addEventSchema = yield* runWithDb(
-			repository.findBuiltinEventSchemaBySlug(
-				collectionEntitySchema.entitySchemaId,
-				"add-entity-to-collection",
+		const memberOfSchema = yield* Effect.cached(
+			runWithDb(relationshipSchemasRepository.findBuiltinBySlug("member-of")).pipe(
+				Effect.flatMap((found) =>
+					found
+						? Effect.succeed(found)
+						: Effect.die("member-of relationship schema not found in database"),
+				),
 			),
 		);
 
-		const removeEventSchema = yield* runWithDb(
-			repository.findBuiltinEventSchemaBySlug(
-				collectionEntitySchema.entitySchemaId,
-				"remove-entity-from-collection",
+		const inLibrarySchema = yield* Effect.cached(
+			runWithDb(relationshipSchemasRepository.findBuiltinBySlug("in-library")).pipe(
+				Effect.flatMap((found) =>
+					found
+						? Effect.succeed(found)
+						: Effect.die("in-library relationship schema not found in database"),
+				),
 			),
 		);
 
-		const collectionPropertiesSchema = yield* decodeStoredAppSchema(
-			collectionEntitySchema.propertiesSchema,
-			"Invalid collection entity schema in database",
-		).pipe(Effect.orDie);
+		const collectionEntitySchema = yield* Effect.cached(
+			runWithDb(repository.getBuiltinCollectionSchema()).pipe(
+				Effect.flatMap((found) =>
+					found
+						? Effect.succeed(found)
+						: Effect.die("builtin collection entity schema not found in database"),
+				),
+			),
+		);
+
+		const collectionPropertiesSchema = yield* Effect.cached(
+			Effect.gen(function* () {
+				const entitySchema = yield* collectionEntitySchema;
+				return yield* decodeStoredAppSchema(
+					entitySchema.propertiesSchema,
+					"Invalid collection entity schema in database",
+				).pipe(Effect.orDie);
+			}),
+		);
+
+		const addEventSchema = yield* Effect.cached(
+			Effect.gen(function* () {
+				const entitySchema = yield* collectionEntitySchema;
+				return yield* runWithDb(
+					repository.findBuiltinEventSchemaBySlug(
+						entitySchema.entitySchemaId,
+						"add-entity-to-collection",
+					),
+				);
+			}),
+		);
+
+		const removeEventSchema = yield* Effect.cached(
+			Effect.gen(function* () {
+				const entitySchema = yield* collectionEntitySchema;
+				return yield* runWithDb(
+					repository.findBuiltinEventSchemaBySlug(
+						entitySchema.entitySchemaId,
+						"remove-entity-from-collection",
+					),
+				);
+			}),
+		);
 
 		return {
 			create: (user: CurrentUserValue, payload: CreateCollectionBody) =>
@@ -125,18 +151,20 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 						properties.membershipPropertiesSchema = payload.membershipPropertiesSchema;
 					}
 
+					const propertiesSchema = yield* collectionPropertiesSchema;
 					const collectionProperties = yield* parseAppSchemaProperties({
 						properties,
+						propertiesSchema,
 						kind: "Collection",
-						propertiesSchema: collectionPropertiesSchema,
 					}).pipe(Effect.mapError((error) => badRequest(error.message)));
 
+					const entitySchema = yield* collectionEntitySchema;
 					return yield* runWithDb(
 						repository.createCollectionForUser({
 							name,
 							userId: user.id,
 							properties: collectionProperties,
-							entitySchemaId: collectionEntitySchema.entitySchemaId,
+							entitySchemaId: entitySchema.entitySchemaId,
 						}),
 					);
 				}),
@@ -186,6 +214,9 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 					}
 
 					const now = yield* DateTime.nowAsDate;
+					const addEvent = yield* addEventSchema;
+					const inLibrary = yield* inLibrarySchema;
+					const memberOfRelationshipSchema = yield* memberOfSchema;
 
 					const membership = yield* runInTransaction(
 						Effect.gen(function* () {
@@ -201,7 +232,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 									userId: user.id,
 									sourceEntityId: entity.id,
 									targetEntityId: libraryEntityId,
-									relationshipSchemaId: inLibrarySchema.id,
+									relationshipSchemaId: inLibrary.id,
 								});
 							}
 
@@ -210,17 +241,17 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 								entityId: payload.entityId,
 								properties: validatedProperties,
 								collectionId: payload.collectionId,
-								relationshipSchemaId: memberOfSchema.id,
+								relationshipSchemaId: memberOfRelationshipSchema.id,
 							});
 
-							if (result.wasInserted && addEventSchema) {
+							if (result.wasInserted && addEvent) {
 								yield* eventsRepository.createEvent({
 									userId: user.id,
 									occurredAt: now,
+									eventSchemaId: addEvent.id,
 									entityId: payload.collectionId,
-									eventSchemaId: addEventSchema.id,
-									eventSchemaName: addEventSchema.name,
-									eventSchemaSlug: addEventSchema.slug,
+									eventSchemaName: addEvent.name,
+									eventSchemaSlug: addEvent.slug,
 									properties: {
 										entityId: entity.id,
 										relationshipId: result.id,
@@ -254,12 +285,13 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 						return yield* notFound(entityNotFoundError);
 					}
 
+					const memberOf = yield* memberOfSchema;
 					const deleted = yield* runWithDb(
 						repository.deleteMembership({
 							userId: user.id,
 							entityId: payload.entityId,
+							relationshipSchemaId: memberOf.id,
 							collectionId: payload.collectionId,
-							relationshipSchemaId: memberOfSchema.id,
 						}),
 					);
 
@@ -267,16 +299,17 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 						return yield* notFound("Entity is not in collection");
 					}
 
-					if (removeEventSchema) {
+					const removeEvent = yield* removeEventSchema;
+					if (removeEvent) {
 						const now = yield* DateTime.nowAsDate;
 						yield* runWithDb(
 							eventsRepository.createEvent({
 								userId: user.id,
 								occurredAt: now,
+								eventSchemaId: removeEvent.id,
 								entityId: payload.collectionId,
-								eventSchemaId: removeEventSchema.id,
-								eventSchemaName: removeEventSchema.name,
-								eventSchemaSlug: removeEventSchema.slug,
+								eventSchemaName: removeEvent.name,
+								eventSchemaSlug: removeEvent.slug,
 								properties: {
 									entityId: entity.id,
 									relationshipId: deleted.id,
@@ -294,22 +327,24 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 				runWithDb(repository.createLibraryEntityForUser({ userId, entitySchemaId })),
 
 			ensureEntityInLibrary: (userId: string, entityId: string) =>
-				runWithDb(repository.getUserLibraryEntityId({ userId })).pipe(
-					Effect.flatMap((libraryEntityId) => {
-						if (!libraryEntityId) {
-							return Effect.die("Library entity not found for user");
-						}
-						return runWithDb(
-							entitiesRepository.insertRelationship({
-								userId,
-								properties: {},
-								sourceEntityId: entityId,
-								targetEntityId: libraryEntityId,
-								relationshipSchemaId: inLibrarySchema.id,
-							}),
-						);
-					}),
-				),
+				Effect.gen(function* () {
+					const libraryEntityId = yield* runWithDb(repository.getUserLibraryEntityId({ userId }));
+					if (!libraryEntityId) {
+						return yield* Effect.die("Library entity not found for user");
+					}
+
+					const inLibrary = yield* inLibrarySchema;
+					yield* runWithDb(
+						entitiesRepository.insertRelationship({
+							userId,
+							properties: {},
+							sourceEntityId: entityId,
+							targetEntityId: libraryEntityId,
+							relationshipSchemaId: inLibrary.id,
+						}),
+					);
+					return undefined;
+				}),
 		} satisfies CollectionsServiceShape;
 	}),
 }) {}
