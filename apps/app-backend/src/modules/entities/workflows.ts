@@ -1,8 +1,9 @@
 import { DurableQueue, Workflow } from "@effect/workflow";
 import { Cause, Effect, Exit, Layer, Match, Option, Schema } from "effect";
 
-import { SandboxRunError, dieOnDbError, unknownToMessage } from "../../lib/errors";
-import { CollectionsService } from "../collections/service";
+import { SandboxRunError, dieOnDbError, unknownToMessage } from "~/lib/errors";
+import { CollectionsService } from "~/modules/collections/service";
+
 import { populateGlobalEntity } from "./population";
 import { ListedEntity } from "./schemas";
 

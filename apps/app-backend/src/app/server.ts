@@ -3,23 +3,23 @@ import { BunHttpServer } from "@effect/platform-bun";
 import { Effect, Layer, Runtime } from "effect";
 import type * as LayerTypes from "effect/Layer";
 
-import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "../lib/auth";
-import { AppConfig } from "../lib/config";
-import { AppContract } from "../lib/contract";
-import { CollectionsRoutesLive } from "../modules/collections/routes";
-import { EntitiesRoutesLive } from "../modules/entities/routes";
-import { EntitySchemasRoutesLive } from "../modules/entity-schemas/routes";
-import { EventSchemasRoutesLive } from "../modules/event-schemas/routes";
-import { EventsRoutesLive } from "../modules/events/routes";
-import { GodModeRoutesLive } from "../modules/god-mode/routes";
-import { ImportsRoutesLive } from "../modules/imports/routes";
-import { IntegrationsRoutesLive } from "../modules/integrations/routes";
-import { QueryEngineRoutesLive } from "../modules/query-engine/routes";
-import { SandboxRoutesLive } from "../modules/sandbox/routes";
-import { SavedViewsRoutesLive } from "../modules/saved-views/routes";
-import { SystemRoutesLive } from "../modules/system/routes";
-import { TrackersRoutesLive } from "../modules/trackers/routes";
-import { UploadsRoutesLive } from "../modules/uploads/routes";
+import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "~/lib/auth";
+import { AppConfig } from "~/lib/config";
+import { AppContract } from "~/lib/contract";
+import { CollectionsRoutesLive } from "~/modules/collections/routes";
+import { EntitiesRoutesLive } from "~/modules/entities/routes";
+import { EntitySchemasRoutesLive } from "~/modules/entity-schemas/routes";
+import { EventSchemasRoutesLive } from "~/modules/event-schemas/routes";
+import { EventsRoutesLive } from "~/modules/events/routes";
+import { GodModeRoutesLive } from "~/modules/god-mode/routes";
+import { ImportsRoutesLive } from "~/modules/imports/routes";
+import { IntegrationsRoutesLive } from "~/modules/integrations/routes";
+import { QueryEngineRoutesLive } from "~/modules/query-engine/routes";
+import { SandboxRoutesLive } from "~/modules/sandbox/routes";
+import { SavedViewsRoutesLive } from "~/modules/saved-views/routes";
+import { SystemRoutesLive } from "~/modules/system/routes";
+import { TrackersRoutesLive } from "~/modules/trackers/routes";
+import { UploadsRoutesLive } from "~/modules/uploads/routes";
 
 const mimeTypes: Record<string, string> = {
 	ttf: "font/ttf",
