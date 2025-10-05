@@ -1,8 +1,8 @@
 import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect, schema } from "~/lib/db";
-import { DbError } from "~/lib/errors";
+import { CurrentDb, dbEffect, schema } from "#lib/db";
+import { DbError } from "#lib/errors";
 
 import type { EventTriggerMetadata, ListedEvent } from "./schemas";
 

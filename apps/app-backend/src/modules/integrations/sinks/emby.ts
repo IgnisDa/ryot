@@ -1,4 +1,4 @@
-import { buildMovieOrShowImportRef } from "~/modules/imports/sources/shared/provider-refs";
+import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provider-refs";
 
 import {
 	calculateProgressPercent,

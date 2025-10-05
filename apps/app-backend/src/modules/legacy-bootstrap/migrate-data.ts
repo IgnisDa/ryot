@@ -1,9 +1,9 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { bootstrapNewUser } from "~/lib/builtins/bootstrap";
-import { dbEffect, DbService } from "~/lib/db";
-import { entitySchema, eventSchema, relationshipSchema, sandboxScript } from "~/lib/db/schema";
+import { bootstrapNewUser } from "#lib/builtins/bootstrap";
+import { dbEffect, DbService } from "#lib/db";
+import { entitySchema, eventSchema, relationshipSchema, sandboxScript } from "#lib/db/schema";
 
 import {
 	buildCollectionEntityMigrationSql,

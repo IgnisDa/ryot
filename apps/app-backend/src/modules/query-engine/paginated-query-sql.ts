@@ -1,8 +1,8 @@
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect } from "~/lib/db";
-import type { DbError } from "~/lib/errors";
+import { CurrentDb, dbEffect } from "#lib/db";
+import type { DbError } from "#lib/errors";
 
 import type { ResolvedDisplayValue } from "./display-builder";
 import type { PaginatedQueryInput } from "./query-cte-shared";

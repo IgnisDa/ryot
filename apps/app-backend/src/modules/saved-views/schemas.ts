@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { DisplayConfiguration, SavedViewQueryDefinition } from "~/lib/query-language";
+import { DisplayConfiguration, SavedViewQueryDefinition } from "#lib/query-language";
 
 export const ListedSavedView = Schema.Struct({
 	id: Schema.String,

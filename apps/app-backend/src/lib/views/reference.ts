@@ -1,5 +1,5 @@
-import type { AppPropertyDefinition, AppSchema } from "~/lib/property-schema";
-import type { RuntimeRef } from "~/lib/query-language";
+import type { AppPropertyDefinition, AppSchema } from "#lib/property-schema";
+import type { RuntimeRef } from "#lib/query-language";
 
 import { QueryEngineValidationError } from "./errors";
 

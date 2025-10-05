@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createEntityPropertyExpression, createLiteralExpression } from "~/lib/query-language";
+import { createEntityPropertyExpression, createLiteralExpression } from "#lib/query-language";
 
 import { buildPredicateClause } from "./predicate-clause-builder";
 import { comparison, context, createQueryTestCompiler, dialect } from "./test-support";

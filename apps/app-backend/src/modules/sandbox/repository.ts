@@ -1,8 +1,8 @@
 import { and, eq, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect, isUniqueConstraintError, schema } from "~/lib/db";
-import { DbError, conflict } from "~/lib/errors";
+import { CurrentDb, dbEffect, isUniqueConstraintError, schema } from "#lib/db";
+import { DbError, conflict } from "#lib/errors";
 
 import type { SandboxScriptMetadata } from "./schemas";
 

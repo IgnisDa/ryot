@@ -2,8 +2,8 @@ import { it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 import { describe, expect as vitestExpect, it as vitestIt } from "vitest";
 
-import { CurrentDb, DbRunner } from "~/lib/db";
-import { ImportsRepository } from "~/modules/imports/repository";
+import { CurrentDb, DbRunner } from "#lib/db";
+import { ImportsRepository } from "#modules/imports/repository";
 
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
 import {
