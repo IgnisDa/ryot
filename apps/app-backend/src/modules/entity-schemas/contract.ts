@@ -2,14 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
-import {
-	BadRequest,
-	Conflict,
-	NotFound,
-	NotImplemented,
-	RateLimited,
-	Unauthorized,
-} from "#lib/errors";
+import { BadRequest, Conflict, NotFound, RateLimited, Unauthorized } from "#lib/errors";
 import { SandboxRunResult } from "#modules/sandbox/contract";
 
 import {
@@ -56,5 +49,4 @@ export const EntitySchemasGroup = HttpApiGroup.make("entitySchemas")
 		HttpApiEndpoint.get("getSearchResult")`/entity-schemas/search/${jobIdParam}`
 			.addSuccess(SandboxRunResult)
 			.addError(NotFound, { status: 404 }),
-	)
-	.addError(NotImplemented, { status: 501 });
+	);

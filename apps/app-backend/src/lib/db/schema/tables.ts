@@ -15,14 +15,20 @@ import {
 
 import type { DisplayConfiguration, SavedViewQueryDefinition } from "#lib/query-language";
 import type { AppSchema } from "#lib/schema";
+import type { StoredEntityImage } from "#modules/entities/types";
 import type { EventTriggerMetadata } from "#modules/events/schemas";
-import type { ImportRunFailureStage, ImportRunStatus } from "#modules/imports/types";
+import type {
+	ImportRunFailureStage,
+	ImportRunSource,
+	ImportRunStatus,
+} from "#modules/imports/types";
 import type {
 	IntegrationExtraSettings,
 	IntegrationProvider,
 	IntegrationProviderSpecifics,
 } from "#modules/integrations/schemas";
 import type { IntegrationLot } from "#modules/integrations/types";
+import type { SandboxScriptMetadata } from "#modules/sandbox/schemas";
 
 import { user } from "./auth";
 
@@ -150,9 +156,7 @@ export const sandboxScript = pgTable(
 		name: text().notNull(),
 		code: text().notNull(),
 		isBuiltin: boolean().notNull().default(false),
-		// TODO(effect-migration): restore a concrete SandboxScriptMetadata type once the
-		// new sandbox module defines its shared metadata schema in app-backend.
-		metadata: jsonb().$type<Record<string, unknown>>().notNull(),
+		metadata: jsonb().$type<SandboxScriptMetadata>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
@@ -201,9 +205,7 @@ export const entity = pgTable(
 	{
 		externalId: text(),
 		name: text().notNull(),
-		// TODO(effect-migration): restore the stored entity image union once app-backend
-		// has a shared image type/schema again.
-		image: jsonb().$type<Record<string, unknown>>(),
+		image: jsonb().$type<StoredEntityImage>(),
 		populatedAt: timestamp({ withTimezone: true }),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
@@ -441,9 +443,7 @@ export const importRun = pgTable(
 		errorSummary: text(),
 		totalItems: integer(),
 		progress: integer().notNull().default(0),
-		// TODO(effect-migration): replace with ImportRunSource once the imports module
-		// ports its source enum/types into app-backend.
-		source: text().notNull(),
+		source: text().notNull().$type<ImportRunSource>(),
 		failedItems: integer().notNull().default(0),
 		importedItems: integer().notNull().default(0),
 		startedAt: timestamp({ withTimezone: true }),
