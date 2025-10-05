@@ -6,7 +6,7 @@ use database_utils::{user_workout_details, user_workout_template_details};
 use dependent_entity_list_utils::{
     user_exercises_list, user_measurements_list, user_workout_templates_list, user_workouts_list,
 };
-use dependent_fitness_utils::{create_or_update_user_workout, create_user_measurement};
+use dependent_fitness_utils::{create_or_update_user_measurement, create_or_update_user_workout};
 use dependent_models::{
     CachedResponse, UserExerciseDetails, UserExercisesListResponse, UserMeasurementsListResponse,
     UserTemplatesOrWorkoutsListInput, UserWorkoutDetails, UserWorkoutTemplateDetails,
@@ -163,12 +163,12 @@ impl FitnessService {
         user_measurements_list(user_id, &self.0, input).await
     }
 
-    pub async fn create_user_measurement(
+    pub async fn create_or_update_user_measurement(
         &self,
         user_id: &String,
         input: user_measurement::Model,
     ) -> Result<DateTimeUtc> {
-        create_user_measurement(user_id, input, &self.0).await
+        create_or_update_user_measurement(user_id, input, &self.0).await
     }
 
     pub async fn delete_user_measurement(
