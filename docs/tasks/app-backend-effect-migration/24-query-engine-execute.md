@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ This slice completes the saved-views/query-engine cycle by making dynamic query 
 
 ## Acceptance criteria
 
-- [ ] Authenticated users can execute valid query-engine requests
-- [ ] Entity mode queries return typed field values and pagination data
-- [ ] Events mode, aggregate mode, and time-series mode behavior is migrated
-- [ ] Invalid query references fail with typed validation/not-found errors
-- [ ] Query-engine E2E suites pass through the Effect client
-- [ ] App-client query consumers have direct typed responses available for later migration
+- [x] Authenticated users can execute valid query-engine requests
+- [x] Entity mode queries return typed field values and pagination data
+- [x] Events mode, aggregate mode, and time-series mode behavior is migrated
+- [x] Invalid query references fail with typed validation/not-found errors
+- [x] Query-engine E2E suites pass through the Effect client
+- [x] App-client query consumers have direct typed responses available for later migration
 
 ## User stories addressed
 

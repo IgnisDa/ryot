@@ -32,6 +32,7 @@
         "effect": "3.21.3",
         "ioredis": "5.11.1",
         "pg": "8.21.0",
+        "ts-pattern": "5.9.0",
       },
       "devDependencies": {
         "@effect/vitest": "0.29.0",
