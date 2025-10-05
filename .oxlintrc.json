@@ -56,6 +56,7 @@
 		"react/jsx-no-constructed-context-values": "warn",
 		"typescript/switch-exhaustiveness-check": "error",
 		"typescript/no-unnecessary-type-assertion": "warn",
+		"eslint/no-underscore-dangle": ["error", { "allow": ["_tag"] }],
 		"no-restricted-properties": [
 			"error",
 			{
