@@ -32,28 +32,12 @@ export const CreateMeasurementForm = (props: {
 	const userPreferences = useUserPreferences();
 
 	const [input, setInput] = useState<UserMeasurementInput>(() => {
-		if (props.measurementToEdit) {
-			return {
-				name: props.measurementToEdit.name || "",
-				timestamp: props.measurementToEdit.timestamp,
-				comment: props.measurementToEdit.comment || "",
-				information: {
-					statistics: props.measurementToEdit.information.statistics,
-					assets: {
-						s3Images: [],
-						s3Videos: [],
-						remoteVideos: [],
-						remoteImages: [],
-					},
-				},
-			};
-		}
 		return {
-			name: "",
-			comment: "",
-			timestamp: new Date().toISOString(),
+			name: props.measurementToEdit?.name || "",
+			comment: props.measurementToEdit?.comment || "",
+			timestamp: props.measurementToEdit?.timestamp || new Date().toISOString(),
 			information: {
-				statistics: [],
+				statistics: props.measurementToEdit?.information.statistics || [],
 				assets: {
 					s3Images: [],
 					s3Videos: [],
