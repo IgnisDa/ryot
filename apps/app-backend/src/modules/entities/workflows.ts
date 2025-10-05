@@ -52,6 +52,26 @@ const workflowFailureResult = (
 		onSome: (error) => ({ status: "failed", error: error.message }),
 	});
 
+const extractPrimaryRemoteImage = (images: unknown) => {
+	if (!Array.isArray(images)) {
+		return null;
+	}
+
+	for (const image of images) {
+		if (typeof image !== "object" || image === null) {
+			continue;
+		}
+
+		const url = Reflect.get(image, "url");
+		const type = Reflect.get(image, "type");
+		if (type === "remote" && typeof url === "string" && url.length > 0) {
+			return url;
+		}
+	}
+
+	return null;
+};
+
 export const toEntityImportRunResult = (
 	result: Workflow.Result<ListedEntity, SandboxRunError> | undefined,
 ): EntityImportRunResult => {
@@ -72,6 +92,7 @@ export const toEntityImportRunResult = (
 
 const ValidatedEntityDetails = Schema.Struct({
 	name: Schema.String,
+	image: Schema.NullOr(Schema.String),
 	relatedEntities: Schema.Array(EntityDetailsRelatedEntity),
 	validatedProperties: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
 });
@@ -160,6 +181,7 @@ export const runEntityImportWorkflow = <R>(
 					name: details.name,
 					validatedProperties,
 					relatedEntities: details.relatedEntities ?? [],
+					image: extractPrimaryRemoteImage(validatedProperties.images),
 				};
 			}),
 		});
@@ -204,9 +226,9 @@ export const runEntityImportWorkflow = <R>(
 				const populatedAt = yield* DateTime.nowAsDate;
 				return yield* runWithDb(
 					repository.createOrUpdateGlobalEntity({
-						image: null,
 						populatedAt,
 						name: validatedDetails.name,
+						image: validatedDetails.image,
 						externalId: payload.externalId,
 						sandboxScriptId: payload.scriptId,
 						entitySchemaId: payload.entitySchemaId,
