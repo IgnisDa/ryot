@@ -43,7 +43,7 @@ import {
 	ShowSeasonsList,
 	VideoGameStats,
 } from "./type-specific-sections";
-import type { EntityDetail, UnlinkedCreator } from "./types";
+import type { EntityDetail, AppUnlinkedCreator } from "./types";
 
 type Collections = Awaited<ReturnType<typeof loadRelatedCollections>>;
 
@@ -88,7 +88,7 @@ function getTypeSpecificTab(entity: EntityDetail): TabConfig | null {
 function OverviewTab(props: {
 	entity: EntityDetail;
 	groups: Groups | null;
-	creators: UnlinkedCreator[];
+	creators: AppUnlinkedCreator[];
 	companies: RelatedCompany[];
 	collections: Collections | null;
 }) {
@@ -241,7 +241,7 @@ function TabBar(props: {
 export function EntityDetailTabs(props: {
 	entity: EntityDetail;
 	groups: Groups | null;
-	creators: UnlinkedCreator[];
+	creators: AppUnlinkedCreator[];
 	companies: RelatedCompany[];
 	collections: Collections | null;
 }) {

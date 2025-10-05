@@ -11,9 +11,9 @@ import { Text } from "@/components/ui/text";
 
 import { formatMinutes } from "./duration";
 import { getPrimaryCreator } from "./people";
-import type { EntityDetail, UnlinkedCreator } from "./types";
+import type { EntityDetail, AppUnlinkedCreator } from "./types";
 
-export function HeroSection(props: { creators: UnlinkedCreator[]; entity: EntityDetail }) {
+export function HeroSection(props: { creators: AppUnlinkedCreator[]; entity: EntityDetail }) {
 	const entity = props.entity;
 	const insets = useSafeAreaInsets();
 	const primaryCreator = getPrimaryCreator(props.creators);
