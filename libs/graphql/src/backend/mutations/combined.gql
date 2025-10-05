@@ -83,8 +83,8 @@ mutation CreateReviewComment($input: CreateReviewCommentInput!) {
 	createReviewComment(input: $input)
 }
 
-mutation CreateUserMeasurement($input: UserMeasurementInput!) {
-	createUserMeasurement(input: $input)
+mutation CreateOrUpdateUserMeasurement($input: UserMeasurementInput!) {
+	createOrUpdateUserMeasurement(input: $input)
 }
 
 mutation CreateUserNotificationPlatform(

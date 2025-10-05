@@ -9,28 +9,28 @@ import {
 import { DateTimePicker } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import {
-	CreateUserMeasurementDocument,
+	CreateOrUpdateUserMeasurementDocument,
+	type UserMeasurement,
 	type UserMeasurementInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useApplicationEvents, useUserPreferences } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/react-query";
+import {
+	clientGqlService,
+	queryClient,
+	queryFactory,
+} from "~/lib/shared/react-query";
 
-export const CreateMeasurementForm = (props: {
-	closeMeasurementModal: () => void;
-}) => {
-	const events = useApplicationEvents();
-	const userPreferences = useUserPreferences();
-
-	const [input, setInput] = useState<UserMeasurementInput>({
-		name: "",
-		comment: "",
-		timestamp: new Date().toISOString(),
+const buildInput = (measurement?: UserMeasurement | null) => {
+	return {
+		name: measurement?.name || "",
+		comment: measurement?.comment || "",
+		timestamp: measurement?.timestamp || new Date().toISOString(),
 		information: {
-			statistics: [],
+			statistics: measurement?.information?.statistics || [],
 			assets: {
 				s3Images: [],
 				s3Videos: [],
@@ -38,12 +38,29 @@ export const CreateMeasurementForm = (props: {
 				remoteImages: [],
 			},
 		},
-	});
+	} as UserMeasurementInput;
+};
+
+export const CreateOrUpdateMeasurementForm = (props: {
+	closeMeasurementModal: () => void;
+	measurementToUpdate?: UserMeasurement | null;
+}) => {
+	const events = useApplicationEvents();
+	const userPreferences = useUserPreferences();
+	const [input, setInput] = useState<UserMeasurementInput>(() =>
+		buildInput(props.measurementToUpdate),
+	);
 
 	const createMeasurementMutation = useMutation({
 		mutationFn: () =>
-			clientGqlService.request(CreateUserMeasurementDocument, { input }),
+			clientGqlService.request(CreateOrUpdateUserMeasurementDocument, {
+				input,
+			}),
 	});
+
+	useEffect(() => {
+		setInput(buildInput(props.measurementToUpdate));
+	}, [props.measurementToUpdate]);
 
 	return (
 		<Stack>
@@ -119,16 +136,23 @@ export const CreateMeasurementForm = (props: {
 					!input.information.statistics.some((s) => s.value)
 				}
 				onClick={async () => {
-					events.createMeasurement();
 					await createMeasurementMutation.mutateAsync();
 					notifications.show({
 						color: "green",
-						message: "Your measurement has been created",
+						message: props.measurementToUpdate
+							? "Your measurement has been updated"
+							: "Your measurement has been created",
 					});
+					queryClient.invalidateQueries({
+						queryKey: queryFactory.fitness.userMeasurementsList._def,
+					});
+					if (!props.measurementToUpdate) {
+						events.createMeasurement();
+					}
 					props.closeMeasurementModal();
 				}}
 			>
-				Submit
+				{props.measurementToUpdate ? "Update" : "Submit"}
 			</Button>
 		</Stack>
 	);

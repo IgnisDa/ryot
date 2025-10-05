@@ -2124,7 +2124,6 @@ dependencies = [
  "sea-orm",
  "supporting-service",
  "tracing",
- "user-models",
 ]
 
 [[package]]

@@ -142,14 +142,16 @@ impl FitnessMutationResolver {
             .await?)
     }
 
-    /// Create a user measurement.
-    async fn create_user_measurement(
+    /// Create or update a user measurement.
+    async fn create_or_update_user_measurement(
         &self,
         gql_ctx: &Context<'_>,
         input: user_measurement::Model,
     ) -> Result<DateTimeUtc> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.create_user_measurement(&user_id, input).await?)
+        Ok(service
+            .create_or_update_user_measurement(&user_id, input)
+            .await?)
     }
 
     /// Delete a user measurement.
