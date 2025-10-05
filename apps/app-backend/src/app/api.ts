@@ -12,19 +12,20 @@ const openApiInfo = {
 	description: "OpenAPI specification for app-owned backend routes",
 };
 
-export const apiApp = new Hono<{ Variables: MaybeAuthType }>();
-
-apiApp
+const typedApiApp = new Hono<{ Variables: MaybeAuthType }>()
 	.route("/health", healthApi)
-	.get(
-		"/openapi.json",
-		openAPIRouteHandler(apiApp, {
-			documentation: { info: openApiInfo, servers: [{ url: "/api" }] },
-		}),
-	)
-	.get("/docs", swaggerUI({ url: "/api/openapi.json" }))
 	.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw))
 	.use("*", withSession)
 	.route("/protected", protectedApi);
 
-export type AppType = typeof apiApp;
+export const apiApp = new Hono<{ Variables: MaybeAuthType }>()
+	.get(
+		"/openapi.json",
+		openAPIRouteHandler(typedApiApp, {
+			documentation: { info: openApiInfo, servers: [{ url: "/api" }] },
+		}),
+	)
+	.get("/docs", swaggerUI({ url: "/api/openapi.json" }))
+	.route("/", typedApiApp);
+
+export type AppType = typeof typedApiApp;
