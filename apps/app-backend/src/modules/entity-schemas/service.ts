@@ -26,11 +26,11 @@ const failure = (error: string, status: StatusCode) => ({
 const success = <T>(data: T) => ({ data, success: true as const });
 
 const sandboxSearchResponseSchema = z.object({
-	details: z.object({
-		total_items: z.number().int().nonnegative(),
-		next_page: positiveIntSchema.nullable(),
-	}),
 	items: z.array(schemaSearchItemSchema),
+	details: z.object({
+		next_page: positiveIntSchema.nullable(),
+		total_items: z.number().int().nonnegative(),
+	}),
 });
 
 const parseSandboxFailure = (
@@ -76,8 +76,8 @@ export const runSchemaSearch = async (input: {
 	const transformedData = {
 		data: parsedResult.data.items,
 		meta: {
-			total: parsedResult.data.details.total_items,
 			page: input.body.page,
+			total: parsedResult.data.details.total_items,
 			hasMore: parsedResult.data.details.next_page !== null,
 		},
 	};
@@ -133,8 +133,8 @@ export const runSchemaImport = async (input: {
 
 	const sandbox = getSandboxService();
 	const result = await sandbox.run({
-		userId: input.userId,
 		code: script.code,
+		userId: input.userId,
 		apiFunctions: { getAppConfigValue, getUserConfigValue },
 		context: {
 			schemaSlug: script.schemaSlug,
