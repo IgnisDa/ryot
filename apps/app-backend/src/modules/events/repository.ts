@@ -5,17 +5,19 @@ import { CurrentDb, dbEffect, schema } from "../../lib/db";
 import { DbError } from "../../lib/errors";
 import type { ListedEvent } from "./schemas";
 
-type EventRow = {
-	readonly id: string;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-	readonly occurredAt: Date;
-	readonly entityId: string;
-	readonly eventSchemaId: string;
-	readonly eventSchemaName: string;
-	readonly eventSchemaSlug: string;
-	readonly sessionEntityId: string | null;
-	readonly properties: Record<string, unknown>;
+type EventRow = Pick<
+	typeof schema.event.$inferSelect,
+	| "id"
+	| "entityId"
+	| "createdAt"
+	| "updatedAt"
+	| "occurredAt"
+	| "properties"
+	| "eventSchemaId"
+	| "sessionEntityId"
+> & {
+	readonly eventSchemaName: (typeof schema.eventSchema.$inferSelect)["name"];
+	readonly eventSchemaSlug: (typeof schema.eventSchema.$inferSelect)["slug"];
 };
 
 type EventsRepositoryShape = {

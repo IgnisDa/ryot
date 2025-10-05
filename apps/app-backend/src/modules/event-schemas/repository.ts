@@ -8,13 +8,10 @@ import type { AppSchema } from "../../lib/schema";
 import { decodeStoredAppSchema } from "../../lib/schema";
 import type { ListedEventSchema } from "./schemas";
 
-type ListedEventSchemaRow = {
-	readonly id: string;
-	readonly name: string;
-	readonly slug: string;
-	readonly entitySchemaId: string;
-	readonly propertiesSchema: Record<string, unknown>;
-};
+type ListedEventSchemaRow = Pick<
+	typeof schema.eventSchema.$inferSelect,
+	"id" | "name" | "slug" | "entitySchemaId" | "propertiesSchema"
+>;
 
 const eventSchemaUserEntitySchemaSlugConstraint = "event_schema_user_entity_schema_slug_unique";
 
