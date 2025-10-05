@@ -1,15 +1,10 @@
 import { assertPresent } from "../test-support/assertions";
 import type { Client } from "./auth";
-import type { ClientSuccess } from "./backend-client";
 import { createEntity } from "./entities";
 import { createTrackerWithSchema, findBuiltinSchemaBySlug } from "./entity-schemas";
 import { createEventSchema, listEventSchemas, requireEventSchemaBySlug } from "./event-schemas";
 import { seedMediaEntity } from "./media";
 import { type PollOptions, pollUntil } from "./polling";
-
-type EventRecord = Omit<ClientSuccess<"events", "list">[number], "properties"> & {
-	properties: Record<string, unknown>;
-};
 
 const defaultMediaProperties = {
 	genres: [],
@@ -156,9 +151,7 @@ export async function listEventsForEntity(client: Client, cookies: string, entit
 		params: { query: { entityId } },
 	});
 
-	// TODO(Task 22): Remove this tests-only event assertion once the public
-	// AppContract exposes typed event properties.
-	return (result.data ?? []) as EventRecord[];
+	return result.data ?? [];
 }
 
 export async function waitForEventWithSchema(

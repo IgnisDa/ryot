@@ -73,6 +73,7 @@ const fakeAppConfigLayer = Layer.succeed(AppConfig, {
 	redisUrl: Redacted.make("unused"),
 	databaseUrl: Redacted.make("unused"),
 	frontend: { oidcButtonLabel: Option.none() },
+	scheduler: { progressUpdateThresholdHours: 2 },
 	users: { allowRegistration: true, disableLocalAuth: false },
 	sandbox: { denoDir: "/tmp", timeoutMs: 5_000, jobIdSecret: Redacted.make("test-secret") },
 	server: {
