@@ -5,7 +5,7 @@ import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 	createEventAggregateExpression,
-} from "@ryot/ts-utils/view-language";
+} from "@ryot/app-backend/query-language";
 
 import {
 	buildComputedField,
@@ -172,11 +172,10 @@ describe("Query engine E2E", () => {
 				{
 					primarySubtitleProperty: null,
 					secondarySubtitleProperty: null,
-					calloutProperty: createEventAggregateExpression(
-						"review",
-						["properties", "rating"],
-						"avg",
-					),
+					calloutProperty: createEventAggregateExpression("review", "avg", [
+						"properties",
+						"rating",
+					]),
 				},
 				[schema.slug],
 			),
@@ -1916,7 +1915,7 @@ describe("Query engine E2E", () => {
 			fields: [
 				buildQueryEngineField(
 					"avgReviewLabel",
-					createEventAggregateExpression("review", ["properties", "label"], "avg"),
+					createEventAggregateExpression("review", "avg", ["properties", "label"]),
 				),
 			],
 		});
