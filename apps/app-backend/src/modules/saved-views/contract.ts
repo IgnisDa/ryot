@@ -2,50 +2,14 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../lib/auth";
-import { NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
-import { DisplayConfiguration, SavedViewQueryDefinition } from "../../lib/query-language";
-
-export const ListedSavedView = Schema.Struct({
-	id: Schema.String,
-	slug: Schema.String,
-	name: Schema.String,
-	icon: Schema.String,
-	sortOrder: Schema.Number,
-	createdAt: Schema.String,
-	updatedAt: Schema.String,
-	isBuiltin: Schema.Boolean,
-	isDisabled: Schema.Boolean,
-	accentColor: Schema.String,
-	queryDefinition: SavedViewQueryDefinition,
-	displayConfiguration: DisplayConfiguration,
-	trackerId: Schema.optional(Schema.String),
-});
-
-const CreateSavedViewBody = Schema.Struct({
-	icon: Schema.String,
-	name: Schema.String,
-	accentColor: Schema.String,
-	queryDefinition: SavedViewQueryDefinition,
-	displayConfiguration: DisplayConfiguration,
-	trackerId: Schema.optional(Schema.String),
-});
-
-const UpdateSavedViewBody = Schema.Struct({
-	icon: Schema.String,
-	name: Schema.String,
-	isDisabled: Schema.Boolean,
-	accentColor: Schema.String,
-	queryDefinition: SavedViewQueryDefinition,
-	displayConfiguration: DisplayConfiguration,
-	trackerId: Schema.optional(Schema.String),
-});
-
-const ReorderSavedViewsBody = Schema.Struct({
-	viewSlugs: Schema.Array(Schema.String),
-	trackerId: Schema.optional(Schema.String),
-});
-
-const ReorderSavedViewsResponse = Schema.Struct({ viewSlugs: Schema.Array(Schema.String) });
+import { BadRequest, NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
+import {
+	CreateSavedViewBody,
+	ListedSavedView,
+	ReorderSavedViewsBody,
+	ReorderSavedViewsResponse,
+	UpdateSavedViewBody,
+} from "./schemas";
 
 const viewSlugParam = HttpApiSchema.param("viewSlug", Schema.String);
 
@@ -69,6 +33,7 @@ export const SavedViewsGroup = HttpApiGroup.make("saved-views")
 		HttpApiEndpoint.post("create", "/saved-views")
 			.setPayload(CreateSavedViewBody)
 			.addSuccess(ListedSavedView, { status: 201 })
+			.addError(BadRequest, { status: 400 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
@@ -82,24 +47,28 @@ export const SavedViewsGroup = HttpApiGroup.make("saved-views")
 			.setPayload(UpdateSavedViewBody)
 			.addSuccess(ListedSavedView)
 			.addError(NotFound, { status: 404 })
+			.addError(BadRequest, { status: 400 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.del("delete")`/saved-views/${viewSlugParam}`
 			.addSuccess(ListedSavedView)
 			.addError(NotFound, { status: 404 })
+			.addError(BadRequest, { status: 400 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.post("clone")`/saved-views/${viewSlugParam}/clone`
 			.addSuccess(ListedSavedView, { status: 201 })
 			.addError(NotFound, { status: 404 })
+			.addError(BadRequest, { status: 400 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.post("reorder", "/saved-views/reorder")
 			.setPayload(ReorderSavedViewsBody)
 			.addSuccess(ReorderSavedViewsResponse)
+			.addError(BadRequest, { status: 400 })
 			.middleware(AuthMiddleware),
 	)
 	.addError(NotImplemented, { status: 501 });
