@@ -7,6 +7,7 @@ import {
 	type SetRestTimersSettings,
 	UserExerciseDetailsDocument,
 	type UserFitnessPreferences,
+	type UserMeasurement,
 	type UserUnitSystem,
 	UserWorkoutDetailsDocument,
 	type UserWorkoutDetailsQuery,
@@ -303,10 +304,9 @@ const currentWorkoutStopwatchAtom = atomWithStorage<CurrentWorkoutStopwatch>(
 export const useCurrentWorkoutStopwatchAtom = () =>
 	useAtom(currentWorkoutStopwatchAtom);
 
-const measurementsDrawerOpenAtom = atom(false);
+const measurementsDrawerAtom = atom<UserMeasurement | boolean>(false);
 
-export const useMeasurementsDrawerOpen = () =>
-	useAtom(measurementsDrawerOpenAtom);
+export const useMeasurementsDrawer = () => useAtom(measurementsDrawerAtom);
 
 export const mergingExerciseAtom = atom<string | null>(null);
 

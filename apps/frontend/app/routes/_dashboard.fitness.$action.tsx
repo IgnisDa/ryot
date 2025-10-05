@@ -32,7 +32,7 @@ import {
 import {
 	useCurrentWorkout,
 	useCurrentWorkoutTimerAtom,
-	useMeasurementsDrawerOpen,
+	useMeasurementsDrawer,
 } from "~/lib/state/fitness";
 import {
 	OnboardingTourStepTargets,
@@ -63,7 +63,7 @@ export default function Page() {
 	const [parent] = useAutoAnimate();
 	const [isSaveBtnLoading, setIsSaveBtnLoading] = useState(false);
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const [_, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
+	const [_, setMeasurementsDrawerOpen] = useMeasurementsDrawer();
 	const [currentTimer, setCurrentTimer] = useCurrentWorkoutTimerAtom();
 	const {
 		openTimerDrawer,

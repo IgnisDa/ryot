@@ -20,6 +20,7 @@ import {
 import { cloneDeep, reverse, startCase } from "@ryot/ts-utils";
 import {
 	IconChartArea,
+	IconPencil,
 	IconPlus,
 	IconTable,
 	IconTrash,
@@ -37,7 +38,7 @@ import {
 	getStringAsciiValue,
 	openConfirmationModal,
 } from "~/lib/shared/ui-utils";
-import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
+import { useMeasurementsDrawer } from "~/lib/state/fitness";
 import { TimeSpan } from "~/lib/types";
 
 interface FilterState {
@@ -59,7 +60,7 @@ const tickFormatter = (date: string) => dayjsLib(date).format("L");
 
 export default function Page() {
 	const userPreferences = useUserPreferences();
-	const [, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
+	const [, setMeasurementsDrawerData] = useMeasurementsDrawer();
 	const [filters, setFilters] = useLocalStorage(
 		"MeasurementsListFilters",
 		defaultFilterState,
@@ -128,7 +129,7 @@ export default function Page() {
 					<ActionIcon
 						color="green"
 						variant="outline"
-						onClick={() => setMeasurementsDrawerOpen(true)}
+						onClick={() => setMeasurementsDrawerData(true)}
 					>
 						<IconPlus size={20} />
 					</ActionIcon>
@@ -180,6 +181,27 @@ export default function Page() {
 									title: s.label,
 									accessor: s.value,
 								})),
+								{
+									width: 80,
+									accessor: "Edit",
+									textAlign: "center",
+									render: ({ timestamp }) => {
+										const measurement = userMeasurementsList?.find(
+											(m) => m.timestamp === timestamp,
+										);
+										return (
+											<ActionIcon
+												color="blue"
+												onClick={() => {
+													if (measurement)
+														setMeasurementsDrawerData(measurement);
+												}}
+											>
+												<IconPencil />
+											</ActionIcon>
+										);
+									},
+								},
 								{
 									width: 80,
 									accessor: "Delete",

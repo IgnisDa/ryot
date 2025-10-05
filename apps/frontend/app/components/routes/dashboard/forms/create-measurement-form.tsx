@@ -10,6 +10,7 @@ import { DateTimePicker } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import {
 	CreateOrUpdateUserMeasurementDocument,
+	type UserMeasurement,
 	type UserMeasurementInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase } from "@ryot/ts-utils";
@@ -21,23 +22,42 @@ import { clientGqlService } from "~/lib/shared/react-query";
 
 export const CreateMeasurementForm = (props: {
 	closeMeasurementModal: () => void;
+	measurementToEdit?: UserMeasurement | null;
 }) => {
 	const events = useApplicationEvents();
 	const userPreferences = useUserPreferences();
 
-	const [input, setInput] = useState<UserMeasurementInput>({
-		name: "",
-		comment: "",
-		timestamp: new Date().toISOString(),
-		information: {
-			statistics: [],
-			assets: {
-				s3Images: [],
-				s3Videos: [],
-				remoteVideos: [],
-				remoteImages: [],
+	const [input, setInput] = useState<UserMeasurementInput>(() => {
+		if (props.measurementToEdit) {
+			return {
+				name: props.measurementToEdit.name || "",
+				timestamp: props.measurementToEdit.timestamp,
+				comment: props.measurementToEdit.comment || "",
+				information: {
+					statistics: props.measurementToEdit.information.statistics,
+					assets: {
+						s3Images: [],
+						s3Videos: [],
+						remoteVideos: [],
+						remoteImages: [],
+					},
+				},
+			};
+		}
+		return {
+			name: "",
+			comment: "",
+			timestamp: new Date().toISOString(),
+			information: {
+				statistics: [],
+				assets: {
+					s3Images: [],
+					s3Videos: [],
+					remoteVideos: [],
+					remoteImages: [],
+				},
 			},
-		},
+		};
 	});
 
 	const createMeasurementMutation = useMutation({
@@ -125,12 +145,14 @@ export const CreateMeasurementForm = (props: {
 					await createMeasurementMutation.mutateAsync();
 					notifications.show({
 						color: "green",
-						message: "Your measurement has been created",
+						message: props.measurementToEdit
+							? "Your measurement has been updated"
+							: "Your measurement has been created",
 					});
 					props.closeMeasurementModal();
 				}}
 			>
-				Submit
+				{props.measurementToEdit ? "Update" : "Submit"}
 			</Button>
 		</Stack>
 	);

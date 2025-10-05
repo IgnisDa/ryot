@@ -4,7 +4,7 @@ import {
 	useCreateOrUpdateCollectionModal,
 	useEditEntityCollectionInformation,
 } from "~/lib/state/collection";
-import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
+import { useMeasurementsDrawer } from "~/lib/state/fitness";
 import {
 	useAddEntityToCollections,
 	useMetadataProgressUpdate,
@@ -35,9 +35,9 @@ export function LayoutModals() {
 	] = useEditEntityCollectionInformation();
 	const closeEditEntityCollectionInformationModal = () =>
 		setEditEntityCollectionInformationData(null);
-	const [measurementsDrawerOpen, setMeasurementsDrawerOpen] =
-		useMeasurementsDrawerOpen();
-	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
+	const [measurementsDrawerData, setMeasurementsDrawerData] =
+		useMeasurementsDrawer();
+	const closeMeasurementsDrawer = () => setMeasurementsDrawerData(false);
 	const { completeOnboardingTour, isOnLastOnboardingTourStep } =
 		useOnboardingTour();
 	const { isOpen: isCollectionModalOpen, close: closeCollectionModal } =
@@ -96,11 +96,20 @@ export function LayoutModals() {
 				/>
 			</Drawer>
 			<Drawer
-				title="Add new measurement"
-				opened={measurementsDrawerOpen}
+				title={
+					typeof measurementsDrawerData === "object"
+						? "Edit measurement"
+						: "Add new measurement"
+				}
+				opened={measurementsDrawerData !== false}
 				onClose={closeMeasurementsDrawer}
 			>
 				<CreateMeasurementForm
+					measurementToEdit={
+						typeof measurementsDrawerData === "object"
+							? measurementsDrawerData
+							: null
+					}
 					closeMeasurementModal={closeMeasurementsDrawer}
 				/>
 			</Drawer>
