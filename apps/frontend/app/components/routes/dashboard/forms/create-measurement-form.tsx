@@ -18,7 +18,11 @@ import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useState } from "react";
 import { useApplicationEvents, useUserPreferences } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/react-query";
+import {
+	clientGqlService,
+	queryClient,
+	queryFactory,
+} from "~/lib/shared/react-query";
 
 export const CreateMeasurementForm = (props: {
 	closeMeasurementModal: () => void;
@@ -148,6 +152,9 @@ export const CreateMeasurementForm = (props: {
 						message: props.measurementToEdit
 							? "Your measurement has been updated"
 							: "Your measurement has been created",
+					});
+					queryClient.invalidateQueries({
+						queryKey: queryFactory.fitness.userMeasurementsList._def,
 					});
 					props.closeMeasurementModal();
 				}}
