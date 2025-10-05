@@ -17,6 +17,7 @@ const listedEventSelection = {
 	entityId: event.entityId,
 	createdAt: event.createdAt,
 	updatedAt: event.updatedAt,
+	occurredAt: event.occurredAt,
 	properties: event.properties,
 	eventSchemaName: eventSchema.name,
 	eventSchemaSlug: eventSchema.slug,
@@ -29,6 +30,7 @@ const createdEventSelection = {
 	entityId: event.entityId,
 	createdAt: event.createdAt,
 	updatedAt: event.updatedAt,
+	occurredAt: event.occurredAt,
 	properties: event.properties,
 	eventSchemaId: event.eventSchemaId,
 	sessionEntityId: event.sessionEntityId,
@@ -113,7 +115,7 @@ export const listEventsByEntityForUser = async (input: {
 				input.eventSchemaSlug ? eq(eventSchema.slug, input.eventSchemaSlug) : undefined,
 			),
 		)
-		.orderBy(desc(event.createdAt));
+		.orderBy(desc(event.occurredAt), desc(event.createdAt), desc(event.id));
 
 	return rows;
 };
@@ -121,6 +123,7 @@ export const listEventsByEntityForUser = async (input: {
 export const createEventForUser = async (input: {
 	userId: string;
 	entityId: string;
+	occurredAt: Date;
 	eventSchemaId: string;
 	eventSchemaName: string;
 	eventSchemaSlug: string;
@@ -133,6 +136,7 @@ export const createEventForUser = async (input: {
 			userId: input.userId,
 			entityId: input.entityId,
 			properties: input.properties,
+			occurredAt: input.occurredAt,
 			eventSchemaId: input.eventSchemaId,
 			sessionEntityId: input.sessionEntityId ?? null,
 		})

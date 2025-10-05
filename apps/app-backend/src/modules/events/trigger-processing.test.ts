@@ -16,6 +16,7 @@ const createProgressEvent = (overrides: Partial<CreatedEventData> = {}): Created
 	properties: { progressPercent: 100 },
 	createdAt: new Date("2024-01-01"),
 	updatedAt: new Date("2024-01-01"),
+	occurredAt: new Date("2024-01-01"),
 	...overrides,
 });
 
@@ -216,6 +217,9 @@ describe("processEventSchemaTriggers", () => {
 				entitySchemaId: "schema_book",
 				eventSchemaId: "event_schema_1",
 				properties: { progressPercent: 100 },
+				createdAt: "2024-01-01T00:00:00.000Z",
+				updatedAt: "2024-01-01T00:00:00.000Z",
+				occurredAt: "2024-01-01T00:00:00.000Z",
 			},
 		});
 	});
