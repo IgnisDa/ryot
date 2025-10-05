@@ -95,7 +95,7 @@ function EntityDetailPage() {
 	const entityRequest = useQuery({
 		queryKey: ["entity", params.entityId],
 		queryFn: async () => {
-			const response = await apiClient.protected.entities[":entityId"].$get({
+			const response = await apiClient.entities[":entityId"].$get({
 				param: { entityId: params.entityId },
 			});
 
