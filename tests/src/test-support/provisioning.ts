@@ -6,6 +6,48 @@ import { GenericContainer, type StartedTestContainer, Wait } from "testcontainer
 
 const S3_ACCESS_KEY = "rustfsadmin";
 const S3_SECRET_KEY = "rustfsadmin";
+const MAX_BUFFERED_LOG_CHARS = 50000;
+
+const intentionallyStoppedProcesses = new WeakSet<ChildProcess>();
+const processLogBuffers = new WeakMap<
+	ChildProcess,
+	{ flushed: boolean; stderr: string; stdout: string }
+>();
+
+function appendLog(buffer: string, data: unknown) {
+	const text =
+		typeof data === "string" ? data : Buffer.isBuffer(data) ? data.toString("utf8") : String(data);
+	const next = `${buffer}${text}`;
+	return next.length > MAX_BUFFERED_LOG_CHARS ? next.slice(-MAX_BUFFERED_LOG_CHARS) : next;
+}
+
+function flushProcessLogs(proc: ChildProcess, label: string, reason: string) {
+	const state = processLogBuffers.get(proc);
+	if (state?.flushed) {
+		return;
+	}
+
+	if (state) {
+		state.flushed = true;
+	}
+
+	console.error(`[${label}] ${reason}`);
+
+	if (!state) {
+		return;
+	}
+
+	const stdout = state.stdout.trimEnd();
+	const stderr = state.stderr.trimEnd();
+
+	if (stdout) {
+		console.error(`[${label}] stdout:\n${stdout}`);
+	}
+
+	if (stderr) {
+		console.error(`[${label}] stderr:\n${stderr}`);
+	}
+}
 
 export type CoreTestInfrastructure = {
 	dbUrl: string;
@@ -19,12 +61,7 @@ export type CoreTestInfrastructure = {
 
 export async function startCoreTestInfrastructure(input: {
 	bucketName: string;
-	logPrefix?: string;
 }): Promise<CoreTestInfrastructure> {
-	if (input.logPrefix) {
-		console.log(`[${input.logPrefix}] Starting containers...`);
-	}
-
 	const [pgContainer, redisContainer, s3Container] = await Promise.all([
 		new PostgreSqlContainer("postgres:18-alpine")
 			.withDatabase("test_db")
@@ -54,10 +91,6 @@ export async function startCoreTestInfrastructure(input: {
 	});
 
 	await s3Client.send(new CreateBucketCommand({ Bucket: input.bucketName }));
-
-	if (input.logPrefix) {
-		console.log(`[${input.logPrefix}] S3 bucket '${input.bucketName}' created at ${s3Endpoint}`);
-	}
 
 	return {
 		dbUrl,
@@ -117,8 +150,40 @@ export function spawnBackendProcess(env: NodeJS.ProcessEnv, cwd = "../apps/app-b
 }
 
 export function attachProcessLogs(proc: ChildProcess, label: string) {
-	proc.stdout?.on("data", (data) => console.log(`[${label}] ${data}`));
-	proc.stderr?.on("data", (data) => console.error(`[${label}] ${data}`));
+	processLogBuffers.set(proc, { flushed: false, stderr: "", stdout: "" });
+
+	proc.stdout?.setEncoding("utf8");
+	proc.stderr?.setEncoding("utf8");
+
+	proc.stdout?.on("data", (data) => {
+		const state = processLogBuffers.get(proc);
+		if (state) {
+			state.stdout = appendLog(state.stdout, data);
+		}
+	});
+
+	proc.stderr?.on("data", (data) => {
+		const state = processLogBuffers.get(proc);
+		if (state) {
+			state.stderr = appendLog(state.stderr, data);
+		}
+	});
+
+	proc.once("close", (code, signal) => {
+		if (!intentionallyStoppedProcesses.has(proc)) {
+			flushProcessLogs(
+				proc,
+				label,
+				`exited unexpectedly (code=${code ?? "null"}, signal=${signal ?? "null"})`,
+			);
+		}
+	});
+
+	proc.once("error", (error) => {
+		if (!intentionallyStoppedProcesses.has(proc)) {
+			flushProcessLogs(proc, label, `failed to start: ${error.message}`);
+		}
+	});
 }
 
 export async function waitForHealthCheck(
@@ -132,7 +197,6 @@ export async function waitForHealthCheck(
 			// oxlint-disable-next-line no-await-in-loop
 			const response = await fetch(url);
 			if (response.ok) {
-				console.log(`[${label}] Health check passed for ${url}`);
 				return;
 			}
 		} catch {}
@@ -155,6 +219,9 @@ export async function stopBackendProcess(proc?: ChildProcess) {
 		proc.once("exit", () => resolve());
 		if (!proc.kill("SIGINT")) {
 			resolve();
+			return;
 		}
+
+		intentionallyStoppedProcesses.add(proc);
 	});
 }

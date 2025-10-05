@@ -61,7 +61,6 @@ function requireOidcPgClient(): PgClient {
 
 beforeAll(async () => {
 	coreInfrastructure = await startCoreTestInfrastructure({
-		logPrefix: "OIDC Setup",
 		bucketName: S3_BUCKET_NAME,
 	});
 
@@ -124,27 +123,20 @@ beforeAll(async () => {
 
 	pgClientOidc = new PgClient({ connectionString: infrastructure.dbUrl });
 	await pgClientOidc.connect();
-
-	console.log("[OIDC Setup] All backends ready!");
 }, 120000);
 
 afterAll(async () => {
-	console.log("[OIDC Teardown] Stopping services...");
-
 	await Promise.all([
 		stopBackendProcess(backendProcessA),
 		stopBackendProcess(backendProcessB),
 		stopBackendProcess(backendProcessC),
 	]);
-	console.log("[OIDC Teardown] Backend processes stopped");
 
 	await Promise.all([
 		pgClientOidc?.end(),
 		stopCoreTestInfrastructure(coreInfrastructure),
 		oidcContainer?.stop(),
 	]);
-
-	console.log("[OIDC Teardown] Complete!");
 });
 
 describe("GET /system/config with OIDC enabled (Backend A)", () => {
