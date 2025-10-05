@@ -38,7 +38,7 @@ describe("toAppSchema", () => {
 			type: "boolean",
 			validation: { required: true },
 		});
-		expect(toAppSchema(z.string().date())).toEqual({
+		expect(toAppSchema(z.iso.date())).toEqual({
 			type: "date",
 			label: "Value",
 			description: "Value",
