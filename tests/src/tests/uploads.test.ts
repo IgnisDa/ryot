@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
 import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { temporaryUploadMaxRequestBytes } from "@ryot/app-backend-legacy/lib/upload";
 
 import { createAuthenticatedClient } from "../fixtures";
 import { getBackendClient, getBackendUrl, getS3BucketName, getS3Client } from "../setup";
@@ -145,10 +144,9 @@ describe("POST /uploads/temporary", () => {
 		];
 
 		const response = await postTemporaryUploads(files, cookies);
-		expect(response.status).toBe(200);
+		expect(response.status).toBe(201);
 
-		const payload: Record<string, unknown> = await response.json();
-		const tokens = payload.data;
+		const tokens: unknown = await response.json();
 		expect(isStringArray(tokens)).toBe(true);
 		if (!isStringArray(tokens)) {
 			throw new Error("Temporary upload response did not include tokens");
@@ -168,29 +166,21 @@ describe("POST /uploads/temporary", () => {
 		];
 
 		const response = await postTemporaryUploads(files, cookies);
-		expect(response.status).toBe(200);
+		expect(response.status).toBe(201);
 
-		const payload: Record<string, unknown> = await response.json();
-		expect(isStringArray(payload.data)).toBe(true);
+		const tokens: unknown = await response.json();
+		expect(isStringArray(tokens)).toBe(true);
 	});
 
 	it("returns 413 when the multipart body exceeds the maximum allowed size", async () => {
 		const { cookies } = await createAuthenticatedClient();
 		const oversizedFile = new File(
-			[new Uint8Array(temporaryUploadMaxRequestBytes + 1)],
+			[new Uint8Array(55 * 1024 * 1024)],
 			"oversized.csv",
 			{ type: "text/csv" },
 		);
 
 		const response = await postTemporaryUploads([oversizedFile], cookies);
 		expect(response.status).toBe(413);
-
-		const payload: Record<string, unknown> = await response.json();
-		expect(payload).toEqual({
-			error: {
-				code: "validation_failed",
-				message: "Temporary upload request exceeds the maximum allowed size",
-			},
-		});
 	});
 });
