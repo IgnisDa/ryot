@@ -4,6 +4,7 @@ import Redis from "ioredis";
 import { AppConfig } from "./config";
 
 export const redisKeys = {
+	sandboxCache: (scriptId: string, key: string) => `ryot:sandbox:cache:${scriptId}:${key}`,
 	sandboxSession: (executionId: string) => `ryot:sandbox:session:${executionId}`,
 	uploadToken: (token: string) => `ryot:upload:token:${token}`,
 };
