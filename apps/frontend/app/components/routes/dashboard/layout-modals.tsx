@@ -12,7 +12,7 @@ import {
 } from "~/lib/state/media";
 import { useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { AddEntityToCollectionsForm } from "./forms/add-entity-to-collections-form";
-import { CreateOrEditMeasurementForm } from "./forms/create-or-edit-measurement-form";
+import { CreateOrUpdateMeasurementForm } from "./forms/create-or-update-measurement-form";
 import { CreateOrUpdateCollectionModal } from "./forms/create-or-update-collection-form";
 import { EditEntityCollectionInformationForm } from "./forms/edit-entity-collection-information-form";
 import { MetadataProgressUpdateForm } from "./forms/metadata-progress-update/progress-update";
@@ -96,16 +96,16 @@ export function LayoutModals() {
 				/>
 			</Drawer>
 			<Drawer
+				onClose={closeMeasurementsDrawer}
+				opened={measurementsDrawerData !== false}
 				title={
 					measurementsDrawerData && typeof measurementsDrawerData === "object"
 						? "Edit measurement"
 						: "Add new measurement"
 				}
-				opened={measurementsDrawerData !== false}
-				onClose={closeMeasurementsDrawer}
 			>
-				<CreateOrEditMeasurementForm
-					measurementToEdit={
+				<CreateOrUpdateMeasurementForm
+					measurementToUpdate={
 						measurementsDrawerData && typeof measurementsDrawerData === "object"
 							? measurementsDrawerData
 							: null

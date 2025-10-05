@@ -24,37 +24,32 @@ import {
 	queryFactory,
 } from "~/lib/shared/react-query";
 
-export const CreateOrEditMeasurementForm = (props: {
+const buildInput = (measurement?: UserMeasurement | null) => {
+	return {
+		name: measurement?.name || "",
+		comment: measurement?.comment || "",
+		timestamp: measurement?.timestamp || new Date().toISOString(),
+		information: {
+			statistics: measurement?.information?.statistics || [],
+			assets: {
+				s3Images: [],
+				s3Videos: [],
+				remoteVideos: [],
+				remoteImages: [],
+			},
+		},
+	} as UserMeasurementInput;
+};
+
+export const CreateOrUpdateMeasurementForm = (props: {
 	closeMeasurementModal: () => void;
-	measurementToEdit?: UserMeasurement | null;
+	measurementToUpdate?: UserMeasurement | null;
 }) => {
 	const events = useApplicationEvents();
 	const userPreferences = useUserPreferences();
-
-	const buildInput = (measurement?: UserMeasurement | null) => {
-		return {
-			name: measurement?.name || "",
-			comment: measurement?.comment || "",
-			timestamp: measurement?.timestamp || new Date().toISOString(),
-			information: {
-				statistics: measurement?.information?.statistics || [],
-				assets: {
-					s3Images: [],
-					s3Videos: [],
-					remoteVideos: [],
-					remoteImages: [],
-				},
-			},
-		} as UserMeasurementInput;
-	};
-
-	const [input, setInput] = useState<UserMeasurementInput>(() => {
-		return buildInput(props.measurementToEdit);
-	});
-
-	useEffect(() => {
-		setInput(buildInput(props.measurementToEdit));
-	}, [props.measurementToEdit]);
+	const [input, setInput] = useState<UserMeasurementInput>(() =>
+		buildInput(props.measurementToUpdate),
+	);
 
 	const createMeasurementMutation = useMutation({
 		mutationFn: () =>
@@ -62,6 +57,10 @@ export const CreateOrEditMeasurementForm = (props: {
 				input,
 			}),
 	});
+
+	useEffect(() => {
+		setInput(buildInput(props.measurementToUpdate));
+	}, [props.measurementToUpdate]);
 
 	return (
 		<Stack>
@@ -140,20 +139,20 @@ export const CreateOrEditMeasurementForm = (props: {
 					await createMeasurementMutation.mutateAsync();
 					notifications.show({
 						color: "green",
-						message: props.measurementToEdit
+						message: props.measurementToUpdate
 							? "Your measurement has been updated"
 							: "Your measurement has been created",
 					});
 					queryClient.invalidateQueries({
 						queryKey: queryFactory.fitness.userMeasurementsList._def,
 					});
-					if (!props.measurementToEdit) {
+					if (!props.measurementToUpdate) {
 						events.createMeasurement();
 					}
 					props.closeMeasurementModal();
 				}}
 			>
-				{props.measurementToEdit ? "Update" : "Submit"}
+				{props.measurementToUpdate ? "Update" : "Submit"}
 			</Button>
 		</Stack>
 	);
