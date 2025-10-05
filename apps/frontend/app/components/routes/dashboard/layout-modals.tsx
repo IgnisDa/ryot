@@ -12,8 +12,8 @@ import {
 } from "~/lib/state/media";
 import { useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { AddEntityToCollectionsForm } from "./forms/add-entity-to-collections-form";
-import { CreateOrUpdateMeasurementForm } from "./forms/create-or-update-measurement-form";
 import { CreateOrUpdateCollectionModal } from "./forms/create-or-update-collection-form";
+import { CreateOrUpdateMeasurementForm } from "./forms/create-or-update-measurement-form";
 import { EditEntityCollectionInformationForm } from "./forms/edit-entity-collection-information-form";
 import { MetadataProgressUpdateForm } from "./forms/metadata-progress-update/progress-update";
 import { ReviewEntityForm } from "./forms/review-entity-form";
@@ -42,6 +42,8 @@ export function LayoutModals() {
 		useOnboardingTour();
 	const { isOpen: isCollectionModalOpen, close: closeCollectionModal } =
 		useCreateOrUpdateCollectionModal();
+	const isEditingMeasurement =
+		measurementsDrawerData && typeof measurementsDrawerData === "object";
 
 	return (
 		<>
@@ -99,18 +101,14 @@ export function LayoutModals() {
 				onClose={closeMeasurementsDrawer}
 				opened={measurementsDrawerData !== false}
 				title={
-					measurementsDrawerData && typeof measurementsDrawerData === "object"
-						? "Edit measurement"
-						: "Add new measurement"
+					isEditingMeasurement ? "Edit measurement" : "Add new measurement"
 				}
 			>
 				<CreateOrUpdateMeasurementForm
-					measurementToUpdate={
-						measurementsDrawerData && typeof measurementsDrawerData === "object"
-							? measurementsDrawerData
-							: null
-					}
 					closeMeasurementModal={closeMeasurementsDrawer}
+					measurementToUpdate={
+						isEditingMeasurement ? measurementsDrawerData : null
+					}
 				/>
 			</Drawer>
 			<Modal
