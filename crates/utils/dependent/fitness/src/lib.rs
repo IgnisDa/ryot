@@ -36,11 +36,21 @@ use sea_orm::{
 };
 use supporting_service::SupportingService;
 
-pub async fn create_user_measurement(
+pub async fn create_or_update_user_measurement(
     user_id: &String,
     mut input: user_measurement::Model,
     ss: &Arc<SupportingService>,
 ) -> Result<DateTimeUtc> {
+    let existing = UserMeasurement::find()
+        .filter(user_measurement::Column::UserId.eq(user_id))
+        .filter(user_measurement::Column::Timestamp.eq(input.timestamp))
+        .one(&ss.db)
+        .await?;
+
+    if let Some(existing_measurement) = existing {
+        existing_measurement.delete(&ss.db).await?;
+    }
+
     input.user_id = user_id.to_owned();
 
     let um = input.into_active_model();
