@@ -2,122 +2,21 @@ import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 	createEntitySchemaExpression,
-} from "@ryot/ts-utils/view-language";
+	type DisplayConfiguration,
+	type SavedViewQueryDefinition,
+} from "@ryot/app-backend/query-language";
 
 import { requirePresent, requireResponseData } from "../test-support/assertions";
 import type { Client } from "./auth";
-import type { ClientBody } from "./backend-client";
+import type { ClientBody, ClientSuccess } from "./backend-client";
 import {
 	type ExpressionInput,
 	entityField,
 	literalExpression,
 	toRequiredExpression,
-	type ViewExpression,
-	type ViewPredicate,
 } from "./view-language";
 
-// TODO(Task 22): Replace these tests-only saved view types with the public
-// AppContract types once queryDefinition and displayConfiguration are typed.
-type SavedViewComputedField = {
-	key: string;
-	expression: ViewExpression;
-};
-
-type SavedViewEventJoin = {
-	key: string;
-	kind: "latestEvent";
-	eventSchemaSlug: string;
-};
-
-type SavedViewRelationshipJoin = {
-	key: string;
-	kind: "latestRelationship";
-	required: boolean;
-	direction: "incoming" | "outgoing";
-	relationshipSchemaSlug: string;
-	sourceEntityId?: string;
-	targetEntityId?: string;
-	filter?: ViewPredicate | null;
-};
-
-type SavedViewSort = {
-	direction: "asc" | "desc";
-	expression: ViewExpression;
-};
-
-type SavedViewQueryDefinition = {
-	mode?: "aggregate" | "entities";
-	filter: ViewPredicate | null;
-	scope: string[];
-	eventJoins: SavedViewEventJoin[];
-	computedFields: SavedViewComputedField[];
-	sort?: SavedViewSort;
-	pagination?: { page: number; limit: number };
-	fields?: Array<{ key: string; expression: ViewExpression }>;
-	relationshipJoins?: SavedViewRelationshipJoin[];
-	aggregations?: Array<{
-		key: string;
-		aggregation: { type: string; expression?: ViewExpression };
-	}>;
-};
-
-type DisplayColumn = {
-	label: string;
-	expression: ViewExpression;
-};
-
-type CardDisplayConfiguration = {
-	eyebrowProperty: ViewExpression | null;
-	calloutProperty: ViewExpression | null;
-	titleProperty: ViewExpression;
-	imageProperty: ViewExpression | null;
-	primarySubtitleProperty: ViewExpression | null;
-	secondarySubtitleProperty: ViewExpression | null;
-};
-
-type TableDisplayConfiguration = {
-	columns: DisplayColumn[];
-};
-
-type DisplayConfiguration = {
-	grid: CardDisplayConfiguration;
-	list: CardDisplayConfiguration;
-	table: TableDisplayConfiguration;
-	entityIdProperty: ViewExpression;
-};
-
-type CreateSavedViewBody = {
-	icon: string;
-	name: string;
-	trackerId?: string;
-	accentColor: string;
-	queryDefinition: SavedViewQueryDefinition;
-	displayConfiguration: DisplayConfiguration;
-};
-
-type UpdateSavedViewBody = CreateSavedViewBody & {
-	isDisabled: boolean;
-};
-
-type ReorderSavedViewsBody = ClientBody<"saved-views", "reorder">;
-type QueryDefinition = CreateSavedViewBody["queryDefinition"];
-
-type SavedViewRecord = UpdateSavedViewBody & {
-	id: string;
-	slug: string;
-	createdAt: string;
-	updatedAt: string;
-	isBuiltin: boolean;
-	trackerId?: string;
-};
-
-// TODO(Task 22): Replace these tests-only saved view assertions with the public
-// AppContract types once queryDefinition and displayConfiguration are typed.
-const toSavedViewRecord = (value: unknown) => value as SavedViewRecord;
-
-// TODO(Task 22): Replace these tests-only saved view assertions with the public
-// AppContract types once queryDefinition and displayConfiguration are typed.
-const toSavedViewRecords = (value: unknown) => value as readonly SavedViewRecord[];
+type CardDisplayConfiguration = DisplayConfiguration["grid"];
 
 export type DisplayColumnInput = {
 	label: string;
@@ -132,9 +31,16 @@ export type CardDisplayConfigurationInput = {
 export type DisplayConfigurationInput = {
 	grid: CardDisplayConfigurationInput;
 	list: CardDisplayConfigurationInput;
-	table: { columns: DisplayColumnInput[] };
+	table: { columns: ReadonlyArray<DisplayColumnInput> };
 	entityIdProperty?: ExpressionInput | null;
 };
+
+type CreateSavedViewBody = ClientBody<"saved-views", "create">;
+type UpdateSavedViewBody = ClientBody<"saved-views", "update">;
+type ReorderSavedViewsBody = ClientBody<"saved-views", "reorder">;
+type QueryDefinition = SavedViewQueryDefinition;
+
+type SavedViewRecord = ClientSuccess<"saved-views", "get">;
 
 type CreateSavedViewInput = Partial<
 	Omit<CreateSavedViewBody, "displayConfiguration" | "queryDefinition">
@@ -181,8 +87,8 @@ const normalizeCardDisplayConfiguration = (
 });
 
 const normalizeTableDisplayConfiguration = (input: {
-	columns: DisplayColumnInput[];
-}): TableDisplayConfiguration => ({
+	columns: ReadonlyArray<DisplayColumnInput>;
+}): DisplayConfiguration["table"] => ({
 	columns: input.columns.map((column) => ({
 		label: column.label,
 		expression: toRequiredExpression(column.expression ?? column.property ?? []),
@@ -323,20 +229,20 @@ export async function createSavedView(
 	client: Client,
 	cookies: string,
 	overrides: CreateSavedViewInput = {},
-) {
+): Promise<SavedViewRecord> {
 	const { data, response } = await client["saved-views"].create({
 		headers: { Cookie: cookies },
 		body: buildSavedViewBody(overrides),
 	});
 
-	return toSavedViewRecord(requireResponseData(response, data, "Failed to create saved view"));
+	return requireResponseData(response, data, "Failed to create saved view");
 }
 
 export async function listSavedViews(
 	client: Client,
 	cookies: string,
 	options: { trackerId?: string; includeDisabled?: boolean } = {},
-) {
+): Promise<readonly SavedViewRecord[]> {
 	const { data, response } = await client["saved-views"].list({
 		headers: { Cookie: cookies },
 		params: {
@@ -347,7 +253,7 @@ export async function listSavedViews(
 		},
 	});
 
-	return toSavedViewRecords(requireResponseData(response, data, "Failed to list saved views"));
+	return requireResponseData(response, data, "Failed to list saved views");
 }
 
 export async function findBuiltinSavedView(client: Client, cookies: string) {
@@ -357,15 +263,17 @@ export async function findBuiltinSavedView(client: Client, cookies: string) {
 	return requirePresent(builtinView, "Built-in saved view not found");
 }
 
-export async function getSavedView(client: Client, cookies: string, viewSlug: string) {
+export async function getSavedView(
+	client: Client,
+	cookies: string,
+	viewSlug: string,
+): Promise<SavedViewRecord> {
 	const { data, response } = await client["saved-views"].get({
 		headers: { Cookie: cookies },
 		params: { path: { viewSlug } },
 	});
 
-	return toSavedViewRecord(
-		requireResponseData(response, data, `Failed to get saved view '${viewSlug}'`),
-	);
+	return requireResponseData(response, data, `Failed to get saved view '${viewSlug}'`);
 }
 
 export async function updateSavedView(
@@ -373,38 +281,40 @@ export async function updateSavedView(
 	cookies: string,
 	viewSlug: string,
 	overrides: UpdateSavedViewInput = {},
-) {
+): Promise<SavedViewRecord> {
 	const { data, response } = await client["saved-views"].update({
 		headers: { Cookie: cookies },
 		params: { path: { viewSlug } },
 		body: buildUpdatedSavedViewBody(overrides),
 	});
 
-	return toSavedViewRecord(
-		requireResponseData(response, data, `Failed to update saved view '${viewSlug}'`),
-	);
+	return requireResponseData(response, data, `Failed to update saved view '${viewSlug}'`);
 }
 
-export async function cloneSavedView(client: Client, cookies: string, viewSlug: string) {
+export async function cloneSavedView(
+	client: Client,
+	cookies: string,
+	viewSlug: string,
+): Promise<SavedViewRecord> {
 	const { data, response } = await client["saved-views"].clone({
 		headers: { Cookie: cookies },
 		params: { path: { viewSlug } },
 	});
 
-	return toSavedViewRecord(
-		requireResponseData(response, data, `Failed to clone saved view '${viewSlug}'`),
-	);
+	return requireResponseData(response, data, `Failed to clone saved view '${viewSlug}'`);
 }
 
-export async function deleteSavedView(client: Client, cookies: string, viewSlug: string) {
+export async function deleteSavedView(
+	client: Client,
+	cookies: string,
+	viewSlug: string,
+): Promise<SavedViewRecord> {
 	const { data, response } = await client["saved-views"].delete({
 		headers: { Cookie: cookies },
 		params: { path: { viewSlug } },
 	});
 
-	return toSavedViewRecord(
-		requireResponseData(response, data, `Failed to delete saved view '${viewSlug}'`),
-	);
+	return requireResponseData(response, data, `Failed to delete saved view '${viewSlug}'`);
 }
 
 export async function reorderSavedViews(
