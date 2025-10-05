@@ -5,7 +5,7 @@ import { DbRunner } from "~/lib/db";
 import { SandboxRunError, dieOnDbError, unknownToMessage } from "~/lib/errors";
 import { parseAppSchemaProperties } from "~/lib/property-schema-runtime";
 import { RelationshipSchemasRepository } from "~/modules/relationship-schemas/repository";
-import { RunSandboxWorkflow } from "~/modules/sandbox/definitions";
+import { RunSandboxWorkflow } from "~/modules/sandbox/workflow-definitions";
 
 import { EntitiesRepository } from "./repository";
 

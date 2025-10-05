@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import { CurrentDb, dbEffect, schema } from "~/lib/db";
 import { DbError } from "~/lib/errors";
 
-import type { EventSchemaTriggerMetadata, ListedEvent } from "./schemas";
+import type { EventTriggerMetadata, ListedEvent } from "./schemas";
 
 type EventRow = Pick<
 	typeof schema.event.$inferSelect,
@@ -32,7 +32,7 @@ export type AfterCreateTriggerRow = {
 	readonly id: string;
 	readonly eventSchemaId: string;
 	readonly sandboxScriptId: string;
-	readonly metadata: EventSchemaTriggerMetadata;
+	readonly metadata: EventTriggerMetadata;
 };
 
 type EventsRepositoryShape = {

@@ -3,12 +3,12 @@ import { Cause, Effect, Exit, Layer, Match, Option } from "effect";
 
 import { SandboxRunError, unknownToMessage } from "~/lib/errors";
 
-import { RunSandboxWorkflow } from "./definitions";
 import { SandboxExecutionQueue, SandboxExecutionQueueWorkerLive } from "./durable-queues";
 import type {
 	SandboxCompletedResult as SandboxCompletedResultValue,
 	SandboxRunResult,
 } from "./schemas";
+import { RunSandboxWorkflow } from "./workflow-definitions";
 
 const toWorkflowError = (cause: unknown) =>
 	cause instanceof SandboxRunError

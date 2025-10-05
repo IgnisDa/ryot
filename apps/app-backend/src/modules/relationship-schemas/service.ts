@@ -13,7 +13,7 @@ export class RelationshipSchemasService extends Effect.Service<RelationshipSchem
 			const repository = yield* RelationshipSchemasRepository;
 
 			return {
-				getBuiltinBySlug: (slug: string) =>
+				findBuiltinBySlug: (slug: string) =>
 					Effect.gen(function* () {
 						const found = yield* runWithDb(repository.findBuiltinBySlug(slug));
 						if (!found) {
@@ -21,7 +21,7 @@ export class RelationshipSchemasService extends Effect.Service<RelationshipSchem
 						}
 						return found;
 					}),
-				getById: (id: string, userId: string | null) =>
+				findById: (id: string, userId: string | null) =>
 					Effect.gen(function* () {
 						const found = yield* runWithDb(repository.findById(id, userId));
 						if (!found) {
