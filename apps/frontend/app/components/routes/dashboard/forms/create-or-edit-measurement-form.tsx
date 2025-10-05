@@ -24,16 +24,14 @@ import {
 	queryFactory,
 } from "~/lib/shared/react-query";
 
-export const CreateMeasurementForm = (props: {
+export const CreateOrEditMeasurementForm = (props: {
 	closeMeasurementModal: () => void;
 	measurementToEdit?: UserMeasurement | null;
 }) => {
 	const events = useApplicationEvents();
 	const userPreferences = useUserPreferences();
 
-	const buildInput = (
-		measurement?: UserMeasurement | null,
-	): UserMeasurementInput => {
+	const buildInput = (measurement?: UserMeasurement | null) => {
 		return {
 			name: measurement?.name || "",
 			comment: measurement?.comment || "",
@@ -50,7 +48,7 @@ export const CreateMeasurementForm = (props: {
 					remoteImages: [],
 				},
 			},
-		};
+		} as UserMeasurementInput;
 	};
 
 	const [input, setInput] = useState<UserMeasurementInput>(() => {
@@ -142,7 +140,6 @@ export const CreateMeasurementForm = (props: {
 					!input.information.statistics.some((s) => s.value)
 				}
 				onClick={async () => {
-					events.createMeasurement();
 					await createMeasurementMutation.mutateAsync();
 					notifications.show({
 						color: "green",
@@ -153,6 +150,9 @@ export const CreateMeasurementForm = (props: {
 					queryClient.invalidateQueries({
 						queryKey: queryFactory.fitness.userMeasurementsList._def,
 					});
+					if (!props.measurementToEdit) {
+						events.createMeasurement();
+					}
 					props.closeMeasurementModal();
 				}}
 			>

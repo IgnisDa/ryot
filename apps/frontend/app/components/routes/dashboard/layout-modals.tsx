@@ -12,7 +12,7 @@ import {
 } from "~/lib/state/media";
 import { useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { AddEntityToCollectionsForm } from "./forms/add-entity-to-collections-form";
-import { CreateMeasurementForm } from "./forms/create-measurement-form";
+import { CreateOrEditMeasurementForm } from "./forms/create-or-edit-measurement-form";
 import { CreateOrUpdateCollectionModal } from "./forms/create-or-update-collection-form";
 import { EditEntityCollectionInformationForm } from "./forms/edit-entity-collection-information-form";
 import { MetadataProgressUpdateForm } from "./forms/metadata-progress-update/progress-update";
@@ -104,7 +104,7 @@ export function LayoutModals() {
 				opened={measurementsDrawerData !== false}
 				onClose={closeMeasurementsDrawer}
 			>
-				<CreateMeasurementForm
+				<CreateOrEditMeasurementForm
 					measurementToEdit={
 						measurementsDrawerData && typeof measurementsDrawerData === "object"
 							? measurementsDrawerData
