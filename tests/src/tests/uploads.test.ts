@@ -174,11 +174,9 @@ describe("POST /uploads/temporary", () => {
 
 	it("returns 413 when the multipart body exceeds the maximum allowed size", async () => {
 		const { cookies } = await createAuthenticatedClient();
-		const oversizedFile = new File(
-			[new Uint8Array(55 * 1024 * 1024)],
-			"oversized.csv",
-			{ type: "text/csv" },
-		);
+		const oversizedFile = new File([new Uint8Array(55 * 1024 * 1024)], "oversized.csv", {
+			type: "text/csv",
+		});
 
 		const response = await postTemporaryUploads([oversizedFile], cookies);
 		expect(response.status).toBe(413);

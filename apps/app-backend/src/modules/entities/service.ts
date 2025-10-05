@@ -1,17 +1,28 @@
-import { Effect } from "effect";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { Effect, Redacted } from "effect";
 
 import type { CurrentUserValue } from "../../lib/auth";
+import { AppConfig } from "../../lib/config";
 import { DbRunner, TransactionRunner } from "../../lib/db";
 import type { BadRequest, DbError, NotFound } from "../../lib/errors";
 import { badRequest, notFound } from "../../lib/errors";
 import { parseAppSchemaProperties } from "../../lib/property-schema-runtime";
 import { requireText, trimToNull } from "../../lib/validation";
 import { RelationshipSchemasRepository } from "../relationship-schemas/repository";
+import { createSandboxJobId, resolveSandboxExecutionId } from "../sandbox/job-id";
+import { SandboxRepository } from "../sandbox/repository";
 import { EntitiesRepository, type SavedRelationship } from "./repository";
 import type { CreateEntityBody, ListedEntity } from "./schemas";
+import {
+	EntityImportWorkflow,
+	toEntityImportRunResult,
+	type EntityImportRunResult,
+} from "./workflows";
 
 const entityNotFoundError = "Entity not found";
+const importJobNotFoundError = "Import job not found";
 const entitySchemaNotFoundError = "Entity schema not found";
+const sandboxScriptNotFoundError = "Sandbox script not found";
 const relationshipSchemaNotFoundError = "Relationship schema not found";
 const libraryEntityUserStateError = "Library entity user state cannot be cleared";
 const partialProvenanceError =
@@ -58,6 +69,14 @@ type EntitiesServiceShape = {
 		{ entityId: string; deletedEventsCount: number; deletedRelationshipsCount: number },
 		BadRequest | DbError | NotFound
 	>;
+	readonly import: (
+		user: CurrentUserValue,
+		payload: { scriptId: string; externalId: string; entitySchemaId: string },
+	) => Effect.Effect<{ jobId: string }, BadRequest | NotFound | DbError>;
+	readonly getImportResult: (
+		user: CurrentUserValue,
+		jobId: string,
+	) => Effect.Effect<EntityImportRunResult, NotFound>;
 	readonly upsertUserRelationship: (input: {
 		userId: string;
 		sourceEntityId: string;
@@ -82,9 +101,13 @@ type EntitiesServiceShape = {
 
 export class EntitiesService extends Effect.Service<EntitiesService>()("EntitiesService", {
 	effect: Effect.gen(function* () {
+		const config = yield* AppConfig;
 		const runWithDb = yield* DbRunner;
-		const runInTransaction = yield* TransactionRunner;
+		const engine = yield* WorkflowEngine;
 		const repository = yield* EntitiesRepository;
+		const runInTransaction = yield* TransactionRunner;
+		const sandboxRepository = yield* SandboxRepository;
+		const jobIdSecret = Redacted.value(config.sandbox.jobIdSecret);
 		const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
 		return {
@@ -200,6 +223,58 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 							return { entityId, deletedEventsCount, deletedRelationshipsCount };
 						}),
 					);
+				}),
+			import: (
+				user: CurrentUserValue,
+				payload: { scriptId: string; externalId: string; entitySchemaId: string },
+			) =>
+				Effect.gen(function* () {
+					const scriptId = trimToNull(payload.scriptId);
+					const externalId = trimToNull(payload.externalId);
+					const entitySchemaId = trimToNull(payload.entitySchemaId);
+
+					if (!scriptId || !externalId || !entitySchemaId) {
+						return yield* badRequest("scriptId, externalId, and entitySchemaId are required");
+					}
+
+					const script = yield* runWithDb(
+						sandboxRepository.getScriptForUser({ userId: user.id, scriptId }),
+					);
+					if (!script) {
+						return yield* notFound(sandboxScriptNotFoundError);
+					}
+
+					const entitySchemaScope = yield* runWithDb(
+						repository.getEntitySchemaScopeForUser({ userId: user.id, entitySchemaId }),
+					);
+					if (!entitySchemaScope) {
+						return yield* notFound(entitySchemaNotFoundError);
+					}
+
+					const executionId = crypto.randomUUID();
+					yield* engine
+						.execute(EntityImportWorkflow, {
+							executionId,
+							discard: true,
+							payload: { scriptId, externalId, executionId, entitySchemaId, userId: user.id },
+						})
+						.pipe(Effect.orDie);
+
+					return { jobId: createSandboxJobId(jobIdSecret, executionId, user.id) };
+				}),
+			getImportResult: (user: CurrentUserValue, jobId: string) =>
+				Effect.gen(function* () {
+					const resolvedJobId = trimToNull(jobId);
+					if (!resolvedJobId) {
+						return yield* notFound(importJobNotFoundError);
+					}
+
+					const executionId = resolveSandboxExecutionId(jobIdSecret, user.id, resolvedJobId);
+					if (!executionId) {
+						return yield* notFound(importJobNotFoundError);
+					}
+
+					return toEntityImportRunResult(yield* engine.poll(EntityImportWorkflow, executionId));
 				}),
 			upsertUserRelationship: (input: {
 				userId: string;

@@ -1,4 +1,4 @@
-import { and, eq, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { CurrentDb, dbEffect, schema } from "../../lib/db";
@@ -54,6 +54,11 @@ export type SavedRelationship = {
 	readonly properties: Record<string, unknown>;
 };
 
+export type EntitySchemaScriptScope = {
+	readonly entitySchemaId: string;
+	readonly sandboxScriptId: string;
+};
+
 type EntitiesRepositoryShape = {
 	readonly getEntitySchemaScopeForUser: (input: {
 		userId: string;
@@ -76,6 +81,17 @@ type EntitiesRepositoryShape = {
 		entitySchemaId: string;
 		sandboxScriptId: string;
 	}) => Effect.Effect<ListedEntity | null, DbError, CurrentDb>;
+	readonly findGlobalEntityByExternalId: (input: {
+		externalId: string;
+		entitySchemaId: string;
+		sandboxScriptId: string;
+	}) => Effect.Effect<ListedEntity | null, DbError, CurrentDb>;
+	readonly findEntitySchemaById: (
+		entitySchemaId: string,
+	) => Effect.Effect<{ propertiesSchema: AppSchema } | null, DbError, CurrentDb>;
+	readonly findEntitySchemaScriptBySlug: (
+		scriptSlug: string,
+	) => Effect.Effect<EntitySchemaScriptScope | null, DbError, CurrentDb>;
 	readonly createEntity: (input: {
 		name: string;
 		userId: string;
@@ -83,6 +99,15 @@ type EntitiesRepositoryShape = {
 		image: string | null;
 		entitySchemaId: string;
 		sandboxScriptId?: string;
+		properties: Record<string, unknown>;
+	}) => Effect.Effect<ListedEntity, DbError, CurrentDb>;
+	readonly createOrUpdateGlobalEntity: (input: {
+		name: string;
+		externalId: string;
+		image: string | null;
+		entitySchemaId: string;
+		sandboxScriptId: string;
+		populatedAt: Date | null;
 		properties: Record<string, unknown>;
 	}) => Effect.Effect<ListedEntity, DbError, CurrentDb>;
 	readonly deleteUserEventsForEntity: (input: {
@@ -304,6 +329,147 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				);
 
 				return row ? toListedEntity(row) : null;
+			}),
+		findGlobalEntityByExternalId: (input: {
+			externalId: string;
+			entitySchemaId: string;
+			sandboxScriptId: string;
+		}) =>
+			Effect.gen(function* () {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select(entitySelection)
+						.from(schema.entity)
+						.where(
+							and(
+								isNull(schema.entity.userId),
+								eq(schema.entity.externalId, input.externalId),
+								eq(schema.entity.entitySchemaId, input.entitySchemaId),
+								eq(schema.entity.sandboxScriptId, input.sandboxScriptId),
+							),
+						)
+						.limit(1),
+				);
+
+				return row ? toListedEntity(row) : null;
+			}),
+		findEntitySchemaById: (entitySchemaId: string) =>
+			Effect.gen(function* () {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select({ propertiesSchema: schema.entitySchema.propertiesSchema })
+						.from(schema.entitySchema)
+						.where(eq(schema.entitySchema.id, entitySchemaId))
+						.limit(1),
+				);
+
+				if (!row) {
+					return null;
+				}
+
+				const propertiesSchema = yield* decodeStoredAppSchema(
+					row.propertiesSchema,
+					"Invalid entity properties schema in database",
+				);
+
+				return { propertiesSchema };
+			}),
+		findEntitySchemaScriptBySlug: (scriptSlug: string) =>
+			Effect.gen(function* () {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select({
+							entitySchemaId: schema.entitySchemaScript.entitySchemaId,
+							sandboxScriptId: schema.entitySchemaScript.sandboxScriptId,
+						})
+						.from(schema.sandboxScript)
+						.innerJoin(
+							schema.entitySchemaScript,
+							eq(schema.entitySchemaScript.sandboxScriptId, schema.sandboxScript.id),
+						)
+						.where(
+							and(eq(schema.sandboxScript.slug, scriptSlug), isNull(schema.sandboxScript.userId)),
+						)
+						.orderBy(desc(schema.sandboxScript.createdAt))
+						.limit(1),
+				);
+
+				return row ?? null;
+			}),
+		createOrUpdateGlobalEntity: (input: {
+			name: string;
+			externalId: string;
+			image: string | null;
+			entitySchemaId: string;
+			sandboxScriptId: string;
+			populatedAt: Date | null;
+			properties: Record<string, unknown>;
+		}) =>
+			Effect.gen(function* () {
+				const db = yield* CurrentDb;
+				const values = {
+					userId: null,
+					name: input.name,
+					properties: input.properties,
+					externalId: input.externalId,
+					populatedAt: input.populatedAt,
+					entitySchemaId: input.entitySchemaId,
+					sandboxScriptId: input.sandboxScriptId,
+					image: input.image ? { type: "remote", url: input.image } : null,
+				};
+
+				const inserted = yield* dbEffect(() =>
+					db.insert(schema.entity).values(values).onConflictDoNothing().returning(entitySelection),
+				);
+
+				if (inserted[0]) {
+					return toListedEntity(inserted[0]);
+				}
+
+				// Conflict: find existing global entity
+				const [existing] = yield* dbEffect(() =>
+					db
+						.select(entitySelection)
+						.from(schema.entity)
+						.where(
+							and(
+								isNull(schema.entity.userId),
+								eq(schema.entity.externalId, input.externalId),
+								eq(schema.entity.entitySchemaId, input.entitySchemaId),
+								eq(schema.entity.sandboxScriptId, input.sandboxScriptId),
+							),
+						)
+						.limit(1),
+				);
+
+				if (!existing) {
+					return yield* new DbError({ message: "Global entity insert conflict but not found" });
+				}
+
+				// Update if we have population data and it was not yet populated
+				if (input.populatedAt !== null && existing.populatedAt === null) {
+					const [updated] = yield* dbEffect(() =>
+						db
+							.update(schema.entity)
+							.set({
+								name: input.name,
+								properties: input.properties,
+								populatedAt: input.populatedAt,
+								image: input.image ? { type: "remote", url: input.image } : null,
+							})
+							.where(and(eq(schema.entity.id, existing.id), isNull(schema.entity.populatedAt)))
+							.returning(entitySelection),
+					);
+
+					if (updated) {
+						return toListedEntity(updated);
+					}
+				}
+
+				return toListedEntity(existing);
 			}),
 		createEntity: (input: {
 			name: string;

@@ -1,4 +1,4 @@
-import { and, eq, isNull, or } from "drizzle-orm";
+import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { CurrentDb, dbEffect, schema } from "../../lib/db";
@@ -44,6 +44,32 @@ export class RelationshipSchemasRepository extends Effect.Service<RelationshipSc
 									eq(schema.relationshipSchema.isBuiltin, true),
 								),
 							)
+							.limit(1),
+					);
+
+					if (!row) {
+						return null;
+					}
+					return yield* toScope(row);
+				}),
+			findGlobalBySchemaIds: (input: {
+				sourceEntitySchemaId: string;
+				targetEntitySchemaId: string;
+			}) =>
+				Effect.gen(function* () {
+					const db = yield* CurrentDb;
+					const [row] = yield* dbEffect(() =>
+						db
+							.select()
+							.from(schema.relationshipSchema)
+							.where(
+								and(
+									isNull(schema.relationshipSchema.userId),
+									eq(schema.relationshipSchema.sourceEntitySchemaId, input.sourceEntitySchemaId),
+									eq(schema.relationshipSchema.targetEntitySchemaId, input.targetEntitySchemaId),
+								),
+							)
+							.orderBy(desc(schema.relationshipSchema.isBuiltin))
 							.limit(1),
 					);
 
