@@ -1,18 +1,17 @@
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { Cause, DateTime, Effect, Layer, Schema } from "effect";
 
 import { CurrentDb, DbRunner, dbEffect, schema } from "#lib/db";
 import { unknownToMessage } from "#lib/errors";
 import { parseAppSchemaProperties } from "#lib/property-schema-runtime";
-import { SandboxService } from "#lib/sandbox";
-import { SandboxRepository } from "#modules/sandbox/repository";
-
 import {
 	decodeEntityDetailsResult,
 	decodeEntitySearchResult,
 	processRelatedEntity,
-} from "./population";
-import { EntitiesRepository } from "./repository";
+} from "#modules/entities/population";
+import { EntitiesRepository } from "#modules/entities/repository";
+import { RunSandboxWorkflow } from "#modules/sandbox/workflow-definitions";
 
 const builtinExercisePageSize = 100;
 const builtinExerciseExpectedCount = 873;
@@ -67,30 +66,15 @@ const countImportedGlobalEntities = (input: { entitySchemaId: string; sandboxScr
 export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
-		const sandbox = yield* SandboxService;
+		const engine = yield* WorkflowEngine;
 		const repository = yield* EntitiesRepository;
-		const sandboxRepository = yield* SandboxRepository;
 
-		const resolved = yield* runWithDb(
+		const preloadTarget = yield* runWithDb(
 			repository.findEntitySchemaScriptBySlug(builtinExerciseScriptSlug),
 		);
-		if (!resolved) {
+		if (!preloadTarget) {
 			yield* Effect.logWarning(
 				`Builtin exercise preload skipped because '${builtinExerciseScriptSlug}' is not linked to an entity schema`,
-			);
-			return;
-		}
-
-		const preloadTarget = resolved;
-		const sandboxScript = yield* runWithDb(
-			sandboxRepository.getScriptForUser({
-				userId: systemEntityImportUserId,
-				scriptId: preloadTarget.sandboxScriptId,
-			}),
-		);
-		if (!sandboxScript) {
-			yield* Effect.logWarning(
-				`Builtin exercise preload skipped because sandbox script '${builtinExerciseScriptSlug}' was not found`,
 			);
 			return;
 		}
@@ -109,15 +93,16 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 			executionId: string;
 			context: Record<string, unknown>;
 		}) =>
-			sandbox
-				.run({
-					code: sandboxScript.code,
-					context: input.context,
-					userId: systemEntityImportUserId,
-					scriptId: sandboxScript.id,
-					driverName: input.driverName,
+			engine
+				.execute(RunSandboxWorkflow, {
 					executionId: input.executionId,
-					allowedHostFunctions: sandboxScript.metadata.allowedHostFunctions ?? [],
+					payload: {
+						context: input.context,
+						driverName: input.driverName,
+						executionId: input.executionId,
+						userId: systemEntityImportUserId,
+						scriptId: preloadTarget.sandboxScriptId,
+					},
 				})
 				.pipe(
 					Effect.mapError((error) => new BuiltinEntityPreloadError({ message: error.message })),
@@ -199,13 +184,13 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 
 				const entity = yield* runWithDb(
 					repository.createOrUpdateGlobalEntity({
+						externalId,
 						image: null,
 						populatedAt: null,
 						name: details.name,
-						externalId,
-						sandboxScriptId: preloadTarget.sandboxScriptId,
-						entitySchemaId: preloadTarget.entitySchemaId,
 						properties: validatedProperties,
+						entitySchemaId: preloadTarget.entitySchemaId,
+						sandboxScriptId: preloadTarget.sandboxScriptId,
 					}),
 				);
 
@@ -225,9 +210,9 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 				const populatedAt = yield* DateTime.nowAsDate;
 				yield* runWithDb(
 					repository.createOrUpdateGlobalEntity({
+						externalId,
 						populatedAt,
 						name: details.name,
-						externalId,
 						properties: validatedProperties,
 						entitySchemaId: preloadTarget.entitySchemaId,
 						sandboxScriptId: preloadTarget.sandboxScriptId,
