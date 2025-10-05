@@ -11,9 +11,12 @@ export async function createMeasurementEntityFixture(client: Client, cookies: st
 
 	const measurement = await createEntity(client, cookies, {
 		image: null,
-		name: "2026-04-27",
+		name: "Measurement - 2026-04-27 08:00",
 		entitySchemaId: measurementSchema.id,
-		properties: { weight: 75.5, recordedAt: "2026-04-27T08:00:00Z" },
+		properties: {
+			recordedAt: "2026-04-27T08:00:00Z",
+			statistics: [{ key: "weight", label: "Weight", value: 75.5 }],
+		},
 	});
 
 	return { measurementId: measurement.id };
