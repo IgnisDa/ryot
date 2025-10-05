@@ -45,7 +45,7 @@ export default function Auth() {
 	const [mode, setMode] = useState<AuthMode>("login");
 
 	const modeContent = modes[mode];
-	const apiClient = createApiClient((serverUrl ?? CLOUD_URL) as string);
+	const apiClient = createApiClient(serverUrl ?? CLOUD_URL);
 
 	const authMutation = useMutation({
 		mutationFn: async ({ email, password }: z.infer<typeof schema>) => {
@@ -156,7 +156,7 @@ export default function Auth() {
 						</form.AppForm>
 					</Box>
 					<Box className="items-center">
-						<Pressable onPress={handleChangeServer}>
+						<Pressable onPress={() => void handleChangeServer()}>
 							<Text className="text-muted-foreground text-sm">Change server</Text>
 						</Pressable>
 					</Box>
