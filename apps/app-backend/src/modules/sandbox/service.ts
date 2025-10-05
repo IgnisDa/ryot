@@ -1,4 +1,5 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { generateId } from "better-auth";
 import { Effect, Redacted, Schema } from "effect";
 
 import type { CurrentUserValue } from "../../lib/auth";
@@ -113,7 +114,7 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 						return yield* notFound(sandboxScriptNotFoundError);
 					}
 
-					const executionId = crypto.randomUUID();
+					const executionId = generateId();
 					yield* engine
 						.execute(RunSandboxWorkflow, {
 							executionId,
