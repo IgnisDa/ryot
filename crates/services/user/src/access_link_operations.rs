@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
-use anyhow::Result;
-use chrono::Utc;
+use anyhow::{Result, bail};
+use chrono::{Duration, Utc};
 use common_models::StringIdObject;
-use database_models::{access_link, prelude::AccessLink, user};
+use database_models::{access_link, prelude::AccessLink, prelude::User, user};
 use database_utils::{get_enabled_users_query, server_key_validation_guard};
 use dependent_core_utils::is_server_key_validated;
 use media_models::{
-    CreateAccessLinkInput, ProcessAccessLinkError, ProcessAccessLinkErrorVariant,
+    CreateAccessLinkInput, GenerateUserImpersonationLinkInput,
+    GenerateUserImpersonationLinkResponse, ProcessAccessLinkError, ProcessAccessLinkErrorVariant,
     ProcessAccessLinkInput, ProcessAccessLinkResponse, ProcessAccessLinkResult,
 };
 use sea_orm::{
@@ -103,4 +104,31 @@ pub async fn process_access_link(
         redirect_to: link.redirect_to,
         token_valid_for_days: ss.config.users.token_valid_for_days,
     }))
+}
+
+pub async fn generate_impersonation_link(
+    ss: &Arc<SupportingService>,
+    input: GenerateUserImpersonationLinkInput,
+) -> Result<GenerateUserImpersonationLinkResponse> {
+    if input.admin_access_token != ss.config.server.admin_access_token {
+        bail!("Invalid admin access token");
+    }
+    let user = User::find_by_id(&input.user_id).one(&ss.db).await?;
+    let Some(user) = user else {
+        bail!("User not found");
+    };
+    if user.is_disabled == Some(true) {
+        bail!("User is disabled");
+    }
+    let timestamp = Utc::now().format("%Y-%m-%d %H:%M:%S");
+    let access_link_input = CreateAccessLinkInput {
+        maximum_uses: Some(1),
+        is_mutation_allowed: Some(true),
+        expires_on: Some(Utc::now() + Duration::hours(6)),
+        name: format!("Admin Impersonation - {}", timestamp),
+        ..Default::default()
+    };
+    let result = create_access_link(ss, access_link_input, input.user_id).await?;
+    let impersonation_url = format!("{}/_s/{}", ss.config.frontend.url, result.id);
+    Ok(GenerateUserImpersonationLinkResponse { impersonation_url })
 }
