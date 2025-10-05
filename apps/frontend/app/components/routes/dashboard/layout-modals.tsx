@@ -97,7 +97,7 @@ export function LayoutModals() {
 			</Drawer>
 			<Drawer
 				title={
-					typeof measurementsDrawerData === "object"
+					measurementsDrawerData && typeof measurementsDrawerData === "object"
 						? "Edit measurement"
 						: "Add new measurement"
 				}
@@ -106,7 +106,7 @@ export function LayoutModals() {
 			>
 				<CreateMeasurementForm
 					measurementToEdit={
-						typeof measurementsDrawerData === "object"
+						measurementsDrawerData && typeof measurementsDrawerData === "object"
 							? measurementsDrawerData
 							: null
 					}

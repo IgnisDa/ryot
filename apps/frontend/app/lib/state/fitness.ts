@@ -304,7 +304,7 @@ const currentWorkoutStopwatchAtom = atomWithStorage<CurrentWorkoutStopwatch>(
 export const useCurrentWorkoutStopwatchAtom = () =>
 	useAtom(currentWorkoutStopwatchAtom);
 
-const measurementsDrawerAtom = atom<UserMeasurement | boolean>(false);
+const measurementsDrawerAtom = atom<false | UserMeasurement | null>(false);
 
 export const useMeasurementsDrawer = () => useAtom(measurementsDrawerAtom);
 

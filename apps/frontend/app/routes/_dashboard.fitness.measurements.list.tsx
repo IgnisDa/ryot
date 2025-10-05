@@ -129,7 +129,7 @@ export default function Page() {
 					<ActionIcon
 						color="green"
 						variant="outline"
-						onClick={() => setMeasurementsDrawerData(true)}
+						onClick={() => setMeasurementsDrawerData(null)}
 					>
 						<IconPlus size={20} />
 					</ActionIcon>

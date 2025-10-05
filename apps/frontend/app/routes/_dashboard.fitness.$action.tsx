@@ -58,13 +58,18 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
 	const [parent] = useAutoAnimate();
-	const [isSaveBtnLoading, setIsSaveBtnLoading] = useState(false);
+	const userPreferences = useUserPreferences();
+	const loaderData = useLoaderData<typeof loader>();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const playCheckSound = usePlayFitnessSound("check");
+	const [_, setMeasurementsDrawerData] = useMeasurementsDrawer();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const [_, setMeasurementsDrawerOpen] = useMeasurementsDrawer();
 	const [currentTimer, setCurrentTimer] = useCurrentWorkoutTimerAtom();
+	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
+	const timerCompleteSound = usePlayFitnessSound("timer-completed");
+	const [isSaveBtnLoading, setIsSaveBtnLoading] = useState(false);
+	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const {
 		openTimerDrawer,
 		closeTimerDrawer,
@@ -78,11 +83,6 @@ export default function Page() {
 		setIsReorderDrawerOpened,
 		supersetWithExerciseIdentifier,
 	} = useWorkoutModals();
-	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
-	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
-	const { advanceOnboardingTourStep } = useOnboardingTour();
-	const playCheckSound = usePlayFitnessSound("check");
-	const timerCompleteSound = usePlayFitnessSound("timer-completed");
 
 	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
 	const numberOfExercises = currentWorkout?.exercises.length || 0;
@@ -285,7 +285,7 @@ export default function Page() {
 										<Button
 											color="teal"
 											variant="subtle"
-											onClick={() => setMeasurementsDrawerOpen(true)}
+											onClick={() => setMeasurementsDrawerData(null)}
 											style={
 												loaderData.isCreatingTemplate
 													? { display: "none" }
