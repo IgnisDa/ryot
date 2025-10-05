@@ -11,6 +11,7 @@ import { RedisService } from "#lib/redis";
 import { S3Service } from "#lib/s3";
 import { SandboxService } from "#lib/sandbox";
 import { PersistedQueueLive, WorkflowEngineLive } from "#lib/workflow";
+import { GlobalEntityHookLive } from "#modules/collections/event-hooks";
 import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -92,9 +93,8 @@ const ApplicationInfrastructureLive = Layer.mergeAll(
 
 const SandboxServicesLive = Layer.mergeAll(SandboxApiService.Default, SandboxService.Default);
 
-const ServicesBaseLive = Layer.mergeAll(
+const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 	AuthService.Default,
-	CollectionsService.Default,
 	EntitiesService.Default,
 	EntitySchemasService.Default,
 	EventSchemasService.Default,
@@ -107,6 +107,16 @@ const ServicesBaseLive = Layer.mergeAll(
 	SavedViewsService.Default,
 	TrackersService.Default,
 	UploadsService.Default,
+);
+
+const CollectionsServicesLive = Layer.provideMerge(
+	GlobalEntityHookLive,
+	CollectionsService.Default,
+);
+
+const ServicesBaseLive = Layer.provideMerge(
+	ServicesNeedingCollectionsScopeLive,
+	CollectionsServicesLive,
 );
 
 const ServicesLive = Layer.provideMerge(ServicesBaseLive, SandboxServicesLive);

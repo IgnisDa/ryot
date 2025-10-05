@@ -10,6 +10,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
+import { GlobalEntityHook } from "./global-entity-hook";
 import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
 
@@ -152,6 +153,7 @@ const makeServiceLayer = (input: {
 				Layer.succeed(SandboxService, input.sandboxService ?? makeSandboxService()),
 				Layer.succeed(SandboxRepository, input.sandboxRepository ?? defaultSandboxRepository()),
 				Layer.succeed(EntitiesRepository, input.entitiesRepository ?? makeEntitiesRepository()),
+				GlobalEntityHook.Default,
 				Layer.succeed(
 					EventSchemasRepository,
 					input.eventSchemasRepository ?? makeEventSchemasRepository(),
