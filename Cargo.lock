@@ -3883,6 +3883,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "supporting-service",
+ "tempfile",
  "tmdb-provider",
  "tokio",
  "tracing",

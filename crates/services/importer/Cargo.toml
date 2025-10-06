@@ -23,6 +23,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
 serde-xml-rs = { workspace = true }
+tempfile = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }

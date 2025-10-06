@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, HashSet},
-    env,
     fs::{self, File},
     io::{self, BufReader},
     path::{Path, PathBuf},
@@ -25,7 +24,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::Deserialize;
 use supporting_service::SupportingService;
-use uuid::Uuid;
+use tempfile::TempDir;
 use zip::ZipArchive;
 
 use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
@@ -144,15 +143,14 @@ fn parse_netflix_timestamp(timestamp: &str) -> Option<DateTime<Utc>> {
         .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))
 }
 
-fn extract_zip(zip_path: &str) -> Result<PathBuf> {
+fn extract_zip(zip_path: &str) -> Result<TempDir> {
     let file = File::open(zip_path)?;
     let mut archive = ZipArchive::new(BufReader::new(file))?;
-    let temp_dir = env::temp_dir().join(format!("netflix_import_{}", Uuid::new_v4()));
-    fs::create_dir_all(&temp_dir)?;
+    let temp_dir = TempDir::new()?;
 
     for i in 0..archive.len() {
         let mut file = archive.by_index(i)?;
-        let output_path = temp_dir.join(file.mangled_name());
+        let output_path = temp_dir.path().join(file.mangled_name());
 
         if file.name().ends_with('/') {
             fs::create_dir_all(&output_path)?;
@@ -263,10 +261,11 @@ pub async fn import(
 ) -> Result<ImportResult> {
     ryot_log!(debug, "Netflix import from: {}", input.input.export_path);
 
-    let extracted_dir = extract_zip(&input.input.export_path)?;
-    ryot_log!(debug, "Extracted ZIP to: {:?}", extracted_dir);
+    let _extracted_dir = extract_zip(&input.input.export_path)?;
+    let extracted_path = _extracted_dir.path();
+    ryot_log!(debug, "Extracted ZIP to: {:?}", extracted_path);
 
-    let Some(content_dir) = find_content_interaction_dir(&extracted_dir) else {
+    let Some(content_dir) = find_content_interaction_dir(extracted_path) else {
         bail!("CONTENT_INTERACTION folder not found in Netflix export");
     };
 
@@ -510,8 +509,6 @@ pub async fn import(
             });
         }
     }
-
-    let _ = fs::remove_dir_all(&extracted_dir);
 
     ryot_log!(
         debug,
