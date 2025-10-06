@@ -300,25 +300,21 @@ export default function Page() {
 													ImportSource.Hardcover,
 													ImportSource.Storygraph,
 													() => (
-														<>
-															<FileInput
-																required
-																name="csvPath"
-																accept=".csv"
-																label="CSV file"
-															/>
-														</>
+														<FileInput
+															required
+															name="csvPath"
+															accept=".csv"
+															label="CSV file"
+														/>
 													),
 												)
 												.with(ImportSource.StrongApp, () => (
-													<>
-														<FileInput
-															required
-															accept=".csv"
-															label="CSV file"
-															name="dataExportPath"
-														/>
-													</>
+													<FileInput
+														required
+														accept=".csv"
+														label="CSV file"
+														name="dataExportPath"
+													/>
 												))
 												.with(ImportSource.Trakt, () => (
 													<Tabs defaultValue="user" keepMounted={false}>
