@@ -195,6 +195,7 @@ const exportPathImportFormSchema = z.object({ exportPath: z.string() });
 
 const netflixImportFormSchema = z.object({
 	input: exportPathImportFormSchema,
+	profileName: z.string().optional(),
 });
 
 const malImportFormSchema = z.object({
@@ -423,14 +424,12 @@ export default function Page() {
 													ImportSource.Anilist,
 													ImportSource.GenericJson,
 													() => (
-														<>
-															<FileInput
-																required
-																accept=".json"
-																name="exportPath"
-																label="JSON export file"
-															/>
-														</>
+														<FileInput
+															required
+															accept=".json"
+															name="exportPath"
+															label="JSON export file"
+														/>
 													),
 												)
 												.with(ImportSource.Netflix, () => (
@@ -440,6 +439,11 @@ export default function Page() {
 															accept=".zip"
 															name="input.exportPath"
 															label="Netflix ZIP export file"
+														/>
+														<TextInput
+															name="profileName"
+															label="Profile Name"
+															description="Filter import to a specific Netflix profile"
 														/>
 													</>
 												))

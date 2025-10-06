@@ -617,6 +617,8 @@ export type DeployMovaryImportInput = {
 
 export type DeployNetflixImportInput = {
   input: DeployPathImportInput;
+  /** Optional profile name to filter the import by. */
+  profileName?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type DeployPathImportInput = {

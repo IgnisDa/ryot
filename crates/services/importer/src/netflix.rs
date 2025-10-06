@@ -57,6 +57,8 @@ struct ViewingActivityItem {
     latest_bookmark: String,
     #[serde(rename = "Supplemental Video Type")]
     supplemental_video_type: String,
+    #[serde(rename = "Profile Name")]
+    profile_name: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,12 +71,16 @@ struct RatingItem {
     star_value: Option<i32>,
     #[serde(rename = "Thumbs Value")]
     thumbs_value: Option<i32>,
+    #[serde(rename = "Profile Name")]
+    profile_name: String,
 }
 
 #[derive(Debug, Deserialize)]
 struct MyListItem {
     #[serde(rename = "Title Name")]
     title_name: String,
+    #[serde(rename = "Profile Name")]
+    profile_name: String,
 }
 
 fn should_skip_entry(item: &ViewingActivityItem) -> bool {
@@ -95,6 +101,13 @@ fn should_skip_entry(item: &ViewingActivityItem) -> bool {
         return true;
     }
     false
+}
+
+fn matches_profile_filter(profile_name: &str, filter: &Option<String>) -> bool {
+    match filter {
+        Some(filter_name) if !filter_name.is_empty() => profile_name == filter_name,
+        _ => true,
+    }
 }
 
 fn parse_time_to_seconds(time_str: &str) -> Option<i32> {
@@ -289,6 +302,10 @@ pub async fn import(
                 continue;
             }
 
+            if !matches_profile_filter(&record.profile_name, &input.profile_name) {
+                continue;
+            }
+
             viewing_items.push(record);
         }
 
@@ -317,6 +334,10 @@ pub async fn import(
                 }
             };
 
+            if !matches_profile_filter(&record.profile_name, &input.profile_name) {
+                continue;
+            }
+
             rating_items.push(record);
         }
     }
@@ -338,6 +359,10 @@ pub async fn import(
                     continue;
                 }
             };
+
+            if !matches_profile_filter(&record.profile_name, &input.profile_name) {
+                continue;
+            }
 
             my_list_items.push(record);
         }

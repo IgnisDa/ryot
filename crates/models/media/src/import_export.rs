@@ -162,6 +162,8 @@ pub struct DeployPathImportInput {
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployNetflixImportInput {
     pub input: DeployPathImportInput,
+    /// Optional profile name to filter the import by.
+    pub profile_name: Option<String>,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]

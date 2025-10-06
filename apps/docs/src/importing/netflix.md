@@ -16,6 +16,8 @@ You can import your Netflix watch activity, ratings, and My List entries into Ry
 4. In Ryot, open **Settings → Imports & Exports → Imports**, select **Netflix**, and upload
    the ZIP file. Ryot reads the `CONTENT_INTERACTION/ViewingActivity.csv`, `Ratings.csv`,
    and `MyList.csv` files from the archive to build your library.
+5. Optionally, enter a **Profile Name** to filter the import to a specific Netflix profile.
+   If left empty, all profiles from the export will be imported.
 
 Ryot skips supplemental clips and other autoplay artifacts automatically. After the import
 finishes, review the import report for any items that could not be matched.
