@@ -569,11 +569,13 @@ export enum DashboardElementLot {
 }
 
 export type DeployGenericCsvImportInput = {
+  /** The file path of the uploaded CSV export file. */
   csvPath: Scalars['String']['input'];
 };
 
 export type DeployIgdbImportInput = {
   collection: Scalars['String']['input'];
+  /** The path to the CSV file in the local file system. */
   csvPath: Scalars['String']['input'];
 };
 
@@ -604,8 +606,11 @@ export type DeployMalImportInput = {
 };
 
 export type DeployMovaryImportInput = {
+  /** The file path of the uploaded CSV history file. */
   history: Scalars['String']['input'];
+  /** The file path of the uploaded CSV ratings file. */
   ratings: Scalars['String']['input'];
+  /** The file path of the uploaded CSV watchlist file. */
   watchlist: Scalars['String']['input'];
 };
 
@@ -620,12 +625,16 @@ export type DeployStrongAppImportInput = {
 };
 
 export type DeployTraktImportInput = {
+  /** Import from a public Trakt list. */
   list?: InputMaybe<DeployTraktImportListInput>;
+  /** Import from a public Trakt user. */
   user?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type DeployTraktImportListInput = {
+  /** The name of the collection to import into. */
   collection: Scalars['String']['input'];
+  /** The public url of the list in Trakt. */
   url: Scalars['String']['input'];
 };
 

@@ -102,33 +102,33 @@ pub struct ImportOrExportItemRating {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployGenericCsvImportInput {
-    // The file path of the uploaded CSV export file.
+    /// The file path of the uploaded CSV export file.
     pub csv_path: String,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployTraktImportListInput {
-    // The public url of the list in Trakt.
+    /// The public url of the list in Trakt.
     pub url: String,
-    // The name of the collection to import into.
+    /// The name of the collection to import into.
     pub collection: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
 pub enum DeployTraktImportInput {
-    // Import from a public Trakt user.
+    /// Import from a public Trakt user.
     User(String),
-    // Import from a public Trakt list.
+    /// Import from a public Trakt list.
     List(DeployTraktImportListInput),
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployMovaryImportInput {
-    // The file path of the uploaded CSV history file.
+    /// The file path of the uploaded CSV history file.
     pub history: String,
-    // The file path of the uploaded CSV ratings file.
+    /// The file path of the uploaded CSV ratings file.
     pub ratings: String,
-    // The file path of the uploaded CSV watchlist file.
+    /// The file path of the uploaded CSV watchlist file.
     pub watchlist: String,
 }
 
@@ -148,7 +148,7 @@ pub struct DeployStrongAppImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployIgdbImportInput {
-    // The path to the CSV file in the local file system.
+    /// The path to the CSV file in the local file system.
     pub csv_path: String,
     pub collection: String,
 }
