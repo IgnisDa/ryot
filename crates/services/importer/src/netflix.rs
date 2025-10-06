@@ -269,9 +269,9 @@ pub async fn import(
         bail!("CONTENT_INTERACTION folder not found in Netflix export");
     };
 
-    let viewing_activity_path = content_dir.join("ViewingActivity.csv");
-    let ratings_path = content_dir.join("Ratings.csv");
     let my_list_path = content_dir.join("MyList.csv");
+    let ratings_path = content_dir.join("Ratings.csv");
+    let viewing_activity_path = content_dir.join("ViewingActivity.csv");
 
     let mut failed_items = vec![];
     let mut rating_items: Vec<RatingItem> = vec![];
