@@ -581,6 +581,7 @@ export type DeployImportJobInput = {
   jellyfin?: InputMaybe<DeployJellyfinImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
+  netflix?: InputMaybe<DeployNetflixImportInput>;
   path?: InputMaybe<DeployPathImportInput>;
   source: ImportSource;
   strongApp?: InputMaybe<DeployStrongAppImportInput>;
@@ -608,6 +609,10 @@ export type DeployMovaryImportInput = {
   ratings: Scalars['String']['input'];
   /** The file path of the uploaded CSV watchlist file. */
   watchlist: Scalars['String']['input'];
+};
+
+export type DeployNetflixImportInput = {
+  input: DeployPathImportInput;
 };
 
 export type DeployPathImportInput = {

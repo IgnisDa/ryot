@@ -112,11 +112,14 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				.with(
 					ImportSource.GenericJson,
 					ImportSource.Anilist,
-					ImportSource.Netflix,
+
 					async () => ({
 						path: processSubmission(formData, exportPathImportFormSchema),
 					}),
 				)
+				.with(ImportSource.Netflix, async () => ({
+					netflix: processSubmission(formData, netflixImportFormSchema),
+				}))
 				.with(ImportSource.Jellyfin, async () => ({
 					jellyfin: processSubmission(formData, jellyfinImportFormSchema),
 				}))
@@ -189,6 +192,10 @@ const movaryImportFormSchema = z.object({
 });
 
 const exportPathImportFormSchema = z.object({ exportPath: z.string() });
+
+const netflixImportFormSchema = z.object({
+	input: exportPathImportFormSchema,
+});
 
 const malImportFormSchema = z.object({
 	animePath: z.string().optional(),
@@ -431,7 +438,7 @@ export default function Page() {
 														<FileInput
 															required
 															accept=".zip"
-															name="exportPath"
+															name="input.exportPath"
 															label="Netflix ZIP export file"
 														/>
 													</>

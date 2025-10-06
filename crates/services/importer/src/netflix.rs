@@ -17,7 +17,7 @@ use enum_models::{ImportSource, MediaLot, MediaSource};
 use futures::stream::{self, StreamExt};
 use indexmap::IndexMap;
 use media_models::{
-    DeployPathImportInput, ImportOrExportItemRating, ImportOrExportMetadataItemSeen,
+    DeployNetflixImportInput, ImportOrExportItemRating, ImportOrExportMetadataItemSeen,
     MetadataLookupResponse,
 };
 use miscellaneous_lookup_service::metadata_lookup;
@@ -245,12 +245,12 @@ fn media_map_entry<'a>(
 }
 
 pub async fn import(
-    input: DeployPathImportInput,
+    input: DeployNetflixImportInput,
     ss: &Arc<SupportingService>,
 ) -> Result<ImportResult> {
-    ryot_log!(debug, "Starting Netflix import from: {}", input.export_path);
+    ryot_log!(debug, "Netflix import from: {}", input.input.export_path);
 
-    let extracted_dir = extract_zip(&input.export_path)?;
+    let extracted_dir = extract_zip(&input.input.export_path)?;
     ryot_log!(debug, "Extracted ZIP to: {:?}", extracted_dir);
 
     let Some(content_dir) = find_content_interaction_dir(&extracted_dir) else {

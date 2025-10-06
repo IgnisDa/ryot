@@ -160,6 +160,11 @@ pub struct DeployPathImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployNetflixImportInput {
+    pub input: DeployPathImportInput,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployUrlAndKeyImportInput {
     pub api_url: String,
     pub api_key: String,
@@ -180,6 +185,7 @@ pub struct DeployImportJobInput {
     pub igdb: Option<DeployIgdbImportInput>,
     pub trakt: Option<DeployTraktImportInput>,
     pub movary: Option<DeployMovaryImportInput>,
+    pub netflix: Option<DeployNetflixImportInput>,
     pub jellyfin: Option<DeployJellyfinImportInput>,
     pub strong_app: Option<DeployStrongAppImportInput>,
     pub url_and_key: Option<DeployUrlAndKeyImportInput>,
