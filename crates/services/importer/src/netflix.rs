@@ -279,92 +279,86 @@ pub async fn import(
     let mut viewing_items: Vec<ViewingActivityItem> = vec![];
     let mut media_map: IndexMap<String, ImportOrExportMetadataItem> = IndexMap::new();
 
-    if viewing_activity_path.exists() {
-        ryot_log!(debug, "Processing ViewingActivity.csv");
-        let mut reader = Reader::from_path(&viewing_activity_path)?;
+    ryot_log!(debug, "Processing ViewingActivity.csv");
+    let mut reader = Reader::from_path(&viewing_activity_path)?;
 
-        for (idx, result) in reader.deserialize().enumerate() {
-            let record: ViewingActivityItem = match result {
-                Ok(r) => r,
-                Err(e) => {
-                    failed_items.push(ImportFailedItem {
-                        lot: None,
-                        identifier: idx.to_string(),
-                        step: ImportFailStep::InputTransformation,
-                        error: Some(format!("ViewingActivity CSV parsing error: {e:#?}")),
-                    });
-                    continue;
-                }
-            };
-
-            if should_skip_entry(&record) {
+    for (idx, result) in reader.deserialize().enumerate() {
+        let record: ViewingActivityItem = match result {
+            Ok(r) => r,
+            Err(e) => {
+                failed_items.push(ImportFailedItem {
+                    lot: None,
+                    identifier: idx.to_string(),
+                    step: ImportFailStep::InputTransformation,
+                    error: Some(format!("ViewingActivity CSV parsing error: {e:#?}")),
+                });
                 continue;
             }
+        };
 
-            if !matches_profile_filter(&record.profile_name, &input.profile_name) {
-                continue;
-            }
-
-            viewing_items.push(record);
+        if should_skip_entry(&record) {
+            continue;
         }
 
-        ryot_log!(
-            debug,
-            "Processing {} viewing activity entries",
-            viewing_items.len()
-        );
+        if !matches_profile_filter(&record.profile_name, &input.profile_name) {
+            continue;
+        }
+
+        viewing_items.push(record);
     }
 
-    if ratings_path.exists() {
-        ryot_log!(debug, "Processing Ratings.csv");
-        let mut reader = Reader::from_path(&ratings_path)?;
+    ryot_log!(
+        debug,
+        "Processing {} viewing activity entries",
+        viewing_items.len()
+    );
 
-        for (idx, result) in reader.deserialize().enumerate() {
-            let record: RatingItem = match result {
-                Ok(r) => r,
-                Err(e) => {
-                    failed_items.push(ImportFailedItem {
-                        lot: None,
-                        identifier: idx.to_string(),
-                        step: ImportFailStep::InputTransformation,
-                        error: Some(format!("Ratings CSV parsing error: {e:#?}")),
-                    });
-                    continue;
-                }
-            };
+    ryot_log!(debug, "Processing Ratings.csv");
+    let mut reader = Reader::from_path(&ratings_path)?;
 
-            if !matches_profile_filter(&record.profile_name, &input.profile_name) {
+    for (idx, result) in reader.deserialize().enumerate() {
+        let record: RatingItem = match result {
+            Ok(r) => r,
+            Err(e) => {
+                failed_items.push(ImportFailedItem {
+                    lot: None,
+                    identifier: idx.to_string(),
+                    step: ImportFailStep::InputTransformation,
+                    error: Some(format!("Ratings CSV parsing error: {e:#?}")),
+                });
                 continue;
             }
+        };
 
-            rating_items.push(record);
+        if !matches_profile_filter(&record.profile_name, &input.profile_name) {
+            continue;
         }
+
+        rating_items.push(record);
     }
 
-    if my_list_path.exists() {
-        ryot_log!(debug, "Processing MyList.csv");
-        let mut reader = Reader::from_path(&my_list_path)?;
+    ryot_log!(debug, "Processing MyList.csv");
+    let mut reader = Reader::from_path(&my_list_path)?;
 
-        for (idx, result) in reader.deserialize().enumerate() {
-            let record: MyListItem = match result {
-                Ok(r) => r,
-                Err(e) => {
-                    failed_items.push(ImportFailedItem {
-                        lot: None,
-                        identifier: idx.to_string(),
-                        step: ImportFailStep::InputTransformation,
-                        error: Some(format!("MyList CSV parsing error: {e:#?}")),
-                    });
-                    continue;
-                }
-            };
-
-            if !matches_profile_filter(&record.profile_name, &input.profile_name) {
+    for (idx, result) in reader.deserialize().enumerate() {
+        let record: MyListItem = match result {
+            Ok(r) => r,
+            Err(e) => {
+                failed_items.push(ImportFailedItem {
+                    lot: None,
+                    identifier: idx.to_string(),
+                    step: ImportFailStep::InputTransformation,
+                    error: Some(format!("MyList CSV parsing error: {e:#?}")),
+                });
                 continue;
             }
+        };
 
-            my_list_items.push(record);
+        if !matches_profile_filter(&record.profile_name, &input.profile_name) {
+            continue;
         }
+
+        my_list_items.push(record);
     }
 
     let mut title_cache: HashMap<String, Option<LookupCacheItem>> = HashMap::new();
