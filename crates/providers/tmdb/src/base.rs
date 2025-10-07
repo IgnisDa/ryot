@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, future::Future, sync::Arc};
 
 use anyhow::{Result, bail};
 use application_utils::get_base_http_client;
