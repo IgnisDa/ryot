@@ -36,6 +36,20 @@ static SEASON_EPISODE_PATTERNS: &[&str] = &[
     r"season\s+(\d+)\s+episode\s+(\d+)",
     r"S(\d+)\s+E(\d+)",
     r"(?i)Season\s+(\d+).*?Episode\s+(\d+)",
+    r"(?i)Part\s+([IVX]+|[0-9]+).*?Chapter\s+([IVX]+|[0-9]+)",
+    r"(?i)Part\s+([IVX]+|[0-9]+).*?Chapter\s+(One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve|Thirteen|Fourteen|Fifteen|Sixteen|Seventeen|Eighteen|Nineteen|Twenty)",
+    r"(?i)Volume\s+(\d+):\s+Chapter\s+([IVX]+)",
+    r"(?i)Volume\s+(\d+):\s+Chapter\s+(\d+)",
+    r"(?i)Volume\s+(\d+):\s+Chapter\s+(One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve|Thirteen|Fourteen|Fifteen|Sixteen|Seventeen|Eighteen|Nineteen|Twenty)",
+    r"(?i):\s+[^:]+\s+(\d+):\s+Chapter\s+(One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve|Thirteen|Fourteen|Fifteen|Sixteen|Seventeen|Eighteen|Nineteen|Twenty)",
+    r"(?i):\s+[^:]+\s+(\d+):\s+Chapter\s+(\d+)",
+    r"(?i)Season\s+(\d+):\s+Chapter\s+(\d+)",
+    r"(?i)Season\s+(\d+):\s+Chapter\s+(One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve|Thirteen|Fourteen|Fifteen|Sixteen|Seventeen|Eighteen|Nineteen|Twenty)",
+    r"(?i)Season\s+(\d+):\s+Episode\s+(\d+)",
+    r"(?i)Chapter\s+([IVX]+)",
+    r"(?i)Chapter\s+(\d+)(?::|\s|$)",
+    r"(?i)Chapter\s+(One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve|Thirteen|Fourteen|Fifteen|Sixteen|Seventeen|Eighteen|Nineteen|Twenty)(?::|\s)",
+    r"(?i)Limited\s+Series:\s+Episode\s+(\d+)",
 ];
 static CLEANING_PATTERNS: &[&str] = &[
     r"\([12]\d{3}\)",
@@ -84,6 +98,67 @@ fn get_compiled_patterns<'a>(patterns: &[&str], cache: &'a OnceLock<Vec<Regex>>)
             .filter_map(|pattern| Regex::new(pattern).ok())
             .collect()
     })
+}
+
+fn word_to_number(word: &str) -> Option<i32> {
+    match word.to_lowercase().as_str() {
+        "one" => Some(1),
+        "two" => Some(2),
+        "three" => Some(3),
+        "four" => Some(4),
+        "five" => Some(5),
+        "six" => Some(6),
+        "seven" => Some(7),
+        "eight" => Some(8),
+        "nine" => Some(9),
+        "ten" => Some(10),
+        "eleven" => Some(11),
+        "twelve" => Some(12),
+        "thirteen" => Some(13),
+        "fourteen" => Some(14),
+        "fifteen" => Some(15),
+        "sixteen" => Some(16),
+        "seventeen" => Some(17),
+        "eighteen" => Some(18),
+        "nineteen" => Some(19),
+        "twenty" => Some(20),
+        _ => None,
+    }
+}
+
+fn roman_to_number(roman: &str) -> Option<i32> {
+    let roman = roman.to_uppercase();
+    let mut result = 0;
+    let mut prev_value = 0;
+
+    for ch in roman.chars().rev() {
+        let value = match ch {
+            'I' => 1,
+            'V' => 5,
+            'X' => 10,
+            'L' => 50,
+            'C' => 100,
+            'D' => 500,
+            'M' => 1000,
+            _ => return None,
+        };
+
+        if value < prev_value {
+            result -= value;
+        } else {
+            result += value;
+        }
+        prev_value = value;
+    }
+
+    Some(result)
+}
+
+fn parse_number_or_word_or_roman(s: &str) -> Option<i32> {
+    s.parse::<i32>()
+        .ok()
+        .or_else(|| word_to_number(s))
+        .or_else(|| roman_to_number(s))
 }
 
 fn get_space_regex() -> &'static Regex {
@@ -141,9 +216,15 @@ fn find_first_capture_group(text: &str, pattern_set: PatternSet) -> Option<Strin
 
 fn find_two_capture_groups(text: &str, pattern_set: PatternSet) -> Option<(i32, i32)> {
     extract_captures(text, pattern_set, |captures| {
-        let first = captures.get(1)?.as_str().parse().ok()?;
-        let second = captures.get(2)?.as_str().parse().ok()?;
-        Some((first, second))
+        let first = parse_number_or_word_or_roman(captures.get(1)?.as_str())?;
+        let second = captures
+            .get(2)
+            .and_then(|cap| parse_number_or_word_or_roman(cap.as_str()));
+
+        match second {
+            Some(ep) => Some((first, ep)),
+            None => Some((1, first)),
+        }
     })
 }
 
@@ -644,5 +725,127 @@ mod tests {
             find_best_match(&results, "Game of Thrones (2011) S08E06", Some(2011)).unwrap();
         assert_eq!(best_match.lot, MediaLot::Show);
         assert_eq!(best_match.identifier, "show456");
+    }
+
+    #[rstest]
+    #[case("Stranger Things: Chapter One: The Vanishing of Will Byers", 1, 1)]
+    #[case(
+        "Stranger Things: Stranger Things 4: Chapter Nine: The Piggyback",
+        4,
+        9
+    )]
+    #[case("Stranger Things: Stranger Things 2: Chapter One: MADMAX", 2, 1)]
+    #[case("3%: Season 2: Chapter 01: Mirror", 2, 1)]
+    #[case("3%: Season 1: Chapter 08: Button", 1, 8)]
+    fn test_extract_season_episode_netflix_chapter_format(
+        #[case] input: &str,
+        #[case] expected_season: i32,
+        #[case] expected_episode: i32,
+    ) {
+        let result = extract_season_episode(input);
+        assert!(result.is_some());
+        let info = result.unwrap();
+        assert_eq!(info.season, expected_season);
+        assert_eq!(info.episode, expected_episode);
+    }
+
+    #[rstest]
+    #[case("The OA: Part II: Chapter 8: Overview", 2, 8)]
+    #[case("The OA: Part I: Chapter 1: Homecoming", 1, 1)]
+    #[case("The OA: Part II: Chapter 7: Nina Azarova", 2, 7)]
+    fn test_extract_season_episode_part_chapter_format(
+        #[case] input: &str,
+        #[case] expected_season: i32,
+        #[case] expected_episode: i32,
+    ) {
+        let result = extract_season_episode(input);
+        assert!(result.is_some());
+        let info = result.unwrap();
+        assert_eq!(info.season, expected_season);
+        assert_eq!(info.episode, expected_episode);
+    }
+
+    #[rstest]
+    #[case("Dear White People: Volume 4: Chapter VIII", 4, 8)]
+    #[case("Dear White People: Volume 3: Chapter VII", 3, 7)]
+    fn test_extract_season_episode_volume_format(
+        #[case] input: &str,
+        #[case] expected_season: i32,
+        #[case] expected_episode: i32,
+    ) {
+        let result = extract_season_episode(input);
+        assert!(result.is_some());
+        let info = result.unwrap();
+        assert_eq!(info.season, expected_season);
+        assert_eq!(info.episode, expected_episode);
+    }
+
+    #[rstest]
+    #[case("Dept. Q: Season 1: Episode 1", 1, 1)]
+    #[case("Dept. Q: Season 1: Episode 9", 1, 9)]
+    #[case("Zero Day: Limited Series: Episode 6", 1, 6)]
+    #[case("Zero Day: Limited Series: Episode 1", 1, 1)]
+    fn test_extract_season_episode_episode_number_format(
+        #[case] input: &str,
+        #[case] expected_season: i32,
+        #[case] expected_episode: i32,
+    ) {
+        let result = extract_season_episode(input);
+        assert!(result.is_some());
+        let info = result.unwrap();
+        assert_eq!(info.season, expected_season);
+        assert_eq!(info.episode, expected_episode);
+    }
+
+    #[rstest]
+    #[case("Ancient Apocalypse: The Americas: Chapter VI", 1, 6)]
+    #[case("Ancient Apocalypse: The Americas: Chapter I", 1, 1)]
+    #[case("Ancient Apocalypse: The Americas: Chapter III", 1, 3)]
+    fn test_extract_season_episode_roman_numerals(
+        #[case] input: &str,
+        #[case] expected_season: i32,
+        #[case] expected_episode: i32,
+    ) {
+        let result = extract_season_episode(input);
+        assert!(result.is_some());
+        let info = result.unwrap();
+        assert_eq!(info.season, expected_season);
+        assert_eq!(info.episode, expected_episode);
+    }
+
+    #[test]
+    fn test_word_to_number() {
+        assert_eq!(word_to_number("one"), Some(1));
+        assert_eq!(word_to_number("One"), Some(1));
+        assert_eq!(word_to_number("TWO"), Some(2));
+        assert_eq!(word_to_number("nine"), Some(9));
+        assert_eq!(word_to_number("twenty"), Some(20));
+        assert_eq!(word_to_number("invalid"), None);
+    }
+
+    #[test]
+    fn test_roman_to_number() {
+        assert_eq!(roman_to_number("I"), Some(1));
+        assert_eq!(roman_to_number("II"), Some(2));
+        assert_eq!(roman_to_number("III"), Some(3));
+        assert_eq!(roman_to_number("IV"), Some(4));
+        assert_eq!(roman_to_number("V"), Some(5));
+        assert_eq!(roman_to_number("VI"), Some(6));
+        assert_eq!(roman_to_number("IX"), Some(9));
+        assert_eq!(roman_to_number("X"), Some(10));
+        assert_eq!(roman_to_number("XX"), Some(20));
+        assert_eq!(roman_to_number("invalid"), None);
+    }
+
+    #[test]
+    fn test_parse_number_or_word_or_roman() {
+        assert_eq!(parse_number_or_word_or_roman("1"), Some(1));
+        assert_eq!(parse_number_or_word_or_roman("10"), Some(10));
+        assert_eq!(parse_number_or_word_or_roman("One"), Some(1));
+        assert_eq!(parse_number_or_word_or_roman("Twenty"), Some(20));
+        assert_eq!(parse_number_or_word_or_roman("I"), Some(1));
+        assert_eq!(parse_number_or_word_or_roman("VI"), Some(6));
+        assert_eq!(parse_number_or_word_or_roman("IX"), Some(9));
+        assert_eq!(parse_number_or_word_or_roman("invalid"), None);
     }
 }
