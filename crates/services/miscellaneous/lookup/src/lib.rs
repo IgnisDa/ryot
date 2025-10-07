@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     collections::HashSet,
     sync::{Arc, OnceLock},
 };
@@ -249,9 +250,7 @@ fn find_best_match<'a>(
             calculate_match_score(a, &cleaned_original, publish_year, has_episode_indicators);
         let score_b =
             calculate_match_score(b, &cleaned_original, publish_year, has_episode_indicators);
-        score_a
-            .partial_cmp(&score_b)
-            .unwrap_or(std::cmp::Ordering::Equal)
+        score_a.partial_cmp(&score_b).unwrap_or(Ordering::Equal)
     })
     .unwrap();
 

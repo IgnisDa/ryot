@@ -1,4 +1,4 @@
-use std::{convert::TryInto, fmt};
+use std::{cmp::Ordering, convert::TryInto, fmt};
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use data_encoding::BASE32;
@@ -176,7 +176,7 @@ pub fn get_db_stmt(stmt: SelectStatement) -> Statement {
 
 pub fn get_first_max_index_by<T, F>(items: &[T], compare_fn: F) -> Option<usize>
 where
-    F: Fn(&T, &T) -> std::cmp::Ordering,
+    F: Fn(&T, &T) -> Ordering,
 {
     items
         .iter()

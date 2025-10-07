@@ -211,7 +211,7 @@ impl TmdbService {
     ) -> Result<Vec<T>>
     where
         F: Fn(TmdbEntry) -> Fut + Send + Sync + Clone,
-        Fut: std::future::Future<Output = Option<T>> + Send,
+        Fut: Future<Output = Option<T>> + Send,
         T: Send,
     {
         let first_page: TmdbListResponse = self
