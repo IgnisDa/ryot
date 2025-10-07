@@ -19,6 +19,7 @@ export default defineContentScript({
 		let metadataCache: MetadataCache | null = null;
 		let isRunning = false;
 		let currentUrl = window.location.href;
+		let navigationListenersAttached = false;
 
 		let retryAttempts = 0;
 		const MAX_RETRY_ATTEMPTS = 10;
@@ -366,12 +367,18 @@ export default defineContentScript({
 		}
 
 		function setupNavigationListeners() {
-			window.addEventListener("popstate", handleUrlChange, {
-				signal: cleanup.abortController.signal,
-			});
+			if (navigationListenersAttached) {
+				return;
+			}
+
+			navigationListenersAttached = true;
 
 			const originalPushState = history.pushState;
 			const originalReplaceState = history.replaceState;
+
+			window.addEventListener("popstate", handleUrlChange, {
+				signal: cleanup.abortController.signal,
+			});
 
 			history.pushState = function (...args) {
 				originalPushState.apply(this, args);
@@ -386,6 +393,7 @@ export default defineContentScript({
 			cleanup.abortController.signal.addEventListener("abort", () => {
 				history.pushState = originalPushState;
 				history.replaceState = originalReplaceState;
+				navigationListenersAttached = false;
 			});
 		}
 
