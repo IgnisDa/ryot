@@ -2,7 +2,7 @@ use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 
 use anyhow::{Result, anyhow, bail};
 use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
-use common_utils::{get_first_max_index_by_key, ryot_log};
+use common_utils::{get_first_max_index_by, ryot_log};
 use database_models::{exercise, prelude::*, user_measurement, user_to_entity, workout};
 use database_utils::schedule_user_for_workout_revision;
 use dependent_collection_utils::add_entities_to_collection;
@@ -60,11 +60,16 @@ pub async fn create_or_update_user_measurement(
 }
 
 pub fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
-    get_first_max_index_by_key(records, |record| {
-        record.statistic.duration.unwrap_or(dec!(0))
-            + record.statistic.distance.unwrap_or(dec!(0))
-            + record.statistic.reps.unwrap_or(dec!(0))
-            + record.statistic.weight.unwrap_or(dec!(0))
+    get_first_max_index_by(records, |a, b| {
+        let score_a = a.statistic.duration.unwrap_or(dec!(0))
+            + a.statistic.distance.unwrap_or(dec!(0))
+            + a.statistic.reps.unwrap_or(dec!(0))
+            + a.statistic.weight.unwrap_or(dec!(0));
+        let score_b = b.statistic.duration.unwrap_or(dec!(0))
+            + b.statistic.distance.unwrap_or(dec!(0))
+            + b.statistic.reps.unwrap_or(dec!(0))
+            + b.statistic.weight.unwrap_or(dec!(0));
+        score_a.cmp(&score_b)
     })
 }
 
@@ -72,8 +77,10 @@ pub fn get_index_of_highest_pb(
     records: &[WorkoutSetRecord],
     pb_type: &WorkoutSetPersonalBest,
 ) -> Option<usize> {
-    get_first_max_index_by_key(records, |record| {
-        get_personal_best(record, pb_type).unwrap_or(dec!(0))
+    get_first_max_index_by(records, |a, b| {
+        let pb_a = get_personal_best(a, pb_type).unwrap_or(dec!(0));
+        let pb_b = get_personal_best(b, pb_type).unwrap_or(dec!(0));
+        pb_a.cmp(&pb_b)
     })
 }
 
