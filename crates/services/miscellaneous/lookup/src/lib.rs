@@ -21,14 +21,35 @@ async fn smart_search(
     tmdb_service: &TmdbService,
     title: &str,
 ) -> Result<Vec<TmdbMetadataLookupResult>> {
-    let strategies = [title.to_string(), extract_base_title(title)];
+    let mut queries = Vec::with_capacity(2);
 
-    for strategy in strategies.into_iter().filter(|s| !s.trim().is_empty()) {
-        if let Ok(results) = tmdb_service.multi_search(&strategy).await
-            && !results.is_empty()
-        {
-            return Ok(results);
+    let trimmed_title = title.trim();
+    if !trimmed_title.is_empty() {
+        queries.push(trimmed_title.to_string());
+    }
+
+    let base_title = extract_base_title(title);
+    let base_title_trimmed = base_title.trim();
+    if !base_title_trimmed.is_empty()
+        && !queries
+            .iter()
+            .any(|existing| existing.eq_ignore_ascii_case(base_title_trimmed))
+    {
+        queries.push(base_title);
+    }
+
+    let mut last_error = None;
+
+    for query in queries {
+        match tmdb_service.multi_search(&query).await {
+            Ok(results) if !results.is_empty() => return Ok(results),
+            Ok(_) => {}
+            Err(err) => last_error = Some(err),
         }
+    }
+
+    if let Some(err) = last_error {
+        return Err(err);
     }
 
     Ok(vec![])
@@ -52,36 +73,31 @@ pub async fn metadata_lookup(
             title: title.clone(),
         }),
         ApplicationCacheValue::MetadataLookup,
-        || async {
+        move || async move {
             let tmdb_service = TmdbService::new(ss.clone()).await?;
             let search_results = smart_search(&tmdb_service, &title).await?;
 
-            let response = match search_results.is_empty() {
-                true => {
-                    MetadataLookupResponse::NotFound(MetadataLookupNotFound { not_found: true })
-                }
-                false => {
-                    let publish_year = extract_year_from_title(&title);
-                    let best_match = find_best_match(&search_results, &title, publish_year)?;
+            if search_results.is_empty() {
+                return Ok(MetadataLookupResponse::NotFound(MetadataLookupNotFound {
+                    not_found: true,
+                }));
+            }
 
-                    let data = UniqueMediaIdentifier {
-                        lot: best_match.lot,
-                        source: MediaSource::Tmdb,
-                        identifier: best_match.identifier.clone(),
-                    };
+            let publish_year = extract_year_from_title(&title);
+            let best_match = find_best_match(&search_results, &title, publish_year)?;
 
-                    let show_information = extract_show_information(&title, &best_match.lot);
-
-                    let found_result = MetadataLookupFoundResult {
-                        data,
-                        show_information,
-                    };
-
-                    MetadataLookupResponse::Found(found_result)
-                }
+            let data = UniqueMediaIdentifier {
+                lot: best_match.lot,
+                source: MediaSource::Tmdb,
+                identifier: best_match.identifier.clone(),
             };
 
-            Ok(response)
+            let show_information = extract_show_information(&title, &best_match.lot);
+
+            Ok(MetadataLookupResponse::Found(MetadataLookupFoundResult {
+                data,
+                show_information,
+            }))
         },
     )
     .await
