@@ -55,8 +55,6 @@ enum PatternSet {
     SeasonEpisode,
     YearExtraction,
     BaseExtraction,
-    #[cfg_attr(not(test), allow(dead_code))]
-    Custom(&'static [&'static str]),
 }
 
 impl PatternSet {
@@ -66,7 +64,6 @@ impl PatternSet {
             PatternSet::SeasonEpisode => SEASON_EPISODE_PATTERNS,
             PatternSet::YearExtraction => YEAR_EXTRACTION_PATTERNS,
             PatternSet::BaseExtraction => BASE_EXTRACTION_PATTERNS,
-            PatternSet::Custom(patterns) => patterns,
         }
     }
 
@@ -76,7 +73,6 @@ impl PatternSet {
             PatternSet::SeasonEpisode => Some(&COMPILED_SEASON_EPISODE_PATTERNS),
             PatternSet::YearExtraction => Some(&COMPILED_YEAR_EXTRACTION_PATTERNS),
             PatternSet::BaseExtraction => Some(&COMPILED_BASE_EXTRACTION_PATTERNS),
-            PatternSet::Custom(_) => None,
         }
     }
 }
@@ -534,20 +530,6 @@ mod tests {
         let info = episode_info.unwrap();
         assert_eq!(info.season, 1);
         assert_eq!(info.episode, 1);
-    }
-
-    #[test]
-    fn test_pattern_matching_utilities() {
-        let result =
-            apply_patterns_with_replacement("Test (2022)", PatternSet::Custom(&[r"\(\d{4}\)"]), "");
-        assert_eq!(result, "Test");
-
-        let result =
-            find_first_capture_group("Movie (2022)", PatternSet::Custom(&[r"^(.+?)\s+\(\d{4}\)"]));
-        assert_eq!(result, Some("Movie".to_string()));
-
-        let result = find_two_capture_groups("S01E05", PatternSet::Custom(&[r"S(\d+)E(\d+)"]));
-        assert_eq!(result, Some((1, 5)));
     }
 
     #[test]
