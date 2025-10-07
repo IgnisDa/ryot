@@ -54,21 +54,18 @@ pub enum PatternSet {
 }
 
 impl PatternSet {
-    fn patterns(&self) -> &[&str] {
+    fn get_patterns_and_cache(&self) -> (&[&str], &'static OnceLock<Vec<Regex>>) {
         match self {
-            PatternSet::Cleaning => CLEANING_PATTERNS,
-            PatternSet::SeasonEpisode => SEASON_EPISODE_PATTERNS,
-            PatternSet::YearExtraction => YEAR_EXTRACTION_PATTERNS,
-            PatternSet::BaseExtraction => BASE_EXTRACTION_PATTERNS,
-        }
-    }
-
-    fn cache(&self) -> Option<&'static OnceLock<Vec<Regex>>> {
-        match self {
-            PatternSet::Cleaning => Some(&COMPILED_CLEANING_PATTERNS),
-            PatternSet::SeasonEpisode => Some(&COMPILED_SEASON_EPISODE_PATTERNS),
-            PatternSet::YearExtraction => Some(&COMPILED_YEAR_EXTRACTION_PATTERNS),
-            PatternSet::BaseExtraction => Some(&COMPILED_BASE_EXTRACTION_PATTERNS),
+            PatternSet::Cleaning => (CLEANING_PATTERNS, &COMPILED_CLEANING_PATTERNS),
+            PatternSet::SeasonEpisode => {
+                (SEASON_EPISODE_PATTERNS, &COMPILED_SEASON_EPISODE_PATTERNS)
+            }
+            PatternSet::YearExtraction => {
+                (YEAR_EXTRACTION_PATTERNS, &COMPILED_YEAR_EXTRACTION_PATTERNS)
+            }
+            PatternSet::BaseExtraction => {
+                (BASE_EXTRACTION_PATTERNS, &COMPILED_BASE_EXTRACTION_PATTERNS)
+            }
         }
     }
 }
@@ -92,8 +89,8 @@ pub fn apply_patterns_with_replacement(
     replacement: &str,
 ) -> String {
     let mut result = text.to_string();
-    let cache = pattern_set.cache().unwrap();
-    let compiled_patterns = get_compiled_patterns(pattern_set.patterns(), cache);
+    let (patterns, cache) = pattern_set.get_patterns_and_cache();
+    let compiled_patterns = get_compiled_patterns(patterns, cache);
 
     for re in compiled_patterns {
         result = re.replace_all(&result, replacement).to_string();
@@ -108,8 +105,8 @@ pub fn extract_captures<T>(
     pattern_set: PatternSet,
     extractor: impl Fn(&regex::Captures) -> Option<T>,
 ) -> Option<T> {
-    let cache = pattern_set.cache().unwrap();
-    let compiled_patterns = get_compiled_patterns(pattern_set.patterns(), cache);
+    let (patterns, cache) = pattern_set.get_patterns_and_cache();
+    let compiled_patterns = get_compiled_patterns(patterns, cache);
 
     compiled_patterns.iter().find_map(|re| {
         let captures = re.captures(text)?;
