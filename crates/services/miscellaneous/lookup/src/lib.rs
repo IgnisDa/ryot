@@ -445,6 +445,37 @@ mod tests {
     }
 
     #[rstest]
+    #[case("Stranger Things: Chapter One: The Vanishing of Will Byers", 1, 1)]
+    #[case("Stranger Things: Chapter Eight: The Upside Down", 1, 8)]
+    #[case(
+        "Stranger Things: Stranger Things 4: Chapter Nine: The Piggyback",
+        4,
+        9
+    )]
+    #[case("Stranger Things: Stranger Things 4: Chapter Eight: Papa", 4, 8)]
+    #[case("Stranger Things: Stranger Things 2: Chapter One: MADMAX", 2, 1)]
+    #[case(
+        "Stranger Things: Stranger Things 3: Chapter Eight: The Battle of Starcourt",
+        3,
+        8
+    )]
+    fn test_extract_season_episode_real_netflix_strings(
+        #[case] input: &str,
+        #[case] expected_season: i32,
+        #[case] expected_episode: i32,
+    ) {
+        let result = extract_season_episode(input);
+        assert!(result.is_some(), "Failed to extract from: {}", input);
+        let info = result.unwrap();
+        assert_eq!(info.season, expected_season, "Wrong season for: {}", input);
+        assert_eq!(
+            info.episode, expected_episode,
+            "Wrong episode for: {}",
+            input
+        );
+    }
+
+    #[rstest]
     #[case("Dept. Q: Season 1: Episode 1", 1, 1)]
     #[case("Dept. Q: Season 1: Episode 9", 1, 9)]
     #[case("Zero Day: Limited Series: Episode 6", 1, 6)]
