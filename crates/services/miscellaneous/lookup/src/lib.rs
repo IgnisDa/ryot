@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::{Result, bail};
 use common_models::MetadataLookupCacheInput;
+use common_utils::get_first_max_index_by;
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, CachedResponse};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
@@ -243,23 +244,18 @@ fn find_best_match<'a>(
     let cleaned_original = clean_title(original_title);
     let has_episode_indicators = extract_season_episode(original_title).is_some();
 
-    let best_match = results
-        .iter()
-        .enumerate()
-        .max_by(|(idx_a, a), (idx_b, b)| {
-            let score_a =
-                calculate_match_score(a, &cleaned_original, publish_year, has_episode_indicators);
-            let score_b =
-                calculate_match_score(b, &cleaned_original, publish_year, has_episode_indicators);
-            score_a
-                .partial_cmp(&score_b)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| idx_b.cmp(idx_a))
-        })
-        .map(|(_, item)| item)
-        .unwrap();
+    let best_match_idx = get_first_max_index_by(results, |a, b| {
+        let score_a =
+            calculate_match_score(a, &cleaned_original, publish_year, has_episode_indicators);
+        let score_b =
+            calculate_match_score(b, &cleaned_original, publish_year, has_episode_indicators);
+        score_a
+            .partial_cmp(&score_b)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    })
+    .unwrap();
 
-    Ok(best_match)
+    Ok(&results[best_match_idx])
 }
 
 fn extract_show_information(title: &str, media_lot: &MediaLot) -> Option<SeenShowExtraInformation> {

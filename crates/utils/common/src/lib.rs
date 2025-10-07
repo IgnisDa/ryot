@@ -173,3 +173,26 @@ pub fn get_db_stmt(stmt: SelectStatement) -> Statement {
     let (sql, values) = stmt.build(PostgresQueryBuilder {});
     Statement::from_sql_and_values(DatabaseBackend::Postgres, sql, values)
 }
+
+pub fn get_first_max_index_by_key<T, F, K>(items: &[T], key_fn: F) -> Option<usize>
+where
+    F: Fn(&T) -> K,
+    K: Ord,
+{
+    items
+        .iter()
+        .enumerate()
+        .max_by(|(idx_a, a), (idx_b, b)| key_fn(a).cmp(&key_fn(b)).then_with(|| idx_b.cmp(idx_a)))
+        .map(|(idx, _)| idx)
+}
+
+pub fn get_first_max_index_by<T, F>(items: &[T], compare_fn: F) -> Option<usize>
+where
+    F: Fn(&T, &T) -> std::cmp::Ordering,
+{
+    items
+        .iter()
+        .enumerate()
+        .max_by(|(idx_a, a), (idx_b, b)| compare_fn(a, b).then_with(|| idx_b.cmp(idx_a)))
+        .map(|(idx, _)| idx)
+}
