@@ -245,7 +245,8 @@ fn find_best_match<'a>(
 
     let best_match = results
         .iter()
-        .max_by(|a, b| {
+        .enumerate()
+        .max_by(|(idx_a, a), (idx_b, b)| {
             let score_a =
                 calculate_match_score(a, &cleaned_original, publish_year, has_episode_indicators);
             let score_b =
@@ -253,7 +254,9 @@ fn find_best_match<'a>(
             score_a
                 .partial_cmp(&score_b)
                 .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| idx_b.cmp(idx_a))
         })
+        .map(|(_, item)| item)
         .unwrap();
 
     Ok(best_match)
