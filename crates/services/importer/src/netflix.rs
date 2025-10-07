@@ -383,7 +383,7 @@ pub async fn import(
     );
 
     let lookup_results = stream::iter(titles.into_iter().map(|title| async move {
-        let (lookup, failure) = lookup_title(&ss, &title).await;
+        let (lookup, failure) = lookup_title(ss, &title).await;
         (title, lookup, failure)
     }))
     .buffer_unordered(METADATA_LOOKUP_CONCURRENCY)
