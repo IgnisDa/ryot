@@ -3888,7 +3888,6 @@ dependencies = [
  "tokio",
  "tracing",
  "traits",
- "uuid",
  "zip",
 ]
 
