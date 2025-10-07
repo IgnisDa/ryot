@@ -363,45 +363,41 @@ pub async fn import(
 
     let mut title_cache: HashMap<String, Option<LookupCacheItem>> = HashMap::new();
 
-    if !viewing_items.is_empty() || !rating_items.is_empty() || !my_list_items.is_empty() {
-        let mut titles_to_lookup: HashSet<String> = HashSet::new();
+    let mut titles_to_lookup: HashSet<String> = HashSet::new();
 
-        for item in &viewing_items {
-            titles_to_lookup.insert(item.title.clone());
-        }
-        for item in &rating_items {
-            titles_to_lookup.insert(item.title_name.clone());
-        }
-        for item in &my_list_items {
-            titles_to_lookup.insert(item.title_name.clone());
-        }
+    for item in &viewing_items {
+        titles_to_lookup.insert(item.title.clone());
+    }
+    for item in &rating_items {
+        titles_to_lookup.insert(item.title_name.clone());
+    }
+    for item in &my_list_items {
+        titles_to_lookup.insert(item.title_name.clone());
+    }
 
-        if !titles_to_lookup.is_empty() {
-            let titles: Vec<String> = titles_to_lookup.into_iter().collect();
-            ryot_log!(
-                debug,
-                "Running metadata lookups for {} titles",
-                titles.len()
-            );
+    let titles: Vec<String> = titles_to_lookup.into_iter().collect();
+    ryot_log!(
+        debug,
+        "Running metadata lookups for {} titles",
+        titles.len()
+    );
 
-            let lookup_results = stream::iter(titles.into_iter().map(|title| {
-                let ss = Arc::clone(ss);
-                async move {
-                    let (lookup, failure) = lookup_title(&ss, &title).await;
-                    (title, lookup, failure)
-                }
-            }))
-            .buffer_unordered(METADATA_LOOKUP_CONCURRENCY)
-            .collect::<Vec<_>>()
-            .await;
-
-            for (title, lookup, failure) in lookup_results {
-                if let Some(failure) = failure {
-                    failed_items.push(failure);
-                }
-                title_cache.insert(title, lookup);
-            }
+    let lookup_results = stream::iter(titles.into_iter().map(|title| {
+        let ss = Arc::clone(ss);
+        async move {
+            let (lookup, failure) = lookup_title(&ss, &title).await;
+            (title, lookup, failure)
         }
+    }))
+    .buffer_unordered(METADATA_LOOKUP_CONCURRENCY)
+    .collect::<Vec<_>>()
+    .await;
+
+    for (title, lookup, failure) in lookup_results {
+        if let Some(failure) = failure {
+            failed_items.push(failure);
+        }
+        title_cache.insert(title, lookup);
     }
 
     for (idx, record) in viewing_items.into_iter().enumerate() {
