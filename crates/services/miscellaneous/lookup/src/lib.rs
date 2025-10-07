@@ -50,6 +50,37 @@ static CLEANING_PATTERNS: &[&str] = &[
     r"\{.*?\}",
 ];
 
+enum PatternSet {
+    Cleaning,
+    SeasonEpisode,
+    YearExtraction,
+    BaseExtraction,
+    #[cfg_attr(not(test), allow(dead_code))]
+    Custom(&'static [&'static str]),
+}
+
+impl PatternSet {
+    fn patterns(&self) -> &[&str] {
+        match self {
+            PatternSet::Cleaning => CLEANING_PATTERNS,
+            PatternSet::SeasonEpisode => SEASON_EPISODE_PATTERNS,
+            PatternSet::YearExtraction => YEAR_EXTRACTION_PATTERNS,
+            PatternSet::BaseExtraction => BASE_EXTRACTION_PATTERNS,
+            PatternSet::Custom(patterns) => patterns,
+        }
+    }
+
+    fn cache(&self) -> Option<&'static OnceLock<Vec<Regex>>> {
+        match self {
+            PatternSet::Cleaning => Some(&COMPILED_CLEANING_PATTERNS),
+            PatternSet::SeasonEpisode => Some(&COMPILED_SEASON_EPISODE_PATTERNS),
+            PatternSet::YearExtraction => Some(&COMPILED_YEAR_EXTRACTION_PATTERNS),
+            PatternSet::BaseExtraction => Some(&COMPILED_BASE_EXTRACTION_PATTERNS),
+            PatternSet::Custom(_) => None,
+        }
+    }
+}
+
 fn get_compiled_patterns<'a>(patterns: &[&str], cache: &'a OnceLock<Vec<Regex>>) -> &'a Vec<Regex> {
     cache.get_or_init(|| {
         patterns
@@ -70,19 +101,20 @@ fn compile_patterns_on_demand(patterns: &[&str]) -> Vec<Regex> {
         .collect()
 }
 
-fn apply_patterns_with_replacement(text: &str, patterns: &[&str], replacement: &str) -> String {
+fn apply_patterns_with_replacement(
+    text: &str,
+    pattern_set: PatternSet,
+    replacement: &str,
+) -> String {
     let mut result = text.to_string();
 
-    if patterns.as_ptr() == CLEANING_PATTERNS.as_ptr() {
-        let compiled_patterns = get_compiled_patterns(patterns, &COMPILED_CLEANING_PATTERNS);
-        for re in compiled_patterns {
-            result = re.replace_all(&result, replacement).to_string();
-        }
-    } else {
-        let compiled_patterns = compile_patterns_on_demand(patterns);
-        for re in &compiled_patterns {
-            result = re.replace_all(&result, replacement).to_string();
-        }
+    let compiled_patterns = match pattern_set.cache() {
+        Some(cache) => get_compiled_patterns(pattern_set.patterns(), cache),
+        None => &compile_patterns_on_demand(pattern_set.patterns()),
+    };
+
+    for re in compiled_patterns {
+        result = re.replace_all(&result, replacement).to_string();
     }
 
     let space_re = get_space_regex();
@@ -91,52 +123,28 @@ fn apply_patterns_with_replacement(text: &str, patterns: &[&str], replacement: &
 
 fn extract_captures<T>(
     text: &str,
-    patterns: &[&str],
+    pattern_set: PatternSet,
     extractor: impl Fn(&regex::Captures) -> Option<T>,
 ) -> Option<T> {
-    match patterns.as_ptr() {
-        ptr if ptr == BASE_EXTRACTION_PATTERNS.as_ptr() => {
-            let compiled_patterns =
-                get_compiled_patterns(patterns, &COMPILED_BASE_EXTRACTION_PATTERNS);
-            compiled_patterns.iter().find_map(|re| {
-                let captures = re.captures(text)?;
-                extractor(&captures)
-            })
-        }
-        ptr if ptr == SEASON_EPISODE_PATTERNS.as_ptr() => {
-            let compiled_patterns =
-                get_compiled_patterns(patterns, &COMPILED_SEASON_EPISODE_PATTERNS);
-            compiled_patterns.iter().find_map(|re| {
-                let captures = re.captures(text)?;
-                extractor(&captures)
-            })
-        }
-        ptr if ptr == YEAR_EXTRACTION_PATTERNS.as_ptr() => {
-            let compiled_patterns =
-                get_compiled_patterns(patterns, &COMPILED_YEAR_EXTRACTION_PATTERNS);
-            compiled_patterns.iter().find_map(|re| {
-                let captures = re.captures(text)?;
-                extractor(&captures)
-            })
-        }
-        _ => {
-            let compiled_patterns = compile_patterns_on_demand(patterns);
-            compiled_patterns.iter().find_map(|re| {
-                let captures = re.captures(text)?;
-                extractor(&captures)
-            })
-        }
-    }
+    let compiled_patterns = match pattern_set.cache() {
+        Some(cache) => get_compiled_patterns(pattern_set.patterns(), cache),
+        None => &compile_patterns_on_demand(pattern_set.patterns()),
+    };
+
+    compiled_patterns.iter().find_map(|re| {
+        let captures = re.captures(text)?;
+        extractor(&captures)
+    })
 }
 
-fn find_first_capture_group(text: &str, patterns: &[&str]) -> Option<String> {
-    extract_captures(text, patterns, |captures| {
+fn find_first_capture_group(text: &str, pattern_set: PatternSet) -> Option<String> {
+    extract_captures(text, pattern_set, |captures| {
         captures.get(1).map(|cap| cap.as_str().trim().to_string())
     })
 }
 
-fn find_two_capture_groups(text: &str, patterns: &[&str]) -> Option<(i32, i32)> {
-    extract_captures(text, patterns, |captures| {
+fn find_two_capture_groups(text: &str, pattern_set: PatternSet) -> Option<(i32, i32)> {
+    extract_captures(text, pattern_set, |captures| {
         let first = captures.get(1)?.as_str().parse().ok()?;
         let second = captures.get(2)?.as_str().parse().ok()?;
         Some((first, second))
@@ -166,15 +174,16 @@ async fn smart_search(
 }
 
 fn clean_title(title: &str) -> String {
-    apply_patterns_with_replacement(title, CLEANING_PATTERNS, "")
+    apply_patterns_with_replacement(title, PatternSet::Cleaning, "")
 }
 
 fn extract_base_title(title: &str) -> String {
-    find_first_capture_group(title, BASE_EXTRACTION_PATTERNS).unwrap_or_else(|| clean_title(title))
+    find_first_capture_group(title, PatternSet::BaseExtraction)
+        .unwrap_or_else(|| clean_title(title))
 }
 
 fn extract_year_from_title(title: &str) -> Option<i32> {
-    find_first_capture_group(title, YEAR_EXTRACTION_PATTERNS)
+    find_first_capture_group(title, PatternSet::YearExtraction)
         .and_then(|year_str| year_str.parse().ok())
 }
 
@@ -266,7 +275,7 @@ fn extract_show_information(title: &str, media_lot: &MediaLot) -> Option<SeenSho
 }
 
 fn extract_season_episode(title: &str) -> Option<SeenShowExtraInformation> {
-    find_two_capture_groups(title, SEASON_EPISODE_PATTERNS)
+    find_two_capture_groups(title, PatternSet::SeasonEpisode)
         .map(|(season, episode)| SeenShowExtraInformation { season, episode })
 }
 
@@ -529,13 +538,15 @@ mod tests {
 
     #[test]
     fn test_pattern_matching_utilities() {
-        let result = apply_patterns_with_replacement("Test (2022)", &[r"\(\d{4}\)"], "");
+        let result =
+            apply_patterns_with_replacement("Test (2022)", PatternSet::Custom(&[r"\(\d{4}\)"]), "");
         assert_eq!(result, "Test");
 
-        let result = find_first_capture_group("Movie (2022)", &[r"^(.+?)\s+\(\d{4}\)"]);
+        let result =
+            find_first_capture_group("Movie (2022)", PatternSet::Custom(&[r"^(.+?)\s+\(\d{4}\)"]));
         assert_eq!(result, Some("Movie".to_string()));
 
-        let result = find_two_capture_groups("S01E05", &[r"S(\d+)E(\d+)"]);
+        let result = find_two_capture_groups("S01E05", PatternSet::Custom(&[r"S(\d+)E(\d+)"]));
         assert_eq!(result, Some((1, 5)));
     }
 
