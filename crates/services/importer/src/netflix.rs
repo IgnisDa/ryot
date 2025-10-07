@@ -52,26 +52,26 @@ struct ViewingActivityItem {
     start_time: String,
     #[serde(rename = "Attributes")]
     attributes: String,
+    #[serde(rename = "Profile Name")]
+    profile_name: String,
     #[serde(rename = "Latest Bookmark")]
     latest_bookmark: String,
     #[serde(rename = "Supplemental Video Type")]
     supplemental_video_type: String,
-    #[serde(rename = "Profile Name")]
-    profile_name: String,
 }
 
 #[derive(Debug, Deserialize)]
 struct RatingItem {
     #[serde(rename = "Title Name")]
     title_name: String,
+    #[serde(rename = "Profile Name")]
+    profile_name: String,
     #[serde(rename = "Event Utc Ts")]
     event_utc_ts: String,
     #[serde(rename = "Star Value")]
     star_value: Option<i32>,
     #[serde(rename = "Thumbs Value")]
     thumbs_value: Option<i32>,
-    #[serde(rename = "Profile Name")]
-    profile_name: String,
 }
 
 #[derive(Debug, Deserialize)]
