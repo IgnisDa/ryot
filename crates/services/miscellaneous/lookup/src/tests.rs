@@ -408,119 +408,89 @@ fn test_extract_season_episode_roman_numerals(
     assert_eq!(info.episode, expected_episode);
 }
 
-#[test]
-fn test_netflix_edge_cases_that_should_extract() {
-    let should_work = vec![
-        ("3%: Season 1: Chapter 01: Cubes", 1, 1),
-        ("3%: Season 2: Chapter 01: Mirror", 2, 1),
-        ("Alice in Borderland: Season 1: Episode 1", 1, 1),
-        (
-            "Life on Our Planet: Season 1: Chapter 1: The Rules of Life",
-            1,
-            1,
-        ),
-        ("Zero Day: Limited Series: Episode 6", 1, 6),
-    ];
-
-    for (input, expected_season, expected_episode) in should_work {
-        let result = extract_season_episode(input);
-        assert!(result.is_some(), "Failed to extract from: {}", input);
-        let info = result.unwrap();
-        assert_eq!(info.season, expected_season, "Wrong season for: {}", input);
-        assert_eq!(
-            info.episode, expected_episode,
-            "Wrong episode for: {}",
-            input
-        );
-    }
+#[rstest]
+#[case("3%: Season 1: Chapter 01: Cubes", 1, 1)]
+#[case("3%: Season 2: Chapter 01: Mirror", 2, 1)]
+#[case("Alice in Borderland: Season 1: Episode 1", 1, 1)]
+#[case("Life on Our Planet: Season 1: Chapter 1: The Rules of Life", 1, 1)]
+#[case("Zero Day: Limited Series: Episode 6", 1, 6)]
+fn test_netflix_edge_cases_that_should_extract(
+    #[case] input: &str,
+    #[case] expected_season: i32,
+    #[case] expected_episode: i32,
+) {
+    let result = extract_season_episode(input);
+    assert!(result.is_some(), "Failed to extract from: {}", input);
+    let info = result.unwrap();
+    assert_eq!(info.season, expected_season, "Wrong season for: {}", input);
+    assert_eq!(
+        info.episode, expected_episode,
+        "Wrong episode for: {}",
+        input
+    );
 }
 
-#[test]
-fn test_netflix_edge_cases_without_episode_numbers() {
-    let no_episode_info = vec![
-        "The Gentlemen: Season 1: The Gospel According to Bobby Glass",
-        "It's Always Sunny in Philadelphia: Season 15: The Gang Goes to Ireland",
-        "Pantheon: Season 2: Olivia & Farhad",
-        "3 Body Problem: Season 1: Countdown",
-        "ONE PIECE: Season 1: ROMANCE DAWN",
-    ];
-
-    for input in no_episode_info {
-        let result = extract_season_episode(input);
-        assert!(
-            result.is_none(),
-            "Should not extract episode info from: {}",
-            input
-        );
-    }
+#[rstest]
+#[case("The Gentlemen: Season 1: The Gospel According to Bobby Glass")]
+#[case("It's Always Sunny in Philadelphia: Season 15: The Gang Goes to Ireland")]
+#[case("Pantheon: Season 2: Olivia & Farhad")]
+#[case("3 Body Problem: Season 1: Countdown")]
+#[case("ONE PIECE: Season 1: ROMANCE DAWN")]
+fn test_netflix_edge_cases_without_episode_numbers(#[case] input: &str) {
+    let result = extract_season_episode(input);
+    assert!(
+        result.is_none(),
+        "Should not extract episode info from: {}",
+        input
+    );
 }
 
-#[test]
-fn test_netflix_part_as_season() {
-    let test_cases = vec![
-        ("Money Heist: Part 3: A Quick Vacation", None),
-        ("Disenchantment: Part 5: Goodbye Bean", None),
-        ("Mulligan: Part 1: Morning in America", None),
-    ];
-
-    for (input, expected) in test_cases {
-        let result = extract_season_episode(input);
-        let result_tuple = result.as_ref().map(|r| (r.season, r.episode));
-        if let Some(exp) = expected {
-            assert_eq!(result_tuple, Some(exp), "Failed for: {}", input);
-        } else {
-            assert!(
-                result.is_none(),
-                "Should not extract episode from: {}",
-                input
-            );
-        }
-    }
+#[rstest]
+#[case("Money Heist: Part 3: A Quick Vacation")]
+#[case("Disenchantment: Part 5: Goodbye Bean")]
+#[case("Mulligan: Part 1: Morning in America")]
+fn test_netflix_part_as_season(#[case] input: &str) {
+    let result = extract_season_episode(input);
+    assert!(
+        result.is_none(),
+        "Should not extract episode from: {}",
+        input
+    );
 }
 
-#[test]
-fn test_netflix_complex_titles_with_multiple_colons() {
-    let test_cases = vec![
-        (
-            "The Echoes of Survivors: Inside Korea's Tragedies: Season 1: Brothers' Home — The Truth About Vanishing Children",
-            None,
-        ),
-        (
-            "World War II: From the Frontlines: Season 1: Last Stand",
-            None,
-        ),
-        (
-            "Fred and Rose West: A British Horror Story: Limited Series: The Trial",
-            None,
-        ),
-        (
-            "Life on Our Planet: Season 1: Chapter 1: The Rules of Life",
-            Some((1, 1)),
-        ),
-        ("Big Mouth: Season 8: Lola Skumpy: License to Drive", None),
-    ];
-
-    for (input, expected) in test_cases {
-        let result = extract_season_episode(input);
-        let result_tuple = result.as_ref().map(|r| (r.season, r.episode));
-        assert_eq!(result_tuple, expected, "Failed for: {}", input);
-    }
+#[rstest]
+#[case(
+    "The Echoes of Survivors: Inside Korea's Tragedies: Season 1: Brothers' Home — The Truth About Vanishing Children",
+    None
+)]
+#[case("World War II: From the Frontlines: Season 1: Last Stand", None)]
+#[case(
+    "Fred and Rose West: A British Horror Story: Limited Series: The Trial",
+    None
+)]
+#[case("Life on Our Planet: Season 1: Chapter 1: The Rules of Life", Some((1, 1)))]
+#[case("Big Mouth: Season 8: Lola Skumpy: License to Drive", None)]
+fn test_netflix_complex_titles_with_multiple_colons(
+    #[case] input: &str,
+    #[case] expected: Option<(i32, i32)>,
+) {
+    let result = extract_season_episode(input);
+    let result_tuple = result.as_ref().map(|r| (r.season, r.episode));
+    assert_eq!(result_tuple, expected, "Failed for: {}", input);
 }
 
-#[test]
-fn test_netflix_shows_starting_with_numbers() {
-    let test_cases = vec![
-        ("1899: Season 1: The Ship", None),
-        ("3 Body Problem: Season 1: Countdown", None),
-        ("3%: Season 1: Chapter 01: Cubes", Some((1, 1))),
-        ("3%: Season 2: Chapter 08: Frogs", Some((2, 8))),
-    ];
-
-    for (input, expected) in test_cases {
-        let result = extract_season_episode(input);
-        let result_tuple = result.as_ref().map(|r| (r.season, r.episode));
-        assert_eq!(result_tuple, expected, "Failed for: {}", input);
-    }
+#[rstest]
+#[case("1899: Season 1: The Ship", None)]
+#[case("3 Body Problem: Season 1: Countdown", None)]
+#[case("3%: Season 1: Chapter 01: Cubes", Some((1, 1)))]
+#[case("3%: Season 2: Chapter 08: Frogs", Some((2, 8)))]
+fn test_netflix_shows_starting_with_numbers(
+    #[case] input: &str,
+    #[case] expected: Option<(i32, i32)>,
+) {
+    let result = extract_season_episode(input);
+    let result_tuple = result.as_ref().map(|r| (r.season, r.episode));
+    assert_eq!(result_tuple, expected, "Failed for: {}", input);
 }
 
 #[test]
@@ -532,46 +502,35 @@ fn test_netflix_episode_word_format() {
     );
 }
 
-#[test]
-fn test_netflix_base_title_extraction() {
-    let test_cases = vec![
-        (
-            "Stranger Things: Stranger Things 3: Chapter Three: The Case of the Missing Lifeguard (Episode 3)",
-            "Stranger Things",
-        ),
-        ("Lupin: Part 2: Chapter 8 (Episode 3)", "Lupin"),
-        (
-            "The Queen's Gambit: Limited Series: Openings (Episode 1)",
-            "The Queen's Gambit",
-        ),
-        (
-            "Behind Her Eyes: Limited Series: Behind Her Eyes (Episode 6)",
-            "Behind Her Eyes",
-        ),
-        (
-            "The Stranger: Limited Series: Episode 1 (Episode 1)",
-            "The Stranger",
-        ),
-        (
-            "Unbelievable: Limited Series: Episode 6 (Episode 6)",
-            "Unbelievable",
-        ),
-        (
-            "White House Farm: Series 1: Episode 3 (Episode 3)",
-            "White House Farm",
-        ),
-        (
-            "Missing You: Limited Series: Every Breath You Take (Episode 1)",
-            "Missing You",
-        ),
-    ];
-
-    for (input, expected) in test_cases {
-        let result = extract_base_title(input);
-        assert_eq!(
-            result, expected,
-            "Failed to extract base title from: {}",
-            input
-        );
-    }
+#[rstest]
+#[case(
+    "Stranger Things: Stranger Things 3: Chapter Three: The Case of the Missing Lifeguard (Episode 3)",
+    "Stranger Things"
+)]
+#[case("Lupin: Part 2: Chapter 8 (Episode 3)", "Lupin")]
+#[case(
+    "The Queen's Gambit: Limited Series: Openings (Episode 1)",
+    "The Queen's Gambit"
+)]
+#[case(
+    "Behind Her Eyes: Limited Series: Behind Her Eyes (Episode 6)",
+    "Behind Her Eyes"
+)]
+#[case("The Stranger: Limited Series: Episode 1 (Episode 1)", "The Stranger")]
+#[case("Unbelievable: Limited Series: Episode 6 (Episode 6)", "Unbelievable")]
+#[case(
+    "White House Farm: Series 1: Episode 3 (Episode 3)",
+    "White House Farm"
+)]
+#[case(
+    "Missing You: Limited Series: Every Breath You Take (Episode 1)",
+    "Missing You"
+)]
+fn test_netflix_base_title_extraction(#[case] input: &str, #[case] expected: &str) {
+    let result = extract_base_title(input);
+    assert_eq!(
+        result, expected,
+        "Failed to extract base title from: {}",
+        input
+    );
 }
