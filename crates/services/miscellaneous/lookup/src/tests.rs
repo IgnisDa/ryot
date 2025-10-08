@@ -531,3 +531,47 @@ fn test_netflix_episode_word_format() {
         "Should not extract 'Episode One' without season context"
     );
 }
+
+#[test]
+fn test_netflix_base_title_extraction() {
+    let test_cases = vec![
+        (
+            "Stranger Things: Stranger Things 3: Chapter Three: The Case of the Missing Lifeguard (Episode 3)",
+            "Stranger Things",
+        ),
+        ("Lupin: Part 2: Chapter 8 (Episode 3)", "Lupin"),
+        (
+            "The Queen's Gambit: Limited Series: Openings (Episode 1)",
+            "The Queen's Gambit",
+        ),
+        (
+            "Behind Her Eyes: Limited Series: Behind Her Eyes (Episode 6)",
+            "Behind Her Eyes",
+        ),
+        (
+            "The Stranger: Limited Series: Episode 1 (Episode 1)",
+            "The Stranger",
+        ),
+        (
+            "Unbelievable: Limited Series: Episode 6 (Episode 6)",
+            "Unbelievable",
+        ),
+        (
+            "White House Farm: Series 1: Episode 3 (Episode 3)",
+            "White House Farm",
+        ),
+        (
+            "Missing You: Limited Series: Every Breath You Take (Episode 1)",
+            "Missing You",
+        ),
+    ];
+
+    for (input, expected) in test_cases {
+        let result = extract_base_title(input);
+        assert_eq!(
+            result, expected,
+            "Failed to extract base title from: {}",
+            input
+        );
+    }
+}

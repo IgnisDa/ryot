@@ -10,6 +10,8 @@ static COMPILED_BASE_EXTRACTION_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new()
 
 static YEAR_EXTRACTION_PATTERNS: &[&str] = &[r"\(([12]\d{3})\)", r"\[([12]\d{3})\]"];
 static BASE_EXTRACTION_PATTERNS: &[&str] = &[
+    r"^([^:]+):.+\(Episode\s+\d+\)",
+    r"^([^:]+):\s+.*?:\s+",
     r"^(.+?)\s+\([12]\d{3}\)",
     r"(?i)^(.+?)\s+S\d+E\d+",
     r"(?i)^(.+?)\s+Season\s+\d+",
