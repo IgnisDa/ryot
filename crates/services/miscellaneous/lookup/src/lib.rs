@@ -34,7 +34,7 @@ async fn smart_search(
     if !base_title.is_empty()
         && !queries
             .iter()
-            .any(|existing| existing.eq_ignore_ascii_case(base_title))
+            .any(|existing| existing.eq_ignore_ascii_case(&base_title))
     {
         queries.push(base_title);
     }
