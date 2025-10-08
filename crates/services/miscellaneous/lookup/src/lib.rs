@@ -30,12 +30,11 @@ async fn smart_search(
         queries.push(trimmed_title.to_string());
     }
 
-    let base_title = extract_base_title(title);
-    let base_title_trimmed = base_title.trim();
-    if !base_title_trimmed.is_empty()
+    let base_title = extract_base_title(trimmed_title);
+    if !base_title.is_empty()
         && !queries
             .iter()
-            .any(|existing| existing.eq_ignore_ascii_case(base_title_trimmed))
+            .any(|existing| existing.eq_ignore_ascii_case(base_title))
     {
         queries.push(base_title);
     }
