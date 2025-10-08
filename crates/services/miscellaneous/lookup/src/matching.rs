@@ -10,6 +10,7 @@ use crate::extractors::{clean_title, extract_season_episode};
 const EXACT_YEAR_MATCH_BONUS: f64 = 0.2;
 const CLOSE_YEAR_MATCH_BONUS: f64 = 0.1;
 const SHOW_WITH_EPISODE_BONUS: f64 = 0.5;
+const MOVIE_WITHOUT_EPISODE_BONUS: f64 = 0.3;
 
 fn calculate_similarity(a: &str, b: &str) -> f64 {
     let a_lower = a.to_lowercase();
@@ -61,6 +62,10 @@ fn calculate_match_score(
 
     if has_episode_indicators && matches!(result.lot, MediaLot::Show) {
         score += SHOW_WITH_EPISODE_BONUS;
+    }
+
+    if !has_episode_indicators && matches!(result.lot, MediaLot::Movie) {
+        score += MOVIE_WITHOUT_EPISODE_BONUS;
     }
 
     score
