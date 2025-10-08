@@ -40,17 +40,18 @@ async fn smart_search(
     }
 
     let mut last_error = None;
+    let mut any_success = false;
 
     for query in queries {
         match tmdb_service.multi_search(&query).await {
             Ok(results) if !results.is_empty() => return Ok(results),
-            Ok(_) => {}
+            Ok(_) => any_success = true,
             Err(err) => last_error = Some(err),
         }
     }
 
-    if let Some(err) = last_error {
-        return Err(err);
+    if !any_success && last_error.is_some() {
+        return Err(last_error.unwrap());
     }
 
     Ok(vec![])
