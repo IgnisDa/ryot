@@ -316,6 +316,7 @@ impl TmdbService {
             .query(&[
                 ("page", "1"),
                 ("query", query),
+                ("include_adult", "true"),
                 ("language", self.language.as_str()),
             ])
             .send()
