@@ -534,3 +534,36 @@ fn test_netflix_base_title_extraction(#[case] input: &str, #[case] expected: &st
         input
     );
 }
+
+#[rstest]
+#[case("White House Farm: Series 1: Episode 6 (Episode 6)", 1, 6)]
+#[case("That Mitchell and Webb Look: Series 1: Episode 2 (Episode 2)", 1, 2)]
+#[case("Missing You: Limited Series: Chain Reaction (Episode 5)", 1, 5)]
+#[case("The Queen's Gambit: Limited Series: End Game (Episode 7)", 1, 7)]
+#[case("Behind Her Eyes: Limited Series: Behind Her Eyes (Episode 6)", 1, 6)]
+#[case(
+    "Crime Scene: The Vanishing at the Cecil Hotel: Limited Series: Lost in Los Angeles (Episode 1)",
+    1,
+    1
+)]
+#[case("Cat People: Limited Series: Copycat (Episode 3)", 1, 3)]
+#[case(
+    "The Lost Pirate Kingdom: Limited Series: Deal or No Deal (Episode 5)",
+    1,
+    5
+)]
+fn test_failing_netflix_imports(
+    #[case] input: &str,
+    #[case] expected_season: i32,
+    #[case] expected_episode: i32,
+) {
+    let result = extract_season_episode(input);
+    assert!(result.is_some(), "Failed to extract from: {}", input);
+    let info = result.unwrap();
+    assert_eq!(info.season, expected_season, "Wrong season for: {}", input);
+    assert_eq!(
+        info.episode, expected_episode,
+        "Wrong episode for: {}",
+        input
+    );
+}
