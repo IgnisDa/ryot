@@ -4495,9 +4495,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@graphql-codegen/client-preset@npm:5.0.3":
-  version: 5.0.3
-  resolution: "@graphql-codegen/client-preset@npm:5.0.3"
+"@graphql-codegen/client-preset@npm:5.1.0":
+  version: 5.1.0
+  resolution: "@graphql-codegen/client-preset@npm:5.1.0"
   dependencies:
     "@babel/helper-plugin-utils": "npm:^7.20.2"
     "@babel/template": "npm:^7.20.7"
@@ -4518,7 +4518,7 @@ __metadata:
   peerDependenciesMeta:
     graphql-sock:
       optional: true
-  checksum: 10/944e6e374c9885cd64deeb642b6914ecb518ac98ef8ec9432f5e5caa41ca575d509cdf3251e5dc3410eddce3d8512e0b0788f6d9ac21bbca565bc50ffba6cc7b
+  checksum: 10/1352e75a7a996e6551f087aae6ea238710202fc3e4129b982001d45ff78b7c6a42b58f7a96666795fca7359e4bd969a8590ab39439166ff0bfdef351ca94255f
   languageName: node
   linkType: hard
 
@@ -6170,10 +6170,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@paddle/paddle-node-sdk@npm:3.2.1":
-  version: 3.2.1
-  resolution: "@paddle/paddle-node-sdk@npm:3.2.1"
-  checksum: 10/44d5f0e05447898773fd99464e515785ee47ac148923846755f62c583d0223852611b9f76dccb8f3aa6bc49ae19e4bb08d85946446df207c9937d1f1e4522ab6
+"@paddle/paddle-node-sdk@npm:3.3.0":
+  version: 3.3.0
+  resolution: "@paddle/paddle-node-sdk@npm:3.3.0"
+  checksum: 10/d64450dc208e1a6cd32f38b8a2a2b2bdf0e2d5ee3be11cb18337dea7a94eac094edbcb0a9fc749f9fe1e99cbac9d27e6391ce212f8019e0ffe618ee93836fca5
   languageName: node
   linkType: hard
 
@@ -6882,9 +6882,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-email/components@npm:0.5.5":
-  version: 0.5.5
-  resolution: "@react-email/components@npm:0.5.5"
+"@react-email/components@npm:0.5.6":
+  version: 0.5.6
+  resolution: "@react-email/components@npm:0.5.6"
   dependencies:
     "@react-email/body": "npm:0.1.0"
     "@react-email/button": "npm:0.2.0"
@@ -6901,14 +6901,14 @@ __metadata:
     "@react-email/link": "npm:0.0.12"
     "@react-email/markdown": "npm:0.0.15"
     "@react-email/preview": "npm:0.0.13"
-    "@react-email/render": "npm:1.3.1"
+    "@react-email/render": "npm:1.3.2"
     "@react-email/row": "npm:0.0.12"
     "@react-email/section": "npm:0.0.16"
     "@react-email/tailwind": "npm:1.2.2"
     "@react-email/text": "npm:0.1.5"
   peerDependencies:
     react: ^18.0 || ^19.0 || ^19.0.0-rc
-  checksum: 10/0e5107d81293ab0509e55c5cf032cf85e70e94166384de7a99d854d5f0ac7b47bb0bd96640a696b40577cd1f37ff663b8000c287dd5c96f6da923d36c5229583
+  checksum: 10/831e9eddb62619efb63fa945d47d117b13b460ebf520a0f0276f3aae3e40a28a2c5cb7549c817a8de0ee7757f61ebdc7cb701716fe81c4bae7690c669b00459d
   languageName: node
   linkType: hard
 
@@ -7004,9 +7004,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-email/render@npm:1.3.1":
-  version: 1.3.1
-  resolution: "@react-email/render@npm:1.3.1"
+"@react-email/render@npm:1.3.2":
+  version: 1.3.2
+  resolution: "@react-email/render@npm:1.3.2"
   dependencies:
     html-to-text: "npm:^9.0.5"
     prettier: "npm:^3.5.3"
@@ -7014,7 +7014,7 @@ __metadata:
   peerDependencies:
     react: ^18.0 || ^19.0 || ^19.0.0-rc
     react-dom: ^18.0 || ^19.0 || ^19.0.0-rc
-  checksum: 10/ea3204e488ed87756527dec3258703d8a14ea2ea3b12d03952a1c96f5df0249e490a0ffcdf044e9ec8edb3b382e1b553db7340dfe3bb91b879791411e35d7a72
+  checksum: 10/69322238440e8d8fe3be04e143aac8091b3637f07dc79e5322ecd84d5551d1c93e10386db5a3b81d18afc997a8d4cdd2760d6e5144a5ff0b53788424c5473595
   languageName: node
   linkType: hard
 
@@ -7815,13 +7815,13 @@ __metadata:
     "@ryot/generated": "workspace:*"
     "@ryot/ts-utils": "workspace:*"
     "@tailwindcss/vite": "npm:4.1.14"
-    "@types/react": "npm:19.2.0"
-    "@types/react-dom": "npm:19.2.0"
+    "@types/react": "npm:19.2.2"
+    "@types/react-dom": "npm:19.2.1"
     "@wxt-dev/auto-icons": "npm:1.1.0"
     "@wxt-dev/module-react": "npm:1.1.5"
     graphql: "npm:16.11.0"
     graphql-request: "npm:7.2.0"
-    lucide-react: "npm:0.544.0"
+    lucide-react: "npm:0.545.0"
     react: "npm:19.2.0"
     react-dom: "npm:19.2.0"
     tailwindcss: "npm:4.1.14"
@@ -7875,8 +7875,8 @@ __metadata:
     "@types/crypto-js": "npm:4.2.2"
     "@types/howler": "npm:2.2.12"
     "@types/js-cookie": "npm:3.0.6"
-    "@types/react": "npm:19.2.0"
-    "@types/react-dom": "npm:19.2.0"
+    "@types/react": "npm:19.2.2"
+    "@types/react-dom": "npm:19.2.1"
     "@types/uuid": "npm:11.0.0"
     clsx: "npm:2.1.1"
     cookie: "npm:1.0.2"
@@ -7919,7 +7919,7 @@ __metadata:
     uuid: "npm:13.0.0"
     vite: "npm:7.1.9"
     vite-tsconfig-paths: "npm:5.1.4"
-    zod: "npm:4.1.11"
+    zod: "npm:4.1.12"
   languageName: unknown
   linkType: soft
 
@@ -7928,7 +7928,7 @@ __metadata:
   resolution: "@ryot/generated@workspace:libs/generated"
   dependencies:
     "@graphql-codegen/cli": "npm:6.0.0"
-    "@graphql-codegen/client-preset": "npm:5.0.3"
+    "@graphql-codegen/client-preset": "npm:5.1.0"
     "@graphql-typed-document-node/core": "npm:3.2.0"
     graphql: "npm:16.11.0"
   languageName: unknown
@@ -7976,11 +7976,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/transactional@workspace:libs/transactional"
   dependencies:
-    "@react-email/components": "npm:0.5.5"
+    "@react-email/components": "npm:0.5.6"
     "@ryot/ts-utils": "workspace:*"
     react: "npm:19.2.0"
     react-dom: "npm:19.2.0"
-    react-email: "npm:4.2.12"
+    react-email: "npm:4.3.0"
   languageName: unknown
   linkType: soft
 
@@ -7998,7 +7998,7 @@ __metadata:
     react-router: "npm:7.9.3"
     tailwind-merge: "npm:3.3.1"
     tiny-invariant: "npm:1.3.3"
-    zod: "npm:4.1.11"
+    zod: "npm:4.1.12"
   languageName: unknown
   linkType: soft
 
@@ -8012,10 +8012,10 @@ __metadata:
     "@oslojs/crypto": "npm:1.0.1"
     "@oslojs/encoding": "npm:1.1.0"
     "@paddle/paddle-js": "npm:1.4.2"
-    "@paddle/paddle-node-sdk": "npm:3.2.1"
+    "@paddle/paddle-node-sdk": "npm:3.3.0"
     "@radix-ui/react-label": "npm:2.1.7"
     "@radix-ui/react-slot": "npm:1.2.3"
-    "@react-email/components": "npm:0.5.5"
+    "@react-email/components": "npm:0.5.6"
     "@react-router/dev": "npm:7.9.3"
     "@react-router/fs-routes": "npm:7.9.3"
     "@react-router/node": "npm:7.9.3"
@@ -8026,8 +8026,8 @@ __metadata:
     "@ryot/ts-utils": "workspace:*"
     "@tailwindcss/vite": "npm:4.1.14"
     "@types/nodemailer": "npm:7.0.2"
-    "@types/react": "npm:19.2.0"
-    "@types/react-dom": "npm:19.2.0"
+    "@types/react": "npm:19.2.2"
+    "@types/react-dom": "npm:19.2.1"
     "@unkey/api": "npm:2.0.5"
     class-variance-authority: "npm:0.7.1"
     clsx: "npm:2.1.1"
@@ -8042,9 +8042,9 @@ __metadata:
     input-otp: "npm:1.4.2"
     isbot: "npm:5.1.31"
     lodash: "npm:4.17.21"
-    lucide-react: "npm:0.544.0"
+    lucide-react: "npm:0.545.0"
     next-themes: "npm:0.4.6"
-    nodemailer: "npm:7.0.7"
+    nodemailer: "npm:7.0.9"
     openid-client: "npm:6.8.1"
     postgres: "npm:3.4.7"
     react: "npm:19.2.0"
@@ -8062,7 +8062,7 @@ __metadata:
     ufo: "npm:1.6.1"
     vite: "npm:7.1.9"
     vite-tsconfig-paths: "npm:5.1.4"
-    zod: "npm:4.1.11"
+    zod: "npm:4.1.12"
   languageName: unknown
   linkType: soft
 
@@ -9849,12 +9849,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react-dom@npm:19.2.0":
-  version: 19.2.0
-  resolution: "@types/react-dom@npm:19.2.0"
+"@types/react-dom@npm:19.2.1":
+  version: 19.2.1
+  resolution: "@types/react-dom@npm:19.2.1"
   peerDependencies:
     "@types/react": ^19.2.0
-  checksum: 10/e1e2e71214af67e1aa433a25b5f193d8bc98bfc16e108783c2c45c520623737af3c91ee929124c1f7adf2c3988bbd493cdc4ff64af69731245a3a758fde82291
+  checksum: 10/273730069d34e8ba6e5261b968cc24c148cac98a017241aa8e87186a5d446c3afd4d98ceffa6be8ea2c2e96e9d2fb6450fbae5094ee2221d2a0b40f4b58cfb53
   languageName: node
   linkType: hard
 
@@ -9867,12 +9867,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react@npm:19.2.0":
-  version: 19.2.0
-  resolution: "@types/react@npm:19.2.0"
+"@types/react@npm:19.2.2":
+  version: 19.2.2
+  resolution: "@types/react@npm:19.2.2"
   dependencies:
     csstype: "npm:^3.0.2"
-  checksum: 10/c00a8552d54282caeb608d09664a250e6bd00b1f51e32bb73a0569d844ddbf58d25ffadffec85cc5df08e6c00e6c232a06a8efcfa5edd0bea2ce234519707b34
+  checksum: 10/d6adf8fd4bb23a7e04da5700d96b15dc0f59653727a9c6e940c151d7232fa1dbbab98417d5ac830dcfb6cba3f206efbd4cd83647e6f9a688d7363a90e607f6bf
   languageName: node
   linkType: hard
 
@@ -16190,12 +16190,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lucide-react@npm:0.544.0":
-  version: 0.544.0
-  resolution: "lucide-react@npm:0.544.0"
+"lucide-react@npm:0.545.0":
+  version: 0.545.0
+  resolution: "lucide-react@npm:0.545.0"
   peerDependencies:
     react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
-  checksum: 10/534f237fb4e82d8507f3fb964b8bc7971ee8b67d9eab3cc374928c205567c330ece328056a699437d0b8cc4cb8a1fe29e479d20c89ccc442e56775ffbc348def
+  checksum: 10/06ce9470c4c5b9d5dd8f9a0cfe2004f281824cdbf3f96f38772f57b6479178aaff66059f2e86190886906ec9115203228020bd044d47a09318c3c10a4532d4ad
   languageName: node
   linkType: hard
 
@@ -16983,10 +16983,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nodemailer@npm:7.0.7":
-  version: 7.0.7
-  resolution: "nodemailer@npm:7.0.7"
-  checksum: 10/903d4e0a8320c0e4a2bede6737a9b4996048ddc2e010befc406c8953dcec96ef0e2c17e8b7639654e8bf46844cf7d26f017d8bf9fd629588637b699e09547222
+"nodemailer@npm:7.0.9":
+  version: 7.0.9
+  resolution: "nodemailer@npm:7.0.9"
+  checksum: 10/88883c58afe356d2b4c24b1e976c04857e8a7a7145e1752dab69072900b0cc2e3daa0964a08c653e692fb64382453e1cfcee3d863828844c8d6f6239727b9023
   languageName: node
   linkType: hard
 
@@ -18241,9 +18241,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-email@npm:4.2.12":
-  version: 4.2.12
-  resolution: "react-email@npm:4.2.12"
+"react-email@npm:4.3.0":
+  version: 4.3.0
+  resolution: "react-email@npm:4.3.0"
   dependencies:
     "@babel/parser": "npm:^7.27.0"
     "@babel/traverse": "npm:^7.27.0"
@@ -18263,7 +18263,7 @@ __metadata:
     tsconfig-paths: "npm:4.2.0"
   bin:
     email: dist/index.js
-  checksum: 10/ed9348e035b3e0a2331da28b28709baf114cf7576ac9f130e245493e090143e2ee6a16ceb9b9ae52b13c8d3f129e876547afccf66f89e8e4022c35beb554d71c
+  checksum: 10/6803be44026e65c38dc0463ef13ed9aa3cbfa1f2f7f1cc87d8046d74c87899d62376ffb15ae0167e607ab7bfdcca68e5d41aafe84fa9f0753d3567fab8a58279
   languageName: node
   linkType: hard
 
@@ -22104,10 +22104,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:4.1.11":
-  version: 4.1.11
-  resolution: "zod@npm:4.1.11"
-  checksum: 10/5a0f5697dbe86bf40934916d888cfe0ec6f1f767eb0b6f944ffd5573397c8a56ef7d2ebd0f889bfb44ceaf93edcddf021994633747a9a6b0dcbeb57bd0a67442
+"zod@npm:4.1.12":
+  version: 4.1.12
+  resolution: "zod@npm:4.1.12"
+  checksum: 10/c5f04e6ac306515c4db6ef73cf7705f521c7a2107c8c8912416a0658d689f361db9bee829b0bf01ef4a22492f1065c5cbcdb523ce532606ac6792fd714f3c326
   languageName: node
   linkType: hard
 
