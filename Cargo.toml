@@ -110,7 +110,7 @@ async-graphql = { version = "=7.0.17", features = [
 ] }
 async-graphql-axum = "=7.0.17"
 async-trait = "=0.1.89"
-aws-sdk-s3 = { version = "=1.107.0", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "=1.108.0", features = ["behavior-version-latest"] }
 axum = { version = "=0.8.6", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
 bon = "=3.8.0"
@@ -166,7 +166,7 @@ rustypipe = { version = "=0.11.4", features = [
     "userdata",
     "rustls-tls-webpki-roots",
 ], default-features = false }
-schematic = { version = "=0.18.12", features = [
+schematic = { version = "=0.18.13", features = [
     "config",
     "env",
     "json",
