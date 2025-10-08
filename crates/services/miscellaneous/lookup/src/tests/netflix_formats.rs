@@ -276,3 +276,33 @@ fn test_failing_netflix_imports(
         input
     );
 }
+
+#[rstest]
+#[case("Disenchantment: Part 3: Last Splash (Episode 6)", 3, 6)]
+#[case("Love, Death & Robots: Volume 3: Mason's Rats (Episode 7)", 3, 7)]
+#[case("Making a Murderer: Part 1: The Great Burden (Episode 8)", 1, 8)]
+#[case(
+    "Knowing Me Knowing You with Alan Partridge: The Complete Series: Episode 1 (Episode 1)",
+    1,
+    1
+)]
+#[case(
+    "Love, Death & Robots: Volume 4: Smart Appliances, Stupid Owners (Episode 9)",
+    4,
+    9
+)]
+fn test_part_volume_complete_series_formats(
+    #[case] input: &str,
+    #[case] expected_season: i32,
+    #[case] expected_episode: i32,
+) {
+    let result = extract_season_episode(input);
+    assert!(result.is_some(), "Failed to extract from: {}", input);
+    let info = result.unwrap();
+    assert_eq!(info.season, expected_season, "Wrong season for: {}", input);
+    assert_eq!(
+        info.episode, expected_episode,
+        "Wrong episode for: {}",
+        input
+    );
+}
