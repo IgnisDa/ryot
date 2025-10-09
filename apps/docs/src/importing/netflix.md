@@ -7,6 +7,11 @@ It is necessary to setup TMDB for this import to work. Please follow the configu
 
 You can import your Netflix watch activity, ratings, and My List entries into Ryot.
 
+::: warning
+Only Netflix exports in English are supported. Make sure your Netflix account language is
+set to English before requesting the export to ensure proper import functionality.
+:::
+
 1. Visit [Netflix GetMyInfo](https://www.netflix.com/account/getmyinfo) while signed in to
    the profile you want to export.
 2. Under **Download your personal information**, request a new archive. Netflix emails you
