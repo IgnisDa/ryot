@@ -1,15 +1,14 @@
+use super::*;
+use extractors::{clean_title, extract_base_title, extract_season_episode};
+use matching::find_best_match;
+use rstest::rstest;
+
 mod basic_extraction;
 mod best_match;
 mod episode_extraction;
 mod integration;
 mod netflix_formats;
 mod show_information;
-
-use super::*;
-use rstest::rstest;
-
-use extractors::{clean_title, extract_base_title, extract_season_episode};
-use matching::find_best_match;
 
 const ANDOR_CLEAN: &str = "Andor";
 const MATRIX_CLEAN: &str = "The Matrix";
