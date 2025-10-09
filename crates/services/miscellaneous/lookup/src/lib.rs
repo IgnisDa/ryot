@@ -50,8 +50,8 @@ async fn smart_search(
         }
     }
 
-    if !any_success && last_error.is_some() {
-        return Err(last_error.unwrap());
+    if !any_success && let Some(err) = last_error {
+        return Err(err);
     }
 
     Ok(vec![])
