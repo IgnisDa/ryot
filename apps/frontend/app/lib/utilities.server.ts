@@ -24,6 +24,7 @@ import { match } from "ts-pattern";
 import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
 import { FRONTEND_AUTH_COOKIE_NAME, toastKey } from "~/lib/shared/constants";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import { queryClient, queryFactory } from "~/lib/shared/react-query";
 
 export const API_URL = process.env.API_URL || "http://127.0.0.1:8000/backend";
@@ -147,6 +148,7 @@ export const getCoreDetails = async () => {
 const getUserDetails = async (request: Request) => {
 	const cookie = getAuthorizationCookie(request);
 	return await queryClient.ensureQueryData({
+		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
 		queryKey: queryFactory.miscellaneous.userDetails(cookie).queryKey,
 		queryFn: () =>
 			serverGqlService

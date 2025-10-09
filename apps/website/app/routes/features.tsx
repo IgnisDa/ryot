@@ -37,6 +37,11 @@ export const meta = () => {
 	return [{ title: "Features | Ryot" }];
 };
 
+export const headers = () => ({
+	"Cache-Control":
+		"public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+});
+
 const CARD_HOVER_STYLES =
 	"hover:shadow-lg transition-all duration-300 hover:-translate-y-1";
 const SECTION_STYLES = "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8";

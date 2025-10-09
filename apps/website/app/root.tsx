@@ -15,7 +15,6 @@ import {
 	useRouteError,
 } from "react-router";
 import { HoneypotProvider } from "remix-utils/honeypot/react";
-import "./tailwind.css";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
 import { Button } from "./lib/components/ui/button";
@@ -23,6 +22,7 @@ import { Toaster } from "./lib/components/ui/sonner";
 import { honeypot } from "./lib/config.server";
 import { logoUrl, startUrl } from "./lib/constants";
 import { getCustomerFromCookie } from "./lib/utilities.server";
+import "./tailwind.css";
 
 export const meta: MetaFunction = () => {
 	return [
@@ -64,8 +64,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function App() {
-	const loaderData = useLoaderData<typeof loader>();
 	const location = useLocation();
+	const loaderData = useLoaderData<typeof loader>();
 
 	const isActivePage = (path: string) => {
 		if (path === "/") return location.pathname === "/" && location.hash === "";

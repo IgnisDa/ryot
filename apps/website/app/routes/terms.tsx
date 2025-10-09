@@ -7,6 +7,11 @@ export const meta = () => {
 	return [{ title: "Terms and conditions | Ryot" }];
 };
 
+export const headers = () => ({
+	"Cache-Control":
+		"public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+});
+
 export default function Index() {
 	return (
 		<>

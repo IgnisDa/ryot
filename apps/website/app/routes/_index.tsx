@@ -95,6 +95,11 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	};
 };
 
+export const headers = () => ({
+	"Cache-Control":
+		"public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+});
+
 const otpCodesCache = new TTLCache<string, string>({
 	ttl: dayjs.duration(5, "minutes").asMilliseconds(),
 	max: 1000,
