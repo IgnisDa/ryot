@@ -1,11 +1,10 @@
 use std::cmp::Ordering;
 
 use anyhow::{Result, bail};
-use common_utils::get_first_max_index_by;
 use enum_models::MediaLot;
 use media_models::TmdbMetadataLookupResult;
 
-use crate::extractors::{clean_title, extract_season_episode};
+use crate::extractors::{extract_base_title, extract_season_episode};
 
 const EXACT_MATCH_BONUS: f64 = 1.0;
 const SUBSTRING_PENALTY: f64 = 0.5;
@@ -95,30 +94,31 @@ pub fn find_best_match<'a>(
         );
     }
 
-    let cleaned_original = clean_title(original_title);
+    let cleaned_original = extract_base_title(original_title);
     let has_episode_indicators = extract_season_episode(original_title).is_some();
 
-    let best_match_idx = get_first_max_index_by(results, |a, b| {
-        let pos_a = results.iter().position(|r| std::ptr::eq(r, a)).unwrap_or(0);
-        let pos_b = results.iter().position(|r| std::ptr::eq(r, b)).unwrap_or(0);
+    let scores: Vec<(usize, f64)> = results
+        .iter()
+        .enumerate()
+        .map(|(pos, result)| {
+            let score = calculate_match_score(
+                result,
+                &cleaned_original,
+                publish_year,
+                has_episode_indicators,
+                pos,
+            );
+            (pos, score)
+        })
+        .collect();
 
-        let score_a = calculate_match_score(
-            a,
-            &cleaned_original,
-            publish_year,
-            has_episode_indicators,
-            pos_a,
-        );
-        let score_b = calculate_match_score(
-            b,
-            &cleaned_original,
-            publish_year,
-            has_episode_indicators,
-            pos_b,
-        );
-        score_a.partial_cmp(&score_b).unwrap_or(Ordering::Equal)
-    })
-    .unwrap();
+    let best_match_idx = scores
+        .iter()
+        .max_by(|(_, score_a), (_, score_b)| {
+            score_a.partial_cmp(score_b).unwrap_or(Ordering::Equal)
+        })
+        .map(|(idx, _)| *idx)
+        .unwrap();
 
     Ok(&results[best_match_idx])
 }

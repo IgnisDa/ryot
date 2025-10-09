@@ -90,7 +90,25 @@ fn find_two_capture_groups(text: &str, pattern_set: PatternSet) -> Option<(i32, 
 }
 
 pub fn clean_title(title: &str) -> String {
-    apply_patterns_with_replacement(title, PatternSet::Cleaning, "")
+    let mut cleaned = apply_patterns_with_replacement(title, PatternSet::Cleaning, "");
+
+    loop {
+        let before = cleaned.clone();
+        cleaned = cleaned
+            .replace(": :", ":")
+            .replace("  ", " ")
+            .trim_end_matches(':')
+            .trim_end_matches('(')
+            .trim_end_matches(')')
+            .trim_end_matches(' ')
+            .to_string();
+
+        if cleaned == before {
+            break;
+        }
+    }
+
+    cleaned
 }
 
 pub fn extract_base_title(title: &str) -> String {
