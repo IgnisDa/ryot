@@ -7,9 +7,12 @@ use media_models::TmdbMetadataLookupResult;
 
 use crate::extractors::{clean_title, extract_season_episode};
 
+const EXACT_MATCH_BONUS: f64 = 1.0;
+const SUBSTRING_PENALTY: f64 = 0.5;
 const EXACT_YEAR_MATCH_BONUS: f64 = 0.2;
 const CLOSE_YEAR_MATCH_BONUS: f64 = 0.1;
 const SHOW_WITH_EPISODE_BONUS: f64 = 0.5;
+const RESULT_POSITION_BONUS_BASE: f64 = 0.05;
 const MOVIE_WITHOUT_EPISODE_BONUS: f64 = 0.3;
 
 fn calculate_similarity(a: &str, b: &str) -> f64 {
@@ -23,7 +26,7 @@ fn calculate_similarity(a: &str, b: &str) -> f64 {
     if a_lower.contains(&b_lower) || b_lower.contains(&a_lower) {
         let shorter = a_lower.len().min(b_lower.len()) as f64;
         let longer = a_lower.len().max(b_lower.len()) as f64;
-        return shorter / longer;
+        return (shorter / longer) * SUBSTRING_PENALTY;
     }
 
     let common_words: Vec<&str> = a_lower
@@ -48,8 +51,17 @@ fn calculate_match_score(
     cleaned_original: &str,
     publish_year: Option<i32>,
     has_episode_indicators: bool,
+    result_position: usize,
 ) -> f64 {
     let mut score = calculate_similarity(cleaned_original, &result.title);
+
+    if cleaned_original.to_lowercase() == result.title.to_lowercase() {
+        score += EXACT_MATCH_BONUS;
+    }
+
+    if result_position < 5 {
+        score += RESULT_POSITION_BONUS_BASE * (5.0 - result_position as f64);
+    }
 
     if let (Some(original_year), Some(result_year)) = (publish_year, result.publish_year) {
         let year_diff = (original_year - result_year).abs();
@@ -87,10 +99,23 @@ pub fn find_best_match<'a>(
     let has_episode_indicators = extract_season_episode(original_title).is_some();
 
     let best_match_idx = get_first_max_index_by(results, |a, b| {
-        let score_a =
-            calculate_match_score(a, &cleaned_original, publish_year, has_episode_indicators);
-        let score_b =
-            calculate_match_score(b, &cleaned_original, publish_year, has_episode_indicators);
+        let pos_a = results.iter().position(|r| std::ptr::eq(r, a)).unwrap_or(0);
+        let pos_b = results.iter().position(|r| std::ptr::eq(r, b)).unwrap_or(0);
+
+        let score_a = calculate_match_score(
+            a,
+            &cleaned_original,
+            publish_year,
+            has_episode_indicators,
+            pos_a,
+        );
+        let score_b = calculate_match_score(
+            b,
+            &cleaned_original,
+            publish_year,
+            has_episode_indicators,
+            pos_b,
+        );
         score_a.partial_cmp(&score_b).unwrap_or(Ordering::Equal)
     })
     .unwrap();
