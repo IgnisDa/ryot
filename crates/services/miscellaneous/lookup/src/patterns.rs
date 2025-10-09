@@ -20,6 +20,7 @@ static SEASON_EPISODE_PATTERNS: &[&str] = &[
     r"(?i)S(\d+)\s*E(\d+)",
     r"(?i)Season\s+(\d+)\s+Episode\s+(\d+)",
     r"(?i)Season\s+(\d+).*?Episode\s+(\d+)",
+    r"(?i)Season\s+(\d+):.*?\(Episode\s+(\d+)\)",
     r"(?i)Series\s+(\d+):.*?\(Episode\s+(\d+)\)",
     r"(?i)Series\s+(\d+):\s+Episode\s+(\d+)",
     r"(?i)Limited\s+Series:.*?\(Episode\s+(\d+)\)",

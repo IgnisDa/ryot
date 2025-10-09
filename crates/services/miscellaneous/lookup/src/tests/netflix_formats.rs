@@ -306,3 +306,24 @@ fn test_part_volume_complete_series_formats(
         input
     );
 }
+
+#[rstest]
+#[case("13 Reasons Why: Season 4: College Tour (Episode 2)", 4, 2)]
+#[case("American Horror Story: Season 1: Pilot (Episode 1)", 1, 1)]
+#[case("Stranger Things: Season 3: The Battle of Starcourt (Episode 8)", 3, 8)]
+#[case("Breaking Bad: Season 5: Ozymandias (Episode 14)", 5, 14)]
+fn test_season_with_colon_and_episode_parens(
+    #[case] input: &str,
+    #[case] expected_season: i32,
+    #[case] expected_episode: i32,
+) {
+    let result = extract_season_episode(input);
+    assert!(result.is_some(), "Failed to extract from: {}", input);
+    let info = result.unwrap();
+    assert_eq!(info.season, expected_season, "Wrong season for: {}", input);
+    assert_eq!(
+        info.episode, expected_episode,
+        "Wrong episode for: {}",
+        input
+    );
+}
