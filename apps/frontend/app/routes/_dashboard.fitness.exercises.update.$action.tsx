@@ -289,7 +289,7 @@ export default function Page() {
 							onFilesChanged={(files) => form.setFieldValue("images", files)}
 							description={
 								loaderData.action === Action.Edit
-									? "Existing images are retained unless removed below"
+									? "Existing images are retained unless removed"
 									: "Attach images to this exercise"
 							}
 						/>
