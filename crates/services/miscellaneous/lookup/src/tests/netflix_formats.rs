@@ -123,6 +123,9 @@ fn test_extract_season_episode_roman_numerals(
 #[case("Alice in Borderland: Season 1: Episode 1", 1, 1)]
 #[case("Life on Our Planet: Season 1: Chapter 1: The Rules of Life", 1, 1)]
 #[case("Zero Day: Limited Series: Episode 6", 1, 6)]
+#[case("Barbarians: Barbarians II: New Legions (Episode 1)", 2, 1)]
+#[case("Beyond Stranger Things: Beyond 2: Mad for Max (Episode 2)", 2, 2)]
+#[case("Wanderlust:  1: Wanderlust (Episode 1)", 1, 1)]
 fn test_netflix_edge_cases_that_should_extract(
     #[case] input: &str,
     #[case] expected_season: i32,
@@ -179,6 +182,10 @@ fn test_netflix_part_as_season(#[case] input: &str) {
 )]
 #[case("Life on Our Planet: Season 1: Chapter 1: The Rules of Life", Some((1, 1)))]
 #[case("Big Mouth: Season 8: Lola Skumpy: License to Drive", None)]
+#[case(
+    "Roman Empire: Julius Caesar: Master of Rome: The Ides of March (Episode 5)",
+    Some((1, 5))
+)]
 fn test_netflix_complex_titles_with_multiple_colons(
     #[case] input: &str,
     #[case] expected: Option<(i32, i32)>,
@@ -235,6 +242,16 @@ fn test_netflix_episode_word_format() {
     "Missing You: Limited Series: Every Breath You Take (Episode 1)",
     "Missing You"
 )]
+#[case("Criminal: UK: Season 2: Julia (Episode 1)", "Criminal: UK")]
+#[case(
+    "Age of Samurai: Battle for Japan: Limited Series: Catastrophe (Episode 5)",
+    "Age of Samurai: Battle for Japan"
+)]
+#[case(
+    "Hitler and the Nazis: Evil on Trial: Season 1: Crimes Against Humanity (Episode 5)",
+    "Hitler and the Nazis: Evil on Trial"
+)]
+#[case("Barbarians: Barbarians II: Treason (Episode 5)", "Barbarians")]
 fn test_netflix_base_title_extraction(#[case] input: &str, #[case] expected: &str) {
     let result = extract_base_title(input);
     assert_eq!(

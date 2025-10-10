@@ -4,44 +4,9 @@ use regex::Regex;
 
 static COMPILED_SPACE_REGEX: OnceLock<Regex> = OnceLock::new();
 static COMPILED_CLEANING_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
-static COMPILED_SEASON_EPISODE_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
 static COMPILED_YEAR_EXTRACTION_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
-static COMPILED_BASE_EXTRACTION_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
 
 static YEAR_EXTRACTION_PATTERNS: &[&str] = &[r"\(([12]\d{3})\)", r"\[([12]\d{3})\]"];
-static BASE_EXTRACTION_PATTERNS: &[&str] = &[
-    r"^([^:]+):.+\(Episode\s+\d+\)",
-    r"^([^:]+):\s+.*?:\s+",
-    r"^(.+?)\s+\([12]\d{3}\)",
-    r"(?i)^(.+?)\s+S\d+E\d+",
-    r"(?i)^(.+?)\s+Season\s+\d+",
-];
-static SEASON_EPISODE_PATTERNS: &[&str] = &[
-    r"(?i)S(\d+)\s*E(\d+)",
-    r"(?i)Season\s+(\d+)\s+Episode\s+(\d+)",
-    r"(?i)Season\s+(\d+).*?Episode\s+(\d+)",
-    r"(?i)Season\s+(\d+):.*?\(Episode\s+(\d+)\)",
-    r"(?i)Series\s+(\d+):.*?\(Episode\s+(\d+)\)",
-    r"(?i)Series\s+(\d+):\s+Episode\s+(\d+)",
-    r"(?i)Limited\s+Series:.*?\(Episode\s+(\d+)\)",
-    r"(?i)Part\s+(\d+):.*?\(Episode\s+(\d+)\)",
-    r"(?i)Volume\s+(\d+):.*?\(Episode\s+(\d+)\)",
-    r"(?i)The\s+Complete\s+Series:.*?\(Episode\s+(\d+)\)",
-    r"(?i)Part\s+([IVX]+|[0-9]+).*?Chapter\s+([IVX]+|[0-9]+)",
-    r"(?i)Part\s+([IVX]+|[0-9]+).*?Chapter\s+(One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve|Thirteen|Fourteen|Fifteen|Sixteen|Seventeen|Eighteen|Nineteen|Twenty)",
-    r"(?i)Volume\s+(\d+):\s+Chapter\s+([IVX]+)",
-    r"(?i)Volume\s+(\d+):\s+Chapter\s+(\d+)",
-    r"(?i)Volume\s+(\d+):\s+Chapter\s+(One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve|Thirteen|Fourteen|Fifteen|Sixteen|Seventeen|Eighteen|Nineteen|Twenty)",
-    r"(?i):\s+[^:]+\s+(\d+):\s+Chapter\s+(One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve|Thirteen|Fourteen|Fifteen|Sixteen|Seventeen|Eighteen|Nineteen|Twenty)",
-    r"(?i):\s+[^:]+\s+(\d+):\s+Chapter\s+(\d+)",
-    r"(?i)Season\s+(\d+):\s+Chapter\s+(\d+)",
-    r"(?i)Season\s+(\d+):\s+Chapter\s+(One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve|Thirteen|Fourteen|Fifteen|Sixteen|Seventeen|Eighteen|Nineteen|Twenty)",
-    r"(?i)Season\s+(\d+):\s+Episode\s+(\d+)",
-    r"(?i)Chapter\s+([IVX]+)",
-    r"(?i)Chapter\s+(\d+)(?::|\s|$)",
-    r"(?i)Chapter\s+(One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve|Thirteen|Fourteen|Fifteen|Sixteen|Seventeen|Eighteen|Nineteen|Twenty)(?::|\s)",
-    r"(?i)Limited\s+Series:\s+Episode\s+(\d+)",
-];
 static CLEANING_PATTERNS: &[&str] = &[
     r"\([12]\d{3}\)",
     r"\[[12]\d{3}\]",
@@ -57,23 +22,15 @@ static CLEANING_PATTERNS: &[&str] = &[
 
 pub enum PatternSet {
     Cleaning,
-    SeasonEpisode,
     YearExtraction,
-    BaseExtraction,
 }
 
 impl PatternSet {
     fn get_patterns_and_cache(&self) -> (&[&str], &'static OnceLock<Vec<Regex>>) {
         match self {
             PatternSet::Cleaning => (CLEANING_PATTERNS, &COMPILED_CLEANING_PATTERNS),
-            PatternSet::SeasonEpisode => {
-                (SEASON_EPISODE_PATTERNS, &COMPILED_SEASON_EPISODE_PATTERNS)
-            }
             PatternSet::YearExtraction => {
                 (YEAR_EXTRACTION_PATTERNS, &COMPILED_YEAR_EXTRACTION_PATTERNS)
-            }
-            PatternSet::BaseExtraction => {
-                (BASE_EXTRACTION_PATTERNS, &COMPILED_BASE_EXTRACTION_PATTERNS)
             }
         }
     }
