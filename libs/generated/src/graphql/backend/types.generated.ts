@@ -1402,6 +1402,7 @@ export type MetadataLookupFoundResult = {
   __typename?: 'MetadataLookupFoundResult';
   data: UniqueMediaIdentifier;
   showInformation?: Maybe<SeenShowExtraInformation>;
+  title: Scalars['String']['output'];
 };
 
 export type MetadataLookupNotFound = {

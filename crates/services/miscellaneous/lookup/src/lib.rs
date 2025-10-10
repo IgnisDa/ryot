@@ -99,6 +99,7 @@ pub async fn metadata_lookup(
             Ok(MetadataLookupResponse::Found(MetadataLookupFoundResult {
                 data,
                 show_information,
+                title: best_match.title.clone(),
             }))
         },
     )

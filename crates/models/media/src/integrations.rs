@@ -21,6 +21,7 @@ pub struct TmdbMetadataLookupResult {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, SimpleObject)]
 pub struct MetadataLookupFoundResult {
+    pub title: String,
     pub data: UniqueMediaIdentifier,
     pub show_information: Option<SeenShowExtraInformation>,
 }

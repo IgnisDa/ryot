@@ -1354,6 +1354,7 @@ export type MetadataGroupSourceLotMapping = {
 export type MetadataLookupFoundResult = {
   data: UniqueMediaIdentifier;
   showInformation?: Maybe<SeenShowExtraInformation>;
+  title: Scalars['String']['output'];
 };
 
 export type MetadataLookupNotFound = {
