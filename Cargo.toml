@@ -113,7 +113,7 @@ async-trait = "=0.1.89"
 aws-sdk-s3 = { version = "=1.108.0", features = ["behavior-version-latest"] }
 axum = { version = "=0.8.6", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
-bon = "=3.8.0"
+bon = "=3.8.1"
 chrono = "=0.4.42"
 chrono-tz = "=0.10.4"
 const-str = "=0.7.0"
@@ -166,7 +166,7 @@ rustypipe = { version = "=0.11.4", features = [
     "userdata",
     "rustls-tls-webpki-roots",
 ], default-features = false }
-schematic = { version = "=0.18.13", features = [
+schematic = { version = "=0.18.14", features = [
     "config",
     "env",
     "json",
@@ -180,7 +180,7 @@ schematic = { version = "=0.18.13", features = [
     "validate",
     "yaml",
 ], default-features = false }
-sea-orm = { version = "=1.1.16", features = [
+sea-orm = { version = "=1.1.17", features = [
     "debug-print",
     "postgres-array",
     "macros",
@@ -191,7 +191,7 @@ sea-orm = { version = "=1.1.16", features = [
     "with-rust_decimal",
     "with-uuid",
 ], default-features = false }
-sea-orm-migration = { version = "=1.1.16", features = [
+sea-orm-migration = { version = "=1.1.17", features = [
     "runtime-tokio-rustls",
     "sqlx-postgres",
 ] }
@@ -216,7 +216,7 @@ tracing-subscriber = "=0.3.20"
 unkey = "=0.6.0"
 url = "=2.5.7"
 uuid = { version = "=1.18.1", features = ["v4"], default-features = false }
-zip = "=5.1.1"
+zip = "=6.0.0"
 
 anilist-provider = { path = "crates/providers/anilist" }
 application-utils = { path = "crates/utils/application" }
