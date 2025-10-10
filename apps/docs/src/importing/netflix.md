@@ -1,7 +1,7 @@
 # Netflix
 
 ::: info
-It is necessary to setup TMDB for this import to work. Please follow the configuration
+It is necessary to set up TMDB for this import to work. Please follow the configuration
 [guide](../configuration.md) for instructions.
 :::
 
@@ -19,8 +19,8 @@ set to English before requesting the export to ensure proper import functionalit
 3. Download the archive ZIP from the email. Leave the file exactly as Netflix provides
    it—do not rename, unzip, or move files out of it.
 4. In Ryot, open **Settings → Imports & Exports → Imports**, select **Netflix**, and upload
-   the ZIP file. Ryot reads the `CONTENT_INTERACTION/ViewingActivity.csv`, `Ratings.csv`,
-   and `MyList.csv` files from the archive to build your library.
+   the ZIP file. Ryot reads `CONTENT_INTERACTION/{ViewingActivity,Ratings,MyList}.csv`
+   files from the archive to build your library.
 5. Optionally, enter a **Profile Name** to filter the import to a specific Netflix profile.
    If left empty, all profiles from the export will be imported.
 
