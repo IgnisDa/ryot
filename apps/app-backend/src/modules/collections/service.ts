@@ -37,6 +37,10 @@ type CollectionsServiceShape = {
 		user: CurrentUserValue,
 		payload: CreateCollectionBody,
 	) => Effect.Effect<CollectionResponse, BadRequest | DbError | NotFound>;
+	readonly getOrCreateCollection: (
+		userId: string,
+		name: string,
+	) => Effect.Effect<CollectionResponse, DbError>;
 	readonly addToCollection: (
 		user: CurrentUserValue,
 		payload: CreateMembershipBody,
@@ -165,6 +169,30 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 							name,
 							userId: user.id,
 							properties: collectionProperties,
+							entitySchemaId: entitySchema.entitySchemaId,
+						}),
+					);
+				}),
+
+			getOrCreateCollection: (userId: string, name: string) =>
+				Effect.gen(function* () {
+					const entitySchema = yield* collectionEntitySchema;
+					const existing = yield* runWithDb(
+						repository.findCollectionByNameForUser({
+							name,
+							userId,
+							entitySchemaId: entitySchema.entitySchemaId,
+						}),
+					);
+					if (existing) {
+						return existing;
+					}
+
+					return yield* runWithDb(
+						repository.createCollectionForUser({
+							name,
+							userId,
+							properties: {},
 							entitySchemaId: entitySchema.entitySchemaId,
 						}),
 					);
