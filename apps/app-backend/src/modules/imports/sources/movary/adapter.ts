@@ -1,3 +1,5 @@
+import { Either } from "effect";
+
 import {
 	createBacklogEvent,
 	createCompleteEvent,
@@ -158,7 +160,7 @@ const adaptHistoryCsv = (
 		const sourceIdentifier = readCsvCell(row, TMDB_ID_ALIASES);
 		const sourceLabel = getSourceLabel(title, "history", itemIndex);
 
-		try {
+		const parsed = Either.try(() => {
 			const tmdbId = getTmdbId(row);
 			const occurredAt = getHistoryOccurredAt(row);
 			const group = getMovieGroup(groupMap, { itemIndex, sourceLabel, tmdbId });
@@ -172,12 +174,13 @@ const adaptHistoryCsv = (
 			if (reviewEvent) {
 				group.events.push(reviewEvent);
 			}
-		} catch (error) {
+		});
+		if (Either.isLeft(parsed)) {
 			pushMovaryFailure(failures, {
-				error,
 				itemIndex,
 				sourceLabel,
 				sourceIdentifier,
+				error: parsed.left,
 				fileLabel: "History",
 			});
 		}
@@ -202,7 +205,7 @@ const adaptRatingsCsv = (
 		const sourceIdentifier = readCsvCell(row, TMDB_ID_ALIASES);
 		const sourceLabel = getSourceLabel(title, "ratings", itemIndex);
 
-		try {
+		const parsed = Either.try(() => {
 			const tmdbId = getTmdbId(row);
 			const ratingValue = readRequiredCsvCell(row, RATING_ALIASES, "user_rating");
 			const rating = normalizeMovaryRating(ratingValue);
@@ -212,12 +215,13 @@ const adaptRatingsCsv = (
 				eventSchemaSlug: "review",
 				occurredAt: input.importedAt,
 			});
-		} catch (error) {
+		});
+		if (Either.isLeft(parsed)) {
 			pushMovaryFailure(failures, {
-				error,
 				itemIndex,
 				sourceLabel,
 				sourceIdentifier,
+				error: parsed.left,
 				fileLabel: "Ratings",
 			});
 		}
@@ -242,16 +246,17 @@ const adaptWatchlistCsv = (
 		const sourceIdentifier = readCsvCell(row, TMDB_ID_ALIASES);
 		const sourceLabel = getSourceLabel(title, "watchlist", itemIndex);
 
-		try {
+		const parsed = Either.try(() => {
 			const tmdbId = getTmdbId(row);
 			const group = getMovieGroup(groupMap, { itemIndex, sourceLabel, tmdbId });
 			group.events.push(createBacklogEvent(input.importedAt));
-		} catch (error) {
+		});
+		if (Either.isLeft(parsed)) {
 			pushMovaryFailure(failures, {
-				error,
 				itemIndex,
 				sourceLabel,
 				sourceIdentifier,
+				error: parsed.left,
 				fileLabel: "Watchlist",
 			});
 		}

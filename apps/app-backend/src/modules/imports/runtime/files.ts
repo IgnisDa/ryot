@@ -1,5 +1,5 @@
 import { FileSystem, Path } from "@effect/platform";
-import { Data, Effect } from "effect";
+import { Data, Effect, Either } from "effect";
 import * as yauzl from "yauzl";
 
 const MAX_ZIP_ENTRY_COUNT = 100;
@@ -131,15 +131,18 @@ const readZipEntryBytes = (
 			}
 		};
 		const onData = (chunk: unknown) => {
-			let bytes: Uint8Array;
-			try {
-				bytes = chunkToBytes(chunk);
-			} catch (error) {
+			const parsedBytes = Either.try(() => chunkToBytes(chunk));
+			if (Either.isLeft(parsedBytes)) {
 				cleanup();
 				cancelStream();
-				resume(Effect.fail(unknownToZipArchiveError(error, "Could not read ZIP entry stream")));
+				resume(
+					Effect.fail(
+						unknownToZipArchiveError(parsedBytes.left, "Could not read ZIP entry stream"),
+					),
+				);
 				return;
 			}
+			const bytes = parsedBytes.right;
 			totalBytes += bytes.byteLength;
 			if (totalBytes > maxEntryBytes) {
 				cleanup();
