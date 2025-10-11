@@ -24,11 +24,10 @@ const createDeps = (
 	overrides: Partial<Parameters<typeof processEventSchemaTriggers>[1]> = {},
 ): NonNullable<Parameters<typeof processEventSchemaTriggers>[1]> => ({
 	listEventsByEntityForUser: () => Promise.resolve([]),
-	upsertInLibraryRelationship: () => Promise.resolve(),
 	getEntityScopeForUser: () => Promise.resolve(undefined),
-	getUserLibraryEntityId: () => Promise.resolve(undefined),
 	getEventCreateScopeForUser: () => Promise.resolve(undefined),
 	getSessionEntityScopeForUser: () => Promise.resolve(undefined),
+	ensureEntityInLibrary: () => Promise.resolve({ data: undefined }),
 	createEventForUser: () => {
 		throw new Error("not used");
 	},
