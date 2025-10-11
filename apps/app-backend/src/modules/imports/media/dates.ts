@@ -140,6 +140,42 @@ export const parseDateTime = (value: string, formats: string[]): string | null =
 	return formatIsoFromUtc(withZone);
 };
 
+export const parseZonedDateTime = (
+	value: string,
+	formats: string[],
+	timeZone: string,
+): string | null => {
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return null;
+	}
+
+	for (const format of formats) {
+		const captured = matchFormat(trimmed, format);
+		if (!captured) {
+			continue;
+		}
+		const iso = Option.match(
+			DateTime.makeZoned(
+				{
+					day: Number(captured.day),
+					year: Number(captured.year),
+					month: Number(captured.month),
+					hours: Number(captured.hours),
+					minutes: Number(captured.minutes),
+					seconds: Number(captured.seconds),
+				},
+				{ timeZone, adjustForTimeZone: true },
+			),
+			{ onNone: () => null, onSome: (zoned) => DateTime.formatIso(DateTime.toUtc(zoned)) },
+		);
+		if (iso) {
+			return iso;
+		}
+	}
+	return null;
+};
+
 export const getOccurredAtValue = (value: string): number =>
 	Option.match(DateTime.make(value), {
 		onNone: () => 0,
