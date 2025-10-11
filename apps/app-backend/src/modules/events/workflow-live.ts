@@ -9,7 +9,7 @@ import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { createEventsForUser, provideCreateEventsContext } from "./create-core";
-import { GlobalEntityHook } from "./global-entity-hook";
+import { GlobalEntityReferenceHook } from "./global-entity-reference-hook";
 import { EventsRepository } from "./repository";
 import { CreateEventsResponse } from "./schemas";
 import { EventCreateWorkflow, EventCreateWorkflowError } from "./workflows";
@@ -24,13 +24,13 @@ const EventCreateWorkflowLive = EventCreateWorkflow.toLayer((payload) =>
 			const sandbox = yield* SandboxService;
 			const workflowEngine = yield* WorkflowEngine;
 			const eventsRepository = yield* EventsRepository;
-			const { onGlobalEntity } = yield* GlobalEntityHook;
+			const { onGlobalEntityReferenced } = yield* GlobalEntityReferenceHook;
 			const entitiesRepository = yield* EntitiesRepository;
 			const sandboxRepository = yield* SandboxRepository;
 			const eventSchemasRepository = yield* EventSchemasRepository;
 
 			return yield* provideCreateEventsContext(
-				createEventsForUser(payload, sandbox.run, onGlobalEntity),
+				createEventsForUser(payload, sandbox.run, onGlobalEntityReferenced),
 				{
 					dbRunner,
 					workflowEngine,
