@@ -22,7 +22,7 @@ use media_models::{
 use miscellaneous_lookup_service::metadata_lookup;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 use tempfile::TempDir;
 use zip::ZipArchive;
@@ -31,7 +31,7 @@ use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 const METADATA_LOOKUP_CONCURRENCY: usize = 5;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct LookupCacheItem {
     lot: MediaLot,
     identifier: String,
