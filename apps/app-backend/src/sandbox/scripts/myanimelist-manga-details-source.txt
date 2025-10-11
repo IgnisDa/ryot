@@ -140,6 +140,6 @@ return {
 				? payload.mean
 				: null,
 		production_status: productionStatus,
-		source_url: sourceUrl,
+		sourceUrl: sourceUrl,
 	},
 };

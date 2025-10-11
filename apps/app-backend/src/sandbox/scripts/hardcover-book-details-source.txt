@@ -194,7 +194,7 @@ return {
 		publish_year: releaseYear,
 		description:
 			typeof bookData.description === "string" ? bookData.description : null,
-		source_url: sourceUrl,
+		sourceUrl: sourceUrl,
 		assets: {
 			remote_images: collectImages(bookData.image, bookData.images),
 		},
