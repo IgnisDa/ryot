@@ -37,6 +37,8 @@ export const UploadBodyLimitMiddlewareLive = Layer.effect(
 					cause: { _tag: "ReachedLimit", limit: "MaxTotalSize" },
 				});
 			}
+
+			return yield* Effect.void;
 		}),
 	),
 );
