@@ -1,4 +1,4 @@
-import { match } from "ts-pattern";
+import { Match } from "effect";
 
 import type { QueryComputedField, QueryExpression, QueryFilter } from "~/lib/query-language";
 
@@ -55,17 +55,17 @@ export const validateViewPredicateAgainstSchemas = <
 	};
 
 	const validatePredicate = (predicate: QueryFilter): void => {
-		match(predicate)
-			.with({ type: "and" }, { type: "or" }, (pred) => {
+		Match.value(predicate).pipe(
+			Match.whenOr({ type: "and" }, { type: "or" }, (pred) => {
 				for (const child of pred.predicates) {
 					validatePredicate(child);
 				}
-			})
-			.with({ type: "not" }, (pred) => validatePredicate(pred.predicate))
-			.with({ type: "isNull" }, { type: "isNotNull" }, (pred) => {
+			}),
+			Match.when({ type: "not" }, (pred) => validatePredicate(pred.predicate)),
+			Match.whenOr({ type: "isNull" }, { type: "isNotNull" }, (pred) => {
 				assertFilterCompatibleExpression(validateFilterExpression(pred.expression), "filtering");
-			})
-			.with({ type: "contains" }, (pred) => {
+			}),
+			Match.when({ type: "contains" }, (pred) => {
 				const expressionType = validateFilterExpression(pred.expression);
 				const valueType = validateFilterExpression(pred.value);
 				assertContainsCompatibleExpression(expressionType);
@@ -105,8 +105,8 @@ export const validateViewPredicateAgainstSchemas = <
 						"Filter operator 'contains' for object expressions requires an object expression value",
 					);
 				}
-			})
-			.with({ type: "in" }, (pred) => {
+			}),
+			Match.when({ type: "in" }, (pred) => {
 				const expressionType = validateFilterExpression(pred.expression);
 				assertComparableExpression(expressionType, "in");
 
@@ -117,15 +117,16 @@ export const validateViewPredicateAgainstSchemas = <
 						right: validateFilterExpression(value),
 					});
 				}
-			})
-			.with({ type: "comparison" }, (pred) => {
+			}),
+			Match.when({ type: "comparison" }, (pred) => {
 				assertCompatibleComparisonTypes({
 					operator: pred.operator,
 					left: validateFilterExpression(pred.left),
 					right: validateFilterExpression(pred.right),
 				});
-			})
-			.exhaustive();
+			}),
+			Match.exhaustive,
+		);
 	};
 
 	validatePredicate(input.predicate);
