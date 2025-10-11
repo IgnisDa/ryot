@@ -9,6 +9,7 @@ import { EventSchemasRepository } from "~/modules/event-schemas/repository";
 import { EventsService } from "~/modules/events/service";
 
 import { recordImportRunFailure } from "../runtime/failures";
+import { nowIso } from "./dates";
 import { mediaEntityGroupItemIndex } from "./groups";
 import { type ImportMediaEntityGroup, importEntityRefKey } from "./types";
 
@@ -31,6 +32,7 @@ export const writeMediaEntityGroups = (input: {
 		const collectionIdCache = new Map<string, string>();
 		const eventSchemaCache = new Map<string, { id: string }>();
 		const user: CurrentUserValue = { id: input.userId, name: "", email: "" };
+		const ownershipSyncedAt = nowIso();
 
 		let writeFailures = 0;
 		let importedItems = 0;
@@ -171,6 +173,30 @@ export const writeMediaEntityGroups = (input: {
 						message: created.left.message,
 						sourceIdentifier: ref.externalId,
 						eventSchemaSlug: ev.eventSchemaSlug,
+						entitySchemaSlug: ref.entitySchemaSlug,
+					});
+				}
+			}
+
+			if (group.ownershipProvider) {
+				const ownership = yield* collections
+					.markEntityOwnedInLibrary({
+						entityId,
+						userId: input.userId,
+						syncedAt: ownershipSyncedAt,
+						provider: group.ownershipProvider,
+					})
+					.pipe(Effect.either);
+				if (Either.isLeft(ownership)) {
+					groupFailed = true;
+					yield* recordImportRunFailure({
+						itemIndex,
+						context: null,
+						runId: input.runId,
+						stage: "database_commit",
+						sourceLabel: ref.sourceLabel,
+						message: ownership.left.message,
+						sourceIdentifier: ref.externalId,
 						entitySchemaSlug: ref.entitySchemaSlug,
 					});
 				}
