@@ -1,6 +1,6 @@
 import {
+	CreateOrUpdateUserMeasurementDocument,
 	CreateOrUpdateUserWorkoutDocument,
-	CreateUserMeasurementDocument,
 	DeleteCollectionDocument,
 	DeleteUserMeasurementDocument,
 	DeleteUserWorkoutDocument,
@@ -141,18 +141,18 @@ describe("Cache related tests", () => {
 		};
 
 		const createResult = await client.request(
-			CreateUserMeasurementDocument,
+			CreateOrUpdateUserMeasurementDocument,
 			{ input: measurementInput },
 			getAuthHeaders(),
 		);
-		expect(createResult.createUserMeasurement).toBeDefined();
+		expect(createResult.createOrUpdateUserMeasurement).toBeDefined();
 
 		const afterCreate = await getUserMeasurementsList(url, userApiKey);
 		expect(afterCreate).toHaveLength(1);
 
 		const deleteResult = await client.request(
 			DeleteUserMeasurementDocument,
-			{ timestamp: createResult.createUserMeasurement },
+			{ timestamp: createResult.createOrUpdateUserMeasurement },
 			getAuthHeaders(),
 		);
 		expect(deleteResult.deleteUserMeasurement).toBe(true);

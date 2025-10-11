@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use background_models::{ApplicationJob, MpApplicationJob};
 use common_utils::ryot_log;
@@ -7,7 +9,6 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter,
     prelude::Expr,
 };
-use std::sync::Arc;
 use supporting_service::SupportingService;
 
 use crate::{exercise_management, workout_operations};

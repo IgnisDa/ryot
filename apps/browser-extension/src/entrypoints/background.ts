@@ -1,4 +1,5 @@
 import { MetadataLookupDocument } from "@ryot/generated/graphql/backend/graphql";
+import { isFiniteNumber } from "@ryot/ts-utils";
 import { GraphQLClient } from "graphql-request";
 import { storage } from "#imports";
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
@@ -119,7 +120,11 @@ export default defineBackground(() => {
 
 			const { rawData, metadata } = progressData;
 
-			if (!rawData.progress || !tabUrl || "notFound" in metadata) {
+			if (
+				!isFiniteNumber(rawData.progress) ||
+				!tabUrl ||
+				"notFound" in metadata
+			) {
 				return;
 			}
 

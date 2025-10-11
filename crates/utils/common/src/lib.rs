@@ -1,4 +1,4 @@
-use std::{convert::TryInto, fmt};
+use std::{cmp::Ordering, convert::TryInto, fmt};
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use data_encoding::BASE32;
@@ -172,4 +172,15 @@ pub fn generate_session_id(byte_length: Option<usize>) -> String {
 pub fn get_db_stmt(stmt: SelectStatement) -> Statement {
     let (sql, values) = stmt.build(PostgresQueryBuilder {});
     Statement::from_sql_and_values(DatabaseBackend::Postgres, sql, values)
+}
+
+pub fn get_first_max_index_by<T, F>(items: &[T], compare_fn: F) -> Option<usize>
+where
+    F: Fn(&T, &T) -> Ordering,
+{
+    items
+        .iter()
+        .enumerate()
+        .max_by(|(idx_a, a), (idx_b, b)| compare_fn(a, b).then_with(|| idx_b.cmp(idx_a)))
+        .map(|(idx, _)| idx)
 }

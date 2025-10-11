@@ -569,21 +569,24 @@ export enum DashboardElementLot {
 }
 
 export type DeployGenericCsvImportInput = {
+  /** The file path of the uploaded CSV export file. */
   csvPath: Scalars['String']['input'];
 };
 
 export type DeployIgdbImportInput = {
   collection: Scalars['String']['input'];
+  /** The path to the CSV file in the local file system. */
   csvPath: Scalars['String']['input'];
 };
 
 export type DeployImportJobInput = {
   genericCsv?: InputMaybe<DeployGenericCsvImportInput>;
-  genericJson?: InputMaybe<DeployJsonImportInput>;
   igdb?: InputMaybe<DeployIgdbImportInput>;
   jellyfin?: InputMaybe<DeployJellyfinImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
+  netflix?: InputMaybe<DeployNetflixImportInput>;
+  path?: InputMaybe<DeployPathImportInput>;
   source: ImportSource;
   strongApp?: InputMaybe<DeployStrongAppImportInput>;
   trakt?: InputMaybe<DeployTraktImportInput>;
@@ -596,10 +599,6 @@ export type DeployJellyfinImportInput = {
   username: Scalars['String']['input'];
 };
 
-export type DeployJsonImportInput = {
-  export: Scalars['String']['input'];
-};
-
 export type DeployMalImportInput = {
   /** The anime export file path (uploaded via temporary upload). */
   animePath?: InputMaybe<Scalars['String']['input']>;
@@ -608,9 +607,23 @@ export type DeployMalImportInput = {
 };
 
 export type DeployMovaryImportInput = {
+  /** The file path of the uploaded CSV history file. */
   history: Scalars['String']['input'];
+  /** The file path of the uploaded CSV ratings file. */
   ratings: Scalars['String']['input'];
+  /** The file path of the uploaded CSV watchlist file. */
   watchlist: Scalars['String']['input'];
+};
+
+export type DeployNetflixImportInput = {
+  input: DeployPathImportInput;
+  /** Optional profile name to filter the import by. */
+  profileName?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type DeployPathImportInput = {
+  /** The path of the uploaded artifact. */
+  exportPath: Scalars['String']['input'];
 };
 
 export type DeployStrongAppImportInput = {
@@ -619,12 +632,16 @@ export type DeployStrongAppImportInput = {
 };
 
 export type DeployTraktImportInput = {
+  /** Import from a public Trakt list. */
   list?: InputMaybe<DeployTraktImportListInput>;
+  /** Import from a public Trakt user. */
   user?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type DeployTraktImportListInput = {
+  /** The name of the collection to import into. */
   collection: Scalars['String']['input'];
+  /** The public url of the list in Trakt. */
   url: Scalars['String']['input'];
 };
 
@@ -1086,6 +1103,7 @@ export enum ImportSource {
   Mediatracker = 'MEDIATRACKER',
   Movary = 'MOVARY',
   Myanimelist = 'MYANIMELIST',
+  Netflix = 'NETFLIX',
   OpenScale = 'OPEN_SCALE',
   Plex = 'PLEX',
   Storygraph = 'STORYGRAPH',
@@ -1384,6 +1402,7 @@ export type MetadataLookupFoundResult = {
   __typename?: 'MetadataLookupFoundResult';
   data: UniqueMediaIdentifier;
   showInformation?: Maybe<SeenShowExtraInformation>;
+  title: Scalars['String']['output'];
 };
 
 export type MetadataLookupNotFound = {
