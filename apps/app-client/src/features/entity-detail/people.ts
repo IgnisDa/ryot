@@ -26,7 +26,10 @@ export function formatRoleLabel(role: string) {
 		.join(" ");
 }
 
-export function mergeCreators(base: AppUnlinkedCreator[], related: AppUnlinkedCreator[]) {
+export function mergeCreators(
+	base: readonly AppUnlinkedCreator[],
+	related: readonly AppUnlinkedCreator[],
+) {
 	const creatorsById = new Map<string, AppUnlinkedCreator>();
 	const creatorsWithoutId: AppUnlinkedCreator[] = [];
 
@@ -42,18 +45,15 @@ export function mergeCreators(base: AppUnlinkedCreator[], related: AppUnlinkedCr
 			continue;
 		}
 
-		const merged: AppUnlinkedCreator = { ...existing };
-		if (!merged.image && creator.image) {
-			merged.image = creator.image;
-		}
-		if (
+		const preferNewRole =
 			creator.role !== "Person" &&
-			(merged.role === "Person" || creator.role.length > merged.role.length)
-		) {
-			merged.role = creator.role;
-		}
+			(existing.role === "Person" || creator.role.length > existing.role.length);
 
-		creatorsById.set(creator.id, merged);
+		creatorsById.set(creator.id, {
+			...existing,
+			role: preferNewRole ? creator.role : existing.role,
+			image: !existing.image && creator.image ? creator.image : existing.image,
+		});
 	}
 
 	return [...creatorsWithoutId, ...creatorsById.values()];

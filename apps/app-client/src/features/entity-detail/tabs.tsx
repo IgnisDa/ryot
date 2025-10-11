@@ -64,12 +64,14 @@ const INACTIVE_COLOR = Platform.select({
 function getTypeSpecificTab(entity: EntityDetail): TabConfig | null {
 	return match(entity)
 		.with({ entitySchemaSlug: "show" }, (e) =>
-			e.properties.showSeasons.length > 0
+			e.properties.showSeasons != null && e.properties.showSeasons.length > 0
 				? { key: "seasons", label: "Seasons", Icon: Layers }
 				: null,
 		)
 		.with({ entitySchemaSlug: "podcast" }, (e) =>
-			e.properties.episodes.length > 0 ? { key: "episodes", label: "Episodes", Icon: Mic } : null,
+			e.properties.episodes != null && e.properties.episodes.length > 0
+				? { key: "episodes", label: "Episodes", Icon: Mic }
+				: null,
 		)
 		.with({ entitySchemaSlug: "anime" }, (e) =>
 			e.properties.airingSchedule != null && e.properties.airingSchedule.length > 0
