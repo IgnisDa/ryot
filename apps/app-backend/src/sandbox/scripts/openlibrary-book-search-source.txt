@@ -16,7 +16,7 @@ const params = new URLSearchParams({
 	type: "work",
 	limit: String(pageSize),
 	offset: String((currentPage - 1) * pageSize),
-	fields: "key,title,author_name,cover_i,first_publish_year",
+	fields: "key,title,author_name,cover_i,first_publishYear",
 });
 
 const response = await httpCall(
@@ -48,9 +48,9 @@ const items = docs
 
 		const title = typeof doc?.title === "string" ? doc.title : "";
 		const publishYear =
-			typeof doc?.first_publish_year === "number" &&
-			Number.isFinite(doc.first_publish_year)
-				? doc.first_publish_year
+			typeof doc?.first_publishYear === "number" &&
+			Number.isFinite(doc.first_publishYear)
+				? doc.first_publishYear
 				: null;
 		const coverId =
 			typeof doc?.cover_i === "number" && Number.isFinite(doc.cover_i)
@@ -60,7 +60,7 @@ const items = docs
 		return {
 			title,
 			identifier,
-			publish_year: publishYear,
+			publishYear: publishYear,
 			image:
 				coverId === null
 					? null
