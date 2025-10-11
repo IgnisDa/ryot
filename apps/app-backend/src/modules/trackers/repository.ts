@@ -4,19 +4,7 @@ import { Effect } from "effect";
 import { CurrentDb, dbEffect, isUniqueConstraintError, schema } from "~/lib/db";
 import { DbError, conflict } from "~/lib/errors";
 
-import type { ListedTracker } from "./schemas";
-
 type TrackerRow = typeof schema.tracker.$inferSelect;
-
-type OwnedTracker = {
-	readonly id: string;
-	readonly slug: string;
-	readonly name: string;
-	readonly icon: string;
-	readonly isBuiltin: boolean;
-	readonly accentColor: string;
-	readonly description: string | null;
-};
 
 type CreateTrackerInput = {
 	readonly slug: string;
@@ -39,7 +27,7 @@ type UpdateTrackerInput = {
 
 const trackerUserSlugConstraint = "tracker_user_slug_unique";
 
-const toListedTracker = (row: TrackerRow): ListedTracker => ({
+const toListedTracker = (row: TrackerRow) => ({
 	id: row.id,
 	slug: row.slug,
 	name: row.name,
@@ -52,7 +40,7 @@ const toListedTracker = (row: TrackerRow): ListedTracker => ({
 	description: row.description,
 });
 
-const toOwnedTracker = (row: TrackerRow): OwnedTracker => ({
+const toOwnedTracker = (row: TrackerRow) => ({
 	id: row.id,
 	slug: row.slug,
 	name: row.name,

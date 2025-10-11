@@ -40,7 +40,7 @@ type SandboxSessionRecord = {
 	readonly expiresAt: number;
 };
 
-const parseSandboxSession = (raw: string): SandboxSessionRecord => decodeSandboxSession(raw);
+const parseSandboxSession = (raw: string) => decodeSandboxSession(raw);
 
 const parseArgs = (request: Request) =>
 	request.body

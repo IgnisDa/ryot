@@ -20,15 +20,13 @@ const user: CurrentUserValue = {
 	email: "user@example.com",
 };
 
-const dbRunnerLayer = Layer.succeed(
-	DbRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
-		Effect.provideService(effect, CurrentDb, Object.create(null)),
+const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+	Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
 const transactionLayer = Layer.succeed(
 	TransactionRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
+	<A, E, R>(effect: Effect.Effect<A, E, R>) =>
 		Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
@@ -81,7 +79,7 @@ const removeEventSchema = {
 	slug: "remove-entity-from-collection",
 };
 
-const defaultCollectionsRepository = (): CollectionsRepository =>
+const defaultCollectionsRepository = () =>
 	Object.assign(Object.create(null), {
 		_tag: "CollectionsRepository" as const,
 		deleteMembership: () => Effect.die("unused"),
@@ -98,7 +96,7 @@ const defaultCollectionsRepository = (): CollectionsRepository =>
 				: Effect.succeed(removeEventSchema),
 	});
 
-const defaultRelationshipSchemasRepository = (): RelationshipSchemasRepository =>
+const defaultRelationshipSchemasRepository = () =>
 	Object.assign(Object.create(null), {
 		findById: () => Effect.die("unused"),
 		_tag: "RelationshipSchemasRepository" as const,
@@ -106,7 +104,7 @@ const defaultRelationshipSchemasRepository = (): RelationshipSchemasRepository =
 			slug === "member-of" ? Effect.succeed(memberOfSchema) : Effect.succeed(inLibrarySchema),
 	});
 
-const defaultEntitiesRepository = (): EntitiesRepository =>
+const defaultEntitiesRepository = () =>
 	Object.assign(Object.create(null), {
 		_tag: "EntitiesRepository" as const,
 		insertRelationship: () => Effect.void,
@@ -122,7 +120,7 @@ const defaultEntitiesRepository = (): EntitiesRepository =>
 		deleteUserRelationshipsForEntity: () => Effect.die("unused"),
 	});
 
-const defaultEventsRepository = (): EventsRepository =>
+const defaultEventsRepository = () =>
 	Object.assign(Object.create(null), {
 		_tag: "EventsRepository" as const,
 		listForUser: () => Effect.die("unused"),

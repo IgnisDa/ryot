@@ -2,7 +2,7 @@ import { Effect } from "effect";
 
 import { badRequest } from "./errors";
 
-export const trimToNull = (value: string): string | null => {
+export const trimToNull = (value: string) => {
 	const trimmed = value.trim();
 	return trimmed.length > 0 ? trimmed : null;
 };
