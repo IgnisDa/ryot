@@ -433,6 +433,7 @@ pub struct EntityRecentlyConsumedCacheInput {
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MetadataLookupCacheInput {
     pub title: String,
+    pub language: Option<String>,
 }
 
 #[skip_serializing_none]

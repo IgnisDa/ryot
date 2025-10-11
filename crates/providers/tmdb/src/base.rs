@@ -318,6 +318,7 @@ impl TmdbService {
             ss,
             ApplicationCacheKey::TmdbMultiSearch(MetadataLookupCacheInput {
                 title: query.to_owned(),
+                language: Some(self.language.clone()),
             }),
             ApplicationCacheValue::TmdbMultiSearch,
             move || async move {
