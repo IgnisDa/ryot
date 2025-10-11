@@ -1,6 +1,6 @@
-import { cleanupImportFile, readImportFile } from "../../file-helpers";
+import { cleanupImportFile, readImportFile } from "../../files";
 import { updateImportRun } from "../../repository";
-import { processWorkoutImportResult } from "../workout/processor";
+import { processWorkoutImportResult } from "../../workout/processor";
 import { adaptHevyCsv } from "./adapter";
 
 const sanitizeErrorMessage = (error: unknown, fallback: string): string => {

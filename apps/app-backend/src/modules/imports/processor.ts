@@ -2,23 +2,14 @@ import { type Job, WaitingChildrenError } from "bullmq";
 
 import { getTemporaryDirectory } from "~/lib/bun";
 
-import {
-	cleanupImportFile,
-	resolveSafeImportFilePath,
-	validateFileExtension,
-} from "./file-helpers";
+import { cleanupImportFile, resolveSafeImportFilePath, validateFileExtension } from "./files";
 import type { ImportEntityRef, ImportMediaEntityGroup, ImportRunJobData } from "./jobs";
 import { getImportRunById, updateImportRun } from "./repository";
+import { getKnownImportExtensions } from "./source-config";
 import { processHevyImport } from "./sources/hevy/processor";
 import { processOpenScaleImport } from "./sources/open-scale/processor";
 import { processStrongAppImport } from "./sources/strong-app/processor";
 import { processTraktImport } from "./sources/trakt/processor";
-
-const allowedExtensionsBySource: Record<string, string[]> = {
-	hevy: ["csv"],
-	open_scale: ["csv"],
-	strong_app: ["csv"],
-};
 
 const sanitizeErrorMessage = (error: unknown, fallback: string): string => {
 	if (!(error instanceof Error)) {
@@ -119,7 +110,7 @@ export const processImportJob = async (input: {
 
 	const safePath = safePathResult.path;
 
-	const knownImportExtensions = [...new Set(Object.values(allowedExtensionsBySource).flat())];
+	const knownImportExtensions = getKnownImportExtensions();
 	const extResult = validateFileExtension(safePath, knownImportExtensions);
 	if ("error" in extResult) {
 		await cleanupImportFile(safePath);
