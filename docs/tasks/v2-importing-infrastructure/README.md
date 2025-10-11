@@ -449,9 +449,9 @@ sources before porting every adapter.
 
 ## Tasks
 
-**Overall Progress:** 3 of 11 tasks completed
+**Overall Progress:** 4 of 11 tasks completed
 
-**Current Task:** [Task 04](./04-shared-entity-population-refactor.md) (todo)
+**Current Task:** [Task 05](./05-provider-backed-media-import-tracer.md) (todo)
 
 ### Task List
 
@@ -460,7 +460,7 @@ sources before porting every adapter.
 | 01  | [Event Occurrence Semantics](./01-event-occurrence-semantics.md)                   | AFK  | done   |
 | 02  | [Auto-Complete Coverage Cycles](./02-auto-complete-coverage-cycles.md)             | AFK  | done   |
 | 03  | [OpenScale Import Tracer Bullet](./03-openscale-import-tracer-bullet.md)           | AFK  | done   |
-| 04  | [Shared Entity Population Refactor](./04-shared-entity-population-refactor.md)     | AFK  | todo   |
+| 04  | [Shared Entity Population Refactor](./04-shared-entity-population-refactor.md)     | AFK  | done   |
 | 05  | [Provider-Backed Media Import Tracer](./05-provider-backed-media-import-tracer.md) | AFK  | todo   |
 | 06  | [Workout Import Tracer Bullet](./06-workout-import-tracer-bullet.md)               | AFK  | todo   |
 | 07  | [Book CSV Source Adapters](./07-book-csv-source-adapters.md)                       | AFK  | todo   |
