@@ -4,6 +4,7 @@ import {
 	Box,
 	Button,
 	Container,
+	CopyButton,
 	Divider,
 	Drawer,
 	FileInput,
@@ -35,7 +36,12 @@ import {
 	kebabCase,
 	processSubmission,
 } from "@ryot/ts-utils";
-import { IconDownload, IconEye, IconTrash } from "@tabler/icons-react";
+import {
+	IconCopy,
+	IconDownload,
+	IconEye,
+	IconTrash,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { filesize } from "filesize";
 import { DataTable } from "mantine-datatable";
@@ -598,9 +604,36 @@ export default function Page() {
 															{report.details &&
 															report.details.failedItems.length > 0 ? (
 																<Box>
-																	<Title order={4} mb="md">
-																		Failed Items
-																	</Title>
+																	<Group justify="space-between" mb="md">
+																		<Title order={4}>Failed Items</Title>
+																		<CopyButton
+																			value={JSON.stringify(
+																				report.details.failedItems,
+																				null,
+																				2,
+																			)}
+																		>
+																			{(props) => (
+																				<Tooltip
+																					label={
+																						props.copied
+																							? "Copied!"
+																							: "Copy errors"
+																					}
+																				>
+																					<ActionIcon
+																						color={
+																							props.copied ? "teal" : "blue"
+																						}
+																						variant="light"
+																						onClick={props.copy}
+																					>
+																						<IconCopy />
+																					</ActionIcon>
+																				</Tooltip>
+																			)}
+																		</CopyButton>
+																	</Group>
 																	<DataTable
 																		height={500}
 																		withTableBorder
