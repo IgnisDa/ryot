@@ -29,7 +29,7 @@ use zip::ZipArchive;
 
 use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
-const METADATA_LOOKUP_CONCURRENCY: usize = 5;
+const METADATA_LOOKUP_CONCURRENCY: usize = 10;
 
 #[derive(Debug, Deserialize)]
 struct ViewingActivityItem {
