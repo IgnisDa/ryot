@@ -80,12 +80,16 @@ describe("createPresignedUpload", () => {
 	});
 });
 
+const fakeStoreToken = (_userId: string, path: string) =>
+	Promise.resolve(`token-${path.split("/").pop()}`);
+
 describe("createTemporaryUploads", () => {
-	it("writes supported files to the temporary directory", async () => {
+	it("writes supported files to the temporary directory and returns tokens", async () => {
 		let sequence = 0;
 		const writes: Array<{ content: string; path: string }> = [];
 		const result = await createTemporaryUploads(
 			{
+				userId: "user_1",
 				files: [
 					new File(["csv data"], "report.csv", { type: "text/csv" }),
 					new File(["zip data"], "archive.zip", { type: "application/zip" }),
@@ -95,6 +99,7 @@ describe("createTemporaryUploads", () => {
 			{
 				generateObjectId: () => `temp_${++sequence}`,
 				temporaryDirectory: "/tmp/ryot-uploads",
+				storeToken: fakeStoreToken,
 				writeFile: async (path, file) => {
 					writes.push({ content: await file.text(), path });
 				},
@@ -102,11 +107,7 @@ describe("createTemporaryUploads", () => {
 		);
 
 		expect(result).toEqual({
-			data: [
-				"/tmp/ryot-uploads/temp_1-report.csv",
-				"/tmp/ryot-uploads/temp_2-archive.zip",
-				"/tmp/ryot-uploads/temp_3-payload.json",
-			],
+			data: ["token-temp_1-report.csv", "token-temp_2-archive.zip", "token-temp_3-payload.json"],
 		});
 		expect(writes).toEqual([
 			{ content: "csv data", path: "/tmp/ryot-uploads/temp_1-report.csv" },
@@ -117,15 +118,19 @@ describe("createTemporaryUploads", () => {
 
 	it("strips trailing separators from file names", async () => {
 		const result = await createTemporaryUploads(
-			{ files: [new File(["csv data"], "folder/report.csv/", { type: "text/csv" })] },
+			{
+				userId: "user_1",
+				files: [new File(["csv data"], "folder/report.csv/", { type: "text/csv" })],
+			},
 			{
 				generateObjectId: () => "temp_1",
+				storeToken: fakeStoreToken,
 				writeFile: () => Promise.resolve(),
 				temporaryDirectory: "/tmp/ryot-uploads",
 			},
 		);
 
-		expect(result).toEqual({ data: ["/tmp/ryot-uploads/temp_1-report.csv"] });
+		expect(result).toEqual({ data: ["token-temp_1-report.csv"] });
 	});
 
 	it("cleans up successful writes when a later file fails", async () => {
@@ -134,6 +139,7 @@ describe("createTemporaryUploads", () => {
 
 		const result = await createTemporaryUploads(
 			{
+				userId: "user_1",
 				files: [
 					new File(["csv data"], "report.csv", { type: "text/csv" }),
 					new File(["json data"], "payload.json", { type: "application/json" }),
@@ -141,6 +147,7 @@ describe("createTemporaryUploads", () => {
 			},
 			{
 				temporaryDirectory,
+				storeToken: fakeStoreToken,
 				generateObjectId: () => `${runId}_${++sequence}`,
 				writeFile: async (path, file) => {
 					if (file.name === "report.csv") {
@@ -157,12 +164,39 @@ describe("createTemporaryUploads", () => {
 		expect(await Bun.file(`${temporaryDirectory}/${runId}_1-report.csv`).exists()).toBe(false);
 	});
 
+	it("cleans up written files when token storage fails", async () => {
+		const runId = crypto.randomUUID();
+
+		const result = await createTemporaryUploads(
+			{
+				userId: "user_1",
+				files: [new File(["csv data"], "report.csv", { type: "text/csv" })],
+			},
+			{
+				temporaryDirectory,
+				generateObjectId: () => `${runId}_1`,
+				storeToken: () => Promise.reject(new Error("redis down")),
+				writeFile: (path, file) => Bun.write(path, file),
+			},
+		);
+
+		expect(result).toEqual({
+			error: "internal",
+			message: "Could not register temporary upload tokens",
+		});
+		expect(await Bun.file(`${temporaryDirectory}/${runId}_1-report.csv`).exists()).toBe(false);
+	});
+
 	it("rejects unsupported temporary upload file types", async () => {
 		let wrote = false;
 		const result = await createTemporaryUploads(
-			{ files: [new File(["pdf data"], "document.pdf", { type: "application/pdf" })] },
+			{
+				userId: "user_1",
+				files: [new File(["pdf data"], "document.pdf", { type: "application/pdf" })],
+			},
 			{
 				temporaryDirectory: "/tmp/ryot-uploads",
+				storeToken: fakeStoreToken,
 				writeFile: () => {
 					wrote = true;
 					return Promise.resolve();
@@ -178,7 +212,7 @@ describe("createTemporaryUploads", () => {
 	});
 
 	it("rejects empty temporary upload requests", async () => {
-		const result = await createTemporaryUploads({ files: [] }, {});
+		const result = await createTemporaryUploads({ userId: "user_1", files: [] }, {});
 
 		expect(result).toEqual({
 			error: "validation",
