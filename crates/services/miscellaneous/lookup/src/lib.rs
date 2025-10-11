@@ -4,7 +4,7 @@ use anyhow::Result;
 use common_models::MetadataLookupCacheInput;
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, CachedResponse};
 use enum_models::{MediaLot, MediaSource};
-use extractors::{extract_base_title, extract_season_episode, extract_year_from_title};
+use extractors::extract_year_from_title;
 use matching::find_best_match;
 use media_models::{
     MetadataLookupFoundResult, MetadataLookupNotFound, MetadataLookupResponse,
@@ -18,6 +18,8 @@ mod matching;
 mod patterns;
 #[cfg(test)]
 mod tests;
+
+pub use extractors::{extract_base_title, extract_season_episode};
 
 async fn smart_search(
     title: &str,
@@ -49,6 +51,7 @@ pub async fn metadata_lookup(
         ss,
         ApplicationCacheKey::MetadataLookup(MetadataLookupCacheInput {
             title: title.clone(),
+            language: None,
         }),
         ApplicationCacheValue::MetadataLookup,
         move || async move {

@@ -12,14 +12,14 @@ use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use csv::Reader;
 use dependent_models::{CollectionToEntityDetails, ImportCompletedItem, ImportResult};
-use enum_models::ImportSource;
+use enum_models::{ImportSource, MediaLot};
 use futures::stream::{self, StreamExt};
 use indexmap::IndexMap;
 use media_models::{
     DeployNetflixImportInput, ImportOrExportItemRating, ImportOrExportMetadataItemSeen,
     MetadataLookupFoundResult, MetadataLookupResponse,
 };
-use miscellaneous_lookup_service::metadata_lookup;
+use miscellaneous_lookup_service::{extract_base_title, extract_season_episode, metadata_lookup};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::Deserialize;
@@ -30,6 +30,12 @@ use zip::ZipArchive;
 use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 const METADATA_LOOKUP_CONCURRENCY: usize = 10;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TitleContext {
+    Show,
+    Movie,
+}
 
 #[derive(Debug, Deserialize)]
 struct ViewingActivityItem {
@@ -325,6 +331,25 @@ pub async fn import(
         viewing_items.len()
     );
 
+    let mut title_context_map: HashMap<String, TitleContext> = HashMap::new();
+    for item in &viewing_items {
+        let base_title = extract_base_title(&item.title);
+        if !base_title.is_empty() {
+            let context = if extract_season_episode(&item.title).is_some() {
+                TitleContext::Show
+            } else {
+                TitleContext::Movie
+            };
+            title_context_map.insert(base_title, context);
+        }
+    }
+
+    ryot_log!(
+        debug,
+        "Built title context map with {} entries",
+        title_context_map.len()
+    );
+
     ryot_log!(debug, "Processing Ratings.csv");
     let mut reader = Reader::from_path(&ratings_path)?;
 
@@ -471,6 +496,21 @@ pub async fn import(
             .and_then(|cached| cached.clone());
 
         if let Some(lookup) = lookup {
+            if matches!(lookup.data.lot, MediaLot::Show) && lookup.show_information.is_none() {
+                let base_title = extract_base_title(&record.title_name);
+                if let Some(&TitleContext::Movie) = title_context_map.get(&base_title) {
+                    failed_items.push(ImportFailedItem {
+                        lot: None,
+                        identifier: record.title_name.clone(),
+                        step: ImportFailStep::ItemDetailsFromSource,
+                        error: Some(
+                            "Show match rejected: context indicates this is a movie".to_string(),
+                        ),
+                    });
+                    continue;
+                }
+            }
+
             let review_date = parse_netflix_timestamp(&record.event_utc_ts);
             let rating = ImportOrExportItemRating {
                 rating: rating_value,
@@ -501,6 +541,21 @@ pub async fn import(
             .and_then(|cached| cached.clone());
 
         if let Some(lookup) = lookup {
+            if matches!(lookup.data.lot, MediaLot::Show) && lookup.show_information.is_none() {
+                let base_title = extract_base_title(&record.title_name);
+                if let Some(&TitleContext::Movie) = title_context_map.get(&base_title) {
+                    failed_items.push(ImportFailedItem {
+                        lot: None,
+                        identifier: record.title_name.clone(),
+                        step: ImportFailStep::ItemDetailsFromSource,
+                        error: Some(
+                            "Show match rejected: context indicates this is a movie".to_string(),
+                        ),
+                    });
+                    continue;
+                }
+            }
+
             media_map_entry(&mut media_map, &lookup, &record.title_name)
                 .collections
                 .push(CollectionToEntityDetails {
