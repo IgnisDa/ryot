@@ -11,7 +11,7 @@ import {
 	type TProductTypes,
 } from "~/drizzle/schema.server";
 
-import { getAppBackendApiClient } from "./api.server";
+import { provisionUser, resetUserPassword, setUserBan } from "./api.server";
 import { GRACE_PERIOD, getDb, getUnkeyClient } from "./config.server";
 import { calculateRenewalDate, createUnkeyKey, sendEmail } from "./utilities.server";
 
@@ -31,18 +31,15 @@ async function getCloudAuthDetails(
 		return { provider: "google", email };
 	}
 
-	const apiClient = getAppBackendApiClient();
-	const { data, error } = await apiClient.POST("/god-mode/users/{userId}/reset-password", {
-		params: { path: { userId } },
-	});
-	if (error || !data.data.resetUrl) {
+	const { data, error } = await resetUserPassword(userId);
+	if (error || !data.resetUrl) {
 		throw new Error("Failed to generate password reset link");
 	}
 
 	return {
 		username: email,
 		provider: "password",
-		passwordChangeUrl: data.data.resetUrl,
+		passwordChangeUrl: data.resetUrl,
 	};
 }
 
@@ -54,10 +51,7 @@ async function handleCloudPurchase(customer: Customer): Promise<{
 	const { email, oidcIssuerId } = customer;
 
 	if (customer.ryotUserId) {
-		await getAppBackendApiClient().POST("/god-mode/users/{userId}/ban/set", {
-			body: { banned: false },
-			params: { path: { userId: customer.ryotUserId } },
-		});
+		await setUserBan(customer.ryotUserId, false);
 		const auth = await getCloudAuthDetails(customer.ryotUserId, email, oidcIssuerId);
 		return {
 			unkeyKeyId: null,
@@ -66,24 +60,20 @@ async function handleCloudPurchase(customer: Customer): Promise<{
 		};
 	}
 
-	const apiClient = getAppBackendApiClient();
 	const provisionBody = oidcIssuerId
 		? ({ provider: "oidc", email, name: email, oidcIssuerId } as const)
 		: ({ provider: "credential", email, name: email } as const);
-	const { data: provisionData, error: provisionError } = await apiClient.POST(
-		"/god-mode/users/provision",
-		{ body: provisionBody },
-	);
-	if (provisionError || !provisionData.data.userId) {
+	const { data: provisionData, error: provisionError } = await provisionUser(provisionBody);
+	if (provisionError || !provisionData.userId) {
 		throw new Error("Failed to provision user");
 	}
 
-	const auth = await getCloudAuthDetails(provisionData.data.userId, email, oidcIssuerId);
+	const auth = await getCloudAuthDetails(provisionData.userId, email, oidcIssuerId);
 
 	return {
 		unkeyKeyId: null,
 		details: { auth, kind: "cloud" },
-		ryotUserId: provisionData.data.userId,
+		ryotUserId: provisionData.userId,
 	};
 }
 
@@ -205,10 +195,7 @@ export async function provisionRenewal(
 		.where(eq(customerPurchases.id, activePurchase.id));
 
 	if (customer.ryotUserId) {
-		await getAppBackendApiClient().POST("/god-mode/users/{userId}/ban/set", {
-			body: { banned: false },
-			params: { path: { userId: customer.ryotUserId } },
-		});
+		await setUserBan(customer.ryotUserId, false);
 	}
 
 	if (customer.unkeyKeyId) {
@@ -238,10 +225,7 @@ export async function revokePurchase(customer: Customer) {
 		);
 
 	if (customer.ryotUserId) {
-		await getAppBackendApiClient().POST("/god-mode/users/{userId}/ban/set", {
-			body: { banned: true },
-			params: { path: { userId: customer.ryotUserId } },
-		});
+		await setUserBan(customer.ryotUserId, true);
 	}
 
 	if (customer.unkeyKeyId) {

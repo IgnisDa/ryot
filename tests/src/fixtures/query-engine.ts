@@ -21,13 +21,13 @@ import {
 	toRequiredExpression,
 } from "./view-language";
 
-type QueryEngineFieldValue = { kind: string; value: unknown };
-type QueryEngineResponseItem = Readonly<Record<string, QueryEngineFieldValue>>;
-
 export type EntitiesQueryEngineResponse = Extract<
 	ContractSuccess<"queryEngine", "execute">,
 	{ mode: "entities" }
 >;
+
+type QueryEngineResponseItem = EntitiesQueryEngineResponse["data"]["items"][number];
+type QueryEngineFieldValue = QueryEngineResponseItem[string];
 
 type EntitiesQueryEngineRequest = Extract<
 	ContractPayload<"queryEngine", "execute">,
@@ -323,14 +323,15 @@ export async function executeQueryEngineError(client: Client, body: QueryEngineR
 }
 
 export async function createQueryEngineEntity(input: CreateEntityInput) {
+	const imageUrl =
+		input.image === undefined
+			? `https://example.com/${input.name.toLowerCase().replace(/\s+/g, "-")}.png`
+			: input.image;
 	const entity = await createEntity(input.client, {
 		name: input.name,
 		properties: input.properties,
 		entitySchemaId: input.entitySchemaId,
-		image:
-			input.image === undefined
-				? `https://example.com/${input.name.toLowerCase().replace(/\s+/g, "-")}.png`
-				: input.image,
+		image: imageUrl ? { type: "remote", url: imageUrl } : null,
 	});
 
 	return requirePresent(entity.id, `Failed to create entity '${input.name}'`);

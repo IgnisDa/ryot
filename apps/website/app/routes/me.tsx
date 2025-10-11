@@ -11,7 +11,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 
 import { customers, PlanTypes, ProductTypes } from "~/drizzle/schema.server";
-import { getAppBackendApiClient } from "~/lib/api.server";
+import { resetUserPassword } from "~/lib/api.server";
 import {
 	getCancellation,
 	getPurchaseInProgress,
@@ -249,19 +249,15 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			}
 
 			try {
-				const apiClient = getAppBackendApiClient();
-				const { data: resetPasswordResponse, error } = await apiClient.POST(
-					"/god-mode/users/{userId}/reset-password",
-					{ params: { path: { userId: customer.ryotUserId } } },
-				);
+				const { data: resetPasswordResponse, error } = await resetUserPassword(customer.ryotUserId);
 
 				if (error) {
-					return data({ error: error.error.message });
+					return data({ error: error.message });
 				}
 
 				return data({
-					email: resetPasswordResponse.data.email,
-					resetUrl: resetPasswordResponse.data.resetUrl,
+					email: resetPasswordResponse.email,
+					resetUrl: resetPasswordResponse.resetUrl,
 				});
 			} catch {
 				return data({ error: "Failed to reach the backend server" });
