@@ -1,13 +1,13 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
-import { parseCsvText } from "../file-helpers";
+import { parseCsvText } from "../../file-helpers";
 import {
 	determineWorkoutExerciseKind,
 	type WorkoutAdapterFailure,
 	type WorkoutAdapterResult,
 	type WorkoutImportExercise,
 	type WorkoutImportSet,
-} from "./workout";
+} from "../workout/domain";
 
 type StrongAppRow = {
 	date: string;

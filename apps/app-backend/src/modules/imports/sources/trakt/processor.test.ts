@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { createJob } from "~/lib/test-fixtures";
 
-import type { ImportMediaEntityGroup } from "./jobs";
+import type { ImportMediaEntityGroup } from "../../jobs";
 import { processTraktImport, type TraktImportProcessorDeps } from "./processor";
 
 const createGroup = (externalId: string, sourceLabel: string): ImportMediaEntityGroup => ({
