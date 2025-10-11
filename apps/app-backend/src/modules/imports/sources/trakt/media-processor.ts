@@ -79,11 +79,15 @@ export const populateMediaEntityRefs = async (
 		importStep: "populating_entities" as const,
 		adapterFailureCount: input.adapterFailureCount,
 	};
+	const recordEntityProcessed = async (index: number) => {
+		await input.onEntityProcessed?.(input.adapterFailureCount + (index + 1));
+	};
 
 	// oxlint-disable no-await-in-loop
 	for (let i = input.startIndex; i < input.entityRefs.length; i++) {
 		const ref = input.entityRefs[i];
 		if (!ref) {
+			await recordEntityProcessed(i);
 			continue;
 		}
 
@@ -106,6 +110,7 @@ export const populateMediaEntityRefs = async (
 				providerEntityIndex: i + 1,
 				providerFailedIndices: failedIndices,
 			});
+			await recordEntityProcessed(i);
 			continue;
 		}
 
@@ -128,6 +133,7 @@ export const populateMediaEntityRefs = async (
 				providerEntityIndex: i + 1,
 				providerFailedIndices: failedIndices,
 			});
+			await recordEntityProcessed(i);
 			continue;
 		}
 
@@ -200,9 +206,7 @@ export const populateMediaEntityRefs = async (
 			providerEntityIds: entityIds,
 			providerFailedIndices: failedIndices,
 		});
-		if (input.onEntityProcessed) {
-			await input.onEntityProcessed(input.adapterFailureCount + (i + 1));
-		}
+		await recordEntityProcessed(i);
 	}
 	// oxlint-enable no-await-in-loop
 
