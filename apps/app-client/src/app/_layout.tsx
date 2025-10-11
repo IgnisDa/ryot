@@ -7,7 +7,7 @@ import {
 	SpaceGrotesk_500Medium,
 	SpaceGrotesk_600SemiBold,
 } from "@expo-google-fonts/space-grotesk";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import * as DevClient from "expo-dev-client";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -20,8 +20,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { GluestackUIProvider } from "@/components/ui/gluestack-ui-provider";
 import { clearAppStorage } from "@/lib/atoms";
-
-export const queryClient = new QueryClient();
+import { queryClient, useAppFocus } from "@/lib/query";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -43,6 +42,8 @@ export default function RootLayout() {
 		SpaceGrotesk_400Regular,
 		SpaceGrotesk_600SemiBold,
 	});
+
+	useAppFocus();
 
 	useEffect(() => {
 		if (fontsLoaded) {
