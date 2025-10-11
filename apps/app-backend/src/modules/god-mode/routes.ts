@@ -6,7 +6,7 @@ import { dieOnDbError } from "~/lib/errors";
 
 import { GodModeService } from "./service";
 
-export const GodModeRoutesLive = HttpApiBuilder.group(AppContract, "god-mode", (handlers) =>
+export const GodModeRoutesLive = HttpApiBuilder.group(AppContract, "godMode", (handlers) =>
 	handlers
 		.handle("listUsers", ({ urlParams }) =>
 			Effect.gen(function* () {

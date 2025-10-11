@@ -84,7 +84,7 @@ async function createOidcUser(name: string) {
 describe("God-mode admin token enforcement", () => {
 	it("rejects user listing without auth header", async () => {
 		const client = getBackendClient();
-		const { response } = await client["god-mode"].listUsers({
+		const { response } = await client.godMode.listUsers({
 			params: { query: godModeListQuery() },
 		});
 		expect(response.status).toBe(401);
@@ -92,7 +92,7 @@ describe("God-mode admin token enforcement", () => {
 
 	it("rejects user listing with wrong admin token", async () => {
 		const client = getBackendClient();
-		const { response } = await client["god-mode"].listUsers({
+		const { response } = await client.godMode.listUsers({
 			params: { query: godModeListQuery() },
 			headers: adminAccessTokenHeaders(WRONG_TOKEN),
 		});
@@ -101,7 +101,7 @@ describe("God-mode admin token enforcement", () => {
 
 	it("rejects reset generation without auth header", async () => {
 		const client = getBackendClient();
-		const { response } = await client["god-mode"].resetUserPassword({
+		const { response } = await client.godMode.resetUserPassword({
 			params: { path: { userId: "any-id" } },
 		});
 		expect(response.status).toBe(401);
@@ -109,7 +109,7 @@ describe("God-mode admin token enforcement", () => {
 
 	it("rejects reset generation with wrong admin token", async () => {
 		const client = getBackendClient();
-		const { response } = await client["god-mode"].resetUserPassword({
+		const { response } = await client.godMode.resetUserPassword({
 			params: { path: { userId: "any-id" } },
 			headers: adminAccessTokenHeaders(WRONG_TOKEN),
 		});
@@ -118,7 +118,7 @@ describe("God-mode admin token enforcement", () => {
 
 	it("rejects ban set without auth header", async () => {
 		const client = getBackendClient();
-		const { response } = await client["god-mode"].setUserBan({
+		const { response } = await client.godMode.setUserBan({
 			body: { banned: true },
 			params: { path: { userId: "any-id" } },
 		});
@@ -127,7 +127,7 @@ describe("God-mode admin token enforcement", () => {
 
 	it("rejects ban set with wrong admin token", async () => {
 		const client = getBackendClient();
-		const { response } = await client["god-mode"].setUserBan({
+		const { response } = await client.godMode.setUserBan({
 			body: { banned: true },
 			params: { path: { userId: "any-id" } },
 			headers: adminAccessTokenHeaders(WRONG_TOKEN),
@@ -141,7 +141,7 @@ describe("User listing with correct admin token", () => {
 		const client = getBackendClient();
 		const { email } = await createNoAccountUser("NoneUser");
 
-		const { data, response } = await client["god-mode"].listUsers({
+		const { data, response } = await client.godMode.listUsers({
 			params: { query: godModeListQuery(email) },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
@@ -155,7 +155,7 @@ describe("User listing with correct admin token", () => {
 		const client = getBackendClient();
 		const { email } = await createOidcUser("ListOidcUser");
 
-		const { data, response } = await client["god-mode"].listUsers({
+		const { data, response } = await client.godMode.listUsers({
 			params: { query: godModeListQuery(email) },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
@@ -167,7 +167,7 @@ describe("User listing with correct admin token", () => {
 		const client = getBackendClient();
 		const { email } = await createTestUser();
 
-		const { data, response } = await client["god-mode"].listUsers({
+		const { data, response } = await client.godMode.listUsers({
 			params: { query: godModeListQuery(email) },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
@@ -196,7 +196,7 @@ describe("User listing with correct admin token", () => {
 			[randomUUID(), `oidc-sub-${dayjs().valueOf()}`, userId],
 		);
 
-		const { data, response } = await client["god-mode"].listUsers({
+		const { data, response } = await client.godMode.listUsers({
 			params: { query: godModeListQuery(email) },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
@@ -210,13 +210,13 @@ describe("User provisioning", () => {
 		const client = getBackendClient();
 		const email = `provision-cred-${dayjs().valueOf()}@example.com`;
 
-		const { response } = await client["god-mode"].provisionUser({
+		const { response } = await client.godMode.provisionUser({
 			body: { provider: "credential", email, name: "Provisioned Credential" },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
 		expect(response.status).toBe(201);
 
-		const { data: listData } = await client["god-mode"].listUsers({
+		const { data: listData } = await client.godMode.listUsers({
 			params: { query: godModeListQuery(email) },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
@@ -227,7 +227,7 @@ describe("User provisioning", () => {
 		const client = getBackendClient();
 		const email = `provision-oidc-${dayjs().valueOf()}@example.com`;
 
-		const { response } = await client["god-mode"].provisionUser({
+		const { response } = await client.godMode.provisionUser({
 			body: {
 				email,
 				provider: "oidc",
@@ -238,7 +238,7 @@ describe("User provisioning", () => {
 		});
 		expect(response.status).toBe(201);
 
-		const { data: listData } = await client["god-mode"].listUsers({
+		const { data: listData } = await client.godMode.listUsers({
 			params: { query: godModeListQuery(email) },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
@@ -249,7 +249,7 @@ describe("User provisioning", () => {
 		const client = getBackendClient();
 		const { email } = await createTestUser();
 
-		const { response } = await client["god-mode"].provisionUser({
+		const { response } = await client.godMode.provisionUser({
 			body: { provider: "credential", email, name: "Duplicate" },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
@@ -276,7 +276,7 @@ describe("God-mode ban set", () => {
 		});
 		expect(apiKeyBefore.status).toBe(200);
 
-		const { data: banData, response: banResponse } = await client["god-mode"].setUserBan({
+		const { data: banData, response: banResponse } = await client.godMode.setUserBan({
 			body: { banned: true },
 			params: { path: { userId } },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
@@ -284,7 +284,7 @@ describe("God-mode ban set", () => {
 		expect(banResponse.status).toBe(200);
 		expect(typeof banData?.bannedAt).toBe("string");
 
-		const { data: listData, response: listResponse } = await client["god-mode"].listUsers({
+		const { data: listData, response: listResponse } = await client.godMode.listUsers({
 			params: { query: godModeListQuery(email) },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
@@ -306,7 +306,7 @@ describe("God-mode ban set", () => {
 		const blockedSignIn = await signInWithPassword(email, password);
 		expect(blockedSignIn.status).toBe(403);
 
-		const { data: enableData, response: enableResponse } = await client["god-mode"].setUserBan({
+		const { data: enableData, response: enableResponse } = await client.godMode.setUserBan({
 			body: { banned: false },
 			params: { path: { userId } },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
@@ -326,12 +326,10 @@ describe("Reset link generation and completion for credential user", () => {
 
 		const userId = await getUserIdByEmail(email);
 
-		const { data: resetData, response: resetResponse } = await client["god-mode"].resetUserPassword(
-			{
-				params: { path: { userId } },
-				headers: adminAccessTokenHeaders(ADMIN_TOKEN),
-			},
-		);
+		const { data: resetData, response: resetResponse } = await client.godMode.resetUserPassword({
+			params: { path: { userId } },
+			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
+		});
 		expect(resetResponse.status).toBe(200);
 		expect(resetData).toBeDefined();
 		expect(resetData?.email).toBe(email);
@@ -380,12 +378,10 @@ describe("Reset link generation and completion for credential user", () => {
 
 		const userId = await getUserIdByEmail(email);
 
-		const { data: resetData, response: resetResponse } = await client["god-mode"].resetUserPassword(
-			{
-				params: { path: { userId } },
-				headers: adminAccessTokenHeaders(ADMIN_TOKEN),
-			},
-		);
+		const { data: resetData, response: resetResponse } = await client.godMode.resetUserPassword({
+			params: { path: { userId } },
+			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
+		});
 		expect(resetResponse.status).toBe(200);
 		const token = new URL(resetData?.resetUrl ?? "").searchParams.get("token");
 		expect(typeof token).toBe("string");
@@ -426,12 +422,10 @@ describe("Reset link generation and completion for no-account user", () => {
 		const client = getBackendClient();
 		const { email, userId } = await createNoAccountUser("NoneReset");
 
-		const { data: resetData, response: resetResponse } = await client["god-mode"].resetUserPassword(
-			{
-				params: { path: { userId } },
-				headers: adminAccessTokenHeaders(ADMIN_TOKEN),
-			},
-		);
+		const { data: resetData, response: resetResponse } = await client.godMode.resetUserPassword({
+			params: { path: { userId } },
+			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
+		});
 		expect(resetResponse.status).toBe(200);
 		expect(resetData?.email).toBe(email);
 		const token = new URL(resetData?.resetUrl ?? "").searchParams.get("token");
@@ -463,7 +457,7 @@ describe("OIDC user restrictions", () => {
 		const client = getBackendClient();
 		const { userId } = await createOidcUser("BlockedOidc");
 
-		const { error, response } = await client["god-mode"].resetUserPassword({
+		const { error, response } = await client.godMode.resetUserPassword({
 			params: { path: { userId } },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
@@ -485,7 +479,7 @@ describe("Mixed auth user restrictions", () => {
 			[randomUUID(), `oidc-sub-${dayjs().valueOf()}`, userId],
 		);
 
-		const { error, response } = await client["god-mode"].resetUserPassword({
+		const { error, response } = await client.godMode.resetUserPassword({
 			params: { path: { userId } },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});

@@ -2,7 +2,7 @@ import { requirePresent, requireResponseData } from "../test-support/assertions"
 import type { Client } from "./auth";
 import type { ClientBody } from "./backend-client";
 
-type CreateEventSchemaBody = ClientBody<"event-schemas", "create">;
+type CreateEventSchemaBody = ClientBody<"eventSchemas", "create">;
 
 export function requireEventSchemaBySlug<T extends { slug: string }>(
 	schemas: readonly T[],
@@ -17,7 +17,7 @@ export async function createEventSchema(
 	cookies: string,
 	body: CreateEventSchemaBody,
 ) {
-	const { data, response } = await client["event-schemas"].create({
+	const { data, response } = await client.eventSchemas.create({
 		body,
 		headers: { Cookie: cookies },
 	});
@@ -31,7 +31,7 @@ export async function createEventSchema(
 }
 
 export async function listEventSchemas(client: Client, cookies: string, entitySchemaId: string) {
-	const { data, response } = await client["event-schemas"].list({
+	const { data, response } = await client.eventSchemas.list({
 		headers: { Cookie: cookies },
 		params: { query: { entitySchemaId } },
 	});

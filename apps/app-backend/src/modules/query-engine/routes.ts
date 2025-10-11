@@ -6,7 +6,7 @@ import { AppContract } from "~/lib/contract";
 
 import { QueryEngineService } from "./service";
 
-export const QueryEngineRoutesLive = HttpApiBuilder.group(AppContract, "query-engine", (handlers) =>
+export const QueryEngineRoutesLive = HttpApiBuilder.group(AppContract, "queryEngine", (handlers) =>
 	handlers.handle("execute", ({ payload }) =>
 		Effect.gen(function* () {
 			const user = yield* CurrentUser;

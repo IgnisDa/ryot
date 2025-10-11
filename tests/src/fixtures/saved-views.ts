@@ -35,12 +35,12 @@ export type DisplayConfigurationInput = {
 	entityIdProperty?: ExpressionInput | null;
 };
 
-type CreateSavedViewBody = ClientBody<"saved-views", "create">;
-type UpdateSavedViewBody = ClientBody<"saved-views", "update">;
-type ReorderSavedViewsBody = ClientBody<"saved-views", "reorder">;
+type CreateSavedViewBody = ClientBody<"savedViews", "create">;
+type UpdateSavedViewBody = ClientBody<"savedViews", "update">;
+type ReorderSavedViewsBody = ClientBody<"savedViews", "reorder">;
 type QueryDefinition = SavedViewQueryDefinition;
 
-type SavedViewRecord = ClientSuccess<"saved-views", "get">;
+type SavedViewRecord = ClientSuccess<"savedViews", "get">;
 
 type CreateSavedViewInput = Partial<
 	Omit<CreateSavedViewBody, "displayConfiguration" | "queryDefinition">
@@ -230,7 +230,7 @@ export async function createSavedView(
 	cookies: string,
 	overrides: CreateSavedViewInput = {},
 ): Promise<SavedViewRecord> {
-	const { data, response } = await client["saved-views"].create({
+	const { data, response } = await client.savedViews.create({
 		headers: { Cookie: cookies },
 		body: buildSavedViewBody(overrides),
 	});
@@ -243,7 +243,7 @@ export async function listSavedViews(
 	cookies: string,
 	options: { trackerId?: string; includeDisabled?: boolean } = {},
 ): Promise<readonly SavedViewRecord[]> {
-	const { data, response } = await client["saved-views"].list({
+	const { data, response } = await client.savedViews.list({
 		headers: { Cookie: cookies },
 		params: {
 			query: {
@@ -268,7 +268,7 @@ export async function getSavedView(
 	cookies: string,
 	viewSlug: string,
 ): Promise<SavedViewRecord> {
-	const { data, response } = await client["saved-views"].get({
+	const { data, response } = await client.savedViews.get({
 		headers: { Cookie: cookies },
 		params: { path: { viewSlug } },
 	});
@@ -282,7 +282,7 @@ export async function updateSavedView(
 	viewSlug: string,
 	overrides: UpdateSavedViewInput = {},
 ): Promise<SavedViewRecord> {
-	const { data, response } = await client["saved-views"].update({
+	const { data, response } = await client.savedViews.update({
 		headers: { Cookie: cookies },
 		params: { path: { viewSlug } },
 		body: buildUpdatedSavedViewBody(overrides),
@@ -296,7 +296,7 @@ export async function cloneSavedView(
 	cookies: string,
 	viewSlug: string,
 ): Promise<SavedViewRecord> {
-	const { data, response } = await client["saved-views"].clone({
+	const { data, response } = await client.savedViews.clone({
 		headers: { Cookie: cookies },
 		params: { path: { viewSlug } },
 	});
@@ -309,7 +309,7 @@ export async function deleteSavedView(
 	cookies: string,
 	viewSlug: string,
 ): Promise<SavedViewRecord> {
-	const { data, response } = await client["saved-views"].delete({
+	const { data, response } = await client.savedViews.delete({
 		headers: { Cookie: cookies },
 		params: { path: { viewSlug } },
 	});
@@ -322,7 +322,7 @@ export async function reorderSavedViews(
 	cookies: string,
 	body: ReorderSavedViewsBody,
 ) {
-	const { data, response } = await client["saved-views"].reorder({
+	const { data, response } = await client.savedViews.reorder({
 		body,
 		headers: { Cookie: cookies },
 	});

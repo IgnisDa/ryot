@@ -46,7 +46,7 @@ import { assertPresent } from "../test-support/assertions";
 import { registerQueryEnginePresentationAndErrorTests } from "../test-support/query-engine-suite";
 
 type QueryEngineItems = Extract<
-	ClientSuccess<"query-engine", "execute">,
+	ClientSuccess<"queryEngine", "execute">,
 	{ mode: "entities" }
 >["data"]["items"];
 
