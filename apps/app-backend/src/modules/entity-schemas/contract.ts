@@ -25,13 +25,13 @@ const jobIdParam = HttpApiSchema.param("jobId", Schema.String);
 export const EntitySchemasGroup = HttpApiGroup.make("entitySchemas")
 	.addError(Unauthorized, { status: 401 })
 	.addError(RateLimited, { status: 429 })
+	.middleware(AuthMiddleware)
 	.add(
 		HttpApiEndpoint.post("list", "/entity-schemas/list")
 			.setPayload(ListEntitySchemasBody)
 			.addSuccess(Schema.Array(ListedEntitySchema))
 			.addError(NotFound, { status: 404 })
-			.addError(BadRequest, { status: 400 })
-			.middleware(AuthMiddleware),
+			.addError(BadRequest, { status: 400 }),
 	)
 	.add(
 		HttpApiEndpoint.post("create", "/entity-schemas")
@@ -39,26 +39,22 @@ export const EntitySchemasGroup = HttpApiGroup.make("entitySchemas")
 			.addSuccess(ListedEntitySchema, { status: 201 })
 			.addError(NotFound, { status: 404 })
 			.addError(BadRequest, { status: 400 })
-			.addError(Conflict, { status: 409 })
-			.middleware(AuthMiddleware),
+			.addError(Conflict, { status: 409 }),
 	)
 	.add(
 		HttpApiEndpoint.get("get")`/entity-schemas/${entitySchemaIdParam}`
 			.addSuccess(ListedEntitySchema)
-			.addError(NotFound, { status: 404 })
-			.middleware(AuthMiddleware),
+			.addError(NotFound, { status: 404 }),
 	)
 	.add(
 		HttpApiEndpoint.post("search", "/entity-schemas/search")
 			.setPayload(SearchEntitySchemasBody)
 			.addSuccess(Schema.Struct({ jobId: Schema.String }))
-			.addError(NotFound, { status: 404 })
-			.middleware(AuthMiddleware),
+			.addError(NotFound, { status: 404 }),
 	)
 	.add(
 		HttpApiEndpoint.get("getSearchResult")`/entity-schemas/search/${jobIdParam}`
 			.addSuccess(SandboxRunResult)
-			.addError(NotFound, { status: 404 })
-			.middleware(AuthMiddleware),
+			.addError(NotFound, { status: 404 }),
 	)
 	.addError(NotImplemented, { status: 501 });

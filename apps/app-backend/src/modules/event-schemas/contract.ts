@@ -9,13 +9,13 @@ import { CreateEventSchemaBody, ListedEventSchema } from "./schemas";
 export const EventSchemasGroup = HttpApiGroup.make("eventSchemas")
 	.addError(Unauthorized, { status: 401 })
 	.addError(RateLimited, { status: 429 })
+	.middleware(AuthMiddleware)
 	.add(
 		HttpApiEndpoint.get("list", "/event-schemas")
 			.setUrlParams(Schema.Struct({ entitySchemaId: Schema.String }))
 			.addSuccess(Schema.Array(ListedEventSchema))
 			.addError(BadRequest, { status: 400 })
-			.addError(NotFound, { status: 404 })
-			.middleware(AuthMiddleware),
+			.addError(NotFound, { status: 404 }),
 	)
 	.add(
 		HttpApiEndpoint.post("create", "/event-schemas")
@@ -23,6 +23,5 @@ export const EventSchemasGroup = HttpApiGroup.make("eventSchemas")
 			.addSuccess(ListedEventSchema, { status: 201 })
 			.addError(BadRequest, { status: 400 })
 			.addError(Conflict, { status: 409 })
-			.addError(NotFound, { status: 404 })
-			.middleware(AuthMiddleware),
+			.addError(NotFound, { status: 404 }),
 	);
