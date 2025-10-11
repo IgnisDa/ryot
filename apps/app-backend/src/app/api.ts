@@ -38,7 +38,7 @@ const meRoute = createAuthRoute(
 	}),
 );
 
-const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
+export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.route("/health", healthApi)
 	.openapi(meRoute, async (c) => {
 		const user = c.get("user");
