@@ -1,11 +1,11 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { DateTime, Effect, Either, Schema } from "effect";
+import { Effect, Either, Schema } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth";
 import { DbRunner } from "#lib/db";
 import { type BadRequest, type DbError, type NotFound, badRequest, notFound } from "#lib/errors";
-import { ImportsRepository } from "#modules/imports/repository";
 import type { ListedImportRun } from "#modules/imports/schemas";
+import { ImportsService } from "#modules/imports/service";
 
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
 import type {
@@ -90,29 +90,11 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 		effect: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
+			const importsService = yield* ImportsService;
 			const repository = yield* IntegrationsRepository;
-			const importsRepository = yield* ImportsRepository;
 
 			const failCreatedRun = (runId: string, message: string) =>
-				Effect.gen(function* () {
-					const finishedAt = yield* DateTime.nowAsDate;
-					yield* runWithDb(
-						importsRepository.updateRun({
-							runId,
-							finishedAt,
-							status: "failed",
-							errorSummary: message,
-						}),
-					);
-					yield* runWithDb(
-						importsRepository.createFailure({
-							runId,
-							message,
-							itemIndex: 0,
-							stage: "source_fetch",
-						}),
-					);
-				});
+				importsService.failRunForIntegration(runId, message);
 
 			const requireIntegration = (userId: string, integrationId: string) =>
 				Effect.gen(function* () {
@@ -125,14 +107,12 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 
 			const enqueueIntegrationRun = (integration: IntegrationRecord, payload?: unknown) =>
 				Effect.gen(function* () {
-					const run = yield* runWithDb(
-						importsRepository.createRun({
-							userId: integration.userId,
-							source: integration.provider,
-							integrationId: integration.id,
-							inputSummary: buildIntegrationInputSummary(integration),
-						}),
-					);
+					const run = yield* importsService.createRunForIntegration({
+						userId: integration.userId,
+						source: integration.provider,
+						integrationId: integration.id,
+						inputSummary: buildIntegrationInputSummary(integration),
+					});
 
 					const started = yield* engine
 						.execute(ProcessIntegrationRunWorkflow, {
@@ -245,9 +225,10 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				listRuns: (user, integrationId) =>
 					Effect.gen(function* () {
 						yield* requireIntegration(user.id, integrationId);
-						return yield* runWithDb(
-							importsRepository.listRunsByIntegrationId({ userId: user.id, integrationId }),
-						);
+						return yield* importsService.listRunsByIntegrationId({
+							integrationId,
+							userId: user.id,
+						});
 					}),
 				handleWebhook: ({ integrationId, rawBody, contentType }) =>
 					Effect.gen(function* () {
@@ -259,14 +240,12 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 							return yield* badRequest("Integration is not a sink integration");
 						}
 
-						const run = yield* runWithDb(
-							importsRepository.createRun({
-								userId: integration.userId,
-								source: integration.provider,
-								integrationId: integration.id,
-								inputSummary: buildIntegrationInputSummary(integration),
-							}),
-						);
+						const run = yield* importsService.createRunForIntegration({
+							userId: integration.userId,
+							source: integration.provider,
+							integrationId: integration.id,
+							inputSummary: buildIntegrationInputSummary(integration),
+						});
 
 						if (integration.isDisabled) {
 							yield* failCreatedRun(run.id, "Integration is disabled");
@@ -317,9 +296,9 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 										return;
 									}
 
-									const hasActiveRun = yield* runWithDb(
-										importsRepository.hasActiveRunForIntegration({ integrationId: integration.id }),
-									);
+									const hasActiveRun = yield* importsService.hasActiveRunForIntegration({
+										integrationId: integration.id,
+									});
 									if (hasActiveRun) {
 										return;
 									}
