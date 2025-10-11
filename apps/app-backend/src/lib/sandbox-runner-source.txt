@@ -1,4 +1,3 @@
-export const sandboxRunnerSource = `
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 let buffer = "";
@@ -18,7 +17,7 @@ async function readLine() {
     const count = await Deno.stdin.read(chunk);
     if (count === null) Deno.exit(0);
     buffer += decoder.decode(chunk.subarray(0, count));
-    const newlineIdx = buffer.indexOf("\\n");
+    const newlineIdx = buffer.indexOf("\n");
     if (newlineIdx !== -1) {
       const line = buffer.slice(0, newlineIdx);
       buffer = buffer.slice(newlineIdx + 1);
@@ -45,7 +44,7 @@ const createApiStub = (fnName, apiBase, executionId, token) => async (...args) =
 };
 
 const writeResult = async (payload) => {
-  await Deno.stdout.write(encoder.encode(JSON.stringify(payload) + "\\n"));
+  await Deno.stdout.write(encoder.encode(JSON.stringify(payload) + "\n"));
 };
 
 const createRequestConsole = (logs) => ({
@@ -94,9 +93,9 @@ while (true) {
       "const driver = arguments[0]; " +
       "return (async function sandboxMain({ " +
       stubNames.join(", ") +
-      " }, context) {\\n" +
+      " }, context) {\n" +
       payload.code +
-      "\\n})";
+      "\n})";
 
     const factory = new Function(wrapperCode);
     const userFunction = factory(driver);
@@ -145,4 +144,3 @@ while (true) {
     console.error = previousConsole.error;
   }
 }
-`.trimStart();
