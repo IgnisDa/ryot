@@ -235,7 +235,7 @@ export const adaptMediaTrackerData = (input: MediaTrackerAdapterInput) =>
 		const baseUrl = input.apiUrl.endsWith("/api") ? input.apiUrl : `${input.apiUrl}/api`;
 
 		const fetchJson = (path: string, query?: Record<string, string | number>) =>
-			requestSourceJson<unknown>({
+			requestSourceJson({
 				path,
 				query,
 				headers,

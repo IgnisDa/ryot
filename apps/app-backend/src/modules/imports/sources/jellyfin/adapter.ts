@@ -55,9 +55,15 @@ const JellyfinAuthResponse = Schema.Struct({
 	User: Schema.Struct({ Id: Schema.String }),
 });
 
+const JellyfinAuthRequest = Schema.Struct({
+	Pw: Schema.String,
+	Username: Schema.String,
+});
+
 const decodeAuth = Schema.decodeUnknown(JellyfinAuthResponse);
 const decodeItems = Schema.decodeUnknown(JellyfinItemsResponse);
 const decodeItem = Schema.decodeUnknown(JellyfinItem);
+const encodeAuthRequest = Schema.encodeSync(Schema.parseJson(JellyfinAuthRequest));
 
 type JellyfinAdapterInput = {
 	apiUrl: string;
@@ -80,22 +86,21 @@ export const adaptJellyfinData = (input: JellyfinAdapterInput) =>
 		const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
 		const host = new URL(input.apiUrl).host;
 
-		const authResponse = yield* requestSourceJson<unknown>({
+		const authResponse = yield* requestSourceJson({
 			method: "POST",
 			baseUrl: input.apiUrl,
 			sourceName: "Jellyfin",
 			path: "Users/AuthenticateByName",
 			headers: createJellyfinAuthHeaders(),
 			allowInsecureConnections: input.allowInsecureConnections,
-			// @effect-diagnostics-next-line effect/preferSchemaOverJson:off
-			body: JSON.stringify({ Pw: input.password ?? "", Username: input.username }),
+			body: encodeAuthRequest({ Pw: input.password ?? "", Username: input.username }),
 		}).pipe(Effect.flatMap(decodeAuth));
 
 		const accessToken = authResponse.AccessToken;
 		const userId = authResponse.User.Id;
 		const headers = createJellyfinAuthHeaders(accessToken);
 
-		const libraryResponse = yield* requestSourceJson<unknown>({
+		const libraryResponse = yield* requestSourceJson({
 			headers,
 			baseUrl: input.apiUrl,
 			sourceName: "Jellyfin",
@@ -111,7 +116,7 @@ export const adaptJellyfinData = (input: JellyfinAdapterInput) =>
 				if (cached) {
 					return cached;
 				}
-				const details = yield* requestSourceJson<unknown>({
+				const details = yield* requestSourceJson({
 					headers,
 					baseUrl: input.apiUrl,
 					sourceName: "Jellyfin",
