@@ -3,10 +3,7 @@ import { createEntity } from "./entities";
 import { findBuiltinSchemaBySlug } from "./entity-schemas";
 
 export async function createMeasurementEntityFixture(client: Client) {
-	const { schema: measurementSchema } = await findBuiltinSchemaBySlug(
-		client,
-		"measurement",
-	);
+	const { schema: measurementSchema } = await findBuiltinSchemaBySlug(client, "measurement");
 
 	const measurement = await createEntity(client, {
 		image: null,
