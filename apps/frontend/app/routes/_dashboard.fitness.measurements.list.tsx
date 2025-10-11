@@ -265,30 +265,6 @@ const SyncedMeasurementChart = (props: SyncedMeasurementChartProps) => {
 		[props.formattedData, props.stat.value],
 	);
 
-	const lowPassValue = useMemo(() => {
-		const entries = props.formattedData.reduce<
-			Array<{ value: number; timestamp: number }>
-		>((acc, item) => {
-			const parsedValue = Number.parseFloat(item[props.stat.value]);
-			if (!Number.isFinite(parsedValue)) return acc;
-			const rawTimestamp = item.timestamp;
-			if (!rawTimestamp) return acc;
-			const parsedTimestamp = dayjsLib(rawTimestamp);
-			if (!parsedTimestamp.isValid()) return acc;
-			acc.push({ value: parsedValue, timestamp: parsedTimestamp.valueOf() });
-			return acc;
-		}, []);
-
-		if (entries.length === 0) return null;
-
-		entries.sort((a, b) => a.timestamp - b.timestamp);
-		const smoothingFactor = 0.3;
-		return entries.reduce<number | null>((acc, entry, index) => {
-			if (index === 0 || acc === null) return entry.value;
-			return smoothingFactor * entry.value + (1 - smoothingFactor) * acc;
-		}, null);
-	}, [props.formattedData, props.stat.value]);
-
 	return (
 		<Stack gap="xs">
 			<Text fw="bold" ta="center">
@@ -309,18 +285,6 @@ const SyncedMeasurementChart = (props: SyncedMeasurementChartProps) => {
 							color: generateColor(getStringAsciiValue(props.stat.value)),
 						},
 					]}
-					referenceLines={
-						lowPassValue === null
-							? undefined
-							: [
-									{
-										color: "gray.5",
-										y: lowPassValue,
-										strokeDasharray: "4 4",
-										label: "Low-pass trend",
-									},
-								]
-					}
 				/>
 			</Box>
 		</Stack>
