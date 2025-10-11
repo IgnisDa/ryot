@@ -1,11 +1,6 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
-import type { ImportEntityRef, ImportMediaEvent, ImportMediaEntityGroup } from "../../jobs";
-
-export type ResolveBookEntityRef = (input: {
-	isbn: string;
-	sourceLabel: string;
-}) => Promise<ImportEntityRef | null>;
+import type { ImportMediaEvent, ImportMediaEntityGroup } from "../../jobs";
 
 const getOccurredAtValue = (value: string): number => {
 	const occurredAt = dayjs(value).valueOf();
