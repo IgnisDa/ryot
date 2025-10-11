@@ -168,15 +168,13 @@ fn extract_zip(zip_path: &str) -> Result<TempDir> {
     Ok(temp_dir)
 }
 
-fn find_content_interaction_dir(root: &Path) -> Option<PathBuf> {
+fn find_content_interaction_dir(root: &Path) -> Option<(PathBuf, PathBuf, PathBuf)> {
     let mut stack = vec![root.to_path_buf()];
+    let mut my_list: Option<PathBuf> = None;
+    let mut ratings: Option<PathBuf> = None;
+    let mut viewing_activity: Option<PathBuf> = None;
 
     while let Some(dir) = stack.pop() {
-        let candidate = dir.join("CONTENT_INTERACTION");
-        if candidate.is_dir() {
-            return Some(candidate);
-        }
-
         let entries = match fs::read_dir(&dir) {
             Ok(entries) => entries,
             Err(_) => continue,
@@ -184,8 +182,37 @@ fn find_content_interaction_dir(root: &Path) -> Option<PathBuf> {
 
         for entry in entries.flatten() {
             let path = entry.path();
+
             if path.is_dir() {
                 stack.push(path);
+                continue;
+            }
+
+            let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
+                continue;
+            };
+
+            match file_name {
+                "MyList.csv" if my_list.is_none() => {
+                    my_list = Some(path.clone());
+                }
+                "Ratings.csv" if ratings.is_none() => {
+                    ratings = Some(path.clone());
+                }
+                "ViewingActivity.csv" if viewing_activity.is_none() => {
+                    viewing_activity = Some(path.clone());
+                }
+                _ => {}
+            }
+
+            if let (Some(my_list_path), Some(ratings_path), Some(viewing_activity_path)) =
+                (&my_list, &ratings, &viewing_activity)
+            {
+                return Some((
+                    my_list_path.clone(),
+                    ratings_path.clone(),
+                    viewing_activity_path.clone(),
+                ));
             }
         }
     }
@@ -265,13 +292,11 @@ pub async fn import(
     let extracted_path = _extracted_dir.path();
     ryot_log!(debug, "Extracted ZIP to: {:?}", extracted_path);
 
-    let Some(content_dir) = find_content_interaction_dir(extracted_path) else {
-        bail!("CONTENT_INTERACTION folder not found in Netflix export");
+    let Some((my_list_path, ratings_path, viewing_activity_path)) =
+        find_content_interaction_dir(extracted_path)
+    else {
+        bail!("Required Netflix CSV files not found in export");
     };
-
-    let my_list_path = content_dir.join("MyList.csv");
-    let ratings_path = content_dir.join("Ratings.csv");
-    let viewing_activity_path = content_dir.join("ViewingActivity.csv");
 
     let mut failed_items = vec![];
     let mut rating_items: Vec<RatingItem> = vec![];
