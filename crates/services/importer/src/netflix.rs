@@ -73,6 +73,14 @@ struct MyListItem {
     profile_name: String,
 }
 
+fn should_skip_title(title: &str) -> bool {
+    title.contains("_hook_")
+        || title.contains("Clip:")
+        || title.contains("_CLIP_")
+        || title.contains("Trailer:")
+        || title.contains("_backfill")
+}
+
 fn should_skip_entry(item: &ViewingActivityItem) -> bool {
     if !item.supplemental_video_type.is_empty() {
         return true;
@@ -83,11 +91,7 @@ fn should_skip_entry(item: &ViewingActivityItem) -> bool {
     if item.attributes.contains("Autoplayed: user action: None;") {
         return true;
     }
-    if item.title.contains("_hook_")
-        || item.title.contains("Clip:")
-        || item.title.contains("Trailer:")
-        || item.title.contains("_backfill")
-    {
+    if should_skip_title(&item.title) {
         return true;
     }
     false
@@ -342,6 +346,10 @@ pub async fn import(
             continue;
         }
 
+        if should_skip_title(&record.title_name) {
+            continue;
+        }
+
         rating_items.push(record);
     }
 
@@ -363,6 +371,10 @@ pub async fn import(
         };
 
         if !matches_profile_filter(&record.profile_name, &input.profile_name) {
+            continue;
+        }
+
+        if should_skip_title(&record.title_name) {
             continue;
         }
 
