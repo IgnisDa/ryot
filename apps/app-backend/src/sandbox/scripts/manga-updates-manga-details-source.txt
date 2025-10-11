@@ -114,7 +114,7 @@ return {
 		is_nsfw: null,
 		production_status: productionStatus,
 		publish_year: parsePublishYear(payload?.year),
-		assets: { remote_images: collectImages(payload?.image) },
+		assets: { remoteImages: collectImages(payload?.image) },
 		genres: collectGenres(payload?.genres, payload?.categories),
 		sourceUrl: typeof payload?.url === "string" ? payload.url : null,
 		description: typeof payload?.description === "string" ? payload.description : null,
