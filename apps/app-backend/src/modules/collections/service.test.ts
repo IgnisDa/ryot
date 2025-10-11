@@ -1,12 +1,11 @@
 import { expect, it } from "@effect/vitest";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth";
 import { CurrentDb, DbRunner, TransactionRunner } from "#lib/db";
 import { BadRequest, NotFound } from "#lib/errors";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EventsRepository } from "#modules/events/repository";
-import type { ListedEvent } from "#modules/events/schemas";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 
 import { CollectionsRepository } from "./repository";
@@ -29,6 +28,22 @@ const transactionLayer = Layer.succeed(
 	<A, E, R>(effect: Effect.Effect<A, E, R>) =>
 		Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
+
+const makeWorkflowEngine = (overrides: Partial<WorkflowEngine["Type"]> = {}) =>
+	Object.assign(
+		{
+			poll: () => Effect.die("unused"),
+			resume: () => Effect.die("unused"),
+			execute: () => Effect.die("unused"),
+			register: () => Effect.die("unused"),
+			interrupt: () => Effect.die("unused"),
+			deferredDone: () => Effect.die("unused"),
+			scheduleClock: () => Effect.die("unused"),
+			deferredResult: () => Effect.die("unused"),
+			activityExecute: () => Effect.die("unused"),
+		},
+		overrides,
+	) as WorkflowEngine["Type"];
 
 const memberOfSchema = {
 	isBuiltin: true,
@@ -120,27 +135,20 @@ const defaultEntitiesRepository = () =>
 		deleteUserRelationshipsForEntity: () => Effect.die("unused"),
 	});
 
-const defaultEventsRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EventsRepository" as const,
-		listForUser: () => Effect.die("unused"),
-		createEvent: () => Effect.die("unused"),
-	});
-
 const makeServiceLayer = (
 	collectionsRepository: CollectionsRepository = defaultCollectionsRepository(),
 	entitiesRepository: EntitiesRepository = defaultEntitiesRepository(),
-	eventsRepository: EventsRepository = defaultEventsRepository(),
 	relationshipSchemasRepository: RelationshipSchemasRepository = defaultRelationshipSchemasRepository(),
+	workflowEngine: WorkflowEngine["Type"] = makeWorkflowEngine(),
 ) =>
 	CollectionsService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
+				Layer.succeed(WorkflowEngine, workflowEngine),
 				Layer.succeed(CollectionsRepository, collectionsRepository),
 				Layer.succeed(EntitiesRepository, entitiesRepository),
-				Layer.succeed(EventsRepository, eventsRepository),
 				Layer.succeed(RelationshipSchemasRepository, relationshipSchemasRepository),
 			),
 		),
@@ -274,7 +282,7 @@ it.effect("returns not found when entity does not exist", () => {
 });
 
 it.effect("creates membership event only on first add, not on upsert", () => {
-	let eventCreatedCount = 0;
+	let queuedEventCount = 0;
 
 	const membership = {
 		id: "rel-id",
@@ -285,6 +293,12 @@ it.effect("creates membership event only on first add, not on upsert", () => {
 		sourceEntityId: "entity-id",
 		relationshipSchemaId: "member-of-schema-id",
 	};
+	const workflowEngine = makeWorkflowEngine({
+		execute: ((_workflow, options) => {
+			queuedEventCount++;
+			return Effect.succeed(options.executionId);
+		}) as WorkflowEngine["Type"]["execute"],
+	});
 
 	const layer = makeServiceLayer(
 		Object.assign(Object.create(null), defaultCollectionsRepository(), {
@@ -302,34 +316,20 @@ it.effect("creates membership event only on first add, not on upsert", () => {
 				}),
 		}),
 		defaultEntitiesRepository(),
-		Object.assign(Object.create(null), defaultEventsRepository(), {
-			createEvent: () => {
-				eventCreatedCount++;
-				return Effect.succeed({
-					id: "event-id",
-					properties: {},
-					createdAt: now,
-					updatedAt: now,
-					occurredAt: now,
-					entityId: "coll-id",
-					eventSchemaId: addEventSchema.id,
-					eventSchemaName: addEventSchema.name,
-					eventSchemaSlug: addEventSchema.slug,
-				} as ListedEvent);
-			},
-		}),
+		defaultRelationshipSchemasRepository(),
+		workflowEngine,
 	);
 
 	return Effect.gen(function* () {
 		const service = yield* CollectionsService;
 		yield* service.addToCollection(user, { entityId: "entity-id", collectionId: "coll-id" });
 
-		expect(eventCreatedCount).toBe(1);
+		expect(queuedEventCount).toBe(1);
 	}).pipe(Effect.provide(layer));
 });
 
 it.effect("does not create membership event on upsert update", () => {
-	let eventCreatedCount = 0;
+	let queuedEventCount = 0;
 
 	const membership = {
 		id: "rel-id",
@@ -340,13 +340,19 @@ it.effect("does not create membership event on upsert update", () => {
 		sourceEntityId: "entity-id",
 		relationshipSchemaId: "member-of-schema-id",
 	};
+	const workflowEngine = makeWorkflowEngine({
+		execute: ((_workflow, options) => {
+			queuedEventCount++;
+			return Effect.succeed(options.executionId);
+		}) as WorkflowEngine["Type"]["execute"],
+	});
 
 	const layer = makeServiceLayer(
 		Object.assign(Object.create(null), defaultCollectionsRepository(), {
 			getCollectionById: () =>
 				Effect.succeed({
-					id: "coll-id",
 					name: "Coll",
+					id: "coll-id",
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
@@ -357,29 +363,15 @@ it.effect("does not create membership event on upsert update", () => {
 			upsertMembership: () => Effect.succeed(membership),
 		}),
 		defaultEntitiesRepository(),
-		Object.assign(Object.create(null), defaultEventsRepository(), {
-			createEvent: () => {
-				eventCreatedCount++;
-				return Effect.succeed({
-					id: "dummy",
-					properties: {},
-					createdAt: now,
-					updatedAt: now,
-					occurredAt: now,
-					entityId: "dummy",
-					eventSchemaId: "dummy",
-					eventSchemaName: "dummy",
-					eventSchemaSlug: "dummy",
-				});
-			},
-		}),
+		defaultRelationshipSchemasRepository(),
+		workflowEngine,
 	);
 
 	return Effect.gen(function* () {
 		const service = yield* CollectionsService;
 		yield* service.addToCollection(user, { entityId: "entity-id", collectionId: "coll-id" });
 
-		expect(eventCreatedCount).toBe(0);
+		expect(queuedEventCount).toBe(0);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -388,8 +380,8 @@ it.effect("returns not found when removing entity not in collection", () => {
 		Object.assign(Object.create(null), defaultCollectionsRepository(), {
 			getCollectionById: () =>
 				Effect.succeed({
-					id: "coll-id",
 					name: "Coll",
+					id: "coll-id",
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
@@ -412,7 +404,7 @@ it.effect("returns not found when removing entity not in collection", () => {
 });
 
 it.effect("creates remove event on successful membership deletion", () => {
-	let eventCreatedCount = 0;
+	let queuedEventCount = 0;
 
 	const deletedMembership = {
 		id: "rel-id",
@@ -422,6 +414,12 @@ it.effect("creates remove event on successful membership deletion", () => {
 		sourceEntityId: "entity-id",
 		relationshipSchemaId: "member-of-schema-id",
 	};
+	const workflowEngine = makeWorkflowEngine({
+		execute: ((_workflow, options) => {
+			queuedEventCount++;
+			return Effect.succeed(options.executionId);
+		}) as WorkflowEngine["Type"]["execute"],
+	});
 
 	const layer = makeServiceLayer(
 		Object.assign(Object.create(null), defaultCollectionsRepository(), {
@@ -439,22 +437,8 @@ it.effect("creates remove event on successful membership deletion", () => {
 				}),
 		}),
 		defaultEntitiesRepository(),
-		Object.assign(Object.create(null), defaultEventsRepository(), {
-			createEvent: () => {
-				eventCreatedCount++;
-				return Effect.succeed({
-					createdAt: now,
-					updatedAt: now,
-					id: "event-id",
-					properties: {},
-					occurredAt: now,
-					entityId: "coll-id",
-					eventSchemaId: removeEventSchema.id,
-					eventSchemaName: removeEventSchema.name,
-					eventSchemaSlug: removeEventSchema.slug,
-				} as ListedEvent);
-			},
-		}),
+		defaultRelationshipSchemasRepository(),
+		workflowEngine,
 	);
 
 	return Effect.gen(function* () {
@@ -464,7 +448,7 @@ it.effect("creates remove event on successful membership deletion", () => {
 			collectionId: "coll-id",
 		});
 
-		expect(eventCreatedCount).toBe(1);
+		expect(queuedEventCount).toBe(1);
 		expect(result.memberOf.id).toBe("rel-id");
 	}).pipe(Effect.provide(layer));
 });
