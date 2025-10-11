@@ -15,10 +15,10 @@ import { assertPresent, assertTaggedError, requireObjectRecord } from "../test-s
 
 describe("GET /event-schemas", () => {
 	it("returns seeded built-in media lifecycle event schemas", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schema: mediaSchema } = await findBuiltinSchemaBySlug(client, cookies, "book");
+		const { client } = await createAuthenticatedClient();
+		const { schema: mediaSchema } = await findBuiltinSchemaBySlug(client, "book");
 
-		const eventSchemas = await listEventSchemas(client, cookies, mediaSchema.id);
+		const eventSchemas = await listEventSchemas(client, mediaSchema.id);
 
 		expect(sortBy(eventSchemas.map((schema) => schema.slug))).toEqual([
 			"backlog",
@@ -32,10 +32,10 @@ describe("GET /event-schemas", () => {
 	});
 
 	it("returns the seeded workout-set and review event schemas for exercise", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schema: exerciseSchema } = await findBuiltinSchemaBySlug(client, cookies, "exercise");
+		const { client } = await createAuthenticatedClient();
+		const { schema: exerciseSchema } = await findBuiltinSchemaBySlug(client, "exercise");
 
-		const eventSchemas = await listEventSchemas(client, cookies, exerciseSchema.id);
+		const eventSchemas = await listEventSchemas(client, exerciseSchema.id);
 
 		expect(eventSchemas.map((schema) => schema.slug)).toEqual(["review", "workout-set"]);
 		const workoutSetSchema = eventSchemas.find((schema) => schema.slug === "workout-set");
@@ -118,14 +118,13 @@ describe("GET /event-schemas", () => {
 	});
 
 	it("returns the seeded review event schema for collection", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { schema: collectionSchema } = await findBuiltinSchemaBySlug(
 			client,
-			cookies,
 			"collection",
 		);
 
-		const eventSchemas = await listEventSchemas(client, cookies, collectionSchema.id);
+		const eventSchemas = await listEventSchemas(client, collectionSchema.id);
 
 		expect(eventSchemas.map((schema) => schema.slug)).toEqual([
 			"add-entity-to-collection",
@@ -157,14 +156,14 @@ describe("GET /event-schemas", () => {
 	});
 
 	it("exposes lifecycle schemas for each supported built-in media schema", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schemas } = await listBuiltinEntitySchemas(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schemas } = await listBuiltinEntitySchemas(client);
 		const eventSchemasBySlug = await Promise.all(
 			["book", "anime", "manga"].map(async (slug) => {
 				const mediaSchema = schemas.find((schema) => schema.slug === slug);
 				assertPresent(mediaSchema, `Missing built-in ${slug} schema`);
 
-				return { slug, eventSchemas: await listEventSchemas(client, cookies, mediaSchema.id) };
+				return { slug, eventSchemas: await listEventSchemas(client, mediaSchema.id) };
 			}),
 		);
 
@@ -299,14 +298,14 @@ describe("GET /event-schemas", () => {
 	});
 
 	it("exposes per-entity progress schema variants for episodic media", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schemas } = await listBuiltinEntitySchemas(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schemas } = await listBuiltinEntitySchemas(client);
 
 		const getProgressSchema = async (slug: string) => {
 			const mediaSchema = schemas.find((schema) => schema.slug === slug);
 			assertPresent(mediaSchema, `Missing built-in ${slug} schema`);
 
-			const eventSchemas = await listEventSchemas(client, cookies, mediaSchema.id);
+			const eventSchemas = await listEventSchemas(client, mediaSchema.id);
 			const progressSchema = eventSchemas.find((schema) => schema.slug === "progress");
 			assertPresent(progressSchema, `Missing built-in progress schema for ${slug}`);
 
@@ -423,8 +422,8 @@ describe("GET /event-schemas", () => {
 	});
 
 	it("exposes per-entity dropped and on_hold schema variants extending progress", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schemas } = await listBuiltinEntitySchemas(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schemas } = await listBuiltinEntitySchemas(client);
 		const sessionFields = {
 			startedOn: {
 				type: "datetime",
@@ -443,7 +442,7 @@ describe("GET /event-schemas", () => {
 			const mediaSchema = schemas.find((schema) => schema.slug === entitySlug);
 			assertPresent(mediaSchema, `Missing built-in ${entitySlug} schema`);
 
-			const eventSchemas = await listEventSchemas(client, cookies, mediaSchema.id);
+			const eventSchemas = await listEventSchemas(client, mediaSchema.id);
 			const schema = eventSchemas.find((s) => s.slug === eventSlug);
 			assertPresent(schema, `Missing built-in ${eventSlug} schema for ${entitySlug}`);
 
@@ -472,10 +471,10 @@ describe("GET /event-schemas", () => {
 	it("returns 404 when accessing another user's entity schema", async () => {
 		const owner = await createAuthenticatedClient();
 		const intruder = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(owner.client, owner.cookies, {
+		const { trackerId } = await createTracker(owner.client, {
 			name: "Owner Event Schema Tracker",
 		});
-		const { schemaId: entitySchemaId } = await createEntitySchema(owner.client, owner.cookies, {
+		const { schemaId: entitySchemaId } = await createEntitySchema(owner.client, {
 			trackerId,
 			name: "Owner Entity",
 			slug: "owner-entity",
@@ -483,7 +482,6 @@ describe("GET /event-schemas", () => {
 
 		const error = await intruder.client.runError(
 			(c) => c.eventSchemas.list({ urlParams: { entitySchemaId } }),
-			{ Cookie: intruder.cookies },
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -493,11 +491,11 @@ describe("GET /event-schemas", () => {
 
 describe("POST /event-schemas", () => {
 	it("successfully creates an event schema for a custom entity schema", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Event Schema Tracker",
 		});
-		const { schemaId: entitySchemaId } = await createEntitySchema(client, cookies, {
+		const { schemaId: entitySchemaId } = await createEntitySchema(client, {
 			trackerId,
 			name: "Custom Entity",
 			slug: "custom-entity",
@@ -515,7 +513,6 @@ describe("POST /event-schemas", () => {
 						},
 					},
 				}),
-			{ Cookie: cookies },
 		);
 
 		expect(data.name).toBe("My Event");
@@ -524,11 +521,11 @@ describe("POST /event-schemas", () => {
 	});
 
 	it("returns 400 when event schema properties schema is invalid", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Event Schema Tracker",
 		});
-		const { schemaId: entitySchemaId } = await createEntitySchema(client, cookies, {
+		const { schemaId: entitySchemaId } = await createEntitySchema(client, {
 			trackerId,
 			name: "Custom Entity",
 			slug: "custom-entity",
@@ -554,7 +551,6 @@ describe("POST /event-schemas", () => {
 						},
 					},
 				}),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -562,17 +558,17 @@ describe("POST /event-schemas", () => {
 	});
 
 	it("returns 400 when event schema slug already exists for the same entity schema", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Event Schema Tracker",
 		});
-		const { schemaId: entitySchemaId } = await createEntitySchema(client, cookies, {
+		const { schemaId: entitySchemaId } = await createEntitySchema(client, {
 			trackerId,
 			name: "Custom Entity",
 			slug: "custom-entity",
 		});
 
-		await createEventSchema(client, cookies, {
+		await createEventSchema(client, {
 			entitySchemaId,
 			name: "First Event",
 			slug: "duplicate-event-slug",
@@ -593,7 +589,6 @@ describe("POST /event-schemas", () => {
 						},
 					},
 				}),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "Conflict");
