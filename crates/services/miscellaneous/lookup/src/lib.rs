@@ -20,8 +20,9 @@ mod patterns;
 mod tests;
 
 async fn smart_search(
-    tmdb_service: &TmdbService,
     title: &str,
+    tmdb_service: &TmdbService,
+    ss: &Arc<SupportingService>,
 ) -> Result<Vec<TmdbMetadataLookupResult>> {
     let mut queries = Vec::with_capacity(2);
 
@@ -43,7 +44,7 @@ async fn smart_search(
     let mut any_success = false;
 
     for query in queries {
-        match tmdb_service.multi_search(&query).await {
+        match tmdb_service.multi_search(&query, ss).await {
             Ok(results) if !results.is_empty() => return Ok(results),
             Ok(_) => any_success = true,
             Err(err) => last_error = Some(err),
@@ -77,7 +78,7 @@ pub async fn metadata_lookup(
         ApplicationCacheValue::MetadataLookup,
         move || async move {
             let tmdb_service = TmdbService::new(ss.clone()).await?;
-            let search_results = smart_search(&tmdb_service, &title).await?;
+            let search_results = smart_search(&title, &tmdb_service, ss).await?;
 
             if search_results.is_empty() {
                 return Ok(MetadataLookupResponse::NotFound(MetadataLookupNotFound {

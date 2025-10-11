@@ -308,7 +308,11 @@ impl TmdbService {
         .await
     }
 
-    pub async fn multi_search(&self, query: &str) -> Result<Vec<TmdbMetadataLookupResult>> {
+    pub async fn multi_search(
+        &self,
+        query: &str,
+        ss: &Arc<SupportingService>,
+    ) -> Result<Vec<TmdbMetadataLookupResult>> {
         ryot_log!(debug, "tmdb multi_search: query={}", query);
         let response: TmdbListResponse = self
             .client
