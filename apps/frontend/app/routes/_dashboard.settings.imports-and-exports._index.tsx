@@ -1,12 +1,12 @@
 import { CodeHighlight } from "@mantine/code-highlight";
 import {
-	Accordion,
 	ActionIcon,
 	Anchor,
 	Box,
 	Button,
 	Container,
 	Divider,
+	Drawer,
 	FileInput,
 	Group,
 	Indicator,
@@ -36,7 +36,7 @@ import {
 	kebabCase,
 	processSubmission,
 } from "@ryot/ts-utils";
-import { IconDownload, IconTrash } from "@tabler/icons-react";
+import { IconDownload, IconEye, IconTrash } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { filesize } from "filesize";
 import { useMemo, useState } from "react";
@@ -209,6 +209,7 @@ export default function Page() {
 	const events = useApplicationEvents();
 	const { inViewport, ref } = useInViewport();
 	const userCollections = useNonHiddenUserCollections();
+	const [openDrawerId, setOpenDrawerId] = useState<string | null>(null);
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
@@ -475,19 +476,20 @@ export default function Page() {
 							</Title>
 							{userImportsReportsQuery.data ? (
 								userImportsReportsQuery.data.length > 0 ? (
-									<Accordion>
+									<Stack>
 										{userImportsReportsQuery.data.map((report) => {
 											const isInProgress =
 												typeof report.wasSuccess !== "boolean";
 
 											return (
-												<Accordion.Item
+												<Paper
+													p="md"
+													withBorder
 													key={report.id}
-													value={report.id}
 													data-import-report-id={report.id}
 												>
-													<Accordion.Control disabled={isInProgress}>
-														<Stack gap="xs">
+													<Group justify="space-between" wrap="nowrap">
+														<Stack gap="xs" flex={1} miw={0}>
 															<Box>
 																<Indicator
 																	inline
@@ -535,9 +537,22 @@ export default function Page() {
 																</>
 															) : null}
 														</Stack>
-													</Accordion.Control>
-													<Accordion.Panel
-														styles={{ content: { paddingTop: 0 } }}
+														{!isInProgress && (
+															<ActionIcon
+																color="blue"
+																variant="transparent"
+																onClick={() => setOpenDrawerId(report.id)}
+															>
+																<IconEye />
+															</ActionIcon>
+														)}
+													</Group>
+													<Drawer
+														size="xl"
+														position="bottom"
+														opened={openDrawerId === report.id}
+														onClose={() => setOpenDrawerId(null)}
+														title={`${changeCase(report.source)} Import Details`}
 													>
 														<Stack>
 															<Box>
@@ -594,11 +609,11 @@ export default function Page() {
 																/>
 															) : null}
 														</Stack>
-													</Accordion.Panel>
-												</Accordion.Item>
+													</Drawer>
+												</Paper>
 											);
 										})}
-									</Accordion>
+									</Stack>
 								) : (
 									<Text>You have not performed any imports</Text>
 								)
