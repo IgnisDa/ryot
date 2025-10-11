@@ -199,7 +199,7 @@ describe("time-series mode", () => {
 			{ Cookie: cookies },
 		);
 
-		assertTaggedError(error, "BadRequest");
+		assertTaggedError(error, "ParseError");
 	});
 
 	it("returns zero for a partial bucket range that excludes the event", async () => {
@@ -302,7 +302,7 @@ describe("time-series mode", () => {
 		// This event's createdAt is now, but occurredAt is set 1 year in the past.
 		// A dateRange covering today should exclude it when filtering by occurredAt.
 		const pastOccurredAt = currentTime().pipe(
-			(value) => DateTime.addDuration(value, Duration.days(-365)),
+			(value) => DateTime.subtractDuration(value, Duration.days(365)),
 			DateTime.startOf("day"),
 			DateTime.formatIso,
 		);
@@ -380,7 +380,7 @@ describe("time-series mode", () => {
 		});
 
 		const pastBucketStart = currentTime().pipe(
-			(value) => DateTime.addDuration(value, Duration.days(-365)),
+			(value) => DateTime.subtractDuration(value, Duration.days(365)),
 			DateTime.startOf("day"),
 		);
 		await createQueryEngineEvent({

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { alignDateRangeToBucket, buildBucketInterval } from "./time-series-query-builder";
+import {
+	alignDateRangeToBucket,
+	buildBucketInterval,
+	normalizeBucketDate,
+} from "./time-series-query-builder";
 
 describe("buildBucketInterval", () => {
 	it.each([
@@ -132,5 +136,11 @@ describe("alignDateRangeToBucket", () => {
 			endAt: "2026-05-01T00:00:00.000Z",
 			startAt: "2026-03-01T00:00:00.000Z",
 		});
+	});
+});
+
+describe("normalizeBucketDate", () => {
+	it("formats postgres timestamp strings as ISO UTC", () => {
+		expect(normalizeBucketDate("2026-06-19 00:00:00")).toBe("2026-06-19T00:00:00.000Z");
 	});
 });
