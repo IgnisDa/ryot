@@ -12,6 +12,7 @@ import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
+import type { ImportMediaEntityGroup } from "../../media/types";
 import {
 	normalizeCsvHeader,
 	parseCsvText,
@@ -104,7 +105,7 @@ const getHistoryOccurredAt = (row: Record<string, string>): string => {
 };
 
 const getMovieGroup = (
-	groupMap: Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>,
+	groupMap: Map<string, ImportMediaEntityGroup>,
 	input: { itemIndex: number; sourceLabel: string; tmdbId: string },
 ) =>
 	getOrCreateMediaEntityGroup(
@@ -138,7 +139,7 @@ const pushMovaryFailure = (
 };
 
 const adaptHistoryCsv = (
-	groupMap: Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>,
+	groupMap: Map<string, ImportMediaEntityGroup>,
 	failures: MediaImportAdapterFailure[],
 	csvText: string,
 	startItemIndex: number,
@@ -184,7 +185,7 @@ const adaptHistoryCsv = (
 };
 
 const adaptRatingsCsv = (
-	groupMap: Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>,
+	groupMap: Map<string, ImportMediaEntityGroup>,
 	failures: MediaImportAdapterFailure[],
 	input: { csvText: string; itemIndex: number; importedAt: string },
 ): number => {
@@ -225,7 +226,7 @@ const adaptRatingsCsv = (
 };
 
 const adaptWatchlistCsv = (
-	groupMap: Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>,
+	groupMap: Map<string, ImportMediaEntityGroup>,
 	failures: MediaImportAdapterFailure[],
 	input: { csvText: string; itemIndex: number; importedAt: string },
 ): number => {
@@ -266,7 +267,7 @@ export const adaptMovaryExports = (input: {
 	watchlistCsv: string;
 }): MediaImportAdapterResult => {
 	const failures: MediaImportAdapterFailure[] = [];
-	const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
+	const groupMap = new Map<string, ImportMediaEntityGroup>();
 	const importedAt = input.importedAt;
 
 	let itemIndex = 0;

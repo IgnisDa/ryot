@@ -5,6 +5,7 @@ import { finalizeEntityGroups } from "#modules/imports/media/book/shared";
 import { nowIso } from "#modules/imports/media/dates";
 import { getOrCreateMediaEntityGroup } from "#modules/imports/media/groups";
 import type { MediaImportAdapterResult } from "#modules/imports/media/import-processor";
+import type { ImportMediaEntityGroup } from "#modules/imports/media/types";
 
 export const YOUTUBE_MUSIC_SCRIPT_SLUG = "music.youtube-music";
 
@@ -25,7 +26,7 @@ export const sourceFetchFailure = (message: string): MediaImportAdapterResult =>
 	failures: [{ itemIndex: 0, message, stage: "source_fetch" }],
 });
 
-export const dedupWindow = (timezone: string): { localDate: string; ttlSeconds: number } =>
+export const deduplicateWindow = (timezone: string): { localDate: string; ttlSeconds: number } =>
 	Option.match(DateTime.makeZoned(DateTime.unsafeNow(), { timeZone: timezone }), {
 		onNone: () => ({
 			ttlSeconds: 86_400,
@@ -54,8 +55,8 @@ export const buildYoutubeMusicAdapterResult = (
 		}
 
 		const now = nowIso();
-		const { localDate, ttlSeconds } = dedupWindow(input.timezone);
-		const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
+		const { localDate, ttlSeconds } = deduplicateWindow(input.timezone);
+		const groupMap = new Map<string, ImportMediaEntityGroup>();
 
 		yield* Effect.forEach(decoded.right.songs, (song, idx) =>
 			Effect.gen(function* () {

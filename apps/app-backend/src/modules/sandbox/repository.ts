@@ -16,13 +16,6 @@ type CreateScriptInput = {
 	readonly metadata: SandboxScriptMetadata;
 };
 
-type FoundScript = {
-	readonly id: string;
-	readonly code: string;
-	readonly userId: string | null;
-	readonly metadata: SandboxScriptMetadata;
-};
-
 const sandboxScriptUserSlugConstraint = "sandbox_script_user_slug_unique";
 
 const toScript = (row: SandboxScriptRow) => ({
@@ -105,7 +98,7 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 						.limit(1),
 				);
 
-				return (row as FoundScript | undefined) ?? null;
+				return row ?? null;
 			}),
 	}),
 }) {}

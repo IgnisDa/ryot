@@ -27,7 +27,7 @@ type ArrayValueSchema<A = unknown, I = A, R = never> = Schema.Schema<
 >;
 type NumberValueSchema = Schema.Schema<number>;
 type PropertyValueSchema = Schema.Schema.AnyNoContext;
-type PropertyValueField =
+export type PropertyValueField =
 	| PropertyValueSchema
 	| Schema.PropertySignature<
 			Schema.PropertySignature.Token,

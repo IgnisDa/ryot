@@ -155,7 +155,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 									name: input.name,
 									email: input.email,
 									emailVerified: true,
-									preferences: defaultUserPreferences as Record<string, unknown>,
+									preferences: defaultUserPreferences,
 								}),
 							);
 

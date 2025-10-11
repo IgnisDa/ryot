@@ -91,7 +91,7 @@ const sourceStartValidators: Partial<
 };
 
 const getBodyString = (body: CreateImportRunBody, field: string): string | undefined => {
-	const value = (body as Record<string, unknown>)[field];
+	const value = Reflect.get(body, field);
 	if (typeof value !== "string") {
 		return undefined;
 	}

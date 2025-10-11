@@ -17,7 +17,7 @@ import { sanitizeErrorMessage } from "../runtime/failures";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
 import {
 	type NonMediaItemOutcome,
-	type NonMediaPrepareResult,
+	type NonMediaPrepareWritesEffect,
 	loadNonMediaImportText,
 } from "../workflows-non-media";
 import type { WorkoutAdapterResult, WorkoutImportItem } from "./domain";
@@ -44,12 +44,9 @@ export const loadWorkoutAdapterResult =
 
 export const prepareWorkoutWrites = (
 	payload: ImportRunJobData,
-): Effect.Effect<
-	NonMediaPrepareResult<
-		WorkoutImportItem,
-		EntitiesService | EventsService | WorkflowEngine | WorkflowInstance
-	>,
-	ImportRunError,
+): NonMediaPrepareWritesEffect<
+	WorkoutImportItem,
+	EntitiesService | EventsService | WorkflowEngine | WorkflowInstance,
 	| DbRunner
 	| EventsService
 	| EntitiesService
