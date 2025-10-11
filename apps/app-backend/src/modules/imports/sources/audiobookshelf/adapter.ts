@@ -416,7 +416,7 @@ export const syncAudiobookshelfOwnedItems = (input: AudiobookshelfAdapterInput) 
 				}
 				const sourceLabel = metadata.title;
 
-				if (item.media?.ebookFormat === "epub") {
+				if (item.media.ebookFormat === "epub") {
 					const isbn = metadata.isbn ? normalizeIsbn(metadata.isbn) : "";
 					if (!isbn || !isValidIsbn(isbn)) {
 						continue;
