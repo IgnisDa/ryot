@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, collections::HashSet};
 
 use anyhow::{Result, bail};
 use enum_models::MediaLot;
@@ -13,6 +13,36 @@ const CLOSE_YEAR_MATCH_BONUS: f64 = 0.1;
 const SHOW_WITH_EPISODE_BONUS: f64 = 0.5;
 const RESULT_POSITION_BONUS_BASE: f64 = 0.05;
 const MOVIE_WITHOUT_EPISODE_BONUS: f64 = 0.3;
+const NORMALIZED_EXACT_MATCH_BONUS: f64 = 0.6;
+const EXTRA_TOKEN_PENALTY: f64 = 0.1;
+
+fn normalize_for_exact(value: &str) -> String {
+    value
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric())
+        .map(|ch| ch.to_ascii_lowercase())
+        .collect()
+}
+
+fn tokenize(value: &str) -> HashSet<String> {
+    let mut tokens = HashSet::new();
+    let mut current = String::new();
+
+    for ch in value.chars() {
+        if ch.is_ascii_alphanumeric() {
+            current.push(ch.to_ascii_lowercase());
+        } else if !current.is_empty() {
+            tokens.insert(current);
+            current = String::new();
+        }
+    }
+
+    if !current.is_empty() {
+        tokens.insert(current);
+    }
+
+    tokens
+}
 
 fn calculate_similarity(a: &str, b: &str) -> f64 {
     let a_lower = a.to_lowercase();
@@ -58,6 +88,12 @@ fn calculate_match_score(
         score += EXACT_MATCH_BONUS;
     }
 
+    let normalized_original = normalize_for_exact(cleaned_original);
+    let normalized_result = normalize_for_exact(&result.title);
+    if normalized_original == normalized_result {
+        score += NORMALIZED_EXACT_MATCH_BONUS;
+    }
+
     if result_position < 5 {
         score += RESULT_POSITION_BONUS_BASE * (5.0 - result_position as f64);
     }
@@ -77,6 +113,19 @@ fn calculate_match_score(
 
     if !has_episode_indicators && matches!(result.lot, MediaLot::Movie) {
         score += MOVIE_WITHOUT_EPISODE_BONUS;
+    }
+
+    if EXTRA_TOKEN_PENALTY > 0.0 {
+        let original_tokens = tokenize(cleaned_original);
+        let result_tokens = tokenize(&result.title);
+
+        if !original_tokens.is_empty() && !result_tokens.is_empty() {
+            let extra_tokens = result_tokens.difference(&original_tokens).count();
+            if extra_tokens > 0 {
+                let penalty = extra_tokens as f64 * EXTRA_TOKEN_PENALTY;
+                score = (score - penalty).max(0.0);
+            }
+        }
     }
 
     score

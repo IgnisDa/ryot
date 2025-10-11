@@ -13,7 +13,7 @@ static CLEANING_PATTERNS: &[&str] = &[
     r"S\d+E\d+",
     r"(?i)Season\s+\d+",
     r"(?i)Episode\s+\d+",
-    r"(?i)(720p|1080p|4K|HDTV|HD|SD|CAM|TS|TC|DVDRip|BRRip|BluRay|WEBRip|WEB-DL)",
+    r"(?i)\b(720p|1080p|4K|HDTV|HD|SD|CAM|TS|TC|DVDRip|BRRip|BluRay|WEBRip|WEB-DL)\b",
     r"(?i)\.(mp4|mkv|avi|mov|wmv|flv|webm|m4v)$",
     r"(?i)(PROPER|REPACK|EXTENDED|UNRATED|DIRECTOR.?S.?CUT)",
     r"\[.*?\]",
