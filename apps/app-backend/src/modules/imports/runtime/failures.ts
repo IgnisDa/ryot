@@ -1,5 +1,5 @@
-import { createImportRunFailure, updateImportRun } from "./repository";
-import type { ImportRunFailureStage } from "./schemas";
+import { createImportRunFailure, updateImportRun } from "../repository";
+import type { ImportRunFailureStage } from "../schemas";
 
 export type ImportRunFailureInput = {
 	runId: string;
