@@ -10,7 +10,7 @@
 
 Port the book-oriented CSV source adapters `goodreads`, `storygraph`, and `hardcover` onto the V2 import pipeline. These adapters should reuse the provider-backed media import processor from the tracer slice and should not introduce new persistence paths.
 
-The adapters should emit explicit media entity references with the best provider/script available for each source record, lifecycle/review events, and custom collection memberships. Source-specific lookup services may be used as needed, but source parsing and item failures must remain adapter-owned while DB writes remain processor-owned.
+The adapters should emit explicit media entity references with the best provider/script available for each source record, lifecycle/review events, and custom collection memberships. Source-specific lookup services may be used as needed, but source parsing and item failures must remain adapter-owned while persistence is orchestrated by the import processor through the owning module services.
 
 ## Acceptance criteria
 

@@ -21,11 +21,13 @@ export type {
 	AddToCollectionServiceDeps,
 	CollectionServiceDeps,
 	CollectionServiceResult,
+	GetOrCreateCollectionServiceDeps,
 	RemoveFromCollectionServiceDeps,
 } from "./service";
 export {
 	addToCollection,
 	createCollection,
+	getOrCreateCollection,
 	removeFromCollection,
 	resolveCollectionName,
 } from "./service";
