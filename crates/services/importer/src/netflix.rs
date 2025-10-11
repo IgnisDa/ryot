@@ -12,17 +12,17 @@ use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use csv::Reader;
 use dependent_models::{CollectionToEntityDetails, ImportCompletedItem, ImportResult};
-use enum_models::{ImportSource, MediaLot, MediaSource};
+use enum_models::ImportSource;
 use futures::stream::{self, StreamExt};
 use indexmap::IndexMap;
 use media_models::{
     DeployNetflixImportInput, ImportOrExportItemRating, ImportOrExportMetadataItemSeen,
-    MetadataLookupResponse,
+    MetadataLookupFoundResult, MetadataLookupResponse,
 };
 use miscellaneous_lookup_service::metadata_lookup;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use supporting_service::SupportingService;
 use tempfile::TempDir;
 use zip::ZipArchive;
@@ -30,15 +30,6 @@ use zip::ZipArchive;
 use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 const METADATA_LOOKUP_CONCURRENCY: usize = 5;
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct LookupCacheItem {
-    lot: MediaLot,
-    identifier: String,
-    season: Option<i32>,
-    source: MediaSource,
-    episode: Option<i32>,
-}
 
 #[derive(Debug, Deserialize)]
 struct ViewingActivityItem {
@@ -223,20 +214,11 @@ fn find_content_interaction_dir(root: &Path) -> Option<(PathBuf, PathBuf, PathBu
 async fn lookup_title(
     ss: &Arc<SupportingService>,
     title: &str,
-) -> (Option<LookupCacheItem>, Option<ImportFailedItem>) {
+) -> (Option<MetadataLookupFoundResult>, Option<ImportFailedItem>) {
     let lookup_result = metadata_lookup(ss, title.to_string()).await;
     match lookup_result {
         Ok(result) => match result.response {
-            MetadataLookupResponse::Found(found) => (
-                Some(LookupCacheItem {
-                    lot: found.data.lot,
-                    source: found.data.source,
-                    identifier: found.data.identifier,
-                    season: found.show_information.as_ref().map(|s| s.season),
-                    episode: found.show_information.as_ref().map(|s| s.episode),
-                }),
-                None,
-            ),
+            MetadataLookupResponse::Found(found) => (Some(found), None),
             MetadataLookupResponse::NotFound(_) => (
                 None,
                 Some(ImportFailedItem {
@@ -261,23 +243,24 @@ async fn lookup_title(
 
 fn media_map_entry<'a>(
     media_map: &'a mut IndexMap<String, ImportOrExportMetadataItem>,
-    lookup: &LookupCacheItem,
+    lookup: &MetadataLookupFoundResult,
     source_id: &str,
 ) -> &'a mut ImportOrExportMetadataItem {
-    let key = format!(
-        "{}:{}:{}",
-        lookup.identifier,
-        lookup.season.unwrap_or(0),
-        lookup.episode.unwrap_or(0)
-    );
+    let (season, episode) = lookup
+        .show_information
+        .as_ref()
+        .map(|info| (info.season, info.episode))
+        .unwrap_or((0, 0));
+
+    let key = format!("{}:{}:{}", lookup.data.identifier, season, episode);
 
     media_map
         .entry(key)
         .or_insert_with(|| ImportOrExportMetadataItem {
-            lot: lookup.lot,
-            source: lookup.source,
+            lot: lookup.data.lot,
+            source: lookup.data.source,
             source_id: source_id.to_string(),
-            identifier: lookup.identifier.clone(),
+            identifier: lookup.data.identifier.clone(),
             ..Default::default()
         })
 }
@@ -386,7 +369,7 @@ pub async fn import(
         my_list_items.push(record);
     }
 
-    let mut title_cache: HashMap<String, Option<LookupCacheItem>> = HashMap::new();
+    let mut title_cache: HashMap<String, Option<MetadataLookupFoundResult>> = HashMap::new();
 
     let mut titles_to_lookup: HashSet<String> = HashSet::new();
 
@@ -446,8 +429,8 @@ pub async fn import(
             let seen_item = ImportOrExportMetadataItemSeen {
                 ended_on,
                 progress,
-                show_season_number: lookup.season,
-                show_episode_number: lookup.episode,
+                show_season_number: lookup.show_information.as_ref().map(|info| info.season),
+                show_episode_number: lookup.show_information.as_ref().map(|info| info.episode),
                 providers_consumed_on: Some(vec![ImportSource::Netflix.to_string()]),
                 ..Default::default()
             };
