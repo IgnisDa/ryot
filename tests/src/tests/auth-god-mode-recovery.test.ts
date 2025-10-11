@@ -205,6 +205,58 @@ describe("User listing with correct admin token", () => {
 	});
 });
 
+describe("User provisioning", () => {
+	it("provisions a credential user with no linked account", async () => {
+		const client = getBackendClient();
+		const email = `provision-cred-${dayjs().valueOf()}@example.com`;
+
+		const { response } = await client["god-mode"].provisionUser({
+			body: { provider: "credential", email, name: "Provisioned Credential" },
+			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
+		});
+		expect(response.status).toBe(201);
+
+		const { data: listData } = await client["god-mode"].listUsers({
+			params: { query: godModeListQuery(email) },
+			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
+		});
+		expect(listData?.users[0]?.authState).toBe("none");
+	});
+
+	it("provisions an oidc user with a linked account", async () => {
+		const client = getBackendClient();
+		const email = `provision-oidc-${dayjs().valueOf()}@example.com`;
+
+		const { response } = await client["god-mode"].provisionUser({
+			body: {
+				email,
+				provider: "oidc",
+				name: "Provisioned Oidc",
+				oidcIssuerId: `oidc-sub-${dayjs().valueOf()}`,
+			},
+			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
+		});
+		expect(response.status).toBe(201);
+
+		const { data: listData } = await client["god-mode"].listUsers({
+			params: { query: godModeListQuery(email) },
+			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
+		});
+		expect(listData?.users[0]?.authState).toBe("oidc");
+	});
+
+	it("rejects provisioning a user whose email already exists", async () => {
+		const client = getBackendClient();
+		const { email } = await createTestUser();
+
+		const { response } = await client["god-mode"].provisionUser({
+			body: { provider: "credential", email, name: "Duplicate" },
+			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
+		});
+		expect(response.status).toBe(400);
+	});
+});
+
 describe("God-mode ban set", () => {
 	it("disables a user, revokes sessions, blocks API keys, and then enables the user", async () => {
 		const client = getBackendClient();
