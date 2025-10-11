@@ -1,4 +1,3 @@
-import { CodeHighlight } from "@mantine/code-highlight";
 import {
 	ActionIcon,
 	Anchor,
@@ -39,6 +38,7 @@ import {
 import { IconDownload, IconEye, IconTrash } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { filesize } from "filesize";
+import { DataTable } from "mantine-datatable";
 import { useMemo, useState } from "react";
 import { Form, data } from "react-router";
 import { match } from "ts-pattern";
@@ -597,16 +597,43 @@ export default function Page() {
 															</Box>
 															{report.details &&
 															report.details.failedItems.length > 0 ? (
-																<CodeHighlight
-																	mah={400}
-																	language="json"
-																	style={{ overflow: "scroll" }}
-																	code={JSON.stringify(
-																		report.details.failedItems,
-																		null,
-																		2,
-																	)}
-																/>
+																<Box>
+																	<Title order={4} mb="md">
+																		Failed Items
+																	</Title>
+																	<DataTable
+																		height={500}
+																		withTableBorder
+																		borderRadius="sm"
+																		withColumnBorders
+																		records={report.details.failedItems}
+																		columns={[
+																			{
+																				title: "Identifier",
+																				accessor: "identifier",
+																			},
+																			{
+																				title: "Step",
+																				accessor: "step",
+																				render: (record) =>
+																					changeCase(record.step),
+																			},
+																			{
+																				title: "Error",
+																				accessor: "error",
+																				render: (record) => record.error || "-",
+																			},
+																			{
+																				title: "Type",
+																				accessor: "lot",
+																				render: (record) =>
+																					record.lot
+																						? changeCase(record.lot)
+																						: "-",
+																			},
+																		]}
+																	/>
+																</Box>
 															) : null}
 														</Stack>
 													</Drawer>
