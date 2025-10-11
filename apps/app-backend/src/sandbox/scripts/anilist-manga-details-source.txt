@@ -160,7 +160,7 @@ return {
 	properties: {
 		volumes,
 		chapters,
-		production_status: productionStatus,
+		productionStatus: productionStatus,
 		genres: collectGenres(media.genres, media.tags),
 		publishYear: parsePublishYear(media.startDate),
 		isNsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
