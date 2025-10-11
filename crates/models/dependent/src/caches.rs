@@ -8,7 +8,7 @@ use common_models::{
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
     GenreDetailsInput, GraphqlMetadataDetails, MetadataLookupResponse,
-    MetadataProgressUpdateCacheInput,
+    MetadataProgressUpdateCacheInput, TmdbMetadataLookupResult,
 };
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
@@ -82,6 +82,7 @@ pub enum ApplicationCacheKey {
     UserPasswordChangeSession(String),
     CollectionRecommendations(String),
     MetadataLookup(MetadataLookupCacheInput),
+    TmdbMultiSearch(MetadataLookupCacheInput),
     UserTwoFactorSetup(UserLevelCacheKey<()>),
     UserCollectionsList(UserLevelCacheKey<()>),
     UserPersonDetails(UserLevelCacheKey<String>),
@@ -145,6 +146,7 @@ pub enum ApplicationCacheValue {
     UserExercisesList(UserExercisesListResponse),
     UserAnalyticsParameters(ApplicationDateRange),
     UserMetadataDetails(Box<UserMetadataDetails>),
+    TmdbMultiSearch(Vec<TmdbMetadataLookupResult>),
     MetadataGroupDetails(Box<MetadataGroupDetails>),
     UserTwoFactorSetup(UserTwoFactorSetupCacheValue),
     TrendingMetadataIds(TrendingMetadataIdsResponse),

@@ -2,6 +2,7 @@ use std::{collections::HashSet, future::Future, sync::Arc};
 
 use anyhow::{Result, bail};
 use application_utils::get_base_http_client;
+use common_models::MetadataLookupCacheInput;
 use common_utils::{convert_date_to_year, ryot_log};
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TmdbLanguage, TmdbSettings};
 use enum_models::{MediaLot, MediaSource};
@@ -313,41 +314,52 @@ impl TmdbService {
         query: &str,
         ss: &Arc<SupportingService>,
     ) -> Result<Vec<TmdbMetadataLookupResult>> {
-        ryot_log!(debug, "tmdb multi_search: query={}", query);
-        let response: TmdbListResponse = self
-            .client
-            .get(format!("{URL}/search/multi"))
-            .query(&[
-                ("page", "1"),
-                ("query", query),
-                ("include_adult", "true"),
-                ("language", self.language.as_str()),
-            ])
-            .send()
-            .await?
-            .json()
-            .await?;
+        cache_service::get_or_set_with_callback(
+            ss,
+            ApplicationCacheKey::TmdbMultiSearch(MetadataLookupCacheInput {
+                title: query.to_owned(),
+            }),
+            ApplicationCacheValue::TmdbMultiSearch,
+            move || async move {
+                ryot_log!(debug, "tmdb multi_search: query={}", query);
+                let response: TmdbListResponse = self
+                    .client
+                    .get(format!("{URL}/search/multi"))
+                    .query(&[
+                        ("page", "1"),
+                        ("query", query),
+                        ("include_adult", "true"),
+                        ("language", &self.language),
+                    ])
+                    .send()
+                    .await?
+                    .json()
+                    .await?;
 
-        let results = response
-            .results
-            .into_iter()
-            .filter_map(|entry| {
-                let media_type = entry.media_type.as_deref()?;
-                let lot = match media_type {
-                    "tv" => MediaLot::Show,
-                    "movie" => MediaLot::Movie,
-                    _ => return None,
-                };
-                Some(TmdbMetadataLookupResult {
-                    lot,
-                    identifier: entry.id.to_string(),
-                    title: entry.title.unwrap_or_default(),
-                    publish_year: entry.release_date.and_then(|r| convert_date_to_year(&r)),
-                })
-            })
-            .collect();
+                let results = response
+                    .results
+                    .into_iter()
+                    .filter_map(|entry| {
+                        let media_type = entry.media_type.as_deref()?;
+                        let lot = match media_type {
+                            "tv" => MediaLot::Show,
+                            "movie" => MediaLot::Movie,
+                            _ => return None,
+                        };
+                        Some(TmdbMetadataLookupResult {
+                            lot,
+                            identifier: entry.id.to_string(),
+                            title: entry.title.unwrap_or_default(),
+                            publish_year: entry.release_date.and_then(|r| convert_date_to_year(&r)),
+                        })
+                    })
+                    .collect();
 
-        Ok(results)
+                Ok(results)
+            },
+        )
+        .await
+        .map(|c| c.response)
     }
 }
 

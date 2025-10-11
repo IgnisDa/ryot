@@ -11,7 +11,7 @@ use serde_with::skip_serializing_none;
 
 use crate::{SeenShowExtraInformation, UniqueMediaIdentifier};
 
-#[derive(Debug, Clone, SimpleObject)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, SimpleObject)]
 pub struct TmdbMetadataLookupResult {
     pub lot: MediaLot,
     pub title: String,
