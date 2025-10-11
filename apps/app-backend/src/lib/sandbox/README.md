@@ -10,7 +10,7 @@ The model is:
 
 ## Main components
 
-- `runner-source.txt`: source code executed by Deno for each run.
+- `src/lib/sandbox-runner-source.txt`: source code executed by Deno for each run. The runtime writes it to a temp `.mjs` file at startup and passes that path to every subprocess.
 - `providers/`: sandbox provider scripts for different media types and services.
 - `triggers/`: sandbox trigger scripts for event automation.
 - `shared/`: shared utility scripts used by providers and triggers.
@@ -64,7 +64,6 @@ The sandbox service infrastructure is still being migrated to Effect patterns.
 - **Deno restrictions:**
   - denied: `--deny-run`, `--deny-env`, `--deny-ffi`, `--deny-write`, `--no-prompt`, `--no-remote`
   - allowed: `--allow-read=<runner-file>`, `--allow-net=127.0.0.1:<bridge-port>`
-  - import enforcement: `--cached-only` (only pre-approved packages loadable; see below)
 - **Network boundary:** sandbox can only talk to the local bridge; external network access must go through explicit host functions. `--allow-net` is bridge-only, so even code inside imported packages cannot reach external hosts.
 - **Auth boundary:** each execution has a random bearer token checked by bridge routes.
 - **Timeout enforcement:** timeout guard sends `SIGTERM`, then `SIGKILL` after a short delay.
@@ -74,7 +73,7 @@ The sandbox service infrastructure is still being migrated to Effect patterns.
 
 ## Process pool
 
-At startup, `SandboxService` fills a pool of `sandboxWorkerConcurrency + 2` idle Deno subprocesses. Each subprocess:
+At startup, `ProcessPool` fills a pool of `sandboxWorkerConcurrency + 2` idle Deno subprocesses (controlled by `SANDBOX_WORKER_CONCURRENCY`, default `5`, so a default pool size of `7`). Each subprocess:
 
 1. Starts with the same restricted permission flags used for every execution.
 2. Loads V8 and initialises the Deno runtime.
@@ -82,7 +81,7 @@ At startup, `SandboxService` fills a pool of `sandboxWorkerConcurrency + 2` idle
 
 When a job arrives, `execute()` checks out an idle process from the pool in O(1), writes the payload to its stdin, and waits for it to exit. The pool immediately spawns a replacement subprocess in the background. If the pool is empty under a burst, execution falls back to a fresh spawn (identical to the original behaviour).
 
-**Memory cost:** each idle subprocess uses roughly 40–55 MB RSS. With a pool size of 7 that is ~350 MB pinned while the service is running.
+**Memory cost:** each idle subprocess uses roughly 40–55 MB RSS. With the default pool size of 7 that is ~280–385 MB pinned while the service is running.
 
 **Why single-use:** reusing a subprocess across executions would allow user code to pollute global state (prototype mutations, lingering timers) and eliminates per-process memory limits. Single-use preserves the full isolation guarantee while still amortising the ~200 ms V8 startup cost.
 
@@ -126,6 +125,7 @@ The cache persists across restarts. In Docker deployments, mount the cache direc
 - `executeQueryEngine` runs query-engine requests for the current user.
 - `getEntity`, `getEntitySchema`, and `getIntegration` read app-owned records for the current user.
 - `getCachedValue` and `setCachedValue` provide script-scoped cache access.
+- `claimCachedValue` atomically sets a cached value only if the key does not already exist (SETNX). Returns `{ claimed: true }` when the key was newly set, or `{ claimed: false, value }` with the existing value when the key was already present.
 - `getSystemConfig` returns the masked system config exposed by the app API.
 - `getAppConfigValue` reads server configuration values exposed to sandbox scripts.
 - `getUserPreferences` reads the current user's stored preferences.
