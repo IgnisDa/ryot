@@ -8,11 +8,13 @@ import { getBuiltinEventSchemaBySlug } from "~/modules/event-schemas";
 import { createEventsBestEffortWithTriggers, type CreateEventBody } from "~/modules/events";
 import { getBuiltinSandboxScriptBySlug } from "~/modules/sandbox";
 
-import type { ImportEntityRef, ImportMediaEntityGroup, ImportRunJobData } from "../jobs";
+import {
+	importEntityRefKey,
+	type ImportEntityRef,
+	type ImportMediaEntityGroup,
+	type ImportRunJobData,
+} from "../jobs";
 import { createImportRunFailure } from "../repository";
-
-export const entityRefKey = (ref: ImportEntityRef) =>
-	`${ref.entitySchemaSlug}|${ref.scriptSlug}|${ref.externalId}`;
 
 export type MediaProcessorDeps = {
 	addToCollection: typeof addToCollection;
@@ -253,7 +255,7 @@ export const writeMediaEntityGroups = async (
 			continue;
 		}
 
-		const key = entityRefKey(group.entityRef);
+		const key = importEntityRefKey(group.entityRef);
 		const entityId = input.entityIdsByKey.get(key);
 		if (!entityId) {
 			await input.onGroupComplete({
