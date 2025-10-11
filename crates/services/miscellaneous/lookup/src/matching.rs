@@ -8,13 +8,12 @@ use crate::extractors::{extract_base_title, extract_season_episode};
 
 const EXACT_MATCH_BONUS: f64 = 1.0;
 const SUBSTRING_PENALTY: f64 = 0.5;
+const EXTRA_TOKEN_PENALTY: f64 = 0.1;
 const EXACT_YEAR_MATCH_BONUS: f64 = 0.2;
 const CLOSE_YEAR_MATCH_BONUS: f64 = 0.1;
 const SHOW_WITH_EPISODE_BONUS: f64 = 0.5;
 const RESULT_POSITION_BONUS_BASE: f64 = 0.05;
-const MOVIE_WITHOUT_EPISODE_BONUS: f64 = 0.3;
 const NORMALIZED_EXACT_MATCH_BONUS: f64 = 0.6;
-const EXTRA_TOKEN_PENALTY: f64 = 0.1;
 
 fn normalize_for_exact(value: &str) -> String {
     value
@@ -109,10 +108,6 @@ fn calculate_match_score(
 
     if has_episode_indicators && matches!(result.lot, MediaLot::Show) {
         score += SHOW_WITH_EPISODE_BONUS;
-    }
-
-    if !has_episode_indicators && matches!(result.lot, MediaLot::Movie) {
-        score += MOVIE_WITHOUT_EPISODE_BONUS;
     }
 
     if EXTRA_TOKEN_PENALTY > 0.0 {

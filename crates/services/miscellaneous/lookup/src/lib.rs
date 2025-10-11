@@ -24,38 +24,13 @@ async fn smart_search(
     tmdb_service: &TmdbService,
     ss: &Arc<SupportingService>,
 ) -> Result<Vec<TmdbMetadataLookupResult>> {
-    let mut queries = Vec::with_capacity(2);
+    let base_title = extract_base_title(title.trim());
 
-    let trimmed_title = title.trim();
-    if !trimmed_title.is_empty() {
-        queries.push(trimmed_title.to_string());
+    if base_title.is_empty() {
+        return Ok(vec![]);
     }
 
-    let base_title = extract_base_title(trimmed_title);
-    if !base_title.is_empty()
-        && !queries
-            .iter()
-            .any(|existing| existing.eq_ignore_ascii_case(&base_title))
-    {
-        queries.push(base_title);
-    }
-
-    let mut last_error = None;
-    let mut any_success = false;
-
-    for query in queries {
-        match tmdb_service.multi_search(&query, ss).await {
-            Ok(results) if !results.is_empty() => return Ok(results),
-            Ok(_) => any_success = true,
-            Err(err) => last_error = Some(err),
-        }
-    }
-
-    if !any_success && let Some(err) = last_error {
-        return Err(err);
-    }
-
-    Ok(vec![])
+    tmdb_service.multi_search(&base_title, ss).await
 }
 
 fn extract_show_information(title: &str, media_lot: &MediaLot) -> Option<SeenShowExtraInformation> {
