@@ -9,11 +9,13 @@ import {
 } from "./file-helpers";
 import type { ImportEntityRef, ImportMediaEntityGroup, ImportRunJobData } from "./jobs";
 import { getImportRunById, updateImportRun } from "./repository";
+import { processHevyImport } from "./sources/hevy/processor";
 import { processOpenScaleImport } from "./sources/open-scale/processor";
 import { processStrongAppImport } from "./sources/strong-app/processor";
 import { processTraktImport } from "./sources/trakt/processor";
 
 const allowedExtensionsBySource: Record<string, string[]> = {
+	hevy: ["csv"],
 	open_scale: ["csv"],
 	strong_app: ["csv"],
 };
@@ -131,7 +133,9 @@ export const processImportJob = async (input: {
 	}
 
 	try {
-		if (run.source === "open_scale") {
+		if (run.source === "hevy") {
+			await processHevyImport({ runId, userId, filePath: safePath });
+		} else if (run.source === "open_scale") {
 			await processOpenScaleImport({ runId, userId, filePath: safePath });
 		} else if (run.source === "strong_app") {
 			await processStrongAppImport({ runId, userId, filePath: safePath });
