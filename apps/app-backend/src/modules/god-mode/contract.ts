@@ -12,7 +12,7 @@ const UserListItem = Schema.Struct({
 	email: Schema.String,
 	authState: UserAuthState,
 	createdAt: Schema.String,
-	bannedAt: Schema.optional(Schema.String),
+	bannedAt: Schema.NullOr(Schema.String),
 	twoFactorEnabled: Schema.optional(Schema.Boolean),
 });
 
@@ -39,7 +39,7 @@ const SetBanBody = Schema.Struct({ banned: Schema.Boolean });
 
 const SetBanResponse = Schema.Struct({
 	id: Schema.String,
-	bannedAt: Schema.optional(Schema.String),
+	bannedAt: Schema.NullOr(Schema.String),
 });
 
 const userIdParam = HttpApiSchema.param("userId", Schema.String);
