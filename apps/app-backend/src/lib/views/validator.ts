@@ -968,6 +968,10 @@ export const validateSavedViewDisplayConfiguration = (
 		);
 	}
 
+	if (displayConfiguration.table.columns.length === 0) {
+		throw new QueryEngineValidationError("At least one table column is required");
+	}
+
 	const computedFieldMap = validateComputedFields({
 		context,
 		computedFields,
