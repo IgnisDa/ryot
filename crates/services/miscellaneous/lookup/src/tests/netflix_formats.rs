@@ -252,6 +252,10 @@ fn test_netflix_episode_word_format() {
     "Hitler and the Nazis: Evil on Trial"
 )]
 #[case("Barbarians: Barbarians II: Treason (Episode 5)", "Barbarians")]
+#[case(
+    "The Snow Girl: 1. The Snow Girl: Episode 3 (Episode 3)",
+    "The Snow Girl"
+)]
 fn test_netflix_base_title_extraction(#[case] input: &str, #[case] expected: &str) {
     let result = extract_base_title(input);
     assert_eq!(
@@ -278,6 +282,7 @@ fn test_netflix_base_title_extraction(#[case] input: &str, #[case] expected: &st
     1,
     5
 )]
+#[case("The Snow Girl: 1. The Snow Girl: Episode 3 (Episode 3)", 1, 3)]
 fn test_failing_netflix_imports(
     #[case] input: &str,
     #[case] expected_season: i32,
