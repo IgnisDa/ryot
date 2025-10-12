@@ -1,4 +1,6 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
+import { XMLParser } from "fast-xml-parser";
+import { SyntaxValidator } from "fast-xml-validator";
 
 import {
 	createBacklogEvent,
@@ -18,6 +20,12 @@ import type {
 
 type MyanimelistLot = "anime" | "manga";
 
+type MyanimelistXmlItem = Record<string, string | undefined>;
+
+type MyanimelistXmlDocument = {
+	myanimelist?: Partial<Record<MyanimelistLot, MyanimelistXmlItem[]>>;
+};
+
 type MyanimelistItem = {
 	done: number;
 	title: string;
@@ -28,30 +36,54 @@ type MyanimelistItem = {
 	myFinishDate: string;
 };
 
-const getItemBlocks = (xmlText: string, tagName: string, sourceName: string): string[] => {
-	const pattern = new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>`, "g");
-	const blocks = [...xmlText.matchAll(pattern)].map((match) => match[1] ?? "");
-	if (
-		blocks.length === 0 &&
-		xmlText.includes(`<${tagName}>`) &&
-		!xmlText.includes(`</${tagName}>`)
-	) {
-		throw new Error(`${sourceName} export is not valid XML`);
+const myanimelistXmlParser = new XMLParser({
+	htmlEntities: true,
+	isArray: (tagName) => tagName === "anime" || tagName === "manga",
+	parseTagValue: false,
+});
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+	typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isMyanimelistXmlItem = (value: unknown): value is MyanimelistXmlItem =>
+	isRecord(value) &&
+	Object.values(value).every((entry) => entry === undefined || typeof entry === "string");
+
+const isMyanimelistXmlDocument = (value: unknown): value is MyanimelistXmlDocument => {
+	if (!isRecord(value)) {
+		return false;
 	}
-	return blocks;
+
+	const myanimelist = value.myanimelist;
+	if (!isRecord(myanimelist)) {
+		return false;
+	}
+
+	const anime = myanimelist.anime;
+	const manga = myanimelist.manga;
+	return (
+		(anime === undefined || (Array.isArray(anime) && anime.every(isMyanimelistXmlItem))) &&
+		(manga === undefined || (Array.isArray(manga) && manga.every(isMyanimelistXmlItem)))
+	);
 };
 
-const decodeXmlText = (value: string): string =>
-	value
-		.replace(/&amp;/g, "&")
-		.replace(/&lt;/g, "<")
-		.replace(/&gt;/g, ">")
-		.replace(/&quot;/g, '"')
-		.replace(/&#39;/g, "'");
+const getLotItems = (xmlText: string, lot: MyanimelistLot): MyanimelistXmlItem[] => {
+	const validation = SyntaxValidator.validate(xmlText);
+	if (validation !== true) {
+		throw new Error(validation.err.msg);
+	}
 
-const getText = (block: string, tagName: string): string => {
-	const match = block.match(new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>`));
-	return decodeXmlText(match?.[1]?.trim() ?? "");
+	const parsed = myanimelistXmlParser.parse(xmlText);
+	if (!isMyanimelistXmlDocument(parsed)) {
+		return [];
+	}
+
+	return parsed.myanimelist?.[lot] ?? [];
+};
+
+const getText = (item: MyanimelistXmlItem, tagName: string): string => {
+	const value = item[tagName];
+	return typeof value === "string" ? value.trim() : "";
 };
 
 const getStatusLifecycle = (status: string) => {
@@ -75,19 +107,19 @@ const getStatusLifecycle = (status: string) => {
 	return undefined;
 };
 
-const parseMyanimelistItem = (block: string, lot: MyanimelistLot): MyanimelistItem => {
+const parseMyanimelistItem = (item: MyanimelistXmlItem, lot: MyanimelistLot): MyanimelistItem => {
 	const doneTag = lot === "anime" ? "my_watched_episodes" : "my_read_chapters";
 	const identifierTag = lot === "anime" ? "series_animedb_id" : "manga_mangadb_id";
 	const titleTag = lot === "anime" ? "series_title" : "manga_title";
-	const done = Number.parseInt(getText(block, doneTag), 10);
+	const done = Number.parseInt(getText(item, doneTag), 10);
 	if (!Number.isInteger(done) || done < 0) {
 		throw new Error(`${doneTag} is invalid`);
 	}
-	const myScore = Number.parseInt(getText(block, "my_score"), 10);
+	const myScore = Number.parseInt(getText(item, "my_score"), 10);
 	if (!Number.isInteger(myScore) || myScore < 0) {
 		throw new Error("my_score is invalid");
 	}
-	const identifier = getText(block, identifierTag);
+	const identifier = getText(item, identifierTag);
 	if (!identifier) {
 		throw new Error(`${identifierTag} is empty`);
 	}
@@ -95,10 +127,10 @@ const parseMyanimelistItem = (block: string, lot: MyanimelistLot): MyanimelistIt
 		done,
 		myScore,
 		identifier,
-		title: getText(block, titleTag),
-		myStartDate: getText(block, "my_start_date"),
-		myFinishDate: getText(block, "my_finish_date"),
-		myStatus: getText(block, "my_status") || undefined,
+		title: getText(item, titleTag),
+		myStartDate: getText(item, "my_start_date"),
+		myFinishDate: getText(item, "my_finish_date"),
+		myStatus: getText(item, "my_status") || undefined,
 	};
 };
 
@@ -128,7 +160,7 @@ const adaptMyanimelistLot = (
 	failures: MediaImportAdapterFailure[],
 	input: { itemIndex: number; lot: MyanimelistLot; xmlText: string },
 ): number => {
-	const itemBlocks = getItemBlocks(input.xmlText, input.lot, "MyAnimeList");
+	const itemBlocks = getLotItems(input.xmlText, input.lot);
 	let itemIndex = input.itemIndex;
 
 	for (const block of itemBlocks) {
