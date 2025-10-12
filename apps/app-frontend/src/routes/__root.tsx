@@ -20,12 +20,12 @@ interface MyRouterContext {
 export const Route = createRootRouteWithContext<MyRouterContext>()({
 	shellComponent: RootDocument,
 	head: () => ({
+		links: [{ href: appCss, rel: "stylesheet" }],
 		meta: [
 			{ charSet: "utf-8" },
-			{ name: "viewport", content: "width=device-width, initial-scale=1" },
 			{ title: "TanStack Start Starter" },
+			{ name: "viewport", content: "width=device-width, initial-scale=1" },
 		],
-		links: [{ href: appCss, rel: "stylesheet" }],
 	}),
 });
 
