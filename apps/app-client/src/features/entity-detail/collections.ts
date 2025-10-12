@@ -7,11 +7,11 @@ import {
 } from "./query-engine";
 
 export async function loadRelatedCollections(
-	apiClient: QueryEngineClient,
+	queryEngineClient: QueryEngineClient,
 	input: { entityId: string },
 ) {
 	return loadQueryEngineEntities({
-		apiClient,
+		queryEngineClient,
 		errorMessage: "Failed to load related collections",
 		requestForPage: (page) => ({
 			mode: "entities",

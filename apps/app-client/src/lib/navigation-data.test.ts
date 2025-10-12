@@ -6,29 +6,22 @@ import { buildNavigationItems, navHref, sortByOrderThenName } from "./navigation
 type TrackerFixture = Parameters<typeof buildNavigationItems>[0][number];
 type ViewFixture = Parameters<typeof buildNavigationItems>[1][number];
 
-function makeTracker(partial: {
-	id: string;
-	name: string;
-	slug: string;
-	icon: string;
-	accentColor: string;
-	sortOrder: number;
-	isDisabled: boolean;
-}): TrackerFixture {
+function makeTracker(
+	partial: Pick<
+		TrackerFixture,
+		"id" | "name" | "slug" | "icon" | "accentColor" | "sortOrder" | "isDisabled"
+	>,
+): TrackerFixture {
 	// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
 	return partial as unknown as TrackerFixture;
 }
 
-function makeView(partial: {
-	id: string;
-	name: string;
-	slug: string;
-	icon: string;
-	accentColor: string;
-	sortOrder: number;
-	isDisabled: boolean;
-	trackerId: string | null;
-}): ViewFixture {
+function makeView(
+	partial: Pick<
+		ViewFixture,
+		"id" | "name" | "slug" | "icon" | "accentColor" | "sortOrder" | "isDisabled" | "trackerId"
+	>,
+): ViewFixture {
 	// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
 	return partial as unknown as ViewFixture;
 }

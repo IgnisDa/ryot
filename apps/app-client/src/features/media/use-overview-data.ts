@@ -1,11 +1,14 @@
-import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
+import { getQueryEngineField } from "@ryot/app-backend/query-language";
 import { useQuery } from "@tanstack/react-query";
 
-import { useApiClient } from "@/lib/api-client";
+import {
+	type ContractClient,
+	type ContractSuccess,
+	useContractClient,
+} from "@/lib/contract-client";
 import { toEntityImage } from "@/lib/entity-image";
 import { useResolvedImageUrls } from "@/lib/image";
 
-import type { QueryEngineEntityItem } from "../entity-detail/query-engine";
 import { MEDIA_SCOPE_SLUGS } from "./constants";
 
 const CONTINUE_UNIT_LABELS: Record<string, string> = {
@@ -56,7 +59,13 @@ const COMMON_ENTITY_FIELDS = [
 	},
 ];
 
-function extractEntityBase(item: QueryEngineEntityItem | undefined) {
+type QueryEngineResponse = ContractSuccess<ContractClient["queryEngine"]["execute"]>;
+type QueryEngineItem = Extract<
+	QueryEngineResponse,
+	{ mode: "entities" | "events" }
+>["data"]["items"][number];
+
+function extractEntityBase(item: QueryEngineItem | undefined) {
 	const getVal = (key: string) => getQueryEngineField(item, key)?.value;
 	const id = getVal("entityId");
 	const title = getVal("entityName");
@@ -139,88 +148,86 @@ const makeChronologicalComparisonPredicate = (leftJoinKey: string, rightJoinKey:
 };
 
 export function useMediaOverviewData() {
-	const apiClient = useApiClient();
+	const runContract = useContractClient();
 
 	const upNextQuery = useQuery({
 		queryKey: ["media", "overview", "up-next"],
 		queryFn: async () => {
-			const response = await apiClient.POST("/query-engine/execute", {
-				body: {
-					mode: "entities",
-					scope: [...MEDIA_SCOPE_SLUGS],
-					pagination: { page: 1, limit: 6 },
-					eventJoins: [
-						{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },
-						{ key: "dropped", kind: "latestEvent", eventSchemaSlug: "dropped" },
-						{ key: "on_hold", kind: "latestEvent", eventSchemaSlug: "on_hold" },
-						{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
-						{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
-					],
-					relationshipJoins: [
-						{
-							required: true,
-							key: "inLibrary",
-							direction: "outgoing",
-							kind: "latestRelationship",
-							relationshipSchemaSlug: "in-library",
-						},
-					],
-					sort: {
-						direction: "desc",
-						expression: {
-							type: "reference",
-							reference: { type: "event-join", joinKey: "backlog", path: ["occurredAt"] },
-						},
-					},
-					filter: {
-						type: "and",
-						predicates: [
+			const data = await runContract((client) =>
+				client.queryEngine.execute({
+					payload: {
+						mode: "entities",
+						scope: [...MEDIA_SCOPE_SLUGS],
+						pagination: { page: 1, limit: 6 },
+						eventJoins: [
+							{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },
+							{ key: "dropped", kind: "latestEvent", eventSchemaSlug: "dropped" },
+							{ key: "on_hold", kind: "latestEvent", eventSchemaSlug: "on_hold" },
+							{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
+							{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
+						],
+						relationshipJoins: [
 							{
-								type: "isNotNull",
+								required: true,
+								key: "inLibrary",
+								direction: "outgoing",
+								kind: "latestRelationship",
+								relationshipSchemaSlug: "in-library",
+							},
+						],
+						sort: {
+							direction: "desc",
+							expression: {
+								type: "reference",
+								reference: { type: "event-join", joinKey: "backlog", path: ["occurredAt"] },
+							},
+						},
+						filter: {
+							type: "and",
+							predicates: [
+								{
+									type: "isNotNull",
+									expression: {
+										type: "reference",
+										reference: { type: "event-join", joinKey: "backlog", path: ["occurredAt"] },
+									},
+								},
+								makeChronologicalComparisonPredicate("backlog", "progress"),
+								makeChronologicalComparisonPredicate("backlog", "complete"),
+								makeChronologicalComparisonPredicate("backlog", "dropped"),
+								makeChronologicalComparisonPredicate("backlog", "on_hold"),
+							],
+						},
+						fields: [
+							...COMMON_ENTITY_FIELDS,
+							{
+								key: "publishYear",
 								expression: {
-									type: "reference",
-									reference: { type: "event-join", joinKey: "backlog", path: ["occurredAt"] },
+									type: "coalesce",
+									values: [
+										"book",
+										"show",
+										"movie",
+										"anime",
+										"manga",
+										"music",
+										"podcast",
+										"audiobook",
+										"comic-book",
+									].map((slug) => ({
+										type: "reference" as const,
+										reference: {
+											slug,
+											type: "entity" as const,
+											path: ["properties", "publishYear"],
+										},
+									})),
 								},
 							},
-							makeChronologicalComparisonPredicate("backlog", "progress"),
-							makeChronologicalComparisonPredicate("backlog", "complete"),
-							makeChronologicalComparisonPredicate("backlog", "dropped"),
-							makeChronologicalComparisonPredicate("backlog", "on_hold"),
 						],
 					},
-					fields: [
-						...COMMON_ENTITY_FIELDS,
-						{
-							key: "publishYear",
-							expression: {
-								type: "coalesce",
-								values: [
-									"book",
-									"show",
-									"movie",
-									"anime",
-									"manga",
-									"music",
-									"podcast",
-									"audiobook",
-									"comic-book",
-								].map((slug) => ({
-									type: "reference" as const,
-									reference: {
-										slug,
-										type: "entity" as const,
-										path: ["properties", "publishYear"],
-									},
-								})),
-							},
-						},
-					],
-				},
-			});
-			if (response.error) {
-				throw new Error(JSON.stringify(response.error));
-			}
-			const data = response.data;
+				}),
+			);
 			if (data.mode !== "entities") {
 				return [];
 			}
@@ -254,122 +261,128 @@ export function useMediaOverviewData() {
 	const continueQuery = useQuery({
 		queryKey: ["media", "overview", "continue"],
 		queryFn: async () => {
-			const response = await apiClient.POST("/query-engine/execute", {
-				body: {
-					mode: "entities",
-					scope: [...MEDIA_SCOPE_SLUGS],
-					relationshipJoins: [
-						{
-							key: "inLibrary",
-							kind: "latestRelationship",
-							relationshipSchemaSlug: "in-library",
-							direction: "outgoing",
-							required: true,
-						},
-					],
-					eventJoins: [
-						{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },
-						{ key: "dropped", kind: "latestEvent", eventSchemaSlug: "dropped" },
-						{ key: "on_hold", kind: "latestEvent", eventSchemaSlug: "on_hold" },
-						{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
-						{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
-					],
-					pagination: { page: 1, limit: 6 },
-					sort: {
-						direction: "desc",
-						expression: {
-							type: "reference",
-							reference: { type: "event-join", joinKey: "progress", path: ["occurredAt"] },
-						},
-					},
-					filter: {
-						type: "and",
-						predicates: [
+			const data = await runContract((client) =>
+				client.queryEngine.execute({
+					payload: {
+						mode: "entities",
+						scope: [...MEDIA_SCOPE_SLUGS],
+						relationshipJoins: [
 							{
-								type: "isNotNull",
-								expression: {
-									type: "reference",
-									reference: { type: "event-join", joinKey: "progress", path: ["occurredAt"] },
-								},
+								key: "inLibrary",
+								kind: "latestRelationship",
+								relationshipSchemaSlug: "in-library",
+								direction: "outgoing",
+								required: true,
 							},
-							makeChronologicalComparisonPredicate("progress", "backlog"),
-							makeChronologicalComparisonPredicate("progress", "complete"),
-							makeChronologicalComparisonPredicate("progress", "dropped"),
-							makeChronologicalComparisonPredicate("progress", "on_hold"),
 						],
-					},
-					fields: [
-						...COMMON_ENTITY_FIELDS,
-						{
-							key: "totalUnits",
-							expression: {
-								type: "coalesce",
-								values: [
-									{
-										type: "reference",
-										reference: { type: "entity", slug: "book", path: ["properties", "pages"] },
-									},
-									{
-										type: "reference",
-										reference: {
-											type: "entity",
-											slug: "comic-book",
-											path: ["properties", "pages"],
-										},
-									},
-									{
-										type: "reference",
-										reference: { type: "entity", slug: "anime", path: ["properties", "episodes"] },
-									},
-									{
-										type: "reference",
-										reference: { slug: "manga", type: "entity", path: ["properties", "chapters"] },
-									},
-									{
-										type: "reference",
-										reference: {
-											type: "entity",
-											slug: "audiobook",
-											path: ["properties", "runtime"],
-										},
-									},
-									{
-										type: "reference",
-										reference: {
-											type: "entity",
-											slug: "podcast",
-											path: ["properties", "totalEpisodes"],
-										},
-									},
-									{
-										type: "reference",
-										reference: {
-											type: "entity",
-											slug: "music",
-											path: ["properties", "duration"],
-										},
-									},
-								],
-							},
-						},
-						{
-							key: "progressPercent",
+						eventJoins: [
+							{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },
+							{ key: "dropped", kind: "latestEvent", eventSchemaSlug: "dropped" },
+							{ key: "on_hold", kind: "latestEvent", eventSchemaSlug: "on_hold" },
+							{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
+							{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
+						],
+						pagination: { page: 1, limit: 6 },
+						sort: {
+							direction: "desc",
 							expression: {
 								type: "reference",
-								reference: {
-									type: "event-join",
-									joinKey: "progress",
-									path: ["properties", "progressPercent"],
-								},
+								reference: { type: "event-join", joinKey: "progress", path: ["occurredAt"] },
 							},
 						},
-					],
-				},
-			});
-			if (response.error) {
-				throw new Error(JSON.stringify(response.error));
-			}
-			const data = response.data;
+						filter: {
+							type: "and",
+							predicates: [
+								{
+									type: "isNotNull",
+									expression: {
+										type: "reference",
+										reference: { type: "event-join", joinKey: "progress", path: ["occurredAt"] },
+									},
+								},
+								makeChronologicalComparisonPredicate("progress", "backlog"),
+								makeChronologicalComparisonPredicate("progress", "complete"),
+								makeChronologicalComparisonPredicate("progress", "dropped"),
+								makeChronologicalComparisonPredicate("progress", "on_hold"),
+							],
+						},
+						fields: [
+							...COMMON_ENTITY_FIELDS,
+							{
+								key: "totalUnits",
+								expression: {
+									type: "coalesce",
+									values: [
+										{
+											type: "reference",
+											reference: { type: "entity", slug: "book", path: ["properties", "pages"] },
+										},
+										{
+											type: "reference",
+											reference: {
+												type: "entity",
+												slug: "comic-book",
+												path: ["properties", "pages"],
+											},
+										},
+										{
+											type: "reference",
+											reference: {
+												type: "entity",
+												slug: "anime",
+												path: ["properties", "episodes"],
+											},
+										},
+										{
+											type: "reference",
+											reference: {
+												slug: "manga",
+												type: "entity",
+												path: ["properties", "chapters"],
+											},
+										},
+										{
+											type: "reference",
+											reference: {
+												type: "entity",
+												slug: "audiobook",
+												path: ["properties", "runtime"],
+											},
+										},
+										{
+											type: "reference",
+											reference: {
+												type: "entity",
+												slug: "podcast",
+												path: ["properties", "totalEpisodes"],
+											},
+										},
+										{
+											type: "reference",
+											reference: {
+												type: "entity",
+												slug: "music",
+												path: ["properties", "duration"],
+											},
+										},
+									],
+								},
+							},
+							{
+								key: "progressPercent",
+								expression: {
+									type: "reference",
+									reference: {
+										type: "event-join",
+										joinKey: "progress",
+										path: ["properties", "progressPercent"],
+									},
+								},
+							},
+						],
+					},
+				}),
+			);
 			if (data.mode !== "entities") {
 				return [];
 			}
@@ -428,79 +441,77 @@ export function useMediaOverviewData() {
 	const rateTheseQuery = useQuery({
 		queryKey: ["media", "overview", "review"],
 		queryFn: async () => {
-			const response = await apiClient.POST("/query-engine/execute", {
-				body: {
-					mode: "entities",
-					scope: [...MEDIA_SCOPE_SLUGS],
-					relationshipJoins: [
-						{
-							key: "inLibrary",
-							kind: "latestRelationship",
-							relationshipSchemaSlug: "in-library",
-							direction: "outgoing",
-							required: true,
-						},
-					],
-					eventJoins: [
-						{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
-						{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },
-						{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
-						{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
-						{ key: "dropped", kind: "latestEvent", eventSchemaSlug: "dropped" },
-						{ key: "on_hold", kind: "latestEvent", eventSchemaSlug: "on_hold" },
-					],
-					pagination: { page: 1, limit: 6 },
-					sort: {
-						direction: "desc",
-						expression: {
-							type: "reference",
-							reference: { type: "event-join", joinKey: "complete", path: ["occurredAt"] },
-						},
-					},
-					filter: {
-						type: "and",
-						predicates: [
+			const data = await runContract((client) =>
+				client.queryEngine.execute({
+					payload: {
+						mode: "entities",
+						scope: [...MEDIA_SCOPE_SLUGS],
+						relationshipJoins: [
 							{
-								type: "isNotNull",
-								expression: {
-									type: "reference",
-									reference: { type: "event-join", path: ["occurredAt"], joinKey: "complete" },
-								},
+								key: "inLibrary",
+								kind: "latestRelationship",
+								relationshipSchemaSlug: "in-library",
+								direction: "outgoing",
+								required: true,
 							},
-							makeChronologicalComparisonPredicate("complete", "backlog"),
-							makeChronologicalComparisonPredicate("complete", "progress"),
-							makeChronologicalComparisonPredicate("complete", "dropped"),
-							makeChronologicalComparisonPredicate("complete", "on_hold"),
-							makeChronologicalComparisonPredicate("complete", "review"),
 						],
-					},
-					fields: [
-						...COMMON_ENTITY_FIELDS,
-						{
-							key: "completeAt",
+						eventJoins: [
+							{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
+							{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },
+							{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
+							{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
+							{ key: "dropped", kind: "latestEvent", eventSchemaSlug: "dropped" },
+							{ key: "on_hold", kind: "latestEvent", eventSchemaSlug: "on_hold" },
+						],
+						pagination: { page: 1, limit: 6 },
+						sort: {
+							direction: "desc",
 							expression: {
 								type: "reference",
 								reference: { type: "event-join", joinKey: "complete", path: ["occurredAt"] },
 							},
 						},
-						{
-							key: "reviewRating",
-							expression: {
-								type: "reference",
-								reference: {
-									joinKey: "review",
-									type: "event-join",
-									path: ["properties", "rating"],
+						filter: {
+							type: "and",
+							predicates: [
+								{
+									type: "isNotNull",
+									expression: {
+										type: "reference",
+										reference: { type: "event-join", path: ["occurredAt"], joinKey: "complete" },
+									},
+								},
+								makeChronologicalComparisonPredicate("complete", "backlog"),
+								makeChronologicalComparisonPredicate("complete", "progress"),
+								makeChronologicalComparisonPredicate("complete", "dropped"),
+								makeChronologicalComparisonPredicate("complete", "on_hold"),
+								makeChronologicalComparisonPredicate("complete", "review"),
+							],
+						},
+						fields: [
+							...COMMON_ENTITY_FIELDS,
+							{
+								key: "completeAt",
+								expression: {
+									type: "reference",
+									reference: { type: "event-join", joinKey: "complete", path: ["occurredAt"] },
 								},
 							},
-						},
-					],
-				},
-			});
-			if (response.error) {
-				throw new Error(JSON.stringify(response.error));
-			}
-			const data = response.data;
+							{
+								key: "reviewRating",
+								expression: {
+									type: "reference",
+									reference: {
+										joinKey: "review",
+										type: "event-join",
+										path: ["properties", "rating"],
+									},
+								},
+							},
+						],
+					},
+				}),
+			);
 			if (data.mode !== "entities") {
 				return [];
 			}
@@ -538,51 +549,52 @@ export function useMediaOverviewData() {
 	const activityQuery = useQuery({
 		queryKey: ["media", "overview", "activity"],
 		queryFn: async () => {
-			const response = await apiClient.POST("/query-engine/execute", {
-				body: {
-					mode: "events",
-					scope: [...MEDIA_SCOPE_SLUGS],
-					pagination: { page: 1, limit: 12 },
-					eventSchemas: ["review", "backlog", "progress", "complete"],
-					sort: {
-						direction: "desc",
-						expression: { type: "reference", reference: { type: "event", path: ["occurredAt"] } },
-					},
-					fields: [
-						{
-							key: "eventId",
-							expression: { type: "reference", reference: { type: "event", path: ["id"] } },
-						},
-						{
-							key: "eventOccurredAt",
+			const data = await runContract((client) =>
+				client.queryEngine.execute({
+					payload: {
+						mode: "events",
+						scope: [...MEDIA_SCOPE_SLUGS],
+						pagination: { page: 1, limit: 12 },
+						eventSchemas: ["review", "backlog", "progress", "complete"],
+						sort: {
+							direction: "desc",
 							expression: { type: "reference", reference: { type: "event", path: ["occurredAt"] } },
 						},
-						{
-							key: "eventSchemaSlug",
-							expression: {
-								type: "reference",
-								reference: { type: "event-schema", path: ["slug"] },
+						fields: [
+							{
+								key: "eventId",
+								expression: { type: "reference", reference: { type: "event", path: ["id"] } },
 							},
-						},
-						{
-							key: "eventRating",
-							expression: {
-								type: "reference",
-								reference: {
-									type: "event",
-									eventSchemaSlug: "review",
-									path: ["properties", "rating"],
+							{
+								key: "eventOccurredAt",
+								expression: {
+									type: "reference",
+									reference: { type: "event", path: ["occurredAt"] },
 								},
 							},
-						},
-						...COMMON_ENTITY_FIELDS,
-					],
-				},
-			});
-			if (response.error) {
-				throw new Error(JSON.stringify(response.error));
-			}
-			const data = response.data;
+							{
+								key: "eventSchemaSlug",
+								expression: {
+									type: "reference",
+									reference: { type: "event-schema", path: ["slug"] },
+								},
+							},
+							{
+								key: "eventRating",
+								expression: {
+									type: "reference",
+									reference: {
+										type: "event",
+										eventSchemaSlug: "review",
+										path: ["properties", "rating"],
+									},
+								},
+							},
+							...COMMON_ENTITY_FIELDS,
+						],
+					},
+				}),
+			);
 			if (data.mode !== "events") {
 				return [];
 			}
@@ -658,19 +670,12 @@ export function useMediaOverviewData() {
 	const entitySchemasQuery = useQuery({
 		enabled: entitySchemaSlugs.length > 0,
 		queryKey: ["entity-schemas", entitySchemaSlugs],
-		queryFn: async () => {
-			const response = await apiClient.POST("/entity-schemas/list", {
-				body: { slugs: entitySchemaSlugs },
-			});
-			if (response.error) {
-				throw new Error(JSON.stringify(response.error));
-			}
-			return response.data;
-		},
+		queryFn: () =>
+			runContract((client) => client.entitySchemas.list({ payload: { slugs: entitySchemaSlugs } })),
 	});
 
 	const schemaColorMap = new Map<string, string>();
-	for (const schema of entitySchemasQuery.data?.data ?? []) {
+	for (const schema of entitySchemasQuery.data ?? []) {
 		schemaColorMap.set(schema.slug, schema.accentColor);
 	}
 

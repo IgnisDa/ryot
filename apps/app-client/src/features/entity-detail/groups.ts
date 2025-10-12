@@ -19,7 +19,7 @@ const ENTITY_TYPES_WITH_GROUPS = new Set([
 export type RelatedGroup = { id: string; name: string };
 
 export async function loadRelatedGroups(
-	apiClient: QueryEngineClient,
+	queryEngineClient: QueryEngineClient,
 	input: { entityId: string; entitySchemaSlug: string },
 ) {
 	if (!ENTITY_TYPES_WITH_GROUPS.has(input.entitySchemaSlug)) {
@@ -32,7 +32,7 @@ export async function loadRelatedGroups(
 	);
 
 	return loadQueryEngineEntities({
-		apiClient,
+		queryEngineClient,
 		errorMessage: "Failed to load related groups",
 		requestForPage: (page) => ({
 			mode: "entities",

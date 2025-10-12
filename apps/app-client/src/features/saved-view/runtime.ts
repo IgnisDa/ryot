@@ -1,8 +1,8 @@
-import type { paths } from "@ryot/generated/openapi/app-backend";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
 import { match } from "ts-pattern";
 
+import type { ContractClient, ContractSuccess } from "@/lib/contract-client";
 import type { EntityImage } from "@/lib/entity-image";
 import { toEntityImage } from "@/lib/entity-image";
 
@@ -11,11 +11,10 @@ import type {
 	QueryEngineEntityItem,
 } from "../entity-detail/query-engine";
 
-type SavedView =
-	paths["/saved-views/{viewSlug}"]["get"]["responses"][200]["content"]["application/json"]["data"];
+type SavedView = ContractSuccess<ContractClient["savedViews"]["get"]>;
 
 export type EntitySavedView = Omit<SavedView, "queryDefinition"> & {
-	queryDefinition: Extract<SavedView["queryDefinition"], { mode: "entities" }>;
+	queryDefinition: SavedView["queryDefinition"] & { mode: "entities" };
 };
 
 export type SavedViewLayout = keyof Pick<
@@ -248,7 +247,9 @@ export function extractSavedViewImageEntries(rows: QueryEngineEntityItem[]) {
 	});
 }
 
-export function flattenSavedViewPages<T>(pages: Array<{ data: { items: T[] } }>) {
+export function flattenSavedViewPages<T>(
+	pages: ReadonlyArray<{ data: { items: ReadonlyArray<T> } }>,
+) {
 	return pages.flatMap((page) => page.data.items);
 }
 
