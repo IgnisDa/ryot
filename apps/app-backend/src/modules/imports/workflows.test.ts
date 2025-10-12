@@ -11,6 +11,7 @@ import { EventSchemasRepository } from "~/modules/event-schemas/repository";
 import { EventsService } from "~/modules/events/service";
 
 import { ImportsRepository } from "./repository";
+import { getTemporaryDirectory } from "./runtime/files";
 import { ProcessImportRunWorkflow } from "./worker";
 import { runOneTimeMediaImportWorkflow } from "./workflows";
 
@@ -412,6 +413,10 @@ it.effect(
 		let resolveCalled = false;
 		const cleanupCalls: Array<Record<string, unknown>> = [];
 		const recordedUpdates: Array<Record<string, unknown>> = [];
+		const defectPayload = {
+			...importPayload,
+			filePath: `${getTemporaryDirectory()}/import.csv`,
+		};
 
 		const options = {
 			importsRepository: makeImportsRepository({
@@ -426,7 +431,7 @@ it.effect(
 			options,
 			"workflow-failure",
 			Effect.gen(function* () {
-				yield* runOneTimeMediaImportWorkflow(importPayload, "workflow-failure", {
+				yield* runOneTimeMediaImportWorkflow(defectPayload, "workflow-failure", {
 					cleanupArtifacts: (input) =>
 						Effect.sync(() => {
 							cleanupCalls.push(input);
@@ -448,7 +453,7 @@ it.effect(
 				expect(resolveCalled).toBe(false);
 				expect(importCalled).toBe(false);
 				expect(cleanupCalls).toEqual([
-					{ cleanupPaths: ["/tmp/import.csv"], sourcePayloadKey: "payload-1" },
+					{ cleanupPaths: [defectPayload.filePath], sourcePayloadKey: "payload-1" },
 				]);
 				expect(recordedUpdates).toContainEqual(
 					expect.objectContaining({ runId: "run-1", status: "running" }),
@@ -464,3 +469,89 @@ it.effect(
 		);
 	},
 );
+
+it.effect("does not reintroduce invalid file paths during handled load failures", () => {
+	const cleanupCalls: Array<Record<string, unknown>> = [];
+	const recordedUpdates: Array<Record<string, unknown>> = [];
+	const invalidPayload = { ...importPayload, filePath: "../../etc/passwd" };
+
+	const options = {
+		importsRepository: makeImportsRepository({
+			updateRun: (input) => {
+				recordedUpdates.push(input);
+				return Effect.void;
+			},
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		"workflow-invalid-load-path",
+		Effect.gen(function* () {
+			yield* runOneTimeMediaImportWorkflow(invalidPayload, "workflow-invalid-load-path", {
+				cleanupArtifacts: (input) =>
+					Effect.sync(() => {
+						cleanupCalls.push(input);
+					}),
+				loadAdapterResult: () =>
+					Effect.fail({
+						message: "Import job has an invalid file path",
+						cleanupPaths: [],
+					}),
+				resolveExternalId: () => Effect.die("unused"),
+				searchEntities: () => Effect.die("unused"),
+				importEntity: () => Effect.die("unused"),
+			});
+
+			expect(cleanupCalls).toEqual([{ cleanupPaths: [], sourcePayloadKey: "payload-1" }]);
+			expect(recordedUpdates).toContainEqual(
+				expect.objectContaining({
+					runId: "run-1",
+					status: "failed",
+					errorSummary: "Import job has an invalid file path",
+				}),
+			);
+		}),
+	);
+});
+
+it.effect("does not attempt cleanup for invalid file paths when adapter loading defects", () => {
+	const cleanupCalls: Array<Record<string, unknown>> = [];
+	const recordedUpdates: Array<Record<string, unknown>> = [];
+	const invalidPayload = { ...importPayload, filePath: "../../etc/passwd" };
+
+	const options = {
+		importsRepository: makeImportsRepository({
+			updateRun: (input) => {
+				recordedUpdates.push(input);
+				return Effect.void;
+			},
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		"workflow-invalid-load-path-defect",
+		Effect.gen(function* () {
+			yield* runOneTimeMediaImportWorkflow(invalidPayload, "workflow-invalid-load-path-defect", {
+				cleanupArtifacts: (input) =>
+					Effect.sync(() => {
+						cleanupCalls.push(input);
+					}),
+				loadAdapterResult: () => Effect.die("Source credentials failed"),
+				resolveExternalId: () => Effect.die("unused"),
+				searchEntities: () => Effect.die("unused"),
+				importEntity: () => Effect.die("unused"),
+			});
+
+			expect(cleanupCalls).toEqual([{ cleanupPaths: [], sourcePayloadKey: "payload-1" }]);
+			expect(recordedUpdates).toContainEqual(
+				expect.objectContaining({
+					runId: "run-1",
+					status: "failed",
+					errorSummary: "Source credentials failed",
+				}),
+			);
+		}),
+	);
+});
