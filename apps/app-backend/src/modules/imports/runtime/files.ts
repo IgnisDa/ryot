@@ -244,3 +244,22 @@ export const cleanupImportFile = async (safePath: string): Promise<void> => {
 		console.warn("Import file cleanup failed", error);
 	}
 };
+
+export const getValidatedOptionalPath = (
+	value: unknown,
+	allowedExtensions: string[],
+): string | undefined => {
+	if (typeof value !== "string" || value.trim().length === 0) {
+		return undefined;
+	}
+	const tempDir = getTemporaryDirectory();
+	const safePathResult = resolveSafeImportFilePath(value, tempDir);
+	if ("error" in safePathResult) {
+		throw new Error(safePathResult.error);
+	}
+	const extResult = validateFileExtension(safePathResult.path, allowedExtensions);
+	if ("error" in extResult) {
+		throw new Error(extResult.error);
+	}
+	return safePathResult.path;
+};

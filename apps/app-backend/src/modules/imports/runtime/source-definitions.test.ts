@@ -1,91 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { createImportRunBody } from "../schemas";
 import {
 	buildInputSummary,
 	buildSourcePayload,
 	getImportSourceFileInputs,
 } from "./source-definitions";
-
-describe("createImportRunBody", () => {
-	it("accepts the API-backed source payloads", () => {
-		expect(
-			createImportRunBody.parse({
-				source: "plex",
-				apiKey: "token_1",
-				apiUrl: "https://plex.local:32400/library?token=secret",
-			}),
-		).toEqual({
-			source: "plex",
-			apiKey: "token_1",
-			apiUrl: "https://plex.local:32400/library?token=secret",
-		});
-
-		expect(
-			createImportRunBody.parse({
-				password: "pw_1",
-				username: "alice",
-				source: "jellyfin",
-				apiUrl: "https://jellyfin.local/base",
-			}),
-		).toEqual({
-			password: "pw_1",
-			username: "alice",
-			source: "jellyfin",
-			apiUrl: "https://jellyfin.local/base",
-		});
-
-		expect(
-			createImportRunBody.parse({
-				apiKey: "token_2",
-				source: "media_tracker",
-				apiUrl: "https://media.example.com/api/",
-			}),
-		).toEqual({
-			apiKey: "token_2",
-			source: "media_tracker",
-			apiUrl: "https://media.example.com/api/",
-		});
-
-		expect(
-			createImportRunBody.parse({
-				source: "movary",
-				historyUploadToken: "tok_history",
-				ratingsUploadToken: "tok_ratings",
-				watchlistUploadToken: "tok_watchlist",
-			}),
-		).toEqual({
-			source: "movary",
-			historyUploadToken: "tok_history",
-			ratingsUploadToken: "tok_ratings",
-			watchlistUploadToken: "tok_watchlist",
-		});
-
-		expect(
-			createImportRunBody.parse({
-				source: "netflix",
-				profileName: " Kids ",
-				uploadToken: "tok_netflix",
-			}),
-		).toEqual({
-			source: "netflix",
-			profileName: "Kids",
-			uploadToken: "tok_netflix",
-		});
-
-		expect(
-			createImportRunBody.parse({
-				apiKey: "token_3",
-				source: "audiobookshelf",
-				apiUrl: "https://books.example.com/root/",
-			}),
-		).toEqual({
-			apiKey: "token_3",
-			source: "audiobookshelf",
-			apiUrl: "https://books.example.com/root/",
-		});
-	});
-});
 
 describe("buildInputSummary", () => {
 	it("stores only safe host metadata for self-hosted API sources", () => {

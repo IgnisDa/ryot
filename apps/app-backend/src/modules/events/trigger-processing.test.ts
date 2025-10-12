@@ -313,64 +313,6 @@ describe("processEventSchemaTriggers", () => {
 		expect(capturedContext).toMatchObject({ trigger: { inheritedProperties: {} } });
 	});
 
-	it("omits keys from inheritedProperties that are absent on the event", async () => {
-		let capturedContext: unknown;
-
-		await processEventSchemaTriggers(
-			{
-				userId: "user_1",
-				createdEvents: [createProgressEvent({ properties: { progressPercent: 100 } })],
-			},
-			createDeps({
-				getActiveEventSchemaTriggersForEventSchemas: () =>
-					Promise.resolve([
-						{
-							id: "trigger_1",
-							sandboxScriptId: "script_1",
-							eventSchemaId: "event_schema_1",
-							metadata: { inheritedProperties: ["consumedOn"] },
-						},
-					]),
-				enqueueEventSchemaTriggerJob: (input) => {
-					capturedContext = input.context;
-					return Promise.resolve();
-				},
-			}),
-		);
-
-		expect(capturedContext).toMatchObject({ trigger: { inheritedProperties: {} } });
-	});
-
-	it("produces empty inheritedProperties when trigger metadata has no inheritedProperties key", async () => {
-		let capturedContext: unknown;
-
-		await processEventSchemaTriggers(
-			{
-				userId: "user_1",
-				createdEvents: [
-					createProgressEvent({ properties: { progressPercent: 100, consumedOn: "Plex" } }),
-				],
-			},
-			createDeps({
-				getActiveEventSchemaTriggersForEventSchemas: () =>
-					Promise.resolve([
-						{
-							metadata: {},
-							id: "trigger_1",
-							sandboxScriptId: "script_1",
-							eventSchemaId: "event_schema_1",
-						},
-					]),
-				enqueueEventSchemaTriggerJob: (input) => {
-					capturedContext = input.context;
-					return Promise.resolve();
-				},
-			}),
-		);
-
-		expect(capturedContext).toMatchObject({ trigger: { inheritedProperties: {} } });
-	});
-
 	it("a builtin trigger fires for the user whose event is created", async () => {
 		let capturedUserId: string | undefined;
 

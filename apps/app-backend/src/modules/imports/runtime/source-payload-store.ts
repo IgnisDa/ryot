@@ -1,26 +1,13 @@
 import { redis } from "~/lib/redis";
 import { redisKeys, redisValues, type ImportSourcePayloadRedisValue } from "~/lib/redis-keys";
 
-export const IMPORT_SOURCE_PAYLOAD_TTL_SECONDS = 24 * 60 * 60;
+const IMPORT_SOURCE_PAYLOAD_TTL_SECONDS = 24 * 60 * 60;
 
-type SourcePayloadStoreRedis = {
-	del(key: string): Promise<number>;
-	get(key: string): Promise<string | null>;
-	set(key: string, value: string, exMode: "EX", ttlSeconds: number): Promise<"OK">;
-};
-
-type SourcePayloadStoreDeps = {
-	redis?: SourcePayloadStoreRedis;
-};
-
-const defaultDeps: Required<SourcePayloadStoreDeps> = { redis };
-
-export const storeImportSourcePayload = async (
-	input: { runId: string; sourcePayload: ImportSourcePayloadRedisValue },
-	deps: SourcePayloadStoreDeps = {},
-): Promise<void> => {
-	const r = deps.redis ?? defaultDeps.redis;
-	await r.set(
+export const storeImportSourcePayload = async (input: {
+	runId: string;
+	sourcePayload: ImportSourcePayloadRedisValue;
+}): Promise<void> => {
+	await redis.set(
 		redisKeys.imports.sourcePayload(input.runId),
 		redisValues.imports.sourcePayload.stringify(input.sourcePayload),
 		"EX",
@@ -30,10 +17,8 @@ export const storeImportSourcePayload = async (
 
 export const getImportSourcePayload = async (
 	runId: string,
-	deps: SourcePayloadStoreDeps = {},
 ): Promise<ImportSourcePayloadRedisValue | null> => {
-	const r = deps.redis ?? defaultDeps.redis;
-	const raw = await r.get(redisKeys.imports.sourcePayload(runId));
+	const raw = await redis.get(redisKeys.imports.sourcePayload(runId));
 	if (raw === null) {
 		return null;
 	}
@@ -41,10 +26,6 @@ export const getImportSourcePayload = async (
 	return parsed.success ? parsed.data : null;
 };
 
-export const deleteImportSourcePayload = async (
-	runId: string,
-	deps: SourcePayloadStoreDeps = {},
-): Promise<void> => {
-	const r = deps.redis ?? defaultDeps.redis;
-	await r.del(redisKeys.imports.sourcePayload(runId));
+export const deleteImportSourcePayload = async (runId: string): Promise<void> => {
+	await redis.del(redisKeys.imports.sourcePayload(runId));
 };
