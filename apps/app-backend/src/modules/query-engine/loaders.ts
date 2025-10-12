@@ -5,7 +5,7 @@ import { CurrentDb, dbEffect, schema } from "#lib/db";
 import type { DbError } from "#lib/errors";
 import { BadRequest, NotFound } from "#lib/errors";
 import type { QueryEventJoin, QueryRelationshipJoin } from "#lib/query-language";
-import { decodeStoredAppSchema } from "#lib/schema";
+import { decodeStoredAppSchema } from "#lib/schema/core";
 import { QueryEngineNotFoundError, QueryEngineValidationError } from "#lib/views/errors";
 import type { QueryEngineEventJoinLike, QueryEngineEventSchemaLike } from "#lib/views/reference";
 

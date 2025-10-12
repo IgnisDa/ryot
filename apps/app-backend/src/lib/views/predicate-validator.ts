@@ -6,7 +6,7 @@ import {
 	type AppObjectProperty,
 	type AppPropertyDefinition,
 	type PropertyValueField,
-} from "#lib/schema";
+} from "#lib/schema/core";
 
 import { buildComputedFieldMap } from "./computed-fields";
 import { QueryEngineValidationError } from "./errors";
