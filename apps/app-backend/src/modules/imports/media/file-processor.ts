@@ -24,7 +24,7 @@ export const processMediaTextFileImport = async (
 	job: Job,
 	token: string | undefined,
 	input: MediaImportJobInput & {
-		filePath: string;
+		filePath?: string;
 		sourceName: string;
 		cleanupPaths?: string[];
 		adapterErrorFallback?: string;
@@ -35,11 +35,10 @@ export const processMediaTextFileImport = async (
 	},
 	deps: MediaTextFileImportProcessorDeps = mediaTextFileImportProcessorDeps,
 ): Promise<void> => {
-	const cleanupPaths = input.cleanupPaths ?? [input.filePath];
+	const cleanupPaths = input.cleanupPaths ?? (input.filePath ? [input.filePath] : []);
 
 	await deps.processMediaImport(job, token, {
 		...input,
-		jobData: input.jobData ?? { filePath: input.filePath },
 		cleanup: async () => {
 			for (const filePath of new Set(cleanupPaths)) {
 				// oxlint-disable-next-line no-await-in-loop
@@ -49,6 +48,9 @@ export const processMediaTextFileImport = async (
 		adapterErrorFallback:
 			input.adapterErrorFallback ?? `Could not parse ${input.sourceName} import data`,
 		loadAdapterResult: async () => {
+			if (!input.filePath) {
+				throw new Error("Could not read import file");
+			}
 			let fileText: string;
 			try {
 				fileText = await deps.readImportFile(input.filePath);

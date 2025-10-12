@@ -168,7 +168,9 @@ export const normalizeLifecycleStatus = (
 	}
 
 	if (
-		["want-to-read", "toread", "to-read", "planned", "backlog", "wanttoread"].includes(normalized)
+		["watchlist", "want-to-read", "toread", "to-read", "planned", "backlog", "wanttoread"].includes(
+			normalized,
+		)
 	) {
 		return "backlog";
 	}
