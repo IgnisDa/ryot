@@ -322,24 +322,15 @@ fn extract_general_season_episode(title: &str) -> Option<(i32, i32, GeneralSourc
     None
 }
 
-fn parse_title(title: &str) -> ParsedTitle {
-    let trimmed = title.trim();
-    let segments = split_segments(trimmed);
-    if segments.is_empty() {
-        return ParsedTitle {
-            base_title: clean_title(title),
-            season: None,
-            episode: None,
-        };
-    }
-
-    let general_pair = extract_general_season_episode(trimmed);
-    let mut base_segments = Vec::new();
+fn extract_segments_and_metadata(
+    segments: &[String],
+    first_segment: &str,
+) -> (Vec<String>, Option<i32>, Option<i32>, Option<EpisodeSource>) {
     let mut season = None;
     let mut episode = None;
     let mut episode_source = None;
+    let mut base_segments = Vec::new();
     let mut encountered_structure = false;
-    let first_segment = segments[0].clone();
 
     for segment in segments.iter() {
         if let Some((number, source)) = extract_episode(segment) {
@@ -356,7 +347,7 @@ fn parse_title(title: &str) -> ParsedTitle {
         }
 
         if season.is_none() {
-            if let Some(value) = parse_repeated_base_season(segment, &first_segment) {
+            if let Some(value) = parse_repeated_base_season(segment, first_segment) {
                 season = Some(value);
                 encountered_structure = true;
                 continue;
@@ -377,9 +368,13 @@ fn parse_title(title: &str) -> ParsedTitle {
     }
 
     if base_segments.is_empty() {
-        base_segments.push(first_segment.clone());
+        base_segments.push(first_segment.to_string());
     }
 
+    (base_segments, season, episode, episode_source)
+}
+
+fn construct_base_title(title: &str, base_segments: &[String]) -> String {
     let has_colon = title.contains(':');
     let mut base_title = if has_colon {
         base_segments.join(": ")
@@ -388,8 +383,8 @@ fn parse_title(title: &str) -> ParsedTitle {
     };
 
     if !has_colon {
-        if let Some(idx) = trimmed.find('(') {
-            let prefix = trimmed[..idx].trim();
+        if let Some(idx) = title.find('(') {
+            let prefix = title[..idx].trim();
             if prefix.is_empty() {
                 base_title = clean_title(title);
             } else {
@@ -404,34 +399,70 @@ fn parse_title(title: &str) -> ParsedTitle {
         base_title = clean_title(&base_title);
     }
 
+    base_title
+}
+
+fn resolve_season_episode(
+    season: Option<i32>,
+    episode: Option<i32>,
+    episode_source: Option<EpisodeSource>,
+    general_pair: Option<(i32, i32, GeneralSource)>,
+) -> (Option<i32>, Option<i32>) {
+    let mut resolved_season = season;
+    let mut resolved_episode = episode;
+
     if let Some((general_season, general_episode, general_source)) = general_pair {
         let override_episode = matches!(episode_source, Some(EpisodeSource::EpisodeLabel))
             && general_source == GeneralSource::SxxExx;
 
-        if episode.is_none() || override_episode {
-            episode = Some(general_episode);
+        if resolved_episode.is_none() || override_episode {
+            resolved_episode = Some(general_episode);
         }
 
-        if season.is_none() || override_episode {
-            season = Some(general_season);
+        if resolved_season.is_none() || override_episode {
+            resolved_season = Some(general_season);
         }
     }
 
-    if season.is_none()
+    if resolved_season.is_none()
         && let Some(source) = episode_source
     {
         match source {
             EpisodeSource::Parentheses | EpisodeSource::ChapterLabel => {
-                season = Some(1);
+                resolved_season = Some(1);
             }
             EpisodeSource::EpisodeLabel => {}
         }
     }
 
+    (resolved_season, resolved_episode)
+}
+
+fn parse_title(title: &str) -> ParsedTitle {
+    let trimmed = title.trim();
+    let segments = split_segments(trimmed);
+    if segments.is_empty() {
+        return ParsedTitle {
+            season: None,
+            episode: None,
+            base_title: clean_title(title),
+        };
+    }
+
+    let general_pair = extract_general_season_episode(trimmed);
+    let first_segment = &segments[0];
+
+    let (base_segments, season, episode, episode_source) =
+        extract_segments_and_metadata(&segments, first_segment);
+
+    let base_title = construct_base_title(trimmed, &base_segments);
+
+    let (season, episode) = resolve_season_episode(season, episode, episode_source, general_pair);
+
     ParsedTitle {
-        base_title,
         season,
         episode,
+        base_title,
     }
 }
 
