@@ -9,7 +9,7 @@ import { DbService, DbRunnerLive, TransactionRunnerLive } from "#lib/db";
 import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "#lib/db/migrate";
 import { RedisService } from "#lib/redis";
 import { S3Service } from "#lib/s3";
-import { SandboxService } from "#lib/sandbox";
+import { SandboxService } from "#lib/sandbox/service";
 import { PersistedQueueLive, WorkflowEngineLive } from "#lib/workflow";
 import {
 	EntityImportHookLive,
