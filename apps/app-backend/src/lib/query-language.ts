@@ -42,35 +42,51 @@ const EventAggregation = Schema.Literal("avg", "count", "max", "min", "sum");
 const ViewTransformName = Schema.Literal("titleCase", "kebabCase");
 
 const RuntimeReference = Schema.Union(
-	strictStruct({ key: Schema.String, type: Schema.Literal("computed-field") }),
-	strictStruct({ path: Schema.Array(Schema.String), type: Schema.Literal("event-schema") }),
-	strictStruct({ path: Schema.Array(Schema.String), type: Schema.Literal("entity-schema") }),
+	strictStruct({ key: Schema.String, type: Schema.Literal("computed-field") }).pipe(
+		Schema.annotations({ identifier: "ComputedFieldReference", title: "Computed Field Reference" }),
+	),
+	strictStruct({ path: Schema.Array(Schema.String), type: Schema.Literal("event-schema") }).pipe(
+		Schema.annotations({ identifier: "EventSchemaReference", title: "Event Schema Reference" }),
+	),
+	strictStruct({ path: Schema.Array(Schema.String), type: Schema.Literal("entity-schema") }).pipe(
+		Schema.annotations({ identifier: "EntitySchemaReference", title: "Entity Schema Reference" }),
+	),
 	strictStruct({
 		slug: Schema.String,
 		type: Schema.Literal("entity"),
 		path: Schema.Array(Schema.String),
-	}),
+	}).pipe(Schema.annotations({ identifier: "EntityReference", title: "Entity Reference" })),
 	strictStruct({
 		joinKey: Schema.String,
 		type: Schema.Literal("event-join"),
 		path: Schema.Array(Schema.String),
-	}),
+	}).pipe(Schema.annotations({ identifier: "EventJoinReference", title: "Event Join Reference" })),
 	strictStruct({
 		joinKey: Schema.String,
 		path: Schema.Array(Schema.String),
 		type: Schema.Literal("relationship-join"),
-	}),
+	}).pipe(
+		Schema.annotations({
+			identifier: "RelationshipJoinReference",
+			title: "Relationship Join Reference",
+		}),
+	),
 	strictStruct({
 		eventSchemaSlug: Schema.String,
 		type: Schema.Literal("event-aggregate"),
 		path: Schema.optional(Schema.Array(Schema.String)),
 		aggregation: EventAggregation,
-	}),
+	}).pipe(
+		Schema.annotations({
+			identifier: "EventAggregateReference",
+			title: "Event Aggregate Reference",
+		}),
+	),
 	strictStruct({
 		type: Schema.Literal("event"),
 		path: Schema.Array(Schema.String),
 		eventSchemaSlug: Schema.optional(Schema.String),
-	}),
+	}).pipe(Schema.annotations({ identifier: "EventReference", title: "Event Reference" })),
 );
 
 export type RuntimeRef = typeof RuntimeReference.Type;
@@ -104,31 +120,53 @@ export type QueryExpression =
 
 export const QueryExpression: Schema.Schema<QueryExpression> = Schema.suspend(() =>
 	Schema.Union(
-		strictStruct({ type: Schema.Literal("literal"), value: Schema.Unknown }),
-		strictStruct({ type: Schema.Literal("round"), expression: QueryExpression }),
-		strictStruct({ type: Schema.Literal("floor"), expression: QueryExpression }),
-		strictStruct({ type: Schema.Literal("integer"), expression: QueryExpression }),
-		strictStruct({ type: Schema.Literal("reference"), reference: RuntimeReference }),
-		strictStruct({ type: Schema.Literal("isNotNull"), expression: QueryExpression }),
-		strictStruct({ type: Schema.Literal("concat"), values: Schema.Array(QueryExpression) }),
-		strictStruct({ type: Schema.Literal("coalesce"), values: Schema.Array(QueryExpression) }),
+		strictStruct({ type: Schema.Literal("literal"), value: Schema.Unknown }).pipe(
+			Schema.annotations({ identifier: "LiteralExpression", title: "Literal Expression" }),
+		),
+		strictStruct({ type: Schema.Literal("round"), expression: QueryExpression }).pipe(
+			Schema.annotations({ identifier: "RoundExpression", title: "Round Expression" }),
+		),
+		strictStruct({ type: Schema.Literal("floor"), expression: QueryExpression }).pipe(
+			Schema.annotations({ identifier: "FloorExpression", title: "Floor Expression" }),
+		),
+		strictStruct({ type: Schema.Literal("integer"), expression: QueryExpression }).pipe(
+			Schema.annotations({ identifier: "IntegerExpression", title: "Integer Expression" }),
+		),
+		strictStruct({ type: Schema.Literal("reference"), reference: RuntimeReference }).pipe(
+			Schema.annotations({ identifier: "ReferenceExpression", title: "Reference Expression" }),
+		),
+		strictStruct({ type: Schema.Literal("isNotNull"), expression: QueryExpression }).pipe(
+			Schema.annotations({ identifier: "IsNotNullExpression", title: "Is Not Null Expression" }),
+		),
+		strictStruct({ type: Schema.Literal("concat"), values: Schema.Array(QueryExpression) }).pipe(
+			Schema.annotations({ identifier: "ConcatExpression", title: "Concat Expression" }),
+		),
+		strictStruct({ type: Schema.Literal("coalesce"), values: Schema.Array(QueryExpression) }).pipe(
+			Schema.annotations({ identifier: "CoalesceExpression", title: "Coalesce Expression" }),
+		),
 		strictStruct({
 			name: ViewTransformName,
 			expression: QueryExpression,
 			type: Schema.Literal("transform"),
-		}),
+		}).pipe(
+			Schema.annotations({ identifier: "TransformExpression", title: "Transform Expression" }),
+		),
 		strictStruct({
 			left: QueryExpression,
 			right: QueryExpression,
 			type: Schema.Literal("arithmetic"),
 			operator: Schema.Literal("add", "subtract", "multiply", "divide"),
-		}),
+		}).pipe(
+			Schema.annotations({ identifier: "ArithmeticExpression", title: "Arithmetic Expression" }),
+		),
 		strictStruct({
 			condition: QueryFilter,
 			whenTrue: QueryExpression,
 			whenFalse: QueryExpression,
 			type: Schema.Literal("conditional"),
-		}),
+		}).pipe(
+			Schema.annotations({ identifier: "ConditionalExpression", title: "Conditional Expression" }),
+		),
 	),
 ).pipe(Schema.annotations({ identifier: "QueryExpression", title: "Query Expression" }));
 
@@ -157,27 +195,37 @@ export type QueryFilter =
 
 export const QueryFilter: Schema.Schema<QueryFilter> = Schema.suspend(() =>
 	Schema.Union(
-		strictStruct({ type: Schema.Literal("not"), predicate: QueryFilter }),
-		strictStruct({ type: Schema.Literal("isNull"), expression: QueryExpression }),
-		strictStruct({ type: Schema.Literal("isNotNull"), expression: QueryExpression }),
-		strictStruct({ type: Schema.Literal("or"), predicates: Schema.Array(QueryFilter) }),
-		strictStruct({ type: Schema.Literal("and"), predicates: Schema.Array(QueryFilter) }),
+		strictStruct({ type: Schema.Literal("not"), predicate: QueryFilter }).pipe(
+			Schema.annotations({ identifier: "NotFilter", title: "Not Filter" }),
+		),
+		strictStruct({ type: Schema.Literal("isNull"), expression: QueryExpression }).pipe(
+			Schema.annotations({ identifier: "IsNullFilter", title: "Is Null Filter" }),
+		),
+		strictStruct({ type: Schema.Literal("isNotNull"), expression: QueryExpression }).pipe(
+			Schema.annotations({ identifier: "IsNotNullFilter", title: "Is Not Null Filter" }),
+		),
+		strictStruct({ type: Schema.Literal("or"), predicates: Schema.Array(QueryFilter) }).pipe(
+			Schema.annotations({ identifier: "OrFilter", title: "Or Filter" }),
+		),
+		strictStruct({ type: Schema.Literal("and"), predicates: Schema.Array(QueryFilter) }).pipe(
+			Schema.annotations({ identifier: "AndFilter", title: "And Filter" }),
+		),
 		strictStruct({
 			value: QueryExpression,
 			expression: QueryExpression,
 			type: Schema.Literal("contains"),
-		}),
+		}).pipe(Schema.annotations({ identifier: "ContainsFilter", title: "Contains Filter" })),
 		strictStruct({
 			type: Schema.Literal("in"),
 			expression: QueryExpression,
 			values: Schema.Array(QueryExpression),
-		}),
+		}).pipe(Schema.annotations({ identifier: "InFilter", title: "In Filter" })),
 		strictStruct({
 			left: QueryExpression,
 			right: QueryExpression,
 			type: Schema.Literal("comparison"),
 			operator: Schema.Literal("eq", "neq", "gt", "gte", "lt", "lte"),
-		}),
+		}).pipe(Schema.annotations({ identifier: "ComparisonFilter", title: "Comparison Filter" })),
 	),
 ).pipe(Schema.annotations({ identifier: "QueryFilter", title: "Query Filter" }));
 
@@ -221,13 +269,27 @@ export const SavedViewQueryField = strictStruct({
 export type SavedViewQueryField = typeof SavedViewQueryField.Type;
 
 export const AggregationDefinition = Schema.Union(
-	strictStruct({ type: Schema.Literal("count") }),
-	strictStruct({ type: Schema.Literal("countWhere"), predicate: Schema.NullOr(QueryFilter) }),
-	strictStruct({ type: Schema.Literal("countBy"), groupBy: QueryExpression }),
-	strictStruct({ type: Schema.Literal("sum"), expression: QueryExpression }),
-	strictStruct({ type: Schema.Literal("avg"), expression: QueryExpression }),
-	strictStruct({ type: Schema.Literal("min"), expression: QueryExpression }),
-	strictStruct({ type: Schema.Literal("max"), expression: QueryExpression }),
+	strictStruct({ type: Schema.Literal("count") }).pipe(
+		Schema.annotations({ identifier: "CountAggregation", title: "Count Aggregation" }),
+	),
+	strictStruct({ type: Schema.Literal("countWhere"), predicate: Schema.NullOr(QueryFilter) }).pipe(
+		Schema.annotations({ identifier: "CountWhereAggregation", title: "Count Where Aggregation" }),
+	),
+	strictStruct({ type: Schema.Literal("countBy"), groupBy: QueryExpression }).pipe(
+		Schema.annotations({ identifier: "CountByAggregation", title: "Count By Aggregation" }),
+	),
+	strictStruct({ type: Schema.Literal("sum"), expression: QueryExpression }).pipe(
+		Schema.annotations({ identifier: "SumAggregation", title: "Sum Aggregation" }),
+	),
+	strictStruct({ type: Schema.Literal("avg"), expression: QueryExpression }).pipe(
+		Schema.annotations({ identifier: "AvgAggregation", title: "Avg Aggregation" }),
+	),
+	strictStruct({ type: Schema.Literal("min"), expression: QueryExpression }).pipe(
+		Schema.annotations({ identifier: "MinAggregation", title: "Min Aggregation" }),
+	),
+	strictStruct({ type: Schema.Literal("max"), expression: QueryExpression }).pipe(
+		Schema.annotations({ identifier: "MaxAggregation", title: "Max Aggregation" }),
+	),
 );
 export type AggregationDefinition = typeof AggregationDefinition.Type;
 
@@ -342,8 +404,12 @@ export const AggregateQueryRequest = strictStruct({
 export type AggregateQueryRequest = typeof AggregateQueryRequest.Type;
 
 export const TimeSeriesMetric = Schema.Union(
-	strictStruct({ type: Schema.Literal("count") }),
-	strictStruct({ type: Schema.Literal("sum"), expression: QueryExpression }),
+	strictStruct({ type: Schema.Literal("count") }).pipe(
+		Schema.annotations({ identifier: "CountTimeSeriesMetric", title: "Count Time Series Metric" }),
+	),
+	strictStruct({ type: Schema.Literal("sum"), expression: QueryExpression }).pipe(
+		Schema.annotations({ identifier: "SumTimeSeriesMetric", title: "Sum Time Series Metric" }),
+	),
 );
 export type TimeSeriesMetric = typeof TimeSeriesMetric.Type;
 
