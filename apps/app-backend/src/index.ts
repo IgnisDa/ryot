@@ -8,6 +8,7 @@ import { providerConfigDefinition, systemConfigDefinition } from "./lib/config/d
 import { generateConfigDocs } from "./lib/config/docs";
 import { DbService, TransactionRunnerLive } from "./lib/db";
 import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "./lib/db/migrate";
+import { PackageCacheManager } from "./lib/sandbox-runtime";
 
 let shutdownTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -33,6 +34,16 @@ if (Bun.env.RUN_LEGACY_BOOTSTRAP_ONLY === "true") {
 	);
 
 	await Effect.runPromise(Effect.scoped(Layer.build(MigrationOnlyLive)));
+	process.exit(0);
+}
+
+if (Bun.env.POPULATE_SANDBOX_CACHE_ONLY === "true") {
+	const SandboxCacheOnlyLive = PackageCacheManager.Default.pipe(
+		Layer.provide(BunContext.layer),
+		Layer.provide(AppConfig.Default),
+	);
+
+	await Effect.runPromise(Effect.scoped(Layer.build(SandboxCacheOnlyLive)));
 	process.exit(0);
 }
 
