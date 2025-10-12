@@ -1,9 +1,9 @@
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect, schema } from "~/lib/db";
-import type { DbError } from "~/lib/errors";
-import { decodeStoredAppSchema } from "~/lib/schema";
+import { CurrentDb, dbEffect, schema } from "#lib/db";
+import type { DbError } from "#lib/errors";
+import { decodeStoredAppSchema } from "#lib/schema";
 
 import type { RelationshipSchemaScope } from "./schemas";
 

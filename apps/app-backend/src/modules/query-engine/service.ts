@@ -1,9 +1,9 @@
 import { Effect } from "effect";
 
-import type { CurrentUserValue } from "~/lib/auth";
-import { DbRunner } from "~/lib/db";
-import { dieOnDbError } from "~/lib/errors";
-import type { QueryEngineRequest } from "~/lib/query-language";
+import type { CurrentUserValue } from "#lib/auth";
+import { DbRunner } from "#lib/db";
+import { dieOnDbError } from "#lib/errors";
+import type { QueryEngineRequest } from "#lib/query-language";
 
 import { prepareAndExecute } from "./preparer";
 

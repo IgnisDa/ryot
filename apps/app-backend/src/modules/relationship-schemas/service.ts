@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 
-import { DbRunner } from "~/lib/db";
-import { notFound } from "~/lib/errors";
+import { DbRunner } from "#lib/db";
+import { notFound } from "#lib/errors";
 
 import { RelationshipSchemasRepository } from "./repository";
 

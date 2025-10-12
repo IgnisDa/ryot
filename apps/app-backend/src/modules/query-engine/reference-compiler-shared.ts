@@ -1,8 +1,8 @@
 import { sql } from "drizzle-orm";
 
-import { QueryEngineValidationError } from "~/lib/views/errors";
-import { normalizeExpressionPropertyType } from "~/lib/views/expression-analysis";
-import type { PropertyType } from "~/lib/views/reference";
+import { QueryEngineValidationError } from "#lib/views/errors";
+import { normalizeExpressionPropertyType } from "#lib/views/expression-analysis";
+import type { PropertyType } from "#lib/views/reference";
 
 import { castExpressionToType, sanitizeIdentifier } from "./sql-expression-helpers";
 

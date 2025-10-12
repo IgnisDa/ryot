@@ -8,7 +8,7 @@
 		"skipLibCheck": true,
 		"types": ["bun-types"],
 		"moduleResolution": "bundler",
-		"paths": { "~/*": ["./src/*"] },
+		"paths": { "#*": ["./src/*"] },
 		"noUncheckedIndexedAccess": true,
 		"plugins": [
 			{

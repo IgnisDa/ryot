@@ -11,7 +11,7 @@ Accepts a declarative query (scope, fields, expressions, filters, sorts, paginat
 - **expression-compiler.ts**: Shared core translating ViewExpression AST → Drizzle SQL. Both builders depend on it.
 - **filter-builder.ts** / **sort-builder.ts**: Delegate to the expression compiler.
 - **preparer.ts**: Orchestrates the pipeline — loads schemas, validates references, calls `executePreparedQuery`.
-- Reference validation and parsing live outside this module (`~/lib/views/validator.ts`, `~/lib/views/reference.ts`).
+- Reference validation and parsing live outside this module (`#lib/views/validator.ts`, `#lib/views/reference.ts`).
 
 These files are still being migrated to Effect patterns.
 

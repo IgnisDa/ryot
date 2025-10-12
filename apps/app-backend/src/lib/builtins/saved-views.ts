@@ -2,8 +2,8 @@ import type {
 	DisplayConfiguration,
 	QueryRelationshipJoin,
 	SavedViewQueryDefinition,
-} from "~/lib/query-language";
-import { slugify } from "~/lib/slug";
+} from "#lib/query-language";
+import { slugify } from "#lib/slug";
 
 import {
 	buildDefaultQueryDefinition,

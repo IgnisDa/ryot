@@ -1,18 +1,18 @@
 import { sql } from "drizzle-orm";
 import { Match } from "effect";
 
-import { schema } from "~/lib/db";
-import type { QueryExpression } from "~/lib/query-language";
-import { QueryEngineValidationError } from "~/lib/views/errors";
+import { schema } from "#lib/db";
+import type { QueryExpression } from "#lib/query-language";
+import { QueryEngineValidationError } from "#lib/views/errors";
 import {
 	inferViewExpressionType,
 	normalizeExpressionPropertyType,
-} from "~/lib/views/expression-analysis";
-import type { PropertyType } from "~/lib/views/reference";
+} from "#lib/views/expression-analysis";
+import type { PropertyType } from "#lib/views/reference";
 import {
 	getRelationshipJoinColumnPropertyType,
 	getRelationshipJoinPropertyType,
-} from "~/lib/views/reference";
+} from "#lib/views/reference";
 
 import type { LoadedRelationshipJoin } from "./context";
 import { createExpressionCompilerCore, type ExpressionCompiler } from "./expression-compiler";

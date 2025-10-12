@@ -1,12 +1,12 @@
 import { sql } from "drizzle-orm";
 import { Match } from "effect";
 
-import { QueryEngineValidationError } from "~/lib/views/errors";
+import { QueryEngineValidationError } from "#lib/views/errors";
 import {
 	normalizeExpressionPropertyType,
 	type ViewExpressionTypeInfo,
-} from "~/lib/views/expression-analysis";
-import type { PropertyType } from "~/lib/views/reference";
+} from "#lib/views/expression-analysis";
+import type { PropertyType } from "#lib/views/reference";
 
 export type SqlExpression = ReturnType<typeof sql>;
 
