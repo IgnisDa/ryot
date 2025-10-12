@@ -303,7 +303,9 @@ describe("GET /event-schemas", () => {
 				},
 			},
 		});
+		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
 		expect((movieProgressSchema.fields as Record<string, unknown>).showSeason).toBe(undefined);
+		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
 		expect((movieProgressSchema.fields as Record<string, unknown>).showEpisode).toBe(undefined);
 
 		for (const slug of ["book", "comic-book", "audiobook", "video-game", "music", "visual-novel"]) {

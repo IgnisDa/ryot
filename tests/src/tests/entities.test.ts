@@ -136,7 +136,7 @@ describe("POST /entities", () => {
 		});
 
 		expect(response.status).toBe(400);
-		expect(error?.error?.message).toBe(
+		expect(error?.error.message).toBe(
 			"externalId and sandboxScriptId must both be provided or both be omitted",
 		);
 	});
@@ -159,7 +159,7 @@ describe("POST /entities", () => {
 		});
 
 		expect(response.status).toBe(400);
-		expect(error?.error?.message).toBe(
+		expect(error?.error.message).toBe(
 			"externalId and sandboxScriptId must both be provided or both be omitted",
 		);
 	});

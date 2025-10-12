@@ -24,7 +24,7 @@ export async function createSandboxScript(
 		headers: { Cookie: cookies },
 	});
 
-	if (response.status !== 200 || !data?.data?.id) {
+	if (response.status !== 200 || !data?.data.id) {
 		throw new Error("Failed to create sandbox script");
 	}
 
@@ -41,7 +41,7 @@ export async function enqueueSandboxScript(
 		headers: { Cookie: cookies },
 	});
 
-	if (response.status !== 200 || !data?.data?.jobId) {
+	if (response.status !== 200 || !data?.data.jobId) {
 		throw new Error("Failed to enqueue sandbox script");
 	}
 

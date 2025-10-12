@@ -162,61 +162,57 @@ export function registerQueryEnginePresentationAndErrorTests() {
 
 		expect(gridResult.response.status).toBe(200);
 		expect(listResult.response.status).toBe(200);
-		expect(getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "callout")).toEqual({
-			key: "callout",
+		expect(getQueryEngineFieldOrThrow(gridResult.data.data.items[0], "callout")).toEqual({
 			kind: "text",
+			key: "callout",
 			value: "phone",
 		});
-		expect(getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "primarySubtitle")).toEqual({
-			key: "primarySubtitle",
-			kind: "number",
+		expect(getQueryEngineFieldOrThrow(gridResult.data.data.items[0], "primarySubtitle")).toEqual({
 			value: 2018,
+			kind: "number",
+			key: "primarySubtitle",
 		});
-		expect(getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "secondarySubtitle")).toEqual(
-			{
-				key: "secondarySubtitle",
-				kind: "null",
-				value: null,
-			},
-		);
-		expect(getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "title")).toEqual({
+		expect(getQueryEngineFieldOrThrow(gridResult.data.data.items[0], "secondarySubtitle")).toEqual({
+			value: null,
+			kind: "null",
+			key: "secondarySubtitle",
+		});
+		expect(getQueryEngineFieldOrThrow(gridResult.data.data.items[0], "title")).toEqual({
 			key: "title",
 			kind: "text",
 			value: "Alpha Phone",
 		});
-		expect(getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "image")).toEqual({
+		expect(getQueryEngineFieldOrThrow(gridResult.data.data.items[0], "image")).toEqual({
 			key: "image",
 			kind: "image",
 			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
 		});
-		expect(getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "callout")).toEqual({
+		expect(getQueryEngineFieldOrThrow(listResult.data.data.items[0], "callout")).toEqual({
 			key: "callout",
 			kind: "text",
 			value: "phone",
 		});
-		expect(getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "primarySubtitle")).toEqual({
+		expect(getQueryEngineFieldOrThrow(listResult.data.data.items[0], "primarySubtitle")).toEqual({
 			key: "primarySubtitle",
 			kind: "number",
 			value: 2018,
 		});
-		expect(getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "secondarySubtitle")).toEqual(
-			{
-				key: "secondarySubtitle",
-				kind: "null",
-				value: null,
-			},
-		);
-		expect(getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "title")).toEqual({
+		expect(getQueryEngineFieldOrThrow(listResult.data.data.items[0], "secondarySubtitle")).toEqual({
+			value: null,
+			kind: "null",
+			key: "secondarySubtitle",
+		});
+		expect(getQueryEngineFieldOrThrow(listResult.data.data.items[0], "title")).toEqual({
 			key: "title",
 			kind: "text",
 			value: "Alpha Phone",
 		});
-		expect(getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "image")).toEqual({
+		expect(getQueryEngineFieldOrThrow(listResult.data.data.items[0], "image")).toEqual({
 			key: "image",
 			kind: "image",
 			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
 		});
-		expect(getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "image").value).toEqual({
+		expect(getQueryEngineFieldOrThrow(gridResult.data.data.items[0], "image").value).toEqual({
 			kind: "remote",
 			url: "https://example.com/alpha-phone.png",
 		});
@@ -231,38 +227,34 @@ export function registerQueryEnginePresentationAndErrorTests() {
 				scope: [schema.slug],
 				pagination: { page: 1, limit: 1 },
 				displayConfiguration: buildGridDisplayConfiguration(
-					{
-						calloutProperty: [],
-						primarySubtitleProperty: [],
-						secondarySubtitleProperty: [],
-					},
+					{ calloutProperty: [], primarySubtitleProperty: [], secondarySubtitleProperty: [] },
 					[schema.slug],
 				),
 			}),
 		);
 
 		expect(response.status).toBe(200);
-		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "callout")).toEqual({
+		expect(getQueryEngineFieldOrThrow(data.data.items[0], "callout")).toEqual({
+			value: null,
+			kind: "null",
 			key: "callout",
-			kind: "null",
-			value: null,
 		});
-		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "primarySubtitle")).toEqual({
+		expect(getQueryEngineFieldOrThrow(data.data.items[0], "primarySubtitle")).toEqual({
+			value: null,
+			kind: "null",
 			key: "primarySubtitle",
+		});
+		expect(getQueryEngineFieldOrThrow(data.data.items[0], "secondarySubtitle")).toEqual({
 			kind: "null",
 			value: null,
-		});
-		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "secondarySubtitle")).toEqual({
 			key: "secondarySubtitle",
-			kind: "null",
-			value: null,
 		});
-		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "title")).toEqual({
+		expect(getQueryEngineFieldOrThrow(data.data.items[0], "title")).toEqual({
 			key: "title",
 			kind: "text",
 			value: "Alpha Phone",
 		});
-		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "image")).toEqual({
+		expect(getQueryEngineFieldOrThrow(data.data.items[0], "image")).toEqual({
 			key: "image",
 			kind: "image",
 			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
@@ -286,7 +278,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items[0]).toEqual([
+		expect(data.data.items[0]).toEqual([
 			{ key: "column_0", kind: "text", value: "Alpha Phone" },
 			{ key: "column_1", kind: "number", value: 2018 },
 			{ key: "column_2", kind: "null", value: null },
@@ -329,22 +321,22 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "callout")).toEqual({
+		expect(getQueryEngineFieldOrThrow(data.data.items[0], "callout")).toEqual({
 			key: "callout",
 			kind: "number",
 			value: 2018,
 		});
-		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "primarySubtitle")).toEqual({
+		expect(getQueryEngineFieldOrThrow(data.data.items[0], "primarySubtitle")).toEqual({
 			key: "primarySubtitle",
 			kind: "text",
 			value: "Acme",
 		});
-		expect(getQueryEngineFieldOrThrow(data?.data.items[1], "callout")).toEqual({
+		expect(getQueryEngineFieldOrThrow(data.data.items[1], "callout")).toEqual({
 			key: "callout",
 			kind: "number",
 			value: 2019,
 		});
-		expect(getQueryEngineFieldOrThrow(data?.data.items[1], "primarySubtitle")).toEqual({
+		expect(getQueryEngineFieldOrThrow(data.data.items[1], "primarySubtitle")).toEqual({
 			key: "primarySubtitle",
 			kind: "text",
 			value: "Tabula",
@@ -461,19 +453,19 @@ export function registerQueryEnginePresentationAndErrorTests() {
 
 		expect(response.status).toBe(200);
 		expect(
-			data?.data.items.map((item) => getQueryEngineFieldOrThrow(item, "column_0").value),
+			data.data.items.map((item) => getQueryEngineFieldOrThrow(item, "column_0").value),
 		).toEqual(["Alpha Phone", "Gamma Phone"]);
-		expect(data?.data.items[0]).toMatchObject([
+		expect(data.data.items[0]).toMatchObject([
 			{ key: "column_0", kind: "text", value: "Alpha Phone" },
 			{ key: "column_1", kind: "number", value: 5 },
 			{ key: "column_2", kind: "date" },
 		]);
-		expect(data?.data.items[1]).toMatchObject([
+		expect(data.data.items[1]).toMatchObject([
 			{ key: "column_0", kind: "text", value: "Gamma Phone" },
 			{ key: "column_1", kind: "number", value: 4 },
 			{ key: "column_2", kind: "date" },
 		]);
-		for (const item of data?.data.items ?? []) {
+		for (const item of data.data.items) {
 			const reviewedAt = getQueryEngineFieldOrThrow(item, "column_2").value;
 			expect(reviewedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
 		}
@@ -502,14 +494,16 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items.map((item) => getQueryEngineFieldOrThrow(item, "title").value)).toEqual(
-			["Beta Tablet", "Delta Tablet", "Omega Phone"],
-		);
-		for (const item of data?.data.items ?? []) {
+		expect(data.data.items.map((item) => getQueryEngineFieldOrThrow(item, "title").value)).toEqual([
+			"Beta Tablet",
+			"Delta Tablet",
+			"Omega Phone",
+		]);
+		for (const item of data.data.items) {
 			expect(getQueryEngineFieldOrThrow(item, "callout")).toEqual({
-				key: "callout",
-				kind: "null",
 				value: null,
+				kind: "null",
+				key: "callout",
 			});
 		}
 	});
@@ -537,10 +531,11 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items.map((item) => getQueryEngineFieldOrThrow(item, "title").value)).toEqual(
-			["Alpha Phone", "Gamma Phone"],
-		);
-		for (const item of data?.data.items ?? []) {
+		expect(data.data.items.map((item) => getQueryEngineFieldOrThrow(item, "title").value)).toEqual([
+			"Alpha Phone",
+			"Gamma Phone",
+		]);
+		for (const item of data.data.items) {
 			expect(getQueryEngineFieldOrThrow(item, "callout").kind).toBe("number");
 		}
 	});
@@ -580,13 +575,13 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		);
 
 		expect(missingSchemaResult.response.status).toBe(404);
-		expect(missingSchemaResult.error?.error?.message).toBe("Schema 'missing-schema' not found");
+		expect(missingSchemaResult.error?.error.message).toBe("Schema 'missing-schema' not found");
 		expect(missingPropertyResult.response.status).toBe(400);
-		expect(missingPropertyResult.error?.error?.message).toBe(
+		expect(missingPropertyResult.error?.error.message).toBe(
 			`Property 'missingProperty' not found in schema '${schema.slug}'`,
 		);
 		expect(mismatchedValueResult.response.status).toBe(400);
-		expect(mismatchedValueResult.error?.error?.message).toBe(
+		expect(mismatchedValueResult.error?.error.message).toBe(
 			"Filter operator 'eq' requires compatible expression types, received 'integer' and 'string'",
 		);
 	});
