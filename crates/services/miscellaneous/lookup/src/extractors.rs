@@ -54,9 +54,40 @@ fn word_to_number(word: &str) -> Option<i32> {
             ("eighteen", 18),
             ("nineteen", 19),
             ("twenty", 20),
+            ("thirty", 30),
+            ("forty", 40),
+            ("fifty", 50),
+            ("sixty", 60),
+            ("seventy", 70),
+            ("eighty", 80),
+            ("ninety", 90),
         ])
     });
-    map.get(word.to_lowercase().as_str()).copied()
+
+    let normalized = word.trim().to_lowercase().replace('-', " ");
+    let tokens: Vec<&str> = normalized
+        .split_whitespace()
+        .filter(|&t| t != "and")
+        .collect();
+
+    if tokens.is_empty() {
+        return None;
+    }
+
+    if tokens.len() == 1 {
+        return map.get(tokens[0]).copied();
+    }
+
+    let mut total = 0;
+    for token in tokens {
+        if let Some(&value) = map.get(token) {
+            total += value;
+        } else {
+            return None;
+        }
+    }
+
+    Some(total)
 }
 
 fn roman_to_number(roman: &str) -> Option<i32> {
