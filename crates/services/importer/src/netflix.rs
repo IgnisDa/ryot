@@ -105,7 +105,9 @@ fn should_skip_entry(item: &ViewingActivityItem) -> bool {
 
 fn matches_profile_filter(profile_name: &str, filter: &Option<String>) -> bool {
     match filter {
-        Some(filter_name) if !filter_name.is_empty() => profile_name == filter_name,
+        Some(filter_name) if !filter_name.trim().is_empty() => {
+            profile_name.trim() == filter_name.trim()
+        }
         _ => true,
     }
 }
