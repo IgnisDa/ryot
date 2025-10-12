@@ -12,8 +12,10 @@ import {
 } from "#lib/schema/core";
 import { requireText } from "#lib/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
+import type { ListedEntity } from "#modules/entities/schemas";
 import { enqueueEventCreate } from "#modules/events/workflows";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 
 import { CollectionsRepository } from "./repository";
 import type {
@@ -32,6 +34,18 @@ const invalidMembershipSchemaError = "membershipPropertiesSchema must be a valid
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 	value !== null && typeof value === "object" && !Array.isArray(value);
+
+const toCollectionResponse = (entity: ListedEntity): CollectionResponse => ({
+	id: entity.id,
+	name: entity.name,
+	image: entity.image,
+	createdAt: entity.createdAt,
+	updatedAt: entity.updatedAt,
+	properties: entity.properties,
+	externalId: entity.externalId,
+	entitySchemaId: entity.entitySchemaId,
+	sandboxScriptId: entity.sandboxScriptId,
+});
 
 type CollectionsServiceShape = {
 	readonly create: (
@@ -73,6 +87,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 		const repository = yield* CollectionsRepository;
 		const runInTransaction = yield* TransactionRunner;
 		const entitiesRepository = yield* EntitiesRepository;
+		const relationshipsRepository = yield* RelationshipsRepository;
 		const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
 		const memberOfSchema = yield* Effect.cached(
@@ -196,14 +211,16 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 					}).pipe(Effect.mapError((error) => badRequest(error.message)));
 
 					const entitySchema = yield* collectionEntitySchema;
-					return yield* runWithDb(
-						repository.createCollectionForUser({
+					const created = yield* runWithDb(
+						entitiesRepository.createEntity({
 							name,
+							image: null,
 							userId: user.id,
 							properties: collectionProperties,
 							entitySchemaId: entitySchema.entitySchemaId,
 						}),
 					);
+					return toCollectionResponse(created);
 				}),
 
 			getOrCreateCollection: (userId: string, name: string) =>
@@ -220,14 +237,16 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 						return existing;
 					}
 
-					return yield* runWithDb(
-						repository.createCollectionForUser({
+					const created = yield* runWithDb(
+						entitiesRepository.createEntity({
 							name,
 							userId,
+							image: null,
 							properties: {},
 							entitySchemaId: entitySchema.entitySchemaId,
 						}),
 					);
+					return toCollectionResponse(created);
 				}),
 
 			addToCollection: (user: CurrentUserValue, payload: CreateMembershipBody) =>
@@ -287,7 +306,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 								if (!libraryEntityId) {
 									return yield* Effect.die("Library entity not found for user");
 								}
-								yield* entitiesRepository.insertRelationship({
+								yield* relationshipsRepository.insertRelationship({
 									properties: {},
 									userId: user.id,
 									sourceEntityId: entity.id,
@@ -296,7 +315,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 								});
 							}
 
-							const result = yield* repository.upsertMembership({
+							const result = yield* relationshipsRepository.upsertMembership({
 								userId: user.id,
 								entityId: payload.entityId,
 								properties: validatedProperties,
@@ -346,7 +365,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 
 					const memberOf = yield* memberOfSchema;
 					const deleted = yield* runWithDb(
-						repository.deleteMembership({
+						relationshipsRepository.deleteMembership({
 							userId: user.id,
 							entityId: payload.entityId,
 							relationshipSchemaId: memberOf.id,
@@ -379,7 +398,23 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 				}),
 
 			ensureLibraryEntityForUser: (userId: string, entitySchemaId: string) =>
-				runWithDb(repository.createLibraryEntityForUser({ userId, entitySchemaId })),
+				runWithDb(
+					Effect.gen(function* () {
+						const existing = yield* repository.findLibraryEntityForUser({ userId, entitySchemaId });
+						if (existing) {
+							return existing;
+						}
+
+						const created = yield* entitiesRepository.createEntity({
+							userId,
+							image: null,
+							properties: {},
+							entitySchemaId,
+							name: "Library",
+						});
+						return { id: created.id };
+					}),
+				),
 
 			ensureEntityInLibrary: (userId: string, entityId: string) =>
 				Effect.gen(function* () {
@@ -390,7 +425,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 
 					const inLibrary = yield* inLibrarySchema;
 					yield* runWithDb(
-						entitiesRepository.insertRelationship({
+						relationshipsRepository.insertRelationship({
 							userId,
 							properties: {},
 							sourceEntityId: entityId,
@@ -412,7 +447,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 
 					const inLibrary = yield* inLibrarySchema;
 					const existing = yield* runWithDb(
-						entitiesRepository.findRelationshipProperties({
+						relationshipsRepository.findRelationshipProperties({
 							userId: input.userId,
 							sourceEntityId: input.entityId,
 							targetEntityId: libraryEntityId,
@@ -427,7 +462,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 						: [];
 
 					yield* runWithDb(
-						entitiesRepository.upsertRelationship({
+						relationshipsRepository.upsertRelationship({
 							userId: input.userId,
 							sourceEntityId: input.entityId,
 							targetEntityId: libraryEntityId,
