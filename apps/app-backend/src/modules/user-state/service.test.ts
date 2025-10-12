@@ -2,8 +2,8 @@ import { expect, it } from "@effect/vitest";
 import { Effect, Exit, Layer } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth";
-import { CurrentDb, DbRunner, TransactionRunner } from "#lib/db";
 import { BadRequest } from "#lib/errors";
+import { dbRunnerLayer, makeMock, transactionLayer } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -16,36 +16,32 @@ const user = {
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
-const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-	Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
-
-const transactionLayer = Layer.succeed(
-	TransactionRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>) =>
-		Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
-
-const defaultEntitiesRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EntitiesRepository" as const,
-		getEntityScopeForUser: () => Effect.die("unused"),
-	});
-
-const defaultEventsRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EventsRepository" as const,
-		deleteUserEventsForEntity: () => Effect.die("unused"),
-	});
-
-const defaultRelationshipsRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "RelationshipsRepository" as const,
-		deleteUserRelationshipsForEntity: () => Effect.die("unused"),
-	});
-
 const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
-	Object.assign(Object.create(null), defaultEntitiesRepository(), overrides);
+	makeMock<EntitiesRepository>(
+		{
+			_tag: "EntitiesRepository" as const,
+			getEntityScopeForUser: () => Effect.die("unused"),
+		},
+		overrides,
+	);
+
+const makeEventsRepository = (overrides: Partial<EventsRepository> = {}) =>
+	makeMock<EventsRepository>(
+		{
+			_tag: "EventsRepository" as const,
+			deleteUserEventsForEntity: () => Effect.die("unused"),
+		},
+		overrides,
+	);
+
+const makeRelationshipsRepository = (overrides: Partial<RelationshipsRepository> = {}) =>
+	makeMock<RelationshipsRepository>(
+		{
+			_tag: "RelationshipsRepository" as const,
+			deleteUserRelationshipsForEntity: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
 const makeServiceLayer = (
 	options: {
@@ -60,10 +56,10 @@ const makeServiceLayer = (
 				dbRunnerLayer,
 				transactionLayer,
 				Layer.succeed(EntitiesRepository, options.entitiesRepository ?? makeEntitiesRepository()),
-				Layer.succeed(EventsRepository, options.eventsRepository ?? defaultEventsRepository()),
+				Layer.succeed(EventsRepository, options.eventsRepository ?? makeEventsRepository()),
 				Layer.succeed(
 					RelationshipsRepository,
-					options.relationshipsRepository ?? defaultRelationshipsRepository(),
+					options.relationshipsRepository ?? makeRelationshipsRepository(),
 				),
 			),
 		),

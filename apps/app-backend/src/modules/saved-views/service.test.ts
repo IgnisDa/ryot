@@ -2,8 +2,8 @@ import { expect, it } from "@effect/vitest";
 import { Effect, Exit, Layer } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth";
-import { CurrentDb, DbRunner, TransactionRunner } from "#lib/db";
 import { BadRequest, NotFound } from "#lib/errors";
+import { dbRunnerLayer, makeMock, transactionLayer } from "#lib/test-support/effect";
 import { QueryEngineService } from "#modules/query-engine/service";
 
 import { SavedViewsRepository } from "./repository";
@@ -15,16 +15,6 @@ const user = {
 	name: "Test User",
 	email: "user@example.com",
 } satisfies CurrentUserValue;
-
-const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-	Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
-
-const transactionLayer = Layer.succeed(
-	TransactionRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>) =>
-		Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
 
 const baseListedSavedView: ListedSavedView = {
 	id: "sv-id",
@@ -69,24 +59,24 @@ const baseListedSavedView: ListedSavedView = {
 	},
 };
 
-const defaultRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "SavedViewsRepository" as const,
-		create: () => Effect.die("unused"),
-		listByUser: () => Effect.die("unused"),
-		findBySlug: () => Effect.die("unused"),
-		updateBySlug: () => Effect.die("unused"),
-		deleteBySlug: () => Effect.die("unused"),
-		countBySlugs: () => Effect.die("unused"),
-		persistOrder: () => Effect.die("unused"),
-		listSlugsInOrder: () => Effect.die("unused"),
-		updateDisabledBySlug: () => Effect.die("unused"),
-	});
-
 const makeRepository = (overrides: Partial<SavedViewsRepository> = {}) =>
-	Object.assign(Object.create(null), defaultRepository(), overrides);
+	makeMock<SavedViewsRepository>(
+		{
+			_tag: "SavedViewsRepository" as const,
+			create: () => Effect.die("unused"),
+			listByUser: () => Effect.die("unused"),
+			findBySlug: () => Effect.die("unused"),
+			updateBySlug: () => Effect.die("unused"),
+			deleteBySlug: () => Effect.die("unused"),
+			countBySlugs: () => Effect.die("unused"),
+			persistOrder: () => Effect.die("unused"),
+			listSlugsInOrder: () => Effect.die("unused"),
+			updateDisabledBySlug: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
-const queryEngineService = Object.assign(Object.create(null), {
+const queryEngineService = makeMock<QueryEngineService>({
 	validateSavedView: () => Effect.void,
 	execute: () => Effect.die("unused"),
 });

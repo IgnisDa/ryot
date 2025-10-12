@@ -2,90 +2,50 @@ import { it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 import { describe, expect as vitestExpect, it as vitestIt } from "vitest";
 
-import { CurrentDb, DbRunner } from "#lib/db";
+import { dbRunnerLayer, makeMock } from "#lib/test-support/effect";
 import { ImportsRepository } from "#modules/imports/repository";
 
-import { IntegrationsRepository, type IntegrationRecord } from "./repository";
+import { IntegrationsRepository } from "./repository";
+import { makeIntegration, makeRun } from "./test-support";
 import {
 	appendOwnedItems,
 	failAdapterOnlyRun,
 	failUnsupportedIntegrationRun,
 	finalizeIntegrationRun,
 } from "./worker";
-
-const makeIntegration = (overrides: Partial<IntegrationRecord> = {}): IntegrationRecord => ({
-	name: null,
-	id: "int_1",
-	lot: "sink",
-	userId: "user_1",
-	provider: "kodi",
-	isDisabled: false,
-	minimumProgress: 2,
-	maximumProgress: 95,
-	syncOwnership: false,
-	lastFinishedAt: null,
-	providerSpecifics: { kind: "kodi" },
-	createdAt: "2026-06-17T00:00:00.000Z",
-	updatedAt: "2026-06-17T00:00:00.000Z",
-	webhookUrl: "http://localhost:3000/_i/int_1",
-	extraSettings: { disableOnContinuousErrors: true },
-	...overrides,
-});
-
-const makeRun = (status: "completed" | "failed") => ({
-	status,
-	progress: 0,
-	id: "run_1",
-	source: "kodi",
-	failedItems: 0,
-	startedAt: null,
-	finishedAt: null,
-	totalItems: null,
-	inputSummary: {},
-	importedItems: 0,
-	processedItems: 0,
-	errorSummary: null,
-	createdAt: "2026-06-17T00:00:00.000Z",
-	updatedAt: "2026-06-17T00:00:00.000Z",
-});
-
-const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-	Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
-
-const defaultImportsRepository = () =>
-	Object.assign(Object.create(null), {
-		updateRun: () => Effect.void,
-		_tag: "ImportsRepository" as const,
-		createRun: () => Effect.die("unused"),
-		getRunById: () => Effect.succeed(null),
-		createFailure: () => Effect.die("unused"),
-		deleteRunById: () => Effect.die("unused"),
-		listRunsByUser: () => Effect.die("unused"),
-		listFailuresByRunId: () => Effect.die("unused"),
-		listRunsByIntegrationId: () => Effect.die("unused"),
-		hasActiveRunForIntegration: () => Effect.die("unused"),
-		listRecentStatusesByIntegrationId: () => Effect.succeed([]),
-	});
-
-const defaultIntegrationsRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "IntegrationsRepository" as const,
-		getForUser: () => Effect.die("unused"),
-		listForUser: () => Effect.die("unused"),
-		updateForUser: () => Effect.succeed(null),
-		deleteForUser: () => Effect.die("unused"),
-		createForUser: () => Effect.die("unused"),
-		getByIdAnyUser: () => Effect.die("unused"),
-		getUserDisableIntegrations: () => Effect.die("unused"),
-		listEnabledYankIntegrations: () => Effect.die("unused"),
-	});
-
 const makeImportsRepository = (overrides: Partial<ImportsRepository> = {}) =>
-	Object.assign(Object.create(null), defaultImportsRepository(), overrides);
+	makeMock<ImportsRepository>(
+		{
+			updateRun: () => Effect.void,
+			_tag: "ImportsRepository" as const,
+			createRun: () => Effect.die("unused"),
+			getRunById: () => Effect.succeed(null),
+			createFailure: () => Effect.die("unused"),
+			deleteRunById: () => Effect.die("unused"),
+			listRunsByUser: () => Effect.die("unused"),
+			listFailuresByRunId: () => Effect.die("unused"),
+			listRunsByIntegrationId: () => Effect.die("unused"),
+			hasActiveRunForIntegration: () => Effect.die("unused"),
+			listRecentStatusesByIntegrationId: () => Effect.succeed([]),
+		},
+		overrides,
+	);
 
 const makeIntegrationsRepository = (overrides: Partial<IntegrationsRepository> = {}) =>
-	Object.assign(Object.create(null), defaultIntegrationsRepository(), overrides);
+	makeMock<IntegrationsRepository>(
+		{
+			_tag: "IntegrationsRepository" as const,
+			getForUser: () => Effect.die("unused"),
+			listForUser: () => Effect.die("unused"),
+			updateForUser: () => Effect.succeed(null),
+			deleteForUser: () => Effect.die("unused"),
+			createForUser: () => Effect.die("unused"),
+			getByIdAnyUser: () => Effect.die("unused"),
+			getUserDisableIntegrations: () => Effect.die("unused"),
+			listEnabledYankIntegrations: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
 const makeWorkerLayer = (input: {
 	importsRepository?: ImportsRepository;
