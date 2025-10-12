@@ -1,3 +1,5 @@
+import { Schema } from "effect";
+
 import { slugify } from "~/lib/slug";
 
 export const workoutExerciseKinds = [
@@ -11,31 +13,43 @@ export const workoutExerciseKinds = [
 
 export type WorkoutExerciseKind = (typeof workoutExerciseKinds)[number];
 
-export type WorkoutImportSet = {
-	note?: string;
-	reps?: number;
-	weight?: number;
-	duration?: number;
-	distance?: number;
-	setLot: "normal" | "warm_up" | "drop" | "failure";
-};
+export const WorkoutImportSetSchema = Schema.mutable(
+	Schema.Struct({
+		note: Schema.optional(Schema.String),
+		reps: Schema.optional(Schema.Number),
+		weight: Schema.optional(Schema.Number),
+		duration: Schema.optional(Schema.Number),
+		distance: Schema.optional(Schema.Number),
+		setLot: Schema.Literal("normal", "warm_up", "drop", "failure"),
+	}),
+);
 
-export type WorkoutImportExercise = {
-	name: string;
-	sets: WorkoutImportSet[];
-	kind: WorkoutExerciseKind;
-};
+export type WorkoutImportSet = typeof WorkoutImportSetSchema.Type;
 
-export type WorkoutImportItem = {
-	name: string;
-	itemIndex: number;
-	startedAt: string;
-	sourceLabel: string;
-	endedAt: string | null;
-	comment?: string | null;
-	sourceIdentifier: string;
-	exercises: WorkoutImportExercise[];
-};
+export const WorkoutImportExerciseSchema = Schema.mutable(
+	Schema.Struct({
+		name: Schema.String,
+		kind: Schema.Literal(...workoutExerciseKinds),
+		sets: Schema.mutable(Schema.Array(WorkoutImportSetSchema)),
+	}),
+);
+
+export type WorkoutImportExercise = typeof WorkoutImportExerciseSchema.Type;
+
+export const WorkoutImportItemSchema = Schema.mutable(
+	Schema.Struct({
+		name: Schema.String,
+		itemIndex: Schema.Number,
+		startedAt: Schema.String,
+		sourceLabel: Schema.String,
+		endedAt: Schema.NullOr(Schema.String),
+		sourceIdentifier: Schema.String,
+		comment: Schema.optional(Schema.NullOr(Schema.String)),
+		exercises: Schema.mutable(Schema.Array(WorkoutImportExerciseSchema)),
+	}),
+);
+
+export type WorkoutImportItem = typeof WorkoutImportItemSchema.Type;
 
 export type WorkoutAdapterFailure = {
 	message: string;
@@ -45,8 +59,8 @@ export type WorkoutAdapterFailure = {
 };
 
 export type WorkoutAdapterResult = {
-	items: WorkoutImportItem[];
 	failures: WorkoutAdapterFailure[];
+	items: WorkoutImportItem[];
 };
 
 const hasMeaningfulValue = (value: number | undefined): boolean => value !== undefined && value > 0;
