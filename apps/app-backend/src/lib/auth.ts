@@ -1,53 +1,29 @@
 import { apiKey } from "@better-auth/api-key";
 import { redisStorage } from "@better-auth/redis-storage";
-import { HttpApiMiddleware, HttpApiSecurity, HttpServerRequest } from "@effect/platform";
+import { HttpServerRequest } from "@effect/platform";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
 import { genericOAuth, twoFactor } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
-import { Context, Effect, Layer, Option, Redacted, Runtime, Schema } from "effect";
+import { Effect, Layer, Option, Redacted, Runtime, Schema } from "effect";
 import type Redis from "ioredis";
 
 import { bootstrapNewUser, defaultUserPreferences } from "./builtins/bootstrap";
 import { AppConfig, type AppConfigValue, isOidcEnabled } from "./config";
 import type { DbRoot, TransactionRunner } from "./db";
 import { DbService, schema } from "./db";
-import { rateLimited, RateLimited, unauthorized, Unauthorized } from "./errors";
+import { rateLimited, unauthorized } from "./errors";
 import { redisKeys, RedisService } from "./redis";
 
-export type CurrentUserValue = {
-	readonly id: string;
-	readonly name: string;
-	readonly email: string;
-};
-
-export class CurrentUser extends Context.Tag("CurrentUser")<CurrentUser, CurrentUserValue>() {}
-
-export class AdminAccess extends Context.Tag("AdminAccess")<
+export {
+	type CurrentUserValue,
 	AdminAccess,
-	{ readonly authorized: true }
->() {}
-
-/**
- * @effect-expect-leaking HttpServerRequest
- * @effect-expect-leaking ParsedSearchParams
- * @effect-expect-leaking RouteContext
- */
-export class AuthMiddleware extends HttpApiMiddleware.Tag<AuthMiddleware>()("AuthMiddleware", {
-	provides: CurrentUser,
-	failure: Schema.Union(Unauthorized, RateLimited),
-	security: {
-		apiKey: HttpApiSecurity.apiKey({ in: "header", key: "x-api-key" }),
-		cookie: HttpApiSecurity.apiKey({ in: "cookie", key: "better-auth.session_token" }),
-	},
-}) {}
-
-export class AdminMiddleware extends HttpApiMiddleware.Tag<AdminMiddleware>()("AdminMiddleware", {
-	failure: Unauthorized,
-	provides: AdminAccess,
-	security: { adminToken: HttpApiSecurity.apiKey({ in: "header", key: "Admin-Access-Token" }) },
-}) {}
+	AdminMiddleware,
+	AuthMiddleware,
+	CurrentUser,
+} from "./auth-middleware";
+import { AdminMiddleware, AuthMiddleware } from "./auth-middleware";
 
 const makeAuthInstance = (args: {
 	readonly config: AppConfigValue;
