@@ -63,6 +63,18 @@ describe("createImportRunBody", () => {
 
 		expect(
 			createImportRunBody.parse({
+				source: "netflix",
+				profileName: " Kids ",
+				uploadToken: "tok_netflix",
+			}),
+		).toEqual({
+			source: "netflix",
+			profileName: "Kids",
+			uploadToken: "tok_netflix",
+		});
+
+		expect(
+			createImportRunBody.parse({
 				apiKey: "token_3",
 				source: "audiobookshelf",
 				apiUrl: "https://books.example.com/root/",
@@ -122,6 +134,22 @@ describe("buildInputSummary", () => {
 		expect(summary).not.toHaveProperty("ratingsUploadToken");
 		expect(summary).not.toHaveProperty("watchlistUploadToken");
 	});
+
+	it("stores only safe Netflix import metadata in the run summary", () => {
+		const summary = buildInputSummary({
+			source: "netflix",
+			profileName: "Kids",
+			uploadToken: "tok_netflix",
+		});
+
+		expect(summary).toEqual({
+			source: "netflix",
+			hasExportFile: true,
+			hasProfileName: true,
+		});
+		expect(summary).not.toHaveProperty("uploadToken");
+		expect(summary).not.toHaveProperty("profileName");
+	});
 });
 
 describe("getImportSourceFileInputs", () => {
@@ -157,6 +185,24 @@ describe("getImportSourceFileInputs", () => {
 			},
 		]);
 	});
+
+	it("maps the Netflix upload token to the expected zip file input", () => {
+		const inputs = getImportSourceFileInputs({
+			source: "netflix",
+			profileName: "Kids",
+			uploadToken: "tok_netflix",
+		});
+
+		expect(inputs).toEqual([
+			{
+				required: undefined,
+				payloadKey: undefined,
+				bodyField: "uploadToken",
+				allowedExtensions: ["zip"],
+				uploadToken: "tok_netflix",
+			},
+		]);
+	});
 });
 
 describe("buildSourcePayload", () => {
@@ -168,5 +214,15 @@ describe("buildSourcePayload", () => {
 				apiUrl: "https://books.example.com/root/?token=secret#fragment",
 			}),
 		).toEqual({ apiKey: "secret-token", apiUrl: "https://books.example.com/root" });
+	});
+
+	it("passes the trimmed Netflix profile name through the queued source payload only", () => {
+		expect(
+			buildSourcePayload({
+				source: "netflix",
+				profileName: " Kids ",
+				uploadToken: "tok_netflix",
+			}),
+		).toEqual({ profileName: "Kids" });
 	});
 });
