@@ -16,6 +16,23 @@ const sourceFileDefinitions: Partial<
 	hevy: [{ bodyField: "uploadToken", allowedExtensions: ["csv"] }],
 	igdb: [{ bodyField: "uploadToken", allowedExtensions: ["csv"] }],
 	imdb: [{ bodyField: "uploadToken", allowedExtensions: ["csv"] }],
+	movary: [
+		{
+			allowedExtensions: ["csv"],
+			payloadKey: "historyFilePath",
+			bodyField: "historyUploadToken",
+		},
+		{
+			allowedExtensions: ["csv"],
+			payloadKey: "ratingsFilePath",
+			bodyField: "ratingsUploadToken",
+		},
+		{
+			allowedExtensions: ["csv"],
+			payloadKey: "watchlistFilePath",
+			bodyField: "watchlistUploadToken",
+		},
+	],
 	grouvee: [{ bodyField: "uploadToken", allowedExtensions: ["csv"] }],
 	anilist: [{ bodyField: "uploadToken", allowedExtensions: ["json"] }],
 	goodreads: [{ bodyField: "uploadToken", allowedExtensions: ["csv"] }],
@@ -93,6 +110,10 @@ const sourceStartValidators: Partial<
 		appConfig.moviesAndShows.tmdb.accessToken
 			? undefined
 			: "IMDb importer is not configured. Set MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN.",
+	movary: () =>
+		appConfig.moviesAndShows.tmdb.accessToken
+			? undefined
+			: "Movary importer is not configured. Set MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN.",
 	myanimelist: () =>
 		appConfig.animeAndManga.mal.clientId
 			? undefined
@@ -124,6 +145,11 @@ export const buildInputSummary = (body: CreateImportRunBody): Record<string, unk
 	if (body.source === "myanimelist") {
 		summary.hasAnimeFile = Boolean(body.animeUploadToken);
 		summary.hasMangaFile = Boolean(body.mangaUploadToken);
+	}
+	if (body.source === "movary") {
+		summary.hasHistoryFile = true;
+		summary.hasRatingsFile = true;
+		summary.hasWatchlistFile = true;
 	}
 	if (body.source === "trakt") {
 		summary.username = body.username;
