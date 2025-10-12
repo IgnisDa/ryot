@@ -276,6 +276,7 @@ export const runOneTimeMediaImportWorkflow = <
 								success: MediaImportAdapterResultSchema,
 								execute: buildNetflixAdapterResult({
 									searchResponses,
+									importedAt: loadOutcome.importedAt,
 									myListPath: loadOutcome.myListPath,
 									profileName: loadOutcome.profileName,
 									ratingsPath: loadOutcome.ratingsPath,

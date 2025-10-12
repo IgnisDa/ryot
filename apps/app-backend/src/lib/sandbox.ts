@@ -1,16 +1,8 @@
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "@effect/platform";
 import { isHttpMethod } from "@effect/platform/HttpMethod";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { generateId } from "better-auth";
 import { and, eq, isNull, or } from "drizzle-orm";
 import { Clock, Duration, Effect, Match, Runtime, Schema } from "effect";
-
-import { EntitiesRepository } from "~/modules/entities/repository";
-import { EntitySchemasRepository } from "~/modules/entity-schemas/repository";
-import { EventSchemasRepository } from "~/modules/event-schemas/repository";
-import { EventsRepository } from "~/modules/events/repository";
-import { IntegrationsRepository } from "~/modules/integrations/repository";
-import { SandboxRepository } from "~/modules/sandbox/repository";
 
 import { AppConfig } from "./config";
 import { CurrentDb, DbRunner, dbEffect, schema } from "./db";
@@ -125,13 +117,6 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
 		const bridge = yield* BridgeService;
-		const workflowEngine = yield* WorkflowEngine;
-		const eventsRepository = yield* EventsRepository;
-		const sandboxRepository = yield* SandboxRepository;
-		const entitiesRepository = yield* EntitiesRepository;
-		const integrationsRepository = yield* IntegrationsRepository;
-		const eventSchemasRepository = yield* EventSchemasRepository;
-		const entitySchemasRepository = yield* EntitySchemasRepository;
 
 		const runtime = yield* Effect.runtime();
 		const runPromise = Runtime.runPromise(runtime);
@@ -230,6 +215,8 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						: new SandboxRunError({ message: unknownToMessage(error) }),
 				),
 			);
+
+		const additionalApiFunctions = yield* makeAdditionalSandboxApiFunctions(runSandbox);
 
 		apiFunctions = {
 			executeQueryEngine: (...args) => {
@@ -399,20 +386,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					),
 				);
 			},
-			...makeAdditionalSandboxApiFunctions({
-				redis,
-				config,
-				runWithDb,
-				runPromise,
-				workflowEngine,
-				eventsRepository,
-				sandboxRepository,
-				entitiesRepository,
-				eventSchemasRepository,
-				integrationsRepository,
-				entitySchemasRepository,
-				runSandboxScript: runSandbox,
-			}),
+			...additionalApiFunctions,
 		};
 
 		return { run: runSandbox };
