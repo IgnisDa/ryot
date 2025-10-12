@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { CurrentDb, dbEffect, schema } from "#lib/db";
@@ -41,6 +41,11 @@ type EventsRepositoryShape = {
 	readonly deleteUserEventsForEntity: (input: {
 		userId: string;
 		entityId: string;
+	}) => EventsDbEffect<number>;
+	readonly moveUserEventsBetweenEntities: (input: {
+		userId: string;
+		mergeFrom: string;
+		mergeInto: string;
 	}) => EventsDbEffect<number>;
 	readonly getActiveBeforeCreateTriggers: (input: {
 		userId: string;
@@ -182,6 +187,32 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 				);
 
 				return rows.length;
+			}),
+		moveUserEventsBetweenEntities: (input) =>
+			Effect.gen(function* () {
+				const db = yield* CurrentDb;
+				const result = yield* dbEffect(() =>
+					db.execute<{ count: string }>(sql`
+						with moved as (
+							update "event"
+							set
+								"entity_id" = case
+									when "entity_id" = ${input.mergeFrom} then ${input.mergeInto}
+									else "entity_id"
+								end,
+								"session_entity_id" = case
+									when "session_entity_id" = ${input.mergeFrom} then ${input.mergeInto}
+									else "session_entity_id"
+								end
+							where "user_id" = ${input.userId}
+								and ("entity_id" = ${input.mergeFrom} or "session_entity_id" = ${input.mergeFrom})
+							returning "id"
+						)
+						select count(*)::text as "count" from moved
+					`),
+				);
+
+				return Number(result.rows[0]?.count ?? 0);
 			}),
 		getActiveBeforeCreateTriggers: (input) =>
 			Effect.gen(function* () {
