@@ -7,7 +7,12 @@ import { unknownToMessage } from "~/lib/errors";
 import type { ImportRunJobData } from "./jobs";
 import { ImportsRepository } from "./repository";
 import { PROGRESS_UPDATE_INTERVAL, recordImportRunFailure } from "./runtime/failures";
-import { getTemporaryDirectory, readImportFile, resolveSafeImportFilePath } from "./runtime/files";
+import {
+	getTemporaryDirectory,
+	readImportFile,
+	resolveImportPath,
+	resolveSafeImportFilePath,
+} from "./runtime/files";
 import { getKnownImportExtensions } from "./runtime/source-definitions";
 import {
 	createImportRunLifecycle,
@@ -154,15 +159,7 @@ export const runOneTimeNonMediaImportWorkflow = <
 		const runWithDb = yield* DbRunner;
 		const repository = yield* ImportsRepository;
 
-		const initialCleanupPaths = payload.filePath
-			? (() => {
-					const safePathResult = resolveSafeImportFilePath(
-						payload.filePath,
-						getTemporaryDirectory(),
-					);
-					return "path" in safePathResult ? [safePathResult.path] : [];
-				})()
-			: [];
+		const initialCleanupPaths = payload.filePath ? resolveImportPath(payload.filePath) : [];
 		let cleanupPaths: ReadonlyArray<string> = initialCleanupPaths;
 		const { cleanupArtifactsBestEffort, failRunAndCleanup } = createImportRunLifecycle(
 			payload,
