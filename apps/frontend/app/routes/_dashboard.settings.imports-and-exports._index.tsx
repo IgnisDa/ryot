@@ -4,7 +4,6 @@ import {
 	Box,
 	Button,
 	Container,
-	CopyButton,
 	Divider,
 	Drawer,
 	FileInput,
@@ -36,12 +35,7 @@ import {
 	kebabCase,
 	processSubmission,
 } from "@ryot/ts-utils";
-import {
-	IconCopy,
-	IconDownload,
-	IconEye,
-	IconTrash,
-} from "@tabler/icons-react";
+import { IconDownload, IconEye, IconTrash } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { filesize } from "filesize";
 import { DataTable } from "mantine-datatable";
@@ -606,33 +600,34 @@ export default function Page() {
 																<Box>
 																	<Group justify="space-between" mb="md">
 																		<Title order={4}>Failed Items</Title>
-																		<CopyButton
-																			value={JSON.stringify(
-																				report.details.failedItems,
-																				null,
-																				2,
-																			)}
-																		>
-																			{(props) => (
-																				<Tooltip
-																					label={
-																						props.copied
-																							? "Copied!"
-																							: "Copy errors"
-																					}
-																				>
-																					<ActionIcon
-																						color={
-																							props.copied ? "teal" : "blue"
-																						}
-																						variant="light"
-																						onClick={props.copy}
-																					>
-																						<IconCopy />
-																					</ActionIcon>
-																				</Tooltip>
-																			)}
-																		</CopyButton>
+																		<Tooltip label="Download errors">
+																			<ActionIcon
+																				color="blue"
+																				variant="light"
+																				onClick={() => {
+																					if (!report.details) return;
+																					const json = JSON.stringify(
+																						report.details.failedItems,
+																						null,
+																						2,
+																					);
+																					const blob = new Blob([json], {
+																						type: "application/json",
+																					});
+																					const url = URL.createObjectURL(blob);
+																					const link =
+																						document.createElement("a");
+																					link.href = url;
+																					link.download = `failed-items-${report.id}.json`;
+																					document.body.appendChild(link);
+																					link.click();
+																					document.body.removeChild(link);
+																					URL.revokeObjectURL(url);
+																				}}
+																			>
+																				<IconDownload />
+																			</ActionIcon>
+																		</Tooltip>
 																	</Group>
 																	<DataTable
 																		height={500}
