@@ -48,7 +48,7 @@ export interface CollectionToEntityDetails {
 	created_on: string;
 	creator_user_id: string;
 	information: unknown | null;
-	lastUpdated_on: string;
+	last_updated_on: string;
 	/** The rank of this entity in the collection. This is ignored during importing. */
 	rank?: string;
 }
