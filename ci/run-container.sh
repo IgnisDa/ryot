@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
+# TODO: delete this file eventually
+
 proxy_command="caddy run --config /etc/caddy/Caddyfile"
 backend_command="BACKEND_PORT=5000 /usr/local/bin/backend"
 frontend_command="PORT=3000 npx react-router-serve ./build/server/index.js"
