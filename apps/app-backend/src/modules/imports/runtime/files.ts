@@ -2,6 +2,8 @@ import { FileSystem, Path } from "@effect/platform";
 import { Data, Effect } from "effect";
 import { unzipRaw } from "unzipit";
 
+import { AppConfig } from "#lib/config";
+
 const MAX_ZIP_ENTRY_COUNT = 100;
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const MAX_ZIP_ENTRY_BYTES = 25 * 1024 * 1024;
@@ -56,12 +58,6 @@ const validateZipFileName = (fileName: string): string | undefined => {
 	return undefined;
 };
 
-export const getTemporaryDirectory = (): string => {
-	const candidates = [Bun.env.TMPDIR, Bun.env.TMP, Bun.env.TEMP];
-	const dir = candidates.find((v) => v && v.length > 0);
-	return dir ?? "/tmp";
-};
-
 export const resolveSafeImportFilePath = (
 	filePath: string,
 	tempDir: string,
@@ -91,11 +87,12 @@ export const validateFileExtension = (
 export const getValidatedOptionalPath = (
 	value: unknown,
 	allowedExtensions: string[],
+	tempDir: string,
 ): string | undefined => {
 	if (typeof value !== "string" || value.trim().length === 0) {
 		return undefined;
 	}
-	const safePathResult = resolveSafeImportFilePath(value, getTemporaryDirectory());
+	const safePathResult = resolveSafeImportFilePath(value, tempDir);
 	if ("error" in safePathResult) {
 		throw new Error(safePathResult.error);
 	}
@@ -146,12 +143,13 @@ export const extractImportZipArchive = Effect.fn("imports.extractImportZipArchiv
 	safePath: string,
 	options: ExtractImportZipArchiveOptions = {},
 ) {
-	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
-	const importFile = Bun.file(safePath);
-	if (importFile.size > MAX_FILE_BYTES) {
+	const config = yield* AppConfig;
+	const fs = yield* FileSystem.FileSystem;
+	const fileInfo = yield* fs.stat(safePath);
+	if (Number(fileInfo.size) > MAX_FILE_BYTES) {
 		return yield* zipArchiveError(
-			`Import file exceeds maximum allowed size of ${MAX_FILE_BYTES} bytes (file is ${importFile.size} bytes)`,
+			`Import file exceeds maximum allowed size of ${MAX_FILE_BYTES} bytes (file is ${fileInfo.size} bytes)`,
 		);
 	}
 
@@ -160,7 +158,7 @@ export const extractImportZipArchive = Effect.fn("imports.extractImportZipArchiv
 	const maxTotalBytes = options.maxTotalBytes ?? MAX_ZIP_TOTAL_BYTES;
 	const directoryPath = yield* fs.makeTempDirectory({
 		prefix: ZIP_TEMP_DIRECTORY_PREFIX,
-		directory: getTemporaryDirectory(),
+		directory: config.tmpDir,
 	});
 
 	const extractEntries = Effect.gen(function* () {
@@ -168,8 +166,9 @@ export const extractImportZipArchive = Effect.fn("imports.extractImportZipArchiv
 		let totalUncompressedSize = 0;
 		let extractedEntryCount = 0;
 
+		const archiveBytes = yield* fs.readFile(safePath);
 		const zipInfo = yield* Effect.tryPromise({
-			try: () => unzipRaw(Bun.file(safePath)),
+			try: () => unzipRaw(archiveBytes),
 			catch: (error) => unknownToZipArchiveError(error, "Could not open ZIP archive"),
 		});
 
@@ -218,8 +217,8 @@ export const extractImportZipArchive = Effect.fn("imports.extractImportZipArchiv
 	return yield* extractEntries;
 });
 
-export const resolveImportPath = (filePath: string): string[] => {
-	const safePathResult = resolveSafeImportFilePath(filePath, getTemporaryDirectory());
+export const resolveImportPath = (filePath: string, tempDir: string): string[] => {
+	const safePathResult = resolveSafeImportFilePath(filePath, tempDir);
 	return "path" in safePathResult ? [safePathResult.path] : [];
 };
 

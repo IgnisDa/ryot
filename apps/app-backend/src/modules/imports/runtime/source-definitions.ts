@@ -1,5 +1,5 @@
 import type { CreateImportRunBody } from "../schemas";
-import { importerConfig } from "./importer-config";
+import type { ImporterConfig } from "./importer-config";
 import { getSourceApiHost, normalizeSourceApiUrl } from "./source-api";
 
 type ImportSourceFileDefinition = {
@@ -50,42 +50,42 @@ const sourceFileDefinitions: Partial<
 };
 
 const sourceStartValidators: Partial<
-	Record<CreateImportRunBody["source"], () => string | undefined>
+	Record<CreateImportRunBody["source"], (importer: ImporterConfig) => string | undefined>
 > = {
-	grouvee: () =>
-		importerConfig.videoGames.giantBomb.apiKey
+	grouvee: (importer) =>
+		importer.videoGames.giantBomb.apiKey
 			? undefined
 			: "Grouvee importer is not configured. Set VIDEO_GAMES_GIANT_BOMB_API_KEY.",
-	hardcover: () =>
-		importerConfig.books.hardcover.apiKey
+	hardcover: (importer) =>
+		importer.books.hardcover.apiKey
 			? undefined
 			: "Hardcover importer is not configured. Set BOOKS_HARDCOVER_API_KEY.",
-	igdb: () =>
-		importerConfig.videoGames.twitch.clientId && importerConfig.videoGames.twitch.clientSecret
+	igdb: (importer) =>
+		importer.videoGames.twitch.clientId && importer.videoGames.twitch.clientSecret
 			? undefined
 			: "IGDB importer is not configured. Set VIDEO_GAMES_TWITCH_CLIENT_ID and VIDEO_GAMES_TWITCH_CLIENT_SECRET.",
-	imdb: () =>
-		importerConfig.moviesAndShows.tmdb.accessToken
+	imdb: (importer) =>
+		importer.moviesAndShows.tmdb.accessToken
 			? undefined
 			: "IMDb importer is not configured. Set MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN.",
-	netflix: () =>
-		importerConfig.moviesAndShows.tmdb.accessToken
+	netflix: (importer) =>
+		importer.moviesAndShows.tmdb.accessToken
 			? undefined
 			: "Netflix importer is not configured. Set MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN.",
-	movary: () =>
-		importerConfig.moviesAndShows.tmdb.accessToken
+	movary: (importer) =>
+		importer.moviesAndShows.tmdb.accessToken
 			? undefined
 			: "Movary importer is not configured. Set MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN.",
-	watcharr: () =>
-		importerConfig.moviesAndShows.tmdb.accessToken
+	watcharr: (importer) =>
+		importer.moviesAndShows.tmdb.accessToken
 			? undefined
 			: "Watcharr importer is not configured. Set MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN.",
-	myanimelist: () =>
-		importerConfig.animeAndManga.mal.clientId
+	myanimelist: (importer) =>
+		importer.animeAndManga.mal.clientId
 			? undefined
 			: "MyAnimeList importer is not configured. Set ANIME_AND_MANGA_MAL_CLIENT_ID.",
-	trakt: () =>
-		importerConfig.trakt.clientId
+	trakt: (importer) =>
+		importer.trakt.clientId
 			? undefined
 			: "Trakt importer is not configured. Set SERVER_IMPORTER_TRAKT_CLIENT_ID.",
 };
@@ -118,7 +118,8 @@ export const getImportSourceFileInputs = (body: CreateImportRunBody) =>
 
 export const getImportSourceStartError = (
 	source: CreateImportRunBody["source"],
-): string | undefined => sourceStartValidators[source]?.();
+	importer: ImporterConfig,
+): string | undefined => sourceStartValidators[source]?.(importer);
 
 export const buildInputSummary = (body: CreateImportRunBody): Record<string, unknown> => {
 	const summary: Record<string, unknown> = { source: body.source };

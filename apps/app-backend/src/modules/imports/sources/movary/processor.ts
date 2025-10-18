@@ -1,5 +1,7 @@
 import { Effect, Either } from "effect";
 
+import { AppConfig } from "#lib/config";
+
 import { nowIso } from "../../media/dates";
 import type {
 	LoadedMediaImportAdapterError,
@@ -17,18 +19,24 @@ export const loadMovaryAdapterResult = Effect.fn("movaryProcessor.load")(functio
 	filePath?: string;
 	sourcePayload?: Record<string, unknown>;
 }) {
+	const config = yield* AppConfig;
 	const paths = yield* Effect.try({
 		try: () => ({
 			historyFilePath:
-				getValidatedOptionalPath(input.sourcePayload?.historyFilePath, MOVARY_EXTENSIONS) ??
-				input.filePath,
+				getValidatedOptionalPath(
+					input.sourcePayload?.historyFilePath,
+					MOVARY_EXTENSIONS,
+					config.tmpDir,
+				) ?? input.filePath,
 			ratingsFilePath: getValidatedOptionalPath(
 				input.sourcePayload?.ratingsFilePath,
 				MOVARY_EXTENSIONS,
+				config.tmpDir,
 			),
 			watchlistFilePath: getValidatedOptionalPath(
 				input.sourcePayload?.watchlistFilePath,
 				MOVARY_EXTENSIONS,
+				config.tmpDir,
 			),
 		}),
 		catch: (error) => sanitizeErrorMessage(error, "Import job has invalid Movary files"),
