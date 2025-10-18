@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -121,26 +121,26 @@ These behaviors are already covered by unit tests in tasks 05–07.
 
 ## Acceptance criteria
 
-- [ ] `tests/src/tests/integrations.test.ts` exists and all tests pass.
-- [ ] Integration CRUD create/list/get/patch/delete all tested.
-- [ ] Threshold validation (min > max) is tested and returns an error.
-- [ ] Provider/kind mismatch is tested and returns an error.
-- [ ] Webhook route 404 tested for both `/_i/:id` and `/api/webhooks/integrations/:id`.
-- [ ] Webhook route 202 with runId tested for valid Sink integration.
-- [ ] Disabled integration webhook returns 202 with failed run.
-- [ ] `disableIntegrations` preference webhook returns 202 with failed run.
-- [ ] `GET /api/imports` excludes integration runs by default.
-- [ ] `GET /api/imports/:id` allows fetching an integration-owned run.
-- [ ] `GET /api/integrations/:id/runs` returns integration runs.
-- [ ] `webhookUrl` present for Sink integrations, absent for Yank integrations.
-- [ ] Collection add/remove events visible via `GET /api/events`.
-- [ ] Second add-to-collection upsert does not emit a second event.
-- [ ] Before-trigger skip prevents event creation; response reflects skip.
-- [ ] Before-trigger replace modifies persisted event properties.
-- [ ] Before-trigger failure is fail-closed: event not created, error returned.
-- [ ] Two before-triggers run in ascending position order.
-- [ ] `tests/src/fixtures/integrations.ts` fixture file exists and is exported from `fixtures/index.ts`.
-- [ ] All tests pass via `bun test` in the `tests/` workspace.
+- [x] `tests/src/tests/integrations.test.ts` exists and all tests pass.
+- [x] Integration CRUD create/list/get/patch/delete all tested.
+- [x] Threshold validation (min > max) is tested and returns an error.
+- [x] Provider/kind mismatch is tested and returns an error.
+- [x] Webhook route 404 tested for both `/_i/:id` and `/api/webhooks/integrations/:id`.
+- [x] Webhook route 202 with runId tested for valid Sink integration.
+- [x] Disabled integration webhook returns 202 with failed run.
+- [x] `disableIntegrations` preference webhook returns 202 with failed run.
+- [x] `GET /api/imports` excludes integration runs by default.
+- [x] `GET /api/imports/:id` allows fetching an integration-owned run.
+- [x] `GET /api/integrations/:id/runs` returns integration runs.
+- [x] `webhookUrl` present for Sink integrations, absent for Yank integrations.
+- [x] Collection add/remove events visible via `GET /api/events`.
+- [x] Second add-to-collection upsert does not emit a second event.
+- [x] Before-trigger skip prevents event creation; response reflects skip.
+- [x] Before-trigger replace modifies persisted event properties.
+- [x] Before-trigger failure is fail-closed: event not created, error returned.
+- [x] Two before-triggers run in ascending position order.
+- [x] `tests/src/fixtures/integrations.ts` fixture file exists and is exported from `fixtures/index.ts`.
+- [x] All tests pass via `bun test` in the `tests/` workspace.
 
 ## User stories addressed
 
