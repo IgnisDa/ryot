@@ -95,22 +95,25 @@ export const loadNonMediaImportText = Effect.fn("importsNonMedia.loadNonMediaImp
 		}
 
 		const config = yield* AppConfig;
-		const safePathResult = resolveSafeImportFilePath(payload.filePath, config.tmpDir);
-		if ("error" in safePathResult) {
-			return yield* Effect.fail({
-				cleanupPaths: [] as ReadonlyArray<string>,
-				message: "Import job has an invalid file path",
-			} satisfies NonMediaLoadError);
-		}
+		const safePath = yield* resolveSafeImportFilePath(payload.filePath, config.tmpDir).pipe(
+			Effect.mapError(
+				() =>
+					({
+						cleanupPaths: [] as ReadonlyArray<string>,
+						message: "Import job has an invalid file path",
+					}) satisfies NonMediaLoadError,
+			),
+		);
 
-		const safePath = safePathResult.path;
-		const extResult = validateImportExtension(safePath);
-		if ("error" in extResult) {
-			return yield* Effect.fail({
-				cleanupPaths: [safePath],
-				message: "Import job has an invalid file extension",
-			} satisfies NonMediaLoadError);
-		}
+		yield* validateImportExtension(safePath).pipe(
+			Effect.mapError(
+				() =>
+					({
+						cleanupPaths: [safePath],
+						message: "Import job has an invalid file extension",
+					}) satisfies NonMediaLoadError,
+			),
+		);
 
 		const text = yield* readImportFile(safePath).pipe(
 			Effect.mapError(
@@ -126,11 +129,11 @@ export const loadNonMediaImportText = Effect.fn("importsNonMedia.loadNonMediaImp
 	},
 );
 
-const validateImportExtension = (filePath: string): { ok: true } | { error: string } => {
+const validateImportExtension = (filePath: string): Effect.Effect<void, string> => {
 	const segment = filePath.split(/[\\/]/).pop() ?? "";
 	const dotIndex = segment.lastIndexOf(".");
 	const ext = dotIndex > 0 ? segment.slice(dotIndex + 1).toLowerCase() : "";
-	return getKnownImportExtensions().includes(ext) ? { ok: true } : { error: "invalid extension" };
+	return getKnownImportExtensions().includes(ext) ? Effect.void : Effect.fail("invalid extension");
 };
 
 const makeLoadOutcomeSchema = <Item>(itemSchema: Schema.Schema<Item>) =>
@@ -163,7 +166,7 @@ export const runOneTimeNonMediaImportWorkflow = <
 		const repository = yield* ImportsRepository;
 
 		const initialCleanupPaths = payload.filePath
-			? resolveImportPath(payload.filePath, config.tmpDir)
+			? yield* resolveImportPath(payload.filePath, config.tmpDir)
 			: [];
 		let cleanupPaths: ReadonlyArray<string> = initialCleanupPaths;
 		const { cleanupArtifactsBestEffort, failRunAndCleanup } = createImportRunLifecycle(

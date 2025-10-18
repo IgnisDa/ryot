@@ -61,46 +61,40 @@ const validateZipFileName = (fileName: string): string | undefined => {
 export const resolveSafeImportFilePath = (
 	filePath: string,
 	tempDir: string,
-): { path: string } | { error: string } => {
+): Effect.Effect<string, string> => {
 	const normalizedTempDir = tempDir.replace(/[\\/]+$/, "");
 	if (filePath.includes("..") || !filePath.startsWith(`${normalizedTempDir}/`)) {
-		return { error: "Import file path must be inside the configured temporary upload directory" };
+		return Effect.fail("Import file path must be inside the configured temporary upload directory");
 	}
-	return { path: filePath };
+	return Effect.succeed(filePath);
 };
 
 export const validateFileExtension = (
 	filePath: string,
 	allowedExtensions: string[],
-): { ok: true } | { error: string } => {
+): Effect.Effect<void, string> => {
 	const segment = filePath.split(/[\\/]/).pop() ?? "";
 	const dotIndex = segment.lastIndexOf(".");
 	const ext = dotIndex > 0 ? segment.slice(dotIndex + 1).toLowerCase() : "";
 	if (!allowedExtensions.includes(ext)) {
-		return {
-			error: `Import file must have one of the following extensions: ${allowedExtensions.join(", ")}`,
-		};
+		return Effect.fail(
+			`Import file must have one of the following extensions: ${allowedExtensions.join(", ")}`,
+		);
 	}
-	return { ok: true };
+	return Effect.void;
 };
 
 export const getValidatedOptionalPath = (
 	value: unknown,
 	allowedExtensions: string[],
 	tempDir: string,
-): string | undefined => {
+): Effect.Effect<string | void, string> => {
 	if (typeof value !== "string" || value.trim().length === 0) {
-		return undefined;
+		return Effect.void;
 	}
-	const safePathResult = resolveSafeImportFilePath(value, tempDir);
-	if ("error" in safePathResult) {
-		throw new Error(safePathResult.error);
-	}
-	const extResult = validateFileExtension(safePathResult.path, allowedExtensions);
-	if ("error" in extResult) {
-		throw new Error(extResult.error);
-	}
-	return safePathResult.path;
+	return resolveSafeImportFilePath(value, tempDir).pipe(
+		Effect.tap((path) => validateFileExtension(path, allowedExtensions)),
+	);
 };
 
 export const readImportFile = Effect.fn("imports.readImportFile")(function* (safePath: string) {
@@ -217,10 +211,11 @@ export const extractImportZipArchive = Effect.fn("imports.extractImportZipArchiv
 	return yield* extractEntries;
 });
 
-export const resolveImportPath = (filePath: string, tempDir: string): string[] => {
-	const safePathResult = resolveSafeImportFilePath(filePath, tempDir);
-	return "path" in safePathResult ? [safePathResult.path] : [];
-};
+export const resolveImportPath = (filePath: string, tempDir: string): Effect.Effect<string[]> =>
+	resolveSafeImportFilePath(filePath, tempDir).pipe(
+		Effect.map((path) => [path]),
+		Effect.catchAll(() => Effect.succeed([])),
+	);
 
 export const cleanupImportFile = Effect.fn("imports.cleanupImportFile")(function* (
 	safePath: string,
