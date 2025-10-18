@@ -17,7 +17,6 @@ import {
 	View,
 } from "reshaped";
 import { useApiClient } from "@/hooks/api";
-import { useAuthClient } from "@/hooks/auth";
 
 export const Route = createFileRoute("/schema-search")({
 	component: SchemaSearchPage,
@@ -85,7 +84,6 @@ const hasSearchResultData = (
 
 function SchemaSearchPage() {
 	const apiClient = useApiClient();
-	const authClient = useAuthClient();
 	const navigate = Route.useNavigate();
 	const [page, setPage] = useState(1);
 	const [query, setQuery] = useState("harry potter");
