@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import { bodyLimit } from "hono/body-limit";
+import { createMiddleware } from "hono/factory";
 
 import { createAuthRoute, type AuthType } from "~/lib/auth";
 import {
@@ -23,14 +24,58 @@ import {
 } from "./schemas";
 import { createPresignedDownloads, createPresignedUpload, createTemporaryUploads } from "./service";
 
-const temporaryUploadBodyLimit = bodyLimit({
+const temporaryUploadTooLargeErrorMessage =
+	"Temporary upload request exceeds the maximum allowed size";
+
+const createTemporaryUploadTooLargeResponse = (c: Parameters<ReturnType<typeof bodyLimit>>[0]) => {
+	const response = createValidationErrorResult(temporaryUploadTooLargeErrorMessage);
+	return c.json(response.body, 413, { Connection: "close" });
+};
+
+const drainRequestBody = async (request: Request) => {
+	const reader = request.body?.getReader();
+	if (!reader) {
+		return;
+	}
+
+	try {
+		for (;;) {
+			// oxlint-disable-next-line no-await-in-loop
+			const { done } = await reader.read();
+			if (done) {
+				break;
+			}
+		}
+	} catch {
+		return;
+	} finally {
+		reader.releaseLock();
+	}
+};
+
+const temporaryUploadBodyLimitFallback = bodyLimit({
 	maxSize: temporaryUploadMaxRequestBytes,
-	onError: (c) => {
-		const response = createValidationErrorResult(
-			"Temporary upload request exceeds the maximum allowed size",
-		);
-		return c.json(response.body, 413);
+	onError: async (c) => {
+		await c.req.raw.body?.cancel().catch(() => undefined);
+		return createTemporaryUploadTooLargeResponse(c);
 	},
+});
+
+const temporaryUploadBodyLimit = createMiddleware(async (c, next) => {
+	const hasTransferEncoding = c.req.raw.headers.has("transfer-encoding");
+	const contentLengthHeader = c.req.raw.headers.get("content-length");
+	const contentLength = contentLengthHeader ? Number.parseInt(contentLengthHeader, 10) : Number.NaN;
+
+	if (
+		!hasTransferEncoding &&
+		Number.isFinite(contentLength) &&
+		contentLength > temporaryUploadMaxRequestBytes
+	) {
+		await drainRequestBody(c.req.raw);
+		return createTemporaryUploadTooLargeResponse(c);
+	}
+
+	return temporaryUploadBodyLimitFallback(c, next);
 });
 
 const getPresignedUploadUrlRoute = createAuthRoute(
