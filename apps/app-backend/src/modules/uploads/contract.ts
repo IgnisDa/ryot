@@ -10,8 +10,9 @@ import { Option, Schema } from "effect";
 import { AuthMiddleware } from "#lib/auth-middleware";
 import { BadRequest, RateLimited, Unauthorized } from "#lib/errors";
 
-import { TEMPORARY_UPLOAD_MAX_FILE_BYTES, TEMPORARY_UPLOAD_MAX_REQUEST_BYTES } from "./shared";
+import { UploadBodyLimitMiddleware } from "./middleware";
 import { PresignedDownloadResponse, PresignedUploadResponse } from "./schemas";
+import { TEMPORARY_UPLOAD_MAX_FILE_BYTES, TEMPORARY_UPLOAD_MAX_REQUEST_BYTES } from "./shared";
 
 export const UploadsGroup = HttpApiGroup.make("uploads")
 	.addError(HttpApiError.HttpApiDecodeError, { status: 400 })
@@ -41,5 +42,6 @@ export const UploadsGroup = HttpApiGroup.make("uploads")
 			)
 			.addSuccess(Schema.Array(Schema.String), { status: 201 })
 			.addError(Multipart.MultipartError, { status: 413 })
-			.addError(BadRequest, { status: 400 }),
+			.addError(BadRequest, { status: 400 })
+			.middleware(UploadBodyLimitMiddleware),
 	);
