@@ -5,11 +5,11 @@
 	"main": "expo-router/entry",
 	"scripts": {
 		"ios": "expo run:ios",
+		"format": "oxfmt . --write",
 		"android": "expo run:android",
 		"dev": "expo start --port 3005",
 		"test": "bun test --only-failures",
-		"lint": "oxlint . --fix && oxfmt . --write",
-		"typecheck": "tsc && oxlint . --type-aware",
+		"check": "tsc && oxlint . --type-aware --fix",
 		"build": "expo export --platform web --output-dir dist"
 	},
 	"dependencies": {
