@@ -303,6 +303,13 @@ export function getQueryEngineFieldOrThrow(item: QueryEngineResponseItem | undef
 	return requirePresent(field, `Expected query engine field '${key}'`);
 }
 
+export function getQueryEngineFieldValue(
+	item: Parameters<typeof getQueryEngineFieldOrThrow>[0],
+	key: string,
+) {
+	return getQueryEngineFieldOrThrow(item, key).value;
+}
+
 type EntitiesQueryEngineResponse = Extract<ExecuteQueryEngineResponse, { mode: "entities" }>;
 
 export async function executeQueryEngine(

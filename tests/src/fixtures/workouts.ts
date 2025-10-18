@@ -56,40 +56,9 @@ export async function waitForSessionEventCount(
 	);
 }
 
-export async function waitForSeededExerciseId(client: Client, cookies: string) {
+async function pollSeededExerciseIds(client: Client, cookies: string, count: number) {
 	return pollUntil(
-		"seeded exercise id to be queryable",
-		async () => {
-			const result = await executeQueryEngine(
-				client,
-				cookies,
-				buildTableRequest({
-					scope: ["exercise"],
-					pagination: { page: 1, limit: 1 },
-					displayConfiguration: buildTableDisplayConfiguration([
-						{ label: "Id", property: [entityField("exercise", "id")] },
-					]),
-				}),
-			);
-
-			if (result.response.status !== 200) {
-				return null;
-			}
-
-			const idField = result.data.data.items[0]?.column_0;
-			if (idField?.kind !== "text") {
-				return null;
-			}
-
-			return requireString(idField.value, "Expected seeded exercise id to be text");
-		},
-		{ intervalMs: 1000, timeoutMs: 60000 },
-	);
-}
-
-export async function waitForSeededExerciseIds(client: Client, cookies: string, count: number) {
-	return pollUntil(
-		"seeded exercise ids to be queryable",
+		count === 1 ? "seeded exercise id to be queryable" : "seeded exercise ids to be queryable",
 		async () => {
 			const result = await executeQueryEngine(
 				client,
@@ -120,4 +89,13 @@ export async function waitForSeededExerciseIds(client: Client, cookies: string, 
 		},
 		{ intervalMs: 1000, timeoutMs: 60000 },
 	);
+}
+
+export async function waitForSeededExerciseId(client: Client, cookies: string) {
+	const ids = await pollSeededExerciseIds(client, cookies, 1);
+	return requireString(ids[0], "Expected at least one seeded exercise id");
+}
+
+export async function waitForSeededExerciseIds(client: Client, cookies: string, count: number) {
+	return pollSeededExerciseIds(client, cookies, count);
 }
