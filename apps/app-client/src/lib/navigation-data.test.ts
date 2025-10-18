@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { SavedViewId, TrackerId } from "@ryot/app-backend/schema/brands";
+
 import type { NavigationItem } from "./navigation-data";
 import { buildNavigationItems, navHref, sortByOrderThenName } from "./navigation-data";
 
@@ -64,24 +66,24 @@ describe("sortByOrderThenName", () => {
 
 describe("buildNavigationItems", () => {
 	const tracker = makeTracker({
-		id: "t1",
+		icon: "book",
+		sortOrder: 0,
 		name: "Books",
 		slug: "books",
-		icon: "book",
-		accentColor: "#ff0000",
-		sortOrder: 0,
 		isDisabled: false,
+		accentColor: "#ff0000",
+		id: TrackerId.make("t1"),
 	});
 
 	const view = makeView({
-		id: "v1",
+		sortOrder: 0,
 		name: "Reading",
 		slug: "reading",
 		icon: "book-open",
-		accentColor: "#0000ff",
-		sortOrder: 0,
 		isDisabled: false,
-		trackerId: "t1",
+		accentColor: "#0000ff",
+		id: SavedViewId.make("v1"),
+		trackerId: TrackerId.make("t1"),
 	});
 
 	it("returns empty arrays when given no trackers or views", () => {
@@ -91,14 +93,14 @@ describe("buildNavigationItems", () => {
 	});
 
 	it("excludes disabled trackers", () => {
-		const disabled = makeTracker({ ...tracker, id: "t2", isDisabled: true });
+		const disabled = makeTracker({ ...tracker, id: TrackerId.make("t2"), isDisabled: true });
 		const { trackerItems } = buildNavigationItems([tracker, disabled], []);
 		expect(trackerItems).toHaveLength(1);
 		expect(trackerItems[0].key).toBe("t1");
 	});
 
 	it("excludes disabled views", () => {
-		const disabledView = makeView({ ...view, id: "v2", isDisabled: true });
+		const disabledView = makeView({ ...view, id: SavedViewId.make("v2"), isDisabled: true });
 		const { trackerItems } = buildNavigationItems([tracker], [view, disabledView]);
 		expect(trackerItems[0].subItems).toHaveLength(1);
 		expect(trackerItems[0].subItems[0].key).toBe("v1");
@@ -119,7 +121,7 @@ describe("buildNavigationItems", () => {
 	it("does not attach a view to a different tracker", () => {
 		const otherTracker = makeTracker({
 			...tracker,
-			id: "t2",
+			id: TrackerId.make("t2"),
 			name: "Games",
 			slug: "games",
 		});
@@ -131,7 +133,7 @@ describe("buildNavigationItems", () => {
 	});
 
 	it("places views with trackerId null into libraryViews", () => {
-		const standalone = makeView({ ...view, id: "v2", trackerId: null });
+		const standalone = makeView({ ...view, id: SavedViewId.make("v2"), trackerId: null });
 		const { trackerItems, libraryViews } = buildNavigationItems([tracker], [view, standalone]);
 		expect(libraryViews).toHaveLength(1);
 		expect(libraryViews[0].key).toBe("v2");
@@ -139,7 +141,7 @@ describe("buildNavigationItems", () => {
 	});
 
 	it("sets kind to 'tracker' for tracker items and 'view' for library views", () => {
-		const standalone = makeView({ ...view, id: "v2", trackerId: null });
+		const standalone = makeView({ ...view, id: SavedViewId.make("v2"), trackerId: null });
 		const { trackerItems, libraryViews } = buildNavigationItems([tracker], [standalone]);
 		expect(trackerItems[0].kind).toBe("tracker");
 		expect(libraryViews[0].kind).toBe("view");
@@ -148,14 +150,14 @@ describe("buildNavigationItems", () => {
 	it("sorts trackers by sortOrder then name", () => {
 		const t2 = makeTracker({
 			...tracker,
-			id: "t2",
+			id: TrackerId.make("t2"),
 			name: "Audio",
 			slug: "audio",
 			sortOrder: 0,
 		});
 		const t3 = makeTracker({
 			...tracker,
-			id: "t3",
+			id: TrackerId.make("t3"),
 			name: "Video",
 			slug: "video",
 			sortOrder: 1,
@@ -168,17 +170,17 @@ describe("buildNavigationItems", () => {
 	it("sorts subItems within a tracker by sortOrder then name", () => {
 		const v2 = makeView({
 			...view,
-			id: "v2",
+			sortOrder: 0,
 			name: "Audiobooks",
 			slug: "audiobooks",
-			sortOrder: 0,
+			id: SavedViewId.make("v2"),
 		});
 		const v3 = makeView({
 			...view,
-			id: "v3",
+			sortOrder: 1,
 			name: "Wishlist",
 			slug: "wishlist",
-			sortOrder: 1,
+			id: SavedViewId.make("v3"),
 		});
 		const { trackerItems } = buildNavigationItems([tracker], [v3, view, v2]);
 		const names = trackerItems[0].subItems.map((s) => s.name);
