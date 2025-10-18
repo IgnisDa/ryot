@@ -4,7 +4,12 @@ import { dayjs } from "@ryot/ts-utils";
 
 import { createEntityFixture } from "~/features/test-fixtures";
 
-import { getEntityListViewState, sortEntities, toAppEntity } from "./model";
+import {
+	getEntityListViewState,
+	queryEngineEntityFieldKeys,
+	sortEntities,
+	toAppEntity,
+} from "./model";
 
 describe("sortEntities", () => {
 	it("sorts entities by name first", () => {
@@ -107,5 +112,51 @@ describe("toAppEntity", () => {
 		expect(dayjs(entity.createdAt).toISOString()).toBe("2026-03-08T10:15:00.000Z");
 		expect(dayjs(entity.updatedAt).toISOString()).toBe("2026-03-08T10:20:00.000Z");
 		expect(entity.sandboxScriptId).toBeNull();
+		expect(entity.fields).toBeUndefined();
+		expect(entity.entitySchemaId).toBe("schema-1");
+	});
+
+	it("preserves query-engine records as runtime fields", () => {
+		const entity = toAppEntity({
+			[queryEngineEntityFieldKeys.id]: { kind: "text", value: "entity-1" },
+			[queryEngineEntityFieldKeys.name]: { kind: "text", value: "Apple" },
+			[queryEngineEntityFieldKeys.image]: { kind: "null", value: null },
+			[queryEngineEntityFieldKeys.createdAt]: {
+				kind: "date",
+				value: "2026-03-08T10:15:00.000Z",
+			},
+			[queryEngineEntityFieldKeys.updatedAt]: {
+				kind: "date",
+				value: "2026-03-08T10:20:00.000Z",
+			},
+			[queryEngineEntityFieldKeys.externalId]: { kind: "null", value: null },
+			[queryEngineEntityFieldKeys.sandboxScriptId]: { kind: "null", value: null },
+		});
+
+		expect(entity.fields).toEqual({
+			[queryEngineEntityFieldKeys.id]: { kind: "text", value: "entity-1" },
+			[queryEngineEntityFieldKeys.name]: { kind: "text", value: "Apple" },
+			[queryEngineEntityFieldKeys.image]: { kind: "null", value: null },
+			[queryEngineEntityFieldKeys.createdAt]: {
+				kind: "date",
+				value: "2026-03-08T10:15:00.000Z",
+			},
+			[queryEngineEntityFieldKeys.updatedAt]: {
+				kind: "date",
+				value: "2026-03-08T10:20:00.000Z",
+			},
+			[queryEngineEntityFieldKeys.externalId]: { kind: "null", value: null },
+			[queryEngineEntityFieldKeys.sandboxScriptId]: { kind: "null", value: null },
+		});
+		expect(entity.entitySchemaId).toBeUndefined();
+		expect(entity.properties).toEqual({});
+	});
+
+	it("rejects partial query-engine records", () => {
+		expect(() =>
+			toAppEntity({
+				[queryEngineEntityFieldKeys.id]: { kind: "text", value: "entity-1" },
+			} as never),
+		).toThrow("Query engine entity rows must include both entityId and entityName");
 	});
 });

@@ -86,6 +86,9 @@ export const executePreparedQuery = async (input: {
 
 	return {
 		mode: "entities",
-		data: { meta: { pagination }, items },
+		data: {
+			items,
+			meta: { pagination, fieldOrder: input.request.fields.map((field) => field.key) },
+		},
 	} satisfies QueryEngineEntityResponse;
 };
