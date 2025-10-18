@@ -15,6 +15,7 @@ import {
 	getPropertyType,
 } from "~/lib/views/reference";
 
+import { buildSchemaReferenceExpression } from "./reference-compiler-shared";
 import type { QueryEngineContext } from "./schemas";
 import {
 	buildJsonColumnPropertyExpression,
@@ -200,25 +201,12 @@ export const buildEventSchemaExpression = (input: {
 	alias: string;
 	targetType?: PropertyType;
 	reference: Extract<RuntimeRef, { type: "event-schema" }>;
-}) => {
-	const [column] = input.reference.path;
-	if (!column) {
-		throw new QueryEngineValidationError("Event schema reference path must not be empty");
-	}
-
-	if (input.reference.path.length > 1) {
-		throw new QueryEngineValidationError("Event schema references do not support nested paths");
-	}
-
-	const propertyType = getEventSchemaColumnPropertyType(column);
-	if (!propertyType) {
-		throw new QueryEngineValidationError(`Unsupported event schema column '${column}'`);
-	}
-
-	const safeAlias = sanitizeIdentifier(input.alias, "table alias");
-	const expression = sql`${sql.raw(safeAlias)}.event_schema_data ->> ${column}`;
-
-	return input.targetType
-		? castExpressionToType(expression, input.targetType)
-		: castExpressionToType(expression, normalizeExpressionPropertyType(propertyType));
-};
+}) =>
+	buildSchemaReferenceExpression({
+		alias: input.alias,
+		path: input.reference.path,
+		targetType: input.targetType,
+		dataColumn: "event_schema_data",
+		referenceLabel: "Event schema",
+		resolvePropertyType: getEventSchemaColumnPropertyType,
+	});

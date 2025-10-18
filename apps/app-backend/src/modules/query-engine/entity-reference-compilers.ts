@@ -12,6 +12,7 @@ import {
 	getSchemaForReference,
 } from "~/lib/views/reference";
 
+import { buildSchemaReferenceExpression } from "./reference-compiler-shared";
 import type { QueryEngineContext } from "./schemas";
 import {
 	buildJsonColumnPropertyExpression,
@@ -112,25 +113,12 @@ export const buildEntitySchemaExpression = (input: {
 	alias: string;
 	targetType?: PropertyType;
 	reference: Extract<RuntimeRef, { type: "entity-schema" }>;
-}) => {
-	const [column] = input.reference.path;
-	if (!column) {
-		throw new QueryEngineValidationError("Entity schema reference path must not be empty");
-	}
-
-	if (input.reference.path.length > 1) {
-		throw new QueryEngineValidationError("Entity schema references do not support nested paths");
-	}
-
-	const propertyType = getEntitySchemaColumnPropertyType(column);
-	if (!propertyType) {
-		throw new QueryEngineValidationError(`Unsupported entity schema column '${column}'`);
-	}
-
-	const safeAlias = sanitizeIdentifier(input.alias, "table alias");
-	const expression = sql`${sql.raw(safeAlias)}.entity_schema_data ->> ${column}`;
-
-	return input.targetType
-		? castExpressionToType(expression, input.targetType)
-		: castExpressionToType(expression, normalizeExpressionPropertyType(propertyType));
-};
+}) =>
+	buildSchemaReferenceExpression({
+		alias: input.alias,
+		path: input.reference.path,
+		targetType: input.targetType,
+		referenceLabel: "Entity schema",
+		dataColumn: "entity_schema_data",
+		resolvePropertyType: getEntitySchemaColumnPropertyType,
+	});
