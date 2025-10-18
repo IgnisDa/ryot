@@ -6,7 +6,7 @@ import {
 	createEntityPropertyExpression,
 	createEntitySchemaExpression,
 	createEventAggregateExpression,
-} from "@ryot/ts-utils/view-language";
+} from "@ryot/app-backend/query-language";
 
 import {
 	buildQueryEngineField,
@@ -144,7 +144,7 @@ describe("Saved views E2E", () => {
 
 		const allShowsView = await getSavedView(client, cookies, "all-shows");
 		expect(allShowsView.displayConfiguration.grid.calloutProperty).toEqual(
-			createEventAggregateExpression("review", ["properties", "rating"], "avg"),
+			createEventAggregateExpression("review", "avg", ["properties", "rating"]),
 		);
 
 		// all-shows is a built-in entities-mode view
@@ -743,9 +743,11 @@ describe("Saved views E2E", () => {
 			}),
 		});
 		const refreshedView = await getSavedView(client, cookies, createdView.slug);
-		const refreshedQD = refreshedView.queryDefinition as {
-			sort: { expression: unknown };
-		};
+		if (!("sort" in refreshedView.queryDefinition)) {
+			throw new Error("Expected saved view query definition to expose a sort expression");
+		}
+		const refreshedQD = refreshedView.queryDefinition;
+		assertPresent(refreshedQD.sort, "Expected saved view query definition to expose a sort value");
 
 		expect(createResult.response.status).toBe(400);
 		expect(updateResult.response.status).toBe(400);
