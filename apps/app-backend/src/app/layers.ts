@@ -13,6 +13,7 @@ import { SandboxService } from "#lib/sandbox";
 import { PersistedQueueLive, WorkflowEngineLive } from "#lib/workflow";
 import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
+import { BuiltinEntityPreloaderLive } from "#modules/entities/preload";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EntityImportWorkflowDefinitionsLive } from "#modules/entities/workflows";
@@ -114,6 +115,7 @@ const ServiceDependenciesLive = Layer.provide(ServicesLive, ApplicationInfrastru
 
 const RuntimeLive = Layer.mergeAll(
 	EntityImportWorkflowDefinitionsLive,
+	BuiltinEntityPreloaderLive,
 	ImportWorkflowDefinitionsLive,
 	IntegrationWorkflowDefinitionsLive,
 	SandboxWorkflowDefinitionsLive,
