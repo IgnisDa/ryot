@@ -1,7 +1,6 @@
-type HostFunction = (...args: Array<unknown>) => unknown;
+import { isObjectRecord } from "../shared";
 
-const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
+type HostFunction = (...args: Array<unknown>) => unknown;
 
 export const runTriggerScript = (
 	code: string,
