@@ -1,17 +1,17 @@
 import { type AppSchema, getQueryEngineField } from "@ryot/ts-utils";
 
-import { type AppEntityImage, toAppEntity } from "~/features/entities/model";
+import {
+	type AppEntityImage,
+	type QueryEngineEntitiesItem,
+	toAppEntity,
+} from "~/features/entities/model";
 import {
 	type AppEntitySavedView,
 	type AppSavedView,
 	isEntitySavedView,
 } from "~/features/saved-views/model";
-import type { ApiPostResponseData } from "~/lib/api/types";
 
-type ApiQueryEngineCollection = Extract<
-	ApiPostResponseData<"/query-engine/execute">,
-	{ mode: "entities" }
->["data"]["items"][number];
+type ApiQueryEngineCollection = QueryEngineEntitiesItem;
 
 export type CollectionMembershipPropertiesSchema = AppSchema;
 
@@ -31,23 +31,30 @@ export type CollectionDiscoveryState =
 	| { type: "loading" }
 	| { type: "collections"; collections: AppCollection[] };
 
+function isCollectionMembershipPropertiesSchema(
+	value: unknown,
+): value is CollectionMembershipPropertiesSchema {
+	return !!value && typeof value === "object" && "fields" in value;
+}
+
 export function extractMembershipPropertiesSchema(
 	fields: ApiQueryEngineCollection,
 ): CollectionMembershipPropertiesSchema | null {
 	const schemaField = getQueryEngineField(fields, "membershipPropertiesSchema");
-	if (!schemaField || schemaField.kind !== "json" || !schemaField.value) {
+	if (schemaField?.kind !== "json") {
 		return null;
 	}
-	const schema = schemaField.value;
-	if (!schema || typeof schema !== "object" || !("fields" in schema)) {
+	if (!isCollectionMembershipPropertiesSchema(schemaField.value)) {
 		return null;
 	}
-	return schema as CollectionMembershipPropertiesSchema;
+	return schemaField.value;
 }
 
 export function toAppCollection(entity: ApiQueryEngineCollection): AppCollection {
 	const appEntity = toAppEntity(entity);
 	const entitySchemaSlugField = getQueryEngineField(entity, "entitySchemaSlug");
+	const entitySchemaSlug =
+		typeof entitySchemaSlugField?.value === "string" ? entitySchemaSlugField.value : "collection";
 	return {
 		id: appEntity.id,
 		name: appEntity.name,
@@ -55,8 +62,7 @@ export function toAppCollection(entity: ApiQueryEngineCollection): AppCollection
 		createdAt: appEntity.createdAt,
 		updatedAt: appEntity.updatedAt,
 		membershipPropertiesSchema: extractMembershipPropertiesSchema(entity),
-		entitySchemaSlug:
-			entitySchemaSlugField?.value != null ? String(entitySchemaSlugField.value) : "collection",
+		entitySchemaSlug,
 	};
 }
 
