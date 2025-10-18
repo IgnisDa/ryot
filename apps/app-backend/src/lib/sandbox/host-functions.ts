@@ -2,6 +2,7 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { eq } from "drizzle-orm";
 import { Effect, Option, Runtime, Schema } from "effect";
 
+import { QueryEngineRequest } from "#lib/query-language";
 import { EntityId, EntitySchemaId, IntegrationId, UserId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
@@ -11,6 +12,7 @@ import { CreateEventItem } from "#modules/events/schemas";
 import { runEventCreate } from "#modules/events/workflows";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { isIntegrationProvider } from "#modules/integrations/types";
+import { QueryEngineService } from "#modules/query-engine/service";
 
 import { AppConfig, isOidcEnabled } from "../config";
 import { CurrentDb, DbRunner, dbEffect } from "../db";
@@ -33,6 +35,7 @@ type SandboxHostFunctionContext =
 	| WorkflowEngine
 	| EventsRepository
 	| EntitiesRepository
+	| QueryEngineService
 	| IntegrationsRepository
 	| EventSchemasRepository
 	| EntitySchemasRepository;
@@ -50,6 +53,7 @@ const ListEventsQuery = Schema.Struct({
 
 const decodeListEventsQuery = Schema.decodeUnknown(ListEventsQuery);
 const decodeCreateEventsPayload = Schema.decodeUnknown(CreateEventsPayload);
+const decodeQueryEngineRequest = Schema.decodeUnknown(QueryEngineRequest);
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
@@ -112,6 +116,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 		const workflowEngine = yield* WorkflowEngine;
 		const eventsRepository = yield* EventsRepository;
 		const entitiesRepository = yield* EntitiesRepository;
+		const queryEngineService = yield* QueryEngineService;
 		const integrationsRepository = yield* IntegrationsRepository;
 		const eventSchemasRepository = yield* EventSchemasRepository;
 		const entitySchemasRepository = yield* EntitySchemasRepository;
@@ -210,6 +215,22 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					runPromise,
 					decodeCreateEventsPayload(body).pipe(
 						Effect.flatMap((payload) => createEvents(UserId.make(input.userId), payload)),
+					),
+				);
+			},
+			executeQueryEngine: (...args) => {
+				const query = args[0];
+				const input = requireUserSandboxRunInput(args, 1, "executeQueryEngine");
+
+				return runHostEffect(
+					runPromise,
+					decodeQueryEngineRequest(query).pipe(
+						Effect.flatMap((request) =>
+							queryEngineService.execute(
+								{ id: UserId.make(input.userId), name: "", email: "" },
+								request,
+							),
+						),
 					),
 				);
 			},

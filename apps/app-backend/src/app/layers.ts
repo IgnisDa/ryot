@@ -100,7 +100,9 @@ const ApplicationInfrastructureLive = Layer.mergeAll(
 	CoreInfrastructureDependenciesLive,
 );
 
-const SandboxServicesLive = Layer.mergeAll(SandboxApiService.Default, SandboxService.Default);
+const RuntimeSandboxServiceLive = Layer.provide(SandboxService.Default, QueryEngineService.Default);
+
+const SandboxServicesLive = Layer.mergeAll(SandboxApiService.Default, RuntimeSandboxServiceLive);
 
 const SavedViewsServiceLive = Layer.provide(SavedViewsService.Default, QueryEngineService.Default);
 
