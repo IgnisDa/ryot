@@ -6,12 +6,666 @@
       "id": "bi8Au",
       "x": 0,
       "y": 0,
-      "name": "Frame",
+      "name": "Login Signup Screen - Login Active",
       "clip": true,
       "width": 800,
       "height": 600,
-      "fill": "#FFFFFF",
-      "layout": "none"
+      "fill": {
+        "type": "gradient",
+        "gradientType": "linear",
+        "enabled": true,
+        "rotation": 130,
+        "size": {
+          "height": 1
+        },
+        "colors": [
+          {
+            "color": "$rs-color-background-page-faded",
+            "position": 0
+          },
+          {
+            "color": "$rs-color-background-primary-faded",
+            "position": 1
+          }
+        ]
+      },
+      "layout": "none",
+      "children": [
+        {
+          "type": "ellipse",
+          "id": "bM7ww",
+          "x": 0,
+          "y": 0,
+          "name": "auraTop",
+          "fill": "#CFE0FF66",
+          "width": 180,
+          "height": 180
+        },
+        {
+          "type": "ellipse",
+          "id": "pWtDX",
+          "x": 620,
+          "y": 410,
+          "name": "auraBottom",
+          "fill": "#DCE7FF88",
+          "width": 180,
+          "height": 180
+        },
+        {
+          "type": "frame",
+          "id": "isJVz",
+          "x": 190,
+          "y": 78,
+          "name": "authCard",
+          "width": 420,
+          "height": 444,
+          "fill": "$rs-color-background-elevation-base",
+          "cornerRadius": "$rs-radius-large",
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "$rs-color-border-primary-faded"
+          },
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#0E1C3A1A",
+            "offset": {
+              "x": 0,
+              "y": 12
+            },
+            "blur": 36
+          },
+          "layout": "vertical",
+          "gap": 24,
+          "padding": [
+            28,
+            28,
+            24,
+            28
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "C1iBR",
+              "name": "header",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "kQPTu",
+                  "name": "title",
+                  "fill": "$rs-color-foreground-neutral",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Welcome back",
+                  "fontFamily": "Inter",
+                  "fontSize": 32,
+                  "fontWeight": "$rs-font-weight-semibold"
+                },
+                {
+                  "type": "text",
+                  "id": "WUDRw",
+                  "name": "subtitle",
+                  "fill": "$rs-color-foreground-neutral-faded",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Use your email and password to continue",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "kz1O5",
+              "name": "tabs",
+              "width": "fill_container",
+              "height": 44,
+              "fill": "$rs-color-background-neutral-faded",
+              "cornerRadius": 10,
+              "gap": 8,
+              "padding": 4,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "YJxsl",
+                  "name": "loginTab",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "fill": "$rs-color-background-elevation-base",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "$rs-color-border-primary-faded"
+                  },
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "V5hP2",
+                      "name": "loginText",
+                      "fill": "$rs-color-foreground-primary",
+                      "content": "Login",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "$rs-font-weight-semibold"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "D1cLJ",
+                  "name": "signupTab",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "cornerRadius": 8,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "a4vzl",
+                      "name": "signupText",
+                      "fill": "$rs-color-foreground-neutral-faded",
+                      "content": "Sign Up",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "$rs-font-weight-medium"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "rRbgU",
+              "name": "formStack",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "7MLnj",
+                  "name": "emailBlock",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "t5Ivp",
+                      "name": "emailLabel",
+                      "fill": "$rs-color-foreground-neutral",
+                      "content": "Email",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "$rs-font-weight-medium"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "towyq",
+                      "name": "emailInput",
+                      "width": "fill_container",
+                      "height": 44,
+                      "fill": "$rs-color-background-page",
+                      "cornerRadius": 10,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "$rs-color-border-neutral-faded"
+                      },
+                      "padding": [
+                        0,
+                        14
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "ScJgO",
+                          "name": "emailPlaceholder",
+                          "fill": "$rs-color-foreground-neutral-faded",
+                          "content": "you@example.com",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "H9xhs",
+                  "name": "passwordBlock",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "YibbF",
+                      "name": "passwordLabel",
+                      "fill": "$rs-color-foreground-neutral",
+                      "content": "Password",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "$rs-font-weight-medium"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "7zBNZ",
+                      "name": "passwordInput",
+                      "width": "fill_container",
+                      "height": 44,
+                      "fill": "$rs-color-background-page",
+                      "cornerRadius": 10,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "$rs-color-border-neutral-faded"
+                      },
+                      "padding": [
+                        0,
+                        14
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "YJJvy",
+                          "name": "passwordPlaceholder",
+                          "fill": "$rs-color-foreground-neutral-faded",
+                          "content": "Enter your password",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "AtUgJ",
+                  "name": "loginButton",
+                  "width": "fill_container",
+                  "height": 46,
+                  "fill": "$rs-color-background-primary",
+                  "cornerRadius": 10,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#2158D533",
+                    "offset": {
+                      "x": 0,
+                      "y": 5
+                    },
+                    "blur": 16
+                  },
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Yazux",
+                      "name": "loginButtonText",
+                      "fill": "$rs-color-on-background-primary",
+                      "content": "Log In",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "$rs-font-weight-semibold"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "otHxv",
+      "x": 920,
+      "y": 0,
+      "name": "Login Signup Screen - Sign Up Active",
+      "clip": true,
+      "width": 800,
+      "height": 600,
+      "fill": {
+        "type": "gradient",
+        "gradientType": "linear",
+        "enabled": true,
+        "rotation": 130,
+        "size": {
+          "height": 1
+        },
+        "colors": [
+          {
+            "color": "$rs-color-background-page-faded",
+            "position": 0
+          },
+          {
+            "color": "$rs-color-background-primary-faded",
+            "position": 1
+          }
+        ]
+      },
+      "layout": "none",
+      "children": [
+        {
+          "type": "ellipse",
+          "id": "7Qamq",
+          "x": 0,
+          "y": 0,
+          "name": "auraTop",
+          "fill": "#CFE0FF66",
+          "width": 180,
+          "height": 180
+        },
+        {
+          "type": "ellipse",
+          "id": "FMKOY",
+          "x": 620,
+          "y": 410,
+          "name": "auraBottom",
+          "fill": "#DCE7FF88",
+          "width": 180,
+          "height": 180
+        },
+        {
+          "type": "frame",
+          "id": "WcAxx",
+          "x": 190,
+          "y": 78,
+          "name": "authCard",
+          "width": 420,
+          "height": 444,
+          "fill": "$rs-color-background-elevation-base",
+          "cornerRadius": "$rs-radius-large",
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "$rs-color-border-primary-faded"
+          },
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#0E1C3A1A",
+            "offset": {
+              "x": 0,
+              "y": 12
+            },
+            "blur": 36
+          },
+          "layout": "vertical",
+          "gap": 24,
+          "padding": [
+            28,
+            28,
+            24,
+            28
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "Erw8s",
+              "name": "header",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "C3laZ",
+                  "name": "title",
+                  "fill": "$rs-color-foreground-neutral",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Create your account",
+                  "fontFamily": "Inter",
+                  "fontSize": 32,
+                  "fontWeight": "$rs-font-weight-semibold"
+                },
+                {
+                  "type": "text",
+                  "id": "fbIaP",
+                  "name": "subtitle",
+                  "fill": "$rs-color-foreground-neutral-faded",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Use your email and password to sign up",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "KIhak",
+              "name": "tabs",
+              "width": "fill_container",
+              "height": 44,
+              "fill": "$rs-color-background-neutral-faded",
+              "cornerRadius": 10,
+              "gap": 8,
+              "padding": 4,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "F1W29",
+                  "name": "loginTab",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "fill": "$rs-color-background-neutral-faded",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "$rs-color-border-neutral-faded"
+                  },
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "5lRYi",
+                      "name": "loginText",
+                      "fill": "$rs-color-foreground-neutral-faded",
+                      "content": "Login",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "$rs-font-weight-medium"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "sCz7E",
+                  "name": "signupTab",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "fill": "$rs-color-background-elevation-base",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "$rs-color-border-primary-faded"
+                  },
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "pLn1B",
+                      "name": "signupText",
+                      "fill": "$rs-color-foreground-primary",
+                      "content": "Sign Up",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "$rs-font-weight-semibold"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "43B2t",
+              "name": "formStack",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "PeyDZ",
+                  "name": "emailBlock",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "QFKXy",
+                      "name": "emailLabel",
+                      "fill": "$rs-color-foreground-neutral",
+                      "content": "Email",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "$rs-font-weight-medium"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "PLlZc",
+                      "name": "emailInput",
+                      "width": "fill_container",
+                      "height": 44,
+                      "fill": "$rs-color-background-page",
+                      "cornerRadius": 10,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "$rs-color-border-neutral-faded"
+                      },
+                      "padding": [
+                        0,
+                        14
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "hQ9ZJ",
+                          "name": "emailPlaceholder",
+                          "fill": "$rs-color-foreground-neutral-faded",
+                          "content": "you@example.com",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "bctrG",
+                  "name": "passwordBlock",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ZomKg",
+                      "name": "passwordLabel",
+                      "fill": "$rs-color-foreground-neutral",
+                      "content": "Password",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "$rs-font-weight-medium"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "K3qfU",
+                      "name": "passwordInput",
+                      "width": "fill_container",
+                      "height": 44,
+                      "fill": "$rs-color-background-page",
+                      "cornerRadius": 10,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "$rs-color-border-neutral-faded"
+                      },
+                      "padding": [
+                        0,
+                        14
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "rTEtM",
+                          "name": "passwordPlaceholder",
+                          "fill": "$rs-color-foreground-neutral-faded",
+                          "content": "Enter your password",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "z1AES",
+                  "name": "loginButton",
+                  "width": "fill_container",
+                  "height": 46,
+                  "fill": "$rs-color-background-primary",
+                  "cornerRadius": 10,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#2158D533",
+                    "offset": {
+                      "x": 0,
+                      "y": 5
+                    },
+                    "blur": 16
+                  },
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "8kfA4",
+                      "name": "loginButtonText",
+                      "fill": "$rs-color-on-background-primary",
+                      "content": "Sign Up",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "$rs-font-weight-semibold"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "themes": {
@@ -25,16 +679,16 @@
       "type": "string",
       "value": [
         {
+          "value": "Inter",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "Inter"
+          }
         },
         {
+          "value": "Inter",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "Inter"
+          }
         }
       ]
     },
@@ -42,16 +696,16 @@
       "type": "string",
       "value": [
         {
+          "value": "Inter",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "Inter"
+          }
         },
         {
+          "value": "Inter",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "Inter"
+          }
         }
       ]
     },
@@ -59,16 +713,16 @@
       "type": "number",
       "value": [
         {
+          "value": 96,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 96
+          }
         },
         {
+          "value": 96,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 96
+          }
         }
       ]
     },
@@ -76,16 +730,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-family-title",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-family-title"
+          }
         },
         {
+          "value": "$rs-font-family-title",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-family-title"
+          }
         }
       ]
     },
@@ -93,16 +747,16 @@
       "type": "number",
       "value": [
         {
+          "value": 100,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 100
+          }
         },
         {
+          "value": 100,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 100
+          }
         }
       ]
     },
@@ -110,16 +764,16 @@
       "type": "number",
       "value": [
         {
+          "value": 80,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 80
+          }
         },
         {
+          "value": 80,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 80
+          }
         }
       ]
     },
@@ -127,16 +781,16 @@
       "type": "number",
       "value": [
         {
+          "value": 84,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 84
+          }
         },
         {
+          "value": 84,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 84
+          }
         }
       ]
     },
@@ -144,16 +798,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-family-title",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-family-title"
+          }
         },
         {
+          "value": "$rs-font-family-title",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-family-title"
+          }
         }
       ]
     },
@@ -161,16 +815,16 @@
       "type": "number",
       "value": [
         {
+          "value": 64,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 64
+          }
         },
         {
+          "value": 64,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 64
+          }
         }
       ]
     },
@@ -178,16 +832,16 @@
       "type": "number",
       "value": [
         {
+          "value": 68,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 68
+          }
         },
         {
+          "value": 68,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 68
+          }
         }
       ]
     },
@@ -195,16 +849,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-family-title",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-family-title"
+          }
         },
         {
+          "value": "$rs-font-family-title",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-family-title"
+          }
         }
       ]
     },
@@ -212,16 +866,16 @@
       "type": "number",
       "value": [
         {
+          "value": 56,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 56
+          }
         },
         {
+          "value": 56,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 56
+          }
         }
       ]
     },
@@ -229,16 +883,16 @@
       "type": "number",
       "value": [
         {
+          "value": 60,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 60
+          }
         },
         {
+          "value": 60,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 60
+          }
         }
       ]
     },
@@ -246,16 +900,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-family-title",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-family-title"
+          }
         },
         {
+          "value": "$rs-font-family-title",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-family-title"
+          }
         }
       ]
     },
@@ -263,16 +917,16 @@
       "type": "number",
       "value": [
         {
+          "value": 48,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 48
+          }
         },
         {
+          "value": 48,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 48
+          }
         }
       ]
     },
@@ -280,16 +934,16 @@
       "type": "number",
       "value": [
         {
+          "value": 52,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 52
+          }
         },
         {
+          "value": 52,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 52
+          }
         }
       ]
     },
@@ -297,16 +951,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-family-title",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-family-title"
+          }
         },
         {
+          "value": "$rs-font-family-title",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-family-title"
+          }
         }
       ]
     },
@@ -314,16 +968,16 @@
       "type": "number",
       "value": [
         {
+          "value": 36,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 36
+          }
         },
         {
+          "value": 36,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 36
+          }
         }
       ]
     },
@@ -331,16 +985,16 @@
       "type": "number",
       "value": [
         {
+          "value": 40,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 40
+          }
         },
         {
+          "value": 40,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 40
+          }
         }
       ]
     },
@@ -348,16 +1002,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-family-title",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-family-title"
+          }
         },
         {
+          "value": "$rs-font-family-title",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-family-title"
+          }
         }
       ]
     },
@@ -365,16 +1019,16 @@
       "type": "number",
       "value": [
         {
+          "value": 32,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 32
+          }
         },
         {
+          "value": 32,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 32
+          }
         }
       ]
     },
@@ -382,16 +1036,16 @@
       "type": "number",
       "value": [
         {
+          "value": 40,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 40
+          }
         },
         {
+          "value": 40,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 40
+          }
         }
       ]
     },
@@ -399,16 +1053,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-family-body",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-family-body"
+          }
         },
         {
+          "value": "$rs-font-family-body",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-family-body"
+          }
         }
       ]
     },
@@ -416,16 +1070,16 @@
       "type": "number",
       "value": [
         {
+          "value": 24,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 24
+          }
         },
         {
+          "value": 24,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 24
+          }
         }
       ]
     },
@@ -433,16 +1087,16 @@
       "type": "number",
       "value": [
         {
+          "value": 32,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 32
+          }
         },
         {
+          "value": 32,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 32
+          }
         }
       ]
     },
@@ -450,16 +1104,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-family-body",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-family-body"
+          }
         },
         {
+          "value": "$rs-font-family-body",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-family-body"
+          }
         }
       ]
     },
@@ -467,16 +1121,16 @@
       "type": "number",
       "value": [
         {
+          "value": 20,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 20
+          }
         },
         {
+          "value": 20,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 20
+          }
         }
       ]
     },
@@ -484,16 +1138,16 @@
       "type": "number",
       "value": [
         {
+          "value": 28,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 28
+          }
         },
         {
+          "value": 28,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 28
+          }
         }
       ]
     },
@@ -501,16 +1155,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-family-body",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-family-body"
+          }
         },
         {
+          "value": "$rs-font-family-body",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-family-body"
+          }
         }
       ]
     },
@@ -518,16 +1172,16 @@
       "type": "number",
       "value": [
         {
+          "value": 18,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 18
+          }
         },
         {
+          "value": 18,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 18
+          }
         }
       ]
     },
@@ -535,16 +1189,16 @@
       "type": "number",
       "value": [
         {
+          "value": 28,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 28
+          }
         },
         {
+          "value": 28,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 28
+          }
         }
       ]
     },
@@ -552,16 +1206,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-family-body",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-family-body"
+          }
         },
         {
+          "value": "$rs-font-family-body",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-family-body"
+          }
         }
       ]
     },
@@ -569,16 +1223,16 @@
       "type": "number",
       "value": [
         {
+          "value": 16,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 16
+          }
         },
         {
+          "value": 16,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 16
+          }
         }
       ]
     },
@@ -586,16 +1240,16 @@
       "type": "number",
       "value": [
         {
+          "value": 24,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 24
+          }
         },
         {
+          "value": 24,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 24
+          }
         }
       ]
     },
@@ -603,16 +1257,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-family-body",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-family-body"
+          }
         },
         {
+          "value": "$rs-font-family-body",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-family-body"
+          }
         }
       ]
     },
@@ -620,16 +1274,16 @@
       "type": "number",
       "value": [
         {
+          "value": 14,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 14
+          }
         },
         {
+          "value": 14,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 14
+          }
         }
       ]
     },
@@ -637,16 +1291,16 @@
       "type": "number",
       "value": [
         {
+          "value": 20,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 20
+          }
         },
         {
+          "value": 20,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 20
+          }
         }
       ]
     },
@@ -654,16 +1308,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-family-body",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-family-body"
+          }
         },
         {
+          "value": "$rs-font-family-body",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-family-body"
+          }
         }
       ]
     },
@@ -671,16 +1325,16 @@
       "type": "number",
       "value": [
         {
+          "value": 12,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 12
+          }
         },
         {
+          "value": 12,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 12
+          }
         }
       ]
     },
@@ -688,16 +1342,16 @@
       "type": "number",
       "value": [
         {
+          "value": 16,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 16
+          }
         },
         {
+          "value": 16,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 16
+          }
         }
       ]
     },
@@ -705,16 +1359,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-family-body",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-family-body"
+          }
         },
         {
+          "value": "$rs-font-family-body",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-family-body"
+          }
         }
       ]
     },
@@ -722,16 +1376,16 @@
       "type": "number",
       "value": [
         {
+          "value": 10,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 10
+          }
         },
         {
+          "value": 10,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 10
+          }
         }
       ]
     },
@@ -739,16 +1393,16 @@
       "type": "number",
       "value": [
         {
+          "value": 12,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 12
+          }
         },
         {
+          "value": 12,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 12
+          }
         }
       ]
     },
@@ -756,16 +1410,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-family-body",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-family-body"
+          }
         },
         {
+          "value": "$rs-font-family-body",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-family-body"
+          }
         }
       ]
     },
@@ -773,16 +1427,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#1860FA",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#1860FA"
+          }
         },
         {
+          "value": "#5A58F2",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#5A58F2"
+          }
         }
       ]
     },
@@ -790,16 +1444,16 @@
       "type": "number",
       "value": [
         {
+          "value": 4,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 4
+          }
         },
         {
+          "value": 4,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 4
+          }
         }
       ]
     },
@@ -807,16 +1461,16 @@
       "type": "number",
       "value": [
         {
+          "value": 8,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 8
+          }
         },
         {
+          "value": 8,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 8
+          }
         }
       ]
     },
@@ -824,16 +1478,16 @@
       "type": "number",
       "value": [
         {
+          "value": 12,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 12
+          }
         },
         {
+          "value": 12,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 12
+          }
         }
       ]
     },
@@ -841,16 +1495,16 @@
       "type": "number",
       "value": [
         {
+          "value": 999,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 999
+          }
         },
         {
+          "value": 999,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 999
+          }
         }
       ]
     },
@@ -858,16 +1512,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -875,16 +1529,16 @@
       "type": "number",
       "value": [
         {
+          "value": 4,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 4
+          }
         },
         {
+          "value": 4,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 4
+          }
         }
       ]
     },
@@ -892,16 +1546,16 @@
       "type": "number",
       "value": [
         {
+          "value": 8,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 8
+          }
         },
         {
+          "value": 8,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 8
+          }
         }
       ]
     },
@@ -909,16 +1563,16 @@
       "type": "number",
       "value": [
         {
+          "value": 12,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 12
+          }
         },
         {
+          "value": 12,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 12
+          }
         }
       ]
     },
@@ -926,16 +1580,16 @@
       "type": "number",
       "value": [
         {
+          "value": 16,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 16
+          }
         },
         {
+          "value": 16,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 16
+          }
         }
       ]
     },
@@ -943,16 +1597,16 @@
       "type": "number",
       "value": [
         {
+          "value": 20,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 20
+          }
         },
         {
+          "value": 20,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 20
+          }
         }
       ]
     },
@@ -960,16 +1614,16 @@
       "type": "number",
       "value": [
         {
+          "value": 24,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 24
+          }
         },
         {
+          "value": 24,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 24
+          }
         }
       ]
     },
@@ -977,16 +1631,16 @@
       "type": "number",
       "value": [
         {
+          "value": 28,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 28
+          }
         },
         {
+          "value": 28,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 28
+          }
         }
       ]
     },
@@ -994,16 +1648,16 @@
       "type": "number",
       "value": [
         {
+          "value": 32,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 32
+          }
         },
         {
+          "value": 32,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 32
+          }
         }
       ]
     },
@@ -1011,16 +1665,16 @@
       "type": "number",
       "value": [
         {
+          "value": 36,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 36
+          }
         },
         {
+          "value": 36,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 36
+          }
         }
       ]
     },
@@ -1028,16 +1682,16 @@
       "type": "number",
       "value": [
         {
+          "value": 40,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 40
+          }
         },
         {
+          "value": 40,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 40
+          }
         }
       ]
     },
@@ -1045,16 +1699,16 @@
       "type": "number",
       "value": [
         {
+          "value": 48,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 48
+          }
         },
         {
+          "value": 48,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 48
+          }
         }
       ]
     },
@@ -1062,16 +1716,16 @@
       "type": "number",
       "value": [
         {
+          "value": 56,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 56
+          }
         },
         {
+          "value": 56,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 56
+          }
         }
       ]
     },
@@ -1079,16 +1733,16 @@
       "type": "number",
       "value": [
         {
+          "value": 64,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 64
+          }
         },
         {
+          "value": 64,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 64
+          }
         }
       ]
     },
@@ -1096,16 +1750,16 @@
       "type": "number",
       "value": [
         {
+          "value": 72,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 72
+          }
         },
         {
+          "value": 72,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 72
+          }
         }
       ]
     },
@@ -1113,16 +1767,16 @@
       "type": "number",
       "value": [
         {
+          "value": 80,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 80
+          }
         },
         {
+          "value": 80,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 80
+          }
         }
       ]
     },
@@ -1130,16 +1784,16 @@
       "type": "number",
       "value": [
         {
+          "value": 660,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 660
+          }
         },
         {
+          "value": 660,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 660
+          }
         }
       ]
     },
@@ -1147,16 +1801,16 @@
       "type": "number",
       "value": [
         {
+          "value": 900,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 900
+          }
         },
         {
+          "value": 900,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 900
+          }
         }
       ]
     },
@@ -1164,16 +1818,16 @@
       "type": "number",
       "value": [
         {
+          "value": 1280,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 1280
+          }
         },
         {
+          "value": 1280,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 1280
+          }
         }
       ]
     },
@@ -1181,16 +1835,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -1198,16 +1852,16 @@
       "type": "number",
       "value": [
         {
+          "value": 1,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 1
+          }
         },
         {
+          "value": 1,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 1
+          }
         }
       ]
     },
@@ -1215,16 +1869,16 @@
       "type": "number",
       "value": [
         {
+          "value": 5,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 5
+          }
         },
         {
+          "value": 5,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 5
+          }
         }
       ]
     },
@@ -1232,16 +1886,16 @@
       "type": "number",
       "value": [
         {
+          "value": -4,
           "theme": {
             "theme": "Slate"
-          },
-          "value": -4
+          }
         },
         {
+          "value": -4,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": -4
+          }
         }
       ]
     },
@@ -1249,16 +1903,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#00000080",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#00000080"
+          }
         },
         {
+          "value": "#00000080",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#00000080"
+          }
         }
       ]
     },
@@ -1266,16 +1920,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -1283,16 +1937,16 @@
       "type": "number",
       "value": [
         {
+          "value": 4,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 4
+          }
         },
         {
+          "value": 4,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 4
+          }
         }
       ]
     },
@@ -1300,16 +1954,16 @@
       "type": "number",
       "value": [
         {
+          "value": 8,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 8
+          }
         },
         {
+          "value": 8,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 8
+          }
         }
       ]
     },
@@ -1317,16 +1971,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -1334,16 +1988,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#0000000D",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#0000000D"
+          }
         },
         {
+          "value": "#0000000D",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#0000000D"
+          }
         }
       ]
     },
@@ -1351,16 +2005,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -1368,16 +2022,16 @@
       "type": "number",
       "value": [
         {
+          "value": 5,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 5
+          }
         },
         {
+          "value": 5,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 5
+          }
         }
       ]
     },
@@ -1385,16 +2039,16 @@
       "type": "number",
       "value": [
         {
+          "value": 10,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 10
+          }
         },
         {
+          "value": 10,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 10
+          }
         }
       ]
     },
@@ -1402,16 +2056,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -1419,16 +2073,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#0000000D",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#0000000D"
+          }
         },
         {
+          "value": "#0000000D",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#0000000D"
+          }
         }
       ]
     },
@@ -1436,16 +2090,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -1453,16 +2107,16 @@
       "type": "number",
       "value": [
         {
+          "value": 15,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 15
+          }
         },
         {
+          "value": 15,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 15
+          }
         }
       ]
     },
@@ -1470,16 +2124,16 @@
       "type": "number",
       "value": [
         {
+          "value": 25,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 25
+          }
         },
         {
+          "value": 25,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 25
+          }
         }
       ]
     },
@@ -1487,16 +2141,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -1504,16 +2158,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#00000012",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#00000012"
+          }
         },
         {
+          "value": "#00000012",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#00000012"
+          }
         }
       ]
     },
@@ -1521,16 +2175,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -1538,16 +2192,16 @@
       "type": "number",
       "value": [
         {
+          "value": -2,
           "theme": {
             "theme": "Slate"
-          },
-          "value": -2
+          }
         },
         {
+          "value": -2,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": -2
+          }
         }
       ]
     },
@@ -1555,16 +2209,16 @@
       "type": "number",
       "value": [
         {
+          "value": 3,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 3
+          }
         },
         {
+          "value": 3,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 3
+          }
         }
       ]
     },
@@ -1572,16 +2226,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -1589,16 +2243,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#0000001A",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#0000001A"
+          }
         },
         {
+          "value": "#0000001A",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#0000001A"
+          }
         }
       ]
     },
@@ -1606,16 +2260,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -1623,16 +2277,16 @@
       "type": "number",
       "value": [
         {
+          "value": -1,
           "theme": {
             "theme": "Slate"
-          },
-          "value": -1
+          }
         },
         {
+          "value": -1,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": -1
+          }
         }
       ]
     },
@@ -1640,16 +2294,16 @@
       "type": "number",
       "value": [
         {
+          "value": 2,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 2
+          }
         },
         {
+          "value": 2,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 2
+          }
         }
       ]
     },
@@ -1657,16 +2311,16 @@
       "type": "number",
       "value": [
         {
+          "value": -1,
           "theme": {
             "theme": "Slate"
-          },
-          "value": -1
+          }
         },
         {
+          "value": -1,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": -1
+          }
         }
       ]
     },
@@ -1674,16 +2328,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#0000001A",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#0000001A"
+          }
         },
         {
+          "value": "#0000001A",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#0000001A"
+          }
         }
       ]
     },
@@ -1691,16 +2345,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -1708,16 +2362,16 @@
       "type": "number",
       "value": [
         {
+          "value": -5,
           "theme": {
             "theme": "Slate"
-          },
-          "value": -5
+          }
         },
         {
+          "value": -5,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": -5
+          }
         }
       ]
     },
@@ -1725,16 +2379,16 @@
       "type": "number",
       "value": [
         {
+          "value": 10,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 10
+          }
         },
         {
+          "value": 10,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 10
+          }
         }
       ]
     },
@@ -1742,16 +2396,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -1759,16 +2413,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#0000000D",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#0000000D"
+          }
         },
         {
+          "value": "#0000000D",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#0000000D"
+          }
         }
       ]
     },
@@ -1776,16 +2430,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -1793,16 +2447,16 @@
       "type": "number",
       "value": [
         {
+          "value": -15,
           "theme": {
             "theme": "Slate"
-          },
-          "value": -15
+          }
         },
         {
+          "value": -15,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": -15
+          }
         }
       ]
     },
@@ -1810,16 +2464,16 @@
       "type": "number",
       "value": [
         {
+          "value": 25,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 25
+          }
         },
         {
+          "value": 25,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 25
+          }
         }
       ]
     },
@@ -1827,16 +2481,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -1844,16 +2498,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#00000012",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#00000012"
+          }
         },
         {
+          "value": "#00000012",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#00000012"
+          }
         }
       ]
     },
@@ -1861,16 +2515,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#14161B",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#14161B"
+          }
         },
         {
+          "value": "#14181F",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#14181F"
+          }
         }
       ]
     },
@@ -1878,16 +2532,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#EEF5FF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#EEF5FF"
+          }
         },
         {
+          "value": "#ECEBFE",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#ECEBFE"
+          }
         }
       ]
     },
@@ -1895,16 +2549,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#E32729",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#E32729"
+          }
         },
         {
+          "value": "#E22C2C",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#E22C2C"
+          }
         }
       ]
     },
@@ -1912,16 +2566,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFF0EE",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFF0EE"
+          }
         },
         {
+          "value": "#FDEDED",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FDEDED"
+          }
         }
       ]
     },
@@ -1929,16 +2583,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFB500",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFB500"
+          }
         },
         {
+          "value": "#FACC15",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FACC15"
+          }
         }
       ]
     },
@@ -1946,16 +2600,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFF3D8",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFF3D8"
+          }
         },
         {
+          "value": "#FFFAE9",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FFFAE9"
+          }
         }
       ]
     },
@@ -1963,16 +2617,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#0E8147",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#0E8147"
+          }
         },
         {
+          "value": "#118850",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#118850"
+          }
         }
       ]
     },
@@ -1980,16 +2634,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#EBF9EF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#EBF9EF"
+          }
         },
         {
+          "value": "#EDFDF5",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#EDFDF5"
+          }
         }
       ]
     },
@@ -1997,16 +2651,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFFFFF"
+          }
         },
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FFFFFF"
+          }
         }
       ]
     },
@@ -2014,16 +2668,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#F5F5F5",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#F5F5F5"
+          }
         },
         {
+          "value": "#F9F9FB",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#F9F9FB"
+          }
         }
       ]
     },
@@ -2031,16 +2685,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFFFFF"
+          }
         },
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FFFFFF"
+          }
         }
       ]
     },
@@ -2048,16 +2702,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFFFFF"
+          }
         },
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FFFFFF"
+          }
         }
       ]
     },
@@ -2065,16 +2719,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFFFFF"
+          }
         },
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FFFFFF"
+          }
         }
       ]
     },
@@ -2082,16 +2736,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#E1E5EB",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#E1E5EB"
+          }
         },
         {
+          "value": "#DFE2EA",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#DFE2EA"
+          }
         }
       ]
     },
@@ -2099,16 +2753,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#F3F5F9",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#F3F5F9"
+          }
         },
         {
+          "value": "#F3F3F5",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#F3F3F5"
+          }
         }
       ]
     },
@@ -2116,16 +2770,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#EEEEEE",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#EEEEEE"
+          }
         },
         {
+          "value": "#ECEEF2",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#ECEEF2"
+          }
         }
       ]
     },
@@ -2133,16 +2787,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#F8F8F8",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#F8F8F8"
+          }
         },
         {
+          "value": "#F5F6F9",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#F5F6F9"
+          }
         }
       ]
     },
@@ -2150,16 +2804,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#52555B",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#52555B"
+          }
         },
         {
+          "value": "#5B667E",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#5B667E"
+          }
         }
       ]
     },
@@ -2167,16 +2821,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#034EE8",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#034EE8"
+          }
         },
         {
+          "value": "#4F4CF0",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#4F4CF0"
+          }
         }
       ]
     },
@@ -2184,16 +2838,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#C20001",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#C20001"
+          }
         },
         {
+          "value": "#C42525",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#C42525"
+          }
         }
       ]
     },
@@ -2201,16 +2855,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#9C4C00",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#9C4C00"
+          }
         },
         {
+          "value": "#7B6305",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#7B6305"
+          }
         }
       ]
     },
@@ -2218,16 +2872,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#00783E",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#00783E"
+          }
         },
         {
+          "value": "#0D7544",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#0D7544"
+          }
         }
       ]
     },
@@ -2235,16 +2889,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#0000001F",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#0000001F"
+          }
         },
         {
+          "value": "#0000001F",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#0000001F"
+          }
         }
       ]
     },
@@ -2252,16 +2906,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#00000014",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#00000014"
+          }
         },
         {
+          "value": "#00000014",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#00000014"
+          }
         }
       ]
     },
@@ -2269,16 +2923,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#0043DE",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#0043DE"
+          }
         },
         {
+          "value": "#3B38ED",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#3B38ED"
+          }
         }
       ]
     },
@@ -2286,16 +2940,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#0000000F",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#0000000F"
+          }
         },
         {
+          "value": "#DFE2EA",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#DFE2EA"
+          }
         }
       ]
     },
@@ -2303,16 +2957,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#DAE5F9",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#DAE5F9"
+          }
         },
         {
+          "value": "#DEDCFB",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#DEDCFB"
+          }
         }
       ]
     },
@@ -2320,16 +2974,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#C50006",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#C50006"
+          }
         },
         {
+          "value": "#BF2424",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#BF2424"
+          }
         }
       ]
     },
@@ -2337,16 +2991,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#F8DEDA",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#F8DEDA"
+          }
         },
         {
+          "value": "#F3DAD6",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#F3DAD6"
+          }
         }
       ]
     },
@@ -2354,16 +3008,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#EE9A00",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#EE9A00"
+          }
         },
         {
+          "value": "#CFA90F",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#CFA90F"
+          }
         }
       ]
     },
@@ -2371,16 +3025,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#F6E2C0",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#F6E2C0"
+          }
         },
         {
+          "value": "#ECE2C4",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#ECE2C4"
+          }
         }
       ]
     },
@@ -2388,16 +3042,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#006931",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#006931"
+          }
         },
         {
+          "value": "#0C6E40",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#0C6E40"
+          }
         }
       ]
     },
@@ -2405,16 +3059,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#D6EBDC",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#D6EBDC"
+          }
         },
         {
+          "value": "#D2EDDB",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#D2EDDB"
+          }
         }
       ]
     },
@@ -2422,16 +3076,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#CACACA",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#CACACA"
+          }
         },
         {
+          "value": "#C6CCDA",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#C6CCDA"
+          }
         }
       ]
     },
@@ -2439,16 +3093,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#000000",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#000000"
+          }
         },
         {
+          "value": "#000000",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#000000"
+          }
         }
       ]
     },
@@ -2456,16 +3110,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFFFFF"
+          }
         },
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FFFFFF"
+          }
         }
       ]
     },
@@ -2473,16 +3127,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFFFFF"
+          }
         },
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FFFFFF"
+          }
         }
       ]
     },
@@ -2490,16 +3144,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#000000",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#000000"
+          }
         },
         {
+          "value": "#000000",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#000000"
+          }
         }
       ]
     },
@@ -2507,16 +3161,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFFFFF"
+          }
         },
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FFFFFF"
+          }
         }
       ]
     },
@@ -2524,16 +3178,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#000000",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#000000"
+          }
         },
         {
+          "value": "#000000",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#000000"
+          }
         }
       ]
     },
@@ -2541,16 +3195,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFFFFF"
+          }
         },
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FFFFFF"
+          }
         }
       ]
     },
@@ -2558,16 +3212,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#1860FA",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#1860FA"
+          }
         },
         {
+          "value": "#5A58F2",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#5A58F2"
+          }
         }
       ]
     },
@@ -2575,16 +3229,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#3B3D41",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#3B3D41"
+          }
         },
         {
+          "value": "#494F60",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#494F60"
+          }
         }
       ]
     },
@@ -2592,16 +3246,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#1F2227",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#1F2227"
+          }
         },
         {
+          "value": "#222835",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#222835"
+          }
         }
       ]
     },
@@ -2609,16 +3263,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#2F68DF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#2F68DF"
+          }
         },
         {
+          "value": "#524FEA",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#524FEA"
+          }
         }
       ]
     },
@@ -2626,16 +3280,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#182134",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#182134"
+          }
         },
         {
+          "value": "#252544",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#252544"
+          }
         }
       ]
     },
@@ -2643,16 +3297,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#D0463F",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#D0463F"
+          }
         },
         {
+          "value": "#D02626",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#D02626"
+          }
         }
       ]
     },
@@ -2660,16 +3314,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#311B18",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#311B18"
+          }
         },
         {
+          "value": "#3E1F1F",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#3E1F1F"
+          }
         }
       ]
     },
@@ -2677,16 +3331,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#F4B120",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#F4B120"
+          }
         },
         {
+          "value": "#F1C512",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#F1C512"
+          }
         }
       ]
     },
@@ -2694,16 +3348,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#2A200F",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#2A200F"
+          }
         },
         {
+          "value": "#2C271F",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#2C271F"
+          }
         }
       ]
     },
@@ -2711,16 +3365,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#2E794B",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#2E794B"
+          }
         },
         {
+          "value": "#14784A",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#14784A"
+          }
         }
       ]
     },
@@ -2728,16 +3382,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#1A251D",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#1A251D"
+          }
         },
         {
+          "value": "#1F2A23",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#1F2A23"
+          }
         }
       ]
     },
@@ -2745,16 +3399,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#292929",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#292929"
+          }
         },
         {
+          "value": "#1E212A",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#1E212A"
+          }
         }
       ]
     },
@@ -2762,16 +3416,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#1D1D1D",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#1D1D1D"
+          }
         },
         {
+          "value": "#171921",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#171921"
+          }
         }
       ]
     },
@@ -2779,16 +3433,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#0D0D0D",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#0D0D0D"
+          }
         },
         {
+          "value": "#0F1116",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#0F1116"
+          }
         }
       ]
     },
@@ -2796,16 +3450,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#121212",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#121212"
+          }
         },
         {
+          "value": "#111319",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#111319"
+          }
         }
       ]
     },
@@ -2813,16 +3467,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#161616",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#161616"
+          }
         },
         {
+          "value": "#15171E",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#15171E"
+          }
         }
       ]
     },
@@ -2830,16 +3484,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#181818",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#181818"
+          }
         },
         {
+          "value": "#191B23",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#191B23"
+          }
         }
       ]
     },
@@ -2847,16 +3501,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#1B1B1B",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#1B1B1B"
+          }
         },
         {
+          "value": "#1C1F28",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#1C1F28"
+          }
         }
       ]
     },
@@ -2864,16 +3518,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#EFF2F7",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#EFF2F7"
+          }
         },
         {
+          "value": "#EFF1F5",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#EFF1F5"
+          }
         }
       ]
     },
@@ -2881,16 +3535,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#BEC1C6",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#BEC1C6"
+          }
         },
         {
+          "value": "#C0C6D6",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#C0C6D6"
+          }
         }
       ]
     },
@@ -2898,16 +3552,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#65A7FF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#65A7FF"
+          }
         },
         {
+          "value": "#8B8AF7",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#8B8AF7"
+          }
         }
       ]
     },
@@ -2915,16 +3569,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FF766A",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FF766A"
+          }
         },
         {
+          "value": "#F36A6A",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#F36A6A"
+          }
         }
       ]
     },
@@ -2932,16 +3586,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#E59F00",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#E59F00"
+          }
         },
         {
+          "value": "#B4920C",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#B4920C"
+          }
         }
       ]
     },
@@ -2949,16 +3603,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#73C38D",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#73C38D"
+          }
         },
         {
+          "value": "#18AB66",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#18AB66"
+          }
         }
       ]
     },
@@ -2966,16 +3620,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#484848",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#484848"
+          }
         },
         {
+          "value": "#434959",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#434959"
+          }
         }
       ]
     },
@@ -2983,16 +3637,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FCFFFF29",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FCFFFF29"
+          }
         },
         {
+          "value": "#FFFFFF24",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FFFFFF24"
+          }
         }
       ]
     },
@@ -3000,16 +3654,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FCFFFF14",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FCFFFF14"
+          }
         },
         {
+          "value": "#FFFFFF14",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FFFFFF14"
+          }
         }
       ]
     },
@@ -3017,16 +3671,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#4C88FF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#4C88FF"
+          }
         },
         {
+          "value": "#8C8BF3",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#8C8BF3"
+          }
         }
       ]
     },
@@ -3034,16 +3688,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#303B4F",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#303B4F"
+          }
         },
         {
+          "value": "#323164",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#323164"
+          }
         }
       ]
     },
@@ -3051,16 +3705,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#ED6056",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#ED6056"
+          }
         },
         {
+          "value": "#F46969",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#F46969"
+          }
         }
       ]
     },
@@ -3068,16 +3722,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#4B3431",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#4B3431"
+          }
         },
         {
+          "value": "#5A2E29",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#5A2E29"
+          }
         }
       ]
     },
@@ -3085,16 +3739,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFCB47",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFCB47"
+          }
         },
         {
+          "value": "#B4920A",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#B4920A"
+          }
         }
       ]
     },
@@ -3102,16 +3756,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#433927",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#433927"
+          }
         },
         {
+          "value": "#453C1E",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#453C1E"
+          }
         }
       ]
     },
@@ -3119,16 +3773,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#479162",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#479162"
+          }
         },
         {
+          "value": "#21AB6B",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#21AB6B"
+          }
         }
       ]
     },
@@ -3136,16 +3790,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#323E36",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#323E36"
+          }
         },
         {
+          "value": "#264431",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#264431"
+          }
         }
       ]
     },
@@ -3153,16 +3807,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#292929",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#292929"
+          }
         },
         {
+          "value": "#262A34",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#262A34"
+          }
         }
       ]
     },
@@ -3170,16 +3824,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFFFFF"
+          }
         },
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FFFFFF"
+          }
         }
       ]
     },
@@ -3187,16 +3841,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFFFFF"
+          }
         },
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FFFFFF"
+          }
         }
       ]
     },
@@ -3204,16 +3858,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFFFFF"
+          }
         },
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FFFFFF"
+          }
         }
       ]
     },
@@ -3221,16 +3875,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#000000",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#000000"
+          }
         },
         {
+          "value": "#000000",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#000000"
+          }
         }
       ]
     },
@@ -3238,16 +3892,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFFFFF"
+          }
         },
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FFFFFF"
+          }
         }
       ]
     },
@@ -3255,16 +3909,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#000000",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#000000"
+          }
         },
         {
+          "value": "#000000",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#000000"
+          }
         }
       ]
     },
@@ -3272,16 +3926,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFFFFF"
+          }
         },
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FFFFFF"
+          }
         }
       ]
     },
@@ -3289,16 +3943,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#1860FA",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#1860FA"
+          }
         },
         {
+          "value": "#5A58F2",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#5A58F2"
+          }
         }
       ]
     },
@@ -3306,16 +3960,16 @@
       "type": "string",
       "value": [
         {
+          "value": "Light",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "Light"
+          }
         },
         {
+          "value": "Light",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "Light"
+          }
         }
       ]
     },
@@ -3323,16 +3977,16 @@
       "type": "string",
       "value": [
         {
+          "value": "Regular",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "Regular"
+          }
         },
         {
+          "value": "Regular",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "Regular"
+          }
         }
       ]
     },
@@ -3340,16 +3994,16 @@
       "type": "string",
       "value": [
         {
+          "value": "Medium",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "Medium"
+          }
         },
         {
+          "value": "Medium",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "Medium"
+          }
         }
       ]
     },
@@ -3357,16 +4011,16 @@
       "type": "string",
       "value": [
         {
+          "value": "Semi Bold",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "Semi Bold"
+          }
         },
         {
+          "value": "Semi Bold",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "Semi Bold"
+          }
         }
       ]
     },
@@ -3374,16 +4028,16 @@
       "type": "string",
       "value": [
         {
+          "value": "Bold",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "Bold"
+          }
         },
         {
+          "value": "Bold",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "Bold"
+          }
         }
       ]
     },
@@ -3391,16 +4045,16 @@
       "type": "string",
       "value": [
         {
+          "value": "Extra Bold",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "Extra Bold"
+          }
         },
         {
+          "value": "Extra Bold",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "Extra Bold"
+          }
         }
       ]
     },
@@ -3408,16 +4062,16 @@
       "type": "string",
       "value": [
         {
+          "value": "Black",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "Black"
+          }
         },
         {
+          "value": "Black",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "Black"
+          }
         }
       ]
     },
@@ -3425,16 +4079,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-extrabold",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-extrabold"
+          }
         },
         {
+          "value": "$rs-font-weight-extrabold",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-extrabold"
+          }
         }
       ]
     },
@@ -3442,16 +4096,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-extrabold",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-extrabold"
+          }
         },
         {
+          "value": "$rs-font-weight-extrabold",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-extrabold"
+          }
         }
       ]
     },
@@ -3459,16 +4113,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-extrabold",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-extrabold"
+          }
         },
         {
+          "value": "$rs-font-weight-extrabold",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-extrabold"
+          }
         }
       ]
     },
@@ -3476,16 +4130,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-extrabold",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-extrabold"
+          }
         },
         {
+          "value": "$rs-font-weight-extrabold",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-extrabold"
+          }
         }
       ]
     },
@@ -3493,16 +4147,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-extrabold",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-extrabold"
+          }
         },
         {
+          "value": "$rs-font-weight-extrabold",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-extrabold"
+          }
         }
       ]
     },
@@ -3510,16 +4164,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-extrabold",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-extrabold"
+          }
         },
         {
+          "value": "$rs-font-weight-extrabold",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-extrabold"
+          }
         }
       ]
     },
@@ -3527,16 +4181,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-medium",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-medium"
+          }
         },
         {
+          "value": "$rs-font-weight-medium",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-medium"
+          }
         }
       ]
     },
@@ -3544,16 +4198,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-bold",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-bold"
+          }
         },
         {
+          "value": "$rs-font-weight-bold",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-bold"
+          }
         }
       ]
     },
@@ -3561,16 +4215,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-regular",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-regular"
+          }
         },
         {
+          "value": "$rs-font-weight-regular",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-regular"
+          }
         }
       ]
     },
@@ -3578,16 +4232,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-regular",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-regular"
+          }
         },
         {
+          "value": "$rs-font-weight-regular",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-regular"
+          }
         }
       ]
     },
@@ -3595,16 +4249,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-medium",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-medium"
+          }
         },
         {
+          "value": "$rs-font-weight-medium",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-medium"
+          }
         }
       ]
     },
@@ -3612,16 +4266,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-bold",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-bold"
+          }
         },
         {
+          "value": "$rs-font-weight-bold",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-bold"
+          }
         }
       ]
     },
@@ -3629,16 +4283,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-regular",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-regular"
+          }
         },
         {
+          "value": "$rs-font-weight-regular",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-regular"
+          }
         }
       ]
     },
@@ -3646,16 +4300,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-medium",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-medium"
+          }
         },
         {
+          "value": "$rs-font-weight-medium",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-medium"
+          }
         }
       ]
     },
@@ -3663,16 +4317,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-bold",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-bold"
+          }
         },
         {
+          "value": "$rs-font-weight-bold",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-bold"
+          }
         }
       ]
     },
@@ -3680,16 +4334,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-regular",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-regular"
+          }
         },
         {
+          "value": "$rs-font-weight-regular",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-regular"
+          }
         }
       ]
     },
@@ -3697,16 +4351,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-medium",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-medium"
+          }
         },
         {
+          "value": "$rs-font-weight-medium",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-medium"
+          }
         }
       ]
     },
@@ -3714,16 +4368,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-bold",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-bold"
+          }
         },
         {
+          "value": "$rs-font-weight-bold",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-bold"
+          }
         }
       ]
     },
@@ -3731,16 +4385,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-regular",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-regular"
+          }
         },
         {
+          "value": "$rs-font-weight-regular",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-regular"
+          }
         }
       ]
     },
@@ -3748,16 +4402,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-medium",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-medium"
+          }
         },
         {
+          "value": "$rs-font-weight-medium",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-medium"
+          }
         }
       ]
     },
@@ -3765,16 +4419,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-bold",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-bold"
+          }
         },
         {
+          "value": "$rs-font-weight-bold",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-bold"
+          }
         }
       ]
     },
@@ -3782,16 +4436,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-regular",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-regular"
+          }
         },
         {
+          "value": "$rs-font-weight-regular",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-regular"
+          }
         }
       ]
     },
@@ -3799,16 +4453,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-medium",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-medium"
+          }
         },
         {
+          "value": "$rs-font-weight-medium",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-medium"
+          }
         }
       ]
     },
@@ -3816,16 +4470,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-bold",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-bold"
+          }
         },
         {
+          "value": "$rs-font-weight-bold",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-bold"
+          }
         }
       ]
     },
@@ -3833,16 +4487,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-regular",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-regular"
+          }
         },
         {
+          "value": "$rs-font-weight-regular",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-regular"
+          }
         }
       ]
     },
@@ -3850,16 +4504,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-medium",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-medium"
+          }
         },
         {
+          "value": "$rs-font-weight-medium",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-medium"
+          }
         }
       ]
     },
@@ -3867,16 +4521,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-bold",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-bold"
+          }
         },
         {
+          "value": "$rs-font-weight-bold",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-bold"
+          }
         }
       ]
     },
@@ -3884,16 +4538,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-regular",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-regular"
+          }
         },
         {
+          "value": "$rs-font-weight-regular",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-regular"
+          }
         }
       ]
     },
@@ -3901,16 +4555,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-medium",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-medium"
+          }
         },
         {
+          "value": "$rs-font-weight-medium",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-medium"
+          }
         }
       ]
     },
@@ -3918,16 +4572,16 @@
       "type": "string",
       "value": [
         {
+          "value": "$rs-font-weight-bold",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "$rs-font-weight-bold"
+          }
         },
         {
+          "value": "$rs-font-weight-bold",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "$rs-font-weight-bold"
+          }
         }
       ]
     },
@@ -3935,16 +4589,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -3952,16 +4606,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -3969,16 +4623,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -3986,16 +4640,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -4003,16 +4657,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -4020,16 +4674,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -4037,16 +4691,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -4054,16 +4708,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -4071,16 +4725,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -4088,16 +4742,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -4105,16 +4759,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -4122,16 +4776,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -4139,16 +4793,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -4156,16 +4810,16 @@
       "type": "number",
       "value": [
         {
+          "value": 0,
           "theme": {
             "theme": "Slate"
-          },
-          "value": 0
+          }
         },
         {
+          "value": 0,
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": 0
+          }
         }
       ]
     },
@@ -4173,16 +4827,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFFFFF"
+          }
         },
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FFFFFF"
+          }
         }
       ]
     },
@@ -4190,16 +4844,16 @@
       "type": "color",
       "value": [
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "#FFFFFF"
+          }
         },
         {
+          "value": "#FFFFFF",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "#FFFFFF"
+          }
         }
       ]
     },
@@ -4207,16 +4861,16 @@
       "type": "string",
       "value": [
         {
+          "value": "Geist Mono",
           "theme": {
             "theme": "Slate"
-          },
-          "value": "Geist Mono"
+          }
         },
         {
+          "value": "Geist Mono",
           "theme": {
             "theme": "Reshaped"
-          },
-          "value": "Geist Mono"
+          }
         }
       ]
     }
