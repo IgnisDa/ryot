@@ -3,8 +3,7 @@ import { Effect, Layer } from "effect";
 
 import { AppLive } from "./app/layers";
 import { SeedService } from "./lib/builtins/seed";
-import { AppConfig } from "./lib/config";
-import { providerConfigDefinition, systemConfigDefinition } from "./lib/config/definition";
+import { AppConfig, appConfigMeta } from "./lib/config";
 import { generateConfigDocs } from "./lib/config/docs";
 import { DbService, TransactionRunnerLive } from "./lib/db";
 import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "./lib/db/migrate";
@@ -50,7 +49,7 @@ if (Bun.env.POPULATE_SANDBOX_CACHE_ONLY === "true") {
 if (Bun.env.NODE_ENV !== "production") {
 	await Effect.runPromise(
 		generateConfigDocs(
-			[systemConfigDefinition.meta, providerConfigDefinition.meta],
+			[appConfigMeta],
 			new URL("../../../apps/docs/src/includes/app-backend-config-schema.md", import.meta.url)
 				.pathname,
 		).pipe(Effect.provide(BunFileSystem.layer)),

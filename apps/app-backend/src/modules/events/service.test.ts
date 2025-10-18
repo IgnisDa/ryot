@@ -445,6 +445,7 @@ it.effect("before-create trigger skip prevents event creation", () => {
 			Effect.succeed({
 				id: "script-1",
 				userId: user.id,
+				isBuiltin: false,
 				metadata: { allowedHostFunctions: [] },
 				code: `driver("trigger", async () => ({ action: "skip", reason: "test" }))`,
 			}),
@@ -494,6 +495,7 @@ it.effect("before-create trigger replace modifies event properties", () => {
 			Effect.succeed({
 				id: "script-1",
 				userId: user.id,
+				isBuiltin: false,
 				metadata: { allowedHostFunctions: [] },
 				code: `driver("trigger", async () => ({ action: "replace", body: { properties: { rating: 10 } } }))`,
 			}),
@@ -566,6 +568,7 @@ it.effect("before-create trigger failure prevents event creation", () => {
 			Effect.succeed({
 				id: "script-1",
 				userId: user.id,
+				isBuiltin: false,
 				metadata: { allowedHostFunctions: [] },
 				code: `driver("trigger", async () => { throw new Error("test_error"); })`,
 			}),
