@@ -4,9 +4,6 @@ import { useApiClient } from "@/lib/api-client";
 
 import type { EntityImage } from "./entity-image";
 
-export type { EntityImage } from "./entity-image";
-export { toEntityImage } from "./entity-image";
-
 type ImageEntry = { id: string; image: EntityImage };
 
 export function useResolvedImageUrls(entries: ImageEntry[]) {
