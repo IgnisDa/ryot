@@ -4,6 +4,7 @@ import { Effect, Schema } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner } from "#lib/db";
+import { EntitySchemaId } from "#lib/schema/brands";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 
@@ -61,7 +62,7 @@ export const prepareOpenScaleWrites = (
 
 		const measurementSchemaId = yield* Activity.make({
 			error: ImportRunError,
-			success: Schema.NullOr(Schema.String),
+			success: Schema.NullOr(EntitySchemaId),
 			name: "load-measurement-entity-schema",
 			execute: runWithDb(entitySchemas.getBuiltinBySlug("measurement")).pipe(
 				Effect.map((schema) => schema?.id ?? null),

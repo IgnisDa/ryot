@@ -2,6 +2,7 @@ import { DurableQueue } from "@effect/workflow";
 import { Cause, Effect } from "effect";
 
 import { SandboxRunError, unknownToMessage } from "#lib/errors";
+import type { EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import { decodeEntityResolveResult, decodeEntitySearchResult } from "#modules/entities/population";
 import { runEntityImportWorkflow } from "#modules/entities/workflows";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
@@ -12,7 +13,7 @@ const toSandboxError = (cause: unknown) =>
 		: new SandboxRunError({ message: unknownToMessage(cause) });
 
 const processSandboxEntityDetails = (
-	payload: { userId: string; scriptId: string; externalId: string },
+	payload: { userId: UserId; scriptId: SandboxScriptId; externalId: string },
 	executionId: string,
 ) =>
 	DurableQueue.process(SandboxExecutionQueue, {
@@ -25,8 +26,8 @@ const processSandboxEntityDetails = (
 
 export const resolveSandboxEntityExternalId = (input: {
 	value: string;
-	userId: string;
-	scriptId: string;
+	userId: UserId;
+	scriptId: SandboxScriptId;
 	executionId: string;
 	identifierType: string;
 }) =>
@@ -54,8 +55,8 @@ export const resolveSandboxEntityExternalId = (input: {
 
 export const searchSandboxEntities = (input: {
 	query: string;
-	userId: string;
-	scriptId: string;
+	userId: UserId;
+	scriptId: SandboxScriptId;
 	executionId: string;
 }) =>
 	DurableQueue.process(SandboxExecutionQueue, {
@@ -82,11 +83,11 @@ export const searchSandboxEntities = (input: {
 	);
 
 export const importMediaEntityViaWorkflow = (input: {
-	userId: string;
-	scriptId: string;
+	userId: UserId;
+	scriptId: SandboxScriptId;
 	externalId: string;
 	executionId: string;
-	entitySchemaId: string;
+	entitySchemaId: EntitySchemaId;
 	activityPrefix: string;
 }) =>
 	runEntityImportWorkflow(

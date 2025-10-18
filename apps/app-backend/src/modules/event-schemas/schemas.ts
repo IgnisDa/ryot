@@ -1,13 +1,14 @@
 import { Schema } from "effect";
 
+import { EntitySchemaId, EventSchemaId } from "#lib/schema/brands";
 import { AppSchema } from "#lib/schema/property-schema";
 
 export const ListedEventSchema = Schema.Struct({
-	id: Schema.String,
+	id: EventSchemaId,
 	slug: Schema.String,
 	name: Schema.String,
 	propertiesSchema: AppSchema,
-	entitySchemaId: Schema.String,
+	entitySchemaId: EntitySchemaId,
 });
 
 export type ListedEventSchema = typeof ListedEventSchema.Type;
@@ -15,7 +16,7 @@ export type ListedEventSchema = typeof ListedEventSchema.Type;
 export const CreateEventSchemaBody = Schema.Struct({
 	name: Schema.String,
 	propertiesSchema: AppSchema,
-	entitySchemaId: Schema.String,
+	entitySchemaId: EntitySchemaId,
 	slug: Schema.optional(Schema.String),
 });
 

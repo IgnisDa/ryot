@@ -3,6 +3,7 @@ import { Effect, Exit, Layer } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest, NotFound } from "#lib/errors";
+import { EntityId, EntitySchemaId, UserId } from "#lib/schema/brands";
 import { dbRunnerLayer, makeMock, transactionLayer } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
@@ -11,7 +12,7 @@ import { RelationshipsRepository } from "#modules/relationships/repository";
 import { UserStateService } from "./service";
 
 const user = {
-	id: "user-id",
+	id: UserId.make("user-id"),
 	name: "Test User",
 	email: "user@example.com",
 } satisfies CurrentUserValue;
@@ -69,8 +70,8 @@ const makeServiceLayer = (
 	);
 
 const makeMergeScope = (overrides: {
-	entityId: string;
-	entitySchemaId?: string;
+	entityId: EntityId;
+	entitySchemaId?: EntitySchemaId;
 	entitySchemaSlug?: string;
 	properties?: Record<string, unknown>;
 }) => ({
@@ -79,7 +80,7 @@ const makeMergeScope = (overrides: {
 	entityId: overrides.entityId,
 	properties: overrides.properties ?? {},
 	entitySchemaSlug: overrides.entitySchemaSlug ?? "book",
-	entitySchemaId: overrides.entitySchemaId ?? "schema-id",
+	entitySchemaId: overrides.entitySchemaId ?? EntitySchemaId.make("schema-id"),
 });
 
 it.effect("rejects clearing library user state", () => {
@@ -89,16 +90,16 @@ it.effect("rejects clearing library user state", () => {
 				Effect.succeed({
 					isBuiltin: true,
 					entityUserId: user.id,
-					entityId: "library-entity",
+					entityId: EntityId.make("library-entity"),
 					entitySchemaSlug: "library",
-					entitySchemaId: "library-schema",
+					entitySchemaId: EntitySchemaId.make("library-schema"),
 				}),
 		}),
 	});
 
 	return Effect.gen(function* () {
 		const service = yield* UserStateService;
-		const exit = yield* Effect.exit(service.clearUserState(user, "library-entity"));
+		const exit = yield* Effect.exit(service.clearUserState(user, EntityId.make("library-entity")));
 
 		expect(exit).toEqual(
 			Exit.fail(new BadRequest({ message: "Library entity user state cannot be cleared" })),
@@ -112,7 +113,10 @@ it.effect("rejects merging an entity into itself", () => {
 	return Effect.gen(function* () {
 		const service = yield* UserStateService;
 		const exit = yield* Effect.exit(
-			service.mergeUserState(user, { mergeFrom: "entity-id", mergeInto: "entity-id" }),
+			service.mergeUserState(user, {
+				mergeFrom: EntityId.make("entity-id"),
+				mergeInto: EntityId.make("entity-id"),
+			}),
 		);
 
 		expect(exit).toEqual(
@@ -132,7 +136,10 @@ it.effect("returns not found when one merge entity is not visible", () => {
 	return Effect.gen(function* () {
 		const service = yield* UserStateService;
 		const exit = yield* Effect.exit(
-			service.mergeUserState(user, { mergeFrom: "from", mergeInto: "into" }),
+			service.mergeUserState(user, {
+				mergeFrom: EntityId.make("from"),
+				mergeInto: EntityId.make("into"),
+			}),
 		);
 
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Entity not found" })));
@@ -146,7 +153,10 @@ it.effect("rejects merging entities from different schemas", () => {
 				Effect.succeed(
 					makeMergeScope({
 						entityId,
-						entitySchemaId: entityId === "from" ? "schema-a" : "schema-b",
+						entitySchemaId:
+							entityId === "from"
+								? EntitySchemaId.make("schema-a")
+								: EntitySchemaId.make("schema-b"),
 					}),
 				),
 		}),
@@ -155,7 +165,10 @@ it.effect("rejects merging entities from different schemas", () => {
 	return Effect.gen(function* () {
 		const service = yield* UserStateService;
 		const exit = yield* Effect.exit(
-			service.mergeUserState(user, { mergeFrom: "from", mergeInto: "into" }),
+			service.mergeUserState(user, {
+				mergeFrom: EntityId.make("from"),
+				mergeInto: EntityId.make("into"),
+			}),
 		);
 
 		expect(exit).toEqual(
@@ -181,7 +194,10 @@ it.effect("rejects merging exercises with different kinds", () => {
 	return Effect.gen(function* () {
 		const service = yield* UserStateService;
 		const exit = yield* Effect.exit(
-			service.mergeUserState(user, { mergeFrom: "from", mergeInto: "into" }),
+			service.mergeUserState(user, {
+				mergeFrom: EntityId.make("from"),
+				mergeInto: EntityId.make("into"),
+			}),
 		);
 
 		expect(exit).toEqual(
@@ -214,7 +230,10 @@ it.effect("moves events and relationships for valid merges", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* UserStateService;
-		const result = yield* service.mergeUserState(user, { mergeFrom: "from", mergeInto: "into" });
+		const result = yield* service.mergeUserState(user, {
+			mergeFrom: EntityId.make("from"),
+			mergeInto: EntityId.make("into"),
+		});
 
 		expect(result).toEqual({
 			mergeFrom: "from",

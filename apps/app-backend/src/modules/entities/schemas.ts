@@ -1,4 +1,6 @@
-import { Either, Schema } from "effect";
+import { Schema } from "effect";
+
+import { EntityId, EntitySchemaId, RemoteImageUrl, SandboxScriptId } from "#lib/schema/brands";
 
 export const EntityImage = Schema.Union(
 	Schema.Struct({ key: Schema.String, type: Schema.Literal("s3") }).pipe(
@@ -10,15 +12,6 @@ export const EntityImage = Schema.Union(
 );
 
 export type EntityImage = typeof EntityImage.Type;
-
-const RemoteImageUrl = Schema.String.pipe(
-	Schema.filter((value) => {
-		const url = Either.try(() => new URL(value.trim()));
-		return Either.isRight(url) && ["http:", "https:"].includes(url.right.protocol)
-			? true
-			: "Entity image remote url must be a valid URL";
-	}),
-);
 
 const RemoteEntityImage = Schema.Struct({
 	url: RemoteImageUrl,
@@ -36,16 +29,16 @@ const S3EntityImage = Schema.Struct({ key: S3ImageKey, type: Schema.Literal("s3"
 const CreateEntityImage = Schema.Union(RemoteEntityImage, S3EntityImage);
 
 export const ListedEntity = Schema.Struct({
-	id: Schema.String,
+	id: EntityId,
 	name: Schema.String,
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
 	properties: Schema.Unknown,
-	entitySchemaId: Schema.String,
+	entitySchemaId: EntitySchemaId,
 	image: Schema.NullOr(EntityImage),
 	externalId: Schema.NullOr(Schema.String),
 	populatedAt: Schema.NullOr(Schema.String),
-	sandboxScriptId: Schema.NullOr(Schema.String),
+	sandboxScriptId: Schema.NullOr(SandboxScriptId),
 });
 
 export type ListedEntity = typeof ListedEntity.Type;
@@ -53,18 +46,18 @@ export type ListedEntity = typeof ListedEntity.Type;
 export const CreateEntityBody = Schema.Struct({
 	name: Schema.String,
 	properties: Schema.Unknown,
-	entitySchemaId: Schema.String,
+	entitySchemaId: EntitySchemaId,
 	externalId: Schema.optional(Schema.String),
-	sandboxScriptId: Schema.optional(Schema.String),
+	sandboxScriptId: Schema.optional(SandboxScriptId),
 	image: Schema.optional(Schema.NullOr(CreateEntityImage)),
 });
 
 export type CreateEntityBody = typeof CreateEntityBody.Type;
 
 export const ImportEntityBody = Schema.Struct({
-	scriptId: Schema.String,
+	scriptId: SandboxScriptId,
 	externalId: Schema.String,
-	entitySchemaId: Schema.String,
+	entitySchemaId: EntitySchemaId,
 });
 
 export const ImportEntityRunResult = Schema.Union(

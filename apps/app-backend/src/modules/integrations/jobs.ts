@@ -1,9 +1,11 @@
 import { Schema } from "effect";
 
+import { ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
+
 export const IntegrationRunJobData = Schema.Struct({
-	runId: Schema.String,
-	userId: Schema.String,
-	integrationId: Schema.String,
+	runId: ImportRunId,
+	userId: UserId,
+	integrationId: IntegrationId,
 	rawBody: Schema.optional(Schema.String),
 	contentType: Schema.optional(Schema.String),
 });

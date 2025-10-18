@@ -4,6 +4,13 @@ import { Effect } from "effect";
 import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db";
 import * as schema from "#lib/db/schema/tables";
 import { DbError, conflict } from "#lib/errors";
+import {
+	EntitySchemaId,
+	SandboxScriptId,
+	type Slug,
+	TrackerId,
+	type UserId,
+} from "#lib/schema/brands";
 import { decodeStoredAppSchema } from "#lib/schema/core";
 import type { AppSchema } from "#lib/schema/property-schema";
 
@@ -58,14 +65,14 @@ const buildEntitySchemaRows = Effect.fn(function* (rows: Array<BuildEntitySchema
 			record = {
 				seen: new Set(),
 				entry: {
-					id: row.id,
+					id: EntitySchemaId.make(row.id),
 					providers: [],
 					name: row.name,
 					icon: row.icon,
 					slug: row.slug,
 					propertiesSchema,
-					trackerId: row.trackerId,
 					isBuiltin: row.isBuiltin,
+					trackerId: TrackerId.make(row.trackerId),
 					accentColor: row.accentColor,
 				},
 			};
@@ -75,7 +82,7 @@ const buildEntitySchemaRows = Effect.fn(function* (rows: Array<BuildEntitySchema
 			record.seen.add(row.scriptId);
 			record.entry.providers.push({
 				name: row.scriptName,
-				scriptId: row.scriptId,
+				scriptId: SandboxScriptId.make(row.scriptId),
 				scriptMetadata: row.scriptMetadata ?? undefined,
 			});
 		}
@@ -88,8 +95,8 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 	{
 		sync: () => ({
 			listByUser: Effect.fn("EntitySchemasRepository.listByUser")(function* (input: {
-				userId: string;
-				trackerId?: string;
+				userId: UserId;
+				trackerId?: TrackerId;
 				slugs?: ReadonlyArray<string>;
 			}) {
 				const db = yield* CurrentDb;
@@ -132,8 +139,8 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 				return builtRows.map(toListedEntitySchema);
 			}),
 			getByIdForUser: Effect.fn("EntitySchemasRepository.getByIdForUser")(function* (input: {
-				userId: string;
-				entitySchemaId: string;
+				userId: UserId;
+				entitySchemaId: EntitySchemaId;
 			}) {
 				const db = yield* CurrentDb;
 				const rows = yield* dbEffect(() =>
@@ -171,7 +178,7 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 				return entry ? toListedEntitySchema(entry) : null;
 			}),
 			findBySlug: Effect.fn("EntitySchemasRepository.findBySlug")(function* (
-				userId: string,
+				userId: UserId,
 				slug: string,
 			) {
 				const db = yield* CurrentDb;
@@ -182,7 +189,7 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 						.where(and(eq(schema.entitySchema.userId, userId), eq(schema.entitySchema.slug, slug)))
 						.limit(1),
 				);
-				return row ?? null;
+				return row ? { id: EntitySchemaId.make(row.id) } : null;
 			}),
 			getBuiltinBySlug: Effect.fn("EntitySchemasRepository.getBuiltinBySlug")(function* (
 				slug: string,
@@ -201,14 +208,14 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 						)
 						.limit(1),
 				);
-				return row ?? null;
+				return row ? { id: EntitySchemaId.make(row.id) } : null;
 			}),
 			createEntitySchema: Effect.fn("EntitySchemasRepository.createEntitySchema")(
 				function* (input: {
 					icon: string;
 					name: string;
-					slug: string;
-					userId: string;
+					slug: Slug;
+					userId: UserId;
 					accentColor: string;
 					propertiesSchema: AppSchema;
 				}) {
@@ -253,7 +260,7 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 					);
 
 					return {
-						id: row.id,
+						id: EntitySchemaId.make(row.id),
 						name: row.name,
 						icon: row.icon,
 						slug: row.slug,
