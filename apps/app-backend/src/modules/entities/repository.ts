@@ -87,14 +87,7 @@ const entitySchemaVisibleToUserClause = (userId: string) =>
 const entityVisibleToUserClause = (userId: string) =>
 	or(isNull(schema.entity.userId), eq(schema.entity.userId, userId));
 
-const imageToUrl = (image: EntityRow["image"]) => {
-	if (!image || typeof image !== "object") {
-		return null;
-	}
-
-	const url = image.url;
-	return typeof url === "string" ? url : null;
-};
+const imageToUrl = (image: EntityRow["image"]) => (image?.type === "remote" ? image.url : null);
 
 const toListedEntity = (row: EntityRow) => ({
 	id: row.id,
@@ -357,7 +350,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					populatedAt: input.populatedAt,
 					entitySchemaId: input.entitySchemaId,
 					sandboxScriptId: input.sandboxScriptId,
-					image: input.image ? { type: "remote", url: input.image } : null,
+					image: input.image ? { type: "remote" as const, url: input.image } : null,
 				};
 
 				const inserted = yield* dbEffect(() =>
@@ -395,7 +388,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 								name: input.name,
 								properties: input.properties,
 								populatedAt: input.populatedAt,
-								image: input.image ? { type: "remote", url: input.image } : null,
+								image: input.image ? { type: "remote" as const, url: input.image } : null,
 							})
 							.where(and(eq(schema.entity.id, existing.id), isNull(schema.entity.populatedAt)))
 							.returning(entitySelection),
@@ -428,7 +421,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					externalId: externalId ?? null,
 					entitySchemaId: input.entitySchemaId,
 					sandboxScriptId: sandboxScriptId ?? null,
-					image: input.image ? { type: "remote", url: input.image } : null,
+					image: input.image ? { type: "remote" as const, url: input.image } : null,
 				};
 
 				if (externalId && sandboxScriptId) {
