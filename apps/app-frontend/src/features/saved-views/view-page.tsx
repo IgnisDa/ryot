@@ -91,10 +91,7 @@ export function SavedViewPage(props: {
 		? runtimeQuery.data
 		: undefined;
 	const items = useMemo(
-		() =>
-			runtimePayload?.mode === "entities"
-				? runtimePayload.data.items.map(toAppEntity)
-				: [],
+		() => (runtimePayload?.mode === "entities" ? runtimePayload.data.items.map(toAppEntity) : []),
 		[runtimePayload],
 	);
 	const meta = runtimePayload?.mode === "entities" ? runtimePayload.data.meta : undefined;
@@ -241,7 +238,7 @@ export function SavedViewPage(props: {
 							</Group>
 						</Stack>
 						<Group gap="xs">
-				{entitySavedView.name === "Collections" ? (
+							{entitySavedView.name === "Collections" ? (
 								<Button
 									size="sm"
 									variant="light"
