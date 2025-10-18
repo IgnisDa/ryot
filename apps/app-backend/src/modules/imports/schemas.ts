@@ -7,25 +7,37 @@ export const importRunStatus = z.enum(["pending", "running", "completed", "faile
 export type ImportRunStatus = z.infer<typeof importRunStatus>;
 
 export const importRunSource = z.enum([
+	"emby",
 	"hevy",
 	"igdb",
 	"imdb",
+	"kodi",
 	"plex",
+	"komga",
 	"trakt",
 	"movary",
+	"radarr",
+	"sonarr",
 	"anilist",
 	"grouvee",
 	"netflix",
-	"watcharr",
 	"jellyfin",
+	"watcharr",
 	"goodreads",
 	"hardcover",
+	"plex_sink",
+	"plex_yank",
 	"open_scale",
-	"strong_app",
 	"storygraph",
+	"strong_app",
 	"myanimelist",
+	"generic_json",
 	"media_tracker",
+	"jellyfin_push",
+	"jellyfin_sink",
+	"youtube_music",
 	"audiobookshelf",
+	"ryot_browser_extension",
 ]);
 export type ImportRunSource = z.infer<typeof importRunSource>;
 
@@ -34,6 +46,7 @@ export const importRunFailureStage = z.enum([
 	"database_commit",
 	"provider_details",
 	"provider_resolution",
+	"event_before_trigger",
 	"input_transformation",
 ]);
 

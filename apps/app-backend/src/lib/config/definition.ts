@@ -99,6 +99,21 @@ export const systemConfigDef = group("Core system configuration", {
 			}),
 		}),
 	}),
+	scheduler: group("Integration scheduler settings", {
+		frequentCronJobsSchedule: field("SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE", {
+			default: "every 5 minutes",
+			description: "English cron phrase for Yank integration polling frequency",
+		}),
+		infrequentCronJobsSchedule: field("SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE", {
+			default: "every midnight",
+			description: "English cron phrase for infrequent background jobs (ported for config parity)",
+		}),
+		progressUpdateThresholdHours: field("SERVER_PROGRESS_UPDATE_THRESHOLD", {
+			default: "2",
+			description:
+				"Integer hours controlling how long after a completion event duplicate completions from integrations are suppressed",
+		}),
+	}),
 });
 
 export const appConfigDef = group("Provider integration configuration", {

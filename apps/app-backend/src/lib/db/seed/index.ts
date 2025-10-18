@@ -114,8 +114,10 @@ export const seedInitialDatabase = async (database: DbClient) => {
 				await ensureBuiltinEventSchemaTrigger({
 					database: tx,
 					eventSchemaId: es.id,
+					phase: triggerLink.phase,
 					sandboxScriptId: scriptId,
 					name: triggerLink.triggerName,
+					position: triggerLink.position,
 					metadata: triggerLink.metadata,
 				});
 			}
