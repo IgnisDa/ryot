@@ -314,10 +314,10 @@ Sink job execution:
 Each parser lives in `src/modules/integrations/providers/sink/`. Parsers receive raw body text and content-type. They output `MediaImportAdapterResult`.
 
 - **Kodi**: deserialize JSON as `{ identifier, lot, progress, show_season_number?, show_episode_number? }`. Emit resolved ref with TMDB script. `consumedOn = "kodi"`.
-- **Emby**: parse PascalCase JSON payload. Extract TMDB ID, calculate progress from tick ratio. `consumedOn = "emby"`.
-- **PlexSink**: parse multipart form-data with JSON body. Extract TMDB ID from GUIDs. Filter by `providerSpecifics.username` if set. Calculate progress from viewOffset/duration. `consumedOn = "plex_sink"`.
-- **JellyfinSink**: parse PascalCase JSON. Filter by `providerSpecifics.username` if set. Use `providerSpecifics.metadataProvider` (tmdb or tvdb, default tmdb) to select entity source. Calculate progress from tick ratio. `consumedOn = "jellyfin_sink"`.
-- **RyotBrowserExtension**: parse JSON payload. Clean URL to derive provider name. Check disabled sites list. `consumedOn` = derived provider name.
+- **Emby**: parse PascalCase JSON payload. Read `Item`, `Series`, and `PlaybackInfo` blocks; extract TMDB ID from `ProviderIds.Tmdb` or equivalent `Provider_tmdb` fields; calculate progress from tick ratio. `consumedOn = "emby"`.
+- **PlexSink**: parse multipart form-data with JSON body from the `payload` field. Extract TMDB ID from GUIDs. Filter by `providerSpecifics.username` if set. Accept Plex `media.*` webhook events and calculate progress from `viewOffset / duration` (falling back to `100` for scrobbles with no offset). `consumedOn = "plex_sink"`.
+- **JellyfinSink**: parse PascalCase JSON. Filter by `providerSpecifics.username` using `User.Name` (and accept `NotificationUsername` when present). Use `providerSpecifics.metadataProvider` (tmdb or tvdb, default tmdb) to select entity source. Calculate progress from `Session.PlayState.PositionTicks / Item.RunTimeTicks`. `consumedOn = "jellyfin_sink"`.
+- **RyotBrowserExtension**: parse JSON payload from the V1 nested `{ url, data: { ... } }` shape while also accepting the simplified direct shape. Clean URL to derive provider name. Check disabled sites list. `consumedOn` = derived provider name.
 - **GenericJson**: create `import_run`, mark failed with `stage = "source_fetch"`, message = "Generic JSON integration is not implemented in V2 yet". Do not update `lastFinishedAt`.
 
 All sink parsers emit resolved refs where a native provider ID is available (TMDB ID → use `buildMovieOrShowImportRef` shared helper). For unknowns emit unresolved refs.
@@ -631,6 +631,7 @@ src/modules/integrations/
     sink/
       kodi.ts
       emby.ts
+      generic-json.ts
       plex-sink.ts
       jellyfin-sink.ts
       ryot-browser-extension.ts
@@ -747,9 +748,9 @@ Test `writeOwnershipToLibrary`: merges sources correctly, does not duplicate pro
 
 ## Tasks
 
-**Overall Progress:** 6 of 10 tasks completed
+**Overall Progress:** 7 of 10 tasks completed
 
-**Current Task:** [Task 06 — Sink Integration Execution and Adapters](./06-sink-integration-adapters.md) (todo)
+**Current Task:** [Task 07 — Push and Progress-Policy Sandbox Scripts](./07-push-and-progress-policy-scripts.md) (todo)
 
 ### Task List
 
@@ -760,7 +761,7 @@ Test `writeOwnershipToLibrary`: merges sources correctly, does not duplicate pro
 | 03  | [Collection Events and Ownership Infrastructure](./03-collection-events-and-ownership.md)                  | AFK  | done   |
 | 04  | [Integrations CRUD, Scheduling, and Webhook Infrastructure](./04-integrations-crud-scheduling-webhooks.md) | AFK  | done   |
 | 05  | [Yank Integration Execution and Adapters](./05-yank-integration-adapters.md)                               | AFK  | done   |
-| 06  | [Sink Integration Execution and Adapters](./06-sink-integration-adapters.md)                               | AFK  | todo   |
+| 06  | [Sink Integration Execution and Adapters](./06-sink-integration-adapters.md)                               | AFK  | done   |
 | 07  | [Push and Progress-Policy Sandbox Scripts](./07-push-and-progress-policy-scripts.md)                       | AFK  | todo   |
 | 08  | [Legacy Bootstrap Migration](./08-legacy-bootstrap-migration.md)                                           | AFK  | todo   |
 | 09  | [E2E Tests](./09-e2e-tests.md)                                                                             | AFK  | todo   |
