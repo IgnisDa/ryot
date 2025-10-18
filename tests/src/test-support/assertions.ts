@@ -36,6 +36,14 @@ export function requireObjectRecord(value: unknown, message: string): Record<str
 	return Object.fromEntries(Object.entries(value));
 }
 
+export function requireArray(value: unknown, message: string): unknown[] {
+	if (!Array.isArray(value)) {
+		throw new Error(message);
+	}
+
+	return value;
+}
+
 function isNonEmptyArray<T>(arr: readonly T[]): arr is [T, ...T[]] {
 	return arr.length > 0;
 }

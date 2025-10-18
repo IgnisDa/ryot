@@ -327,11 +327,10 @@ export async function executeQueryEngine(
 	cookies: string,
 	body: QueryEngineRequest,
 ) {
-	const mode = body.mode ?? "entities";
 	const result = await client.queryEngine.execute({
-		// oxlint-disable-next-line typescript-eslint/no-explicit-any
-		body: { ...body, mode } as any,
 		headers: { Cookie: cookies },
+		// oxlint-disable-next-line typescript-eslint/no-explicit-any
+		body: { ...body, mode: body.mode ?? "entities" } as any,
 	});
 
 	return {
