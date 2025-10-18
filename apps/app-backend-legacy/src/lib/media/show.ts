@@ -1,5 +1,4 @@
 import { z } from "@hono/zod-openapi";
-import { toAppSchemaProperties } from "@ryot/ts-utils/app-schema";
 
 import { imagesSchema, nullableIntSchema, nullableStringSchema, stringArraySchema } from "../zod";
 import { mediaPropertiesSchema } from "./common";
@@ -34,7 +33,6 @@ export const showPropertiesSchema = mediaPropertiesSchema.extend({
 	showSeasons: z.array(showSeasonSchema).describe("Seasons in this show, each containing episodes"),
 });
 
-export const showPropertiesJsonSchema = toAppSchemaProperties(showPropertiesSchema);
 
 export type ShowEpisode = z.infer<typeof showEpisodeSchema>;
 

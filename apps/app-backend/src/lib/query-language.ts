@@ -184,6 +184,16 @@ export const QueryFilter: Schema.Schema<QueryFilter> = Schema.suspend(() =>
 export const Pagination = strictStruct({ page: Schema.Number, limit: Schema.Number });
 export type Pagination = typeof Pagination.Type;
 
+export const PaginationResult = strictStruct({
+	page: Schema.Number,
+	total: Schema.Number,
+	limit: Schema.Number,
+	totalPages: Schema.Number,
+	hasNextPage: Schema.Boolean,
+	hasPreviousPage: Schema.Boolean,
+});
+export type PaginationResult = typeof PaginationResult.Type;
+
 export const DateRange = strictStruct({ endAt: Schema.String, startAt: Schema.String });
 export type DateRange = typeof DateRange.Type;
 
@@ -395,6 +405,9 @@ export const createTransformExpression = (
 	name: typeof ViewTransformName.Type,
 	expression: QueryExpression,
 ) => ({ type: "transform", name, expression }) as const;
+
+export const createComputedFieldExpression = (key: string) =>
+	({ type: "reference", reference: { key, type: "computed-field" } }) as const;
 
 export const createConcatExpression = (values: ReadonlyArray<QueryExpression>) =>
 	({ values, type: "concat" }) as const;
