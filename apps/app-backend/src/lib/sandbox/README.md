@@ -61,7 +61,7 @@ Host functions are bridge handlers exposed only when listed in `metadata.allowed
 
 | Scope   | Functions                                                                                                                                                          |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Runtime | `httpCall`, `getSystemConfig`                                                                                                                                      |
+| Runtime | `httpCall`                                                                                                                                                         |
 | Script  | `getAppConfigValue`, `getCachedValue`, `setCachedValue`, `claimCachedValue`                                                                                        |
 | User    | `createEvents`, `executeQueryEngine`, `getEntity`, `getEntitySchema`, `getIntegration`, `getUserPreferences`, `listEventSchemas`, `listEvents`, `listIntegrations` |
 
