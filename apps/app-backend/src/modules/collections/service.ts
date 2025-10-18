@@ -5,17 +5,19 @@ import { formatValidationIssues, parseAppSchemaPropertiesSafe } from "~/lib/app/
 import type { DbClient } from "~/lib/db";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 import { ensureEntityInLibrary } from "~/modules/entities";
+import {
+	deleteCollectionMembership,
+	writeCollectionMembership,
+} from "~/modules/entities/relationships";
 import { parseLabeledPropertySchemaInput } from "~/modules/property-schemas";
 
 import {
-	addEntityToCollection,
 	createCollectionForUser,
 	createLibraryEntityForUser,
 	findCollectionByNameForUser,
 	getBuiltinCollectionSchema,
 	getCollectionById,
 	getEntityById,
-	removeEntityFromCollection,
 } from "./repository";
 import type {
 	AddToCollectionBody,
@@ -59,13 +61,13 @@ export type AddToCollectionServiceDeps = {
 	getEntityById: typeof getEntityById;
 	getCollectionById: typeof getCollectionById;
 	ensureEntityInLibrary: typeof ensureEntityInLibrary;
-	addEntityToCollection: typeof addEntityToCollection;
+	writeCollectionMembership: typeof writeCollectionMembership;
 };
 
 export type RemoveFromCollectionServiceDeps = {
 	getEntityById: typeof getEntityById;
 	getCollectionById: typeof getCollectionById;
-	removeEntityFromCollection: typeof removeEntityFromCollection;
+	deleteCollectionMembership: typeof deleteCollectionMembership;
 };
 
 export type CollectionServiceResult<T> = ServiceResult<T, "not_found" | "validation">;
@@ -182,7 +184,7 @@ const addToCollectionServiceDeps: AddToCollectionServiceDeps = {
 	getEntityById,
 	getCollectionById,
 	ensureEntityInLibrary,
-	addEntityToCollection,
+	writeCollectionMembership,
 };
 
 export const addToCollection = async (
@@ -234,20 +236,23 @@ export const addToCollection = async (
 		}
 	}
 
-	const relationships = await deps.addEntityToCollection({
+	const membershipResult = await deps.writeCollectionMembership({
 		userId: input.userId,
 		entityId: input.body.entityId,
 		properties: validatedProperties,
 		collectionId: input.body.collectionId,
 	});
+	if ("error" in membershipResult) {
+		return membershipResult;
+	}
 
-	return serviceData(relationships);
+	return serviceData(membershipResult.data);
 };
 
 const removeFromCollectionServiceDeps: RemoveFromCollectionServiceDeps = {
 	getEntityById,
 	getCollectionById,
-	removeEntityFromCollection,
+	deleteCollectionMembership,
 };
 
 export const removeFromCollection = async (
@@ -263,15 +268,18 @@ export const removeFromCollection = async (
 	if (!entity) {
 		return serviceError("not_found", entityNotFoundError);
 	}
-	const relationships = await deps.removeEntityFromCollection({
+	const membershipResult = await deps.deleteCollectionMembership({
 		userId: input.userId,
 		entityId: input.body.entityId,
 		collectionId: input.body.collectionId,
 	});
+	if ("error" in membershipResult) {
+		return membershipResult;
+	}
 
-	if (!relationships) {
+	if (!membershipResult.data) {
 		return serviceError("not_found", "Entity is not in collection");
 	}
 
-	return serviceData(relationships);
+	return serviceData(membershipResult.data);
 };
