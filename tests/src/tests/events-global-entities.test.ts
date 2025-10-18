@@ -29,7 +29,7 @@ describe("POST /events with global entities", () => {
 		expect(events).toHaveLength(1);
 		expect(events[0]?.eventSchemaSlug).toBe("backlog");
 
-		const membership = await queryInLibraryRelationship(entity.id, email);
+		const membership = await queryInLibraryRelationship(client, entity.id, email);
 		expect(membership.rowCount).toBe(1);
 	});
 });
