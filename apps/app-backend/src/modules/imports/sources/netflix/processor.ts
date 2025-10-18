@@ -3,8 +3,8 @@ import { Effect } from "effect";
 
 import { DbRunner } from "#lib/db";
 import type { ImportRunId, SandboxScriptId, UserId } from "#lib/schema/brands";
-import type { EntitySearchItem } from "#modules/entities/population";
 import { EntitiesRepository } from "#modules/entities/repository";
+import type { EntitySearchItem } from "#modules/entity-import/population";
 
 import { nowIso } from "../../media/dates";
 import type { LoadedMediaImportAdapterError } from "../../media/file-processor";
