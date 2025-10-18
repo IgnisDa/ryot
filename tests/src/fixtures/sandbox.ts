@@ -1,12 +1,12 @@
-import { requirePresent, requireResponseData } from "../test-support/assertions";
+import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
-import type { ClientBody, ClientSuccess } from "./backend-client";
+import type { ContractPayload, ContractSuccess } from "./contract-client";
 import { type PollOptions, pollUntil } from "./polling";
 
-type CreateSandboxScriptBody = ClientBody<"sandbox", "createScript">;
+type CreateSandboxScriptBody = ContractPayload<"sandbox", "createScript">;
 
-type EnqueueSandboxBody = ClientBody<"sandbox", "enqueue">;
-type SandboxResult = Exclude<ClientSuccess<"sandbox", "getResult">, { status: "pending" }> | null;
+type EnqueueSandboxBody = ContractPayload<"sandbox", "enqueue">;
+type SandboxResult = Exclude<ContractSuccess<"sandbox", "getResult">, { status: "pending" }> | null;
 type SandboxCompletedResult = Extract<NonNullable<SandboxResult>, { status: "completed" }>;
 type TypedSandboxResult =
 	| Exclude<NonNullable<SandboxResult>, { status: "completed" }>
@@ -19,12 +19,9 @@ export async function createSandboxScript(
 	cookies: string,
 	body: CreateSandboxScriptBody,
 ) {
-	const { data, response } = await client.sandbox.createScript({
-		body,
-		headers: { Cookie: cookies },
+	const script = await client.run((c) => c.sandbox.createScript({ payload: body }), {
+		Cookie: cookies,
 	});
-
-	const script = requireResponseData(response, data, "Failed to create sandbox script");
 	requirePresent(script.id, "Failed to create sandbox script");
 	return script;
 }
@@ -34,16 +31,12 @@ export async function enqueueSandboxScript(
 	cookies: string,
 	body: EnqueueSandboxBody,
 ) {
-	const { data, response } = await client.sandbox.enqueue({
-		body,
-		headers: { Cookie: cookies },
+	const result = await client.run((c) => c.sandbox.enqueue({ payload: body }), {
+		Cookie: cookies,
 	});
 
 	return {
-		jobId: requirePresent(
-			requireResponseData(response, data, "Failed to enqueue sandbox script").jobId,
-			"Failed to enqueue sandbox script",
-		),
+		jobId: requirePresent(result.jobId, "Failed to enqueue sandbox script"),
 	};
 }
 
@@ -56,15 +49,9 @@ export async function pollSandboxResult(
 	return pollUntil(
 		`sandbox job '${jobId}'`,
 		async () => {
-			const { data, response } = await client.sandbox.getResult({
-				params: { path: { jobId } },
-				headers: { Cookie: cookies },
+			const result = await client.run((c) => c.sandbox.getResult({ path: { jobId } }), {
+				Cookie: cookies,
 			});
-			const result = requireResponseData(
-				response,
-				data,
-				`Failed to poll sandbox result '${jobId}'`,
-			);
 
 			// TODO(Task 22): Remove this tests-only sandbox assertion once the public
 			// AppContract exposes typed sandbox timing details.

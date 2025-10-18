@@ -1,19 +1,15 @@
 import { getPgClient } from "../setup";
-import {
-	requireObjectRecord,
-	requirePresent,
-	requireResponseData,
-} from "../test-support/assertions";
+import { requireObjectRecord, requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
-import type { ClientBody, ClientSuccess } from "./backend-client";
+import type { ContractPayload, ContractSuccess } from "./contract-client";
 import { createTrackerWithSchema } from "./entity-schemas";
 
-type CreateEntityBody = ClientBody<"entities", "create">;
+type CreateEntityBody = ContractPayload<"entities", "create">;
 type CreateEntityInput = Omit<CreateEntityBody, "image"> & {
 	image?: CreateEntityBody["image"] | { type: "remote"; url: string } | null;
 };
 
-type ClearEntityUserStateData = ClientSuccess<"entities", "clearUserState">;
+type ClearEntityUserStateData = ContractSuccess<"entities", "clearUserState">;
 
 function withRecordProperties<T extends { properties: unknown }>(
 	entity: T,
@@ -44,17 +40,19 @@ function normalizeEntityImage(
 
 export async function createEntity(client: Client, cookies: string, body: CreateEntityInput) {
 	const { image, ...rest } = body;
-	const { data, response } = await client.entities.create({
-		body: {
-			...rest,
-			...(normalizeEntityImage(image) !== undefined && {
-				image: normalizeEntityImage(image),
+	const entity = await client.run(
+		(c) =>
+			c.entities.create({
+				payload: {
+					...rest,
+					...(normalizeEntityImage(image) !== undefined && {
+						image: normalizeEntityImage(image),
+					}),
+				},
 			}),
-		},
-		headers: { Cookie: cookies },
-	});
+		{ Cookie: cookies },
+	);
 
-	const entity = requireResponseData(response, data, "Failed to create entity");
 	requirePresent(entity.id, "Failed to create entity");
 
 	// TODO(Task 22): Remove this tests-only entity assertion once the public
@@ -63,16 +61,13 @@ export async function createEntity(client: Client, cookies: string, body: Create
 }
 
 export async function getEntity(client: Client, cookies: string, entityId: string) {
-	const { data, response } = await client.entities.get({
-		headers: { Cookie: cookies },
-		params: { path: { entityId } },
+	const entity = await client.run((c) => c.entities.get({ path: { entityId } }), {
+		Cookie: cookies,
 	});
 
 	// TODO(Task 22): Remove this tests-only entity assertion once the public
 	// AppContract exposes typed entity properties.
-	return withRecordProperties(
-		requireResponseData(response, data, `Failed to get entity '${entityId}'`),
-	);
+	return withRecordProperties(entity);
 }
 
 export async function clearEntityUserState(
@@ -80,12 +75,7 @@ export async function clearEntityUserState(
 	cookies: string,
 	entityId: string,
 ): Promise<ClearEntityUserStateData> {
-	const { data, response } = await client.entities.clearUserState({
-		headers: { Cookie: cookies },
-		params: { path: { entityId } },
-	});
-
-	return requireResponseData(response, data, `Failed to clear user state for entity '${entityId}'`);
+	return client.run((c) => c.entities.clearUserState({ path: { entityId } }), { Cookie: cookies });
 }
 
 export async function queryUserEntityStateCounts(input: { userId: string; entityId: string }) {

@@ -1,8 +1,8 @@
-import { requirePresent, requireResponseData } from "../test-support/assertions";
+import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
-import type { ClientBody } from "./backend-client";
+import type { ContractPayload } from "./contract-client";
 
-type CreateEventSchemaBody = ClientBody<"eventSchemas", "create">;
+type CreateEventSchemaBody = ContractPayload<"eventSchemas", "create">;
 
 export function requireEventSchemaBySlug<T extends { slug: string }>(
 	schemas: readonly T[],
@@ -17,28 +17,11 @@ export async function createEventSchema(
 	cookies: string,
 	body: CreateEventSchemaBody,
 ) {
-	const { data, response } = await client.eventSchemas.create({
-		body,
-		headers: { Cookie: cookies },
-	});
-
-	const eventSchema = requireResponseData(
-		response,
-		data,
-		`Failed to create event schema '${body.name}'`,
-	);
-	return eventSchema;
+	return client.run((c) => c.eventSchemas.create({ payload: body }), { Cookie: cookies });
 }
 
 export async function listEventSchemas(client: Client, cookies: string, entitySchemaId: string) {
-	const { data, response } = await client.eventSchemas.list({
-		headers: { Cookie: cookies },
-		params: { query: { entitySchemaId } },
+	return client.run((c) => c.eventSchemas.list({ urlParams: { entitySchemaId } }), {
+		Cookie: cookies,
 	});
-
-	return requireResponseData(
-		response,
-		data,
-		`Failed to list event schemas for '${entitySchemaId}'`,
-	);
 }

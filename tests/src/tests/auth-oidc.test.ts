@@ -6,9 +6,9 @@ import getPort from "get-port";
 import { Client as PgClient } from "pg";
 import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 
+import { makeSession } from "../fixtures";
 import { createTestAuthClient } from "../fixtures/auth";
 import { oidcSignIn } from "../fixtures/auth-oidc";
-import { createBackendClient } from "../fixtures/backend-client";
 import { requirePresent } from "../test-support/assertions";
 import {
 	attachProcessLogs,
@@ -141,24 +141,24 @@ afterAll(async () => {
 
 describe("GET /system/config with OIDC enabled (Backend A)", () => {
 	it("returns oidcEnabled: true", async () => {
-		const client = createBackendClient(getBackendUrlA());
-		const { data } = await client.system.config();
-		expect(data?.auth.oidcEnabled).toBe(true);
+		const client = makeSession(getBackendUrlA());
+		const data = await client.run((c) => c.system.config());
+		expect(data.auth.oidcEnabled).toBe(true);
 	});
 
 	it("returns oidcButtonLabel from env var", async () => {
-		const client = createBackendClient(getBackendUrlA());
-		const { data } = await client.system.config();
-		expect(data?.auth.oidcButtonLabel).toBe(OIDC_BUTTON_LABEL);
+		const client = makeSession(getBackendUrlA());
+		const data = await client.run((c) => c.system.config());
+		expect(data.auth.oidcButtonLabel).toBe(OIDC_BUTTON_LABEL);
 	});
 });
 
 describe("GET /system/config with local auth disabled (Backend B)", () => {
 	it("returns localAuthDisabled: true", async () => {
-		const client = createBackendClient(getBackendUrlB());
-		const { data } = await client.system.config();
-		expect(data?.auth.signupAllowed).toBe(false);
-		expect(data?.auth.localAuthDisabled).toBe(true);
+		const client = makeSession(getBackendUrlB());
+		const data = await client.run((c) => c.system.config());
+		expect(data.auth.signupAllowed).toBe(false);
+		expect(data.auth.localAuthDisabled).toBe(true);
 	});
 });
 
@@ -186,12 +186,10 @@ describe("OIDC sign-in happy path (Backend A)", () => {
 	it("first-time OIDC sign-in produces a valid session", async () => {
 		const username = `user-${crypto.randomUUID()}`;
 		const sessionCookie = await oidcSignIn(username, getBackendUrlA());
-		const client = createBackendClient(getBackendUrlA());
-		const { response } = await client.trackers.list({
-			params: { query: trackersListQuery },
-			headers: { Cookie: sessionCookie },
+		const client = makeSession(getBackendUrlA());
+		await client.run((c) => c.trackers.list({ urlParams: trackersListQuery }), {
+			Cookie: sessionCookie,
 		});
-		expect(response.status).toBe(200);
 	});
 
 	it("first-time OIDC sign-in creates a user row", async () => {
@@ -233,19 +231,11 @@ describe("OIDC idempotency (Backend A)", () => {
 		]);
 		expect(userResult.rows.length).toBe(1);
 
-		const client = createBackendClient(getBackendUrlA());
-		const [res1, res2] = await Promise.all([
-			client.trackers.list({
-				params: { query: trackersListQuery },
-				headers: { Cookie: cookie1 },
-			}),
-			client.trackers.list({
-				params: { query: trackersListQuery },
-				headers: { Cookie: cookie2 },
-			}),
+		const client = makeSession(getBackendUrlA());
+		await Promise.all([
+			client.run((c) => c.trackers.list({ urlParams: trackersListQuery }), { Cookie: cookie1 }),
+			client.run((c) => c.trackers.list({ urlParams: trackersListQuery }), { Cookie: cookie2 }),
 		]);
-		expect(res1.response.status).toBe(200);
-		expect(res2.response.status).toBe(200);
 	});
 
 	it("bootstrap idempotency: tracker count is the same after two sign-ins", async () => {
@@ -351,12 +341,10 @@ describe("Registration gating for OIDC (Backend C)", () => {
 		const userId = beforeResult.rows[0]?.id;
 
 		const sessionCookie = await oidcSignIn(username, getBackendUrlC());
-		const client = createBackendClient(getBackendUrlC());
-		const { response } = await client.trackers.list({
-			params: { query: trackersListQuery },
-			headers: { Cookie: sessionCookie },
+		const client = makeSession(getBackendUrlC());
+		await client.run((c) => c.trackers.list({ urlParams: trackersListQuery }), {
+			Cookie: sessionCookie,
 		});
-		expect(response.status).toBe(200);
 
 		const afterResult = await pg.query<{ id: string }>(`SELECT id FROM "user" WHERE email = $1`, [
 			email,

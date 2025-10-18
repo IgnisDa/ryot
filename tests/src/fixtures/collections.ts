@@ -1,8 +1,4 @@
-import {
-	requireObjectRecord,
-	requirePresent,
-	requireResponseData,
-} from "../test-support/assertions";
+import { requireObjectRecord, requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 import type { AppSchema } from "./entity-schemas";
 
@@ -23,12 +19,18 @@ export async function createCollection(
 		membershipPropertiesSchema,
 	} = options;
 
-	const { data, response } = await client.collections.create({
-		headers: { Cookie: cookies },
-		body: { name, description, ...(membershipPropertiesSchema && { membershipPropertiesSchema }) },
-	});
+	const collection = await client.run(
+		(c) =>
+			c.collections.create({
+				payload: {
+					name,
+					description,
+					...(membershipPropertiesSchema && { membershipPropertiesSchema }),
+				},
+			}),
+		{ Cookie: cookies },
+	);
 
-	const collection = requireResponseData(response, data, `Failed to create collection '${name}'`);
 	requirePresent(collection.id, `Failed to create collection '${name}'`);
 
 	// TODO(Task 22): Remove this tests-only collection assertion once the public

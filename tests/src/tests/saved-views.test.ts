@@ -36,7 +36,7 @@ import {
 	updateSavedView,
 	waitForEventCount,
 } from "../fixtures";
-import { assertPresent } from "../test-support/assertions";
+import { assertPresent, assertTaggedError } from "../test-support/assertions";
 
 type SavedViewBodyOverrides = NonNullable<Parameters<typeof buildSavedViewBody>[0]>;
 
@@ -124,22 +124,24 @@ describe("Saved views E2E", () => {
 		const reviewEventSchemaId = eventSchemas.find((item) => item.slug === "review")?.id;
 		assertPresent(reviewEventSchemaId, "Missing review event schema");
 
-		const createReviews = await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId: entity.id,
-					eventSchemaId: reviewEventSchemaId,
-					properties: { rating: 2, text: "Okay" },
-				},
-				{
-					entityId: entity.id,
-					eventSchemaId: reviewEventSchemaId,
-					properties: { rating: 4, text: "Good" },
-				},
-			],
-		});
-		expect(createReviews.response.status).toBe(200);
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: entity.id,
+							eventSchemaId: reviewEventSchemaId,
+							properties: { rating: 2, text: "Okay" },
+						},
+						{
+							entityId: entity.id,
+							eventSchemaId: reviewEventSchemaId,
+							properties: { rating: 4, text: "Good" },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 		await waitForEventCount(client, cookies, entity.id, 2);
 
 		const allShowsView = await getSavedView(client, cookies, "all-shows");
@@ -149,7 +151,7 @@ describe("Saved views E2E", () => {
 
 		// all-shows is a built-in entities-mode view
 		const allShowsQD = allShowsView.queryDefinition;
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -172,7 +174,6 @@ describe("Saved views E2E", () => {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(getQueryEngineFieldOrThrow(data.data.items[0], "callout")).toEqual({
 			value: 3,
 			key: "callout",
@@ -214,28 +215,30 @@ describe("Saved views E2E", () => {
 		const reviewEventSchemaId = eventSchemas.find((item) => item.slug === "review")?.id;
 		assertPresent(reviewEventSchemaId, "Missing review event schema");
 
-		const createReviews = await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId: entity.id,
-					eventSchemaId: reviewEventSchemaId,
-					properties: { rating: 1, text: "Low" },
-				},
-				{
-					entityId: entity.id,
-					eventSchemaId: reviewEventSchemaId,
-					properties: { rating: 5, text: "High" },
-				},
-			],
-		});
-		expect(createReviews.response.status).toBe(200);
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: entity.id,
+							eventSchemaId: reviewEventSchemaId,
+							properties: { rating: 1, text: "Low" },
+						},
+						{
+							entityId: entity.id,
+							eventSchemaId: reviewEventSchemaId,
+							properties: { rating: 5, text: "High" },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 		await waitForEventCount(client, cookies, entity.id, 2);
 
 		const view = await getSavedView(client, cookies, "all-shows");
 		const queryDefinition = view.queryDefinition;
 
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -258,7 +261,6 @@ describe("Saved views E2E", () => {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(getQueryEngineFieldOrThrow(data.data.items[0], "callout")).toEqual({
 			value: 3,
 			key: "callout",
@@ -409,61 +411,68 @@ describe("Saved views E2E", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const builtinView = await findBuiltinSavedView(client, cookies);
 
-		const deleteResult = await client.savedViews.delete({
-			headers: { Cookie: cookies },
-			params: { path: { viewSlug: builtinView.slug } },
-		});
+		const error = await client.runError(
+			(c) => c.savedViews.delete({ path: { viewSlug: builtinView.slug } }),
+			{ Cookie: cookies },
+		);
 
-		expect(deleteResult.response.status).toBe(400);
-		expect(deleteResult.error?.error.message).toBe(builtinViewError);
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toBe(builtinViewError);
 	});
 
 	it("rejects built-in updates that attempt to change fields other than isDisabled", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const builtinView = await findBuiltinSavedView(client, cookies);
 
-		const invalidUpdate = await client.savedViews.update({
-			headers: { Cookie: cookies },
-			params: { path: { viewSlug: builtinView.slug } },
-			body: buildUpdatedSavedViewBody({
-				isDisabled: true,
-				name: "Attempted Rename",
-			}),
-		});
+		const invalidUpdateError = await client.runError(
+			(c) =>
+				c.savedViews.update({
+					path: { viewSlug: builtinView.slug },
+					payload: buildUpdatedSavedViewBody({
+						isDisabled: true,
+						name: "Attempted Rename",
+					}),
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(invalidUpdate.response.status).toBe(400);
-		expect(invalidUpdate.error?.error.message).toBe(builtinViewError);
+		assertTaggedError(invalidUpdateError, "BadRequest");
+		expect(invalidUpdateError.message).toBe(builtinViewError);
 
-		const disableResult = await client.savedViews.update({
-			headers: { Cookie: cookies },
-			params: { path: { viewSlug: builtinView.slug } },
-			body: {
-				icon: builtinView.icon,
-				name: builtinView.name,
-				isDisabled: true,
-				accentColor: builtinView.accentColor,
-				queryDefinition: builtinView.queryDefinition,
-				displayConfiguration: builtinView.displayConfiguration,
-				...(builtinView.trackerId ? { trackerId: builtinView.trackerId } : {}),
-			},
-		});
-		expect(disableResult.response.status).toBe(200);
-		expect(disableResult.data?.isDisabled).toBe(true);
+		const disableResult = await client.run(
+			(c) =>
+				c.savedViews.update({
+					path: { viewSlug: builtinView.slug },
+					payload: {
+						icon: builtinView.icon,
+						name: builtinView.name,
+						isDisabled: true,
+						accentColor: builtinView.accentColor,
+						queryDefinition: builtinView.queryDefinition,
+						displayConfiguration: builtinView.displayConfiguration,
+						...(builtinView.trackerId ? { trackerId: builtinView.trackerId } : {}),
+					},
+				}),
+			{ Cookie: cookies },
+		);
+		expect(disableResult.isDisabled).toBe(true);
 
-		const reEnableResult = await client.savedViews.update({
-			headers: { Cookie: cookies },
-			params: { path: { viewSlug: builtinView.slug } },
-			body: {
-				icon: builtinView.icon,
-				name: builtinView.name,
-				isDisabled: false,
-				accentColor: builtinView.accentColor,
-				queryDefinition: builtinView.queryDefinition,
-				displayConfiguration: builtinView.displayConfiguration,
-				...(builtinView.trackerId ? { trackerId: builtinView.trackerId } : {}),
-			},
-		});
-		expect(reEnableResult.response.status).toBe(200);
+		await client.run(
+			(c) =>
+				c.savedViews.update({
+					path: { viewSlug: builtinView.slug },
+					payload: {
+						icon: builtinView.icon,
+						name: builtinView.name,
+						isDisabled: false,
+						accentColor: builtinView.accentColor,
+						queryDefinition: builtinView.queryDefinition,
+						displayConfiguration: builtinView.displayConfiguration,
+						...(builtinView.trackerId ? { trackerId: builtinView.trackerId } : {}),
+					},
+				}),
+			{ Cookie: cookies },
+		);
 		const fetchedReEnabled = await getSavedView(client, cookies, builtinView.slug);
 
 		expect(fetchedReEnabled.isDisabled).toBe(false);
@@ -473,27 +482,30 @@ describe("Saved views E2E", () => {
 	it("returns 404 for missing views across read, update, clone, and delete", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const readResult = await client.savedViews.get({
-			headers: { Cookie: cookies },
-			params: { path: { viewSlug: missingViewSlug } },
-		});
-		const updateResult = await client.savedViews.update({
-			headers: { Cookie: cookies },
-			params: { path: { viewSlug: missingViewSlug } },
-			body: buildUpdatedSavedViewBody(),
-		});
-		const cloneResult = await client.savedViews.clone({
-			headers: { Cookie: cookies },
-			params: { path: { viewSlug: missingViewSlug } },
-		});
-		const deleteResult = await client.savedViews.delete({
-			headers: { Cookie: cookies },
-			params: { path: { viewSlug: missingViewSlug } },
-		});
+		const readError = await client.runError(
+			(c) => c.savedViews.get({ path: { viewSlug: missingViewSlug } }),
+			{ Cookie: cookies },
+		);
+		const updateError = await client.runError(
+			(c) =>
+				c.savedViews.update({
+					path: { viewSlug: missingViewSlug },
+					payload: buildUpdatedSavedViewBody(),
+				}),
+			{ Cookie: cookies },
+		);
+		const cloneError = await client.runError(
+			(c) => c.savedViews.clone({ path: { viewSlug: missingViewSlug } }),
+			{ Cookie: cookies },
+		);
+		const deleteError = await client.runError(
+			(c) => c.savedViews.delete({ path: { viewSlug: missingViewSlug } }),
+			{ Cookie: cookies },
+		);
 
-		for (const result of [readResult, updateResult, cloneResult, deleteResult]) {
-			expect(result.response.status).toBe(404);
-			expect(result.error?.error.message).toBe("Saved view not found");
+		for (const error of [readError, updateError, cloneError, deleteError]) {
+			assertTaggedError(error, "NotFound");
+			expect(error.message).toBe("Saved view not found");
 		}
 	});
 
@@ -701,13 +713,16 @@ describe("Saved views E2E", () => {
 			name: `Top Scope View ${crypto.randomUUID()}`,
 		});
 
-		const result = await client.savedViews.reorder({
-			headers: { Cookie: cookies },
-			body: { trackerId, viewSlugs: [tracked.slug, standalone.slug] },
-		});
+		const error = await client.runError(
+			(c) =>
+				c.savedViews.reorder({
+					payload: { trackerId, viewSlugs: [tracked.slug, standalone.slug] },
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(result.response.status).toBe(400);
-		expect(result.error?.error.message).toBe("Saved view slugs contain unknown saved views");
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toBe("Saved view slugs contain unknown saved views");
 	});
 
 	it("rejects empty sort fields when creating or updating saved views", async () => {
@@ -716,32 +731,38 @@ describe("Saved views E2E", () => {
 			name: "Sort Guard View",
 		});
 
-		const createResult = await client.savedViews.create({
-			headers: { Cookie: cookies },
-			body: buildSavedViewBody({
-				name: "Broken Sort View",
-				queryDefinition: {
-					filter: null,
-					eventJoins: [],
-					computedFields: [],
-					scope: ["book"],
-					sort: { expression: literalExpression(null), direction: "asc" },
-				},
-			}),
-		});
-		const updateResult = await client.savedViews.update({
-			headers: { Cookie: cookies },
-			params: { path: { viewSlug: createdView.slug } },
-			body: buildUpdatedSavedViewBody({
-				queryDefinition: {
-					filter: null,
-					eventJoins: [],
-					computedFields: [],
-					scope: ["book"],
-					sort: { expression: literalExpression(null), direction: "asc" },
-				},
-			}),
-		});
+		const createError = await client.runError(
+			(c) =>
+				c.savedViews.create({
+					payload: buildSavedViewBody({
+						name: "Broken Sort View",
+						queryDefinition: {
+							filter: null,
+							eventJoins: [],
+							computedFields: [],
+							scope: ["book"],
+							sort: { expression: literalExpression(null), direction: "asc" },
+						},
+					}),
+				}),
+			{ Cookie: cookies },
+		);
+		const updateError = await client.runError(
+			(c) =>
+				c.savedViews.update({
+					path: { viewSlug: createdView.slug },
+					payload: buildUpdatedSavedViewBody({
+						queryDefinition: {
+							filter: null,
+							eventJoins: [],
+							computedFields: [],
+							scope: ["book"],
+							sort: { expression: literalExpression(null), direction: "asc" },
+						},
+					}),
+				}),
+			{ Cookie: cookies },
+		);
 		const refreshedView = await getSavedView(client, cookies, createdView.slug);
 		if (!("sort" in refreshedView.queryDefinition)) {
 			throw new Error("Expected saved view query definition to expose a sort expression");
@@ -749,12 +770,12 @@ describe("Saved views E2E", () => {
 		const refreshedQD = refreshedView.queryDefinition;
 		assertPresent(refreshedQD.sort, "Expected saved view query definition to expose a sort value");
 
-		expect(createResult.response.status).toBe(400);
-		expect(updateResult.response.status).toBe(400);
-		expect(createResult.error?.error.message).toContain(
+		assertTaggedError(createError, "BadRequest");
+		assertTaggedError(updateError, "BadRequest");
+		expect(createError.message).toContain(
 			"Sort expressions must resolve to a sortable scalar value",
 		);
-		expect(updateResult.error?.error.message).toContain(
+		expect(updateError.message).toContain(
 			"Sort expressions must resolve to a sortable scalar value",
 		);
 		expect(refreshedQD.sort.expression).toEqual(createEntityColumnExpression("book", "name"));
@@ -763,12 +784,9 @@ describe("Saved views E2E", () => {
 	it("rejects creating saved views with aggregate query definitions", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { data, response, error } = await client.savedViews.create({
-			headers: { Cookie: cookies },
-			body: buildSavedViewBody({
-				name: "Aggregate Stats View",
-				// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-				queryDefinition: {
+		const aggregateQueryDefinition: NonNullable<SavedViewBodyOverrides["queryDefinition"]> =
+			JSON.parse(
+				JSON.stringify({
 					filter: null,
 					eventJoins: [],
 					scope: ["book"],
@@ -776,13 +794,22 @@ describe("Saved views E2E", () => {
 					computedFields: [],
 					relationshipJoins: [],
 					aggregations: [{ key: "total", aggregation: { type: "count" } }],
-				} as unknown as NonNullable<SavedViewBodyOverrides["queryDefinition"]>,
-			}),
-		});
+				}),
+			);
 
-		expect(response.status).toBe(400);
-		expect(data).toBeUndefined();
-		expect(error?.error.message).toContain("Invalid input");
+		const error = await client.runError(
+			(c) =>
+				c.savedViews.create({
+					payload: buildSavedViewBody({
+						name: "Aggregate Stats View",
+						queryDefinition: aggregateQueryDefinition,
+					}),
+				}),
+			{ Cookie: cookies },
+		);
+
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toContain("Invalid input");
 	});
 
 	it("persists computed fields across saved view create and update flows", async () => {
@@ -949,24 +976,28 @@ describe("Saved views E2E", () => {
 			],
 		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
 
-		const createResult = await client.savedViews.create({
-			headers: { Cookie: cookies },
-			body: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
-		});
-		const updateResult = await client.savedViews.update({
-			headers: { Cookie: cookies },
-			params: { path: { viewSlug: createdView.slug } },
-			body: buildUpdatedSavedViewBody({
-				queryDefinition: invalidQueryDefinition,
-			}),
-		});
+		const createError = await client.runError(
+			(c) =>
+				c.savedViews.create({
+					payload: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
+				}),
+			{ Cookie: cookies },
+		);
+		const updateError = await client.runError(
+			(c) =>
+				c.savedViews.update({
+					path: { viewSlug: createdView.slug },
+					payload: buildUpdatedSavedViewBody({ queryDefinition: invalidQueryDefinition }),
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(400);
-		expect(updateResult.response.status).toBe(400);
-		expect(createResult.error?.error.message).toBe(
+		assertTaggedError(createError, "BadRequest");
+		assertTaggedError(updateError, "BadRequest");
+		expect(createError.message).toBe(
 			"Computed field dependency cycle detected: first -> second -> first",
 		);
-		expect(updateResult.error?.error.message).toBe(
+		expect(updateError.message).toBe(
 			"Computed field dependency cycle detected: first -> second -> first",
 		);
 	});
@@ -993,24 +1024,28 @@ describe("Saved views E2E", () => {
 			],
 		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
 
-		const createResult = await client.savedViews.create({
-			headers: { Cookie: cookies },
-			body: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
-		});
-		const updateResult = await client.savedViews.update({
-			headers: { Cookie: cookies },
-			params: { path: { viewSlug: createdView.slug } },
-			body: buildUpdatedSavedViewBody({
-				queryDefinition: invalidQueryDefinition,
-			}),
-		});
+		const createError = await client.runError(
+			(c) =>
+				c.savedViews.create({
+					payload: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
+				}),
+			{ Cookie: cookies },
+		);
+		const updateError = await client.runError(
+			(c) =>
+				c.savedViews.update({
+					path: { viewSlug: createdView.slug },
+					payload: buildUpdatedSavedViewBody({ queryDefinition: invalidQueryDefinition }),
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(400);
-		expect(updateResult.response.status).toBe(400);
-		expect(createResult.error?.error.message).toBe(
+		assertTaggedError(createError, "BadRequest");
+		assertTaggedError(updateError, "BadRequest");
+		expect(createError.message).toBe(
 			"Image expressions are display-only and cannot be used in sorting",
 		);
-		expect(updateResult.error?.error.message).toBe(
+		expect(updateError.message).toBe(
 			"Image expressions are display-only and cannot be used in sorting",
 		);
 	});
@@ -1021,12 +1056,9 @@ describe("Saved views E2E", () => {
 			name: "Qualification Guard View",
 		});
 
-		const createResult = await client.savedViews.create({
-			headers: { Cookie: cookies },
-			// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-			body: {
-				...buildSavedViewBody({ name: "Broken Qualification View" }),
-				queryDefinition: {
+		const unqualifiedQueryDefinition: NonNullable<SavedViewBodyOverrides["queryDefinition"]> =
+			JSON.parse(
+				JSON.stringify({
 					eventJoins: [],
 					scope: ["book"],
 					sort: { direction: "asc", expression: "year" },
@@ -1036,33 +1068,35 @@ describe("Saved views E2E", () => {
 						type: "comparison",
 						right: { type: "literal", value: "active" },
 					},
-				},
-			} as never,
-		});
-		const updateResult = await client.savedViews.update({
-			headers: { Cookie: cookies },
-			params: { path: { viewSlug: createdView.slug } },
-			// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-			body: {
-				...buildUpdatedSavedViewBody(),
-				queryDefinition: {
-					eventJoins: [],
-					scope: ["book"],
-					sort: { direction: "asc", expression: "year" },
-					filter: {
-						left: "status",
-						operator: "eq",
-						type: "comparison",
-						right: { type: "literal", value: "active" },
-					},
-				},
-			} as never,
-		});
+				}),
+			);
 
-		expect(createResult.response.status).toBe(400);
-		expect(updateResult.response.status).toBe(400);
-		expect(createResult.error?.error.message).toContain("Invalid input");
-		expect(updateResult.error?.error.message).toContain("Invalid input");
+		const createError = await client.runError(
+			(c) =>
+				c.savedViews.create({
+					payload: {
+						...buildSavedViewBody({ name: "Broken Qualification View" }),
+						queryDefinition: unqualifiedQueryDefinition,
+					},
+				}),
+			{ Cookie: cookies },
+		);
+		const updateError = await client.runError(
+			(c) =>
+				c.savedViews.update({
+					path: { viewSlug: createdView.slug },
+					payload: {
+						...buildUpdatedSavedViewBody(),
+						queryDefinition: unqualifiedQueryDefinition,
+					},
+				}),
+			{ Cookie: cookies },
+		);
+
+		assertTaggedError(createError, "BadRequest");
+		assertTaggedError(updateError, "BadRequest");
+		expect(createError.message).toContain("Invalid input");
+		expect(updateError.message).toContain("Invalid input");
 	});
 
 	it("rejects a view referencing a property that does not exist in the schema", async () => {
@@ -1079,23 +1113,27 @@ describe("Saved views E2E", () => {
 			},
 		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
 
-		const createResult = await client.savedViews.create({
-			headers: { Cookie: cookies },
-			body: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
-		});
+		const createError = await client.runError(
+			(c) =>
+				c.savedViews.create({
+					payload: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
+				}),
+			{ Cookie: cookies },
+		);
 		const createdView = await createSavedView(client, cookies);
-		const updateResult = await client.savedViews.update({
-			headers: { Cookie: cookies },
-			params: { path: { viewSlug: createdView.slug } },
-			body: buildUpdatedSavedViewBody({
-				queryDefinition: invalidQueryDefinition,
-			}),
-		});
+		const updateError = await client.runError(
+			(c) =>
+				c.savedViews.update({
+					path: { viewSlug: createdView.slug },
+					payload: buildUpdatedSavedViewBody({ queryDefinition: invalidQueryDefinition }),
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(400);
-		expect(updateResult.response.status).toBe(400);
-		expect(createResult.error?.error.message).toContain("not found in schema");
-		expect(updateResult.error?.error.message).toContain("not found in schema");
+		assertTaggedError(createError, "BadRequest");
+		assertTaggedError(updateError, "BadRequest");
+		expect(createError.message).toContain("not found in schema");
+		expect(updateError.message).toContain("not found in schema");
 	});
 
 	it("rejects a view with a null title property in the display config", async () => {
@@ -1103,72 +1141,87 @@ describe("Saved views E2E", () => {
 		const createBody = buildSavedViewBody();
 		const invalidTitleProperty = JSON.parse("null");
 
-		const result = await client.savedViews.create({
-			headers: { Cookie: cookies },
-			body: {
-				...createBody,
-				displayConfiguration: {
-					...createBody.displayConfiguration,
-					grid: { ...createBody.displayConfiguration.grid, titleProperty: invalidTitleProperty },
-					list: { ...createBody.displayConfiguration.list, titleProperty: invalidTitleProperty },
-				},
-			},
-		});
+		const error = await client.runError(
+			(c) =>
+				c.savedViews.create({
+					payload: {
+						...createBody,
+						displayConfiguration: {
+							...createBody.displayConfiguration,
+							grid: {
+								...createBody.displayConfiguration.grid,
+								titleProperty: invalidTitleProperty,
+							},
+							list: {
+								...createBody.displayConfiguration.list,
+								titleProperty: invalidTitleProperty,
+							},
+						},
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(result.response.status).toBe(400);
-		expect(result.error?.error.message).toContain("displayConfiguration");
-		expect(result.error?.error.message).toContain("titleProperty");
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toContain("displayConfiguration");
+		expect(error.message).toContain("titleProperty");
 	});
 
 	it("rejects a view with no table columns in the display config", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const result = await client.savedViews.create({
-			headers: { Cookie: cookies },
-			body: buildSavedViewBody({
-				displayConfiguration: {
-					table: { columns: [] },
-					grid: {
-						imageProperty: null,
-						calloutProperty: null,
-						eyebrowProperty: null,
-						primarySubtitleProperty: null,
-						secondarySubtitleProperty: null,
-						titleProperty: [entityField("book", "name")],
-					},
-					list: {
-						imageProperty: null,
-						calloutProperty: null,
-						eyebrowProperty: null,
-						primarySubtitleProperty: null,
-						secondarySubtitleProperty: null,
-						titleProperty: [entityField("book", "name")],
-					},
-				},
-			}),
-		});
+		const error = await client.runError(
+			(c) =>
+				c.savedViews.create({
+					payload: buildSavedViewBody({
+						displayConfiguration: {
+							table: { columns: [] },
+							grid: {
+								imageProperty: null,
+								calloutProperty: null,
+								eyebrowProperty: null,
+								primarySubtitleProperty: null,
+								secondarySubtitleProperty: null,
+								titleProperty: [entityField("book", "name")],
+							},
+							list: {
+								imageProperty: null,
+								calloutProperty: null,
+								eyebrowProperty: null,
+								primarySubtitleProperty: null,
+								secondarySubtitleProperty: null,
+								titleProperty: [entityField("book", "name")],
+							},
+						},
+					}),
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(result.response.status).toBe(400);
-		expect(result.error?.error.message).toContain("At least one table column is required");
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toContain("At least one table column is required");
 	});
 
 	it("rejects a view with an invalid built-in column in the display config", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const createBody = buildSavedViewBody();
 
-		const result = await client.savedViews.create({
-			headers: { Cookie: cookies },
-			body: {
-				...createBody,
-				displayConfiguration: {
-					...createBody.displayConfiguration,
-					entityIdProperty: createEntityColumnExpression("book", "nam"),
-				},
-			},
-		});
+		const error = await client.runError(
+			(c) =>
+				c.savedViews.create({
+					payload: {
+						...createBody,
+						displayConfiguration: {
+							...createBody.displayConfiguration,
+							entityIdProperty: createEntityColumnExpression("book", "nam"),
+						},
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(result.response.status).toBe(400);
-		expect(result.error?.error.message).toContain("Unsupported entity column 'entity.book.nam'");
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toContain("Unsupported entity column 'entity.book.nam'");
 	});
 
 	it("persists entityIdProperty and eyebrowProperty through create and refetch", async () => {
@@ -1198,37 +1251,43 @@ describe("Saved views E2E", () => {
 		const invalidEntityIdProperty = JSON.parse('{"type":"literal","value":1}');
 
 		const createBody = buildSavedViewBody();
-		const createResult = await client.savedViews.create({
-			headers: { Cookie: cookies },
-			body: {
-				...createBody,
-				displayConfiguration: {
-					...createBody.displayConfiguration,
-					entityIdProperty: invalidEntityIdProperty,
-				},
-			},
-		});
+		const createError = await client.runError(
+			(c) =>
+				c.savedViews.create({
+					payload: {
+						...createBody,
+						displayConfiguration: {
+							...createBody.displayConfiguration,
+							entityIdProperty: invalidEntityIdProperty,
+						},
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
 		const createdView = await createSavedView(client, cookies);
 		const updateBody = buildUpdatedSavedViewBody();
-		const updateResult = await client.savedViews.update({
-			headers: { Cookie: cookies },
-			params: { path: { viewSlug: createdView.slug } },
-			body: {
-				...updateBody,
-				displayConfiguration: {
-					...updateBody.displayConfiguration,
-					entityIdProperty: invalidEntityIdProperty,
-				},
-			},
-		});
+		const updateError = await client.runError(
+			(c) =>
+				c.savedViews.update({
+					path: { viewSlug: createdView.slug },
+					payload: {
+						...updateBody,
+						displayConfiguration: {
+							...updateBody.displayConfiguration,
+							entityIdProperty: invalidEntityIdProperty,
+						},
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(400);
-		expect(updateResult.response.status).toBe(400);
-		expect(createResult.error?.error.message).toContain("entityIdProperty");
-		expect(updateResult.error?.error.message).toContain("entityIdProperty");
-		expect(createResult.error?.error.message).toContain("string expression");
-		expect(updateResult.error?.error.message).toContain("string expression");
+		assertTaggedError(createError, "BadRequest");
+		assertTaggedError(updateError, "BadRequest");
+		expect(createError.message).toContain("entityIdProperty");
+		expect(updateError.message).toContain("entityIdProperty");
+		expect(createError.message).toContain("string expression");
+		expect(updateError.message).toContain("string expression");
 	});
 
 	it("executes saved-view grid and table requests through the query engine", async () => {
@@ -1305,8 +1364,6 @@ describe("Saved views E2E", () => {
 			],
 		});
 
-		expect(gridResult.response.status).toBe(200);
-		expect(tableResult.response.status).toBe(200);
 		expect(gridResult.data.data.meta.fieldOrder).toEqual([
 			"entityId",
 			"eyebrow",
@@ -1378,23 +1435,26 @@ describe("Saved views E2E", () => {
 	it("rejects a view referencing a schema slug that does not exist", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const result = await client.savedViews.create({
-			headers: { Cookie: cookies },
-			body: buildSavedViewBody({
-				queryDefinition: {
-					filter: null,
-					eventJoins: [],
-					computedFields: [],
-					scope: ["does-not-exist"],
-					sort: {
-						direction: "asc",
-						expression: createEntityColumnExpression("does-not-exist", "name"),
-					},
-				},
-			}),
-		});
+		const error = await client.runError(
+			(c) =>
+				c.savedViews.create({
+					payload: buildSavedViewBody({
+						queryDefinition: {
+							filter: null,
+							eventJoins: [],
+							computedFields: [],
+							scope: ["does-not-exist"],
+							sort: {
+								direction: "asc",
+								expression: createEntityColumnExpression("does-not-exist", "name"),
+							},
+						},
+					}),
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(result.response.status).toBe(400);
-		expect(result.error?.error.message).toContain("not found");
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toContain("not found");
 	});
 });

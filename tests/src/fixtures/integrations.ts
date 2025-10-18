@@ -1,7 +1,7 @@
 import { getBackendUrl } from "../setup";
-import { requirePresent, requireResponseData } from "../test-support/assertions";
+import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
-import type { ClientBody, ClientQuery } from "./backend-client";
+import type { ContractPayload, ContractUrlParams } from "./contract-client";
 
 type WebhookResponseBody = { message?: string; runId?: string };
 
@@ -18,18 +18,16 @@ const normalizeWebhookResponse = (parsed: unknown): WebhookResponseBody | undefi
 	return parsed;
 };
 
-type CreateIntegrationBody = ClientBody<"integrations", "create">;
+type CreateIntegrationBody = ContractPayload<"integrations", "create">;
 
 export async function createIntegration(
 	client: Client,
 	cookies: string,
 	body: CreateIntegrationBody,
 ) {
-	const { data, response } = await client.integrations.create({
-		body,
-		headers: { Cookie: cookies },
+	const result = await client.run((c) => c.integrations.create({ payload: body }), {
+		Cookie: cookies,
 	});
-	const result = requireResponseData(response, data, "Failed to create integration");
 	requirePresent(result.id, "Failed to create integration");
 	return result;
 }
@@ -56,29 +54,21 @@ export async function createAudiobookshelfIntegration(client: Client, cookies: s
 export async function listIntegrations(
 	client: Client,
 	cookies: string,
-	query?: ClientQuery<"integrations", "list">,
+	query?: ContractUrlParams<"integrations", "list">,
 ) {
-	const { data, response } = await client.integrations.list({
-		headers: { Cookie: cookies },
-		params: { query: query ?? {} },
-	});
-	return requireResponseData(response, data, "Failed to list integrations");
+	return client.run((c) => c.integrations.list({ urlParams: query ?? {} }), { Cookie: cookies });
 }
 
 export async function getIntegration(client: Client, cookies: string, id: string) {
-	const { data, response } = await client.integrations.get({
-		headers: { Cookie: cookies },
-		params: { path: { integrationId: id } },
+	return client.run((c) => c.integrations.get({ path: { integrationId: id } }), {
+		Cookie: cookies,
 	});
-	return requireResponseData(response, data, `Failed to get integration '${id}'`);
 }
 
 export async function deleteIntegration(client: Client, cookies: string, id: string) {
-	const { data, response } = await client.integrations.delete({
-		headers: { Cookie: cookies },
-		params: { path: { integrationId: id } },
+	return client.run((c) => c.integrations.delete({ path: { integrationId: id } }), {
+		Cookie: cookies,
 	});
-	return requireResponseData(response, data, `Failed to delete integration '${id}'`);
 }
 
 export async function postIntegrationWebhook(

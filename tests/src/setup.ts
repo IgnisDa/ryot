@@ -5,7 +5,6 @@ import { config } from "dotenv";
 import getPort from "get-port";
 import { Client as PgClient } from "pg";
 
-import { createBackendClient } from "./fixtures/backend-client";
 import { requirePresent } from "./test-support/assertions";
 import {
 	attachProcessLogs,
@@ -86,10 +85,6 @@ export function getS3BucketName() {
 
 export function getBackendUrl() {
 	return `http://127.0.0.1:${backendPort}/api`;
-}
-
-export function getBackendClient() {
-	return createBackendClient(getBackendUrl());
 }
 
 export function getPgClient() {
