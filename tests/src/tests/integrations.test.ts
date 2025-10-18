@@ -265,10 +265,8 @@ describe("Import run visibility", () => {
 		const { data: webhookData } = await postWebhook(integrationId, kodiPayload);
 		const runId = requirePresent(webhookData?.runId, "Expected runId from webhook");
 
-		const { data: listData } = await client.GET("/imports/runs", {
-			headers: { Cookie: cookies },
-		});
-		const allRuns = listData?.data ?? [];
+		const { data: listData } = await client.imports.listRuns({ headers: { Cookie: cookies } });
+		const allRuns = listData ?? [];
 		expect(allRuns.find((r: { id: string }) => r.id === runId)).toBeUndefined();
 
 		const run = await getImportRun(client, cookies, runId);

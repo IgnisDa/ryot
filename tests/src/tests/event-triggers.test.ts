@@ -26,7 +26,7 @@ describe("Event trigger firing", () => {
 			cookies,
 		);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -56,7 +56,7 @@ describe("Event trigger firing", () => {
 			cookies,
 		);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{ entityId, properties: { progressPercent: 50 }, eventSchemaId: progressEventSchemaId },
@@ -79,7 +79,7 @@ describe("Event trigger firing", () => {
 			cookies,
 		);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{ entityId, eventSchemaId: progressEventSchemaId, properties: { progressPercent: 100 } },
@@ -88,7 +88,7 @@ describe("Event trigger firing", () => {
 
 		await waitForEventWithSchema(client, cookies, entityId, "complete");
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{ entityId, properties: { progressPercent: 100 }, eventSchemaId: progressEventSchemaId },
@@ -148,7 +148,7 @@ describe("Event trigger firing", () => {
 			},
 		);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -210,7 +210,7 @@ describe("Event trigger firing", () => {
 			},
 		);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -223,7 +223,7 @@ describe("Event trigger firing", () => {
 
 		await waitForEventCount(client, cookies, entityId, 1);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -296,7 +296,7 @@ describe("Event trigger firing", () => {
 			},
 		);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -351,7 +351,7 @@ describe("Event trigger firing", () => {
 			},
 		);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -378,7 +378,7 @@ describe("Event trigger firing", () => {
 			{ entitySchemaSlug: "anime", properties: { images: [], episodes: 2 } },
 		);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -418,7 +418,7 @@ describe("Event trigger firing", () => {
 			{ entitySchemaSlug: "anime", properties: { images: [], episodes: null } },
 		);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -445,7 +445,7 @@ describe("Event trigger firing", () => {
 			{ entitySchemaSlug: "manga", properties: { images: [], volumes: null, chapters: 2 } },
 		);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -475,7 +475,7 @@ describe("Event trigger firing", () => {
 			{ entitySchemaSlug: "manga", properties: { images: [], volumes: null, chapters: null } },
 		);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -528,7 +528,7 @@ describe("Event trigger firing", () => {
 			},
 		);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -558,7 +558,7 @@ describe("Event trigger firing", () => {
 			{ entitySchemaSlug: "movie", properties: { images: [] } },
 		);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -589,7 +589,7 @@ describe("Event trigger firing", () => {
 			{ entitySchemaSlug: "movie", properties: { images: [] } },
 		);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -620,7 +620,7 @@ describe("Event trigger firing", () => {
 			{ entitySchemaSlug: "movie", properties: { images: [] } },
 		);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -651,7 +651,7 @@ describe("Event trigger firing", () => {
 			{ entitySchemaSlug: "movie", properties: { images: [] } },
 		);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -665,7 +665,7 @@ describe("Event trigger firing", () => {
 
 		await waitForEventWithSchema(client, cookies, entityId, "complete");
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -741,7 +741,7 @@ describe("before_create triggers", () => {
 
 		await insertBeforeCreateTrigger(userId, eventSchemaId, script.id, 100);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [{ entityId, eventSchemaId, properties: {} }],
 		});
@@ -767,7 +767,7 @@ describe("before_create triggers", () => {
 
 		await insertBeforeCreateTrigger(userId, eventSchemaId, script.id, 100);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [{ entityId, eventSchemaId, properties: { value: 1 } }],
 		});
@@ -794,7 +794,7 @@ describe("before_create triggers", () => {
 
 		await insertBeforeCreateTrigger(userId, eventSchemaId, script.id, 100);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [{ entityId, eventSchemaId, properties: {} }],
 		});
@@ -827,7 +827,7 @@ describe("before_create triggers", () => {
 		await insertBeforeCreateTrigger(userId, eventSchemaId, scriptPos100.id, 100);
 		await insertBeforeCreateTrigger(userId, eventSchemaId, scriptPos200.id, 200);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [{ entityId, eventSchemaId, properties: { x: 1 } }],
 		});
