@@ -30,6 +30,13 @@ export const runtimeReferenceSchema = z
 			.strict(),
 		z
 			.object({
+				joinKey: nonEmptyTrimmedStringSchema,
+				type: z.literal("relationship-join"),
+				path: z.array(nonEmptyTrimmedStringSchema).min(1),
+			})
+			.strict(),
+		z
+			.object({
 				type: z.literal("event"),
 				eventSchemaSlug: nonEmptyTrimmedStringSchema.optional(),
 				path: z.array(nonEmptyTrimmedStringSchema).min(1),
@@ -46,9 +53,13 @@ export const runtimeReferenceSchema = z
 				type: z.literal("event-aggregate"),
 				eventSchemaSlug: nonEmptyTrimmedStringSchema,
 				aggregation: z.enum(["avg", "count", "max", "min", "sum"]),
-				path: z.array(nonEmptyTrimmedStringSchema).min(1),
+				path: z.array(nonEmptyTrimmedStringSchema).min(1).optional(),
 			})
-			.strict(),
+			.strict()
+			.refine(
+				(ref) => ref.aggregation === "count" || ref.path !== undefined,
+				"Event aggregate path is required for non-count aggregations",
+			),
 		z
 			.object({
 				type: z.literal("event-schema"),
@@ -122,6 +133,26 @@ const jsonLiteralValueSchema = z
 	.nullable()
 	.refine(isJsonValue, "Literal values must be JSON-safe");
 
+const viewLiteralSchema = z
+	.object({
+		value: jsonLiteralValueSchema,
+		type: z.literal("literal"),
+		literalType: z.literal("date").optional(),
+	})
+	.strict()
+	.superRefine((literal, ctx) => {
+		if (literal.literalType === "date") {
+			const result = z.iso.datetime({ offset: true }).safeParse(literal.value);
+			if (!result.success) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["value"],
+					message: "Date literal values must be ISO 8601 datetimes with an offset",
+				});
+			}
+		}
+	});
+
 export const viewTransformNameSchema = z.enum(["titleCase", "kebabCase"]);
 
 export type ViewTransformName = z.infer<typeof viewTransformNameSchema>;
@@ -129,12 +160,7 @@ export type ViewTransformName = z.infer<typeof viewTransformNameSchema>;
 export const viewExpressionSchema: z.ZodType<ViewExpression> = z
 	.lazy(() => {
 		return z.discriminatedUnion("type", [
-			z
-				.object({
-					value: jsonLiteralValueSchema,
-					type: z.literal("literal"),
-				})
-				.strict(),
+			viewLiteralSchema,
 			z
 				.object({
 					reference: runtimeReferenceSchema,
@@ -295,13 +321,13 @@ export type ViewPredicate =
 	| { type: "not"; predicate: ViewPredicate };
 
 export type ViewExpression =
-	| { type: "literal"; value: unknown }
 	| { type: "reference"; reference: RuntimeRef }
 	| { type: "concat"; values: ViewExpression[] }
 	| { type: "round"; expression: ViewExpression }
 	| { type: "floor"; expression: ViewExpression }
 	| { type: "coalesce"; values: ViewExpression[] }
 	| { type: "integer"; expression: ViewExpression }
+	| { literalType?: "date"; value: unknown; type: "literal" }
 	| { type: "transform"; name: ViewTransformName; expression: ViewExpression }
 	| {
 			type: "conditional";
@@ -316,7 +342,4 @@ export type ViewExpression =
 			operator: "add" | "subtract" | "multiply" | "divide";
 	  };
 
-export const nullViewExpression = {
-	type: "literal",
-	value: null,
-} satisfies ViewExpression;
+export const nullViewExpression = { value: null, type: "literal" } satisfies ViewExpression;

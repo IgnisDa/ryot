@@ -3,7 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { normalizeRequestPerMode } from "./preparer";
 
 describe("normalizeRequestPerMode", () => {
-	it("preserves eventJoins and relationships for entities mode", () => {
+	it("preserves eventJoins and relationshipJoins for entities mode", () => {
 		const result = normalizeRequestPerMode({
 			fields: [],
 			filter: null,
@@ -11,33 +11,49 @@ describe("normalizeRequestPerMode", () => {
 			scope: ["books"],
 			computedFields: [],
 			pagination: { page: 1, limit: 20 },
-			relationships: [{ relationshipSchemaSlug: "owner" }],
 			sort: { expression: { type: "literal", value: null }, direction: "asc" },
 			eventJoins: [{ key: "review", eventSchemaSlug: "review", kind: "latestEvent" }],
+			relationshipJoins: [
+				{
+					key: "owner",
+					required: false,
+					direction: "outgoing",
+					kind: "latestRelationship",
+					relationshipSchemaSlug: "owner",
+				},
+			],
 		});
 		expect(result.mode).toBe("entities");
 		expect(result.eventJoins).toHaveLength(1);
-		expect(result.relationships).toHaveLength(1);
+		expect(result.relationshipJoins).toHaveLength(1);
 		expect(result.eventSchemas).toEqual([]);
 	});
 
-	it("preserves eventJoins and relationships for aggregate mode", () => {
+	it("preserves eventJoins and relationshipJoins for aggregate mode", () => {
 		const result = normalizeRequestPerMode({
 			filter: null,
 			scope: ["books"],
 			aggregations: [],
 			mode: "aggregate",
 			computedFields: [],
-			relationships: [{ relationshipSchemaSlug: "owner" }],
 			eventJoins: [{ key: "review", eventSchemaSlug: "review", kind: "latestEvent" }],
+			relationshipJoins: [
+				{
+					key: "owner",
+					required: false,
+					direction: "outgoing",
+					kind: "latestRelationship",
+					relationshipSchemaSlug: "owner",
+				},
+			],
 		});
 		expect(result.mode).toBe("aggregate");
 		expect(result.eventJoins).toHaveLength(1);
-		expect(result.relationships).toHaveLength(1);
+		expect(result.relationshipJoins).toHaveLength(1);
 		expect(result.eventSchemas).toEqual([]);
 	});
 
-	it("preserves eventJoins and eventSchemas for events mode, clears relationships", () => {
+	it("preserves eventJoins and eventSchemas for events mode, clears relationshipJoins", () => {
 		const result = normalizeRequestPerMode({
 			fields: [],
 			filter: null,
@@ -52,10 +68,10 @@ describe("normalizeRequestPerMode", () => {
 		expect(result.mode).toBe("events");
 		expect(result.eventJoins).toHaveLength(1);
 		expect(result.eventSchemas).toEqual(["review", "complete"]);
-		expect(result.relationships).toEqual([]);
+		expect(result.relationshipJoins).toEqual([]);
 	});
 
-	it("clears eventJoins and relationships for timeSeries mode, preserves eventSchemas", () => {
+	it("clears eventJoins and relationshipJoins for timeSeries mode, preserves eventSchemas", () => {
 		const result = normalizeRequestPerMode({
 			filter: null,
 			bucket: "day",
@@ -71,7 +87,7 @@ describe("normalizeRequestPerMode", () => {
 		});
 		expect(result.mode).toBe("timeSeries");
 		expect(result.eventJoins).toEqual([]);
-		expect(result.relationships).toEqual([]);
+		expect(result.relationshipJoins).toEqual([]);
 		expect(result.eventSchemas).toEqual(["review"]);
 	});
 });

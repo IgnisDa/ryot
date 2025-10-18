@@ -98,7 +98,7 @@ describe("hasImportedEntityDetails", () => {
 				createListedEntity({
 					properties: {},
 					populatedAt: new Date("2024-01-02T00:00:00.000Z"),
-					image: { kind: "remote", url: "https://example.com/image.jpg" },
+					image: { type: "remote", url: "https://example.com/image.jpg" },
 				}),
 			),
 		).toBe(true);

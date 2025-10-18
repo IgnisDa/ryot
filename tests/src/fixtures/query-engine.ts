@@ -12,21 +12,18 @@ import {
 	qualifyBuiltinFields,
 	toRequiredExpression,
 	type ViewExpression,
+	type ViewPredicate,
 } from "./view-language";
 
-type ExecuteQueryEngineBody = Extract<
-	NonNullable<paths["/query-engine/execute"]["post"]["requestBody"]>["content"]["application/json"],
-	{ mode: "entities" }
->;
+type ExecuteQueryEngineBody = NonNullable<
+	paths["/query-engine/execute"]["post"]["requestBody"]
+>["content"]["application/json"];
 type ExecuteQueryEngineResponse =
 	paths["/query-engine/execute"]["post"]["responses"][200]["content"]["application/json"];
-type ExecuteEntityQueryEngineResponse = Extract<
-	ExecuteQueryEngineResponse["data"],
-	{ mode: "entities" }
->;
+type EntitiesBody = Extract<ExecuteQueryEngineBody, { mode: "entities" }>;
 type ComputedField = NonNullable<ExecuteQueryEngineBody["computedFields"]>[number];
 type QueryEngineResponseItem = Extract<
-	ExecuteQueryEngineResponse["data"],
+	ExecuteQueryEngineResponse,
 	{ mode: "entities" }
 >["data"]["items"][number];
 
@@ -35,7 +32,7 @@ type RuntimeField = {
 	expression: ViewExpression;
 };
 
-export type QueryEngineRequest = Omit<ExecuteQueryEngineBody, "fields" | "mode"> & {
+export type QueryEngineRequest = Omit<EntitiesBody, "fields" | "mode"> & {
 	fields: RuntimeField[];
 	mode?: ExecuteQueryEngineBody["mode"];
 };
@@ -59,7 +56,7 @@ interface CreateEntityInput {
 	cookies: string;
 	entitySchemaId: string;
 	properties: Record<string, unknown>;
-	image?: { kind: "remote"; url: string } | null;
+	image?: { type: "remote"; url: string } | null;
 }
 
 interface CreateQueryEngineEventInput {
@@ -74,7 +71,7 @@ type QueryEngineEntityFixture = {
 	name: string;
 	entitySchemaId: string;
 	properties: Record<string, unknown>;
-	image?: { kind: "remote"; url: string } | null;
+	image?: { type: "remote"; url: string } | null;
 };
 
 const buildCardDisplayConfiguration = (
@@ -100,12 +97,7 @@ export function buildGridDisplayConfiguration(
 	return buildCardDisplayConfiguration(schemaSlugs, overrides);
 }
 
-export function buildListDisplayConfiguration(
-	overrides: Partial<CardDisplayConfiguration> = {},
-	schemaSlugs: string[] = [],
-): CardDisplayConfiguration {
-	return buildCardDisplayConfiguration(schemaSlugs, overrides);
-}
+export const buildListDisplayConfiguration = buildGridDisplayConfiguration;
 
 export function buildTableDisplayConfiguration(
 	columns?: TableDisplayConfiguration["columns"],
@@ -158,7 +150,7 @@ function toQueryEngineFields(input: RuntimeFieldsInput): RuntimeField[] {
 	];
 }
 
-const defaultSort = (schemaSlugs: string[]): ExecuteQueryEngineBody["sort"] => ({
+const defaultSort = (schemaSlugs: string[]): EntitiesBody["sort"] => ({
 	direction: "asc",
 	expression: toRequiredExpression(
 		schemaSlugs.length ? qualifyBuiltinFields(schemaSlugs, "name") : [],
@@ -175,6 +167,7 @@ const buildQueryEngineRequest = (
 	eventJoins: [],
 	mode: "entities",
 	computedFields: [],
+	relationshipJoins: [],
 	pagination: { page: 1, limit: 10 },
 	sort: defaultSort(input.scope),
 	...input,
@@ -193,6 +186,43 @@ export function buildComputedField(key: string, expression: ExpressionInput): Co
 		expression: toRequiredExpression(expression),
 	};
 }
+
+type RelationshipJoinInput = {
+	key: string;
+	required?: boolean;
+	sourceEntityId?: string;
+	targetEntityId?: string;
+	filter?: ViewPredicate | null;
+	relationshipSchemaSlug: string;
+	direction: "outgoing" | "incoming";
+};
+
+export function buildLatestRelationshipJoin(input: RelationshipJoinInput) {
+	return {
+		key: input.key,
+		direction: input.direction,
+		required: input.required ?? false,
+		kind: "latestRelationship" as const,
+		relationshipSchemaSlug: input.relationshipSchemaSlug,
+		...(input.sourceEntityId !== undefined && { sourceEntityId: input.sourceEntityId }),
+		...(input.targetEntityId !== undefined && { targetEntityId: input.targetEntityId }),
+		...(input.filter !== undefined && { filter: input.filter }),
+	};
+}
+
+export function buildRequiredLatestRelationshipJoin(
+	input: Omit<RelationshipJoinInput, "required">,
+) {
+	return buildLatestRelationshipJoin({ ...input, required: true });
+}
+
+export const buildInLibraryRelationshipJoin = (required = true) =>
+	buildLatestRelationshipJoin({
+		required,
+		key: "inLibrary",
+		direction: "outgoing",
+		relationshipSchemaSlug: "in-library",
+	});
 
 export function buildGridRequest(
 	overrides: Partial<Omit<QueryEngineRequest, "fields">> & {
@@ -266,13 +296,17 @@ export function getQueryEngineFieldOrThrow(item: QueryEngineResponseItem | undef
 	return field;
 }
 
+type EntitiesQueryEngineResponse = Extract<ExecuteQueryEngineResponse, { mode: "entities" }>;
+
 export async function executeQueryEngine(
 	client: Client,
 	cookies: string,
 	body: QueryEngineRequest,
 ) {
+	const mode = body.mode ?? "entities";
 	const result = await client.POST("/query-engine/execute", {
-		body: { ...body, mode: body.mode ?? "entities" },
+		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
+		body: { ...body, mode } as unknown as ExecuteQueryEngineBody,
 		headers: { Cookie: cookies },
 	});
 
@@ -280,7 +314,7 @@ export async function executeQueryEngine(
 		error: result.error,
 		response: result.response,
 		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-		data: result.data?.data as ExecuteEntityQueryEngineResponse,
+		data: result.data as unknown as EntitiesQueryEngineResponse,
 	};
 }
 
@@ -294,7 +328,7 @@ export async function createQueryEngineEntity(input: CreateEntityInput) {
 			image:
 				input.image === undefined
 					? ({
-							kind: "remote",
+							type: "remote",
 							url: `https://example.com/${input.name.toLowerCase().replace(/\s+/g, "-")}.png`,
 						} as const)
 					: input.image,

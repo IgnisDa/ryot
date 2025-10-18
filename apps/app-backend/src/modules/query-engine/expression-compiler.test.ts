@@ -9,7 +9,7 @@ import { PgDialect } from "drizzle-orm/pg-core";
 
 import { createSmartphoneSchema, transformExpression } from "~/lib/test-fixtures";
 import type { ViewExpression } from "~/lib/views/expression";
-import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
+import { buildEventJoinMap, buildRelationshipJoinMap, buildSchemaMap } from "~/lib/views/reference";
 
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
@@ -18,6 +18,28 @@ const dialect = new PgDialect();
 const context = {
 	eventJoinMap: buildEventJoinMap([]),
 	schemaMap: buildSchemaMap([createSmartphoneSchema()]),
+};
+
+const ownershipJoin = {
+	key: "ownership",
+	kind: "latestRelationship" as const,
+	relationshipSchemaSlug: "ownership",
+	propertiesSchema: {
+		fields: { rating: { label: "Rating", type: "integer" as const, description: "Owner rating" } },
+	},
+	sourceEntitySchema: {
+		slug: "smartphones",
+		propertiesSchema: createSmartphoneSchema().propertiesSchema,
+	},
+	targetEntitySchema: {
+		slug: "smartphones",
+		propertiesSchema: createSmartphoneSchema().propertiesSchema,
+	},
+};
+
+const contextWithRelJoin = {
+	...context,
+	relationshipJoinMap: buildRelationshipJoinMap([ownershipJoin]),
 };
 
 const createTestCompiler = (
@@ -397,6 +419,114 @@ describe("createScalarExpressionCompiler", () => {
 			};
 
 			expect(() => compiler.compile(imageTransform)).toThrow("Image expressions are display-only");
+		});
+	});
+
+	describe("relationship-join references", () => {
+		it("compiles a relationship built-in column (createdAt) to JSONB extraction SQL", () => {
+			const compiler = createTestCompiler({ context: contextWithRelJoin, alias: "entities" });
+
+			const expr: ViewExpression = {
+				type: "reference",
+				reference: { type: "relationship-join", joinKey: "ownership", path: ["createdAt"] },
+			};
+
+			const query = dialect.sqlToQuery(compiler.compile(expr));
+
+			expect(query.sql).toContain("entities.relationship_join_ownership");
+			expect(query.params).toContain("createdAt");
+		});
+
+		it("compiles a relationship property path (properties.rating) to JSONB extraction SQL", () => {
+			const compiler = createTestCompiler({ context: contextWithRelJoin, alias: "entities" });
+
+			const expr: ViewExpression = {
+				type: "reference",
+				reference: {
+					joinKey: "ownership",
+					type: "relationship-join",
+					path: ["properties", "rating"],
+				},
+			};
+
+			const query = dialect.sqlToQuery(compiler.compile(expr));
+
+			expect(query.sql).toContain("entities.relationship_join_ownership");
+			expect(query.sql).toContain("->>");
+			expect(query.params).toContain("rating");
+		});
+
+		it("compiles a sourceEntity.name path to nested JSON extraction SQL", () => {
+			const compiler = createTestCompiler({ context: contextWithRelJoin, alias: "entities" });
+
+			const expr: ViewExpression = {
+				type: "reference",
+				reference: {
+					joinKey: "ownership",
+					type: "relationship-join",
+					path: ["sourceEntity", "name"],
+				},
+			};
+
+			const query = dialect.sqlToQuery(compiler.compile(expr));
+
+			expect(query.sql).toContain("entities.relationship_join_ownership");
+			expect(query.sql).toContain("-> $1");
+			expect(query.sql).toContain("->>");
+			expect(query.params).toContain("sourceEntity");
+			expect(query.params).toContain("name");
+		});
+
+		it("compiles a targetEntity.properties.releaseYear path to nested JSONB extraction SQL", () => {
+			const compiler = createTestCompiler({ context: contextWithRelJoin, alias: "entities" });
+
+			const expr: ViewExpression = {
+				type: "reference",
+				reference: {
+					joinKey: "ownership",
+					type: "relationship-join",
+					path: ["targetEntity", "properties", "releaseYear"],
+				},
+			};
+
+			const query = dialect.sqlToQuery(compiler.compile(expr));
+
+			expect(query.sql).toContain("entities.relationship_join_ownership");
+			expect(query.params).toContain("targetEntity");
+			expect(query.params).toContain("properties");
+			expect(query.params).toContain("releaseYear");
+		});
+
+		it("compiles sourceEntity.image as a display-only expression without targetType", () => {
+			const compiler = createTestCompiler({ context: contextWithRelJoin, alias: "entities" });
+
+			const expr: ViewExpression = {
+				type: "reference",
+				reference: {
+					joinKey: "ownership",
+					type: "relationship-join",
+					path: ["sourceEntity", "image"],
+				},
+			};
+
+			expect(() => compiler.compile(expr)).not.toThrow();
+		});
+
+		it("throws when sourceEntity.image is compiled with a targetType (sort/filter context)", () => {
+			const compiler = createTestCompiler({ context: contextWithRelJoin, alias: "entities" });
+
+			const expr: ViewExpression = {
+				type: "reference",
+				reference: {
+					joinKey: "ownership",
+					type: "relationship-join",
+					path: ["sourceEntity", "image"],
+				},
+			};
+
+			expect(() => compiler.compile(expr, "string")).toThrow(
+				"Image expressions are display-only and cannot be compiled for sort or filter usage",
+			);
 		});
 	});
 

@@ -77,7 +77,7 @@ function collectImages(posterPath, backdropPath, postersArray, backdropsArray) {
 		const url = getImageUrl(path);
 		if (url && !seen.has(url)) {
 			seen.add(url);
-			images.push({ kind: "remote", url });
+			images.push({ type: "remote", url });
 		}
 	};
 
@@ -380,7 +380,7 @@ driver("search", async function (context) {
 				imageProperty:
 					image === null
 						? { kind: "null", value: null }
-						: { kind: "image", value: { kind: "remote", url: image } },
+						: { kind: "image", value: { type: "remote", url: image } },
 			};
 		})
 		.filter((item) => item !== null)
