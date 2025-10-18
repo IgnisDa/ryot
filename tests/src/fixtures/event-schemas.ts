@@ -1,3 +1,5 @@
+import { EntitySchemaId } from "@ryot/app-backend/schema/brands";
+
 import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 import type { ContractPayload } from "./contract-client";
@@ -17,5 +19,7 @@ export async function createEventSchema(client: Client, body: CreateEventSchemaB
 }
 
 export async function listEventSchemas(client: Client, entitySchemaId: string) {
-	return client.run((c) => c.eventSchemas.list({ urlParams: { entitySchemaId } }));
+	return client.run((c) =>
+		c.eventSchemas.list({ urlParams: { entitySchemaId: EntitySchemaId.make(entitySchemaId) } }),
+	);
 }

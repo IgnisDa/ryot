@@ -1,3 +1,5 @@
+import { ImportRunId } from "@ryot/app-backend/schema/brands";
+
 import { getBackendUrl } from "../setup";
 import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
@@ -28,7 +30,7 @@ export async function uploadTemporaryFile(
 	return requirePresent(tokens[0], "Upload token is missing");
 }
 
-export async function startOpenScaleImport(client: Client, uploadToken: string): Promise<string> {
+export async function startOpenScaleImport(client: Client, uploadToken: string) {
 	const result = await client.run((c) =>
 		c.imports.createRun({ payload: { source: "open_scale", uploadToken } }),
 	);
@@ -37,7 +39,9 @@ export async function startOpenScaleImport(client: Client, uploadToken: string):
 }
 
 export async function getImportRun(client: Client, runId: string) {
-	return client.run((c) => c.imports.getRun({ path: { runId }, urlParams: {} }));
+	return client.run((c) =>
+		c.imports.getRun({ path: { runId: ImportRunId.make(runId) }, urlParams: {} }),
+	);
 }
 
 export async function pollImportRunUntilTerminal(client: Client, runId: string) {

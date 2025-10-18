@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
 
+import { UserId } from "@ryot/app-backend/schema/brands";
 import { DateTime } from "effect";
 
 import { getBackendClient } from "../fixtures";
@@ -31,7 +32,7 @@ async function getUserIdByEmail(email: string) {
 	if (!row) {
 		throw new Error("missing user row");
 	}
-	return row.id;
+	return UserId.make(row.id);
 }
 
 async function signInWithPassword(email: string, password: string) {
@@ -63,7 +64,7 @@ async function createNoAccountUser(name: string) {
 		 VALUES ($1, $2, $3, true, '{}', NOW(), NOW())`,
 		[userId, name, email],
 	);
-	return { email, userId };
+	return { email, userId: UserId.make(userId) };
 }
 
 async function createOidcUser(name: string) {
@@ -80,7 +81,7 @@ async function createOidcUser(name: string) {
 		 VALUES ($1, $2, 'oidc', $3, NOW(), NOW())`,
 		[randomUUID(), `oidc-sub-${uniqueTimestamp()}`, userId],
 	);
-	return { email, userId };
+	return { email, userId: UserId.make(userId) };
 }
 
 describe("God-mode admin token enforcement", () => {
@@ -104,7 +105,7 @@ describe("God-mode admin token enforcement", () => {
 	it("rejects reset generation without auth header", async () => {
 		const client = getBackendClient();
 		const error = await client.runError((c) =>
-			c.godMode.resetUserPassword({ path: { userId: "any-id" } }),
+			c.godMode.resetUserPassword({ path: { userId: UserId.make("any-id") } }),
 		);
 		assertTaggedError(error, "Unauthorized");
 	});
@@ -112,7 +113,7 @@ describe("God-mode admin token enforcement", () => {
 	it("rejects reset generation with wrong admin token", async () => {
 		const client = getBackendClient();
 		const error = await client.runError(
-			(c) => c.godMode.resetUserPassword({ path: { userId: "any-id" } }),
+			(c) => c.godMode.resetUserPassword({ path: { userId: UserId.make("any-id") } }),
 			adminAccessTokenHeaders(WRONG_TOKEN),
 		);
 		assertTaggedError(error, "Unauthorized");
@@ -121,7 +122,7 @@ describe("God-mode admin token enforcement", () => {
 	it("rejects ban set without auth header", async () => {
 		const client = getBackendClient();
 		const error = await client.runError((c) =>
-			c.godMode.setUserBan({ payload: { banned: true }, path: { userId: "any-id" } }),
+			c.godMode.setUserBan({ payload: { banned: true }, path: { userId: UserId.make("any-id") } }),
 		);
 		assertTaggedError(error, "Unauthorized");
 	});
@@ -129,7 +130,11 @@ describe("God-mode admin token enforcement", () => {
 	it("rejects ban set with wrong admin token", async () => {
 		const client = getBackendClient();
 		const error = await client.runError(
-			(c) => c.godMode.setUserBan({ payload: { banned: true }, path: { userId: "any-id" } }),
+			(c) =>
+				c.godMode.setUserBan({
+					payload: { banned: true },
+					path: { userId: UserId.make("any-id") },
+				}),
 			adminAccessTokenHeaders(WRONG_TOKEN),
 		);
 		assertTaggedError(error, "Unauthorized");
