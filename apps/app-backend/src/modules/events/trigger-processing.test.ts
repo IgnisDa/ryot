@@ -23,11 +23,14 @@ const createProgressEvent = (overrides: Partial<CreatedEventData> = {}): Created
 const createDeps = (
 	overrides: Partial<Parameters<typeof processEventSchemaTriggers>[1]> = {},
 ): NonNullable<Parameters<typeof processEventSchemaTriggers>[1]> => ({
+	enqueueEventSchemaTriggerJob: () => Promise.resolve(),
 	listEventsByEntityForUser: () => Promise.resolve([]),
 	getEntityScopeForUser: () => Promise.resolve(undefined),
 	getEventCreateScopeForUser: () => Promise.resolve(undefined),
 	getSessionEntityScopeForUser: () => Promise.resolve(undefined),
 	ensureEntityInLibrary: () => Promise.resolve({ data: undefined }),
+	getActiveBeforeCreateTriggersForEventSchemas: () => Promise.resolve([]),
+	runBeforeCreateTrigger: () => Promise.resolve({ outcome: "result", result: { action: "allow" } }),
 	createEventForUser: () => {
 		throw new Error("not used");
 	},
@@ -44,7 +47,6 @@ const createDeps = (
 					]
 				: [],
 		),
-	enqueueEventSchemaTriggerJob: () => Promise.resolve(),
 	...overrides,
 });
 
