@@ -16,6 +16,7 @@ import { eventSchemasApi } from "~/modules/event-schemas/routes";
 import { eventsApi } from "~/modules/events/routes";
 import { godModeApi } from "~/modules/god-mode/routes";
 import { importsApi } from "~/modules/imports";
+import { integrationsApi, integrationWebhooksApi } from "~/modules/integrations";
 import { queryEngineApi } from "~/modules/query-engine/routes";
 import { sandboxApi } from "~/modules/sandbox/routes";
 import { savedViewsApi } from "~/modules/saved-views/routes";
@@ -81,6 +82,11 @@ const openApiTags = [
 		description: "Import data from external sources",
 	},
 	{
+		name: "integrations",
+		description:
+			"Connect Ryot to external services for automatic progress syncing and push notifications",
+	},
+	{
 		name: "query-engine",
 		description: "Execute dynamic queries",
 	},
@@ -124,6 +130,8 @@ const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.route("/collections", collectionsApi)
 	.route("/god-mode", godModeApi)
 	.route("/imports", importsApi)
+	.route("/integrations", integrationsApi)
+	.route("/webhooks/integrations", integrationWebhooksApi)
 	.route("/query-engine", queryEngineApi);
 
 registerInternalAppRequestHandler((request) => baseApp.fetch(request));
