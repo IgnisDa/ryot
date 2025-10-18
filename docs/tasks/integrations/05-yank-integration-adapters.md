@@ -12,7 +12,7 @@ Complete the Yank integration execution path: fill in the worker logic scaffolde
 
 Refer to the **Yank Integrations — Execution Flow**, **Yank Provider Adapters**, and **Yank job resumability** sections of the parent PRD for the complete contract.
 
-**Prerequisites:** Task 01 (schema), Task 02 (EventWriteContext, before triggers), Task 03 (writeOwnershipToLibrary), Task 04 (integration CRUD, worker scaffold, import queue).
+**Prerequisites:** Task 01 (schema), Task 02 (EventWriteContext, before triggers), Task 03 (ownership merge path), Task 04 (integration CRUD, worker scaffold, import queue).
 
 ---
 
@@ -24,7 +24,7 @@ Fill in the Yank branch of the integration worker (scaffolded in task 04). When 
 2. Set `import_run.status = "running"`, `import_run.startedAt = now`.
 3. Call the provider adapter (see adapters below) with credentials from `integration.providerSpecifics`.
 4. The adapter returns `MediaImportAdapterResult { failures, entityGroups }`.
-5. If `integration.syncOwnership === true` and the provider supports it: call the provider's `syncOwnedItems` function; merge returned owned entity IDs through `writeOwnershipToLibrary` (from task 03).
+5. If `integration.syncOwnership === true` and the provider supports it: call the provider's `syncOwnedItems` function; feed returned ownership refs into the imports ownership merge path from task 03.
 6. Feed `entityGroups` through the imports media pipeline (`processMediaImport` or equivalent) with `EventWriteContext { origin: "integration", integrationId: integration.id, importRunId: run.id }`.
 7. Record adapter-level `failures` as `import_run_failure` rows with `stage = "input_transformation"`.
 8. On completion: update `import_run.status`, counters (`totalItems`, `processedItems`, `importedItems`, `failedItems`), `finishedAt`.
@@ -54,7 +54,7 @@ File: `src/modules/integrations/providers/yank/audiobookshelf.ts`
 - List libraries: `GET /api/libraries`.
 - For each library, list items: `GET /api/libraries/{id}/items`.
 - Identify items by ASIN (audiobook), iTunes ID (podcast), or ISBN (book).
-- Return list of `{ entityRef, provider: "audiobookshelf" }` for `writeOwnershipToLibrary`.
+- Return list of `{ entityRef, provider: "audiobookshelf" }` for the imports ownership merge path.
 
 ### 3. Komga adapter
 
@@ -70,7 +70,7 @@ File: `src/modules/integrations/providers/yank/komga.ts`
 **Owned items sync:**
 - List all books via Komga API.
 - For each book, resolve by same identifier priority.
-- Return list for `writeOwnershipToLibrary`.
+- Return list for the imports ownership merge path.
 
 ### 4. PlexYank adapter
 

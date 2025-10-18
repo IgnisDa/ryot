@@ -11,7 +11,7 @@
 Two pieces of infrastructure that push integrations (task 07) and Yank ownership sync (task 05) depend on:
 
 1. Two new builtin event schemas on the collection entity schema (`add-entity-to-collection`, `remove-entity-from-collection`) and the collection service changes that emit them.
-2. A `writeOwnershipToLibrary` helper in the entities module that merges ownership state into the `in-library` relationship.
+2. An ownership merge helper in the imports media write path that merges ownership state into the `in-library` relationship while reusing generic entities helpers.
 
 Refer to the **Collection Events** and **Ownership via In-Library Relationship** sections of the parent PRD for full detail.
 
@@ -105,9 +105,9 @@ The collection service's `RemoveFromCollectionServiceDeps` must include the even
 
 The collection service's `getEntityById` query currently only returns `{ id, userId }`. Extend it to also return `entitySchemaSlug` (by joining `entitySchema` and selecting `entitySchema.slug`). This is needed to populate `entitySchemaSlug` in the event properties.
 
-### 6. `writeOwnershipToLibrary` helper
+### 6. Ownership merge helper
 
-Add a new function in `src/modules/entities/` (could live in `service.ts` or a new `ownership.ts` file in the entities module, not exported as a cross-module API but usable from the integrations providers):
+Implement a local `writeOwnershipToLibrary` helper in `src/modules/imports/media/write.ts` for the media write phase:
 
 ```ts
 writeOwnershipToLibrary(input: {
@@ -120,16 +120,15 @@ writeOwnershipToLibrary(input: {
 
 Behavior:
 1. Call `ensureEntityInLibrary` to get/create the `in-library` relationship.
-2. Read the current `in-library` relationship properties for this user/entity pair.
-3. Merge ownership fields:
+2. Resolve the builtin library entity and `in-library` relationship schema IDs.
+3. Read the current `in-library` relationship properties for this user/entity pair.
+4. Merge ownership fields:
    - `owned = true`
    - `ownershipSources = [...existing, provider]` deduped (if provider already present, do not add again)
    - `ownershipSyncedAt = syncedAt ?? now` (ISO string)
-4. Write updated properties back to the `in-library` relationship row via a targeted update.
+5. Write updated properties back through the generic relationship write path.
 
 The updated `in-library` properties must still be valid against the widened schema from task 01. Since all ownership fields are optional, no validation failure is expected.
-
-Export `writeOwnershipToLibrary` from `src/modules/entities/index.ts` for use by integration Yank adapters in task 05.
 
 ## Acceptance criteria
 
@@ -141,7 +140,7 @@ Export `writeOwnershipToLibrary` from `src/modules/entities/index.ts` for use by
 - [x] `removeFromCollection` emits a `remove-entity-from-collection` event only when an existing relationship row was deleted.
 - [x] `writeOwnershipToLibrary` sets `owned = true`, appends the provider to `ownershipSources` without duplication, and sets `ownershipSyncedAt`.
 - [x] Calling `writeOwnershipToLibrary` twice with the same provider does not duplicate the provider in `ownershipSources`.
-- [x] `writeOwnershipToLibrary` is exported from the entities module barrel.
+- [x] Ownership merging stays in the imports media write path and reuses generic `entities` helpers instead of adding integration-specific logic to the entities module.
 - [x] Unit tests cover: add event emitted on first insert, no event on upsert update, remove event on deletion, no event when entity was not in collection, transaction rollback on add event failure, ownership merge correctness. Prior art: `src/modules/entities/service.test.ts`, `src/modules/collections/service.ts`.
 
 ## User stories addressed
