@@ -51,7 +51,7 @@ export function WeekStrip(props: WeekStripProps) {
 									style={{
 										borderRadius: 999,
 										transition: "height 0.2s ease",
-										backgroundColor: day.count > 0 ? props.accentColor : `${props.border}`,
+										backgroundColor: day.count > 0 ? props.accentColor : props.border,
 										opacity: day.count > 0 ? 0.4 + (day.count / maxCount) * 0.6 : 1,
 									}}
 								/>
