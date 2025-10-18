@@ -1,10 +1,11 @@
 import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect, schema } from "#lib/db";
+import { CurrentDb, dbEffect } from "#lib/db";
+import * as schema from "#lib/db/schema/tables";
 import { DbError } from "#lib/errors";
-import type { AppSchema } from "#lib/schema/core";
 import { decodeStoredAppSchema } from "#lib/schema/core";
+import type { AppSchema } from "#lib/schema/property-schema";
 
 import type { StoredEntityImage } from "./types";
 

@@ -1,10 +1,11 @@
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect, isUniqueConstraintError, schema } from "#lib/db";
+import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db";
+import * as schema from "#lib/db/schema/tables";
 import { DbError, conflict } from "#lib/errors";
-import type { AppSchema } from "#lib/schema/core";
 import { decodeStoredAppSchema } from "#lib/schema/core";
+import type { AppSchema } from "#lib/schema/property-schema";
 
 import type { ListedEntitySchema, Provider } from "./schemas";
 

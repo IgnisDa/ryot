@@ -2,7 +2,8 @@ import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { buildDefaultQueryDefinition, buildDisplayConfig } from "#lib/builtins/view-helpers";
-import { CurrentDb, dbEffect, isUniqueConstraintError, schema } from "#lib/db";
+import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db";
+import * as schema from "#lib/db/schema/tables";
 import { DbError, conflict } from "#lib/errors";
 import { slugify } from "#lib/slug";
 

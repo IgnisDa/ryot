@@ -1,4 +1,4 @@
-import type { AppSchema } from "#lib/schema/core";
+import type { AppSchema } from "#lib/schema/property-schema";
 
 import {
 	exercisePropertiesSchema,

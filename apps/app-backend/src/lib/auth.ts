@@ -9,21 +9,18 @@ import { eq } from "drizzle-orm";
 import { Effect, Layer, Option, Redacted, Runtime, Schema } from "effect";
 import type Redis from "ioredis";
 
+import { AdminMiddleware, AuthMiddleware } from "./auth-middleware";
 import { bootstrapNewUser, defaultUserPreferences } from "./builtins/bootstrap";
 import { AppConfig, type AppConfigValue, isOidcEnabled } from "./config";
 import type { DbRoot, TransactionRunner } from "./db";
-import { DbService, schema } from "./db";
+import { DbService } from "./db";
+import * as schemaAuth from "./db/schema/auth";
+import * as schemaRelations from "./db/schema/relations";
+import * as schemaTables from "./db/schema/tables";
 import { rateLimited, unauthorized } from "./errors";
 import { redisKeys, RedisService } from "./redis";
 
-export {
-	type CurrentUserValue,
-	AdminAccess,
-	AdminMiddleware,
-	AuthMiddleware,
-	CurrentUser,
-} from "./auth-middleware";
-import { AdminMiddleware, AuthMiddleware } from "./auth-middleware";
+const schema = { ...schemaAuth, ...schemaTables, ...schemaRelations };
 
 const makeAuthInstance = (args: {
 	readonly db: DbRoot;
