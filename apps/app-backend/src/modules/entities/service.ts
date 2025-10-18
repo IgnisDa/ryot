@@ -106,146 +106,151 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 		const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
 		return {
-			create: (user: CurrentUserValue, payload: CreateEntityBody) =>
-				Effect.gen(function* () {
-					const externalId = payload.externalId ? trimToNull(payload.externalId) : null;
-					const sandboxScriptId = payload.sandboxScriptId
-						? trimToNull(payload.sandboxScriptId)
-						: null;
-					const hasExternalId = externalId !== null;
-					const hasScriptId = sandboxScriptId !== null;
-					if (hasExternalId !== hasScriptId) {
-						return yield* badRequest(partialProvenanceError);
-					}
+			create: Effect.fn("EntitiesService.create")(function* (
+				user: CurrentUserValue,
+				payload: CreateEntityBody,
+			) {
+				const externalId = payload.externalId ? trimToNull(payload.externalId) : null;
+				const sandboxScriptId = payload.sandboxScriptId
+					? trimToNull(payload.sandboxScriptId)
+					: null;
+				const hasExternalId = externalId !== null;
+				const hasScriptId = sandboxScriptId !== null;
+				if (hasExternalId !== hasScriptId) {
+					return yield* badRequest(partialProvenanceError);
+				}
 
-					const entitySchemaId = trimToNull(payload.entitySchemaId);
-					if (!entitySchemaId) {
-						return yield* badRequest("Entity schema id is required");
-					}
+				const entitySchemaId = trimToNull(payload.entitySchemaId);
+				if (!entitySchemaId) {
+					return yield* badRequest("Entity schema id is required");
+				}
 
-					const scope = yield* runWithDb(
-						repository.getEntitySchemaScopeForUser({ userId: user.id, entitySchemaId }),
-					);
-					if (!scope) {
-						return yield* notFound(entitySchemaNotFoundError);
-					}
+				const scope = yield* runWithDb(
+					repository.getEntitySchemaScopeForUser({ userId: user.id, entitySchemaId }),
+				);
+				if (!scope) {
+					return yield* notFound(entitySchemaNotFoundError);
+				}
 
-					const provenance = externalId && sandboxScriptId ? { externalId, sandboxScriptId } : null;
+				const provenance = externalId && sandboxScriptId ? { externalId, sandboxScriptId } : null;
 
-					if (provenance) {
-						const existing = yield* runWithDb(
-							repository.findEntityByExternalIdForUser({
-								entitySchemaId,
-								userId: user.id,
-								externalId: provenance.externalId,
-								sandboxScriptId: provenance.sandboxScriptId,
-							}),
-						);
-						if (existing) {
-							return existing;
-						}
-					}
-
-					const name = yield* requireText(payload.name, "Entity name is required");
-
-					const properties = yield* parseAppSchemaProperties({
-						kind: "Entity",
-						properties: payload.properties,
-						propertiesSchema: scope.propertiesSchema,
-					}).pipe(Effect.mapError((error) => badRequest(error.message)));
-
-					return yield* runWithDb(
-						repository.createEntity({
-							name,
-							properties,
+				if (provenance) {
+					const existing = yield* runWithDb(
+						repository.findEntityByExternalIdForUser({
 							entitySchemaId,
 							userId: user.id,
-							image: payload.image ?? null,
-							...provenance,
+							externalId: provenance.externalId,
+							sandboxScriptId: provenance.sandboxScriptId,
 						}),
 					);
-				}),
-			getById: (user: CurrentUserValue, entityIdInput: string) =>
-				Effect.gen(function* () {
-					const entityId = trimToNull(entityIdInput);
-					if (!entityId) {
-						return yield* badRequest("Entity id is required");
+					if (existing) {
+						return existing;
 					}
+				}
 
-					const scope = yield* runWithDb(
-						repository.getEntityScopeForUser({ userId: user.id, entityId }),
-					);
-					if (!scope) {
-						return yield* notFound(entityNotFoundError);
-					}
+				const name = yield* requireText(payload.name, "Entity name is required");
 
-					const entity = yield* runWithDb(repository.getByIdForUser({ userId: user.id, entityId }));
-					if (!entity) {
-						return yield* notFound(entityNotFoundError);
-					}
+				const properties = yield* parseAppSchemaProperties({
+					kind: "Entity",
+					properties: payload.properties,
+					propertiesSchema: scope.propertiesSchema,
+				}).pipe(Effect.mapError((error) => badRequest(error.message)));
 
-					return entity;
-				}),
-			import: (
+				return yield* runWithDb(
+					repository.createEntity({
+						name,
+						properties,
+						entitySchemaId,
+						userId: user.id,
+						image: payload.image ?? null,
+						...provenance,
+					}),
+				);
+			}),
+			getById: Effect.fn("EntitiesService.getById")(function* (
+				user: CurrentUserValue,
+				entityIdInput: string,
+			) {
+				const entityId = trimToNull(entityIdInput);
+				if (!entityId) {
+					return yield* badRequest("Entity id is required");
+				}
+
+				const scope = yield* runWithDb(
+					repository.getEntityScopeForUser({ userId: user.id, entityId }),
+				);
+				if (!scope) {
+					return yield* notFound(entityNotFoundError);
+				}
+
+				const entity = yield* runWithDb(repository.getByIdForUser({ userId: user.id, entityId }));
+				if (!entity) {
+					return yield* notFound(entityNotFoundError);
+				}
+
+				return entity;
+			}),
+			import: Effect.fn("EntitiesService.import")(function* (
 				user: CurrentUserValue,
 				payload: { scriptId: string; externalId: string; entitySchemaId: string },
-			) =>
-				Effect.gen(function* () {
-					const scriptId = trimToNull(payload.scriptId);
-					const externalId = trimToNull(payload.externalId);
-					const entitySchemaId = trimToNull(payload.entitySchemaId);
+			) {
+				const scriptId = trimToNull(payload.scriptId);
+				const externalId = trimToNull(payload.externalId);
+				const entitySchemaId = trimToNull(payload.entitySchemaId);
 
-					if (!scriptId || !externalId || !entitySchemaId) {
-						return yield* badRequest("scriptId, externalId, and entitySchemaId are required");
-					}
+				if (!scriptId || !externalId || !entitySchemaId) {
+					return yield* badRequest("scriptId, externalId, and entitySchemaId are required");
+				}
 
-					const script = yield* runWithDb(
-						sandboxRepository.getScriptForUser({ userId: user.id, scriptId }),
-					);
-					if (!script) {
-						return yield* notFound(sandboxScriptNotFoundError);
-					}
+				const script = yield* runWithDb(
+					sandboxRepository.getScriptForUser({ userId: user.id, scriptId }),
+				);
+				if (!script) {
+					return yield* notFound(sandboxScriptNotFoundError);
+				}
 
-					const entitySchemaScope = yield* runWithDb(
-						repository.getEntitySchemaScopeForUser({ userId: user.id, entitySchemaId }),
-					);
-					if (!entitySchemaScope) {
-						return yield* notFound(entitySchemaNotFoundError);
-					}
+				const entitySchemaScope = yield* runWithDb(
+					repository.getEntitySchemaScopeForUser({ userId: user.id, entitySchemaId }),
+				);
+				if (!entitySchemaScope) {
+					return yield* notFound(entitySchemaNotFoundError);
+				}
 
-					const executionId = generateId();
-					yield* engine
-						.execute(EntityImportWorkflow, {
-							executionId,
-							discard: true,
-							payload: { scriptId, externalId, executionId, entitySchemaId, userId: user.id },
-						})
-						.pipe(Effect.orDie);
+				const executionId = generateId();
+				yield* engine
+					.execute(EntityImportWorkflow, {
+						executionId,
+						discard: true,
+						payload: { scriptId, externalId, executionId, entitySchemaId, userId: user.id },
+					})
+					.pipe(Effect.orDie);
 
-					return { jobId: createWorkflowJobId(jobIdSecret, executionId, user.id) };
-				}),
-			getImportResult: (user: CurrentUserValue, jobId: string) =>
-				Effect.gen(function* () {
-					const resolvedJobId = trimToNull(jobId);
-					if (!resolvedJobId) {
-						return yield* notFound(importJobNotFoundError);
-					}
+				return { jobId: createWorkflowJobId(jobIdSecret, executionId, user.id) };
+			}),
+			getImportResult: Effect.fn("EntitiesService.getImportResult")(function* (
+				user: CurrentUserValue,
+				jobId: string,
+			) {
+				const resolvedJobId = trimToNull(jobId);
+				if (!resolvedJobId) {
+					return yield* notFound(importJobNotFoundError);
+				}
 
-					const executionId = resolveWorkflowExecutionId(jobIdSecret, user.id, resolvedJobId);
-					if (!executionId) {
-						return yield* notFound(importJobNotFoundError);
-					}
+				const executionId = resolveWorkflowExecutionId(jobIdSecret, user.id, resolvedJobId);
+				if (!executionId) {
+					return yield* notFound(importJobNotFoundError);
+				}
 
-					return toEntityImportRunResult(yield* engine.poll(EntityImportWorkflow, executionId));
-				}),
-			upsertUserRelationship: (input: {
-				userId: string;
-				sourceEntityId: string;
-				targetEntityId: string;
-				relationshipSchemaId: string;
-				properties: Record<string, unknown>;
-			}) =>
-				Effect.gen(function* () {
+				return toEntityImportRunResult(yield* engine.poll(EntityImportWorkflow, executionId));
+			}),
+			upsertUserRelationship: Effect.fn("EntitiesService.upsertUserRelationship")(
+				function* (input: {
+					userId: string;
+					sourceEntityId: string;
+					targetEntityId: string;
+					relationshipSchemaId: string;
+					properties: Record<string, unknown>;
+				}) {
 					const relationshipSchema = yield* runWithDb(
 						relationshipSchemasRepository.findById(input.relationshipSchemaId, input.userId),
 					);
@@ -289,15 +294,16 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 							properties,
 						}),
 					);
-				}),
-			insertUserRelationship: (input: {
-				userId: string;
-				sourceEntityId: string;
-				targetEntityId: string;
-				relationshipSchemaId: string;
-				properties: Record<string, unknown>;
-			}) =>
-				Effect.gen(function* () {
+				},
+			),
+			insertUserRelationship: Effect.fn("EntitiesService.insertUserRelationship")(
+				function* (input: {
+					userId: string;
+					sourceEntityId: string;
+					targetEntityId: string;
+					relationshipSchemaId: string;
+					properties: Record<string, unknown>;
+				}) {
 					const relationshipSchema = yield* runWithDb(
 						relationshipSchemasRepository.findById(input.relationshipSchemaId, input.userId),
 					);
@@ -338,14 +344,15 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 					return yield* runWithDb(
 						relationshipsRepository.insertRelationship({ ...input, properties }),
 					);
-				}),
-			writeEntityRelationship: (input: {
-				sourceEntityId: string;
-				targetEntityId: string;
-				relationshipSchemaId: string;
-				properties: Record<string, unknown>;
-			}) =>
-				Effect.gen(function* () {
+				},
+			),
+			writeEntityRelationship: Effect.fn("EntitiesService.writeEntityRelationship")(
+				function* (input: {
+					sourceEntityId: string;
+					targetEntityId: string;
+					relationshipSchemaId: string;
+					properties: Record<string, unknown>;
+				}) {
 					const relationshipSchema = yield* runWithDb(
 						relationshipSchemasRepository.findById(input.relationshipSchemaId, null),
 					);
@@ -376,7 +383,8 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 					return yield* runWithDb(
 						relationshipsRepository.upsertEntityRelationship({ ...input, properties }),
 					);
-				}),
+				},
+			),
 		} satisfies EntitiesServiceShape;
 	}),
 }) {}

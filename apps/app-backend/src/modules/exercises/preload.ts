@@ -43,25 +43,27 @@ const extractPrimaryRemoteImage = (images: unknown) => {
 	return null;
 };
 
-const countImportedGlobalEntities = (input: { entitySchemaId: string; sandboxScriptId: string }) =>
-	Effect.gen(function* () {
-		const db = yield* CurrentDb;
-		const [row] = yield* dbEffect(() =>
-			db
-				.select({ count: sql<number>`count(*)::int` })
-				.from(schema.entity)
-				.where(
-					and(
-						isNull(schema.entity.userId),
-						eq(schema.entity.entitySchemaId, input.entitySchemaId),
-						eq(schema.entity.sandboxScriptId, input.sandboxScriptId),
-					),
-				)
-				.limit(1),
-		);
+const countImportedGlobalEntities = Effect.fn(function* (input: {
+	entitySchemaId: string;
+	sandboxScriptId: string;
+}) {
+	const db = yield* CurrentDb;
+	const [row] = yield* dbEffect(() =>
+		db
+			.select({ count: sql<number>`count(*)::int` })
+			.from(schema.entity)
+			.where(
+				and(
+					isNull(schema.entity.userId),
+					eq(schema.entity.entitySchemaId, input.entitySchemaId),
+					eq(schema.entity.sandboxScriptId, input.sandboxScriptId),
+				),
+			)
+			.limit(1),
+	);
 
-		return row?.count ?? 0;
-	});
+	return row?.count ?? 0;
+});
 
 export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 	Effect.gen(function* () {

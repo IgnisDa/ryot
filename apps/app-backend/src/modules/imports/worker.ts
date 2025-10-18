@@ -30,34 +30,33 @@ import { runOneTimeNonMediaImportWorkflow } from "./workflows-non-media";
 import { WorkoutImportItemSchema } from "./workout/domain";
 import { loadWorkoutAdapterResult, prepareWorkoutWrites } from "./workout/workflow";
 
-const cleanupImportArtifacts = (input: {
+const cleanupImportArtifacts = Effect.fn(function* (input: {
 	sourcePayloadKey?: string;
 	cleanupPaths: ReadonlyArray<string>;
-}) =>
-	Effect.gen(function* () {
-		const fs = yield* FileSystem.FileSystem;
-		const tempDir = getTemporaryDirectory();
+}) {
+	const fs = yield* FileSystem.FileSystem;
+	const tempDir = getTemporaryDirectory();
 
-		if (input.sourcePayloadKey) {
-			yield* deleteImportSourcePayload(input.sourcePayloadKey);
-		}
+	if (input.sourcePayloadKey) {
+		yield* deleteImportSourcePayload(input.sourcePayloadKey);
+	}
 
-		yield* Effect.forEach(
-			new Set(input.cleanupPaths),
-			(path) =>
-				!path.trim()
-					? Effect.void
-					: Effect.gen(function* () {
-							const safePathResult = resolveSafeImportFilePath(path, tempDir);
-							if ("error" in safePathResult) {
-								return yield* new ImportRunError({ message: "Import cleanup path is invalid" });
-							}
+	yield* Effect.forEach(
+		new Set(input.cleanupPaths),
+		(path) =>
+			!path.trim()
+				? Effect.void
+				: Effect.gen(function* () {
+						const safePathResult = resolveSafeImportFilePath(path, tempDir);
+						if ("error" in safePathResult) {
+							return yield* new ImportRunError({ message: "Import cleanup path is invalid" });
+						}
 
-							return yield* fs.remove(safePathResult.path, { recursive: true });
-						}),
-			{ discard: true },
-		);
-	});
+						return yield* fs.remove(safePathResult.path, { recursive: true });
+					}),
+		{ discard: true },
+	);
+});
 
 const runNonMediaImport = (payload: ImportRunJobData) => {
 	if (payload.source === "open_scale") {

@@ -98,59 +98,60 @@ export const createImportSourceFailure = (input: {
 	context: getImportSourceFailureContext(input.error, { host: input.host }),
 });
 
-export const requestSourceJson = (input: SourceJsonRequestInput) =>
-	Effect.gen(function* () {
-		const httpClient = yield* HttpClient.HttpClient;
-		const host = getSourceApiHost(input.baseUrl);
-		const url = buildSourceApiUrl({ path: input.path, query: input.query, baseUrl: input.baseUrl });
+export const requestSourceJson = Effect.fn("imports.requestSourceJson")(function* (
+	input: SourceJsonRequestInput,
+) {
+	const httpClient = yield* HttpClient.HttpClient;
+	const host = getSourceApiHost(input.baseUrl);
+	const url = buildSourceApiUrl({ path: input.path, query: input.query, baseUrl: input.baseUrl });
 
-		const method = input.method ?? "GET";
-		if (!isHttpMethod(method)) {
-			return yield* new ImportSourceRequestError({
-				context: { host },
-				message: getSourceErrorMessage({ host, sourceName: input.sourceName }),
-			});
-		}
+	const method = input.method ?? "GET";
+	if (!isHttpMethod(method)) {
+		return yield* new ImportSourceRequestError({
+			context: { host },
+			message: getSourceErrorMessage({ host, sourceName: input.sourceName }),
+		});
+	}
 
-		let request = HttpClientRequest.make(method)(url.toString());
-		if (input.headers) {
-			request = HttpClientRequest.setHeaders(input.headers)(request);
-		}
-		if (input.body !== undefined && input.body !== null) {
-			request = HttpClientRequest.bodyText(input.body)(request);
-		}
+	let request = HttpClientRequest.make(method)(url.toString());
+	if (input.headers) {
+		request = HttpClientRequest.setHeaders(input.headers)(request);
+	}
+	if (input.body !== undefined && input.body !== null) {
+		request = HttpClientRequest.bodyText(input.body)(request);
+	}
 
-		const response = yield* httpClient.execute(request).pipe(
-			input.allowInsecureConnections
-				? Effect.provideService(FetchHttpClient.RequestInit, insecureRequestInit)
-				: (effect) => effect,
-			Effect.mapError(
-				() =>
-					new ImportSourceRequestError({
-						context: { host },
-						message: getSourceErrorMessage({ host, sourceName: input.sourceName }),
-					}),
-			),
-		);
-
-		if (response.status < 200 || response.status >= 300) {
-			return yield* new ImportSourceRequestError({
-				context: { host, status: response.status },
-				message: getSourceErrorMessage({
-					host,
-					status: response.status,
-					sourceName: input.sourceName,
+	const response = yield* httpClient.execute(request).pipe(
+		input.allowInsecureConnections
+			? Effect.provideService(FetchHttpClient.RequestInit, insecureRequestInit)
+			: (effect) => effect,
+		Effect.mapError(
+			() =>
+				new ImportSourceRequestError({
+					context: { host },
+					message: getSourceErrorMessage({ host, sourceName: input.sourceName }),
 				}),
-			});
-		}
+		),
+	);
 
-		return yield* response.json.pipe(
-			Effect.mapError(
-				() =>
-					new ImportSourceRequestError({
-						context: { host },
-						message: getSourceErrorMessage({ host, sourceName: input.sourceName }),
-					}),
-			),
-		);
-	});
+	if (response.status < 200 || response.status >= 300) {
+		return yield* new ImportSourceRequestError({
+			context: { host, status: response.status },
+			message: getSourceErrorMessage({
+				host,
+				status: response.status,
+				sourceName: input.sourceName,
+			}),
+		});
+	}
+
+	return yield* response.json.pipe(
+		Effect.mapError(
+			() =>
+				new ImportSourceRequestError({
+					context: { host },
+					message: getSourceErrorMessage({ host, sourceName: input.sourceName }),
+				}),
+		),
+	);
+});

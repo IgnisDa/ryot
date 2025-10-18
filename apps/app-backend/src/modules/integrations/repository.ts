@@ -123,64 +123,69 @@ export class IntegrationsRepository extends Effect.Service<IntegrationsRepositor
 			const { frontendUrl } = yield* AppConfig;
 
 			return {
-				createForUser: (input) =>
-					Effect.gen(function* () {
-						const db = yield* CurrentDb;
-						const [row] = yield* dbEffect(() =>
-							db
-								.insert(schema.integration)
-								.values({
-									lot: input.lot,
-									userId: input.userId,
-									provider: input.provider,
-									name: input.name ?? null,
-									isDisabled: input.isDisabled,
-									extraSettings: input.extraSettings,
-									syncOwnership: input.syncOwnership,
-									minimumProgress: input.minimumProgress,
-									maximumProgress: input.maximumProgress,
-									providerSpecifics: input.providerSpecifics,
-								})
-								.returning(integrationSelection),
-						);
-						if (!row) {
-							return yield* Effect.die("Integration row missing after insert");
-						}
-						return normalizeIntegration(frontendUrl, row);
-					}),
-				getByIdAnyUser: (input) =>
-					Effect.gen(function* () {
-						const db = yield* CurrentDb;
-						const [row] = yield* dbEffect(() =>
-							db
-								.select(integrationSelection)
-								.from(schema.integration)
-								.where(eq(schema.integration.id, input.integrationId))
-								.limit(1),
-						);
+				createForUser: Effect.fn("IntegrationsRepository.createForUser")(function* (
+					input: Parameters<IntegrationsRepositoryShape["createForUser"]>[0],
+				) {
+					const db = yield* CurrentDb;
+					const [row] = yield* dbEffect(() =>
+						db
+							.insert(schema.integration)
+							.values({
+								lot: input.lot,
+								userId: input.userId,
+								provider: input.provider,
+								name: input.name ?? null,
+								isDisabled: input.isDisabled,
+								extraSettings: input.extraSettings,
+								syncOwnership: input.syncOwnership,
+								minimumProgress: input.minimumProgress,
+								maximumProgress: input.maximumProgress,
+								providerSpecifics: input.providerSpecifics,
+							})
+							.returning(integrationSelection),
+					);
+					if (!row) {
+						return yield* Effect.die("Integration row missing after insert");
+					}
+					return normalizeIntegration(frontendUrl, row);
+				}),
+				getByIdAnyUser: Effect.fn("IntegrationsRepository.getByIdAnyUser")(function* (
+					input: Parameters<IntegrationsRepositoryShape["getByIdAnyUser"]>[0],
+				) {
+					const db = yield* CurrentDb;
+					const [row] = yield* dbEffect(() =>
+						db
+							.select(integrationSelection)
+							.from(schema.integration)
+							.where(eq(schema.integration.id, input.integrationId))
+							.limit(1),
+					);
 
-						return row ? normalizeIntegration(frontendUrl, row) : null;
-					}),
-				getForUser: (input) =>
-					Effect.gen(function* () {
-						const db = yield* CurrentDb;
-						const [row] = yield* dbEffect(() =>
-							db
-								.select(integrationSelection)
-								.from(schema.integration)
-								.where(
-									and(
-										eq(schema.integration.id, input.integrationId),
-										eq(schema.integration.userId, input.userId),
-									),
-								)
-								.limit(1),
-						);
+					return row ? normalizeIntegration(frontendUrl, row) : null;
+				}),
+				getForUser: Effect.fn("IntegrationsRepository.getForUser")(function* (
+					input: Parameters<IntegrationsRepositoryShape["getForUser"]>[0],
+				) {
+					const db = yield* CurrentDb;
+					const [row] = yield* dbEffect(() =>
+						db
+							.select(integrationSelection)
+							.from(schema.integration)
+							.where(
+								and(
+									eq(schema.integration.id, input.integrationId),
+									eq(schema.integration.userId, input.userId),
+								),
+							)
+							.limit(1),
+					);
 
-						return row ? normalizeIntegration(frontendUrl, row) : null;
-					}),
-				getUserDisableIntegrations: (input) =>
-					Effect.gen(function* () {
+					return row ? normalizeIntegration(frontendUrl, row) : null;
+				}),
+				getUserDisableIntegrations: Effect.fn("IntegrationsRepository.getUserDisableIntegrations")(
+					function* (
+						input: Parameters<IntegrationsRepositoryShape["getUserDisableIntegrations"]>[0],
+					) {
 						const db = yield* CurrentDb;
 						const [row] = yield* dbEffect(() =>
 							db
@@ -191,118 +196,123 @@ export class IntegrationsRepository extends Effect.Service<IntegrationsRepositor
 						);
 						const preferences = row?.preferences as { disableIntegrations?: boolean } | undefined;
 						return preferences?.disableIntegrations === true;
-					}),
-				listEnabledYankIntegrations: () =>
-					Effect.gen(function* () {
-						const db = yield* CurrentDb;
-						const rows = yield* dbEffect(() =>
-							db
-								.select(integrationSelection)
-								.from(schema.integration)
-								.where(
-									and(eq(schema.integration.lot, "yank"), eq(schema.integration.isDisabled, false)),
-								)
-								.orderBy(desc(schema.integration.createdAt)),
-						);
+					},
+				),
+				listEnabledYankIntegrations: Effect.fn(
+					"IntegrationsRepository.listEnabledYankIntegrations",
+				)(function* () {
+					const db = yield* CurrentDb;
+					const rows = yield* dbEffect(() =>
+						db
+							.select(integrationSelection)
+							.from(schema.integration)
+							.where(
+								and(eq(schema.integration.lot, "yank"), eq(schema.integration.isDisabled, false)),
+							)
+							.orderBy(desc(schema.integration.createdAt)),
+					);
 
-						return rows.map((row) => normalizeIntegration(frontendUrl, row));
-					}),
-				listForUser: (input) =>
-					Effect.gen(function* () {
-						const db = yield* CurrentDb;
-						const conditions = [eq(schema.integration.userId, input.userId)];
-						if (input.provider !== undefined) {
-							conditions.push(eq(schema.integration.provider, input.provider));
-						}
-						if (input.isDisabled !== undefined) {
-							conditions.push(eq(schema.integration.isDisabled, input.isDisabled));
-						}
+					return rows.map((row) => normalizeIntegration(frontendUrl, row));
+				}),
+				listForUser: Effect.fn("IntegrationsRepository.listForUser")(function* (
+					input: Parameters<IntegrationsRepositoryShape["listForUser"]>[0],
+				) {
+					const db = yield* CurrentDb;
+					const conditions = [eq(schema.integration.userId, input.userId)];
+					if (input.provider !== undefined) {
+						conditions.push(eq(schema.integration.provider, input.provider));
+					}
+					if (input.isDisabled !== undefined) {
+						conditions.push(eq(schema.integration.isDisabled, input.isDisabled));
+					}
 
-						const rows = yield* dbEffect(() =>
-							db
-								.select(integrationSelection)
-								.from(schema.integration)
-								.where(and(...conditions))
-								.orderBy(desc(schema.integration.createdAt)),
-						);
+					const rows = yield* dbEffect(() =>
+						db
+							.select(integrationSelection)
+							.from(schema.integration)
+							.where(and(...conditions))
+							.orderBy(desc(schema.integration.createdAt)),
+					);
 
-						return rows.map((row) => normalizeIntegration(frontendUrl, row));
-					}),
-				updateForUser: (input) =>
-					Effect.gen(function* () {
-						const db = yield* CurrentDb;
-						type UpdateSet = Partial<typeof schema.integration.$inferInsert>;
-						const updates: UpdateSet = {};
-						if (input.name !== undefined) {
-							updates.name = input.name;
-						}
-						if (input.isDisabled !== undefined) {
-							updates.isDisabled = input.isDisabled;
-						}
-						if (input.syncOwnership !== undefined) {
-							updates.syncOwnership = input.syncOwnership;
-						}
-						if (input.minimumProgress !== undefined) {
-							updates.minimumProgress = input.minimumProgress;
-						}
-						if (input.maximumProgress !== undefined) {
-							updates.maximumProgress = input.maximumProgress;
-						}
-						if (input.lastFinishedAt !== undefined) {
-							updates.lastFinishedAt = input.lastFinishedAt;
-						}
-						if (input.extraSettings !== undefined) {
-							updates.extraSettings = input.extraSettings;
-						}
-						if (input.providerSpecifics !== undefined) {
-							updates.providerSpecifics = input.providerSpecifics;
-						}
+					return rows.map((row) => normalizeIntegration(frontendUrl, row));
+				}),
+				updateForUser: Effect.fn("IntegrationsRepository.updateForUser")(function* (
+					input: Parameters<IntegrationsRepositoryShape["updateForUser"]>[0],
+				) {
+					const db = yield* CurrentDb;
+					type UpdateSet = Partial<typeof schema.integration.$inferInsert>;
+					const updates: UpdateSet = {};
+					if (input.name !== undefined) {
+						updates.name = input.name;
+					}
+					if (input.isDisabled !== undefined) {
+						updates.isDisabled = input.isDisabled;
+					}
+					if (input.syncOwnership !== undefined) {
+						updates.syncOwnership = input.syncOwnership;
+					}
+					if (input.minimumProgress !== undefined) {
+						updates.minimumProgress = input.minimumProgress;
+					}
+					if (input.maximumProgress !== undefined) {
+						updates.maximumProgress = input.maximumProgress;
+					}
+					if (input.lastFinishedAt !== undefined) {
+						updates.lastFinishedAt = input.lastFinishedAt;
+					}
+					if (input.extraSettings !== undefined) {
+						updates.extraSettings = input.extraSettings;
+					}
+					if (input.providerSpecifics !== undefined) {
+						updates.providerSpecifics = input.providerSpecifics;
+					}
 
-						if (Object.keys(updates).length === 0) {
-							const [row] = yield* dbEffect(() =>
-								db
-									.select(integrationSelection)
-									.from(schema.integration)
-									.where(
-										and(
-											eq(schema.integration.id, input.integrationId),
-											eq(schema.integration.userId, input.userId),
-										),
-									)
-									.limit(1),
-							);
-							return row ? normalizeIntegration(frontendUrl, row) : null;
-						}
-
+					if (Object.keys(updates).length === 0) {
 						const [row] = yield* dbEffect(() =>
 							db
-								.update(schema.integration)
-								.set(updates)
+								.select(integrationSelection)
+								.from(schema.integration)
 								.where(
 									and(
 										eq(schema.integration.id, input.integrationId),
 										eq(schema.integration.userId, input.userId),
 									),
 								)
-								.returning(integrationSelection),
+								.limit(1),
 						);
-
 						return row ? normalizeIntegration(frontendUrl, row) : null;
-					}),
-				deleteForUser: (input) =>
-					Effect.gen(function* () {
-						const db = yield* CurrentDb;
-						yield* dbEffect(() =>
-							db
-								.delete(schema.integration)
-								.where(
-									and(
-										eq(schema.integration.id, input.integrationId),
-										eq(schema.integration.userId, input.userId),
-									),
+					}
+
+					const [row] = yield* dbEffect(() =>
+						db
+							.update(schema.integration)
+							.set(updates)
+							.where(
+								and(
+									eq(schema.integration.id, input.integrationId),
+									eq(schema.integration.userId, input.userId),
 								),
-						);
-					}),
+							)
+							.returning(integrationSelection),
+					);
+
+					return row ? normalizeIntegration(frontendUrl, row) : null;
+				}),
+				deleteForUser: Effect.fn("IntegrationsRepository.deleteForUser")(function* (
+					input: Parameters<IntegrationsRepositoryShape["deleteForUser"]>[0],
+				) {
+					const db = yield* CurrentDb;
+					yield* dbEffect(() =>
+						db
+							.delete(schema.integration)
+							.where(
+								and(
+									eq(schema.integration.id, input.integrationId),
+									eq(schema.integration.userId, input.userId),
+								),
+							),
+					);
+				}),
 			} satisfies IntegrationsRepositoryShape;
 		}),
 	},

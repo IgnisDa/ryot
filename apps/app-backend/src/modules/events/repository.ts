@@ -112,64 +112,76 @@ const toListedEvent = (row: EventRow) => ({
 
 export class EventsRepository extends Effect.Service<EventsRepository>()("EventsRepository", {
 	sync: (): EventsRepositoryShape => ({
-		listForUser: (input) =>
-			Effect.gen(function* () {
-				const db = yield* CurrentDb;
-				const conditions = [eq(schema.event.userId, input.userId)];
-				if (input.entityId) {
-					conditions.push(eq(schema.event.entityId, input.entityId));
-				}
-				if (input.sessionEntityId) {
-					conditions.push(eq(schema.event.sessionEntityId, input.sessionEntityId));
-				}
-				if (input.eventSchemaSlug) {
-					conditions.push(eq(schema.eventSchema.slug, input.eventSchemaSlug));
-				}
+		listForUser: Effect.fn("EventsRepository.listForUser")(function* (input: {
+			userId: string;
+			entityId?: string;
+			sessionEntityId?: string;
+			eventSchemaSlug?: string;
+		}) {
+			const db = yield* CurrentDb;
+			const conditions = [eq(schema.event.userId, input.userId)];
+			if (input.entityId) {
+				conditions.push(eq(schema.event.entityId, input.entityId));
+			}
+			if (input.sessionEntityId) {
+				conditions.push(eq(schema.event.sessionEntityId, input.sessionEntityId));
+			}
+			if (input.eventSchemaSlug) {
+				conditions.push(eq(schema.eventSchema.slug, input.eventSchemaSlug));
+			}
 
-				const rows = yield* dbEffect(() =>
-					db
-						.select(listedEventSelection)
-						.from(schema.event)
-						.innerJoin(schema.eventSchema, eq(schema.event.eventSchemaId, schema.eventSchema.id))
-						.where(and(...conditions))
-						.orderBy(
-							desc(schema.event.occurredAt),
-							desc(schema.event.createdAt),
-							desc(schema.event.id),
-						),
-				);
+			const rows = yield* dbEffect(() =>
+				db
+					.select(listedEventSelection)
+					.from(schema.event)
+					.innerJoin(schema.eventSchema, eq(schema.event.eventSchemaId, schema.eventSchema.id))
+					.where(and(...conditions))
+					.orderBy(
+						desc(schema.event.occurredAt),
+						desc(schema.event.createdAt),
+						desc(schema.event.id),
+					),
+			);
 
-				return rows.map(toListedEvent);
-			}),
-		createEvent: (input) =>
-			Effect.gen(function* () {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.insert(schema.event)
-						.values({
-							userId: input.userId,
-							entityId: input.entityId,
-							properties: input.properties,
-							occurredAt: input.occurredAt,
-							eventSchemaId: input.eventSchemaId,
-							sessionEntityId: input.sessionEntityId ?? null,
-						})
-						.returning(createdEventSelection),
-				);
+			return rows.map(toListedEvent);
+		}),
+		createEvent: Effect.fn("EventsRepository.createEvent")(function* (input: {
+			userId: string;
+			entityId: string;
+			occurredAt: Date;
+			eventSchemaId: string;
+			eventSchemaName: string;
+			eventSchemaSlug: string;
+			sessionEntityId?: string;
+			properties: Record<string, unknown>;
+		}) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.insert(schema.event)
+					.values({
+						userId: input.userId,
+						entityId: input.entityId,
+						properties: input.properties,
+						occurredAt: input.occurredAt,
+						eventSchemaId: input.eventSchemaId,
+						sessionEntityId: input.sessionEntityId ?? null,
+					})
+					.returning(createdEventSelection),
+			);
 
-				if (!row) {
-					return yield* new DbError({ message: "Event insert returned no row" });
-				}
+			if (!row) {
+				return yield* new DbError({ message: "Event insert returned no row" });
+			}
 
-				return toListedEvent({
-					...row,
-					eventSchemaName: input.eventSchemaName,
-					eventSchemaSlug: input.eventSchemaSlug,
-				});
-			}),
-		deleteUserEventsForEntity: (input) =>
-			Effect.gen(function* () {
+			return toListedEvent({
+				...row,
+				eventSchemaName: input.eventSchemaName,
+				eventSchemaSlug: input.eventSchemaSlug,
+			});
+		}),
+		deleteUserEventsForEntity: Effect.fn("EventsRepository.deleteUserEventsForEntity")(
+			function* (input: { userId: string; entityId: string }) {
 				const db = yield* CurrentDb;
 				const rows = yield* dbEffect(() =>
 					db
@@ -187,9 +199,10 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 				);
 
 				return rows.length;
-			}),
-		moveUserEventsBetweenEntities: (input) =>
-			Effect.gen(function* () {
+			},
+		),
+		moveUserEventsBetweenEntities: Effect.fn("EventsRepository.moveUserEventsBetweenEntities")(
+			function* (input: { userId: string; mergeFrom: string; mergeInto: string }) {
 				const db = yield* CurrentDb;
 				const result = yield* dbEffect(() =>
 					db.execute<{ count: string }>(sql`
@@ -213,9 +226,10 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 				);
 
 				return Number(result.rows[0]?.count ?? 0);
-			}),
-		getActiveBeforeCreateTriggers: (input) =>
-			Effect.gen(function* () {
+			},
+		),
+		getActiveBeforeCreateTriggers: Effect.fn("EventsRepository.getActiveBeforeCreateTriggers")(
+			function* (input: { userId: string; eventSchemaIds: string[] }) {
 				if (input.eventSchemaIds.length === 0) {
 					return [];
 				}
@@ -243,9 +257,10 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 						)
 						.orderBy(schema.eventSchemaTrigger.position),
 				);
-			}),
-		getActiveAfterCreateTriggers: (input) =>
-			Effect.gen(function* () {
+			},
+		),
+		getActiveAfterCreateTriggers: Effect.fn("EventsRepository.getActiveAfterCreateTriggers")(
+			function* (input: { userId: string; eventSchemaIds: string[] }) {
 				if (input.eventSchemaIds.length === 0) {
 					return [];
 				}
@@ -272,6 +287,7 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 							),
 						),
 				);
-			}),
+			},
+		),
 	}),
 }) {}

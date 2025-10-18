@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provider-refs";
 
@@ -40,7 +40,9 @@ const BrowserExtensionPayload = Schema.Union(
 	),
 );
 
-const decodeBrowserExtensionPayload = Schema.decodeUnknownSync(BrowserExtensionPayload);
+const decodeBrowserExtensionPayload = Schema.decodeUnknownSync(
+	Schema.parseJson(BrowserExtensionPayload),
+);
 
 const normalizeHostname = (value: string): string =>
 	value
@@ -93,14 +95,14 @@ const deriveProviderName = (urlValue?: string): string => {
 	}
 };
 
-export const parseBrowserExtensionSink: SinkParser = (input) => {
-	try {
+export const parseBrowserExtensionSink: SinkParser = (input) =>
+	Effect.try(() => {
 		const specs = input.integration.providerSpecifics;
 		if (specs.kind !== "ryot_browser_extension") {
 			throw new Error("Integration is not a browser extension sink integration");
 		}
 
-		const payload = decodeBrowserExtensionPayload(JSON.parse(input.rawBody));
+		const payload = decodeBrowserExtensionPayload(input.rawBody);
 		const mediaSeen = "data" in payload ? payload.data : payload;
 		if (payload.url && specs.disabledSites?.length) {
 			const hostname = new URL(payload.url).hostname;
@@ -134,8 +136,8 @@ export const parseBrowserExtensionSink: SinkParser = (input) => {
 				? { showSeason: mediaSeen.show_season_number, showEpisode: mediaSeen.show_episode_number }
 				: {}),
 		});
-	} catch {
-		return {
+	}).pipe(
+		Effect.orElseSucceed(() => ({
 			...emptySinkResult(),
 			failures: [
 				createSinkFailure({
@@ -143,6 +145,5 @@ export const parseBrowserExtensionSink: SinkParser = (input) => {
 					message: "Could not parse browser extension webhook payload",
 				}),
 			],
-		};
-	}
-};
+		})),
+	);

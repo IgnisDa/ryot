@@ -31,43 +31,42 @@ export const defaultUserPreferences: UserPreferences = {
 	},
 };
 
-const createBuiltinTrackers = (userId: string) =>
-	Effect.gen(function* () {
-		const db = yield* CurrentDb;
-		const trackers = builtinTrackers();
+const createBuiltinTrackers = Effect.fn(function* (userId: string) {
+	const db = yield* CurrentDb;
+	const trackers = builtinTrackers();
 
-		if (trackers.length === 0) {
-			return [];
-		}
+	if (trackers.length === 0) {
+		return [];
+	}
 
-		yield* dbEffect(() =>
-			db
-				.insert(schema.tracker)
-				.values(
-					trackers.map((t, index) => ({
-						userId,
-						icon: t.icon,
-						name: t.name,
-						slug: t.slug,
-						isBuiltin: true,
-						sortOrder: index,
-						accentColor: t.accentColor,
-						description: t.description,
-					})),
-				)
-				.onConflictDoNothing({ target: [schema.tracker.userId, schema.tracker.slug] }),
-		);
+	yield* dbEffect(() =>
+		db
+			.insert(schema.tracker)
+			.values(
+				trackers.map((t, index) => ({
+					userId,
+					icon: t.icon,
+					name: t.name,
+					slug: t.slug,
+					isBuiltin: true,
+					sortOrder: index,
+					accentColor: t.accentColor,
+					description: t.description,
+				})),
+			)
+			.onConflictDoNothing({ target: [schema.tracker.userId, schema.tracker.slug] }),
+	);
 
-		const slugs = trackers.map((t) => t.slug);
-		const rows = yield* dbEffect(() =>
-			db
-				.select({ id: schema.tracker.id, slug: schema.tracker.slug })
-				.from(schema.tracker)
-				.where(and(eq(schema.tracker.userId, userId), inArray(schema.tracker.slug, slugs))),
-		);
+	const slugs = trackers.map((t) => t.slug);
+	const rows = yield* dbEffect(() =>
+		db
+			.select({ id: schema.tracker.id, slug: schema.tracker.slug })
+			.from(schema.tracker)
+			.where(and(eq(schema.tracker.userId, userId), inArray(schema.tracker.slug, slugs))),
+	);
 
-		return rows;
-	});
+	return rows;
+});
 
 const listBuiltinEntitySchemas = Effect.gen(function* () {
 	const db = yield* CurrentDb;
@@ -88,169 +87,168 @@ const listBuiltinEntitySchemas = Effect.gen(function* () {
 type TrackerRow = { id: string; slug: string };
 type EntitySchemaRow = { accentColor: string; icon: string; id: string; slug: string };
 
-const createTrackerEntitySchemaLinks = (trackers: TrackerRow[], entitySchemas: EntitySchemaRow[]) =>
-	Effect.gen(function* () {
-		const db = yield* CurrentDb;
-		const schemaLinks = builtinEntitySchemas()
-			.filter((s): s is typeof s & { trackerSlug: string } => typeof s.trackerSlug === "string")
-			.map((s) => ({ slug: s.slug, trackerSlug: s.trackerSlug }));
+const createTrackerEntitySchemaLinks = Effect.fn(function* (
+	trackers: TrackerRow[],
+	entitySchemas: EntitySchemaRow[],
+) {
+	const db = yield* CurrentDb;
+	const schemaLinks = builtinEntitySchemas()
+		.filter((s): s is typeof s & { trackerSlug: string } => typeof s.trackerSlug === "string")
+		.map((s) => ({ slug: s.slug, trackerSlug: s.trackerSlug }));
 
-		const links = schemaLinks.flatMap((link) => {
-			const tracker = trackers.find((t) => t.slug === link.trackerSlug);
-			const entitySchema = entitySchemas.find((es) => es.slug === link.slug);
-			if (!tracker || !entitySchema) {
-				return [];
-			}
-			return [{ entitySchemaId: entitySchema.id, trackerId: tracker.id }];
-		});
-
-		if (links.length === 0) {
-			return;
+	const links = schemaLinks.flatMap((link) => {
+		const tracker = trackers.find((t) => t.slug === link.trackerSlug);
+		const entitySchema = entitySchemas.find((es) => es.slug === link.slug);
+		if (!tracker || !entitySchema) {
+			return [];
 		}
-
-		yield* dbEffect(() =>
-			db
-				.insert(schema.trackerEntitySchema)
-				.values(links)
-				.onConflictDoNothing({
-					target: [schema.trackerEntitySchema.trackerId, schema.trackerEntitySchema.entitySchemaId],
-				}),
-		);
+		return [{ entitySchemaId: entitySchema.id, trackerId: tracker.id }];
 	});
 
-const createBuiltinSavedViews = (
+	if (links.length === 0) {
+		return;
+	}
+
+	yield* dbEffect(() =>
+		db
+			.insert(schema.trackerEntitySchema)
+			.values(links)
+			.onConflictDoNothing({
+				target: [schema.trackerEntitySchema.trackerId, schema.trackerEntitySchema.entitySchemaId],
+			}),
+	);
+});
+
+const createBuiltinSavedViews = Effect.fn(function* (
 	userId: string,
 	trackers: TrackerRow[],
 	entitySchemas: EntitySchemaRow[],
-) =>
-	Effect.gen(function* () {
-		const db = yield* CurrentDb;
-		const views = builtinSavedViews();
+) {
+	const db = yield* CurrentDb;
+	const views = builtinSavedViews();
 
-		if (views.length === 0) {
-			return;
+	if (views.length === 0) {
+		return;
+	}
+
+	const scopeOrderMap = new Map<string, number>();
+
+	const values = views.flatMap((view) => {
+		const tracker = view.trackerSlug
+			? trackers.find((t) => t.slug === view.trackerSlug)
+			: undefined;
+		const entitySchema = view.entitySchemaSlug
+			? entitySchemas.find((es) => es.slug === view.entitySchemaSlug)
+			: undefined;
+
+		if (view.trackerSlug && !tracker) {
+			return [];
+		}
+		if (view.entitySchemaSlug && !entitySchema) {
+			return [];
 		}
 
-		const scopeOrderMap = new Map<string, number>();
+		const icon = view.icon ?? entitySchema?.icon;
+		const accentColor = view.accentColor ?? entitySchema?.accentColor;
 
-		const values = views.flatMap((view) => {
-			const tracker = view.trackerSlug
-				? trackers.find((t) => t.slug === view.trackerSlug)
-				: undefined;
-			const entitySchema = view.entitySchemaSlug
-				? entitySchemas.find((es) => es.slug === view.entitySchemaSlug)
-				: undefined;
-
-			if (view.trackerSlug && !tracker) {
-				return [];
-			}
-			if (view.entitySchemaSlug && !entitySchema) {
-				return [];
-			}
-
-			const icon = view.icon ?? entitySchema?.icon;
-			const accentColor = view.accentColor ?? entitySchema?.accentColor;
-
-			if (!icon || !accentColor) {
-				return [];
-			}
-
-			const queryDefinition =
-				view.queryDefinition ??
-				(entitySchema
-					? buildDefaultQueryDefinition([entitySchema.slug], {
-							relationshipJoins: view.relationshipJoins,
-						})
-					: null);
-
-			if (!queryDefinition) {
-				return [];
-			}
-
-			const scopeKey = tracker?.id ?? "__top_level__";
-			const sortOrder = scopeOrderMap.get(scopeKey) ?? 0;
-			scopeOrderMap.set(scopeKey, sortOrder + 1);
-
-			return [
-				{
-					icon,
-					userId,
-					sortOrder,
-					accentColor,
-					name: view.name,
-					isBuiltin: true,
-					slug: view.slug,
-					queryDefinition,
-					trackerId: tracker?.id ?? null,
-					displayConfiguration: view.displayConfiguration,
-				},
-			];
-		});
-
-		if (values.length === 0) {
-			return;
+		if (!icon || !accentColor) {
+			return [];
 		}
 
-		yield* dbEffect(() =>
-			db
-				.insert(schema.savedView)
-				.values(values)
-				.onConflictDoNothing({ target: [schema.savedView.userId, schema.savedView.slug] }),
-		);
-	});
+		const queryDefinition =
+			view.queryDefinition ??
+			(entitySchema
+				? buildDefaultQueryDefinition([entitySchema.slug], {
+						relationshipJoins: view.relationshipJoins,
+					})
+				: null);
 
-const ensureLibraryEntity = (userId: string, entitySchemas: EntitySchemaRow[]) =>
-	Effect.gen(function* () {
-		const db = yield* CurrentDb;
-		const librarySchema = entitySchemas.find((s) => s.slug === "library");
-
-		if (!librarySchema) {
-			yield* Effect.logWarning(
-				"Missing builtin library entity schema; skipping library entity creation",
-			);
-			return;
+		if (!queryDefinition) {
+			return [];
 		}
 
-		const [existing] = yield* dbEffect(() =>
-			db
-				.select({ id: schema.entity.id })
-				.from(schema.entity)
-				.where(
-					and(
-						eq(schema.entity.userId, userId),
-						eq(schema.entity.entitySchemaId, librarySchema.id),
-						isNull(schema.entity.externalId),
-						isNull(schema.entity.sandboxScriptId),
-					),
-				)
-				.limit(1),
-		);
+		const scopeKey = tracker?.id ?? "__top_level__";
+		const sortOrder = scopeOrderMap.get(scopeKey) ?? 0;
+		scopeOrderMap.set(scopeKey, sortOrder + 1);
 
-		if (existing) {
-			return;
-		}
-
-		yield* dbEffect(() =>
-			db.insert(schema.entity).values({
+		return [
+			{
+				icon,
 				userId,
-				properties: {},
-				name: "Library",
-				externalId: null,
-				sandboxScriptId: null,
-				entitySchemaId: librarySchema.id,
-			}),
-		);
+				sortOrder,
+				accentColor,
+				name: view.name,
+				isBuiltin: true,
+				slug: view.slug,
+				queryDefinition,
+				trackerId: tracker?.id ?? null,
+				displayConfiguration: view.displayConfiguration,
+			},
+		];
 	});
 
-const performBootstrap = (userId: string) =>
-	Effect.gen(function* () {
-		const trackers = yield* createBuiltinTrackers(userId);
-		const entitySchemas = yield* listBuiltinEntitySchemas;
-		yield* createTrackerEntitySchemaLinks(trackers, entitySchemas);
-		yield* createBuiltinSavedViews(userId, trackers, entitySchemas);
-		yield* ensureLibraryEntity(userId, entitySchemas);
-		yield* Effect.logInfo("Bootstrap complete", { userId });
-	});
+	if (values.length === 0) {
+		return;
+	}
+
+	yield* dbEffect(() =>
+		db
+			.insert(schema.savedView)
+			.values(values)
+			.onConflictDoNothing({ target: [schema.savedView.userId, schema.savedView.slug] }),
+	);
+});
+
+const ensureLibraryEntity = Effect.fn(function* (userId: string, entitySchemas: EntitySchemaRow[]) {
+	const db = yield* CurrentDb;
+	const librarySchema = entitySchemas.find((s) => s.slug === "library");
+
+	if (!librarySchema) {
+		yield* Effect.logWarning(
+			"Missing builtin library entity schema; skipping library entity creation",
+		);
+		return;
+	}
+
+	const [existing] = yield* dbEffect(() =>
+		db
+			.select({ id: schema.entity.id })
+			.from(schema.entity)
+			.where(
+				and(
+					eq(schema.entity.userId, userId),
+					eq(schema.entity.entitySchemaId, librarySchema.id),
+					isNull(schema.entity.externalId),
+					isNull(schema.entity.sandboxScriptId),
+				),
+			)
+			.limit(1),
+	);
+
+	if (existing) {
+		return;
+	}
+
+	yield* dbEffect(() =>
+		db.insert(schema.entity).values({
+			userId,
+			properties: {},
+			name: "Library",
+			externalId: null,
+			sandboxScriptId: null,
+			entitySchemaId: librarySchema.id,
+		}),
+	);
+});
+
+const performBootstrap = Effect.fn(function* (userId: string) {
+	const trackers = yield* createBuiltinTrackers(userId);
+	const entitySchemas = yield* listBuiltinEntitySchemas;
+	yield* createTrackerEntitySchemaLinks(trackers, entitySchemas);
+	yield* createBuiltinSavedViews(userId, trackers, entitySchemas);
+	yield* ensureLibraryEntity(userId, entitySchemas);
+	yield* Effect.logInfo("Bootstrap complete", { userId });
+});
 
 export const bootstrapNewUser = (userId: string) =>
 	Effect.gen(function* () {
