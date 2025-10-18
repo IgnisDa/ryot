@@ -23,6 +23,17 @@ async function postTemporaryUploads(files: File[], cookies?: string) {
 	});
 }
 
+async function postPresignedDownload(body: unknown, cookies?: string) {
+	return await fetch(`${getBackendUrl()}/uploads/presigned/download`, {
+		body: JSON.stringify(body),
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			...(cookies ? { Cookie: cookies } : {}),
+		},
+	});
+}
+
 describe("POST /uploads/presigned", () => {
 	it("returns 401 when not authenticated", async () => {
 		const client = getBackendClient();
@@ -68,23 +79,21 @@ describe("POST /uploads/presigned/download", () => {
 	});
 
 	it("returns 400 when keys array is empty", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const error = await client.runError(
-			(c) => c.uploads.createPresignedDownload({ payload: { keys: [] } }),
-			{ Cookie: cookies },
-		);
+		const { cookies } = await createAuthenticatedClient();
+		const response = await postPresignedDownload({ keys: [] }, cookies);
+		expect(response.status).toBe(400);
 
-		assertTaggedError(error, "BadRequest");
+		const error: unknown = await response.json();
+		expect(error).toMatchObject({ _tag: "HttpApiDecodeError" });
 	});
 
 	it("returns 400 when keys is missing", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const error = await client.runError(
-			(c) => c.uploads.createPresignedDownload({ payload: { keys: [] } }),
-			{ Cookie: cookies },
-		);
+		const { cookies } = await createAuthenticatedClient();
+		const response = await postPresignedDownload({}, cookies);
+		expect(response.status).toBe(400);
 
-		assertTaggedError(error, "BadRequest");
+		const error: unknown = await response.json();
+		expect(error).toMatchObject({ _tag: "HttpApiDecodeError" });
 	});
 
 	it("returns presigned download URLs for existing keys", async () => {
