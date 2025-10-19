@@ -1,6 +1,6 @@
 import { Effect, Schema } from "effect";
 
-import { DbError } from "./errors";
+import { DbError } from "../errors";
 import { AppSchema, type AppPropertyDefinition } from "./property-schema";
 
 export * from "./property-schema";
