@@ -10,7 +10,9 @@ const buildSchedulerId = (integrationId: string) => `yank-${integrationId}`;
 
 const parseCronSchedule = (): string => {
 	const phrase = config.scheduler.frequentCronJobsSchedule;
-	return strCronSyntax(phrase);
+	const expression = strCronSyntax(phrase);
+	const atoms = expression.trim().split(/\s+/);
+	return atoms.length > 6 ? atoms.slice(0, 6).join(" ") : expression;
 };
 
 export const addYankRepeatJob = async (input: {
