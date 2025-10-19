@@ -1,3 +1,4 @@
+import type { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
 
 import { imagesSchema, nullableIntSchema, nullableNumberSchema } from "../zod";
@@ -10,3 +11,5 @@ export const mangaPropertiesSchema = mediaPropertiesSchema.extend({
 });
 
 export const mangaPropertiesJsonSchema = toAppSchemaProperties(mangaPropertiesSchema);
+
+export type MangaProperties = z.infer<typeof mangaPropertiesSchema>;

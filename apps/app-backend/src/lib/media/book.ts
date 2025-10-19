@@ -1,3 +1,4 @@
+import type { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
 
 import { imagesSchema, nullableBooleanSchema, nullableIntSchema } from "../zod";
@@ -12,3 +13,5 @@ export const bookPropertiesSchema = mediaWithUnlinkedCreatorsPropertiesSchema.ex
 });
 
 export const bookPropertiesJsonSchema = toAppSchemaProperties(bookPropertiesSchema);
+
+export type BookProperties = z.infer<typeof bookPropertiesSchema>;

@@ -1,6 +1,12 @@
 {
 	"name": "@ryot/app-backend",
 	"main": "src/index.ts",
+	"exports": {
+		"./lib/*": {
+			"types": "./src/lib/*.ts",
+			"default": "./src/lib/*.ts"
+		}
+	},
 	"scripts": {
 		"format": "oxfmt . --write",
 		"test": "bun test --only-failures",
