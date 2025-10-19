@@ -1714,9 +1714,9 @@ The implementation should keep file sizes maintainable and split modules when th
 
 ## Tasks
 
-**Overall Progress:** 3 of 12 tasks completed
+**Overall Progress:** 4 of 12 tasks completed
 
-**Current Task:** [Task 04](./04-deep-includes-and-event-existence.md) (todo)
+**Current Task:** [Task 05](./05-event-roots-and-first-expressions.md) (todo)
 
 ### Task List
 
@@ -1725,7 +1725,7 @@ The implementation should keep file sizes maintainable and split modules when th
 | 01  | [V2 Entity Rows API](./01-v2-entity-rows-api.md)                                               | AFK  | done   |
 | 02  | [Core Validation Guardrails](./02-core-validation-guardrails.md)                               | AFK  | done   |
 | 03  | [Relationship Includes](./03-relationship-includes.md)                                         | AFK  | done   |
-| 04  | [Deep Includes And Event Existence](./04-deep-includes-and-event-existence.md)                 | AFK  | todo   |
+| 04  | [Deep Includes And Event Existence](./04-deep-includes-and-event-existence.md)                 | AFK  | done   |
 | 05  | [Event Roots And First Expressions](./05-event-roots-and-first-expressions.md)                 | AFK  | todo   |
 | 06  | [Descendant Source Filters](./06-descendant-source-filters.md)                                 | AFK  | todo   |
 | 07  | [Aggregate Returns](./07-aggregate-returns.md)                                                 | AFK  | todo   |
