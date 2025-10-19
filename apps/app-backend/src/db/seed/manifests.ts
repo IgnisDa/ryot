@@ -1,5 +1,9 @@
 import { animePropertiesJsonSchema } from "~/lib/zod/anime";
-import { bookPropertiesJsonSchema } from "~/lib/zod/book";
+import {
+	bookPropertiesJsonSchema,
+	progressEventPropertiesJsonSchema,
+	readEventPropertiesJsonSchema,
+} from "~/lib/zod/book";
 import { mangaPropertiesJsonSchema } from "~/lib/zod/manga";
 import anilistAnimeDetailsScriptCode from "~/sandbox/scripts/anilist-anime-details-source.txt";
 import anilistAnimeSearchScriptCode from "~/sandbox/scripts/anilist-anime-search-source.txt";
@@ -18,29 +22,16 @@ import myanimelistMangaSearchScriptCode from "~/sandbox/scripts/myanimelist-mang
 import openLibraryBookDetailsScriptCode from "~/sandbox/scripts/openlibrary-book-details-source.txt";
 import openLibraryBookSearchScriptCode from "~/sandbox/scripts/openlibrary-book-search-source.txt";
 
-const mediaEventSchemas = () => [
+const bookEventSchemas = () => [
 	{
 		name: "Read",
 		slug: "read",
-		propertiesSchema: {
-			type: "object",
-			properties: {
-				platform: { type: "string" },
-				finished_at: { type: "string", format: "date-time" },
-			},
-		},
+		propertiesSchema: readEventPropertiesJsonSchema,
 	},
 	{
 		name: "Progress",
 		slug: "progress",
-		propertiesSchema: {
-			type: "object",
-			required: ["progress_percent"],
-			properties: {
-				status: { type: "string", enum: ["in_progress", "completed"] },
-				progress_percent: { minimum: 0, maximum: 100, type: "number" },
-			},
-		},
+		propertiesSchema: progressEventPropertiesJsonSchema,
 	},
 ];
 
@@ -48,7 +39,7 @@ export const builtinEntitySchemas = () => [
 	{
 		slug: "book",
 		name: "Book",
-		eventSchemas: mediaEventSchemas(),
+		eventSchemas: bookEventSchemas(),
 		propertiesSchema: bookPropertiesJsonSchema,
 	},
 	{
