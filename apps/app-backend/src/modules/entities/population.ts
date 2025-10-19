@@ -1,12 +1,15 @@
 import { z } from "@hono/zod-openapi";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { normalizeSlug } from "@ryot/ts-utils/slug";
-import { type Job, WaitingChildrenError } from "bullmq";
+import type { Job } from "bullmq";
 
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 import { relatedEntityReferenceSchema } from "~/lib/media/common";
-import { getQueues } from "~/lib/queue";
-import { sandboxRunJobName, sandboxRunJobResult } from "~/lib/sandbox/jobs";
+import {
+	getSandboxChildRunResult,
+	queueSandboxChildRun,
+	waitForSandboxChildRun,
+} from "~/lib/sandbox/child-run";
 import { imagesSchema } from "~/lib/zod";
 import { getBuiltinEntitySchemaBySandboxScriptId } from "~/modules/entity-schemas";
 import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
@@ -62,70 +65,6 @@ export const entityPopulationDeps: EntityPopulationDeps = {
 	getBuiltinSandboxScriptBySlug,
 	getBuiltinRelationshipSchemaBySlug,
 	getBuiltinEntitySchemaBySandboxScriptId,
-};
-
-export const queueSandboxChildRun = async (input: {
-	job: Job;
-	childJobId: string;
-	jobData: Record<string, unknown>;
-	sandboxJobData: Record<string, unknown>;
-}) => {
-	if (!input.job.id) {
-		throw new Error("Entity import job id is missing");
-	}
-
-	await getQueues().sandboxQueue.add(sandboxRunJobName, input.sandboxJobData, {
-		jobId: input.childJobId,
-		parent: { id: input.job.id, queue: input.job.queueQualifiedName },
-	});
-	await input.job.updateData(input.jobData);
-};
-
-export const waitForSandboxChildRun = async (job: Job, token: string | undefined) => {
-	if (!token) {
-		throw new Error("Entity import job token is missing");
-	}
-
-	const shouldWait = await job.moveToWaitingChildren(token);
-	if (shouldWait) {
-		throw new WaitingChildrenError();
-	}
-};
-
-const findSandboxChildValue = (
-	childrenValues: Record<string, unknown>,
-	sandboxChildJobId: string | undefined,
-) => {
-	const childEntries = Object.entries(childrenValues);
-	if (sandboxChildJobId) {
-		const matchingChildren = childEntries.filter(
-			([key]) => key === sandboxChildJobId || key.endsWith(`:${sandboxChildJobId}`),
-		);
-		if (matchingChildren.length === 1) {
-			return matchingChildren[0]?.[1];
-		}
-	}
-
-	if (childEntries.length === 1) {
-		return childEntries[0]?.[1];
-	}
-
-	return undefined;
-};
-
-export const getSandboxChildRunResult = async (job: Job, sandboxChildJobId?: string) => {
-	const childrenValues = await job.getChildrenValues();
-	const childValue = findSandboxChildValue(childrenValues, sandboxChildJobId);
-	if (childValue === undefined) {
-		throw new Error("Sandbox child job did not complete successfully");
-	}
-
-	const parsed = sandboxRunJobResult.safeParse(childValue);
-	if (!parsed.success) {
-		throw new Error("Sandbox child job returned an invalid payload");
-	}
-
-	return parsed.data;
 };
 
 export const hasImportedEntityDetails = (entityRow: Pick<ListedEntity, "populatedAt">) =>
