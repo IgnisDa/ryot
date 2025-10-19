@@ -7,7 +7,7 @@ import { Text } from "@/components/ui/text";
 
 type Props = { title: string; eyebrow: string; children?: ReactNode };
 
-export function PageHeader({ eyebrow, title, children }: Props) {
+export function PageHeader(props: Props) {
 	const insets = useSafeAreaInsets();
 
 	return (
@@ -22,13 +22,13 @@ export function PageHeader({ eyebrow, title, children }: Props) {
 			>
 				<Box className="h-7 md:hidden" />
 				<Text className="text-[10px] mt-[14] tracking-[2px] text-muted-foreground font-sans uppercase">
-					{eyebrow}
+					{props.eyebrow}
 				</Text>
 				<Text className="text-[38px] text-foreground mt-1 leading-[40px] font-heading-semibold tracking-[-0.5px]">
-					{title}
+					{props.title}
 				</Text>
 				<Box className="h-[0.5px] mt-[18] bg-border" />
-				{children}
+				{props.children}
 			</ScrollView>
 		</Box>
 	);

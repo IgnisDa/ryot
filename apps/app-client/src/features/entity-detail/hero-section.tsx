@@ -185,18 +185,23 @@ export function HeroSection(props: { creators: UnlinkedCreator[]; entity: Entity
 							)}
 
 							<Box className="mt-5 flex-row flex-wrap gap-3">
-								<Pressable className="flex-row items-center gap-2 rounded-full bg-[#C9943A] px-4 py-2.5">
+								<Pressable
+									disabled
+									className="flex-row items-center gap-2 rounded-full bg-[#C9943A] px-4 py-2.5 opacity-50"
+								>
 									<Plus size={16} color="#1c1917" strokeWidth={2} />
 									<Text className="text-[13px] font-sans-semibold text-[#1c1917] web:text-[15px]">
 										Log Event
 									</Text>
 								</Pressable>
 								<Pressable
+									disabled
 									className="flex-row items-center gap-2 rounded-full border px-4 py-2.5"
 									style={{
 										borderColor: "rgba(255,255,255,0.2)",
 										backgroundColor: "rgba(255,255,255,0.12)",
 									}}
+									accessibilityState={{ disabled: true }}
 								>
 									<Library size={16} color="#fff" strokeWidth={2} />
 									<Text className="text-[13px] font-sans-semibold text-white web:text-[15px]">
