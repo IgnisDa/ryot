@@ -271,6 +271,7 @@ query GetHardcoverBookDetails($id: Int!) {
     pages
     title
     description
+    release_date
     release_year
     image { url }
     images { url }
@@ -341,6 +342,11 @@ query GetHardcoverBookDetails($id: Int!) {
       ? bookData.release_year
       : null;
 
+  const releaseDate =
+    typeof bookData.release_date === "string" && bookData.release_date.trim()
+      ? bookData.release_date.trim()
+      : null;
+
   const slug = typeof bookData.slug === "string" ? bookData.slug.trim() : "";
   const sourceUrl = slug
     ? `https://hardcover.app/books/${slug}`
@@ -352,6 +358,7 @@ query GetHardcoverBookDetails($id: Int!) {
       pages,
       unlinkedCreators: [],
       sourceUrl: sourceUrl,
+      publishDate: releaseDate,
       publishYear: releaseYear,
       genres: collectGenres(bookData.cached_tags),
       people: collectPeople(bookData.contributions),

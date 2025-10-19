@@ -12,6 +12,12 @@ function parseReleaseYear(releaseDate, dayjs) {
   return d.isValid() ? d.year() : null;
 }
 
+function parseReleaseDate(releaseDate, dayjs) {
+  if (typeof releaseDate !== "string" || !releaseDate.trim()) return null;
+  const d = dayjs(releaseDate.trim());
+  return d.isValid() ? d.toISOString().split("T")[0] : null;
+}
+
 async function cleanHtmlDescription(html) {
   if (typeof html !== "string" || !html.trim()) return null;
   const { load } = await import("npm:cheerio");
@@ -287,6 +293,7 @@ driver("details", async function(context) {
       providerRating,
       unlinkedCreators,
       genres: [...genreSet],
+      publishDate: parseReleaseDate(product?.release_date, dayjs),
     },
   };
 });

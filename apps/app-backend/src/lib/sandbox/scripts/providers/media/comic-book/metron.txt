@@ -33,6 +33,13 @@ function parsePublishYear(value, dayjs) {
   return d.isValid() ? d.year() : null;
 }
 
+function parsePublishDate(value) {
+  const date = getString(value);
+  if (!date) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  return date;
+}
+
 function formatIssueTitle(seriesName, number) {
   const resolvedSeriesName = getString(seriesName) ?? "Unknown Series";
   const resolvedNumber = getString(number);
@@ -219,6 +226,7 @@ driver("details", async function(context) {
 		pages: pageCount,
 		people: buildPeople(payload?.credits),
 		description: getString(payload?.desc),
+		publishDate: parsePublishDate(payload?.cover_date),
 		images: image ? [{ type: "remote", url: image }] : [],
 		sourceUrl: `https://metron.cloud/issue/${externalId}`,
 		publishYear: parsePublishYear(payload?.cover_date, dayjs),
