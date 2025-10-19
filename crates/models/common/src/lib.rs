@@ -172,6 +172,7 @@ pub enum CollectionExtraInformationLot {
     InputObject,
     FromJsonQueryResult,
 )]
+#[serde(rename_all = "snake_case")]
 #[graphql(input_name = "CollectionExtraInformationInput")]
 pub struct CollectionExtraInformation {
     pub name: String,
@@ -456,6 +457,7 @@ pub struct YoutubeMusicSongListened {
     SimpleObject,
     FromJsonQueryResult,
 )]
+#[serde(rename_all = "snake_case")]
 #[graphql(input_name = "UserToCollectionExtraInformationInput")]
 pub struct UserToCollectionExtraInformation {
     pub is_hidden: Option<bool>,

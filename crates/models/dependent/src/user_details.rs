@@ -21,6 +21,7 @@ use uuid::Uuid;
 
 #[skip_serializing_none]
 #[derive(Debug, PartialEq, Eq, Default, Serialize, Deserialize, SimpleObject, Clone, Schematic)]
+#[serde(rename_all = "snake_case")]
 pub struct CollectionToEntityDetails {
     /// The rank of this entity in the collection. This is ignored during importing.
     #[serde(default)]
