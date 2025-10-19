@@ -27,6 +27,7 @@ import {
 	createRelationshipSchema,
 	createSingleSchemaQueryEngineFixture,
 	createTracker,
+	type EntitiesQueryEngineResponse,
 	entityField,
 	executeQueryEngine,
 	findBuiltinSchemaBySlug,
@@ -42,14 +43,10 @@ import {
 	toQueryEngineItem,
 	waitForEventCount,
 } from "../fixtures";
-import type { ContractSuccess } from "../fixtures/contract-client";
 import { assertPresent, assertTaggedError } from "../test-support/assertions";
 import { registerQueryEnginePresentationAndErrorTests } from "../test-support/query-engine-suite";
 
-type QueryEngineItems = Extract<
-	ContractSuccess<"queryEngine", "execute">,
-	{ mode: "entities" }
->["data"]["items"];
+type QueryEngineItems = EntitiesQueryEngineResponse["data"]["items"];
 
 const getItemFieldValue = (item: Parameters<typeof getQueryEngineFieldOrThrow>[0], key: string) =>
 	getQueryEngineFieldOrThrow(item, key).value;
