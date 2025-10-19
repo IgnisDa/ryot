@@ -19,9 +19,9 @@ const healthResponseSchema = dataSchema(
 );
 
 const healthRoute = createRoute({
-	tags: ["health"],
 	path: "/",
 	method: "get",
+	tags: ["health"],
 	summary: "Check backend health",
 	responses: {
 		503: createErrorResponse(
