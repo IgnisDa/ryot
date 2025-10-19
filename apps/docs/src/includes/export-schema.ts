@@ -8,7 +8,7 @@ export interface StringIdAndNamedObject {
 }
 
 export interface UserToCollectionExtraInformation {
-	isHidden: boolean | null;
+	is_hidden: boolean | null;
 }
 
 export interface CollectionItemCollaboratorInformation {
