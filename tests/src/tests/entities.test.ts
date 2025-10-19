@@ -223,8 +223,8 @@ describe("POST /entities", () => {
 			properties: {},
 			name: "Built-in Book",
 			entitySchemaId: schema.id,
-			externalId: `ext-builtin-${crypto.randomUUID()}`,
 			sandboxScriptId: providerScriptId,
+			externalId: `ext-builtin-${crypto.randomUUID()}`,
 		});
 
 		expect(entity.id).toBeDefined();
@@ -240,10 +240,7 @@ describe("POST /entities", () => {
 			image: null,
 			name: "Push Day",
 			entitySchemaId: schema.id,
-			properties: {
-				endedAt: "2026-04-27T11:00:00Z",
-				startedAt: "2026-04-27T10:00:00Z",
-			},
+			properties: { endedAt: "2026-04-27T11:00:00Z", startedAt: "2026-04-27T10:00:00Z" },
 		});
 
 		expect(entity.id).toBeDefined();
@@ -588,7 +585,7 @@ describe("POST /entities/import — provider entity import", () => {
 		);
 
 		assertTaggedError(error, "NotFound");
-		expect(error.message).toBe("Entity Import job not found");
+		expect(error.message).toBe("Entity import job not found");
 	});
 
 	it("returns 401 for unauthenticated import requests", async () => {
