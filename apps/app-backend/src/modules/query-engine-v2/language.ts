@@ -29,6 +29,7 @@ export type Expr =
 	| { readonly type: "not"; readonly expr: Expr }
 	| { readonly type: "isNull"; readonly expr: Expr }
 	| { readonly type: "isNotNull"; readonly expr: Expr }
+	| { readonly type: "measureRef"; readonly key: string }
 	| { readonly type: "exists"; readonly source: SourceV2 }
 	| { readonly type: "or"; readonly values: readonly [Expr, ...Expr[]] }
 	| { readonly type: "and"; readonly values: readonly [Expr, ...Expr[]] }
@@ -66,10 +67,16 @@ const RefExpr = strictStruct({
 	type: Schema.Literal("ref"),
 }).annotations({ identifier: "RefExpr" });
 
+const MeasureRefExpr = strictStruct({
+	key: Schema.String,
+	type: Schema.Literal("measureRef"),
+}).annotations({ identifier: "MeasureRefExpr" });
+
 export const Expr: Schema.Schema<Expr> = Schema.suspend(() =>
 	Schema.Union(
 		RefExpr,
 		LiteralExpr,
+		MeasureRefExpr,
 		strictStruct({ expr: Expr, type: Schema.Literal("not") }),
 		strictStruct({ expr: Expr, type: Schema.Literal("isNull") }),
 		strictStruct({ expr: Expr, type: Schema.Literal("isNotNull") }),
@@ -173,6 +180,13 @@ const OrderByEntry = strictStruct({ expr: Expr, order: Schema.Literal("asc", "de
 const FieldDef = strictStruct({ expr: Expr, key: Schema.String }).annotations({
 	identifier: "FieldDef",
 });
+export type FieldDef = typeof FieldDef.Type;
+
+const AggregateMeasureDef = strictStruct({
+	key: Schema.String,
+	aggregation: AggregationSpec,
+}).annotations({ identifier: "AggregateMeasureDef" });
+export type AggregateMeasureDef = typeof AggregateMeasureDef.Type;
 
 export type IncludeEntryV2 = {
 	readonly key: string;
@@ -203,8 +217,22 @@ export const RowsOutputV2 = strictStruct({
 }).annotations({ identifier: "RowsOutputV2" });
 export type RowsOutputV2 = typeof RowsOutputV2.Type;
 
+export const AggregateOutputV2 = strictStruct({
+	type: Schema.Literal("aggregate"),
+	measures: Schema.NonEmptyArray(AggregateMeasureDef),
+	groupBy: Schema.optional(Schema.Array(FieldDef)),
+	limit: Schema.optional(Schema.Int.pipe(Schema.positive())),
+	orderBy: Schema.optional(Schema.NonEmptyArray(OrderByEntry)),
+}).annotations({ identifier: "AggregateOutputV2" });
+export type AggregateOutputV2 = typeof AggregateOutputV2.Type;
+
+export const OutputV2 = Schema.Union(RowsOutputV2, AggregateOutputV2).annotations({
+	identifier: "OutputV2",
+});
+export type OutputV2 = typeof OutputV2.Type;
+
 export const QueryDocumentV2 = strictStruct({
-	output: RowsOutputV2,
+	output: OutputV2,
 	source: RootSourceV2,
 	version: Schema.Literal(2),
 }).annotations({ identifier: "QueryDocumentV2" });
@@ -255,5 +283,16 @@ export const RowsResponseV2 = strictStruct({
 }).annotations({ identifier: "RowsResponseV2" });
 export type RowsResponseV2 = typeof RowsResponseV2.Type;
 
-export const QueryResponseV2 = RowsResponseV2;
+export const AggregateResponseV2 = strictStruct({
+	type: Schema.Literal("aggregate"),
+	data: strictStruct({
+		pageInfo: Schema.optional(LimitedPageInfo),
+		items: Schema.Array(Schema.Record({ key: Schema.String, value: RowValue })),
+	}),
+}).annotations({ identifier: "AggregateResponseV2" });
+export type AggregateResponseV2 = typeof AggregateResponseV2.Type;
+
+export const QueryResponseV2 = Schema.Union(RowsResponseV2, AggregateResponseV2).annotations({
+	identifier: "QueryResponseV2",
+});
 export type QueryResponseV2 = typeof QueryResponseV2.Type;

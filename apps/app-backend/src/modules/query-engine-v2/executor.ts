@@ -6,9 +6,12 @@ import * as dbSchema from "#lib/db/schema/tables";
 import { BadRequest, type DbError, NotFound } from "#lib/errors";
 
 import type {
+	AggregateOutputV2,
+	AggregateResponseV2,
 	AggregationSpec,
 	EntitySourceV2,
 	Expr,
+	FieldDef,
 	FieldSelector,
 	FieldValue,
 	IncludeEntryV2,
@@ -17,6 +20,7 @@ import type {
 	RootEventSourceV2,
 	RowItem,
 	RowValue,
+	RowsOutputV2,
 	RowsResponseV2,
 	SourceV2,
 } from "./language";
@@ -29,6 +33,9 @@ export type VisibleSchema = { id: string; slug: string };
 type VisibleRelationshipSchema = { id: string; slug: string };
 
 type VisibleEventSchema = { id: string; slug: string };
+
+type RowsQueryDocumentV2 = QueryDocumentV2 & { output: RowsOutputV2 };
+type AggregateQueryDocumentV2 = QueryDocumentV2 & { output: AggregateOutputV2 };
 
 const loadVisibleEntitySchemas = (
 	userId: string,
@@ -426,6 +433,12 @@ const makeEntityContext = (alias: string, row: BaseEntityQueryRow): RowContext =
 	entities: new Map([[alias, row]]),
 });
 
+const makeEmptyContext = (): RowContext => ({
+	events: new Map(),
+	entities: new Map(),
+	relationships: new Map(),
+});
+
 const cloneContext = (context: RowContext): RowContext => ({
 	events: new Map(context.events),
 	entities: new Map(context.entities),
@@ -706,6 +719,82 @@ const executeEventSourceMatches = (
 		return matches;
 	});
 
+const executeRootEventSourceMatches = (
+	userId: string,
+	source: RootEventSourceV2,
+): Effect.Effect<SourceMatch[], BadRequest | NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const visibleEntitySchemas = yield* loadVisibleEntitySchemas(userId, source.entity.schemas);
+		const entitySchemaIds = visibleEntitySchemas.map((s) => s.id);
+		const visibleEventSchemas = yield* loadVisibleEventSchemasForEntitySchemas(
+			userId,
+			entitySchemaIds,
+			source.schemas,
+		);
+		const entitySchemaIdsSql = sql.join(
+			entitySchemaIds.map((id) => sql`${id}`),
+			sql`, `,
+		);
+		const eventSchemaIdsSql = sql.join(
+			visibleEventSchemas.map((s) => sql`${s.id}`),
+			sql`, `,
+		);
+		const db = yield* CurrentDb;
+		const rawRows = yield* dbEffect(() =>
+			db.execute<EventQueryRow>(sql`
+				SELECT
+					e.id,
+					e.name,
+					e.image,
+					e.properties,
+					e.created_at AS "createdAt",
+					e.updated_at AS "updatedAt",
+					e.external_id AS "externalId",
+					e.sandbox_script_id AS "sandboxScriptId",
+					es.id AS "schemaId",
+					es.slug AS "schemaSlug",
+					es.name AS "schemaName",
+					ev.id AS "eventId",
+					ev.properties AS "eventProperties",
+					ev.created_at AS "eventCreatedAt",
+					ev.updated_at AS "eventUpdatedAt",
+					ev.occurred_at AS "eventOccurredAt",
+					evs.id AS "eventSchemaId",
+					evs.slug AS "eventSchemaSlug",
+					evs.name AS "eventSchemaName",
+					1 AS "totalCount"
+				FROM event ev
+				JOIN event_schema evs ON evs.id = ev.event_schema_id
+				JOIN entity e ON e.id = ev.entity_id
+				JOIN entity_schema es ON es.id = e.entity_schema_id
+				WHERE
+					ev.user_id = ${userId}
+					AND ev.event_schema_id IN (${eventSchemaIdsSql})
+					AND e.entity_schema_id IN (${entitySchemaIdsSql})
+					AND (e.user_id = ${userId} OR e.user_id IS NULL)
+			`),
+		);
+
+		const matches: SourceMatch[] = [];
+		for (const row of rawRows.rows) {
+			const context = makeEventRootContext(source, row);
+			if (source.where === null || (yield* evalExprAsBoolean(userId, source.where, context))) {
+				matches.push({ context, row });
+			}
+		}
+		return matches;
+	});
+
+const executeRootSourceMatches = (
+	userId: string,
+	source: QueryDocumentV2["source"],
+): Effect.Effect<SourceMatch[], BadRequest | NotFound | DbError, CurrentDb> => {
+	if (source.type === "entities") {
+		return executeEntitySourceMatches(userId, makeEmptyContext(), source, null);
+	}
+	return executeRootEventSourceMatches(userId, source);
+};
+
 const executeSourceMatches = (
 	userId: string,
 	context: RowContext,
@@ -718,6 +807,32 @@ const executeSourceMatches = (
 
 const aggregateDistinctKey = (value: unknown) =>
 	typeof value === "object" && value !== null ? JSON.stringify(value) : String(value);
+
+const aggregateValues = (
+	values: readonly FieldValue[],
+	aggregation: AggregationSpec,
+): FieldValue => {
+	if (aggregation.function === "count") {
+		return { kind: "number", value: values.length };
+	}
+
+	const numbers = values.flatMap((value) => (typeof value.value === "number" ? [value.value] : []));
+	if (numbers.length === 0) {
+		return { kind: "null", value: null };
+	}
+
+	const result = Match.value(aggregation.function).pipe(
+		Match.when("sum", () => numbers.reduce((total, value) => total + value, 0)),
+		Match.when(
+			"average",
+			() => numbers.reduce((total, value) => total + value, 0) / numbers.length,
+		),
+		Match.when("minimum", () => Math.min(...numbers)),
+		Match.when("maximum", () => Math.max(...numbers)),
+		Match.exhaustive,
+	);
+	return { kind: "number", value: result };
+};
 
 const evalAggregate = (
 	userId: string,
@@ -857,6 +972,156 @@ const evalExprAsBoolean = (
 	context: RowContext,
 ): Effect.Effect<boolean, BadRequest | NotFound | DbError, CurrentDb> =>
 	Effect.map(evalExprValue(userId, expr, context), (value) => value.value === true);
+
+const groupKeyFromValues = (values: readonly FieldValue[]) =>
+	JSON.stringify(values.map((value) => [value.kind, value.value]));
+
+const compareAggregateOrderValues = (left: unknown, right: unknown) => {
+	if (left === null || left === undefined) {
+		return right === null || right === undefined ? 0 : 1;
+	}
+	if (right === null || right === undefined) {
+		return -1;
+	}
+
+	const normalizedLeft = left instanceof Date ? left.toISOString() : left;
+	const normalizedRight = right instanceof Date ? right.toISOString() : right;
+	if (typeof normalizedLeft === "number" && typeof normalizedRight === "number") {
+		return normalizedLeft - normalizedRight;
+	}
+	if (typeof normalizedLeft === "string" && typeof normalizedRight === "string") {
+		return normalizedLeft.localeCompare(normalizedRight);
+	}
+	return 0;
+};
+
+const evalAggregateMeasure = (
+	userId: string,
+	matches: readonly SourceMatch[],
+	aggregation: AggregationSpec,
+): Effect.Effect<FieldValue, BadRequest | NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		if (aggregation.function === "count") {
+			if (aggregation.distinctBy === undefined) {
+				return { kind: "number" as const, value: matches.length };
+			}
+
+			const distinct = new Set<string>();
+			for (const match of matches) {
+				const value = fieldValueScalar(
+					yield* evalExprValue(userId, aggregation.distinctBy, match.context),
+				);
+				if (value !== null && value !== undefined) {
+					distinct.add(aggregateDistinctKey(value));
+				}
+			}
+			return { kind: "number" as const, value: distinct.size };
+		}
+
+		const values: FieldValue[] = [];
+		for (const match of matches) {
+			values.push(yield* evalExprValue(userId, aggregation.expr, match.context));
+		}
+		return aggregateValues(values, aggregation);
+	});
+
+const evalAggregateGroupFields = (
+	userId: string,
+	groupBy: readonly FieldDef[],
+	match: SourceMatch,
+): Effect.Effect<FieldValue[], BadRequest | NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const values: FieldValue[] = [];
+		for (const field of groupBy) {
+			values.push(yield* evalExprValue(userId, field.expr, match.context));
+		}
+		return values;
+	});
+
+const aggregateOrderValue = (value: RowValue | undefined) =>
+	value !== undefined && "kind" in value ? value.value : null;
+
+const sortAggregateItems = (items: readonly RowItem[], orderBy: AggregateOutputV2["orderBy"]) => {
+	const sorted = [...items];
+	sorted.sort((left, right) => {
+		for (const entry of orderBy ?? []) {
+			if (entry.expr.type !== "measureRef") {
+				continue;
+			}
+			const leftValue = left[entry.expr.key];
+			const rightValue = right[entry.expr.key];
+			const result = compareAggregateOrderValues(
+				aggregateOrderValue(leftValue),
+				aggregateOrderValue(rightValue),
+			);
+			if (result !== 0) {
+				return entry.order === "asc" ? result : -result;
+			}
+		}
+		return 0;
+	});
+	return sorted;
+};
+
+export const executeAggregateQuery = (
+	userId: string,
+	doc: AggregateQueryDocumentV2,
+): Effect.Effect<AggregateResponseV2, BadRequest | NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const { output } = doc;
+		const matches = yield* executeRootSourceMatches(userId, doc.source);
+		const groupBy = output.groupBy ?? [];
+
+		if (groupBy.length === 0) {
+			const item: Record<string, RowValue> = {};
+			for (const measure of output.measures) {
+				item[measure.key] = yield* evalAggregateMeasure(userId, matches, measure.aggregation);
+			}
+			return { type: "aggregate" as const, data: { items: [item] } };
+		}
+
+		const groups = new Map<string, { item: Record<string, RowValue>; matches: SourceMatch[] }>();
+		for (const match of matches) {
+			const groupValues = yield* evalAggregateGroupFields(userId, groupBy, match);
+			const groupKey = groupKeyFromValues(groupValues);
+			const existing = groups.get(groupKey);
+			if (existing !== undefined) {
+				existing.matches.push(match);
+				continue;
+			}
+
+			const item: Record<string, RowValue> = {};
+			for (const [index, field] of groupBy.entries()) {
+				const value = groupValues[index];
+				if (value !== undefined) {
+					item[field.key] = value;
+				}
+			}
+			groups.set(groupKey, { item, matches: [match] });
+		}
+
+		const items: RowItem[] = [];
+		for (const group of groups.values()) {
+			for (const measure of output.measures) {
+				group.item[measure.key] = yield* evalAggregateMeasure(
+					userId,
+					group.matches,
+					measure.aggregation,
+				);
+			}
+			items.push(group.item);
+		}
+
+		const sortedItems = sortAggregateItems(items, output.orderBy);
+		const limit = output.limit ?? sortedItems.length;
+		return {
+			type: "aggregate" as const,
+			data: {
+				items: sortedItems.slice(0, limit),
+				pageInfo: { limit, hasMore: sortedItems.length > limit },
+			},
+		};
+	});
 
 const firstOrderSql = (
 	source: NestedEventSourceV2,
@@ -1018,10 +1283,7 @@ const evalIncludeExprForField = (
 	return evalExprValue(userId, expr, makeIncludeContext(include, row));
 };
 
-export const serializeRow = (
-	row: EntityQueryRow,
-	fields: QueryDocumentV2["output"]["fields"],
-): RowItem => {
+export const serializeRow = (row: EntityQueryRow, fields: RowsOutputV2["fields"]): RowItem => {
 	const result: Record<string, RowValue> = {};
 	for (const field of fields) {
 		result[field.key] = evalExprForField(field.expr, row);
@@ -1033,7 +1295,7 @@ const serializeRootRow = (
 	userId: string,
 	row: EntityQueryRow,
 	entityAlias: string,
-	fields: QueryDocumentV2["output"]["fields"],
+	fields: RowsOutputV2["fields"],
 ): Effect.Effect<RowItem, BadRequest | NotFound | DbError, CurrentDb> =>
 	Effect.gen(function* () {
 		const result: Record<string, RowValue> = {};
@@ -1047,7 +1309,7 @@ const serializeEventRootRow = (
 	userId: string,
 	row: EventQueryRow,
 	source: RootEventSourceV2,
-	fields: QueryDocumentV2["output"]["fields"],
+	fields: RowsOutputV2["fields"],
 ): Effect.Effect<RowItem, BadRequest | NotFound | DbError, CurrentDb> =>
 	Effect.gen(function* () {
 		const result: Record<string, RowValue> = {};
@@ -1199,7 +1461,7 @@ const serializeIncludesForRow = (
 		return { values, rowCount };
 	});
 
-const eventRootOrderSql = (source: RootEventSourceV2, output: QueryDocumentV2["output"]) => {
+const eventRootOrderSql = (source: RootEventSourceV2, output: RowsOutputV2) => {
 	const orderParts = output.orderBy.map((entry) => {
 		if (entry.expr.type !== "ref") {
 			return sql`1`;
@@ -1217,7 +1479,7 @@ const eventRootOrderSql = (source: RootEventSourceV2, output: QueryDocumentV2["o
 
 export const executeEntityRowsQuery = (
 	userId: string,
-	doc: QueryDocumentV2,
+	doc: RowsQueryDocumentV2,
 ): Effect.Effect<RowsResponseV2, BadRequest | NotFound | DbError, CurrentDb> =>
 	Effect.gen(function* () {
 		const { source } = doc;
@@ -1355,7 +1617,7 @@ export const executeEntityRowsQuery = (
 
 export const executeEventRowsQuery = (
 	userId: string,
-	doc: QueryDocumentV2,
+	doc: RowsQueryDocumentV2,
 ): Effect.Effect<RowsResponseV2, BadRequest | NotFound | DbError, CurrentDb> =>
 	Effect.gen(function* () {
 		const { source } = doc;
@@ -1460,7 +1722,7 @@ export const executeEventRowsQuery = (
 
 export const executeRowsQuery = (
 	userId: string,
-	doc: QueryDocumentV2,
+	doc: RowsQueryDocumentV2,
 ): Effect.Effect<RowsResponseV2, BadRequest | NotFound | DbError, CurrentDb> =>
 	doc.source.type === "events"
 		? executeEventRowsQuery(userId, doc)
