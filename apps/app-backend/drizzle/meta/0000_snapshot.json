@@ -1,5 +1,5 @@
 {
-	"id": "ef93109a-4ee4-45fd-8411-733cdc4ad229",
+	"id": "15e911c9-1d3e-4e83-9afd-d9099924095c",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -616,13 +616,6 @@
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
-				},
-				"display_config": {
-					"name": "display_config",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "'{}'::jsonb"
 				},
 				"is_builtin": {
 					"name": "is_builtin",
@@ -1393,13 +1386,6 @@
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
-				},
-				"display_config": {
-					"name": "display_config",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "'{}'::jsonb"
 				},
 				"id": {
 					"name": "id",
