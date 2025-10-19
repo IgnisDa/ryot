@@ -1,12 +1,10 @@
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { buildDefaultQueryDefinition, buildDisplayConfig } from "#lib/builtins/view-helpers";
 import { CurrentDb, dbEffect, isUniqueConstraintError, schema } from "#lib/db";
 import { DbError, conflict } from "#lib/errors";
 import type { AppSchema } from "#lib/schema";
 import { decodeStoredAppSchema } from "#lib/schema";
-import { slugify } from "#lib/slug";
 
 import type { ListedEntitySchema, Provider } from "./schemas";
 
@@ -45,7 +43,6 @@ const toListedEntitySchema = (row: ListedEntitySchemaWithMetadata) => {
 };
 
 const entitySchemaUserSlugConstraint = "entity_schema_user_slug_unique";
-const savedViewUserSlugConstraint = "saved_view_user_slug_unique";
 
 const buildEntitySchemaRows = (rows: Array<BuildEntitySchemaRow>) =>
 	Effect.gen(function* () {
@@ -267,57 +264,6 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 						isBuiltin: row.isBuiltin,
 						accentColor: row.accentColor,
 					};
-				}),
-			linkToTracker: (input: { trackerId: string; entitySchemaId: string }) =>
-				Effect.gen(function* () {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
-						db
-							.insert(schema.trackerEntitySchema)
-							.values({ trackerId: input.trackerId, entitySchemaId: input.entitySchemaId })
-							.returning({ trackerId: schema.trackerEntitySchema.trackerId }),
-					);
-
-					if (!row) {
-						return yield* new DbError({
-							message: "Tracker entity schema link insert returned no row",
-						});
-					}
-
-					return row.trackerId;
-				}),
-			createDefaultSavedView: (input: {
-				icon: string;
-				userId: string;
-				trackerId: string;
-				accentColor: string;
-				entitySchemaSlug: string;
-				entitySchemaName: string;
-			}) =>
-				Effect.gen(function* () {
-					const db = yield* CurrentDb;
-					const defaultSavedViewName = `All ${input.entitySchemaName}s`;
-					const defaultSavedViewSlug = slugify(`all ${input.entitySchemaSlug}`);
-
-					yield* dbEffect(() =>
-						db.insert(schema.savedView).values({
-							isBuiltin: true,
-							icon: input.icon,
-							userId: input.userId,
-							name: defaultSavedViewName,
-							trackerId: input.trackerId,
-							slug: defaultSavedViewSlug,
-							accentColor: input.accentColor,
-							queryDefinition: buildDefaultQueryDefinition([input.entitySchemaSlug]),
-							displayConfiguration: buildDisplayConfig(input.entitySchemaSlug),
-						}),
-					).pipe(
-						Effect.mapError((error) =>
-							isUniqueConstraintError(savedViewUserSlugConstraint)(error)
-								? conflict("Entity schema default saved view already exists")
-								: error,
-						),
-					);
 				}),
 		}),
 	},
