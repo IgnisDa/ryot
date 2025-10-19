@@ -427,6 +427,10 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 				});
 			}
 
+			if (call.path === "/events?entityId=entity_1&eventSchemaSlug=progress") {
+				return Promise.resolve({ success: true, data: { body: { data: [] } } });
+			}
+
 			throw new Error(`Unexpected appApiCall: ${String(call.method)} ${String(call.path)}`);
 		});
 
@@ -450,6 +454,7 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 		expect(calls.map((call) => call.path)).toEqual([
 			"/event-schemas?entitySchemaId=entity_schema_1",
 			"/entities/entity_1",
+			"/events?entityId=entity_1&eventSchemaSlug=progress",
 		]);
 	});
 
@@ -475,6 +480,10 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 				});
 			}
 
+			if (call.path === "/events?entityId=entity_1&eventSchemaSlug=progress") {
+				return Promise.resolve({ success: true, data: { body: { data: [] } } });
+			}
+
 			throw new Error(`Unexpected appApiCall: ${String(call.method)} ${String(call.path)}`);
 		});
 
@@ -498,6 +507,7 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 		expect(calls.map((call) => call.path)).toEqual([
 			"/event-schemas?entitySchemaId=entity_schema_1",
 			"/entities/entity_1",
+			"/events?entityId=entity_1&eventSchemaSlug=progress",
 		]);
 	});
 
@@ -527,6 +537,10 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 				});
 			}
 
+			if (call.path === "/events?entityId=entity_1&eventSchemaSlug=progress") {
+				return Promise.resolve({ success: true, data: { body: { data: [] } } });
+			}
+
 			throw new Error(`Unexpected appApiCall: ${String(call.method)} ${String(call.path)}`);
 		});
 
@@ -550,6 +564,7 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 		expect(calls.map((call) => call.path)).toEqual([
 			"/event-schemas?entitySchemaId=entity_schema_1",
 			"/entities/entity_1",
+			"/events?entityId=entity_1&eventSchemaSlug=progress",
 		]);
 	});
 
