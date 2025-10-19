@@ -34,6 +34,7 @@ const appConfig = {
 	scheduler: { frequentCronJobsSchedule: "every 5 minutes", progressUpdateThresholdHours: 2 },
 	sandbox: {
 		timeoutMs: 10_000,
+		workerConcurrency: 5,
 		denoDir: "/tmp/ryot-sandbox-deno",
 		jobIdSecret: Redacted.make("sandbox-secret"),
 	},
