@@ -1,5 +1,5 @@
 {
-	"id": "c2611899-6b13-4425-a2dc-f9e84cab94e3",
+	"id": "6c3ec34c-63cd-4ca4-a0fb-a03ee89a619b",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -424,12 +424,6 @@
 						"type": "stored"
 					}
 				},
-				"id": {
-					"name": "id",
-					"type": "text",
-					"primaryKey": true,
-					"notNull": true
-				},
 				"entity_schema_id": {
 					"name": "entity_schema_id",
 					"type": "text",
@@ -440,6 +434,12 @@
 					"name": "details_sandbox_script_id",
 					"type": "text",
 					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
 					"notNull": true
 				},
 				"updated_at": {
@@ -866,11 +866,11 @@
 					"notNull": true,
 					"default": "'{}'::jsonb"
 				},
-				"id": {
-					"name": "id",
+				"session_entity_id": {
+					"name": "session_entity_id",
 					"type": "text",
-					"primaryKey": true,
-					"notNull": true
+					"primaryKey": false,
+					"notNull": false
 				},
 				"user_id": {
 					"name": "user_id",
@@ -878,11 +878,11 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"session_entity_id": {
-					"name": "session_entity_id",
+				"id": {
+					"name": "id",
 					"type": "text",
-					"primaryKey": false,
-					"notNull": false
+					"primaryKey": true,
+					"notNull": true
 				},
 				"event_schema_id": {
 					"name": "event_schema_id",
@@ -997,20 +997,20 @@
 				}
 			},
 			"foreignKeys": {
-				"event_user_id_user_id_fk": {
-					"name": "event_user_id_user_id_fk",
-					"tableFrom": "event",
-					"tableTo": "user",
-					"columnsFrom": ["user_id"],
-					"columnsTo": ["id"],
-					"onDelete": "cascade",
-					"onUpdate": "no action"
-				},
 				"event_session_entity_id_entity_id_fk": {
 					"name": "event_session_entity_id_entity_id_fk",
 					"tableFrom": "event",
 					"tableTo": "entity",
 					"columnsFrom": ["session_entity_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"event_user_id_user_id_fk": {
+					"name": "event_user_id_user_id_fk",
+					"tableFrom": "event",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
 					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
@@ -1069,16 +1069,16 @@
 					"notNull": true,
 					"default": "now()"
 				},
-				"id": {
-					"name": "id",
-					"type": "text",
-					"primaryKey": true,
-					"notNull": true
-				},
 				"entity_schema_id": {
 					"name": "entity_schema_id",
 					"type": "text",
 					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
 					"notNull": true
 				},
 				"updated_at": {
@@ -1174,12 +1174,6 @@
 					"primaryKey": false,
 					"notNull": false
 				},
-				"id": {
-					"name": "id",
-					"type": "text",
-					"primaryKey": true,
-					"notNull": true
-				},
 				"source_entity_id": {
 					"name": "source_entity_id",
 					"type": "text",
@@ -1190,6 +1184,12 @@
 					"name": "target_entity_id",
 					"type": "text",
 					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
 					"notNull": true
 				}
 			},
