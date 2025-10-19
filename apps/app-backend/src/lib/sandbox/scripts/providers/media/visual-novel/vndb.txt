@@ -241,11 +241,11 @@ driver("details", async function (context) {
     : [];
 
   const developers = collectDevelopers(vn.developers);
-  const people = developers.map((dev) => ({
+  const companies = developers.map((dev) => ({
     role: "Developer",
     name: dev.name,
     externalId: dev.id,
-    scriptSlug: "person.vndb",
+    scriptSlug: "company.vndb",
   }));
 
   const providerRating =
@@ -275,7 +275,7 @@ driver("details", async function (context) {
     properties: {
       images,
       genres,
-      people,
+      companies,
       description,
       lengthMinutes,
       providerRating,

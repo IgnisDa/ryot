@@ -104,7 +104,7 @@ driver("details", async function (context) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      fields: "id,name,description",
+      fields: "id,name,description,lang,type,aliases",
       filters: ["id", "=", externalId],
     }),
   });
@@ -135,12 +135,16 @@ driver("details", async function (context) {
       ? producer.description.trim()
       : null;
 
+  const alternateNames = Array.isArray(producer.aliases)
+    ? producer.aliases.filter((a) => typeof a === "string" && a.trim()).map((a) => a.trim())
+    : [];
+
   return {
     name,
     properties: {
       images: [],
       description,
-      alternateNames: [],
+      alternateNames,
       sourceUrl: `https://vndb.org/${externalId}`,
     },
   };

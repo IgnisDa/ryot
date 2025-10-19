@@ -60,22 +60,16 @@ function extractYear(dateStr) {
   if (typeof dateStr !== "string" || !dateStr.trim()) {
     return null;
   }
-
   const match = dateStr.match(/^(\d{4})/);
   if (!match) {
     return null;
   }
-
   const year = Number.parseInt(match[1], 10);
   return Number.isFinite(year) ? year : null;
 }
 
-// GiantBomb deck is plain text; description is HTML markup. We store as-is
-// since the frontend is expected to render description as HTML (consistent
-// with how other providers like Anilist handle description fields).
 function combineDescription(deck, description) {
-  const deckTrimmed =
-    typeof deck === "string" ? deck.trim() : null;
+  const deckTrimmed = typeof deck === "string" ? deck.trim() : null;
   const descTrimmed =
     typeof description === "string" ? description.trim() : null;
 
@@ -86,99 +80,7 @@ function combineDescription(deck, description) {
   return deckTrimmed ?? descTrimmed ?? null;
 }
 
-function collectNames(items) {
-  if (!Array.isArray(items)) {
-    return [];
-  }
-
-  return items
-    .map((item) =>
-      item && typeof item === "object" && typeof item.name === "string"
-        ? item.name.trim()
-        : null,
-    )
-    .filter((name) => name !== null && name.length > 0);
-}
-
-function collectCompanies(developers, publishers) {
-  const companies = [];
-  const seen = new Set();
-
-  const addCompany = (items, role) => {
-    if (!Array.isArray(items)) {
-      return;
-    }
-    for (const item of items) {
-      if (!item || typeof item !== "object") {
-        continue;
-      }
-      const guid =
-        typeof item.guid === "string" && item.guid.trim()
-          ? item.guid.trim()
-          : null;
-      if (!guid) {
-        continue;
-      }
-      if (seen.has(guid)) {
-        continue;
-      }
-      seen.add(guid);
-
-      const name =
-        typeof item.name === "string" && item.name.trim()
-          ? item.name.trim()
-          : null;
-      if (!name) {
-        continue;
-      }
-
-      companies.push({
-        name,
-        role,
-        externalId: guid,
-        scriptSlug: "company.giant-bomb",
-      });
-    }
-  };
-
-  addCompany(developers, "Developer");
-  addCompany(publishers, "Publisher");
-
-  return companies;
-}
-
-// GiantBomb's /game/ endpoint only provides platform names in the platforms
-// list; per-platform release dates and regions require a separate /releases/
-// sub-resource call. releaseDate and releaseRegion are reserved for richer
-// providers (e.g., IGDB) that can populate them.
-function buildPlatformReleases(platforms) {
-  if (!Array.isArray(platforms) || platforms.length === 0) {
-    return null;
-  }
-
-  const releases = platforms
-    .map((platform) => {
-      if (!platform || typeof platform !== "object") {
-        return null;
-      }
-
-      const name =
-        typeof platform.name === "string" ? platform.name.trim() : null;
-      if (!name) {
-        return null;
-      }
-
-      return { name };
-    })
-    .filter((release) => release !== null);
-
-  return releases.length > 0 ? releases : null;
-}
-
 const BASE_URL = "https://www.giantbomb.com/api";
-
-// Identifiers are GiantBomb GUIDs (e.g., "3030-1"). They are taken directly
-// from the `guid` field in search results and must not be full API URLs.
 const GUID_PATTERN = /^\d+-\d+$/;
 
 driver("search", async function(context) {
@@ -201,14 +103,14 @@ driver("search", async function(context) {
   const apiKey = await getApiKey();
   const offset = (currentPage - 1) * pageSize;
 
-  const url = `${BASE_URL}/search/?api_key=${encodeURIComponent(apiKey)}&format=json&query=${encodeURIComponent(query)}&resources=game&limit=${pageSize}&offset=${offset}`;
+  const url = `${BASE_URL}/search/?api_key=${encodeURIComponent(apiKey)}&format=json&query=${encodeURIComponent(query)}&resources=company&limit=${pageSize}&offset=${offset}`;
 
   const response = await httpCall("GET", url, {
     headers: { Accept: "application/json" },
   });
 
   if (!response?.success) {
-    throw new Error(response?.error ?? "GiantBomb search request failed");
+    throw new Error(response?.error ?? "GiantBomb company search request failed");
   }
 
   const payload = parseJsonResponse(response.data.body);
@@ -226,38 +128,34 @@ driver("search", async function(context) {
   const results = Array.isArray(payload?.results) ? payload.results : [];
 
   const items = results
-    .map((game) => {
-      if (!game || typeof game !== "object") {
+    .map((company) => {
+      if (!company || typeof company !== "object") {
         return null;
       }
 
       const externalId =
-        typeof game.guid === "string" && game.guid.trim()
-          ? game.guid.trim()
+        typeof company.guid === "string" && company.guid.trim()
+          ? company.guid.trim()
           : null;
       if (!externalId) {
         return null;
       }
 
       const name =
-        typeof game.name === "string" && game.name.trim()
-          ? game.name.trim()
+        typeof company.name === "string" && company.name.trim()
+          ? company.name.trim()
           : null;
       if (!name) {
         return null;
       }
 
-      const publishYear = extractYear(game.original_release_date);
-      const image = getPrioritizedImage(game.image);
+      const image = getPrioritizedImage(company.image);
 
       return {
         externalId,
         calloutProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: name },
-        primarySubtitleProperty:
-          publishYear === null
-            ? { kind: "null", value: null }
-            : { kind: "number", value: publishYear },
+        primarySubtitleProperty: { kind: "null", value: null },
         secondarySubtitleProperty: { kind: "null", value: null },
         imageProperty:
           image === null
@@ -288,7 +186,7 @@ driver("details", async function(context) {
 
   if (!GUID_PATTERN.test(contextIdentifier)) {
     throw new Error(
-      "externalId must be a GiantBomb GUID (e.g., '3030-1')",
+      "externalId must be a GiantBomb GUID (e.g., '4010-1')",
     );
   }
 
@@ -300,24 +198,24 @@ driver("details", async function(context) {
     "name",
     "deck",
     "description",
-    "genres",
-    "themes",
-    "platforms",
-    "developers",
-    "publishers",
+    "date_founded",
+    "location_city",
+    "location_state",
+    "location_country",
+    "website",
     "image",
-    "original_release_date",
     "site_detail_url",
+    "aliases",
   ].join(",");
 
-  const url = `${BASE_URL}/game/${encodeURIComponent(contextIdentifier)}/?api_key=${encodeURIComponent(apiKey)}&format=json&field_list=${fieldList}`;
+  const url = `${BASE_URL}/company/${encodeURIComponent(contextIdentifier)}/?api_key=${encodeURIComponent(apiKey)}&format=json&field_list=${fieldList}`;
 
   const response = await httpCall("GET", url, {
     headers: { Accept: "application/json" },
   });
 
   if (!response?.success) {
-    throw new Error(response?.error ?? "GiantBomb details request failed");
+    throw new Error(response?.error ?? "GiantBomb company details request failed");
   }
 
   const payload = parseJsonResponse(response.data.body);
@@ -326,49 +224,65 @@ driver("details", async function(context) {
     throw new Error(`GiantBomb API error: ${payload.error}`);
   }
 
-  const game =
+  const company =
     payload?.results && typeof payload.results === "object"
       ? payload.results
       : null;
 
-  if (!game) {
-    throw new Error("GiantBomb returned no game data");
+  if (!company) {
+    throw new Error("GiantBomb returned no company data");
   }
 
   const name =
-    typeof game.name === "string" && game.name.trim()
-      ? game.name.trim()
+    typeof company.name === "string" && company.name.trim()
+      ? company.name.trim()
       : null;
 
   if (!name) {
-    throw new Error("GiantBomb game payload is missing name");
+    throw new Error("GiantBomb company payload is missing name");
   }
 
-  const genres = [
-    ...collectNames(game.genres),
-    ...collectNames(game.themes),
-  ];
-
-  const platformReleases = buildPlatformReleases(game.platforms);
-
   const images = [];
-  const primaryImage = getPrioritizedImage(game.image);
+  const primaryImage = getPrioritizedImage(company.image);
   if (primaryImage) {
     images.push({ type: "remote", url: primaryImage });
   }
+
+  const locationParts = [
+    typeof company.location_city === "string" ? company.location_city.trim() : null,
+    typeof company.location_state === "string" ? company.location_state.trim() : null,
+    typeof company.location_country === "string" ? company.location_country.trim() : null,
+  ].filter((p) => p !== null && p.length > 0);
+  const headquarters = locationParts.length > 0 ? locationParts.join(", ") : null;
+
+  const foundedYear = extractYear(company.date_founded);
+
+  const alternateNames =
+    typeof company.aliases === "string" && company.aliases.trim()
+      ? company.aliases
+          .split("\n")
+          .map((a) => a.trim())
+          .filter((a) => a.length > 0)
+      : [];
+
+  const website =
+    typeof company.website === "string" && company.website.trim()
+      ? company.website.trim()
+      : null;
 
   return {
     name,
     properties: {
       images,
-      genres,
-      platformReleases,
-      publishYear: extractYear(game.original_release_date),
-      description: combineDescription(game.deck, game.description),
-      companies: collectCompanies(game.developers, game.publishers),
+      website,
+      foundedYear,
+      headquarters,
+      alternateNames,
+      description: combineDescription(company.deck, company.description),
       sourceUrl:
-        typeof game.site_detail_url === "string" && game.site_detail_url.trim()
-          ? game.site_detail_url.trim()
+        typeof company.site_detail_url === "string" &&
+        company.site_detail_url.trim()
+          ? company.site_detail_url.trim()
           : null,
     },
   };
