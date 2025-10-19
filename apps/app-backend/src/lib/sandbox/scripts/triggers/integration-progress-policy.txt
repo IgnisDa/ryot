@@ -9,11 +9,6 @@ const SUBITEM_KEYS = [
 
 const DEFAULT_THRESHOLD_SECONDS = 7200;
 
-function getApiResponseData(result) {
-  const body = result && result.data && result.data.body;
-  return body && body.data;
-}
-
 function parseProgressPercent(value) {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : null;
@@ -73,12 +68,12 @@ function sortLatestFirst(a, b) {
 }
 
 async function getThresholdSeconds() {
-  const configResult = await appApiCall("GET", "/api/system/config");
+  const configResult = await getSystemConfig();
   if (!configResult.success) {
     return DEFAULT_THRESHOLD_SECONDS;
   }
 
-  const config = getApiResponseData(configResult);
+  const config = configResult.data;
   const scheduler = config && config.system && config.system.scheduler;
   const hours = toFiniteNumber(scheduler && scheduler.progressUpdateThresholdHours, null);
   if (hours === null || hours <= 0) {
@@ -89,17 +84,15 @@ async function getThresholdSeconds() {
 }
 
 async function getMatchingEvents(trigger, properties) {
-  const eventsResult = await appApiCall(
-    "GET",
-    "/api/events?entityId=" +
-      encodeURIComponent(trigger.entityId) +
-      "&eventSchemaSlug=progress",
-  );
+  const eventsResult = await listEvents({
+    entityId: trigger.entityId,
+    eventSchemaSlug: "progress",
+  });
   if (!eventsResult.success) {
     return [];
   }
 
-  const events = getApiResponseData(eventsResult);
+  const events = eventsResult.data;
   if (!Array.isArray(events)) {
     return [];
   }
@@ -134,15 +127,12 @@ driver("trigger", async function (context) {
     return { action: "allow" };
   }
 
-  const integrationResult = await appApiCall(
-    "GET",
-    "/api/integrations/" + encodeURIComponent(trigger.integrationId),
-  );
+  const integrationResult = await getIntegration(trigger.integrationId);
   if (!integrationResult.success) {
     return { action: "allow" };
   }
 
-  const integration = getApiResponseData(integrationResult);
+  const integration = integrationResult.data;
   const minimumProgress = toFiniteNumber(integration && integration.minimumProgress, 0);
   const maximumProgress = toFiniteNumber(integration && integration.maximumProgress, 100);
 

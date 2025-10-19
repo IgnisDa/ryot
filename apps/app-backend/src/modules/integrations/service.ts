@@ -5,7 +5,7 @@ import { db } from "~/lib/db";
 import { user } from "~/lib/db/schema/auth";
 import { getQueues } from "~/lib/queue";
 import { type ServiceResult, serviceData, serviceError } from "~/lib/result";
-import { userPreferencesSchema } from "~/modules/builtins";
+import { userPreferencesSchema } from "~/modules/builtins/preferences";
 import { createImportRun } from "~/modules/imports/repository";
 import { failImportRun, recordImportRunFailure } from "~/modules/imports/runtime/failures";
 

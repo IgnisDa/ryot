@@ -2,13 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import integrationPushHelperCode from "../shared/integration-push.txt";
 import jellyfinPushScriptCode from "./jellyfin-push.txt";
-import {
-	appApiFailure,
-	appApiSuccess,
-	httpFailure,
-	httpSuccess,
-	runTriggerScript,
-} from "./test-utils";
+import { hostFailure, hostSuccess, httpFailure, httpSuccess, runTriggerScript } from "./test-utils";
 
 const jellyfinCode = `${integrationPushHelperCode}\n\n${jellyfinPushScriptCode}`;
 
@@ -43,24 +37,14 @@ const createTrigger = (overrides: Record<string, unknown> = {}) => ({
 	},
 });
 
-const createAppApiCall = (options: {
+const createHostFunctions = (options: {
 	integrations?: unknown[];
 	entity?: Record<string, unknown>;
-}) => {
-	return (_method: unknown, path: unknown) => {
-		const stringPath = String(path);
-		if (stringPath.startsWith("/api/integrations?")) {
-			return appApiSuccess(options.integrations ?? []);
-		}
-		if (stringPath.startsWith("/api/entities/")) {
-			return options.entity ? appApiSuccess(options.entity) : appApiFailure();
-		}
-		if (stringPath.startsWith("/api/entity-schemas/")) {
-			return appApiSuccess({ providers: tmdbProviders });
-		}
-		return appApiFailure();
-	};
-};
+}) => ({
+	listIntegrations: () => hostSuccess(options.integrations ?? []),
+	getEntity: () => (options.entity ? hostSuccess(options.entity) : hostFailure()),
+	getEntitySchema: () => hostSuccess({ providers: tmdbProviders }),
+});
 
 const userPreferences =
 	(disableIntegrations = false) =>
@@ -98,9 +82,9 @@ describe("jellyfin-push sandbox script", () => {
 		const items = [{ Id: "jf-item-1", Name: "The Matrix", ProviderIds: { Tmdb: "603" } }];
 
 		await runTriggerScript(jellyfinCode, createTrigger(), {
+			...createHostFunctions({ entity: movieEntity, integrations: [jellyfinIntegration] }),
 			getUserPreferences: userPreferences(),
 			httpCall: createHttpCall(httpCalls, items),
-			appApiCall: createAppApiCall({ entity: movieEntity, integrations: [jellyfinIntegration] }),
 		});
 
 		const markCall = httpCalls.find((call) => call.url.includes("/PlayedItems/"));
@@ -113,9 +97,9 @@ describe("jellyfin-push sandbox script", () => {
 		const httpCalls: HttpCall[] = [];
 
 		await runTriggerScript(jellyfinCode, createTrigger(), {
+			...createHostFunctions({ entity: movieEntity, integrations: [jellyfinIntegration] }),
 			getUserPreferences: userPreferences(),
 			httpCall: createHttpCall(httpCalls, []),
-			appApiCall: createAppApiCall({ entity: movieEntity, integrations: [jellyfinIntegration] }),
 		});
 
 		expect(httpCalls.some((call) => call.url.includes("/PlayedItems/"))).toBe(false);
@@ -128,9 +112,9 @@ describe("jellyfin-push sandbox script", () => {
 			jellyfinCode,
 			createTrigger({ entitySchemaSlug: "book", entityId: "book_1" }),
 			{
+				...createHostFunctions({ entity: movieEntity, integrations: [jellyfinIntegration] }),
 				getUserPreferences: userPreferences(),
 				httpCall: createHttpCall(httpCalls, []),
-				appApiCall: createAppApiCall({ entity: movieEntity, integrations: [jellyfinIntegration] }),
 			},
 		);
 
@@ -141,9 +125,9 @@ describe("jellyfin-push sandbox script", () => {
 		const httpCalls: HttpCall[] = [];
 
 		await runTriggerScript(jellyfinCode, createTrigger(), {
+			...createHostFunctions({ entity: movieEntity, integrations: [jellyfinIntegration] }),
 			httpCall: createHttpCall(httpCalls, []),
 			getUserPreferences: userPreferences(true),
-			appApiCall: createAppApiCall({ entity: movieEntity, integrations: [jellyfinIntegration] }),
 		});
 
 		expect(httpCalls).toHaveLength(0);

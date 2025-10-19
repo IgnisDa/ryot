@@ -1,18 +1,19 @@
 import { describe, expect, it } from "bun:test";
 
 import { buildApiFunctionDescriptors, hostFunctionRegistry } from "./function-registry";
+import { apiFailure } from "./types";
 
 describe("buildApiFunctionDescriptors", () => {
 	it("returns an empty array for an empty allowedKeys list", () => {
 		expect(buildApiFunctionDescriptors([], "user_1", "script_1")).toEqual([]);
 	});
 
-	it("binds userId into context for appApiCall", () => {
-		const [descriptor] = buildApiFunctionDescriptors(["appApiCall"], "user_1", "script_1");
+	it("binds userId into context for executeQueryEngine", () => {
+		const [descriptor] = buildApiFunctionDescriptors(["executeQueryEngine"], "user_1", "script_1");
 
 		expect(descriptor).toEqual({
-			functionKey: "appApiCall",
 			context: { userId: "user_1" },
+			functionKey: "executeQueryEngine",
 		});
 	});
 
@@ -57,7 +58,7 @@ describe("buildApiFunctionDescriptors", () => {
 	});
 
 	it("builds one descriptor per key and preserves order", () => {
-		const keys = ["appApiCall", "getCachedValue", "httpCall"];
+		const keys = ["executeQueryEngine", "getCachedValue", "httpCall"];
 		const descriptors = buildApiFunctionDescriptors(keys, "user_1", "script_1");
 
 		expect(descriptors.map((d) => d.functionKey)).toEqual(keys);
@@ -74,19 +75,12 @@ describe("hostFunctionRegistry", () => {
 		}
 	});
 
-	it("forwards context into appApiCall so userId reaches the host function", async () => {
-		const factory = hostFunctionRegistry.appApiCall;
-		const fn = factory({ userId: "user_ctx" });
+	it("forwards bound context into executeQueryEngine", async () => {
+		const factory = hostFunctionRegistry.executeQueryEngine;
+		const fn = factory({ userId: "   " });
 
-		const result = await fn("GET", "/system/health");
-
-		expect(
-			// oxlint-disable-next-line no-unsafe-type-assertion
-			!(result as { success: boolean }).success &&
-				// oxlint-disable-next-line no-unsafe-type-assertion
-				(result as { error: string }).error.includes(
-					"Internal app request handler is not registered",
-				),
-		).toBe(true);
+		expect(await fn(undefined)).toEqual(
+			apiFailure("executeQueryEngine requires a non-empty userId in context"),
+		);
 	});
 });
