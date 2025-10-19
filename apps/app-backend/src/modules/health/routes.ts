@@ -34,18 +34,14 @@ const healthRoute = createRoute({
 });
 
 const metricsRoute = createRoute({
-	path: "/metrics",
 	method: "get",
+	path: "/metrics",
 	tags: ["health"],
 	summary: "Export metrics in Prometheus format",
 	responses: {
 		200: {
 			description: "Prometheus metrics in text format",
-			content: {
-				"text/plain": {
-					schema: z.string(),
-				},
-			},
+			content: { "text/plain": { schema: z.string() } },
 		},
 	},
 });

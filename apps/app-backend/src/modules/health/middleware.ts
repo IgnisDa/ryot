@@ -6,8 +6,6 @@ export const metricsMiddleware = async (c: Context, next: Next) => {
 	const method = c.req.method;
 	let route = c.req.path;
 
-	// Normalize route paths to reduce cardinality
-	// Convert /api/entities/123 -> /api/entities/:id
 	route = route.replace(/\/api\/[^/]+\/[a-f0-9-]+/g, (match) => {
 		const parts = match.split("/");
 		parts[parts.length - 1] = ":id";
