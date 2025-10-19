@@ -51,7 +51,6 @@ const propertiesBySchemaSlug: Record<string, Record<string, unknown>> = {
 
 export async function waitForEventCount(
 	client: Client,
-	cookies: string,
 	entityId: string,
 	expectedCount: number,
 	options: PollOptions = {},
@@ -59,21 +58,19 @@ export async function waitForEventCount(
 	return pollUntil(
 		`${expectedCount} events on entity ${entityId}`,
 		async () => {
-			const events = await client.run((c) => c.events.list({ urlParams: { entityId } }), {
-				Cookie: cookies,
-			});
+			const events = await client.run((c) => c.events.list({ urlParams: { entityId } }));
 			return events.length >= expectedCount ? events : null;
 		},
 		{ timeoutMs: 5000, intervalMs: 200, ...options },
 	);
 }
 
-export async function createEventTestFixture(client: Client, cookies: string) {
-	const { schemaId: entitySchemaId } = await createTrackerWithSchema(client, cookies, {
+export async function createEventTestFixture(client: Client) {
+	const { schemaId: entitySchemaId } = await createTrackerWithSchema(client, {
 		name: "Test Item",
 		slug: `item-${crypto.randomUUID()}`,
 	});
-	const eventSchema = await createEventSchema(client, cookies, {
+	const eventSchema = await createEventSchema(client, {
 		entitySchemaId,
 		name: "Finished",
 		slug: `finished-${crypto.randomUUID()}`,
@@ -88,7 +85,7 @@ export async function createEventTestFixture(client: Client, cookies: string) {
 			},
 		},
 	});
-	const entity = await createEntity(client, cookies, {
+	const entity = await createEntity(client, {
 		image: null,
 		entitySchemaId,
 		name: "Test Book",
@@ -97,12 +94,12 @@ export async function createEventTestFixture(client: Client, cookies: string) {
 	return { entityId: entity.id, eventSchemaId: eventSchema.id };
 }
 
-export async function createRuleEventFixture(client: Client, cookies: string) {
-	const { schemaId: entitySchemaId } = await createTrackerWithSchema(client, cookies, {
+export async function createRuleEventFixture(client: Client) {
+	const { schemaId: entitySchemaId } = await createTrackerWithSchema(client, {
 		name: "Rule Test Item",
 		slug: `rule-item-${crypto.randomUUID()}`,
 	});
-	const eventSchema = await createEventSchema(client, cookies, {
+	const eventSchema = await createEventSchema(client, {
 		entitySchemaId,
 		name: "Progress Log",
 		slug: `progress-log-${crypto.randomUUID()}`,
@@ -134,7 +131,7 @@ export async function createRuleEventFixture(client: Client, cookies: string) {
 			],
 		},
 	});
-	const entity = await createEntity(client, cookies, {
+	const entity = await createEntity(client, {
 		image: null,
 		entitySchemaId,
 		name: "Rule Test Book",
@@ -143,13 +140,12 @@ export async function createRuleEventFixture(client: Client, cookies: string) {
 	return { entityId: entity.id, eventSchemaId: eventSchema.id };
 }
 
-export async function listEventsForEntity(client: Client, cookies: string, entityId: string) {
-	return client.run((c) => c.events.list({ urlParams: { entityId } }), { Cookie: cookies });
+export async function listEventsForEntity(client: Client, entityId: string) {
+	return client.run((c) => c.events.list({ urlParams: { entityId } }));
 }
 
 export async function waitForEventWithSchema(
 	client: Client,
-	cookies: string,
 	entityId: string,
 	eventSchemaSlug: string,
 	options: PollOptions = {},
@@ -157,7 +153,7 @@ export async function waitForEventWithSchema(
 	return pollUntil(
 		`${eventSchemaSlug} event on entity ${entityId}`,
 		async () => {
-			const events = await listEventsForEntity(client, cookies, entityId);
+			const events = await listEventsForEntity(client, entityId);
 			return events.find((event) => event.eventSchemaSlug === eventSchemaSlug) ?? null;
 		},
 		{ timeoutMs: 15000, intervalMs: 500, ...options },
@@ -166,20 +162,15 @@ export async function waitForEventWithSchema(
 
 export async function createBuiltinMediaLifecycleFixture(
 	client: Client,
-	cookies: string,
 	options: BuiltinMediaLifecycleFixtureOptions = {},
 ) {
 	const entitySchemaSlug = options.entitySchemaSlug ?? "book";
-	const { schema: selectedSchema } = await findBuiltinSchemaBySlug(
-		client,
-		cookies,
-		entitySchemaSlug,
-	);
+	const { schema: selectedSchema } = await findBuiltinSchemaBySlug(client, entitySchemaSlug);
 
 	const providerScriptId = selectedSchema.providers[0]?.scriptId;
 	assertPresent(providerScriptId, `Missing built-in ${entitySchemaSlug} provider`);
 
-	const eventSchemas = await listEventSchemas(client, cookies, selectedSchema.id);
+	const eventSchemas = await listEventSchemas(client, selectedSchema.id);
 	const backlogEventSchema = requireEventSchemaBySlug(eventSchemas, "backlog");
 	const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
 	const completeEventSchema = requireEventSchemaBySlug(eventSchemas, "complete");

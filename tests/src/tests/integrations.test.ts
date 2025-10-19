@@ -18,9 +18,9 @@ const kodiPayload = { identifier: "tt1234567", lot: "movie", progress: 50 };
 
 describe("Integration CRUD", () => {
 	it("creates with correct defaults", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id } = await createKodiIntegration(client, cookies);
-		const integration = await getIntegration(client, cookies, id);
+		const { client } = await createAuthenticatedClient();
+		const { id } = await createKodiIntegration(client);
+		const integration = await getIntegration(client, id);
 
 		expect(integration.isDisabled).toBe(false);
 		expect(integration.syncOwnership).toBe(false);
@@ -30,7 +30,7 @@ describe("Integration CRUD", () => {
 	});
 
 	it("rejects minimumProgress > maximumProgress", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
 		const error = await client.runError(
 			(c) =>
@@ -42,7 +42,6 @@ describe("Integration CRUD", () => {
 						providerSpecifics: { kind: "kodi" },
 					},
 				}),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -50,14 +49,13 @@ describe("Integration CRUD", () => {
 	});
 
 	it("rejects provider !== providerSpecifics.kind", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
 		const error = await client.runError(
 			(c) =>
 				c.integrations.create({
 					payload: { provider: "emby", providerSpecifics: { kind: "kodi" } },
 				}),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -65,13 +63,13 @@ describe("Integration CRUD", () => {
 	});
 
 	it("GET list returns only the authenticated user's integrations", async () => {
-		const { client: clientA, cookies: cookiesA } = await createAuthenticatedClient();
-		const { client: clientB, cookies: cookiesB } = await createAuthenticatedClient();
+		const { client: clientA } = await createAuthenticatedClient();
+		const { client: clientB } = await createAuthenticatedClient();
 
-		const { id: idA } = await createKodiIntegration(clientA, cookiesA);
-		await createKodiIntegration(clientB, cookiesB);
+		const { id: idA } = await createKodiIntegration(clientA);
+		await createKodiIntegration(clientB);
 
-		const integrationsA = await listIntegrations(clientA, cookiesA);
+		const integrationsA = await listIntegrations(clientA);
 		const ids = integrationsA.map((i) => i.id);
 
 		expect(ids).toContain(idA);
@@ -79,28 +77,27 @@ describe("Integration CRUD", () => {
 	});
 
 	it("GET list filters by provider", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		await createKodiIntegration(client, cookies);
-		await createAudiobookshelfIntegration(client, cookies);
+		await createKodiIntegration(client);
+		await createAudiobookshelfIntegration(client);
 
-		const filtered = await listIntegrations(client, cookies, { provider: "kodi" });
+		const filtered = await listIntegrations(client, { provider: "kodi" });
 		expect(filtered).toHaveLength(1);
 		expect(requirePresent(filtered[0], "Expected filtered integration").provider).toBe("kodi");
 	});
 
 	it("GET list filters by isDisabled", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const { id } = await createKodiIntegration(client, cookies);
+		const { id } = await createKodiIntegration(client);
 		await client.run(
 			(c) => c.integrations.update({ payload: { isDisabled: true }, path: { integrationId: id } }),
-			{ Cookie: cookies },
 		);
 
-		await createKodiIntegration(client, cookies);
+		await createKodiIntegration(client);
 
-		const enabled = await listIntegrations(client, cookies, {
+		const enabled = await listIntegrations(client, {
 			provider: "kodi",
 			isDisabled: false,
 		});
@@ -109,10 +106,10 @@ describe("Integration CRUD", () => {
 	});
 
 	it("GET by id returns full providerSpecifics and webhookUrl for Sink providers", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const { id } = await createKodiIntegration(client, cookies);
-		const integration = await getIntegration(client, cookies, id);
+		const { id } = await createKodiIntegration(client);
+		const integration = await getIntegration(client, id);
 
 		expect(integration.id).toBe(id);
 		expect(integration.providerSpecifics).toMatchObject({ kind: "kodi" });
@@ -121,27 +118,26 @@ describe("Integration CRUD", () => {
 	});
 
 	it("GET by id returns no webhookUrl for Yank providers", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const { id } = await createAudiobookshelfIntegration(client, cookies);
-		const integration = await getIntegration(client, cookies, id);
+		const { id } = await createAudiobookshelfIntegration(client);
+		const integration = await getIntegration(client, id);
 
 		expect(integration.webhookUrl).toBeUndefined();
 	});
 
 	it("PATCH updates name and preserves secret fields when omitted", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const { id } = await createAudiobookshelfIntegration(client, cookies);
+		const { id } = await createAudiobookshelfIntegration(client);
 
 		const data = await client.run(
 			(c) => c.integrations.update({ payload: { name: "My ABS" }, path: { integrationId: id } }),
-			{ Cookie: cookies },
 		);
 
 		expect(data.name).toBe("My ABS");
 
-		const integration = await getIntegration(client, cookies, id);
+		const integration = await getIntegration(client, id);
 		const specifics = integration.providerSpecifics;
 		expect(specifics.kind).toBe("audiobookshelf");
 		if (specifics.kind === "audiobookshelf") {
@@ -151,9 +147,9 @@ describe("Integration CRUD", () => {
 	});
 
 	it("PATCH rejects threshold violations on update", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const { id } = await createKodiIntegration(client, cookies);
+		const { id } = await createKodiIntegration(client);
 
 		const error = await client.runError(
 			(c) =>
@@ -161,7 +157,6 @@ describe("Integration CRUD", () => {
 					path: { integrationId: id },
 					payload: { minimumProgress: 90, maximumProgress: 10 },
 				}),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -169,14 +164,13 @@ describe("Integration CRUD", () => {
 	});
 
 	it("DELETE removes the integration", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const { id } = await createKodiIntegration(client, cookies);
-		await deleteIntegration(client, cookies, id);
+		const { id } = await createKodiIntegration(client);
+		await deleteIntegration(client, id);
 
 		const error = await client.runError(
 			(c) => c.integrations.get({ path: { integrationId: id } }),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -196,8 +190,8 @@ describe("Webhook routes", () => {
 	});
 
 	it("POST /_i/{validKodiIntegrationId} returns 202 with runId", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id } = await createKodiIntegration(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { id } = await createKodiIntegration(client);
 
 		const { response, data } = await postWebhook(id, kodiPayload);
 
@@ -206,8 +200,8 @@ describe("Webhook routes", () => {
 	});
 
 	it("POST /api/webhooks/integrations/{validKodiIntegrationId} returns 202 with runId", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id } = await createKodiIntegration(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { id } = await createKodiIntegration(client);
 
 		const { response, data } = await postIntegrationWebhook(client, id, kodiPayload);
 
@@ -216,12 +210,11 @@ describe("Webhook routes", () => {
 	});
 
 	it("POST to a disabled integration returns 202 with a failed run", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id } = await createKodiIntegration(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { id } = await createKodiIntegration(client);
 
 		await client.run(
 			(c) => c.integrations.update({ payload: { isDisabled: true }, path: { integrationId: id } }),
-			{ Cookie: cookies },
 		);
 
 		const { response, data } = await postWebhook(id, kodiPayload);
@@ -229,13 +222,13 @@ describe("Webhook routes", () => {
 		expect(response.status).toBe(202);
 		const runId = requirePresent(data?.runId, "Expected runId from webhook");
 
-		const run = await getImportRun(client, cookies, runId);
+		const run = await getImportRun(client, runId);
 		expect(run.status).toBe("failed");
 	});
 
 	it("POST when disableIntegrations preference is true returns 202 with failed run", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
-		const { id } = await createKodiIntegration(client, cookies);
+		const { client, userId } = await createAuthenticatedClient();
+		const { id } = await createKodiIntegration(client);
 
 		const pg = getPgClient();
 		await pg.query(`UPDATE "user" SET preferences = preferences || $1::jsonb WHERE id = $2`, [
@@ -248,13 +241,13 @@ describe("Webhook routes", () => {
 		expect(response.status).toBe(202);
 		const runId = requirePresent(data?.runId, "Expected runId from webhook");
 
-		const run = await getImportRun(client, cookies, runId);
+		const run = await getImportRun(client, runId);
 		expect(run.status).toBe("failed");
 	});
 
 	it("POST to a non-Sink integration returns 400", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id } = await createAudiobookshelfIntegration(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { id } = await createAudiobookshelfIntegration(client);
 
 		const { response } = await postWebhook(id, {});
 
@@ -264,21 +257,20 @@ describe("Webhook routes", () => {
 
 describe("Import run visibility", () => {
 	it("GET /imports/runs excludes integration runs; GET /imports/runs/:id and GET /integrations/:id/runs expose them", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id: integrationId } = await createKodiIntegration(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { id: integrationId } = await createKodiIntegration(client);
 
 		const { data: webhookData } = await postWebhook(integrationId, kodiPayload);
 		const runId = requirePresent(webhookData?.runId, "Expected runId from webhook");
 
-		const allRuns = await client.run((c) => c.imports.listRuns(), { Cookie: cookies });
+		const allRuns = await client.run((c) => c.imports.listRuns());
 		expect(allRuns.find((r) => r.id === runId)).toBeUndefined();
 
-		const run = await getImportRun(client, cookies, runId);
+		const run = await getImportRun(client, runId);
 		expect(run.id).toBe(runId);
 
 		const integrationRuns = await client.run(
 			(c) => c.integrations.getRuns({ path: { integrationId } }),
-			{ Cookie: cookies },
 		);
 		expect(integrationRuns.find((r) => r.id === runId)).toBeDefined();
 	});
