@@ -20,8 +20,8 @@ import openLibraryBookSearchScriptCode from "~/sandbox/scripts/openlibrary-book-
 
 const mediaEventSchemas = () => [
 	{
-		name: "Seen",
-		slug: "media.seen",
+		name: "Read",
+		slug: "read",
 		propertiesSchema: {
 			type: "object",
 			properties: {
@@ -32,7 +32,7 @@ const mediaEventSchemas = () => [
 	},
 	{
 		name: "Progress",
-		slug: "media.progress",
+		slug: "progress",
 		propertiesSchema: {
 			type: "object",
 			required: ["progress_percent"],
