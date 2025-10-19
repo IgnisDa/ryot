@@ -34,6 +34,7 @@ enum GeneralSource {
 fn word_to_number(word: &str) -> Option<i32> {
     let map = WORD_TO_NUMBER_MAP.get_or_init(|| {
         HashMap::from([
+            ("zero", 0),
             ("one", 1),
             ("two", 2),
             ("three", 3),
