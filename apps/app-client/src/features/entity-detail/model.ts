@@ -14,13 +14,10 @@ import {
 import { Schema } from "effect";
 import { match } from "ts-pattern";
 
-import type { EntityImage } from "@/lib/entity-image";
+import { toEntityImage } from "@/lib/entity-image";
 
 import { MEDIA_SCOPE_SLUGS } from "../media/constants";
 import type { EntityDetail, EntityResponse, SupportedEntitySchemaSlug } from "./types";
-
-const toRemoteImage = (image: string | null): EntityImage =>
-	image ? { type: "remote", url: image } : null;
 
 const SUPPORTED_ENTITY_SCHEMA_SLUGS = MEDIA_SCOPE_SLUGS.filter(
 	(slug): slug is SupportedEntitySchemaSlug => slug !== "person",
@@ -40,7 +37,7 @@ export function toEntityDetail(
 	entitySchemaSlug: SupportedEntitySchemaSlug,
 ) {
 	const { properties, ...rest } = entity;
-	const base = { ...rest, image: toRemoteImage(entity.image) };
+	const base = { ...rest, image: toEntityImage(entity.image) };
 
 	return match(entitySchemaSlug)
 		.with("book", (slug) => ({

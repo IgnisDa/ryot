@@ -4,6 +4,7 @@ import { Effect } from "effect";
 import type { EntitiesQueryRequest } from "#lib/query-language";
 
 import type { PreparedQueryContext } from "./context";
+import type { ResolvedDisplayValue } from "./display-builder";
 import { buildBaseEntitiesCte } from "./entity-query-ctes";
 import { buildJoinedEntitiesCte } from "./event-join-ctes";
 import type { calculatePagination } from "./paginated-query-sql";
@@ -56,11 +57,8 @@ export const executePreparedQuery = (input: {
 }): QueryEngineExecutionEffect<{
 	mode: "entities";
 	data: {
-		items: Readonly<Record<string, { kind: string; value: unknown }>>[];
-		meta: {
-			pagination: ReturnType<typeof calculatePagination>;
-			fieldOrder: string[];
-		};
+		items: Readonly<Record<string, ResolvedDisplayValue>>[];
+		meta: { fieldOrder: string[]; pagination: ReturnType<typeof calculatePagination> };
 	};
 }> =>
 	Effect.gen(function* () {
