@@ -1,6 +1,24 @@
 import { Schema } from "effect";
 
-import { DisplayConfiguration, SavedViewQueryDefinition } from "#lib/query-language";
+import {
+	DisplayConfiguration,
+	QueryComputedField,
+	QueryEventJoin,
+	QueryFilter,
+	QueryRelationshipJoin,
+	SavedViewSort,
+} from "#lib/query-language";
+import { strictStruct } from "#lib/schema-utils";
+
+const SavedViewQueryDefinition = strictStruct({
+	scope: Schema.Array(Schema.String),
+	sort: Schema.optional(SavedViewSort),
+	mode: Schema.optional(Schema.Literal("entities")),
+	filter: Schema.optional(Schema.NullOr(QueryFilter)),
+	eventJoins: Schema.optional(Schema.Array(QueryEventJoin)),
+	computedFields: Schema.optional(Schema.Array(QueryComputedField)),
+	relationshipJoins: Schema.optional(Schema.Array(QueryRelationshipJoin)),
+});
 
 export const ListedSavedView = Schema.Struct({
 	id: Schema.String,
