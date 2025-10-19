@@ -318,10 +318,7 @@ export async function executeQueryEngine(
 	return { data: requireEntitiesModeResponse(result) };
 }
 
-export async function executeQueryEngineError(
-	client: Client,
-	body: QueryEngineRequest,
-) {
+export async function executeQueryEngineError(client: Client, body: QueryEngineRequest) {
 	return client.runError((c) => c.queryEngine.execute(toExecuteRequest(body)));
 }
 
@@ -340,23 +337,22 @@ export async function createQueryEngineEntity(input: CreateEntityInput) {
 }
 
 export async function createQueryEngineEvent(input: CreateQueryEngineEventInput) {
-	const before = await input.client.run(
-		(c) => c.events.list({ urlParams: { entityId: input.entityId } }),
+	const before = await input.client.run((c) =>
+		c.events.list({ urlParams: { entityId: input.entityId } }),
 	);
 	const beforeCount = before.length;
 
-	const createdEvent = await input.client.run(
-		(c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId: input.entityId,
-						occurredAt: input.occurredAt,
-						properties: input.properties,
-						eventSchemaId: input.eventSchemaId,
-					},
-				],
-			}),
+	const createdEvent = await input.client.run((c) =>
+		c.events.create({
+			payload: [
+				{
+					entityId: input.entityId,
+					occurredAt: input.occurredAt,
+					properties: input.properties,
+					eventSchemaId: input.eventSchemaId,
+				},
+			],
+		}),
 	);
 	if (createdEvent.count !== 1) {
 		throw new Error(`Failed to create event for '${input.entityId}'`);

@@ -54,8 +54,8 @@ describe("POST /uploads/presigned", () => {
 
 		await Promise.all(
 			cases.map(async ([contentType, extension]) => {
-				const data = await client.run(
-					(c) => c.uploads.createPresigned({ payload: { contentType } }),
+				const data = await client.run((c) =>
+					c.uploads.createPresigned({ payload: { contentType } }),
 				);
 
 				expect(data.key).toBeString();
@@ -102,8 +102,8 @@ describe("POST /uploads/presigned/download", () => {
 		);
 
 		const { client } = await createAuthenticatedClient();
-		const data = await client.run(
-			(c) => c.uploads.createPresignedDownload({ payload: { keys: [key] } }),
+		const data = await client.run((c) =>
+			c.uploads.createPresignedDownload({ payload: { keys: [key] } }),
 		);
 
 		expect(data).toHaveLength(1);

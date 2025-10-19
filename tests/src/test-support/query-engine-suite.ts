@@ -303,8 +303,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	});
 
 	it("coalesces cross-schema display configuration values", async () => {
-		const { client, smartphoneSlug, tabletSlug } =
-			await createCrossSchemaQueryEngineFixture();
+		const { client, smartphoneSlug, tabletSlug } = await createCrossSchemaQueryEngineFixture();
 		const { data } = await executeQueryEngine(
 			client,
 			buildGridRequest({
@@ -483,8 +482,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	});
 
 	it("treats missing event schemas and missing event rows as null join values", async () => {
-		const { client, smartphoneSlug, tabletSlug } =
-			await createMixedLatestEventJoinFixture();
+		const { client, smartphoneSlug, tabletSlug } = await createMixedLatestEventJoinFixture();
 		const reviewRatingRef = toRequiredExpression(["event.review.properties.rating"]);
 		const { data } = await executeQueryEngine(
 			client,
@@ -518,8 +516,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	});
 
 	it("returns only entities with a non-null event join value for isNotNull", async () => {
-		const { client, smartphoneSlug, tabletSlug } =
-			await createMixedLatestEventJoinFixture();
+		const { client, smartphoneSlug, tabletSlug } = await createMixedLatestEventJoinFixture();
 		const reviewRatingRef = toRequiredExpression(["event.review.properties.rating"]);
 		const { data } = await executeQueryEngine(
 			client,

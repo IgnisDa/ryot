@@ -8,19 +8,13 @@ type CreateSandboxScriptBody = ContractPayload<"sandbox", "createScript">;
 type EnqueueSandboxBody = ContractPayload<"sandbox", "enqueue">;
 type SandboxResult = Exclude<ContractSuccess<"sandbox", "getResult">, { status: "pending" }> | null;
 
-export async function createSandboxScript(
-	client: Client,
-	body: CreateSandboxScriptBody,
-) {
+export async function createSandboxScript(client: Client, body: CreateSandboxScriptBody) {
 	const script = await client.run((c) => c.sandbox.createScript({ payload: body }));
 	requirePresent(script.id, "Failed to create sandbox script");
 	return script;
 }
 
-export async function enqueueSandboxScript(
-	client: Client,
-	body: EnqueueSandboxBody,
-) {
+export async function enqueueSandboxScript(client: Client, body: EnqueueSandboxBody) {
 	const result = await client.run((c) => c.sandbox.enqueue({ payload: body }));
 
 	return {
@@ -28,11 +22,7 @@ export async function enqueueSandboxScript(
 	};
 }
 
-export async function pollSandboxResult(
-	client: Client,
-	jobId: string,
-	options: PollOptions = {},
-) {
+export async function pollSandboxResult(client: Client, jobId: string, options: PollOptions = {}) {
 	return pollUntil(
 		`sandbox job '${jobId}'`,
 		async (): Promise<SandboxResult> => {
