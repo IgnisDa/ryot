@@ -73,13 +73,13 @@ describe("createProcessSinkIntegration", () => {
 			startedAt: expect.any(Date),
 		});
 		expect(jobUpdates[0]).toMatchObject({
-			rawBody: "{}",
 			runId: "run_1",
 			userId: "user_1",
 			integrationId: "int_1",
-			contentType: "application/json",
 			importStep: "resolving_entities",
 		});
+		expect(jobUpdates[0]).not.toHaveProperty("rawBody");
+		expect(jobUpdates[0]).not.toHaveProperty("contentType");
 		expect(integrationUpdates).toHaveLength(1);
 		expect(integrationUpdates[0]).toMatchObject({
 			id: "int_1",
