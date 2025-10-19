@@ -40,17 +40,17 @@ export async function createEntitySchema(client: Client, options: CreateEntitySc
 				icon,
 				name,
 				slug,
-				trackerId: TrackerId.make(trackerId),
 				accentColor,
 				propertiesSchema,
+				trackerId: TrackerId.make(trackerId),
 			},
 		}),
 	);
 
 	return {
-		schemaId: requirePresent(schema.id, `Failed to create entity schema '${name}'`),
-		slug: requirePresent(schema.slug, `Failed to create entity schema '${name}'`),
 		data: schema,
+		slug: requirePresent(schema.slug, `Failed to create entity schema '${name}'`),
+		schemaId: requirePresent(schema.id, `Failed to create entity schema '${name}'`),
 	};
 }
 

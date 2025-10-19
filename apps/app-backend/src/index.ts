@@ -1,4 +1,8 @@
-// TODO: audit remaining test files and replace `if (x === null) { throw }` type-narrowing guards with `assert(x !== null)` from vitest
+// TODO:
+// - audit remaining test files and replace `if (x === null) { throw }` type-narrowing
+// guards with `assert(x !== null)` from vitest
+// - some tests (unit and E2E) assert ParseError instead of BadRequest. This is leaking
+// implementation details and we need to address them some time.
 import { BunFileSystem, BunRuntime, BunContext } from "@effect/platform-bun";
 import { Effect, Layer } from "effect";
 
