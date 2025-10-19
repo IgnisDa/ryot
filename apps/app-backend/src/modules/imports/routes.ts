@@ -11,19 +11,12 @@ import {
 import {
 	createImportRunBody,
 	createImportRunResponseSchema,
+	getImportRunQuery,
 	getImportRunResponseSchema,
 	importRunParams,
-	listImportRunFailuresQuery,
-	listImportRunFailuresResponseSchema,
 	listImportRunsResponseSchema,
 } from "./schemas";
-import {
-	getImportRun,
-	listImportRuns,
-	listRunFailures,
-	removeImportRun,
-	startImportRun,
-} from "./service";
+import { getImportRun, listImportRuns, removeImportRun, startImportRun } from "./service";
 
 const createImportRunRoute = createAuthRoute(
 	createRoute({
@@ -59,29 +52,12 @@ const getImportRunRoute = createAuthRoute(
 		method: "get",
 		tags: ["imports"],
 		summary: "Get an import run by ID",
-		request: { params: importRunParams },
+		request: { params: importRunParams, query: getImportRunQuery },
 		responses: createStandardResponses({
 			successDescription: "Import run details",
 			successSchema: getImportRunResponseSchema,
 			notFoundDescription: "Import run not found",
 		}),
-	}),
-);
-
-const listImportRunFailuresRoute = createAuthRoute(
-	createRoute({
-		method: "get",
-		tags: ["imports"],
-		path: "/runs/{runId}/failures",
-		summary: "List failures for an import run",
-		request: { params: importRunParams, query: listImportRunFailuresQuery },
-		responses: {
-			...createStandardResponses({
-				notFoundDescription: "Import run not found",
-				successSchema: listImportRunFailuresResponseSchema,
-				successDescription: "Failure records for the import run",
-			}),
-		},
 	}),
 );
 
@@ -125,19 +101,8 @@ export const importsApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(getImportRunRoute, async (c) => {
 		const user = c.get("user");
 		const { runId } = c.req.valid("param");
-		const result = await getImportRun({ runId, userId: user.id });
-		if ("error" in result) {
-			const response = createServiceErrorResult(result);
-			return c.json(response.body, response.status);
-		}
-		const response = createSuccessResult(result.data);
-		return c.json(response.body, response.status);
-	})
-	.openapi(listImportRunFailuresRoute, async (c) => {
-		const user = c.get("user");
-		const { runId } = c.req.valid("param");
 		const { page, limit } = c.req.valid("query");
-		const result = await listRunFailures({ runId, userId: user.id, page, limit });
+		const result = await getImportRun({ runId, userId: user.id, page, limit });
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
 			return c.json(response.body, response.status);
