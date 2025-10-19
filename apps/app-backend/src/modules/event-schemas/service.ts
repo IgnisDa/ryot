@@ -3,9 +3,9 @@ import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
 import { checkCustomAccess, checkReadAccess } from "~/lib/access";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
+import { authenticationBuiltinEntitySchemas } from "~/modules/authentication";
+import { parseLabeledPropertySchemaInput } from "~/modules/property-schemas";
 
-import { authenticationBuiltinEntitySchemas } from "../authentication/bootstrap/manifests";
-import { parseLabeledPropertySchemaInput } from "../property-schemas/service";
 import {
 	createEventSchemaForUser,
 	getEntitySchemaScopeForUser,

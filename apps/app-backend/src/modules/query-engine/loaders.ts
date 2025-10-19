@@ -5,8 +5,11 @@ import { entitySchema, eventSchema, relationshipSchema } from "~/lib/db/schema";
 import { QueryEngineNotFoundError, QueryEngineValidationError } from "~/lib/views/errors";
 import type { QueryEngineEventJoinLike, QueryEngineEventSchemaLike } from "~/lib/views/reference";
 import { propertySchemaObjectSchema } from "~/modules/property-schemas";
+import type {
+	EventJoinDefinition,
+	LatestRelationshipJoinDefinition,
+} from "~/modules/saved-views/schemas";
 
-import type { EventJoinDefinition, LatestRelationshipJoinDefinition } from "../saved-views/schemas";
 import type { LoadedRelationshipJoin } from "./context";
 import type { QueryEngineSchemaRow } from "./query-cte-shared";
 
