@@ -1,8 +1,7 @@
 import { and, eq } from "drizzle-orm";
-import { Context, Effect, Layer } from "effect";
+import { Effect } from "effect";
 
 import { DbService, dbEffect, schema } from "../../lib/db";
-import type { DbError } from "../../lib/errors";
 import { UploadNotFound } from "../../lib/errors";
 import type { UploadedFile } from "./schemas";
 
@@ -37,26 +36,12 @@ const mapUploadedFile = (row: UploadRow): UploadedFile => ({
 	createdAt: row.createdAt.toISOString(),
 });
 
-export class UploadsRepository extends Context.Tag("UploadsRepository")<
-	UploadsRepository,
-	{
-		readonly createMany: (
-			files: ReadonlyArray<UploadInsert>,
-		) => Effect.Effect<ReadonlyArray<UploadedFile>, DbError>;
-		readonly getOwnedById: (
-			userId: string,
-			uploadId: string,
-		) => Effect.Effect<StoredUpload, DbError | UploadNotFound>;
-	}
->() {}
-
-export const UploadsRepositoryLive = Layer.effect(
-	UploadsRepository,
-	Effect.gen(function* () {
+export class UploadsRepository extends Effect.Service<UploadsRepository>()("UploadsRepository", {
+	effect: Effect.gen(function* () {
 		const { db } = yield* DbService;
 
 		return {
-			createMany: (files) =>
+			createMany: (files: ReadonlyArray<UploadInsert>) =>
 				files.length === 0
 					? Effect.succeed([])
 					: dbEffect(() =>
@@ -65,7 +50,7 @@ export const UploadsRepositoryLive = Layer.effect(
 								.values([...files])
 								.returning(),
 						).pipe(Effect.map((rows) => rows.map(mapUploadedFile))),
-			getOwnedById: (userId, uploadId) =>
+			getOwnedById: (userId: string, uploadId: string) =>
 				dbEffect(() =>
 					db
 						.select()
@@ -81,4 +66,4 @@ export const UploadsRepositoryLive = Layer.effect(
 				),
 		};
 	}),
-);
+}) {}
