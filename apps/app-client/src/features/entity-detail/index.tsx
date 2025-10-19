@@ -169,7 +169,7 @@ export function EntityDetailScreen(props: { entityId: string }) {
 			: null;
 	const baseCreators = entity
 		? "unlinkedCreators" in entity.properties
-			? entity.properties.unlinkedCreators
+			? (entity.properties.unlinkedCreators ?? [])
 			: []
 		: [];
 	const people = entity ? mergeCreators(baseCreators, relatedCreatorsQuery.data ?? []) : [];
