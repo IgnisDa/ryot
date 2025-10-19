@@ -8,6 +8,7 @@ import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
+import type { ImportMediaEntityGroup } from "../../media/types";
 import { parseCsvText } from "../../runtime/csv";
 
 export const adaptIgdbCsv = (
@@ -18,7 +19,7 @@ export const adaptIgdbCsv = (
 	assertRequiredHeaders(headers, ["id", "game"], "IGDB");
 
 	const failures: MediaImportAdapterFailure[] = [];
-	const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
+	const groupMap = new Map<string, ImportMediaEntityGroup>();
 
 	for (let itemIndex = 0; itemIndex < rows.length; itemIndex++) {
 		const row = rows[itemIndex];

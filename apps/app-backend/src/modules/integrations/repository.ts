@@ -34,6 +34,8 @@ type IntegrationRow = {
 
 export type IntegrationRecord = ListedIntegration & { readonly userId: string };
 
+type IntegrationsDbEffect<A> = Effect.Effect<A, DbError, CurrentDb>;
+
 const integrationSelection = {
 	id: schema.integration.id,
 	lot: schema.integration.lot,
@@ -81,27 +83,21 @@ type IntegrationsRepositoryShape = {
 		provider: IntegrationProvider;
 		extraSettings: IntegrationExtraSettings;
 		providerSpecifics: IntegrationProviderSpecifics;
-	}) => Effect.Effect<IntegrationRecord, DbError, CurrentDb>;
+	}) => IntegrationsDbEffect<IntegrationRecord>;
 	readonly getByIdAnyUser: (input: {
 		integrationId: string;
-	}) => Effect.Effect<IntegrationRecord | null, DbError, CurrentDb>;
+	}) => IntegrationsDbEffect<IntegrationRecord | null>;
 	readonly getForUser: (input: {
 		userId: string;
 		integrationId: string;
-	}) => Effect.Effect<ListedIntegration | null, DbError, CurrentDb>;
-	readonly getUserDisableIntegrations: (input: {
-		userId: string;
-	}) => Effect.Effect<boolean, DbError, CurrentDb>;
-	readonly listEnabledYankIntegrations: () => Effect.Effect<
-		IntegrationRecord[],
-		DbError,
-		CurrentDb
-	>;
+	}) => IntegrationsDbEffect<ListedIntegration | null>;
+	readonly getUserDisableIntegrations: (input: { userId: string }) => IntegrationsDbEffect<boolean>;
+	readonly listEnabledYankIntegrations: () => IntegrationsDbEffect<IntegrationRecord[]>;
 	readonly listForUser: (input: {
 		userId: string;
 		isDisabled?: boolean;
 		provider?: IntegrationProvider;
-	}) => Effect.Effect<ListedIntegration[], DbError, CurrentDb>;
+	}) => IntegrationsDbEffect<ListedIntegration[]>;
 	readonly updateForUser: (input: {
 		userId: string;
 		name?: string | null;
@@ -113,11 +109,11 @@ type IntegrationsRepositoryShape = {
 		lastFinishedAt?: Date | null;
 		extraSettings?: IntegrationExtraSettings;
 		providerSpecifics?: IntegrationProviderSpecifics;
-	}) => Effect.Effect<ListedIntegration | null, DbError, CurrentDb>;
+	}) => IntegrationsDbEffect<ListedIntegration | null>;
 	readonly deleteForUser: (input: {
 		userId: string;
 		integrationId: string;
-	}) => Effect.Effect<void, DbError, CurrentDb>;
+	}) => IntegrationsDbEffect<void>;
 };
 
 export class IntegrationsRepository extends Effect.Service<IntegrationsRepository>()(

@@ -2,7 +2,6 @@ import { sql } from "drizzle-orm";
 import { DateTime, Effect, Match, Option } from "effect";
 
 import { CurrentDb, dbEffect } from "#lib/db";
-import type { DbError } from "#lib/errors";
 import type { TimeSeriesQueryRequest } from "#lib/query-language";
 
 import type { PreparedQueryContext } from "./context";
@@ -11,6 +10,7 @@ import {
 	buildQueryFilterClause,
 	buildQueryRuntime,
 	buildScalarCompiler,
+	type QueryEngineExecutionEffect,
 } from "./query-builder-shared";
 import { EVENT_FIRST_ENTITY_COLUMN_OVERRIDES, TIMESERIES_CTE_ALIASES } from "./query-cte-shared";
 
@@ -109,17 +109,13 @@ export const executeTimeSeriesQuery = (input: {
 	userId: string;
 	context: PreparedQueryContext;
 	request: TimeSeriesQueryRequest;
-}): Effect.Effect<
-	{
-		mode: "timeSeries";
-		data: {
-			buckets: { date: string; value: number }[];
-			meta: { alignedDateRange: { startAt: string; endAt: string } };
-		};
-	},
-	DbError,
-	CurrentDb
-> =>
+}): QueryEngineExecutionEffect<{
+	mode: "timeSeries";
+	data: {
+		buckets: { date: string; value: number }[];
+		meta: { alignedDateRange: { startAt: string; endAt: string } };
+	};
+}> =>
 	Effect.gen(function* () {
 		const runtime = buildQueryRuntime({
 			userId: input.userId,

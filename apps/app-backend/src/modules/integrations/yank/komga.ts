@@ -7,7 +7,7 @@ import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
 } from "#modules/imports/media/import-processor";
-import type { ImportEntityRef } from "#modules/imports/media/types";
+import type { ImportEntityRef, ImportMediaEntityGroup } from "#modules/imports/media/types";
 import { requestSourceJson } from "#modules/imports/runtime/source-api";
 
 const KOMGA_PAGE_SIZE = 500;
@@ -125,7 +125,7 @@ export const adaptKomgaData = (input: KomgaInput) =>
 	Effect.gen(function* () {
 		const now = nowIso();
 		const failures: MediaImportAdapterFailure[] = [];
-		const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
+		const groupMap = new Map<string, ImportMediaEntityGroup>();
 
 		const books = yield* fetchAllKomgaBooks(input, "IN_PROGRESS");
 
