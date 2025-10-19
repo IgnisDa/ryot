@@ -172,6 +172,7 @@ pub enum CollectionExtraInformationLot {
     InputObject,
     FromJsonQueryResult,
 )]
+#[serde(rename_all = "snake_case")]
 #[graphql(input_name = "CollectionExtraInformationInput")]
 pub struct CollectionExtraInformation {
     pub name: String,

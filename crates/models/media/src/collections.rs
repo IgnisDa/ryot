@@ -46,6 +46,7 @@ pub struct CollectionContentsFilter {
     SimpleObject,
     FromJsonQueryResult,
 )]
+#[serde(rename_all = "snake_case")]
 pub struct CollectionItemCollaboratorInformation {
     pub collaborator: StringIdAndNamedObject,
     pub extra_information: Option<UserToCollectionExtraInformation>,
@@ -55,6 +56,7 @@ pub struct CollectionItemCollaboratorInformation {
 #[derive(
     Debug, Clone, SimpleObject, FromQueryResult, PartialEq, Eq, Serialize, Deserialize, Schematic,
 )]
+#[serde(rename_all = "snake_case")]
 pub struct CollectionItem {
     pub id: String,
     pub count: i64,
