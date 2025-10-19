@@ -1,6 +1,6 @@
 import type { QueryDocumentV2 } from "../language";
 import { validateEntitySource, validateRelationshipSource, validateRootEventSource } from "./core";
-import { validateAggregateOutput, validateRowsOutput } from "./output";
+import { validateAggregateOutput, validateRowsOutput, validateTimeSeriesOutput } from "./output";
 import type { AliasScope } from "./shared";
 
 export const validateQueryDocumentV2 = (doc: QueryDocumentV2): string | null => {
@@ -28,7 +28,11 @@ export const validateQueryDocumentV2 = (doc: QueryDocumentV2): string | null => 
 		return "Relationship root rows do not support include yet";
 	}
 
-	return doc.output.type === "rows"
-		? validateRowsOutput(doc.output, scope, aliases)
-		: validateAggregateOutput(doc.output, scope, aliases);
+	if (doc.output.type === "rows") {
+		return validateRowsOutput(doc.output, scope, aliases);
+	}
+	if (doc.output.type === "aggregate") {
+		return validateAggregateOutput(doc.output, scope, aliases);
+	}
+	return validateTimeSeriesOutput(doc.output, scope, aliases);
 };
