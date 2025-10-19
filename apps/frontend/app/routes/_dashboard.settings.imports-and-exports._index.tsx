@@ -1,12 +1,11 @@
-import { CodeHighlight } from "@mantine/code-highlight";
 import {
-	Accordion,
 	ActionIcon,
 	Anchor,
 	Box,
 	Button,
 	Container,
 	Divider,
+	Drawer,
 	FileInput,
 	Group,
 	Indicator,
@@ -36,9 +35,10 @@ import {
 	kebabCase,
 	processSubmission,
 } from "@ryot/ts-utils";
-import { IconDownload, IconTrash } from "@tabler/icons-react";
+import { IconDownload, IconEye, IconTrash } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { filesize } from "filesize";
+import { DataTable } from "mantine-datatable";
 import { useMemo, useState } from "react";
 import { Form, data } from "react-router";
 import { match } from "ts-pattern";
@@ -109,8 +109,16 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				.with(ImportSource.Myanimelist, async () => ({
 					mal: processSubmission(formData, malImportFormSchema),
 				}))
-				.with(ImportSource.GenericJson, ImportSource.Anilist, async () => ({
-					genericJson: processSubmission(formData, jsonImportFormSchema),
+				.with(
+					ImportSource.GenericJson,
+					ImportSource.Anilist,
+
+					async () => ({
+						path: processSubmission(formData, exportPathImportFormSchema),
+					}),
+				)
+				.with(ImportSource.Netflix, async () => ({
+					netflix: processSubmission(formData, netflixImportFormSchema),
 				}))
 				.with(ImportSource.Jellyfin, async () => ({
 					jellyfin: processSubmission(formData, jellyfinImportFormSchema),
@@ -183,7 +191,12 @@ const movaryImportFormSchema = z.object({
 	watchlist: z.string(),
 });
 
-const jsonImportFormSchema = z.object({ export: z.string() });
+const exportPathImportFormSchema = z.object({ exportPath: z.string() });
+
+const netflixImportFormSchema = z.object({
+	input: exportPathImportFormSchema,
+	profileName: z.string().optional(),
+});
 
 const malImportFormSchema = z.object({
 	animePath: z.string().optional(),
@@ -196,6 +209,7 @@ export default function Page() {
 	const events = useApplicationEvents();
 	const { inViewport, ref } = useInViewport();
 	const userCollections = useNonHiddenUserCollections();
+	const [openDrawerId, setOpenDrawerId] = useState<string | null>(null);
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
@@ -287,25 +301,21 @@ export default function Page() {
 													ImportSource.Hardcover,
 													ImportSource.Storygraph,
 													() => (
-														<>
-															<FileInput
-																required
-																name="csvPath"
-																accept=".csv"
-																label="CSV file"
-															/>
-														</>
+														<FileInput
+															required
+															name="csvPath"
+															accept=".csv"
+															label="CSV file"
+														/>
 													),
 												)
 												.with(ImportSource.StrongApp, () => (
-													<>
-														<FileInput
-															required
-															accept=".csv"
-															label="CSV file"
-															name="dataExportPath"
-														/>
-													</>
+													<FileInput
+														required
+														accept=".csv"
+														label="CSV file"
+														name="dataExportPath"
+													/>
 												))
 												.with(ImportSource.Trakt, () => (
 													<Tabs defaultValue="user" keepMounted={false}>
@@ -411,16 +421,29 @@ export default function Page() {
 													ImportSource.Anilist,
 													ImportSource.GenericJson,
 													() => (
-														<>
-															<FileInput
-																required
-																name="export"
-																accept=".json"
-																label="JSON export file"
-															/>
-														</>
+														<FileInput
+															required
+															accept=".json"
+															name="exportPath"
+															label="JSON export file"
+														/>
 													),
 												)
+												.with(ImportSource.Netflix, () => (
+													<>
+														<FileInput
+															required
+															accept=".zip"
+															name="input.exportPath"
+															label="Netflix ZIP export file"
+														/>
+														<TextInput
+															name="profileName"
+															label="Profile Name"
+															description="Filter import to a specific Netflix profile"
+														/>
+													</>
+												))
 												.exhaustive()}
 											<Button
 												mt="md"
@@ -453,19 +476,20 @@ export default function Page() {
 							</Title>
 							{userImportsReportsQuery.data ? (
 								userImportsReportsQuery.data.length > 0 ? (
-									<Accordion>
+									<Stack>
 										{userImportsReportsQuery.data.map((report) => {
 											const isInProgress =
 												typeof report.wasSuccess !== "boolean";
 
 											return (
-												<Accordion.Item
+												<Paper
+													p="md"
+													withBorder
 													key={report.id}
-													value={report.id}
 													data-import-report-id={report.id}
 												>
-													<Accordion.Control disabled={isInProgress}>
-														<Stack gap="xs">
+													<Group justify="space-between" wrap="nowrap">
+														<Stack gap="xs" flex={1} miw={0}>
 															<Box>
 																<Indicator
 																	inline
@@ -513,9 +537,22 @@ export default function Page() {
 																</>
 															) : null}
 														</Stack>
-													</Accordion.Control>
-													<Accordion.Panel
-														styles={{ content: { paddingTop: 0 } }}
+														{!isInProgress && (
+															<ActionIcon
+																color="blue"
+																variant="transparent"
+																onClick={() => setOpenDrawerId(report.id)}
+															>
+																<IconEye />
+															</ActionIcon>
+														)}
+													</Group>
+													<Drawer
+														size="xl"
+														position="bottom"
+														opened={openDrawerId === report.id}
+														onClose={() => setOpenDrawerId(null)}
+														title={`${changeCase(report.source)} Import Details`}
 													>
 														<Stack>
 															<Box>
@@ -560,23 +597,78 @@ export default function Page() {
 															</Box>
 															{report.details &&
 															report.details.failedItems.length > 0 ? (
-																<CodeHighlight
-																	mah={400}
-																	language="json"
-																	style={{ overflow: "scroll" }}
-																	code={JSON.stringify(
-																		report.details.failedItems,
-																		null,
-																		2,
-																	)}
-																/>
+																<Box>
+																	<Group justify="space-between" mb="md">
+																		<Title order={4}>Failed Items</Title>
+																		<Tooltip label="Download errors">
+																			<ActionIcon
+																				color="blue"
+																				variant="light"
+																				onClick={() => {
+																					if (!report.details) return;
+																					const json = JSON.stringify(
+																						report.details.failedItems,
+																						null,
+																						2,
+																					);
+																					const blob = new Blob([json], {
+																						type: "application/json",
+																					});
+																					const url = URL.createObjectURL(blob);
+																					const link =
+																						document.createElement("a");
+																					link.href = url;
+																					link.download = `failed-items-${report.id}.json`;
+																					document.body.appendChild(link);
+																					link.click();
+																					document.body.removeChild(link);
+																					URL.revokeObjectURL(url);
+																				}}
+																			>
+																				<IconDownload />
+																			</ActionIcon>
+																		</Tooltip>
+																	</Group>
+																	<DataTable
+																		height={500}
+																		withTableBorder
+																		borderRadius="sm"
+																		withColumnBorders
+																		records={report.details.failedItems}
+																		columns={[
+																			{
+																				title: "Identifier",
+																				accessor: "identifier",
+																			},
+																			{
+																				title: "Step",
+																				accessor: "step",
+																				render: (record) =>
+																					changeCase(record.step),
+																			},
+																			{
+																				title: "Error",
+																				accessor: "error",
+																				render: (record) => record.error || "-",
+																			},
+																			{
+																				title: "Type",
+																				accessor: "lot",
+																				render: (record) =>
+																					record.lot
+																						? changeCase(record.lot)
+																						: "-",
+																			},
+																		]}
+																	/>
+																</Box>
 															) : null}
 														</Stack>
-													</Accordion.Panel>
-												</Accordion.Item>
+													</Drawer>
+												</Paper>
 											);
 										})}
-									</Accordion>
+									</Stack>
 								) : (
 									<Text>You have not performed any imports</Text>
 								)

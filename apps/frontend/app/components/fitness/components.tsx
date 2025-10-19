@@ -140,7 +140,7 @@ export const ExerciseHistory = (props: {
 	const [opened, { toggle }] = useDisclosure(false);
 	const [parent] = useAutoAnimate();
 	const { data: workoutDetails } = useQuery(
-		// @ts-ignore: Too complicated to fix and it just works this way
+		// @ts-expect-error: Too complicated to fix and it just works this way
 		match(props.fitnessEntityType)
 			.with(FitnessEntity.Workouts, () =>
 				getWorkoutDetailsQuery(props.entityId),

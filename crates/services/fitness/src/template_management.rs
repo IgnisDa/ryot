@@ -1,3 +1,5 @@
+use std::{collections::HashMap, sync::Arc};
+
 use anyhow::{Result, anyhow, bail};
 use database_models::{
     exercise,
@@ -19,7 +21,6 @@ use nanoid::nanoid;
 use sea_orm::{
     ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, sea_query::OnConflict,
 };
-use std::{collections::HashMap, sync::Arc};
 use supporting_service::SupportingService;
 
 pub async fn create_or_update_user_workout_template(

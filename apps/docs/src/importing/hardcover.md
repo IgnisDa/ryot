@@ -1,5 +1,10 @@
 # Hardcover
 
+::: info
+It is necessary to setup Hardcover for this import to work. Please follow the configuration
+[guide](../configuration.md) for instructions.
+:::
+
 Ryot can import data from [Hardcover](https://hardcover.app).
 
 ## Reading Status
