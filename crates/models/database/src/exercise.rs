@@ -40,6 +40,9 @@ pub struct Model {
     pub created_by_user_id: Option<String>,
     pub mechanic: Option<ExerciseMechanic>,
     pub equipment: Option<ExerciseEquipment>,
+    #[graphql(skip)]
+    #[sea_orm(ignore)]
+    pub name_search_vector: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
