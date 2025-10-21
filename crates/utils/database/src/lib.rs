@@ -57,21 +57,12 @@ where
         return query;
     }
 
-    let words: Vec<&str> = value.split_whitespace().collect();
-    if words.is_empty() {
-        return query;
-    }
-
-    let mut column_condition = Condition::any();
+    let pattern = format!("%{value}%");
+    let mut condition = Condition::any();
     for column in columns {
-        let mut word_condition = Condition::all();
-        for word in &words {
-            let pattern = format!("%{word}%");
-            word_condition = word_condition.add(column.clone().ilike(pattern));
-        }
-        column_condition = column_condition.add(word_condition);
+        condition = condition.add(column.ilike(pattern.clone()));
     }
-    query.filter(column_condition)
+    query.filter(condition)
 }
 
 pub async fn user_by_id(user_id: &String, ss: &Arc<SupportingService>) -> Result<user::Model> {
