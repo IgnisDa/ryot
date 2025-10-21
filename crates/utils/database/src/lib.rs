@@ -57,11 +57,10 @@ where
         return query;
     }
 
-    let tsquery = PgFunc::plainto_tsquery(value, None);
-
+    let pattern = format!("%{value}%");
     let mut condition = Condition::any();
     for column in columns {
-        condition = condition.add(PgFunc::to_tsvector(column, None).matches(tsquery.clone()));
+        condition = condition.add(column.ilike(pattern.clone()));
     }
     query.filter(condition)
 }

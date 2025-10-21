@@ -9,7 +9,6 @@ pub struct Migration;
 pub static EXERCISE_NAME_TRIGRAM_INDEX: &str = "exercise_name_trigram_idx";
 pub static EXERCISE_AGGREGATED_INSTRUCTIONS_TRIGRAM_INDEX: &str =
     "exercise_aggregated_instructions_trigram_idx";
-pub static EXERCISE_NAME_SEARCH_VECTOR_INDEX: &str = "exercise_name_search_vector_idx";
 
 #[derive(Iden)]
 pub enum Exercise {
@@ -27,7 +26,6 @@ pub enum Exercise {
     Instructions,
     CreatedByUserId,
     AggregatedInstructions,
-    NameSearchVector,
 }
 
 #[async_trait::async_trait]
@@ -48,25 +46,21 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Exercise::CreatedByUserId).text())
                     .col(
                         ColumnDef::new(Exercise::Muscles)
-                        .array(ColumnType::Text)
-                        .not_null(),
+                            .array(ColumnType::Text)
+                            .not_null(),
                     )
                     .col(
                         ColumnDef::new(Exercise::Instructions)
-                        .array(ColumnType::Text)
-                        .not_null()
-                        .default("{}"),
+                            .array(ColumnType::Text)
+                            .not_null()
+                            .default("{}"),
                     )
                     .col(ColumnDef::new(Exercise::Assets).json_binary().not_null())
                     .col(
                         ColumnDef::new(Exercise::AggregatedInstructions)
-                        .text()
-                        .not_null()
-                        .extra("GENERATED ALWAYS AS (array_to_string_immutable(instructions, E'\\n')) STORED")
-                    )
-                    .col(
-                        ColumnDef::new(Exercise::NameSearchVector)
-                            .extra("tsvector GENERATED ALWAYS AS (to_tsvector('english', name)) STORED")
+                            .text()
+                            .not_null()
+                            .extra("GENERATED ALWAYS AS (array_to_string_immutable(instructions, E'\\n')) STORED")
                     )
                     .foreign_key(
                         ForeignKey::create()
@@ -88,13 +82,6 @@ impl MigrationTrait for Migration {
             "aggregated_instructions",
             EXERCISE_AGGREGATED_INSTRUCTIONS_TRIGRAM_INDEX,
         )
-        .await?;
-
-        let db = manager.get_connection();
-        db.execute_unprepared(&format!(
-            r#"CREATE INDEX "{}" ON "exercise" USING gin (name_search_vector);"#,
-            EXERCISE_NAME_SEARCH_VECTOR_INDEX
-        ))
         .await?;
 
         Ok(())
