@@ -4,9 +4,9 @@ use anyhow::Result;
 use application_utils::graphql_to_db_order;
 use common_models::{SearchDetails, SearchInput, UserLevelCacheKey};
 use database_models::{
-    collection, collection_to_entity, enriched_user_to_exercise, enriched_user_to_metadata,
-    enriched_user_to_metadata_group, enriched_user_to_person, genre, prelude::*, user_measurement,
-    user_to_entity, workout, workout_template,
+    collection, collection_entity_membership, collection_to_entity, enriched_user_to_metadata,
+    enriched_user_to_metadata_group, enriched_user_to_person, exercise, genre, prelude::*,
+    user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::{apply_collection_filters, apply_columns_search, extract_pagination_params};
 use dependent_models::{
@@ -20,7 +20,8 @@ use dependent_models::{
 use enum_models::{ExerciseSource, SeenState, UserToMediaReason};
 use fitness_models::{ExerciseSortBy, UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
-    CollectionItem, GenreListItem, MediaGeneralFilter, MediaSortBy, PersonAndMetadataGroupsSortBy,
+    CollectionItem, GenreListItem, MediaCollectionPresenceFilter, MediaGeneralFilter, MediaSortBy,
+    PersonAndMetadataGroupsSortBy,
 };
 use migrations_sql::{
     AliasedCollection, AliasedCollectionToEntity, AliasedMetadataToGenre, AliasedUser,
@@ -582,88 +583,113 @@ pub async fn user_exercises_list(
             let user_id = user_id.to_owned();
             let (take, page) =
                 extract_pagination_params(input.search.clone(), &user_id, ss).await?;
+
             let order_by_col = match input.sort_by {
-                None => Expr::col(enriched_user_to_exercise::Column::ExerciseId),
+                None => Expr::col(exercise::Column::Id),
                 Some(sb) => match sb {
-                    // DEV: This is just a small hack to reduce duplicated code. We
-                    // are ordering by name for the other `sort_by` anyway.
                     ExerciseSortBy::Name => Expr::val("1"),
                     ExerciseSortBy::Random => Expr::expr(Func::random()),
                     ExerciseSortBy::TimesPerformed => Expr::expr(Func::coalesce([
-                        Expr::col(enriched_user_to_exercise::Column::NumTimesInteracted).into(),
+                        Expr::col(user_to_entity::Column::ExerciseNumTimesInteracted).into(),
                         Expr::val(0).into(),
                     ])),
                     ExerciseSortBy::LastPerformed => Expr::expr(Func::coalesce([
-                        Expr::col(enriched_user_to_exercise::Column::LastUpdatedOn).into(),
-                        // DEV: For some reason this does not work without explicit casting on postgres
+                        Expr::col(user_to_entity::Column::LastUpdatedOn).into(),
                         Func::cast_as(Expr::val("1900-01-01"), Alias::new("timestamptz")).into(),
                     ])),
                 },
             };
-            let paginator = EnrichedUserToExercise::find()
+
+            let mut base_query = Exercise::find()
                 .select_only()
-                .column(enriched_user_to_exercise::Column::ExerciseId)
+                .column(exercise::Column::Id)
+                .left_join(UserToEntity)
                 .filter(
-                    enriched_user_to_exercise::Column::Source
-                        .eq(ExerciseSource::Github)
-                        .or(enriched_user_to_exercise::Column::CreatedByUserId.eq(&user_id)),
+                    user_to_entity::Column::UserId
+                        .eq(&user_id)
+                        .or(user_to_entity::Column::UserId.is_null()),
                 )
-                .apply_if(input.filter, |query, q| {
+                .filter(
+                    exercise::Column::Source
+                        .eq(ExerciseSource::Github)
+                        .or(exercise::Column::CreatedByUserId.eq(&user_id)),
+                )
+                .apply_if(input.filter.clone(), |query, q| {
                     let query = query
                         .apply_if(q.lots.as_ref().filter(|v| !v.is_empty()), |q, v| {
-                            q.filter(enriched_user_to_exercise::Column::Lot.is_in(v.clone()))
+                            q.filter(exercise::Column::Lot.is_in(v.clone()))
                         })
                         .apply_if(q.muscles.as_ref().filter(|v| !v.is_empty()), |q, v| {
                             q.filter(v.iter().fold(Condition::any(), |cond, muscle| {
-                                cond.add(Expr::val(*muscle).eq(PgFunc::any(Expr::col(
-                                    enriched_user_to_exercise::Column::Muscles,
-                                ))))
+                                cond.add(
+                                    Expr::val(*muscle)
+                                        .eq(PgFunc::any(Expr::col(exercise::Column::Muscles))),
+                                )
                             }))
                         });
 
-                    let query = apply_is_in_filter(
-                        query,
-                        q.levels.as_ref(),
-                        enriched_user_to_exercise::Column::Level,
-                    );
-                    let query = apply_is_in_filter(
-                        query,
-                        q.forces.as_ref(),
-                        enriched_user_to_exercise::Column::Force,
-                    );
-                    let query = apply_is_in_filter(
-                        query,
-                        q.mechanics.as_ref(),
-                        enriched_user_to_exercise::Column::Mechanic,
-                    );
+                    let query =
+                        apply_is_in_filter(query, q.levels.as_ref(), exercise::Column::Level);
+                    let query =
+                        apply_is_in_filter(query, q.forces.as_ref(), exercise::Column::Force);
+                    let query =
+                        apply_is_in_filter(query, q.mechanics.as_ref(), exercise::Column::Mechanic);
                     let query = apply_is_in_filter(
                         query,
                         q.equipments.as_ref(),
-                        enriched_user_to_exercise::Column::Equipment,
+                        exercise::Column::Equipment,
                     );
-
-                    query.apply_if(q.collections, |q, v| {
-                        apply_collection_filters(
-                            enriched_user_to_exercise::Column::CollectionIds,
-                            q,
-                            v,
-                        )
-                    })
+                    query
                 })
                 .apply_if(input.search.and_then(|s| s.query), |query, v| {
                     apply_columns_search(
                         &v,
                         query,
                         [
-                            Expr::col(enriched_user_to_exercise::Column::Name),
-                            Expr::col(enriched_user_to_exercise::Column::Instructions),
+                            Expr::col(exercise::Column::Name),
+                            Expr::col((exercise::Entity, Alias::new("aggregated_instructions"))),
                         ],
                     )
-                })
+                });
+
+            if let Some(ref filter) = input.filter
+                && let Some(ref collections) = filter.collections
+            {
+                for coll_filter in collections {
+                    let exists_condition = Expr::exists(
+                        Query::select()
+                            .expr(Expr::val(1))
+                            .from(CollectionEntityMembership)
+                            .and_where(
+                                collection_entity_membership::Column::OriginCollectionId
+                                    .eq(&coll_filter.collection_id),
+                            )
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::UserId)
+                                    .equals(user_to_entity::Column::UserId),
+                            )
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::EntityId).equals((
+                                    AliasedUserToEntity::Table,
+                                    AliasedUserToEntity::EntityId,
+                                )),
+                            )
+                            .to_owned(),
+                    );
+
+                    base_query = base_query.filter(match coll_filter.presence {
+                        MediaCollectionPresenceFilter::PresentIn => exists_condition,
+                        MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
+                    });
+                }
+            }
+
+            let paginator = base_query
                 .order_by_desc(order_by_col)
-                .order_by_asc(enriched_user_to_exercise::Column::Name)
+                .order_by_asc(exercise::Column::Name)
                 .into_tuple::<String>()
                 .paginate(&ss.db, take);
+
             let ItemsAndPagesNumber {
                 number_of_items,
                 number_of_pages,

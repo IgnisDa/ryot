@@ -4,52 +4,6 @@ use sea_orm_migration::prelude::*;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-pub static ENRICHED_USER_TO_EXERCISE_VIEW_CREATION_SQL: &str = indoc! { r#"
-CREATE VIEW
-  enriched_user_to_exercise AS
-SELECT
-  e.lot,
-  e.name,
-  e.level,
-  e.force,
-  e.source,
-  e.muscles,
-  e.mechanic,
-  e.equipment,
-  e.id as exercise_id,
-  ute.last_updated_on,
-  e.created_by_user_id,
-  e.aggregated_instructions AS instructions,
-  ute.exercise_num_times_interacted as num_times_interacted,
-  CASE
-    WHEN COUNT(cem.origin_collection_id) = 0 THEN ARRAY[]::TEXT[]
-    ELSE ARRAY_AGG(DISTINCT cem.origin_collection_id)
-  END AS collection_ids
-FROM
-  exercise e
-  LEFT JOIN user_to_entity ute ON ute.exercise_id = e.id
-  LEFT JOIN collection_entity_membership cem ON cem.user_id = ute.user_id
-  AND cem.entity_id = ute.entity_id
-  AND cem.entity_lot = ute.entity_lot
-GROUP BY
-  e.id,
-  e.lot,
-  e.name,
-  e.level,
-  e.force,
-  e.source,
-  e.muscles,
-  e.mechanic,
-  e.equipment,
-  ute.user_id,
-  ute.entity_id,
-  e.instructions,
-  ute.last_updated_on,
-  e.created_by_user_id,
-  e.aggregated_instructions,
-  ute.exercise_num_times_interacted;
-"# };
-
 pub static ENRICHED_USER_TO_PERSON_VIEW_CREATION_SQL: &str = indoc! { r#"
 CREATE VIEW
   enriched_user_to_person AS
@@ -179,8 +133,6 @@ WHERE ute.metadata_id IS NOT NULL;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
-        db.execute_unprepared(ENRICHED_USER_TO_EXERCISE_VIEW_CREATION_SQL)
-            .await?;
         db.execute_unprepared(ENRICHED_USER_TO_PERSON_VIEW_CREATION_SQL)
             .await?;
         db.execute_unprepared(ENRICHED_USER_TO_METADATA_GROUP_VIEW_CREATION_SQL)
