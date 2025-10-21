@@ -254,10 +254,10 @@ fn parse_repeated_base_season(segment: &str, first_segment: &str) -> Option<i32>
         let before_dot = &segment_trimmed[..dot_pos];
         let after_dot = segment_trimmed[dot_pos + 2..].trim();
 
-        if let Some(season_num) = parse_number_token(before_dot) {
-            if after_dot.to_lowercase() == first_lower {
-                return Some(season_num);
-            }
+        if let Some(season_num) = parse_number_token(before_dot)
+            && after_dot.to_lowercase() == first_lower
+        {
+            return Some(season_num);
         }
     }
 
