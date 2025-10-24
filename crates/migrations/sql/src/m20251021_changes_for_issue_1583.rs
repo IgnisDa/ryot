@@ -9,6 +9,8 @@ impl MigrationTrait for Migration {
         let db = manager.get_connection();
         db.execute_unprepared("DROP VIEW IF EXISTS enriched_user_to_exercise")
             .await?;
+        db.execute_unprepared("DROP VIEW IF EXISTS enriched_user_to_metadata_group")
+            .await?;
         Ok(())
     }
 

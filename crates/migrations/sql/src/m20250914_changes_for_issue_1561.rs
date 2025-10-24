@@ -1,8 +1,7 @@
 use sea_orm_migration::prelude::*;
 
 use crate::m20250827_create_enriched_user_to_entity_views::{
-    ENRICHED_USER_TO_METADATA_GROUP_VIEW_CREATION_SQL, ENRICHED_USER_TO_METADATA_VIEW_CREATION_SQL,
-    ENRICHED_USER_TO_PERSON_VIEW_CREATION_SQL,
+    ENRICHED_USER_TO_METADATA_VIEW_CREATION_SQL, ENRICHED_USER_TO_PERSON_VIEW_CREATION_SQL,
 };
 
 use super::{
@@ -48,11 +47,6 @@ FOREIGN KEY ("created_by_user_id") REFERENCES "user"("id") ON UPDATE CASCADE ON 
         db.execute_unprepared("DROP VIEW enriched_user_to_metadata")
             .await?;
         db.execute_unprepared(ENRICHED_USER_TO_METADATA_VIEW_CREATION_SQL)
-            .await?;
-
-        db.execute_unprepared("DROP VIEW enriched_user_to_metadata_group")
-            .await?;
-        db.execute_unprepared(ENRICHED_USER_TO_METADATA_GROUP_VIEW_CREATION_SQL)
             .await?;
 
         db.execute_unprepared("DROP VIEW enriched_user_to_person")

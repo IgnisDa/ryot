@@ -36,39 +36,6 @@ GROUP BY
   p.associated_entity_count;
 "# };
 
-pub static ENRICHED_USER_TO_METADATA_GROUP_VIEW_CREATION_SQL: &str = indoc! { r#"
-CREATE VIEW
-  enriched_user_to_metadata_group AS
-SELECT
-  ute.id,
-  mg.lot,
-  mg.parts,
-  mg.title,
-  mg.source,
-  ute.user_id,
-  mg.description,
-  mg.id AS metadata_group_id,
-  CASE
-    WHEN COUNT(cem.origin_collection_id) = 0 THEN ARRAY[]::TEXT[]
-    ELSE ARRAY_AGG(DISTINCT cem.origin_collection_id)
-  END AS collection_ids
-FROM
-  user_to_entity ute
-  INNER JOIN metadata_group mg ON ute.metadata_group_id = mg.id
-  LEFT JOIN collection_entity_membership cem ON cem.user_id = ute.user_id
-  AND cem.entity_id = ute.entity_id
-  AND cem.entity_lot = ute.entity_lot
-WHERE
-  ute.metadata_group_id IS NOT NULL
-GROUP BY
-  mg.id,
-  ute.id,
-  mg.parts,
-  mg.title,
-  ute.user_id,
-  mg.description;
-"# };
-
 pub static ENRICHED_USER_TO_METADATA_VIEW_CREATION_SQL: &str = indoc! { r#"
 CREATE VIEW
   enriched_user_to_metadata AS
@@ -134,8 +101,6 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
         db.execute_unprepared(ENRICHED_USER_TO_PERSON_VIEW_CREATION_SQL)
-            .await?;
-        db.execute_unprepared(ENRICHED_USER_TO_METADATA_GROUP_VIEW_CREATION_SQL)
             .await?;
         db.execute_unprepared(ENRICHED_USER_TO_METADATA_VIEW_CREATION_SQL)
             .await?;

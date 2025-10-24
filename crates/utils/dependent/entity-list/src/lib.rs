@@ -5,8 +5,8 @@ use application_utils::graphql_to_db_order;
 use common_models::{SearchDetails, SearchInput, UserLevelCacheKey};
 use database_models::{
     collection, collection_entity_membership, collection_to_entity, enriched_user_to_metadata,
-    enriched_user_to_metadata_group, enriched_user_to_person, exercise, genre, prelude::*,
-    user_measurement, user_to_entity, workout, workout_template,
+    enriched_user_to_person, exercise, genre, metadata_group, prelude::*, user_measurement,
+    user_to_entity, workout, workout_template,
 };
 use database_utils::{apply_collection_filters, apply_columns_search, extract_pagination_params};
 use dependent_models::{
@@ -318,54 +318,78 @@ pub async fn user_metadata_groups_list(
         ApplicationCacheValue::UserMetadataGroupsList,
         || async {
             let (order_by, sort_order) = match input.sort {
-                None => (
-                    Expr::col(enriched_user_to_metadata_group::Column::Parts),
-                    Order::Desc,
-                ),
+                None => (Expr::col(metadata_group::Column::Parts), Order::Desc),
                 Some(ord) => (
                     match ord.by {
                         PersonAndMetadataGroupsSortBy::Random => Expr::expr(Func::random()),
                         PersonAndMetadataGroupsSortBy::AssociatedEntityCount => {
-                            Expr::col(enriched_user_to_metadata_group::Column::Parts)
+                            Expr::col(metadata_group::Column::Parts)
                         }
                         PersonAndMetadataGroupsSortBy::Name => {
-                            Expr::col(enriched_user_to_metadata_group::Column::Title)
+                            Expr::col(metadata_group::Column::Title)
                         }
                     },
                     graphql_to_db_order(ord.order),
                 ),
             };
             let (take, page) = extract_pagination_params(input.search.clone(), user_id, ss).await?;
-            let paginator = EnrichedUserToMetadataGroup::find()
+
+            let mut base_query = MetadataGroup::find()
                 .select_only()
-                .column(enriched_user_to_metadata_group::Column::MetadataGroupId)
-                .filter(enriched_user_to_metadata_group::Column::UserId.eq(user_id))
+                .column(metadata_group::Column::Id)
+                .inner_join(UserToEntity)
+                .filter(user_to_entity::Column::UserId.eq(user_id))
+                .filter(user_to_entity::Column::MetadataGroupId.is_not_null())
                 .apply_if(input.lot, |query, v| {
-                    query.filter(enriched_user_to_metadata_group::Column::Lot.eq(v))
+                    query.filter(metadata_group::Column::Lot.eq(v))
                 })
                 .apply_if(input.filter.clone().and_then(|f| f.source), |query, v| {
-                    query.filter(enriched_user_to_metadata_group::Column::Source.eq(v))
+                    query.filter(metadata_group::Column::Source.eq(v))
                 })
                 .apply_if(input.search.and_then(|f| f.query), |query, v| {
                     apply_columns_search(
                         &v,
                         query,
                         [
-                            Expr::col(enriched_user_to_metadata_group::Column::Title),
-                            Expr::col(enriched_user_to_metadata_group::Column::Description),
+                            Expr::col(metadata_group::Column::Title),
+                            Expr::col(metadata_group::Column::Description),
                         ],
                     )
-                })
-                .apply_if(
-                    input.filter.clone().and_then(|f| f.collections),
-                    |query, collections| {
-                        apply_collection_filters(
-                            enriched_user_to_metadata_group::Column::CollectionIds,
-                            query,
-                            collections,
-                        )
-                    },
-                )
+                });
+
+            if let Some(ref filter) = input.filter
+                && let Some(ref collections) = filter.collections
+            {
+                for coll_filter in collections {
+                    let exists_condition = Expr::exists(
+                        Query::select()
+                            .expr(Expr::val(1))
+                            .from(CollectionEntityMembership)
+                            .and_where(
+                                collection_entity_membership::Column::OriginCollectionId
+                                    .eq(&coll_filter.collection_id),
+                            )
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::UserId)
+                                    .equals(user_to_entity::Column::UserId),
+                            )
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::EntityId).equals((
+                                    AliasedUserToEntity::Table,
+                                    AliasedUserToEntity::EntityId,
+                                )),
+                            )
+                            .to_owned(),
+                    );
+
+                    base_query = base_query.filter(match coll_filter.presence {
+                        MediaCollectionPresenceFilter::PresentIn => exists_condition,
+                        MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
+                    });
+                }
+            }
+
+            let paginator = base_query
                 .order_by(order_by, sort_order)
                 .into_tuple::<String>()
                 .paginate(&ss.db, take);
