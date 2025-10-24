@@ -550,19 +550,21 @@ const FiltersModalForm = (props: {
 					props.updateFilter("sortBy", v as UserTemplatesOrWorkoutsListSortBy)
 				}
 			/>
-			<ActionIcon
-				onClick={() => {
-					if (props.filters.orderBy === GraphqlSortOrder.Asc)
-						props.updateFilter("orderBy", GraphqlSortOrder.Desc);
-					else props.updateFilter("orderBy", GraphqlSortOrder.Asc);
-				}}
-			>
-				{props.filters.orderBy === GraphqlSortOrder.Asc ? (
-					<IconSortAscending />
-				) : (
-					<IconSortDescending />
-				)}
-			</ActionIcon>
+			{props.filters.sortBy !== UserTemplatesOrWorkoutsListSortBy.Random ? (
+				<ActionIcon
+					onClick={() => {
+						if (props.filters.orderBy === GraphqlSortOrder.Asc)
+							props.updateFilter("orderBy", GraphqlSortOrder.Desc);
+						else props.updateFilter("orderBy", GraphqlSortOrder.Asc);
+					}}
+				>
+					{props.filters.orderBy === GraphqlSortOrder.Asc ? (
+						<IconSortAscending />
+					) : (
+						<IconSortDescending />
+					)}
+				</ActionIcon>
+			) : null}
 		</Flex>
 	);
 };

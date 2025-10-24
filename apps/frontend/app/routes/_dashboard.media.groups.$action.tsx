@@ -328,19 +328,21 @@ const FiltersModalForm = (props: FiltersModalFormProps) => {
 						v && onFiltersChange("sortBy", v as PersonAndMetadataGroupsSortBy)
 					}
 				/>
-				<ActionIcon
-					onClick={() => {
-						if (filters.orderBy === GraphqlSortOrder.Asc)
-							onFiltersChange("orderBy", GraphqlSortOrder.Desc);
-						else onFiltersChange("orderBy", GraphqlSortOrder.Asc);
-					}}
-				>
-					{filters.orderBy === GraphqlSortOrder.Asc ? (
-						<IconSortAscending />
-					) : (
-						<IconSortDescending />
-					)}
-				</ActionIcon>
+				{filters.sortBy !== PersonAndMetadataGroupsSortBy.Random ? (
+					<ActionIcon
+						onClick={() => {
+							if (filters.orderBy === GraphqlSortOrder.Asc)
+								onFiltersChange("orderBy", GraphqlSortOrder.Desc);
+							else onFiltersChange("orderBy", GraphqlSortOrder.Asc);
+						}}
+					>
+						{filters.orderBy === GraphqlSortOrder.Asc ? (
+							<IconSortAscending />
+						) : (
+							<IconSortDescending />
+						)}
+					</ActionIcon>
+				) : null}
 			</Flex>
 			<Divider />
 			<CollectionsFilter

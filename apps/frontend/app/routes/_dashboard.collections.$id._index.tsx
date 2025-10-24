@@ -436,19 +436,21 @@ const FiltersModalForm = (props: {
 						},
 					]}
 				/>
-				<ActionIcon
-					onClick={() => {
-						if (props.filters.orderBy === GraphqlSortOrder.Asc)
-							props.updateFilter("orderBy", GraphqlSortOrder.Desc);
-						else props.updateFilter("orderBy", GraphqlSortOrder.Asc);
-					}}
-				>
-					{props.filters.orderBy === GraphqlSortOrder.Asc ? (
-						<IconSortAscending />
-					) : (
-						<IconSortDescending />
-					)}
-				</ActionIcon>
+				{props.filters.sortBy !== CollectionContentsSortBy.Random ? (
+					<ActionIcon
+						onClick={() => {
+							if (props.filters.orderBy === GraphqlSortOrder.Asc)
+								props.updateFilter("orderBy", GraphqlSortOrder.Desc);
+							else props.updateFilter("orderBy", GraphqlSortOrder.Asc);
+						}}
+					>
+						{props.filters.orderBy === GraphqlSortOrder.Asc ? (
+							<IconSortAscending />
+						) : (
+							<IconSortDescending />
+						)}
+					</ActionIcon>
+				) : null}
 			</Flex>
 			<Select
 				clearable

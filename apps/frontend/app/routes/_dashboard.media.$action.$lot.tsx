@@ -480,19 +480,21 @@ const FiltersModalForm = (props: FiltersModalFormProps) => {
 						},
 					]}
 				/>
-				<ActionIcon
-					onClick={() => {
-						if (filters.sortOrder === GraphqlSortOrder.Asc)
-							onFiltersChange("sortOrder", GraphqlSortOrder.Desc);
-						else onFiltersChange("sortOrder", GraphqlSortOrder.Asc);
-					}}
-				>
-					{filters.sortOrder === GraphqlSortOrder.Asc ? (
-						<IconSortAscending />
-					) : (
-						<IconSortDescending />
-					)}
-				</ActionIcon>
+				{filters.sortBy !== MediaSortBy.Random ? (
+					<ActionIcon
+						onClick={() => {
+							if (filters.sortOrder === GraphqlSortOrder.Asc)
+								onFiltersChange("sortOrder", GraphqlSortOrder.Desc);
+							else onFiltersChange("sortOrder", GraphqlSortOrder.Asc);
+						}}
+					>
+						{filters.sortOrder === GraphqlSortOrder.Asc ? (
+							<IconSortAscending />
+						) : (
+							<IconSortDescending />
+						)}
+					</ActionIcon>
+				) : null}
 			</Flex>
 			<Divider />
 			<CollectionsFilter
