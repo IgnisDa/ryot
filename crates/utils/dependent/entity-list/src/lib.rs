@@ -689,12 +689,7 @@ pub async fn user_exercises_list(
                         apply_is_in_filter(query, q.forces.as_ref(), exercise::Column::Force);
                     let query =
                         apply_is_in_filter(query, q.mechanics.as_ref(), exercise::Column::Mechanic);
-                    let query = apply_is_in_filter(
-                        query,
-                        q.equipments.as_ref(),
-                        exercise::Column::Equipment,
-                    );
-                    query
+                    apply_is_in_filter(query, q.equipments.as_ref(), exercise::Column::Equipment)
                 })
                 .apply_if(input.search.and_then(|s| s.query), |query, v| {
                     apply_columns_search(
