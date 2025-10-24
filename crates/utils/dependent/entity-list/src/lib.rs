@@ -5,8 +5,8 @@ use application_utils::graphql_to_db_order;
 use common_models::{SearchDetails, SearchInput, UserLevelCacheKey};
 use database_models::{
     collection, collection_entity_membership, collection_to_entity, enriched_user_to_metadata,
-    enriched_user_to_person, exercise, genre, metadata_group, prelude::*, user_measurement,
-    user_to_entity, workout, workout_template,
+    exercise, genre, metadata_group, person, prelude::*, user_measurement, user_to_entity, workout,
+    workout_template,
 };
 use database_utils::{apply_collection_filters, apply_columns_search, extract_pagination_params};
 use dependent_models::{
@@ -425,50 +425,75 @@ pub async fn user_people_list(
         || async {
             let (order_by, sort_order) = match input.sort {
                 None => (
-                    Expr::col(enriched_user_to_person::Column::AssociatedEntityCount),
+                    Expr::col(person::Column::AssociatedEntityCount),
                     Order::Desc,
                 ),
                 Some(ord) => (
                     match ord.by {
                         PersonAndMetadataGroupsSortBy::Random => Expr::expr(Func::random()),
-                        PersonAndMetadataGroupsSortBy::Name => {
-                            Expr::col(enriched_user_to_person::Column::Name)
-                        }
+                        PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
                         PersonAndMetadataGroupsSortBy::AssociatedEntityCount => {
-                            Expr::col(enriched_user_to_person::Column::AssociatedEntityCount)
+                            Expr::col(person::Column::AssociatedEntityCount)
                         }
                     },
                     graphql_to_db_order(ord.order),
                 ),
             };
             let (take, page) = extract_pagination_params(input.search.clone(), user_id, ss).await?;
-            let creators_paginator = EnrichedUserToPerson::find()
+
+            let mut base_query = Person::find()
                 .select_only()
-                .column(enriched_user_to_person::Column::PersonId)
-                .filter(enriched_user_to_person::Column::UserId.eq(user_id))
+                .column(person::Column::Id)
+                .inner_join(UserToEntity)
+                .filter(user_to_entity::Column::UserId.eq(user_id))
+                .filter(user_to_entity::Column::PersonId.is_not_null())
                 .apply_if(input.filter.clone().and_then(|f| f.source), |query, v| {
-                    query.filter(enriched_user_to_person::Column::Source.eq(v))
+                    query.filter(person::Column::Source.eq(v))
                 })
                 .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
                     apply_columns_search(
                         &v,
                         query,
                         [
-                            Expr::col(enriched_user_to_person::Column::Name),
-                            Expr::col(enriched_user_to_person::Column::Description),
+                            Expr::col(person::Column::Name),
+                            Expr::col(person::Column::Description),
                         ],
                     )
-                })
-                .apply_if(
-                    input.filter.clone().and_then(|f| f.collections),
-                    |query, collections| {
-                        apply_collection_filters(
-                            enriched_user_to_person::Column::CollectionIds,
-                            query,
-                            collections,
-                        )
-                    },
-                )
+                });
+
+            if let Some(ref filter) = input.filter
+                && let Some(ref collections) = filter.collections
+            {
+                for coll_filter in collections {
+                    let exists_condition = Expr::exists(
+                        Query::select()
+                            .expr(Expr::val(1))
+                            .from(CollectionEntityMembership)
+                            .and_where(
+                                collection_entity_membership::Column::OriginCollectionId
+                                    .eq(&coll_filter.collection_id),
+                            )
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::UserId)
+                                    .equals(user_to_entity::Column::UserId),
+                            )
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::EntityId).equals((
+                                    AliasedUserToEntity::Table,
+                                    AliasedUserToEntity::EntityId,
+                                )),
+                            )
+                            .to_owned(),
+                    );
+
+                    base_query = base_query.filter(match coll_filter.presence {
+                        MediaCollectionPresenceFilter::PresentIn => exists_condition,
+                        MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
+                    });
+                }
+            }
+
+            let creators_paginator = base_query
                 .order_by(order_by, sort_order)
                 .into_tuple::<String>()
                 .paginate(&ss.db, take);

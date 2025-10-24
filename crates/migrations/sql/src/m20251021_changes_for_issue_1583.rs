@@ -11,6 +11,8 @@ impl MigrationTrait for Migration {
             .await?;
         db.execute_unprepared("DROP VIEW IF EXISTS enriched_user_to_metadata_group")
             .await?;
+        db.execute_unprepared("DROP VIEW IF EXISTS enriched_user_to_person")
+            .await?;
         Ok(())
     }
 

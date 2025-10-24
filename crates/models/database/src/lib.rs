@@ -10,7 +10,6 @@ pub mod collection_entity_membership;
 pub mod collection_to_entity;
 pub mod daily_user_activity;
 pub mod enriched_user_to_metadata;
-pub mod enriched_user_to_person;
 pub mod exercise;
 pub mod functions;
 pub mod genre;
