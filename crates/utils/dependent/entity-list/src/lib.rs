@@ -649,14 +649,20 @@ pub async fn user_exercises_list(
                 },
             };
 
+            let user_id_for_join = user_id.clone();
             let mut base_query = Exercise::find()
                 .select_only()
                 .column(exercise::Column::Id)
-                .left_join(UserToEntity)
-                .filter(
-                    user_to_entity::Column::UserId
-                        .eq(&user_id)
-                        .or(user_to_entity::Column::UserId.is_null()),
+                .join_rev(
+                    JoinType::LeftJoin,
+                    UserToEntity::belongs_to(Exercise)
+                        .from(user_to_entity::Column::ExerciseId)
+                        .to(exercise::Column::Id)
+                        .on_condition(move |_left, _right| {
+                            Condition::all()
+                                .add(user_to_entity::Column::UserId.eq(&user_id_for_join))
+                        })
+                        .into(),
                 )
                 .filter(
                     exercise::Column::Source
