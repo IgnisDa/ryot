@@ -1,6 +1,7 @@
 import { Activity } from "@effect/workflow";
 import { Cause, DateTime, Effect, Schema } from "effect";
 
+import { AppConfig } from "#lib/config";
 import { DbRunner } from "#lib/db";
 import type { SandboxRunError } from "#lib/errors";
 import { unknownToMessage } from "#lib/errors";
@@ -21,6 +22,7 @@ import { type ImportEntityRef, importEntityRefKey } from "./media/types";
 import { ImportsRepository } from "./repository";
 import { PROGRESS_UPDATE_INTERVAL, recordImportRunFailure } from "./runtime/failures";
 import { resolveImportPath } from "./runtime/files";
+import { makeImporterConfig } from "./runtime/importer-config";
 import {
 	createImportRunLifecycle,
 	ImportRunError,
@@ -126,7 +128,10 @@ export const runOneTimeMediaImportWorkflow = <
 		const collections = yield* CollectionsService;
 		const entitiesRepository = yield* EntitiesRepository;
 
-		const initialCleanupPaths = payload.filePath ? resolveImportPath(payload.filePath) : [];
+		const config = yield* AppConfig;
+		const initialCleanupPaths = payload.filePath
+			? resolveImportPath(payload.filePath, config.tmpDir)
+			: [];
 		let cleanupPaths: ReadonlyArray<string> = initialCleanupPaths;
 		const { cleanupArtifactsBestEffort, failRunAndCleanup } = createImportRunLifecycle(
 			payload,
@@ -336,6 +341,7 @@ export const runOneTimeMediaImportWorkflow = <
 			});
 
 			let resolveFailures = 0;
+			const importer = makeImporterConfig(config);
 
 			for (let i = 0; i < entityGroups.length; i += 1) {
 				const group = entityGroups[i];
@@ -346,6 +352,7 @@ export const runOneTimeMediaImportWorkflow = <
 				}
 
 				const candidates = getResolutionCandidates({
+					importer,
 					identifierType: ref.identifierType,
 					entitySchemaSlug: ref.entitySchemaSlug,
 				});

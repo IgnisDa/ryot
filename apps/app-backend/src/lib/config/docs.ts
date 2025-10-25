@@ -13,7 +13,9 @@ const collectFields = (node: Tree, level: number, lines: string[]): void => {
 
 	for (const child of Object.values(node.children)) {
 		if (child.kind === "field") {
-			directFields.push(child);
+			if (!child.hidden) {
+				directFields.push(child);
+			}
 		} else {
 			childGroups.push(child);
 		}

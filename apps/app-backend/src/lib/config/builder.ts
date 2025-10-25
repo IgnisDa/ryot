@@ -4,6 +4,7 @@ import { Config, Redacted } from "effect";
 export type FieldMeta = {
 	kind: "field";
 	envKey: string;
+	hidden: boolean;
 	required: boolean;
 	description: string;
 	default: string | undefined;
@@ -22,14 +23,16 @@ export type ConfigLeaf<A, M extends AnyMeta = AnyMeta> = {
 	readonly config: Config.Config<A>;
 };
 
-type FieldOptions<D> = { default?: D };
+type FieldOptions<D> = { default?: D; hidden?: boolean };
 
 const makeFieldMeta = (
 	envKey: string,
 	description: string,
 	defaultStr: string | undefined,
+	hidden: boolean,
 ): FieldMeta => ({
 	envKey,
+	hidden,
 	description,
 	kind: "field",
 	default: defaultStr,
@@ -43,7 +46,7 @@ export const strField = (
 ): ConfigLeaf<string, FieldMeta> => {
 	const base = Config.string(envKey);
 	const config = opts?.default !== undefined ? base.pipe(Config.withDefault(opts.default)) : base;
-	return { config, meta: makeFieldMeta(envKey, description, opts?.default) };
+	return { config, meta: makeFieldMeta(envKey, description, opts?.default, opts?.hidden ?? false) };
 };
 
 export const secretField = (
@@ -54,7 +57,7 @@ export const secretField = (
 	const base = Config.redacted(envKey);
 	const config =
 		opts?.default !== undefined ? base.pipe(Config.withDefault(Redacted.make(opts.default))) : base;
-	return { config, meta: makeFieldMeta(envKey, description, opts?.default) };
+	return { config, meta: makeFieldMeta(envKey, description, opts?.default, opts?.hidden ?? false) };
 };
 
 export const boolField = (
@@ -64,7 +67,10 @@ export const boolField = (
 ): ConfigLeaf<boolean, FieldMeta> => {
 	const base = Config.boolean(envKey);
 	const config = opts?.default !== undefined ? base.pipe(Config.withDefault(opts.default)) : base;
-	return { config, meta: makeFieldMeta(envKey, description, opts?.default?.toString()) };
+	return {
+		config,
+		meta: makeFieldMeta(envKey, description, opts?.default?.toString(), opts?.hidden ?? false),
+	};
 };
 
 export const intField = (
@@ -74,7 +80,10 @@ export const intField = (
 ): ConfigLeaf<number, FieldMeta> => {
 	const base = Config.integer(envKey);
 	const config = opts?.default !== undefined ? base.pipe(Config.withDefault(opts.default)) : base;
-	return { config, meta: makeFieldMeta(envKey, description, opts?.default?.toString()) };
+	return {
+		config,
+		meta: makeFieldMeta(envKey, description, opts?.default?.toString(), opts?.hidden ?? false),
+	};
 };
 
 export const optField = <A>(
