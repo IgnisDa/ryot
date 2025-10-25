@@ -1,10 +1,9 @@
 import { expect, it } from "@effect/vitest";
-import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import type { Context } from "effect";
 import { Effect, Layer } from "effect";
 
-import { CurrentDb, DbRunner } from "#lib/db";
+import { dbRunnerLayer, makeMock, makeWorkflowActivityEngine } from "#lib/test-support/effect";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
@@ -39,49 +38,43 @@ type StoredEntity = Omit<typeof baseEntity, "populatedAt" | "properties"> & {
 	properties: Record<string, unknown>;
 };
 
-const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-	Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
-
-const defaultEntitiesRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EntitiesRepository" as const,
-		createEntity: () => Effect.die("unused"),
-		getByIdForUser: () => Effect.die("unused"),
-		getEntityScopeById: () => Effect.die("unused"),
-		getEntityScopeForUser: () => Effect.die("unused"),
-		listMatchCandidatesBySchema: () => Effect.die("unused"),
-		getEntitySchemaScopeForUser: () => Effect.die("unused"),
-		findEntitySchemaScriptBySlug: () => Effect.succeed(null),
-		findGlobalEntityByExternalId: () => Effect.succeed(null),
-		findEntityByExternalIdForUser: () => Effect.die("unused"),
-		findEntitySchemaById: () => Effect.succeed(baseEntitySchema),
-		createOrUpdateGlobalEntity: () => Effect.succeed(baseEntity),
-	});
-
-const defaultRelationshipsRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "RelationshipsRepository" as const,
-		upsertEntityRelationship: () => Effect.void,
-	});
-
-const defaultRelationshipSchemasRepository = () =>
-	Object.assign(Object.create(null), {
-		findById: () => Effect.die("unused"),
-		_tag: "RelationshipSchemasRepository" as const,
-		findBuiltinBySlug: () => Effect.die("unused"),
-		findGlobalBySchemaIds: () => Effect.succeed(null),
-	});
-
 const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
-	Object.assign(Object.create(null), defaultEntitiesRepository(), overrides);
+	makeMock<EntitiesRepository>(
+		{
+			_tag: "EntitiesRepository" as const,
+			createEntity: () => Effect.die("unused"),
+			getByIdForUser: () => Effect.die("unused"),
+			getEntityScopeById: () => Effect.die("unused"),
+			getEntityScopeForUser: () => Effect.die("unused"),
+			listMatchCandidatesBySchema: () => Effect.die("unused"),
+			getEntitySchemaScopeForUser: () => Effect.die("unused"),
+			findEntitySchemaScriptBySlug: () => Effect.succeed(null),
+			findGlobalEntityByExternalId: () => Effect.succeed(null),
+			findEntityByExternalIdForUser: () => Effect.die("unused"),
+			findEntitySchemaById: () => Effect.succeed(baseEntitySchema),
+			createOrUpdateGlobalEntity: () => Effect.succeed(baseEntity),
+		},
+		overrides,
+	);
 
 const makeRelationshipsRepository = (overrides: Partial<RelationshipsRepository> = {}) =>
-	Object.assign(Object.create(null), defaultRelationshipsRepository(), overrides);
+	makeMock<RelationshipsRepository>(
+		{ _tag: "RelationshipsRepository" as const, upsertEntityRelationship: () => Effect.void },
+		overrides,
+	);
 
 const makeRelationshipSchemasRepository = (
 	overrides: Partial<RelationshipSchemasRepository> = {},
-) => Object.assign(Object.create(null), defaultRelationshipSchemasRepository(), overrides);
+) =>
+	makeMock<RelationshipSchemasRepository>(
+		{
+			findById: () => Effect.die("unused"),
+			_tag: "RelationshipSchemasRepository" as const,
+			findBuiltinBySlug: () => Effect.die("unused"),
+			findGlobalBySchemaIds: () => Effect.succeed(null),
+		},
+		overrides,
+	);
 
 const makeEntityImportHook = (
 	onEntityImported: (userId: string, entityId: string) => Effect.Effect<void> = () => Effect.void,
@@ -109,41 +102,13 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		Layer.succeed(EntityImportHook, options.entityImportHook ?? makeEntityImportHook()),
 	);
 
-const makeWorkflowEngine = (instance: WorkflowInstance["Type"]) => {
-	let engine: WorkflowEngine["Type"];
-
-	engine = {
-		poll: () => Effect.die("unused"),
-		resume: () => Effect.die("unused"),
-		execute: () => Effect.die("unused"),
-		register: () => Effect.die("unused"),
-		interrupt: () => Effect.die("unused"),
-		deferredDone: () => Effect.die("unused"),
-		scheduleClock: () => Effect.die("unused"),
-		deferredResult: () => Effect.die("unused"),
-		activityExecute: (activity) =>
-			Effect.gen(function* () {
-				const exit = yield* Effect.exit(
-					activity.execute.pipe(
-						Effect.provideService(WorkflowEngine, engine),
-						Effect.provideService(WorkflowInstance, instance),
-					),
-				);
-
-				return new Workflow.Complete({ exit });
-			}),
-	} as WorkflowEngine["Type"];
-
-	return engine;
-};
-
 const withTestLayer = <A, E, R>(
 	options: TestLayerOptions,
 	executionId: string,
 	effect: Effect.Effect<A, E, R>,
 ) => {
 	const instance = WorkflowInstance.initial(EntityImportWorkflow, executionId);
-	const engine = makeWorkflowEngine(instance);
+	const engine = makeWorkflowActivityEngine(instance);
 
 	return effect.pipe(
 		Effect.provideService(WorkflowEngine, engine),
