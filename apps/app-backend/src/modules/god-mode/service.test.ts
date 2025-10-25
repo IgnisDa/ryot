@@ -1,15 +1,15 @@
 import { expect, it } from "@effect/vitest";
 import type { ilike } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
-import { Effect, Exit, Layer, Option, Redacted } from "effect";
+import { Effect, Exit, Layer } from "effect";
 import { describe, it as vitestIt } from "vitest";
 
 import { AuthService } from "#lib/auth";
 import { defaultUserPreferences } from "#lib/builtins/bootstrap";
-import { AppConfig, type AppConfigValue } from "#lib/config";
 import { CurrentDb, DbRunner, DbService, schema, TransactionRunner } from "#lib/db";
 import { BadRequest, DbError } from "#lib/errors";
 import { RedisService } from "#lib/redis";
+import { makeAppConfigLayer } from "#lib/test-support/effect";
 
 import { GodModeRepository } from "./repository";
 import { checkResetEligibility, classifyAuthState, GodModeService } from "./service";
@@ -23,35 +23,6 @@ type UserRow = {
 	bannedAt: Date | null;
 	twoFactorEnabled: boolean | null;
 };
-
-const appConfig = {
-	port: 3000,
-	timezone: "Etc/GMT",
-	frontendUrl: "http://localhost:3000",
-	frontend: { oidcButtonLabel: Option.none() },
-	redisUrl: Redacted.make("redis://localhost:6379"),
-	users: { allowRegistration: true, disableLocalAuth: false },
-	databaseUrl: Redacted.make("postgres://postgres:postgres@localhost:5432/postgres"),
-	scheduler: { frequentCronJobsSchedule: "every 5 minutes", progressUpdateThresholdHours: 2 },
-	sandbox: {
-		timeoutMs: 10_000,
-		workerConcurrency: 5,
-		denoDir: "/tmp/ryot-sandbox-deno",
-		jobIdSecret: Redacted.make("sandbox-secret"),
-	},
-	server: {
-		corsOrigins: Option.none(),
-		adminAccessToken: Redacted.make("admin-token"),
-		oidc: { clientId: Option.none(), issuerUrl: Option.none(), clientSecret: Option.none() },
-	},
-	fileStorage: {
-		url: Option.none(),
-		region: Option.none(),
-		bucketName: Option.none(),
-		accessKeyId: Option.none(),
-		secretAccessKey: Option.none(),
-	},
-} satisfies AppConfigValue;
 
 const baseUser = {
 	id: "user_1",
@@ -139,13 +110,7 @@ const makeServiceLayer = (
 				makeDbServiceLayer(db),
 				transactionLayer,
 				GodModeRepository.Default,
-				Layer.succeed(
-					AppConfig,
-					Object.assign(Object.create(null), {
-						...appConfig,
-						users: { ...appConfig.users, disableLocalAuth },
-					}),
-				),
+				makeAppConfigLayer({ users: { allowRegistration: true, disableLocalAuth } }),
 				Layer.succeed(AuthService, makeAuthMock(authState)),
 				Layer.succeed(RedisService, makeRedisMock()),
 			),
