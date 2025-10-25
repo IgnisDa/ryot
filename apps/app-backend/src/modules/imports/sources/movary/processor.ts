@@ -1,4 +1,4 @@
-import { Effect, Either } from "effect";
+import { Effect } from "effect";
 
 import { AppConfig } from "#lib/config";
 
@@ -13,6 +13,9 @@ import { adaptMovaryExports } from "./adapter";
 
 const MOVARY_EXTENSIONS = ["csv"];
 
+const toMovaryLoadError = (message: string) =>
+	({ cleanupPaths: [], message }) satisfies LoadedMediaImportAdapterError;
+
 export const loadMovaryAdapterResult = Effect.fn("movaryProcessor.load")(function* (input: {
 	runId: string;
 	userId: string;
@@ -20,36 +23,23 @@ export const loadMovaryAdapterResult = Effect.fn("movaryProcessor.load")(functio
 	sourcePayload?: Record<string, unknown>;
 }) {
 	const config = yield* AppConfig;
-	const paths = yield* Effect.try({
-		try: () => ({
-			historyFilePath:
-				getValidatedOptionalPath(
-					input.sourcePayload?.historyFilePath,
-					MOVARY_EXTENSIONS,
-					config.tmpDir,
-				) ?? input.filePath,
-			ratingsFilePath: getValidatedOptionalPath(
-				input.sourcePayload?.ratingsFilePath,
-				MOVARY_EXTENSIONS,
-				config.tmpDir,
-			),
-			watchlistFilePath: getValidatedOptionalPath(
-				input.sourcePayload?.watchlistFilePath,
-				MOVARY_EXTENSIONS,
-				config.tmpDir,
-			),
-		}),
-		catch: (error) => sanitizeErrorMessage(error, "Import job has invalid Movary files"),
-	}).pipe(Effect.either);
-
-	if (Either.isLeft(paths)) {
-		return yield* Effect.fail({
-			cleanupPaths: [],
-			message: paths.left,
-		} satisfies LoadedMediaImportAdapterError);
-	}
-
-	const { historyFilePath, ratingsFilePath, watchlistFilePath } = paths.right;
+	const { historyFilePath, ratingsFilePath, watchlistFilePath } = yield* Effect.all({
+		historyFilePath: getValidatedOptionalPath(
+			input.sourcePayload?.historyFilePath,
+			MOVARY_EXTENSIONS,
+			config.tmpDir,
+		).pipe(Effect.map((p) => p ?? input.filePath)),
+		ratingsFilePath: getValidatedOptionalPath(
+			input.sourcePayload?.ratingsFilePath,
+			MOVARY_EXTENSIONS,
+			config.tmpDir,
+		),
+		watchlistFilePath: getValidatedOptionalPath(
+			input.sourcePayload?.watchlistFilePath,
+			MOVARY_EXTENSIONS,
+			config.tmpDir,
+		),
+	}).pipe(Effect.mapError(toMovaryLoadError));
 	const cleanupPaths = [historyFilePath, ratingsFilePath, watchlistFilePath].filter(
 		(filePath): filePath is string => Boolean(filePath),
 	);

@@ -90,7 +90,7 @@ const collectNetflixSearchJobKeys = Effect.fn(function* (adapterInput: NetflixAd
 	yield* adaptNetflixExports(adapterInput, ({ title, preferredEntitySchemaSlug }) => {
 		const query = extractNetflixBaseTitle(title);
 		if (!query) {
-			return Effect.succeed({ error: "Metadata not found" });
+			return Effect.fail("Metadata not found");
 		}
 		if (preferredEntitySchemaSlug === "movie") {
 			searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" }));
@@ -100,7 +100,7 @@ const collectNetflixSearchJobKeys = Effect.fn(function* (adapterInput: NetflixAd
 			searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" }));
 			searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" }));
 		}
-		return Effect.succeed({ error: "Netflix title lookup is pending" });
+		return Effect.fail("Netflix title lookup is pending");
 	});
 	return [...searchJobKeys];
 });
@@ -113,7 +113,7 @@ const adaptNetflixExportsWithSearchResults = (input: {
 	adaptNetflixExports(input.adapterInput, ({ title, preferredEntitySchemaSlug }) => {
 		const query = extractNetflixBaseTitle(title);
 		if (!query) {
-			return Effect.succeed({ error: "Metadata not found" });
+			return Effect.fail("Metadata not found");
 		}
 
 		const movieKey = createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" });
@@ -130,7 +130,7 @@ const adaptNetflixExportsWithSearchResults = (input: {
 			.map((searchJobKey) => input.searchErrors.get(searchJobKey))
 			.find((error): error is string => Boolean(error));
 		if (lookupError) {
-			return Effect.succeed({ error: lookupError });
+			return Effect.fail(lookupError);
 		}
 
 		const results =
@@ -142,14 +142,14 @@ const adaptNetflixExportsWithSearchResults = (input: {
 		const match = chooseBestNetflixTitleMatch({ title, results, preferredEntitySchemaSlug });
 		if (!match) {
 			if (results.length === 0) {
-				return Effect.succeed({ error: "Metadata not found" });
+				return Effect.fail("Metadata not found");
 			}
 			if (preferredEntitySchemaSlug) {
-				return Effect.succeed({
-					error: `Title matched only ${preferredEntitySchemaSlug === "movie" ? "show" : "movie"} results`,
-				});
+				return Effect.fail(
+					`Title matched only ${preferredEntitySchemaSlug === "movie" ? "show" : "movie"} results`,
+				);
 			}
-			return Effect.succeed({ error: "Could not match title to a supported movie or show" });
+			return Effect.fail("Could not match title to a supported movie or show");
 		}
 
 		return Effect.succeed({
