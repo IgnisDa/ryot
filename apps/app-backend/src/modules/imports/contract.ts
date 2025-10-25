@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
-import { BadRequest, NotFound, RateLimited, Unauthorized } from "#lib/errors";
+import { NotFound, RateLimited, Unauthorized } from "#lib/errors";
 import { ImportRunId } from "#lib/schema/brands";
 
 import {
@@ -21,8 +21,7 @@ export const ImportsGroup = HttpApiGroup.make("imports")
 	.add(
 		HttpApiEndpoint.post("createRun", "/imports/runs")
 			.setPayload(CreateImportRunBody)
-			.addSuccess(Schema.Struct({ id: Schema.String }), { status: 201 })
-			.addError(BadRequest, { status: 400 }),
+			.addSuccess(Schema.Struct({ id: Schema.String }), { status: 201 }),
 	)
 	.add(HttpApiEndpoint.get("listRuns", "/imports/runs").addSuccess(Schema.Array(ListedImportRun)))
 	.add(
@@ -34,6 +33,5 @@ export const ImportsGroup = HttpApiGroup.make("imports")
 	.add(
 		HttpApiEndpoint.del("deleteRun")`/imports/runs/${runIdParam}`
 			.addSuccess(Schema.Struct({ id: Schema.String }))
-			.addError(NotFound, { status: 404 })
-			.addError(BadRequest, { status: 400 }),
+			.addError(NotFound, { status: 404 }),
 	);

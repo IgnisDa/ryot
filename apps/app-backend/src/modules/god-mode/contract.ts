@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AdminMiddleware } from "#lib/auth-middleware";
-import { BadRequest, InternalError, Unauthorized } from "#lib/errors";
+import { InternalError, Unauthorized } from "#lib/errors";
 import { UserId } from "#lib/schema/brands";
 
 const UserAuthState = Schema.Literal("credential", "oidc", "none", "mixed");
@@ -81,14 +81,12 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 		HttpApiEndpoint.post("provisionUser", "/god-mode/users/provision")
 			.setPayload(ProvisionUserBody)
 			.addSuccess(ProvisionUserResponse, { status: 201 })
-			.addError(BadRequest, { status: 400 })
 			.addError(InternalError, { status: 500 })
 			.middleware(AdminMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.post("resetUserPassword")`/god-mode/users/${userIdParam}/reset-password`
 			.addSuccess(ResetPasswordResponse)
-			.addError(BadRequest, { status: 400 })
 			.addError(InternalError, { status: 500 })
 			.middleware(AdminMiddleware),
 	)
@@ -96,7 +94,6 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 		HttpApiEndpoint.post("setUserBan")`/god-mode/users/${userIdParam}/ban/set`
 			.setPayload(SetBanBody)
 			.addSuccess(SetBanResponse)
-			.addError(BadRequest, { status: 400 })
 			.addError(InternalError, { status: 500 })
 			.middleware(AdminMiddleware),
 	);
