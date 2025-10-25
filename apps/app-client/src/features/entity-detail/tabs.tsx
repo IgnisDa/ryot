@@ -50,12 +50,27 @@ const INACTIVE_COLOR = Platform.select({
 	default: "rgba(0,0,0,0.5)",
 });
 
-function getTypeSpecificTab(slug: EntityDetail["entitySchemaSlug"]): TabConfig | null {
-	return match(slug)
-		.with("show", () => ({ key: "seasons", label: "Seasons", Icon: Layers }))
-		.with("podcast", () => ({ key: "episodes", label: "Episodes", Icon: Mic }))
-		.with("anime", () => ({ key: "schedule", label: "Schedule", Icon: CalendarDays }))
-		.with("video-game", () => ({ key: "platforms", label: "Platforms", Icon: Gamepad2 }))
+function getTypeSpecificTab(entity: EntityDetail): TabConfig | null {
+	return match(entity)
+		.with({ entitySchemaSlug: "show" }, (e) =>
+			e.properties.showSeasons.length > 0
+				? { key: "seasons", label: "Seasons", Icon: Layers }
+				: null,
+		)
+		.with({ entitySchemaSlug: "podcast" }, (e) =>
+			e.properties.episodes.length > 0 ? { key: "episodes", label: "Episodes", Icon: Mic } : null,
+		)
+		.with({ entitySchemaSlug: "anime" }, (e) =>
+			e.properties.airingSchedule != null && e.properties.airingSchedule.length > 0
+				? { key: "schedule", label: "Schedule", Icon: CalendarDays }
+				: null,
+		)
+		.with({ entitySchemaSlug: "video-game" }, (e) =>
+			e.properties.timeToBeat != null ||
+			(e.properties.platformReleases != null && e.properties.platformReleases.length > 0)
+				? { key: "platforms", label: "Platforms", Icon: Gamepad2 }
+				: null,
+		)
 		.otherwise(() => null);
 }
 
@@ -213,14 +228,14 @@ export function EntityDetailTabs(props: {
 	const [activeKey, setActiveKey] = useState("overview");
 
 	const tabs = useMemo(() => {
-		const typeTab = getTypeSpecificTab(props.entity.entitySchemaSlug);
+		const typeTab = getTypeSpecificTab(props.entity);
 		return [
 			{ key: "overview", label: "Overview", Icon: BookOpen },
 			...(typeTab ? [typeTab] : []),
 			{ key: "history", label: "History", Icon: Clock },
 			{ key: "similar", label: "Similar", Icon: Sparkles },
 		] satisfies TabConfig[];
-	}, [props.entity.entitySchemaSlug]);
+	}, [props.entity]);
 
 	const tabContent = match(activeKey)
 		.with("history", () => <PlaceholderTab seed={42} />)
