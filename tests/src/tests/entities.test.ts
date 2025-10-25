@@ -4,6 +4,7 @@ import {
 	clearEntityUserState,
 	createAuthenticatedClient,
 	createEntity,
+	createEventSchema,
 	createEntitySchema,
 	createGlobalBookEntityFixture,
 	createTracker,
@@ -19,6 +20,7 @@ import {
 	getFirstProviderScriptId,
 	insertLibraryMembership,
 	listEventSchemas,
+	mergeUserState,
 	pollEntityImportResult,
 	pollEntitySearchResult,
 	queryInLibraryRelationship,
@@ -484,6 +486,90 @@ describe("DELETE /user-state/clear/:id", () => {
 		);
 
 		assertTaggedError(error, "Unauthorized");
+	});
+});
+
+describe("POST /user-state/merge", () => {
+	it("moves user events and dedupes relationships from source to target", async () => {
+		const { client, userId } = await createAuthenticatedClient();
+		const { schemaId } = await createTrackerWithSchema(client);
+		const eventSchema = await createEventSchema(client, {
+			entitySchemaId: schemaId,
+			name: "Merged Event",
+			slug: `merged-event-${crypto.randomUUID()}`,
+			propertiesSchema: {
+				fields: { note: { label: "Note", type: "string", description: "Merge note" } },
+			},
+		});
+		const source = await createEntity(client, {
+			image: null,
+			name: "Source Entity",
+			entitySchemaId: schemaId,
+			properties: { title: "Source" },
+		});
+		const target = await createEntity(client, {
+			image: null,
+			name: "Target Entity",
+			entitySchemaId: schemaId,
+			properties: { title: "Target" },
+		});
+		const related = await createEntity(client, {
+			image: null,
+			name: "Related Entity",
+			entitySchemaId: schemaId,
+			properties: { title: "Related" },
+		});
+
+		await insertUserEvent({
+			userId,
+			entityId: source.id,
+			eventSchemaId: eventSchema.id,
+			properties: { note: "moves" },
+		});
+		await insertUserRelationship({
+			userId,
+			sourceEntityId: source.id,
+			targetEntityId: related.id,
+			relationshipSchemaSlug: "member-of",
+		});
+		await insertUserRelationship({
+			userId,
+			sourceEntityId: target.id,
+			targetEntityId: related.id,
+			relationshipSchemaSlug: "member-of",
+		});
+
+		const result = await mergeUserState(client, { mergeFrom: source.id, mergeInto: target.id });
+
+		expect(result).toEqual({
+			movedEventsCount: 1,
+			mergeFrom: source.id,
+			mergeInto: target.id,
+			movedRelationshipsCount: 1,
+		});
+		expect(await queryUserEntityStateCounts({ userId, entityId: source.id })).toEqual({
+			eventCount: 0,
+			relationshipCount: 0,
+		});
+		expect(await queryUserEntityStateCounts({ userId, entityId: target.id })).toEqual({
+			eventCount: 1,
+			relationshipCount: 1,
+		});
+	});
+
+	it("rejects merging entities across schemas", async () => {
+		const { client } = await createAuthenticatedClient();
+		const first = await createTrackerWithSchemaAndEntity(client);
+		const second = await createTrackerWithSchemaAndEntity(client);
+
+		const error = await client.runError((c) =>
+			c.userState.mergeUserState({
+				payload: { mergeFrom: first.entityId, mergeInto: second.entityId },
+			}),
+		);
+
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toBe("Entities must belong to the same schema");
 	});
 });
 
