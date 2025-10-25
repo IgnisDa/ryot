@@ -36,8 +36,6 @@ import {
 	IconFilter,
 	IconPlus,
 	IconRoad,
-	IconSortAscending,
-	IconSortDescending,
 	IconTrophy,
 	IconWeight,
 } from "@tabler/icons-react";
@@ -57,6 +55,7 @@ import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEd
 import {
 	DebouncedSearchInput,
 	FiltersModal,
+	SortOrderToggle,
 } from "~/components/common/filters";
 import { WorkoutRevisionScheduledAlert } from "~/components/fitness/display-items";
 import {
@@ -551,19 +550,10 @@ const FiltersModalForm = (props: {
 				}
 			/>
 			{props.filters.sortBy !== UserTemplatesOrWorkoutsListSortBy.Random ? (
-				<ActionIcon
-					onClick={() => {
-						if (props.filters.orderBy === GraphqlSortOrder.Asc)
-							props.updateFilter("orderBy", GraphqlSortOrder.Desc);
-						else props.updateFilter("orderBy", GraphqlSortOrder.Asc);
-					}}
-				>
-					{props.filters.orderBy === GraphqlSortOrder.Asc ? (
-						<IconSortAscending />
-					) : (
-						<IconSortDescending />
-					)}
-				</ActionIcon>
+				<SortOrderToggle
+					currentOrder={props.filters.orderBy}
+					onOrderChange={(order) => props.updateFilter("orderBy", order)}
+				/>
 			) : null}
 		</Flex>
 	);

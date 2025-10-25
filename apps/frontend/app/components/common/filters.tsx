@@ -18,6 +18,7 @@ import {
 	useListState,
 } from "@mantine/hooks";
 import {
+	GraphqlSortOrder,
 	type MediaCollectionFilter,
 	MediaCollectionPresenceFilter,
 	MediaCollectionStrategyFilter,
@@ -27,6 +28,8 @@ import {
 	IconFilterOff,
 	IconPlus,
 	IconSearch,
+	IconSortAscending,
+	IconSortDescending,
 	IconX,
 } from "@tabler/icons-react";
 import { produce } from "immer";
@@ -238,3 +241,22 @@ export const DebouncedSearchInput = (props: {
 		/>
 	);
 };
+
+export const SortOrderToggle = (props: {
+	currentOrder: GraphqlSortOrder;
+	onOrderChange: (order: GraphqlSortOrder) => void;
+}) => (
+	<ActionIcon
+		onClick={() => {
+			if (props.currentOrder === GraphqlSortOrder.Asc)
+				props.onOrderChange(GraphqlSortOrder.Desc);
+			else props.onOrderChange(GraphqlSortOrder.Asc);
+		}}
+	>
+		{props.currentOrder === GraphqlSortOrder.Asc ? (
+			<IconSortAscending />
+		) : (
+			<IconSortDescending />
+		)}
+	</ActionIcon>
+);
