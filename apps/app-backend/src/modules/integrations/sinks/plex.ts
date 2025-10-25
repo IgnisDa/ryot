@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provider-refs";
 
@@ -36,7 +36,7 @@ const PlexPayload = Schema.Struct({
 	}),
 });
 
-const decodePlexPayload = Schema.decodeUnknownSync(PlexPayload);
+const decodePlexPayload = Schema.decodeUnknownSync(Schema.parseJson(PlexPayload));
 
 const getMultipartBoundary = (contentType: string): string | undefined => {
 	const match = contentType.match(/boundary=(?:"([^"]+)"|([^;]+))/i);
@@ -84,8 +84,8 @@ const normalizePlexEvent = (value: string): string =>
 		.toLowerCase()
 		.replace(/^media\./, "");
 
-export const parsePlexSink: SinkParser = (input) => {
-	try {
+export const parsePlexSink: SinkParser = (input) =>
+	Effect.try(() => {
 		const specs = input.integration.providerSpecifics;
 		if (specs.kind !== "plex_sink") {
 			throw new Error("Integration is not a Plex sink integration");
@@ -96,7 +96,7 @@ export const parsePlexSink: SinkParser = (input) => {
 			rawBody: input.rawBody,
 			contentType: input.contentType,
 		});
-		const payload = decodePlexPayload(JSON.parse(payloadText));
+		const payload = decodePlexPayload(payloadText);
 
 		if (specs.username && payload.Account?.title !== specs.username) {
 			return emptySinkResult();
@@ -179,8 +179,8 @@ export const parsePlexSink: SinkParser = (input) => {
 				? { showSeason: payload.Metadata.parentIndex, showEpisode: payload.Metadata.index }
 				: {}),
 		});
-	} catch {
-		return {
+	}).pipe(
+		Effect.orElseSucceed(() => ({
 			...emptySinkResult(),
 			failures: [
 				createSinkFailure({
@@ -188,6 +188,5 @@ export const parsePlexSink: SinkParser = (input) => {
 					message: "Could not parse Plex webhook payload",
 				}),
 			],
-		};
-	}
-};
+		})),
+	);

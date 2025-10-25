@@ -52,117 +52,124 @@ const toOwnedTracker = (row: TrackerRow) => ({
 
 export class TrackersRepository extends Effect.Service<TrackersRepository>()("TrackersRepository", {
 	sync: () => ({
-		listByUser: (userId: string, includeDisabled: boolean) =>
-			Effect.gen(function* () {
-				const db = yield* CurrentDb;
-				const clauses = [eq(schema.tracker.userId, userId)];
+		listByUser: Effect.fn("TrackersRepository.listByUser")(function* (
+			userId: string,
+			includeDisabled: boolean,
+		) {
+			const db = yield* CurrentDb;
+			const clauses = [eq(schema.tracker.userId, userId)];
 
-				if (!includeDisabled) {
-					clauses.push(eq(schema.tracker.isDisabled, false));
-				}
+			if (!includeDisabled) {
+				clauses.push(eq(schema.tracker.isDisabled, false));
+			}
 
-				const rows = yield* dbEffect(() =>
-					db
-						.select()
-						.from(schema.tracker)
-						.where(and(...clauses))
-						.orderBy(
-							asc(schema.tracker.isDisabled),
-							asc(schema.tracker.sortOrder),
-							asc(schema.tracker.name),
-						),
-				);
-
-				return rows.map(toListedTracker);
-			}),
-		create: (userId: string, input: CreateTrackerInput) =>
-			Effect.gen(function* () {
-				const db = yield* CurrentDb;
-				const [orderRow] = yield* dbEffect(() =>
-					db
-						.select({
-							maxSortOrder: sql<number>`coalesce(max(${schema.tracker.sortOrder}), -1)`,
-						})
-						.from(schema.tracker)
-						.where(eq(schema.tracker.userId, userId)),
-				);
-
-				const [row] = yield* dbEffect(() =>
-					db
-						.insert(schema.tracker)
-						.values({
-							userId,
-							isBuiltin: false,
-							slug: input.slug,
-							name: input.name,
-							icon: input.icon,
-							description: input.description,
-							accentColor: input.accentColor,
-							sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
-						})
-						.returning(),
-				).pipe(
-					Effect.mapError((error) =>
-						isUniqueConstraintError(trackerUserSlugConstraint)(error)
-							? conflict("Tracker slug already exists")
-							: error,
+			const rows = yield* dbEffect(() =>
+				db
+					.select()
+					.from(schema.tracker)
+					.where(and(...clauses))
+					.orderBy(
+						asc(schema.tracker.isDisabled),
+						asc(schema.tracker.sortOrder),
+						asc(schema.tracker.name),
 					),
-				);
+			);
 
-				if (!row) {
-					return yield* new DbError({ message: "Tracker insert returned no row" });
-				}
+			return rows.map(toListedTracker);
+		}),
+		create: Effect.fn("TrackersRepository.create")(function* (
+			userId: string,
+			input: CreateTrackerInput,
+		) {
+			const db = yield* CurrentDb;
+			const [orderRow] = yield* dbEffect(() =>
+				db
+					.select({
+						maxSortOrder: sql<number>`coalesce(max(${schema.tracker.sortOrder}), -1)`,
+					})
+					.from(schema.tracker)
+					.where(eq(schema.tracker.userId, userId)),
+			);
 
-				return toListedTracker(row);
-			}),
-		findBySlug: (userId: string, slug: string) =>
-			Effect.gen(function* () {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.select({ id: schema.tracker.id })
-						.from(schema.tracker)
-						.where(and(eq(schema.tracker.userId, userId), eq(schema.tracker.slug, slug)))
-						.limit(1),
-				);
+			const [row] = yield* dbEffect(() =>
+				db
+					.insert(schema.tracker)
+					.values({
+						userId,
+						isBuiltin: false,
+						slug: input.slug,
+						name: input.name,
+						icon: input.icon,
+						description: input.description,
+						accentColor: input.accentColor,
+						sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
+					})
+					.returning(),
+			).pipe(
+				Effect.mapError((error) =>
+					isUniqueConstraintError(trackerUserSlugConstraint)(error)
+						? conflict("Tracker slug already exists")
+						: error,
+				),
+			);
 
-				return row ?? null;
-			}),
-		getOwnedById: (userId: string, trackerId: string) =>
-			Effect.gen(function* () {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.select()
-						.from(schema.tracker)
-						.where(and(eq(schema.tracker.id, trackerId), eq(schema.tracker.userId, userId)))
-						.limit(1),
-				);
+			if (!row) {
+				return yield* new DbError({ message: "Tracker insert returned no row" });
+			}
 
-				return row ? toOwnedTracker(row) : null;
-			}),
-		updateOwned: (input: UpdateTrackerInput) =>
-			Effect.gen(function* () {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.update(schema.tracker)
-						.set({
-							slug: input.slug,
-							name: input.name,
-							icon: input.icon,
-							isDisabled: input.isDisabled,
-							description: input.description,
-							accentColor: input.accentColor,
-						})
-						.where(
-							and(eq(schema.tracker.id, input.trackerId), eq(schema.tracker.userId, input.userId)),
-						)
-						.returning(),
-				);
+			return toListedTracker(row);
+		}),
+		findBySlug: Effect.fn("TrackersRepository.findBySlug")(function* (
+			userId: string,
+			slug: string,
+		) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.select({ id: schema.tracker.id })
+					.from(schema.tracker)
+					.where(and(eq(schema.tracker.userId, userId), eq(schema.tracker.slug, slug)))
+					.limit(1),
+			);
 
-				return row ? toListedTracker(row) : null;
-			}),
+			return row ?? null;
+		}),
+		getOwnedById: Effect.fn("TrackersRepository.getOwnedById")(function* (
+			userId: string,
+			trackerId: string,
+		) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.select()
+					.from(schema.tracker)
+					.where(and(eq(schema.tracker.id, trackerId), eq(schema.tracker.userId, userId)))
+					.limit(1),
+			);
+
+			return row ? toOwnedTracker(row) : null;
+		}),
+		updateOwned: Effect.fn("TrackersRepository.updateOwned")(function* (input: UpdateTrackerInput) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.update(schema.tracker)
+					.set({
+						slug: input.slug,
+						name: input.name,
+						icon: input.icon,
+						isDisabled: input.isDisabled,
+						description: input.description,
+						accentColor: input.accentColor,
+					})
+					.where(
+						and(eq(schema.tracker.id, input.trackerId), eq(schema.tracker.userId, input.userId)),
+					)
+					.returning(),
+			);
+
+			return row ? toListedTracker(row) : null;
+		}),
 		countOwnedByIds: (userId: string, trackerIds: ReadonlyArray<string>) =>
 			trackerIds.length === 0
 				? Effect.succeed(0)
@@ -182,19 +189,18 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 
 						return rows.length;
 					}),
-		listIdsInOrder: (userId: string) =>
-			Effect.gen(function* () {
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
-					db
-						.select({ trackerId: schema.tracker.id })
-						.from(schema.tracker)
-						.where(eq(schema.tracker.userId, userId))
-						.orderBy(asc(schema.tracker.sortOrder), asc(schema.tracker.createdAt)),
-				);
+		listIdsInOrder: Effect.fn("TrackersRepository.listIdsInOrder")(function* (userId: string) {
+			const db = yield* CurrentDb;
+			const rows = yield* dbEffect(() =>
+				db
+					.select({ trackerId: schema.tracker.id })
+					.from(schema.tracker)
+					.where(eq(schema.tracker.userId, userId))
+					.orderBy(asc(schema.tracker.sortOrder), asc(schema.tracker.createdAt)),
+			);
 
-				return rows.map((row) => row.trackerId);
-			}),
+			return rows.map((row) => row.trackerId);
+		}),
 		persistOrder: (userId: string, trackerIds: ReadonlyArray<string>) =>
 			trackerIds.length === 0
 				? Effect.succeed([])
@@ -212,23 +218,25 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 
 						return trackerIds;
 					}),
-		linkEntitySchema: (input: { trackerId: string; entitySchemaId: string }) =>
-			Effect.gen(function* () {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.insert(schema.trackerEntitySchema)
-						.values({ trackerId: input.trackerId, entitySchemaId: input.entitySchemaId })
-						.returning({ trackerId: schema.trackerEntitySchema.trackerId }),
-				);
+		linkEntitySchema: Effect.fn("TrackersRepository.linkEntitySchema")(function* (input: {
+			trackerId: string;
+			entitySchemaId: string;
+		}) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.insert(schema.trackerEntitySchema)
+					.values({ trackerId: input.trackerId, entitySchemaId: input.entitySchemaId })
+					.returning({ trackerId: schema.trackerEntitySchema.trackerId }),
+			);
 
-				if (!row) {
-					return yield* new DbError({
-						message: "Tracker entity schema link insert returned no row",
-					});
-				}
+			if (!row) {
+				return yield* new DbError({
+					message: "Tracker entity schema link insert returned no row",
+				});
+			}
 
-				return row.trackerId;
-			}),
+			return row.trackerId;
+		}),
 	}),
 }) {}

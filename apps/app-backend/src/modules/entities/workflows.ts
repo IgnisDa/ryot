@@ -104,7 +104,7 @@ const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: 
 		executionId: `${executionId}-sandbox-details`,
 	}).pipe(Effect.mapError(toWorkflowError));
 
-export const runEntityImportWorkflow = <R>(
+export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(function* <R>(
 	payload: EntityImportPayload,
 	executionId: string,
 	processSandbox: (
@@ -112,137 +112,134 @@ export const runEntityImportWorkflow = <R>(
 		executionId: string,
 	) => Effect.Effect<SandboxCompletedResultValue, SandboxRunError, R>,
 	options: { activityPrefix?: string; skipLibraryMembership?: boolean } = {},
-) =>
-	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const importHook = yield* EntityImportHook;
-		const repository = yield* EntitiesRepository;
-		const activityName = (name: string) =>
-			options.activityPrefix ? `${options.activityPrefix}${name}` : name;
+) {
+	const runWithDb = yield* DbRunner;
+	const importHook = yield* EntityImportHook;
+	const repository = yield* EntitiesRepository;
+	const activityName = (name: string) =>
+		options.activityPrefix ? `${options.activityPrefix}${name}` : name;
 
-		const existing = yield* Activity.make({
-			success: Schema.NullOr(ListedEntity),
-			name: activityName("check-existing-entity"),
-			execute: runWithDb(
-				repository.findGlobalEntityByExternalId({
-					externalId: payload.externalId,
-					sandboxScriptId: payload.scriptId,
-					entitySchemaId: payload.entitySchemaId,
-				}),
-			).pipe(dieOnDbError),
-		});
-
-		if (existing && existing.populatedAt !== null) {
-			if (!options.skipLibraryMembership) {
-				yield* Activity.make({
-					name: activityName("ensure-library-membership"),
-					execute: importHook.onEntityImported(payload.userId, existing.id).pipe(dieOnDbError),
-				});
-			}
-			return existing;
-		}
-
-		const sandboxResult = yield* processSandbox(payload, executionId);
-
-		if (sandboxResult.error) {
-			return yield* new SandboxRunError({ message: sandboxResult.error });
-		}
-
-		const validatedDetails = yield* Activity.make({
-			error: SandboxRunError,
-			success: ValidatedEntityDetails,
-			name: activityName("validate-entity-details"),
-			execute: Effect.gen(function* () {
-				const entitySchemaScope = yield* runWithDb(
-					repository.findEntitySchemaById(payload.entitySchemaId),
-				).pipe(dieOnDbError);
-
-				if (!entitySchemaScope) {
-					return yield* new SandboxRunError({ message: "Entity schema not found" });
-				}
-
-				const details = yield* decodeEntityDetailsResult(sandboxResult.value).pipe(
-					Effect.mapError(
-						(error) => new SandboxRunError({ message: `Invalid entity details: ${error.message}` }),
-					),
-				);
-
-				const validatedProperties = yield* parseAppSchemaProperties({
-					kind: "Entity",
-					properties: details.properties,
-					propertiesSchema: entitySchemaScope.propertiesSchema,
-				}).pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
-
-				return {
-					name: details.name,
-					validatedProperties,
-					relatedEntities: details.relatedEntities ?? [],
-					image: extractPrimaryRemoteImage(validatedProperties.images),
-				};
+	const existing = yield* Activity.make({
+		success: Schema.NullOr(ListedEntity),
+		name: activityName("check-existing-entity"),
+		execute: runWithDb(
+			repository.findGlobalEntityByExternalId({
+				externalId: payload.externalId,
+				sandboxScriptId: payload.scriptId,
+				entitySchemaId: payload.entitySchemaId,
 			}),
-		});
+		).pipe(dieOnDbError),
+	});
 
-		const entity = yield* Activity.make({
-			success: ListedEntity,
-			name: activityName("write-primary-entity"),
-			execute: runWithDb(
+	if (existing && existing.populatedAt !== null) {
+		if (!options.skipLibraryMembership) {
+			yield* Activity.make({
+				name: activityName("ensure-library-membership"),
+				execute: importHook.onEntityImported(payload.userId, existing.id).pipe(dieOnDbError),
+			});
+		}
+		return existing;
+	}
+
+	const sandboxResult = yield* processSandbox(payload, executionId);
+
+	if (sandboxResult.error) {
+		return yield* new SandboxRunError({ message: sandboxResult.error });
+	}
+
+	const validatedDetails = yield* Activity.make({
+		error: SandboxRunError,
+		success: ValidatedEntityDetails,
+		name: activityName("validate-entity-details"),
+		execute: Effect.gen(function* () {
+			const entitySchemaScope = yield* runWithDb(
+				repository.findEntitySchemaById(payload.entitySchemaId),
+			).pipe(dieOnDbError);
+
+			if (!entitySchemaScope) {
+				return yield* new SandboxRunError({ message: "Entity schema not found" });
+			}
+
+			const details = yield* decodeEntityDetailsResult(sandboxResult.value).pipe(
+				Effect.mapError(
+					(error) => new SandboxRunError({ message: `Invalid entity details: ${error.message}` }),
+				),
+			);
+
+			const validatedProperties = yield* parseAppSchemaProperties({
+				kind: "Entity",
+				properties: details.properties,
+				propertiesSchema: entitySchemaScope.propertiesSchema,
+			}).pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
+
+			return {
+				name: details.name,
+				validatedProperties,
+				relatedEntities: details.relatedEntities ?? [],
+				image: extractPrimaryRemoteImage(validatedProperties.images),
+			};
+		}),
+	});
+
+	const entity = yield* Activity.make({
+		success: ListedEntity,
+		name: activityName("write-primary-entity"),
+		execute: runWithDb(
+			repository.createOrUpdateGlobalEntity({
+				image: null,
+				populatedAt: null,
+				name: validatedDetails.name,
+				externalId: payload.externalId,
+				sandboxScriptId: payload.scriptId,
+				entitySchemaId: payload.entitySchemaId,
+				properties: validatedDetails.validatedProperties,
+			}),
+		).pipe(dieOnDbError),
+	});
+
+	yield* Effect.forEach(
+		validatedDetails.relatedEntities,
+		(relatedEntity) =>
+			Activity.make({
+				error: SandboxRunError,
+				name: activityName(`write-related-${relatedEntity.scriptSlug}-${relatedEntity.externalId}`),
+				execute: processRelatedEntity({
+					relatedEntity,
+					sourceEntityId: entity.id,
+					sourceEntitySchemaId: payload.entitySchemaId,
+				}),
+			}),
+		{ discard: true },
+	);
+
+	const populatedEntity = yield* Activity.make({
+		success: ListedEntity,
+		name: activityName("mark-primary-entity-populated"),
+		execute: Effect.gen(function* () {
+			const populatedAt = yield* DateTime.nowAsDate;
+			return yield* runWithDb(
 				repository.createOrUpdateGlobalEntity({
-					image: null,
-					populatedAt: null,
+					populatedAt,
 					name: validatedDetails.name,
+					image: validatedDetails.image,
 					externalId: payload.externalId,
 					sandboxScriptId: payload.scriptId,
 					entitySchemaId: payload.entitySchemaId,
 					properties: validatedDetails.validatedProperties,
 				}),
-			).pipe(dieOnDbError),
-		});
-
-		yield* Effect.forEach(
-			validatedDetails.relatedEntities,
-			(relatedEntity) =>
-				Activity.make({
-					error: SandboxRunError,
-					name: activityName(
-						`write-related-${relatedEntity.scriptSlug}-${relatedEntity.externalId}`,
-					),
-					execute: processRelatedEntity({
-						relatedEntity,
-						sourceEntityId: entity.id,
-						sourceEntitySchemaId: payload.entitySchemaId,
-					}),
-				}),
-			{ discard: true },
-		);
-
-		const populatedEntity = yield* Activity.make({
-			success: ListedEntity,
-			name: activityName("mark-primary-entity-populated"),
-			execute: Effect.gen(function* () {
-				const populatedAt = yield* DateTime.nowAsDate;
-				return yield* runWithDb(
-					repository.createOrUpdateGlobalEntity({
-						populatedAt,
-						name: validatedDetails.name,
-						image: validatedDetails.image,
-						externalId: payload.externalId,
-						sandboxScriptId: payload.scriptId,
-						entitySchemaId: payload.entitySchemaId,
-						properties: validatedDetails.validatedProperties,
-					}),
-				).pipe(dieOnDbError);
-			}),
-		});
-
-		if (!options.skipLibraryMembership) {
-			yield* Activity.make({
-				name: activityName("ensure-library-membership"),
-				execute: importHook.onEntityImported(payload.userId, populatedEntity.id).pipe(dieOnDbError),
-			});
-		}
-
-		return populatedEntity;
+			).pipe(dieOnDbError);
+		}),
 	});
+
+	if (!options.skipLibraryMembership) {
+		yield* Activity.make({
+			name: activityName("ensure-library-membership"),
+			execute: importHook.onEntityImported(payload.userId, populatedEntity.id).pipe(dieOnDbError),
+		});
+	}
+
+	return populatedEntity;
+});
 
 const EntityImportWorkflowLive = EntityImportWorkflow.toLayer((payload, executionId) =>
 	runEntityImportWorkflow(payload, executionId, processSandboxEntityDetails),

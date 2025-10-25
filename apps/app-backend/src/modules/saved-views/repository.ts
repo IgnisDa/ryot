@@ -69,102 +69,108 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 	"SavedViewsRepository",
 	{
 		sync: () => ({
-			listByUser: (userId: string, input: { trackerId?: string; includeDisabled: boolean }) =>
-				Effect.gen(function* () {
-					const db = yield* CurrentDb;
-					const clauses = [eq(schema.savedView.userId, userId)];
+			listByUser: Effect.fn("SavedViewsRepository.listByUser")(function* (
+				userId: string,
+				input: { trackerId?: string; includeDisabled: boolean },
+			) {
+				const db = yield* CurrentDb;
+				const clauses = [eq(schema.savedView.userId, userId)];
 
-					if (!input.includeDisabled) {
-						clauses.push(eq(schema.savedView.isDisabled, false));
-					}
+				if (!input.includeDisabled) {
+					clauses.push(eq(schema.savedView.isDisabled, false));
+				}
 
-					if (input.trackerId) {
-						clauses.push(eq(schema.savedView.trackerId, input.trackerId));
-					}
+				if (input.trackerId) {
+					clauses.push(eq(schema.savedView.trackerId, input.trackerId));
+				}
 
-					const rows = yield* dbEffect(() =>
-						db
-							.select()
-							.from(schema.savedView)
-							.where(and(...clauses))
-							.orderBy(
-								asc(schema.savedView.trackerId),
-								asc(schema.savedView.sortOrder),
-								asc(schema.savedView.createdAt),
-							),
-					);
-
-					return rows.map(toListedSavedView);
-				}),
-			findBySlug: (userId: string, viewSlug: string) =>
-				Effect.gen(function* () {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
-						db
-							.select()
-							.from(schema.savedView)
-							.where(and(eq(schema.savedView.userId, userId), eq(schema.savedView.slug, viewSlug)))
-							.limit(1),
-					);
-
-					return row ? toListedSavedView(row) : null;
-				}),
-			create: (userId: string, input: CreateSavedViewInput) =>
-				Effect.gen(function* () {
-					const db = yield* CurrentDb;
-					const [orderRow] = yield* dbEffect(() =>
-						db
-							.select({
-								maxSortOrder: sql<number>`coalesce(max(${schema.savedView.sortOrder}), -1)`,
-							})
-							.from(schema.savedView)
-							.where(
-								and(
-									eq(schema.savedView.userId, userId),
-									withSavedViewScope(input.trackerId ?? undefined),
-								),
-							),
-					);
-
-					const [row] = yield* dbEffect(() =>
-						db
-							.insert(schema.savedView)
-							.values({
-								userId,
-								slug: input.slug,
-								name: input.name,
-								icon: input.icon,
-								isBuiltin: input.isBuiltin,
-								accentColor: input.accentColor,
-								trackerId: input.trackerId ?? null,
-								queryDefinition: input.queryDefinition,
-								sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
-								displayConfiguration: input.displayConfiguration,
-							})
-							.returning(),
-					).pipe(
-						Effect.mapError((error) =>
-							isUniqueConstraintError(savedViewUserSlugConstraint)(error)
-								? new DbError({ message: "A saved view with this name already exists" })
-								: error,
+				const rows = yield* dbEffect(() =>
+					db
+						.select()
+						.from(schema.savedView)
+						.where(and(...clauses))
+						.orderBy(
+							asc(schema.savedView.trackerId),
+							asc(schema.savedView.sortOrder),
+							asc(schema.savedView.createdAt),
 						),
-					);
+				);
 
-					if (!row) {
-						return yield* new DbError({ message: "Saved view insert returned no row" });
-					}
+				return rows.map(toListedSavedView);
+			}),
+			findBySlug: Effect.fn("SavedViewsRepository.findBySlug")(function* (
+				userId: string,
+				viewSlug: string,
+			) {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select()
+						.from(schema.savedView)
+						.where(and(eq(schema.savedView.userId, userId), eq(schema.savedView.slug, viewSlug)))
+						.limit(1),
+				);
 
-					return toListedSavedView(row);
-				}),
-			createDefaultViewForSchema: (input: {
-				icon: string;
-				userId: string;
-				trackerId: string;
-				accentColor: string;
-				entitySchemaSlug: string;
-				entitySchemaName: string;
-			}) =>
-				Effect.gen(function* () {
+				return row ? toListedSavedView(row) : null;
+			}),
+			create: Effect.fn("SavedViewsRepository.create")(function* (
+				userId: string,
+				input: CreateSavedViewInput,
+			) {
+				const db = yield* CurrentDb;
+				const [orderRow] = yield* dbEffect(() =>
+					db
+						.select({
+							maxSortOrder: sql<number>`coalesce(max(${schema.savedView.sortOrder}), -1)`,
+						})
+						.from(schema.savedView)
+						.where(
+							and(
+								eq(schema.savedView.userId, userId),
+								withSavedViewScope(input.trackerId ?? undefined),
+							),
+						),
+				);
+
+				const [row] = yield* dbEffect(() =>
+					db
+						.insert(schema.savedView)
+						.values({
+							userId,
+							slug: input.slug,
+							name: input.name,
+							icon: input.icon,
+							isBuiltin: input.isBuiltin,
+							accentColor: input.accentColor,
+							trackerId: input.trackerId ?? null,
+							queryDefinition: input.queryDefinition,
+							sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
+							displayConfiguration: input.displayConfiguration,
+						})
+						.returning(),
+				).pipe(
+					Effect.mapError((error) =>
+						isUniqueConstraintError(savedViewUserSlugConstraint)(error)
+							? new DbError({ message: "A saved view with this name already exists" })
+							: error,
+					),
+				);
+
+				if (!row) {
+					return yield* new DbError({ message: "Saved view insert returned no row" });
+				}
+
+				return toListedSavedView(row);
+			}),
+			createDefaultViewForSchema: Effect.fn("SavedViewsRepository.createDefaultViewForSchema")(
+				function* (input: {
+					icon: string;
+					userId: string;
+					trackerId: string;
+					accentColor: string;
+					entitySchemaSlug: string;
+					entitySchemaName: string;
+				}) {
 					const db = yield* CurrentDb;
 					const name = `All ${input.entitySchemaName}s`;
 					const slug = slugify(`all ${input.entitySchemaSlug}`);
@@ -188,154 +194,164 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 								: error,
 						),
 					);
-				}),
-			updateBySlug: (
+				},
+			),
+			updateBySlug: Effect.fn("SavedViewsRepository.updateBySlug")(function* (
 				userId: string,
 				viewSlug: string,
 				data: UpdateSavedViewData,
 				currentTrackerId: string | null,
-			) =>
-				Effect.gen(function* () {
-					const db = yield* CurrentDb;
-					const nextTrackerId = data.trackerId ?? null;
-					const sortOrder =
-						currentTrackerId === nextTrackerId
-							? undefined
-							: yield* getNextSortOrder(userId, nextTrackerId);
+			) {
+				const db = yield* CurrentDb;
+				const nextTrackerId = data.trackerId ?? null;
+				const sortOrder =
+					currentTrackerId === nextTrackerId
+						? undefined
+						: yield* getNextSortOrder(userId, nextTrackerId);
 
-					const [row] = yield* dbEffect(() =>
-						db
-							.update(schema.savedView)
-							.set({
-								icon: data.icon,
-								name: data.name,
-								trackerId: nextTrackerId,
-								isDisabled: data.isDisabled,
-								accentColor: data.accentColor,
-								queryDefinition: data.queryDefinition,
-								displayConfiguration: data.displayConfiguration,
-								...(sortOrder === undefined ? {} : { sortOrder }),
-							})
-							.where(
-								and(
-									eq(schema.savedView.slug, viewSlug),
-									eq(schema.savedView.userId, userId),
-									eq(schema.savedView.isBuiltin, false),
-								),
-							)
-							.returning(),
-					);
+				const [row] = yield* dbEffect(() =>
+					db
+						.update(schema.savedView)
+						.set({
+							icon: data.icon,
+							name: data.name,
+							trackerId: nextTrackerId,
+							isDisabled: data.isDisabled,
+							accentColor: data.accentColor,
+							queryDefinition: data.queryDefinition,
+							displayConfiguration: data.displayConfiguration,
+							...(sortOrder === undefined ? {} : { sortOrder }),
+						})
+						.where(
+							and(
+								eq(schema.savedView.slug, viewSlug),
+								eq(schema.savedView.userId, userId),
+								eq(schema.savedView.isBuiltin, false),
+							),
+						)
+						.returning(),
+				);
 
-					return row ? toListedSavedView(row) : null;
-				}),
-			updateDisabledBySlug: (userId: string, viewSlug: string, isDisabled: boolean) =>
-				Effect.gen(function* () {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
-						db
-							.update(schema.savedView)
-							.set({ isDisabled })
-							.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
-							.returning(),
-					);
+				return row ? toListedSavedView(row) : null;
+			}),
+			updateDisabledBySlug: Effect.fn("SavedViewsRepository.updateDisabledBySlug")(function* (
+				userId: string,
+				viewSlug: string,
+				isDisabled: boolean,
+			) {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.update(schema.savedView)
+						.set({ isDisabled })
+						.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
+						.returning(),
+				);
 
-					return row ? toListedSavedView(row) : null;
-				}),
-			deleteBySlug: (userId: string, viewSlug: string) =>
-				Effect.gen(function* () {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
-						db
-							.delete(schema.savedView)
-							.where(
-								and(
-									eq(schema.savedView.slug, viewSlug),
-									eq(schema.savedView.userId, userId),
-									eq(schema.savedView.isBuiltin, false),
-								),
-							)
-							.returning(),
-					);
+				return row ? toListedSavedView(row) : null;
+			}),
+			deleteBySlug: Effect.fn("SavedViewsRepository.deleteBySlug")(function* (
+				userId: string,
+				viewSlug: string,
+			) {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.delete(schema.savedView)
+						.where(
+							and(
+								eq(schema.savedView.slug, viewSlug),
+								eq(schema.savedView.userId, userId),
+								eq(schema.savedView.isBuiltin, false),
+							),
+						)
+						.returning(),
+				);
 
-					return row ? toListedSavedView(row) : null;
-				}),
-			countBySlugs: (userId: string, viewSlugs: ReadonlyArray<string>, trackerId?: string) =>
-				viewSlugs.length === 0
-					? Effect.succeed(0)
-					: Effect.gen(function* () {
-							const db = yield* CurrentDb;
-							const rows = yield* dbEffect(() =>
-								db
-									.select({ slug: schema.savedView.slug })
-									.from(schema.savedView)
-									.where(
-										and(
-											eq(schema.savedView.userId, userId),
-											inArray(schema.savedView.slug, [...viewSlugs]),
-											withSavedViewScope(trackerId),
-										),
-									),
-							);
+				return row ? toListedSavedView(row) : null;
+			}),
+			countBySlugs: Effect.fn("SavedViewsRepository.countBySlugs")(function* (
+				userId: string,
+				viewSlugs: ReadonlyArray<string>,
+				trackerId?: string,
+			) {
+				if (viewSlugs.length === 0) {
+					return 0;
+				}
 
-							return rows.length;
-						}),
-			listSlugsInOrder: (userId: string, trackerId?: string) =>
-				Effect.gen(function* () {
-					const db = yield* CurrentDb;
-					const rows = yield* dbEffect(() =>
-						db
-							.select({ viewSlug: schema.savedView.slug })
-							.from(schema.savedView)
-							.where(and(eq(schema.savedView.userId, userId), withSavedViewScope(trackerId)))
-							.orderBy(asc(schema.savedView.sortOrder), asc(schema.savedView.createdAt)),
-					);
+				const db = yield* CurrentDb;
+				const rows = yield* dbEffect(() =>
+					db
+						.select({ slug: schema.savedView.slug })
+						.from(schema.savedView)
+						.where(
+							and(
+								eq(schema.savedView.userId, userId),
+								inArray(schema.savedView.slug, [...viewSlugs]),
+								withSavedViewScope(trackerId),
+							),
+						),
+				);
 
-					return rows.map((row) => row.viewSlug);
-				}),
-			persistOrder: (
+				return rows.length;
+			}),
+			listSlugsInOrder: Effect.fn("SavedViewsRepository.listSlugsInOrder")(function* (
+				userId: string,
+				trackerId?: string,
+			) {
+				const db = yield* CurrentDb;
+				const rows = yield* dbEffect(() =>
+					db
+						.select({ viewSlug: schema.savedView.slug })
+						.from(schema.savedView)
+						.where(and(eq(schema.savedView.userId, userId), withSavedViewScope(trackerId)))
+						.orderBy(asc(schema.savedView.sortOrder), asc(schema.savedView.createdAt)),
+				);
+
+				return rows.map((row) => row.viewSlug);
+			}),
+			persistOrder: Effect.fn("SavedViewsRepository.persistOrder")(function* (
 				userId: string,
 				trackerId: string | undefined,
 				viewSlugs: ReadonlyArray<string>,
-			) =>
-				viewSlugs.length === 0
-					? Effect.succeed([])
-					: Effect.gen(function* () {
-							const db = yield* CurrentDb;
+			) {
+				if (viewSlugs.length === 0) {
+					return [];
+				}
 
-							for (const [index, viewSlug] of viewSlugs.entries()) {
-								yield* dbEffect(() =>
-									db
-										.update(schema.savedView)
-										.set({ sortOrder: index })
-										.where(
-											and(
-												eq(schema.savedView.slug, viewSlug),
-												eq(schema.savedView.userId, userId),
-												withSavedViewScope(trackerId),
-											),
-										),
-								);
-							}
+				const db = yield* CurrentDb;
 
-							return viewSlugs;
-						}),
+				for (const [index, viewSlug] of viewSlugs.entries()) {
+					yield* dbEffect(() =>
+						db
+							.update(schema.savedView)
+							.set({ sortOrder: index })
+							.where(
+								and(
+									eq(schema.savedView.slug, viewSlug),
+									eq(schema.savedView.userId, userId),
+									withSavedViewScope(trackerId),
+								),
+							),
+					);
+				}
+
+				return viewSlugs;
+			}),
 		}),
 	},
 ) {}
 
-const getNextSortOrder = (userId: string, trackerId: string | null) =>
-	Effect.gen(function* () {
-		const db = yield* CurrentDb;
-		const [orderRow] = yield* dbEffect(() =>
-			db
-				.select({
-					maxSortOrder: sql<number>`coalesce(max(${schema.savedView.sortOrder}), -1)`,
-				})
-				.from(schema.savedView)
-				.where(
-					and(eq(schema.savedView.userId, userId), withSavedViewScope(trackerId ?? undefined)),
-				),
-		);
+const getNextSortOrder = Effect.fn(function* (userId: string, trackerId: string | null) {
+	const db = yield* CurrentDb;
+	const [orderRow] = yield* dbEffect(() =>
+		db
+			.select({
+				maxSortOrder: sql<number>`coalesce(max(${schema.savedView.sortOrder}), -1)`,
+			})
+			.from(schema.savedView)
+			.where(and(eq(schema.savedView.userId, userId), withSavedViewScope(trackerId ?? undefined))),
+	);
 
-		return (orderRow?.maxSortOrder ?? -1) + 1;
-	});
+	return (orderRow?.maxSortOrder ?? -1) + 1;
+});

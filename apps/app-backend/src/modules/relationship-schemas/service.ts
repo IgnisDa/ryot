@@ -13,22 +13,25 @@ export class RelationshipSchemasService extends Effect.Service<RelationshipSchem
 			const repository = yield* RelationshipSchemasRepository;
 
 			return {
-				findBuiltinBySlug: (slug: string) =>
-					Effect.gen(function* () {
-						const found = yield* runWithDb(repository.findBuiltinBySlug(slug));
-						if (!found) {
-							return yield* notFound("Relationship schema not found");
-						}
-						return found;
-					}),
-				findById: (id: string, userId: string | null) =>
-					Effect.gen(function* () {
-						const found = yield* runWithDb(repository.findById(id, userId));
-						if (!found) {
-							return yield* notFound("Relationship schema not found");
-						}
-						return found;
-					}),
+				findBuiltinBySlug: Effect.fn("RelationshipSchemasService.findBuiltinBySlug")(function* (
+					slug: string,
+				) {
+					const found = yield* runWithDb(repository.findBuiltinBySlug(slug));
+					if (!found) {
+						return yield* notFound("Relationship schema not found");
+					}
+					return found;
+				}),
+				findById: Effect.fn("RelationshipSchemasService.findById")(function* (
+					id: string,
+					userId: string | null,
+				) {
+					const found = yield* runWithDb(repository.findById(id, userId));
+					if (!found) {
+						return yield* notFound("Relationship schema not found");
+					}
+					return found;
+				}),
 			};
 		}),
 	},
