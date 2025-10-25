@@ -34,3 +34,14 @@ Reference by number from the parent PRD:
 - User story 13
 - User story 30
 - User story 32
+
+## Follow-up (post-review)
+
+Event sources can now be INCLUDED as nested row lists, not only consumed through `exists`
+and `first`. An included event source attaches to an in-scope entity alias via `entityRef`
+and returns `{ items, pageInfo: { limit, hasMore } }` of event rows, projecting event
+system/property/schema-metadata fields plus the attached entity's fields. This closes the
+US12 "inspect event details" gap (the prior slice only exposed event existence booleans).
+Included sources (entity and event) also support `where` for child-row filtering; the parent
+is still returned when no child matches. Nested includes remain supported under entity
+includes only — an event include cannot nest further includes (rejected at validation).

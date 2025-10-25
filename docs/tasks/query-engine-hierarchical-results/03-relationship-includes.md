@@ -36,3 +36,13 @@ Reference by number from the parent PRD:
 - User story 30
 - User story 32
 - User story 33
+
+## Follow-up (post-review)
+
+Included entity sources now support `where`. The `where` filters which child rows are
+returned (child-row projection filtering); the parent row is still returned even when no
+child matches, because includes are projections rather than parent filters. Include `where`
+may reference the include's own alias, its relationship edge alias, and ancestor aliases.
+When an include has no `where`, execution keeps the efficient `ORDER BY ... LIMIT limit+1`
+path; when a `where` is present, it scans ordered candidates (bounded by an explicit cap),
+filters in-app, then applies the limit and computes `hasMore` from the filtered remainder.

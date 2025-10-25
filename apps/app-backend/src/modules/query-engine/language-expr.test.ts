@@ -41,6 +41,27 @@ describe("Expr", () => {
 		expect(result.type).toBe("comparison");
 	});
 
+	it("decodes an 'arithmetic' expression with nested operands", () => {
+		const result = decodeSync(Expr)({
+			type: "arithmetic",
+			operator: "divide",
+			right: { type: "literal", value: 10 },
+			left: { type: "ref", sourceAlias: "e", field: { type: "system", name: "name" } },
+		});
+		expect(result.type).toBe("arithmetic");
+	});
+
+	it("throws for an unknown arithmetic operator", () => {
+		expect(() =>
+			decodeSync(Expr)({
+				type: "arithmetic",
+				operator: "modulo",
+				left: { type: "literal", value: 1 },
+				right: { type: "literal", value: 2 },
+			}),
+		).toThrow();
+	});
+
 	it("decodes an 'and' expression with multiple values", () => {
 		const result = decodeSync(Expr)({
 			type: "and",

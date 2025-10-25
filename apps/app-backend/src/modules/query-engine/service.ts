@@ -7,7 +7,8 @@ import { BadRequest, NotFound, dieOnDbError } from "#lib/errors";
 import { executeAggregateQuery, executeRowsQuery, executeTimeSeriesQuery } from "./executor";
 import type { AggregateOutput, QueryDocument, RowsOutput, TimeSeriesOutput } from "./language";
 import { validateQueryDocument } from "./validator";
-import { validateQueryDocumentReferences } from "./validator/references";
+import { validateQueryDocumentReferencesAndTypes } from "./validator/references";
+import { validateQueryDocumentTypeCompatibility } from "./validator/type-check";
 
 type RowsQueryDocument = QueryDocument & { output: RowsOutput };
 type AggregateQueryDocument = QueryDocument & { output: AggregateOutput };
@@ -34,7 +35,7 @@ export class QueryEngineService extends Effect.Service<QueryEngineService>()("Qu
 				return yield* new BadRequest({ message: validationError });
 			}
 
-			yield* runWithDb(validateQueryDocumentReferences(user.id, doc)).pipe(
+			yield* runWithDb(validateQueryDocumentReferencesAndTypes(user.id, doc)).pipe(
 				Effect.catchIf(
 					(error): error is NotFound => error instanceof NotFound,
 					(error) => Effect.fail(new BadRequest({ message: error.message })),
@@ -53,6 +54,8 @@ export class QueryEngineService extends Effect.Service<QueryEngineService>()("Qu
 				if (validationError) {
 					return yield* new BadRequest({ message: validationError });
 				}
+
+				yield* runWithDb(validateQueryDocumentTypeCompatibility(user.id, doc));
 
 				if (isRowsQueryDocument(doc)) {
 					return yield* runWithDb(executeRowsQuery(user.id, doc));

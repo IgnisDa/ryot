@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import type { Expr, QueryDocument } from "./language";
 import { validateQueryDocument } from "./validator";
-import { literal, makeDoc, nameRef, occurredAtRef, propertyRef } from "./validator.test-support";
+import {
+	descendantSource,
+	literal,
+	makeDoc,
+	nameRef,
+	occurredAtRef,
+	propertyRef,
+} from "./validator.test-support";
 
 const makeEventDoc = (overrides: Partial<QueryDocument> = {}): QueryDocument => ({
 	source: {
@@ -175,7 +182,7 @@ describe("event roots and first expressions", () => {
 		expect(validateQueryDocument(doc)).toMatch(/First select currently supports ref and literal/);
 	});
 
-	it("rejects first in root orderBy", () => {
+	it("rejects first as a root orderBy expression", () => {
 		const firstExpr: Expr = {
 			type: "first",
 			select: occurredAtRef("completion"),
@@ -196,10 +203,10 @@ describe("event roots and first expressions", () => {
 				orderBy: [{ order: "asc", expr: firstExpr }],
 			},
 		});
-		expect(validateQueryDocument(doc)).toMatch(/First expressions are currently valid only/);
+		expect(validateQueryDocument(doc)).toMatch(/Rows orderBy currently supports ref/);
 	});
 
-	it("rejects first nested inside a computed output expression", () => {
+	it("accepts first nested inside a computed output expression", () => {
 		const doc = makeDoc({
 			output: {
 				type: "rows",
@@ -230,6 +237,197 @@ describe("event roots and first expressions", () => {
 				],
 			},
 		});
-		expect(validateQueryDocument(doc)).toMatch(/First expressions are currently valid only/);
+		expect(validateQueryDocument(doc)).toBeNull();
+	});
+
+	it("accepts first over a descendant entity source", () => {
+		const doc = makeDoc({
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("e") }],
+				fields: [
+					{
+						key: "firstModuleName",
+						expr: {
+							type: "first",
+							select: nameRef("module"),
+							orderBy: [{ order: "asc", expr: propertyRef("module", "modules", ["position"]) }],
+							source: descendantSource("module", "e", "courseModule", null),
+						},
+					},
+				],
+			},
+		});
+		expect(validateQueryDocument(doc)).toBeNull();
+	});
+
+	it("accepts first ordering and selecting by the edge alias of an entity source", () => {
+		const doc = makeDoc({
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("e") }],
+				fields: [
+					{
+						key: "firstByEdge",
+						expr: {
+							type: "first",
+							select: propertyRef("courseModule", "courseModule", ["position"]),
+							orderBy: [
+								{ order: "asc", expr: propertyRef("courseModule", "courseModule", ["position"]) },
+							],
+							source: descendantSource("module", "e", "courseModule", null),
+						},
+					},
+				],
+			},
+		});
+		expect(validateQueryDocument(doc)).toBeNull();
+	});
+
+	it("accepts first used inside a where clause", () => {
+		const doc = makeDoc({
+			source: {
+				alias: "e",
+				type: "entities",
+				schemas: ["books"],
+				where: {
+					operator: "gt",
+					type: "comparison",
+					right: literal(0),
+					left: {
+						type: "first",
+						select: propertyRef("module", "modules", ["position"]),
+						orderBy: [{ order: "asc", expr: propertyRef("module", "modules", ["position"]) }],
+						source: descendantSource("module", "e", "courseModule", null),
+					},
+				},
+			},
+		});
+		expect(validateQueryDocument(doc)).toBeNull();
+	});
+
+	it("rejects first whose source carries a where clause", () => {
+		const doc = makeDoc({
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("e") }],
+				fields: [
+					{
+						key: "firstModuleName",
+						expr: {
+							type: "first",
+							select: nameRef("module"),
+							orderBy: [{ order: "asc", expr: nameRef("module") }],
+							source: descendantSource("module", "e", "courseModule", {
+								type: "isNotNull",
+								expr: nameRef("module"),
+							}),
+						},
+					},
+				],
+			},
+		});
+		expect(validateQueryDocument(doc)).toMatch(/First expression source does not support where/);
+	});
+
+	it("rejects first orderBy referencing an ancestor alias outside the source scope", () => {
+		const doc = makeDoc({
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("e") }],
+				fields: [
+					{
+						key: "hasModule",
+						expr: {
+							type: "exists",
+							source: descendantSource("module", "e", "courseModule", {
+								operator: "gt",
+								type: "comparison",
+								right: literal(0),
+								left: {
+									type: "first",
+									select: propertyRef("lesson", "lessons", ["position"]),
+									orderBy: [{ order: "asc", expr: nameRef("e") }],
+									source: descendantSource("lesson", "module", "moduleLesson", null),
+								},
+							}),
+						},
+					},
+				],
+			},
+		});
+		expect(validateQueryDocument(doc)).toMatch(/First orderBy cannot reference source alias 'e'/);
+	});
+
+	it("rejects first select referencing an ancestor alias outside the source scope", () => {
+		const doc = makeDoc({
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("e") }],
+				fields: [
+					{
+						key: "hasModule",
+						expr: {
+							type: "exists",
+							source: descendantSource("module", "e", "courseModule", {
+								operator: "gt",
+								type: "comparison",
+								right: literal(0),
+								left: {
+									type: "first",
+									select: nameRef("e"),
+									orderBy: [{ order: "asc", expr: propertyRef("lesson", "lessons", ["position"]) }],
+									source: descendantSource("lesson", "module", "moduleLesson", null),
+								},
+							}),
+						},
+					},
+				],
+			},
+		});
+		expect(validateQueryDocument(doc)).toMatch(/First select cannot reference source alias 'e'/);
+	});
+
+	it("rejects first nested beyond the maximum expression source depth", () => {
+		const doc = makeDoc({
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("e") }],
+				fields: [
+					{
+						key: "deepFirst",
+						expr: {
+							type: "exists",
+							source: descendantSource("module", "e", "courseModule", {
+								type: "exists",
+								source: descendantSource("lesson", "module", "moduleLesson", {
+									type: "exists",
+									source: descendantSource("part", "lesson", "lessonPart", {
+										type: "comparison",
+										operator: "gt",
+										right: literal(0),
+										left: {
+											type: "first",
+											select: propertyRef("segment", "segments", ["index"]),
+											orderBy: [
+												{ order: "asc", expr: propertyRef("segment", "segments", ["index"]) },
+											],
+											source: descendantSource("segment", "part", "partSegment", null),
+										},
+									}),
+								}),
+							}),
+						},
+					},
+				],
+			},
+		});
+		expect(validateQueryDocument(doc)).toMatch(/Expression source depth exceeds maximum of 3/);
 	});
 });
