@@ -18,5 +18,13 @@ export const auth = betterAuth({
 	emailAndPassword: { enabled: true },
 	secret: config.SERVER_ADMIN_ACCESS_TOKEN,
 	database: drizzleAdapter(db, { provider: "pg", schema }),
-	plugins: [apiKey({ enableSessionForAPIKeys: true })],
+	plugins: [
+		apiKey({
+			enableSessionForAPIKeys: true,
+			rateLimit: {
+				maxRequests: 60,
+				timeWindow: 60 * 1000, // 1 minute
+			},
+		}),
+	],
 });
