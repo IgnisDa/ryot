@@ -178,9 +178,9 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 
 ## Tasks
 
-**Overall Progress:** 8 of 32 tasks completed
+**Overall Progress:** 9 of 32 tasks completed
 
-**Current Task:** [Task 09](./09-trackers-domain-slice.md) (todo)
+**Current Task:** [Task 10](./10-user-bootstrap-tracer.md) (todo)
 
 ### Task List
 
@@ -194,7 +194,7 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 | 06  | [Static Builtins And Seed Manifests](./06-static-builtins-and-seed-manifests.md)                     | AFK  | done   |
 | 07  | [Better Auth Email Sessions](./07-better-auth-email-sessions.md)                                     | AFK  | done   |
 | 08  | [Auth Middleware And Security Schemes](./08-auth-middleware-and-security-schemes.md)                 | AFK  | done   |
-| 09  | [Trackers Domain Slice](./09-trackers-domain-slice.md)                                               | AFK  | todo   |
+| 09  | [Trackers Domain Slice](./09-trackers-domain-slice.md)                                               | AFK  | done   |
 | 10  | [User Bootstrap Tracer](./10-user-bootstrap-tracer.md)                                               | AFK  | todo   |
 | 11  | [Property Schema Effect DSL](./11-property-schema-effect-dsl.md)                                     | AFK  | todo   |
 | 12  | [Relationship Schema Reads](./12-relationship-schema-reads.md)                                       | AFK  | todo   |
