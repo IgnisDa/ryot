@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../lib/auth";
-import { NotFound, NotImplemented, Unauthorized } from "../../lib/errors";
+import { NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
 
 const MembershipRelationship = Schema.Struct({
 	id: Schema.String,
@@ -42,11 +42,12 @@ const DeleteMembershipBody = Schema.Struct({
 const MembershipResponse = Schema.Struct({ memberOf: MembershipRelationship });
 
 export const CollectionsGroup = HttpApiGroup.make("collections")
+	.addError(Unauthorized, { status: 401 })
+	.addError(RateLimited, { status: 429 })
 	.add(
 		HttpApiEndpoint.post("create", "/collections")
 			.setPayload(CreateCollectionBody)
 			.addSuccess(CollectionResponse, { status: 201 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
@@ -54,7 +55,6 @@ export const CollectionsGroup = HttpApiGroup.make("collections")
 			.setPayload(CreateMembershipBody)
 			.addSuccess(MembershipResponse, { status: 201 })
 			.addError(NotFound, { status: 404 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
@@ -62,7 +62,6 @@ export const CollectionsGroup = HttpApiGroup.make("collections")
 			.setPayload(DeleteMembershipBody)
 			.addSuccess(MembershipResponse)
 			.addError(NotFound, { status: 404 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.addError(NotImplemented, { status: 501 });

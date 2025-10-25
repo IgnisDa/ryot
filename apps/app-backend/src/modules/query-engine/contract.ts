@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../lib/auth";
-import { BadRequest, NotFound, NotImplemented, Unauthorized } from "../../lib/errors";
+import { BadRequest, NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
 
 const Pagination = Schema.Struct({ page: Schema.Number, limit: Schema.Number });
 
@@ -102,13 +102,14 @@ const QueryEngineResponse = Schema.Union(
 );
 
 export const QueryEngineGroup = HttpApiGroup.make("query-engine")
+	.addError(Unauthorized, { status: 401 })
+	.addError(RateLimited, { status: 429 })
 	.add(
 		HttpApiEndpoint.post("execute", "/query-engine/execute")
 			.setPayload(QueryEngineRequest)
 			.addSuccess(QueryEngineResponse)
 			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.addError(NotImplemented, { status: 501 });
