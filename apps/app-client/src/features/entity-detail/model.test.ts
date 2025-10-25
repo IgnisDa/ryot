@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import type { BookProperties } from "@ryot/app-backend/media-types";
+import type { BookProperties } from "@ryot/app-backend/schema/media-types";
 
 import { isEntitySchemaSlug, toEntityDetail } from "./model";
 
