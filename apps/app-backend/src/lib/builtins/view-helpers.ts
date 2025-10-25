@@ -11,7 +11,7 @@ import {
 	type DisplayConfiguration,
 	type QueryExpression,
 	type SavedViewQueryDefinition,
-} from "~/query-language";
+} from "~/lib/query-language";
 
 const entityColumn = (slug: string, column: string): QueryExpression =>
 	createEntityColumnExpression(slug, column);
