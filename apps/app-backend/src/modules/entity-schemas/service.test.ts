@@ -165,7 +165,7 @@ it.effect("returns bad request when tracker is built-in during creation", () => 
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("returns bad request when entity schema slug already exists", () => {
+it.effect("returns conflict when entity schema slug already exists", () => {
 	const layer = makeEntitySchemasServiceLayer(
 		makeEntitySchemasRepository({ findBySlug: () => Effect.succeed({ id: "existing-id" }) }),
 		makeTrackersRepository({
@@ -197,7 +197,7 @@ it.effect("returns bad request when entity schema slug already exists", () => {
 		);
 
 		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Entity schema slug already exists" })),
+			Exit.fail(new Conflict({ message: "Entity schema slug already exists" })),
 		);
 	}).pipe(Effect.provide(layer));
 });
