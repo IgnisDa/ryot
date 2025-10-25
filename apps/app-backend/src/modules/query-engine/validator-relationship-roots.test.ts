@@ -9,7 +9,6 @@ import {
 } from "./validator.test-support";
 
 const makeRelationshipDoc = (overrides: Partial<RowsQueryDocument> = {}): RowsQueryDocument => ({
-	version: 2,
 	output: {
 		fields: [],
 		type: "rows",
