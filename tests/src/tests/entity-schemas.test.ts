@@ -252,7 +252,9 @@ describe("GET /entity-schemas", () => {
 
 		expect(response.status).toBe(200);
 		expect(data?.data).toBeDefined();
-		expect(data?.data.some((schema) => schema.slug === "custom-entry")).toBe(true);
+		expect(data?.data.some((schema: { slug: string }) => schema.slug === "custom-entry")).toBe(
+			true,
+		);
 		expect(data?.data.length).toBeGreaterThanOrEqual(builtinSchemas.length + 1);
 	});
 

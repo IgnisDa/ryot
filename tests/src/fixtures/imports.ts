@@ -1,6 +1,7 @@
 import { getBackendUrl } from "../setup";
 import { requirePresent, requireResponseData } from "../test-support/assertions";
 import type { Client } from "./auth";
+import type { ClientBody } from "./backend-client";
 import { pollUntil } from "./polling";
 
 const OPENSCALE_SAMPLE_CSV = `dateTime,weight,bmi,fat,water,muscle,comment
@@ -25,7 +26,7 @@ export async function uploadTemporaryFile(
 	});
 
 	const json: { data?: string[] } = await response.json();
-	const tokens = requireResponseData(response, json, "Failed to upload temporary file");
+	const tokens = requireResponseData(response, json.data, "Failed to upload temporary file");
 	return requirePresent(tokens[0], "Upload token is missing");
 }
 
@@ -34,9 +35,11 @@ export async function startOpenScaleImport(
 	cookies: string,
 	uploadToken: string,
 ): Promise<string> {
-	const { data, response } = await client.POST("/imports/runs", {
+	const { data, response } = await client.imports.createRun({
 		headers: { Cookie: cookies },
-		body: { source: "open_scale", uploadToken },
+		// TODO(Task 26): Remove this tests-only import payload assertion once the
+		// public AppContract includes source-specific import bodies.
+		body: { source: "open_scale", uploadToken } as unknown as ClientBody<"imports", "createRun">,
 	});
 
 	const result = requireResponseData(response, data, "Failed to start import run");
@@ -44,7 +47,7 @@ export async function startOpenScaleImport(
 }
 
 export async function getImportRun(client: Client, cookies: string, runId: string) {
-	const { data, response } = await client.GET("/imports/runs/{runId}", {
+	const { data, response } = await client.imports.getRun({
 		params: { path: { runId } },
 		headers: { Cookie: cookies },
 	});

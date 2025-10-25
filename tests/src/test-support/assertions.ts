@@ -37,12 +37,12 @@ export function requireNonEmptyArray<T>(
 
 export function requireResponseData<T>(
 	response: { status: number },
-	data: { data?: T } | undefined,
+	data: T | undefined,
 	message: string,
 ): T {
-	if (response.status !== 200 || data?.data == null) {
+	if (response.status < 200 || response.status >= 300 || data == null) {
 		throw new Error(message);
 	}
 
-	return data.data;
+	return data;
 }
