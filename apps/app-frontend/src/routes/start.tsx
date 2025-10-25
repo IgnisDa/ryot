@@ -6,8 +6,13 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuthClient } from "@/hooks/auth";
 import { useAppForm } from "@/hooks/forms";
 
+const searchSchema = z.object({
+	redirect: z.string().optional(),
+});
+
 export const Route = createFileRoute("/start")({
 	component: StartPage,
+	validateSearch: searchSchema,
 });
 
 const authModes = {
@@ -47,6 +52,7 @@ const schema = z.object({
 });
 
 function StartPage() {
+	const search = Route.useSearch();
 	const authClient = useAuthClient();
 	const navigate = Route.useNavigate();
 	const [mode, setMode] = useState<AuthMode>("login");
@@ -75,7 +81,7 @@ function StartPage() {
 				return;
 			}
 
-			await navigate({ to: "/" });
+			await navigate({ to: search.redirect || "/" });
 		},
 	});
 
