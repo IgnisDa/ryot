@@ -7,7 +7,7 @@ import * as schema from "#lib/db/schema/tables";
 import { builtinEntitySchemas } from "./entity-schemas";
 import { builtinSavedViews } from "./saved-views";
 import { builtinTrackers } from "./trackers";
-import { buildDefaultQueryDefinition } from "./view-helpers";
+import { buildDefaultQueryDefinition, buildDefaultQueryDocument } from "./view-helpers";
 
 export type UserPreferences = {
 	readonly isNsfw: boolean;
@@ -162,8 +162,9 @@ const createBuiltinSavedViews = Effect.fn(function* (
 						relationshipJoins: view.relationshipJoins,
 					})
 				: null);
+		const queryDocument = entitySchema ? buildDefaultQueryDocument([entitySchema.slug]) : null;
 
-		if (!queryDefinition) {
+		if (!queryDefinition || !queryDocument) {
 			return [];
 		}
 
@@ -177,6 +178,7 @@ const createBuiltinSavedViews = Effect.fn(function* (
 				userId,
 				sortOrder,
 				accentColor,
+				queryDocument,
 				name: view.name,
 				isBuiltin: true,
 				slug: view.slug,

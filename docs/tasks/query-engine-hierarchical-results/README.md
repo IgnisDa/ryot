@@ -1714,9 +1714,9 @@ The implementation should keep file sizes maintainable and split modules when th
 
 ## Tasks
 
-**Overall Progress:** 9 of 12 tasks completed
+**Overall Progress:** 10 of 12 tasks completed
 
-**Current Task:** [Task 10](./10-saved-views-full-query-documents.md) (todo)
+**Current Task:** [Task 11](./11-canonical-cutover-and-old-engine-removal.md) (todo)
 
 ### Task List
 
@@ -1731,6 +1731,6 @@ The implementation should keep file sizes maintainable and split modules when th
 | 07  | [Aggregate Returns](./07-aggregate-returns.md)                                                 | AFK  | done   |
 | 08  | [Relationship Root Sources](./08-relationship-root-sources.md)                                 | AFK  | done   |
 | 09  | [Time Series Returns](./09-time-series-returns.md)                                             | AFK  | done   |
-| 10  | [Saved Views Full Query Documents](./10-saved-views-full-query-documents.md)                   | AFK  | todo   |
+| 10  | [Saved Views Full Query Documents](./10-saved-views-full-query-documents.md)                   | AFK  | done   |
 | 11  | [Canonical Cutover And Old Engine Removal](./11-canonical-cutover-and-old-engine-removal.md)   | AFK  | todo   |
 | 12  | [Codebase Cleanup](./12-codebase-cleanup.md)                                                   | AFK  | todo   |
