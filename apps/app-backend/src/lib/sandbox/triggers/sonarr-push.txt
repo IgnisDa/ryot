@@ -1,0 +1,57 @@
+async function pushShowToSonarr(integration, tvdbId) {
+  const specifics = integration.providerSpecifics || {};
+  const baseUrl = normalizeBaseUrl(specifics.baseUrl);
+  if (!baseUrl || typeof specifics.apiKey !== "string") return;
+
+  const requestBody = {
+    monitored: true,
+    tvdbId: Number(tvdbId),
+    rootFolderPath: specifics.rootFolderPath,
+    qualityProfileId: Number(specifics.profileId),
+    addOptions: { searchForMissingEpisodes: true },
+    tags: typeof specifics.tagIds === "number" ? [specifics.tagIds] : [],
+  };
+
+  const result = await httpCall("POST", baseUrl + "/api/v3/series", {
+    body: JSON.stringify(requestBody),
+    headers: { "Content-Type": "application/json", "X-Api-Key": specifics.apiKey },
+  });
+
+  if (!result.success) {
+    // Sonarr replies 400 when the series already exists; that is expected, not an error.
+    console.warn("Sonarr push failed: " + String(result.error));
+  }
+}
+
+driver("trigger", async function (context) {
+  const trigger = context.trigger;
+  if (!trigger) return;
+
+  const properties =
+    trigger.properties && typeof trigger.properties === "object" ? trigger.properties : {};
+  if (properties.entitySchemaSlug !== "show") return;
+
+  // Both checks are independent — run in parallel.
+  const preamble = await Promise.all([
+    integrationsDisabledForUser(),
+    listActiveIntegrations("sonarr"),
+  ]);
+  if (preamble[0]) return;
+  const matchingIntegrations = preamble[1].filter(function (integration) {
+    return collectionSyncMatches(integration, trigger.entityId);
+  });
+  if (matchingIntegrations.length === 0) return;
+
+  const entity = await fetchEntity(properties.entityId);
+  if (!entity) return;
+
+  const providerName = await resolveEntityProviderName(entity);
+  if (providerName !== "TVDB") return;
+
+  const tvdbId = typeof entity.externalId === "string" ? entity.externalId : null;
+  if (!tvdbId) return;
+
+  for (const integration of matchingIntegrations) {
+    await pushShowToSonarr(integration, tvdbId);
+  }
+});
