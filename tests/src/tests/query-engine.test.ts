@@ -556,6 +556,99 @@ describe("Query Engine E2E", () => {
 			expect(requireQueryEngineFieldValue(firstModule, "position").value).toBe(1);
 		});
 
+		it("orders nested includes numerically by an integer property, not lexicographically", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId: courseSchemaId, slug: courseSlug } =
+				await createQueryEngineTrackerAndSchema(client, { schemaName: "NumOrderCourse" });
+			const { schemaId: moduleSchemaId, slug: moduleSlug } =
+				await createQueryEngineTrackerAndSchema(client, {
+					schemaName: "NumOrderModule",
+					propertiesSchema: {
+						fields: {
+							moduleNumber: { type: "integer", label: "Module Number", description: "Sort order" },
+						},
+					},
+				});
+			const relationshipSlug = `num-course-module-${crypto.randomUUID()}`;
+			const relationshipSchema = await createRelationshipSchema(client, {
+				name: "Num Course Module",
+				slug: relationshipSlug,
+				propertiesSchema: { fields: {} },
+				sourceEntitySchemaId: courseSchemaId,
+				targetEntitySchemaId: moduleSchemaId,
+			});
+
+			const course = await createQueryEngineEntity(client, {
+				name: "Numbered Course",
+				entitySchemaId: courseSchemaId,
+			});
+			// 10 created before 2 so insertion order can't mask the sort: numeric order must give 2, 10.
+			const moduleTen = await createQueryEngineEntity(client, {
+				name: "Module Ten",
+				entitySchemaId: moduleSchemaId,
+				properties: { moduleNumber: 10 },
+			});
+			const moduleTwo = await createQueryEngineEntity(client, {
+				name: "Module Two",
+				entitySchemaId: moduleSchemaId,
+				properties: { moduleNumber: 2 },
+			});
+			await createRelationship(client, {
+				properties: {},
+				sourceEntityId: course.id,
+				targetEntityId: moduleTen.id,
+				relationshipSchemaId: relationshipSchema.id,
+			});
+			await createRelationship(client, {
+				properties: {},
+				sourceEntityId: course.id,
+				targetEntityId: moduleTwo.id,
+				relationshipSchemaId: relationshipSchema.id,
+			});
+
+			const doc = buildRowsDoc({
+				alias: "course",
+				schemas: [courseSlug],
+				fields: [{ key: "name", expr: systemRef("course", "name") }],
+				output: {
+					type: "rows",
+					pagination: { page: 1, limit: 10 },
+					fields: [{ key: "name", expr: systemRef("course", "name") }],
+					orderBy: [{ order: "asc", expr: systemRef("course", "name") }],
+					include: [
+						{
+							limit: 10,
+							key: "modules",
+							orderBy: [{ order: "asc", expr: propertyRef("module", moduleSlug, "moduleNumber") }],
+							fields: [
+								{ key: "moduleNumber", expr: propertyRef("module", moduleSlug, "moduleNumber") },
+							],
+							source: {
+								where: null,
+								alias: "module",
+								type: "entities",
+								schemas: [moduleSlug],
+								via: {
+									entityRef: "course",
+									alias: "courseModule",
+									direction: "outgoing",
+									schema: relationshipSlug,
+								},
+							},
+						},
+					],
+				},
+			});
+
+			const result = await executeQueryEngine(client, doc);
+			const courseItem = result.data.items[0];
+			assertPresent(courseItem, "Expected course row");
+			const modules = requireQueryEngineIncludeValue(courseItem, "modules");
+			expect(
+				modules.items.map((item) => requireQueryEngineFieldValue(item, "moduleNumber").value),
+			).toEqual([2, 10]);
+		});
+
 		it("returns deep entity includes with event existence fields", async () => {
 			const { client } = await createAuthenticatedClient();
 			const { schemaId: courseSchemaId, slug: courseSlug } =

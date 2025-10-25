@@ -39,11 +39,16 @@ const runValidation = (
 	return validateTimeSeriesOutput(doc.output, scope, aliases);
 };
 
-export const validateQueryDocument = (doc: QueryDocument): string | null =>
-	runValidation(doc, new Map(), new Map());
-
-export const collectAliasScope = (doc: QueryDocument): AliasScope => {
-	const aliases: AliasScope = new Map();
-	runValidation(doc, new Map(), aliases);
-	return aliases;
+export const validateQueryDocumentWithScope = (
+	doc: QueryDocument,
+): { error: string | null; scope: AliasScope } => {
+	const scope: AliasScope = new Map();
+	const error = runValidation(doc, new Map(), scope);
+	return { error, scope };
 };
+
+export const validateQueryDocument = (doc: QueryDocument): string | null =>
+	validateQueryDocumentWithScope(doc).error;
+
+export const collectAliasScope = (doc: QueryDocument): AliasScope =>
+	validateQueryDocumentWithScope(doc).scope;

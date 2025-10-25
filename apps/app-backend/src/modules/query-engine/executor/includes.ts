@@ -18,7 +18,13 @@ import {
 	loadVisibleEventSchemas,
 	loadVisibleRelationshipSchema,
 } from "./schema-loaders";
-import { eventIncludeOrderSql, includeOrderSql } from "./sql";
+import {
+	entitySelectColumnsSql,
+	eventIncludeOrderSql,
+	eventSelectColumnsSql,
+	includeOrderSql,
+	relationshipEdgeColumnsSql,
+} from "./sql";
 import {
 	MAX_INCLUDE_FILTER_SCAN_ROWS,
 	MAX_SERIALIZED_ROW_OBJECTS,
@@ -70,26 +76,9 @@ const executeEntityIncludeForParentRow = (
 		const rawRows = yield* dbEffect(() =>
 			db.execute<IncludeQueryRow>(sql`
 				SELECT
-					e.id,
-					e.name,
-					e.image,
-					e.properties,
-					e.created_at AS "createdAt",
-					e.updated_at AS "updatedAt",
-					e.external_id AS "externalId",
-					e.sandbox_script_id AS "sandboxScriptId",
-					es.id AS "schemaId",
-					es.slug AS "schemaSlug",
-					es.name AS "schemaName",
-					es.is_builtin AS "schemaIsBuiltin",
-					r.id AS "relationshipId",
-					r.created_at AS "relationshipCreatedAt",
-					r.source_entity_id AS "relationshipSourceEntityId",
-					r.target_entity_id AS "relationshipTargetEntityId",
-					r.properties AS "relationshipProperties",
-					rs.slug AS "relationshipSchemaSlug",
-					rs.name AS "relationshipSchemaName",
-					rs.is_builtin AS "relationshipSchemaIsBuiltin"
+					${entitySelectColumnsSql},
+					${relationshipEdgeColumnsSql},
+					1 AS "totalCount"
 				FROM relationship r
 				JOIN relationship_schema rs ON rs.id = r.relationship_schema_id
 				JOIN entity e ON e.id = ${childColumn}
@@ -147,27 +136,8 @@ const executeEventIncludeForParentRow = (
 		const rawRows = yield* dbEffect(() =>
 			db.execute<EventQueryRow>(sql`
 				SELECT
-					e.id,
-					e.name,
-					e.image,
-					e.properties,
-					e.created_at AS "createdAt",
-					e.updated_at AS "updatedAt",
-					e.external_id AS "externalId",
-					e.sandbox_script_id AS "sandboxScriptId",
-					es.id AS "schemaId",
-					es.slug AS "schemaSlug",
-					es.name AS "schemaName",
-					es.is_builtin AS "schemaIsBuiltin",
-					ev.id AS "eventId",
-					ev.properties AS "eventProperties",
-					ev.created_at AS "eventCreatedAt",
-					ev.updated_at AS "eventUpdatedAt",
-					ev.occurred_at AS "eventOccurredAt",
-					evs.id AS "eventSchemaId",
-					evs.slug AS "eventSchemaSlug",
-					evs.name AS "eventSchemaName",
-					evs.is_builtin AS "eventSchemaIsBuiltin",
+					${entitySelectColumnsSql},
+					${eventSelectColumnsSql},
 					1 AS "totalCount"
 				FROM event ev
 				JOIN event_schema evs ON evs.id = ev.event_schema_id
