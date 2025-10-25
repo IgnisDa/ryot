@@ -13,6 +13,7 @@ const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getIte
 export const Route = createRootRouteWithContext<{
 	authClientInstance: AuthClient;
 }>()({
+	ssr: false,
 	shellComponent: RootDocument,
 	head: () => ({
 		links: [{ href: appCss, rel: "stylesheet" }],
