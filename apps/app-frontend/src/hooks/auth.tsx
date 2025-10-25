@@ -1,5 +1,5 @@
+import { apiKeyClient } from "@better-auth/api-key/client";
 import { createAuthClient } from "better-auth/client";
-import { apiKeyClient } from "better-auth/client/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start/solid";
 import { createContext, type ReactNode, useContext } from "react";
 
