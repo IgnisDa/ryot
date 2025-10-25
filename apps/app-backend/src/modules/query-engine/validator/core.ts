@@ -89,6 +89,9 @@ export const validateExpr = (
 		if (expr.source.where !== null) {
 			return "First expression source does not support where yet";
 		}
+		if (expr.source.type === "entities" && expr.source.via === undefined) {
+			return `First expression entity source '${expr.source.alias}' must specify via`;
+		}
 
 		const sourceScope = new Map(scope);
 		const sourceError = validateSource(
