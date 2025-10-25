@@ -1,4 +1,4 @@
-import { FileSystem, HttpApiBuilder } from "@effect/platform";
+import { FileSystem, HttpApiBuilder, HttpApiScalar } from "@effect/platform";
 import { BunHttpServer } from "@effect/platform-bun";
 import { Effect, Layer, Runtime } from "effect";
 
@@ -49,6 +49,10 @@ const ApiLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(AdminMiddlewareLive),
 );
 
+const ScalarLive = Layer.provide(HttpApiScalar.layer({ path: "/docs" }), ApiLive);
+
+const ApiWithScalarLive = Layer.mergeAll(ApiLive, ScalarLive);
+
 export const ServerLive = Layer.scopedDiscard(
 	Effect.gen(function* () {
 		const auth = yield* AuthService;
@@ -56,7 +60,7 @@ export const ServerLive = Layer.scopedDiscard(
 		const fs = yield* FileSystem.FileSystem;
 		const runtime = yield* Effect.runtime();
 
-		const apiLayer = ApiLive.pipe(
+		const apiLayer = ApiWithScalarLive.pipe(
 			Layer.provide(
 				Layer.mergeAll(Layer.succeed(AppConfig, config), Layer.succeed(AuthService, auth)),
 			),
