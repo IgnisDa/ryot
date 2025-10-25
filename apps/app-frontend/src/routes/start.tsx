@@ -36,7 +36,7 @@ const getNameFromEmail = (email: string) => {
 		.split(/\s+/)
 		.map((segment) => {
 			if (!segment) return segment;
-			return `${segment[0].toUpperCase()}${segment.slice(1)}`;
+			return `${segment.charAt(0).toUpperCase()}${segment.slice(1)}`;
 		})
 		.join(" ");
 };
