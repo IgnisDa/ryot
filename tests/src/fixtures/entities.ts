@@ -9,7 +9,7 @@ type CreateEntityInput = Omit<CreateEntityBody, "image"> & {
 	image?: CreateEntityBody["image"] | null;
 };
 
-type ClearEntityUserStateData = ContractSuccess<"entities", "clearUserState">;
+type ClearEntityUserStateData = ContractSuccess<"userState", "clearUserState">;
 
 function withRecordProperties<T extends { properties: unknown }>(
 	entity: T,
@@ -43,7 +43,7 @@ export async function clearEntityUserState(
 	client: Client,
 	entityId: string,
 ): Promise<ClearEntityUserStateData> {
-	return client.run((c) => c.entities.clearUserState({ path: { entityId } }));
+	return client.run((c) => c.userState.clearUserState({ path: { entityId } }));
 }
 
 export async function queryUserEntityStateCounts(input: { userId: string; entityId: string }) {

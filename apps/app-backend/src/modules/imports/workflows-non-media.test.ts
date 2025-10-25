@@ -63,7 +63,6 @@ const defaultEntitiesService = () =>
 		getById: () => Effect.die("unused"),
 		import: () => Effect.die("unused"),
 		create: () => Effect.die("unused"),
-		clearUserState: () => Effect.die("unused"),
 		getImportResult: () => Effect.die("unused"),
 		upsertUserRelationship: () => Effect.die("unused"),
 		insertUserRelationship: () => Effect.die("unused"),

@@ -11,6 +11,7 @@ import { CurrentDb, DbRunner, DbService, schema, TransactionRunner } from "#lib/
 import { BadRequest, DbError } from "#lib/errors";
 import { RedisService } from "#lib/redis";
 
+import { GodModeRepository } from "./repository";
 import { checkResetEligibility, classifyAuthState, GodModeService } from "./service";
 
 type SearchWhere = ReturnType<typeof ilike>;
@@ -137,6 +138,7 @@ const makeServiceLayer = (
 				makeDbRunnerLayer(db),
 				makeDbServiceLayer(db),
 				transactionLayer,
+				GodModeRepository.Default,
 				Layer.succeed(
 					AppConfig,
 					Object.assign(Object.create(null), {

@@ -4,6 +4,7 @@ import { DbRunner } from "#lib/db";
 import { SandboxRunError, dieOnDbError } from "#lib/errors";
 import { parseAppSchemaProperties } from "#lib/schema/core";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 
 import { EntitiesRepository } from "./repository";
 
@@ -61,6 +62,7 @@ export const processRelatedEntity = (input: {
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const repository = yield* EntitiesRepository;
+		const relationshipsRepository = yield* RelationshipsRepository;
 		const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
 		const entitySchemaScript = yield* runWithDb(
@@ -110,7 +112,7 @@ export const processRelatedEntity = (input: {
 		}).pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
 
 		yield* runWithDb(
-			repository.upsertEntityRelationship({
+			relationshipsRepository.upsertEntityRelationship({
 				properties,
 				sourceEntityId,
 				targetEntityId,
