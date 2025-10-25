@@ -202,7 +202,7 @@ export async function loadRelatedCreators(
 	});
 
 	return sortBy(creators, [
-		(c) => (c.order ?? Number.POSITIVE_INFINITY),
+		(c) => c.order ?? Number.POSITIVE_INFINITY,
 		(c) => c.createdAt ?? "",
 		(c) => c.position,
 	]).map(({ id, image, name, role }) => ({
