@@ -43,26 +43,6 @@ const workflowFailureResult = (
 		onSome: (error) => ({ status: "failed", error: error.message }),
 	});
 
-const extractPrimaryRemoteImage = (images: unknown) => {
-	if (!Array.isArray(images)) {
-		return null;
-	}
-
-	for (const image of images) {
-		if (typeof image !== "object" || image === null) {
-			continue;
-		}
-
-		const url = Reflect.get(image, "url");
-		const type = Reflect.get(image, "type");
-		if (type === "remote" && typeof url === "string" && url.length > 0) {
-			return { type: "remote" as const, url };
-		}
-	}
-
-	return null;
-};
-
 export const toEntityImportRunResult = (
 	result: Workflow.Result<ListedEntity, SandboxRunError> | undefined,
 ): EntityImportRunResult => {
@@ -161,8 +141,8 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 			return {
 				name: details.name,
 				validatedProperties,
+				image: details.image ?? null,
 				relatedEntities: details.relatedEntities ?? [],
-				image: extractPrimaryRemoteImage(validatedProperties.images),
 			};
 		}),
 	});
