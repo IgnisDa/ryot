@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { CurrentDb, dbEffect, TransactionRunner } from "#lib/db";
@@ -7,7 +7,7 @@ import * as schema from "#lib/db/schema/tables";
 import { builtinEntitySchemas } from "./entity-schemas";
 import { builtinSavedViews } from "./saved-views";
 import { builtinTrackers } from "./trackers";
-import { buildDefaultQueryDefinition, buildDefaultQueryDocument } from "./view-helpers";
+import { buildDefaultQueryDocument } from "./view-helpers";
 
 export type UserPreferences = {
 	readonly isNsfw: boolean;
@@ -155,16 +155,14 @@ const createBuiltinSavedViews = Effect.fn(function* (
 			return [];
 		}
 
-		const queryDefinition =
-			view.queryDefinition ??
-			(entitySchema
-				? buildDefaultQueryDefinition([entitySchema.slug], {
-						relationshipJoins: view.relationshipJoins,
-					})
-				: null);
-		const queryDocument = entitySchema ? buildDefaultQueryDocument([entitySchema.slug]) : null;
+		const queryDocument = entitySchema
+			? (view.queryDocument ??
+				buildDefaultQueryDocument([entitySchema.slug], {
+					requireInLibrary: view.requireInLibrary,
+				}))
+			: null;
 
-		if (!queryDefinition || !queryDocument) {
+		if (!queryDocument) {
 			return [];
 		}
 
@@ -182,7 +180,6 @@ const createBuiltinSavedViews = Effect.fn(function* (
 				name: view.name,
 				isBuiltin: true,
 				slug: view.slug,
-				queryDefinition,
 				trackerId: tracker?.id ?? null,
 				displayConfiguration: view.displayConfiguration,
 			},
@@ -197,7 +194,19 @@ const createBuiltinSavedViews = Effect.fn(function* (
 		db
 			.insert(schema.savedView)
 			.values(values)
-			.onConflictDoNothing({ target: [schema.savedView.userId, schema.savedView.slug] }),
+			.onConflictDoUpdate({
+				target: [schema.savedView.userId, schema.savedView.slug],
+				set: {
+					isBuiltin: true,
+					icon: sql`excluded.icon`,
+					name: sql`excluded.name`,
+					sortOrder: sql`excluded.sort_order`,
+					trackerId: sql`excluded.tracker_id`,
+					accentColor: sql`excluded.accent_color`,
+					queryDocument: sql`excluded.query_document`,
+					displayConfiguration: sql`excluded.display_configuration`,
+				},
+			}),
 	);
 });
 

@@ -7,11 +7,11 @@ import { findBuiltinSchemaBySlug } from "./entity-schemas";
 import { listEventSchemas, requireEventSchemaBySlug } from "./event-schemas";
 import { type PollOptions, pollUntil } from "./polling";
 import {
-	buildTableDisplayConfiguration,
-	buildTableRequest,
+	buildEntityRowsQueryDocument,
 	executeQueryEngine,
+	requireQueryEngineFieldValue,
+	systemRef,
 } from "./query-engine";
-import { entityField } from "./view-language";
 
 export async function createWorkoutEntityFixture(client: Client) {
 	const { schema: workoutSchema } = await findBuiltinSchemaBySlug(client, "workout");
@@ -61,18 +61,17 @@ async function pollSeededExerciseIds(client: Client, count: number) {
 		async () => {
 			const result = await executeQueryEngine(
 				client,
-				buildTableRequest({
-					scope: ["exercise"],
-					pagination: { page: 1, limit: count },
-					displayConfiguration: buildTableDisplayConfiguration([
-						{ label: "Id", property: [entityField("exercise", "id")] },
-					]),
+				buildEntityRowsQueryDocument({
+					limit: count,
+					alias: "exercise",
+					schemas: ["exercise"],
+					fields: [{ key: "id", expr: systemRef("exercise", "id") }],
 				}),
 			);
 
-			const ids = result.data.data.items.flatMap((item) => {
-				const field = item.column_0;
-				if (field?.kind !== "text") {
+			const ids = result.data.items.flatMap((item) => {
+				const field = requireQueryEngineFieldValue(item, "id");
+				if (field.kind !== "text") {
 					return [];
 				}
 

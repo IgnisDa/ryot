@@ -127,10 +127,6 @@ export const entityField = (schemaSlug: string, property: string) => {
 	return `entity.${schemaSlug}.properties.${property}`;
 };
 
-export const relationshipJoinField = (joinKey: string, ...path: string[]) => {
-	return `relationship.${joinKey}.${path.join(".")}`;
-};
-
 export const qualifyBuiltinFields = (schemaSlugs: readonly string[], property: string) => {
 	return schemaSlugs.map((schemaSlug) => entityField(schemaSlug, property));
 };
