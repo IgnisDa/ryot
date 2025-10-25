@@ -1,0 +1,237 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("GiantBomb returned invalid JSON");
+  }
+}
+
+async function getApiKey() {
+  const configValueResponse = await getAppConfigValue(
+    "videoGames.giantBomb.apiKey",
+  );
+  if (!configValueResponse?.success) {
+    throw new Error(
+      configValueResponse?.error ?? "Failed to retrieve GiantBomb API key",
+    );
+  }
+
+  const apiKey =
+    typeof configValueResponse.data === "string"
+      ? configValueResponse.data.trim()
+      : null;
+
+  if (!apiKey) {
+    throw new Error(
+      "GiantBomb API key is not configured. Set VIDEO_GAMES_GIANT_BOMB_API_KEY in your environment.",
+    );
+  }
+
+  return apiKey;
+}
+
+function getPrioritizedImage(image) {
+  if (!image || typeof image !== "object") {
+    return null;
+  }
+
+  const candidates = [
+    image.original_url,
+    image.super_url,
+    image.medium_url,
+    image.screen_large_url,
+    image.screen_url,
+    image.small_url,
+    image.thumb_url,
+    image.icon_url,
+    image.tiny_url,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
+}
+
+function combineDescription(deck, description) {
+  const deckTrimmed =
+    typeof deck === "string" ? deck.trim() : null;
+  const descTrimmed =
+    typeof description === "string" ? description.trim() : null;
+
+  if (deckTrimmed && descTrimmed) {
+    return `${deckTrimmed}\n\n${descTrimmed}`;
+  }
+
+  return deckTrimmed ?? descTrimmed ?? null;
+}
+
+function extractGiantBombGuid(apiDetailUrl) {
+  if (typeof apiDetailUrl !== "string" || !apiDetailUrl.trim()) {
+    return null;
+  }
+
+  const parts = apiDetailUrl.split("/").filter((part) => part.trim());
+  const guid = parts[parts.length - 1];
+  return typeof guid === "string" && guid.trim() ? guid.trim() : null;
+}
+
+const BASE_URL = "https://www.giantbomb.com/api";
+const GUID_PATTERN = /^\d+-\d+$/;
+
+driver("search", async function (context) {
+  const { z } = await import("npm:zod");
+
+  const { query, page: currentPage, pageSize } = z
+    .object({
+      query: z.string().trim().min(1, "query is required"),
+      page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+      pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+    })
+    .parse(context ?? {});
+
+  const offset = (currentPage - 1) * pageSize;
+  const apiKey = await getApiKey();
+
+  const url = `${BASE_URL}/search/?api_key=${encodeURIComponent(apiKey)}&format=json&query=${encodeURIComponent(query)}&resources=franchise&limit=${pageSize}&offset=${offset}`;
+  const response = await httpCall("GET", url, {
+    headers: { Accept: "application/json" },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "GiantBomb search request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+  if (payload?.error && payload.error !== "OK") {
+    throw new Error(`GiantBomb API error: ${payload.error}`);
+  }
+
+  const totalItems =
+    typeof payload?.number_of_total_results === "number" && Number.isFinite(payload.number_of_total_results)
+      ? Math.max(0, Math.trunc(payload.number_of_total_results))
+      : 0;
+
+  const results = Array.isArray(payload?.results) ? payload.results : [];
+  const items = results
+    .map((franchise) => {
+      if (!franchise || typeof franchise !== "object") {
+        return null;
+      }
+
+      const externalId =
+        typeof franchise.guid === "string" && franchise.guid.trim()
+          ? franchise.guid.trim()
+          : null;
+      if (!externalId) {
+        return null;
+      }
+
+      const name =
+        typeof franchise.name === "string" && franchise.name.trim()
+          ? franchise.name.trim()
+          : null;
+      if (!name) {
+        return null;
+      }
+
+      const image = getPrioritizedImage(franchise.image);
+
+      return {
+        externalId,
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: name },
+        primarySubtitleProperty: { kind: "null", value: null },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { type: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function (context) {
+  const { z } = await import("npm:zod");
+
+  const { externalId } = z
+    .object({ externalId: z.string().trim().min(1, "externalId is required") })
+    .parse(context ?? {});
+
+  if (!GUID_PATTERN.test(externalId)) {
+    throw new Error("externalId must be a GiantBomb GUID (e.g., '3030-1')");
+  }
+
+  const apiKey = await getApiKey();
+  const fieldList = [
+    "id",
+    "guid",
+    "name",
+    "deck",
+    "description",
+    "image",
+    "games",
+    "site_detail_url",
+  ].join(",");
+
+  const url = `${BASE_URL}/franchise/${encodeURIComponent(externalId)}/?api_key=${encodeURIComponent(apiKey)}&format=json&field_list=${fieldList}`;
+  const response = await httpCall("GET", url, {
+    headers: { Accept: "application/json" },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "GiantBomb details request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+  if (payload?.error && payload.error !== "OK") {
+    throw new Error(`GiantBomb API error: ${payload.error}`);
+  }
+
+  const franchise =
+    payload?.results && typeof payload.results === "object"
+      ? payload.results
+      : null;
+  if (!franchise) {
+    throw new Error("GiantBomb returned no franchise data");
+  }
+
+  const name =
+    typeof franchise.name === "string" && franchise.name.trim()
+      ? franchise.name.trim()
+      : null;
+  if (!name) {
+    throw new Error("GiantBomb franchise payload is missing name");
+  }
+
+  const images = [];
+  const primaryImage = getPrioritizedImage(franchise.image);
+  if (primaryImage) {
+    images.push({ type: "remote", url: primaryImage });
+  }
+
+  return {
+    name,
+    properties: {
+      images,
+      parts: Array.isArray(franchise.games) ? franchise.games.length : 0,
+      description: combineDescription(franchise.deck, franchise.description),
+      sourceUrl:
+        typeof franchise.site_detail_url === "string" && franchise.site_detail_url.trim()
+          ? franchise.site_detail_url.trim()
+          : null,
+    },
+  };
+});

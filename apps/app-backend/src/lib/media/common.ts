@@ -72,3 +72,13 @@ export const companyStubSchema = z
 		order: z.number().int().optional(),
 	})
 	.strict();
+
+export const groupStubSchema = z
+	.object({
+		name: z.string(),
+		scriptSlug: z.string(),
+		externalId: z.string(),
+	})
+	.strict();
+
+export type GroupStub = z.infer<typeof groupStubSchema>;
