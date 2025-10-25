@@ -37,11 +37,11 @@ export type EnqueueSandboxBody = Schema.Schema.Type<typeof EnqueueSandboxBody>;
 export const EnqueueResponse = Schema.Struct({ jobId: Schema.String });
 
 export const SandboxExecutionPayload = Schema.Struct({
-	userId: Schema.String,
 	context: Schema.Unknown,
 	scriptId: Schema.String,
 	driverName: Schema.String,
 	executionId: Schema.String,
+	userId: Schema.NullOr(Schema.String),
 });
 
 export type SandboxExecutionPayload = Schema.Schema.Type<typeof SandboxExecutionPayload>;
