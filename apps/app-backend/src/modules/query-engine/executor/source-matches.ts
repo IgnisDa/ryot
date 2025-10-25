@@ -71,26 +71,25 @@ const rootSourceBound: FetchBound = {
 	cap: MAX_ROOT_SOURCE_SCAN_ROWS,
 };
 
-const executeEntitySourceMatches = (
+const executeEntitySourceMatches = Effect.fn("executeEntitySourceMatches")(function* (
 	userId: string,
 	context: RowContext,
 	source: EntitySource,
 	evalBoolean: EvalExprAsBoolean,
 	bound: FetchBound,
-): Effect.Effect<SourceMatch[], BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const visibleSchemas = yield* loadVisibleEntitySchemas(userId, source.schemas);
-		const schemaIdsSql = sql.join(
-			visibleSchemas.map((schema) => sql`${schema.id}`),
-			sql`, `,
-		);
-		const limitSql = fetchBoundLimitSql(bound);
-		const db = yield* CurrentDb;
-		let rows: IncludeQueryRow[] | EntityQueryRow[];
+) {
+	const visibleSchemas = yield* loadVisibleEntitySchemas(userId, source.schemas);
+	const schemaIdsSql = sql.join(
+		visibleSchemas.map((schema) => sql`${schema.id}`),
+		sql`, `,
+	);
+	const limitSql = fetchBoundLimitSql(bound);
+	const db = yield* CurrentDb;
+	let rows: IncludeQueryRow[] | EntityQueryRow[];
 
-		if (source.via === undefined) {
-			const rawRows = yield* dbEffect(() =>
-				db.execute<EntityQueryRow>(sql`
+	if (source.via === undefined) {
+		const rawRows = yield* dbEffect(() =>
+			db.execute<EntityQueryRow>(sql`
 					SELECT
 						${entitySelectColumnsSql},
 						1 AS "totalCount"
@@ -101,21 +100,21 @@ const executeEntitySourceMatches = (
 						AND (e.user_id = ${userId} OR e.user_id IS NULL)
 					${limitSql}
 				`),
-			);
-			rows = rawRows.rows;
-		} else {
-			const parentRow = context.entities.get(source.via.entityRef);
-			if (parentRow === undefined) {
-				return [];
-			}
+		);
+		rows = rawRows.rows;
+	} else {
+		const parentRow = context.entities.get(source.via.entityRef);
+		if (parentRow === undefined) {
+			return [];
+		}
 
-			const relationshipSchema = yield* loadVisibleRelationshipSchema(userId, source.via.schema);
-			const anchorColumn =
-				source.via.direction === "outgoing" ? sql`r.source_entity_id` : sql`r.target_entity_id`;
-			const childColumn =
-				source.via.direction === "outgoing" ? sql`r.target_entity_id` : sql`r.source_entity_id`;
-			const rawRows = yield* dbEffect(() =>
-				db.execute<IncludeQueryRow>(sql`
+		const relationshipSchema = yield* loadVisibleRelationshipSchema(userId, source.via.schema);
+		const anchorColumn =
+			source.via.direction === "outgoing" ? sql`r.source_entity_id` : sql`r.target_entity_id`;
+		const childColumn =
+			source.via.direction === "outgoing" ? sql`r.target_entity_id` : sql`r.source_entity_id`;
+		const rawRows = yield* dbEffect(() =>
+			db.execute<IncludeQueryRow>(sql`
 					SELECT
 						${entitySelectColumnsSql},
 						${relationshipEdgeColumnsSql},
@@ -132,52 +131,51 @@ const executeEntitySourceMatches = (
 						AND (e.user_id = ${userId} OR e.user_id IS NULL)
 					${limitSql}
 				`),
-			);
-			rows = rawRows.rows;
+		);
+		rows = rawRows.rows;
+	}
+
+	const overflow = fetchBoundOverflow(bound, rows.length);
+	if (overflow) {
+		return yield* overflow;
+	}
+
+	const matches: SourceMatch[] = [];
+	for (const row of rows) {
+		const nextContext = cloneContext(context);
+		nextContext.entities.set(source.alias, row);
+		if (source.via !== undefined && "relationshipId" in row) {
+			nextContext.relationships.set(source.via.alias, row);
 		}
-
-		const overflow = fetchBoundOverflow(bound, rows.length);
-		if (overflow) {
-			return yield* overflow;
+		if (source.where === null || (yield* evalBoolean(userId, source.where, nextContext))) {
+			matches.push({ context: nextContext, row });
 		}
+	}
 
-		const matches: SourceMatch[] = [];
-		for (const row of rows) {
-			const nextContext = cloneContext(context);
-			nextContext.entities.set(source.alias, row);
-			if (source.via !== undefined && "relationshipId" in row) {
-				nextContext.relationships.set(source.via.alias, row);
-			}
-			if (source.where === null || (yield* evalBoolean(userId, source.where, nextContext))) {
-				matches.push({ context: nextContext, row });
-			}
-		}
+	return matches;
+});
 
-		return matches;
-	});
-
-const executeEventSourceMatches = (
+const executeEventSourceMatches = Effect.fn("executeEventSourceMatches")(function* (
 	userId: string,
 	context: RowContext,
 	source: NestedEventSource,
 	evalBoolean: EvalExprAsBoolean,
 	bound: FetchBound,
-): Effect.Effect<SourceMatch[], BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const entityRow = context.entities.get(source.entityRef);
-		if (entityRow === undefined) {
-			return [];
-		}
+) {
+	const entityRow = context.entities.get(source.entityRef);
+	if (entityRow === undefined) {
+		return [];
+	}
 
-		const eventSchemas = yield* loadVisibleEventSchemas(userId, entityRow.schemaId, source.schemas);
-		const eventSchemaIdsSql = sql.join(
-			eventSchemas.map((schema) => sql`${schema.id}`),
-			sql`, `,
-		);
-		const limitSql = fetchBoundLimitSql(bound);
-		const db = yield* CurrentDb;
-		const rawRows = yield* dbEffect(() =>
-			db.execute<EventQueryRow>(sql`
+	const eventSchemas = yield* loadVisibleEventSchemas(userId, entityRow.schemaId, source.schemas);
+	const eventSchemaIdsSql = sql.join(
+		eventSchemas.map((schema) => sql`${schema.id}`),
+		sql`, `,
+	);
+	const limitSql = fetchBoundLimitSql(bound);
+	const db = yield* CurrentDb;
+	const rawRows = yield* dbEffect(() =>
+		db.execute<EventQueryRow>(sql`
 				SELECT
 					${entitySelectColumnsSql},
 					${eventSelectColumnsSql},
@@ -193,50 +191,49 @@ const executeEventSourceMatches = (
 					AND (e.user_id = ${userId} OR e.user_id IS NULL)
 				${limitSql}
 			`),
-		);
+	);
 
-		const overflow = fetchBoundOverflow(bound, rawRows.rows.length);
-		if (overflow) {
-			return yield* overflow;
+	const overflow = fetchBoundOverflow(bound, rawRows.rows.length);
+	if (overflow) {
+		return yield* overflow;
+	}
+
+	const matches: SourceMatch[] = [];
+	for (const row of rawRows.rows) {
+		const nextContext = cloneContext(context);
+		nextContext.events.set(source.alias, row);
+		nextContext.entities.set(source.entityRef, eventSourceEntityRow(row));
+		if (source.where === null || (yield* evalBoolean(userId, source.where, nextContext))) {
+			matches.push({ context: nextContext, row });
 		}
+	}
 
-		const matches: SourceMatch[] = [];
-		for (const row of rawRows.rows) {
-			const nextContext = cloneContext(context);
-			nextContext.events.set(source.alias, row);
-			nextContext.entities.set(source.entityRef, eventSourceEntityRow(row));
-			if (source.where === null || (yield* evalBoolean(userId, source.where, nextContext))) {
-				matches.push({ context: nextContext, row });
-			}
-		}
+	return matches;
+});
 
-		return matches;
-	});
-
-const executeRootEventSourceMatches = (
+const executeRootEventSourceMatches = Effect.fn("executeRootEventSourceMatches")(function* (
 	userId: string,
 	source: RootEventSource,
 	evalBoolean: EvalExprAsBoolean,
-): Effect.Effect<SourceMatch[], BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const visibleEntitySchemas = yield* loadVisibleEntitySchemas(userId, source.entity.schemas);
-		const entitySchemaIds = visibleEntitySchemas.map((schema) => schema.id);
-		const visibleEventSchemas = yield* loadVisibleEventSchemasForEntitySchemas(
-			userId,
-			entitySchemaIds,
-			source.schemas,
-		);
-		const entitySchemaIdsSql = sql.join(
-			entitySchemaIds.map((id) => sql`${id}`),
-			sql`, `,
-		);
-		const eventSchemaIdsSql = sql.join(
-			visibleEventSchemas.map((schema) => sql`${schema.id}`),
-			sql`, `,
-		);
-		const db = yield* CurrentDb;
-		const rawRows = yield* dbEffect(() =>
-			db.execute<EventQueryRow>(sql`
+) {
+	const visibleEntitySchemas = yield* loadVisibleEntitySchemas(userId, source.entity.schemas);
+	const entitySchemaIds = visibleEntitySchemas.map((schema) => schema.id);
+	const visibleEventSchemas = yield* loadVisibleEventSchemasForEntitySchemas(
+		userId,
+		entitySchemaIds,
+		source.schemas,
+	);
+	const entitySchemaIdsSql = sql.join(
+		entitySchemaIds.map((id) => sql`${id}`),
+		sql`, `,
+	);
+	const eventSchemaIdsSql = sql.join(
+		visibleEventSchemas.map((schema) => sql`${schema.id}`),
+		sql`, `,
+	);
+	const db = yield* CurrentDb;
+	const rawRows = yield* dbEffect(() =>
+		db.execute<EventQueryRow>(sql`
 				SELECT
 					${entitySelectColumnsSql},
 					${eventSelectColumnsSql},
@@ -252,22 +249,22 @@ const executeRootEventSourceMatches = (
 					AND (e.user_id = ${userId} OR e.user_id IS NULL)
 				${fetchBoundLimitSql(rootSourceBound)}
 			`),
-		);
+	);
 
-		const overflow = fetchBoundOverflow(rootSourceBound, rawRows.rows.length);
-		if (overflow) {
-			return yield* overflow;
-		}
+	const overflow = fetchBoundOverflow(rootSourceBound, rawRows.rows.length);
+	if (overflow) {
+		return yield* overflow;
+	}
 
-		const matches: SourceMatch[] = [];
-		for (const row of rawRows.rows) {
-			const context = makeEventRootContext(source, row);
-			if (source.where === null || (yield* evalBoolean(userId, source.where, context))) {
-				matches.push({ context, row });
-			}
+	const matches: SourceMatch[] = [];
+	for (const row of rawRows.rows) {
+		const context = makeEventRootContext(source, row);
+		if (source.where === null || (yield* evalBoolean(userId, source.where, context))) {
+			matches.push({ context, row });
 		}
-		return matches;
-	});
+	}
+	return matches;
+});
 
 export const loadRelationshipRootVisibleSchemas = (userId: string, source: RelationshipSource) =>
 	Effect.all(
@@ -279,12 +276,8 @@ export const loadRelationshipRootVisibleSchemas = (userId: string, source: Relat
 		{ concurrency: "unbounded" },
 	);
 
-const executeRootRelationshipSourceMatches = (
-	userId: string,
-	source: RelationshipSource,
-	evalBoolean: EvalExprAsBoolean,
-): Effect.Effect<SourceMatch[], BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
+const executeRootRelationshipSourceMatches = Effect.fn("executeRootRelationshipSourceMatches")(
+	function* (userId: string, source: RelationshipSource, evalBoolean: EvalExprAsBoolean) {
 		const [visibleRelationshipSchemas, visibleSourceEntitySchemas, visibleTargetEntitySchemas] =
 			yield* loadRelationshipRootVisibleSchemas(userId, source);
 
@@ -326,7 +319,8 @@ const executeRootRelationshipSourceMatches = (
 			}
 		}
 		return matches;
-	});
+	},
+);
 
 export const executeRootSourceMatches = (
 	userId: string,

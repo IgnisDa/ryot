@@ -1,7 +1,6 @@
 import { Effect } from "effect";
 
-import type { CurrentDb } from "#lib/db";
-import { type BadRequest, type DbError, badRequest } from "#lib/errors";
+import { badRequest } from "#lib/errors";
 import type { AppPropertyDefinition, AppSchema } from "#lib/schema/property-schema";
 
 import { loadVisibleEntityPropertySchemas } from "../executor/schema-loaders";
@@ -377,16 +376,13 @@ const collectEntitySlugs = (scope: AliasScope): string[] => {
 	return [...slugs];
 };
 
-export const validateQueryDocumentTypeCompatibility = (
-	userId: string,
-	doc: QueryDocument,
-	scope: AliasScope = collectAliasScope(doc),
-): Effect.Effect<void, BadRequest | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const schemas = yield* loadVisibleEntityPropertySchemas(userId, collectEntitySlugs(scope));
-		const propertiesBySlug = new Map(
-			schemas.map((schema) => [schema.slug, schema.propertiesSchema] as const),
-		);
-		const error = checkQueryDocumentTypes(scope, doc, propertiesBySlug);
-		return error ? yield* badRequest(error) : undefined;
-	});
+export const validateQueryDocumentTypeCompatibility = Effect.fn(
+	"validateQueryDocumentTypeCompatibility",
+)(function* (userId: string, doc: QueryDocument, scope: AliasScope = collectAliasScope(doc)) {
+	const schemas = yield* loadVisibleEntityPropertySchemas(userId, collectEntitySlugs(scope));
+	const propertiesBySlug = new Map(
+		schemas.map((schema) => [schema.slug, schema.propertiesSchema] as const),
+	);
+	const error = checkQueryDocumentTypes(scope, doc, propertiesBySlug);
+	return error ? yield* badRequest(error) : undefined;
+});

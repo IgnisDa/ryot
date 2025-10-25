@@ -1,8 +1,5 @@
 import { DateTime, Effect, Option } from "effect";
 
-import type { CurrentDb } from "#lib/db";
-import type { BadRequest, DbError, NotFound } from "#lib/errors";
-
 import type { FieldValue, TimeSeriesResponse } from "../language";
 import {
 	addTimeSeriesBucket,
@@ -47,60 +44,59 @@ const isWithinHalfOpenRange = (value: DateTime.DateTime, range: TimeSeriesRange)
 const numberFromAggregateValue = (value: FieldValue) =>
 	typeof value.value === "number" ? value.value : 0;
 
-export const executeTimeSeriesQuery = (
+export const executeTimeSeriesQuery = Effect.fn("executeTimeSeriesQuery")(function* (
 	userId: string,
 	doc: TimeSeriesQueryDocument,
-): Effect.Effect<TimeSeriesResponse, BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const startAt = DateTime.make(doc.output.time.range.startAt);
-		const endAt = DateTime.make(doc.output.time.range.endAt);
-		if (Option.isNone(startAt) || Option.isNone(endAt)) {
-			return { type: "timeSeries" as const, data: { buckets: [] } };
+) {
+	const startAt = DateTime.make(doc.output.time.range.startAt);
+	const endAt = DateTime.make(doc.output.time.range.endAt);
+	if (Option.isNone(startAt) || Option.isNone(endAt)) {
+		return { type: "timeSeries" as const, data: { buckets: [] } };
+	}
+
+	const groups = new Map<string, SourceMatch[]>();
+	const range = { startAt: startAt.value, endAt: endAt.value };
+	const matches = yield* executeRootSourceMatches(userId, doc.source, evalExprAsBoolean);
+
+	for (const match of matches) {
+		const rawValue = (yield* evalExprValue(userId, doc.output.time.expr, match.context)).value;
+		const timeValue = parseTimeValue(rawValue);
+		if (Option.isNone(timeValue) || !isWithinHalfOpenRange(timeValue.value, range)) {
+			continue;
 		}
 
-		const groups = new Map<string, SourceMatch[]>();
-		const range = { startAt: startAt.value, endAt: endAt.value };
-		const matches = yield* executeRootSourceMatches(userId, doc.source, evalExprAsBoolean);
-
-		for (const match of matches) {
-			const rawValue = (yield* evalExprValue(userId, doc.output.time.expr, match.context)).value;
-			const timeValue = parseTimeValue(rawValue);
-			if (Option.isNone(timeValue) || !isWithinHalfOpenRange(timeValue.value, range)) {
-				continue;
-			}
-
-			const bucketStart = startOfTimeSeriesBucket(timeValue.value, doc.output.time.bucket);
-			const bucketKey = DateTime.formatIso(bucketStart);
-			const bucketMatches = groups.get(bucketKey);
-			if (bucketMatches === undefined) {
-				groups.set(bucketKey, [match]);
-				continue;
-			}
-			bucketMatches.push(match);
+		const bucketStart = startOfTimeSeriesBucket(timeValue.value, doc.output.time.bucket);
+		const bucketKey = DateTime.formatIso(bucketStart);
+		const bucketMatches = groups.get(bucketKey);
+		if (bucketMatches === undefined) {
+			groups.set(bucketKey, [match]);
+			continue;
 		}
+		bucketMatches.push(match);
+	}
 
-		const buckets: Array<TimeSeriesResponse["data"]["buckets"][number]> = [];
-		const alignedRange = alignDateRangeToBucket({
-			endAt: endAt.value,
-			startAt: startAt.value,
-			bucket: doc.output.time.bucket,
-		});
-		let cursor = alignedRange.startAt;
-		while (DateTime.lessThan(cursor, alignedRange.endAt)) {
-			const bucketKey = DateTime.formatIso(cursor);
-			const next = addTimeSeriesBucket(cursor, doc.output.time.bucket);
-			const bucketMatches = groups.get(bucketKey) ?? [];
-			const aggregateValue =
-				bucketMatches.length === 0
-					? { kind: "number" as const, value: 0 }
-					: yield* evalAggregateMeasure(userId, bucketMatches, doc.output.measure.aggregation);
-			buckets.push({
-				startAt: bucketKey,
-				endAt: DateTime.formatIso(next),
-				value: numberFromAggregateValue(aggregateValue),
-			});
-			cursor = next;
-		}
-
-		return { type: "timeSeries" as const, data: { buckets } };
+	const buckets: Array<TimeSeriesResponse["data"]["buckets"][number]> = [];
+	const alignedRange = alignDateRangeToBucket({
+		endAt: endAt.value,
+		startAt: startAt.value,
+		bucket: doc.output.time.bucket,
 	});
+	let cursor = alignedRange.startAt;
+	while (DateTime.lessThan(cursor, alignedRange.endAt)) {
+		const bucketKey = DateTime.formatIso(cursor);
+		const next = addTimeSeriesBucket(cursor, doc.output.time.bucket);
+		const bucketMatches = groups.get(bucketKey) ?? [];
+		const aggregateValue =
+			bucketMatches.length === 0
+				? { kind: "number" as const, value: 0 }
+				: yield* evalAggregateMeasure(userId, bucketMatches, doc.output.measure.aggregation);
+		buckets.push({
+			startAt: bucketKey,
+			endAt: DateTime.formatIso(next),
+			value: numberFromAggregateValue(aggregateValue),
+		});
+		cursor = next;
+	}
+
+	return { type: "timeSeries" as const, data: { buckets } };
+});
