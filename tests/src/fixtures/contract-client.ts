@@ -56,6 +56,14 @@ export const makeSession = (
 
 export const getBackendClient = (): ContractSession => makeSession();
 
+export async function postBackendJson(path: string, body: unknown, cookies?: string) {
+	return fetch(`${getBackendUrl()}${path}`, {
+		method: "POST",
+		body: JSON.stringify(body),
+		headers: { "Content-Type": "application/json", ...(cookies ? { Cookie: cookies } : {}) },
+	});
+}
+
 type StripResponseMeta<T> = T extends readonly [infer Data, unknown] ? Data : T;
 type GroupKey = keyof ContractClient;
 type MethodKey<G extends GroupKey> = keyof ContractClient[G];
