@@ -1581,7 +1581,7 @@ async function importMediaEntity(
 	let jobId: string;
 	try {
 		const importResult = await apiClient.run((c) =>
-			c.entities.import({ payload: { scriptId, externalId, entitySchemaId } }),
+			c.entityImport.import({ payload: { scriptId, externalId, entitySchemaId } }),
 		);
 		jobId = importResult.jobId;
 	} catch {
@@ -1589,10 +1589,10 @@ async function importMediaEntity(
 	}
 	const startedAt = Date.now();
 	while (true) {
-		let result: ContractSuccess<"entities", "getImportResult">;
+		let result: ContractSuccess<"entityImport", "getImportResult">;
 		try {
 			// oxlint-disable-next-line no-await-in-loop
-			result = await apiClient.run((c) => c.entities.getImportResult({ path: { jobId } }));
+			result = await apiClient.run((c) => c.entityImport.getImportResult({ path: { jobId } }));
 		} catch {
 			return null;
 		}

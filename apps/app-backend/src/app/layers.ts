@@ -19,7 +19,8 @@ import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { EntityImportWorkflowDefinitionsLive } from "#modules/entities/workflows";
+import { EntityImportService } from "#modules/entity-import/service";
+import { EntityImportWorkflowDefinitionsLive } from "#modules/entity-import/workflows";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EntitySchemasService } from "#modules/entity-schemas/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
@@ -109,6 +110,7 @@ const SavedViewsServiceLive = Layer.provide(SavedViewsService.Default, QueryEngi
 const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 	AuthService.Default,
 	EntitiesService.Default,
+	EntityImportService.Default,
 	EntitySchemasService.Default,
 	EventSchemasService.Default,
 	EventsService.Default,

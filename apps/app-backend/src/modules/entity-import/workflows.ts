@@ -5,6 +5,8 @@ import { DbRunner } from "#lib/db";
 import { SandboxRunError, dieOnDbError, unknownToMessage } from "#lib/errors";
 import { EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
+import { EntitiesRepository } from "#modules/entities/repository";
+import { EntityImage, ListedEntity } from "#modules/entities/schemas";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 import type { SandboxCompletedResult as SandboxCompletedResultValue } from "#modules/sandbox/schemas";
 
@@ -14,9 +16,7 @@ import {
 	decodeEntityDetailsResult,
 	processRelatedEntity,
 } from "./population";
-import { EntitiesRepository } from "./repository";
 import type { ImportEntityRunResult } from "./schemas";
-import { EntityImage, ListedEntity } from "./schemas";
 
 export const EntityImportPayload = Schema.Struct({
 	userId: UserId,

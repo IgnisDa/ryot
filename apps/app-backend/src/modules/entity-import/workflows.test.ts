@@ -11,12 +11,12 @@ import {
 	UserId,
 } from "#lib/schema/brands";
 import { dbRunnerLayer, makeMock, makeWorkflowActivityEngine } from "#lib/test-support/effect";
+import { EntitiesRepository } from "#modules/entities/repository";
+import type { ListedEntity } from "#modules/entities/schemas";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
 import { EntityImportHook } from "./entity-import-hook";
-import { EntitiesRepository } from "./repository";
-import type { ListedEntity } from "./schemas";
 import { EntityImportWorkflow, runEntityImportWorkflow } from "./workflows";
 
 const now = "2026-06-14T00:00:00.000Z";
@@ -25,13 +25,13 @@ const baseEntity = {
 	image: null,
 	createdAt: now,
 	updatedAt: now,
-	id: EntityId.make("entity-1"),
 	populatedAt: now,
 	name: "Test Book",
 	externalId: "ext-1",
+	id: EntityId.make("entity-1"),
+	properties: { title: "Test Book" },
 	entitySchemaId: EntitySchemaId.make("schema-1"),
 	sandboxScriptId: SandboxScriptId.make("script-1"),
-	properties: { title: "Test Book" },
 } satisfies ListedEntity;
 
 const baseEntitySchema = {
@@ -129,11 +129,11 @@ const withTestLayer = <A, E, R>(
 };
 
 const importPayload = {
-	userId: UserId.make("user-1"),
 	externalId: "ext-1",
 	executionId: "exec-1",
-	entitySchemaId: EntitySchemaId.make("schema-1"),
+	userId: UserId.make("user-1"),
 	scriptId: SandboxScriptId.make("script-1"),
+	entitySchemaId: EntitySchemaId.make("schema-1"),
 };
 
 it.effect("populates entity, writes related entities, and ensures library membership", () => {
@@ -159,13 +159,13 @@ it.effect("populates entity, writes related entities, and ensures library member
 	};
 	const relatedEntity = {
 		image: null,
-		id: EntityId.make("person-1"),
 		name: "Author",
 		createdAt: now,
 		updatedAt: now,
 		properties: {},
 		populatedAt: null,
 		externalId: "person-ext-1",
+		id: EntityId.make("person-1"),
 		entitySchemaId: EntitySchemaId.make("schema-person"),
 		sandboxScriptId: SandboxScriptId.make("person-script-id"),
 	} satisfies ListedEntity;

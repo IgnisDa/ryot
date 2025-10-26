@@ -3,8 +3,11 @@ import { Cause, Effect } from "effect";
 
 import { SandboxRunError, unknownToMessage } from "#lib/errors";
 import type { EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";
-import { decodeEntityResolveResult, decodeEntitySearchResult } from "#modules/entities/population";
-import { runEntityImportWorkflow } from "#modules/entities/workflows";
+import {
+	decodeEntityResolveResult,
+	decodeEntitySearchResult,
+} from "#modules/entity-import/population";
+import { runEntityImportWorkflow } from "#modules/entity-import/workflows";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 
 const toSandboxError = (cause: unknown) =>
