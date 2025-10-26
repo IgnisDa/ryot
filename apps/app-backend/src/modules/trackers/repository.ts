@@ -12,6 +12,7 @@ type OwnedTracker = {
 	readonly slug: string;
 	readonly name: string;
 	readonly icon: string;
+	readonly isBuiltin: boolean;
 	readonly accentColor: string;
 	readonly description: string | null;
 };
@@ -55,6 +56,7 @@ const toOwnedTracker = (row: TrackerRow): OwnedTracker => ({
 	slug: row.slug,
 	name: row.name,
 	icon: row.icon,
+	isBuiltin: row.isBuiltin,
 	accentColor: row.accentColor,
 	description: row.description,
 });
