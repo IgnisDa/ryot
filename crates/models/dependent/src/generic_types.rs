@@ -8,6 +8,7 @@ use media_models::{
     PersonAndMetadataGroupsSortBy, ReviewItem,
 };
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use uuid::Uuid;
 
 use crate::{
@@ -132,6 +133,7 @@ pub struct CollectionRecommendationsInput {
     pub search: Option<SearchInput>,
 }
 
+#[skip_serializing_none]
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct UserMetadataListInput {
     pub lot: Option<MediaLot>,

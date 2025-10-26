@@ -159,6 +159,7 @@ pub struct MediaCollectionFilter {
     pub presence: MediaCollectionPresenceFilter,
 }
 
+#[skip_serializing_none]
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct MediaFilter {
     pub source: Option<MediaSource>,
