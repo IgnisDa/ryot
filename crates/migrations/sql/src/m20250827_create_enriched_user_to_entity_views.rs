@@ -1,4 +1,4 @@
-// FIXME: Remove this in the next major release
+// FIXME: Remove in the next major release
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
