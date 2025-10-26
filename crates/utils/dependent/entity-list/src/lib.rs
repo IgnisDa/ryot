@@ -242,7 +242,7 @@ pub async fn user_metadata_list(
                             .to_owned(),
                     )
                     .not(),
-                    MediaGeneralFilter::All => metadata::Column::Id.is_not_null().into(),
+                    MediaGeneralFilter::All => metadata::Column::Id.is_not_null(),
                     MediaGeneralFilter::Rated => Expr::exists(
                         Query::select()
                             .expr(Expr::val(1))
