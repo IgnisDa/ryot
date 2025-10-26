@@ -1,14 +1,16 @@
+use std::fs;
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use anyhow::Result;
 use application_utils::graphql_to_db_order;
 use common_models::{SearchDetails, SearchInput, UserLevelCacheKey};
 use database_models::{
-    collection, collection_entity_membership, collection_to_entity, enriched_user_to_metadata,
-    exercise, genre, metadata_group, person, prelude::*, user_measurement, user_to_entity, workout,
+    collection, collection_entity_membership, collection_to_entity, exercise, genre, metadata,
+    metadata_group, person, prelude::*, review, seen, user_measurement, user_to_entity, workout,
     workout_template,
 };
-use database_utils::{apply_collection_filters, apply_columns_search, extract_pagination_params};
+use database_utils::{apply_columns_search, extract_pagination_params};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, SearchResults,
     UserCollectionsListResponse, UserExercisesListResponse, UserMeasurementsListResponse,
@@ -24,8 +26,8 @@ use media_models::{
     PersonAndMetadataGroupsSortBy,
 };
 use migrations_sql::{
-    AliasedCollection, AliasedCollectionToEntity, AliasedMetadataToGenre, AliasedUser,
-    AliasedUserToEntity,
+    AliasedCollection, AliasedCollectionToEntity, AliasedMetadata, AliasedMetadataToGenre,
+    AliasedReview, AliasedSeen, AliasedUser, AliasedUserToEntity,
 };
 use sea_orm::Iterable;
 use sea_orm::sea_query::{Query, SimpleExpr};
@@ -65,29 +67,86 @@ pub async fn user_metadata_list(
         }),
         ApplicationCacheValue::UserMetadataList,
         || async {
+            let input_json = serde_json::to_string(&input).unwrap_or_else(|_| "error".to_string());
             let order_by = input
                 .sort
                 .clone()
                 .map(|a| graphql_to_db_order(a.order))
                 .unwrap_or(Order::Asc);
             let (take, page) = extract_pagination_params(input.search.clone(), user_id, ss).await?;
-            let paginator = EnrichedUserToMetadata::find()
+
+            let max_seen_finished_on_subquery = Query::select()
+                .expr(Func::max(Expr::col((
+                    AliasedSeen::Table,
+                    seen::Column::FinishedOn,
+                ))))
+                .from(Seen)
+                .and_where(Expr::col((AliasedSeen::Table, seen::Column::UserId)).eq(user_id))
+                .and_where(
+                    Expr::col((AliasedSeen::Table, seen::Column::MetadataId))
+                        .equals((AliasedMetadata::Table, metadata::Column::Id)),
+                )
+                .to_owned();
+
+            let times_seen_subquery = Query::select()
+                .expr(Func::count(Expr::col((
+                    AliasedSeen::Table,
+                    seen::Column::Id,
+                ))))
+                .from(Seen)
+                .and_where(Expr::col((AliasedSeen::Table, seen::Column::UserId)).eq(user_id))
+                .and_where(
+                    Expr::col((AliasedSeen::Table, seen::Column::MetadataId))
+                        .equals((AliasedMetadata::Table, metadata::Column::Id)),
+                )
+                .to_owned();
+
+            let max_seen_last_updated_on_subquery = Query::select()
+                .expr(Func::max(Expr::col((
+                    AliasedSeen::Table,
+                    seen::Column::LastUpdatedOn,
+                ))))
+                .from(Seen)
+                .and_where(Expr::col((AliasedSeen::Table, seen::Column::UserId)).eq(user_id))
+                .and_where(
+                    Expr::col((AliasedSeen::Table, seen::Column::MetadataId))
+                        .equals((AliasedMetadata::Table, metadata::Column::Id)),
+                )
+                .to_owned();
+
+            let average_rating_subquery = Query::select()
+                .expr(Func::avg(Expr::col((
+                    AliasedReview::Table,
+                    review::Column::Rating,
+                ))))
+                .from(Review)
+                .and_where(Expr::col((AliasedReview::Table, review::Column::UserId)).eq(user_id))
+                .and_where(
+                    Expr::col((AliasedReview::Table, review::Column::MetadataId))
+                        .equals((AliasedMetadata::Table, metadata::Column::Id)),
+                )
+                .and_where(Expr::col((AliasedReview::Table, review::Column::Rating)).is_not_null())
+                .to_owned();
+
+            let mut base_query = Metadata::find()
                 .select_only()
-                .column(enriched_user_to_metadata::Column::MetadataId)
-                .filter(enriched_user_to_metadata::Column::UserId.eq(user_id))
+                .column(metadata::Column::Id)
+                .inner_join(UserToEntity)
+                .filter(user_to_entity::Column::UserId.eq(user_id))
+                .filter(user_to_entity::Column::MetadataId.is_not_null())
                 .apply_if(input.lot, |query, v| {
-                    query.filter(enriched_user_to_metadata::Column::Lot.eq(v))
+                    query.filter(metadata::Column::Lot.eq(v))
                 })
                 .apply_if(input.filter.clone().and_then(|f| f.source), |query, v| {
-                    query.filter(enriched_user_to_metadata::Column::Source.eq(v))
+                    query.filter(metadata::Column::Source.eq(v))
                 })
                 .apply_if(input.search.and_then(|s| s.query), |query, v| {
                     apply_columns_search(
                         &v,
                         query,
                         [
-                            Expr::col(enriched_user_to_metadata::Column::Title),
-                            Expr::col(enriched_user_to_metadata::Column::Description),
+                            Expr::col(metadata::Column::Title),
+                            Expr::col(metadata::Column::Description),
                         ],
                     )
                 })
@@ -97,86 +156,235 @@ pub async fn user_metadata_list(
                         outer_query
                             .apply_if(outer_value.start_date, |inner_query, inner_value| {
                                 inner_query.filter(
-                                    enriched_user_to_metadata::Column::MaxSeenFinishedOn
-                                        .gte(inner_value),
+                                    Expr::expr(SimpleExpr::SubQuery(
+                                        None,
+                                        Box::new(
+                                            max_seen_finished_on_subquery
+                                                .clone()
+                                                .into_sub_query_statement(),
+                                        ),
+                                    ))
+                                    .gte(inner_value),
                                 )
                             })
                             .apply_if(outer_value.end_date, |inner_query, inner_value| {
                                 inner_query.filter(
-                                    enriched_user_to_metadata::Column::MaxSeenFinishedOn
-                                        .lte(inner_value),
+                                    Expr::expr(SimpleExpr::SubQuery(
+                                        None,
+                                        Box::new(
+                                            max_seen_finished_on_subquery
+                                                .clone()
+                                                .into_sub_query_statement(),
+                                        ),
+                                    ))
+                                    .lte(inner_value),
                                 )
                             })
                     },
-                )
-                .apply_if(
-                    input.filter.clone().and_then(|f| f.collections),
-                    |query, collections| {
-                        apply_collection_filters(
-                            enriched_user_to_metadata::Column::CollectionIds,
-                            query,
-                            collections,
-                        )
-                    },
-                )
-                .apply_if(input.filter.and_then(|f| f.general), |query, v| {
-                    let sa = PgFunc::any(Expr::col(enriched_user_to_metadata::Column::SeenStates));
-                    let filter_expression = match v {
-                        MediaGeneralFilter::Dropped => Expr::val(SeenState::Dropped).eq(sa),
-                        MediaGeneralFilter::OnAHold => Expr::val(SeenState::OnAHold).eq(sa),
-                        MediaGeneralFilter::Unrated => {
-                            enriched_user_to_metadata::Column::AverageRating.is_null()
-                        }
-                        MediaGeneralFilter::All => {
-                            enriched_user_to_metadata::Column::MetadataId.is_not_null()
-                        }
-                        MediaGeneralFilter::Rated => {
-                            enriched_user_to_metadata::Column::AverageRating.is_not_null()
-                        }
-                        MediaGeneralFilter::Unfinished => {
-                            Expr::expr(Expr::val(UserToMediaReason::Finished).eq(PgFunc::any(
-                                Expr::col(enriched_user_to_metadata::Column::MediaReason),
-                            )))
-                            .not()
-                        }
-                    };
-                    query.filter(filter_expression)
-                })
+                );
+
+            if let Some(ref filter) = input.filter
+                && let Some(ref collections) = filter.collections
+            {
+                for coll_filter in collections {
+                    let exists_condition = Expr::exists(
+                        Query::select()
+                            .expr(Expr::val(1))
+                            .from(CollectionEntityMembership)
+                            .and_where(
+                                collection_entity_membership::Column::OriginCollectionId
+                                    .eq(&coll_filter.collection_id),
+                            )
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::UserId)
+                                    .equals(user_to_entity::Column::UserId),
+                            )
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::EntityId).equals((
+                                    AliasedUserToEntity::Table,
+                                    AliasedUserToEntity::EntityId,
+                                )),
+                            )
+                            .to_owned(),
+                    );
+                    base_query = base_query.filter(match coll_filter.presence {
+                        MediaCollectionPresenceFilter::PresentIn => exists_condition,
+                        MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
+                    });
+                }
+            }
+
+            base_query = base_query.apply_if(input.filter.and_then(|f| f.general), |query, v| {
+                let filter_expression: SimpleExpr = match v {
+                    MediaGeneralFilter::Dropped => Expr::exists(
+                        Query::select()
+                            .expr(Expr::val(1))
+                            .from(Seen)
+                            .and_where(
+                                Expr::col((AliasedSeen::Table, seen::Column::UserId)).eq(user_id),
+                            )
+                            .and_where(
+                                Expr::col((AliasedSeen::Table, seen::Column::MetadataId))
+                                    .equals((AliasedMetadata::Table, metadata::Column::Id)),
+                            )
+                            .and_where(
+                                Expr::col((AliasedSeen::Table, seen::Column::State))
+                                    .eq(SeenState::Dropped),
+                            )
+                            .to_owned(),
+                    ),
+                    MediaGeneralFilter::OnAHold => Expr::exists(
+                        Query::select()
+                            .expr(Expr::val(1))
+                            .from(Seen)
+                            .and_where(
+                                Expr::col((AliasedSeen::Table, seen::Column::UserId)).eq(user_id),
+                            )
+                            .and_where(
+                                Expr::col((AliasedSeen::Table, seen::Column::MetadataId))
+                                    .equals((AliasedMetadata::Table, metadata::Column::Id)),
+                            )
+                            .and_where(
+                                Expr::col((AliasedSeen::Table, seen::Column::State))
+                                    .eq(SeenState::OnAHold),
+                            )
+                            .to_owned(),
+                    ),
+                    MediaGeneralFilter::Unrated => Expr::exists(
+                        Query::select()
+                            .expr(Expr::val(1))
+                            .from(Review)
+                            .and_where(
+                                Expr::col((AliasedReview::Table, review::Column::UserId))
+                                    .eq(user_id),
+                            )
+                            .and_where(
+                                Expr::col((AliasedReview::Table, review::Column::MetadataId))
+                                    .equals((AliasedMetadata::Table, metadata::Column::Id)),
+                            )
+                            .and_where(
+                                Expr::col((AliasedReview::Table, review::Column::Rating))
+                                    .is_not_null(),
+                            )
+                            .to_owned(),
+                    )
+                    .not(),
+                    MediaGeneralFilter::All => metadata::Column::Id.is_not_null().into(),
+                    MediaGeneralFilter::Rated => Expr::exists(
+                        Query::select()
+                            .expr(Expr::val(1))
+                            .from(Review)
+                            .and_where(
+                                Expr::col((AliasedReview::Table, review::Column::UserId))
+                                    .eq(user_id),
+                            )
+                            .and_where(
+                                Expr::col((AliasedReview::Table, review::Column::MetadataId))
+                                    .equals((AliasedMetadata::Table, metadata::Column::Id)),
+                            )
+                            .and_where(
+                                Expr::col((AliasedReview::Table, review::Column::Rating))
+                                    .is_not_null(),
+                            )
+                            .to_owned(),
+                    ),
+                    MediaGeneralFilter::Unfinished => Expr::val(UserToMediaReason::Finished)
+                        .eq(PgFunc::any(Expr::col(user_to_entity::Column::MediaReason)))
+                        .not(),
+                };
+                query.filter(filter_expression)
+            });
+
+            let paginator = base_query
                 .apply_if(input.sort.map(|s| s.by), |query, v| match v {
                     MediaSortBy::Random => query.order_by(Expr::expr(Func::random()), order_by),
-                    MediaSortBy::Title => {
-                        query.order_by(enriched_user_to_metadata::Column::Title, order_by)
-                    }
-                    MediaSortBy::TimesConsumed => {
-                        query.order_by(enriched_user_to_metadata::Column::TimesSeen, order_by)
-                    }
+                    MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
+                    MediaSortBy::TimesConsumed => query.order_by(
+                        Expr::expr(SimpleExpr::SubQuery(
+                            None,
+                            Box::new(times_seen_subquery.clone().into_sub_query_statement()),
+                        )),
+                        order_by,
+                    ),
                     MediaSortBy::LastUpdated => {
-                        query.order_by(enriched_user_to_metadata::Column::LastUpdatedOn, order_by)
+                        query.order_by(user_to_entity::Column::LastUpdatedOn, order_by)
                     }
                     MediaSortBy::ReleaseDate => query.order_by_with_nulls(
-                        enriched_user_to_metadata::Column::PublishDate,
+                        metadata::Column::PublishDate,
                         order_by,
                         NullOrdering::Last,
                     ),
                     MediaSortBy::LastConsumed => query.order_by_with_nulls(
-                        enriched_user_to_metadata::Column::MaxSeenFinishedOn,
+                        Expr::expr(SimpleExpr::SubQuery(
+                            None,
+                            Box::new(
+                                max_seen_finished_on_subquery
+                                    .clone()
+                                    .into_sub_query_statement(),
+                            ),
+                        )),
                         order_by,
                         NullOrdering::Last,
                     ),
                     MediaSortBy::UserRating => query.order_by_with_nulls(
-                        enriched_user_to_metadata::Column::AverageRating,
+                        Expr::expr(SimpleExpr::SubQuery(
+                            None,
+                            Box::new(average_rating_subquery.clone().into_sub_query_statement()),
+                        )),
                         order_by,
                         NullOrdering::Last,
                     ),
                     MediaSortBy::ProviderRating => query.order_by_with_nulls(
-                        enriched_user_to_metadata::Column::ProviderRating,
+                        metadata::Column::ProviderRating,
                         order_by,
                         NullOrdering::Last,
                     ),
                 })
-                .order_by_desc(enriched_user_to_metadata::Column::MaxSeenLastUpdatedOn)
-                .into_tuple::<String>()
-                .paginate(&ss.db, take);
+                .order_by_with_nulls(
+                    Expr::expr(SimpleExpr::SubQuery(
+                        None,
+                        Box::new(max_seen_last_updated_on_subquery.into_sub_query_statement()),
+                    )),
+                    Order::Desc,
+                    NullOrdering::Last,
+                );
+
+            let sql_statement = paginator.clone().build(sea_orm::DatabaseBackend::Postgres);
+            let sql_debug_dir = "/tmp/ryot-sql-debug";
+            fs::create_dir_all(sql_debug_dir).ok();
+            let safe_filename = input_json
+                .chars()
+                .map(|c| {
+                    if c.is_alphanumeric() || c == '_' || c == '-' {
+                        c
+                    } else {
+                        '_'
+                    }
+                })
+                .collect::<String>();
+            let truncated_filename = if safe_filename.len() > 200 {
+                &safe_filename[..200]
+            } else {
+                &safe_filename
+            };
+            let timestamp = SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_millis();
+            let sql_file_path = format!(
+                "{}/user_metadata_list_{}_{}.sql",
+                sql_debug_dir, truncated_filename, timestamp
+            );
+            fs::write(
+                &sql_file_path,
+                format!(
+                    "-- Input: {}\n\n{}\n\nValues: {:?}",
+                    input_json, sql_statement.sql, sql_statement.values
+                ),
+            )
+            .ok();
+
+            let paginator = paginator.into_tuple::<String>().paginate(&ss.db, take);
             let ItemsAndPagesNumber {
                 number_of_items,
                 number_of_pages,
