@@ -3,7 +3,7 @@ import { Effect } from "effect";
 
 import { CurrentUser } from "../../lib/auth";
 import { AppContract } from "../../lib/contract";
-import { dieOnDbError, notImplemented } from "../../lib/errors";
+import { dieOnDbError } from "../../lib/errors";
 import { EntitiesService } from "./service";
 
 export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", (handlers) =>
@@ -29,6 +29,18 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 				return yield* service.clearUserState(user, path.entityId).pipe(dieOnDbError);
 			}),
 		)
-		.handle("import", () => Effect.fail(notImplemented()))
-		.handle("getImportResult", () => Effect.fail(notImplemented())),
+		.handle("import", ({ payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* EntitiesService;
+				return yield* service.import(user, payload).pipe(dieOnDbError);
+			}),
+		)
+		.handle("getImportResult", ({ path }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* EntitiesService;
+				return yield* service.getImportResult(user, path.jobId);
+			}),
+		),
 );

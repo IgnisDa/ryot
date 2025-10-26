@@ -9,6 +9,8 @@ import {
 	createTracker,
 	createTrackerWithSchemaAndEntity,
 	createTrackerWithSchema,
+	enqueueEntityImport,
+	enqueueEntitySearch,
 	findBuiltinSchemaBySlug,
 	findBuiltinSchemaWithProviders,
 	getEntity,
@@ -16,6 +18,8 @@ import {
 	getFirstProviderScriptId,
 	insertLibraryMembership,
 	listEventSchemas,
+	pollEntityImportResult,
+	pollEntitySearchResult,
 	queryInLibraryRelationship,
 	queryUserEntityStateCounts,
 	requireEventSchemaBySlug,
@@ -487,4 +491,127 @@ describe("DELETE /entities/:id/user-state", () => {
 
 		expect(response.status).toBe(401);
 	});
+});
+
+describe("POST /entity-schemas/search — provider entity search", () => {
+	it("returns 404 when the script does not exist", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const { response, error } = await client.POST("/entity-schemas/search", {
+			headers: { Cookie: cookies },
+			body: { scriptId: crypto.randomUUID() },
+		});
+
+		expect(response.status).toBe(404);
+		expect(error?.error).toBeDefined();
+	});
+
+	it("enqueues a provider search and reaches a terminal state", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const scriptId = getFirstProviderScriptId(schema);
+
+		const { jobId } = await enqueueEntitySearch(client, cookies, {
+			scriptId,
+			context: { query: "test", page: 1, pageSize: 5 },
+		});
+
+		const result = await pollEntitySearchResult(client, cookies, jobId);
+		expect(result.status).not.toBe("pending");
+	}, 30_000);
+
+	it("returns 401 for unauthenticated search requests", async () => {
+		const { client } = await createAuthenticatedClient();
+
+		const { response } = await client.POST("/entity-schemas/search", {
+			body: { scriptId: crypto.randomUUID() },
+		});
+
+		expect(response.status).toBe(401);
+	});
+});
+
+describe("POST /entities/import — provider entity import", () => {
+	it("returns 404 when the script does not exist", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+
+		const { response, error } = await client.entities.import({
+			headers: { Cookie: cookies },
+			body: {
+				scriptId: crypto.randomUUID(),
+				externalId: "some-external-id",
+				entitySchemaId: schema.id,
+			},
+		});
+
+		expect(response.status).toBe(404);
+		expect(error?.error).toBeDefined();
+	});
+
+	it("returns 404 when the entity schema does not exist", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const scriptId = getFirstProviderScriptId(schema);
+
+		const { response, error } = await client.entities.import({
+			headers: { Cookie: cookies },
+			body: { scriptId, externalId: "some-external-id", entitySchemaId: crypto.randomUUID() },
+		});
+
+		expect(response.status).toBe(404);
+		expect(error?.error).toBeDefined();
+	});
+
+	it("returns 404 for unknown import job id", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const { response, error } = await client.entities.getImportResult({
+			headers: { Cookie: cookies },
+			params: { path: { jobId: crypto.randomUUID() } },
+		});
+
+		expect(response.status).toBe(404);
+		expect(error?.error.message).toBe("Import job not found");
+	});
+
+	it("returns 401 for unauthenticated import requests", async () => {
+		const { client } = await createAuthenticatedClient();
+
+		const { response } = await client.POST("/entities/import", {
+			body: {
+				externalId: "some-id",
+				scriptId: crypto.randomUUID(),
+				entitySchemaId: crypto.randomUUID(),
+			},
+		});
+
+		expect(response.status).toBe(401);
+	});
+});
+
+describe("GET /entities/import/:jobId — provider entity import result", () => {
+	it("enqueues a provider import and adds entity to library when completed", async () => {
+		const { client, cookies, email } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaBySlug(client, cookies, "audiobook");
+		const scriptId = getFirstProviderScriptId(schema);
+
+		const { jobId } = await enqueueEntityImport(client, cookies, {
+			scriptId,
+			externalId: "B08G9PRS1K",
+			entitySchemaId: schema.id,
+		});
+
+		const result = await pollEntityImportResult(client, cookies, jobId);
+
+		expect(result.status).not.toBe("pending");
+		if (result.status === "completed") {
+			expect(result.data.id).toBeDefined();
+			expect(result.data.name).toBeDefined();
+			expect(result.data.entitySchemaId).toBe(schema.id);
+
+			const inLibrary = await queryInLibraryRelationship(result.data.id, email);
+			expect(inLibrary.rowCount).toBeGreaterThan(0);
+		}
+	}, 60_000);
 });
