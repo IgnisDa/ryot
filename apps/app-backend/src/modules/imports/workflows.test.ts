@@ -122,7 +122,11 @@ const makeEventsService = (overrides: Partial<EventsService> = {}) =>
 
 const makeEpisodeResolverService = (overrides: Partial<EpisodeResolverService> = {}) =>
 	makeMock<EpisodeResolverService>(
-		{ _tag: "EpisodeResolverService" as const, resolveShowEpisode: () => Effect.die("unused") },
+		{
+			_tag: "EpisodeResolverService" as const,
+			resolveShowEpisode: () => Effect.die("unused"),
+			resolvePodcastEpisode: () => Effect.die("unused"),
+		},
 		overrides,
 	);
 
@@ -543,6 +547,155 @@ it.effect("resolves imported show episode progress and drops unresolved locators
 					stage: "provider_resolution",
 					message: "Could not resolve show episode S1E99",
 					context: { seasonNumber: 1, episodeNumber: 99 },
+				}),
+			]);
+			expect(recordedUpdates).toContainEqual(
+				expect.objectContaining({
+					progress: 100,
+					failedItems: 1,
+					importedItems: 0,
+					processedItems: 1,
+					status: "completed",
+				}),
+			);
+		}),
+	);
+});
+
+it.effect("resolves imported podcast episode progress and drops unresolved locators", () => {
+	const resolverCalls: Array<Record<string, unknown>> = [];
+	const recordedUpdates: Array<Record<string, unknown>> = [];
+	const recordedFailures: Array<Record<string, unknown>> = [];
+	const createdEvents: Array<ReadonlyArray<Record<string, unknown>>> = [];
+
+	const options = {
+		importsRepository: makeImportsRepository({
+			createFailure: (input) => {
+				recordedFailures.push(input);
+				return Effect.void;
+			},
+			updateRun: (input) => {
+				recordedUpdates.push(input);
+				return Effect.void;
+			},
+		}),
+		entitiesRepository: makeEntitiesRepository({
+			findEntitySchemaScriptBySlug: (slug) =>
+				Effect.succeed(
+					slug === "podcast.itunes"
+						? {
+								entitySchemaId: EntitySchemaId.make("schema-podcast"),
+								sandboxScriptId: SandboxScriptId.make("script-podcast-itunes"),
+							}
+						: null,
+				),
+		}),
+		collectionsService: makeCollectionsService({
+			ensureEntityInLibrary: () => Effect.void,
+		}),
+		episodeResolverService: makeEpisodeResolverService({
+			resolvePodcastEpisode: (input) =>
+				Effect.sync(() => {
+					resolverCalls.push(input);
+					return input.episodeNumber === 4 ? EntityId.make("podcast-episode-1") : null;
+				}),
+		}),
+		eventSchemasRepository: makeEventSchemasRepository({
+			getBuiltinBySlug: (input) =>
+				Effect.succeed(
+					input.entitySchemaId === "schema-podcast-episode" && input.slug === "progress"
+						? { id: EventSchemaId.make("event-schema-progress"), propertiesSchema: { fields: {} } }
+						: null,
+				),
+		}),
+		entitySchemasRepository: makeEntitySchemasRepository({
+			getBuiltinBySlug: (slug) =>
+				Effect.succeed(
+					slug === "podcast"
+						? { id: EntitySchemaId.make("schema-podcast") }
+						: slug === "podcast-episode"
+							? { id: EntitySchemaId.make("schema-podcast-episode") }
+							: null,
+				),
+		}),
+		eventsService: makeEventsService({
+			createForImport: (_userId, payload) => {
+				createdEvents.push(payload as ReadonlyArray<Record<string, unknown>>);
+				return Effect.succeed({ count: payload.length });
+			},
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		"workflow-podcast-episode-resolution",
+		Effect.gen(function* () {
+			yield* runOneTimeMediaImportWorkflow(importPayload, "workflow-podcast-episode-resolution", {
+				cleanupArtifacts: () => Effect.void,
+				searchEntities: () => Effect.die("unused"),
+				resolveExternalId: () => Effect.die("unused"),
+				importEntity: () => Effect.succeed({ id: EntityId.make("podcast-entity-1") }),
+				loadAdapterResult: () =>
+					Effect.succeed({
+						cleanupPaths: [],
+						adapterResult: {
+							failures: [],
+							entityGroups: [
+								{
+									itemIndex: 1,
+									collectionMemberships: [],
+									entityRef: {
+										kind: "resolved",
+										externalId: "podcast-1",
+										sourceLabel: "Test Podcast",
+										entitySchemaSlug: "podcast",
+										scriptSlug: "podcast.itunes",
+									},
+									events: [
+										{
+											occurredAt: now,
+											eventSchemaSlug: "progress",
+											properties: { progressPercent: 100 },
+											episodeLocator: { type: "podcast", episodeNumber: 4 },
+										},
+										{
+											occurredAt: now,
+											eventSchemaSlug: "progress",
+											properties: { progressPercent: 100 },
+											episodeLocator: { type: "podcast", episodeNumber: 99 },
+										},
+									],
+								},
+							],
+						},
+					}),
+			});
+
+			expect(resolverCalls).toEqual([
+				{ userId: "user-1", episodeNumber: 4, podcastEntityId: "podcast-entity-1" },
+				{ userId: "user-1", episodeNumber: 99, podcastEntityId: "podcast-entity-1" },
+			]);
+			expect(createdEvents).toEqual([
+				[
+					{
+						occurredAt: now,
+						entityId: "podcast-episode-1",
+						properties: { progressPercent: 100 },
+						eventSchemaId: "event-schema-progress",
+					},
+				],
+			]);
+			expect(recordedFailures).toEqual([
+				expect.objectContaining({
+					itemIndex: 1,
+					runId: "run-1",
+					sourceLabel: "Test Podcast",
+					entitySchemaSlug: "podcast",
+					eventSchemaSlug: "progress",
+					stage: "provider_resolution",
+					sourceIdentifier: "podcast-1",
+					context: { episodeNumber: 99 },
+					message: "Could not resolve podcast episode 99",
 				}),
 			]);
 			expect(recordedUpdates).toContainEqual(
