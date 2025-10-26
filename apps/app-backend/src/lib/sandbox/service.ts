@@ -1,23 +1,14 @@
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "@effect/platform";
 import { isHttpMethod } from "@effect/platform/HttpMethod";
 import { generateId } from "better-auth";
-import { and, eq, isNull, or } from "drizzle-orm";
 import { Clock, Duration, Effect, Match, Runtime, Schema } from "effect";
 
 import { AppConfig } from "../config";
-import { CurrentDb, DbRunner, dbEffect } from "../db";
-import * as schema from "../db/schema/tables";
 import { SandboxRunError, TimeoutError, unknownToMessage } from "../errors";
 import { redisKeys, RedisService } from "../redis";
 import { makeAdditionalSandboxApiFunctions } from "./host-functions";
 import { BridgeService, invalidateProcess, ProcessPool } from "./runtime";
-import {
-	apiFailure,
-	apiSuccess,
-	type BoundHostFunction,
-	requireSandboxRunInput,
-	requireUserSandboxRunInput,
-} from "./shared";
+import { apiFailure, apiSuccess, type BoundHostFunction, requireSandboxRunInput } from "./shared";
 
 type HttpCallOptions = {
 	body?: string;
@@ -64,8 +55,8 @@ const SandboxRunnerRequest = Schema.Struct({
 const SandboxRunnerResponse = Schema.Struct({
 	success: Schema.Boolean,
 	value: Schema.optional(Schema.Unknown),
-	error: Schema.optional(Schema.NullOr(Schema.String)),
 	logs: Schema.optional(Schema.Array(Schema.String)),
+	error: Schema.optional(Schema.NullOr(Schema.String)),
 	timing: Schema.optional(Schema.Struct({ executionMs: Schema.Number })),
 });
 
@@ -118,7 +109,6 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 		const pool = yield* ProcessPool;
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
-		const runWithDb = yield* DbRunner;
 		const bridge = yield* BridgeService;
 
 		const runtime = yield* Effect.runtime();
@@ -217,66 +207,6 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 		const additionalApiFunctions = yield* makeAdditionalSandboxApiFunctions();
 
 		apiFunctions = {
-			executeQueryEngine: (...args) => {
-				const query = args[0];
-				const input = requireUserSandboxRunInput(args, 1, "executeQueryEngine");
-				if (query === null || typeof query !== "object") {
-					return Promise.resolve(apiFailure("Query engine input must be an object"));
-				}
-
-				const scope = Reflect.get(query, "scope");
-				const slug = Array.isArray(scope) && typeof scope[0] === "string" ? scope[0] : null;
-				if (!slug) {
-					return Promise.resolve(apiFailure("Query engine scope is required"));
-				}
-
-				return runPromise(
-					runWithDb(
-						Effect.gen(function* () {
-							const db = yield* CurrentDb;
-							const [entitySchema] = yield* dbEffect(() =>
-								db
-									.select({ id: schema.entitySchema.id })
-									.from(schema.entitySchema)
-									.where(
-										and(
-											eq(schema.entitySchema.slug, slug),
-											or(
-												isNull(schema.entitySchema.userId),
-												eq(schema.entitySchema.userId, input.userId),
-											),
-										),
-									)
-									.limit(1),
-							);
-							if (!entitySchema) {
-								return apiFailure(`Schema '${slug}' not found`);
-							}
-
-							const rows = yield* dbEffect(() =>
-								db
-									.select({ id: schema.entity.id, name: schema.entity.name })
-									.from(schema.entity)
-									.where(
-										and(
-											eq(schema.entity.entitySchemaId, entitySchema.id),
-											or(isNull(schema.entity.userId), eq(schema.entity.userId, input.userId)),
-										),
-									),
-							);
-
-							return apiSuccess({
-								data: {
-									items: rows.map((row) => ({
-										id: { kind: "text", value: row.id },
-										name: { kind: "text", value: row.name },
-									})),
-								},
-							});
-						}),
-					).pipe(Effect.catchAll((error) => Effect.succeed(apiFailure(error.message)))),
-				);
-			},
 			getCachedValue: (...args) => {
 				const key = args[0];
 				const input = requireSandboxRunInput(args, 1, "getCachedValue");
