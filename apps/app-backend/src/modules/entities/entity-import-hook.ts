@@ -1,11 +1,12 @@
 import { Context, Effect, Layer } from "effect";
 
 import type { DbError } from "#lib/errors";
+import type { EntityId, UserId } from "#lib/schema/brands";
 
 export class EntityImportHook extends Context.Tag("EntityImportHook")<
 	EntityImportHook,
 	{
-		readonly onEntityImported: (userId: string, entityId: string) => Effect.Effect<void, DbError>;
+		readonly onEntityImported: (userId: UserId, entityId: EntityId) => Effect.Effect<void, DbError>;
 	}
 >() {
 	static readonly Default = Layer.succeed(EntityImportHook, {

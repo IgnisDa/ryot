@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 
 import { AppConfig } from "#lib/config";
+import type { ImportRunId, UserId } from "#lib/schema/brands";
 
 import { nowIso } from "../../media/dates";
 import type {
@@ -17,8 +18,8 @@ const toMovaryLoadError = (message: string) =>
 	({ cleanupPaths: [], message }) satisfies LoadedMediaImportAdapterError;
 
 export const loadMovaryAdapterResult = Effect.fn("movaryProcessor.load")(function* (input: {
-	runId: string;
-	userId: string;
+	runId: ImportRunId;
+	userId: UserId;
 	filePath?: string;
 	sourcePayload?: Record<string, unknown>;
 }) {

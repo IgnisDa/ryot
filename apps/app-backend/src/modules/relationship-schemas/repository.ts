@@ -3,6 +3,8 @@ import { Effect } from "effect";
 
 import { CurrentDb, dbEffect } from "#lib/db";
 import * as schema from "#lib/db/schema/tables";
+import type { UserId } from "#lib/schema/brands";
+import { EntitySchemaId, RelationshipSchemaId } from "#lib/schema/brands";
 import { decodeStoredAppSchema } from "#lib/schema/core";
 
 type Row = typeof schema.relationshipSchema.$inferSelect;
@@ -14,13 +16,17 @@ const toScope = Effect.fn(function* (row: Row) {
 	);
 
 	return {
-		id: row.id,
+		id: RelationshipSchemaId.make(row.id),
 		slug: row.slug,
 		name: row.name,
 		propertiesSchema,
 		isBuiltin: row.isBuiltin,
-		sourceEntitySchemaId: row.sourceEntitySchemaId ?? null,
-		targetEntitySchemaId: row.targetEntitySchemaId ?? null,
+		sourceEntitySchemaId: row.sourceEntitySchemaId
+			? EntitySchemaId.make(row.sourceEntitySchemaId)
+			: null,
+		targetEntitySchemaId: row.targetEntitySchemaId
+			? EntitySchemaId.make(row.targetEntitySchemaId)
+			: null,
 	};
 });
 
@@ -52,7 +58,10 @@ export class RelationshipSchemasRepository extends Effect.Service<RelationshipSc
 				return yield* toScope(row);
 			}),
 			findGlobalBySchemaIds: Effect.fn("RelationshipSchemasRepository.findGlobalBySchemaIds")(
-				function* (input: { sourceEntitySchemaId: string; targetEntitySchemaId: string }) {
+				function* (input: {
+					sourceEntitySchemaId: EntitySchemaId;
+					targetEntitySchemaId: EntitySchemaId;
+				}) {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
 						db
@@ -76,8 +85,8 @@ export class RelationshipSchemasRepository extends Effect.Service<RelationshipSc
 				},
 			),
 			findById: Effect.fn("RelationshipSchemasRepository.findById")(function* (
-				id: string,
-				userId: string | null,
+				id: RelationshipSchemaId,
+				userId: UserId | null,
 			) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>

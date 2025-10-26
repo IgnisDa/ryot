@@ -6,6 +6,7 @@ import { AppConfig } from "#lib/config";
 import { DbRunner } from "#lib/db";
 import { badRequest, internalError } from "#lib/errors";
 import { redisKeys, RedisService } from "#lib/redis";
+import { UserId } from "#lib/schema/brands";
 
 import type { ProvisionUserBody } from "./contract";
 import { GodModeRepository } from "./repository";
@@ -109,7 +110,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 					return yield* badRequest(`User with email '${input.email}' already exists`);
 				}
 
-				const userId = crypto.randomUUID();
+				const userId = UserId.make(crypto.randomUUID());
 
 				yield* runWithDb(
 					Effect.gen(function* () {
@@ -135,7 +136,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 			}),
 
 			setUserBan: Effect.fn("GodModeService.setUserBan")(function* (
-				userId: string,
+				userId: UserId,
 				banned: boolean,
 			) {
 				const user = yield* runWithDb(repository.findUserBanState(userId));
@@ -156,7 +157,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 				return { id: userId, bannedAt: bannedAt?.toISOString() ?? null };
 			}),
 
-			resetUserPassword: Effect.fn("GodModeService.resetUserPassword")(function* (userId: string) {
+			resetUserPassword: Effect.fn("GodModeService.resetUserPassword")(function* (userId: UserId) {
 				if (config.users.disableLocalAuth) {
 					return yield* badRequest("Local authentication is disabled on this instance");
 				}

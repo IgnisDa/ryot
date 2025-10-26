@@ -3,13 +3,14 @@ import { Effect, Exit, Layer } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest, NotFound } from "#lib/errors";
+import { TrackerId, UserId } from "#lib/schema/brands";
 import { dbRunnerLayer, makeMock, transactionLayer } from "#lib/test-support/effect";
 
 import { TrackersRepository } from "./repository";
 import { TrackersService } from "./service";
 
 const user = {
-	id: "user-id",
+	id: UserId.make("user-id"),
 	name: "Test User",
 	email: "user@example.com",
 } satisfies CurrentUserValue;
@@ -53,7 +54,7 @@ it.effect("normalizes tracker slugs before creating custom trackers", () => {
 					return {
 						config: {},
 						sortOrder: 0,
-						id: "tracker-id",
+						id: TrackerId.make("tracker-id"),
 						slug: input.slug,
 						name: input.name,
 						icon: input.icon,
@@ -86,7 +87,9 @@ it.effect("returns not found when updating a tracker the user does not own", () 
 
 	return Effect.gen(function* () {
 		const service = yield* TrackersService;
-		const exit = yield* Effect.exit(service.update(user, "tracker-id", { isDisabled: false }));
+		const exit = yield* Effect.exit(
+			service.update(user, TrackerId.make("tracker-id"), { isDisabled: false }),
+		);
 
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Tracker not found" })));
 	}).pipe(Effect.provide(layer));
@@ -98,7 +101,12 @@ it.effect("reorders requested trackers and appends the remaining ids", () => {
 	const layer = makeServiceLayer(
 		makeTrackersRepository({
 			countOwnedByIds: () => Effect.succeed(2),
-			listIdsInOrder: () => Effect.succeed(["tracker-a", "tracker-b", "tracker-c"]),
+			listIdsInOrder: () =>
+				Effect.succeed([
+					TrackerId.make("tracker-a"),
+					TrackerId.make("tracker-b"),
+					TrackerId.make("tracker-c"),
+				]),
 			persistOrder: (_userId, trackerIds) =>
 				Effect.sync(() => {
 					persistedIds = trackerIds;
@@ -109,7 +117,9 @@ it.effect("reorders requested trackers and appends the remaining ids", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* TrackersService;
-		const reordered = yield* service.reorder(user, { trackerIds: ["tracker-c", "tracker-a"] });
+		const reordered = yield* service.reorder(user, {
+			trackerIds: [TrackerId.make("tracker-c"), TrackerId.make("tracker-a")],
+		});
 
 		expect(reordered).toEqual({ trackerIds: ["tracker-c", "tracker-a", "tracker-b"] });
 		expect(persistedIds).toEqual(["tracker-c", "tracker-a", "tracker-b"]);
@@ -124,7 +134,9 @@ it.effect("rejects reorder requests containing unknown tracker ids", () => {
 	return Effect.gen(function* () {
 		const service = yield* TrackersService;
 		const exit = yield* Effect.exit(
-			service.reorder(user, { trackerIds: ["tracker-a", "tracker-b"] }),
+			service.reorder(user, {
+				trackerIds: [TrackerId.make("tracker-a"), TrackerId.make("tracker-b")],
+			}),
 		);
 
 		expect(exit).toEqual(

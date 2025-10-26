@@ -2,6 +2,7 @@ import { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
 
 import { DbRunner } from "#lib/db";
+import type { ImportRunId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import type { EntitySearchItem } from "#modules/entities/population";
 import { EntitiesRepository } from "#modules/entities/repository";
 
@@ -34,7 +35,7 @@ type NetflixAdapterInput = {
 type NetflixSearchJob = {
 	query: string;
 	jobKey: string;
-	scriptId: string;
+	scriptId: SandboxScriptId;
 	scriptSlug: SearchScriptSlug;
 };
 
@@ -230,8 +231,8 @@ export const buildNetflixAdapterResult = Effect.fn("netflixProcessor.buildResult
 );
 
 export const loadNetflixAdapterResult = Effect.fn("netflixProcessor.load")(function* (input: {
-	runId: string;
-	userId: string;
+	runId: ImportRunId;
+	userId: UserId;
 	filePath?: string;
 	sourcePayload?: Record<string, unknown>;
 }) {
@@ -346,7 +347,7 @@ export const loadNetflixAdapterResult = Effect.fn("netflixProcessor.load")(funct
 			message: "Netflix importer requires TMDB sandbox scripts",
 		} satisfies LoadedMediaImportAdapterError);
 	}
-	const scriptIdsBySlug: Record<SearchScriptSlug, string> = {
+	const scriptIdsBySlug: Record<SearchScriptSlug, SandboxScriptId> = {
 		"show.tmdb": showScript.sandboxScriptId,
 		"movie.tmdb": movieScript.sandboxScriptId,
 	};

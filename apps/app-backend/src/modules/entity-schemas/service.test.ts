@@ -3,6 +3,7 @@ import { Effect, Exit, Layer } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest, Conflict, NotFound } from "#lib/errors";
+import { EntitySchemaId, TrackerId, UserId } from "#lib/schema/brands";
 import { dbRunnerLayer, makeMock, transactionLayer } from "#lib/test-support/effect";
 import { SandboxApiService } from "#modules/sandbox/service";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
@@ -12,7 +13,7 @@ import { EntitySchemasRepository } from "./repository";
 import { EntitySchemasService } from "./service";
 
 const user = {
-	id: "user-id",
+	id: UserId.make("user-id"),
 	name: "Test User",
 	email: "user@example.com",
 } satisfies CurrentUserValue;
@@ -104,7 +105,7 @@ it.effect("returns not found when tracker does not exist during creation", () =>
 			service.create(user, {
 				icon: "rocket",
 				name: "My Schema",
-				trackerId: "tracker-id",
+				trackerId: TrackerId.make("tracker-id"),
 				accentColor: "#FF5733",
 				propertiesSchema: {
 					fields: { name: { type: "string", label: "Name", description: "Name" } },
@@ -126,7 +127,7 @@ it.effect("returns bad request when tracker is built-in during creation", () => 
 					slug: "media",
 					name: "Media",
 					isBuiltin: true,
-					id: "tracker-id",
+					id: TrackerId.make("tracker-id"),
 					description: null,
 					accentColor: "#000000",
 				}),
@@ -139,7 +140,7 @@ it.effect("returns bad request when tracker is built-in during creation", () => 
 			service.create(user, {
 				icon: "rocket",
 				name: "My Schema",
-				trackerId: "tracker-id",
+				trackerId: TrackerId.make("tracker-id"),
 				accentColor: "#FF5733",
 				propertiesSchema: {
 					fields: { name: { type: "string", label: "Name", description: "Name" } },
@@ -157,7 +158,9 @@ it.effect("returns bad request when tracker is built-in during creation", () => 
 
 it.effect("returns conflict when entity schema slug already exists", () => {
 	const layer = makeEntitySchemasServiceLayer(
-		makeEntitySchemasRepository({ findBySlug: () => Effect.succeed({ id: "existing-id" }) }),
+		makeEntitySchemasRepository({
+			findBySlug: () => Effect.succeed({ id: EntitySchemaId.make("existing-id") }),
+		}),
 		makeTrackersRepository({
 			getOwnedById: () =>
 				Effect.succeed({
@@ -165,7 +168,7 @@ it.effect("returns conflict when entity schema slug already exists", () => {
 					name: "Custom",
 					slug: "custom",
 					isBuiltin: false,
-					id: "tracker-id",
+					id: TrackerId.make("tracker-id"),
 					description: null,
 					accentColor: "#000000",
 				}),
@@ -178,7 +181,7 @@ it.effect("returns conflict when entity schema slug already exists", () => {
 			service.create(user, {
 				icon: "rocket",
 				name: "My Schema",
-				trackerId: "tracker-id",
+				trackerId: TrackerId.make("tracker-id"),
 				accentColor: "#FF5733",
 				propertiesSchema: {
 					fields: { name: { type: "string", label: "Name", description: "Name" } },
@@ -200,7 +203,7 @@ it.effect("returns bad request for reserved slug", () => {
 					slug: "custom",
 					name: "Custom",
 					isBuiltin: false,
-					id: "tracker-id",
+					id: TrackerId.make("tracker-id"),
 					description: null,
 					accentColor: "#000000",
 				}),
@@ -213,7 +216,7 @@ it.effect("returns bad request for reserved slug", () => {
 			service.create(user, {
 				icon: "rocket",
 				name: "Book",
-				trackerId: "tracker-id",
+				trackerId: TrackerId.make("tracker-id"),
 				accentColor: "#FF5733",
 				propertiesSchema: {
 					fields: { name: { type: "string", label: "Name", description: "Name" } },
@@ -235,7 +238,7 @@ it.effect("returns conflict when default saved view creation conflicts", () => {
 			findBySlug: () => Effect.succeed(null),
 			createEntitySchema: (input) =>
 				Effect.succeed({
-					id: "schema-id",
+					id: EntitySchemaId.make("schema-id"),
 					name: input.name,
 					icon: input.icon,
 					slug: input.slug,
@@ -250,12 +253,12 @@ it.effect("returns conflict when default saved view creation conflicts", () => {
 					icon: "star",
 					slug: "custom",
 					name: "Custom",
-					id: "tracker-id",
+					id: TrackerId.make("tracker-id"),
 					isBuiltin: false,
 					description: null,
 					accentColor: "#000000",
 				}),
-			linkEntitySchema: () => Effect.succeed("tracker-id"),
+			linkEntitySchema: () => Effect.succeed(TrackerId.make("tracker-id")),
 		}),
 		makeSavedViewsRepository({
 			createDefaultViewForSchema: () =>
@@ -269,7 +272,7 @@ it.effect("returns conflict when default saved view creation conflicts", () => {
 			service.create(user, {
 				icon: "rocket",
 				name: "My Schema",
-				trackerId: "tracker-id",
+				trackerId: TrackerId.make("tracker-id"),
 				accentColor: "#FF5733",
 				propertiesSchema: {
 					fields: { name: { type: "string", label: "Name", description: "Name" } },
@@ -293,7 +296,7 @@ it.effect("normalizes slugs before creating entity schemas", () => {
 				Effect.sync(() => {
 					createdSlug = input.slug;
 					return {
-						id: "schema-id",
+						id: EntitySchemaId.make("schema-id"),
 						name: input.name,
 						icon: input.icon,
 						slug: input.slug,
@@ -304,13 +307,13 @@ it.effect("normalizes slugs before creating entity schemas", () => {
 				}),
 		}),
 		makeTrackersRepository({
-			linkEntitySchema: () => Effect.succeed("tracker-id"),
+			linkEntitySchema: () => Effect.succeed(TrackerId.make("tracker-id")),
 			getOwnedById: () =>
 				Effect.succeed({
 					icon: "star",
 					slug: "custom",
 					name: "Custom",
-					id: "tracker-id",
+					id: TrackerId.make("tracker-id"),
 					isBuiltin: false,
 					description: null,
 					accentColor: "#000000",
@@ -324,7 +327,7 @@ it.effect("normalizes slugs before creating entity schemas", () => {
 		const schema = yield* service.create(user, {
 			icon: "rocket",
 			name: " My Cool Schema ",
-			trackerId: "tracker-id",
+			trackerId: TrackerId.make("tracker-id"),
 			accentColor: "#FF5733",
 			propertiesSchema: {
 				fields: { name: { type: "string", label: "Name", description: "Name" } },

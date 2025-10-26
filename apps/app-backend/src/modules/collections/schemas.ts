@@ -1,28 +1,35 @@
 import { Schema } from "effect";
 
+import {
+	EntityId,
+	EntitySchemaId,
+	RelationshipId,
+	RelationshipSchemaId,
+	SandboxScriptId,
+} from "#lib/schema/brands";
 import { EntityImage } from "#modules/entities/schemas";
 
 export const CollectionResponse = Schema.Struct({
-	id: Schema.String,
+	id: EntityId,
 	name: Schema.String,
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
 	properties: Schema.Unknown,
-	entitySchemaId: Schema.String,
+	entitySchemaId: EntitySchemaId,
 	image: Schema.NullOr(EntityImage),
 	externalId: Schema.NullOr(Schema.String),
-	sandboxScriptId: Schema.NullOr(Schema.String),
+	sandboxScriptId: Schema.NullOr(SandboxScriptId),
 });
 
 export type CollectionResponse = typeof CollectionResponse.Type;
 
 export const MembershipRelationship = Schema.Struct({
-	id: Schema.String,
+	id: RelationshipId,
 	createdAt: Schema.String,
 	properties: Schema.Unknown,
-	sourceEntityId: Schema.String,
-	targetEntityId: Schema.String,
-	relationshipSchemaId: Schema.String,
+	sourceEntityId: EntityId,
+	targetEntityId: EntityId,
+	relationshipSchemaId: RelationshipSchemaId,
 });
 
 export type MembershipRelationship = typeof MembershipRelationship.Type;
@@ -40,16 +47,16 @@ export const CreateCollectionBody = Schema.Struct({
 export type CreateCollectionBody = typeof CreateCollectionBody.Type;
 
 export const CreateMembershipBody = Schema.Struct({
-	entityId: Schema.String,
-	collectionId: Schema.String,
+	entityId: EntityId,
+	collectionId: EntityId,
 	properties: Schema.optional(Schema.Unknown),
 });
 
 export type CreateMembershipBody = typeof CreateMembershipBody.Type;
 
 export const DeleteMembershipBody = Schema.Struct({
-	entityId: Schema.String,
-	collectionId: Schema.String,
+	entityId: EntityId,
+	collectionId: EntityId,
 });
 
 export type DeleteMembershipBody = typeof DeleteMembershipBody.Type;
