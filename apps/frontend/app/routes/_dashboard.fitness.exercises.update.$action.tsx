@@ -21,7 +21,8 @@ import {
 	UpdateCustomExerciseDocument,
 	type UpdateCustomExerciseInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { parseParameters, parseSearchQuery, startCase } from "@ryot/ts-utils";
+import { startCase } from "@ryot/ts-utils/lodash";
+import { parseParameters, parseSearchQuery } from "@ryot/ts-utils/request";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { useLoaderData, useNavigate } from "react-router";

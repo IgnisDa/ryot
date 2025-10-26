@@ -1,5 +1,6 @@
 import type { MediaCollectionFilter } from "@ryot/generated/graphql/backend/graphql";
-import { isEqual, isString } from "@ryot/ts-utils";
+import { isEqual } from "@ryot/ts-utils/lodash";
+import { isString } from "@ryot/ts-utils/lodash";
 import { createParser } from "nuqs";
 import { z } from "zod";
 

@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 
 import { Polar } from "@polar-sh/sdk";
-import { memoize, zodBoolAsString } from "@ryot/ts-utils";
+import { memoize } from "@ryot/ts-utils/lodash";
+import { zodBoolAsString } from "@ryot/ts-utils/zod";
 import { Unkey } from "@unkey/api";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { GraphQLClient } from "graphql-request";

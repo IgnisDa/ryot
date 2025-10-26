@@ -1,4 +1,5 @@
-import { dayjs, sortBy } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
+import { sortBy } from "@ryot/ts-utils/lodash";
 import { match } from "ts-pattern";
 
 import type {

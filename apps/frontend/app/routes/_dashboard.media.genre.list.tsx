@@ -16,7 +16,8 @@ import {
 	GenreDetailsDocument,
 	UserGenresListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { getInitials, truncate } from "@ryot/ts-utils";
+import { truncate } from "@ryot/ts-utils/lodash";
+import { getInitials } from "@ryot/ts-utils/string";
 import { useQuery } from "@tanstack/react-query";
 import { parseAsInteger, parseAsString } from "nuqs";
 import { Link } from "react-router";

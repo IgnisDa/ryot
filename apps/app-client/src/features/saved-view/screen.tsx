@@ -1,4 +1,4 @@
-import { getQueryEngineField } from "@ryot/ts-utils";
+import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { useRouter } from "expo-router";

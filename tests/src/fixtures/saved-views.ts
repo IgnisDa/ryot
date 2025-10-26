@@ -3,7 +3,7 @@ import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 	createEntitySchemaExpression,
-} from "@ryot/ts-utils";
+} from "@ryot/ts-utils/view-language";
 
 import type { Client } from "./auth";
 import {

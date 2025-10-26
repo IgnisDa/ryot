@@ -1,4 +1,5 @@
-import { type AppSchema, getQueryEngineField } from "@ryot/ts-utils";
+import type { AppSchema } from "@ryot/ts-utils/app-schema";
+import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
 
 import {
 	type AppEntityImage,

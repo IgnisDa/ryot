@@ -5,7 +5,7 @@ import {
 	SetLot,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
-import { inRange } from "@ryot/ts-utils";
+import { inRange } from "@ryot/ts-utils/lodash";
 import {
 	IconBook,
 	IconBook2,

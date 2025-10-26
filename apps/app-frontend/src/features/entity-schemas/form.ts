@@ -1,4 +1,4 @@
-import { zodNonEmptyTrimmedString } from "@ryot/ts-utils";
+import { zodNonEmptyTrimmedString } from "@ryot/ts-utils/zod";
 import type { z } from "zod";
 
 import type { ApiPostRequestBody } from "~/lib/api/types";

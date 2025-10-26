@@ -23,7 +23,6 @@
 			"@ryot/graphql/*": ["../../libs/graphql/src/*"],
 			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"],
 			"@ryot/generated/*": ["../../libs/generated/src/*"],
-			"@ryot/ts-utils": ["../../libs/ts-utils/src/index.ts"],
 			"@ryot/transactional/*": ["../../libs/transactional/*"]
 		}
 	}

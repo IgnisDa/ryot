@@ -1,4 +1,7 @@
-import { createEntityColumnExpression, createEntitySchemaExpression } from "@ryot/ts-utils";
+import {
+	createEntityColumnExpression,
+	createEntitySchemaExpression,
+} from "@ryot/ts-utils/view-language";
 
 import type { AppEntitySavedView, AppSavedView } from "~/features/saved-views/model";
 

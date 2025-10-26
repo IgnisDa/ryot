@@ -1,7 +1,7 @@
 import { Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { MediaSource, PresignedPutS3UrlDocument } from "@ryot/generated/graphql/backend/graphql";
-import { startCase } from "@ryot/ts-utils";
+import { startCase } from "@ryot/ts-utils/lodash";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 

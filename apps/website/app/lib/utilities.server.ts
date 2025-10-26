@@ -1,6 +1,6 @@
 import { Environment, Paddle } from "@paddle/paddle-node-sdk";
 import { render } from "@react-email/components";
-import { formatDateToNaiveDate } from "@ryot/ts-utils/index";
+import { formatDateToNaiveDate } from "@ryot/ts-utils/format";
 import dayjs, { type Dayjs } from "dayjs";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { createTransport } from "nodemailer";
