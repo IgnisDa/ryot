@@ -72,6 +72,120 @@ BEGIN
 
 	RAISE NOTICE 'seen -> event: migration started (% seconds elapsed)', 0.0;
 
+	IF to_regclass('pg_temp._legacy_show_episode_resolution') IS NULL
+		OR to_regclass('pg_temp._legacy_podcast_episode_resolution') IS NULL THEN
+		IF to_regclass('pg_temp._legacy_show_episode_resolution') IS NOT NULL THEN
+			DROP TABLE _legacy_show_episode_resolution;
+		END IF;
+
+		IF to_regclass('pg_temp._legacy_podcast_episode_resolution') IS NOT NULL THEN
+			DROP TABLE _legacy_podcast_episode_resolution;
+		END IF;
+
+	CREATE TEMP TABLE _legacy_show_episode_resolution ON COMMIT DROP AS
+	WITH candidates AS (
+		SELECT DISTINCT
+			show_entity.id AS parent_entity_id,
+			season.properties ->> 'seasonNumber' AS season_number,
+			episode.properties ->> 'episodeNumber' AS episode_number,
+			episode.id AS entity_id,
+			episode.entity_schema_id
+		FROM "entity" show_entity
+		INNER JOIN "entity_schema" show_schema
+			ON  show_schema.id   = show_entity.entity_schema_id
+			AND show_schema.slug = 'show'
+		INNER JOIN "relationship" show_season_rel
+			ON show_season_rel.source_entity_id = show_entity.id
+		INNER JOIN "relationship_schema" show_season_rs
+			ON  show_season_rs.id      = show_season_rel.relationship_schema_id
+			AND show_season_rs.slug    = 'show-to-show-season'
+			AND show_season_rs.user_id IS NULL
+		INNER JOIN "entity" season
+			ON season.id = show_season_rel.target_entity_id
+		INNER JOIN "entity_schema" season_schema
+			ON  season_schema.id   = season.entity_schema_id
+			AND season_schema.slug = 'show-season'
+		INNER JOIN "relationship" season_episode_rel
+			ON season_episode_rel.source_entity_id = season.id
+		INNER JOIN "relationship_schema" season_episode_rs
+			ON  season_episode_rs.id      = season_episode_rel.relationship_schema_id
+			AND season_episode_rs.slug    = 'show-season-to-show-episode'
+			AND season_episode_rs.user_id IS NULL
+		INNER JOIN "entity" episode
+			ON episode.id = season_episode_rel.target_entity_id
+		INNER JOIN "entity_schema" episode_schema
+			ON  episode_schema.id   = episode.entity_schema_id
+			AND episode_schema.slug = 'show-episode'
+		WHERE (show_season_rel.user_id = show_entity.user_id OR show_season_rel.user_id IS NULL)
+		  AND (season_episode_rel.user_id = show_entity.user_id OR season_episode_rel.user_id IS NULL)
+		  AND (season.user_id = show_entity.user_id OR season.user_id IS NULL)
+		  AND (episode.user_id = show_entity.user_id OR episode.user_id IS NULL)
+		  AND (season.properties ->> 'seasonNumber') ~ '^[0-9]+$'
+		  AND (episode.properties ->> 'episodeNumber') ~ '^[0-9]+$'
+	), unique_candidates AS (
+		SELECT parent_entity_id, season_number, episode_number
+		FROM candidates
+		GROUP BY parent_entity_id, season_number, episode_number
+		HAVING count(*) = 1
+	)
+	SELECT candidates.*
+	FROM candidates
+	INNER JOIN unique_candidates
+		ON  unique_candidates.parent_entity_id = candidates.parent_entity_id
+		AND unique_candidates.season_number    = candidates.season_number
+		AND unique_candidates.episode_number   = candidates.episode_number;
+
+	CREATE UNIQUE INDEX ON _legacy_show_episode_resolution (
+		parent_entity_id,
+		season_number,
+		episode_number
+	);
+
+	CREATE TEMP TABLE _legacy_podcast_episode_resolution ON COMMIT DROP AS
+	WITH candidates AS (
+		SELECT DISTINCT
+			podcast.id AS parent_entity_id,
+			episode.properties ->> 'episodeNumber' AS episode_number,
+			episode.id AS entity_id,
+			episode.entity_schema_id
+		FROM "entity" podcast
+		INNER JOIN "entity_schema" podcast_schema
+			ON  podcast_schema.id   = podcast.entity_schema_id
+			AND podcast_schema.slug = 'podcast'
+		INNER JOIN "relationship" podcast_episode_rel
+			ON podcast_episode_rel.source_entity_id = podcast.id
+		INNER JOIN "relationship_schema" podcast_episode_rs
+			ON  podcast_episode_rs.id      = podcast_episode_rel.relationship_schema_id
+			AND podcast_episode_rs.slug    = 'podcast-to-podcast-episode'
+			AND podcast_episode_rs.user_id IS NULL
+		INNER JOIN "entity" episode
+			ON episode.id = podcast_episode_rel.target_entity_id
+		INNER JOIN "entity_schema" episode_schema
+			ON  episode_schema.id   = episode.entity_schema_id
+			AND episode_schema.slug = 'podcast-episode'
+		WHERE (podcast_episode_rel.user_id = podcast.user_id OR podcast_episode_rel.user_id IS NULL)
+		  AND (episode.user_id = podcast.user_id OR episode.user_id IS NULL)
+		  AND (episode.properties ->> 'episodeNumber') ~ '^[0-9]+$'
+	), unique_candidates AS (
+		SELECT parent_entity_id, episode_number
+		FROM candidates
+		GROUP BY parent_entity_id, episode_number
+		HAVING count(*) = 1
+	)
+	SELECT candidates.*
+	FROM candidates
+	INNER JOIN unique_candidates
+		ON  unique_candidates.parent_entity_id = candidates.parent_entity_id
+		AND unique_candidates.episode_number   = candidates.episode_number;
+
+	CREATE UNIQUE INDEX ON _legacy_podcast_episode_resolution (
+		parent_entity_id,
+		episode_number
+	);
+	ANALYZE _legacy_show_episode_resolution;
+	ANALYZE _legacy_podcast_episode_resolution;
+	END IF;
+
 	LOOP
 		WITH batch AS (
 			SELECT s.id AS id
@@ -99,8 +213,16 @@ BEGIN
 				s.id                                                  AS seen_id,
 				s.user_id,
 				s.metadata_id,
+				e.entity_schema_id,
 				entity_schema.slug                                    AS entity_schema_slug,
+				show_episode.entity_id                                AS show_episode_entity_id,
+				show_episode.entity_schema_id                         AS show_episode_entity_schema_id,
+				podcast_episode.entity_id                             AS podcast_episode_entity_id,
+				podcast_episode.entity_schema_id                      AS podcast_episode_entity_schema_id,
 				entity_schema.slug IN ('show', 'anime', 'manga', 'podcast') AS is_episodic,
+				(s.show_extra_information ->> 'season') ~ '^[0-9]+$'
+					AND (s.show_extra_information ->> 'episode') ~ '^[0-9]+$' AS has_show_episode_locator,
+				(s.podcast_extra_information ->> 'episode') ~ '^[0-9]+$' AS has_podcast_episode_locator,
 				GREATEST(LEAST(s.progress::numeric, 100), 1)          AS clamped_progress,
 				(
 					s.state = 'completed'
@@ -119,12 +241,30 @@ BEGIN
 			FROM "seen" s
 			INNER JOIN "entity" e ON e.id = s.metadata_id
 			INNER JOIN "entity_schema" entity_schema ON entity_schema.id = e.entity_schema_id
+			LEFT JOIN _legacy_show_episode_resolution show_episode
+				ON entity_schema.slug = 'show'
+				AND show_episode.parent_entity_id = s.metadata_id
+				AND show_episode.season_number = s.show_extra_information ->> 'season'
+				AND show_episode.episode_number = s.show_extra_information ->> 'episode'
+				AND (s.show_extra_information ->> 'season') ~ '^[0-9]+$'
+				AND (s.show_extra_information ->> 'episode') ~ '^[0-9]+$'
+			LEFT JOIN _legacy_podcast_episode_resolution podcast_episode
+				ON entity_schema.slug = 'podcast'
+				AND podcast_episode.parent_entity_id = s.metadata_id
+				AND podcast_episode.episode_number = s.podcast_extra_information ->> 'episode'
+				AND (s.podcast_extra_information ->> 'episode') ~ '^[0-9]+$'
 			CROSS JOIN LATERAL unnest(s.updated_at) WITH ORDINALITY AS t(ts, idx)
 			WHERE s.id > cursor_id
 			  AND s.id <= next_cursor_id
 		), classified AS (
 			SELECT
 				*,
+				COALESCE(show_episode_entity_id, podcast_episode_entity_id, metadata_id) AS target_entity_id,
+				COALESCE(
+					show_episode_entity_schema_id,
+					podcast_episode_entity_schema_id,
+					entity_schema_id
+				) AS target_entity_schema_id,
 				CASE
 					WHEN is_completion_state AND is_episodic THEN 100::numeric
 					ELSE clamped_progress
@@ -138,7 +278,7 @@ BEGIN
 		SELECT
 			md5(r.seen_id || ':p:' || (r.event_idx - 1)::text),
 			r.user_id,
-			r.metadata_id,
+			r.target_entity_id,
 			es.id,
 			jsonb_strip_nulls(jsonb_build_object(
 				'progressPercent',
@@ -163,22 +303,28 @@ BEGIN
 							END
 					END,
 				'consumedOn',    NULLIF(r.providers_consumed_on[r.event_idx], ''),
-				'showSeason',    (r.show_extra_information ->> 'season')::int,
-				'showEpisode',   (r.show_extra_information ->> 'episode')::int,
 				'animeEpisode',  (r.anime_extra_information ->> 'episode')::int,
 				'mangaVolume',   (r.manga_extra_information ->> 'volume')::int,
-				'mangaChapter',  NULLIF(r.manga_extra_information ->> 'chapter', '')::float8,
-				'podcastEpisode',(r.podcast_extra_information ->> 'episode')::int
+				'mangaChapter',  NULLIF(r.manga_extra_information ->> 'chapter', '')::float8
 			)),
 			r.event_ts,
 			r.event_ts
 		FROM classified r
-		INNER JOIN "entity" e  ON e.id = r.metadata_id
 		INNER JOIN "event_schema" es
-			ON  es.entity_schema_id = e.entity_schema_id
+			ON  es.entity_schema_id = r.target_entity_schema_id
 			AND es.slug             = 'progress'
 			AND es.user_id          IS NULL
-		WHERE NOT r.has_terminal_event OR r.event_idx < r.n_ts
+		WHERE (NOT r.has_terminal_event OR r.event_idx < r.n_ts)
+		  AND NOT (
+				r.entity_schema_slug = 'show'
+				AND r.has_show_episode_locator
+				AND r.show_episode_entity_id IS NULL
+			)
+		  AND NOT (
+				r.entity_schema_slug = 'podcast'
+				AND r.has_podcast_episode_locator
+				AND r.podcast_episode_entity_id IS NULL
+			)
 		ON CONFLICT DO NOTHING;
 		GET DIAGNOSTICS batch_count = ROW_COUNT;
 		prog_inserted := prog_inserted + batch_count;
@@ -258,12 +404,9 @@ BEGIN
 							to_char(r.started_on AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
 						END,
 						'timeSpent',       r.manual_time_spent / 60.0,
-						'showSeason',      (r.show_extra_information ->> 'season')::int,
-						'showEpisode',     (r.show_extra_information ->> 'episode')::int,
 						'animeEpisode',    (r.anime_extra_information ->> 'episode')::int,
 						'mangaVolume',     (r.manga_extra_information ->> 'volume')::int,
-						'mangaChapter',    NULLIF(r.manga_extra_information ->> 'chapter', '')::float8,
-						'podcastEpisode',  (r.podcast_extra_information ->> 'episode')::int
+						'mangaChapter',    NULLIF(r.manga_extra_information ->> 'chapter', '')::float8
 					))
 				WHEN 'on_hold' THEN
 					jsonb_strip_nulls(jsonb_build_object(
@@ -276,12 +419,9 @@ BEGIN
 							to_char(r.started_on AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
 						END,
 						'timeSpent',       r.manual_time_spent / 60.0,
-						'showSeason',      (r.show_extra_information ->> 'season')::int,
-						'showEpisode',     (r.show_extra_information ->> 'episode')::int,
 						'animeEpisode',    (r.anime_extra_information ->> 'episode')::int,
 						'mangaVolume',     (r.manga_extra_information ->> 'volume')::int,
-						'mangaChapter',    NULLIF(r.manga_extra_information ->> 'chapter', '')::float8,
-						'podcastEpisode',  (r.podcast_extra_information ->> 'episode')::int
+						'mangaChapter',    NULLIF(r.manga_extra_information ->> 'chapter', '')::float8
 					))
 			END,
 			r.updated_at[r.n_ts],
