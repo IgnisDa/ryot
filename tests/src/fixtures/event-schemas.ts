@@ -1,30 +1,8 @@
 import { requirePresent, requireResponseData } from "../test-support/assertions";
 import type { Client } from "./auth";
-import type { AppSchema } from "./entity-schemas";
+import type { ClientBody } from "./backend-client";
 
-// TODO(Task 22): Replace these tests-only event schema types with the public
-// AppContract types once the create/list event schema payloads are fully typed.
-type CreateEventSchemaBody = {
-	entitySchemaId: string;
-	name: string;
-	slug: string;
-	propertiesSchema: AppSchema;
-};
-
-type EventSchemaRecord = CreateEventSchemaBody & {
-	id: string;
-	createdAt?: string;
-	updatedAt?: string;
-	isBuiltin?: boolean;
-};
-
-// TODO(Task 22): Replace these tests-only event schema assertions with the public
-// AppContract types once the event schema response fields are typed.
-const toEventSchemaRecord = (value: unknown) => value as EventSchemaRecord;
-
-// TODO(Task 22): Replace these tests-only event schema assertions with the public
-// AppContract types once the event schema response fields are typed.
-const toEventSchemaRecords = (value: unknown) => value as readonly EventSchemaRecord[];
+type CreateEventSchemaBody = ClientBody<"event-schemas", "create">;
 
 export function requireEventSchemaBySlug<T extends { slug: string }>(
 	schemas: readonly T[],
@@ -49,9 +27,7 @@ export async function createEventSchema(
 		data,
 		`Failed to create event schema '${body.name}'`,
 	);
-	const typedEventSchema = toEventSchemaRecord(eventSchema);
-	requirePresent(typedEventSchema.id, `Failed to create event schema '${body.name}'`);
-	return typedEventSchema;
+	return eventSchema;
 }
 
 export async function listEventSchemas(client: Client, cookies: string, entitySchemaId: string) {
@@ -60,7 +36,9 @@ export async function listEventSchemas(client: Client, cookies: string, entitySc
 		params: { query: { entitySchemaId } },
 	});
 
-	return toEventSchemaRecords(
-		requireResponseData(response, data, `Failed to list event schemas for '${entitySchemaId}'`),
+	return requireResponseData(
+		response,
+		data,
+		`Failed to list event schemas for '${entitySchemaId}'`,
 	);
 }
