@@ -617,7 +617,7 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 	}, 30_000);
 });
 
-describe("POST /entity-import", () => {
+describe("POST /library/import", () => {
 	it("returns 401 when unauthenticated", async () => {
 		const client = getBackendClient();
 		const error = await client.runError((c) =>
@@ -649,7 +649,7 @@ describe("POST /entity-import", () => {
 	});
 });
 
-describe("GET /entity-import/{jobId}", () => {
+describe("GET /library/import/{jobId}", () => {
 	it("returns 401 when unauthenticated", async () => {
 		const client = getBackendClient();
 		const error = await client.runError((c) =>
