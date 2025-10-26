@@ -1,6 +1,4 @@
-use std::fs;
 use std::sync::Arc;
-use std::time::SystemTime;
 
 use anyhow::Result;
 use application_utils::graphql_to_db_order;
@@ -67,7 +65,6 @@ pub async fn user_metadata_list(
         }),
         ApplicationCacheValue::UserMetadataList,
         || async {
-            let input_json = serde_json::to_string(&input).unwrap_or_else(|_| "error".to_string());
             let order_by = input
                 .sort
                 .clone()
@@ -348,41 +345,6 @@ pub async fn user_metadata_list(
                     Order::Desc,
                     NullOrdering::Last,
                 );
-
-            let sql_statement = paginator.clone().build(sea_orm::DatabaseBackend::Postgres);
-            let sql_debug_dir = "/tmp/ryot-sql-debug";
-            fs::create_dir_all(sql_debug_dir).ok();
-            let safe_filename = input_json
-                .chars()
-                .map(|c| {
-                    if c.is_alphanumeric() || c == '_' || c == '-' {
-                        c
-                    } else {
-                        '_'
-                    }
-                })
-                .collect::<String>();
-            let truncated_filename = if safe_filename.len() > 200 {
-                &safe_filename[..200]
-            } else {
-                &safe_filename
-            };
-            let timestamp = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_millis();
-            let sql_file_path = format!(
-                "{}/user_metadata_list_{}_{}.sql",
-                sql_debug_dir, truncated_filename, timestamp
-            );
-            fs::write(
-                &sql_file_path,
-                format!(
-                    "-- Input: {}\n\n{}\n\nValues: {:?}",
-                    input_json, sql_statement.sql, sql_statement.values
-                ),
-            )
-            .ok();
 
             let paginator = paginator.into_tuple::<String>().paginate(&ss.db, take);
             let ItemsAndPagesNumber {

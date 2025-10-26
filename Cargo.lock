@@ -2044,7 +2044,6 @@ dependencies = [
  "migrations-sql",
  "rust_decimal",
  "sea-orm",
- "serde_json",
  "supporting-service",
  "tracing",
 ]
