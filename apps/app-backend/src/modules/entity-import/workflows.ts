@@ -12,8 +12,10 @@ import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 import type { SandboxCompletedResult as SandboxCompletedResultValue } from "#modules/sandbox/schemas";
 
 import {
+	EntityDetailsChildEntity,
 	EntityDetailsRelatedEntity,
 	decodeEntityDetailsResult,
+	processChildEntityTree,
 	processRelatedEntity,
 } from "./population";
 import type { ImportEntityRunResult } from "./schemas";
@@ -64,6 +66,7 @@ export const toEntityImportRunResult = (
 const ValidatedEntityDetails = Schema.Struct({
 	name: Schema.String,
 	image: Schema.NullOr(EntityImage),
+	childEntities: Schema.Array(EntityDetailsChildEntity),
 	relatedEntities: Schema.Array(EntityDetailsRelatedEntity),
 	validatedProperties: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
 });
@@ -142,6 +145,7 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 				name: details.name,
 				validatedProperties,
 				image: details.image ?? null,
+				childEntities: details.childEntities ?? [],
 				relatedEntities: details.relatedEntities ?? [],
 			};
 		}),
@@ -177,6 +181,14 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 			}),
 		{ discard: true },
 	);
+
+	yield* processChildEntityTree({
+		parentEntityId: entity.id,
+		sandboxScriptId: payload.scriptId,
+		activityPrefix: activityName(""),
+		parentEntitySchemaId: payload.entitySchemaId,
+		childEntities: validatedDetails.childEntities,
+	});
 
 	const populatedEntity = yield* Activity.make({
 		success: ListedEntity,
