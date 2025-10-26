@@ -82,6 +82,7 @@ export const prepareWorkoutWrites = (
 						workout: item,
 						exerciseCache,
 						runId: payload.runId,
+						executionId: `${payload.runId}-workout-${index}`,
 					}).pipe(Effect.asVoid, Effect.mapError(toWorkflowError)),
 				}).pipe(
 					Effect.as({ _tag: "imported" } satisfies NonMediaItemOutcome),

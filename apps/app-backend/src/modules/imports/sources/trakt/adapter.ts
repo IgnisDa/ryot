@@ -276,10 +276,11 @@ export const adaptTraktData = Effect.fn("traktAdapter.adaptData")(function* (
 			group.events.push({
 				eventSchemaSlug: "progress",
 				occurredAt: item.watched_at,
-				properties: {
-					progressPercent: 100,
-					showSeason: item.episode.season,
-					showEpisode: item.episode.number,
+				properties: { progressPercent: 100 },
+				episodeLocator: {
+					type: "show",
+					seasonNumber: item.episode.season,
+					episodeNumber: item.episode.number,
 				},
 			});
 		}
