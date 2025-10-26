@@ -18,6 +18,7 @@ import {
 	useListState,
 } from "@mantine/hooks";
 import {
+	GraphqlSortOrder,
 	type MediaCollectionFilter,
 	MediaCollectionPresenceFilter,
 	MediaCollectionStrategyFilter,
@@ -27,6 +28,8 @@ import {
 	IconFilterOff,
 	IconPlus,
 	IconSearch,
+	IconSortAscending,
+	IconSortDescending,
 	IconX,
 } from "@tabler/icons-react";
 import { produce } from "immer";
@@ -44,31 +47,29 @@ export const FiltersModal = (props: {
 	children: ReactNode;
 	resetFilters: () => void;
 	closeFiltersModal: () => void;
-}) => {
-	return (
-		<Modal
-			centered
-			opened={props.opened}
-			withCloseButton={false}
-			onClose={props.closeFiltersModal}
-		>
-			<Stack>
-				<Group justify="space-between">
-					<Title order={3}>{props.title || "Filters"}</Title>
-					<ActionIcon
-						onClick={() => {
-							props.resetFilters();
-							props.closeFiltersModal();
-						}}
-					>
-						<IconFilterOff size={24} />
-					</ActionIcon>
-				</Group>
-				{props.children}
-			</Stack>
-		</Modal>
-	);
-};
+}) => (
+	<Modal
+		centered
+		opened={props.opened}
+		withCloseButton={false}
+		onClose={props.closeFiltersModal}
+	>
+		<Stack>
+			<Group justify="space-between">
+				<Title order={3}>{props.title || "Filters"}</Title>
+				<ActionIcon
+					onClick={() => {
+						props.resetFilters();
+						props.closeFiltersModal();
+					}}
+				>
+					<IconFilterOff size={24} />
+				</ActionIcon>
+			</Group>
+			{props.children}
+		</Stack>
+	</Modal>
+);
 
 export const CollectionsFilter = (props: {
 	applied: MediaCollectionFilter[];
@@ -119,8 +120,8 @@ export const CollectionsFilter = (props: {
 						<Group key={f.id} gap="xs" justify="space-between" wrap="nowrap">
 							{idx !== 0 ? (
 								<Button
-									size="compact-md"
 									w={rem(70)}
+									size="compact-md"
 									variant="default"
 									fz={{ base: 10, md: 12 }}
 									onClick={() => {
@@ -139,8 +140,8 @@ export const CollectionsFilter = (props: {
 								</Button>
 							) : null}
 							<Button
-								size="compact-md"
 								w={rem(170)}
+								size="compact-md"
 								variant="default"
 								fz={{ base: 10, md: 12 }}
 								onClick={() => {
@@ -238,3 +239,22 @@ export const DebouncedSearchInput = (props: {
 		/>
 	);
 };
+
+export const SortOrderToggle = (props: {
+	currentOrder: GraphqlSortOrder;
+	onOrderChange: (order: GraphqlSortOrder) => void;
+}) => (
+	<ActionIcon
+		onClick={() => {
+			if (props.currentOrder === GraphqlSortOrder.Asc)
+				props.onOrderChange(GraphqlSortOrder.Desc);
+			else props.onOrderChange(GraphqlSortOrder.Asc);
+		}}
+	>
+		{props.currentOrder === GraphqlSortOrder.Asc ? (
+			<IconSortAscending />
+		) : (
+			<IconSortDescending />
+		)}
+	</ActionIcon>
+);

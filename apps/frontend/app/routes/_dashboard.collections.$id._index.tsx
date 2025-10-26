@@ -33,8 +33,6 @@ import {
 	IconEdit,
 	IconFilter,
 	IconMessageCircle2,
-	IconSortAscending,
-	IconSortDescending,
 	IconStar,
 	IconTrashFilled,
 	IconUser,
@@ -55,6 +53,7 @@ import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEd
 import {
 	DebouncedSearchInput,
 	FiltersModal,
+	SortOrderToggle,
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { ReviewItemDisplay } from "~/components/common/review";
@@ -436,19 +435,12 @@ const FiltersModalForm = (props: {
 						},
 					]}
 				/>
-				<ActionIcon
-					onClick={() => {
-						if (props.filters.orderBy === GraphqlSortOrder.Asc)
-							props.updateFilter("orderBy", GraphqlSortOrder.Desc);
-						else props.updateFilter("orderBy", GraphqlSortOrder.Asc);
-					}}
-				>
-					{props.filters.orderBy === GraphqlSortOrder.Asc ? (
-						<IconSortAscending />
-					) : (
-						<IconSortDescending />
-					)}
-				</ActionIcon>
+				{props.filters.sortBy !== CollectionContentsSortBy.Random ? (
+					<SortOrderToggle
+						currentOrder={props.filters.orderBy}
+						onOrderChange={(order) => props.updateFilter("orderBy", order)}
+					/>
+				) : null}
 			</Flex>
 			<Select
 				clearable
@@ -459,8 +451,8 @@ const FiltersModalForm = (props: {
 					Object.values(EntityLot).filter(
 						(o) =>
 							![
-								EntityLot.Collection,
 								EntityLot.Review,
+								EntityLot.Collection,
 								EntityLot.UserMeasurement,
 							].includes(o),
 					),

@@ -259,6 +259,7 @@ pub struct NamedObject {
     pub name: String,
 }
 
+#[skip_serializing_none]
 #[derive(
     Eq,
     Clone,

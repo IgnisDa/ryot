@@ -29,8 +29,6 @@ import {
 	IconFilter,
 	IconListCheck,
 	IconSearch,
-	IconSortAscending,
-	IconSortDescending,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
@@ -48,6 +46,7 @@ import {
 	CollectionsFilter,
 	DebouncedSearchInput,
 	FiltersModal,
+	SortOrderToggle,
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataGroupDisplayItem } from "~/components/media/display-items";
@@ -328,19 +327,12 @@ const FiltersModalForm = (props: FiltersModalFormProps) => {
 						v && onFiltersChange("sortBy", v as PersonAndMetadataGroupsSortBy)
 					}
 				/>
-				<ActionIcon
-					onClick={() => {
-						if (filters.orderBy === GraphqlSortOrder.Asc)
-							onFiltersChange("orderBy", GraphqlSortOrder.Desc);
-						else onFiltersChange("orderBy", GraphqlSortOrder.Asc);
-					}}
-				>
-					{filters.orderBy === GraphqlSortOrder.Asc ? (
-						<IconSortAscending />
-					) : (
-						<IconSortDescending />
-					)}
-				</ActionIcon>
+				{filters.sortBy !== PersonAndMetadataGroupsSortBy.Random ? (
+					<SortOrderToggle
+						currentOrder={filters.orderBy}
+						onOrderChange={(order) => onFiltersChange("orderBy", order)}
+					/>
+				) : null}
 			</Flex>
 			<Divider />
 			<CollectionsFilter
