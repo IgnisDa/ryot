@@ -1,3 +1,5 @@
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { generateId } from "better-auth";
 import { Effect, Schema } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
@@ -9,11 +11,11 @@ import { parseLabeledPropertySchemaInput } from "#lib/schema/property-schema-run
 import { slugify } from "#lib/slug";
 import { requireText, trimToNull } from "#lib/validation";
 import { SandboxApiService } from "#modules/sandbox/service";
-import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { TrackersRepository } from "#modules/trackers/repository";
 
 import { EntitySchemasRepository } from "./repository";
 import type { CreateEntitySchemaBody, SearchEntitySchemasBody } from "./schemas";
+import { CreateDefaultSavedViewWorkflow } from "./workflow-definitions";
 
 const reservedEntitySchemaSlugs = new Set(builtinEntitySchemas().map((s) => s.slug));
 
@@ -55,7 +57,7 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 			const repository = yield* EntitySchemasRepository;
 			const sandboxApiService = yield* SandboxApiService;
 			const trackersRepository = yield* TrackersRepository;
-			const savedViewsRepository = yield* SavedViewsRepository;
+			const engine = yield* WorkflowEngine;
 
 			return {
 				list: Effect.fn("EntitySchemasService.list")(function* (
@@ -120,9 +122,9 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 						return yield* conflict("Entity schema slug already exists");
 					}
 
-					return yield* runInTransaction(
+					const createdEntitySchema = yield* runInTransaction(
 						Effect.gen(function* () {
-							const createdEntitySchema = yield* repository.createEntitySchema({
+							const created = yield* repository.createEntitySchema({
 								userId: user.id,
 								propertiesSchema,
 								icon: resolved.icon,
@@ -133,31 +135,41 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 
 							yield* trackersRepository.linkEntitySchema({
 								trackerId: TrackerId.make(trackerId),
-								entitySchemaId: createdEntitySchema.id,
+								entitySchemaId: created.id,
 							});
 
-							yield* savedViewsRepository.createDefaultViewForSchema({
+							return created;
+						}),
+					);
+
+					const executionId = generateId();
+					yield* engine
+						.execute(CreateDefaultSavedViewWorkflow, {
+							executionId,
+							discard: true,
+							payload: {
+								executionId,
 								userId: user.id,
 								icon: resolved.icon,
-								trackerId: TrackerId.make(trackerId),
 								entitySchemaSlug: resolved.slug,
 								entitySchemaName: resolved.name,
 								accentColor: resolved.accentColor,
-							});
-
-							return {
-								providers: [],
 								trackerId: TrackerId.make(trackerId),
-								id: createdEntitySchema.id,
-								name: createdEntitySchema.name,
-								slug: createdEntitySchema.slug,
-								icon: createdEntitySchema.icon,
-								isBuiltin: createdEntitySchema.isBuiltin,
-								accentColor: createdEntitySchema.accentColor,
-								propertiesSchema: createdEntitySchema.propertiesSchema,
-							};
-						}),
-					);
+							},
+						})
+						.pipe(Effect.orDie);
+
+					return {
+						providers: [],
+						id: createdEntitySchema.id,
+						name: createdEntitySchema.name,
+						slug: createdEntitySchema.slug,
+						icon: createdEntitySchema.icon,
+						trackerId: TrackerId.make(trackerId),
+						isBuiltin: createdEntitySchema.isBuiltin,
+						accentColor: createdEntitySchema.accentColor,
+						propertiesSchema: createdEntitySchema.propertiesSchema,
+					};
 				}),
 				getById: Effect.fn("EntitySchemasService.getById")(function* (
 					user: CurrentUserValue,
