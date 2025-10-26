@@ -1,12 +1,20 @@
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "@effect/platform";
 import { isHttpMethod } from "@effect/platform/HttpMethod";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { and, eq, isNull, or } from "drizzle-orm";
 import { Clock, Duration, Effect, Match, Runtime, Schema } from "effect";
 
+import { EntitiesRepository } from "../modules/entities/repository";
+import { EntitySchemasRepository } from "../modules/entity-schemas/repository";
+import { EventSchemasRepository } from "../modules/event-schemas/repository";
+import { EventsRepository } from "../modules/events/repository";
+import { IntegrationsRepository } from "../modules/integrations/repository";
+import { SandboxRepository } from "../modules/sandbox/repository";
 import { AppConfig } from "./config";
 import { CurrentDb, DbRunner, dbEffect, schema } from "./db";
 import { SandboxRunError, TimeoutError, unknownToMessage } from "./errors";
 import { redisKeys, RedisService } from "./redis";
+import { makeAdditionalSandboxApiFunctions } from "./sandbox-host-functions";
 import { BridgeService, invalidateProcess, ProcessPool } from "./sandbox-runtime";
 
 type BoundHostFunction = (...args: ReadonlyArray<unknown>) => Promise<unknown>;
@@ -131,11 +139,113 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
 		const bridge = yield* BridgeService;
+		const workflowEngine = yield* WorkflowEngine;
+		const eventsRepository = yield* EventsRepository;
+		const sandboxRepository = yield* SandboxRepository;
+		const entitiesRepository = yield* EntitiesRepository;
+		const integrationsRepository = yield* IntegrationsRepository;
+		const eventSchemasRepository = yield* EventSchemasRepository;
+		const entitySchemasRepository = yield* EntitySchemasRepository;
+
 		const runtime = yield* Effect.runtime();
 		const runPromise = Runtime.runPromise(runtime);
 		const httpClient = yield* HttpClient.HttpClient;
 
-		const apiFunctions: Record<string, BoundHostFunction> = {
+		// `runSandbox` reads `apiFunctions`, and some host functions are built from `runSandbox`
+		// (a trigger script can itself create events, which runs further before-create triggers).
+		// The late `let` binding ties this mutual reference; `runSandbox` is only ever invoked after
+		// `apiFunctions` is assigned below.
+		let apiFunctions: Record<string, BoundHostFunction>;
+
+		const runSandbox = (input: SandboxRunInput) =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const selectedApiFunctions: Record<string, BoundHostFunction> = {};
+					for (const key of input.allowedHostFunctions) {
+						const fn = apiFunctions[key];
+						if (fn) {
+							selectedApiFunctions[key] = (...args) => fn(...args, input);
+						}
+					}
+
+					const worker = yield* pool.get;
+					yield* worker.responseQueue.takeAll.pipe(Effect.asVoid);
+
+					const token = crypto.randomUUID();
+					const now = yield* Clock.currentTimeMillis;
+					yield* bridge.addSession(input.executionId, {
+						token,
+						apiFunctions: selectedApiFunctions,
+						expiresAt: now + config.sandbox.timeoutMs + sessionTtlBufferMs,
+					});
+					yield* Effect.addFinalizer(() =>
+						bridge.removeSession(input.executionId).pipe(Effect.orDie),
+					);
+
+					const startedAt = yield* Clock.currentTimeMillis;
+					const requestLine = `${encodeSandboxRunnerRequest({
+						token,
+						code: input.code,
+						scriptId: input.scriptId,
+						context: input.context ?? {},
+						driverName: input.driverName,
+						executionId: input.executionId,
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: Object.keys(selectedApiFunctions),
+					})}\n`;
+
+					yield* worker.stdinQueue.offer(new TextEncoder().encode(requestLine));
+
+					const responseLine = yield* Effect.raceFirst(
+						worker.responseQueue.take,
+						Effect.sleep(Duration.millis(config.sandbox.timeoutMs)).pipe(
+							Effect.zipRight(invalidateProcess(pool, worker)),
+							Effect.zipRight(
+								Effect.fail(
+									new TimeoutError({
+										message: `Sandbox timed out after ${config.sandbox.timeoutMs}ms`,
+									}),
+								),
+							),
+						),
+					);
+
+					const raw = yield* Effect.try({
+						try: () => decodeSandboxRunnerResponse(responseLine),
+						catch: makeInvalidResponse,
+					}).pipe(
+						Effect.catchAll((error) =>
+							invalidateProcess(pool, worker).pipe(Effect.zipRight(Effect.fail(error))),
+						),
+					);
+
+					const finishedAt = yield* Clock.currentTimeMillis;
+					const totalMs = finishedAt - startedAt;
+					const executionMs = raw.timing?.executionMs;
+					const error = typeof raw.error === "string" ? raw.error : null;
+					const logs = "logs" in raw && Array.isArray(raw.logs) ? raw.logs : [];
+
+					return {
+						logs,
+						error,
+						success: raw.success,
+						executionId: input.executionId,
+						value: raw.success ? (raw.value ?? null) : null,
+						timing: {
+							totalMs,
+							executionMs: typeof executionMs === "number" ? executionMs : totalMs,
+						},
+					};
+				}),
+			).pipe(
+				Effect.mapError((error) =>
+					error instanceof TimeoutError || error instanceof SandboxRunError
+						? error
+						: new SandboxRunError({ message: unknownToMessage(error) }),
+				),
+			);
+
+		apiFunctions = {
 			executeQueryEngine: (...args) => {
 				const query = args[0];
 				const input = requireSandboxRunInput(args, 1, "executeQueryEngine");
@@ -220,27 +330,6 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					),
 				);
 			},
-			getSystemConfig: () =>
-				Promise.resolve(
-					apiSuccess({
-						auth: {
-							oidcEnabled: false,
-							localAuthDisabled: config.users.disableLocalAuth,
-							signupAllowed: config.users.allowRegistration && !config.users.disableLocalAuth,
-						},
-					}),
-				),
-			getUserPreferences: () =>
-				Promise.resolve(
-					apiSuccess({
-						languages: {
-							providers: [
-								{ source: "audible", preferredLanguage: "US" },
-								{ source: "openlibrary", preferredLanguage: "en" },
-							],
-						},
-					}),
-				),
 			httpCall: (...args) => {
 				const method = args[0];
 				const url = args[1];
@@ -324,96 +413,22 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					),
 				);
 			},
+			...makeAdditionalSandboxApiFunctions({
+				redis,
+				config,
+				runWithDb,
+				runPromise,
+				workflowEngine,
+				eventsRepository,
+				sandboxRepository,
+				entitiesRepository,
+				eventSchemasRepository,
+				integrationsRepository,
+				entitySchemasRepository,
+				runSandboxScript: runSandbox,
+			}),
 		};
 
-		return {
-			run: (input: SandboxRunInput) =>
-				Effect.scoped(
-					Effect.gen(function* () {
-						const selectedApiFunctions: Record<string, BoundHostFunction> = {};
-						for (const key of input.allowedHostFunctions) {
-							const fn = apiFunctions[key];
-							if (fn) {
-								selectedApiFunctions[key] = (...args) => fn(...args, input);
-							}
-						}
-
-						const worker = yield* pool.get;
-						yield* worker.responseQueue.takeAll.pipe(Effect.asVoid);
-
-						const token = crypto.randomUUID();
-						const now = yield* Clock.currentTimeMillis;
-						yield* bridge.addSession(input.executionId, {
-							token,
-							apiFunctions: selectedApiFunctions,
-							expiresAt: now + config.sandbox.timeoutMs + sessionTtlBufferMs,
-						});
-						yield* Effect.addFinalizer(() =>
-							bridge.removeSession(input.executionId).pipe(Effect.orDie),
-						);
-
-						const startedAt = yield* Clock.currentTimeMillis;
-						const requestLine = `${encodeSandboxRunnerRequest({
-							token,
-							code: input.code,
-							scriptId: input.scriptId,
-							context: input.context ?? {},
-							driverName: input.driverName,
-							executionId: input.executionId,
-							apiBase: `http://127.0.0.1:${bridge.port}`,
-							apiFunctions: Object.keys(selectedApiFunctions),
-						})}\n`;
-
-						yield* worker.stdinQueue.offer(new TextEncoder().encode(requestLine));
-
-						const responseLine = yield* Effect.raceFirst(
-							worker.responseQueue.take,
-							Effect.sleep(Duration.millis(config.sandbox.timeoutMs)).pipe(
-								Effect.zipRight(invalidateProcess(pool, worker)),
-								Effect.zipRight(
-									Effect.fail(
-										new TimeoutError({
-											message: `Sandbox timed out after ${config.sandbox.timeoutMs}ms`,
-										}),
-									),
-								),
-							),
-						);
-
-						const raw = yield* Effect.try({
-							try: () => decodeSandboxRunnerResponse(responseLine),
-							catch: makeInvalidResponse,
-						}).pipe(
-							Effect.catchAll((error) =>
-								invalidateProcess(pool, worker).pipe(Effect.zipRight(Effect.fail(error))),
-							),
-						);
-
-						const finishedAt = yield* Clock.currentTimeMillis;
-						const totalMs = finishedAt - startedAt;
-						const logs = "logs" in raw && Array.isArray(raw.logs) ? raw.logs : [];
-						const error = typeof raw.error === "string" ? raw.error : null;
-						const executionMs = raw.timing?.executionMs;
-
-						return {
-							logs,
-							error,
-							success: raw.success,
-							executionId: input.executionId,
-							value: raw.success ? (raw.value ?? null) : null,
-							timing: {
-								totalMs,
-								executionMs: typeof executionMs === "number" ? executionMs : totalMs,
-							},
-						};
-					}),
-				).pipe(
-					Effect.mapError((error) =>
-						error instanceof TimeoutError || error instanceof SandboxRunError
-							? error
-							: new SandboxRunError({ message: unknownToMessage(error) }),
-					),
-				),
-		};
+		return { run: runSandbox };
 	}),
 }) {}
