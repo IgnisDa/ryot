@@ -5,7 +5,7 @@ import { DateTime, Effect, Either } from "effect";
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { AppConfig } from "#lib/config";
 import { DbRunner } from "#lib/db";
-import { type BadRequest, type DbError, type NotFound, badRequest, notFound } from "#lib/errors";
+import { badRequest, notFound } from "#lib/errors";
 import { RedisService } from "#lib/redis";
 import type { ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
 import { UploadsService } from "#modules/uploads/service";
@@ -27,48 +27,12 @@ import {
 	deleteImportSourcePayload,
 	storeImportSourcePayload,
 } from "./runtime/source-payload-store";
-import type { CreateImportRunBody, DetailedImportRun, ListedImportRun } from "./schemas";
+import type { CreateImportRunBody } from "./schemas";
 import type { ImportRunSource, ImportRunStatus } from "./types";
 import { ProcessImportRunWorkflow } from "./worker";
 
 const isTerminalStatus = (status: ImportRunStatus): boolean =>
 	status === "completed" || status === "failed";
-
-type ImportsServiceShape = {
-	readonly failRunForIntegration: (
-		runId: ImportRunId,
-		message: string,
-	) => Effect.Effect<void, DbError>;
-	readonly startImportRun: (
-		user: CurrentUserValue,
-		body: CreateImportRunBody,
-	) => Effect.Effect<{ id: string }, BadRequest | DbError>;
-	readonly listImportRuns: (
-		user: CurrentUserValue,
-	) => Effect.Effect<readonly ListedImportRun[], DbError>;
-	readonly getImportRun: (
-		user: CurrentUserValue,
-		runId: ImportRunId,
-		query: { page: number; limit: number },
-	) => Effect.Effect<DetailedImportRun, NotFound | DbError>;
-	readonly removeImportRun: (
-		user: CurrentUserValue,
-		runId: ImportRunId,
-	) => Effect.Effect<{ id: string }, BadRequest | NotFound | DbError>;
-	readonly hasActiveRunForIntegration: (input: {
-		integrationId: IntegrationId;
-	}) => Effect.Effect<boolean, DbError>;
-	readonly listRunsByIntegrationId: (input: {
-		userId: UserId;
-		integrationId: IntegrationId;
-	}) => Effect.Effect<readonly ListedImportRun[], DbError>;
-	readonly createRunForIntegration: (input: {
-		userId: UserId;
-		integrationId: IntegrationId;
-		source: ImportRunSource;
-		inputSummary: Record<string, unknown>;
-	}) => Effect.Effect<ListedImportRun, DbError>;
-};
 
 export class ImportsService extends Effect.Service<ImportsService>()("ImportsService", {
 	effect: Effect.gen(function* () {
@@ -245,10 +209,14 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 				: yield* startSourcePayloadImportRun(user, body, inputSummary);
 		});
 
-		const listImportRuns: ImportsServiceShape["listImportRuns"] = (user) =>
+		const listImportRuns = (user: CurrentUserValue) =>
 			runWithDb(repository.listRunsByUser({ userId: user.id }));
 
-		const getImportRun: ImportsServiceShape["getImportRun"] = (user, runId, query) =>
+		const getImportRun = (
+			user: CurrentUserValue,
+			runId: ImportRunId,
+			query: { page: number; limit: number },
+		) =>
 			Effect.gen(function* () {
 				const run = yield* runWithDb(repository.getRunById({ runId, userId: user.id }));
 				if (!run) {
@@ -260,7 +228,7 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 				return { ...run, failures: { ...failures, page: query.page, limit: query.limit } };
 			});
 
-		const removeImportRun: ImportsServiceShape["removeImportRun"] = (user, runId) =>
+		const removeImportRun = (user: CurrentUserValue, runId: ImportRunId) =>
 			Effect.gen(function* () {
 				const run = yield* runWithDb(repository.getRunById({ runId, userId: user.id }));
 				if (!run) {
@@ -273,13 +241,18 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 				return { id: runId };
 			});
 
-		const listRunsByIntegrationId: ImportsServiceShape["listRunsByIntegrationId"] = (input) =>
+		const listRunsByIntegrationId = (input: { userId: UserId; integrationId: IntegrationId }) =>
 			runWithDb(repository.listRunsByIntegrationId(input));
 
-		const hasActiveRunForIntegration: ImportsServiceShape["hasActiveRunForIntegration"] = (input) =>
+		const hasActiveRunForIntegration = (input: { integrationId: IntegrationId }) =>
 			runWithDb(repository.hasActiveRunForIntegration(input));
 
-		const createRunForIntegration: ImportsServiceShape["createRunForIntegration"] = (input) =>
+		const createRunForIntegration = (input: {
+			userId: UserId;
+			source: ImportRunSource;
+			integrationId: IntegrationId;
+			inputSummary: Record<string, unknown>;
+		}) =>
 			runWithDb(
 				repository.createRun({
 					userId: input.userId,
@@ -311,6 +284,6 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 			listRunsByIntegrationId,
 			createRunForIntegration,
 			hasActiveRunForIntegration,
-		} satisfies ImportsServiceShape;
+		};
 	}),
 }) {}
