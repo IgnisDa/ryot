@@ -139,7 +139,12 @@ pub async fn process_integration_webhook(
         IntegrationProvider::GenericJson => sink::generic_json::sink_progress(payload).await,
         IntegrationProvider::JellyfinSink => {
             let specifics = integration.clone().provider_specifics.unwrap();
-            sink::jellyfin::sink_progress(payload, specifics.jellyfin_sink_username).await
+            sink::jellyfin::sink_progress(
+                payload,
+                specifics.jellyfin_sink_username,
+                specifics.jellyfin_sink_metadata_provider,
+            )
+            .await
         }
         IntegrationProvider::PlexSink => {
             let specifics = integration.clone().provider_specifics.unwrap();
