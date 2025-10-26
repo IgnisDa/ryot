@@ -8,7 +8,9 @@ use database_models::{
     metadata_group, person, prelude::*, review, seen, user_measurement, user_to_entity, workout,
     workout_template,
 };
-use database_utils::{apply_columns_search, extract_pagination_params};
+use database_utils::{
+    apply_columns_search, build_collection_filter_condition, extract_pagination_params,
+};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, SearchResults,
     UserCollectionsListResponse, UserExercisesListResponse, UserMeasurementsListResponse,
@@ -27,13 +29,11 @@ use migrations_sql::{
     AliasedCollection, AliasedCollectionToEntity, AliasedMetadata, AliasedMetadataToGenre,
     AliasedReview, AliasedSeen, AliasedUser, AliasedUserToEntity,
 };
-use sea_orm::Iterable;
-use sea_orm::sea_query::{Query, SimpleExpr};
 use sea_orm::{
-    ColumnTrait, Condition, EntityTrait, ItemsAndPagesNumber, JoinType, Order, PaginatorTrait,
-    QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait,
+    ColumnTrait, Condition, EntityTrait, ItemsAndPagesNumber, Iterable, JoinType, Order,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait,
     prelude::Expr,
-    sea_query::{Alias, Func, NullOrdering, PgFunc},
+    sea_query::{Alias, Func, NullOrdering, PgFunc, Query, SimpleExpr},
 };
 use supporting_service::SupportingService;
 
@@ -180,81 +180,16 @@ pub async fn user_metadata_list(
                     },
                 );
 
-            if let Some(ref filter) = input.filter
-                && let Some(ref collections) = filter.collections
-                && !collections.is_empty()
-            {
-                let (first_filter, remaining_filters) = collections.split_first().unwrap();
-
-                let mut combined_condition: SimpleExpr = {
-                    let exists_condition = Expr::exists(
-                        Query::select()
-                            .expr(Expr::val(1))
-                            .from(CollectionEntityMembership)
-                            .and_where(
-                                collection_entity_membership::Column::OriginCollectionId
-                                    .eq(&first_filter.collection_id),
-                            )
-                            .and_where(collection_entity_membership::Column::UserId.eq(user_id))
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::EntityId).equals((
-                                    AliasedUserToEntity::Table,
-                                    AliasedUserToEntity::EntityId,
-                                )),
-                            )
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::EntityLot).equals(
-                                    (AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot),
-                                ),
-                            )
-                            .to_owned(),
-                    );
-                    match first_filter.presence {
-                        MediaCollectionPresenceFilter::PresentIn => exists_condition,
-                        MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
-                    }
-                };
-
-                for coll_filter in remaining_filters {
-                    let exists_condition = Expr::exists(
-                        Query::select()
-                            .expr(Expr::val(1))
-                            .from(CollectionEntityMembership)
-                            .and_where(
-                                collection_entity_membership::Column::OriginCollectionId
-                                    .eq(&coll_filter.collection_id),
-                            )
-                            .and_where(collection_entity_membership::Column::UserId.eq(user_id))
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::EntityId).equals((
-                                    AliasedUserToEntity::Table,
-                                    AliasedUserToEntity::EntityId,
-                                )),
-                            )
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::EntityLot).equals(
-                                    (AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot),
-                                ),
-                            )
-                            .to_owned(),
-                    );
-                    let condition = match coll_filter.presence {
-                        MediaCollectionPresenceFilter::PresentIn => exists_condition,
-                        MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
-                    };
-
-                    combined_condition = match coll_filter.strategy {
-                        media_models::MediaCollectionStrategyFilter::And => {
-                            combined_condition.and(condition)
-                        }
-                        media_models::MediaCollectionStrategyFilter::Or => {
-                            combined_condition.or(condition)
-                        }
-                    };
-                }
-
-                base_query = base_query.filter(combined_condition);
-            }
+            base_query = base_query.apply_if(
+                input
+                    .filter
+                    .as_ref()
+                    .and_then(|f| f.collections.as_ref())
+                    .and_then(|collections| {
+                        build_collection_filter_condition(user_id, collections)
+                    }),
+                |query, condition| query.filter(condition),
+            );
 
             base_query = base_query.apply_if(input.filter.and_then(|f| f.general), |query, v| {
                 let filter_expression: SimpleExpr = match v {
@@ -572,81 +507,16 @@ pub async fn user_metadata_groups_list(
                     )
                 });
 
-            if let Some(ref filter) = input.filter
-                && let Some(ref collections) = filter.collections
-                && !collections.is_empty()
-            {
-                let (first_filter, remaining_filters) = collections.split_first().unwrap();
-
-                let mut combined_condition: SimpleExpr = {
-                    let exists_condition = Expr::exists(
-                        Query::select()
-                            .expr(Expr::val(1))
-                            .from(CollectionEntityMembership)
-                            .and_where(
-                                collection_entity_membership::Column::OriginCollectionId
-                                    .eq(&first_filter.collection_id),
-                            )
-                            .and_where(collection_entity_membership::Column::UserId.eq(user_id))
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::EntityId).equals((
-                                    AliasedUserToEntity::Table,
-                                    AliasedUserToEntity::EntityId,
-                                )),
-                            )
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::EntityLot).equals(
-                                    (AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot),
-                                ),
-                            )
-                            .to_owned(),
-                    );
-                    match first_filter.presence {
-                        MediaCollectionPresenceFilter::PresentIn => exists_condition,
-                        MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
-                    }
-                };
-
-                for coll_filter in remaining_filters {
-                    let exists_condition = Expr::exists(
-                        Query::select()
-                            .expr(Expr::val(1))
-                            .from(CollectionEntityMembership)
-                            .and_where(
-                                collection_entity_membership::Column::OriginCollectionId
-                                    .eq(&coll_filter.collection_id),
-                            )
-                            .and_where(collection_entity_membership::Column::UserId.eq(user_id))
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::EntityId).equals((
-                                    AliasedUserToEntity::Table,
-                                    AliasedUserToEntity::EntityId,
-                                )),
-                            )
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::EntityLot).equals(
-                                    (AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot),
-                                ),
-                            )
-                            .to_owned(),
-                    );
-                    let condition = match coll_filter.presence {
-                        MediaCollectionPresenceFilter::PresentIn => exists_condition,
-                        MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
-                    };
-
-                    combined_condition = match coll_filter.strategy {
-                        media_models::MediaCollectionStrategyFilter::And => {
-                            combined_condition.and(condition)
-                        }
-                        media_models::MediaCollectionStrategyFilter::Or => {
-                            combined_condition.or(condition)
-                        }
-                    };
-                }
-
-                base_query = base_query.filter(combined_condition);
-            }
+            base_query = base_query.apply_if(
+                input
+                    .filter
+                    .as_ref()
+                    .and_then(|f| f.collections.as_ref())
+                    .and_then(|collections| {
+                        build_collection_filter_condition(user_id, collections)
+                    }),
+                |query, condition| query.filter(condition),
+            );
 
             let paginator = base_query
                 .order_by(order_by, sort_order)
@@ -720,81 +590,16 @@ pub async fn user_people_list(
                     )
                 });
 
-            if let Some(ref filter) = input.filter
-                && let Some(ref collections) = filter.collections
-                && !collections.is_empty()
-            {
-                let (first_filter, remaining_filters) = collections.split_first().unwrap();
-
-                let mut combined_condition: SimpleExpr = {
-                    let exists_condition = Expr::exists(
-                        Query::select()
-                            .expr(Expr::val(1))
-                            .from(CollectionEntityMembership)
-                            .and_where(
-                                collection_entity_membership::Column::OriginCollectionId
-                                    .eq(&first_filter.collection_id),
-                            )
-                            .and_where(collection_entity_membership::Column::UserId.eq(user_id))
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::EntityId).equals((
-                                    AliasedUserToEntity::Table,
-                                    AliasedUserToEntity::EntityId,
-                                )),
-                            )
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::EntityLot).equals(
-                                    (AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot),
-                                ),
-                            )
-                            .to_owned(),
-                    );
-                    match first_filter.presence {
-                        MediaCollectionPresenceFilter::PresentIn => exists_condition,
-                        MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
-                    }
-                };
-
-                for coll_filter in remaining_filters {
-                    let exists_condition = Expr::exists(
-                        Query::select()
-                            .expr(Expr::val(1))
-                            .from(CollectionEntityMembership)
-                            .and_where(
-                                collection_entity_membership::Column::OriginCollectionId
-                                    .eq(&coll_filter.collection_id),
-                            )
-                            .and_where(collection_entity_membership::Column::UserId.eq(user_id))
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::EntityId).equals((
-                                    AliasedUserToEntity::Table,
-                                    AliasedUserToEntity::EntityId,
-                                )),
-                            )
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::EntityLot).equals(
-                                    (AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot),
-                                ),
-                            )
-                            .to_owned(),
-                    );
-                    let condition = match coll_filter.presence {
-                        MediaCollectionPresenceFilter::PresentIn => exists_condition,
-                        MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
-                    };
-
-                    combined_condition = match coll_filter.strategy {
-                        media_models::MediaCollectionStrategyFilter::And => {
-                            combined_condition.and(condition)
-                        }
-                        media_models::MediaCollectionStrategyFilter::Or => {
-                            combined_condition.or(condition)
-                        }
-                    };
-                }
-
-                base_query = base_query.filter(combined_condition);
-            }
+            base_query = base_query.apply_if(
+                input
+                    .filter
+                    .as_ref()
+                    .and_then(|f| f.collections.as_ref())
+                    .and_then(|collections| {
+                        build_collection_filter_condition(user_id, collections)
+                    }),
+                |query, condition| query.filter(condition),
+            );
 
             let creators_paginator = base_query
                 .order_by(order_by, sort_order)

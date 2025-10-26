@@ -21,6 +21,7 @@ database-models = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }
+migrations-sql = { workspace = true }
 session-service = { workspace = true }
 supporting-service = { workspace = true }
 

@@ -1915,6 +1915,7 @@ dependencies = [
  "itertools 0.14.0",
  "markdown",
  "media-models",
+ "migrations-sql",
  "rust_decimal",
  "sea-orm",
  "session-service",

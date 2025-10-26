@@ -22,11 +22,12 @@ use markdown::to_html as markdown_to_html;
 use media_models::{
     MediaCollectionFilter, MediaCollectionPresenceFilter, MediaCollectionStrategyFilter, ReviewItem,
 };
+use migrations_sql::AliasedUserToEntity;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, Condition, EntityTrait, IntoActiveModel,
     QueryFilter, QueryOrder, QuerySelect, Select,
     prelude::Expr,
-    sea_query::{PgFunc, SimpleExpr, extension::postgres::PgExpr},
+    sea_query::{PgFunc, Query, SimpleExpr, extension::postgres::PgExpr},
 };
 use supporting_service::SupportingService;
 use uuid::Uuid;
@@ -237,54 +238,74 @@ pub async fn user_workout_template_details(
     .await
 }
 
-fn build_collection_condition<C>(
-    collection_id: String,
-    id_column: C,
-    presence: MediaCollectionPresenceFilter,
-) -> SimpleExpr
-where
-    C: ColumnTrait,
-{
-    let value = Expr::val(collection_id);
-    let any_column = PgFunc::any(Expr::col(id_column));
-    match presence {
-        MediaCollectionPresenceFilter::PresentIn => value.eq(any_column),
-        MediaCollectionPresenceFilter::NotPresentIn => value.eq(any_column).not(),
-    }
-}
-
-pub fn apply_collection_filters<C, D>(
-    id_column: C,
-    query: Select<D>,
-    filters: Vec<MediaCollectionFilter>,
-) -> Select<D>
-where
-    C: ColumnTrait,
-    D: EntityTrait,
-{
+pub fn build_collection_filter_condition(
+    user_id: &String,
+    filters: &[MediaCollectionFilter],
+) -> Option<SimpleExpr> {
     if filters.is_empty() {
-        return query;
+        return None;
     }
 
-    let (base_filter, remaining_filters) = filters.split_first().unwrap();
+    let (first_filter, remaining_filters) = filters.split_first().unwrap();
 
-    let mut filter_condition = build_collection_condition(
-        base_filter.collection_id.clone(),
-        id_column,
-        base_filter.presence,
-    );
+    let mut combined_condition: SimpleExpr = {
+        let exists_condition = Expr::exists(
+            Query::select()
+                .expr(Expr::val(1))
+                .from(CollectionEntityMembership)
+                .and_where(
+                    collection_entity_membership::Column::OriginCollectionId
+                        .eq(&first_filter.collection_id),
+                )
+                .and_where(collection_entity_membership::Column::UserId.eq(user_id))
+                .and_where(
+                    Expr::col(collection_entity_membership::Column::EntityId)
+                        .equals((AliasedUserToEntity::Table, AliasedUserToEntity::EntityId)),
+                )
+                .and_where(
+                    Expr::col(collection_entity_membership::Column::EntityLot)
+                        .equals((AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot)),
+                )
+                .to_owned(),
+        );
+        match first_filter.presence {
+            MediaCollectionPresenceFilter::PresentIn => exists_condition,
+            MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
+        }
+    };
 
-    for filter in remaining_filters {
-        let condition =
-            build_collection_condition(filter.collection_id.clone(), id_column, filter.presence);
+    for coll_filter in remaining_filters {
+        let exists_condition = Expr::exists(
+            Query::select()
+                .expr(Expr::val(1))
+                .from(CollectionEntityMembership)
+                .and_where(
+                    collection_entity_membership::Column::OriginCollectionId
+                        .eq(&coll_filter.collection_id),
+                )
+                .and_where(collection_entity_membership::Column::UserId.eq(user_id))
+                .and_where(
+                    Expr::col(collection_entity_membership::Column::EntityId)
+                        .equals((AliasedUserToEntity::Table, AliasedUserToEntity::EntityId)),
+                )
+                .and_where(
+                    Expr::col(collection_entity_membership::Column::EntityLot)
+                        .equals((AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot)),
+                )
+                .to_owned(),
+        );
+        let condition = match coll_filter.presence {
+            MediaCollectionPresenceFilter::PresentIn => exists_condition,
+            MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
+        };
 
-        filter_condition = match filter.strategy {
-            MediaCollectionStrategyFilter::And => filter_condition.and(condition),
-            MediaCollectionStrategyFilter::Or => filter_condition.or(condition),
+        combined_condition = match coll_filter.strategy {
+            MediaCollectionStrategyFilter::And => combined_condition.and(condition),
+            MediaCollectionStrategyFilter::Or => combined_condition.or(condition),
         };
     }
 
-    query.filter(filter_condition)
+    Some(combined_condition)
 }
 
 /// If the token has an access link, then checks that:
