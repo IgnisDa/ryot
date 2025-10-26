@@ -19,9 +19,99 @@ import {
 	queryInLibraryRelationship,
 	queryUserEntityStateCounts,
 	requireEventSchemaBySlug,
-	waitForEventCount,
 } from "../fixtures";
-import { createCollection } from "../fixtures/collections";
+import { getPgClient } from "../setup";
+
+async function insertUserEvent(input: {
+	userId: string;
+	entityId: string;
+	eventSchemaId: string;
+	sessionEntityId?: string;
+	properties: Record<string, unknown>;
+}) {
+	const pg = getPgClient();
+
+	await pg.query(
+		`insert into event (
+			id,
+			user_id,
+			entity_id,
+			event_schema_id,
+			session_entity_id,
+			occurred_at,
+			properties
+		) values ($1, $2, $3, $4, $5, now(), $6::jsonb)`,
+		[
+			crypto.randomUUID(),
+			input.userId,
+			input.entityId,
+			input.eventSchemaId,
+			input.sessionEntityId ?? null,
+			JSON.stringify(input.properties),
+		],
+	);
+}
+
+async function insertUserRelationship(input: {
+	userId: string;
+	sourceEntityId: string;
+	targetEntityId: string;
+	relationshipSchemaSlug: string;
+	properties?: Record<string, unknown>;
+}) {
+	const pg = getPgClient();
+	const relationshipSchema = await pg.query<{ id: string }>(
+		`select id from relationship_schema
+		 where slug = $1 and user_id is null
+		 limit 1`,
+		[input.relationshipSchemaSlug],
+	);
+	const relationshipSchemaId = relationshipSchema.rows[0]?.id;
+	if (!relationshipSchemaId) {
+		throw new Error(`Missing relationship schema '${input.relationshipSchemaSlug}'`);
+	}
+
+	await pg.query(
+		`insert into relationship (
+			id,
+			user_id,
+			relationship_schema_id,
+			properties,
+			source_entity_id,
+			target_entity_id
+		) values ($1, $2, $3, $4::jsonb, $5, $6)
+		 on conflict (user_id, source_entity_id, target_entity_id, relationship_schema_id) do nothing`,
+		[
+			crypto.randomUUID(),
+			input.userId,
+			relationshipSchemaId,
+			JSON.stringify(input.properties ?? {}),
+			input.sourceEntityId,
+			input.targetEntityId,
+		],
+	);
+}
+
+async function getLibraryEntityId(userId: string) {
+	const pg = getPgClient();
+	const result = await pg.query<{ id: string }>(
+		`select e.id
+		 from entity e
+		 inner join entity_schema es on es.id = e.entity_schema_id
+		 where e.user_id = $1
+		   and es.slug = 'library'
+		   and es.user_id is null
+		 limit 1`,
+		[userId],
+	);
+
+	const libraryEntityId = result.rows[0]?.id;
+	if (!libraryEntityId) {
+		throw new Error(`Missing library entity for user '${userId}'`);
+	}
+
+	return libraryEntityId;
+}
 
 async function createSchemaWithEnumFields(
 	client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"],
@@ -166,7 +256,6 @@ describe("POST /entities", () => {
 		const { response, error } = await client.POST("/entities", {
 			headers: { Cookie: cookies },
 			body: {
-				image: null,
 				entitySchemaId: schemaId,
 				externalId: "ext-partial",
 				properties: { title: "Partial" },
@@ -189,7 +278,6 @@ describe("POST /entities", () => {
 		const { response, error } = await client.POST("/entities", {
 			headers: { Cookie: cookies },
 			body: {
-				image: null,
 				sandboxScriptId,
 				entitySchemaId: schemaId,
 				properties: { title: "Partial" },
@@ -210,21 +298,12 @@ describe("GET /entities/:id — global entity read access", () => {
 		const { entity } = await createGlobalBookEntityFixture(clientA, cookiesA);
 
 		await insertLibraryMembership({ userId, mediaEntityId: entity.id });
-
-		const entityId = entity.id;
-
-		const { response: responseA } = await clientA.GET("/entities/{entityId}", {
-			headers: { Cookie: cookiesA },
-			params: { path: { entityId } },
-		});
-		expect(responseA.status).toBe(200);
+		const entityA = await getEntity(clientA, cookiesA, entity.id);
+		expect(entityA.id).toBe(entity.id);
 
 		const { client: clientB, cookies: cookiesB } = await createAuthenticatedClient();
-		const { response: responseB } = await clientB.GET("/entities/{entityId}", {
-			headers: { Cookie: cookiesB },
-			params: { path: { entityId } },
-		});
-		expect(responseB.status).toBe(200);
+		const entityB = await getEntity(clientB, cookiesB, entity.id);
+		expect(entityB.id).toBe(entity.id);
 	}, 30_000);
 });
 
@@ -332,42 +411,32 @@ describe("DELETE /entities/:id/user-state", () => {
 		const eventSchemas = await listEventSchemas(userA.client, userA.cookies, schema.id);
 		const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
 
-		const createUserAReview = await userA.client.POST("/events", {
-			headers: { Cookie: userA.cookies },
-			body: [
-				{
-					entityId: entity.id,
-					eventSchemaId: reviewEventSchema.id,
-					properties: { rating: 4, text: "User A review" },
-				},
-			],
-		});
-		expect(createUserAReview.response.status).toBe(200);
+		const { entityId: extraTargetEntityId } = await createTrackerWithSchemaAndEntity(
+			userA.client,
+			userA.cookies,
+		);
 
-		const collection = await createCollection(userA.client, userA.cookies, {
-			name: `User A Collection ${crypto.randomUUID()}`,
+		await insertUserEvent({
+			entityId: entity.id,
+			userId: userA.userId,
+			eventSchemaId: reviewEventSchema.id,
+			properties: { rating: 4, text: "User A review" },
 		});
-		const addToCollection = await userA.client.POST("/collections/memberships", {
-			headers: { Cookie: userA.cookies },
-			body: { entityId: entity.id, collectionId: collection.id },
+		await insertUserEvent({
+			entityId: entity.id,
+			userId: userB.userId,
+			eventSchemaId: reviewEventSchema.id,
+			properties: { rating: 5, text: "User B review" },
 		});
-		expect(addToCollection.response.status).toBe(200);
-
-		const createUserBReview = await userB.client.POST("/events", {
-			headers: { Cookie: userB.cookies },
-			body: [
-				{
-					entityId: entity.id,
-					eventSchemaId: reviewEventSchema.id,
-					properties: { rating: 5, text: "User B review" },
-				},
-			],
-		});
-		expect(createUserBReview.response.status).toBe(200);
-		await waitForEventCount(userA.client, userA.cookies, entity.id, 1);
-		await waitForEventCount(userB.client, userB.cookies, entity.id, 1);
 
 		await insertLibraryMembership({ userId: userB.userId, mediaEntityId: entity.id });
+		await insertLibraryMembership({ userId: userA.userId, mediaEntityId: entity.id });
+		await insertUserRelationship({
+			userId: userA.userId,
+			sourceEntityId: entity.id,
+			targetEntityId: extraTargetEntityId,
+			relationshipSchemaSlug: "member-of",
+		});
 
 		expect(await queryUserEntityStateCounts({ userId: userA.userId, entityId: entity.id })).toEqual(
 			{ eventCount: 1, relationshipCount: 2 },
@@ -396,57 +465,17 @@ describe("DELETE /entities/:id/user-state", () => {
 		expect(userBMembership.rowCount).toBe(1);
 	});
 
-	it("clears collection user-state without deleting the collection entity row", async () => {
+	it("rejects clearing the library entity user state", async () => {
 		const { client, cookies, userId } = await createAuthenticatedClient();
-		const collection = await createCollection(client, cookies, {
-			name: `Collection User State ${crypto.randomUUID()}`,
-		});
-		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
+		const libraryEntityId = await getLibraryEntityId(userId);
 
-		const addToCollection = await client.POST("/collections/memberships", {
+		const { response, error } = await client.entities.clearUserState({
 			headers: { Cookie: cookies },
-			body: { entityId, collectionId: collection.id },
-		});
-		expect(addToCollection.response.status).toBe(200);
-
-		const collectionEventSchemas = await listEventSchemas(
-			client,
-			cookies,
-			collection.entitySchemaId,
-		);
-		const reviewEventSchema = requireEventSchemaBySlug(collectionEventSchemas, "review");
-		const createCollectionReview = await client.POST("/events", {
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId: collection.id,
-					eventSchemaId: reviewEventSchema.id,
-					properties: { rating: 3, text: "Collection review" },
-				},
-			],
-		});
-		expect(createCollectionReview.response.status).toBe(200);
-		await waitForEventCount(client, cookies, collection.id, 2);
-
-		expect(await queryUserEntityStateCounts({ userId, entityId: collection.id })).toEqual({
-			eventCount: 2,
-			relationshipCount: 1,
+			params: { path: { entityId: libraryEntityId } },
 		});
 
-		const result = await clearEntityUserState(client, cookies, collection.id);
-
-		expect(result).toEqual({
-			entityId: collection.id,
-			deletedEventsCount: 2,
-			deletedRelationshipsCount: 1,
-		});
-		expect(await queryUserEntityStateCounts({ userId, entityId: collection.id })).toEqual({
-			eventCount: 0,
-			relationshipCount: 0,
-		});
-
-		const persistedCollection = await getEntity(client, cookies, collection.id);
-		expect(persistedCollection.id).toBe(collection.id);
+		expect(response.status).toBe(400);
+		expect(error?.error.message).toBe("Library entity user state cannot be cleared");
 	});
 
 	it("rejects unauthenticated requests", async () => {
