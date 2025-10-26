@@ -21,6 +21,6 @@
 		"react": "19.2.0",
 		"react-dom": "19.2.0",
 		"tailwindcss": "4.1.16",
-		"ts-pattern": "5.8.0"
+		"ts-pattern": "5.9.0"
 	}
 }
