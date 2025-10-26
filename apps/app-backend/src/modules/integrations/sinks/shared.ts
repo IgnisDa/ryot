@@ -42,7 +42,7 @@ export const parseJsonRecord = (rawBody: string): JsonRecord => {
 	return parsed;
 };
 
-export const findNestedValue = (input: unknown, keys: string[]): unknown => {
+const findNestedValue = (input: unknown, keys: string[]): unknown => {
 	const pending: unknown[] = [input];
 	const visited = new Set<object>();
 
