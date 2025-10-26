@@ -1,3 +1,5 @@
+import { IntegrationId } from "@ryot/app-backend/schema/brands";
+
 import { getBackendUrl } from "../setup";
 import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
@@ -53,11 +55,13 @@ export async function listIntegrations(
 }
 
 export async function getIntegration(client: Client, id: string) {
-	return client.run((c) => c.integrations.get({ path: { integrationId: id } }));
+	return client.run((c) => c.integrations.get({ path: { integrationId: IntegrationId.make(id) } }));
 }
 
 export async function deleteIntegration(client: Client, id: string) {
-	return client.run((c) => c.integrations.delete({ path: { integrationId: id } }));
+	return client.run((c) =>
+		c.integrations.delete({ path: { integrationId: IntegrationId.make(id) } }),
+	);
 }
 
 export async function postIntegrationWebhook(
