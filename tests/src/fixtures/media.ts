@@ -4,24 +4,7 @@ import { getPgClient } from "../setup";
 import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 import { findBuiltinSchemaWithProviders, getFirstProviderScriptId } from "./entity-schemas";
-
-export async function createRelationshipSchema(input: {
-	slug: string;
-	name: string;
-	userId: string;
-	propertiesSchema: Record<string, unknown>;
-}) {
-	const pg = getPgClient();
-	const id = crypto.randomUUID();
-
-	await pg.query(
-		`insert into relationship_schema (id, slug, name, user_id, properties_schema, is_builtin)
-		 values ($1, $2, $3, $4, $5::jsonb, false)`,
-		[id, input.slug, input.name, input.userId, JSON.stringify(input.propertiesSchema)],
-	);
-
-	return { id, slug: input.slug };
-}
+import { listRelationshipSchemas, requireRelationshipSchemaBySlug } from "./relationship-schemas";
 
 export async function insertRelationshipRow(input: {
 	userId: string;
@@ -69,21 +52,23 @@ export async function insertRelationshipRow(input: {
 	return { id };
 }
 
-export async function queryInLibraryRelationship(entityId: string, email: string) {
+export async function queryInLibraryRelationship(client: Client, entityId: string, email: string) {
+	const schemas = await listRelationshipSchemas(client, { slugs: ["in-library"] });
+	const inLibrarySchema = requireRelationshipSchemaBySlug(schemas, "in-library");
+
 	return getPgClient().query<{ id: string }>(
 		`select r.id
 		 from relationship r
-		 inner join relationship_schema rs on rs.id = r.relationship_schema_id
 		 inner join entity library_entity on library_entity.id = r.target_entity_id
 		 inner join entity_schema library_schema on library_schema.id = library_entity.entity_schema_id
 		 inner join "user" u on u.id = library_entity.user_id
-		 where rs.slug = 'in-library'
+		 where r.relationship_schema_id = $1
 		   and r.user_id = u.id
-		   and r.source_entity_id = $1
-		   and u.email = $2
+		   and r.source_entity_id = $2
+		   and u.email = $3
 		   and library_schema.slug = 'library'
 		 limit 1`,
-		[entityId, email],
+		[inLibrarySchema.id, entityId, email],
 	);
 }
 
@@ -131,12 +116,17 @@ export async function getGlobalEntityByProvenance(input: {
 	);
 }
 
-export async function getRelationshipBySchemaSlug(input: {
-	sourceEntityId: string;
-	targetEntityId: string;
-	relationshipSchemaSlug: string;
-}) {
+export async function getRelationshipBySchemaSlug(
+	client: Client,
+	input: {
+		sourceEntityId: string;
+		targetEntityId: string;
+		relationshipSchemaSlug: string;
+	},
+) {
 	const pg = getPgClient();
+	const schemas = await listRelationshipSchemas(client, { slugs: [input.relationshipSchemaSlug] });
+	const relationshipSchema = requireRelationshipSchemaBySlug(schemas, input.relationshipSchemaSlug);
 	const result = await pg.query<{
 		properties: Record<string, unknown>;
 		sourceEntityId: string;
@@ -146,13 +136,12 @@ export async function getRelationshipBySchemaSlug(input: {
 		        r.source_entity_id as "sourceEntityId",
 		        r.target_entity_id as "targetEntityId"
 		 from relationship r
-		 inner join relationship_schema rs on rs.id = r.relationship_schema_id
-		 where rs.slug = $1
+		 where r.relationship_schema_id = $1
 		   and r.source_entity_id = $2
 		   and r.target_entity_id = $3
 		   and r.user_id is null
 		 limit 1`,
-		[input.relationshipSchemaSlug, input.sourceEntityId, input.targetEntityId],
+		[relationshipSchema.id, input.sourceEntityId, input.targetEntityId],
 	);
 
 	return requirePresent(
@@ -170,9 +159,10 @@ export async function seedMediaEntity(input: {
 	properties: Record<string, unknown>;
 	image: Record<string, unknown> | null;
 }) {
+	const pg = getPgClient();
 	const id = crypto.randomUUID();
 
-	await getPgClient().query(
+	await pg.query(
 		`insert into entity (
 			id,
 			name,
@@ -224,7 +214,10 @@ export async function createGlobalBookEntityFixture(
 	return { entity, schema };
 }
 
-export async function insertLibraryMembership(input: { userId: string; mediaEntityId: string }) {
+export async function insertLibraryMembership(
+	client: Client,
+	input: { userId: string; mediaEntityId: string },
+) {
 	const pg = getPgClient();
 
 	const libraryResult = await pg.query<{ id: string }>(
@@ -240,13 +233,8 @@ export async function insertLibraryMembership(input: { userId: string; mediaEnti
 	const libraryEntityId = libraryResult.rows[0]?.id;
 	requirePresent(libraryEntityId, `Missing library entity for user '${input.userId}'`);
 
-	const schemaResult = await pg.query<{ id: string }>(
-		`select id from relationship_schema
-		 where slug = 'in-library' and user_id is null
-		 limit 1`,
-	);
-	const inLibrarySchemaId = schemaResult.rows[0]?.id;
-	requirePresent(inLibrarySchemaId, "Missing in-library relationship schema");
+	const schemas = await listRelationshipSchemas(client, { slugs: ["in-library"] });
+	const inLibrarySchema = requireRelationshipSchemaBySlug(schemas, "in-library");
 
 	await pg.query(
 		`insert into relationship (
@@ -261,7 +249,7 @@ export async function insertLibraryMembership(input: { userId: string; mediaEnti
 		[
 			crypto.randomUUID(),
 			input.userId,
-			inLibrarySchemaId,
+			inLibrarySchema.id,
 			JSON.stringify({}),
 			input.mediaEntityId,
 			libraryEntityId,

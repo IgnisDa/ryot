@@ -754,7 +754,7 @@ describe("GET /entities/import/{jobId}", () => {
 		expect(relatedEntity.name).toBe("Sunrise");
 		expect(relatedEntity.populatedAt).toBeNull();
 
-		const relationship = await getRelationshipBySchemaSlug({
+		const relationship = await getRelationshipBySchemaSlug(client, {
 			relationshipSchemaSlug: "company-to-anime",
 			sourceEntityId: relatedEntity.id,
 			targetEntityId: result.data.id,
