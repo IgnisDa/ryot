@@ -1,6 +1,6 @@
+import { Anchor, Box, Button, Container, Flex, Grid, Paper, Stack, Text, Title } from "@mantine/core";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Button } from "#/components/ui/button";
 import { useApiClient } from "#/hooks/api";
 import { useAuthClient } from "#/hooks/auth";
 
@@ -23,42 +23,87 @@ function App() {
 	});
 
 	return (
-		<main className="page-wrap px-4 pb-8 pt-14">
-			<section className="island-shell rise-in relative overflow-hidden rounded-4xl px-6 py-10 sm:px-10 sm:py-14">
+		<Container size="lg" px="md" pb={32} pt={56}>
+			<Paper shadow="md" radius="xl" p={{ base: 24, sm: 40 }} pos="relative" style={{ overflow: "hidden" }}>
 				<Button onClick={() => runMutation.mutate()}>Create API Key</Button>
-				{runMutation.data?.key && <p>API Key: {runMutation.data.key}</p>}
+				{runMutation.data?.key && <Text>API Key: {runMutation.data.key}</Text>}
 				<pre>{JSON.stringify(entitySchemasQuery.data, null, 2)}</pre>
 				{JSON.stringify(user, null, 3)}
-				<div className="pointer-events-none absolute -left-20 -top-24 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(79,184,178,0.32),transparent_66%)]" />
-				<div className="pointer-events-none absolute -bottom-20 -right-20 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(47,106,74,0.18),transparent_66%)]" />
-				<p className="island-kicker mb-3">TanStack Start Base Template</p>
-				<h1 className="display-title mb-5 max-w-3xl text-4xl leading-[1.02] font-bold tracking-tight text-(--sea-ink) sm:text-6xl">
+				<Box
+					pos="absolute"
+					left={-80}
+					top={-96}
+					h={224}
+					w={224}
+					style={{
+						borderRadius: "50%",
+						background: "radial-gradient(circle, rgba(79, 184, 178, 0.32), transparent 66%)",
+						pointerEvents: "none",
+					}}
+				/>
+				<Box
+					pos="absolute"
+					bottom={-80}
+					right={-80}
+					h={224}
+					w={224}
+					style={{
+						borderRadius: "50%",
+						background: "radial-gradient(circle, rgba(47, 106, 74, 0.18), transparent 66%)",
+						pointerEvents: "none",
+					}}
+				/>
+				<Text c="teal" size="sm" fw={600} mb={12}>
+					TanStack Start Base Template
+				</Text>
+				<Title order={1} size="3rem" lh={1.02} fw={700} maw={768} mb={20}>
 					Island hours, but for product teams.
-				</h1>
-				<p className="mb-8 max-w-2xl text-base text-(--sea-ink-soft) sm:text-lg">
+				</Title>
+				<Text c="dimmed" size="lg" maw={672} mb={32}>
 					A tropical, breathable app starter with full-document SSR, server
 					functions, streaming, and type-safe routing. Calm on the eyes. Fast in
 					production.
-				</p>
-				<div className="flex flex-wrap gap-3">
-					<a
+				</Text>
+				<Flex gap="md" wrap="wrap">
+					<Anchor
 						href="/blog"
-						className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-5 py-2.5 text-sm font-semibold text-(--lagoon-deep) no-underline transition hover:-translate-y-0.5 hover:bg-[rgba(79,184,178,0.24)]"
+						px={20}
+						py={10}
+						style={{
+							borderRadius: 9999,
+							border: "1px solid rgba(50, 143, 151, 0.3)",
+							background: "rgba(79, 184, 178, 0.14)",
+							fontSize: "0.875rem",
+							fontWeight: 600,
+							color: "var(--mantine-color-teal-7)",
+							textDecoration: "none",
+							transition: "all 0.2s",
+						}}
 					>
 						Explore Posts
-					</a>
-					<a
+					</Anchor>
+					<Anchor
 						href="https://tanstack.com/router"
 						target="_blank"
 						rel="noopener noreferrer"
-						className="rounded-full border border-[rgba(23,58,64,0.2)] bg-white/50 px-5 py-2.5 text-sm font-semibold text-(--sea-ink) no-underline transition hover:-translate-y-0.5 hover:border-[rgba(23,58,64,0.35)]"
+						px={20}
+						py={10}
+						style={{
+							borderRadius: 9999,
+							border: "1px solid rgba(23, 58, 64, 0.2)",
+							background: "rgba(255, 255, 255, 0.5)",
+							fontSize: "0.875rem",
+							fontWeight: 600,
+							textDecoration: "none",
+							transition: "all 0.2s",
+						}}
 					>
 						Router Guide
-					</a>
-				</div>
-			</section>
+					</Anchor>
+				</Flex>
+			</Paper>
 
-			<section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			<Grid mt={32}>
 				{[
 					[
 						"Type-Safe Routing",
@@ -73,40 +118,42 @@ function App() {
 						"Ship progressively rendered responses for faster experiences.",
 					],
 					[
-						"Tailwind Native",
-						"Design quickly with utility-first styling and custom tokens.",
+						"Mantine Components",
+						"Build quickly with a comprehensive component library.",
 					],
-				].map(([title, desc], index) => (
-					<article
-						key={title}
-						className="island-shell feature-card rise-in rounded-2xl p-5"
-						style={{ animationDelay: `${index * 90 + 80}ms` }}
-					>
-						<h2 className="mb-2 text-base font-semibold text-(--sea-ink)">
-							{title}
-						</h2>
-						<p className="m-0 text-sm text-(--sea-ink-soft)">{desc}</p>
-					</article>
+				].map(([title, desc]) => (
+					<Grid.Col key={title} span={{ base: 12, sm: 6, lg: 3 }}>
+						<Paper shadow="sm" radius="md" p="lg">
+							<Stack gap="xs">
+								<Text fw={600}>{title}</Text>
+								<Text c="dimmed" size="sm">
+									{desc}
+								</Text>
+							</Stack>
+						</Paper>
+					</Grid.Col>
 				))}
-			</section>
+			</Grid>
 
-			<section className="island-shell mt-8 rounded-2xl p-6">
-				<p className="island-kicker mb-2">Quick Start</p>
-				<ul className="m-0 list-disc space-y-2 pl-5 text-sm text-(--sea-ink-soft)">
-					<li>
-						Edit <code>src/routes/index.tsx</code> to customize the hero and
+			<Paper shadow="sm" radius="md" p="xl" mt={32}>
+				<Text c="teal" size="sm" fw={600} mb={8}>
+					Quick Start
+				</Text>
+				<Stack gap="sm">
+					<Text size="sm" c="dimmed">
+						• Edit <code>src/routes/index.tsx</code> to customize the hero and
 						product narrative.
-					</li>
-					<li>
-						Update <code>src/components/Header.tsx</code> and{" "}
+					</Text>
+					<Text size="sm" c="dimmed">
+						• Update <code>src/components/Header.tsx</code> and{" "}
 						<code>src/components/Footer.tsx</code> for brand links.
-					</li>
-					<li>
-						Add routes in <code>src/routes</code> and tweak visual tokens in{" "}
+					</Text>
+					<Text size="sm" c="dimmed">
+						• Add routes in <code>src/routes</code> and tweak visual tokens in{" "}
 						<code>src/styles.css</code>.
-					</li>
-				</ul>
-			</section>
-		</main>
+					</Text>
+				</Stack>
+			</Paper>
+		</Container>
 	);
 }
