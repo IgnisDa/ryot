@@ -58,12 +58,27 @@ where
         return query;
     }
 
-    let pattern = format!("%{value}%");
-    let mut condition = Condition::any();
-    for column in columns {
-        condition = condition.add(column.ilike(pattern.clone()));
+    let keywords: Vec<&str> = value.split_whitespace().collect();
+    if keywords.is_empty() {
+        return query;
     }
-    query.filter(condition)
+
+    let columns_vec: Vec<Expr> = columns.into_iter().collect();
+
+    let mut all_keywords_condition = Condition::all();
+
+    for keyword in keywords {
+        let pattern = format!("%{keyword}%");
+        let mut any_column_condition = Condition::any();
+
+        for column in &columns_vec {
+            any_column_condition = any_column_condition.add(column.clone().ilike(pattern.clone()));
+        }
+
+        all_keywords_condition = all_keywords_condition.add(any_column_condition);
+    }
+
+    query.filter(all_keywords_condition)
 }
 
 pub async fn user_by_id(user_id: &String, ss: &Arc<SupportingService>) -> Result<user::Model> {
