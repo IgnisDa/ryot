@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -16,18 +16,18 @@ Image table cells render thumbnails. JSON, array, and object values render compa
 
 ## Acceptance criteria
 
-- [ ] The layout switcher includes table mode
-- [ ] Table mode executes a query-engine request with configured `entityIdProperty` and ordered `column_N` fields
-- [ ] Table header labels come from saved-view table column labels
-- [ ] Table cells preserve configured column order and row order
-- [ ] The table is horizontally scrollable when columns overflow
-- [ ] Table rows navigate to entity detail using the configured entity ID field
-- [ ] Null table cells render as muted dashes
-- [ ] Image table cells render thumbnails with existing image URL resolution
-- [ ] JSON, array, and object cells render compact truncated text
-- [ ] Date, boolean, number, text, image, null, and JSON values use the shared value rendering system
-- [ ] Load-more behavior works in table mode
-- [ ] No interactive table sorting, sticky-header requirement, table metadata extension, or new dependency is introduced
+- [x] The layout switcher includes table mode
+- [x] Table mode executes a query-engine request with configured `entityIdProperty` and ordered `column_N` fields
+- [x] Table header labels come from saved-view table column labels
+- [x] Table cells preserve configured column order and row order
+- [x] The table is horizontally scrollable when columns overflow
+- [x] Table rows navigate to entity detail using the configured entity ID field
+- [x] Null table cells render as muted dashes
+- [x] Image table cells render thumbnails with existing image URL resolution
+- [x] JSON, array, and object cells render compact truncated text
+- [x] Date, boolean, number, text, image, null, and JSON values use the shared value rendering system
+- [x] Load-more behavior works in table mode
+- [x] No interactive table sorting, sticky-header requirement, table metadata extension, or new dependency is introduced
 
 ## User stories addressed
 
