@@ -54,7 +54,7 @@ function getSourceUrl(title, externalId) {
 }
 
 async function getApiKey() {
-  const response = await getAppConfigValue("podcasts.listennotes.apiKey");
+  const response = await getAppConfigValue("providers.listennotesApiKey");
   if (!response?.success) {
     throw new Error(
       response?.error ?? "Could not load ListenNotes API key",

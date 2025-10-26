@@ -110,7 +110,7 @@ async function getUserIsNsfw() {
 
 async function getMalClientId() {
   const configValueResponse = await getAppConfigValue(
-    "animeAndManga.mal.clientId",
+    "providers.malClientId",
   );
   if (!configValueResponse?.success) {
     throw new Error(

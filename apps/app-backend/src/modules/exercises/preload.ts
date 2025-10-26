@@ -115,6 +115,7 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 					context: input.context,
 					driverName: input.driverName,
 					executionId: input.executionId,
+					scriptIsBuiltin: script.isBuiltin,
 					allowedHostFunctions: script.metadata.allowedHostFunctions ?? [],
 				})
 				.pipe(

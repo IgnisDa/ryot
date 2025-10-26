@@ -38,6 +38,7 @@ export const SandboxExecutionQueueWorkerLive = DurableQueue.worker(
 				context: payload.context,
 				driverName: payload.driverName,
 				executionId: payload.executionId,
+				scriptIsBuiltin: script.isBuiltin,
 				allowedHostFunctions: script.metadata.allowedHostFunctions ?? [],
 			});
 
