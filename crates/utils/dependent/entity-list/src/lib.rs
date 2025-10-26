@@ -1,4 +1,6 @@
+use std::fs;
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use anyhow::Result;
 use application_utils::graphql_to_db_order;
@@ -65,6 +67,7 @@ pub async fn user_metadata_list(
         }),
         ApplicationCacheValue::UserMetadataList,
         || async {
+            let input_json = serde_json::to_string(&input).unwrap_or_else(|_| "error".to_string());
             let order_by = input
                 .sort
                 .clone()
@@ -182,8 +185,40 @@ pub async fn user_metadata_list(
 
             if let Some(ref filter) = input.filter
                 && let Some(ref collections) = filter.collections
+                && !collections.is_empty()
             {
-                for coll_filter in collections {
+                let (first_filter, remaining_filters) = collections.split_first().unwrap();
+
+                let mut combined_condition: SimpleExpr = {
+                    let exists_condition = Expr::exists(
+                        Query::select()
+                            .expr(Expr::val(1))
+                            .from(CollectionEntityMembership)
+                            .and_where(
+                                collection_entity_membership::Column::OriginCollectionId
+                                    .eq(&first_filter.collection_id),
+                            )
+                            .and_where(collection_entity_membership::Column::UserId.eq(user_id))
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::EntityId).equals((
+                                    AliasedUserToEntity::Table,
+                                    AliasedUserToEntity::EntityId,
+                                )),
+                            )
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::EntityLot).equals(
+                                    (AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot),
+                                ),
+                            )
+                            .to_owned(),
+                    );
+                    match first_filter.presence {
+                        MediaCollectionPresenceFilter::PresentIn => exists_condition,
+                        MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
+                    }
+                };
+
+                for coll_filter in remaining_filters {
                     let exists_condition = Expr::exists(
                         Query::select()
                             .expr(Expr::val(1))
@@ -192,23 +227,36 @@ pub async fn user_metadata_list(
                                 collection_entity_membership::Column::OriginCollectionId
                                     .eq(&coll_filter.collection_id),
                             )
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::UserId)
-                                    .equals(user_to_entity::Column::UserId),
-                            )
+                            .and_where(collection_entity_membership::Column::UserId.eq(user_id))
                             .and_where(
                                 Expr::col(collection_entity_membership::Column::EntityId).equals((
                                     AliasedUserToEntity::Table,
                                     AliasedUserToEntity::EntityId,
                                 )),
                             )
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::EntityLot).equals(
+                                    (AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot),
+                                ),
+                            )
                             .to_owned(),
                     );
-                    base_query = base_query.filter(match coll_filter.presence {
+                    let condition = match coll_filter.presence {
                         MediaCollectionPresenceFilter::PresentIn => exists_condition,
                         MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
-                    });
+                    };
+
+                    combined_condition = match coll_filter.strategy {
+                        media_models::MediaCollectionStrategyFilter::And => {
+                            combined_condition.and(condition)
+                        }
+                        media_models::MediaCollectionStrategyFilter::Or => {
+                            combined_condition.or(condition)
+                        }
+                    };
                 }
+
+                base_query = base_query.filter(combined_condition);
             }
 
             base_query = base_query.apply_if(input.filter.and_then(|f| f.general), |query, v| {
@@ -345,6 +393,41 @@ pub async fn user_metadata_list(
                     Order::Desc,
                     NullOrdering::Last,
                 );
+
+            let sql_statement = paginator.clone().build(sea_orm::DatabaseBackend::Postgres);
+            let sql_debug_dir = "/tmp/ryot-sql-debug";
+            fs::create_dir_all(sql_debug_dir).ok();
+            let safe_filename = input_json
+                .chars()
+                .map(|c| {
+                    if c.is_alphanumeric() || c == '_' || c == '-' {
+                        c
+                    } else {
+                        '_'
+                    }
+                })
+                .collect::<String>();
+            let truncated_filename = if safe_filename.len() > 200 {
+                &safe_filename[..200]
+            } else {
+                &safe_filename
+            };
+            let timestamp = SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_millis();
+            let sql_file_path = format!(
+                "{}/user_metadata_list_{}_{}.sql",
+                sql_debug_dir, truncated_filename, timestamp
+            );
+            fs::write(
+                &sql_file_path,
+                format!(
+                    "-- Input: {}\n\n{}\n\nValues: {:?}",
+                    input_json, sql_statement.sql, sql_statement.values
+                ),
+            )
+            .ok();
 
             let paginator = paginator.into_tuple::<String>().paginate(&ss.db, take);
             let ItemsAndPagesNumber {
@@ -529,8 +612,40 @@ pub async fn user_metadata_groups_list(
 
             if let Some(ref filter) = input.filter
                 && let Some(ref collections) = filter.collections
+                && !collections.is_empty()
             {
-                for coll_filter in collections {
+                let (first_filter, remaining_filters) = collections.split_first().unwrap();
+
+                let mut combined_condition: SimpleExpr = {
+                    let exists_condition = Expr::exists(
+                        Query::select()
+                            .expr(Expr::val(1))
+                            .from(CollectionEntityMembership)
+                            .and_where(
+                                collection_entity_membership::Column::OriginCollectionId
+                                    .eq(&first_filter.collection_id),
+                            )
+                            .and_where(collection_entity_membership::Column::UserId.eq(user_id))
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::EntityId).equals((
+                                    AliasedUserToEntity::Table,
+                                    AliasedUserToEntity::EntityId,
+                                )),
+                            )
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::EntityLot).equals(
+                                    (AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot),
+                                ),
+                            )
+                            .to_owned(),
+                    );
+                    match first_filter.presence {
+                        MediaCollectionPresenceFilter::PresentIn => exists_condition,
+                        MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
+                    }
+                };
+
+                for coll_filter in remaining_filters {
                     let exists_condition = Expr::exists(
                         Query::select()
                             .expr(Expr::val(1))
@@ -539,24 +654,36 @@ pub async fn user_metadata_groups_list(
                                 collection_entity_membership::Column::OriginCollectionId
                                     .eq(&coll_filter.collection_id),
                             )
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::UserId)
-                                    .equals(user_to_entity::Column::UserId),
-                            )
+                            .and_where(collection_entity_membership::Column::UserId.eq(user_id))
                             .and_where(
                                 Expr::col(collection_entity_membership::Column::EntityId).equals((
                                     AliasedUserToEntity::Table,
                                     AliasedUserToEntity::EntityId,
                                 )),
                             )
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::EntityLot).equals(
+                                    (AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot),
+                                ),
+                            )
                             .to_owned(),
                     );
-
-                    base_query = base_query.filter(match coll_filter.presence {
+                    let condition = match coll_filter.presence {
                         MediaCollectionPresenceFilter::PresentIn => exists_condition,
                         MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
-                    });
+                    };
+
+                    combined_condition = match coll_filter.strategy {
+                        media_models::MediaCollectionStrategyFilter::And => {
+                            combined_condition.and(condition)
+                        }
+                        media_models::MediaCollectionStrategyFilter::Or => {
+                            combined_condition.or(condition)
+                        }
+                    };
                 }
+
+                base_query = base_query.filter(combined_condition);
             }
 
             let paginator = base_query
@@ -633,8 +760,40 @@ pub async fn user_people_list(
 
             if let Some(ref filter) = input.filter
                 && let Some(ref collections) = filter.collections
+                && !collections.is_empty()
             {
-                for coll_filter in collections {
+                let (first_filter, remaining_filters) = collections.split_first().unwrap();
+
+                let mut combined_condition: SimpleExpr = {
+                    let exists_condition = Expr::exists(
+                        Query::select()
+                            .expr(Expr::val(1))
+                            .from(CollectionEntityMembership)
+                            .and_where(
+                                collection_entity_membership::Column::OriginCollectionId
+                                    .eq(&first_filter.collection_id),
+                            )
+                            .and_where(collection_entity_membership::Column::UserId.eq(user_id))
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::EntityId).equals((
+                                    AliasedUserToEntity::Table,
+                                    AliasedUserToEntity::EntityId,
+                                )),
+                            )
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::EntityLot).equals(
+                                    (AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot),
+                                ),
+                            )
+                            .to_owned(),
+                    );
+                    match first_filter.presence {
+                        MediaCollectionPresenceFilter::PresentIn => exists_condition,
+                        MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
+                    }
+                };
+
+                for coll_filter in remaining_filters {
                     let exists_condition = Expr::exists(
                         Query::select()
                             .expr(Expr::val(1))
@@ -643,24 +802,36 @@ pub async fn user_people_list(
                                 collection_entity_membership::Column::OriginCollectionId
                                     .eq(&coll_filter.collection_id),
                             )
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::UserId)
-                                    .equals(user_to_entity::Column::UserId),
-                            )
+                            .and_where(collection_entity_membership::Column::UserId.eq(user_id))
                             .and_where(
                                 Expr::col(collection_entity_membership::Column::EntityId).equals((
                                     AliasedUserToEntity::Table,
                                     AliasedUserToEntity::EntityId,
                                 )),
                             )
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::EntityLot).equals(
+                                    (AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot),
+                                ),
+                            )
                             .to_owned(),
                     );
-
-                    base_query = base_query.filter(match coll_filter.presence {
+                    let condition = match coll_filter.presence {
                         MediaCollectionPresenceFilter::PresentIn => exists_condition,
                         MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
-                    });
+                    };
+
+                    combined_condition = match coll_filter.strategy {
+                        media_models::MediaCollectionStrategyFilter::And => {
+                            combined_condition.and(condition)
+                        }
+                        media_models::MediaCollectionStrategyFilter::Or => {
+                            combined_condition.or(condition)
+                        }
+                    };
                 }
+
+                base_query = base_query.filter(combined_condition);
             }
 
             let creators_paginator = base_query
@@ -874,8 +1045,40 @@ pub async fn user_exercises_list(
 
             if let Some(ref filter) = input.filter
                 && let Some(ref collections) = filter.collections
+                && !collections.is_empty()
             {
-                for coll_filter in collections {
+                let (first_filter, remaining_filters) = collections.split_first().unwrap();
+
+                let mut combined_condition: SimpleExpr = {
+                    let exists_condition = Expr::exists(
+                        Query::select()
+                            .expr(Expr::val(1))
+                            .from(CollectionEntityMembership)
+                            .and_where(
+                                collection_entity_membership::Column::OriginCollectionId
+                                    .eq(&first_filter.collection_id),
+                            )
+                            .and_where(collection_entity_membership::Column::UserId.eq(&user_id))
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::EntityId).equals((
+                                    AliasedUserToEntity::Table,
+                                    AliasedUserToEntity::EntityId,
+                                )),
+                            )
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::EntityLot).equals(
+                                    (AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot),
+                                ),
+                            )
+                            .to_owned(),
+                    );
+                    match first_filter.presence {
+                        MediaCollectionPresenceFilter::PresentIn => exists_condition,
+                        MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
+                    }
+                };
+
+                for coll_filter in remaining_filters {
                     let exists_condition = Expr::exists(
                         Query::select()
                             .expr(Expr::val(1))
@@ -884,24 +1087,36 @@ pub async fn user_exercises_list(
                                 collection_entity_membership::Column::OriginCollectionId
                                     .eq(&coll_filter.collection_id),
                             )
-                            .and_where(
-                                Expr::col(collection_entity_membership::Column::UserId)
-                                    .equals(user_to_entity::Column::UserId),
-                            )
+                            .and_where(collection_entity_membership::Column::UserId.eq(&user_id))
                             .and_where(
                                 Expr::col(collection_entity_membership::Column::EntityId).equals((
                                     AliasedUserToEntity::Table,
                                     AliasedUserToEntity::EntityId,
                                 )),
                             )
+                            .and_where(
+                                Expr::col(collection_entity_membership::Column::EntityLot).equals(
+                                    (AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot),
+                                ),
+                            )
                             .to_owned(),
                     );
-
-                    base_query = base_query.filter(match coll_filter.presence {
+                    let condition = match coll_filter.presence {
                         MediaCollectionPresenceFilter::PresentIn => exists_condition,
                         MediaCollectionPresenceFilter::NotPresentIn => exists_condition.not(),
-                    });
+                    };
+
+                    combined_condition = match coll_filter.strategy {
+                        media_models::MediaCollectionStrategyFilter::And => {
+                            combined_condition.and(condition)
+                        }
+                        media_models::MediaCollectionStrategyFilter::Or => {
+                            combined_condition.or(condition)
+                        }
+                    };
                 }
+
+                base_query = base_query.filter(combined_condition);
             }
 
             let paginator = base_query
