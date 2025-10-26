@@ -882,11 +882,11 @@ pub async fn user_exercises_list(
                 base_query = base_query.filter(combined_condition);
             }
 
-            let paginator = base_query
-                .order_by_desc(order_by_col)
-                .order_by_asc(exercise::Column::Name)
-                .into_tuple::<String>()
-                .paginate(&ss.db, take);
+            let mut paginator = base_query.order_by_desc(order_by_col);
+            if !matches!(input.sort_by, Some(ExerciseSortBy::Random)) {
+                paginator = paginator.order_by_asc(exercise::Column::Name);
+            }
+            let paginator = paginator.into_tuple::<String>().paginate(&ss.db, take);
 
             let ItemsAndPagesNumber {
                 number_of_items,
