@@ -13,63 +13,42 @@ import { initializeWorker, shutdownWorker } from "~/worker";
 import { app } from "./server";
 
 export const startServer = async () => {
-	let redisInitialized = false;
-	let queuesInitialized = false;
-	let sandboxServiceInitialized = false;
-	let workersInitialized = false;
-	let workerInitialized = false;
-
 	try {
 		await migrateDB();
 		await initializeRedis();
-		redisInitialized = true;
 		await initializeQueues();
-		queuesInitialized = true;
 		await initializeSandboxService();
-		sandboxServiceInitialized = true;
 		await initializeWorkers();
-		workersInitialized = true;
 		await initializeWorker();
-		workerInitialized = true;
 	} catch (error) {
-		if (workerInitialized) {
-			try {
-				await shutdownWorker();
-			} catch (shutdownError) {
-				console.error("Error during startup rollback:", shutdownError);
-			}
+		try {
+			await shutdownWorker();
+		} catch (shutdownError) {
+			console.error("Error during startup rollback:", shutdownError);
 		}
 
-		if (workersInitialized) {
-			try {
-				await shutdownWorkers();
-			} catch (shutdownError) {
-				console.error("Error during startup rollback:", shutdownError);
-			}
+		try {
+			await shutdownWorkers();
+		} catch (shutdownError) {
+			console.error("Error during startup rollback:", shutdownError);
 		}
 
-		if (queuesInitialized) {
-			try {
-				await shutdownQueues();
-			} catch (shutdownError) {
-				console.error("Error during startup rollback:", shutdownError);
-			}
+		try {
+			await shutdownQueues();
+		} catch (shutdownError) {
+			console.error("Error during startup rollback:", shutdownError);
 		}
 
-		if (sandboxServiceInitialized) {
-			try {
-				await shutdownSandboxService();
-			} catch (shutdownError) {
-				console.error("Error during startup rollback:", shutdownError);
-			}
+		try {
+			await shutdownSandboxService();
+		} catch (shutdownError) {
+			console.error("Error during startup rollback:", shutdownError);
 		}
 
-		if (redisInitialized) {
-			try {
-				await shutdownRedis();
-			} catch (shutdownError) {
-				console.error("Error during startup rollback:", shutdownError);
-			}
+		try {
+			await shutdownRedis();
+		} catch (shutdownError) {
+			console.error("Error during startup rollback:", shutdownError);
 		}
 
 		throw error;
