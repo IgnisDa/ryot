@@ -795,27 +795,14 @@ pub async fn user_exercises_list(
                         apply_is_in_filter(query, q.mechanics.as_ref(), exercise::Column::Mechanic);
                     apply_is_in_filter(query, q.equipments.as_ref(), exercise::Column::Equipment)
                 })
-                .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
-                    query.filter(
-                        Condition::any()
-                            .add(Expr::cust_with_exprs(
-                                "$1 % $2",
-                                vec![
-                                    Expr::col(exercise::Column::Name).into(),
-                                    Expr::val(&v).into(),
-                                ],
-                            ))
-                            .add(Expr::cust_with_exprs(
-                                "$1 % $2",
-                                vec![
-                                    Expr::col((
-                                        exercise::Entity,
-                                        Alias::new("aggregated_instructions"),
-                                    ))
-                                    .into(),
-                                    Expr::val(&v).into(),
-                                ],
-                            )),
+                .apply_if(input.search.and_then(|s| s.query), |query, v| {
+                    apply_columns_search(
+                        &v,
+                        query,
+                        [
+                            Expr::col(exercise::Column::Name),
+                            Expr::col((exercise::Entity, Alias::new("aggregated_instructions"))),
+                        ],
                     )
                 });
 
@@ -895,27 +882,10 @@ pub async fn user_exercises_list(
                 base_query = base_query.filter(combined_condition);
             }
 
-            let mut paginator = base_query;
-
-            if let Some(search_query) = input.search.and_then(|s| s.query) {
-                paginator = paginator.order_by_desc(Expr::cust_with_exprs(
-                    "GREATEST(similarity($1, $2), similarity($3, $2))",
-                    vec![
-                        Expr::col(exercise::Column::Name).into(),
-                        Expr::val(&search_query).into(),
-                        Expr::col((exercise::Entity, Alias::new("aggregated_instructions"))).into(),
-                    ],
-                ));
-                if !matches!(input.sort_by, Some(ExerciseSortBy::Random)) {
-                    paginator = paginator.order_by_asc(exercise::Column::Name);
-                }
-            } else {
-                paginator = paginator.order_by_desc(order_by_col);
-                if !matches!(input.sort_by, Some(ExerciseSortBy::Random)) {
-                    paginator = paginator.order_by_asc(exercise::Column::Name);
-                }
+            let mut paginator = base_query.order_by_desc(order_by_col);
+            if !matches!(input.sort_by, Some(ExerciseSortBy::Random)) {
+                paginator = paginator.order_by_asc(exercise::Column::Name);
             }
-
             let paginator = paginator.into_tuple::<String>().paginate(&ss.db, take);
 
             let ItemsAndPagesNumber {
