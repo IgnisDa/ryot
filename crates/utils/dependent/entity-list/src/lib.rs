@@ -31,21 +31,17 @@ use migrations_sql::{
 };
 use sea_orm::{
     ColumnTrait, Condition, EntityTrait, ItemsAndPagesNumber, Iterable, JoinType, Order,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait, Select, Value,
     prelude::Expr,
     sea_query::{Alias, Func, NullOrdering, PgFunc, Query, SimpleExpr},
 };
 use supporting_service::SupportingService;
 
-fn apply_is_in_filter<E, T, C>(
-    query: sea_orm::Select<E>,
-    values: Option<&Vec<T>>,
-    column: C,
-) -> sea_orm::Select<E>
+fn apply_is_in_filter<E, T, C>(query: Select<E>, values: Option<&Vec<T>>, column: C) -> Select<E>
 where
-    E: sea_orm::EntityTrait,
-    T: Clone + Into<sea_orm::Value>,
-    C: sea_orm::ColumnTrait + Copy,
+    E: EntityTrait,
+    T: Clone + Into<Value>,
+    C: ColumnTrait + Copy,
 {
     query.apply_if(values.filter(|v| !v.is_empty()), move |q, v| {
         q.filter(column.is_in(v.clone()))
