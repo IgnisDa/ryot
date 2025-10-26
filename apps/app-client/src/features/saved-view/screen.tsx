@@ -180,6 +180,7 @@ function SavedViewRow(props: {
 
 function SavedViewResults(props: {
 	viewName: string;
+	totalCount: number;
 	isFetching: boolean;
 	hasNextPage: boolean;
 	onLoadMore: () => void;
@@ -207,7 +208,7 @@ function SavedViewResults(props: {
 					<SavedViewHeader
 						layout={props.layout}
 						name={props.viewName}
-						count={props.rows.length}
+						count={props.totalCount}
 						onLayoutChange={props.onLayoutChange}
 						isLoadingMore={props.isFetching && props.rows.length === 0}
 					/>
@@ -322,6 +323,7 @@ export function SavedViewScreen(props: { viewSlug: string }) {
 		() => flattenSavedViewPages(runtimeQuery.data?.pages ?? []),
 		[runtimeQuery.data?.pages],
 	);
+	const totalCount = runtimeQuery.data?.pages[0]?.data.meta.pagination.total ?? 0;
 	const imageEntries = useMemo(() => extractSavedViewImageEntries(rows), [rows]);
 	const { imageUrlById } = useResolvedImageUrls(imageEntries);
 
@@ -382,6 +384,7 @@ export function SavedViewScreen(props: { viewSlug: string }) {
 					rows={rows}
 					layout={layout}
 					viewName={view.name}
+					totalCount={totalCount}
 					onLayoutChange={setLayout}
 					imageUrlById={imageUrlById}
 					isFetching={runtimeQuery.isFetching}
@@ -396,6 +399,7 @@ export function SavedViewScreen(props: { viewSlug: string }) {
 					rows={rows}
 					layout={layout}
 					viewName={view.name}
+					totalCount={totalCount}
 					onLayoutChange={setLayout}
 					imageUrlById={imageUrlById}
 					isFetching={runtimeQuery.isFetching}
