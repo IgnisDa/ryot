@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 
-import { schema } from "#lib/db";
+import * as schema from "#lib/db/schema/tables";
 
 import { buildEntitySelectColumns } from "./query-cte-shared";
 

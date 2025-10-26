@@ -3,7 +3,7 @@ import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
 import { BadRequest, Conflict, NotFound, RateLimited, Unauthorized } from "#lib/errors";
-import { SandboxRunResult } from "#modules/sandbox/contract";
+import { SandboxRunResult } from "#modules/sandbox/schemas";
 
 import {
 	CreateEntitySchemaBody,

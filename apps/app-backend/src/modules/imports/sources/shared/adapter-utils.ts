@@ -3,8 +3,6 @@ import {
 	createImportSourceFailure,
 } from "../../runtime/source-api";
 
-export { parseDateInput } from "../../media/dates";
-
 export const isNotNullAdapterFailure = (
 	value: ImportSourceAdapterFailure | null,
 ): value is ImportSourceAdapterFailure => value !== null;

@@ -1,9 +1,5 @@
 import { entitySchema } from "./tables";
 
-export * from "./auth";
-export * from "./relations";
-export * from "./tables";
-
 export const entitySchemaAccessScopeSelection = {
 	id: entitySchema.id,
 	slug: entitySchema.slug,

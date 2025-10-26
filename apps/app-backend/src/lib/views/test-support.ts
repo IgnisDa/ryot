@@ -4,7 +4,7 @@ import {
 	type QueryExpression,
 	type QueryFilter,
 } from "#lib/query-language";
-import type { AppSchema } from "#lib/schema/core";
+import type { AppSchema } from "#lib/schema/property-schema";
 
 import {
 	buildEventJoinMap,

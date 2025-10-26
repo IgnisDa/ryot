@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth";
+import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner } from "#lib/db";
 import { dieOnDbError } from "#lib/errors";
 import type {
