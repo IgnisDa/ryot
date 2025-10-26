@@ -1,5 +1,5 @@
 import { Center, Paper, Stack, Tabs, Text, Title } from "@mantine/core";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 import { useAuthClient } from "#/hooks/auth";
@@ -12,6 +12,10 @@ const searchSchema = z.object({
 export const Route = createFileRoute("/start")({
 	component: StartPage,
 	validateSearch: searchSchema,
+	beforeLoad: async ({ context, search }) => {
+		const session = await context.authClientInstance.getSession();
+		if (session.data) throw redirect({ to: search.redirect || "/" });
+	},
 });
 
 const authModes = {
