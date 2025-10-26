@@ -139,196 +139,214 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				},
 			);
 
-			return {
-				create: Effect.fn("IntegrationsService.create")(function* (
-					user: CurrentUserValue,
-					body: CreateIntegrationBody,
-				) {
-					if (body.providerSpecifics.kind !== body.provider) {
+			const create = Effect.fn("IntegrationsService.create")(function* (
+				user: CurrentUserValue,
+				body: CreateIntegrationBody,
+			) {
+				if (body.providerSpecifics.kind !== body.provider) {
+					return yield* badRequest("providerSpecifics.kind must match provider");
+				}
+
+				const minimumProgress = body.minimumProgress ?? 2;
+				const maximumProgress = body.maximumProgress ?? 95;
+				const thresholdError = validateProgressThresholds(minimumProgress, maximumProgress);
+				if (thresholdError) {
+					return yield* badRequest(thresholdError);
+				}
+
+				const created = yield* runWithDb(
+					repository.createForUser({
+						userId: user.id,
+						provider: body.provider,
+						name: body.name ?? null,
+						isDisabled: body.isDisabled ?? false,
+						lot: providerLotByProvider[body.provider],
+						providerSpecifics: body.providerSpecifics,
+						syncOwnership: body.syncOwnership ?? false,
+						minimumProgress: String(minimumProgress),
+						maximumProgress: String(maximumProgress),
+						extraSettings: body.extraSettings ?? defaultExtraSettings,
+					}),
+				);
+
+				return { id: created.id };
+			});
+
+			const get: IntegrationsServiceShape["get"] = (user, integrationId) =>
+				requireIntegration(user.id, integrationId);
+
+			const list: IntegrationsServiceShape["list"] = (user, query) =>
+				runWithDb(repository.listForUser({ userId: user.id, ...query }));
+
+			const update = Effect.fn("IntegrationsService.update")(function* (
+				user: CurrentUserValue,
+				integrationId: IntegrationId,
+				body: UpdateIntegrationBody,
+			) {
+				const existing = yield* requireIntegration(user.id, integrationId);
+
+				let providerSpecifics: IntegrationProviderSpecifics = existing.providerSpecifics;
+				if (body.providerSpecifics !== undefined) {
+					providerSpecifics = yield* decodeIntegrationProviderSpecifics({
+						...existing.providerSpecifics,
+						...body.providerSpecifics,
+					}).pipe(
+						Effect.mapError((error) =>
+							badRequest(`Invalid providerSpecifics after merge: ${error.message}`),
+						),
+					);
+					if (providerSpecifics.kind !== existing.provider) {
 						return yield* badRequest("providerSpecifics.kind must match provider");
 					}
+				}
 
-					const minimumProgress = body.minimumProgress ?? 2;
-					const maximumProgress = body.maximumProgress ?? 95;
-					const thresholdError = validateProgressThresholds(minimumProgress, maximumProgress);
-					if (thresholdError) {
-						return yield* badRequest(thresholdError);
-					}
+				const minimumProgress = body.minimumProgress ?? existing.minimumProgress;
+				const maximumProgress = body.maximumProgress ?? existing.maximumProgress;
+				const thresholdError = validateProgressThresholds(minimumProgress, maximumProgress);
+				if (thresholdError) {
+					return yield* badRequest(thresholdError);
+				}
 
-					const created = yield* runWithDb(
-						repository.createForUser({
-							userId: user.id,
-							provider: body.provider,
-							name: body.name ?? null,
-							isDisabled: body.isDisabled ?? false,
-							lot: providerLotByProvider[body.provider],
-							providerSpecifics: body.providerSpecifics,
-							syncOwnership: body.syncOwnership ?? false,
-							minimumProgress: String(minimumProgress),
-							maximumProgress: String(maximumProgress),
-							extraSettings: body.extraSettings ?? defaultExtraSettings,
-						}),
-					);
-
-					return { id: created.id };
-				}),
-				get: (user, integrationId) => requireIntegration(user.id, integrationId),
-				list: (user, query) => runWithDb(repository.listForUser({ userId: user.id, ...query })),
-				update: Effect.fn("IntegrationsService.update")(function* (
-					user: CurrentUserValue,
-					integrationId: IntegrationId,
-					body: UpdateIntegrationBody,
-				) {
-					const existing = yield* requireIntegration(user.id, integrationId);
-
-					let providerSpecifics: IntegrationProviderSpecifics = existing.providerSpecifics;
-					if (body.providerSpecifics !== undefined) {
-						providerSpecifics = yield* decodeIntegrationProviderSpecifics({
-							...existing.providerSpecifics,
-							...body.providerSpecifics,
-						}).pipe(
-							Effect.mapError((error) =>
-								badRequest(`Invalid providerSpecifics after merge: ${error.message}`),
-							),
-						);
-						if (providerSpecifics.kind !== existing.provider) {
-							return yield* badRequest("providerSpecifics.kind must match provider");
-						}
-					}
-
-					const minimumProgress = body.minimumProgress ?? existing.minimumProgress;
-					const maximumProgress = body.maximumProgress ?? existing.maximumProgress;
-					const thresholdError = validateProgressThresholds(minimumProgress, maximumProgress);
-					if (thresholdError) {
-						return yield* badRequest(thresholdError);
-					}
-
-					const updated = yield* runWithDb(
-						repository.updateForUser({
-							integrationId,
-							name: body.name,
-							userId: user.id,
-							providerSpecifics,
-							isDisabled: body.isDisabled,
-							extraSettings: body.extraSettings,
-							syncOwnership: body.syncOwnership,
-							minimumProgress:
-								body.minimumProgress !== undefined ? String(body.minimumProgress) : undefined,
-							maximumProgress:
-								body.maximumProgress !== undefined ? String(body.maximumProgress) : undefined,
-						}),
-					);
-
-					if (!updated) {
-						return yield* notFound("Integration not found");
-					}
-
-					return updated;
-				}),
-				delete: Effect.fn("IntegrationsService.delete")(function* (
-					user: CurrentUserValue,
-					integrationId: IntegrationId,
-				) {
-					yield* requireIntegration(user.id, integrationId);
-					yield* runWithDb(repository.deleteForUser({ userId: user.id, integrationId }));
-					return { id: integrationId };
-				}),
-				listRuns: Effect.fn("IntegrationsService.listRuns")(function* (
-					user: CurrentUserValue,
-					integrationId: IntegrationId,
-				) {
-					yield* requireIntegration(user.id, integrationId);
-					return yield* importsService.listRunsByIntegrationId({
+				const updated = yield* runWithDb(
+					repository.updateForUser({
 						integrationId,
+						name: body.name,
 						userId: user.id,
-					});
-				}),
-				handleWebhook: Effect.fn("IntegrationsService.handleWebhook")(function* (input: {
-					rawBody?: string;
-					contentType?: string;
-					integrationId: IntegrationId;
-				}) {
-					const { integrationId, rawBody, contentType } = input;
-					const integration = yield* runWithDb(repository.getByIdAnyUser({ integrationId }));
-					if (!integration) {
-						return yield* notFound("Integration not found");
-					}
-					if (integration.lot !== "sink") {
-						return yield* badRequest("Integration is not a sink integration");
-					}
+						providerSpecifics,
+						isDisabled: body.isDisabled,
+						extraSettings: body.extraSettings,
+						syncOwnership: body.syncOwnership,
+						minimumProgress:
+							body.minimumProgress !== undefined ? String(body.minimumProgress) : undefined,
+						maximumProgress:
+							body.maximumProgress !== undefined ? String(body.maximumProgress) : undefined,
+					}),
+				);
 
-					const run = yield* importsService.createRunForIntegration({
-						userId: integration.userId,
-						source: integration.provider,
-						integrationId: integration.id,
-						inputSummary: buildIntegrationInputSummary(integration),
-					});
+				if (!updated) {
+					return yield* notFound("Integration not found");
+				}
 
-					if (integration.isDisabled) {
-						yield* failCreatedRun(run.id, "Integration is disabled");
-						return { runId: run.id };
-					}
+				return updated;
+			});
 
-					const disableIntegrations = yield* runWithDb(
-						repository.getUserDisableIntegrations({ userId: integration.userId }),
-					);
-					if (disableIntegrations) {
-						yield* failCreatedRun(run.id, "Integrations are disabled for this user");
-						return { runId: run.id };
-					}
+			const deleteIntegration = Effect.fn("IntegrationsService.delete")(function* (
+				user: CurrentUserValue,
+				integrationId: IntegrationId,
+			) {
+				yield* requireIntegration(user.id, integrationId);
+				yield* runWithDb(repository.deleteForUser({ userId: user.id, integrationId }));
+				return { id: integrationId };
+			});
 
-					const started = yield* engine
-						.execute(ProcessIntegrationRunWorkflow, {
-							discard: true,
-							executionId: run.id,
-							payload: {
-								runId: run.id,
-								userId: integration.userId,
-								integrationId: integration.id,
-								...(rawBody !== undefined ? { rawBody } : {}),
-								...(contentType !== undefined ? { contentType } : {}),
-							},
-						})
-						.pipe(Effect.either);
+			const listRuns = Effect.fn("IntegrationsService.listRuns")(function* (
+				user: CurrentUserValue,
+				integrationId: IntegrationId,
+			) {
+				yield* requireIntegration(user.id, integrationId);
+				return yield* importsService.listRunsByIntegrationId({
+					integrationId,
+					userId: user.id,
+				});
+			});
 
-					if (Either.isLeft(started)) {
-						yield* failCreatedRun(run.id, "Failed to enqueue integration job");
-						return yield* badRequest("Could not queue the integration job; please try again");
-					}
+			const handleWebhook = Effect.fn("IntegrationsService.handleWebhook")(function* (input: {
+				rawBody?: string;
+				contentType?: string;
+				integrationId: IntegrationId;
+			}) {
+				const { integrationId, rawBody, contentType } = input;
+				const integration = yield* runWithDb(repository.getByIdAnyUser({ integrationId }));
+				if (!integration) {
+					return yield* notFound("Integration not found");
+				}
+				if (integration.lot !== "sink") {
+					return yield* badRequest("Integration is not a sink integration");
+				}
 
+				const run = yield* importsService.createRunForIntegration({
+					userId: integration.userId,
+					source: integration.provider,
+					integrationId: integration.id,
+					inputSummary: buildIntegrationInputSummary(integration),
+				});
+
+				if (integration.isDisabled) {
+					yield* failCreatedRun(run.id, "Integration is disabled");
 					return { runId: run.id };
-				}),
-				reconcileScheduledYankRuns: Effect.fn("IntegrationsService.reconcileScheduledYankRuns")(
-					function* () {
-						const integrations = yield* runWithDb(repository.listEnabledYankIntegrations());
+				}
 
-						yield* Effect.forEach(
-							integrations,
-							(integration) =>
-								Effect.gen(function* () {
-									const disableIntegrations = yield* runWithDb(
-										repository.getUserDisableIntegrations({ userId: integration.userId }),
-									);
-									if (disableIntegrations) {
-										return;
-									}
+				const disableIntegrations = yield* runWithDb(
+					repository.getUserDisableIntegrations({ userId: integration.userId }),
+				);
+				if (disableIntegrations) {
+					yield* failCreatedRun(run.id, "Integrations are disabled for this user");
+					return { runId: run.id };
+				}
 
-									const hasActiveRun = yield* importsService.hasActiveRunForIntegration({
-										integrationId: integration.id,
-									});
-									if (hasActiveRun) {
-										return;
-									}
+				const started = yield* engine
+					.execute(ProcessIntegrationRunWorkflow, {
+						discard: true,
+						executionId: run.id,
+						payload: {
+							runId: run.id,
+							userId: integration.userId,
+							integrationId: integration.id,
+							...(rawBody !== undefined ? { rawBody } : {}),
+							...(contentType !== undefined ? { contentType } : {}),
+						},
+					})
+					.pipe(Effect.either);
 
-									yield* enqueueIntegrationRun(integration).pipe(
-										Effect.catchTag("BadRequest", () => Effect.void),
-										Effect.asVoid,
-									);
-								}),
-							{ discard: true },
-						);
-					},
-				),
+				if (Either.isLeft(started)) {
+					yield* failCreatedRun(run.id, "Failed to enqueue integration job");
+					return yield* badRequest("Could not queue the integration job; please try again");
+				}
+
+				return { runId: run.id };
+			});
+
+			const reconcileScheduledYankRuns = Effect.fn(
+				"IntegrationsService.reconcileScheduledYankRuns",
+			)(function* () {
+				const integrations = yield* runWithDb(repository.listEnabledYankIntegrations());
+
+				yield* Effect.forEach(
+					integrations,
+					(integration) =>
+						Effect.gen(function* () {
+							const disableIntegrations = yield* runWithDb(
+								repository.getUserDisableIntegrations({ userId: integration.userId }),
+							);
+							if (disableIntegrations) {
+								return;
+							}
+
+							const hasActiveRun = yield* importsService.hasActiveRunForIntegration({
+								integrationId: integration.id,
+							});
+							if (hasActiveRun) {
+								return;
+							}
+
+							yield* enqueueIntegrationRun(integration).pipe(
+								Effect.catchTag("BadRequest", () => Effect.void),
+								Effect.asVoid,
+							);
+						}),
+					{ discard: true },
+				);
+			});
+
+			return {
+				get,
+				list,
+				create,
+				update,
+				listRuns,
+				handleWebhook,
+				delete: deleteIntegration,
+				reconcileScheduledYankRuns,
 			} satisfies IntegrationsServiceShape;
 		}),
 	},
