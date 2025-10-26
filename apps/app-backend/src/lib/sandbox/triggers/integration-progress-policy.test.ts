@@ -52,11 +52,9 @@ const createHostFunctions = (options: {
 				calls.push("listEvents");
 				return hostSuccess(options.events ?? []);
 			},
-			getSystemConfig: () => {
-				calls.push("getSystemConfig");
-				return hostSuccess({
-					system: { scheduler: { progressUpdateThresholdHours: options.thresholdHours ?? "2" } },
-				});
+			getAppConfigValue: () => {
+				calls.push("getAppConfigValue");
+				return hostSuccess(options.thresholdHours ?? "2");
 			},
 		},
 	};
