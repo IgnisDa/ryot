@@ -23,6 +23,7 @@ use media_models::{
     MediaCollectionFilter, MediaCollectionPresenceFilter, MediaCollectionStrategyFilter, ReviewItem,
 };
 use migrations_sql::AliasedUserToEntity;
+use regex::Regex;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, Condition, EntityTrait, IntoActiveModel,
     QueryFilter, QueryOrder, QuerySelect, Select,
@@ -58,7 +59,13 @@ where
         return query;
     }
 
-    let keywords: Vec<&str> = value.split_whitespace().collect();
+    let re = Regex::new(r"[\s_-]+").unwrap();
+    let keywords: Vec<String> = re
+        .split(value)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect();
+
     if keywords.is_empty() {
         return query;
     }

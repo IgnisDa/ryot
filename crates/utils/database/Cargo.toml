@@ -8,6 +8,7 @@ anyhow = { workspace = true }
 chrono = { workspace = true }
 itertools = { workspace = true }
 markdown = { workspace = true }
+regex = { workspace = true }
 rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }

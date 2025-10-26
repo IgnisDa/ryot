@@ -1916,6 +1916,7 @@ dependencies = [
  "markdown",
  "media-models",
  "migrations-sql",
+ "regex",
  "rust_decimal",
  "sea-orm",
  "session-service",
