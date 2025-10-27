@@ -163,6 +163,8 @@ export interface UserMeasurement {
 /** The different types of media that can be stored. */
 export type MediaLot = 'book' | 'show' | 'movie' | 'anime' | 'manga' | 'music' | 'podcast' | 'audio_book' | 'video_game' | 'visual_novel';
 
+export type SeenState = 'dropped' | 'on-a-hold' | 'completed' | 'in-progress';
+
 /** A specific instance when an entity was seen. */
 export interface ImportOrExportMetadataItemSeen {
 	/** If for an anime, the episode which was seen. */
@@ -187,6 +189,13 @@ export interface ImportOrExportMetadataItemSeen {
 	show_season_number: number | null;
 	/** The timestamp when started watching. */
 	started_on: string | null;
+	/**
+	 * The state of the media item.
+	 *
+	 * @default 'completed'
+	 * @type {'dropped' | 'on-a-hold' | 'completed' | 'in-progress'}
+	 */
+	state: SeenState;
 }
 
 /** The different sources (or providers) from which data can be obtained from. */

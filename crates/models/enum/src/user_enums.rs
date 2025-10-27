@@ -62,10 +62,11 @@ pub enum EntityLot {
     Copy,
     Debug,
     Clone,
-    Display,
+    Default,
     EnumIter,
     PartialEq,
     Serialize,
+    ConfigEnum,
     Deserialize,
     DeriveActiveEnum,
 )]
@@ -77,6 +78,7 @@ pub enum EntityLot {
 pub enum SeenState {
     Dropped,
     OnAHold,
+    #[default]
     Completed,
     InProgress,
 }
