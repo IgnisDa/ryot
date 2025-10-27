@@ -163,7 +163,7 @@ export interface UserMeasurement {
 /** The different types of media that can be stored. */
 export type MediaLot = 'book' | 'show' | 'movie' | 'anime' | 'manga' | 'music' | 'podcast' | 'audio_book' | 'video_game' | 'visual_novel';
 
-export type SeenState = 'dropped' | 'on-a-hold' | 'completed' | 'in-progress';
+export type SeenState = 'dropped' | 'on_a_hold' | 'completed' | 'in_progress';
 
 /** A specific instance when an entity was seen. */
 export interface ImportOrExportMetadataItemSeen {
@@ -193,9 +193,8 @@ export interface ImportOrExportMetadataItemSeen {
 	 * The state of the media item.
 	 *
 	 * @default 'completed'
-	 * @type {'dropped' | 'on-a-hold' | 'completed' | 'in-progress'}
 	 */
-	state: SeenState;
+	state: SeenState | null;
 }
 
 /** The different sources (or providers) from which data can be obtained from. */
