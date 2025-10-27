@@ -422,7 +422,7 @@ where
             }
         }
 
-        if idx % 10 == 0 {
+        if idx % 10 == 0 || idx + 1 == total {
             on_item_processed(
                 Decimal::from_usize(idx + 1).unwrap() / Decimal::from_usize(total).unwrap()
                     * dec!(100),
