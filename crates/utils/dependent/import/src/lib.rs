@@ -160,13 +160,7 @@ where
     let mut need_to_schedule_user_for_workout_revision = false;
 
     for (idx, item) in import.completed.into_iter().enumerate() {
-        ryot_log!(
-            debug,
-            "Processing item ({}) {}/{}",
-            item.to_string(),
-            idx + 1,
-            total,
-        );
+        ryot_log!(debug, "Processing item ({:#}) {}/{}", item, idx + 1, total,);
         match item {
             ImportCompletedItem::Empty => {}
             ImportCompletedItem::Metadata(metadata) => {
