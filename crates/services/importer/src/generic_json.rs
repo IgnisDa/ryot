@@ -1,4 +1,4 @@
-use std::fs;
+use std::fs::read_to_string;
 
 use anyhow::Result;
 use dependent_models::{CompleteExport, ImportCompletedItem, ImportResult};
@@ -7,7 +7,7 @@ use itertools::Itertools;
 use media_models::{CreateOrUpdateCollectionInput, DeployPathImportInput};
 
 pub async fn import(input: DeployPathImportInput) -> Result<ImportResult> {
-    let export = fs::read_to_string(input.export_path)?;
+    let export = read_to_string(input.export_path)?;
     let complete_data = serde_json::from_str::<CompleteExport>(&export).unwrap();
 
     let media = complete_data
