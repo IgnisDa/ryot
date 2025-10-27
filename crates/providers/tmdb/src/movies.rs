@@ -15,7 +15,7 @@ use media_models::{
     CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
     MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
 };
-use rust_decimal_macros::dec;
+use rust_decimal::dec;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 

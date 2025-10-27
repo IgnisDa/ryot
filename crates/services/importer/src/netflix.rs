@@ -20,8 +20,7 @@ use media_models::{
     MetadataLookupFoundResult, MetadataLookupResponse,
 };
 use miscellaneous_lookup_service::{extract_base_title, extract_season_episode, metadata_lookup};
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
+use rust_decimal::{Decimal, dec};
 use serde::Deserialize;
 use supporting_service::SupportingService;
 use tempfile::TempDir;

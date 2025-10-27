@@ -12,8 +12,7 @@ use itertools::Itertools;
 use media_models::{
     DeployMalImportInput, ImportOrExportItemRating, ImportOrExportMetadataItemSeen,
 };
-use rust_decimal::{Decimal, prelude::FromPrimitive};
-use rust_decimal_macros::dec;
+use rust_decimal::{Decimal, dec, prelude::FromPrimitive};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 

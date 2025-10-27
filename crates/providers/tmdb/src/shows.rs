@@ -18,7 +18,7 @@ use media_models::{
     MetadataDetails, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
     ShowEpisode, ShowSeason, ShowSpecifics,
 };
-use rust_decimal_macros::dec;
+use rust_decimal::dec;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 

@@ -21,8 +21,7 @@ use media_models::{
     MetadataProgressUpdateStartedOrFinishedOnDateInput, SeenAnimeExtraInformation,
     SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
 };
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
+use rust_decimal::{Decimal, dec};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
     QueryOrder, QueryTrait, prelude::DateTimeUtc,

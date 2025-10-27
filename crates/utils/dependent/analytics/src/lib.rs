@@ -23,8 +23,7 @@ use media_models::{
     SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics,
     VisualNovelSpecifics,
 };
-use rust_decimal::{Decimal, prelude::ToPrimitive};
-use rust_decimal_macros::dec;
+use rust_decimal::{Decimal, dec, prelude::ToPrimitive};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
     Order, QueryFilter, QueryOrder, QuerySelect,

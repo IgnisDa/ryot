@@ -25,8 +25,7 @@ use media_models::{
     PartialMetadataWithoutId, UniqueMediaIdentifier,
 };
 use rand::seq::SliceRandom;
-use rust_decimal::{Decimal, prelude::FromPrimitive};
-use rust_decimal_macros::dec;
+use rust_decimal::{Decimal, dec, prelude::FromPrimitive};
 use supporting_service::SupportingService;
 
 async fn create_collection_and_add_entity_to_it(

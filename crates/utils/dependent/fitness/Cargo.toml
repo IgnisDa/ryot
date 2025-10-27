@@ -10,7 +10,6 @@ itertools = { workspace = true }
 futures = { workspace = true }
 nanoid = { workspace = true }
 rust_decimal = { workspace = true }
-rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
 

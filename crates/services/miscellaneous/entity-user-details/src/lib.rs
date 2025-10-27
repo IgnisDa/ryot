@@ -24,7 +24,7 @@ use itertools::Itertools;
 use media_models::{
     UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
-use rust_decimal_macros::dec;
+use rust_decimal::dec;
 use sea_orm::{ColumnTrait, EntityTrait, QuerySelect};
 use supporting_service::SupportingService;
 

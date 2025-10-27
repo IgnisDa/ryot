@@ -13,8 +13,7 @@ use media_models::{
 };
 use openlibrary_provider::get_key;
 use reqwest::header::{HeaderName, HeaderValue};
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
+use rust_decimal::{Decimal, dec};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_with::{TimestampMilliSeconds, formats::Flexible, serde_as};

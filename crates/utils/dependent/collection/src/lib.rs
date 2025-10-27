@@ -19,8 +19,7 @@ use enum_models::EntityLot;
 use futures::try_join;
 use itertools::Itertools;
 use media_models::CreateOrUpdateCollectionInput;
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
+use rust_decimal::{Decimal, dec};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
     Iterable, QueryFilter, QueryOrder, QuerySelect, TransactionTrait, prelude::Expr,

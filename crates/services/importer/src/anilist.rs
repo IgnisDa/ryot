@@ -12,8 +12,7 @@ use media_models::{
     ImportOrExportMetadataItemSeen,
 };
 use nest_struct::nest_struct;
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
+use rust_decimal::{Decimal, dec};
 use serde::Deserialize;
 use supporting_service::SupportingService;
 

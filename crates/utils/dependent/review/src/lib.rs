@@ -17,7 +17,7 @@ use media_models::{
     SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraOptionalInformation,
     SeenShowExtraOptionalInformation,
 };
-use rust_decimal_macros::dec;
+use rust_decimal::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait};
 use supporting_service::SupportingService;
 use user_models::{UserPreferences, UserReviewScale};

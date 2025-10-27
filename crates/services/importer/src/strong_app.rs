@@ -14,8 +14,7 @@ use importer_models::{ImportFailStep, ImportFailedItem};
 use indexmap::IndexMap;
 use itertools::Itertools;
 use media_models::DeployStrongAppImportInput;
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
+use rust_decimal::{Decimal, dec};
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 
