@@ -18,15 +18,11 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct NonMediaAnilistService {
-    base: AnilistService,
-}
+pub struct NonMediaAnilistService(AnilistService);
 
 impl NonMediaAnilistService {
     pub async fn new(config: &config_definition::AnilistConfig) -> Result<Self> {
-        Ok(Self {
-            base: AnilistService::new(config).await?,
-        })
+        Ok(Self(AnilistService::new(config).await?))
     }
 }
 
@@ -49,7 +45,7 @@ impl MediaProvider for NonMediaAnilistService {
         let (items, total_items, next_page) = if is_studio {
             let body = build_studio_search_query(query, page, PAGE_SIZE);
             let search = self
-                .base
+                .0
                 .client
                 .post(URL)
                 .json(&body)
@@ -78,7 +74,7 @@ impl MediaProvider for NonMediaAnilistService {
         } else {
             let body = build_staff_search_query(query, page, PAGE_SIZE);
             let search = self
-                .base
+                .0
                 .client
                 .post(URL)
                 .json(&body)
@@ -130,7 +126,7 @@ impl MediaProvider for NonMediaAnilistService {
         let data = if is_studio {
             let body = build_studio_details_query(identity.parse::<i64>().unwrap());
             let details = self
-                .base
+                .0
                 .client
                 .post(URL)
                 .json(&body)
@@ -177,7 +173,7 @@ impl MediaProvider for NonMediaAnilistService {
         } else {
             let body = build_staff_details_query(identity.parse::<i64>().unwrap());
             let details = self
-                .base
+                .0
                 .client
                 .post(URL)
                 .json(&body)
@@ -219,7 +215,7 @@ impl MediaProvider for NonMediaAnilistService {
                                 title.native.clone(),
                                 title.english.clone(),
                                 title.romaji.clone(),
-                                &self.base.preferred_language,
+                                &self.0.preferred_language,
                             )
                         } else {
                             String::new()
@@ -265,7 +261,7 @@ impl MediaProvider for NonMediaAnilistService {
                                         title.native.clone(),
                                         title.english.clone(),
                                         title.romaji.clone(),
-                                        &self.base.preferred_language,
+                                        &self.0.preferred_language,
                                     )
                                 } else {
                                     String::new()
