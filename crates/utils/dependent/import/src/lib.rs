@@ -137,11 +137,11 @@ where
         .collect();
 
     import.completed.retain(|i| match i {
+        ImportCompletedItem::Person(p) => !p.reviews.is_empty() || !p.collections.is_empty(),
+        ImportCompletedItem::MetadataGroup(m) => !m.reviews.is_empty() || !m.collections.is_empty(),
         ImportCompletedItem::Metadata(m) => {
             !m.seen_history.is_empty() || !m.reviews.is_empty() || !m.collections.is_empty()
         }
-        ImportCompletedItem::Person(p) => !p.reviews.is_empty() || !p.collections.is_empty(),
-        ImportCompletedItem::MetadataGroup(m) => !m.reviews.is_empty() || !m.collections.is_empty(),
         _ => true,
     });
 
