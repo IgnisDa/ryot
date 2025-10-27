@@ -60,6 +60,7 @@ pub enum EntityLot {
     Eq,
     Enum,
     Copy,
+    Hash,
     Debug,
     Clone,
     Default,
