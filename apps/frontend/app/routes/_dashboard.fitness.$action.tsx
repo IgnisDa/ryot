@@ -3,7 +3,7 @@ import { Button, Container, Group, Skeleton, Stack } from "@mantine/core";
 import { isNumber, isString, parseParameters } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLoaderData } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
@@ -66,6 +66,7 @@ export default function Page() {
 	const [_, setMeasurementsDrawerData] = useMeasurementsDrawer();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [currentTimer, setCurrentTimer] = useCurrentWorkoutTimerAtom();
+	const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
 	const timerCompleteSound = usePlayFitnessSound("timer-completed");
 	const [isSaveBtnLoading, setIsSaveBtnLoading] = useState(false);
@@ -153,6 +154,24 @@ export default function Page() {
 		setCurrentTimer(RESET);
 	};
 
+	const acquireWakeLock = async () => {
+		if ("wakeLock" in navigator)
+			try {
+				wakeLockRef.current = await navigator.wakeLock.request("screen");
+				wakeLockRef.current.addEventListener("release", () => {
+					wakeLockRef.current = null;
+				});
+			} catch {}
+	};
+
+	const releaseWakeLock = async () => {
+		if (wakeLockRef.current)
+			try {
+				await wakeLockRef.current.release();
+				wakeLockRef.current = null;
+			} catch {}
+	};
+
 	useInterval(() => {
 		if (
 			loaderData.action === FitnessAction.LogWorkout &&
@@ -224,6 +243,20 @@ export default function Page() {
 			}
 		}
 	}, 1000);
+	useEffect(() => {
+		acquireWakeLock();
+
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === "visible" && !wakeLockRef.current)
+				acquireWakeLock();
+		};
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+
+		return () => {
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
+			releaseWakeLock();
+		};
+	}, []);
 
 	return (
 		<Container size="sm">
