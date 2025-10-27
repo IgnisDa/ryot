@@ -423,10 +423,13 @@ where
             }
         }
 
-        on_item_processed(
-            Decimal::from_usize(idx + 1).unwrap() / Decimal::from_usize(total).unwrap() * dec!(100),
-        )
-        .await?;
+        if idx % 10 == 0 {
+            on_item_processed(
+                Decimal::from_usize(idx + 1).unwrap() / Decimal::from_usize(total).unwrap()
+                    * dec!(100),
+            )
+            .await?;
+        }
     }
 
     if need_to_schedule_user_for_workout_revision {
