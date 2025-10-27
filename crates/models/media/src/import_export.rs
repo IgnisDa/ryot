@@ -15,7 +15,7 @@ use serde_with::skip_serializing_none;
 #[serde(rename_all = "snake_case")]
 pub struct ImportOrExportMetadataItemSeen {
     /// The state of the media item.
-    pub state: SeenState,
+    pub state: Option<SeenState>,
     /// The progress of media done. If none, it is considered as done.
     pub progress: Option<Decimal>,
     /// The timestamp when finished watching.

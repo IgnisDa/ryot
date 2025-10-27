@@ -63,12 +63,12 @@ pub async fn export_media(
                         s.manga_extra_information.clone().and_then(|d| d.chapter);
                     let manga_volume_number = s.manga_extra_information.and_then(|d| d.volume);
                     ImportOrExportMetadataItemSeen {
-                        state: s.state,
                         show_season_number,
                         show_episode_number,
                         manga_volume_number,
                         anime_episode_number,
                         manga_chapter_number,
+                        state: Some(s.state),
                         podcast_episode_number,
                         ended_on: s.finished_on,
                         started_on: s.started_on,
