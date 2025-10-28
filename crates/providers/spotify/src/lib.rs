@@ -4,7 +4,7 @@ use anyhow::{Result, bail};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
-use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
+use common_utils::{PAGE_SIZE, compute_next_page, convert_date_to_year, convert_string_to_date};
 use data_encoding::BASE64;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::MetadataSearchSourceSpecifics;
@@ -332,7 +332,7 @@ impl MediaProvider for SpotifyService {
         let (search_response, page): (SpotifySearchResponse, u64) =
             self.search_spotify(query, "track", Some(page)).await?;
 
-        let next_page = (search_response.tracks.total > (page * PAGE_SIZE)).then(|| page + 1);
+        let next_page = compute_next_page(page, PAGE_SIZE, search_response.tracks.total);
 
         let items = search_response
             .tracks
@@ -424,7 +424,7 @@ impl MediaProvider for SpotifyService {
         let (search_response, page): (SpotifyAlbumSearchResponse, u64) =
             self.search_spotify(query, "album", Some(page)).await?;
 
-        let next_page = (search_response.albums.total > (page * PAGE_SIZE)).then(|| page + 1);
+        let next_page = compute_next_page(page, PAGE_SIZE, search_response.albums.total);
 
         let items = search_response
             .albums
@@ -548,7 +548,7 @@ impl MediaProvider for SpotifyService {
         let (search_response, page): (SpotifyArtistSearchResponse, u64) =
             self.search_spotify(query, "artist", Some(page)).await?;
 
-        let next_page = (search_response.artists.total > (page * PAGE_SIZE)).then(|| page + 1);
+        let next_page = compute_next_page(page, PAGE_SIZE, search_response.artists.total);
 
         let items = search_response
             .artists

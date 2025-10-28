@@ -62,7 +62,7 @@ impl MediaProvider for GiantBombService {
             .await
             .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
 
-        self.process_search_response(search_response, |game| MetadataSearchItem {
+        self.process_search_response(page, search_response, |game| MetadataSearchItem {
             title: game.name.unwrap(),
             identifier: game.guid.unwrap(),
             image: game.image.and_then(|img| img.original_url),
@@ -250,7 +250,7 @@ impl MediaProvider for GiantBombService {
             "company" => {
                 let search_response: GiantBombSearchResponse<GiantBombResource> =
                     response.json().await?;
-                self.process_search_response(search_response, |company| PeopleSearchItem {
+                self.process_search_response(page, search_response, |company| PeopleSearchItem {
                     name: company.name.unwrap(),
                     birth_year: company.founded,
                     identifier: company.guid.unwrap(),
@@ -260,7 +260,7 @@ impl MediaProvider for GiantBombService {
             "person" => {
                 let search_response: GiantBombSearchResponse<GiantBombResource> =
                     response.json().await?;
-                self.process_search_response(search_response, |person| PeopleSearchItem {
+                self.process_search_response(page, search_response, |person| PeopleSearchItem {
                     name: person.name.unwrap(),
                     identifier: person.guid.unwrap(),
                     image: person.image.and_then(|img| img.original_url),
@@ -426,7 +426,7 @@ impl MediaProvider for GiantBombService {
             .await
             .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
 
-        self.process_search_response(search_response, |franchise| MetadataGroupSearchItem {
+        self.process_search_response(page, search_response, |franchise| MetadataGroupSearchItem {
             name: franchise.name.unwrap(),
             identifier: franchise.guid.unwrap(),
             image: franchise.image.and_then(|img| img.original_url),
