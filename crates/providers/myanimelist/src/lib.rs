@@ -120,7 +120,7 @@ async fn search(
     query: &str,
     page: u64,
 ) -> Result<(Vec<MetadataSearchItem>, u64, Option<u64>)> {
-    let offset = (page - 1) * PAGE_SIZE;
+    let offset = page.saturating_sub(1) * PAGE_SIZE;
     #[derive(Serialize, Deserialize, Debug)]
     struct SearchPaging {
         next: Option<String>,

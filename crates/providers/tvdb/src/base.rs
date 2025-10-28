@@ -3,6 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use application_utils::get_base_http_client;
 use common_models::SearchDetails;
+use common_utils::PAGE_SIZE;
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, SearchResults, TvdbSettings};
 use itertools::Itertools;
 use media_models::MetadataSearchItem;
@@ -57,8 +58,7 @@ impl TvdbService {
         query: &str,
         search_type: &str,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let limit = 20;
-        let offset = (page - 1) * limit;
+        let offset = page.saturating_sub(1) * PAGE_SIZE;
 
         let rsp = self
             .client
@@ -66,8 +66,8 @@ impl TvdbService {
             .query(&[
                 ("query", query),
                 ("type", search_type),
-                ("limit", &limit.to_string()),
                 ("offset", &offset.to_string()),
+                ("limit", &PAGE_SIZE.to_string()),
             ])
             .send()
             .await?;
@@ -85,7 +85,7 @@ impl TvdbService {
             .and_then(|l| l.total_items)
             .unwrap_or(0);
 
-        let resp = search
+        let items = search
             .data
             .into_iter()
             .map(|d| MetadataSearchItem {
@@ -97,7 +97,7 @@ impl TvdbService {
             .collect_vec();
 
         Ok(SearchResults {
-            items: resp,
+            items,
             details: SearchDetails {
                 next_page,
                 total_items,

@@ -38,7 +38,7 @@ impl MediaProvider for OpenlibraryService {
             .query(&[
                 ("q", query),
                 ("limit", &PAGE_SIZE.to_string()),
-                ("offset", &((page - 1) * PAGE_SIZE).to_string()),
+                ("offset", &(page.saturating_sub(1) * PAGE_SIZE).to_string()),
             ])
             .send()
             .await?;
@@ -239,7 +239,7 @@ impl MediaProvider for OpenlibraryService {
                 ("type", "work"),
                 ("fields", &fields),
                 ("limit", &PAGE_SIZE.to_string()),
-                ("offset", &((page - 1) * PAGE_SIZE).to_string()),
+                ("offset", &(page.saturating_sub(1) * PAGE_SIZE).to_string()),
             ])
             .send()
             .await?;

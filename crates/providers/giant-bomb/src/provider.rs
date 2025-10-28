@@ -33,7 +33,7 @@ impl MediaProvider for GiantBombService {
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let offset = (page - 1) * PAGE_SIZE;
+        let offset = page.saturating_sub(1) * PAGE_SIZE;
 
         ryot_log!(debug, "Searching GiantBomb for: {}", query);
 
@@ -214,7 +214,7 @@ impl MediaProvider for GiantBombService {
         _display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let offset = (page - 1) * PAGE_SIZE;
+        let offset = page.saturating_sub(1) * PAGE_SIZE;
 
         let search_type = match source_specifics {
             Some(PersonSourceSpecifics {
@@ -397,7 +397,7 @@ impl MediaProvider for GiantBombService {
         query: &str,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
-        let offset = (page - 1) * PAGE_SIZE;
+        let offset = page.saturating_sub(1) * PAGE_SIZE;
 
         ryot_log!(debug, "Searching GiantBomb franchises for: {}", query);
 

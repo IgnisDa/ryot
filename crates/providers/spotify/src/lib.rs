@@ -227,7 +227,7 @@ impl SpotifyService {
         T: for<'de> Deserialize<'de>,
     {
         let page = page.unwrap_or(1);
-        let offset = (page - 1) * PAGE_SIZE;
+        let offset = page.saturating_sub(1) * PAGE_SIZE;
 
         let response = self
             .client

@@ -196,7 +196,7 @@ impl MediaProvider for ITunesService {
 
         let resp = resp
             .into_iter()
-            .skip(((page - 1) * PAGE_SIZE).try_into().unwrap())
+            .skip((page.saturating_sub(1) * PAGE_SIZE).try_into().unwrap())
             .take(PAGE_SIZE.try_into().unwrap())
             .collect_vec();
 
