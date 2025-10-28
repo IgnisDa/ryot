@@ -368,11 +368,11 @@ impl MediaProvider for AudibleService {
             .client
             .get(&self.url)
             .query(&SearchQuery {
-                title: query.to_owned(),
-                num_results: PAGE_SIZE,
                 page: page - 1,
-                products_sort_by: "Relevance".to_owned(),
+                num_results: PAGE_SIZE,
+                title: query.to_owned(),
                 primary: PrimaryQuery::default(),
+                products_sort_by: "Relevance".to_owned(),
             })
             .send()
             .await?;
