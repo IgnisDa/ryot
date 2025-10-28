@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use async_graphql::{InputObject, OneofObject, SimpleObject};
 use common_models::StringIdAndNamedObject;
-use enum_models::{ImportSource, Visibility};
+use enum_models::{ImportSource, SeenState, Visibility};
 use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::{FromJsonQueryResult, prelude::DateTimeUtc};
@@ -14,6 +14,8 @@ use serde_with::skip_serializing_none;
 #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
 #[serde(rename_all = "snake_case")]
 pub struct ImportOrExportMetadataItemSeen {
+    /// The state of the media item.
+    pub state: Option<SeenState>,
     /// The progress of media done. If none, it is considered as done.
     pub progress: Option<Decimal>,
     /// The timestamp when finished watching.

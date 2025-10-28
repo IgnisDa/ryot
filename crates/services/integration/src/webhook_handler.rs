@@ -6,7 +6,7 @@ use database_utils::user_by_id;
 use dependent_import_utils::process_import;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::IntegrationProvider;
-use rust_decimal_macros::dec;
+use rust_decimal::dec;
 use sea_orm::EntityTrait;
 use traits::TraceOk;
 

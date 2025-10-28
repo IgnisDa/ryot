@@ -13,7 +13,7 @@ use dependent_models::{
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::ImportOrExportMetadataItemSeen;
-use rust_decimal_macros::dec;
+use rust_decimal::dec;
 use rustypipe::client::RustyPipe;
 use supporting_service::SupportingService;
 

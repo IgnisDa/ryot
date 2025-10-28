@@ -140,7 +140,7 @@ impl MediaProvider for ListennotesService {
             .query(&[
                 ("q", query),
                 ("type", "podcast"),
-                ("offset", &((page - 1) * PAGE_SIZE).to_string()),
+                ("offset", &(page.saturating_sub(1) * PAGE_SIZE).to_string()),
             ])
             .send()
             .await?;

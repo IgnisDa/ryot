@@ -107,8 +107,8 @@ pub async fn merge_exercise(
         Exercise::find_by_id(merge_from.clone()).one(&ss.db),
         Exercise::find_by_id(merge_into.clone()).one(&ss.db)
     )?;
-    let old_exercise = old_exercise.ok_or_else(|| anyhow!("Exercise does not exist"))?;
-    let new_exercise = new_exercise.ok_or_else(|| anyhow!("Exercise does not exist"))?;
+    let old_exercise = old_exercise.ok_or_else(|| anyhow!("Old exercise does not exist"))?;
+    let new_exercise = new_exercise.ok_or_else(|| anyhow!("New exercise does not exist"))?;
     if old_exercise.id == new_exercise.id {
         bail!("Cannot merge exercise with itself");
     }

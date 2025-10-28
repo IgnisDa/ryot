@@ -14,8 +14,7 @@ use media_models::{
     ImportOrExportMetadataItemSeen,
 };
 use openlibrary_provider::OpenlibraryService;
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
+use rust_decimal::{Decimal, dec};
 use serde::{Deserialize, Serialize};
 
 use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};

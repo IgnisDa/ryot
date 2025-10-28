@@ -18,21 +18,17 @@ use media_models::{
     MetadataDetails, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
     ShowEpisode, ShowSeason, ShowSpecifics,
 };
-use rust_decimal_macros::dec;
+use rust_decimal::dec;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
 use crate::{base::TmdbService, models::*};
 
-pub struct TmdbShowService {
-    pub base: TmdbService,
-}
+pub struct TmdbShowService(TmdbService);
 
 impl TmdbShowService {
     pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
-        Ok(Self {
-            base: TmdbService::new(ss).await?,
-        })
+        Ok(Self(TmdbService::new(ss).await?))
     }
 }
 
@@ -40,11 +36,11 @@ impl TmdbShowService {
 impl MediaProvider for TmdbShowService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let rsp = self
-            .base
+            .0
             .client
             .get(format!("{}/tv/{}", URL, &identifier))
             .query(&[
-                ("language", self.base.language.as_str()),
+                ("language", self.0.language.as_str()),
                 ("append_to_response", "videos"),
             ])
             .send()
@@ -57,14 +53,13 @@ impl MediaProvider for TmdbShowService {
                 source: EntityRemoteVideoSource::Youtube,
             }))
         }
-        let mut image_ids =
-            Vec::from_iter(show_data.poster_path.map(|p| self.base.get_image_url(p)));
+        let mut image_ids = Vec::from_iter(show_data.poster_path.map(|p| self.0.get_image_url(p)));
         if let Some(u) = show_data.backdrop_path {
-            image_ids.push(self.base.get_image_url(u));
+            image_ids.push(self.0.get_image_url(u));
         }
         let ((), suggestions) = try_join!(
-            self.base.save_all_images("tv", identifier, &mut image_ids),
-            self.base.get_all_suggestions("tv", identifier)
+            self.0.save_all_images("tv", identifier, &mut image_ids),
+            self.0.get_all_suggestions("tv", identifier)
         )?;
 
         let seasons: Vec<TmdbSeason> = stream::iter(
@@ -74,7 +69,7 @@ impl MediaProvider for TmdbShowService {
                 .into_iter()
                 .map(|s| s.season_number),
         )
-        .map(|season_number| fetch_season_with_credits(season_number, identifier, &self.base))
+        .map(|season_number| fetch_season_with_credits(season_number, identifier, &self.0))
         .buffer_unordered(5)
         .collect::<Vec<Result<TmdbSeason>>>()
         .await
@@ -150,8 +145,8 @@ impl MediaProvider for TmdbShowService {
             .flat_map(|s| s.episodes.iter())
             .count();
         let (watch_providers, external_identifiers) = try_join!(
-            self.base.get_all_watch_providers("tv", identifier),
-            self.base.get_external_identifiers("tv", identifier)
+            self.0.get_all_watch_providers("tv", identifier),
+            self.0.get_external_identifiers("tv", identifier)
         )?;
         let title = show_data.name.unwrap();
 
@@ -166,7 +161,7 @@ impl MediaProvider for TmdbShowService {
             description: show_data.overview,
             production_status: show_data.status,
             external_identifiers: Some(external_identifiers),
-            original_language: self.base.get_language_name(show_data.original_language),
+            original_language: self.0.get_language_name(show_data.original_language),
             publish_year: convert_date_to_year(
                 &show_data.first_air_date.clone().unwrap_or_default(),
             ),
@@ -213,9 +208,9 @@ impl MediaProvider for TmdbShowService {
                     .into_iter()
                     .map(|s| {
                         let poster_images =
-                            Vec::from_iter(s.poster_path.map(|p| self.base.get_image_url(p)));
+                            Vec::from_iter(s.poster_path.map(|p| self.0.get_image_url(p)));
                         let backdrop_images =
-                            Vec::from_iter(s.backdrop_path.map(|p| self.base.get_image_url(p)));
+                            Vec::from_iter(s.backdrop_path.map(|p| self.0.get_image_url(p)));
                         ShowSeason {
                             id: s.id,
                             name: s.name,
@@ -229,7 +224,7 @@ impl MediaProvider for TmdbShowService {
                                 .into_iter()
                                 .map(|e| {
                                     let poster_images = Vec::from_iter(
-                                        e.still_path.map(|p| self.base.get_image_url(p)),
+                                        e.still_path.map(|p| self.0.get_image_url(p)),
                                     );
                                     ShowEpisode {
                                         id: e.id,
@@ -260,13 +255,13 @@ impl MediaProvider for TmdbShowService {
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let rsp = self
-            .base
+            .0
             .client
             .get(format!("{URL}/search/tv"))
             .query(&[
                 ("query", query),
                 ("page", &page.to_string()),
-                ("language", self.base.language.as_str()),
+                ("language", self.0.language.as_str()),
                 ("include_adult", &display_nsfw.to_string()),
             ])
             .send()
@@ -278,8 +273,8 @@ impl MediaProvider for TmdbShowService {
             .map(|d| MetadataSearchItem {
                 identifier: d.id.to_string(),
                 title: d.title.unwrap_or_default(),
+                image: d.poster_path.map(|p| self.0.get_image_url(p)),
                 publish_year: convert_date_to_year(&d.first_air_date.unwrap()),
-                image: d.poster_path.map(|p| self.base.get_image_url(p)),
             })
             .collect_vec();
         let next_page = (page < search.total_pages).then(|| page + 1);
@@ -293,7 +288,7 @@ impl MediaProvider for TmdbShowService {
     }
 
     async fn get_trending_media(&self) -> Result<Vec<PartialMetadataWithoutId>> {
-        self.base.get_trending_media("tv").await
+        self.0.get_trending_media("tv").await
     }
 }
 

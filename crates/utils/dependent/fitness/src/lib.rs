@@ -28,8 +28,7 @@ use fitness_models::{
 use futures::try_join;
 use itertools::Itertools;
 use nanoid::nanoid;
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
+use rust_decimal::{Decimal, dec};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
     QueryFilter, prelude::DateTimeUtc,

@@ -17,7 +17,7 @@ use media_models::{
     SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraOptionalInformation,
     SeenShowExtraOptionalInformation,
 };
-use rust_decimal_macros::dec;
+use rust_decimal::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait};
 use supporting_service::SupportingService;
 use user_models::{UserPreferences, UserReviewScale};
@@ -31,13 +31,9 @@ pub async fn post_review(
     if preferences.general.disable_reviews {
         bail!("Reviews are disabled");
     }
-    let show_ei = if input.show_season_number.is_some() || input.show_episode_number.is_some() {
-        Some(SeenShowExtraOptionalInformation {
-            season: input.show_season_number,
-            episode: input.show_episode_number,
-        })
-    } else {
-        None
+    let show_ei = match (input.show_season_number, input.show_episode_number) {
+        (None, None) => None,
+        (season, episode) => Some(SeenShowExtraOptionalInformation { season, episode }),
     };
     let podcast_ei =
         input
@@ -50,13 +46,9 @@ pub async fn post_review(
         .map(|episode| SeenAnimeExtraInformation {
             episode: Some(episode),
         });
-    let manga_ei = if input.manga_chapter_number.is_none() && input.manga_volume_number.is_none() {
-        None
-    } else {
-        Some(SeenMangaExtraInformation {
-            chapter: input.manga_chapter_number,
-            volume: input.manga_volume_number,
-        })
+    let manga_ei = match (input.manga_chapter_number, input.manga_volume_number) {
+        (None, None) => None,
+        (chapter, volume) => Some(SeenMangaExtraInformation { chapter, volume }),
     };
 
     if input.rating.is_none() && input.text.is_none() {

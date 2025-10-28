@@ -93,7 +93,7 @@ impl MediaProvider for GoogleBooksService {
         _display_nsfw: bool,
         source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let index = (page - 1) * PAGE_SIZE;
+        let index = page.saturating_sub(1) * PAGE_SIZE;
         let pass_raw_query = source_specifics
             .as_ref()
             .and_then(|s| s.google_books.as_ref().and_then(|g| g.pass_raw_query))

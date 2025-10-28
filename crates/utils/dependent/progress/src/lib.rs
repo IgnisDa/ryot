@@ -21,12 +21,10 @@ use media_models::{
     MetadataProgressUpdateStartedOrFinishedOnDateInput, SeenAnimeExtraInformation,
     SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
 };
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
-use sea_orm::prelude::DateTimeUtc;
+use rust_decimal::{Decimal, dec};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
-    QueryOrder, QueryTrait,
+    QueryOrder, QueryTrait, prelude::DateTimeUtc,
 };
 use supporting_service::SupportingService;
 
@@ -182,42 +180,42 @@ fn create_extra_information(
     media_lot: &MediaLot,
     payload: &MetadataProgressUpdateCommonInput,
 ) -> Result<ExtraInformation> {
-    let show_ei = if matches!(media_lot, MediaLot::Show) {
-        let season = payload
-            .show_season_number
-            .ok_or_else(|| anyhow!("Season number is required for show progress update"))?;
-        let episode = payload
-            .show_episode_number
-            .ok_or_else(|| anyhow!("Episode number is required for show progress update"))?;
-        Some(SeenShowExtraInformation { season, episode })
-    } else {
-        None
+    let show_ei = match media_lot {
+        MediaLot::Show => {
+            let season = payload
+                .show_season_number
+                .ok_or_else(|| anyhow!("Season number is required for show progress update"))?;
+            let episode = payload
+                .show_episode_number
+                .ok_or_else(|| anyhow!("Episode number is required for show progress update"))?;
+            Some(SeenShowExtraInformation { season, episode })
+        }
+        _ => None,
     };
 
-    let podcast_ei = if matches!(media_lot, MediaLot::Podcast) {
-        let episode = payload
-            .podcast_episode_number
-            .ok_or_else(|| anyhow!("Episode number is required for podcast progress update"))?;
-        Some(SeenPodcastExtraInformation { episode })
-    } else {
-        None
+    let podcast_ei = match media_lot {
+        MediaLot::Podcast => {
+            let episode = payload
+                .podcast_episode_number
+                .ok_or_else(|| anyhow!("Episode number is required for podcast progress update"))?;
+            Some(SeenPodcastExtraInformation { episode })
+        }
+        _ => None,
     };
 
-    let anime_ei = if matches!(media_lot, MediaLot::Anime) {
-        Some(SeenAnimeExtraInformation {
+    let anime_ei = match media_lot {
+        MediaLot::Anime => Some(SeenAnimeExtraInformation {
             episode: payload.anime_episode_number,
-        })
-    } else {
-        None
+        }),
+        _ => None,
     };
 
-    let manga_ei = if matches!(media_lot, MediaLot::Manga) {
-        Some(SeenMangaExtraInformation {
+    let manga_ei = match media_lot {
+        MediaLot::Manga => Some(SeenMangaExtraInformation {
             volume: payload.manga_volume_number,
             chapter: payload.manga_chapter_number,
-        })
-    } else {
-        None
+        }),
+        _ => None,
     };
 
     Ok(ExtraInformation {

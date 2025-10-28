@@ -190,7 +190,7 @@ impl MediaProvider for AudibleService {
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let internal_page: usize = page.try_into().unwrap();
-        let req_internal_page = internal_page - 1;
+        let req_internal_page = internal_page.saturating_sub(1);
         let data: Vec<AudibleAuthor> = self
             .client
             .get(format!("{AUDNEX_URL}/authors"))
@@ -368,11 +368,11 @@ impl MediaProvider for AudibleService {
             .client
             .get(&self.url)
             .query(&SearchQuery {
-                title: query.to_owned(),
                 num_results: PAGE_SIZE,
-                page: page - 1,
-                products_sort_by: "Relevance".to_owned(),
+                title: query.to_owned(),
+                page: page.saturating_sub(1),
                 primary: PrimaryQuery::default(),
+                products_sort_by: "Relevance".to_owned(),
             })
             .send()
             .await?;

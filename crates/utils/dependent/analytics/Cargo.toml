@@ -8,7 +8,6 @@ anyhow = { workspace = true }
 chrono = { workspace = true }
 futures = { workspace = true }
 rust_decimal = { workspace = true }
-rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }

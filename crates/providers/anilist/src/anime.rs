@@ -13,23 +13,18 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct AnilistAnimeService {
-    base: AnilistService,
-}
+pub struct AnilistAnimeService(AnilistService);
 
 impl AnilistAnimeService {
     pub async fn new(config: &config_definition::AnilistConfig) -> Result<Self> {
-        Ok(Self {
-            base: AnilistService::new(config).await?,
-        })
+        Ok(Self(AnilistService::new(config).await?))
     }
 }
 
 #[async_trait]
 impl MediaProvider for AnilistAnimeService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
-        let details =
-            media_details(&self.base.client, identifier, &self.base.preferred_language).await?;
+        let details = media_details(&self.0.client, identifier, &self.0.preferred_language).await?;
         Ok(details)
     }
 
@@ -41,13 +36,13 @@ impl MediaProvider for AnilistAnimeService {
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let (items, total_items, next_page) = search(
-            &self.base.client,
+            &self.0.client,
             MediaType::Anime,
             query,
             page,
             PAGE_SIZE,
             display_nsfw,
-            &self.base.preferred_language,
+            &self.0.preferred_language,
         )
         .await?;
         Ok(SearchResults {

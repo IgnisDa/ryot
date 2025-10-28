@@ -12,7 +12,6 @@ hashbag = { workspace = true }
 itertools = { workspace = true }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
-rust_decimal_macros = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }
 

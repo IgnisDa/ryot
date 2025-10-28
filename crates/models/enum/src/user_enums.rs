@@ -60,15 +60,18 @@ pub enum EntityLot {
     Eq,
     Enum,
     Copy,
+    Hash,
     Debug,
     Clone,
-    Display,
+    Default,
     EnumIter,
     PartialEq,
     Serialize,
+    ConfigEnum,
     Deserialize,
     DeriveActiveEnum,
 )]
+#[serde(rename_all = "snake_case")]
 #[sea_orm(
     rs_type = "String",
     rename_all = "snake_case",
@@ -77,6 +80,7 @@ pub enum EntityLot {
 pub enum SeenState {
     Dropped,
     OnAHold,
+    #[default]
     Completed,
     InProgress,
 }
@@ -95,6 +99,7 @@ pub enum SeenState {
     Deserialize,
     DeriveActiveEnum,
 )]
+#[serde(rename_all = "snake_case")]
 #[sea_orm(
     rs_type = "String",
     rename_all = "snake_case",
@@ -160,12 +165,12 @@ pub enum ImportSource {
     Deserialize,
     DeriveActiveEnum,
 )]
+#[strum(serialize_all = "snake_case")]
 #[sea_orm(
     rs_type = "String",
     rename_all = "snake_case",
     db_type = "String(StringLen::None)"
 )]
-#[strum(serialize_all = "snake_case")]
 pub enum UserToMediaReason {
     // There is at-least one element in the seen history
     Seen,

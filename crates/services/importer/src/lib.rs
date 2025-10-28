@@ -21,7 +21,7 @@ use enum_models::ImportSource;
 use enum_models::{ExerciseLot, ExerciseSource};
 use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::DeployImportJobInput;
-use rust_decimal_macros::dec;
+use rust_decimal::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
     QueryOrder, prelude::DateTimeUtc, prelude::Expr,

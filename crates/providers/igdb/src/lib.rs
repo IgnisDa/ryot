@@ -238,7 +238,7 @@ offset: {offset};
             query = query,
             limit = PAGE_SIZE,
             fields = COLLECTION_FIELDS,
-            offset = (page - 1) * PAGE_SIZE
+            offset = page.saturating_sub(1) * PAGE_SIZE
         );
         let rsp = client
             .post(format!("{URL}/collections"))
@@ -341,7 +341,7 @@ offset: {offset};
             query = query,
             limit = PAGE_SIZE,
             fields = COMPANY_FIELDS,
-            offset = (page - 1) * PAGE_SIZE
+            offset = page.saturating_sub(1) * PAGE_SIZE
         );
         let rsp = client
             .post(format!("{URL}/companies"))
@@ -564,7 +564,7 @@ offset: {offset};
             limit = PAGE_SIZE,
             fields = GAME_FIELDS.trim(),
             where_clause = where_clause,
-            offset = (page - 1) * PAGE_SIZE
+            offset = page.saturating_sub(1) * PAGE_SIZE
         );
 
         let rsp = client

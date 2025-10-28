@@ -12,15 +12,11 @@ use traits::MediaProvider;
 
 use crate::{base::TvdbService, models::*};
 
-pub struct NonMediaTvdbService {
-    pub base: TvdbService,
-}
+pub struct NonMediaTvdbService(TvdbService);
 
 impl NonMediaTvdbService {
     pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
-        Ok(Self {
-            base: TvdbService::new(ss).await?,
-        })
+        Ok(Self(TvdbService::new(ss).await?))
     }
 }
 
@@ -41,7 +37,7 @@ impl MediaProvider for NonMediaTvdbService {
             _ => "person",
         };
 
-        let metadata_results = self.base.trigger_search(page, query, search_type).await?;
+        let metadata_results = self.0.trigger_search(page, query, search_type).await?;
 
         let people_items = metadata_results
             .items
@@ -67,7 +63,7 @@ impl MediaProvider for NonMediaTvdbService {
     ) -> Result<PersonDetails> {
         if let Some(true) = source_specifics.as_ref().and_then(|s| s.is_tvdb_company) {
             let details: TvdbCompanyExtendedResponse = self
-                .base
+                .0
                 .client
                 .get(format!("{URL}/companies/{identifier}"))
                 .send()
@@ -99,7 +95,7 @@ impl MediaProvider for NonMediaTvdbService {
         }
 
         let details: TvdbPersonExtendedResponse = self
-            .base
+            .0
             .client
             .get(format!("{URL}/people/{identifier}/extended"))
             .send()

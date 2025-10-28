@@ -38,23 +38,19 @@ impl NonMediaMalService {
 impl MediaProvider for NonMediaMalService {}
 
 #[derive(Debug, Clone)]
-pub struct MalAnimeService {
-    base: MalService,
-}
+pub struct MalAnimeService(MalService);
 
 impl MalAnimeService {
     pub async fn new(config: &config_definition::MalConfig) -> Result<Self> {
         let client = get_client_config(&config.client_id).await;
-        Ok(Self {
-            base: MalService { client },
-        })
+        Ok(Self(MalService { client }))
     }
 }
 
 #[async_trait]
 impl MediaProvider for MalAnimeService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
-        let details = details(&self.base.client, "anime", identifier).await?;
+        let details = details(&self.0.client, "anime", identifier).await?;
         Ok(details)
     }
 
@@ -65,8 +61,7 @@ impl MediaProvider for MalAnimeService {
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let (items, total_items, next_page) =
-            search(&self.base.client, "anime", query, page).await?;
+        let (items, total_items, next_page) = search(&self.0.client, "anime", query, page).await?;
         Ok(SearchResults {
             items,
             details: SearchDetails {
@@ -78,23 +73,19 @@ impl MediaProvider for MalAnimeService {
 }
 
 #[derive(Debug, Clone)]
-pub struct MalMangaService {
-    base: MalService,
-}
+pub struct MalMangaService(MalService);
 
 impl MalMangaService {
     pub async fn new(config: &config_definition::MalConfig) -> Result<Self> {
         let client = get_client_config(&config.client_id).await;
-        Ok(Self {
-            base: MalService { client },
-        })
+        Ok(Self(MalService { client }))
     }
 }
 
 #[async_trait]
 impl MediaProvider for MalMangaService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
-        let details = details(&self.base.client, "manga", identifier).await?;
+        let details = details(&self.0.client, "manga", identifier).await?;
         Ok(details)
     }
 
@@ -105,8 +96,7 @@ impl MediaProvider for MalMangaService {
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let (items, total_items, next_page) =
-            search(&self.base.client, "manga", query, page).await?;
+        let (items, total_items, next_page) = search(&self.0.client, "manga", query, page).await?;
         Ok(SearchResults {
             items,
             details: SearchDetails {
@@ -130,7 +120,7 @@ async fn search(
     query: &str,
     page: u64,
 ) -> Result<(Vec<MetadataSearchItem>, u64, Option<u64>)> {
-    let offset = (page - 1) * PAGE_SIZE;
+    let offset = page.saturating_sub(1) * PAGE_SIZE;
     #[derive(Serialize, Deserialize, Debug)]
     struct SearchPaging {
         next: Option<String>,

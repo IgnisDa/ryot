@@ -68,6 +68,7 @@ pub async fn export_media(
                         manga_volume_number,
                         anime_episode_number,
                         manga_chapter_number,
+                        state: Some(s.state),
                         podcast_episode_number,
                         ended_on: s.finished_on,
                         started_on: s.started_on,

@@ -19,7 +19,7 @@ use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},
 };
-use rust_decimal_macros::dec;
+use rust_decimal::dec;
 use supporting_service::SupportingService;
 
 fn get_http_client(access_token: &String) -> Client {
