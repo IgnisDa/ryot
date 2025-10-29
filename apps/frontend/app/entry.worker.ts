@@ -1,6 +1,5 @@
 /// <reference lib="WebWorker" />
 
-import { logger } from "@remix-pwa/sw";
 import { match } from "ts-pattern";
 import type {
 	AppServiceWorkerMessageData,
@@ -8,8 +7,12 @@ import type {
 	AppServiceWorkerNotificationTag,
 } from "~/lib/types";
 
-declare let self: ServiceWorkerGlobalScope;
 declare let clients: Clients;
+declare let self: ServiceWorkerGlobalScope & { __WB_MANIFEST: unknown };
+
+const logger = {
+	debug: (...args: unknown[]) => console.debug("[SW]", ...args),
+};
 
 self.addEventListener("install", (event) => {
 	event.waitUntil(self.skipWaiting());
