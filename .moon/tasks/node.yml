@@ -28,7 +28,7 @@ fileGroups:
   remix:
     - "app/**/*"
     - "public/**/*"
-    - "remix.config.*"
+    - "vite.config.*"
 
 tasks:
   lint:
