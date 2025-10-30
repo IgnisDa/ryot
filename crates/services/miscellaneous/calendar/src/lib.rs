@@ -177,7 +177,7 @@ async fn get_calendar_events(
                 .into_query(),
             Alias::new("sub_query"),
         )
-        .order_by(Alias::new("date"), Order::Asc)
+        .order_by(calendar_event::Column::Date, Order::Asc)
         .to_owned();
     let (user, all_events) = try_join!(
         user_by_id(&user_id, ss),

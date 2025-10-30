@@ -781,8 +781,8 @@ pub async fn user_exercises_list(
                         &v,
                         query,
                         [
-                            Expr::col(exercise::Column::Name),
-                            Expr::col((exercise::Entity, Alias::new("aggregated_instructions"))),
+                            Expr::col((exercise::Entity, exercise::Column::Name)),
+                            Expr::col((exercise::Entity, exercise::Column::AggregatedInstructions)),
                         ],
                     )
                 });

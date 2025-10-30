@@ -221,6 +221,7 @@ pub async fn update_github_exercise(ss: &Arc<SupportingService>, ex: GithubExerc
             level: ActiveValue::Set(ex.attributes.level),
             instructions: ActiveValue::Set(instructions),
             force: ActiveValue::Set(ex.attributes.force),
+            aggregated_instructions: ActiveValue::NotSet,
             source: ActiveValue::Set(ExerciseSource::Github),
             mechanic: ActiveValue::Set(ex.attributes.mechanic),
             equipment: ActiveValue::Set(ex.attributes.equipment),
