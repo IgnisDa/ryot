@@ -19,7 +19,6 @@ database-models = { workspace = true }
 database-utils = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }
-migrations-sql = { workspace = true }
 supporting-service = { workspace = true }
 user-models = { workspace = true }
 

@@ -5,8 +5,13 @@ use application_utils::graphql_to_db_order;
 use common_models::{SearchDetails, SearchInput, UserLevelCacheKey};
 use database_models::{
     collection, collection_entity_membership, collection_to_entity, exercise, genre, metadata,
-    metadata_group, person, prelude::*, review, seen, user_measurement, user_to_entity, workout,
-    workout_template,
+    metadata_group, metadata_to_genre, person,
+    prelude::{
+        Collection, CollectionEntityMembership, CollectionToEntity, Exercise, Genre, Metadata,
+        MetadataGroup, Person, Review, Seen, User, UserMeasurement, UserToEntity, Workout,
+        WorkoutTemplate,
+    },
+    review, seen, user, user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::{
     apply_columns_search, build_collection_filter_condition, extract_pagination_params,
@@ -24,10 +29,6 @@ use fitness_models::{ExerciseSortBy, UserExercisesListInput, UserMeasurementsLis
 use media_models::{
     CollectionItem, GenreListItem, MediaCollectionPresenceFilter, MediaGeneralFilter, MediaSortBy,
     PersonAndMetadataGroupsSortBy,
-};
-use migrations_sql::{
-    AliasedCollection, AliasedCollectionToEntity, AliasedMetadata, AliasedMetadataToGenre,
-    AliasedReview, AliasedSeen, AliasedUser, AliasedUserToEntity,
 };
 use sea_orm::{
     ColumnTrait, Condition, EntityTrait, ItemsAndPagesNumber, Iterable, JoinType, Order,
@@ -70,55 +71,52 @@ pub async fn user_metadata_list(
 
             let max_seen_finished_on_subquery = Query::select()
                 .expr(Func::max(Expr::col((
-                    AliasedSeen::Table,
+                    seen::Entity,
                     seen::Column::FinishedOn,
                 ))))
                 .from(Seen)
-                .and_where(Expr::col((AliasedSeen::Table, seen::Column::UserId)).eq(user_id))
+                .and_where(Expr::col((seen::Entity, seen::Column::UserId)).eq(user_id))
                 .and_where(
-                    Expr::col((AliasedSeen::Table, seen::Column::MetadataId))
-                        .equals((AliasedMetadata::Table, metadata::Column::Id)),
+                    Expr::col((seen::Entity, seen::Column::MetadataId))
+                        .equals((metadata::Entity, metadata::Column::Id)),
                 )
                 .to_owned();
 
             let times_seen_subquery = Query::select()
-                .expr(Func::count(Expr::col((
-                    AliasedSeen::Table,
-                    seen::Column::Id,
-                ))))
+                .expr(Func::count(Expr::col((seen::Entity, seen::Column::Id))))
                 .from(Seen)
-                .and_where(Expr::col((AliasedSeen::Table, seen::Column::UserId)).eq(user_id))
+                .and_where(Expr::col((seen::Entity, seen::Column::UserId)).eq(user_id))
                 .and_where(
-                    Expr::col((AliasedSeen::Table, seen::Column::MetadataId))
-                        .equals((AliasedMetadata::Table, metadata::Column::Id)),
+                    Expr::col((seen::Entity, seen::Column::MetadataId))
+                        .equals((metadata::Entity, metadata::Column::Id)),
                 )
                 .to_owned();
 
             let max_seen_last_updated_on_subquery = Query::select()
                 .expr(Func::max(Expr::col((
-                    AliasedSeen::Table,
+                    seen::Entity,
                     seen::Column::LastUpdatedOn,
                 ))))
                 .from(Seen)
-                .and_where(Expr::col((AliasedSeen::Table, seen::Column::UserId)).eq(user_id))
+                .and_where(Expr::col((seen::Entity, seen::Column::UserId)).eq(user_id))
                 .and_where(
-                    Expr::col((AliasedSeen::Table, seen::Column::MetadataId))
-                        .equals((AliasedMetadata::Table, metadata::Column::Id)),
+                    Expr::col((seen::Entity, seen::Column::MetadataId))
+                        .equals((metadata::Entity, metadata::Column::Id)),
                 )
                 .to_owned();
 
             let average_rating_subquery = Query::select()
                 .expr(Func::avg(Expr::col((
-                    AliasedReview::Table,
+                    review::Entity,
                     review::Column::Rating,
                 ))))
                 .from(Review)
-                .and_where(Expr::col((AliasedReview::Table, review::Column::UserId)).eq(user_id))
+                .and_where(Expr::col((review::Entity, review::Column::UserId)).eq(user_id))
                 .and_where(
-                    Expr::col((AliasedReview::Table, review::Column::MetadataId))
-                        .equals((AliasedMetadata::Table, metadata::Column::Id)),
+                    Expr::col((review::Entity, review::Column::MetadataId))
+                        .equals((metadata::Entity, metadata::Column::Id)),
                 )
-                .and_where(Expr::col((AliasedReview::Table, review::Column::Rating)).is_not_null())
+                .and_where(Expr::col((review::Entity, review::Column::Rating)).is_not_null())
                 .to_owned();
 
             let mut base_query = Metadata::find()
@@ -193,15 +191,13 @@ pub async fn user_metadata_list(
                         Query::select()
                             .expr(Expr::val(1))
                             .from(Seen)
+                            .and_where(Expr::col((seen::Entity, seen::Column::UserId)).eq(user_id))
                             .and_where(
-                                Expr::col((AliasedSeen::Table, seen::Column::UserId)).eq(user_id),
+                                Expr::col((seen::Entity, seen::Column::MetadataId))
+                                    .equals((metadata::Entity, metadata::Column::Id)),
                             )
                             .and_where(
-                                Expr::col((AliasedSeen::Table, seen::Column::MetadataId))
-                                    .equals((AliasedMetadata::Table, metadata::Column::Id)),
-                            )
-                            .and_where(
-                                Expr::col((AliasedSeen::Table, seen::Column::State))
+                                Expr::col((seen::Entity, seen::Column::State))
                                     .eq(SeenState::Dropped),
                             )
                             .to_owned(),
@@ -210,15 +206,13 @@ pub async fn user_metadata_list(
                         Query::select()
                             .expr(Expr::val(1))
                             .from(Seen)
+                            .and_where(Expr::col((seen::Entity, seen::Column::UserId)).eq(user_id))
                             .and_where(
-                                Expr::col((AliasedSeen::Table, seen::Column::UserId)).eq(user_id),
+                                Expr::col((seen::Entity, seen::Column::MetadataId))
+                                    .equals((metadata::Entity, metadata::Column::Id)),
                             )
                             .and_where(
-                                Expr::col((AliasedSeen::Table, seen::Column::MetadataId))
-                                    .equals((AliasedMetadata::Table, metadata::Column::Id)),
-                            )
-                            .and_where(
-                                Expr::col((AliasedSeen::Table, seen::Column::State))
+                                Expr::col((seen::Entity, seen::Column::State))
                                     .eq(SeenState::OnAHold),
                             )
                             .to_owned(),
@@ -228,16 +222,14 @@ pub async fn user_metadata_list(
                             .expr(Expr::val(1))
                             .from(Review)
                             .and_where(
-                                Expr::col((AliasedReview::Table, review::Column::UserId))
-                                    .eq(user_id),
+                                Expr::col((review::Entity, review::Column::UserId)).eq(user_id),
                             )
                             .and_where(
-                                Expr::col((AliasedReview::Table, review::Column::MetadataId))
-                                    .equals((AliasedMetadata::Table, metadata::Column::Id)),
+                                Expr::col((review::Entity, review::Column::MetadataId))
+                                    .equals((metadata::Entity, metadata::Column::Id)),
                             )
                             .and_where(
-                                Expr::col((AliasedReview::Table, review::Column::Rating))
-                                    .is_not_null(),
+                                Expr::col((review::Entity, review::Column::Rating)).is_not_null(),
                             )
                             .to_owned(),
                     )
@@ -248,16 +240,14 @@ pub async fn user_metadata_list(
                             .expr(Expr::val(1))
                             .from(Review)
                             .and_where(
-                                Expr::col((AliasedReview::Table, review::Column::UserId))
-                                    .eq(user_id),
+                                Expr::col((review::Entity, review::Column::UserId)).eq(user_id),
                             )
                             .and_where(
-                                Expr::col((AliasedReview::Table, review::Column::MetadataId))
-                                    .equals((AliasedMetadata::Table, metadata::Column::Id)),
+                                Expr::col((review::Entity, review::Column::MetadataId))
+                                    .equals((metadata::Entity, metadata::Column::Id)),
                             )
                             .and_where(
-                                Expr::col((AliasedReview::Table, review::Column::Rating))
-                                    .is_not_null(),
+                                Expr::col((review::Entity, review::Column::Rating)).is_not_null(),
                             )
                             .to_owned(),
                     ),
@@ -353,13 +343,10 @@ pub async fn user_collections_list(
         ApplicationCacheValue::UserCollectionsList,
         || async {
             let user_jsonb_build_object = PgFunc::json_build_object(vec![
-                (
-                    Expr::val("id"),
-                    Expr::col((AliasedUser::Table, AliasedUser::Id)),
-                ),
+                (Expr::val("id"), Expr::col((user::Entity, user::Column::Id))),
                 (
                     Expr::val("name"),
-                    Expr::col((AliasedUser::Table, AliasedUser::Name)),
+                    Expr::col((user::Entity, user::Column::Name)),
                 ),
             ]);
             let outer_collaborator = PgFunc::json_build_object(vec![
@@ -370,8 +357,8 @@ pub async fn user_collections_list(
                 (
                     Expr::val("extra_information"),
                     Expr::col((
-                        AliasedUserToEntity::Table,
-                        AliasedUserToEntity::CollectionExtraInformation,
+                        user_to_entity::Entity,
+                        user_to_entity::Column::CollectionExtraInformation,
                     )),
                 ),
             ]);
@@ -380,16 +367,13 @@ pub async fn user_collections_list(
                 .expr(PgFunc::json_agg(outer_collaborator.clone()))
                 .join(
                     JoinType::InnerJoin,
-                    AliasedUser::Table,
-                    Expr::col((AliasedUserToEntity::Table, AliasedUserToEntity::UserId))
-                        .equals((AliasedUser::Table, AliasedUser::Id)),
+                    user::Entity,
+                    Expr::col((user_to_entity::Entity, user_to_entity::Column::UserId))
+                        .equals((user::Entity, user::Column::Id)),
                 )
                 .and_where(
-                    Expr::col((
-                        AliasedUserToEntity::Table,
-                        AliasedUserToEntity::CollectionId,
-                    ))
-                    .equals((AliasedCollection::Table, AliasedCollection::Id)),
+                    Expr::col((user_to_entity::Entity, user_to_entity::Column::CollectionId))
+                        .equals((collection::Entity, collection::Column::Id)),
                 )
                 .to_owned();
             let count_subquery = Query::select()
@@ -397,13 +381,10 @@ pub async fn user_collections_list(
                 .from(CollectionToEntity)
                 .and_where(
                     Expr::col((
-                        AliasedCollectionToEntity::Table,
-                        AliasedCollectionToEntity::CollectionId,
+                        collection_to_entity::Entity,
+                        collection_to_entity::Column::CollectionId,
                     ))
-                    .equals((
-                        AliasedUserToEntity::Table,
-                        AliasedUserToEntity::CollectionId,
-                    )),
+                    .equals((user_to_entity::Entity, user_to_entity::Column::CollectionId)),
                 )
                 .to_owned();
             let response = Collection::find()
@@ -824,13 +805,13 @@ pub async fn user_exercises_list(
                             .and_where(collection_entity_membership::Column::UserId.eq(&user_id))
                             .and_where(
                                 Expr::col(collection_entity_membership::Column::EntityId).equals((
-                                    AliasedUserToEntity::Table,
-                                    AliasedUserToEntity::EntityId,
+                                    user_to_entity::Entity,
+                                    user_to_entity::Column::EntityId,
                                 )),
                             )
                             .and_where(
                                 Expr::col(collection_entity_membership::Column::EntityLot).equals(
-                                    (AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot),
+                                    (user_to_entity::Entity, user_to_entity::Column::EntityLot),
                                 ),
                             )
                             .to_owned(),
@@ -853,13 +834,13 @@ pub async fn user_exercises_list(
                             .and_where(collection_entity_membership::Column::UserId.eq(&user_id))
                             .and_where(
                                 Expr::col(collection_entity_membership::Column::EntityId).equals((
-                                    AliasedUserToEntity::Table,
-                                    AliasedUserToEntity::EntityId,
+                                    user_to_entity::Entity,
+                                    user_to_entity::Column::EntityId,
                                 )),
                             )
                             .and_where(
                                 Expr::col(collection_entity_membership::Column::EntityLot).equals(
-                                    (AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot),
+                                    (user_to_entity::Entity, user_to_entity::Column::EntityLot),
                                 ),
                             )
                             .to_owned(),
@@ -945,8 +926,8 @@ pub async fn user_genres_list(
     let query = Genre::find()
         .column_as(
             Expr::expr(Func::count(Expr::col((
-                AliasedMetadataToGenre::Table,
-                AliasedMetadataToGenre::MetadataId,
+                metadata_to_genre::Entity,
+                metadata_to_genre::Column::MetadataId,
             )))),
             num_items,
         )

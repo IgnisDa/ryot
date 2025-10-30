@@ -8,7 +8,11 @@ use common_models::{
     ReorderCollectionEntityInput, StringIdObject,
 };
 use common_utils::ryot_log;
-use database_models::{collection, collection_to_entity, prelude::*, user_to_entity};
+use database_models::{
+    collection, collection_to_entity,
+    prelude::{Collection, CollectionToEntity, UserToEntity},
+    user_to_entity,
+};
 use database_utils::server_key_validation_guard;
 use dependent_core_utils::is_server_key_validated;
 use dependent_utility_utils::{

@@ -3,7 +3,11 @@ use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 use anyhow::{Result, anyhow, bail};
 use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
 use common_utils::{get_first_max_index_by, ryot_log};
-use database_models::{exercise, prelude::*, user_measurement, user_to_entity, workout};
+use database_models::{
+    exercise,
+    prelude::{Exercise, UserMeasurement, UserToEntity, Workout},
+    user_measurement, user_to_entity, workout,
+};
 use database_utils::schedule_user_for_workout_revision;
 use dependent_collection_utils::add_entities_to_collection;
 use dependent_models::UpdateCustomExerciseInput;

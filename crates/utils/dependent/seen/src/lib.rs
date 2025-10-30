@@ -3,7 +3,10 @@ use std::{collections::HashMap, sync::Arc};
 use anyhow::Result;
 use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
 use common_utils::SHOW_SPECIAL_SEASON_NAMES;
-use database_models::{prelude::*, seen};
+use database_models::{
+    prelude::{Metadata, Seen},
+    seen,
+};
 use dependent_collection_utils::{add_entities_to_collection, remove_entities_from_collection};
 use dependent_details_utils::metadata_details;
 use dependent_models::{ApplicationCacheKeyDiscriminants, ExpireCacheKeyInput};

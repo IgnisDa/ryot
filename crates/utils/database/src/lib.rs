@@ -10,7 +10,7 @@ use database_models::{
     prelude::{
         AccessLink, CollectionEntityMembership, Review, Seen, User, Workout, WorkoutTemplate,
     },
-    review, seen, user, workout,
+    review, seen, user, user_to_entity, workout,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CollectionToEntityDetails,
@@ -22,7 +22,6 @@ use markdown::to_html as markdown_to_html;
 use media_models::{
     MediaCollectionFilter, MediaCollectionPresenceFilter, MediaCollectionStrategyFilter, ReviewItem,
 };
-use migrations_sql::AliasedUserToEntity;
 use regex::Regex;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, Condition, EntityTrait, IntoActiveModel,
@@ -282,11 +281,11 @@ pub fn build_collection_filter_condition(
                 .and_where(collection_entity_membership::Column::UserId.eq(user_id))
                 .and_where(
                     Expr::col(collection_entity_membership::Column::EntityId)
-                        .equals((AliasedUserToEntity::Table, AliasedUserToEntity::EntityId)),
+                        .equals((user_to_entity::Entity, user_to_entity::Column::EntityId)),
                 )
                 .and_where(
                     Expr::col(collection_entity_membership::Column::EntityLot)
-                        .equals((AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot)),
+                        .equals((user_to_entity::Entity, user_to_entity::Column::EntityLot)),
                 )
                 .to_owned(),
         );
@@ -308,11 +307,11 @@ pub fn build_collection_filter_condition(
                 .and_where(collection_entity_membership::Column::UserId.eq(user_id))
                 .and_where(
                     Expr::col(collection_entity_membership::Column::EntityId)
-                        .equals((AliasedUserToEntity::Table, AliasedUserToEntity::EntityId)),
+                        .equals((user_to_entity::Entity, user_to_entity::Column::EntityId)),
                 )
                 .and_where(
                     Expr::col(collection_entity_membership::Column::EntityLot)
-                        .equals((AliasedUserToEntity::Table, AliasedUserToEntity::EntityLot)),
+                        .equals((user_to_entity::Entity, user_to_entity::Column::EntityLot)),
                 )
                 .to_owned(),
         );

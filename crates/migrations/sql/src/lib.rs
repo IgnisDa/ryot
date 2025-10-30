@@ -35,19 +35,6 @@ mod m20250908_changes_for_issue_1551;
 mod m20250914_changes_for_issue_1561;
 mod m20251021_changes_for_issue_1583;
 
-pub use m20230404_create_user::User as AliasedUser;
-pub use m20230410_create_metadata::Metadata as AliasedMetadata;
-pub use m20230411_create_metadata_group::MetadataGroup as AliasedMetadataGroup;
-pub use m20230413_create_person::Person as AliasedPerson;
-pub use m20230502_create_genre::MetadataToGenre as AliasedMetadataToGenre;
-pub use m20230504_create_collection::Collection as AliasedCollection;
-pub use m20230505_create_exercise::Exercise as AliasedExercise;
-pub use m20230508_create_review::Review as AliasedReview;
-pub use m20230510_create_seen::Seen as AliasedSeen;
-pub use m20230912_create_calendar_event::CalendarEvent as AliasedCalendarEvent;
-pub use m20231016_create_collection_to_entity::CollectionToEntity as AliasedCollectionToEntity;
-pub use m20231017_create_user_to_entity::UserToEntity as AliasedUserToEntity;
-
 pub struct Migrator;
 
 #[async_trait::async_trait]
