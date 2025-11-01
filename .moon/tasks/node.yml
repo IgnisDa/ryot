@@ -25,10 +25,10 @@ fileGroups:
     - "**/*.{scss,css}"
     - "**/*.mdx"
 
-  remix:
+  source:
     - "app/**/*"
     - "public/**/*"
-    - "remix.config.*"
+    - "vite.config.*"
 
 tasks:
   lint:
