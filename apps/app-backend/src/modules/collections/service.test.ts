@@ -128,11 +128,9 @@ const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
 const makeRelationshipsRepository = (overrides: Partial<RelationshipsRepository> = {}) =>
 	makeMock<RelationshipsRepository>(
 		{
-			insertRelationship: () => Effect.void,
 			_tag: "RelationshipsRepository" as const,
-			deleteMembership: () => Effect.die("unused"),
-			upsertMembership: () => Effect.die("unused"),
-			upsertRelationship: () => Effect.die("unused"),
+			saveRelationship: () => Effect.die("unused"),
+			deleteUserRelationship: () => Effect.die("unused"),
 			findRelationshipProperties: () => Effect.die("unused"),
 		},
 		overrides,
@@ -381,7 +379,7 @@ it.effect("creates membership event only on first add, not on upsert", () => {
 				}),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			upsertMembership: () => Effect.succeed(membership),
+			saveRelationship: () => Effect.succeed(membership),
 		}),
 	});
 
@@ -400,10 +398,10 @@ it.effect("does not create membership event on upsert update", () => {
 	let queuedEventCount = 0;
 
 	const membership = {
-		id: RelationshipId.make("rel-id"),
 		createdAt: now,
 		properties: {},
 		wasInserted: false,
+		id: RelationshipId.make("rel-id"),
 		targetEntityId: EntityId.make("coll-id"),
 		sourceEntityId: EntityId.make("entity-id"),
 		relationshipSchemaId: RelationshipSchemaId.make("member-of-schema-id"),
@@ -418,25 +416,25 @@ it.effect("does not create membership event on upsert update", () => {
 	const layer = makeServiceLayer({
 		workflowEngine,
 		relationshipsRepository: makeRelationshipsRepository({
-			upsertMembership: () => Effect.succeed(membership),
+			saveRelationship: () => Effect.succeed(membership),
 		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
 				Effect.succeed({
-					id: EntityId.make("entity-id"),
 					userId: user.id,
 					entitySchemaSlug: "book",
+					id: EntityId.make("entity-id"),
 				}),
 			getCollectionById: () =>
 				Effect.succeed({
 					image: null,
 					name: "Coll",
-					id: EntityId.make("coll-id"),
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
 					externalId: null,
 					sandboxScriptId: null,
+					id: EntityId.make("coll-id"),
 					entitySchemaId: EntitySchemaId.make("collection-schema-id"),
 				}),
 		}),
@@ -456,25 +454,25 @@ it.effect("does not create membership event on upsert update", () => {
 it.effect("returns not found when removing entity not in collection", () => {
 	const layer = makeServiceLayer({
 		relationshipsRepository: makeRelationshipsRepository({
-			deleteMembership: () => Effect.succeed(null),
+			deleteUserRelationship: () => Effect.succeed(null),
 		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
 				Effect.succeed({
-					id: EntityId.make("entity-id"),
 					userId: user.id,
 					entitySchemaSlug: "book",
+					id: EntityId.make("entity-id"),
 				}),
 			getCollectionById: () =>
 				Effect.succeed({
 					image: null,
 					name: "Coll",
-					id: EntityId.make("coll-id"),
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
 					externalId: null,
 					sandboxScriptId: null,
+					id: EntityId.make("coll-id"),
 					entitySchemaId: EntitySchemaId.make("collection-schema-id"),
 				}),
 		}),
@@ -514,25 +512,25 @@ it.effect("creates remove event on successful membership deletion", () => {
 	const layer = makeServiceLayer({
 		workflowEngine,
 		relationshipsRepository: makeRelationshipsRepository({
-			deleteMembership: () => Effect.succeed(deletedMembership),
+			deleteUserRelationship: () => Effect.succeed(deletedMembership),
 		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
 				Effect.succeed({
-					id: EntityId.make("entity-id"),
 					userId: user.id,
 					entitySchemaSlug: "book",
+					id: EntityId.make("entity-id"),
 				}),
 			getCollectionById: () =>
 				Effect.succeed({
 					name: "Coll",
-					id: EntityId.make("coll-id"),
 					image: null,
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
 					externalId: null,
 					sandboxScriptId: null,
+					id: EntityId.make("coll-id"),
 					entitySchemaId: EntitySchemaId.make("collection-schema-id"),
 				}),
 		}),
@@ -560,14 +558,14 @@ it.effect("merges ownership sources when marking an entity owned in the library"
 		relationshipsRepository: makeRelationshipsRepository({
 			findRelationshipProperties: () =>
 				Effect.succeed({ owned: true, ownershipSources: ["plex_yank"] }),
-			upsertRelationship: (input: { properties: Record<string, unknown> }) => {
+			saveRelationship: (input: { properties: Record<string, unknown> }) => {
 				upserted = input;
 				return Effect.succeed({
-					id: RelationshipId.make("rel-id"),
 					createdAt: now,
 					wasInserted: true,
-					sourceEntityId: EntityId.make("entity-id"),
 					properties: input.properties,
+					id: RelationshipId.make("rel-id"),
+					sourceEntityId: EntityId.make("entity-id"),
 					targetEntityId: EntityId.make("library-entity-id"),
 					relationshipSchemaId: RelationshipSchemaId.make("in-library-schema-id"),
 				});
