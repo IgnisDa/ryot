@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { match } from "ts-pattern";
+import { Match } from "effect";
 
 import { schema } from "~/lib/db";
 import type { AppSchema } from "~/lib/property-schema";
@@ -106,12 +106,13 @@ export const buildEventAggregateExpression = (input: {
 		const propertyJsonExpr = buildPropertyPathExpression(propertiesBase, propertyPath, "json");
 		const propertyTextExpr = buildPropertyPathExpression(propertiesBase, propertyPath, "text");
 		const numericValue = sql`case when jsonb_typeof(${propertyJsonExpr}) = 'number' then (${propertyTextExpr})::numeric else null end`;
-		const aggFn = match(aggregation)
-			.with("avg", () => sql.raw("avg"))
-			.with("max", () => sql.raw("max"))
-			.with("min", () => sql.raw("min"))
-			.with("sum", () => sql.raw("sum"))
-			.exhaustive();
+		const aggFn = Match.value(aggregation).pipe(
+			Match.when("avg", () => sql.raw("avg")),
+			Match.when("max", () => sql.raw("max")),
+			Match.when("min", () => sql.raw("min")),
+			Match.when("sum", () => sql.raw("sum")),
+			Match.exhaustive,
+		);
 		subquery = sql`(
 			select ${aggFn}(${numericValue})
 			from ${schema.event} as e_agg
@@ -187,14 +188,15 @@ export const buildEventExpression = (input: {
 		throw new QueryEngineValidationError(`Unsupported event column 'event.${column}'`);
 	}
 
-	const expression = match(column)
-		.with("id", () => sql`${sql.raw(safeAlias)}.id`)
-		.with("createdAt", () => sql`${sql.raw(safeAlias)}.created_at`)
-		.with("updatedAt", () => sql`${sql.raw(safeAlias)}.updated_at`)
-		.with("occurredAt", () => sql`${sql.raw(safeAlias)}.occurred_at`)
-		.otherwise(() => {
+	const expression = Match.value(column).pipe(
+		Match.when("id", () => sql`${sql.raw(safeAlias)}.id`),
+		Match.when("createdAt", () => sql`${sql.raw(safeAlias)}.created_at`),
+		Match.when("updatedAt", () => sql`${sql.raw(safeAlias)}.updated_at`),
+		Match.when("occurredAt", () => sql`${sql.raw(safeAlias)}.occurred_at`),
+		Match.orElse(() => {
 			throw new QueryEngineValidationError(`Unsupported event column 'event.${column}'`);
-		});
+		}),
+	);
 
 	return input.targetType
 		? castExpressionToType(expression, input.targetType)

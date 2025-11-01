@@ -1,4 +1,4 @@
-import { match } from "ts-pattern";
+import { Match } from "effect";
 
 import type { AppPropertyDefinition } from "~/lib/property-schema";
 import type { QueryComputedField, QueryExpression } from "~/lib/query-language";
@@ -96,11 +96,12 @@ const createLiteralTypeInfo = (
 };
 
 export const normalizeExpressionPropertyType = (propertyType: PropertyType) => {
-	return match(propertyType)
-		.with("enum", () => "string" as const)
-		.with("datetime", () => "date" as const)
-		.with("enum-array", () => "array" as const)
-		.otherwise((value) => value);
+	return Match.value(propertyType).pipe(
+		Match.when("enum", () => "string" as const),
+		Match.when("datetime", () => "date" as const),
+		Match.when("enum-array", () => "array" as const),
+		Match.orElse((value) => value),
+	);
 };
 
 const unifyPropertyDefinitions = (definitions: (AppPropertyDefinition | undefined)[]) => {
@@ -218,16 +219,16 @@ export const inferViewExpressionType = <
 	const typeCache = input.typeCache ?? new Map<string, ViewExpressionTypeInfo>();
 	const computedFieldMap = input.computedFieldMap ?? new Map<string, QueryComputedField>();
 
-	return match(input.expression)
-		.with({ type: "literal" }, (expr) => createLiteralTypeInfo(expr))
-		.with({ type: "isNotNull" }, () =>
+	return Match.value(input.expression).pipe(
+		Match.when({ type: "literal" }, (expr) => createLiteralTypeInfo(expr)),
+		Match.when({ type: "isNotNull" }, () =>
 			createPropertyTypeInfo("boolean", {
 				type: "boolean",
 				label: "Is Not Null",
 				description: "Whether the value is not null",
 			}),
-		)
-		.with({ type: "coalesce" }, (expr) =>
+		),
+		Match.when({ type: "coalesce" }, (expr) =>
 			unifyTypeInfos(
 				expr.values.map((expression) =>
 					inferViewExpressionType({
@@ -238,8 +239,8 @@ export const inferViewExpressionType = <
 					}),
 				),
 			),
-		)
-		.with({ type: "arithmetic" }, (expr) => {
+		),
+		Match.when({ type: "arithmetic" }, (expr) => {
 			const leftType = inferViewExpressionType({
 				typeCache,
 				computedFieldMap,
@@ -271,8 +272,8 @@ export const inferViewExpressionType = <
 						type: "integer",
 						description: "Computed numeric value",
 					});
-		})
-		.with({ type: "round" }, { type: "floor" }, { type: "integer" }, (expr) => {
+		}),
+		Match.whenOr({ type: "round" }, { type: "floor" }, { type: "integer" }, (expr) => {
 			const expressionType = inferViewExpressionType({
 				typeCache,
 				computedFieldMap,
@@ -285,8 +286,8 @@ export const inferViewExpressionType = <
 				type: "integer",
 				description: "Normalized integer value",
 			});
-		})
-		.with({ type: "concat" }, (expr) => {
+		}),
+		Match.when({ type: "concat" }, (expr) => {
 			for (const value of expr.values) {
 				assertConcatCompatibleExpression(
 					inferViewExpressionType({
@@ -303,8 +304,8 @@ export const inferViewExpressionType = <
 				type: "string",
 				description: "Computed text value",
 			});
-		})
-		.with({ type: "transform" }, (expr) => {
+		}),
+		Match.when({ type: "transform" }, (expr) => {
 			const innerType = inferViewExpressionType({
 				typeCache,
 				computedFieldMap,
@@ -317,8 +318,8 @@ export const inferViewExpressionType = <
 				type: "string",
 				description: "Transformed text value",
 			});
-		})
-		.with({ type: "conditional" }, (expr) => {
+		}),
+		Match.when({ type: "conditional" }, (expr) => {
 			const thenType = inferViewExpressionType({
 				typeCache,
 				computedFieldMap,
@@ -333,12 +334,12 @@ export const inferViewExpressionType = <
 			});
 
 			return unifyTypeInfos([thenType, elseType]);
-		})
-		.with({ type: "reference" }, (expr) => {
+		}),
+		Match.when({ type: "reference" }, (expr) => {
 			const { reference } = expr;
 
-			return match(reference)
-				.with({ type: "computed-field" }, (ref) => {
+			return Match.value(reference).pipe(
+				Match.when({ type: "computed-field" }, (ref) => {
 					const cached = typeCache.get(ref.key);
 					if (cached) {
 						return cached;
@@ -354,8 +355,8 @@ export const inferViewExpressionType = <
 					});
 					typeCache.set(ref.key, inferred);
 					return inferred;
-				})
-				.with({ type: "entity" }, (ref) => {
+				}),
+				Match.when({ type: "entity" }, (ref) => {
 					const schema = getSchemaForReference(input.context.schemaMap, ref);
 
 					if (ref.path[0] === "properties") {
@@ -397,16 +398,16 @@ export const inferViewExpressionType = <
 						normalizeExpressionPropertyType(propertyDefinition.type),
 						propertyDefinition,
 					);
-				})
-				.with({ type: "event-aggregate" }, (ref) => {
+				}),
+				Match.when({ type: "event-aggregate" }, (ref) => {
 					const propertyType = ref.aggregation === "count" ? "integer" : "number";
 					return createPropertyTypeInfo(propertyType, {
 						type: propertyType,
 						label: "Event Aggregate",
 						description: "Aggregated event value",
 					});
-				})
-				.with({ type: "entity-schema" }, (ref) => {
+				}),
+				Match.when({ type: "entity-schema" }, (ref) => {
 					const [column] = ref.path;
 					if (!column) {
 						throw new QueryEngineValidationError("Entity schema reference path must not be empty");
@@ -426,8 +427,8 @@ export const inferViewExpressionType = <
 						normalizeExpressionPropertyType(propertyDefinition.type),
 						propertyDefinition,
 					);
-				})
-				.with({ type: "event" }, (ref) => {
+				}),
+				Match.when({ type: "event" }, (ref) => {
 					if (ref.path[0] !== "properties") {
 						const [column] = ref.path;
 						if (!column) {
@@ -471,8 +472,8 @@ export const inferViewExpressionType = <
 						label: "Event Property",
 						description: "Event property value",
 					});
-				})
-				.with({ type: "event-schema" }, (ref) => {
+				}),
+				Match.when({ type: "event-schema" }, (ref) => {
 					const [column] = ref.path;
 					if (!column) {
 						throw new QueryEngineValidationError("Event schema reference path must not be empty");
@@ -492,8 +493,8 @@ export const inferViewExpressionType = <
 						normalizeExpressionPropertyType(propertyDefinition.type),
 						propertyDefinition,
 					);
-				})
-				.with({ type: "relationship-join" }, (ref) => {
+				}),
+				Match.when({ type: "relationship-join" }, (ref) => {
 					const join = getRelationshipJoinForReference(
 						input.context.relationshipJoinMap ?? new Map(),
 						ref,
@@ -590,8 +591,8 @@ export const inferViewExpressionType = <
 						normalizeExpressionPropertyType(propertyDefinition.type),
 						propertyDefinition,
 					);
-				})
-				.with({ type: "event-join" }, (ref) => {
+				}),
+				Match.when({ type: "event-join" }, (ref) => {
 					const join = getEventJoinForReference(input.context.eventJoinMap, ref);
 
 					if (ref.path[0] === "properties") {
@@ -624,10 +625,12 @@ export const inferViewExpressionType = <
 						normalizeExpressionPropertyType(propertyDefinition.type),
 						propertyDefinition,
 					);
-				})
-				.exhaustive();
-		})
-		.exhaustive();
+				}),
+				Match.exhaustive,
+			);
+		}),
+		Match.exhaustive,
+	);
 };
 
 export const assertFilterCompatibleExpression = (
