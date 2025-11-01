@@ -1,4 +1,5 @@
-import type { Effect } from "effect";
+import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
+import { Context, type Effect } from "effect";
 
 import type { SandboxRunError } from "#lib/errors";
 import type {
@@ -14,48 +15,44 @@ import type { ImportRunJobData } from "../jobs";
 import type { LoadedMediaImportAdapterResult } from "./file-processor";
 import type { LoadedMediaImportAdapterSuccess } from "./source-loaders";
 
-export type MediaImportWorkflowOperations<
-	RLoad,
-	RResolve,
-	RImport,
-	RSearch = never,
-	RCleanup = never,
-> = {
-	cleanupArtifacts: (input: {
-		cleanupPaths: ReadonlyArray<string>;
-		sourcePayloadKey?: string;
-	}) => Effect.Effect<void, unknown, RCleanup>;
+type MediaSandboxRequirements = WorkflowEngine | WorkflowInstance;
+
+export type MediaImportWorkflowOperationsValue = {
 	loadAdapterResult: (
 		payload: ImportRunJobData,
 	) => Effect.Effect<
 		LoadedMediaImportAdapterSuccess | LoadedMediaImportAdapterResult,
-		{ cleanupPaths: ReadonlyArray<string>; message: string },
-		RLoad
+		{ cleanupPaths: ReadonlyArray<string>; message: string }
 	>;
 	resolveExternalId: (input: {
 		value: string;
 		userId: UserId;
-		scriptId: SandboxScriptId;
 		executionId: string;
 		identifierType: string;
-	}) => Effect.Effect<{ externalId: string | null }, SandboxRunError, RResolve>;
+		scriptId: SandboxScriptId;
+	}) => Effect.Effect<{ externalId: string | null }, SandboxRunError, MediaSandboxRequirements>;
 	searchEntities?: (input: {
 		query: string;
 		userId: UserId;
-		scriptId: SandboxScriptId;
 		executionId: string;
-	}) => Effect.Effect<ReadonlyArray<EntitySearchItem>, SandboxRunError, RSearch>;
+		scriptId: SandboxScriptId;
+	}) => Effect.Effect<ReadonlyArray<EntitySearchItem>, SandboxRunError, MediaSandboxRequirements>;
 	importEntity: (input: {
 		userId: UserId;
-		scriptId: SandboxScriptId;
 		externalId: string;
 		executionId: string;
-		entitySchemaId: EntitySchemaId;
 		activityPrefix: string;
-	}) => Effect.Effect<{ id: EntityId }, SandboxRunError, RImport>;
+		scriptId: SandboxScriptId;
+		entitySchemaId: EntitySchemaId;
+	}) => Effect.Effect<{ id: EntityId }, SandboxRunError, MediaSandboxRequirements>;
 };
 
+export class MediaImportWorkflowOperations extends Context.Tag("MediaImportWorkflowOperations")<
+	MediaImportWorkflowOperations,
+	MediaImportWorkflowOperationsValue
+>() {}
+
 export type MediaImportWorkflowOptions = {
-	integrationId?: IntegrationId;
 	skipMarkStarted?: boolean;
+	integrationId?: IntegrationId;
 };

@@ -7,54 +7,62 @@ import { AppConfig } from "#lib/config";
 import type { DbRunner } from "#lib/db";
 import type { EntitiesRepository } from "#modules/entities/repository";
 import type { ListedEntity } from "#modules/entities/schemas";
-import { EntitiesService } from "#modules/entities/service";
+import type { EntitiesService } from "#modules/entities/service";
 import type { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import type { EventSchemasRepository } from "#modules/event-schemas/repository";
-import { EventsService } from "#modules/events/service";
+import type { EventsService } from "#modules/events/service";
 
 import type { ImportRunJobData } from "../jobs";
 import { sanitizeErrorMessage } from "../runtime/failures";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
+import { adaptHevyCsv } from "../sources/hevy/adapter";
+import { adaptStrongAppCsv } from "../sources/strong-app/adapter";
 import {
 	type NonMediaItemOutcome,
 	type NonMediaPrepareWritesEffect,
 	loadNonMediaImportText,
 } from "../workflows-non-media";
-import type { WorkoutAdapterResult, WorkoutImportItem } from "./domain";
+import type { WorkoutImportItem } from "./domain";
 import { commitWorkoutItem, loadWorkoutImportContext } from "./processor";
 
-export const loadWorkoutAdapterResult = (input: {
-	sourceName: string;
-	adapt: (csvText: string, timezone: string) => WorkoutAdapterResult;
-}) =>
-	Effect.fn("imports.loadWorkoutAdapterResult")(function* (payload: ImportRunJobData) {
+export const loadHevyWorkoutAdapterResult = Effect.fn("imports.loadHevyWorkoutAdapterResult")(
+	function* (payload: ImportRunJobData) {
 		const config = yield* AppConfig;
 		const { text, cleanupPaths } = yield* loadNonMediaImportText(payload);
 		const result = yield* Effect.try({
-			try: () => input.adapt(text, config.timezone),
+			try: () => adaptHevyCsv(text, config.timezone),
 			catch: (error) => ({
 				cleanupPaths,
-				message: sanitizeErrorMessage(error, `Could not parse ${input.sourceName} CSV`),
+				message: sanitizeErrorMessage(error, "Could not parse Hevy CSV"),
 			}),
 		});
 		return { cleanupPaths, items: result.items, failures: result.failures };
+	},
+);
+
+export const loadStrongAppWorkoutAdapterResult = Effect.fn(
+	"imports.loadStrongAppWorkoutAdapterResult",
+)(function* (payload: ImportRunJobData) {
+	const config = yield* AppConfig;
+	const { text, cleanupPaths } = yield* loadNonMediaImportText(payload);
+	const result = yield* Effect.try({
+		try: () => adaptStrongAppCsv(text, config.timezone),
+		catch: (error) => ({
+			cleanupPaths,
+			message: sanitizeErrorMessage(error, "Could not parse StrongApp CSV"),
+		}),
 	});
+	return { cleanupPaths, items: result.items, failures: result.failures };
+});
 
 export const prepareWorkoutWrites = (
 	payload: ImportRunJobData,
 ): NonMediaPrepareWritesEffect<
 	WorkoutImportItem,
 	EntitiesService | EventsService | WorkflowEngine | WorkflowInstance,
-	| DbRunner
-	| EventsService
-	| EntitiesService
-	| EntitiesRepository
-	| EventSchemasRepository
-	| EntitySchemasRepository
+	DbRunner | EntitiesRepository | EventSchemasRepository | EntitySchemasRepository
 > =>
 	Effect.gen(function* () {
-		const events = yield* EventsService;
-		const entities = yield* EntitiesService;
 		const user: CurrentUserValue = { id: payload.userId, name: "", email: "" };
 
 		const context = yield* loadWorkoutImportContext(payload.userId).pipe(
@@ -75,9 +83,7 @@ export const prepareWorkoutWrites = (
 					name: `import-workout-item-${index}`,
 					execute: commitWorkoutItem({
 						user,
-						events,
 						schemas,
-						entities,
 						candidates,
 						workout: item,
 						exerciseCache,
