@@ -27,7 +27,6 @@ dependent-utility-utils = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }
-migrations-sql = { workspace = true }
 supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]

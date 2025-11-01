@@ -26,6 +26,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import {
+	IconKey,
 	IconPlus,
 	IconRotateClockwise,
 	IconTrash,
@@ -99,7 +100,6 @@ export default function Page() {
 					withTableBorder={false}
 					columns={[
 						{
-							width: 150,
 							accessor: "id",
 							title: "User ID",
 							render: ({ id, name }) => (
@@ -113,7 +113,6 @@ export default function Page() {
 							),
 						},
 						{
-							width: 250,
 							title: "Name",
 							accessor: "name",
 							render: ({ name }) => (
@@ -123,7 +122,6 @@ export default function Page() {
 							),
 						},
 						{
-							width: 50,
 							title: "Role",
 							accessor: "lot",
 							render: ({ lot }) => (
@@ -137,7 +135,6 @@ export default function Page() {
 							),
 						},
 						{
-							width: 60,
 							title: "Status",
 							accessor: "isDisabled",
 							render: ({ isDisabled }) => (
@@ -151,7 +148,7 @@ export default function Page() {
 							),
 						},
 						{
-							width: 150,
+							width: 200,
 							title: "Actions",
 							accessor: "actions",
 							textAlign: "center",
@@ -240,8 +237,8 @@ const UserActions = (props: {
 			if (resetUser.passwordChangeUrl) {
 				if (!isCurrentUser) {
 					props.setUrlDisplayData({
-						url: resetUser.passwordChangeUrl,
 						title: "Password Reset Link",
+						url: resetUser.passwordChangeUrl,
 						description: "Share this URL with the user to reset their password",
 					});
 				}
@@ -255,64 +252,95 @@ const UserActions = (props: {
 		},
 	});
 
+	const getPasswordChangeSessionMutation = useMutation({
+		onError: () =>
+			showErrorNotification("Failed to get password change session"),
+		mutationFn: async (userId: string) => {
+			const { getPasswordChangeSession } = await clientGqlService.request(
+				GetPasswordChangeSessionDocument,
+				{ input: { userId } },
+			);
+			return getPasswordChangeSession.passwordChangeUrl;
+		},
+		onSuccess: async (passwordChangeUrl) => {
+			props.setUrlDisplayData({
+				url: passwordChangeUrl,
+				title: "Password Change Link",
+				description: "Share this URL with the user to change their password",
+			});
+			showSuccessNotification("Password change session created successfully");
+		},
+	});
+
 	return (
-		<>
-			<Group justify="center">
-				<ActionIcon
-					variant="subtle"
-					loading={toggleUserStatusMutation.isPending}
-					color={props.user.isDisabled ? "green" : "yellow"}
-					onClick={() => {
-						const action = props.user.isDisabled ? "enable" : "disable";
-						const newStatus = !props.user.isDisabled;
-						const isCurrentUser = props.user.id === userDetails.id;
-						const confirmationMessage =
-							isCurrentUser && newStatus
-								? `Are you sure you want to ${action} your own account? You will be logged out immediately and unable to log in until an admin re-enables your account.`
-								: `Are you sure you want to ${action} this user? ${newStatus ? "The user will be unable to log in." : "The user will be able to log in again."}`;
+		<Group justify="center">
+			<ActionIcon
+				variant="subtle"
+				loading={toggleUserStatusMutation.isPending}
+				color={props.user.isDisabled ? "green" : "yellow"}
+				onClick={() => {
+					const action = props.user.isDisabled ? "enable" : "disable";
+					const newStatus = !props.user.isDisabled;
+					const isCurrentUser = props.user.id === userDetails.id;
+					const confirmationMessage =
+						isCurrentUser && newStatus
+							? `Are you sure you want to ${action} your own account? You will be logged out immediately and unable to log in until an admin re-enables your account.`
+							: `Are you sure you want to ${action} this user? ${newStatus ? "The user will be unable to log in." : "The user will be able to log in again."}`;
 
-						openConfirmationModal(confirmationMessage, () =>
-							toggleUserStatusMutation.mutate({
-								userId: props.user.id,
-								isDisabled: newStatus,
-							}),
-						);
-					}}
-				>
-					<IconUserOff size={18} />
-				</ActionIcon>
-				<ActionIcon
-					color="orange"
-					variant="subtle"
-					loading={resetUserMutation.isPending}
-					onClick={() => {
-						const isCurrentUser = props.user.id === userDetails.id;
-						const confirmationMessage = isCurrentUser
-							? "Are you sure you want to reset your own account? This action will permanently delete all your data including progress, collections, and preferences. You will be logged out and redirected to set a new password."
-							: "Are you sure you want to reset this user? This action will permanently delete all user data including progress, collections, and preferences. This cannot be undone.";
+					openConfirmationModal(confirmationMessage, () =>
+						toggleUserStatusMutation.mutate({
+							userId: props.user.id,
+							isDisabled: newStatus,
+						}),
+					);
+				}}
+			>
+				<IconUserOff size={18} />
+			</ActionIcon>
+			<ActionIcon
+				color="cyan"
+				variant="subtle"
+				loading={getPasswordChangeSessionMutation.isPending}
+				onClick={() => {
+					openConfirmationModal(
+						"Are you sure you want to generate a password change session for this user? This will create a one-time link that allows them to change their password.",
+						() => getPasswordChangeSessionMutation.mutate(props.user.id),
+					);
+				}}
+			>
+				<IconKey size={18} />
+			</ActionIcon>
+			<ActionIcon
+				color="orange"
+				variant="subtle"
+				loading={resetUserMutation.isPending}
+				onClick={() => {
+					const isCurrentUser = props.user.id === userDetails.id;
+					const confirmationMessage = isCurrentUser
+						? "Are you sure you want to reset your own account? This action will permanently delete all your data including progress, collections, and preferences. You will be logged out and redirected to set a new password."
+						: "Are you sure you want to reset this user? This action will permanently delete all user data including progress, collections, and preferences. This cannot be undone.";
 
-						openConfirmationModal(confirmationMessage, () =>
-							resetUserMutation.mutate(props.user.id),
-						);
-					}}
-				>
-					<IconRotateClockwise size={18} />
-				</ActionIcon>
-				<ActionIcon
-					color="red"
-					variant="subtle"
-					loading={deleteUserMutation.isPending}
-					onClick={() => {
-						openConfirmationModal(
-							"Are you sure you want to delete this user?",
-							() => deleteUserMutation.mutate(props.user.id),
-						);
-					}}
-				>
-					<IconTrash size={18} />
-				</ActionIcon>
-			</Group>
-		</>
+					openConfirmationModal(confirmationMessage, () =>
+						resetUserMutation.mutate(props.user.id),
+					);
+				}}
+			>
+				<IconRotateClockwise size={18} />
+			</ActionIcon>
+			<ActionIcon
+				color="red"
+				variant="subtle"
+				loading={deleteUserMutation.isPending}
+				onClick={() => {
+					openConfirmationModal(
+						"Are you sure you want to delete this user?",
+						() => deleteUserMutation.mutate(props.user.id),
+					);
+				}}
+			>
+				<IconTrash size={18} />
+			</ActionIcon>
+		</Group>
 	);
 };
 

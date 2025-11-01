@@ -23,7 +23,10 @@ use sea_orm::{IntoActiveModel, Iterable};
 use supporting_service::SupportingService;
 use user_models::{UpdateUserInput, UserPreferences};
 
-use crate::{password_change_operations, user_data_operations};
+use crate::{
+    password_change_operations::{build_password_change_url, generate_password_change_session},
+    user_data_operations::users_list,
+};
 
 pub async fn update_user(
     input: UpdateUserInput,
@@ -71,7 +74,7 @@ pub async fn delete_user(
     let Some(u) = maybe_user else {
         return Ok(false);
     };
-    let admin_count = user_data_operations::users_list(ss, None)
+    let admin_count = users_list(ss, None)
         .await?
         .into_iter()
         .filter(|u| u.lot == UserLot::Admin)
@@ -128,12 +131,9 @@ pub async fn reset_user(
             let password_change_url = match original_oidc_issuer_id {
                 Some(_) => None,
                 None => {
-                    let session_id = password_change_operations::generate_password_change_session(
-                        ss,
-                        result.id.clone(),
-                    )
-                    .await?;
-                    Some(password_change_operations::build_password_change_url(
+                    let session_id =
+                        generate_password_change_session(ss, result.id.clone()).await?;
+                    Some(build_password_change_url(
                         &ss.config.frontend.url,
                         &session_id,
                     ))

@@ -6,7 +6,7 @@ use chrono::{Days, NaiveDate, Utc};
 use common_models::EntityAssets;
 use common_utils::{get_db_stmt, get_first_and_last_day_of_month};
 use database_models::{
-    calendar_event,
+    calendar_event, metadata,
     prelude::{CalendarEvent, Metadata, UserToEntity},
     user_to_entity,
 };
@@ -19,7 +19,6 @@ use media_models::{
     SeenShowExtraInformation, ShowSpecifics,
 };
 use media_models::{GroupedCalendarEvent, UserCalendarEventInput, UserUpcomingCalendarEventInput};
-use migrations_sql::{AliasedCalendarEvent, AliasedMetadata, AliasedUserToEntity};
 use sea_orm::{
     ColumnTrait, EntityTrait, FromQueryResult, JoinType, Order, QueryFilter, QueryOrder,
     QuerySelect, QueryTrait,
@@ -116,37 +115,34 @@ async fn get_calendar_events(
             CalendarEvent::find()
                 .apply_if(deduplicate.filter(|&d| d), |query, _v| {
                     query
-                        .distinct_on([(
-                            AliasedCalendarEvent::Table,
-                            AliasedCalendarEvent::MetadataId,
-                        )])
+                        .distinct_on([(calendar_event::Entity, calendar_event::Column::MetadataId)])
                         .order_by_asc(Expr::col((
-                            AliasedCalendarEvent::Table,
-                            AliasedCalendarEvent::MetadataId,
+                            calendar_event::Entity,
+                            calendar_event::Column::MetadataId,
                         )))
                 })
                 .column_as(
-                    Expr::col((AliasedMetadata::Table, AliasedMetadata::Lot)),
+                    Expr::col((metadata::Entity, metadata::Column::Lot)),
                     "m_lot",
                 )
                 .column_as(
-                    Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)),
+                    Expr::col((metadata::Entity, metadata::Column::Title)),
                     "m_title",
                 )
                 .column_as(
-                    Expr::col((AliasedMetadata::Table, AliasedMetadata::Assets)),
+                    Expr::col((metadata::Entity, metadata::Column::Assets)),
                     "m_assets",
                 )
                 .column_as(
-                    Expr::col((AliasedMetadata::Table, AliasedMetadata::ShowSpecifics)),
+                    Expr::col((metadata::Entity, metadata::Column::ShowSpecifics)),
                     "m_show_specifics",
                 )
                 .column_as(
-                    Expr::col((AliasedMetadata::Table, AliasedMetadata::PodcastSpecifics)),
+                    Expr::col((metadata::Entity, metadata::Column::PodcastSpecifics)),
                     "m_podcast_specifics",
                 )
                 .filter(
-                    Expr::col((AliasedUserToEntity::Table, AliasedUserToEntity::UserId))
+                    Expr::col((user_to_entity::Entity, user_to_entity::Column::UserId))
                         .eq(&user_id),
                 )
                 .inner_join(Metadata)
@@ -181,7 +177,7 @@ async fn get_calendar_events(
                 .into_query(),
             Alias::new("sub_query"),
         )
-        .order_by(Alias::new("date"), Order::Asc)
+        .order_by(calendar_event::Column::Date, Order::Asc)
         .to_owned();
     let (user, all_events) = try_join!(
         user_by_id(&user_id, ss),
