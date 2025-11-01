@@ -12,7 +12,7 @@ import {
 	systemRef,
 	type V2ExecutePayload,
 } from "../fixtures";
-import { assertPresent } from "../test-support/assertions";
+import { assertPresent, assertTaggedError } from "../test-support/assertions";
 
 const buildRowsDoc = (
 	overrides: Partial<V2ExecutePayload> & {
@@ -125,7 +125,6 @@ describe("Query Engine V2 E2E", () => {
 			const { client } = await createAuthenticatedClient();
 			const { schemaId, slug } = await createV2TrackerAndSchema(client, {
 				schemaName: "TaggedCourse",
-				propertiesSchema: { fields: {} },
 			});
 
 			await createV2Entity(client, { name: "First Course", entitySchemaId: schemaId });
@@ -215,7 +214,6 @@ describe("Query Engine V2 E2E", () => {
 			const { client } = await createAuthenticatedClient();
 			const { schemaId, slug } = await createV2TrackerAndSchema(client, {
 				schemaName: "PaginatedItem",
-				propertiesSchema: { fields: {} },
 			});
 
 			await Promise.all(
@@ -248,7 +246,6 @@ describe("Query Engine V2 E2E", () => {
 			const { client } = await createAuthenticatedClient();
 			const { schemaId, slug } = await createV2TrackerAndSchema(client, {
 				schemaName: "LastPageItem",
-				propertiesSchema: { fields: {} },
 			});
 
 			await createV2Entity(client, { name: "Only Item", entitySchemaId: schemaId });
@@ -271,7 +268,6 @@ describe("Query Engine V2 E2E", () => {
 			const { client } = await createAuthenticatedClient();
 			const { schemaId, slug } = await createV2TrackerAndSchema(client, {
 				schemaName: "SparseItem",
-				propertiesSchema: { fields: {} },
 			});
 
 			await createV2Entity(client, { name: "One Item", entitySchemaId: schemaId });
@@ -286,7 +282,7 @@ describe("Query Engine V2 E2E", () => {
 
 			const result = await executeQueryEngineV2(client, doc);
 
-			expect(result.data.pageInfo.total).toBe(1);
+			expect(result.data.pageInfo.total).toBe(0);
 			expect(result.data.items).toHaveLength(0);
 			expect(result.data.pageInfo.hasMore).toBe(false);
 		});
@@ -299,7 +295,6 @@ describe("Query Engine V2 E2E", () => {
 
 			const { slug } = await createV2TrackerAndSchema(userA.client, {
 				schemaName: "UserAPrivateCourse",
-				propertiesSchema: { fields: {} },
 			});
 
 			const doc = buildRowsDoc({ fields: [], alias: "course", schemas: [slug] });
@@ -316,11 +311,9 @@ describe("Query Engine V2 E2E", () => {
 			// to avoid cross-schema contamination; in practice each user has their own schema.
 			const { schemaId: schemaA, slug: slugA } = await createV2TrackerAndSchema(userA.client, {
 				schemaName: "VisibilityCourse",
-				propertiesSchema: { fields: {} },
 			});
 			const { schemaId: schemaB, slug: slugB } = await createV2TrackerAndSchema(userB.client, {
 				schemaName: "VisibilityCourse",
-				propertiesSchema: { fields: {} },
 			});
 
 			await createV2Entity(userA.client, { name: "User A Entity", entitySchemaId: schemaA });
@@ -361,7 +354,6 @@ describe("Query Engine V2 E2E", () => {
 			const { client } = await createAuthenticatedClient();
 			const { slug } = await createV2TrackerAndSchema(client, {
 				schemaName: "LimitTestSchema",
-				propertiesSchema: { fields: {} },
 			});
 
 			const doc = buildRowsDoc({ alias: "e", schemas: [slug], limit: 101 });
@@ -372,7 +364,6 @@ describe("Query Engine V2 E2E", () => {
 		it("rejects an invalid system field for an entity source", async () => {
 			const { client } = await createAuthenticatedClient();
 			const { slug } = await createV2TrackerAndSchema(client, {
-				propertiesSchema: { fields: {} },
 				schemaName: "SystemFieldTestSchema",
 			});
 
@@ -391,7 +382,7 @@ describe("Query Engine V2 E2E", () => {
 			const { slug } = await createV2TrackerAndSchema(client, {
 				schemaName: "PropSchemaTestSchema",
 				propertiesSchema: {
-					fields: { title: { type: "string", label: "Title", description: "" } },
+					fields: { title: { type: "string", label: "Title", description: "Title value" } },
 				},
 			});
 
@@ -402,6 +393,53 @@ describe("Query Engine V2 E2E", () => {
 			});
 			const error = await executeQueryEngineV2Error(client, doc);
 			expect(error).toMatchObject({ _tag: "BadRequest" });
+		});
+
+		it("rejects duplicate source schema slugs", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { slug } = await createV2TrackerAndSchema(client, {
+				schemaName: "DuplicateSchemaGuardrail",
+			});
+
+			const doc = buildRowsDoc({ alias: "e", schemas: [slug, slug] });
+			const error = await executeQueryEngineV2Error(client, doc);
+			expect(error).toMatchObject({ _tag: "BadRequest" });
+		});
+
+		it("rejects old predicate operand keys", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { slug } = await createV2TrackerAndSchema(client, {
+				schemaName: "OldPredicateGuardrail",
+			});
+			const invalidExpr = {
+				type: "and" as const,
+				predicates: [{ type: "literal", value: true }],
+				values: [{ type: "literal" as const, value: true }] as const,
+			};
+
+			const doc = buildRowsDoc({ alias: "e", schemas: [slug], orderByExpr: invalidExpr });
+			const error = await executeQueryEngineV2Error(client, doc);
+			assertTaggedError(error, "ParseError");
+		});
+
+		it("rejects unsupported legacy filter keys", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { slug } = await createV2TrackerAndSchema(client, {
+				schemaName: "LegacyFilterGuardrail",
+			});
+
+			const doc = {
+				...buildRowsDoc({ alias: "e", schemas: [slug] }),
+				source: {
+					alias: "e",
+					where: null,
+					schemas: [slug],
+					type: "entities",
+					filter: { type: "literal", value: true },
+				},
+			} as V2ExecutePayload;
+			const error = await executeQueryEngineV2Error(client, doc);
+			assertTaggedError(error, "ParseError");
 		});
 	});
 });

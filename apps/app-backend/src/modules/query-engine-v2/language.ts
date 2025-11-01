@@ -1,17 +1,19 @@
 import { Schema } from "effect";
 
-const SystemFieldSelector = Schema.Struct({
+import { strictStruct } from "#lib/schema/utils";
+
+const SystemFieldSelector = strictStruct({
 	name: Schema.String,
 	type: Schema.Literal("system"),
 }).annotations({ identifier: "SystemFieldSelector" });
 
-const PropertyFieldSelector = Schema.Struct({
+const PropertyFieldSelector = strictStruct({
 	schema: Schema.String,
 	type: Schema.Literal("property"),
 	path: Schema.NonEmptyArray(Schema.String),
 }).annotations({ identifier: "PropertyFieldSelector" });
 
-const SchemaMetadataFieldSelector = Schema.Struct({
+const SchemaMetadataFieldSelector = strictStruct({
 	type: Schema.Literal("schema"),
 	name: Schema.Literal("slug", "name"),
 }).annotations({ identifier: "SchemaMetadataFieldSelector" });
@@ -40,13 +42,13 @@ export type Expr =
 			readonly operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
 	  };
 
-const LiteralExpr = Schema.Struct({
+const LiteralExpr = strictStruct({
 	value: Schema.Unknown,
 	type: Schema.Literal("literal"),
 	valueType: Schema.optional(Schema.Literal("date")),
 }).annotations({ identifier: "LiteralExpr" });
 
-const RefExpr = Schema.Struct({
+const RefExpr = strictStruct({
 	field: FieldSelector,
 	sourceAlias: Schema.String,
 	type: Schema.Literal("ref"),
@@ -54,47 +56,25 @@ const RefExpr = Schema.Struct({
 
 export const Expr: Schema.Schema<Expr> = Schema.suspend(() =>
 	Schema.Union(
-		LiteralExpr,
 		RefExpr,
-		Schema.Struct({
+		LiteralExpr,
+		strictStruct({ expr: Expr, type: Schema.Literal("not") }),
+		strictStruct({ expr: Expr, type: Schema.Literal("isNull") }),
+		strictStruct({ expr: Expr, type: Schema.Literal("isNotNull") }),
+		strictStruct({ left: Expr, right: Expr, type: Schema.Literal("contains") }),
+		strictStruct({ type: Schema.Literal("or"), values: Schema.NonEmptyArray(Expr) }),
+		strictStruct({ type: Schema.Literal("and"), values: Schema.NonEmptyArray(Expr) }),
+		strictStruct({ type: Schema.Literal("coalesce"), values: Schema.NonEmptyArray(Expr) }),
+		strictStruct({
 			left: Expr,
 			right: Expr,
 			type: Schema.Literal("comparison"),
 			operator: Schema.Literal("eq", "neq", "gt", "gte", "lt", "lte"),
 		}),
-		Schema.Struct({
-			type: Schema.Literal("and"),
-			values: Schema.NonEmptyArray(Expr),
-		}),
-		Schema.Struct({
-			type: Schema.Literal("or"),
-			values: Schema.NonEmptyArray(Expr),
-		}),
-		Schema.Struct({
-			expr: Expr,
-			type: Schema.Literal("not"),
-		}),
-		Schema.Struct({
-			expr: Expr,
-			type: Schema.Literal("isNull"),
-		}),
-		Schema.Struct({
-			expr: Expr,
-			type: Schema.Literal("isNotNull"),
-		}),
-		Schema.Struct({
-			left: Expr,
-			right: Expr,
-			type: Schema.Literal("contains"),
-		}),
-		Schema.Struct({
-			type: Schema.Literal("coalesce"),
-			values: Schema.NonEmptyArray(Expr),
-		}),
 	),
 ).annotations({ identifier: "Expr" });
 
-export const EntitySourceV2 = Schema.Struct({
+export const EntitySourceV2 = strictStruct({
 	alias: Schema.String,
 	where: Schema.NullOr(Expr),
 	type: Schema.Literal("entities"),
@@ -102,22 +82,20 @@ export const EntitySourceV2 = Schema.Struct({
 }).annotations({ identifier: "EntitySourceV2" });
 export type EntitySourceV2 = typeof EntitySourceV2.Type;
 
-const Pagination = Schema.Struct({
+const Pagination = strictStruct({
 	page: Schema.Int.pipe(Schema.positive()),
 	limit: Schema.Int.pipe(Schema.positive()),
 }).annotations({ identifier: "Pagination" });
 
-const OrderByEntry = Schema.Struct({
-	expr: Expr,
-	order: Schema.Literal("asc", "desc"),
-}).annotations({ identifier: "OrderByEntry" });
+const OrderByEntry = strictStruct({ expr: Expr, order: Schema.Literal("asc", "desc") }).annotations(
+	{ identifier: "OrderByEntry" },
+);
 
-const FieldDef = Schema.Struct({
-	expr: Expr,
-	key: Schema.String,
-}).annotations({ identifier: "FieldDef" });
+const FieldDef = strictStruct({ expr: Expr, key: Schema.String }).annotations({
+	identifier: "FieldDef",
+});
 
-export const RowsReturnV2 = Schema.Struct({
+export const RowsReturnV2 = strictStruct({
 	pagination: Pagination,
 	type: Schema.Literal("rows"),
 	fields: Schema.Array(FieldDef),
@@ -125,29 +103,29 @@ export const RowsReturnV2 = Schema.Struct({
 }).annotations({ identifier: "RowsReturnV2" });
 export type RowsReturnV2 = typeof RowsReturnV2.Type;
 
-export const QueryDocumentV2 = Schema.Struct({
+export const QueryDocumentV2 = strictStruct({
 	return: RowsReturnV2,
 	source: EntitySourceV2,
 	version: Schema.Literal(2),
 }).annotations({ identifier: "QueryDocumentV2" });
 export type QueryDocumentV2 = typeof QueryDocumentV2.Type;
 
-export const FieldValue = Schema.Struct({
+export const FieldValue = strictStruct({
 	value: Schema.Unknown,
 	kind: Schema.Literal("boolean", "date", "image", "json", "null", "number", "text"),
 }).annotations({ identifier: "FieldValue" });
 export type FieldValue = typeof FieldValue.Type;
 
-const RowsPageInfo = Schema.Struct({
+const RowsPageInfo = strictStruct({
 	page: Schema.Int,
 	limit: Schema.Int,
 	total: Schema.Int,
 	hasMore: Schema.Boolean,
 }).annotations({ identifier: "RowsPageInfo" });
 
-export const RowsResponseV2 = Schema.Struct({
+export const RowsResponseV2 = strictStruct({
 	type: Schema.Literal("rows"),
-	data: Schema.Struct({
+	data: strictStruct({
 		pageInfo: RowsPageInfo,
 		items: Schema.Array(Schema.Record({ key: Schema.String, value: FieldValue })),
 	}),
