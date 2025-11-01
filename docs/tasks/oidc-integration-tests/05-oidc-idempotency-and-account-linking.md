@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -52,11 +52,11 @@ Account linking relies on Better Auth comparing the OIDC `email` claim against e
 
 ## Acceptance criteria
 
-- [ ] Test 1 passes: two OIDC sign-ins with the same username produce exactly one `user` row and two valid sessions
-- [ ] Test 1 bootstrap idempotency: tracker count after two sign-ins equals the count after the first sign-in
-- [ ] Test 2 passes: OIDC sign-in with an email matching a pre-existing local user results in exactly one `user` row with the same ID as the local user
-- [ ] Each test uses a unique `username` and does not interfere with other tests
-- [ ] `bun run check`, `bun run test`, and `bun run format` pass in the `tests` directory
+- [x] Test 1 passes: two OIDC sign-ins with the same username produce exactly one `user` row and two valid sessions
+- [x] Test 1 bootstrap idempotency: tracker count after two sign-ins equals the count after the first sign-in
+- [x] Test 2 passes: OIDC sign-in with an email matching a pre-existing local user results in exactly one `user` row with the same ID as the local user
+- [x] Each test uses a unique `username` and does not interfere with other tests
+- [x] `bun run check`, `bun run test`, and `bun run format` pass in the `tests` directory
 
 ## User stories addressed
 

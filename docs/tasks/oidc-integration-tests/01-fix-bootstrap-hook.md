@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -40,11 +40,11 @@ The hook runs after the user row is committed. This is not atomic, but it is the
 
 ## Acceptance criteria
 
-- [ ] The auth instance module includes a `databaseHooks.user.create.after` hook that calls `bootstrapNewUser(user.id)`
-- [ ] The email sign-up route handler no longer contains any call to `bootstrapNewUser`
-- [ ] The `userId` variable in the route handler (previously captured from `signUpEmail`'s return value solely to pass to `bootstrapNewUser`) is removed
-- [ ] A new email sign-up produces tracker rows in the database (verify manually or via the existing test suite)
-- [ ] `bun turbo --filter=@ryot/app-backend check format` passes
+- [x] The auth instance module includes a `databaseHooks.user.create.after` hook that calls `bootstrapNewUser(user.id)`
+- [x] The email sign-up route handler no longer contains any call to `bootstrapNewUser`
+- [x] The `userId` variable in the route handler (previously captured from `signUpEmail`'s return value solely to pass to `bootstrapNewUser`) is removed
+- [x] A new email sign-up produces tracker rows in the database (verify manually or via the existing test suite)
+- [x] `bun turbo --filter=@ryot/app-backend check format` passes
 
 ## User stories addressed
 
