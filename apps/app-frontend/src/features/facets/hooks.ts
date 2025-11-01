@@ -3,7 +3,7 @@ import { useApiClient } from "#/hooks/api";
 import { applyFacetEnabledPatch, applyFacetReorderPatch } from "./cache";
 import type { AppFacet } from "./model";
 import {
-	findFacetBySlug,
+	findEnabledFacetBySlug,
 	selectEnabledFacets,
 	sortFacetsByOrder,
 } from "./model";
@@ -66,7 +66,7 @@ export function useFacetsQuery() {
 		...query,
 		facets,
 		enabledFacets,
-		facetBySlug: (slug: string) => findFacetBySlug(facets, slug),
+		facetBySlug: (slug: string) => findEnabledFacetBySlug(facets, slug),
 	};
 }
 

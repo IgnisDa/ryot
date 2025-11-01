@@ -55,21 +55,23 @@ export function FacetNavItem(props: FacetNavItemProps) {
 								pointerEvents: actionsVisible ? "auto" : "none",
 							}}
 						>
-							<Tooltip label="Edit facet">
-								<ActionIcon
-									size="sm"
-									variant="subtle"
-									aria-label="Edit facet"
-									disabled={state.isMutationBusy}
-									tabIndex={actionsVisible ? 0 : -1}
-									onClick={(event) => {
-										stopEvent(event);
-										actions.openEditModal(props.facet.facetId);
-									}}
-								>
-									<Pencil size={14} strokeWidth={1.8} />
-								</ActionIcon>
-							</Tooltip>
+							{props.facet.isBuiltin ? undefined : (
+								<Tooltip label="Edit facet">
+									<ActionIcon
+										size="sm"
+										variant="subtle"
+										aria-label="Edit facet"
+										disabled={state.isMutationBusy}
+										tabIndex={actionsVisible ? 0 : -1}
+										onClick={(event) => {
+											stopEvent(event);
+											actions.openEditModal(props.facet.facetId);
+										}}
+									>
+										<Pencil size={14} strokeWidth={1.8} />
+									</ActionIcon>
+								</Tooltip>
+							)}
 
 							<Tooltip label="Move up">
 								<ActionIcon
