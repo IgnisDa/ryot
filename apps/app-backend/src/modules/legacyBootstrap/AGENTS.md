@@ -23,10 +23,13 @@ TypeScript backend (apps/app-backend) during startup.
 - 2FA payloads.
 - OIDC identities.
 - Sessions.
+- `USERS_TOKEN_VALID_FOR_DAYS`.
 - `extra_information`.
 - `is_disabled`.
 - Legacy admin `lot`.
 - Any non-user V1 tables.
+
+`USERS_TOKEN_VALID_FOR_DAYS` is intentionally not ported into the V2 auth stack. Better Auth owns session lifetime separately; legacy bootstrap must not emulate the V1 token-duration knob.
 
 ## Local Testing
 
