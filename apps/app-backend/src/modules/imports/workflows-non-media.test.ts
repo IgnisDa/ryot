@@ -79,9 +79,9 @@ const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
 	makeMock<EntitiesRepository>(
 		{
 			_tag: "EntitiesRepository" as const,
-			listMatchCandidatesBySchema: () => Effect.succeed([]),
-			createEntity: () => Effect.die("unused"),
+			saveEntity: () => Effect.die("unused"),
 			getByIdForUser: () => Effect.die("unused"),
+			listMatchCandidatesBySchema: () => Effect.succeed([]),
 			findEntitySchemaScriptBySlug: () => Effect.die("unused"),
 		},
 		overrides,

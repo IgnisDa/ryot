@@ -11,7 +11,7 @@ import {
 	parseLabeledPropertySchemaInput,
 } from "#lib/schema/property-schema-runtime";
 import { requireText } from "#lib/validation";
-import { EntitiesRepository } from "#modules/entities/repository";
+import { EntitiesService } from "#modules/entities/service";
 import { enqueueEventCreate } from "#modules/events/workflows";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -31,10 +31,10 @@ import {
 export class CollectionsService extends Effect.Service<CollectionsService>()("CollectionsService", {
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
+		const entities = yield* EntitiesService;
 		const workflowEngine = yield* WorkflowEngine;
 		const repository = yield* CollectionsRepository;
 		const runInTransaction = yield* TransactionRunner;
-		const entitiesRepository = yield* EntitiesRepository;
 		const relationshipsRepository = yield* RelationshipsRepository;
 		const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
@@ -66,16 +66,6 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 						: Effect.die("builtin collection entity schema not found in database"),
 				),
 			),
-		);
-
-		const collectionPropertiesSchema = yield* Effect.cached(
-			Effect.gen(function* () {
-				const entitySchema = yield* collectionEntitySchema;
-				return yield* decodeStoredAppSchema(
-					entitySchema.propertiesSchema,
-					"Invalid collection entity schema in database",
-				).pipe(Effect.orDie);
-			}),
 		);
 
 		const addEventSchema = yield* Effect.cached(
@@ -152,23 +142,17 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 				properties.membershipPropertiesSchema = payload.membershipPropertiesSchema;
 			}
 
-			const propertiesSchema = yield* collectionPropertiesSchema;
-			const collectionProperties = yield* parseAppSchemaProperties({
-				properties,
-				propertiesSchema,
-				kind: "Collection",
-			}).pipe(Effect.mapError((error) => badRequest(error.message)));
-
 			const entitySchema = yield* collectionEntitySchema;
-			const created = yield* runWithDb(
-				entitiesRepository.createEntity({
+			const created = yield* entities
+				.save({
 					name,
+					properties,
 					image: null,
+					scope: "user",
 					userId: user.id,
-					properties: collectionProperties,
 					entitySchemaId: entitySchema.entitySchemaId,
-				}),
-			);
+				})
+				.pipe(Effect.catchTag("NotFound", (error) => Effect.die(error)));
 			return toCollectionResponse(created);
 		});
 
@@ -188,15 +172,16 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 				return existing;
 			}
 
-			const created = yield* runWithDb(
-				entitiesRepository.createEntity({
+			const created = yield* entities
+				.save({
 					name,
 					userId,
 					image: null,
+					scope: "user",
 					properties: {},
 					entitySchemaId: entitySchema.entitySchemaId,
-				}),
-			);
+				})
+				.pipe(Effect.catchTag("NotFound", (error) => Effect.die(error)));
 			return toCollectionResponse(created);
 		});
 
@@ -360,13 +345,16 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 							return existing;
 						}
 
-						const created = yield* entitiesRepository.createEntity({
-							userId,
-							image: null,
-							properties: {},
-							entitySchemaId,
-							name: "Library",
-						});
+						const created = yield* entities
+							.save({
+								userId,
+								image: null,
+								scope: "user",
+								properties: {},
+								entitySchemaId,
+								name: "Library",
+							})
+							.pipe(Effect.catchTag("NotFound", (error) => Effect.die(error)));
 						return { id: created.id };
 					}),
 				);
