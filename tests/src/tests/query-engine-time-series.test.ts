@@ -36,11 +36,10 @@ const buildEventTimeSeriesDoc = (input: {
 	measure?: Extract<QueryEnginePayload["output"], { type: "timeSeries" }>["measure"];
 	timeExpr?: Extract<QueryEnginePayload["output"], { type: "timeSeries" }>["time"]["expr"];
 }): QueryEnginePayload => ({
-	version: 2,
 	source: {
-		where: input.where ?? null,
 		type: "events",
 		alias: input.eventAlias,
+		where: input.where ?? null,
 		schemas: input.eventSchemas,
 		entity: { alias: input.entityAlias, schemas: input.entitySchemas },
 	},

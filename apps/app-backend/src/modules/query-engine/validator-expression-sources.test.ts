@@ -123,7 +123,6 @@ describe("source where clause", () => {
 
 	it("accepts a non-null root entity where clause", () => {
 		const doc: QueryDocument = {
-			version: 2,
 			source: {
 				alias: "e",
 				type: "entities",
@@ -142,7 +141,6 @@ describe("source where clause", () => {
 
 	it("accepts a valid root entity where expression", () => {
 		const doc: QueryDocument = {
-			version: 2,
 			source: {
 				alias: "e",
 				type: "entities",

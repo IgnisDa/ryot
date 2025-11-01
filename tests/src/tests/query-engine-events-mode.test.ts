@@ -27,11 +27,10 @@ const buildEventRowsDoc = (input: {
 	page?: number;
 	limit?: number;
 }): QueryEnginePayload => ({
-	version: 2,
 	source: {
-		where: input.where ?? null,
 		type: "events",
 		alias: input.eventAlias,
+		where: input.where ?? null,
 		schemas: input.eventSchemas,
 		entity: { alias: input.entityAlias, schemas: input.entitySchemas },
 	},
