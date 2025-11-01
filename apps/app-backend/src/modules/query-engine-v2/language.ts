@@ -244,9 +244,33 @@ export const AggregateOutputV2 = strictStruct({
 }).annotations({ identifier: "AggregateOutputV2" });
 export type AggregateOutputV2 = typeof AggregateOutputV2.Type;
 
-export const OutputV2 = Schema.Union(RowsOutputV2, AggregateOutputV2).annotations({
-	identifier: "OutputV2",
-});
+const TimeSeriesMeasureDef = strictStruct({
+	aggregation: AggregationSpec,
+}).annotations({ identifier: "TimeSeriesMeasureDef" });
+
+const TimeSeriesRange = strictStruct({
+	endAt: Schema.String,
+	startAt: Schema.String,
+}).annotations({ identifier: "TimeSeriesRange" });
+
+const TimeSeriesTimeDef = strictStruct({
+	expr: Expr,
+	range: TimeSeriesRange,
+	bucket: Schema.Literal("hour", "day", "week", "month"),
+}).annotations({ identifier: "TimeSeriesTimeDef" });
+
+export const TimeSeriesOutputV2 = strictStruct({
+	time: TimeSeriesTimeDef,
+	measure: TimeSeriesMeasureDef,
+	type: Schema.Literal("timeSeries"),
+}).annotations({ identifier: "TimeSeriesOutputV2" });
+export type TimeSeriesOutputV2 = typeof TimeSeriesOutputV2.Type;
+
+export const OutputV2 = Schema.Union(
+	RowsOutputV2,
+	AggregateOutputV2,
+	TimeSeriesOutputV2,
+).annotations({ identifier: "OutputV2" });
 export type OutputV2 = typeof OutputV2.Type;
 
 export const QueryDocumentV2 = strictStruct({
@@ -310,7 +334,21 @@ export const AggregateResponseV2 = strictStruct({
 }).annotations({ identifier: "AggregateResponseV2" });
 export type AggregateResponseV2 = typeof AggregateResponseV2.Type;
 
-export const QueryResponseV2 = Schema.Union(RowsResponseV2, AggregateResponseV2).annotations({
-	identifier: "QueryResponseV2",
-});
+const TimeSeriesBucket = strictStruct({
+	value: Schema.Number,
+	endAt: Schema.String,
+	startAt: Schema.String,
+}).annotations({ identifier: "TimeSeriesBucket" });
+
+export const TimeSeriesResponseV2 = strictStruct({
+	type: Schema.Literal("timeSeries"),
+	data: strictStruct({ buckets: Schema.Array(TimeSeriesBucket) }),
+}).annotations({ identifier: "TimeSeriesResponseV2" });
+export type TimeSeriesResponseV2 = typeof TimeSeriesResponseV2.Type;
+
+export const QueryResponseV2 = Schema.Union(
+	RowsResponseV2,
+	AggregateResponseV2,
+	TimeSeriesResponseV2,
+).annotations({ identifier: "QueryResponseV2" });
 export type QueryResponseV2 = typeof QueryResponseV2.Type;

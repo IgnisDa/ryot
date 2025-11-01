@@ -1,10 +1,11 @@
 import type { FieldSelector } from "../language";
 
-export const MAX_ROOT_PAGE_SIZE = 100;
-export const MAX_INCLUDE_LIMIT = 100;
 export const MAX_INCLUDE_DEPTH = 3;
-export const MAX_GROUPED_AGGREGATE_LIMIT = 1000;
+export const MAX_INCLUDE_LIMIT = 100;
+export const MAX_ROOT_PAGE_SIZE = 100;
+export const MAX_TIME_SERIES_BUCKETS = 1000;
 export const MAX_EXPRESSION_SOURCE_DEPTH = 3;
+export const MAX_GROUPED_AGGREGATE_LIMIT = 1000;
 
 const EVENT_SYSTEM_FIELDS = new Set(["id", "occurredAt", "createdAt", "updatedAt"]);
 
