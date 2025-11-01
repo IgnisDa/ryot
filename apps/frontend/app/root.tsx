@@ -112,9 +112,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function App() {
-	useRegisterSW();
 	const navigation = useNavigation();
 	const loaderData = useLoaderData<typeof loader>();
+	useRegisterSW({
+		onNeedRefresh: () => location.reload(),
+	});
 
 	return (
 		<html lang="en">
