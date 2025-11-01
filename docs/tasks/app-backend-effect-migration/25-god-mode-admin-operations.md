@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ This slice depends on Better Auth, admin middleware, user schema, and bootstrap 
 
 ## Acceptance criteria
 
-- [ ] Admin token enforcement works for every god-mode route
-- [ ] Admins can list users with expected account metadata
-- [ ] Admins can provision users as supported by current product behavior
-- [ ] Admins can generate/reset password flows as supported by current product behavior
-- [ ] Admins can set and clear user ban state
-- [ ] God-mode E2E tests pass through the Effect client or raw fetch where auth edge cases require it
+- [x] Admin token enforcement works for every god-mode route
+- [x] Admins can list users with expected account metadata
+- [x] Admins can provision users as supported by current product behavior
+- [x] Admins can generate/reset password flows as supported by current product behavior
+- [x] Admins can set and clear user ban state
+- [x] God-mode E2E tests pass through the Effect client or raw fetch where auth edge cases require it
 
 ## User stories addressed
 
