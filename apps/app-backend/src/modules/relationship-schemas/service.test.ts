@@ -7,10 +7,8 @@ import { NotFound } from "~/lib/errors";
 import { RelationshipSchemasRepository } from "./repository";
 import { RelationshipSchemasService } from "./service";
 
-const dbRunnerLayer = Layer.succeed(
-	DbRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
-		Effect.provideService(effect, CurrentDb, Object.create(null)),
+const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+	Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
 const scope = {

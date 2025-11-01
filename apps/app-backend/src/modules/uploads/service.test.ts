@@ -29,7 +29,7 @@ const fakeFile = (name: string, contentType: string): Multipart.PersistedFile =>
 	[Inspectable.NodeInspectSymbol]: () => `PersistedFile(${name})`,
 });
 
-const makeS3Mock = (overrides: Record<string, unknown> = {}): S3Service =>
+const makeS3Mock = (overrides: Record<string, unknown> = {}) =>
 	Object.assign(Object.create(null), {
 		isConfigured: true,
 		presignUpload: () => Effect.die("unused"),
@@ -37,7 +37,7 @@ const makeS3Mock = (overrides: Record<string, unknown> = {}): S3Service =>
 		...overrides,
 	});
 
-const makeRedisMock = (overrides: Record<string, unknown> = {}): RedisService =>
+const makeRedisMock = (overrides: Record<string, unknown> = {}) =>
 	Object.assign(Object.create(null), {
 		set: () => Effect.die("unused"),
 		...overrides,
