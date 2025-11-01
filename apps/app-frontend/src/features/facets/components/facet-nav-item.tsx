@@ -1,6 +1,12 @@
 import { ActionIcon, Group, NavLink, Tooltip } from "@mantine/core";
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, ChevronUp, Pencil } from "lucide-react";
+import {
+	ChevronDown,
+	ChevronUp,
+	Pencil,
+	ToggleLeft,
+	ToggleRight,
+} from "lucide-react";
 import type { MouseEvent } from "react";
 import { FacetIcon } from "../icons";
 import type { TrackingNavItem } from "../nav";
@@ -8,6 +14,7 @@ import {
 	useFacetSidebarActions,
 	useFacetSidebarState,
 } from "../sidebar-context";
+import { getFacetNavActionUi } from "./facet-nav-item-ui";
 
 interface FacetNavItemProps {
 	isLast: boolean;
@@ -23,6 +30,7 @@ function stopEvent(event: MouseEvent<HTMLButtonElement>) {
 export function FacetNavItem(props: FacetNavItemProps) {
 	const state = useFacetSidebarState();
 	const actions = useFacetSidebarActions();
+	const actionUi = getFacetNavActionUi(props.facet);
 	const actionsVisible = state.isCustomizeMode;
 
 	return (
@@ -55,12 +63,12 @@ export function FacetNavItem(props: FacetNavItemProps) {
 								pointerEvents: actionsVisible ? "auto" : "none",
 							}}
 						>
-							{props.facet.isBuiltin ? undefined : (
-								<Tooltip label="Edit facet">
+							{actionUi.kind === "edit" ? (
+								<Tooltip label={actionUi.label}>
 									<ActionIcon
 										size="sm"
 										variant="subtle"
-										aria-label="Edit facet"
+										aria-label={actionUi.label}
 										disabled={state.isMutationBusy}
 										tabIndex={actionsVisible ? 0 : -1}
 										onClick={(event) => {
@@ -69,6 +77,26 @@ export function FacetNavItem(props: FacetNavItemProps) {
 										}}
 									>
 										<Pencil size={14} strokeWidth={1.8} />
+									</ActionIcon>
+								</Tooltip>
+							) : (
+								<Tooltip label={actionUi.label}>
+									<ActionIcon
+										size="sm"
+										variant="subtle"
+										aria-label={actionUi.label}
+										disabled={state.isMutationBusy}
+										tabIndex={actionsVisible ? 0 : -1}
+										onClick={(event) => {
+											stopEvent(event);
+											void actions.toggleFacetById(props.facet.facetId);
+										}}
+									>
+										{props.facet.enabled ? (
+											<ToggleRight size={14} strokeWidth={1.8} />
+										) : (
+											<ToggleLeft size={14} strokeWidth={1.8} />
+										)}
 									</ActionIcon>
 								</Tooltip>
 							)}
