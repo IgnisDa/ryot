@@ -105,9 +105,9 @@ export default function Page() {
 		timerCompleteSound();
 		if (document.visibilityState === "visible") return;
 		sendNotificationToServiceWorker({
+			tag: "timer-completed",
 			title: "Timer completed",
 			body: "Let's get this done!",
-			tag: "timer-completed",
 			data: { event: "open-link", link: window.location.href },
 		});
 	};
