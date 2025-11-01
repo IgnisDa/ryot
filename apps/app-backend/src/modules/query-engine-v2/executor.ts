@@ -7,11 +7,12 @@ import { BadRequest, type DbError, NotFound } from "#lib/errors";
 
 import type {
 	Expr,
-	EventSourceV2,
 	FieldSelector,
 	FieldValue,
 	IncludeEntryV2,
+	NestedEventSourceV2,
 	QueryDocumentV2,
+	RootEventSourceV2,
 	RowItem,
 	RowValue,
 	RowsResponseV2,
@@ -115,7 +116,49 @@ const loadVisibleEventSchemas = (
 		return rows;
 	});
 
+const loadVisibleEventSchemasForEntitySchemas = (
+	userId: string,
+	entitySchemaIds: readonly string[],
+	slugs: readonly [string, ...string[]],
+): Effect.Effect<VisibleEventSchema[], NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const db = yield* CurrentDb;
+		const uniqueSlugs = [...new Set(slugs)];
+
+		const rows = yield* dbEffect(() =>
+			db
+				.select({ id: dbSchema.eventSchema.id, slug: dbSchema.eventSchema.slug })
+				.from(dbSchema.eventSchema)
+				.where(
+					and(
+						inArray(dbSchema.eventSchema.entitySchemaId, entitySchemaIds),
+						inArray(dbSchema.eventSchema.slug, uniqueSlugs),
+						or(eq(dbSchema.eventSchema.userId, userId), isNull(dbSchema.eventSchema.userId)),
+					),
+				),
+		);
+
+		const visibleSlugs = new Set(rows.map((r) => r.slug));
+		for (const slug of uniqueSlugs) {
+			if (!visibleSlugs.has(slug)) {
+				return yield* new NotFound({ message: `Event schema '${slug}' not found` });
+			}
+		}
+
+		return rows;
+	});
+
 export const systemFieldSql = (name: string, alias = "e"): ReturnType<typeof sql> | null => {
+	if (alias === "ev") {
+		const eventColumnMap: Record<string, ReturnType<typeof sql>> = {
+			id: sql`ev.id`,
+			createdAt: sql`ev.created_at`,
+			updatedAt: sql`ev.updated_at`,
+			occurredAt: sql`ev.occurred_at`,
+		};
+		return eventColumnMap[name] ?? null;
+	}
+
 	if (alias === "r") {
 		const relationshipColumnMap: Record<string, ReturnType<typeof sql>> = {
 			id: sql`r.id`,
@@ -149,18 +192,24 @@ export const fieldSelectorToOrderSql = (
 
 	if (field.type === "property") {
 		const pathArgs = field.path.map((k) => sql`${k}`);
-		const jsonbExpr = sql`jsonb_extract_path_text(${alias === "r" ? sql`r.properties` : sql`e.properties`}, ${sql.join(pathArgs, sql`, `)})`;
+		const propertiesExpr =
+			alias === "r" ? sql`r.properties` : alias === "ev" ? sql`ev.properties` : sql`e.properties`;
+		const jsonbExpr = sql`jsonb_extract_path_text(${propertiesExpr}, ${sql.join(pathArgs, sql`, `)})`;
 
 		if (alias === "r" || sourceSchemas.length === 1) {
 			return jsonbExpr;
 		}
-		// Multi-schema: only return the property when the entity's schema matches
-		return sql`CASE WHEN es.slug = ${field.schema} THEN ${jsonbExpr} END`;
+		const schemaSlugExpr = alias === "ev" ? sql`evs.slug` : sql`es.slug`;
+		// Multi-schema: only order by the property when the row's schema matches.
+		return sql`CASE WHEN ${schemaSlugExpr} = ${field.schema} THEN ${jsonbExpr} END`;
 	}
 
 	// field.type is "schema" at this point
 	if (alias === "r") {
 		return field.name === "slug" ? sql`rs.slug` : sql`rs.name`;
+	}
+	if (alias === "ev") {
+		return field.name === "slug" ? sql`evs.slug` : sql`evs.name`;
 	}
 	return field.name === "slug" ? sql`es.slug` : sql`es.name`;
 };
@@ -203,6 +252,19 @@ type RelationshipFields = {
 };
 
 type IncludeQueryRow = BaseEntityQueryRow & RelationshipFields;
+
+type EventFields = {
+	eventId: string;
+	eventSchemaId: string;
+	eventSchemaSlug: string;
+	eventSchemaName: string;
+	eventCreatedAt: Date | string;
+	eventUpdatedAt: Date | string;
+	eventOccurredAt: Date | string;
+	eventProperties: Record<string, unknown>;
+};
+
+type EventQueryRow = BaseEntityQueryRow & EventFields & { totalCount: string | bigint };
 
 export const valueToFieldValue = (value: unknown): FieldValue => {
 	if (value === null || value === undefined) {
@@ -312,6 +374,28 @@ const evalRelationshipFieldSelector = (
 	};
 };
 
+const evalEventSystemRef = (name: string, row: EventFields): FieldValue =>
+	Match.value(name).pipe(
+		Match.when("id", () => ({ kind: "text" as const, value: row.eventId })),
+		Match.when("createdAt", () => ({ kind: "date" as const, value: row.eventCreatedAt })),
+		Match.when("updatedAt", () => ({ kind: "date" as const, value: row.eventUpdatedAt })),
+		Match.when("occurredAt", () => ({ kind: "date" as const, value: row.eventOccurredAt })),
+		Match.orElse(() => ({ kind: "null" as const, value: null })),
+	);
+
+const evalEventFieldSelector = (field: FieldSelector, row: EventFields): FieldValue => {
+	if (field.type === "system") {
+		return evalEventSystemRef(field.name, row);
+	}
+	if (field.type === "property") {
+		if (row.eventSchemaSlug !== field.schema) {
+			return { kind: "null", value: null };
+		}
+		return valueToFieldValue(getNestedValue(row.eventProperties, field.path));
+	}
+	return { kind: "text", value: field.name === "slug" ? row.eventSchemaSlug : row.eventSchemaName };
+};
+
 export const evalExprForField = (expr: Expr, row: EntityQueryRow): FieldValue => {
 	if (expr.type === "ref") {
 		return evalFieldSelector(expr.field, row);
@@ -326,7 +410,7 @@ export const evalExprForField = (expr: Expr, row: EntityQueryRow): FieldValue =>
 const executeEventExists = (
 	userId: string,
 	row: BaseEntityQueryRow,
-	source: EventSourceV2,
+	source: NestedEventSourceV2,
 ): Effect.Effect<boolean, NotFound | DbError, CurrentDb> =>
 	Effect.gen(function* () {
 		const eventSchemas = yield* loadVisibleEventSchemas(userId, row.schemaId, source.schemas);
@@ -350,6 +434,103 @@ const executeEventExists = (
 		return rawRows.rows.length > 0;
 	});
 
+const firstOrderSql = (
+	source: NestedEventSourceV2,
+	orderBy: Extract<Expr, { type: "first" }>["orderBy"],
+): ReturnType<typeof sql> => {
+	const orderParts = orderBy.map((entry) => {
+		if (entry.expr.type !== "ref") {
+			return sql`1`;
+		}
+		const alias = entry.expr.sourceAlias === source.alias ? "ev" : "e";
+		const schemas = alias === "ev" ? source.schemas : (["__entity__"] as [string, ...string[]]);
+		const exprSql = fieldSelectorToOrderSql(entry.expr.field, schemas, alias);
+		if (!exprSql) {
+			return sql`1`;
+		}
+		return entry.order === "asc" ? sql`${exprSql} ASC` : sql`${exprSql} DESC`;
+	});
+	return sql.join(orderParts, sql`, `);
+};
+
+const evalFirstSelect = (
+	expr: Expr,
+	row: EventQueryRow,
+	source: NestedEventSourceV2,
+): FieldValue => {
+	if (expr.type === "ref" && expr.sourceAlias === source.alias) {
+		return evalEventFieldSelector(expr.field, row);
+	}
+	if (expr.type === "ref" && expr.sourceAlias === source.entityRef) {
+		return evalFieldSelector(expr.field, row);
+	}
+	if (expr.type === "literal") {
+		return valueToFieldValue(expr.value);
+	}
+	return { kind: "null", value: null };
+};
+
+const executeEventFirst = (
+	userId: string,
+	row: BaseEntityQueryRow,
+	expr: Extract<Expr, { type: "first" }>,
+): Effect.Effect<FieldValue, NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		if (expr.source.type !== "events") {
+			return { kind: "null" as const, value: null };
+		}
+
+		const eventSchemas = yield* loadVisibleEventSchemas(userId, row.schemaId, expr.source.schemas);
+		const eventSchemaIdsSql = sql.join(
+			eventSchemas.map((s) => sql`${s.id}`),
+			sql`, `,
+		);
+		const orderSql = firstOrderSql(expr.source, expr.orderBy);
+		const db = yield* CurrentDb;
+		const rawRows = yield* dbEffect(() =>
+			db.execute<EventQueryRow>(sql`
+				SELECT
+					e.id,
+					e.name,
+					e.image,
+					e.properties,
+					e.created_at AS "createdAt",
+					e.updated_at AS "updatedAt",
+					e.external_id AS "externalId",
+					e.sandbox_script_id AS "sandboxScriptId",
+					es.id AS "schemaId",
+					es.slug AS "schemaSlug",
+					es.name AS "schemaName",
+					ev.id AS "eventId",
+					ev.properties AS "eventProperties",
+					ev.created_at AS "eventCreatedAt",
+					ev.updated_at AS "eventUpdatedAt",
+					ev.occurred_at AS "eventOccurredAt",
+					evs.id AS "eventSchemaId",
+					evs.slug AS "eventSchemaSlug",
+					evs.name AS "eventSchemaName",
+					1 AS "totalCount"
+				FROM event ev
+				JOIN event_schema evs ON evs.id = ev.event_schema_id
+				JOIN entity e ON e.id = ev.entity_id
+				JOIN entity_schema es ON es.id = e.entity_schema_id
+				WHERE
+					ev.entity_id = ${row.id}
+					AND ev.user_id = ${userId}
+					AND ev.event_schema_id IN (${eventSchemaIdsSql})
+					AND (e.user_id = ${userId} OR e.user_id IS NULL)
+				ORDER BY ${orderSql}
+				LIMIT 1
+			`),
+		);
+
+		const firstRow = rawRows.rows[0];
+		if (!firstRow) {
+			return { kind: "null" as const, value: null };
+		}
+		return evalFirstSelect(expr.select, firstRow, expr.source);
+	});
+
 const evalExistsExprForField = (
 	userId: string,
 	row: BaseEntityQueryRow,
@@ -369,11 +550,45 @@ const evalRootExprForField = (
 	userId: string,
 	expr: Expr,
 	row: EntityQueryRow,
+	entityAlias: string,
 ): Effect.Effect<FieldValue, NotFound | DbError, CurrentDb> => {
 	if (expr.type === "exists") {
 		return evalExistsExprForField(userId, row, expr);
 	}
+	if (expr.type === "first") {
+		if (expr.source.type === "events" && expr.source.entityRef === entityAlias) {
+			return executeEventFirst(userId, row, expr);
+		}
+		return Effect.succeed({ kind: "null", value: null });
+	}
 	return Effect.succeed(evalExprForField(expr, row));
+};
+
+const evalEventRootExprForField = (
+	userId: string,
+	expr: Expr,
+	row: EventQueryRow,
+	source: RootEventSourceV2,
+): Effect.Effect<FieldValue, NotFound | DbError, CurrentDb> => {
+	if (expr.type === "exists") {
+		return evalExistsExprForField(userId, row, expr);
+	}
+	if (expr.type === "first") {
+		if (expr.source.type === "events" && expr.source.entityRef === source.entity.alias) {
+			return executeEventFirst(userId, row, expr);
+		}
+		return Effect.succeed({ kind: "null", value: null });
+	}
+	if (expr.type === "ref" && expr.sourceAlias === source.alias) {
+		return Effect.succeed(evalEventFieldSelector(expr.field, row));
+	}
+	if (expr.type === "ref" && expr.sourceAlias === source.entity.alias) {
+		return Effect.succeed(evalFieldSelector(expr.field, row));
+	}
+	if (expr.type === "literal") {
+		return Effect.succeed(valueToFieldValue(expr.value));
+	}
+	return Effect.succeed({ kind: "null", value: null });
 };
 
 const evalIncludeExprForField = (
@@ -384,6 +599,12 @@ const evalIncludeExprForField = (
 ): Effect.Effect<FieldValue, NotFound | DbError, CurrentDb> => {
 	if (expr.type === "exists") {
 		return evalExistsExprForField(userId, row, expr);
+	}
+	if (expr.type === "first") {
+		if (expr.source.type === "events" && expr.source.entityRef === include.source.alias) {
+			return executeEventFirst(userId, row, expr);
+		}
+		return Effect.succeed({ kind: "null", value: null });
 	}
 	if (expr.type === "ref" && expr.sourceAlias === include.source.via?.alias) {
 		return Effect.succeed(evalRelationshipFieldSelector(expr.field, row));
@@ -411,12 +632,27 @@ export const serializeRow = (
 const serializeRootRow = (
 	userId: string,
 	row: EntityQueryRow,
+	entityAlias: string,
 	fields: QueryDocumentV2["output"]["fields"],
 ): Effect.Effect<RowItem, NotFound | DbError, CurrentDb> =>
 	Effect.gen(function* () {
 		const result: Record<string, RowValue> = {};
 		for (const field of fields) {
-			result[field.key] = yield* evalRootExprForField(userId, field.expr, row);
+			result[field.key] = yield* evalRootExprForField(userId, field.expr, row, entityAlias);
+		}
+		return result;
+	});
+
+const serializeEventRootRow = (
+	userId: string,
+	row: EventQueryRow,
+	source: RootEventSourceV2,
+	fields: QueryDocumentV2["output"]["fields"],
+): Effect.Effect<RowItem, NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const result: Record<string, RowValue> = {};
+		for (const field of fields) {
+			result[field.key] = yield* evalEventRootExprForField(userId, field.expr, row, source);
 		}
 		return result;
 	});
@@ -563,6 +799,22 @@ const serializeIncludesForRow = (
 		return { values, rowCount };
 	});
 
+const eventRootOrderSql = (source: RootEventSourceV2, output: QueryDocumentV2["output"]) => {
+	const orderParts = output.orderBy.map((entry) => {
+		if (entry.expr.type !== "ref") {
+			return sql`1`;
+		}
+		const alias = entry.expr.sourceAlias === source.alias ? "ev" : "e";
+		const schemas = alias === "ev" ? source.schemas : source.entity.schemas;
+		const exprSql = fieldSelectorToOrderSql(entry.expr.field, schemas, alias);
+		if (!exprSql) {
+			return sql`1`;
+		}
+		return entry.order === "asc" ? sql`${exprSql} ASC` : sql`${exprSql} DESC`;
+	});
+	return sql.join(orderParts, sql`, `);
+};
+
 export const executeEntityRowsQuery = (
 	userId: string,
 	doc: QueryDocumentV2,
@@ -570,6 +822,9 @@ export const executeEntityRowsQuery = (
 	Effect.gen(function* () {
 		const { source } = doc;
 		const output = doc.output;
+		if (source.type !== "entities") {
+			return yield* new BadRequest({ message: "Entity rows query requires an entity source" });
+		}
 
 		const visibleSchemas = yield* loadVisibleEntitySchemas(userId, source.schemas);
 		if (visibleSchemas.length === 0) {
@@ -637,7 +892,12 @@ export const executeEntityRowsQuery = (
 		let serializedRowCount = rows.length;
 		const items: RowItem[] = [];
 		for (const row of rows) {
-			const item: Record<string, RowValue> = yield* serializeRootRow(userId, row, output.fields);
+			const item: Record<string, RowValue> = yield* serializeRootRow(
+				userId,
+				row,
+				source.alias,
+				output.fields,
+			);
 			const includeValues = yield* serializeIncludesForRow(userId, row, output.include ?? []);
 			serializedRowCount += includeValues.rowCount;
 			if (serializedRowCount > MAX_SERIALIZED_ROW_OBJECTS) {
@@ -662,3 +922,116 @@ export const executeEntityRowsQuery = (
 			},
 		};
 	});
+
+export const executeEventRowsQuery = (
+	userId: string,
+	doc: QueryDocumentV2,
+): Effect.Effect<RowsResponseV2, BadRequest | NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const { source } = doc;
+		const output = doc.output;
+		if (source.type !== "events") {
+			return yield* new BadRequest({ message: "Event rows query requires an event source" });
+		}
+
+		const visibleEntitySchemas = yield* loadVisibleEntitySchemas(userId, source.entity.schemas);
+		const entitySchemaIds = visibleEntitySchemas.map((s) => s.id);
+		const visibleEventSchemas = yield* loadVisibleEventSchemasForEntitySchemas(
+			userId,
+			entitySchemaIds,
+			source.schemas,
+		);
+
+		const entitySchemaIdsSql = sql.join(
+			entitySchemaIds.map((id) => sql`${id}`),
+			sql`, `,
+		);
+		const eventSchemaIdsSql = sql.join(
+			visibleEventSchemas.map((s) => sql`${s.id}`),
+			sql`, `,
+		);
+		const orderSql = eventRootOrderSql(source, output);
+		const db = yield* CurrentDb;
+		const offset = (output.pagination.page - 1) * output.pagination.limit;
+
+		const rawRows = yield* dbEffect(() =>
+			db.execute<EventQueryRow>(sql`
+				SELECT
+					e.id,
+					e.name,
+					e.image,
+					e.properties,
+					e.created_at AS "createdAt",
+					e.updated_at AS "updatedAt",
+					e.external_id AS "externalId",
+					e.sandbox_script_id AS "sandboxScriptId",
+					es.id AS "schemaId",
+					es.slug AS "schemaSlug",
+					es.name AS "schemaName",
+					ev.id AS "eventId",
+					ev.properties AS "eventProperties",
+					ev.created_at AS "eventCreatedAt",
+					ev.updated_at AS "eventUpdatedAt",
+					ev.occurred_at AS "eventOccurredAt",
+					evs.id AS "eventSchemaId",
+					evs.slug AS "eventSchemaSlug",
+					evs.name AS "eventSchemaName",
+					COUNT(*) OVER() AS "totalCount"
+				FROM event ev
+				JOIN event_schema evs ON evs.id = ev.event_schema_id
+				JOIN entity e ON e.id = ev.entity_id
+				JOIN entity_schema es ON es.id = e.entity_schema_id
+				WHERE
+					ev.user_id = ${userId}
+					AND ev.event_schema_id IN (${eventSchemaIdsSql})
+					AND e.entity_schema_id IN (${entitySchemaIdsSql})
+					AND (e.user_id = ${userId} OR e.user_id IS NULL)
+				ORDER BY ${orderSql}
+				LIMIT ${output.pagination.limit}
+				OFFSET ${offset}
+			`),
+		);
+
+		const rows = rawRows.rows;
+		const total = rows[0]?.totalCount !== undefined ? Number(rows[0].totalCount) : 0;
+		let serializedRowCount = rows.length;
+		const items: RowItem[] = [];
+		for (const row of rows) {
+			const item: Record<string, RowValue> = yield* serializeEventRootRow(
+				userId,
+				row,
+				source,
+				output.fields,
+			);
+			const includeValues = yield* serializeIncludesForRow(userId, row, output.include ?? []);
+			serializedRowCount += includeValues.rowCount;
+			if (serializedRowCount > MAX_SERIALIZED_ROW_OBJECTS) {
+				return yield* new BadRequest({
+					message: `Serialized row object count exceeds maximum of ${MAX_SERIALIZED_ROW_OBJECTS}`,
+				});
+			}
+			Object.assign(item, includeValues.values);
+			items.push(item);
+		}
+
+		return {
+			type: "rows" as const,
+			data: {
+				items,
+				pageInfo: {
+					total,
+					page: output.pagination.page,
+					limit: output.pagination.limit,
+					hasMore: offset + rows.length < total,
+				},
+			},
+		};
+	});
+
+export const executeRowsQuery = (
+	userId: string,
+	doc: QueryDocumentV2,
+): Effect.Effect<RowsResponseV2, BadRequest | NotFound | DbError, CurrentDb> =>
+	doc.source.type === "events"
+		? executeEventRowsQuery(userId, doc)
+		: executeEntityRowsQuery(userId, doc);

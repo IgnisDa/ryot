@@ -620,6 +620,155 @@ describe("Query Engine V2 E2E", () => {
 		});
 	});
 
+	describe("Event roots and first expressions", () => {
+		it("returns root event rows with event and attached entity fields", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId: lessonSchemaId, slug: lessonSlug } = await createV2TrackerAndSchema(
+				client,
+				{ schemaName: "EventRootLesson" },
+			);
+			const completeSlug = `event-root-complete-${crypto.randomUUID()}`;
+			const completeSchema = await createEventSchema(client, {
+				slug: completeSlug,
+				name: "Event Root Complete",
+				entitySchemaId: lessonSchemaId,
+				propertiesSchema: {
+					fields: { notes: { type: "string", label: "Notes", description: "Completion notes" } },
+				},
+			});
+			const firstLesson = await createV2Entity(client, {
+				name: "First Lesson With Events",
+				entitySchemaId: lessonSchemaId,
+			});
+			const latestLesson = await createV2Entity(client, {
+				name: "Latest Lesson With Events",
+				entitySchemaId: lessonSchemaId,
+			});
+
+			await createV2Event(client, {
+				entityId: firstLesson.id,
+				eventSchemaId: completeSchema.id,
+				occurredAt: "2026-01-01T00:00:00.000Z",
+				properties: { notes: "first completion" },
+			});
+			await createV2Event(client, {
+				entityId: latestLesson.id,
+				eventSchemaId: completeSchema.id,
+				occurredAt: "2026-02-01T00:00:00.000Z",
+				properties: { notes: "latest completion" },
+			});
+
+			const doc: V2ExecutePayload = {
+				version: 2,
+				source: {
+					where: null,
+					type: "events",
+					alias: "completion",
+					schemas: [completeSlug],
+					entity: { alias: "lesson", schemas: [lessonSlug] },
+				},
+				output: {
+					type: "rows",
+					pagination: { page: 1, limit: 10 },
+					orderBy: [{ order: "desc", expr: systemRef("completion", "occurredAt") }],
+					fields: [
+						{ key: "occurredAt", expr: systemRef("completion", "occurredAt") },
+						{ key: "notes", expr: propertyRef("completion", completeSlug, "notes") },
+						{ key: "lessonName", expr: systemRef("lesson", "name") },
+						{ key: "eventSchemaSlug", expr: schemaMetaRef("completion", "slug") },
+					],
+				},
+			};
+
+			const result = await executeQueryEngineV2(client, doc);
+
+			expect(result.data.items).toHaveLength(2);
+			const latest = result.data.items[0];
+			assertPresent(latest, "Expected latest event row");
+			expect(requireV2FieldValue(latest, "occurredAt").kind).toBe("date");
+			expect(new Date(String(requireV2FieldValue(latest, "occurredAt").value)).toISOString()).toBe(
+				"2026-02-01T00:00:00.000Z",
+			);
+			expect(requireV2FieldValue(latest, "notes").value).toBe("latest completion");
+			expect(requireV2FieldValue(latest, "lessonName").value).toBe("Latest Lesson With Events");
+			expect(requireV2FieldValue(latest, "eventSchemaSlug").value).toBe(completeSlug);
+		});
+
+		it("returns latest event scalar values with first and null when no event matches", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId: lessonSchemaId, slug: lessonSlug } = await createV2TrackerAndSchema(
+				client,
+				{ schemaName: "FirstExprLesson" },
+			);
+			const completeSlug = `first-complete-${crypto.randomUUID()}`;
+			const completeSchema = await createEventSchema(client, {
+				slug: completeSlug,
+				name: "First Complete",
+				entitySchemaId: lessonSchemaId,
+				propertiesSchema: {
+					fields: { notes: { type: "string", label: "Notes", description: "Completion notes" } },
+				},
+			});
+			const lessonWithEvents = await createV2Entity(client, {
+				name: "Lesson A",
+				entitySchemaId: lessonSchemaId,
+			});
+			await createV2Entity(client, { name: "Lesson B", entitySchemaId: lessonSchemaId });
+
+			await createV2Event(client, {
+				entityId: lessonWithEvents.id,
+				eventSchemaId: completeSchema.id,
+				occurredAt: "2026-03-01T00:00:00.000Z",
+			});
+			await createV2Event(client, {
+				entityId: lessonWithEvents.id,
+				eventSchemaId: completeSchema.id,
+				occurredAt: "2026-04-01T00:00:00.000Z",
+			});
+
+			const doc = buildRowsDoc({
+				alias: "lesson",
+				schemas: [lessonSlug],
+				fields: [
+					{ key: "name", expr: systemRef("lesson", "name") },
+					{
+						key: "latestCompletionAt",
+						expr: {
+							type: "first",
+							select: systemRef("completion", "occurredAt"),
+							orderBy: [{ order: "desc", expr: systemRef("completion", "occurredAt") }],
+							source: {
+								where: null,
+								type: "events",
+								alias: "completion",
+								entityRef: "lesson",
+								schemas: [completeSlug],
+							},
+						},
+					},
+				],
+			});
+
+			const result = await executeQueryEngineV2(client, doc);
+
+			const lessonA = result.data.items.find(
+				(item) => requireV2FieldValue(item, "name").value === "Lesson A",
+			);
+			const lessonB = result.data.items.find(
+				(item) => requireV2FieldValue(item, "name").value === "Lesson B",
+			);
+			assertPresent(lessonA, "Expected Lesson A row");
+			assertPresent(lessonB, "Expected Lesson B row");
+			expect(
+				new Date(String(requireV2FieldValue(lessonA, "latestCompletionAt").value)).toISOString(),
+			).toBe("2026-04-01T00:00:00.000Z");
+			expect(requireV2FieldValue(lessonB, "latestCompletionAt")).toEqual({
+				value: null,
+				kind: "null",
+			});
+		});
+	});
+
 	describe("Visibility boundary", () => {
 		it("does not allow a user to query another user's private entity schema", async () => {
 			const userA = await createAuthenticatedClient();

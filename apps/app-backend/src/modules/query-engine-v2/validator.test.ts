@@ -9,6 +9,12 @@ const nameRef = (alias: string): Expr => ({
 	field: { type: "system", name: "name" },
 });
 
+const occurredAtRef = (alias: string): Expr => ({
+	type: "ref",
+	sourceAlias: alias,
+	field: { type: "system", name: "occurredAt" },
+});
+
 const propertyRef = (alias: string, schema: string, path: [string, ...string[]]): Expr => ({
 	type: "ref",
 	sourceAlias: alias,
@@ -352,7 +358,7 @@ describe("source where clause", () => {
 		expect(validateQueryDocumentV2(makeDoc())).toBeNull();
 	});
 
-	it("validates the where expression when non-null", () => {
+	it("rejects a non-null root entity where clause until filters are executable", () => {
 		const doc: QueryDocumentV2 = {
 			version: 2,
 			source: {
@@ -368,10 +374,10 @@ describe("source where clause", () => {
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
 			},
 		};
-		expect(validateQueryDocumentV2(doc)).toMatch(/Unknown source alias 'ghost'/);
+		expect(validateQueryDocumentV2(doc)).toMatch(/Root entity source does not support where yet/);
 	});
 
-	it("accepts a valid where expression", () => {
+	it("rejects a valid root entity where expression until filters are executable", () => {
 		const doc: QueryDocumentV2 = {
 			version: 2,
 			source: {
@@ -387,7 +393,7 @@ describe("source where clause", () => {
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
 			},
 		};
-		expect(validateQueryDocumentV2(doc)).toBeNull();
+		expect(validateQueryDocumentV2(doc)).toMatch(/Root entity source does not support where yet/);
 	});
 });
 
@@ -424,6 +430,237 @@ describe("schema metadata fields", () => {
 			},
 		});
 		expect(validateQueryDocumentV2(doc)).toBeNull();
+	});
+});
+
+describe("event roots and first expressions", () => {
+	const makeEventDoc = (overrides: Partial<QueryDocumentV2> = {}): QueryDocumentV2 => ({
+		version: 2,
+		source: {
+			where: null,
+			type: "events",
+			alias: "completion",
+			schemas: ["complete"],
+			entity: { alias: "lesson", schemas: ["lessons"] },
+		},
+		output: {
+			fields: [],
+			type: "rows",
+			pagination: { page: 1, limit: 10 },
+			orderBy: [{ order: "desc", expr: occurredAtRef("completion") }],
+		},
+		...overrides,
+	});
+
+	it("accepts a root event source with an attached entity alias", () => {
+		expect(validateQueryDocumentV2(makeEventDoc())).toBeNull();
+	});
+
+	it("accepts event, event property, attached entity, and event schema metadata refs", () => {
+		const doc = makeEventDoc({
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "desc", expr: occurredAtRef("completion") }],
+				fields: [
+					{ key: "occurredAt", expr: occurredAtRef("completion") },
+					{ key: "notes", expr: propertyRef("completion", "complete", ["notes"]) },
+					{ key: "lessonName", expr: nameRef("lesson") },
+					{
+						key: "eventSchemaSlug",
+						expr: {
+							type: "ref",
+							sourceAlias: "completion",
+							field: { type: "schema", name: "slug" },
+						},
+					},
+				],
+			},
+		});
+		expect(validateQueryDocumentV2(doc)).toBeNull();
+	});
+
+	it("rejects duplicate root event and attached entity aliases", () => {
+		const doc = makeEventDoc({
+			source: {
+				where: null,
+				type: "events",
+				alias: "completion",
+				schemas: ["complete"],
+				entity: { alias: "completion", schemas: ["lessons"] },
+			},
+		});
+		expect(validateQueryDocumentV2(doc)).toMatch(/Duplicate alias 'completion'/);
+	});
+
+	it("accepts first over an ordered event source", () => {
+		const doc = makeDoc({
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("e") }],
+				fields: [
+					{
+						key: "latestCompletion",
+						expr: {
+							type: "first",
+							select: occurredAtRef("completion"),
+							orderBy: [{ order: "desc", expr: occurredAtRef("completion") }],
+							source: {
+								where: null,
+								type: "events",
+								alias: "completion",
+								entityRef: "e",
+								schemas: ["complete"],
+							},
+						},
+					},
+				],
+			},
+		});
+		expect(validateQueryDocumentV2(doc)).toBeNull();
+	});
+
+	it("rejects invalid aliases inside first", () => {
+		const doc = makeDoc({
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("e") }],
+				fields: [
+					{
+						key: "latestCompletion",
+						expr: {
+							type: "first",
+							select: occurredAtRef("ghost"),
+							orderBy: [{ order: "desc", expr: occurredAtRef("completion") }],
+							source: {
+								where: null,
+								type: "events",
+								alias: "completion",
+								entityRef: "e",
+								schemas: ["complete"],
+							},
+						},
+					},
+				],
+			},
+		});
+		expect(validateQueryDocumentV2(doc)).toMatch(/Unknown source alias 'ghost'/);
+	});
+
+	it("rejects unsupported first orderBy expressions", () => {
+		const doc = makeDoc({
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("e") }],
+				fields: [
+					{
+						key: "latestCompletion",
+						expr: {
+							type: "first",
+							select: occurredAtRef("completion"),
+							orderBy: [{ order: "desc", expr: literal(1) }],
+							source: {
+								where: null,
+								type: "events",
+								alias: "completion",
+								entityRef: "e",
+								schemas: ["complete"],
+							},
+						},
+					},
+				],
+			},
+		});
+		expect(validateQueryDocumentV2(doc)).toMatch(/First orderBy currently supports ref/);
+	});
+
+	it("rejects unsupported first select expressions", () => {
+		const doc = makeDoc({
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("e") }],
+				fields: [
+					{
+						key: "latestCompletion",
+						expr: {
+							type: "first",
+							orderBy: [{ order: "desc", expr: occurredAtRef("completion") }],
+							select: { type: "coalesce", values: [occurredAtRef("completion"), literal(null)] },
+							source: {
+								where: null,
+								type: "events",
+								alias: "completion",
+								entityRef: "e",
+								schemas: ["complete"],
+							},
+						},
+					},
+				],
+			},
+		});
+		expect(validateQueryDocumentV2(doc)).toMatch(/First select currently supports ref and literal/);
+	});
+
+	it("rejects first in root orderBy", () => {
+		const firstExpr: Expr = {
+			type: "first",
+			select: occurredAtRef("completion"),
+			orderBy: [{ order: "desc", expr: occurredAtRef("completion") }],
+			source: {
+				where: null,
+				type: "events",
+				entityRef: "e",
+				alias: "completion",
+				schemas: ["complete"],
+			},
+		};
+		const doc = makeDoc({
+			output: {
+				fields: [],
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: firstExpr }],
+			},
+		});
+		expect(validateQueryDocumentV2(doc)).toMatch(/First expressions are currently valid only/);
+	});
+
+	it("rejects first nested inside a computed output expression", () => {
+		const doc = makeDoc({
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("e") }],
+				fields: [
+					{
+						key: "latestCompletion",
+						expr: {
+							type: "coalesce",
+							values: [
+								{
+									type: "first",
+									select: occurredAtRef("completion"),
+									orderBy: [{ order: "desc", expr: occurredAtRef("completion") }],
+									source: {
+										where: null,
+										type: "events",
+										entityRef: "e",
+										alias: "completion",
+										schemas: ["complete"],
+									},
+								},
+								literal(null),
+							],
+						},
+					},
+				],
+			},
+		});
+		expect(validateQueryDocumentV2(doc)).toMatch(/First expressions are currently valid only/);
 	});
 });
 
