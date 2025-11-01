@@ -347,7 +347,6 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					return toListedEntity(inserted[0]);
 				}
 
-				// Conflict: find existing global entity
 				const [existing] = yield* dbEffect(() =>
 					db
 						.select(entitySelection)
@@ -367,7 +366,6 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					return yield* new DbError({ message: "Global entity insert conflict but not found" });
 				}
 
-				// Update if we have population data and it was not yet populated
 				if (input.populatedAt !== null && existing.populatedAt === null) {
 					const [updated] = yield* dbEffect(() =>
 						db
