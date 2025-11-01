@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "~/db";
 import { type FacetMode, facet, userFacet } from "~/db/schema";
 
@@ -60,19 +60,43 @@ export const getVisibleFacetById = async (input: {
 export const getFacetBySlugForUser = async (input: {
 	userId: string;
 	slug: string;
+	excludeFacetId?: string;
 }) => {
+	const whereClauses = [
+		eq(facet.slug, input.slug),
+		or(isNull(facet.userId), eq(facet.userId, input.userId)),
+	];
+
+	if (input.excludeFacetId)
+		whereClauses.push(ne(facet.id, input.excludeFacetId));
+
 	const [foundFacet] = await db
 		.select({ id: facet.id })
 		.from(facet)
-		.where(
-			and(
-				eq(facet.slug, input.slug),
-				or(isNull(facet.userId), eq(facet.userId, input.userId)),
-			),
-		)
+		.where(and(...whereClauses))
 		.limit(1);
 
 	return foundFacet;
+};
+
+export const getOwnedFacetById = async (input: {
+	userId: string;
+	facetId: string;
+}) => {
+	const [ownedFacet] = await db
+		.select({
+			id: facet.id,
+			slug: facet.slug,
+			name: facet.name,
+			icon: facet.icon,
+			description: facet.description,
+			accentColor: facet.accentColor,
+		})
+		.from(facet)
+		.where(and(eq(facet.id, input.facetId), eq(facet.userId, input.userId)))
+		.limit(1);
+
+	return ownedFacet;
 };
 
 export const createFacetForUser = async (input: {
@@ -173,4 +197,133 @@ export const setFacetEnabledForUser = async (input: {
 			sortOrder: nextSortOrder,
 		});
 	});
+};
+
+export const listUserFacetIdsInOrder = async (userId: string) => {
+	const rows = await db
+		.select({ facetId: userFacet.facetId })
+		.from(userFacet)
+		.where(eq(userFacet.userId, userId))
+		.orderBy(asc(userFacet.sortOrder), asc(userFacet.createdAt));
+
+	return rows.map((row) => row.facetId);
+};
+
+export const countVisibleFacetsByIdsForUser = async (input: {
+	userId: string;
+	facetIds: string[];
+}) => {
+	if (!input.facetIds.length) return 0;
+
+	const rows = await db
+		.select({ id: facet.id })
+		.from(facet)
+		.where(
+			and(
+				inArray(facet.id, input.facetIds),
+				or(isNull(facet.userId), eq(facet.userId, input.userId)),
+			),
+		);
+
+	return rows.length;
+};
+
+export const persistFacetOrderForUser = async (input: {
+	userId: string;
+	facetIds: string[];
+}) => {
+	return db.transaction(async (tx) => {
+		const existingRows = await tx
+			.select({
+				id: userFacet.id,
+				facetId: userFacet.facetId,
+				enabled: userFacet.enabled,
+			})
+			.from(userFacet)
+			.where(
+				and(
+					eq(userFacet.userId, input.userId),
+					inArray(userFacet.facetId, input.facetIds),
+				),
+			);
+
+		const existingByFacetId = new Map(
+			existingRows.map((row) => [row.facetId, row]),
+		);
+
+		for (const [index, facetId] of input.facetIds.entries()) {
+			const existing = existingByFacetId.get(facetId);
+
+			if (existing) {
+				await tx
+					.update(userFacet)
+					.set({ sortOrder: index })
+					.where(eq(userFacet.id, existing.id));
+				continue;
+			}
+
+			await tx.insert(userFacet).values({
+				facetId,
+				enabled: true,
+				sortOrder: index,
+				userId: input.userId,
+			});
+		}
+
+		return input.facetIds;
+	});
+};
+
+export const updateFacetForUser = async (input: {
+	slug: string;
+	name: string;
+	userId: string;
+	facetId: string;
+	icon: string | null;
+	description: string | null;
+	accentColor: string | null;
+}) => {
+	const [updatedFacet] = await db
+		.update(facet)
+		.set({
+			slug: input.slug,
+			name: input.name,
+			icon: input.icon,
+			description: input.description,
+			accentColor: input.accentColor,
+		})
+		.where(and(eq(facet.id, input.facetId), eq(facet.userId, input.userId)))
+		.returning({
+			id: facet.id,
+			slug: facet.slug,
+			name: facet.name,
+			icon: facet.icon,
+			mode: facet.mode,
+			config: facet.config,
+			isBuiltin: facet.isBuiltin,
+			accentColor: facet.accentColor,
+			description: facet.description,
+		});
+
+	if (!updatedFacet) throw new Error("Could not update facet");
+
+	const [associatedUserFacet] = await db
+		.select({
+			enabled: userFacet.enabled,
+			sortOrder: userFacet.sortOrder,
+		})
+		.from(userFacet)
+		.where(
+			and(
+				eq(userFacet.userId, input.userId),
+				eq(userFacet.facetId, input.facetId),
+			),
+		)
+		.limit(1);
+
+	return {
+		...updatedFacet,
+		enabled: associatedUserFacet?.enabled ?? false,
+		sortOrder: associatedUserFacet?.sortOrder ?? 0,
+	};
 };
