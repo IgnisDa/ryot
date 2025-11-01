@@ -8,7 +8,7 @@ import type {
 } from "~/lib/types";
 
 declare let clients: Clients;
-declare let self: ServiceWorkerGlobalScope & { __WB_MANIFEST: unknown };
+declare let self: ServiceWorkerGlobalScope;
 
 const logger = {
 	debug: (...args: unknown[]) => console.debug("[SW]", ...args),

@@ -5,6 +5,7 @@ import "@mantine/carousel/styles.css";
 import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
 import "mantine-datatable/styles.layer.css";
+import { useRegisterSW } from "virtual:pwa-register/react";
 import {
 	ActionIcon,
 	Alert,
@@ -111,6 +112,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function App() {
+	useRegisterSW();
 	const navigation = useNavigation();
 	const loaderData = useLoaderData<typeof loader>();
 

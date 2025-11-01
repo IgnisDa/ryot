@@ -2,7 +2,7 @@ import { reactRouter } from "@react-router/dev/vite";
 import { reactRouterDevTools } from "react-router-devtools";
 import { safeRoutes } from "safe-routes/vite";
 import { defineConfig } from "vite";
-import { VitePWA, defaultInjectManifestVitePlugins } from "vite-plugin-pwa";
+import { VitePWA } from "vite-plugin-pwa";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
@@ -20,15 +20,11 @@ export default defineConfig({
 		VitePWA({
 			srcDir: "app",
 			manifest: false,
-			injectRegister: "auto",
+			injectRegister: "script",
 			filename: "entry.worker.ts",
 			strategies: "injectManifest",
-			devOptions: { enabled: true, type: "module" },
-			injectManifest: {
-				vitePlugins: defaultInjectManifestVitePlugins.concat(
-					"vite-tsconfig-paths",
-				),
-			},
+			devOptions: { enabled: true },
+			injectManifest: { injectionPoint: undefined },
 		}),
 	],
 });
