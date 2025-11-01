@@ -8,6 +8,7 @@ import {
 	createV2Entity,
 	createV2Event,
 	createV2TrackerAndSchema,
+	executeAggregateQueryEngineV2,
 	executeQueryEngineV2,
 	executeQueryEngineV2Error,
 	propertyRef,
@@ -25,8 +26,8 @@ const buildRowsDoc = (
 		page?: number;
 		limit?: number;
 		schemas: [string, ...string[]];
-		fields?: V2ExecutePayload["output"]["fields"];
-		orderByExpr?: V2ExecutePayload["output"]["orderBy"][number]["expr"];
+		fields?: Extract<V2ExecutePayload["output"], { type: "rows" }>["fields"];
+		orderByExpr?: Extract<V2ExecutePayload["output"], { type: "rows" }>["orderBy"][number]["expr"];
 	},
 ): V2ExecutePayload => {
 	const { alias, schemas, fields = [], orderByExpr, page = 1, limit = 10, ...rest } = overrides;
@@ -866,6 +867,170 @@ describe("Query Engine V2 E2E", () => {
 
 			const names = result.data.items.map((item) => requireV2FieldValue(item, "name").value);
 			expect(names).toEqual(["Advanced Course", "Long Incomplete Course"]);
+		});
+	});
+
+	describe("Aggregate returns", () => {
+		it("returns ungrouped aggregate measures without pageInfo", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId, slug } = await createV2TrackerAndSchema(client, {
+				schemaName: "AggregateLesson",
+				propertiesSchema: {
+					fields: {
+						difficulty: { type: "string", label: "Difficulty", description: "Difficulty" },
+						durationMinutes: { type: "integer", label: "Duration", description: "Duration" },
+					},
+				},
+			});
+
+			await Promise.all([
+				createV2Entity(client, {
+					name: "Lesson 1",
+					entitySchemaId: schemaId,
+					properties: { difficulty: "advanced", durationMinutes: 30 },
+				}),
+				createV2Entity(client, {
+					name: "Lesson 2",
+					entitySchemaId: schemaId,
+					properties: { difficulty: "advanced", durationMinutes: 60 },
+				}),
+				createV2Entity(client, {
+					name: "Lesson 3",
+					entitySchemaId: schemaId,
+					properties: { difficulty: "beginner", durationMinutes: 90 },
+				}),
+			]);
+
+			const doc: V2ExecutePayload = {
+				version: 2,
+				source: { type: "entities", alias: "lesson", schemas: [slug], where: null },
+				output: {
+					type: "aggregate",
+					measures: [
+						{ key: "count", aggregation: { function: "count" } },
+						{
+							key: "difficultyCount",
+							aggregation: {
+								function: "count",
+								distinctBy: propertyRef("lesson", slug, "difficulty"),
+							},
+						},
+						{
+							key: "totalDuration",
+							aggregation: {
+								function: "sum",
+								expr: propertyRef("lesson", slug, "durationMinutes"),
+							},
+						},
+						{
+							key: "averageDuration",
+							aggregation: {
+								function: "average",
+								expr: propertyRef("lesson", slug, "durationMinutes"),
+							},
+						},
+						{
+							key: "minimumDuration",
+							aggregation: {
+								function: "minimum",
+								expr: propertyRef("lesson", slug, "durationMinutes"),
+							},
+						},
+						{
+							key: "maximumDuration",
+							aggregation: {
+								function: "maximum",
+								expr: propertyRef("lesson", slug, "durationMinutes"),
+							},
+						},
+					],
+				},
+			};
+
+			const result = await executeAggregateQueryEngineV2(client, doc);
+
+			expect(result.data.pageInfo).toBeUndefined();
+			expect(result.data.items).toHaveLength(1);
+			const item = result.data.items[0];
+			assertPresent(item, "Expected aggregate item");
+			expect(requireV2FieldValue(item, "count").value).toBe(3);
+			expect(requireV2FieldValue(item, "difficultyCount").value).toBe(2);
+			expect(requireV2FieldValue(item, "totalDuration").value).toBe(180);
+			expect(requireV2FieldValue(item, "averageDuration").value).toBe(60);
+			expect(requireV2FieldValue(item, "minimumDuration").value).toBe(30);
+			expect(requireV2FieldValue(item, "maximumDuration").value).toBe(90);
+		});
+
+		it("returns grouped aggregates ordered by measureRef with limited pageInfo", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId, slug } = await createV2TrackerAndSchema(client, {
+				schemaName: "GroupedAggregateLesson",
+				propertiesSchema: {
+					fields: {
+						difficulty: { type: "string", label: "Difficulty", description: "Difficulty" },
+					},
+				},
+			});
+
+			await Promise.all([
+				createV2Entity(client, {
+					name: "Advanced 1",
+					entitySchemaId: schemaId,
+					properties: { difficulty: "advanced" },
+				}),
+				createV2Entity(client, {
+					name: "Advanced 2",
+					entitySchemaId: schemaId,
+					properties: { difficulty: "advanced" },
+				}),
+				createV2Entity(client, {
+					name: "Beginner 1",
+					entitySchemaId: schemaId,
+					properties: { difficulty: "beginner" },
+				}),
+			]);
+
+			const doc: V2ExecutePayload = {
+				version: 2,
+				source: { type: "entities", alias: "lesson", schemas: [slug], where: null },
+				output: {
+					limit: 1,
+					type: "aggregate",
+					measures: [{ key: "count", aggregation: { function: "count" } }],
+					orderBy: [{ order: "desc", expr: { type: "measureRef", key: "count" } }],
+					groupBy: [{ key: "difficulty", expr: propertyRef("lesson", slug, "difficulty") }],
+				},
+			};
+
+			const result = await executeAggregateQueryEngineV2(client, doc);
+
+			expect(result.data.pageInfo).toEqual({ limit: 1, hasMore: true });
+			expect(result.data.items).toHaveLength(1);
+			const item = result.data.items[0];
+			assertPresent(item, "Expected grouped aggregate item");
+			expect(requireV2FieldValue(item, "difficulty").value).toBe("advanced");
+			expect(requireV2FieldValue(item, "count").value).toBe(2);
+		});
+
+		it("rejects duplicate aggregate output keys", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { slug } = await createV2TrackerAndSchema(client, {
+				schemaName: "DuplicateAggregateKeys",
+			});
+			const doc: V2ExecutePayload = {
+				version: 2,
+				source: { type: "entities", alias: "entity", schemas: [slug], where: null },
+				output: {
+					limit: 10,
+					type: "aggregate",
+					measures: [{ key: "count", aggregation: { function: "count" } }],
+					orderBy: [{ order: "desc", expr: { type: "measureRef", key: "count" } }],
+					groupBy: [{ key: "count", expr: systemRef("entity", "name") }],
+				},
+			};
+
+			const error = await executeQueryEngineV2Error(client, doc);
+			expect(error).toMatchObject({ _tag: "BadRequest" });
 		});
 	});
 
