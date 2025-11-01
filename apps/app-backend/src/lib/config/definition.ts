@@ -1,6 +1,6 @@
 import { Config, Redacted } from "effect";
 
-export const systemConfigDef = Config.all({
+export const systemConfigDefinition = Config.all({
 	port: Config.integer("PORT").pipe(Config.withDefault(3000)),
 	frontendUrl: Config.string("FRONTEND_URL").pipe(Config.withDefault("http://localhost:3000")),
 	frontend: Config.all({
