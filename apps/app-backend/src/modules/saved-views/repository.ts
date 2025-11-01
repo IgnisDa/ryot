@@ -57,8 +57,8 @@ const withSavedViewScope = (trackerId?: TrackerId) =>
 export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()(
 	"SavedViewsRepository",
 	{
-		sync: () => ({
-			listByUser: Effect.fn("SavedViewsRepository.listByUser")(function* (
+		sync: () => {
+			const listByUser = Effect.fn("SavedViewsRepository.listByUser")(function* (
 				userId: UserId,
 				input: { trackerId?: TrackerId; includeDisabled: boolean },
 			) {
@@ -86,8 +86,9 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				);
 
 				return rows.map(toListedSavedView);
-			}),
-			findBySlug: Effect.fn("SavedViewsRepository.findBySlug")(function* (
+			});
+
+			const findBySlug = Effect.fn("SavedViewsRepository.findBySlug")(function* (
 				userId: UserId,
 				viewSlug: string,
 			) {
@@ -101,8 +102,9 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				);
 
 				return row ? toListedSavedView(row) : null;
-			}),
-			create: Effect.fn("SavedViewsRepository.create")(function* (
+			});
+
+			const create = Effect.fn("SavedViewsRepository.create")(function* (
 				userId: UserId,
 				input: CreateSavedViewInput,
 			) {
@@ -150,42 +152,44 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				}
 
 				return toListedSavedView(row);
-			}),
-			createDefaultViewForSchema: Effect.fn("SavedViewsRepository.createDefaultViewForSchema")(
-				function* (input: {
-					icon: string;
-					userId: UserId;
-					accentColor: string;
-					trackerId: TrackerId;
-					entitySchemaSlug: string;
-					entitySchemaName: string;
-				}) {
-					const db = yield* CurrentDb;
-					const name = `All ${input.entitySchemaName}s`;
-					const slug = slugify(`all ${input.entitySchemaSlug}`);
+			});
 
-					yield* dbEffect(() =>
-						db.insert(schema.savedView).values({
-							slug,
-							name,
-							isBuiltin: true,
-							icon: input.icon,
-							userId: input.userId,
-							trackerId: input.trackerId,
-							accentColor: input.accentColor,
-							displayConfiguration: buildDisplayConfig(input.entitySchemaSlug),
-							queryDocument: buildDefaultQueryDocument([input.entitySchemaSlug]),
-						}),
-					).pipe(
-						Effect.mapError((error) =>
-							isUniqueConstraintError(savedViewUserSlugConstraint)(error)
-								? conflict("Entity schema default saved view already exists")
-								: error,
-						),
-					);
-				},
-			),
-			updateBySlug: Effect.fn("SavedViewsRepository.updateBySlug")(function* (
+			const createDefaultViewForSchema = Effect.fn(
+				"SavedViewsRepository.createDefaultViewForSchema",
+			)(function* (input: {
+				icon: string;
+				userId: UserId;
+				accentColor: string;
+				trackerId: TrackerId;
+				entitySchemaSlug: string;
+				entitySchemaName: string;
+			}) {
+				const db = yield* CurrentDb;
+				const name = `All ${input.entitySchemaName}s`;
+				const slug = slugify(`all ${input.entitySchemaSlug}`);
+
+				yield* dbEffect(() =>
+					db.insert(schema.savedView).values({
+						slug,
+						name,
+						isBuiltin: true,
+						icon: input.icon,
+						userId: input.userId,
+						trackerId: input.trackerId,
+						accentColor: input.accentColor,
+						displayConfiguration: buildDisplayConfig(input.entitySchemaSlug),
+						queryDocument: buildDefaultQueryDocument([input.entitySchemaSlug]),
+					}),
+				).pipe(
+					Effect.mapError((error) =>
+						isUniqueConstraintError(savedViewUserSlugConstraint)(error)
+							? conflict("Entity schema default saved view already exists")
+							: error,
+					),
+				);
+			});
+
+			const updateBySlug = Effect.fn("SavedViewsRepository.updateBySlug")(function* (
 				userId: UserId,
 				viewSlug: string,
 				data: UpdateSavedViewData,
@@ -222,24 +226,24 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				);
 
 				return row ? toListedSavedView(row) : null;
-			}),
-			updateDisabledBySlug: Effect.fn("SavedViewsRepository.updateDisabledBySlug")(function* (
-				userId: UserId,
-				viewSlug: string,
-				isDisabled: boolean,
-			) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.update(schema.savedView)
-						.set({ isDisabled })
-						.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
-						.returning(),
-				);
+			});
 
-				return row ? toListedSavedView(row) : null;
-			}),
-			deleteBySlug: Effect.fn("SavedViewsRepository.deleteBySlug")(function* (
+			const updateDisabledBySlug = Effect.fn("SavedViewsRepository.updateDisabledBySlug")(
+				function* (userId: UserId, viewSlug: string, isDisabled: boolean) {
+					const db = yield* CurrentDb;
+					const [row] = yield* dbEffect(() =>
+						db
+							.update(schema.savedView)
+							.set({ isDisabled })
+							.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
+							.returning(),
+					);
+
+					return row ? toListedSavedView(row) : null;
+				},
+			);
+
+			const deleteBySlug = Effect.fn("SavedViewsRepository.deleteBySlug")(function* (
 				userId: UserId,
 				viewSlug: string,
 			) {
@@ -258,8 +262,9 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				);
 
 				return row ? toListedSavedView(row) : null;
-			}),
-			countBySlugs: Effect.fn("SavedViewsRepository.countBySlugs")(function* (
+			});
+
+			const countBySlugs = Effect.fn("SavedViewsRepository.countBySlugs")(function* (
 				userId: UserId,
 				viewSlugs: ReadonlyArray<string>,
 				trackerId?: TrackerId,
@@ -283,8 +288,9 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				);
 
 				return rows.length;
-			}),
-			listSlugsInOrder: Effect.fn("SavedViewsRepository.listSlugsInOrder")(function* (
+			});
+
+			const listSlugsInOrder = Effect.fn("SavedViewsRepository.listSlugsInOrder")(function* (
 				userId: UserId,
 				trackerId?: TrackerId,
 			) {
@@ -298,8 +304,9 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				);
 
 				return rows.map((row) => row.viewSlug);
-			}),
-			persistOrder: Effect.fn("SavedViewsRepository.persistOrder")(function* (
+			});
+
+			const persistOrder = Effect.fn("SavedViewsRepository.persistOrder")(function* (
 				userId: UserId,
 				trackerId: TrackerId | undefined,
 				viewSlugs: ReadonlyArray<string>,
@@ -326,8 +333,21 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				}
 
 				return viewSlugs;
-			}),
-		}),
+			});
+
+			return {
+				listByUser,
+				findBySlug,
+				create,
+				createDefaultViewForSchema,
+				updateBySlug,
+				updateDisabledBySlug,
+				deleteBySlug,
+				countBySlugs,
+				listSlugsInOrder,
+				persistOrder,
+			};
+		},
 	},
 ) {}
 
