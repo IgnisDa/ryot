@@ -8697,8 +8697,6 @@ __metadata:
     vite: "npm:7.1.12"
     vite-plugin-pwa: "npm:1.1.0"
     vite-tsconfig-paths: "npm:5.1.4"
-    workbox-precaching: "npm:7.3.0"
-    workbox-routing: "npm:7.3.0"
     zod: "npm:4.1.12"
   languageName: unknown
   linkType: soft
