@@ -1,14 +1,13 @@
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { DateTime, Effect, Schema } from "effect";
 
 import { DbRunner } from "~/lib/db";
 import { SandboxRunError, dieOnDbError, unknownToMessage } from "~/lib/errors";
 import { parseAppSchemaProperties } from "~/lib/property-schema-runtime";
-import { SandboxService } from "~/lib/sandbox";
 import { RelationshipSchemasRepository } from "~/modules/relationship-schemas/repository";
-import { SandboxRepository } from "~/modules/sandbox/repository";
+import { RunSandboxWorkflow } from "~/modules/sandbox/definitions";
 
 import { EntitiesRepository } from "./repository";
-import type { ListedEntity } from "./schemas";
 
 const isPlainRecord = (v: unknown): v is Record<string, unknown> =>
 	v !== null && typeof v === "object" && !Array.isArray(v);
@@ -102,16 +101,11 @@ export const populateGlobalEntity = (input: {
 	externalId: string;
 	executionId: string;
 	entitySchemaId: string;
-}): Effect.Effect<
-	ListedEntity,
-	SandboxRunError,
-	DbRunner | SandboxService | EntitiesRepository | SandboxRepository | RelationshipSchemasRepository
-> =>
+}) =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
-		const sandbox = yield* SandboxService;
+		const engine = yield* WorkflowEngine;
 		const repository = yield* EntitiesRepository;
-		const sandboxRepository = yield* SandboxRepository;
 
 		const existing = yield* runWithDb(
 			repository.findGlobalEntityByExternalId({
@@ -124,13 +118,6 @@ export const populateGlobalEntity = (input: {
 			return existing;
 		}
 
-		const script = yield* runWithDb(
-			sandboxRepository.getScriptForUser({ userId: input.userId, scriptId: input.scriptId }),
-		);
-		if (!script) {
-			return yield* new SandboxRunError({ message: "Sandbox script not found" });
-		}
-
 		const entitySchemaScope = yield* runWithDb(
 			repository.findEntitySchemaById(input.entitySchemaId),
 		);
@@ -138,22 +125,21 @@ export const populateGlobalEntity = (input: {
 			return yield* new SandboxRunError({ message: "Entity schema not found" });
 		}
 
-		const sandboxResult = yield* sandbox
-			.run({
-				code: script.code,
-				scriptId: script.id,
-				userId: input.userId,
-				driverName: "details",
+		const sandboxResult = yield* engine
+			.execute(RunSandboxWorkflow, {
 				executionId: input.executionId,
-				context: { externalId: input.externalId },
-				allowedHostFunctions: script.metadata.allowedHostFunctions ?? [],
+				payload: {
+					userId: input.userId,
+					driverName: "details",
+					scriptId: input.scriptId,
+					executionId: input.executionId,
+					context: { externalId: input.externalId },
+				},
 			})
 			.pipe(Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })));
 
-		if (!sandboxResult.success || sandboxResult.error) {
-			return yield* new SandboxRunError({
-				message: sandboxResult.error ?? "Sandbox script failed",
-			});
+		if (sandboxResult.error) {
+			return yield* new SandboxRunError({ message: sandboxResult.error });
 		}
 
 		const details = yield* decodeEntityDetailsResult(sandboxResult.value).pipe(
