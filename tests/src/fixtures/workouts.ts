@@ -11,7 +11,7 @@ import {
 	executeQueryEngine,
 	requireQueryEngineFieldValue,
 	systemRef,
-} from "./query-engine";
+} from "./query-engine-core";
 
 export async function createWorkoutEntityFixture(client: Client) {
 	const { schema: workoutSchema } = await findBuiltinSchemaBySlug(client, "workout");
