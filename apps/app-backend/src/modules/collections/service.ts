@@ -1,7 +1,7 @@
 import type { AppSchema } from "@ryot/ts-utils/app-schema";
 import { resolveRequiredString } from "@ryot/ts-utils/slug";
 
-import { parseAppSchemaPropertiesSafe, type ValidationIssue } from "~/lib/app/schema-validation";
+import { formatValidationIssues, parseAppSchemaPropertiesSafe } from "~/lib/app/schema-validation";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 import {
 	getUserLibraryEntityId,
@@ -27,15 +27,13 @@ import type {
 	RemoveFromCollectionData,
 } from "./schemas";
 
-const collectionSchemaNotFoundError = "Collection entity schema not found";
-const invalidMembershipSchemaError = "membershipPropertiesSchema must be a valid AppSchema";
-const collectionNotFoundError = "Collection not found";
 const entityNotFoundError = "Entity not found";
-const invalidMembershipPropertiesError = "Membership properties validation failed";
+const collectionNotFoundError = "Collection not found";
 const circularReferenceError = "Cannot add a collection to itself";
-
-const formatValidationIssues = (issues: ValidationIssue[]) =>
-	issues.map((i) => `${i.path}: ${i.message}`).join("; ");
+const collectionSchemaNotFoundError = "Collection entity schema not found";
+const invalidCollectionPropertiesError = "Collection properties are invalid";
+const invalidMembershipPropertiesError = "Membership properties validation failed";
+const invalidMembershipSchemaError = "membershipPropertiesSchema must be a valid AppSchema";
 
 const formatSchemaValidationError = (error: unknown) => {
 	if (error instanceof Error) {
@@ -112,11 +110,23 @@ export const createCollection = async (
 		properties.membershipPropertiesSchema = input.body.membershipPropertiesSchema;
 	}
 
-	const createdCollection = await deps.createCollectionForUser({
-		name: nameResult.data,
-		userId: input.userId,
-		entitySchemaId: collectionSchema.id,
+	// Validate entity properties against the collection entity schema's propertiesSchema
+	const entityPropertiesResult = parseAppSchemaPropertiesSafe({
 		properties,
+		propertiesSchema: collectionSchema.propertiesSchema,
+	});
+	if (!entityPropertiesResult.success) {
+		return serviceError(
+			"validation",
+			`${invalidCollectionPropertiesError}: ${formatValidationIssues(entityPropertiesResult.issues)}`,
+		);
+	}
+
+	const createdCollection = await deps.createCollectionForUser({
+		userId: input.userId,
+		name: nameResult.data,
+		entitySchemaId: collectionSchema.id,
+		properties: entityPropertiesResult.data,
 	});
 
 	return serviceData(createdCollection);
