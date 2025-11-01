@@ -39,13 +39,37 @@ const dialect = new PgDialect();
 
 const makeAuthMock = (state?: { deleteUserSessionsCalled: boolean }) =>
 	Object.assign(Object.create(null), {
-		auth: { api: { requestPasswordReset: () => Promise.resolve(undefined) } },
 		currentUser: () => Effect.die("unused"),
+		createAuthUser: () => Effect.die("unused"),
+		linkAuthAccount: () => Effect.die("unused"),
+		auth: { api: { requestPasswordReset: () => Promise.resolve(undefined) } },
 		deleteUserSessions: () => {
 			if (state) {
 				state.deleteUserSessionsCalled = true;
 			}
 			return Effect.void;
+		},
+	});
+
+const makeProvisionAuthMock = (
+	state: {
+		createdUser: null | Record<string, unknown>;
+		createdAccount: null | Record<string, unknown>;
+	},
+	options?: { createUserError?: Error; createAccountError?: Error },
+) =>
+	Object.assign(Object.create(null), makeAuthMock(), {
+		createAuthUser: (user: Record<string, unknown>) => {
+			state.createdUser = user;
+			return options?.createUserError
+				? Effect.fail(new DbError({ message: options.createUserError.message }))
+				: Effect.succeed(user);
+		},
+		linkAuthAccount: (account: Record<string, unknown>) => {
+			state.createdAccount = account;
+			return options?.createAccountError
+				? Effect.fail(new DbError({ message: options.createAccountError.message }))
+				: Effect.succeed(account);
 		},
 	});
 
@@ -119,8 +143,23 @@ const makeServiceLayer = (
 		),
 	);
 
-const makeProvisionLayer = (db: object): Layer.Layer<GodModeService | TransactionRunner> =>
-	Layer.mergeAll(makeServiceLayer(db), transactionLayer);
+const makeProvisionLayer = (
+	db: object,
+	auth: ReturnType<typeof makeProvisionAuthMock>,
+): Layer.Layer<GodModeService> =>
+	GodModeService.Default.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				makeDbRunnerLayer(db),
+				makeDbServiceLayer(db),
+				transactionLayer,
+				GodModeRepository.Default,
+				makeAppConfigLayer({ users: { allowRegistration: true, disableLocalAuth: false } }),
+				Layer.succeed(AuthService, auth),
+				Layer.succeed(RedisService, makeRedisMock()),
+			),
+		),
+	);
 
 const makeListUsersDb = (options: {
 	total: number;
@@ -222,25 +261,6 @@ const makeProvisionUserDb = (options?: {
 	};
 
 	const db = Object.assign(Object.create(null), {
-		insert: (table: unknown) => ({
-			values: (input: Record<string, unknown>) => {
-				if (table === schema.user) {
-					state.createdUser = input;
-					return options?.createUserError
-						? Promise.reject(options.createUserError)
-						: Promise.resolve({});
-				}
-
-				if (table === schema.account) {
-					state.createdAccount = input;
-					return options?.createAccountError
-						? Promise.reject(options.createAccountError)
-						: Promise.resolve({});
-				}
-
-				throw new Error("unexpected table");
-			},
-		}),
 		select: () => ({
 			from: () => ({
 				where: () =>
@@ -255,7 +275,7 @@ const makeProvisionUserDb = (options?: {
 		}),
 	});
 
-	return { db, state };
+	return { auth: makeProvisionAuthMock(state, options), db, state };
 };
 
 describe("classifyAuthState", () => {
@@ -535,31 +555,31 @@ it.effect("returns a db error when persisting ban state fails", () => {
 });
 
 vitestIt("creates a credential user without an account row", () => {
-	const { db, state } = makeProvisionUserDb();
+	const { auth, db, state } = makeProvisionUserDb();
 
 	return Effect.runPromise(
 		Effect.gen(function* () {
 			const service = yield* GodModeService;
 			const result = yield* service.provisionUser({
+				provider: "credential",
 				name: "new@example.com",
 				email: "new@example.com",
-				provider: "credential",
 			});
 
 			expect(result.userId).toBe(state.createdUser?.id);
 			expect(state.createdUser).toMatchObject({
+				emailVerified: true,
 				name: "new@example.com",
 				email: "new@example.com",
-				emailVerified: true,
 				preferences: defaultUserPreferences,
 			});
 			expect(state.createdAccount).toBeNull();
-		}).pipe(Effect.provide(makeProvisionLayer(db))),
+		}).pipe(Effect.provide(makeProvisionLayer(db, auth))),
 	);
 });
 
 vitestIt("creates an oidc user with an account stub", () => {
-	const { db, state } = makeProvisionUserDb();
+	const { auth, db, state } = makeProvisionUserDb();
 
 	return Effect.runPromise(
 		Effect.gen(function* () {
@@ -573,16 +593,16 @@ vitestIt("creates an oidc user with an account stub", () => {
 
 			expect(result.userId).toBe(state.createdUser?.id);
 			expect(state.createdAccount).toMatchObject({
-				userId: result.userId,
 				providerId: "oidc",
+				userId: result.userId,
 				accountId: "google|123",
 			});
-		}).pipe(Effect.provide(makeProvisionLayer(db))),
+		}).pipe(Effect.provide(makeProvisionLayer(db, auth))),
 	);
 });
 
 vitestIt("returns a bad request when provisioning a user that already exists", () => {
-	const { db } = makeProvisionUserDb({ existingUserId: "existing" });
+	const { auth, db } = makeProvisionUserDb({ existingUserId: "existing" });
 
 	return Effect.runPromise(
 		Effect.gen(function* () {
@@ -600,12 +620,12 @@ vitestIt("returns a bad request when provisioning a user that already exists", (
 					new BadRequest({ message: "User with email 'exists@example.com' already exists" }),
 				),
 			);
-		}).pipe(Effect.provide(makeProvisionLayer(db))),
+		}).pipe(Effect.provide(makeProvisionLayer(db, auth))),
 	);
 });
 
 vitestIt("returns a db error when user creation fails during provisioning", () => {
-	const { db } = makeProvisionUserDb({ createUserError: new Error("db down") });
+	const { auth, db } = makeProvisionUserDb({ createUserError: new Error("db down") });
 
 	return Effect.runPromise(
 		Effect.gen(function* () {
@@ -619,12 +639,12 @@ vitestIt("returns a db error when user creation fails during provisioning", () =
 			);
 
 			expect(exit).toEqual(Exit.fail(new DbError({ message: "db down" })));
-		}).pipe(Effect.provide(makeProvisionLayer(db))),
+		}).pipe(Effect.provide(makeProvisionLayer(db, auth))),
 	);
 });
 
 vitestIt("returns a db error when oidc account creation fails during provisioning", () => {
-	const { db } = makeProvisionUserDb({ createAccountError: new Error("db down") });
+	const { auth, db } = makeProvisionUserDb({ createAccountError: new Error("db down") });
 
 	return Effect.runPromise(
 		Effect.gen(function* () {
@@ -639,6 +659,6 @@ vitestIt("returns a db error when oidc account creation fails during provisionin
 			);
 
 			expect(exit).toEqual(Exit.fail(new DbError({ message: "db down" })));
-		}).pipe(Effect.provide(makeProvisionLayer(db))),
+		}).pipe(Effect.provide(makeProvisionLayer(db, auth))),
 	);
 });
