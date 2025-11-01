@@ -8,17 +8,42 @@ import { dbRunnerLayer, makeMock, transactionLayer } from "#lib/test-support/eff
 import { QueryEngineService } from "#modules/query-engine/service";
 
 import { SavedViewsRepository } from "./repository";
-import type { ListedSavedView } from "./schemas";
+import type { CreateSavedViewBody, ListedSavedView } from "./schemas";
 import { SavedViewsService } from "./service";
 
 const user = {
-	id: UserId.make("user-id"),
 	name: "Test User",
 	email: "user@example.com",
+	id: UserId.make("user-id"),
 } satisfies CurrentUserValue;
 
+const sampleQueryDefinition = {
+	filter: null,
+	eventJoins: [],
+	scope: ["book"],
+	computedFields: [],
+	relationshipJoins: [],
+	mode: "entities" as const,
+	sort: { direction: "asc" as const, expression: { type: "literal" as const, value: "name" } },
+};
+
+const sampleQueryDocument = {
+	version: 2,
+	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
+	output: {
+		fields: [],
+		type: "rows",
+		pagination: { page: 1, limit: 20 },
+		orderBy: [
+			{
+				order: "asc",
+				expr: { type: "ref", sourceAlias: "book", field: { type: "system", name: "name" } },
+			},
+		],
+	},
+} as const;
+
 const baseListedSavedView: ListedSavedView = {
-	id: SavedViewId.make("sv-id"),
 	icon: "book",
 	sortOrder: 0,
 	slug: "my-view",
@@ -27,17 +52,11 @@ const baseListedSavedView: ListedSavedView = {
 	isBuiltin: false,
 	isDisabled: false,
 	accentColor: "#FF5733",
+	id: SavedViewId.make("sv-id"),
 	createdAt: new Date().toISOString(),
 	updatedAt: new Date().toISOString(),
-	queryDefinition: {
-		filter: null,
-		eventJoins: [],
-		scope: ["book"],
-		mode: "entities",
-		computedFields: [],
-		relationshipJoins: [],
-		sort: { direction: "asc", expression: { type: "literal", value: "name" } },
-	},
+	queryDocument: sampleQueryDocument,
+	queryDefinition: sampleQueryDefinition,
 	displayConfiguration: {
 		entityIdProperty: { type: "literal", value: "id" },
 		table: { columns: [{ label: "Name", expression: { type: "literal", value: "name" } }] },
@@ -82,13 +101,16 @@ const queryEngineService = makeMock<QueryEngineService>({
 	execute: () => Effect.die("unused"),
 });
 
-const makeServiceLayer = (repository: SavedViewsRepository) =>
+const makeServiceLayer = (
+	repository: SavedViewsRepository,
+	queryEngine: QueryEngineService = queryEngineService,
+) =>
 	SavedViewsService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
-				Layer.succeed(QueryEngineService, queryEngineService),
+				Layer.succeed(QueryEngineService, queryEngine),
 				Layer.succeed(SavedViewsRepository, repository),
 			),
 		),
@@ -98,7 +120,8 @@ const createBody = {
 	icon: "book",
 	name: "My View",
 	accentColor: "#FF5733",
-	queryDefinition: baseListedSavedView.queryDefinition,
+	queryDocument: sampleQueryDocument,
+	queryDefinition: sampleQueryDefinition,
 	displayConfiguration: baseListedSavedView.displayConfiguration,
 };
 
@@ -198,6 +221,34 @@ it.effect("rejects updating a built-in view name", () => {
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect("rejects updating a built-in view's queryDocument", () => {
+	const layer = makeServiceLayer(
+		makeRepository({
+			findBySlug: () => Effect.succeed({ ...baseListedSavedView, isBuiltin: true }),
+		}),
+	);
+
+	const changedDocument: CreateSavedViewBody["queryDocument"] = {
+		...sampleQueryDocument,
+		output: { ...sampleQueryDocument.output, pagination: { page: 5, limit: 20 } },
+	};
+
+	return Effect.gen(function* () {
+		const service = yield* SavedViewsService;
+		const exit = yield* Effect.exit(
+			service.update(user, "builtin-view", {
+				...createBody,
+				isDisabled: false,
+				queryDocument: changedDocument,
+			}),
+		);
+
+		expect(exit).toEqual(
+			Exit.fail(new BadRequest({ message: "Cannot modify built-in saved views" })),
+		);
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect("clones a saved view with (Copy) suffix", () => {
 	let clonedName = "";
 
@@ -266,5 +317,128 @@ it.effect("rejects reorder requests containing unknown slugs", () => {
 		expect(exit).toEqual(
 			Exit.fail(new BadRequest({ message: "Saved view slugs contain unknown saved views" })),
 		);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("creates a saved view validating both queryDefinition and queryDocument", () => {
+	let legacyValidationCalls = 0;
+	let createdInput: { queryDefinition: unknown; queryDocument: unknown } | undefined;
+
+	const trackingQueryEngineService = makeMock<QueryEngineService>({
+		execute: () => Effect.die("unused"),
+		validateSavedView: () =>
+			Effect.sync(() => {
+				legacyValidationCalls += 1;
+			}),
+	});
+
+	const layer = makeServiceLayer(
+		makeRepository({
+			findBySlug: () => Effect.succeed(null),
+			create: (_userId, input) =>
+				Effect.sync(() => {
+					createdInput = input;
+					return baseListedSavedView;
+				}),
+		}),
+		trackingQueryEngineService,
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SavedViewsService;
+		const view = yield* service.create(user, createBody);
+
+		expect(legacyValidationCalls).toBe(1);
+		expect(view.queryDocument).toEqual(sampleQueryDocument);
+		expect(createdInput?.queryDocument).toEqual(sampleQueryDocument);
+		expect(createdInput?.queryDefinition).toEqual(sampleQueryDefinition);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("rejects creating a saved view with a semantically invalid v2 query document", () => {
+	const layer = makeServiceLayer(makeRepository({ findBySlug: () => Effect.succeed(null) }));
+	const invalidQueryDocument: CreateSavedViewBody["queryDocument"] = {
+		...sampleQueryDocument,
+		source: {
+			...sampleQueryDocument.source,
+			where: {
+				operator: "eq",
+				type: "comparison",
+				right: { type: "literal", value: "x" },
+				left: {
+					type: "ref",
+					sourceAlias: "unknownAlias",
+					field: { type: "system", name: "name" },
+				},
+			},
+		},
+	};
+
+	return Effect.gen(function* () {
+		const service = yield* SavedViewsService;
+		const exit = yield* Effect.exit(
+			service.create(user, { ...createBody, queryDocument: invalidQueryDocument }),
+		);
+
+		expect(exit).toEqual(
+			Exit.fail(new BadRequest({ message: "Unknown source alias 'unknownAlias'" })),
+		);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect(
+	"rejects creating a saved view when the legacy engine rejects queryDefinition even though queryDocument is valid",
+	() => {
+		const failingQueryEngineService = makeMock<QueryEngineService>({
+			execute: () => Effect.die("unused"),
+			validateSavedView: () => Effect.fail(new BadRequest({ message: "Invalid scope" })),
+		});
+
+		const layer = makeServiceLayer(
+			makeRepository({ findBySlug: () => Effect.succeed(null) }),
+			failingQueryEngineService,
+		);
+
+		return Effect.gen(function* () {
+			const service = yield* SavedViewsService;
+			const exit = yield* Effect.exit(service.create(user, createBody));
+
+			expect(exit).toEqual(Exit.fail(new BadRequest({ message: "Invalid scope" })));
+		}).pipe(Effect.provide(layer));
+	},
+);
+
+it.effect("updates a saved view's queryDefinition and queryDocument together", () => {
+	let updatedQueryDefinition: unknown;
+	let updatedQueryDocument: unknown;
+
+	const updatedDocument: CreateSavedViewBody["queryDocument"] = {
+		...sampleQueryDocument,
+		output: { ...sampleQueryDocument.output, pagination: { page: 2, limit: 20 } },
+	};
+
+	const layer = makeServiceLayer(
+		makeRepository({
+			findBySlug: () => Effect.succeed(baseListedSavedView),
+			updateBySlug: (_userId, _slug, data) =>
+				Effect.sync(() => {
+					updatedQueryDefinition = data.queryDefinition;
+					updatedQueryDocument = data.queryDocument;
+					return { ...baseListedSavedView, queryDocument: data.queryDocument };
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SavedViewsService;
+		const view = yield* service.update(user, "my-view", {
+			...createBody,
+			isDisabled: false,
+			queryDocument: updatedDocument,
+		});
+
+		expect(view.queryDocument).toEqual(updatedDocument);
+		expect(updatedQueryDocument).toEqual(updatedDocument);
+		expect(updatedQueryDefinition).toEqual(sampleQueryDefinition);
 	}).pipe(Effect.provide(layer));
 });

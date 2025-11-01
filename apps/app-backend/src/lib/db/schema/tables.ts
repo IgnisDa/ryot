@@ -28,6 +28,7 @@ import type {
 	IntegrationProviderSpecifics,
 } from "#modules/integrations/schemas";
 import type { IntegrationLot } from "#modules/integrations/types";
+import type { QueryDocumentV2 } from "#modules/query-engine-v2/language";
 import type { SandboxScriptMetadata } from "#modules/sandbox/schemas";
 
 import { user } from "./auth";
@@ -507,6 +508,7 @@ export const savedView = pgTable(
 		sortOrder: integer().notNull().default(0),
 		isBuiltin: boolean().default(false).notNull(),
 		isDisabled: boolean().notNull().default(false),
+		queryDocument: jsonb().$type<typeof QueryDocumentV2.Type>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		queryDefinition: jsonb().$type<typeof SavedViewQueryDefinition.Type>().notNull(),
 		displayConfiguration: jsonb().$type<typeof DisplayConfiguration.Type>().notNull(),

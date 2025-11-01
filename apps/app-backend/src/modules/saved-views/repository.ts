@@ -1,7 +1,11 @@
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { buildDefaultQueryDefinition, buildDisplayConfig } from "#lib/builtins/view-helpers";
+import {
+	buildDefaultQueryDefinition,
+	buildDefaultQueryDocument,
+	buildDisplayConfig,
+} from "#lib/builtins/view-helpers";
 import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db";
 import * as schema from "#lib/db/schema/tables";
 import { DbError, conflict } from "#lib/errors";
@@ -21,6 +25,7 @@ type CreateSavedViewInput = {
 	readonly isBuiltin: boolean;
 	readonly accentColor: string;
 	readonly trackerId: TrackerId | null | undefined;
+	readonly queryDocument: (typeof schema.savedView.$inferSelect)["queryDocument"];
 	readonly queryDefinition: (typeof schema.savedView.$inferSelect)["queryDefinition"];
 	readonly displayConfiguration: (typeof schema.savedView.$inferSelect)["displayConfiguration"];
 };
@@ -28,9 +33,10 @@ type CreateSavedViewInput = {
 type UpdateSavedViewData = {
 	readonly icon: string;
 	readonly name: string;
-	readonly trackerId?: TrackerId;
 	readonly isDisabled: boolean;
 	readonly accentColor: string;
+	readonly trackerId?: TrackerId;
+	readonly queryDocument: (typeof schema.savedView.$inferSelect)["queryDocument"];
 	readonly queryDefinition: (typeof schema.savedView.$inferSelect)["queryDefinition"];
 	readonly displayConfiguration: (typeof schema.savedView.$inferSelect)["displayConfiguration"];
 };
@@ -50,19 +56,20 @@ const normalizeQueryDefinition = (
 });
 
 const toListedSavedView = (row: SavedViewRow) => ({
-	id: SavedViewId.make(row.id),
 	slug: row.slug,
 	name: row.name,
 	icon: row.icon,
-	trackerId: row.trackerId === null ? null : TrackerId.make(row.trackerId),
 	sortOrder: row.sortOrder,
 	isBuiltin: row.isBuiltin,
 	isDisabled: row.isDisabled,
 	accentColor: row.accentColor,
+	id: SavedViewId.make(row.id),
+	queryDocument: row.queryDocument,
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	displayConfiguration: row.displayConfiguration,
 	queryDefinition: normalizeQueryDefinition(row.queryDefinition),
+	trackerId: row.trackerId === null ? null : TrackerId.make(row.trackerId),
 });
 
 const withSavedViewScope = (trackerId?: TrackerId) =>
@@ -145,6 +152,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 							icon: input.icon,
 							isBuiltin: input.isBuiltin,
 							accentColor: input.accentColor,
+							queryDocument: input.queryDocument,
 							trackerId: input.trackerId ?? null,
 							queryDefinition: input.queryDefinition,
 							sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
@@ -188,6 +196,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 							trackerId: input.trackerId,
 							accentColor: input.accentColor,
 							displayConfiguration: buildDisplayConfig(input.entitySchemaSlug),
+							queryDocument: buildDefaultQueryDocument([input.entitySchemaSlug]),
 							queryDefinition: buildDefaultQueryDefinition([input.entitySchemaSlug]),
 						}),
 					).pipe(
@@ -221,6 +230,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 							trackerId: nextTrackerId,
 							isDisabled: data.isDisabled,
 							accentColor: data.accentColor,
+							queryDocument: data.queryDocument,
 							queryDefinition: data.queryDefinition,
 							displayConfiguration: data.displayConfiguration,
 							...(sortOrder === undefined ? {} : { sortOrder }),
