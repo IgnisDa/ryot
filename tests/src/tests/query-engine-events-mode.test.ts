@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+	buildEventRowsDoc,
 	createAuthenticatedClient,
 	createEventSchema,
 	createQueryEngineEntity,
@@ -12,35 +13,8 @@ import {
 	requireQueryEngineFieldValue,
 	schemaMetaRef,
 	systemRef,
-	type QueryEnginePayload,
 } from "../fixtures";
 import { assertPresent } from "../test-support/assertions";
-
-const buildEventRowsDoc = (input: {
-	page?: number;
-	limit?: number;
-	eventAlias: string;
-	entityAlias: string;
-	eventSchemas: [string, ...string[]];
-	entitySchemas: [string, ...string[]];
-	fields: Extract<QueryEnginePayload["output"], { type: "rows" }>["fields"];
-	where?: Extract<QueryEnginePayload["source"], { type: "events" }>["where"];
-	orderBy: Extract<QueryEnginePayload["output"], { type: "rows" }>["orderBy"];
-}): QueryEnginePayload => ({
-	output: {
-		type: "rows",
-		fields: input.fields,
-		orderBy: input.orderBy,
-		pagination: { page: input.page ?? 1, limit: input.limit ?? 10 },
-	},
-	source: {
-		type: "events",
-		alias: input.eventAlias,
-		where: input.where ?? null,
-		schemas: input.eventSchemas,
-		entity: { alias: input.entityAlias, schemas: input.entitySchemas },
-	},
-});
 
 describe("event root rows", () => {
 	it("filters root events by an event property before returning rows", async () => {
