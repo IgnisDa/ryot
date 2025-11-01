@@ -143,14 +143,17 @@ describe("sandbox async flow", () => {
 			code: `
 driver("main", async function() {
   const result = await executeQueryEngine({
-    mode: "entities",
-    scope: [${JSON.stringify(slug)}],
-    pagination: { page: 1, limit: 10 },
-    sort: { direction: "asc", expression: { type: "reference", reference: { path: ["name"], type: "entity", slug: ${JSON.stringify(slug)} } } },
-    fields: [
-      { key: "id", expression: { type: "reference", reference: { path: ["id"], type: "entity", slug: ${JSON.stringify(slug)} } } },
-      { key: "name", expression: { type: "reference", reference: { path: ["name"], type: "entity", slug: ${JSON.stringify(slug)} } } }
-    ]
+    version: 2,
+    source: { type: "entities", alias: "entity", schemas: [${JSON.stringify(slug)}], where: null },
+    output: {
+      type: "rows",
+      pagination: { page: 1, limit: 10 },
+      orderBy: [{ order: "asc", expr: { type: "ref", sourceAlias: "entity", field: { type: "system", name: "name" } } }],
+      fields: [
+        { key: "id", expr: { type: "ref", sourceAlias: "entity", field: { type: "system", name: "id" } } },
+        { key: "name", expr: { type: "ref", sourceAlias: "entity", field: { type: "system", name: "name" } } }
+      ]
+    }
   });
   if (!result.success) {
     throw new Error(result.error);
@@ -189,15 +192,13 @@ driver("main", async function() {
 			code: `
 driver("main", async function() {
   const result = await executeQueryEngine({
-    mode: "entities",
-    scope: ["does-not-exist"],
-    pagination: { page: 1, limit: 10 },
-    sort: {
-      direction: "asc",
-      expression: {
-        type: "reference",
-        reference: { path: ["name"], type: "entity", slug: "does-not-exist" }
-      }
+    version: 2,
+    source: { type: "entities", alias: "entity", schemas: ["does-not-exist"], where: null },
+    output: {
+      type: "rows",
+      fields: [],
+      pagination: { page: 1, limit: 10 },
+      orderBy: [{ order: "asc", expr: { type: "ref", sourceAlias: "entity", field: { type: "system", name: "name" } } }]
     }
   });
   if (result.success) {
@@ -219,7 +220,7 @@ driver("main", async function() {
 			throw new Error("Expected sandbox job to complete");
 		}
 
-		expect(result.error).toContain("Schema 'does-not-exist' not found");
+		expect(result.error).toContain("Entity schema 'does-not-exist' not found");
 	});
 
 	it("completes a script that uses getAppConfigValue", async () => {
@@ -546,7 +547,7 @@ describe("sandbox enqueue by script ID", () => {
 			name: "no-host-functions",
 			slug: `no-host-functions-${crypto.randomUUID()}`,
 			code: `driver("main", async function() {
-  return await executeQueryEngine({ mode: "entities", scope: ["movie"], pagination: { page: 1, limit: 1 }, sort: { direction: "asc", expression: { type: "reference", reference: { path: ["name"], type: "entity", slug: "movie" } } } });
+  return await executeQueryEngine({ version: 2, source: { type: "entities", alias: "entity", schemas: ["movie"], where: null }, output: { type: "rows", fields: [], pagination: { page: 1, limit: 1 }, orderBy: [{ order: "asc", expr: { type: "ref", sourceAlias: "entity", field: { type: "system", name: "name" } } }] } });
 });`,
 		});
 

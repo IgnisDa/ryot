@@ -1,6 +1,5 @@
 import {
 	createEntityColumnExpression,
-	createEntityPropertyExpression,
 	createEntitySchemaExpression,
 	type DisplayConfiguration,
 } from "@ryot/app-backend/query-language";
@@ -9,13 +8,8 @@ import { TrackerId } from "@ryot/app-backend/schema/brands";
 import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 import type { ContractPayload, ContractSuccess } from "./contract-client";
-import { systemRef } from "./query-engine-v2";
-import {
-	type ExpressionInput,
-	entityField,
-	literalExpression,
-	toRequiredExpression,
-} from "./view-language";
+import { systemRef } from "./query-engine";
+import { type ExpressionInput, entityField, toRequiredExpression } from "./view-language";
 
 type CardDisplayConfiguration = DisplayConfiguration["grid"];
 
@@ -39,22 +33,15 @@ export type DisplayConfigurationInput = {
 type CreateSavedViewBody = ContractPayload<"savedViews", "create">;
 type UpdateSavedViewBody = ContractPayload<"savedViews", "update">;
 type ReorderSavedViewsBody = ContractPayload<"savedViews", "reorder">;
-type QueryDefinition = CreateSavedViewBody["queryDefinition"];
 export type SavedViewQueryDocument = CreateSavedViewBody["queryDocument"];
 
 type SavedViewRecord = ContractSuccess<"savedViews", "get">;
 
-type CreateSavedViewInput = Partial<
-	Omit<CreateSavedViewBody, "displayConfiguration" | "queryDefinition">
-> & {
+type CreateSavedViewInput = Partial<Omit<CreateSavedViewBody, "displayConfiguration">> & {
 	displayConfiguration?: DisplayConfigurationInput;
-	queryDefinition?: QueryDefinition;
 };
 
-type UpdateSavedViewInput = Partial<
-	Omit<UpdateSavedViewBody, "displayConfiguration" | "queryDefinition">
-> & {
-	queryDefinition?: QueryDefinition;
+type UpdateSavedViewInput = Partial<Omit<UpdateSavedViewBody, "displayConfiguration">> & {
 	displayConfiguration?: DisplayConfigurationInput;
 };
 
@@ -123,17 +110,6 @@ const mergeDisplayConfigurationInput = (
 			: input.entityIdProperty,
 });
 
-const defaultQueryDefinition: QueryDefinition = {
-	filter: null,
-	eventJoins: [],
-	computedFields: [],
-	scope: ["book"],
-	sort: {
-		direction: "asc",
-		expression: toRequiredExpression([entityField("book", "name")]),
-	},
-};
-
 const defaultDisplayConfiguration = {
 	entityIdProperty: createEntityColumnExpression("book", "id"),
 	table: { columns: [{ label: "Name", expression: [entityField("book", "name")] }] },
@@ -166,26 +142,8 @@ const defaultQueryDocument: SavedViewQueryDocument = {
 	},
 };
 
-const defaultUpdatedQueryDefinition: QueryDefinition = {
-	eventJoins: [],
-	computedFields: [],
-	scope: ["book", "anime"],
-	sort: { direction: "desc", expression: createEntityColumnExpression("book", "createdAt") },
-	filter: {
-		operator: "gte",
-		type: "comparison",
-		right: literalExpression(2020),
-		left: createEntityPropertyExpression("book", "publishYear"),
-	},
-};
-
 export function buildSavedViewBody(overrides: CreateSavedViewInput = {}): CreateSavedViewBody {
-	const {
-		displayConfiguration: displayOverride,
-		queryDefinition,
-		queryDocument,
-		...rest
-	} = overrides;
+	const { displayConfiguration: displayOverride, queryDocument, ...rest } = overrides;
 	const displayConfiguration = displayOverride
 		? normalizeDisplayConfiguration(mergeDisplayConfigurationInput(displayOverride))
 		: normalizeDisplayConfiguration(defaultDisplayConfiguration);
@@ -196,7 +154,6 @@ export function buildSavedViewBody(overrides: CreateSavedViewInput = {}): Create
 		accentColor: "#FF5733",
 		name: `Saved View ${crypto.randomUUID()}`,
 		queryDocument: queryDocument ?? defaultQueryDocument,
-		queryDefinition: queryDefinition ?? defaultQueryDefinition,
 		...rest,
 	};
 }
@@ -204,12 +161,7 @@ export function buildSavedViewBody(overrides: CreateSavedViewInput = {}): Create
 export function buildUpdatedSavedViewBody(
 	overrides: UpdateSavedViewInput = {},
 ): UpdateSavedViewBody {
-	const {
-		displayConfiguration: displayOverride,
-		queryDefinition,
-		queryDocument,
-		...rest
-	} = overrides;
+	const { displayConfiguration: displayOverride, queryDocument, ...rest } = overrides;
 	const displayConfiguration = displayOverride
 		? normalizeDisplayConfiguration(mergeDisplayConfigurationInput(displayOverride), false)
 		: normalizeDisplayConfiguration({
@@ -233,7 +185,7 @@ export function buildUpdatedSavedViewBody(
 					eyebrowProperty: createEntitySchemaExpression("name"),
 					titleProperty: [entityField("book", "name")],
 					imageProperty: [entityField("book", "image")],
-					calloutProperty: [entityField("anime", "productionStatus")],
+					calloutProperty: null,
 					primarySubtitleProperty: [entityField("book", "publishYear")],
 				},
 			});
@@ -244,7 +196,6 @@ export function buildUpdatedSavedViewBody(
 		accentColor: "#00AA88",
 		name: `Updated View ${crypto.randomUUID()}`,
 		queryDocument: queryDocument ?? defaultQueryDocument,
-		queryDefinition: queryDefinition ?? defaultUpdatedQueryDefinition,
 		isDisabled: false,
 		...rest,
 	};
