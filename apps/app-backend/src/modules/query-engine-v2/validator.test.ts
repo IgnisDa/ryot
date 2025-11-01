@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Expr, QueryDocumentV2 } from "./language";
+import type { Expr, IncludeEntryV2, QueryDocumentV2 } from "./language";
 import { validateQueryDocumentV2 } from "./validator";
 
 const nameRef = (alias: string): Expr => ({
@@ -20,7 +20,7 @@ const literal = (value: unknown): Expr => ({ type: "literal", value });
 const makeDoc = (overrides: Partial<QueryDocumentV2> = {}): QueryDocumentV2 => ({
 	version: 2,
 	source: { alias: "e", where: null, type: "entities", schemas: ["books"] },
-	return: {
+	output: {
 		fields: [],
 		type: "rows",
 		pagination: { page: 1, limit: 10 },
@@ -49,7 +49,7 @@ describe("system field validation", () => {
 		"accepts valid system field '%s'",
 		(name) => {
 			const doc = makeDoc({
-				return: {
+				output: {
 					type: "rows",
 					pagination: { page: 1, limit: 10 },
 					orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -64,7 +64,7 @@ describe("system field validation", () => {
 
 	it("rejects an unknown system field name", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -81,7 +81,7 @@ describe("system field validation", () => {
 
 	it("rejects an invalid system field in orderBy", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				fields: [],
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
@@ -100,7 +100,7 @@ describe("system field validation", () => {
 describe("property field schema validation", () => {
 	it("accepts a property field whose schema is in the source schemas", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -112,7 +112,7 @@ describe("property field schema validation", () => {
 
 	it("rejects a property field whose schema is not in the source schemas", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -126,7 +126,7 @@ describe("property field schema validation", () => {
 		const doc: QueryDocumentV2 = {
 			version: 2,
 			source: { type: "entities", alias: "e", schemas: ["books", "movies"], where: null },
-			return: {
+			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -140,7 +140,7 @@ describe("property field schema validation", () => {
 		const doc: QueryDocumentV2 = {
 			version: 2,
 			source: { type: "entities", alias: "e", schemas: ["books", "movies"], where: null },
-			return: {
+			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -154,7 +154,7 @@ describe("property field schema validation", () => {
 describe("pagination limit", () => {
 	it("accepts limit of 100", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				fields: [],
 				type: "rows",
 				pagination: { page: 1, limit: 100 },
@@ -166,7 +166,7 @@ describe("pagination limit", () => {
 
 	it("rejects limit of 101", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				fields: [],
 				type: "rows",
 				pagination: { page: 1, limit: 101 },
@@ -180,7 +180,7 @@ describe("pagination limit", () => {
 describe("output field key uniqueness", () => {
 	it("accepts distinct field keys", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -195,7 +195,7 @@ describe("output field key uniqueness", () => {
 
 	it("rejects duplicate output field keys", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -212,7 +212,7 @@ describe("output field key uniqueness", () => {
 describe("unknown source alias", () => {
 	it("rejects an orderBy ref to an unknown alias", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				fields: [],
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
@@ -224,7 +224,7 @@ describe("unknown source alias", () => {
 
 	it("rejects a field ref to an unknown alias", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -238,7 +238,7 @@ describe("unknown source alias", () => {
 describe("expression validation coverage", () => {
 	it("accepts literal expressions in fields", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -250,7 +250,7 @@ describe("expression validation coverage", () => {
 
 	it("validates both sides of a comparison expression", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -272,7 +272,7 @@ describe("expression validation coverage", () => {
 
 	it("validates all values in an 'and' expression", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -284,7 +284,7 @@ describe("expression validation coverage", () => {
 
 	it("validates nested expr inside 'not'", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -296,7 +296,7 @@ describe("expression validation coverage", () => {
 
 	it("validates nested expr inside 'isNull'", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -308,7 +308,7 @@ describe("expression validation coverage", () => {
 
 	it("validates nested expr inside 'isNotNull'", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -320,7 +320,7 @@ describe("expression validation coverage", () => {
 
 	it("validates both sides of a 'contains' expression", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -334,7 +334,7 @@ describe("expression validation coverage", () => {
 
 	it("validates all values in a 'coalesce' expression", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -361,7 +361,7 @@ describe("source where clause", () => {
 				schemas: ["books"],
 				where: { type: "isNull", expr: nameRef("ghost") },
 			},
-			return: {
+			output: {
 				fields: [],
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
@@ -380,7 +380,7 @@ describe("source where clause", () => {
 				schemas: ["books"],
 				where: { type: "isNull", expr: nameRef("e") },
 			},
-			return: {
+			output: {
 				fields: [],
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
@@ -394,7 +394,7 @@ describe("source where clause", () => {
 describe("schema metadata fields", () => {
 	it("accepts schema 'slug' field", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -411,7 +411,7 @@ describe("schema metadata fields", () => {
 
 	it("accepts schema 'name' field", () => {
 		const doc = makeDoc({
-			return: {
+			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 10 },
 				orderBy: [{ order: "asc", expr: nameRef("e") }],
@@ -424,5 +424,164 @@ describe("schema metadata fields", () => {
 			},
 		});
 		expect(validateQueryDocumentV2(doc)).toBeNull();
+	});
+});
+
+describe("relationship includes", () => {
+	const moduleInclude = (overrides: Partial<IncludeEntryV2> = {}): IncludeEntryV2 => {
+		const base: IncludeEntryV2 = {
+			limit: 10,
+			key: "modules",
+			fields: [{ key: "name", expr: nameRef("module") }],
+			orderBy: [{ order: "asc", expr: propertyRef("module", "modules", ["moduleNumber"]) }],
+			source: {
+				where: null,
+				alias: "module",
+				type: "entities",
+				schemas: ["modules"],
+				via: {
+					entityRef: "e",
+					direction: "outgoing",
+					alias: "courseModule",
+					schema: "course-module",
+				},
+			},
+		};
+		return { ...base, ...overrides };
+	};
+
+	it("accepts a one-hop entity include", () => {
+		const doc = makeDoc({ output: { ...makeDoc().output, include: [moduleInclude()] } });
+		expect(validateQueryDocumentV2(doc)).toBeNull();
+	});
+
+	it("accepts relationship edge fields in include output", () => {
+		const doc = makeDoc({
+			output: {
+				...makeDoc().output,
+				include: [
+					moduleInclude({
+						fields: [
+							{ key: "name", expr: nameRef("module") },
+							{ key: "position", expr: propertyRef("courseModule", "course-module", ["position"]) },
+						],
+					}),
+				],
+			},
+		});
+		expect(validateQueryDocumentV2(doc)).toBeNull();
+	});
+
+	it("rejects include limit above 100", () => {
+		const doc = makeDoc({
+			output: { ...makeDoc().output, include: [moduleInclude({ limit: 101 })] },
+		});
+		expect(validateQueryDocumentV2(doc)).toMatch(/Include limit 101 exceeds maximum of 100/);
+	});
+
+	it("rejects an include source without via", () => {
+		const doc = makeDoc({
+			output: {
+				...makeDoc().output,
+				include: [
+					moduleInclude({
+						source: { alias: "module", type: "entities", schemas: ["modules"], where: null },
+					}),
+				],
+			},
+		});
+		expect(validateQueryDocumentV2(doc)).toMatch(/must specify via/);
+	});
+
+	it("rejects an include source where clause until include filtering is executable", () => {
+		const doc = makeDoc({
+			output: {
+				...makeDoc().output,
+				include: [
+					moduleInclude({
+						source: { ...moduleInclude().source, where: nameRef("module") },
+					}),
+				],
+			},
+		});
+		expect(validateQueryDocumentV2(doc)).toMatch(/does not support where yet/);
+	});
+
+	it("rejects via entityRef outside scope", () => {
+		const baseInclude = moduleInclude();
+		const doc = makeDoc({
+			output: {
+				...makeDoc().output,
+				include: [
+					moduleInclude({
+						source: {
+							...baseInclude.source,
+							via: {
+								alias: "courseModule",
+								schema: "course-module",
+								entityRef: "ghost",
+								direction: "outgoing",
+							},
+						},
+					}),
+				],
+			},
+		});
+		expect(validateQueryDocumentV2(doc)).toMatch(/Unknown source alias 'ghost'/);
+	});
+
+	it("rejects sibling include aliases as traversal anchors", () => {
+		const doc = makeDoc({
+			output: {
+				...makeDoc().output,
+				include: [
+					moduleInclude(),
+					moduleInclude({
+						key: "lessons",
+						fields: [{ key: "name", expr: nameRef("lesson") }],
+						orderBy: [{ order: "asc", expr: propertyRef("lesson", "lessons", ["lessonNumber"]) }],
+						source: {
+							where: null,
+							alias: "lesson",
+							type: "entities",
+							schemas: ["lessons"],
+							via: {
+								entityRef: "module",
+								alias: "moduleLesson",
+								direction: "outgoing",
+								schema: "module-lesson",
+							},
+						},
+					}),
+				],
+			},
+		});
+		expect(validateQueryDocumentV2(doc)).toMatch(/Unknown source alias 'module'/);
+	});
+
+	it("rejects duplicate aliases across sibling includes", () => {
+		const doc = makeDoc({
+			output: {
+				...makeDoc().output,
+				include: [moduleInclude(), moduleInclude({ key: "otherModules" })],
+			},
+		});
+		expect(validateQueryDocumentV2(doc)).toMatch(/Duplicate alias 'courseModule'/);
+	});
+
+	it("rejects duplicate field and include keys", () => {
+		const doc = makeDoc({
+			output: {
+				...makeDoc().output,
+				fields: [{ key: "modules", expr: nameRef("e") }],
+				include: [moduleInclude()],
+			},
+		});
+		expect(validateQueryDocumentV2(doc)).toMatch(/Duplicate output field key 'modules'/);
+	});
+
+	it("rejects via on a root entity source", () => {
+		const doc = makeDoc({ source: moduleInclude().source });
+		expect(validateQueryDocumentV2(doc)).toMatch(/Root entity source cannot specify via/);
 	});
 });
