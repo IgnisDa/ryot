@@ -9,7 +9,7 @@ import { EntitySchemasService } from "./service";
 
 export const EntitySchemasRoutesLive = HttpApiBuilder.group(
 	AppContract,
-	"entity-schemas",
+	"entitySchemas",
 	(handlers) =>
 		handlers
 			.handle("list", ({ payload }) =>

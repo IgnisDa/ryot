@@ -458,7 +458,7 @@ describe("GET /event-schemas", () => {
 			slug: "owner-entity",
 		});
 
-		const { error, response } = await intruder.client["event-schemas"].list({
+		const { error, response } = await intruder.client.eventSchemas.list({
 			headers: { Cookie: intruder.cookies },
 			params: { query: { entitySchemaId } },
 		});
@@ -480,7 +480,7 @@ describe("POST /event-schemas", () => {
 			slug: "custom-entity",
 		});
 
-		const { data, response } = await client["event-schemas"].create({
+		const { data, response } = await client.eventSchemas.create({
 			headers: { Cookie: cookies },
 			body: {
 				entitySchemaId,
@@ -509,7 +509,7 @@ describe("POST /event-schemas", () => {
 			slug: "custom-entity",
 		});
 
-		const { error, response } = await client["event-schemas"].create({
+		const { error, response } = await client.eventSchemas.create({
 			headers: { Cookie: cookies },
 			body: {
 				entitySchemaId,
@@ -553,7 +553,7 @@ describe("POST /event-schemas", () => {
 			},
 		});
 
-		const { response, error } = await client["event-schemas"].create({
+		const { response, error } = await client.eventSchemas.create({
 			headers: { Cookie: cookies },
 			body: {
 				entitySchemaId,

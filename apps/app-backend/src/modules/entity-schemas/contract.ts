@@ -22,7 +22,7 @@ import {
 const entitySchemaIdParam = HttpApiSchema.param("entitySchemaId", Schema.String);
 const jobIdParam = HttpApiSchema.param("jobId", Schema.String);
 
-export const EntitySchemasGroup = HttpApiGroup.make("entity-schemas")
+export const EntitySchemasGroup = HttpApiGroup.make("entitySchemas")
 	.addError(Unauthorized, { status: 401 })
 	.addError(RateLimited, { status: 429 })
 	.add(
