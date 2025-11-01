@@ -25,13 +25,6 @@ export const listedFacetSchema = z.object({
 export const listFacetsResponseSchema = dataSchema(z.array(listedFacetSchema));
 export const createFacetResponseSchema = dataSchema(listedFacetSchema);
 
-export const facetMutationResponseSchema = dataSchema(
-	z.object({
-		facetId: z.string(),
-		enabled: z.boolean(),
-	}),
-);
-
 export const createFacetBody = z.object({
 	name: nonEmptyTrimmedStringSchema,
 	slug: nonEmptyTrimmedStringSchema.optional(),
@@ -47,6 +40,7 @@ const nullableTextInputSchema = z
 export const updateFacetBody = z
 	.object({
 		icon: nullableTextInputSchema,
+		enabled: z.boolean().optional(),
 		description: nullableTextInputSchema,
 		accentColor: nullableTextInputSchema,
 		name: nonEmptyTrimmedStringSchema.optional(),

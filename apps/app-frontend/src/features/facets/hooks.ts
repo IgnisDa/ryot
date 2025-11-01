@@ -8,9 +8,19 @@ import {
 	sortFacetsByOrder,
 } from "./model";
 
-function extractFacetIdFromInput(input: unknown): string | undefined {
-	return (input as { params?: { path?: { facetId: string } } }).params?.path
-		?.facetId;
+function extractFacetEnabledFromInput(
+	input: unknown,
+): { facetId: string; enabled: boolean } | undefined {
+	const parsed = input as {
+		body?: { enabled?: boolean };
+		params?: { path?: { facetId: string } };
+	};
+	const facetId = parsed.params?.path?.facetId;
+	const enabled = parsed.body?.enabled;
+
+	if (!facetId || enabled === undefined) return;
+
+	return { enabled, facetId };
 }
 
 function extractFacetIdsFromInput(input: unknown): string[] | undefined {
@@ -22,7 +32,7 @@ function isQueryDataWithFacets(data: unknown): data is { data: AppFacet[] } {
 	return "data" in data;
 }
 
-function createMutationHandler<T extends string | string[]>(
+function createMutationHandler<T>(
 	queryClient: ReturnType<typeof useQueryClient>,
 	listQueryKey: readonly unknown[],
 	applyPatch: (data: AppFacet[], id: T) => AppFacet[],
@@ -97,26 +107,15 @@ export function useFacetMutations() {
 		queryClient,
 	);
 
-	const enable = apiClient.useMutation(
-		"post",
-		"/facets/{facetId}/enable",
+	const toggle = apiClient.useMutation(
+		"patch",
+		"/facets/{facetId}",
 		createMutationHandler(
 			queryClient,
 			listQueryKey,
-			(data, id) => applyFacetEnabledPatch(data, id, true),
-			extractFacetIdFromInput,
-		),
-		queryClient,
-	);
-
-	const disable = apiClient.useMutation(
-		"post",
-		"/facets/{facetId}/disable",
-		createMutationHandler(
-			queryClient,
-			listQueryKey,
-			(data, id) => applyFacetEnabledPatch(data, id, false),
-			extractFacetIdFromInput,
+			(data, value) =>
+				applyFacetEnabledPatch(data, value.facetId, value.enabled),
+			extractFacetEnabledFromInput,
 		),
 		queryClient,
 	);
@@ -133,5 +132,5 @@ export function useFacetMutations() {
 		queryClient,
 	);
 
-	return { create, update, enable, disable, reorder };
+	return { create, update, toggle, reorder };
 }
