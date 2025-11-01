@@ -14,11 +14,10 @@ const getValidatedPayload = (taskIdentifier: string, payload: unknown) => {
 	switch (taskIdentifier) {
 		case DEMO_JOB: {
 			const parsed = demoJobPayloadSchema.safeParse(payload);
-			if (!parsed.success) {
+			if (!parsed.success)
 				throw new Error(
 					`Invalid payload for ${DEMO_JOB}: ${parsed.error.message}`,
 				);
-			}
 
 			return parsed.data;
 		}
@@ -32,10 +31,7 @@ export const addJob = async (taskIdentifier: string, payload: unknown) => {
 	const validatedPayload = getValidatedPayload(taskIdentifier, payload);
 	const jobOptions =
 		taskIdentifier === DEMO_JOB
-			? {
-					jobKey: DEMO_JOB,
-					maxAttempts: 1,
-				}
+			? { maxAttempts: 1, jobKey: DEMO_JOB }
 			: undefined;
 	await quickAddJob(
 		{ pgPool: pool },
