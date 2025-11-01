@@ -12,7 +12,7 @@ export type CurrentUserValue = {
 
 export class CurrentUser extends Context.Tag("CurrentUser")<CurrentUser, CurrentUserValue>() {}
 
-export class AdminAccess extends Context.Tag("AdminAccess")<
+class AdminAccess extends Context.Tag("AdminAccess")<
 	AdminAccess,
 	{ readonly authorized: true }
 >() {}
