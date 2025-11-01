@@ -39,7 +39,6 @@ describe("POST /relationship-schemas/list", () => {
 			slug,
 			sourceEntitySchemaId: schemaId,
 			targetEntitySchemaId: schemaId,
-			propertiesSchema: { fields: {} },
 		});
 
 		const schemas = await listRelationshipSchemas(client, { slugs: [slug] });
@@ -109,7 +108,6 @@ describe("POST /relationship-schemas", () => {
 		await createRelationshipSchema(client, {
 			name: "First Relationship",
 			slug,
-			propertiesSchema: { fields: {} },
 		});
 
 		const error = await client.runError((c) =>

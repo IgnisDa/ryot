@@ -34,9 +34,6 @@ describe("Time series returns", () => {
 			slug: completeSlug,
 			name: "Time Series Complete",
 			entitySchemaId: lessonSchemaId,
-			propertiesSchema: {
-				fields: { note: { type: "string", label: "Note", description: "Completion note" } },
-			},
 		});
 		const lesson = await createQueryEngineEntity(client, {
 			name: "Time Series Lesson",
@@ -138,7 +135,6 @@ describe("Time series returns", () => {
 		const relationshipSchema = await createRelationshipSchema(client, {
 			slug: relationshipSlug,
 			name: "Time Series Membership",
-			propertiesSchema: { fields: {} },
 			sourceEntitySchemaId: memberSchemaId,
 			targetEntitySchemaId: collectionSchemaId,
 		});
