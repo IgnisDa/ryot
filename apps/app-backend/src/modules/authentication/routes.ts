@@ -1,5 +1,8 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
+import { isAPIError } from "better-auth/api";
 
+import { auth } from "~/lib/auth";
+import { config } from "~/lib/config";
 import {
 	createValidationErrorResult,
 	jsonResponse,
@@ -8,7 +11,7 @@ import {
 	successResponse,
 } from "~/lib/openapi";
 
-import { signUpAndInitializeUser } from "./bootstrap/sign-up";
+import { bootstrapNewUser } from "./bootstrap/sign-up";
 import { defaultUserPreferences, signUpBody, signUpResponseSchema } from "./schemas";
 import { resolveAuthenticationName } from "./service";
 
@@ -29,6 +32,11 @@ const signUpRoute = createRoute({
 export const authenticationApi = new OpenAPIHono().openapi(signUpRoute, async (c) => {
 	const body = c.req.valid("json");
 
+	if (config.users.disableLocalAuth) {
+		const response = createValidationErrorResult("Local authentication is disabled");
+		return c.json(response.body, response.status);
+	}
+
 	const nameResult = resolveValidationData(
 		() => resolveAuthenticationName(body.name),
 		"Signup name is invalid",
@@ -37,16 +45,26 @@ export const authenticationApi = new OpenAPIHono().openapi(signUpRoute, async (c
 		return c.json(nameResult.body, nameResult.status);
 	}
 
-	const signUpResult = await signUpAndInitializeUser({
-		email: body.email,
-		name: nameResult.data,
-		password: body.password,
-		preferences: defaultUserPreferences,
-	});
-	if ("error" in signUpResult) {
-		const response = createValidationErrorResult(signUpResult.message);
-		return c.json(response.body, response.status);
+	let userId!: string;
+	try {
+		const result = await auth.api.signUpEmail({
+			body: {
+				email: body.email,
+				name: nameResult.data,
+				password: body.password,
+				preferences: defaultUserPreferences,
+			},
+		});
+		userId = result.user.id;
+	} catch (error) {
+		if (isAPIError(error)) {
+			const response = createValidationErrorResult(error.message || "Could not create account");
+			return c.json(response.body, response.status);
+		}
+		throw error;
 	}
 
-	return c.json(successResponse(signUpResult.data), 200);
+	await bootstrapNewUser(userId);
+
+	return c.json(successResponse({ created: true as const }), 200);
 });
