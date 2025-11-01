@@ -1,9 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { type ChildProcess, spawn } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 
-import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import type { paths } from "@ryot/generated/openapi/app-backend";
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { config } from "dotenv";
 import getPort from "get-port";
 import createClient from "openapi-fetch";
@@ -11,16 +9,24 @@ import { Client as PgClient } from "pg";
 import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 
 import { oidcSignIn } from "../fixtures/auth-oidc";
+import {
+	attachProcessLogs,
+	buildBackendEnv,
+	startCoreTestInfrastructure,
+	spawnBackendProcess,
+	stopBackendProcess,
+	stopCoreTestInfrastructure,
+	waitForHealthCheck,
+} from "../test-support/provisioning";
 
 config({ path: ".env" });
 
-const S3_ACCESS_KEY = "rustfsadmin";
-const S3_SECRET_KEY = "rustfsadmin";
 const OIDC_CLIENT_ID = "test-client";
 const S3_BUCKET_NAME = "ryot-oidc-test";
 const OIDC_CLIENT_SECRET = "test-secret";
 const OIDC_BUTTON_LABEL = "Sign in with TestOIDC";
 
+let coreInfrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
 let backendPortA: number;
 let backendPortB: number;
 let backendPortC: number;
@@ -29,10 +35,7 @@ let pgClientOidc: PgClient | undefined;
 let backendProcessA: ChildProcess | undefined;
 let backendProcessB: ChildProcess | undefined;
 let backendProcessC: ChildProcess | undefined;
-let s3Container: StartedTestContainer | undefined;
 let oidcContainer: StartedTestContainer | undefined;
-let redisContainer: StartedTestContainer | undefined;
-let pgContainer: StartedPostgreSqlContainer | undefined;
 
 function getBackendUrlA() {
 	return `http://127.0.0.1:${backendPortA}/api`;
@@ -46,8 +49,12 @@ function getBackendUrlC() {
 	return `http://127.0.0.1:${backendPortC}/api`;
 }
 
-function getOidcIssuerUrl() {
-	return oidcIssuerUrl;
+function requireCoreInfrastructure() {
+	if (!coreInfrastructure) {
+		throw new Error("OIDC test infrastructure is not initialised");
+	}
+
+	return coreInfrastructure;
 }
 
 function requireOidcPgClient(): PgClient {
@@ -57,143 +64,70 @@ function requireOidcPgClient(): PgClient {
 	return pgClientOidc;
 }
 
-function attachBackendLogs(label: string, proc: ChildProcess) {
-	proc.stdout?.on("data", (data) => console.log(`[Backend ${label}] ${data}`));
-	proc.stderr?.on("data", (data) => console.error(`[Backend ${label}] ${data}`));
-}
-
-function killBackend(proc: ChildProcess | undefined) {
-	if (!proc || proc.killed) {
-		return Promise.resolve();
-	}
-	return new Promise<void>((resolve) => {
-		proc.once("exit", () => resolve());
-		proc.kill("SIGINT");
-	});
-}
-
-async function waitForHealthCheck(url: string, maxRetries = 30, retryDelay = 1000) {
-	for (let i = 0; i < maxRetries; i++) {
-		try {
-			// oxlint-disable-next-line no-await-in-loop
-			const response = await fetch(url);
-			if (response.ok) {
-				console.log(`[OIDC Setup] Health check passed for ${url}`);
-				return;
-			}
-		} catch {}
-
-		if (i < maxRetries - 1) {
-			// oxlint-disable-next-line no-await-in-loop
-			await new Promise((resolve) => setTimeout(resolve, retryDelay));
-		}
-	}
-	throw new Error(`Health check failed for ${url} after ${maxRetries} retries`);
-}
-
 beforeAll(async () => {
-	console.log("[OIDC Setup] Starting containers...");
+	coreInfrastructure = await startCoreTestInfrastructure({
+		bucketName: S3_BUCKET_NAME,
+		logPrefix: "OIDC Setup",
+	});
 
-	[pgContainer, redisContainer, s3Container, oidcContainer] = await Promise.all([
-		new PostgreSqlContainer("postgres:18-alpine")
-			.withDatabase("test_db")
-			.withUsername("test_user")
-			.withPassword("test_password")
-			.withWaitStrategy(Wait.forLogMessage("database system is ready"))
-			.start(),
-		new GenericContainer("redis:alpine")
-			.withExposedPorts(6379)
-			.withWaitStrategy(Wait.forLogMessage("Ready to accept connections"))
-			.start(),
-		new GenericContainer("rustfs/rustfs")
-			.withExposedPorts(9000)
-			.withWaitStrategy(Wait.forHttp("/health", 9000))
-			.start(),
-		new GenericContainer("ghcr.io/navikt/mock-oauth2-server:2.1.10")
-			.withExposedPorts(8080)
-			.withWaitStrategy(Wait.forHttp("/default/.well-known/openid-configuration", 8080))
-			.start(),
-	]);
+	oidcContainer = await new GenericContainer("ghcr.io/navikt/mock-oauth2-server:2.1.10")
+		.withExposedPorts(8080)
+		.withWaitStrategy(Wait.forHttp("/default/.well-known/openid-configuration", 8080))
+		.start();
 
-	const dbUrl = pgContainer.getConnectionUri();
-	const redisHost = redisContainer.getHost();
-	const redisPort = redisContainer.getMappedPort(6379);
-	const s3Host = s3Container.getHost();
-	const s3MappedPort = s3Container.getMappedPort(9000);
-	const s3Endpoint = `http://${s3Host}:${s3MappedPort}`;
 	const oidcHost = oidcContainer.getHost();
 	const oidcMappedPort = oidcContainer.getMappedPort(8080);
 	oidcIssuerUrl = `http://${oidcHost}:${oidcMappedPort}/default`;
-
-	const s3Client = new S3Client({
-		region: "us-east-1",
-		endpoint: s3Endpoint,
-		forcePathStyle: true,
-		credentials: { accessKeyId: S3_ACCESS_KEY, secretAccessKey: S3_SECRET_KEY },
-	});
-
-	await s3Client.send(new CreateBucketCommand({ Bucket: S3_BUCKET_NAME }));
-	console.log(`[OIDC Setup] S3 bucket '${S3_BUCKET_NAME}' created at ${s3Endpoint}`);
 
 	[backendPortA, backendPortB, backendPortC] = await Promise.all([getPort(), getPort(), getPort()]);
 	const backendOriginA = `http://127.0.0.1:${backendPortA}`;
 	const backendOriginB = `http://127.0.0.1:${backendPortB}`;
 	const backendOriginC = `http://127.0.0.1:${backendPortC}`;
 
-	const baseEnv = {
-		...process.env,
-		NODE_ENV: "test",
-		DATABASE_URL: dbUrl,
-		FILE_STORAGE_S3_URL: s3Endpoint,
-		FILE_STORAGE_S3_REGION: "us-east-1",
+	const infrastructure = requireCoreInfrastructure();
+	const sharedEnv = {
 		SERVER_OIDC_CLIENT_ID: OIDC_CLIENT_ID,
 		SERVER_OIDC_ISSUER_URL: oidcIssuerUrl,
-		FILE_STORAGE_S3_BUCKET_NAME: S3_BUCKET_NAME,
-		FILE_STORAGE_S3_ACCESS_KEY_ID: S3_ACCESS_KEY,
 		SERVER_OIDC_CLIENT_SECRET: OIDC_CLIENT_SECRET,
-		SERVER_ADMIN_ACCESS_TOKEN: "test-admin-token",
-		REDIS_URL: `redis://${redisHost}:${redisPort}`,
-		FILE_STORAGE_S3_SECRET_ACCESS_KEY: S3_SECRET_KEY,
 	};
-
-	const spawnBackend = (env: Record<string, string | undefined>) => {
-		const proc = spawn("bun", ["run", "src/index.ts"], {
-			env,
-			cwd: "../apps/app-backend",
-			stdio: ["ignore", "pipe", "pipe"],
-		});
+	const startBackend = (
+		label: string,
+		frontendUrl: string,
+		port: number,
+		extraEnv: Record<string, string> = {},
+	) => {
+		const proc = spawnBackendProcess(
+			buildBackendEnv({
+				dbUrl: infrastructure.dbUrl,
+				frontendUrl,
+				port,
+				redisUrl: infrastructure.redisUrl,
+				s3BucketName: S3_BUCKET_NAME,
+				s3Endpoint: infrastructure.s3Endpoint,
+				extraEnv: { ...sharedEnv, ...extraEnv },
+			}),
+		);
+		attachProcessLogs(proc, `Backend ${label}`);
 		return proc;
 	};
 
-	backendProcessA = spawnBackend({
-		...baseEnv,
-		FRONTEND_URL: backendOriginA,
-		PORT: backendPortA.toString(),
+	backendProcessA = startBackend("A", backendOriginA, backendPortA, {
 		FRONTEND_OIDC_BUTTON_LABEL: OIDC_BUTTON_LABEL,
 	});
-	attachBackendLogs("A", backendProcessA);
-	await waitForHealthCheck(`http://127.0.0.1:${backendPortA}/api/system/health`);
+	await waitForHealthCheck(`http://127.0.0.1:${backendPortA}/api/system/health`, "OIDC Setup");
 
-	backendProcessB = spawnBackend({
-		...baseEnv,
-		FRONTEND_URL: backendOriginB,
-		PORT: backendPortB.toString(),
+	backendProcessB = startBackend("B", backendOriginB, backendPortB, {
 		USERS_DISABLE_LOCAL_AUTH: "true",
 	});
-	backendProcessC = spawnBackend({
-		...baseEnv,
-		FRONTEND_URL: backendOriginC,
-		PORT: backendPortC.toString(),
+	backendProcessC = startBackend("C", backendOriginC, backendPortC, {
 		USERS_ALLOW_REGISTRATION: "false",
 	});
-	attachBackendLogs("B", backendProcessB);
-	attachBackendLogs("C", backendProcessC);
 	await Promise.all([
-		waitForHealthCheck(`http://127.0.0.1:${backendPortB}/api/system/health`),
-		waitForHealthCheck(`http://127.0.0.1:${backendPortC}/api/system/health`),
+		waitForHealthCheck(`http://127.0.0.1:${backendPortB}/api/system/health`, "OIDC Setup"),
+		waitForHealthCheck(`http://127.0.0.1:${backendPortC}/api/system/health`, "OIDC Setup"),
 	]);
 
-	pgClientOidc = new PgClient({ connectionString: dbUrl });
+	pgClientOidc = new PgClient({ connectionString: infrastructure.dbUrl });
 	await pgClientOidc.connect();
 
 	console.log("[OIDC Setup] All backends ready!");
@@ -203,17 +137,15 @@ afterAll(async () => {
 	console.log("[OIDC Teardown] Stopping services...");
 
 	await Promise.all([
-		killBackend(backendProcessA),
-		killBackend(backendProcessB),
-		killBackend(backendProcessC),
+		stopBackendProcess(backendProcessA),
+		stopBackendProcess(backendProcessB),
+		stopBackendProcess(backendProcessC),
 	]);
 	console.log("[OIDC Teardown] Backend processes stopped");
 
 	await Promise.all([
 		pgClientOidc?.end(),
-		pgContainer?.stop(),
-		s3Container?.stop(),
-		redisContainer?.stop(),
+		stopCoreTestInfrastructure(coreInfrastructure),
 		oidcContainer?.stop(),
 	]);
 
@@ -258,7 +190,7 @@ describe("POST /authentication/email with local auth disabled (Backend B)", () =
 describe("OIDC sign-in happy path (Backend A)", () => {
 	it("first-time OIDC sign-in produces a valid session", async () => {
 		const username = `user-${crypto.randomUUID()}`;
-		const sessionCookie = await oidcSignIn(username, getBackendUrlA(), getOidcIssuerUrl());
+		const sessionCookie = await oidcSignIn(username, getBackendUrlA());
 		const client = createClient<paths>({ baseUrl: getBackendUrlA() });
 		const { response } = await client.GET("/trackers", { headers: { Cookie: sessionCookie } });
 		expect(response.status).toBe(200);
@@ -266,7 +198,7 @@ describe("OIDC sign-in happy path (Backend A)", () => {
 
 	it("first-time OIDC sign-in creates a user row", async () => {
 		const username = `user-${crypto.randomUUID()}`;
-		await oidcSignIn(username, getBackendUrlA(), getOidcIssuerUrl());
+		await oidcSignIn(username, getBackendUrlA());
 		const result = await requireOidcPgClient().query<{ id: string }>(
 			`SELECT id FROM "user" WHERE email = $1`,
 			[`${username}@example.com`],
@@ -276,7 +208,7 @@ describe("OIDC sign-in happy path (Backend A)", () => {
 
 	it("first-time OIDC sign-in bootstraps the user with tracker rows", async () => {
 		const username = `user-${crypto.randomUUID()}`;
-		await oidcSignIn(username, getBackendUrlA(), getOidcIssuerUrl());
+		await oidcSignIn(username, getBackendUrlA());
 		const userResult = await requireOidcPgClient().query<{ id: string }>(
 			`SELECT id FROM "user" WHERE email = $1`,
 			[`${username}@example.com`],
@@ -295,8 +227,8 @@ describe("OIDC idempotency (Backend A)", () => {
 		const username = `user-${crypto.randomUUID()}`;
 		const pg = requireOidcPgClient();
 
-		const cookie1 = await oidcSignIn(username, getBackendUrlA(), getOidcIssuerUrl());
-		const cookie2 = await oidcSignIn(username, getBackendUrlA(), getOidcIssuerUrl());
+		const cookie1 = await oidcSignIn(username, getBackendUrlA());
+		const cookie2 = await oidcSignIn(username, getBackendUrlA());
 
 		const userResult = await pg.query<{ id: string }>(`SELECT id FROM "user" WHERE email = $1`, [
 			`${username}@example.com`,
@@ -316,7 +248,7 @@ describe("OIDC idempotency (Backend A)", () => {
 		const username = `user-${crypto.randomUUID()}`;
 		const pg = requireOidcPgClient();
 
-		await oidcSignIn(username, getBackendUrlA(), getOidcIssuerUrl());
+		await oidcSignIn(username, getBackendUrlA());
 		const userResult = await pg.query<{ id: string }>(`SELECT id FROM "user" WHERE email = $1`, [
 			`${username}@example.com`,
 		]);
@@ -329,7 +261,7 @@ describe("OIDC idempotency (Backend A)", () => {
 		const firstCount = Number(countAfterFirst.rows[0]?.count);
 		expect(firstCount).toBeGreaterThan(0);
 
-		await oidcSignIn(username, getBackendUrlA(), getOidcIssuerUrl());
+		await oidcSignIn(username, getBackendUrlA());
 
 		const countAfterSecond = await pg.query<{ count: string }>(
 			`SELECT count(*) FROM tracker WHERE user_id = $1`,
@@ -414,7 +346,7 @@ describe("OIDC account linking (Backend A)", () => {
 		expect(localResult.rows.length).toBe(1);
 		const localUserId = localResult.rows[0]?.id;
 
-		const sessionCookie = await oidcSignIn(username, getBackendUrlA(), getOidcIssuerUrl(), {
+		const sessionCookie = await oidcSignIn(username, getBackendUrlA(), {
 			email,
 			name: "Test User",
 		});
