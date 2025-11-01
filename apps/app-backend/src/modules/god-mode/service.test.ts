@@ -61,10 +61,16 @@ const baseUser = {
 
 const dialect = new PgDialect();
 
-const makeAuthMock = () =>
+const makeAuthMock = (state?: { deleteUserSessionsCalled: boolean }) =>
 	Object.assign(Object.create(null), {
 		auth: { api: { requestPasswordReset: () => Promise.resolve(undefined) } },
 		currentUser: () => Effect.die("unused"),
+		deleteUserSessions: () => {
+			if (state) {
+				state.deleteUserSessionsCalled = true;
+			}
+			return Effect.void;
+		},
 	});
 
 const makeRedisMock = () =>
@@ -118,7 +124,11 @@ const transactionLayer = Layer.succeed(
 		Effect.provideService(effect, CurrentDb, makeBootstrapDb()),
 );
 
-const makeServiceLayer = (db: object, disableLocalAuth = false): Layer.Layer<GodModeService> =>
+const makeServiceLayer = (
+	db: object,
+	disableLocalAuth = false,
+	authState?: { deleteUserSessionsCalled: boolean },
+): Layer.Layer<GodModeService> =>
 	GodModeService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
@@ -132,7 +142,7 @@ const makeServiceLayer = (db: object, disableLocalAuth = false): Layer.Layer<God
 						users: { ...appConfig.users, disableLocalAuth },
 					}),
 				),
-				Layer.succeed(AuthService, makeAuthMock()),
+				Layer.succeed(AuthService, makeAuthMock(authState)),
 				Layer.succeed(RedisService, makeRedisMock()),
 			),
 		),
@@ -204,17 +214,10 @@ const makeSetUserBanDb = (options: {
 	user: Pick<UserRow, "bannedAt" | "id"> | null;
 }) => {
 	const state = {
-		deletedSessions: false,
 		updateInput: null as null | { bannedAt: Date | null; updatedAt: Date },
 	};
 
 	const db = Object.assign(Object.create(null), {
-		delete: () => ({
-			where: () => {
-				state.deletedSessions = true;
-				return Promise.resolve({});
-			},
-		}),
 		select: () => ({
 			from: () => ({
 				where: () =>
@@ -479,6 +482,7 @@ it.effect("returns the banned timestamp for disabled users", () => {
 
 it.effect("bans an unbanned user and deletes sessions", () => {
 	const { db, state } = makeSetUserBanDb({ user: { id: "user_1", bannedAt: null } });
+	const authState = { deleteUserSessionsCalled: false };
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
@@ -486,10 +490,10 @@ it.effect("bans an unbanned user and deletes sessions", () => {
 
 		expect(result.id).toBe("user_1");
 		expect(typeof result.bannedAt).toBe("string");
-		expect(state.deletedSessions).toBe(true);
+		expect(authState.deleteUserSessionsCalled).toBe(true);
 		expect(state.updateInput?.bannedAt?.toISOString()).toBe(result.bannedAt);
 		expect(state.updateInput?.updatedAt.toISOString()).toBe(result.bannedAt);
-	}).pipe(Effect.provide(makeServiceLayer(db)));
+	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
 });
 
 it.effect("preserves an existing bannedAt when banning an already-banned user", () => {
@@ -497,42 +501,45 @@ it.effect("preserves an existing bannedAt when banning an already-banned user", 
 	const { db, state } = makeSetUserBanDb({
 		user: { id: "user_1", bannedAt: existingBannedAt },
 	});
+	const authState = { deleteUserSessionsCalled: false };
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
 		const result = yield* service.setUserBan("user_1", true);
 
 		expect(result).toEqual({ id: "user_1", bannedAt: "2024-01-02T00:00:00.000Z" });
-		expect(state.deletedSessions).toBe(true);
+		expect(authState.deleteUserSessionsCalled).toBe(true);
 		expect(state.updateInput?.bannedAt).toBe(existingBannedAt);
-	}).pipe(Effect.provide(makeServiceLayer(db)));
+	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
 });
 
 it.effect("unbans a banned user without deleting sessions", () => {
 	const { db, state } = makeSetUserBanDb({
 		user: { id: "user_1", bannedAt: new Date("2024-01-02T00:00:00Z") },
 	});
+	const authState = { deleteUserSessionsCalled: false };
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
 		const result = yield* service.setUserBan("user_1", false);
 
 		expect(result).toEqual({ id: "user_1", bannedAt: null });
-		expect(state.deletedSessions).toBe(false);
+		expect(authState.deleteUserSessionsCalled).toBe(false);
 		expect(state.updateInput).toMatchObject({ bannedAt: null });
-	}).pipe(Effect.provide(makeServiceLayer(db)));
+	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
 });
 
 it.effect("unbanning an already-unbanned user does not delete sessions", () => {
-	const { db, state } = makeSetUserBanDb({ user: { id: "user_1", bannedAt: null } });
+	const { db } = makeSetUserBanDb({ user: { id: "user_1", bannedAt: null } });
+	const authState = { deleteUserSessionsCalled: false };
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
 		const result = yield* service.setUserBan("user_1", false);
 
 		expect(result).toEqual({ id: "user_1", bannedAt: null });
-		expect(state.deletedSessions).toBe(false);
-	}).pipe(Effect.provide(makeServiceLayer(db)));
+		expect(authState.deleteUserSessionsCalled).toBe(false);
+	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
 });
 
 it.effect("returns a bad request when the user is not found while setting ban state", () => {
