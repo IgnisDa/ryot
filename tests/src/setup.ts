@@ -33,9 +33,7 @@ async function waitForHealthCheck(url: string, maxRetries = 30, retryDelay = 100
 				console.log(`[E2E Setup] Health check passed for ${url}`);
 				return;
 			}
-		} catch {
-			// Ignore and retry
-		}
+		} catch {}
 
 		if (i < maxRetries - 1) {
 			// oxlint-disable-next-line no-await-in-loop

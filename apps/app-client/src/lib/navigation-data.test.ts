@@ -3,8 +3,6 @@ import { describe, expect, it } from "bun:test";
 import type { NavigationItem } from "./navigation-data";
 import { buildNavigationItems, navHref, sortByOrderThenName } from "./navigation-data";
 
-// Minimal fixture factories — only the fields the functions under test inspect.
-
 type TrackerFixture = Parameters<typeof buildNavigationItems>[0][number];
 type ViewFixture = Parameters<typeof buildNavigationItems>[1][number];
 
