@@ -14,6 +14,7 @@ import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
+import { RelationshipsService } from "#modules/relationships/service";
 
 import { CollectionsRepository } from "./repository";
 import type { CreateCollectionBody, CreateMembershipBody, DeleteMembershipBody } from "./schemas";
@@ -33,6 +34,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 		const events = yield* EventsService;
 		const entities = yield* EntitiesService;
 		const repository = yield* CollectionsRepository;
+		const relationships = yield* RelationshipsService;
 		const runInTransaction = yield* TransactionRunner;
 		const relationshipsRepository = yield* RelationshipsRepository;
 		const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
@@ -375,8 +377,8 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			}
 
 			const inLibrary = yield* inLibrarySchema;
-			yield* runWithDb(
-				relationshipsRepository.saveRelationship({
+			yield* relationships
+				.create({
 					userId,
 					scope: "user",
 					properties: {},
@@ -384,8 +386,9 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 					onConflict: "preserveExisting",
 					targetEntityId: libraryEntityId,
 					relationshipSchemaId: inLibrary.id,
-				}),
-			);
+					propertiesSchema: inLibrary.propertiesSchema,
+				})
+				.pipe(Effect.catchTag("BadRequest", (e) => Effect.die(e)));
 			return undefined;
 		}, Effect.asVoid);
 
@@ -419,22 +422,23 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 						)
 					: [];
 
-				yield* runWithDb(
-					relationshipsRepository.saveRelationship({
+				yield* relationships
+					.create({
 						scope: "user",
 						userId: input.userId,
 						sourceEntityId: input.entityId,
 						onConflict: "replaceProperties",
 						targetEntityId: libraryEntityId,
 						relationshipSchemaId: inLibrary.id,
+						propertiesSchema: inLibrary.propertiesSchema,
 						properties: {
 							...existingProperties,
 							owned: true,
 							ownershipSyncedAt: input.syncedAt,
 							ownershipSources: [...new Set([...currentSources, input.provider])],
 						},
-					}),
-				);
+					})
+					.pipe(Effect.catchTag("BadRequest", (e) => Effect.die(e)));
 				return undefined;
 			},
 			Effect.asVoid,
