@@ -27,6 +27,10 @@ This slice should preserve public webhook paths and typed route contracts while 
 - Preserved the short `/_i/:integrationId` webhook path by forwarding it into the app-owned integrations webhook handler while tolerating bodyless webhook posts.
 - Threaded `integrationId` and `importRunId` into event creation so integration-origin events keep trigger context.
 - Removed the integrations-specific `TODO(Task 22)` tests-only typing bridge now that the contract exposes typed integration fields.
+- Ported all sink providers (`emby`, `jellyfin_sink`, `plex_sink`, `kodi`, `ryot_browser_extension`) into `modules/integrations/sinks`; `generic_json` stays a stub to match legacy. Widened the webhook ingestion to forward the raw body + content-type so multipart Plex payloads parse.
+- Ported the `komga` yank provider (`modules/integrations/yank/komga.ts`), mapping links to resolved `manga.anilist` / `manga.myanimelist` / `manga.manga-updates` refs.
+- Implemented `syncOwnership` end-to-end: owned-items fetchers for audiobookshelf, plex_yank, and komga, plus `markEntityOwnedInLibrary` + the ownership write in the shared media pipeline (`modules/imports/media/write.ts`).
+- Ported the `youtube_music` yank provider as a sandbox driver: a `history` driver on the `music.youtube-music` script fetches today's listens via Innertube, and the app applies the Redis dedup (35% first-seen / 100% repeat) + progress events.
 
 ## Verification
 
