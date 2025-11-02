@@ -1,6 +1,7 @@
 import type { AppSchema } from "@ryot/ts-utils";
-import { fromAppSchema } from "@ryot/ts-utils";
 import { z } from "zod";
+import { parseAppSchemaProperties } from "~/lib/app-schema-validation";
+import { resolveCustomEntitySchemaAccess } from "~/lib/entity-schema-access";
 import { resolveRequiredString } from "~/lib/slug";
 
 export type EventPropertiesShape = Record<string, unknown>;
@@ -61,38 +62,21 @@ export const resolveOccurredAt = (occurredAt: unknown) => {
 export const parseEventProperties = (input: {
 	properties: unknown;
 	propertiesSchema: AppSchema;
-}) => {
-	if (!input.properties || typeof input.properties !== "object")
-		throw new Error("Event properties must be a JSON object");
-
-	if (Array.isArray(input.properties))
-		throw new Error("Event properties must be a JSON object, not an array");
-
-	const schemaShape: Record<string, z.ZodType> = {};
-
-	for (const [key, propertyDef] of Object.entries(input.propertiesSchema)) {
-		const zodSchema = fromAppSchema(propertyDef);
-		schemaShape[key] = propertyDef.required ? zodSchema : zodSchema.optional();
-	}
-
-	const validationSchema = z.object(schemaShape);
-	const result = validationSchema.safeParse(input.properties);
-
-	if (!result.success)
-		throw new Error(
-			`Event properties validation failed: ${result.error.message}`,
-		);
-
-	return result.data as EventPropertiesShape;
-};
+}) =>
+	parseAppSchemaProperties({
+		kind: "Event",
+		properties: input.properties,
+		propertiesSchema: input.propertiesSchema,
+	}) as EventPropertiesShape;
 
 export const resolveEntityEventAccess = (
 	scope: EntityEventScope | undefined,
 ): EntityEventAccess => {
-	if (!scope) return { error: "not_found" as const };
-	if (scope.isBuiltin) return { error: "builtin" as const };
+	const entityAccess = resolveCustomEntitySchemaAccess(scope);
+	if ("error" in entityAccess && entityAccess.error)
+		return { error: entityAccess.error };
 
-	return { access: scope };
+	return { access: entityAccess.entitySchema };
 };
 
 export const resolveEventCreateAccess = (

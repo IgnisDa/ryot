@@ -12,9 +12,9 @@ import {
 	TextInput,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import type { AppPropertyDefinition } from "@ryot/ts-utils";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { AppEntity } from "#/features/entities/model";
+import { GeneratedPropertyField } from "#/features/generated-property-fields";
 import type { AppEventSchema } from "../event-schemas/model";
 import {
 	type CreateEventPayload,
@@ -46,63 +46,6 @@ function formatEventPropertyValue(value: unknown) {
 	if (typeof value === "number") return value.toString();
 	if (typeof value === "string") return value;
 	return null;
-}
-
-function renderEventPropertyField(
-	props: {
-		isLoading: boolean;
-		propertyKey: string;
-		propertyDef: AppPropertyDefinition;
-	},
-	eventForm: ReturnType<typeof useCreateEventForm>,
-) {
-	const fieldName = `properties.${props.propertyKey}` as const;
-
-	return (
-		<eventForm.AppField name={fieldName} key={props.propertyKey}>
-			{(field) => {
-				const label = props.propertyKey;
-				const required = !!props.propertyDef.required;
-
-				switch (props.propertyDef.type) {
-					case "string":
-						return (
-							<field.TextField
-								label={label}
-								required={required}
-								disabled={props.isLoading}
-								placeholder={`Enter ${props.propertyKey}`}
-							/>
-						);
-					case "date":
-						return (
-							<field.TextField
-								type="date"
-								label={label}
-								required={required}
-								disabled={props.isLoading}
-							/>
-						);
-					case "number":
-					case "integer":
-						return (
-							<field.NumberField
-								label={label}
-								required={required}
-								disabled={props.isLoading}
-								placeholder={`Enter ${props.propertyKey}`}
-							/>
-						);
-					case "boolean":
-						return (
-							<field.CheckboxField label={label} disabled={props.isLoading} />
-						);
-					default:
-						return null;
-				}
-			}}
-		</eventForm.AppField>
-	);
 }
 
 function EventList(props: {
@@ -161,20 +104,17 @@ function LogEventForm(props: {
 	isLoading: boolean;
 	onClose: () => void;
 	errorMessage: string | null;
-	selectedEventSchemaId: string;
 	eventSchemas: AppEventSchema[];
-	onSelectedEventSchemaIdChange: (value: string) => void;
 	onSubmit: (payload: CreateEventPayload) => Promise<void>;
 }) {
 	const eventForm = useCreateEventForm({
 		onSubmit: props.onSubmit,
 		entityId: props.entityId,
 		eventSchemas: props.eventSchemas,
-		selectedEventSchemaId: props.selectedEventSchemaId,
 	});
 	const selectedEventSchema = getSelectedEventSchema(
 		props.eventSchemas,
-		props.selectedEventSchemaId,
+		eventForm.state.values.eventSchemaId,
 	);
 	const eventSchemaOptions = props.eventSchemas.map((eventSchema) => ({
 		value: eventSchema.id,
@@ -196,16 +136,15 @@ function LogEventForm(props: {
 		);
 
 	const propertyFields = Object.entries(selectedEventSchema.propertiesSchema)
-		.map(([propertyKey, propertyDef]) =>
-			renderEventPropertyField(
-				{
-					propertyKey,
-					propertyDef,
-					isLoading: props.isLoading,
-				},
-				eventForm,
-			),
-		)
+		.map(([propertyKey, propertyDef]) => (
+			<GeneratedPropertyField
+				form={eventForm}
+				key={propertyKey}
+				propertyKey={propertyKey}
+				propertyDef={propertyDef}
+				disabled={props.isLoading}
+			/>
+		))
 		.filter(Boolean);
 
 	return (
@@ -243,7 +182,6 @@ function LogEventForm(props: {
 								value={field.state.value || null}
 								onChange={(value) => {
 									const nextValue = value ?? props.eventSchemas[0]?.id ?? "";
-									props.onSelectedEventSchemaIdChange(nextValue);
 									field.handleChange(nextValue);
 								}}
 							/>
@@ -308,18 +246,6 @@ function LogEventModal(props: {
 	errorMessage: string | null;
 	onSubmit: (payload: CreateEventPayload) => Promise<void>;
 }) {
-	const defaultEventSchemaId = props.eventSchemas[0]?.id ?? "";
-	const [selectedEventSchemaId, setSelectedEventSchemaId] =
-		useState(defaultEventSchemaId);
-
-	useEffect(() => {
-		const hasCurrentSelection = props.eventSchemas.some(
-			(eventSchema) => eventSchema.id === selectedEventSchemaId,
-		);
-
-		if (!hasCurrentSelection) setSelectedEventSchemaId(defaultEventSchemaId);
-	}, [defaultEventSchemaId, props.eventSchemas, selectedEventSchemaId]);
-
 	return (
 		<Modal
 			centered
@@ -336,8 +262,6 @@ function LogEventModal(props: {
 				isLoading={props.isLoading}
 				eventSchemas={props.eventSchemas}
 				errorMessage={props.errorMessage}
-				selectedEventSchemaId={selectedEventSchemaId}
-				onSelectedEventSchemaIdChange={setSelectedEventSchemaId}
 			/>
 		</Modal>
 	);
