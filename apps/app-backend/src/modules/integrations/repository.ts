@@ -9,12 +9,11 @@ import { IntegrationId, UserId } from "#lib/schema/brands";
 
 import type {
 	IntegrationExtraSettings,
-	IntegrationLot,
 	IntegrationProvider,
 	IntegrationProviderSpecifics,
 	ListedIntegration,
 } from "./schemas";
-import { isSinkProvider } from "./types";
+import { isSinkProvider, type IntegrationLot } from "./types";
 
 type IntegrationRow = {
 	readonly id: string;

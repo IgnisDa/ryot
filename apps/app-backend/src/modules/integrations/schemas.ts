@@ -6,8 +6,6 @@ import { integrationLots, integrationProviders } from "./types";
 
 const IntegrationLot = Schema.Literal(...integrationLots);
 
-export type IntegrationLot = typeof IntegrationLot.Type;
-
 export const IntegrationProvider = Schema.Literal(...integrationProviders);
 
 export type IntegrationProvider = typeof IntegrationProvider.Type;
