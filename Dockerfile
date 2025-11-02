@@ -8,13 +8,11 @@ RUN turbo prune @ryot/app-client @ryot/app-backend --docker
 
 FROM base AS builder
 COPY --from=prepare /app/out/json/ .
-# Use --ignore-scripts to avoid node-gyp build failures for optional native addons
-# msgpackr-extract (optional dependency of BullMQ) tries to compile C++ bindings but:
-# 1. Bun often hangs downloading Node.js headers for compilation (known issue #15881)
-# 2. The native addon is optional - msgpackr works fine with pure JS fallback
-# 3. Performance impact is negligible (~5% on serialization operations)
-# See: https://github.com/oven-sh/bun/issues/12919
-RUN bun install --ignore-scripts
+# Force Bun's copyfile backend because the default Linux hardlink backend is flaky
+# under Docker BuildKit for some tarballs (for example, expo-modules-core).
+# Keep --ignore-scripts because removing it makes the backend build fail while
+# resolving msgpackr-extract during the Bun bundle step.
+RUN bun install --backend=copyfile --ignore-scripts
 COPY --from=prepare /app/out/full/ .
 COPY --from=prepare /app/tsconfig.options.json ./tsconfig.options.json
 RUN bun run --filter @ryot/app-client build
