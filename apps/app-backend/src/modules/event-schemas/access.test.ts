@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { resolveCustomEntitySchemaAccess } from "./access";
+import { resolveCustomEntitySchemaAccess } from "~/lib/entity-schema-access";
 
 describe("resolveCustomEntitySchemaAccess", () => {
 	it("returns not found when the entity schema is missing", () => {
