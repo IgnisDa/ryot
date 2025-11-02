@@ -7,8 +7,8 @@ import type {
 	LoadedMediaImportAdapterError,
 	LoadedMediaImportAdapterResult,
 } from "../../media/file-processor";
-import { sanitizeErrorMessage } from "../../runtime/failures";
-import { getValidatedOptionalPath, readImportFileBytes } from "../../runtime/files";
+import { getValidatedOptionalPath, readImportFileBytes } from "../../runtime/import-files";
+import { sanitizeErrorMessage } from "../../runtime/import-run-status";
 import { adaptMyanimelistExports } from "./adapter";
 
 const MYANIMELIST_EXTENSIONS = ["gz", "xml"];

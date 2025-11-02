@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import type { MediaImportAdapterResult } from "#modules/imports/media/import-processor";
+import type { MediaImportAdapterResult } from "#modules/imports/media/adapter-result";
 
 import type { IntegrationRecord } from "../repository";
 import { parseBrowserExtensionSink } from "./browser-extension";

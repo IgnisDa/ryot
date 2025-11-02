@@ -18,6 +18,7 @@ import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
 
+import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import type { ImportRunJobData } from "./jobs";
 import {
 	OpenScaleImportItemSchema,
@@ -26,7 +27,6 @@ import {
 } from "./measurement/workflow";
 import { ImportsRepository } from "./repository";
 import { ImportRunArtifacts } from "./runtime/workflow-helpers";
-import { ProcessImportRunWorkflow } from "./worker";
 import {
 	NonMediaImportWorkflowOperations,
 	makeNonMediaImportOperationSet,

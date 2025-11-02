@@ -15,13 +15,13 @@ import {
 	normalizeRating,
 	normalizeReadCount,
 	splitCommaList,
-} from "../../media/book/shared";
-import { nowIso, parseDateWithFormat } from "../../media/dates";
-import { getOrCreateMediaEntityGroup } from "../../media/groups";
+} from "../../media/adapter-helpers";
 import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
-} from "../../media/import-processor";
+} from "../../media/adapter-result";
+import { nowIso, parseDateWithFormat } from "../../media/dates";
+import { getOrCreateMediaEntityGroup } from "../../media/groups";
 import type { ImportMediaEntityGroup } from "../../media/types";
 import { parseCsvText } from "../../runtime/csv";
 

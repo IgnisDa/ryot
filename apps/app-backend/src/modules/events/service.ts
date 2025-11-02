@@ -25,7 +25,7 @@ import {
 } from "#modules/query-engine/response-helpers";
 import { QueryEngineService } from "#modules/query-engine/service";
 
-import { validateEventCreateSubmission } from "./create-core";
+import { validateEventCreateSubmission } from "./event-creation";
 import { EventsRepository } from "./repository";
 import type { CreateEventItem, EventCreateOrigin } from "./schemas";
 import { enqueueEventCreate } from "./workflows";
