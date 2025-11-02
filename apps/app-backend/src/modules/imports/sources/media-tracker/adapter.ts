@@ -428,10 +428,11 @@ export const adaptMediaTrackerData = Effect.fn("mediaTrackerAdapter.adaptData")(
 						group.events.push({
 							occurredAt,
 							eventSchemaSlug: "progress",
-							properties: {
-								progressPercent: 100,
-								showSeason: episode.seasonNumber,
-								showEpisode: episode.episodeNumber,
+							properties: { progressPercent: 100 },
+							episodeLocator: {
+								type: "show",
+								seasonNumber: episode.seasonNumber,
+								episodeNumber: episode.episodeNumber,
 							},
 						});
 					}

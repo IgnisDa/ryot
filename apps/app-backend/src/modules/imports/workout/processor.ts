@@ -87,6 +87,7 @@ const buildWorkoutEntityProperties = (workout: WorkoutImportItem): Record<string
 
 export const commitWorkoutItem = Effect.fn("imports.commitWorkoutItem")(function* (input: {
 	runId: ImportRunId;
+	executionId: string;
 	events: EventsService;
 	user: CurrentUserValue;
 	schemas: WorkoutSchemas;
@@ -155,7 +156,12 @@ export const commitWorkoutItem = Effect.fn("imports.commitWorkoutItem")(function
 		});
 	}
 
-	return yield* input.events.createForImport(input.user.id, eventBody, input.runId);
+	return yield* input.events.createForImport(
+		input.user.id,
+		eventBody,
+		input.runId,
+		input.executionId,
+	);
 });
 
 export type WorkoutImportContext = {

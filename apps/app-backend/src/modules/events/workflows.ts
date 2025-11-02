@@ -18,7 +18,9 @@ export const EventCreateWorkflowPayload = Schema.Struct({
 	integrationId: Schema.optional(IntegrationId),
 });
 
-type EventCreateWorkflowInput = Omit<typeof EventCreateWorkflowPayload.Type, "executionId">;
+type EventCreateWorkflowInput = Omit<typeof EventCreateWorkflowPayload.Type, "executionId"> & {
+	executionId?: string;
+};
 
 export const EventCreateWorkflow = Workflow.make({
 	name: "EventCreateWorkflow",
@@ -30,7 +32,7 @@ export const EventCreateWorkflow = Workflow.make({
 
 const withExecutionId = (input: EventCreateWorkflowInput) => ({
 	...input,
-	executionId: generateId(),
+	executionId: input.executionId ?? generateId(),
 });
 
 export const enqueueEventCreate = (input: EventCreateWorkflowInput) =>
