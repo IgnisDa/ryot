@@ -4,6 +4,7 @@
 		"strict": true,
 		"outDir": "dist",
 		"module": "nodenext",
+		"types": ["bun-types"],
 		"lib": ["ESNext", "DOM"],
 		"preserveConstEnums": true,
 		"verbatimModuleSyntax": false,
