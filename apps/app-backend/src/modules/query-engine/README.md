@@ -127,7 +127,10 @@ Root relationship source with explicit endpoint entity declarations:
 - `schemas` are relationship schema slugs.
 - Both endpoint entities must be declared explicitly with their own aliases and schemas.
 - Relationship root rows do not support `include` yet.
-- Root relationship sources do not support `where` yet.
+- Root relationship sources support `where`. The filter may reference the relationship alias
+  and both endpoint entity aliases (and ancestor aliases for correlated expression sources).
+- Relationship rows can be ordered by the relationship's own fields or by source/target
+  endpoint entity fields. `orderBy` stays `ref`-based.
 
 ## Field Selectors
 
@@ -182,7 +185,8 @@ aggregation operands.
 
 - `literal`: `{ "type": "literal", "value": <json> }`. Use `valueType: "date"` for date
   literals so dates are not confused with strings:
-  `{ "type": "literal", "valueType": "date", "value": "2026-01-01T00:00:00.000Z" }`.
+  `{ "type": "literal", "valueType": "date", "value": "2026-01-01T00:00:00.000Z" }`. A date
+  literal resolves to the `date` field-value kind; a plain string literal resolves to `text`.
 - `ref`: `{ "type": "ref", "sourceAlias": "...", "field": <FieldSelector> }`.
 - `measureRef`: `{ "type": "measureRef", "key": "..." }`. Valid only inside
   aggregate-return `orderBy`.
@@ -199,13 +203,23 @@ aggregation operands.
 - `coalesce`: `{ "type": "coalesce", "values": [...] }`. Returns the first non-null
   value, or `null` if every value is null. Useful when `sum`/`average`/`min`/`max`
   return null over an empty source.
+- `arithmetic`: `{ "type": "arithmetic", "operator", "left", "right" }`. Operators: `add`,
+  `subtract`, `multiply`, `divide`. Both operands must resolve to numbers, otherwise the
+  result is null. Division by zero returns null rather than throwing. Valid anywhere an
+  expression is, including output fields, `where` clauses, and aggregation operands.
 - `exists`: `{ "type": "exists", "source": <Source> }`. Returns true when the source has
   at least one row. Source-level `where` covers CountWhere-style filtering.
 - `aggregate`: `{ "type": "aggregate", "source": <Source>, "aggregation": <AggregationSpec> }`.
 - `first`: `{ "type": "first", "source": <Source>, "orderBy": [...], "select": <Expr> }`.
   Returns the selected scalar from the first row of an ordered source, or `null` when the
-  source has no rows. This is how latest-event patterns are represented. Currently
-  supports event sources only and is valid only as an output field expression.
+  source has no rows, using top-1 SQL (`ORDER BY ... LIMIT 1`). This is how latest-event
+  and latest-relationship-child patterns are represented. The source may be an entity
+  source (with `via`) or a nested event source (with `entityRef`), matching `exists` and
+  `aggregate`. `first` is valid in any expression position (output fields, `where` clauses,
+  and inside other expressions). `orderBy` is `ref`-only and `select` is `ref`/`literal`
+  only so they stay SQL-expressible; both may reference the source's own alias, its edge
+  alias for entity sources, and its anchor alias. The first source cannot carry a `where`;
+  use `exists`/`aggregate` for filtered counting.
 
 References may only point at aliases in lexical scope: a source's own alias, its
 relationship edge alias, ancestor aliases, declared relationship endpoint aliases, and
@@ -246,7 +260,7 @@ Shared by aggregate expressions, aggregate-return measures, and time-series meas
 {
   "key": "modules",
   "limit": 20,
-  "source": <EntitySource with via>,
+  "source": <EntitySource with via | NestedEventSource with entityRef>,
   "orderBy": [{ "order": "asc", "expr": <Expr> }],
   "fields": [{ "key": "name", "expr": <Expr> }],
   "include": [ <IncludeEntry> ]
@@ -259,7 +273,15 @@ Shared by aggregate expressions, aggregate-return measures, and time-series meas
 - Max include depth is 3 (root is depth 0).
 - Included sources return `{ "items": [...], "pageInfo": { "limit", "hasMore" } }` and do
   not include total counts.
-- Included entity sources must specify `via` and do not support `where` yet.
+- An included source is either an entity source (must specify `via`) or an event source
+  (must specify `entityRef` pointing at an in-scope entity alias). Event includes return a
+  nested list of event rows and may project event system/property/schema fields plus the
+  attached entity's fields.
+- Included sources support `where`. The `where` filters which child rows appear; the parent
+  is still returned even when no child matches. Include `where` may reference the include's
+  own alias, its edge/attached-entity alias, and ancestor aliases.
+- Nested `include` is supported under entity includes only. Event includes cannot nest
+  further includes.
 
 ### Aggregate return
 
@@ -400,12 +422,31 @@ user). The caller cannot expand visibility by crafting valid query JSON.
 
 ## Validation Errors
 
-Validation runs in two phases before execution:
+Validation runs in three phases before execution:
 
 1. Pure structural + semantic validation (`validateQueryDocument`): alias uniqueness,
    scope resolution, field selector validity, safety limits.
 2. DB-aware reference validation (`validateQueryDocumentReferences`): resolves visible
    schemas for every source and expression, enforcing user isolation.
+3. DB-aware type-compatibility validation (`validateQueryDocumentTypeCompatibility`):
+   infers a coarse type (`number`, `string`, `boolean`, `date`, or `unknown`) for each
+   operand from system-field maps and entity property schemas, then rejects known
+   incompatible operand combinations.
+
+Type-compatibility validation is intentionally conservative: it only rejects when an
+operand's type can be determined with confidence. Any operand whose type is `unknown`
+(unrecognized field, multi-schema property whose type differs or is absent in a schema,
+and every event/relationship property because their property schemas are not loaded here)
+makes the surrounding check pass. The rules are:
+
+- Ordering comparisons (`gt`/`gte`/`lt`/`lte`) require both operands to be comparable
+  scalars: both numeric, or any combination of string/date (the runtime compares ISO
+  strings). They are rejected only when both operand types are known and incompatible.
+- Equality comparisons (`eq`/`neq`) are never rejected; cross-type equality resolves to
+  false rather than being invalid.
+- Arithmetic operands must be numeric; a known non-numeric operand is rejected.
+- `contains` rejects known scalar pairs that are not string/string. Array and object
+  literals infer to `unknown`, so the practical effect is rejecting scalar mismatches.
 
 Example errors:
 
@@ -419,3 +460,6 @@ Example errors:
 - `Grouped aggregate returns require a limit`
 - `Time-series bucket count 1200 exceeds maximum of 1000`
 - `Entity schema 'reviw' not found`
+- `Comparison operands are not type-compatible: string and number`
+- `Arithmetic operands must be numeric: string`
+- `Contains operands are not type-compatible: number and number`
