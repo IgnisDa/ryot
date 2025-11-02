@@ -20,6 +20,11 @@ pub async fn sink_progress(payload: String) -> Result<Option<ImportResult>> {
     for workout in payload.workouts.unwrap_or_default() {
         completed.push(ImportCompletedItem::ApplicationWorkout(Box::new(workout)));
     }
+    for workout_template in payload.workout_templates.unwrap_or_default() {
+        completed.push(ImportCompletedItem::ApplicationWorkoutTemplate(Box::new(
+            workout_template,
+        )));
+    }
     for media_group in payload.metadata_groups.unwrap_or_default() {
         completed.push(ImportCompletedItem::MetadataGroup(media_group));
     }
