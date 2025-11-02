@@ -49,6 +49,23 @@ const mimeType = (path: string) => {
 	return mimeTypes[extension] ?? "text/html; charset=utf-8";
 };
 
+const buildWebhookForwardRequest = (request: Request, url: URL) => {
+	if (request.body !== null) {
+		return new Request(url.toString(), request);
+	}
+
+	const headers = new Headers(request.headers);
+	if (!headers.has("content-type")) {
+		headers.set("content-type", "application/json");
+	}
+
+	return new Request(url.toString(), {
+		headers,
+		body: "null",
+		method: request.method,
+	});
+};
+
 const ApiLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(SystemRoutesLive),
 	Layer.provide(SandboxRoutesLive),
@@ -107,7 +124,8 @@ export const ServerLive = Layer.scopedDiscard(
 					return auth.auth.handler(request);
 				}
 				if (url.pathname.startsWith("/_i/")) {
-					return new Response(null, { status: 501 });
+					url.pathname = `/webhooks/integrations/${url.pathname.slice(4)}`;
+					return handler(buildWebhookForwardRequest(request, url));
 				}
 				if (url.pathname.startsWith("/api/")) {
 					url.pathname = url.pathname.slice(4);
