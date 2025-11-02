@@ -90,30 +90,20 @@ pub struct MusicConfig {
 
 derive_enum!(
     #[derive(ConfigEnum, Default)]
+    #[config(rename_all = "lowercase")]
     pub enum AudibleLocale {
-        #[serde(rename = "au")]
-        Australia,
-        #[serde(rename = "ca")]
-        Canada,
-        #[serde(rename = "fr")]
-        France,
-        #[serde(rename = "de")]
-        Germany,
-        #[serde(rename = "gb")]
-        GreatBritain,
-        #[serde(rename = "in")]
-        India,
-        #[serde(rename = "it")]
-        Italy,
-        #[serde(rename = "jp")]
-        Japan,
-        #[serde(rename = "es")]
-        Spain,
-        #[serde(rename = "uk")]
-        UnitedKingdom,
+        AU,
+        CA,
+        FR,
+        DE,
+        GB,
+        IN,
+        IT,
+        JP,
+        ES,
+        UK,
         #[default]
-        #[serde(rename = "us")]
-        UnitedStates,
+        US,
     }
 );
 
