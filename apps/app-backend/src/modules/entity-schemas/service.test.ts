@@ -2,44 +2,11 @@ import { describe, expect, it } from "bun:test";
 import {
 	isEntitySchemaPropertiesShape,
 	isEntitySchemaPropertiesString,
-	normalizeEntitySchemaSlug,
 	parseEntitySchemaPropertiesSchema,
 	resolveEntitySchemaCreateInput,
 	resolveEntitySchemaFacetId,
 	resolveEntitySchemaName,
-	resolveEntitySchemaSlug,
 } from "./service";
-
-describe("normalizeEntitySchemaSlug", () => {
-	it("normalizes slug punctuation and casing", () => {
-		expect(normalizeEntitySchemaSlug("  My_Custom Schema  ")).toBe(
-			"my-custom-schema",
-		);
-	});
-});
-
-describe("resolveEntitySchemaSlug", () => {
-	it("derives slug from name when omitted", () => {
-		expect(resolveEntitySchemaSlug({ name: "Book Details" })).toBe(
-			"book-details",
-		);
-	});
-
-	it("normalizes explicit slug", () => {
-		expect(
-			resolveEntitySchemaSlug({
-				name: "Book",
-				slug: "  My_Custom Schema  ",
-			}),
-		).toBe("my-custom-schema");
-	});
-
-	it("throws when slug cannot be derived", () => {
-		expect(() => resolveEntitySchemaSlug({ name: "!!!" })).toThrow(
-			"Entity schema slug is required",
-		);
-	});
-});
 
 describe("resolveEntitySchemaName", () => {
 	it("trims the provided name", () => {
