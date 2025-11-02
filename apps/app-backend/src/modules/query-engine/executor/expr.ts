@@ -132,47 +132,7 @@ const evalAggregate = (
 ): Effect.Effect<FieldValue, BadRequest | NotFound | DbError, CurrentDb> =>
 	Effect.gen(function* () {
 		const matches = yield* executeSourceMatches(userId, context, source, evalExprAsBoolean);
-
-		if (aggregation.function === "count") {
-			if (aggregation.distinctBy === undefined) {
-				return { kind: "number" as const, value: matches.length };
-			}
-
-			const distinct = new Set<string>();
-			for (const match of matches) {
-				const value = fieldValueScalar(
-					yield* evalExprValue(userId, aggregation.distinctBy, match.context),
-				);
-				if (value !== null && value !== undefined) {
-					distinct.add(aggregateDistinctKey(value));
-				}
-			}
-			return { kind: "number" as const, value: distinct.size };
-		}
-
-		const values: number[] = [];
-		for (const match of matches) {
-			const value = fieldValueScalar(yield* evalExprValue(userId, aggregation.expr, match.context));
-			if (typeof value === "number") {
-				values.push(value);
-			}
-		}
-
-		if (values.length === 0) {
-			return { kind: "null" as const, value: null };
-		}
-
-		const result = Match.value(aggregation.function).pipe(
-			Match.when("sum", () => values.reduce((total, value) => total + value, 0)),
-			Match.when(
-				"average",
-				() => values.reduce((total, value) => total + value, 0) / values.length,
-			),
-			Match.when("minimum", () => Math.min(...values)),
-			Match.when("maximum", () => Math.max(...values)),
-			Match.exhaustive,
-		);
-		return { kind: "number" as const, value: result };
+		return yield* evalAggregateMeasure(userId, matches, aggregation);
 	});
 
 export const evalExprValue = (
