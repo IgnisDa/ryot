@@ -1,4 +1,4 @@
-import { isObjectRecord } from "../shared";
+import { isObjectRecord } from "#lib/predicates";
 
 type HostFunction = (...args: Array<unknown>) => unknown;
 

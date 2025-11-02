@@ -1,9 +1,8 @@
 import { DateTime, Effect, Option } from "effect";
 
-import type { FieldValue, QueryResponse, RowItem, RowValue } from "./language";
+import { isObjectRecord } from "#lib/predicates";
 
-const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
+import type { FieldValue, QueryResponse, RowItem, RowValue } from "./language";
 
 const isFieldValue = (value: RowValue | undefined): value is FieldValue =>
 	value !== undefined && "kind" in value;
