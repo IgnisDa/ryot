@@ -25,22 +25,18 @@ export const importEntityRefKey = (ref: ImportEntityRef): string =>
 		? `${ref.entitySchemaSlug}|${ref.scriptSlug}|${ref.externalId}`
 		: `${ref.entitySchemaSlug}|${ref.identifierType}|${ref.identifierValue}`;
 
-export const ImportMediaEvent = Schema.Struct({
-	occurredAt: Schema.NonEmptyString,
-	eventSchemaSlug: Schema.NonEmptyString,
-	properties: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-});
+export type ImportMediaEvent = {
+	occurredAt: string;
+	eventSchemaSlug: string;
+	properties: Record<string, unknown>;
+};
 
-export type ImportMediaEvent = typeof ImportMediaEvent.Type;
+export type ImportCollectionMembership = { collectionName: string };
 
-const ImportCollectionMembership = Schema.Struct({ collectionName: Schema.NonEmptyString });
-
-export const ImportMediaEntityGroup = Schema.Struct({
-	entityRef: ImportEntityRef,
-	events: Schema.Array(ImportMediaEvent),
-	itemIndex: Schema.optional(Schema.Number),
-	ownershipProvider: Schema.optional(Schema.String),
-	collectionMemberships: Schema.Array(ImportCollectionMembership),
-});
-
-export type ImportMediaEntityGroup = typeof ImportMediaEntityGroup.Type;
+export type ImportMediaEntityGroup = {
+	itemIndex?: number;
+	entityRef: ImportEntityRef;
+	ownershipProvider?: string;
+	events: ImportMediaEvent[];
+	collectionMemberships: ImportCollectionMembership[];
+};
