@@ -3,18 +3,13 @@ import { Effect } from "effect";
 
 import { CurrentDb, dbEffect } from "#lib/db";
 import * as dbSchema from "#lib/db/schema/tables";
-import { type DbError, NotFound } from "#lib/errors";
+import { NotFound } from "#lib/errors";
 import type { AppSchema } from "#lib/schema/property-schema";
-
-import type { VisibleEventSchema, VisibleRelationshipSchema, VisibleSchema } from "./types";
 
 export type VisibleEntityPropertySchema = { slug: string; propertiesSchema: AppSchema };
 
-export const loadVisibleEntityPropertySchemas = (
-	userId: string,
-	slugs: readonly string[],
-): Effect.Effect<VisibleEntityPropertySchema[], DbError, CurrentDb> =>
-	Effect.gen(function* () {
+export const loadVisibleEntityPropertySchemas = Effect.fn("loadVisibleEntityPropertySchemas")(
+	function* (userId: string, slugs: readonly string[]) {
 		const uniqueSlugs = [...new Set(slugs)];
 		if (uniqueSlugs.length === 0) {
 			return [];
@@ -35,71 +30,67 @@ export const loadVisibleEntityPropertySchemas = (
 					),
 				),
 		);
-	});
+	},
+);
 
-export const loadVisibleEntitySchemas = (
+export const loadVisibleEntitySchemas = Effect.fn("loadVisibleEntitySchemas")(function* (
 	userId: string,
 	slugs: readonly [string, ...string[]],
-): Effect.Effect<VisibleSchema[], NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const db = yield* CurrentDb;
-		const uniqueSlugs = [...new Set(slugs)];
+) {
+	const db = yield* CurrentDb;
+	const uniqueSlugs = [...new Set(slugs)];
 
-		const rows = yield* dbEffect(() =>
-			db
-				.select({ id: dbSchema.entitySchema.id, slug: dbSchema.entitySchema.slug })
-				.from(dbSchema.entitySchema)
-				.where(
-					and(
-						inArray(dbSchema.entitySchema.slug, uniqueSlugs),
-						or(eq(dbSchema.entitySchema.userId, userId), isNull(dbSchema.entitySchema.userId)),
-					),
+	const rows = yield* dbEffect(() =>
+		db
+			.select({ id: dbSchema.entitySchema.id, slug: dbSchema.entitySchema.slug })
+			.from(dbSchema.entitySchema)
+			.where(
+				and(
+					inArray(dbSchema.entitySchema.slug, uniqueSlugs),
+					or(eq(dbSchema.entitySchema.userId, userId), isNull(dbSchema.entitySchema.userId)),
 				),
-		);
+			),
+	);
 
-		const visibleSlugs = new Set(rows.map((row) => row.slug));
-		for (const slug of uniqueSlugs) {
-			if (!visibleSlugs.has(slug)) {
-				return yield* new NotFound({ message: `Entity schema '${slug}' not found` });
-			}
+	const visibleSlugs = new Set(rows.map((row) => row.slug));
+	for (const slug of uniqueSlugs) {
+		if (!visibleSlugs.has(slug)) {
+			return yield* new NotFound({ message: `Entity schema '${slug}' not found` });
 		}
+	}
 
-		return rows;
-	});
+	return rows;
+});
 
-export const loadVisibleRelationshipSchema = (
+export const loadVisibleRelationshipSchema = Effect.fn("loadVisibleRelationshipSchema")(function* (
 	userId: string,
 	slug: string,
-): Effect.Effect<VisibleRelationshipSchema, NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const db = yield* CurrentDb;
-		const rows = yield* dbEffect(() =>
-			db
-				.select({ id: dbSchema.relationshipSchema.id, slug: dbSchema.relationshipSchema.slug })
-				.from(dbSchema.relationshipSchema)
-				.where(
-					and(
-						eq(dbSchema.relationshipSchema.slug, slug),
-						or(
-							eq(dbSchema.relationshipSchema.userId, userId),
-							isNull(dbSchema.relationshipSchema.userId),
-						),
+) {
+	const db = yield* CurrentDb;
+	const rows = yield* dbEffect(() =>
+		db
+			.select({ id: dbSchema.relationshipSchema.id, slug: dbSchema.relationshipSchema.slug })
+			.from(dbSchema.relationshipSchema)
+			.where(
+				and(
+					eq(dbSchema.relationshipSchema.slug, slug),
+					or(
+						eq(dbSchema.relationshipSchema.userId, userId),
+						isNull(dbSchema.relationshipSchema.userId),
 					),
 				),
-		);
+			),
+	);
 
-		const schema = rows[0];
-		if (!schema) {
-			return yield* new NotFound({ message: `Relationship schema '${slug}' not found` });
-		}
-		return schema;
-	});
+	const schema = rows[0];
+	if (!schema) {
+		return yield* new NotFound({ message: `Relationship schema '${slug}' not found` });
+	}
+	return schema;
+});
 
-export const loadVisibleRelationshipSchemas = (
-	userId: string,
-	slugs: readonly [string, ...string[]],
-): Effect.Effect<VisibleRelationshipSchema[], NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
+export const loadVisibleRelationshipSchemas = Effect.fn("loadVisibleRelationshipSchemas")(
+	function* (userId: string, slugs: readonly [string, ...string[]]) {
 		const db = yield* CurrentDb;
 		const uniqueSlugs = [...new Set(slugs)];
 
@@ -126,68 +117,69 @@ export const loadVisibleRelationshipSchemas = (
 		}
 
 		return rows;
-	});
+	},
+);
 
-export const loadVisibleEventSchemas = (
+export const loadVisibleEventSchemas = Effect.fn("loadVisibleEventSchemas")(function* (
 	userId: string,
 	entitySchemaId: string,
 	slugs: readonly [string, ...string[]],
-): Effect.Effect<VisibleEventSchema[], NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const db = yield* CurrentDb;
-		const uniqueSlugs = [...new Set(slugs)];
+) {
+	const db = yield* CurrentDb;
+	const uniqueSlugs = [...new Set(slugs)];
 
-		const rows = yield* dbEffect(() =>
-			db
-				.select({ id: dbSchema.eventSchema.id, slug: dbSchema.eventSchema.slug })
-				.from(dbSchema.eventSchema)
-				.where(
-					and(
-						eq(dbSchema.eventSchema.entitySchemaId, entitySchemaId),
-						inArray(dbSchema.eventSchema.slug, uniqueSlugs),
-						or(eq(dbSchema.eventSchema.userId, userId), isNull(dbSchema.eventSchema.userId)),
-					),
+	const rows = yield* dbEffect(() =>
+		db
+			.select({ id: dbSchema.eventSchema.id, slug: dbSchema.eventSchema.slug })
+			.from(dbSchema.eventSchema)
+			.where(
+				and(
+					eq(dbSchema.eventSchema.entitySchemaId, entitySchemaId),
+					inArray(dbSchema.eventSchema.slug, uniqueSlugs),
+					or(eq(dbSchema.eventSchema.userId, userId), isNull(dbSchema.eventSchema.userId)),
 				),
-		);
+			),
+	);
 
-		const visibleSlugs = new Set(rows.map((row) => row.slug));
-		for (const slug of uniqueSlugs) {
-			if (!visibleSlugs.has(slug)) {
-				return yield* new NotFound({ message: `Event schema '${slug}' not found` });
-			}
+	const visibleSlugs = new Set(rows.map((row) => row.slug));
+	for (const slug of uniqueSlugs) {
+		if (!visibleSlugs.has(slug)) {
+			return yield* new NotFound({ message: `Event schema '${slug}' not found` });
 		}
+	}
 
-		return rows;
-	});
+	return rows;
+});
 
-export const loadVisibleEventSchemasForEntitySchemas = (
+export const loadVisibleEventSchemasForEntitySchemas = Effect.fn(
+	"loadVisibleEventSchemasForEntitySchemas",
+)(function* (
 	userId: string,
 	entitySchemaIds: readonly string[],
 	slugs: readonly [string, ...string[]],
-): Effect.Effect<VisibleEventSchema[], NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const db = yield* CurrentDb;
-		const uniqueSlugs = [...new Set(slugs)];
+) {
+	const db = yield* CurrentDb;
+	const uniqueSlugs = [...new Set(slugs)];
 
-		const rows = yield* dbEffect(() =>
-			db
-				.select({ id: dbSchema.eventSchema.id, slug: dbSchema.eventSchema.slug })
-				.from(dbSchema.eventSchema)
-				.where(
-					and(
-						inArray(dbSchema.eventSchema.entitySchemaId, entitySchemaIds),
-						inArray(dbSchema.eventSchema.slug, uniqueSlugs),
-						or(eq(dbSchema.eventSchema.userId, userId), isNull(dbSchema.eventSchema.userId)),
-					),
+	const rows = yield* dbEffect(() =>
+		db
+			.select({ id: dbSchema.eventSchema.id, slug: dbSchema.eventSchema.slug })
+			.from(dbSchema.eventSchema)
+			.where(
+				and(
+					inArray(dbSchema.eventSchema.entitySchemaId, entitySchemaIds),
+					inArray(dbSchema.eventSchema.slug, uniqueSlugs),
+					or(eq(dbSchema.eventSchema.userId, userId), isNull(dbSchema.eventSchema.userId)),
 				),
-		);
+			),
+	);
 
-		const visibleSlugs = new Set(rows.map((row) => row.slug));
-		for (const slug of uniqueSlugs) {
-			if (!visibleSlugs.has(slug)) {
-				return yield* new NotFound({ message: `Event schema '${slug}' not found` });
-			}
+	const visibleSlugs = new Set(rows.map((row) => row.slug));
+	for (const slug of uniqueSlugs) {
+		if (!visibleSlugs.has(slug)) {
+			return yield* new NotFound({ message: `Event schema '${slug}' not found` });
 		}
+	}
 
-		return rows;
-	});
+	return rows;
+});
