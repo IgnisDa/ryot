@@ -1,10 +1,19 @@
-import { DurableQueue, Workflow } from "@effect/workflow";
-import { Cause, Effect, Exit, Layer, Match, Option, Schema } from "effect";
+import { Activity, DurableQueue, Workflow } from "@effect/workflow";
+import { Cause, DateTime, Effect, Exit, Match, Option, Schema } from "effect";
 
+import { DbRunner } from "~/lib/db";
 import { SandboxRunError, dieOnDbError, unknownToMessage } from "~/lib/errors";
+import { parseAppSchemaProperties } from "~/lib/property-schema-runtime";
 import { CollectionsService } from "~/modules/collections/service";
+import { SandboxExecutionQueue } from "~/modules/sandbox/durable-queues";
+import type { SandboxCompletedResult as SandboxCompletedResultValue } from "~/modules/sandbox/schemas";
 
-import { populateGlobalEntity } from "./population";
+import {
+	EntityDetailsRelatedEntity,
+	decodeEntityDetailsResult,
+	processRelatedEntity,
+} from "./population";
+import { EntitiesRepository } from "./repository";
 import { ListedEntity } from "./schemas";
 
 export const EntityImportPayload = Schema.Struct({
@@ -21,14 +30,6 @@ export type EntityImportRunResult =
 	| { readonly status: "pending" }
 	| { readonly status: "failed"; readonly error: string }
 	| { readonly status: "completed"; readonly data: ListedEntity };
-
-export const EntityImportQueue = DurableQueue.make({
-	success: ListedEntity,
-	error: SandboxRunError,
-	name: "EntityImportQueue",
-	payload: EntityImportPayload,
-	idempotencyKey: ({ executionId }) => executionId,
-});
 
 export const EntityImportWorkflow = Workflow.make({
 	success: ListedEntity,
@@ -69,29 +70,136 @@ export const toEntityImportRunResult = (
 	);
 };
 
-export const EntityImportQueueWorkerLive = DurableQueue.worker(
-	EntityImportQueue,
-	(payload) =>
-		Effect.gen(function* () {
-			const collections = yield* CollectionsService;
-			const entity = yield* populateGlobalEntity({
-				userId: payload.userId,
-				scriptId: payload.scriptId,
-				externalId: payload.externalId,
-				executionId: payload.executionId,
-				entitySchemaId: payload.entitySchemaId,
+const ValidatedEntityDetails = Schema.Struct({
+	name: Schema.String,
+	relatedEntities: Schema.Array(EntityDetailsRelatedEntity),
+	validatedProperties: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+});
+
+const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
+	DurableQueue.process(SandboxExecutionQueue, {
+		driverName: "details",
+		userId: payload.userId,
+		scriptId: payload.scriptId,
+		context: { externalId: payload.externalId },
+		executionId: `${executionId}-sandbox-details`,
+	}).pipe(Effect.mapError(toWorkflowError));
+
+export const runEntityImportWorkflow = <R>(
+	payload: EntityImportPayload,
+	executionId: string,
+	processSandbox: (
+		payload: EntityImportPayload,
+		executionId: string,
+	) => Effect.Effect<SandboxCompletedResultValue, SandboxRunError, R>,
+) =>
+	Effect.gen(function* () {
+		const runWithDb = yield* DbRunner;
+		const repository = yield* EntitiesRepository;
+		const collections = yield* CollectionsService;
+
+		const existing = yield* Activity.make({
+			name: "check-existing-entity",
+			success: Schema.NullOr(ListedEntity),
+			execute: runWithDb(
+				repository.findGlobalEntityByExternalId({
+					externalId: payload.externalId,
+					sandboxScriptId: payload.scriptId,
+					entitySchemaId: payload.entitySchemaId,
+				}),
+			).pipe(dieOnDbError),
+		});
+
+		if (existing && existing.populatedAt !== null) {
+			yield* Activity.make({
+				name: "ensure-library-membership",
+				execute: collections.ensureEntityInLibrary(payload.userId, existing.id).pipe(dieOnDbError),
 			});
-			yield* collections.ensureEntityInLibrary(payload.userId, entity.id).pipe(dieOnDbError);
-			return entity;
-		}).pipe(Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) }))),
-	{ concurrency: 5 },
+			return existing;
+		}
+
+		const sandboxResult = yield* processSandbox(payload, executionId);
+
+		if (sandboxResult.error) {
+			return yield* new SandboxRunError({ message: sandboxResult.error });
+		}
+
+		const validatedDetails = yield* Activity.make({
+			error: SandboxRunError,
+			name: "validate-entity-details",
+			success: ValidatedEntityDetails,
+			execute: Effect.gen(function* () {
+				const entitySchemaScope = yield* runWithDb(
+					repository.findEntitySchemaById(payload.entitySchemaId),
+				).pipe(dieOnDbError);
+
+				if (!entitySchemaScope) {
+					return yield* new SandboxRunError({ message: "Entity schema not found" });
+				}
+
+				const details = yield* decodeEntityDetailsResult(sandboxResult.value).pipe(
+					Effect.mapError(
+						(error) => new SandboxRunError({ message: `Invalid entity details: ${error.message}` }),
+					),
+				);
+
+				const validatedProperties = yield* parseAppSchemaProperties({
+					kind: "Entity",
+					properties: details.properties,
+					propertiesSchema: entitySchemaScope.propertiesSchema,
+				}).pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
+
+				return {
+					name: details.name,
+					validatedProperties,
+					relatedEntities: details.relatedEntities ?? [],
+				};
+			}),
+		});
+
+		const entity = yield* Activity.make({
+			name: "write-primary-entity",
+			success: ListedEntity,
+			execute: Effect.gen(function* () {
+				const now = yield* DateTime.nowAsDate;
+				return yield* runWithDb(
+					repository.createOrUpdateGlobalEntity({
+						image: null,
+						populatedAt: now,
+						name: validatedDetails.name,
+						externalId: payload.externalId,
+						sandboxScriptId: payload.scriptId,
+						entitySchemaId: payload.entitySchemaId,
+						properties: validatedDetails.validatedProperties,
+					}),
+				).pipe(dieOnDbError);
+			}),
+		});
+
+		yield* Effect.forEach(
+			validatedDetails.relatedEntities,
+			(relatedEntity) =>
+				Activity.make({
+					name: `write-related-${relatedEntity.scriptSlug}-${relatedEntity.externalId}`,
+					execute: processRelatedEntity({
+						relatedEntity,
+						sourceEntityId: entity.id,
+						sourceEntitySchemaId: payload.entitySchemaId,
+					}),
+				}),
+			{ discard: true },
+		);
+
+		yield* Activity.make({
+			name: "ensure-library-membership",
+			execute: collections.ensureEntityInLibrary(payload.userId, entity.id).pipe(dieOnDbError),
+		});
+
+		return entity;
+	});
+
+const EntityImportWorkflowLive = EntityImportWorkflow.toLayer((payload, executionId) =>
+	runEntityImportWorkflow(payload, executionId, processSandboxEntityDetails),
 );
 
-const EntityImportWorkflowLive = EntityImportWorkflow.toLayer((payload) =>
-	DurableQueue.process(EntityImportQueue, payload).pipe(Effect.mapError(toWorkflowError)),
-);
-
-export const EntityImportWorkflowDefinitionsLive = Layer.mergeAll(
-	EntityImportWorkflowLive,
-	EntityImportQueueWorkerLive,
-);
+export const EntityImportWorkflowDefinitionsLive = EntityImportWorkflowLive;
