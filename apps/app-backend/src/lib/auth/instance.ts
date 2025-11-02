@@ -22,6 +22,9 @@ export const auth = betterAuth({
 	// Sign-up is handled by our custom POST /authentication/email route.
 	disabledPaths: ["/sign-up/email", ...(config.users.disableLocalAuth ? ["/sign-in/email"] : [])],
 	account: {
+		// TEMP(9179): Expo/native OAuth state cookie round-trip fails here.
+		// https://github.com/better-auth/better-auth/issues/9179
+		skipStateCookieCheck: true,
 		accountLinking: { enabled: true, trustedProviders: ["email-password", OIDC_PROVIDER_ID] },
 	},
 	trustedOrigins: [
