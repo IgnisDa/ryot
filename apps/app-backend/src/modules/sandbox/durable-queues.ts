@@ -17,27 +17,6 @@ export const SandboxExecutionQueue = DurableQueue.make({
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
-// Scripts cannot read their own stored metadata, so the host injects the
-// provider's declared canonical language as the driver's `language` input. A
-// caller that already supplies a `language` (e.g. the translate driver, which
-// passes the target language) takes precedence.
-const withCanonicalLanguage = (
-	context: unknown,
-	canonicalLanguage: string | undefined,
-): unknown => {
-	if (
-		canonicalLanguage === undefined ||
-		typeof context !== "object" ||
-		context === null ||
-		Array.isArray(context) ||
-		"language" in context
-	) {
-		return context;
-	}
-
-	return { ...context, language: canonicalLanguage };
-};
-
 const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
 	DurableQueue.worker(
 		SandboxExecutionQueue,
@@ -58,14 +37,12 @@ const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
 					code: script.code,
 					scriptId: script.id,
 					userId: payload.userId,
+					context: payload.context,
+					metadata: script.metadata,
 					driverName: payload.driverName,
 					executionId: payload.executionId,
 					scriptIsBuiltin: script.isBuiltin,
 					allowedHostFunctions: script.metadata.allowedHostFunctions ?? [],
-					context: withCanonicalLanguage(
-						payload.context,
-						script.metadata.providerInformation?.canonicalLanguage,
-					),
 				});
 
 				return {

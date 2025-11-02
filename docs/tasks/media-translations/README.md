@@ -183,11 +183,12 @@ The sandbox script metadata gains an optional `providerInformation` object with:
   presence signals translatability, and its value is the language the canonical (shared)
   entity is populated in.
 
-Scripts cannot read their own database metadata, so the **population orchestrator** reads
-`canonicalLanguage` and injects it into the `details` driver as the driver's language input
-(replacing hardcoded English). The Anilist canonical title language is **english**
-(other modes become overlays); user-preferred cannot be canonical because it is
-viewer-dependent and thus non-deterministic for a shared entity.
+A script's own stored metadata is exposed back to its drivers as a second argument — the
+**script-metadata context** (carrying `metadata` alongside `sandboxScriptId`) — so a
+`details` driver reads its own `providerInformation.canonicalLanguage` directly (replacing
+hardcoded English) rather than the host mutating the driver input. The Anilist canonical
+title language is **english** (other modes become overlays); user-preferred cannot be
+canonical because it is viewer-dependent and thus non-deterministic for a shared entity.
 
 ### Source key rename (mechanical V1 → V2 mapping)
 
@@ -242,8 +243,8 @@ population.
 
 Remove population-time user-language reads from the Anilist `details` flow; `details` now
 produces the canonical (english) title, and per-user title modes are served as overlays via
-the `translate` driver. The TMDB `details` flow uses the injected canonical language instead
-of a hardcoded value. (Audible is **not** refactored — see Out of Scope.)
+the `translate` driver. The TMDB `details` flow reads its canonical language from the
+script-metadata context instead of a hardcoded value. (Audible is **not** refactored — see Out of Scope.)
 
 ### Translation coverage matrix (the exact provider/kind pairs V1 supported, minus Audible)
 
