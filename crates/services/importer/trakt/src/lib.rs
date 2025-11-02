@@ -33,7 +33,7 @@ async fn fetch_json<T: serde::de::DeserializeOwned>(
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct Id {
-    trakt: u64,
+    trakt: Option<u64>,
     tmdb: Option<u64>,
 }
 
@@ -127,13 +127,15 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
                 fetch_json(&client, &format!("{url}/lists"), None).await?;
 
             for list in lists.iter_mut() {
-                let items: Vec<ListItemResponse> = fetch_json(
-                    &client,
-                    &format!("{}/lists/{}/items", url, list.ids.trakt),
-                    None,
-                )
-                .await?;
-                list.items = items;
+                if let Some(trakt_id) = list.ids.trakt {
+                    let items: Vec<ListItemResponse> = fetch_json(
+                        &client,
+                        &format!("{}/lists/{}/items", url, trakt_id),
+                        None,
+                    )
+                    .await?;
+                    list.items = items;
+                }
             }
             for list in ["watchlist", "favorites"] {
                 let items: Vec<ListItemResponse> =
@@ -299,31 +301,33 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
 }
 
 fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMetadataItem, ImportFailedItem> {
+    fn err(i: &ListItemResponse, msg: &str) -> ImportFailedItem {
+        ImportFailedItem {
+            identifier: format!("{i:#?}"),
+            error: Some(msg.to_owned()),
+            step: ImportFailStep::ItemDetailsFromSource,
+            ..Default::default()
+        }
+    }
     let (source_id, identifier, lot) = if let Some(d) = i.movie.as_ref() {
         (d.ids.trakt, d.ids.tmdb, MediaLot::Movie)
     } else if let Some(d) = i.show.as_ref() {
         (d.ids.trakt, d.ids.tmdb, MediaLot::Show)
     } else {
-        return Err(ImportFailedItem {
-            identifier: format!("{i:#?}"),
-            step: ImportFailStep::ItemDetailsFromSource,
-            error: Some("Item is neither a movie or a show".to_owned()),
-            ..Default::default()
-        });
+        return Err(err(i, "Item is neither a movie nor a show"));
+    };
+    let source_id = match source_id {
+        Some(s) => s.to_string(),
+        None => return Err(err(i, "Item does not have an associated Trakt id")),
     };
     match identifier {
         Some(identifier) => Ok(ImportOrExportMetadataItem {
             lot,
+            source_id,
             source: MediaSource::Tmdb,
-            source_id: source_id.to_string(),
             identifier: identifier.to_string(),
             ..Default::default()
         }),
-        None => Err(ImportFailedItem {
-            identifier: format!("{i:#?}"),
-            step: ImportFailStep::ItemDetailsFromSource,
-            error: Some("Item does not have an associated TMDB id".to_owned()),
-            ..Default::default()
-        }),
+        None => Err(err(i, "Item does not have an associated TMDB id")),
     }
 }
