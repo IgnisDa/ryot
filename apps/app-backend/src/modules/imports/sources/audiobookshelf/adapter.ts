@@ -13,6 +13,7 @@ import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
+import type { ImportEntityRef } from "../../media/types";
 import { requestSourceJson } from "../../runtime/source-api";
 import { createSourceFetchFailure, isNotNullAdapterFailure } from "../shared/adapter-utils";
 
@@ -379,4 +380,90 @@ const adaptAudiobookshelfItem = (input: {
 			addCollectionMembership(group, libraryName);
 		}
 		return null;
+	});
+
+export const syncAudiobookshelfOwnedItems = (input: AudiobookshelfAdapterInput) =>
+	Effect.gen(function* () {
+		const headers = createHeaders(input.apiKey);
+		const baseUrl = input.apiUrl.endsWith("/api") ? input.apiUrl : `${input.apiUrl}/api`;
+		const ownedItems: Array<{ entityRef: ImportEntityRef; provider: string }> = [];
+
+		const librariesResponse = yield* requestSourceJson({
+			headers,
+			baseUrl,
+			path: "libraries",
+			sourceName: "Audiobookshelf",
+			allowInsecureConnections: input.allowInsecureConnections,
+		}).pipe(Effect.flatMap(decodeLibraries));
+
+		for (const library of librariesResponse.libraries) {
+			const listResult = yield* requestSourceJson({
+				headers,
+				baseUrl,
+				query: { expanded: 1 },
+				sourceName: "Audiobookshelf",
+				path: `libraries/${library.id}/items`,
+				allowInsecureConnections: input.allowInsecureConnections,
+			}).pipe(Effect.flatMap(decodeList), Effect.either);
+			if (Either.isLeft(listResult)) {
+				continue;
+			}
+
+			for (const item of listResult.right.results) {
+				const metadata = item.media?.metadata;
+				if (!metadata) {
+					continue;
+				}
+				const sourceLabel = metadata.title;
+
+				if (item.media?.ebookFormat === "epub") {
+					const isbn = metadata.isbn ? normalizeIsbn(metadata.isbn) : "";
+					if (!isbn || !isValidIsbn(isbn)) {
+						continue;
+					}
+					ownedItems.push({
+						provider: "audiobookshelf",
+						entityRef: {
+							sourceLabel,
+							kind: "unresolved",
+							identifierValue: isbn,
+							identifierType: "isbn",
+							entitySchemaSlug: "book",
+						},
+					});
+					continue;
+				}
+
+				const asin = metadata.asin?.trim();
+				if (asin) {
+					ownedItems.push({
+						provider: "audiobookshelf",
+						entityRef: {
+							sourceLabel,
+							kind: "resolved",
+							externalId: asin,
+							entitySchemaSlug: "audiobook",
+							scriptSlug: "audiobook.audible",
+						},
+					});
+					continue;
+				}
+
+				const itunesId = metadata.itunesId?.trim();
+				if (itunesId) {
+					ownedItems.push({
+						provider: "audiobookshelf",
+						entityRef: {
+							sourceLabel,
+							kind: "resolved",
+							externalId: itunesId,
+							entitySchemaSlug: "podcast",
+							scriptSlug: "podcast.itunes",
+						},
+					});
+				}
+			}
+		}
+
+		return ownedItems;
 	});

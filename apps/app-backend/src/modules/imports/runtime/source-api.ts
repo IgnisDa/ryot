@@ -102,11 +102,7 @@ export const requestSourceJson = (input: SourceJsonRequestInput) =>
 	Effect.gen(function* () {
 		const httpClient = yield* HttpClient.HttpClient;
 		const host = getSourceApiHost(input.baseUrl);
-		const url = buildSourceApiUrl({
-			path: input.path,
-			query: input.query,
-			baseUrl: input.baseUrl,
-		});
+		const url = buildSourceApiUrl({ path: input.path, query: input.query, baseUrl: input.baseUrl });
 
 		const method = input.method ?? "GET";
 		if (!isHttpMethod(method)) {
