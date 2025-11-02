@@ -136,32 +136,32 @@ pub struct AudibleService {
 impl AudibleService {
     fn locale_to_string(locale: &AudibleLocale) -> &'static str {
         match locale {
-            AudibleLocale::India => "in",
-            AudibleLocale::Italy => "it",
-            AudibleLocale::Japan => "jp",
-            AudibleLocale::Spain => "es",
-            AudibleLocale::Canada => "ca",
-            AudibleLocale::France => "fr",
-            AudibleLocale::Germany => "de",
-            AudibleLocale::Australia => "au",
-            AudibleLocale::GreatBritain => "gb",
-            AudibleLocale::UnitedStates => "us",
-            AudibleLocale::UnitedKingdom => "uk",
+            AudibleLocale::IN => "in",
+            AudibleLocale::IT => "it",
+            AudibleLocale::JP => "jp",
+            AudibleLocale::ES => "es",
+            AudibleLocale::CA => "ca",
+            AudibleLocale::FR => "fr",
+            AudibleLocale::DE => "de",
+            AudibleLocale::AU => "au",
+            AudibleLocale::GB => "gb",
+            AudibleLocale::US => "us",
+            AudibleLocale::UK => "uk",
         }
     }
 
     fn url_from_locale(locale: &AudibleLocale) -> String {
         let suffix = match locale {
-            AudibleLocale::Spain => "es",
-            AudibleLocale::Italy => "it",
-            AudibleLocale::Canada => "ca",
-            AudibleLocale::France => "fr",
-            AudibleLocale::Germany => "de",
-            AudibleLocale::Japan => "co.jp",
-            AudibleLocale::India => "co.in",
-            AudibleLocale::UnitedStates => "com",
-            AudibleLocale::Australia => "com.au",
-            AudibleLocale::GreatBritain | AudibleLocale::UnitedKingdom => "co.uk",
+            AudibleLocale::ES => "es",
+            AudibleLocale::IT => "it",
+            AudibleLocale::CA => "ca",
+            AudibleLocale::FR => "fr",
+            AudibleLocale::DE => "de",
+            AudibleLocale::US => "com",
+            AudibleLocale::JP => "co.jp",
+            AudibleLocale::IN => "co.in",
+            AudibleLocale::AU => "com.au",
+            AudibleLocale::GB | AudibleLocale::UK => "co.uk",
         };
         format!("https://api.audible.{suffix}/1.0/catalog/products")
     }
