@@ -134,22 +134,6 @@ pub struct AudibleService {
 }
 
 impl AudibleService {
-    fn locale_to_string(locale: &AudibleLocale) -> &'static str {
-        match locale {
-            AudibleLocale::IN => "in",
-            AudibleLocale::IT => "it",
-            AudibleLocale::JP => "jp",
-            AudibleLocale::ES => "es",
-            AudibleLocale::CA => "ca",
-            AudibleLocale::FR => "fr",
-            AudibleLocale::DE => "de",
-            AudibleLocale::AU => "au",
-            AudibleLocale::GB => "gb",
-            AudibleLocale::US => "us",
-            AudibleLocale::UK => "uk",
-        }
-    }
-
     fn url_from_locale(locale: &AudibleLocale) -> String {
         let suffix = match locale {
             AudibleLocale::ES => "es",
@@ -177,13 +161,11 @@ impl AudibleService {
     }
 
     pub fn get_all_languages(&self) -> Vec<String> {
-        AudibleLocale::iter()
-            .map(|l| Self::locale_to_string(&l).to_owned())
-            .collect()
+        AudibleLocale::iter().map(|l| l.to_string()).collect()
     }
 
     pub fn get_default_language(&self) -> String {
-        "us".to_owned()
+        AudibleLocale::US.to_string()
     }
 }
 
@@ -201,10 +183,7 @@ impl MediaProvider for AudibleService {
         let data: Vec<AudibleAuthor> = self
             .client
             .get(format!("{AUDNEX_URL}/authors"))
-            .query(&[
-                ("region", Self::locale_to_string(&self.locale)),
-                ("name", query),
-            ])
+            .query(&[("name", query), ("region", &self.locale.to_string())])
             .send()
             .await?
             .json()
@@ -239,7 +218,7 @@ impl MediaProvider for AudibleService {
         let data: AudnexResponse = self
             .client
             .get(format!("{AUDNEX_URL}/authors/{identity}"))
-            .query(&[("region", Self::locale_to_string(&self.locale))])
+            .query(&[("region", &self.locale.to_string())])
             .send()
             .await?
             .json()
