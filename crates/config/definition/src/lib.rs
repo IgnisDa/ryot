@@ -88,12 +88,40 @@ pub struct MusicConfig {
     pub spotify: SpotifyConfig,
 }
 
+derive_enum!(
+    #[derive(ConfigEnum, Default)]
+    pub enum AudibleLocale {
+        #[serde(rename = "au")]
+        Australia,
+        #[serde(rename = "ca")]
+        Canada,
+        #[serde(rename = "fr")]
+        France,
+        #[serde(rename = "de")]
+        Germany,
+        #[serde(rename = "gb")]
+        GreatBritain,
+        #[serde(rename = "in")]
+        India,
+        #[serde(rename = "it")]
+        Italy,
+        #[serde(rename = "jp")]
+        Japan,
+        #[serde(rename = "es")]
+        Spain,
+        #[serde(rename = "uk")]
+        UnitedKingdom,
+        #[default]
+        #[serde(rename = "us")]
+        UnitedStates,
+    }
+);
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "AUDIO_BOOKS_AUDIBLE_")]
 pub struct AudibleConfig {
     /// Settings related to locale for making requests Audible.
-    #[setting(default = "us")]
-    pub locale: String,
+    pub locale: AudibleLocale,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]

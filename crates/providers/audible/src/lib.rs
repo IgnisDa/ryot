@@ -3,6 +3,7 @@ use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::{EntityAssets, NamedObject, PersonSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, compute_next_page, convert_date_to_year, convert_string_to_date};
+use config_definition::AudibleLocale;
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
@@ -129,23 +130,38 @@ struct AudibleItemSimResponse {
 pub struct AudibleService {
     url: String,
     client: Client,
-    locale: String,
+    locale: AudibleLocale,
 }
 
 impl AudibleService {
-    fn url_from_locale(locale: &str) -> String {
+    fn locale_to_string(locale: &AudibleLocale) -> &'static str {
+        match locale {
+            AudibleLocale::Australia => "au",
+            AudibleLocale::Canada => "ca",
+            AudibleLocale::France => "fr",
+            AudibleLocale::Germany => "de",
+            AudibleLocale::GreatBritain => "gb",
+            AudibleLocale::India => "in",
+            AudibleLocale::Italy => "it",
+            AudibleLocale::Japan => "jp",
+            AudibleLocale::Spain => "es",
+            AudibleLocale::UnitedKingdom => "uk",
+            AudibleLocale::UnitedStates => "us",
+        }
+    }
+
+    fn url_from_locale(locale: &AudibleLocale) -> String {
         let suffix = match locale {
-            "es" => "es",
-            "ca" => "ca",
-            "fr" => "fr",
-            "de" => "de",
-            "us" => "com",
-            "it" => "it",
-            "jp" => "co.jp",
-            "in" => "co.in",
-            "au" => "com.au",
-            "gb" | "uk" => "co.uk",
-            _ => unreachable!(),
+            AudibleLocale::Spain => "es",
+            AudibleLocale::Canada => "ca",
+            AudibleLocale::France => "fr",
+            AudibleLocale::Germany => "de",
+            AudibleLocale::UnitedStates => "com",
+            AudibleLocale::Italy => "it",
+            AudibleLocale::Japan => "co.jp",
+            AudibleLocale::India => "co.in",
+            AudibleLocale::Australia => "com.au",
+            AudibleLocale::GreatBritain | AudibleLocale::UnitedKingdom => "co.uk",
         };
         format!("https://api.audible.{suffix}/1.0/catalog/products")
     }
@@ -167,10 +183,11 @@ impl AudibleService {
             "de".to_string(),
             "es".to_string(),
             "fr".to_string(),
+            "gb".to_string(),
             "in".to_string(),
             "it".to_string(),
             "jp".to_string(),
-            "gb".to_string(),
+            "uk".to_string(),
             "us".to_string(),
         ]
     }
@@ -194,7 +211,10 @@ impl MediaProvider for AudibleService {
         let data: Vec<AudibleAuthor> = self
             .client
             .get(format!("{AUDNEX_URL}/authors"))
-            .query(&[("region", self.locale.as_str()), ("name", query)])
+            .query(&[
+                ("region", Self::locale_to_string(&self.locale)),
+                ("name", query),
+            ])
             .send()
             .await?
             .json()
@@ -229,7 +249,7 @@ impl MediaProvider for AudibleService {
         let data: AudnexResponse = self
             .client
             .get(format!("{AUDNEX_URL}/authors/{identity}"))
-            .query(&[("region", self.locale.as_str())])
+            .query(&[("region", Self::locale_to_string(&self.locale))])
             .send()
             .await?
             .json()
