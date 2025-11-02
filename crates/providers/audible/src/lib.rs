@@ -136,30 +136,30 @@ pub struct AudibleService {
 impl AudibleService {
     fn locale_to_string(locale: &AudibleLocale) -> &'static str {
         match locale {
-            AudibleLocale::Australia => "au",
-            AudibleLocale::Canada => "ca",
-            AudibleLocale::France => "fr",
-            AudibleLocale::Germany => "de",
-            AudibleLocale::GreatBritain => "gb",
             AudibleLocale::India => "in",
             AudibleLocale::Italy => "it",
             AudibleLocale::Japan => "jp",
             AudibleLocale::Spain => "es",
-            AudibleLocale::UnitedKingdom => "uk",
+            AudibleLocale::Canada => "ca",
+            AudibleLocale::France => "fr",
+            AudibleLocale::Germany => "de",
+            AudibleLocale::Australia => "au",
+            AudibleLocale::GreatBritain => "gb",
             AudibleLocale::UnitedStates => "us",
+            AudibleLocale::UnitedKingdom => "uk",
         }
     }
 
     fn url_from_locale(locale: &AudibleLocale) -> String {
         let suffix = match locale {
             AudibleLocale::Spain => "es",
+            AudibleLocale::Italy => "it",
             AudibleLocale::Canada => "ca",
             AudibleLocale::France => "fr",
             AudibleLocale::Germany => "de",
-            AudibleLocale::UnitedStates => "com",
-            AudibleLocale::Italy => "it",
             AudibleLocale::Japan => "co.jp",
             AudibleLocale::India => "co.in",
+            AudibleLocale::UnitedStates => "com",
             AudibleLocale::Australia => "com.au",
             AudibleLocale::GreatBritain | AudibleLocale::UnitedKingdom => "co.uk",
         };
