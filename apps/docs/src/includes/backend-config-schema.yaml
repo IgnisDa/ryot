@@ -4,6 +4,7 @@ anime_and_manga:
   anilist:
     # The preferred language for media from this source.
     # @envvar ANIME_AND_MANGA_ANILIST_PREFERRED_LANGUAGE
+    # @values "english" | "native" | "romaji"
     preferred_language: "native"
 
   # Settings related to MAL.
@@ -21,6 +22,7 @@ audio_books:
   audible:
     # Settings related to locale for making requests Audible.
     # @envvar AUDIO_BOOKS_AUDIBLE_LOCALE
+    # @values "au" | "ca" | "fr" | "de" | "gb" | "in" | "it" | "jp" | "es" | "uk" | "us"
     locale: "us"
 
 # Settings related to books.
@@ -41,6 +43,7 @@ books:
   openlibrary:
     # The image sizes to fetch from Openlibrary.
     # @envvar BOOKS_OPENLIBRARY_COVER_IMAGE_SIZE
+    # @values "S" | "M" | "L"
     cover_image_size: "M"
 
 # The database related settings.
@@ -263,6 +266,7 @@ video_games:
   igdb:
     # The image sizes to fetch from IGDB.
     # @envvar VIDEO_GAMES_IGDB_IMAGE_SIZE
+    # @values "t_original"
     image_size: "t_original"
 
   # Settings related to Twitch.
