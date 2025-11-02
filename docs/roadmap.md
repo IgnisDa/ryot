@@ -265,7 +265,7 @@ A box is checked only when the capability is clearly implemented in the current 
 
 - [x] Custom entity and event schema builder
 - [x] Generated custom entity CRUD
-- [ ] Generated custom event logging
+- [x] Generated custom event logging
 - [ ] Generated custom entity detail pages
 - [ ] Generated custom facet overview pages
 - [ ] Default saved views for custom facets

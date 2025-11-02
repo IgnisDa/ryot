@@ -13,6 +13,7 @@ import {
 import { entitiesApi } from "~/modules/entities/routes";
 import { entitySchemasApi } from "~/modules/entity-schemas/routes";
 import { eventSchemasApi } from "~/modules/event-schemas/routes";
+import { eventsApi } from "~/modules/events/routes";
 import { facetsApi } from "~/modules/facets/routes";
 import { healthApi } from "~/modules/health/routes";
 import { metricsApi } from "~/modules/metrics/routes";
@@ -73,7 +74,8 @@ export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.route("/facets", facetsApi)
 	.route("/entity-schemas", entitySchemasApi)
 	.route("/entities", entitiesApi)
-	.route("/event-schemas", eventSchemasApi);
+	.route("/event-schemas", eventSchemasApi)
+	.route("/events", eventsApi);
 
 export const apiApp = baseApp
 	.doc("/openapi.json", (c) => ({
