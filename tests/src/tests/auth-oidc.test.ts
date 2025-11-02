@@ -8,6 +8,7 @@ import createClient from "openapi-fetch";
 import { Client as PgClient } from "pg";
 import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 
+import { createTestAuthClient } from "../fixtures/auth";
 import { oidcSignIn } from "../fixtures/auth-oidc";
 import {
 	attachProcessLogs,
@@ -170,20 +171,28 @@ describe("GET /system/config with local auth disabled (Backend B)", () => {
 	it("returns localAuthDisabled: true", async () => {
 		const client = createClient<paths>({ baseUrl: getBackendUrlB() });
 		const { data } = await client.GET("/system/config");
+		expect(data?.data.auth.signupAllowed).toBe(false);
 		expect(data?.data.auth.localAuthDisabled).toBe(true);
 	});
 });
 
-describe("POST /authentication/email with local auth disabled (Backend B)", () => {
-	it("returns 400 and local auth disabled message", async () => {
-		const response = await fetch(`${getBackendUrlB()}/authentication/email`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ email: "test@example.com", name: "Test", password: "password123" }),
+describe("sign-up/email with local auth disabled (Backend B)", () => {
+	it("returns an error and does not create a user", async () => {
+		const email = "test@example.com";
+		const authClient = createTestAuthClient(getBackendUrlB());
+		const { error } = await authClient.signUp.email({
+			email,
+			name: "Test",
+			password: "password123",
 		});
-		expect(response.status).toBe(400);
-		const text = await response.text();
-		expect(text).toContain("Local authentication is disabled");
+		expect(error).toBeDefined();
+
+		const pg = requireOidcPgClient();
+		const result = await pg.query<{ count: string }>(
+			`SELECT count(*) FROM "user" WHERE email = $1`,
+			[email],
+		);
+		expect(Number(result.rows[0]?.count)).toBe(0);
 	});
 });
 
@@ -361,13 +370,14 @@ describe("OIDC account linking (Backend A)", () => {
 		const username = `user-${crypto.randomUUID()}`;
 		const email = `${username}@example.com`;
 		const pg = requireOidcPgClient();
+		const authClient = createTestAuthClient(getBackendUrlA());
 
-		const registerResponse = await fetch(`${getBackendUrlA()}/authentication/email`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ email, name: "Test", password: "password123" }),
+		const { error } = await authClient.signUp.email({
+			email,
+			name: "Test",
+			password: "password123",
 		});
-		expect(registerResponse.status).toBe(200);
+		expect(error).toBeNull();
 
 		const localResult = await pg.query<{ id: string }>(`SELECT id FROM "user" WHERE email = $1`, [
 			email,
