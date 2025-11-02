@@ -1,17 +1,17 @@
 import { describe, expect, it } from "bun:test";
 import {
-	buildDefaultEntitySchemaPropertyRow,
-	buildEntitySchemaFormValues,
-	buildEntitySchemaPropertiesSchema,
-	createEntitySchemaFormSchema,
-	defaultCreateEntitySchemaFormValues,
-	isEntitySchemaPropertyRowsValid,
-	toCreateEntitySchemaPayload,
+	buildDefaultEventSchemaPropertyRow,
+	buildEventSchemaFormValues,
+	buildEventSchemaPropertiesSchema,
+	createEventSchemaFormSchema,
+	defaultCreateEventSchemaFormValues,
+	isEventSchemaPropertyRowsValid,
+	toCreateEventSchemaPayload,
 } from "./form";
 
-describe("buildDefaultEntitySchemaPropertyRow", () => {
+describe("buildDefaultEventSchemaPropertyRow", () => {
 	it("returns an empty optional string property row", () => {
-		const row = buildDefaultEntitySchemaPropertyRow();
+		const row = buildDefaultEventSchemaPropertyRow();
 
 		expect(row).toMatchObject({
 			key: "",
@@ -22,9 +22,9 @@ describe("buildDefaultEntitySchemaPropertyRow", () => {
 	});
 });
 
-describe("buildEntitySchemaFormValues", () => {
+describe("buildEventSchemaFormValues", () => {
 	it("returns default values with one property row", () => {
-		const values = buildEntitySchemaFormValues();
+		const values = buildEventSchemaFormValues();
 		const row = values.properties[0];
 
 		if (!row) throw new Error("Expected a default property row");
@@ -41,13 +41,13 @@ describe("buildEntitySchemaFormValues", () => {
 	});
 
 	it("exports the default create values", () => {
-		const row = defaultCreateEntitySchemaFormValues.properties[0];
+		const row = defaultCreateEventSchemaFormValues.properties[0];
 
 		if (!row) throw new Error("Expected an exported default property row");
 
-		expect(defaultCreateEntitySchemaFormValues.name).toBe("");
-		expect(defaultCreateEntitySchemaFormValues.slug).toBe("");
-		expect(defaultCreateEntitySchemaFormValues.properties).toHaveLength(1);
+		expect(defaultCreateEventSchemaFormValues.name).toBe("");
+		expect(defaultCreateEventSchemaFormValues.slug).toBe("");
+		expect(defaultCreateEventSchemaFormValues.properties).toHaveLength(1);
 		expect(row).toMatchObject({
 			key: "",
 			type: "string",
@@ -58,30 +58,30 @@ describe("buildEntitySchemaFormValues", () => {
 
 	it("maps existing values into form defaults", () => {
 		const properties = [
-			{ key: "title", type: "string" as const, required: true as const },
+			{ key: "rating", type: "number" as const, required: true as const },
 		];
 		const inputRow = properties[0];
 
 		if (!inputRow) throw new Error("Expected an input property row");
 
-		const values = buildEntitySchemaFormValues({
+		const values = buildEventSchemaFormValues({
 			properties,
-			name: "Custom Schema",
-			slug: "custom-schema",
+			name: "Tasting",
+			slug: "tasting",
 		});
 		const row = values.properties[0];
 
 		if (!row) throw new Error("Expected a mapped property row");
 
-		expect(values.name).toBe("Custom Schema");
-		expect(values.slug).toBe("custom-schema");
+		expect(values.name).toBe("Tasting");
+		expect(values.slug).toBe("tasting");
 		expect(values.properties).toHaveLength(1);
 		expect(row).toMatchObject(inputRow);
 		expect(row.id).toEqual(expect.any(String));
 	});
 
 	it("normalizes an empty properties array to one default row", () => {
-		const values = buildEntitySchemaFormValues({ properties: [] });
+		const values = buildEventSchemaFormValues({ properties: [] });
 		const row = values.properties[0];
 
 		if (!row) throw new Error("Expected a normalized property row");
@@ -96,43 +96,43 @@ describe("buildEntitySchemaFormValues", () => {
 	});
 });
 
-describe("isEntitySchemaPropertyRowsValid", () => {
+describe("isEventSchemaPropertyRowsValid", () => {
 	it("returns false when there are no property rows", () => {
-		expect(isEntitySchemaPropertyRowsValid([])).toBeFalse();
+		expect(isEventSchemaPropertyRowsValid([])).toBeFalse();
 	});
 
 	it("returns false when a trimmed key is empty", () => {
 		expect(
-			isEntitySchemaPropertyRowsValid([buildDefaultEntitySchemaPropertyRow()]),
+			isEventSchemaPropertyRowsValid([buildDefaultEventSchemaPropertyRow()]),
 		).toBeFalse();
 	});
 
 	it("returns false when trimmed keys are duplicated", () => {
 		expect(
-			isEntitySchemaPropertyRowsValid([
-				{ key: "title", type: "string", required: false },
-				{ key: " title ", type: "number", required: true },
+			isEventSchemaPropertyRowsValid([
+				{ key: "rating", type: "number", required: false },
+				{ key: " rating ", type: "integer", required: true },
 			]),
 		).toBeFalse();
 	});
 
 	it("returns true for unique non-empty trimmed keys", () => {
 		expect(
-			isEntitySchemaPropertyRowsValid([
-				{ key: " title ", type: "string", required: false },
-				{ key: "publishedAt", type: "date", required: true },
+			isEventSchemaPropertyRowsValid([
+				{ key: " rating ", type: "number", required: false },
+				{ key: "occurredOn", type: "date", required: true },
 			]),
 		).toBeTrue();
 	});
 });
 
-describe("createEntitySchemaFormSchema", () => {
+describe("createEventSchemaFormSchema", () => {
 	it("rejects a whitespace-only name but allows a blank slug", () => {
-		const result = createEntitySchemaFormSchema.safeParse({
+		const result = createEventSchemaFormSchema.safeParse({
 			name: "  \n\t ",
 			slug: "  \n\t ",
 			properties: [
-				{ id: "title", key: "title", type: "string", required: false },
+				{ id: "rating", key: "rating", type: "number", required: false },
 			],
 		});
 
@@ -148,11 +148,11 @@ describe("createEntitySchemaFormSchema", () => {
 	});
 
 	it("accepts a blank slug so the backend can derive it", () => {
-		const result = createEntitySchemaFormSchema.safeParse({
-			name: "Books",
+		const result = createEventSchemaFormSchema.safeParse({
+			name: "Tasting",
 			slug: "  \n\t ",
 			properties: [
-				{ id: "title", key: "title", type: "string", required: false },
+				{ id: "rating", key: "rating", type: "number", required: false },
 			],
 		});
 
@@ -160,10 +160,10 @@ describe("createEntitySchemaFormSchema", () => {
 	});
 
 	it("rejects empty property rows", () => {
-		const result = createEntitySchemaFormSchema.safeParse({
-			name: "Books",
-			slug: "books",
+		const result = createEventSchemaFormSchema.safeParse({
 			properties: [],
+			name: "Tasting",
+			slug: "tasting",
 		});
 
 		expect(result.success).toBeFalse();
@@ -179,13 +179,13 @@ describe("createEntitySchemaFormSchema", () => {
 
 	it("rejects duplicate trimmed property keys", () => {
 		const properties = [
-			{ id: "title", key: "title", type: "string", required: false },
-			{ id: "rating", key: " title ", type: "number", required: true },
+			{ id: "rating", key: "rating", type: "number", required: false },
+			{ id: "score", key: " rating ", type: "integer", required: true },
 		] as const;
-		const result = createEntitySchemaFormSchema.safeParse({
+		const result = createEventSchemaFormSchema.safeParse({
 			properties,
-			name: "Books",
-			slug: "books",
+			name: "Tasting",
+			slug: "tasting",
 		});
 
 		expect(result.success).toBeFalse();
@@ -201,12 +201,12 @@ describe("createEntitySchemaFormSchema", () => {
 
 	it("rejects a whitespace-only property key after trimming", () => {
 		const properties = [
-			{ id: "title", key: " \n\t ", type: "string", required: false },
+			{ id: "rating", key: " \n\t ", type: "number", required: false },
 		] as const;
-		const result = createEntitySchemaFormSchema.safeParse({
+		const result = createEventSchemaFormSchema.safeParse({
 			properties,
-			name: "Books",
-			slug: "books",
+			name: "Tasting",
+			slug: "tasting",
 		});
 
 		expect(result.success).toBeFalse();
@@ -221,16 +221,16 @@ describe("createEntitySchemaFormSchema", () => {
 	});
 
 	it("accepts valid values", () => {
-		const result = createEntitySchemaFormSchema.safeParse({
-			name: "Books",
-			slug: "books",
+		const result = createEventSchemaFormSchema.safeParse({
+			name: "Tasting",
+			slug: "tasting",
 			properties: [
-				{ id: "title", key: "title", type: "string", required: true },
+				{ id: "rating", key: "rating", type: "number", required: true },
 				{
-					id: "published-at",
-					key: "publishedAt",
 					type: "date",
 					required: false,
+					id: "occurred-on",
+					key: "occurredOn",
 				},
 			],
 		});
@@ -239,55 +239,74 @@ describe("createEntitySchemaFormSchema", () => {
 	});
 });
 
-describe("buildEntitySchemaPropertiesSchema", () => {
+describe("buildEventSchemaPropertiesSchema", () => {
 	it("maps scalar property types and trims keys", () => {
 		expect(
-			buildEntitySchemaPropertiesSchema([
-				{ key: " title ", type: "string", required: false },
-				{ key: "rating", type: "number", required: false },
-				{ key: "isOwned", type: "boolean", required: false },
+			buildEventSchemaPropertiesSchema([
+				{ key: "notes", type: "string", required: false },
+				{ key: " rating ", type: "number", required: false },
+				{ key: "isFavorite", type: "boolean", required: false },
 			]),
 		).toEqual({
-			title: { type: "string" },
+			notes: { type: "string" },
 			rating: { type: "number" },
-			isOwned: { type: "boolean" },
+			isFavorite: { type: "boolean" },
 		});
 	});
 
 	it("maps integer type correctly", () => {
 		expect(
-			buildEntitySchemaPropertiesSchema([
-				{ key: "pages", type: "integer", required: false },
+			buildEventSchemaPropertiesSchema([
+				{ key: "score", type: "integer", required: false },
 			]),
-		).toEqual({ pages: { type: "integer" } });
+		).toEqual({ score: { type: "integer" } });
 	});
 
 	it("maps date rows and includes required flag when present", () => {
 		expect(
-			buildEntitySchemaPropertiesSchema([
-				{ key: "releasedOn", type: "date", required: true },
-				{ key: "summary", type: "string", required: false },
+			buildEventSchemaPropertiesSchema([
+				{ key: "occurredOn", type: "date", required: true },
+				{ key: "notes", type: "string", required: false },
 			]),
 		).toEqual({
-			summary: { type: "string" },
-			releasedOn: { type: "date", required: true },
+			notes: { type: "string" },
+			occurredOn: { type: "date", required: true },
+		});
+	});
+
+	it("omits slug when the input is blank", () => {
+		expect(
+			toCreateEventSchemaPayload(
+				{
+					name: "  Tasting  ",
+					slug: "  \n\t ",
+					properties: [
+						{ id: "rating", key: "rating", type: "number", required: false },
+					],
+				},
+				"entity-schema-123",
+			),
+		).toEqual({
+			name: "Tasting",
+			entitySchemaId: "entity-schema-123",
+			propertiesSchema: { rating: { type: "number" } },
 		});
 	});
 });
 
-describe("toCreateEntitySchemaPayload", () => {
-	it("trims name and slug, includes facetId, and serializes property rows", () => {
+describe("toCreateEventSchemaPayload", () => {
+	it("trims name and slug, includes entitySchemaId, and serializes property rows", () => {
 		expect(
-			toCreateEntitySchemaPayload(
+			toCreateEventSchemaPayload(
 				{
-					slug: " books ",
-					name: "  Books  ",
+					slug: " tasting ",
+					name: "  Tasting  ",
 					properties: [
 						{
-							id: "released-on",
-							key: " releasedOn ",
 							type: "date",
 							required: true,
+							id: "occurred-on",
+							key: " occurredOn ",
 						},
 						{
 							id: "rating",
@@ -297,35 +316,16 @@ describe("toCreateEntitySchemaPayload", () => {
 						},
 					],
 				},
-				"facet-123",
+				"entity-schema-123",
 			),
 		).toEqual({
-			name: "Books",
-			slug: "books",
-			facetId: "facet-123",
+			name: "Tasting",
+			slug: "tasting",
+			entitySchemaId: "entity-schema-123",
 			propertiesSchema: {
-				releasedOn: { type: "date", required: true },
+				occurredOn: { type: "date", required: true },
 				rating: { type: "number" },
 			},
-		});
-	});
-
-	it("omits slug when the input is blank", () => {
-		expect(
-			toCreateEntitySchemaPayload(
-				{
-					slug: "  \n\t ",
-					name: "  Books  ",
-					properties: [
-						{ id: "title", key: "title", type: "string", required: false },
-					],
-				},
-				"facet-123",
-			),
-		).toEqual({
-			name: "Books",
-			facetId: "facet-123",
-			propertiesSchema: { title: { type: "string" } },
 		});
 	});
 });

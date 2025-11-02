@@ -1,32 +1,32 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "#/hooks/api";
-import { sortEntitySchemas } from "./model";
+import { sortEventSchemas } from "./model";
 
-export function useEntitySchemasQuery(facetId: string, enabled = true) {
+export function useEventSchemasQuery(entitySchemaId: string, enabled = true) {
 	const apiClient = useApiClient();
 	const query = apiClient.useQuery(
 		"get",
-		"/entity-schemas",
-		{ params: { query: { facetId } } },
+		"/event-schemas",
+		{ params: { query: { entitySchemaId } } },
 		{ enabled },
 	);
 
 	return {
 		...query,
-		entitySchemas: sortEntitySchemas(query.data?.data ?? []),
+		eventSchemas: sortEventSchemas(query.data?.data ?? []),
 	};
 }
 
-export function useEntitySchemaMutations(facetId: string) {
+export function useEventSchemaMutations(entitySchemaId: string) {
 	const apiClient = useApiClient();
 	const queryClient = useQueryClient();
-	const listQueryKey = apiClient.queryOptions("get", "/entity-schemas", {
-		params: { query: { facetId } },
+	const listQueryKey = apiClient.queryOptions("get", "/event-schemas", {
+		params: { query: { entitySchemaId } },
 	}).queryKey;
 
 	const create = apiClient.useMutation(
 		"post",
-		"/entity-schemas",
+		"/event-schemas",
 		{
 			onSuccess: () => {
 				queryClient.invalidateQueries({ queryKey: listQueryKey });
