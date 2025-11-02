@@ -5,6 +5,7 @@ import {
 	createEntitySchemaExpression,
 } from "@ryot/ts-utils/view-language";
 
+import { requirePresent, requireResponseData } from "../test-support/assertions";
 import type { Client } from "./auth";
 import {
 	type ExpressionInput,
@@ -237,11 +238,7 @@ export async function createSavedView(
 		body: buildSavedViewBody(overrides),
 	});
 
-	if (response.status !== 200 || !data?.data) {
-		throw new Error("Failed to create saved view");
-	}
-
-	return data.data;
+	return requireResponseData(response, data, "Failed to create saved view");
 }
 
 export async function listSavedViews(
@@ -255,22 +252,14 @@ export async function listSavedViews(
 		params: { query: { includeDisabled, trackerId: options.trackerId } },
 	});
 
-	if (response.status !== 200 || !data?.data) {
-		throw new Error("Failed to list saved views");
-	}
-
-	return data.data;
+	return requireResponseData(response, data, "Failed to list saved views");
 }
 
 export async function findBuiltinSavedView(client: Client, cookies: string) {
 	const views = await listSavedViews(client, cookies);
 	const builtinView = views.find((view) => view.isBuiltin);
 
-	if (!builtinView) {
-		throw new Error("Built-in saved view not found");
-	}
-
-	return builtinView;
+	return requirePresent(builtinView, "Built-in saved view not found");
 }
 
 export async function getSavedView(client: Client, cookies: string, viewSlug: string) {
@@ -279,11 +268,7 @@ export async function getSavedView(client: Client, cookies: string, viewSlug: st
 		params: { path: { viewSlug } },
 	});
 
-	if (response.status !== 200 || !data?.data) {
-		throw new Error(`Failed to get saved view '${viewSlug}'`);
-	}
-
-	return data.data;
+	return requireResponseData(response, data, `Failed to get saved view '${viewSlug}'`);
 }
 
 export async function updateSavedView(
@@ -298,11 +283,7 @@ export async function updateSavedView(
 		body: buildUpdatedSavedViewBody(overrides),
 	});
 
-	if (response.status !== 200 || !data?.data) {
-		throw new Error(`Failed to update saved view '${viewSlug}'`);
-	}
-
-	return data.data;
+	return requireResponseData(response, data, `Failed to update saved view '${viewSlug}'`);
 }
 
 export async function cloneSavedView(client: Client, cookies: string, viewSlug: string) {
@@ -311,11 +292,7 @@ export async function cloneSavedView(client: Client, cookies: string, viewSlug: 
 		params: { path: { viewSlug } },
 	});
 
-	if (response.status !== 200 || !data?.data) {
-		throw new Error(`Failed to clone saved view '${viewSlug}'`);
-	}
-
-	return data.data;
+	return requireResponseData(response, data, `Failed to clone saved view '${viewSlug}'`);
 }
 
 export async function deleteSavedView(client: Client, cookies: string, viewSlug: string) {
@@ -324,11 +301,7 @@ export async function deleteSavedView(client: Client, cookies: string, viewSlug:
 		params: { path: { viewSlug } },
 	});
 
-	if (response.status !== 200 || !data?.data) {
-		throw new Error(`Failed to delete saved view '${viewSlug}'`);
-	}
-
-	return data.data;
+	return requireResponseData(response, data, `Failed to delete saved view '${viewSlug}'`);
 }
 
 export async function reorderSavedViews(
@@ -341,9 +314,5 @@ export async function reorderSavedViews(
 		headers: { Cookie: cookies },
 	});
 
-	if (response.status !== 200 || !data?.data) {
-		throw new Error("Failed to reorder saved views");
-	}
-
-	return data.data;
+	return requireResponseData(response, data, "Failed to reorder saved views");
 }

@@ -44,6 +44,7 @@ import {
 	seedMediaEntity,
 	waitForEventCount,
 } from "../fixtures";
+import { assertPresent } from "../test-support/assertions";
 import { registerQueryEnginePresentationAndErrorTests } from "../test-support/query-engine-suite";
 
 type QueryEngineItems = Extract<
@@ -67,9 +68,7 @@ describe("Query engine E2E", () => {
 		const { client, cookies, userId } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
 		const provider = schema.providers[0];
-		if (!provider) {
-			throw new Error("No provider found");
-		}
+		assertPresent(provider, "No provider found");
 
 		const entity = await seedMediaEntity({
 			image: null,
@@ -114,9 +113,7 @@ describe("Query engine E2E", () => {
 		const userB = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaBySlug(userA.client, userA.cookies, "show");
 		const provider = schema.providers[0];
-		if (!provider) {
-			throw new Error("No provider found");
-		}
+		assertPresent(provider, "No provider found");
 
 		const entity = await seedMediaEntity({
 			image: null,
@@ -149,9 +146,7 @@ describe("Query engine E2E", () => {
 
 		const eventSchemas = await listEventSchemas(userA.client, userA.cookies, schema.id);
 		const reviewEventSchemaId = eventSchemas.find((item) => item.slug === "review")?.id;
-		if (!reviewEventSchemaId) {
-			throw new Error("Missing review event schema");
-		}
+		assertPresent(reviewEventSchemaId, "Missing review event schema");
 
 		const createUserAReviews = await userA.client.POST("/events", {
 			headers: { Cookie: userA.cookies },
@@ -228,9 +223,7 @@ describe("Query engine E2E", () => {
 		const userB = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(userA.client, userA.cookies);
 		const provider = schema.providers[0];
-		if (!provider) {
-			throw new Error("No provider found");
-		}
+		assertPresent(provider, "No provider found");
 
 		const entity = await seedMediaEntity({
 			image: null,
@@ -278,9 +271,7 @@ describe("Query engine E2E", () => {
 		const { client, cookies, userId } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
 		const provider = schema.providers[0];
-		if (!provider) {
-			throw new Error("No provider found");
-		}
+		assertPresent(provider, "No provider found");
 
 		const entity = await seedMediaEntity({
 			image: null,
@@ -523,9 +514,7 @@ describe("Query engine E2E", () => {
 		const { client, cookies, userId } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
 		const provider = schema.providers[0];
-		if (!provider) {
-			throw new Error("No provider found");
-		}
+		assertPresent(provider, "No provider found");
 
 		const entity = await seedMediaEntity({
 			image: null,
@@ -2722,9 +2711,7 @@ describe("Query engine E2E", () => {
 		const { client, cookies, entityIdsByName, schema } =
 			await createSingleSchemaQueryEngineFixture();
 		const targetId = entityIdsByName["Gamma Phone"];
-		if (!targetId) {
-			throw new Error("Missing runtime entity fixture id for @id test");
-		}
+		assertPresent(targetId, "Missing runtime entity fixture id for @id test");
 
 		const { data, response } = await executeQueryEngine(
 			client,
@@ -2763,9 +2750,7 @@ describe("Query engine E2E", () => {
 		const { client, cookies, entityIdsByName, schema } =
 			await createSingleSchemaQueryEngineFixture();
 		const targetId = entityIdsByName["Beta Tablet"];
-		if (!targetId) {
-			throw new Error("Missing runtime entity fixture id for @id contains test");
-		}
+		assertPresent(targetId, "Missing runtime entity fixture id for @id contains test");
 		const suffix = targetId.slice(-8);
 
 		const { data, response } = await executeQueryEngine(
@@ -3267,9 +3252,7 @@ describe("Query engine E2E", () => {
 		const { client, cookies, userId } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
 		const provider = schema.providers[0];
-		if (!provider) {
-			throw new Error("No provider found");
-		}
+		assertPresent(provider, "No provider found");
 
 		const externalId = `ext-id-test-${crypto.randomUUID()}`;
 		const entity = await seedMediaEntity({
@@ -3386,9 +3369,7 @@ describe("Query engine E2E", () => {
 		const { client, cookies, userId } = await createAuthenticatedClient();
 		const { schema: mediaSchema } = await findBuiltinSchemaWithProviders(client, cookies);
 		const provider = mediaSchema.providers[0];
-		if (!provider) {
-			throw new Error("No provider found");
-		}
+		assertPresent(provider, "No provider found");
 
 		const externalId = `cross-schema-ext-${crypto.randomUUID()}`;
 		const globalEntity = await seedMediaEntity({
@@ -4241,9 +4222,7 @@ describe("Query engine E2E", () => {
 
 			const reviewEventSchemas = await listEventSchemas(client, cookies, schema.schemaId);
 			const reviewEventSchema = reviewEventSchemas.find((s) => s.slug === reviewSchema.slug);
-			if (!reviewEventSchema) {
-				throw new Error("Review event schema not found");
-			}
+			assertPresent(reviewEventSchema, "Review event schema not found");
 
 			const { data, response } = await client.POST("/query-engine/execute", {
 				headers: { Cookie: cookies },

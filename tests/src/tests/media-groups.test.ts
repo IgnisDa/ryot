@@ -7,6 +7,7 @@ import {
 	listEventSchemas,
 	listSavedViews,
 } from "../fixtures";
+import { assertPresent } from "../test-support/assertions";
 
 const GROUP_SCHEMA_SLUGS = [
 	"book-group",
@@ -47,9 +48,7 @@ describe("media group entity schemas", () => {
 
 		for (const slug of GROUP_SCHEMA_SLUGS) {
 			const schema = schemas.find((s) => s.slug === slug);
-			if (!schema) {
-				throw new Error(`Group schema '${slug}' not found`);
-			}
+			assertPresent(schema, `Group schema '${slug}' not found`);
 			// oxlint-disable-next-line no-await-in-loop
 			const eventSchemas = await listEventSchemas(client, cookies, schema.id);
 			const eventSlugs = eventSchemas.map((e) => e.slug);
@@ -67,9 +66,7 @@ describe("media group entity schemas", () => {
 		const schemas = await listEntitySchemas(client, cookies, { trackerId: builtinTracker.id });
 
 		const movieGroup = schemas.find((s) => s.slug === "movie-group");
-		if (!movieGroup) {
-			throw new Error("movie-group schema not found");
-		}
+		assertPresent(movieGroup, "movie-group schema not found");
 
 		const fields = movieGroup.propertiesSchema.fields;
 		expect(Object.keys(fields)).toEqual(
@@ -83,15 +80,11 @@ describe("media group entity schemas", () => {
 		const schemas = await listEntitySchemas(client, cookies, { trackerId: builtinTracker.id });
 
 		const movieGroup = schemas.find((s) => s.slug === "movie-group");
-		if (!movieGroup) {
-			throw new Error("movie-group schema not found");
-		}
+		assertPresent(movieGroup, "movie-group schema not found");
 		expect(movieGroup.providers.length).toBeGreaterThanOrEqual(2);
 
 		const musicGroup = schemas.find((s) => s.slug === "music-group");
-		if (!musicGroup) {
-			throw new Error("music-group schema not found");
-		}
+		assertPresent(musicGroup, "music-group schema not found");
 		expect(musicGroup.providers.length).toBeGreaterThanOrEqual(3);
 	});
 });
