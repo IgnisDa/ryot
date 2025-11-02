@@ -4,6 +4,7 @@ import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provi
 
 import {
 	createProgressResult,
+	createShowEpisodeLocator,
 	createSinkFailure,
 	emptySinkResult,
 	type SinkParser,
@@ -124,13 +125,27 @@ export const parseBrowserExtensionSink: SinkParser = (input) =>
 			};
 		}
 
+		const episodeLocator =
+			mediaSeen.lot === "show"
+				? createShowEpisodeLocator(mediaSeen.show_season_number, mediaSeen.show_episode_number)
+				: undefined;
+		if (mediaSeen.lot === "show" && !episodeLocator) {
+			return {
+				...emptySinkResult(),
+				failures: [
+					createSinkFailure({
+						stage: "input_transformation",
+						message: "Browser extension payload is missing show episode coordinates",
+					}),
+				],
+			};
+		}
+
 		return createProgressResult({
 			entityRef: ref,
 			progressPercent: mediaSeen.progress,
 			consumedOn: deriveProviderName(payload.url),
-			...(mediaSeen.lot === "show"
-				? { showSeason: mediaSeen.show_season_number, showEpisode: mediaSeen.show_episode_number }
-				: {}),
+			...(episodeLocator ? { episodeLocator } : {}),
 		});
 	}).pipe(
 		Effect.orElseSucceed(() => ({

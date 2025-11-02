@@ -5,6 +5,7 @@ import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provi
 import {
 	calculateProgressPercent,
 	createProgressResult,
+	createShowEpisodeLocator,
 	createSinkFailure,
 	emptySinkResult,
 	getNestedNumber,
@@ -98,16 +99,30 @@ export const parseEmbySink: SinkParser = (input) =>
 			};
 		}
 
+		const episodeLocator =
+			entitySchemaSlug === "show"
+				? createShowEpisodeLocator(
+						getNestedNumber(payload, ["ParentIndexNumber", "SeasonNumber"]),
+						getNestedNumber(payload, ["IndexNumber", "EpisodeNumber"]),
+					)
+				: undefined;
+		if (entitySchemaSlug === "show" && !episodeLocator) {
+			return {
+				...emptySinkResult(),
+				failures: [
+					createSinkFailure({
+						stage: "input_transformation",
+						message: "Emby webhook payload is missing show episode coordinates",
+					}),
+				],
+			};
+		}
+
 		return createProgressResult({
 			entityRef: ref,
 			progressPercent,
 			consumedOn: "emby",
-			...(entitySchemaSlug === "show"
-				? {
-						showSeason: getNestedNumber(payload, ["ParentIndexNumber", "SeasonNumber"]),
-						showEpisode: getNestedNumber(payload, ["IndexNumber", "EpisodeNumber"]),
-					}
-				: {}),
+			...(episodeLocator ? { episodeLocator } : {}),
 		});
 	}).pipe(
 		Effect.orElseSucceed(() => ({

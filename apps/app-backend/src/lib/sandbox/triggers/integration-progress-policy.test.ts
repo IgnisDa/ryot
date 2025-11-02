@@ -146,6 +146,85 @@ describe("integration-progress-policy sandbox script", () => {
 		});
 	});
 
+	it("ignores stale show positional keys when de-duplicating episode progress", () => {
+		const { hostFunctions } = createHostFunctions({
+			integration: integration(),
+			events: [
+				{
+					occurredAt: minutesAgo(5),
+					properties: {
+						showSeason: 1,
+						showEpisode: 2,
+						consumedOn: "Plex",
+						progressPercent: 35,
+					},
+				},
+			],
+		});
+
+		return runIntegrationProgressPolicyScript(
+			createTrigger({
+				entitySchemaSlug: "show-episode",
+				properties: {
+					showSeason: 9,
+					showEpisode: 9,
+					consumedOn: "Plex",
+					progressPercent: 35,
+				},
+			}),
+			{ ...hostFunctions, claimCachedValue: claimsTrue },
+		).then((result) => {
+			expect(result).toEqual({ action: "skip", reason: "duplicate_progress" });
+			return undefined;
+		});
+	});
+
+	it("ignores stale podcast positional keys when de-duplicating episode progress", () => {
+		const { hostFunctions } = createHostFunctions({
+			integration: integration(),
+			events: [
+				{
+					occurredAt: minutesAgo(5),
+					properties: { podcastEpisode: 1, consumedOn: "Audiobookshelf", progressPercent: 35 },
+				},
+			],
+		});
+
+		return runIntegrationProgressPolicyScript(
+			createTrigger({
+				entitySchemaSlug: "podcast-episode",
+				properties: { podcastEpisode: 9, consumedOn: "Audiobookshelf", progressPercent: 35 },
+			}),
+			{ ...hostFunctions, claimCachedValue: claimsTrue },
+		).then((result) => {
+			expect(result).toEqual({ action: "skip", reason: "duplicate_progress" });
+			return undefined;
+		});
+	});
+
+	it("keeps anime positional keys in the de-duplication identity", () => {
+		const { hostFunctions } = createHostFunctions({
+			integration: integration(),
+			events: [
+				{
+					occurredAt: minutesAgo(5),
+					properties: { animeEpisode: 1, consumedOn: "AniList", progressPercent: 35 },
+				},
+			],
+		});
+
+		return runIntegrationProgressPolicyScript(
+			createTrigger({
+				entitySchemaSlug: "anime",
+				properties: { animeEpisode: 2, consumedOn: "AniList", progressPercent: 35 },
+			}),
+			{ ...hostFunctions, claimCachedValue: claimsTrue },
+		).then((result) => {
+			expect(result).toEqual({ action: "allow" });
+			return undefined;
+		});
+	});
+
 	it("does not treat a different identity as a duplicate", () => {
 		const { hostFunctions } = createHostFunctions({
 			integration: integration(),
