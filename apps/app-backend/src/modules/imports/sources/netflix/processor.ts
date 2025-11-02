@@ -1,12 +1,10 @@
-// The Netflix title-search glue mirrors the legacy async adapter contract.
-// @effect-diagnostics effect/asyncFunction:off
 import { Effect, Either } from "effect";
 
 import { DbRunner } from "~/lib/db";
 import { searchGlobalEntities } from "~/modules/entities/population";
 import { EntitiesRepository } from "~/modules/entities/repository";
 
-import { type MediaImportAdapterResult, processMediaImport } from "../../media/import-processor";
+import { processMediaImport } from "../../media/import-processor";
 import { sanitizeErrorMessage } from "../../runtime/failures";
 import {
 	type ExtractImportZipArchiveResult,
@@ -54,42 +52,41 @@ const getZipEntryByBasename = (
 	zipResult.entries.find((entry) => (entry.fileName.split(/[\\/]/).pop() ?? "") === baseName)
 		?.filePath;
 
-const collectNetflixSearchJobKeys = async (
-	adapterInput: NetflixAdapterInput,
-): Promise<string[]> => {
-	const searchJobKeys = new Set<string>();
-	await adaptNetflixExports(adapterInput, {
-		now: () => "",
-		lookupTitle: ({ title, preferredEntitySchemaSlug }) => {
-			const query = extractNetflixBaseTitle(title);
-			if (!query) {
-				return Promise.resolve({ error: "Metadata not found" });
-			}
-			if (preferredEntitySchemaSlug === "movie") {
-				searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" }));
-			} else if (preferredEntitySchemaSlug === "show") {
-				searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" }));
-			} else {
-				searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" }));
-				searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" }));
-			}
-			return Promise.resolve({ error: "Netflix title lookup is pending" });
-		},
+const collectNetflixSearchJobKeys = (adapterInput: NetflixAdapterInput) =>
+	Effect.gen(function* () {
+		const searchJobKeys = new Set<string>();
+		yield* adaptNetflixExports(adapterInput, {
+			now: () => "",
+			lookupTitle: ({ title, preferredEntitySchemaSlug }) => {
+				const query = extractNetflixBaseTitle(title);
+				if (!query) {
+					return Effect.succeed({ error: "Metadata not found" });
+				}
+				if (preferredEntitySchemaSlug === "movie") {
+					searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" }));
+				} else if (preferredEntitySchemaSlug === "show") {
+					searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" }));
+				} else {
+					searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" }));
+					searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" }));
+				}
+				return Effect.succeed({ error: "Netflix title lookup is pending" });
+			},
+		});
+		return [...searchJobKeys];
 	});
-	return [...searchJobKeys];
-};
 
 const adaptNetflixExportsWithSearchResults = (input: {
 	adapterInput: NetflixAdapterInput;
 	searchErrors: Map<string, string>;
 	searchResults: Map<string, NetflixTitleMatchCandidate[]>;
-}): Promise<MediaImportAdapterResult> =>
+}) =>
 	adaptNetflixExports(input.adapterInput, {
 		now: () => "",
 		lookupTitle: ({ title, preferredEntitySchemaSlug }) => {
 			const query = extractNetflixBaseTitle(title);
 			if (!query) {
-				return Promise.resolve({ error: "Metadata not found" });
+				return Effect.succeed({ error: "Metadata not found" });
 			}
 
 			const movieKey = createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" });
@@ -106,7 +103,7 @@ const adaptNetflixExportsWithSearchResults = (input: {
 				.map((searchJobKey) => input.searchErrors.get(searchJobKey))
 				.find((error): error is string => Boolean(error));
 			if (lookupError) {
-				return Promise.resolve({ error: lookupError });
+				return Effect.succeed({ error: lookupError });
 			}
 
 			const results =
@@ -118,17 +115,17 @@ const adaptNetflixExportsWithSearchResults = (input: {
 			const match = chooseBestNetflixTitleMatch({ title, results, preferredEntitySchemaSlug });
 			if (!match) {
 				if (results.length === 0) {
-					return Promise.resolve({ error: "Metadata not found" });
+					return Effect.succeed({ error: "Metadata not found" });
 				}
 				if (preferredEntitySchemaSlug) {
-					return Promise.resolve({
+					return Effect.succeed({
 						error: `Title matched only ${preferredEntitySchemaSlug === "movie" ? "show" : "movie"} results`,
 					});
 				}
-				return Promise.resolve({ error: "Could not match title to a supported movie or show" });
+				return Effect.succeed({ error: "Could not match title to a supported movie or show" });
 			}
 
-			return Promise.resolve({
+			return Effect.succeed({
 				matchedTitle: match.title,
 				entityRef: {
 					kind: "resolved",
@@ -164,10 +161,11 @@ export const processNetflixImport = (input: {
 					return yield* Effect.fail("Import job is missing Netflix export file");
 				}
 
-				const zipResult = yield* Effect.tryPromise({
-					try: () => extractImportZipArchive(filePath),
-					catch: (error) => sanitizeErrorMessage(error, "Could not read Netflix export archive"),
-				});
+				const zipResult = yield* extractImportZipArchive(filePath).pipe(
+					Effect.mapError((error) =>
+						sanitizeErrorMessage(error, "Could not read Netflix export archive"),
+					),
+				);
 				extractedDirectoryPath = zipResult.directoryPath;
 
 				const viewingActivityPath = getZipEntryByBasename(zipResult, "ViewingActivity.csv");
@@ -194,20 +192,21 @@ export const processNetflixImport = (input: {
 					viewingActivityCsv,
 				};
 
-				const searchJobKeys = yield* Effect.tryPromise({
-					try: () => collectNetflixSearchJobKeys(adapterInput),
-					catch: (error) => sanitizeErrorMessage(error, "Could not parse Netflix export data"),
-				});
+				const searchJobKeys = yield* collectNetflixSearchJobKeys(adapterInput).pipe(
+					Effect.mapError((error) =>
+						sanitizeErrorMessage(error, "Could not parse Netflix export data"),
+					),
+				);
 				if (searchJobKeys.length === 0) {
-					return yield* Effect.tryPromise({
-						try: () =>
-							adaptNetflixExportsWithSearchResults({
-								adapterInput,
-								searchErrors: new Map(),
-								searchResults: new Map(),
-							}),
-						catch: (error) => sanitizeErrorMessage(error, "Could not parse Netflix export data"),
-					});
+					return yield* adaptNetflixExportsWithSearchResults({
+						adapterInput,
+						searchErrors: new Map(),
+						searchResults: new Map(),
+					}).pipe(
+						Effect.mapError((error) =>
+							sanitizeErrorMessage(error, "Could not parse Netflix export data"),
+						),
+					);
 				}
 
 				const [movieScript, showScript] = yield* Effect.all([
@@ -256,11 +255,15 @@ export const processNetflixImport = (input: {
 					{ concurrency: 5, discard: true },
 				);
 
-				return yield* Effect.tryPromise({
-					try: () =>
-						adaptNetflixExportsWithSearchResults({ adapterInput, searchErrors, searchResults }),
-					catch: (error) => sanitizeErrorMessage(error, "Could not parse Netflix export data"),
-				});
+				return yield* adaptNetflixExportsWithSearchResults({
+					adapterInput,
+					searchErrors,
+					searchResults,
+				}).pipe(
+					Effect.mapError((error) =>
+						sanitizeErrorMessage(error, "Could not parse Netflix export data"),
+					),
+				);
 			}),
 		}).pipe(
 			Effect.ensuring(
