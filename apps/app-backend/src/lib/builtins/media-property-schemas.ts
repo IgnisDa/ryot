@@ -59,6 +59,20 @@ export const showEpisodePropertiesSchema: AppSchema = {
 	},
 };
 
+export const podcastEpisodePropertiesSchema: AppSchema = {
+	fields: {
+		runtime: integerField("Runtime", "Runtime in minutes"),
+		description: stringField("Description", "Episode overview or summary"),
+		publishDate: stringField("Publish Date", "Episode publish date as an ISO 8601 date string"),
+		episodeNumber: {
+			type: "integer",
+			label: "Episode Number",
+			validation: { minimum: 0, required: true },
+			description: "Episode number within the podcast",
+		},
+	},
+};
+
 export const animePropertiesSchema: AppSchema = {
 	fields: {
 		...mediaBaseFields,
@@ -162,46 +176,6 @@ export const podcastPropertiesSchema: AppSchema = {
 			"Total Episodes",
 			"Total number of episodes published by this podcast",
 		),
-		episodes: {
-			type: "array",
-			label: "Episodes",
-			description: "List of podcast episodes",
-			items: {
-				label: "Item",
-				type: "object",
-				description: "Item",
-				unknownKeys: "strict",
-				properties: {
-					title: {
-						type: "string",
-						label: "Title",
-						description: "Title",
-						validation: { required: true },
-					},
-					id: {
-						label: "Id",
-						type: "string",
-						description: "Id",
-						validation: { required: true },
-					},
-					number: {
-						type: "integer",
-						label: "Number",
-						description: "Number",
-						validation: { required: true },
-					},
-					runtime: { type: "integer", label: "Runtime", description: "Runtime" },
-					publishDate: {
-						type: "string",
-						label: "Publish Date",
-						description: "Publish Date",
-						validation: { required: true },
-					},
-					overview: { type: "string", label: "Overview", description: "Overview" },
-					thumbnail: { type: "string", label: "Thumbnail", description: "Thumbnail" },
-				},
-			},
-		},
 	},
 };
 

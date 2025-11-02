@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -41,20 +41,20 @@ Slice-specific constraints:
 
 ## Acceptance criteria
 
-- [ ] `podcast-episode` entity schema and `podcast-to-podcast-episode`
+- [x] `podcast-episode` entity schema and `podcast-to-podcast-episode`
       relationship schema are registered as structural builtins.
-- [ ] Populating a podcast creates one `podcast-episode` entity per episode (keyed
+- [x] Populating a podcast creates one `podcast-episode` entity per episode (keyed
       on the provider-native id) with relationship rows; re-populating creates no
       duplicates.
-- [ ] The podcast properties no longer carry the episodes array; the
+- [x] The podcast properties no longer carry the episodes array; the
       `totalEpisodes` count is retained.
-- [ ] `podcast` no longer exposes `progress`; `podcast-episode` exposes
+- [x] `podcast` no longer exposes `progress`; `podcast-episode` exposes
       `progress` + `complete`, and auto-completes at 100%.
-- [ ] The Audiobookshelf podcast import resolves episodes by number; unresolved
+- [x] The Audiobookshelf podcast import resolves episodes by number; unresolved
       episodes are dropped and logged.
-- [ ] A single query returns a podcast with its episodes nested, ordered by
+- [x] A single query returns a podcast with its episodes nested, ordered by
       `episodeNumber`, with per-episode progress existence.
-- [ ] Tests pass: podcast nested-include read; podcast progress-resolution
+- [x] Tests pass: podcast nested-include read; podcast progress-resolution
       (see *Testing Decisions*).
 
 ## User stories addressed
