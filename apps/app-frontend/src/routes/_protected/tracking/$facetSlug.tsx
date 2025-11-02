@@ -16,12 +16,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
-import {
-	buildEntitySchemaFormValues,
-	type CreateEntitySchemaPayload,
-	createEntitySchemaFormSchema,
-	toCreateEntitySchemaPayload,
-} from "#/features/entity-schemas/form";
+import type { CreateEntitySchemaPayload } from "#/features/entity-schemas/form";
 import {
 	useEntitySchemaMutations,
 	useEntitySchemasQuery,
@@ -29,10 +24,10 @@ import {
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import { getFacetEntitySchemaViewState } from "#/features/entity-schemas/model";
 import { EntitySchemaPropertiesBuilder } from "#/features/entity-schemas/properties-builder";
+import { useCreateEntitySchemaForm } from "#/features/entity-schemas/use-form";
 import { useFacetsQuery } from "#/features/facets/hooks";
 import { FacetIcon } from "#/features/facets/icons";
 import type { AppFacet } from "#/features/facets/model";
-import { useAppForm } from "#/hooks/forms";
 
 export const Route = createFileRoute("/_protected/tracking/$facetSlug")({
 	component: RouteComponent,
@@ -155,12 +150,9 @@ function EntitySchemaCreateModal(props: {
 	errorMessage: string | null;
 	onSubmit: (payload: CreateEntitySchemaPayload) => Promise<void>;
 }) {
-	const entitySchemaForm = useAppForm({
-		validators: { onChange: createEntitySchemaFormSchema },
-		defaultValues: buildEntitySchemaFormValues(),
-		onSubmit: async ({ value }) => {
-			await props.onSubmit(toCreateEntitySchemaPayload(value, props.facetId));
-		},
+	const entitySchemaForm = useCreateEntitySchemaForm({
+		facetId: props.facetId,
+		onSubmit: props.onSubmit,
 	});
 
 	return (
