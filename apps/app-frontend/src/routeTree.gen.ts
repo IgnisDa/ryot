@@ -12,7 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as StartRouteImport } from './routes/start'
 import { Route as ProtectedRouteRouteImport } from './routes/_protected/route'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
-import { Route as ProtectedTrackingFacetSlugRouteImport } from './routes/_protected/tracking.$facetSlug'
+import { Route as ProtectedTrackingFacetSlugRouteImport } from './routes/_protected/tracking/$facetSlug'
 
 const StartRoute = StartRouteImport.update({
   id: '/start',
