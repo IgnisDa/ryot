@@ -1,5 +1,6 @@
 import { HttpApi, OpenApi } from "@effect/platform";
 
+import { BadRequest } from "#lib/errors";
 import { CollectionsGroup } from "#modules/collections/contract";
 import { EntitiesGroup } from "#modules/entities/contract";
 import { EntityImportGroup } from "#modules/entity-import/contract";
@@ -20,6 +21,7 @@ import { UploadsGroup } from "#modules/uploads/contract";
 import { UserStateGroup } from "#modules/user-state/contract";
 
 export const AppContract = HttpApi.make("ryot")
+	.addError(BadRequest, { status: 400 })
 	.add(SystemGroup)
 	.add(SandboxGroup)
 	.add(TrackersGroup)
