@@ -6,6 +6,7 @@ use common_utils::PROJECT_NAME;
 use config_macros::MaskedConfig;
 use schematic::{Config, ConfigEnum, ConfigLoader, derive_enum, validate::not_empty};
 use serde::{Deserialize, Serialize};
+use strum::EnumIter;
 
 /// Trait for creating masked versions of configuration structs
 pub trait MaskedConfig {
@@ -89,7 +90,7 @@ pub struct MusicConfig {
 }
 
 derive_enum!(
-    #[derive(ConfigEnum, Default)]
+    #[derive(ConfigEnum, EnumIter, Default)]
     #[config(rename_all = "lowercase")]
     pub enum AudibleLocale {
         AU,

@@ -177,19 +177,9 @@ impl AudibleService {
     }
 
     pub fn get_all_languages(&self) -> Vec<String> {
-        vec![
-            "au".to_string(),
-            "ca".to_string(),
-            "de".to_string(),
-            "es".to_string(),
-            "fr".to_string(),
-            "gb".to_string(),
-            "in".to_string(),
-            "it".to_string(),
-            "jp".to_string(),
-            "uk".to_string(),
-            "us".to_string(),
-        ]
+        AudibleLocale::iter()
+            .map(|l| Self::locale_to_string(&l).to_owned())
+            .collect()
     }
 
     pub fn get_default_language(&self) -> String {
