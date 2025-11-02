@@ -12,8 +12,6 @@ const nonNegativeInteger = Schema.Number.pipe(Schema.int(), Schema.greaterThanOr
 
 const positiveNumber = Schema.Number.pipe(Schema.greaterThan(0));
 
-export const propertySchemaMessage = "Properties must contain at least one property";
-
 export const createPropertySchemaMessage = (label: string) =>
 	`${label} must contain at least one property`;
 
