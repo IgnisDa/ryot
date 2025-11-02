@@ -5,6 +5,7 @@ import { SandboxRunError, dieOnDbError } from "#lib/errors";
 import type { EntityId, EntitySchemaId } from "#lib/schema/brands";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { EntityImage } from "#modules/entities/schemas";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
@@ -21,6 +22,7 @@ export type EntityDetailsRelatedEntity = typeof EntityDetailsRelatedEntity.Type;
 const EntityDetailsResult = Schema.Struct({
 	name: Schema.String,
 	properties: Schema.Unknown,
+	image: Schema.optional(Schema.NullOr(EntityImage)),
 	relatedEntities: Schema.optional(Schema.Array(EntityDetailsRelatedEntity)),
 });
 
