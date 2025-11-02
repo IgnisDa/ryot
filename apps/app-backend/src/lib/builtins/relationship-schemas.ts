@@ -155,6 +155,20 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		name: "Workout to Workout Template",
 		targetEntitySchemaSlug: "workout-template",
 	},
+	{
+		slug: "show-to-show-season",
+		name: "Show to Show Season",
+		sourceEntitySchemaSlug: "show",
+		propertiesSchema: { fields: {} },
+		targetEntitySchemaSlug: "show-season",
+	},
+	{
+		propertiesSchema: { fields: {} },
+		slug: "show-season-to-show-episode",
+		name: "Show Season to Show Episode",
+		sourceEntitySchemaSlug: "show-season",
+		targetEntitySchemaSlug: "show-episode",
+	},
 	...buildCreditRelationshipSchemas({
 		sourceSlug: "person",
 		targetEntitySchemaSlugs: builtinMediaEntitySchemaSlugs,

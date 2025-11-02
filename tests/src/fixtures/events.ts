@@ -41,7 +41,8 @@ const propertiesBySchemaSlug: Record<string, Record<string, unknown>> = {
 	show: {
 		...defaultMediaPropertiesWithUnlinkedCreators,
 		images: [],
-		showSeasons: [],
+		totalSeasons: null,
+		totalEpisodes: null,
 	},
 	podcast: {
 		...defaultMediaPropertiesWithUnlinkedCreators,

@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -54,28 +54,28 @@ Slice-specific constraints (not to be confused with later slices):
 
 ## Acceptance criteria
 
-- [ ] `show-season` and `show-episode` entity schemas plus `show-to-show-season`
+- [x] `show-season` and `show-episode` entity schemas plus `show-to-show-season`
       and `show-season-to-show-episode` relationship schemas are registered as
       structural builtins (no media-tracker link; no standalone browse view).
-- [ ] Populating a show creates one entity per season and one per episode (keyed
+- [x] Populating a show creates one entity per season and one per episode (keyed
       on the provider-native `externalId`) with relationship rows linking
       show→season and season→episode; re-populating the same show creates no
       duplicate entities or relationships.
-- [ ] The show properties no longer contain the nested seasons array;
+- [x] The show properties no longer contain the nested seasons array;
       `totalSeasons` and `totalEpisodes` are written at population time.
-- [ ] `show` no longer exposes a `progress` event; `show-episode` exposes
+- [x] `show` no longer exposes a `progress` event; `show-episode` exposes
       `progress` + `complete`; `show-season` exposes `complete`.
-- [ ] A `progress` event at 100% on an episode auto-creates a `complete` event on
+- [x] A `progress` event at 100% on an episode auto-creates a `complete` event on
       that same episode; anime/manga auto-complete behavior is unchanged.
-- [ ] A single query-engine query returns a show with seasons ordered by
+- [x] A single query-engine query returns a show with seasons ordered by
       `seasonNumber` and episodes ordered by `episodeNumber`, each episode
       indicating whether a progress/complete event exists.
-- [ ] "Currently watching" and "fully watched" for a show are derivable through
+- [x] "Currently watching" and "fully watched" for a show are derivable through
       query-engine existence/aggregate filters (season 0 excluded from
       fully-watched); no dedicated endpoint is added.
-- [ ] Seasons and episodes do not appear as standalone browsable/searchable
+- [x] Seasons and episodes do not appear as standalone browsable/searchable
       library items.
-- [ ] Tests pass: Child-Entity Tree Processor isolation test; show-detail nested
+- [x] Tests pass: Child-Entity Tree Processor isolation test; show-detail nested
       include E2E; completion+derivation E2E (see *Testing Decisions*).
 
 ## User stories addressed

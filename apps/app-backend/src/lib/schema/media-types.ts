@@ -36,27 +36,6 @@ const mediaWithCreatorsFields = {
 	unlinkedCreators: Schema.optional(Schema.NullOr(Schema.Array(UnlinkedCreatorSchema))),
 } as const;
 
-const ShowEpisodeSchema = Schema.Struct({
-	name: Schema.String,
-	id: Schema.Number.pipe(Schema.int()),
-	episodeNumber: Schema.Number.pipe(Schema.int()),
-	overview: Schema.optional(Schema.NullOr(Schema.String)),
-	publishDate: Schema.optional(Schema.NullOr(Schema.String)),
-	runtime: Schema.optional(Schema.NullOr(Schema.Number.pipe(Schema.int()))),
-	posterImages: Schema.optional(Schema.NullOr(Schema.Array(Schema.String))),
-});
-
-const ShowSeasonSchema = Schema.Struct({
-	name: Schema.String,
-	id: Schema.Number.pipe(Schema.int()),
-	episodes: Schema.Array(ShowEpisodeSchema),
-	seasonNumber: Schema.Number.pipe(Schema.int()),
-	overview: Schema.optional(Schema.NullOr(Schema.String)),
-	publishDate: Schema.optional(Schema.NullOr(Schema.String)),
-	posterImages: Schema.optional(Schema.NullOr(Schema.Array(Schema.String))),
-	backdropImages: Schema.optional(Schema.NullOr(Schema.Array(Schema.String))),
-});
-
 const AiringScheduleItemSchema = Schema.Struct({
 	airingAt: Schema.String,
 	episode: Schema.Number.pipe(Schema.int()),
@@ -95,7 +74,8 @@ export type MovieProperties = typeof MoviePropertiesSchema.Type;
 export const ShowPropertiesSchema = Schema.Struct({
 	...mediaBaseFields,
 	...imagesField,
-	showSeasons: Schema.optional(Schema.NullOr(Schema.Array(ShowSeasonSchema))),
+	totalSeasons: Schema.optional(Schema.NullOr(Schema.Number.pipe(Schema.int()))),
+	totalEpisodes: Schema.optional(Schema.NullOr(Schema.Number.pipe(Schema.int()))),
 });
 
 export type ShowProperties = typeof ShowPropertiesSchema.Type;
