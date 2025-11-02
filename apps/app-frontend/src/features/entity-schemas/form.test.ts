@@ -1,29 +1,33 @@
 import { describe, expect, it } from "bun:test";
 import {
+	buildDefaultEntitySchemaPropertyRow,
 	buildEntitySchemaFormValues,
+	buildEntitySchemaPropertiesSchema,
 	createEntitySchemaFormSchema,
 	defaultCreateEntitySchemaFormValues,
-	defaultEntitySchemaPropertiesSchema,
+	isEntitySchemaPropertyRowsValid,
+	serializeEntitySchemaProperties,
 	toCreateEntitySchemaPayload,
 } from "./form";
 
-function createEntitySchemaFormValuesFixture(overrides = {}) {
-	return {
-		name: "Schema",
-		slug: "schema",
-		propertiesSchema: defaultEntitySchemaPropertiesSchema,
-		...overrides,
-	};
-}
+describe("buildDefaultEntitySchemaPropertyRow", () => {
+	it("returns an empty optional string property row", () => {
+		expect(buildDefaultEntitySchemaPropertyRow()).toEqual({
+			key: "",
+			type: "string",
+			required: false,
+		});
+	});
+});
 
 describe("buildEntitySchemaFormValues", () => {
-	it("returns default values with the schema stub", () => {
+	it("returns default values with one property row", () => {
 		const values = buildEntitySchemaFormValues();
 
 		expect(values).toEqual({
 			name: "",
 			slug: "",
-			propertiesSchema: defaultEntitySchemaPropertiesSchema,
+			properties: [buildDefaultEntitySchemaPropertyRow()],
 		});
 	});
 
@@ -34,132 +38,234 @@ describe("buildEntitySchemaFormValues", () => {
 	});
 
 	it("maps existing values into form defaults", () => {
+		const properties = [
+			{ key: "title", type: "string" as const, required: true as const },
+		];
+
 		const values = buildEntitySchemaFormValues({
+			properties,
 			name: "Custom Schema",
 			slug: "custom-schema",
-			propertiesSchema:
-				'{"type":"object","properties":{"title":{"type":"string"}}}',
 		});
 
 		expect(values).toEqual({
+			properties,
 			name: "Custom Schema",
 			slug: "custom-schema",
-			propertiesSchema:
-				'{"type":"object","properties":{"title":{"type":"string"}}}',
 		});
+	});
+
+	it("normalizes an empty properties array to one default row", () => {
+		expect(buildEntitySchemaFormValues({ properties: [] }).properties).toEqual([
+			buildDefaultEntitySchemaPropertyRow(),
+		]);
 	});
 });
 
-describe("toCreateEntitySchemaPayload", () => {
-	it("trims name and slug", () => {
-		const payload = toCreateEntitySchemaPayload(
-			createEntitySchemaFormValuesFixture({
-				name: "  Custom Schema  ",
-				slug: "  custom-schema  ",
-			}),
-			"facet-id",
-		);
-
-		expect(payload.name).toBe("Custom Schema");
-		expect(payload.slug).toBe("custom-schema");
+describe("isEntitySchemaPropertyRowsValid", () => {
+	it("returns false when there are no property rows", () => {
+		expect(isEntitySchemaPropertyRowsValid([])).toBeFalse();
 	});
 
-	it("includes facetId", () => {
-		const payload = toCreateEntitySchemaPayload(
-			createEntitySchemaFormValuesFixture(),
-			"facet-id",
-		);
-
-		expect(payload.facetId).toBe("facet-id");
+	it("returns false when a trimmed key is empty", () => {
+		expect(
+			isEntitySchemaPropertyRowsValid([buildDefaultEntitySchemaPropertyRow()]),
+		).toBeFalse();
 	});
 
-	it("preserves propertiesSchema text as entered", () => {
-		const propertiesSchema =
-			'  {"type":"object","properties":{"title":{"type":"string"}}}\n';
+	it("returns false when trimmed keys are duplicated", () => {
+		expect(
+			isEntitySchemaPropertyRowsValid([
+				{ key: "title", type: "string", required: false },
+				{ key: " title ", type: "number", required: true },
+			]),
+		).toBeFalse();
+	});
 
-		const payload = toCreateEntitySchemaPayload(
-			createEntitySchemaFormValuesFixture({ propertiesSchema }),
-			"facet-id",
-		);
-
-		expect(payload.propertiesSchema).toBe(propertiesSchema);
+	it("returns true for unique non-empty trimmed keys", () => {
+		expect(
+			isEntitySchemaPropertyRowsValid([
+				{ key: " title ", type: "string", required: false },
+				{ key: "publishedAt", type: "date", required: true },
+			]),
+		).toBeTrue();
 	});
 });
 
 describe("createEntitySchemaFormSchema", () => {
-	it("rejects whitespace-only required fields", () => {
-		const parsed = createEntitySchemaFormSchema.safeParse({
-			name: "   ",
-			slug: "\n\t",
-			propertiesSchema: "  ",
+	it("rejects whitespace-only name and slug values", () => {
+		const result = createEntitySchemaFormSchema.safeParse({
+			name: "  \n\t ",
+			slug: "  \n\t ",
+			properties: [{ key: "title", type: "string", required: false }],
 		});
 
-		expect(parsed.success).toBe(false);
+		expect(result.success).toBeFalse();
+
+		if (result.success) return;
+
+		expect(result.error.issues).toContainEqual({
+			code: "custom",
+			path: ["name"],
+			message: "Name is required",
+		});
+		expect(result.error.issues).toContainEqual({
+			code: "custom",
+			path: ["slug"],
+			message: "Slug is required",
+		});
+	});
+
+	it("rejects empty property rows", () => {
+		const result = createEntitySchemaFormSchema.safeParse({
+			name: "Books",
+			slug: "books",
+			properties: [],
+		});
+
+		expect(result.success).toBeFalse();
+
+		if (result.success) return;
+
+		expect(result.error.issues).toContainEqual({
+			code: "custom",
+			path: ["properties"],
+			message: "Properties must contain unique non-empty keys",
+		});
+	});
+
+	it("rejects duplicate trimmed property keys", () => {
+		const properties = [
+			{ key: "title", type: "string", required: false },
+			{ key: " title ", type: "number", required: true },
+		] as const;
+		const result = createEntitySchemaFormSchema.safeParse({
+			properties,
+			name: "Books",
+			slug: "books",
+		});
+
+		expect(result.success).toBeFalse();
+
+		if (result.success) return;
+
+		expect(result.error.issues).toContainEqual({
+			code: "custom",
+			path: ["properties"],
+			message: "Properties must contain unique non-empty keys",
+		});
+	});
+
+	it("rejects a whitespace-only property key after trimming", () => {
+		const properties = [
+			{ key: " \n\t ", type: "string", required: false },
+		] as const;
+		const result = createEntitySchemaFormSchema.safeParse({
+			properties,
+			name: "Books",
+			slug: "books",
+		});
+
+		expect(result.success).toBeFalse();
+
+		if (result.success) return;
+
+		expect(result.error.issues).toContainEqual({
+			code: "custom",
+			path: ["properties"],
+			message: "Properties must contain unique non-empty keys",
+		});
 	});
 
 	it("accepts valid values", () => {
-		const parsed = createEntitySchemaFormSchema.safeParse({
-			name: "Schema",
-			slug: "schema",
-			propertiesSchema: defaultEntitySchemaPropertiesSchema,
+		const result = createEntitySchemaFormSchema.safeParse({
+			name: "Books",
+			slug: "books",
+			properties: [
+				{ key: "title", type: "string", required: true },
+				{ key: "publishedAt", type: "date", required: false },
+			],
 		});
 
-		expect(parsed.success).toBe(true);
+		expect(result.success).toBeTrue();
+	});
+});
+
+describe("buildEntitySchemaPropertiesSchema", () => {
+	it("maps scalar property types and trims keys", () => {
+		expect(
+			buildEntitySchemaPropertiesSchema([
+				{ key: " title ", type: "string", required: false },
+				{ key: "rating", type: "number", required: false },
+				{ key: "isOwned", type: "boolean", required: false },
+			]),
+		).toEqual({
+			title: { type: "string" },
+			rating: { type: "number" },
+			isOwned: { type: "boolean" },
+		});
 	});
 
-	it("rejects malformed properties schema JSON", () => {
-		const parsed = createEntitySchemaFormSchema.safeParse({
-			name: "Schema",
-			slug: "schema",
-			propertiesSchema: '{"type":"object",',
-		});
-
-		expect(parsed.success).toBe(false);
+	it("maps integer type correctly", () => {
+		expect(
+			buildEntitySchemaPropertiesSchema([
+				{ key: "pages", type: "integer", required: false },
+			]),
+		).toEqual({ pages: { type: "integer" } });
 	});
 
-	it("rejects properties schema JSON that is not an object", () => {
-		const parsed = createEntitySchemaFormSchema.safeParse({
-			name: "Schema",
-			slug: "schema",
-			propertiesSchema: "[]",
+	it("maps date rows and includes required flag when present", () => {
+		expect(
+			buildEntitySchemaPropertiesSchema([
+				{ key: "releasedOn", type: "date", required: true },
+				{ key: "summary", type: "string", required: false },
+			]),
+		).toEqual({
+			summary: { type: "string" },
+			releasedOn: { type: "date", required: true },
 		});
+	});
+});
 
-		expect(parsed.success).toBe(false);
+describe("serializeEntitySchemaProperties", () => {
+	it("returns deterministic JSON without required flag for optional rows", () => {
+		expect(
+			serializeEntitySchemaProperties([
+				{ key: " title ", type: "string", required: false },
+				{ key: "rating", type: "number", required: false },
+			]),
+		).toBe('{"title":{"type":"string"},"rating":{"type":"number"}}');
 	});
 
-	it("rejects properties schema JSON with a non-object root type", () => {
-		const parsed = createEntitySchemaFormSchema.safeParse({
-			name: "Schema",
-			slug: "schema",
-			propertiesSchema: '{"type":"array","properties":{}}',
-		});
-
-		expect(parsed.success).toBe(false);
+	it("returns deterministic JSON with required flag for date rows", () => {
+		expect(
+			serializeEntitySchemaProperties([
+				{ key: "releasedOn", type: "date", required: true },
+			]),
+		).toBe('{"releasedOn":{"type":"date","required":true}}');
 	});
+});
 
-	it("rejects properties schema JSON without object properties", () => {
-		const missingProperties = createEntitySchemaFormSchema.safeParse({
-			name: "Schema",
-			slug: "schema",
-			propertiesSchema: '{"type":"object"}',
+describe("toCreateEntitySchemaPayload", () => {
+	it("trims name and slug, includes facetId, and serializes property rows", () => {
+		expect(
+			toCreateEntitySchemaPayload(
+				{
+					slug: " books ",
+					name: "  Books  ",
+					properties: [
+						{ key: " releasedOn ", type: "date", required: true },
+						{ key: "rating", type: "number", required: false },
+					],
+				},
+				"facet-123",
+			),
+		).toEqual({
+			name: "Books",
+			slug: "books",
+			facetId: "facet-123",
+			propertiesSchema:
+				'{"releasedOn":{"type":"date","required":true},"rating":{"type":"number"}}',
 		});
-		const invalidProperties = createEntitySchemaFormSchema.safeParse({
-			name: "Schema",
-			slug: "schema",
-			propertiesSchema: '{"type":"object","properties":[]}',
-		});
-
-		expect(missingProperties.success).toBe(false);
-		expect(invalidProperties.success).toBe(false);
-	});
-
-	it("rejects properties schema JSON with extra top-level keys", () => {
-		const parsed = createEntitySchemaFormSchema.safeParse({
-			name: "Schema",
-			slug: "schema",
-			propertiesSchema: '{"type":"object","properties":{},"extra":true}',
-		});
-
-		expect(parsed.success).toBe(false);
 	});
 });
