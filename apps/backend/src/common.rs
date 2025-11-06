@@ -26,7 +26,6 @@ use file_storage_service::FileStorageService;
 use fitness_resolver::{FitnessMutationResolver, FitnessQueryResolver};
 use fitness_service::FitnessService;
 use futures::try_join;
-use http::Request;
 use importer_resolver::{ImporterMutationResolver, ImporterQueryResolver};
 use importer_service::ImporterService;
 use integration_service::IntegrationService;
@@ -53,9 +52,6 @@ use sea_orm::DatabaseConnection;
 use statistics_resolver::StatisticsQueryResolver;
 use statistics_service::StatisticsService;
 use supporting_service::SupportingService;
-use tower_governor::{
-    GovernorError, GovernorLayer, governor::GovernorConfigBuilder, key_extractor::KeyExtractor,
-};
 use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
@@ -89,15 +85,6 @@ pub async fn create_app_services(
     single_application_job: &MemoryStorage<SingleApplicationJob>,
 ) -> (Router, Arc<AppServices>) {
     let is_oidc_enabled = create_oidc_client(&config).await.is_some();
-    let governor_conf = Arc::new(
-        GovernorConfigBuilder::default()
-            .per_second(2)
-            .burst_size(1)
-            .key_extractor(RateLimitExtractor)
-            .use_headers()
-            .finish()
-            .unwrap(),
-    );
     let supporting_service = Arc::new(
         SupportingService::builder()
             .db(&db)
@@ -151,12 +138,10 @@ pub async fn create_app_services(
         .allow_origin(cors_origins)
         .allow_credentials(true);
 
-    let webhook_routes = Router::new()
-        .route(
-            "/integrations/{integration_slug}",
-            post(integration_webhook_handler),
-        )
-        .layer(GovernorLayer::new(governor_conf));
+    let webhook_routes = Router::new().route(
+        "/integrations/{integration_slug}",
+        post(integration_webhook_handler),
+    );
 
     let mut gql = post(graphql_handler);
     if config.server.graphql_playground_enabled {
@@ -199,17 +184,6 @@ pub async fn create_app_services(
             miscellaneous_service,
         }),
     )
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-struct RateLimitExtractor;
-
-impl KeyExtractor for RateLimitExtractor {
-    type Key = String;
-
-    fn extract<B>(&self, req: &Request<B>) -> Result<Self::Key, GovernorError> {
-        Ok(req.uri().path().to_owned())
-    }
 }
 
 #[derive(MergedObject, Default)]
