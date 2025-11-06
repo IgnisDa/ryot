@@ -32,7 +32,7 @@ use crate::{
     common::create_app_services,
     job::{
         perform_hp_application_job, perform_lp_application_job, perform_mp_application_job,
-        run_frequent_cron_jobs, run_infrequent_cron_jobs,
+        perform_single_application_job, run_frequent_cron_jobs, run_infrequent_cron_jobs,
     },
 };
 
@@ -94,6 +94,7 @@ async fn main() -> Result<()> {
     let lp_application_job_storage = MemoryStorage::new();
     let mp_application_job_storage = MemoryStorage::new();
     let hp_application_job_storage = MemoryStorage::new();
+    let single_application_job_storage = MemoryStorage::new();
 
     let tz: chrono_tz::Tz = env::var("TZ")
         .map(|s| s.parse().unwrap())
@@ -107,6 +108,7 @@ async fn main() -> Result<()> {
         .lp_application_job(&lp_application_job_storage)
         .mp_application_job(&mp_application_job_storage)
         .hp_application_job(&hp_application_job_storage)
+        .single_application_job(&single_application_job_storage)
         .call()
         .await;
 
@@ -192,9 +194,18 @@ async fn main() -> Result<()> {
                 .catch_panic()
                 .enable_tracing()
                 .rate_limit(20, Duration::new(5, 0))
-                .data(app_services)
+                .data(app_services.clone())
                 .backend(lp_application_job_storage)
                 .build_fn(perform_lp_application_job),
+        )
+        .register(
+            WorkerBuilder::new("perform_single_application_job")
+                .catch_panic()
+                .enable_tracing()
+                .rate_limit(1, Duration::new(1, 0))
+                .data(app_services)
+                .backend(single_application_job_storage)
+                .build_fn(perform_single_application_job),
         )
         .run();
 
