@@ -165,7 +165,7 @@ rustypipe = { version = "=0.11.4", features = [
     "userdata",
     "rustls-tls-webpki-roots",
 ], default-features = false }
-schematic = { version = "=0.18.14", features = [
+schematic = { version = "=0.18.15", features = [
     "config",
     "env",
     "json",

@@ -8,6 +8,7 @@ anyhow = { workspace = true }
 async-graphql = { workspace = true }
 schematic = { workspace = true }
 serde = { workspace = true }
+strum = { workspace = true }
 
 common-utils = { workspace = true }
 config-macros = { workspace = true }
