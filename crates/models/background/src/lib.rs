@@ -38,10 +38,16 @@ pub enum LpApplicationJob {
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
+pub enum SingleApplicationJob {
+    ProcessIntegrationWebhook(String, String),
+}
+
+#[derive(Debug, Deserialize, Serialize, Display, Clone)]
 pub enum ApplicationJob {
     Lp(LpApplicationJob),
     Hp(HpApplicationJob),
     Mp(MpApplicationJob),
+    Single(SingleApplicationJob),
 }
 
 #[derive(Debug, Default)]

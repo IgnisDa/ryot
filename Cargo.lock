@@ -5873,6 +5873,7 @@ dependencies = [
  "anyhow",
  "async-graphql",
  "axum",
+ "background-models",
  "common-utils",
  "config-definition",
  "integration-service",

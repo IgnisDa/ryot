@@ -10,7 +10,9 @@ use axum::{
     http::{Method, header},
     routing::{Router, get, post},
 };
-use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
+use background_models::{
+    ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob, SingleApplicationJob,
+};
 use bon::builder;
 use collection_resolver::{CollectionMutationResolver, CollectionQueryResolver};
 use collection_service::CollectionService;
@@ -84,6 +86,7 @@ pub async fn create_app_services(
     lp_application_job: &MemoryStorage<LpApplicationJob>,
     mp_application_job: &MemoryStorage<MpApplicationJob>,
     hp_application_job: &MemoryStorage<HpApplicationJob>,
+    single_application_job: &MemoryStorage<SingleApplicationJob>,
 ) -> (Router, Arc<AppServices>) {
     let is_oidc_enabled = create_oidc_client(&config).await.is_some();
     let governor_conf = Arc::new(
@@ -104,6 +107,7 @@ pub async fn create_app_services(
             .lp_application_job(lp_application_job)
             .mp_application_job(mp_application_job)
             .hp_application_job(hp_application_job)
+            .single_application_job(single_application_job)
             .build()
             .await,
     );

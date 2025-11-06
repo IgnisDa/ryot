@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use apalis::prelude::{Data, Error};
 use apalis_cron::CronContext;
-use background_models::{HpApplicationJob, LpApplicationJob, MpApplicationJob, ScheduledJob};
+use background_models::{
+    HpApplicationJob, LpApplicationJob, MpApplicationJob, ScheduledJob, SingleApplicationJob,
+};
 use common_utils::ryot_log;
 use traits::TraceOk;
 
@@ -197,6 +199,21 @@ pub async fn perform_lp_application_job(
                 .handle_metadata_eligible_for_smart_collection_moving(metadata_id)
                 .await
         }
+    };
+    status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
+}
+
+pub async fn perform_single_application_job(
+    information: SingleApplicationJob,
+    app_services: Data<Arc<AppServices>>,
+) -> Result<(), Error> {
+    ryot_log!(trace, "Started job {:?}", information);
+    let status = match information {
+        SingleApplicationJob::ProcessIntegrationWebhook(integration_slug, payload) => app_services
+            .integration_service
+            .process_integration_webhook(integration_slug, payload)
+            .await
+            .map(|_| ()),
     };
     status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }

@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use apalis::prelude::{MemoryStorage, MessageQueue};
-use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
+use background_models::{
+    ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob, SingleApplicationJob,
+};
 use bon::bon;
 use chrono::Utc;
 use config_definition::AppConfig;
@@ -18,6 +20,7 @@ pub struct SupportingService {
     lp_application_job: MemoryStorage<LpApplicationJob>,
     hp_application_job: MemoryStorage<HpApplicationJob>,
     mp_application_job: MemoryStorage<MpApplicationJob>,
+    single_application_job: MemoryStorage<SingleApplicationJob>,
 }
 
 #[bon]
@@ -31,6 +34,7 @@ impl SupportingService {
         lp_application_job: &MemoryStorage<LpApplicationJob>,
         mp_application_job: &MemoryStorage<MpApplicationJob>,
         hp_application_job: &MemoryStorage<HpApplicationJob>,
+        single_application_job: &MemoryStorage<SingleApplicationJob>,
     ) -> Self {
         Self {
             config,
@@ -41,6 +45,7 @@ impl SupportingService {
             lp_application_job: lp_application_job.clone(),
             mp_application_job: mp_application_job.clone(),
             hp_application_job: hp_application_job.clone(),
+            single_application_job: single_application_job.clone(),
         }
     }
 
@@ -54,6 +59,9 @@ impl SupportingService {
             }
             ApplicationJob::Mp(job) => {
                 self.mp_application_job.clone().enqueue(job).await.ok();
+            }
+            ApplicationJob::Single(job) => {
+                self.single_application_job.clone().enqueue(job).await.ok();
             }
         }
         Ok(())

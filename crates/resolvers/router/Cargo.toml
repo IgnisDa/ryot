@@ -11,6 +11,7 @@ nanoid = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 
+background-models = { workspace = true }
 common-utils = { workspace = true }
 config-definition = { workspace = true }
 integration-service = { workspace = true }
