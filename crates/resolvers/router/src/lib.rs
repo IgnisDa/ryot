@@ -8,12 +8,11 @@ use axum::{
     http::StatusCode,
     response::{Html, IntoResponse},
 };
+use background_models::{ApplicationJob, SingleApplicationJob};
 use common_utils::get_temporary_directory;
 use config_definition::{AppConfig, MaskedConfig};
 use integration_service::IntegrationService;
 use nanoid::nanoid;
-
-use background_models;
 
 pub async fn graphql_playground_handler() -> impl IntoResponse {
     Html(playground_source(GraphQLPlaygroundConfig::new(
@@ -52,11 +51,8 @@ pub async fn integration_webhook_handler(
 ) -> StdResult<(StatusCode, String), StatusCode> {
     integration_service
         .0
-        .perform_application_job(background_models::ApplicationJob::Single(
-            background_models::SingleApplicationJob::ProcessIntegrationWebhook(
-                integration_slug,
-                payload,
-            ),
+        .perform_application_job(ApplicationJob::Single(
+            SingleApplicationJob::ProcessIntegrationWebhook(integration_slug, payload),
         ))
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
