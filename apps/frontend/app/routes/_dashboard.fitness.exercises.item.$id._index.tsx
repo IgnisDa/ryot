@@ -119,7 +119,7 @@ export const meta = () => {
 	return [{ title: "Exercise Details | Ryot" }];
 };
 
-const mapMuscleToBodyPart = (muscle: ExerciseMuscle): Slug | null => {
+const mapMuscleToBodyPart = (muscle: ExerciseMuscle) => {
 	const muscleMap: Record<ExerciseMuscle, Slug | null> = {
 		[ExerciseMuscle.Lats]: null,
 		[ExerciseMuscle.Neck]: "neck",
