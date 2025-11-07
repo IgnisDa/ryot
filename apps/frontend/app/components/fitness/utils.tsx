@@ -1,6 +1,8 @@
 import { Text } from "@mantine/core";
+import type { Slug } from "@mjcdev/react-body-highlighter";
 import {
 	ExerciseLot,
+	ExerciseMuscle,
 	UserUnitSystem,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -98,4 +100,28 @@ export const DisplaySetStatistics = (props: {
 			) : null}
 		</>
 	);
+};
+
+export const mapMuscleToBodyPart = (muscle: ExerciseMuscle) => {
+	const muscleMap: Record<ExerciseMuscle, Slug | null> = {
+		[ExerciseMuscle.Lats]: null,
+		[ExerciseMuscle.Neck]: "neck",
+		[ExerciseMuscle.Chest]: "chest",
+		[ExerciseMuscle.Abductors]: null,
+		[ExerciseMuscle.Biceps]: "biceps",
+		[ExerciseMuscle.Calves]: "calves",
+		[ExerciseMuscle.Abdominals]: "abs",
+		[ExerciseMuscle.Glutes]: "gluteal",
+		[ExerciseMuscle.Traps]: "trapezius",
+		[ExerciseMuscle.Triceps]: "triceps",
+		[ExerciseMuscle.Forearms]: "forearm",
+		[ExerciseMuscle.Shoulders]: "deltoids",
+		[ExerciseMuscle.Adductors]: "adductors",
+		[ExerciseMuscle.Hamstrings]: "hamstring",
+		[ExerciseMuscle.LowerBack]: "lower-back",
+		[ExerciseMuscle.MiddleBack]: "upper-back",
+		[ExerciseMuscle.Quadriceps]: "quadriceps",
+	};
+
+	return muscleMap[muscle];
 };
