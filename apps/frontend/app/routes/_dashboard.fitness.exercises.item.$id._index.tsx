@@ -387,9 +387,14 @@ export default function Page() {
 									<>
 										<Divider />
 										<Group wrap="nowrap">
-											<Text c="dimmed" fz="sm">
+											<Anchor
+												fz="sm"
+												onClick={() => {
+													console.log("Muscles clicked");
+												}}
+											>
 												Muscles
-											</Text>
+											</Anchor>
 											<Text fz="sm">
 												{exerciseDetails.muscles
 													.map((s) => startCase(s.toLowerCase()))
