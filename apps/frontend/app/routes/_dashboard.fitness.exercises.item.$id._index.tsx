@@ -25,6 +25,7 @@ import {
 	rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import Body from "@mjcdev/react-body-highlighter";
 import { notifications } from "@mantine/notifications";
 import {
 	EntityLot,
@@ -147,6 +148,10 @@ export default function Page() {
 		updatePreferencesModalOpened,
 		{ open: openUpdatePreferencesModal, close: closeUpdatePreferencesModal },
 	] = useDisclosure(false);
+	const [
+		musclesModalOpened,
+		{ open: openMusclesModal, close: closeMusclesModal },
+	] = useDisclosure(false);
 	const [changingExerciseSettings, setChangingExerciseSettings] = useState({
 		isChanged: false,
 		value: userExerciseDetails?.details?.exerciseExtraInformation?.settings || {
@@ -264,6 +269,22 @@ export default function Page() {
 						Save settings
 					</Button>
 				</Stack>
+			</Modal>
+			<Modal
+				centered
+				size="lg"
+				title="Muscles"
+				opened={musclesModalOpened}
+				onClose={closeMusclesModal}
+			>
+				<Body
+					side="front"
+					gender="female"
+					data={[
+						{ slug: "biceps", intensity: 1 },
+						{ slug: "chest", intensity: 1, side: "left" },
+					]}
+				/>
 			</Modal>
 			<Container size="xs" px="lg">
 				<Stack>
@@ -387,12 +408,7 @@ export default function Page() {
 									<>
 										<Divider />
 										<Group wrap="nowrap">
-											<Anchor
-												fz="sm"
-												onClick={() => {
-													console.log("Muscles clicked");
-												}}
-											>
+											<Anchor fz="sm" onClick={openMusclesModal}>
 												Muscles
 											</Anchor>
 											<Text fz="sm">
