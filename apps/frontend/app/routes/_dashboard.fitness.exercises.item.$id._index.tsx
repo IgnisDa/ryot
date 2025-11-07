@@ -26,10 +26,14 @@ import {
 	rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import Body from "@mjcdev/react-body-highlighter";
+import Body, {
+	type ExtendedBodyPart,
+	type Slug,
+} from "@mjcdev/react-body-highlighter";
 import { notifications } from "@mantine/notifications";
 import {
 	EntityLot,
+	ExerciseMuscle,
 	ExerciseSource,
 	UpdateUserExerciseSettingsDocument,
 	WorkoutSetPersonalBest,
@@ -115,6 +119,30 @@ export const meta = () => {
 	return [{ title: "Exercise Details | Ryot" }];
 };
 
+const mapMuscleToBodyPart = (muscle: ExerciseMuscle): Slug | null => {
+	const muscleMap: Record<ExerciseMuscle, Slug | null> = {
+		[ExerciseMuscle.Abdominals]: "abs",
+		[ExerciseMuscle.Abductors]: null,
+		[ExerciseMuscle.Adductors]: "adductors",
+		[ExerciseMuscle.Biceps]: "biceps",
+		[ExerciseMuscle.Calves]: "calves",
+		[ExerciseMuscle.Chest]: "chest",
+		[ExerciseMuscle.Forearms]: "forearm",
+		[ExerciseMuscle.Glutes]: "gluteal",
+		[ExerciseMuscle.Hamstrings]: "hamstring",
+		[ExerciseMuscle.Lats]: null,
+		[ExerciseMuscle.LowerBack]: "lower-back",
+		[ExerciseMuscle.MiddleBack]: "upper-back",
+		[ExerciseMuscle.Neck]: "neck",
+		[ExerciseMuscle.Quadriceps]: "quadriceps",
+		[ExerciseMuscle.Shoulders]: "deltoids",
+		[ExerciseMuscle.Traps]: "trapezius",
+		[ExerciseMuscle.Triceps]: "triceps",
+	};
+
+	return muscleMap[muscle];
+};
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
@@ -187,6 +215,16 @@ export default function Page() {
 			(lm) => lm.lot === exerciseDetails?.lot,
 		)?.bests || [];
 	const images = useExerciseImages(exerciseDetails);
+
+	const bodyPartsData: ExtendedBodyPart[] =
+		exerciseDetails?.muscles
+			?.map((muscle) => {
+				const bodyPart = mapMuscleToBodyPart(muscle);
+				return bodyPart ? { slug: bodyPart, intensity: 1 } : null;
+			})
+			.filter(
+				(part): part is { slug: Slug; intensity: number } => part !== null,
+			) || [];
 
 	if (!exerciseDetails || !userExerciseDetails) {
 		return (
@@ -279,14 +317,7 @@ export default function Page() {
 				onClose={closeMusclesModal}
 			>
 				<Center>
-					<Body
-						side="front"
-						gender="female"
-						data={[
-							{ slug: "biceps", intensity: 1 },
-							{ slug: "chest", intensity: 1, side: "left" },
-						]}
-					/>
+					<Body side="front" gender="female" data={bodyPartsData} />
 				</Center>
 			</Modal>
 			<Container size="xs" px="lg">
