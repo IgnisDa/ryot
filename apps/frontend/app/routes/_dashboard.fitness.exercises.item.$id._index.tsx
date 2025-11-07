@@ -648,10 +648,10 @@ export default function Page() {
 				{currentWorkout && isFitnessActionActive ? (
 					<Affix position={{ bottom: rem(40), right: rem(30) }}>
 						<ActionIcon
+							size="xl"
+							radius="xl"
 							color="blue"
 							variant="light"
-							radius="xl"
-							size="xl"
 							onClick={async () => {
 								await addExerciseToCurrentWorkout(
 									navigate,
