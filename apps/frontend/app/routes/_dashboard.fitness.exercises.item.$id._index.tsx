@@ -355,29 +355,29 @@ export default function Page() {
 									) : null}
 									{exerciseNumTimesInteracted > 0 ? (
 										<DisplayData
+											noCasing
 											name="Times done"
 											data={`${exerciseNumTimesInteracted} times`}
-											noCasing
 										/>
 									) : null}
 									{(userExerciseDetails.history?.length || 0) > 0 ? (
 										<>
 											{userExerciseDetails.details?.createdOn ? (
 												<DisplayData
+													noCasing
 													name="First done on"
 													data={dayjsLib(
 														userExerciseDetails.details.createdOn,
 													).format("ll")}
-													noCasing
 												/>
 											) : null}
 											{userExerciseDetails.details?.lastUpdatedOn ? (
 												<DisplayData
+													noCasing
 													name="Last done on"
 													data={dayjsLib(
 														userExerciseDetails.details.lastUpdatedOn,
 													).format("ll")}
-													noCasing
 												/>
 											) : null}
 										</>
