@@ -325,37 +325,41 @@ export default function Page() {
 					<Group justify="center" gap="lg">
 						<Group gap="xs">
 							<Text size="sm">Side:</Text>
-							<Button
-								size="xs"
-								onClick={() => setBodyViewSide("front")}
-								variant={bodyViewSide === "front" ? "filled" : "outline"}
-							>
-								Front
-							</Button>
-							<Button
-								size="xs"
-								onClick={() => setBodyViewSide("back")}
-								variant={bodyViewSide === "back" ? "filled" : "outline"}
-							>
-								Back
-							</Button>
+							<Button.Group>
+								<Button
+									size="xs"
+									onClick={() => setBodyViewSide("front")}
+									variant={bodyViewSide === "front" ? "filled" : "outline"}
+								>
+									Front
+								</Button>
+								<Button
+									size="xs"
+									onClick={() => setBodyViewSide("back")}
+									variant={bodyViewSide === "back" ? "filled" : "outline"}
+								>
+									Back
+								</Button>
+							</Button.Group>
 						</Group>
 						<Group gap="xs">
 							<Text size="sm">Gender:</Text>
-							<Button
-								size="xs"
-								onClick={() => setBodyViewGender("male")}
-								variant={bodyViewGender === "male" ? "filled" : "outline"}
-							>
-								Male
-							</Button>
-							<Button
-								size="xs"
-								onClick={() => setBodyViewGender("female")}
-								variant={bodyViewGender === "female" ? "filled" : "outline"}
-							>
-								Female
-							</Button>
+							<Button.Group>
+								<Button
+									size="xs"
+									onClick={() => setBodyViewGender("male")}
+									variant={bodyViewGender === "male" ? "filled" : "outline"}
+								>
+									Male
+								</Button>
+								<Button
+									size="xs"
+									onClick={() => setBodyViewGender("female")}
+									variant={bodyViewGender === "female" ? "filled" : "outline"}
+								>
+									Female
+								</Button>
+							</Button.Group>
 						</Group>
 					</Group>
 					<Center>
