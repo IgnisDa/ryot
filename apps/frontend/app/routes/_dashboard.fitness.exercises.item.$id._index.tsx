@@ -311,7 +311,6 @@ export default function Page() {
 			</Modal>
 			<Modal
 				centered
-				size="lg"
 				title="Muscles"
 				opened={musclesModalOpened}
 				onClose={closeMusclesModal}
