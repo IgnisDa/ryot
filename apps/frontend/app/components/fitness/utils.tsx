@@ -104,7 +104,6 @@ export const DisplaySetStatistics = (props: {
 
 export const mapMuscleToBodyPart = (muscle: ExerciseMuscle) => {
 	const muscleMap: Record<ExerciseMuscle, Slug | null> = {
-		[ExerciseMuscle.Lats]: null,
 		[ExerciseMuscle.Neck]: "neck",
 		[ExerciseMuscle.Chest]: "chest",
 		[ExerciseMuscle.Abductors]: null,
@@ -114,6 +113,7 @@ export const mapMuscleToBodyPart = (muscle: ExerciseMuscle) => {
 		[ExerciseMuscle.Glutes]: "gluteal",
 		[ExerciseMuscle.Traps]: "trapezius",
 		[ExerciseMuscle.Triceps]: "triceps",
+		[ExerciseMuscle.Lats]: "upper-back",
 		[ExerciseMuscle.Forearms]: "forearm",
 		[ExerciseMuscle.Shoulders]: "deltoids",
 		[ExerciseMuscle.Adductors]: "adductors",
