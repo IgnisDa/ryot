@@ -11,21 +11,18 @@ import {
 	Group,
 	Image,
 	List,
-	Modal,
-	NumberInput,
 	Paper,
 	ScrollArea,
 	Select,
 	SimpleGrid,
 	Stack,
-	Switch,
 	Tabs,
 	Text,
 	Title,
 	rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
+import type { ExtendedBodyPart } from "@mjcdev/react-body-highlighter";
 import {
 	EntityLot,
 	ExerciseSource,
@@ -34,17 +31,14 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
-	isNumber,
 	parseParameters,
 	parseSearchQuery,
-	snakeCase,
 	sortBy,
 	startCase,
 } from "@ryot/ts-utils";
 import {
 	IconChartPie,
 	IconCheck,
-	IconExternalLink,
 	IconMessageCircle2,
 } from "@tabler/icons-react";
 import {
@@ -54,7 +48,6 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
-import { produce } from "immer";
 import { Fragment, useState } from "react";
 import { Link, useLoaderData, useNavigate } from "react-router";
 import { Virtuoso } from "react-virtuoso";
@@ -65,10 +58,20 @@ import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { DisplayCollectionToEntity, SkeletonLoader } from "~/components/common";
 import { ReviewItemDisplay } from "~/components/common/review";
-import { ExerciseHistory } from "~/components/fitness/components";
+import {
+	ExerciseHistory,
+	ExerciseMusclesModal,
+	ExerciseUpdatePreferencesModal,
+} from "~/components/fitness/components";
+import {
+	DisplayData,
+	DisplayLifetimeStatistic,
+	DisplayPersonalBest,
+} from "~/components/fitness/exercise-display-components";
 import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
+	mapMuscleToBodyPart,
 } from "~/components/fitness/utils";
 import { MediaScrollArea } from "~/components/media/base-display";
 import { dayjsLib, getDateFromTimeSpan } from "~/lib/shared/date-utils";
@@ -80,7 +83,6 @@ import {
 	useUserExerciseDetails,
 	useUserPreferences,
 	useUserUnitSystem,
-	useUserWorkoutDetails,
 } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
@@ -147,6 +149,17 @@ export default function Page() {
 		updatePreferencesModalOpened,
 		{ open: openUpdatePreferencesModal, close: closeUpdatePreferencesModal },
 	] = useDisclosure(false);
+	const [
+		musclesModalOpened,
+		{ open: openMusclesModal, close: closeMusclesModal },
+	] = useDisclosure(false);
+	const [bodyViewSide, setBodyViewSide] = useLocalStorage<"front" | "back">(
+		"ExerciseBodyViewSide",
+		"front",
+	);
+	const [bodyViewGender, setBodyViewGender] = useLocalStorage<
+		"male" | "female"
+	>("ExerciseBodyViewGender", "female");
 	const [changingExerciseSettings, setChangingExerciseSettings] = useState({
 		isChanged: false,
 		value: userExerciseDetails?.details?.exerciseExtraInformation?.settings || {
@@ -182,6 +195,14 @@ export default function Page() {
 		)?.bests || [];
 	const images = useExerciseImages(exerciseDetails);
 
+	const bodyPartsData: ExtendedBodyPart[] =
+		exerciseDetails?.muscles
+			?.map((muscle) => {
+				const bodyPart = mapMuscleToBodyPart(muscle);
+				return bodyPart ? { slug: bodyPart } : null;
+			})
+			.filter((part) => part !== null) || [];
+
 	if (!exerciseDetails || !userExerciseDetails) {
 		return (
 			<Container size="xs" px="lg">
@@ -192,79 +213,23 @@ export default function Page() {
 
 	return (
 		<>
-			<Modal
-				centered
-				withCloseButton={false}
+			<ExerciseUpdatePreferencesModal
 				opened={updatePreferencesModalOpened}
-				onClose={() => closeUpdatePreferencesModal()}
-			>
-				<Stack>
-					<Switch
-						label="Exclude from analytics"
-						defaultChecked={
-							userExerciseDetails.details?.exerciseExtraInformation?.settings
-								.excludeFromAnalytics
-						}
-						onChange={(ev) => {
-							setChangingExerciseSettings(
-								produce(changingExerciseSettings, (draft) => {
-									draft.isChanged = true;
-									draft.value.excludeFromAnalytics = ev.currentTarget.checked;
-								}),
-							);
-						}}
-					/>
-					<Text size="sm">
-						When a new set is added, rest timers will be added automatically
-						according to the settings below.
-						<Text size="xs" c="dimmed" span>
-							{" "}
-							Default rest timer durations for all exercises can be changed in
-							the fitness preferences.
-						</Text>
-					</Text>
-					<SimpleGrid cols={2}>
-						{(["normal", "warmup", "drop", "failure"] as const).map((name) => {
-							const value =
-								userExerciseDetails.details?.exerciseExtraInformation?.settings
-									.setRestTimers[name];
-							return (
-								<NumberInput
-									suffix="s"
-									key={name}
-									label={changeCase(snakeCase(name))}
-									defaultValue={isNumber(value) ? value : undefined}
-									onChange={(val) => {
-										if (isNumber(val))
-											setChangingExerciseSettings(
-												produce(changingExerciseSettings, (draft) => {
-													draft.isChanged = true;
-													draft.value.setRestTimers[name] = val;
-												}),
-											);
-									}}
-								/>
-							);
-						})}
-					</SimpleGrid>
-					<Button
-						type="submit"
-						disabled={!changingExerciseSettings.isChanged}
-						loading={updateUserExerciseSettingsMutation.isPending}
-						onClick={async () => {
-							await updateUserExerciseSettingsMutation.mutateAsync();
-							notifications.show({
-								color: "green",
-								title: "Settings updated",
-								message: "Settings for the exercise have been updated.",
-							});
-							closeUpdatePreferencesModal();
-						}}
-					>
-						Save settings
-					</Button>
-				</Stack>
-			</Modal>
+				onClose={closeUpdatePreferencesModal}
+				userExerciseDetails={userExerciseDetails}
+				changingExerciseSettings={changingExerciseSettings}
+				setChangingExerciseSettings={setChangingExerciseSettings}
+				updateUserExerciseSettingsMutation={updateUserExerciseSettingsMutation}
+			/>
+			<ExerciseMusclesModal
+				opened={musclesModalOpened}
+				onClose={closeMusclesModal}
+				bodyViewSide={bodyViewSide}
+				setBodyViewSide={setBodyViewSide}
+				bodyViewGender={bodyViewGender}
+				setBodyViewGender={setBodyViewGender}
+				bodyPartsData={bodyPartsData}
+			/>
 			<Container size="xs" px="lg">
 				<Stack>
 					<Title id="exercise-title">{exerciseDetails.name}</Title>
@@ -355,29 +320,29 @@ export default function Page() {
 									) : null}
 									{exerciseNumTimesInteracted > 0 ? (
 										<DisplayData
+											noCasing
 											name="Times done"
 											data={`${exerciseNumTimesInteracted} times`}
-											noCasing
 										/>
 									) : null}
 									{(userExerciseDetails.history?.length || 0) > 0 ? (
 										<>
 											{userExerciseDetails.details?.createdOn ? (
 												<DisplayData
+													noCasing
 													name="First done on"
 													data={dayjsLib(
 														userExerciseDetails.details.createdOn,
 													).format("ll")}
-													noCasing
 												/>
 											) : null}
 											{userExerciseDetails.details?.lastUpdatedOn ? (
 												<DisplayData
+													noCasing
 													name="Last done on"
 													data={dayjsLib(
 														userExerciseDetails.details.lastUpdatedOn,
 													).format("ll")}
-													noCasing
 												/>
 											) : null}
 										</>
@@ -387,9 +352,9 @@ export default function Page() {
 									<>
 										<Divider />
 										<Group wrap="nowrap">
-											<Text c="dimmed" fz="sm">
+											<Anchor fz="sm" onClick={openMusclesModal}>
 												Muscles
-											</Text>
+											</Anchor>
 											<Text fz="sm">
 												{exerciseDetails.muscles
 													.map((s) => startCase(s.toLowerCase()))
@@ -648,10 +613,10 @@ export default function Page() {
 				{currentWorkout && isFitnessActionActive ? (
 					<Affix position={{ bottom: rem(40), right: rem(30) }}>
 						<ActionIcon
+							size="xl"
+							radius="xl"
 							color="blue"
 							variant="light"
-							radius="xl"
-							size="xl"
 							onClick={async () => {
 								await addExerciseToCurrentWorkout(
 									navigate,
@@ -675,88 +640,3 @@ export default function Page() {
 		</>
 	);
 }
-
-const DisplayData = (props: {
-	name: string;
-	data?: string | null;
-	noCasing?: boolean;
-}) => {
-	return (
-		<Box>
-			<Text ta="center" c="dimmed" tt="capitalize" fz="xs">
-				{startCase(props.name)}
-			</Text>
-			<Text ta="center" fz={{ base: "sm", md: "md" }}>
-				{props.noCasing ? props.data : startCase(props.data?.toLowerCase())}
-			</Text>
-		</Box>
-	);
-};
-
-const DisplayLifetimeStatistic = (props: {
-	val: string | number;
-	stat: string;
-}) => {
-	return Number.parseFloat(props.val.toString()) !== 0 ? (
-		<Flex mt={6} align="center" justify="space-between">
-			<Text size="sm">Total {props.stat}</Text>
-			<Text size="sm">{props.val}</Text>
-		</Flex>
-	) : null;
-};
-
-const DisplayPersonalBest = (props: {
-	set: { workoutId: string; exerciseIdx: number; setIdx: number };
-	personalBestLot: WorkoutSetPersonalBest;
-}) => {
-	const unitSystem = useUserUnitSystem();
-	const { data } = useUserWorkoutDetails(props.set.workoutId);
-	const set =
-		data?.details.information.exercises[props.set.exerciseIdx].sets[
-			props.set.setIdx
-		];
-	if (!set) return null;
-
-	return (
-		<Group
-			justify="space-between"
-			key={`${props.set.workoutId}-${props.set.setIdx}`}
-		>
-			<Text size="sm">
-				{match(props.personalBestLot)
-					.with(WorkoutSetPersonalBest.OneRm, () =>
-						Number(set.statistic.oneRm).toFixed(2),
-					)
-					.with(WorkoutSetPersonalBest.Reps, () => set.statistic.reps)
-					.with(
-						WorkoutSetPersonalBest.Time,
-						() => `${set.statistic.duration} min`,
-					)
-					.with(WorkoutSetPersonalBest.Volume, () =>
-						displayWeightWithUnit(unitSystem, set.statistic.volume),
-					)
-					.with(WorkoutSetPersonalBest.Weight, () =>
-						displayWeightWithUnit(unitSystem, set.statistic.weight),
-					)
-					.with(WorkoutSetPersonalBest.Pace, () => `${set.statistic.pace}/min`)
-					.with(WorkoutSetPersonalBest.Distance, () =>
-						displayDistanceWithUnit(unitSystem, set.statistic.distance),
-					)
-					.exhaustive()}
-			</Text>
-			<Group>
-				<Text size="sm">{dayjsLib(data.details.endTime).format("ll")}</Text>
-				<Anchor
-					component={Link}
-					to={$path("/fitness/:entity/:id", {
-						entity: "workouts",
-						id: props.set.workoutId,
-					})}
-					fw="bold"
-				>
-					<IconExternalLink size={16} />
-				</Anchor>
-			</Group>
-		</Group>
-	);
-};
