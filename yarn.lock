@@ -6850,6 +6850,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mjcdev/react-body-highlighter@npm:^0.0.4":
+  version: 0.0.4
+  resolution: "@mjcdev/react-body-highlighter@npm:0.0.4"
+  dependencies:
+    ramda: "npm:^0.30.1"
+  peerDependencies:
+    react: "*"
+  checksum: 10/699944ea8ae4f23827ead26e6bc20683930d60ece5a090d88f08e2f12a7ec2a6e0bd55f2d151c0335c4a9322f97a4f41361f59801ade1ab7000ad9c5b7f0c602
+  languageName: node
+  linkType: hard
+
 "@napi-rs/wasm-runtime@npm:^1.0.7":
   version: 1.0.7
   resolution: "@napi-rs/wasm-runtime@npm:1.0.7"
@@ -8640,6 +8651,7 @@ __metadata:
     "@mantine/modals": "npm:8.3.6"
     "@mantine/notifications": "npm:8.3.6"
     "@mjackson/form-data-parser": "npm:0.9.1"
+    "@mjcdev/react-body-highlighter": "npm:^0.0.4"
     "@react-router/dev": "npm:7.9.5"
     "@react-router/fs-routes": "npm:7.9.5"
     "@react-router/node": "npm:7.9.5"
@@ -19661,6 +19673,13 @@ __metadata:
   version: 4.0.3
   resolution: "raf-schd@npm:4.0.3"
   checksum: 10/45514041c5ad31fa96aef3bb3c572a843b92da2f2cd1cb4a47c9ad58e48761d3a4126e18daa32b2bfa0bc2551a42d8f324a0e40e536cb656969929602b4e8b58
+  languageName: node
+  linkType: hard
+
+"ramda@npm:^0.30.1":
+  version: 0.30.1
+  resolution: "ramda@npm:0.30.1"
+  checksum: 10/f3e1a7bc11f3a113edb3bb4764c2c22088c5896594934c01cf1980184d00f1d5a7af82761a3389419e2d51542ad2121ff44e718f40792d167e2846bba79a4c6d
   languageName: node
   linkType: hard
 
