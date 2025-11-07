@@ -6850,7 +6850,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mjcdev/react-body-highlighter@npm:^0.0.4":
+"@mjcdev/react-body-highlighter@npm:0.0.4":
   version: 0.0.4
   resolution: "@mjcdev/react-body-highlighter@npm:0.0.4"
   dependencies:
@@ -8651,7 +8651,7 @@ __metadata:
     "@mantine/modals": "npm:8.3.6"
     "@mantine/notifications": "npm:8.3.6"
     "@mjackson/form-data-parser": "npm:0.9.1"
-    "@mjcdev/react-body-highlighter": "npm:^0.0.4"
+    "@mjcdev/react-body-highlighter": "npm:0.0.4"
     "@react-router/dev": "npm:7.9.5"
     "@react-router/fs-routes": "npm:7.9.5"
     "@react-router/node": "npm:7.9.5"

@@ -39,7 +39,7 @@
 		"@mantine/modals": "8.3.6",
 		"@mantine/notifications": "8.3.6",
 		"@mjackson/form-data-parser": "0.9.1",
-		"@mjcdev/react-body-highlighter": "^0.0.4",
+		"@mjcdev/react-body-highlighter": "0.0.4",
 		"@react-router/fs-routes": "7.9.5",
 		"@react-router/node": "7.9.5",
 		"@react-router/serve": "7.9.5",
