@@ -5,6 +5,7 @@ import {
 	Anchor,
 	Box,
 	Button,
+	Center,
 	Container,
 	Divider,
 	Flex,
@@ -277,14 +278,16 @@ export default function Page() {
 				opened={musclesModalOpened}
 				onClose={closeMusclesModal}
 			>
-				<Body
-					side="front"
-					gender="female"
-					data={[
-						{ slug: "biceps", intensity: 1 },
-						{ slug: "chest", intensity: 1, side: "left" },
-					]}
-				/>
+				<Center>
+					<Body
+						side="front"
+						gender="female"
+						data={[
+							{ slug: "biceps", intensity: 1 },
+							{ slug: "chest", intensity: 1, side: "left" },
+						]}
+					/>
+				</Center>
 			</Modal>
 			<Container size="xs" px="lg">
 				<Stack>
