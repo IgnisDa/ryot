@@ -121,23 +121,23 @@ export const meta = () => {
 
 const mapMuscleToBodyPart = (muscle: ExerciseMuscle): Slug | null => {
 	const muscleMap: Record<ExerciseMuscle, Slug | null> = {
-		[ExerciseMuscle.Abdominals]: "abs",
+		[ExerciseMuscle.Lats]: null,
+		[ExerciseMuscle.Neck]: "neck",
+		[ExerciseMuscle.Chest]: "chest",
 		[ExerciseMuscle.Abductors]: null,
-		[ExerciseMuscle.Adductors]: "adductors",
 		[ExerciseMuscle.Biceps]: "biceps",
 		[ExerciseMuscle.Calves]: "calves",
-		[ExerciseMuscle.Chest]: "chest",
-		[ExerciseMuscle.Forearms]: "forearm",
+		[ExerciseMuscle.Abdominals]: "abs",
 		[ExerciseMuscle.Glutes]: "gluteal",
-		[ExerciseMuscle.Hamstrings]: "hamstring",
-		[ExerciseMuscle.Lats]: null,
-		[ExerciseMuscle.LowerBack]: "lower-back",
-		[ExerciseMuscle.MiddleBack]: "upper-back",
-		[ExerciseMuscle.Neck]: "neck",
-		[ExerciseMuscle.Quadriceps]: "quadriceps",
-		[ExerciseMuscle.Shoulders]: "deltoids",
 		[ExerciseMuscle.Traps]: "trapezius",
 		[ExerciseMuscle.Triceps]: "triceps",
+		[ExerciseMuscle.Forearms]: "forearm",
+		[ExerciseMuscle.Shoulders]: "deltoids",
+		[ExerciseMuscle.Adductors]: "adductors",
+		[ExerciseMuscle.Hamstrings]: "hamstring",
+		[ExerciseMuscle.LowerBack]: "lower-back",
+		[ExerciseMuscle.MiddleBack]: "upper-back",
+		[ExerciseMuscle.Quadriceps]: "quadriceps",
 	};
 
 	return muscleMap[muscle];
