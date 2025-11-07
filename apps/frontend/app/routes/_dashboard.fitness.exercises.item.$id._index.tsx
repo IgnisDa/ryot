@@ -181,6 +181,13 @@ export default function Page() {
 		musclesModalOpened,
 		{ open: openMusclesModal, close: closeMusclesModal },
 	] = useDisclosure(false);
+	const [bodyViewSide, setBodyViewSide] = useLocalStorage<"front" | "back">(
+		"ExerciseBodyViewSide",
+		"front",
+	);
+	const [bodyViewGender, setBodyViewGender] = useLocalStorage<
+		"male" | "female"
+	>("ExerciseBodyViewGender", "female");
 	const [changingExerciseSettings, setChangingExerciseSettings] = useState({
 		isChanged: false,
 		value: userExerciseDetails?.details?.exerciseExtraInformation?.settings || {
@@ -311,13 +318,60 @@ export default function Page() {
 			</Modal>
 			<Modal
 				centered
+				size="lg"
 				title="Muscles"
 				opened={musclesModalOpened}
 				onClose={closeMusclesModal}
 			>
-				<Center>
-					<Body side="front" gender="female" data={bodyPartsData} />
-				</Center>
+				<Stack>
+					<Group justify="center" gap="lg">
+						<Group gap="xs">
+							<Text size="sm" fw={500}>
+								Side:
+							</Text>
+							<Button
+								size="xs"
+								onClick={() => setBodyViewSide("front")}
+								variant={bodyViewSide === "front" ? "filled" : "outline"}
+							>
+								Front
+							</Button>
+							<Button
+								size="xs"
+								onClick={() => setBodyViewSide("back")}
+								variant={bodyViewSide === "back" ? "filled" : "outline"}
+							>
+								Back
+							</Button>
+						</Group>
+						<Group gap="xs">
+							<Text size="sm" fw={500}>
+								Gender:
+							</Text>
+							<Button
+								size="xs"
+								onClick={() => setBodyViewGender("male")}
+								variant={bodyViewGender === "male" ? "filled" : "outline"}
+							>
+								Male
+							</Button>
+							<Button
+								size="xs"
+								onClick={() => setBodyViewGender("female")}
+								variant={bodyViewGender === "female" ? "filled" : "outline"}
+							>
+								Female
+							</Button>
+						</Group>
+					</Group>
+					<Center>
+						<Body
+							side={bodyViewSide}
+							data={bodyPartsData}
+							gender={bodyViewGender}
+						/>
+					</Center>
+				</Stack>
 			</Modal>
 			<Container size="xs" px="lg">
 				<Stack>
