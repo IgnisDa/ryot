@@ -227,11 +227,9 @@ export default function Page() {
 		exerciseDetails?.muscles
 			?.map((muscle) => {
 				const bodyPart = mapMuscleToBodyPart(muscle);
-				return bodyPart ? { slug: bodyPart, intensity: 1 } : null;
+				return bodyPart ? { slug: bodyPart } : null;
 			})
-			.filter(
-				(part): part is { slug: Slug; intensity: number } => part !== null,
-			) || [];
+			.filter((part) => part !== null) || [];
 
 	if (!exerciseDetails || !userExerciseDetails) {
 		return (
