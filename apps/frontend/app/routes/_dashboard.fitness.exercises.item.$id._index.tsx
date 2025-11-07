@@ -324,9 +324,7 @@ export default function Page() {
 				<Stack>
 					<Group justify="center" gap="lg">
 						<Group gap="xs">
-							<Text size="sm" fw={500}>
-								Side:
-							</Text>
+							<Text size="sm">Side:</Text>
 							<Button
 								size="xs"
 								onClick={() => setBodyViewSide("front")}
@@ -343,9 +341,7 @@ export default function Page() {
 							</Button>
 						</Group>
 						<Group gap="xs">
-							<Text size="sm" fw={500}>
-								Gender:
-							</Text>
+							<Text size="sm">Gender:</Text>
 							<Button
 								size="xs"
 								onClick={() => setBodyViewGender("male")}
