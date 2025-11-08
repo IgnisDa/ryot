@@ -58,6 +58,11 @@ const fields = {
 		"Interval phrase used to poll enabled yank integrations",
 		{ default: "every 5 minutes" },
 	),
+	builtinExercisePreloadLimit: intField(
+		"BUILTIN_EXERCISE_PRELOAD_LIMIT",
+		"Maximum number of built-in exercise entities to preload",
+		{ default: 873 },
+	),
 	timeoutMs: intField(
 		"SANDBOX_TIMEOUT_MS",
 		"Maximum execution time for a sandbox job in milliseconds",
@@ -244,6 +249,7 @@ export const systemConfigDefinition = group(
 		timezone: fields.timezone.config,
 		redisUrl: fields.redisUrl.config,
 		scheduler: schedulerGroup.config,
+		builtinExercisePreloadLimit: fields.builtinExercisePreloadLimit.config,
 		fileStorage: fileStorageGroup.config,
 		frontendUrl: fields.frontendUrl.config,
 		databaseUrl: fields.databaseUrl.config,
@@ -259,6 +265,7 @@ export const systemConfigDefinition = group(
 		timezone: fields.timezone.meta,
 		redisUrl: fields.redisUrl.meta,
 		scheduler: schedulerGroup.meta,
+		builtinExercisePreloadLimit: fields.builtinExercisePreloadLimit.meta,
 		fileStorage: fileStorageGroup.meta,
 		frontendUrl: fields.frontendUrl.meta,
 		databaseUrl: fields.databaseUrl.meta,
