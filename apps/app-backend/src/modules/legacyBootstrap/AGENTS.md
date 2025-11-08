@@ -20,17 +20,14 @@ TypeScript backend (`apps/app-backend`) during startup.
 
 ## Ignored For Now
 
-- 2FA payloads.
-- OIDC identities.
-- OAuth redirect URL (V1 used `{frontend_url}/api/auth`; V2 uses Better Auth's default `/api/auth/oauth2/callback/:providerId`).
+- OAuth redirect URL (V1 used `{frontend_url}/api/auth`; V2 uses Better Auth's default `/api/auth/oauth2/callback/oidc`).
 - Sessions.
-- `USERS_TOKEN_VALID_FOR_DAYS`.
+- `USERS_TOKEN_VALID_FOR_DAYS`: intentionally not ported into the V2 auth stack. Better Auth owns session lifetime separately; legacy bootstrap must not emulate the V1 token-duration knob.
 - `extra_information`.
 - `is_disabled`.
 - Legacy admin `lot`.
-- Any non-user V1 tables.
-
-`USERS_TOKEN_VALID_FOR_DAYS` is intentionally not ported into the V2 auth stack. Better Auth owns session lifetime separately; legacy bootstrap must not emulate the V1 token-duration knob.
+- 2FA payloads: reason is that the data contained in the old schema is not enough to construct valid better 2FA credentials. This means that after the migration, all users will have 2FA disabled and will need to set it up again. This is a known limitation, but given the complexity of the migration and the fact that 2FA can be easily re-enabled by users, we have decided to proceed with this approach for now.
+- OIDC identities: similar reasoning to 2FA. The old schema does not contain enough information to construct valid OIDC credentials, so all users will have OIDC disabled after the migration and will need to set it up again if they wish to use it.
 
 ## Local Testing
 
@@ -47,3 +44,5 @@ bun turbo --filter=@ryot/app-backend dev 2>&1 | tee /tmp/ryot-app-backend-dev.lo
 ```
 
 3. Inspect the logs and verify the migrated rows via MCP against the same local DB.
+
+4. You may create another database in the running Postgres instance, restore the dump into it, and inspect it with `psql`. MCP will not have access to that newly created database.
