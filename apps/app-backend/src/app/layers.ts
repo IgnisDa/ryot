@@ -15,6 +15,7 @@ import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import { BuiltinEntityImportWorkflowDefinitionsLive } from "#modules/entity-import/workflows";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EntitySchemasService } from "#modules/entity-schemas/service";
 import { EpisodeResolverRepository } from "#modules/episode-resolver/repository";
@@ -139,6 +140,7 @@ const ServicesLive = Layer.provideMerge(ServicesBaseLive, SandboxServicesLive);
 const ServiceDependenciesLive = Layer.provide(ServicesLive, ApplicationInfrastructureLive);
 
 const RuntimeLive = Layer.mergeAll(
+	BuiltinEntityImportWorkflowDefinitionsLive,
 	EventCreateWorkflowDefinitionsLive,
 	LibraryEntityImportWorkflowDefinitionsLive,
 	GlobalEntityReferencedWorkerLive,
