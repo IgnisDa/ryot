@@ -15,6 +15,26 @@ import {
 } from "./repository-helpers";
 import type { StoredEntityImage } from "./types";
 
+type SaveEntityInput = {
+	name: string;
+	entitySchemaId: EntitySchemaId;
+	image: StoredEntityImage | null;
+	properties: Record<string, unknown>;
+} & (
+	| {
+			scope: "global";
+			externalId: string;
+			populatedAt: Date | null;
+			sandboxScriptId: SandboxScriptId;
+	  }
+	| {
+			scope: "user";
+			userId: UserId;
+			externalId?: string;
+			sandboxScriptId?: SandboxScriptId;
+	  }
+);
+
 export type {
 	EntityScope,
 	EntityMergeScope,
@@ -149,34 +169,6 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					: null;
 			},
 		),
-		getEntityScopeById: Effect.fn("EntitiesRepository.getEntityScopeById")(function* (
-			entityId: EntityId,
-		) {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
-				db
-					.select({
-						entityId: schema.entity.id,
-						entityUserId: schema.entity.userId,
-						isBuiltin: schema.entitySchema.isBuiltin,
-						entitySchemaSlug: schema.entitySchema.slug,
-						entitySchemaId: schema.entity.entitySchemaId,
-					})
-					.from(schema.entity)
-					.innerJoin(schema.entitySchema, eq(schema.entity.entitySchemaId, schema.entitySchema.id))
-					.where(eq(schema.entity.id, entityId))
-					.limit(1),
-			);
-
-			return row
-				? {
-						...row,
-						entityId: EntityId.make(row.entityId),
-						entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
-						entityUserId: row.entityUserId ? UserId.make(row.entityUserId) : null,
-					}
-				: null;
-		}),
 		getByIdForUser: Effect.fn("EntitiesRepository.getByIdForUser")(function* (input: {
 			userId: UserId;
 			entityId: EntityId;
@@ -295,17 +287,10 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					: null;
 			},
 		),
-		createOrUpdateGlobalEntity: Effect.fn("EntitiesRepository.createOrUpdateGlobalEntity")(
-			function* (input: {
-				name: string;
-				externalId: string;
-				entitySchemaId: EntitySchemaId;
-				populatedAt: Date | null;
-				sandboxScriptId: SandboxScriptId;
-				image: StoredEntityImage | null;
-				properties: Record<string, unknown>;
-			}) {
-				const db = yield* CurrentDb;
+		saveEntity: Effect.fn("EntitiesRepository.saveEntity")(function* (input: SaveEntityInput) {
+			const db = yield* CurrentDb;
+
+			if (input.scope === "global") {
 				const values = {
 					userId: null,
 					name: input.name,
@@ -364,18 +349,8 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				}
 
 				return yield* toListedEntity(existing);
-			},
-		),
-		createEntity: Effect.fn("EntitiesRepository.createEntity")(function* (input: {
-			name: string;
-			userId: UserId;
-			externalId?: string;
-			entitySchemaId: EntitySchemaId;
-			image: StoredEntityImage | null;
-			sandboxScriptId?: SandboxScriptId;
-			properties: Record<string, unknown>;
-		}) {
-			const db = yield* CurrentDb;
+			}
+
 			const externalId = input.externalId;
 			const sandboxScriptId = input.sandboxScriptId;
 			const values = {

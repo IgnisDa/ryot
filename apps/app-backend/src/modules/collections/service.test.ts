@@ -18,6 +18,7 @@ import {
 	transactionLayer,
 } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { EntitiesService } from "#modules/entities/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
@@ -101,7 +102,26 @@ const makeCollectionsRepository = (overrides: Partial<CollectionsRepository> = {
 
 const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
 	makeMock<EntitiesRepository>(
-		{ _tag: "EntitiesRepository" as const, createEntity: () => Effect.die("unused") },
+		{
+			_tag: "EntitiesRepository" as const,
+			saveEntity: () => Effect.die("unused"),
+			getByIdForUser: () => Effect.die("unused"),
+			findEntitySchemaById: () => Effect.die("unused"),
+			getEntityScopeForUser: () => Effect.die("unused"),
+			getEntityMergeScopeForUser: () => Effect.die("unused"),
+			listMatchCandidatesBySchema: () => Effect.die("unused"),
+			findEntitySchemaScriptBySlug: () => Effect.die("unused"),
+			findGlobalEntityByExternalId: () => Effect.die("unused"),
+			findEntityByExternalIdForUser: () => Effect.die("unused"),
+			getEntitySchemaScopeForUser: () =>
+				Effect.succeed({
+					userId: null,
+					isBuiltin: true,
+					slug: "collection",
+					id: EntitySchemaId.make("collection-schema-id"),
+					propertiesSchema: collectionEntitySchema.propertiesSchema,
+				}),
+		},
 		overrides,
 	);
 
@@ -144,18 +164,25 @@ const makeServiceLayer = (
 		relationshipsRepository?: RelationshipsRepository;
 		relationshipSchemasRepository?: RelationshipSchemasRepository;
 	} = {},
-) =>
-	CollectionsService.Default.pipe(
+) => {
+	const entitiesRepository = options.entitiesRepository ?? makeEntitiesRepository();
+	const entitiesServiceLayer = EntitiesService.Default.pipe(
+		Layer.provide(
+			Layer.mergeAll(dbRunnerLayer, Layer.succeed(EntitiesRepository, entitiesRepository)),
+		),
+	);
+
+	return CollectionsService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
+				entitiesServiceLayer,
 				Layer.succeed(WorkflowEngine, options.workflowEngine ?? makeWorkflowEngine()),
 				Layer.succeed(
 					CollectionsRepository,
 					options.collectionsRepository ?? makeCollectionsRepository(),
 				),
-				Layer.succeed(EntitiesRepository, options.entitiesRepository ?? makeEntitiesRepository()),
 				Layer.succeed(
 					RelationshipsRepository,
 					options.relationshipsRepository ?? makeRelationshipsRepository(),
@@ -167,6 +194,7 @@ const makeServiceLayer = (
 			),
 		),
 	);
+};
 
 it.effect("rejects creating a collection with an empty name", () => {
 	const layer = makeServiceLayer();
@@ -213,7 +241,7 @@ it.effect("creates a collection with valid inputs", () => {
 
 	const layer = makeServiceLayer({
 		entitiesRepository: makeEntitiesRepository({
-			createEntity: () => {
+			saveEntity: () => {
 				created = true;
 				return Effect.succeed({
 					image: null,
@@ -222,10 +250,10 @@ it.effect("creates a collection with valid inputs", () => {
 					externalId: null,
 					name: "Favorites",
 					populatedAt: null,
-					id: EntityId.make("collection-id"),
 					sandboxScriptId: null,
-					entitySchemaId: EntitySchemaId.make("collection-schema-id"),
+					id: EntityId.make("collection-id"),
 					properties: { description: "My favorites" },
+					entitySchemaId: EntitySchemaId.make("collection-schema-id"),
 				});
 			},
 		}),
