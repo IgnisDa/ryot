@@ -1,6 +1,6 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import type { AppSchema } from "@ryot/ts-utils";
-import type { AuthType } from "~/auth";
+import type { AuthType } from "~/lib/auth";
 import {
 	resolveCustomEntityAccessError,
 	resolveCustomEntitySchemaAccess,
