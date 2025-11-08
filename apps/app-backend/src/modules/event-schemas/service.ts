@@ -56,80 +56,79 @@ export class EventSchemasService extends Effect.Service<EventSchemasService>()(
 			const runWithDb = yield* DbRunner;
 			const repository = yield* EventSchemasRepository;
 
-			return {
-				list: Effect.fn("EventSchemasService.list")(function* (
-					user: CurrentUserValue,
-					input: { entitySchemaId: EntitySchemaId },
-				) {
-					const entitySchemaId = EntitySchemaId.make(
-						yield* requireText(input.entitySchemaId, "Entity schema id is required"),
-					);
+			const list = Effect.fn("EventSchemasService.list")(function* (
+				user: CurrentUserValue,
+				input: { entitySchemaId: EntitySchemaId },
+			) {
+				const entitySchemaId = EntitySchemaId.make(
+					yield* requireText(input.entitySchemaId, "Entity schema id is required"),
+				);
 
-					const entitySchema = yield* runWithDb(
-						repository.getEntitySchemaScopeById({ entitySchemaId, userId: user.id }),
-					);
-					if (!entitySchema) {
-						return yield* notFound("Entity schema not found");
-					}
+				const entitySchema = yield* runWithDb(
+					repository.getEntitySchemaScopeById({ entitySchemaId, userId: user.id }),
+				);
+				if (!entitySchema) {
+					return yield* notFound("Entity schema not found");
+				}
 
-					return yield* runWithDb(
-						repository.listByEntitySchemaForUser({ entitySchemaId, userId: user.id }),
-					);
-				}),
-				create: Effect.fn("EventSchemasService.create")(function* (
-					user: CurrentUserValue,
-					payload: CreateEventSchemaBody,
-				) {
-					const entitySchemaId = EntitySchemaId.make(
-						yield* requireText(payload.entitySchemaId, "Entity schema id is required"),
-					);
+				return yield* runWithDb(
+					repository.listByEntitySchemaForUser({ entitySchemaId, userId: user.id }),
+				);
+			});
 
-					const entitySchema = yield* runWithDb(
-						repository.getEntitySchemaScopeById({ entitySchemaId, userId: user.id }),
-					);
-					if (!entitySchema) {
-						return yield* notFound("Entity schema not found");
-					}
-					if (entitySchema.isBuiltin) {
-						return yield* badRequest(
-							"Built-in entity schemas do not support event schema creation",
-						);
-					}
+			const create = Effect.fn("EventSchemasService.create")(function* (
+				user: CurrentUserValue,
+				payload: CreateEventSchemaBody,
+			) {
+				const entitySchemaId = EntitySchemaId.make(
+					yield* requireText(payload.entitySchemaId, "Entity schema id is required"),
+				);
 
-					const resolved = yield* resolveEventSchemaCreateInput({
-						name: payload.name,
-						slug: payload.slug,
-					});
+				const entitySchema = yield* runWithDb(
+					repository.getEntitySchemaScopeById({ entitySchemaId, userId: user.id }),
+				);
+				if (!entitySchema) {
+					return yield* notFound("Entity schema not found");
+				}
+				if (entitySchema.isBuiltin) {
+					return yield* badRequest("Built-in entity schemas do not support event schema creation");
+				}
 
-					const propertiesSchema = yield* parseLabeledPropertySchemaInput(
-						payload.propertiesSchema,
-						"Event schema properties",
-					).pipe(Effect.mapError((error) => badRequest(error.message)));
+				const resolved = yield* resolveEventSchemaCreateInput({
+					name: payload.name,
+					slug: payload.slug,
+				});
 
-					yield* validateEventSchemaSlugNotReserved(resolved.slug, entitySchema.slug);
+				const propertiesSchema = yield* parseLabeledPropertySchemaInput(
+					payload.propertiesSchema,
+					"Event schema properties",
+				).pipe(Effect.mapError((error) => badRequest(error.message)));
 
-					const existing = yield* runWithDb(
-						repository.findBySlugForUser({
-							entitySchemaId,
-							userId: user.id,
-							slug: resolved.slug,
-						}),
-					);
-					if (existing) {
-						return yield* conflict("Event schema slug already exists");
-					}
+				yield* validateEventSchemaSlugNotReserved(resolved.slug, entitySchema.slug);
 
-					return yield* runWithDb(
-						repository.createEventSchema({
-							entitySchemaId,
-							userId: user.id,
-							propertiesSchema,
-							name: resolved.name,
-							slug: resolved.slug,
-						}),
-					);
-				}),
-			};
+				const existing = yield* runWithDb(
+					repository.findBySlugForUser({
+						entitySchemaId,
+						userId: user.id,
+						slug: resolved.slug,
+					}),
+				);
+				if (existing) {
+					return yield* conflict("Event schema slug already exists");
+				}
+
+				return yield* runWithDb(
+					repository.createEventSchema({
+						entitySchemaId,
+						userId: user.id,
+						propertiesSchema,
+						name: resolved.name,
+						slug: resolved.slug,
+					}),
+				);
+			});
+
+			return { list, create };
 		}),
 	},
 ) {}

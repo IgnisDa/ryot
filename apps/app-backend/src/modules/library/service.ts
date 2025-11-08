@@ -45,69 +45,70 @@ export class LibraryImportService extends Effect.Service<LibraryImportService>()
 			const sandboxRepository = yield* SandboxRepository;
 			const jobIdSecret = Redacted.value(config.sandbox.jobIdSecret);
 
-			return {
-				import: Effect.fn("LibraryImportService.import")(function* (
-					user: CurrentUserValue,
-					payload: {
-						externalId: string;
-						scriptId: SandboxScriptId;
-						entitySchemaId: EntitySchemaId;
-					},
-				) {
-					const trimmedScriptId = trimToNull(payload.scriptId);
-					const externalId = trimToNull(payload.externalId);
-					const trimmedEntitySchemaId = trimToNull(payload.entitySchemaId);
+			const importEntity = Effect.fn("LibraryImportService.import")(function* (
+				user: CurrentUserValue,
+				payload: {
+					externalId: string;
+					scriptId: SandboxScriptId;
+					entitySchemaId: EntitySchemaId;
+				},
+			) {
+				const trimmedScriptId = trimToNull(payload.scriptId);
+				const externalId = trimToNull(payload.externalId);
+				const trimmedEntitySchemaId = trimToNull(payload.entitySchemaId);
 
-					if (!trimmedScriptId || !externalId || !trimmedEntitySchemaId) {
-						return yield* badRequest("scriptId, externalId, and entitySchemaId are required");
-					}
+				if (!trimmedScriptId || !externalId || !trimmedEntitySchemaId) {
+					return yield* badRequest("scriptId, externalId, and entitySchemaId are required");
+				}
 
-					const entitySchemaId = EntitySchemaId.make(trimmedEntitySchemaId);
-					const scriptId = SandboxScriptId.make(trimmedScriptId);
-					const script = yield* runWithDb(
-						sandboxRepository.getScriptForUser({ userId: user.id, scriptId }),
-					);
-					if (!script) {
-						return yield* notFound(sandboxScriptNotFoundError);
-					}
+				const entitySchemaId = EntitySchemaId.make(trimmedEntitySchemaId);
+				const scriptId = SandboxScriptId.make(trimmedScriptId);
+				const script = yield* runWithDb(
+					sandboxRepository.getScriptForUser({ userId: user.id, scriptId }),
+				);
+				if (!script) {
+					return yield* notFound(sandboxScriptNotFoundError);
+				}
 
-					const entitySchemaScope = yield* runWithDb(
-						repository.getEntitySchemaScopeForUser({ userId: user.id, entitySchemaId }),
-					);
-					if (!entitySchemaScope) {
-						return yield* notFound(entitySchemaNotFoundError);
-					}
+				const entitySchemaScope = yield* runWithDb(
+					repository.getEntitySchemaScopeForUser({ userId: user.id, entitySchemaId }),
+				);
+				if (!entitySchemaScope) {
+					return yield* notFound(entitySchemaNotFoundError);
+				}
 
-					const executionId = generateId();
-					yield* engine
-						.execute(LibraryEntityImportWorkflow, {
-							executionId,
-							discard: true,
-							payload: { scriptId, externalId, executionId, entitySchemaId, userId: user.id },
-						})
-						.pipe(Effect.orDie);
+				const executionId = generateId();
+				yield* engine
+					.execute(LibraryEntityImportWorkflow, {
+						executionId,
+						discard: true,
+						payload: { scriptId, externalId, executionId, entitySchemaId, userId: user.id },
+					})
+					.pipe(Effect.orDie);
 
-					return { jobId: createWorkflowJobId(jobIdSecret, executionId, user.id) };
-				}),
-				getImportResult: Effect.fn("LibraryImportService.getImportResult")(function* (
-					user: CurrentUserValue,
-					jobId: string,
-				) {
-					const resolvedJobId = trimToNull(jobId);
-					if (!resolvedJobId) {
-						return yield* notFound(importJobNotFoundError);
-					}
+				return { jobId: createWorkflowJobId(jobIdSecret, executionId, user.id) };
+			});
 
-					const executionId = resolveWorkflowExecutionId(jobIdSecret, user.id, resolvedJobId);
-					if (!executionId) {
-						return yield* notFound(importJobNotFoundError);
-					}
+			const getImportResult = Effect.fn("LibraryImportService.getImportResult")(function* (
+				user: CurrentUserValue,
+				jobId: string,
+			) {
+				const resolvedJobId = trimToNull(jobId);
+				if (!resolvedJobId) {
+					return yield* notFound(importJobNotFoundError);
+				}
 
-					return toEntityImportRunResult(
-						yield* engine.poll(LibraryEntityImportWorkflow, executionId),
-					);
-				}),
-			} satisfies LibraryImportServiceShape;
+				const executionId = resolveWorkflowExecutionId(jobIdSecret, user.id, resolvedJobId);
+				if (!executionId) {
+					return yield* notFound(importJobNotFoundError);
+				}
+
+				return toEntityImportRunResult(
+					yield* engine.poll(LibraryEntityImportWorkflow, executionId),
+				);
+			});
+
+			return { getImportResult, import: importEntity } satisfies LibraryImportServiceShape;
 		}),
 	},
 ) {}
