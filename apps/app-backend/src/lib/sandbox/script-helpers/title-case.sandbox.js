@@ -1,0 +1,8 @@
+function toTitleCase(value) {
+	const words = value
+		.toLowerCase()
+		.split(/\s+/)
+		.filter((word) => word.length > 0);
+
+	return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+}
