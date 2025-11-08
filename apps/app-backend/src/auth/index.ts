@@ -23,6 +23,8 @@ export const auth = betterAuth({
 	database: drizzleAdapter(db, { provider: "pg", schema }),
 	plugins: [
 		apiKey({
+			fallbackToDatabase: true,
+			storage: "secondary-storage",
 			enableSessionForAPIKeys: true,
 			rateLimit: {
 				maxRequests: 60,
