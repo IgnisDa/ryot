@@ -18,23 +18,33 @@ import { TranslateEntityWorkflow, translateEntityExecutionId } from "./workflows
 
 const asRecord = (value: unknown): Record<string, unknown> => (isObjectRecord(value) ? value : {});
 
-const canonicalFields = (entity: ListedEntity): TranslationFields => {
-	const description = asRecord(entity.properties).description;
-	return {
-		name: entity.name,
-		image: entity.image,
-		description: typeof description === "string" ? description : null,
-	};
+const pickTranslatable = (
+	properties: Record<string, unknown>,
+	translatableKeys: ReadonlyArray<string>,
+): Record<string, unknown> => {
+	const result: Record<string, unknown> = {};
+	for (const key of translatableKeys) {
+		if (properties[key] !== undefined) {
+			result[key] = properties[key];
+		}
+	}
+	return result;
 };
+
+const canonicalFields = (
+	entity: ListedEntity,
+	translatableKeys: ReadonlyArray<string>,
+): TranslationFields => ({
+	name: entity.name,
+	image: entity.image,
+	properties: pickTranslatable(asRecord(entity.properties), translatableKeys),
+});
 
 const withMergedFields = (entity: ListedEntity, fields: TranslationFields): ListedEntity => ({
 	...entity,
 	name: fields.name,
 	image: fields.image,
-	properties:
-		fields.description !== null
-			? { ...asRecord(entity.properties), description: fields.description }
-			: entity.properties,
+	properties: { ...asRecord(entity.properties), ...fields.properties },
 });
 
 const canonical = (entity: ListedEntity): TranslationOverlayResult => ({
@@ -109,10 +119,23 @@ export class TranslationsService extends Effect.Service<TranslationsService>()(
 					return canonical(entity);
 				}
 
-				const overlay = yield* runWithDb(
+				const overlayRow = yield* runWithDb(
 					repository.findOverlay({ entityId: entity.id, language: resolution.language }),
 				);
-				const merged = mergeTranslationOverlay({ overlay, canonical: canonicalFields(entity) });
+				const merged = mergeTranslationOverlay({
+					canonical: canonicalFields(entity, input.translatableKeys),
+					overlay:
+						overlayRow === null
+							? null
+							: {
+									name: overlayRow.name,
+									image: overlayRow.image,
+									properties: pickTranslatable(
+										asRecord(overlayRow.properties),
+										input.translatableKeys,
+									),
+								},
+				});
 
 				if (merged.status === "pending") {
 					yield* requestFill({
