@@ -7,21 +7,12 @@ const legacyMigrationsTableExistsSql = sql`
 SELECT to_regclass('public.seaql_migrations') IS NOT NULL AS "present";
 `;
 
-const legacyUserTableExistsSql = sql`
-SELECT
-	to_regclass('public.old_user') IS NOT NULL
-	OR EXISTS (
-		SELECT 1
-		FROM information_schema.columns
-		WHERE table_schema = 'public'
-			AND table_name = 'user'
-			AND column_name = 'lot'
-	)
-	AS "present";
-`;
-
 const dropLegacyMigrationsTableSql = sql`
 DROP TABLE IF EXISTS public.seaql_migrations;
+`;
+
+const dropLegacyMetadataTableSql = sql`
+DROP TABLE IF EXISTS public.metadata;
 `;
 
 const dropLegacyUserTableSql = sql`
@@ -238,18 +229,16 @@ const hasLegacyMigrationsTable = async (database: DbClient) => {
 	return result.rows[0]?.present === true;
 };
 
-const hasLegacyUserTable = async (database: DbClient) => {
-	const result = await database.execute(legacyUserTableExistsSql);
-
-	return result.rows[0]?.present === true;
-};
-
 const shouldRunLegacyBootstrap = async (database: DbClient) => {
-	return (await hasLegacyMigrationsTable(database)) || (await hasLegacyUserTable(database));
+	return hasLegacyMigrationsTable(database);
 };
 
 const dropLegacyMigrationsTable = async (database: DbClient) => {
 	await database.execute(dropLegacyMigrationsTableSql);
+};
+
+const dropLegacyMetadataTable = async (database: DbClient) => {
+	await database.execute(dropLegacyMetadataTableSql);
 };
 
 const dropLegacyUserTable = async (database: DbClient) => {
@@ -448,5 +437,6 @@ export const migrateLegacyTables = async (database: DbClient) => {
 	await database.execute(buildMetadataMigrationSql(resolvedTargets));
 	await database.execute(migrateUserTableSql);
 	await dropLegacyMigrationsTable(database);
+	await dropLegacyMetadataTable(database);
 	await dropLegacyUserTable(database);
 };
