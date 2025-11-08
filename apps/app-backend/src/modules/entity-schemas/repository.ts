@@ -93,8 +93,8 @@ const buildEntitySchemaRows = Effect.fn(function* (rows: Array<BuildEntitySchema
 export class EntitySchemasRepository extends Effect.Service<EntitySchemasRepository>()(
 	"EntitySchemasRepository",
 	{
-		sync: () => ({
-			listVisibleBySlugs: Effect.fn("EntitySchemasRepository.listVisibleBySlugs")(function* (
+		sync: () => {
+			const listVisibleBySlugs = Effect.fn("EntitySchemasRepository.listVisibleBySlugs")(function* (
 				userId: UserId,
 				slugs: readonly [string, ...string[]],
 			) {
@@ -118,8 +118,9 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 					propertiesSchema: row.propertiesSchema,
 					slug: row.slug,
 				}));
-			}),
-			listByUser: Effect.fn("EntitySchemasRepository.listByUser")(function* (input: {
+			});
+
+			const listByUser = Effect.fn("EntitySchemasRepository.listByUser")(function* (input: {
 				userId: UserId;
 				trackerId?: TrackerId;
 				slugs?: ReadonlyArray<string>;
@@ -162,8 +163,9 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 
 				const builtRows = yield* buildEntitySchemaRows(rows);
 				return builtRows.map(toListedEntitySchema);
-			}),
-			getByIdForUser: Effect.fn("EntitySchemasRepository.getByIdForUser")(function* (input: {
+			});
+
+			const getByIdForUser = Effect.fn("EntitySchemasRepository.getByIdForUser")(function* (input: {
 				userId: UserId;
 				entitySchemaId: EntitySchemaId;
 			}) {
@@ -201,8 +203,9 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 
 				const [entry] = yield* buildEntitySchemaRows(rows);
 				return entry ? toListedEntitySchema(entry) : null;
-			}),
-			findBySlug: Effect.fn("EntitySchemasRepository.findBySlug")(function* (
+			});
+
+			const findBySlug = Effect.fn("EntitySchemasRepository.findBySlug")(function* (
 				userId: UserId,
 				slug: string,
 			) {
@@ -215,8 +218,9 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 						.limit(1),
 				);
 				return row ? { id: EntitySchemaId.make(row.id) } : null;
-			}),
-			getBuiltinBySlug: Effect.fn("EntitySchemasRepository.getBuiltinBySlug")(function* (
+			});
+
+			const getBuiltinBySlug = Effect.fn("EntitySchemasRepository.getBuiltinBySlug")(function* (
 				slug: string,
 			) {
 				const db = yield* CurrentDb;
@@ -234,8 +238,9 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 						.limit(1),
 				);
 				return row ? { id: EntitySchemaId.make(row.id) } : null;
-			}),
-			createEntitySchema: Effect.fn("EntitySchemasRepository.createEntitySchema")(
+			});
+
+			const createEntitySchema = Effect.fn("EntitySchemasRepository.createEntitySchema")(
 				function* (input: {
 					icon: string;
 					name: string;
@@ -294,7 +299,16 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 						accentColor: row.accentColor,
 					};
 				},
-			),
-		}),
+			);
+
+			return {
+				listVisibleBySlugs,
+				listByUser,
+				getByIdForUser,
+				findBySlug,
+				getBuiltinBySlug,
+				createEntitySchema,
+			};
+		},
 	},
 ) {}
