@@ -1283,15 +1283,11 @@ export interface components {
         AppPropertyDefinition: components["schemas"]["AppPrimitiveProperty"] | components["schemas"]["AppArrayProperty"] | components["schemas"]["AppObjectProperty"];
         AppPrimitiveProperty: {
             /** @enum {boolean} */
-            nullable?: true;
-            /** @enum {boolean} */
             required?: true;
             /** @enum {string} */
             type: "string" | "number" | "integer" | "boolean" | "date";
         };
         AppArrayProperty: {
-            /** @enum {boolean} */
-            nullable?: true;
             /** @enum {boolean} */
             required?: true;
             /** @enum {string} */
@@ -1299,8 +1295,6 @@ export interface components {
             items: components["schemas"]["AppPropertyDefinition"];
         };
         AppObjectProperty: {
-            /** @enum {boolean} */
-            nullable?: true;
             /** @enum {boolean} */
             required?: true;
             /** @enum {string} */

@@ -33,46 +33,40 @@ describe("toAppSchema", () => {
 		});
 	});
 
-	describe("nullable modifier", () => {
-		it("adds nullable: true for nullish()", () => {
+	describe("optional/nullable modifiers", () => {
+		it("unwraps nullish() to base type", () => {
 			expect(toAppSchema(z.string().nullish())).toEqual({
 				type: "string",
-				nullable: true,
 			});
 		});
 
-		it("adds nullable: true for nullable()", () => {
+		it("unwraps nullable() to base type", () => {
 			expect(toAppSchema(z.number().nullable())).toEqual({
 				type: "number",
-				nullable: true,
 			});
 		});
 
-		it("adds nullable: true for optional()", () => {
+		it("unwraps optional() to base type", () => {
 			expect(toAppSchema(z.boolean().optional())).toEqual({
 				type: "boolean",
-				nullable: true,
 			});
 		});
 
 		it("preserves integer type with nullish", () => {
 			expect(toAppSchema(z.number().int().nullish())).toEqual({
 				type: "integer",
-				nullable: true,
 			});
 		});
 
 		it("handles nested nullable wrappers", () => {
 			expect(toAppSchema(z.string().nullable().optional())).toEqual({
 				type: "string",
-				nullable: true,
 			});
 		});
 
 		it("preserves date type with nullable", () => {
 			expect(toAppSchema(z.string().date().nullable())).toEqual({
 				type: "date",
-				nullable: true,
 			});
 		});
 	});
@@ -95,7 +89,7 @@ describe("toAppSchema", () => {
 		it("handles nullable array items", () => {
 			expect(toAppSchema(z.array(z.string().nullish()))).toEqual({
 				type: "array",
-				items: { type: "string", nullable: true },
+				items: { type: "string" },
 			});
 		});
 	});
@@ -166,18 +160,16 @@ describe("toAppSchema", () => {
 	});
 
 	describe("nullable complex types", () => {
-		it("handles nullable arrays", () => {
+		it("unwraps nullable arrays to base type", () => {
 			expect(toAppSchema(z.array(z.string()).nullable())).toEqual({
 				type: "array",
-				nullable: true,
 				items: { type: "string" },
 			});
 		});
 
-		it("handles nullable objects", () => {
+		it("unwraps nullable objects to base type", () => {
 			expect(toAppSchema(z.object({ title: z.string() }).nullable())).toEqual({
 				type: "object",
-				nullable: true,
 				properties: { title: { type: "string" } },
 			});
 		});
@@ -202,7 +194,7 @@ describe("toAppSchemaProperties", () => {
 
 			expect(toAppSchemaProperties(schema)).toEqual({
 				title: { type: "string" },
-				pages: { type: "integer", nullable: true },
+				pages: { type: "integer" },
 			});
 		});
 
@@ -254,22 +246,6 @@ describe("fromAppSchema", () => {
 		});
 	});
 
-	describe("nullable modifier", () => {
-		it("applies nullish() for nullable: true", () => {
-			const schema = fromAppSchema({ type: "string", nullable: true });
-			expect(schema.safeParse(null).success).toBeTrue();
-			expect(schema.safeParse(undefined).success).toBeTrue();
-			expect(schema.safeParse("hello").success).toBeTrue();
-		});
-
-		it("preserves integer type with nullable", () => {
-			const schema = fromAppSchema({ type: "integer", nullable: true });
-			expect(schema.safeParse(123).success).toBeTrue();
-			expect(schema.safeParse(null).success).toBeTrue();
-			expect(schema.safeParse(123.45).success).toBeFalse();
-		});
-	});
-
 	describe("array types", () => {
 		it("converts array of strings", () => {
 			const schema = fromAppSchema({
@@ -287,14 +263,6 @@ describe("fromAppSchema", () => {
 			});
 			expect(schema.safeParse([1, 2, 3]).success).toBeTrue();
 			expect(schema.safeParse([1.5, 2.5]).success).toBeFalse();
-		});
-
-		it("converts array with nullable items", () => {
-			const schema = fromAppSchema({
-				type: "array",
-				items: { type: "string", nullable: true },
-			});
-			expect(schema.safeParse(["a", null, "c"]).success).toBeTrue();
 		});
 	});
 
@@ -402,14 +370,12 @@ describe("round-trip conversions", () => {
 		expect(recreatedZodSchema.safeParse(testData).success).toBeTrue();
 	});
 
-	it("handles nullable nested properties", () => {
+	it("handles nested properties", () => {
 		const originalSchema = z.object({
-			metadata: z
-				.object({
-					source: z.string(),
-					verified: z.boolean().nullish(),
-				})
-				.nullish(),
+			metadata: z.object({
+				source: z.string(),
+				verified: z.boolean(),
+			}),
 		});
 
 		const appSchema = toAppSchemaProperties(originalSchema);
@@ -422,12 +388,9 @@ describe("round-trip conversions", () => {
 			),
 		);
 
-		const testData1 = { metadata: { source: "api", verified: true } };
-		const testData2 = { metadata: null };
+		const testData = { metadata: { source: "api", verified: true } };
 
-		expect(originalSchema.safeParse(testData1).success).toBeTrue();
-		expect(recreatedZodSchema.safeParse(testData1).success).toBeTrue();
-		expect(originalSchema.safeParse(testData2).success).toBeTrue();
-		expect(recreatedZodSchema.safeParse(testData2).success).toBeTrue();
+		expect(originalSchema.safeParse(testData).success).toBeTrue();
+		expect(recreatedZodSchema.safeParse(testData).success).toBeTrue();
 	});
 });
