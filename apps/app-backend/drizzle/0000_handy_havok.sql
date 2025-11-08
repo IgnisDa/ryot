@@ -39,23 +39,15 @@ CREATE TABLE "apikey" (
 	"rate_limit_time_window" integer DEFAULT 86400000
 );
 --> statement-breakpoint
-CREATE TABLE "app_config" (
-	"value" text,
-	"key" text PRIMARY KEY NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_by_user_id" text,
-	"updated_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "entity" (
+	"external_id" text,
 	"name" text NOT NULL,
-	"external_id" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"properties" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"user_id" text,
 	"search_vector" "tsvector" GENERATED ALWAYS AS (to_tsvector('english', name)) STORED NOT NULL,
 	"entity_schema_id" text NOT NULL,
-	"details_sandbox_script_id" text NOT NULL,
+	"details_sandbox_script_id" text,
 	"id" text PRIMARY KEY NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "entity_user_schema_script_external_id_unique" UNIQUE("user_id","external_id","entity_schema_id","details_sandbox_script_id")
@@ -68,14 +60,15 @@ CREATE TABLE "entity_schema" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
 	"user_id" text,
+	"facet_id" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "entity_schema_user_slug_unique" UNIQUE("user_id","slug")
 );
 --> statement-breakpoint
 CREATE TABLE "entity_schema_sandbox_script" (
-	"kind" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
+	"kind" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
 	"entity_schema_id" text NOT NULL,
 	"sandbox_script_id" text NOT NULL,
@@ -105,6 +98,22 @@ CREATE TABLE "event_schema" (
 	"id" text PRIMARY KEY NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "event_schema_user_entity_schema_slug_unique" UNIQUE("user_id","entity_schema_id","slug")
+);
+--> statement-breakpoint
+CREATE TABLE "facet" (
+	"icon" text,
+	"accent_color" text,
+	"description" text,
+	"slug" text NOT NULL,
+	"name" text NOT NULL,
+	"config" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"is_builtin" boolean DEFAULT false NOT NULL,
+	"mode" text DEFAULT 'generated' NOT NULL,
+	"user_id" text,
+	"id" text PRIMARY KEY NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "facet_user_slug_unique" UNIQUE("user_id","slug")
 );
 --> statement-breakpoint
 CREATE TABLE "relationship" (
@@ -161,6 +170,17 @@ CREATE TABLE "user" (
 	CONSTRAINT "user_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
+CREATE TABLE "user_facet" (
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"sort_order" integer DEFAULT 0 NOT NULL,
+	"enabled" boolean DEFAULT true NOT NULL,
+	"user_id" text NOT NULL,
+	"facet_id" text NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "user_facet_user_facet_unique" UNIQUE("user_id","facet_id")
+);
+--> statement-breakpoint
 CREATE TABLE "verification" (
 	"id" text PRIMARY KEY NOT NULL,
 	"value" text NOT NULL,
@@ -171,11 +191,11 @@ CREATE TABLE "verification" (
 );
 --> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "app_config" ADD CONSTRAINT "app_config_updated_by_user_id_user_id_fk" FOREIGN KEY ("updated_by_user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_details_sandbox_script_id_sandbox_script_id_fk" FOREIGN KEY ("details_sandbox_script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity_schema" ADD CONSTRAINT "entity_schema_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "entity_schema" ADD CONSTRAINT "entity_schema_facet_id_facet_id_fk" FOREIGN KEY ("facet_id") REFERENCES "public"."facet"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity_schema_sandbox_script" ADD CONSTRAINT "entity_schema_sandbox_script_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity_schema_sandbox_script" ADD CONSTRAINT "entity_schema_sandbox_script_sandbox_script_id_sandbox_script_id_fk" FOREIGN KEY ("sandbox_script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_session_entity_id_entity_id_fk" FOREIGN KEY ("session_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -184,23 +204,26 @@ ALTER TABLE "event" ADD CONSTRAINT "event_event_schema_id_event_schema_id_fk" FO
 ALTER TABLE "event" ADD CONSTRAINT "event_entity_id_entity_id_fk" FOREIGN KEY ("entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event_schema" ADD CONSTRAINT "event_schema_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event_schema" ADD CONSTRAINT "event_schema_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "facet" ADD CONSTRAINT "facet_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_source_entity_id_entity_id_fk" FOREIGN KEY ("source_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_target_entity_id_entity_id_fk" FOREIGN KEY ("target_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_facet" ADD CONSTRAINT "user_facet_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_facet" ADD CONSTRAINT "user_facet_facet_id_facet_id_fk" FOREIGN KEY ("facet_id") REFERENCES "public"."facet"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "account_userId_idx" ON "account" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "apikey_configId_idx" ON "apikey" USING btree ("config_id");--> statement-breakpoint
 CREATE INDEX "apikey_referenceId_idx" ON "apikey" USING btree ("reference_id");--> statement-breakpoint
 CREATE INDEX "apikey_key_idx" ON "apikey" USING btree ("key");--> statement-breakpoint
-CREATE INDEX "app_config_updated_by_user_id_idx" ON "app_config" USING btree ("updated_by_user_id");--> statement-breakpoint
 CREATE INDEX "entity_user_id_idx" ON "entity" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "entity_external_id_idx" ON "entity" USING btree ("external_id");--> statement-breakpoint
 CREATE INDEX "entity_entity_schema_id_idx" ON "entity" USING btree ("entity_schema_id");--> statement-breakpoint
 CREATE INDEX "entity_properties_idx" ON "entity" USING gin ("properties");--> statement-breakpoint
 CREATE INDEX "entity_search_vector_idx" ON "entity" USING gin ("search_vector");--> statement-breakpoint
 CREATE INDEX "entity_details_sandbox_script_id_idx" ON "entity" USING btree ("details_sandbox_script_id");--> statement-breakpoint
+CREATE INDEX "entity_schema_facet_id_idx" ON "entity_schema" USING btree ("facet_id");--> statement-breakpoint
 CREATE INDEX "entity_schema_user_id_idx" ON "entity_schema" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "entity_schema_sandbox_script_entity_schema_id_kind_idx" ON "entity_schema_sandbox_script" USING btree ("entity_schema_id","kind");--> statement-breakpoint
 CREATE INDEX "entity_schema_sandbox_script_script_id_kind_idx" ON "entity_schema_sandbox_script" USING btree ("sandbox_script_id","kind");--> statement-breakpoint
@@ -211,6 +234,7 @@ CREATE INDEX "event_event_schema_id_idx" ON "event" USING btree ("event_schema_i
 CREATE INDEX "event_session_entity_id_idx" ON "event" USING btree ("session_entity_id");--> statement-breakpoint
 CREATE INDEX "event_properties_idx" ON "event" USING gin ("properties");--> statement-breakpoint
 CREATE INDEX "event_schema_entity_schema_id_idx" ON "event_schema" USING btree ("entity_schema_id");--> statement-breakpoint
+CREATE INDEX "facet_user_id_idx" ON "facet" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "relationship_rel_type_idx" ON "relationship" USING btree ("rel_type");--> statement-breakpoint
 CREATE INDEX "relationship_source_entity_id_idx" ON "relationship" USING btree ("source_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_target_entity_id_idx" ON "relationship" USING btree ("target_entity_id");--> statement-breakpoint
@@ -218,4 +242,6 @@ CREATE INDEX "relationship_properties_idx" ON "relationship" USING gin ("propert
 CREATE INDEX "sandbox_script_user_id_idx" ON "sandbox_script" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "saved_view_user_id_idx" ON "saved_view" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "user_facet_user_id_idx" ON "user_facet" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "user_facet_facet_id_idx" ON "user_facet" USING btree ("facet_id");--> statement-breakpoint
 CREATE INDEX "verification_identifier_idx" ON "verification" USING btree ("identifier");
