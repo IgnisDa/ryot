@@ -13,7 +13,6 @@ import {
 } from "#lib/schema/property-schema-runtime";
 import { requireText } from "#lib/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
-import type { ListedEntity } from "#modules/entities/schemas";
 import { enqueueEventCreate } from "#modules/events/workflows";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -26,27 +25,15 @@ import type {
 	DeleteMembershipBody,
 	MembershipResponse,
 } from "./schemas";
-
-const entityNotFoundError = "Entity not found";
-const collectionNotFoundError = "Collection not found";
-const circularReferenceError = "Cannot add a collection to itself";
-const invalidMembershipPropertiesError = "Membership properties validation failed";
-const invalidMembershipSchemaError = "membershipPropertiesSchema must be a valid AppSchema";
-
-const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-
-const toCollectionResponse = (entity: ListedEntity): CollectionResponse => ({
-	id: entity.id,
-	name: entity.name,
-	image: entity.image,
-	createdAt: entity.createdAt,
-	updatedAt: entity.updatedAt,
-	properties: entity.properties,
-	externalId: entity.externalId,
-	entitySchemaId: entity.entitySchemaId,
-	sandboxScriptId: entity.sandboxScriptId,
-});
+import {
+	circularReferenceError,
+	collectionNotFoundError,
+	entityNotFoundError,
+	invalidMembershipPropertiesError,
+	invalidMembershipSchemaError,
+	isPlainObject,
+	toCollectionResponse,
+} from "./service-core";
 
 type CollectionsServiceShape = {
 	readonly create: (

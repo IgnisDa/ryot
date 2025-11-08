@@ -4,6 +4,18 @@ import { Effect } from "effect";
 const readModule = (path: string) =>
 	Effect.promise(() => Bun.file(new URL(path, import.meta.url)).text());
 
+const readModules = (paths: ReadonlyArray<string>) =>
+	Effect.all(paths.map(readModule)).pipe(Effect.map((sources) => sources.join("\n")));
+
+const mediaImportWorkflowModules = [
+	"../imports/workflows.ts",
+	"../imports/media/workflow-load.ts",
+	"../imports/media/workflow-resolution.ts",
+	"../imports/media/workflow-population.ts",
+	"../imports/media/workflow-writing.ts",
+	"../imports/media/workflow-writing-failures.ts",
+] as const;
+
 it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =>
 	Effect.gen(function* () {
 		const [
@@ -22,7 +34,7 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			readModule("../exercises/preload.ts"),
 			readModule("../entity-import/workflows.ts"),
 			readModule("../library/workflows.ts"),
-			readModule("../imports/workflows.ts"),
+			readModules(mediaImportWorkflowModules),
 			readModule("../integrations/workflows.ts"),
 		]);
 
@@ -49,7 +61,7 @@ it.effect("keeps parent workflows as orchestrations instead of queue pass-throug
 			yield* Effect.all([
 				readModule("../entity-import/workflows.ts"),
 				readModule("../library/workflows.ts"),
-				readModule("../imports/workflows.ts"),
+				readModules(mediaImportWorkflowModules),
 				readModule("../integrations/workflows.ts"),
 			]);
 
