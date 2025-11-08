@@ -10,6 +10,6 @@ const migrationsFolder = `${process.cwd()}/src/drizzle`;
 export const migrateDB = async () => {
 	await renameLegacyTables(db);
 	await migrate(db, { migrationsFolder });
-	await migrateLegacyTables(db);
 	await seedInitialDatabase(db);
+	await migrateLegacyTables(db);
 };
