@@ -5,16 +5,18 @@ import {
 	countEntityTranslations,
 	createAuthenticatedClient,
 	deleteGlobalEntityByProvenance,
+	enqueueEntityImport,
 	findBuiltinSchemaBySlug,
 	getBuiltinEntitySchemaId,
 	getEntity,
 	getEntityTranslationRow,
 	markEntityPopulated,
 	pollEntityUntilTranslationStatus,
+	pollEntityImportResult,
 	seedMediaEntity,
 	setUserProviderLanguage,
 } from "../fixtures";
-import { assertPresent } from "../test-support/assertions";
+import { assertCondition, assertPresent } from "../test-support/assertions";
 
 const CANONICAL_LANGUAGE = "en-US";
 
@@ -241,6 +243,53 @@ describe("GET /entities/:entityId — translation overlay", () => {
 		expect(await countEntityTranslations(season.id)).toBe(1);
 		expect(await countEntityTranslations(episode.id)).toBe(1);
 	}, 180_000);
+
+	it("fetches Anilist title-mode overlays while details stay canonical", async () => {
+		const { client, userId } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaBySlug(client, "anime");
+		const anilistScriptId = schema.providers.find(
+			(provider) => provider.name === "Anilist",
+		)?.scriptId;
+		assertPresent(anilistScriptId, "Anilist anime provider script not found");
+
+		await deleteGlobalEntityByProvenance({
+			externalId: "5114",
+			entitySchemaId: schema.id,
+			sandboxScriptId: anilistScriptId,
+		});
+		await setUserProviderLanguage({ userId, source: "anilist", preferredLanguage: "native" });
+
+		const { jobId } = await enqueueEntityImport(client, {
+			externalId: "5114",
+			scriptId: anilistScriptId,
+			entitySchemaId: schema.id,
+		});
+		const result = await pollEntityImportResult(client, jobId, { timeoutMs: 45_000 });
+		assertCondition(
+			result.status === "completed",
+			`Expected Anilist import job to complete, got '${result.status}'`,
+		);
+
+		const canonicalName = "Fullmetal Alchemist: Brotherhood";
+		const entity = result.data;
+		expect(entity.name).toBe(canonicalName);
+
+		const firstRead = await getEntity(client, entity.id);
+		expect(firstRead.translationStatus).toBe("pending");
+		expect(firstRead.name).toBe(canonicalName);
+
+		const localizedRead = await pollEntityUntilTranslationStatus(client, entity.id, "ready", {
+			timeoutMs: 90_000,
+		});
+		expect(localizedRead.name).not.toBe(canonicalName);
+		expect(localizedRead.name.length).toBeGreaterThan(0);
+
+		const overlay = await getEntityTranslationRow({ entityId: entity.id, language: "native" });
+		expect(overlay?.name).toBe(localizedRead.name);
+		expect(overlay?.description ?? null).toBeNull();
+		expect(overlay?.image ?? null).toBeNull();
+		expect(await countEntityTranslations(entity.id)).toBe(1);
+	}, 150_000);
 
 	it("negative-caches when the provider has no translation and does not refetch", async () => {
 		const { client, userId } = await createAuthenticatedClient();

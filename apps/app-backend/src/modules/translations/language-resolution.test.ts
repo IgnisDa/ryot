@@ -48,6 +48,16 @@ describe("resolveLanguage", () => {
 		expect(result).toEqual({ kind: "translate", language: "native" });
 	});
 
+	it("treats Anilist user_preferred as an overlay language", () => {
+		const result = resolveLanguage({
+			source: "anilist",
+			canonicalLanguage: "english",
+			preferences: [{ source: "anilist", preferredLanguage: "user_preferred" }],
+		});
+
+		expect(result).toEqual({ kind: "translate", language: "user_preferred" });
+	});
+
 	it("renders canonical when the preference list is empty", () => {
 		const result = resolveLanguage({
 			source: "tmdb",
