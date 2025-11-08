@@ -69,7 +69,7 @@ function SavedViewCard(props: {
 			)}
 		>
 			{props.imageUrl ? (
-				<Box className="overflow-hidden rounded-[18px] bg-stone-200" style={{ aspectRatio: 2 / 3 }}>
+				<Box className="aspect-2/3 overflow-hidden rounded-[18px] bg-stone-200">
 					<Image className="h-full w-full" resizeMode="cover" source={{ uri: props.imageUrl }} />
 				</Box>
 			) : null}
