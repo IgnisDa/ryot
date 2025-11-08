@@ -59,9 +59,9 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const [coreDetails] = await Promise.all([getCoreDetails()]);
 	if (
-		(coreDetails.oidcEnabled || true) &&
+		coreDetails.oidcEnabled &&
 		coreDetails.localAuthDisabled &&
-		query.autoOidcLaunch === true
+		query.autoOidcLaunch !== false
 	) {
 		const url = await getOidcRedirectUrl();
 		return redirect(url);
