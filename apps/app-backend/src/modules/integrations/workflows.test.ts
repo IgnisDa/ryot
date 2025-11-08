@@ -84,18 +84,12 @@ const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
 			_tag: "EntitiesRepository" as const,
 			saveEntity: () => Effect.die("unused"),
 			getByIdForUser: () => Effect.die("unused"),
-			insertRelationship: () => Effect.die("unused"),
-			upsertRelationship: () => Effect.die("unused"),
 			findEntitySchemaById: () => Effect.die("unused"),
 			getEntityScopeForUser: () => Effect.die("unused"),
-			upsertEntityRelationship: () => Effect.die("unused"),
-			deleteUserEventsForEntity: () => Effect.die("unused"),
-			findRelationshipProperties: () => Effect.die("unused"),
 			listMatchCandidatesBySchema: () => Effect.die("unused"),
 			getEntitySchemaScopeForUser: () => Effect.die("unused"),
 			findGlobalEntityByExternalId: () => Effect.die("unused"),
 			findEntityByExternalIdForUser: () => Effect.die("unused"),
-			deleteUserRelationshipsForEntity: () => Effect.die("unused"),
 			findEntitySchemaScriptBySlug: (slug: string) =>
 				Effect.succeed(
 					slug === "movie.tmdb"
