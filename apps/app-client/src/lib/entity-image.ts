@@ -1,6 +1,6 @@
-import type { ImageSchemaType } from "@ryot/app-backend-legacy/lib/zod";
-
-export type EntityImage = ImageSchemaType | null;
+type S3Image = { type: "s3"; key: string };
+type RemoteImage = { type: "remote"; url: string };
+export type EntityImage = S3Image | RemoteImage | null;
 
 export function toEntityImage(raw: unknown): EntityImage {
 	if (!raw || typeof raw !== "object") {
