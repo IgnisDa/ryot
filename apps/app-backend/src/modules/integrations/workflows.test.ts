@@ -295,15 +295,21 @@ const noopOperations = {
 
 it.effect("processes a successful sink run through shared media orchestration", () => {
 	const importedCalls: Array<Record<string, unknown>> = [];
+	const createdEvents: Array<Record<string, unknown>> = [];
 	const integrationUpdates: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
-	const createdEvents: Array<ReadonlyArray<Record<string, unknown>>> = [];
 
 	const options = {
 		eventsService: Object.assign(Object.create(null), defaultEventsService(), {
-			createForImport: (_userId: string, payload: ReadonlyArray<Record<string, unknown>>) => {
-				createdEvents.push(payload);
-				return Effect.succeed({ count: payload.length });
+			createForImport: () => Effect.die("should not be called"),
+			createForIntegration: (input: {
+				integrationId: string;
+				importRunId: string;
+				userId: string;
+				payload: ReadonlyArray<Record<string, unknown>>;
+			}) => {
+				createdEvents.push(input);
+				return Effect.succeed({ count: input.payload.length });
 			},
 		}),
 		importsRepository: makeImportsRepository({
@@ -345,6 +351,14 @@ it.effect("processes a successful sink run through shared media orchestration", 
 				},
 			]);
 			expect(createdEvents).toHaveLength(1);
+			expect(createdEvents[0]).toMatchObject({
+				userId: "user_1",
+				importRunId: "run_1",
+				integrationId: "int_1",
+				payload: [
+					expect.objectContaining({ entityId: "entity-1", eventSchemaId: "event-schema-1" }),
+				],
+			});
 			expect(recordedUpdates).toContainEqual(
 				expect.objectContaining({ runId: "run_1", status: "running" }),
 			);
@@ -557,15 +571,21 @@ it.effect("fails the run when the integration is not found", () => {
 
 it.effect("processes a komga yank run through shared media orchestration", () => {
 	const importedCalls: Array<Record<string, unknown>> = [];
+	const createdEvents: Array<Record<string, unknown>> = [];
 	const integrationUpdates: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
-	const createdEvents: Array<ReadonlyArray<Record<string, unknown>>> = [];
 
 	const options = {
 		eventsService: Object.assign(Object.create(null), defaultEventsService(), {
-			createForImport: (_userId: string, payload: ReadonlyArray<Record<string, unknown>>) => {
-				createdEvents.push(payload);
-				return Effect.succeed({ count: payload.length });
+			createForImport: () => Effect.die("should not be called"),
+			createForIntegration: (input: {
+				userId: string;
+				importRunId: string;
+				integrationId: string;
+				payload: ReadonlyArray<Record<string, unknown>>;
+			}) => {
+				createdEvents.push(input);
+				return Effect.succeed({ count: input.payload.length });
 			},
 		}),
 		importsRepository: makeImportsRepository({
@@ -613,6 +633,11 @@ it.effect("processes a komga yank run through shared media orchestration", () =>
 				},
 			]);
 			expect(createdEvents).toHaveLength(1);
+			expect(createdEvents[0]).toMatchObject({
+				userId: "user_1",
+				importRunId: "run_1",
+				integrationId: "int_1",
+			});
 			expect(recordedUpdates).toContainEqual(
 				expect.objectContaining({
 					progress: 100,
@@ -721,8 +746,8 @@ it.effect("marks ownership for synced yank items", () => {
 it.effect("processes a YouTube Music yank run through workflow-owned sandbox execution", () => {
 	const importedCalls: Array<Record<string, unknown>> = [];
 	const sandboxCalls: Array<Record<string, unknown>> = [];
+	const createdEvents: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
-	const createdEvents: Array<ReadonlyArray<Record<string, unknown>>> = [];
 
 	const options = {
 		integrationsRepository: makeIntegrationsRepository({
@@ -730,9 +755,15 @@ it.effect("processes a YouTube Music yank run through workflow-owned sandbox exe
 			getByIdAnyUser: () => Effect.succeed(makeYoutubeMusicIntegration()),
 		}),
 		eventsService: Object.assign(Object.create(null), defaultEventsService(), {
-			createForImport: (_userId: string, payload: ReadonlyArray<Record<string, unknown>>) => {
-				createdEvents.push(payload);
-				return Effect.succeed({ count: payload.length });
+			createForImport: () => Effect.die("should not be called"),
+			createForIntegration: (input: {
+				userId: string;
+				importRunId: string;
+				integrationId: string;
+				payload: ReadonlyArray<Record<string, unknown>>;
+			}) => {
+				createdEvents.push(input);
+				return Effect.succeed({ count: input.payload.length });
 			},
 		}),
 		importsRepository: makeImportsRepository({
@@ -784,6 +815,12 @@ it.effect("processes a YouTube Music yank run through workflow-owned sandbox exe
 				}),
 			]);
 			expect(createdEvents).toHaveLength(1);
+			expect(createdEvents[0]).toMatchObject({
+				userId: "user_1",
+				importRunId: "run_1",
+				integrationId: "int_1",
+				payload: [expect.objectContaining({ entityId: "entity-1" })],
+			});
 			expect(recordedUpdates).toContainEqual(
 				expect.objectContaining({
 					progress: 100,
@@ -798,16 +835,20 @@ it.effect("processes a YouTube Music yank run through workflow-owned sandbox exe
 
 it.effect("records a YouTube Music sandbox failure as a source-fetch failure", () => {
 	let importCalled = false;
-	const recordedFailures: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
+	const recordedFailures: Array<Record<string, unknown>> = [];
+	const integrationUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
 		integrationsRepository: makeIntegrationsRepository({
 			getByIdAnyUser: () => Effect.succeed(makeYoutubeMusicIntegration()),
-			updateForUser: () => Effect.succeed(makeYoutubeMusicIntegration()),
+			updateForUser: (input) => {
+				integrationUpdates.push(input);
+				return Effect.succeed(makeYoutubeMusicIntegration());
+			},
 		}),
 		importsRepository: makeImportsRepository({
-			getRunById: () => Effect.succeed(makeRun("completed")),
+			getRunById: () => Effect.succeed(makeRun("failed")),
 			createFailure: (input) => {
 				recordedFailures.push(input);
 				return Effect.void;
@@ -848,8 +889,12 @@ it.effect("records a YouTube Music sandbox failure as a source-fetch failure", (
 					message: "history fetch failed",
 				}),
 			);
+			expect(integrationUpdates).toEqual([]);
 			expect(recordedUpdates).toContainEqual(
-				expect.objectContaining({ runId: "run_1", failedItems: 1, status: "completed" }),
+				expect.objectContaining({ runId: "run_1", failedItems: 1, processedItems: 1 }),
+			);
+			expect(recordedUpdates).toContainEqual(
+				expect.objectContaining({ runId: "run_1", status: "failed" }),
 			);
 		}),
 	);
