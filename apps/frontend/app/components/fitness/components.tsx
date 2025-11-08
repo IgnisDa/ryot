@@ -1,5 +1,4 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { LineChart } from "@mantine/charts";
 import {
 	ActionIcon,
 	Anchor,
@@ -7,43 +6,31 @@ import {
 	Box,
 	Button,
 	Center,
-	Divider,
 	Flex,
 	Group,
 	Image,
-	List,
 	Modal,
 	NumberInput,
 	Paper,
 	Popover,
 	ScrollArea,
-	Select,
 	SimpleGrid,
 	Skeleton,
 	Stack,
 	Switch,
 	Text,
-	Title,
 	useMantineTheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import Body, { type ExtendedBodyPart } from "@mjcdev/react-body-highlighter";
 import {
-	EntityLot,
 	type ExerciseLot,
 	SetLot,
 	type UserUnitSystem,
-	WorkoutSetPersonalBest,
 	type WorkoutSupersetsInformation,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	changeCase,
-	isNumber,
-	snakeCase,
-	sortBy,
-	startCase,
-} from "@ryot/ts-utils";
+import { changeCase, isNumber, snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconArrowLeftToArc,
 	IconClock,
@@ -57,40 +44,25 @@ import {
 } from "@tabler/icons-react";
 import { type UseMutationResult, useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
-import {
-	type ComponentType,
-	type Dispatch,
-	Fragment,
-	type SetStateAction,
-} from "react";
-import { Link, type NavigateFunction } from "react-router";
+import type { ComponentType, Dispatch, SetStateAction } from "react";
+import { Link } from "react-router";
 import { $path } from "safe-routes";
-import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { DisplayCollectionToEntity } from "~/components/common";
-import { ReviewItemDisplay } from "~/components/common/review";
-import { MediaScrollArea } from "~/components/media/base-display";
-import { dayjsLib, getDateFromTimeSpan } from "~/lib/shared/date-utils";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useExerciseDetails,
 	useGetRandomMantineColor,
 	useS3PresignedUrls,
 } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath, getSetColor } from "~/lib/shared/media-utils";
-import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
 	type TWorkoutDetails,
 	getWorkoutDetailsQuery,
 	getWorkoutTemplateDetailsQuery,
 	useExerciseImages,
 } from "~/lib/state/fitness";
-import { FitnessEntity, TimeSpan } from "~/lib/types";
+import { FitnessEntity } from "~/lib/types";
 import { ExerciseImagesList } from "./display-items";
-import {
-	DisplayData,
-	DisplayLifetimeStatistic,
-	DisplayPersonalBest,
-} from "./exercise-display-components";
 import {
 	DisplaySetStatistics,
 	displayDistanceWithUnit,
@@ -541,377 +513,5 @@ export const ExerciseMusclesModal = (props: {
 				</Center>
 			</Stack>
 		</Modal>
-	);
-};
-
-export const ExerciseOverviewTab = (props: {
-	images: string[];
-	exerciseDetails: {
-		id: string;
-		name: string;
-		level?: string | null;
-		force?: string | null;
-		mechanic?: string | null;
-		equipment?: string | null;
-		lot?: string | null;
-		muscles: string[];
-		instructions: string[];
-	};
-	exerciseNumTimesInteracted: number;
-	userExerciseDetails: {
-		history?: Array<{ workoutId: string }> | null;
-		details?: {
-			createdOn?: string | null;
-			lastUpdatedOn?: string | null;
-		} | null;
-	};
-	openMusclesModal: () => void;
-}) => {
-	return (
-		<Stack>
-			<ScrollArea>
-				<Flex gap={6}>
-					{props.images.map((i) => (
-						<Image key={i} radius="md" src={i} h="200px" w="248px" />
-					))}
-				</Flex>
-			</ScrollArea>
-			<SimpleGrid py="xs" cols={4}>
-				{(["level", "force", "mechanic", "equipment"] as const).map((f) => (
-					<Fragment key={f}>
-						{props.exerciseDetails[f] ? (
-							<DisplayData name={f} data={props.exerciseDetails[f]} />
-						) : null}
-					</Fragment>
-				))}
-				{props.exerciseDetails.lot ? (
-					<DisplayData
-						name="Type"
-						data={changeCase(props.exerciseDetails.lot)}
-					/>
-				) : null}
-				{props.exerciseNumTimesInteracted > 0 ? (
-					<DisplayData
-						noCasing
-						name="Times done"
-						data={`${props.exerciseNumTimesInteracted} times`}
-					/>
-				) : null}
-				{(props.userExerciseDetails.history?.length || 0) > 0 ? (
-					<>
-						{props.userExerciseDetails.details?.createdOn ? (
-							<DisplayData
-								noCasing
-								name="First done on"
-								data={dayjsLib(
-									props.userExerciseDetails.details.createdOn,
-								).format("ll")}
-							/>
-						) : null}
-						{props.userExerciseDetails.details?.lastUpdatedOn ? (
-							<DisplayData
-								noCasing
-								name="Last done on"
-								data={dayjsLib(
-									props.userExerciseDetails.details.lastUpdatedOn,
-								).format("ll")}
-							/>
-						) : null}
-					</>
-				) : null}
-			</SimpleGrid>
-			{props.exerciseDetails.muscles.length > 0 ? (
-				<>
-					<Divider />
-					<Group wrap="nowrap">
-						<Anchor fz="sm" onClick={props.openMusclesModal}>
-							Muscles
-						</Anchor>
-						<Text fz="sm">
-							{props.exerciseDetails.muscles
-								.map((s) => startCase(s.toLowerCase()))
-								.join(", ")}
-						</Text>
-					</Group>
-				</>
-			) : null}
-			{props.exerciseDetails.instructions.length > 0 ? (
-				<>
-					<Divider />
-					<Text size="xl" fw="bold">
-						Instructions
-					</Text>
-					<List type="ordered" spacing="xs">
-						{props.exerciseDetails.instructions.map((d) => (
-							<List.Item key={d}>{d}</List.Item>
-						))}
-					</List>
-				</>
-			) : null}
-		</Stack>
-	);
-};
-
-export const ExerciseRecordsTab = (props: {
-	unitSystem: UserUnitSystem;
-	exerciseNumTimesInteracted: number;
-	userExerciseDetails: {
-		details?: {
-			exerciseExtraInformation?: {
-				lifetimeStats: {
-					weight: string;
-					distance: string;
-					duration: string;
-					reps: string;
-				};
-				personalBests: Array<{
-					lot: WorkoutSetPersonalBest;
-					sets: Array<{
-						workoutId: string;
-						exerciseIdx: number;
-						setIdx: number;
-					}>;
-				}>;
-			};
-		} | null;
-	};
-}) => {
-	return (
-		<Stack gap="xl">
-			<Stack gap="xs">
-				<Text size="lg" td="underline">
-					Lifetime Stats
-				</Text>
-				<Box>
-					<DisplayLifetimeStatistic
-						stat="weight"
-						val={displayWeightWithUnit(
-							props.unitSystem,
-							props.userExerciseDetails.details?.exerciseExtraInformation
-								?.lifetimeStats.weight,
-						)}
-					/>
-					<DisplayLifetimeStatistic
-						stat="distance"
-						val={displayDistanceWithUnit(
-							props.unitSystem,
-							props.userExerciseDetails.details?.exerciseExtraInformation
-								?.lifetimeStats.distance,
-						)}
-					/>
-					<DisplayLifetimeStatistic
-						stat="duration"
-						val={`${props.userExerciseDetails.details?.exerciseExtraInformation?.lifetimeStats.duration} MIN`}
-					/>
-					<DisplayLifetimeStatistic
-						stat="reps"
-						val={
-							props.userExerciseDetails.details?.exerciseExtraInformation
-								?.lifetimeStats.reps || "0"
-						}
-					/>
-					<DisplayLifetimeStatistic
-						stat="times done"
-						val={props.exerciseNumTimesInteracted}
-					/>
-				</Box>
-			</Stack>
-			{(props.userExerciseDetails.details?.exerciseExtraInformation
-				?.personalBests.length || 0) > 0 ? (
-				<Stack gap="sm">
-					<Text size="lg" td="underline">
-						Personal Bests
-					</Text>
-					{props.userExerciseDetails.details?.exerciseExtraInformation?.personalBests.map(
-						(personalBest) => (
-							<Box key={personalBest.lot}>
-								<Text size="sm" c="dimmed">
-									{changeCase(personalBest.lot)}
-								</Text>
-								{personalBest.sets.map((pbSet) => (
-									<DisplayPersonalBest
-										set={pbSet}
-										key={pbSet.workoutId}
-										personalBestLot={personalBest.lot}
-									/>
-								))}
-							</Box>
-						),
-					)}
-				</Stack>
-			) : null}
-		</Stack>
-	);
-};
-
-export const ExerciseChartsTab = (props: {
-	timeSpanForCharts: TimeSpan;
-	setTimeSpanForCharts: Dispatch<SetStateAction<TimeSpan>>;
-	bestMappings: WorkoutSetPersonalBest[];
-	filteredHistoryForCharts: Array<{
-		workoutEndOn: string;
-		bestSet?: {
-			statistic: {
-				oneRm?: string;
-				pace?: string;
-				reps?: string;
-				duration?: string;
-				volume?: string;
-				weight?: string;
-				distance?: string;
-			};
-		} | null;
-	}>;
-}) => {
-	return (
-		<Stack>
-			<Select
-				label="Time span"
-				labelProps={{ c: "dimmed" }}
-				defaultValue={props.timeSpanForCharts}
-				data={convertEnumToSelectData(TimeSpan)}
-				onChange={(v) => {
-					if (v) props.setTimeSpanForCharts(v as TimeSpan);
-				}}
-			/>
-			{props.bestMappings.map((best) => {
-				const data = props.filteredHistoryForCharts.map((h) => {
-					const stat = h.bestSet?.statistic;
-					const value = match(best)
-						.with(WorkoutSetPersonalBest.OneRm, () => stat?.oneRm)
-						.with(WorkoutSetPersonalBest.Pace, () => stat?.pace)
-						.with(WorkoutSetPersonalBest.Reps, () => stat?.reps)
-						.with(WorkoutSetPersonalBest.Time, () => stat?.duration)
-						.with(WorkoutSetPersonalBest.Volume, () => stat?.volume)
-						.with(WorkoutSetPersonalBest.Weight, () => stat?.weight)
-						.with(WorkoutSetPersonalBest.Distance, () => stat?.distance)
-						.exhaustive();
-					return {
-						name: dayjsLib(h.workoutEndOn).format("DD/MM/YYYY"),
-						value: value ? Number.parseFloat(value) : null,
-					};
-				});
-				invariant(data);
-				return data.filter((d) => d.value).length > 0 ? (
-					<Paper key={best} withBorder py="md" radius="md">
-						<Stack>
-							<Title order={3} ta="center">
-								{changeCase(best)}
-							</Title>
-							<LineChart
-								h={300}
-								ml={-15}
-								data={data}
-								connectNulls
-								dataKey="name"
-								series={[{ name: "value", label: changeCase(best) }]}
-							/>
-						</Stack>
-					</Paper>
-				) : null;
-			})}
-		</Stack>
-	);
-};
-
-export const ExerciseActionsTab = (props: {
-	openUpdatePreferencesModal: () => void;
-	setAddEntityToCollectionsData: (data: {
-		entityLot: EntityLot;
-		entityId: string;
-	}) => void;
-	exerciseDetails: { id: string; name: string };
-	setEntityToReview: (data: {
-		entityLot: EntityLot;
-		entityId: string;
-		entityTitle: string;
-	}) => void;
-	canCurrentUserUpdate: boolean;
-	setMergingExercise: (id: string) => void;
-	navigate: NavigateFunction;
-}) => {
-	return (
-		<MediaScrollArea>
-			<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-				<Button variant="outline" onClick={props.openUpdatePreferencesModal}>
-					Update preferences
-				</Button>
-				<Button
-					variant="outline"
-					onClick={() => {
-						props.setAddEntityToCollectionsData({
-							entityLot: EntityLot.Exercise,
-							entityId: props.exerciseDetails.id,
-						});
-					}}
-				>
-					Add to collection
-				</Button>
-				<Button
-					variant="outline"
-					w="100%"
-					onClick={() => {
-						props.setEntityToReview({
-							entityLot: EntityLot.Exercise,
-							entityId: props.exerciseDetails.id,
-							entityTitle: props.exerciseDetails.name,
-						});
-					}}
-				>
-					Post a review
-				</Button>
-				{props.canCurrentUserUpdate ? (
-					<Button
-						variant="outline"
-						component={Link}
-						to={$path(
-							"/fitness/exercises/update/:action",
-							{ action: "edit" },
-							{ id: props.exerciseDetails.id },
-						)}
-					>
-						Edit exercise
-					</Button>
-				) : null}
-				<Button
-					variant="outline"
-					onClick={() => {
-						props.setMergingExercise(props.exerciseDetails.id);
-						props.navigate($path("/fitness/exercises/list"));
-					}}
-				>
-					Merge exercise
-				</Button>
-			</SimpleGrid>
-		</MediaScrollArea>
-	);
-};
-
-export const ExerciseReviewsTab = (props: {
-	userExerciseDetails: {
-		reviews: Array<{
-			id: string;
-		}>;
-	};
-	exerciseDetails: { id: string; name: string };
-}) => {
-	return (
-		<MediaScrollArea>
-			{props.userExerciseDetails.reviews.length > 0 ? (
-				<Stack>
-					{props.userExerciseDetails.reviews.map((r) => (
-						<ReviewItemDisplay
-							review={r}
-							key={r.id}
-							entityLot={EntityLot.Exercise}
-							title={props.exerciseDetails.name}
-							entityId={props.exerciseDetails.id}
-						/>
-					))}
-				</Stack>
-			) : (
-				<Text>No reviews</Text>
-			)}
-		</MediaScrollArea>
 	);
 };

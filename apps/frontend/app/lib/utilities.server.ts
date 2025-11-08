@@ -277,18 +277,11 @@ export const extendResponseHeaders = (
 		responseHeaders.append(key, value);
 };
 
-const parseFormDataWithFileSize = async (
-	request: Request,
-	uploader: (file: FileUpload) => Promise<string | null>,
-) => {
+export const parseFormDataWithTemporaryUpload = async (request: Request) => {
 	const coreDetails = await getCoreDetails();
 	return parseFormData(
 		request,
 		{ maxFileSize: coreDetails.maxFileSizeMb * 1024 * 1024 },
-		uploader,
+		temporaryFileUploadHandler,
 	);
-};
-
-export const parseFormDataWithTemporaryUpload = async (request: Request) => {
-	return parseFormDataWithFileSize(request, temporaryFileUploadHandler);
 };

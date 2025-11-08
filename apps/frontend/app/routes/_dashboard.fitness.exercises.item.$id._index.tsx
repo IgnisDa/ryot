@@ -596,9 +596,9 @@ export default function Page() {
 												<ReviewItemDisplay
 													review={r}
 													key={r.id}
-													entityLot={EntityLot.Exercise}
 													title={exerciseDetails.name}
 													entityId={exerciseDetails.id}
+													entityLot={EntityLot.Exercise}
 												/>
 											))}
 										</Stack>
@@ -623,12 +623,7 @@ export default function Page() {
 									currentWorkout,
 									userPreferences.fitness,
 									setCurrentWorkout,
-									[
-										{
-											id: exerciseDetails.id,
-											lot: exerciseDetails.lot,
-										},
-									],
+									[{ id: exerciseDetails.id, lot: exerciseDetails.lot }],
 								);
 							}}
 						>
