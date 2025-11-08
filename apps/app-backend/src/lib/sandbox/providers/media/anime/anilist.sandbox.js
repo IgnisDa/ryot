@@ -14,7 +14,7 @@ function extractGraphQlErrorMessage(payload) {
 	const firstError = payload.errors[0];
 	const message = typeof firstError?.message === "string" ? firstError.message.trim() : "";
 
-	return message || "unknown GraphQL error";
+	return message ?? "unknown GraphQL error";
 }
 
 function pickImage(coverImage, bannerImage) {
@@ -233,7 +233,7 @@ async function cleanHtmlDescription(html) {
 	const { load } = await import("npm:cheerio");
 	const $ = load(html);
 	$("br").replaceWith("\n");
-	return $.root().text().trim() || null;
+	return $.root().text().trim() ?? null;
 }
 
 driver("search", async function (context) {
