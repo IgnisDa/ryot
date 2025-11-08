@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server";
-import { migrateDB } from "~/db";
 import { config } from "~/lib/config";
+import { migrateDB } from "~/lib/db";
 import { initializeRedis, shutdownRedis } from "~/lib/redis";
 import {
 	initializeQueues,

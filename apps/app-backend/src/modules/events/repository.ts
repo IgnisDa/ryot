@@ -1,7 +1,7 @@
 import type { AppSchema } from "@ryot/ts-utils";
 import { and, desc, eq, isNull, or } from "drizzle-orm";
-import { db } from "~/db";
-import { entity, entitySchema, event, eventSchema } from "~/db/schema";
+import { db } from "~/lib/db";
+import { entity, entitySchema, event, eventSchema } from "~/lib/db/schema";
 import type { EventPropertiesShape } from "./service";
 
 const eventSchemaVisibleToUserClause = (userId: string) => {

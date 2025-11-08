@@ -1,6 +1,6 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import type { AuthType } from "~/auth";
-import { FacetMode } from "~/db/schema";
+import { FacetMode } from "~/lib/db/schema";
 import {
 	createAuthRoute,
 	createNotFoundErrorResult,
