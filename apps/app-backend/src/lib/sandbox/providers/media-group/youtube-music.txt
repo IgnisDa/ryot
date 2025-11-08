@@ -61,6 +61,24 @@ function getLargestThumbnailUrl(thumbnail) {
   return sorted[0]?.url ?? null;
 }
 
+function getYoutubeMusicLanguage(metadata) {
+  return metadata?.providerInformation?.canonicalLanguage ?? "en";
+}
+
+async function createYoutubeMusicClient(language) {
+  const { Innertube } = await import("npm:youtubei.js");
+  return Innertube.create({
+    fetch: makeFetch,
+    generate_session_locally: true,
+    ...(language ? { lang: language } : {}),
+  });
+}
+
+function getAlbumTitle(album) {
+  const title = album?.title ?? album?.header?.title?.text ?? "";
+  return typeof title === "string" ? title.trim() : String(title).trim();
+}
+
 driver("search", async function (context) {
   const { z } = await import("npm:zod");
 
@@ -71,11 +89,7 @@ driver("search", async function (context) {
     })
     .parse(context ?? {});
 
-  const { Innertube } = await import("npm:youtubei.js");
-  const yt = await Innertube.create({
-    fetch: makeFetch,
-    generate_session_locally: true,
-  });
+  const yt = await createYoutubeMusicClient();
 
   const results = await yt.music.search(query, { type: "album" });
 
@@ -107,22 +121,19 @@ driver("search", async function (context) {
   };
 });
 
-driver("details", async function (context) {
+driver("details", async function (context, { metadata }) {
   const { z } = await import("npm:zod");
 
   const { externalId } = z
     .object({ externalId: z.string().trim().min(1, "externalId is required") })
     .parse(context ?? {});
 
-  const { Innertube } = await import("npm:youtubei.js");
-  const yt = await Innertube.create({
-    fetch: makeFetch,
-    generate_session_locally: true,
-  });
+  const language = getYoutubeMusicLanguage(metadata);
+  const yt = await createYoutubeMusicClient(language);
 
   const album = await yt.music.getAlbum(externalId);
 
-  const title = album?.title ?? album?.header?.title?.text ?? null;
+  const title = getAlbumTitle(album);
   if (!title) throw new Error(`YouTube Music album not found: ${externalId}`);
 
   // Description may be HTML-formatted
@@ -181,4 +192,19 @@ driver("details", async function (context) {
       description,
     },
   };
+});
+
+driver("translate", async function (context) {
+  const { z } = await import("npm:zod");
+
+  const { externalId, language } = z
+    .object({
+      language: z.string().trim().min(1, "language is required"),
+      externalId: z.string().trim().min(1, "externalId is required"),
+    })
+    .parse(context ?? {});
+
+  const yt = await createYoutubeMusicClient(language);
+  const name = getAlbumTitle(await yt.music.getAlbum(externalId));
+  return name ? { name } : {};
 });
