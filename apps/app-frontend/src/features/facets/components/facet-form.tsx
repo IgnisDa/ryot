@@ -6,10 +6,13 @@ import {
 	Stack,
 	Textarea,
 } from "@mantine/core";
+import { useEffect, useRef } from "react";
 import { useAppForm } from "#/hooks/forms";
+import { createNameFieldListeners } from "#/lib/slug-sync";
 import {
 	buildFacetFormValues,
 	createFacetFormSchema,
+	resolveNextFacetSlug,
 	toCreateFacetPayload,
 	toUpdateFacetPayload,
 } from "../form";
@@ -25,6 +28,12 @@ export function FacetForm() {
 	const activeFacet = state.activeFacet;
 	const isLoading = state.isModalSubmitting;
 	const isCreateMode = activeFacet === undefined;
+	const previousDerivedSlug = useRef(
+		resolveNextFacetSlug({
+			slug: "",
+			name: activeFacet?.name ?? "",
+		}),
+	);
 	const facetForm = useAppForm({
 		validators: { onChange: createFacetFormSchema },
 		defaultValues: buildFacetFormValues({
@@ -43,6 +52,13 @@ export function FacetForm() {
 		},
 	});
 
+	useEffect(() => {
+		previousDerivedSlug.current = resolveNextFacetSlug({
+			slug: "",
+			name: activeFacet?.name ?? "",
+		});
+	}, [activeFacet?.name]);
+
 	return (
 		<form
 			onSubmit={(event) => {
@@ -53,7 +69,13 @@ export function FacetForm() {
 		>
 			<facetForm.AppForm>
 				<Stack gap="md">
-					<facetForm.AppField name="name">
+					<facetForm.AppField
+						name="name"
+						listeners={createNameFieldListeners({
+							form: facetForm,
+							previousDerivedSlug,
+						})}
+					>
 						{(field) => (
 							<field.TextField
 								required
