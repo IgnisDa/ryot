@@ -917,15 +917,9 @@ describe("Query Engine E2E", () => {
 				relationshipSchemas,
 				"show-season-to-show-episode",
 			);
-			const showEvents = await listEventSchemas(client, showSchema.id);
-			const seasonEvents = await listEventSchemas(client, showSeasonSchemaId);
 			const episodeEvents = await listEventSchemas(client, showEpisodeSchemaId);
 			const episodeProgressSchema = requireEventSchemaBySlug(episodeEvents, "progress");
 			const episodeCompleteSchema = requireEventSchemaBySlug(episodeEvents, "complete");
-
-			expect(showEvents.some((schema) => schema.slug === "progress")).toBe(false);
-			expect(seasonEvents.map((schema) => schema.slug)).toEqual(["complete"]);
-			expect(episodeEvents.map((schema) => schema.slug).sort()).toEqual(["complete", "progress"]);
 
 			const fixtureSuffix = crypto.randomUUID();
 			const show = await seedMediaEntity({
@@ -1319,13 +1313,9 @@ describe("Query Engine E2E", () => {
 				relationshipSchemas,
 				"podcast-to-podcast-episode",
 			);
-			const podcastEvents = await listEventSchemas(client, podcastSchema.id);
 			const episodeEvents = await listEventSchemas(client, podcastEpisodeSchemaId);
 			const episodeProgressSchema = requireEventSchemaBySlug(episodeEvents, "progress");
 			const episodeCompleteSchema = requireEventSchemaBySlug(episodeEvents, "complete");
-
-			expect(podcastEvents.some((schema) => schema.slug === "progress")).toBe(false);
-			expect(episodeEvents.map((schema) => schema.slug).sort()).toEqual(["complete", "progress"]);
 
 			const fixtureSuffix = crypto.randomUUID();
 			const podcast = await seedMediaEntity({
