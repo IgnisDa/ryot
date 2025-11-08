@@ -1,21 +1,31 @@
 import { FileSystem } from "@effect/platform";
 import { DurableQueue, Workflow } from "@effect/workflow";
-import { Cause, Effect, Layer, Schema } from "effect";
+import { Cause, Effect, Schema } from "effect";
 
-import { SandboxRunError, dieOnDbError, unknownToMessage } from "~/lib/errors";
+import { SandboxRunError, unknownToMessage } from "~/lib/errors";
 import { decodeEntityResolveResult } from "~/modules/entities/population";
 import { runEntityImportWorkflow } from "~/modules/entities/workflows";
 import { SandboxExecutionQueue } from "~/modules/sandbox/durable-queues";
 
 import { ImportRunJobData } from "./jobs";
 import {
+	OpenScaleImportItemSchema,
+	loadOpenScaleAdapterResult,
+	prepareOpenScaleWrites,
+} from "./measurement/workflow";
+import {
 	isOneTimeMediaImportSource,
 	loadOneTimeMediaImportAdapterResult,
 } from "./media/source-loaders";
+import { failImportRun } from "./runtime/failures";
 import { getTemporaryDirectory, resolveSafeImportFilePath } from "./runtime/files";
-import { processImportJob } from "./runtime/processor";
 import { deleteImportSourcePayload } from "./runtime/source-payload-store";
+import { adaptHevyCsv } from "./sources/hevy/adapter";
+import { adaptStrongAppCsv } from "./sources/strong-app/adapter";
 import { ImportRunError, runOneTimeMediaImportWorkflow } from "./workflows";
+import { runOneTimeNonMediaImportWorkflow } from "./workflows-non-media";
+import { WorkoutImportItemSchema } from "./workout/domain";
+import { loadWorkoutAdapterResult, prepareWorkoutWrites } from "./workout/workflow";
 
 const toSandboxError = (cause: unknown) =>
 	cause instanceof SandboxRunError
@@ -95,19 +105,38 @@ const cleanupImportArtifacts = (input: {
 		);
 	});
 
-export const ImportRunQueue = DurableQueue.make({
-	success: Schema.Void,
-	error: ImportRunError,
-	payload: ImportRunJobData,
-	name: "ImportRunProcessingQueue",
-	idempotencyKey: ({ runId }) => runId,
-});
-
-export const ImportRunQueueWorkerLive = DurableQueue.worker(
-	ImportRunQueue,
-	(payload) => processImportJob(payload).pipe(dieOnDbError),
-	{ concurrency: 1 },
-);
+const runNonMediaImport = (payload: ImportRunJobData) => {
+	if (payload.source === "open_scale") {
+		return runOneTimeNonMediaImportWorkflow(payload, {
+			cleanupArtifacts: cleanupImportArtifacts,
+			itemSchema: OpenScaleImportItemSchema,
+			prepareWrites: prepareOpenScaleWrites,
+			loadAdapterResult: loadOpenScaleAdapterResult,
+		});
+	}
+	if (payload.source === "hevy") {
+		return runOneTimeNonMediaImportWorkflow(payload, {
+			cleanupArtifacts: cleanupImportArtifacts,
+			itemSchema: WorkoutImportItemSchema,
+			prepareWrites: prepareWorkoutWrites,
+			loadAdapterResult: loadWorkoutAdapterResult({ sourceName: "Hevy", adapt: adaptHevyCsv }),
+		});
+	}
+	if (payload.source === "strong_app") {
+		return runOneTimeNonMediaImportWorkflow(payload, {
+			cleanupArtifacts: cleanupImportArtifacts,
+			itemSchema: WorkoutImportItemSchema,
+			prepareWrites: prepareWorkoutWrites,
+			loadAdapterResult: loadWorkoutAdapterResult({
+				adapt: adaptStrongAppCsv,
+				sourceName: "StrongApp",
+			}),
+		});
+	}
+	return failImportRun(payload.runId, `Unsupported import source: ${payload.source}`).pipe(
+		Effect.mapError((error) => new ImportRunError({ message: unknownToMessage(error) })),
+	);
+};
 
 export const ProcessImportRunWorkflow = Workflow.make({
 	success: Schema.Void,
@@ -118,42 +147,44 @@ export const ProcessImportRunWorkflow = Workflow.make({
 });
 
 const ProcessImportRunWorkflowLive = ProcessImportRunWorkflow.toLayer((payload, executionId) =>
-	isOneTimeMediaImportSource(payload.source)
-		? runOneTimeMediaImportWorkflow(payload, executionId, {
-				cleanupArtifacts: cleanupImportArtifacts,
-				loadAdapterResult: loadOneTimeMediaImportAdapterResult,
-				resolveExternalId: resolveSandboxEntityExternalId,
-				importEntity: (input) =>
-					runEntityImportWorkflow(
-						{
-							userId: input.userId,
-							scriptId: input.scriptId,
-							externalId: input.externalId,
-							executionId: input.executionId,
-							entitySchemaId: input.entitySchemaId,
-						},
-						input.executionId,
-						(entityPayload, childExecutionId) =>
-							processSandboxEntityDetails(entityPayload, childExecutionId),
-						{
-							skipLibraryMembership: true,
-							activityPrefix: input.activityPrefix,
-						},
-					).pipe(
-						Effect.map((entity) => ({ id: entity.id })),
-						Effect.catchAllCause((cause) =>
-							Effect.fail(
-								new SandboxRunError({
-									message: unknownToMessage(Cause.squash(cause)),
-								}),
-							),
+	Effect.gen(function* () {
+		if (!isOneTimeMediaImportSource(payload.source)) {
+			yield* runNonMediaImport(payload);
+			return;
+		}
+
+		yield* runOneTimeMediaImportWorkflow(payload, executionId, {
+			cleanupArtifacts: cleanupImportArtifacts,
+			loadAdapterResult: loadOneTimeMediaImportAdapterResult,
+			resolveExternalId: resolveSandboxEntityExternalId,
+			importEntity: (input) =>
+				runEntityImportWorkflow(
+					{
+						userId: input.userId,
+						scriptId: input.scriptId,
+						externalId: input.externalId,
+						executionId: input.executionId,
+						entitySchemaId: input.entitySchemaId,
+					},
+					input.executionId,
+					(entityPayload, childExecutionId) =>
+						processSandboxEntityDetails(entityPayload, childExecutionId),
+					{
+						skipLibraryMembership: true,
+						activityPrefix: input.activityPrefix,
+					},
+				).pipe(
+					Effect.map((entity) => ({ id: entity.id })),
+					Effect.catchAllCause((cause) =>
+						Effect.fail(
+							new SandboxRunError({
+								message: unknownToMessage(Cause.squash(cause)),
+							}),
 						),
 					),
-			})
-		: DurableQueue.process(ImportRunQueue, payload),
+				),
+		});
+	}),
 );
 
-export const ImportWorkflowDefinitionsLive = Layer.mergeAll(
-	ProcessImportRunWorkflowLive,
-	ImportRunQueueWorkerLive,
-);
+export const ImportWorkflowDefinitionsLive = ProcessImportRunWorkflowLive;
