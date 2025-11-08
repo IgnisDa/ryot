@@ -2,30 +2,18 @@ import { Effect } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner } from "#lib/db";
-import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound } from "#lib/errors";
 import { EntityId, EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { requireText, trimToNull } from "#lib/validation";
 
 import { EntitiesRepository } from "./repository";
-import type { CreateEntityBody, ListedEntity } from "./schemas";
+import type { CreateEntityBody } from "./schemas";
 
 const entityNotFoundError = "Entity not found";
 const entitySchemaNotFoundError = "Entity schema not found";
 const partialProvenanceError =
 	"externalId and sandboxScriptId must both be provided or both be omitted";
-
-type EntitiesServiceShape = {
-	readonly create: (
-		user: CurrentUserValue,
-		payload: CreateEntityBody,
-	) => Effect.Effect<ListedEntity, BadRequest | DbError | NotFound>;
-	readonly getById: (
-		user: CurrentUserValue,
-		entityIdInput: EntityId,
-	) => Effect.Effect<ListedEntity, BadRequest | DbError | NotFound>;
-};
 
 export class EntitiesService extends Effect.Service<EntitiesService>()("EntitiesService", {
 	effect: Effect.gen(function* () {
@@ -119,6 +107,6 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			return entity;
 		});
 
-		return { create, getById } satisfies EntitiesServiceShape;
+		return { create, getById };
 	}),
 }) {}

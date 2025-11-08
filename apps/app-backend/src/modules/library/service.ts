@@ -5,16 +5,12 @@ import { Effect, Redacted } from "effect";
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { AppConfig } from "#lib/config";
 import { DbRunner } from "#lib/db";
-import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound } from "#lib/errors";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/job-id";
 import { EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
 import { trimToNull } from "#lib/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
-import {
-	toEntityImportRunResult,
-	type EntityImportRunResult,
-} from "#modules/entity-import/workflows";
+import { toEntityImportRunResult } from "#modules/entity-import/workflows";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { LibraryEntityImportWorkflow } from "./workflows";
@@ -22,17 +18,6 @@ import { LibraryEntityImportWorkflow } from "./workflows";
 const entitySchemaNotFoundError = "Entity schema not found";
 const importJobNotFoundError = "Entity import job not found";
 const sandboxScriptNotFoundError = "Sandbox script not found";
-
-type LibraryImportServiceShape = {
-	readonly import: (
-		user: CurrentUserValue,
-		payload: { scriptId: SandboxScriptId; externalId: string; entitySchemaId: EntitySchemaId },
-	) => Effect.Effect<{ jobId: string }, BadRequest | NotFound | DbError>;
-	readonly getImportResult: (
-		user: CurrentUserValue,
-		jobId: string,
-	) => Effect.Effect<EntityImportRunResult, NotFound>;
-};
 
 export class LibraryImportService extends Effect.Service<LibraryImportService>()(
 	"LibraryImportService",
@@ -108,7 +93,7 @@ export class LibraryImportService extends Effect.Service<LibraryImportService>()
 				);
 			});
 
-			return { getImportResult, import: importEntity } satisfies LibraryImportServiceShape;
+			return { getImportResult, import: importEntity };
 		}),
 	},
 ) {}
