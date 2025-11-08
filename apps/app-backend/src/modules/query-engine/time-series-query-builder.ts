@@ -1,9 +1,9 @@
 import { sql } from "drizzle-orm";
 import { Effect, Match } from "effect";
 
-import { CurrentDb, dbEffect } from "~/lib/db";
-import type { DbError } from "~/lib/errors";
-import type { TimeSeriesQueryRequest } from "~/lib/query-language";
+import { CurrentDb, dbEffect } from "#lib/db";
+import type { DbError } from "#lib/errors";
+import type { TimeSeriesQueryRequest } from "#lib/query-language";
 
 import type { PreparedQueryContext } from "./context";
 import { buildEventFirstCte } from "./event-query-ctes";

@@ -1,9 +1,9 @@
 import { sql } from "drizzle-orm";
 
-import type { QueryComputedField, QueryExpression, RuntimeField } from "~/lib/query-language";
-import { getComputedFieldOrThrow, prepareComputedFields } from "~/lib/views/computed-fields";
-import { normalizeExpressionPropertyType } from "~/lib/views/expression-analysis";
-import type { ViewExpressionTypeInfo } from "~/lib/views/expression-analysis";
+import type { QueryComputedField, QueryExpression, RuntimeField } from "#lib/query-language";
+import { getComputedFieldOrThrow, prepareComputedFields } from "#lib/views/computed-fields";
+import { normalizeExpressionPropertyType } from "#lib/views/expression-analysis";
+import type { ViewExpressionTypeInfo } from "#lib/views/expression-analysis";
 
 import type { QueryEngineContext } from "./context";
 import { getExpressionDisplayKind, getLiteralDisplayKind } from "./display-builder";

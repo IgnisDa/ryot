@@ -2,8 +2,8 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Context, Effect, Exit, Layer, Redacted, Runtime } from "effect";
 import { Pool } from "pg";
 
-import { AppConfig } from "~/lib/config";
-import { DbError, unknownToDbError } from "~/lib/errors";
+import { AppConfig } from "#lib/config";
+import { DbError, unknownToDbError } from "#lib/errors";
 
 import * as schema from "./schema";
 

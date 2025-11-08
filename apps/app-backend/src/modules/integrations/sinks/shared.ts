@@ -1,8 +1,8 @@
 import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
-} from "~/modules/imports/media/import-processor";
-import type { ImportEntityRef } from "~/modules/imports/media/types";
+} from "#modules/imports/media/import-processor";
+import type { ImportEntityRef } from "#modules/imports/media/types";
 
 import type { IntegrationRecord } from "../repository";
 

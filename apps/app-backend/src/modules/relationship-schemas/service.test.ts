@@ -1,8 +1,8 @@
 import { expect, it } from "@effect/vitest";
 import { Effect, Exit, Layer } from "effect";
 
-import { CurrentDb, DbRunner } from "~/lib/db";
-import { NotFound } from "~/lib/errors";
+import { CurrentDb, DbRunner } from "#lib/db";
+import { NotFound } from "#lib/errors";
 
 import { RelationshipSchemasRepository } from "./repository";
 import { RelationshipSchemasService } from "./service";

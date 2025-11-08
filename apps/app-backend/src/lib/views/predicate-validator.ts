@@ -1,6 +1,6 @@
 import { Match } from "effect";
 
-import type { QueryComputedField, QueryExpression, QueryFilter } from "~/lib/query-language";
+import type { QueryComputedField, QueryExpression, QueryFilter } from "#lib/query-language";
 
 import { buildComputedFieldMap } from "./computed-fields";
 import { QueryEngineValidationError } from "./errors";
