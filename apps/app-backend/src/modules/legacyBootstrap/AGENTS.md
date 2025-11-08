@@ -14,6 +14,7 @@ TypeScript backend (`apps/app-backend`) during startup.
 ## Current Decisions
 
 - V1 `user` is renamed to `old_user` so the new Drizzle `user` table can be created.
+- V1 `metadata` is migrated to `entity` with empty `properties`, the first legacy image preserved, `external_id = identifier`, `entity_schema_id`/`sandbox_script_id` derived from `lot`/`source` (with `Custom` rows keeping a null sandbox script), and `populated_at = last_updated_on` for the first pass.
 - Preserve legacy ids.
 - Derive new emails from the old user name as `name@ryot.local`, with normalization and a stable fallback for collisions.
 - New users get `email_verified = true` because the legacy account was already trusted.
