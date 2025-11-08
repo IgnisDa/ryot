@@ -5,18 +5,28 @@ import {
 	Flex,
 	Loader,
 	Paper,
+	Stack,
 	Text,
 	Title,
 } from "@mantine/core";
+import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useFacetsQuery } from "#/features/facets/hooks";
+import { useAuthClient } from "#/hooks/auth";
 
 export const Route = createFileRoute("/_protected/")({
 	component: App,
 });
 
 function App() {
+	const authClient = useAuthClient();
 	const facetsQuery = useFacetsQuery();
+	const createApiKeyMutation = useMutation({
+		mutationFn: async () => {
+			return authClient.apiKey.create();
+		},
+	});
+
 	const hasEnabledFacets = facetsQuery.enabledFacets.length > 0;
 
 	return (
@@ -85,6 +95,20 @@ function App() {
 						</Button>
 					</Flex>
 				)}
+
+				<Stack mb={24}>
+					<Button
+						disabled={createApiKeyMutation.isPending}
+						onClick={() => createApiKeyMutation.mutate()}
+					>
+						Create API Key
+					</Button>
+					{createApiKeyMutation.data && (
+						<Box>
+							<Text>API Key: {createApiKeyMutation.data.data?.key}</Text>
+						</Box>
+					)}
+				</Stack>
 
 				{!facetsQuery.isLoading &&
 					!facetsQuery.isError &&
