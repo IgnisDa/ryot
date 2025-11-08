@@ -42,7 +42,7 @@ export const legacyBootstrapGate = Effect.gen(function* () {
 
 const logLegacyBootstrapNotice = (msg: { message?: string }) => {
 	if (msg.message) {
-		Effect.runSync(Effect.logDebug(`[legacy-bootstrap] ${msg.message}`));
+		Effect.runSync(Effect.logInfo(`[legacy-bootstrap] ${msg.message}`));
 	}
 };
 
