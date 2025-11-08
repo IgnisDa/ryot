@@ -12,22 +12,20 @@ import { EventSchemasRepository } from "~/modules/event-schemas/repository";
 import { EventsService } from "~/modules/events/service";
 
 import type { ImportRunJobData } from "./jobs";
+import type { LoadedMediaImportAdapterResult } from "./media/file-processor";
 import { mediaEntityGroupItemIndex } from "./media/groups";
 import { MediaImportAdapterResultSchema } from "./media/import-processor";
 import { getResolutionCandidates } from "./media/resolution-candidates";
 import { LoadedMediaImportAdapterSuccess } from "./media/source-loaders";
 import { type ImportEntityRef, importEntityRefKey } from "./media/types";
 import { ImportsRepository } from "./repository";
+import { PROGRESS_UPDATE_INTERVAL, recordImportRunFailure } from "./runtime/failures";
 import {
-	PROGRESS_UPDATE_INTERVAL,
-	failImportRun,
-	recordImportRunFailure,
-} from "./runtime/failures";
+	createImportRunLifecycle,
+	ImportRunError,
+	toWorkflowError,
+} from "./runtime/workflow-helpers";
 import { buildNetflixAdapterResult } from "./sources/netflix/processor";
-
-export class ImportRunError extends Schema.TaggedError<ImportRunError>()("ImportRunError", {
-	message: Schema.String,
-}) {}
 
 const ResolutionCandidate = Schema.Struct({
 	scriptSlug: Schema.String,
@@ -49,11 +47,6 @@ const LoadMediaImportOutcome = Schema.Union(LoadMediaImportFailed, LoadedMediaIm
 const EnsureLibraryMembershipOutcome = Schema.Struct({
 	message: Schema.NullOr(Schema.String),
 });
-
-type LoadedMediaImportAdapterResult = {
-	cleanupPaths: ReadonlyArray<string>;
-	adapterResult: typeof MediaImportAdapterResultSchema.Type;
-};
 
 type MediaImportWorkflowOperations<RLoad, RResolve, RImport, RSearch = never, RCleanup = never> = {
 	cleanupArtifacts: (input: {
@@ -89,9 +82,6 @@ type MediaImportWorkflowOperations<RLoad, RResolve, RImport, RSearch = never, RC
 		activityPrefix: string;
 	}) => Effect.Effect<{ id: string }, SandboxRunError, RImport>;
 };
-
-const toWorkflowError = (cause: unknown) =>
-	new ImportRunError({ message: unknownToMessage(cause) });
 
 const calculateProgress = (input: {
 	base: number;
@@ -131,50 +121,10 @@ export const runOneTimeMediaImportWorkflow = <
 
 		let cleanupPaths: ReadonlyArray<string> = [];
 		const initialCleanupPaths = payload.filePath ? [payload.filePath] : [];
-
-		const cleanupArtifacts = (name: string, paths: ReadonlyArray<string>) =>
-			Activity.make({
-				name,
-				error: ImportRunError,
-				execute: operations
-					.cleanupArtifacts({ cleanupPaths: paths, sourcePayloadKey: payload.sourcePayloadKey })
-					.pipe(Effect.mapError(toWorkflowError)),
-			});
-		const cleanupArtifactsBestEffort = (name: string, paths: ReadonlyArray<string>) =>
-			Activity.make({
-				name,
-				execute: operations
-					.cleanupArtifacts({ cleanupPaths: paths, sourcePayloadKey: payload.sourcePayloadKey })
-					.pipe(Effect.catchAll(() => Effect.void)),
-			});
-
-		const markRunFailed = (name: string, message: string) =>
-			Activity.make({
-				name,
-				error: ImportRunError,
-				execute: failImportRun(payload.runId, message).pipe(Effect.mapError(toWorkflowError)),
-			});
-		const failRunAndCleanup = (input: {
-			message: string;
-			cleanupName: string;
-			failureName: string;
-			cleanupPaths: ReadonlyArray<string>;
-		}) =>
-			Effect.gen(function* () {
-				const failedRun = yield* Effect.exit(markRunFailed(input.failureName, input.message));
-				const cleanedUp = yield* Effect.exit(
-					cleanupArtifacts(input.cleanupName, input.cleanupPaths),
-				);
-
-				if (cleanedUp._tag === "Failure") {
-					return yield* Effect.failCause(cleanedUp.cause);
-				}
-				if (failedRun._tag === "Failure") {
-					return yield* Effect.failCause(failedRun.cause);
-				}
-
-				return undefined;
-			});
+		const { cleanupArtifactsBestEffort, failRunAndCleanup } = createImportRunLifecycle(
+			payload,
+			operations.cleanupArtifacts,
+		);
 
 		const createProgressReporter = (input: {
 			base: number;

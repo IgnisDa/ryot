@@ -6,10 +6,10 @@ This module owns one-time import runs. It normalizes third-party exports into Ry
 
 ## Directory layout
 
-- `routes.ts`, `service.ts`, `repository.ts`, `schemas.ts`, `jobs.ts`, `worker.ts`: HTTP, queue, persistence, and shared import-run types.
-- `runtime/`: queue dispatch, source registry, file handling, CSV helpers, and failure utilities.
-- `sources/`: source-specific adapters and processors.
-- `media/`: shared media import pipeline.
+- `routes.ts`, `service.ts`, `repository.ts`, `schemas.ts`, `jobs.ts`, `worker.ts`: HTTP, workflow entry, persistence, and shared import-run types.
+- `runtime/`: file handling, source payload storage, shared failures, and workflow helpers.
+- `sources/`: source-specific adapters and loader helpers.
+- `media/`: shared media import orchestration, source loading, and workflow-owned sandbox composition.
 - `measurement/`: OpenScale import pipeline.
 - `workout/`: Hevy and Strong import pipeline.
 
@@ -22,11 +22,11 @@ Media imports run in four phases:
 3. `populating_entities`: populate or reuse global entities through sandbox `details` drivers.
 4. `writing_events`: write collection memberships and events for resolved entity ids.
 
-The pipeline is re-entrant. Resolution and population both enqueue sandbox child jobs and resume through BullMQ state stored in `ImportRunJobData`.
+The workflow body owns these phases directly. Resolution and population call sandbox or entity-import work through durable workflow steps instead of a hidden pass-through processor.
 
-After adapter load, persisted media pipeline snapshots must contain only normalized resume state such as `mediaEntityGroups`, refs, ids, failed indices, and phase indexes. Do not persist source credentials, API URLs, raw temp file paths, or source payloads in `job.updateData` snapshots once normalized groups exist.
+After adapter load, later phases should operate only on normalized adapter results. Do not carry source credentials, API URLs, raw temp file paths, or source payloads beyond the loader step unless a specific source still needs them for bounded cleanup.
 
-API source processors should validate credentials inside `loadAdapterResult`, not before calling `processMediaImport`, so resumed `resolving_entities`, `populating_entities`, and `writing_events` phases can continue without source credentials. File-backed media processors should require temp paths only for adapter loading; resumed media phases use normalized groups and must not require the upload file to still exist.
+API source loaders should validate credentials inside `loadAdapterResult`, not in later workflow phases. File-backed media loaders should require temp paths only for adapter loading; later phases should work from normalized groups and durable workflow state.
 
 ## Import refs
 
@@ -52,11 +52,11 @@ Use the existing import failure stages consistently:
 For a new source:
 
 1. Add source metadata and validation in `runtime/source-definitions.ts` if needed.
-2. Register the processor in `runtime/processor-registry.ts`.
+2. Register the loader or dispatcher in `media/source-loaders.ts` or `worker.ts`, depending on whether the source is media or non-media.
 3. Prefer a small source adapter in `sources/<source>/adapter.ts` that only parses and maps source data.
-4. Reuse `processMediaImport`, `processWorkoutCsvImport`, or `processOpenScaleImport` unless the source truly needs a custom pipeline.
+4. Reuse `runOneTimeMediaImportWorkflow` or `runOneTimeNonMediaImportWorkflow` and keep source-specific code bounded to loading, parsing, or write preparation.
 5. Follow the backend provider/sandbox boundary rules.
-6. Add focused adapter or processor tests beside the new source.
+6. Add focused adapter, helper, or workflow tests beside the new source or workflow.
 
 ## Existing source patterns
 
@@ -69,5 +69,5 @@ For a new source:
 ## Testing expectations
 
 - Adapter tests should validate normalization behavior and row-level failures, not provider HTTP.
-- Resolution tests belong in `media/resolve.test.ts` and sandbox script tests beside the provider scripts.
+- Workflow orchestration tests belong in `workflows.test.ts` or `workflows-non-media.test.ts`, and pure helper tests should stay beside the helper they cover.
 - End-to-end media pipeline tests should assert phase transitions and persisted job data only where needed.

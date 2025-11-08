@@ -67,7 +67,7 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 
 - `entity`, `event`, and `relationship` writes must validate `properties` against the matching schema table's `propertiesSchema`.
 - User-owned entity creation goes through `modules/entities: createEntity`.
-- Provider-backed global population goes through `modules/entities/population: populateGlobalEntity` and is populate-only: it may write global entities and provider-related global relationships, but not user library membership.
+- Provider-backed global population inside background flows should compose the entity import workflow or its workflow-friendly helpers; do not reintroduce direct sandbox details helpers outside workflow orchestration.
 - Create user-owned `in-library` relationships through `modules/entities: ensureEntityInLibrary`.
 - External event creation goes through event APIs that also dispatch event-schema triggers, such as `createEventsWithTriggers` or `createEventsBestEffortWithTriggers`.
 - Collection membership creation goes through `modules/collections: addToCollection`.
