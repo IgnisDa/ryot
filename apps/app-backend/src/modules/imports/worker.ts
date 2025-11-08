@@ -1,11 +1,8 @@
 import { FileSystem } from "@effect/platform";
-import { DurableQueue, Workflow } from "@effect/workflow";
-import { Cause, Effect, Schema } from "effect";
+import { Workflow } from "@effect/workflow";
+import { Effect, Schema } from "effect";
 
-import { SandboxRunError, unknownToMessage } from "~/lib/errors";
-import { decodeEntityResolveResult } from "~/modules/entities/population";
-import { runEntityImportWorkflow } from "~/modules/entities/workflows";
-import { SandboxExecutionQueue } from "~/modules/sandbox/durable-queues";
+import { unknownToMessage } from "~/lib/errors";
 
 import { ImportRunJobData } from "./jobs";
 import {
@@ -17,6 +14,10 @@ import {
 	isOneTimeMediaImportSource,
 	loadOneTimeMediaImportAdapterResult,
 } from "./media/source-loaders";
+import {
+	importMediaEntityViaWorkflow,
+	resolveSandboxEntityExternalId,
+} from "./media/workflow-operations";
 import { failImportRun } from "./runtime/failures";
 import { getTemporaryDirectory, resolveSafeImportFilePath } from "./runtime/files";
 import { deleteImportSourcePayload } from "./runtime/source-payload-store";
@@ -26,52 +27,6 @@ import { ImportRunError, runOneTimeMediaImportWorkflow } from "./workflows";
 import { runOneTimeNonMediaImportWorkflow } from "./workflows-non-media";
 import { WorkoutImportItemSchema } from "./workout/domain";
 import { loadWorkoutAdapterResult, prepareWorkoutWrites } from "./workout/workflow";
-
-const toSandboxError = (cause: unknown) =>
-	cause instanceof SandboxRunError
-		? cause
-		: new SandboxRunError({ message: unknownToMessage(cause) });
-
-const processSandboxEntityDetails = (
-	payload: { userId: string; scriptId: string; externalId: string },
-	executionId: string,
-) =>
-	DurableQueue.process(SandboxExecutionQueue, {
-		driverName: "details",
-		userId: payload.userId,
-		scriptId: payload.scriptId,
-		context: { externalId: payload.externalId },
-		executionId: `${executionId}-sandbox-details`,
-	}).pipe(Effect.mapError(toSandboxError));
-
-const resolveSandboxEntityExternalId = (input: {
-	value: string;
-	userId: string;
-	scriptId: string;
-	executionId: string;
-	identifierType: string;
-}) =>
-	DurableQueue.process(SandboxExecutionQueue, {
-		userId: input.userId,
-		driverName: "resolve",
-		scriptId: input.scriptId,
-		executionId: input.executionId,
-		context: { value: input.value, identifierType: input.identifierType },
-	}).pipe(
-		Effect.mapError(toSandboxError),
-		Effect.flatMap((result) =>
-			result.error
-				? Effect.fail(new SandboxRunError({ message: result.error }))
-				: decodeEntityResolveResult(result.value).pipe(
-						Effect.mapError(
-							() =>
-								new SandboxRunError({
-									message: "Entity resolve script returned an unexpected shape",
-								}),
-						),
-					),
-		),
-	);
 
 const cleanupImportArtifacts = (input: {
 	sourcePayloadKey?: string;
@@ -88,19 +43,16 @@ const cleanupImportArtifacts = (input: {
 		yield* Effect.forEach(
 			new Set(input.cleanupPaths),
 			(path) =>
-				Effect.gen(function* () {
-					if (!path.trim()) {
-						return;
-					}
+				!path.trim()
+					? Effect.void
+					: Effect.gen(function* () {
+							const safePathResult = resolveSafeImportFilePath(path, tempDir);
+							if ("error" in safePathResult) {
+								return yield* new ImportRunError({ message: "Import cleanup path is invalid" });
+							}
 
-					const safePathResult = resolveSafeImportFilePath(path, tempDir);
-					if (!("error" in safePathResult)) {
-						yield* fs.remove(safePathResult.path, { recursive: true });
-						return;
-					}
-
-					return yield* new ImportRunError({ message: "Import cleanup path is invalid" });
-				}),
+							return yield* fs.remove(safePathResult.path, { recursive: true });
+						}),
 			{ discard: true },
 		);
 	});
@@ -155,34 +107,9 @@ const ProcessImportRunWorkflowLive = ProcessImportRunWorkflow.toLayer((payload, 
 
 		yield* runOneTimeMediaImportWorkflow(payload, executionId, {
 			cleanupArtifacts: cleanupImportArtifacts,
-			loadAdapterResult: loadOneTimeMediaImportAdapterResult,
+			importEntity: importMediaEntityViaWorkflow,
 			resolveExternalId: resolveSandboxEntityExternalId,
-			importEntity: (input) =>
-				runEntityImportWorkflow(
-					{
-						userId: input.userId,
-						scriptId: input.scriptId,
-						externalId: input.externalId,
-						executionId: input.executionId,
-						entitySchemaId: input.entitySchemaId,
-					},
-					input.executionId,
-					(entityPayload, childExecutionId) =>
-						processSandboxEntityDetails(entityPayload, childExecutionId),
-					{
-						skipLibraryMembership: true,
-						activityPrefix: input.activityPrefix,
-					},
-				).pipe(
-					Effect.map((entity) => ({ id: entity.id })),
-					Effect.catchAllCause((cause) =>
-						Effect.fail(
-							new SandboxRunError({
-								message: unknownToMessage(Cause.squash(cause)),
-							}),
-						),
-					),
-				),
+			loadAdapterResult: loadOneTimeMediaImportAdapterResult,
 		});
 	}),
 );
