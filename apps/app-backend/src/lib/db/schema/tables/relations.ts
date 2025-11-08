@@ -1,22 +1,17 @@
 import { relations } from "drizzle-orm";
 
+import { user } from "./auth";
 import {
-	entity,
 	entitySchema,
 	entitySchemaScript,
-	event,
-	eventSchema,
-	importRun,
-	importRunFailure,
-	integration,
-	relationship,
-	relationshipSchema,
 	sandboxScript,
-	savedView,
 	tracker,
 	trackerEntitySchema,
-} from ".";
-import { user } from "./auth";
+} from "./core";
+import { entity, relationship, relationshipSchema } from "./entities";
+import { event, eventSchema } from "./events";
+import { importRun, importRunFailure, integration } from "./imports";
+import { savedView } from "./views";
 
 export const trackerRelations = relations(tracker, ({ one, many }) => ({
 	trackerEntitySchemas: many(trackerEntitySchema),
