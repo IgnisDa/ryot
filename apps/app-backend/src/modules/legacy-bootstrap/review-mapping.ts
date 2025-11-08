@@ -28,6 +28,7 @@ DECLARE
 	cursor_id text := '';
 	next_cursor_id text;
 	rows_inserted int := 0;
+	unresolved_episode_rows int := 0;
 	started_at timestamptz := clock_timestamp();
 BEGIN
 	IF to_regclass('"review"') IS NULL THEN
@@ -251,6 +252,35 @@ BEGIN
 		rows_inserted := rows_inserted + batch_rows_inserted;
 		cursor_id := next_cursor_id;
 	END LOOP;
+
+	SELECT count(*) INTO unresolved_episode_rows
+	FROM "review" rv
+	INNER JOIN "entity" e ON e.id = rv.entity_id
+	INNER JOIN "entity_schema" es ON es.id = e.entity_schema_id
+	LEFT JOIN _legacy_show_episode_resolution show_episode
+		ON es.slug = 'show'
+		AND show_episode.parent_entity_id = rv.entity_id
+		AND show_episode.season_number = rv.show_extra_information ->> 'season'
+		AND show_episode.episode_number = rv.show_extra_information ->> 'episode'
+	LEFT JOIN _legacy_podcast_episode_resolution podcast_episode
+		ON es.slug = 'podcast'
+		AND podcast_episode.parent_entity_id = rv.entity_id
+		AND podcast_episode.episode_number = rv.podcast_extra_information ->> 'episode'
+	WHERE (
+			es.slug = 'show'
+			AND (rv.show_extra_information ->> 'season') ~ '^[0-9]+$'
+			AND (rv.show_extra_information ->> 'episode') ~ '^[0-9]+$'
+			AND show_episode.entity_id IS NULL
+		)
+		OR (
+			es.slug = 'podcast'
+			AND (rv.podcast_extra_information ->> 'episode') ~ '^[0-9]+$'
+			AND podcast_episode.entity_id IS NULL
+		);
+
+	IF unresolved_episode_rows > 0 THEN
+		RAISE WARNING 'review -> event: % show/podcast review(s) skipped because their episode could not be resolved positionally; these reviews were not migrated', unresolved_episode_rows;
+	END IF;
 
 	RAISE NOTICE 'review -> event: % row(s) migrated total (% seconds elapsed)',
 		rows_inserted,
