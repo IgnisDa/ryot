@@ -3,6 +3,7 @@ import type { AuthType } from "~/auth";
 import { resolveCustomEntityAccessError } from "~/lib/entity-schema-access";
 import {
 	createAuthRoute,
+	createCustomEntityAccessErrorResult,
 	createNotFoundErrorResult,
 	createValidationErrorResult,
 	jsonResponse,
@@ -76,19 +77,13 @@ const eventSchemaMismatchError =
 	"Event schema does not belong to the entity schema";
 
 const resolveEntityAccessError = (error: "builtin" | "not_found") => {
-	const accessError = resolveCustomEntityAccessError({
-		error,
-		notFoundMessage: entityNotFoundError,
-		builtinMessage: customEntitySchemaError,
-	});
-
-	return {
-		status: accessError.status,
-		body:
-			accessError.kind === "not_found"
-				? createNotFoundErrorResult(accessError.message).body
-				: createValidationErrorResult(accessError.message).body,
-	};
+	return createCustomEntityAccessErrorResult(
+		resolveCustomEntityAccessError({
+			error,
+			notFoundMessage: entityNotFoundError,
+			builtinMessage: customEntitySchemaError,
+		}),
+	);
 };
 
 const resolveCreateAccessError = (
@@ -152,7 +147,7 @@ export const eventsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			return c.json(errorResult.body, errorResult.status);
 		}
 
-		const eventInputResult = resolveValidationResult(
+		const eventInput = resolveValidationResult(
 			() =>
 				resolveEventCreateInput({
 					entityId: body.entityId,
@@ -163,17 +158,18 @@ export const eventsApi = new OpenAPIHono<{ Variables: AuthType }>()
 				}),
 			"Event payload is invalid",
 		);
-		if ("body" in eventInputResult)
-			return c.json(eventInputResult.body, eventInputResult.status);
+		if ("error" in eventInput)
+			return c.json(createValidationErrorResult(eventInput.error).body, 400);
+		const eventData = eventInput.data;
 
 		const createdEvent = await createEventForUser({
 			userId: user.id,
-			entityId: eventInputResult.data.entityId,
-			occurredAt: eventInputResult.data.occurredAt,
-			properties: eventInputResult.data.properties,
+			entityId: eventData.entityId,
+			occurredAt: eventData.occurredAt,
+			properties: eventData.properties,
 			eventSchemaName: foundScope.access.eventSchemaName,
 			eventSchemaSlug: foundScope.access.eventSchemaSlug,
-			eventSchemaId: eventInputResult.data.eventSchemaId,
+			eventSchemaId: eventData.eventSchemaId,
 		});
 
 		return c.json(successResponse(createdEvent), 200);

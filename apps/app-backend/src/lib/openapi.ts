@@ -62,9 +62,6 @@ export const notFoundResponse = (description = "Resource not found") =>
 export const validationErrorResponse = (description = "Validation failed") =>
 	createErrorResponse(description, commonErrors.validationFailed);
 
-export const pathParamErrorResponse = () =>
-	validationErrorResponse("Path parameter validation failed");
-
 export const payloadErrorResponse = () =>
 	validationErrorResponse("Request payload validation failed");
 
@@ -80,30 +77,27 @@ export const createValidationErrorResult = (message: string) => ({
 	status: 400 as const,
 });
 
+export const createCustomEntityAccessErrorResult = (input: {
+	message: string;
+	error: "builtin" | "not_found";
+}) => {
+	if (input.error === "not_found")
+		return createNotFoundErrorResult(input.message);
+
+	return createValidationErrorResult(input.message);
+};
+
 export const resolveValidationResult = <T>(
 	callback: () => T,
 	fallback: string,
-) => {
+): { data: T } | { error: string } => {
 	try {
 		return { data: callback() } as const;
 	} catch (error) {
 		const message = error instanceof Error ? error.message : fallback;
-		return createValidationErrorResult(message);
+		return { error: message } as const;
 	}
 };
-
-export const paginationMetaSchema = z.object({
-	hasMore: z.boolean(),
-	page: z.number().int().positive(),
-	total: z.number().int().nonnegative(),
-});
-
-export type PaginationMeta = z.infer<typeof paginationMetaSchema>;
-
-export const paginatedResponse = <T>(data: T[], meta: PaginationMeta) => ({
-	data,
-	meta,
-});
 
 export const errorResponse = (code: string, message: string) => ({
 	error: { code, message },
@@ -111,12 +105,6 @@ export const errorResponse = (code: string, message: string) => ({
 
 export const dataSchema = <T extends z.ZodType>(schema: T) =>
 	z.object({ data: schema });
-
-export const paginatedSchema = <T extends z.ZodType>(itemSchema: T) =>
-	z.object({
-		data: z.array(itemSchema),
-		meta: paginationMetaSchema,
-	});
 
 export const unknownObjectSchema = z.record(z.string(), z.unknown());
 
