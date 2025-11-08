@@ -1,13 +1,49 @@
 import { Effect, Either } from "effect";
 
+import type {
+	LoadedMediaImportAdapterError,
+	LoadedMediaImportAdapterResult,
+} from "../../media/file-processor";
 import { processMediaImport } from "../../media/import-processor";
-import { failImportRun, sanitizeErrorMessage } from "../../runtime/failures";
+import { sanitizeErrorMessage } from "../../runtime/failures";
 import { cleanupImportFile, getValidatedOptionalPath, readImportFile } from "../../runtime/files";
 import { adaptMovaryExports } from "./adapter";
 
 const MOVARY_EXTENSIONS = ["csv"];
 
 export const processMovaryImport = (input: {
+	runId: string;
+	userId: string;
+	filePath?: string;
+	sourcePayload?: Record<string, unknown>;
+}) =>
+	Effect.gen(function* () {
+		let cleanupPaths: ReadonlyArray<string> = [];
+
+		yield* processMediaImport({
+			runId: input.runId,
+			userId: input.userId,
+			sourceName: "Movary",
+			adapterErrorFallback: "Could not parse Movary export data",
+			loadAdapterResult: loadMovaryAdapterResult(input).pipe(
+				Effect.tap(({ cleanupPaths: paths }) =>
+					Effect.sync(() => {
+						cleanupPaths = paths;
+					}),
+				),
+				Effect.map(({ adapterResult }) => adapterResult),
+				Effect.mapError((error) => error.message),
+			),
+		}).pipe(
+			Effect.ensuring(
+				Effect.suspend(() =>
+					Effect.forEach(new Set(cleanupPaths), cleanupImportFile, { discard: true }),
+				),
+			),
+		);
+	});
+
+export const loadMovaryAdapterResult = (input: {
 	runId: string;
 	userId: string;
 	filePath?: string;
@@ -32,8 +68,10 @@ export const processMovaryImport = (input: {
 		}).pipe(Effect.either);
 
 		if (Either.isLeft(paths)) {
-			yield* failImportRun(input.runId, paths.left);
-			return;
+			return yield* Effect.fail({
+				cleanupPaths: [],
+				message: paths.left,
+			} satisfies LoadedMediaImportAdapterError);
 		}
 
 		const { historyFilePath, ratingsFilePath, watchlistFilePath } = paths.right;
@@ -41,26 +79,35 @@ export const processMovaryImport = (input: {
 			(filePath): filePath is string => Boolean(filePath),
 		);
 
-		yield* processMediaImport({
-			runId: input.runId,
-			userId: input.userId,
-			sourceName: "Movary",
-			adapterErrorFallback: "Could not parse Movary export data",
-			loadAdapterResult: Effect.gen(function* () {
-				if (!historyFilePath || !ratingsFilePath || !watchlistFilePath) {
-					return yield* Effect.fail("Import job is missing Movary export files");
-				}
-				const [historyCsv, ratingsCsv, watchlistCsv] = yield* Effect.all([
-					readImportFile(historyFilePath),
-					readImportFile(ratingsFilePath),
-					readImportFile(watchlistFilePath),
-				]).pipe(Effect.mapError(() => "Could not read import file"));
-				return yield* Effect.try({
-					try: () => adaptMovaryExports({ historyCsv, ratingsCsv, watchlistCsv }),
-					catch: (error) => sanitizeErrorMessage(error, "Could not parse Movary export data"),
-				});
-			}),
-		}).pipe(
-			Effect.ensuring(Effect.forEach(new Set(cleanupPaths), cleanupImportFile, { discard: true })),
+		if (!historyFilePath || !ratingsFilePath || !watchlistFilePath) {
+			return yield* Effect.fail({
+				cleanupPaths,
+				message: "Import job is missing Movary export files",
+			} satisfies LoadedMediaImportAdapterError);
+		}
+
+		const [historyCsv, ratingsCsv, watchlistCsv] = yield* Effect.all([
+			readImportFile(historyFilePath),
+			readImportFile(ratingsFilePath),
+			readImportFile(watchlistFilePath),
+		]).pipe(
+			Effect.mapError(
+				() =>
+					({
+						cleanupPaths,
+						message: "Could not read import file",
+					}) satisfies LoadedMediaImportAdapterError,
+			),
 		);
+
+		const adapterResult = yield* Effect.try({
+			try: () => adaptMovaryExports({ historyCsv, ratingsCsv, watchlistCsv }),
+			catch: (error) =>
+				({
+					cleanupPaths,
+					message: sanitizeErrorMessage(error, "Could not parse Movary export data"),
+				}) satisfies LoadedMediaImportAdapterError,
+		});
+
+		return { adapterResult, cleanupPaths } satisfies LoadedMediaImportAdapterResult;
 	});

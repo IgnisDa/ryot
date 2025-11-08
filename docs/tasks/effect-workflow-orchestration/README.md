@@ -166,16 +166,16 @@ The implementation should favor direct replacement over compatibility. Existing 
 
 ## Tasks
 
-**Overall Progress:** 1 of 7 tasks completed
+**Overall Progress:** 2 of 7 tasks completed
 
-**Current Task:** [Task 02](./02-one-time-media-import-workflow-orchestration.md) (todo)
+**Current Task:** [Task 03](./03-one-time-non-media-import-workflow-orchestration.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                                         | Type | Status |
 | --- | ------------------------------------------------------------------------------------------------------------ | ---- | ------ |
 | 01  | [Entity Import Workflow Orchestration](./01-entity-import-workflow-orchestration.md)                         | AFK  | done   |
-| 02  | [One-Time Media Import Workflow Orchestration](./02-one-time-media-import-workflow-orchestration.md)         | AFK  | todo   |
+| 02  | [One-Time Media Import Workflow Orchestration](./02-one-time-media-import-workflow-orchestration.md)         | AFK  | done   |
 | 03  | [One-Time Non-Media Import Workflow Orchestration](./03-one-time-non-media-import-workflow-orchestration.md) | AFK  | todo   |
 | 04  | [Integration Sink Workflow Orchestration](./04-integration-sink-workflow-orchestration.md)                   | AFK  | todo   |
 | 05  | [Integration Yank Workflow Orchestration](./05-integration-yank-workflow-orchestration.md)                   | AFK  | todo   |
