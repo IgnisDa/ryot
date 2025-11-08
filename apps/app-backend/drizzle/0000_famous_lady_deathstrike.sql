@@ -142,6 +142,7 @@ CREATE TABLE "saved_view" (
 	"name" text NOT NULL,
 	"query_definition" jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
+	"is_builtin" boolean DEFAULT false NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
