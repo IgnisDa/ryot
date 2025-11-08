@@ -15,7 +15,9 @@ async function mbGet(path, params) {
 	const url = `${MB_BASE}/${path}?${search.toString()}`;
 	const response = await httpCall("GET", url, { headers: MB_HEADERS });
 	if (!response?.success) {
-		if (response?.data?.status === 404) {return null;}
+		if (response?.data?.status === 404) {
+			return null;
+		}
 		throw new Error(response?.error ?? `MusicBrainz request failed: ${path}`);
 	}
 	return parseJsonResponse(response.data.body);
@@ -26,13 +28,19 @@ async function fetchCoverArtUrl(resourceType, resourceId) {
 	const response = await httpCall("GET", url, {
 		headers: { Accept: "application/json" },
 	});
-	if (!response?.success) {return null;}
+	if (!response?.success) {
+		return null;
+	}
 	try {
 		const data = parseJsonResponse(response.data.body);
-		if (!data || !Array.isArray(data.images)) {return null;}
-		const frontImage = data.images.find((img) => img.front === true) || data.images[0];
-		if (!frontImage) {return null;}
-		const t = frontImage.thumbnails || {};
+		if (!data || !Array.isArray(data.images)) {
+			return null;
+		}
+		const frontImage = data.images.find((img) => img.front === true) ?? data.images[0];
+		if (!frontImage) {
+			return null;
+		}
+		const t = frontImage.thumbnails ?? {};
 		return (
 			(typeof t["1200"] === "string" && t["1200"]) ||
 			(typeof t["500"] === "string" && t["500"]) ||
@@ -64,7 +72,7 @@ function releaseGroupDescription(releaseGroup) {
 		: [];
 	const secondary = secondaryTypes
 		.map((type) => getString(type))
-		.filter((type) => type !== null && type.length > 0)
+		.filter((type) => type.length > 0)
 		.join(", ");
 	if (secondary) {
 		parts.push(secondary);
@@ -78,24 +86,26 @@ function releaseGroupDescription(releaseGroup) {
 	return parts.length > 0 ? parts.join(" - ") : null;
 }
 
+function parseDate(value) {
+	if (typeof value !== "string" || !value.trim()) {
+		return null;
+	}
+	const parsed = new Date(value.trim());
+	return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function chooseRelease(releases) {
 	if (!Array.isArray(releases) || releases.length === 0) {
 		return null;
 	}
 
-	const parseDate = (value) => {
-		if (typeof value !== "string" || !value.trim()) {
-			return null;
-		}
-		const parsed = new Date(value.trim());
-		return Number.isNaN(parsed.getTime()) ? null : parsed;
-	};
-
 	const official = releases.filter((release) => release?.status === "Official");
 	const candidates = official.length > 0 ? official : releases;
 
 	return candidates.reduce((best, release) => {
-		if (!best) {return release;}
+		if (!best) {
+			return release;
+		}
 		const bestDate = parseDate(best.date);
 		const releaseDate = parseDate(release.date);
 		if (bestDate && releaseDate) {
@@ -110,7 +120,6 @@ function chooseRelease(releases) {
 
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
 
 	const {
 		query,
@@ -131,7 +140,9 @@ driver("search", async function (context) {
 		offset: String((currentPage - 1) * pageSize),
 	});
 
-	if (!data) {throw new Error("MusicBrainz release-group search returned no data");}
+	if (!data) {
+		throw new Error("MusicBrainz release-group search returned no data");
+	}
 
 	const totalItems = typeof data.count === "number" ? Math.max(0, data.count) : 0;
 	const groups = Array.isArray(data["release-groups"]) ? data["release-groups"] : [];
@@ -139,7 +150,9 @@ driver("search", async function (context) {
 	const items = groups
 		.map((group) => {
 			const id = typeof group?.id === "string" && group.id.trim() ? group.id.trim() : null;
-			if (!id) {return null;}
+			if (!id) {
+				return null;
+			}
 			const title =
 				typeof group?.title === "string" && group.title.trim() ? group.title.trim() : id;
 			return {
@@ -173,10 +186,14 @@ driver("details", async function (context) {
 	const releaseGroup = await mbGet(`release-group/${externalId}`, {
 		inc: "artists",
 	});
-	if (!releaseGroup) {throw new Error(`MusicBrainz release-group not found: ${externalId}`);}
+	if (!releaseGroup) {
+		throw new Error(`MusicBrainz release-group not found: ${externalId}`);
+	}
 
 	const title = typeof releaseGroup?.title === "string" ? releaseGroup.title.trim() : null;
-	if (!title) {throw new Error("MusicBrainz release-group is missing title");}
+	if (!title) {
+		throw new Error("MusicBrainz release-group is missing title");
+	}
 
 	const description = releaseGroupDescription(releaseGroup);
 
@@ -209,12 +226,10 @@ driver("details", async function (context) {
 	}
 
 	// Fallback: cover art for release-group
-	if (!coverUrl) {
-		coverUrl = await fetchCoverArtUrl("release-group", externalId);
-	}
+	coverUrl ??= await fetchCoverArtUrl("release-group", externalId);
 
 	const images = coverUrl ? [{ type: "remote", url: coverUrl }] : [];
-	const parts_ = trackCount > 0 ? trackCount : null;
+	const parts = trackCount > 0 ? trackCount : null;
 
 	const relatedEntities = [];
 	if (bestRelease && releaseDetails?.media) {
@@ -252,7 +267,7 @@ driver("details", async function (context) {
 		properties: {
 			images,
 			description,
-			parts: parts_,
+			parts,
 			sourceUrl: `https://musicbrainz.org/release-group/${externalId}`,
 		},
 	};
