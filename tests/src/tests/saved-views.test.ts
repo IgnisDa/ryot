@@ -124,7 +124,7 @@ describe("Saved views E2E", () => {
 		const reviewEventSchemaId = eventSchemas.find((item) => item.slug === "review")?.id;
 		assertPresent(reviewEventSchemaId, "Missing review event schema");
 
-		const createReviews = await client.POST("/events", {
+		const createReviews = await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -214,7 +214,7 @@ describe("Saved views E2E", () => {
 		const reviewEventSchemaId = eventSchemas.find((item) => item.slug === "review")?.id;
 		assertPresent(reviewEventSchemaId, "Missing review event schema");
 
-		const createReviews = await client.POST("/events", {
+		const createReviews = await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{

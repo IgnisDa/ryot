@@ -25,7 +25,7 @@ async function postTemporaryUploads(files: File[], cookies?: string) {
 describe("POST /uploads/presigned", () => {
 	it("returns 401 when not authenticated", async () => {
 		const client = getBackendClient();
-		const { response } = await client.POST("/uploads/presigned", {
+		const { response } = await client.uploads.createPresigned({
 			body: { contentType: "text/csv" },
 		});
 
@@ -42,17 +42,16 @@ describe("POST /uploads/presigned", () => {
 
 		await Promise.all(
 			cases.map(async ([contentType, extension]) => {
-				const { data, response } = await client.POST("/uploads/presigned", {
+				const { data, response } = await client.uploads.createPresigned({
 					body: { contentType },
 					headers: { Cookie: cookies },
 				});
 
 				expect(response.status).toBe(200);
-				const result = data?.data;
-				expect(result?.key).toBeString();
-				expect(result?.key.endsWith(`.${extension}`)).toBe(true);
-				expect(result?.uploadUrl).toBeString();
-				expect(result?.uploadUrl.length).toBeGreaterThan(0);
+				expect(data?.key).toBeString();
+				expect(data?.key.endsWith(`.${extension}`)).toBe(true);
+				expect(data?.uploadUrl).toBeString();
+				expect(data?.uploadUrl.length).toBeGreaterThan(0);
 			}),
 		);
 	});
@@ -61,7 +60,7 @@ describe("POST /uploads/presigned", () => {
 describe("POST /uploads/presigned/download", () => {
 	it("returns 401 when not authenticated", async () => {
 		const client = getBackendClient();
-		const { response } = await client.POST("/uploads/presigned/download", {
+		const { response } = await client.uploads.createPresignedDownload({
 			body: { keys: ["uploads/some-key.png"] },
 		});
 
@@ -70,7 +69,7 @@ describe("POST /uploads/presigned/download", () => {
 
 	it("returns 400 when keys array is empty", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { response } = await client.POST("/uploads/presigned/download", {
+		const { response } = await client.uploads.createPresignedDownload({
 			body: { keys: [] },
 			headers: { Cookie: cookies },
 		});
@@ -80,9 +79,9 @@ describe("POST /uploads/presigned/download", () => {
 
 	it("returns 400 when keys is missing", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { response } = await client.POST("/uploads/presigned/download", {
+		const { response } = await client.uploads.createPresignedDownload({
+			body: { keys: [] },
 			headers: { Cookie: cookies },
-			body: { keys: [] as string[] },
 		});
 
 		expect(response.status).toBe(400);
@@ -91,24 +90,19 @@ describe("POST /uploads/presigned/download", () => {
 	it("returns presigned download URLs for existing keys", async () => {
 		const key = "uploads/test-file.txt";
 		await getS3Client().send(
-			new PutObjectCommand({
-				Key: key,
-				Body: "test content",
-				Bucket: getS3BucketName(),
-			}),
+			new PutObjectCommand({ Key: key, Body: "test content", Bucket: getS3BucketName() }),
 		);
 
 		const { client, cookies } = await createAuthenticatedClient();
-		const { data, response } = await client.POST("/uploads/presigned/download", {
+		const { data, response } = await client.uploads.createPresignedDownload({
 			body: { keys: [key] },
 			headers: { Cookie: cookies },
 		});
 
 		expect(response.status).toBe(200);
 		expect(data).toBeDefined();
-		const items = data?.data;
-		expect(items).toHaveLength(1);
-		const [item] = items ?? [];
+		expect(data).toHaveLength(1);
+		const [item] = data ?? [];
 		expect(item?.key).toBe(key);
 		expect(item?.downloadUrl).toBeString();
 		expect(item?.downloadUrl.length).toBeGreaterThan(0);

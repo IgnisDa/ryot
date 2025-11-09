@@ -135,7 +135,7 @@ describe("Query engine E2E", () => {
 		const reviewEventSchemaId = eventSchemas.find((item) => item.slug === "review")?.id;
 		assertPresent(reviewEventSchemaId, "Missing review event schema");
 
-		const createUserAReviews = await userA.client.POST("/events", {
+		const createUserAReviews = await userA.client.events.create({
 			headers: { Cookie: userA.cookies },
 			body: [
 				{
@@ -150,7 +150,7 @@ describe("Query engine E2E", () => {
 				},
 			],
 		});
-		const createUserBReview = await userB.client.POST("/events", {
+		const createUserBReview = await userB.client.events.create({
 			headers: { Cookie: userB.cookies },
 			body: [
 				{
@@ -251,7 +251,7 @@ describe("Query engine E2E", () => {
 		const collection = await createCollection(client, cookies, {
 			name: `Query Engine Multi Match ${crypto.randomUUID()}`,
 		});
-		const addToCollection = await client.POST("/collections/memberships", {
+		const addToCollection = await client.collections.createMembership({
 			headers: { Cookie: cookies },
 			body: { entityId: entity.id, collectionId: collection.id },
 		});
@@ -291,7 +291,7 @@ describe("Query engine E2E", () => {
 		expect(getItemTitles(data.data.items)).toEqual([entity.name]);
 		expect(data.data.meta.pagination.total).toBe(1);
 
-		const aggregateResult = await client.POST("/query-engine/execute", {
+		const aggregateResult = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				eventJoins: [],
@@ -1323,7 +1323,7 @@ describe("Query engine E2E", () => {
 			entitySchemaId: memberSchema.schemaId,
 		});
 
-		const addResult = await client.POST("/collections/memberships", {
+		const addResult = await client.collections.createMembership({
 			headers: { Cookie: cookies },
 			body: { entityId: memberId, collectionId: collection.id },
 		});
@@ -1387,7 +1387,7 @@ describe("Query engine E2E", () => {
 			entitySchemaId: schema.schemaId,
 		});
 
-		const addResult = await client.POST("/collections/memberships", {
+		const addResult = await client.collections.createMembership({
 			headers: { Cookie: cookies },
 			body: { entityId, collectionId: collection.id },
 		});
@@ -1475,7 +1475,7 @@ describe("Query engine E2E", () => {
 		] as const;
 		const addResults = await Promise.all(
 			membershipPairs.map(([entityId, collectionId]) =>
-				client.POST("/collections/memberships", {
+				client.collections.createMembership({
 					headers: { Cookie: cookies },
 					body: { entityId, collectionId },
 				}),
@@ -1550,7 +1550,7 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		const { response } = await client.POST("/query-engine/execute", {
+		const { response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				mode: "events",
@@ -1599,7 +1599,7 @@ describe("Query engine E2E", () => {
 			slug: `computed-filter-rel-${crypto.randomUUID()}`,
 		});
 
-		const { response } = await client.POST("/query-engine/execute", {
+		const { response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				eventJoins: [],
@@ -1690,7 +1690,7 @@ describe("Query engine E2E", () => {
 	it("executes aggregate mode counts and numeric aggregations inside the filtered set", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
 
-		const { data, response } = await client.POST("/query-engine/execute", {
+		const { data, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				eventJoins: [],
@@ -1783,7 +1783,7 @@ describe("Query engine E2E", () => {
 	it("returns countBy maps and SQL empty-set defaults in aggregate mode", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
 
-		const aggregateResult = await client.POST("/query-engine/execute", {
+		const aggregateResult = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,
@@ -1813,7 +1813,7 @@ describe("Query engine E2E", () => {
 			value: { phone: 2, tablet: 1, wearable: 1 },
 		});
 
-		const emptyResult = await client.POST("/query-engine/execute", {
+		const emptyResult = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				eventJoins: [],
@@ -1869,7 +1869,7 @@ describe("Query engine E2E", () => {
 	it("rejects non-numeric aggregate expressions at request time", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
 
-		const { error, response } = await client.POST("/query-engine/execute", {
+		const { error, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,
@@ -1929,7 +1929,7 @@ describe("Query engine E2E", () => {
 	it("rejects primary event references in aggregate mode", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
 
-		const { error, response } = await client.POST("/query-engine/execute", {
+		const { error, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,
