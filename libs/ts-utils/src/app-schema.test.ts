@@ -367,6 +367,96 @@ describe("fromAppSchema", () => {
 		expect(schema.safeParse(["a"]).success).toBeTrue();
 		expect(schema.safeParse(["a", "b", "c"]).success).toBeFalse();
 	});
+
+	it("uses defaultValue when field is absent for a non-required string", () => {
+		const schema = fromAppSchema({
+			label: "Note",
+			type: "string",
+			description: "Note",
+			defaultValue: "no note",
+		});
+
+		expect(schema.parse(undefined)).toBe("no note");
+		expect(schema.parse("custom")).toBe("custom");
+		expect(schema.parse(null)).toBeNull();
+	});
+
+	it("uses defaultValue for a required field and still rejects null", () => {
+		const schema = fromAppSchema({
+			type: "string",
+			label: "Status",
+			description: "Status",
+			defaultValue: "active",
+			validation: { required: true },
+		});
+
+		expect(schema.parse(undefined)).toBe("active");
+		expect(schema.parse("inactive")).toBe("inactive");
+		expect(schema.safeParse(null).success).toBeFalse();
+	});
+
+	it("uses defaultValue for number, boolean, enum, enum-array, array, and object types", () => {
+		expect(
+			fromAppSchema({ type: "number", label: "x", description: "x", defaultValue: 3.14 }).parse(
+				undefined,
+			),
+		).toBe(3.14);
+
+		expect(
+			fromAppSchema({ type: "integer", label: "x", description: "x", defaultValue: 7 }).parse(
+				undefined,
+			),
+		).toBe(7);
+
+		expect(
+			fromAppSchema({
+				label: "x",
+				type: "boolean",
+				description: "x",
+				defaultValue: false,
+			}).parse(undefined),
+		).toBe(false);
+
+		expect(
+			fromAppSchema({
+				label: "x",
+				type: "enum",
+				description: "x",
+				defaultValue: "b",
+				options: ["a", "b"],
+			}).parse(undefined),
+		).toBe("b");
+
+		expect(
+			fromAppSchema({
+				label: "x",
+				description: "x",
+				type: "enum-array",
+				options: ["a", "b"],
+				defaultValue: ["a"],
+			}).parse(undefined),
+		).toEqual(["a"]);
+
+		expect(
+			fromAppSchema({
+				label: "x",
+				type: "array",
+				description: "x",
+				defaultValue: [],
+				items: { type: "string", label: "item", description: "item" },
+			}).parse(undefined),
+		).toEqual([]);
+
+		expect(
+			fromAppSchema({
+				label: "x",
+				type: "object",
+				description: "x",
+				defaultValue: { color: "red" },
+				properties: { color: { type: "string", label: "Color", description: "Color" } },
+			}).parse(undefined),
+		).toEqual({ color: "red" });
+	});
 });
 
 describe("fromAppSchemaObject", () => {
@@ -378,21 +468,9 @@ describe("fromAppSchemaObject", () => {
 					label: "Time To Beat",
 					description: "Time To Beat",
 					properties: {
-						hastily: {
-							label: "Hastily",
-							description: "Hastily",
-							type: "integer",
-						},
-						normally: {
-							label: "Normally",
-							description: "Normally",
-							type: "integer",
-						},
-						completely: {
-							label: "Completely",
-							description: "Completely",
-							type: "integer",
-						},
+						hastily: { type: "integer", label: "Hastily", description: "Hastily" },
+						normally: { type: "integer", label: "Normally", description: "Normally" },
+						completely: { type: "integer", label: "Completely", description: "Completely" },
 					},
 				},
 			},
@@ -411,14 +489,14 @@ describe("fromAppSchemaObject", () => {
 		const schema = fromAppSchemaObject({
 			fields: {
 				progressPercent: {
+					type: "number",
 					label: "Progress Percent",
 					description: "Progress Percent",
-					type: "number",
 				},
 				status: {
+					type: "string",
 					label: "Status",
 					description: "Status",
-					type: "string",
 					validation: { required: true },
 				},
 			},
@@ -437,6 +515,44 @@ describe("fromAppSchemaObject", () => {
 		expect(schema.safeParse({ status: "completed", progressPercent: 82 }).success).toBeTrue();
 	});
 
+	it("applies defaultValue for a top-level field when the key is absent", () => {
+		const schema = fromAppSchemaObject({
+			fields: {
+				note: { label: "Note", type: "string", description: "Note" },
+				rating: { type: "integer", label: "Rating", defaultValue: 5, description: "Rating" },
+			},
+		});
+
+		expect(schema.parse({})).toEqual({ rating: 5 });
+		expect(schema.parse({ rating: 3 })).toEqual({ rating: 3 });
+		expect(schema.parse({ rating: 3, note: "great" })).toEqual({ rating: 3, note: "great" });
+	});
+
+	it("applies defaultValue for nested object properties", () => {
+		const schema = fromAppSchemaObject({
+			fields: {
+				meta: {
+					label: "Meta",
+					type: "object",
+					description: "Meta",
+					properties: {
+						source: {
+							type: "string",
+							label: "Source",
+							description: "Source",
+							defaultValue: "manual",
+						},
+					},
+				},
+			},
+		});
+
+		expect(schema.parse({ meta: {} })).toEqual({ meta: { source: "manual" } });
+		expect(schema.parse({ meta: { source: "import" } })).toEqual({
+			meta: { source: "import" },
+		});
+	});
+
 	it("supports nested all and any rule conditions", () => {
 		const schema = fromAppSchemaObject({
 			fields: {
@@ -445,21 +561,9 @@ describe("fromAppSchemaObject", () => {
 					label: "Metadata",
 					description: "Metadata",
 					properties: {
-						score: {
-							label: "Score",
-							description: "Score",
-							type: "integer",
-						},
-						status: {
-							label: "Status",
-							description: "Status",
-							type: "string",
-						},
-						verified: {
-							label: "Verified",
-							description: "Verified",
-							type: "boolean",
-						},
+						score: { label: "Score", type: "integer", description: "Score" },
+						status: { type: "string", label: "Status", description: "Status" },
+						verified: { type: "boolean", label: "Verified", description: "Verified" },
 					},
 				},
 			},
@@ -471,24 +575,12 @@ describe("fromAppSchemaObject", () => {
 					when: {
 						operator: "all",
 						conditions: [
-							{
-								operator: "in",
-								path: ["metadata", "status"],
-								value: ["published", "archived"],
-							},
+							{ operator: "in", path: ["metadata", "status"], value: ["published", "archived"] },
 							{
 								operator: "any",
 								conditions: [
-									{
-										value: true,
-										operator: "eq",
-										path: ["metadata", "verified"],
-									},
-									{
-										value: "archived",
-										operator: "eq",
-										path: ["metadata", "status"],
-									},
+									{ value: true, operator: "eq", path: ["metadata", "verified"] },
+									{ value: "archived", operator: "eq", path: ["metadata", "status"] },
 								],
 							},
 						],
@@ -515,21 +607,13 @@ describe("fromAppSchemaObject", () => {
 describe("getAppPropertyDefinitionAtPath", () => {
 	it("resolves top-level and nested object properties", () => {
 		const fields = {
-			rating: {
-				label: "Rating",
-				description: "Rating",
-				type: "integer" as const,
-			},
+			rating: { label: "Rating", description: "Rating", type: "integer" as const },
 			metadata: {
 				label: "Metadata",
 				description: "Metadata",
 				type: "object" as const,
 				properties: {
-					title: {
-						label: "Title",
-						description: "Title",
-						type: "string" as const,
-					},
+					title: { label: "Title", description: "Title", type: "string" as const },
 				},
 			},
 		};
@@ -540,9 +624,9 @@ describe("getAppPropertyDefinitionAtPath", () => {
 			description: "Rating",
 		});
 		expect(getAppPropertyDefinitionAtPath(fields, ["metadata", "title"])).toEqual({
+			type: "string",
 			label: "Title",
 			description: "Title",
-			type: "string",
 		});
 		expect(getAppPropertyDefinitionAtPath(fields, ["metadata", "missing"])).toBe(undefined);
 	});
@@ -551,17 +635,13 @@ describe("getAppPropertyDefinitionAtPath", () => {
 describe("isAppPropertyRequired", () => {
 	it("reads required state from validation metadata", () => {
 		expect(
-			isAppPropertyRequired({
-				label: "Value",
-				description: "Value",
-				type: "string",
-			}),
+			isAppPropertyRequired({ type: "string", label: "Value", description: "Value" }),
 		).toBeFalse();
 		expect(
 			isAppPropertyRequired({
+				type: "string",
 				label: "Value",
 				description: "Value",
-				type: "string",
 				validation: { required: true },
 			}),
 		).toBeTrue();

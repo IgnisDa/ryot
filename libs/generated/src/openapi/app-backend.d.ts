@@ -1315,9 +1315,9 @@ export interface paths {
                                     scriptId: string;
                                 }[];
                                 propertiesSchema: {
-                                    rules?: components["schemas"]["AppSchemaRule"][];
                                     /** @enum {string} */
                                     unknownKeys?: "strip" | "strict" | "passthrough";
+                                    rules?: components["schemas"]["AppSchemaRule"][];
                                     fields: {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
@@ -1394,9 +1394,9 @@ export interface paths {
                         slug?: string;
                         trackerId: string;
                         propertiesSchema: {
-                            rules?: components["schemas"]["AppSchemaRule"][];
                             /** @enum {string} */
                             unknownKeys?: "strip" | "strict" | "passthrough";
+                            rules?: components["schemas"]["AppSchemaRule"][];
                             fields: {
                                 [key: string]: components["schemas"]["AppPropertyDefinition"];
                             };
@@ -1426,9 +1426,9 @@ export interface paths {
                                     scriptId: string;
                                 }[];
                                 propertiesSchema: {
-                                    rules?: components["schemas"]["AppSchemaRule"][];
                                     /** @enum {string} */
                                     unknownKeys?: "strip" | "strict" | "passthrough";
+                                    rules?: components["schemas"]["AppSchemaRule"][];
                                     fields: {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
@@ -1692,9 +1692,9 @@ export interface paths {
                                     scriptId: string;
                                 }[];
                                 propertiesSchema: {
-                                    rules?: components["schemas"]["AppSchemaRule"][];
                                     /** @enum {string} */
                                     unknownKeys?: "strip" | "strict" | "passthrough";
+                                    rules?: components["schemas"]["AppSchemaRule"][];
                                     fields: {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
@@ -2172,9 +2172,9 @@ export interface paths {
                                 slug: string;
                                 entitySchemaId: string;
                                 propertiesSchema: {
-                                    rules?: components["schemas"]["AppSchemaRule"][];
                                     /** @enum {string} */
                                     unknownKeys?: "strip" | "strict" | "passthrough";
+                                    rules?: components["schemas"]["AppSchemaRule"][];
                                     fields: {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
@@ -2234,9 +2234,9 @@ export interface paths {
                         slug?: string;
                         entitySchemaId: string;
                         propertiesSchema: {
-                            rules?: components["schemas"]["AppSchemaRule"][];
                             /** @enum {string} */
                             unknownKeys?: "strip" | "strict" | "passthrough";
+                            rules?: components["schemas"]["AppSchemaRule"][];
                             fields: {
                                 [key: string]: components["schemas"]["AppPropertyDefinition"];
                             };
@@ -2258,9 +2258,9 @@ export interface paths {
                                 slug: string;
                                 entitySchemaId: string;
                                 propertiesSchema: {
-                                    rules?: components["schemas"]["AppSchemaRule"][];
                                     /** @enum {string} */
                                     unknownKeys?: "strip" | "strict" | "passthrough";
+                                    rules?: components["schemas"]["AppSchemaRule"][];
                                     fields: {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
@@ -4472,7 +4472,7 @@ export interface components {
             };
         };
         AppSchemaRulePath: string[];
-        AppSchemaRuleCondition: components["schemas"]["AppSchemaEqRuleCondition"] | components["schemas"]["AppSchemaNeqRuleCondition"] | components["schemas"]["AppSchemaExistsRuleCondition"] | components["schemas"]["AppSchemaNotExistsRuleCondition"] | components["schemas"]["AppSchemaInRuleCondition"] | components["schemas"]["AppSchemaNotInRuleCondition"] | {
+        AppSchemaRuleCondition: components["schemas"]["AppSchemaInRuleCondition"] | components["schemas"]["AppSchemaNotInRuleCondition"] | components["schemas"]["AppSchemaExistsRuleCondition"] | components["schemas"]["AppSchemaEqRuleCondition"] | components["schemas"]["AppSchemaNeqRuleCondition"] | components["schemas"]["AppSchemaNotExistsRuleCondition"] | {
             /** @enum {string} */
             operator: "all";
             conditions: components["schemas"]["AppSchemaRuleCondition"][];
@@ -4481,40 +4481,40 @@ export interface components {
             operator: "any";
             conditions: components["schemas"]["AppSchemaRuleCondition"][];
         };
-        AppSchemaEqRuleCondition: {
-            path: components["schemas"]["AppSchemaRulePath"];
-            value: components["schemas"]["AppSchemaRuleValue"];
-            /** @enum {string} */
-            operator: "eq";
-        };
-        AppSchemaRuleValue: boolean | unknown | number | string;
-        AppSchemaNeqRuleCondition: {
-            path: components["schemas"]["AppSchemaRulePath"];
-            value: components["schemas"]["AppSchemaRuleValue"];
-            /** @enum {string} */
-            operator: "neq";
-        };
-        AppSchemaExistsRuleCondition: {
-            path: components["schemas"]["AppSchemaRulePath"];
-            /** @enum {string} */
-            operator: "exists";
-        };
-        AppSchemaNotExistsRuleCondition: {
-            path: components["schemas"]["AppSchemaRulePath"];
-            /** @enum {string} */
-            operator: "not_exists";
-        };
         AppSchemaInRuleCondition: {
             path: components["schemas"]["AppSchemaRulePath"];
             value: components["schemas"]["AppSchemaRuleValue"][];
             /** @enum {string} */
             operator: "in";
         };
+        AppSchemaRuleValue: boolean | unknown | number | string;
         AppSchemaNotInRuleCondition: {
             path: components["schemas"]["AppSchemaRulePath"];
             value: components["schemas"]["AppSchemaRuleValue"][];
             /** @enum {string} */
             operator: "not_in";
+        };
+        AppSchemaExistsRuleCondition: {
+            path: components["schemas"]["AppSchemaRulePath"];
+            /** @enum {string} */
+            operator: "exists";
+        };
+        AppSchemaEqRuleCondition: {
+            path: components["schemas"]["AppSchemaRulePath"];
+            value: components["schemas"]["AppSchemaRuleValue"];
+            /** @enum {string} */
+            operator: "eq";
+        };
+        AppSchemaNeqRuleCondition: {
+            path: components["schemas"]["AppSchemaRulePath"];
+            value: components["schemas"]["AppSchemaRuleValue"];
+            /** @enum {string} */
+            operator: "neq";
+        };
+        AppSchemaNotExistsRuleCondition: {
+            path: components["schemas"]["AppSchemaRulePath"];
+            /** @enum {string} */
+            operator: "not_exists";
         };
         AppPropertyDefinition: components["schemas"]["AppDateProperty"] | components["schemas"]["AppEnumProperty"] | components["schemas"]["AppArrayProperty"] | components["schemas"]["AppObjectProperty"] | components["schemas"]["AppStringProperty"] | components["schemas"]["AppNumberProperty"] | components["schemas"]["AppIntegerProperty"] | components["schemas"]["AppBooleanProperty"] | components["schemas"]["AppDateTimeProperty"] | components["schemas"]["AppEnumArrayProperty"];
         AppDateProperty: {
@@ -4524,6 +4524,8 @@ export interface components {
              * @enum {string}
              */
             type: "date";
+            /** Format: date */
+            defaultValue?: string;
             description: string;
             validation?: components["schemas"]["AppRequiredPropertyValidation"];
         };
@@ -4539,6 +4541,7 @@ export interface components {
              * @enum {string}
              */
             type: "enum";
+            defaultValue?: string;
             description: string;
             validation?: components["schemas"]["AppRequiredPropertyValidation"];
         };
@@ -4552,6 +4555,7 @@ export interface components {
             description: string;
             validation?: components["schemas"]["AppArrayPropertyValidation"];
             items: components["schemas"]["AppPropertyDefinition"];
+            defaultValue?: unknown[];
         };
         AppArrayPropertyValidation: {
             /** @enum {boolean} */
@@ -4570,6 +4574,9 @@ export interface components {
             /** @enum {string} */
             unknownKeys?: "strip" | "strict" | "passthrough";
             validation?: components["schemas"]["AppRequiredPropertyValidation"];
+            defaultValue?: {
+                [key: string]: unknown;
+            };
             properties: {
                 [key: string]: components["schemas"]["AppPropertyDefinition"];
             };
@@ -4581,6 +4588,7 @@ export interface components {
              * @enum {string}
              */
             type: "string";
+            defaultValue?: string;
             description: string;
             validation?: components["schemas"]["AppStringPropertyValidation"];
         };
@@ -4598,6 +4606,7 @@ export interface components {
              * @enum {string}
              */
             type: "number";
+            defaultValue?: number;
             description: string;
             transform?: components["schemas"]["AppNumberPropertyTransform"];
             validation?: components["schemas"]["AppNumberPropertyValidation"];
@@ -4627,6 +4636,7 @@ export interface components {
              */
             type: "integer";
             description: string;
+            defaultValue?: number;
             transform?: components["schemas"]["AppNumberPropertyTransform"];
             validation?: components["schemas"]["AppNumberPropertyValidation"];
         };
@@ -4637,6 +4647,7 @@ export interface components {
              * @enum {string}
              */
             type: "boolean";
+            defaultValue?: boolean;
             description: string;
             validation?: components["schemas"]["AppRequiredPropertyValidation"];
         };
@@ -4648,6 +4659,8 @@ export interface components {
              */
             type: "datetime";
             description: string;
+            /** Format: date-time */
+            defaultValue?: string;
             validation?: components["schemas"]["AppRequiredPropertyValidation"];
         };
         AppEnumArrayProperty: {
@@ -4660,6 +4673,7 @@ export interface components {
             type: "enum-array";
             description: string;
             validation?: components["schemas"]["AppArrayPropertyValidation"];
+            defaultValue?: string[];
         };
         InternalServerError: {
             message: string;
