@@ -5,7 +5,7 @@ import { Clock, Effect, Fiber, Pool, Queue, Runtime, Schema, Sink, Stream } from
 
 import sandboxRunnerSource from "#lib/sandbox/runner-source.sandbox.js" with { type: "text" };
 
-import { AppConfig } from "../config";
+import { AppConfig } from "../config/service";
 import { badRequest, internalError, unknownToMessage } from "../errors";
 import { redisKeys, RedisService } from "../redis";
 import type { BoundHostFunction } from "./shared";

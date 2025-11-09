@@ -2,7 +2,7 @@ import { Effect } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { builtinEntitySchemas } from "#lib/builtins/entity-schemas";
-import { DbRunner } from "#lib/db";
+import { DbRunner } from "#lib/db/service";
 import { badRequest, conflict, notFound } from "#lib/errors";
 import { EntitySchemaId } from "#lib/schema/brands";
 import { parseLabeledPropertySchemaInput } from "#lib/schema/property-schema-runtime";

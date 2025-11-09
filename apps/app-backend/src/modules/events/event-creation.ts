@@ -1,7 +1,7 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { DateTime, Effect, Option, Schema } from "effect";
 
-import { DbRunner } from "#lib/db";
+import { DbRunner } from "#lib/db/service";
 import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound, unknownToMessage } from "#lib/errors";
 import { EntityId, EventId, EventSchemaId } from "#lib/schema/brands";

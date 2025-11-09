@@ -1,9 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect } from "#lib/db";
-import * as schema from "#lib/db/schema/tables";
 import { user } from "#lib/db/schema/tables/auth";
+import * as schema from "#lib/db/schema/tables/combined";
+import { CurrentDb, dbEffect } from "#lib/db/service";
 import { isObjectRecord } from "#lib/predicates";
 import type { EntityId, UserId } from "#lib/schema/brands";
 

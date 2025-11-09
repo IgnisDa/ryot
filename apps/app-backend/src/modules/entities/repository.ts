@@ -1,8 +1,8 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect } from "#lib/db";
-import * as schema from "#lib/db/schema/tables";
+import * as schema from "#lib/db/schema/tables/combined";
+import { CurrentDb, dbEffect } from "#lib/db/service";
 import { DbError } from "#lib/errors";
 import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import { decodeStoredAppSchema } from "#lib/schema/core";

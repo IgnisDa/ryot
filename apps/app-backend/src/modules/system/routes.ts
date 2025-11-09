@@ -2,9 +2,9 @@ import { HttpApiBuilder } from "@effect/platform";
 import { sql } from "drizzle-orm";
 import { Effect, Option } from "effect";
 
-import { AppConfig, isOidcEnabled } from "#lib/config";
+import { AppConfig, isOidcEnabled } from "#lib/config/service";
 import { AppContract } from "#lib/contract";
-import { DbService } from "#lib/db";
+import { DbService } from "#lib/db/service";
 import { healthCheckFailed, unknownToMessage } from "#lib/errors";
 import { RedisService } from "#lib/redis";
 
