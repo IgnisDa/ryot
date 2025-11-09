@@ -1,7 +1,13 @@
 import { Match } from "effect";
 
 import type { Expr, FieldSelector, FieldValue } from "../language";
-import type { BaseEntityQueryRow, EventFields, RelationshipFields } from "./types";
+import {
+	SYSTEM_DATE_FIELDS_BY_KIND,
+	type BaseEntityQueryRow,
+	type EventFields,
+	type RelationshipFields,
+	type RootAliasKind,
+} from "./types";
 
 export const valueToFieldValue = (value: unknown): FieldValue => {
 	if (value === null || value === undefined) {
@@ -169,3 +175,35 @@ export const evalEventFieldSelector = (field: FieldSelector, row: EventFields): 
 };
 
 export const fieldValueScalar = (value: FieldValue) => value.value;
+
+// Maps a raw grouped-column value back to a FieldValue, matching the app-side field resolvers so
+// both paths derive the same `kind`:
+// properties reuse `valueToFieldValue` (kind follows the JSON runtime type); system date columns are
+// `date`, other system columns `text` (null → null); schema metadata is text/boolean.
+export const reconstructGroupFieldValue = (
+	field: FieldSelector,
+	kind: RootAliasKind,
+	raw: unknown,
+): FieldValue => {
+	if (field.type === "property") {
+		return valueToFieldValue(raw);
+	}
+	if (field.type === "schema") {
+		return field.name === "isBuiltin"
+			? { kind: "boolean", value: Boolean(raw) }
+			: { kind: "text", value: raw };
+	}
+	if (raw === null || raw === undefined) {
+		return { kind: "null", value: null };
+	}
+	return SYSTEM_DATE_FIELDS_BY_KIND[kind].has(field.name)
+		? { kind: "date", value: raw }
+		: { kind: "text", value: raw };
+};
+
+// count is never null (COUNT(*) ≥ 0); sum/average/minimum/maximum over an empty numeric set are NULL,
+// which becomes the `null` kind — matching the app-side aggregate.
+export const reconstructMeasureValue = (raw: unknown): FieldValue =>
+	raw === null || raw === undefined
+		? { kind: "null", value: null }
+		: { kind: "number", value: Number(raw) };
