@@ -7,9 +7,35 @@ import {
 	createOptionalTitlePropertiesSchema,
 } from "~/lib/test-fixtures";
 
-import { hasImportedEntityDetails, processEntityImportJob, processRelatedEntities } from "./worker";
+import { entityImportJobName, entityPreloadJobName } from "./jobs";
+import {
+	hasImportedEntityDetails,
+	processEntityImportJob,
+	processEntityPreloadJob,
+	processRelatedEntities,
+} from "./worker";
 
 type EntityImportWorkerDeps = NonNullable<Parameters<typeof processEntityImportJob>[2]>;
+
+const createImageTitlePropertiesSchema = () => ({
+	fields: {
+		...createOptionalTitlePropertiesSchema().fields,
+		images: {
+			type: "array" as const,
+			label: "Images",
+			description: "Images",
+			items: {
+				label: "Image",
+				description: "Image",
+				type: "object" as const,
+				properties: {
+					url: { label: "URL", description: "URL", type: "string" as const },
+					type: { label: "Type", description: "Type", type: "string" as const },
+				},
+			},
+		},
+	},
+});
 
 describe("hasImportedEntityDetails", () => {
 	it("returns false for empty placeholder entities", () => {
@@ -186,6 +212,78 @@ describe("processEntityImportJob", () => {
 		expect(linkedMediaEntityId).toBeUndefined();
 	});
 
+	it("imports a global entity without linking it into a user library", async () => {
+		let linkedMediaEntityId: string | undefined;
+
+		const result = await processEntityImportJob(
+			Object.assign(
+				createJob({
+					userId: "user_1",
+					externalId: "ext_1",
+					scriptId: "script_1",
+					linkToLibrary: false,
+					entitySchemaId: "schema_1",
+					step: "waiting_for_sandbox",
+				}),
+				{
+					getChildrenValues: () =>
+						Promise.resolve({
+							child: {
+								logs: null,
+								error: null,
+								success: true,
+								value: {
+									name: "Imported title",
+									properties: { title: "Imported title", images: [] },
+								},
+							},
+						}),
+				},
+			),
+			"token_1",
+			createEntityImportWorkerDeps({
+				getEntitySchemaScopeForUser: () =>
+					// oxlint-disable-next-line no-unsafe-type-assertion
+					Promise.resolve({
+						slug: "book",
+						id: "schema_1",
+						propertiesSchema: createImageTitlePropertiesSchema(),
+					} as never),
+				createGlobalEntity: () =>
+					Promise.resolve({
+						isNew: true,
+						entity: createListedEntity({
+							image: null,
+							id: "media_1",
+							properties: {},
+							populatedAt: null,
+							externalId: "ext_1",
+							sandboxScriptId: "script_1",
+						}),
+					}),
+				updateGlobalEntityById: (input) =>
+					Promise.resolve(
+						createListedEntity({
+							name: input.name,
+							image: input.image,
+							id: input.entityId,
+							externalId: "ext_1",
+							sandboxScriptId: "script_1",
+							properties: input.properties,
+							populatedAt: input.populatedAt,
+						}),
+					),
+				upsertInLibraryRelationship: (input) => {
+					linkedMediaEntityId = input.mediaEntityId;
+					return Promise.resolve();
+				},
+			}),
+		);
+
+		expect(result.id).toBe("media_1");
+		expect(linkedMediaEntityId).toBeUndefined();
+	});
+
 	it("succeeds on full job retry after a related write failure", async () => {
 		const entity = createListedEntity({
 			id: "media_1",
@@ -337,6 +435,79 @@ describe("processEntityImportJob", () => {
 		expect(relatedWrites).toBe(2);
 		expect(updateCalls).toBe(1);
 		expect(result.populatedAt instanceof Date).toBe(true);
+	});
+});
+
+describe("processEntityPreloadJob", () => {
+	it("enqueues detail imports and the next preload page from search results", async () => {
+		const queuedJobs: Array<Parameters<EntityImportWorkerDeps["addEntityQueueJob"]>[0]> = [];
+
+		const result = await processEntityPreloadJob(
+			Object.assign(
+				createJob({
+					page: 1,
+					pageSize: 2,
+					userId: "system",
+					scriptId: "script_1",
+					entitySchemaId: "schema_1",
+					step: "waiting_for_sandbox",
+				}),
+				{
+					getChildrenValues: () =>
+						Promise.resolve({
+							child: {
+								logs: null,
+								error: null,
+								success: true,
+								value: {
+									details: { totalItems: 3, nextPage: 2 },
+									items: [{ externalId: "ext_1" }, { externalId: "ext_2" }],
+								},
+							},
+						}),
+				},
+			),
+			"token_1",
+			createEntityImportWorkerDeps({
+				addEntityQueueJob: (input) => {
+					queuedJobs.push(input);
+					return Promise.resolve();
+				},
+			}),
+		);
+
+		expect(result).toEqual({ enqueuedImports: 2, nextPage: 2 });
+		expect(queuedJobs).toHaveLength(3);
+		expect(queuedJobs[0]).toMatchObject({
+			name: entityImportJobName,
+			payload: {
+				userId: "system",
+				externalId: "ext_1",
+				scriptId: "script_1",
+				linkToLibrary: false,
+				entitySchemaId: "schema_1",
+			},
+		});
+		expect(queuedJobs[1]).toMatchObject({
+			name: entityImportJobName,
+			payload: {
+				userId: "system",
+				externalId: "ext_2",
+				scriptId: "script_1",
+				linkToLibrary: false,
+				entitySchemaId: "schema_1",
+			},
+		});
+		expect(queuedJobs[2]).toMatchObject({
+			name: entityPreloadJobName,
+			payload: {
+				page: 2,
+				pageSize: 2,
+				userId: "system",
+				scriptId: "script_1",
+				entitySchemaId: "schema_1",
+			},
+		});
 	});
 });
 
