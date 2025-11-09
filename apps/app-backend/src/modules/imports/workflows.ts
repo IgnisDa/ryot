@@ -14,7 +14,7 @@ import { createProgressReporter } from "./media/workflow-shared";
 import type { MediaImportWorkflowOptions } from "./media/workflow-types";
 import { writeMediaEntityGroups } from "./media/workflow-writing";
 import { ImportsRepository } from "./repository";
-import { recordImportRunFailure } from "./runtime/failures";
+import { markImportRunStarted, recordImportRunFailure } from "./runtime/failures";
 import { resolveImportPath } from "./runtime/files";
 import {
 	createImportRunLifecycle,
@@ -152,8 +152,6 @@ export const runOneTimeMediaImportWorkflow = Effect.fn("runOneTimeMediaImportWor
 	executionId: string,
 	options: MediaImportWorkflowOptions = {},
 ) {
-	const runWithDb = yield* DbRunner;
-	const repository = yield* ImportsRepository;
 	const config = yield* AppConfig;
 	const initialCleanupPaths = payload.filePath
 		? yield* resolveImportPath(payload.filePath, config.tmpDir)
@@ -165,16 +163,11 @@ export const runOneTimeMediaImportWorkflow = Effect.fn("runOneTimeMediaImportWor
 	];
 
 	const processWorkflow = Effect.gen(function* () {
-		if (!options.skipMarkStarted) {
-			const startedAt = yield* DateTime.nowAsDate;
-			yield* Activity.make({
-				error: ImportRunError,
-				name: "mark-import-run-started",
-				execute: runWithDb(
-					repository.updateRun({ runId: payload.runId, status: "running", startedAt }),
-				).pipe(Effect.mapError(toWorkflowError)),
-			});
-		}
+		yield* Activity.make({
+			error: ImportRunError,
+			name: "mark-import-run-started",
+			execute: markImportRunStarted(payload.runId).pipe(Effect.mapError(toWorkflowError)),
+		});
 
 		const loadOutcome = yield* loadMediaAdapterResult({ payload, executionId });
 		cleanupPaths =
