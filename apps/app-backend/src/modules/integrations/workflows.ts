@@ -275,29 +275,6 @@ const runIntegrationRun = <RResolve, RImport, RYank, RHistory>(
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const repository = yield* ImportsRepository;
-		const integrationsRepository = yield* IntegrationsRepository;
-
-		if (integration.isDisabled) {
-			yield* failRun("fail-run-integration-disabled", payload.runId, "Integration is disabled");
-			return;
-		}
-
-		const integrationsDisabled = yield* Activity.make({
-			success: Schema.Boolean,
-			error: IntegrationRunError,
-			name: "load-user-disable-integrations",
-			execute: runWithDb(
-				integrationsRepository.getUserDisableIntegrations({ userId: integration.userId }),
-			).pipe(Effect.mapError(toWorkflowError)),
-		});
-		if (integrationsDisabled) {
-			yield* failRun(
-				"fail-run-integrations-disabled",
-				payload.runId,
-				"Integrations are disabled for this user",
-			);
-			return;
-		}
 
 		const startedAt = yield* DateTime.nowAsDate;
 		yield* Activity.make({

@@ -268,6 +268,19 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 							}),
 						);
 
+						if (integration.isDisabled) {
+							yield* failCreatedRun(run.id, "Integration is disabled");
+							return { runId: run.id };
+						}
+
+						const disableIntegrations = yield* runWithDb(
+							repository.getUserDisableIntegrations({ userId: integration.userId }),
+						);
+						if (disableIntegrations) {
+							yield* failCreatedRun(run.id, "Integrations are disabled for this user");
+							return { runId: run.id };
+						}
+
 						const started = yield* engine
 							.execute(ProcessIntegrationRunWorkflow, {
 								discard: true,
