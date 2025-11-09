@@ -1,11 +1,11 @@
-import { createRouter as createTanStackRouter } from "@tanstack/react-router";
+import { createRouter } from "@tanstack/react-router";
 import ApiClientProvider from "./hooks/api";
 import AuthClientProvider, { authClientInstance } from "./hooks/auth";
 import ReactQueryProvider from "./hooks/react-query";
 import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {
-	const router = createTanStackRouter({
+	const router = createRouter({
 		routeTree,
 		scrollRestoration: true,
 		defaultPreload: "intent",
