@@ -18,6 +18,9 @@
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.5.0",
+		"@dnd-kit/core": "6.3.1",
+		"@dnd-kit/sortable": "10.0.0",
+		"@dnd-kit/utilities": "3.2.2",
 		"@formkit/auto-animate": "0.9.0",
 		"@mantine/core": "9.0.0-alpha.3",
 		"@mantine/hooks": "9.0.0-alpha.3",
