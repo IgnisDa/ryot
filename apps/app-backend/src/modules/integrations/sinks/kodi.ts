@@ -1,33 +1,21 @@
-import { Effect } from "effect";
-
 import type { MediaImportAdapterResult } from "#modules/imports/media/import-processor";
 import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provider-refs";
 
 import {
 	createProgressResult,
 	createShowEpisodeLocator,
-	createSinkFailure,
-	emptySinkResult,
 	parseJsonRecord,
+	sinkFailureResult,
 	type SinkParser,
+	wrapSinkParser,
 } from "./shared";
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
-const invalidKodiPayloadResult = (): MediaImportAdapterResult => ({
-	...emptySinkResult(),
-	failures: [
-		createSinkFailure({
-			stage: "input_transformation",
-			message: "Could not parse Kodi webhook payload",
-		}),
-	],
-});
-
 export const parseKodiSinkPayload = (payload: unknown): MediaImportAdapterResult => {
 	if (!isObjectRecord(payload)) {
-		return invalidKodiPayloadResult();
+		return sinkFailureResult("Could not parse Kodi webhook payload");
 	}
 
 	const lot = payload.lot;
@@ -37,11 +25,11 @@ export const parseKodiSinkPayload = (payload: unknown): MediaImportAdapterResult
 	const rawEpisode = payload.show_episode_number;
 
 	if (typeof progress !== "number" || !Number.isFinite(progress)) {
-		return invalidKodiPayloadResult();
+		return sinkFailureResult("Could not parse Kodi webhook payload");
 	}
 
 	if (lot !== "movie" && lot !== "show") {
-		return invalidKodiPayloadResult();
+		return sinkFailureResult("Could not parse Kodi webhook payload");
 	}
 
 	const normalizedIdentifier =
@@ -56,15 +44,7 @@ export const parseKodiSinkPayload = (payload: unknown): MediaImportAdapterResult
 		providerIds: { tmdb: normalizedIdentifier },
 	});
 	if (!ref) {
-		return {
-			...emptySinkResult(),
-			failures: [
-				createSinkFailure({
-					stage: "input_transformation",
-					message: "Kodi webhook payload is missing a TMDB identifier",
-				}),
-			],
-		};
+		return sinkFailureResult("Kodi webhook payload is missing a TMDB identifier");
 	}
 
 	const episodeLocator =
@@ -75,15 +55,7 @@ export const parseKodiSinkPayload = (payload: unknown): MediaImportAdapterResult
 				)
 			: undefined;
 	if (lot === "show" && !episodeLocator) {
-		return {
-			...emptySinkResult(),
-			failures: [
-				createSinkFailure({
-					stage: "input_transformation",
-					message: "Kodi webhook payload is missing show episode coordinates",
-				}),
-			],
-		};
+		return sinkFailureResult("Kodi webhook payload is missing show episode coordinates");
 	}
 
 	return createProgressResult({
@@ -95,6 +67,4 @@ export const parseKodiSinkPayload = (payload: unknown): MediaImportAdapterResult
 };
 
 export const parseKodiSink: SinkParser = (input) =>
-	Effect.try(() => parseKodiSinkPayload(parseJsonRecord(input.rawBody))).pipe(
-		Effect.orElseSucceed(() => invalidKodiPayloadResult()),
-	);
+	wrapSinkParser("Kodi", () => parseKodiSinkPayload(parseJsonRecord(input.rawBody)));
