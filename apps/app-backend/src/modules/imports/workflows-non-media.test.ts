@@ -118,17 +118,16 @@ const makeEventsService = (overrides: Partial<EventsService> = {}) =>
 		{
 			_tag: "EventsService" as const,
 			list: () => Effect.die("unused"),
-			create: () => Effect.die("unused"),
-			createForIntegration: () => Effect.die("unused"),
-			createForImport: () => Effect.succeed({ count: 1 }),
+			listForUser: () => Effect.die("unused"),
+			create: () => Effect.succeed({ count: 1 }),
 		},
 		overrides,
 	);
 
 type TestLayerOptions = {
 	eventsService?: EventsService;
-	importsRepository?: ImportsRepository;
 	entitiesService?: EntitiesService;
+	importsRepository?: ImportsRepository;
 	entitiesRepository?: EntitiesRepository;
 	eventSchemasRepository?: EventSchemasRepository;
 	entitySchemasRepository?: EntitySchemasRepository;
@@ -369,6 +368,12 @@ it.effect("orchestrates workout imports through workflow-owned phases", () => {
 	const recordedUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
+		eventsService: makeEventsService({
+			create: (input) => {
+				eventCalls.push(input.payload as ReadonlyArray<Record<string, unknown>>);
+				return Effect.succeed({ count: input.payload.length });
+			},
+		}),
 		importsRepository: makeImportsRepository({
 			updateRun: (input) => {
 				recordedUpdates.push(input);
@@ -385,12 +390,6 @@ it.effect("orchestrates workout imports through workflow-owned phases", () => {
 						id: EntityId.make(`${payload.entitySchemaId}-entity`),
 					}),
 				);
-			},
-		}),
-		eventsService: makeEventsService({
-			createForImport: (_userId, payload) => {
-				eventCalls.push(payload as ReadonlyArray<Record<string, unknown>>);
-				return Effect.succeed({ count: payload.length });
 			},
 		}),
 	} satisfies TestLayerOptions;

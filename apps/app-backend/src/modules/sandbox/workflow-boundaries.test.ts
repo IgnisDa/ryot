@@ -78,3 +78,18 @@ it.effect("keeps parent workflows as orchestrations instead of queue pass-throug
 		expect(integrationWorkflow).toContain("runOneTimeMediaImportWorkflow(");
 	}),
 );
+
+it.effect("keeps event workflow and repository primitives behind EventsService", () =>
+	Effect.gen(function* () {
+		const [collectionsService, sandboxHostFunctions] = yield* Effect.all([
+			readModule("../collections/service.ts"),
+			readModule("../../lib/sandbox/host-functions.ts"),
+		]);
+
+		for (const source of [collectionsService, sandboxHostFunctions]) {
+			expect(source).not.toContain("#modules/events/workflows");
+			expect(source).not.toContain("#modules/events/repository");
+			expect(source).not.toContain("EventsRepository");
+		}
+	}),
+);

@@ -105,7 +105,10 @@ const ApplicationInfrastructureLive = Layer.mergeAll(
 	CoreInfrastructureDependenciesLive,
 );
 
-const RuntimeSandboxServiceLive = Layer.provide(SandboxService.Default, QueryEngineService.Default);
+const RuntimeSandboxServiceLive = Layer.provide(
+	SandboxService.Default,
+	Layer.mergeAll(EventsService.Default, QueryEngineService.Default),
+);
 
 const SandboxServicesLive = Layer.mergeAll(SandboxApiService.Default, RuntimeSandboxServiceLive);
 
@@ -132,7 +135,10 @@ const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 	UserStateService.Default,
 );
 
-const CollectionsServiceLive = Layer.provide(CollectionsService.Default, EntitiesService.Default);
+const CollectionsServiceLive = Layer.provide(
+	CollectionsService.Default,
+	Layer.mergeAll(EntitiesService.Default, EventsService.Default),
+);
 
 const ServicesBaseLive = Layer.provideMerge(
 	ServicesNeedingCollectionsScopeLive,
