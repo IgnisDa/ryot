@@ -17,7 +17,6 @@ export async function createWorkoutEntityFixture(client: Client) {
 	const { schema: workoutSchema } = await findBuiltinSchemaBySlug(client, "workout");
 
 	const workout = await createEntity(client, {
-		image: null,
 		entitySchemaId: workoutSchema.id,
 		name: `Workout ${crypto.randomUUID()}`,
 		properties: {

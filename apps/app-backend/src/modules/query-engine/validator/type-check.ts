@@ -20,7 +20,6 @@ type TypeCheckContext = {
 const entitySystemTypeMap: Record<string, CoarseType> = {
 	id: "string",
 	name: "string",
-	image: "string",
 	userId: "string",
 	createdAt: "date",
 	updatedAt: "date",

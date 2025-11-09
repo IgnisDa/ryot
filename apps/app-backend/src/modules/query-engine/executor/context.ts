@@ -34,7 +34,6 @@ export const cloneContext = (context: RowContext): RowContext => ({
 export const eventSourceEntityRow = (row: EventQueryRow): BaseEntityQueryRow => ({
 	id: row.id,
 	name: row.name,
-	image: row.image,
 	userId: row.userId,
 	schemaId: row.schemaId,
 	createdAt: row.createdAt,

@@ -15,44 +15,43 @@ import type { VisibleEntityPropertySchema } from "#modules/query-engine/executor
 import type { QueryDocument } from "#modules/query-engine/language";
 import type { CoarseType } from "#modules/query-engine/validator/type-check";
 
-type DisplayExpressionType = CoarseType | "image" | "null";
+type DisplayExpressionType = CoarseType | "null";
 
 const entityBuiltinTypeMap = {
-	createdAt: "date",
-	externalId: "string",
 	id: "string",
-	image: "image",
 	name: "string",
-	sandboxScriptId: "string",
+	createdAt: "date",
 	updatedAt: "date",
+	externalId: "string",
+	sandboxScriptId: "string",
 } satisfies Record<string, DisplayExpressionType>;
 
 const entitySchemaBuiltinTypeMap = {
-	accentColor: "string",
-	createdAt: "date",
 	id: "string",
-	icon: "string",
-	isBuiltin: "boolean",
-	name: "string",
 	slug: "string",
-	updatedAt: "date",
+	name: "string",
+	icon: "string",
 	userId: "string",
+	createdAt: "date",
+	updatedAt: "date",
+	isBuiltin: "boolean",
+	accentColor: "string",
 } satisfies Record<string, DisplayExpressionType>;
 
 const eventBuiltinTypeMap = {
-	createdAt: "date",
 	id: "string",
-	occurredAt: "date",
 	updatedAt: "date",
+	createdAt: "date",
+	occurredAt: "date",
 } satisfies Record<string, DisplayExpressionType>;
 
 const eventSchemaBuiltinTypeMap = {
-	createdAt: "date",
 	id: "string",
-	isBuiltin: "boolean",
 	name: "string",
 	slug: "string",
 	updatedAt: "date",
+	createdAt: "date",
+	isBuiltin: "boolean",
 } satisfies Record<string, DisplayExpressionType>;
 
 const getDisplayTypeFromRecord = (record: Record<string, DisplayExpressionType>, column: string) =>
@@ -95,6 +94,14 @@ const getPropertyDefinition = (
 
 	let current: AppPropertyDefinition = definition;
 	for (const segment of rest) {
+		if (current.type === "array") {
+			// Numeric segments index into an array property (e.g. images.0 -> first image).
+			if (!/^\d+$/.test(segment)) {
+				return null;
+			}
+			current = current.items;
+			continue;
+		}
 		if (current.type !== "object") {
 			return null;
 		}

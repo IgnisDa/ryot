@@ -14,7 +14,6 @@ export const isPlainObject = (value: unknown): value is Record<string, unknown> 
 export const toCollectionResponse = (entity: ListedEntity): CollectionResponse => ({
 	id: entity.id,
 	name: entity.name,
-	image: entity.image,
 	createdAt: entity.createdAt,
 	updatedAt: entity.updatedAt,
 	properties: entity.properties,

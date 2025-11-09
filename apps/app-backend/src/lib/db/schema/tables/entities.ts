@@ -12,7 +12,6 @@ import {
 } from "drizzle-orm/pg-core";
 
 import type { AppSchema } from "#lib/schema/property-schema";
-import type { StoredEntityImage } from "#modules/entities/types";
 
 import { user } from "./auth";
 import { entitySchema, sandboxScript } from "./core";
@@ -22,7 +21,6 @@ export const entity = pgTable(
 	{
 		externalId: text(),
 		name: text().notNull(),
-		image: jsonb().$type<StoredEntityImage>(),
 		populatedAt: timestamp({ withTimezone: true }),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),

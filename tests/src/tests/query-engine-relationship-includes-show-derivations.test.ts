@@ -80,7 +80,6 @@ describe("Relationship includes", () => {
 
 		const fixtureSuffix = crypto.randomUUID();
 		const show = await seedMediaEntity({
-			image: null,
 			userId: null,
 			sandboxScriptId: null,
 			entitySchemaId: showSchema.id,
@@ -101,7 +100,6 @@ describe("Relationship includes", () => {
 			},
 		});
 		const specialSeason = await seedMediaEntity({
-			image: null,
 			userId: null,
 			name: "Specials",
 			sandboxScriptId: null,
@@ -110,7 +108,6 @@ describe("Relationship includes", () => {
 			properties: { seasonNumber: 0, description: "Specials", releaseDate: null },
 		});
 		const firstSeason = await seedMediaEntity({
-			image: null,
 			userId: null,
 			name: "Season 1",
 			sandboxScriptId: null,
@@ -119,7 +116,6 @@ describe("Relationship includes", () => {
 			properties: { seasonNumber: 1, description: "First", releaseDate: null },
 		});
 		const specialEpisode = await seedMediaEntity({
-			image: null,
 			userId: null,
 			sandboxScriptId: null,
 			name: "Special Episode",
@@ -134,7 +130,6 @@ describe("Relationship includes", () => {
 			},
 		});
 		const firstSeasonEpisodeOne = await seedMediaEntity({
-			image: null,
 			userId: null,
 			sandboxScriptId: null,
 			name: "Season 1 Episode One",
@@ -149,7 +144,6 @@ describe("Relationship includes", () => {
 			},
 		});
 		const firstSeasonEpisodeTwo = await seedMediaEntity({
-			image: null,
 			userId: null,
 			sandboxScriptId: null,
 			name: "Season 1 Episode Two",

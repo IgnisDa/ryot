@@ -289,7 +289,7 @@ export type QueryDocument = typeof QueryDocument.Type;
 
 const FieldValue = strictStruct({
 	value: Schema.Unknown,
-	kind: Schema.Literal("boolean", "date", "image", "json", "null", "number", "text"),
+	kind: Schema.Literal("boolean", "date", "json", "null", "number", "text"),
 }).annotations({ identifier: "FieldValue" });
 export type FieldValue = typeof FieldValue.Type;
 
