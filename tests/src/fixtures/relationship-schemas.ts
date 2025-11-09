@@ -7,8 +7,10 @@ import type { ContractPayload } from "./contract-client";
 
 type CreateRelationshipSchemaBody = ContractPayload<"relationshipSchemas", "create">;
 
-export interface CreateRelationshipSchemaOptions
-	extends Omit<CreateRelationshipSchemaBody, "propertiesSchema"> {
+export interface CreateRelationshipSchemaOptions extends Omit<
+	CreateRelationshipSchemaBody,
+	"propertiesSchema"
+> {
 	propertiesSchema?: AppSchema;
 }
 
@@ -20,7 +22,10 @@ export function requireRelationshipSchemaBySlug<T extends { slug: string }>(
 	return requirePresent(schema, `Relationship schema '${slug}' not found`);
 }
 
-export async function createRelationshipSchema(client: Client, body: CreateRelationshipSchemaOptions) {
+export async function createRelationshipSchema(
+	client: Client,
+	body: CreateRelationshipSchemaOptions,
+) {
 	return client.run((c) =>
 		c.relationshipSchemas.create({
 			payload: {
