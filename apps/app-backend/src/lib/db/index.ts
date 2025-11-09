@@ -5,7 +5,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
 import { config } from "~/lib/config";
-import { seedEntitySchemas } from "./seed";
+import { seedInitialDatabase } from "./seed";
 
 const migrationsFolder = resolve(process.cwd(), "drizzle");
 
@@ -15,5 +15,5 @@ export const db = drizzle({ client: pool, casing: "snake_case" });
 
 export const migrateDB = async () => {
 	await migrate(db, { migrationsFolder });
-	await seedEntitySchemas();
+	await seedInitialDatabase();
 };
