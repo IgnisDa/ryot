@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from "vitest/config";
 
-const srcDir = new URL("./src/", import.meta.url).pathname;
+const srcDir = Bun.fileURLToPath(new URL("./src/", import.meta.url));
 
 // TODO: Vite (vitest's transform layer) doesn't honor Bun's `with { type: "text" }` import
 // attribute like `bun run`/`bun build` do, so `.sandbox.js` scripts get executed as real modules
