@@ -21,7 +21,7 @@ import {
 	eventSelectColumnsSql,
 	relationshipRootOrderSql,
 	relationshipRootSelectSql,
-	rootWherePushdown,
+	wherePushdown,
 	wherePushdownSql,
 } from "./sql";
 import {
@@ -136,8 +136,8 @@ const executeEntityRowsQuery = Effect.fn("executeEntityRowsQuery")(function* (
 		alias: "e",
 		schemas: source.schemas,
 	}));
-	const pushdown = rootWherePushdown(source.where, (ref) =>
-		ref.sourceAlias === source.alias ? { alias: "e" } : null,
+	const pushdown = wherePushdown(source.where, (ref) =>
+		ref.sourceAlias === source.alias ? { alias: "e", schemas: source.schemas } : null,
 	);
 	const db = yield* CurrentDb;
 	const rawRows = yield* dbEffect(() =>
@@ -201,11 +201,11 @@ const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 	);
 	const offset = (output.pagination.page - 1) * output.pagination.limit;
 	const orderSql = eventRootOrderSql(source, output);
-	const pushdown = rootWherePushdown(source.where, (ref) =>
+	const pushdown = wherePushdown(source.where, (ref) =>
 		ref.sourceAlias === source.alias
-			? { alias: "ev" }
+			? { alias: "ev", schemas: source.schemas }
 			: ref.sourceAlias === source.entity.alias
-				? { alias: "e" }
+				? { alias: "e", schemas: source.entity.schemas }
 				: null,
 	);
 	const db = yield* CurrentDb;

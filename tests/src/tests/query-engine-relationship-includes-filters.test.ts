@@ -230,6 +230,84 @@ describe("Relationship includes", () => {
 		);
 	});
 
+	it("filters an event include by an event property, keeping parents with zero matches", async () => {
+		const { client } = await createAuthenticatedClient();
+		const { schemaId: lessonSchemaId, slug: lessonSlug } = await createQueryEngineTrackerAndSchema(
+			client,
+			{ schemaName: "EventIncludeFilterLesson" },
+		);
+		const completeSlug = `event-include-filter-${crypto.randomUUID()}`;
+		const completeSchema = await createEventSchema(client, {
+			slug: completeSlug,
+			name: "Event Include Filter Complete",
+			entitySchemaId: lessonSchemaId,
+			propertiesSchema: {
+				fields: { score: { type: "integer", label: "Score", description: "Completion score" } },
+			},
+		});
+
+		const lesson = await createQueryEngineEntity(client, {
+			name: "Filter Lesson",
+			entitySchemaId: lessonSchemaId,
+		});
+		await createQueryEngineEvent(client, {
+			entityId: lesson.id,
+			properties: { score: 1 },
+			eventSchemaId: completeSchema.id,
+			occurredAt: "2026-01-01T00:00:00.000Z",
+		});
+		await createQueryEngineEvent(client, {
+			entityId: lesson.id,
+			properties: { score: 2 },
+			eventSchemaId: completeSchema.id,
+			occurredAt: "2026-02-01T00:00:00.000Z",
+		});
+
+		const doc = buildRowsDoc({
+			limit: 10,
+			alias: "lesson",
+			schemas: [lessonSlug],
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				fields: [{ key: "name", expr: systemRef("lesson", "name") }],
+				orderBy: [{ order: "asc", expr: systemRef("lesson", "name") }],
+				include: [
+					{
+						limit: 10,
+						key: "highScores",
+						orderBy: [{ order: "desc", expr: systemRef("completion", "occurredAt") }],
+						fields: [{ key: "score", expr: propertyRef("completion", completeSlug, "score") }],
+						source: {
+							type: "events",
+							entityRef: "lesson",
+							alias: "completion",
+							schemas: [completeSlug],
+							where: {
+								type: "comparison",
+								operator: "gt",
+								right: { type: "literal", value: 1 },
+								left: propertyRef("completion", completeSlug, "score"),
+							},
+						},
+					},
+				],
+			},
+		});
+
+		const result = await executeQueryEngine(client, doc);
+
+		const lessonItem = result.data.items.find(
+			(item) => requireQueryEngineFieldValue(item, "name").value === "Filter Lesson",
+		);
+		assertPresent(lessonItem, "Expected lesson row");
+		const highScores = requireQueryEngineIncludeValue(lessonItem, "highScores");
+		expect(highScores.items).toHaveLength(1);
+		const only = highScores.items[0];
+		assertPresent(only, "Expected the single high-score completion");
+		expect(requireQueryEngineFieldValue(only, "score").value).toBe(2);
+	});
+
 	it("reports hasMore on an event include with a low limit", async () => {
 		const { client } = await createAuthenticatedClient();
 		const { schemaId: lessonSchemaId, slug: lessonSlug } = await createQueryEngineTrackerAndSchema(

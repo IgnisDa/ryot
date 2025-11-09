@@ -33,6 +33,8 @@ import {
 	eventSelectColumnsSql,
 	relationshipEdgeColumnsSql,
 	relationshipRootSelectSql,
+	wherePushdown,
+	wherePushdownSql,
 } from "./sql";
 import {
 	MAX_AGGREGATE_EXPRESSION_SOURCE_ROWS,
@@ -84,6 +86,13 @@ const executeEntitySourceMatches = Effect.fn("executeEntitySourceMatches")(funct
 		sql`, `,
 	);
 	const limitSql = fetchBoundLimitSql(bound);
+	const pushdown = wherePushdown(source.where, (ref) =>
+		ref.sourceAlias === source.alias
+			? { alias: "e", schemas: source.schemas }
+			: source.via && ref.sourceAlias === source.via.alias
+				? { alias: "r", schemas: [source.via.schema] }
+				: null,
+	);
 	const db = yield* CurrentDb;
 	let rows: IncludeQueryRow[] | EntityQueryRow[];
 
@@ -98,6 +107,7 @@ const executeEntitySourceMatches = Effect.fn("executeEntitySourceMatches")(funct
 					WHERE
 						e.entity_schema_id IN (${schemaIdsSql})
 						AND (e.user_id = ${userId} OR e.user_id IS NULL)
+						${wherePushdownSql(pushdown.conditions)}
 					${limitSql}
 				`),
 		);
@@ -129,6 +139,7 @@ const executeEntitySourceMatches = Effect.fn("executeEntitySourceMatches")(funct
 						AND e.entity_schema_id IN (${schemaIdsSql})
 						AND (r.user_id = ${userId} OR r.user_id IS NULL)
 						AND (e.user_id = ${userId} OR e.user_id IS NULL)
+						${wherePushdownSql(pushdown.conditions)}
 					${limitSql}
 				`),
 		);
@@ -147,7 +158,10 @@ const executeEntitySourceMatches = Effect.fn("executeEntitySourceMatches")(funct
 		if (source.via !== undefined && "relationshipId" in row) {
 			nextContext.relationships.set(source.via.alias, row);
 		}
-		if (source.where === null || (yield* evalBoolean(userId, source.where, nextContext))) {
+		if (
+			pushdown.residual === null ||
+			(yield* evalBoolean(userId, pushdown.residual, nextContext))
+		) {
 			matches.push({ context: nextContext, row });
 		}
 	}
@@ -173,6 +187,9 @@ const executeEventSourceMatches = Effect.fn("executeEventSourceMatches")(functio
 		sql`, `,
 	);
 	const limitSql = fetchBoundLimitSql(bound);
+	const pushdown = wherePushdown(source.where, (ref) =>
+		ref.sourceAlias === source.alias ? { alias: "ev", schemas: source.schemas } : null,
+	);
 	const db = yield* CurrentDb;
 	const rawRows = yield* dbEffect(() =>
 		db.execute<EventQueryRow>(sql`
@@ -189,6 +206,7 @@ const executeEventSourceMatches = Effect.fn("executeEventSourceMatches")(functio
 					AND ev.user_id = ${userId}
 					AND ev.event_schema_id IN (${eventSchemaIdsSql})
 					AND (e.user_id = ${userId} OR e.user_id IS NULL)
+					${wherePushdownSql(pushdown.conditions)}
 				${limitSql}
 			`),
 	);
@@ -203,7 +221,10 @@ const executeEventSourceMatches = Effect.fn("executeEventSourceMatches")(functio
 		const nextContext = cloneContext(context);
 		nextContext.events.set(source.alias, row);
 		nextContext.entities.set(source.entityRef, eventSourceEntityRow(row));
-		if (source.where === null || (yield* evalBoolean(userId, source.where, nextContext))) {
+		if (
+			pushdown.residual === null ||
+			(yield* evalBoolean(userId, pushdown.residual, nextContext))
+		) {
 			matches.push({ context: nextContext, row });
 		}
 	}
@@ -231,6 +252,13 @@ const executeRootEventSourceMatches = Effect.fn("executeRootEventSourceMatches")
 		visibleEventSchemas.map((schema) => sql`${schema.id}`),
 		sql`, `,
 	);
+	const pushdown = wherePushdown(source.where, (ref) =>
+		ref.sourceAlias === source.alias
+			? { alias: "ev", schemas: source.schemas }
+			: ref.sourceAlias === source.entity.alias
+				? { alias: "e", schemas: source.entity.schemas }
+				: null,
+	);
 	const db = yield* CurrentDb;
 	const rawRows = yield* dbEffect(() =>
 		db.execute<EventQueryRow>(sql`
@@ -247,6 +275,7 @@ const executeRootEventSourceMatches = Effect.fn("executeRootEventSourceMatches")
 					AND ev.event_schema_id IN (${eventSchemaIdsSql})
 					AND e.entity_schema_id IN (${entitySchemaIdsSql})
 					AND (e.user_id = ${userId} OR e.user_id IS NULL)
+					${wherePushdownSql(pushdown.conditions)}
 				${fetchBoundLimitSql(rootSourceBound)}
 			`),
 	);
@@ -259,7 +288,7 @@ const executeRootEventSourceMatches = Effect.fn("executeRootEventSourceMatches")
 	const matches: SourceMatch[] = [];
 	for (const row of rawRows.rows) {
 		const context = makeEventRootContext(source, row);
-		if (source.where === null || (yield* evalBoolean(userId, source.where, context))) {
+		if (pushdown.residual === null || (yield* evalBoolean(userId, pushdown.residual, context))) {
 			matches.push({ context, row });
 		}
 	}
