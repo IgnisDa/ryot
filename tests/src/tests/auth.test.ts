@@ -1,16 +1,16 @@
 import { describe, expect, it } from "bun:test";
 
-import { createTestAuthClient, createTestUser } from "../fixtures/auth";
-import { getBackendClient, getPgClient } from "../setup";
+import { createTestAuthClient, createTestUser, getBackendClient } from "../fixtures";
+import { getPgClient } from "../setup";
 
 describe("GET /system/config auth block defaults", () => {
 	it("returns correct auth defaults", async () => {
 		const client = getBackendClient();
-		const { data } = await client.system.config();
-		expect(data?.auth.oidcEnabled).toBe(false);
-		expect(data?.auth.signupAllowed).toBe(true);
-		expect(data?.auth.localAuthDisabled).toBe(false);
-		expect(data?.auth.oidcButtonLabel).toBeUndefined();
+		const data = await client.run((c) => c.system.config());
+		expect(data.auth.oidcEnabled).toBe(false);
+		expect(data.auth.signupAllowed).toBe(true);
+		expect(data.auth.localAuthDisabled).toBe(false);
+		expect(data.auth.oidcButtonLabel).toBeUndefined();
 	});
 });
 

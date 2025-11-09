@@ -9,6 +9,7 @@ import {
 	startOpenScaleImport,
 	uploadTemporaryFile,
 } from "../fixtures";
+import { assertTaggedError } from "../test-support/assertions";
 
 describe("OpenScale Import E2E", () => {
 	it("completes an OpenScale import and creates measurement entities", async () => {
@@ -39,35 +40,32 @@ describe("OpenScale Import E2E", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		await runOpenScaleImportFixture(client, cookies);
 
-		const { data, response } = await client.imports.listRuns({
-			headers: { Cookie: cookies },
-		});
+		const data = await client.run((c) => c.imports.listRuns(), { Cookie: cookies });
 
-		expect(response.status).toBe(200);
-		expect(data?.length).toBeGreaterThan(0);
-		expect(data?.[0]?.source).toBe("open_scale");
+		expect(data.length).toBeGreaterThan(0);
+		expect(data[0]?.source).toBe("open_scale");
 	});
 
 	it("returns 404 for unknown run id", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { response } = await client.imports.getRun({
-			headers: { Cookie: cookies },
-			params: { path: { runId: "nonexistent-run-id" }, query: {} },
-		});
+		const error = await client.runError(
+			(c) => c.imports.getRun({ path: { runId: "nonexistent-run-id" }, urlParams: {} }),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(404);
+		assertTaggedError(error, "NotFound");
 	});
 
 	it("rejects an invalid upload token", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { response } = await client.imports.createRun({
-			headers: { Cookie: cookies },
-			body: { source: "open_scale", uploadToken: "bogus-token" },
-		});
+		const error = await client.runError(
+			(c) => c.imports.createRun({ payload: { source: "open_scale", uploadToken: "bogus-token" } }),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(400);
+		assertTaggedError(error, "BadRequest");
 	});
 
 	it("rejects a non-CSV file extension", async () => {
@@ -80,31 +78,26 @@ describe("OpenScale Import E2E", () => {
 			"application/octet-stream",
 		);
 
-		const { response } = await client.imports.createRun({
-			headers: { Cookie: cookies },
-			body: { source: "open_scale", uploadToken },
-		});
+		const error = await client.runError(
+			(c) => c.imports.createRun({ payload: { source: "open_scale", uploadToken } }),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(400);
+		assertTaggedError(error, "BadRequest");
 	});
 
 	it("deletes a completed run", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { runId } = await runOpenScaleImportFixture(client, cookies);
 
-		const { response: deleteResponse } = await client.imports.deleteRun({
-			params: { path: { runId } },
-			headers: { Cookie: cookies },
-		});
+		await client.run((c) => c.imports.deleteRun({ path: { runId } }), { Cookie: cookies });
 
-		expect(deleteResponse.status).toBe(200);
+		const error = await client.runError(
+			(c) => c.imports.getRun({ path: { runId }, urlParams: {} }),
+			{ Cookie: cookies },
+		);
 
-		const { response: getResponse } = await client.imports.getRun({
-			headers: { Cookie: cookies },
-			params: { path: { runId }, query: {} },
-		});
-
-		expect(getResponse.status).toBe(404);
+		assertTaggedError(error, "NotFound");
 	});
 
 	it("returns failures for a run with bad rows", async () => {
@@ -121,13 +114,12 @@ describe("OpenScale Import E2E", () => {
 		expect(completedRun.failedItems).toBeGreaterThan(0);
 		expect(completedRun.importedItems).toBeGreaterThan(0);
 
-		const { data: runData, response } = await client.imports.getRun({
-			headers: { Cookie: cookies },
-			params: { path: { runId }, query: { page: 1, limit: 20 } },
-		});
+		const runData = await client.run(
+			(c) => c.imports.getRun({ path: { runId }, urlParams: { page: 1, limit: 20 } }),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		expect(runData?.failures.items.length).toBeGreaterThan(0);
+		expect(runData.failures.items.length).toBeGreaterThan(0);
 	});
 });
 

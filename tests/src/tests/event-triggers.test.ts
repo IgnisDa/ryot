@@ -26,17 +26,20 @@ describe("Event trigger firing", () => {
 			cookies,
 		);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					occurredAt: isoAt(1),
-					properties: { progressPercent: 100 },
-					eventSchemaId: progressEventSchemaId,
-				},
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							occurredAt: isoAt(1),
+							properties: { progressPercent: 100 },
+							eventSchemaId: progressEventSchemaId,
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		const completionEvent = await waitForEventWithSchema(client, cookies, entityId, "complete");
 
@@ -56,12 +59,15 @@ describe("Event trigger firing", () => {
 			cookies,
 		);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{ entityId, properties: { progressPercent: 50 }, eventSchemaId: progressEventSchemaId },
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{ entityId, properties: { progressPercent: 50 }, eventSchemaId: progressEventSchemaId },
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		await waitForEventCount(client, cookies, entityId, 1);
 
@@ -79,21 +85,35 @@ describe("Event trigger firing", () => {
 			cookies,
 		);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{ entityId, eventSchemaId: progressEventSchemaId, properties: { progressPercent: 100 } },
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 100 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		await waitForEventWithSchema(client, cookies, entityId, "complete");
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{ entityId, properties: { progressPercent: 100 }, eventSchemaId: progressEventSchemaId },
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							properties: { progressPercent: 100 },
+							eventSchemaId: progressEventSchemaId,
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		await waitForEventCount(client, cookies, entityId, 4);
 
@@ -148,16 +168,19 @@ describe("Event trigger firing", () => {
 			},
 		);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: progressEventSchemaId,
-					properties: { showSeason: 1, showEpisode: 1, progressPercent: 100 },
-				},
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: progressEventSchemaId,
+							properties: { showSeason: 1, showEpisode: 1, progressPercent: 100 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		await waitForEventCount(client, cookies, entityId, 1);
 
@@ -210,29 +233,35 @@ describe("Event trigger firing", () => {
 			},
 		);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: progressEventSchemaId,
-					properties: { showSeason: 1, showEpisode: 1, progressPercent: 100 },
-				},
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: progressEventSchemaId,
+							properties: { showSeason: 1, showEpisode: 1, progressPercent: 100 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		await waitForEventCount(client, cookies, entityId, 1);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: progressEventSchemaId,
-					properties: { showSeason: 1, showEpisode: 2, progressPercent: 100 },
-				},
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: progressEventSchemaId,
+							properties: { showSeason: 1, showEpisode: 2, progressPercent: 100 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		await waitForEventCount(client, cookies, entityId, 3);
 
@@ -296,16 +325,19 @@ describe("Event trigger firing", () => {
 			},
 		);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: progressEventSchemaId,
-					properties: { showSeason: 1, showEpisode: 1, progressPercent: 100 },
-				},
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: progressEventSchemaId,
+							properties: { showSeason: 1, showEpisode: 1, progressPercent: 100 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		const completeEvent = await waitForEventWithSchema(client, cookies, entityId, "complete");
 
@@ -351,17 +383,20 @@ describe("Event trigger firing", () => {
 			},
 		);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					occurredAt: isoAt(1),
-					eventSchemaId: progressEventSchemaId,
-					properties: { showSeason: 0, showEpisode: 1, progressPercent: 100 },
-				},
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							occurredAt: isoAt(1),
+							eventSchemaId: progressEventSchemaId,
+							properties: { showSeason: 0, showEpisode: 1, progressPercent: 100 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		await waitForEventCount(client, cookies, entityId, 1);
 
@@ -378,23 +413,26 @@ describe("Event trigger firing", () => {
 			{ entitySchemaSlug: "anime", properties: { images: [], episodes: 2 } },
 		);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					occurredAt: isoAt(1),
-					eventSchemaId: progressEventSchemaId,
-					properties: { progressPercent: 100, animeEpisode: 1 },
-				},
-				{
-					entityId,
-					occurredAt: isoAt(2),
-					eventSchemaId: progressEventSchemaId,
-					properties: { progressPercent: 100, animeEpisode: 2 },
-				},
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							occurredAt: isoAt(1),
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 100, animeEpisode: 1 },
+						},
+						{
+							entityId,
+							occurredAt: isoAt(2),
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 100, animeEpisode: 2 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		const completeEvent = await waitForEventWithSchema(client, cookies, entityId, "complete");
 
@@ -418,17 +456,20 @@ describe("Event trigger firing", () => {
 			{ entitySchemaSlug: "anime", properties: { images: [], episodes: null } },
 		);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					occurredAt: isoAt(1),
-					eventSchemaId: progressEventSchemaId,
-					properties: { progressPercent: 100, animeEpisode: 1 },
-				},
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							occurredAt: isoAt(1),
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 100, animeEpisode: 1 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		await waitForEventCount(client, cookies, entityId, 1);
 
@@ -445,21 +486,24 @@ describe("Event trigger firing", () => {
 			{ entitySchemaSlug: "manga", properties: { images: [], volumes: null, chapters: 2 } },
 		);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: progressEventSchemaId,
-					properties: { progressPercent: 100, mangaChapter: 1 },
-				},
-				{
-					entityId,
-					eventSchemaId: progressEventSchemaId,
-					properties: { progressPercent: 100, mangaChapter: 2 },
-				},
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 100, mangaChapter: 1 },
+						},
+						{
+							entityId,
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 100, mangaChapter: 2 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		const completeEvent = await waitForEventWithSchema(client, cookies, entityId, "complete");
 
@@ -475,17 +519,20 @@ describe("Event trigger firing", () => {
 			{ entitySchemaSlug: "manga", properties: { images: [], volumes: null, chapters: null } },
 		);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					occurredAt: isoAt(1),
-					eventSchemaId: progressEventSchemaId,
-					properties: { progressPercent: 100, mangaChapter: 1 },
-				},
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							occurredAt: isoAt(1),
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 100, mangaChapter: 1 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		await waitForEventCount(client, cookies, entityId, 1);
 
@@ -528,21 +575,24 @@ describe("Event trigger firing", () => {
 			},
 		);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: progressEventSchemaId,
-					properties: { progressPercent: 100, podcastEpisode: 1 },
-				},
-				{
-					entityId,
-					eventSchemaId: progressEventSchemaId,
-					properties: { progressPercent: 100, podcastEpisode: 2 },
-				},
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 100, podcastEpisode: 1 },
+						},
+						{
+							entityId,
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 100, podcastEpisode: 2 },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		const completeEvent = await waitForEventWithSchema(client, cookies, entityId, "complete");
 
@@ -558,17 +608,20 @@ describe("Event trigger firing", () => {
 			{ entitySchemaSlug: "movie", properties: { images: [] } },
 		);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					occurredAt: isoAt(1),
-					properties: { progressPercent: 100 },
-					eventSchemaId: progressEventSchemaId,
-				},
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							occurredAt: isoAt(1),
+							properties: { progressPercent: 100 },
+							eventSchemaId: progressEventSchemaId,
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		const completeEvent = await waitForEventWithSchema(client, cookies, entityId, "complete");
 
@@ -589,17 +642,20 @@ describe("Event trigger firing", () => {
 			{ entitySchemaSlug: "movie", properties: { images: [] } },
 		);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					occurredAt: isoAt(1),
-					eventSchemaId: progressEventSchemaId,
-					properties: { progressPercent: 100, consumedOn: "Jellyfin" },
-				},
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							occurredAt: isoAt(1),
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 100, consumedOn: "Jellyfin" },
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		const completeEvent = await waitForEventWithSchema(client, cookies, entityId, "complete");
 
@@ -620,17 +676,20 @@ describe("Event trigger firing", () => {
 			{ entitySchemaSlug: "movie", properties: { images: [] } },
 		);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					occurredAt: isoAt(1),
-					properties: { progressPercent: 100 },
-					eventSchemaId: progressEventSchemaId,
-				},
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							occurredAt: isoAt(1),
+							properties: { progressPercent: 100 },
+							eventSchemaId: progressEventSchemaId,
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		const completeEvent = await waitForEventWithSchema(client, cookies, entityId, "complete");
 
@@ -651,31 +710,37 @@ describe("Event trigger firing", () => {
 			{ entitySchemaSlug: "movie", properties: { images: [] } },
 		);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					occurredAt: isoAt(1),
-					properties: { progressPercent: 100 },
-					eventSchemaId: progressEventSchemaId,
-				},
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							occurredAt: isoAt(1),
+							properties: { progressPercent: 100 },
+							eventSchemaId: progressEventSchemaId,
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		await waitForEventWithSchema(client, cookies, entityId, "complete");
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					occurredAt: isoAt(2),
-					properties: { progressPercent: 100 },
-					eventSchemaId: progressEventSchemaId,
-				},
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							occurredAt: isoAt(2),
+							properties: { progressPercent: 100 },
+							eventSchemaId: progressEventSchemaId,
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		await waitForEventCount(client, cookies, entityId, 4);
 
@@ -741,10 +806,10 @@ describe("before_create triggers", () => {
 
 		await insertBeforeCreateTrigger(userId, eventSchemaId, script.id, 100);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [{ entityId, eventSchemaId, properties: {} }],
-		});
+		await client.run(
+			(c) => c.events.create({ payload: [{ entityId, eventSchemaId, properties: {} }] }),
+			{ Cookie: cookies },
+		);
 
 		await new Promise<void>((resolve) => setTimeout(resolve, 8000));
 
@@ -767,10 +832,10 @@ describe("before_create triggers", () => {
 
 		await insertBeforeCreateTrigger(userId, eventSchemaId, script.id, 100);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [{ entityId, eventSchemaId, properties: { value: 1 } }],
-		});
+		await client.run(
+			(c) => c.events.create({ payload: [{ entityId, eventSchemaId, properties: { value: 1 } }] }),
+			{ Cookie: cookies },
+		);
 
 		await waitForEventCount(client, cookies, entityId, 1, { timeoutMs: 20_000 });
 
@@ -794,10 +859,10 @@ describe("before_create triggers", () => {
 
 		await insertBeforeCreateTrigger(userId, eventSchemaId, script.id, 100);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [{ entityId, eventSchemaId, properties: {} }],
-		});
+		await client.run(
+			(c) => c.events.create({ payload: [{ entityId, eventSchemaId, properties: {} }] }),
+			{ Cookie: cookies },
+		);
 
 		await new Promise<void>((resolve) => setTimeout(resolve, 8000));
 
@@ -827,10 +892,10 @@ describe("before_create triggers", () => {
 		await insertBeforeCreateTrigger(userId, eventSchemaId, scriptPos100.id, 100);
 		await insertBeforeCreateTrigger(userId, eventSchemaId, scriptPos200.id, 200);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [{ entityId, eventSchemaId, properties: { x: 1 } }],
-		});
+		await client.run(
+			(c) => c.events.create({ payload: [{ entityId, eventSchemaId, properties: { x: 1 } }] }),
+			{ Cookie: cookies },
+		);
 
 		await waitForEventCount(client, cookies, entityId, 1, { timeoutMs: 20_000 });
 

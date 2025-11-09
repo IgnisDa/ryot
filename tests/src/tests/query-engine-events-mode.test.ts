@@ -11,12 +11,12 @@ import {
 	createQueryEngineEvent,
 	createSingleSchemaQueryEngineFixture,
 	createTracker,
-	executeQueryEngine,
+	executeQueryEngineError,
 	getQueryEngineFieldValue,
 	listEventSchemas,
 	literalExpression,
 } from "../fixtures";
-import { assertPresent } from "../test-support/assertions";
+import { assertPresent, assertTaggedError } from "../test-support/assertions";
 
 describe("events mode", () => {
 	it("returns events as primary rows with mode discriminant and pagination metadata", async () => {
@@ -74,38 +74,40 @@ describe("events mode", () => {
 			eventSchemaId: watchSchema.id,
 		});
 
-		const { data, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				mode: "events",
-				eventJoins: [],
-				computedFields: [],
-				scope: [schema.slug],
-				eventSchemas: [watchSchema.slug],
-				pagination: { page: 1, limit: 10 },
-				sort: {
-					direction: "asc",
-					expression: {
-						type: "reference",
-						reference: { type: "event", path: ["createdAt"] },
-					},
-				},
-				fields: [
-					{
-						key: "eventId",
-						expression: {
-							type: "reference",
-							reference: { type: "event", path: ["id"] },
+		const data = await client.run(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						mode: "events",
+						eventJoins: [],
+						computedFields: [],
+						scope: [schema.slug],
+						eventSchemas: [watchSchema.slug],
+						pagination: { page: 1, limit: 10 },
+						sort: {
+							direction: "asc",
+							expression: {
+								type: "reference",
+								reference: { type: "event", path: ["createdAt"] },
+							},
 						},
+						fields: [
+							{
+								key: "eventId",
+								expression: {
+									type: "reference",
+									reference: { type: "event", path: ["id"] },
+								},
+							},
+						],
 					},
-				],
-			},
-		});
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		expect(data?.mode).toBe("events");
-		const result = data?.mode === "events" ? data.data : undefined;
+		expect(data.mode).toBe("events");
+		const result = data.mode === "events" ? data.data : undefined;
 		expect(result?.items).toHaveLength(2);
 		expect(result?.meta.pagination.total).toBe(2);
 		expect(result?.meta.pagination.hasNextPage).toBe(false);
@@ -168,37 +170,39 @@ describe("events mode", () => {
 			eventSchemaId: reviewSchema.id,
 		});
 
-		const { data, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				mode: "events",
-				eventJoins: [],
-				computedFields: [],
-				scope: [schema.slug],
-				eventSchemas: [watchSchema.slug],
-				pagination: { page: 1, limit: 10 },
-				sort: {
-					direction: "asc",
-					expression: {
-						type: "reference",
-						reference: { type: "event", path: ["createdAt"] },
-					},
-				},
-				fields: [
-					{
-						key: "schemaSlug",
-						expression: {
-							type: "reference",
-							reference: { type: "event-schema", path: ["slug"] },
+		const data = await client.run(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						mode: "events",
+						eventJoins: [],
+						computedFields: [],
+						scope: [schema.slug],
+						eventSchemas: [watchSchema.slug],
+						pagination: { page: 1, limit: 10 },
+						sort: {
+							direction: "asc",
+							expression: {
+								type: "reference",
+								reference: { type: "event", path: ["createdAt"] },
+							},
 						},
+						fields: [
+							{
+								key: "schemaSlug",
+								expression: {
+									type: "reference",
+									reference: { type: "event-schema", path: ["slug"] },
+								},
+							},
+						],
 					},
-				],
-			},
-		});
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		const result = data?.mode === "events" ? data.data : undefined;
+		const result = data.mode === "events" ? data.data : undefined;
 		expect(result?.items).toHaveLength(1);
 		expect(getQueryEngineFieldValue(result?.items[0], "schemaSlug")).toBe(watchSchema.slug);
 	});
@@ -264,45 +268,47 @@ describe("events mode", () => {
 			eventSchemaId: reviewSchema.id,
 		});
 
-		const { data, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				mode: "events",
-				eventJoins: [],
-				computedFields: [],
-				scope: [schema.slug],
-				eventSchemas: [reviewSchema.slug],
-				pagination: { page: 1, limit: 10 },
-				sort: {
-					direction: "desc",
-					expression: {
-						type: "reference",
-						reference: {
-							type: "event",
-							path: ["properties", "rating"],
-							eventSchemaSlug: reviewSchema.slug,
-						},
-					},
-				},
-				fields: [
-					{
-						key: "rating",
-						expression: {
-							type: "reference",
-							reference: {
-								type: "event",
-								path: ["properties", "rating"],
-								eventSchemaSlug: reviewSchema.slug,
+		const data = await client.run(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						mode: "events",
+						eventJoins: [],
+						computedFields: [],
+						scope: [schema.slug],
+						eventSchemas: [reviewSchema.slug],
+						pagination: { page: 1, limit: 10 },
+						sort: {
+							direction: "desc",
+							expression: {
+								type: "reference",
+								reference: {
+									type: "event",
+									path: ["properties", "rating"],
+									eventSchemaSlug: reviewSchema.slug,
+								},
 							},
 						},
+						fields: [
+							{
+								key: "rating",
+								expression: {
+									type: "reference",
+									reference: {
+										type: "event",
+										path: ["properties", "rating"],
+										eventSchemaSlug: reviewSchema.slug,
+									},
+								},
+							},
+						],
 					},
-				],
-			},
-		});
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		const items = data?.mode === "events" ? data.data.items : [];
+		const items = data.mode === "events" ? data.data.items : [];
 		expect(items).toHaveLength(3);
 		const ratings = items.map((item: Parameters<typeof getQueryEngineFieldValue>[0]) =>
 			getQueryEngineFieldValue(item, "rating"),
@@ -357,59 +363,61 @@ describe("events mode", () => {
 			eventSchemaId: reviewSchema.id,
 		});
 
-		const { data, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				mode: "events",
-				eventJoins: [],
-				computedFields: [],
-				scope: [schema.slug],
-				eventSchemas: [reviewSchema.slug],
-				pagination: { page: 1, limit: 10 },
-				sort: {
-					direction: "asc",
-					expression: {
-						type: "reference",
-						reference: { type: "event", path: ["createdAt"] },
-					},
-				},
-				fields: [
-					{
-						key: "entityName",
-						expression: {
-							type: "reference",
-							reference: {
-								type: "entity",
-								path: ["name"],
-								slug: schema.slug,
+		const data = await client.run(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						mode: "events",
+						eventJoins: [],
+						computedFields: [],
+						scope: [schema.slug],
+						eventSchemas: [reviewSchema.slug],
+						pagination: { page: 1, limit: 10 },
+						sort: {
+							direction: "asc",
+							expression: {
+								type: "reference",
+								reference: { type: "event", path: ["createdAt"] },
 							},
 						},
-					},
-					{
-						key: "eventSchemaSlug",
-						expression: {
-							type: "reference",
-							reference: { type: "event-schema", path: ["slug"] },
-						},
-					},
-					{
-						key: "rating",
-						expression: {
-							type: "reference",
-							reference: {
-								type: "event",
-								path: ["properties", "rating"],
-								eventSchemaSlug: reviewSchema.slug,
+						fields: [
+							{
+								key: "entityName",
+								expression: {
+									type: "reference",
+									reference: {
+										type: "entity",
+										path: ["name"],
+										slug: schema.slug,
+									},
+								},
 							},
-						},
+							{
+								key: "eventSchemaSlug",
+								expression: {
+									type: "reference",
+									reference: { type: "event-schema", path: ["slug"] },
+								},
+							},
+							{
+								key: "rating",
+								expression: {
+									type: "reference",
+									reference: {
+										type: "event",
+										path: ["properties", "rating"],
+										eventSchemaSlug: reviewSchema.slug,
+									},
+								},
+							},
+						],
 					},
-				],
-			},
-		});
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		const items = data?.mode === "events" ? data.data.items : [];
+		const items = data.mode === "events" ? data.data.items : [];
 		expect(items).toHaveLength(1);
 		const firstItem = items[0] ?? {};
 		expect(getQueryEngineFieldValue(firstItem, "entityName")).toBe("Named Entity");
@@ -489,39 +497,44 @@ describe("events mode", () => {
 			},
 		];
 
-		const page1 = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				fields,
-				filter: null,
-				sort: sortExpr,
-				mode: "events",
-				eventJoins: [],
-				computedFields: [],
-				scope: [schema.slug],
-				eventSchemas: [watchSchema.slug],
-				pagination: { page: 1, limit: 2 },
-			},
-		});
-		const page3 = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				fields,
-				filter: null,
-				mode: "events",
-				eventJoins: [],
-				sort: sortExpr,
-				computedFields: [],
-				scope: [schema.slug],
-				eventSchemas: [watchSchema.slug],
-				pagination: { page: 3, limit: 2 },
-			},
-		});
+		const page1 = await client.run(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						fields,
+						filter: null,
+						sort: sortExpr,
+						mode: "events",
+						eventJoins: [],
+						computedFields: [],
+						scope: [schema.slug],
+						eventSchemas: [watchSchema.slug],
+						pagination: { page: 1, limit: 2 },
+					},
+				}),
+			{ Cookie: cookies },
+		);
+		const page3 = await client.run(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						fields,
+						filter: null,
+						mode: "events",
+						eventJoins: [],
+						sort: sortExpr,
+						computedFields: [],
+						scope: [schema.slug],
+						eventSchemas: [watchSchema.slug],
+						pagination: { page: 3, limit: 2 },
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		const result1 = page1.data?.mode === "events" ? page1.data.data : undefined;
-		const result3 = page3.data?.mode === "events" ? page3.data.data : undefined;
+		const result1 = page1.mode === "events" ? page1.data : undefined;
+		const result3 = page3.mode === "events" ? page3.data : undefined;
 
-		expect(page1.response.status).toBe(200);
 		expect(result1?.items).toHaveLength(2);
 		expect(result1?.meta.pagination).toEqual({
 			page: 1,
@@ -533,7 +546,6 @@ describe("events mode", () => {
 		});
 		expect(getQueryEngineFieldValue(result1?.items[0], "seq")).toBe(1);
 
-		expect(page3.response.status).toBe(200);
 		expect(result3?.items).toHaveLength(1);
 		expect(result3?.meta.pagination).toEqual({
 			page: 3,
@@ -625,47 +637,49 @@ describe("events mode", () => {
 		const reviewEventSchema = reviewEventSchemas.find((s) => s.slug === reviewSchema.slug);
 		assertPresent(reviewEventSchema, "Review event schema not found");
 
-		const { data, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				mode: "events",
-				computedFields: [],
-				scope: [schema.slug],
-				eventSchemas: [watchSchema.slug],
-				pagination: { page: 1, limit: 10 },
-				sort: {
-					direction: "asc",
-					expression: {
-						type: "reference",
-						reference: { type: "event", path: ["createdAt"] },
-					},
-				},
-				eventJoins: [
-					{
-						key: "review",
-						kind: "latestEvent",
-						eventSchemaSlug: reviewSchema.slug,
-					},
-				],
-				fields: [
-					{
-						key: "latestRating",
-						expression: {
-							type: "reference",
-							reference: {
-								joinKey: "review",
-								type: "event-join",
-								path: ["properties", "rating"],
+		const data = await client.run(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						mode: "events",
+						computedFields: [],
+						scope: [schema.slug],
+						eventSchemas: [watchSchema.slug],
+						pagination: { page: 1, limit: 10 },
+						sort: {
+							direction: "asc",
+							expression: {
+								type: "reference",
+								reference: { type: "event", path: ["createdAt"] },
 							},
 						},
+						eventJoins: [
+							{
+								key: "review",
+								kind: "latestEvent",
+								eventSchemaSlug: reviewSchema.slug,
+							},
+						],
+						fields: [
+							{
+								key: "latestRating",
+								expression: {
+									type: "reference",
+									reference: {
+										joinKey: "review",
+										type: "event-join",
+										path: ["properties", "rating"],
+									},
+								},
+							},
+						],
 					},
-				],
-			},
-		});
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		const items = data?.mode === "events" ? data.data.items : [];
+		const items = data.mode === "events" ? data.data.items : [];
 		// Both watch events should have the latest review rating attached
 		expect(items).toHaveLength(2);
 		for (const item of items) {
@@ -733,28 +747,30 @@ describe("events mode", () => {
 			},
 		};
 
-		const { data, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				mode: "events",
-				eventJoins: [],
-				computedFields: [],
-				scope: [schema.slug],
-				eventSchemas: [reviewSchema.slug],
-				pagination: { page: 1, limit: 10 },
-				sort: { direction: "asc", expression: ratingRef },
-				fields: [{ key: "rating", expression: ratingRef }],
-				filter: {
-					operator: "gte",
-					left: ratingRef,
-					type: "comparison",
-					right: literalExpression(4),
-				},
-			},
-		});
+		const data = await client.run(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						mode: "events",
+						eventJoins: [],
+						computedFields: [],
+						scope: [schema.slug],
+						eventSchemas: [reviewSchema.slug],
+						pagination: { page: 1, limit: 10 },
+						sort: { direction: "asc", expression: ratingRef },
+						fields: [{ key: "rating", expression: ratingRef }],
+						filter: {
+							operator: "gte",
+							left: ratingRef,
+							type: "comparison",
+							right: literalExpression(4),
+						},
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		const items = data?.mode === "events" ? data.data.items : [];
+		const items = data.mode === "events" ? data.data.items : [];
 		expect(items).toHaveLength(2);
 		const ratings = items.map((item: Parameters<typeof getQueryEngineFieldValue>[0]) =>
 			getQueryEngineFieldValue(item, "rating"),
@@ -795,44 +811,45 @@ describe("events mode", () => {
 			},
 		});
 
-		const { error, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				mode: "events",
-				eventJoins: [],
-				computedFields: [],
-				scope: [schema.slug],
-				eventSchemas: [reviewSchema.slug],
-				pagination: { page: 1, limit: 10 },
-				sort: {
-					direction: "asc",
-					expression: {
-						type: "reference",
-						reference: { type: "event", path: ["createdAt"] },
-					},
-				},
-				fields: [
-					{
-						key: "avgRating",
-						expression: {
-							type: "reference",
-							reference: {
-								aggregation: "avg",
-								type: "event-aggregate",
-								path: ["properties", "rating"],
-								eventSchemaSlug: reviewSchema.slug,
+		const error = await client.runError(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						mode: "events",
+						eventJoins: [],
+						computedFields: [],
+						scope: [schema.slug],
+						eventSchemas: [reviewSchema.slug],
+						pagination: { page: 1, limit: 10 },
+						sort: {
+							direction: "asc",
+							expression: {
+								type: "reference",
+								reference: { type: "event", path: ["createdAt"] },
 							},
 						},
+						fields: [
+							{
+								key: "avgRating",
+								expression: {
+									type: "reference",
+									reference: {
+										aggregation: "avg",
+										type: "event-aggregate",
+										path: ["properties", "rating"],
+										eventSchemaSlug: reviewSchema.slug,
+									},
+								},
+							},
+						],
 					},
-				],
-			},
-		});
-
-		expect(response.status).toBe(400);
-		expect(error?.error.message).toBe(
-			"event-aggregate references are not supported in this query mode",
+				}),
+			{ Cookie: cookies },
 		);
+
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toBe("event-aggregate references are not supported in this query mode");
 	});
 
 	it("rejects a missing event-join reference in events mode", async () => {
@@ -868,49 +885,50 @@ describe("events mode", () => {
 			},
 		});
 
-		const { error, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				mode: "events",
-				eventJoins: [],
-				computedFields: [],
-				scope: [schema.slug],
-				pagination: { page: 1, limit: 10 },
-				eventSchemas: [watchSchema.slug],
-				sort: {
-					direction: "asc",
-					expression: {
-						type: "reference",
-						reference: { type: "event", path: ["createdAt"] },
-					},
-				},
-				fields: [
-					{
-						key: "reviewRating",
-						expression: {
-							type: "reference",
-							reference: {
-								type: "event-join",
-								joinKey: "review",
-								path: ["properties", "rating"],
+		const error = await client.runError(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						mode: "events",
+						eventJoins: [],
+						computedFields: [],
+						scope: [schema.slug],
+						pagination: { page: 1, limit: 10 },
+						eventSchemas: [watchSchema.slug],
+						sort: {
+							direction: "asc",
+							expression: {
+								type: "reference",
+								reference: { type: "event", path: ["createdAt"] },
 							},
 						},
+						fields: [
+							{
+								key: "reviewRating",
+								expression: {
+									type: "reference",
+									reference: {
+										type: "event-join",
+										joinKey: "review",
+										path: ["properties", "rating"],
+									},
+								},
+							},
+						],
 					},
-				],
-			},
-		});
-
-		expect(response.status).toBe(400);
-		expect(error?.error.message).toBe(
-			"Event join 'event.review' is not part of this runtime request",
+				}),
+			{ Cookie: cookies },
 		);
+
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toBe("Event join 'event.review' is not part of this runtime request");
 	});
 
 	it("rejects primary event references in entities mode", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
 
-		const { error, response } = await executeQueryEngine(client, cookies, {
+		const error = await executeQueryEngineError(client, cookies, {
 			eventJoins: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 1 },
@@ -926,10 +944,8 @@ describe("events mode", () => {
 			],
 		});
 
-		expect(response.status).toBe(400);
-		expect(error?.error.message).toBe(
-			"Primary event references are not supported in this query mode",
-		);
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toBe("Primary event references are not supported in this query mode");
 	});
 
 	it("rejects primary event property sort expressions without eventSchemaSlug in events mode", async () => {
@@ -979,32 +995,35 @@ describe("events mode", () => {
 			properties: { rating: 5 },
 		});
 
-		const { error, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				mode: "events",
-				eventJoins: [],
-				computedFields: [],
-				scope: [schema.slug],
-				eventSchemas: [reviewSchema.slug],
-				pagination: { page: 1, limit: 10 },
-				sort: {
-					direction: "asc",
-					expression: {
-						type: "reference",
-						reference: {
-							type: "event",
-							path: ["properties", "rating"],
+		const error = await client.runError(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						mode: "events",
+						eventJoins: [],
+						computedFields: [],
+						scope: [schema.slug],
+						eventSchemas: [reviewSchema.slug],
+						pagination: { page: 1, limit: 10 },
+						sort: {
+							direction: "asc",
+							expression: {
+								type: "reference",
+								reference: {
+									type: "event",
+									path: ["properties", "rating"],
+								},
+							},
 						},
+						fields: [],
 					},
-				},
-				fields: [],
-			},
-		});
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(400);
-		expect(error?.error.message).toBe(
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toBe(
 			"Primary event property references in this context must specify eventSchemaSlug",
 		);
 	});

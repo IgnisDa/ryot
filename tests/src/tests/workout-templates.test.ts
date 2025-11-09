@@ -209,7 +209,6 @@ describe("Workout Templates E2E", () => {
 			}),
 		);
 
-		expect(result.response.status).toBe(200);
 		expect(result.data.data.items.length).toBeGreaterThan(0);
 		expect(getQueryEngineFieldOrThrow(result.data.data.items[0], "title").value).toBe(
 			workoutTemplate.name,
@@ -302,14 +301,16 @@ describe("Workout Templates E2E", () => {
 		});
 		const { workoutTemplateId } = await createWorkoutTemplateEntityFixture(client, cookies);
 
-		const { data, response } = await client.collections.createMembership({
-			headers: { Cookie: cookies },
-			body: { entityId: workoutTemplateId, collectionId: collection.id },
-		});
+		const data = await client.run(
+			(c) =>
+				c.collections.createMembership({
+					payload: { entityId: workoutTemplateId, collectionId: collection.id },
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		expect(data?.memberOf.sourceEntityId).toBe(workoutTemplateId);
-		expect(data?.memberOf.targetEntityId).toBe(collection.id);
+		expect(data.memberOf.sourceEntityId).toBe(workoutTemplateId);
+		expect(data.memberOf.targetEntityId).toBe(collection.id);
 	});
 
 	it("joins a workout to its template through the seeded relationship schema", async () => {
@@ -342,7 +343,7 @@ describe("Workout Templates E2E", () => {
 			targetEntityId: workoutTemplateId,
 		});
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -373,8 +374,6 @@ describe("Workout Templates E2E", () => {
 				left: createEntityColumnExpression("workout", "name"),
 			},
 		});
-
-		expect(response.status).toBe(200);
 		expect(data.data.items).toHaveLength(1);
 		expect(getQueryEngineFieldOrThrow(data.data.items[0], "templateId")).toEqual({
 			kind: "text",
@@ -418,7 +417,7 @@ describe("Workout Templates E2E", () => {
 			targetEntityId: workoutTemplateId,
 		});
 
-		const { data, response } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -452,8 +451,6 @@ describe("Workout Templates E2E", () => {
 				left: createEntityColumnExpression("workout-template", "name"),
 			},
 		});
-
-		expect(response.status).toBe(200);
 		expect(data.data.items).toHaveLength(1);
 		expect(getQueryEngineFieldOrThrow(data.data.items[0], "workoutId")).toEqual({
 			kind: "text",
