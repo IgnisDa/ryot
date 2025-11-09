@@ -16,7 +16,6 @@ use common_utils::{PROJECT_NAME, get_temporary_directory, ryot_log};
 use config_definition::AppConfig;
 use dependent_models::CompleteExport;
 use env_utils::APP_VERSION;
-use logs_wheel::LogFileInitializer;
 use migrations_sql::Migrator;
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
@@ -223,14 +222,8 @@ async fn main() -> Result<()> {
 fn init_tracing() -> Result<()> {
     let tmp_dir = PathBuf::new().join(get_temporary_directory());
     create_dir_all(&tmp_dir)?;
-    let log_file = LogFileInitializer {
-        max_n_old_files: 2,
-        directory: tmp_dir,
-        filename: PROJECT_NAME,
-        preferred_max_file_size_mib: 1,
-    }
-    .init()?;
-    let writer = Mutex::new(log_file);
+    let file_appender = tracing_appender::rolling::never(tmp_dir, PROJECT_NAME);
+    let writer = Mutex::new(file_appender);
     tracing::subscriber::set_global_default(
         fmt::Subscriber::builder()
             .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())

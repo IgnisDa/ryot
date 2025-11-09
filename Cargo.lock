@@ -906,7 +906,6 @@ dependencies = [
  "importer-service",
  "integration-service",
  "itertools 0.14.0",
- "logs-wheel",
  "migrations-sql",
  "miscellaneous-grouping-resolver",
  "miscellaneous-metadata-resolver",
@@ -926,6 +925,7 @@ dependencies = [
  "tokio",
  "tower-http",
  "tracing",
+ "tracing-appender",
  "tracing-subscriber",
  "traits",
  "user-authentication-resolver",
@@ -1638,6 +1638,15 @@ dependencies = [
  "chrono",
  "once_cell",
  "winnow 0.6.26",
+]
+
+[[package]]
+name = "crossbeam-channel"
+version = "0.5.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "82b8f8f868b36967f9606790d1903570de9ceaf870a7bf9fbbd3016d636a2cb2"
+dependencies = [
+ "crossbeam-utils",
 ]
 
 [[package]]
@@ -4120,16 +4129,6 @@ name = "log"
 version = "0.4.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34080505efa8e45a4b816c349525ebe327ceaa8559756f0356cba97ef3bf7432"
-
-[[package]]
-name = "logs-wheel"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b9630e75e7d99351bcfee2e0f969d20e9f8a428c497f7ddba4051566d3376ec"
-dependencies = [
- "flate2",
- "time",
-]
 
 [[package]]
 name = "lru"
@@ -7481,6 +7480,18 @@ dependencies = [
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-appender"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3566e8ce28cc0a3fe42519fc80e6b4c943cc4c8cef275620eb8dac2d3d4e06cf"
+dependencies = [
+ "crossbeam-channel",
+ "thiserror 1.0.69",
+ "time",
+ "tracing-subscriber",
 ]
 
 [[package]]

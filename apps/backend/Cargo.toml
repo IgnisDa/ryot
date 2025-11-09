@@ -18,7 +18,6 @@ dotenvy = { workspace = true }
 futures = { workspace = true }
 http = { workspace = true }
 itertools = { workspace = true }
-logs-wheel = { workspace = true }
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
 serde_json = { workspace = true }
@@ -26,6 +25,7 @@ schematic = { workspace = true }
 tokio = { workspace = true }
 tower-http = { workspace = true }
 tracing = { workspace = true }
+tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 application-utils = { workspace = true }
