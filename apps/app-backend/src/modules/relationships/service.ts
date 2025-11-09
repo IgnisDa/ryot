@@ -1,38 +1,21 @@
 import { Effect } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner } from "#lib/db";
-import { badRequest, notFound } from "#lib/errors";
-import type { EntitySchemaId } from "#lib/schema/brands";
+import { badRequest } from "#lib/errors";
+import type { EntityId, RelationshipSchemaId, UserId } from "#lib/schema/brands";
+import type { AppSchema } from "#lib/schema/property-schema";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
-import { EntitiesRepository } from "#modules/entities/repository";
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 
 import { RelationshipsRepository } from "./repository";
-import type { CreateRelationshipBody } from "./schemas";
 
-const validateRelationshipSchemaTargets = (input: {
-	sourceEntitySchemaId: EntitySchemaId;
-	targetEntitySchemaId: EntitySchemaId;
-	relationshipSchema: {
-		readonly sourceEntitySchemaId: EntitySchemaId | null;
-		readonly targetEntitySchemaId: EntitySchemaId | null;
-	};
-}) => {
-	if (
-		input.relationshipSchema.sourceEntitySchemaId &&
-		input.relationshipSchema.sourceEntitySchemaId !== input.sourceEntitySchemaId
-	) {
-		return badRequest("Relationship source entity schema does not match");
-	}
-	if (
-		input.relationshipSchema.targetEntitySchemaId &&
-		input.relationshipSchema.targetEntitySchemaId !== input.targetEntitySchemaId
-	) {
-		return badRequest("Relationship target entity schema does not match");
-	}
-	return Effect.void;
-};
+type CreateRelationshipInput = {
+	properties: unknown;
+	sourceEntityId: EntityId;
+	targetEntityId: EntityId;
+	propertiesSchema: AppSchema;
+	relationshipSchemaId: RelationshipSchemaId;
+	onConflict: "preserveExisting" | "replaceProperties";
+} & ({ scope: "global" } | { scope: "user"; userId: UserId });
 
 export class RelationshipsService extends Effect.Service<RelationshipsService>()(
 	"RelationshipsService",
@@ -40,59 +23,38 @@ export class RelationshipsService extends Effect.Service<RelationshipsService>()
 		effect: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
 			const repository = yield* RelationshipsRepository;
-			const entitiesRepository = yield* EntitiesRepository;
-			const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
 			const create = Effect.fn("RelationshipsService.create")(function* (
-				user: CurrentUserValue,
-				payload: CreateRelationshipBody,
+				input: CreateRelationshipInput,
 			) {
-				const relationshipSchema = yield* runWithDb(
-					relationshipSchemasRepository.findById(payload.relationshipSchemaId, user.id),
-				);
-				if (!relationshipSchema) {
-					return yield* notFound("Relationship schema not found");
-				}
-
-				const [sourceEntityScope, targetEntityScope] = yield* Effect.all([
-					runWithDb(
-						entitiesRepository.getEntityScopeForUser({
-							userId: user.id,
-							entityId: payload.sourceEntityId,
-						}),
-					),
-					runWithDb(
-						entitiesRepository.getEntityScopeForUser({
-							userId: user.id,
-							entityId: payload.targetEntityId,
-						}),
-					),
-				]);
-				if (!sourceEntityScope || !targetEntityScope) {
-					return yield* notFound("Entity not found");
-				}
-
-				yield* validateRelationshipSchemaTargets({
-					relationshipSchema,
-					sourceEntitySchemaId: sourceEntityScope.entitySchemaId,
-					targetEntitySchemaId: targetEntityScope.entitySchemaId,
-				});
-
 				const properties = yield* parseAppSchemaProperties({
 					kind: "Relationship",
-					properties: payload.properties ?? {},
-					propertiesSchema: relationshipSchema.propertiesSchema,
+					properties: input.properties,
+					propertiesSchema: input.propertiesSchema,
 				}).pipe(Effect.mapError((error) => badRequest(error.message)));
+
+				if (input.scope === "user") {
+					return yield* runWithDb(
+						repository.saveRelationship({
+							properties,
+							scope: "user",
+							userId: input.userId,
+							onConflict: input.onConflict,
+							sourceEntityId: input.sourceEntityId,
+							targetEntityId: input.targetEntityId,
+							relationshipSchemaId: input.relationshipSchemaId,
+						}),
+					);
+				}
 
 				return yield* runWithDb(
 					repository.saveRelationship({
 						properties,
-						scope: "user",
-						userId: user.id,
-						onConflict: "replaceProperties",
-						sourceEntityId: payload.sourceEntityId,
-						targetEntityId: payload.targetEntityId,
-						relationshipSchemaId: payload.relationshipSchemaId,
+						scope: "global",
+						onConflict: input.onConflict,
+						sourceEntityId: input.sourceEntityId,
+						targetEntityId: input.targetEntityId,
+						relationshipSchemaId: input.relationshipSchemaId,
 					}),
 				);
 			});
