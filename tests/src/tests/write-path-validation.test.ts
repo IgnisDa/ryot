@@ -8,6 +8,7 @@ import {
 	createTrackerWithSchema,
 	createTrackerWithSchemaAndEntity,
 } from "../fixtures";
+import { getBackendUrl } from "../setup";
 
 describe("Entity write path — propertiesSchema validation", () => {
 	it("rejects entity creation when a required field is missing", async () => {
@@ -169,15 +170,12 @@ describe("Event write path — propertiesSchema validation", () => {
 
 describe("Collection entity write path — propertiesSchema validation", () => {
 	it("rejects collection creation when description is not a string", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { cookies } = await createAuthenticatedClient();
 
-		const { response } = await client.POST("/collections", {
-			headers: { Cookie: cookies },
-			body: {
-				name: "Invalid Description Type",
-				// oxlint-disable-next-line no-unsafe-type-assertion
-				description: 12345 as unknown as string,
-			},
+		const response = await fetch(`${getBackendUrl()}/collections`, {
+			method: "POST",
+			headers: { Cookie: cookies, "Content-Type": "application/json" },
+			body: JSON.stringify({ description: 12345, name: "Invalid Description Type" }),
 		});
 
 		expect(response.status).toBe(400);

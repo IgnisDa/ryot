@@ -11,7 +11,7 @@ import {
 	listBuiltinEntitySchemas,
 	listEventSchemas,
 } from "../fixtures";
-import { assertPresent } from "../test-support/assertions";
+import { assertPresent, requireObjectRecord } from "../test-support/assertions";
 
 describe("GET /event-schemas", () => {
 	it("returns seeded built-in media lifecycle event schemas", async () => {
@@ -159,18 +159,26 @@ describe("GET /event-schemas", () => {
 	it("exposes lifecycle schemas for each supported built-in media schema", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schemas } = await listBuiltinEntitySchemas(client, cookies);
+		const eventSchemasBySlug = await Promise.all(
+			["book", "anime", "manga"].map(async (slug) => {
+				const mediaSchema = schemas.find((schema) => schema.slug === slug);
+				assertPresent(mediaSchema, `Missing built-in ${slug} schema`);
 
-		for (const slug of ["book", "anime", "manga"]) {
-			const mediaSchema = schemas.find((schema) => schema.slug === slug);
-			assertPresent(mediaSchema, `Missing built-in ${slug} schema`);
+				return { slug, eventSchemas: await listEventSchemas(client, cookies, mediaSchema.id) };
+			}),
+		);
 
-			// oxlint-disable-next-line no-await-in-loop
-			const eventSchemas = await listEventSchemas(client, cookies, mediaSchema.id);
+		for (const { eventSchemas, slug } of eventSchemasBySlug) {
 			expect(eventSchemas.some((schema) => schema.slug === "backlog")).toBe(true);
 			const progressSchema = eventSchemas.find((schema) => schema.slug === "progress");
 			assertPresent(progressSchema, `Missing built-in progress schema for ${slug}`);
 			expect(progressSchema.propertiesSchema).toBeDefined();
-			expect(progressSchema.propertiesSchema as Record<string, unknown>).toMatchObject({
+			expect(
+				requireObjectRecord(
+					progressSchema.propertiesSchema,
+					`Expected progress schema properties for ${slug} to be an object`,
+				),
+			).toMatchObject({
 				fields: {
 					progressPercent: {
 						type: "number",
@@ -184,7 +192,12 @@ describe("GET /event-schemas", () => {
 			const completeSchema = eventSchemas.find((schema) => schema.slug === "complete");
 			assertPresent(completeSchema, `Missing built-in complete schema for ${slug}`);
 			expect(completeSchema.propertiesSchema).toBeDefined();
-			expect(completeSchema.propertiesSchema as Record<string, unknown>).toMatchObject({
+			expect(
+				requireObjectRecord(
+					completeSchema.propertiesSchema,
+					`Expected complete schema properties for ${slug} to be an object`,
+				),
+			).toMatchObject({
 				fields: {
 					startedOn: {
 						type: "datetime",
@@ -378,6 +391,10 @@ describe("GET /event-schemas", () => {
 		});
 
 		const movieProgressSchema = await getProgressSchema("movie");
+		const movieFields = requireObjectRecord(
+			movieProgressSchema.fields,
+			"Expected movie progress schema fields to be an object",
+		);
 		expect(movieProgressSchema).toMatchObject({
 			fields: {
 				progressPercent: {
@@ -389,14 +406,16 @@ describe("GET /event-schemas", () => {
 				},
 			},
 		});
-		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-		expect((movieProgressSchema.fields as Record<string, unknown>).showSeason).toBe(undefined);
-		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-		expect((movieProgressSchema.fields as Record<string, unknown>).showEpisode).toBe(undefined);
+		expect(movieFields.showSeason).toBeUndefined();
+		expect(movieFields.showEpisode).toBeUndefined();
 
-		for (const slug of ["book", "comic-book", "audiobook", "video-game", "music", "visual-novel"]) {
-			// oxlint-disable-next-line no-await-in-loop
-			const progressSchema = await getProgressSchema(slug);
+		const progressSchemas = await Promise.all(
+			["book", "comic-book", "audiobook", "video-game", "music", "visual-novel"].map((slug) =>
+				getProgressSchema(slug),
+			),
+		);
+
+		for (const progressSchema of progressSchemas) {
 			expect(progressSchema).toEqual(movieProgressSchema);
 		}
 
@@ -428,17 +447,21 @@ describe("GET /event-schemas", () => {
 			const schema = eventSchemas.find((s) => s.slug === eventSlug);
 			assertPresent(schema, `Missing built-in ${eventSlug} schema for ${entitySlug}`);
 
-			return schema.propertiesSchema as Record<string, unknown>;
+			return requireObjectRecord(
+				schema.propertiesSchema,
+				`Expected ${eventSlug} properties schema for ${entitySlug} to be an object`,
+			);
 		};
 
-		for (const slug of ["show", "anime", "manga", "podcast", "movie", "book"]) {
-			// oxlint-disable-next-line no-await-in-loop
-			const progressSchema = await getSchemaBySlug(slug, "progress");
-			// oxlint-disable-next-line no-await-in-loop
-			const droppedSchema = await getSchemaBySlug(slug, "dropped");
-			// oxlint-disable-next-line no-await-in-loop
-			const onHoldSchema = await getSchemaBySlug(slug, "on_hold");
+		const lifecycleSchemas = await Promise.all(
+			["show", "anime", "manga", "podcast", "movie", "book"].map(async (slug) => ({
+				droppedSchema: await getSchemaBySlug(slug, "dropped"),
+				onHoldSchema: await getSchemaBySlug(slug, "on_hold"),
+				progressSchema: await getSchemaBySlug(slug, "progress"),
+			})),
+		);
 
+		for (const { progressSchema, droppedSchema, onHoldSchema } of lifecycleSchemas) {
 			expect(droppedSchema).toMatchObject(progressSchema);
 			expect(onHoldSchema).toMatchObject(progressSchema);
 			expect(droppedSchema).toMatchObject({ fields: sessionFields });
