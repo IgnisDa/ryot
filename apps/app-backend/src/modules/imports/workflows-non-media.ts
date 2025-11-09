@@ -1,9 +1,16 @@
+import type { FileSystem } from "@effect/platform";
 import { Activity } from "@effect/workflow";
-import { Cause, DateTime, Effect, Schema } from "effect";
+import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
+import { Cause, Context, DateTime, Effect, Schema } from "effect";
 
 import { AppConfig } from "#lib/config";
 import { DbRunner } from "#lib/db";
 import { unknownToMessage } from "#lib/errors";
+import type { EntitiesRepository } from "#modules/entities/repository";
+import type { EntitiesService } from "#modules/entities/service";
+import type { EntitySchemasRepository } from "#modules/entity-schemas/repository";
+import type { EventSchemasRepository } from "#modules/event-schemas/repository";
+import type { EventsService } from "#modules/events/service";
 
 import type { ImportRunJobData } from "./jobs";
 import { ImportsRepository } from "./repository";
@@ -61,18 +68,8 @@ export type NonMediaPrepareWritesEffect<Item, RWrite, RPrepare> = Effect.Effect<
 	RPrepare
 >;
 
-export type NonMediaImportOperations<
-	Item extends NonMediaImportItem,
-	RLoad,
-	RPrepare,
-	RWrite,
-	RCleanup,
-> = {
+export type NonMediaImportOperations<Item extends NonMediaImportItem, RLoad, RPrepare, RWrite> = {
 	itemSchema: Schema.Schema<Item>;
-	cleanupArtifacts: (input: {
-		sourcePayloadKey?: string;
-		cleanupPaths: ReadonlyArray<string>;
-	}) => Effect.Effect<void, unknown, RCleanup>;
 	loadAdapterResult: (payload: ImportRunJobData) => Effect.Effect<
 		{
 			items: ReadonlyArray<Item>;
@@ -84,6 +81,53 @@ export type NonMediaImportOperations<
 	>;
 	prepareWrites: (payload: ImportRunJobData) => NonMediaPrepareWritesEffect<Item, RWrite, RPrepare>;
 };
+
+type NonMediaImportRequirements =
+	| DbRunner
+	| AppConfig
+	| FileSystem.FileSystem
+	| EventsService
+	| EntitiesService
+	| EntitiesRepository
+	| WorkflowEngine
+	| WorkflowInstance
+	| EventSchemasRepository
+	| EntitySchemasRepository;
+
+export type NonMediaImportOperationSet = {
+	withOperations: <A, E, R>(
+		run: <Item extends NonMediaImportItem>(
+			operations: NonMediaImportOperations<
+				Item,
+				NonMediaImportRequirements,
+				NonMediaImportRequirements,
+				NonMediaImportRequirements
+			>,
+		) => Effect.Effect<A, E, R>,
+	) => Effect.Effect<A, E, R>;
+};
+
+export const makeNonMediaImportOperationSet = <Item extends NonMediaImportItem>(
+	operations: NonMediaImportOperations<
+		Item,
+		NonMediaImportRequirements,
+		NonMediaImportRequirements,
+		NonMediaImportRequirements
+	>,
+): NonMediaImportOperationSet => ({
+	withOperations: (run) => run(operations),
+});
+
+export class NonMediaImportWorkflowOperations extends Context.Tag(
+	"NonMediaImportWorkflowOperations",
+)<
+	NonMediaImportWorkflowOperations,
+	{
+		getOperations: (
+			payload: ImportRunJobData,
+		) => Effect.Effect<NonMediaImportOperationSet, ImportRunError>;
+	}
+>() {}
 
 export const loadNonMediaImportText = Effect.fn("importsNonMedia.loadNonMediaImportText")(
 	function* (payload: ImportRunJobData) {
@@ -99,7 +143,7 @@ export const loadNonMediaImportText = Effect.fn("importsNonMedia.loadNonMediaImp
 			Effect.mapError(
 				() =>
 					({
-						cleanupPaths: [] as ReadonlyArray<string>,
+						cleanupPaths: [],
 						message: "Import job has an invalid file path",
 					}) satisfies NonMediaLoadError,
 			),
@@ -140,8 +184,8 @@ const makeLoadOutcomeSchema = <Item>(itemSchema: Schema.Schema<Item>) =>
 	Schema.Union(
 		Schema.TaggedStruct("failed", {
 			message: Schema.String,
-			cleanupPaths: Schema.Array(Schema.String),
 			fallbackToInitialCleanupPaths: Schema.Boolean,
+			cleanupPaths: Schema.Array(Schema.String),
 		}),
 		Schema.TaggedStruct("loaded", {
 			items: Schema.Array(itemSchema),
@@ -151,189 +195,190 @@ const makeLoadOutcomeSchema = <Item>(itemSchema: Schema.Schema<Item>) =>
 	);
 
 export const runOneTimeNonMediaImportWorkflow = Effect.fn("runOneTimeNonMediaImportWorkflow")(
-	function* <Item extends NonMediaImportItem, RLoad, RPrepare, RWrite, RCleanup>(
-		payload: ImportRunJobData,
-		operations: NonMediaImportOperations<Item, RLoad, RPrepare, RWrite, RCleanup>,
-	) {
-		const runWithDb = yield* DbRunner;
+	function* (payload: ImportRunJobData) {
 		const config = yield* AppConfig;
+		const runWithDb = yield* DbRunner;
 		const repository = yield* ImportsRepository;
+		const operationsService = yield* NonMediaImportWorkflowOperations;
 
 		const initialCleanupPaths = payload.filePath
 			? yield* resolveImportPath(payload.filePath, config.tmpDir)
 			: [];
 		let cleanupPaths: ReadonlyArray<string> = initialCleanupPaths;
-		const { cleanupArtifactsBestEffort, failRunAndCleanup } = createImportRunLifecycle(
-			payload,
-			operations.cleanupArtifacts,
-		);
+		const { cleanupArtifactsBestEffort, failRunAndCleanup } = createImportRunLifecycle(payload);
 		const mergeCleanupPaths = (paths: ReadonlyArray<string>) => [
 			...new Set([...initialCleanupPaths, ...paths]),
 		];
 
 		const processWorkflow = Effect.gen(function* () {
-			const startedAt = yield* DateTime.nowAsDate;
-			yield* Activity.make({
-				error: ImportRunError,
-				name: "mark-import-run-started",
-				execute: runWithDb(
-					repository.updateRun({ runId: payload.runId, status: "running", startedAt }),
-				).pipe(Effect.mapError(toWorkflowError)),
-			});
-
-			const loadOutcome = yield* Activity.make({
-				name: "load-non-media-import-adapter-result",
-				success: makeLoadOutcomeSchema(operations.itemSchema),
-				execute: operations.loadAdapterResult(payload).pipe(
-					Effect.map(({ items, failures, cleanupPaths: loadedCleanupPaths }) => ({
-						_tag: "loaded" as const,
-						items: [...items],
-						failures: [...failures],
-						cleanupPaths: [...loadedCleanupPaths],
-					})),
-					Effect.catchAll((error) =>
-						Effect.succeed({
-							_tag: "failed" as const,
-							fallbackToInitialCleanupPaths: false,
-							message: error.message,
-							cleanupPaths: [...error.cleanupPaths],
-						}),
-					),
-					Effect.catchAllCause((cause) =>
-						Effect.succeed({
-							cleanupPaths: [],
-							fallbackToInitialCleanupPaths: true,
-							_tag: "failed" as const,
-							message: unknownToMessage(Cause.squash(cause)),
-						}),
-					),
-				),
-			});
-
-			cleanupPaths =
-				loadOutcome._tag === "failed"
-					? loadOutcome.fallbackToInitialCleanupPaths
-						? mergeCleanupPaths(loadOutcome.cleanupPaths)
-						: [...loadOutcome.cleanupPaths]
-					: mergeCleanupPaths(loadOutcome.cleanupPaths);
-			if (loadOutcome._tag === "failed") {
-				yield* failRunAndCleanup({
-					message: loadOutcome.message,
-					cleanupPaths,
-					failureName: "fail-import-run-on-load-error",
-					cleanupName: "cleanup-import-artifacts-on-load-failure",
-				});
-				return;
-			}
-
-			const items = loadOutcome.items;
-			const adapterFailureCount = loadOutcome.failures.length;
-			const totalItems = items.length + adapterFailureCount;
-
-			yield* Effect.forEach(
-				loadOutcome.failures,
-				(failure, index) =>
-					Activity.make({
-						error: ImportRunError,
-						name: `record-adapter-failure-${index}`,
-						execute: recordImportRunFailure({
-							runId: payload.runId,
-							stage: "input_transformation",
-							message: failure.message,
-							itemIndex: failure.itemIndex,
-							sourceLabel: failure.sourceLabel,
-							sourceIdentifier: failure.sourceIdentifier,
-						}).pipe(Effect.mapError(toWorkflowError)),
-					}),
-				{ discard: true },
-			);
-
-			yield* Activity.make({
-				error: ImportRunError,
-				name: "record-total-items",
-				execute: runWithDb(repository.updateRun({ runId: payload.runId, totalItems })).pipe(
-					Effect.mapError(toWorkflowError),
-				),
-			});
-
-			const prepared = yield* operations.prepareWrites(payload);
-			if (prepared._tag === "failed") {
-				yield* failRunAndCleanup({
-					message: prepared.message,
-					cleanupPaths,
-					failureName: "fail-import-run-on-prepare-error",
-					cleanupName: "cleanup-import-artifacts-on-prepare-failure",
-				});
-				return;
-			}
-
-			let failedItems = adapterFailureCount;
-			let importedItems = 0;
-			let processedItems = adapterFailureCount;
-
-			for (let i = 0; i < items.length; i += 1) {
-				const item = items[i];
-				if (!item) {
-					continue;
-				}
-
-				const outcome = yield* prepared.writeItem({ item, index: i });
-				if (outcome._tag === "failed") {
-					failedItems += 1;
+			const operationSet = yield* operationsService.getOperations(payload);
+			yield* operationSet.withOperations((operations) =>
+				Effect.gen(function* () {
+					const startedAt = yield* DateTime.nowAsDate;
 					yield* Activity.make({
 						error: ImportRunError,
-						name: `record-item-failure-${i}`,
-						execute: recordImportRunFailure({
-							runId: payload.runId,
-							stage: outcome.stage,
-							message: outcome.message,
-							itemIndex: item.itemIndex,
-							sourceLabel: item.sourceLabel,
-							sourceIdentifier: item.sourceIdentifier,
-							entitySchemaSlug: outcome.entitySchemaSlug ?? null,
-						}).pipe(Effect.mapError(toWorkflowError)),
+						name: "mark-import-run-started",
+						execute: runWithDb(
+							repository.updateRun({ runId: payload.runId, status: "running", startedAt }),
+						).pipe(Effect.mapError(toWorkflowError)),
 					});
-				} else {
-					importedItems += 1;
-				}
 
-				processedItems += 1;
-				if (processedItems % PROGRESS_UPDATE_INTERVAL === 0 || processedItems === totalItems) {
-					const progress = totalItems > 0 ? Math.round((processedItems / totalItems) * 100) : 100;
+					const loadOutcome = yield* Activity.make({
+						name: "load-non-media-import-adapter-result",
+						success: makeLoadOutcomeSchema(operations.itemSchema),
+						execute: operations.loadAdapterResult(payload).pipe(
+							Effect.map(({ items, failures, cleanupPaths: loadedCleanupPaths }) => ({
+								items: [...items],
+								_tag: "loaded" as const,
+								failures: [...failures],
+								cleanupPaths: [...loadedCleanupPaths],
+							})),
+							Effect.catchAll((error) =>
+								Effect.succeed({
+									_tag: "failed" as const,
+									message: error.message,
+									fallbackToInitialCleanupPaths: false,
+									cleanupPaths: [...error.cleanupPaths],
+								}),
+							),
+							Effect.catchAllCause((cause) =>
+								Effect.succeed({
+									cleanupPaths: [],
+									_tag: "failed" as const,
+									fallbackToInitialCleanupPaths: true,
+									message: unknownToMessage(Cause.squash(cause)),
+								}),
+							),
+						),
+					});
+
+					cleanupPaths =
+						loadOutcome._tag === "failed"
+							? loadOutcome.fallbackToInitialCleanupPaths
+								? mergeCleanupPaths(loadOutcome.cleanupPaths)
+								: [...loadOutcome.cleanupPaths]
+							: mergeCleanupPaths(loadOutcome.cleanupPaths);
+					if (loadOutcome._tag === "failed") {
+						yield* failRunAndCleanup({
+							cleanupPaths,
+							message: loadOutcome.message,
+							failureName: "fail-import-run-on-load-error",
+							cleanupName: "cleanup-import-artifacts-on-load-failure",
+						});
+						return;
+					}
+
+					const items = loadOutcome.items;
+					const adapterFailureCount = loadOutcome.failures.length;
+					const totalItems = items.length + adapterFailureCount;
+
+					yield* Effect.forEach(
+						loadOutcome.failures,
+						(failure, index) =>
+							Activity.make({
+								error: ImportRunError,
+								name: `record-adapter-failure-${index}`,
+								execute: recordImportRunFailure({
+									runId: payload.runId,
+									message: failure.message,
+									itemIndex: failure.itemIndex,
+									stage: "input_transformation",
+									sourceLabel: failure.sourceLabel,
+									sourceIdentifier: failure.sourceIdentifier,
+								}).pipe(Effect.mapError(toWorkflowError)),
+							}),
+						{ discard: true },
+					);
+
 					yield* Activity.make({
 						error: ImportRunError,
-						name: `report-progress-${processedItems}`,
+						name: "record-total-items",
+						execute: runWithDb(repository.updateRun({ runId: payload.runId, totalItems })).pipe(
+							Effect.mapError(toWorkflowError),
+						),
+					});
+
+					const prepared = yield* operations.prepareWrites(payload);
+					if (prepared._tag === "failed") {
+						yield* failRunAndCleanup({
+							cleanupPaths,
+							message: prepared.message,
+							failureName: "fail-import-run-on-prepare-error",
+							cleanupName: "cleanup-import-artifacts-on-prepare-failure",
+						});
+						return;
+					}
+
+					let importedItems = 0;
+					let failedItems = adapterFailureCount;
+					let processedItems = adapterFailureCount;
+
+					for (let i = 0; i < items.length; i += 1) {
+						const item = items[i];
+						if (!item) {
+							continue;
+						}
+
+						const outcome = yield* prepared.writeItem({ item, index: i });
+						if (outcome._tag === "failed") {
+							failedItems += 1;
+							yield* Activity.make({
+								error: ImportRunError,
+								name: `record-item-failure-${i}`,
+								execute: recordImportRunFailure({
+									runId: payload.runId,
+									stage: outcome.stage,
+									message: outcome.message,
+									itemIndex: item.itemIndex,
+									sourceLabel: item.sourceLabel,
+									sourceIdentifier: item.sourceIdentifier,
+									entitySchemaSlug: outcome.entitySchemaSlug ?? null,
+								}).pipe(Effect.mapError(toWorkflowError)),
+							});
+						} else {
+							importedItems += 1;
+						}
+
+						processedItems += 1;
+						if (processedItems % PROGRESS_UPDATE_INTERVAL === 0 || processedItems === totalItems) {
+							const progress =
+								totalItems > 0 ? Math.round((processedItems / totalItems) * 100) : 100;
+							yield* Activity.make({
+								error: ImportRunError,
+								name: `report-progress-${processedItems}`,
+								execute: runWithDb(
+									repository.updateRun({
+										progress,
+										failedItems,
+										importedItems,
+										processedItems,
+										runId: payload.runId,
+									}),
+								).pipe(Effect.mapError(toWorkflowError)),
+							});
+						}
+					}
+
+					const finishedAt = yield* DateTime.nowAsDate;
+					yield* Activity.make({
+						error: ImportRunError,
+						name: "finalize-import-run",
 						execute: runWithDb(
 							repository.updateRun({
-								progress,
+								finishedAt,
 								failedItems,
+								progress: 100,
 								importedItems,
 								processedItems,
+								status: "completed",
 								runId: payload.runId,
 							}),
 						).pipe(Effect.mapError(toWorkflowError)),
 					});
-				}
-			}
 
-			const finishedAt = yield* DateTime.nowAsDate;
-			yield* Activity.make({
-				error: ImportRunError,
-				name: "finalize-import-run",
-				execute: runWithDb(
-					repository.updateRun({
-						finishedAt,
-						failedItems,
-						progress: 100,
-						importedItems,
-						processedItems,
-						status: "completed",
-						runId: payload.runId,
-					}),
-				).pipe(Effect.mapError(toWorkflowError)),
-			});
-
-			yield* cleanupArtifactsBestEffort("cleanup-import-artifacts-on-success", cleanupPaths);
+					yield* cleanupArtifactsBestEffort("cleanup-import-artifacts-on-success", cleanupPaths);
+				}),
+			);
 		});
 
 		yield* processWorkflow.pipe(

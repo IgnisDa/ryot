@@ -10,25 +10,19 @@ import { buildNetflixAdapterResult } from "../sources/netflix/processor";
 import { MediaImportAdapterResultSchema, type MediaImportAdapterResult } from "./import-processor";
 import { LoadedMediaImportAdapterSuccess } from "./source-loaders";
 import { activityKey, LoadMediaImportFailed } from "./workflow-shared";
-import type { MediaImportWorkflowOperations } from "./workflow-types";
+import { MediaImportWorkflowOperations } from "./workflow-types";
 
 const LoadMediaImportOutcome = Schema.Union(LoadMediaImportFailed, LoadedMediaImportAdapterSuccess);
 
-export const loadMediaAdapterResult = Effect.fn("loadMediaAdapterResult")(function* <
-	RLoad,
-	RResolve,
-	RImport,
-	RSearch = never,
-	RCleanup = never,
->(input: {
+export const loadMediaAdapterResult = Effect.fn("loadMediaAdapterResult")(function* (input: {
 	payload: ImportRunJobData;
 	executionId: string;
-	operations: MediaImportWorkflowOperations<RLoad, RResolve, RImport, RSearch, RCleanup>;
 }) {
+	const operations = yield* MediaImportWorkflowOperations;
 	const loadOutcome = yield* Activity.make({
-		name: "load-media-import-adapter-result",
 		success: LoadMediaImportOutcome,
-		execute: input.operations.loadAdapterResult(input.payload).pipe(
+		name: "load-media-import-adapter-result",
+		execute: operations.loadAdapterResult(input.payload).pipe(
 			Effect.map((loaded) =>
 				"_tag" in loaded
 					? { ...loaded, cleanupPaths: [...loaded.cleanupPaths] }
@@ -40,17 +34,17 @@ export const loadMediaAdapterResult = Effect.fn("loadMediaAdapterResult")(functi
 			),
 			Effect.catchAll((error) =>
 				Effect.succeed({
-					fallbackToInitialCleanupPaths: false,
 					message: error.message,
 					_tag: "failed" as const,
+					fallbackToInitialCleanupPaths: false,
 					cleanupPaths: [...error.cleanupPaths],
 				}),
 			),
 			Effect.catchAllCause((cause) =>
 				Effect.succeed({
 					cleanupPaths: [],
-					fallbackToInitialCleanupPaths: true,
 					_tag: "failed" as const,
+					fallbackToInitialCleanupPaths: true,
 					message: unknownToMessage(Cause.squash(cause)),
 				}),
 			),
@@ -64,7 +58,7 @@ export const loadMediaAdapterResult = Effect.fn("loadMediaAdapterResult")(functi
 	const adapterResult =
 		loadOutcome._tag === "netflix-search-planned"
 			? yield* Effect.gen(function* () {
-					const searchEntities = input.operations.searchEntities;
+					const searchEntities = operations.searchEntities;
 					if (!searchEntities) {
 						return yield* new ImportRunError({
 							message: "Netflix search planning requires a workflow-owned search operation",
@@ -79,15 +73,11 @@ export const loadMediaAdapterResult = Effect.fn("loadMediaAdapterResult")(functi
 							executionId: `${input.executionId}-search-${activityKey(searchJob.jobKey)}`,
 						}).pipe(
 							Effect.match({
+								onSuccess: (items) => ({ items, error: null, jobKey: searchJob.jobKey }),
 								onFailure: (error) => ({
 									error: error.message,
 									jobKey: searchJob.jobKey,
 									items: [] as ReadonlyArray<EntitySearchItem>,
-								}),
-								onSuccess: (items) => ({
-									error: null,
-									jobKey: searchJob.jobKey,
-									items,
 								}),
 							}),
 						),
@@ -111,8 +101,8 @@ export const loadMediaAdapterResult = Effect.fn("loadMediaAdapterResult")(functi
 
 	return {
 		_tag: "loaded" as const,
-		adapterResult: cloneAdapterResult(adapterResult),
 		cleanupPaths: [...loadOutcome.cleanupPaths],
+		adapterResult: cloneAdapterResult(adapterResult),
 	};
 });
 

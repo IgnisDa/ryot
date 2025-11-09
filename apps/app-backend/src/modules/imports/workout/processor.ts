@@ -8,11 +8,11 @@ import type { AppSchema } from "#lib/schema/property-schema";
 import { parseAppSchemaPropertiesSafe } from "#lib/schema/property-schema-runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { ListedEntity } from "#modules/entities/schemas";
-import type { EntitiesService } from "#modules/entities/service";
+import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import type { CreateEventItem } from "#modules/events/schemas";
-import type { EventsService } from "#modules/events/service";
+import { EventsService } from "#modules/events/service";
 
 import {
 	buildWorkoutSetEventProperties,
@@ -47,12 +47,12 @@ const matchExerciseCandidate = (
 
 const findOrCreateExercise = Effect.fn(function* (input: {
 	user: CurrentUserValue;
-	exerciseSchemaId: EntitySchemaId;
-	entities: EntitiesService;
 	exercise: WorkoutImportExercise;
+	exerciseSchemaId: EntitySchemaId;
 	candidates: ReadonlyArray<ListedEntity>;
 	exerciseCache: Map<string, ListedEntity>;
 }) {
+	const entities = yield* EntitiesService;
 	const key = exerciseIdentityKey(input.exercise);
 	const cached = input.exerciseCache.get(key);
 	if (cached) {
@@ -65,7 +65,7 @@ const findOrCreateExercise = Effect.fn(function* (input: {
 		return existing;
 	}
 
-	const created = yield* input.entities.create(input.user, {
+	const created = yield* entities.create(input.user, {
 		name: input.exercise.name,
 		entitySchemaId: input.exerciseSchemaId,
 		properties: { images: [], muscles: [], instructions: [], kind: input.exercise.kind },
@@ -88,14 +88,14 @@ const buildWorkoutEntityProperties = (workout: WorkoutImportItem): Record<string
 export const commitWorkoutItem = Effect.fn("imports.commitWorkoutItem")(function* (input: {
 	runId: ImportRunId;
 	executionId: string;
-	events: EventsService;
 	user: CurrentUserValue;
 	schemas: WorkoutSchemas;
-	entities: EntitiesService;
 	workout: WorkoutImportItem;
 	candidates: ReadonlyArray<ListedEntity>;
 	exerciseCache: Map<string, ListedEntity>;
 }) {
+	const events = yield* EventsService;
+	const entities = yield* EntitiesService;
 	const drafts = input.workout.exercises.flatMap((exercise, exerciseOrder) =>
 		exercise.sets.map((set, setOrder) => ({
 			exerciseOrder,
@@ -128,14 +128,13 @@ export const commitWorkoutItem = Effect.fn("imports.commitWorkoutItem")(function
 		exerciseEntities[exerciseOrder] = yield* findOrCreateExercise({
 			exercise,
 			user: input.user,
-			entities: input.entities,
 			candidates: input.candidates,
 			exerciseCache: input.exerciseCache,
 			exerciseSchemaId: input.schemas.exerciseSchemaId,
 		});
 	}
 
-	const workoutEntity = yield* input.entities.create(input.user, {
+	const workoutEntity = yield* entities.create(input.user, {
 		name: input.workout.name,
 		entitySchemaId: input.schemas.workoutSchemaId,
 		properties: buildWorkoutEntityProperties(input.workout),
@@ -156,7 +155,7 @@ export const commitWorkoutItem = Effect.fn("imports.commitWorkoutItem")(function
 		});
 	}
 
-	return yield* input.events.create({
+	return yield* events.create({
 		source: "import",
 		payload: eventBody,
 		userId: input.user.id,
