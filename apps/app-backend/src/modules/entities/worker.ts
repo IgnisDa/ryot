@@ -11,25 +11,29 @@ import { onWorkerError } from "~/lib/queue/utils";
 import { sandboxRunJobName, sandboxRunJobResult } from "~/lib/sandbox/jobs";
 import { imagesSchema } from "~/lib/zod";
 import {
-	createGlobalEntity,
-	findGlobalEntityByExternalId,
-	getEntitySchemaScopeForUser,
-	getUserLibraryEntityId,
-	type ListedEntity,
-	updateGlobalEntityById,
-	upsertInLibraryRelationship,
-	writeEntityRelationship,
-} from "~/modules/entities";
-import {
 	getBuiltinEntitySchemaBySandboxScriptId,
 	getBuiltinEntitySchemaBySlug,
 } from "~/modules/entity-schemas";
 import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
 import { getBuiltinSandboxScriptBySlug, getSandboxScriptForUser } from "~/modules/sandbox";
 
-import { mediaImportJobData, mediaImportJobName, mediaJobWaitingForSandboxStep } from "./jobs";
+import {
+	entityImportJobData,
+	entityImportJobName,
+	entityImportWaitingForSandboxStep,
+} from "./jobs";
+import {
+	createGlobalEntity,
+	findGlobalEntityByExternalId,
+	getEntitySchemaScopeForUser,
+	getUserLibraryEntityId,
+	updateGlobalEntityById,
+	upsertInLibraryRelationship,
+} from "./repository";
+import type { ListedEntity } from "./schemas";
+import { writeEntityRelationship } from "./service";
 
-const mediaDetailsResultSchema = z.object({
+const entityDetailsResultSchema = z.object({
 	name: z.string(),
 	properties: z.record(z.string(), z.unknown()),
 	relatedEntities: z.array(relatedEntityReferenceSchema).default([]),
@@ -44,7 +48,7 @@ export const hasImportedEntityDetails = (entityRow: Pick<ListedEntity, "populate
 	return entityRow.populatedAt !== null;
 };
 
-export type MediaWorkerDeps = {
+export type EntityImportWorkerDeps = {
 	createGlobalEntity: typeof createGlobalEntity;
 	updateGlobalEntityById: typeof updateGlobalEntityById;
 	getUserLibraryEntityId: typeof getUserLibraryEntityId;
@@ -59,7 +63,7 @@ export type MediaWorkerDeps = {
 	getBuiltinEntitySchemaBySandboxScriptId: typeof getBuiltinEntitySchemaBySandboxScriptId;
 };
 
-const mediaWorkerDeps: MediaWorkerDeps = {
+const entityImportWorkerDeps: EntityImportWorkerDeps = {
 	createGlobalEntity,
 	updateGlobalEntityById,
 	getUserLibraryEntityId,
@@ -80,7 +84,7 @@ const findImportedGlobalEntity = async (
 		entitySchemaId: string;
 		sandboxScriptId: string;
 	},
-	deps: Pick<MediaWorkerDeps, "findGlobalEntityByExternalId"> = mediaWorkerDeps,
+	deps: Pick<EntityImportWorkerDeps, "findGlobalEntityByExternalId"> = entityImportWorkerDeps,
 ) => {
 	const existingEntity = await deps.findGlobalEntityByExternalId(input);
 	if (!existingEntity || !hasImportedEntityDetails(existingEntity)) {
@@ -90,12 +94,12 @@ const findImportedGlobalEntity = async (
 	return existingEntity;
 };
 
-const upsertMediaEntityInLibrary = async (
-	input: { userId: string; mediaEntityId: string },
+const upsertEntityInLibrary = async (
+	input: { userId: string; entityId: string },
 	deps: Pick<
-		MediaWorkerDeps,
+		EntityImportWorkerDeps,
 		"getUserLibraryEntityId" | "upsertInLibraryRelationship"
-	> = mediaWorkerDeps,
+	> = entityImportWorkerDeps,
 ) => {
 	const libraryEntityId = await deps.getUserLibraryEntityId({
 		userId: input.userId,
@@ -107,7 +111,7 @@ const upsertMediaEntityInLibrary = async (
 	await deps.upsertInLibraryRelationship({
 		libraryEntityId,
 		userId: input.userId,
-		mediaEntityId: input.mediaEntityId,
+		mediaEntityId: input.entityId,
 	});
 };
 
@@ -118,22 +122,19 @@ const queueSandboxChildRun = async (input: {
 	sandboxJobData: Record<string, unknown>;
 }) => {
 	if (!input.job.id) {
-		throw new Error("Media job id is missing");
+		throw new Error("Entity import job id is missing");
 	}
 
 	await getQueues().sandboxQueue.add(sandboxRunJobName, input.sandboxJobData, {
 		jobId: input.childJobId,
-		parent: {
-			id: input.job.id,
-			queue: input.job.queueQualifiedName,
-		},
+		parent: { id: input.job.id, queue: input.job.queueQualifiedName },
 	});
 	await input.job.updateData(input.jobData);
 };
 
 const waitForSandboxChildRun = async (job: Job, token: string | undefined) => {
 	if (!token) {
-		throw new Error("Media job token is missing");
+		throw new Error("Entity import job token is missing");
 	}
 
 	const shouldWait = await job.moveToWaitingChildren(token);
@@ -159,18 +160,18 @@ const getSandboxChildRunResult = async (job: Job) => {
 
 export const processRelatedEntities = async (
 	input: {
-		mediaEntityId: string;
-		mediaEntitySchemaSlug: string;
+		entityId: string;
+		entitySchemaSlug: string;
 		relatedEntities: Array<z.infer<typeof relatedEntityReferenceSchema>>;
 	},
 	deps: Pick<
-		MediaWorkerDeps,
+		EntityImportWorkerDeps,
 		| "createGlobalEntity"
 		| "getBuiltinEntitySchemaBySandboxScriptId"
 		| "getBuiltinRelationshipSchemaBySlug"
 		| "getBuiltinSandboxScriptBySlug"
 		| "writeEntityRelationship"
-	> = mediaWorkerDeps,
+	> = entityImportWorkerDeps,
 ) => {
 	if (input.relatedEntities.length === 0) {
 		return;
@@ -191,19 +192,17 @@ export const processRelatedEntities = async (
 		}
 
 		const relationshipSchemaSlug = normalizeSlug(
-			`${relatedSchema.slug} to ${input.mediaEntitySchemaSlug}`,
+			`${relatedSchema.slug} to ${input.entitySchemaSlug}`,
 		);
 
-		// oxlint-disable-next-line no-await-in-loop
 		const relationshipSchema =
 			await deps.getBuiltinRelationshipSchemaBySlug(relationshipSchemaSlug);
 		if (!relationshipSchema) {
 			throw new Error(
-				`No relationship schema seeded for related type "${relatedSchema.slug}" and media type "${input.mediaEntitySchemaSlug}" (slug: "${relationshipSchemaSlug}") — check bootstrap manifests`,
+				`No relationship schema seeded for related type "${relatedSchema.slug}" and entity type "${input.entitySchemaSlug}" (slug: "${relationshipSchemaSlug}") — check bootstrap manifests`,
 			);
 		}
 
-		// oxlint-disable-next-line no-await-in-loop
 		const { entity: existingOrCreated } = await deps.createGlobalEntity({
 			name: relatedEntity.name,
 			entitySchemaId: relatedSchema.id,
@@ -211,30 +210,29 @@ export const processRelatedEntities = async (
 			externalId: relatedEntity.externalId,
 		});
 
-		// oxlint-disable-next-line no-await-in-loop
 		const relationshipResult = await deps.writeEntityRelationship({
-			properties: relatedEntity.relationshipProperties,
-			targetEntityId: input.mediaEntityId,
+			targetEntityId: input.entityId,
 			sourceEntityId: existingOrCreated.id,
 			relationshipSchemaId: relationshipSchema.id,
+			properties: relatedEntity.relationshipProperties,
 		});
 		if ("error" in relationshipResult) {
 			throw new Error(
-				`Failed to write ${relatedSchema.slug}-to-${input.mediaEntitySchemaSlug} relationship: ${relationshipResult.message}`,
+				`Failed to write ${relatedSchema.slug}-to-${input.entitySchemaSlug} relationship: ${relationshipResult.message}`,
 			);
 		}
 	}
 	// oxlint-enable no-await-in-loop
 };
 
-export const processMediaImportJob = async (
+export const processEntityImportJob = async (
 	job: Job,
 	token?: string,
-	deps: MediaWorkerDeps = mediaWorkerDeps,
+	deps: EntityImportWorkerDeps = entityImportWorkerDeps,
 ) => {
-	const parsed = mediaImportJobData.safeParse(job.data);
+	const parsed = entityImportJobData.safeParse(job.data);
 	if (!parsed.success) {
-		throw new Error("Media import job payload is invalid");
+		throw new Error("Entity import job payload is invalid");
 	}
 
 	const { userId, scriptId, externalId, entitySchemaId } = parsed.data;
@@ -252,7 +250,7 @@ export const processMediaImportJob = async (
 		deps,
 	);
 	if (existingEntity) {
-		await upsertMediaEntityInLibrary({ userId, mediaEntityId: existingEntity.id }, deps);
+		await upsertEntityInLibrary({ userId, entityId: existingEntity.id }, deps);
 		return existingEntity;
 	}
 
@@ -260,23 +258,15 @@ export const processMediaImportJob = async (
 		await queueSandboxChildRun({
 			job,
 			childJobId: `${job.id}_sandbox`,
-			jobData: {
-				...parsed.data,
-				step: mediaJobWaitingForSandboxStep,
-			},
-			sandboxJobData: {
-				userId,
-				scriptId,
-				driverName: "details",
-				context: { externalId },
-			},
+			jobData: { ...parsed.data, step: entityImportWaitingForSandboxStep },
+			sandboxJobData: { userId, scriptId, driverName: "details", context: { externalId } },
 		});
-		step = mediaJobWaitingForSandboxStep;
+		step = entityImportWaitingForSandboxStep;
 	}
 
 	// oxlint-disable-next-line no-unnecessary-condition
-	if (step !== mediaJobWaitingForSandboxStep) {
-		throw new Error(`Unsupported media import job step: ${String(step)}`);
+	if (step !== entityImportWaitingForSandboxStep) {
+		throw new Error(`Unsupported entity import job step: ${String(step)}`);
 	}
 
 	await waitForSandboxChildRun(job, token);
@@ -284,22 +274,19 @@ export const processMediaImportJob = async (
 	const sandboxResult = await getSandboxChildRunResult(job);
 
 	if (!sandboxResult.success) {
-		throw new Error(sandboxResult.error ?? "Media details script failed");
+		throw new Error(sandboxResult.error ?? "Entity details script failed");
 	}
 	if (sandboxResult.error) {
 		throw new Error(sandboxResult.error);
 	}
 
-	const detailsParsed = mediaDetailsResultSchema.safeParse(sandboxResult.value);
+	const detailsParsed = entityDetailsResultSchema.safeParse(sandboxResult.value);
 	if (!detailsParsed.success) {
-		throw new Error("Media details script returned an unexpected shape");
+		throw new Error("Entity details script returned an unexpected shape");
 	}
 
 	const details = detailsParsed.data;
-	const scope = await deps.getEntitySchemaScopeForUser({
-		userId,
-		entitySchemaId,
-	});
+	const scope = await deps.getEntitySchemaScopeForUser({ userId, entitySchemaId });
 	if (!scope) {
 		throw new Error("Entity schema not found");
 	}
@@ -317,13 +304,13 @@ export const processMediaImportJob = async (
 	});
 	const parsedImages = imagesSchema.safeParse(validatedProperties.images);
 	if (!parsedImages.success) {
-		throw new Error("Media details images are invalid");
+		throw new Error("Entity details images are invalid");
 	}
 	validatedProperties.images = parsedImages.data;
 
 	const image = extractPrimaryImage(validatedProperties.images);
 
-	const { entity: mediaEntity, isNew } = await deps.createGlobalEntity({
+	const { entity: importedEntity, isNew } = await deps.createGlobalEntity({
 		externalId,
 		entitySchemaId,
 		name: details.name,
@@ -332,8 +319,8 @@ export const processMediaImportJob = async (
 
 	await processRelatedEntities(
 		{
-			mediaEntityId: mediaEntity.id,
-			mediaEntitySchemaSlug: scope.slug,
+			entityId: importedEntity.id,
+			entitySchemaSlug: scope.slug,
 			relatedEntities: details.relatedEntities,
 		},
 		deps,
@@ -343,29 +330,29 @@ export const processMediaImportJob = async (
 		image,
 		entitySchemaId,
 		name: details.name,
-		entityId: mediaEntity.id,
+		entityId: importedEntity.id,
 		properties: validatedProperties,
-		populatedAt: isNew || !mediaEntity.populatedAt ? dayjs().toDate() : mediaEntity.populatedAt,
+		populatedAt:
+			isNew || !importedEntity.populatedAt ? dayjs().toDate() : importedEntity.populatedAt,
 	});
 
-	await upsertMediaEntityInLibrary({ userId, mediaEntityId: mediaEntity.id }, deps);
+	await upsertEntityInLibrary({ userId, entityId: importedEntity.id }, deps);
 
 	return updatedEntity;
 };
 
-const processMediaJob = async (job: Job, token?: string) => {
-	if (job.name === mediaImportJobName) {
-		return processMediaImportJob(job, token);
+const processEntityQueueJob = async (job: Job, token?: string) => {
+	if (job.name === entityImportJobName) {
+		return processEntityImportJob(job, token);
 	}
 
-	throw new Error(`Unsupported media job: ${job.name}`);
+	throw new Error(`Unsupported entity import queue job: ${job.name}`);
 };
 
-// TODO: Delete this file — superseded by ~/modules/entities/worker.ts.
-export const createMediaWorker = () => {
-	const worker = new Worker("media", processMediaJob, {
+export const createEntityImportWorker = () => {
+	const worker = new Worker("entity", processEntityQueueJob, {
 		connection: getRedisConnection(),
 	});
-	worker.on("error", onWorkerError("media"));
+	worker.on("error", onWorkerError("entity"));
 	return worker;
 };

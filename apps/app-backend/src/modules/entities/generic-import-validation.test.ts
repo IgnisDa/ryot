@@ -1,15 +1,15 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+	createEntityImportWorkerDeps,
 	createJob,
 	createListedEntity,
-	createMediaDeps,
 	createOptionalTitlePropertiesSchema,
 	createRelatedDeps,
 } from "~/lib/test-fixtures";
 
-import { mediaJobWaitingForSandboxStep } from "./jobs";
-import { processMediaImportJob, processRelatedEntities } from "./worker";
+import { entityImportWaitingForSandboxStep } from "./jobs";
+import { processEntityImportJob, processRelatedEntities } from "./worker";
 
 const createBookPropertiesSchema = () => ({
 	fields: {
@@ -32,17 +32,17 @@ const createBookPropertiesSchema = () => ({
 	},
 });
 
-describe("processMediaImportJob", () => {
+describe("processEntityImportJob", () => {
 	it("rejects invalid primary properties", () => {
 		expect(
-			processMediaImportJob(
+			processEntityImportJob(
 				Object.assign(
 					createJob({
 						userId: "user_1",
 						externalId: "ext_1",
 						scriptId: "script_1",
 						entitySchemaId: "schema_1",
-						step: mediaJobWaitingForSandboxStep,
+						step: entityImportWaitingForSandboxStep,
 					}),
 					{
 						getChildrenValues: () =>
@@ -57,7 +57,7 @@ describe("processMediaImportJob", () => {
 					},
 				),
 				"token_1",
-				createMediaDeps({
+				createEntityImportWorkerDeps({
 					getEntitySchemaScopeForUser: () =>
 						Promise.resolve(
 							// oxlint-disable-next-line no-unsafe-type-assertion
@@ -75,7 +75,7 @@ describe("processMediaImportJob", () => {
 	it("continues populating an existing unpopulated entity", async () => {
 		let updateInput:
 			| Parameters<
-					NonNullable<Parameters<typeof processMediaImportJob>[2]>["updateGlobalEntityById"]
+					NonNullable<Parameters<typeof processEntityImportJob>[2]>["updateGlobalEntityById"]
 			  >[0]
 			| undefined;
 
@@ -87,14 +87,14 @@ describe("processMediaImportJob", () => {
 			sandboxScriptId: "script_1",
 		});
 
-		await processMediaImportJob(
+		await processEntityImportJob(
 			Object.assign(
 				createJob({
 					userId: "user_1",
 					externalId: "ext_1",
 					scriptId: "script_1",
 					entitySchemaId: "schema_1",
-					step: mediaJobWaitingForSandboxStep,
+					step: entityImportWaitingForSandboxStep,
 				}),
 				{
 					getChildrenValues: () =>
@@ -112,7 +112,7 @@ describe("processMediaImportJob", () => {
 				},
 			),
 			"token_1",
-			createMediaDeps({
+			createEntityImportWorkerDeps({
 				createGlobalEntity: () =>
 					Promise.resolve({
 						isNew: false,
@@ -161,8 +161,8 @@ describe("processRelatedEntities", () => {
 		expect(
 			processRelatedEntities(
 				{
-					mediaEntityId: "media_1",
-					mediaEntitySchemaSlug: "book",
+					entityId: "media_1",
+					entitySchemaSlug: "book",
 					relatedEntities: [validRelatedEntity],
 				},
 				createRelatedDeps({
@@ -176,8 +176,8 @@ describe("processRelatedEntities", () => {
 		expect(
 			processRelatedEntities(
 				{
-					mediaEntityId: "media_1",
-					mediaEntitySchemaSlug: "book",
+					entityId: "media_1",
+					entitySchemaSlug: "book",
 					relatedEntities: [validRelatedEntity],
 				},
 				createRelatedDeps({
@@ -191,8 +191,8 @@ describe("processRelatedEntities", () => {
 		expect(
 			processRelatedEntities(
 				{
-					mediaEntityId: "media_1",
-					mediaEntitySchemaSlug: "book",
+					entityId: "media_1",
+					entitySchemaSlug: "book",
 					relatedEntities: [validRelatedEntity],
 				},
 				createRelatedDeps({
@@ -200,7 +200,7 @@ describe("processRelatedEntities", () => {
 				}),
 			),
 		).rejects.toThrow(
-			'No relationship schema seeded for related type "person" and media type "book" (slug: "person-to-book") — check bootstrap manifests',
+			'No relationship schema seeded for related type "person" and entity type "book" (slug: "person-to-book") — check bootstrap manifests',
 		);
 	});
 
@@ -208,8 +208,8 @@ describe("processRelatedEntities", () => {
 		expect(
 			processRelatedEntities(
 				{
-					mediaEntityId: "media_1",
-					mediaEntitySchemaSlug: "book",
+					entityId: "media_1",
+					entitySchemaSlug: "book",
 					relatedEntities: [validRelatedEntity],
 				},
 				createRelatedDeps({

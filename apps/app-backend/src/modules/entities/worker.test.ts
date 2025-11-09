@@ -1,15 +1,15 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+	createEntityImportWorkerDeps,
 	createJob,
 	createListedEntity,
-	createMediaDeps,
 	createOptionalTitlePropertiesSchema,
 } from "~/lib/test-fixtures";
 
-import { hasImportedEntityDetails, processMediaImportJob, processRelatedEntities } from "./worker";
+import { hasImportedEntityDetails, processEntityImportJob, processRelatedEntities } from "./worker";
 
-type MediaDeps = NonNullable<Parameters<typeof processMediaImportJob>[2]>;
+type EntityImportWorkerDeps = NonNullable<Parameters<typeof processEntityImportJob>[2]>;
 
 describe("hasImportedEntityDetails", () => {
 	it("returns false for empty placeholder entities", () => {
@@ -45,8 +45,10 @@ describe("hasImportedEntityDetails", () => {
 	});
 });
 
-describe("processMediaImportJob", () => {
+describe("processEntityImportJob", () => {
 	it("reuses an already imported entity without fetching details again", async () => {
+		let sandboxScriptLookups = 0;
+		let linkedMediaEntityId: string | undefined;
 		const entity = createListedEntity({
 			id: "media_1",
 			externalId: "ext_1",
@@ -54,10 +56,8 @@ describe("processMediaImportJob", () => {
 			properties: { sourceUrl: "https://example.com/media" },
 			populatedAt: new Date("2024-01-02T00:00:00.000Z"),
 		});
-		let linkedMediaEntityId: string | undefined;
-		let sandboxScriptLookups = 0;
 
-		const result = await processMediaImportJob(
+		const result = await processEntityImportJob(
 			createJob({
 				userId: "user_1",
 				externalId: "ext_1",
@@ -65,7 +65,7 @@ describe("processMediaImportJob", () => {
 				entitySchemaId: "schema_1",
 			}),
 			undefined,
-			createMediaDeps({
+			createEntityImportWorkerDeps({
 				findGlobalEntityByExternalId: () => Promise.resolve(entity),
 				getSandboxScriptForUser: () => {
 					sandboxScriptLookups += 1;
@@ -88,7 +88,7 @@ describe("processMediaImportJob", () => {
 		let sandboxScriptLookups = 0;
 
 		expect(
-			processMediaImportJob(
+			processEntityImportJob(
 				createJob({
 					userId: "user_1",
 					scriptId: "script_1",
@@ -96,7 +96,7 @@ describe("processMediaImportJob", () => {
 					entitySchemaId: "schema_1",
 				}),
 				undefined,
-				createMediaDeps({
+				createEntityImportWorkerDeps({
 					getSandboxScriptForUser: () => {
 						sandboxScriptLookups += 1;
 						// oxlint-disable-next-line no-unsafe-type-assertion
@@ -109,11 +109,11 @@ describe("processMediaImportJob", () => {
 		expect(sandboxScriptLookups).toBe(1);
 	});
 
-	it("does not link media into the library before the entity update succeeds", () => {
+	it("does not link entity into the library before the entity update succeeds", () => {
 		let linkedMediaEntityId: string | undefined;
 
 		expect(
-			processMediaImportJob(
+			processEntityImportJob(
 				Object.assign(
 					createJob({
 						userId: "user_1",
@@ -138,7 +138,7 @@ describe("processMediaImportJob", () => {
 					},
 				),
 				"token_1",
-				createMediaDeps({
+				createEntityImportWorkerDeps({
 					getEntitySchemaScopeForUser: () =>
 						// oxlint-disable-next-line no-unsafe-type-assertion
 						Promise.resolve({
@@ -226,26 +226,30 @@ describe("processMediaImportJob", () => {
 					},
 				},
 			},
-		} as NonNullable<Awaited<ReturnType<MediaDeps["getEntitySchemaScopeForUser"]>>>;
+		} as NonNullable<Awaited<ReturnType<EntityImportWorkerDeps["getEntitySchemaScopeForUser"]>>>;
 		const personSchema = {
 			slug: "person",
 			id: "person_schema_1",
 			propertiesSchema: { fields: {} },
 		} satisfies NonNullable<
-			Awaited<ReturnType<MediaDeps["getBuiltinEntitySchemaBySandboxScriptId"]>>
+			Awaited<ReturnType<EntityImportWorkerDeps["getBuiltinEntitySchemaBySandboxScriptId"]>>
 		>;
 		const relationshipSchema = {
 			id: "rel_schema_1",
 			propertiesSchema: { fields: {} },
-		} satisfies NonNullable<Awaited<ReturnType<MediaDeps["getBuiltinRelationshipSchemaBySlug"]>>>;
+		} satisfies NonNullable<
+			Awaited<ReturnType<EntityImportWorkerDeps["getBuiltinRelationshipSchemaBySlug"]>>
+		>;
 		const relatedScript = {
 			id: "person_script_1",
-		} satisfies NonNullable<Awaited<ReturnType<MediaDeps["getBuiltinSandboxScriptBySlug"]>>>;
-		let relatedScriptLookups = 0;
-		let relatedWrites = 0;
+		} satisfies NonNullable<
+			Awaited<ReturnType<EntityImportWorkerDeps["getBuiltinSandboxScriptBySlug"]>>
+		>;
 		let updateCalls = 0;
+		let relatedWrites = 0;
+		let relatedScriptLookups = 0;
 
-		const deps = createMediaDeps({
+		const deps = createEntityImportWorkerDeps({
 			findGlobalEntityByExternalId: () => Promise.resolve(entity),
 			getEntitySchemaScopeForUser: () => Promise.resolve(bookScope),
 			getBuiltinEntitySchemaBySandboxScriptId: () => Promise.resolve(personSchema),
@@ -317,7 +321,7 @@ describe("processMediaImportJob", () => {
 
 		let firstError: unknown;
 		try {
-			await processMediaImportJob(job, "token_1", deps);
+			await processEntityImportJob(job, "token_1", deps);
 		} catch (error) {
 			firstError = error;
 		}
@@ -327,7 +331,7 @@ describe("processMediaImportJob", () => {
 			throw new Error("Expected first retry attempt to fail");
 		}
 		expect(firstError.message).toBe("Failed to write person-to-book relationship: boom");
-		const result = await processMediaImportJob(job, "token_1", deps);
+		const result = await processEntityImportJob(job, "token_1", deps);
 
 		expect(relatedScriptLookups).toBe(2);
 		expect(relatedWrites).toBe(2);
@@ -342,15 +346,19 @@ describe("processRelatedEntities", () => {
 		id: "person_schema_1",
 		propertiesSchema: { fields: {} },
 	} satisfies NonNullable<
-		Awaited<ReturnType<MediaDeps["getBuiltinEntitySchemaBySandboxScriptId"]>>
+		Awaited<ReturnType<EntityImportWorkerDeps["getBuiltinEntitySchemaBySandboxScriptId"]>>
 	>;
 	const relatedRelationshipSchema = {
 		id: "rel_schema_1",
 		propertiesSchema: { fields: {} },
-	} satisfies NonNullable<Awaited<ReturnType<MediaDeps["getBuiltinRelationshipSchemaBySlug"]>>>;
+	} satisfies NonNullable<
+		Awaited<ReturnType<EntityImportWorkerDeps["getBuiltinRelationshipSchemaBySlug"]>>
+	>;
 	const relatedSandboxScript = {
 		id: "person_script_1",
-	} satisfies NonNullable<Awaited<ReturnType<MediaDeps["getBuiltinSandboxScriptBySlug"]>>>;
+	} satisfies NonNullable<
+		Awaited<ReturnType<EntityImportWorkerDeps["getBuiltinSandboxScriptBySlug"]>>
+	>;
 
 	it("creates placeholder related entities and writes relationships", async () => {
 		let relationshipSlug: string | undefined;
@@ -367,8 +375,8 @@ describe("processRelatedEntities", () => {
 
 		await processRelatedEntities(
 			{
-				mediaEntityId: "book_1",
-				mediaEntitySchemaSlug: "book",
+				entityId: "book_1",
+				entitySchemaSlug: "book",
 				relatedEntities: [
 					{
 						name: "Loading...",
