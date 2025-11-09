@@ -131,7 +131,7 @@ export function buildBackendEnv(input: {
 		REDIS_URL: input.redisUrl,
 		PORT: input.port.toString(),
 		FRONTEND_URL: input.frontendUrl,
-		SANDBOX_WORKER_CONCURRENCY: "16",
+		SANDBOX_WORKER_CONCURRENCY: "32",
 		FILE_STORAGE_S3_REGION: "us-east-1",
 		BUILTIN_EXERCISE_PRELOAD_LIMIT: "20",
 		FILE_STORAGE_S3_URL: input.s3Endpoint,
