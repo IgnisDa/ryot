@@ -2,21 +2,12 @@ import { sql } from "drizzle-orm";
 
 import type { DbClient } from "~/lib/db";
 
-import { quoteNullableSqlString, quoteSqlString } from "./shared";
-
-type MetadataMigrationTarget = {
-	lot: string;
-	source: string;
-	entitySchemaSlug: string;
-	sandboxScriptSlug: string | null;
-};
-
-type ResolvedMetadataMigrationTarget = {
-	lot: string;
-	source: string;
-	entitySchemaId: string;
-	sandboxScriptId: string | null;
-};
+import {
+	type LotEntityMigrationTarget,
+	type ResolvedLotEntityMigrationTarget,
+	buildLotEntityTargetValuesSql,
+	buildPrimaryImageSql,
+} from "./shared";
 
 export const metadataMigrationTargets = [
 	{
@@ -147,7 +138,7 @@ export const metadataMigrationTargets = [
 		entitySchemaSlug: "visual-novel",
 		sandboxScriptSlug: "visual-novel.vndb",
 	},
-] as const satisfies readonly MetadataMigrationTarget[];
+] as const satisfies readonly LotEntityMigrationTarget[];
 
 const metadataMigrationTargetValuesSql = sql.join(
 	metadataMigrationTargets.map(
@@ -157,20 +148,12 @@ const metadataMigrationTargetValuesSql = sql.join(
 	sql`, `,
 );
 
-const buildMetadataMigrationTargetValuesSql = (targets: ResolvedMetadataMigrationTarget[]) =>
-	targets
-		.map(
-			(t) =>
-				`(${quoteSqlString(t.lot)}, ${quoteSqlString(t.source)}, ${quoteSqlString(t.entitySchemaId)}, ${quoteNullableSqlString(t.sandboxScriptId)})`,
-		)
-		.join(", ");
-
-export const buildMetadataMigrationSql = (targets: ResolvedMetadataMigrationTarget[]) => `
+export const buildMetadataMigrationSql = (targets: ResolvedLotEntityMigrationTarget[]) => `
 DO $$
 DECLARE rows_inserted int;
 BEGIN
 	WITH metadata_targets (lot, source, entity_schema_id, sandbox_script_id) AS (
-		VALUES ${buildMetadataMigrationTargetValuesSql(targets)}
+		VALUES ${buildLotEntityTargetValuesSql(targets)}
 	)
 	INSERT INTO entity (
 		"id",
@@ -189,17 +172,7 @@ BEGIN
 		metadata.id,
 		metadata.identifier,
 		metadata.title,
-		CASE
-			WHEN jsonb_array_length(metadata.assets -> 'remote_images') > 0 THEN jsonb_build_object(
-				'type', 'remote',
-				'url', metadata.assets -> 'remote_images' ->> 0
-			)
-			WHEN jsonb_array_length(metadata.assets -> 's3_images') > 0 THEN jsonb_build_object(
-				'type', 's3',
-				'key', metadata.assets -> 's3_images' ->> 0
-			)
-			ELSE NULL
-		END,
+		${buildPrimaryImageSql("metadata")},
 		metadata.created_on,
 		NULL,
 		NULL,

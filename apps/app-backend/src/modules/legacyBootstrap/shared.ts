@@ -3,6 +3,26 @@ import type { Client, Pool, PoolClient } from "pg";
 
 import type { DbClient } from "~/lib/db";
 
+export type EntityMigrationTarget = {
+	source: string;
+	entitySchemaSlug: string;
+	sandboxScriptSlug: string | null;
+};
+
+export type ResolvedEntityMigrationTarget = {
+	source: string;
+	entitySchemaId: string;
+	sandboxScriptId: string | null;
+};
+
+export type LotEntityMigrationTarget = EntityMigrationTarget & { lot: string };
+export type ResolvedLotEntityMigrationTarget = ResolvedEntityMigrationTarget & { lot: string };
+
+export type ResolvedRelationshipTarget = {
+	lot: string;
+	relationshipSchemaId: string;
+};
+
 export const legacyMigrationsTableExistsSql = sql`
 SELECT to_regclass('"seaql_migrations"') IS NOT NULL AS "present";
 `;
@@ -89,3 +109,36 @@ export const buildUniqueSlugMap = (
 
 	return idsBySlug;
 };
+
+export const buildPrimaryImageSql = (tableAlias: string) => `CASE
+	WHEN jsonb_array_length(COALESCE(${tableAlias}.assets -> 'remote_images', '[]'::jsonb)) > 0 THEN jsonb_build_object(
+		'type', 'remote',
+		'url', ${tableAlias}.assets -> 'remote_images' ->> 0
+	)
+	WHEN jsonb_array_length(COALESCE(${tableAlias}.assets -> 's3_images', '[]'::jsonb)) > 0 THEN jsonb_build_object(
+		'type', 's3',
+		'key', ${tableAlias}.assets -> 's3_images' ->> 0
+	)
+	ELSE NULL
+END`;
+
+export const buildLotEntityTargetValuesSql = (targets: ResolvedLotEntityMigrationTarget[]) =>
+	targets
+		.map(
+			(t) =>
+				`(${quoteSqlString(t.lot)}, ${quoteSqlString(t.source)}, ${quoteSqlString(t.entitySchemaId)}, ${quoteNullableSqlString(t.sandboxScriptId)})`,
+		)
+		.join(", ");
+
+export const buildEntityTargetValuesSql = (targets: ResolvedEntityMigrationTarget[]) =>
+	targets
+		.map(
+			(t) =>
+				`(${quoteSqlString(t.source)}, ${quoteSqlString(t.entitySchemaId)}, ${quoteNullableSqlString(t.sandboxScriptId)})`,
+		)
+		.join(", ");
+
+export const buildRelationshipTargetValuesSql = (targets: ResolvedRelationshipTarget[]) =>
+	targets
+		.map((t) => `(${quoteSqlString(t.lot)}, ${quoteSqlString(t.relationshipSchemaId)})`)
+		.join(", ");
