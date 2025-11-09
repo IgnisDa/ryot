@@ -83,10 +83,25 @@ export const jsonbTypeofKindSql = (value: SqlFragment): SqlFragment =>
 export const userVisibleSql = (sqlAlias: string, userId: string): SqlFragment =>
 	sql`(${sql.raw(sqlAlias)}.user_id = ${userId} OR ${sql.raw(sqlAlias)}.user_id IS NULL)`;
 
-// UTC, ISO/Monday-start weeks: date_trunc('week') is Monday-based and the AT TIME ZONE 'UTC'
-// sandwich truncates on UTC boundaries regardless of session time zone while returning a timestamptz.
-export const timeBucketSql = (bucket: TimeSeriesBucket, timeColSql: SqlFragment): SqlFragment =>
-	sql`date_trunc(${bucket}, ${timeColSql} AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`;
+const BUCKET_STEP: Record<TimeSeriesBucket, string> = {
+	hour: "1 hour",
+	day: "1 day",
+	week: "7 days",
+	month: "1 month",
+};
+
+// One bucket's width as a SQL interval literal. `week` is a fixed 7 days and `month` is calendar-aware
+// (first-of-month + 1 month → next first-of-month), matching addTimeSeriesBucket so the SQL grid and
+// the validator's bucket count stay in agreement.
+export const bucketStepSql = (bucket: TimeSeriesBucket): SqlFragment =>
+	sql.raw(`interval '${BUCKET_STEP[bucket]}'`);
+
+// A bucket start in naive-UTC `timestamp` space: convert to the UTC wall clock, then truncate. Kept
+// naive (no trailing AT TIME ZONE) so the per-bucket aggregate and the generate_series grid share a
+// join key and bucket stepping stays timezone-independent. date_trunc('week') is Monday-based,
+// matching startOfTimeSeriesBucket({ weekStartsOn: 1 }).
+export const bucketStartSql = (bucket: TimeSeriesBucket, timeColSql: SqlFragment): SqlFragment =>
+	sql`date_trunc(${bucket}, ${timeColSql} AT TIME ZONE 'UTC')`;
 
 export const timeRangeConditionSql = (
 	timeColSql: SqlFragment,
