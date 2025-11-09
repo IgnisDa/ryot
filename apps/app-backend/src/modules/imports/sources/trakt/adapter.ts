@@ -1,4 +1,3 @@
-import { HttpClient, HttpClientRequest } from "@effect/platform";
 import { Effect, Schema } from "effect";
 
 import {
@@ -15,7 +14,7 @@ import type {
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
 import type { ImportEntityRef, ImportMediaEntityGroup } from "../../media/types";
-import { ImportSourceRequestError } from "../../runtime/source-api";
+import { requestSourceJson, requestSourceResponse } from "../../runtime/source-api";
 
 const TRAKT_API_VERSION = "2";
 const TRAKT_PAGE_LIMIT = "1000";
@@ -91,58 +90,29 @@ const buildTraktClient = (clientId: string) => {
 		"trakt-api-version": TRAKT_API_VERSION,
 	};
 
-	const buildUrl = (path: string, query?: Record<string, string>) => {
-		const url = new URL(`${TRAKT_API_URL}${path}`);
-		for (const [k, v] of Object.entries(query ?? {})) {
-			url.searchParams.set(k, v);
-		}
-		return url;
-	};
-
-	const execute = (request: HttpClientRequest.HttpClientRequest, path: string) =>
-		Effect.gen(function* () {
-			const httpClient = yield* HttpClient.HttpClient;
-			const response = yield* httpClient
-				.execute(HttpClientRequest.setHeaders(headers)(request))
-				.pipe(
-					Effect.mapError(
-						() =>
-							new ImportSourceRequestError({
-								context: {},
-								message: `Trakt API request failed: ${path}`,
-							}),
-					),
-				);
-			return response;
-		});
-
 	const fetchJson = <A, I, R>(
 		path: string,
 		schema: Schema.Schema<A, I, R>,
 		query?: Record<string, string>,
 	) =>
-		Effect.gen(function* () {
-			const url = buildUrl(path, query);
-			const response = yield* execute(HttpClientRequest.get(url.toString()), path);
-			if (response.status < 200 || response.status >= 300) {
-				return yield* new ImportSourceRequestError({
-					context: { status: response.status },
-					message: `Trakt API error ${response.status}: ${path}`,
-				});
-			}
-			return yield* response.json.pipe(Effect.flatMap(Schema.decodeUnknown(schema)));
-		});
+		requestSourceJson({
+			path,
+			query,
+			headers,
+			sourceName: "Trakt",
+			baseUrl: TRAKT_API_URL,
+		}).pipe(Effect.flatMap(Schema.decodeUnknown(schema)));
 
 	const fetchPageCount = (path: string, query?: Record<string, string>) =>
 		Effect.gen(function* () {
-			const url = buildUrl(path, { ...query, limit: TRAKT_PAGE_LIMIT });
-			const response = yield* execute(HttpClientRequest.head(url.toString()), path);
-			if (response.status < 200 || response.status >= 300) {
-				return yield* new ImportSourceRequestError({
-					context: { status: response.status },
-					message: `Trakt API error ${response.status}: fetching page count for ${path}`,
-				});
-			}
+			const response = yield* requestSourceResponse({
+				path,
+				headers,
+				method: "HEAD",
+				sourceName: "Trakt",
+				baseUrl: TRAKT_API_URL,
+				query: { ...query, limit: TRAKT_PAGE_LIMIT },
+			});
 			const pageCountHeader = response.headers["x-pagination-page-count"];
 			const totalPages = pageCountHeader ? Number.parseInt(pageCountHeader, 10) : 1;
 			return Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1;
