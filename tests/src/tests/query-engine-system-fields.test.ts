@@ -185,9 +185,6 @@ describe("event system fields covering all event table columns", () => {
 			slug: watchSlug,
 			name: "Null Session Watch",
 			entitySchemaId: schemaId,
-			propertiesSchema: {
-				fields: { note: { type: "string", label: "Note", description: "Note" } },
-			},
 		});
 		const entity = await createQueryEngineEntity(client, {
 			entitySchemaId: schemaId,
@@ -231,9 +228,6 @@ describe("event system fields covering all event table columns", () => {
 			slug: watchSlug,
 			entitySchemaId: schemaId,
 			name: "Session Filter Watch",
-			propertiesSchema: {
-				fields: { note: { type: "string", label: "Note", description: "Note" } },
-			},
 		});
 		const entity = await createQueryEngineEntity(client, {
 			entitySchemaId: schemaId,
@@ -288,9 +282,6 @@ describe("event system fields covering all event table columns", () => {
 			slug: watchSlug,
 			entitySchemaId: schemaId,
 			name: "Entity Id Order Watch",
-			propertiesSchema: {
-				fields: { note: { type: "string", label: "Note", description: "Note" } },
-			},
 		});
 		const entityA = await createQueryEngineEntity(client, {
 			name: "Entity A",
