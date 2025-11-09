@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,6 +14,6 @@ For this plan, pay special attention to old dispatcher code, special populate jo
 
 ## Acceptance criteria
 
-- [ ] The task is executed using the `codebase-cleanup` skill
-- [ ] The cleanup pass covers all files touched by this plan and any directly affected modules
-- [ ] Any removals or simplifications are reflected in the changed code before the plan is considered complete
+- [x] The task is executed using the `codebase-cleanup` skill
+- [x] The cleanup pass covers all files touched by this plan and any directly affected modules
+- [x] Any removals or simplifications are reflected in the changed code before the plan is considered complete
