@@ -205,38 +205,64 @@ driver("details", async function (context) {
   const byVariousArtists =
     artistCredit.length === 0 ? null : artistCredit.length > 1;
 
-  const people = artistCredit
-    .map((credit) => {
-      const artistId = getString(credit?.artist?.id);
-      const artistName = getString(credit?.artist?.name);
-      if (!artistId || !artistName) {
-        return null;
-      }
+  const relatedEntityByKey = new Map();
+  const addRelatedEntity = (relatedEntity) => {
+    const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+    const existing = relatedEntityByKey.get(key);
+    if (!existing) {
+      relatedEntityByKey.set(key, relatedEntity);
+      return;
+    }
 
-      return {
-        role: "Artist",
-        name: artistName,
-        externalId: artistId,
-        scriptSlug: "person.musicbrainz",
-      };
-    })
-    .filter((p) => p !== null);
+    const roles = new Set([
+      ...(Array.isArray(existing.relationshipProperties.roles)
+        ? existing.relationshipProperties.roles
+        : []),
+      ...(Array.isArray(relatedEntity.relationshipProperties.roles)
+        ? relatedEntity.relationshipProperties.roles
+        : []),
+    ]);
+    existing.relationshipProperties.roles = [...roles];
+    if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+      existing.name = relatedEntity.name;
+    }
+  };
+
+  for (const credit of artistCredit) {
+    const artistId = getString(credit?.artist?.id);
+    if (!artistId) {
+      continue;
+    }
+
+    const artistName = getString(credit?.artist?.name) ?? "Loading...";
+
+    addRelatedEntity({
+      name: artistName,
+      externalId: artistId,
+      scriptSlug: "person.musicbrainz",
+      relationshipProperties: {
+        roles: ["Artist"],
+      },
+    });
+  }
 
   const releases = Array.isArray(data?.releases) ? data.releases : [];
-  const groups = [];
   const seenGroups = new Set();
   for (const release of releases) {
     const releaseGroup = release?.["release-group"];
     const releaseGroupId = getString(releaseGroup?.id);
-    const releaseGroupTitle = getString(releaseGroup?.title);
-    if (!releaseGroupId || !releaseGroupTitle || seenGroups.has(releaseGroupId)) {
+    const releaseGroupTitle = getString(releaseGroup?.title) ?? "Loading...";
+    if (!releaseGroupId || seenGroups.has(releaseGroupId)) {
       continue;
     }
     seenGroups.add(releaseGroupId);
-    groups.push({
+    addRelatedEntity({
       name: releaseGroupTitle,
       externalId: releaseGroupId,
       scriptSlug: "music-group.musicbrainz",
+      relationshipProperties: {
+        roles: ["Member"],
+      },
     });
   }
   const coverUrl = await findCoverArtFromReleases(releases);
@@ -251,8 +277,6 @@ driver("details", async function (context) {
   return {
     name: title,
     properties: {
-      people,
-      groups,
       duration,
       genres: [],
       publishYear,
@@ -260,5 +284,6 @@ driver("details", async function (context) {
       images: coverUrl ? [{ type: "remote", url: coverUrl }] : [],
       sourceUrl: `https://musicbrainz.org/recording/${externalId}`,
     },
+    relatedEntities: [...relatedEntityByKey.values()],
   };
 });
