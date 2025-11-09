@@ -27,6 +27,12 @@ export const runTriggerScript = (
 	return Promise.resolve(trigger(context));
 };
 
+const PUSH_HELPER_NAMES =
+	"normalizeBaseUrl, parseJsonBody, integrationsDisabledForUser, listActiveIntegrations, fetchEntity, resolveEntityProviderName, collectionSyncMatches";
+
+export const wrapWithPushHelpers = (pushHelperCode: string, scriptCode: string) =>
+	`const { ${PUSH_HELPER_NAMES} } = (function () {\n${pushHelperCode}\n})();\n\n${scriptCode}`;
+
 export const hostSuccess = (data: unknown) => ({ success: true, data });
 
 export const toRecord = (value: unknown): Record<string, unknown> =>
