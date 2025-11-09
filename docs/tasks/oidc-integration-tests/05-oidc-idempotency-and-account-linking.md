@@ -56,7 +56,7 @@ Account linking relies on Better Auth comparing the OIDC `email` claim against e
 - [x] Test 1 bootstrap idempotency: tracker count after two sign-ins equals the count after the first sign-in
 - [x] Test 2 passes: OIDC sign-in with an email matching a pre-existing local user results in exactly one `user` row with the same ID as the local user
 - [x] Each test uses a unique `username` and does not interfere with other tests
-- [x] `bun run check`, `bun run test`, and `bun run format` pass in the `tests` directory
+- [x] `bun run check` and `bun run test` pass in the `tests` directory
 
 ## User stories addressed
 
