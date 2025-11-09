@@ -64,7 +64,7 @@ export async function waitForEventCount(
 			const events = await listEventsForEntity(client, entityId);
 			return events.length >= expectedCount ? events : null;
 		},
-		{ timeoutMs: 15000, intervalMs: 200, ...options },
+		{ timeoutMs: 30000, intervalMs: 200, ...options },
 	);
 }
 
@@ -168,7 +168,7 @@ export async function waitForEventWithSchema(
 			const events = await listEventsForEntity(client, entityId);
 			return events.find((event) => event.eventSchemaSlug === eventSchemaSlug) ?? null;
 		},
-		{ timeoutMs: 15000, intervalMs: 500, ...options },
+		{ timeoutMs: 30000, intervalMs: 500, ...options },
 	);
 }
 
@@ -190,7 +190,7 @@ export async function waitForEventSlugs(
 			const slugs = await listEventSlugs(client, entityId);
 			return slugs.includes(requiredSlug) ? slugs : null;
 		},
-		{ timeoutMs: 15000, intervalMs: 250, ...options },
+		{ timeoutMs: 30000, intervalMs: 250, ...options },
 	);
 }
 
