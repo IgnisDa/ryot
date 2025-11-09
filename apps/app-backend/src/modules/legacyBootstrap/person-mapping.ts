@@ -132,42 +132,78 @@ const buildLegacyEntityMigrationSql = ({ kind, targets }: EntityMigrationInput) 
 
 	return `
 DO $$
-DECLARE rows_inserted int;
+DECLARE
+	batch_size constant int := 10000;
+	batch_rows_inserted int;
+	cursor_id text := '';
+	next_cursor_id text;
+	rows_inserted int := 0;
+	started_at timestamptz := clock_timestamp();
 BEGIN
-	WITH person_targets (source, entity_schema_id, sandbox_script_id) AS (
-		VALUES ${buildEntityTargetValuesSql(targets)}
-	)
-	INSERT INTO entity (
-		"id",
-		"external_id",
-		"name",
-		"image",
-		"created_at",
-		"populated_at",
-		"user_id",
-		"properties",
-		"entity_schema_id",
-		"sandbox_script_id",
-		"updated_at"
-	)
-	SELECT
-		legacy_person.id,
-		legacy_person.identifier,
-		legacy_person.name,
-		${buildPrimaryImageSql("legacy_person")},
-		legacy_person.created_on,
-		NULL,
-		legacy_person.created_by_user_id,
-		${propertiesSql},
-		person_targets.entity_schema_id,
-		person_targets.sandbox_script_id,
-		legacy_person.last_updated_on
-	FROM "person" legacy_person
-	INNER JOIN person_targets ON person_targets.source = legacy_person.source
-	WHERE ${isCompany ? companyFilterSql : `NOT ${companyFilterSql}`}
-	ON CONFLICT ("id") DO NOTHING;
-	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	RAISE NOTICE '${kindNotice} -> entity: % row(s) migrated', rows_inserted;
+	RAISE NOTICE '${kindNotice} -> entity: migration started (% seconds elapsed)', 0.0;
+
+	LOOP
+		WITH person_targets (source, entity_schema_id, sandbox_script_id) AS (
+			VALUES ${buildEntityTargetValuesSql(targets)}
+		), batch AS (
+			SELECT legacy_person.id::text AS id
+			FROM "person" legacy_person
+			INNER JOIN person_targets ON person_targets.source = legacy_person.source
+			WHERE ${isCompany ? companyFilterSql : `NOT ${companyFilterSql}`}
+				AND legacy_person.id::text > cursor_id
+			ORDER BY legacy_person.id::text
+			LIMIT batch_size
+		)
+		SELECT MAX(batch.id) INTO next_cursor_id FROM batch;
+
+		EXIT WHEN next_cursor_id IS NULL;
+
+		WITH person_targets (source, entity_schema_id, sandbox_script_id) AS (
+			VALUES ${buildEntityTargetValuesSql(targets)}
+		)
+		INSERT INTO entity (
+			"id",
+			"external_id",
+			"name",
+			"image",
+			"created_at",
+			"populated_at",
+			"user_id",
+			"properties",
+			"entity_schema_id",
+			"sandbox_script_id",
+			"updated_at"
+		)
+		SELECT
+			legacy_person.id,
+			legacy_person.identifier,
+			legacy_person.name,
+			${buildPrimaryImageSql("legacy_person")},
+			legacy_person.created_on,
+			NULL,
+			legacy_person.created_by_user_id,
+			${propertiesSql},
+			person_targets.entity_schema_id,
+			person_targets.sandbox_script_id,
+			legacy_person.last_updated_on
+		FROM "person" legacy_person
+		INNER JOIN person_targets ON person_targets.source = legacy_person.source
+		WHERE ${isCompany ? companyFilterSql : `NOT ${companyFilterSql}`}
+			AND legacy_person.id::text > cursor_id
+			AND legacy_person.id::text <= next_cursor_id
+		ON CONFLICT ("id") DO NOTHING;
+		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
+
+		rows_inserted := rows_inserted + batch_rows_inserted;
+		cursor_id := next_cursor_id;
+		RAISE NOTICE '${kindNotice} -> entity: % row(s) migrated so far (% seconds elapsed)',
+			rows_inserted,
+			round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	END LOOP;
+
+	RAISE NOTICE '${kindNotice} -> entity: % row(s) migrated total (% seconds elapsed)',
+		rows_inserted,
+		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 END $$;
 `;
 };
@@ -203,6 +239,8 @@ const buildRelationshipCtesSql = ({ kind, targets }: RelationshipMigrationInput)
 		INNER JOIN "metadata" metadata ON metadata.id = m2p.metadata_id
 		INNER JOIN relationship_targets ON relationship_targets.lot = metadata.lot
 		WHERE legacy_people.is_company = ${isCompanyFilter}
+			AND m2p.metadata_id::text > cursor_id
+			AND m2p.metadata_id::text <= next_cursor_id
 	),
 	role_groups AS (
 		SELECT
@@ -244,79 +282,126 @@ const buildRelationshipCtesSql = ({ kind, targets }: RelationshipMigrationInput)
 const buildLegacyRelationshipInsertSql = ({ kind, targets }: RelationshipMigrationInput) => {
 	const isCompany = kind === "company";
 	const kindNotice = isCompany ? "company" : "person";
+	const companyFilterSql = legacyPersonCompanyPredicateSql("legacy_person");
+	const isCompanyFilter = isCompany ? "TRUE" : "FALSE";
 	// character is preserved for person relationships; stripped from company relationships
 	const characterSql = isCompany ? "" : `,\n\t\t\t\t'character', rollups.character`;
 	const cteSql = buildRelationshipCtesSql({ kind, targets });
 
 	return `
 DO $$
-DECLARE rows_inserted int;
+DECLARE
+	batch_size constant int := 10000;
+	cursor_id text := '';
+	next_cursor_id text;
+	global_batch_rows_inserted int;
+	global_rows_inserted int := 0;
+	user_batch_rows_inserted int;
+	user_rows_inserted int := 0;
+	started_at timestamptz := clock_timestamp();
 BEGIN
-	${cteSql}
-	INSERT INTO relationship (
-		"id",
-		"source_entity_id",
-		"target_entity_id",
-		"relationship_schema_id",
-		"properties",
-		"user_id",
-		"created_at"
-	)
-	SELECT
-		gen_random_uuid()::text,
-		rollups.person_id,
-		rollups.metadata_id,
-		rollups.relationship_schema_id,
-		jsonb_strip_nulls(
-			jsonb_build_object(
-				'order', rollups.relationship_order,
-				'roles', roles_rollup.roles${characterSql}
-			)
-		),
-		NULL,
-		NOW()
-	FROM rollups
-	INNER JOIN roles_rollup ON rollups.metadata_id = roles_rollup.metadata_id
-		AND rollups.person_id = roles_rollup.person_id
-		AND rollups.relationship_schema_id = roles_rollup.relationship_schema_id
-		AND rollups.user_id IS NOT DISTINCT FROM roles_rollup.user_id
-	WHERE rollups.user_id IS NULL
-	ON CONFLICT ("source_entity_id", "target_entity_id", "relationship_schema_id") WHERE user_id IS NULL DO NOTHING;
-	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	RAISE NOTICE '${kindNotice} -> relationship (global): % row(s) migrated', rows_inserted;
+	RAISE NOTICE '${kindNotice} -> relationship: migration started (% seconds elapsed)', 0.0;
 
-	${cteSql}
-	INSERT INTO relationship (
-		"id",
-		"source_entity_id",
-		"target_entity_id",
-		"relationship_schema_id",
-		"properties",
-		"user_id",
-		"created_at"
-	)
-	SELECT
-		gen_random_uuid()::text,
-		rollups.person_id,
-		rollups.metadata_id,
-		rollups.relationship_schema_id,
-		jsonb_strip_nulls(
-			jsonb_build_object(
-				'order', rollups.relationship_order,
-				'roles', roles_rollup.roles${characterSql}
-			)
-		),
-		rollups.user_id,
-		NOW()
-	FROM rollups
-	INNER JOIN roles_rollup ON rollups.metadata_id = roles_rollup.metadata_id
-		AND rollups.person_id = roles_rollup.person_id
-		AND rollups.relationship_schema_id = roles_rollup.relationship_schema_id
-		AND rollups.user_id IS NOT DISTINCT FROM roles_rollup.user_id
-	WHERE rollups.user_id IS NOT NULL
-	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_id") DO NOTHING;
-	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	RAISE NOTICE '${kindNotice} -> relationship (user-scoped): % row(s) migrated', rows_inserted;
+	LOOP
+		WITH relationship_targets (lot, relationship_schema_id) AS (
+			VALUES ${buildRelationshipTargetValuesSql(targets)}
+		), legacy_people AS (
+			SELECT
+				legacy_person.id,
+				${companyFilterSql} AS is_company
+			FROM "person" legacy_person
+		), batch AS (
+			SELECT DISTINCT m2p.metadata_id::text AS id
+			FROM "metadata_to_person" m2p
+			INNER JOIN legacy_people ON legacy_people.id = m2p.person_id
+			INNER JOIN "metadata" metadata ON metadata.id = m2p.metadata_id
+			INNER JOIN relationship_targets ON relationship_targets.lot = metadata.lot
+			WHERE legacy_people.is_company = ${isCompanyFilter}
+				AND m2p.metadata_id::text > cursor_id
+			ORDER BY m2p.metadata_id::text
+			LIMIT batch_size
+		)
+		SELECT MAX(batch.id) INTO next_cursor_id FROM batch;
+
+		EXIT WHEN next_cursor_id IS NULL;
+
+		${cteSql}
+		INSERT INTO relationship (
+			"id",
+			"source_entity_id",
+			"target_entity_id",
+			"relationship_schema_id",
+			"properties",
+			"user_id",
+			"created_at"
+		)
+		SELECT
+			gen_random_uuid()::text,
+			rollups.person_id,
+			rollups.metadata_id,
+			rollups.relationship_schema_id,
+			jsonb_strip_nulls(
+				jsonb_build_object(
+					'order', rollups.relationship_order,
+					'roles', roles_rollup.roles${characterSql}
+				)
+			),
+			NULL,
+			NOW()
+		FROM rollups
+		INNER JOIN roles_rollup ON rollups.metadata_id = roles_rollup.metadata_id
+			AND rollups.person_id = roles_rollup.person_id
+			AND rollups.relationship_schema_id = roles_rollup.relationship_schema_id
+			AND rollups.user_id IS NOT DISTINCT FROM roles_rollup.user_id
+		WHERE rollups.user_id IS NULL
+		ON CONFLICT ("source_entity_id", "target_entity_id", "relationship_schema_id") WHERE user_id IS NULL DO NOTHING;
+		GET DIAGNOSTICS global_batch_rows_inserted = ROW_COUNT;
+
+		${cteSql}
+		INSERT INTO relationship (
+			"id",
+			"source_entity_id",
+			"target_entity_id",
+			"relationship_schema_id",
+			"properties",
+			"user_id",
+			"created_at"
+		)
+		SELECT
+			gen_random_uuid()::text,
+			rollups.person_id,
+			rollups.metadata_id,
+			rollups.relationship_schema_id,
+			jsonb_strip_nulls(
+				jsonb_build_object(
+					'order', rollups.relationship_order,
+					'roles', roles_rollup.roles${characterSql}
+				)
+			),
+			rollups.user_id,
+			NOW()
+		FROM rollups
+		INNER JOIN roles_rollup ON rollups.metadata_id = roles_rollup.metadata_id
+			AND rollups.person_id = roles_rollup.person_id
+			AND rollups.relationship_schema_id = roles_rollup.relationship_schema_id
+			AND rollups.user_id IS NOT DISTINCT FROM roles_rollup.user_id
+		WHERE rollups.user_id IS NOT NULL
+		ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_id") DO NOTHING;
+		GET DIAGNOSTICS user_batch_rows_inserted = ROW_COUNT;
+
+		global_rows_inserted := global_rows_inserted + global_batch_rows_inserted;
+		user_rows_inserted := user_rows_inserted + user_batch_rows_inserted;
+		cursor_id := next_cursor_id;
+		RAISE NOTICE '${kindNotice} -> relationship: % global row(s), % user-scoped row(s) migrated so far (% seconds elapsed)',
+			global_rows_inserted,
+			user_rows_inserted,
+			round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	END LOOP;
+
+	RAISE NOTICE '${kindNotice} -> relationship: % global row(s), % user-scoped row(s) migrated total (% seconds elapsed)',
+		global_rows_inserted,
+		user_rows_inserted,
+		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 END $$;
 `;
 };
