@@ -3,7 +3,8 @@
 	"type": "module",
 	"name": "@ryot/app-frontend",
 	"imports": {
-		"#/*": "./src/*"
+		"#/*": "./src/*",
+		"#.storybook/preview": "./.storybook/preview.tsx"
 	},
 	"scripts": {
 		"test": "bun test",
@@ -11,7 +12,9 @@
 		"lint": "biome check .",
 		"preview": "vite preview",
 		"dev": "bun --bun vite dev",
-		"build": "bun --bun vite build"
+		"build": "bun --bun vite build",
+		"storybook": "storybook dev -p 6006",
+		"build-storybook": "storybook build"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.5.0",
@@ -38,12 +41,14 @@
 		"react-dom": "19.2.4"
 	},
 	"devDependencies": {
+		"@storybook/react-vite": "10.2.17",
 		"@tanstack/devtools-vite": "0.5.2",
 		"@types/node": "22.10.2",
 		"@types/react": "19.2.14",
 		"@types/react-dom": "19.2.3",
 		"@vitejs/plugin-react": "5.1.4",
 		"openapi-typescript": "7.13.0",
+		"storybook": "10.2.17",
 		"typescript": "5.9.3",
 		"vite": "7.3.1",
 		"vite-tsconfig-paths": "6.1.1",
