@@ -142,6 +142,7 @@ function SortableFacet(props: {
 							pt="sm"
 							pb="sm"
 							pl="lg"
+							td="none"
 							key={schema.id}
 							component={Link}
 							onMouseEnter={() =>
@@ -330,6 +331,7 @@ export function Sidebar(props: SidebarProps) {
 				to="/"
 				pt="sm"
 				pb="sm"
+				td="none"
 				component={Link}
 				onMouseEnter={() =>
 					setHoverStates((prev) => ({ ...prev, homeLink: true }))
@@ -421,6 +423,7 @@ export function Sidebar(props: SidebarProps) {
 							p="md"
 							pt="sm"
 							pb="sm"
+							td="none"
 							key={view.id}
 							component={Link}
 							style={{
