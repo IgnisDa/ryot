@@ -7,7 +7,7 @@ function getAbsolutePath(value: string) {
 }
 
 export default defineMain({
-	addons: [],
 	stories: ["../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"],
 	framework: getAbsolutePath("@storybook/react-vite"),
+	addons: [getAbsolutePath("@storybook/addon-themes")],
 });
