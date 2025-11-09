@@ -14,7 +14,7 @@ const fakeFacets = [
 		id: "media",
 		slug: "media",
 		name: "Media",
-		icon: "Film",
+		icon: "film",
 		enabled: true,
 		sortOrder: 0,
 		isExpanded: true,
@@ -30,7 +30,7 @@ const fakeFacets = [
 		id: "fitness",
 		slug: "fitness",
 		name: "Fitness",
-		icon: "Activity",
+		icon: "dumbbell",
 		isExpanded: false,
 		entitySchemas: [
 			{ id: "workouts", name: "Workouts", slug: "workouts" },
@@ -38,7 +38,7 @@ const fakeFacets = [
 		],
 	},
 	{
-		icon: "Wine",
+		icon: "wine",
 		sortOrder: 2,
 		enabled: true,
 		id: "whiskey",
@@ -56,7 +56,7 @@ const fakeFacets = [
 		enabled: true,
 		slug: "places",
 		name: "Places",
-		icon: "MapPin",
+		icon: "map-pin",
 		isExpanded: false,
 		entitySchemas: [
 			{ id: "visited", name: "Visited", slug: "visited" },
@@ -70,11 +70,11 @@ const fakeViews = [
 		id: "currently-reading",
 		name: "Currently Reading",
 		slug: "currently-reading",
-		icon: "BookOpen",
+		icon: "book-open",
 	},
-	{ id: "watchlist", name: "Watchlist", slug: "watchlist", icon: "Eye" },
-	{ id: "favorites", name: "Favorites", slug: "favorites", icon: "Star" },
-	{ id: "recent", name: "Recent", slug: "recent", icon: "Clock" },
+	{ id: "watchlist", name: "Watchlist", slug: "watchlist", icon: "eye" },
+	{ id: "favorites", name: "Favorites", slug: "favorites", icon: "star" },
+	{ id: "recent", name: "Recent", slug: "recent", icon: "clock" },
 ];
 
 export const Default = meta.story({
