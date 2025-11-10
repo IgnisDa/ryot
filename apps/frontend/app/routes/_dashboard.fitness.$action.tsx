@@ -273,6 +273,7 @@ export default function Page() {
 								startTimer={startTimer}
 								openTimerDrawer={openTimerDrawer}
 								closeTimerDrawer={closeTimerDrawer}
+								exerciseToDelete={exerciseToDelete}
 								assetsModalOpened={assetsModalOpened}
 								timerDrawerOpened={timerDrawerOpened}
 								toggleTimerDrawer={toggleTimerDrawer}
@@ -282,7 +283,6 @@ export default function Page() {
 								closeBulkDeleteDrawer={closeBulkDeleteDrawer}
 								setSupersetModalOpened={setSupersetModalOpened}
 								bulkDeleteDrawerOpened={bulkDeleteDrawerOpened}
-								exerciseToDelete={exerciseToDelete}
 								currentWorkoutExercises={currentWorkout.exercises}
 								setIsReorderDrawerOpened={setIsReorderDrawerOpened}
 								supersetWithExerciseIdentifier={supersetWithExerciseIdentifier}
