@@ -39,12 +39,10 @@ import { v4 as randomUUID } from "uuid";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useCoreDetails,
-	useDeleteS3AssetMutation,
 	useExerciseDetails,
 	useUserExerciseDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
-import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
 	getRestTimerForSet,
 	useCurrentWorkout,
@@ -67,9 +65,10 @@ export const ExerciseDisplay = (props: {
 	stopTimer: () => void;
 	isWorkoutPaused: boolean;
 	startTimer: FuncStartTimer;
-	isCreatingTemplate: boolean;
 	playCheckSound: () => void;
 	openTimerDrawer: () => void;
+	isCreatingTemplate: boolean;
+	openBulkDeleteDrawer: () => void;
 	openSupersetModal: (s: string) => void;
 	setOpenAssetsModal: (identifier: string) => void;
 	reorderDrawerToggle: (exerciseIdentifier: string | null) => void;
@@ -88,7 +87,6 @@ export const ExerciseDisplay = (props: {
 	const { data: userExerciseDetails } = useUserExerciseDetails(
 		exercise.exerciseId,
 	);
-	const deleteS3AssetMutation = useDeleteS3AssetMutation();
 
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const [
@@ -273,35 +271,7 @@ export const ExerciseDisplay = (props: {
 							<Menu.Item
 								color="red"
 								leftSection={<IconTrash size={14} />}
-								onClick={() => {
-									openConfirmationModal(
-										`This removes '${exerciseDetails?.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
-										() => {
-											const assets = [...exercise.images, ...exercise.videos];
-											for (const asset of assets)
-												deleteS3AssetMutation.mutate(asset);
-
-											setCurrentWorkout(
-												produce(currentWorkout, (draft) => {
-													const idx = draft.supersets.findIndex((s) =>
-														s.exercises.includes(exercise.identifier),
-													);
-													if (idx !== -1) {
-														if (draft.supersets[idx].exercises.length === 2)
-															draft.supersets.splice(idx, 1);
-														else
-															draft.supersets[idx].exercises = draft.supersets[
-																idx
-															].exercises.filter(
-																(e) => e !== exercise.identifier,
-															);
-													}
-													draft.exercises.splice(props.exerciseIdx, 1);
-												}),
-											);
-										},
-									);
-								}}
+								onClick={() => props.openBulkDeleteDrawer()}
 							>
 								Remove
 							</Menu.Item>

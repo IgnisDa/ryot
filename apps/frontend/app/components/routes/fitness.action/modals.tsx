@@ -1,5 +1,6 @@
 import { useDisclosure } from "@mantine/hooks";
 import { useState } from "react";
+import { BulkDeleteDrawer } from "./bulk-delete-drawer";
 import { UploadAssetsModal } from "./miscellaneous";
 import { ReorderDrawer } from "./reorder";
 import { DisplaySupersetModal } from "./supersets";
@@ -14,6 +15,8 @@ interface ModalsProps {
 	closeTimerDrawer: () => void;
 	toggleTimerDrawer: () => void;
 	pauseOrResumeTimer: () => void;
+	bulkDeleteDrawerOpened: boolean;
+	closeBulkDeleteDrawer: () => void;
 	assetsModalOpened: string | null | undefined;
 	supersetWithExerciseIdentifier: string | null;
 	isReorderDrawerOpened: string | null | undefined;
@@ -32,7 +35,9 @@ export function WorkoutModals({
 	pauseOrResumeTimer,
 	setAssetsModalOpened,
 	isReorderDrawerOpened,
+	closeBulkDeleteDrawer,
 	setSupersetModalOpened,
+	bulkDeleteDrawerOpened,
 	currentWorkoutExercises,
 	setIsReorderDrawerOpened,
 	supersetWithExerciseIdentifier,
@@ -51,14 +56,18 @@ export function WorkoutModals({
 				pauseOrResumeTimer={pauseOrResumeTimer}
 			/>
 			<ReorderDrawer
-				key={currentWorkoutExercises?.map((e) => e.identifier).join(",")}
 				exerciseToReorder={isReorderDrawerOpened}
 				opened={isReorderDrawerOpened !== undefined}
 				onClose={() => setIsReorderDrawerOpened(undefined)}
+				key={currentWorkoutExercises?.map((e) => e.identifier).join(",")}
 			/>
 			<DisplaySupersetModal
 				supersetWith={supersetWithExerciseIdentifier}
 				onClose={() => setSupersetModalOpened(null)}
+			/>
+			<BulkDeleteDrawer
+				opened={bulkDeleteDrawerOpened}
+				onClose={closeBulkDeleteDrawer}
 			/>
 		</>
 	);
@@ -75,6 +84,10 @@ export function useWorkoutModals() {
 			close: closeTimerDrawer,
 			toggle: toggleTimerDrawer,
 		},
+	] = useDisclosure(false);
+	const [
+		bulkDeleteDrawerOpened,
+		{ open: openBulkDeleteDrawer, close: closeBulkDeleteDrawer },
 	] = useDisclosure(false);
 	const [isReorderDrawerOpened, setIsReorderDrawerOpened] = useState<
 		string | null
@@ -101,7 +114,10 @@ export function useWorkoutModals() {
 		setAssetsModalOpened,
 		isReorderDrawerOpened,
 		setSupersetModalOpened,
+		openBulkDeleteDrawer,
 		setIsReorderDrawerOpened,
+		bulkDeleteDrawerOpened,
+		closeBulkDeleteDrawer,
 		supersetWithExerciseIdentifier,
 	};
 }
