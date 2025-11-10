@@ -6,7 +6,6 @@ import {
 	Paper,
 	ScrollArea,
 	Stack,
-	Text,
 } from "@mantine/core";
 import { useDidUpdate } from "@mantine/hooks";
 import { produce } from "immer";
@@ -186,12 +185,9 @@ export const BulkDeleteDrawer = (props: {
 			opened={props.opened}
 			onClose={props.onClose}
 			withCloseButton={false}
+			title="Select sets to delete"
 		>
 			<Stack gap="md" h="95vh">
-				<Text size="lg" fw="bold">
-					Select Sets to Delete
-				</Text>
-
 				<ScrollArea flex={1}>
 					<Stack gap="sm">
 						{currentWorkout?.exercises.map((_, idx) => (
