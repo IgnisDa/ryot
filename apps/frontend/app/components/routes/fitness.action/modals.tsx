@@ -26,7 +26,7 @@ interface ModalsProps {
 	setIsReorderDrawerOpened: (value: string | null | undefined) => void;
 }
 
-export function WorkoutModals({
+export const WorkoutModals = ({
 	stopTimer,
 	startTimer,
 	closeTimerDrawer,
@@ -41,37 +41,35 @@ export function WorkoutModals({
 	currentWorkoutExercises,
 	setIsReorderDrawerOpened,
 	supersetWithExerciseIdentifier,
-}: ModalsProps) {
-	return (
-		<>
-			<UploadAssetsModal
-				modalOpenedBy={assetsModalOpened}
-				closeModal={() => setAssetsModalOpened(undefined)}
-			/>
-			<TimerAndStopwatchDrawer
-				stopTimer={stopTimer}
-				startTimer={startTimer}
-				opened={timerDrawerOpened}
-				onClose={closeTimerDrawer}
-				pauseOrResumeTimer={pauseOrResumeTimer}
-			/>
-			<ReorderDrawer
-				exerciseToReorder={isReorderDrawerOpened}
-				opened={isReorderDrawerOpened !== undefined}
-				onClose={() => setIsReorderDrawerOpened(undefined)}
-				key={currentWorkoutExercises?.map((e) => e.identifier).join(",")}
-			/>
-			<DisplaySupersetModal
-				supersetWith={supersetWithExerciseIdentifier}
-				onClose={() => setSupersetModalOpened(null)}
-			/>
-			<BulkDeleteDrawer
-				opened={bulkDeleteDrawerOpened}
-				onClose={closeBulkDeleteDrawer}
-			/>
-		</>
-	);
-}
+}: ModalsProps) => (
+	<>
+		<BulkDeleteDrawer
+			opened={bulkDeleteDrawerOpened}
+			onClose={closeBulkDeleteDrawer}
+		/>
+		<DisplaySupersetModal
+			supersetWith={supersetWithExerciseIdentifier}
+			onClose={() => setSupersetModalOpened(null)}
+		/>
+		<UploadAssetsModal
+			modalOpenedBy={assetsModalOpened}
+			closeModal={() => setAssetsModalOpened(undefined)}
+		/>
+		<ReorderDrawer
+			exerciseToReorder={isReorderDrawerOpened}
+			opened={isReorderDrawerOpened !== undefined}
+			onClose={() => setIsReorderDrawerOpened(undefined)}
+			key={currentWorkoutExercises?.map((e) => e.identifier).join(",")}
+		/>
+		<TimerAndStopwatchDrawer
+			stopTimer={stopTimer}
+			startTimer={startTimer}
+			opened={timerDrawerOpened}
+			onClose={closeTimerDrawer}
+			pauseOrResumeTimer={pauseOrResumeTimer}
+		/>
+	</>
+);
 
 export function useWorkoutModals() {
 	const [assetsModalOpened, setAssetsModalOpened] = useState<
@@ -112,12 +110,12 @@ export function useWorkoutModals() {
 		timerDrawerOpened,
 		openReorderDrawer,
 		setAssetsModalOpened,
+		openBulkDeleteDrawer,
+		closeBulkDeleteDrawer,
 		isReorderDrawerOpened,
 		setSupersetModalOpened,
-		openBulkDeleteDrawer,
-		setIsReorderDrawerOpened,
 		bulkDeleteDrawerOpened,
-		closeBulkDeleteDrawer,
+		setIsReorderDrawerOpened,
 		supersetWithExerciseIdentifier,
 	};
 }
