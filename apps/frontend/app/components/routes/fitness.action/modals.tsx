@@ -1,5 +1,6 @@
 import { useDisclosure } from "@mantine/hooks";
 import { useState } from "react";
+import type { Exercise } from "~/lib/state/fitness";
 import { BulkDeleteDrawer } from "./bulk-delete-drawer";
 import { UploadAssetsModal } from "./miscellaneous";
 import { ReorderDrawer } from "./reorder";
@@ -17,12 +18,12 @@ interface ModalsProps {
 	pauseOrResumeTimer: () => void;
 	bulkDeleteDrawerOpened: boolean;
 	closeBulkDeleteDrawer: () => void;
+	currentWorkoutExercises?: Array<Exercise>;
 	exerciseToDelete: string | null | undefined;
 	assetsModalOpened: string | null | undefined;
 	supersetWithExerciseIdentifier: string | null;
 	isReorderDrawerOpened: string | null | undefined;
 	setSupersetModalOpened: (value: string | null) => void;
-	currentWorkoutExercises?: Array<{ identifier: string }>;
 	setAssetsModalOpened: (value: string | null | undefined) => void;
 	setIsReorderDrawerOpened: (value: string | null | undefined) => void;
 }
