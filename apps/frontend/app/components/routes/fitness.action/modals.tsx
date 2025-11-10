@@ -30,11 +30,6 @@ interface ModalsProps {
 
 export const WorkoutModals = (props: ModalsProps) => (
 	<>
-		<BulkDeleteDrawer
-			opened={props.bulkDeleteDrawerOpened}
-			onClose={props.closeBulkDeleteDrawer}
-			exerciseToDelete={props.exerciseToDelete}
-		/>
 		<DisplaySupersetModal
 			supersetWith={props.supersetWithExerciseIdentifier}
 			onClose={() => props.setSupersetModalOpened(null)}
@@ -42,6 +37,11 @@ export const WorkoutModals = (props: ModalsProps) => (
 		<UploadAssetsModal
 			modalOpenedBy={props.assetsModalOpened}
 			closeModal={() => props.setAssetsModalOpened(undefined)}
+		/>
+		<BulkDeleteDrawer
+			opened={props.bulkDeleteDrawerOpened}
+			onClose={props.closeBulkDeleteDrawer}
+			exerciseToDelete={props.exerciseToDelete}
 		/>
 		<ReorderDrawer
 			exerciseToReorder={props.isReorderDrawerOpened}
