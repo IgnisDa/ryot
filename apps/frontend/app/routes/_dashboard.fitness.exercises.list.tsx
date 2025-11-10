@@ -363,6 +363,7 @@ export default function Page() {
 							disabled={selectedExercises.length === 0}
 							className={OnboardingTourStepTargets.AddSelectedExerciseToWorkout}
 							onClick={async () => {
+								setMergingExercise(null);
 								await addExerciseToCurrentWorkout(
 									navigate,
 									currentWorkout,
