@@ -27,49 +27,33 @@ interface ModalsProps {
 	setIsReorderDrawerOpened: (value: string | null | undefined) => void;
 }
 
-export const WorkoutModals = ({
-	stopTimer,
-	startTimer,
-	closeTimerDrawer,
-	timerDrawerOpened,
-	assetsModalOpened,
-	pauseOrResumeTimer,
-	setAssetsModalOpened,
-	isReorderDrawerOpened,
-	closeBulkDeleteDrawer,
-	setSupersetModalOpened,
-	bulkDeleteDrawerOpened,
-	exerciseToDelete,
-	currentWorkoutExercises,
-	setIsReorderDrawerOpened,
-	supersetWithExerciseIdentifier,
-}: ModalsProps) => (
+export const WorkoutModals = (props: ModalsProps) => (
 	<>
 		<BulkDeleteDrawer
-			opened={bulkDeleteDrawerOpened}
-			onClose={closeBulkDeleteDrawer}
-			exerciseToDelete={exerciseToDelete}
+			opened={props.bulkDeleteDrawerOpened}
+			onClose={props.closeBulkDeleteDrawer}
+			exerciseToDelete={props.exerciseToDelete}
 		/>
 		<DisplaySupersetModal
-			supersetWith={supersetWithExerciseIdentifier}
-			onClose={() => setSupersetModalOpened(null)}
+			supersetWith={props.supersetWithExerciseIdentifier}
+			onClose={() => props.setSupersetModalOpened(null)}
 		/>
 		<UploadAssetsModal
-			modalOpenedBy={assetsModalOpened}
-			closeModal={() => setAssetsModalOpened(undefined)}
+			modalOpenedBy={props.assetsModalOpened}
+			closeModal={() => props.setAssetsModalOpened(undefined)}
 		/>
 		<ReorderDrawer
-			exerciseToReorder={isReorderDrawerOpened}
-			opened={isReorderDrawerOpened !== undefined}
-			onClose={() => setIsReorderDrawerOpened(undefined)}
-			key={currentWorkoutExercises?.map((e) => e.identifier).join(",")}
+			exerciseToReorder={props.isReorderDrawerOpened}
+			opened={props.isReorderDrawerOpened !== undefined}
+			onClose={() => props.setIsReorderDrawerOpened(undefined)}
+			key={props.currentWorkoutExercises?.map((e) => e.identifier).join(",")}
 		/>
 		<TimerAndStopwatchDrawer
-			stopTimer={stopTimer}
-			startTimer={startTimer}
-			opened={timerDrawerOpened}
-			onClose={closeTimerDrawer}
-			pauseOrResumeTimer={pauseOrResumeTimer}
+			stopTimer={props.stopTimer}
+			startTimer={props.startTimer}
+			opened={props.timerDrawerOpened}
+			onClose={props.closeTimerDrawer}
+			pauseOrResumeTimer={props.pauseOrResumeTimer}
 		/>
 	</>
 );
