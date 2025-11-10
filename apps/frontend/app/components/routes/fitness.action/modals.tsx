@@ -102,6 +102,7 @@ export function useWorkoutModals() {
 	return {
 		openTimerDrawer,
 		closeTimerDrawer,
+		exerciseToDelete,
 		toggleTimerDrawer,
 		assetsModalOpened,
 		timerDrawerOpened,
@@ -109,7 +110,6 @@ export function useWorkoutModals() {
 		setAssetsModalOpened,
 		openBulkDeleteDrawer,
 		closeBulkDeleteDrawer,
-		exerciseToDelete,
 		isReorderDrawerOpened,
 		setSupersetModalOpened,
 		setIsReorderDrawerOpened,
