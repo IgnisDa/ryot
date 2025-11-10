@@ -8,10 +8,15 @@ import {
 	Stack,
 	Text,
 } from "@mantine/core";
+import { produce } from "immer";
 import { useState } from "react";
 import invariant from "tiny-invariant";
 import { getSetStatisticsTextToDisplay } from "~/components/fitness/utils";
-import { useExerciseDetails } from "~/lib/shared/hooks";
+import {
+	useDeleteS3AssetMutation,
+	useExerciseDetails,
+} from "~/lib/shared/hooks";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useCurrentWorkout } from "~/lib/state/fitness";
 
 const ExerciseItem = (props: {
@@ -71,7 +76,8 @@ export const BulkDeleteDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
 }) => {
-	const [currentWorkout] = useCurrentWorkout();
+	const deleteS3AssetMutation = useDeleteS3AssetMutation();
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [selectedSets, setSelectedSets] = useState<Set<string>>(new Set());
 
 	const toggleSet = (setIdentifier: string) => {
@@ -98,7 +104,59 @@ export const BulkDeleteDrawer = (props: {
 	};
 
 	const handleDelete = () => {
-		// No-op for now
+		if (!currentWorkout || selectedSets.size === 0) return;
+
+		openConfirmationModal(
+			`This will delete ${selectedSets.size} set(s). You cannot undo this action. Are you sure you want to continue?`,
+			() => {
+				const exercisesToDelete: string[] = [];
+
+				for (let idx = 0; idx < currentWorkout.exercises.length; idx++) {
+					const exercise = currentWorkout.exercises[idx];
+					const remainingSets = exercise.sets.filter(
+						(set) => !selectedSets.has(set.identifier),
+					);
+
+					if (remainingSets.length === 0) {
+						exercisesToDelete.push(exercise.identifier);
+						const assets = [...exercise.images, ...exercise.videos];
+						for (const asset of assets) deleteS3AssetMutation.mutate(asset);
+					}
+				}
+
+				setCurrentWorkout(
+					produce(currentWorkout, (draft) => {
+						for (let idx = draft.exercises.length - 1; idx >= 0; idx--) {
+							const exercise = draft.exercises[idx];
+
+							draft.exercises[idx].sets = exercise.sets.filter(
+								(set) => !selectedSets.has(set.identifier),
+							);
+
+							if (draft.exercises[idx].sets.length === 0) {
+								const supersetIdx = draft.supersets.findIndex((s) =>
+									s.exercises.includes(exercise.identifier),
+								);
+
+								if (supersetIdx !== -1) {
+									if (draft.supersets[supersetIdx].exercises.length === 2)
+										draft.supersets.splice(supersetIdx, 1);
+									else
+										draft.supersets[supersetIdx].exercises = draft.supersets[
+											supersetIdx
+										].exercises.filter((e) => e !== exercise.identifier);
+								}
+
+								draft.exercises.splice(idx, 1);
+							}
+						}
+					}),
+				);
+
+				setSelectedSets(new Set());
+				props.onClose();
+			},
+		);
 	};
 
 	return (
