@@ -17,6 +17,7 @@ interface ModalsProps {
 	pauseOrResumeTimer: () => void;
 	bulkDeleteDrawerOpened: boolean;
 	closeBulkDeleteDrawer: () => void;
+	exerciseToDelete: string | null | undefined;
 	assetsModalOpened: string | null | undefined;
 	supersetWithExerciseIdentifier: string | null;
 	isReorderDrawerOpened: string | null | undefined;
@@ -38,6 +39,7 @@ export const WorkoutModals = ({
 	closeBulkDeleteDrawer,
 	setSupersetModalOpened,
 	bulkDeleteDrawerOpened,
+	exerciseToDelete,
 	currentWorkoutExercises,
 	setIsReorderDrawerOpened,
 	supersetWithExerciseIdentifier,
@@ -46,6 +48,7 @@ export const WorkoutModals = ({
 		<BulkDeleteDrawer
 			opened={bulkDeleteDrawerOpened}
 			onClose={closeBulkDeleteDrawer}
+			exerciseToDelete={exerciseToDelete}
 		/>
 		<DisplaySupersetModal
 			supersetWith={supersetWithExerciseIdentifier}
@@ -83,16 +86,25 @@ export function useWorkoutModals() {
 			toggle: toggleTimerDrawer,
 		},
 	] = useDisclosure(false);
-	const [
-		bulkDeleteDrawerOpened,
-		{ open: openBulkDeleteDrawer, close: closeBulkDeleteDrawer },
-	] = useDisclosure(false);
+	const [exerciseToDelete, setExerciseToDelete] = useState<string | null>();
 	const [isReorderDrawerOpened, setIsReorderDrawerOpened] = useState<
 		string | null
 	>();
 	const [supersetWithExerciseIdentifier, setSupersetModalOpened] = useState<
 		string | null
 	>(null);
+
+	const openBulkDeleteDrawer = (exerciseIdentifier: string | null) => {
+		setExerciseToDelete(exerciseIdentifier);
+		if (!exerciseIdentifier) return;
+		setTimeout(() => {
+			setExerciseToDelete((val) => (val === undefined ? undefined : null));
+		}, 4000);
+	};
+
+	const closeBulkDeleteDrawer = () => {
+		setExerciseToDelete(undefined);
+	};
 
 	const openReorderDrawer = (exerciseIdentifier: string | null) => {
 		setIsReorderDrawerOpened(exerciseIdentifier);
@@ -112,10 +124,11 @@ export function useWorkoutModals() {
 		setAssetsModalOpened,
 		openBulkDeleteDrawer,
 		closeBulkDeleteDrawer,
+		exerciseToDelete,
 		isReorderDrawerOpened,
 		setSupersetModalOpened,
-		bulkDeleteDrawerOpened,
 		setIsReorderDrawerOpened,
 		supersetWithExerciseIdentifier,
+		bulkDeleteDrawerOpened: exerciseToDelete !== undefined,
 	};
 }

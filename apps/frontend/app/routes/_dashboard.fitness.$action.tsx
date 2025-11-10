@@ -74,6 +74,7 @@ export default function Page() {
 	const {
 		openTimerDrawer,
 		closeTimerDrawer,
+		exerciseToDelete,
 		toggleTimerDrawer,
 		openReorderDrawer,
 		timerDrawerOpened,
@@ -281,6 +282,7 @@ export default function Page() {
 								closeBulkDeleteDrawer={closeBulkDeleteDrawer}
 								setSupersetModalOpened={setSupersetModalOpened}
 								bulkDeleteDrawerOpened={bulkDeleteDrawerOpened}
+								exerciseToDelete={exerciseToDelete}
 								currentWorkoutExercises={currentWorkout.exercises}
 								setIsReorderDrawerOpened={setIsReorderDrawerOpened}
 								supersetWithExerciseIdentifier={supersetWithExerciseIdentifier}

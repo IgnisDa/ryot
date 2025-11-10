@@ -8,6 +8,7 @@ import {
 	Stack,
 	Text,
 } from "@mantine/core";
+import { useDidUpdate } from "@mantine/hooks";
 import { produce } from "immer";
 import { useState } from "react";
 import invariant from "tiny-invariant";
@@ -75,10 +76,30 @@ const ExerciseItem = (props: {
 export const BulkDeleteDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
+	exerciseToDelete: string | null | undefined;
 }) => {
 	const deleteS3AssetMutation = useDeleteS3AssetMutation();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [selectedSets, setSelectedSets] = useState<Set<string>>(new Set());
+
+	useDidUpdate(() => {
+		if (!props.exerciseToDelete || !currentWorkout) return;
+
+		const exercise = currentWorkout.exercises.find(
+			(ex) => ex.identifier === props.exerciseToDelete,
+		);
+
+		if (!exercise) return;
+
+		const setIdentifiers = exercise.sets.map((s) => s.identifier);
+		setSelectedSets(new Set(setIdentifiers));
+	}, [props.opened]);
+
+	useDidUpdate(() => {
+		if (!props.opened) {
+			setSelectedSets(new Set());
+		}
+	}, [props.opened]);
 
 	const toggleSet = (setIdentifier: string) => {
 		setSelectedSets((prev) => {
