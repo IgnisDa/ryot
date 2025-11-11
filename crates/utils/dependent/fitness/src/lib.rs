@@ -308,13 +308,13 @@ pub async fn create_custom_exercise(
     add_entities_to_collection(
         &user_id.clone(),
         ChangeCollectionToEntitiesInput {
+            creator_user_id: user_id.to_owned(),
+            collection_name: DefaultCollection::Custom.to_string(),
             entities: vec![EntityToCollectionInput {
                 information: None,
                 entity_id: exercise.id.clone(),
                 entity_lot: EntityLot::Exercise,
             }],
-            creator_user_id: user_id.to_owned(),
-            collection_name: DefaultCollection::Custom.to_string(),
         },
         ss,
     )
