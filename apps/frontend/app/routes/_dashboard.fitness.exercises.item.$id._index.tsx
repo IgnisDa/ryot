@@ -618,6 +618,7 @@ export default function Page() {
 							color="blue"
 							variant="light"
 							onClick={async () => {
+								setMergingExercise(null);
 								await addExerciseToCurrentWorkout(
 									navigate,
 									currentWorkout,

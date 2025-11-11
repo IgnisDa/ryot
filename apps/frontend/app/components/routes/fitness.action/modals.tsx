@@ -1,5 +1,7 @@
 import { useDisclosure } from "@mantine/hooks";
 import { useState } from "react";
+import type { Exercise } from "~/lib/state/fitness";
+import { BulkDeleteDrawer } from "./bulk-delete-drawer";
 import { UploadAssetsModal } from "./miscellaneous";
 import { ReorderDrawer } from "./reorder";
 import { DisplaySupersetModal } from "./supersets";
@@ -14,55 +16,48 @@ interface ModalsProps {
 	closeTimerDrawer: () => void;
 	toggleTimerDrawer: () => void;
 	pauseOrResumeTimer: () => void;
+	bulkDeleteDrawerOpened: boolean;
+	closeBulkDeleteDrawer: () => void;
+	currentWorkoutExercises?: Array<Exercise>;
+	exerciseToDelete: string | null | undefined;
 	assetsModalOpened: string | null | undefined;
 	supersetWithExerciseIdentifier: string | null;
 	isReorderDrawerOpened: string | null | undefined;
 	setSupersetModalOpened: (value: string | null) => void;
-	currentWorkoutExercises?: Array<{ identifier: string }>;
 	setAssetsModalOpened: (value: string | null | undefined) => void;
 	setIsReorderDrawerOpened: (value: string | null | undefined) => void;
 }
 
-export function WorkoutModals({
-	stopTimer,
-	startTimer,
-	closeTimerDrawer,
-	timerDrawerOpened,
-	assetsModalOpened,
-	pauseOrResumeTimer,
-	setAssetsModalOpened,
-	isReorderDrawerOpened,
-	setSupersetModalOpened,
-	currentWorkoutExercises,
-	setIsReorderDrawerOpened,
-	supersetWithExerciseIdentifier,
-}: ModalsProps) {
-	return (
-		<>
-			<UploadAssetsModal
-				modalOpenedBy={assetsModalOpened}
-				closeModal={() => setAssetsModalOpened(undefined)}
-			/>
-			<TimerAndStopwatchDrawer
-				stopTimer={stopTimer}
-				startTimer={startTimer}
-				opened={timerDrawerOpened}
-				onClose={closeTimerDrawer}
-				pauseOrResumeTimer={pauseOrResumeTimer}
-			/>
-			<ReorderDrawer
-				key={currentWorkoutExercises?.map((e) => e.identifier).join(",")}
-				exerciseToReorder={isReorderDrawerOpened}
-				opened={isReorderDrawerOpened !== undefined}
-				onClose={() => setIsReorderDrawerOpened(undefined)}
-			/>
-			<DisplaySupersetModal
-				supersetWith={supersetWithExerciseIdentifier}
-				onClose={() => setSupersetModalOpened(null)}
-			/>
-		</>
-	);
-}
+export const WorkoutModals = (props: ModalsProps) => (
+	<>
+		<DisplaySupersetModal
+			supersetWith={props.supersetWithExerciseIdentifier}
+			onClose={() => props.setSupersetModalOpened(null)}
+		/>
+		<UploadAssetsModal
+			modalOpenedBy={props.assetsModalOpened}
+			closeModal={() => props.setAssetsModalOpened(undefined)}
+		/>
+		<BulkDeleteDrawer
+			opened={props.bulkDeleteDrawerOpened}
+			onClose={props.closeBulkDeleteDrawer}
+			exerciseToDelete={props.exerciseToDelete}
+		/>
+		<ReorderDrawer
+			exerciseToReorder={props.isReorderDrawerOpened}
+			opened={props.isReorderDrawerOpened !== undefined}
+			onClose={() => props.setIsReorderDrawerOpened(undefined)}
+			key={props.currentWorkoutExercises?.map((e) => e.identifier).join(",")}
+		/>
+		<TimerAndStopwatchDrawer
+			stopTimer={props.stopTimer}
+			startTimer={props.startTimer}
+			opened={props.timerDrawerOpened}
+			onClose={props.closeTimerDrawer}
+			pauseOrResumeTimer={props.pauseOrResumeTimer}
+		/>
+	</>
+);
 
 export function useWorkoutModals() {
 	const [assetsModalOpened, setAssetsModalOpened] = useState<
@@ -76,12 +71,25 @@ export function useWorkoutModals() {
 			toggle: toggleTimerDrawer,
 		},
 	] = useDisclosure(false);
+	const [exerciseToDelete, setExerciseToDelete] = useState<string | null>();
 	const [isReorderDrawerOpened, setIsReorderDrawerOpened] = useState<
 		string | null
 	>();
 	const [supersetWithExerciseIdentifier, setSupersetModalOpened] = useState<
 		string | null
 	>(null);
+
+	const openBulkDeleteDrawer = (exerciseIdentifier: string | null) => {
+		setExerciseToDelete(exerciseIdentifier);
+		if (!exerciseIdentifier) return;
+		setTimeout(() => {
+			setExerciseToDelete((val) => (val === undefined ? undefined : null));
+		}, 4000);
+	};
+
+	const closeBulkDeleteDrawer = () => {
+		setExerciseToDelete(undefined);
+	};
 
 	const openReorderDrawer = (exerciseIdentifier: string | null) => {
 		setIsReorderDrawerOpened(exerciseIdentifier);
@@ -94,14 +102,18 @@ export function useWorkoutModals() {
 	return {
 		openTimerDrawer,
 		closeTimerDrawer,
+		exerciseToDelete,
 		toggleTimerDrawer,
 		assetsModalOpened,
 		timerDrawerOpened,
 		openReorderDrawer,
 		setAssetsModalOpened,
+		openBulkDeleteDrawer,
+		closeBulkDeleteDrawer,
 		isReorderDrawerOpened,
 		setSupersetModalOpened,
 		setIsReorderDrawerOpened,
 		supersetWithExerciseIdentifier,
+		bulkDeleteDrawerOpened: exerciseToDelete !== undefined,
 	};
 }

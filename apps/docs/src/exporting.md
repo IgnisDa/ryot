@@ -14,8 +14,7 @@ You can import it back using the [Generic JSON Importer](./importing/generic-jso
 
 ## Exporting the entire database
 
-While debugging, I might ask you to send me a database dump. You can do this by exporting
-the entire database and emailing the file.
+You can export the entire database using the following command:
 
 ```bash
 docker exec -u postgres -i ryot-db pg_dump -Fc --no-acl --no-owner > /tmp/ryot.file.sql

@@ -74,13 +74,17 @@ export default function Page() {
 	const {
 		openTimerDrawer,
 		closeTimerDrawer,
+		exerciseToDelete,
 		toggleTimerDrawer,
 		openReorderDrawer,
 		timerDrawerOpened,
 		assetsModalOpened,
+		openBulkDeleteDrawer,
 		setAssetsModalOpened,
+		closeBulkDeleteDrawer,
 		isReorderDrawerOpened,
 		setSupersetModalOpened,
+		bulkDeleteDrawerOpened,
 		setIsReorderDrawerOpened,
 		supersetWithExerciseIdentifier,
 	} = useWorkoutModals();
@@ -269,13 +273,16 @@ export default function Page() {
 								startTimer={startTimer}
 								openTimerDrawer={openTimerDrawer}
 								closeTimerDrawer={closeTimerDrawer}
+								exerciseToDelete={exerciseToDelete}
 								assetsModalOpened={assetsModalOpened}
 								timerDrawerOpened={timerDrawerOpened}
 								toggleTimerDrawer={toggleTimerDrawer}
 								pauseOrResumeTimer={pauseOrResumeTimer}
 								setAssetsModalOpened={setAssetsModalOpened}
 								isReorderDrawerOpened={isReorderDrawerOpened}
+								closeBulkDeleteDrawer={closeBulkDeleteDrawer}
 								setSupersetModalOpened={setSupersetModalOpened}
+								bulkDeleteDrawerOpened={bulkDeleteDrawerOpened}
 								currentWorkoutExercises={currentWorkout.exercises}
 								setIsReorderDrawerOpened={setIsReorderDrawerOpened}
 								supersetWithExerciseIdentifier={supersetWithExerciseIdentifier}
@@ -306,6 +313,7 @@ export default function Page() {
 										isWorkoutPaused={isWorkoutPaused}
 										openTimerDrawer={openTimerDrawer}
 										reorderDrawerToggle={openReorderDrawer}
+										openBulkDeleteDrawer={openBulkDeleteDrawer}
 										isCreatingTemplate={loaderData.isCreatingTemplate}
 										openSupersetModal={(s) => setSupersetModalOpened(s)}
 										setOpenAssetsModal={() =>
