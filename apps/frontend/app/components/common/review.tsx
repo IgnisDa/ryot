@@ -185,7 +185,7 @@ export const ReviewItemDisplay = (props: {
 					) : null}
 				</Group>
 				<Box ml="sm" mt="xs">
-					<Group>
+					<Group mb="sm">
 						{ratingValue != null && ratingValue > 0
 							? match(userPreferences.general.reviewScale)
 									.with(UserReviewScale.ThreePointSmiley, () => (

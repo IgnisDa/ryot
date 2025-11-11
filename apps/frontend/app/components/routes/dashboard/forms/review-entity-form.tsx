@@ -36,7 +36,11 @@ import {
 	useMetadataDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
-import { convertDecimalToThreePointSmiley } from "~/lib/shared/media-utils";
+import {
+	convertDecimalToThreePointSmiley,
+	convertRatingToUserScale,
+	convertUserScaleToRating,
+} from "~/lib/shared/media-utils";
 import {
 	clientGqlService,
 	refreshEntityDetails,
@@ -96,7 +100,10 @@ export const ReviewEntityForm = (props: {
 		podcastEpisodeNumber:
 			entityToReview?.existingReview?.podcastExtraInformation?.episode,
 		rating: entityToReview?.existingReview?.rating
-			? entityToReview.existingReview.rating
+			? convertRatingToUserScale(
+					entityToReview.existingReview.rating,
+					userPreferences.general.reviewScale,
+				)?.toString()
 			: undefined,
 	});
 
@@ -412,7 +419,16 @@ export const ReviewEntityForm = (props: {
 				loading={reviewMutation.isPending}
 				onClick={() => {
 					events.postReview(entityToReview?.entityTitle);
-					reviewMutation.mutate({ input });
+					const convertedInput = produce(input, (draft) => {
+						if (draft.rating) {
+							const convertedRating = convertUserScaleToRating(
+								draft.rating,
+								userPreferences.general.reviewScale,
+							);
+							draft.rating = convertedRating?.toString();
+						}
+					});
+					reviewMutation.mutate({ input: convertedInput });
 				}}
 			>
 				{entityToReview.existingReview?.id ? "Update" : "Submit"}

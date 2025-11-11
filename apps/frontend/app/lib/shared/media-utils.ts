@@ -134,6 +134,22 @@ export const convertRatingToUserScale = (
 		: Math.round(scaled * 10) / 10;
 };
 
+export const convertUserScaleToRating = (
+	rating: number | string | null | undefined,
+	scale: UserReviewScale,
+) => {
+	if (rating == null) return null;
+	const value = Number(rating);
+	if (Number.isNaN(value)) return null;
+
+	return match(scale)
+		.with(UserReviewScale.OutOfHundred, () => value)
+		.with(UserReviewScale.OutOfTen, () => value * 10)
+		.with(UserReviewScale.OutOfFive, () => value * 20)
+		.with(UserReviewScale.ThreePointSmiley, () => value)
+		.exhaustive();
+};
+
 export const formatRatingForDisplay = (
 	rating: number,
 	scale: UserReviewScale,
