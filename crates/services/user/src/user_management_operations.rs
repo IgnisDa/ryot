@@ -38,10 +38,10 @@ pub async fn update_user(
             && admin_account_guard(uid, ss).await.is_err()
             && input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token
         {
-            bail!("Admin access token required".to_owned());
+            bail!("Admin access token required");
         }
     } else if input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token {
-        bail!("Admin access token required".to_owned());
+        bail!("Admin access token required");
     }
     let db_user = User::find_by_id(input.user_id).one(&ss.db).await?.unwrap();
     let mut extra_information = db_user.extra_information.clone().unwrap_or_default();

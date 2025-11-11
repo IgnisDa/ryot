@@ -356,7 +356,7 @@ pub async fn metadata_progress_update(
             let previous_seen_in_progress =
                 get_previous_seen_item(user_id, &input.metadata_id, false, ss).await?;
             if previous_seen_in_progress.is_some() {
-                bail!("An in-progress record already exists for this metadata",);
+                bail!("An in-progress record already exists for this metadata");
             };
             commit(CommitInput {
                 ss,

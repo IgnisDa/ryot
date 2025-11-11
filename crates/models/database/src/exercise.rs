@@ -36,6 +36,7 @@ pub struct Model {
     pub instructions: Vec<String>,
     pub force: Option<ExerciseForce>,
     pub muscles: Vec<ExerciseMuscle>,
+    #[graphql(skip)]
     pub aggregated_instructions: String,
     #[graphql(skip_input)]
     pub created_by_user_id: Option<String>,

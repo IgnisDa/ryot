@@ -301,20 +301,21 @@ pub async fn create_custom_exercise(
     input.source = ExerciseSource::Custom;
     input.created_by_user_id = Some(user_id.clone());
     input.id = generate_exercise_id(&input.name, input.lot, user_id);
-    let input = input.into_active_model();
+    let mut input = input.into_active_model();
+    input.aggregated_instructions = ActiveValue::NotSet;
 
     let exercise = input.insert(&ss.db).await?;
     ryot_log!(debug, "Created custom exercise with id = {}", exercise.id);
     add_entities_to_collection(
         &user_id.clone(),
         ChangeCollectionToEntitiesInput {
+            creator_user_id: user_id.to_owned(),
+            collection_name: DefaultCollection::Custom.to_string(),
             entities: vec![EntityToCollectionInput {
                 information: None,
                 entity_id: exercise.id.clone(),
                 entity_lot: EntityLot::Exercise,
             }],
-            creator_user_id: user_id.to_owned(),
-            collection_name: DefaultCollection::Custom.to_string(),
         },
         ss,
     )
@@ -710,7 +711,7 @@ pub async fn update_custom_exercise(
         if let Some(exercise_extra_information) = ute.exercise_extra_information
             && !exercise_extra_information.history.is_empty()
         {
-            bail!("Exercise is associated with one or more workouts.",);
+            bail!("Exercise is associated with one or more workouts.");
         }
         old_exercise.delete(&ss.db).await?;
         return Ok(true);
@@ -720,6 +721,7 @@ pub async fn update_custom_exercise(
     let input = update.into_active_model();
     let mut input = input.reset_all();
     input.id = ActiveValue::Unchanged(id);
+    input.aggregated_instructions = ActiveValue::NotSet;
     input.update(&ss.db).await?;
     expire_user_exercises_list_cache(&user_id, ss).await?;
     Ok(true)
