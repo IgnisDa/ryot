@@ -721,6 +721,7 @@ pub async fn update_custom_exercise(
     let input = update.into_active_model();
     let mut input = input.reset_all();
     input.id = ActiveValue::Unchanged(id);
+    input.aggregated_instructions = ActiveValue::NotSet;
     input.update(&ss.db).await?;
     expire_user_exercises_list_cache(&user_id, ss).await?;
     Ok(true)
