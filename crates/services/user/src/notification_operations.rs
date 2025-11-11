@@ -22,7 +22,7 @@ pub async fn update_user_notification_platform(
         .await?
         .ok_or_else(|| anyhow!("Notification platform with the given id does not exist"))?;
     if db_notification.user_id != user_id {
-        bail!("Notification platform does not belong to the user",);
+        bail!("Notification platform does not belong to the user");
     }
     let mut db_notification = db_notification.into_active_model();
     if let Some(s) = input.is_disabled {
@@ -45,7 +45,7 @@ pub async fn delete_user_notification_platform(
         .await?
         .ok_or_else(|| anyhow!("Notification platform with the given id does not exist"))?;
     if notification.user_id != user_id {
-        bail!("Notification platform does not belong to the user",);
+        bail!("Notification platform does not belong to the user");
     }
     notification.delete(&ss.db).await?;
     Ok(true)
