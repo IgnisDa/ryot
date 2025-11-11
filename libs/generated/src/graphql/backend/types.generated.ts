@@ -720,6 +720,7 @@ export type EntityWithLot = {
 
 export type Exercise = {
   __typename?: 'Exercise';
+  aggregatedInstructions: Scalars['String']['output'];
   assets: EntityAssets;
   createdByUserId?: Maybe<Scalars['String']['output']>;
   equipment?: Maybe<ExerciseEquipment>;
