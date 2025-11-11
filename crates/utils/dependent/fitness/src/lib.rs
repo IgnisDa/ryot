@@ -301,7 +301,8 @@ pub async fn create_custom_exercise(
     input.source = ExerciseSource::Custom;
     input.created_by_user_id = Some(user_id.clone());
     input.id = generate_exercise_id(&input.name, input.lot, user_id);
-    let input = input.into_active_model();
+    let mut input = input.into_active_model();
+    input.aggregated_instructions = ActiveValue::NotSet;
 
     let exercise = input.insert(&ss.db).await?;
     ryot_log!(debug, "Created custom exercise with id = {}", exercise.id);
