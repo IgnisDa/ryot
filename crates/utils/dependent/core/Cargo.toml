@@ -8,11 +8,12 @@ anyhow = { workspace = true }
 enum_meta = { workspace = true }
 itertools = { workspace = true }
 futures = { workspace = true }
+nest_struct = { workspace = true }
+reqwest = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
-unkey = { workspace = true }
 
 audible-provider = { workspace = true }
 cache-service = { workspace = true }

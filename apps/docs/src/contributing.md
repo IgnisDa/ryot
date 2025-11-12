@@ -12,7 +12,7 @@
 
   ```bash title=".env"
   DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres
-  UNKEY_API_ID=dummy-api-id
+  UNKEY_ROOT_KEY=dummy-root-key
   APP_VERSION=v9.2.2
   ```
 

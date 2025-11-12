@@ -1,5 +1,5 @@
 [build.env]
-passthrough = ["APP_VERSION", "UNKEY_API_ID"]
+passthrough = ["APP_VERSION", "UNKEY_ROOT_KEY"]
 
 [build]
 pre-build = "ci/cross-pre-build.sh"

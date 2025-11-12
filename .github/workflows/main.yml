@@ -143,7 +143,7 @@ jobs:
           locked: false
       - name: Build
         env:
-          UNKEY_API_ID: ${{ secrets.UNKEY_API_ID }}
+          UNKEY_ROOT_KEY: ${{ secrets.UNKEY_ROOT_KEY }}
           APP_VERSION: ${{ steps.build.outputs.version }}
         run: |
           cross build --locked --target ${{ matrix.platform.target }} --release

@@ -16,17 +16,18 @@ use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     MediaLot, MediaSource,
 };
-use env_utils::{APP_VERSION, UNKEY_API_ID};
+use env_utils::{APP_VERSION, UNKEY_ROOT_KEY};
 use futures::try_join;
 use igdb_provider::IgdbService;
 use itertools::Itertools;
 use itunes_provider::ITunesService;
+use nest_struct::nest_struct;
+use reqwest::{Client, header::AUTHORIZATION};
 use sea_orm::{Iterable, prelude::Date};
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 use tmdb_provider::TmdbService;
 use tvdb_provider::TvdbService;
-use unkey::{Client, models::VerifyKeyRequest};
 use youtube_music_provider::YoutubeMusicService;
 
 fn build_metadata_mappings() -> (
@@ -173,44 +174,49 @@ async fn build_provider_specifics(
     Ok(specifics)
 }
 
-async fn get_is_server_key_validated(ss: &Arc<SupportingService>) -> bool {
+async fn get_is_server_key_validated(ss: &Arc<SupportingService>) -> Result<bool> {
     let pro_key = &ss.config.server.pro_key;
     if pro_key.is_empty() {
-        return false;
+        return Ok(false);
     }
-    ryot_log!(debug, "Verifying Pro Key for API ID: {:#?}", UNKEY_API_ID);
+    #[nest_struct]
     #[derive(Debug, Serialize, Clone, Deserialize)]
-    struct Meta {
-        expiry: Option<Date>,
+    struct VerifyKeyResponse {
+        data: nest! {
+            valid: bool,
+            meta: Option<nest! { expiry: Option<Date> }>
+        },
     }
-    let unkey_client = Client::new("public");
-    let verify_request = VerifyKeyRequest::new(pro_key, &UNKEY_API_ID.to_string());
-    let validated_key = match unkey_client.verify_key(verify_request).await {
-        Ok(verify_response) => {
-            if !verify_response.valid {
-                ryot_log!(debug, "Pro Key is no longer valid.");
-                return false;
-            }
-            verify_response
-        }
-        Err(verify_error) => {
-            ryot_log!(debug, "Pro Key verification error: {:?}", verify_error);
-            return false;
-        }
+    let client = Client::new();
+    let Ok(request) = client
+        .post("https://api.unkey.com/v2/keys.verifyKey")
+        .header(AUTHORIZATION, format!("Bearer {}", UNKEY_ROOT_KEY))
+        .json(&serde_json::json!({ "key": pro_key }))
+        .send()
+        .await
+    else {
+        ryot_log!(warn, "Failed to verify Pro Key.");
+        return Ok(false);
     };
-    let key_meta = validated_key
-        .meta
-        .map(|meta| serde_json::from_value::<Meta>(meta).unwrap());
+    let Ok(response) = request.json::<VerifyKeyResponse>().await else {
+        ryot_log!(warn, "Failed to parse Pro Key verification response.");
+        return Ok(false);
+    };
+    if !response.data.valid {
+        ryot_log!(debug, "Pro Key is no longer valid.");
+        return Ok(false);
+    };
+    let key_meta = response.data.meta;
     ryot_log!(debug, "Expiry: {:?}", key_meta.clone().map(|m| m.expiry));
     if let Some(meta) = key_meta
         && let Some(expiry) = meta.expiry
         && ss.server_start_time > convert_naive_to_utc(expiry)
     {
         ryot_log!(warn, "Pro Key has expired. Please renew your subscription.");
-        return false;
+        return Ok(false);
     }
     ryot_log!(debug, "Pro Key verified successfully");
-    true
+    Ok(true)
 }
 
 pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
@@ -269,7 +275,7 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
                 token_valid_for_days: ss.config.users.token_valid_for_days,
                 two_factor_backup_codes_count: TWO_FACTOR_BACKUP_CODES_COUNT,
                 repository_link: "https://github.com/ignisda/ryot".to_owned(),
-                is_server_key_validated: get_is_server_key_validated(ss).await,
+                is_server_key_validated: get_is_server_key_validated(ss).await?,
             };
             Ok(core_details)
         },

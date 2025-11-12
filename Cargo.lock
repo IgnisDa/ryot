@@ -1990,6 +1990,8 @@ dependencies = [
  "igdb-provider",
  "itertools 0.14.0",
  "itunes-provider",
+ "nest_struct",
+ "reqwest",
  "sea-orm",
  "serde",
  "serde_json",
@@ -1997,7 +1999,6 @@ dependencies = [
  "tmdb-provider",
  "tracing",
  "tvdb-provider",
- "unkey",
  "youtube-music-provider",
 ]
 
@@ -7709,18 +7710,6 @@ checksum = "fc1de2c688dc15305988b563c3854064043356019f97a4b46276fe734c4f07ea"
 dependencies = [
  "crypto-common 0.1.6",
  "subtle",
-]
-
-[[package]]
-name = "unkey"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8878913d50aae6c637b90fa3a81ee2898dafb1df4edab5ec20daf8388be3eb47"
-dependencies = [
- "lazy_static",
- "reqwest",
- "serde",
- "serde_json",
 ]
 
 [[package]]
