@@ -74,8 +74,8 @@ bugs and results in data loss. Only use this tag if you know what you are doing.
 ## Telemetry
 
 Ryot collects anonymous usage data to help me prioritize features. It uses a self-hosted
-[Umami](https://umami.is/) instance to collect this data. In addition to page views, a
+[Umami](https://umami.is) instance to collect this data. In addition to page views, a
 few events are also tracked and you can find them in the [source code](https://github.com/IgnisDa/ryot/blob/aa89adabc377e6da7fb8c8d768325efc3667329f/apps/frontend/app/lib/hooks.ts#L199-L222).
 
 You can opt out of this by setting a configuration parameter as described
-[here](./configuration.md#important-parameters).
+[configuration guide](./configuration.md#important-parameters).

@@ -4,7 +4,7 @@ A guide about video games integration for Ryot.
 
 ## Integration with IGDB
 
-Ryot supports tracking video games via [IGDB](https://www.igdb.com/). However, the API is
+Ryot supports tracking video games via [IGDB](https://www.igdb.com). However, the API is
 heavily rate limited, so it is not possible to hardcode the API keys in the application
 (unlike the others).
 
@@ -25,13 +25,13 @@ You can follow the below steps to obtain your own API keys and enable video game
 
 ## Integration with GiantBomb
 
-Ryot also supports tracking video games via [GiantBomb](https://www.giantbomb.com/). This
+Ryot also supports tracking video games via [GiantBomb](https://www.giantbomb.com). This
 provides an alternative source for video game metadata with comprehensive coverage.
 
 ### Steps
 
-1. Create a [GiantBomb](https://www.giantbomb.com/) account.
-2. Navigate to your [API key page](https://www.giantbomb.com/api/).
+1. Create a [GiantBomb](https://www.giantbomb.com) account.
+2. Navigate to your [API key page](https://www.giantbomb.com/api).
 3. Generate an API key if you don't have one already.
 4. Copy the **API Key**.
 5. Set the `VIDEO_GAMES_GIANT_BOMB_API_KEY` environment variable with your API key.

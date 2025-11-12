@@ -22,7 +22,7 @@ is a non-exhaustive set of guides to deploy Ryot to alternative platforms.
 ## Dokku
 
 This is a script that automatically sets up a Ryot server using the docker image uploaded
-to Ghcr and creates a [Dokku](https://dokku.com/) app. The script assumes you have a global
+to Ghcr and creates a [Dokku](https://dokku.com) app. The script assumes you have a global
 domain set-up (i.e. the file `/home/dokku/VHOST` exists). It needs to be run with `sudo`
 privileges.
 

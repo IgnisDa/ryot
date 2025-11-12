@@ -4,7 +4,7 @@ import variables from "../variables";
 
 # Kodi
 
-The [Kodi](https://kodi.tv/) integration allows syncing the current movie or TV
+The [Kodi](https://kodi.tv) integration allows syncing the current movie or TV
 show you are watching. It will work for all the media that have a valid
 TMDb ID attached to their metadata.
 

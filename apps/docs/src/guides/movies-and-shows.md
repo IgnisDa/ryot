@@ -5,7 +5,7 @@ Ryot supports tracking movies and shows via [TMDB](https://www.themoviedb.org) a
 
 ## TMDB
 
-1. Create a [TMDB](https://www.themoviedb.org/) account.
+1. Create a [TMDB](https://www.themoviedb.org) account.
 2. Go to your [account settings](https://www.themoviedb.org/settings/account).
 3. Click on the "API" section in the left sidebar.
 4. Click on "click here" under "Request an API Key".
@@ -19,7 +19,7 @@ Ryot supports tracking movies and shows via [TMDB](https://www.themoviedb.org) a
 
 ## TVDB
 
-- Create a [TVDB](https://www.thetvdb.com/) account.
+- Create a [TVDB](https://www.thetvdb.com) account.
 - Visit the [API](https://www.thetvdb.com/api-information) page and then click on "Get
   Started".
 - Follow the prompts and then copy your **API Key**.

@@ -1,6 +1,6 @@
 # Komga
 
-The [Komga](https://komga.org/) integration can sync all media if they have a valid
+The [Komga](https://komga.org) integration can sync all media if they have a valid
 metadata provider. If you use [Komf](https://github.com/Snd-R/komf) or some similar
 metadata provider these urls will be populated automatically. If you don't, you will either
 need to manually add the manga to your collection or you can perform the following steps.
