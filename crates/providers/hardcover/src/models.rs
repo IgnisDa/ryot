@@ -127,7 +127,7 @@ query {{
     );
     let data = client
         .post(URL)
-        .json(&[("query", body)])
+        .json(&serde_json::json!({"query": body}))
         .send()
         .await?
         .json::<Response<Search>>()

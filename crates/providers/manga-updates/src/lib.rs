@@ -209,7 +209,7 @@ impl MediaProvider for MangaUpdatesService {
         let related_data: ItemPersonRelatedSeries = self
             .client
             .post(format!("{URL}/authors/{identity}/series"))
-            .json(&[("orderby", "year")])
+            .json(&serde_json::json!({ "orderby": "year" }))
             .send()
             .await?
             .json()

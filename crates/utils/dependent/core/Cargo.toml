@@ -12,6 +12,7 @@ nest_struct = { workspace = true }
 reqwest = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 tracing = { workspace = true }
 
 audible-provider = { workspace = true }
