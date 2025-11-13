@@ -4,7 +4,8 @@ use anyhow::Result;
 use audible_provider::AudibleService;
 use common_models::BackendError;
 use common_utils::{
-    PAGE_SIZE, PEOPLE_SEARCH_SOURCES, TWO_FACTOR_BACKUP_CODES_COUNT, convert_naive_to_utc, ryot_log,
+    PAGE_SIZE, PEOPLE_SEARCH_SOURCES, TWO_FACTOR_BACKUP_CODES_COUNT, convert_naive_to_utc,
+    get_base_http_client, ryot_log,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CoreDetails, CoreDetailsProviderSpecifics,
@@ -22,7 +23,7 @@ use igdb_provider::IgdbService;
 use itertools::Itertools;
 use itunes_provider::ITunesService;
 use nest_struct::nest_struct;
-use reqwest::{Client, header::AUTHORIZATION};
+use reqwest::header::{AUTHORIZATION, HeaderValue};
 use sea_orm::{Iterable, prelude::Date};
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
@@ -187,10 +188,12 @@ async fn get_is_server_key_validated(ss: &Arc<SupportingService>) -> Result<bool
             meta: Option<nest! { expiry: Option<Date> }>
         },
     }
-    let client = Client::new();
+    let client = get_base_http_client(Some(vec![(
+        AUTHORIZATION,
+        HeaderValue::from_str(&format!("Bearer {}", UNKEY_ROOT_KEY)).unwrap(),
+    )]));
     let Ok(request) = client
         .post("https://api.unkey.com/v2/keys.verifyKey")
-        .header(AUTHORIZATION, format!("Bearer {}", UNKEY_ROOT_KEY))
         .json(&serde_json::json!({ "key": pro_key }))
         .send()
         .await
