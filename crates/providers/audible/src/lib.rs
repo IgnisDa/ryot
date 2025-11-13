@@ -300,8 +300,8 @@ impl MediaProvider for AudibleService {
             .await?;
         let data: AudibleItemResponse = rsp.json().await?;
         let mut item = self.audible_response_to_search_response(data.product.clone());
-        let mut suggestions = vec![];
         let mut groups = vec![];
+        let mut suggestions = vec![];
         for s in data.product.series.unwrap_or_default() {
             groups.push(CommitMetadataGroupInput {
                 name: s.title,
@@ -336,8 +336,8 @@ impl MediaProvider for AudibleService {
                 });
             }
         }
-        item.suggestions = suggestions.into_iter().unique().collect();
         item.groups = groups;
+        item.suggestions = suggestions.into_iter().unique().collect();
         Ok(item)
     }
 
