@@ -1,18 +1,21 @@
-use std::{cmp::Ordering, convert::TryInto, fmt};
+use std::{cmp::Ordering, convert::TryInto, fmt, time::Duration};
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use data_encoding::BASE32;
 use enum_models::MediaSource;
 use env_utils::APP_VERSION;
 use rand::{RngCore, rng};
-use reqwest::header::HeaderValue;
+use reqwest::{
+    ClientBuilder,
+    header::{HeaderMap, HeaderName, HeaderValue, USER_AGENT},
+};
 use sea_orm::{
     DatabaseBackend, Statement,
     prelude::DateTimeUtc,
     sea_query::{PostgresQueryBuilder, SelectStatement},
 };
 use serde::de;
-use tokio::time::{Duration, sleep};
+use tokio::time::sleep;
 
 pub const PAGE_SIZE: u64 = 20;
 pub const AUTHOR: &str = "ignisda";
@@ -183,4 +186,17 @@ where
         .enumerate()
         .max_by(|(idx_a, a), (idx_b, b)| compare_fn(a, b).then_with(|| idx_b.cmp(idx_a)))
         .map(|(idx, _)| idx)
+}
+
+pub fn get_base_http_client(headers: Option<Vec<(HeaderName, HeaderValue)>>) -> reqwest::Client {
+    let mut req_headers = HeaderMap::new();
+    req_headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
+    for (header, value) in headers.unwrap_or_default().into_iter() {
+        req_headers.insert(header, value);
+    }
+    ClientBuilder::new()
+        .default_headers(req_headers)
+        .timeout(Duration::from_secs(15))
+        .build()
+        .unwrap()
 }

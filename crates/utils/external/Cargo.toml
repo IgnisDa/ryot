@@ -10,8 +10,6 @@ sea-orm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
-
-application-utils = { workspace = true }
 common-utils = { workspace = true }
 
 [package.metadata.cargo-machete]
