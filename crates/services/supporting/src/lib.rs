@@ -51,19 +51,12 @@ impl SupportingService {
 
     pub async fn perform_application_job(&self, job: ApplicationJob) -> Result<()> {
         match job {
-            ApplicationJob::Lp(job) => {
-                self.lp_application_job.clone().enqueue(job).await.ok();
-            }
-            ApplicationJob::Hp(job) => {
-                self.hp_application_job.clone().enqueue(job).await.ok();
-            }
-            ApplicationJob::Mp(job) => {
-                self.mp_application_job.clone().enqueue(job).await.ok();
-            }
-            ApplicationJob::Single(job) => {
-                self.single_application_job.clone().enqueue(job).await.ok();
-            }
+            ApplicationJob::Lp(job) => self.lp_application_job.clone().enqueue(job).await,
+            ApplicationJob::Hp(job) => self.hp_application_job.clone().enqueue(job).await,
+            ApplicationJob::Mp(job) => self.mp_application_job.clone().enqueue(job).await,
+            ApplicationJob::Single(job) => self.single_application_job.clone().enqueue(job).await,
         }
+        .ok();
         Ok(())
     }
 }
