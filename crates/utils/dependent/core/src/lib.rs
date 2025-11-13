@@ -191,7 +191,7 @@ async fn get_is_server_key_validated(ss: &Arc<SupportingService>) -> Result<bool
     let Ok(request) = client
         .post("https://api.unkey.com/v2/keys.verifyKey")
         .header(AUTHORIZATION, format!("Bearer {}", UNKEY_ROOT_KEY))
-        .json(&serde_json::json!({ "key": pro_key }))
+        .json(&[("key", pro_key)])
         .send()
         .await
     else {

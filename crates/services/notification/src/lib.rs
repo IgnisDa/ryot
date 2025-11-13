@@ -21,21 +21,18 @@ pub async fn send_notification(specifics: NotificationPlatformSpecifics, msg: &s
             client
                 .post(format!("{url}/notify/{key}"))
                 .header(CONTENT_TYPE, APPLICATION_JSON_HEADER.clone())
-                .json(&serde_json::json!({
-                    "body": msg,
-                    "title": project_name,
-                }))
+                .json(&[("body", msg), ("title", project_name.as_str())])
                 .send()
                 .await?;
         }
         NotificationPlatformSpecifics::Discord { url } => {
             client
                 .post(url)
-                .json(&serde_json::json!({
-                    "content": msg,
-                    "username": project_name,
-                    "avatar_url": AVATAR_URL
-                }))
+                .json(&[
+                    ("content", msg),
+                    ("username", project_name.as_str()),
+                    ("avatar_url", AVATAR_URL),
+                ])
                 .send()
                 .await?;
         }
@@ -92,11 +89,11 @@ pub async fn send_notification(specifics: NotificationPlatformSpecifics, msg: &s
             client
                 .post("https://api.pushbullet.com/v2/pushes")
                 .header("Access-Token", api_token)
-                .json(&serde_json::json!({
-                    "body": msg,
-                    "title": project_name,
-                    "type": "note"
-                }))
+                .json(&[
+                    ("body", msg),
+                    ("title", project_name.as_str()),
+                    ("type", "note"),
+                ])
                 .send()
                 .await?;
         }

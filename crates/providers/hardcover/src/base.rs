@@ -26,7 +26,7 @@ impl HardcoverService {
             let rsp = self
                 .client
                 .post(URL)
-                .json(&serde_json::json!({ "query": body }))
+                .json(&[("query", body)])
                 .send()
                 .await
                 .ok()?

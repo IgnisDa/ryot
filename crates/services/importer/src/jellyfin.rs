@@ -23,7 +23,11 @@ pub async fn import(input: DeployJellyfinImportInput) -> Result<ImportResult> {
 
     let library_data = client
         .get(format!("{base_url}/Users/{user_id}/Items"))
-        .query(&serde_json::json!({ "recursive": true, "IsPlayed": true, "fields": "ProviderIds" }))
+        .query(&[
+            ("IsPlayed", "true"),
+            ("recursive", "true"),
+            ("fields", "ProviderIds"),
+        ])
         .send()
         .await
         .unwrap()

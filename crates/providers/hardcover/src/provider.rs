@@ -55,7 +55,7 @@ query {{
         let data = self
             .client
             .post(URL)
-            .json(&serde_json::json!({"query": body}))
+            .json(&[("query", body)])
             .send()
             .await?
             .json::<Response<BooksByPk>>()
@@ -209,7 +209,7 @@ query {{
         let data = self
             .client
             .post(URL)
-            .json(&serde_json::json!({"query": body}))
+            .json(&[("query", body)])
             .send()
             .await?
             .json::<Response<SeriesByPk>>()
@@ -300,7 +300,7 @@ query {{
                 let data = self
                     .client
                     .post(URL)
-                    .json(&serde_json::json!({"query": body}))
+                    .json(&[("query", body)])
                     .send()
                     .await?
                     .json::<Response<AuthorsByPk>>()
@@ -371,7 +371,7 @@ query {{
                 let data = self
                     .client
                     .post(URL)
-                    .json(&serde_json::json!({"query": body}))
+                    .json(&[("query", body)])
                     .send()
                     .await?
                     .json::<Response<PublishersByPk>>()

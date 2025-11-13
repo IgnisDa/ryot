@@ -1994,7 +1994,6 @@ dependencies = [
  "reqwest",
  "sea-orm",
  "serde",
- "serde_json",
  "supporting-service",
  "tmdb-provider",
  "tracing",
@@ -3276,7 +3275,6 @@ dependencies = [
  "reqwest",
  "rust_decimal",
  "serde",
- "serde_json",
  "tracing",
  "traits",
 ]
@@ -7617,7 +7615,6 @@ dependencies = [
  "media-models",
  "reqwest",
  "serde",
- "serde_json",
  "supporting-service",
  "tracing",
  "traits",
