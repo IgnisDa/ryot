@@ -89,10 +89,10 @@ macro_rules! ryot_log {
 }
 
 pub fn get_temporary_directory() -> &'static str {
-    if cfg!(debug_assertions) {
-        return "/tmp";
+    match cfg!(debug_assertions) {
+        true => "/tmp",
+        false => "tmp",
     }
-    "tmp"
 }
 
 pub fn get_first_and_last_day_of_month(year: i32, month: u32) -> (NaiveDate, NaiveDate) {
