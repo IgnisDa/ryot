@@ -11,8 +11,6 @@ chrono = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }
-
-application-utils = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { workspace = true }

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use application_utils::get_base_http_client;
+use common_utils::get_base_http_client;
 use reqwest::Client;
 use supporting_service::SupportingService;
 

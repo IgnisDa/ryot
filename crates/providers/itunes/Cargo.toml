@@ -11,8 +11,6 @@ itertools = { workspace = true }
 reqwest = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
-
-application-utils = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
 config-definition = { workspace = true }

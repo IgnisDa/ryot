@@ -1,13 +1,13 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{Result, anyhow};
-use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, IdAndNamedObject, IdObject,
     NamedObject, PersonSourceSpecifics, SearchDetails,
 };
+use common_utils::get_base_http_client;
 use common_utils::{PAGE_SIZE, compute_next_page};
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;

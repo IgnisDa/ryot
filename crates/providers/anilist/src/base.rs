@@ -1,5 +1,5 @@
 use anyhow::Result;
-use application_utils::get_base_http_client;
+use common_utils::get_base_http_client;
 use reqwest::Client;
 
 #[derive(Debug, Clone)]

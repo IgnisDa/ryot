@@ -12,8 +12,6 @@ reqwest = { workspace = true }
 rust_decimal = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-
-application-utils = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
 config-definition = { workspace = true }
