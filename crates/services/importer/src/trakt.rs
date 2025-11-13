@@ -39,20 +39,20 @@ struct Id {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Item {
-    title: Option<String>,
+    ids: Id,
     season: Option<i32>,
     number: Option<i32>,
-    ids: Id,
+    title: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ListItemResponse {
-    movie: Option<Item>,
     show: Option<Item>,
+    movie: Option<Item>,
     episode: Option<Item>,
-    watched_at: Option<DateTimeUtc>,
-    rated_at: Option<DateTimeUtc>,
     rating: Option<Decimal>,
+    rated_at: Option<DateTimeUtc>,
+    watched_at: Option<DateTimeUtc>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
