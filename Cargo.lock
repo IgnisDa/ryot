@@ -114,7 +114,6 @@ name = "anilist-provider"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application-utils",
  "async-trait",
  "chrono",
  "common-models",
@@ -452,7 +451,6 @@ name = "audible-provider"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application-utils",
  "async-trait",
  "common-models",
  "common-utils",
@@ -2753,7 +2751,6 @@ name = "external-utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application-utils",
  "common-utils",
  "reqwest",
  "sea-orm",
@@ -3140,7 +3137,6 @@ name = "giant-bomb-provider"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application-utils",
  "async-graphql",
  "async-trait",
  "chrono",
@@ -3168,7 +3164,6 @@ name = "google-books-provider"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application-utils",
  "async-trait",
  "common-models",
  "common-utils",
@@ -3262,7 +3257,6 @@ name = "hardcover-provider"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application-utils",
  "async-trait",
  "chrono",
  "common-models",
@@ -3692,7 +3686,6 @@ name = "igdb-provider"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application-utils",
  "async-trait",
  "cache-service",
  "chrono",
@@ -3968,7 +3961,6 @@ name = "itunes-provider"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application-utils",
  "async-trait",
  "chrono",
  "common-models",
@@ -4081,7 +4073,6 @@ name = "listennotes-provider"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application-utils",
  "async-trait",
  "cache-service",
  "chrono",
@@ -4161,7 +4152,6 @@ name = "manga-updates-provider"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application-utils",
  "async-trait",
  "chrono",
  "common-models",
@@ -4671,7 +4661,6 @@ name = "myanimelist-provider"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application-utils",
  "async-trait",
  "common-models",
  "common-utils",
@@ -4886,7 +4875,6 @@ name = "openlibrary-provider"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application-utils",
  "async-trait",
  "chrono",
  "common-models",
@@ -6709,7 +6697,6 @@ name = "spotify-provider"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application-utils",
  "async-trait",
  "cache-service",
  "common-models",
@@ -7253,7 +7240,6 @@ name = "tmdb-provider"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application-utils",
  "async-trait",
  "cache-service",
  "chrono",
@@ -7603,7 +7589,6 @@ name = "tvdb-provider"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application-utils",
  "async-trait",
  "cache-service",
  "chrono",
@@ -7886,7 +7871,6 @@ name = "vndb-provider"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application-utils",
  "async-trait",
  "common-models",
  "common-utils",
