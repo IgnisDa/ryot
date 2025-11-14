@@ -2,7 +2,6 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "filter_preset")]
@@ -12,13 +11,13 @@ pub struct Model {
     pub id: String,
     pub name: String,
     pub user_id: String,
-    #[sea_orm(column_type = "JsonBinary")]
-    pub filters: JsonValue,
     pub context_type: String,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
     #[sea_orm(column_type = "JsonBinary")]
-    pub context_metadata: Option<JsonValue>,
+    pub filters: serde_json::Value,
+    #[sea_orm(column_type = "JsonBinary")]
+    pub context_metadata: Option<serde_json::Value>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

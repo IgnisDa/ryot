@@ -33,7 +33,6 @@ use rust_decimal::Decimal;
 use rust_iso3166::from_numeric;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use serde_json::Value;
 use serde_with::{TimestampSeconds, formats::Flexible, serde_as};
 use slug::slugify;
 use supporting_service::SupportingService;
@@ -185,11 +184,11 @@ struct IgdbItemResponse {
     games: Option<Vec<IgdbItemResponse>>,
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
     first_release_date: Option<DateTimeUtc>,
-    #[serde(flatten)]
-    rest_data: Option<HashMap<String, Value>>,
     release_dates: Option<Vec<IgdbReleaseDate>>,
     similar_games: Option<Vec<IgdbItemResponse>>,
     involved_companies: Option<Vec<IgdbInvolvedCompany>>,
+    #[serde(flatten)]
+    rest_data: Option<HashMap<String, serde_json::Value>>,
 }
 
 #[derive(Clone)]
