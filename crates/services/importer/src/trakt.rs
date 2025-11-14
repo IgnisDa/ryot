@@ -12,6 +12,7 @@ use reqwest::header::{CONTENT_TYPE, HeaderName, HeaderValue};
 use rust_decimal::{Decimal, dec};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
@@ -30,13 +31,13 @@ async fn fetch_json<T: serde::de::DeserializeOwned>(
     request.send().await?.json().await
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct Id {
     trakt: u64,
     tmdb: Option<u64>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Item {
     ids: Id,
     season: Option<i32>,
@@ -44,11 +45,12 @@ struct Item {
     title: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct ListItemResponse {
     show: Option<Item>,
     movie: Option<Item>,
     episode: Option<Item>,
+    season: Option<Item>,
     rating: Option<Decimal>,
     rated_at: Option<DateTimeUtc>,
     watched_at: Option<DateTimeUtc>,
@@ -158,16 +160,33 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
                         Err(e) => failed.push(e),
                     }
                 }
+            }
+
+            let mut all_ratings = HashMap::new();
+            for typ in ["movies", "shows", "seasons", "episodes"] {
                 let ratings: Vec<ListItemResponse> =
                     fetch_json(&client, &format!("{url}/ratings/{typ}"), None).await?;
+                all_ratings.insert(typ, ratings.clone());
                 for item in ratings.iter() {
                     match process_item(item) {
                         Ok(mut d) => {
+                            let (show_season_number, show_episode_number) =
+                                if let Some(season) = item.season.as_ref() {
+                                    (season.number, None)
+                                } else if let Some(episode) = item.episode.as_ref() {
+                                    (episode.season, episode.number)
+                                } else if let Some(show) = item.show.as_ref() {
+                                    (show.season, show.number)
+                                } else {
+                                    (None, None)
+                                };
                             d.reviews.push(ImportOrExportItemRating {
                                 rating: item
                                     .rating
                                     // DEV: Rates items out of 10
                                     .map(|e| e * dec!(10)),
+                                show_season_number,
+                                show_episode_number,
                                 review: Some(ImportOrExportItemReview {
                                     date: item.rated_at,
                                     spoiler: Some(false),
@@ -180,6 +199,12 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
                         Err(d) => failed.push(d),
                     }
                 }
+            }
+
+            let debug_path = format!("/tmp/trakt-import-debug-{}.json", chrono::Utc::now().timestamp());
+            if let Ok(json) = serde_json::to_string_pretty(&all_ratings) {
+                let _ = std::fs::write(&debug_path, json);
+                ryot_log!(debug, "Wrote Trakt ratings debug dump to {}", debug_path);
             }
 
             for l in lists.iter() {
