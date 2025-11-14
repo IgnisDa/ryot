@@ -38,9 +38,9 @@ const NotificationPermissionModal = (props: {
 
 	return (
 		<Modal
+			centered
 			opened={props.opened}
 			onClose={handleClose}
-			centered
 			title={
 				<Group>
 					<IconBellRinging size={24} />
