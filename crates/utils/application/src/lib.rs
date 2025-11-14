@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use anyhow::Result;
 use axum::{
@@ -7,7 +7,7 @@ use axum::{
     http::{StatusCode, header::AUTHORIZATION, request::Parts},
 };
 use chrono::{NaiveDate, NaiveDateTime, Utc};
-use common_utils::{FRONTEND_OAUTH_ENDPOINT, USER_AGENT_STR, ryot_log};
+use common_utils::{FRONTEND_OAUTH_ENDPOINT, ryot_log};
 use media_models::{
     GraphqlSortOrder, PodcastEpisode, PodcastSpecifics, ReviewItem, ShowEpisode, ShowSeason,
     ShowSpecifics,
@@ -22,10 +22,6 @@ use openidconnect::{
         CoreTokenResponse,
     },
     reqwest,
-};
-use reqwest::{
-    ClientBuilder,
-    header::{HeaderMap, HeaderName, HeaderValue, USER_AGENT},
 };
 use rust_decimal::Decimal;
 use sea_orm::Order;
@@ -71,19 +67,6 @@ where
 
         Ok(ctx)
     }
-}
-
-pub fn get_base_http_client(headers: Option<Vec<(HeaderName, HeaderValue)>>) -> reqwest::Client {
-    let mut req_headers = HeaderMap::new();
-    req_headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
-    for (header, value) in headers.unwrap_or_default().into_iter() {
-        req_headers.insert(header, value);
-    }
-    ClientBuilder::new()
-        .default_headers(req_headers)
-        .timeout(Duration::from_secs(15))
-        .build()
-        .unwrap()
 }
 
 pub fn get_current_time(timezone: &chrono_tz::Tz) -> NaiveDateTime {

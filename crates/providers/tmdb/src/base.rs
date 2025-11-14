@@ -1,9 +1,8 @@
 use std::{collections::HashSet, future::Future, sync::Arc};
 
 use anyhow::{Result, bail};
-use application_utils::get_base_http_client;
 use common_models::MetadataLookupCacheInput;
-use common_utils::{convert_date_to_year, ryot_log};
+use common_utils::{convert_date_to_year, get_base_http_client, ryot_log};
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TmdbLanguage, TmdbSettings};
 use enum_models::{MediaLot, MediaSource};
 use futures::{

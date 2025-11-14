@@ -1,6 +1,5 @@
 use anyhow::Result;
-use application_utils::get_base_http_client;
-use common_utils::{APPLICATION_JSON_HEADER, ryot_log};
+use common_utils::{APPLICATION_JSON_HEADER, get_base_http_client, ryot_log};
 use reqwest::{
     Client,
     header::{ACCEPT, AUTHORIZATION, HeaderValue},

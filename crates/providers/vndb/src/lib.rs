@@ -1,9 +1,9 @@
 use anyhow::Result;
-use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::{
     EntityAssets, NamedObject, PersonSourceSpecifics, SearchDetails, StringIdAndNamedObject,
 };
+use common_utils::get_base_http_client;
 use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
 use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::{PersonDetails, SearchResults};

@@ -21,7 +21,6 @@ serde_with = { workspace = true }
 slug = { workspace = true }
 tracing = { workspace = true }
 
-application-utils = { workspace = true }
 cache-service = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }

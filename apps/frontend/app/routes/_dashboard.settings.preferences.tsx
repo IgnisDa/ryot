@@ -42,11 +42,11 @@ import {
 	snakeCase,
 	startCase,
 } from "@ryot/ts-utils";
-import { IconCheckbox, IconMinus } from "@tabler/icons-react";
 import {
 	IconAlertCircle,
-	IconBellRinging,
+	IconCheckbox,
 	IconGripVertical,
+	IconMinus,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { type Draft, produce } from "immer";
@@ -470,45 +470,21 @@ export default function Page() {
 					</Tabs.Panel>
 					<Tabs.Panel value="fitness">
 						<Stack>
-							<SimpleGrid
-								cols={{ base: 1, md: 2 }}
-								style={{ alignItems: "center" }}
-							>
-								<Group wrap="nowrap">
-									<ActionIcon
-										onClick={async () => {
-											if (Notification.permission !== "granted") {
-												await Notification.requestPermission();
-												window.location.reload();
-											} else
-												notifications.show({
-													color: "green",
-													message: "You have already granted permissions",
-												});
-										}}
-									>
-										<IconBellRinging />
-									</ActionIcon>
-									<Text size="xs">
-										Send me notifications related to the current workout
-									</Text>
-								</Group>
-								<Select
-									size="xs"
-									disabled={!!isEditDisabled}
-									label="Unit system to use for measurements"
-									data={convertEnumToSelectData(UserUnitSystem)}
-									defaultValue={userPreferences.fitness.exercises.unitSystem}
-									onChange={(val) => {
-										if (val) {
-											updatePreference((draft) => {
-												draft.fitness.exercises.unitSystem =
-													val as UserUnitSystem;
-											});
-										}
-									}}
-								/>
-							</SimpleGrid>
+							<Select
+								size="xs"
+								disabled={!!isEditDisabled}
+								label="Unit system to use for measurements"
+								data={convertEnumToSelectData(UserUnitSystem)}
+								defaultValue={userPreferences.fitness.exercises.unitSystem}
+								onChange={(val) => {
+									if (val) {
+										updatePreference((draft) => {
+											draft.fitness.exercises.unitSystem =
+												val as UserUnitSystem;
+										});
+									}
+								}}
+							/>
 							<Input.Wrapper
 								label="Default Rest Timers"
 								description="When adding an exercise to your workout, these timer values will be used if you have not configured a rest timer for that exercise."

@@ -1,5 +1,9 @@
+import { Button, Group, Modal, Stack, Text, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { useState } from "react";
+import { IconBellRinging } from "@tabler/icons-react";
+import { useEffect, useState } from "react";
+import { useLocalStorage } from "usehooks-ts";
+import { useUserDetails } from "~/lib/shared/hooks";
 import type { Exercise } from "~/lib/state/fitness";
 import { BulkDeleteDrawer } from "./bulk-delete-drawer";
 import { UploadAssetsModal } from "./miscellaneous";
@@ -7,6 +11,61 @@ import { ReorderDrawer } from "./reorder";
 import { DisplaySupersetModal } from "./supersets";
 import { TimerAndStopwatchDrawer } from "./timer-and-stopwatch-drawer";
 import type { FuncStartTimer } from "./types";
+
+const NotificationPermissionModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+}) => {
+	const userDetails = useUserDetails();
+	const [, setHasAskedForNotificationPermission] = useLocalStorage(
+		`HasAskedForNotificationPermission-${userDetails.id}`,
+		false,
+	);
+
+	const handleClose = () => {
+		setHasAskedForNotificationPermission(true);
+		props.onClose();
+	};
+
+	const handleEnableNotifications = async () => {
+		try {
+			await Notification.requestPermission();
+		} catch {
+		} finally {
+			handleClose();
+		}
+	};
+
+	return (
+		<Modal
+			centered
+			opened={props.opened}
+			onClose={handleClose}
+			title={
+				<Group>
+					<IconBellRinging size={24} />
+					<Title order={4}>Enable Workout Notifications</Title>
+				</Group>
+			}
+		>
+			<Stack gap="md">
+				<Text>
+					Allow notifications to stay on track with your workout. You'll receive
+					alerts when your rest timer completes, even when the app is in the
+					background.
+				</Text>
+				<Group justify="flex-end">
+					<Button variant="subtle" onClick={handleClose}>
+						Not Now
+					</Button>
+					<Button onClick={handleEnableNotifications}>
+						Enable Notifications
+					</Button>
+				</Group>
+			</Stack>
+		</Modal>
+	);
+};
 
 interface ModalsProps {
 	stopTimer: () => void;
@@ -17,7 +76,9 @@ interface ModalsProps {
 	toggleTimerDrawer: () => void;
 	pauseOrResumeTimer: () => void;
 	bulkDeleteDrawerOpened: boolean;
+	notificationModalOpened: boolean;
 	closeBulkDeleteDrawer: () => void;
+	closeNotificationModal: () => void;
 	currentWorkoutExercises?: Array<Exercise>;
 	exerciseToDelete: string | null | undefined;
 	assetsModalOpened: string | null | undefined;
@@ -30,6 +91,10 @@ interface ModalsProps {
 
 export const WorkoutModals = (props: ModalsProps) => (
 	<>
+		<NotificationPermissionModal
+			opened={props.notificationModalOpened}
+			onClose={props.closeNotificationModal}
+		/>
 		<DisplaySupersetModal
 			supersetWith={props.supersetWithExerciseIdentifier}
 			onClose={() => props.setSupersetModalOpened(null)}
@@ -60,6 +125,7 @@ export const WorkoutModals = (props: ModalsProps) => (
 );
 
 export function useWorkoutModals() {
+	const userDetails = useUserDetails();
 	const [assetsModalOpened, setAssetsModalOpened] = useState<
 		string | null | undefined
 	>(undefined);
@@ -78,6 +144,21 @@ export function useWorkoutModals() {
 	const [supersetWithExerciseIdentifier, setSupersetModalOpened] = useState<
 		string | null
 	>(null);
+	const [hasAskedForNotificationPermission] = useLocalStorage(
+		`HasAskedForNotificationPermission-${userDetails.id}`,
+		false,
+	);
+	const [notificationModalOpened, setNotificationModalOpened] = useState(false);
+
+	useEffect(() => {
+		if (
+			!hasAskedForNotificationPermission &&
+			typeof Notification !== "undefined" &&
+			Notification.permission !== "granted"
+		) {
+			setNotificationModalOpened(true);
+		}
+	}, [hasAskedForNotificationPermission]);
 
 	const openBulkDeleteDrawer = (exerciseIdentifier: string | null) => {
 		setExerciseToDelete(exerciseIdentifier);
@@ -99,6 +180,10 @@ export function useWorkoutModals() {
 		}, 4000);
 	};
 
+	const closeNotificationModal = () => {
+		setNotificationModalOpened(false);
+	};
+
 	return {
 		openTimerDrawer,
 		closeTimerDrawer,
@@ -112,6 +197,8 @@ export function useWorkoutModals() {
 		closeBulkDeleteDrawer,
 		isReorderDrawerOpened,
 		setSupersetModalOpened,
+		closeNotificationModal,
+		notificationModalOpened,
 		setIsReorderDrawerOpened,
 		supersetWithExerciseIdentifier,
 		bulkDeleteDrawerOpened: exerciseToDelete !== undefined,

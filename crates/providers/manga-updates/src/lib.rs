@@ -1,8 +1,8 @@
 use anyhow::Result;
-use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
+use common_utils::get_base_http_client;
 use common_utils::{PAGE_SIZE, compute_next_page};
 use dependent_models::{
     MetadataPersonRelated, MetadataSearchSourceSpecifics, PersonDetails, SearchResults,
