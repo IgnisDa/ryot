@@ -4398,9 +4398,9 @@ dependencies = [
  "async-graphql",
  "common-models",
  "database-models",
+ "dependent-models",
  "miscellaneous-filter-preset-service",
  "miscellaneous-service",
- "serde_json",
  "traits",
 ]
 
@@ -4409,12 +4409,14 @@ name = "miscellaneous-filter-preset-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cache-service",
  "chrono",
  "common-models",
  "database-models",
+ "dependent-models",
+ "dependent-utility-utils",
  "nanoid",
  "sea-orm",
- "serde_json",
  "supporting-service",
 ]
 
