@@ -1,6 +1,5 @@
 import {
 	ActionIcon,
-	Box,
 	Container,
 	Divider,
 	Flex,
@@ -273,12 +272,9 @@ export default function Page(props: { params: { action: string } }) {
 					{action === "search" ? (
 						metadataGroupSearch ? (
 							<>
-								<Box>
-									<Text display="inline" fw="bold">
-										{metadataGroupSearch.response.details.totalItems}
-									</Text>{" "}
-									items found
-								</Box>
+								<DisplayListDetailsAndRefresh
+									total={metadataGroupSearch.response.details.totalItems}
+								/>
 								{metadataGroupSearch.response.details.totalItems > 0 ? (
 									<ApplicationGrid>
 										{metadataGroupSearch.response.items.map((group) => (

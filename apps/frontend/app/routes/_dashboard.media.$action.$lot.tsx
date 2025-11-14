@@ -1,6 +1,5 @@
 import {
 	ActionIcon,
-	Box,
 	Checkbox,
 	Container,
 	Divider,
@@ -387,12 +386,9 @@ export default function Page(props: {
 								</Group>
 								{metadataSearch.response.details.totalItems > 0 ? (
 									<>
-										<Box>
-											<Text display="inline" fw="bold">
-												{metadataSearch.response.details.totalItems}
-											</Text>{" "}
-											items found
-										</Box>
+										<DisplayListDetailsAndRefresh
+											total={metadataSearch.response.details.totalItems}
+										/>
 										<ApplicationGrid>
 											{metadataSearch.response.items.map((b, index) => (
 												<MediaSearchItem

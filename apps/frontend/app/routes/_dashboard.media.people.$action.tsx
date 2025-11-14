@@ -1,6 +1,5 @@
 import {
 	ActionIcon,
-	Box,
 	Checkbox,
 	Container,
 	Divider,
@@ -310,12 +309,9 @@ export default function Page(props: { params: { action: string } }) {
 					{action === "search" ? (
 						peopleSearch ? (
 							<>
-								<Box>
-									<Text display="inline" fw="bold">
-										{peopleSearch.response.details.totalItems}
-									</Text>{" "}
-									items found
-								</Box>
+								<DisplayListDetailsAndRefresh
+									total={peopleSearch.response.details.totalItems}
+								/>
 								{peopleSearch.response.details.totalItems > 0 ? (
 									<ApplicationGrid>
 										{peopleSearch.response.items.map((person) => (

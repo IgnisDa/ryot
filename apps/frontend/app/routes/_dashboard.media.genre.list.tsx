@@ -23,6 +23,7 @@ import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
+	DisplayListDetailsAndRefresh,
 	ProRequiredAlert,
 	SkeletonLoader,
 } from "~/components/common";
@@ -101,12 +102,9 @@ export default function Page() {
 						/>
 						{userGenresList.details.totalItems > 0 ? (
 							<>
-								<Box>
-									<Text display="inline" fw="bold">
-										{userGenresList.details.totalItems}
-									</Text>{" "}
-									items found
-								</Box>
+								<DisplayListDetailsAndRefresh
+									total={userGenresList.details.totalItems}
+								/>
 								<ApplicationGrid>
 									{userGenresList.items.map((genreId) => (
 										<DisplayGenre key={genreId} genreId={genreId} />
