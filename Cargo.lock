@@ -4412,6 +4412,7 @@ dependencies = [
  "chrono",
  "common-models",
  "database-models",
+ "nanoid",
  "sea-orm",
  "serde_json",
  "supporting-service",

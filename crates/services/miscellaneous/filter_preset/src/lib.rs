@@ -4,6 +4,7 @@ use anyhow::{Result, bail};
 use chrono::Utc;
 use common_models::{CreateOrUpdateFilterPresetInput, FilterContextType};
 use database_models::{filter_preset, prelude::FilterPreset};
+use nanoid::nanoid;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
 use supporting_service::SupportingService;
 
@@ -71,8 +72,9 @@ pub async fn create_or_update_filter_preset(
                 name: ActiveValue::Set(input.name),
                 filters: ActiveValue::Set(input.filters),
                 user_id: ActiveValue::Set(user_id.to_string()),
-                context_type: ActiveValue::Set(input.context_type.to_string()),
+                id: ActiveValue::Set(format!("fp_{}", nanoid!())),
                 context_metadata: ActiveValue::Set(input.context_metadata),
+                context_type: ActiveValue::Set(input.context_type.to_string()),
                 ..Default::default()
             };
 
