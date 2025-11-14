@@ -64,9 +64,10 @@ export const DisplaySetRestTimer = (props: {
 	useForceUpdateEverySecond();
 	const theme = useMantineTheme();
 
-	const progressPercentage =
+	const rawPercentage =
 		(dayjsLib(props.currentTimer.willEndAt).diff(dayjsLib(), "seconds") * 100) /
 		props.currentTimer.totalTime;
+	const progressPercentage = Math.max(0, Math.min(100, rawPercentage));
 
 	const getColorIndex = () => {
 		if (progressPercentage > 80) return 5;
