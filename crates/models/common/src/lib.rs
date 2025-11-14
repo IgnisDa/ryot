@@ -305,6 +305,16 @@ pub struct ReorderCollectionEntityInput {
     pub collection_name: String,
 }
 
+#[skip_serializing_none]
+#[derive(Debug, InputObject, Clone, Serialize, Deserialize)]
+pub struct CreateOrUpdateFilterPresetInput {
+    pub name: String,
+    pub id: Option<String>,
+    pub filters: serde_json::Value,
+    pub context_type: FilterContextType,
+    pub context_metadata: Option<serde_json::Value>,
+}
+
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ExportJob {
     pub size: i64,
@@ -352,6 +362,17 @@ pub enum DailyUserActivitiesResponseGroupedBy {
     Year,
     Month,
     AllTime,
+}
+
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Display)]
+#[strum(serialize_all = "snake_case")]
+pub enum FilterContextType {
+    MediaList,
+    PeopleList,
+    GroupsList,
+    ExercisesList,
+    CollectionContents,
+    FitnessEntitiesList,
 }
 
 impl From<DailyUserActivitiesResponseGroupedBy> for PgDateTruncUnit {
