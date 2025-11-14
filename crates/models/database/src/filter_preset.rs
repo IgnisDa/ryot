@@ -10,12 +10,17 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
     pub name: String,
+    #[graphql(skip)]
     pub user_id: String,
+    #[graphql(skip)]
     pub context_type: String,
+    #[graphql(skip)]
     pub created_at: DateTimeUtc,
+    #[graphql(skip)]
     pub updated_at: DateTimeUtc,
     #[sea_orm(column_type = "JsonBinary")]
     pub filters: serde_json::Value,
+    #[graphql(skip)]
     #[sea_orm(column_type = "JsonBinary")]
     pub context_metadata: Option<serde_json::Value>,
 }
