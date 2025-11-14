@@ -1,5 +1,4 @@
 use async_graphql::SimpleObject;
-use async_trait::async_trait;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -43,5 +42,4 @@ impl Related<super::user::Entity> for Entity {
     }
 }
 
-#[async_trait]
 impl ActiveModelBehavior for ActiveModel {}
