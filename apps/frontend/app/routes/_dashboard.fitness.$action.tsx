@@ -85,6 +85,8 @@ export default function Page() {
 		isReorderDrawerOpened,
 		setSupersetModalOpened,
 		bulkDeleteDrawerOpened,
+		closeNotificationModal,
+		notificationModalOpened,
 		setIsReorderDrawerOpened,
 		supersetWithExerciseIdentifier,
 	} = useWorkoutModals();
@@ -282,7 +284,9 @@ export default function Page() {
 								isReorderDrawerOpened={isReorderDrawerOpened}
 								closeBulkDeleteDrawer={closeBulkDeleteDrawer}
 								setSupersetModalOpened={setSupersetModalOpened}
+								closeNotificationModal={closeNotificationModal}
 								bulkDeleteDrawerOpened={bulkDeleteDrawerOpened}
+								notificationModalOpened={notificationModalOpened}
 								currentWorkoutExercises={currentWorkout.exercises}
 								setIsReorderDrawerOpened={setIsReorderDrawerOpened}
 								supersetWithExerciseIdentifier={supersetWithExerciseIdentifier}
