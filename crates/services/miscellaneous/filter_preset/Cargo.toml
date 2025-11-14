@@ -1,0 +1,14 @@
+[package]
+name = "miscellaneous-filter-preset-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+sea-orm = { workspace = true }
+serde_json = { workspace = true }
+
+common-models = { workspace = true }
+database-models = { workspace = true }
+supporting-service = { workspace = true }
