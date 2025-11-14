@@ -11,6 +11,7 @@ rand = { workspace = true }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
 serde = { workspace = true }
+
 common-models = { workspace = true }
 common-utils = { workspace = true }
 config-definition = { workspace = true }

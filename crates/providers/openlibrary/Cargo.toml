@@ -12,6 +12,7 @@ itertools = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }
+
 common-models = { workspace = true }
 common-utils = { workspace = true }
 config-definition = { workspace = true }

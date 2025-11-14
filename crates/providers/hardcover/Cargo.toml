@@ -13,6 +13,7 @@ rust_decimal = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
+
 common-models = { workspace = true }
 common-utils = { workspace = true }
 config-definition = { workspace = true }
