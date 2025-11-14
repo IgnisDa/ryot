@@ -48,8 +48,8 @@ struct Item {
 struct ListItemResponse {
     show: Option<Item>,
     movie: Option<Item>,
-    episode: Option<Item>,
     season: Option<Item>,
+    episode: Option<Item>,
     rating: Option<Decimal>,
     rated_at: Option<DateTimeUtc>,
     watched_at: Option<DateTimeUtc>,
