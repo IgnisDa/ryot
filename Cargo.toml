@@ -38,6 +38,7 @@ members = [
     "crates/resolvers/file-storage",
     "crates/resolvers/fitness",
     "crates/resolvers/importer",
+    "crates/resolvers/miscellaneous/filter_preset",
     "crates/resolvers/miscellaneous/grouping",
     "crates/resolvers/miscellaneous/metadata",
     "crates/resolvers/miscellaneous/search",
@@ -61,6 +62,7 @@ members = [
     "crates/services/miscellaneous/background",
     "crates/services/miscellaneous/calendar",
     "crates/services/miscellaneous/entity-user-details",
+    "crates/services/miscellaneous/filter_preset",
     "crates/services/miscellaneous/general",
     "crates/services/miscellaneous/lookup",
     "crates/services/miscellaneous/metadata-operations",
@@ -274,11 +276,13 @@ migrations-utils = { path = "crates/migrations/utils" }
 miscellaneous-background-service = { path = "crates/services/miscellaneous/background" }
 miscellaneous-calendar-service = { path = "crates/services/miscellaneous/calendar" }
 miscellaneous-entity-user-details-service = { path = "crates/services/miscellaneous/entity-user-details" }
+miscellaneous-filter-preset-service = { path = "crates/services/miscellaneous/filter_preset" }
 miscellaneous-general-service = { path = "crates/services/miscellaneous/general" }
 miscellaneous-lookup-service = { path = "crates/services/miscellaneous/lookup" }
 miscellaneous-metadata-operations-service = { path = "crates/services/miscellaneous/metadata-operations" }
 miscellaneous-progress-service = { path = "crates/services/miscellaneous/progress" }
 miscellaneous-resolver = { path = "crates/resolvers/miscellaneous" }
+miscellaneous-filter-preset-resolver = { path = "crates/resolvers/miscellaneous/filter_preset" }
 miscellaneous-grouping-resolver = { path = "crates/resolvers/miscellaneous/grouping" }
 miscellaneous-metadata-resolver = { path = "crates/resolvers/miscellaneous/metadata" }
 miscellaneous-search-resolver = { path = "crates/resolvers/miscellaneous/search" }
