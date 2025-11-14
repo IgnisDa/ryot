@@ -21,7 +21,7 @@ pub struct Model {
     pub filters: serde_json::Value,
     #[graphql(skip)]
     #[sea_orm(column_type = "JsonBinary")]
-    pub context_metadata: Option<serde_json::Value>,
+    pub context_information: Option<serde_json::Value>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
