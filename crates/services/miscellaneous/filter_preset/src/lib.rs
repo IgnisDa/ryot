@@ -2,30 +2,43 @@ use std::sync::Arc;
 
 use anyhow::{Result, bail};
 use chrono::Utc;
-use common_models::{CreateOrUpdateFilterPresetInput, FilterContextType};
+use common_models::{CreateOrUpdateFilterPresetInput, FilterPresetQueryInput, UserLevelCacheKey};
 use database_models::{filter_preset, prelude::FilterPreset};
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, FilterPresetsListResponse,
+};
+use dependent_utility_utils::expire_user_filter_presets_cache;
 use nanoid::nanoid;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
 use supporting_service::SupportingService;
 
 pub async fn get_filter_presets(
     user_id: &str,
-    context_type: FilterContextType,
-    context_metadata: Option<serde_json::Value>,
+    input: FilterPresetQueryInput,
     ss: &Arc<SupportingService>,
-) -> Result<Vec<filter_preset::Model>> {
-    let mut query = FilterPreset::find()
-        .filter(filter_preset::Column::UserId.eq(user_id))
-        .filter(filter_preset::Column::ContextType.eq(context_type.to_string()));
+) -> Result<CachedResponse<FilterPresetsListResponse>> {
+    cache_service::get_or_set_with_callback(
+        ss,
+        ApplicationCacheKey::UserFilterPresets(UserLevelCacheKey {
+            input: input.clone(),
+            user_id: user_id.to_owned(),
+        }),
+        ApplicationCacheValue::UserFilterPresets,
+        || async {
+            let mut query = FilterPreset::find()
+                .filter(filter_preset::Column::UserId.eq(user_id))
+                .filter(filter_preset::Column::ContextType.eq(input.context_type.to_string()));
 
-    if let Some(metadata) = context_metadata {
-        query = query.filter(filter_preset::Column::ContextMetadata.eq(metadata));
-    } else {
-        query = query.filter(filter_preset::Column::ContextMetadata.is_null());
-    }
+            query = query.filter(match &input.context_metadata {
+                None => filter_preset::Column::ContextMetadata.is_null(),
+                Some(metadata) => filter_preset::Column::ContextMetadata.eq(metadata.clone()),
+            });
 
-    let presets = query.all(&ss.db).await?;
-    Ok(presets)
+            let presets = query.all(&ss.db).await?;
+            Ok(presets)
+        },
+    )
+    .await
 }
 
 pub async fn create_or_update_filter_preset(
@@ -50,6 +63,9 @@ pub async fn create_or_update_filter_preset(
             active_model.updated_at = ActiveValue::Set(Utc::now());
 
             let updated = active_model.update(&ss.db).await?;
+
+            expire_user_filter_presets_cache(&user_id.to_owned(), ss).await?;
+
             Ok(updated)
         }
         None => {
@@ -79,6 +95,9 @@ pub async fn create_or_update_filter_preset(
             };
 
             let inserted = new_preset.insert(&ss.db).await?;
+
+            expire_user_filter_presets_cache(&user_id.to_owned(), ss).await?;
+
             Ok(inserted)
         }
     }
@@ -100,6 +119,8 @@ pub async fn delete_filter_preset(
 
     let active_model: filter_preset::ActiveModel = preset.into();
     active_model.delete(&ss.db).await?;
+
+    expire_user_filter_presets_cache(&user_id.to_owned(), ss).await?;
 
     Ok(true)
 }
