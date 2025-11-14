@@ -1,0 +1,14 @@
+[package]
+name = "miscellaneous-filter-preset-resolver"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+async-graphql = { workspace = true }
+serde_json = { workspace = true }
+
+common-models = { workspace = true }
+database-models = { workspace = true }
+miscellaneous-filter-preset-service = { workspace = true }
+miscellaneous-service = { workspace = true }
+traits = { workspace = true }
