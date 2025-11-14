@@ -12,7 +12,6 @@ use reqwest::header::{CONTENT_TYPE, HeaderName, HeaderValue};
 use rust_decimal::{Decimal, dec};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
@@ -162,11 +161,9 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
                 }
             }
 
-            let mut all_ratings = HashMap::new();
             for typ in ["movies", "shows", "seasons", "episodes"] {
                 let ratings: Vec<ListItemResponse> =
                     fetch_json(&client, &format!("{url}/ratings/{typ}"), None).await?;
-                all_ratings.insert(typ, ratings.clone());
                 for item in ratings.iter() {
                     match process_item(item) {
                         Ok(mut d) => {
@@ -199,12 +196,6 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
                         Err(d) => failed.push(d),
                     }
                 }
-            }
-
-            let debug_path = format!("/tmp/trakt-import-debug-{}.json", chrono::Utc::now().timestamp());
-            if let Ok(json) = serde_json::to_string_pretty(&all_ratings) {
-                let _ = std::fs::write(&debug_path, json);
-                ryot_log!(debug, "Wrote Trakt ratings debug dump to {}", debug_path);
             }
 
             for l in lists.iter() {
