@@ -28,8 +28,12 @@ const NotificationPermissionModal = (props: {
 	};
 
 	const handleEnableNotifications = async () => {
-		await Notification.requestPermission();
-		handleClose();
+		try {
+			await Notification.requestPermission();
+		} catch {
+		} finally {
+			handleClose();
+		}
 	};
 
 	return (
