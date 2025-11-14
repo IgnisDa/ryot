@@ -1,6 +1,7 @@
 use async_graphql::{Context, Object, Result};
-use common_models::{CreateOrUpdateFilterPresetInput, FilterContextType};
+use common_models::{CreateOrUpdateFilterPresetInput, FilterPresetQueryInput};
 use database_models::filter_preset;
+use dependent_models::{CachedResponse, FilterPresetsListResponse};
 use miscellaneous_filter_preset_service::{
     create_or_update_filter_preset, delete_filter_preset, get_filter_presets,
 };
@@ -20,11 +21,10 @@ impl MiscellaneousFilterPresetQueryResolver {
     async fn filter_presets(
         &self,
         gql_ctx: &Context<'_>,
-        context_type: FilterContextType,
-        context_metadata: Option<serde_json::Value>,
-    ) -> Result<Vec<filter_preset::Model>> {
+        input: FilterPresetQueryInput,
+    ) -> Result<CachedResponse<FilterPresetsListResponse>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(get_filter_presets(&user_id, context_type, context_metadata, &service.0).await?)
+        Ok(get_filter_presets(&user_id, input, &service.0).await?)
     }
 }
 
