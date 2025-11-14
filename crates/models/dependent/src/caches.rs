@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use common_models::{
-    ApplicationDateRange, EntityRecentlyConsumedCacheInput, MetadataGroupSearchInput,
-    MetadataLookupCacheInput, PeopleSearchInput, UserAnalyticsInput, UserLevelCacheKey,
-    YoutubeMusicSongListened,
+    ApplicationDateRange, EntityRecentlyConsumedCacheInput, FilterPresetQueryInput,
+    MetadataGroupSearchInput, MetadataLookupCacheInput, PeopleSearchInput, UserAnalyticsInput,
+    UserLevelCacheKey, YoutubeMusicSongListened,
 };
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
@@ -23,12 +23,12 @@ use crate::{
     core_systems::{CoreDetails, TmdbSettings, TvdbSettings},
     generic_types::{
         CollectionContentsInput, CollectionContentsResponse, CollectionRecommendationsResponse,
-        MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse,
-        UserCollectionsListResponse, UserExercisesListResponse, UserMeasurementsListResponse,
-        UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
-        UserMetadataListResponse, UserMetadataRecommendationsResponse, UserPeopleListInput,
-        UserPeopleListResponse, UserTemplatesOrWorkoutsListInput, UserWorkoutsListResponse,
-        UserWorkoutsTemplatesListResponse,
+        FilterPresetsListResponse, MetadataGroupSearchResponse, MetadataSearchResponse,
+        PeopleSearchResponse, UserCollectionsListResponse, UserExercisesListResponse,
+        UserMeasurementsListResponse, UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
+        UserMetadataListInput, UserMetadataListResponse, UserMetadataRecommendationsResponse,
+        UserPeopleListInput, UserPeopleListResponse, UserTemplatesOrWorkoutsListInput,
+        UserWorkoutsListResponse, UserWorkoutsTemplatesListResponse,
     },
     search::MetadataSearchInput,
 };
@@ -101,6 +101,7 @@ pub enum ApplicationCacheKey {
     UserPeopleList(UserLevelCacheKey<UserPeopleListInput>),
     UserMetadataList(UserLevelCacheKey<UserMetadataListInput>),
     UserExercisesList(UserLevelCacheKey<UserExercisesListInput>),
+    UserFilterPresets(UserLevelCacheKey<FilterPresetQueryInput>),
     MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
     UserCollectionContents(UserLevelCacheKey<CollectionContentsInput>),
     UserMeasurementsList(UserLevelCacheKey<UserMeasurementsListInput>),
@@ -144,6 +145,7 @@ pub enum ApplicationCacheValue {
     UserWorkoutDetails(Box<UserWorkoutDetails>),
     MetadataDetails(Box<GraphqlMetadataDetails>),
     UserExercisesList(UserExercisesListResponse),
+    UserFilterPresets(FilterPresetsListResponse),
     UserAnalyticsParameters(ApplicationDateRange),
     UserMetadataDetails(Box<UserMetadataDetails>),
     TmdbMultiSearch(Vec<TmdbMetadataLookupResult>),

@@ -50,6 +50,10 @@ pub struct SortInput<T: InputType + Default> {
 #[graphql(concrete(name = "CachedUserWorkoutDetailsResponse", params(UserWorkoutDetails)))]
 #[graphql(concrete(name = "CachedMetadataLookupResponse", params(MetadataLookupResponse)))]
 #[graphql(concrete(
+    params(FilterPresetsListResponse),
+    name = "CachedFilterPresetsResponse",
+))]
+#[graphql(concrete(
     params(UserCollectionsListResponse),
     name = "CachedCollectionsListResponse",
 ))]
@@ -186,4 +190,5 @@ pub type MetadataGroupSearchResponse = SearchResults<String>;
 pub type UserMetadataGroupsListResponse = SearchResults<String>;
 pub type UserWorkoutsTemplatesListResponse = SearchResults<String>;
 pub type UserCollectionsListResponse = Vec<media_models::CollectionItem>;
+pub type FilterPresetsListResponse = Vec<database_models::filter_preset::Model>;
 pub type UserMeasurementsListResponse = Vec<database_models::user_measurement::Model>;

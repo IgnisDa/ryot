@@ -364,7 +364,7 @@ pub enum DailyUserActivitiesResponseGroupedBy {
     AllTime,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Display)]
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Hash, Display)]
 #[strum(serialize_all = "snake_case")]
 pub enum FilterContextType {
     MediaList,
@@ -489,4 +489,11 @@ pub struct UserToCollectionExtraInformation {
 pub struct PresignedPutUrlResponse {
     pub key: String,
     pub upload_url: String,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize, InputObject)]
+pub struct FilterPresetQueryInput {
+    pub context_type: FilterContextType,
+    pub context_metadata: Option<serde_json::Value>,
 }
