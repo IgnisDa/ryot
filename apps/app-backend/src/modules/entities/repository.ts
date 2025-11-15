@@ -12,7 +12,7 @@ import {
 	entityVisibleToUserClause,
 	entitySchemaVisibleToUserClause,
 	toListedEntity,
-} from "./repository-helpers";
+} from "./repository-support";
 import type { StoredEntityImage } from "./types";
 
 export type SaveEntityInputBase = {
@@ -41,7 +41,7 @@ export type {
 	EntityMergeScope,
 	EntitySchemaScope,
 	EntitySchemaScriptScope,
-} from "./repository-helpers";
+} from "./repository-support";
 
 export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("EntitiesRepository", {
 	sync: () => {

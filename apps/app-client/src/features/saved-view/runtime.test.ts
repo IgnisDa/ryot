@@ -3,7 +3,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
-} from "@ryot/app-backend/query-language";
+} from "@ryot/app-backend/display-configuration";
 import { SavedViewId } from "@ryot/app-backend/schema/brands";
 
 import type { QueryEngineEntityItem } from "../entity-detail/query-engine";

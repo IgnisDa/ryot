@@ -8,7 +8,7 @@ import { EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
 
 import type { ImportRunJobData } from "../jobs";
 import { ImportsRepository } from "../repository";
-import { PROGRESS_UPDATE_INTERVAL } from "../runtime/failures";
+import { PROGRESS_UPDATE_INTERVAL } from "../runtime/import-run-status";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
 
 export const ResolutionCandidate = Schema.Struct({

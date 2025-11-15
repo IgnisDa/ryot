@@ -9,7 +9,7 @@ import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 
 import type { ImportRunJobData } from "../jobs";
-import { sanitizeErrorMessage } from "../runtime/failures";
+import { sanitizeErrorMessage } from "../runtime/import-run-status";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
 import { adaptOpenScaleCsv } from "../sources/open-scale/adapter";
 import {
