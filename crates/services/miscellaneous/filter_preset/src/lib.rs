@@ -29,9 +29,9 @@ pub async fn get_filter_presets(
                 .filter(filter_preset::Column::UserId.eq(user_id))
                 .filter(filter_preset::Column::ContextType.eq(input.context_type.to_string()));
 
-            query = query.filter(match &input.context_information {
-                None => filter_preset::Column::ContextInformation.is_null(),
-                Some(metadata) => filter_preset::Column::ContextInformation.eq(metadata.clone()),
+            query = query.filter(match &input.context_metadata {
+                None => filter_preset::Column::ContextMetadata.is_null(),
+                Some(metadata) => filter_preset::Column::ContextMetadata.eq(metadata.clone()),
             });
 
             let presets = query.all(&ss.db).await?;
@@ -73,11 +73,9 @@ pub async fn create_or_update_filter_preset(
                 .filter(filter_preset::Column::UserId.eq(user_id))
                 .filter(filter_preset::Column::Name.eq(&input.name))
                 .filter(filter_preset::Column::ContextType.eq(input.context_type.to_string()))
-                .filter(match &input.context_information {
-                    None => filter_preset::Column::ContextInformation.is_null(),
-                    Some(metadata) => {
-                        filter_preset::Column::ContextInformation.eq(metadata.clone())
-                    }
+                .filter(match &input.context_metadata {
+                    None => filter_preset::Column::ContextMetadata.is_null(),
+                    Some(metadata) => filter_preset::Column::ContextMetadata.eq(metadata.clone()),
                 })
                 .one(&ss.db)
                 .await?;
@@ -91,7 +89,7 @@ pub async fn create_or_update_filter_preset(
                 filters: ActiveValue::Set(input.filters),
                 user_id: ActiveValue::Set(user_id.to_string()),
                 id: ActiveValue::Set(format!("fp_{}", nanoid!())),
-                context_information: ActiveValue::Set(input.context_information),
+                context_metadata: ActiveValue::Set(input.context_metadata),
                 context_type: ActiveValue::Set(input.context_type.to_string()),
                 ..Default::default()
             };

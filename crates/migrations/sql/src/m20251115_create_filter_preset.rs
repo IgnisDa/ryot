@@ -12,7 +12,7 @@ pub enum FilterPreset {
     UserId,
     Name,
     ContextType,
-    ContextInformation,
+    ContextMetadata,
     Filters,
     CreatedAt,
     UpdatedAt,
@@ -34,7 +34,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(FilterPreset::UserId).text().not_null())
                     .col(ColumnDef::new(FilterPreset::Name).text().not_null())
                     .col(ColumnDef::new(FilterPreset::ContextType).text().not_null())
-                    .col(ColumnDef::new(FilterPreset::ContextInformation).json_binary())
+                    .col(ColumnDef::new(FilterPreset::ContextMetadata).json_binary())
                     .col(
                         ColumnDef::new(FilterPreset::Filters)
                             .json_binary()
@@ -67,11 +67,11 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("filter_preset__user_id-context_type-context_information__index")
+                    .name("filter_preset__user_id-context_type-context_metadata__index")
                     .table(FilterPreset::Table)
                     .col(FilterPreset::UserId)
                     .col(FilterPreset::ContextType)
-                    .col(FilterPreset::ContextInformation)
+                    .col(FilterPreset::ContextMetadata)
                     .to_owned(),
             )
             .await?;
