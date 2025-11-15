@@ -18,6 +18,7 @@ const fakeFacets = [
 		name: "Media",
 		enabled: true,
 		isExpanded: true,
+		accentColor: "#5B7FFF",
 		entitySchemas: [
 			{ id: "movies", name: "Movies", slug: "movies" },
 			{ id: "tv-shows", name: "TV Shows", slug: "tv-shows" },
@@ -32,6 +33,7 @@ const fakeFacets = [
 		name: "Fitness",
 		icon: "dumbbell",
 		isExpanded: false,
+		accentColor: "#2DD4BF",
 		entitySchemas: [
 			{ id: "workouts", name: "Workouts", slug: "workouts" },
 			{ id: "nutrition", name: "Nutrition", slug: "nutrition" },
@@ -45,6 +47,7 @@ const fakeFacets = [
 		slug: "whiskey",
 		name: "Whiskey",
 		isExpanded: false,
+		accentColor: "#D4A574",
 		entitySchemas: [
 			{ id: "bottles", name: "Bottles", slug: "bottles" },
 			{ id: "tastings", name: "Tastings", slug: "tastings" },
@@ -58,6 +61,7 @@ const fakeFacets = [
 		name: "Places",
 		icon: "map-pin",
 		isExpanded: false,
+		accentColor: "#A78BFA",
 		entitySchemas: [
 			{ id: "visited", name: "Visited", slug: "visited" },
 			{ id: "wishlist", name: "Wishlist", slug: "wishlist" },

@@ -38,7 +38,6 @@ export const listFacetsByUser = async (userId: string) => {
 		enabled: row.enabled ?? false,
 		sortOrder: row.sortOrder ?? 0,
 		description: row.description ?? null,
-		accentColor: row.accentColor ?? null,
 	}));
 };
 
@@ -120,8 +119,8 @@ export const createFacetForUser = async (input: {
 	icon: string;
 	userId: string;
 	mode: FacetMode;
+	accentColor: string;
 	description?: string;
-	accentColor?: string;
 }) => {
 	return db.transaction(async (tx) => {
 		const [orderRow] = await tx
@@ -295,8 +294,8 @@ export const updateFacetForUser = async (input: {
 	name: string;
 	userId: string;
 	facetId: string;
+	accentColor: string;
 	description: string | null;
-	accentColor: string | null;
 }) => {
 	const [updatedFacet] = await db
 		.update(facet)

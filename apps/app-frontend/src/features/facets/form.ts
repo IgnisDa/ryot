@@ -25,7 +25,7 @@ export const createFacetFormSchema = z.object({
 	name: zodRequiredName,
 	slug: zodRequiredSlug,
 	description: z.string(),
-	accentColor: z.string(),
+	accentColor: zodNonEmptyTrimmedString("Accent color is required"),
 	icon: zodNonEmptyTrimmedString("Icon is required"),
 });
 
@@ -52,16 +52,16 @@ export interface CreateFacetPayload {
 	icon: string;
 	name: string;
 	slug: string;
+	accentColor: string;
 	description?: string;
-	accentColor?: string;
 }
 
 export interface UpdateFacetPayload {
 	icon: string;
 	name: string;
 	slug: string;
+	accentColor: string;
 	description?: string | null;
-	accentColor?: string | null;
 }
 
 export function toCreateFacetPayload(
@@ -71,13 +71,11 @@ export function toCreateFacetPayload(
 		icon: input.icon.trim(),
 		name: input.name.trim(),
 		slug: input.slug.trim(),
+		accentColor: input.accentColor.trim(),
 	};
 
 	const description = trimmedOrUndefined(input.description);
 	if (description !== undefined) payload.description = description;
-
-	const accentColor = trimmedOrUndefined(input.accentColor);
-	if (accentColor !== undefined) payload.accentColor = accentColor;
 
 	return payload;
 }
@@ -89,13 +87,10 @@ export function toUpdateFacetPayload(
 		icon: input.icon.trim(),
 		name: input.name.trim(),
 		slug: input.slug.trim(),
+		accentColor: input.accentColor.trim(),
 		description:
 			input.description !== undefined
 				? trimmedOrNull(input.description)
-				: undefined,
-		accentColor:
-			input.accentColor !== undefined
-				? trimmedOrNull(input.accentColor)
 				: undefined,
 	};
 }
