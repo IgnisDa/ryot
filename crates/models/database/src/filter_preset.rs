@@ -18,6 +18,8 @@ pub struct Model {
     pub created_at: DateTimeUtc,
     #[graphql(skip)]
     pub updated_at: DateTimeUtc,
+    #[graphql(skip)]
+    pub last_used_at: DateTimeUtc,
     #[sea_orm(column_type = "JsonBinary")]
     pub filters: serde_json::Value,
     #[graphql(skip)]
