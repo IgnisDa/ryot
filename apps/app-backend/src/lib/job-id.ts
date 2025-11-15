@@ -17,10 +17,10 @@ const signaturesMatch = (actual: string, expected: string) => {
 	return mismatch === 0;
 };
 
-export const createSandboxJobId = (secret: string, executionId: string, userId: string) =>
+export const createWorkflowJobId = (secret: string, executionId: string, userId: string) =>
 	`${executionId}${separator}${createSignature(secret, executionId, userId)}`;
 
-export const resolveSandboxExecutionId = (secret: string, userId: string, jobId: string) => {
+export const resolveWorkflowExecutionId = (secret: string, userId: string, jobId: string) => {
 	const separatorIndex = jobId.lastIndexOf(separator);
 	if (separatorIndex <= 0 || separatorIndex === jobId.length - 1) {
 		return null;
