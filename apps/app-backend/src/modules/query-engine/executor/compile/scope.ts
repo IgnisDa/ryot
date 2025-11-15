@@ -1,4 +1,5 @@
-import type { RootSource } from "../../language";
+import type { RootSource } from "@ryot/contract/modules/query-engine/language";
+
 import type { RootAliasKind } from "../types";
 
 // A doc alias resolved to its SQL table alias, the kind of root it belongs to, and its schema

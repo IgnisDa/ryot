@@ -5,7 +5,7 @@ import {
 	createEntityPropertyExpression,
 	createEntityPropertyPathExpression,
 	createTransformExpression,
-} from "@ryot/app-backend/display-configuration";
+} from "@ryot/contract/display-configuration";
 
 import type { Client } from "../fixtures";
 import {

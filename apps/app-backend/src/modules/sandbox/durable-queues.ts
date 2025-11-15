@@ -1,13 +1,16 @@
 import { DurableQueue } from "@effect/workflow";
+import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
+import {
+	SandboxCompletedResult,
+	SandboxExecutionPayload,
+} from "@ryot/contract/modules/sandbox/schemas";
 import { Effect, Layer } from "effect";
 
 import { AppConfig } from "#lib/config/service";
 import { DbRunner } from "#lib/db/service";
-import { SandboxRunError, unknownToMessage } from "#lib/errors";
 import { SandboxService as RuntimeSandboxService } from "#lib/sandbox/service";
 
 import { SandboxRepository } from "./repository";
-import { SandboxCompletedResult, SandboxExecutionPayload } from "./schemas";
 
 export const SandboxExecutionQueue = DurableQueue.make({
 	error: SandboxRunError,

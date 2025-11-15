@@ -1,6 +1,5 @@
+import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Effect, Option, Redacted } from "effect";
-
-import { isObjectRecord } from "#lib/predicates";
 
 import type { AnyMeta, GroupMeta } from "../config/builder";
 import { appConfigMeta } from "../config/service";

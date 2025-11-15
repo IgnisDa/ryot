@@ -2,8 +2,8 @@ import {
 	createEntityColumnExpression,
 	createEntitySchemaExpression,
 	type DisplayConfiguration,
-} from "@ryot/app-backend/display-configuration";
-import { TrackerId } from "@ryot/app-backend/schema/brands";
+} from "@ryot/contract/display-configuration";
+import { TrackerId } from "@ryot/contract/schema/brands";
 
 import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";

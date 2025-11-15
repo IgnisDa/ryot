@@ -1,11 +1,17 @@
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { badRequest, conflict, notFound } from "@ryot/contract/errors";
+import type {
+	CreateSavedViewBody,
+	ListedSavedView,
+	ReorderSavedViewsBody,
+	UpdateSavedViewBody,
+} from "@ryot/contract/modules/saved-views/schemas";
+import type { TrackerId, UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth-middleware";
 import { buildDefaultQueryDocument, buildDisplayConfig } from "#lib/builtins/view-helpers";
 import { DbRunner, TransactionRunner } from "#lib/db/service";
-import { badRequest, conflict, notFound } from "#lib/errors";
 import { buildReorderedIds } from "#lib/reorder";
-import type { TrackerId, UserId } from "#lib/schema/brands";
 import { slugify } from "#lib/slug";
 import { trimToNull } from "#lib/validation";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
@@ -13,12 +19,6 @@ import { QueryEngineService } from "#modules/query-engine/service";
 
 import { validateDisplayConfiguration } from "./display-configuration-validation";
 import { SavedViewsRepository } from "./repository";
-import type {
-	CreateSavedViewBody,
-	ListedSavedView,
-	ReorderSavedViewsBody,
-	UpdateSavedViewBody,
-} from "./schemas";
 
 const savedViewNotFound = "Saved view not found";
 const builtinViewMutationMessage = "Cannot modify built-in saved views";

@@ -1,11 +1,11 @@
 import { expect, it } from "@effect/vitest";
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { NotFound } from "@ryot/contract/errors";
+import type { FieldValue } from "@ryot/contract/modules/query-engine/language";
+import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth-middleware";
-import { NotFound } from "#lib/errors";
-import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import { type MockOverrides, dbRunnerLayer } from "#lib/test-support/effect";
-import type { FieldValue } from "#modules/query-engine/language";
 import { QueryEngineService } from "#modules/query-engine/service";
 
 import { EntitiesRepository } from "./repository";

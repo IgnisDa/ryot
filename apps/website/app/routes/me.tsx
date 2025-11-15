@@ -1,4 +1,5 @@
 import { CheckoutEventNames, type Paddle } from "@paddle/paddle-js";
+import { UserId } from "@ryot/contract/schema/brands";
 import PurchaseCompleteEmail from "@ryot/transactional/emails/purchase-complete";
 import { getActionIntent } from "@ryot/ts-utils/request";
 import { changeCase } from "@ryot/ts-utils/string";
@@ -249,7 +250,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			}
 
 			try {
-				const { data: resetPasswordResponse, error } = await resetUserPassword(customer.ryotUserId);
+				const { data: resetPasswordResponse, error } = await resetUserPassword(
+					UserId.make(customer.ryotUserId),
+				);
 
 				if (error) {
 					return data({ error: error.message });

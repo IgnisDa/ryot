@@ -1,6 +1,6 @@
+import type { IncludeEntry } from "@ryot/contract/modules/query-engine/language";
 import { sql } from "drizzle-orm";
 
-import type { IncludeEntry } from "../../language";
 import { compileBool, compileOrderBySql } from "./expr";
 import { entitySourceSql, userVisibleSql, type SqlFragment } from "./fragments";
 import type { CompileScope, SqlRef } from "./scope";

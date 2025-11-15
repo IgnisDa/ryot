@@ -1,4 +1,5 @@
-import type { AppSchema } from "#lib/schema/property-schema";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
+
 import { slugify } from "#lib/slug";
 
 type BuiltinRelationshipSchema = {

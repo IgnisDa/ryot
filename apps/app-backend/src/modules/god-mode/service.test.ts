@@ -1,4 +1,6 @@
 import { expect, it } from "@effect/vitest";
+import { BadRequest, DbError } from "@ryot/contract/errors";
+import { UserId } from "@ryot/contract/schema/brands";
 import type { ilike } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Exit, Layer } from "effect";
@@ -8,9 +10,7 @@ import { AuthService } from "#lib/auth";
 import { defaultUserPreferences } from "#lib/builtins/bootstrap";
 import * as schema from "#lib/db/schema/tables/auth";
 import { CurrentDb, DbRunner, DbService, TransactionRunner } from "#lib/db/service";
-import { BadRequest, DbError } from "#lib/errors";
 import { RedisService } from "#lib/redis";
-import { UserId } from "#lib/schema/brands";
 import { makeAppConfigLayer, makeRedisService } from "#lib/test-support/effect";
 
 import { GodModeRepository } from "./repository";

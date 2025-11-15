@@ -1,10 +1,10 @@
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { generateId } from "better-auth";
 import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import * as schema from "#lib/db/schema/tables/combined";
 import { CurrentDb, dbEffect, TransactionRunner } from "#lib/db/service";
-import type { AppSchema } from "#lib/schema/property-schema";
 
 import { builtinEntitySchemas } from "./entity-schemas";
 import {

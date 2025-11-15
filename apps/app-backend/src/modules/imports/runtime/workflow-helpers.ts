@@ -1,9 +1,9 @@
 import { FileSystem } from "@effect/platform";
 import { Activity } from "@effect/workflow";
+import { unknownToMessage } from "@ryot/contract/errors";
 import { Effect, Schema } from "effect";
 
 import { AppConfig } from "#lib/config/service";
-import { unknownToMessage } from "#lib/errors";
 import { RedisService } from "#lib/redis";
 
 import type { ImportRunJobData } from "../jobs";

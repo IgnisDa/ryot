@@ -8,6 +8,7 @@
 		{ "path": "apps/docs" },
 		{ "path": "apps/frontend" },
 		{ "path": "apps/website" },
+		{ "path": "libs/contract" },
 		{ "path": "libs/graphql" },
 		{ "path": "libs/transactional" },
 		{ "path": "libs/ts-utils" },

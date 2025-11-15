@@ -1,8 +1,8 @@
 import { FileSystem } from "@effect/platform";
+import type { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { DbRunner } from "#lib/db/service";
-import type { ImportRunId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { EntitySearchItem } from "#modules/entity-import/population";
 

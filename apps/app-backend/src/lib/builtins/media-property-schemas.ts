@@ -7,8 +7,8 @@ import {
 	stringArrayField,
 	stringField,
 	translatableStringField,
-} from "#lib/schema/core";
-import type { AppSchema } from "#lib/schema/property-schema";
+} from "@ryot/contract/schema/core";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 
 export const moviePropertiesSchema: AppSchema = {
 	fields: {

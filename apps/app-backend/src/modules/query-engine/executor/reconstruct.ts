@@ -1,4 +1,4 @@
-import type { FieldValue } from "../language";
+import type { FieldValue } from "@ryot/contract/modules/query-engine/language";
 
 // count is never null (COUNT(*) ≥ 0); sum/average/minimum/maximum over an empty numeric set are
 // NULL, which becomes the `null` kind.

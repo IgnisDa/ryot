@@ -1,8 +1,8 @@
 import { Activity } from "@effect/workflow";
+import { unknownToMessage } from "@ryot/contract/errors";
 import { Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/db/service";
-import { unknownToMessage } from "#lib/errors";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 

@@ -1,8 +1,7 @@
-import { Effect, Redacted, Schema } from "effect";
+import { Effect, Redacted } from "effect";
 import Redis from "ioredis";
 
 import { AppConfig } from "./config/service";
-import { EntityId } from "./schema/brands";
 
 export const redisKeys = {
 	entityUpdatedChannel: "ryot:entity:updated",
@@ -15,25 +14,6 @@ export const redisKeys = {
 	integrationCache: (integrationId: string, key: string) =>
 		`ryot:integrations:cache:${integrationId}:${key}`,
 };
-
-export const EntityUpdatedReason = Schema.Literal("populated", "translated");
-export type EntityUpdatedReason = typeof EntityUpdatedReason.Type;
-
-export const EntityUpdatedMessage = Schema.Struct({
-	entityId: EntityId,
-	reason: EntityUpdatedReason,
-});
-export type EntityUpdatedMessage = typeof EntityUpdatedMessage.Type;
-
-export const encodeEntityUpdatedMessage = (
-	entityId: EntityId,
-	reason: EntityUpdatedReason,
-): string => JSON.stringify({ entityId, reason } satisfies EntityUpdatedMessage);
-
-// Sync decoder for the ioredis message callback (not an Effect context).
-export const decodeEntityUpdatedMessage = Schema.decodeUnknownEither(
-	Schema.parseJson(EntityUpdatedMessage),
-);
 
 export class RedisService extends Effect.Service<RedisService>()("RedisService", {
 	scoped: Effect.gen(function* () {
