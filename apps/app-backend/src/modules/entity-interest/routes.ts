@@ -9,7 +9,7 @@ import { StreamRegistry } from "./registry";
 import { InterestReconciler } from "./service";
 import { buildInterestStreamResponse } from "./stream";
 
-export const InterestRoutesLive = HttpApiBuilder.group(AppContract, "interest", (handlers) =>
+export const InterestRoutesLive = HttpApiBuilder.group(AppContract, "entity-interest", (handlers) =>
 	handlers
 		.handleRaw("stream", ({ urlParams }) =>
 			Effect.gen(function* () {
