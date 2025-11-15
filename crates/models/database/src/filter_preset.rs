@@ -1,5 +1,6 @@
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
+use enum_models::FilterContextType;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -13,8 +14,6 @@ pub struct Model {
     #[graphql(skip)]
     pub user_id: String,
     #[graphql(skip)]
-    pub context_type: String,
-    #[graphql(skip)]
     pub created_at: DateTimeUtc,
     #[graphql(skip)]
     pub updated_at: DateTimeUtc,
@@ -22,6 +21,8 @@ pub struct Model {
     pub last_used_at: DateTimeUtc,
     #[sea_orm(column_type = "JsonBinary")]
     pub filters: serde_json::Value,
+    #[graphql(skip)]
+    pub context_type: FilterContextType,
     #[graphql(skip)]
     #[sea_orm(column_type = "JsonBinary")]
     pub context_metadata: Option<serde_json::Value>,
