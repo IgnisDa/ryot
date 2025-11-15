@@ -9,7 +9,7 @@ use dependent_models::{
 };
 use dependent_utility_utils::expire_user_filter_presets_cache;
 use nanoid::nanoid;
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use supporting_service::SupportingService;
 
 pub async fn get_filter_presets(
@@ -34,7 +34,10 @@ pub async fn get_filter_presets(
                 Some(metadata) => filter_preset::Column::ContextMetadata.eq(metadata.clone()),
             });
 
-            let presets = query.all(&ss.db).await?;
+            let presets = query
+                .order_by_desc(filter_preset::Column::LastUsedAt)
+                .all(&ss.db)
+                .await?;
             Ok(presets)
         },
     )
@@ -87,6 +90,7 @@ pub async fn create_or_update_filter_preset(
             let new_preset = filter_preset::ActiveModel {
                 name: ActiveValue::Set(input.name),
                 filters: ActiveValue::Set(input.filters),
+                last_used_at: ActiveValue::Set(Utc::now()),
                 user_id: ActiveValue::Set(user_id.to_string()),
                 id: ActiveValue::Set(format!("fp_{}", nanoid!())),
                 context_metadata: ActiveValue::Set(input.context_metadata),
@@ -119,6 +123,29 @@ pub async fn delete_filter_preset(
 
     let active_model: filter_preset::ActiveModel = preset.into();
     active_model.delete(&ss.db).await?;
+
+    expire_user_filter_presets_cache(&user_id.to_owned(), ss).await?;
+
+    Ok(true)
+}
+
+pub async fn update_filter_preset_last_used(
+    user_id: &str,
+    filter_preset_id: &str,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    let preset = FilterPreset::find_by_id(filter_preset_id)
+        .filter(filter_preset::Column::UserId.eq(user_id))
+        .one(&ss.db)
+        .await?;
+
+    let Some(preset) = preset else {
+        bail!("Filter preset not found or access denied");
+    };
+
+    let mut active_model: filter_preset::ActiveModel = preset.into();
+    active_model.last_used_at = ActiveValue::Set(Utc::now());
+    active_model.update(&ss.db).await?;
 
     expire_user_filter_presets_cache(&user_id.to_owned(), ss).await?;
 
