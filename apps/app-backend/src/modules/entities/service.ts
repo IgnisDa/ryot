@@ -20,6 +20,7 @@ import { QueryEngineService } from "#modules/query-engine/service";
 import { EntityPopulationTrigger } from "./population-trigger";
 import { EntitiesRepository, type SaveEntityInputBase } from "./repository";
 import { EntityImage, type CreateEntityBody } from "./schemas";
+import { TranslationOverlay } from "./translation-overlay";
 
 type SaveEntityInput = SaveEntityInputBase & { properties: unknown };
 
@@ -101,6 +102,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 		const runWithDb = yield* DbRunner;
 		const repository = yield* EntitiesRepository;
 		const queryEngine = yield* QueryEngineService;
+		const translationOverlay = yield* TranslationOverlay;
 		const populationTrigger = yield* EntityPopulationTrigger;
 
 		const save = Effect.fn("EntitiesService.save")(function* (input: SaveEntityInput) {
@@ -231,7 +233,13 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 				});
 			}
 
-			return entity;
+			const overlay = yield* translationOverlay.apply({
+				user,
+				entity,
+				entitySchemaSlug: scope.entitySchemaSlug,
+			});
+
+			return { ...overlay.entity, translationStatus: overlay.status };
 		});
 
 		return { save, create, getById };
