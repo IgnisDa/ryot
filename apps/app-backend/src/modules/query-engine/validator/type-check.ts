@@ -133,6 +133,9 @@ const inferRefType = (
 	if (selector.type === "schema") {
 		return schemaMetadataTypeMap[selector.name] ?? "unknown";
 	}
+	if (selector.type === "systemComputed") {
+		return "string";
+	}
 	if (selector.type === "system") {
 		let map: Record<string, CoarseType>;
 		switch (entry.type) {
