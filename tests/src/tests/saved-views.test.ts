@@ -808,8 +808,9 @@ describe("Saved views E2E", () => {
 			{ Cookie: cookies },
 		);
 
-		assertTaggedError(error, "BadRequest");
-		expect(error.message).toContain("Invalid input");
+		assertTaggedError(error, "ParseError");
+		expect(error.message).toContain("aggregations");
+		expect(error.message).toContain("is unexpected");
 	});
 
 	it("persists computed fields across saved view create and update flows", async () => {
@@ -1093,10 +1094,10 @@ describe("Saved views E2E", () => {
 			{ Cookie: cookies },
 		);
 
-		assertTaggedError(createError, "BadRequest");
-		assertTaggedError(updateError, "BadRequest");
-		expect(createError.message).toContain("Invalid input");
-		expect(updateError.message).toContain("Invalid input");
+		assertTaggedError(createError, "ParseError");
+		assertTaggedError(updateError, "ParseError");
+		expect(createError.message).toContain('actual "year"');
+		expect(updateError.message).toContain('actual "year"');
 	});
 
 	it("rejects a view referencing a property that does not exist in the schema", async () => {
@@ -1162,7 +1163,7 @@ describe("Saved views E2E", () => {
 			{ Cookie: cookies },
 		);
 
-		assertTaggedError(error, "BadRequest");
+		assertTaggedError(error, "ParseError");
 		expect(error.message).toContain("displayConfiguration");
 		expect(error.message).toContain("titleProperty");
 	});
