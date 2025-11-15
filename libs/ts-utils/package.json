@@ -13,7 +13,6 @@
 	},
 	"dependencies": {
 		"@conform-to/zod": "1.19.0",
-		"@ryot/generated": "workspace:*",
 		"clsx": "2.1.1",
 		"dayjs": "1.11.21",
 		"humanize-duration-ts": "2.1.1",

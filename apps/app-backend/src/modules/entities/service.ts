@@ -167,7 +167,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 							properties,
 							entitySchemaId,
 							userId: user.id,
-							image: payload.image ? trimToNull(payload.image) : null,
+							image: payload.image ?? null,
 							...provenance,
 						}),
 					);
