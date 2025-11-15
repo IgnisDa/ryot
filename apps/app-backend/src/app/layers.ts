@@ -11,7 +11,10 @@ import { RedisService } from "#lib/redis";
 import { S3Service } from "#lib/s3";
 import { SandboxService } from "#lib/sandbox";
 import { PersistedQueueLive, WorkflowEngineLive } from "#lib/workflow";
-import { GlobalEntityReferenceHookLive } from "#modules/collections/event-hooks";
+import {
+	EntityImportHookLive,
+	GlobalEntityReferenceHookLive,
+} from "#modules/collections/event-hooks";
 import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -113,7 +116,7 @@ const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 );
 
 const CollectionsServicesLive = Layer.provideMerge(
-	GlobalEntityReferenceHookLive,
+	Layer.mergeAll(EntityImportHookLive, GlobalEntityReferenceHookLive),
 	CollectionsService.Default,
 );
 
