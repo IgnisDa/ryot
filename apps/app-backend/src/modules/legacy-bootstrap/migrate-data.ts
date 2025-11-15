@@ -5,6 +5,13 @@ import { entitySchema, relationshipSchema, sandboxScript } from "~/lib/db/schema
 
 import { buildCollectionEntityMigrationSql } from "./collection-mapping";
 import {
+	buildExerciseMigrationSql,
+	exerciseEntityTargets,
+	getInvalidExerciseGithubOwnership,
+	getUnsupportedExerciseLots,
+	getUnsupportedExerciseSources,
+} from "./exercise-mapping";
+import {
 	buildMetadataGroupEntityMigrationSql,
 	buildMetadataGroupRelationshipMigrationSql,
 	getUnsupportedMetadataGroupSources,
@@ -290,6 +297,40 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		);
 	}
 
+	const unsupportedExerciseSources = await getUnsupportedExerciseSources(database);
+	if (unsupportedExerciseSources.length > 0) {
+		throw new Error(
+			`Unsupported legacy exercise sources: ${unsupportedExerciseSources
+				.map(({ source }) => source)
+				.join(", ")}`,
+		);
+	}
+
+	const unsupportedExerciseLots = await getUnsupportedExerciseLots(database);
+	if (unsupportedExerciseLots.length > 0) {
+		throw new Error(
+			`Unsupported legacy exercise lots: ${unsupportedExerciseLots
+				.map(({ lot }) => lot)
+				.join(", ")}`,
+		);
+	}
+
+	const invalidExerciseGithubOwnership = await getInvalidExerciseGithubOwnership(database);
+	if (invalidExerciseGithubOwnership.length > 0) {
+		throw new Error(
+			`Legacy github exercise rows must not have a creator user id: ${invalidExerciseGithubOwnership
+				.map(({ id }) => id)
+				.join(", ")}`,
+		);
+	}
+
+	const resolvedExerciseTargets = resolveEntityMigrationTargets(
+		exerciseEntityTargets,
+		entitySchemaIds,
+		sandboxScriptIds,
+		"exercise",
+	);
+
 	await withLegacyBootstrapNoticeClient(database, async (client) => {
 		await client.query(buildMetadataMigrationSql(resolvedMetadataTargets));
 		await client.query(buildMetadataGroupEntityMigrationSql(resolvedMetadataGroupEntityTargets));
@@ -300,6 +341,7 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		await client.query(buildPersonEntityMigrationSql(resolvedPersonEntityTargets));
 		await client.query(buildCompanyEntityMigrationSql(resolvedCompanyEntityTargets));
 		await client.query(buildCollectionEntityMigrationSql(collectionEntitySchemaId));
+		await client.query(buildExerciseMigrationSql(resolvedExerciseTargets));
 		await client.query(`
 			DO $$
 			DECLARE
