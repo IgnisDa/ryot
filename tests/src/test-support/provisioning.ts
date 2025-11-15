@@ -15,8 +15,14 @@ const processLogBuffers = new WeakMap<
 >();
 
 function appendLog(buffer: string, data: unknown) {
-	const text =
-		typeof data === "string" ? data : Buffer.isBuffer(data) ? data.toString("utf8") : String(data);
+	let text: string;
+	if (typeof data === "string") {
+		text = data;
+	} else if (Buffer.isBuffer(data)) {
+		text = data.toString("utf8");
+	} else {
+		text = String(data);
+	}
 	const next = `${buffer}${text}`;
 	return next.length > MAX_BUFFERED_LOG_CHARS ? next.slice(-MAX_BUFFERED_LOG_CHARS) : next;
 }
