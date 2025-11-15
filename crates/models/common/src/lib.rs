@@ -312,7 +312,7 @@ pub struct CreateOrUpdateFilterPresetInput {
     pub id: Option<String>,
     pub filters: serde_json::Value,
     pub context_type: FilterContextType,
-    pub context_metadata: Option<serde_json::Value>,
+    pub context_information: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -484,5 +484,5 @@ pub struct PresignedPutUrlResponse {
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize, InputObject)]
 pub struct FilterPresetQueryInput {
     pub context_type: FilterContextType,
-    pub context_metadata: Option<serde_json::Value>,
+    pub context_information: Option<serde_json::Value>,
 }

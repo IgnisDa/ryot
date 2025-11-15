@@ -449,7 +449,7 @@ export type CreateOrUpdateCollectionInput = {
 };
 
 export type CreateOrUpdateFilterPresetInput = {
-  contextMetadata?: InputMaybe<Scalars['JSON']['input']>;
+  contextInformation?: InputMaybe<Scalars['JSON']['input']>;
   contextType: FilterContextType;
   filters: Scalars['JSON']['input'];
   id?: InputMaybe<Scalars['String']['input']>;
@@ -888,7 +888,7 @@ export type FilterPreset = {
 };
 
 export type FilterPresetQueryInput = {
-  contextMetadata?: InputMaybe<Scalars['JSON']['input']>;
+  contextInformation?: InputMaybe<Scalars['JSON']['input']>;
   contextType: FilterContextType;
 };
 

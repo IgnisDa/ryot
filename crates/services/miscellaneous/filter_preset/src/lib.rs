@@ -29,10 +29,10 @@ pub async fn get_filter_presets(
                 .filter(filter_preset::Column::UserId.eq(user_id))
                 .filter(filter_preset::Column::ContextType.eq(input.context_type));
 
-            query = match &input.context_metadata {
-                None => query.filter(filter_preset::Column::ContextMetadata.is_null()),
+            query = match &input.context_information {
+                None => query.filter(filter_preset::Column::ContextInformation.is_null()),
                 Some(metadata) => {
-                    query.filter(filter_preset::Column::ContextMetadata.eq(metadata.clone()))
+                    query.filter(filter_preset::Column::ContextInformation.eq(metadata.clone()))
                 }
             };
 
@@ -81,7 +81,7 @@ pub async fn create_or_update_filter_preset(
                 user_id: ActiveValue::Set(user_id.to_string()),
                 id: ActiveValue::Set(format!("fp_{}", nanoid!())),
                 context_type: ActiveValue::Set(input.context_type),
-                context_metadata: ActiveValue::Set(input.context_metadata),
+                context_information: ActiveValue::Set(input.context_information),
                 ..Default::default()
             };
 
