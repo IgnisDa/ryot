@@ -17,8 +17,9 @@ type HttpCallOptions = {
 
 export type SandboxRunInput = {
 	readonly code: string;
-	readonly scriptId: string;
 	readonly context: unknown;
+	readonly scriptId: string;
+	readonly metadata: unknown;
 	readonly driverName: string;
 	readonly executionId: string;
 	readonly userId: string | null;
@@ -47,6 +48,7 @@ const SandboxRunnerRequest = Schema.Struct({
 	apiBase: Schema.String,
 	context: Schema.Unknown,
 	scriptId: Schema.String,
+	metadata: Schema.Unknown,
 	driverName: Schema.String,
 	executionId: Schema.String,
 	apiFunctions: Schema.Array(Schema.String),
@@ -151,6 +153,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						scriptId: input.scriptId,
 						context: input.context ?? {},
 						driverName: input.driverName,
+						metadata: input.metadata ?? {},
 						executionId: input.executionId,
 						apiBase: `http://127.0.0.1:${bridge.port}`,
 						apiFunctions: Object.keys(selectedApiFunctions),

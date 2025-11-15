@@ -29,9 +29,9 @@ and "Translate workflow":
   composition layer (mirroring the existing population-trigger inverted hook).
 - Add `providerInformation { source, canonicalLanguage? }` to the sandbox script metadata schema,
   and populate it for `movie.tmdb` (`source: "tmdb"`, `canonicalLanguage: "en-US"`).
-- Population reads the script's `canonicalLanguage` and injects it as the `details` driver's
-  language input; update `movie.tmdb` `details` to use the injected language instead of the
-  hardcoded value.
+- Expose each script's stored metadata to its drivers via the script-metadata context (the
+  driver's second argument); `movie.tmdb` `details` reads its own
+  `providerInformation.canonicalLanguage` from it instead of the hardcoded value.
 - Add the `movie.tmdb` `translate` driver (input: external id, entity schema slug, properties,
   language; output: optional name/description/image), calling TMDB with the requested language.
 
@@ -55,8 +55,8 @@ re-executable on the next read (PRD "Further Notes").
       `none`, missing row → `pending`.
 - [x] `providerInformation` is on the sandbox metadata schema; `movie.tmdb` declares
       `source: "tmdb"` and `canonicalLanguage: "en-US"`.
-- [x] `movie.tmdb` `details` uses the injected canonical language; the `movie.tmdb` `translate`
-      driver returns localized name/description/image for a given language.
+- [x] `movie.tmdb` `details` reads its canonical language from the script-metadata context; the
+      `movie.tmdb` `translate` driver returns localized name/description/image for a given language.
 - [x] The entity detail read returns `translationStatus`; on a miss with a non-canonical
       preference it triggers a background fill and returns canonical with `pending`.
 - [x] Integration test: a TMDB movie with a non-canonical preference returns `pending`, then after
@@ -73,6 +73,11 @@ re-executable on the next read (PRD "Further Notes").
   `entities-population-dispatch` integration test, which hits a real provider).
 - `isObjectRecord` was extracted to `#lib/predicates` and all prior local copies (including two
   `isRecord` aliases) now import it.
+- Scripts read their own stored metadata via the driver's second argument (the script-metadata
+  context: `{ sandboxScriptId, metadata }`, assembled in `runner-source.txt` and plumbed through
+  `SandboxService.run`). `movie.tmdb` `details` reads `metadata.providerInformation.canonicalLanguage`
+  from it. This replaced an earlier host-side hack (`withCanonicalLanguage`) that injected
+  `canonicalLanguage` into the driver input, which is now removed.
 - Verification caveat: the `pending`, negative-cache (`none`), and canonical/no-preference paths
   were confirmed locally end-to-end. The full `ready`-merge assertion could not be confirmed on
   this machine because outbound connectivity to `api.themoviedb.org` was intermittently
