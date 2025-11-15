@@ -1,15 +1,28 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import { isAPIError } from "better-auth/api";
-import { auth } from "~/lib/auth";
+import { auth, type MaybeAuthType } from "~/lib/auth";
 import {
+	createAuthRoute,
 	createValidationErrorResult,
 	jsonResponse,
 	payloadErrorResponse,
 	resolveValidationResult,
 	successResponse,
 } from "~/lib/openapi";
-import { signUpBody, signUpResponseSchema } from "./schemas";
+import { meResponseSchema, signUpBody, signUpResponseSchema } from "./schemas";
 import { resolveAuthenticationName } from "./service";
+
+const meRoute = createAuthRoute(
+	createRoute({
+		path: "/me",
+		method: "get",
+		tags: ["authentication"],
+		summary: "Get the current user session",
+		responses: {
+			200: jsonResponse("Authenticated session details", meResponseSchema),
+		},
+	}),
+);
 
 const signUpRoute = createRoute({
 	path: "/email",
@@ -25,9 +38,13 @@ const signUpRoute = createRoute({
 	},
 });
 
-export const authenticationApi = new OpenAPIHono().openapi(
-	signUpRoute,
-	async (c) => {
+export const authenticationApi = new OpenAPIHono<{ Variables: MaybeAuthType }>()
+	.openapi(meRoute, async (c) => {
+		const user = c.get("user");
+		const session = c.get("session");
+		return c.json(successResponse({ user, session }), 200);
+	})
+	.openapi(signUpRoute, async (c) => {
 		const body = c.req.valid("json");
 
 		const nameResult = resolveValidationResult(
@@ -55,5 +72,4 @@ export const authenticationApi = new OpenAPIHono().openapi(
 		}
 
 		return c.json(successResponse({ created: true as const }), 200);
-	},
-);
+	});
