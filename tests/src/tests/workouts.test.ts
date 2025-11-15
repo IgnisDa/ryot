@@ -58,7 +58,7 @@ describe("Workouts E2E", () => {
 				description: "Date and time this workout session began",
 			},
 			caloriesBurnt: {
-				type: "integer",
+				type: "number",
 				label: "Calories Burnt",
 				description: "Estimated calories burned during this workout",
 			},
