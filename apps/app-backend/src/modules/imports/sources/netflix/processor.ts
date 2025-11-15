@@ -126,8 +126,9 @@ const adaptNetflixExportsWithSearchResults = (input: {
 			case "show":
 				requiredSearchJobKeys = [showKey];
 				break;
-			default:
+			case undefined:
 				requiredSearchJobKeys = [movieKey, showKey];
+				break;
 		}
 		const lookupError = requiredSearchJobKeys
 			.map((searchJobKey) => input.searchErrors.get(searchJobKey))
@@ -144,8 +145,9 @@ const adaptNetflixExportsWithSearchResults = (input: {
 			case "show":
 				results = showResults;
 				break;
-			default:
+			case undefined:
 				results = [...movieResults, ...showResults];
+				break;
 		}
 		const match = chooseBestNetflixTitleMatch({ title, results, preferredEntitySchemaSlug });
 		if (!match) {
