@@ -202,7 +202,7 @@ function UserRowWithReset(props: {
 			),
 	});
 
-	const setBanMutation = useMutation({
+	const setDisabledMutation = useMutation({
 		onError: (err) => setError(err.message),
 		onSuccess: () => {
 			void queryClient.invalidateQueries({ queryKey: godModeUsersQueryKey(token) });
@@ -211,13 +211,16 @@ function UserRowWithReset(props: {
 			setError(null);
 			setResult(null);
 		},
-		mutationFn: (banned: boolean) =>
+		mutationFn: (disabled: boolean) =>
 			runContract((client) =>
-				client.godMode.setUserBan({ path: { userId: UserId.make(user.id) }, payload: { banned } }),
+				client.godMode.setUserDisabled({
+					path: { userId: UserId.make(user.id) },
+					payload: { disabled },
+				}),
 			),
 	});
 
-	const isDisabled = !!user.bannedAt;
+	const isDisabled = !!user.disabledAt;
 	const canReset = user.authState === "credential" || user.authState === "none";
 
 	async function handleCopy() {
@@ -251,13 +254,13 @@ function UserRowWithReset(props: {
 						{user.email}
 					</Text>
 					<Text className="text-muted-foreground text-xs">{user.name}</Text>
-					{user.bannedAt && (
+					{user.disabledAt && (
 						<Text className="text-muted-foreground text-xs">
-							Disabled since {dayjs(user.bannedAt).format("MMM D, YYYY")}
+							Disabled since {dayjs(user.disabledAt).format("MMM D, YYYY")}
 						</Text>
 					)}
 				</Box>
-				<StatusBadge bannedAt={user.bannedAt} />
+				<StatusBadge disabledAt={user.disabledAt} />
 				<AuthBadge state={user.authState} />
 			</Box>
 			<Box className="flex-row flex-wrap items-center px-3 pb-3 gap-2">
@@ -271,11 +274,11 @@ function UserRowWithReset(props: {
 				</Button>
 				<Button
 					size="sm"
-					isDisabled={setBanMutation.isPending}
+					isDisabled={setDisabledMutation.isPending}
 					variant={isDisabled ? "outline" : "destructive"}
-					onPress={() => setBanMutation.mutate(!isDisabled)}
+					onPress={() => setDisabledMutation.mutate(!isDisabled)}
 				>
-					{setBanMutation.isPending && <ButtonSpinner />}
+					{setDisabledMutation.isPending && <ButtonSpinner />}
 					<ButtonText>{isDisabled ? "Enable user" : "Disable user"}</ButtonText>
 				</Button>
 				{!canReset && (
@@ -306,8 +309,8 @@ function UserRowWithReset(props: {
 	);
 }
 
-function StatusBadge(props: { bannedAt: string | null }) {
-	const isDisabled = !!props.bannedAt;
+function StatusBadge(props: { disabledAt: string | null }) {
+	const isDisabled = !!props.disabledAt;
 	const color = isDisabled ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700";
 
 	return (
