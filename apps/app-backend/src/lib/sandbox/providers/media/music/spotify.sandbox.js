@@ -12,7 +12,7 @@ function getString(value) {
 
 function getNullableString(value) {
 	const s = getString(value);
-	return s || null;
+	return s.length > 0 ? s : null;
 }
 
 function getPublishYear(releaseDateStr, dayjs) {
@@ -177,7 +177,8 @@ driver("search", async function (context) {
 				return null;
 			}
 
-			const title = getString(track?.name) || externalId;
+			const rawTitle = getString(track?.name);
+			const title = rawTitle.length > 0 ? rawTitle : externalId;
 			const album = track?.album;
 			const publishYear = album ? getPublishYear(album.release_date, dayjs) : null;
 			const imageUrl = album?.images ? getFirstImage(album.images) : null;
