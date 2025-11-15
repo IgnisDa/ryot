@@ -1,6 +1,5 @@
 import {
 	Avatar,
-	Badge,
 	Box,
 	Group,
 	Modal,
@@ -129,13 +128,6 @@ export function SidebarAccountSection(props: {
 								</Text>
 							</Box>
 						</Group>
-
-						<Badge
-							color={props.account.emailVerified ? "teal" : "gray"}
-							variant="light"
-						>
-							{props.account.emailVerified ? "Verified" : "Unverified"}
-						</Badge>
 					</Group>
 
 					<Box

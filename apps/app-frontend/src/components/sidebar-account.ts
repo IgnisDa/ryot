@@ -3,13 +3,12 @@ import type { SidebarAccount } from "./Sidebar.types";
 
 export function toSidebarAccount(input: AuthenticatedUser): SidebarAccount {
 	return {
-		id: input.id,
-		name: input.name,
-		email: input.email,
-		image: input.image ?? null,
-		createdAt: input.createdAt,
-		updatedAt: input.updatedAt,
-		emailVerified: input.emailVerified ?? false,
+		id: input.user.id,
+		name: input.user.name,
+		email: input.user.email,
+		image: input.user.image ?? null,
+		createdAt: input.user.createdAt,
+		updatedAt: input.user.updatedAt,
 	};
 }
 
