@@ -114,8 +114,33 @@ driver("details", async function (context) {
   const parts =
     typeof series?.issue_count === "number" ? series.issue_count : 0;
 
+  // Fetch the issue list for this series to get member items with positions.
+  const issueListData = await metronGet(`/series/${externalId}/issue_list/?limit=100`);
+  const issueList = Array.isArray(issueListData?.results) ? issueListData.results : [];
+  const relatedEntities = issueList
+    .map((issue, idx) => {
+      const memberId =
+        typeof issue?.id === "number" ? String(Math.trunc(issue.id)) : null;
+      if (!memberId) return null;
+      const memberName =
+        typeof issue?.issue === "string" && issue.issue.trim()
+          ? issue.issue.trim()
+          : typeof issue?.issue_name === "string" && issue.issue_name.trim()
+            ? issue.issue_name.trim()
+            : "Loading...";
+      return {
+        name: memberName,
+        externalId: memberId,
+        reverseDirection: true,
+        scriptSlug: "comic-book.metron",
+        relationshipProperties: { order: idx + 1 },
+      };
+    })
+    .filter((e) => e !== null);
+
   return {
     name: title,
+    relatedEntities,
     properties: {
       parts,
       images: [],
