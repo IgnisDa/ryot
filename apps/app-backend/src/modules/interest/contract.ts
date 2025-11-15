@@ -1,4 +1,5 @@
-import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
+import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
 import { NotFound, RateLimited, Unauthorized } from "#lib/errors";
@@ -9,6 +10,11 @@ export const InterestGroup = HttpApiGroup.make("interest")
 	.addError(Unauthorized, { status: 401 })
 	.addError(RateLimited, { status: 429 })
 	.middleware(AuthMiddleware)
+	.add(
+		HttpApiEndpoint.get("stream", "/interest/stream")
+			.setUrlParams(Schema.Struct({ streamId: Schema.String }))
+			.addSuccess(HttpApiSchema.Text({ contentType: "text/event-stream" })),
+	)
 	.add(
 		HttpApiEndpoint.post("declareInterest", "/interest")
 			.setPayload(DeclareInterestBody)
