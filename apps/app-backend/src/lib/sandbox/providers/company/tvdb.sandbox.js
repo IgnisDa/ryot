@@ -6,6 +6,16 @@ function parseJsonResponse(responseBody) {
 	}
 }
 
+function getAliasName(a) {
+	if (typeof a?.name === "string") {
+		return a.name.trim();
+	}
+	if (typeof a === "string") {
+		return a.trim();
+	}
+	return "";
+}
+
 const TVDB_BASE_URL = "https://api4.thetvdb.com/v4";
 const TOKEN_CACHE_KEY = "tvdb_access_token";
 
@@ -180,11 +190,7 @@ driver("details", async function (context) {
 	}
 
 	const alternateNames = Array.isArray(company?.aliases)
-		? company.aliases
-				.map((a) =>
-					typeof a?.name === "string" ? a.name.trim() : typeof a === "string" ? a.trim() : "",
-				)
-				.filter((n) => n.length > 0)
+		? company.aliases.map(getAliasName).filter((n) => n.length > 0)
 		: [];
 
 	const headquarters =

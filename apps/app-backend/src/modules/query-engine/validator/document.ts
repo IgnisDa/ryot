@@ -12,12 +12,18 @@ const runValidation = (
 	if (source.type === "entities" && source.via !== undefined) {
 		return "Root entity source cannot specify via";
 	}
-	const sourceError =
-		source.type === "entities"
-			? validateEntitySource(source, scope, aliases)
-			: source.type === "events"
-				? validateRootEventSource(source, scope, aliases)
-				: validateRelationshipSource(source, scope, aliases);
+	let sourceError: string | null;
+	switch (source.type) {
+		case "entities":
+			sourceError = validateEntitySource(source, scope, aliases);
+			break;
+		case "events":
+			sourceError = validateRootEventSource(source, scope, aliases);
+			break;
+		case "relationships":
+			sourceError = validateRelationshipSource(source, scope, aliases);
+			break;
+	}
 	if (sourceError) {
 		return sourceError;
 	}

@@ -260,25 +260,18 @@ driver("details", async function (context, { metadata }) {
 	const image =
 		typeof person?.image === "string" && person.image.trim() ? person.image.trim() : null;
 
+	const TVDB_GENDER_MAP = { 1: "Male", 2: "Female", 3: "Other" };
 	const gender =
-		typeof person?.gender === "number"
-			? person.gender === 1
-				? "Male"
-				: person.gender === 2
-					? "Female"
-					: person.gender === 3
-						? "Other"
-						: null
-			: null;
+		typeof person?.gender === "number" ? (TVDB_GENDER_MAP[person.gender] ?? null) : null;
 
-	const description =
-		translation.description ??
-		(Array.isArray(person?.biographies) && person.biographies.length > 0
-			? typeof person.biographies[0]?.biography === "string" &&
-				person.biographies[0].biography.trim()
-				? person.biographies[0].biography.trim()
-				: null
-			: null);
+	let firstBiography = null;
+	if (Array.isArray(person?.biographies) && person.biographies.length > 0) {
+		const biography = person.biographies[0]?.biography;
+		if (typeof biography === "string" && biography.trim()) {
+			firstBiography = biography.trim();
+		}
+	}
+	const description = translation.description ?? firstBiography;
 
 	const slug = typeof person?.slug === "string" && person.slug.trim() ? person.slug.trim() : null;
 

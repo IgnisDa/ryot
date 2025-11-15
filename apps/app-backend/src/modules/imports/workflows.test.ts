@@ -471,14 +471,15 @@ it.effect("resolves imported show episode progress and drops unresolved locators
 				),
 		}),
 		entitySchemasRepository: makeEntitySchemasRepository({
-			getBuiltinBySlug: (slug) =>
-				Effect.succeed(
-					slug === "show"
-						? { id: EntitySchemaId.make("schema-show") }
-						: slug === "show-episode"
-							? { id: EntitySchemaId.make("schema-show-episode") }
-							: null,
-				),
+			getBuiltinBySlug: (slug) => {
+				let result: { id: EntitySchemaId } | null = null;
+				if (slug === "show") {
+					result = { id: EntitySchemaId.make("schema-show") };
+				} else if (slug === "show-episode") {
+					result = { id: EntitySchemaId.make("schema-show-episode") };
+				}
+				return Effect.succeed(result);
+			},
 		}),
 		eventsService: makeEventsService({
 			create: (input) => {
@@ -618,14 +619,15 @@ it.effect("resolves imported podcast episode progress and drops unresolved locat
 				),
 		}),
 		entitySchemasRepository: makeEntitySchemasRepository({
-			getBuiltinBySlug: (slug) =>
-				Effect.succeed(
-					slug === "podcast"
-						? { id: EntitySchemaId.make("schema-podcast") }
-						: slug === "podcast-episode"
-							? { id: EntitySchemaId.make("schema-podcast-episode") }
-							: null,
-				),
+			getBuiltinBySlug: (slug) => {
+				let result: { id: EntitySchemaId } | null = null;
+				if (slug === "podcast") {
+					result = { id: EntitySchemaId.make("schema-podcast") };
+				} else if (slug === "podcast-episode") {
+					result = { id: EntitySchemaId.make("schema-podcast-episode") };
+				}
+				return Effect.succeed(result);
+			},
 		}),
 		eventsService: makeEventsService({
 			create: (input) => {

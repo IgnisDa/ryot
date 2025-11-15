@@ -160,12 +160,12 @@ driver("details", async function (context) {
 		images.push({ type: "remote", url: logo });
 	}
 
-	const headquarters =
-		typeof companyData?.headquarters === "string" && companyData.headquarters.trim()
-			? companyData.headquarters.trim()
-			: typeof companyData?.origin_country === "string" && companyData.origin_country.trim()
-				? companyData.origin_country.trim()
-				: null;
+	let headquarters = null;
+	if (typeof companyData?.headquarters === "string" && companyData.headquarters.trim()) {
+		headquarters = companyData.headquarters.trim();
+	} else if (typeof companyData?.origin_country === "string" && companyData.origin_country.trim()) {
+		headquarters = companyData.origin_country.trim();
+	}
 
 	return {
 		name,
