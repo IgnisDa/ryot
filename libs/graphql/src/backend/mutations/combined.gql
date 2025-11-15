@@ -334,3 +334,19 @@ mutation GetPasswordChangeSession($input: GetPasswordChangeSessionInput!) {
 mutation SetPasswordViaSession($input: SetPasswordViaSessionInput!) {
 	setPasswordViaSession(input: $input)
 }
+
+mutation CreateOrUpdateFilterPreset($input: CreateOrUpdateFilterPresetInput!) {
+	createOrUpdateFilterPreset(input: $input) {
+		id
+		name
+		filters
+	}
+}
+
+mutation DeleteFilterPreset($filterPresetId: String!) {
+	deleteFilterPreset(filterPresetId: $filterPresetId)
+}
+
+mutation UpdateFilterPresetLastUsed($filterPresetId: String!) {
+	updateFilterPresetLastUsed(filterPresetId: $filterPresetId)
+}
