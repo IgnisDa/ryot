@@ -7,14 +7,14 @@ import {
 	findBuiltinSchemaBySlug,
 	getEntity,
 	getEntityTranslationRow,
-	openInterestSocket,
+	openInterestStream,
 	pollEntityUntilTranslationStatus,
 	seedMediaEntity,
 	seedPopulatedTmdbMovie,
 	setUserLanguage,
 	waitForEntityPopulated,
 } from "../fixtures";
-import type { InterestSocket } from "../fixtures";
+import type { InterestStream } from "../fixtures";
 import { assertPresent } from "../test-support/assertions";
 
 const CANONICAL_LANGUAGE = "en";
@@ -23,10 +23,10 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 async function declareInterest(
 	auth: Awaited<ReturnType<typeof createAuthenticatedClient>>,
 	entityIds: string[],
-): Promise<InterestSocket> {
-	const socket = await openInterestSocket(auth);
-	socket.sendInterest(entityIds);
-	return socket;
+): Promise<InterestStream> {
+	const stream = await openInterestStream(auth);
+	await stream.declareInterest(entityIds);
+	return stream;
 }
 
 describe("entity translation via client-declared interest", () => {
@@ -45,10 +45,10 @@ describe("entity translation via client-declared interest", () => {
 		expect(beforeInterest.translationStatus).toBe("pending");
 		expect(beforeInterest.name).toBe("Canonical Fight Club");
 
-		const socket = await declareInterest(auth, [movie.id]);
+		const stream = await declareInterest(auth, [movie.id]);
 		try {
-			// Interest triggers the fill; completion fans out over the socket.
-			const event = await socket.waitForEntityUpdated(movie.id, "translated", {
+			// Interest triggers the fill; completion fans out over the stream.
+			const event = await stream.waitForEntityUpdated(movie.id, "translated", {
 				timeoutMs: 90_000,
 			});
 			expect(event.reason).toBe("translated");
@@ -67,7 +67,7 @@ describe("entity translation via client-declared interest", () => {
 			expect(sharedRead.name).toBe(localizedRead.name);
 			expect(await countEntityTranslations(movie.id)).toBe(1);
 		} finally {
-			socket.close();
+			stream.close();
 		}
 	}, 150_000);
 
@@ -84,9 +84,9 @@ describe("entity translation via client-declared interest", () => {
 		const firstRead = await getEntity(client, movie.id);
 		expect(firstRead.translationStatus).toBe("pending");
 
-		const socket = await declareInterest(auth, [movie.id]);
+		const stream = await declareInterest(auth, [movie.id]);
 		try {
-			await socket.waitForEntityUpdated(movie.id, "translated", { timeoutMs: 90_000 });
+			await stream.waitForEntityUpdated(movie.id, "translated", { timeoutMs: 90_000 });
 
 			const settledRead = await pollEntityUntilTranslationStatus(client, movie.id, "none", {
 				timeoutMs: 90_000,
@@ -98,7 +98,7 @@ describe("entity translation via client-declared interest", () => {
 			expect(overlay?.properties?.description ?? null).toBeNull();
 			expect(await countEntityTranslations(movie.id)).toBe(1);
 		} finally {
-			socket.close();
+			stream.close();
 		}
 	}, 120_000);
 
@@ -144,9 +144,9 @@ describe("entity translation via client-declared interest", () => {
 		// would write an all-null overlay and permanently mislabel the status as "none").
 		await setUserLanguage(client, "es");
 
-		const socket = await declareInterest(auth, [seeded.id]);
+		const stream = await declareInterest(auth, [seeded.id]);
 		try {
-			const event = await socket.waitForEntityUpdated(seeded.id, "populated", {
+			const event = await stream.waitForEntityUpdated(seeded.id, "populated", {
 				timeoutMs: 60_000,
 			});
 			expect(event.reason).toBe("populated");
@@ -158,7 +158,7 @@ describe("entity translation via client-declared interest", () => {
 			await delay(3000);
 			expect(await countEntityTranslations(seeded.id)).toBe(0);
 		} finally {
-			socket.close();
+			stream.close();
 		}
 	}, 90_000);
 });

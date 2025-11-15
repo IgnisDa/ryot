@@ -3,10 +3,11 @@ import { describe, expect, it } from "bun:test";
 import {
 	createAuthenticatedClient,
 	findBuiltinSchemaBySlug,
-	openInterestSocket,
+	openInterestStream,
+	postBackendJson,
 	seedMediaEntity,
 } from "../fixtures";
-import { getPgClient } from "../setup";
+import { getBackendUrl, getPgClient } from "../setup";
 import { assertPresent } from "../test-support/assertions";
 
 describe("interest authorization", () => {
@@ -30,14 +31,14 @@ describe("interest authorization", () => {
 			externalId: `private-${crypto.randomUUID()}`,
 		});
 
-		const socketB = await openInterestSocket(authB);
+		const streamB = await openInterestStream(authB);
 		try {
-			socketB.sendInterest([privateEntity.id]);
+			await streamB.declareInterest([privateEntity.id]);
 			// B is not authorized to see the entity, so the reconciler never surfaces it: no catch-up, no
 			// completion event.
-			await socketB.expectNoEntityUpdated(privateEntity.id, { windowMs: 4000 });
+			await streamB.expectNoEntityUpdated(privateEntity.id, { windowMs: 4000 });
 		} finally {
-			socketB.close();
+			streamB.close();
 		}
 
 		// And nothing was enqueued on B's behalf: the entity is still unpopulated.
@@ -47,4 +48,34 @@ describe("interest authorization", () => {
 		);
 		expect(result.rows[0]?.populatedAt ?? null).toBeNull();
 	}, 20_000);
+
+	it("rejects an unauthenticated stream connection", async () => {
+		const response = await fetch(`${getBackendUrl()}/stream?streamId=${crypto.randomUUID()}`);
+		expect(response.status).toBe(401);
+	});
+
+	it("rejects an unauthenticated interest declaration", async () => {
+		const response = await postBackendJson("/interest", {
+			entityIds: [],
+			streamId: crypto.randomUUID(),
+		});
+		expect(response.status).toBe(401);
+	});
+
+	it("rejects declaring interest on another user's stream", async () => {
+		const authA = await createAuthenticatedClient();
+		const authB = await createAuthenticatedClient();
+
+		const streamA = await openInterestStream(authA);
+		try {
+			const response = await postBackendJson(
+				"/interest",
+				{ streamId: streamA.streamId, entityIds: [] },
+				authB.cookies,
+			);
+			expect(response.status).toBe(404);
+		} finally {
+			streamA.close();
+		}
+	});
 });
