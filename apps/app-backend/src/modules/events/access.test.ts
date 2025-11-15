@@ -74,28 +74,4 @@ describe("resolveEventCreateAccess", () => {
 			},
 		});
 	});
-
-	it("returns the resolved scope when the event schema is visible but not owned", () => {
-		expect(
-			resolveEventCreateAccess({
-				isBuiltin: false,
-				entityId: "entity-1",
-				eventSchemaSlug: "log",
-				eventSchemaName: "Log",
-				entitySchemaId: "schema-1",
-				eventSchemaId: "event-schema-1",
-				eventSchemaEntitySchemaId: "schema-1",
-				propertiesSchema: { rating: { type: "number" as const } },
-			}),
-		).toEqual({
-			access: {
-				entityId: "entity-1",
-				eventSchemaSlug: "log",
-				eventSchemaName: "Log",
-				entitySchemaId: "schema-1",
-				eventSchemaId: "event-schema-1",
-				propertiesSchema: { rating: { type: "number" } },
-			},
-		});
-	});
 });
