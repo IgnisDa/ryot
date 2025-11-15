@@ -1,6 +1,11 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
-import { db } from "~/lib/db";
-import { entitySchema, savedView } from "~/lib/db/schema";
+import { type DbClient, db } from "~/lib/db";
+import {
+	entitySchema,
+	facet,
+	facetEntitySchema,
+	savedView,
+} from "~/lib/db/schema";
 import { buildBuiltinSavedViewName } from "../saved-views/service";
 import type { EntitySchemaPropertiesShape } from "./service";
 
@@ -14,16 +19,22 @@ export const listEntitySchemasByFacetForUser = async (input: {
 			name: entitySchema.name,
 			icon: entitySchema.icon,
 			slug: entitySchema.slug,
-			facetId: entitySchema.facetId,
+			facetId: facetEntitySchema.facetId,
 			isBuiltin: entitySchema.isBuiltin,
 			accentColor: entitySchema.accentColor,
 			propertiesSchema: entitySchema.propertiesSchema,
 		})
-		.from(entitySchema)
+		.from(facetEntitySchema)
+		.innerJoin(facet, eq(facet.id, facetEntitySchema.facetId))
+		.innerJoin(
+			entitySchema,
+			eq(entitySchema.id, facetEntitySchema.entitySchemaId),
+		)
 		.where(
 			and(
-				eq(entitySchema.userId, input.userId),
-				eq(entitySchema.facetId, input.facetId),
+				eq(facet.id, input.facetId),
+				eq(facet.userId, input.userId),
+				eq(facetEntitySchema.isDisabled, false),
 			),
 		)
 		.orderBy(asc(entitySchema.name), asc(entitySchema.createdAt));
@@ -52,8 +63,12 @@ export const getEntitySchemaBySlugForUser = async (input: {
 	return foundEntitySchema;
 };
 
-export const listBuiltinEntitySchemas = async () => {
-	const rows = await db
+export const listBuiltinEntitySchemas = async (input?: {
+	database?: DbClient;
+}) => {
+	const database = input?.database ?? db;
+
+	const rows = await database
 		.select({
 			id: entitySchema.id,
 			slug: entitySchema.slug,
@@ -62,6 +77,27 @@ export const listBuiltinEntitySchemas = async () => {
 		.where(and(eq(entitySchema.isBuiltin, true), isNull(entitySchema.userId)));
 
 	return rows;
+};
+
+export const createFacetEntitySchemas = async (input: {
+	database?: DbClient;
+	links: Array<{
+		facetId: string;
+		entitySchemaId: string;
+		isDisabled?: boolean;
+	}>;
+}) => {
+	if (!input.links.length) return;
+
+	const database = input.database ?? db;
+
+	await database.insert(facetEntitySchema).values(
+		input.links.map((link) => ({
+			facetId: link.facetId,
+			entitySchemaId: link.entitySchemaId,
+			isDisabled: link.isDisabled ?? false,
+		})),
+	);
 };
 
 export const createEntitySchemaForUser = async (input: {
@@ -82,7 +118,6 @@ export const createEntitySchemaForUser = async (input: {
 				slug: input.slug,
 				isBuiltin: false,
 				userId: input.userId,
-				facetId: input.facetId,
 				accentColor: input.accentColor,
 				propertiesSchema: input.propertiesSchema,
 			})
@@ -91,7 +126,6 @@ export const createEntitySchemaForUser = async (input: {
 				name: entitySchema.name,
 				slug: entitySchema.slug,
 				icon: entitySchema.icon,
-				facetId: entitySchema.facetId,
 				isBuiltin: entitySchema.isBuiltin,
 				accentColor: entitySchema.accentColor,
 				propertiesSchema: entitySchema.propertiesSchema,
@@ -99,6 +133,17 @@ export const createEntitySchemaForUser = async (input: {
 
 		if (!createdEntitySchema)
 			throw new Error("Could not persist entity schema");
+
+		const [createdFacetEntitySchema] = await tx
+			.insert(facetEntitySchema)
+			.values({
+				facetId: input.facetId,
+				entitySchemaId: createdEntitySchema.id,
+			})
+			.returning({ facetId: facetEntitySchema.facetId });
+
+		if (!createdFacetEntitySchema)
+			throw new Error("Could not persist facet entity schema link");
 
 		const [createdSavedView] = await tx
 			.insert(savedView)
@@ -115,6 +160,7 @@ export const createEntitySchemaForUser = async (input: {
 
 		return {
 			...createdEntitySchema,
+			facetId: createdFacetEntitySchema.facetId,
 			propertiesSchema:
 				createdEntitySchema.propertiesSchema as EntitySchemaPropertiesShape,
 		};

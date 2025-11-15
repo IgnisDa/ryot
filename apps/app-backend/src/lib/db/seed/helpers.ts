@@ -6,48 +6,13 @@ import {
 	entitySchema,
 	entitySchemaSandboxScript,
 	eventSchema,
-	type FacetMode,
-	facet,
 	sandboxScript,
 } from "~/lib/db/schema";
-
-export const ensureBuiltinFacet = async (input: {
-	slug: string;
-	icon: string;
-	name: string;
-	mode: FacetMode;
-	accentColor: string;
-	description?: string;
-}) => {
-	const [existing] = await db
-		.select({ id: facet.id })
-		.from(facet)
-		.where(and(eq(facet.slug, input.slug), isNull(facet.userId)))
-		.limit(1);
-
-	const facetId = existing?.id ?? generateId();
-
-	const values = {
-		isBuiltin: true,
-		icon: input.icon,
-		name: input.name,
-		slug: input.slug,
-		mode: input.mode,
-		accentColor: input.accentColor,
-		description: input.description ?? null,
-	};
-
-	if (existing) await db.update(facet).set(values).where(eq(facet.id, facetId));
-	else await db.insert(facet).values({ id: facetId, ...values });
-
-	return facetId;
-};
 
 export const ensureBuiltinEntitySchema = async (input: {
 	slug: string;
 	name: string;
 	icon: string;
-	facetId: string;
 	accentColor: string;
 	propertiesSchema: unknown;
 }) => {
@@ -64,7 +29,6 @@ export const ensureBuiltinEntitySchema = async (input: {
 		name: input.name,
 		slug: input.slug,
 		icon: input.icon,
-		facetId: input.facetId,
 		accentColor: input.accentColor,
 		propertiesSchema: input.propertiesSchema,
 	};

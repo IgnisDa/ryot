@@ -1,5 +1,8 @@
 import { describe, expect, it } from "bun:test";
+import { FacetMode } from "~/lib/db/schema";
 import {
+	buildAuthenticationFacetEntitySchemaLinks,
+	buildAuthenticationFacetInputs,
 	buildAuthenticationSavedViewInputs,
 	resolveAuthenticationName,
 } from "./service";
@@ -17,6 +20,51 @@ describe("resolveAuthenticationName", () => {
 });
 
 describe("buildAuthenticationSavedViewInputs", () => {
+	it("builds built-in facet inputs from manifests", () => {
+		expect(
+			buildAuthenticationFacetInputs({
+				facets: [
+					{
+						icon: "film",
+						slug: "media",
+						name: "Media",
+						accentColor: "#5B7FFF",
+						mode: FacetMode.curated,
+					},
+				],
+			}),
+		).toEqual([
+			{
+				icon: "film",
+				slug: "media",
+				name: "Media",
+				accentColor: "#5B7FFF",
+				description: undefined,
+				mode: FacetMode.curated,
+			},
+		]);
+	});
+
+	it("builds facet entity schema links from built-in manifests", () => {
+		expect(
+			buildAuthenticationFacetEntitySchemaLinks({
+				facets: [{ id: "facet-1", slug: "media" }],
+				entitySchemas: [{ id: "schema-1", slug: "book" }],
+				schemaLinks: [{ slug: "book", facetSlug: "media" }],
+			}),
+		).toEqual([{ facetId: "facet-1", entitySchemaId: "schema-1" }]);
+	});
+
+	it("throws when a schema link references a missing facet", () => {
+		expect(() =>
+			buildAuthenticationFacetEntitySchemaLinks({
+				facets: [],
+				entitySchemas: [{ id: "schema-1", slug: "book" }],
+				schemaLinks: [{ slug: "book", facetSlug: "media" }],
+			}),
+		).toThrow("Missing built-in facet for entity schema book");
+	});
+
 	it("builds built-in saved views from built-in entity schemas", () => {
 		expect(
 			buildAuthenticationSavedViewInputs({
@@ -25,8 +73,8 @@ describe("buildAuthenticationSavedViewInputs", () => {
 			}),
 		).toEqual([
 			{
-				name: "All Books",
 				isBuiltin: true,
+				name: "All Books",
 				queryDefinition: { entitySchemaIds: ["schema-1"] },
 			},
 		]);
