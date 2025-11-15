@@ -8,6 +8,7 @@ import { parseLabeledPropertySchemaInput } from "#lib/property-schema-runtime";
 import { slugify } from "#lib/slug";
 import { requireText, trimToNull } from "#lib/validation";
 import { SandboxApiService } from "#modules/sandbox/service";
+import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { TrackersRepository } from "#modules/trackers/repository";
 
 import { EntitySchemasRepository } from "./repository";
@@ -52,6 +53,7 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 			const repository = yield* EntitySchemasRepository;
 			const sandboxApiService = yield* SandboxApiService;
 			const trackersRepository = yield* TrackersRepository;
+			const savedViewsRepository = yield* SavedViewsRepository;
 
 			return {
 				list: (
@@ -122,12 +124,12 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 									accentColor: resolved.accentColor,
 								});
 
-								yield* repository.linkToTracker({
+								yield* trackersRepository.linkEntitySchema({
 									trackerId,
 									entitySchemaId: createdEntitySchema.id,
 								});
 
-								yield* repository.createDefaultSavedView({
+								yield* savedViewsRepository.createDefaultViewForSchema({
 									trackerId,
 									userId: user.id,
 									icon: resolved.icon,
