@@ -72,21 +72,6 @@ pub async fn create_or_update_filter_preset(
             Ok(updated)
         }
         None => {
-            let existing_with_same_name = FilterPreset::find()
-                .filter(filter_preset::Column::UserId.eq(user_id))
-                .filter(filter_preset::Column::Name.eq(&input.name))
-                .filter(filter_preset::Column::ContextType.eq(input.context_type.to_string()))
-                .filter(match &input.context_metadata {
-                    None => filter_preset::Column::ContextMetadata.is_null(),
-                    Some(metadata) => filter_preset::Column::ContextMetadata.eq(metadata.clone()),
-                })
-                .one(&ss.db)
-                .await?;
-
-            if existing_with_same_name.is_some() {
-                bail!("A filter preset with this name already exists in this context");
-            }
-
             let new_preset = filter_preset::ActiveModel {
                 name: ActiveValue::Set(input.name),
                 filters: ActiveValue::Set(input.filters),

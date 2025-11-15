@@ -84,20 +84,6 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        manager
-            .create_index(
-                Index::create()
-                    .name("filter_preset_user_context_name_uniq")
-                    .table(FilterPreset::Table)
-                    .col(FilterPreset::UserId)
-                    .col(FilterPreset::ContextType)
-                    .col(FilterPreset::ContextMetadata)
-                    .col(FilterPreset::Name)
-                    .unique()
-                    .to_owned(),
-            )
-            .await?;
-
         Ok(())
     }
 
