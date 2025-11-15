@@ -61,7 +61,6 @@ import { TranslationsService } from "#modules/translations/service";
 import { TranslationOverlayLive } from "#modules/translations/translation-overlay-live";
 import { TranslateEntityWorkflowDefinitionsLive } from "#modules/translations/workflows";
 import { UploadsService } from "#modules/uploads/service";
-import { UserPreferencesRepository } from "#modules/user-preferences/repository";
 import { UserPreferencesService } from "#modules/user-preferences/service";
 import { UserStateService } from "#modules/user-state/service";
 
@@ -97,7 +96,6 @@ const PlatformRepositoriesLive = Layer.mergeAll(
 	SandboxRepository.Default,
 	SavedViewsRepository.Default,
 	TrackersRepository.Default,
-	UserPreferencesRepository.Default,
 );
 
 const RepositoriesLive = Layer.mergeAll(ContentRepositoriesLive, PlatformRepositoriesLive);
@@ -161,7 +159,7 @@ const PlatformServicesLive = Layer.mergeAll(
 	Layer.provide(SavedViewsService.Default, QueryEngineService.Default),
 	TrackersService.Default,
 	UploadsService.Default,
-	UserPreferencesService.Default,
+	Layer.provide(UserPreferencesService.Default, AuthService.Default),
 	UserStateService.Default,
 	Layer.provide(GodModeService.Default, AuthService.Default),
 	Layer.provide(ImportsService.Default, UploadsService.Default),

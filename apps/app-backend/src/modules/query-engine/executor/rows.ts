@@ -6,7 +6,7 @@ import { BadRequest, type DbError, type NotFound } from "#lib/errors";
 
 import type { Expr, FieldDef, IncludeEntry, RowItem, RowsResponse } from "../language";
 import { compileBool, compileOrderBySql } from "./compile/expr";
-import { userVisibleSql, type SqlFragment } from "./compile/fragments";
+import { entitySourceSql, userVisibleSql, type SqlFragment } from "./compile/fragments";
 import { compileIncludes, type CompiledIncludes } from "./compile/includes";
 import type { CompileScope } from "./compile/scope";
 import { rootScope } from "./compile/scope";
@@ -79,6 +79,7 @@ const compiledWhere = (where: Expr | null, scope: CompileScope): SqlFragment | n
 
 const executeEntityRowsQuery = Effect.fn("executeEntityRowsQuery")(function* (
 	userId: string,
+	language: string | null,
 	doc: RowsQueryDocument,
 ) {
 	const { source, output } = doc;
@@ -91,14 +92,14 @@ const executeEntityRowsQuery = Effect.fn("executeEntityRowsQuery")(function* (
 		return rowsResponse([], output.pagination, 0, offset);
 	}
 
-	const scope = rootScope(source, userId);
+	const scope = rootScope(source, userId, language);
 	const where = compiledWhere(source.where, scope);
 	const includes = compileIncludes(output.include ?? [], scope, "e");
 	const db = yield* CurrentDb;
 	const rawRows = yield* dbEffect(() =>
 		db.execute(sql`
 			SELECT ${selectListSql(output.fields, scope, includes)}
-			FROM entity e
+			FROM ${entitySourceSql(language)} e
 			JOIN entity_schema es ON es.id = e.entity_schema_id
 			${includes.laterals}
 			WHERE e.entity_schema_id IN (${idListSql(visibleSchemas)})
@@ -116,6 +117,7 @@ const executeEntityRowsQuery = Effect.fn("executeEntityRowsQuery")(function* (
 
 const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 	userId: string,
+	language: string | null,
 	doc: RowsQueryDocument,
 ) {
 	const { source, output } = doc;
@@ -134,7 +136,7 @@ const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 		return rowsResponse([], output.pagination, 0, offset);
 	}
 
-	const scope = rootScope(source, userId);
+	const scope = rootScope(source, userId, language);
 	const where = compiledWhere(source.where, scope);
 	const includes = compileIncludes(output.include ?? [], scope, "e");
 	const db = yield* CurrentDb;
@@ -143,7 +145,7 @@ const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 			SELECT ${selectListSql(output.fields, scope, includes)}
 			FROM event ev
 			JOIN event_schema evs ON evs.id = ev.event_schema_id
-			JOIN entity e ON e.id = ev.entity_id
+			JOIN ${entitySourceSql(language)} e ON e.id = ev.entity_id
 			JOIN entity_schema es ON es.id = e.entity_schema_id
 			${includes.laterals}
 			WHERE ev.user_id = ${userId}
@@ -166,6 +168,7 @@ const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 
 const executeRelationshipRowsQuery = Effect.fn("executeRelationshipRowsQuery")(function* (
 	userId: string,
+	language: string | null,
 	doc: RowsQueryDocument,
 ) {
 	const { source, output } = doc;
@@ -181,7 +184,7 @@ const executeRelationshipRowsQuery = Effect.fn("executeRelationshipRowsQuery")(f
 		return rowsResponse([], output.pagination, 0, offset);
 	}
 
-	const scope = rootScope(source, userId);
+	const scope = rootScope(source, userId, language);
 	const where = compiledWhere(source.where, scope);
 	const db = yield* CurrentDb;
 	const rawRows = yield* dbEffect(() =>
@@ -189,9 +192,9 @@ const executeRelationshipRowsQuery = Effect.fn("executeRelationshipRowsQuery")(f
 			SELECT ${outputColumnsSql(output.fields, scope)}, COUNT(*) OVER() AS "totalCount"
 			FROM relationship r
 			JOIN relationship_schema rs ON rs.id = r.relationship_schema_id
-			JOIN entity se ON se.id = r.source_entity_id
+			JOIN ${entitySourceSql(language)} se ON se.id = r.source_entity_id
 			JOIN entity_schema ses ON ses.id = se.entity_schema_id
-			JOIN entity te ON te.id = r.target_entity_id
+			JOIN ${entitySourceSql(language)} te ON te.id = r.target_entity_id
 			JOIN entity_schema tes ON tes.id = te.entity_schema_id
 			WHERE r.relationship_schema_id IN (${idListSql(relationshipSchemas)})
 				AND se.entity_schema_id IN (${idListSql(sourceEntitySchemas)})
@@ -212,10 +215,11 @@ const executeRelationshipRowsQuery = Effect.fn("executeRelationshipRowsQuery")(f
 
 export const executeRowsQuery = (
 	userId: string,
+	language: string | null,
 	doc: RowsQueryDocument,
 ): Effect.Effect<RowsResponse, BadRequest | NotFound | DbError, CurrentDb> =>
 	doc.source.type === "events"
-		? executeEventRowsQuery(userId, doc)
+		? executeEventRowsQuery(userId, language, doc)
 		: doc.source.type === "relationships"
-			? executeRelationshipRowsQuery(userId, doc)
-			: executeEntityRowsQuery(userId, doc);
+			? executeRelationshipRowsQuery(userId, language, doc)
+			: executeEntityRowsQuery(userId, language, doc);
