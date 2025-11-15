@@ -4,6 +4,7 @@ use database_models::filter_preset;
 use dependent_models::{CachedResponse, FilterPresetsListResponse};
 use miscellaneous_filter_preset_service::{
     create_or_update_filter_preset, delete_filter_preset, get_filter_presets,
+    update_filter_preset_last_used,
 };
 use miscellaneous_service::MiscellaneousService;
 use traits::{AuthProvider, GraphqlResolverSvc};
@@ -59,5 +60,15 @@ impl MiscellaneousFilterPresetMutationResolver {
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         Ok(delete_filter_preset(&user_id, &filter_preset_id, &service.0).await?)
+    }
+
+    /// Update the last used timestamp for a filter preset
+    async fn update_filter_preset_last_used(
+        &self,
+        gql_ctx: &Context<'_>,
+        filter_preset_id: String,
+    ) -> Result<bool> {
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
+        Ok(update_filter_preset_last_used(&user_id, &filter_preset_id, &service.0).await?)
     }
 }
