@@ -450,7 +450,7 @@ export type CreateOrUpdateCollectionInput = {
 
 export type CreateOrUpdateFilterPresetInput = {
   contextInformation?: InputMaybe<Scalars['JSON']['input']>;
-  contextType: FilterContextType;
+  contextType: FilterPresetContextType;
   filters: Scalars['JSON']['input'];
   id?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
@@ -872,7 +872,13 @@ export type ExportJob = {
   url: Scalars['String']['output'];
 };
 
-export enum FilterContextType {
+export type FilterPreset = {
+  filters: Scalars['JSON']['output'];
+  id: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+};
+
+export enum FilterPresetContextType {
   CollectionContents = 'COLLECTION_CONTENTS',
   ExercisesList = 'EXERCISES_LIST',
   FitnessEntitiesList = 'FITNESS_ENTITIES_LIST',
@@ -881,15 +887,9 @@ export enum FilterContextType {
   PeopleList = 'PEOPLE_LIST'
 }
 
-export type FilterPreset = {
-  filters: Scalars['JSON']['output'];
-  id: Scalars['String']['output'];
-  name: Scalars['String']['output'];
-};
-
 export type FilterPresetQueryInput = {
   contextInformation?: InputMaybe<Scalars['JSON']['input']>;
-  contextType: FilterContextType;
+  contextType: FilterPresetContextType;
 };
 
 export type FitnessAnalyticsEquipment = {

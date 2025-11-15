@@ -23,7 +23,7 @@ use strum::{Display, EnumIter};
     rename_all = "snake_case",
     db_type = "String(StringLen::None)"
 )]
-pub enum FilterContextType {
+pub enum FilterPresetContextType {
     MediaList,
     PeopleList,
     GroupsList,

@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::NaiveDate;
 use enum_meta::{Meta, meta};
-use enum_models::{EntityLot, FilterContextType, MediaLot, MediaSource};
+use enum_models::{EntityLot, FilterPresetContextType, MediaLot, MediaSource};
 use schematic::{ConfigEnum, Schematic};
 use sea_orm::{FromJsonQueryResult, prelude::DateTimeUtc, sea_query::PgDateTruncUnit};
 use serde::{Deserialize, Serialize};
@@ -311,7 +311,7 @@ pub struct CreateOrUpdateFilterPresetInput {
     pub name: String,
     pub id: Option<String>,
     pub filters: serde_json::Value,
-    pub context_type: FilterContextType,
+    pub context_type: FilterPresetContextType,
     pub context_information: Option<serde_json::Value>,
 }
 
@@ -483,6 +483,6 @@ pub struct PresignedPutUrlResponse {
 #[skip_serializing_none]
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize, InputObject)]
 pub struct FilterPresetQueryInput {
-    pub context_type: FilterContextType,
+    pub context_type: FilterPresetContextType,
     pub context_information: Option<serde_json::Value>,
 }
