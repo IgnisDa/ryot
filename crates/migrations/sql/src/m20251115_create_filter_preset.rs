@@ -67,11 +67,25 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("filter_preset__user_id-context_type-context_metadata__index")
+                    .name("filter_preset_user_context_idx")
                     .table(FilterPreset::Table)
                     .col(FilterPreset::UserId)
                     .col(FilterPreset::ContextType)
                     .col(FilterPreset::ContextMetadata)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("filter_preset_user_context_name_uniq")
+                    .table(FilterPreset::Table)
+                    .col(FilterPreset::UserId)
+                    .col(FilterPreset::ContextType)
+                    .col(FilterPreset::ContextMetadata)
+                    .col(FilterPreset::Name)
+                    .unique()
                     .to_owned(),
             )
             .await?;
