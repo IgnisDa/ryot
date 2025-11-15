@@ -32,6 +32,8 @@ describe("buildEntitySchemaFormValues", () => {
 
 		expect(values.name).toBe("");
 		expect(values.slug).toBe("");
+		expect(values.icon).toBe("");
+		expect(values.accentColor).toBe("");
 		expect(values.properties).toHaveLength(1);
 		expect(row).toMatchObject({
 			key: "",
@@ -48,6 +50,8 @@ describe("buildEntitySchemaFormValues", () => {
 
 		expect(defaultCreateEntitySchemaFormValues.name).toBe("");
 		expect(defaultCreateEntitySchemaFormValues.slug).toBe("");
+		expect(defaultCreateEntitySchemaFormValues.icon).toBe("");
+		expect(defaultCreateEntitySchemaFormValues.accentColor).toBe("");
 		expect(defaultCreateEntitySchemaFormValues.properties).toHaveLength(1);
 		expect(row).toMatchObject({
 			key: "",
@@ -67,8 +71,10 @@ describe("buildEntitySchemaFormValues", () => {
 
 		const values = buildEntitySchemaFormValues({
 			properties,
+			icon: "book-open",
 			name: "Custom Schema",
 			slug: "custom-schema",
+			accentColor: "#5B7FFF",
 		});
 		const row = values.properties[0];
 
@@ -76,6 +82,8 @@ describe("buildEntitySchemaFormValues", () => {
 
 		expect(values.name).toBe("Custom Schema");
 		expect(values.slug).toBe("custom-schema");
+		expect(values.icon).toBe("book-open");
+		expect(values.accentColor).toBe("#5B7FFF");
 		expect(values.properties).toHaveLength(1);
 		expect(row).toMatchObject(inputRow);
 		expect(row.id).toEqual(expect.any(String));
@@ -88,6 +96,8 @@ describe("buildEntitySchemaFormValues", () => {
 		if (!row) throw new Error("Expected a normalized property row");
 
 		expect(values.properties).toHaveLength(1);
+		expect(values.icon).toBe("");
+		expect(values.accentColor).toBe("");
 		expect(row).toMatchObject({
 			key: "",
 			type: "string",
@@ -164,6 +174,8 @@ describe("createEntitySchemaFormSchema", () => {
 		const result = createEntitySchemaFormSchema.safeParse({
 			name: "  \n\t ",
 			slug: "  \n\t ",
+			icon: "book-open",
+			accentColor: "#5B7FFF",
 			properties: [
 				{ id: "title", key: "title", type: "string", required: false },
 			],
@@ -184,6 +196,8 @@ describe("createEntitySchemaFormSchema", () => {
 		const result = createEntitySchemaFormSchema.safeParse({
 			name: "Books",
 			slug: "  \n\t ",
+			icon: "book-open",
+			accentColor: "#5B7FFF",
 			properties: [
 				{ id: "title", key: "title", type: "string", required: false },
 			],
@@ -196,6 +210,8 @@ describe("createEntitySchemaFormSchema", () => {
 		const result = createEntitySchemaFormSchema.safeParse({
 			name: "Books",
 			slug: "books",
+			icon: "book-open",
+			accentColor: "#5B7FFF",
 			properties: [],
 		});
 
@@ -219,6 +235,8 @@ describe("createEntitySchemaFormSchema", () => {
 			properties,
 			name: "Books",
 			slug: "books",
+			icon: "book-open",
+			accentColor: "#5B7FFF",
 		});
 
 		expect(result.success).toBeFalse();
@@ -240,6 +258,8 @@ describe("createEntitySchemaFormSchema", () => {
 			properties,
 			name: "Books",
 			slug: "books",
+			icon: "book-open",
+			accentColor: "#5B7FFF",
 		});
 
 		expect(result.success).toBeFalse();
@@ -253,10 +273,26 @@ describe("createEntitySchemaFormSchema", () => {
 		});
 	});
 
+	it("rejects missing icon and accent color", () => {
+		const result = createEntitySchemaFormSchema.safeParse({
+			icon: "",
+			name: "Books",
+			slug: "books",
+			accentColor: "",
+			properties: [
+				{ id: "title", key: "title", type: "string", required: false },
+			],
+		});
+
+		expect(result.success).toBeFalse();
+	});
+
 	it("accepts valid values", () => {
 		const result = createEntitySchemaFormSchema.safeParse({
 			name: "Books",
 			slug: "books",
+			icon: "book-open",
+			accentColor: "#5B7FFF",
 			properties: [
 				{ id: "title", key: "title", type: "string", required: true },
 				{
@@ -315,6 +351,8 @@ describe("toCreateEntitySchemaPayload", () => {
 				{
 					slug: " books ",
 					name: "  Books  ",
+					icon: "  book-open  ",
+					accentColor: "  #5B7FFF  ",
 					properties: [
 						{
 							id: "released-on",
@@ -335,6 +373,8 @@ describe("toCreateEntitySchemaPayload", () => {
 		).toEqual({
 			name: "Books",
 			slug: "books",
+			icon: "book-open",
+			accentColor: "#5B7FFF",
 			facetId: "facet-123",
 			propertiesSchema: {
 				releasedOn: { type: "date", required: true },
@@ -348,7 +388,9 @@ describe("toCreateEntitySchemaPayload", () => {
 			toCreateEntitySchemaPayload(
 				{
 					slug: "  \n\t ",
+					icon: "book-open",
 					name: "  Books  ",
+					accentColor: "#5B7FFF",
 					properties: [
 						{ id: "title", key: "title", type: "string", required: false },
 					],
@@ -357,6 +399,8 @@ describe("toCreateEntitySchemaPayload", () => {
 			),
 		).toEqual({
 			name: "Books",
+			icon: "book-open",
+			accentColor: "#5B7FFF",
 			facetId: "facet-123",
 			propertiesSchema: { title: { type: "string" } },
 		});

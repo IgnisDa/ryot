@@ -3,10 +3,12 @@ import type { AppFacet } from "#/features/facets/model";
 
 export interface AppEntitySchema {
 	id: string;
+	icon: string;
 	name: string;
 	slug: string;
 	facetId: string;
 	isBuiltin: boolean;
+	accentColor: string;
 	propertiesSchema: AppSchema;
 }
 
