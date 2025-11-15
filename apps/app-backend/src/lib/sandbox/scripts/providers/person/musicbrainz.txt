@@ -135,7 +135,7 @@ driver("details", async function (context) {
   }).parse(context ?? {});
 
   const artist = await mbGet(`artist/${externalId}`, {
-    inc: "aliases",
+    inc: "aliases release-groups",
   });
 
   if (!artist) {
@@ -169,8 +169,20 @@ driver("details", async function (context) {
     .map((alias) => getNullableString(alias?.name))
     .filter((n) => n !== null && n !== name);
 
+  const releaseGroups = Array.isArray(artist?.["release-groups"])
+    ? artist["release-groups"]
+    : [];
+  const relatedEntities = releaseGroups.map((group) => ({
+    reverseDirection: true,
+    externalId: getString(group?.id),
+    scriptSlug: "music-group.musicbrainz",
+    relationshipProperties: { roles: ["Artist"] },
+    name: getString(group?.title) || getString(group?.id),
+  }));
+
   return {
     name,
+    relatedEntities,
     properties: {
       birthDate,
       deathDate,
