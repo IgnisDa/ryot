@@ -16,6 +16,7 @@ pub enum FilterPreset {
     Filters,
     CreatedAt,
     UpdatedAt,
+    LastUsedAt,
 }
 
 #[async_trait::async_trait]
@@ -52,6 +53,12 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
+                    .col(
+                        ColumnDef::new(FilterPreset::LastUsedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("filter_preset_to_user_foreign_key")
@@ -72,6 +79,7 @@ impl MigrationTrait for Migration {
                     .col(FilterPreset::UserId)
                     .col(FilterPreset::ContextType)
                     .col(FilterPreset::ContextMetadata)
+                    .col((FilterPreset::LastUsedAt, IndexOrder::Desc))
                     .to_owned(),
             )
             .await?;
