@@ -48,4 +48,10 @@ describe("entity-detail model", () => {
 		expect(detail.image).toEqual({ type: "remote", url: "https://example.com/cover.jpg" });
 		expect(detail.properties).toEqual(properties);
 	});
+
+	it("throws when the backend payload does not match the slug's expected schema", () => {
+		const malformedProperties = { pages: "not-a-number" };
+
+		expect(() => toEntityDetail(makeEntity(malformedProperties), "book")).toThrow();
+	});
 });

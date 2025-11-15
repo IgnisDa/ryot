@@ -324,8 +324,8 @@ driver("main", async function() {
 
 	it("returns 404 for a non-existent job id", async () => {
 		const { client } = await createAuthenticatedClient();
-		const error = await client.runError(
-			(c) => c.sandbox.getResult({ path: { jobId: crypto.randomUUID() } }),
+		const error = await client.runError((c) =>
+			c.sandbox.getResult({ path: { jobId: crypto.randomUUID() } }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -516,8 +516,8 @@ describe("sandbox enqueue by script ID", () => {
 	it("returns 404 when the scriptId does not exist", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const error = await client.runError(
-			(c) => c.sandbox.enqueue({ payload: { driverName: "main", scriptId: crypto.randomUUID() } }),
+		const error = await client.runError((c) =>
+			c.sandbox.enqueue({ payload: { driverName: "main", scriptId: crypto.randomUUID() } }),
 		);
 
 		assertTaggedError(error, "NotFound");

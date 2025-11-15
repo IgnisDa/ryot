@@ -1580,10 +1580,7 @@ describe("Query engine E2E", () => {
 
 	it("executes a simple single-schema query with the full response shape", async () => {
 		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(
-			client,
-			buildGridRequest({ scope: [schema.slug] }),
-		);
+		const { data } = await executeQueryEngine(client, buildGridRequest({ scope: [schema.slug] }));
 		const result = data.data;
 		const firstItem = result.items[0];
 
@@ -2531,10 +2528,7 @@ describe("Query engine E2E", () => {
 
 	it("sorts by name in both directions and by schema properties", async () => {
 		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const ascResult = await executeQueryEngine(
-			client,
-			buildGridRequest({ scope: [schema.slug] }),
-		);
+		const ascResult = await executeQueryEngine(client, buildGridRequest({ scope: [schema.slug] }));
 		const descResult = await executeQueryEngine(
 			client,
 			buildGridRequest({
