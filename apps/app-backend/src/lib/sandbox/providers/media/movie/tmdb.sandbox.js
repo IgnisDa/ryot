@@ -348,7 +348,7 @@ driver("details", async function (context, { metadata }) {
 		})
 		.parse(context ?? {});
 
-	const language = metadata?.providerInformation?.canonicalLanguage ?? "en-US";
+	const language = metadata?.providerInformation?.canonicalLanguage ?? "en";
 
 	if (!/^\d+$/.test(externalId)) {
 		throw new Error("externalId must be a numeric TMDB movie ID");
