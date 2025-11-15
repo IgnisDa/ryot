@@ -226,33 +226,27 @@ export function buildUpdatedSavedViewBody(
 
 export async function createSavedView(
 	client: Client,
-	cookies: string,
 	overrides: CreateSavedViewInput = {},
 ): Promise<SavedViewRecord> {
-	return client.run((c) => c.savedViews.create({ payload: buildSavedViewBody(overrides) }), {
-		Cookie: cookies,
-	});
+	return client.run((c) => c.savedViews.create({ payload: buildSavedViewBody(overrides) }));
 }
 
 export async function listSavedViews(
 	client: Client,
-	cookies: string,
 	options: { trackerId?: string; includeDisabled?: boolean } = {},
 ): Promise<readonly SavedViewRecord[]> {
-	return client.run(
-		(c) =>
-			c.savedViews.list({
-				urlParams: {
-					includeDisabled: options.includeDisabled ?? false,
-					trackerId: options.trackerId,
-				},
-			}),
-		{ Cookie: cookies },
+	return client.run((c) =>
+		c.savedViews.list({
+			urlParams: {
+				includeDisabled: options.includeDisabled ?? false,
+				trackerId: options.trackerId,
+			},
+		}),
 	);
 }
 
-export async function findBuiltinSavedView(client: Client, cookies: string) {
-	const views = await listSavedViews(client, cookies);
+export async function findBuiltinSavedView(client: Client) {
+	const views = await listSavedViews(client);
 	const builtinView = views.find((view) => view.isBuiltin);
 
 	return requirePresent(builtinView, "Built-in saved view not found");
@@ -260,48 +254,38 @@ export async function findBuiltinSavedView(client: Client, cookies: string) {
 
 export async function getSavedView(
 	client: Client,
-	cookies: string,
 	viewSlug: string,
 ): Promise<SavedViewRecord> {
-	return client.run((c) => c.savedViews.get({ path: { viewSlug } }), { Cookie: cookies });
+	return client.run((c) => c.savedViews.get({ path: { viewSlug } }));
 }
 
 export async function updateSavedView(
 	client: Client,
-	cookies: string,
 	viewSlug: string,
 	overrides: UpdateSavedViewInput = {},
 ): Promise<SavedViewRecord> {
-	return client.run(
-		(c) =>
-			c.savedViews.update({
-				path: { viewSlug },
-				payload: buildUpdatedSavedViewBody(overrides),
-			}),
-		{ Cookie: cookies },
+	return client.run((c) =>
+		c.savedViews.update({
+			path: { viewSlug },
+			payload: buildUpdatedSavedViewBody(overrides),
+		}),
 	);
 }
 
 export async function cloneSavedView(
 	client: Client,
-	cookies: string,
 	viewSlug: string,
 ): Promise<SavedViewRecord> {
-	return client.run((c) => c.savedViews.clone({ path: { viewSlug } }), { Cookie: cookies });
+	return client.run((c) => c.savedViews.clone({ path: { viewSlug } }));
 }
 
 export async function deleteSavedView(
 	client: Client,
-	cookies: string,
 	viewSlug: string,
 ): Promise<SavedViewRecord> {
-	return client.run((c) => c.savedViews.delete({ path: { viewSlug } }), { Cookie: cookies });
+	return client.run((c) => c.savedViews.delete({ path: { viewSlug } }));
 }
 
-export async function reorderSavedViews(
-	client: Client,
-	cookies: string,
-	body: ReorderSavedViewsBody,
-) {
-	return client.run((c) => c.savedViews.reorder({ payload: body }), { Cookie: cookies });
+export async function reorderSavedViews(client: Client, body: ReorderSavedViewsBody) {
+	return client.run((c) => c.savedViews.reorder({ payload: body }));
 }

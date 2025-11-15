@@ -58,7 +58,6 @@ export function toQueryEngineItem(fields: QueryEngineField[]): QueryEngineRespon
 interface CreateEntityInput {
 	name: string;
 	client: Client;
-	cookies: string;
 	entitySchemaId: string;
 	properties: Record<string, unknown>;
 	image?: string | null;
@@ -66,7 +65,6 @@ interface CreateEntityInput {
 
 interface CreateQueryEngineEventInput {
 	client: Client;
-	cookies: string;
 	entityId: string;
 	occurredAt?: string;
 	eventSchemaId: string;
@@ -313,28 +311,22 @@ function requireEntitiesModeResponse(
 
 export async function executeQueryEngine(
 	client: Client,
-	cookies: string,
 	body: QueryEngineRequest,
 ): Promise<{ data: EntitiesQueryEngineResponse }> {
-	const result = await client.run((c) => c.queryEngine.execute(toExecuteRequest(body)), {
-		Cookie: cookies,
-	});
+	const result = await client.run((c) => c.queryEngine.execute(toExecuteRequest(body)));
 
 	return { data: requireEntitiesModeResponse(result) };
 }
 
 export async function executeQueryEngineError(
 	client: Client,
-	cookies: string,
 	body: QueryEngineRequest,
 ) {
-	return client.runError((c) => c.queryEngine.execute(toExecuteRequest(body)), {
-		Cookie: cookies,
-	});
+	return client.runError((c) => c.queryEngine.execute(toExecuteRequest(body)));
 }
 
 export async function createQueryEngineEntity(input: CreateEntityInput) {
-	const entity = await createEntity(input.client, input.cookies, {
+	const entity = await createEntity(input.client, {
 		name: input.name,
 		properties: input.properties,
 		entitySchemaId: input.entitySchemaId,
@@ -350,7 +342,6 @@ export async function createQueryEngineEntity(input: CreateEntityInput) {
 export async function createQueryEngineEvent(input: CreateQueryEngineEventInput) {
 	const before = await input.client.run(
 		(c) => c.events.list({ urlParams: { entityId: input.entityId } }),
-		{ Cookie: input.cookies },
 	);
 	const beforeCount = before.length;
 
@@ -366,18 +357,16 @@ export async function createQueryEngineEvent(input: CreateQueryEngineEventInput)
 					},
 				],
 			}),
-		{ Cookie: input.cookies },
 	);
 	if (createdEvent.count !== 1) {
 		throw new Error(`Failed to create event for '${input.entityId}'`);
 	}
 
-	await waitForEventCount(input.client, input.cookies, input.entityId, beforeCount + 1);
+	await waitForEventCount(input.client, input.entityId, beforeCount + 1);
 }
 
 const createQueryEngineEntities = async (input: {
 	client: Client;
-	cookies: string;
 	entities: QueryEngineEntityFixture[];
 }) => {
 	const entries = await Promise.all(
@@ -389,7 +378,6 @@ const createQueryEngineEntities = async (input: {
 						name: entity.name,
 						image: entity.image,
 						client: input.client,
-						cookies: input.cookies,
 						properties: entity.properties,
 						entitySchemaId: entity.entitySchemaId,
 					}),
@@ -402,10 +390,10 @@ const createQueryEngineEntities = async (input: {
 
 export async function createSingleSchemaQueryEngineFixture() {
 	const { client, cookies } = await createAuthenticatedClient();
-	const { trackerId } = await createTracker(client, cookies, {
+	const { trackerId } = await createTracker(client, {
 		name: "Device Tracker",
 	});
-	const schema = await createEntitySchema(client, cookies, {
+	const schema = await createEntitySchema(client, {
 		trackerId,
 		name: "Device",
 		propertiesSchema: {
@@ -446,7 +434,6 @@ export async function createSingleSchemaQueryEngineFixture() {
 	];
 	const entityIdsByName = await createQueryEngineEntities({
 		client,
-		cookies,
 		entities,
 	});
 
@@ -455,10 +442,10 @@ export async function createSingleSchemaQueryEngineFixture() {
 
 export async function createCrossSchemaQueryEngineFixture() {
 	const { client, cookies } = await createAuthenticatedClient();
-	const { trackerId } = await createTracker(client, cookies, {
+	const { trackerId } = await createTracker(client, {
 		name: "Mixed Device Tracker",
 	});
-	const smartphoneSchema = await createEntitySchema(client, cookies, {
+	const smartphoneSchema = await createEntitySchema(client, {
 		trackerId,
 		name: "Smartphone",
 		slug: `smartphones-${crypto.randomUUID()}`,
@@ -470,7 +457,7 @@ export async function createCrossSchemaQueryEngineFixture() {
 			},
 		},
 	});
-	const tabletSchema = await createEntitySchema(client, cookies, {
+	const tabletSchema = await createEntitySchema(client, {
 		trackerId,
 		icon: "tablet",
 		name: "Tablet",
@@ -512,7 +499,7 @@ export async function createCrossSchemaQueryEngineFixture() {
 			properties: { releaseYear: 2021, category: "tablet", releaseLabel: "2021" },
 		},
 	];
-	const entityIdsByName = await createQueryEngineEntities({ client, cookies, entities });
+	const entityIdsByName = await createQueryEngineEntities({ client, entities });
 
 	return {
 		client,

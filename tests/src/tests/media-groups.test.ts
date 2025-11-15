@@ -20,9 +20,9 @@ const GROUP_SCHEMA_SLUGS = [
 
 describe("media group entity schemas", () => {
 	it("all six group schemas are present in the builtin media tracker", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const builtinTracker = await findBuiltinTracker(client, cookies);
-		const schemas = await listEntitySchemas(client, cookies, { trackerId: builtinTracker.id });
+		const { client } = await createAuthenticatedClient();
+		const builtinTracker = await findBuiltinTracker(client);
+		const schemas = await listEntitySchemas(client, { trackerId: builtinTracker.id });
 
 		for (const slug of GROUP_SCHEMA_SLUGS) {
 			expect(schemas.some((s) => s.slug === slug)).toBe(true);
@@ -30,9 +30,9 @@ describe("media group entity schemas", () => {
 	});
 
 	it("each group schema is marked as builtin", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const builtinTracker = await findBuiltinTracker(client, cookies);
-		const schemas = await listEntitySchemas(client, cookies, { trackerId: builtinTracker.id });
+		const { client } = await createAuthenticatedClient();
+		const builtinTracker = await findBuiltinTracker(client);
+		const schemas = await listEntitySchemas(client, { trackerId: builtinTracker.id });
 
 		for (const slug of GROUP_SCHEMA_SLUGS) {
 			const schema = schemas.find((s) => s.slug === slug);
@@ -42,14 +42,14 @@ describe("media group entity schemas", () => {
 	});
 
 	it("group schemas expose only the review event schema", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const builtinTracker = await findBuiltinTracker(client, cookies);
-		const schemas = await listEntitySchemas(client, cookies, { trackerId: builtinTracker.id });
+		const { client } = await createAuthenticatedClient();
+		const builtinTracker = await findBuiltinTracker(client);
+		const schemas = await listEntitySchemas(client, { trackerId: builtinTracker.id });
 		const eventSchemasBySlug = await Promise.all(
 			GROUP_SCHEMA_SLUGS.map(async (slug) => {
 				const schema = schemas.find((s) => s.slug === slug);
 				assertPresent(schema, `Group schema '${slug}' not found`);
-				return { eventSchemas: await listEventSchemas(client, cookies, schema.id), slug };
+				return { eventSchemas: await listEventSchemas(client, schema.id), slug };
 			}),
 		);
 
@@ -64,9 +64,9 @@ describe("media group entity schemas", () => {
 	});
 
 	it("group schemas have the shared properties schema fields", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const builtinTracker = await findBuiltinTracker(client, cookies);
-		const schemas = await listEntitySchemas(client, cookies, { trackerId: builtinTracker.id });
+		const { client } = await createAuthenticatedClient();
+		const builtinTracker = await findBuiltinTracker(client);
+		const schemas = await listEntitySchemas(client, { trackerId: builtinTracker.id });
 
 		const movieGroup = schemas.find((s) => s.slug === "movie-group");
 		assertPresent(movieGroup, "movie-group schema not found");
@@ -78,9 +78,9 @@ describe("media group entity schemas", () => {
 	});
 
 	it("group schemas have provider scripts seeded", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const builtinTracker = await findBuiltinTracker(client, cookies);
-		const schemas = await listEntitySchemas(client, cookies, { trackerId: builtinTracker.id });
+		const { client } = await createAuthenticatedClient();
+		const builtinTracker = await findBuiltinTracker(client);
+		const schemas = await listEntitySchemas(client, { trackerId: builtinTracker.id });
 
 		const movieGroup = schemas.find((s) => s.slug === "movie-group");
 		assertPresent(movieGroup, "movie-group schema not found");
@@ -94,8 +94,8 @@ describe("media group entity schemas", () => {
 
 describe("media group saved views", () => {
 	it("builtin saved views include one view per group schema", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const views = await listSavedViews(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const views = await listSavedViews(client);
 
 		const expectedViewSlugs = [
 			"all-book-series",
@@ -112,8 +112,8 @@ describe("media group saved views", () => {
 	});
 
 	it("group saved views are scoped to the correct entity schema", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const views = await listSavedViews(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const views = await listSavedViews(client);
 
 		const movieGroupView = views.find((v) => v.slug === "all-movie-series");
 		expect(movieGroupView?.isBuiltin).toBe(true);

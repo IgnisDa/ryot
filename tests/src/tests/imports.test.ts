@@ -31,7 +31,7 @@ describe("OpenScale Import E2E", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { runId } = await runOpenScaleImportFixture(client, cookies);
 
-		const run = await getImportRun(client, cookies, runId);
+		const run = await getImportRun(client, runId);
 		expect(run.id).toBe(runId);
 		expect(run.status).toBe("completed");
 	});
@@ -40,29 +40,27 @@ describe("OpenScale Import E2E", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		await runOpenScaleImportFixture(client, cookies);
 
-		const data = await client.run((c) => c.imports.listRuns(), { Cookie: cookies });
+		const data = await client.run((c) => c.imports.listRuns());
 
 		expect(data.length).toBeGreaterThan(0);
 		expect(data[0]?.source).toBe("open_scale");
 	});
 
 	it("returns 404 for unknown run id", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
 		const error = await client.runError(
 			(c) => c.imports.getRun({ path: { runId: "nonexistent-run-id" }, urlParams: {} }),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "NotFound");
 	});
 
 	it("rejects an invalid upload token", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
 		const error = await client.runError(
 			(c) => c.imports.createRun({ payload: { source: "open_scale", uploadToken: "bogus-token" } }),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -80,7 +78,6 @@ describe("OpenScale Import E2E", () => {
 
 		const error = await client.runError(
 			(c) => c.imports.createRun({ payload: { source: "open_scale", uploadToken } }),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -90,11 +87,10 @@ describe("OpenScale Import E2E", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { runId } = await runOpenScaleImportFixture(client, cookies);
 
-		await client.run((c) => c.imports.deleteRun({ path: { runId } }), { Cookie: cookies });
+		await client.run((c) => c.imports.deleteRun({ path: { runId } }));
 
 		const error = await client.runError(
 			(c) => c.imports.getRun({ path: { runId }, urlParams: {} }),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -107,8 +103,8 @@ describe("OpenScale Import E2E", () => {
 
 		const uploadToken = await uploadTemporaryFile(cookies, badCsv, "openscale-bad.csv", "text/csv");
 
-		const runId = await startOpenScaleImport(client, cookies, uploadToken);
-		const completedRun = await pollImportRunUntilTerminal(client, cookies, runId);
+		const runId = await startOpenScaleImport(client, uploadToken);
+		const completedRun = await pollImportRunUntilTerminal(client, runId);
 
 		expect(completedRun.status).toBe("completed");
 		expect(completedRun.failedItems).toBeGreaterThan(0);
@@ -116,7 +112,6 @@ describe("OpenScale Import E2E", () => {
 
 		const runData = await client.run(
 			(c) => c.imports.getRun({ path: { runId }, urlParams: { page: 1, limit: 20 } }),
-			{ Cookie: cookies },
 		);
 
 		expect(runData.failures.items.length).toBeGreaterThan(0);

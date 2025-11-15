@@ -20,32 +20,28 @@ const normalizeSlug = (value: string) =>
 
 describe("Trackers E2E", () => {
 	it("creates custom trackers with normalized slugs and rejects duplicate slugs", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const name = "My Cool Tracker";
 		const slug = normalizeSlug(name);
 
-		const tracker = await client.run(
-			(c) =>
-				c.trackers.create({
-					payload: {
-						name,
-						icon: "rocket",
-						accentColor: "#FF5733",
-						description: "Test tracker description",
-					},
-				}),
-			{ Cookie: cookies },
+		const tracker = await client.run((c) =>
+			c.trackers.create({
+				payload: {
+					name,
+					icon: "rocket",
+					accentColor: "#FF5733",
+					description: "Test tracker description",
+				},
+			}),
 		);
 
 		expect(tracker.slug).toBe(slug);
 		expect(tracker.isBuiltin).toBe(false);
 
-		const duplicateError = await client.runError(
-			(c) =>
-				c.trackers.create({
-					payload: { slug, icon: "rocket", name: `${name} Copy`, accentColor: "#FF5733" },
-				}),
-			{ Cookie: cookies },
+		const duplicateError = await client.runError((c) =>
+			c.trackers.create({
+				payload: { slug, icon: "rocket", name: `${name} Copy`, accentColor: "#FF5733" },
+			}),
 		);
 
 		assertTaggedError(duplicateError, "Conflict");
@@ -53,22 +49,22 @@ describe("Trackers E2E", () => {
 	});
 
 	it("lists only enabled trackers by default and includes disabled when requested", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const enabledTracker = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const enabledTracker = await createTracker(client, {
 			name: `Enabled Tracker ${crypto.randomUUID()}`,
 		});
-		const disabledTracker = await createTracker(client, cookies, {
+		const disabledTracker = await createTracker(client, {
 			name: `Disabled Tracker ${crypto.randomUUID()}`,
 		});
 
-		await disableTracker({ client, cookies, trackerId: disabledTracker.trackerId });
+		await disableTracker({ client, trackerId: disabledTracker.trackerId });
 
-		const enabledOnly = await listTrackers(client, cookies);
+		const enabledOnly = await listTrackers(client);
 		expect(enabledOnly.map((tracker) => tracker.id)).toContain(enabledTracker.trackerId);
 		expect(enabledOnly.map((tracker) => tracker.id)).not.toContain(disabledTracker.trackerId);
 		expect(enabledOnly.every((tracker) => !tracker.isDisabled)).toBe(true);
 
-		const withDisabled = await listTrackers(client, cookies, { includeDisabled: true });
+		const withDisabled = await listTrackers(client, { includeDisabled: true });
 		expect(withDisabled.map((tracker) => tracker.id)).toContain(enabledTracker.trackerId);
 		expect(withDisabled.map((tracker) => tracker.id)).toContain(disabledTracker.trackerId);
 
@@ -81,23 +77,21 @@ describe("Trackers E2E", () => {
 	it("updates tracker fields and rejects cross-user access without leaking existence", async () => {
 		const owner = await createAuthenticatedClient();
 		const otherUser = await createAuthenticatedClient();
-		const created = await createTracker(owner.client, owner.cookies, {
+		const created = await createTracker(owner.client, {
 			name: `Update Target ${crypto.randomUUID()}`,
 		});
 
-		const tracker = await owner.client.run(
-			(c) =>
-				c.trackers.update({
-					path: { trackerId: created.trackerId },
-					payload: {
-						icon: "flame",
-						isDisabled: false,
-						accentColor: "#123456",
-						name: "Updated Tracker",
-						description: "Updated description",
-					},
-				}),
-			{ Cookie: owner.cookies },
+		const tracker = await owner.client.run((c) =>
+			c.trackers.update({
+				path: { trackerId: created.trackerId },
+				payload: {
+					icon: "flame",
+					isDisabled: false,
+					accentColor: "#123456",
+					name: "Updated Tracker",
+					description: "Updated description",
+				},
+			}),
 		);
 
 		expect(tracker.name).toBe("Updated Tracker");
@@ -105,13 +99,11 @@ describe("Trackers E2E", () => {
 		expect(tracker.accentColor).toBe("#123456");
 		expect(tracker.description).toBe("Updated description");
 
-		const crossUserError = await otherUser.client.runError(
-			(c) =>
-				c.trackers.update({
-					path: { trackerId: created.trackerId },
-					payload: { isDisabled: false },
-				}),
-			{ Cookie: otherUser.cookies },
+		const crossUserError = await otherUser.client.runError((c) =>
+			c.trackers.update({
+				path: { trackerId: created.trackerId },
+				payload: { isDisabled: false },
+			}),
 		);
 
 		assertTaggedError(crossUserError, "NotFound");
@@ -119,24 +111,23 @@ describe("Trackers E2E", () => {
 	});
 
 	it("reorders trackers while keeping omitted trackers at the end", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const initialTrackers = await listTrackers(client, cookies, { includeDisabled: true });
+		const initialTrackers = await listTrackers(client, { includeDisabled: true });
 		const builtinTrackerIds = initialTrackers.filter((t) => t.isBuiltin).map((t) => t.id);
 
-		const first = await createTracker(client, cookies, {
+		const first = await createTracker(client, {
 			name: `First ${crypto.randomUUID()}`,
 		});
-		const second = await createTracker(client, cookies, {
+		const second = await createTracker(client, {
 			name: `Second ${crypto.randomUUID()}`,
 		});
-		const third = await createTracker(client, cookies, {
+		const third = await createTracker(client, {
 			name: `Third ${crypto.randomUUID()}`,
 		});
 
-		const reorderedBody = await client.run(
-			(c) => c.trackers.reorder({ payload: { trackerIds: [third.trackerId, first.trackerId] } }),
-			{ Cookie: cookies },
+		const reorderedBody = await client.run((c) =>
+			c.trackers.reorder({ payload: { trackerIds: [third.trackerId, first.trackerId] } }),
 		);
 
 		expect(reorderedBody.trackerIds).toEqual([
@@ -146,7 +137,7 @@ describe("Trackers E2E", () => {
 			second.trackerId,
 		]);
 
-		const trackers = await listTrackers(client, cookies);
+		const trackers = await listTrackers(client);
 		expect(trackers.map((tracker) => tracker.id)).toEqual([
 			third.trackerId,
 			first.trackerId,
