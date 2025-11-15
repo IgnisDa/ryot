@@ -2,13 +2,22 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Effect, Layer } from "effect";
+import Redis from "ioredis";
 
 import { RedisService } from "#lib/redis";
-import { EntityId, ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
+import {
+	EntityId,
+	EntitySchemaId,
+	EventSchemaId,
+	ImportRunId,
+	IntegrationId,
+	SandboxScriptId,
+	UserId,
+} from "#lib/schema/brands";
+import type { MockOverrides } from "#lib/test-support/effect";
 import {
 	dbRunnerLayer,
 	makeAppConfigLayer,
-	makeMock,
 	makeWorkflowActivityEngine,
 } from "#lib/test-support/effect";
 import { CollectionsService } from "#modules/collections/service";
@@ -40,6 +49,17 @@ import {
 
 const now = "2026-06-17T00:00:00.000Z";
 
+const mockImportsRepository = Layer.mock(ImportsRepository);
+const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
+const mockEntitiesRepository = Layer.mock(EntitiesRepository);
+const mockCollectionsService = Layer.mock(CollectionsService);
+const mockEventsService = Layer.mock(EventsService);
+const mockEpisodeResolverService = Layer.mock(EpisodeResolverService);
+const mockEventSchemasRepository = Layer.mock(EventSchemasRepository);
+const mockEntitySchemasRepository = Layer.mock(EntitySchemasRepository);
+const mockRedisService = Layer.mock(RedisService);
+const mockImportRunArtifacts = Layer.mock(ImportRunArtifacts);
+
 const mangaGroup = (overrides: Record<string, unknown> = {}) => ({
 	itemIndex: 0,
 	collectionMemberships: [],
@@ -54,190 +74,155 @@ const mangaGroup = (overrides: Record<string, unknown> = {}) => ({
 	...overrides,
 });
 
-const makeImportsRepository = (overrides: Partial<ImportsRepository> = {}) =>
-	makeMock<ImportsRepository>(
-		{
-			updateRun: () => Effect.void,
-			createFailure: () => Effect.void,
-			_tag: "ImportsRepository" as const,
-			createRun: () => Effect.die("unused"),
-			getRunById: () => Effect.succeed(null),
-			deleteRunById: () => Effect.die("unused"),
-			listRunsByUser: () => Effect.die("unused"),
-			listFailuresByRunId: () => Effect.die("unused"),
-			listRunsByIntegrationId: () => Effect.die("unused"),
-			hasActiveRunForIntegration: () => Effect.die("unused"),
-			listRecentStatusesByIntegrationId: () => Effect.succeed([]),
-		},
-		overrides,
-	);
-
-const makeIntegrationsRepository = (overrides: Partial<IntegrationsRepository> = {}) =>
-	makeMock<IntegrationsRepository>(
-		{
-			_tag: "IntegrationsRepository" as const,
-			getForUser: () => Effect.die("unused"),
-			listForUser: () => Effect.die("unused"),
-			updateForUser: () => Effect.succeed(null),
-			deleteForUser: () => Effect.die("unused"),
-			createForUser: () => Effect.die("unused"),
-			getByIdAnyUser: () => Effect.succeed(makeIntegration()),
-			getUserDisableIntegrations: () => Effect.succeed(false),
-			listEnabledYankIntegrations: () => Effect.die("unused"),
-		},
-		overrides,
-	);
-
-const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
-	makeMock<EntitiesRepository>(
-		{
-			_tag: "EntitiesRepository" as const,
-			saveEntity: () => Effect.die("unused"),
-			getByIdForUser: () => Effect.die("unused"),
-			findEntitySchemaById: () => Effect.die("unused"),
-			getEntityScopeForUser: () => Effect.die("unused"),
-			listMatchCandidatesBySchema: () => Effect.die("unused"),
-			getEntitySchemaScopeForUser: () => Effect.die("unused"),
-			findGlobalEntityByExternalId: () => Effect.die("unused"),
-			findEntityByExternalIdForUser: () => Effect.die("unused"),
-			findEntitySchemaScriptBySlug: (slug: string) =>
-				Effect.succeed(
-					slug === "movie.tmdb"
-						? { entitySchemaId: "schema-movie", sandboxScriptId: "script-movie-tmdb" }
-						: slug === "manga.anilist"
-							? { entitySchemaId: "schema-manga", sandboxScriptId: "script-manga-anilist" }
-							: slug === "music.youtube-music"
-								? { entitySchemaId: "schema-music", sandboxScriptId: "script-youtube-music" }
-								: null,
-				),
-		},
-		overrides,
-	);
-
-const makeCollectionsService = (overrides: Partial<CollectionsService> = {}) =>
-	makeMock<CollectionsService>(
-		{
-			_tag: "CollectionsService" as const,
-			ensureEntityInLibrary: () => Effect.void,
-			create: () => Effect.die("unused"),
-			markEntityOwnedInLibrary: () => Effect.void,
-			addToCollection: () => Effect.die("unused"),
-			removeFromCollection: () => Effect.die("unused"),
-			getOrCreateCollection: () => Effect.die("unused"),
-			ensureLibraryEntityForUser: () => Effect.die("unused"),
-		},
-		overrides,
-	);
-
-const makeEventsService = (overrides: Partial<EventsService> = {}) =>
-	makeMock<EventsService>(
-		{
-			_tag: "EventsService" as const,
-			listForUser: () => Effect.die("unused"),
-			create: () => Effect.succeed({ count: 1 }),
-		},
-		overrides,
-	);
-
-const makeEpisodeResolverService = () =>
-	makeMock<EpisodeResolverService>({
-		_tag: "EpisodeResolverService" as const,
-		resolveShowEpisode: () => Effect.die("unused"),
-		resolvePodcastEpisode: () => Effect.die("unused"),
+const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
+	mockImportsRepository({
+		updateRun: () => Effect.void,
+		createFailure: () => Effect.void,
+		getRunById: () => Effect.succeed(null),
+		listRecentStatusesByIntegrationId: () => Effect.succeed([]),
+		...overrides,
+		_tag: "ImportsRepository",
 	});
 
-const makeEventSchemasRepository = (overrides: Partial<EventSchemasRepository> = {}) =>
-	makeMock<EventSchemasRepository>(
-		{
-			_tag: "EventSchemasRepository" as const,
-			listForUser: () => Effect.die("unused"),
-			getScopeForUser: () => Effect.die("unused"),
-			createEventSchema: () => Effect.die("unused"),
-			updateEventSchema: () => Effect.die("unused"),
-			deleteEventSchema: () => Effect.die("unused"),
-			getEntitySchemaScopeById: () => Effect.die("unused"),
-			getBuiltinBySlug: () => Effect.succeed({ id: "event-schema-1" }),
-		},
-		overrides,
-	);
+const makeIntegrationsRepository = (
+	overrides: MockOverrides<typeof mockIntegrationsRepository> = {},
+) =>
+	mockIntegrationsRepository({
+		updateForUser: () => Effect.succeed(null),
+		getByIdAnyUser: () => Effect.succeed(makeIntegration()),
+		getUserDisableIntegrations: () => Effect.succeed(false),
+		...overrides,
+		_tag: "IntegrationsRepository",
+	});
 
-const makeEntitySchemasRepository = (overrides: Partial<EntitySchemasRepository> = {}) =>
-	makeMock<EntitySchemasRepository>(
-		{
-			_tag: "EntitySchemasRepository" as const,
-			listByUser: () => Effect.die("unused"),
-			findBySlug: () => Effect.die("unused"),
-			getByIdForUser: () => Effect.die("unused"),
-			createEntitySchema: () => Effect.die("unused"),
-			updateEntitySchema: () => Effect.die("unused"),
-			deleteEntitySchema: () => Effect.die("unused"),
-			listVisibleBySlugs: () => Effect.die("unused"),
-			getBuiltinBySlug: () => Effect.succeed({ id: "builtin-schema" }),
-		},
-		overrides,
-	);
+const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
+	mockEntitiesRepository({
+		findEntitySchemaScriptBySlug: (slug) =>
+			Effect.succeed(
+				slug === "movie.tmdb"
+					? {
+							entitySchemaId: EntitySchemaId.make("schema-movie"),
+							sandboxScriptId: SandboxScriptId.make("script-movie-tmdb"),
+						}
+					: slug === "manga.anilist"
+						? {
+								entitySchemaId: EntitySchemaId.make("schema-manga"),
+								sandboxScriptId: SandboxScriptId.make("script-manga-anilist"),
+							}
+						: slug === "music.youtube-music"
+							? {
+									entitySchemaId: EntitySchemaId.make("schema-music"),
+									sandboxScriptId: SandboxScriptId.make("script-youtube-music"),
+								}
+							: null,
+			),
+		...overrides,
+		_tag: "EntitiesRepository",
+	});
+
+const makeCollectionsService = (overrides: MockOverrides<typeof mockCollectionsService> = {}) =>
+	mockCollectionsService({
+		ensureEntityInLibrary: () => Effect.void,
+		markEntityOwnedInLibrary: () => Effect.void,
+		...overrides,
+		_tag: "CollectionsService",
+	});
+
+const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = {}) =>
+	mockEventsService({
+		create: () => Effect.succeed({ count: 1 }),
+		...overrides,
+		_tag: "EventsService",
+	});
+
+const makeEpisodeResolverService = (
+	overrides: MockOverrides<typeof mockEpisodeResolverService> = {},
+) =>
+	mockEpisodeResolverService({
+		...overrides,
+		_tag: "EpisodeResolverService",
+	});
+
+const makeEventSchemasRepository = (
+	overrides: MockOverrides<typeof mockEventSchemasRepository> = {},
+) =>
+	mockEventSchemasRepository({
+		getBuiltinBySlug: () =>
+			Effect.succeed({
+				id: EventSchemaId.make("event-schema-1"),
+				propertiesSchema: { fields: {}, unknownKeys: "passthrough" as const },
+			}),
+		...overrides,
+		_tag: "EventSchemasRepository",
+	});
+
+const makeEntitySchemasRepository = (
+	overrides: MockOverrides<typeof mockEntitySchemasRepository> = {},
+) =>
+	mockEntitySchemasRepository({
+		getBuiltinBySlug: () => Effect.succeed({ id: EntitySchemaId.make("builtin-schema") }),
+		...overrides,
+		_tag: "EntitySchemasRepository",
+	});
 
 const makeRedisService = (claimed = true) =>
-	makeMock<RedisService>({ _tag: "RedisService" as const, claim: () => Effect.succeed(claimed) });
+	mockRedisService({
+		claim: () => Effect.succeed(claimed),
+		client: makeRedisClient(),
+		_tag: "RedisService",
+	});
+
+const makeRedisClient = (): RedisService["client"] =>
+	Object.assign(Object.create(Redis.prototype), {
+		duplicate: makeRedisClient,
+	});
 
 const makeImportRunArtifacts = () =>
-	makeMock<ImportRunArtifacts>({
-		_tag: "ImportRunArtifacts" as const,
-		cleanupArtifacts: () => Effect.void,
-	});
+	mockImportRunArtifacts({ cleanupArtifacts: () => Effect.void, _tag: "ImportRunArtifacts" });
 
 type TestLayerOptions = {
 	claimed?: boolean;
-	eventsService?: EventsService;
-	importsRepository?: ImportsRepository;
-	collectionsService?: CollectionsService;
-	integrationsRepository?: IntegrationsRepository;
+	eventsService?: Layer.Layer<EventsService>;
+	importsRepository?: Layer.Layer<ImportsRepository>;
+	collectionsService?: Layer.Layer<CollectionsService>;
+	integrationsRepository?: Layer.Layer<IntegrationsRepository>;
 	mediaOperations?: Partial<MediaImportWorkflowOperationsValue>;
 	integrationOperations?: Partial<IntegrationRunOperationsValue>;
 };
 
-const makeMediaOperations = (
-	overrides: Partial<MediaImportWorkflowOperationsValue> = {},
-): MediaImportWorkflowOperationsValue => ({
-	loadAdapterResult: () => Effect.die("unused"),
-	resolveExternalId: () => Effect.succeed({ externalId: null }),
-	importEntity: () => Effect.succeed({ id: EntityId.make("entity-1") }),
-	...overrides,
-});
+const makeMediaOperations = (overrides: Partial<MediaImportWorkflowOperationsValue> = {}) =>
+	Layer.mock(MediaImportWorkflowOperations, {
+		resolveExternalId: () => Effect.succeed({ externalId: null }),
+		importEntity: () => Effect.succeed({ id: EntityId.make("entity-1") }),
+		...overrides,
+	});
 
-const makeIntegrationOperations = (
-	overrides: Partial<IntegrationRunOperationsValue> = {},
-): IntegrationRunOperationsValue => ({
-	loadYankAdapterResult: () =>
-		Effect.succeed({ cleanupPaths: [], adapterResult: { failures: [], entityGroups: [] } }),
-	runSandboxHistory: () =>
-		Effect.succeed({ status: "completed" as const, value: { songs: [] }, logs: [], error: null }),
-	...overrides,
-});
+const makeIntegrationOperations = (overrides: Partial<IntegrationRunOperationsValue> = {}) =>
+	Layer.mock(IntegrationRunOperations, {
+		loadYankAdapterResult: () =>
+			Effect.succeed({ cleanupPaths: [], adapterResult: { failures: [], entityGroups: [] } }),
+		runSandboxHistory: () =>
+			Effect.succeed({ status: "completed" as const, value: { songs: [] }, logs: [], error: null }),
+		...overrides,
+	});
 
 const makeTestLayer = (options: TestLayerOptions) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
 		makeAppConfigLayer(),
 		BunFileSystem.layer,
-		Layer.succeed(RedisService, makeRedisService(options.claimed)),
-		Layer.succeed(ImportRunArtifacts, makeImportRunArtifacts()),
-		Layer.succeed(MediaImportWorkflowOperations, makeMediaOperations(options.mediaOperations)),
-		Layer.succeed(
-			IntegrationRunOperations,
-			makeIntegrationOperations(options.integrationOperations),
-		),
-		Layer.succeed(ImportsRepository, options.importsRepository ?? makeImportsRepository()),
-		Layer.succeed(
-			IntegrationsRepository,
-			options.integrationsRepository ?? makeIntegrationsRepository(),
-		),
-		Layer.succeed(EntitiesRepository, makeEntitiesRepository()),
-		Layer.succeed(CollectionsService, options.collectionsService ?? makeCollectionsService()),
-		Layer.succeed(EpisodeResolverService, makeEpisodeResolverService()),
-		Layer.succeed(EventsService, options.eventsService ?? makeEventsService()),
-		Layer.succeed(EventSchemasRepository, makeEventSchemasRepository()),
-		Layer.succeed(EntitySchemasRepository, makeEntitySchemasRepository()),
+		makeRedisService(options.claimed),
+		makeImportRunArtifacts(),
+		makeMediaOperations(options.mediaOperations),
+		makeIntegrationOperations(options.integrationOperations),
+		options.importsRepository ?? makeImportsRepository(),
+		options.integrationsRepository ?? makeIntegrationsRepository(),
+		makeEntitiesRepository(),
+		options.collectionsService ?? makeCollectionsService(),
+		makeEpisodeResolverService(),
+		options.eventsService ?? makeEventsService(),
+		makeEventSchemasRepository(),
+		makeEntitySchemasRepository(),
 	);
 
 const withTestLayer = <A, E, R>(
