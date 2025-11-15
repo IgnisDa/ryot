@@ -305,12 +305,16 @@ pub struct ReorderCollectionEntityInput {
     pub collection_name: String,
 }
 
-#[derive(PartialEq, Eq, Debug, InputObject, Clone, Serialize, Deserialize, FromJsonQueryResult)]
+#[derive(
+    Hash, PartialEq, Eq, Debug, InputObject, Clone, Serialize, Deserialize, FromJsonQueryResult,
+)]
 pub struct FilterPresetMediaListContextInformation {
     pub lot: MediaLot,
 }
 
-#[derive(PartialEq, Eq, Debug, InputObject, Clone, Serialize, Deserialize, FromJsonQueryResult)]
+#[derive(
+    Hash, PartialEq, Eq, Debug, InputObject, Clone, Serialize, Deserialize, FromJsonQueryResult,
+)]
 pub struct FilterPresetContextInformation {
     pub media_list: Option<FilterPresetMediaListContextInformation>,
 }
@@ -494,5 +498,5 @@ pub struct PresignedPutUrlResponse {
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize, InputObject)]
 pub struct FilterPresetQueryInput {
     pub context_type: FilterPresetContextType,
-    pub context_information: Option<serde_json::Value>,
+    pub context_information: Option<FilterPresetContextInformation>,
 }

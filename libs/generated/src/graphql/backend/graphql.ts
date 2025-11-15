@@ -896,7 +896,7 @@ export type FilterPresetMediaListContextInformation = {
 };
 
 export type FilterPresetQueryInput = {
-  contextInformation?: InputMaybe<Scalars['JSON']['input']>;
+  contextInformation?: InputMaybe<FilterPresetContextInformation>;
   contextType: FilterPresetContextType;
 };
 
