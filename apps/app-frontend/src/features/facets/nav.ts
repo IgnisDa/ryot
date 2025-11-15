@@ -36,13 +36,11 @@ export function toTrackingNavItems(facets: AppFacet[]): TrackingNavItem[] {
 export function toTrackingNavItemsWithViews(input: {
 	facets: AppFacet[];
 	savedViews: AppSavedView[];
-	entitySchemasByFacet: Map<string, string[]>;
 }): TrackingNavItem[] {
 	const sorted = sortFacetsByOrder(input.facets);
 
 	return sorted.map((facet) => {
-		const entitySchemaIds = input.entitySchemasByFacet.get(facet.id) ?? [];
-		const facetViews = getSavedViewsForFacet(input.savedViews, entitySchemaIds);
+		const facetViews = getSavedViewsForFacet(input.savedViews, facet.id);
 
 		const savedViews: TrackingNavItemSubItem[] | undefined =
 			facetViews.length > 0

@@ -8,7 +8,6 @@ import {
 	ToggleRight,
 } from "lucide-react";
 import type { MouseEvent } from "react";
-import { useEntitySchemasQuery } from "#/features/entity-schemas/hooks";
 import type { AppSavedView } from "#/features/saved-views/model";
 import { getSavedViewsForFacet } from "#/features/saved-views/model";
 import { FacetIcon } from "../icons";
@@ -36,17 +35,9 @@ export function FacetNavItem(props: FacetNavItemProps) {
 	const actions = useFacetSidebarActions();
 	const toggleUi = getFacetNavActionUi(props.facet);
 	const actionsVisible = state.isCustomizeMode;
-
-	const entitySchemasQuery = useEntitySchemasQuery(
-		props.facet.facetId,
-		!props.facet.isBuiltin,
-	);
-	const entitySchemaIds = entitySchemasQuery.entitySchemas.map(
-		(schema) => schema.id,
-	);
 	const facetSavedViews = getSavedViewsForFacet(
 		props.savedViews,
-		entitySchemaIds,
+		props.facet.facetId,
 	);
 
 	return (

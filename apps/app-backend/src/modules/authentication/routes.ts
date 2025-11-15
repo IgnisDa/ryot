@@ -107,8 +107,9 @@ export const authenticationApi = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 					database: tx,
 					userId: signUpResult.user.id,
 					views: buildAuthenticationSavedViewInputs({
-						entitySchemas: builtinEntitySchemaRows,
+						facets: createdFacets,
 						savedViews: builtinSavedViews(),
+						entitySchemas: builtinEntitySchemaRows,
 					}),
 				});
 			});

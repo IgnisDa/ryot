@@ -19,26 +19,29 @@ const fakeFacets = [
 		enabled: true,
 		isExpanded: true,
 		accentColor: "#5B7FFF",
-		entitySchemas: [
+		views: [
 			{
-				id: "movies",
 				icon: "film",
 				name: "Movies",
 				slug: "movies",
+				facetId: "media",
+				id: "movies-view",
 				accentColor: "#5B7FFF",
 			},
 			{
 				icon: "tv",
-				id: "tv-shows",
 				name: "TV Shows",
 				slug: "tv-shows",
+				facetId: "media",
+				id: "tv-shows-view",
 				accentColor: "#FB7185",
 			},
 			{
-				id: "books",
-				icon: "book-open",
 				name: "Books",
 				slug: "books",
+				facetId: "media",
+				id: "books-view",
+				icon: "book-open",
 				accentColor: "#5B7FFF",
 			},
 		],
@@ -52,19 +55,21 @@ const fakeFacets = [
 		icon: "dumbbell",
 		isExpanded: false,
 		accentColor: "#2DD4BF",
-		entitySchemas: [
+		views: [
 			{
-				id: "workouts",
 				icon: "dumbbell",
 				name: "Workouts",
 				slug: "workouts",
+				facetId: "fitness",
+				id: "workouts-view",
 				accentColor: "#2DD4BF",
 			},
 			{
 				icon: "apple",
-				id: "nutrition",
 				name: "Nutrition",
 				slug: "nutrition",
+				facetId: "fitness",
+				id: "nutrition-view",
 				accentColor: "#84CC16",
 			},
 		],
@@ -78,19 +83,21 @@ const fakeFacets = [
 		name: "Whiskey",
 		isExpanded: false,
 		accentColor: "#D4A574",
-		entitySchemas: [
+		views: [
 			{
-				id: "bottles",
 				icon: "wine",
 				name: "Bottles",
 				slug: "bottles",
+				id: "bottles-view",
+				facetId: "whiskey",
 				accentColor: "#D4A574",
 			},
 			{
-				id: "tastings",
-				icon: "glass-water",
 				name: "Tastings",
 				slug: "tastings",
+				facetId: "whiskey",
+				id: "tastings-view",
+				icon: "glass-water",
 				accentColor: "#F59E0B",
 			},
 		],
@@ -104,19 +111,21 @@ const fakeFacets = [
 		icon: "map-pin",
 		isExpanded: false,
 		accentColor: "#A78BFA",
-		entitySchemas: [
+		views: [
 			{
-				id: "visited",
 				icon: "map-pin",
 				name: "Visited",
 				slug: "visited",
+				facetId: "places",
+				id: "visited-view",
 				accentColor: "#A78BFA",
 			},
 			{
-				id: "wishlist",
 				icon: "bookmark",
 				name: "Wishlist",
 				slug: "wishlist",
+				facetId: "places",
+				id: "wishlist-view",
 				accentColor: "#60A5FA",
 			},
 		],
@@ -125,14 +134,37 @@ const fakeFacets = [
 
 const fakeViews = [
 	{
+		facetId: null,
+		icon: "book-open",
+		accentColor: "#5B7FFF",
 		id: "currently-reading",
 		name: "Currently Reading",
 		slug: "currently-reading",
-		icon: "book-open",
 	},
-	{ id: "watchlist", name: "Watchlist", slug: "watchlist", icon: "eye" },
-	{ id: "favorites", name: "Favorites", slug: "favorites", icon: "star" },
-	{ id: "recent", name: "Recent", slug: "recent", icon: "clock" },
+	{
+		icon: "eye",
+		facetId: null,
+		id: "watchlist",
+		name: "Watchlist",
+		slug: "watchlist",
+		accentColor: "#FB7185",
+	},
+	{
+		icon: "star",
+		facetId: null,
+		id: "favorites",
+		name: "Favorites",
+		slug: "favorites",
+		accentColor: "#D4A574",
+	},
+	{
+		id: "recent",
+		icon: "clock",
+		facetId: null,
+		name: "Recent",
+		slug: "recent",
+		accentColor: "#2DD4BF",
+	},
 ];
 
 export const Default = meta.story({

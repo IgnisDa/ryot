@@ -19,7 +19,7 @@ describe("resolveAuthenticationName", () => {
 	});
 });
 
-describe("buildAuthenticationSavedViewInputs", () => {
+describe("authentication bootstrap helpers", () => {
 	it("builds built-in facet inputs from manifests", () => {
 		expect(
 			buildAuthenticationFacetInputs({
@@ -65,16 +65,33 @@ describe("buildAuthenticationSavedViewInputs", () => {
 		).toThrow("Missing built-in facet for entity schema book");
 	});
 
-	it("builds built-in saved views from built-in entity schemas", () => {
+	it("builds built-in saved views from built-in manifests", () => {
 		expect(
 			buildAuthenticationSavedViewInputs({
-				entitySchemas: [{ id: "schema-1", slug: "book" }],
-				savedViews: [{ name: "All Books", entitySchemaSlug: "book" }],
+				facets: [{ id: "facet-1", slug: "media" }],
+				entitySchemas: [
+					{
+						slug: "book",
+						id: "schema-1",
+						icon: "book-open",
+						accentColor: "#5B7FFF",
+					},
+				],
+				savedViews: [
+					{
+						name: "All Books",
+						facetSlug: "media",
+						entitySchemaSlug: "book",
+					},
+				],
 			}),
 		).toEqual([
 			{
 				isBuiltin: true,
+				icon: "book-open",
 				name: "All Books",
+				facetId: "facet-1",
+				accentColor: "#5B7FFF",
 				queryDefinition: { entitySchemaIds: ["schema-1"] },
 			},
 		]);
@@ -83,8 +100,15 @@ describe("buildAuthenticationSavedViewInputs", () => {
 	it("throws when a saved view references a missing built-in entity schema", () => {
 		expect(() =>
 			buildAuthenticationSavedViewInputs({
+				facets: [{ id: "facet-1", slug: "media" }],
 				entitySchemas: [],
-				savedViews: [{ name: "All Books", entitySchemaSlug: "book" }],
+				savedViews: [
+					{
+						name: "All Books",
+						facetSlug: "media",
+						entitySchemaSlug: "book",
+					},
+				],
 			}),
 		).toThrow("Missing built-in entity schema for saved view All Books");
 	});
