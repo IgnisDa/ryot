@@ -27,12 +27,14 @@ pub async fn get_filter_presets(
         || async {
             let mut query = FilterPreset::find()
                 .filter(filter_preset::Column::UserId.eq(user_id))
-                .filter(filter_preset::Column::ContextType.eq(input.context_type.to_string()));
+                .filter(filter_preset::Column::ContextType.eq(input.context_type));
 
-            query = query.filter(match &input.context_metadata {
-                None => filter_preset::Column::ContextMetadata.is_null(),
-                Some(metadata) => filter_preset::Column::ContextMetadata.eq(metadata.clone()),
-            });
+            query = match &input.context_metadata {
+                None => query.filter(filter_preset::Column::ContextMetadata.is_null()),
+                Some(metadata) => {
+                    query.filter(filter_preset::Column::ContextMetadata.eq(metadata.clone()))
+                }
+            };
 
             let presets = query
                 .order_by_desc(filter_preset::Column::LastUsedAt)
@@ -78,8 +80,8 @@ pub async fn create_or_update_filter_preset(
                 last_used_at: ActiveValue::Set(Utc::now()),
                 user_id: ActiveValue::Set(user_id.to_string()),
                 id: ActiveValue::Set(format!("fp_{}", nanoid!())),
+                context_type: ActiveValue::Set(input.context_type),
                 context_metadata: ActiveValue::Set(input.context_metadata),
-                context_type: ActiveValue::Set(input.context_type.to_string()),
                 ..Default::default()
             };
 
