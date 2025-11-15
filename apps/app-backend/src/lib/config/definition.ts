@@ -15,15 +15,11 @@ const fields = {
 	frontendUrl: strField("FRONTEND_URL", "Public URL of the frontend application", {
 		default: "http://localhost:3000",
 	}),
-	redisUrl: secretField("REDIS_URL", "Redis connection string", {
-		default: "redis://localhost:6379",
-	}),
+	redisUrl: secretField("REDIS_URL", "Redis connection string"),
 	s3SecretAccessKey: optField(
 		secretField("FILE_STORAGE_S3_SECRET_ACCESS_KEY", "S3 secret access key"),
 	),
-	databaseUrl: secretField("DATABASE_URL", "PostgreSQL connection string", {
-		default: "postgres://postgres:postgres@localhost:5432/postgres",
-	}),
+	databaseUrl: secretField("DATABASE_URL", "PostgreSQL connection string"),
 	databaseConnectionTimeoutMs: intField(
 		"DATABASE_CONNECTION_TIMEOUT_MS",
 		"Maximum milliseconds to wait when acquiring a PostgreSQL connection from the pool",
