@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::NaiveDate;
 use enum_meta::{Meta, meta};
-use enum_models::{EntityLot, MediaLot, MediaSource};
+use enum_models::{EntityLot, FilterContextType, MediaLot, MediaSource};
 use schematic::{ConfigEnum, Schematic};
 use sea_orm::{FromJsonQueryResult, prelude::DateTimeUtc, sea_query::PgDateTruncUnit};
 use serde::{Deserialize, Serialize};
@@ -362,17 +362,6 @@ pub enum DailyUserActivitiesResponseGroupedBy {
     Year,
     Month,
     AllTime,
-}
-
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Hash, Display)]
-#[strum(serialize_all = "snake_case")]
-pub enum FilterContextType {
-    MediaList,
-    PeopleList,
-    GroupsList,
-    ExercisesList,
-    CollectionContents,
-    FitnessEntitiesList,
 }
 
 impl From<DailyUserActivitiesResponseGroupedBy> for PgDateTruncUnit {
