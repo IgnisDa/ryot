@@ -314,7 +314,7 @@ driver("details", async function (context) {
 		} else if (typeof authorEntry.name === "string" && authorEntry.name.trim()) {
 			inlineName = authorEntry.name.trim();
 		}
-		const authorName = inlineName ?? (await loadAuthorName(authorKey));
+		const authorName = inlineName || (await loadAuthorName(authorKey));
 
 		addRelatedEntity({
 			name: authorName,
