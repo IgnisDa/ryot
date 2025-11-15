@@ -16,17 +16,14 @@ import {
 	readImportFile,
 } from "../../runtime/files";
 import { adaptNetflixExports } from "./adapter";
-import {
-	type NetflixTitleMatchCandidate,
-	chooseBestNetflixTitleMatch,
-	extractNetflixBaseTitle,
-} from "./title-matching";
+import { type NetflixTitleMatchCandidate, chooseBestNetflixTitleMatch } from "./title-matching";
+import { extractNetflixBaseTitle } from "./title-parsing";
 
 type SearchScriptSlug = "movie.tmdb" | "show.tmdb";
 
 type NetflixAdapterInput = {
-	importedAt: string;
 	myListCsv: string;
+	importedAt: string;
 	ratingsCsv: string;
 	profileName?: string;
 	viewingActivityCsv: string;
