@@ -122,7 +122,7 @@ driver("search", async function (context) {
   };
 });
 
-driver("details", async function (context) {
+driver("details", async function (context, { metadata }) {
   const { z } = await import("npm:zod");
 
   const { externalId } = z
@@ -133,10 +133,11 @@ driver("details", async function (context) {
     throw new Error("externalId must be a numeric TMDB collection ID");
   }
 
+  const language = metadata?.providerInformation?.canonicalLanguage ?? "en-US";
   const token = await getTmdbAccessToken();
 
   const [collectionData, imagesData] = await Promise.all([
-    tmdbGet(`/collection/${externalId}`, { language: "en-US" }, token),
+    tmdbGet(`/collection/${externalId}`, { language }, token),
     tmdbGet(`/collection/${externalId}/images`, {}, token),
   ]);
 
@@ -194,4 +195,85 @@ driver("details", async function (context) {
       sourceUrl: `https://www.themoviedb.org/collections/${externalId}-${title}`,
     },
   };
+});
+
+driver("translate", async function (context) {
+  const { z } = await import("npm:zod");
+
+  const { externalId, language } = z
+    .object({
+      language: z.string().trim().min(1, "language is required"),
+      externalId: z.string().trim().min(1, "externalId is required"),
+    })
+    .parse(context ?? {});
+
+  if (!/^\d+$/.test(externalId)) {
+    throw new Error("externalId must be a numeric TMDB collection ID");
+  }
+
+  const [langPart, regionPart] = language.split("-");
+  const langCode = langPart.trim().toLowerCase();
+  const region = regionPart ? regionPart.trim().toUpperCase() : null;
+
+  const token = await getTmdbAccessToken();
+  const translationsData = await tmdbGet(`/collection/${externalId}/translations`, {}, token);
+  let imagesData = {};
+  try {
+    imagesData = await tmdbGet(
+      `/collection/${externalId}/images`,
+      { include_image_language: langCode },
+      token,
+    );
+  } catch {}
+
+  const translations = Array.isArray(translationsData?.translations)
+    ? translationsData.translations
+    : [];
+  const matchesLanguage = (entry) =>
+    typeof entry?.iso_639_1 === "string" && entry.iso_639_1.toLowerCase() === langCode;
+  const candidates = translations.filter(matchesLanguage);
+  const regionMatch = region
+    ? candidates.find(
+        (entry) =>
+          typeof entry?.iso_3166_1 === "string" && entry.iso_3166_1.toUpperCase() === region,
+      )
+    : null;
+  const orderedCandidates = regionMatch
+    ? [regionMatch, ...candidates.filter((entry) => entry !== regionMatch)]
+    : candidates;
+  const firstValue = (extract) => {
+    for (const entry of orderedCandidates) {
+      const value = extract(entry);
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+    return null;
+  };
+
+  let name = firstValue((entry) =>
+    typeof entry?.data?.title === "string" && entry.data.title.trim()
+      ? entry.data.title
+      : entry?.data?.name,
+  );
+  if (name) {
+    const suffixIndex = name.lastIndexOf(" Collection");
+    if (suffixIndex !== -1 && suffixIndex + " Collection".length === name.length) {
+      name = name.slice(0, suffixIndex);
+    }
+  }
+
+  const description = firstValue((entry) => entry?.data?.overview);
+
+  const posters = Array.isArray(imagesData?.posters) ? imagesData.posters : [];
+  const localizedPoster = posters.find(
+    (poster) =>
+      typeof poster?.iso_639_1 === "string" && poster.iso_639_1.toLowerCase() === langCode,
+  );
+  const imageUrl = localizedPoster ? getImageUrl(localizedPoster.file_path) : null;
+
+  const result = {};
+  if (name) result.name = name;
+  if (description) result.description = description;
+  if (imageUrl) result.image = { type: "remote", url: imageUrl };
+
+  return result;
 });
