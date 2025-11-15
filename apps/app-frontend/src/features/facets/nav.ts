@@ -1,4 +1,3 @@
-import { kebabCase } from "@ryot/ts-utils";
 import type { AppSavedView } from "../saved-views/model";
 import { getSavedViewsForFacet } from "../saved-views/model";
 import type { AppFacet } from "./model";
@@ -7,7 +6,6 @@ import { sortFacetsByOrder } from "./model";
 export type TrackingNavItemSubItem = {
 	id: string;
 	name: string;
-	viewSlug: string;
 };
 
 export type TrackingNavItem = {
@@ -47,7 +45,6 @@ export function toTrackingNavItemsWithViews(input: {
 				? facetViews.map((view) => ({
 						id: view.id,
 						name: view.name,
-						viewSlug: kebabCase(view.name),
 					}))
 				: undefined;
 

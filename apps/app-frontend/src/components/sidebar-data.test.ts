@@ -61,6 +61,7 @@ describe("toSidebarData", () => {
 				name: "Media",
 				slug: "media",
 				enabled: true,
+				accentColor: "#5B7FFF",
 				views: [
 					{
 						id: "view-1",
@@ -68,10 +69,8 @@ describe("toSidebarData", () => {
 						facetId: "facet-1",
 						accentColor: "#5B7FFF",
 						name: "Currently Reading",
-						slug: "currently-reading",
 					},
 				],
-				accentColor: "#5B7FFF",
 			},
 			{
 				views: [],
@@ -92,7 +91,6 @@ describe("toSidebarData", () => {
 				facetId: null,
 				icon: "sparkles",
 				name: "Favorites",
-				slug: "favorites",
 				accentColor: "#2DD4BF",
 			},
 		]);
