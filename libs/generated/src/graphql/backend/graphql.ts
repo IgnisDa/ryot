@@ -449,7 +449,7 @@ export type CreateOrUpdateCollectionInput = {
 };
 
 export type CreateOrUpdateFilterPresetInput = {
-  contextInformation?: InputMaybe<Scalars['JSON']['input']>;
+  contextInformation?: InputMaybe<FilterPresetContextInformation>;
   contextType: FilterPresetContextType;
   filters: Scalars['JSON']['input'];
   id?: InputMaybe<Scalars['String']['input']>;
@@ -878,6 +878,10 @@ export type FilterPreset = {
   name: Scalars['String']['output'];
 };
 
+export type FilterPresetContextInformation = {
+  mediaList?: InputMaybe<FilterPresetMediaListContextInformation>;
+};
+
 export enum FilterPresetContextType {
   CollectionContents = 'COLLECTION_CONTENTS',
   ExercisesList = 'EXERCISES_LIST',
@@ -886,6 +890,10 @@ export enum FilterPresetContextType {
   MediaList = 'MEDIA_LIST',
   PeopleList = 'PEOPLE_LIST'
 }
+
+export type FilterPresetMediaListContextInformation = {
+  lot: MediaLot;
+};
 
 export type FilterPresetQueryInput = {
   contextInformation?: InputMaybe<Scalars['JSON']['input']>;

@@ -1,5 +1,6 @@
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
+use common_models::FilterPresetContextInformation;
 use enum_models::FilterPresetContextType;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -25,7 +26,7 @@ pub struct Model {
     pub context_type: FilterPresetContextType,
     #[graphql(skip)]
     #[sea_orm(column_type = "JsonBinary")]
-    pub context_information: Option<serde_json::Value>,
+    pub context_information: Option<FilterPresetContextInformation>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -305,6 +305,16 @@ pub struct ReorderCollectionEntityInput {
     pub collection_name: String,
 }
 
+#[derive(PartialEq, Eq, Debug, InputObject, Clone, Serialize, Deserialize, FromJsonQueryResult)]
+pub struct FilterPresetMediaListContextInformation {
+    pub lot: MediaLot,
+}
+
+#[derive(PartialEq, Eq, Debug, InputObject, Clone, Serialize, Deserialize, FromJsonQueryResult)]
+pub struct FilterPresetContextInformation {
+    pub media_list: Option<FilterPresetMediaListContextInformation>,
+}
+
 #[skip_serializing_none]
 #[derive(Debug, InputObject, Clone, Serialize, Deserialize)]
 pub struct CreateOrUpdateFilterPresetInput {
@@ -312,7 +322,7 @@ pub struct CreateOrUpdateFilterPresetInput {
     pub id: Option<String>,
     pub filters: serde_json::Value,
     pub context_type: FilterPresetContextType,
-    pub context_information: Option<serde_json::Value>,
+    pub context_information: Option<FilterPresetContextInformation>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
