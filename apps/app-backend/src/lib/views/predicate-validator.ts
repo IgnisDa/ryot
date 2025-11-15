@@ -1,7 +1,7 @@
 import { Either, Match, Schema } from "effect";
 
 import type { AppObjectProperty, AppPropertyDefinition } from "#lib/property-schema";
-import { createPropertyValueSchema } from "#lib/property-schema-runtime";
+import { createPropertyValueSchema, type PropertyValueField } from "#lib/property-schema-runtime";
 import type { QueryComputedField, QueryExpression, QueryFilter } from "#lib/query-language";
 
 import { buildComputedFieldMap } from "./computed-fields";
@@ -13,22 +13,7 @@ import {
 	assertFilterCompatibleExpression,
 	inferViewExpressionType,
 } from "./expression-analysis";
-import type {
-	QueryEngineEventJoinLike,
-	QueryEngineReferenceContext,
-	QueryEngineSchemaLike,
-} from "./reference";
-
-type ContainsSchemaField =
-	| Schema.Schema.AnyNoContext
-	| Schema.PropertySignature<
-			Schema.PropertySignature.Token,
-			unknown,
-			PropertyKey,
-			Schema.PropertySignature.Token,
-			unknown,
-			boolean
-	  >;
+import type { QueryEngineReferenceContext } from "./reference";
 
 const validateLiteralAgainstSchema = (
 	value: unknown,
@@ -43,7 +28,7 @@ const validateLiteralAgainstSchema = (
 };
 
 const createObjectContainsSchema = (property: AppObjectProperty) => {
-	const shape: Record<string, ContainsSchemaField> = {};
+	const shape: Record<string, PropertyValueField> = {};
 
 	for (const [key, value] of Object.entries(property.properties)) {
 		shape[key] = Schema.optional(createContainsValueSchema(value));
@@ -62,14 +47,11 @@ const createContainsValueSchema = (property: AppPropertyDefinition): Schema.Sche
 	return createPropertyValueSchema(property);
 };
 
-export const validateViewPredicateAgainstSchemas = <
-	TSchema extends QueryEngineSchemaLike,
-	TJoin extends QueryEngineEventJoinLike,
->(input: {
+export const validateViewPredicateAgainstSchemas = (input: {
 	predicate: QueryFilter;
 	validBuiltins: ReadonlySet<string>;
+	context: QueryEngineReferenceContext;
 	computedFields?: ReadonlyArray<QueryComputedField>;
-	context: QueryEngineReferenceContext<TSchema, TJoin>;
 	validateExpression?: (expression: QueryExpression) => void;
 }) => {
 	const computedFieldMap = buildComputedFieldMap(input.computedFields);

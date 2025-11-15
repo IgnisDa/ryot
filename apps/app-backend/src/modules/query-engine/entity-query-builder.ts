@@ -1,8 +1,6 @@
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import type { CurrentDb } from "#lib/db";
-import type { DbError } from "#lib/errors";
 import type { EntitiesQueryRequest } from "#lib/query-language";
 
 import type { PreparedQueryContext } from "./context";
@@ -19,6 +17,7 @@ import {
 	buildQueryRuntime,
 	buildQuerySortExpression,
 	buildSortDirection,
+	type QueryEngineExecutionEffect,
 } from "./query-builder-shared";
 import { ENTITY_CTE_ALIASES } from "./query-cte-shared";
 import {
@@ -54,20 +53,16 @@ export const executePreparedQuery = (input: {
 	userId: string;
 	context: PreparedQueryContext;
 	request: EntitiesQueryRequest;
-}): Effect.Effect<
-	{
-		mode: "entities";
-		data: {
-			items: Readonly<Record<string, { kind: string; value: unknown }>>[];
-			meta: {
-				pagination: ReturnType<typeof calculatePagination>;
-				fieldOrder: string[];
-			};
+}): QueryEngineExecutionEffect<{
+	mode: "entities";
+	data: {
+		items: Readonly<Record<string, { kind: string; value: unknown }>>[];
+		meta: {
+			pagination: ReturnType<typeof calculatePagination>;
+			fieldOrder: string[];
 		};
-	},
-	DbError,
-	CurrentDb
-> =>
+	};
+}> =>
 	Effect.gen(function* () {
 		const sort = input.request.sort;
 		const runtime = buildQueryRuntime({

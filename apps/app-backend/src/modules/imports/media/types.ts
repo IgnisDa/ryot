@@ -33,17 +33,13 @@ export const ImportMediaEventSchema = Schema.Struct({
 	properties: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
 });
 
-export type ImportMediaEvent = {
-	occurredAt: string;
-	eventSchemaSlug: string;
-	properties: Record<string, unknown>;
-};
+export type ImportMediaEvent = typeof ImportMediaEventSchema.Type;
 
 export const ImportCollectionMembershipSchema = Schema.Struct({
 	collectionName: Schema.String,
 });
 
-export type ImportCollectionMembership = { collectionName: string };
+export type ImportCollectionMembership = typeof ImportCollectionMembershipSchema.Type;
 
 export const ImportMediaEntityGroupSchema = Schema.Struct({
 	entityRef: ImportEntityRef,

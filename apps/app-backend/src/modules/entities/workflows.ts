@@ -14,6 +14,7 @@ import {
 	processRelatedEntity,
 } from "./population";
 import { EntitiesRepository } from "./repository";
+import type { ImportEntityRunResult } from "./schemas";
 import { ListedEntity } from "./schemas";
 
 export const EntityImportPayload = Schema.Struct({
@@ -26,10 +27,7 @@ export const EntityImportPayload = Schema.Struct({
 
 export type EntityImportPayload = typeof EntityImportPayload.Type;
 
-export type EntityImportRunResult =
-	| { readonly status: "pending" }
-	| { readonly status: "failed"; readonly error: string }
-	| { readonly status: "completed"; readonly data: ListedEntity };
+export type EntityImportRunResult = typeof ImportEntityRunResult.Type;
 
 export const EntityImportWorkflow = Workflow.make({
 	success: ListedEntity,
