@@ -3,7 +3,7 @@ import { Schema } from "effect";
 import { ImportRunFailureStage } from "../schemas";
 import { ImportMediaEntityGroupSchema } from "./types";
 
-export const MediaImportAdapterFailureSchema = Schema.Struct({
+const MediaImportAdapterFailureSchema = Schema.Struct({
 	message: Schema.String,
 	itemIndex: Schema.Number,
 	sourceLabel: Schema.optional(Schema.String),

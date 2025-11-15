@@ -53,10 +53,6 @@ export class Unauthorized extends Schema.TaggedError<Unauthorized>()("Unauthoriz
 	message: Schema.String,
 }) {}
 
-export class ValidationError extends Schema.TaggedError<ValidationError>()("ValidationError", {
-	message: Schema.String,
-}) {}
-
 export class RateLimited extends Schema.TaggedError<RateLimited>()("RateLimited", {
 	message: Schema.String,
 }) {}
@@ -89,7 +85,6 @@ export const badRequest = (message: string) => new BadRequest({ message });
 export const rateLimited = (message: string) => new RateLimited({ message });
 export const unauthorized = () => new Unauthorized({ message: "Unauthorized" });
 export const internalError = (message: string) => new InternalError({ message });
-export const validationError = (message: string) => new ValidationError({ message });
 export const healthCheckFailed = (message: string) => new HealthCheckFailedError({ message });
 
 // Unexpected database failures are not part of any route contract; convert them to

@@ -8,7 +8,7 @@ import { renameLegacyTables } from "#modules/legacy-bootstrap/rename-tables";
 
 import { DbService } from "./index";
 
-export const migrateDB = Effect.gen(function* () {
+const migrateDB = Effect.gen(function* () {
 	const { db } = yield* DbService;
 
 	yield* renameLegacyTables;

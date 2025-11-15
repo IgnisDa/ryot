@@ -114,7 +114,7 @@ export const readImportFileBytes = Effect.fn("imports.readImportFileBytes")(func
 	return yield* fs.readFile(safePath).pipe(Effect.mapError(() => "Could not read import file"));
 });
 
-export const resolveSafeZipOutputPath = (
+const resolveSafeZipOutputPath = (
 	path: Path.Path,
 	directoryPath: string,
 	fileName: string,
