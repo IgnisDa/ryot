@@ -1,0 +1,33 @@
+use async_graphql::Enum;
+use sea_orm::{DeriveActiveEnum, entity::prelude::StringLen};
+use serde::{Deserialize, Serialize};
+use strum::{Display, EnumIter};
+
+#[derive(
+    Eq,
+    Copy,
+    Hash,
+    Enum,
+    Debug,
+    Clone,
+    Display,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    DeriveActiveEnum,
+)]
+#[strum(serialize_all = "snake_case")]
+#[sea_orm(
+    rs_type = "String",
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
+)]
+pub enum FilterContextType {
+    MediaList,
+    PeopleList,
+    GroupsList,
+    ExercisesList,
+    CollectionContents,
+    FitnessEntitiesList,
+}
