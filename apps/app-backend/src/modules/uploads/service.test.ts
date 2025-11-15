@@ -8,7 +8,7 @@ import { BadRequest } from "#lib/errors";
 import { RedisService, redisKeys } from "#lib/redis";
 import { S3Service } from "#lib/s3";
 import { UserId } from "#lib/schema/brands";
-import { makeAppConfigLayer } from "#lib/test-support/effect";
+import { makeAppConfigLayer, makeRedisService } from "#lib/test-support/effect";
 
 import { UploadsService } from "./service";
 
@@ -42,23 +42,13 @@ type S3Overrides = Omit<Parameters<typeof mockS3Service>[0], "_tag" | "isConfigu
 const makeS3Layer = (overrides: S3Overrides = {}) =>
 	mockS3Service({ _tag: "S3Service", isConfigured: true, ...overrides });
 
-const mockRedisService = Layer.mock(RedisService);
-
-type RedisOverrides = Omit<Parameters<typeof mockRedisService>[0], "_tag" | "client"> & {
-	client?: RedisService["client"];
-};
-
 const makeRedisClient = (): RedisService["client"] =>
 	Object.assign(Object.create(Redis.prototype), {
 		duplicate: makeRedisClient,
 	});
 
-const makeRedisLayer = (overrides: RedisOverrides = {}) =>
-	mockRedisService({
-		_tag: "RedisService",
-		client: makeRedisClient(),
-		...overrides,
-	});
+const makeRedisLayer = (overrides: Partial<RedisService> = {}) =>
+	Layer.succeed(RedisService, makeRedisService({ client: makeRedisClient(), ...overrides }));
 
 const makeFsLayer = (overrides: Record<string, unknown> = {}) =>
 	FileSystem.layerNoop({
