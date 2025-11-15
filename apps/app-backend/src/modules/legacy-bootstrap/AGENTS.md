@@ -51,10 +51,6 @@ Everything else must throw. Do not add new `RETURN` statements inside DO blocks 
 - Group `properties` fields (`parts`, `description`, `source_url`): deferred to re-population from the source provider, matching the same decision made for `metadata`.
 - Metadata groups for lots without V2 group entity schemas (`anime`, `manga`, `show`, `podcast`, `visual_novel`): silently skipped, no V2 schema exists for them.
 
-## Ignored For Now (workout)
-
-- `workout.repeated_from`: V1 stores a self-referencing FK on the `workout` table that records when a workout was copied from another workout. V2 has no matching relationship schema for this link, so the field is dropped during migration and the lineage is not preserved. A new `workout-repeated-from` relationship schema would need to be added to V2 builtins before this can be ported.
-
 ## Ignored For Now
 
 - OAuth redirect URL (V1 used `{frontend_url}/api/auth`; V2 uses Better Auth's default `/api/auth/oauth2/callback/oidc`).
