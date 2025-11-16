@@ -4,7 +4,6 @@ import {
 	ActionIcon,
 	Anchor,
 	Box,
-	Chip,
 	Container,
 	Divider,
 	Flex,
@@ -56,7 +55,7 @@ import {
 import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
 	CreateFilterPresetModal,
-	FilterPresetChip,
+	FilterPresetBar,
 } from "~/components/common/filter-presets";
 import {
 	DebouncedSearchInput,
@@ -147,7 +146,6 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 	const { entity } = props.params;
 	invariant(entity);
 
-	const [listPresetParent] = useAutoAnimate();
 	const [filters, setFilters] = useLocalStorage(
 		`Fitness-${entity}-ListFilters`,
 		defaultFilterState,
@@ -319,41 +317,12 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 							/>
 						</FiltersModal>
 					</Group>
-					{listPresets.filterPresets &&
-					listPresets.filterPresets.response.length > 0 ? (
-						<Box>
-							<Chip.Group
-								value={listPresets.activePresetId || undefined}
-								key={
-									listPresets.activePresetId || "fitness-entity-list-no-preset"
-								}
-								onChange={(value) => {
-									if (!value) return;
-									const preset = listPresets.filterPresets?.response.find(
-										(p) => p.id === value,
-									);
-									if (preset)
-										listPresets.applyPreset(preset.id, preset.filters);
-								}}
-							>
-								<Group
-									gap="xs"
-									wrap="nowrap"
-									ref={listPresetParent}
-									style={{ overflowX: "auto" }}
-								>
-									{listPresets.filterPresets.response.map((preset) => (
-										<FilterPresetChip
-											id={preset.id}
-											key={preset.id}
-											name={preset.name}
-											onDelete={listPresets.deletePreset}
-										/>
-									))}
-								</Group>
-							</Chip.Group>
-						</Box>
-					) : null}
+					<FilterPresetBar
+						filterPresets={listPresets.filterPresets}
+						activePresetId={listPresets.activePresetId}
+						onSelectPreset={listPresets.applyPreset}
+						onDeletePreset={listPresets.deletePreset}
+					/>
 					<Stack gap="xs">
 						{listData ? (
 							<>
