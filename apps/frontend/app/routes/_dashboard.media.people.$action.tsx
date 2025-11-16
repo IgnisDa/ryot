@@ -1,6 +1,10 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
+	Box,
+	Button,
 	Checkbox,
+	Chip,
 	Container,
 	Divider,
 	Flex,
@@ -14,6 +18,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import {
 	EntityLot,
+	FilterPresetContextType,
 	GraphqlSortOrder,
 	type MediaCollectionFilter,
 	MediaSource,
@@ -42,6 +47,10 @@ import {
 } from "~/components/common";
 import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
+	CreateFilterPresetModal,
+	FilterPresetChip,
+} from "~/components/common/filter-presets";
+import {
 	CollectionsFilter,
 	DebouncedSearchInput,
 	FiltersModal,
@@ -49,6 +58,7 @@ import {
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { PersonDisplayItem } from "~/components/media/display-items";
+import { useFilterPresets } from "~/lib/hooks/use-filter-presets";
 import { useCoreDetails, useUserPeopleList } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
@@ -102,6 +112,8 @@ export default function Page(props: { params: { action: string } }) {
 	const navigate = useNavigate();
 	const coreDetails = useCoreDetails();
 	const action = props.params.action;
+	const [listPresetParent] = useAutoAnimate();
+	const [searchPresetParent] = useAutoAnimate();
 
 	const [
 		filtersModalOpened,
@@ -110,6 +122,14 @@ export default function Page(props: { params: { action: string } }) {
 	const [
 		searchFiltersModalOpened,
 		{ open: openSearchFiltersModal, close: closeSearchFiltersModal },
+	] = useDisclosure(false);
+	const [
+		listPresetModalOpened,
+		{ open: openListPresetModal, close: closeListPresetModal },
+	] = useDisclosure(false);
+	const [
+		searchPresetModalOpened,
+		{ open: openSearchPresetModal, close: closeSearchPresetModal },
 	] = useDisclosure(false);
 
 	const [listFilters, setListFilters] = useLocalStorage<ListFilterState>(
@@ -120,14 +140,62 @@ export default function Page(props: { params: { action: string } }) {
 		"PeopleSearchFilters",
 		defaultSearchFilters,
 	);
+	const normalizedListFilters = useMemo(
+		() => ({ ...defaultListFilters, ...listFilters }),
+		[listFilters],
+	);
+	const normalizedSearchFilters = useMemo(
+		() => ({ ...defaultSearchFilters, ...searchFilters }),
+		[searchFilters],
+	);
+
+	const setListFiltersState = (filters: ListFilterState) =>
+		setListFilters({ ...defaultListFilters, ...filters });
+
+	const setSearchFiltersState = (filters: SearchFilterState) =>
+		setSearchFilters({ ...defaultSearchFilters, ...filters });
+
+	const listPresets = useFilterPresets({
+		contextInformation: {},
+		enabled: action === "list",
+		filters: normalizedListFilters,
+		setFilters: setListFiltersState,
+		storageKeyPrefix: "PeopleListActivePreset",
+		contextType: FilterPresetContextType.PeopleList,
+	});
+
+	const searchPresets = useFilterPresets({
+		contextInformation: {},
+		enabled: action === "search",
+		filters: normalizedSearchFilters,
+		setFilters: setSearchFiltersState,
+		storageKeyPrefix: "PeopleSearchActivePreset",
+		contextType: FilterPresetContextType.PeopleSearch,
+	});
+
+	const handleSaveListPreset = async (name: string) => {
+		await listPresets.savePreset(name);
+		closeListPresetModal();
+	};
+
+	const handleSaveSearchPreset = async (name: string) => {
+		await searchPresets.savePreset(name);
+		closeSearchPresetModal();
+	};
 
 	const listInput: UserPeopleListInput = useMemo(
 		() => ({
-			filter: { collections: listFilters.collections },
-			sort: { by: listFilters.sortBy, order: listFilters.orderBy },
-			search: { page: listFilters.page, query: listFilters.query },
+			filter: { collections: normalizedListFilters.collections },
+			sort: {
+				by: normalizedListFilters.sortBy,
+				order: normalizedListFilters.orderBy,
+			},
+			search: {
+				page: normalizedListFilters.page,
+				query: normalizedListFilters.query,
+			},
 		}),
-		[listFilters],
+		[normalizedListFilters],
 	);
 
 	const { data: userPeopleList, refetch: refetchUserPeopleList } =
@@ -135,11 +203,14 @@ export default function Page(props: { params: { action: string } }) {
 
 	const searchInput = useMemo(
 		() => ({
-			source: searchFilters.source,
-			sourceSpecifics: searchFilters.sourceSpecifics,
-			search: { page: searchFilters.page, query: searchFilters.query },
+			source: normalizedSearchFilters.source,
+			sourceSpecifics: normalizedSearchFilters.sourceSpecifics,
+			search: {
+				page: normalizedSearchFilters.page,
+				query: normalizedSearchFilters.query,
+			},
 		}),
-		[searchFilters],
+		[normalizedSearchFilters],
 	);
 
 	const { data: peopleSearch } = useQuery({
@@ -151,27 +222,65 @@ export default function Page(props: { params: { action: string } }) {
 				.then((data) => data.peopleSearch),
 	});
 
-	const areListFiltersActive = isFilterChanged(listFilters, defaultListFilters);
+	const areListFiltersActive = isFilterChanged(
+		normalizedListFilters,
+		defaultListFilters,
+	);
+	const areSearchFiltersActive = isFilterChanged(
+		normalizedSearchFilters,
+		defaultSearchFilters,
+	);
+	const searchInputValue =
+		action === "list"
+			? normalizedListFilters.query
+			: normalizedSearchFilters.query;
 
 	const updateListFilters: FilterUpdateFunction<ListFilterState> = (
 		key,
 		value,
-	) => setListFilters((prev) => ({ ...prev, [key]: value }));
+	) =>
+		setListFilters((prev) => ({
+			...defaultListFilters,
+			...prev,
+			[key]: value,
+		}));
 
 	const updateSearchFilters: FilterUpdateFunction<SearchFilterState> = (
 		key,
 		value,
-	) => setSearchFilters((prev) => ({ ...prev, [key]: value }));
+	) =>
+		setSearchFilters((prev) => ({
+			...defaultSearchFilters,
+			...prev,
+			[key]: value,
+		}));
 
 	const updateSearchSourceSpecifics = (key: string, value: boolean) => {
 		setSearchFilters((prev) => ({
+			...defaultSearchFilters,
 			...prev,
-			sourceSpecifics: { ...prev.sourceSpecifics, [key]: value },
+			sourceSpecifics: {
+				...defaultSearchFilters.sourceSpecifics,
+				...prev.sourceSpecifics,
+				[key]: value,
+			},
 		}));
 	};
 
 	return (
 		<>
+			<CreateFilterPresetModal
+				onSave={handleSaveListPreset}
+				opened={listPresetModalOpened}
+				onClose={closeListPresetModal}
+				placeholder="e.g., Favorite Directors"
+			/>
+			<CreateFilterPresetModal
+				onSave={handleSaveSearchPreset}
+				opened={searchPresetModalOpened}
+				onClose={closeSearchPresetModal}
+				placeholder="e.g., TMDB Casting Directors"
+			/>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
 					if (action !== "list") return [];
@@ -212,10 +321,8 @@ export default function Page(props: { params: { action: string } }) {
 
 					<Group wrap="nowrap">
 						<DebouncedSearchInput
+							value={searchInputValue}
 							placeholder="Search for people"
-							value={
-								action === "list" ? listFilters.query : searchFilters.query
-							}
 							onChange={(value) => {
 								if (action === "list") {
 									updateListFilters("query", value);
@@ -240,16 +347,27 @@ export default function Page(props: { params: { action: string } }) {
 									resetFilters={() => setListFilters(defaultListFilters)}
 								>
 									<FiltersModalForm
-										filters={listFilters}
+										filters={normalizedListFilters}
 										onFiltersChange={updateListFilters}
 									/>
+									<Divider my="sm" />
+									<Button
+										fullWidth
+										variant="light"
+										onClick={() => {
+											closeFiltersModal();
+											openListPresetModal();
+										}}
+									>
+										Save current filters as preset
+									</Button>
 								</FiltersModal>
 							</>
 						) : null}
 						{action === "search" ? (
 							<>
 								<Select
-									value={searchFilters.source}
+									value={normalizedSearchFilters.source}
 									onChange={(v) => {
 										updateSearchFilters("source", v as MediaSource);
 										updateSearchFilters("page", 1);
@@ -259,7 +377,10 @@ export default function Page(props: { params: { action: string } }) {
 										label: startCase(o.toLowerCase()),
 									}))}
 								/>
-								<ActionIcon color="gray" onClick={openSearchFiltersModal}>
+								<ActionIcon
+									onClick={openSearchFiltersModal}
+									color={areSearchFiltersActive ? "blue" : "gray"}
+								>
 									<IconFilter size={24} />
 								</ActionIcon>
 								<FiltersModal
@@ -268,13 +389,92 @@ export default function Page(props: { params: { action: string } }) {
 									resetFilters={() => setSearchFilters(defaultSearchFilters)}
 								>
 									<SearchFiltersModalForm
-										filters={searchFilters}
+										filters={normalizedSearchFilters}
 										onFiltersChange={updateSearchSourceSpecifics}
 									/>
+									<Divider my="sm" />
+									<Button
+										fullWidth
+										variant="light"
+										onClick={() => {
+											closeSearchFiltersModal();
+											openSearchPresetModal();
+										}}
+									>
+										Save current filters as preset
+									</Button>
 								</FiltersModal>
 							</>
 						) : null}
 					</Group>
+					{action === "list" &&
+					listPresets.filterPresets &&
+					listPresets.filterPresets.response.length > 0 ? (
+						<Box>
+							<Chip.Group
+								key={listPresets.activePresetId || "people-list-no-preset"}
+								value={listPresets.activePresetId || undefined}
+								onChange={(value) => {
+									if (!value) return;
+									const preset = listPresets.filterPresets?.response.find(
+										(p) => p.id === value,
+									);
+									if (preset)
+										listPresets.applyPreset(preset.id, preset.filters);
+								}}
+							>
+								<Group
+									gap="xs"
+									wrap="nowrap"
+									ref={listPresetParent}
+									style={{ overflowX: "auto" }}
+								>
+									{listPresets.filterPresets.response.map((preset) => (
+										<FilterPresetChip
+											id={preset.id}
+											key={preset.id}
+											name={preset.name}
+											onDelete={listPresets.deletePreset}
+										/>
+									))}
+								</Group>
+							</Chip.Group>
+						</Box>
+					) : null}
+					{action === "search" &&
+					searchPresets.filterPresets &&
+					searchPresets.filterPresets.response.length > 0 ? (
+						<Box>
+							<Chip.Group
+								key={searchPresets.activePresetId || "people-search-no-preset"}
+								value={searchPresets.activePresetId || undefined}
+								onChange={(value) => {
+									if (!value) return;
+									const preset = searchPresets.filterPresets?.response.find(
+										(p) => p.id === value,
+									);
+									if (preset)
+										searchPresets.applyPreset(preset.id, preset.filters);
+								}}
+							>
+								<Group
+									gap="xs"
+									wrap="nowrap"
+									ref={searchPresetParent}
+									style={{ overflowX: "auto" }}
+								>
+									{searchPresets.filterPresets.response.map((preset) => (
+										<FilterPresetChip
+											id={preset.id}
+											key={preset.id}
+											name={preset.name}
+											onDelete={searchPresets.deletePreset}
+										/>
+									))}
+								</Group>
+							</Chip.Group>
+						</Box>
+					) : null}
 					{action === "list" ? (
 						userPeopleList ? (
 							<>
@@ -283,7 +483,8 @@ export default function Page(props: { params: { action: string } }) {
 									total={userPeopleList.response.details.totalItems}
 									onRefreshButtonClicked={refetchUserPeopleList}
 									isRandomSortOrderSelected={
-										listFilters.sortBy === PersonAndMetadataGroupsSortBy.Random
+										normalizedListFilters.sortBy ===
+										PersonAndMetadataGroupsSortBy.Random
 									}
 								/>
 								{userPeopleList.response.details.totalItems > 0 ? (
@@ -296,7 +497,7 @@ export default function Page(props: { params: { action: string } }) {
 									<Text>No information to display</Text>
 								)}
 								<ApplicationPagination
-									value={listFilters.page}
+									value={normalizedListFilters.page}
 									onChange={(v) => updateListFilters("page", v)}
 									totalItems={userPeopleList.response.details.totalItems}
 								/>
@@ -326,7 +527,7 @@ export default function Page(props: { params: { action: string } }) {
 									<Text>No people found matching your query</Text>
 								)}
 								<ApplicationPagination
-									value={searchFilters.page}
+									value={normalizedSearchFilters.page}
 									onChange={(v) => updateSearchFilters("page", v)}
 									totalItems={peopleSearch.response.details.totalItems}
 								/>
