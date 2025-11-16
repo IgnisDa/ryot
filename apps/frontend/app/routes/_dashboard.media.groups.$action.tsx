@@ -241,8 +241,8 @@ export default function Page(props: { params: { action: string } }) {
 							<>
 								<DisplayListDetailsAndRefresh
 									cacheId={userMetadataGroupsList.cacheId}
-									total={userMetadataGroupsList.response.details.totalItems}
 									onRefreshButtonClicked={refetchUserMetadataGroupsList}
+									total={userMetadataGroupsList.response.details.totalItems}
 									isRandomSortOrderSelected={
 										listFilters.sortBy === PersonAndMetadataGroupsSortBy.Random
 									}
