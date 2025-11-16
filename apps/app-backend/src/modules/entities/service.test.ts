@@ -74,7 +74,12 @@ const fakeAppConfigLayer = Layer.succeed(AppConfig, {
 	frontend: { oidcButtonLabel: Option.none() },
 	users: { allowRegistration: true, disableLocalAuth: false },
 	scheduler: { frequentCronJobsSchedule: "every 5 minutes", progressUpdateThresholdHours: 2 },
-	sandbox: { denoDir: "/tmp", timeoutMs: 5_000, jobIdSecret: Redacted.make("test-secret") },
+	sandbox: {
+		denoDir: "/tmp",
+		timeoutMs: 5_000,
+		workerConcurrency: 5,
+		jobIdSecret: Redacted.make("test-secret"),
+	},
 	server: {
 		corsOrigins: Option.none(),
 		adminAccessToken: Redacted.make("unused"),

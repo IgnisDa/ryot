@@ -6,9 +6,9 @@ Accepts a declarative query (scope, fields, expressions, filters, sorts, paginat
 
 ## Abstraction Boundaries
 
-- **query-builder.ts**: SQL shaping (CTEs, joins, filtering, sorting, pagination). Must not format display values.
+- **entity-query-builder.ts**, **event-query-builder.ts**, **aggregate-query-builder.ts**, **time-series-query-builder.ts**: SQL shaping (CTEs, joins, filtering, sorting, pagination) for each query mode. Must not format display values.
 - **display-builder.ts**: Field-value resolution (expressions → JSONB `{ kind, value }`). Must not construct SQL.
-- **expression-compiler.ts**: Shared core translating ViewExpression AST → Drizzle SQL. Both builders depend on it.
+- **expression-compiler.ts**: Shared core translating ViewExpression AST → Drizzle SQL. All builders depend on it.
 - **filter-builder.ts** / **sort-builder.ts**: Delegate to the expression compiler.
 - **preparer.ts**: Orchestrates the pipeline — loads schemas, validates references, calls `executePreparedQuery`.
 - Reference validation and parsing live outside this module (`#lib/views/validator.ts`, `#lib/views/reference.ts`).
