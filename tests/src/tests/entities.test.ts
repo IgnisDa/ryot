@@ -404,7 +404,7 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 	});
 });
 
-describe("DELETE /entities/:id/user-state", () => {
+describe("DELETE /user-state/clear/:id", () => {
 	it("clears only the caller's user-scoped state for a global entity", async () => {
 		const userA = await createAuthenticatedClient();
 		const userB = await createAuthenticatedClient();
