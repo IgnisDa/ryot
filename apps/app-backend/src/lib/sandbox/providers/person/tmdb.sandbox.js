@@ -271,7 +271,9 @@ driver("translate", async function (context) {
 	const firstValue = (extract) => {
 		for (const entry of orderedCandidates) {
 			const value = extract(entry);
-			if (typeof value === "string" && value.trim()) {return value.trim();}
+			if (typeof value === "string" && value.trim()) {
+				return value.trim();
+			}
 		}
 		return null;
 	};
@@ -279,7 +281,7 @@ driver("translate", async function (context) {
 	const name = firstValue((entry) => entry?.data?.name);
 	const description = firstValue((entry) => entry?.data?.biography);
 
-	const profiles = Array.isArray(imagesData?.profiles) ? imagesData.profiles : [];
+	const profiles = Array.isArray(imagesData.profiles) ? imagesData.profiles : [];
 	const localizedProfile = profiles.find(
 		(profile) =>
 			typeof profile?.iso_639_1 === "string" && profile.iso_639_1.toLowerCase() === langCode,
@@ -287,11 +289,19 @@ driver("translate", async function (context) {
 	const imageUrl = localizedProfile ? getImageUrl(localizedProfile.file_path) : null;
 
 	const result = {};
-	if (name) {result.name = name;}
-	if (imageUrl) {result.image = { type: "remote", url: imageUrl };}
+	if (name) {
+		result.name = name;
+	}
+	if (imageUrl) {
+		result.image = { type: "remote", url: imageUrl };
+	}
 	const properties = {};
-	if (description) {properties.description = description;}
-	if (Object.keys(properties).length > 0) {result.properties = properties;}
+	if (description) {
+		properties.description = description;
+	}
+	if (Object.keys(properties).length > 0) {
+		result.properties = properties;
+	}
 
 	return result;
 });
