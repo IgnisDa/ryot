@@ -47,7 +47,6 @@ export const useFilterState = <TFilter extends { page: number; query: string }>(
 	const resetFilters = () => setFilters(config.defaultFilters);
 
 	return {
-		filters,
 		updateQuery,
 		resetFilters,
 		updateFilter,
