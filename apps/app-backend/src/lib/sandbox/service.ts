@@ -10,7 +10,13 @@ import { SandboxRunError, TimeoutError, unknownToMessage } from "../errors";
 import { redisKeys, RedisService } from "../redis";
 import { makeAdditionalSandboxApiFunctions } from "./host-functions";
 import { BridgeService, invalidateProcess, ProcessPool } from "./runtime";
-import { apiFailure, apiSuccess, type BoundHostFunction, requireSandboxRunInput } from "./shared";
+import {
+	apiFailure,
+	apiSuccess,
+	type BoundHostFunction,
+	requireSandboxRunInput,
+	requireUserSandboxRunInput,
+} from "./shared";
 
 type HttpCallOptions = {
 	body?: string;
@@ -19,11 +25,11 @@ type HttpCallOptions = {
 
 export type SandboxRunInput = {
 	readonly code: string;
-	readonly userId: string;
 	readonly scriptId: string;
 	readonly context: unknown;
 	readonly driverName: string;
 	readonly executionId: string;
+	readonly userId: string | null;
 	readonly allowedHostFunctions: readonly string[];
 };
 
@@ -211,7 +217,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 		apiFunctions = {
 			executeQueryEngine: (...args) => {
 				const query = args[0];
-				const input = requireSandboxRunInput(args, 1, "executeQueryEngine");
+				const input = requireUserSandboxRunInput(args, 1, "executeQueryEngine");
 				if (query === null || typeof query !== "object") {
 					return Promise.resolve(apiFailure("Query engine input must be an object"));
 				}
