@@ -67,6 +67,7 @@ describe("toSidebarData", () => {
 					{
 						id: "view-1",
 						icon: "book-open",
+						facetSlug: "media",
 						facetId: "facet-1",
 						accentColor: "#5B7FFF",
 						name: "Currently Reading",
@@ -91,6 +92,7 @@ describe("toSidebarData", () => {
 			{
 				id: "view-2",
 				facetId: null,
+				facetSlug: null,
 				icon: "sparkles",
 				name: "Favorites",
 				accentColor: "#2DD4BF",
