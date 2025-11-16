@@ -23,21 +23,18 @@ describe("createPresignedUpload", () => {
 		});
 	});
 
-	it("keeps a compatible filename extension when one is provided", async () => {
+	it("uses mime-based extension for jpeg uploads", async () => {
 		expect(
 			createPresignedUpload(
-				{
-					fileName: "cover.jpeg",
-					contentType: "image/jpeg",
-				},
+				{ contentType: "image/jpeg" },
 				{
 					generateObjectId: () => "image_456",
 					signUploadUrl: async ({ key }) => `https://example.com/${key}`,
 				},
 			),
 		).resolves.toEqual({
-			key: "uploads/image_456.jpeg",
-			uploadUrl: "https://example.com/uploads/image_456.jpeg",
+			key: "uploads/image_456.jpg",
+			uploadUrl: "https://example.com/uploads/image_456.jpg",
 		});
 	});
 });
