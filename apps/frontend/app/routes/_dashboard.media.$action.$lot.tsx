@@ -147,18 +147,18 @@ export default function Page(props: {
 
 	const listPresets = useFilterPresets({
 		enabled: action === "list",
+		contextInformation: { lot },
 		filters: listState.normalizedFilters,
 		setFilters: listState.setFiltersState,
 		storageKeyPrefix: `MediaActivePreset_${lot}`,
-		contextInformation: { metadataList: { lot } },
 		contextType: FilterPresetContextType.MetadataList,
 	});
 
 	const searchPresets = useFilterPresets({
+		contextInformation: { lot },
 		enabled: action === "search",
 		filters: searchState.normalizedFilters,
 		setFilters: searchState.setFiltersState,
-		contextInformation: { metadataSearch: { lot } },
 		storageKeyPrefix: `MediaSearchActivePreset_${lot}`,
 		contextType: FilterPresetContextType.MetadataSearch,
 	});

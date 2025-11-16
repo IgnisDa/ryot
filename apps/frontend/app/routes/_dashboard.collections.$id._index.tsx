@@ -147,10 +147,10 @@ export default function Page(props: { params: { id: string } }) {
 
 	const contentsPresets = useFilterPresets({
 		enabled: true,
+		contextInformation: { collectionId },
 		filters: filterState.normalizedFilters,
 		setFilters: filterState.setFiltersState,
 		contextType: FilterPresetContextType.CollectionContents,
-		contextInformation: { collectionContents: { collectionId } },
 		storageKeyPrefix: `CollectionContentsActivePreset_${collectionId}`,
 	});
 
