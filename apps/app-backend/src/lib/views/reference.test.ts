@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { AppSchema } from "#lib/property-schema";
+import type { AppSchema } from "#lib/schema";
 
 import {
 	buildSchemaMap,

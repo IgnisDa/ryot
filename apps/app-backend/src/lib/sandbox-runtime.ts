@@ -6,7 +6,7 @@ import { Clock, Effect, Fiber, Pool, Queue, Runtime, Schema, Sink, Stream } from
 import { AppConfig } from "./config";
 import { badRequest, internalError, unknownToMessage } from "./errors";
 import { redisKeys, RedisService } from "./redis";
-import sandboxRunnerSource from "./sandbox-runner-source.txt";
+import sandboxRunnerSource from "./sandbox/runner-source.txt";
 
 type BoundHostFunction = (...args: ReadonlyArray<unknown>) => Promise<unknown>;
 

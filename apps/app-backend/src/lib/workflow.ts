@@ -6,7 +6,7 @@ import { Config, Effect, Layer, Redacted } from "effect";
 
 import { AppConfig } from "./config";
 
-export const WorkflowPgClientLive = PgClient.layerConfig({
+const WorkflowPgClientLive = PgClient.layerConfig({
 	url: Config.redacted("DATABASE_URL"),
 });
 

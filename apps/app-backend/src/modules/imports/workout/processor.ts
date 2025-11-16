@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import type { CurrentUserValue } from "#lib/auth";
 import { DbRunner } from "#lib/db";
 import { badRequest } from "#lib/errors";
-import { parseAppSchemaPropertiesSafe } from "#lib/property-schema-runtime";
+import { parseAppSchemaPropertiesSafe } from "#lib/schema";
 import type { AppSchema } from "#lib/schema";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { ListedEntity } from "#modules/entities/schemas";
