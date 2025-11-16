@@ -68,7 +68,7 @@ import {
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
 } from "~/components/fitness/utils";
-import { useFilterPresets } from "~/lib/hooks/use-filter-presets";
+import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {

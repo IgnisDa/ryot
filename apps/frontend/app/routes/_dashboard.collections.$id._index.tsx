@@ -63,7 +63,7 @@ import {
 import { ApplicationGrid } from "~/components/common/layout";
 import { ReviewItemDisplay } from "~/components/common/review";
 import { MetadataDisplayItem } from "~/components/media/display-items";
-import { useFilterPresets } from "~/lib/hooks/use-filter-presets";
+import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,

@@ -78,7 +78,7 @@ import {
 	DebouncedSearchInput,
 	FiltersModal,
 } from "~/components/common/filters";
-import { useFilterPresets } from "~/lib/hooks/use-filter-presets";
+import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
