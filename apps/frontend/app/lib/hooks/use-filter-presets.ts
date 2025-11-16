@@ -136,8 +136,8 @@ export const useFilterPresets = <TFilter extends { page: number }>(
 				? JSON.parse(activePreset.filters)
 				: activePreset.filters;
 
-		const { page: _currentPage, ...filtersWithoutPage } = config.filters;
 		const { page: _savedPage, ...savedWithoutPage } = savedFilters;
+		const { page: _currentPage, ...filtersWithoutPage } = config.filters;
 
 		if (!isEqual(filtersWithoutPage, savedWithoutPage)) setActivePresetId(null);
 	}, [config.filters, activePresetId, filterPresets, setActivePresetId]);
