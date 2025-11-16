@@ -5,8 +5,8 @@ import { useState } from "react";
 export const CreateFilterPresetModal = (props: {
 	opened: boolean;
 	onClose: () => void;
-	onSave: (name: string) => void;
 	placeholder?: string;
+	onSave: (name: string) => void;
 }) => {
 	const [presetName, setPresetName] = useState("");
 
