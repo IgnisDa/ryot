@@ -1,4 +1,3 @@
-import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Affix,
@@ -6,7 +5,6 @@ import {
 	Avatar,
 	Box,
 	Checkbox,
-	Chip,
 	Container,
 	Divider,
 	Flex,
@@ -73,7 +71,7 @@ import {
 import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
 	CreateFilterPresetModal,
-	FilterPresetChip,
+	FilterPresetBar,
 } from "~/components/common/filter-presets";
 import {
 	CollectionsFilter,
@@ -170,7 +168,6 @@ type SelectExercise = { id: string; lot: ExerciseLot };
 
 export default function Page() {
 	const navigate = useNavigate();
-	const [presetParent] = useAutoAnimate();
 	const userPreferences = useUserPreferences();
 	const bulkEditingCollection = useBulkEditCollection();
 	const isFitnessActionActive = useIsFitnessActionActive();
@@ -345,39 +342,12 @@ export default function Page() {
 							/>
 						</FiltersModal>
 					</Group>
-					{listPresets.filterPresets &&
-					listPresets.filterPresets.response.length > 0 ? (
-						<Box>
-							<Chip.Group
-								value={listPresets.activePresetId || undefined}
-								key={listPresets.activePresetId || "exercise-list-no-preset"}
-								onChange={(value) => {
-									if (!value) return;
-									const preset = listPresets.filterPresets?.response.find(
-										(p) => p.id === value,
-									);
-									if (preset)
-										listPresets.applyPreset(preset.id, preset.filters);
-								}}
-							>
-								<Group
-									gap="xs"
-									wrap="nowrap"
-									ref={presetParent}
-									style={{ overflowX: "auto" }}
-								>
-									{listPresets.filterPresets.response.map((preset) => (
-										<FilterPresetChip
-											id={preset.id}
-											key={preset.id}
-											name={preset.name}
-											onDelete={listPresets.deletePreset}
-										/>
-									))}
-								</Group>
-							</Chip.Group>
-						</Box>
-					) : null}
+					<FilterPresetBar
+						filterPresets={listPresets.filterPresets}
+						activePresetId={listPresets.activePresetId}
+						onSelectPreset={listPresets.applyPreset}
+						onDeletePreset={listPresets.deletePreset}
+					/>
 					{currentWorkout?.replacingExerciseIdx ? (
 						<Alert icon={<IconAlertCircle />}>
 							You are replacing exercise: {replacingExercise?.name}
