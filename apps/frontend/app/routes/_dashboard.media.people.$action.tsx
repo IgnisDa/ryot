@@ -190,15 +190,15 @@ export default function Page(props: { params: { action: string } }) {
 			: searchState.normalizedFilters.query;
 
 	const updateSearchSourceSpecifics = (key: string, value: boolean) => {
-		searchState.setFilters((prev) => ({
-			...defaultSearchFilters,
-			...prev,
+		const prevFilters = searchState.normalizedFilters;
+		searchState.setFiltersState({
+			...prevFilters,
 			sourceSpecifics: {
 				...defaultSearchFilters.sourceSpecifics,
-				...prev.sourceSpecifics,
+				...prevFilters.sourceSpecifics,
 				[key]: value,
 			},
-		}));
+		});
 	};
 
 	return (

@@ -61,7 +61,6 @@ import { Link, useNavigate, useSubmit } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
-import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {
 	ApplicationPagination,
@@ -79,6 +78,7 @@ import {
 	FiltersModal,
 } from "~/components/common/filters";
 import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
+import { useFilterState } from "~/lib/hooks/filters/use-state";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
@@ -91,7 +91,6 @@ import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
 	convertEnumToSelectData,
-	isFilterChanged,
 	openConfirmationModal,
 } from "~/lib/shared/ui-utils";
 import { useBulkEditCollection } from "~/lib/state/collection";
@@ -176,10 +175,12 @@ export default function Page() {
 	const [mergingExercise, setMergingExercise] = useMergingExercise();
 	const [selectedExercises, setSelectedExercises] =
 		useListState<SelectExercise>([]);
-	const [filters, setFilters] = useLocalStorage(
-		"ExerciseListFilters",
+
+	const filterState = useFilterState({
 		defaultFilters,
-	);
+		storageKey: "ExerciseListFilters",
+	});
+
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -192,18 +193,10 @@ export default function Page() {
 	const bulkEditingState =
 		bulkEditingCollection.state === false ? null : bulkEditingCollection.state;
 
-	const normalizedFilters = useMemo(
-		() => ({ ...defaultFilters, ...filters }),
-		[filters],
-	);
-
-	const setFiltersState = (nextFilters: FilterState) =>
-		setFilters({ ...defaultFilters, ...nextFilters });
-
 	const listPresets = useFilterPresets({
 		enabled: true,
-		filters: normalizedFilters,
-		setFilters: setFiltersState,
+		filters: filterState.normalizedFilters,
+		setFilters: filterState.setFiltersState,
 		storageKeyPrefix: "ExerciseListActivePreset",
 		contextType: FilterPresetContextType.ExercisesList,
 	});
@@ -215,22 +208,22 @@ export default function Page() {
 
 	const queryInput: UserExercisesListInput = useMemo(
 		() => ({
-			sortBy: normalizedFilters.sortBy,
+			sortBy: filterState.normalizedFilters.sortBy,
 			search: {
-				page: normalizedFilters.page,
-				query: normalizedFilters.query,
+				page: filterState.normalizedFilters.page,
+				query: filterState.normalizedFilters.query,
 			},
 			filter: {
-				types: normalizedFilters.types,
-				levels: normalizedFilters.levels,
-				forces: normalizedFilters.forces,
-				muscles: normalizedFilters.muscles,
-				mechanics: normalizedFilters.mechanics,
-				equipments: normalizedFilters.equipments,
-				collections: normalizedFilters.collections,
+				types: filterState.normalizedFilters.types,
+				levels: filterState.normalizedFilters.levels,
+				forces: filterState.normalizedFilters.forces,
+				muscles: filterState.normalizedFilters.muscles,
+				mechanics: filterState.normalizedFilters.mechanics,
+				equipments: filterState.normalizedFilters.equipments,
+				collections: filterState.normalizedFilters.collections,
 			},
 		}),
-		[normalizedFilters],
+		[filterState.normalizedFilters],
 	);
 
 	const { data: userExercisesList, refetch: refetchUserExercisesList } =
@@ -246,10 +239,7 @@ export default function Page() {
 		currentWorkout?.replacingExerciseIdx &&
 		currentWorkout.exercises[currentWorkout.replacingExerciseIdx].exerciseId;
 
-	const areListFiltersActive = isFilterChanged(
-		normalizedFilters,
-		defaultFilters,
-	);
+	const areListFiltersActive = filterState.areFiltersActive;
 
 	const { data: replacingExercise } = useExerciseDetails(
 		replacingExerciseId || "",
@@ -260,9 +250,6 @@ export default function Page() {
 		currentWorkout &&
 		isFitnessActionActive &&
 		!isNumber(currentWorkout.replacingExerciseIdx);
-
-	const updateFilter: FilterUpdateFunction<FilterState> = (key, value) =>
-		setFilters((prev) => ({ ...defaultFilters, ...prev, [key]: value }));
 
 	return (
 		<>
@@ -309,11 +296,11 @@ export default function Page() {
 					</Flex>
 					<Group wrap="nowrap">
 						<DebouncedSearchInput
-							value={normalizedFilters.query}
+							value={filterState.normalizedFilters.query}
 							placeholder="Search for exercises by name or instructions"
 							onChange={(value) => {
-								updateFilter("query", value);
-								updateFilter("page", 1);
+								filterState.updateFilter("query", value);
+								filterState.updateFilter("page", 1);
 							}}
 							tourControl={{
 								target: OnboardingTourStepTargets.SearchForExercise,
@@ -334,19 +321,19 @@ export default function Page() {
 							opened={filtersModalOpened}
 							onSavePreset={openPresetModal}
 							closeFiltersModal={closeFiltersModal}
-							resetFilters={() => setFilters(defaultFilters)}
+							resetFilters={filterState.resetFilters}
 						>
 							<FiltersModalForm
-								filter={normalizedFilters}
-								updateFilter={updateFilter}
+								filter={filterState.normalizedFilters}
+								updateFilter={filterState.updateFilter}
 							/>
 						</FiltersModal>
 					</Group>
 					<FilterPresetBar
-						filterPresets={listPresets.filterPresets}
-						activePresetId={listPresets.activePresetId}
 						onSelectPreset={listPresets.applyPreset}
+						filterPresets={listPresets.filterPresets}
 						onDeletePreset={listPresets.deletePreset}
+						activePresetId={listPresets.activePresetId}
 					/>
 					{currentWorkout?.replacingExerciseIdx ? (
 						<Alert icon={<IconAlertCircle />}>
@@ -367,7 +354,8 @@ export default function Page() {
 										onRefreshButtonClicked={refetchUserExercisesList}
 										total={userExercisesList.response.details.totalItems}
 										isRandomSortOrderSelected={
-											normalizedFilters.sortBy === ExerciseSortBy.Random
+											filterState.normalizedFilters.sortBy ===
+											ExerciseSortBy.Random
 										}
 										rightSection={
 											allowAddingExerciseToWorkout ? (
@@ -401,8 +389,8 @@ export default function Page() {
 								<Text>No information to display</Text>
 							)}
 							<ApplicationPagination
-								value={normalizedFilters.page}
-								onChange={(v) => updateFilter("page", v)}
+								value={filterState.normalizedFilters.page}
+								onChange={(v) => filterState.updateFilter("page", v)}
 								totalItems={userExercisesList.response.details.totalItems}
 							/>
 						</>

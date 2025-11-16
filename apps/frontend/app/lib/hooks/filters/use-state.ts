@@ -40,7 +40,6 @@ export const useFilterState = <TFilter extends { page: number }>(
 
 	return {
 		filters,
-		setFilters,
 		resetFilters,
 		updateFilter,
 		setFiltersState,

@@ -64,6 +64,7 @@ import { ApplicationGrid } from "~/components/common/layout";
 import { ReviewItemDisplay } from "~/components/common/review";
 import { MetadataDisplayItem } from "~/components/media/display-items";
 import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
+import { useFilterState } from "~/lib/hooks/filters/use-state";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
@@ -76,10 +77,7 @@ import {
 	queryClient,
 	queryFactory,
 } from "~/lib/shared/react-query";
-import {
-	convertEnumToSelectData,
-	isFilterChanged,
-} from "~/lib/shared/ui-utils";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
 	useBulkEditCollection,
 	useCreateOrUpdateCollectionModal,
@@ -130,10 +128,12 @@ export default function Page(props: { params: { id: string } }) {
 	const [isReorderMode, setIsReorderMode] = useState(false);
 	const [tab, setTab] = useState<string | null>(DEFAULT_TAB);
 	const { open: openCollectionModal } = useCreateOrUpdateCollectionModal();
-	const [filters, setFilters] = useLocalStorage(
-		`CollectionFilters-${collectionId}`,
+
+	const filterState = useFilterState({
+		storageKey: `CollectionFilters-${collectionId}`,
 		defaultFilters,
-	);
+	});
+
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -145,18 +145,10 @@ export default function Page(props: { params: { id: string } }) {
 
 	invariant(collectionId);
 
-	const normalizedFilters = useMemo(
-		() => ({ ...defaultFilters, ...filters }),
-		[filters],
-	);
-
-	const setFiltersState = (updatedFilters: FilterState) =>
-		setFilters({ ...defaultFilters, ...updatedFilters });
-
 	const contentsPresets = useFilterPresets({
 		enabled: true,
-		filters: normalizedFilters,
-		setFilters: setFiltersState,
+		filters: filterState.normalizedFilters,
+		setFilters: filterState.setFiltersState,
 		contextType: FilterPresetContextType.CollectionContents,
 		contextInformation: { collectionContents: { collectionId } },
 		storageKeyPrefix: `CollectionContentsActivePreset_${collectionId}`,
@@ -171,19 +163,19 @@ export default function Page(props: { params: { id: string } }) {
 		() => ({
 			collectionId,
 			sort: {
-				by: normalizedFilters.sortBy,
-				order: normalizedFilters.orderBy,
+				by: filterState.normalizedFilters.sortBy,
+				order: filterState.normalizedFilters.orderBy,
 			},
 			search: {
-				page: normalizedFilters.page,
-				query: normalizedFilters.query,
+				page: filterState.normalizedFilters.page,
+				query: filterState.normalizedFilters.query,
 			},
 			filter: {
-				entityLot: normalizedFilters.entityLot,
-				metadataLot: normalizedFilters.metadataLot,
+				entityLot: filterState.normalizedFilters.entityLot,
+				metadataLot: filterState.normalizedFilters.metadataLot,
 			},
 		}),
-		[collectionId, normalizedFilters],
+		[collectionId, filterState.normalizedFilters],
 	);
 
 	const { data: collectionContents, refetch: refreshCollectionContents } =
@@ -196,9 +188,6 @@ export default function Page(props: { params: { id: string } }) {
 					.then((data) => data.collectionContents),
 		});
 
-	const updateFilter: FilterUpdateFunction<FilterState> = (key, value) =>
-		setFilters((prev) => ({ ...defaultFilters, ...prev, [key]: value }));
-
 	const details = collectionContents?.response;
 	const colDetails = details && {
 		id: collectionId,
@@ -206,10 +195,7 @@ export default function Page(props: { params: { id: string } }) {
 		creatorUserId: details.user.id,
 	};
 	const thisCollection = userCollections.find((c) => c.id === collectionId);
-	const areListFiltersActive = isFilterChanged(
-		normalizedFilters,
-		defaultFilters,
-	);
+	const areListFiltersActive = filterState.areFiltersActive;
 
 	return (
 		<>
@@ -293,11 +279,11 @@ export default function Page(props: { params: { id: string } }) {
 											<>
 												<Group wrap="nowrap">
 													<DebouncedSearchInput
-														value={normalizedFilters.query}
+														value={filterState.normalizedFilters.query}
 														placeholder="Search in the collection"
 														onChange={(value) => {
-															updateFilter("query", value);
-															updateFilter("page", 1);
+															filterState.updateFilter("query", value);
+															filterState.updateFilter("page", 1);
 														}}
 													/>
 													<ActionIcon
@@ -310,11 +296,11 @@ export default function Page(props: { params: { id: string } }) {
 														opened={filtersModalOpened}
 														onSavePreset={openPresetModal}
 														closeFiltersModal={closeFiltersModal}
-														resetFilters={() => setFilters(defaultFilters)}
+														resetFilters={filterState.resetFilters}
 													>
 														<FiltersModalForm
-															filters={normalizedFilters}
-															updateFilter={updateFilter}
+															filters={filterState.normalizedFilters}
+															updateFilter={filterState.updateFilter}
 														/>
 													</FiltersModal>
 												</Group>
@@ -329,7 +315,7 @@ export default function Page(props: { params: { id: string } }) {
 													cacheId={collectionContents?.cacheId}
 													onRefreshButtonClicked={refreshCollectionContents}
 													isRandomSortOrderSelected={
-														normalizedFilters.sortBy ===
+														filterState.normalizedFilters.sortBy ===
 														CollectionContentsSortBy.Random
 													}
 												/>
@@ -363,9 +349,9 @@ export default function Page(props: { params: { id: string } }) {
 											</Text>
 										)}
 										<ApplicationPagination
-											value={normalizedFilters.page}
-											onChange={(v) => updateFilter("page", v)}
+											value={filterState.normalizedFilters.page}
 											totalItems={details.results.details.totalItems}
+											onChange={(v) => filterState.updateFilter("page", v)}
 										/>
 									</Stack>
 								</Tabs.Panel>
@@ -433,7 +419,7 @@ export default function Page(props: { params: { id: string } }) {
 													});
 													return;
 												}
-												setFilters({
+												filterState.setFiltersState({
 													...defaultFilters,
 													orderBy: GraphqlSortOrder.Asc,
 													sortBy: CollectionContentsSortBy.Rank,
