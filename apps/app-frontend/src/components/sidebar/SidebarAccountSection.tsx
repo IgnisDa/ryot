@@ -105,6 +105,7 @@ export function SidebarAccountSection(props: {
 				title={null}
 				opened={opened}
 				onClose={close}
+				withCloseButton={false}
 			>
 				<Tabs
 					defaultValue="general"
