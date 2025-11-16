@@ -58,6 +58,34 @@ async function seedPopulatedTmdbEntity(
 	return seeded;
 }
 
+async function seedPopulatedProviderEntity(input: {
+	name: string;
+	externalId: string;
+	entitySchemaId: string;
+	sandboxScriptId: string;
+	properties: Record<string, unknown>;
+}) {
+	const provenance = {
+		externalId: input.externalId,
+		entitySchemaId: input.entitySchemaId,
+		sandboxScriptId: input.sandboxScriptId,
+	};
+	await deleteGlobalEntityByProvenance(provenance);
+
+	const seeded = await seedMediaEntity({
+		image: null,
+		userId: null,
+		name: input.name,
+		externalId: input.externalId,
+		properties: input.properties,
+		entitySchemaId: input.entitySchemaId,
+		sandboxScriptId: input.sandboxScriptId,
+	});
+	await markEntityPopulated(seeded.id);
+
+	return seeded;
+}
+
 async function seedPopulatedTmdbMovie(client: Client, input: { externalId: string; name: string }) {
 	return seedPopulatedTmdbEntity(client, {
 		name: input.name,
@@ -289,6 +317,86 @@ describe("GET /entities/:entityId — translation overlay", () => {
 		expect(overlay?.description ?? null).toBeNull();
 		expect(overlay?.image ?? null).toBeNull();
 		expect(await countEntityTranslations(entity.id)).toBe(1);
+	}, 150_000);
+
+	it("fetches an iTunes podcast episode overlay via its parent podcast reference", async () => {
+		const { client, userId } = await createAuthenticatedClient();
+		const { schema: podcastSchema } = await findBuiltinSchemaBySlug(client, "podcast");
+		const itunesScriptId = podcastSchema.providers.find(
+			(provider) => provider.name === "iTunes",
+		)?.scriptId;
+		assertPresent(itunesScriptId, "iTunes podcast provider script not found");
+		const episodeSchemaId = await getBuiltinEntitySchemaId("podcast-episode");
+
+		const episode = await seedPopulatedProviderEntity({
+			entitySchemaId: episodeSchemaId,
+			sandboxScriptId: itunesScriptId,
+			externalId: "1000773250098",
+			name: "Canonical Serial Episode",
+			properties: {
+				runtime: 42,
+				episodeNumber: 1,
+				publishDate: "2026-06-26",
+				parentPodcastExternalId: "917918570",
+				description: "Canonical English iTunes episode overview.",
+			},
+		});
+
+		await setUserProviderLanguage({ userId, source: "itunes", preferredLanguage: "es_es" });
+
+		const firstRead = await getEntity(client, episode.id);
+		expect(firstRead.translationStatus).toBe("pending");
+		expect(firstRead.name).toBe("Canonical Serial Episode");
+
+		const localizedRead = await pollEntityUntilTranslationStatus(client, episode.id, "ready", {
+			timeoutMs: 90_000,
+		});
+		expect(localizedRead.name).not.toBe("Canonical Serial Episode");
+		const localizedDescription = localizedRead.properties.description;
+		assertCondition(
+			typeof localizedDescription === "string",
+			"Expected localized iTunes episode description",
+		);
+		expect(localizedDescription).not.toBe("Canonical English iTunes episode overview.");
+
+		const overlay = await getEntityTranslationRow({ entityId: episode.id, language: "es_es" });
+		expect(overlay?.name).toBe(localizedRead.name);
+		expect(overlay?.description).toBe(localizedDescription);
+		expect(await countEntityTranslations(episode.id)).toBe(1);
+	}, 150_000);
+
+	it("fetches a YouTube Music name overlay", async () => {
+		const { client, userId } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaBySlug(client, "music");
+		const youtubeMusicScriptId = schema.providers.find(
+			(provider) => provider.name === "YouTube Music",
+		)?.scriptId;
+		assertPresent(youtubeMusicScriptId, "YouTube Music provider script not found");
+
+		const music = await seedPopulatedProviderEntity({
+			entitySchemaId: schema.id,
+			sandboxScriptId: youtubeMusicScriptId,
+			externalId: "dQw4w9WgXcQ",
+			name: "Canonical YouTube Music Track",
+			properties: { description: "Canonical YouTube Music description." },
+		});
+
+		await setUserProviderLanguage({ userId, source: "youtube-music", preferredLanguage: "es" });
+
+		const firstRead = await getEntity(client, music.id);
+		expect(firstRead.translationStatus).toBe("pending");
+		expect(firstRead.name).toBe("Canonical YouTube Music Track");
+
+		const localizedRead = await pollEntityUntilTranslationStatus(client, music.id, "ready", {
+			timeoutMs: 90_000,
+		});
+		expect(localizedRead.name).not.toBe("Canonical YouTube Music Track");
+
+		const overlay = await getEntityTranslationRow({ entityId: music.id, language: "es" });
+		expect(overlay?.name).toBe(localizedRead.name);
+		expect(overlay?.description ?? null).toBeNull();
+		expect(overlay?.image ?? null).toBeNull();
+		expect(await countEntityTranslations(music.id)).toBe(1);
 	}, 150_000);
 
 	it("negative-caches when the provider has no translation and does not refetch", async () => {
