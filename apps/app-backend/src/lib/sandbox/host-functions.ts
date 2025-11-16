@@ -11,16 +11,11 @@ import { runEventCreate } from "#modules/events/workflows";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { isIntegrationProvider } from "#modules/integrations/types";
 
-import { AppConfig, isOidcEnabled } from "./config";
-import { CurrentDb, DbRunner, dbEffect, schema } from "./db";
-import { unknownToMessage } from "./errors";
-import { RedisService, redisKeys } from "./redis";
-import {
-	apiFailure,
-	apiSuccess,
-	type BoundHostFunction,
-	requireSandboxRunInput,
-} from "./sandbox-shared";
+import { AppConfig, isOidcEnabled } from "../config";
+import { CurrentDb, DbRunner, dbEffect, schema } from "../db";
+import { unknownToMessage } from "../errors";
+import { RedisService, redisKeys } from "../redis";
+import { apiFailure, apiSuccess, type BoundHostFunction, requireSandboxRunInput } from "./shared";
 
 type SandboxHostFunctionContext =
 	| DbRunner
