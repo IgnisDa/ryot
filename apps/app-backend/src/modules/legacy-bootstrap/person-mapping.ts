@@ -29,7 +29,7 @@ export const personEntityTargets = [
 		sandboxScriptSlug: "person.manga-updates",
 	},
 	{ source: "metron", entitySchemaSlug: "person", sandboxScriptSlug: "person.metron" },
-	{ source: "music_brainz", entitySchemaSlug: "person", sandboxScriptSlug: "person.musicbrainz" },
+	{ source: "music_brainz", entitySchemaSlug: "person", sandboxScriptSlug: "person.music-brainz" },
 	{ source: "openlibrary", entitySchemaSlug: "person", sandboxScriptSlug: "person.openlibrary" },
 	{ source: "spotify", entitySchemaSlug: "person", sandboxScriptSlug: "person.spotify" },
 	{ source: "tmdb", entitySchemaSlug: "person", sandboxScriptSlug: "person.tmdb" },

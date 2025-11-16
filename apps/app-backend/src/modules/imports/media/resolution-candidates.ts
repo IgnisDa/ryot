@@ -9,7 +9,7 @@ const resolutionCandidatesBySchema: Record<
 	book: {
 		isbn: (importer) => [
 			"book.openlibrary",
-			...(importer.books.googleBooks.apiKey ? ["book.google-book"] : []),
+			...(importer.books.googleBooks.apiKey ? ["book.google-books"] : []),
 			...(importer.books.hardcover.apiKey ? ["book.hardcover"] : []),
 		],
 	},
