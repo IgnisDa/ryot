@@ -60,7 +60,7 @@ pub async fn create_filter_preset(
         .count(&ss.db)
         .await?;
 
-    if filters_by_this_user >= 2 && !is_server_key_validated(ss).await? == false {
+    if filters_by_this_user >= 2 && !is_server_key_validated(ss).await? {
         bail!("Please upgrade to a premium plan to create more than 2 preset filters.");
     }
 
