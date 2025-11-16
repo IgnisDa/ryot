@@ -9,16 +9,14 @@ import {
 	Divider,
 	Flex,
 	Group,
-	Modal,
 	MultiSelect,
 	Select,
 	Stack,
 	Tabs,
 	Text,
-	TextInput,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
-import { useDisclosure, useLongPress } from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
 import {
 	EntityLot,
 	FilterPresetContextType,
@@ -42,7 +40,7 @@ import {
 	IconSearch,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
@@ -54,6 +52,10 @@ import {
 	SkeletonLoader,
 } from "~/components/common";
 import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
+import {
+	CreateFilterPresetModal,
+	FilterPresetChip,
+} from "~/components/common/filter-presets";
 import {
 	CollectionsFilter,
 	DebouncedSearchInput,
@@ -153,12 +155,12 @@ export default function Page(props: {
 		defaultSearchFilters,
 	);
 	const [
-		createPresetModalOpened,
-		{ open: openCreatePresetModal, close: closeCreatePresetModal },
+		listPresetModalOpened,
+		{ open: openListPresetModal, close: closeListPresetModal },
 	] = useDisclosure(false);
 	const [
-		createSearchPresetModalOpened,
-		{ open: openCreateSearchPresetModal, close: closeCreateSearchPresetModal },
+		searchPresetModalOpened,
+		{ open: openSearchPresetModal, close: closeSearchPresetModal },
 	] = useDisclosure(false);
 
 	const listPresets = useFilterPresets({
@@ -245,12 +247,12 @@ export default function Page(props: {
 
 	const handleSaveListPreset = async (name: string) => {
 		await listPresets.savePreset(name);
-		closeCreatePresetModal();
+		closeListPresetModal();
 	};
 
 	const handleSaveSearchPreset = async (name: string) => {
 		await searchPresets.savePreset(name);
-		closeCreateSearchPresetModal();
+		closeSearchPresetModal();
 	};
 
 	const areSearchFiltersActive = isFilterChanged(
@@ -262,17 +264,17 @@ export default function Page(props: {
 
 	return (
 		<>
-			<CreatePresetModal
-				currentFilters={listFilters}
+			<CreateFilterPresetModal
 				onSave={handleSaveListPreset}
-				opened={createPresetModalOpened}
-				onClose={closeCreatePresetModal}
+				opened={listPresetModalOpened}
+				onClose={closeListPresetModal}
+				placeholder="e.g., Unfinished Books"
 			/>
-			<CreateSearchPresetModal
-				currentFilters={searchFilters}
+			<CreateFilterPresetModal
 				onSave={handleSaveSearchPreset}
-				opened={createSearchPresetModalOpened}
-				onClose={closeCreateSearchPresetModal}
+				opened={searchPresetModalOpened}
+				onClose={closeSearchPresetModal}
+				placeholder="e.g., RPG Games on PS5"
 			/>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
@@ -366,7 +368,7 @@ export default function Page(props: {
 											variant="light"
 											onClick={() => {
 												closeFiltersModal();
-												openCreatePresetModal();
+												openListPresetModal();
 											}}
 										>
 											Save current filters as preset
@@ -495,7 +497,7 @@ export default function Page(props: {
 												variant="light"
 												onClick={() => {
 													closeSearchFiltersModal();
-													openCreateSearchPresetModal();
+													openSearchPresetModal();
 												}}
 											>
 												Save current filters as preset
@@ -838,223 +840,5 @@ const MediaListItem = (props: MediaListItemProps) => {
 				) : undefined
 			}
 		/>
-	);
-};
-
-const CreatePresetModal = (props: {
-	opened: boolean;
-	onClose: () => void;
-	onSave: (name: string) => void;
-	currentFilters: ListFilterState;
-}) => {
-	const [presetName, setPresetName] = useState("");
-
-	const getFilterSummary = () => {
-		const summary: string[] = [];
-
-		if (props.currentFilters.generalFilter !== MediaGeneralFilter.All)
-			summary.push(
-				`General: ${startCase(props.currentFilters.generalFilter.toLowerCase())}`,
-			);
-
-		if (props.currentFilters.sortBy !== MediaSortBy.LastUpdated)
-			summary.push(
-				`Sort: ${startCase(props.currentFilters.sortBy.toLowerCase())} (${props.currentFilters.sortOrder})`,
-			);
-
-		if (props.currentFilters.collections.length > 0)
-			summary.push(
-				`Collections: ${props.currentFilters.collections.length} selected`,
-			);
-
-		if (props.currentFilters.dateRange !== ApplicationTimeRange.AllTime)
-			summary.push(`Date Range: ${props.currentFilters.dateRange}`);
-
-		if (props.currentFilters.query)
-			summary.push(`Search: "${props.currentFilters.query}"`);
-
-		return summary;
-	};
-
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			title="Save Filter Preset"
-		>
-			<Stack>
-				<TextInput
-					data-autofocus
-					value={presetName}
-					label="Preset Name"
-					placeholder="e.g., Unfinished Books"
-					onChange={(e) => setPresetName(e.currentTarget.value)}
-				/>
-
-				<Box>
-					<Text size="sm" fw={500} mb="xs">
-						This will save:
-					</Text>
-					{getFilterSummary().length > 0 ? (
-						<Stack gap="xs">
-							{getFilterSummary().map((item) => (
-								<Text key={item} size="sm" c="dimmed">
-									• {item}
-								</Text>
-							))}
-						</Stack>
-					) : (
-						<Text size="sm" c="dimmed">
-							Default filters (no customization)
-						</Text>
-					)}
-				</Box>
-
-				<Group justify="flex-end" mt="md">
-					<Button variant="default" onClick={props.onClose}>
-						Cancel
-					</Button>
-					<Button
-						disabled={!presetName.trim()}
-						onClick={() => {
-							if (presetName.trim()) {
-								props.onSave(presetName.trim());
-								setPresetName("");
-							}
-						}}
-					>
-						Save Preset
-					</Button>
-				</Group>
-			</Stack>
-		</Modal>
-	);
-};
-
-const CreateSearchPresetModal = (props: {
-	opened: boolean;
-	onClose: () => void;
-	onSave: (name: string) => void;
-	currentFilters: SearchFilterState;
-}) => {
-	const [presetName, setPresetName] = useState("");
-
-	const getFilterSummary = () => {
-		const summary: string[] = [];
-
-		if (props.currentFilters.query)
-			summary.push(`Search: "${props.currentFilters.query}"`);
-
-		if (props.currentFilters.source)
-			summary.push(
-				`Source: ${startCase(props.currentFilters.source.toLowerCase())}`,
-			);
-
-		if (props.currentFilters.igdbThemeIds?.length)
-			summary.push(
-				`Themes: ${props.currentFilters.igdbThemeIds.length} selected`,
-			);
-
-		if (props.currentFilters.igdbGenreIds?.length)
-			summary.push(
-				`Genres: ${props.currentFilters.igdbGenreIds.length} selected`,
-			);
-
-		if (props.currentFilters.igdbPlatformIds?.length)
-			summary.push(
-				`Platforms: ${props.currentFilters.igdbPlatformIds.length} selected`,
-			);
-
-		if (props.currentFilters.igdbGameModeIds?.length)
-			summary.push(
-				`Game Modes: ${props.currentFilters.igdbGameModeIds.length} selected`,
-			);
-
-		if (props.currentFilters.igdbGameTypeIds?.length)
-			summary.push(
-				`Game Types: ${props.currentFilters.igdbGameTypeIds.length} selected`,
-			);
-
-		if (props.currentFilters.igdbReleaseDateRegionIds?.length)
-			summary.push(
-				`Release Regions: ${props.currentFilters.igdbReleaseDateRegionIds.length} selected`,
-			);
-
-		if (props.currentFilters.googleBooksPassRawQuery)
-			summary.push("Pass raw query: Yes");
-
-		if (props.currentFilters.igdbAllowGamesWithParent)
-			summary.push("Allow games with parent: Yes");
-
-		return summary;
-	};
-
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			title="Save Filter Preset"
-		>
-			<Stack>
-				<TextInput
-					data-autofocus
-					value={presetName}
-					label="Preset Name"
-					placeholder="e.g., RPG Games on PS5"
-					onChange={(e) => setPresetName(e.currentTarget.value)}
-				/>
-
-				<Box>
-					<Text size="sm" fw={500} mb="xs">
-						This will save:
-					</Text>
-					{getFilterSummary().length > 0 ? (
-						<Stack gap="xs">
-							{getFilterSummary().map((item) => (
-								<Text key={item} size="sm" c="dimmed">
-									• {item}
-								</Text>
-							))}
-						</Stack>
-					) : (
-						<Text size="sm" c="dimmed">
-							Default filters (no customization)
-						</Text>
-					)}
-				</Box>
-
-				<Group justify="flex-end" mt="md">
-					<Button variant="default" onClick={props.onClose}>
-						Cancel
-					</Button>
-					<Button
-						disabled={!presetName.trim()}
-						onClick={() => {
-							if (presetName.trim()) {
-								props.onSave(presetName.trim());
-								setPresetName("");
-							}
-						}}
-					>
-						Save Preset
-					</Button>
-				</Group>
-			</Stack>
-		</Modal>
-	);
-};
-
-const FilterPresetChip = (props: {
-	id: string;
-	name: string;
-	onDelete: (id: string, name: string) => void;
-}) => {
-	const longPressHandlers = useLongPress(() =>
-		props.onDelete(props.id, props.name),
-	);
-	return (
-		<Chip size="sm" value={props.id} {...longPressHandlers}>
-			{props.name}
-		</Chip>
 	);
 };
