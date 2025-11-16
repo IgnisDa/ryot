@@ -41,8 +41,8 @@ import {
 } from "~/components/common";
 import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
-	CreateFilterPresetModal,
 	FilterPresetBar,
+	FilterPresetModalManager,
 } from "~/components/common/filter-presets";
 import {
 	CollectionsFilter,
@@ -135,16 +135,6 @@ export default function Page(props: { params: { action: string } }) {
 		contextType: FilterPresetContextType.PeopleSearch,
 	});
 
-	const handleSaveListPreset = async (name: string) => {
-		await listPresets.savePreset(name);
-		listModals.presetModal.close();
-	};
-
-	const handleSaveSearchPreset = async (name: string) => {
-		await searchPresets.savePreset(name);
-		searchModals.presetModal.close();
-	};
-
 	const listInput: UserPeopleListInput = useMemo(
 		() => ({
 			filter: { collections: listState.normalizedFilters.collections },
@@ -203,14 +193,14 @@ export default function Page(props: { params: { action: string } }) {
 
 	return (
 		<>
-			<CreateFilterPresetModal
-				onSave={handleSaveListPreset}
+			<FilterPresetModalManager
+				presetManager={listPresets}
 				opened={listModals.presetModal.opened}
 				onClose={listModals.presetModal.close}
 				placeholder="e.g., Favorite Directors"
 			/>
-			<CreateFilterPresetModal
-				onSave={handleSaveSearchPreset}
+			<FilterPresetModalManager
+				presetManager={searchPresets}
 				opened={searchModals.presetModal.opened}
 				onClose={searchModals.presetModal.close}
 				placeholder="e.g., TMDB Casting Directors"
@@ -259,11 +249,9 @@ export default function Page(props: { params: { action: string } }) {
 							placeholder="Search for people"
 							onChange={(value) => {
 								if (action === "list") {
-									listState.updateFilter("query", value);
-									listState.updateFilter("page", 1);
+									listState.updateQuery(value);
 								} else {
-									searchState.updateFilter("query", value);
-									searchState.updateFilter("page", 1);
+									searchState.updateQuery(value);
 								}
 							}}
 						/>
@@ -322,20 +310,10 @@ export default function Page(props: { params: { action: string } }) {
 						) : null}
 					</Group>
 					{action === "list" ? (
-						<FilterPresetBar
-							filterPresets={listPresets.filterPresets}
-							activePresetId={listPresets.activePresetId}
-							onSelectPreset={listPresets.applyPreset}
-							onDeletePreset={listPresets.deletePreset}
-						/>
+						<FilterPresetBar presetManager={listPresets} />
 					) : null}
 					{action === "search" ? (
-						<FilterPresetBar
-							filterPresets={searchPresets.filterPresets}
-							activePresetId={searchPresets.activePresetId}
-							onSelectPreset={searchPresets.applyPreset}
-							onDeletePreset={searchPresets.deletePreset}
-						/>
+						<FilterPresetBar presetManager={searchPresets} />
 					) : null}
 					{action === "list" ? (
 						userPeopleList ? (

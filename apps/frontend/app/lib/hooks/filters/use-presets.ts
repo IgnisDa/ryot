@@ -158,12 +158,18 @@ export const useFilterPresets = <TFilter extends { page: number }>(
 		if (!isEqual(filtersWithoutPage, savedWithoutPage)) setActivePresetId(null);
 	}, [config.filters, activePresetId, filterPresets, setActivePresetId]);
 
+	const createSaveHandler = (onClose: () => void) => async (name: string) => {
+		await savePreset(name);
+		onClose();
+	};
+
 	return {
 		savePreset,
 		applyPreset,
 		deletePreset,
 		filterPresets,
 		activePresetId,
+		createSaveHandler,
 		refetchFilterPresets,
 	};
 };

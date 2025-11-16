@@ -9,8 +9,8 @@ import {
 	TextInput,
 } from "@mantine/core";
 import { useLongPress } from "@mantine/hooks";
-import type { FilterPresetsQuery } from "@ryot/generated/graphql/backend/graphql";
 import { useState } from "react";
+import type { useFilterPresets } from "~/lib/hooks/filters/use-presets";
 
 export const CreateFilterPresetModal = (props: {
 	opened: boolean;
@@ -59,6 +59,20 @@ export const CreateFilterPresetModal = (props: {
 	);
 };
 
+export const FilterPresetModalManager = (props: {
+	opened: boolean;
+	onClose: () => void;
+	placeholder?: string;
+	presetManager: ReturnType<typeof useFilterPresets>;
+}) => (
+	<CreateFilterPresetModal
+		opened={props.opened}
+		onClose={props.onClose}
+		placeholder={props.placeholder}
+		onSave={props.presetManager.createSaveHandler(props.onClose)}
+	/>
+);
+
 const FilterPresetChip = (props: {
 	id: string;
 	name: string;
@@ -74,26 +88,21 @@ const FilterPresetChip = (props: {
 	);
 };
 
-type FilterPresetsResponse = FilterPresetsQuery["filterPresets"];
-
 export const FilterPresetBar = (props: {
-	activePresetId: string | null;
-	filterPresets?: FilterPresetsResponse;
-	onDeletePreset: (presetId: string, presetName: string) => void;
-	onSelectPreset: (presetId: string, presetFilters: unknown) => void;
+	presetManager: ReturnType<typeof useFilterPresets>;
 }) => {
 	const [parent] = useAutoAnimate();
-	const presets = props.filterPresets;
+	const presets = props.presetManager.filterPresets;
 	if (!presets || presets.response.length === 0) return null;
 
 	return (
 		<Chip.Group
-			value={props.activePresetId || undefined}
-			key={props.activePresetId || "no-filter-preset"}
+			value={props.presetManager.activePresetId || undefined}
+			key={props.presetManager.activePresetId || "no-filter-preset"}
 			onChange={(value) => {
 				if (!value) return;
 				const preset = presets.response.find((p) => p.id === value);
-				if (preset) props.onSelectPreset(preset.id, preset.filters);
+				if (preset) props.presetManager.applyPreset(preset.id, preset.filters);
 			}}
 		>
 			<Group gap="xs" ref={parent} wrap="nowrap" style={{ overflowX: "auto" }}>
@@ -102,7 +111,7 @@ export const FilterPresetBar = (props: {
 						id={preset.id}
 						key={preset.id}
 						name={preset.name}
-						onDelete={props.onDeletePreset}
+						onDelete={props.presetManager.deletePreset}
 					/>
 				))}
 			</Group>

@@ -69,8 +69,8 @@ import {
 } from "~/components/common";
 import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
-	CreateFilterPresetModal,
 	FilterPresetBar,
+	FilterPresetModalManager,
 } from "~/components/common/filter-presets";
 import {
 	CollectionsFilter,
@@ -201,11 +201,6 @@ export default function Page() {
 		contextType: FilterPresetContextType.ExercisesList,
 	});
 
-	const handleSavePreset = async (name: string) => {
-		await listPresets.savePreset(name);
-		closePresetModal();
-	};
-
 	const queryInput: UserExercisesListInput = useMemo(
 		() => ({
 			sortBy: filterState.normalizedFilters.sortBy,
@@ -253,10 +248,10 @@ export default function Page() {
 
 	return (
 		<>
-			<CreateFilterPresetModal
-				onSave={handleSavePreset}
+			<FilterPresetModalManager
 				opened={presetModalOpened}
 				onClose={closePresetModal}
+				presetManager={listPresets}
 				placeholder="e.g., Push Day Machines"
 			/>
 			<BulkCollectionEditingAffix
@@ -329,12 +324,7 @@ export default function Page() {
 							/>
 						</FiltersModal>
 					</Group>
-					<FilterPresetBar
-						onSelectPreset={listPresets.applyPreset}
-						filterPresets={listPresets.filterPresets}
-						onDeletePreset={listPresets.deletePreset}
-						activePresetId={listPresets.activePresetId}
-					/>
+					<FilterPresetBar presetManager={listPresets} />
 					{currentWorkout?.replacingExerciseIdx ? (
 						<Alert icon={<IconAlertCircle />}>
 							You are replacing exercise: {replacingExercise?.name}

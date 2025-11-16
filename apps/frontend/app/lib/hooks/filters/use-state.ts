@@ -8,7 +8,7 @@ interface UseFilterStateConfig<TFilter> {
 	defaultFilters: TFilter;
 }
 
-export const useFilterState = <TFilter extends { page: number }>(
+export const useFilterState = <TFilter extends { page: number; query: string }>(
 	config: UseFilterStateConfig<TFilter>,
 ) => {
 	const [filters, setFilters] = useLocalStorage<TFilter>(
@@ -31,6 +31,14 @@ export const useFilterState = <TFilter extends { page: number }>(
 			[key]: value,
 		}));
 
+	const updateQuery = (query: string) =>
+		setFilters((prev) => ({
+			...config.defaultFilters,
+			...prev,
+			query,
+			page: 1,
+		}));
+
 	const areFiltersActive = isFilterChanged(
 		normalizedFilters,
 		config.defaultFilters,
@@ -40,6 +48,7 @@ export const useFilterState = <TFilter extends { page: number }>(
 
 	return {
 		filters,
+		updateQuery,
 		resetFilters,
 		updateFilter,
 		setFiltersState,

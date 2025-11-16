@@ -52,8 +52,8 @@ import {
 } from "~/components/common";
 import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
-	CreateFilterPresetModal,
 	FilterPresetBar,
+	FilterPresetModalManager,
 } from "~/components/common/filter-presets";
 import {
 	DebouncedSearchInput,
@@ -154,11 +154,6 @@ export default function Page(props: { params: { id: string } }) {
 		storageKeyPrefix: `CollectionContentsActivePreset_${collectionId}`,
 	});
 
-	const handleSavePreset = async (name: string) => {
-		await contentsPresets.savePreset(name);
-		closePresetModal();
-	};
-
 	const queryInput: CollectionContentsInput = useMemo(
 		() => ({
 			collectionId,
@@ -199,10 +194,10 @@ export default function Page(props: { params: { id: string } }) {
 
 	return (
 		<>
-			<CreateFilterPresetModal
-				onSave={handleSavePreset}
+			<FilterPresetModalManager
 				opened={presetModalOpened}
 				onClose={closePresetModal}
+				presetManager={contentsPresets}
 				placeholder="e.g., Favorite Collection View"
 			/>
 			<BulkCollectionEditingAffix
@@ -279,12 +274,9 @@ export default function Page(props: { params: { id: string } }) {
 											<>
 												<Group wrap="nowrap">
 													<DebouncedSearchInput
-														value={filterState.normalizedFilters.query}
+														onChange={filterState.updateQuery}
 														placeholder="Search in the collection"
-														onChange={(value) => {
-															filterState.updateFilter("query", value);
-															filterState.updateFilter("page", 1);
-														}}
+														value={filterState.normalizedFilters.query}
 													/>
 													<ActionIcon
 														onClick={() => openFiltersModal()}
@@ -304,12 +296,7 @@ export default function Page(props: { params: { id: string } }) {
 														/>
 													</FiltersModal>
 												</Group>
-												<FilterPresetBar
-													onSelectPreset={contentsPresets.applyPreset}
-													filterPresets={contentsPresets.filterPresets}
-													onDeletePreset={contentsPresets.deletePreset}
-													activePresetId={contentsPresets.activePresetId}
-												/>
+												<FilterPresetBar presetManager={contentsPresets} />
 												<DisplayListDetailsAndRefresh
 													total={details.totalItems}
 													cacheId={collectionContents?.cacheId}

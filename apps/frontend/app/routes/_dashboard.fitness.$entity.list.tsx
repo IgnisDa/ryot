@@ -53,8 +53,8 @@ import {
 } from "~/components/common";
 import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
-	CreateFilterPresetModal,
 	FilterPresetBar,
+	FilterPresetModalManager,
 } from "~/components/common/filter-presets";
 import {
 	DebouncedSearchInput,
@@ -171,11 +171,6 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 		storageKeyPrefix: `FitnessEntityListActivePreset_${entity}`,
 	});
 
-	const handleSavePreset = async (name: string) => {
-		await listPresets.savePreset(name);
-		closePresetModal();
-	};
-
 	const { data: listData, refetch: refetchListData } = useQuery({
 		queryKey: queryFactory.fitness.entityList(entity, input).queryKey,
 		queryFn: () =>
@@ -205,10 +200,10 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 
 	return (
 		<>
-			<CreateFilterPresetModal
-				onSave={handleSavePreset}
+			<FilterPresetModalManager
 				opened={presetModalOpened}
 				onClose={closePresetModal}
+				presetManager={listPresets}
 				placeholder="e.g., Quick HIIT Sessions"
 			/>
 			<BulkCollectionEditingAffix
@@ -276,12 +271,9 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 					</Flex>
 					<Group wrap="nowrap">
 						<DebouncedSearchInput
-							value={filterState.normalizedFilters.query}
+							onChange={filterState.updateQuery}
 							placeholder={`Search for ${entity}`}
-							onChange={(value) => {
-								filterState.updateFilter("query", value);
-								filterState.updateFilter("page", 1);
-							}}
+							value={filterState.normalizedFilters.query}
 						/>
 						<ActionIcon
 							onClick={openFiltersModal}
@@ -301,12 +293,7 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 							/>
 						</FiltersModal>
 					</Group>
-					<FilterPresetBar
-						onSelectPreset={listPresets.applyPreset}
-						onDeletePreset={listPresets.deletePreset}
-						filterPresets={listPresets.filterPresets}
-						activePresetId={listPresets.activePresetId}
-					/>
+					<FilterPresetBar presetManager={listPresets} />
 					<Stack gap="xs">
 						{listData ? (
 							<>

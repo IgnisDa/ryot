@@ -47,8 +47,8 @@ import {
 } from "~/components/common";
 import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
-	CreateFilterPresetModal,
 	FilterPresetBar,
+	FilterPresetModalManager,
 } from "~/components/common/filter-presets";
 import {
 	CollectionsFilter,
@@ -228,28 +228,18 @@ export default function Page(props: {
 				.then((data) => data.metadataSearch),
 	});
 
-	const handleSaveListPreset = async (name: string) => {
-		await listPresets.savePreset(name);
-		listModals.presetModal.close();
-	};
-
-	const handleSaveSearchPreset = async (name: string) => {
-		await searchPresets.savePreset(name);
-		searchModals.presetModal.close();
-	};
-
 	const isEligibleForNextTourStep = lot === MediaLot.AudioBook;
 
 	return (
 		<>
-			<CreateFilterPresetModal
-				onSave={handleSaveListPreset}
+			<FilterPresetModalManager
+				presetManager={listPresets}
 				placeholder="e.g., Unfinished Books"
 				opened={listModals.presetModal.opened}
 				onClose={listModals.presetModal.close}
 			/>
-			<CreateFilterPresetModal
-				onSave={handleSaveSearchPreset}
+			<FilterPresetModalManager
+				presetManager={searchPresets}
 				placeholder="e.g., RPG Games on PS5"
 				opened={searchModals.presetModal.opened}
 				onClose={searchModals.presetModal.close}
@@ -315,14 +305,11 @@ export default function Page(props: {
 							<>
 								<Group wrap="nowrap">
 									<DebouncedSearchInput
+										onChange={listState.updateQuery}
 										value={listState.normalizedFilters.query}
 										placeholder={`Sift through your ${changeCase(
 											lot.toLowerCase(),
 										).toLowerCase()}s`}
-										onChange={(value) => {
-											listState.updateFilter("query", value);
-											listState.updateFilter("page", 1);
-										}}
 									/>
 									<ActionIcon
 										onClick={listModals.filtersModal.open}
@@ -343,12 +330,7 @@ export default function Page(props: {
 										/>
 									</FiltersModal>
 								</Group>
-								<FilterPresetBar
-									filterPresets={listPresets.filterPresets}
-									activePresetId={listPresets.activePresetId}
-									onSelectPreset={listPresets.applyPreset}
-									onDeletePreset={listPresets.deletePreset}
-								/>
+								<FilterPresetBar presetManager={listPresets} />
 								<DisplayListDetailsAndRefresh
 									cacheId={userMetadataList.cacheId}
 									onRefreshButtonClicked={refetchUserMetadataList}
@@ -436,12 +418,7 @@ export default function Page(props: {
 										</FiltersModal>
 									</Group>
 								</Group>
-								<FilterPresetBar
-									filterPresets={searchPresets.filterPresets}
-									activePresetId={searchPresets.activePresetId}
-									onSelectPreset={searchPresets.applyPreset}
-									onDeletePreset={searchPresets.deletePreset}
-								/>
+								<FilterPresetBar presetManager={searchPresets} />
 								{metadataSearch.response.details.totalItems > 0 ? (
 									<>
 										<DisplayListDetailsAndRefresh
