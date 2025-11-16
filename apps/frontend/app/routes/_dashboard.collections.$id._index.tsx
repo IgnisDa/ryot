@@ -1,7 +1,9 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Box,
 	Button,
+	Chip,
 	Container,
 	Flex,
 	Group,
@@ -22,6 +24,7 @@ import {
 	type CollectionRecommendationsInput,
 	EntityLot,
 	type EntityWithLot,
+	FilterPresetContextType,
 	GraphqlSortOrder,
 	MediaLot,
 	ReorderCollectionEntityDocument,
@@ -38,7 +41,7 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
@@ -51,6 +54,10 @@ import {
 } from "~/components/common";
 import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
+	CreateFilterPresetModal,
+	FilterPresetChip,
+} from "~/components/common/filter-presets";
+import {
 	DebouncedSearchInput,
 	FiltersModal,
 	SortOrderToggle,
@@ -58,6 +65,7 @@ import {
 import { ApplicationGrid } from "~/components/common/layout";
 import { ReviewItemDisplay } from "~/components/common/review";
 import { MetadataDisplayItem } from "~/components/media/display-items";
+import { useFilterPresets } from "~/lib/hooks/use-filter-presets";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
@@ -116,6 +124,7 @@ export default function Page(props: { params: { id: string } }) {
 	const navigate = useNavigate();
 	const userDetails = useUserDetails();
 	const coreDetails = useCoreDetails();
+	const [presetParent] = useAutoAnimate();
 	const { id: collectionId } = props.params;
 	const userPreferences = useUserPreferences();
 	const userCollections = useUserCollections();
@@ -132,15 +141,53 @@ export default function Page(props: { params: { id: string } }) {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const [
+		presetModalOpened,
+		{ open: openPresetModal, close: closePresetModal },
+	] = useDisclosure(false);
 
 	invariant(collectionId);
 
-	const queryInput: CollectionContentsInput = {
-		collectionId,
-		sort: { by: filters.sortBy, order: filters.orderBy },
-		search: { page: filters.page, query: filters.query },
-		filter: { entityLot: filters.entityLot, metadataLot: filters.metadataLot },
+	const normalizedFilters = useMemo(
+		() => ({ ...defaultFilters, ...filters }),
+		[filters],
+	);
+
+	const setFiltersState = (updatedFilters: FilterState) =>
+		setFilters({ ...defaultFilters, ...updatedFilters });
+
+	const contentsPresets = useFilterPresets({
+		enabled: true,
+		filters: normalizedFilters,
+		setFilters: setFiltersState,
+		contextType: FilterPresetContextType.CollectionContents,
+		contextInformation: { collectionContents: { collectionId } },
+		storageKeyPrefix: `CollectionContentsActivePreset_${collectionId}`,
+	});
+
+	const handleSavePreset = async (name: string) => {
+		await contentsPresets.savePreset(name);
+		closePresetModal();
 	};
+
+	const queryInput: CollectionContentsInput = useMemo(
+		() => ({
+			collectionId,
+			sort: {
+				by: normalizedFilters.sortBy,
+				order: normalizedFilters.orderBy,
+			},
+			search: {
+				page: normalizedFilters.page,
+				query: normalizedFilters.query,
+			},
+			filter: {
+				entityLot: normalizedFilters.entityLot,
+				metadataLot: normalizedFilters.metadataLot,
+			},
+		}),
+		[collectionId, normalizedFilters],
+	);
 
 	const { data: collectionContents, refetch: refreshCollectionContents } =
 		useQuery({
@@ -153,7 +200,7 @@ export default function Page(props: { params: { id: string } }) {
 		});
 
 	const updateFilter: FilterUpdateFunction<FilterState> = (key, value) =>
-		setFilters((prev) => ({ ...prev, [key]: value }));
+		setFilters((prev) => ({ ...defaultFilters, ...prev, [key]: value }));
 
 	const details = collectionContents?.response;
 	const colDetails = details && {
@@ -162,10 +209,19 @@ export default function Page(props: { params: { id: string } }) {
 		creatorUserId: details.user.id,
 	};
 	const thisCollection = userCollections.find((c) => c.id === collectionId);
-	const areListFiltersActive = isFilterChanged(filters, defaultFilters);
+	const areListFiltersActive = isFilterChanged(
+		normalizedFilters,
+		defaultFilters,
+	);
 
 	return (
 		<>
+			<CreateFilterPresetModal
+				onSave={handleSavePreset}
+				opened={presetModalOpened}
+				onClose={closePresetModal}
+				placeholder="e.g., Favorite Collection View"
+			/>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
 					const input = cloneDeep(queryInput);
@@ -235,12 +291,12 @@ export default function Page(props: { params: { id: string } }) {
 									) : null}
 								</Tabs.List>
 								<Tabs.Panel value={TabNames.Contents}>
-									<Stack gap="xs">
+									<Stack>
 										{!isReorderMode ? (
 											<>
 												<Group wrap="nowrap">
 													<DebouncedSearchInput
-														value={filters.query}
+														value={normalizedFilters.query}
 														placeholder="Search in the collection"
 														onChange={(value) => {
 															updateFilter("query", value);
@@ -259,17 +315,73 @@ export default function Page(props: { params: { id: string } }) {
 														resetFilters={() => setFilters(defaultFilters)}
 													>
 														<FiltersModalForm
-															filters={filters}
+															filters={normalizedFilters}
 															updateFilter={updateFilter}
 														/>
+														<Stack mt="md">
+															<Button
+																variant="light"
+																onClick={() => {
+																	closeFiltersModal();
+																	openPresetModal();
+																}}
+															>
+																Save current filters as preset
+															</Button>
+														</Stack>
 													</FiltersModal>
 												</Group>
+												{contentsPresets.filterPresets &&
+												contentsPresets.filterPresets.response.length > 0 ? (
+													<Box>
+														<Chip.Group
+															value={
+																contentsPresets.activePresetId || undefined
+															}
+															key={
+																contentsPresets.activePresetId ||
+																"collection-contents-no-preset"
+															}
+															onChange={(value) => {
+																if (!value) return;
+																const preset =
+																	contentsPresets.filterPresets?.response.find(
+																		(p) => p.id === value,
+																	);
+																if (preset)
+																	contentsPresets.applyPreset(
+																		preset.id,
+																		preset.filters,
+																	);
+															}}
+														>
+															<Group
+																gap="xs"
+																wrap="nowrap"
+																ref={presetParent}
+																style={{ overflowX: "auto" }}
+															>
+																{contentsPresets.filterPresets.response.map(
+																	(preset) => (
+																		<FilterPresetChip
+																			id={preset.id}
+																			key={preset.id}
+																			name={preset.name}
+																			onDelete={contentsPresets.deletePreset}
+																		/>
+																	),
+																)}
+															</Group>
+														</Chip.Group>
+													</Box>
+												) : null}
 												<DisplayListDetailsAndRefresh
 													total={details.totalItems}
 													cacheId={collectionContents?.cacheId}
 													onRefreshButtonClicked={refreshCollectionContents}
 													isRandomSortOrderSelected={
-														filters.sortBy === CollectionContentsSortBy.Random
+														normalizedFilters.sortBy ===
+														CollectionContentsSortBy.Random
 													}
 												/>
 											</>
@@ -302,7 +414,7 @@ export default function Page(props: { params: { id: string } }) {
 											</Text>
 										)}
 										<ApplicationPagination
-											value={filters.page}
+											value={normalizedFilters.page}
 											onChange={(v) => updateFilter("page", v)}
 											totalItems={details.results.details.totalItems}
 										/>
