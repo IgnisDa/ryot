@@ -457,7 +457,7 @@ const FiltersModalForm = (props: {
 		<Flex gap="xs" align="center">
 			<Select
 				w="100%"
-				defaultValue={props.filters.sortBy}
+				value={props.filters.sortBy}
 				onChange={(v) =>
 					props.updateFilter("sortBy", v as CollectionContentsSortBy)
 				}
@@ -477,8 +477,8 @@ const FiltersModalForm = (props: {
 		</Flex>
 		<Select
 			clearable
+			value={props.filters.entityLot}
 			placeholder="Select an entity type"
-			defaultValue={props.filters.entityLot}
 			onChange={(v) => props.updateFilter("entityLot", v as EntityLot)}
 			data={convertEnumToSelectData(
 				Object.values(EntityLot).filter(
