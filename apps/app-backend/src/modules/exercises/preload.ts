@@ -70,8 +70,8 @@ const BuiltinExercisePreloadPayload = Schema.Struct({
 });
 
 export const BuiltinExercisePreloadWorkflow = Workflow.make({
-	success: Schema.Void,
 	error: Schema.Never,
+	success: Schema.Void,
 	name: "BuiltinExercisePreload",
 	payload: BuiltinExercisePreloadPayload,
 	idempotencyKey: ({ entitySchemaId, sandboxScriptId }) =>
@@ -84,8 +84,8 @@ const runBuiltinExercisePreload = (payload: typeof BuiltinExercisePreloadPayload
 		const repository = yield* EntitiesRepository;
 
 		const shouldProceed = yield* Activity.make({
-			name: "check-and-log-start",
 			success: Schema.Boolean,
+			name: "check-and-log-start",
 			execute: Effect.gen(function* () {
 				const importedCount = yield* runWithDb(countImportedGlobalEntities(payload)).pipe(
 					dieOnDbError,
@@ -99,7 +99,9 @@ const runBuiltinExercisePreload = (payload: typeof BuiltinExercisePreloadPayload
 				return true;
 			}),
 		});
-		if (!shouldProceed) {return;}
+		if (!shouldProceed) {
+			return;
+		}
 
 		const runBuiltinExerciseSandbox = (input: {
 			driverName: string;
@@ -245,8 +247,8 @@ const runBuiltinExercisePreload = (payload: typeof BuiltinExercisePreloadPayload
 			}
 
 			yield* Activity.make({
-				name: `log-schedule-page-${page}`,
 				success: Schema.Void,
+				name: `log-schedule-page-${page}`,
 				execute: Effect.logInfo(
 					`Scheduling ${externalIds.length} builtin exercise imports from page ${page}`,
 				),
