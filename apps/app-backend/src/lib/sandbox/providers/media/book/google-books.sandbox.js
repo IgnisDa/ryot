@@ -320,5 +320,5 @@ driver("resolve", async function (context) {
 	const payload = parseJsonResponse(response.data.body);
 	const id = typeof payload?.items?.[0]?.id === "string" ? payload.items[0].id.trim() : "";
 
-	return { externalId: id || null };
+	return { externalId: id ?? null };
 });

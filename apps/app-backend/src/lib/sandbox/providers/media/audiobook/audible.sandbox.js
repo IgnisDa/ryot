@@ -29,7 +29,7 @@ async function cleanHtmlDescription(html) {
 	const { load } = await import("npm:cheerio");
 	const $ = load(html);
 	$("br").replaceWith("\n");
-	return $.root().text().trim() || null;
+	return $.root().text().trim() ?? null;
 }
 
 const LOCALE_SUFFIX_MAP = {
@@ -255,7 +255,7 @@ driver("details", async function (context) {
 		}
 		const name = typeof author.name === "string" ? author.name.trim() : "";
 		const asin = typeof author.asin === "string" ? author.asin.trim() : "";
-		const relatedName = name || "Loading...";
+		const relatedName = name ?? "Loading...";
 		if (asin) {
 			addRelatedEntity({
 				name: relatedName,
@@ -277,7 +277,7 @@ driver("details", async function (context) {
 		}
 		const name = typeof narrator.name === "string" ? narrator.name.trim() : "";
 		const asin = typeof narrator.asin === "string" ? narrator.asin.trim() : "";
-		const relatedName = name || "Loading...";
+		const relatedName = name ?? "Loading...";
 		if (asin) {
 			addRelatedEntity({
 				name: relatedName,
