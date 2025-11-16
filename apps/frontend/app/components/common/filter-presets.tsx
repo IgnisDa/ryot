@@ -1,5 +1,15 @@
-import { Button, Chip, Group, Modal, Stack, TextInput } from "@mantine/core";
+import { useAutoAnimate } from "@formkit/auto-animate/react";
+import {
+	Box,
+	Button,
+	Chip,
+	Group,
+	Modal,
+	Stack,
+	TextInput,
+} from "@mantine/core";
 import { useLongPress } from "@mantine/hooks";
+import type { FilterPresetsQuery } from "@ryot/generated/graphql/backend/graphql";
 import { useState } from "react";
 
 export const CreateFilterPresetModal = (props: {
@@ -46,7 +56,7 @@ export const CreateFilterPresetModal = (props: {
 	);
 };
 
-export const FilterPresetChip = (props: {
+const FilterPresetChip = (props: {
 	id: string;
 	name: string;
 	onDelete: (id: string, name: string) => void;
@@ -58,5 +68,48 @@ export const FilterPresetChip = (props: {
 		<Chip size="sm" value={props.id} {...longPressHandlers}>
 			{props.name}
 		</Chip>
+	);
+};
+
+type FilterPresetsResponse = FilterPresetsQuery["filterPresets"];
+
+export const FilterPresetBar = (props: {
+	activePresetId: string | null;
+	filterPresets?: FilterPresetsResponse;
+	onDeletePreset: (presetId: string, presetName: string) => void;
+	onSelectPreset: (presetId: string, presetFilters: unknown) => void;
+}) => {
+	const [parent] = useAutoAnimate();
+	const presets = props.filterPresets;
+	if (!presets || presets.response.length === 0) return null;
+
+	return (
+		<Box>
+			<Chip.Group
+				value={props.activePresetId || undefined}
+				key={props.activePresetId || "no-filter-preset"}
+				onChange={(value) => {
+					if (!value) return;
+					const preset = presets.response.find((p) => p.id === value);
+					if (preset) props.onSelectPreset(preset.id, preset.filters);
+				}}
+			>
+				<Group
+					gap="xs"
+					ref={parent}
+					wrap="nowrap"
+					style={{ overflowX: "auto" }}
+				>
+					{presets.response.map((preset) => (
+						<FilterPresetChip
+							id={preset.id}
+							key={preset.id}
+							name={preset.name}
+							onDelete={props.onDeletePreset}
+						/>
+					))}
+				</Group>
+			</Chip.Group>
+		</Box>
 	);
 };
