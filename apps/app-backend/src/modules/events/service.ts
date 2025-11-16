@@ -32,9 +32,9 @@ import {
 } from "#modules/query-engine/response-helpers";
 import { QueryEngineService } from "#modules/query-engine/service";
 
+import { enqueueEventCreate } from "./event-create-workflow";
 import { validateEventCreateSubmission } from "./event-creation";
 import { EventsRepository } from "./repository";
-import { enqueueEventCreate } from "./workflows";
 
 const eventAlias = "event";
 const entityAlias = "entity";

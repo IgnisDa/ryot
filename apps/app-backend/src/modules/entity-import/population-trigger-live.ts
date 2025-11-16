@@ -3,7 +3,7 @@ import { Effect, Layer } from "effect";
 
 import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
 
-import { BuiltinEntityImportWorkflow } from "./workflows";
+import { BuiltinEntityImportWorkflow } from "./entity-import-workflow";
 
 export const EntityPopulationTriggerLive = Layer.effect(
 	EntityPopulationTrigger,
