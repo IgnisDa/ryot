@@ -309,4 +309,110 @@ describe("Events bulk POST", () => {
 			{ rating: 4 },
 		]);
 	});
+
+	it("creates built-in dropped events with rounded progress values", async () => {
+		const { cookies, client: apiClient } = await createAuthenticatedClient();
+		const { entityId, droppedEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			apiClient,
+			cookies,
+		);
+
+		const createResult = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					eventSchemaId: droppedEventSchemaId,
+					properties: { progressPercent: 33.333 },
+				},
+				{
+					entityId,
+					eventSchemaId: droppedEventSchemaId,
+					properties: { progressPercent: 66.666 },
+				},
+			],
+		});
+
+		expect(createResult.response.status).toBe(200);
+		expect(createResult.data?.data.count).toBe(2);
+
+		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
+		expect(events).toHaveLength(2);
+		expect(events.map((event) => event.eventSchemaSlug)).toEqual(["dropped", "dropped"]);
+		expect(
+			// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
+			sortBy(events.map((event) => event.properties.progressPercent as number)),
+		).toEqual([33.33, 66.67]);
+	});
+
+	it("creates built-in on_hold events with rounded progress values", async () => {
+		const { cookies, client: apiClient } = await createAuthenticatedClient();
+		const { entityId, onHoldEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			apiClient,
+			cookies,
+		);
+
+		const createResult = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					eventSchemaId: onHoldEventSchemaId,
+					properties: { progressPercent: 45.555 },
+				},
+				{
+					entityId,
+					eventSchemaId: onHoldEventSchemaId,
+					properties: { progressPercent: 75.444 },
+				},
+			],
+		});
+
+		expect(createResult.response.status).toBe(200);
+		expect(createResult.data?.data.count).toBe(2);
+
+		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
+		expect(events).toHaveLength(2);
+		expect(events.map((event) => event.eventSchemaSlug)).toEqual(["on_hold", "on_hold"]);
+		expect(
+			// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
+			sortBy(events.map((event) => event.properties.progressPercent as number)),
+		).toEqual([45.56, 75.44]);
+	});
+
+	it("creates dropped and on_hold events with episodic media fields for shows", async () => {
+		const { cookies, client: apiClient } = await createAuthenticatedClient();
+		const { entityId, droppedEventSchemaId, onHoldEventSchemaId } =
+			await createBuiltinMediaLifecycleFixture(apiClient, cookies, {
+				entitySchemaSlug: "show",
+			});
+
+		const createResult = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					eventSchemaId: droppedEventSchemaId,
+					properties: { progressPercent: 50, showSeason: 2, showEpisode: 5 },
+				},
+				{
+					entityId,
+					eventSchemaId: onHoldEventSchemaId,
+					properties: { progressPercent: 75, showSeason: 3, showEpisode: 10 },
+				},
+			],
+		});
+
+		expect(createResult.response.status).toBe(200);
+		expect(createResult.data?.data.count).toBe(2);
+
+		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
+		expect(events).toHaveLength(2);
+		expect(sortBy(events.map((event) => event.eventSchemaSlug))).toEqual(["dropped", "on_hold"]);
+		const sortedEvents = sortBy(events, (event) => event.eventSchemaSlug);
+		expect(sortedEvents.map((event) => event.properties)).toEqual([
+			{ progressPercent: 50, showSeason: 2, showEpisode: 5 },
+			{ progressPercent: 75, showSeason: 3, showEpisode: 10 },
+		]);
+	});
 });
