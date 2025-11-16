@@ -1,9 +1,7 @@
-import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Box,
 	Button,
-	Chip,
 	Container,
 	Flex,
 	Group,
@@ -55,7 +53,7 @@ import {
 import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
 	CreateFilterPresetModal,
-	FilterPresetChip,
+	FilterPresetBar,
 } from "~/components/common/filter-presets";
 import {
 	DebouncedSearchInput,
@@ -124,7 +122,6 @@ export default function Page(props: { params: { id: string } }) {
 	const navigate = useNavigate();
 	const userDetails = useUserDetails();
 	const coreDetails = useCoreDetails();
-	const [presetParent] = useAutoAnimate();
 	const { id: collectionId } = props.params;
 	const userPreferences = useUserPreferences();
 	const userCollections = useUserCollections();
@@ -321,50 +318,12 @@ export default function Page(props: { params: { id: string } }) {
 														/>
 													</FiltersModal>
 												</Group>
-												{contentsPresets.filterPresets &&
-												contentsPresets.filterPresets.response.length > 0 ? (
-													<Box>
-														<Chip.Group
-															value={
-																contentsPresets.activePresetId || undefined
-															}
-															key={
-																contentsPresets.activePresetId ||
-																"collection-contents-no-preset"
-															}
-															onChange={(value) => {
-																if (!value) return;
-																const preset =
-																	contentsPresets.filterPresets?.response.find(
-																		(p) => p.id === value,
-																	);
-																if (preset)
-																	contentsPresets.applyPreset(
-																		preset.id,
-																		preset.filters,
-																	);
-															}}
-														>
-															<Group
-																gap="xs"
-																wrap="nowrap"
-																ref={presetParent}
-																style={{ overflowX: "auto" }}
-															>
-																{contentsPresets.filterPresets.response.map(
-																	(preset) => (
-																		<FilterPresetChip
-																			id={preset.id}
-																			key={preset.id}
-																			name={preset.name}
-																			onDelete={contentsPresets.deletePreset}
-																		/>
-																	),
-																)}
-															</Group>
-														</Chip.Group>
-													</Box>
-												) : null}
+												<FilterPresetBar
+													onSelectPreset={contentsPresets.applyPreset}
+													filterPresets={contentsPresets.filterPresets}
+													onDeletePreset={contentsPresets.deletePreset}
+													activePresetId={contentsPresets.activePresetId}
+												/>
 												<DisplayListDetailsAndRefresh
 													total={details.totalItems}
 													cacheId={collectionContents?.cacheId}
