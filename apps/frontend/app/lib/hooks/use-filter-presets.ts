@@ -9,6 +9,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { isEqual } from "@ryot/ts-utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { ClientError } from "graphql-request";
 import { useEffect, useRef } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { clientGqlService } from "~/lib/shared/react-query";
@@ -103,12 +104,23 @@ export const useFilterPresets = <TFilter extends { page: number }>(
 	};
 
 	const savePreset = async (name: string) => {
-		const filtersToSave = { ...config.filters, page: 1 };
-		const result = await createPresetMutation.mutateAsync({
-			input: { name, filters: filtersToSave },
-		});
-		setActivePresetId(result.createFilterPreset.id);
-		return result.createFilterPreset.id;
+		try {
+			const filtersToSave = { ...config.filters, page: 1 };
+			const result = await createPresetMutation.mutateAsync({
+				input: { name, filters: filtersToSave },
+			});
+			setActivePresetId(result.createFilterPreset.id);
+			return result.createFilterPreset.id;
+		} catch (error) {
+			notifications.show({
+				color: "red",
+				title: "Error",
+				message:
+					error instanceof ClientError && error.response.errors?.length
+						? error.response.errors[0]?.message
+						: "Failed to save filter preset",
+			});
+		}
 	};
 
 	const deletePreset = (presetId: string, presetName: string) => {
