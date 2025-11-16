@@ -35,6 +35,13 @@ function pickImage(coverImage, bannerImage) {
   return null;
 }
 
+const ANILIST_TITLE_LANGUAGES = ["english", "romaji", "native", "user_preferred"];
+
+function normalizeAnilistTitleLanguage(language) {
+  const normalized = typeof language === "string" ? language.trim().toLowerCase() : "";
+  return ANILIST_TITLE_LANGUAGES.includes(normalized) ? normalized : null;
+}
+
 async function getAnilistPreferences() {
   const prefsResult = await getUserPreferences();
 
@@ -56,8 +63,7 @@ async function getAnilistPreferences() {
           ? anilistPref.preferredLanguage.trim().toLowerCase()
           : "user_preferred";
 
-      const valid = ["english", "romaji", "native", "user_preferred"];
-      titleLang = valid.includes(lang) ? lang : "user_preferred";
+      titleLang = normalizeAnilistTitleLanguage(lang) ?? "user_preferred";
     }
   }
 
@@ -65,6 +71,7 @@ async function getAnilistPreferences() {
 }
 
 function pickAnilistTitle(title, lang) {
+  const normalizedLang = normalizeAnilistTitleLanguage(lang);
   const byLang = {
     english: title?.english,
     romaji: title?.romaji,
@@ -72,8 +79,8 @@ function pickAnilistTitle(title, lang) {
     user_preferred: title?.userPreferred,
   };
   return (
-    (lang && typeof byLang[lang] === "string" && byLang[lang].trim()
-      ? byLang[lang].trim()
+    (normalizedLang && typeof byLang[normalizedLang] === "string" && byLang[normalizedLang].trim()
+      ? byLang[normalizedLang].trim()
       : null) ??
     (typeof title?.userPreferred === "string" && title.userPreferred.trim()
       ? title.userPreferred.trim()
@@ -89,6 +96,37 @@ function pickAnilistTitle(title, lang) {
       : null) ??
     ""
   );
+}
+
+function pickRequestedAnilistTitle(title, lang) {
+  const normalizedLang = normalizeAnilistTitleLanguage(lang);
+  if (!normalizedLang) {
+    return null;
+  }
+
+  const byLang = {
+    english: title?.english,
+    romaji: title?.romaji,
+    native: title?.native,
+    user_preferred: title?.userPreferred,
+  };
+  const value = byLang[normalizedLang];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function parseAnilistMediaId(contextIdentifier) {
+  if (!/^\d+$/.test(contextIdentifier)) {
+    throw new Error("externalId must be a numeric Anilist media id");
+  }
+
+  const mediaId = Number(contextIdentifier);
+  if (!Number.isSafeInteger(mediaId) || mediaId <= 0) {
+    throw new Error(
+      "externalId must be a positive safe integer Anilist media id",
+    );
+  }
+
+  return mediaId;
 }
 
 function parsePublishYear(startDate) {
@@ -268,25 +306,15 @@ query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: Med
   };
 });
 
-driver("details", async function(context) {
+driver("details", async function(context, { metadata }) {
   const { z } = await import("npm:zod");
 
   const { externalId: contextIdentifier } = z.object({
     externalId: z.string().trim().min(1, "externalId is required"),
   }).parse(context ?? {});
 
-  if (!/^\d+$/.test(contextIdentifier)) {
-    throw new Error("externalId must be a numeric Anilist media id");
-  }
-
-  const mediaId = Number(contextIdentifier);
-  if (!Number.isSafeInteger(mediaId) || mediaId <= 0) {
-    throw new Error(
-      "externalId must be a positive safe integer Anilist media id",
-    );
-  }
-
-  const { titleLang } = await getAnilistPreferences();
+  const mediaId = parseAnilistMediaId(contextIdentifier);
+  const titleLang = metadata?.providerInformation?.canonicalLanguage ?? "english";
 
   const graphqlQuery = `
 query MediaDetailsQuery($id: Int!) {
@@ -391,4 +419,70 @@ query MediaDetailsQuery($id: Int!) {
           : null,
     },
   };
+});
+
+driver("translate", async function(context) {
+  const { z } = await import("npm:zod");
+
+  const { externalId: contextIdentifier, language } = z.object({
+    language: z.string().trim().min(1, "language is required"),
+    externalId: z.string().trim().min(1, "externalId is required"),
+  }).parse(context ?? {});
+
+  const titleLang = normalizeAnilistTitleLanguage(language);
+  if (!titleLang) {
+    return {};
+  }
+
+  const mediaId = parseAnilistMediaId(contextIdentifier);
+
+  const graphqlQuery = `
+query MediaTranslationQuery($id: Int!) {
+  Media(id: $id) {
+    id
+    type
+    title { english romaji native userPreferred }
+  }
+}
+`;
+
+  const response = await httpCall("POST", "https://graphql.anilist.co", {
+    body: JSON.stringify({ query: graphqlQuery, variables: { id: mediaId } }),
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Anilist manga translation request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  const graphQlErrorMessage = extractGraphQlErrorMessage(payload);
+  if (graphQlErrorMessage) {
+    throw new Error(
+      `Anilist manga translation GraphQL error: ${graphQlErrorMessage}`,
+    );
+  }
+
+  const media =
+    payload?.data?.Media && typeof payload.data.Media === "object"
+      ? payload.data.Media
+      : null;
+
+  if (!media) {
+    throw new Error("Anilist returned no media data");
+  }
+
+  if (media.type !== "MANGA") {
+    throw new Error("Anilist media is not a manga entry");
+  }
+
+  const name = pickRequestedAnilistTitle(media.title, titleLang);
+  const result = {};
+  if (name) result.name = name;
+
+  return result;
 });
