@@ -894,7 +894,8 @@ export type FilterPreset = {
 };
 
 export type FilterPresetContextInformation = {
-  mediaList?: InputMaybe<FilterPresetMediaListContextInformation>;
+  metadataList?: InputMaybe<FilterPresetMetadataListOrSearchContextInformation>;
+  metadataSearch?: InputMaybe<FilterPresetMetadataListOrSearchContextInformation>;
 };
 
 export enum FilterPresetContextType {
@@ -906,7 +907,7 @@ export enum FilterPresetContextType {
   PeopleList = 'PEOPLE_LIST'
 }
 
-export type FilterPresetMediaListContextInformation = {
+export type FilterPresetMetadataListOrSearchContextInformation = {
   lot: MediaLot;
 };
 
