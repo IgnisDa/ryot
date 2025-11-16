@@ -308,15 +308,17 @@ pub struct ReorderCollectionEntityInput {
 #[derive(
     Hash, PartialEq, Eq, Debug, InputObject, Clone, Serialize, Deserialize, FromJsonQueryResult,
 )]
-pub struct FilterPresetMediaListContextInformation {
+pub struct FilterPresetMetadataListOrSearchContextInformation {
     pub lot: MediaLot,
 }
 
+#[skip_serializing_none]
 #[derive(
     Hash, PartialEq, Eq, Debug, InputObject, Clone, Serialize, Deserialize, FromJsonQueryResult,
 )]
 pub struct FilterPresetContextInformation {
-    pub media_list: Option<FilterPresetMediaListContextInformation>,
+    pub metadata_list: Option<FilterPresetMetadataListOrSearchContextInformation>,
+    pub metadata_search: Option<FilterPresetMetadataListOrSearchContextInformation>,
 }
 
 #[skip_serializing_none]
