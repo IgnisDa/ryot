@@ -82,11 +82,14 @@ export const useFilterPresets = <TFilter extends { page: number }>(
 	});
 
 	const updateLastUsedMutation = useMutation({
-		onSuccess: () => refetchFilterPresets(),
 		mutationFn: (filterPresetId: string) =>
 			clientGqlService.request(UpdateFilterPresetLastUsedDocument, {
 				filterPresetId,
 			}),
+		onSuccess: async () => {
+			await new Promise((r) => setTimeout(r, 500));
+			refetchFilterPresets();
+		},
 	});
 
 	const applyPreset = async (presetId: string, presetFilters: unknown) => {
