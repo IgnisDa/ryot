@@ -1,10 +1,13 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Affix,
 	Alert,
 	Avatar,
 	Box,
+	Button,
 	Checkbox,
+	Chip,
 	Container,
 	Divider,
 	Flex,
@@ -34,6 +37,7 @@ import {
 	type ExerciseMechanic,
 	type ExerciseMuscle,
 	ExerciseSortBy,
+	FilterPresetContextType,
 	type MediaCollectionFilter,
 	MergeExerciseDocument,
 	UserExercisesListDocument,
@@ -55,6 +59,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
+import { useMemo } from "react";
 import { Link, useNavigate, useSubmit } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -68,10 +73,15 @@ import {
 } from "~/components/common";
 import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
+	CreateFilterPresetModal,
+	FilterPresetChip,
+} from "~/components/common/filter-presets";
+import {
 	CollectionsFilter,
 	DebouncedSearchInput,
 	FiltersModal,
 } from "~/components/common/filters";
+import { useFilterPresets } from "~/lib/hooks/use-filter-presets";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
@@ -161,6 +171,7 @@ type SelectExercise = { id: string; lot: ExerciseLot };
 
 export default function Page() {
 	const navigate = useNavigate();
+	const [presetParent] = useAutoAnimate();
 	const userPreferences = useUserPreferences();
 	const bulkEditingCollection = useBulkEditCollection();
 	const isFitnessActionActive = useIsFitnessActionActive();
@@ -177,23 +188,54 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const [
+		presetModalOpened,
+		{ open: openPresetModal, close: closePresetModal },
+	] = useDisclosure(false);
 
 	const bulkEditingState =
 		bulkEditingCollection.state === false ? null : bulkEditingCollection.state;
 
-	const queryInput: UserExercisesListInput = {
-		sortBy: filters.sortBy,
-		search: { page: filters.page, query: filters.query },
-		filter: {
-			types: filters.types,
-			levels: filters.levels,
-			forces: filters.forces,
-			muscles: filters.muscles,
-			mechanics: filters.mechanics,
-			equipments: filters.equipments,
-			collections: filters.collections,
-		},
+	const normalizedFilters = useMemo(
+		() => ({ ...defaultFilters, ...filters }),
+		[filters],
+	);
+
+	const setFiltersState = (nextFilters: FilterState) =>
+		setFilters({ ...defaultFilters, ...nextFilters });
+
+	const listPresets = useFilterPresets({
+		enabled: true,
+		filters: normalizedFilters,
+		setFilters: setFiltersState,
+		storageKeyPrefix: "ExerciseListActivePreset",
+		contextType: FilterPresetContextType.ExercisesList,
+	});
+
+	const handleSavePreset = async (name: string) => {
+		await listPresets.savePreset(name);
+		closePresetModal();
 	};
+
+	const queryInput: UserExercisesListInput = useMemo(
+		() => ({
+			sortBy: normalizedFilters.sortBy,
+			search: {
+				page: normalizedFilters.page,
+				query: normalizedFilters.query,
+			},
+			filter: {
+				types: normalizedFilters.types,
+				levels: normalizedFilters.levels,
+				forces: normalizedFilters.forces,
+				muscles: normalizedFilters.muscles,
+				mechanics: normalizedFilters.mechanics,
+				equipments: normalizedFilters.equipments,
+				collections: normalizedFilters.collections,
+			},
+		}),
+		[normalizedFilters],
+	);
 
 	const { data: userExercisesList, refetch: refetchUserExercisesList } =
 		useQuery({
@@ -208,7 +250,10 @@ export default function Page() {
 		currentWorkout?.replacingExerciseIdx &&
 		currentWorkout.exercises[currentWorkout.replacingExerciseIdx].exerciseId;
 
-	const areListFiltersActive = isFilterChanged(filters, defaultFilters);
+	const areListFiltersActive = isFilterChanged(
+		normalizedFilters,
+		defaultFilters,
+	);
 
 	const { data: replacingExercise } = useExerciseDetails(
 		replacingExerciseId || "",
@@ -221,10 +266,16 @@ export default function Page() {
 		!isNumber(currentWorkout.replacingExerciseIdx);
 
 	const updateFilter: FilterUpdateFunction<FilterState> = (key, value) =>
-		setFilters((prev) => ({ ...prev, [key]: value }));
+		setFilters((prev) => ({ ...defaultFilters, ...prev, [key]: value }));
 
 	return (
 		<>
+			<CreateFilterPresetModal
+				onSave={handleSavePreset}
+				opened={presetModalOpened}
+				onClose={closePresetModal}
+				placeholder="e.g., Push Day Machines"
+			/>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
 					if (bulkEditingState?.data.action !== "add") return [];
@@ -262,7 +313,7 @@ export default function Page() {
 					</Flex>
 					<Group wrap="nowrap">
 						<DebouncedSearchInput
-							value={filters.query}
+							value={normalizedFilters.query}
 							placeholder="Search for exercises by name or instructions"
 							onChange={(value) => {
 								updateFilter("query", value);
@@ -288,9 +339,56 @@ export default function Page() {
 							closeFiltersModal={closeFiltersModal}
 							resetFilters={() => setFilters(defaultFilters)}
 						>
-							<FiltersModalForm filter={filters} updateFilter={updateFilter} />
+							<FiltersModalForm
+								filter={normalizedFilters}
+								updateFilter={updateFilter}
+							/>
+							<Divider my="sm" />
+							<Button
+								fullWidth
+								variant="light"
+								onClick={() => {
+									closeFiltersModal();
+									openPresetModal();
+								}}
+							>
+								Save current filters as preset
+							</Button>
 						</FiltersModal>
 					</Group>
+					{listPresets.filterPresets &&
+					listPresets.filterPresets.response.length > 0 ? (
+						<Box>
+							<Chip.Group
+								value={listPresets.activePresetId || undefined}
+								key={listPresets.activePresetId || "exercise-list-no-preset"}
+								onChange={(value) => {
+									if (!value) return;
+									const preset = listPresets.filterPresets?.response.find(
+										(p) => p.id === value,
+									);
+									if (preset)
+										listPresets.applyPreset(preset.id, preset.filters);
+								}}
+							>
+								<Group
+									gap="xs"
+									wrap="nowrap"
+									ref={presetParent}
+									style={{ overflowX: "auto" }}
+								>
+									{listPresets.filterPresets.response.map((preset) => (
+										<FilterPresetChip
+											id={preset.id}
+											key={preset.id}
+											name={preset.name}
+											onDelete={listPresets.deletePreset}
+										/>
+									))}
+								</Group>
+							</Chip.Group>
+						</Box>
+					) : null}
 					{currentWorkout?.replacingExerciseIdx ? (
 						<Alert icon={<IconAlertCircle />}>
 							You are replacing exercise: {replacingExercise?.name}
@@ -310,7 +408,7 @@ export default function Page() {
 										onRefreshButtonClicked={refetchUserExercisesList}
 										total={userExercisesList.response.details.totalItems}
 										isRandomSortOrderSelected={
-											filters.sortBy === ExerciseSortBy.Random
+											normalizedFilters.sortBy === ExerciseSortBy.Random
 										}
 										rightSection={
 											allowAddingExerciseToWorkout ? (
@@ -344,7 +442,7 @@ export default function Page() {
 								<Text>No information to display</Text>
 							)}
 							<ApplicationPagination
-								value={filters.page}
+								value={normalizedFilters.page}
 								onChange={(v) => updateFilter("page", v)}
 								totalItems={userExercisesList.response.details.totalItems}
 							/>
