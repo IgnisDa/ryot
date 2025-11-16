@@ -110,8 +110,8 @@ export default function Page(props: { params: { action: string } }) {
 	const listInput: UserMetadataGroupsListInput = useMemo(
 		() => ({
 			filter: { collections: listFilters.collections },
-			sort: { by: listFilters.sortBy, order: listFilters.orderBy },
 			search: { page: currentPage, query: searchQuery },
+			sort: { by: listFilters.sortBy, order: listFilters.orderBy },
 		}),
 		[listFilters, searchQuery, currentPage],
 	);
