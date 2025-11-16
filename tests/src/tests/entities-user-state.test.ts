@@ -12,7 +12,6 @@ import {
 	createTrackerWithSchema,
 	createTrackerWithSchemaAndEntity,
 	getBackendClient,
-	insertLibraryMembership,
 	listEventSchemas,
 	listRelationshipSchemas,
 	mergeUserState,
@@ -97,9 +96,6 @@ describe("DELETE /user-state/clear/:id", () => {
 				],
 			}),
 		);
-
-		await insertLibraryMembership(userB.client, { userId: userB.userId, mediaEntityId: entity.id });
-		await insertLibraryMembership(userA.client, { userId: userA.userId, mediaEntityId: entity.id });
 		await insertUserRelationship({
 			client: userA.client,
 			sourceEntityId: entity.id,
