@@ -4413,6 +4413,7 @@ dependencies = [
  "chrono",
  "common-models",
  "database-models",
+ "dependent-core-utils",
  "dependent-models",
  "dependent-utility-utils",
  "nanoid",

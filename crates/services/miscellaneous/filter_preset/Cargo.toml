@@ -13,5 +13,6 @@ cache-service = { workspace = true }
 common-models = { workspace = true }
 database-models = { workspace = true }
 dependent-models = { workspace = true }
+dependent-core-utils = { workspace = true }
 dependent-utility-utils = { workspace = true }
 supporting-service = { workspace = true }

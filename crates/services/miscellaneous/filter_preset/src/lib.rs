@@ -4,12 +4,16 @@ use anyhow::{Result, bail};
 use chrono::Utc;
 use common_models::{CreateFilterPresetInput, FilterPresetQueryInput, UserLevelCacheKey};
 use database_models::{filter_preset, prelude::FilterPreset};
+use dependent_core_utils::is_server_key_validated;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, FilterPresetsListResponse,
 };
 use dependent_utility_utils::expire_user_filter_presets_cache;
 use nanoid::nanoid;
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter,
+    QueryOrder,
+};
 use supporting_service::SupportingService;
 
 pub async fn get_filter_presets(
@@ -51,6 +55,15 @@ pub async fn create_filter_preset(
     input: CreateFilterPresetInput,
     ss: &Arc<SupportingService>,
 ) -> Result<filter_preset::Model> {
+    let filters_by_this_user = FilterPreset::find()
+        .filter(filter_preset::Column::UserId.eq(user_id))
+        .count(&ss.db)
+        .await?;
+
+    if filters_by_this_user >= 2 && !is_server_key_validated(ss).await? == false {
+        bail!("Please upgrade to a premium plan to create more than 2 preset filters.");
+    }
+
     let new_preset = filter_preset::ActiveModel {
         name: ActiveValue::Set(input.name),
         filters: ActiveValue::Set(input.filters),
