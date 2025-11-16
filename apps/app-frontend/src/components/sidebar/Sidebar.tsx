@@ -11,6 +11,7 @@ import {
 	Burger,
 	Drawer,
 	Group,
+	Image,
 	NavLink,
 	rgba,
 	Stack,
@@ -276,17 +277,15 @@ export function Sidebar(props: SidebarProps) {
 								display: "grid",
 								borderRadius: 6,
 								placeItems: "center",
-								background: "linear-gradient(135deg, #D4A574 0%, #C4963C 100%)",
+								background: "#fd7e14",
 							}}
 						>
-							<Text
-								c="white"
-								fw={700}
-								size="md"
-								ff="var(--mantine-headings-font-family)"
-							>
-								R
-							</Text>
+							<Image
+								h={30}
+								w={30}
+								radius="md"
+								src="https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png"
+							/>
 						</Box>
 						<Text
 							fw={600}
