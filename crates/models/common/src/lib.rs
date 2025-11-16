@@ -312,6 +312,13 @@ pub struct FilterPresetMetadataListOrSearchContextInformation {
     pub lot: MediaLot,
 }
 
+#[derive(
+    Hash, PartialEq, Eq, Debug, InputObject, Clone, Serialize, Deserialize, FromJsonQueryResult,
+)]
+pub struct FilterPresetCollectionContentsContextInformation {
+    pub collection_id: String,
+}
+
 #[skip_serializing_none]
 #[derive(
     Hash, PartialEq, Eq, Debug, InputObject, Clone, Serialize, Deserialize, FromJsonQueryResult,
@@ -319,6 +326,7 @@ pub struct FilterPresetMetadataListOrSearchContextInformation {
 pub struct FilterPresetContextInformation {
     pub metadata_list: Option<FilterPresetMetadataListOrSearchContextInformation>,
     pub metadata_search: Option<FilterPresetMetadataListOrSearchContextInformation>,
+    pub collection_contents: Option<FilterPresetCollectionContentsContextInformation>,
 }
 
 #[skip_serializing_none]

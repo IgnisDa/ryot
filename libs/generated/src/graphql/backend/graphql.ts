@@ -877,7 +877,12 @@ export type FilterPreset = {
   name: Scalars['String']['output'];
 };
 
+export type FilterPresetCollectionContentsContextInformation = {
+  collectionId: Scalars['String']['input'];
+};
+
 export type FilterPresetContextInformation = {
+  collectionContents?: InputMaybe<FilterPresetCollectionContentsContextInformation>;
   metadataList?: InputMaybe<FilterPresetMetadataListOrSearchContextInformation>;
   metadataSearch?: InputMaybe<FilterPresetMetadataListOrSearchContextInformation>;
 };
