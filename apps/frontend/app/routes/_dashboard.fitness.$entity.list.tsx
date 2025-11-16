@@ -596,7 +596,7 @@ const FiltersModalForm = (props: {
 		<Flex gap="xs" align="center">
 			<Select
 				w="100%"
-				defaultValue={props.filters.sortBy}
+				value={props.filters.sortBy}
 				data={convertEnumToSelectData(UserTemplatesOrWorkoutsListSortBy)}
 				onChange={(v) =>
 					props.updateFilter("sortBy", v as UserTemplatesOrWorkoutsListSortBy)
