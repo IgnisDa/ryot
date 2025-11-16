@@ -1,4 +1,4 @@
-import { S3Client } from "@aws-sdk/client-s3";
+import { S3Client } from "bun";
 import { config } from "./config";
 
 const createS3Config = () => {
@@ -11,8 +11,9 @@ const createS3Config = () => {
 
 	return {
 		endpoint,
-		forcePathStyle: true,
-		credentials: { accessKeyId, secretAccessKey },
+		accessKeyId,
+		secretAccessKey,
+		bucket: bucketName,
 		...(config.FILE_STORAGE_S3_REGION
 			? { region: config.FILE_STORAGE_S3_REGION }
 			: {}),
