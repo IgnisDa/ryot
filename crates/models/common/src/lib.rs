@@ -305,37 +305,13 @@ pub struct ReorderCollectionEntityInput {
     pub collection_name: String,
 }
 
-#[derive(
-    Hash, PartialEq, Eq, Debug, InputObject, Clone, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct FilterPresetMetadataListOrSearchContextInformation {
-    pub lot: MediaLot,
-}
-
-#[derive(
-    Hash, PartialEq, Eq, Debug, InputObject, Clone, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct FilterPresetCollectionContentsContextInformation {
-    pub collection_id: String,
-}
-
-#[skip_serializing_none]
-#[derive(
-    Hash, PartialEq, Eq, Debug, InputObject, Clone, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct FilterPresetContextInformation {
-    pub metadata_list: Option<FilterPresetMetadataListOrSearchContextInformation>,
-    pub metadata_search: Option<FilterPresetMetadataListOrSearchContextInformation>,
-    pub collection_contents: Option<FilterPresetCollectionContentsContextInformation>,
-}
-
 #[skip_serializing_none]
 #[derive(Debug, InputObject, Clone, Serialize, Deserialize)]
 pub struct CreateFilterPresetInput {
     pub name: String,
     pub filters: serde_json::Value,
     pub context_type: FilterPresetContextType,
-    pub context_information: Option<FilterPresetContextInformation>,
+    pub context_information: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -507,5 +483,5 @@ pub struct PresignedPutUrlResponse {
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize, InputObject)]
 pub struct FilterPresetQueryInput {
     pub context_type: FilterPresetContextType,
-    pub context_information: Option<FilterPresetContextInformation>,
+    pub context_information: Option<serde_json::Value>,
 }
