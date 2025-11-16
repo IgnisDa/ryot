@@ -452,59 +452,57 @@ export default function Page(props: { params: { id: string } }) {
 const FiltersModalForm = (props: {
 	filters: FilterState;
 	updateFilter: FilterUpdateFunction<FilterState>;
-}) => {
-	return (
-		<>
-			<Flex gap="xs" align="center">
-				<Select
-					w="100%"
-					defaultValue={props.filters.sortBy}
-					onChange={(v) =>
-						props.updateFilter("sortBy", v as CollectionContentsSortBy)
-					}
-					data={[
-						{
-							group: "Sort by",
-							items: convertEnumToSelectData(CollectionContentsSortBy),
-						},
-					]}
-				/>
-				{props.filters.sortBy !== CollectionContentsSortBy.Random ? (
-					<SortOrderToggle
-						currentOrder={props.filters.orderBy}
-						onOrderChange={(order) => props.updateFilter("orderBy", order)}
-					/>
-				) : null}
-			</Flex>
+}) => (
+	<>
+		<Flex gap="xs" align="center">
 			<Select
-				clearable
-				placeholder="Select an entity type"
-				defaultValue={props.filters.entityLot}
-				onChange={(v) => props.updateFilter("entityLot", v as EntityLot)}
-				data={convertEnumToSelectData(
-					Object.values(EntityLot).filter(
-						(o) =>
-							![
-								EntityLot.Review,
-								EntityLot.Collection,
-								EntityLot.UserMeasurement,
-							].includes(o),
-					),
-				)}
+				w="100%"
+				defaultValue={props.filters.sortBy}
+				onChange={(v) =>
+					props.updateFilter("sortBy", v as CollectionContentsSortBy)
+				}
+				data={[
+					{
+						group: "Sort by",
+						items: convertEnumToSelectData(CollectionContentsSortBy),
+					},
+				]}
 			/>
-			{props.filters.entityLot === EntityLot.Metadata ||
-			props.filters.entityLot === EntityLot.MetadataGroup ? (
-				<Select
-					clearable
-					placeholder="Select a media type"
-					defaultValue={props.filters.metadataLot}
-					data={convertEnumToSelectData(MediaLot)}
-					onChange={(v) => props.updateFilter("metadataLot", v as MediaLot)}
+			{props.filters.sortBy !== CollectionContentsSortBy.Random ? (
+				<SortOrderToggle
+					currentOrder={props.filters.orderBy}
+					onOrderChange={(order) => props.updateFilter("orderBy", order)}
 				/>
 			) : null}
-		</>
-	);
-};
+		</Flex>
+		<Select
+			clearable
+			placeholder="Select an entity type"
+			defaultValue={props.filters.entityLot}
+			onChange={(v) => props.updateFilter("entityLot", v as EntityLot)}
+			data={convertEnumToSelectData(
+				Object.values(EntityLot).filter(
+					(o) =>
+						![
+							EntityLot.Review,
+							EntityLot.Collection,
+							EntityLot.UserMeasurement,
+						].includes(o),
+				),
+			)}
+		/>
+		{props.filters.entityLot === EntityLot.Metadata ||
+		props.filters.entityLot === EntityLot.MetadataGroup ? (
+			<Select
+				clearable
+				placeholder="Select a media type"
+				defaultValue={props.filters.metadataLot}
+				data={convertEnumToSelectData(MediaLot)}
+				onChange={(v) => props.updateFilter("metadataLot", v as MediaLot)}
+			/>
+		) : null}
+	</>
+);
 
 const RecommendationsSection = (props: { collectionId: string }) => {
 	const [search, setSearchInput] = useLocalStorage(
@@ -600,15 +598,13 @@ const CollectionItem = (props: CollectionItemProps) => {
 			`Enter new rank for this item (1-${props.totalItems}):`,
 		);
 		const rank = Number(newRank);
-		if (newRank && isNumber(rank)) {
-			if (rank >= 1 && rank <= props.totalItems) {
+		if (newRank && isNumber(rank))
+			if (rank >= 1 && rank <= props.totalItems)
 				reorderMutation.mutate({
 					newPosition: rank,
 					entityId: props.item.entityId,
 					collectionName: props.collectionName,
 				});
-			}
-		}
 	};
 
 	return (
