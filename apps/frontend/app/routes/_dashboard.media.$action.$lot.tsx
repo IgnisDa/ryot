@@ -1,20 +1,32 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
+	Box,
+	Button,
 	Checkbox,
+	Chip,
 	Container,
 	Divider,
 	Flex,
 	Group,
+	Modal,
 	MultiSelect,
 	Select,
 	Stack,
 	Tabs,
 	Text,
+	TextInput,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useLongPress } from "@mantine/hooks";
+import { modals } from "@mantine/modals";
+import { notifications } from "@mantine/notifications";
 import {
+	CreateFilterPresetDocument,
+	DeleteFilterPresetDocument,
 	EntityLot,
+	FilterPresetContextType,
+	FilterPresetsDocument,
 	GraphqlSortOrder,
 	type MediaCollectionFilter,
 	MediaGeneralFilter,
@@ -24,18 +36,19 @@ import {
 	MetadataSearchDocument,
 	type MetadataSearchInput,
 	type MetadataSearchQuery,
+	UpdateFilterPresetLastUsedDocument,
 	UserMetadataListDocument,
 	type UserMetadataListInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, cloneDeep, startCase } from "@ryot/ts-utils";
+import { changeCase, cloneDeep, isEqual, startCase } from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconFilter,
 	IconListCheck,
 	IconSearch,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
@@ -115,6 +128,7 @@ export default function Page(props: {
 	params: { action: string; lot: string };
 }) {
 	const navigate = useNavigate();
+	const [parent] = useAutoAnimate();
 	const action = props.params.action;
 	const coreDetails = useCoreDetails();
 	const lot = getLot(props.params.lot) as MediaLot;
@@ -143,6 +157,74 @@ export default function Page(props: {
 		`MediaSearchFilters_${lot}`,
 		defaultSearchFilters,
 	);
+	const [activePresetId, setActivePresetId] = useLocalStorage<string | null>(
+		`MediaActivePreset_${lot}`,
+		null,
+	);
+	const isApplyingPreset = useRef(false);
+	const [
+		createPresetModalOpened,
+		{ open: openCreatePresetModal, close: closeCreatePresetModal },
+	] = useDisclosure(false);
+
+	const { data: filterPresets, refetch: refetchFilterPresets } = useQuery({
+		enabled: action === "list",
+		queryKey: ["filterPresets", lot],
+		queryFn: () =>
+			clientGqlService
+				.request(FilterPresetsDocument, {
+					input: {
+						contextInformation: { metadataList: { lot } },
+						contextType: FilterPresetContextType.MediaList,
+					},
+				})
+				.then((data) => data.filterPresets),
+	});
+
+	const createPresetMutation = useMutation({
+		mutationFn: (variables: {
+			input: { name: string; filters: unknown; id?: string };
+		}) =>
+			clientGqlService.request(CreateFilterPresetDocument, {
+				input: {
+					...variables.input,
+					contextInformation: { metadataList: { lot } },
+					contextType: FilterPresetContextType.MediaList,
+				},
+			}),
+		onSuccess: () => {
+			refetchFilterPresets();
+			notifications.show({
+				color: "green",
+				title: "Success",
+				message: "Filter preset saved",
+			});
+		},
+	});
+
+	const deletePresetMutation = useMutation({
+		mutationFn: (filterPresetId: string) =>
+			clientGqlService.request(DeleteFilterPresetDocument, {
+				filterPresetId,
+			}),
+		onSuccess: () => {
+			refetchFilterPresets();
+			setActivePresetId(null);
+			notifications.show({
+				color: "green",
+				title: "Success",
+				message: "Filter preset deleted",
+			});
+		},
+	});
+
+	const updateLastUsedMutation = useMutation({
+		onSuccess: () => refetchFilterPresets(),
+		mutationFn: (filterPresetId: string) =>
+			clientGqlService.request(UpdateFilterPresetLastUsedDocument, {
+				filterPresetId,
+			}),
+	});
 
 	const listInput: UserMetadataListInput = useMemo(
 		() => ({
@@ -208,10 +290,69 @@ export default function Page(props: {
 		value,
 	) => setSearchFilters((prev) => ({ ...prev, [key]: value }));
 
+	const applyPreset = async (presetId: string, filters: unknown) => {
+		isApplyingPreset.current = true;
+		const parsedFilters =
+			typeof filters === "string" ? JSON.parse(filters) : filters;
+		setListFilters({ ...parsedFilters, page: 1 });
+		setActivePresetId(presetId);
+		setTimeout(() => {
+			isApplyingPreset.current = false;
+		}, 100);
+		updateLastUsedMutation.mutate(presetId);
+	};
+
+	const handleSavePreset = async (name: string) => {
+		const filtersToSave = { ...listFilters, page: 1 };
+		await createPresetMutation.mutateAsync({
+			input: { name, filters: filtersToSave },
+		});
+		closeCreatePresetModal();
+	};
+
+	const handleDeletePreset = (presetId: string, presetName: string) => {
+		modals.openConfirmModal({
+			title: "Delete preset",
+			confirmProps: { color: "red" },
+			labels: { confirm: "Delete", cancel: "Cancel" },
+			onConfirm: () => deletePresetMutation.mutate(presetId),
+			children: (
+				<Text>Are you sure you want to delete the preset "{presetName}"?</Text>
+			),
+		});
+	};
+
+	useEffect(() => {
+		if (isApplyingPreset.current) return;
+
+		if (!activePresetId || !filterPresets) return;
+
+		const activePreset = filterPresets.response.find(
+			(p) => p.id === activePresetId,
+		);
+		if (!activePreset) return;
+
+		const savedFilters =
+			typeof activePreset.filters === "string"
+				? JSON.parse(activePreset.filters)
+				: activePreset.filters;
+
+		const { page: _currentPage, ...filtersWithoutPage } = listFilters;
+		const { page: _savedPage, ...savedWithoutPage } = savedFilters;
+
+		if (!isEqual(filtersWithoutPage, savedWithoutPage)) setActivePresetId(null);
+	}, [listFilters, activePresetId, filterPresets]);
+
 	const isEligibleForNextTourStep = lot === MediaLot.AudioBook;
 
 	return (
 		<>
+			<CreatePresetModal
+				onSave={handleSavePreset}
+				currentFilters={listFilters}
+				opened={createPresetModalOpened}
+				onClose={closeCreatePresetModal}
+			/>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
 					if (action !== "list") return [];
@@ -298,8 +439,50 @@ export default function Page(props: {
 											filters={listFilters}
 											onFiltersChange={updateListFilters}
 										/>
+										<Divider my="sm" />
+										<Button
+											fullWidth
+											variant="light"
+											onClick={() => {
+												closeFiltersModal();
+												openCreatePresetModal();
+											}}
+										>
+											Save current filters as preset
+										</Button>
 									</FiltersModal>
 								</Group>
+								{filterPresets && filterPresets.response.length > 0 ? (
+									<Box>
+										<Chip.Group
+											key={activePresetId || "no-preset"}
+											value={activePresetId || undefined}
+											onChange={(value) => {
+												if (!value) return;
+												const preset = filterPresets.response.find(
+													(p) => p.id === value,
+												);
+												if (preset) applyPreset(preset.id, preset.filters);
+											}}
+										>
+											<Group
+												gap="xs"
+												ref={parent}
+												wrap="nowrap"
+												style={{ overflowX: "auto" }}
+											>
+												{filterPresets.response.map((preset) => (
+													<PresetChip
+														id={preset.id}
+														key={preset.id}
+														name={preset.name}
+														onDelete={handleDeletePreset}
+													/>
+												))}
+											</Group>
+										</Chip.Group>
+									</Box>
+								) : null}
 								<DisplayListDetailsAndRefresh
 									cacheId={userMetadataList.cacheId}
 									onRefreshButtonClicked={refetchUserMetadataList}
@@ -348,9 +531,8 @@ export default function Page(props: {
 										tourControl={{
 											target: OnboardingTourStepTargets.SearchAudiobook,
 											onQueryChange: (query) => {
-												if (query === TOUR_METADATA_TARGET_ID.toLowerCase()) {
+												if (query === TOUR_METADATA_TARGET_ID.toLowerCase())
 													advanceOnboardingTourStep({ increaseWaitBy: 2000 });
-												}
 											},
 										}}
 									/>
@@ -685,5 +867,110 @@ const MediaListItem = (props: MediaListItemProps) => {
 				) : undefined
 			}
 		/>
+	);
+};
+
+const CreatePresetModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	onSave: (name: string) => void;
+	currentFilters: ListFilterState;
+}) => {
+	const [presetName, setPresetName] = useState("");
+
+	const getFilterSummary = () => {
+		const summary: string[] = [];
+
+		if (props.currentFilters.generalFilter !== MediaGeneralFilter.All)
+			summary.push(
+				`General: ${startCase(props.currentFilters.generalFilter.toLowerCase())}`,
+			);
+
+		if (props.currentFilters.sortBy !== MediaSortBy.LastUpdated)
+			summary.push(
+				`Sort: ${startCase(props.currentFilters.sortBy.toLowerCase())} (${props.currentFilters.sortOrder})`,
+			);
+
+		if (props.currentFilters.collections.length > 0)
+			summary.push(
+				`Collections: ${props.currentFilters.collections.length} selected`,
+			);
+
+		if (props.currentFilters.dateRange !== ApplicationTimeRange.AllTime)
+			summary.push(`Date Range: ${props.currentFilters.dateRange}`);
+
+		if (props.currentFilters.query)
+			summary.push(`Search: "${props.currentFilters.query}"`);
+
+		return summary;
+	};
+
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			title="Save Filter Preset"
+		>
+			<Stack>
+				<TextInput
+					data-autofocus
+					value={presetName}
+					label="Preset Name"
+					placeholder="e.g., Unfinished Books"
+					onChange={(e) => setPresetName(e.currentTarget.value)}
+				/>
+
+				<Box>
+					<Text size="sm" fw={500} mb="xs">
+						This will save:
+					</Text>
+					{getFilterSummary().length > 0 ? (
+						<Stack gap="xs">
+							{getFilterSummary().map((item) => (
+								<Text key={item} size="sm" c="dimmed">
+									• {item}
+								</Text>
+							))}
+						</Stack>
+					) : (
+						<Text size="sm" c="dimmed">
+							Default filters (no customization)
+						</Text>
+					)}
+				</Box>
+
+				<Group justify="flex-end" mt="md">
+					<Button variant="default" onClick={props.onClose}>
+						Cancel
+					</Button>
+					<Button
+						disabled={!presetName.trim()}
+						onClick={() => {
+							if (presetName.trim()) {
+								props.onSave(presetName.trim());
+								setPresetName("");
+							}
+						}}
+					>
+						Save Preset
+					</Button>
+				</Group>
+			</Stack>
+		</Modal>
+	);
+};
+
+const PresetChip = (props: {
+	id: string;
+	name: string;
+	onDelete: (id: string, name: string) => void;
+}) => {
+	const longPressHandlers = useLongPress(() =>
+		props.onDelete(props.id, props.name),
+	);
+	return (
+		<Chip size="sm" value={props.id} {...longPressHandlers}>
+			{props.name}
+		</Chip>
 	);
 };
