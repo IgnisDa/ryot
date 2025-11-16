@@ -57,7 +57,7 @@ const FilterPresetChip = (props: {
 		props.onDelete(props.id, props.name),
 	);
 	return (
-		<Chip size="sm" value={props.id} {...longPressHandlers}>
+		<Chip size="sm" value={props.id} wrapperProps={{ ...longPressHandlers }}>
 			{props.name}
 		</Chip>
 	);
