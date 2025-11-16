@@ -15,7 +15,6 @@ pub enum FilterPreset {
     ContextInformation,
     Filters,
     CreatedAt,
-    UpdatedAt,
     LastUsedAt,
 }
 
@@ -43,12 +42,6 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(FilterPreset::CreatedAt)
-                            .timestamp_with_time_zone()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
-                    .col(
-                        ColumnDef::new(FilterPreset::UpdatedAt)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
