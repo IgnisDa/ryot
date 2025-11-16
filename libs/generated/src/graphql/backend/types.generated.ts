@@ -441,7 +441,7 @@ export type CreateCustomPersonInput = {
 };
 
 export type CreateFilterPresetInput = {
-  contextInformation?: InputMaybe<FilterPresetContextInformation>;
+  contextInformation?: InputMaybe<Scalars['JSON']['input']>;
   contextType: FilterPresetContextType;
   filters: Scalars['JSON']['input'];
   name: Scalars['String']['input'];
@@ -892,16 +892,6 @@ export type FilterPreset = {
   name: Scalars['String']['output'];
 };
 
-export type FilterPresetCollectionContentsContextInformation = {
-  collectionId: Scalars['String']['input'];
-};
-
-export type FilterPresetContextInformation = {
-  collectionContents?: InputMaybe<FilterPresetCollectionContentsContextInformation>;
-  metadataList?: InputMaybe<FilterPresetMetadataListOrSearchContextInformation>;
-  metadataSearch?: InputMaybe<FilterPresetMetadataListOrSearchContextInformation>;
-};
-
 export enum FilterPresetContextType {
   CollectionContents = 'COLLECTION_CONTENTS',
   ExercisesList = 'EXERCISES_LIST',
@@ -914,12 +904,8 @@ export enum FilterPresetContextType {
   PeopleSearch = 'PEOPLE_SEARCH'
 }
 
-export type FilterPresetMetadataListOrSearchContextInformation = {
-  lot: MediaLot;
-};
-
 export type FilterPresetQueryInput = {
-  contextInformation?: InputMaybe<FilterPresetContextInformation>;
+  contextInformation?: InputMaybe<Scalars['JSON']['input']>;
   contextType: FilterPresetContextType;
 };
 
