@@ -318,10 +318,10 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 						</FiltersModal>
 					</Group>
 					<FilterPresetBar
-						filterPresets={listPresets.filterPresets}
-						activePresetId={listPresets.activePresetId}
 						onSelectPreset={listPresets.applyPreset}
 						onDeletePreset={listPresets.deletePreset}
+						filterPresets={listPresets.filterPresets}
+						activePresetId={listPresets.activePresetId}
 					/>
 					<Stack gap="xs">
 						{listData ? (
@@ -598,9 +598,14 @@ const FiltersModalForm = (props: {
 				w="100%"
 				value={props.filters.sortBy}
 				data={convertEnumToSelectData(UserTemplatesOrWorkoutsListSortBy)}
-				onChange={(v) =>
-					props.updateFilter("sortBy", v as UserTemplatesOrWorkoutsListSortBy)
-				}
+				onChange={(v) => {
+					if (v) {
+						props.updateFilter(
+							"sortBy",
+							v as UserTemplatesOrWorkoutsListSortBy,
+						);
+					}
+				}}
 			/>
 			{props.filters.sortBy !== UserTemplatesOrWorkoutsListSortBy.Random ? (
 				<SortOrderToggle
