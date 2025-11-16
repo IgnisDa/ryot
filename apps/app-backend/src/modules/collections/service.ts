@@ -9,7 +9,7 @@ import {
 	decodeStoredAppSchema,
 	parseAppSchemaProperties,
 	parseLabeledPropertySchemaInput,
-} from "#lib/schema";
+} from "#lib/schema/core";
 import { requireText } from "#lib/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { enqueueEventCreate } from "#modules/events/workflows";
