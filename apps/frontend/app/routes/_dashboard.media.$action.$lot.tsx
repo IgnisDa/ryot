@@ -302,9 +302,10 @@ export default function Page(props: {
 
 	const handleSavePreset = async (name: string) => {
 		const filtersToSave = { ...listFilters, page: 1 };
-		await createPresetMutation.mutateAsync({
+		const result = await createPresetMutation.mutateAsync({
 			input: { name, filters: filtersToSave },
 		});
+		setActivePresetId(result.createFilterPreset.id);
 		closeCreatePresetModal();
 	};
 
