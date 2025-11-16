@@ -5,9 +5,9 @@ import { Pool } from "pg";
 import { AppConfig } from "#lib/config";
 import { DbError, unknownToDbError } from "#lib/errors";
 
+import * as schemaTables from "./schema/tables";
 import * as schemaAuth from "./schema/tables/auth";
 import * as schemaRelations from "./schema/tables/relations";
-import * as schemaTables from "./schema/tables";
 
 const schema = { ...schemaAuth, ...schemaTables, ...schemaRelations };
 const makeDb = (pool: Pool) => drizzle(pool, { schema, casing: "snake_case" });
