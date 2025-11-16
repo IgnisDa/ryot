@@ -58,7 +58,7 @@ async function getTvdbAccessToken() {
   return accessToken;
 }
 
-async function tvdbGet(path, params) {
+async function tvdbRequest(path, params, options) {
   const token = await getTvdbAccessToken();
   const query =
     params && Object.keys(params).length > 0
@@ -70,6 +70,10 @@ async function tvdbGet(path, params) {
   });
 
   if (!response?.success) {
+    const status = response?.data?.status;
+    if (options?.allowMissing && (status === 400 || status === 404)) {
+      return null;
+    }
     throw new Error(response?.error ?? `TVDB request failed: ${path}`);
   }
 
@@ -79,6 +83,64 @@ async function tvdbGet(path, params) {
   }
 
   return payload;
+}
+
+async function tvdbGet(path, params) {
+  return tvdbRequest(path, params, { allowMissing: false });
+}
+
+async function tvdbGetOptional(path, params) {
+  return tvdbRequest(path, params, { allowMissing: true });
+}
+
+function getString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getNullableString(value) {
+  const parsed = getString(value);
+  return parsed ? parsed : null;
+}
+
+function getCanonicalLanguage(metadata) {
+  return metadata?.providerInformation?.canonicalLanguage ?? "eng";
+}
+
+function getTranslationRecord(payload) {
+  const data = payload?.data;
+  if (Array.isArray(data)) {
+    return data.find((entry) => entry?.isPrimary === true) ?? data[0] ?? null;
+  }
+  return data && typeof data === "object" ? data : null;
+}
+
+function getTranslationFields(payload) {
+  const record = getTranslationRecord(payload);
+  return {
+    name: getNullableString(record?.name),
+    description: getNullableString(record?.overview),
+  };
+}
+
+function getLocalizedArtwork(artworks, language) {
+  if (!Array.isArray(artworks)) {
+    return null;
+  }
+
+  const artwork = artworks.find(
+    (art) => getString(art?.language) === language && getString(art?.image),
+  );
+  const image = getNullableString(artwork?.image);
+  return image ? { type: "remote", url: image } : null;
+}
+
+function buildTranslationResult(payload, image) {
+  const { name, description } = getTranslationFields(payload);
+  const result = {};
+  if (name) result.name = name;
+  if (image) result.image = image;
+  if (description) result.description = description;
+  return result;
 }
 
 function parsePublishYear(str, dayjs) {
@@ -339,7 +401,7 @@ driver("search", async function (context) {
   };
 });
 
-driver("details", async function (context) {
+driver("details", async function (context, { metadata }) {
   const { z } = await import("npm:zod");
   const dayjs = (await import("npm:dayjs")).default;
 
@@ -353,18 +415,24 @@ driver("details", async function (context) {
     throw new Error("externalId must be a numeric TVDB movie ID");
   }
 
-  const data = await tvdbGet(`/movies/${externalId}/extended`);
+  const language = getCanonicalLanguage(metadata);
+  const [data, translationData] = await Promise.all([
+    tvdbGet(`/movies/${externalId}/extended`),
+    tvdbGetOptional(`/movies/${externalId}/translations/${language}`),
+  ]);
   const movie = data?.data;
   if (!movie) {
     throw new Error("TVDB returned no data for this movie");
   }
 
-  const title =
+  const translation = getTranslationFields(translationData);
+  const fallbackTitle =
     typeof movie?.name === "string" && movie.name.trim()
       ? movie.name.trim()
       : typeof movie?.title === "string" && movie.title.trim()
         ? movie.title.trim()
         : null;
+  const title = translation.name ?? fallbackTitle;
   if (!title) {
     throw new Error("TVDB returned no title for this movie");
   }
@@ -444,10 +512,34 @@ driver("details", async function (context) {
       publishYear,
       unlinkedCreators,
       description:
-        typeof movie?.overview === "string" && movie.overview.trim()
+        translation.description ??
+        (typeof movie?.overview === "string" && movie.overview.trim()
           ? movie.overview.trim()
-          : null,
+          : null),
     },
     relatedEntities,
   };
+});
+
+driver("translate", async function (context) {
+  const { z } = await import("npm:zod");
+
+  const { externalId, language } = z
+    .object({
+      language: z.string().trim().min(1, "language is required"),
+      externalId: z.string().trim().min(1, "externalId is required"),
+    })
+    .parse(context ?? {});
+
+  if (!/^\d+$/.test(externalId)) {
+    throw new Error("externalId must be a numeric TVDB movie ID");
+  }
+
+  const [translationData, detailsData] = await Promise.all([
+    tvdbGetOptional(`/movies/${externalId}/translations/${language}`),
+    tvdbGet(`/movies/${externalId}/extended`).catch(() => null),
+  ]);
+  const image = getLocalizedArtwork(detailsData?.data?.artworks, language);
+
+  return buildTranslationResult(translationData, image);
 });

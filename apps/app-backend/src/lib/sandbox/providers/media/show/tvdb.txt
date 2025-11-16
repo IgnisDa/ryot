@@ -58,7 +58,7 @@ async function getTvdbAccessToken() {
 	return accessToken;
 }
 
-async function tvdbGet(path, params) {
+async function tvdbRequest(path, params, options) {
 	const token = await getTvdbAccessToken();
 	const query =
 		params && Object.keys(params).length > 0
@@ -70,6 +70,10 @@ async function tvdbGet(path, params) {
 	});
 
 	if (!response?.success) {
+		const status = response?.data?.status;
+		if (options?.allowMissing && (status === 400 || status === 404)) {
+			return null;
+		}
 		throw new Error(response?.error ?? `TVDB request failed: ${path}`);
 	}
 
@@ -79,6 +83,114 @@ async function tvdbGet(path, params) {
 	}
 
 	return payload;
+}
+
+async function tvdbGet(path, params) {
+	return tvdbRequest(path, params, { allowMissing: false });
+}
+
+async function tvdbGetOptional(path, params) {
+	return tvdbRequest(path, params, { allowMissing: true });
+}
+
+function getString(value) {
+	return typeof value === "string" ? value.trim() : "";
+}
+
+function getNullableString(value) {
+	const parsed = getString(value);
+	return parsed ? parsed : null;
+}
+
+function getCanonicalLanguage(metadata) {
+	return metadata?.providerInformation?.canonicalLanguage ?? "eng";
+}
+
+function getTranslationRecord(payload) {
+	const data = payload?.data;
+	if (Array.isArray(data)) {
+		return data.find((entry) => entry?.isPrimary === true) ?? data[0] ?? null;
+	}
+	return data && typeof data === "object" ? data : null;
+}
+
+function getTranslationFields(payload) {
+	const record = getTranslationRecord(payload);
+	return {
+		name: getNullableString(record?.name),
+		description: getNullableString(record?.overview),
+	};
+}
+
+function getLocalizedArtwork(artworks, language) {
+	if (!Array.isArray(artworks)) {
+		return null;
+	}
+
+	const artwork = artworks.find(
+		(art) => getString(art?.language) === language && getString(art?.image),
+	);
+	const image = getNullableString(artwork?.image);
+	return image ? { type: "remote", url: image } : null;
+}
+
+function getObjectProperties(value) {
+	if (value && typeof value === "object" && !Array.isArray(value)) {
+		return value;
+	}
+	throw new Error("properties must be an object for TVDB show translation");
+}
+
+function getStringProperty(properties, key) {
+	const value = properties[key];
+	return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function getTranslationRequest(input) {
+	if (!/^\d+$/.test(input.externalId)) {
+		throw new Error("externalId must be a numeric TVDB ID");
+	}
+
+	if (input.entitySchemaSlug === "show") {
+		return {
+			detailsPath: `/series/${input.externalId}/extended`,
+			translationPath: `/series/${input.externalId}/translations/${input.language}`,
+		};
+	}
+
+	const properties = getObjectProperties(input.properties);
+	const parentShowExternalId = getStringProperty(properties, "parentShowExternalId");
+	if (!parentShowExternalId || !/^\d+$/.test(parentShowExternalId)) {
+		throw new Error("parentShowExternalId must be a numeric TVDB show ID");
+	}
+
+	if (input.entitySchemaSlug === "show-season") {
+		return {
+			detailsPath: `/seasons/${input.externalId}/extended`,
+			translationPath: `/seasons/${input.externalId}/translations/${input.language}`,
+		};
+	}
+
+	if (input.entitySchemaSlug === "show-episode") {
+		return {
+			detailsPath: `/episodes/${input.externalId}/extended`,
+			translationPath: `/episodes/${input.externalId}/translations/${input.language}`,
+		};
+	}
+
+	throw new Error("show.tvdb translate supports only show, show-season, and show-episode");
+}
+
+function buildTranslationResult(translationData, detailsData, language) {
+	const { name, description } = getTranslationFields(translationData);
+	const data = detailsData?.data;
+	const artwork = data?.artworks ?? data?.artwork;
+	const image = getLocalizedArtwork(artwork, language);
+	const result = {};
+	if (name) result.name = name;
+	if (image) result.image = image;
+	if (description) result.description = description;
+	return result;
 }
 
 function parsePublishYear(str, dayjs) {
@@ -253,7 +365,7 @@ function collectPeople(characters) {
 	return { relatedEntities: [...relatedEntityByKey.values()], unlinkedCreators };
 }
 
-function buildSeason(seasonData) {
+function buildSeason(parentShowExternalId, seasonData) {
 	const id =
 		typeof seasonData?.id === "number" &&
 		Number.isFinite(seasonData.id) &&
@@ -330,6 +442,7 @@ function buildSeason(seasonData) {
 				description: epOverview,
 				episodeNumber: epNumber,
 				publishDate: epPublishDate,
+				parentShowExternalId,
 			},
 		};
 	}).filter((episode) => episode !== null);
@@ -345,6 +458,7 @@ function buildSeason(seasonData) {
 		properties: {
 			seasonNumber,
 			releaseDate: publishDate,
+			parentShowExternalId,
 		},
 	};
 }
@@ -434,7 +548,7 @@ driver("search", async function (context) {
 	};
 });
 
-driver("details", async function (context) {
+driver("details", async function (context, { metadata }) {
 	const { z } = await import("npm:zod");
 	const dayjs = (await import("npm:dayjs")).default;
 
@@ -448,16 +562,22 @@ driver("details", async function (context) {
 		throw new Error("externalId must be a numeric TVDB series ID");
 	}
 
-	const data = await tvdbGet(`/series/${externalId}/extended`);
+	const language = getCanonicalLanguage(metadata);
+	const [data, translationData] = await Promise.all([
+		tvdbGet(`/series/${externalId}/extended`),
+		tvdbGetOptional(`/series/${externalId}/translations/${language}`),
+	]);
 	const show = data?.data;
 	if (!show) {
 		throw new Error("TVDB returned no data for this series");
 	}
 
-	const title =
+	const translation = getTranslationFields(translationData);
+	const fallbackTitle =
 		typeof show?.name === "string" && show.name.trim()
 			? show.name.trim()
 			: null;
+	const title = translation.name ?? fallbackTitle;
 	if (!title) {
 		throw new Error("TVDB returned no name for this series");
 	}
@@ -520,7 +640,9 @@ driver("details", async function (context) {
 				(typeof b?.number === "number" ? b.number : 0),
 		);
 
-	const childEntities = officialSeasons.map(buildSeason).filter((season) => season !== null);
+	const childEntities = officialSeasons
+		.map((season) => buildSeason(externalId, season))
+		.filter((season) => season !== null);
 	const totalEpisodes = childEntities.reduce(
 		(count, season) => count + season.childEntities.length,
 		0,
@@ -552,9 +674,36 @@ driver("details", async function (context) {
 			totalSeasons: childEntities.length,
 			unlinkedCreators,
 			description:
-				typeof show?.overview === "string" && show.overview.trim()
+				translation.description ??
+				(typeof show?.overview === "string" && show.overview.trim()
 					? show.overview.trim()
-					: null,
+					: null),
 		},
 	};
+});
+
+driver("translate", async function (context) {
+	const { z } = await import("npm:zod");
+
+	const { externalId, language, properties, entitySchemaSlug } = z
+		.object({
+			properties: z.unknown().optional(),
+			language: z.string().trim().min(1, "language is required"),
+			externalId: z.string().trim().min(1, "externalId is required"),
+			entitySchemaSlug: z.string().trim().min(1, "entitySchemaSlug is required"),
+		})
+		.parse(context ?? {});
+
+	const request = getTranslationRequest({
+		language,
+		externalId,
+		properties,
+		entitySchemaSlug,
+	});
+	const [translationData, detailsData] = await Promise.all([
+		tvdbGetOptional(request.translationPath),
+		tvdbGet(request.detailsPath).catch(() => null),
+	]);
+
+	return buildTranslationResult(translationData, detailsData, language);
 });
