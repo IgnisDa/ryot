@@ -33,6 +33,52 @@ async function cleanHtmlDescription(html) {
 }
 
 const PAGE_SIZE = 20;
+const SIMILARITY_TYPES = [
+	"InTheSameSeries",
+	"RawSimilarities",
+	"ByTheSameAuthor",
+	"NextInSameSeries",
+	"ByTheSameNarrator",
+];
+
+async function fetchSuggestions(baseUrl, externalId) {
+	const suggestionByKey = new Map();
+
+	for (const similarityType of SIMILARITY_TYPES) {
+		const params = new URLSearchParams({
+			response_groups: "media",
+			similarity_type: similarityType,
+		});
+		const response = await httpCall("GET", `${baseUrl}/${externalId}/sims?${params.toString()}`);
+		if (!response?.success) {
+			throw new Error(response?.error ?? `Audible ${similarityType} suggestions request failed`);
+		}
+
+		const payload = parseJsonResponse(response.data.body);
+		const products = Array.isArray(payload?.similar_products) ? payload.similar_products : [];
+		for (const product of products) {
+			const relatedExternalId =
+				typeof product?.asin === "string" && product.asin.trim() ? product.asin.trim() : null;
+			if (!relatedExternalId) {
+				continue;
+			}
+
+			const name =
+				typeof product?.title === "string" && product.title.trim() ? product.title.trim() : null;
+			if (!name) {
+				continue;
+			}
+
+			suggestionByKey.set(`audiobook.audible:${relatedExternalId}`, {
+				name,
+				externalId: relatedExternalId,
+				scriptSlug: "audiobook.audible",
+			});
+		}
+	}
+
+	return [...suggestionByKey.values()];
+}
 
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
@@ -131,7 +177,10 @@ driver("details", async function (context) {
 		image_sizes: "2400",
 	});
 
-	const response = await httpCall("GET", `${baseUrl}/${externalId}?${params.toString()}`);
+	const [response, suggestions] = await Promise.all([
+		httpCall("GET", `${baseUrl}/${externalId}?${params.toString()}`),
+		fetchSuggestions(baseUrl, externalId),
+	]);
 	if (!response?.success) {
 		throw new Error(response?.error ?? "Audible details request failed");
 	}
@@ -287,6 +336,8 @@ driver("details", async function (context) {
 
 	return {
 		name: title,
+		suggestions,
+		relatedEntities: [...relatedEntityByKey.values()],
 		properties: {
 			images,
 			isNsfw,
@@ -299,6 +350,5 @@ driver("details", async function (context) {
 			genres: [...genreSet],
 			publishDate: parseReleaseDate(product?.release_date, dayjs),
 		},
-		relatedEntities: [...relatedEntityByKey.values()],
 	};
 });
