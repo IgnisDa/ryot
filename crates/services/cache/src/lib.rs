@@ -70,7 +70,8 @@ fn get_expiry_for_key(ss: &Arc<SupportingService>, key: &ApplicationCacheKey) ->
         ApplicationCacheKey::TvdbSettings
         | ApplicationCacheKey::UserPasswordChangeSession { .. } => Duration::days(7),
 
-        ApplicationCacheKey::MetadataProgressUpdateInProgressCache { .. } => Duration::days(60),
+        ApplicationCacheKey::UserFilterPresets { .. }
+        | ApplicationCacheKey::MetadataProgressUpdateInProgressCache { .. } => Duration::days(60),
 
         ApplicationCacheKey::UserSession { .. } => {
             Duration::days(ss.config.users.token_valid_for_days.into())

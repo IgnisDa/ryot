@@ -905,6 +905,7 @@ dependencies = [
  "integration-service",
  "itertools 0.14.0",
  "migrations-sql",
+ "miscellaneous-filter-preset-resolver",
  "miscellaneous-grouping-resolver",
  "miscellaneous-metadata-resolver",
  "miscellaneous-search-resolver",
@@ -4388,6 +4389,37 @@ dependencies = [
  "sea-orm",
  "supporting-service",
  "tracing",
+]
+
+[[package]]
+name = "miscellaneous-filter-preset-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "common-models",
+ "database-models",
+ "dependent-models",
+ "miscellaneous-filter-preset-service",
+ "miscellaneous-service",
+ "traits",
+ "uuid",
+]
+
+[[package]]
+name = "miscellaneous-filter-preset-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "dependent-core-utils",
+ "dependent-models",
+ "dependent-utility-utils",
+ "sea-orm",
+ "supporting-service",
 ]
 
 [[package]]

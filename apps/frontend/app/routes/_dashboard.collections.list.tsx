@@ -29,7 +29,10 @@ import { Link } from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
-import { ProRequiredAlert } from "~/components/common";
+import {
+	DisplayListDetailsAndRefresh,
+	ProRequiredAlert,
+} from "~/components/common";
 import { DebouncedSearchInput } from "~/components/common/filters";
 import {
 	useCoreDetails,
@@ -114,12 +117,7 @@ export default function Page() {
 					onChange={(value) => updateFilter("query", value)}
 				/>
 				<Group justify="space-between" align="center">
-					<Box>
-						<Text display="inline" fw="bold">
-							{filteredCollections.length}
-						</Text>{" "}
-						items found
-					</Box>
+					<DisplayListDetailsAndRefresh total={filteredCollections.length} />
 					{hasHiddenCollections ? (
 						<Checkbox
 							size="sm"

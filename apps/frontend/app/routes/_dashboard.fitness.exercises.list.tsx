@@ -34,6 +34,7 @@ import {
 	type ExerciseMechanic,
 	type ExerciseMuscle,
 	ExerciseSortBy,
+	FilterPresetContextType,
 	type MediaCollectionFilter,
 	MergeExerciseDocument,
 	UserExercisesListDocument,
@@ -55,11 +56,11 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
+import { useMemo } from "react";
 import { Link, useNavigate, useSubmit } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
-import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {
 	ApplicationPagination,
@@ -68,10 +69,16 @@ import {
 } from "~/components/common";
 import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
+	FilterPresetBar,
+	FilterPresetModalManager,
+} from "~/components/common/filter-presets";
+import {
 	CollectionsFilter,
 	DebouncedSearchInput,
 	FiltersModal,
 } from "~/components/common/filters";
+import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
+import { useFilterState } from "~/lib/hooks/filters/use-state";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
@@ -84,7 +91,6 @@ import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
 	convertEnumToSelectData,
-	isFilterChanged,
 	openConfirmationModal,
 } from "~/lib/shared/ui-utils";
 import { useBulkEditCollection } from "~/lib/state/collection";
@@ -169,31 +175,51 @@ export default function Page() {
 	const [mergingExercise, setMergingExercise] = useMergingExercise();
 	const [selectedExercises, setSelectedExercises] =
 		useListState<SelectExercise>([]);
-	const [filters, setFilters] = useLocalStorage(
-		"ExerciseListFilters",
+
+	const filterState = useFilterState({
 		defaultFilters,
-	);
+		storageKey: "ExerciseListFilters",
+	});
+
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
+	] = useDisclosure(false);
+	const [
+		presetModalOpened,
+		{ open: openPresetModal, close: closePresetModal },
 	] = useDisclosure(false);
 
 	const bulkEditingState =
 		bulkEditingCollection.state === false ? null : bulkEditingCollection.state;
 
-	const queryInput: UserExercisesListInput = {
-		sortBy: filters.sortBy,
-		search: { page: filters.page, query: filters.query },
-		filter: {
-			types: filters.types,
-			levels: filters.levels,
-			forces: filters.forces,
-			muscles: filters.muscles,
-			mechanics: filters.mechanics,
-			equipments: filters.equipments,
-			collections: filters.collections,
-		},
-	};
+	const listPresets = useFilterPresets({
+		enabled: true,
+		filters: filterState.normalizedFilters,
+		setFilters: filterState.setFiltersState,
+		storageKeyPrefix: "ExerciseListActivePreset",
+		contextType: FilterPresetContextType.ExercisesList,
+	});
+
+	const queryInput: UserExercisesListInput = useMemo(
+		() => ({
+			sortBy: filterState.normalizedFilters.sortBy,
+			search: {
+				page: filterState.normalizedFilters.page,
+				query: filterState.normalizedFilters.query,
+			},
+			filter: {
+				types: filterState.normalizedFilters.types,
+				levels: filterState.normalizedFilters.levels,
+				forces: filterState.normalizedFilters.forces,
+				muscles: filterState.normalizedFilters.muscles,
+				mechanics: filterState.normalizedFilters.mechanics,
+				equipments: filterState.normalizedFilters.equipments,
+				collections: filterState.normalizedFilters.collections,
+			},
+		}),
+		[filterState.normalizedFilters],
+	);
 
 	const { data: userExercisesList, refetch: refetchUserExercisesList } =
 		useQuery({
@@ -208,7 +234,7 @@ export default function Page() {
 		currentWorkout?.replacingExerciseIdx &&
 		currentWorkout.exercises[currentWorkout.replacingExerciseIdx].exerciseId;
 
-	const areListFiltersActive = isFilterChanged(filters, defaultFilters);
+	const areListFiltersActive = filterState.areFiltersActive;
 
 	const { data: replacingExercise } = useExerciseDetails(
 		replacingExerciseId || "",
@@ -220,11 +246,14 @@ export default function Page() {
 		isFitnessActionActive &&
 		!isNumber(currentWorkout.replacingExerciseIdx);
 
-	const updateFilter: FilterUpdateFunction<FilterState> = (key, value) =>
-		setFilters((prev) => ({ ...prev, [key]: value }));
-
 	return (
 		<>
+			<FilterPresetModalManager
+				opened={presetModalOpened}
+				onClose={closePresetModal}
+				presetManager={listPresets}
+				placeholder="e.g., Push Day Machines"
+			/>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
 					if (bulkEditingState?.data.action !== "add") return [];
@@ -262,11 +291,11 @@ export default function Page() {
 					</Flex>
 					<Group wrap="nowrap">
 						<DebouncedSearchInput
-							value={filters.query}
+							value={filterState.normalizedFilters.query}
 							placeholder="Search for exercises by name or instructions"
 							onChange={(value) => {
-								updateFilter("query", value);
-								updateFilter("page", 1);
+								filterState.updateFilter("query", value);
+								filterState.updateFilter("page", 1);
 							}}
 							tourControl={{
 								target: OnboardingTourStepTargets.SearchForExercise,
@@ -285,12 +314,17 @@ export default function Page() {
 						</ActionIcon>
 						<FiltersModal
 							opened={filtersModalOpened}
+							onSavePreset={openPresetModal}
 							closeFiltersModal={closeFiltersModal}
-							resetFilters={() => setFilters(defaultFilters)}
+							resetFilters={filterState.resetFilters}
 						>
-							<FiltersModalForm filter={filters} updateFilter={updateFilter} />
+							<FiltersModalForm
+								filter={filterState.normalizedFilters}
+								updateFilter={filterState.updateFilter}
+							/>
 						</FiltersModal>
 					</Group>
+					<FilterPresetBar presetManager={listPresets} />
 					{currentWorkout?.replacingExerciseIdx ? (
 						<Alert icon={<IconAlertCircle />}>
 							You are replacing exercise: {replacingExercise?.name}
@@ -310,7 +344,8 @@ export default function Page() {
 										onRefreshButtonClicked={refetchUserExercisesList}
 										total={userExercisesList.response.details.totalItems}
 										isRandomSortOrderSelected={
-											filters.sortBy === ExerciseSortBy.Random
+											filterState.normalizedFilters.sortBy ===
+											ExerciseSortBy.Random
 										}
 										rightSection={
 											allowAddingExerciseToWorkout ? (
@@ -344,8 +379,8 @@ export default function Page() {
 								<Text>No information to display</Text>
 							)}
 							<ApplicationPagination
-								value={filters.page}
-								onChange={(v) => updateFilter("page", v)}
+								value={filterState.normalizedFilters.page}
+								onChange={(v) => filterState.updateFilter("page", v)}
 								totalItems={userExercisesList.response.details.totalItems}
 							/>
 						</>
@@ -394,7 +429,7 @@ const FiltersModalForm = (props: {
 			<Select
 				size="xs"
 				label="Sort by"
-				defaultValue={props.filter.sortBy}
+				value={props.filter.sortBy}
 				data={convertEnumToSelectData(ExerciseSortBy)}
 				onChange={(v) => props.updateFilter("sortBy", v as ExerciseSortBy)}
 			/>

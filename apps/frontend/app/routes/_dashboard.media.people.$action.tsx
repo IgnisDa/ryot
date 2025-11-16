@@ -1,6 +1,5 @@
 import {
 	ActionIcon,
-	Box,
 	Checkbox,
 	Container,
 	Divider,
@@ -12,9 +11,9 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
 import {
 	EntityLot,
+	FilterPresetContextType,
 	GraphqlSortOrder,
 	type MediaCollectionFilter,
 	MediaSource,
@@ -34,7 +33,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
-import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
 	CreateButton,
@@ -43,6 +41,10 @@ import {
 } from "~/components/common";
 import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
+	FilterPresetBar,
+	FilterPresetModalManager,
+} from "~/components/common/filter-presets";
+import {
 	CollectionsFilter,
 	DebouncedSearchInput,
 	FiltersModal,
@@ -50,12 +52,12 @@ import {
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { PersonDisplayItem } from "~/components/media/display-items";
+import { useFilterModals } from "~/lib/hooks/filters/use-modals";
+import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
+import { useFilterState } from "~/lib/hooks/filters/use-state";
 import { useCoreDetails, useUserPeopleList } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
-import {
-	convertEnumToSelectData,
-	isFilterChanged,
-} from "~/lib/shared/ui-utils";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import type { FilterUpdateFunction } from "~/lib/types";
 
@@ -101,34 +103,51 @@ export const meta = () => {
 
 export default function Page(props: { params: { action: string } }) {
 	const navigate = useNavigate();
-	const coreDetails = useCoreDetails();
 	const action = props.params.action;
+	const coreDetails = useCoreDetails();
 
-	const [
-		filtersModalOpened,
-		{ open: openFiltersModal, close: closeFiltersModal },
-	] = useDisclosure(false);
-	const [
-		searchFiltersModalOpened,
-		{ open: openSearchFiltersModal, close: closeSearchFiltersModal },
-	] = useDisclosure(false);
+	const listModals = useFilterModals();
+	const searchModals = useFilterModals();
 
-	const [listFilters, setListFilters] = useLocalStorage<ListFilterState>(
-		"PeopleListFilters",
-		defaultListFilters,
-	);
-	const [searchFilters, setSearchFilters] = useLocalStorage<SearchFilterState>(
-		"PeopleSearchFilters",
-		defaultSearchFilters,
-	);
+	const listState = useFilterState({
+		storageKey: "PeopleListFilters",
+		defaultFilters: defaultListFilters,
+	});
+
+	const searchState = useFilterState({
+		storageKey: "PeopleSearchFilters",
+		defaultFilters: defaultSearchFilters,
+	});
+
+	const listPresets = useFilterPresets({
+		enabled: action === "list",
+		filters: listState.normalizedFilters,
+		setFilters: listState.setFiltersState,
+		storageKeyPrefix: "PeopleListActivePreset",
+		contextType: FilterPresetContextType.PeopleList,
+	});
+
+	const searchPresets = useFilterPresets({
+		enabled: action === "search",
+		filters: searchState.normalizedFilters,
+		setFilters: searchState.setFiltersState,
+		storageKeyPrefix: "PeopleSearchActivePreset",
+		contextType: FilterPresetContextType.PeopleSearch,
+	});
 
 	const listInput: UserPeopleListInput = useMemo(
 		() => ({
-			filter: { collections: listFilters.collections },
-			sort: { by: listFilters.sortBy, order: listFilters.orderBy },
-			search: { page: listFilters.page, query: listFilters.query },
+			filter: { collections: listState.normalizedFilters.collections },
+			sort: {
+				by: listState.normalizedFilters.sortBy,
+				order: listState.normalizedFilters.orderBy,
+			},
+			search: {
+				page: listState.normalizedFilters.page,
+				query: listState.normalizedFilters.query,
+			},
 		}),
-		[listFilters],
+		[listState.normalizedFilters],
 	);
 
 	const { data: userPeopleList, refetch: refetchUserPeopleList } =
@@ -136,11 +155,14 @@ export default function Page(props: { params: { action: string } }) {
 
 	const searchInput = useMemo(
 		() => ({
-			source: searchFilters.source,
-			sourceSpecifics: searchFilters.sourceSpecifics,
-			search: { page: searchFilters.page, query: searchFilters.query },
+			source: searchState.normalizedFilters.source,
+			sourceSpecifics: searchState.normalizedFilters.sourceSpecifics,
+			search: {
+				page: searchState.normalizedFilters.page,
+				query: searchState.normalizedFilters.query,
+			},
 		}),
-		[searchFilters],
+		[searchState.normalizedFilters],
 	);
 
 	const { data: peopleSearch } = useQuery({
@@ -152,27 +174,37 @@ export default function Page(props: { params: { action: string } }) {
 				.then((data) => data.peopleSearch),
 	});
 
-	const areListFiltersActive = isFilterChanged(listFilters, defaultListFilters);
-
-	const updateListFilters: FilterUpdateFunction<ListFilterState> = (
-		key,
-		value,
-	) => setListFilters((prev) => ({ ...prev, [key]: value }));
-
-	const updateSearchFilters: FilterUpdateFunction<SearchFilterState> = (
-		key,
-		value,
-	) => setSearchFilters((prev) => ({ ...prev, [key]: value }));
+	const searchInputValue =
+		action === "list"
+			? listState.normalizedFilters.query
+			: searchState.normalizedFilters.query;
 
 	const updateSearchSourceSpecifics = (key: string, value: boolean) => {
-		setSearchFilters((prev) => ({
-			...prev,
-			sourceSpecifics: { ...prev.sourceSpecifics, [key]: value },
-		}));
+		const prevFilters = searchState.normalizedFilters;
+		searchState.setFiltersState({
+			...prevFilters,
+			sourceSpecifics: {
+				...defaultSearchFilters.sourceSpecifics,
+				...prevFilters.sourceSpecifics,
+				[key]: value,
+			},
+		});
 	};
 
 	return (
 		<>
+			<FilterPresetModalManager
+				presetManager={listPresets}
+				opened={listModals.presetModal.opened}
+				onClose={listModals.presetModal.close}
+				placeholder="e.g., Favorite Directors"
+			/>
+			<FilterPresetModalManager
+				presetManager={searchPresets}
+				opened={searchModals.presetModal.opened}
+				onClose={searchModals.presetModal.close}
+				placeholder="e.g., TMDB Casting Directors"
+			/>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
 					if (action !== "list") return [];
@@ -213,36 +245,33 @@ export default function Page(props: { params: { action: string } }) {
 
 					<Group wrap="nowrap">
 						<DebouncedSearchInput
+							value={searchInputValue}
 							placeholder="Search for people"
-							value={
-								action === "list" ? listFilters.query : searchFilters.query
-							}
 							onChange={(value) => {
 								if (action === "list") {
-									updateListFilters("query", value);
-									updateListFilters("page", 1);
+									listState.updateQuery(value);
 								} else {
-									updateSearchFilters("query", value);
-									updateSearchFilters("page", 1);
+									searchState.updateQuery(value);
 								}
 							}}
 						/>
 						{action === "list" ? (
 							<>
 								<ActionIcon
-									onClick={openFiltersModal}
-									color={areListFiltersActive ? "blue" : "gray"}
+									onClick={listModals.filtersModal.open}
+									color={listState.areFiltersActive ? "blue" : "gray"}
 								>
 									<IconFilter size={24} />
 								</ActionIcon>
 								<FiltersModal
-									opened={filtersModalOpened}
-									closeFiltersModal={closeFiltersModal}
-									resetFilters={() => setListFilters(defaultListFilters)}
+									resetFilters={listState.resetFilters}
+									opened={listModals.filtersModal.opened}
+									onSavePreset={listModals.presetModal.open}
+									closeFiltersModal={listModals.filtersModal.close}
 								>
 									<FiltersModalForm
-										filters={listFilters}
-										onFiltersChange={updateListFilters}
+										filters={listState.normalizedFilters}
+										onFiltersChange={listState.updateFilter}
 									/>
 								</FiltersModal>
 							</>
@@ -250,32 +279,42 @@ export default function Page(props: { params: { action: string } }) {
 						{action === "search" ? (
 							<>
 								<Select
-									value={searchFilters.source}
+									value={searchState.normalizedFilters.source}
 									onChange={(v) => {
-										updateSearchFilters("source", v as MediaSource);
-										updateSearchFilters("page", 1);
+										searchState.updateFilter("source", v as MediaSource);
+										searchState.updateFilter("page", 1);
 									}}
 									data={coreDetails.peopleSearchSources.map((o) => ({
 										value: o,
 										label: startCase(o.toLowerCase()),
 									}))}
 								/>
-								<ActionIcon color="gray" onClick={openSearchFiltersModal}>
+								<ActionIcon
+									onClick={searchModals.filtersModal.open}
+									color={searchState.areFiltersActive ? "blue" : "gray"}
+								>
 									<IconFilter size={24} />
 								</ActionIcon>
 								<FiltersModal
-									opened={searchFiltersModalOpened}
-									closeFiltersModal={closeSearchFiltersModal}
-									resetFilters={() => setSearchFilters(defaultSearchFilters)}
+									resetFilters={searchState.resetFilters}
+									opened={searchModals.filtersModal.opened}
+									onSavePreset={searchModals.presetModal.open}
+									closeFiltersModal={searchModals.filtersModal.close}
 								>
 									<SearchFiltersModalForm
-										filters={searchFilters}
+										filters={searchState.normalizedFilters}
 										onFiltersChange={updateSearchSourceSpecifics}
 									/>
 								</FiltersModal>
 							</>
 						) : null}
 					</Group>
+					{action === "list" ? (
+						<FilterPresetBar presetManager={listPresets} />
+					) : null}
+					{action === "search" ? (
+						<FilterPresetBar presetManager={searchPresets} />
+					) : null}
 					{action === "list" ? (
 						userPeopleList ? (
 							<>
@@ -284,7 +323,8 @@ export default function Page(props: { params: { action: string } }) {
 									total={userPeopleList.response.details.totalItems}
 									onRefreshButtonClicked={refetchUserPeopleList}
 									isRandomSortOrderSelected={
-										listFilters.sortBy === PersonAndMetadataGroupsSortBy.Random
+										listState.normalizedFilters.sortBy ===
+										PersonAndMetadataGroupsSortBy.Random
 									}
 								/>
 								{userPeopleList.response.details.totalItems > 0 ? (
@@ -297,8 +337,8 @@ export default function Page(props: { params: { action: string } }) {
 									<Text>No information to display</Text>
 								)}
 								<ApplicationPagination
-									value={listFilters.page}
-									onChange={(v) => updateListFilters("page", v)}
+									value={listState.normalizedFilters.page}
+									onChange={(v) => listState.updateFilter("page", v)}
 									totalItems={userPeopleList.response.details.totalItems}
 								/>
 							</>
@@ -310,12 +350,9 @@ export default function Page(props: { params: { action: string } }) {
 					{action === "search" ? (
 						peopleSearch ? (
 							<>
-								<Box>
-									<Text display="inline" fw="bold">
-										{peopleSearch.response.details.totalItems}
-									</Text>{" "}
-									items found
-								</Box>
+								<DisplayListDetailsAndRefresh
+									total={peopleSearch.response.details.totalItems}
+								/>
 								{peopleSearch.response.details.totalItems > 0 ? (
 									<ApplicationGrid>
 										{peopleSearch.response.items.map((person) => (
@@ -330,8 +367,8 @@ export default function Page(props: { params: { action: string } }) {
 									<Text>No people found matching your query</Text>
 								)}
 								<ApplicationPagination
-									value={searchFilters.page}
-									onChange={(v) => updateSearchFilters("page", v)}
+									value={searchState.normalizedFilters.page}
+									onChange={(v) => searchState.updateFilter("page", v)}
 									totalItems={peopleSearch.response.details.totalItems}
 								/>
 							</>

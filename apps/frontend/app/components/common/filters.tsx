@@ -25,6 +25,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import {
+	IconDeviceFloppy,
 	IconFilterOff,
 	IconPlus,
 	IconSearch,
@@ -42,10 +43,10 @@ import type { OnboardingTourStepTargets } from "~/lib/state/onboarding-tour";
 import { ProRequiredAlert } from ".";
 
 export const FiltersModal = (props: {
-	title?: string;
 	opened: boolean;
-	children: ReactNode;
+	children?: ReactNode;
 	resetFilters: () => void;
+	onSavePreset: () => void;
 	closeFiltersModal: () => void;
 }) => (
 	<Modal
@@ -56,15 +57,26 @@ export const FiltersModal = (props: {
 	>
 		<Stack>
 			<Group justify="space-between">
-				<Title order={3}>{props.title || "Filters"}</Title>
-				<ActionIcon
-					onClick={() => {
-						props.resetFilters();
-						props.closeFiltersModal();
-					}}
-				>
-					<IconFilterOff size={24} />
-				</ActionIcon>
+				<Title order={3}>Filters</Title>
+				<Group wrap="nowrap">
+					<ActionIcon
+						color="blue"
+						onClick={() => {
+							props.onSavePreset();
+							props.closeFiltersModal();
+						}}
+					>
+						<IconDeviceFloppy />
+					</ActionIcon>
+					<ActionIcon
+						onClick={() => {
+							props.resetFilters();
+							props.closeFiltersModal();
+						}}
+					>
+						<IconFilterOff size={24} />
+					</ActionIcon>
+				</Group>
 			</Group>
 			{props.children}
 		</Stack>

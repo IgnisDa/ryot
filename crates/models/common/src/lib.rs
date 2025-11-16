@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::NaiveDate;
 use enum_meta::{Meta, meta};
-use enum_models::{EntityLot, MediaLot, MediaSource};
+use enum_models::{EntityLot, FilterPresetContextType, MediaLot, MediaSource};
 use schematic::{ConfigEnum, Schematic};
 use sea_orm::{FromJsonQueryResult, prelude::DateTimeUtc, sea_query::PgDateTruncUnit};
 use serde::{Deserialize, Serialize};
@@ -305,6 +305,15 @@ pub struct ReorderCollectionEntityInput {
     pub collection_name: String,
 }
 
+#[skip_serializing_none]
+#[derive(Debug, InputObject, Clone, Serialize, Deserialize)]
+pub struct CreateFilterPresetInput {
+    pub name: String,
+    pub filters: serde_json::Value,
+    pub context_type: FilterPresetContextType,
+    pub context_information: Option<serde_json::Value>,
+}
+
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ExportJob {
     pub size: i64,
@@ -468,4 +477,11 @@ pub struct UserToCollectionExtraInformation {
 pub struct PresignedPutUrlResponse {
     pub key: String,
     pub upload_url: String,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize, InputObject)]
+pub struct FilterPresetQueryInput {
+    pub context_type: FilterPresetContextType,
+    pub context_information: Option<serde_json::Value>,
 }

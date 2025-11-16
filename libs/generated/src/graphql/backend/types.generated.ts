@@ -136,6 +136,12 @@ export type CachedCollectionsListResponse = {
   response: Array<CollectionItem>;
 };
 
+export type CachedFilterPresetsResponse = {
+  __typename?: 'CachedFilterPresetsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: Array<FilterPreset>;
+};
+
 export type CachedGenreDetailsResponse = {
   __typename?: 'CachedGenreDetailsResponse';
   cacheId: Scalars['UUID']['output'];
@@ -432,6 +438,13 @@ export type CreateCustomPersonInput = {
   name: Scalars['String']['input'];
   place?: InputMaybe<Scalars['String']['input']>;
   website?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type CreateFilterPresetInput = {
+  contextInformation?: InputMaybe<Scalars['JSON']['input']>;
+  contextType: FilterPresetContextType;
+  filters: Scalars['JSON']['input'];
+  name: Scalars['String']['input'];
 };
 
 export type CreateOrUpdateCollectionInput = {
@@ -870,6 +883,30 @@ export type ExportJob = {
   size: Scalars['Int']['output'];
   startedAt: Scalars['DateTime']['output'];
   url: Scalars['String']['output'];
+};
+
+export type FilterPreset = {
+  __typename?: 'FilterPreset';
+  filters: Scalars['JSON']['output'];
+  id: Scalars['UUID']['output'];
+  name: Scalars['String']['output'];
+};
+
+export enum FilterPresetContextType {
+  CollectionContents = 'COLLECTION_CONTENTS',
+  ExercisesList = 'EXERCISES_LIST',
+  FitnessEntitiesList = 'FITNESS_ENTITIES_LIST',
+  MetadataGroupsList = 'METADATA_GROUPS_LIST',
+  MetadataGroupsSearch = 'METADATA_GROUPS_SEARCH',
+  MetadataList = 'METADATA_LIST',
+  MetadataSearch = 'METADATA_SEARCH',
+  PeopleList = 'PEOPLE_LIST',
+  PeopleSearch = 'PEOPLE_SEARCH'
+}
+
+export type FilterPresetQueryInput = {
+  contextInformation?: InputMaybe<Scalars['JSON']['input']>;
+  contextType: FilterPresetContextType;
 };
 
 export type FitnessAnalyticsEquipment = {
@@ -1555,6 +1592,8 @@ export type MutationRoot = {
   createCustomMetadataGroup: StringIdObject;
   /** Create a custom person. */
   createCustomPerson: StringIdObject;
+  /** Create a filter preset */
+  createFilterPreset: FilterPreset;
   /** Create a new collection for the logged in user or edit details of an existing one. */
   createOrUpdateCollection: StringIdObject;
   /** Create or update a review. */
@@ -1573,6 +1612,8 @@ export type MutationRoot = {
   createUserNotificationPlatform: Scalars['String']['output'];
   /** Delete a collection. */
   deleteCollection: Scalars['Boolean']['output'];
+  /** Delete a filter preset */
+  deleteFilterPreset: Scalars['Boolean']['output'];
   /** Delete a review if it belongs to the currently logged in user. */
   deleteReview: Scalars['Boolean']['output'];
   /** Delete an S3 object by the given key. */
@@ -1673,6 +1714,8 @@ export type MutationRoot = {
   updateCustomMetadataGroup: Scalars['Boolean']['output'];
   /** Update a custom person. */
   updateCustomPerson: Scalars['Boolean']['output'];
+  /** Update the last used timestamp for a filter preset */
+  updateFilterPresetLastUsed: Scalars['Boolean']['output'];
   /** Update the attributes of a seen item. */
   updateSeenItem: Scalars['Boolean']['output'];
   /** Update a user's profile details. */
@@ -1720,6 +1763,11 @@ export type MutationRootCreateCustomPersonArgs = {
 };
 
 
+export type MutationRootCreateFilterPresetArgs = {
+  input: CreateFilterPresetInput;
+};
+
+
 export type MutationRootCreateOrUpdateCollectionArgs = {
   input: CreateOrUpdateCollectionInput;
 };
@@ -1762,6 +1810,11 @@ export type MutationRootCreateUserNotificationPlatformArgs = {
 
 export type MutationRootDeleteCollectionArgs = {
   collectionName: Scalars['String']['input'];
+};
+
+
+export type MutationRootDeleteFilterPresetArgs = {
+  filterPresetId: Scalars['UUID']['input'];
 };
 
 
@@ -1930,6 +1983,11 @@ export type MutationRootUpdateCustomMetadataGroupArgs = {
 
 export type MutationRootUpdateCustomPersonArgs = {
   input: UpdateCustomPersonInput;
+};
+
+
+export type MutationRootUpdateFilterPresetLastUsedArgs = {
+  filterPresetId: Scalars['UUID']['input'];
 };
 
 
@@ -2160,6 +2218,8 @@ export type QueryRoot = {
   coreDetails: CoreDetails;
   /** Get details about an exercise. */
   exerciseDetails: Exercise;
+  /** Get all filter presets for a specific context */
+  filterPresets: CachedFilterPresetsResponse;
   /** Get details about a genre present in the database. */
   genreDetails: CachedGenreDetailsResponse;
   /** Get an authorization URL using the configured OIDC client. */
@@ -2257,6 +2317,11 @@ export type QueryRootCollectionRecommendationsArgs = {
 
 export type QueryRootExerciseDetailsArgs = {
   exerciseId: Scalars['String']['input'];
+};
+
+
+export type QueryRootFilterPresetsArgs = {
+  input: FilterPresetQueryInput;
 };
 
 

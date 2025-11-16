@@ -30,6 +30,9 @@ use importer_resolver::{ImporterMutationResolver, ImporterQueryResolver};
 use importer_service::ImporterService;
 use integration_service::IntegrationService;
 use itertools::Itertools;
+use miscellaneous_filter_preset_resolver::{
+    MiscellaneousFilterPresetMutationResolver, MiscellaneousFilterPresetQueryResolver,
+};
 use miscellaneous_grouping_resolver::MiscellaneousGroupingQueryResolver;
 use miscellaneous_metadata_resolver::{
     MiscellaneousMetadataMutationResolver, MiscellaneousMetadataQueryResolver,
@@ -203,6 +206,7 @@ pub struct QueryRoot(
     MiscellaneousGroupingQueryResolver,
     MiscellaneousTrackingQueryResolver,
     MiscellaneousMetadataQueryResolver,
+    MiscellaneousFilterPresetQueryResolver,
 );
 
 #[derive(MergedObject, Default)]
@@ -220,6 +224,7 @@ pub struct MutationRoot(
     MiscellaneousSystemMutationResolver,
     MiscellaneousTrackingMutationResolver,
     MiscellaneousMetadataMutationResolver,
+    MiscellaneousFilterPresetMutationResolver,
 );
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;

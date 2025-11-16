@@ -10,6 +10,7 @@ pub mod collection_entity_membership;
 pub mod collection_to_entity;
 pub mod daily_user_activity;
 pub mod exercise;
+pub mod filter_preset;
 pub mod functions;
 pub mod genre;
 pub mod import_report;

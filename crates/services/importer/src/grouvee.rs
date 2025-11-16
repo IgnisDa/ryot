@@ -16,7 +16,6 @@ use media_models::{
 };
 use rust_decimal::Decimal;
 use serde::Deserialize;
-use serde_json::Value;
 
 use crate::{ImportFailStep, ImportFailedItem};
 
@@ -202,7 +201,7 @@ fn parse_statuses(statuses_str: &str) -> Result<Vec<StatusEntry>, serde_json::Er
         return Ok(vec![]);
     }
 
-    let statuses: Result<Vec<Value>, _> = serde_json::from_str(statuses_str);
+    let statuses: Result<Vec<serde_json::Value>, _> = serde_json::from_str(statuses_str);
     match statuses {
         Ok(status_array) => {
             let mut parsed_statuses = vec![];

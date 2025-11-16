@@ -1,0 +1,131 @@
+use std::sync::Arc;
+
+use anyhow::{Result, bail};
+use chrono::Utc;
+use common_models::{CreateFilterPresetInput, FilterPresetQueryInput, UserLevelCacheKey};
+use common_utils::MAX_PRESET_FILTERS_FOR_NON_PRO_USERS;
+use database_models::{filter_preset, prelude::FilterPreset};
+use dependent_core_utils::is_server_key_validated;
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, FilterPresetsListResponse,
+};
+use dependent_utility_utils::expire_user_filter_presets_cache;
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter,
+    QueryOrder, prelude::Uuid,
+};
+use supporting_service::SupportingService;
+
+pub async fn get_filter_presets(
+    user_id: &str,
+    input: FilterPresetQueryInput,
+    ss: &Arc<SupportingService>,
+) -> Result<CachedResponse<FilterPresetsListResponse>> {
+    cache_service::get_or_set_with_callback(
+        ss,
+        ApplicationCacheKey::UserFilterPresets(UserLevelCacheKey {
+            input: input.clone(),
+            user_id: user_id.to_owned(),
+        }),
+        ApplicationCacheValue::UserFilterPresets,
+        || async {
+            let mut query = FilterPreset::find()
+                .filter(filter_preset::Column::UserId.eq(user_id))
+                .filter(filter_preset::Column::ContextType.eq(input.context_type));
+
+            query = match &input.context_information {
+                None => query.filter(filter_preset::Column::ContextInformation.is_null()),
+                Some(metadata) => {
+                    query.filter(filter_preset::Column::ContextInformation.eq(metadata.clone()))
+                }
+            };
+
+            let presets = query
+                .order_by_desc(filter_preset::Column::LastUsedAt)
+                .all(&ss.db)
+                .await?;
+            Ok(presets)
+        },
+    )
+    .await
+}
+
+pub async fn create_filter_preset(
+    user_id: &str,
+    input: CreateFilterPresetInput,
+    ss: &Arc<SupportingService>,
+) -> Result<filter_preset::Model> {
+    let filters_by_this_user = FilterPreset::find()
+        .filter(filter_preset::Column::UserId.eq(user_id))
+        .count(&ss.db)
+        .await?;
+
+    if filters_by_this_user >= MAX_PRESET_FILTERS_FOR_NON_PRO_USERS
+        && !is_server_key_validated(ss).await?
+    {
+        bail!(
+            "Please upgrade to the pro plan to create more than {} presets.",
+            MAX_PRESET_FILTERS_FOR_NON_PRO_USERS
+        );
+    }
+
+    let new_preset = filter_preset::ActiveModel {
+        name: ActiveValue::Set(input.name),
+        filters: ActiveValue::Set(input.filters),
+        user_id: ActiveValue::Set(user_id.to_string()),
+        context_type: ActiveValue::Set(input.context_type),
+        context_information: ActiveValue::Set(input.context_information),
+        ..Default::default()
+    };
+
+    let inserted = new_preset.insert(&ss.db).await?;
+
+    expire_user_filter_presets_cache(&user_id.to_owned(), ss).await?;
+
+    Ok(inserted)
+}
+
+pub async fn delete_filter_preset(
+    user_id: &str,
+    filter_preset_id: Uuid,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    let preset = FilterPreset::find_by_id(filter_preset_id)
+        .filter(filter_preset::Column::UserId.eq(user_id))
+        .one(&ss.db)
+        .await?;
+
+    let Some(preset) = preset else {
+        bail!("Filter preset not found or access denied");
+    };
+
+    let active_model: filter_preset::ActiveModel = preset.into();
+    active_model.delete(&ss.db).await?;
+
+    expire_user_filter_presets_cache(&user_id.to_owned(), ss).await?;
+
+    Ok(true)
+}
+
+pub async fn update_filter_preset_last_used(
+    user_id: &str,
+    filter_preset_id: Uuid,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    let preset = FilterPreset::find_by_id(filter_preset_id)
+        .filter(filter_preset::Column::UserId.eq(user_id))
+        .one(&ss.db)
+        .await?;
+
+    let Some(preset) = preset else {
+        bail!("Filter preset not found or access denied");
+    };
+
+    let mut active_model: filter_preset::ActiveModel = preset.into();
+    active_model.last_used_at = ActiveValue::Set(Utc::now());
+    active_model.update(&ss.db).await?;
+
+    expire_user_filter_presets_cache(&user_id.to_owned(), ss).await?;
+
+    Ok(true)
+}

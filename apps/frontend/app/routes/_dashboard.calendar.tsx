@@ -1,6 +1,5 @@
 import {
 	ActionIcon,
-	Box,
 	Button,
 	Container,
 	Group,
@@ -18,7 +17,10 @@ import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
-import { SkeletonLoader } from "~/components/common";
+import {
+	DisplayListDetailsAndRefresh,
+	SkeletonLoader,
+} from "~/components/common";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
 import { dayjsLib } from "~/lib/shared/date-utils";
@@ -92,12 +94,9 @@ export default function Page() {
 				{userCalendarEvents ? (
 					userCalendarEvents.length > 0 ? (
 						<Stack gap={4}>
-							<Box>
-								<Text display="inline" fw="bold">
-									{sum(userCalendarEvents.map((e) => e.events.length))}
-								</Text>{" "}
-								items found
-							</Box>
+							<DisplayListDetailsAndRefresh
+								total={sum(userCalendarEvents.map((e) => e.events.length))}
+							/>
 							{userCalendarEvents.map((ce) => (
 								<CalendarEvent key={ce.date} data={ce} />
 							))}

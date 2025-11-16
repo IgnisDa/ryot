@@ -524,3 +524,14 @@ query MetadataLookup($title: String!) {
 query UserEntityRecentlyConsumed($entityId: String!, $entityLot: EntityLot!) {
 	userEntityRecentlyConsumed(entityId: $entityId, entityLot: $entityLot)
 }
+
+query FilterPresets($input: FilterPresetQueryInput!) {
+	filterPresets(input: $input) {
+		cacheId
+		response {
+			id
+			name
+			filters
+		}
+	}
+}

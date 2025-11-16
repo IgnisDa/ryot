@@ -192,12 +192,16 @@ const FEATURE_DATA = [
 				text: "Support for 9 different notification platforms (more being released soon)",
 			},
 			{
-				text: "Set reminders for when you want to watch something and get notified",
+				text: "Save your most commonly used filters as presets for easy access",
+				isPro: true,
 			},
-			{ text: "Review media privately or publicly and see what others think" },
 			{
 				text: "Get information on where you can watch a movie/show legally in your country",
 			},
+			{
+				text: "Set reminders for when you want to watch something and get notified",
+			},
+			{ text: "Review media privately or publicly and see what others think" },
 			{ text: "Browse media by genre or groups (eg: Star Wars collection)" },
 			{
 				text: "Calendar view to get an overview on when a media is being released",
