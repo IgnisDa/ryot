@@ -1,9 +1,6 @@
-import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
-	Box,
 	Checkbox,
-	Chip,
 	Container,
 	Divider,
 	Flex,
@@ -53,7 +50,7 @@ import {
 import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
 	CreateFilterPresetModal,
-	FilterPresetChip,
+	FilterPresetBar,
 } from "~/components/common/filter-presets";
 import {
 	CollectionsFilter,
@@ -124,7 +121,6 @@ export default function Page(props: {
 	params: { action: string; lot: string };
 }) {
 	const navigate = useNavigate();
-	const [parent] = useAutoAnimate();
 	const action = props.params.action;
 	const coreDetails = useCoreDetails();
 	const lot = getLot(props.params.lot) as MediaLot;
@@ -364,39 +360,12 @@ export default function Page(props: {
 										/>
 									</FiltersModal>
 								</Group>
-								{listPresets.filterPresets &&
-								listPresets.filterPresets.response.length > 0 ? (
-									<Box>
-										<Chip.Group
-											key={listPresets.activePresetId || "no-preset"}
-											value={listPresets.activePresetId || undefined}
-											onChange={(value) => {
-												if (!value) return;
-												const preset = listPresets.filterPresets?.response.find(
-													(p) => p.id === value,
-												);
-												if (preset)
-													listPresets.applyPreset(preset.id, preset.filters);
-											}}
-										>
-											<Group
-												gap="xs"
-												ref={parent}
-												wrap="nowrap"
-												style={{ overflowX: "auto" }}
-											>
-												{listPresets.filterPresets.response.map((preset) => (
-													<FilterPresetChip
-														id={preset.id}
-														key={preset.id}
-														name={preset.name}
-														onDelete={listPresets.deletePreset}
-													/>
-												))}
-											</Group>
-										</Chip.Group>
-									</Box>
-								) : null}
+								<FilterPresetBar
+									filterPresets={listPresets.filterPresets}
+									activePresetId={listPresets.activePresetId}
+									onSelectPreset={listPresets.applyPreset}
+									onDeletePreset={listPresets.deletePreset}
+								/>
 								<DisplayListDetailsAndRefresh
 									cacheId={userMetadataList.cacheId}
 									onRefreshButtonClicked={refetchUserMetadataList}
@@ -484,40 +453,12 @@ export default function Page(props: {
 										</FiltersModal>
 									</Group>
 								</Group>
-								{searchPresets.filterPresets &&
-								searchPresets.filterPresets.response.length > 0 ? (
-									<Box>
-										<Chip.Group
-											key={searchPresets.activePresetId || "no-preset"}
-											value={searchPresets.activePresetId || undefined}
-											onChange={(value) => {
-												if (!value) return;
-												const preset =
-													searchPresets.filterPresets?.response.find(
-														(p) => p.id === value,
-													);
-												if (preset)
-													searchPresets.applyPreset(preset.id, preset.filters);
-											}}
-										>
-											<Group
-												gap="xs"
-												ref={parent}
-												wrap="nowrap"
-												style={{ overflowX: "auto" }}
-											>
-												{searchPresets.filterPresets.response.map((preset) => (
-													<FilterPresetChip
-														id={preset.id}
-														key={preset.id}
-														name={preset.name}
-														onDelete={searchPresets.deletePreset}
-													/>
-												))}
-											</Group>
-										</Chip.Group>
-									</Box>
-								) : null}
+								<FilterPresetBar
+									filterPresets={searchPresets.filterPresets}
+									activePresetId={searchPresets.activePresetId}
+									onSelectPreset={searchPresets.applyPreset}
+									onDeletePreset={searchPresets.deletePreset}
+								/>
 								{metadataSearch.response.details.totalItems > 0 ? (
 									<>
 										<DisplayListDetailsAndRefresh
