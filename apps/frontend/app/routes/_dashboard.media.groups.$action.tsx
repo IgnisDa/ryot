@@ -157,7 +157,6 @@ export default function Page(props: { params: { action: string } }) {
 		setSearchFilters({ ...defaultSearchFilters, ...filters });
 
 	const listPresets = useFilterPresets({
-		contextInformation: {},
 		enabled: action === "list",
 		filters: normalizedListFilters,
 		setFilters: setListFiltersState,
@@ -166,7 +165,6 @@ export default function Page(props: { params: { action: string } }) {
 	});
 
 	const searchPresets = useFilterPresets({
-		contextInformation: {},
 		enabled: action === "search",
 		filters: normalizedSearchFilters,
 		setFilters: setSearchFiltersState,
