@@ -35,6 +35,7 @@ const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
 			getEntityScopeById: () => Effect.die("unused"),
 			findEntitySchemaById: () => Effect.die("unused"),
 			getEntityScopeForUser: () => Effect.die("unused"),
+			getEntityMergeScopeForUser: () => Effect.die("unused"),
 			createOrUpdateGlobalEntity: () => Effect.die("unused"),
 			getEntitySchemaScopeForUser: () => Effect.die("unused"),
 			findEntitySchemaScriptBySlug: () => Effect.die("unused"),
@@ -53,6 +54,7 @@ const makeRelationshipsRepository = (overrides: Partial<RelationshipsRepository>
 			upsertEntityRelationship: () => Effect.die("unused"),
 			findRelationshipProperties: () => Effect.die("unused"),
 			deleteUserRelationshipsForEntity: () => Effect.die("unused"),
+			moveUserRelationshipsBetweenEntities: () => Effect.die("unused"),
 		},
 		overrides,
 	);
