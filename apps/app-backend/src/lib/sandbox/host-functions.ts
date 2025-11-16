@@ -15,7 +15,7 @@ import { QueryEngineService } from "#modules/query-engine/service";
 
 import { AppConfig } from "../config";
 import { CurrentDb, DbRunner, dbEffect } from "../db";
-import * as schema from "../db/schema/auth";
+import * as schema from "../db/schema/tables/auth";
 import { unknownToMessage } from "../errors";
 import { RedisService, redisKeys } from "../redis";
 import { getSandboxAppConfigValue } from "./app-config";

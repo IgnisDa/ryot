@@ -16,7 +16,7 @@ import {
 	savedView,
 	tracker,
 	trackerEntitySchema,
-} from "./tables";
+} from ".";
 
 export const trackerRelations = relations(tracker, ({ one, many }) => ({
 	trackerEntitySchemas: many(trackerEntitySchema),

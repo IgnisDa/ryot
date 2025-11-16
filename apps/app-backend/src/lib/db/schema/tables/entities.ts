@@ -14,7 +14,7 @@ import {
 import type { AppSchema } from "#lib/schema/property-schema";
 import type { StoredEntityImage } from "#modules/entities/types";
 
-import { user } from "../auth";
+import { user } from "./auth";
 import { entitySchema, sandboxScript } from "./core";
 
 export const entity = pgTable(

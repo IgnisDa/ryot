@@ -8,6 +8,7 @@ export type TranslationOverlayRequest = {
 	entity: ListedEntity;
 	user: CurrentUserValue;
 	entitySchemaSlug: string;
+	translatableKeys: ReadonlyArray<string>;
 };
 
 export type TranslationOverlayResult = {
