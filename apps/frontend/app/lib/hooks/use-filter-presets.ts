@@ -141,6 +141,7 @@ export const useFilterPresets = <TFilter extends { page: number }>(
 
 		if (!isEqual(filtersWithoutPage, savedWithoutPage)) setActivePresetId(null);
 	}, [config.filters, activePresetId, filterPresets, setActivePresetId]);
+
 	return {
 		savePreset,
 		applyPreset,
