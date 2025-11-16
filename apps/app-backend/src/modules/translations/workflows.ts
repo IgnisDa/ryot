@@ -9,7 +9,7 @@ import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 
 import { TranslationsRepository } from "./repository";
 
-export const TranslateEntityWorkflowPayload = Schema.Struct({
+const TranslateEntityWorkflowPayload = Schema.Struct({
 	entityId: EntityId,
 	language: Schema.String,
 	externalId: Schema.String,
@@ -19,7 +19,7 @@ export const TranslateEntityWorkflowPayload = Schema.Struct({
 	entitySchemaSlug: Schema.String,
 });
 
-export type TranslateEntityWorkflowPayload = typeof TranslateEntityWorkflowPayload.Type;
+type TranslateEntityWorkflowPayload = typeof TranslateEntityWorkflowPayload.Type;
 
 export const translateEntityExecutionId = (input: { entityId: EntityId; language: string }) =>
 	`translate-${input.entityId}-${input.language}`;

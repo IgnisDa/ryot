@@ -338,9 +338,9 @@ Modules to be tested (planned for long-term health):
 
 ## Tasks
 
-**Overall Progress:** 6 of 8 tasks completed
+**Overall Progress:** 7 of 8 tasks completed
 
-**Current Task:** [Task 07](./07-source-key-rename-and-legacy-bootstrap.md) (todo)
+**Current Task:** [Task 07](./07-source-key-rename-and-legacy-bootstrap.md) manual validation remains outstanding
 
 ### Task List
 
@@ -353,4 +353,4 @@ Modules to be tested (planned for long-term health):
 | 05  | [iTunes Podcasts and YouTube Music](./05-itunes-podcasts-and-youtube-music.md)                         | AFK  | done   |
 | 06  | [TVDB Translation](./06-tvdb-translation.md)                                                           | AFK  | done   |
 | 07  | [Source-Key Rename and Legacy-Bootstrap](./07-source-key-rename-and-legacy-bootstrap.md)               | HITL | todo   |
-| 08  | [Codebase Cleanup](./08-codebase-cleanup.md)                                                           | AFK  | todo   |
+| 08  | [Codebase Cleanup](./08-codebase-cleanup.md)                                                           | AFK  | done   |
