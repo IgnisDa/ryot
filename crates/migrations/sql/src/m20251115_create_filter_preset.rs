@@ -27,8 +27,9 @@ impl MigrationTrait for Migration {
                     .table(FilterPreset::Table)
                     .col(
                         ColumnDef::new(FilterPreset::Id)
-                            .text()
+                            .uuid()
                             .not_null()
+                            .default(PgFunc::gen_random_uuid())
                             .primary_key(),
                     )
                     .col(ColumnDef::new(FilterPreset::UserId).text().not_null())

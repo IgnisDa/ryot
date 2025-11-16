@@ -10,10 +10,9 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, FilterPresetsListResponse,
 };
 use dependent_utility_utils::expire_user_filter_presets_cache;
-use nanoid::nanoid;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter,
-    QueryOrder,
+    QueryOrder, prelude::Uuid,
 };
 use supporting_service::SupportingService;
 
@@ -74,7 +73,6 @@ pub async fn create_filter_preset(
         name: ActiveValue::Set(input.name),
         filters: ActiveValue::Set(input.filters),
         user_id: ActiveValue::Set(user_id.to_string()),
-        id: ActiveValue::Set(format!("fp_{}", nanoid!())),
         context_type: ActiveValue::Set(input.context_type),
         context_information: ActiveValue::Set(input.context_information),
         ..Default::default()
@@ -89,7 +87,7 @@ pub async fn create_filter_preset(
 
 pub async fn delete_filter_preset(
     user_id: &str,
-    filter_preset_id: &str,
+    filter_preset_id: Uuid,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
     let preset = FilterPreset::find_by_id(filter_preset_id)
@@ -111,7 +109,7 @@ pub async fn delete_filter_preset(
 
 pub async fn update_filter_preset_last_used(
     user_id: &str,
-    filter_preset_id: &str,
+    filter_preset_id: Uuid,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
     let preset = FilterPreset::find_by_id(filter_preset_id)

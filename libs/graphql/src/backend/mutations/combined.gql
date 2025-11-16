@@ -341,10 +341,10 @@ mutation CreateFilterPreset($input: CreateFilterPresetInput!) {
 	}
 }
 
-mutation DeleteFilterPreset($filterPresetId: String!) {
+mutation DeleteFilterPreset($filterPresetId: UUID!) {
 	deleteFilterPreset(filterPresetId: $filterPresetId)
 }
 
-mutation UpdateFilterPresetLastUsed($filterPresetId: String!) {
+mutation UpdateFilterPresetLastUsed($filterPresetId: UUID!) {
 	updateFilterPresetLastUsed(filterPresetId: $filterPresetId)
 }

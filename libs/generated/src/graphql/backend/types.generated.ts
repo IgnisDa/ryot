@@ -888,7 +888,7 @@ export type ExportJob = {
 export type FilterPreset = {
   __typename?: 'FilterPreset';
   filters: Scalars['JSON']['output'];
-  id: Scalars['String']['output'];
+  id: Scalars['UUID']['output'];
   name: Scalars['String']['output'];
 };
 
@@ -1814,7 +1814,7 @@ export type MutationRootDeleteCollectionArgs = {
 
 
 export type MutationRootDeleteFilterPresetArgs = {
-  filterPresetId: Scalars['String']['input'];
+  filterPresetId: Scalars['UUID']['input'];
 };
 
 
@@ -1987,7 +1987,7 @@ export type MutationRootUpdateCustomPersonArgs = {
 
 
 export type MutationRootUpdateFilterPresetLastUsedArgs = {
-  filterPresetId: Scalars['String']['input'];
+  filterPresetId: Scalars['UUID']['input'];
 };
 
 

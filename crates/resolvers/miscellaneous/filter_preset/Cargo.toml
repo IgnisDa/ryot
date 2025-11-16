@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 async-graphql = { workspace = true }
+uuid = { workspace = true }
 
 common-models = { workspace = true }
 database-models = { workspace = true }

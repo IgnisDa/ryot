@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 chrono = { workspace = true }
-nanoid = { workspace = true }
 sea-orm = { workspace = true }
 
 cache-service = { workspace = true }
