@@ -10,7 +10,6 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
 import {
 	EntityLot,
 	FilterPresetContextType,
@@ -34,7 +33,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
-import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
 	CreateButton,
@@ -54,13 +52,12 @@ import {
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataGroupDisplayItem } from "~/components/media/display-items";
+import { useFilterModals } from "~/lib/hooks/use-filter-modals";
 import { useFilterPresets } from "~/lib/hooks/use-filter-presets";
+import { useFilterState } from "~/lib/hooks/use-filter-state";
 import { useCoreDetails, useUserMetadataGroupList } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
-import {
-	convertEnumToSelectData,
-	isFilterChanged,
-} from "~/lib/shared/ui-utils";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import type { FilterUpdateFunction } from "~/lib/types";
 
@@ -101,39 +98,18 @@ export default function Page(props: { params: { action: string } }) {
 	const action = props.params.action;
 	const coreDetails = useCoreDetails();
 
-	const [
-		filtersModalOpened,
-		{ open: openFiltersModal, close: closeFiltersModal },
-	] = useDisclosure(false);
-	const [
-		searchFiltersModalOpened,
-		{ open: openSearchFiltersModal, close: closeSearchFiltersModal },
-	] = useDisclosure(false);
-	const [
-		listPresetModalOpened,
-		{ open: openListPresetModal, close: closeListPresetModal },
-	] = useDisclosure(false);
-	const [
-		searchPresetModalOpened,
-		{ open: openSearchPresetModal, close: closeSearchPresetModal },
-	] = useDisclosure(false);
+	const listModals = useFilterModals();
+	const searchModals = useFilterModals();
 
-	const [listFilters, setListFilters] = useLocalStorage<ListFilterState>(
-		"GroupsListFilters",
-		defaultListFilters,
-	);
-	const [searchFilters, setSearchFilters] = useLocalStorage<SearchFilterState>(
-		"GroupsSearchFilters",
-		defaultSearchFilters,
-	);
-	const normalizedListFilters = useMemo(
-		() => ({ ...defaultListFilters, ...listFilters }),
-		[listFilters],
-	);
-	const normalizedSearchFilters = useMemo(
-		() => ({ ...defaultSearchFilters, ...searchFilters }),
-		[searchFilters],
-	);
+	const listState = useFilterState({
+		storageKey: "GroupsListFilters",
+		defaultFilters: defaultListFilters,
+	});
+
+	const searchState = useFilterState({
+		storageKey: "GroupsSearchFilters",
+		defaultFilters: defaultSearchFilters,
+	});
 
 	const metadataGroupSourceOptions = useMemo(
 		() =>
@@ -144,51 +120,45 @@ export default function Page(props: { params: { action: string } }) {
 		[coreDetails.metadataGroupSourceLotMappings],
 	);
 
-	const setListFiltersState = (filters: ListFilterState) =>
-		setListFilters({ ...defaultListFilters, ...filters });
-
-	const setSearchFiltersState = (filters: SearchFilterState) =>
-		setSearchFilters({ ...defaultSearchFilters, ...filters });
-
 	const listPresets = useFilterPresets({
 		enabled: action === "list",
-		filters: normalizedListFilters,
-		setFilters: setListFiltersState,
+		filters: listState.normalizedFilters,
+		setFilters: listState.setFiltersState,
 		storageKeyPrefix: "GroupsListActivePreset",
 		contextType: FilterPresetContextType.MetadataGroupsList,
 	});
 
 	const searchPresets = useFilterPresets({
 		enabled: action === "search",
-		filters: normalizedSearchFilters,
-		setFilters: setSearchFiltersState,
+		filters: searchState.normalizedFilters,
+		setFilters: searchState.setFiltersState,
 		storageKeyPrefix: "GroupsSearchActivePreset",
 		contextType: FilterPresetContextType.MetadataGroupsSearch,
 	});
 
 	const handleSaveListPreset = async (name: string) => {
 		await listPresets.savePreset(name);
-		closeListPresetModal();
+		listModals.presetModal.close();
 	};
 
 	const handleSaveSearchPreset = async (name: string) => {
 		await searchPresets.savePreset(name);
-		closeSearchPresetModal();
+		searchModals.presetModal.close();
 	};
 
 	const listInput: UserMetadataGroupsListInput = useMemo(
 		() => ({
-			filter: { collections: normalizedListFilters.collections },
+			filter: { collections: listState.normalizedFilters.collections },
 			search: {
-				page: normalizedListFilters.page,
-				query: normalizedListFilters.query,
+				page: listState.normalizedFilters.page,
+				query: listState.normalizedFilters.query,
 			},
 			sort: {
-				by: normalizedListFilters.sortBy,
-				order: normalizedListFilters.orderBy,
+				by: listState.normalizedFilters.sortBy,
+				order: listState.normalizedFilters.orderBy,
 			},
 		}),
-		[normalizedListFilters],
+		[listState.normalizedFilters],
 	);
 
 	const {
@@ -198,18 +168,18 @@ export default function Page(props: { params: { action: string } }) {
 
 	const searchInput: MetadataGroupSearchInput = useMemo(() => {
 		const lot = coreDetails.metadataGroupSourceLotMappings.find(
-			(m) => m.source === normalizedSearchFilters.source,
+			(m) => m.source === searchState.normalizedFilters.source,
 		)?.lot;
 		if (!lot) throw new Error("Invalid source selected");
 		return {
 			lot,
-			source: normalizedSearchFilters.source,
+			source: searchState.normalizedFilters.source,
 			search: {
-				page: normalizedSearchFilters.page,
-				query: normalizedSearchFilters.query,
+				page: searchState.normalizedFilters.page,
+				query: searchState.normalizedFilters.query,
 			},
 		};
-	}, [normalizedSearchFilters, coreDetails]);
+	}, [searchState.normalizedFilters, coreDetails]);
 
 	const { data: metadataGroupSearch } = useQuery({
 		enabled: action === "search" && !!searchInput.lot,
@@ -220,52 +190,24 @@ export default function Page(props: { params: { action: string } }) {
 				.then((data) => data.metadataGroupSearch),
 	});
 
-	const areListFiltersActive = isFilterChanged(
-		normalizedListFilters,
-		defaultListFilters,
-	);
-	const areSearchFiltersActive = isFilterChanged(
-		normalizedSearchFilters,
-		defaultSearchFilters,
-	);
 	const searchInputValue =
 		action === "list"
-			? normalizedListFilters.query
-			: normalizedSearchFilters.query;
-
-	const updateListFilters: FilterUpdateFunction<ListFilterState> = (
-		key,
-		value,
-	) =>
-		setListFilters((prev) => ({
-			...defaultListFilters,
-			...prev,
-			[key]: value,
-		}));
-
-	const updateSearchFilters: FilterUpdateFunction<SearchFilterState> = (
-		key,
-		value,
-	) =>
-		setSearchFilters((prev) => ({
-			...defaultSearchFilters,
-			...prev,
-			[key]: value,
-		}));
+			? listState.normalizedFilters.query
+			: searchState.normalizedFilters.query;
 
 	return (
 		<>
 			<CreateFilterPresetModal
 				onSave={handleSaveListPreset}
-				opened={listPresetModalOpened}
-				onClose={closeListPresetModal}
+				opened={listModals.presetModal.opened}
+				onClose={listModals.presetModal.close}
 				placeholder="e.g., Favorite Franchises"
 			/>
 			<CreateFilterPresetModal
 				onSave={handleSaveSearchPreset}
-				opened={searchPresetModalOpened}
-				onClose={closeSearchPresetModal}
 				placeholder="e.g., TMDB Collections"
+				opened={searchModals.presetModal.opened}
+				onClose={searchModals.presetModal.close}
 			/>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
@@ -310,31 +252,31 @@ export default function Page(props: { params: { action: string } }) {
 							placeholder="Search for groups"
 							onChange={(value) => {
 								if (action === "list") {
-									updateListFilters("query", value);
-									updateListFilters("page", 1);
+									listState.updateFilter("query", value);
+									listState.updateFilter("page", 1);
 								} else {
-									updateSearchFilters("query", value);
-									updateSearchFilters("page", 1);
+									searchState.updateFilter("query", value);
+									searchState.updateFilter("page", 1);
 								}
 							}}
 						/>
 						{action === "list" ? (
 							<>
 								<ActionIcon
-									onClick={openFiltersModal}
-									color={areListFiltersActive ? "blue" : "gray"}
+									onClick={listModals.filtersModal.open}
+									color={listState.areFiltersActive ? "blue" : "gray"}
 								>
 									<IconFilter size={24} />
 								</ActionIcon>
 								<FiltersModal
-									opened={filtersModalOpened}
-									onSavePreset={openListPresetModal}
-									closeFiltersModal={closeFiltersModal}
-									resetFilters={() => setListFilters(defaultListFilters)}
+									resetFilters={listState.resetFilters}
+									opened={listModals.filtersModal.opened}
+									onSavePreset={listModals.presetModal.open}
+									closeFiltersModal={listModals.filtersModal.close}
 								>
 									<FiltersModalForm
-										filters={normalizedListFilters}
-										onFiltersChange={updateListFilters}
+										filters={listState.normalizedFilters}
+										onFiltersChange={listState.updateFilter}
 									/>
 								</FiltersModal>
 							</>
@@ -343,40 +285,40 @@ export default function Page(props: { params: { action: string } }) {
 							<>
 								<Select
 									data={metadataGroupSourceOptions}
-									value={normalizedSearchFilters.source}
+									value={searchState.normalizedFilters.source}
 									onChange={(v) =>
-										v && updateSearchFilters("source", v as MediaSource)
+										v && searchState.updateFilter("source", v as MediaSource)
 									}
 								/>
 								<ActionIcon
-									onClick={openSearchFiltersModal}
-									color={areSearchFiltersActive ? "blue" : "gray"}
+									onClick={searchModals.filtersModal.open}
+									color={searchState.areFiltersActive ? "blue" : "gray"}
 								>
 									<IconFilter size={24} />
 								</ActionIcon>
 								<FiltersModal
-									opened={searchFiltersModalOpened}
-									onSavePreset={openSearchPresetModal}
-									closeFiltersModal={closeSearchFiltersModal}
-									resetFilters={() => setSearchFilters(defaultSearchFilters)}
+									resetFilters={searchState.resetFilters}
+									opened={searchModals.filtersModal.opened}
+									onSavePreset={searchModals.presetModal.open}
+									closeFiltersModal={searchModals.filtersModal.close}
 								/>
 							</>
 						) : null}
 					</Group>
 					{action === "list" ? (
 						<FilterPresetBar
-							filterPresets={listPresets.filterPresets}
-							activePresetId={listPresets.activePresetId}
 							onSelectPreset={listPresets.applyPreset}
+							filterPresets={listPresets.filterPresets}
 							onDeletePreset={listPresets.deletePreset}
+							activePresetId={listPresets.activePresetId}
 						/>
 					) : null}
 					{action === "search" ? (
 						<FilterPresetBar
-							filterPresets={searchPresets.filterPresets}
-							activePresetId={searchPresets.activePresetId}
 							onSelectPreset={searchPresets.applyPreset}
+							filterPresets={searchPresets.filterPresets}
 							onDeletePreset={searchPresets.deletePreset}
+							activePresetId={searchPresets.activePresetId}
 						/>
 					) : null}
 
@@ -388,7 +330,7 @@ export default function Page(props: { params: { action: string } }) {
 									onRefreshButtonClicked={refetchUserMetadataGroupsList}
 									total={userMetadataGroupsList.response.details.totalItems}
 									isRandomSortOrderSelected={
-										normalizedListFilters.sortBy ===
+										listState.normalizedFilters.sortBy ===
 										PersonAndMetadataGroupsSortBy.Random
 									}
 								/>
@@ -402,8 +344,8 @@ export default function Page(props: { params: { action: string } }) {
 									<Text>No information to display</Text>
 								)}
 								<ApplicationPagination
-									value={normalizedListFilters.page}
-									onChange={(v) => updateListFilters("page", v)}
+									value={listState.normalizedFilters.page}
+									onChange={(v) => listState.updateFilter("page", v)}
 									totalItems={
 										userMetadataGroupsList.response.details.totalItems
 									}
@@ -434,8 +376,8 @@ export default function Page(props: { params: { action: string } }) {
 									<Text>No groups found matching your query</Text>
 								)}
 								<ApplicationPagination
-									value={normalizedSearchFilters.page}
-									onChange={(v) => updateSearchFilters("page", v)}
+									value={searchState.normalizedFilters.page}
+									onChange={(v) => searchState.updateFilter("page", v)}
 									totalItems={metadataGroupSearch.response.details.totalItems}
 								/>
 							</>

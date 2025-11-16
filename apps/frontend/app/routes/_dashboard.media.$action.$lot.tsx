@@ -12,7 +12,6 @@ import {
 	Text,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
-import { useDisclosure } from "@mantine/hooks";
 import {
 	EntityLot,
 	FilterPresetContextType,
@@ -39,7 +38,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
-import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
 	CreateButton,
@@ -60,15 +58,14 @@ import {
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
+import { useFilterModals } from "~/lib/hooks/use-filter-modals";
 import { useFilterPresets } from "~/lib/hooks/use-filter-presets";
+import { useFilterState } from "~/lib/hooks/use-filter-state";
 import { dayjsLib, getStartTimeFromRange } from "~/lib/shared/date-utils";
 import { useCoreDetails, useUserMetadataList } from "~/lib/shared/hooks";
 import { getLot } from "~/lib/shared/media-utils";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
-import {
-	convertEnumToSelectData,
-	isFilterChanged,
-} from "~/lib/shared/ui-utils";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	OnboardingTourStepTargets,
@@ -128,49 +125,39 @@ export default function Page(props: {
 	const metadataLotSourceMapping = coreDetails.metadataLotSourceMappings.find(
 		(m) => m.lot === lot,
 	);
-	const [
-		filtersModalOpened,
-		{ open: openFiltersModal, close: closeFiltersModal },
-	] = useDisclosure(false);
-	const [
-		searchFiltersModalOpened,
-		{ open: openSearchFiltersModal, close: closeSearchFiltersModal },
-	] = useDisclosure(false);
-	const [listFilters, setListFilters] = useLocalStorage<ListFilterState>(
-		`MediaListFilters_${lot}`,
-		defaultListFilters,
-	);
+
+	const listModals = useFilterModals();
+	const searchModals = useFilterModals();
+
+	const listState = useFilterState({
+		storageKey: `MediaListFilters_${lot}`,
+		defaultFilters: defaultListFilters,
+	});
+
 	const defaultSearchFilters: SearchFilterState = {
 		page: 1,
 		query: "",
 		source: metadataLotSourceMapping?.sources[0] || MediaSource.Tmdb,
 	};
-	const [searchFilters, setSearchFilters] = useLocalStorage<SearchFilterState>(
-		`MediaSearchFilters_${lot}`,
-		defaultSearchFilters,
-	);
-	const [
-		listPresetModalOpened,
-		{ open: openListPresetModal, close: closeListPresetModal },
-	] = useDisclosure(false);
-	const [
-		searchPresetModalOpened,
-		{ open: openSearchPresetModal, close: closeSearchPresetModal },
-	] = useDisclosure(false);
+
+	const searchState = useFilterState({
+		storageKey: `MediaSearchFilters_${lot}`,
+		defaultFilters: defaultSearchFilters,
+	});
 
 	const listPresets = useFilterPresets({
-		filters: listFilters,
 		enabled: action === "list",
-		setFilters: setListFilters,
+		filters: listState.normalizedFilters,
+		setFilters: listState.setFiltersState,
 		storageKeyPrefix: `MediaActivePreset_${lot}`,
 		contextInformation: { metadataList: { lot } },
 		contextType: FilterPresetContextType.MetadataList,
 	});
 
 	const searchPresets = useFilterPresets({
-		filters: searchFilters,
 		enabled: action === "search",
-		setFilters: setSearchFilters,
+		filters: searchState.normalizedFilters,
+		setFilters: searchState.setFiltersState,
 		contextInformation: { metadataSearch: { lot } },
 		storageKeyPrefix: `MediaSearchActivePreset_${lot}`,
 		contextType: FilterPresetContextType.MetadataSearch,
@@ -179,41 +166,54 @@ export default function Page(props: {
 	const listInput: UserMetadataListInput = useMemo(
 		() => ({
 			lot,
-			search: { page: listFilters.page, query: listFilters.query },
-			sort: { order: listFilters.sortOrder, by: listFilters.sortBy },
+			search: {
+				page: listState.normalizedFilters.page,
+				query: listState.normalizedFilters.query,
+			},
+			sort: {
+				order: listState.normalizedFilters.sortOrder,
+				by: listState.normalizedFilters.sortBy,
+			},
 			filter: {
-				general: listFilters.generalFilter,
-				collections: listFilters.collections,
+				general: listState.normalizedFilters.generalFilter,
+				collections: listState.normalizedFilters.collections,
 				dateRange: {
-					endDate: listFilters.endDateRange,
-					startDate: listFilters.startDateRange,
+					endDate: listState.normalizedFilters.endDateRange,
+					startDate: listState.normalizedFilters.startDateRange,
 				},
 			},
 		}),
-		[lot, listFilters],
+		[lot, listState.normalizedFilters],
 	);
 
 	const searchInput: MetadataSearchInput = useMemo(
 		() => ({
 			lot,
-			source: searchFilters.source,
-			search: { page: searchFilters.page, query: searchFilters.query },
+			source: searchState.normalizedFilters.source,
+			search: {
+				page: searchState.normalizedFilters.page,
+				query: searchState.normalizedFilters.query,
+			},
 			sourceSpecifics: {
-				googleBooks: { passRawQuery: searchFilters.googleBooksPassRawQuery },
+				googleBooks: {
+					passRawQuery: searchState.normalizedFilters.googleBooksPassRawQuery,
+				},
 				igdb: {
 					filters: {
-						themeIds: searchFilters.igdbThemeIds,
-						genreIds: searchFilters.igdbGenreIds,
-						platformIds: searchFilters.igdbPlatformIds,
-						gameModeIds: searchFilters.igdbGameModeIds,
-						gameTypeIds: searchFilters.igdbGameTypeIds,
-						releaseDateRegionIds: searchFilters.igdbReleaseDateRegionIds,
-						allowGamesWithParent: searchFilters.igdbAllowGamesWithParent,
+						themeIds: searchState.normalizedFilters.igdbThemeIds,
+						genreIds: searchState.normalizedFilters.igdbGenreIds,
+						platformIds: searchState.normalizedFilters.igdbPlatformIds,
+						gameModeIds: searchState.normalizedFilters.igdbGameModeIds,
+						gameTypeIds: searchState.normalizedFilters.igdbGameTypeIds,
+						releaseDateRegionIds:
+							searchState.normalizedFilters.igdbReleaseDateRegionIds,
+						allowGamesWithParent:
+							searchState.normalizedFilters.igdbAllowGamesWithParent,
 					},
 				},
 			},
 		}),
-		[lot, searchFilters],
+		[lot, searchState.normalizedFilters],
 	);
 
 	const { data: userMetadataList, refetch: refetchUserMetadataList } =
@@ -228,32 +228,15 @@ export default function Page(props: {
 				.then((data) => data.metadataSearch),
 	});
 
-	const areListFiltersActive = isFilterChanged(listFilters, defaultListFilters);
-
-	const updateListFilters: FilterUpdateFunction<ListFilterState> = (
-		key,
-		value,
-	) => setListFilters((prev) => ({ ...prev, [key]: value }));
-
-	const updateSearchFilters: FilterUpdateFunction<SearchFilterState> = (
-		key,
-		value,
-	) => setSearchFilters((prev) => ({ ...prev, [key]: value }));
-
 	const handleSaveListPreset = async (name: string) => {
 		await listPresets.savePreset(name);
-		closeListPresetModal();
+		listModals.presetModal.close();
 	};
 
 	const handleSaveSearchPreset = async (name: string) => {
 		await searchPresets.savePreset(name);
-		closeSearchPresetModal();
+		searchModals.presetModal.close();
 	};
-
-	const areSearchFiltersActive = isFilterChanged(
-		searchFilters,
-		defaultSearchFilters,
-	);
 
 	const isEligibleForNextTourStep = lot === MediaLot.AudioBook;
 
@@ -261,15 +244,15 @@ export default function Page(props: {
 		<>
 			<CreateFilterPresetModal
 				onSave={handleSaveListPreset}
-				opened={listPresetModalOpened}
-				onClose={closeListPresetModal}
 				placeholder="e.g., Unfinished Books"
+				opened={listModals.presetModal.opened}
+				onClose={listModals.presetModal.close}
 			/>
 			<CreateFilterPresetModal
 				onSave={handleSaveSearchPreset}
-				opened={searchPresetModalOpened}
-				onClose={closeSearchPresetModal}
 				placeholder="e.g., RPG Games on PS5"
+				opened={searchModals.presetModal.opened}
+				onClose={searchModals.presetModal.close}
 			/>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
@@ -332,31 +315,31 @@ export default function Page(props: {
 							<>
 								<Group wrap="nowrap">
 									<DebouncedSearchInput
-										value={listFilters.query}
+										value={listState.normalizedFilters.query}
 										placeholder={`Sift through your ${changeCase(
 											lot.toLowerCase(),
 										).toLowerCase()}s`}
 										onChange={(value) => {
-											updateListFilters("query", value);
-											updateListFilters("page", 1);
+											listState.updateFilter("query", value);
+											listState.updateFilter("page", 1);
 										}}
 									/>
 									<ActionIcon
-										onClick={openFiltersModal}
-										color={areListFiltersActive ? "blue" : "gray"}
+										onClick={listModals.filtersModal.open}
+										color={listState.areFiltersActive ? "blue" : "gray"}
 									>
 										<IconFilter size={24} />
 									</ActionIcon>
 									<FiltersModal
-										opened={filtersModalOpened}
-										onSavePreset={openListPresetModal}
-										closeFiltersModal={closeFiltersModal}
-										resetFilters={() => setListFilters(defaultListFilters)}
+										resetFilters={listState.resetFilters}
+										opened={listModals.filtersModal.opened}
+										onSavePreset={listModals.presetModal.open}
+										closeFiltersModal={listModals.filtersModal.close}
 									>
 										<FiltersModalForm
 											lot={lot}
-											filters={listFilters}
-											onFiltersChange={updateListFilters}
+											filters={listState.normalizedFilters}
+											onFiltersChange={listState.updateFilter}
 										/>
 									</FiltersModal>
 								</Group>
@@ -371,10 +354,11 @@ export default function Page(props: {
 									onRefreshButtonClicked={refetchUserMetadataList}
 									total={userMetadataList.response.details.totalItems}
 									isRandomSortOrderSelected={
-										listFilters.sortBy === MediaSortBy.Random
+										listState.normalizedFilters.sortBy === MediaSortBy.Random
 									}
 								/>
-								{(listFilters.startDateRange || listFilters.endDateRange) &&
+								{(listState.normalizedFilters.startDateRange ||
+									listState.normalizedFilters.endDateRange) &&
 								!coreDetails.isServerKeyValidated ? (
 									<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
 								) : userMetadataList.response.details.totalItems > 0 ? (
@@ -389,8 +373,8 @@ export default function Page(props: {
 									<Text>You do not have any saved yet</Text>
 								)}
 								<ApplicationPagination
-									value={listFilters.page}
-									onChange={(v) => updateListFilters("page", v)}
+									value={listState.normalizedFilters.page}
+									onChange={(v) => listState.updateFilter("page", v)}
 									totalItems={userMetadataList.response.details.totalItems}
 								/>
 							</>
@@ -403,13 +387,13 @@ export default function Page(props: {
 							<>
 								<Group wrap="nowrap">
 									<DebouncedSearchInput
-										value={searchFilters.query}
+										value={searchState.normalizedFilters.query}
 										placeholder={`Search for ${changeCase(
 											lot.toLowerCase(),
 										).toLowerCase()}s`}
 										onChange={(value) => {
-											updateSearchFilters("query", value);
-											updateSearchFilters("page", 1);
+											searchState.updateFilter("query", value);
+											searchState.updateFilter("page", 1);
 										}}
 										tourControl={{
 											target: OnboardingTourStepTargets.SearchAudiobook,
@@ -422,9 +406,10 @@ export default function Page(props: {
 									<Group gap="xs" wrap="nowrap">
 										{(metadataLotSourceMapping?.sources.length || 0) > 1 ? (
 											<Select
-												value={searchFilters.source}
+												value={searchState.normalizedFilters.source}
 												onChange={(v) =>
-													v && updateSearchFilters("source", v as MediaSource)
+													v &&
+													searchState.updateFilter("source", v as MediaSource)
 												}
 												data={metadataLotSourceMapping?.sources.map((o) => ({
 													value: o,
@@ -433,22 +418,20 @@ export default function Page(props: {
 											/>
 										) : null}
 										<ActionIcon
-											onClick={openSearchFiltersModal}
-											color={areSearchFiltersActive ? "blue" : "gray"}
+											onClick={searchModals.filtersModal.open}
+											color={searchState.areFiltersActive ? "blue" : "gray"}
 										>
 											<IconFilter size={24} />
 										</ActionIcon>
 										<FiltersModal
-											opened={searchFiltersModalOpened}
-											onSavePreset={openSearchPresetModal}
-											closeFiltersModal={closeSearchFiltersModal}
-											resetFilters={() =>
-												setSearchFilters(defaultSearchFilters)
-											}
+											resetFilters={searchState.resetFilters}
+											opened={searchModals.filtersModal.opened}
+											onSavePreset={searchModals.presetModal.open}
+											closeFiltersModal={searchModals.filtersModal.close}
 										>
 											<SearchFiltersModalForm
-												filters={searchFilters}
-												onFiltersChange={updateSearchFilters}
+												filters={searchState.normalizedFilters}
+												onFiltersChange={searchState.updateFilter}
 											/>
 										</FiltersModal>
 									</Group>
@@ -479,8 +462,8 @@ export default function Page(props: {
 									<Text>No media found matching your query</Text>
 								)}
 								<ApplicationPagination
-									value={searchFilters.page}
-									onChange={(v) => updateSearchFilters("page", v)}
+									value={searchState.normalizedFilters.page}
+									onChange={(v) => searchState.updateFilter("page", v)}
 									totalItems={metadataSearch.response.details.totalItems}
 								/>
 							</>
