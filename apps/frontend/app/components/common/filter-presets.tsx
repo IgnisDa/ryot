@@ -1,5 +1,13 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { Button, Chip, Group, Modal, Stack, TextInput } from "@mantine/core";
+import {
+	Button,
+	Chip,
+	Group,
+	Modal,
+	Stack,
+	Text,
+	TextInput,
+} from "@mantine/core";
 import { useLongPress } from "@mantine/hooks";
 import type { FilterPresetsQuery } from "@ryot/generated/graphql/backend/graphql";
 import { useState } from "react";
@@ -26,8 +34,11 @@ export const CreateFilterPresetModal = (props: {
 					placeholder={props.placeholder || "e.g., My Preset"}
 					onChange={(e) => setPresetName(e.currentTarget.value)}
 				/>
+				<Text c="dimmed" size="xs" ta="right">
+					Hint: Long press on a preset to delete it.
+				</Text>
 
-				<Group justify="flex-end" mt="md">
+				<Group justify="flex-end">
 					<Button variant="default" onClick={props.onClose}>
 						Cancel
 					</Button>
