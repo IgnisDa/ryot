@@ -43,7 +43,6 @@ import type { OnboardingTourStepTargets } from "~/lib/state/onboarding-tour";
 import { ProRequiredAlert } from ".";
 
 export const FiltersModal = (props: {
-	title?: string;
 	opened: boolean;
 	children?: ReactNode;
 	resetFilters: () => void;
@@ -58,7 +57,7 @@ export const FiltersModal = (props: {
 	>
 		<Stack>
 			<Group justify="space-between">
-				<Title order={3}>{props.title || "Filters"}</Title>
+				<Title order={3}>Filters</Title>
 				<Group wrap="nowrap">
 					<ActionIcon
 						size="compact-xs"
