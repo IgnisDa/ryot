@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { type DbClient, db } from "~/lib/db";
-import { type FacetMode, facet } from "~/lib/db/schema";
+import { facet } from "~/lib/db/schema";
 
 export const listFacetsByUser = async (userId: string) => {
 	const rows = await db
@@ -9,7 +9,6 @@ export const listFacetsByUser = async (userId: string) => {
 			slug: facet.slug,
 			name: facet.name,
 			icon: facet.icon,
-			mode: facet.mode,
 			config: facet.config,
 			enabled: facet.enabled,
 			isBuiltin: facet.isBuiltin,
@@ -102,7 +101,6 @@ export const createFacetForUser = async (input: {
 	slug: string;
 	icon: string;
 	userId: string;
-	mode: FacetMode;
 	accentColor: string;
 	description?: string;
 }) => {
@@ -123,7 +121,6 @@ export const createFacetForUser = async (input: {
 			slug: input.slug,
 			name: input.name,
 			icon: input.icon,
-			mode: input.mode,
 			userId: input.userId,
 			sortOrder: nextSortOrder,
 			accentColor: input.accentColor,
@@ -134,7 +131,6 @@ export const createFacetForUser = async (input: {
 			slug: facet.slug,
 			name: facet.name,
 			icon: facet.icon,
-			mode: facet.mode,
 			config: facet.config,
 			enabled: facet.enabled,
 			isBuiltin: facet.isBuiltin,
@@ -155,7 +151,6 @@ export const createBuiltinFacetsForUser = async (input: {
 		slug: string;
 		icon: string;
 		name: string;
-		mode: FacetMode;
 		accentColor: string;
 		description?: string;
 	}>;
@@ -173,7 +168,6 @@ export const createBuiltinFacetsForUser = async (input: {
 				slug: item.slug,
 				name: item.name,
 				icon: item.icon,
-				mode: item.mode,
 				sortOrder: index,
 				userId: input.userId,
 				accentColor: item.accentColor,
@@ -265,7 +259,6 @@ export const updateFacetForUser = async (input: {
 			slug: facet.slug,
 			name: facet.name,
 			icon: facet.icon,
-			mode: facet.mode,
 			config: facet.config,
 			enabled: facet.enabled,
 			isBuiltin: facet.isBuiltin,

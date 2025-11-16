@@ -1,5 +1,4 @@
 import { resolveRequiredString } from "@ryot/ts-utils";
-import type { FacetMode } from "~/lib/db/schema";
 import type { SavedViewQueryDefinition } from "../saved-views/schemas";
 
 export const resolveAuthenticationName = (name: string) =>
@@ -10,7 +9,6 @@ export const buildAuthenticationFacetInputs = (input: {
 		slug: string;
 		icon: string;
 		name: string;
-		mode: FacetMode;
 		accentColor: string;
 		description?: string;
 	}>;
@@ -19,7 +17,6 @@ export const buildAuthenticationFacetInputs = (input: {
 		slug: facet.slug,
 		name: facet.name,
 		icon: facet.icon,
-		mode: facet.mode,
 		accentColor: facet.accentColor,
 		description: facet.description,
 	}));
