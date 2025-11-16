@@ -3,6 +3,7 @@ use std::sync::Arc;
 use anyhow::{Result, bail};
 use chrono::Utc;
 use common_models::{CreateFilterPresetInput, FilterPresetQueryInput, UserLevelCacheKey};
+use common_utils::MAX_PRESET_FILTERS_FOR_NON_PRO_USERS;
 use database_models::{filter_preset, prelude::FilterPreset};
 use dependent_core_utils::is_server_key_validated;
 use dependent_models::{
@@ -60,7 +61,9 @@ pub async fn create_filter_preset(
         .count(&ss.db)
         .await?;
 
-    if filters_by_this_user >= 2 && !is_server_key_validated(ss).await? {
+    if filters_by_this_user >= MAX_PRESET_FILTERS_FOR_NON_PRO_USERS
+        && !is_server_key_validated(ss).await?
+    {
         bail!("Please upgrade to a pro plan to create more than 2 presets.");
     }
 
