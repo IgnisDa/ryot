@@ -1,10 +1,9 @@
 use async_graphql::{Context, Object, Result};
-use common_models::{CreateOrUpdateFilterPresetInput, FilterPresetQueryInput};
+use common_models::{CreateFilterPresetInput, FilterPresetQueryInput};
 use database_models::filter_preset;
 use dependent_models::{CachedResponse, FilterPresetsListResponse};
 use miscellaneous_filter_preset_service::{
-    create_or_update_filter_preset, delete_filter_preset, get_filter_presets,
-    update_filter_preset_last_used,
+    create_filter_preset, delete_filter_preset, get_filter_presets, update_filter_preset_last_used,
 };
 use miscellaneous_service::MiscellaneousService;
 use traits::{AuthProvider, GraphqlResolverSvc};
@@ -42,14 +41,14 @@ impl GraphqlResolverSvc<MiscellaneousService> for MiscellaneousFilterPresetMutat
 
 #[Object]
 impl MiscellaneousFilterPresetMutationResolver {
-    /// Create or update a filter preset
-    async fn create_or_update_filter_preset(
+    /// Create a filter preset
+    async fn create_filter_preset(
         &self,
         gql_ctx: &Context<'_>,
-        input: CreateOrUpdateFilterPresetInput,
+        input: CreateFilterPresetInput,
     ) -> Result<filter_preset::Model> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(create_or_update_filter_preset(&user_id, input, &service.0).await?)
+        Ok(create_filter_preset(&user_id, input, &service.0).await?)
     }
 
     /// Delete a filter preset

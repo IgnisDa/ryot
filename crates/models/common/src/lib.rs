@@ -323,9 +323,8 @@ pub struct FilterPresetContextInformation {
 
 #[skip_serializing_none]
 #[derive(Debug, InputObject, Clone, Serialize, Deserialize)]
-pub struct CreateOrUpdateFilterPresetInput {
+pub struct CreateFilterPresetInput {
     pub name: String,
-    pub id: Option<String>,
     pub filters: serde_json::Value,
     pub context_type: FilterPresetContextType,
     pub context_information: Option<FilterPresetContextInformation>,

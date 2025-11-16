@@ -440,6 +440,13 @@ export type CreateCustomPersonInput = {
   website?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type CreateFilterPresetInput = {
+  contextInformation?: InputMaybe<FilterPresetContextInformation>;
+  contextType: FilterPresetContextType;
+  filters: Scalars['JSON']['input'];
+  name: Scalars['String']['input'];
+};
+
 export type CreateOrUpdateCollectionInput = {
   collaborators?: InputMaybe<Array<Scalars['String']['input']>>;
   description?: InputMaybe<Scalars['String']['input']>;
@@ -447,14 +454,6 @@ export type CreateOrUpdateCollectionInput = {
   informationTemplate?: InputMaybe<Array<CollectionExtraInformationInput>>;
   name: Scalars['String']['input'];
   updateId?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type CreateOrUpdateFilterPresetInput = {
-  contextInformation?: InputMaybe<FilterPresetContextInformation>;
-  contextType: FilterPresetContextType;
-  filters: Scalars['JSON']['input'];
-  id?: InputMaybe<Scalars['String']['input']>;
-  name: Scalars['String']['input'];
 };
 
 export type CreateOrUpdateReviewInput = {
@@ -1599,10 +1598,10 @@ export type MutationRoot = {
   createCustomMetadataGroup: StringIdObject;
   /** Create a custom person. */
   createCustomPerson: StringIdObject;
+  /** Create a filter preset */
+  createFilterPreset: FilterPreset;
   /** Create a new collection for the logged in user or edit details of an existing one. */
   createOrUpdateCollection: StringIdObject;
-  /** Create or update a filter preset */
-  createOrUpdateFilterPreset: FilterPreset;
   /** Create or update a review. */
   createOrUpdateReview: StringIdObject;
   /** Create or update an integration for the currently logged in user. */
@@ -1770,13 +1769,13 @@ export type MutationRootCreateCustomPersonArgs = {
 };
 
 
-export type MutationRootCreateOrUpdateCollectionArgs = {
-  input: CreateOrUpdateCollectionInput;
+export type MutationRootCreateFilterPresetArgs = {
+  input: CreateFilterPresetInput;
 };
 
 
-export type MutationRootCreateOrUpdateFilterPresetArgs = {
-  input: CreateOrUpdateFilterPresetInput;
+export type MutationRootCreateOrUpdateCollectionArgs = {
+  input: CreateOrUpdateCollectionInput;
 };
 
 

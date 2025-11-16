@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{Result, bail};
 use chrono::Utc;
-use common_models::{CreateOrUpdateFilterPresetInput, FilterPresetQueryInput, UserLevelCacheKey};
+use common_models::{CreateFilterPresetInput, FilterPresetQueryInput, UserLevelCacheKey};
 use database_models::{filter_preset, prelude::FilterPreset};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, FilterPresetsListResponse,
@@ -46,52 +46,27 @@ pub async fn get_filter_presets(
     .await
 }
 
-pub async fn create_or_update_filter_preset(
+pub async fn create_filter_preset(
     user_id: &str,
-    input: CreateOrUpdateFilterPresetInput,
+    input: CreateFilterPresetInput,
     ss: &Arc<SupportingService>,
 ) -> Result<filter_preset::Model> {
-    match input.id {
-        Some(id) => {
-            let existing = FilterPreset::find_by_id(&id)
-                .filter(filter_preset::Column::UserId.eq(user_id))
-                .one(&ss.db)
-                .await?;
+    let new_preset = filter_preset::ActiveModel {
+        name: ActiveValue::Set(input.name),
+        filters: ActiveValue::Set(input.filters),
+        last_used_at: ActiveValue::Set(Utc::now()),
+        user_id: ActiveValue::Set(user_id.to_string()),
+        id: ActiveValue::Set(format!("fp_{}", nanoid!())),
+        context_type: ActiveValue::Set(input.context_type),
+        context_information: ActiveValue::Set(input.context_information),
+        ..Default::default()
+    };
 
-            let Some(existing) = existing else {
-                bail!("Filter preset not found or access denied");
-            };
+    let inserted = new_preset.insert(&ss.db).await?;
 
-            let mut active_model: filter_preset::ActiveModel = existing.into();
-            active_model.name = ActiveValue::Set(input.name);
-            active_model.filters = ActiveValue::Set(input.filters);
-            active_model.updated_at = ActiveValue::Set(Utc::now());
+    expire_user_filter_presets_cache(&user_id.to_owned(), ss).await?;
 
-            let updated = active_model.update(&ss.db).await?;
-
-            expire_user_filter_presets_cache(&user_id.to_owned(), ss).await?;
-
-            Ok(updated)
-        }
-        None => {
-            let new_preset = filter_preset::ActiveModel {
-                name: ActiveValue::Set(input.name),
-                filters: ActiveValue::Set(input.filters),
-                last_used_at: ActiveValue::Set(Utc::now()),
-                user_id: ActiveValue::Set(user_id.to_string()),
-                id: ActiveValue::Set(format!("fp_{}", nanoid!())),
-                context_type: ActiveValue::Set(input.context_type),
-                context_information: ActiveValue::Set(input.context_information),
-                ..Default::default()
-            };
-
-            let inserted = new_preset.insert(&ss.db).await?;
-
-            expire_user_filter_presets_cache(&user_id.to_owned(), ss).await?;
-
-            Ok(inserted)
-        }
-    }
+    Ok(inserted)
 }
 
 pub async fn delete_filter_preset(

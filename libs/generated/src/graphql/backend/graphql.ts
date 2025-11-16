@@ -439,6 +439,13 @@ export type CreateCustomPersonInput = {
   website?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type CreateFilterPresetInput = {
+  contextInformation?: InputMaybe<FilterPresetContextInformation>;
+  contextType: FilterPresetContextType;
+  filters: Scalars['JSON']['input'];
+  name: Scalars['String']['input'];
+};
+
 export type CreateOrUpdateCollectionInput = {
   collaborators?: InputMaybe<Array<Scalars['String']['input']>>;
   description?: InputMaybe<Scalars['String']['input']>;
@@ -446,14 +453,6 @@ export type CreateOrUpdateCollectionInput = {
   informationTemplate?: InputMaybe<Array<CollectionExtraInformationInput>>;
   name: Scalars['String']['input'];
   updateId?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type CreateOrUpdateFilterPresetInput = {
-  contextInformation?: InputMaybe<FilterPresetContextInformation>;
-  contextType: FilterPresetContextType;
-  filters: Scalars['JSON']['input'];
-  id?: InputMaybe<Scalars['String']['input']>;
-  name: Scalars['String']['input'];
 };
 
 export type CreateOrUpdateReviewInput = {
@@ -1544,10 +1543,10 @@ export type MutationRoot = {
   createCustomMetadataGroup: StringIdObject;
   /** Create a custom person. */
   createCustomPerson: StringIdObject;
+  /** Create a filter preset */
+  createFilterPreset: FilterPreset;
   /** Create a new collection for the logged in user or edit details of an existing one. */
   createOrUpdateCollection: StringIdObject;
-  /** Create or update a filter preset */
-  createOrUpdateFilterPreset: FilterPreset;
   /** Create or update a review. */
   createOrUpdateReview: StringIdObject;
   /** Create or update an integration for the currently logged in user. */
@@ -1715,13 +1714,13 @@ export type MutationRootCreateCustomPersonArgs = {
 };
 
 
-export type MutationRootCreateOrUpdateCollectionArgs = {
-  input: CreateOrUpdateCollectionInput;
+export type MutationRootCreateFilterPresetArgs = {
+  input: CreateFilterPresetInput;
 };
 
 
-export type MutationRootCreateOrUpdateFilterPresetArgs = {
-  input: CreateOrUpdateFilterPresetInput;
+export type MutationRootCreateOrUpdateCollectionArgs = {
+  input: CreateOrUpdateCollectionInput;
 };
 
 
@@ -3922,12 +3921,12 @@ export type SetPasswordViaSessionMutationVariables = Exact<{
 
 export type SetPasswordViaSessionMutation = { setPasswordViaSession: boolean };
 
-export type CreateOrUpdateFilterPresetMutationVariables = Exact<{
-  input: CreateOrUpdateFilterPresetInput;
+export type CreateFilterPresetMutationVariables = Exact<{
+  input: CreateFilterPresetInput;
 }>;
 
 
-export type CreateOrUpdateFilterPresetMutation = { createOrUpdateFilterPreset: { id: string, name: string, filters: any } };
+export type CreateFilterPresetMutation = { createFilterPreset: { id: string } };
 
 export type DeleteFilterPresetMutationVariables = Exact<{
   filterPresetId: Scalars['String']['input'];
@@ -4377,7 +4376,7 @@ export const DisableTwoFactorDocument = {"kind":"Document","definitions":[{"kind
 export const RegenerateTwoFactorBackupCodesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RegenerateTwoFactorBackupCodes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"regenerateTwoFactorBackupCodes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"backupCodes"}}]}}]}}]} as unknown as DocumentNode<RegenerateTwoFactorBackupCodesMutation, RegenerateTwoFactorBackupCodesMutationVariables>;
 export const GetPasswordChangeSessionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"GetPasswordChangeSession"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"GetPasswordChangeSessionInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getPasswordChangeSession"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userId"}},{"kind":"Field","name":{"kind":"Name","value":"passwordChangeUrl"}}]}}]}}]} as unknown as DocumentNode<GetPasswordChangeSessionMutation, GetPasswordChangeSessionMutationVariables>;
 export const SetPasswordViaSessionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"SetPasswordViaSession"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SetPasswordViaSessionInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"setPasswordViaSession"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<SetPasswordViaSessionMutation, SetPasswordViaSessionMutationVariables>;
-export const CreateOrUpdateFilterPresetDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateOrUpdateFilterPreset"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateOrUpdateFilterPresetInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createOrUpdateFilterPreset"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"filters"}}]}}]}}]} as unknown as DocumentNode<CreateOrUpdateFilterPresetMutation, CreateOrUpdateFilterPresetMutationVariables>;
+export const CreateFilterPresetDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateFilterPreset"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateFilterPresetInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createFilterPreset"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CreateFilterPresetMutation, CreateFilterPresetMutationVariables>;
 export const DeleteFilterPresetDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteFilterPreset"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filterPresetId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteFilterPreset"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"filterPresetId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filterPresetId"}}}]}]}}]} as unknown as DocumentNode<DeleteFilterPresetMutation, DeleteFilterPresetMutationVariables>;
 export const UpdateFilterPresetLastUsedDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateFilterPresetLastUsed"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filterPresetId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateFilterPresetLastUsed"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"filterPresetId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filterPresetId"}}}]}]}}]} as unknown as DocumentNode<UpdateFilterPresetLastUsedMutation, UpdateFilterPresetLastUsedMutationVariables>;
 export const CoreDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CoreDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"coreDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"version"}},{"kind":"Field","name":{"kind":"Name","value":"docsLink"}},{"kind":"Field","name":{"kind":"Name","value":"pageSize"}},{"kind":"Field","name":{"kind":"Name","value":"websiteUrl"}},{"kind":"Field","name":{"kind":"Name","value":"smtpEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"oidcEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"signupAllowed"}},{"kind":"Field","name":{"kind":"Name","value":"maxFileSizeMb"}},{"kind":"Field","name":{"kind":"Name","value":"repositoryLink"}},{"kind":"Field","name":{"kind":"Name","value":"isDemoInstance"}},{"kind":"Field","name":{"kind":"Name","value":"disableTelemetry"}},{"kind":"Field","name":{"kind":"Name","value":"tokenValidForDays"}},{"kind":"Field","name":{"kind":"Name","value":"localAuthDisabled"}},{"kind":"Field","name":{"kind":"Name","value":"fileStorageEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"peopleSearchSources"}},{"kind":"Field","name":{"kind":"Name","value":"isServerKeyValidated"}},{"kind":"Field","name":{"kind":"Name","value":"twoFactorBackupCodesCount"}},{"kind":"Field","name":{"kind":"Name","value":"metadataGroupSourceLotMappings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"source"}}]}},{"kind":"Field","name":{"kind":"Name","value":"metadataLotSourceMappings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"sources"}}]}},{"kind":"Field","name":{"kind":"Name","value":"providerSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"igdb"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"themes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"IdAndNamedObjectPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"genres"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"IdAndNamedObjectPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"platforms"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"IdAndNamedObjectPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"gameModes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"IdAndNamedObjectPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"gameTypes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"IdAndNamedObjectPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"releaseDateRegions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"IdAndNamedObjectPart"}}]}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"metadataProviderLanguages"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"source"}},{"kind":"Field","name":{"kind":"Name","value":"default"}},{"kind":"Field","name":{"kind":"Name","value":"supported"}}]}},{"kind":"Field","name":{"kind":"Name","value":"frontend"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"url"}},{"kind":"Field","name":{"kind":"Name","value":"oidcButtonLabel"}},{"kind":"Field","name":{"kind":"Name","value":"dashboardMessage"}},{"kind":"Field","name":{"kind":"Name","value":"umami"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"scriptUrl"}},{"kind":"Field","name":{"kind":"Name","value":"websiteId"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"exerciseParameters"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lotMapping"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"bests"}}]}},{"kind":"Field","name":{"kind":"Name","value":"filters"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"level"}},{"kind":"Field","name":{"kind":"Name","value":"force"}},{"kind":"Field","name":{"kind":"Name","value":"muscle"}},{"kind":"Field","name":{"kind":"Name","value":"mechanic"}},{"kind":"Field","name":{"kind":"Name","value":"equipment"}}]}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"IdAndNamedObjectPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"IdAndNamedObject"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]} as unknown as DocumentNode<CoreDetailsQuery, CoreDetailsQueryVariables>;
