@@ -64,13 +64,15 @@ pub async fn create_filter_preset(
     if filters_by_this_user >= MAX_PRESET_FILTERS_FOR_NON_PRO_USERS
         && !is_server_key_validated(ss).await?
     {
-        bail!("Please upgrade to a pro plan to create more than 2 presets.");
+        bail!(
+            "Please upgrade to the pro plan to create more than {} presets.",
+            MAX_PRESET_FILTERS_FOR_NON_PRO_USERS
+        );
     }
 
     let new_preset = filter_preset::ActiveModel {
         name: ActiveValue::Set(input.name),
         filters: ActiveValue::Set(input.filters),
-        last_used_at: ActiveValue::Set(Utc::now()),
         user_id: ActiveValue::Set(user_id.to_string()),
         id: ActiveValue::Set(format!("fp_{}", nanoid!())),
         context_type: ActiveValue::Set(input.context_type),
