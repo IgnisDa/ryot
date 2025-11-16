@@ -182,9 +182,7 @@ export default function Page(props: {
 	});
 
 	const createPresetMutation = useMutation({
-		mutationFn: (variables: {
-			input: { name: string; filters: unknown; id?: string };
-		}) =>
+		mutationFn: (variables: { input: { name: string; filters: unknown } }) =>
 			clientGqlService.request(CreateFilterPresetDocument, {
 				input: {
 					...variables.input,
