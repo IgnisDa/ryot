@@ -175,7 +175,7 @@ export default function Page(props: {
 				.request(FilterPresetsDocument, {
 					input: {
 						contextInformation: { metadataList: { lot } },
-						contextType: FilterPresetContextType.MediaList,
+						contextType: FilterPresetContextType.MetadataList,
 					},
 				})
 				.then((data) => data.filterPresets),
@@ -189,7 +189,7 @@ export default function Page(props: {
 				input: {
 					...variables.input,
 					contextInformation: { metadataList: { lot } },
-					contextType: FilterPresetContextType.MediaList,
+					contextType: FilterPresetContextType.MetadataList,
 				},
 			}),
 		onSuccess: () => {
