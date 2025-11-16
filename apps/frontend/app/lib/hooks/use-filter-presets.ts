@@ -3,7 +3,6 @@ import { notifications } from "@mantine/notifications";
 import {
 	CreateFilterPresetDocument,
 	DeleteFilterPresetDocument,
-	type FilterPresetContextInformation,
 	type FilterPresetContextType,
 	FilterPresetsDocument,
 	UpdateFilterPresetLastUsedDocument,
@@ -18,36 +17,30 @@ interface UseFilterPresetsConfig<TFilter> {
 	enabled: boolean;
 	filters: TFilter;
 	storageKeyPrefix: string;
+	contextInformation?: unknown;
 	contextType: FilterPresetContextType;
 	setFilters: (filters: TFilter) => void;
-	contextInformation: FilterPresetContextInformation;
 }
 
 export const useFilterPresets = <TFilter extends { page: number }>(
 	config: UseFilterPresetsConfig<TFilter>,
 ) => {
-	const {
-		enabled,
-		contextType,
-		filters,
-		setFilters,
-		storageKeyPrefix,
-		contextInformation,
-	} = config;
-
 	const [activePresetId, setActivePresetId] = useLocalStorage<string | null>(
-		storageKeyPrefix,
+		config.storageKeyPrefix,
 		null,
 	);
 	const isApplyingPreset = useRef(false);
 
 	const { data: filterPresets, refetch: refetchFilterPresets } = useQuery({
-		enabled,
-		queryKey: ["filterPresets", contextType, contextInformation],
+		enabled: config.enabled,
+		queryKey: ["filterPresets", config.contextType, config.contextInformation],
 		queryFn: () =>
 			clientGqlService
 				.request(FilterPresetsDocument, {
-					input: { contextInformation, contextType },
+					input: {
+						contextType: config.contextType,
+						contextInformation: config.contextInformation,
+					},
 				})
 				.then((data) => data.filterPresets),
 	});
@@ -55,7 +48,11 @@ export const useFilterPresets = <TFilter extends { page: number }>(
 	const createPresetMutation = useMutation({
 		mutationFn: (variables: { input: { name: string; filters: unknown } }) =>
 			clientGqlService.request(CreateFilterPresetDocument, {
-				input: { ...variables.input, contextType, contextInformation },
+				input: {
+					...variables.input,
+					contextType: config.contextType,
+					contextInformation: config.contextInformation,
+				},
 			}),
 		onSuccess: () => {
 			refetchFilterPresets();
@@ -97,7 +94,7 @@ export const useFilterPresets = <TFilter extends { page: number }>(
 			typeof presetFilters === "string"
 				? JSON.parse(presetFilters)
 				: presetFilters;
-		setFilters({ ...parsedFilters, page: 1 } as TFilter);
+		config.setFilters({ ...parsedFilters, page: 1 } as TFilter);
 		setActivePresetId(presetId);
 		setTimeout(() => {
 			isApplyingPreset.current = false;
@@ -106,7 +103,7 @@ export const useFilterPresets = <TFilter extends { page: number }>(
 	};
 
 	const savePreset = async (name: string) => {
-		const filtersToSave = { ...filters, page: 1 };
+		const filtersToSave = { ...config.filters, page: 1 };
 		const result = await createPresetMutation.mutateAsync({
 			input: { name, filters: filtersToSave },
 		});
@@ -139,12 +136,11 @@ export const useFilterPresets = <TFilter extends { page: number }>(
 				? JSON.parse(activePreset.filters)
 				: activePreset.filters;
 
-		const { page: _currentPage, ...filtersWithoutPage } = filters;
+		const { page: _currentPage, ...filtersWithoutPage } = config.filters;
 		const { page: _savedPage, ...savedWithoutPage } = savedFilters;
 
 		if (!isEqual(filtersWithoutPage, savedWithoutPage)) setActivePresetId(null);
-	}, [filters, activePresetId, filterPresets, setActivePresetId]);
-
+	}, [config.filters, activePresetId, filterPresets, setActivePresetId]);
 	return {
 		savePreset,
 		applyPreset,
