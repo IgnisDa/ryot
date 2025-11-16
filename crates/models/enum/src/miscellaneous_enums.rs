@@ -25,10 +25,12 @@ use strum::{Display, EnumIter};
 )]
 pub enum FilterPresetContextType {
     PeopleList,
-    GroupsList,
+    PeopleSearch,
     MetadataList,
     ExercisesList,
     MetadataSearch,
     CollectionContents,
+    MetadataGroupsList,
     FitnessEntitiesList,
+    MetadataGroupsSearch,
 }

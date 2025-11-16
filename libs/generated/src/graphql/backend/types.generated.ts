@@ -901,10 +901,12 @@ export enum FilterPresetContextType {
   CollectionContents = 'COLLECTION_CONTENTS',
   ExercisesList = 'EXERCISES_LIST',
   FitnessEntitiesList = 'FITNESS_ENTITIES_LIST',
-  GroupsList = 'GROUPS_LIST',
+  MetadataGroupsList = 'METADATA_GROUPS_LIST',
+  MetadataGroupsSearch = 'METADATA_GROUPS_SEARCH',
   MetadataList = 'METADATA_LIST',
   MetadataSearch = 'METADATA_SEARCH',
-  PeopleList = 'PEOPLE_LIST'
+  PeopleList = 'PEOPLE_LIST',
+  PeopleSearch = 'PEOPLE_SEARCH'
 }
 
 export type FilterPresetMetadataListOrSearchContextInformation = {
