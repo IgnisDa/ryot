@@ -10,14 +10,14 @@ import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 
 import type { ImportRunJobData } from "../jobs";
-import { sanitizeErrorMessage } from "../runtime/import-run-status";
-import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
-import { adaptOpenScaleCsv } from "../sources/open-scale/adapter";
 import {
 	type NonMediaItemOutcome,
 	type NonMediaPrepareWritesEffect,
 	loadNonMediaImportText,
-} from "../workflows-non-media";
+} from "../non-media-workflow";
+import { sanitizeErrorMessage } from "../runtime/import-run-status";
+import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
+import { adaptOpenScaleCsv } from "../sources/open-scale/adapter";
 
 export const OpenScaleImportItemSchema = Schema.Struct({
 	itemIndex: Schema.Number,
