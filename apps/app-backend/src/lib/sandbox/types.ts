@@ -11,6 +11,12 @@ export const sandboxScriptMetadataSchema = z.object({
 
 export type SandboxScriptMetadata = z.infer<typeof sandboxScriptMetadataSchema>;
 
+export const eventSchemaTriggerMetadataSchema = z.object({
+	inheritedProperties: z.array(z.string()).optional(),
+});
+
+export type EventSchemaTriggerMetadata = z.infer<typeof eventSchemaTriggerMetadataSchema>;
+
 export type HostFunction<TContext extends Record<string, unknown>> = (
 	context: TContext,
 	...args: Array<unknown>
