@@ -3,7 +3,6 @@ import { Sparkline } from "@mantine/charts";
 import {
 	ActionIcon,
 	Anchor,
-	Button,
 	Box,
 	Chip,
 	Container,
@@ -20,10 +19,10 @@ import { useDisclosure, useInViewport } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	EntityLot,
+	FilterPresetContextType,
 	GraphqlSortOrder,
 	type UserTemplatesOrWorkoutsListInput,
 	UserTemplatesOrWorkoutsListSortBy,
-	FilterPresetContextType,
 	UserWorkoutDetailsDocument,
 	UserWorkoutTemplateDetailsDocument,
 	UserWorkoutTemplatesListDocument,
@@ -43,7 +42,7 @@ import {
 	IconWeight,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
@@ -54,11 +53,11 @@ import {
 	DisplayListDetailsAndRefresh,
 	SkeletonLoader,
 } from "~/components/common";
+import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
 	CreateFilterPresetModal,
 	FilterPresetChip,
 } from "~/components/common/filter-presets";
-import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
 	DebouncedSearchInput,
 	FiltersModal,
@@ -70,6 +69,7 @@ import {
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
 } from "~/components/fitness/utils";
+import { useFilterPresets } from "~/lib/hooks/use-filter-presets";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
@@ -83,7 +83,6 @@ import {
 	convertEnumToSelectData,
 	isFilterChanged,
 } from "~/lib/shared/ui-utils";
-import { useFilterPresets } from "~/lib/hooks/use-filter-presets";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { getDefaultWorkout } from "~/lib/state/fitness";
 import {
@@ -310,6 +309,7 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 						</ActionIcon>
 						<FiltersModal
 							opened={filtersModalOpened}
+							onSavePreset={openPresetModal}
 							closeFiltersModal={closeFiltersModal}
 							resetFilters={() => setFilters(defaultFilterState)}
 						>
@@ -317,17 +317,6 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 								filters={normalizedFilters}
 								updateFilter={updateFilter}
 							/>
-							<Divider my="sm" />
-							<Button
-								fullWidth
-								variant="light"
-								onClick={() => {
-									closeFiltersModal();
-									openPresetModal();
-								}}
-							>
-								Save current filters as preset
-							</Button>
 						</FiltersModal>
 					</Group>
 					{listPresets.filterPresets &&

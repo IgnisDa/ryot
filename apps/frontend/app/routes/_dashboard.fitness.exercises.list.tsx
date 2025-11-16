@@ -5,7 +5,6 @@ import {
 	Alert,
 	Avatar,
 	Box,
-	Button,
 	Checkbox,
 	Chip,
 	Container,
@@ -336,6 +335,7 @@ export default function Page() {
 						</ActionIcon>
 						<FiltersModal
 							opened={filtersModalOpened}
+							onSavePreset={openPresetModal}
 							closeFiltersModal={closeFiltersModal}
 							resetFilters={() => setFilters(defaultFilters)}
 						>
@@ -343,17 +343,6 @@ export default function Page() {
 								filter={normalizedFilters}
 								updateFilter={updateFilter}
 							/>
-							<Divider my="sm" />
-							<Button
-								fullWidth
-								variant="light"
-								onClick={() => {
-									closeFiltersModal();
-									openPresetModal();
-								}}
-							>
-								Save current filters as preset
-							</Button>
 						</FiltersModal>
 					</Group>
 					{listPresets.filterPresets &&

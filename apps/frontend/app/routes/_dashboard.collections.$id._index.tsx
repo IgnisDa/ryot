@@ -311,6 +311,7 @@ export default function Page(props: { params: { id: string } }) {
 													</ActionIcon>
 													<FiltersModal
 														opened={filtersModalOpened}
+														onSavePreset={openPresetModal}
 														closeFiltersModal={closeFiltersModal}
 														resetFilters={() => setFilters(defaultFilters)}
 													>
@@ -318,17 +319,6 @@ export default function Page(props: { params: { id: string } }) {
 															filters={normalizedFilters}
 															updateFilter={updateFilter}
 														/>
-														<Stack mt="md">
-															<Button
-																variant="light"
-																onClick={() => {
-																	closeFiltersModal();
-																	openPresetModal();
-																}}
-															>
-																Save current filters as preset
-															</Button>
-														</Stack>
 													</FiltersModal>
 												</Group>
 												{contentsPresets.filterPresets &&

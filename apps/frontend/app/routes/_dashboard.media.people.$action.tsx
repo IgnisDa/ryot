@@ -2,7 +2,6 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Box,
-	Button,
 	Checkbox,
 	Chip,
 	Container,
@@ -341,6 +340,7 @@ export default function Page(props: { params: { action: string } }) {
 								</ActionIcon>
 								<FiltersModal
 									opened={filtersModalOpened}
+									onSavePreset={openListPresetModal}
 									closeFiltersModal={closeFiltersModal}
 									resetFilters={() => setListFilters(defaultListFilters)}
 								>
@@ -348,17 +348,6 @@ export default function Page(props: { params: { action: string } }) {
 										filters={normalizedListFilters}
 										onFiltersChange={updateListFilters}
 									/>
-									<Divider my="sm" />
-									<Button
-										fullWidth
-										variant="light"
-										onClick={() => {
-											closeFiltersModal();
-											openListPresetModal();
-										}}
-									>
-										Save current filters as preset
-									</Button>
 								</FiltersModal>
 							</>
 						) : null}
@@ -383,6 +372,7 @@ export default function Page(props: { params: { action: string } }) {
 								</ActionIcon>
 								<FiltersModal
 									opened={searchFiltersModalOpened}
+									onSavePreset={openSearchPresetModal}
 									closeFiltersModal={closeSearchFiltersModal}
 									resetFilters={() => setSearchFilters(defaultSearchFilters)}
 								>
@@ -390,17 +380,6 @@ export default function Page(props: { params: { action: string } }) {
 										filters={normalizedSearchFilters}
 										onFiltersChange={updateSearchSourceSpecifics}
 									/>
-									<Divider my="sm" />
-									<Button
-										fullWidth
-										variant="light"
-										onClick={() => {
-											closeSearchFiltersModal();
-											openSearchPresetModal();
-										}}
-									>
-										Save current filters as preset
-									</Button>
 								</FiltersModal>
 							</>
 						) : null}
