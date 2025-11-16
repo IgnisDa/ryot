@@ -120,6 +120,7 @@ export const useFilterPresets = <TFilter extends { page: number }>(
 						? error.response.errors[0]?.message
 						: "Failed to save filter preset",
 			});
+			throw error;
 		}
 	};
 
