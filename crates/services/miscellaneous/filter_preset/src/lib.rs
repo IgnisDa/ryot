@@ -61,7 +61,7 @@ pub async fn create_filter_preset(
         .await?;
 
     if filters_by_this_user >= 2 && !is_server_key_validated(ss).await? {
-        bail!("Please upgrade to a premium plan to create more than 2 preset filters.");
+        bail!("Please upgrade to a pro plan to create more than 2 presets.");
     }
 
     let new_preset = filter_preset::ActiveModel {
