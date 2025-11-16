@@ -1,8 +1,5 @@
-import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
-	Box,
-	Chip,
 	Container,
 	Divider,
 	Flex,
@@ -47,7 +44,7 @@ import {
 import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
 import {
 	CreateFilterPresetModal,
-	FilterPresetChip,
+	FilterPresetBar,
 } from "~/components/common/filter-presets";
 import {
 	CollectionsFilter,
@@ -103,8 +100,6 @@ export default function Page(props: { params: { action: string } }) {
 	const navigate = useNavigate();
 	const action = props.params.action;
 	const coreDetails = useCoreDetails();
-	const [listPresetParent] = useAutoAnimate();
-	const [searchPresetParent] = useAutoAnimate();
 
 	const [
 		filtersModalOpened,
@@ -368,73 +363,21 @@ export default function Page(props: { params: { action: string } }) {
 							</>
 						) : null}
 					</Group>
-					{action === "list" &&
-					listPresets.filterPresets &&
-					listPresets.filterPresets.response.length > 0 ? (
-						<Box>
-							<Chip.Group
-								value={listPresets.activePresetId || undefined}
-								key={listPresets.activePresetId || "groups-list-no-preset"}
-								onChange={(value) => {
-									if (!value) return;
-									const preset = listPresets.filterPresets?.response.find(
-										(p) => p.id === value,
-									);
-									if (preset)
-										listPresets.applyPreset(preset.id, preset.filters);
-								}}
-							>
-								<Group
-									gap="xs"
-									wrap="nowrap"
-									ref={listPresetParent}
-									style={{ overflowX: "auto" }}
-								>
-									{listPresets.filterPresets.response.map((preset) => (
-										<FilterPresetChip
-											id={preset.id}
-											key={preset.id}
-											name={preset.name}
-											onDelete={listPresets.deletePreset}
-										/>
-									))}
-								</Group>
-							</Chip.Group>
-						</Box>
+					{action === "list" ? (
+						<FilterPresetBar
+							filterPresets={listPresets.filterPresets}
+							activePresetId={listPresets.activePresetId}
+							onSelectPreset={listPresets.applyPreset}
+							onDeletePreset={listPresets.deletePreset}
+						/>
 					) : null}
-					{action === "search" &&
-					searchPresets.filterPresets &&
-					searchPresets.filterPresets.response.length > 0 ? (
-						<Box>
-							<Chip.Group
-								value={searchPresets.activePresetId || undefined}
-								key={searchPresets.activePresetId || "groups-search-no-preset"}
-								onChange={(value) => {
-									if (!value) return;
-									const preset = searchPresets.filterPresets?.response.find(
-										(p) => p.id === value,
-									);
-									if (preset)
-										searchPresets.applyPreset(preset.id, preset.filters);
-								}}
-							>
-								<Group
-									gap="xs"
-									wrap="nowrap"
-									ref={searchPresetParent}
-									style={{ overflowX: "auto" }}
-								>
-									{searchPresets.filterPresets.response.map((preset) => (
-										<FilterPresetChip
-											id={preset.id}
-											key={preset.id}
-											name={preset.name}
-											onDelete={searchPresets.deletePreset}
-										/>
-									))}
-								</Group>
-							</Chip.Group>
-						</Box>
+					{action === "search" ? (
+						<FilterPresetBar
+							filterPresets={searchPresets.filterPresets}
+							activePresetId={searchPresets.activePresetId}
+							onSelectPreset={searchPresets.applyPreset}
+							onDeletePreset={searchPresets.deletePreset}
+						/>
 					) : null}
 
 					{action === "list" ? (
