@@ -110,8 +110,8 @@ export const meta = () => {
 
 export default function Page(props: { params: { action: string } }) {
 	const navigate = useNavigate();
-	const coreDetails = useCoreDetails();
 	const action = props.params.action;
+	const coreDetails = useCoreDetails();
 	const [listPresetParent] = useAutoAnimate();
 	const [searchPresetParent] = useAutoAnimate();
 
