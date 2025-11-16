@@ -380,7 +380,7 @@ export default function Page(props: {
 										tourControl={{
 											target: OnboardingTourStepTargets.SearchAudiobook,
 											onQueryChange: (query) => {
-												if (query === TOUR_METADATA_TARGET_ID.toLowerCase())
+												if (query === TOUR_METADATA_TARGET_ID)
 													advanceOnboardingTourStep({ increaseWaitBy: 2000 });
 											},
 										}}
