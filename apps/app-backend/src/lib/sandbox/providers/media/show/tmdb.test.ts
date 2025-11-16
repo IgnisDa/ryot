@@ -15,7 +15,7 @@ const runTmdbShowDetails = (context: unknown, hostFunctions: Record<string, Host
 	});
 
 describe("show.tmdb sandbox script", () => {
-	it("keeps TMDB recommendations in suggestions", () => {
+	it("keeps TMDB recommendations as related entities", () => {
 		return runTmdbShowDetails(
 			{ externalId: "1" },
 			{
@@ -56,9 +56,19 @@ describe("show.tmdb sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.suggestions).toEqual([
-				{ name: "Pick One", externalId: "2", scriptSlug: "show.tmdb" },
-				{ name: "Pick Two", externalId: "3", scriptSlug: "show.tmdb" },
+			expect(details.relatedEntities).toEqual([
+				{
+					name: "Pick One",
+					externalId: "2",
+					scriptSlug: "show.tmdb",
+					relationshipSchemaSlug: "media-suggestion",
+				},
+				{
+					name: "Pick Two",
+					externalId: "3",
+					scriptSlug: "show.tmdb",
+					relationshipSchemaSlug: "media-suggestion",
+				},
 			]);
 			return undefined;
 		});

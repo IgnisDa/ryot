@@ -13,7 +13,7 @@ const runIgdbDetails = (context: unknown, hostFunctions: Record<string, HostFunc
 	runProviderDriver(igdbVideoGameScriptCode, context, hostFunctions);
 
 describe("video-game.igdb sandbox script", () => {
-	it("keeps similar games in suggestions", () => {
+	it("keeps similar games as related entities", () => {
 		return runIgdbDetails(
 			{ externalId: "1" },
 			{
@@ -52,8 +52,13 @@ describe("video-game.igdb sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.suggestions).toEqual([
-				{ name: "Pick One", externalId: "2", scriptSlug: "video-game.igdb" },
+			expect(details.relatedEntities).toEqual([
+				{
+					name: "Pick One",
+					externalId: "2",
+					scriptSlug: "video-game.igdb",
+					relationshipSchemaSlug: "media-suggestion",
+				},
 			]);
 			return undefined;
 		});
