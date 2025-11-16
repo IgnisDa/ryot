@@ -15,15 +15,11 @@ import {
 import type { AppSchema } from "@ryot/app-backend/schema/property-schema";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
-import { config } from "dotenv";
 import { Effect } from "effect";
 
 import { cookieHeaderFromSetCookies, enableTwoFactorForSession } from "./fixtures/auth-2fa";
 import type { ContractPayload, ContractSuccess } from "./fixtures/contract-client";
 import { requirePresent } from "./test-support/assertions";
-
-config({ path: fileURLToPath(new URL("../.env", import.meta.url)) });
-config({ path: fileURLToPath(new URL("../../.env", import.meta.url)) });
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8000/api";
 const FRONTEND_URL = requirePresent(
