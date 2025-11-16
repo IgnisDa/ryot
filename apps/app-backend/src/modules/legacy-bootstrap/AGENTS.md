@@ -15,6 +15,7 @@ Permitted silent-skip patterns: idempotent guards (work already done on a previo
 
 - Keep all legacy bootstrap-specific logic inside this module.
 - `index.ts` must stay small and only re-export the startup entrypoints.
+- Do not add automated tests inside this module; validate changes by restoring the legacy dump, running `bun run run-migration`, and inspecting the migrated rows via MCP.
 - Do not edit `src/lib/db/migrate.ts` unless the change has been discussed first.
 - Run the legacy table rename before Drizzle migrations.
 - Run the legacy table data copy after Drizzle migrations have created the new tables.
@@ -31,7 +32,7 @@ Permitted silent-skip patterns: idempotent guards (work already done on a previo
 
 ## Ignored For Now
 
-**metadata_group**: Groups for lots without V2 entity schemas (`anime`, `manga`, `show`, `podcast`, `visual_novel`) are silently skipped. `metadata_group_to_person` is migrated only for music and video game groups (`person-to-music-group`, `person-to-video-game-group`). Group `properties` fields (`parts`, `description`, `source_url`) are deferred to re-population from the source provider.
+**metadata_group**: Groups for lots without V2 entity schemas (`anime`, `manga`, `show`, `podcast`, `visual_novel`) are silently skipped. `metadata_group_to_person` is migrated only for music and video game groups (`person-to-music-group`, `person-to-video-game-group`).
 
 **review**: `visibility` (V2 has no visibility concept), `comments` (V2 has no comments on events). Ratings above 100 are clamped to 100.
 
