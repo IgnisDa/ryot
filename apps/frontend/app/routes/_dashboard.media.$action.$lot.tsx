@@ -19,14 +19,9 @@ import {
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { useDisclosure, useLongPress } from "@mantine/hooks";
-import { modals } from "@mantine/modals";
-import { notifications } from "@mantine/notifications";
 import {
-	CreateFilterPresetDocument,
-	DeleteFilterPresetDocument,
 	EntityLot,
 	FilterPresetContextType,
-	FilterPresetsDocument,
 	GraphqlSortOrder,
 	type MediaCollectionFilter,
 	MediaGeneralFilter,
@@ -36,19 +31,18 @@ import {
 	MetadataSearchDocument,
 	type MetadataSearchInput,
 	type MetadataSearchQuery,
-	UpdateFilterPresetLastUsedDocument,
 	UserMetadataListDocument,
 	type UserMetadataListInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, cloneDeep, isEqual, startCase } from "@ryot/ts-utils";
+import { changeCase, cloneDeep, startCase } from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconFilter,
 	IconListCheck,
 	IconSearch,
 } from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
@@ -68,6 +62,7 @@ import {
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
+import { useFilterPresets } from "~/lib/hooks/use-filter-presets";
 import { dayjsLib, getStartTimeFromRange } from "~/lib/shared/date-utils";
 import { useCoreDetails, useUserMetadataList } from "~/lib/shared/hooks";
 import { getLot } from "~/lib/shared/media-utils";
@@ -157,71 +152,31 @@ export default function Page(props: {
 		`MediaSearchFilters_${lot}`,
 		defaultSearchFilters,
 	);
-	const [activePresetId, setActivePresetId] = useLocalStorage<string | null>(
-		`MediaActivePreset_${lot}`,
-		null,
-	);
-	const isApplyingPreset = useRef(false);
 	const [
 		createPresetModalOpened,
 		{ open: openCreatePresetModal, close: closeCreatePresetModal },
 	] = useDisclosure(false);
+	const [
+		createSearchPresetModalOpened,
+		{ open: openCreateSearchPresetModal, close: closeCreateSearchPresetModal },
+	] = useDisclosure(false);
 
-	const { data: filterPresets, refetch: refetchFilterPresets } = useQuery({
+	const listPresets = useFilterPresets({
+		filters: listFilters,
 		enabled: action === "list",
-		queryKey: ["filterPresets", lot],
-		queryFn: () =>
-			clientGqlService
-				.request(FilterPresetsDocument, {
-					input: {
-						contextInformation: { metadataList: { lot } },
-						contextType: FilterPresetContextType.MetadataList,
-					},
-				})
-				.then((data) => data.filterPresets),
+		setFilters: setListFilters,
+		storageKeyPrefix: `MediaActivePreset_${lot}`,
+		contextInformation: { metadataList: { lot } },
+		contextType: FilterPresetContextType.MetadataList,
 	});
 
-	const createPresetMutation = useMutation({
-		mutationFn: (variables: { input: { name: string; filters: unknown } }) =>
-			clientGqlService.request(CreateFilterPresetDocument, {
-				input: {
-					...variables.input,
-					contextInformation: { metadataList: { lot } },
-					contextType: FilterPresetContextType.MetadataList,
-				},
-			}),
-		onSuccess: () => {
-			refetchFilterPresets();
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: "Filter preset saved",
-			});
-		},
-	});
-
-	const deletePresetMutation = useMutation({
-		mutationFn: (filterPresetId: string) =>
-			clientGqlService.request(DeleteFilterPresetDocument, {
-				filterPresetId,
-			}),
-		onSuccess: () => {
-			refetchFilterPresets();
-			setActivePresetId(null);
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: "Filter preset deleted",
-			});
-		},
-	});
-
-	const updateLastUsedMutation = useMutation({
-		onSuccess: () => refetchFilterPresets(),
-		mutationFn: (filterPresetId: string) =>
-			clientGqlService.request(UpdateFilterPresetLastUsedDocument, {
-				filterPresetId,
-			}),
+	const searchPresets = useFilterPresets({
+		filters: searchFilters,
+		enabled: action === "search",
+		setFilters: setSearchFilters,
+		contextInformation: { metadataSearch: { lot } },
+		storageKeyPrefix: `MediaSearchActivePreset_${lot}`,
+		contextType: FilterPresetContextType.MetadataSearch,
 	});
 
 	const listInput: UserMetadataListInput = useMemo(
@@ -288,69 +243,36 @@ export default function Page(props: {
 		value,
 	) => setSearchFilters((prev) => ({ ...prev, [key]: value }));
 
-	const applyPreset = async (presetId: string, filters: unknown) => {
-		isApplyingPreset.current = true;
-		const parsedFilters =
-			typeof filters === "string" ? JSON.parse(filters) : filters;
-		setListFilters({ ...parsedFilters, page: 1 });
-		setActivePresetId(presetId);
-		setTimeout(() => {
-			isApplyingPreset.current = false;
-		}, 100);
-		updateLastUsedMutation.mutate(presetId);
-	};
-
-	const handleSavePreset = async (name: string) => {
-		const filtersToSave = { ...listFilters, page: 1 };
-		const result = await createPresetMutation.mutateAsync({
-			input: { name, filters: filtersToSave },
-		});
-		setActivePresetId(result.createFilterPreset.id);
+	const handleSaveListPreset = async (name: string) => {
+		await listPresets.savePreset(name);
 		closeCreatePresetModal();
 	};
 
-	const handleDeletePreset = (presetId: string, presetName: string) => {
-		modals.openConfirmModal({
-			title: "Delete preset",
-			confirmProps: { color: "red" },
-			labels: { confirm: "Delete", cancel: "Cancel" },
-			onConfirm: () => deletePresetMutation.mutate(presetId),
-			children: (
-				<Text>Are you sure you want to delete the preset "{presetName}"?</Text>
-			),
-		});
+	const handleSaveSearchPreset = async (name: string) => {
+		await searchPresets.savePreset(name);
+		closeCreateSearchPresetModal();
 	};
 
-	useEffect(() => {
-		if (isApplyingPreset.current) return;
-
-		if (!activePresetId || !filterPresets) return;
-
-		const activePreset = filterPresets.response.find(
-			(p) => p.id === activePresetId,
-		);
-		if (!activePreset) return;
-
-		const savedFilters =
-			typeof activePreset.filters === "string"
-				? JSON.parse(activePreset.filters)
-				: activePreset.filters;
-
-		const { page: _currentPage, ...filtersWithoutPage } = listFilters;
-		const { page: _savedPage, ...savedWithoutPage } = savedFilters;
-
-		if (!isEqual(filtersWithoutPage, savedWithoutPage)) setActivePresetId(null);
-	}, [listFilters, activePresetId, filterPresets]);
+	const areSearchFiltersActive = isFilterChanged(
+		searchFilters,
+		defaultSearchFilters,
+	);
 
 	const isEligibleForNextTourStep = lot === MediaLot.AudioBook;
 
 	return (
 		<>
 			<CreatePresetModal
-				onSave={handleSavePreset}
 				currentFilters={listFilters}
+				onSave={handleSaveListPreset}
 				opened={createPresetModalOpened}
 				onClose={closeCreatePresetModal}
+			/>
+			<CreateSearchPresetModal
+				currentFilters={searchFilters}
+				onSave={handleSaveSearchPreset}
+				opened={createSearchPresetModalOpened}
+				onClose={closeCreateSearchPresetModal}
 			/>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
@@ -451,17 +373,19 @@ export default function Page(props: {
 										</Button>
 									</FiltersModal>
 								</Group>
-								{filterPresets && filterPresets.response.length > 0 ? (
+								{listPresets.filterPresets &&
+								listPresets.filterPresets.response.length > 0 ? (
 									<Box>
 										<Chip.Group
-											key={activePresetId || "no-preset"}
-											value={activePresetId || undefined}
+											key={listPresets.activePresetId || "no-preset"}
+											value={listPresets.activePresetId || undefined}
 											onChange={(value) => {
 												if (!value) return;
-												const preset = filterPresets.response.find(
+												const preset = listPresets.filterPresets?.response.find(
 													(p) => p.id === value,
 												);
-												if (preset) applyPreset(preset.id, preset.filters);
+												if (preset)
+													listPresets.applyPreset(preset.id, preset.filters);
 											}}
 										>
 											<Group
@@ -470,12 +394,12 @@ export default function Page(props: {
 												wrap="nowrap"
 												style={{ overflowX: "auto" }}
 											>
-												{filterPresets.response.map((preset) => (
+												{listPresets.filterPresets.response.map((preset) => (
 													<PresetChip
 														id={preset.id}
 														key={preset.id}
 														name={preset.name}
-														onDelete={handleDeletePreset}
+														onDelete={listPresets.deletePreset}
 													/>
 												))}
 											</Group>
@@ -548,7 +472,10 @@ export default function Page(props: {
 												}))}
 											/>
 										) : null}
-										<ActionIcon onClick={openSearchFiltersModal} color="gray">
+										<ActionIcon
+											onClick={openSearchFiltersModal}
+											color={areSearchFiltersActive ? "blue" : "gray"}
+										>
 											<IconFilter size={24} />
 										</ActionIcon>
 										<FiltersModal
@@ -562,9 +489,54 @@ export default function Page(props: {
 												filters={searchFilters}
 												onFiltersChange={updateSearchFilters}
 											/>
+											<Divider my="sm" />
+											<Button
+												fullWidth
+												variant="light"
+												onClick={() => {
+													closeSearchFiltersModal();
+													openCreateSearchPresetModal();
+												}}
+											>
+												Save current filters as preset
+											</Button>
 										</FiltersModal>
 									</Group>
 								</Group>
+								{searchPresets.filterPresets &&
+								searchPresets.filterPresets.response.length > 0 ? (
+									<Box>
+										<Chip.Group
+											key={searchPresets.activePresetId || "no-preset"}
+											value={searchPresets.activePresetId || undefined}
+											onChange={(value) => {
+												if (!value) return;
+												const preset =
+													searchPresets.filterPresets?.response.find(
+														(p) => p.id === value,
+													);
+												if (preset)
+													searchPresets.applyPreset(preset.id, preset.filters);
+											}}
+										>
+											<Group
+												gap="xs"
+												ref={parent}
+												wrap="nowrap"
+												style={{ overflowX: "auto" }}
+											>
+												{searchPresets.filterPresets.response.map((preset) => (
+													<PresetChip
+														id={preset.id}
+														key={preset.id}
+														name={preset.name}
+														onDelete={searchPresets.deletePreset}
+													/>
+												))}
+											</Group>
+										</Chip.Group>
+									</Box>
+								) : null}
 								{metadataSearch.response.details.totalItems > 0 ? (
 									<>
 										<DisplayListDetailsAndRefresh
@@ -916,6 +888,119 @@ const CreatePresetModal = (props: {
 					value={presetName}
 					label="Preset Name"
 					placeholder="e.g., Unfinished Books"
+					onChange={(e) => setPresetName(e.currentTarget.value)}
+				/>
+
+				<Box>
+					<Text size="sm" fw={500} mb="xs">
+						This will save:
+					</Text>
+					{getFilterSummary().length > 0 ? (
+						<Stack gap="xs">
+							{getFilterSummary().map((item) => (
+								<Text key={item} size="sm" c="dimmed">
+									• {item}
+								</Text>
+							))}
+						</Stack>
+					) : (
+						<Text size="sm" c="dimmed">
+							Default filters (no customization)
+						</Text>
+					)}
+				</Box>
+
+				<Group justify="flex-end" mt="md">
+					<Button variant="default" onClick={props.onClose}>
+						Cancel
+					</Button>
+					<Button
+						disabled={!presetName.trim()}
+						onClick={() => {
+							if (presetName.trim()) {
+								props.onSave(presetName.trim());
+								setPresetName("");
+							}
+						}}
+					>
+						Save Preset
+					</Button>
+				</Group>
+			</Stack>
+		</Modal>
+	);
+};
+
+const CreateSearchPresetModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	onSave: (name: string) => void;
+	currentFilters: SearchFilterState;
+}) => {
+	const [presetName, setPresetName] = useState("");
+
+	const getFilterSummary = () => {
+		const summary: string[] = [];
+
+		if (props.currentFilters.query)
+			summary.push(`Search: "${props.currentFilters.query}"`);
+
+		if (props.currentFilters.source)
+			summary.push(
+				`Source: ${startCase(props.currentFilters.source.toLowerCase())}`,
+			);
+
+		if (props.currentFilters.igdbThemeIds?.length)
+			summary.push(
+				`Themes: ${props.currentFilters.igdbThemeIds.length} selected`,
+			);
+
+		if (props.currentFilters.igdbGenreIds?.length)
+			summary.push(
+				`Genres: ${props.currentFilters.igdbGenreIds.length} selected`,
+			);
+
+		if (props.currentFilters.igdbPlatformIds?.length)
+			summary.push(
+				`Platforms: ${props.currentFilters.igdbPlatformIds.length} selected`,
+			);
+
+		if (props.currentFilters.igdbGameModeIds?.length)
+			summary.push(
+				`Game Modes: ${props.currentFilters.igdbGameModeIds.length} selected`,
+			);
+
+		if (props.currentFilters.igdbGameTypeIds?.length)
+			summary.push(
+				`Game Types: ${props.currentFilters.igdbGameTypeIds.length} selected`,
+			);
+
+		if (props.currentFilters.igdbReleaseDateRegionIds?.length)
+			summary.push(
+				`Release Regions: ${props.currentFilters.igdbReleaseDateRegionIds.length} selected`,
+			);
+
+		if (props.currentFilters.googleBooksPassRawQuery)
+			summary.push("Pass raw query: Yes");
+
+		if (props.currentFilters.igdbAllowGamesWithParent)
+			summary.push("Allow games with parent: Yes");
+
+		return summary;
+	};
+
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			title="Save Filter Preset"
+		>
+			<Stack>
+				<TextInput
+					data-autofocus
+					value={presetName}
+					label="Preset Name"
+					placeholder="e.g., RPG Games on PS5"
 					onChange={(e) => setPresetName(e.currentTarget.value)}
 				/>
 
