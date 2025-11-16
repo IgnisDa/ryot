@@ -902,7 +902,8 @@ export enum FilterPresetContextType {
   ExercisesList = 'EXERCISES_LIST',
   FitnessEntitiesList = 'FITNESS_ENTITIES_LIST',
   GroupsList = 'GROUPS_LIST',
-  MediaList = 'MEDIA_LIST',
+  MetadataList = 'METADATA_LIST',
+  MetadataSearch = 'METADATA_SEARCH',
   PeopleList = 'PEOPLE_LIST'
 }
 

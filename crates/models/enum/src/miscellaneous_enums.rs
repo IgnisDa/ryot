@@ -24,10 +24,11 @@ use strum::{Display, EnumIter};
     db_type = "String(StringLen::None)"
 )]
 pub enum FilterPresetContextType {
-    MediaList,
     PeopleList,
     GroupsList,
+    MetadataList,
     ExercisesList,
+    MetadataSearch,
     CollectionContents,
     FitnessEntitiesList,
 }
