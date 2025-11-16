@@ -60,7 +60,7 @@ export const FiltersModal = (props: {
 				<Title order={3}>Filters</Title>
 				<Group wrap="nowrap">
 					<ActionIcon
-						size="compact-xs"
+						color="blue"
 						onClick={() => {
 							props.onSavePreset();
 							props.closeFiltersModal();
