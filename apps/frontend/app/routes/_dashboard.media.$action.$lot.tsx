@@ -395,7 +395,7 @@ export default function Page(props: {
 												style={{ overflowX: "auto" }}
 											>
 												{listPresets.filterPresets.response.map((preset) => (
-													<PresetChip
+													<FilterPresetChip
 														id={preset.id}
 														key={preset.id}
 														name={preset.name}
@@ -526,7 +526,7 @@ export default function Page(props: {
 												style={{ overflowX: "auto" }}
 											>
 												{searchPresets.filterPresets.response.map((preset) => (
-													<PresetChip
+													<FilterPresetChip
 														id={preset.id}
 														key={preset.id}
 														name={preset.name}
@@ -1044,7 +1044,7 @@ const CreateSearchPresetModal = (props: {
 	);
 };
 
-const PresetChip = (props: {
+const FilterPresetChip = (props: {
 	id: string;
 	name: string;
 	onDelete: (id: string, name: string) => void;
