@@ -451,7 +451,7 @@ const FiltersModalForm = (props: {
 			<Select
 				size="xs"
 				label="Sort by"
-				defaultValue={props.filter.sortBy}
+				value={props.filter.sortBy}
 				data={convertEnumToSelectData(ExerciseSortBy)}
 				onChange={(v) => props.updateFilter("sortBy", v as ExerciseSortBy)}
 			/>
