@@ -1,4 +1,4 @@
-import { NumberInput, Switch, TextInput } from "@mantine/core";
+import { Autocomplete, NumberInput, Switch } from "@mantine/core";
 import { DateInput, DateTimePicker } from "@mantine/dates";
 import {
 	type CollectionExtraInformation,
@@ -21,12 +21,13 @@ export const CollectionTemplateRenderer = (
 	<>
 		{match(props.template.lot)
 			.with(CollectionExtraInformationLot.String, () => (
-				<TextInput
+				<Autocomplete
 					value={props.value || ""}
 					label={props.template.name}
 					required={!!props.template.required}
 					description={props.template.description}
-					onChange={(e) => props.onChange(e.currentTarget.value)}
+					onChange={(e) => props.onChange(e)}
+					data={props.template.possibleValues || []}
 				/>
 			))
 			.with(CollectionExtraInformationLot.Boolean, () => (
@@ -78,7 +79,7 @@ export const CollectionTemplateRenderer = (
 					required={!!props.template.required}
 					description={props.template.description}
 					data={props.template.possibleValues || []}
-					setValue={(newValue: string[]) => props.onChange(newValue)}
+					setValue={(newValue) => props.onChange(newValue)}
 				/>
 			))
 			.exhaustive()}

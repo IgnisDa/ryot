@@ -2,7 +2,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use anyhow::{Result, anyhow};
 use chrono::Utc;
-use common_models::CollectionExtraInformationLot;
+use common_models::{CollectionExtraInformation, CollectionExtraInformationLot};
 use database_models::{
     prelude::{Collection, CollectionToEntity, UserToEntity},
     user_to_entity,
@@ -17,6 +17,24 @@ use sea_orm::{
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
+fn update_possible_values(
+    field: &mut CollectionExtraInformation,
+    new_values: impl IntoIterator<Item = String>,
+) -> bool {
+    let mut current_possible_values: HashSet<String> =
+        HashSet::from_iter(field.possible_values.clone().unwrap_or_default());
+    let mut changed = false;
+    for value in new_values {
+        if current_possible_values.insert(value) {
+            changed = true;
+        }
+    }
+    if changed {
+        field.possible_values = Some(current_possible_values.into_iter().collect_vec());
+    }
+    changed
+}
+
 pub async fn handle_entity_added_to_collection_event(
     collection_to_entity_id: Uuid,
     ss: &Arc<SupportingService>,
@@ -28,44 +46,44 @@ pub async fn handle_entity_added_to_collection_event(
         .ok_or_else(|| anyhow!("Collection to entity does not exist"))?;
     let collection = collection.ok_or_else(|| anyhow!("Collection does not exist"))?;
     let mut fields = collection.clone().information_template.unwrap_or_default();
-    if !fields
-        .iter()
-        .any(|i| i.lot == CollectionExtraInformationLot::StringArray)
-    {
-        return Ok(());
-    }
     let mut updated_needed = false;
     for field in fields.iter_mut() {
-        if field.lot == CollectionExtraInformationLot::StringArray {
-            let updated_values = cte
-                .information
-                .as_ref()
-                .and_then(|v| v.get(field.name.clone()).and_then(|f| f.as_array()))
-                .map(|f| {
-                    f.iter()
-                        .map(|v| v.as_str().unwrap_or_default())
-                        .collect_vec()
-                });
-            if let Some(updated_values) = updated_values {
-                let mut current_possible_values: HashSet<String> =
-                    HashSet::from_iter(field.possible_values.clone().unwrap_or_default());
-                let old_size = current_possible_values.len();
-                for value in updated_values {
-                    current_possible_values.insert(value.to_string());
-                }
-                if current_possible_values.len() != old_size {
-                    field.possible_values = Some(current_possible_values.into_iter().collect_vec());
-                    updated_needed = true;
+        match field.lot {
+            CollectionExtraInformationLot::StringArray => {
+                if let Some(values) = cte
+                    .information
+                    .as_ref()
+                    .and_then(|v| v.get(&field.name).and_then(|f| f.as_array()))
+                {
+                    let string_values = values
+                        .iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect_vec();
+                    if update_possible_values(field, string_values) {
+                        updated_needed = true;
+                    }
                 }
             }
+            CollectionExtraInformationLot::String => {
+                if let Some(value) = cte
+                    .information
+                    .as_ref()
+                    .and_then(|v| v.get(&field.name).and_then(|f| f.as_str()))
+                {
+                    if update_possible_values(field, [value.to_string()]) {
+                        updated_needed = true;
+                    }
+                }
+            }
+            _ => {}
         }
     }
     if !updated_needed {
         return Ok(());
     }
     let mut col = collection.into_active_model();
-    col.information_template = ActiveValue::Set(Some(fields));
     col.last_updated_on = ActiveValue::Set(Utc::now());
+    col.information_template = ActiveValue::Set(Some(fields));
     col.update(&ss.db).await?;
     let users = UserToEntity::find()
         .select_only()

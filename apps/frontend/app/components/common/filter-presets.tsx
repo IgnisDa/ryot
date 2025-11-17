@@ -15,7 +15,7 @@ import type { useFilterPresets } from "~/lib/hooks/filters/use-presets";
 export const CreateFilterPresetModal = (props: {
 	opened: boolean;
 	onClose: () => void;
-	placeholder?: string;
+	placeholder: string;
 	onSave: (name: string) => void;
 }) => {
 	const [presetName, setPresetName] = useState("");
@@ -24,14 +24,14 @@ export const CreateFilterPresetModal = (props: {
 		<Modal
 			opened={props.opened}
 			onClose={props.onClose}
-			title="Save Filter Preset"
+			title="Save filter as preset"
 		>
 			<Stack>
 				<TextInput
 					data-autofocus
 					value={presetName}
 					label="Preset Name"
-					placeholder={props.placeholder || "e.g., My Preset"}
+					placeholder={props.placeholder}
 					onChange={(e) => setPresetName(e.currentTarget.value)}
 				/>
 				<Text c="dimmed" size="xs" ta="right">
@@ -62,7 +62,7 @@ export const CreateFilterPresetModal = (props: {
 export const FilterPresetModalManager = (props: {
 	opened: boolean;
 	onClose: () => void;
-	placeholder?: string;
+	placeholder: string;
 	presetManager: ReturnType<typeof useFilterPresets>;
 }) => (
 	<CreateFilterPresetModal
@@ -82,7 +82,12 @@ const FilterPresetChip = (props: {
 		props.onDelete(props.id, props.name),
 	);
 	return (
-		<Chip size="sm" value={props.id} wrapperProps={{ ...longPressHandlers }}>
+		<Chip
+			size="sm"
+			value={props.id}
+			style={{ userSelect: "none" }}
+			wrapperProps={{ ...longPressHandlers }}
+		>
 			{props.name}
 		</Chip>
 	);
