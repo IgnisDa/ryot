@@ -15,6 +15,7 @@ use apalis_cron::{CronStream, Schedule};
 use common_utils::{PROJECT_NAME, get_temporary_directory, ryot_log};
 use config_definition::AppConfig;
 use dependent_models::CompleteExport;
+use english_to_cron::str_cron_syntax;
 use env_utils::APP_VERSION;
 use migrations_sql::Migrator;
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
@@ -229,12 +230,19 @@ fn get_cron_schedules(config: &Arc<AppConfig>, tz: chrono_tz::Tz) -> Result<(Sch
     let infrequent_cron_jobs_hours_format =
         config.scheduler.infrequent_cron_jobs_hours_format.clone();
 
-    let infrequent_scheduler =
-        Schedule::from_str(&format!("0 0 {infrequent_cron_jobs_hours_format} * * *"))?;
+    let infrequent_format = match infrequent_cron_jobs_hours_format.as_str() {
+        "0" => str_cron_syntax(&config.scheduler.infrequent_cron_jobs_schedule)?,
+        _ => format!("0 0 {infrequent_cron_jobs_hours_format} * * *"),
+    };
+
+    let infrequent_scheduler = Schedule::from_str(&infrequent_format)?;
     log_cron_schedule(stringify!(infrequent_scheduler), &infrequent_scheduler, tz);
 
-    let frequent_scheduler =
-        Schedule::from_str(&format!("0 */{frequent_cron_jobs_every_minutes} * * * *"))?;
+    let frequent_format = match frequent_cron_jobs_every_minutes {
+        5 => str_cron_syntax(&config.scheduler.frequent_cron_jobs_schedule)?,
+        _ => format!("0 */{frequent_cron_jobs_every_minutes} * * * *"),
+    };
+    let frequent_scheduler = Schedule::from_str(&frequent_format)?;
     log_cron_schedule(stringify!(frequent_scheduler), &frequent_scheduler, tz);
 
     Ok((infrequent_scheduler, frequent_scheduler))
