@@ -58,6 +58,17 @@ async fn main() -> Result<()> {
 
     ryot_log!(info, "Running version: {}", APP_VERSION);
 
+    let tz: chrono_tz::Tz = config.tz.parse().unwrap();
+    ryot_log!(info, "Timezone: {}", tz);
+
+    let infrequent_scheduler =
+        Schedule::from_str(&format!("0 0 {infrequent_cron_jobs_hours_format} * * *")).unwrap();
+    log_cron_schedule(stringify!(infrequent_scheduler), &infrequent_scheduler, tz);
+
+    let frequent_scheduler =
+        Schedule::from_str(&format!("0 */{frequent_cron_jobs_every_minutes} * * * *")).unwrap();
+    log_cron_schedule(stringify!(frequent_scheduler), &frequent_scheduler, tz);
+
     let config = Arc::new(config_definition::load_app_config()?);
     if config.server.sleep_before_startup_seconds > 0 {
         let duration = Duration::from_secs(config.server.sleep_before_startup_seconds);
@@ -71,17 +82,6 @@ async fn main() -> Result<()> {
     let frequent_cron_jobs_every_minutes = config.scheduler.frequent_cron_jobs_every_minutes;
     let infrequent_cron_jobs_hours_format =
         config.scheduler.infrequent_cron_jobs_hours_format.clone();
-
-    let tz: chrono_tz::Tz = config.tz.parse().unwrap();
-    ryot_log!(info, "Timezone: {}", tz);
-
-    let infrequent_scheduler =
-        Schedule::from_str(&format!("0 0 {infrequent_cron_jobs_hours_format} * * *")).unwrap();
-    log_cron_schedule(stringify!(infrequent_scheduler), &infrequent_scheduler, tz);
-
-    let frequent_scheduler =
-        Schedule::from_str(&format!("0 */{frequent_cron_jobs_every_minutes} * * * *")).unwrap();
-    log_cron_schedule(stringify!(frequent_scheduler), &frequent_scheduler, tz);
 
     let config_dump_path = PathBuf::new()
         .join(get_temporary_directory())
