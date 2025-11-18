@@ -40,7 +40,7 @@ Keep your webhook urls private to prevent abuse.
 ## Yank integrations
 
 You can configure the interval at which the data is fetched from the external source using
-the `SCHEDULER_FREQUENT_CRON_JOBS_EVERY_MINUTES` environment variable. Defaults to `5`.
+the `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE` environment variable. Defaults to `every 5 minutes`.
 
 If you have enabled the `Sync to owned collection` option, the integration will also run
 at night to add all media in your instance to your "Owned" collection.

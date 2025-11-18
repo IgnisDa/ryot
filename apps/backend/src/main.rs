@@ -15,6 +15,7 @@ use apalis_cron::{CronStream, Schedule};
 use common_utils::{PROJECT_NAME, get_temporary_directory, ryot_log};
 use config_definition::AppConfig;
 use dependent_models::CompleteExport;
+use english_to_cron::str_cron_syntax;
 use env_utils::APP_VERSION;
 use migrations_sql::Migrator;
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
@@ -38,8 +39,8 @@ use crate::{
 mod common;
 mod job;
 
-static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 static LOGGING_ENV_VAR: &str = "RUST_LOG";
+static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -47,30 +48,33 @@ async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
 
     match env::var(LOGGING_ENV_VAR).ok() {
+        None => unsafe { env::set_var(LOGGING_ENV_VAR, "ryot=info,sea_orm=info") },
         Some(v) => {
             if !v.contains("sea_orm") {
                 unsafe { env::set_var(LOGGING_ENV_VAR, format!("{v},sea_orm=info")) };
             }
         }
-        None => unsafe { env::set_var(LOGGING_ENV_VAR, "ryot=info,sea_orm=info") },
     }
     init_tracing()?;
 
     ryot_log!(info, "Running version: {}", APP_VERSION);
 
     let config = Arc::new(config_definition::load_app_config()?);
+
+    let tz: chrono_tz::Tz = config.tz.parse().unwrap();
+    ryot_log!(info, "Timezone: {}", tz);
+
+    let port = config.server.backend_port;
+    let host = config.server.backend_host.clone();
+    let disable_background_jobs = config.server.disable_background_jobs;
+
+    let (infrequent_scheduler, frequent_scheduler) = get_cron_schedules(&config, tz)?;
+
     if config.server.sleep_before_startup_seconds > 0 {
         let duration = Duration::from_secs(config.server.sleep_before_startup_seconds);
         ryot_log!(warn, "Sleeping for {:?} before starting up...", duration);
         sleep(duration).await;
     }
-
-    let port = config.server.backend_port;
-    let host = config.server.backend_host.clone();
-    let disable_background_jobs = config.server.disable_background_jobs;
-    let frequent_cron_jobs_every_minutes = config.scheduler.frequent_cron_jobs_every_minutes;
-    let infrequent_cron_jobs_hours_format =
-        config.scheduler.infrequent_cron_jobs_hours_format.clone();
 
     let config_dump_path = PathBuf::new()
         .join(get_temporary_directory())
@@ -94,11 +98,6 @@ async fn main() -> Result<()> {
     let mp_application_job_storage = MemoryStorage::new();
     let hp_application_job_storage = MemoryStorage::new();
     let single_application_job_storage = MemoryStorage::new();
-
-    let tz: chrono_tz::Tz = env::var("TZ")
-        .map(|s| s.parse().unwrap())
-        .unwrap_or_else(|_| chrono_tz::Etc::GMT);
-    ryot_log!(info, "Timezone: {}", tz);
 
     let (app_router, app_services) = create_app_services()
         .db(db)
@@ -151,11 +150,7 @@ async fn main() -> Result<()> {
                 .enable_tracing()
                 .catch_panic()
                 .data(app_services.clone())
-                .backend(CronStream::new_with_timezone(
-                    Schedule::from_str(&format!("0 0 {infrequent_cron_jobs_hours_format} * * *"))
-                        .unwrap(),
-                    tz,
-                ))
+                .backend(CronStream::new_with_timezone(infrequent_scheduler, tz))
                 .build_fn(run_infrequent_cron_jobs),
         )
         .register(
@@ -163,11 +158,7 @@ async fn main() -> Result<()> {
                 .enable_tracing()
                 .catch_panic()
                 .data(app_services.clone())
-                .backend(CronStream::new_with_timezone(
-                    Schedule::from_str(&format!("0 */{frequent_cron_jobs_every_minutes} * * * *"))
-                        .unwrap(),
-                    tz,
-                ))
+                .backend(CronStream::new_with_timezone(frequent_scheduler, tz))
                 .build_fn(run_frequent_cron_jobs),
         )
         // application jobs
@@ -232,6 +223,34 @@ fn init_tracing() -> Result<()> {
     )
     .expect("Unable to set global tracing subscriber");
     Ok(())
+}
+
+fn get_cron_schedules(config: &Arc<AppConfig>, tz: chrono_tz::Tz) -> Result<(Schedule, Schedule)> {
+    let frequent_cron_jobs_every_minutes = config.scheduler.frequent_cron_jobs_every_minutes;
+    let infrequent_cron_jobs_hours_format =
+        config.scheduler.infrequent_cron_jobs_hours_format.clone();
+
+    let infrequent_format = match infrequent_cron_jobs_hours_format.as_str() {
+        "0" => str_cron_syntax(&config.scheduler.infrequent_cron_jobs_schedule)?,
+        _ => format!("0 0 {infrequent_cron_jobs_hours_format} * * *"),
+    };
+
+    let infrequent_scheduler = Schedule::from_str(&infrequent_format)?;
+    log_cron_schedule(stringify!(infrequent_scheduler), &infrequent_scheduler, tz);
+
+    let frequent_format = match frequent_cron_jobs_every_minutes {
+        5 => str_cron_syntax(&config.scheduler.frequent_cron_jobs_schedule)?,
+        _ => format!("0 */{frequent_cron_jobs_every_minutes} * * * *"),
+    };
+    let frequent_scheduler = Schedule::from_str(&frequent_format)?;
+    log_cron_schedule(stringify!(frequent_scheduler), &frequent_scheduler, tz);
+
+    Ok((infrequent_scheduler, frequent_scheduler))
+}
+
+fn log_cron_schedule(name: &str, schedule: &Schedule, tz: chrono_tz::Tz) {
+    let times = schedule.upcoming(tz).take(5).collect::<Vec<_>>();
+    ryot_log!(info, "Schedule for {name:#?}: {times:?} and so on...");
 }
 
 async fn migrate_from_v8_if_applicable(db: &DatabaseConnection) -> Result<()> {

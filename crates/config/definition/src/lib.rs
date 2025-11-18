@@ -385,10 +385,24 @@ pub struct FrontendConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "SCHEDULER_")]
 pub struct SchedulerConfig {
+    /// English expression for frequent cron tasks (syncing integrations, workout revisions).
+    /// Uses https://github.com/kaplanelad/english-to-cron.
+    #[setting(default = "every 5 minutes")]
+    pub frequent_cron_jobs_schedule: String,
+    /// English expression for infrequent cron jobs (cleaning up data, refreshing calendar).
+    /// Uses https://github.com/kaplanelad/english-to-cron.
+    #[setting(default = "every midnight")]
+    pub infrequent_cron_jobs_schedule: String,
+
+    // FIXME: Remove these in the next major release.
     /// Run frequent cron tasks (syncing integrations, workout revisions) every `n` minutes.
+    /// Will be removed in the next major release. Please use `frequent_cron_jobs_schedule` instead.
+    #[deprecated]
     #[setting(default = 5)]
     pub frequent_cron_jobs_every_minutes: i32,
     /// Hours cron component for infrequent cron jobs (cleaning up data, refreshing calendar).
+    /// Will be removed in the next major release. Please use `infrequent_cron_jobs_schedule` instead
+    #[deprecated]
     #[setting(default = "0")]
     pub infrequent_cron_jobs_hours_format: String,
 }
@@ -562,6 +576,9 @@ pub struct AppConfig {
     pub movies_and_shows: MovieAndShowConfig,
 
     // Global options
+    /// Timezone to be used for date time operations.
+    #[setting(default = "Etc/GMT", env = "TZ")]
+    pub tz: String,
     /// Whether to disable telemetry.
     #[setting(default = false, env = "DISABLE_TELEMETRY")]
     pub disable_telemetry: bool,
