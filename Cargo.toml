@@ -134,7 +134,7 @@ educe = { version = "=0.6.0", features = [
     "Default",
     "full",
 ], default-features = false }
-english-to-cron = "0.1.6"
+english-to-cron = "=0.1.6"
 enum_meta = "=0.7.0"
 eventsource-stream = "=0.2.3"
 flate2 = "=1.1.5"
