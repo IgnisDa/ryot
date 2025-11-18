@@ -73,13 +73,18 @@ async fn main() -> Result<()> {
     let infrequent_cron_jobs_hours_format =
         config.scheduler.infrequent_cron_jobs_hours_format.clone();
 
+    let tz: chrono_tz::Tz = env::var("TZ")
+        .map(|s| s.parse().unwrap())
+        .unwrap_or_else(|_| chrono_tz::Etc::GMT);
+    ryot_log!(info, "Timezone: {}", tz);
+
     let infrequent_scheduler =
         Schedule::from_str(&format!("0 0 {infrequent_cron_jobs_hours_format} * * *")).unwrap();
-    log_scheduler(stringify!(infrequent_scheduler), &infrequent_scheduler);
+    log_scheduler(stringify!(infrequent_scheduler), &infrequent_scheduler, &tz);
 
     let frequent_scheduler =
         Schedule::from_str(&format!("0 */{frequent_cron_jobs_every_minutes} * * * *")).unwrap();
-    log_scheduler(stringify!(frequent_scheduler), &frequent_scheduler);
+    log_scheduler(stringify!(frequent_scheduler), &frequent_scheduler, &tz);
 
     let config_dump_path = PathBuf::new()
         .join(get_temporary_directory())
@@ -103,11 +108,6 @@ async fn main() -> Result<()> {
     let mp_application_job_storage = MemoryStorage::new();
     let hp_application_job_storage = MemoryStorage::new();
     let single_application_job_storage = MemoryStorage::new();
-
-    let tz: chrono_tz::Tz = env::var("TZ")
-        .map(|s| s.parse().unwrap())
-        .unwrap_or_else(|_| chrono_tz::Etc::GMT);
-    ryot_log!(info, "Timezone: {}", tz);
 
     let (app_router, app_services) = create_app_services()
         .db(db)
@@ -235,8 +235,8 @@ fn init_tracing() -> Result<()> {
     Ok(())
 }
 
-fn log_scheduler(name: &str, schedule: &Schedule) {
-    let times = schedule.upcoming(Utc).take(5).collect::<Vec<_>>();
+fn log_scheduler(name: &str, schedule: &Schedule, tz: &chrono_tz::Tz) {
+    let times = schedule.upcoming(*tz).take(5).collect::<Vec<_>>();
     ryot_log!(info, "Schedule for {:#?}: {:?} and so on...", name, times);
 }
 
