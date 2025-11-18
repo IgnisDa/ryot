@@ -79,11 +79,11 @@ async fn main() -> Result<()> {
 
     let infrequent_scheduler =
         Schedule::from_str(&format!("0 0 {infrequent_cron_jobs_hours_format} * * *")).unwrap();
-    log_scheduler(stringify!(infrequent_scheduler), &infrequent_scheduler, &tz);
+    log_cron_schedule(stringify!(infrequent_scheduler), &infrequent_scheduler, &tz);
 
     let frequent_scheduler =
         Schedule::from_str(&format!("0 */{frequent_cron_jobs_every_minutes} * * * *")).unwrap();
-    log_scheduler(stringify!(frequent_scheduler), &frequent_scheduler, &tz);
+    log_cron_schedule(stringify!(frequent_scheduler), &frequent_scheduler, &tz);
 
     let config_dump_path = PathBuf::new()
         .join(get_temporary_directory())
@@ -234,7 +234,7 @@ fn init_tracing() -> Result<()> {
     Ok(())
 }
 
-fn log_scheduler(name: &str, schedule: &Schedule, tz: &chrono_tz::Tz) {
+fn log_cron_schedule(name: &str, schedule: &Schedule, tz: &chrono_tz::Tz) {
     let times = schedule.upcoming(*tz).take(5).collect::<Vec<_>>();
     ryot_log!(info, "Schedule for {:#?}: {:?} and so on...", name, times);
 }
