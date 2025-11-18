@@ -15,6 +15,7 @@ axum = { workspace = true }
 bon = { workspace = true }
 chrono-tz = { workspace = true }
 dotenvy = { workspace = true }
+english-to-cron = { workspace = true }
 futures = { workspace = true }
 http = { workspace = true }
 itertools = { workspace = true }

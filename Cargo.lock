@@ -891,6 +891,7 @@ dependencies = [
  "custom-service",
  "dependent-models",
  "dotenvy",
+ "english-to-cron",
  "env-utils",
  "exporter-resolver",
  "exporter-service",
@@ -2596,6 +2597,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "english-to-cron"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e26fb7377cbec9a94f60428e6e6afbe10c699a14639b4d3d4b67b25c0bbe0806"
+dependencies = [
+ "regex",
 ]
 
 [[package]]
