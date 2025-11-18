@@ -165,7 +165,7 @@ scheduler:
   frequent_cron_jobs_schedule: "every 5 minutes"
 
   # Hours cron component for infrequent cron jobs (cleaning up data, refreshing calendar).
-  # Will be removed in the next major release. Please use `frequent_cron_jobs_schedule` instead
+  # Will be removed in the next major release. Please use `infrequent_cron_jobs_schedule` instead
   # @deprecated
   # @envvar SCHEDULER_INFREQUENT_CRON_JOBS_HOURS_FORMAT
   infrequent_cron_jobs_hours_format: "0"

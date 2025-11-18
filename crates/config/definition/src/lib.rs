@@ -401,7 +401,7 @@ pub struct SchedulerConfig {
     #[setting(default = 5)]
     pub frequent_cron_jobs_every_minutes: i32,
     /// Hours cron component for infrequent cron jobs (cleaning up data, refreshing calendar).
-    /// Will be removed in the next major release. Please use `frequent_cron_jobs_schedule` instead
+    /// Will be removed in the next major release. Please use `infrequent_cron_jobs_schedule` instead
     #[deprecated]
     #[setting(default = "0")]
     pub infrequent_cron_jobs_hours_format: String,
