@@ -38,8 +38,8 @@ use crate::{
 mod common;
 mod job;
 
-static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 static LOGGING_ENV_VAR: &str = "RUST_LOG";
+static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
 #[tokio::main]
 async fn main() -> Result<()> {
