@@ -151,6 +151,10 @@ podcasts:
     # @envvar PODCASTS_LISTENNOTES_API_TOKEN
     api_token: ""
 
+# Logging level for the application.
+# @envvar RUST_LOG
+rust_log: "ryot=info,sea_orm=info"
+
 # Settings related to scheduler.
 scheduler:
   # Run frequent cron tasks (syncing integrations, workout revisions) every `n` minutes.

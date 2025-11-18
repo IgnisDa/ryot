@@ -20,6 +20,7 @@ use tokio::time::sleep;
 pub const PAGE_SIZE: u64 = 20;
 pub const AUTHOR: &str = "ignisda";
 pub const PROJECT_NAME: &str = "ryot";
+pub const LOGGING_ENV_VAR: &str = "RUST_LOG";
 pub const TWO_FACTOR_BACKUP_CODES_COUNT: u8 = 12;
 pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
