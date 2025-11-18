@@ -385,11 +385,23 @@ pub struct FrontendConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "SCHEDULER_")]
 pub struct SchedulerConfig {
+    /// English expression for frequent cron tasks (syncing integrations, workout revisions).
+    /// Uses https://github.com/kaplanelad/english-to-cron.
+    #[setting(default = "every 5 minutes")]
+    pub frequent_cron_jobs_schedule: String,
+    /// English expression for infrequent cron jobs (cleaning up data, refreshing calendar).
+    /// Uses https://github.com/kaplanelad/english-to-cron.
+    #[setting(default = "every midnight")]
+    pub infrequent_cron_jobs_schedule: String,
+
+    // FIXME: Remove these in the next major release.
     /// Run frequent cron tasks (syncing integrations, workout revisions) every `n` minutes.
     #[setting(default = 5)]
+    #[deprecated(note = "Use `frequent_cron_jobs_schedule` instead")]
     pub frequent_cron_jobs_every_minutes: i32,
     /// Hours cron component for infrequent cron jobs (cleaning up data, refreshing calendar).
     #[setting(default = "0")]
+    #[deprecated(note = "Use `infrequent_cron_jobs_schedule` instead")]
     pub infrequent_cron_jobs_hours_format: String,
 }
 
