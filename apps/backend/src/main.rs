@@ -145,17 +145,18 @@ async fn main() -> Result<()> {
     let listener = TcpListener::bind(format!("{host}:{port}")).await.unwrap();
     ryot_log!(info, "Listening on: {}", listener.local_addr()?);
 
+    let infrequent_scheduler =
+        Schedule::from_str(&format!("0 0 {infrequent_cron_jobs_hours_format} * * *")).unwrap();
+    let frequent_scheduler =
+        Schedule::from_str(&format!("0 */{frequent_cron_jobs_every_minutes} * * * *")).unwrap();
+
     let monitor = Monitor::new()
         .register(
             WorkerBuilder::new("infrequent_cron_jobs")
                 .enable_tracing()
                 .catch_panic()
                 .data(app_services.clone())
-                .backend(CronStream::new_with_timezone(
-                    Schedule::from_str(&format!("0 0 {infrequent_cron_jobs_hours_format} * * *"))
-                        .unwrap(),
-                    tz,
-                ))
+                .backend(CronStream::new_with_timezone(infrequent_scheduler, tz))
                 .build_fn(run_infrequent_cron_jobs),
         )
         .register(
@@ -163,11 +164,7 @@ async fn main() -> Result<()> {
                 .enable_tracing()
                 .catch_panic()
                 .data(app_services.clone())
-                .backend(CronStream::new_with_timezone(
-                    Schedule::from_str(&format!("0 */{frequent_cron_jobs_every_minutes} * * * *"))
-                        .unwrap(),
-                    tz,
-                ))
+                .backend(CronStream::new_with_timezone(frequent_scheduler, tz))
                 .build_fn(run_frequent_cron_jobs),
         )
         // application jobs
