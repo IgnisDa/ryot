@@ -46,6 +46,17 @@ async fn main() -> Result<()> {
     #[cfg(debug_assertions)]
     dotenvy::dotenv().ok();
 
+    init_tracing()?;
+    ryot_log!(info, "Running version: {}", APP_VERSION);
+
+    let config = Arc::new(config_definition::load_app_config()?);
+
+    if config.server.sleep_before_startup_seconds > 0 {
+        let duration = Duration::from_secs(config.server.sleep_before_startup_seconds);
+        ryot_log!(warn, "Sleeping for {:?} before starting up...", duration);
+        sleep(duration).await;
+    }
+
     match env::var(LOGGING_ENV_VAR).ok() {
         None => unsafe { env::set_var(LOGGING_ENV_VAR, "ryot=info,sea_orm=info") },
         Some(v) => {
@@ -53,16 +64,6 @@ async fn main() -> Result<()> {
                 unsafe { env::set_var(LOGGING_ENV_VAR, format!("{v},sea_orm=info")) };
             }
         }
-    }
-    init_tracing()?;
-
-    ryot_log!(info, "Running version: {}", APP_VERSION);
-
-    let config = Arc::new(config_definition::load_app_config()?);
-    if config.server.sleep_before_startup_seconds > 0 {
-        let duration = Duration::from_secs(config.server.sleep_before_startup_seconds);
-        ryot_log!(warn, "Sleeping for {:?} before starting up...", duration);
-        sleep(duration).await;
     }
 
     let port = config.server.backend_port;
