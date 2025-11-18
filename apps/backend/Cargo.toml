@@ -13,7 +13,6 @@ async-graphql = { workspace = true }
 async-graphql-axum = { workspace = true }
 axum = { workspace = true }
 bon = { workspace = true }
-chrono = { workspace = true }
 chrono-tz = { workspace = true }
 dotenvy = { workspace = true }
 futures = { workspace = true }
