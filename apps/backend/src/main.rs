@@ -72,9 +72,7 @@ async fn main() -> Result<()> {
     let infrequent_cron_jobs_hours_format =
         config.scheduler.infrequent_cron_jobs_hours_format.clone();
 
-    let tz: chrono_tz::Tz = env::var("TZ")
-        .map(|s| s.parse().unwrap())
-        .unwrap_or_else(|_| chrono_tz::Etc::GMT);
+    let tz: chrono_tz::Tz = config.tz.parse().unwrap();
     ryot_log!(info, "Timezone: {}", tz);
 
     let infrequent_scheduler =
@@ -236,7 +234,7 @@ fn init_tracing() -> Result<()> {
 
 fn log_cron_schedule(name: &str, schedule: &Schedule, tz: chrono_tz::Tz) {
     let times = schedule.upcoming(tz).take(5).collect::<Vec<_>>();
-    ryot_log!(info, "Schedule for {:#?}: {:?} and so on...", name, times);
+    ryot_log!(info, "Schedule for {name:#?}: {times:?} and so on...");
 }
 
 async fn migrate_from_v8_if_applicable(db: &DatabaseConnection) -> Result<()> {
