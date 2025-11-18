@@ -565,9 +565,6 @@ pub struct AppConfig {
     /// Timezone to be used for date time operations.
     #[setting(default = "Etc/GMT", env = "TZ")]
     pub tz: String,
-    /// Logging level for the application.
-    #[setting(env = "RUST_LOG", default = "ryot=info,sea_orm=info")]
-    pub rust_log: String,
     /// Whether to disable telemetry.
     #[setting(default = false, env = "DISABLE_TELEMETRY")]
     pub disable_telemetry: bool,

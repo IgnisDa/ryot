@@ -12,7 +12,7 @@ use apalis::{
     prelude::{MemoryStorage, Monitor, WorkerBuilder, WorkerFactoryFn},
 };
 use apalis_cron::{CronStream, Schedule};
-use common_utils::{LOGGING_ENV_VAR, PROJECT_NAME, get_temporary_directory, ryot_log};
+use common_utils::{PROJECT_NAME, get_temporary_directory, ryot_log};
 use config_definition::AppConfig;
 use dependent_models::CompleteExport;
 use env_utils::APP_VERSION;
@@ -38,6 +38,7 @@ use crate::{
 mod common;
 mod job;
 
+static LOGGING_ENV_VAR: &str = "RUST_LOG";
 static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
 #[tokio::main]
@@ -45,19 +46,23 @@ async fn main() -> Result<()> {
     #[cfg(debug_assertions)]
     dotenvy::dotenv().ok();
 
+    match env::var(LOGGING_ENV_VAR).ok() {
+        None => unsafe { env::set_var(LOGGING_ENV_VAR, "ryot=info,sea_orm=info") },
+        Some(v) => {
+            if !v.contains("sea_orm") {
+                unsafe { env::set_var(LOGGING_ENV_VAR, format!("{v},sea_orm=info")) };
+            }
+        }
+    }
     init_tracing()?;
+
     ryot_log!(info, "Running version: {}", APP_VERSION);
 
     let config = Arc::new(config_definition::load_app_config()?);
-
     if config.server.sleep_before_startup_seconds > 0 {
         let duration = Duration::from_secs(config.server.sleep_before_startup_seconds);
         ryot_log!(warn, "Sleeping for {:?} before starting up...", duration);
         sleep(duration).await;
-    }
-
-    if !config.rust_log.contains("sea_orm") {
-        unsafe { env::set_var(LOGGING_ENV_VAR, format!("{},sea_orm=info", config.rust_log)) };
     }
 
     let port = config.server.backend_port;
