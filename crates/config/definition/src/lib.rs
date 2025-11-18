@@ -396,12 +396,14 @@ pub struct SchedulerConfig {
 
     // FIXME: Remove these in the next major release.
     /// Run frequent cron tasks (syncing integrations, workout revisions) every `n` minutes.
+    /// Will be removed in the next major release. Please use `frequent_cron_jobs_schedule` instead.
+    #[deprecated]
     #[setting(default = 5)]
-    #[deprecated(note = "Use `frequent_cron_jobs_schedule` instead")]
     pub frequent_cron_jobs_every_minutes: i32,
     /// Hours cron component for infrequent cron jobs (cleaning up data, refreshing calendar).
+    /// Will be removed in the next major release. Please use `frequent_cron_jobs_schedule` instead
+    #[deprecated]
     #[setting(default = "0")]
-    #[deprecated(note = "Use `infrequent_cron_jobs_schedule` instead")]
     pub infrequent_cron_jobs_hours_format: String,
 }
 

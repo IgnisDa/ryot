@@ -226,7 +226,8 @@ fn init_tracing() -> Result<()> {
 
 fn get_cron_schedules(config: &Arc<AppConfig>, tz: chrono_tz::Tz) -> (Schedule, Schedule) {
     let frequent_cron_jobs_every_minutes = config.scheduler.frequent_cron_jobs_every_minutes;
-    let infrequent_cron_jobs_hours_format = config.scheduler.infrequent_cron_jobs_hours_format;
+    let infrequent_cron_jobs_hours_format =
+        config.scheduler.infrequent_cron_jobs_hours_format.clone();
 
     let infrequent_scheduler =
         Schedule::from_str(&format!("0 0 {infrequent_cron_jobs_hours_format} * * *")).unwrap();
