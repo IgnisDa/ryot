@@ -240,6 +240,10 @@ server:
     # @envvar SERVER_SMTP_USER
     user: ""
 
+# Timezone to be used for date time operations.
+# @envvar TZ
+tz: "Etc/GMT"
+
 # Settings related to users.
 users:
   # Whether new users will be allowed to sign up to this instance.

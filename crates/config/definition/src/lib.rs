@@ -565,6 +565,9 @@ pub struct AppConfig {
     /// Whether to disable telemetry.
     #[setting(default = false, env = "DISABLE_TELEMETRY")]
     pub disable_telemetry: bool,
+    /// Timezone to be used for date time operations.
+    #[setting(default = "Etc/GMT", env = "TZ")]
+    pub tz: String,
 }
 
 pub fn load_app_config() -> Result<AppConfig> {
