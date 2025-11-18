@@ -12,6 +12,7 @@ use apalis::{
     prelude::{MemoryStorage, Monitor, WorkerBuilder, WorkerFactoryFn},
 };
 use apalis_cron::{CronStream, Schedule};
+use chrono::Utc;
 use common_utils::{PROJECT_NAME, get_temporary_directory, ryot_log};
 use config_definition::AppConfig;
 use dependent_models::CompleteExport;
@@ -71,6 +72,14 @@ async fn main() -> Result<()> {
     let frequent_cron_jobs_every_minutes = config.scheduler.frequent_cron_jobs_every_minutes;
     let infrequent_cron_jobs_hours_format =
         config.scheduler.infrequent_cron_jobs_hours_format.clone();
+
+    let infrequent_scheduler =
+        Schedule::from_str(&format!("0 0 {infrequent_cron_jobs_hours_format} * * *")).unwrap();
+    log_scheduler(stringify!(infrequent_scheduler), &infrequent_scheduler);
+
+    let frequent_scheduler =
+        Schedule::from_str(&format!("0 */{frequent_cron_jobs_every_minutes} * * * *")).unwrap();
+    log_scheduler(stringify!(frequent_scheduler), &frequent_scheduler);
 
     let config_dump_path = PathBuf::new()
         .join(get_temporary_directory())
@@ -144,11 +153,6 @@ async fn main() -> Result<()> {
 
     let listener = TcpListener::bind(format!("{host}:{port}")).await.unwrap();
     ryot_log!(info, "Listening on: {}", listener.local_addr()?);
-
-    let infrequent_scheduler =
-        Schedule::from_str(&format!("0 0 {infrequent_cron_jobs_hours_format} * * *")).unwrap();
-    let frequent_scheduler =
-        Schedule::from_str(&format!("0 */{frequent_cron_jobs_every_minutes} * * * *")).unwrap();
 
     let monitor = Monitor::new()
         .register(
@@ -229,6 +233,11 @@ fn init_tracing() -> Result<()> {
     )
     .expect("Unable to set global tracing subscriber");
     Ok(())
+}
+
+fn log_scheduler(name: &str, schedule: &Schedule) {
+    let times = schedule.upcoming(Utc).take(5).collect::<Vec<_>>();
+    ryot_log!(info, "Schedule for {:#?}: {:?} and so on...", name, times);
 }
 
 async fn migrate_from_v8_if_applicable(db: &DatabaseConnection) -> Result<()> {
