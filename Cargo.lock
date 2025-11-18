@@ -2601,9 +2601,9 @@ dependencies = [
 
 [[package]]
 name = "english-to-cron"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e26fb7377cbec9a94f60428e6e6afbe10c699a14639b4d3d4b67b25c0bbe0806"
+checksum = "3c3d16f6dc9dc43a9a2fd5bce09b6cf8df250dcf77cffdaa66be21c527e2d05c"
 dependencies = [
  "regex",
 ]
