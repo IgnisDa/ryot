@@ -101,10 +101,9 @@ pub async fn sink_progress(payload: String) -> Result<Option<ImportResult>> {
 
     ryot_log!(
         debug,
-        "Jellyfin sink {} completed items, identifier: {}, seen_history.len: {}",
+        "Jellyfin sink created ImportResult with {} completed items, identifier: {}, seen_history.len: 1",
         result.completed.len(),
-        identifier,
-        result.completed[0].seen_history.len()
+        identifier
     );
 
     Ok(Some(result))
