@@ -10,7 +10,6 @@ import {
 	Title,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
-import { notifications } from "@mantine/notifications";
 import {
 	CreateCustomExerciseDocument,
 	ExerciseEquipment,
@@ -25,7 +24,6 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseParameters, parseSearchQuery, startCase } from "@ryot/ts-utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ClientError } from "graphql-request";
 import { useEffect, useMemo } from "react";
 import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
@@ -36,7 +34,12 @@ import {
 	ExistingImageList,
 } from "~/components/common/custom-entities";
 import { useCoreDetails, useExerciseDetails } from "~/lib/shared/hooks";
+import { buildImageAssets, mergeImages } from "~/lib/shared/image-utils";
 import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
+import {
+	showEntityError,
+	showEntitySuccess,
+} from "~/lib/shared/notification-utils";
 import { clientGqlService } from "~/lib/shared/react-query";
 import {
 	clientSideFileUpload,
@@ -147,11 +150,9 @@ export default function Page() {
 	});
 
 	const memoizedInput = useMemo<UpdateCustomExerciseInput>(() => {
-		const s3Images = Array.from(
-			new Set([
-				...(form.values.existingImages || []),
-				...((exerciseImages.data as string[] | undefined) || []),
-			]),
+		const s3Images = mergeImages(
+			form.values.existingImages || [],
+			(exerciseImages.data as string[] | undefined) || [],
 		);
 		return {
 			name: form.values.name,
@@ -161,7 +162,7 @@ export default function Page() {
 			shouldDelete: form.values.shouldDelete,
 			level: form.values.level as ExerciseLevel,
 			muscles: (form.values.muscles || []) as ExerciseMuscle[],
-			assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
+			assets: buildImageAssets(s3Images),
 			force: form.values.force
 				? (form.values.force as ExerciseForce)
 				: undefined,
@@ -184,20 +185,10 @@ export default function Page() {
 				.request(CreateCustomExerciseDocument, { input: memoizedInput })
 				.then((res) => res.createCustomExercise),
 		onSuccess: (id) => {
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: "Exercise created",
-			});
+			showEntitySuccess("Exercise", "created");
 			navigate(getExerciseDetailsPath(id));
 		},
-		onError: (e) => {
-			const message =
-				e instanceof ClientError && e.response.errors
-					? e.response.errors[0].message
-					: "Failed to create exercise";
-			notifications.show({ color: "red", title: "Error", message });
-		},
+		onError: () => showEntityError("Exercise", "create"),
 	});
 
 	const updateMutation = useMutation({
@@ -212,22 +203,13 @@ export default function Page() {
 			const destination = memoizedInput.shouldDelete
 				? $path("/fitness/exercises/list")
 				: getExerciseDetailsPath(id);
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: memoizedInput.shouldDelete
-					? "Exercise deleted"
-					: "Exercise updated",
-			});
+			showEntitySuccess(
+				"Exercise",
+				memoizedInput.shouldDelete ? "deleted" : "updated",
+			);
 			navigate(destination);
 		},
-		onError: (e) => {
-			const message =
-				e instanceof ClientError && e.response.errors
-					? e.response.errors[0].message
-					: "Failed to update exercise";
-			notifications.show({ color: "red", title: "Error", message });
-		},
+		onError: () => showEntityError("Exercise", "update"),
 	});
 
 	const handleSubmit = form.onSubmit(async () => {
