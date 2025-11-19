@@ -1,6 +1,7 @@
 import {
 	Box,
 	Button,
+	type ButtonProps,
 	Container,
 	SimpleGrid,
 	Stack,
@@ -82,23 +83,18 @@ export default function Page() {
 					<ClientOnly>
 						{() =>
 							isOnboardingTourCompleted && !isMobile ? (
-								<Stack>
-									<Box>
-										<Title order={4}>Onboarding</Title>
-										<Text>Restart the application onboarding tour.</Text>
-									</Box>
-									<Button
-										mt="auto"
-										variant="light"
-										onClick={async () => {
+								<SettingsActionCard
+									title="Onboarding"
+									buttonText="Restart onboarding"
+									description="Restart the application onboarding tour."
+									buttonProps={{
+										onClick: async () => {
 											await startOnboardingTour();
 											await markUserOnboardingStatus.mutateAsync(false);
 											navigate("/");
-										}}
-									>
-										Restart onboarding
-									</Button>
-								</Stack>
+										},
+									}}
+								/>
 							) : null
 						}
 					</ClientOnly>
@@ -107,6 +103,23 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const SettingsActionCard = (props: {
+	title: string;
+	buttonText: string;
+	description: string;
+	buttonProps?: unknown;
+}) => (
+	<Stack>
+		<Box>
+			<Title order={4}>{props.title}</Title>
+			<Text>{props.description}</Text>
+		</Box>
+		<Button mt="auto" variant="light" {...(props.buttonProps as ButtonProps)}>
+			{props.buttonText}
+		</Button>
+	</Stack>
+);
 
 const getJobDetails = (job: BackgroundJob) =>
 	match(job)
@@ -177,17 +190,14 @@ const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 	return (
 		<Form replace method="POST">
 			<input hidden name="jobName" defaultValue={props.job} />
-			<Stack>
-				<Box>
-					<Title order={4}>{title}</Title>
-					<Text>{description}</Text>
-				</Box>
-				<Button
-					mt="auto"
-					type="submit"
-					variant="light"
-					disabled={isEditDisabled}
-					onClick={(e) => {
+			<SettingsActionCard
+				title={title}
+				description={description}
+				buttonText={title}
+				buttonProps={{
+					type: "submit",
+					disabled: isEditDisabled,
+					onClick: (e: React.MouseEvent<HTMLButtonElement>) => {
 						const form = e.currentTarget.form;
 						e.preventDefault();
 						openConfirmationModal(
@@ -197,11 +207,9 @@ const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 								await invalidateUserDetails();
 							},
 						);
-					}}
-				>
-					{title}
-				</Button>
-			</Stack>
+					},
+				}}
+			/>
 		</Form>
 	);
 };
@@ -240,22 +248,15 @@ const DownloadLogsButton = () => {
 	});
 
 	return (
-		<Stack>
-			<Box>
-				<Title order={4}>Download Logs</Title>
-				<Text>
-					Download application logs for debugging and troubleshooting purposes.
-				</Text>
-			</Box>
-			<Button
-				mt="auto"
-				variant="light"
-				disabled={isEditDisabled}
-				loading={downloadLogsMutation.isPending}
-				onClick={() => downloadLogsMutation.mutate()}
-			>
-				Download Logs
-			</Button>
-		</Stack>
+		<SettingsActionCard
+			title="Download Logs"
+			description="Download application logs for debugging and troubleshooting purposes."
+			buttonText="Download Logs"
+			buttonProps={{
+				disabled: isEditDisabled,
+				loading: downloadLogsMutation.isPending,
+				onClick: () => downloadLogsMutation.mutate(),
+			}}
+		/>
 	);
 };
