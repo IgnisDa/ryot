@@ -183,7 +183,6 @@ export const BulkDeleteModal = (props: {
 		<Modal
 			opened={props.opened}
 			onClose={props.onClose}
-			withCloseButton={false}
 			title="Select sets to delete"
 		>
 			<Stack gap="md" h="60vh">
