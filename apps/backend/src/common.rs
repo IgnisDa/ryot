@@ -159,7 +159,7 @@ pub async fn create_app_services(
         .route("/config", get(config_handler))
         .route("/graphql", gql)
         .route("/upload", post(upload_file_handler))
-        .route("/logs/download/:token", get(download_logs_handler))
+        .route("/logs/download/{token}", get(download_logs_handler))
         .layer(Extension(schema))
         .layer(Extension(config.clone()))
         .layer(Extension(supporting_service.clone()))

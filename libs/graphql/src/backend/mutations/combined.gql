@@ -348,3 +348,7 @@ mutation DeleteFilterPreset($filterPresetId: UUID!) {
 mutation UpdateFilterPresetLastUsed($filterPresetId: UUID!) {
 	updateFilterPresetLastUsed(filterPresetId: $filterPresetId)
 }
+
+mutation GenerateLogDownloadToken {
+	generateLogDownloadToken
+}
