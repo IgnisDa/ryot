@@ -21,6 +21,8 @@ fn get_expiry_for_key(ss: &Arc<SupportingService>, key: &ApplicationCacheKey) ->
     match key {
         ApplicationCacheKey::UserTwoFactorRateLimit { .. } => Duration::seconds(5),
 
+        ApplicationCacheKey::LogDownloadToken { .. } => Duration::minutes(1),
+
         ApplicationCacheKey::SpotifyAccessToken => Duration::minutes(50),
 
         ApplicationCacheKey::CoreDetails

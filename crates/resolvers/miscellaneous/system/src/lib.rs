@@ -64,6 +64,12 @@ impl MiscellaneousSystemMutationResolver {
         Ok(service.deploy_background_job(&user_id, job_name).await?)
     }
 
+    /// Generate a one-time token for downloading application logs. Admin only.
+    async fn generate_log_download_token(&self, gql_ctx: &Context<'_>) -> Result<String> {
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
+        Ok(service.generate_log_download_token(&user_id).await?)
+    }
+
     /// Use this mutation to call a function that needs to be tested for implementation.
     /// It is only available in development mode.
     #[cfg(debug_assertions)]

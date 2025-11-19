@@ -6,6 +6,7 @@ use common_models::{
     BackgroundJob, MetadataGroupSearchInput, PeopleSearchInput, SearchInput, StringIdObject,
 };
 use database_models::{prelude::User, user};
+use database_utils::admin_account_guard;
 use dependent_core_utils::core_details;
 use dependent_entity_list_utils::{
     user_genres_list, user_metadata_groups_list, user_metadata_list, user_people_list,
@@ -15,9 +16,10 @@ use dependent_jobs_utils::{
     deploy_update_person_job,
 };
 use dependent_models::{
-    CachedResponse, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
-    MetadataGroupSearchResponse, MetadataSearchInput, MetadataSearchResponse, PeopleSearchResponse,
-    SearchResults, TrendingMetadataIdsResponse, UserMetadataDetails, UserMetadataGroupDetails,
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CoreDetails, EmptyCacheValue,
+    GenreDetails, GraphqlPersonDetails, MetadataGroupDetails, MetadataGroupSearchResponse,
+    MetadataSearchInput, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
+    TrendingMetadataIdsResponse, UserMetadataDetails, UserMetadataGroupDetails,
     UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
     UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
 };
@@ -154,6 +156,18 @@ impl MiscellaneousService {
         job_name: BackgroundJob,
     ) -> Result<bool> {
         deploy_background_job(user_id, job_name, &self.0).await
+    }
+
+    pub async fn generate_log_download_token(&self, user_id: &String) -> Result<String> {
+        admin_account_guard(user_id, &self.0).await?;
+
+        let token = Uuid::new_v4().to_string();
+        let key = ApplicationCacheKey::LogDownloadToken(token.clone());
+        let value = ApplicationCacheValue::LogDownloadToken(EmptyCacheValue::default());
+
+        cache_service::set_key(&self.0, key, value).await?;
+
+        Ok(token)
     }
 
     pub async fn mark_entity_as_partial(&self, input: MarkEntityAsPartialInput) -> Result<bool> {

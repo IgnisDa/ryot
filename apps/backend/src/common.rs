@@ -49,7 +49,8 @@ use miscellaneous_tracking_resolver::{
     MiscellaneousTrackingMutationResolver, MiscellaneousTrackingQueryResolver,
 };
 use router_resolver::{
-    config_handler, graphql_playground_handler, integration_webhook_handler, upload_file_handler,
+    config_handler, download_logs_handler, graphql_playground_handler, integration_webhook_handler,
+    upload_file_handler,
 };
 use sea_orm::DatabaseConnection;
 use statistics_resolver::StatisticsQueryResolver;
@@ -158,6 +159,7 @@ pub async fn create_app_services(
         .route("/config", get(config_handler))
         .route("/graphql", gql)
         .route("/upload", post(upload_file_handler))
+        .route("/logs/download/:token", get(download_logs_handler))
         .layer(Extension(schema))
         .layer(Extension(config.clone()))
         .layer(Extension(supporting_service.clone()))
