@@ -90,9 +90,9 @@ pub async fn sink_progress(payload: String) -> Result<Option<ImportResult>> {
     let result = ImportResult {
         completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
+            identifier,
             source: MediaSource::Tmdb,
             seen_history: vec![seen_item],
-            identifier: identifier.clone(),
             ..Default::default()
         })],
         ..Default::default()
