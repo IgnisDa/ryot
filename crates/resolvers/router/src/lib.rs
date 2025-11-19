@@ -4,8 +4,12 @@ use anyhow::Result;
 use async_graphql::http::{GraphQLPlaygroundConfig, playground_source};
 use axum::{
     Extension, Json,
+    body::Body,
     extract::{Multipart, Path},
-    http::{StatusCode, header},
+    http::{
+        StatusCode,
+        header::{CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_TYPE, PRAGMA},
+    },
     response::{Html, IntoResponse},
 };
 use background_models::{ApplicationJob, SingleApplicationJob};
@@ -15,6 +19,8 @@ use dependent_models::{ApplicationCacheKey, EmptyCacheValue, ExpireCacheKeyInput
 use integration_service::IntegrationService;
 use nanoid::nanoid;
 use supporting_service::SupportingService;
+use tokio::fs::File;
+use tokio_util::io::ReaderStream;
 
 pub async fn graphql_playground_handler() -> impl IntoResponse {
     Html(playground_source(GraphQLPlaygroundConfig::new(
@@ -81,17 +87,19 @@ pub async fn download_logs_handler(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let log_contents = tokio::fs::read(&ss.log_file_path)
+    let file = File::open(&ss.log_file_path)
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
 
+    let stream = ReaderStream::new(file);
+    let body = Body::from_stream(stream);
+
     let headers = [
-        (header::CONTENT_TYPE, "text/plain"),
-        (
-            header::CONTENT_DISPOSITION,
-            r#"attachment; filename="ryot.log""#,
-        ),
+        (PRAGMA, "no-cache"),
+        (CACHE_CONTROL, "no-store"),
+        (CONTENT_TYPE, "text/plain"),
+        (CONTENT_DISPOSITION, r#"attachment; filename="ryot.log""#),
     ];
 
-    Ok((headers, log_contents))
+    Ok((headers, body))
 }
