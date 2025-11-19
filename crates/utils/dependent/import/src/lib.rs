@@ -109,7 +109,6 @@ where
                     Entry::Occupied(mut entry) => {
                         let existing_metadata = entry.get_mut();
                         let existing_seen_count = existing_metadata.seen_history.len();
-                        let new_seen_count = current_metadata.seen_history.len();
                         existing_metadata
                             .seen_history
                             .append(&mut current_metadata.seen_history);
