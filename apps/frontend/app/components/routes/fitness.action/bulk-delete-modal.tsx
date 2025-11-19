@@ -39,7 +39,7 @@ const ExerciseItem = (props: {
 	const isPartiallySelected = selectedCount > 0 && !isFullySelected;
 
 	return (
-		<Paper withBorder radius="md" p="sm">
+		<Paper p="sm" withBorder radius="md" id={`delete-${exercise.identifier}`}>
 			<Group justify="space-between">
 				<Checkbox
 					checked={isFullySelected}
@@ -92,6 +92,12 @@ export const BulkDeleteModal = (props: {
 
 		const setIdentifiers = exercise.sets.map((s) => s.identifier);
 		setSelectedSets(new Set(setIdentifiers));
+
+		setTimeout(() => {
+			const elementId = `delete-${props.exerciseToDelete}`;
+			const element = document.getElementById(elementId);
+			element?.scrollIntoView({ behavior: "smooth", block: "center" });
+		}, 400);
 	}, [props.opened]);
 
 	useDidUpdate(() => {
