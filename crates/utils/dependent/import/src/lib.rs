@@ -108,9 +108,18 @@ where
                 match aggregated_metadata.entry(key) {
                     Entry::Occupied(mut entry) => {
                         let existing_metadata = entry.get_mut();
+                        let existing_seen_count = existing_metadata.seen_history.len();
+                        let new_seen_count = current_metadata.seen_history.len();
                         existing_metadata
                             .seen_history
                             .append(&mut current_metadata.seen_history);
+                        ryot_log!(
+                            debug,
+                            "Aggregating duplicate metadata ({}): merged seen_history from {} to {} items",
+                            current_metadata.identifier,
+                            existing_seen_count,
+                            existing_metadata.seen_history.len()
+                        );
                         existing_metadata
                             .reviews
                             .append(&mut current_metadata.reviews);
@@ -119,6 +128,12 @@ where
                             .append(&mut current_metadata.collections);
                     }
                     Entry::Vacant(entry) => {
+                        ryot_log!(
+                            debug,
+                            "Adding new metadata ({}) with {} seen_history items",
+                            entry.key().1,
+                            current_metadata.seen_history.len()
+                        );
                         entry.insert(current_metadata);
                     }
                 }
@@ -195,6 +210,12 @@ where
                         error: Some("Progress update *might* be wrong".to_owned()),
                     });
                 }
+                ryot_log!(
+                    debug,
+                    "Processing {} seen_history items for metadata: {}",
+                    metadata.seen_history.len(),
+                    db_metadata_id
+                );
                 for seen in metadata.seen_history {
                     if let Err(e) =
                         commit_import_seen_item(is_import, user_id, &db_metadata_id, ss, seen).await

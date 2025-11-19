@@ -1,4 +1,5 @@
 use anyhow::{Result, anyhow};
+use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use media_models::ImportOrExportMetadataItemSeen;
@@ -87,14 +88,23 @@ pub async fn sink_progress(payload: String) -> Result<Option<ImportResult>> {
 
     seen_item.progress = Some(position / runtime * dec!(100));
 
-    Ok(Some(ImportResult {
+    let result = ImportResult {
         completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
-            identifier,
             source: MediaSource::Tmdb,
+            identifier: identifier.clone(),
             seen_history: vec![seen_item],
             ..Default::default()
         })],
         ..Default::default()
-    }))
+    };
+
+    ryot_log!(
+        debug,
+        "Jellyfin sink created ImportResult with {} completed items, identifier: {}, seen_history.len: 1",
+        result.completed.len(),
+        identifier
+    );
+
+    Ok(Some(result))
 }

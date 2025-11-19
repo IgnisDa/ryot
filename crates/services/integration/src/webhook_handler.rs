@@ -41,6 +41,22 @@ impl IntegrationService {
                 });
             }
         });
+        ryot_log!(
+            debug,
+            "Calling process_import with {} completed items after filtering",
+            import.completed.len()
+        );
+        for (idx, item) in import.completed.iter().enumerate() {
+            if let ImportCompletedItem::Metadata(m) = item {
+                ryot_log!(
+                    debug,
+                    "process_import input item {}: identifier={}, seen_history.len={}",
+                    idx,
+                    m.identifier,
+                    m.seen_history.len()
+                );
+            }
+        }
         let result = process_import(false, &integration.user_id, import, &self.0, |_| async {
             Ok(())
         })
@@ -85,6 +101,22 @@ impl IntegrationService {
         match maybe_progress_update {
             Ok(None) => Ok("No progress update".to_owned()),
             Ok(Some(pu)) => {
+                ryot_log!(
+                    debug,
+                    "Webhook received ImportResult with {} completed items",
+                    pu.completed.len()
+                );
+                for (idx, item) in pu.completed.iter().enumerate() {
+                    if let ImportCompletedItem::Metadata(m) = item {
+                        ryot_log!(
+                            debug,
+                            "Webhook ImportResult item {}: identifier={}, seen_history.len={}",
+                            idx,
+                            m.identifier,
+                            m.seen_history.len()
+                        );
+                    }
+                }
                 self.integration_progress_update(integration, pu)
                     .await
                     .trace_ok();
