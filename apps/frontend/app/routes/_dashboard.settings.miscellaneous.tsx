@@ -12,7 +12,7 @@ import { notifications } from "@mantine/notifications";
 import {
 	BackgroundJob,
 	DeployBackgroundJobDocument,
-	GenerateLogDownloadTokenDocument,
+	GenerateLogDownloadUrlDocument,
 	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { processSubmission } from "@ryot/ts-utils";
@@ -21,7 +21,6 @@ import { Form, data, useNavigate } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { applicationBaseUrl } from "~/lib/shared/constants";
 import {
 	useConfirmSubmit,
 	useDashboardLayoutData,
@@ -223,14 +222,13 @@ const DownloadLogsButton = () => {
 
 	const downloadLogsMutation = useMutation({
 		mutationFn: async () => {
-			const { generateLogDownloadToken } = await clientGqlService.request(
-				GenerateLogDownloadTokenDocument,
+			const { generateLogDownloadUrl } = await clientGqlService.request(
+				GenerateLogDownloadUrlDocument,
 				{},
 			);
-			return generateLogDownloadToken;
+			return generateLogDownloadUrl;
 		},
-		onSuccess: (token) => {
-			const downloadUrl = `${applicationBaseUrl}/backend/logs/download/${token}`;
+		onSuccess: (downloadUrl) => {
 			window.open(downloadUrl, "_blank", "noopener,noreferrer");
 			notifications.show({
 				color: "green",
@@ -242,7 +240,7 @@ const DownloadLogsButton = () => {
 			notifications.show({
 				color: "red",
 				title: "Error",
-				message: "Failed to generate log download token",
+				message: "Failed to generate log download URL",
 			});
 		},
 	});
