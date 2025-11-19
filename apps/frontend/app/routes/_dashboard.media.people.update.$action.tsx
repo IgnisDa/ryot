@@ -97,8 +97,8 @@ export default function Page() {
 
 	const { details, handleSubmit, isLoading } = useEntityCrud<
 		FormValues,
-		any,
-		any
+		NonNullable<ReturnType<typeof usePersonDetails>[0]["data"]>,
+		{ createCustomPerson: { id: string } }
 	>({
 		action: loaderData.action,
 		entityId: loaderData.query.id,
@@ -143,7 +143,7 @@ export default function Page() {
 					: undefined,
 			},
 		}),
-		extractIdFromCreateResult: (result: any) => result.createCustomPerson.id,
+		extractIdFromCreateResult: (result) => result.createCustomPerson.id,
 		extractIdFromUpdateResult: () => loaderData.query.id as string,
 	});
 
