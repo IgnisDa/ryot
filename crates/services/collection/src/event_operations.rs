@@ -69,10 +69,9 @@ pub async fn handle_entity_added_to_collection_event(
                     .information
                     .as_ref()
                     .and_then(|v| v.get(&field.name).and_then(|f| f.as_str()))
+                    && update_possible_values(field, [value.to_string()])
                 {
-                    if update_possible_values(field, [value.to_string()]) {
-                        updated_needed = true;
-                    }
+                    updated_needed = true;
                 }
             }
             _ => {}
