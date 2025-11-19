@@ -1,7 +1,6 @@
 import {
 	Box,
 	Button,
-	type ButtonProps,
 	Container,
 	SimpleGrid,
 	Stack,
@@ -17,6 +16,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { processSubmission } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
+import type { ComponentPropsWithoutRef } from "react";
 import { Form, data, useNavigate } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
@@ -107,14 +107,14 @@ const SettingsActionCard = (props: {
 	title: string;
 	buttonText: string;
 	description: string;
-	buttonProps?: unknown;
+	buttonProps?: ComponentPropsWithoutRef<typeof Button>;
 }) => (
 	<Stack>
 		<Box>
 			<Title order={4}>{props.title}</Title>
 			<Text>{props.description}</Text>
 		</Box>
-		<Button mt="auto" variant="light" {...(props.buttonProps as ButtonProps)}>
+		<Button mt="auto" variant="light" {...props.buttonProps}>
 			{props.buttonText}
 		</Button>
 	</Stack>
@@ -191,8 +191,8 @@ const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 			<input hidden name="jobName" defaultValue={props.job} />
 			<SettingsActionCard
 				title={title}
-				description={description}
 				buttonText={title}
+				description={description}
 				buttonProps={{
 					type: "submit",
 					disabled: isEditDisabled,
@@ -248,8 +248,8 @@ const DownloadLogsButton = () => {
 	return (
 		<SettingsActionCard
 			title="Download Logs"
-			description="Download application logs for debugging and troubleshooting purposes."
 			buttonText="Download Logs"
+			description="Download application logs for debugging and troubleshooting purposes."
 			buttonProps={{
 				disabled: isEditDisabled,
 				loading: downloadLogsMutation.isPending,
