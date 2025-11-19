@@ -75,9 +75,9 @@ interface ModalsProps {
 	closeTimerDrawer: () => void;
 	toggleTimerDrawer: () => void;
 	pauseOrResumeTimer: () => void;
-	bulkDeleteDrawerOpened: boolean;
+	bulkDeleteModalOpened: boolean;
 	notificationModalOpened: boolean;
-	closeBulkDeleteDrawer: () => void;
+	closeBulkDeleteModal: () => void;
 	closeNotificationModal: () => void;
 	currentWorkoutExercises?: Array<Exercise>;
 	exerciseToDelete: string | null | undefined;
@@ -104,8 +104,8 @@ export const WorkoutModals = (props: ModalsProps) => (
 			closeModal={() => props.setAssetsModalOpened(undefined)}
 		/>
 		<BulkDeleteModal
-			opened={props.bulkDeleteDrawerOpened}
-			onClose={props.closeBulkDeleteDrawer}
+			opened={props.bulkDeleteModalOpened}
+			onClose={props.closeBulkDeleteModal}
 			exerciseToDelete={props.exerciseToDelete}
 		/>
 		<ReorderDrawer
@@ -160,7 +160,7 @@ export function useWorkoutModals() {
 		}
 	}, [hasAskedForNotificationPermission]);
 
-	const openBulkDeleteDrawer = (exerciseIdentifier: string | null) => {
+	const openBulkDeleteModal = (exerciseIdentifier: string | null) => {
 		setExerciseToDelete(exerciseIdentifier);
 		if (!exerciseIdentifier) return;
 		setTimeout(() => {
@@ -168,7 +168,7 @@ export function useWorkoutModals() {
 		}, 4000);
 	};
 
-	const closeBulkDeleteDrawer = () => {
+	const closeBulkDeleteModal = () => {
 		setExerciseToDelete(undefined);
 	};
 
@@ -192,15 +192,15 @@ export function useWorkoutModals() {
 		assetsModalOpened,
 		timerDrawerOpened,
 		openReorderDrawer,
+		openBulkDeleteModal,
+		closeBulkDeleteModal,
 		setAssetsModalOpened,
-		openBulkDeleteDrawer,
-		closeBulkDeleteDrawer,
 		isReorderDrawerOpened,
 		setSupersetModalOpened,
 		closeNotificationModal,
 		notificationModalOpened,
 		setIsReorderDrawerOpened,
 		supersetWithExerciseIdentifier,
-		bulkDeleteDrawerOpened: exerciseToDelete !== undefined,
+		bulkDeleteModalOpened: exerciseToDelete !== undefined,
 	};
 }
