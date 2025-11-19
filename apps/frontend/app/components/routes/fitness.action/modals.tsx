@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { useUserDetails } from "~/lib/shared/hooks";
 import type { Exercise } from "~/lib/state/fitness";
-import { BulkDeleteDrawer } from "./bulk-delete-drawer";
+import { BulkDeleteModal } from "./bulk-delete-modal";
 import { UploadAssetsModal } from "./miscellaneous";
 import { ReorderDrawer } from "./reorder";
 import { DisplaySupersetModal } from "./supersets";
@@ -103,7 +103,7 @@ export const WorkoutModals = (props: ModalsProps) => (
 			modalOpenedBy={props.assetsModalOpened}
 			closeModal={() => props.setAssetsModalOpened(undefined)}
 		/>
-		<BulkDeleteDrawer
+		<BulkDeleteModal
 			opened={props.bulkDeleteDrawerOpened}
 			onClose={props.closeBulkDeleteDrawer}
 			exerciseToDelete={props.exerciseToDelete}
