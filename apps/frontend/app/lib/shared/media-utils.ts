@@ -176,6 +176,15 @@ export const getExerciseDetailsPath = (exerciseId: string) =>
 		id: encodeURIComponent(exerciseId),
 	});
 
+export const getPersonDetailsPath = (personId: string) =>
+	$path("/media/people/item/:id", { id: personId });
+
+export const getMetadataDetailsPath = (metadataId: string) =>
+	$path("/media/item/:id", { id: metadataId });
+
+export const getMetadataGroupDetailsPath = (groupId: string) =>
+	$path("/media/groups/item/:id", { id: groupId });
+
 type EntityColor = Record<MediaLot | (string & {}), MantineColor>;
 
 export const MediaColors: EntityColor = {
