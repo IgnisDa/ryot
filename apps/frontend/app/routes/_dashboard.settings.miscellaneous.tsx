@@ -218,8 +218,6 @@ const DownloadLogsButton = () => {
 	const dashboardData = useDashboardLayoutData();
 	const isEditDisabled = dashboardData.isDemoInstance;
 
-	if (userDetails.lot !== UserLot.Admin) return null;
-
 	const downloadLogsMutation = useMutation({
 		mutationFn: async () => {
 			const { generateLogDownloadUrl } = await clientGqlService.request(
@@ -244,6 +242,8 @@ const DownloadLogsButton = () => {
 			});
 		},
 	});
+
+	if (userDetails.lot !== UserLot.Admin) return null;
 
 	return (
 		<SettingsActionCard
