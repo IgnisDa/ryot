@@ -1,5 +1,4 @@
 use anyhow::{Result, anyhow};
-use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use media_models::ImportOrExportMetadataItemSeen;
@@ -98,13 +97,6 @@ pub async fn sink_progress(payload: String) -> Result<Option<ImportResult>> {
         })],
         ..Default::default()
     };
-
-    ryot_log!(
-        debug,
-        "Jellyfin sink with {} completed items, identifier: {}",
-        result.completed.len(),
-        identifier
-    );
 
     Ok(Some(result))
 }
