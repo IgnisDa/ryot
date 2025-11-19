@@ -158,7 +158,7 @@ impl MiscellaneousService {
         deploy_background_job(user_id, job_name, &self.0).await
     }
 
-    pub async fn generate_log_download_token(&self, user_id: &String) -> Result<String> {
+    pub async fn generate_log_download_url(&self, user_id: &String) -> Result<String> {
         admin_account_guard(user_id, &self.0).await?;
 
         let token = Uuid::new_v4().to_string();
@@ -167,7 +167,12 @@ impl MiscellaneousService {
 
         cache_service::set_key(&self.0, key, value).await?;
 
-        Ok(token)
+        let download_url = format!(
+            "{}/backend/logs/download/{}",
+            self.0.config.frontend.url, token
+        );
+
+        Ok(download_url)
     }
 
     pub async fn mark_entity_as_partial(&self, input: MarkEntityAsPartialInput) -> Result<bool> {
