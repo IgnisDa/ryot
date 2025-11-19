@@ -8,30 +8,24 @@ import {
 	Title,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
-import { notifications } from "@mantine/notifications";
 import {
 	CreateCustomMetadataGroupDocument,
 	MediaLot,
 	UpdateCustomMetadataGroupDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
-import { useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { useLoaderData, useNavigate } from "react-router";
-import { $path } from "safe-routes";
-import invariant from "tiny-invariant";
+import { useLoaderData } from "react-router";
 import { z } from "zod";
 import {
 	CustomEntityImageInput,
 	ExistingImageList,
 } from "~/components/common/custom-entities";
+import { useEntityCrud } from "~/lib/hooks/use-entity-crud";
 import { useCoreDetails, useMetadataGroupDetails } from "~/lib/shared/hooks";
-import {
-	clientGqlService,
-	refreshEntityDetails,
-} from "~/lib/shared/react-query";
+import { buildImageAssets } from "~/lib/shared/image-utils";
+import { getMetadataGroupDetailsPath } from "~/lib/shared/media-utils";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
-import { clientSideFileUpload } from "~/lib/shared/ui-utils";
 import type { Route } from "./+types/_dashboard.media.groups.update.$action";
 
 enum Action {
@@ -60,17 +54,18 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const navigate = useNavigate();
 	const coreDetails = useCoreDetails();
 	const loaderData = useLoaderData<typeof loader>();
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
-	const [{ data: details }] = useMetadataGroupDetails(
-		loaderData.query.id,
-		loaderData.action === Action.Edit && Boolean(loaderData.query.id),
-	);
-
-	const form = useForm({
+	const form = useForm<{
+		title: string;
+		description: string;
+		images: File[];
+		existingImages: string[];
+		id: string;
+		lot: string;
+	}>({
 		initialValues: {
 			title: "",
 			description: "",
@@ -79,6 +74,39 @@ export default function Page() {
 			id: (loaderData.query.id as string | undefined) || "",
 			lot: (loaderData.query.lot as string | undefined) || "",
 		},
+	});
+
+	const { details, handleSubmit, isLoading } = useEntityCrud<
+		typeof form.values,
+		NonNullable<ReturnType<typeof useMetadataGroupDetails>[0]["data"]>,
+		{ createCustomMetadataGroup: { id: string } }
+	>({
+		action: loaderData.action,
+		entityId: loaderData.query.id,
+		entityName: "Group",
+		s3Prefix: "metadata-group",
+		detailsPath: getMetadataGroupDetailsPath,
+		createDocument: CreateCustomMetadataGroupDocument,
+		updateDocument: UpdateCustomMetadataGroupDocument,
+		useDetailsHook: useMetadataGroupDetails,
+		transformToCreateInput: (values, s3Images) => ({
+			title: values.title,
+			lot: values.lot as MediaLot,
+			description: values.description || undefined,
+			assets: buildImageAssets(s3Images),
+		}),
+		transformToUpdateInput: (values, s3Images, entityId) => ({
+			existingMetadataGroupId: entityId,
+			update: {
+				title: values.title,
+				lot: values.lot as MediaLot,
+				description: values.description || undefined,
+				assets: buildImageAssets(s3Images),
+			},
+		}),
+		extractIdFromCreateResult: (result) =>
+			result.createCustomMetadataGroup.id as string,
+		extractIdFromUpdateResult: () => loaderData.query.id as string,
 	});
 
 	useEffect(() => {
@@ -94,84 +122,12 @@ export default function Page() {
 		}
 	}, [details, loaderData.action]);
 
-	const createMutation = useMutation({
-		mutationFn: async (values: typeof form.values) => {
-			const s3Images = await Promise.all(
-				values.images.map((f) => clientSideFileUpload(f, "metadata-group")),
-			);
-			const input = {
-				title: values.title,
-				lot: values.lot as MediaLot,
-				description: values.description || undefined,
-				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
-			};
-			const { createCustomMetadataGroup } = await clientGqlService.request(
-				CreateCustomMetadataGroupDocument,
-				{ input },
-			);
-			return createCustomMetadataGroup.id as string;
-		},
-		onSuccess: (id) => {
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: "Group created",
-			});
-			navigate($path("/media/groups/item/:id", { id }));
-		},
-		onError: () =>
-			notifications.show({
-				color: "red",
-				title: "Error",
-				message: "Failed to create",
-			}),
-	});
-
-	const updateMutation = useMutation({
-		mutationFn: async (values: typeof form.values) => {
-			invariant(values.id);
-			const uploadedImages = await Promise.all(
-				values.images.map((f) => clientSideFileUpload(f, "metadata-group")),
-			);
-			const s3Images = Array.from(
-				new Set([...(values.existingImages || []), ...uploadedImages]),
-			);
-			const update = {
-				title: values.title,
-				lot: values.lot as MediaLot,
-				description: values.description || undefined,
-				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
-			};
-			await clientGqlService.request(UpdateCustomMetadataGroupDocument, {
-				input: { existingMetadataGroupId: values.id, update },
-			});
-			return values.id as string;
-		},
-		onSuccess: (id) => {
-			refreshEntityDetails(id);
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: "Group updated",
-			});
-			navigate($path("/media/groups/item/:id", { id }));
-		},
-		onError: () =>
-			notifications.show({
-				color: "red",
-				title: "Error",
-				message: "Failed to update",
-			}),
-	});
-
-	const handleSubmit = form.onSubmit((values) => {
-		if (loaderData.action === Action.Create) createMutation.mutate(values);
-		else updateMutation.mutate(values);
-	});
-
 	return (
 		<Container>
-			<form onSubmit={handleSubmit} encType="multipart/form-data">
+			<form
+				onSubmit={form.onSubmit(handleSubmit)}
+				encType="multipart/form-data"
+			>
 				<Stack>
 					<Title>
 						{details ? `Updating ${details.details.title}` : "Create Group"}
@@ -218,10 +174,7 @@ export default function Page() {
 							}
 						/>
 					) : null}
-					<Button
-						type="submit"
-						loading={createMutation.isPending || updateMutation.isPending}
-					>
+					<Button type="submit" loading={isLoading}>
 						{loaderData.action === Action.Create ? "Create" : "Update"}
 					</Button>
 				</Stack>

@@ -9,29 +9,23 @@ import {
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { useForm } from "@mantine/form";
-import { notifications } from "@mantine/notifications";
 import {
 	CreateCustomPersonDocument,
 	UpdateCustomPersonDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
 import { IconCalendar } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { useLoaderData, useNavigate } from "react-router";
-import { $path } from "safe-routes";
-import invariant from "tiny-invariant";
+import { useLoaderData } from "react-router";
 import { z } from "zod";
 import {
 	CustomEntityImageInput,
 	ExistingImageList,
 } from "~/components/common/custom-entities";
+import { useEntityCrud } from "~/lib/hooks/use-entity-crud";
 import { useCoreDetails, usePersonDetails } from "~/lib/shared/hooks";
-import {
-	clientGqlService,
-	refreshEntityDetails,
-} from "~/lib/shared/react-query";
-import { clientSideFileUpload } from "~/lib/shared/ui-utils";
+import { buildImageAssets } from "~/lib/shared/image-utils";
+import { getPersonDetailsPath } from "~/lib/shared/media-utils";
 import type { Route } from "./+types/_dashboard.media.people.update.$action";
 
 enum Action {
@@ -59,15 +53,9 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const navigate = useNavigate();
 	const coreDetails = useCoreDetails();
 	const loaderData = useLoaderData<typeof loader>();
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
-
-	const [{ data: details }] = usePersonDetails(
-		loaderData.query.id || "",
-		loaderData.action === Action.Edit && Boolean(loaderData.query.id),
-	);
 
 	const form = useForm({
 		initialValues: {
@@ -105,6 +93,60 @@ export default function Page() {
 		},
 	});
 
+	type FormValues = typeof form.values;
+
+	const { details, handleSubmit, isLoading } = useEntityCrud<
+		FormValues,
+		NonNullable<ReturnType<typeof usePersonDetails>[0]["data"]>,
+		{ createCustomPerson: { id: string } }
+	>({
+		action: loaderData.action,
+		entityId: loaderData.query.id,
+		entityName: "Person",
+		s3Prefix: "person",
+		detailsPath: getPersonDetailsPath,
+		createDocument: CreateCustomPersonDocument,
+		updateDocument: UpdateCustomPersonDocument,
+		useDetailsHook: usePersonDetails,
+		transformToCreateInput: (values, s3Images) => ({
+			name: values.name,
+			place: values.place || undefined,
+			gender: values.gender || undefined,
+			website: values.website || undefined,
+			birthDate: values.birthDate || undefined,
+			deathDate: values.deathDate || undefined,
+			description: values.description || undefined,
+			assets: buildImageAssets(s3Images),
+			alternateNames: values.alternateNames
+				? values.alternateNames
+						.split(",")
+						.map((s: string) => s.trim())
+						.filter(Boolean)
+				: undefined,
+		}),
+		transformToUpdateInput: (values, s3Images, entityId) => ({
+			existingPersonId: entityId,
+			update: {
+				name: values.name,
+				place: values.place || undefined,
+				gender: values.gender || undefined,
+				website: values.website || undefined,
+				deathDate: values.deathDate || undefined,
+				birthDate: values.birthDate || undefined,
+				description: values.description || undefined,
+				assets: buildImageAssets(s3Images),
+				alternateNames: values.alternateNames
+					? values.alternateNames
+							.split(",")
+							.map((s: string) => s.trim())
+							.filter(Boolean)
+					: undefined,
+			},
+		}),
+		extractIdFromCreateResult: (result) => result.createCustomPerson.id,
+		extractIdFromUpdateResult: () => loaderData.query.id as string,
+	});
+
 	useEffect(() => {
 		if (loaderData.action === Action.Edit && details?.details) {
 			form.initialize({
@@ -123,104 +165,12 @@ export default function Page() {
 		}
 	}, [details, loaderData.action]);
 
-	const createMutation = useMutation({
-		mutationFn: async (values: typeof form.values) => {
-			const s3Images = await Promise.all(
-				values.images.map((f) => clientSideFileUpload(f, "person")),
-			);
-			const input = {
-				name: values.name,
-				place: values.place || undefined,
-				gender: values.gender || undefined,
-				website: values.website || undefined,
-				birthDate: values.birthDate || undefined,
-				deathDate: values.deathDate || undefined,
-				description: values.description || undefined,
-				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
-				alternateNames: values.alternateNames
-					? values.alternateNames
-							.split(",")
-							.map((s) => s.trim())
-							.filter(Boolean)
-					: undefined,
-			};
-			const { createCustomPerson } = await clientGqlService.request(
-				CreateCustomPersonDocument,
-				{ input },
-			);
-			return createCustomPerson.id;
-		},
-		onSuccess: (id) => {
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: "Person created",
-			});
-			navigate($path("/media/people/item/:id", { id }));
-		},
-		onError: () =>
-			notifications.show({
-				color: "red",
-				title: "Error",
-				message: "Failed to create person",
-			}),
-	});
-
-	const updateMutation = useMutation({
-		mutationFn: async (values: typeof form.values) => {
-			invariant(values.id);
-			const uploadedImages = await Promise.all(
-				values.images.map((f) => clientSideFileUpload(f, "person")),
-			);
-			const s3Images = Array.from(
-				new Set([...(values.existingImages || []), ...uploadedImages]),
-			);
-			const update = {
-				name: values.name,
-				place: values.place || undefined,
-				gender: values.gender || undefined,
-				website: values.website || undefined,
-				deathDate: values.deathDate || undefined,
-				birthDate: values.birthDate || undefined,
-				description: values.description || undefined,
-				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
-				alternateNames: values.alternateNames
-					? values.alternateNames
-							.split(",")
-							.map((s) => s.trim())
-							.filter(Boolean)
-					: undefined,
-			};
-			await clientGqlService.request(UpdateCustomPersonDocument, {
-				input: { existingPersonId: values.id, update },
-			});
-			return values.id as string;
-		},
-		onSuccess: (id) => {
-			refreshEntityDetails(id);
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: "Person updated",
-			});
-			navigate($path("/media/people/item/:id", { id }));
-		},
-		onError: () =>
-			notifications.show({
-				color: "red",
-				title: "Error",
-				message: "Failed to update person",
-			}),
-	});
-
-	const handleSubmit = form.onSubmit((values) => {
-		if (loaderData.action === Action.Create) createMutation.mutate(values);
-		else updateMutation.mutate(values);
-	});
-
 	return (
 		<Container>
-			<form onSubmit={handleSubmit} encType="multipart/form-data">
+			<form
+				onSubmit={form.onSubmit(handleSubmit)}
+				encType="multipart/form-data"
+			>
 				<Stack>
 					<Title>
 						{details?.details
@@ -327,10 +277,7 @@ export default function Page() {
 							}
 						/>
 					) : null}
-					<Button
-						type="submit"
-						loading={createMutation.isPending || updateMutation.isPending}
-					>
+					<Button type="submit" loading={isLoading}>
 						{loaderData.action === Action.Create ? "Create" : "Update"}
 					</Button>
 				</Stack>

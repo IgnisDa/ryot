@@ -16,7 +16,6 @@ import {
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { useForm } from "@mantine/form";
-import { notifications } from "@mantine/notifications";
 import {
 	CreateCustomMetadataDocument,
 	MediaLot,
@@ -25,16 +24,15 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { camelCase, parseParameters, parseSearchQuery } from "@ryot/ts-utils";
 import { IconCalendar, IconCalendarEvent } from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { useLoaderData, useNavigate } from "react-router";
-import { $path } from "safe-routes";
-import invariant from "tiny-invariant";
+import { useLoaderData } from "react-router";
 import { z } from "zod";
 import {
 	CustomEntityImageInput,
 	ExistingImageList,
 } from "~/components/common/custom-entities";
+import { useEntityCrud } from "~/lib/hooks/use-entity-crud";
 import {
 	useCoreDetails,
 	useMetadataDetails,
@@ -42,15 +40,14 @@ import {
 	useUserPeopleList,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
+import { buildImageAssets } from "~/lib/shared/image-utils";
+import { getMetadataDetailsPath } from "~/lib/shared/media-utils";
 import {
-	clientGqlService,
 	getMetadataGroupDetailsQuery,
 	getPersonDetailsQuery,
 	queryClient,
-	refreshEntityDetails,
 } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
-import { clientSideFileUpload } from "~/lib/shared/ui-utils";
 import type { Route } from "./+types/_dashboard.media.item.update.$action";
 
 enum Action {
@@ -79,16 +76,82 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const navigate = useNavigate();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const loaderData = useLoaderData<typeof loader>();
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
-	const [{ data: details }] = useMetadataDetails(
-		loaderData.query.id,
-		loaderData.action === Action.Edit && Boolean(loaderData.query.id),
-	);
+	const { details, handleSubmit, isLoading } = useEntityCrud({
+		action: loaderData.action,
+		entityId: loaderData.query.id,
+		entityName: "Media",
+		s3Prefix: "metadata",
+		detailsPath: getMetadataDetailsPath,
+		createDocument: CreateCustomMetadataDocument,
+		updateDocument: UpdateCustomMetadataDocument,
+		useDetailsHook: useMetadataDetails,
+		transformToCreateInput: (values, s3Images) => {
+			const lot = values.lot as string;
+			const specifics = values.specifics as string;
+			const genres = values.genres as string;
+			const creatorIds = values.creatorIds as string[];
+			const groupIds = values.groupIds as string[];
+			const specificsKey = `${camelCase(lot)}Specifics`;
+			return {
+				title: values.title as string,
+				lot: lot as MediaLot,
+				isNsfw: (values.isNsfw as boolean) || undefined,
+				description: (values.description as string) || undefined,
+				publishDate: (values.publishDate as string) || undefined,
+				publishYear: (values.publishYear as number) || undefined,
+				assets: buildImageAssets(s3Images),
+				[specificsKey]: specifics ? JSON.parse(specifics) : undefined,
+				creatorIds:
+					creatorIds && creatorIds.length > 0 ? creatorIds : undefined,
+				groupIds: groupIds && groupIds.length > 0 ? groupIds : undefined,
+				genres: genres
+					? genres
+							.split(",")
+							.map((s) => s.trim())
+							.filter(Boolean)
+					: undefined,
+			};
+		},
+		transformToUpdateInput: (values, s3Images, entityId) => {
+			const lot = values.lot as string;
+			const specifics = values.specifics as string;
+			const genres = values.genres as string;
+			const creatorIds = values.creatorIds as string[];
+			const groupIds = values.groupIds as string[];
+			const specificsKey = `${camelCase(lot)}Specifics`;
+			return {
+				existingMetadataId: entityId,
+				update: {
+					title: values.title as string,
+					lot: lot as MediaLot,
+					isNsfw: (values.isNsfw as boolean) || undefined,
+					description: (values.description as string) || undefined,
+					publishDate: (values.publishDate as string) || undefined,
+					publishYear: (values.publishYear as number) || undefined,
+					assets: buildImageAssets(s3Images),
+					[specificsKey]: specifics ? JSON.parse(specifics) : undefined,
+					creatorIds:
+						creatorIds && creatorIds.length > 0 ? creatorIds : undefined,
+					groupIds: groupIds && groupIds.length > 0 ? groupIds : undefined,
+					genres: genres
+						? genres
+								.split(",")
+								.map((s) => s.trim())
+								.filter(Boolean)
+						: undefined,
+				},
+			};
+		},
+		extractIdFromCreateResult: (result) =>
+			(result as { createCustomMetadata: { id: string } }).createCustomMetadata
+				.id as string,
+		extractIdFromUpdateResult: () => loaderData.query.id as string,
+	});
 
 	const form = useForm({
 		initialValues: {
@@ -182,126 +245,12 @@ export default function Page() {
 		},
 	});
 
-	const createMutation = useMutation({
-		mutationFn: async (values: typeof form.values) => {
-			const s3Images = await Promise.all(
-				values.images.map((f) => clientSideFileUpload(f, "metadata")),
-			);
-			const specificsKey = `${camelCase(values.lot)}Specifics`;
-			const input = {
-				title: values.title,
-				lot: values.lot as MediaLot,
-				isNsfw: values.isNsfw || undefined,
-				description: values.description || undefined,
-				publishDate: values.publishDate || undefined,
-				publishYear: values.publishYear || undefined,
-				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
-				[specificsKey]: values.specifics
-					? JSON.parse(values.specifics)
-					: undefined,
-				creatorIds:
-					values.creatorIds && values.creatorIds.length > 0
-						? values.creatorIds
-						: undefined,
-				groupIds:
-					values.groupIds && values.groupIds.length > 0
-						? values.groupIds
-						: undefined,
-				genres: values.genres
-					? values.genres
-							.split(",")
-							.map((s) => s.trim())
-							.filter(Boolean)
-					: undefined,
-			};
-			const { createCustomMetadata } = await clientGqlService.request(
-				CreateCustomMetadataDocument,
-				{ input },
-			);
-			return createCustomMetadata.id as string;
-		},
-		onSuccess: (id) => {
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: "Media created",
-			});
-			navigate($path("/media/item/:id", { id }));
-		},
-		onError: () =>
-			notifications.show({
-				color: "red",
-				title: "Error",
-				message: "Failed to create",
-			}),
-	});
-
-	const updateMutation = useMutation({
-		mutationFn: async (values: typeof form.values) => {
-			invariant(values.id);
-			const uploadedImages = await Promise.all(
-				values.images.map((f) => clientSideFileUpload(f, "metadata")),
-			);
-			const s3Images = Array.from(
-				new Set([...(values.existingImages || []), ...uploadedImages]),
-			);
-			const specificsKey = `${camelCase(values.lot)}Specifics`;
-			const update = {
-				title: values.title,
-				lot: values.lot as MediaLot,
-				isNsfw: values.isNsfw || undefined,
-				description: values.description || undefined,
-				publishDate: values.publishDate || undefined,
-				publishYear: values.publishYear || undefined,
-				assets: { s3Images, s3Videos: [], remoteImages: [], remoteVideos: [] },
-				[specificsKey]: values.specifics
-					? JSON.parse(values.specifics)
-					: undefined,
-				creatorIds:
-					values.creatorIds && values.creatorIds.length > 0
-						? values.creatorIds
-						: undefined,
-				groupIds:
-					values.groupIds && values.groupIds.length > 0
-						? values.groupIds
-						: undefined,
-				genres: values.genres
-					? values.genres
-							.split(",")
-							.map((s) => s.trim())
-							.filter(Boolean)
-					: undefined,
-			};
-			await clientGqlService.request(UpdateCustomMetadataDocument, {
-				input: { existingMetadataId: values.id, update },
-			});
-			return values.id as string;
-		},
-		onSuccess: (id) => {
-			refreshEntityDetails(id);
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: "Media updated",
-			});
-			navigate($path("/media/item/:id", { id }));
-		},
-		onError: () =>
-			notifications.show({
-				color: "red",
-				title: "Error",
-				message: "Failed to update",
-			}),
-	});
-
-	const handleSubmit = form.onSubmit((values) => {
-		if (loaderData.action === Action.Create) createMutation.mutate(values);
-		else updateMutation.mutate(values);
-	});
-
 	return (
 		<Container>
-			<form onSubmit={handleSubmit} encType="multipart/form-data">
+			<form
+				onSubmit={form.onSubmit(handleSubmit)}
+				encType="multipart/form-data"
+			>
 				<Stack>
 					<Title>
 						{details ? `Updating ${details.title}` : "Create Media"}
@@ -423,10 +372,7 @@ export default function Page() {
 						placeholder="Comma separated values"
 						{...form.getInputProps("genres")}
 					/>
-					<Button
-						type="submit"
-						loading={createMutation.isPending || updateMutation.isPending}
-					>
+					<Button type="submit" loading={isLoading}>
 						{loaderData.action === Action.Create ? "Create" : "Update"}
 					</Button>
 				</Stack>
