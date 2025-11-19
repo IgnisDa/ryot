@@ -213,9 +213,9 @@ async fn main() -> Result<()> {
 
 fn init_tracing() -> Result<PathBuf> {
     let tmp_dir = PathBuf::new().join(get_temporary_directory());
+    let file_path = tmp_dir.join(PROJECT_NAME);
     create_dir_all(&tmp_dir)?;
     let file_appender = tracing_appender::rolling::never(tmp_dir, PROJECT_NAME);
-    let file_path = tmp_dir.join(PROJECT_NAME);
     let writer = Mutex::new(file_appender);
     tracing::subscriber::set_global_default(
         fmt::Subscriber::builder()
