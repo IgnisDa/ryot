@@ -7,16 +7,20 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import {
 	BackgroundJob,
 	DeployBackgroundJobDocument,
+	GenerateLogDownloadTokenDocument,
 	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { processSubmission } from "@ryot/ts-utils";
+import { useMutation } from "@tanstack/react-query";
 import { Form, data, useNavigate } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { z } from "zod";
+import { applicationBaseUrl } from "~/lib/shared/constants";
 import {
 	useConfirmSubmit,
 	useDashboardLayoutData,
@@ -26,6 +30,7 @@ import {
 	useMarkUserOnboardingTourStatus,
 	useUserDetails,
 } from "~/lib/shared/hooks";
+import { clientGqlService } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
@@ -73,6 +78,7 @@ export default function Page() {
 					{Object.values(BackgroundJob).map((job) => (
 						<DisplayJobBtn key={job} job={job} />
 					))}
+					<DownloadLogsButton />
 					<ClientOnly>
 						{() =>
 							isOnboardingTourCompleted && !isMobile ? (
@@ -197,5 +203,59 @@ const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 				</Button>
 			</Stack>
 		</Form>
+	);
+};
+
+const DownloadLogsButton = () => {
+	const userDetails = useUserDetails();
+	const dashboardData = useDashboardLayoutData();
+	const isEditDisabled = dashboardData.isDemoInstance;
+
+	if (userDetails.lot !== UserLot.Admin) return null;
+
+	const downloadLogsMutation = useMutation({
+		mutationFn: async () => {
+			const { generateLogDownloadToken } = await clientGqlService.request(
+				GenerateLogDownloadTokenDocument,
+				{},
+			);
+			return generateLogDownloadToken;
+		},
+		onSuccess: (token) => {
+			const downloadUrl = `${applicationBaseUrl}/backend/logs/download/${token}`;
+			window.open(downloadUrl, "_blank", "noopener,noreferrer");
+			notifications.show({
+				color: "green",
+				title: "Success",
+				message: "Opening log download in a new tab",
+			});
+		},
+		onError: () => {
+			notifications.show({
+				color: "red",
+				title: "Error",
+				message: "Failed to generate log download token",
+			});
+		},
+	});
+
+	return (
+		<Stack>
+			<Box>
+				<Title order={4}>Download Logs</Title>
+				<Text>
+					Download application logs for debugging and troubleshooting purposes.
+				</Text>
+			</Box>
+			<Button
+				mt="auto"
+				variant="light"
+				disabled={isEditDisabled}
+				loading={downloadLogsMutation.isPending}
+				onClick={() => downloadLogsMutation.mutate()}
+			>
+				Download Logs
+			</Button>
+		</Stack>
 	);
 };
