@@ -562,6 +562,17 @@ export default function Page() {
 									>
 										Post a review
 									</Button>
+									<Button
+										component={Link}
+										variant="outline"
+										to={$path(
+											"/fitness/exercises/update/:action",
+											{ action: "create" },
+											{ duplicateId: exerciseDetails.id },
+										)}
+									>
+										Duplicate exercise
+									</Button>
 									{canCurrentUserUpdate ? (
 										<Button
 											variant="outline"

@@ -46,6 +46,7 @@ import type { Route } from "./+types/_dashboard.fitness.exercises.update.$action
 
 const searchParamsSchema = z.object({
 	id: z.string().optional(),
+	duplicateId: z.string().optional(),
 });
 
 enum Action {
@@ -59,7 +60,7 @@ export const loader = async ({ params, request }: Route.LoaderArgs) => {
 		z.object({ action: z.enum(Action) }),
 	);
 	const query = parseSearchQuery(request, searchParamsSchema);
-	return { action, id: query.id };
+	return { action, id: query.id, duplicateId: query.duplicateId };
 };
 
 export const meta = () => {
@@ -76,6 +77,11 @@ export default function Page() {
 	const { data: details } = useExerciseDetails(
 		loaderData.id,
 		loaderData.action === Action.Edit && Boolean(loaderData.id),
+	);
+
+	const { data: duplicateDetails } = useExerciseDetails(
+		loaderData.duplicateId,
+		loaderData.action === Action.Create && Boolean(loaderData.duplicateId),
 	);
 
 	const form = useForm({
@@ -111,6 +117,24 @@ export default function Page() {
 			});
 		}
 	}, [details, loaderData.action]);
+
+	useEffect(() => {
+		if (loaderData.action === Action.Create && duplicateDetails) {
+			form.initialize({
+				images: [],
+				shouldDelete: undefined,
+				name: `${duplicateDetails.name} (Copy)`,
+				lot: (duplicateDetails.lot as string) || "",
+				level: (duplicateDetails.level as string) || "",
+				force: (duplicateDetails.force as string) || "",
+				mechanic: (duplicateDetails.mechanic as string) || "",
+				equipment: (duplicateDetails.equipment as string) || "",
+				existingImages: duplicateDetails.assets?.s3Images || [],
+				muscles: (duplicateDetails.muscles as string[] | undefined) || [],
+				instructions: (duplicateDetails.instructions || []).join("\n"),
+			});
+		}
+	}, [duplicateDetails, loaderData.action]);
 
 	const exerciseImages = useQuery({
 		queryKey: ["exercise-images", form.values.images],
