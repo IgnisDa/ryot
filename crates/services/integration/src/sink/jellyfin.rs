@@ -92,8 +92,8 @@ pub async fn sink_progress(payload: String) -> Result<Option<ImportResult>> {
         completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
             source: MediaSource::Tmdb,
-            identifier: identifier.clone(),
             seen_history: vec![seen_item],
+            identifier: identifier.clone(),
             ..Default::default()
         })],
         ..Default::default()
