@@ -4,15 +4,23 @@ use anyhow::Result;
 use async_graphql::http::{GraphQLPlaygroundConfig, playground_source};
 use axum::{
     Extension, Json,
+    body::Body,
     extract::{Multipart, Path},
-    http::StatusCode,
+    http::{
+        StatusCode,
+        header::{CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_TYPE, PRAGMA},
+    },
     response::{Html, IntoResponse},
 };
 use background_models::{ApplicationJob, SingleApplicationJob};
 use common_utils::get_temporary_directory;
 use config_definition::{AppConfig, MaskedConfig};
+use dependent_models::{ApplicationCacheKey, EmptyCacheValue, ExpireCacheKeyInput};
 use integration_service::IntegrationService;
 use nanoid::nanoid;
+use supporting_service::SupportingService;
+use tokio::fs::File;
+use tokio_util::io::ReaderStream;
 
 pub async fn graphql_playground_handler() -> impl IntoResponse {
     Html(playground_source(GraphQLPlaygroundConfig::new(
@@ -60,4 +68,38 @@ pub async fn integration_webhook_handler(
         StatusCode::ACCEPTED,
         "Webhook queued for processing".to_owned(),
     ))
+}
+
+pub async fn download_logs_handler(
+    Path(token): Path<String>,
+    Extension(ss): Extension<Arc<SupportingService>>,
+) -> StdResult<impl IntoResponse, StatusCode> {
+    let key = ApplicationCacheKey::LogDownloadToken(token.clone());
+
+    if cache_service::get_value::<EmptyCacheValue>(&ss, key.clone())
+        .await
+        .is_none()
+    {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    cache_service::expire_key(&ss, ExpireCacheKeyInput::ByKey(Box::new(key)))
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let file = File::open(&ss.log_file_path)
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+
+    let stream = ReaderStream::new(file);
+    let body = Body::from_stream(stream);
+
+    let headers = [
+        (PRAGMA, "no-cache"),
+        (CACHE_CONTROL, "no-store"),
+        (CONTENT_TYPE, "text/plain"),
+        (CONTENT_DISPOSITION, r#"attachment; filename="ryot.log""#),
+    ];
+
+    Ok((headers, body))
 }

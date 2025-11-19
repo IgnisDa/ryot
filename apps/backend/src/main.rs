@@ -55,7 +55,7 @@ async fn main() -> Result<()> {
             }
         }
     }
-    init_tracing()?;
+    let log_file_path = init_tracing()?;
 
     ryot_log!(info, "Running version: {}", APP_VERSION);
 
@@ -103,6 +103,7 @@ async fn main() -> Result<()> {
         .db(db)
         .timezone(tz)
         .config(config)
+        .log_file_path(log_file_path)
         .lp_application_job(&lp_application_job_storage)
         .mp_application_job(&mp_application_job_storage)
         .hp_application_job(&hp_application_job_storage)
@@ -210,8 +211,9 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn init_tracing() -> Result<()> {
+fn init_tracing() -> Result<PathBuf> {
     let tmp_dir = PathBuf::new().join(get_temporary_directory());
+    let file_path = tmp_dir.join(PROJECT_NAME);
     create_dir_all(&tmp_dir)?;
     let file_appender = tracing_appender::rolling::never(tmp_dir, PROJECT_NAME);
     let writer = Mutex::new(file_appender);
@@ -222,7 +224,7 @@ fn init_tracing() -> Result<()> {
             .with(fmt::Layer::default().with_writer(writer).with_ansi(false)),
     )
     .expect("Unable to set global tracing subscriber");
-    Ok(())
+    Ok(file_path)
 }
 
 fn get_cron_schedules(config: &Arc<AppConfig>, tz: chrono_tz::Tz) -> Result<(Schedule, Schedule)> {

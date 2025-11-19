@@ -87,7 +87,7 @@ pub async fn sink_progress(payload: String) -> Result<Option<ImportResult>> {
 
     seen_item.progress = Some(position / runtime * dec!(100));
 
-    Ok(Some(ImportResult {
+    let result = ImportResult {
         completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
             identifier,
@@ -96,5 +96,7 @@ pub async fn sink_progress(payload: String) -> Result<Option<ImportResult>> {
             ..Default::default()
         })],
         ..Default::default()
-    }))
+    };
+
+    Ok(Some(result))
 }

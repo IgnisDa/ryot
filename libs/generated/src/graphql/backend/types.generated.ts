@@ -1665,6 +1665,8 @@ export type MutationRoot = {
   expireCacheKey: Scalars['Boolean']['output'];
   /** Generate an auth token without any expiry. */
   generateAuthToken: Scalars['String']['output'];
+  /** Generate a one-time URL for downloading application logs. Admin only. */
+  generateLogDownloadUrl: Scalars['String']['output'];
   /** Get a URL which can be used to set a new password for the user. */
   getPasswordChangeSession: GetPasswordChangeSessionResponse;
   /** Initiate two-factor authentication setup by generating a TOTP secret. */

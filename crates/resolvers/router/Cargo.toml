@@ -9,12 +9,17 @@ async-graphql = { workspace = true }
 axum = { workspace = true }
 nanoid = { workspace = true }
 serde_json = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
 tracing = { workspace = true }
 
 background-models = { workspace = true }
+cache-service = { workspace = true }
 common-utils = { workspace = true }
 config-definition = { workspace = true }
+dependent-models = { workspace = true }
 integration-service = { workspace = true }
+supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

@@ -1,8 +1,8 @@
 import {
 	Button,
 	Checkbox,
-	Drawer,
 	Group,
+	Modal,
 	Paper,
 	ScrollArea,
 	Stack,
@@ -39,7 +39,7 @@ const ExerciseItem = (props: {
 	const isPartiallySelected = selectedCount > 0 && !isFullySelected;
 
 	return (
-		<Paper withBorder radius="md" p="sm">
+		<Paper p="sm" withBorder radius="md" id={`delete-${exercise.identifier}`}>
 			<Group justify="space-between">
 				<Checkbox
 					checked={isFullySelected}
@@ -72,7 +72,7 @@ const ExerciseItem = (props: {
 	);
 };
 
-export const BulkDeleteDrawer = (props: {
+export const BulkDeleteModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	exerciseToDelete: string | null | undefined;
@@ -92,6 +92,12 @@ export const BulkDeleteDrawer = (props: {
 
 		const setIdentifiers = exercise.sets.map((s) => s.identifier);
 		setSelectedSets(new Set(setIdentifiers));
+
+		setTimeout(() => {
+			const elementId = `delete-${props.exerciseToDelete}`;
+			const element = document.getElementById(elementId);
+			element?.scrollIntoView({ behavior: "smooth", block: "center" });
+		}, 400);
 	}, [props.opened]);
 
 	useDidUpdate(() => {
@@ -180,14 +186,12 @@ export const BulkDeleteDrawer = (props: {
 	};
 
 	return (
-		<Drawer
-			size="sm"
+		<Modal
 			opened={props.opened}
 			onClose={props.onClose}
-			withCloseButton={false}
 			title="Select sets to delete"
 		>
-			<Stack gap="md" h="95vh">
+			<Stack gap="md" h="60vh">
 				<ScrollArea flex={1}>
 					<Stack gap="sm">
 						{currentWorkout?.exercises.map((_, idx) => (
@@ -211,6 +215,6 @@ export const BulkDeleteDrawer = (props: {
 					</Button>
 				</Group>
 			</Stack>
-		</Drawer>
+		</Modal>
 	);
 };

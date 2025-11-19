@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use apalis::prelude::MemoryStorage;
 use application_utils::{AuthContext, create_oidc_client};
@@ -49,7 +49,8 @@ use miscellaneous_tracking_resolver::{
     MiscellaneousTrackingMutationResolver, MiscellaneousTrackingQueryResolver,
 };
 use router_resolver::{
-    config_handler, graphql_playground_handler, integration_webhook_handler, upload_file_handler,
+    config_handler, download_logs_handler, graphql_playground_handler, integration_webhook_handler,
+    upload_file_handler,
 };
 use sea_orm::DatabaseConnection;
 use statistics_resolver::StatisticsQueryResolver;
@@ -81,6 +82,7 @@ pub struct AppServices {
 pub async fn create_app_services(
     db: DatabaseConnection,
     config: Arc<AppConfig>,
+    log_file_path: PathBuf,
     timezone: chrono_tz::Tz,
     lp_application_job: &MemoryStorage<LpApplicationJob>,
     mp_application_job: &MemoryStorage<MpApplicationJob>,
@@ -93,6 +95,7 @@ pub async fn create_app_services(
             .db(&db)
             .timezone(timezone)
             .config(config.clone())
+            .log_file_path(log_file_path)
             .is_oidc_enabled(is_oidc_enabled)
             .lp_application_job(lp_application_job)
             .mp_application_job(mp_application_job)
@@ -156,6 +159,7 @@ pub async fn create_app_services(
         .route("/config", get(config_handler))
         .route("/graphql", gql)
         .route("/upload", post(upload_file_handler))
+        .route("/logs/download/{token}", get(download_logs_handler))
         .layer(Extension(schema))
         .layer(Extension(config.clone()))
         .layer(Extension(supporting_service.clone()))

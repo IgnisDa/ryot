@@ -71,7 +71,7 @@ export const ExerciseDisplay = (props: {
 	openSupersetModal: (s: string) => void;
 	setOpenAssetsModal: (identifier: string) => void;
 	reorderDrawerToggle: (exerciseIdentifier: string | null) => void;
-	openBulkDeleteDrawer: (exerciseIdentifier: string | null) => void;
+	openBulkDeleteModal: (exerciseIdentifier: string | null) => void;
 }) => {
 	const theme = useMantineTheme();
 	const userPreferences = useUserPreferences();
@@ -271,7 +271,7 @@ export const ExerciseDisplay = (props: {
 							<Menu.Item
 								color="red"
 								leftSection={<IconTrash size={14} />}
-								onClick={() => props.openBulkDeleteDrawer(exercise.identifier)}
+								onClick={() => props.openBulkDeleteModal(exercise.identifier)}
 							>
 								Remove
 							</Menu.Item>

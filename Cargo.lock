@@ -4596,8 +4596,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "background-models",
+ "cache-service",
  "common-models",
  "database-models",
+ "database-utils",
  "dependent-core-utils",
  "dependent-details-utils",
  "dependent-entity-list-utils",
@@ -5795,11 +5797,16 @@ dependencies = [
  "async-graphql",
  "axum",
  "background-models",
+ "cache-service",
  "common-utils",
  "config-definition",
+ "dependent-models",
  "integration-service",
  "nanoid",
  "serde_json",
+ "supporting-service",
+ "tokio",
+ "tokio-util",
  "tracing",
 ]
 

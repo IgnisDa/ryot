@@ -12,6 +12,27 @@ use traits::TraceOk;
 
 use crate::{IntegrationService, integration_operations::set_trigger_result, sink};
 
+fn log_import_result_details(import_result: &ImportResult, context: &str) {
+    ryot_log!(
+        debug,
+        "{} with {} completed items",
+        context,
+        import_result.completed.len()
+    );
+    for (idx, item) in import_result.completed.iter().enumerate() {
+        if let ImportCompletedItem::Metadata(m) = item {
+            ryot_log!(
+                debug,
+                "{} item {}: identifier={}, seen_history.len={}",
+                context,
+                idx,
+                m.identifier,
+                m.seen_history.len()
+            );
+        }
+    }
+}
+
 impl IntegrationService {
     pub async fn integration_progress_update(
         &self,
@@ -41,6 +62,7 @@ impl IntegrationService {
                 });
             }
         });
+        log_import_result_details(&import, "Calling process_import");
         let result = process_import(false, &integration.user_id, import, &self.0, |_| async {
             Ok(())
         })
@@ -85,6 +107,7 @@ impl IntegrationService {
         match maybe_progress_update {
             Ok(None) => Ok("No progress update".to_owned()),
             Ok(Some(pu)) => {
+                log_import_result_details(&pu, "Webhook received ImportResult");
                 self.integration_progress_update(integration, pu)
                     .await
                     .trace_ok();

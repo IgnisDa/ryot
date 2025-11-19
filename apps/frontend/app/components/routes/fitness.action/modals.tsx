@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { useUserDetails } from "~/lib/shared/hooks";
 import type { Exercise } from "~/lib/state/fitness";
-import { BulkDeleteDrawer } from "./bulk-delete-drawer";
+import { BulkDeleteModal } from "./bulk-delete-modal";
 import { UploadAssetsModal } from "./miscellaneous";
 import { ReorderDrawer } from "./reorder";
 import { DisplaySupersetModal } from "./supersets";
@@ -75,9 +75,9 @@ interface ModalsProps {
 	closeTimerDrawer: () => void;
 	toggleTimerDrawer: () => void;
 	pauseOrResumeTimer: () => void;
-	bulkDeleteDrawerOpened: boolean;
+	bulkDeleteModalOpened: boolean;
 	notificationModalOpened: boolean;
-	closeBulkDeleteDrawer: () => void;
+	closeBulkDeleteModal: () => void;
 	closeNotificationModal: () => void;
 	currentWorkoutExercises?: Array<Exercise>;
 	exerciseToDelete: string | null | undefined;
@@ -103,9 +103,9 @@ export const WorkoutModals = (props: ModalsProps) => (
 			modalOpenedBy={props.assetsModalOpened}
 			closeModal={() => props.setAssetsModalOpened(undefined)}
 		/>
-		<BulkDeleteDrawer
-			opened={props.bulkDeleteDrawerOpened}
-			onClose={props.closeBulkDeleteDrawer}
+		<BulkDeleteModal
+			opened={props.bulkDeleteModalOpened}
+			onClose={props.closeBulkDeleteModal}
 			exerciseToDelete={props.exerciseToDelete}
 		/>
 		<ReorderDrawer
@@ -160,7 +160,7 @@ export function useWorkoutModals() {
 		}
 	}, [hasAskedForNotificationPermission]);
 
-	const openBulkDeleteDrawer = (exerciseIdentifier: string | null) => {
+	const openBulkDeleteModal = (exerciseIdentifier: string | null) => {
 		setExerciseToDelete(exerciseIdentifier);
 		if (!exerciseIdentifier) return;
 		setTimeout(() => {
@@ -168,7 +168,7 @@ export function useWorkoutModals() {
 		}, 4000);
 	};
 
-	const closeBulkDeleteDrawer = () => {
+	const closeBulkDeleteModal = () => {
 		setExerciseToDelete(undefined);
 	};
 
@@ -192,15 +192,15 @@ export function useWorkoutModals() {
 		assetsModalOpened,
 		timerDrawerOpened,
 		openReorderDrawer,
+		openBulkDeleteModal,
+		closeBulkDeleteModal,
 		setAssetsModalOpened,
-		openBulkDeleteDrawer,
-		closeBulkDeleteDrawer,
 		isReorderDrawerOpened,
 		setSupersetModalOpened,
 		closeNotificationModal,
 		notificationModalOpened,
 		setIsReorderDrawerOpened,
 		supersetWithExerciseIdentifier,
-		bulkDeleteDrawerOpened: exerciseToDelete !== undefined,
+		bulkDeleteModalOpened: exerciseToDelete !== undefined,
 	};
 }

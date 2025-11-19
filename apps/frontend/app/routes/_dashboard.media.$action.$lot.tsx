@@ -178,8 +178,8 @@ export default function Page(props: {
 				general: listState.normalizedFilters.generalFilter,
 				collections: listState.normalizedFilters.collections,
 				dateRange: {
-					endDate: listState.normalizedFilters.endDateRange,
-					startDate: listState.normalizedFilters.startDateRange,
+					endDate: listState.normalizedFilters.endDateRange || undefined,
+					startDate: listState.normalizedFilters.startDateRange || undefined,
 				},
 			},
 		}),

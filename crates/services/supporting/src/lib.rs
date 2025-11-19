@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Result;
 use apalis::prelude::{MemoryStorage, MessageQueue};
@@ -14,6 +14,7 @@ pub struct SupportingService {
     pub is_oidc_enabled: bool,
     pub config: Arc<AppConfig>,
     pub db: DatabaseConnection,
+    pub log_file_path: PathBuf,
     pub timezone: chrono_tz::Tz,
     pub server_start_time: DateTimeUtc,
 
@@ -29,6 +30,7 @@ impl SupportingService {
     pub async fn new(
         is_oidc_enabled: bool,
         config: Arc<AppConfig>,
+        log_file_path: PathBuf,
         db: &DatabaseConnection,
         timezone: chrono_tz::Tz,
         lp_application_job: &MemoryStorage<LpApplicationJob>,
@@ -39,6 +41,7 @@ impl SupportingService {
         Self {
             config,
             timezone,
+            log_file_path,
             db: db.clone(),
             is_oidc_enabled,
             server_start_time: Utc::now(),
