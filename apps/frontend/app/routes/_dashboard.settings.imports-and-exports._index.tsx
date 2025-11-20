@@ -57,6 +57,7 @@ import { clientGqlService } from "~/lib/shared/react-query";
 import {
 	convertEnumToSelectData,
 	openConfirmationModal,
+	triggerDownload,
 } from "~/lib/shared/ui-utils";
 import {
 	createToastHeaders,
@@ -615,13 +616,10 @@ export default function Page() {
 																						type: "application/json",
 																					});
 																					const url = URL.createObjectURL(blob);
-																					const link =
-																						document.createElement("a");
-																					link.href = url;
-																					link.download = `failed-items-${report.id}.json`;
-																					document.body.appendChild(link);
-																					link.click();
-																					document.body.removeChild(link);
+																					triggerDownload(
+																						url,
+																						`failed-items-${report.id}.json`,
+																					);
 																					URL.revokeObjectURL(url);
 																				}}
 																			>

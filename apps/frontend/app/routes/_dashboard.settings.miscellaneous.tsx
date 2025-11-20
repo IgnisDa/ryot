@@ -31,7 +31,7 @@ import {
 	useUserDetails,
 } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
-import { openConfirmationModal } from "~/lib/shared/ui-utils";
+import { openConfirmationModal, triggerDownload } from "~/lib/shared/ui-utils";
 import { useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.miscellaneous";
@@ -227,12 +227,10 @@ const DownloadLogsButton = () => {
 			return generateLogDownloadUrl;
 		},
 		onSuccess: (downloadUrl) => {
-			window.open(downloadUrl, "_blank", "noopener,noreferrer");
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: "Opening log download in a new tab",
-			});
+			triggerDownload(
+				downloadUrl,
+				`ryot-logs-${new Date().toISOString().split("T")[0]}.log`,
+			);
 		},
 		onError: () => {
 			notifications.show({

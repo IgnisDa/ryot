@@ -78,7 +78,7 @@ import {
 } from "~/lib/shared/hooks";
 import { MediaColors } from "~/lib/shared/media-utils";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
-import { selectRandomElement } from "~/lib/shared/ui-utils";
+import { selectRandomElement, triggerDownload } from "~/lib/shared/ui-utils";
 import { ApplicationTimeRange } from "~/lib/types";
 import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.analytics";
@@ -264,7 +264,6 @@ export default function Page() {
 							setIsCaptureLoading(true);
 							setTimeout(async () => {
 								let downloadUrl: string | undefined;
-								let anchor: HTMLAnchorElement | undefined;
 								try {
 									const canvas = await html2canvas(current);
 									const dataUrl = canvas.toDataURL("image/png");
@@ -282,11 +281,7 @@ export default function Page() {
 										);
 									}
 									downloadUrl = URL.createObjectURL(blob);
-									anchor = document.createElement("a");
-									anchor.href = downloadUrl;
-									anchor.download = "download.png";
-									document.body.appendChild(anchor);
-									anchor.click();
+									triggerDownload(downloadUrl, "download.png");
 								} catch {
 									notifications.show({
 										color: "red",
@@ -294,7 +289,6 @@ export default function Page() {
 										message: "Something went wrong while capturing the image",
 									});
 								} finally {
-									if (anchor) anchor.remove();
 									if (downloadUrl) URL.revokeObjectURL(downloadUrl);
 									setIsCaptureLoading(false);
 								}

@@ -79,6 +79,15 @@ export const isFilterChanged = <T extends object>(
 		.some((key) => !isEqual(current[key as keyof T], defaults[key as keyof T]));
 };
 
+export const triggerDownload = (url: string, filename: string) => {
+	const link = document.createElement("a");
+	link.href = url;
+	link.download = filename;
+	document.body.appendChild(link);
+	link.click();
+	document.body.removeChild(link);
+};
+
 export const getProviderSourceImage = (source: MediaSource) =>
 	match(source)
 		.with(MediaSource.Anilist, () => "anilist.svg")
