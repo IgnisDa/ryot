@@ -161,6 +161,7 @@ reqwest = { version = "=0.12.24", features = [
     "rustls-tls",
 ], default-features = false }
 rstest = "=0.26.1"
+rss = "=2.0.12"
 rust_decimal = { version = "=1.39.0", features = ["macros"] }
 rust_iso3166 = "=0.1.14"
 rustypipe = { version = "=0.11.4", features = [

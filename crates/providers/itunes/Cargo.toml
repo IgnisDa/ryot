@@ -9,6 +9,7 @@ async-trait = { workspace = true }
 chrono = { workspace = true }
 itertools = { workspace = true }
 reqwest = { workspace = true }
+rss = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
 
