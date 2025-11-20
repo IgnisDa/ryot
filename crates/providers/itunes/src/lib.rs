@@ -1,9 +1,9 @@
 use anyhow::Result;
 use async_trait::async_trait;
+use chrono::DateTime;
 use chrono::{Datelike, NaiveDate};
 use common_models::{EntityAssets, NamedObject, SearchDetails};
-use common_utils::PAGE_SIZE;
-use common_utils::get_base_http_client;
+use common_utils::{PAGE_SIZE, get_base_http_client};
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
 use itertools::Itertools;
 use media_models::{
@@ -66,7 +66,6 @@ impl ITunesService {
     }
 
     fn parse_rfc2822_date(date_str: &str) -> Option<NaiveDate> {
-        use chrono::DateTime;
         DateTime::parse_from_rfc2822(date_str)
             .ok()
             .map(|dt| dt.date_naive())
