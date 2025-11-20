@@ -251,18 +251,17 @@ impl MediaProvider for ITunesService {
         let feed_url = ht.feed_url.clone();
         let details = get_search_response(ht);
 
-        let episodes = match feed_url {
-            None => {
-                self.fetch_itunes_api_episodes(identifier, total_episodes)
-                    .await?
-            }
-            Some(ref url) => match self.fetch_rss_episodes(url).await {
+        let episodes = if let Some(ref url) = feed_url {
+            match self.fetch_rss_episodes(url).await {
                 Ok(rss_episodes) => rss_episodes,
                 Err(_) => {
                     self.fetch_itunes_api_episodes(identifier, total_episodes)
                         .await?
                 }
-            },
+            }
+        } else {
+            self.fetch_itunes_api_episodes(identifier, total_episodes)
+                .await?
         };
 
         let remote_images = details.image.into_iter().collect();
