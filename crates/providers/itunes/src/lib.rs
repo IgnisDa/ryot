@@ -2,15 +2,14 @@ use anyhow::Result;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{EntityAssets, NamedObject, SearchDetails};
-use common_utils::PAGE_SIZE;
-use common_utils::get_base_http_client;
+use common_utils::{PAGE_SIZE, get_base_http_client};
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
 use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataFreeCreator, MetadataSearchItem, PodcastEpisode, PodcastSpecifics,
 };
 use reqwest::Client;
-use sea_orm::prelude::ChronoDateTimeUtc;
+use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use traits::MediaProvider;
 
@@ -53,17 +52,17 @@ struct ITunesItem {
     collection_id: i64,
     track_id: Option<i64>,
     collection_name: String,
-    description: Option<String>,
-    artist_name: Option<String>,
     genres: Option<Vec<Genre>>,
     track_count: Option<usize>,
     track_name: Option<String>,
+    description: Option<String>,
+    artist_name: Option<String>,
     track_time_millis: Option<i32>,
     artwork_url_30: Option<String>,
     artwork_url_60: Option<String>,
     artwork_url_100: Option<String>,
     artwork_url_600: Option<String>,
-    release_date: Option<ChronoDateTimeUtc>,
+    release_date: Option<DateTimeUtc>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -227,9 +226,9 @@ fn get_search_response(item: ITunesItem) -> MetadataSearchItem {
     let date = item.release_date.map(|d| d.date_naive());
     let publish_year = date.map(|d| d.year());
     MetadataSearchItem {
-        identifier: item.collection_id.to_string(),
+        publish_year,
         title: item.collection_name,
         image: images.first().cloned(),
-        publish_year,
+        identifier: item.collection_id.to_string(),
     }
 }
