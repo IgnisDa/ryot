@@ -115,8 +115,8 @@ impl MediaProvider for ITunesService {
                 ("id", identifier),
                 ("media", "podcast"),
                 ("entity", "podcastEpisode"),
-                ("limit", &total_episodes.to_string()),
                 ("lang", self.language.as_str()),
+                ("limit", &total_episodes.to_string()),
             ])
             .send()
             .await?;
