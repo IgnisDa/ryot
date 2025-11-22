@@ -2,7 +2,6 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import type { ChildProcess } from "node:child_process";
 
 import getPort from "get-port";
-import { Client as PgClient } from "pg";
 import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 
 import { makeSession } from "../fixtures";
@@ -24,12 +23,37 @@ const S3_BUCKET_NAME = "ryot-oidc-test";
 const OIDC_CLIENT_SECRET = "test-secret";
 const OIDC_BUTTON_LABEL = "Sign in with TestOIDC";
 const trackersListQuery = { includeDisabled: false };
+const adminAccessTokenHeaders = { "Admin-Access-Token": "test-admin-token" };
+const godModeListQuery = (search: string) => ({ limit: 50, offset: 0, search });
+
+async function countUsersByEmail(backendUrl: string, email: string) {
+	const data = await makeSession(backendUrl).run(
+		(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+		adminAccessTokenHeaders,
+	);
+	return data.total;
+}
+
+async function findUserIdByEmail(backendUrl: string, email: string) {
+	const data = await makeSession(backendUrl).run(
+		(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+		adminAccessTokenHeaders,
+	);
+	return data.users[0]?.id ?? null;
+}
+
+async function listTrackerCount(backendUrl: string, cookie: string) {
+	const trackers = await makeSession(backendUrl).run(
+		(c) => c.trackers.list({ urlParams: trackersListQuery }),
+		{ Cookie: cookie },
+	);
+	return trackers.length;
+}
 
 let backendPortA: number;
 let backendPortB: number;
 let backendPortC: number;
 let oidcIssuerUrl: string;
-let pgClientOidc: PgClient | undefined;
 let backendProcessA: ChildProcess | undefined;
 let backendProcessB: ChildProcess | undefined;
 let backendProcessC: ChildProcess | undefined;
@@ -50,10 +74,6 @@ function getBackendUrlC() {
 
 function requireCoreInfrastructure() {
 	return requirePresent(coreInfrastructure, "OIDC test infrastructure is not initialised");
-}
-
-function requireOidcPgClient(): PgClient {
-	return requirePresent(pgClientOidc, "OIDC PG client is not initialised");
 }
 
 beforeAll(async () => {
@@ -117,9 +137,6 @@ beforeAll(async () => {
 		waitForHealthCheck(`http://127.0.0.1:${backendPortB}/api/system/health`, "OIDC Setup"),
 		waitForHealthCheck(`http://127.0.0.1:${backendPortC}/api/system/health`, "OIDC Setup"),
 	]);
-
-	pgClientOidc = new PgClient({ connectionString: infrastructure.dbUrl });
-	await pgClientOidc.connect();
 }, 120000);
 
 afterAll(async () => {
@@ -129,11 +146,7 @@ afterAll(async () => {
 		stopBackendProcess(backendProcessC),
 	]);
 
-	await Promise.all([
-		pgClientOidc?.end(),
-		stopCoreTestInfrastructure(coreInfrastructure),
-		oidcContainer?.stop(),
-	]);
+	await Promise.all([stopCoreTestInfrastructure(coreInfrastructure), oidcContainer?.stop()]);
 });
 
 describe("GET /system/config with OIDC enabled (Backend A)", () => {
@@ -169,13 +182,7 @@ describe("sign-up/email with local auth disabled (Backend B)", () => {
 			password: "password123",
 		});
 		expect(error).toBeDefined();
-
-		const pg = requireOidcPgClient();
-		const result = await pg.query<{ count: string }>(
-			`SELECT count(*) FROM "user" WHERE email = $1`,
-			[email],
-		);
-		expect(Number(result.rows[0]?.count)).toBe(0);
+		expect(await countUsersByEmail(getBackendUrlB(), email)).toBe(0);
 	});
 });
 
@@ -192,41 +199,24 @@ describe("OIDC sign-in happy path (Backend A)", () => {
 	it("first-time OIDC sign-in creates a user row", async () => {
 		const username = `user-${crypto.randomUUID()}`;
 		await oidcSignIn(username, getBackendUrlA());
-		const result = await requireOidcPgClient().query<{ id: string }>(
-			`SELECT id FROM "user" WHERE email = $1`,
-			[`${username}@example.com`],
-		);
-		expect(result.rows.length).toBe(1);
+		expect(await countUsersByEmail(getBackendUrlA(), `${username}@example.com`)).toBe(1);
 	});
 
 	it("first-time OIDC sign-in bootstraps the user with tracker rows", async () => {
 		const username = `user-${crypto.randomUUID()}`;
-		await oidcSignIn(username, getBackendUrlA());
-		const userResult = await requireOidcPgClient().query<{ id: string }>(
-			`SELECT id FROM "user" WHERE email = $1`,
-			[`${username}@example.com`],
-		);
-		const userId = userResult.rows[0]?.id;
-		const trackerResult = await requireOidcPgClient().query<{ count: string }>(
-			`SELECT count(*) FROM tracker WHERE user_id = $1`,
-			[userId],
-		);
-		expect(Number(trackerResult.rows[0]?.count)).toBeGreaterThan(0);
+		const sessionCookie = await oidcSignIn(username, getBackendUrlA());
+		expect(await listTrackerCount(getBackendUrlA(), sessionCookie)).toBeGreaterThan(0);
 	});
 });
 
 describe("OIDC idempotency (Backend A)", () => {
 	it("repeated OIDC sign-in with same identity reuses the same user row", async () => {
 		const username = `user-${crypto.randomUUID()}`;
-		const pg = requireOidcPgClient();
 
 		const cookie1 = await oidcSignIn(username, getBackendUrlA());
 		const cookie2 = await oidcSignIn(username, getBackendUrlA());
 
-		const userResult = await pg.query<{ id: string }>(`SELECT id FROM "user" WHERE email = $1`, [
-			`${username}@example.com`,
-		]);
-		expect(userResult.rows.length).toBe(1);
+		expect(await countUsersByEmail(getBackendUrlA(), `${username}@example.com`)).toBe(1);
 
 		const client = makeSession(getBackendUrlA());
 		await Promise.all([
@@ -237,28 +227,14 @@ describe("OIDC idempotency (Backend A)", () => {
 
 	it("bootstrap idempotency: tracker count is the same after two sign-ins", async () => {
 		const username = `user-${crypto.randomUUID()}`;
-		const pg = requireOidcPgClient();
 
-		await oidcSignIn(username, getBackendUrlA());
-		const userResult = await pg.query<{ id: string }>(`SELECT id FROM "user" WHERE email = $1`, [
-			`${username}@example.com`,
-		]);
-		const userId = userResult.rows[0]?.id;
-
-		const countAfterFirst = await pg.query<{ count: string }>(
-			`SELECT count(*) FROM tracker WHERE user_id = $1`,
-			[userId],
-		);
-		const firstCount = Number(countAfterFirst.rows[0]?.count);
+		const cookie1 = await oidcSignIn(username, getBackendUrlA());
+		const firstCount = await listTrackerCount(getBackendUrlA(), cookie1);
 		expect(firstCount).toBeGreaterThan(0);
 
-		await oidcSignIn(username, getBackendUrlA());
-
-		const countAfterSecond = await pg.query<{ count: string }>(
-			`SELECT count(*) FROM tracker WHERE user_id = $1`,
-			[userId],
-		);
-		expect(Number(countAfterSecond.rows[0]?.count)).toBe(firstCount);
+		const cookie2 = await oidcSignIn(username, getBackendUrlA());
+		const secondCount = await listTrackerCount(getBackendUrlA(), cookie2);
+		expect(secondCount).toBe(firstCount);
 	});
 });
 
@@ -315,12 +291,8 @@ describe("Registration gating for OIDC (Backend C)", () => {
 			"Backend C must not issue a session when registration is disabled",
 		).toBe(false);
 
-		const result = await requireOidcPgClient().query<{ count: string }>(
-			`SELECT count(*) FROM "user" WHERE email = $1`,
-			[`${username}@example.com`],
-		);
 		expect(
-			Number(result.rows[0]?.count),
+			await countUsersByEmail(getBackendUrlC(), `${username}@example.com`),
 			"No user row must be created when registration is disabled",
 		).toBe(0);
 	});
@@ -328,14 +300,10 @@ describe("Registration gating for OIDC (Backend C)", () => {
 	it("existing OIDC users can still sign in when registration is disabled", async () => {
 		const username = `user-${crypto.randomUUID()}`;
 		const email = `${username}@example.com`;
-		const pg = requireOidcPgClient();
 
 		await oidcSignIn(username, getBackendUrlA());
-		const beforeResult = await pg.query<{ id: string }>(`SELECT id FROM "user" WHERE email = $1`, [
-			email,
-		]);
-		expect(beforeResult.rows.length).toBe(1);
-		const userId = beforeResult.rows[0]?.id;
+		const beforeId = await findUserIdByEmail(getBackendUrlA(), email);
+		expect(beforeId).not.toBeNull();
 
 		const sessionCookie = await oidcSignIn(username, getBackendUrlC());
 		const client = makeSession(getBackendUrlC());
@@ -343,10 +311,7 @@ describe("Registration gating for OIDC (Backend C)", () => {
 			Cookie: sessionCookie,
 		});
 
-		const afterResult = await pg.query<{ id: string }>(`SELECT id FROM "user" WHERE email = $1`, [
-			email,
-		]);
-		expect(afterResult.rows.length).toBe(1);
-		expect(afterResult.rows[0]?.id).toBe(userId);
+		const afterId = await findUserIdByEmail(getBackendUrlC(), email);
+		expect(afterId).toBe(beforeId);
 	});
 });

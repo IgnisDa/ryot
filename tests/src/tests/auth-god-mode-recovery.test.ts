@@ -24,13 +24,13 @@ const trackersListQuery = { includeDisabled: false };
 const uniqueTimestamp = () => DateTime.toEpochMillis(DateTime.unsafeNow());
 
 async function getUserIdByEmail(email: string) {
-	const result = await getPgClient().query<{ id: string }>(
-		`SELECT id FROM "user" WHERE email = $1`,
-		[email],
+	const data = await getBackendClient().run(
+		(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+		adminAccessTokenHeaders(ADMIN_TOKEN),
 	);
-	const row = result.rows[0];
-	assertPresent(row, "missing user row");
-	return UserId.make(row.id);
+	const user = data.users[0];
+	assertPresent(user, "missing user row");
+	return UserId.make(user.id);
 }
 
 async function signInWithPassword(email: string, password: string) {
@@ -55,30 +55,27 @@ async function createApiKey(cookies: string) {
 }
 
 async function createNoAccountUser(name: string) {
-	const pg = getPgClient();
-	const userId = randomUUID();
 	const email = `${name.toLowerCase()}-${uniqueTimestamp()}@example.com`;
-	await pg.query(
-		`INSERT INTO "user" (id, name, email, email_verified, preferences, created_at, updated_at)
-		 VALUES ($1, $2, $3, true, '{}', NOW(), NOW())`,
-		[userId, name, email],
+	const { userId } = await getBackendClient().run(
+		(c) => c.godMode.provisionUser({ payload: { provider: "credential", email, name } }),
+		adminAccessTokenHeaders(ADMIN_TOKEN),
 	);
 	return { email, userId: UserId.make(userId) };
 }
 
 async function createOidcUser(name: string) {
-	const pg = getPgClient();
-	const userId = randomUUID();
 	const email = `${name.toLowerCase()}-${uniqueTimestamp()}@example.com`;
-	await pg.query(
-		`INSERT INTO "user" (id, name, email, email_verified, preferences, created_at, updated_at)
-		 VALUES ($1, $2, $3, true, '{}', NOW(), NOW())`,
-		[userId, name, email],
-	);
-	await pg.query(
-		`INSERT INTO "account" (id, account_id, provider_id, user_id, created_at, updated_at)
-		 VALUES ($1, $2, 'oidc', $3, NOW(), NOW())`,
-		[randomUUID(), `oidc-sub-${uniqueTimestamp()}`, userId],
+	const { userId } = await getBackendClient().run(
+		(c) =>
+			c.godMode.provisionUser({
+				payload: {
+					name,
+					email,
+					provider: "oidc",
+					oidcIssuerId: `oidc-sub-${uniqueTimestamp()}`,
+				},
+			}),
+		adminAccessTokenHeaders(ADMIN_TOKEN),
 	);
 	return { email, userId: UserId.make(userId) };
 }
@@ -178,18 +175,12 @@ describe("User listing with correct admin token", () => {
 	});
 
 	it("classifies mixed auth users as 'mixed'", async () => {
-		const pg = getPgClient();
 		const client = getBackendClient();
 		const { email } = await createTestUser();
+		const userId = await getUserIdByEmail(email);
 
-		const result = await pg.query<{ id: string }>(`SELECT id FROM "user" WHERE email = $1`, [
-			email,
-		]);
-		const row = result.rows[0];
-		assertPresent(row, "missing user row");
-		const userId = row.id;
-
-		await pg.query(
+		// Linking a second (oidc) account to an existing credential user has no API.
+		await getPgClient().query(
 			`INSERT INTO "account" (id, account_id, provider_id, user_id, created_at, updated_at)
 			 VALUES ($1, $2, 'oidc', $3, NOW(), NOW())`,
 			[randomUUID(), `oidc-sub-${uniqueTimestamp()}`, userId],
@@ -424,11 +415,11 @@ describe("Reset link generation and completion for no-account user", () => {
 		const signInRes = await signInWithPassword(email, newPassword);
 		expect(signInRes.ok).toBe(true);
 
-		const accountResult = await getPgClient().query<{ count: string }>(
-			`SELECT count(*) FROM "account" WHERE "user_id" = $1 AND "provider_id" = 'credential'`,
-			[userId],
+		const listData = await client.run(
+			(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+			adminAccessTokenHeaders(ADMIN_TOKEN),
 		);
-		expect(accountResult.rows[0]?.count).toBe("1");
+		expect(listData.users[0]?.authState).toBe("credential");
 	});
 });
 
@@ -448,13 +439,12 @@ describe("OIDC user restrictions", () => {
 
 describe("Mixed auth user restrictions", () => {
 	it("rejects password reset for mixed auth users", async () => {
-		const pg = getPgClient();
 		const client = getBackendClient();
 		const { email } = await createTestUser();
-
 		const userId = await getUserIdByEmail(email);
 
-		await pg.query(
+		// Linking a second (oidc) account to an existing credential user has no API.
+		await getPgClient().query(
 			`INSERT INTO "account" (id, account_id, provider_id, user_id, created_at, updated_at)
 			 VALUES ($1, $2, 'oidc', $3, NOW(), NOW())`,
 			[randomUUID(), `oidc-sub-${uniqueTimestamp()}`, userId],
