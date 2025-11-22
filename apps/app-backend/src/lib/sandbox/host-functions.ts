@@ -82,25 +82,7 @@ const requireNonEmptyString = (value: unknown, message: string): Effect.Effect<s
 
 const normalizePreferences = (value: unknown) => {
 	const source = isObjectRecord(value) ? value : {};
-	const languages = isObjectRecord(source.languages) ? source.languages : {};
-	const providers = Array.isArray(languages.providers)
-		? languages.providers.flatMap((provider) => {
-				if (!isObjectRecord(provider)) {
-					return [];
-				}
-
-				const sourceValue = provider.source;
-				const preferredLanguage = provider.preferredLanguage;
-				if (typeof sourceValue !== "string" || typeof preferredLanguage !== "string") {
-					return [];
-				}
-
-				return [{ source: sourceValue, preferredLanguage }];
-			})
-		: [];
-
 	return {
-		languages: { providers },
 		isNsfw: source.isNsfw === true,
 		disableIntegrations: source.disableIntegrations === true,
 	};
