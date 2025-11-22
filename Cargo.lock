@@ -3976,7 +3976,6 @@ dependencies = [
  "chrono",
  "common-models",
  "common-utils",
- "config-definition",
  "database-models",
  "dependent-models",
  "enum-models",
