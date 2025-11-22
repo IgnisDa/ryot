@@ -9,9 +9,9 @@ import { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands
 import { generateId } from "better-auth";
 import { Schema } from "effect";
 
-const EventCreateWorkflowError = Schema.Union(BadRequest, DbError, NotFound);
+export const EventCreateWorkflowError = Schema.Union(BadRequest, DbError, NotFound);
 
-const EventCreateWorkflowPayload = Schema.Struct({
+export const EventCreateWorkflowPayload = Schema.Struct({
 	userId: UserId,
 	origin: EventCreateOrigin,
 	executionId: Schema.String,
@@ -20,7 +20,9 @@ const EventCreateWorkflowPayload = Schema.Struct({
 	integrationId: Schema.optional(IntegrationId),
 });
 
-type EventCreateWorkflowInput = Omit<typeof EventCreateWorkflowPayload.Type, "executionId"> & {
+export type EventCreateWorkflowPayload = typeof EventCreateWorkflowPayload.Type;
+
+type EventCreateWorkflowInput = Omit<EventCreateWorkflowPayload, "executionId"> & {
 	executionId?: string;
 };
 
