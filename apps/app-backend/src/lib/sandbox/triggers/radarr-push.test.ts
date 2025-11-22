@@ -2,9 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import integrationPushHelperCode from "../script-helpers/integration-push.sandbox.js" with { type: "text" };
 import radarrPushScriptCode from "./radarr-push.sandbox.js" with { type: "text" };
-import { hostFailure, hostSuccess, httpSuccess, runTriggerScript, toRecord } from "./test-utils";
+import {
+	hostFailure,
+	hostSuccess,
+	httpSuccess,
+	runTriggerScript,
+	toRecord,
+	wrapWithPushHelpers,
+} from "./test-utils";
 
-const radarrCode = `${integrationPushHelperCode}\n\n${radarrPushScriptCode}`;
+const radarrCode = wrapWithPushHelpers(integrationPushHelperCode, radarrPushScriptCode);
 
 const runRadarrScript = (
 	context: unknown,
