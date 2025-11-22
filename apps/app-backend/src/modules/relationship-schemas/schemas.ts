@@ -14,3 +14,21 @@ export const RelationshipSchemaScope = Schema.Struct({
 });
 
 export type RelationshipSchemaScope = typeof RelationshipSchemaScope.Type;
+
+export const ListRelationshipSchemasBody = Schema.Struct({
+	slugs: Schema.optional(Schema.Array(Schema.String)),
+	sourceEntitySchemaId: Schema.optional(Schema.NullOr(EntitySchemaId)),
+	targetEntitySchemaId: Schema.optional(Schema.NullOr(EntitySchemaId)),
+});
+
+export type ListRelationshipSchemasBody = typeof ListRelationshipSchemasBody.Type;
+
+export const CreateRelationshipSchemaBody = Schema.Struct({
+	name: Schema.String,
+	propertiesSchema: AppSchema,
+	slug: Schema.optional(Schema.String),
+	sourceEntitySchemaId: Schema.optional(Schema.NullOr(EntitySchemaId)),
+	targetEntitySchemaId: Schema.optional(Schema.NullOr(EntitySchemaId)),
+});
+
+export type CreateRelationshipSchemaBody = typeof CreateRelationshipSchemaBody.Type;

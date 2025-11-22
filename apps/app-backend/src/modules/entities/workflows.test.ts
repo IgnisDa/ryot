@@ -76,9 +76,13 @@ const makeRelationshipSchemasRepository = (
 	makeMock<RelationshipSchemasRepository>(
 		{
 			findById: () => Effect.die("unused"),
+			listByUser: () => Effect.die("unused"),
 			_tag: "RelationshipSchemasRepository" as const,
+			findBySlugForUser: () => Effect.die("unused"),
 			findBuiltinBySlug: () => Effect.die("unused"),
 			findGlobalBySchemaIds: () => Effect.succeed(null),
+			getEntitySchemaScopeById: () => Effect.die("unused"),
+			createRelationshipSchema: () => Effect.die("unused"),
 		},
 		overrides,
 	);
