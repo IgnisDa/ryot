@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 
+import { ArithmeticOperator, ComparisonOperator } from "#lib/schema/operators";
 import { strictStruct } from "#lib/schema/utils";
 
 const SystemFieldSelector = strictStruct({
@@ -48,13 +49,13 @@ export type Expr =
 			readonly left: Expr;
 			readonly right: Expr;
 			readonly type: "arithmetic";
-			readonly operator: "add" | "subtract" | "multiply" | "divide";
+			readonly operator: ArithmeticOperator;
 	  }
 	| {
 			readonly left: Expr;
 			readonly right: Expr;
 			readonly type: "comparison";
-			readonly operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
+			readonly operator: ComparisonOperator;
 	  };
 
 export type AggregationSpec =
@@ -106,13 +107,13 @@ export const Expr: Schema.Schema<Expr> = Schema.suspend(() =>
 			left: Expr,
 			right: Expr,
 			type: Schema.Literal("arithmetic"),
-			operator: Schema.Literal("add", "subtract", "multiply", "divide"),
+			operator: ArithmeticOperator,
 		}),
 		strictStruct({
 			left: Expr,
 			right: Expr,
 			type: Schema.Literal("comparison"),
-			operator: Schema.Literal("eq", "neq", "gt", "gte", "lt", "lte"),
+			operator: ComparisonOperator,
 		}),
 	),
 ).annotations({ identifier: "Expr" });
