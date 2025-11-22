@@ -97,7 +97,7 @@ async fn create_providers(
         TvdbService::new(ss.clone()),
         IgdbService::new(ss.clone()),
         YoutubeMusicService::new(),
-        ITunesService::new(&ss.config.podcasts.itunes),
+        ITunesService::new(ss.clone()),
         AudibleService::new(&ss.config.audio_books.audible)
     )?;
     Ok((

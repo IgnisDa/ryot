@@ -3977,12 +3977,15 @@ dependencies = [
  "common-models",
  "common-utils",
  "config-definition",
+ "database-models",
  "dependent-models",
+ "enum-models",
  "itertools 0.14.0",
  "media-models",
  "reqwest",
  "sea-orm",
  "serde",
+ "supporting-service",
  "traits",
 ]
 

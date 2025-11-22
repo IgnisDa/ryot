@@ -1,32 +1,39 @@
+use std::{collections::HashMap, sync::Arc};
+
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{EntityAssets, NamedObject, SearchDetails};
 use common_utils::{PAGE_SIZE, get_base_http_client};
+use database_models::{metadata, prelude::Metadata};
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataFreeCreator, MetadataSearchItem, PodcastEpisode, PodcastSpecifics,
 };
 use reqwest::Client;
-use sea_orm::prelude::DateTimeUtc;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
+use supporting_service::SupportingService;
 use traits::MediaProvider;
 
 static URL: &str = "https://itunes.apple.com";
 
-#[derive(Debug, Clone)]
 pub struct ITunesService {
     client: Client,
     language: String,
+    ss: Arc<SupportingService>,
 }
 
 impl ITunesService {
-    pub async fn new(config: &config_definition::ITunesConfig) -> Result<Self> {
+    pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
         let client = get_base_http_client(None);
+        let language = ss.config.podcasts.itunes.locale.clone();
         Ok(Self {
+            ss,
             client,
-            language: config.locale.clone(),
+            language,
         })
     }
 
@@ -125,25 +132,55 @@ impl MediaProvider for ITunesService {
             ..Default::default()
         };
         let episodes: SearchResponse = rsp.json().await?;
-        let episodes = episodes.results.unwrap_or_default();
-        let publish_date = episodes
+        let new_episodes = episodes.results.unwrap_or_default();
+        let publish_date = new_episodes
             .last()
             .and_then(|e| e.release_date.to_owned())
             .map(|d| d.date_naive());
-        let mut episodes = episodes
-            .into_iter()
-            .sorted_by_key(|e| e.release_date)
-            .enumerate()
-            .map(|(idx, e)| PodcastEpisode {
-                overview: e.description,
-                thumbnail: e.artwork_url_60,
-                title: e.track_name.unwrap(),
-                id: e.track_id.unwrap().to_string(),
-                number: (idx + 1).try_into().unwrap(),
-                runtime: e.track_time_millis.map(|t| t / 1000 / 60),
-                publish_date: e.release_date.map(|d| d.date_naive()).unwrap(),
-            })
-            .collect_vec();
+
+        let existing_metadata = Metadata::find()
+            .filter(metadata::Column::Identifier.eq(identifier))
+            .filter(metadata::Column::Lot.eq(MediaLot::Podcast))
+            .filter(metadata::Column::Source.eq(MediaSource::Itunes))
+            .one(&self.ss.db)
+            .await?;
+
+        let existing_episodes = existing_metadata
+            .and_then(|m| m.podcast_specifics)
+            .map(|ps| ps.episodes)
+            .unwrap_or_default();
+
+        let mut episodes_by_id: HashMap<String, PodcastEpisode> = HashMap::new();
+
+        for episode in existing_episodes {
+            episodes_by_id.insert(episode.id.clone(), episode);
+        }
+
+        for itunes_episode in new_episodes {
+            let episode_id = itunes_episode.track_id.unwrap().to_string();
+            if !episodes_by_id.contains_key(&episode_id) {
+                let episode = PodcastEpisode {
+                    number: 0,
+                    id: episode_id.clone(),
+                    overview: itunes_episode.description,
+                    thumbnail: itunes_episode.artwork_url_60,
+                    title: itunes_episode.track_name.unwrap(),
+                    runtime: itunes_episode.track_time_millis.map(|t| t / 1000 / 60),
+                    publish_date: itunes_episode.release_date.map(|d| d.date_naive()).unwrap(),
+                };
+                episodes_by_id.insert(episode_id, episode);
+            }
+        }
+
+        let mut episodes: Vec<PodcastEpisode> = episodes_by_id.into_values().collect();
+        episodes.sort_by_key(|e| e.publish_date);
+
+        for (idx, episode) in episodes.iter_mut().enumerate() {
+            if episode.number == 0 {
+                episode.number = (idx + 1).try_into().unwrap();
+            }
+        }
+
         episodes.reverse();
         Ok(MetadataDetails {
             assets,
