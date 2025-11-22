@@ -45,7 +45,6 @@ import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
 import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/integration-workflow";
 import { IntegrationsRepository } from "#modules/integrations/repository";
-import { IntegrationsSchedulerLive } from "#modules/integrations/scheduler";
 import { IntegrationsService } from "#modules/integrations/service";
 import { GlobalEntityReferencedWorkerLive } from "#modules/library-membership/global-reference-worker";
 import { LibraryEntityImportWorkflowDefinitionsLive } from "#modules/library-membership/library-entity-import-workflow";
@@ -65,6 +64,7 @@ import { SandboxApiService } from "#modules/sandbox/service";
 import { DefaultSavedViewWorkerLive } from "#modules/saved-views/default-view-worker";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { SavedViewsService } from "#modules/saved-views/service";
+import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
 import { InfrequentCronSchedulerLive } from "#modules/scheduler/infrequent-cron";
 import { TrackersRepository } from "#modules/trackers/repository";
 import { TrackersService } from "#modules/trackers/service";
@@ -212,7 +212,7 @@ const RuntimeLive = Layer.mergeAll(
 	SandboxWorkflowDefinitionsLive,
 	TranslateEntityWorkflowDefinitionsLive,
 	ServerLive,
-	IntegrationsSchedulerLive,
+	FrequentCronSchedulerLive,
 	InfrequentCronSchedulerLive,
 );
 
