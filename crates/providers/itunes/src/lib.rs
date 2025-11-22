@@ -1,10 +1,10 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashSet, sync::Arc};
 
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{EntityAssets, NamedObject, SearchDetails};
-use common_utils::{PAGE_SIZE, get_base_http_client};
+use common_utils::{PAGE_SIZE, get_base_http_client, ryot_log};
 use database_models::{metadata, prelude::Metadata};
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
 use enum_models::{MediaLot, MediaSource};
@@ -150,37 +150,55 @@ impl MediaProvider for ITunesService {
             .map(|ps| ps.episodes)
             .unwrap_or_default();
 
-        let mut episodes_by_id: HashMap<String, PodcastEpisode> = HashMap::new();
+        let existing_ids: HashSet<String> =
+            existing_episodes.iter().map(|e| e.id.clone()).collect();
 
-        for episode in existing_episodes {
-            episodes_by_id.insert(episode.id.clone(), episode);
+        let mut new_episodes_to_add: Vec<PodcastEpisode> = new_episodes
+            .into_iter()
+            .filter_map(|itunes_episode| {
+                let episode_id = itunes_episode.track_id?.to_string();
+                match existing_ids.contains(&episode_id) {
+                    true => None,
+                    false => Some(PodcastEpisode {
+                        number: 0,
+                        id: episode_id,
+                        title: itunes_episode.track_name?,
+                        overview: itunes_episode.description,
+                        thumbnail: itunes_episode.artwork_url_60,
+                        runtime: itunes_episode.track_time_millis.map(|t| t / 1000 / 60),
+                        publish_date: itunes_episode.release_date.map(|d| d.date_naive())?,
+                    }),
+                }
+            })
+            .collect();
+
+        new_episodes_to_add.sort_by_key(|e| std::cmp::Reverse(e.publish_date));
+
+        let max_number = existing_episodes
+            .iter()
+            .map(|e| e.number)
+            .max()
+            .unwrap_or(0);
+
+        let new_count = new_episodes_to_add.len();
+        if new_count > 0 {
+            ryot_log!(
+                debug,
+                "iTunes podcast {}: discovered {} new episode(s), assigning numbers {}-{}",
+                identifier,
+                new_count,
+                max_number + 1,
+                max_number + new_count as i32
+            );
         }
 
-        for itunes_episode in new_episodes {
-            let episode_id = itunes_episode.track_id.unwrap().to_string();
-            episodes_by_id
-                .entry(episode_id.clone())
-                .or_insert_with(|| PodcastEpisode {
-                    number: 0,
-                    id: episode_id,
-                    overview: itunes_episode.description,
-                    thumbnail: itunes_episode.artwork_url_60,
-                    title: itunes_episode.track_name.unwrap(),
-                    runtime: itunes_episode.track_time_millis.map(|t| t / 1000 / 60),
-                    publish_date: itunes_episode.release_date.map(|d| d.date_naive()).unwrap(),
-                });
+        for (idx, episode) in new_episodes_to_add.iter_mut().enumerate() {
+            episode.number = max_number + (new_count - idx) as i32;
         }
 
-        let mut episodes: Vec<PodcastEpisode> = episodes_by_id.into_values().collect();
-        episodes.sort_by_key(|e| e.publish_date);
+        new_episodes_to_add.extend(existing_episodes);
+        let episodes = new_episodes_to_add;
 
-        for (idx, episode) in episodes.iter_mut().enumerate() {
-            if episode.number == 0 {
-                episode.number = (idx + 1).try_into().unwrap();
-            }
-        }
-
-        episodes.reverse();
         Ok(MetadataDetails {
             assets,
             genres,

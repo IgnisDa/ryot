@@ -3985,6 +3985,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "supporting-service",
+ "tracing",
  "traits",
 ]
 

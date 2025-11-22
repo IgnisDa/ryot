@@ -11,6 +11,7 @@ itertools = { workspace = true }
 reqwest = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
+tracing = { workspace = true }
 
 common-models = { workspace = true }
 common-utils = { workspace = true }
@@ -20,3 +21,6 @@ enum-models = { workspace = true }
 media-models = { workspace = true }
 supporting-service = { workspace = true }
 traits = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["tracing"]
