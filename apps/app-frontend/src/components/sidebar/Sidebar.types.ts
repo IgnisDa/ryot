@@ -1,3 +1,5 @@
+import type { AppFacet } from "#/features/facets/model";
+import type { AppSavedView } from "#/features/saved-views/model";
 import type { AuthenticatedUser } from "#/hooks/auth";
 
 export type SidebarAccount = Pick<
@@ -5,27 +7,27 @@ export type SidebarAccount = Pick<
 	"id" | "name" | "email" | "image" | "createdAt" | "updatedAt"
 >;
 
-export interface SidebarFacet {
-	id: string;
-	icon: string;
-	slug: string;
-	name: string;
-	enabled: boolean;
-	sortOrder: number;
-	isBuiltin: boolean;
-	accentColor: string;
+export type SidebarView = Pick<
+	AppSavedView,
+	"id" | "icon" | "name" | "facetId" | "accentColor"
+> & {
+	facetSlug: string | null;
+};
+
+export type SidebarFacet = Pick<
+	AppFacet,
+	| "id"
+	| "icon"
+	| "slug"
+	| "name"
+	| "enabled"
+	| "sortOrder"
+	| "isBuiltin"
+	| "accentColor"
+> & {
 	isExpanded?: boolean;
 	views?: SidebarView[];
-}
-
-export interface SidebarView {
-	id: string;
-	icon: string;
-	name: string;
-	accentColor: string;
-	facetId: string | null;
-	facetSlug: string | null;
-}
+};
 
 export interface SidebarProps {
 	drawerOpened: boolean;

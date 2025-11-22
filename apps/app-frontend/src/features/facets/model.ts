@@ -1,15 +1,6 @@
-export interface AppFacet {
-	id: string;
-	icon: string;
-	slug: string;
-	name: string;
-	enabled: boolean;
-	sortOrder: number;
-	config?: unknown;
-	isBuiltin?: boolean;
-	accentColor: string;
-	description?: string | null;
-}
+import type { ApiGetResponseData } from "#/lib/api/types";
+
+export type AppFacet = ApiGetResponseData<"/facets/list">[number];
 
 export function sortFacetsByOrder(facets: AppFacet[]): AppFacet[] {
 	return [...facets].sort((a, b) => {

@@ -1,16 +1,7 @@
-import type { AppSchema } from "@ryot/ts-utils";
 import type { AppFacet } from "#/features/facets/model";
+import type { ApiGetResponseData } from "#/lib/api/types";
 
-export interface AppEntitySchema {
-	id: string;
-	icon: string;
-	name: string;
-	slug: string;
-	facetId: string;
-	isBuiltin: boolean;
-	accentColor: string;
-	propertiesSchema: AppSchema;
-}
+export type AppEntitySchema = ApiGetResponseData<"/entity-schemas">[number];
 
 export function sortEntitySchemas(
 	entitySchemas: AppEntitySchema[],
