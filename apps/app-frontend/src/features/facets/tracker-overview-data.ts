@@ -169,11 +169,15 @@ export function useTrackerOverviewData(input: {
 		.sort((a, b) => b.date.getTime() - a.date.getTime())
 		.slice(0, 5);
 
-	const recentEntityCards = recentEntities.map((entity) => ({
-		entity,
-		latestEvent: eventsByEntityId.get(entity.id)?.[0],
-		schema: schemaById.get(entity.entitySchemaId) ?? input.entitySchemas[0]!,
-	}));
+	const recentEntityCards = recentEntities
+		.map((entity) => {
+			const schema =
+				schemaById.get(entity.entitySchemaId) ?? input.entitySchemas[0];
+			return schema
+				? { entity, latestEvent: eventsByEntityId.get(entity.id)?.[0], schema }
+				: undefined;
+		})
+		.filter((card) => card !== undefined);
 
 	const schemaSummaries = input.entitySchemas.map((schema) => {
 		const entities = entitiesWithSchema
