@@ -1,7 +1,7 @@
 import { DateTime } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
-import { alignDateRangeToBucket } from "../time-series-buckets";
+import { alignDateRangeToBucket } from "./time-series-buckets";
 
 const parse = (value: string) => {
 	const parsed = DateTime.make(value);
