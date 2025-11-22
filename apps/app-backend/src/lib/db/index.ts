@@ -28,7 +28,6 @@ export class DbService extends Effect.Service<DbService>()("DbService", {
 			max: config.database.poolMax,
 			connectionString: Redacted.value(config.database.url),
 			connectionTimeoutMillis: config.database.connectionTimeoutMs,
-			idle_in_transaction_session_timeout: config.database.idleInTransactionTimeoutMs,
 		});
 		yield* Effect.addFinalizer(() => Effect.promise(() => pool.end()).pipe(Effect.orDie));
 		return { pool, db: makeDb(pool) };
@@ -70,9 +69,9 @@ const withTransaction = Effect.fn("withTransaction")(function* <A, E, R>(
 	// The effect runs on a detached fiber (Runtime.runPromiseExit) to bridge into Drizzle's
 	// callback-based transaction. pg cannot cancel an in-flight statement, so the await runs
 	// uninterruptibly: an interrupt is deferred until the transaction commits or rolls back,
-	// instead of letting the caller proceed while the transaction is still writing. The
-	// DATABASE_* timeouts bound this window so a stuck statement cannot pin the fiber. Keep
-	// transactions short and free of long I/O; see "Transaction Design".
+	// instead of letting the caller proceed while the transaction is still writing. Nothing bounds
+	// this window at the pool level, so keep transactions short and free of long I/O; callers with
+	// heavy statements set a transaction-local statement_timeout.
 	const runTransaction = Effect.tryPromise({
 		try: () =>
 			db.transaction((tx) =>
