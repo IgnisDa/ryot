@@ -68,14 +68,12 @@ function sortLatestFirst(a, b) {
 }
 
 async function getThresholdSeconds() {
-  const configResult = await getSystemConfig();
+  const configResult = await getAppConfigValue("scheduler.progressUpdateThresholdHours");
   if (!configResult.success) {
     return DEFAULT_THRESHOLD_SECONDS;
   }
 
-  const config = configResult.data;
-  const scheduler = config && config.system && config.system.scheduler;
-  const hours = toFiniteNumber(scheduler && scheduler.progressUpdateThresholdHours, null);
+  const hours = toFiniteNumber(configResult.data, null);
   if (hours === null || hours <= 0) {
     return DEFAULT_THRESHOLD_SECONDS;
   }
