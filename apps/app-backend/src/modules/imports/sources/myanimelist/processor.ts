@@ -1,5 +1,7 @@
 import { Effect, Either } from "effect";
 
+import { AppConfig } from "#lib/config";
+
 import type {
 	LoadedMediaImportAdapterError,
 	LoadedMediaImportAdapterResult,
@@ -38,15 +40,18 @@ export const loadMyanimelistAdapterResult = Effect.fn("myanimelistProcessor.load
 		filePath?: string;
 		sourcePayload?: Record<string, unknown>;
 	}) {
+		const config = yield* AppConfig;
 		const paths = yield* Effect.try({
 			try: () => {
 				const animeFilePath = getValidatedOptionalPath(
 					input.sourcePayload?.animeFilePath,
 					MYANIMELIST_EXTENSIONS,
+					config.tmpDir,
 				);
 				const mangaFilePath = getValidatedOptionalPath(
 					input.sourcePayload?.mangaFilePath,
 					MYANIMELIST_EXTENSIONS,
+					config.tmpDir,
 				);
 				const primaryFilePath = animeFilePath ?? mangaFilePath ?? input.filePath;
 				const resolvedAnimeFilePath =
