@@ -1,7 +1,7 @@
 import { Effect, Layer } from "effect";
 
 import type { EntityId, UserId } from "#lib/schema/brands";
-import { EntityImportHook } from "#modules/entities/entity-import-hook";
+import { EntityImportHook } from "#modules/entity-import/entity-import-hook";
 import { GlobalEntityReferenceHook } from "#modules/events/global-entity-reference-hook";
 
 import { CollectionsService } from "./service";

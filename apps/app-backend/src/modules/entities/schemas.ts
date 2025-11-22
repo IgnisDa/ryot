@@ -53,30 +53,3 @@ export const CreateEntityBody = Schema.Struct({
 });
 
 export type CreateEntityBody = typeof CreateEntityBody.Type;
-
-export const ImportEntityBody = Schema.Struct({
-	scriptId: SandboxScriptId,
-	externalId: Schema.String,
-	entitySchemaId: EntitySchemaId,
-});
-
-export const ImportEntityRunResult = Schema.Union(
-	Schema.Struct({ status: Schema.Literal("pending") }).pipe(
-		Schema.annotations({
-			identifier: "PendingImportEntityRunResult",
-			title: "Pending Import Run Result",
-		}),
-	),
-	Schema.Struct({ status: Schema.Literal("failed"), error: Schema.String }).pipe(
-		Schema.annotations({
-			identifier: "FailedImportEntityRunResult",
-			title: "Failed Import Run Result",
-		}),
-	),
-	Schema.Struct({ status: Schema.Literal("completed"), data: ListedEntity }).pipe(
-		Schema.annotations({
-			identifier: "CompletedImportEntityRunResult",
-			title: "Completed Import Run Result",
-		}),
-	),
-);
