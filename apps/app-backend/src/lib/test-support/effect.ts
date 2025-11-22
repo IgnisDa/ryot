@@ -51,7 +51,6 @@ export const makeAppConfigLayer = (overrides?: Partial<AppConfigValue>): Layer.L
 		scheduler: { frequentCronJobsSchedule: "every 5 minutes", progressUpdateThresholdHours: 2 },
 		database: {
 			poolMax: 10,
-			statementTimeoutMs: 0,
 			connectionTimeoutMs: 10_000,
 			idleInTransactionTimeoutMs: 0,
 			url: Redacted.make("unused"),
