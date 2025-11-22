@@ -13,14 +13,14 @@ import type {
 	VisualNovelProperties,
 } from "@ryot/contract/schema/media-types";
 
-import type { ContractClient, ContractSuccess } from "@/lib/contract-client";
+import type { ContractSuccess } from "@/lib/contract-client";
 import type { EntityImage } from "@/lib/entity-image";
 
 import type { MediaScopeSlug } from "../media/constants";
 
 export type AppUnlinkedCreator = UnlinkedCreator & { id?: string; image?: EntityImage };
 
-export type EntityResponse = ContractSuccess<ContractClient["entities"]["get"]>;
+export type EntityResponse = ContractSuccess<"entities", "get">;
 
 type EntityBase = Omit<EntityResponse, "image" | "properties"> & {
 	image: EntityImage;
