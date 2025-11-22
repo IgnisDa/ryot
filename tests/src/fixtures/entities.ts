@@ -1,3 +1,5 @@
+import { EntityId } from "@ryot/app-backend/schema/brands";
+
 import { requireObjectRecord, requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 import type { ContractPayload } from "./contract-client";
@@ -31,7 +33,9 @@ export async function createEntity(client: Client, body: CreateEntityInput) {
 }
 
 export async function getEntity(client: Client, entityId: string) {
-	const entity = await client.run((c) => c.entities.get({ path: { entityId } }));
+	const entity = await client.run((c) =>
+		c.entities.get({ path: { entityId: EntityId.make(entityId) } }),
+	);
 
 	return withRecordProperties(entity);
 }
