@@ -10,8 +10,6 @@ const entityImageSchema = z.union([
 	z.undefined(),
 ]);
 
-export type EntityImageValue = z.infer<typeof entityImageSchema>;
-
 export const buildCreateEntityFormSchema = (propertiesSchema: AppSchema) => {
 	const propertySchemas: Record<string, z.ZodType> = {};
 

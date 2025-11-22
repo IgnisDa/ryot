@@ -8,7 +8,7 @@ export interface EntityDetailProperty {
 	type: AppPropertyDefinition["type"];
 }
 
-export function formatEntityDetailPropertyValue(
+function formatEntityDetailPropertyValue(
 	propertyDef: AppPropertyDefinition,
 	value: unknown,
 ): string | null {
