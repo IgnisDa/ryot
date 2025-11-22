@@ -104,7 +104,7 @@ export const importMediaEntityViaWorkflow = (input: {
 		input.executionId,
 		(entityPayload, childExecutionId) =>
 			processSandboxEntityDetails(entityPayload, childExecutionId),
-		{ skipLibraryMembership: true, activityPrefix: input.activityPrefix },
+		{ activityPrefix: input.activityPrefix },
 	).pipe(
 		Effect.map((entity) => ({ id: entity.id })),
 		Effect.catchAllCause((cause) =>
