@@ -5,7 +5,8 @@ import { and, eq, isNull, or } from "drizzle-orm";
 import { Clock, Duration, Effect, Match, Runtime, Schema } from "effect";
 
 import { AppConfig } from "../config";
-import { CurrentDb, DbRunner, dbEffect, schema } from "../db";
+import { CurrentDb, DbRunner, dbEffect } from "../db";
+import * as schema from "../db/schema/tables";
 import { SandboxRunError, TimeoutError, unknownToMessage } from "../errors";
 import { redisKeys, RedisService } from "../redis";
 import { makeAdditionalSandboxApiFunctions } from "./host-functions";

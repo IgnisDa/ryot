@@ -2,8 +2,9 @@ import { and, desc, eq } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { AppConfig } from "#lib/config";
-import { CurrentDb, dbEffect, schema } from "#lib/db";
+import { CurrentDb, dbEffect } from "#lib/db";
 import { user } from "#lib/db/schema/auth";
+import * as schema from "#lib/db/schema/tables";
 import type { DbError } from "#lib/errors";
 
 import type {

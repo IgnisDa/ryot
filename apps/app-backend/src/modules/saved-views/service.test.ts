@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { Effect, Exit, Layer } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth";
+import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest, NotFound } from "#lib/errors";
 import { dbRunnerLayer, makeMock, transactionLayer } from "#lib/test-support/effect";
 import { QueryEngineService } from "#modules/query-engine/service";

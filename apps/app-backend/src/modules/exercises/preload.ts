@@ -1,10 +1,11 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { Cause, DateTime, Effect, Layer, Schema } from "effect";
 
-import { CurrentDb, DbRunner, dbEffect, schema } from "#lib/db";
+import { CurrentDb, DbRunner, dbEffect } from "#lib/db";
+import * as schema from "#lib/db/schema/tables";
 import { dieOnDbError, unknownToMessage } from "#lib/errors";
 import { SandboxService } from "#lib/sandbox/service";
-import { parseAppSchemaProperties } from "#lib/schema/core";
+import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import {
 	decodeEntityDetailsResult,
 	decodeEntitySearchResult,

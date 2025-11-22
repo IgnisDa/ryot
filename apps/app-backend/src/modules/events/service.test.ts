@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Effect, Exit, Layer } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth";
+import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest, NotFound } from "#lib/errors";
 import { SandboxService } from "#lib/sandbox/service";
 import { dbRunnerLayer, makeMock, makeWorkflowEngine } from "#lib/test-support/effect";
