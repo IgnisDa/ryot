@@ -147,8 +147,8 @@ const godModeApi = new OpenAPIHono()
 		const result = await setUserBan(userId, body, {
 			now: () => new Date(),
 			findUserById: (id) => deps.findUserById(id),
-			updateUser: (id, input) => deps.updateUser(id, input),
 			deleteSessions: (id) => deps.deleteSessions(id),
+			updateUser: (id, input) => deps.updateUser(id, input),
 		});
 
 		if ("error" in result) {
