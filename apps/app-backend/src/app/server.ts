@@ -26,6 +26,7 @@ import { SystemRoutesLive } from "#modules/system/routes";
 import { TrackersRoutesLive } from "#modules/trackers/routes";
 import { UploadBodyLimitMiddlewareLive } from "#modules/uploads/middleware";
 import { UploadsRoutesLive } from "#modules/uploads/routes";
+import { UserPreferencesRoutesLive } from "#modules/user-preferences/routes";
 import { UserStateRoutesLive } from "#modules/user-state/routes";
 
 const mimeTypes: Record<string, string> = {
@@ -89,7 +90,7 @@ const ApiBaseLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(Layer.mergeAll(RelationshipSchemasRoutesLive, RelationshipsRoutesLive)),
 	Layer.provide(EntitiesRoutesLive),
 	Layer.provide(LibraryRoutesLive),
-	Layer.provide(UserStateRoutesLive),
+	Layer.provide(Layer.mergeAll(UserStateRoutesLive, UserPreferencesRoutesLive)),
 	Layer.provide(EventSchemasRoutesLive),
 	Layer.provide(EventsRoutesLive),
 	Layer.provide(UploadsRoutesLive),

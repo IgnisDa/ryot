@@ -17,6 +17,7 @@ export * from "./sandbox";
 export * from "./saved-views";
 export * from "./trackers";
 export * from "./translations";
+export * from "./user-preferences";
 export * from "./user-state";
 export * from "./view-language";
 export * from "./workouts";
