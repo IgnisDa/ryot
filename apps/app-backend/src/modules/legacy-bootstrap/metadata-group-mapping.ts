@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { dbEffect, DbService } from "#lib/db";
+import { dbEffect, DbService } from "#lib/db/service";
 
 import {
 	type LotEntityMigrationTarget,

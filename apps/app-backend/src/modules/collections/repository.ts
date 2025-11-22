@@ -1,8 +1,8 @@
 import { and, eq, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect } from "#lib/db";
-import * as schema from "#lib/db/schema/tables";
+import * as schema from "#lib/db/schema/tables/combined";
+import { CurrentDb, dbEffect } from "#lib/db/service";
 import type { UserId } from "#lib/schema/brands";
 import { EntityId, EntitySchemaId, EventSchemaId, SandboxScriptId } from "#lib/schema/brands";
 

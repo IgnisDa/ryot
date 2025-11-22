@@ -11,12 +11,12 @@ import type Redis from "ioredis";
 
 import { AdminMiddleware, AuthMiddleware } from "./auth-middleware";
 import { bootstrapNewUser, defaultUserPreferences } from "./builtins/bootstrap";
-import { AppConfig, type AppConfigValue, isOidcEnabled } from "./config";
-import type { DbRoot, TransactionRunner } from "./db";
-import { DbService } from "./db";
-import * as schemaTables from "./db/schema/tables";
+import { AppConfig, type AppConfigValue, isOidcEnabled } from "./config/service";
 import * as schemaAuth from "./db/schema/tables/auth";
+import * as schemaTables from "./db/schema/tables/combined";
 import * as schemaRelations from "./db/schema/tables/relations";
+import type { DbRoot, TransactionRunner } from "./db/service";
+import { DbService } from "./db/service";
 import { rateLimited, unauthorized, unknownToDbError } from "./errors";
 import { redisKeys, RedisService } from "./redis";
 import { UserId } from "./schema/brands";

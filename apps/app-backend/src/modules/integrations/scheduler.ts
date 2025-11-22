@@ -1,6 +1,6 @@
 import { Duration, Effect, Layer, Schedule } from "effect";
 
-import { AppConfig } from "#lib/config";
+import { AppConfig } from "#lib/config/service";
 
 import { IntegrationsService } from "./service";
 

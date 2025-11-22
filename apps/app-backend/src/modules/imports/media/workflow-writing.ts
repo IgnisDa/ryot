@@ -1,7 +1,7 @@
 import { Activity } from "@effect/workflow";
 import { DateTime, Effect, Schema } from "effect";
 
-import { DbRunner } from "#lib/db";
+import { DbRunner } from "#lib/db/service";
 import { unknownToMessage } from "#lib/errors";
 import { EntityId, EntitySchemaId, EventSchemaId, type IntegrationId } from "#lib/schema/brands";
 import { CollectionsService } from "#modules/collections/service";
