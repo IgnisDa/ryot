@@ -6,7 +6,6 @@
       "name": "@ryot/root",
       "devDependencies": {
         "@effect/language-service": "0.86.4",
-        "@types/ioredis": "5.0.0",
         "bun-types": "1.3.14",
         "oxfmt": "0.52.0",
         "oxlint": "1.67.0",
@@ -41,6 +40,7 @@
       },
       "devDependencies": {
         "@effect/vitest": "0.29.0",
+        "@types/ioredis": "5.0.0",
         "@types/papaparse": "5.5.2",
         "@types/pg": "8.20.0",
         "bun-types": "1.3.14",
