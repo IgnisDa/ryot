@@ -8,12 +8,9 @@ import { DbRunner } from "#lib/db";
 import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound } from "#lib/errors";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/job-id";
-import type { RelationshipSchemaId, UserId } from "#lib/schema/brands";
 import { EntityId, EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { requireText, trimToNull } from "#lib/validation";
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
-import { RelationshipsRepository, type SavedRelationship } from "#modules/relationships/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { EntitiesRepository } from "./repository";
@@ -28,34 +25,8 @@ const entityNotFoundError = "Entity not found";
 const entitySchemaNotFoundError = "Entity schema not found";
 const importJobNotFoundError = "Entity import job not found";
 const sandboxScriptNotFoundError = "Sandbox script not found";
-const relationshipSchemaNotFoundError = "Relationship schema not found";
 const partialProvenanceError =
 	"externalId and sandboxScriptId must both be provided or both be omitted";
-
-const validateRelationshipSchemaTargets = (input: {
-	sourceEntitySchemaId: EntitySchemaId;
-	targetEntitySchemaId: EntitySchemaId;
-	relationshipSchema: {
-		readonly sourceEntitySchemaId: EntitySchemaId | null;
-		readonly targetEntitySchemaId: EntitySchemaId | null;
-	};
-}) => {
-	if (
-		input.relationshipSchema.sourceEntitySchemaId &&
-		input.relationshipSchema.sourceEntitySchemaId !== input.sourceEntitySchemaId
-	) {
-		return badRequest("Relationship source entity schema does not match");
-	}
-
-	if (
-		input.relationshipSchema.targetEntitySchemaId &&
-		input.relationshipSchema.targetEntitySchemaId !== input.targetEntitySchemaId
-	) {
-		return badRequest("Relationship target entity schema does not match");
-	}
-
-	return Effect.void;
-};
 
 type EntitiesServiceShape = {
 	readonly create: (
@@ -74,26 +45,6 @@ type EntitiesServiceShape = {
 		user: CurrentUserValue,
 		jobId: string,
 	) => Effect.Effect<EntityImportRunResult, NotFound>;
-	readonly upsertUserRelationship: (input: {
-		userId: UserId;
-		sourceEntityId: EntityId;
-		targetEntityId: EntityId;
-		relationshipSchemaId: RelationshipSchemaId;
-		properties: Record<string, unknown>;
-	}) => Effect.Effect<SavedRelationship, BadRequest | DbError | NotFound>;
-	readonly insertUserRelationship: (input: {
-		userId: UserId;
-		sourceEntityId: EntityId;
-		targetEntityId: EntityId;
-		relationshipSchemaId: RelationshipSchemaId;
-		properties: Record<string, unknown>;
-	}) => Effect.Effect<void, BadRequest | DbError | NotFound>;
-	readonly writeEntityRelationship: (input: {
-		sourceEntityId: EntityId;
-		targetEntityId: EntityId;
-		relationshipSchemaId: RelationshipSchemaId;
-		properties: Record<string, unknown>;
-	}) => Effect.Effect<void, BadRequest | DbError | NotFound>;
 };
 
 export class EntitiesService extends Effect.Service<EntitiesService>()("EntitiesService", {
@@ -103,9 +54,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 		const engine = yield* WorkflowEngine;
 		const repository = yield* EntitiesRepository;
 		const sandboxRepository = yield* SandboxRepository;
-		const relationshipsRepository = yield* RelationshipsRepository;
 		const jobIdSecret = Redacted.value(config.sandbox.jobIdSecret);
-		const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
 		return {
 			create: Effect.fn("EntitiesService.create")(function* (
@@ -250,148 +199,6 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 
 				return toEntityImportRunResult(yield* engine.poll(EntityImportWorkflow, executionId));
 			}),
-			upsertUserRelationship: Effect.fn("EntitiesService.upsertUserRelationship")(
-				function* (input: {
-					userId: UserId;
-					sourceEntityId: EntityId;
-					targetEntityId: EntityId;
-					relationshipSchemaId: RelationshipSchemaId;
-					properties: Record<string, unknown>;
-				}) {
-					const relationshipSchema = yield* runWithDb(
-						relationshipSchemasRepository.findById(input.relationshipSchemaId, input.userId),
-					);
-					if (!relationshipSchema) {
-						return yield* notFound(relationshipSchemaNotFoundError);
-					}
-
-					const [sourceEntity, targetEntity] = yield* Effect.all([
-						runWithDb(
-							repository.getEntityScopeForUser({
-								userId: input.userId,
-								entityId: input.sourceEntityId,
-							}),
-						),
-						runWithDb(
-							repository.getEntityScopeForUser({
-								userId: input.userId,
-								entityId: input.targetEntityId,
-							}),
-						),
-					]);
-					if (!sourceEntity || !targetEntity) {
-						return yield* notFound(entityNotFoundError);
-					}
-
-					yield* validateRelationshipSchemaTargets({
-						relationshipSchema,
-						sourceEntitySchemaId: sourceEntity.entitySchemaId,
-						targetEntitySchemaId: targetEntity.entitySchemaId,
-					});
-
-					const properties = yield* parseAppSchemaProperties({
-						kind: "Relationship",
-						properties: input.properties,
-						propertiesSchema: relationshipSchema.propertiesSchema,
-					}).pipe(Effect.mapError((error) => badRequest(error.message)));
-
-					return yield* runWithDb(
-						relationshipsRepository.upsertRelationship({
-							...input,
-							properties,
-						}),
-					);
-				},
-			),
-			insertUserRelationship: Effect.fn("EntitiesService.insertUserRelationship")(
-				function* (input: {
-					userId: UserId;
-					sourceEntityId: EntityId;
-					targetEntityId: EntityId;
-					relationshipSchemaId: RelationshipSchemaId;
-					properties: Record<string, unknown>;
-				}) {
-					const relationshipSchema = yield* runWithDb(
-						relationshipSchemasRepository.findById(input.relationshipSchemaId, input.userId),
-					);
-					if (!relationshipSchema) {
-						return yield* notFound(relationshipSchemaNotFoundError);
-					}
-
-					const [sourceEntity, targetEntity] = yield* Effect.all([
-						runWithDb(
-							repository.getEntityScopeForUser({
-								userId: input.userId,
-								entityId: input.sourceEntityId,
-							}),
-						),
-						runWithDb(
-							repository.getEntityScopeForUser({
-								userId: input.userId,
-								entityId: input.targetEntityId,
-							}),
-						),
-					]);
-					if (!sourceEntity || !targetEntity) {
-						return yield* notFound(entityNotFoundError);
-					}
-
-					yield* validateRelationshipSchemaTargets({
-						relationshipSchema,
-						sourceEntitySchemaId: sourceEntity.entitySchemaId,
-						targetEntitySchemaId: targetEntity.entitySchemaId,
-					});
-
-					const properties = yield* parseAppSchemaProperties({
-						kind: "Relationship",
-						properties: input.properties,
-						propertiesSchema: relationshipSchema.propertiesSchema,
-					}).pipe(Effect.mapError((error) => badRequest(error.message)));
-
-					return yield* runWithDb(
-						relationshipsRepository.insertRelationship({ ...input, properties }),
-					);
-				},
-			),
-			writeEntityRelationship: Effect.fn("EntitiesService.writeEntityRelationship")(
-				function* (input: {
-					sourceEntityId: EntityId;
-					targetEntityId: EntityId;
-					relationshipSchemaId: RelationshipSchemaId;
-					properties: Record<string, unknown>;
-				}) {
-					const relationshipSchema = yield* runWithDb(
-						relationshipSchemasRepository.findById(input.relationshipSchemaId, null),
-					);
-					if (!relationshipSchema) {
-						return yield* notFound(relationshipSchemaNotFoundError);
-					}
-
-					const [sourceEntity, targetEntity] = yield* Effect.all([
-						runWithDb(repository.getEntityScopeById(input.sourceEntityId)),
-						runWithDb(repository.getEntityScopeById(input.targetEntityId)),
-					]);
-					if (!sourceEntity || !targetEntity) {
-						return yield* notFound(entityNotFoundError);
-					}
-
-					yield* validateRelationshipSchemaTargets({
-						relationshipSchema,
-						sourceEntitySchemaId: sourceEntity.entitySchemaId,
-						targetEntitySchemaId: targetEntity.entitySchemaId,
-					});
-
-					const properties = yield* parseAppSchemaProperties({
-						kind: "Relationship",
-						properties: input.properties,
-						propertiesSchema: relationshipSchema.propertiesSchema,
-					}).pipe(Effect.mapError((error) => badRequest(error.message)));
-
-					return yield* runWithDb(
-						relationshipsRepository.upsertEntityRelationship({ ...input, properties }),
-					);
-				},
-			),
 		} satisfies EntitiesServiceShape;
 	}),
 }) {}
