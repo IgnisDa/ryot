@@ -30,7 +30,7 @@
 		"@unkey/api": "2.3.0",
 		"class-variance-authority": "0.7.1",
 		"clsx": "2.1.1",
-		"dayjs": "1.11.19",
+		"dayjs": "1.11.20",
 		"drizzle-orm": "0.45.1",
 		"embla-carousel-autoplay": "8.6.0",
 		"embla-carousel-react": "8.6.0",
@@ -63,7 +63,7 @@
 		"@types/react-dom": "19.2.3",
 		"drizzle-kit": "0.31.9",
 		"tailwindcss": "4.1.18",
-		"typescript": "5.9.3",
+		"typescript": "6.0.3",
 		"vite": "7.3.1",
 		"vite-tsconfig-paths": "6.1.1"
 	},
