@@ -1,11 +1,9 @@
-import {
-	type AppSchema,
-	resolveRequiredSlug,
-	resolveRequiredString,
-} from "@ryot/ts-utils";
+import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
 import { parseLabeledPropertySchemaInput } from "../property-schemas/service";
+import type { CreateEventSchemaBody } from "./schemas";
 
-export type EventSchemaPropertiesShape = AppSchema;
+export type EventSchemaPropertiesShape =
+	CreateEventSchemaBody["propertiesSchema"];
 
 export const resolveEventSchemaName = (name: string) =>
 	resolveRequiredString(name, "Event schema name");
@@ -13,10 +11,9 @@ export const resolveEventSchemaName = (name: string) =>
 export const resolveEventSchemaEntitySchemaId = (entitySchemaId: string) =>
 	resolveRequiredString(entitySchemaId, "Entity schema id");
 
-export const resolveEventSchemaSlug = (input: {
-	name: string;
-	slug?: string;
-}) => {
+export const resolveEventSchemaSlug = (
+	input: Pick<CreateEventSchemaBody, "name" | "slug">,
+) => {
 	return resolveRequiredSlug({
 		name: input.name,
 		slug: input.slug,
@@ -30,11 +27,9 @@ export const parseEventSchemaPropertiesSchema = (input: unknown) =>
 		"Event schema properties",
 	) as EventSchemaPropertiesShape;
 
-export const resolveEventSchemaCreateInput = (input: {
-	name: string;
-	slug?: string;
-	propertiesSchema: unknown;
-}) => {
+export const resolveEventSchemaCreateInput = (
+	input: Pick<CreateEventSchemaBody, "name" | "propertiesSchema" | "slug">,
+) => {
 	const name = resolveEventSchemaName(input.name);
 	const slug = resolveEventSchemaSlug({ name, slug: input.slug });
 	const propertiesSchema = parseEventSchemaPropertiesSchema(

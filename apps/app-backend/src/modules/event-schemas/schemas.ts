@@ -34,3 +34,4 @@ export const createEventSchemaBody = createNameWithOptionalSlugSchema({
 });
 
 export type CreateEventSchemaBody = z.infer<typeof createEventSchemaBody>;
+export type ListedEventSchema = z.infer<typeof listedEventSchemaSchema>;

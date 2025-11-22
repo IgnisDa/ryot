@@ -1,7 +1,25 @@
 import { and, asc, eq } from "drizzle-orm";
 import { type DbClient, db } from "~/lib/db";
 import { savedView } from "~/lib/db/schema";
-import type { SavedViewQueryDefinition } from "./schemas";
+import type {
+	CreateSavedViewBody,
+	ListedSavedView,
+	SavedViewQueryDefinition,
+} from "./schemas";
+
+type SavedViewCreateInput = CreateSavedViewBody & {
+	isBuiltin: boolean;
+	userId: string;
+};
+
+type SavedViewRow = Omit<ListedSavedView, "queryDefinition"> & {
+	queryDefinition: unknown;
+};
+
+const toSavedView = (row: SavedViewRow): ListedSavedView => ({
+	...row,
+	queryDefinition: row.queryDefinition as SavedViewQueryDefinition,
+});
 
 export const listSavedViewsForUser = async (input: {
 	userId: string;
@@ -25,10 +43,7 @@ export const listSavedViewsForUser = async (input: {
 		.where(and(...whereClauses))
 		.orderBy(asc(savedView.name), asc(savedView.createdAt));
 
-	return rows.map((row) => ({
-		...row,
-		queryDefinition: row.queryDefinition as SavedViewQueryDefinition,
-	}));
+	return rows.map(toSavedView);
 };
 
 export const getSavedViewByIdForUser = async (input: {
@@ -53,21 +68,10 @@ export const getSavedViewByIdForUser = async (input: {
 
 	if (!foundView) return undefined;
 
-	return {
-		...foundView,
-		queryDefinition: foundView.queryDefinition as SavedViewQueryDefinition,
-	};
+	return toSavedView(foundView);
 };
 
-export const createSavedViewForUser = async (input: {
-	icon: string;
-	name: string;
-	userId: string;
-	facetId?: string;
-	isBuiltin: boolean;
-	accentColor: string;
-	queryDefinition: SavedViewQueryDefinition;
-}) => {
+export const createSavedViewForUser = async (input: SavedViewCreateInput) => {
 	const [createdView] = await db
 		.insert(savedView)
 		.values({
@@ -91,23 +95,13 @@ export const createSavedViewForUser = async (input: {
 
 	if (!createdView) throw new Error("Could not persist saved view");
 
-	return {
-		...createdView,
-		queryDefinition: createdView.queryDefinition as SavedViewQueryDefinition,
-	};
+	return toSavedView(createdView);
 };
 
 export const createSavedViewsForUser = async (input: {
 	userId: string;
 	database?: DbClient;
-	views: Array<{
-		icon: string;
-		name: string;
-		facetId?: string;
-		isBuiltin: boolean;
-		accentColor: string;
-		queryDefinition: SavedViewQueryDefinition;
-	}>;
+	views: Array<Omit<SavedViewCreateInput, "userId">>;
 }) => {
 	if (!input.views.length) return;
 
@@ -147,8 +141,5 @@ export const deleteSavedViewByIdForUser = async (input: {
 
 	if (!deletedView) return undefined;
 
-	return {
-		...deletedView,
-		queryDefinition: deletedView.queryDefinition as SavedViewQueryDefinition,
-	};
+	return toSavedView(deletedView);
 };
