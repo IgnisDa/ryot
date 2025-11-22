@@ -264,7 +264,7 @@ function LogEventForm(props: {
 	);
 }
 
-function LogEventModal(props: {
+export function LogEventModal(props: {
 	opened: boolean;
 	entity: AppEntity;
 	eventSchemas: AppEventSchema[];
