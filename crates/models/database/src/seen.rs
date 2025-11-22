@@ -10,8 +10,10 @@ use media_models::{
 };
 use nanoid::nanoid;
 use rust_decimal::Decimal;
-use sea_orm::prelude::DateTimeUtc;
-use sea_orm::{ActiveValue, entity::prelude::*};
+use sea_orm::{
+    prelude::DateTimeUtc,
+    {ActiveValue, entity::prelude::*},
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject, Educe)]

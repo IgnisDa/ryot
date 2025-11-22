@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::{Result, bail};
-use database_models::metadata;
+use database_models::{metadata, prelude::Metadata};
 use database_utils::apply_columns_search;
 use enum_models::{MediaLot, MediaSource};
 use rust_decimal::Decimal;
@@ -35,7 +35,7 @@ pub async fn get_show_by_episode_identifier(
     episode: &str,
     ss: &Arc<SupportingService>,
 ) -> Result<metadata::Model> {
-    let db_show = metadata::Entity::find()
+    let db_show = Metadata::find()
         .filter(metadata::Column::Lot.eq(MediaLot::Show))
         .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
         .apply_if(Some(episode), |query, episode| {

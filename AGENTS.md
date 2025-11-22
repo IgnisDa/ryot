@@ -12,8 +12,8 @@
   changes you are making do not break anything:
 
   ```bash
+  cargo clippy
   moon run docs:build
-  cargo check --workspace
   moon run website:typecheck
   moon run frontend:typecheck
   moon run browser-extension:typecheck

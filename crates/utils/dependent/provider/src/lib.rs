@@ -55,11 +55,11 @@ pub async fn get_metadata_provider(
 ) -> Result<Provider> {
     let err = || Err(anyhow!("This source ({}) is not supported", source));
     let service: Provider = match source {
+        MediaSource::Itunes => Box::new(ITunesService::new(ss.clone()).await?),
         MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await?),
         MediaSource::Hardcover => Box::new(get_hardcover_service(&ss.config).await?),
         MediaSource::Vndb => Box::new(VndbService::new(&ss.config.visual_novels).await?),
         MediaSource::Openlibrary => Box::new(get_openlibrary_service(&ss.config).await?),
-        MediaSource::Itunes => Box::new(ITunesService::new(&ss.config.podcasts.itunes).await?),
         MediaSource::GoogleBooks => Box::new(get_google_books_service(&ss.config).await?),
         MediaSource::Audible => {
             Box::new(AudibleService::new(&ss.config.audio_books.audible).await?)
@@ -112,13 +112,13 @@ pub async fn get_non_metadata_provider(
 ) -> Result<Provider> {
     let err = || Err(anyhow!("This source ({}) is not supported", source));
     let service: Provider = match source {
+        MediaSource::Itunes => Box::new(ITunesService::new(ss.clone()).await?),
         MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await?),
         MediaSource::Tvdb => Box::new(NonMediaTvdbService::new(ss.clone()).await?),
         MediaSource::Hardcover => Box::new(get_hardcover_service(&ss.config).await?),
         MediaSource::Openlibrary => Box::new(get_openlibrary_service(&ss.config).await?),
         MediaSource::GoogleBooks => Box::new(get_google_books_service(&ss.config).await?),
         MediaSource::Vndb => Box::new(VndbService::new(&ss.config.visual_novels).await?),
-        MediaSource::Itunes => Box::new(ITunesService::new(&ss.config.podcasts.itunes).await?),
         MediaSource::Audible => {
             Box::new(AudibleService::new(&ss.config.audio_books.audible).await?)
         }

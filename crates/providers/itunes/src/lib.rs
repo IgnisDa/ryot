@@ -1,33 +1,39 @@
+use std::{cmp::Reverse, collections::HashSet, sync::Arc};
+
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{EntityAssets, NamedObject, SearchDetails};
-use common_utils::PAGE_SIZE;
-use common_utils::get_base_http_client;
+use common_utils::{PAGE_SIZE, get_base_http_client, ryot_log};
+use database_models::{metadata, prelude::Metadata};
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataFreeCreator, MetadataSearchItem, PodcastEpisode, PodcastSpecifics,
 };
 use reqwest::Client;
-use sea_orm::prelude::ChronoDateTimeUtc;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
+use supporting_service::SupportingService;
 use traits::MediaProvider;
 
 static URL: &str = "https://itunes.apple.com";
 
-#[derive(Debug, Clone)]
 pub struct ITunesService {
     client: Client,
     language: String,
+    ss: Arc<SupportingService>,
 }
 
 impl ITunesService {
-    pub async fn new(config: &config_definition::ITunesConfig) -> Result<Self> {
+    pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
         let client = get_base_http_client(None);
+        let language = ss.config.podcasts.itunes.locale.clone();
         Ok(Self {
+            ss,
             client,
-            language: config.locale.clone(),
+            language,
         })
     }
 
@@ -53,17 +59,17 @@ struct ITunesItem {
     collection_id: i64,
     track_id: Option<i64>,
     collection_name: String,
-    description: Option<String>,
-    artist_name: Option<String>,
     genres: Option<Vec<Genre>>,
     track_count: Option<usize>,
     track_name: Option<String>,
+    description: Option<String>,
+    artist_name: Option<String>,
     track_time_millis: Option<i32>,
     artwork_url_30: Option<String>,
     artwork_url_60: Option<String>,
     artwork_url_100: Option<String>,
     artwork_url_600: Option<String>,
-    release_date: Option<ChronoDateTimeUtc>,
+    release_date: Option<DateTimeUtc>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -115,8 +121,8 @@ impl MediaProvider for ITunesService {
                 ("id", identifier),
                 ("media", "podcast"),
                 ("entity", "podcastEpisode"),
-                ("limit", &total_episodes.to_string()),
                 ("lang", self.language.as_str()),
+                ("limit", &total_episodes.to_string()),
             ])
             .send()
             .await?;
@@ -126,26 +132,73 @@ impl MediaProvider for ITunesService {
             ..Default::default()
         };
         let episodes: SearchResponse = rsp.json().await?;
-        let episodes = episodes.results.unwrap_or_default();
-        let publish_date = episodes
+        let new_episodes = episodes.results.unwrap_or_default();
+        let publish_date = new_episodes
             .last()
             .and_then(|e| e.release_date.to_owned())
             .map(|d| d.date_naive());
-        let mut episodes = episodes
+
+        let existing_metadata = Metadata::find()
+            .filter(metadata::Column::Identifier.eq(identifier))
+            .filter(metadata::Column::Lot.eq(MediaLot::Podcast))
+            .filter(metadata::Column::Source.eq(MediaSource::Itunes))
+            .one(&self.ss.db)
+            .await?;
+
+        let existing_episodes = existing_metadata
+            .and_then(|m| m.podcast_specifics)
+            .map(|ps| ps.episodes)
+            .unwrap_or_default();
+
+        let existing_ids: HashSet<String> =
+            existing_episodes.iter().map(|e| e.id.clone()).collect();
+
+        let mut new_episodes_to_add: Vec<PodcastEpisode> = new_episodes
             .into_iter()
-            .sorted_by_key(|e| e.release_date)
-            .enumerate()
-            .map(|(idx, e)| PodcastEpisode {
-                overview: e.description,
-                thumbnail: e.artwork_url_60,
-                title: e.track_name.unwrap(),
-                id: e.track_id.unwrap().to_string(),
-                number: (idx + 1).try_into().unwrap(),
-                runtime: e.track_time_millis.map(|t| t / 1000 / 60),
-                publish_date: e.release_date.map(|d| d.date_naive()).unwrap(),
+            .filter_map(|itunes_episode| {
+                let episode_id = itunes_episode.track_id?.to_string();
+                match existing_ids.contains(&episode_id) {
+                    true => None,
+                    false => Some(PodcastEpisode {
+                        number: 0,
+                        id: episode_id,
+                        title: itunes_episode.track_name?,
+                        overview: itunes_episode.description,
+                        thumbnail: itunes_episode.artwork_url_60,
+                        runtime: itunes_episode.track_time_millis.map(|t| t / 1000 / 60),
+                        publish_date: itunes_episode.release_date.map(|d| d.date_naive())?,
+                    }),
+                }
             })
-            .collect_vec();
-        episodes.reverse();
+            .collect();
+
+        new_episodes_to_add.sort_by_key(|e| Reverse(e.publish_date));
+
+        let max_number = existing_episodes
+            .iter()
+            .map(|e| e.number)
+            .max()
+            .unwrap_or(0);
+
+        let new_count = new_episodes_to_add.len();
+        if new_count > 0 {
+            ryot_log!(
+                debug,
+                "iTunes podcast {}: discovered {} new episode(s), assigning numbers {}-{}",
+                identifier,
+                new_count,
+                max_number + 1,
+                max_number + new_count as i32
+            );
+        }
+
+        for (idx, episode) in new_episodes_to_add.iter_mut().enumerate() {
+            episode.number = max_number + (new_count - idx) as i32;
+        }
+
+        new_episodes_to_add.extend(existing_episodes);
+        let episodes = new_episodes_to_add;
+
         Ok(MetadataDetails {
             assets,
             genres,
@@ -227,9 +280,9 @@ fn get_search_response(item: ITunesItem) -> MetadataSearchItem {
     let date = item.release_date.map(|d| d.date_naive());
     let publish_year = date.map(|d| d.year());
     MetadataSearchItem {
-        identifier: item.collection_id.to_string(),
+        publish_year,
         title: item.collection_name,
         image: images.first().cloned(),
-        publish_year,
+        identifier: item.collection_id.to_string(),
     }
 }
