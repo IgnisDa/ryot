@@ -222,15 +222,11 @@ const DownloadLogsButton = () => {
 		mutationFn: async () => {
 			const { generateLogDownloadUrl } = await clientGqlService.request(
 				GenerateLogDownloadUrlDocument,
-				{},
 			);
 			return generateLogDownloadUrl;
 		},
 		onSuccess: (downloadUrl) => {
-			triggerDownload(
-				downloadUrl,
-				`ryot-logs-${new Date().toISOString().split("T")[0]}.log`,
-			);
+			triggerDownload(downloadUrl, "ryot.log");
 		},
 		onError: () => {
 			notifications.show({
