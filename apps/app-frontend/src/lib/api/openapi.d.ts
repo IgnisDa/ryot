@@ -276,14 +276,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/facets/list": {
+    "/trackers/list": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List facets available for the user */
+        /** List trackers available for the user */
         get: {
             parameters: {
                 query?: never;
@@ -293,7 +293,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Facets available for the user */
+                /** @description Trackers available for the user */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -336,7 +336,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/facets/create": {
+    "/trackers/create": {
         parameters: {
             query?: never;
             header?: never;
@@ -345,7 +345,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create and enable a custom facet */
+        /** Create and enable a custom tracker */
         post: {
             parameters: {
                 query?: never;
@@ -365,7 +365,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Facet was created */
+                /** @description Tracker was created */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -417,7 +417,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/facets/{facetId}": {
+    "/trackers/{trackerId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -430,13 +430,13 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Update a facet */
+        /** Update a tracker */
         patch: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
-                    facetId: string;
+                    trackerId: string;
                 };
                 cookie?: never;
             };
@@ -453,7 +453,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Facet was updated */
+                /** @description Tracker was updated */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -497,7 +497,7 @@ export interface paths {
                         };
                     };
                 };
-                /** @description Facet does not exist for this user */
+                /** @description Tracker does not exist for this user */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -512,7 +512,7 @@ export interface paths {
         };
         trace?: never;
     };
-    "/facets/reorder": {
+    "/trackers/reorder": {
         parameters: {
             query?: never;
             header?: never;
@@ -521,7 +521,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Reorder facets for the user */
+        /** Reorder trackers for the user */
         post: {
             parameters: {
                 query?: never;
@@ -532,12 +532,12 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        facetIds: string[];
+                        trackerIds: string[];
                     };
                 };
             };
             responses: {
-                /** @description Facet order was updated */
+                /** @description Tracker order was updated */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -545,7 +545,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
-                                facetIds: string[];
+                                trackerIds: string[];
                             };
                         };
                     };
@@ -587,11 +587,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List entity schemas for a custom facet */
+        /** List entity schemas for a custom tracker */
         get: {
             parameters: {
                 query: {
-                    facetId: string;
+                    trackerId: string;
                 };
                 header?: never;
                 path?: never;
@@ -599,7 +599,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Entity schemas for the requested facet */
+                /** @description Entity schemas for the requested tracker */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -610,7 +610,7 @@ export interface paths {
                                 id: string;
                                 name: string;
                                 slug: string;
-                                facetId: string;
+                                trackerId: string;
                                 isBuiltin: boolean;
                                 icon: string;
                                 accentColor: string;
@@ -643,7 +643,7 @@ export interface paths {
                         };
                     };
                 };
-                /** @description Facet does not exist for this user */
+                /** @description Tracker does not exist for this user */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -657,7 +657,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Create an entity schema for a custom facet */
+        /** Create an entity schema for a custom tracker */
         post: {
             parameters: {
                 query?: never;
@@ -671,7 +671,7 @@ export interface paths {
                         name: string;
                         slug?: string;
                         icon: string;
-                        facetId: string;
+                        trackerId: string;
                         accentColor: string;
                         propertiesSchema: {
                             [key: string]: components["schemas"]["AppPropertyDefinition"];
@@ -691,7 +691,7 @@ export interface paths {
                                 id: string;
                                 name: string;
                                 slug: string;
-                                facetId: string;
+                                trackerId: string;
                                 isBuiltin: boolean;
                                 icon: string;
                                 accentColor: string;
@@ -724,7 +724,7 @@ export interface paths {
                         };
                     };
                 };
-                /** @description Facet does not exist for this user */
+                /** @description Tracker does not exist for this user */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -1506,7 +1506,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    facetId?: string;
+                    trackerId?: string;
                 };
                 header?: never;
                 path?: never;
@@ -1525,7 +1525,7 @@ export interface paths {
                                 id: string;
                                 name: string;
                                 isBuiltin: boolean;
-                                facetId: string | null;
+                                trackerId: string | null;
                                 icon: string;
                                 accentColor: string;
                                 queryDefinition: {
@@ -1574,7 +1574,7 @@ export interface paths {
                         icon: string;
                         name: string;
                         accentColor: string;
-                        facetId?: string;
+                        trackerId?: string;
                         queryDefinition: {
                             entitySchemaIds: string[];
                         };
@@ -1593,7 +1593,7 @@ export interface paths {
                                 id: string;
                                 name: string;
                                 isBuiltin: boolean;
-                                facetId: string | null;
+                                trackerId: string | null;
                                 icon: string;
                                 accentColor: string;
                                 queryDefinition: {
@@ -1666,7 +1666,7 @@ export interface paths {
                                 id: string;
                                 name: string;
                                 isBuiltin: boolean;
-                                facetId: string | null;
+                                trackerId: string | null;
                                 icon: string;
                                 accentColor: string;
                                 queryDefinition: {

@@ -6,7 +6,7 @@
 
 Ryot's backend powers a self-hosted personal tracking product. It should protect user ownership of data, stay predictable for self-hosted deployments, and make it easy for the frontend to consume stable, well-validated APIs.
 
-Backend changes should preserve the product's platform nature: users can track media, fitness, and custom facets, so backend abstractions must stay flexible without becoming vague or weakly typed.
+Backend changes should preserve the product's platform nature: users can track media, fitness, and custom trackers, so backend abstractions must stay flexible without becoming vague or weakly typed.
 
 ### Reliability Goals
 

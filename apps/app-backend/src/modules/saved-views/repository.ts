@@ -20,7 +20,7 @@ const savedViewSelection = {
 	id: savedView.id,
 	icon: savedView.icon,
 	name: savedView.name,
-	facetId: savedView.facetId,
+	trackerId: savedView.trackerId,
 	isBuiltin: savedView.isBuiltin,
 	accentColor: savedView.accentColor,
 	queryDefinition: savedView.queryDefinition,
@@ -33,11 +33,12 @@ const toSavedView = (row: SavedViewRow): ListedSavedView => ({
 
 export const listSavedViewsForUser = async (input: {
 	userId: string;
-	facetId?: string;
+	trackerId?: string;
 }) => {
 	const whereClauses = [eq(savedView.userId, input.userId)];
 
-	if (input.facetId) whereClauses.push(eq(savedView.facetId, input.facetId));
+	if (input.trackerId)
+		whereClauses.push(eq(savedView.trackerId, input.trackerId));
 
 	const rows = await db
 		.select(savedViewSelection)
@@ -72,7 +73,7 @@ export const createSavedViewForUser = async (input: SavedViewCreateInput) => {
 			icon: input.icon,
 			name: input.name,
 			userId: input.userId,
-			facetId: input.facetId,
+			trackerId: input.trackerId,
 			isBuiltin: input.isBuiltin,
 			accentColor: input.accentColor,
 			queryDefinition: input.queryDefinition,
@@ -98,7 +99,7 @@ export const createSavedViewsForUser = async (input: {
 			icon: view.icon,
 			name: view.name,
 			userId: input.userId,
-			facetId: view.facetId,
+			trackerId: view.trackerId,
 			isBuiltin: view.isBuiltin,
 			accentColor: view.accentColor,
 			queryDefinition: view.queryDefinition,

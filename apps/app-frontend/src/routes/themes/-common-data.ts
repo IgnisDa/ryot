@@ -1,6 +1,6 @@
-export const facets = [
+export const trackers = [
 	{
-		id: "facet-1",
+		id: "tracker-1",
 		slug: "media",
 		name: "Media",
 		icon: "film",
@@ -14,7 +14,7 @@ export const facets = [
 		],
 	},
 	{
-		id: "facet-2",
+		id: "tracker-2",
 		slug: "fitness",
 		name: "Fitness",
 		icon: "dumbbell",
@@ -27,7 +27,7 @@ export const facets = [
 		],
 	},
 	{
-		id: "facet-3",
+		id: "tracker-3",
 		slug: "whiskey",
 		name: "Whiskey",
 		icon: "wine",
@@ -37,7 +37,7 @@ export const facets = [
 		entitySchemas: [{ id: "schema-6", name: "Whiskeys", slug: "whiskeys" }],
 	},
 	{
-		id: "facet-4",
+		id: "tracker-4",
 		slug: "places",
 		name: "Places",
 		icon: "map-pin",
@@ -52,19 +52,19 @@ export const savedViews = [
 	{
 		id: "view-1",
 		name: "Currently Reading",
-		facetSlug: "media",
+		trackerSlug: "media",
 		schemaSlug: "books",
 	},
 	{
 		id: "view-2",
 		name: "Watchlist",
-		facetSlug: "media",
+		trackerSlug: "media",
 		schemaSlug: "movies",
 	},
 	{
 		id: "view-3",
 		name: "Favorite Distilleries",
-		facetSlug: "whiskey",
+		trackerSlug: "whiskey",
 		schemaSlug: "whiskeys",
 	},
 ];
@@ -233,6 +233,6 @@ export const events = [
 export const stats = [
 	{ label: "Total Entities", value: "247", change: "+12 this month" },
 	{ label: "Events Logged", value: "1,384", change: "+34 this week" },
-	{ label: "Active Facets", value: "4", change: "" },
+	{ label: "Active Trackers", value: "4", change: "" },
 	{ label: "Saved Views", value: "12", change: "+2 new" },
 ];
