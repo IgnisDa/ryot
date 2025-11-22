@@ -18,91 +18,89 @@ import {
 } from "./manifests";
 import { builtinRelationshipSchemas } from "./relationship-schemas";
 
-const ensureBuiltinEntitySchema = (input: {
+const ensureBuiltinEntitySchema = Effect.fn(function* (input: {
 	slug: string;
 	name: string;
 	icon: string;
 	accentColor: string;
 	propertiesSchema: AppSchema;
-}) =>
-	Effect.gen(function* () {
-		const db = yield* CurrentDb;
-		const [existing] = yield* dbEffect(() =>
-			db
-				.select({ id: schema.entitySchema.id })
-				.from(schema.entitySchema)
-				.where(and(eq(schema.entitySchema.slug, input.slug), isNull(schema.entitySchema.userId)))
-				.limit(1),
-		);
+}) {
+	const db = yield* CurrentDb;
+	const [existing] = yield* dbEffect(() =>
+		db
+			.select({ id: schema.entitySchema.id })
+			.from(schema.entitySchema)
+			.where(and(eq(schema.entitySchema.slug, input.slug), isNull(schema.entitySchema.userId)))
+			.limit(1),
+	);
 
-		if (existing) {
-			yield* dbEffect(() =>
-				db
-					.update(schema.entitySchema)
-					.set({
-						isBuiltin: true,
-						name: input.name,
-						icon: input.icon,
-						accentColor: input.accentColor,
-						propertiesSchema: input.propertiesSchema,
-					})
-					.where(eq(schema.entitySchema.id, existing.id)),
-			);
-			return existing.id;
-		}
-
-		const schemaId = generateId();
+	if (existing) {
 		yield* dbEffect(() =>
-			db.insert(schema.entitySchema).values({
-				id: schemaId,
-				isBuiltin: true,
-				name: input.name,
-				slug: input.slug,
-				icon: input.icon,
-				accentColor: input.accentColor,
-				propertiesSchema: input.propertiesSchema,
-			}),
+			db
+				.update(schema.entitySchema)
+				.set({
+					isBuiltin: true,
+					name: input.name,
+					icon: input.icon,
+					accentColor: input.accentColor,
+					propertiesSchema: input.propertiesSchema,
+				})
+				.where(eq(schema.entitySchema.id, existing.id)),
 		);
-		return schemaId;
-	});
+		return existing.id;
+	}
 
-const ensureBuiltinEntitySchemaEventSchemas = (input: {
+	const schemaId = generateId();
+	yield* dbEffect(() =>
+		db.insert(schema.entitySchema).values({
+			id: schemaId,
+			isBuiltin: true,
+			name: input.name,
+			slug: input.slug,
+			icon: input.icon,
+			accentColor: input.accentColor,
+			propertiesSchema: input.propertiesSchema,
+		}),
+	);
+	return schemaId;
+});
+
+const ensureBuiltinEntitySchemaEventSchemas = Effect.fn(function* (input: {
 	entitySchemaId: string;
 	eventSchemas: Array<{ slug: string; name: string; propertiesSchema: AppSchema }>;
-}) =>
-	Effect.gen(function* () {
-		const db = yield* CurrentDb;
-		const expectedSlugs = input.eventSchemas.map((s) => s.slug);
+}) {
+	const db = yield* CurrentDb;
+	const expectedSlugs = input.eventSchemas.map((s) => s.slug);
 
-		if (expectedSlugs.length === 0) {
-			yield* dbEffect(() =>
-				db
-					.delete(schema.eventSchema)
-					.where(
-						and(
-							eq(schema.eventSchema.entitySchemaId, input.entitySchemaId),
-							isNull(schema.eventSchema.userId),
-						),
+	if (expectedSlugs.length === 0) {
+		yield* dbEffect(() =>
+			db
+				.delete(schema.eventSchema)
+				.where(
+					and(
+						eq(schema.eventSchema.entitySchemaId, input.entitySchemaId),
+						isNull(schema.eventSchema.userId),
 					),
-			);
-		} else {
-			yield* dbEffect(() =>
-				db
-					.delete(schema.eventSchema)
-					.where(
-						and(
-							eq(schema.eventSchema.entitySchemaId, input.entitySchemaId),
-							isNull(schema.eventSchema.userId),
-							notInArray(schema.eventSchema.slug, expectedSlugs),
-						),
+				),
+		);
+	} else {
+		yield* dbEffect(() =>
+			db
+				.delete(schema.eventSchema)
+				.where(
+					and(
+						eq(schema.eventSchema.entitySchemaId, input.entitySchemaId),
+						isNull(schema.eventSchema.userId),
+						notInArray(schema.eventSchema.slug, expectedSlugs),
 					),
-			);
-		}
+				),
+		);
+	}
 
-		for (const eventSchema of input.eventSchemas) {
-			yield* dbEffect(() =>
-				db.execute(
-					sql`insert into "event_schema" (
+	for (const eventSchema of input.eventSchemas) {
+		yield* dbEffect(() =>
+			db.execute(
+				sql`insert into "event_schema" (
 						"id", "slug", "name", "entity_schema_id", "properties_schema", "is_builtin"
 					) values (
 						${generateId()}, ${eventSchema.slug}, ${eventSchema.name},
@@ -114,190 +112,189 @@ const ensureBuiltinEntitySchemaEventSchemas = (input: {
 							"name" = excluded."name",
 							"is_builtin" = true,
 							"properties_schema" = excluded."properties_schema"`,
-				),
-			);
-		}
-	});
+			),
+		);
+	}
+});
 
-const ensureBuiltinSandboxScript = (input: {
+const ensureBuiltinSandboxScript = Effect.fn(function* (input: {
 	code: string;
 	name: string;
 	slug: string;
 	metadata: Record<string, unknown>;
-}) =>
-	Effect.gen(function* () {
-		const db = yield* CurrentDb;
-		const [existingScript] = yield* dbEffect(() =>
-			db
-				.select({
-					id: schema.sandboxScript.id,
-					code: schema.sandboxScript.code,
-					name: schema.sandboxScript.name,
-					isBuiltin: schema.sandboxScript.isBuiltin,
-				})
-				.from(schema.sandboxScript)
-				.where(and(eq(schema.sandboxScript.slug, input.slug), isNull(schema.sandboxScript.userId)))
-				.limit(1),
-		);
+}) {
+	const db = yield* CurrentDb;
+	const [existingScript] = yield* dbEffect(() =>
+		db
+			.select({
+				id: schema.sandboxScript.id,
+				code: schema.sandboxScript.code,
+				name: schema.sandboxScript.name,
+				isBuiltin: schema.sandboxScript.isBuiltin,
+			})
+			.from(schema.sandboxScript)
+			.where(and(eq(schema.sandboxScript.slug, input.slug), isNull(schema.sandboxScript.userId)))
+			.limit(1),
+	);
 
-		const scriptId = existingScript?.id ?? generateId();
-		const values = {
-			isBuiltin: true,
-			name: input.name,
-			code: input.code,
-			metadata: input.metadata,
-		};
+	const scriptId = existingScript?.id ?? generateId();
+	const values = {
+		isBuiltin: true,
+		name: input.name,
+		code: input.code,
+		metadata: input.metadata,
+	};
 
-		if (existingScript) {
-			yield* dbEffect(() =>
-				db.update(schema.sandboxScript).set(values).where(eq(schema.sandboxScript.id, scriptId)),
-			);
-		} else {
-			yield* dbEffect(() =>
-				db.insert(schema.sandboxScript).values({ id: scriptId, slug: input.slug, ...values }),
-			);
-		}
-		return scriptId;
-	});
-
-const linkScriptToEntitySchema = (input: { entitySchemaId: string; sandboxScriptId: string }) =>
-	Effect.gen(function* () {
-		const db = yield* CurrentDb;
-		const [existing] = yield* dbEffect(() =>
-			db
-				.select({ id: schema.entitySchemaScript.id })
-				.from(schema.entitySchemaScript)
-				.where(
-					and(
-						eq(schema.entitySchemaScript.entitySchemaId, input.entitySchemaId),
-						eq(schema.entitySchemaScript.sandboxScriptId, input.sandboxScriptId),
-					),
-				)
-				.limit(1),
-		);
-
-		if (existing) {
-			return;
-		}
-
+	if (existingScript) {
 		yield* dbEffect(() =>
-			db.insert(schema.entitySchemaScript).values({
-				entitySchemaId: input.entitySchemaId,
-				sandboxScriptId: input.sandboxScriptId,
-			}),
+			db.update(schema.sandboxScript).set(values).where(eq(schema.sandboxScript.id, scriptId)),
 		);
-	});
+	} else {
+		yield* dbEffect(() =>
+			db.insert(schema.sandboxScript).values({ id: scriptId, slug: input.slug, ...values }),
+		);
+	}
+	return scriptId;
+});
 
-const ensureBuiltinEventSchemaTrigger = (input: {
+const linkScriptToEntitySchema = Effect.fn(function* (input: {
+	entitySchemaId: string;
+	sandboxScriptId: string;
+}) {
+	const db = yield* CurrentDb;
+	const [existing] = yield* dbEffect(() =>
+		db
+			.select({ id: schema.entitySchemaScript.id })
+			.from(schema.entitySchemaScript)
+			.where(
+				and(
+					eq(schema.entitySchemaScript.entitySchemaId, input.entitySchemaId),
+					eq(schema.entitySchemaScript.sandboxScriptId, input.sandboxScriptId),
+				),
+			)
+			.limit(1),
+	);
+
+	if (existing) {
+		return;
+	}
+
+	yield* dbEffect(() =>
+		db.insert(schema.entitySchemaScript).values({
+			entitySchemaId: input.entitySchemaId,
+			sandboxScriptId: input.sandboxScriptId,
+		}),
+	);
+});
+
+const ensureBuiltinEventSchemaTrigger = Effect.fn(function* (input: {
 	name: string;
 	phase: string;
 	position: number;
 	eventSchemaId: string;
 	sandboxScriptId: string;
 	metadata: Record<string, unknown>;
-}) =>
-	Effect.gen(function* () {
-		const db = yield* CurrentDb;
-		const [existing] = yield* dbEffect(() =>
-			db
-				.select({ id: schema.eventSchemaTrigger.id })
-				.from(schema.eventSchemaTrigger)
-				.where(
-					and(
-						isNull(schema.eventSchemaTrigger.userId),
-						eq(schema.eventSchemaTrigger.eventSchemaId, input.eventSchemaId),
-						eq(schema.eventSchemaTrigger.sandboxScriptId, input.sandboxScriptId),
-					),
-				)
-				.limit(1),
-		);
+}) {
+	const db = yield* CurrentDb;
+	const [existing] = yield* dbEffect(() =>
+		db
+			.select({ id: schema.eventSchemaTrigger.id })
+			.from(schema.eventSchemaTrigger)
+			.where(
+				and(
+					isNull(schema.eventSchemaTrigger.userId),
+					eq(schema.eventSchemaTrigger.eventSchemaId, input.eventSchemaId),
+					eq(schema.eventSchemaTrigger.sandboxScriptId, input.sandboxScriptId),
+				),
+			)
+			.limit(1),
+	);
 
-		if (existing) {
-			yield* dbEffect(() =>
-				db
-					.update(schema.eventSchemaTrigger)
-					.set({
-						isActive: true,
-						isBuiltin: true,
-						name: input.name,
-						phase: input.phase,
-						position: input.position,
-						metadata: input.metadata,
-					})
-					.where(eq(schema.eventSchemaTrigger.id, existing.id)),
-			);
-			return existing.id;
-		}
-
-		const triggerId = generateId();
+	if (existing) {
 		yield* dbEffect(() =>
-			db.insert(schema.eventSchemaTrigger).values({
-				id: triggerId,
-				isActive: true,
-				isBuiltin: true,
-				name: input.name,
-				phase: input.phase,
-				position: input.position,
-				metadata: input.metadata,
-				eventSchemaId: input.eventSchemaId,
-				sandboxScriptId: input.sandboxScriptId,
-			}),
+			db
+				.update(schema.eventSchemaTrigger)
+				.set({
+					isActive: true,
+					isBuiltin: true,
+					name: input.name,
+					phase: input.phase,
+					position: input.position,
+					metadata: input.metadata,
+				})
+				.where(eq(schema.eventSchemaTrigger.id, existing.id)),
 		);
-		return triggerId;
-	});
+		return existing.id;
+	}
 
-const ensureBuiltinRelationshipSchema = (input: {
+	const triggerId = generateId();
+	yield* dbEffect(() =>
+		db.insert(schema.eventSchemaTrigger).values({
+			id: triggerId,
+			isActive: true,
+			isBuiltin: true,
+			name: input.name,
+			phase: input.phase,
+			position: input.position,
+			metadata: input.metadata,
+			eventSchemaId: input.eventSchemaId,
+			sandboxScriptId: input.sandboxScriptId,
+		}),
+	);
+	return triggerId;
+});
+
+const ensureBuiltinRelationshipSchema = Effect.fn(function* (input: {
 	slug: string;
 	name: string;
 	propertiesSchema: AppSchema;
 	sourceEntitySchemaId?: string;
 	targetEntitySchemaId?: string;
-}) =>
-	Effect.gen(function* () {
-		const db = yield* CurrentDb;
-		const [existing] = yield* dbEffect(() =>
-			db
-				.select({ id: schema.relationshipSchema.id })
-				.from(schema.relationshipSchema)
-				.where(
-					and(
-						eq(schema.relationshipSchema.slug, input.slug),
-						isNull(schema.relationshipSchema.userId),
-					),
-				)
-				.limit(1),
-		);
+}) {
+	const db = yield* CurrentDb;
+	const [existing] = yield* dbEffect(() =>
+		db
+			.select({ id: schema.relationshipSchema.id })
+			.from(schema.relationshipSchema)
+			.where(
+				and(
+					eq(schema.relationshipSchema.slug, input.slug),
+					isNull(schema.relationshipSchema.userId),
+				),
+			)
+			.limit(1),
+	);
 
-		if (existing) {
-			yield* dbEffect(() =>
-				db
-					.update(schema.relationshipSchema)
-					.set({
-						isBuiltin: true,
-						name: input.name,
-						propertiesSchema: input.propertiesSchema,
-						sourceEntitySchemaId: input.sourceEntitySchemaId ?? null,
-						targetEntitySchemaId: input.targetEntitySchemaId ?? null,
-					})
-					.where(eq(schema.relationshipSchema.id, existing.id)),
-			);
-			return existing.id;
-		}
-
-		const schemaId = generateId();
+	if (existing) {
 		yield* dbEffect(() =>
-			db.insert(schema.relationshipSchema).values({
-				id: schemaId,
-				isBuiltin: true,
-				name: input.name,
-				slug: input.slug,
-				propertiesSchema: input.propertiesSchema,
-				sourceEntitySchemaId: input.sourceEntitySchemaId ?? null,
-				targetEntitySchemaId: input.targetEntitySchemaId ?? null,
-			}),
+			db
+				.update(schema.relationshipSchema)
+				.set({
+					isBuiltin: true,
+					name: input.name,
+					propertiesSchema: input.propertiesSchema,
+					sourceEntitySchemaId: input.sourceEntitySchemaId ?? null,
+					targetEntitySchemaId: input.targetEntitySchemaId ?? null,
+				})
+				.where(eq(schema.relationshipSchema.id, existing.id)),
 		);
-		return schemaId;
-	});
+		return existing.id;
+	}
+
+	const schemaId = generateId();
+	yield* dbEffect(() =>
+		db.insert(schema.relationshipSchema).values({
+			id: schemaId,
+			isBuiltin: true,
+			name: input.name,
+			slug: input.slug,
+			propertiesSchema: input.propertiesSchema,
+			sourceEntitySchemaId: input.sourceEntitySchemaId ?? null,
+			targetEntitySchemaId: input.targetEntitySchemaId ?? null,
+		}),
+	);
+	return schemaId;
+});
 
 const seedInitialDatabase = Effect.gen(function* () {
 	yield* Effect.logInfo("Seeding entity schemas...");
