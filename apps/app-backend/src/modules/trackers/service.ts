@@ -8,10 +8,10 @@ import type {
 import { TrackerId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
-import { DbRunner, TransactionRunner } from "#lib/db/service";
-import { buildReorderedIds } from "#lib/reorder";
-import { slugify } from "#lib/slug";
-import { trimToNull } from "#lib/validation";
+import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import { buildReorderedIds } from "#lib/shared/reorder";
+import { slugify } from "#lib/shared/slug";
+import { trimToNull } from "#lib/shared/validation";
 
 import { TrackersRepository } from "./repository";
 

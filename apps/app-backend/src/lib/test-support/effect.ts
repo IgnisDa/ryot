@@ -6,9 +6,9 @@ export type MockOverrides<T> = T extends (...args: infer TArgs) => unknown
 	? Omit<TArgs[0], "_tag">
 	: never;
 
-import { AppConfig, type AppConfigValue } from "#lib/config/service";
-import { CurrentDb, DbRunner, TransactionRunner } from "#lib/db/service";
-import type { RedisService } from "#lib/redis";
+import { AppConfig, type AppConfigValue } from "#lib/infrastructure/config/service";
+import { CurrentDb, DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import type { RedisService } from "#lib/infrastructure/redis";
 
 const provideEmptyDb = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	Effect.provideService(effect, CurrentDb, Object.create(null));

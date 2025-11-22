@@ -2,7 +2,7 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { unknownToMessage } from "@ryot/contract/errors";
 import { Cause, Clock, Cron, Duration, Effect, Either, Layer } from "effect";
 
-import { AppConfig } from "#lib/config/service";
+import { AppConfig } from "#lib/infrastructure/config/service";
 
 import { DEFAULT_INFREQUENT_CRON, parseInfrequentCron } from "./cron";
 import { InfrequentCronWorkflow } from "./cron-workflow";

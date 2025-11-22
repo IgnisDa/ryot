@@ -8,8 +8,8 @@ import {
 import { and, eq, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
-import * as schema from "#lib/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/db/service";
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 type CollectionRow = Pick<
 	typeof schema.entity.$inferSelect,

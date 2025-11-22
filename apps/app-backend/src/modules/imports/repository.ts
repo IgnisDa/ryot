@@ -12,8 +12,8 @@ import { ImportRunId, type IntegrationId, type UserId } from "@ryot/contract/sch
 import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
-import * as schema from "#lib/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/db/service";
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 type ImportRunRow = typeof schema.importRun.$inferSelect;
 type ImportRunFailureRow = typeof schema.importRunFailure.$inferSelect;

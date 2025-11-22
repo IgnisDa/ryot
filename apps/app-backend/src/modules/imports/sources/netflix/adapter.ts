@@ -4,7 +4,7 @@ import {
 	extractMetadataLookupBaseTitle,
 	extractMetadataLookupSeasonEpisode,
 	hasMetadataLookupShowIndicators,
-} from "#lib/metadata-lookup/title-parsing";
+} from "#lib/shared/title-parsing";
 
 import {
 	assertRequiredHeaders,

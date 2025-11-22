@@ -2,12 +2,12 @@ import { FileSystem } from "@effect/platform";
 import type { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
-import { DbRunner } from "#lib/db/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
 import {
 	type MetadataLookupTitleMatchCandidate,
 	chooseBestMetadataLookupTitleMatch,
-} from "#lib/metadata-lookup/title-matching";
-import { extractMetadataLookupBaseTitle } from "#lib/metadata-lookup/title-parsing";
+} from "#lib/shared/title-matching";
+import { extractMetadataLookupBaseTitle } from "#lib/shared/title-parsing";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { EntitySearchItem } from "#modules/entity-import/population";
 

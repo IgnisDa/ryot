@@ -5,9 +5,9 @@ import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import { CreateEventItem } from "@ryot/contract/modules/events/schemas";
 import { Effect, Schema } from "effect";
 
-import { defaultUserPreferences } from "#lib/builtins/bootstrap";
-import { AppConfig } from "#lib/config/service";
-import type { DbRunner } from "#lib/db/service";
+import { AppConfig } from "#lib/infrastructure/config/service";
+import type { DbRunner } from "#lib/infrastructure/db/service";
+import { defaultUserPreferences } from "#modules/builtins/bootstrap";
 import type { EntitiesRepository } from "#modules/entities/repository";
 import type { EntitiesService } from "#modules/entities/service";
 import type { EntitySchemasRepository } from "#modules/entity-schemas/repository";
