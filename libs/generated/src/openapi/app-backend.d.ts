@@ -4125,6 +4125,148 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/god-mode/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all users with auth state classification */
+        get: {
+            parameters: {
+                query?: {
+                    search?: string;
+                    offset?: number | null;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description User list with auth states */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                total: number;
+                                users: {
+                                    id: string;
+                                    name: string;
+                                    /** Format: email */
+                                    email: string;
+                                    createdAt: string;
+                                    /** @enum {string} */
+                                    authState: "credential" | "oidc" | "none" | "mixed";
+                                    twoFactorEnabled: boolean | null;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Authentication failed */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/god-mode/users/{userId}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate a password reset link for a user */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    userId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Password reset link generated successfully */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                /** Format: email */
+                                email: string;
+                                resetUrl: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Validation error */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
+                /** @description Authentication failed */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+                /** @description Password reset request failed or timed out */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["InternalServerError"] | components["schemas"]["TimeoutError"];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/query-engine/execute": {
         parameters: {
             query?: never;
@@ -4677,7 +4819,10 @@ export interface components {
         };
         InternalServerError: {
             message: string;
-            /** @enum {string} */
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
             code: "internal_error";
         };
         ViewComputedField: {
@@ -4814,6 +4959,14 @@ export interface components {
         };
         NullableViewPredicate: components["schemas"]["ViewPredicate"] | null;
         NullableViewExpression: components["schemas"]["ViewExpression"] | null;
+        TimeoutError: {
+            message: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            code: "timeout";
+        };
     };
     responses: never;
     parameters: never;
