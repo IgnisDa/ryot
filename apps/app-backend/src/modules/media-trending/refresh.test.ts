@@ -14,12 +14,13 @@ import { dbRunnerLayer, makeWorkflowActivityEngine } from "#lib/test-support/eff
 import { EntitiesService } from "#modules/entities/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
+import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 
 import {
 	MediaTrendingWorkflowOperations,
 	type MediaTrendingWorkflowOperationsValue,
 } from "./operations-workflow";
-import { RefreshMediaTrendingWorkflow, runRefreshMediaTrendingWorkflow } from "./refresh-workflow";
+import { runMediaTrendingRefresh } from "./refresh";
 import { MediaTrendingRepository } from "./repository";
 import type { TrendingProviderTarget } from "./schemas";
 
@@ -129,7 +130,7 @@ const withTestLayer = <A, E, R>(
 	executionId: string,
 	effect: Effect.Effect<A, E, R>,
 ) => {
-	const instance = WorkflowInstance.initial(RefreshMediaTrendingWorkflow, executionId);
+	const instance = WorkflowInstance.initial(InfrequentCronWorkflow, executionId);
 	const engine = makeWorkflowActivityEngine(instance);
 
 	return effect.pipe(
@@ -187,7 +188,7 @@ it.effect("syncs successful provider trend items as ranked self edges", () => {
 		options,
 		"exec-trending-success",
 		Effect.gen(function* () {
-			const result = yield* runRefreshMediaTrendingWorkflow({
+			const result = yield* runMediaTrendingRefresh({
 				executionId: "exec-trending-success",
 			});
 
@@ -248,7 +249,7 @@ it.effect("skips failed providers and syncs successful providers", () => {
 		options,
 		"exec-trending-partial",
 		Effect.gen(function* () {
-			const result = yield* runRefreshMediaTrendingWorkflow({
+			const result = yield* runMediaTrendingRefresh({
 				executionId: "exec-trending-partial",
 			});
 
@@ -284,7 +285,7 @@ it.effect("preserves prior trend edges when no provider succeeds", () => {
 		options,
 		"exec-trending-none",
 		Effect.gen(function* () {
-			const result = yield* runRefreshMediaTrendingWorkflow({ executionId: "exec-trending-none" });
+			const result = yield* runMediaTrendingRefresh({ executionId: "exec-trending-none" });
 
 			expect(syncCalled).toBe(false);
 			expect(result).toEqual({ providerCount: 0, itemCount: 0, synced: false });
