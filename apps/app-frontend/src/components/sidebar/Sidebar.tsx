@@ -96,16 +96,21 @@ function SortableFacet(props: {
 			<NavLink
 				label={props.facet.name}
 				onClick={() => {
+					if (props.isCustomizeMode) return;
 					if (props.facet.views?.length) props.onToggleFacet(props.facet.id);
 					props.onNavLinkClick();
 				}}
-				renderRoot={(rootProps) => (
-					<Link
-						{...rootProps}
-						to="/$facetSlug"
-						params={{ facetSlug: props.facet.slug }}
-					/>
-				)}
+				renderRoot={
+					props.isCustomizeMode
+						? undefined
+						: (rootProps) => (
+								<Link
+									{...rootProps}
+									to="/$facetSlug"
+									params={{ facetSlug: props.facet.slug }}
+								/>
+							)
+				}
 				styles={{
 					label: {
 						fontSize: "14px",
@@ -214,18 +219,22 @@ function SortableFacet(props: {
 						<NavLink
 							key={view.id}
 							label={view.name}
-							onClick={props.onNavLinkClick}
 							leftSection={<ViewIcon view={view} />}
-							renderRoot={(rootProps) => (
-								<Link
-									{...rootProps}
-									to="/$facetSlug/views/$viewId"
-									params={{
-										viewId: view.id,
-										facetSlug: props.facet.slug,
-									}}
-								/>
-							)}
+							onClick={props.isCustomizeMode ? undefined : props.onNavLinkClick}
+							renderRoot={
+								props.isCustomizeMode
+									? undefined
+									: (rootProps) => (
+											<Link
+												{...rootProps}
+												to="/$facetSlug/views/$viewId"
+												params={{
+													viewId: view.id,
+													facetSlug: props.facet.slug,
+												}}
+											/>
+										)
+							}
 							styles={{
 								root: {
 									paddingLeft: "40px",
@@ -518,11 +527,15 @@ export function Sidebar(props: SidebarProps) {
 					<NavLink
 						key={view.id}
 						label={view.name}
-						disabled={!view.facetSlug}
 						leftSection={<ViewIcon view={view} />}
-						onClick={view.facetSlug ? handleNavLinkClick : undefined}
+						disabled={!view.facetSlug || state.isCustomizeMode}
+						onClick={
+							view.facetSlug && !state.isCustomizeMode
+								? handleNavLinkClick
+								: undefined
+						}
 						renderRoot={
-							view.facetSlug
+							view.facetSlug && !state.isCustomizeMode
 								? (rootProps) => (
 										<Link
 											{...rootProps}
