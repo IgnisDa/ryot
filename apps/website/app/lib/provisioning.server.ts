@@ -1,8 +1,4 @@
-import {
-	GetPasswordChangeSessionDocument,
-	RegisterUserDocument,
-	UpdateUserDocument,
-} from "@ryot/generated/graphql/backend/graphql";
+
 import PurchaseCompleteEmail, {
 	type PurchaseCompleteEmailProps,
 } from "@ryot/transactional/emails/purchase-complete";
@@ -16,13 +12,8 @@ import {
 	type TProductTypes,
 } from "~/drizzle/schema.server";
 
-import {
-	GRACE_PERIOD,
-	getDb,
-	getServerGqlService,
-	getServerVariables,
-	getUnkeyClient,
-} from "./config.server";
+import { GRACE_PERIOD, getDb, getUnkeyClient } from "./config.server";
+import { getAppBackendApiClient } from "./api.server";
 import { calculateRenewalDate, createUnkeyKey, sendEmail } from "./utilities.server";
 
 type Customer = InferSelectModel<typeof customers>;
@@ -41,20 +32,18 @@ async function getCloudAuthDetails(
 		return { provider: "google", email };
 	}
 
-	const { getPasswordChangeSession } = await getServerGqlService().request(
-		GetPasswordChangeSessionDocument,
-		{
-			input: {
-				userId,
-				adminAccessToken: getServerVariables().SERVER_ADMIN_ACCESS_TOKEN,
-			},
-		},
-	);
+	const apiClient = getAppBackendApiClient();
+	const { data, error } = await apiClient.POST("/god-mode/users/{userId}/reset-password", {
+		params: { path: { userId } },
+	});
+	if (error || !data?.data.resetUrl) {
+		throw new Error("Failed to generate password reset link");
+	}
 
 	return {
 		username: email,
 		provider: "password",
-		passwordChangeUrl: getPasswordChangeSession.passwordChangeUrl,
+		passwordChangeUrl: data.data.resetUrl,
 	};
 }
 
@@ -64,15 +53,11 @@ async function handleCloudPurchase(customer: Customer): Promise<{
 	details: PurchaseCompleteEmailProps["details"];
 }> {
 	const { email, oidcIssuerId } = customer;
-	const serverVariables = getServerVariables();
 
 	if (customer.ryotUserId) {
-		await getServerGqlService().request(UpdateUserDocument, {
-			input: {
-				isDisabled: false,
-				userId: customer.ryotUserId,
-				adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
-			},
+		await getAppBackendApiClient().POST("/god-mode/users/{userId}/ban/set", {
+			body: { banned: false },
+			params: { path: { userId: customer.ryotUserId } },
 		});
 		const auth = await getCloudAuthDetails(customer.ryotUserId, email, oidcIssuerId);
 		return {
@@ -82,24 +67,23 @@ async function handleCloudPurchase(customer: Customer): Promise<{
 		};
 	}
 
-	const { registerUser } = await getServerGqlService().request(RegisterUserDocument, {
-		input: {
-			adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
-			data: oidcIssuerId
-				? { oidc: { email: email, issuerId: oidcIssuerId } }
-				: { password: { username: email, password: "" } },
-		},
-	});
-	if (registerUser.__typename === "RegisterError") {
-		console.error(registerUser);
-		throw new Error("Failed to register user");
+	const apiClient = getAppBackendApiClient();
+	const provisionBody = oidcIssuerId
+		? ({ provider: "oidc", email, name: email, oidcIssuerId } as const)
+		: ({ provider: "credential", email, name: email } as const);
+	const { data: provisionData, error: provisionError } = await apiClient.POST(
+		"/god-mode/users/provision",
+		{ body: provisionBody },
+	);
+	if (provisionError || !provisionData?.data.userId) {
+		throw new Error("Failed to provision user");
 	}
 
-	const auth = await getCloudAuthDetails(registerUser.id, email, oidcIssuerId);
+	const auth = await getCloudAuthDetails(provisionData.data.userId, email, oidcIssuerId);
 
 	return {
 		unkeyKeyId: null,
-		ryotUserId: registerUser.id,
+		ryotUserId: provisionData.data.userId,
 		details: { auth, __typename: "cloud" },
 	};
 }
@@ -225,13 +209,9 @@ export async function provisionRenewal(
 		.where(eq(customerPurchases.id, activePurchase.id));
 
 	if (customer.ryotUserId) {
-		const serverVariables = getServerVariables();
-		await getServerGqlService().request(UpdateUserDocument, {
-			input: {
-				isDisabled: false,
-				userId: customer.ryotUserId,
-				adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
-			},
+		await getAppBackendApiClient().POST("/god-mode/users/{userId}/ban/set", {
+			body: { banned: false },
+			params: { path: { userId: customer.ryotUserId } },
 		});
 	}
 
@@ -262,13 +242,9 @@ export async function revokePurchase(customer: Customer) {
 		);
 
 	if (customer.ryotUserId) {
-		const serverVariables = getServerVariables();
-		await getServerGqlService().request(UpdateUserDocument, {
-			input: {
-				isDisabled: true,
-				userId: customer.ryotUserId,
-				adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
-			},
+		await getAppBackendApiClient().POST("/god-mode/users/{userId}/ban/set", {
+			body: { banned: true },
+			params: { path: { userId: customer.ryotUserId } },
 		});
 	}
 

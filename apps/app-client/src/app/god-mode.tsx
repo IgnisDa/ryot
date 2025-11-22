@@ -212,7 +212,7 @@ function UserRowWithReset(props: {
 		},
 	});
 
-	const toggleBanMutation = useMutation({
+	const setBanMutation = useMutation({
 		onError: (err) => setError(err.message),
 		onSuccess: () => {
 			void queryClient.invalidateQueries({ queryKey: godModeUsersQueryKey(token) });
@@ -221,8 +221,9 @@ function UserRowWithReset(props: {
 			setError(null);
 			setResult(null);
 		},
-		mutationFn: async () => {
-			const { error: apiError } = await apiClient.POST("/god-mode/users/{userId}/ban/toggle", {
+		mutationFn: async (banned: boolean) => {
+			const { error: apiError } = await apiClient.POST("/god-mode/users/{userId}/ban/set", {
+				body: { banned },
 				params: { path: { userId: user.id } },
 				headers: { "Admin-Access-Token": token },
 			});
@@ -286,11 +287,11 @@ function UserRowWithReset(props: {
 				</Button>
 				<Button
 					size="sm"
-					isDisabled={toggleBanMutation.isPending}
-					onPress={() => toggleBanMutation.mutate()}
+					isDisabled={setBanMutation.isPending}
 					variant={isDisabled ? "outline" : "destructive"}
+					onPress={() => setBanMutation.mutate(!isDisabled)}
 				>
-					{toggleBanMutation.isPending && <ButtonSpinner />}
+					{setBanMutation.isPending && <ButtonSpinner />}
 					<ButtonText>{isDisabled ? "Enable user" : "Disable user"}</ButtonText>
 				</Button>
 				{!canReset && (
