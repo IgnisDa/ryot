@@ -77,7 +77,6 @@ describe("query engine — translationStatus computed field", () => {
 		const negativeMovie = await seedPopulated();
 		const pendingMovie = await seedPopulated();
 
-		// A content-bearing overlay → ready; an all-null overlay (negative cache) → none.
 		await seedEntityTranslation({
 			language: "es",
 			entityId: readyMovie.id,
@@ -91,7 +90,6 @@ describe("query engine — translationStatus computed field", () => {
 			entityId: negativeMovie.id,
 		});
 
-		// populatedAt null but with a canonical script → none (populate-before-translate gate).
 		const unpopulatedMovie = await seedMediaEntity({
 			userId: null,
 			properties: {},
@@ -101,7 +99,6 @@ describe("query engine — translationStatus computed field", () => {
 			externalId: `tstatus-${crypto.randomUUID()}`,
 		});
 
-		// No sandbox script → none (first CASE arm), regardless of language/population.
 		const scriptLessMovie = await seedMediaEntity({
 			userId: null,
 			properties: {},
@@ -117,18 +114,15 @@ describe("query engine — translationStatus computed field", () => {
 		await setUserLanguage(viewerCanonical, MOVIE_CANONICAL_LANGUAGE);
 		const { client: viewerNoLanguage } = await createAuthenticatedClient();
 
-		// Non-canonical viewer sees the localization state per overlay row.
 		expect(await readStatus(viewerEs, readyMovie.id)).toBe("ready");
 		expect(await readStatus(viewerEs, negativeMovie.id)).toBe("none");
 		expect(await readStatus(viewerEs, pendingMovie.id)).toBe("pending");
 		expect(await readStatus(viewerEs, unpopulatedMovie.id)).toBe("none");
 		expect(await readStatus(viewerEs, scriptLessMovie.id)).toBe("none");
 
-		// Viewer already on the canonical language, and a viewer with no language, always get none.
 		expect(await readStatus(viewerCanonical, pendingMovie.id)).toBe("none");
 		expect(await readStatus(viewerNoLanguage, pendingMovie.id)).toBe("none");
 
-		// The field is absent from rows that do not select it.
 		const withoutStatus = await executeQueryEngine(viewerEs, statusDoc(pendingMovie.id, false));
 		const item = withoutStatus.data.items[0];
 		assertPresent(item, "Expected a row for the pending movie");
