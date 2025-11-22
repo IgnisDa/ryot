@@ -156,6 +156,7 @@ describe("buildDefaultEntityFormValues", () => {
 describe("toCreateEntityPayload", () => {
 	it("trims name and includes entitySchemaId and properties", () => {
 		const formValues = {
+			image: null,
 			name: "  Test Book  ",
 			properties: { pages: 350, title: "The Great Book" },
 		};
@@ -163,6 +164,7 @@ describe("toCreateEntityPayload", () => {
 		const payload = toCreateEntityPayload(formValues, "schema-123");
 
 		expect(payload).toEqual({
+			image: null,
 			name: "Test Book",
 			entitySchemaId: "schema-123",
 			properties: { pages: 350, title: "The Great Book" },
