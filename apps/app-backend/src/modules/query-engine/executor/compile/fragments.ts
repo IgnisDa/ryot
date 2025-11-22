@@ -43,6 +43,26 @@ const COLUMNS_BY_KIND: Record<RootAliasKind, Record<string, string>> = {
 	relationship: RELATIONSHIP_COLUMNS,
 };
 
+// Drop-in replacement for the `entity` table that localizes `name`/`properties` to `language`, so
+// every field/filter/sort/group/include bind site inherits localization unchanged. `null` returns
+// the bare table token — canonical users get byte-for-byte identical SQL and zero overhead. A
+// translation row exists only when its language differs from the entity's canonical language, so a
+// left join on (entity_id, :language) + coalesce is sufficient: unmatched rows fall back to canonical.
+export const entitySourceSql = (language: string | null): SqlFragment => {
+	if (language === null) {
+		return sql`entity`;
+	}
+	return sql`(
+		SELECT e0.id, e0.user_id, e0.external_id, e0.entity_schema_id, e0.sandbox_script_id,
+			e0.created_at, e0.updated_at, e0.populated_at,
+			COALESCE(et.name, e0.name) AS name,
+			e0.properties || COALESCE(et.properties, '{}'::jsonb) AS properties
+		FROM entity e0
+		LEFT JOIN entity_translation et
+			ON et.entity_id = e0.id AND et.language = ${language}
+	)`;
+};
+
 // The physical column for a system field on a given root-alias table, e.g. `e.created_at`.
 // Null when the field is not a column of this kind (validation prevents that for valid documents).
 export const systemColumnSql = (

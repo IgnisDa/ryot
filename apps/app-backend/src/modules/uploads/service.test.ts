@@ -13,9 +13,10 @@ import { makeAppConfigLayer } from "#lib/test-support/effect";
 import { UploadsService } from "./service";
 
 const user: CurrentUserValue = {
-	id: UserId.make("user-id"),
 	name: "Test User",
 	email: "user@example.com",
+	id: UserId.make("user-id"),
+	preferences: { isNsfw: false, language: null, disableIntegrations: false },
 };
 
 const TEST_TMP_DIR = "/tmp/ryot-test-uploads";

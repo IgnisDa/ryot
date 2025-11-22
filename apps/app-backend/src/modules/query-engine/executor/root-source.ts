@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import type { RelationshipSource, RootSource } from "../language";
+import { entitySourceSql } from "./compile/fragments";
 import {
 	loadVisibleEntitySchemas,
 	loadVisibleEventSchemasForEntitySchemas,
@@ -18,9 +19,10 @@ const andConditionsSql = (conditions: readonly SqlFragment[]) =>
 const entityRootFromWhereSql = (
 	schemaIdsSql: SqlFragment,
 	userId: string,
+	language: string | null,
 	pushedConditions: readonly SqlFragment[],
 ) => sql`
-	FROM entity e
+	FROM ${entitySourceSql(language)} e
 	JOIN entity_schema es ON es.id = e.entity_schema_id
 	WHERE
 		e.entity_schema_id IN (${schemaIdsSql})
@@ -32,11 +34,12 @@ const eventRootFromWhereSql = (
 	eventSchemaIdsSql: SqlFragment,
 	entitySchemaIdsSql: SqlFragment,
 	userId: string,
+	language: string | null,
 	pushedConditions: readonly SqlFragment[],
 ) => sql`
 	FROM event ev
 	JOIN event_schema evs ON evs.id = ev.event_schema_id
-	JOIN entity e ON e.id = ev.entity_id
+	JOIN ${entitySourceSql(language)} e ON e.id = ev.entity_id
 	JOIN entity_schema es ON es.id = e.entity_schema_id
 	WHERE
 		ev.user_id = ${userId}
@@ -51,13 +54,14 @@ const relationshipRootFromWhereSql = (
 	sourceEntitySchemaIdsSql: SqlFragment,
 	targetEntitySchemaIdsSql: SqlFragment,
 	userId: string,
+	language: string | null,
 	pushedConditions: readonly SqlFragment[],
 ) => sql`
 	FROM relationship r
 	JOIN relationship_schema rs ON rs.id = r.relationship_schema_id
-	JOIN entity se ON se.id = r.source_entity_id
+	JOIN ${entitySourceSql(language)} se ON se.id = r.source_entity_id
 	JOIN entity_schema ses ON ses.id = se.entity_schema_id
-	JOIN entity te ON te.id = r.target_entity_id
+	JOIN ${entitySourceSql(language)} te ON te.id = r.target_entity_id
 	JOIN entity_schema tes ON tes.id = te.entity_schema_id
 	WHERE
 		r.relationship_schema_id IN (${relationshipSchemaIdsSql})
@@ -89,12 +93,13 @@ const idListSql = (schemas: readonly { id: string }[]) =>
 // enforced, pushed conditions applied). Shared by the aggregate and time-series SQL paths.
 export const rootSourceFromWhereSql = Effect.fn("rootSourceFromWhereSql")(function* (
 	userId: string,
+	language: string | null,
 	source: RootSource,
 	pushedConditions: readonly SqlFragment[],
 ) {
 	if (source.type === "entities") {
 		const visible = yield* loadVisibleEntitySchemas(userId, source.schemas);
-		return entityRootFromWhereSql(idListSql(visible), userId, pushedConditions);
+		return entityRootFromWhereSql(idListSql(visible), userId, language, pushedConditions);
 	}
 	if (source.type === "events") {
 		const visibleEntitySchemas = yield* loadVisibleEntitySchemas(userId, source.entity.schemas);
@@ -111,6 +116,7 @@ export const rootSourceFromWhereSql = Effect.fn("rootSourceFromWhereSql")(functi
 				sql`, `,
 			),
 			userId,
+			language,
 			pushedConditions,
 		);
 	}
@@ -121,6 +127,7 @@ export const rootSourceFromWhereSql = Effect.fn("rootSourceFromWhereSql")(functi
 		idListSql(visibleSourceEntitySchemas),
 		idListSql(visibleTargetEntitySchemas),
 		userId,
+		language,
 		pushedConditions,
 	);
 });
