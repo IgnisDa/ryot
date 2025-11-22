@@ -678,7 +678,9 @@ describe("GET /entity-import/{jobId}", () => {
 			entitySchemaId: schema.id,
 		});
 
-		const error = await clientB.runError((c) => c.entityImport.getImportResult({ path: { jobId } }));
+		const error = await clientB.runError((c) =>
+			c.entityImport.getImportResult({ path: { jobId } }),
+		);
 
 		assertTaggedError(error, "NotFound");
 		expect(error.message).toBe("Entity import job not found");

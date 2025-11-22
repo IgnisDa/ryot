@@ -42,6 +42,7 @@ import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipSchemasService } from "#modules/relationship-schemas/service";
 import { RelationshipsRepository } from "#modules/relationships/repository";
+import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxApiService } from "#modules/sandbox/service";
 import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/workflows";
@@ -122,6 +123,7 @@ const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 	),
 	QueryEngineService.Default,
 	RelationshipSchemasService.Default,
+	RelationshipsService.Default,
 	SavedViewsServiceLive,
 	TrackersService.Default,
 	UploadsService.Default,
