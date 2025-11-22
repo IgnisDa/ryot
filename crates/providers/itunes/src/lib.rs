@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{cmp::Reverse, collections::HashSet, sync::Arc};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -172,7 +172,7 @@ impl MediaProvider for ITunesService {
             })
             .collect();
 
-        new_episodes_to_add.sort_by_key(|e| std::cmp::Reverse(e.publish_date));
+        new_episodes_to_add.sort_by_key(|e| Reverse(e.publish_date));
 
         let max_number = existing_episodes
             .iter()
