@@ -24,4 +24,4 @@ Accepts a `QueryDocument` (a JSON-serializable, source-based query language), va
 
 - Keep `routes.ts` thin and keep request/response contracts in `contract.ts` and `language.ts`.
 - Validation-limit constants (page size, include depth/limit, aggregate limit, bucket count) live in `validator/shared.ts`. Execution has no in-memory row caps; a runaway query is bounded by a transaction-local `statement_timeout` (`QUERY_ENGINE_STATEMENT_TIMEOUT_MS` in `service.ts`).
-- When changing the query language, update `README.md` in this directory and the examples in `tests/src/fixtures/query-engine.ts` and `tests/src/tests/query-engine.test.ts`.
+- When changing the query language, update `README.md` in this directory and the examples in `tests/src/fixtures/query-engine.ts` and `tests/src/query-engine/query-engine.test.ts`.

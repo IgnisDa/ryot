@@ -137,5 +137,5 @@ This shape replaced two earlier designs, both removed in the commit range that i
 
 - Keep `routes.ts` thin: register interest, reconcile, gate results. Business logic lives in `InterestReconciler`; transport lives in `stream.ts`/`registry.ts`.
 - Wire schemas and the `reason` vocabulary both stay in `messages.ts`. Don't redefine either inline.
-- When the protocol or behavior changes, update this file, the reference client `tests/src/fixtures/interest-sse.ts`, and the e2e tests (`tests/src/tests/entities-interest-authz.test.ts`, `entities-population-dispatch.test.ts`, `query-engine-translation-status.test.ts`).
+- When the protocol or behavior changes, update this file, the reference client `tests/src/fixtures/interest-sse.ts`, and the e2e tests (`tests/src/entity-interest/authz.test.ts`, `tests/src/entity-interest/population-dispatch.test.ts`, `tests/src/query-engine/translation-status.test.ts`).
 - Any new completion `reason` must be added to `EntityUpdatedReason` in `messages.ts` and threaded through `handleRow`'s terminal mapping and both publisher workflows.
