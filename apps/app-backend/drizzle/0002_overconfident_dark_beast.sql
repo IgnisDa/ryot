@@ -1,1 +1,0 @@
-ALTER TABLE "facet" DROP COLUMN "mode";
