@@ -16,7 +16,7 @@ import type { CronTask, CronTaskContext } from "./types";
 const frequentCronTasks: ReadonlyArray<FrequentCronTask> = [integrationsFrequentTask];
 const infrequentCronTasks: ReadonlyArray<InfrequentCronTask> = [mediaTrendingInfrequentTask];
 
-const runTasks = <E, R>(tasks: ReadonlyArray<CronTask<E, R>>, ctx: CronTaskContext) =>
+export const runTasks = <E, R>(tasks: ReadonlyArray<CronTask<E, R>>, ctx: CronTaskContext) =>
 	Effect.forEach(
 		tasks,
 		(task) =>
