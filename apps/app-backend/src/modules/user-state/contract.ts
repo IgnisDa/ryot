@@ -1,12 +1,12 @@
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
-import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
 import { BadRequest, NotFound, RateLimited, Unauthorized } from "#lib/errors";
+import { EntityId } from "#lib/schema/brands";
 
 import { ClearUserStateResponse, MergeUserStateBody, MergeUserStateResponse } from "./schemas";
 
-const entityIdParam = HttpApiSchema.param("entityId", Schema.String);
+const entityIdParam = HttpApiSchema.param("entityId", EntityId);
 
 export const UserStateGroup = HttpApiGroup.make("userState")
 	.addError(Unauthorized, { status: 401 })

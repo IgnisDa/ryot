@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 
 import { AppConfig } from "#lib/config";
+import type { ImportRunId, UserId } from "#lib/schema/brands";
 
 import type {
 	LoadedMediaImportAdapterError,
@@ -35,8 +36,8 @@ const decodeMyanimelistFile = Effect.fn(function* (filePath: string) {
 
 export const loadMyanimelistAdapterResult = Effect.fn("myanimelistProcessor.load")(
 	function* (input: {
-		runId: string;
-		userId: string;
+		runId: ImportRunId;
+		userId: UserId;
 		filePath?: string;
 		sourcePayload?: Record<string, unknown>;
 	}) {

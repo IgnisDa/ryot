@@ -1,5 +1,7 @@
 import { Schema } from "effect";
 
+import { IntegrationId } from "#lib/schema/brands";
+
 import { integrationLots, integrationProviders } from "./types";
 
 export const IntegrationLot = Schema.Literal(...integrationLots);
@@ -108,7 +110,7 @@ export const IntegrationExtraSettings = Schema.Struct({
 export type IntegrationExtraSettings = typeof IntegrationExtraSettings.Type;
 
 export const ListedIntegration = Schema.Struct({
-	id: Schema.String,
+	id: IntegrationId,
 	lot: IntegrationLot,
 	createdAt: Schema.String,
 	updatedAt: Schema.String,

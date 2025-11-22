@@ -10,6 +10,7 @@ import { CurrentDb, DbRunner, DbService, TransactionRunner } from "#lib/db";
 import * as schema from "#lib/db/schema/auth";
 import { BadRequest, DbError } from "#lib/errors";
 import { RedisService } from "#lib/redis";
+import { UserId } from "#lib/schema/brands";
 import { makeAppConfigLayer } from "#lib/test-support/effect";
 
 import { GodModeRepository } from "./repository";
@@ -312,7 +313,7 @@ it.effect("blocks password reset when local auth is disabled", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
-		const exit = yield* Effect.exit(service.resetUserPassword("user_1"));
+		const exit = yield* Effect.exit(service.resetUserPassword(UserId.make("user_1")));
 		expect(exit).toEqual(
 			Exit.fail(new BadRequest({ message: "Local authentication is disabled on this instance" })),
 		);
@@ -456,7 +457,7 @@ it.effect("bans an unbanned user and deletes sessions", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
-		const result = yield* service.setUserBan("user_1", true);
+		const result = yield* service.setUserBan(UserId.make("user_1"), true);
 
 		expect(result.id).toBe("user_1");
 		expect(typeof result.bannedAt).toBe("string");
@@ -475,7 +476,7 @@ it.effect("preserves an existing bannedAt when banning an already-banned user", 
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
-		const result = yield* service.setUserBan("user_1", true);
+		const result = yield* service.setUserBan(UserId.make("user_1"), true);
 
 		expect(result).toEqual({ id: "user_1", bannedAt: "2024-01-02T00:00:00.000Z" });
 		expect(authState.deleteUserSessionsCalled).toBe(true);
@@ -491,7 +492,7 @@ it.effect("unbans a banned user without deleting sessions", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
-		const result = yield* service.setUserBan("user_1", false);
+		const result = yield* service.setUserBan(UserId.make("user_1"), false);
 
 		expect(result).toEqual({ id: "user_1", bannedAt: null });
 		expect(authState.deleteUserSessionsCalled).toBe(false);
@@ -505,7 +506,7 @@ it.effect("unbanning an already-unbanned user does not delete sessions", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
-		const result = yield* service.setUserBan("user_1", false);
+		const result = yield* service.setUserBan(UserId.make("user_1"), false);
 
 		expect(result).toEqual({ id: "user_1", bannedAt: null });
 		expect(authState.deleteUserSessionsCalled).toBe(false);
@@ -517,7 +518,7 @@ it.effect("returns a bad request when the user is not found while setting ban st
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
-		const exit = yield* Effect.exit(service.setUserBan("missing", true));
+		const exit = yield* Effect.exit(service.setUserBan(UserId.make("missing"), true));
 		expect(exit).toEqual(
 			Exit.fail(new BadRequest({ message: "User with id 'missing' not found" })),
 		);
@@ -532,7 +533,7 @@ it.effect("returns a db error when persisting ban state fails", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
-		const exit = yield* Effect.exit(service.setUserBan("user_1", true));
+		const exit = yield* Effect.exit(service.setUserBan(UserId.make("user_1"), true));
 		expect(exit).toEqual(Exit.fail(new DbError({ message: "db down" })));
 	}).pipe(Effect.provide(makeServiceLayer(db)));
 });

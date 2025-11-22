@@ -4,6 +4,7 @@ import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner, TransactionRunner } from "#lib/db";
 import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound } from "#lib/errors";
+import { EntityId } from "#lib/schema/brands";
 import { trimToNull } from "#lib/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
@@ -26,7 +27,7 @@ const getPropertyString = (properties: Record<string, unknown>, key: string) => 
 type UserStateServiceShape = {
 	readonly clearUserState: (
 		user: CurrentUserValue,
-		entityIdInput: string,
+		entityIdInput: EntityId,
 	) => Effect.Effect<ClearUserStateResponse, BadRequest | DbError | NotFound>;
 	readonly mergeUserState: (
 		user: CurrentUserValue,
@@ -45,13 +46,14 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 		return {
 			clearUserState: Effect.fn("UserStateService.clearUserState")(function* (
 				user: CurrentUserValue,
-				entityIdInput: string,
+				entityIdInput: EntityId,
 			) {
-				const entityId = trimToNull(entityIdInput);
-				if (!entityId) {
+				const trimmedEntityId = trimToNull(entityIdInput);
+				if (!trimmedEntityId) {
 					return yield* badRequest("Entity id is required");
 				}
 
+				const entityId = EntityId.make(trimmedEntityId);
 				const scope = yield* runWithDb(
 					entitiesRepository.getEntityScopeForUser({ userId: user.id, entityId }),
 				);
@@ -83,18 +85,21 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 				user: CurrentUserValue,
 				payload: MergeUserStateBody,
 			) {
-				const mergeFrom = trimToNull(payload.mergeFrom);
-				const mergeInto = trimToNull(payload.mergeInto);
+				const trimmedMergeFrom = trimToNull(payload.mergeFrom);
+				const trimmedMergeInto = trimToNull(payload.mergeInto);
 
-				if (!mergeFrom) {
+				if (!trimmedMergeFrom) {
 					return yield* badRequest("mergeFrom is required");
 				}
-				if (!mergeInto) {
+				if (!trimmedMergeInto) {
 					return yield* badRequest("mergeInto is required");
 				}
-				if (mergeFrom === mergeInto) {
+				if (trimmedMergeFrom === trimmedMergeInto) {
 					return yield* badRequest(sameEntityMergeError);
 				}
+
+				const mergeFrom = EntityId.make(trimmedMergeFrom);
+				const mergeInto = EntityId.make(trimmedMergeInto);
 
 				const [fromScope, intoScope] = yield* Effect.all([
 					runWithDb(

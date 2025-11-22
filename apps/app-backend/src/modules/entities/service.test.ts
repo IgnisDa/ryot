@@ -5,6 +5,14 @@ import { Effect, Exit, Layer } from "effect";
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest, NotFound } from "#lib/errors";
 import {
+	EntityId,
+	EntitySchemaId,
+	RelationshipSchemaId,
+	RemoteImageUrl,
+	SandboxScriptId,
+	UserId,
+} from "#lib/schema/brands";
+import {
 	dbRunnerLayer,
 	makeAppConfigLayer,
 	makeMock,
@@ -21,7 +29,7 @@ import { EntitiesService } from "./service";
 const now = "2026-06-14T00:00:00.000Z";
 
 const user = {
-	id: "user-id",
+	id: UserId.make("user-id"),
 	name: "Test User",
 	email: "user@example.com",
 } satisfies CurrentUserValue;
@@ -120,16 +128,16 @@ it.effect("returns existing entity when provenance already exists", () => {
 						name: "Created",
 						populatedAt: null,
 						externalId: "ext-1",
-						id: "created-entity",
-						entitySchemaId: "schema-id",
-						sandboxScriptId: "script-id",
+						id: EntityId.make("created-entity"),
+						entitySchemaId: EntitySchemaId.make("schema-id"),
+						sandboxScriptId: SandboxScriptId.make("script-id"),
 					};
 				}),
 			getEntitySchemaScopeForUser: () =>
 				Effect.succeed({
 					slug: "book",
 					userId: user.id,
-					id: "schema-id",
+					id: EntitySchemaId.make("schema-id"),
 					isBuiltin: false,
 					propertiesSchema: {
 						fields: { title: { type: "string", label: "Title", description: "Title" } },
@@ -143,9 +151,9 @@ it.effect("returns existing entity when provenance already exists", () => {
 					name: "Existing",
 					populatedAt: null,
 					externalId: "ext-1",
-					id: "existing-entity",
-					entitySchemaId: "schema-id",
-					sandboxScriptId: "script-id",
+					id: EntityId.make("existing-entity"),
+					entitySchemaId: EntitySchemaId.make("schema-id"),
+					sandboxScriptId: SandboxScriptId.make("script-id"),
 					properties: { title: "Existing" },
 				}),
 		}),
@@ -156,10 +164,10 @@ it.effect("returns existing entity when provenance already exists", () => {
 		const entity = yield* service.create(user, {
 			name: "Existing",
 			externalId: "ext-1",
-			entitySchemaId: "schema-id",
-			sandboxScriptId: "script-id",
+			entitySchemaId: EntitySchemaId.make("schema-id"),
+			sandboxScriptId: SandboxScriptId.make("script-id"),
 			properties: { title: "Existing" },
-			image: { type: "remote", url: "https://example.com/cover.jpg" },
+			image: { type: "remote", url: RemoteImageUrl.make("https://example.com/cover.jpg") },
 		});
 
 		expect(entity.id).toBe("existing-entity");
@@ -177,7 +185,7 @@ it.effect("returns not found when entity schema is not visible", () => {
 		const exit = yield* Effect.exit(
 			service.create(user, {
 				properties: {},
-				entitySchemaId: "schema-id",
+				entitySchemaId: EntitySchemaId.make("schema-id"),
 				name: "Hidden Schema Entity",
 			}),
 		);
@@ -195,7 +203,7 @@ it.effect("validates relationship properties before upserting user relationships
 					isBuiltin: false,
 					entityUserId: user.id,
 					entitySchemaSlug: "book",
-					entitySchemaId: "schema-id",
+					entitySchemaId: EntitySchemaId.make("schema-id"),
 				}),
 		}),
 		makeRelationshipSchemasRepository({
@@ -204,9 +212,9 @@ it.effect("validates relationship properties before upserting user relationships
 					isBuiltin: false,
 					slug: "linked-to",
 					name: "Linked To",
-					id: "relationship-schema-id",
-					sourceEntitySchemaId: "schema-id",
-					targetEntitySchemaId: "schema-id",
+					sourceEntitySchemaId: EntitySchemaId.make("schema-id"),
+					targetEntitySchemaId: EntitySchemaId.make("schema-id"),
+					id: RelationshipSchemaId.make("relationship-schema-id"),
 					propertiesSchema: {
 						fields: {
 							rating: {
@@ -230,9 +238,9 @@ it.effect("validates relationship properties before upserting user relationships
 			service.upsertUserRelationship({
 				properties: {},
 				userId: user.id,
-				sourceEntityId: "entity-a",
-				targetEntityId: "entity-b",
-				relationshipSchemaId: "relationship-schema-id",
+				sourceEntityId: EntityId.make("entity-a"),
+				targetEntityId: EntityId.make("entity-b"),
+				relationshipSchemaId: RelationshipSchemaId.make("relationship-schema-id"),
 			}),
 		);
 
