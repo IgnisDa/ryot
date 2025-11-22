@@ -23,7 +23,6 @@ describe("system field validation", () => {
 	it.each([
 		"id",
 		"name",
-		"image",
 		"userId",
 		"createdAt",
 		"updatedAt",

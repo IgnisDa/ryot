@@ -29,6 +29,7 @@ export const showPropertiesSchema: AppSchema = {
 
 export const showSeasonPropertiesSchema: AppSchema = {
 	fields: {
+		images: imagesField("Cover and promotional images for this season"),
 		description: translatableStringField("Description", "Season overview or summary"),
 		releaseDate: stringField("Release Date", "Season release date as an ISO 8601 date string"),
 		parentShowExternalId: stringField(
@@ -47,6 +48,7 @@ export const showSeasonPropertiesSchema: AppSchema = {
 export const showEpisodePropertiesSchema: AppSchema = {
 	fields: {
 		runtime: integerField("Runtime", "Runtime in minutes"),
+		images: imagesField("Cover and promotional images for this episode"),
 		description: translatableStringField("Description", "Episode overview or summary"),
 		publishDate: stringField("Publish Date", "Episode air date as an ISO 8601 date string"),
 		parentShowExternalId: stringField(
@@ -71,6 +73,7 @@ export const showEpisodePropertiesSchema: AppSchema = {
 export const podcastEpisodePropertiesSchema: AppSchema = {
 	fields: {
 		runtime: integerField("Runtime", "Runtime in minutes"),
+		images: imagesField("Cover and promotional images for this episode"),
 		description: translatableStringField("Description", "Episode overview or summary"),
 		publishDate: stringField("Publish Date", "Episode publish date as an ISO 8601 date string"),
 		parentPodcastExternalId: stringField(

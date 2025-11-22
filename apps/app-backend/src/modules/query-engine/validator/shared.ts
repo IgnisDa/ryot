@@ -22,7 +22,6 @@ const EVENT_SYSTEM_FIELDS = new Set([
 const ENTITY_SYSTEM_FIELDS = new Set([
 	"id",
 	"name",
-	"image",
 	"userId",
 	"createdAt",
 	"updatedAt",

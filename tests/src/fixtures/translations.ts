@@ -9,7 +9,6 @@ import { pollUntil, type PollOptions } from "./polling";
 type EntityTranslationRow = {
 	name: string | null;
 	populatedAt: string | null;
-	image: Record<string, unknown> | null;
 	properties: Record<string, unknown> | null;
 };
 
@@ -60,7 +59,6 @@ export async function seedPopulatedProviderEntity(input: {
 	await deleteGlobalEntityByProvenance(provenance);
 
 	const seeded = await seedMediaEntity({
-		image: null,
 		userId: null,
 		name: input.name,
 		externalId: input.externalId,
@@ -133,7 +131,7 @@ export function seedPopulatedTmdbMovie(
 
 export async function getEntityTranslationRow(input: { entityId: string; language: string }) {
 	const result = await getPgClient().query<EntityTranslationRow>(
-		`select name, image, properties, populated_at::text as "populatedAt"
+		`select name, properties, populated_at::text as "populatedAt"
 		 from entity_translation
 		 where entity_id = $1 and language = $2
 		 limit 1`,

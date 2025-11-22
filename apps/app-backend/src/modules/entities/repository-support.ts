@@ -1,19 +1,14 @@
 import { eq, isNull, or } from "drizzle-orm";
-import { Effect, Schema } from "effect";
 
 import * as schema from "#lib/db/schema/tables";
-import { DbError } from "#lib/errors";
 import type { UserId } from "#lib/schema/brands";
 import { EntityId, EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
 import type { AppSchema } from "#lib/schema/property-schema";
-
-import { EntityImage } from "./schemas";
 
 type EntityRow = Pick<
 	typeof schema.entity.$inferSelect,
 	| "id"
 	| "name"
-	| "image"
 	| "createdAt"
 	| "updatedAt"
 	| "properties"
@@ -51,7 +46,6 @@ export type EntitySchemaScriptScope = {
 export const entitySelection = {
 	id: schema.entity.id,
 	name: schema.entity.name,
-	image: schema.entity.image,
 	createdAt: schema.entity.createdAt,
 	updatedAt: schema.entity.updatedAt,
 	properties: schema.entity.properties,
@@ -67,26 +61,14 @@ export const entitySchemaVisibleToUserClause = (userId: UserId) =>
 export const entityVisibleToUserClause = (userId: UserId) =>
 	or(isNull(schema.entity.userId), eq(schema.entity.userId, userId));
 
-const decodeStoredEntityImage = (image: EntityRow["image"]) =>
-	image === null
-		? Effect.succeed(null)
-		: Schema.decodeUnknown(EntityImage)(image).pipe(
-				Effect.mapError(() => new DbError({ message: "Invalid entity image in database" })),
-			);
-
-export const toListedEntity = Effect.fn("toListedEntity")(function* (row: EntityRow) {
-	const image = yield* decodeStoredEntityImage(row.image);
-
-	return {
-		image,
-		name: row.name,
-		properties: row.properties,
-		externalId: row.externalId,
-		id: EntityId.make(row.id),
-		createdAt: row.createdAt.toISOString(),
-		updatedAt: row.updatedAt.toISOString(),
-		populatedAt: row.populatedAt?.toISOString() ?? null,
-		entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
-		sandboxScriptId: row.sandboxScriptId ? SandboxScriptId.make(row.sandboxScriptId) : null,
-	};
+export const toListedEntity = (row: EntityRow) => ({
+	name: row.name,
+	properties: row.properties,
+	externalId: row.externalId,
+	id: EntityId.make(row.id),
+	createdAt: row.createdAt.toISOString(),
+	updatedAt: row.updatedAt.toISOString(),
+	populatedAt: row.populatedAt?.toISOString() ?? null,
+	entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
+	sandboxScriptId: row.sandboxScriptId ? SandboxScriptId.make(row.sandboxScriptId) : null,
 });

@@ -241,12 +241,12 @@ async function buildTranslationResult(input) {
 	if (name) {
 		result.name = name;
 	}
-	if (imageUrl) {
-		result.image = { type: "remote", url: imageUrl };
-	}
 	const properties = {};
 	if (description) {
 		properties.description = description;
+	}
+	if (imageUrl) {
+		properties.images = [{ type: "remote", url: imageUrl }];
 	}
 	if (Object.keys(properties).length > 0) {
 		result.properties = properties;
@@ -419,7 +419,10 @@ function collectPeople(cast, crew, createdBy) {
 		}
 	}
 
-	return { relatedEntities: [...relatedEntityByKey.values()], unlinkedCreators };
+	return {
+		relatedEntities: [...relatedEntityByKey.values()],
+		unlinkedCreators,
+	};
 }
 
 function buildSeason(parentShowExternalId, seasonData) {
@@ -476,14 +479,14 @@ function buildSeason(parentShowExternalId, seasonData) {
 				entitySchemaSlug: "show-episode",
 				externalId: String(epId),
 				name: epName ?? `Episode ${epNumber}`,
-				image: epPosterUrl ? { type: "remote", url: epPosterUrl } : null,
 				properties: {
 					seasonNumber,
 					runtime: epRuntime,
+					parentShowExternalId,
 					description: epOverview,
 					episodeNumber: epNumber,
 					publishDate: epPublishDate,
-					parentShowExternalId,
+					...(epPosterUrl ? { images: [{ type: "remote", url: epPosterUrl }] } : {}),
 				},
 			};
 		})
@@ -494,12 +497,12 @@ function buildSeason(parentShowExternalId, seasonData) {
 		externalId: String(id),
 		entitySchemaSlug: "show-season",
 		name: name ?? `Season ${seasonNumber}`,
-		image: posterUrl ? { type: "remote", url: posterUrl } : null,
 		properties: {
 			seasonNumber,
+			parentShowExternalId,
 			description: overview,
 			releaseDate: publishDate,
-			parentShowExternalId,
+			...(posterUrl ? { images: [{ type: "remote", url: posterUrl }] } : {}),
 		},
 	};
 }
@@ -734,7 +737,11 @@ driver("translate", async function (context) {
 		})
 		.parse(context ?? {});
 
-	const request = getTranslationRequest({ externalId, properties, entitySchemaSlug });
+	const request = getTranslationRequest({
+		externalId,
+		properties,
+		entitySchemaSlug,
+	});
 	const { langCode, region } = parseTranslationLanguage(language);
 	const token = await getTmdbAccessToken();
 	return buildTranslationResult({ ...request, langCode, region, token });

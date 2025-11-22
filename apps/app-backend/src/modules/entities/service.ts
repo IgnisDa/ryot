@@ -1,8 +1,8 @@
-import { Effect, Schema } from "effect";
+import { Effect } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner } from "#lib/db";
-import { DbError, badRequest, notFound } from "#lib/errors";
+import { badRequest, notFound } from "#lib/errors";
 import { EntityId, EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
 import { collectTranslatableProperties } from "#lib/schema/property-schema";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
@@ -20,7 +20,7 @@ import { QueryEngineService } from "#modules/query-engine/service";
 
 import { EntityPopulationTrigger } from "./population-trigger";
 import { EntitiesRepository, type SaveEntityInputBase } from "./repository";
-import { EntityImage, type CreateEntityBody } from "./schemas";
+import type { CreateEntityBody } from "./schemas";
 import { TranslationOverlay } from "./translation-overlay";
 
 type SaveEntityInput = SaveEntityInputBase & { properties: unknown };
@@ -42,7 +42,6 @@ const literalExpr = (value: unknown): Expr => ({ type: "literal", value });
 const entityFields = [
 	{ key: "id", expr: systemRef("id") },
 	{ key: "name", expr: systemRef("name") },
-	{ key: "image", expr: systemRef("image") },
 	{ key: "createdAt", expr: systemRef("createdAt") },
 	{ key: "updatedAt", expr: systemRef("updatedAt") },
 	{ key: "properties", expr: systemRef("properties") },
@@ -73,19 +72,10 @@ const buildEntityByIdDocument = (input: { entityId: EntityId; entitySchemaSlug: 
 		},
 	}) satisfies QueryDocument;
 
-const decodeEntityImage = (image: unknown) =>
-	image === null
-		? Effect.succeed(null)
-		: Schema.decodeUnknown(EntityImage)(image).pipe(
-				Effect.mapError(() => new DbError({ message: "Invalid entity image in database" })),
-			);
-
 const toListedEntity = Effect.fn("toListedEntityFromQueryEngine")(function* (row: RowItem) {
-	const image = yield* decodeEntityImage((yield* requireFieldValue(row, "image")).value);
 	const sandboxScriptId = yield* getOptionalStringField(row, "sandboxScriptId");
 
 	return {
-		image,
 		name: yield* requireStringField(row, "name"),
 		createdAt: yield* requireIsoStringField(row, "createdAt"),
 		updatedAt: yield* requireIsoStringField(row, "updatedAt"),
@@ -185,7 +175,6 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 				scope: "user",
 				entitySchemaId,
 				userId: user.id,
-				image: payload.image ?? null,
 				properties: payload.properties,
 				...provenance,
 			});

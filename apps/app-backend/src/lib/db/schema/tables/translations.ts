@@ -1,8 +1,6 @@
 import { generateId } from "better-auth";
 import { index, jsonb, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
 
-import type { StoredEntityImage } from "#modules/entities/types";
-
 import { entity } from "./entities";
 
 export const entityTranslation = pgTable(
@@ -10,7 +8,6 @@ export const entityTranslation = pgTable(
 	{
 		name: text(),
 		language: text().notNull(),
-		image: jsonb().$type<StoredEntityImage>(),
 		properties: jsonb().$type<Record<string, unknown>>(),
 		populatedAt: timestamp({ withTimezone: true }),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
