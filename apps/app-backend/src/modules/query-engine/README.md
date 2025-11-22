@@ -430,6 +430,23 @@ Aggregate and time-series returns materialize their root source and aggregate in
 the root source is bounded to 50000 scanned rows; a larger source fails rather than loading
 an unbounded set into memory (`Root source candidate rows exceeds maximum of 50000`).
 
+## Filter pushdown
+
+`where` predicates that can be expressed with identical semantics are compiled into SQL so
+the database filters (and, for rows/includes, paginates) directly. The rest — the residual —
+is evaluated app-side and is what the scan caps above bound.
+
+Pushable: `eq` on system text fields and schema-qualified properties; numeric `gt`/`gte`/`lt`/`lte`,
+`eq`, and `contains` on properties; `isNull`/`isNotNull`; and `and`/`or` composed of these.
+Not pushed (evaluated app-side): `neq`, `not`, arithmetic, cross-type/date ordering,
+multi-schema null checks, and `exists`/`aggregate`/`first` sub-sources. Top-level `and`
+conjuncts are pushed independently, so a partially-pushable filter still narrows the scan.
+
+When a source's entire `where` pushes to SQL, rows and included sources are filtered and
+paginated in the database and are not subject to the app-side scan caps; aggregate,
+time-series, and correlated expression sources still aggregate app-side but over the
+already-narrowed candidate set.
+
 ## Visibility
 
 Visibility is enforced for every source and traversal: root entities, root events, root
