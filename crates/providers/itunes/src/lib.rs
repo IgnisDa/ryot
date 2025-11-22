@@ -158,18 +158,17 @@ impl MediaProvider for ITunesService {
 
         for itunes_episode in new_episodes {
             let episode_id = itunes_episode.track_id.unwrap().to_string();
-            if !episodes_by_id.contains_key(&episode_id) {
-                let episode = PodcastEpisode {
+            episodes_by_id.entry(episode_id.clone()).or_insert_with(|| {
+                PodcastEpisode {
                     number: 0,
-                    id: episode_id.clone(),
+                    id: episode_id,
                     overview: itunes_episode.description,
                     thumbnail: itunes_episode.artwork_url_60,
                     title: itunes_episode.track_name.unwrap(),
                     runtime: itunes_episode.track_time_millis.map(|t| t / 1000 / 60),
                     publish_date: itunes_episode.release_date.map(|d| d.date_naive()).unwrap(),
-                };
-                episodes_by_id.insert(episode_id, episode);
-            }
+                }
+            });
         }
 
         let mut episodes: Vec<PodcastEpisode> = episodes_by_id.into_values().collect();
