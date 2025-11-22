@@ -4,6 +4,7 @@ import {
 	Checkbox,
 	FileButton,
 	Group,
+	Loader,
 	NumberInput,
 	Paper,
 	SegmentedControl,
@@ -15,6 +16,7 @@ import { createFormHook, createFormHookContexts } from "@tanstack/react-form";
 import { Link as LinkIcon, Upload } from "lucide-react";
 import type { HTMLInputTypeAttribute } from "react";
 import { useState } from "react";
+import { useApiClient } from "#/hooks/api";
 
 type TextFieldProps = {
 	id?: string;
@@ -141,13 +143,18 @@ type ImageFieldProps = {
 };
 
 function ImageField(props: ImageFieldProps) {
+	const apiClient = useApiClient();
 	const field = useFieldContext<ImageFieldValue>();
 	const [tempUrl, setTempUrl] = useState("");
 	const [tempFile, setTempFile] = useState<File | null>(null);
 	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 	const [uploadMode, setUploadMode] = useState<"url" | "file">("url");
+	const [uploadError, setUploadError] = useState<string | null>(null);
 
-	const handleFileChange = (selectedFile: File | null) => {
+	const presignedMutation = apiClient.useMutation("post", "/uploads/presigned");
+
+	const handleFileChange = async (selectedFile: File | null) => {
+		setUploadError(null);
 		setTempFile(selectedFile);
 		if (selectedFile) {
 			const reader = new FileReader();
@@ -155,7 +162,31 @@ function ImageField(props: ImageFieldProps) {
 				setPreviewUrl(reader.result as string);
 			};
 			reader.readAsDataURL(selectedFile);
-			field.handleChange({ kind: "s3", key: `temp:${selectedFile.name}` });
+
+			try {
+				const presignedResponse = await presignedMutation.mutateAsync({
+					body: { contentType: selectedFile.type },
+				});
+
+				const { uploadUrl, key } = presignedResponse.data;
+
+				const uploadResponse = await fetch(uploadUrl, {
+					method: "PUT",
+					body: selectedFile,
+					headers: { "Content-Type": selectedFile.type },
+				});
+
+				if (!uploadResponse.ok) throw new Error("Failed to upload file to S3");
+
+				field.handleChange({ kind: "s3", key });
+			} catch (error) {
+				const errorMsg =
+					error instanceof Error ? error.message : "Upload failed";
+				setUploadError(errorMsg);
+				setTempFile(null);
+				setPreviewUrl(null);
+				field.handleChange(null);
+			}
 		} else {
 			setPreviewUrl(null);
 			field.handleChange(null);
@@ -212,6 +243,7 @@ function ImageField(props: ImageFieldProps) {
 						setTempFile(null);
 						setTempUrl("");
 						setPreviewUrl(null);
+						setUploadError(null);
 					}}
 					styles={{
 						root: { backgroundColor: "var(--mantine-color-default)" },
@@ -243,7 +275,7 @@ function ImageField(props: ImageFieldProps) {
 				{uploadMode === "file" && (
 					<Stack gap="xs">
 						<FileButton
-							disabled={props.disabled}
+							disabled={props.disabled || presignedMutation.isPending}
 							onChange={handleFileChange}
 							accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
 						>
@@ -251,16 +283,29 @@ function ImageField(props: ImageFieldProps) {
 								<Button
 									size="sm"
 									variant="light"
+									disabled={presignedMutation.isPending}
 									styles={{ root: { fontWeight: 500 } }}
-									leftSection={<Upload size={16} strokeWidth={1.5} />}
+									leftSection={
+										presignedMutation.isPending ? (
+											<Loader size={16} />
+										) : (
+											<Upload size={16} strokeWidth={1.5} />
+										)
+									}
 									{...fileButtonProps}
 								>
-									Choose File
+									{presignedMutation.isPending ? "Uploading..." : "Choose File"}
 								</Button>
 							)}
 						</FileButton>
 
-						{tempFile && (
+						{uploadError && (
+							<Text c="red" size="xs">
+								{uploadError}
+							</Text>
+						)}
+
+						{tempFile && !presignedMutation.isPending && (
 							<Paper
 								p="xs"
 								radius="sm"
