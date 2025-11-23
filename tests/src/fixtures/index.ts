@@ -11,7 +11,7 @@ export * from "./notifications";
 export * from "./interest-sse";
 export * from "./measurements";
 export * from "./media";
-export * from "./monitoring";
+export * from "./media-monitoring";
 export * from "./query-engine";
 export * from "./query-engine-core";
 export * from "./relationship-schemas";

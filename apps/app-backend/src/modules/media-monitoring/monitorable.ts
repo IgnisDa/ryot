@@ -1,22 +1,22 @@
 import { builtinMediaEntitySchemaSlugs } from "#modules/builtins/media-schema-slugs";
 
-export const monitorAbleEntitySchemaSlugs = [
+export const mediaMonitorableEntitySchemaSlugs = [
 	"company",
 	"person",
 	...builtinMediaEntitySchemaSlugs,
 ] as const;
 
 const mediaEntitySchemaSlugSet = new Set(builtinMediaEntitySchemaSlugs);
-const monitorAbleEntitySchemaSlugSet = new Set(monitorAbleEntitySchemaSlugs);
+const mediaMonitorableEntitySchemaSlugSet = new Set(mediaMonitorableEntitySchemaSlugs);
 
-export const isMonitorAbleEntity = (entity: {
+export const isMediaMonitorableEntity = (entity: {
 	entityUserId: string | null;
 	entitySchemaSlug: string;
 	provenance: { externalId: string; sandboxScriptId: string } | null;
 }) =>
 	entity.entityUserId === null &&
 	entity.provenance !== null &&
-	monitorAbleEntitySchemaSlugSet.has(entity.entitySchemaSlug);
+	mediaMonitorableEntitySchemaSlugSet.has(entity.entitySchemaSlug);
 
-export const isMonitoringAssociationTargetSchema = (entitySchemaSlug: string) =>
+export const isMediaMonitoringAssociationTargetSchema = (entitySchemaSlug: string) =>
 	mediaEntitySchemaSlugSet.has(entitySchemaSlug) || entitySchemaSlug.endsWith("-group");
