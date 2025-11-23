@@ -310,8 +310,8 @@ user-authentication-resolver = { path = "crates/resolvers/user/authentication" }
 user-management-resolver = { path = "crates/resolvers/user/management" }
 user-models = { path = "crates/models/user" }
 user-resolver = { path = "crates/resolvers/user" }
-user-services-resolver = { path = "crates/resolvers/user/services" }
 user-service = { path = "crates/services/user" }
+user-services-resolver = { path = "crates/resolvers/user/services" }
 vndb-provider = { path = "crates/providers/vndb" }
 youtube-music-provider = { path = "crates/providers/youtube-music" }
 
