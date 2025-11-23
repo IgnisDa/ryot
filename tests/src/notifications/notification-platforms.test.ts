@@ -13,6 +13,7 @@ import {
 	testNotificationPlatforms,
 	updateNotificationPlatform,
 } from "../fixtures";
+import { pollUntil } from "../fixtures/polling";
 import { assertTaggedError, requirePresent } from "../test-support/assertions";
 
 let fakeAppriseServer: ReturnType<typeof Bun.serve>;
@@ -114,48 +115,37 @@ describe("notification platform CRUD", () => {
 });
 
 describe("notification delivery", () => {
-	it("reports successful, failed, and disabled platform deliveries", async () => {
+	it("delivers to enabled platforms in the background and skips disabled ones", async () => {
 		requests.length = 0;
 		const { client } = await createAuthenticatedClient();
-		const { id: successId } = await createNotificationPlatform(client, {
+		await createNotificationPlatform(client, {
 			platform: "apprise",
 			platformSpecifics: { baseUrl: fakeAppriseUrl, key: "success", kind: "apprise" },
 		});
-		const { id: failureId } = await createNotificationPlatform(client, {
+		await createNotificationPlatform(client, {
 			platform: "apprise",
 			platformSpecifics: { baseUrl: fakeAppriseUrl, key: "fail", kind: "apprise" },
 		});
-		const { id: disabledId } = await createNotificationPlatform(client, {
+		await createNotificationPlatform(client, {
 			isDisabled: true,
 			platform: "apprise",
 			platformSpecifics: { baseUrl: fakeAppriseUrl, key: "disabled", kind: "apprise" },
 		});
 
-		const results = await testNotificationPlatforms(client);
-		expect(results).toEqual([
-			{ platform: "apprise", platformId: failureId, status: "failed" },
-			{ platform: "apprise", platformId: successId, status: "sent" },
-		]);
-		expect(requests.map((request) => request.path).sort()).toEqual([
-			"/notify/fail",
-			"/notify/success",
-		]);
+		await testNotificationPlatforms(client);
+
+		const delivered = await pollUntil("background notification deliveries", () => {
+			const paths = requests.map((request) => request.path).sort();
+			const complete = paths.includes("/notify/fail") && paths.includes("/notify/success");
+			return Promise.resolve(complete ? paths : null);
+		});
+
+		expect(delivered).toEqual(["/notify/fail", "/notify/success"]);
 		expect(requests.map((request) => request.body)).toEqual([
 			{ body: "This is a test notification for platform: apprise", title: "Ryot" },
 			{ body: "This is a test notification for platform: apprise", title: "Ryot" },
 		]);
-		expect(results.some((result) => result.platformId === disabledId)).toBe(false);
-	});
-
-	it("reports unavailable SMTP as a failed delivery", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { id } = await createNotificationPlatform(client, {
-			platform: "email",
-			platformSpecifics: { kind: "email", recipient: "recipient@example.com" },
-		});
-
-		const results = await testNotificationPlatforms(client);
-		expect(results).toEqual([{ platform: "email", platformId: id, status: "failed" }]);
+		expect(requests.some((request) => request.path === "/notify/disabled")).toBe(false);
 	});
 
 	it("exposes SMTP capability and requires authentication", async () => {

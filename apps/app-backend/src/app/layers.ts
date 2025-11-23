@@ -54,6 +54,7 @@ import { MediaTrendingWorkflowOperationsLive } from "#modules/media-trending/ope
 import { MediaTrendingRepository } from "#modules/media-trending/repository";
 import { MetadataLookupService } from "#modules/metadata-lookup/service";
 import { NotificationDeliveryService } from "#modules/notifications/delivery";
+import { NotificationDeliveryWorkflowDefinitionsLive } from "#modules/notifications/notification-delivery-workflow-live";
 import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
 import { ProviderConfig } from "#modules/query-engine/provider-config";
@@ -184,7 +185,8 @@ const PlatformServicesLive = Layer.mergeAll(
 		IntegrationsService.Default,
 		Layer.provide(ImportsService.Default, UploadsService.Default),
 	),
-	Layer.provide(NotificationsService.Default, NotificationDeliveryService.Default),
+	NotificationsService.Default,
+	NotificationDeliveryService.Default,
 );
 
 const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
@@ -220,6 +222,7 @@ const RuntimeLive = Layer.mergeAll(
 	EntitySchemaWorkflowDefinitionsLive,
 	EventCreateWorkflowDefinitionsLive,
 	LibraryEntityImportWorkflowDefinitionsLive,
+	NotificationDeliveryWorkflowDefinitionsLive,
 	GlobalEntityReferencedWorkerLive,
 	DefaultSavedViewWorkerLive,
 	BuiltinEntityPreloaderLive,
