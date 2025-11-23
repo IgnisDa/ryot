@@ -181,7 +181,7 @@ Current relationship join means the old engine concept that attaches one latest 
 
 ### Query Document Model
 
-Every v2 query document has `version: 2`, a root `source`, and a `return` definition.
+Every v2 query document has `version: 2`, a root `source`, and an `output` definition.
 
 The top-level key is `source`, not `from`.
 
@@ -392,7 +392,7 @@ Basic entity rows query:
     "schemas": ["course"],
     "where": null
   },
-  "return": {
+  "output": {
     "type": "rows",
     "pagination": { "page": 1, "limit": 20 },
     "orderBy": [
@@ -430,7 +430,7 @@ Course rows with nested modules and lessons. The example limits are intentionall
     "schemas": ["course"],
     "where": null
   },
-  "return": {
+  "output": {
     "type": "rows",
     "pagination": { "page": 1, "limit": 10 },
     "orderBy": [
@@ -612,7 +612,7 @@ Filter parent courses by completed descendant lesson count. This intentionally u
       "right": { "type": "literal", "value": 10 }
     }
   },
-  "return": {
+  "output": {
     "type": "rows",
     "pagination": { "page": 1, "limit": 20 },
     "orderBy": [
@@ -698,7 +698,7 @@ Grouped aggregate return:
     "schemas": ["lesson"],
     "where": null
   },
-  "return": {
+  "output": {
     "type": "aggregate",
     "limit": 100,
     "groupBy": [
@@ -750,7 +750,7 @@ Time series over a relationship source:
       "schemas": ["library"]
     }
   },
-  "return": {
+  "output": {
     "type": "timeSeries",
     "time": {
       "bucket": "week",
@@ -889,7 +889,7 @@ Full root event rows query:
       "schemas": ["lesson"]
     }
   },
-  "return": {
+  "output": {
     "type": "rows",
     "pagination": { "page": 1, "limit": 20 },
     "orderBy": [
@@ -1013,7 +1013,7 @@ Multi-schema root with explicit property refs:
     "schemas": ["book", "movie"],
     "where": null
   },
-  "return": {
+  "output": {
     "type": "rows",
     "pagination": { "page": 1, "limit": 20 },
     "orderBy": [
@@ -1245,7 +1245,7 @@ Relationship root rows query:
       "schemas": ["collection"]
     }
   },
-  "return": {
+  "output": {
     "type": "rows",
     "pagination": { "page": 1, "limit": 20 },
     "orderBy": [
@@ -1291,7 +1291,7 @@ Ungrouped aggregate return:
     "schemas": ["course"],
     "where": null
   },
-  "return": {
+  "output": {
     "type": "aggregate",
     "groupBy": [],
     "measures": [
@@ -1343,7 +1343,7 @@ Time series over an entity date property:
     "schemas": ["course"],
     "where": null
   },
-  "return": {
+  "output": {
     "type": "timeSeries",
     "time": {
       "bucket": "month",
@@ -1497,7 +1497,7 @@ Duplicate alias:
     "schemas": ["course"],
     "where": null
   },
-  "return": {
+  "output": {
     "type": "rows",
     "pagination": { "page": 1, "limit": 20 },
     "orderBy": [
@@ -1714,9 +1714,9 @@ The implementation should keep file sizes maintainable and split modules when th
 
 ## Tasks
 
-**Overall Progress:** 2 of 12 tasks completed
+**Overall Progress:** 3 of 12 tasks completed
 
-**Current Task:** [Task 03](./03-relationship-includes.md) (todo)
+**Current Task:** [Task 04](./04-deep-includes-and-event-existence.md) (todo)
 
 ### Task List
 
@@ -1724,7 +1724,7 @@ The implementation should keep file sizes maintainable and split modules when th
 | --- | --------------------------------------------------------------------------------------------- | ---- | ------ |
 | 01  | [V2 Entity Rows API](./01-v2-entity-rows-api.md)                                               | AFK  | done   |
 | 02  | [Core Validation Guardrails](./02-core-validation-guardrails.md)                               | AFK  | done   |
-| 03  | [Relationship Includes](./03-relationship-includes.md)                                         | AFK  | todo   |
+| 03  | [Relationship Includes](./03-relationship-includes.md)                                         | AFK  | done   |
 | 04  | [Deep Includes And Event Existence](./04-deep-includes-and-event-existence.md)                 | AFK  | todo   |
 | 05  | [Event Roots And First Expressions](./05-event-roots-and-first-expressions.md)                 | AFK  | todo   |
 | 06  | [Descendant Source Filters](./06-descendant-source-filters.md)                                 | AFK  | todo   |
