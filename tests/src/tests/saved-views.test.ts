@@ -420,10 +420,7 @@ describe("Saved views E2E", () => {
 		const invalidUpdateError = await client.runError((c) =>
 			c.savedViews.update({
 				path: { viewSlug: builtinView.slug },
-				payload: buildUpdatedSavedViewBody({
-					isDisabled: true,
-					name: "Attempted Rename",
-				}),
+				payload: buildUpdatedSavedViewBody({ isDisabled: true, name: "Attempted Rename" }),
 			}),
 		);
 
@@ -434,10 +431,11 @@ describe("Saved views E2E", () => {
 			c.savedViews.update({
 				path: { viewSlug: builtinView.slug },
 				payload: {
+					isDisabled: true,
 					icon: builtinView.icon,
 					name: builtinView.name,
-					isDisabled: true,
 					accentColor: builtinView.accentColor,
+					queryDocument: builtinView.queryDocument,
 					queryDefinition: builtinView.queryDefinition,
 					displayConfiguration: builtinView.displayConfiguration,
 					...(builtinView.trackerId ? { trackerId: builtinView.trackerId } : {}),
@@ -450,10 +448,11 @@ describe("Saved views E2E", () => {
 			c.savedViews.update({
 				path: { viewSlug: builtinView.slug },
 				payload: {
+					isDisabled: false,
 					icon: builtinView.icon,
 					name: builtinView.name,
-					isDisabled: false,
 					accentColor: builtinView.accentColor,
+					queryDocument: builtinView.queryDocument,
 					queryDefinition: builtinView.queryDefinition,
 					displayConfiguration: builtinView.displayConfiguration,
 					...(builtinView.trackerId ? { trackerId: builtinView.trackerId } : {}),

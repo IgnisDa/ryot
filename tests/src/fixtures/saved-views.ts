@@ -9,6 +9,7 @@ import { TrackerId } from "@ryot/app-backend/schema/brands";
 import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 import type { ContractPayload, ContractSuccess } from "./contract-client";
+import { systemRef } from "./query-engine-v2";
 import {
 	type ExpressionInput,
 	entityField,
@@ -39,6 +40,7 @@ type CreateSavedViewBody = ContractPayload<"savedViews", "create">;
 type UpdateSavedViewBody = ContractPayload<"savedViews", "update">;
 type ReorderSavedViewsBody = ContractPayload<"savedViews", "reorder">;
 type QueryDefinition = CreateSavedViewBody["queryDefinition"];
+export type SavedViewQueryDocument = CreateSavedViewBody["queryDocument"];
 
 type SavedViewRecord = ContractSuccess<"savedViews", "get">;
 
@@ -153,6 +155,17 @@ const defaultDisplayConfiguration = {
 	},
 } satisfies DisplayConfigurationInput;
 
+const defaultQueryDocument: SavedViewQueryDocument = {
+	version: 2,
+	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
+	output: {
+		type: "rows",
+		pagination: { page: 1, limit: 20 },
+		fields: [{ key: "name", expr: systemRef("book", "name") }],
+		orderBy: [{ order: "asc", expr: systemRef("book", "name") }],
+	},
+};
+
 const defaultUpdatedQueryDefinition: QueryDefinition = {
 	eventJoins: [],
 	computedFields: [],
@@ -167,7 +180,12 @@ const defaultUpdatedQueryDefinition: QueryDefinition = {
 };
 
 export function buildSavedViewBody(overrides: CreateSavedViewInput = {}): CreateSavedViewBody {
-	const { displayConfiguration: displayOverride, queryDefinition, ...rest } = overrides;
+	const {
+		displayConfiguration: displayOverride,
+		queryDefinition,
+		queryDocument,
+		...rest
+	} = overrides;
 	const displayConfiguration = displayOverride
 		? normalizeDisplayConfiguration(mergeDisplayConfigurationInput(displayOverride))
 		: normalizeDisplayConfiguration(defaultDisplayConfiguration);
@@ -177,6 +195,7 @@ export function buildSavedViewBody(overrides: CreateSavedViewInput = {}): Create
 		displayConfiguration,
 		accentColor: "#FF5733",
 		name: `Saved View ${crypto.randomUUID()}`,
+		queryDocument: queryDocument ?? defaultQueryDocument,
 		queryDefinition: queryDefinition ?? defaultQueryDefinition,
 		...rest,
 	};
@@ -185,7 +204,12 @@ export function buildSavedViewBody(overrides: CreateSavedViewInput = {}): Create
 export function buildUpdatedSavedViewBody(
 	overrides: UpdateSavedViewInput = {},
 ): UpdateSavedViewBody {
-	const { displayConfiguration: displayOverride, queryDefinition, ...rest } = overrides;
+	const {
+		displayConfiguration: displayOverride,
+		queryDefinition,
+		queryDocument,
+		...rest
+	} = overrides;
 	const displayConfiguration = displayOverride
 		? normalizeDisplayConfiguration(mergeDisplayConfigurationInput(displayOverride), false)
 		: normalizeDisplayConfiguration({
@@ -219,10 +243,25 @@ export function buildUpdatedSavedViewBody(
 		displayConfiguration,
 		accentColor: "#00AA88",
 		name: `Updated View ${crypto.randomUUID()}`,
+		queryDocument: queryDocument ?? defaultQueryDocument,
 		queryDefinition: queryDefinition ?? defaultUpdatedQueryDefinition,
 		isDisabled: false,
 		...rest,
 	};
+}
+
+export function buildSavedViewQueryDocumentBody(
+	queryDocument: SavedViewQueryDocument,
+	overrides: CreateSavedViewInput = {},
+): CreateSavedViewBody {
+	return { ...buildSavedViewBody(overrides), queryDocument };
+}
+
+export function buildUpdatedSavedViewQueryDocumentBody(
+	queryDocument: SavedViewQueryDocument,
+	overrides: UpdateSavedViewInput = {},
+): UpdateSavedViewBody {
+	return { ...buildUpdatedSavedViewBody(overrides), queryDocument };
 }
 
 export async function createSavedView(
@@ -230,6 +269,16 @@ export async function createSavedView(
 	overrides: CreateSavedViewInput = {},
 ): Promise<SavedViewRecord> {
 	return client.run((c) => c.savedViews.create({ payload: buildSavedViewBody(overrides) }));
+}
+
+export async function createSavedViewWithQueryDocument(
+	client: Client,
+	queryDocument: SavedViewQueryDocument,
+	overrides: CreateSavedViewInput = {},
+): Promise<SavedViewRecord> {
+	return client.run((c) =>
+		c.savedViews.create({ payload: buildSavedViewQueryDocumentBody(queryDocument, overrides) }),
+	);
 }
 
 export async function listSavedViews(
@@ -266,6 +315,20 @@ export async function updateSavedView(
 		c.savedViews.update({
 			path: { viewSlug },
 			payload: buildUpdatedSavedViewBody(overrides),
+		}),
+	);
+}
+
+export async function updateSavedViewWithQueryDocument(
+	client: Client,
+	viewSlug: string,
+	queryDocument: SavedViewQueryDocument,
+	overrides: UpdateSavedViewInput = {},
+): Promise<SavedViewRecord> {
+	return client.run((c) =>
+		c.savedViews.update({
+			path: { viewSlug },
+			payload: buildUpdatedSavedViewQueryDocumentBody(queryDocument, overrides),
 		}),
 	);
 }
