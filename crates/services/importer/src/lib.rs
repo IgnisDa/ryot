@@ -17,8 +17,7 @@ use dependent_provider_utils::{
     get_google_books_service, get_hardcover_service, get_openlibrary_service,
     get_tmdb_non_media_service,
 };
-use enum_models::ImportSource;
-use enum_models::{ExerciseLot, ExerciseSource};
+use enum_models::{ExerciseLot, ExerciseSource, ImportSource};
 use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::DeployImportJobInput;
 use rust_decimal::dec;
