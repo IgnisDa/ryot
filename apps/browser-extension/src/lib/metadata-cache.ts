@@ -34,7 +34,7 @@ export class MetadataCache {
 		const cacheKey = this.getCacheKey(title);
 		const cachedData = await storage.getItem<MetadataLookupData>(cacheKey);
 
-		return cachedData || null;
+		return cachedData ?? null;
 	}
 
 	async lookupAndCacheMetadata() {
@@ -61,6 +61,7 @@ export class MetadataCache {
 					cacheKey,
 					responseData: response.data,
 				});
+				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- cross-process runtime message payload is typed any; runtime validation is disproportionate here
 				return response.data as MetadataLookupData;
 			}
 
