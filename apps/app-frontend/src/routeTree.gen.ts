@@ -10,10 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StartRouteImport } from './routes/start'
-import { Route as ThemesRouteRouteImport } from './routes/themes/route'
 import { Route as ProtectedRouteRouteImport } from './routes/_protected/route'
-import { Route as ThemesIndexRouteImport } from './routes/themes/index'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
+import { Route as ProtectedSavedViewLabRouteImport } from './routes/_protected/saved-view-lab'
 import { Route as ProtectedTrackerSlugIndexRouteImport } from './routes/_protected/$trackerSlug/index'
 import { Route as ProtectedTrackerSlugEntityIdRouteImport } from './routes/_protected/$trackerSlug/$entityId'
 import { Route as ProtectedTrackerSlugViewsViewIdRouteImport } from './routes/_protected/$trackerSlug/views/$viewId'
@@ -23,23 +22,18 @@ const StartRoute = StartRouteImport.update({
   path: '/start',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ThemesRouteRoute = ThemesRouteRouteImport.update({
-  id: '/themes',
-  path: '/themes',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ProtectedRouteRoute = ProtectedRouteRouteImport.update({
   id: '/_protected',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ThemesIndexRoute = ThemesIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ThemesRouteRoute,
-} as any)
 const ProtectedIndexRoute = ProtectedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => ProtectedRouteRoute,
+} as any)
+const ProtectedSavedViewLabRoute = ProtectedSavedViewLabRouteImport.update({
+  id: '/saved-view-lab',
+  path: '/saved-view-lab',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
 const ProtectedTrackerSlugIndexRoute =
@@ -63,17 +57,16 @@ const ProtectedTrackerSlugViewsViewIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof ProtectedIndexRoute
-  '/themes': typeof ThemesRouteRouteWithChildren
   '/start': typeof StartRoute
-  '/themes/': typeof ThemesIndexRoute
+  '/saved-view-lab': typeof ProtectedSavedViewLabRoute
   '/$trackerSlug/$entityId': typeof ProtectedTrackerSlugEntityIdRoute
   '/$trackerSlug/': typeof ProtectedTrackerSlugIndexRoute
   '/$trackerSlug/views/$viewId': typeof ProtectedTrackerSlugViewsViewIdRoute
 }
 export interface FileRoutesByTo {
   '/start': typeof StartRoute
+  '/saved-view-lab': typeof ProtectedSavedViewLabRoute
   '/': typeof ProtectedIndexRoute
-  '/themes': typeof ThemesIndexRoute
   '/$trackerSlug/$entityId': typeof ProtectedTrackerSlugEntityIdRoute
   '/$trackerSlug': typeof ProtectedTrackerSlugIndexRoute
   '/$trackerSlug/views/$viewId': typeof ProtectedTrackerSlugViewsViewIdRoute
@@ -81,10 +74,9 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_protected': typeof ProtectedRouteRouteWithChildren
-  '/themes': typeof ThemesRouteRouteWithChildren
   '/start': typeof StartRoute
+  '/_protected/saved-view-lab': typeof ProtectedSavedViewLabRoute
   '/_protected/': typeof ProtectedIndexRoute
-  '/themes/': typeof ThemesIndexRoute
   '/_protected/$trackerSlug/$entityId': typeof ProtectedTrackerSlugEntityIdRoute
   '/_protected/$trackerSlug/': typeof ProtectedTrackerSlugIndexRoute
   '/_protected/$trackerSlug/views/$viewId': typeof ProtectedTrackerSlugViewsViewIdRoute
@@ -93,27 +85,25 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/themes'
     | '/start'
-    | '/themes/'
+    | '/saved-view-lab'
     | '/$trackerSlug/$entityId'
     | '/$trackerSlug/'
     | '/$trackerSlug/views/$viewId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/start'
+    | '/saved-view-lab'
     | '/'
-    | '/themes'
     | '/$trackerSlug/$entityId'
     | '/$trackerSlug'
     | '/$trackerSlug/views/$viewId'
   id:
     | '__root__'
     | '/_protected'
-    | '/themes'
     | '/start'
+    | '/_protected/saved-view-lab'
     | '/_protected/'
-    | '/themes/'
     | '/_protected/$trackerSlug/$entityId'
     | '/_protected/$trackerSlug/'
     | '/_protected/$trackerSlug/views/$viewId'
@@ -121,7 +111,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   ProtectedRouteRoute: typeof ProtectedRouteRouteWithChildren
-  ThemesRouteRoute: typeof ThemesRouteRouteWithChildren
   StartRoute: typeof StartRoute
 }
 
@@ -134,13 +123,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StartRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/themes': {
-      id: '/themes'
-      path: '/themes'
-      fullPath: '/themes'
-      preLoaderRoute: typeof ThemesRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_protected': {
       id: '/_protected'
       path: ''
@@ -148,18 +130,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/themes/': {
-      id: '/themes/'
-      path: '/'
-      fullPath: '/themes/'
-      preLoaderRoute: typeof ThemesIndexRouteImport
-      parentRoute: typeof ThemesRouteRoute
-    }
     '/_protected/': {
       id: '/_protected/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof ProtectedIndexRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
+    '/_protected/saved-view-lab': {
+      id: '/_protected/saved-view-lab'
+      path: '/saved-view-lab'
+      fullPath: '/saved-view-lab'
+      preLoaderRoute: typeof ProtectedSavedViewLabRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
     '/_protected/$trackerSlug/': {
@@ -187,6 +169,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface ProtectedRouteRouteChildren {
+  ProtectedSavedViewLabRoute: typeof ProtectedSavedViewLabRoute
   ProtectedIndexRoute: typeof ProtectedIndexRoute
   ProtectedTrackerSlugEntityIdRoute: typeof ProtectedTrackerSlugEntityIdRoute
   ProtectedTrackerSlugIndexRoute: typeof ProtectedTrackerSlugIndexRoute
@@ -194,6 +177,7 @@ interface ProtectedRouteRouteChildren {
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
+  ProtectedSavedViewLabRoute: ProtectedSavedViewLabRoute,
   ProtectedIndexRoute: ProtectedIndexRoute,
   ProtectedTrackerSlugEntityIdRoute: ProtectedTrackerSlugEntityIdRoute,
   ProtectedTrackerSlugIndexRoute: ProtectedTrackerSlugIndexRoute,
@@ -204,21 +188,8 @@ const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(
   ProtectedRouteRouteChildren,
 )
 
-interface ThemesRouteRouteChildren {
-  ThemesIndexRoute: typeof ThemesIndexRoute
-}
-
-const ThemesRouteRouteChildren: ThemesRouteRouteChildren = {
-  ThemesIndexRoute: ThemesIndexRoute,
-}
-
-const ThemesRouteRouteWithChildren = ThemesRouteRoute._addFileChildren(
-  ThemesRouteRouteChildren,
-)
-
 const rootRouteChildren: RootRouteChildren = {
   ProtectedRouteRoute: ProtectedRouteRouteWithChildren,
-  ThemesRouteRoute: ThemesRouteRouteWithChildren,
   StartRoute: StartRoute,
 }
 export const routeTree = rootRouteImport
