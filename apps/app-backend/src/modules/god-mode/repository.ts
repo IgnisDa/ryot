@@ -33,7 +33,7 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 						id: schema.user.id,
 						name: schema.user.name,
 						email: schema.user.email,
-						bannedAt: schema.user.bannedAt,
+						disabledAt: schema.user.disabledAt,
 						createdAt: schema.user.createdAt,
 						twoFactorEnabled: schema.user.twoFactorEnabled,
 					})
@@ -49,7 +49,7 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 				name: row.name,
 				email: row.email,
 				createdAt: row.createdAt.toISOString(),
-				bannedAt: row.bannedAt?.toISOString() ?? null,
+				disabledAt: row.disabledAt?.toISOString() ?? null,
 				twoFactorEnabled: row.twoFactorEnabled ?? null,
 			}));
 		});
@@ -92,13 +92,13 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 			return row ?? null;
 		});
 
-		const findUserBanState = Effect.fn("GodModeRepository.findUserBanState")(function* (
+		const findUserDisabledState = Effect.fn("GodModeRepository.findUserDisabledState")(function* (
 			userId: UserId,
 		) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
 				db
-					.select({ id: schema.user.id, bannedAt: schema.user.bannedAt })
+					.select({ id: schema.user.id, disabledAt: schema.user.disabledAt })
 					.from(schema.user)
 					.where(eq(schema.user.id, userId))
 					.limit(1),
@@ -106,16 +106,16 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 			return row ?? null;
 		});
 
-		const updateUserBan = Effect.fn("GodModeRepository.updateUserBan")(function* (input: {
+		const updateUserDisabled = Effect.fn("GodModeRepository.updateUserDisabled")(function* (input: {
 			userId: UserId;
-			bannedAt: Date | null;
+			disabledAt: Date | null;
 			updatedAt: Date;
 		}) {
 			const db = yield* CurrentDb;
 			yield* dbEffect(() =>
 				db
 					.update(schema.user)
-					.set({ bannedAt: input.bannedAt, updatedAt: input.updatedAt })
+					.set({ disabledAt: input.disabledAt, updatedAt: input.updatedAt })
 					.where(eq(schema.user.id, input.userId)),
 			);
 		});
@@ -124,8 +124,8 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 			countUsers,
 			listUserRows,
 			findUserById,
-			updateUserBan,
-			findUserBanState,
+			updateUserDisabled,
+			findUserDisabledState,
 			findUserIdByEmail,
 			listAccountsForUsers,
 		};
