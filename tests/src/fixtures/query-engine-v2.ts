@@ -4,6 +4,7 @@ import type { Client } from "./auth";
 import type { ContractPayload, ContractSuccess } from "./contract-client";
 import { createEntity } from "./entities";
 import { createEntitySchema } from "./entity-schemas";
+import { pollUntil } from "./polling";
 import { createTracker } from "./trackers";
 
 export type V2RowValue = V2RowItem[string];
@@ -56,19 +57,44 @@ export async function createV2Entity(
 
 export async function createV2Event(
 	client: Client,
-	input: { entityId: string; eventSchemaId: string; properties?: Record<string, unknown> },
+	input: {
+		entityId: string;
+		occurredAt?: string;
+		eventSchemaId: string;
+		properties?: Record<string, unknown>;
+	},
 ) {
-	return client.run((c) =>
+	const result = await client.run((c) =>
 		c.events.create({
 			payload: [
 				{
 					entityId: EntityId.make(input.entityId),
 					properties: input.properties ?? {},
+					...(input.occurredAt ? { occurredAt: input.occurredAt } : {}),
 					eventSchemaId: EventSchemaId.make(input.eventSchemaId),
 				},
 			],
 		}),
 	);
+
+	await pollUntil(
+		`query-engine-v2 event ${input.eventSchemaId} on entity ${input.entityId}`,
+		async () => {
+			const events = await client.run((c) =>
+				c.events.list({ urlParams: { entityId: EntityId.make(input.entityId) } }),
+			);
+			return (
+				events.find(
+					(event) =>
+						event.eventSchemaId === input.eventSchemaId &&
+						(input.occurredAt === undefined || event.occurredAt === input.occurredAt),
+				) ?? null
+			);
+		},
+		{ timeoutMs: 15000, intervalMs: 250 },
+	);
+
+	return result;
 }
 
 export const systemRef = (
