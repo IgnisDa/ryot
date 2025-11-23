@@ -9,17 +9,16 @@ You can import your watched movies and shows from [Watcharr](https://github.com/
 
 ## Exporting from Watcharr
 
-1. Log into your Watcharr instance
-2. Navigate to the Settings page
-3. Go to the Data section
-4. Click "Export" to download your data as a JSON file
+1. Log into your Watcharr instance.
+2. Navigate to the Profile page and scroll to the bottom.
+3. Click "Export" to download your data as a JSON file.
 
 ## Importing into Ryot
 
-1. Upload the exported JSON file in the Ryot import page
-2. Select "Watcharr" as the import source
-3. Choose the JSON file you exported from Watcharr
-4. Click "Import" to start the import process
+1. Upload the exported JSON file in the Ryot import page.
+2. Select "Watcharr" as the import source.
+3. Choose the JSON file you exported from Watcharr.
+4. Click "Import" to start the import process.
 
 ## What gets imported
 
@@ -32,8 +31,3 @@ You can import your watched movies and shows from [Watcharr](https://github.com/
   - Items marked as "Dropped" are added to a "Dropped" collection
   - Pinned items are added to a "Pinned" collection
 - **Status**: Watch status (Finished, Watching, Planned, Dropped) is preserved
-
-::: warning
-The import is a one-time operation and will create duplicates if run multiple times on the
-same data. Make sure to export your database before importing.
-:::
