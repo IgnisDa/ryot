@@ -17,10 +17,24 @@ type TestSandboxExecutor = {
 	) => Promise<unknown>;
 };
 
+type SandboxCall = {
+	method: unknown;
+	options: unknown;
+	path: unknown;
+	runIndex: number;
+};
+
 const createScriptFetcher = () => ({
 	code: autoCompleteOnFullProgressScriptCode,
 	metadata: { allowedHostFunctions: ["appApiCall"] },
 });
+
+const createProgressEvent = (
+	id: string,
+	occurredAt: string,
+	createdAt: string,
+	properties: Record<string, unknown>,
+) => ({ id, createdAt, occurredAt, properties });
 
 const createTriggerContext = (overrides: Record<string, unknown> = {}) => ({
 	trigger: {
@@ -31,85 +45,141 @@ const createTriggerContext = (overrides: Record<string, unknown> = {}) => ({
 		eventSchemaId: "schema_progress",
 		entitySchemaId: "entity_schema_1",
 		properties: { progressPercent: 100 },
+		createdAt: "2024-01-04T00:00:00.000Z",
+		updatedAt: "2024-01-04T00:00:00.000Z",
+		occurredAt: "2024-01-04T00:00:00.000Z",
 		...overrides,
 	},
 });
 
-describe("auto-complete-on-full-progress sandbox script", () => {
-	it("creates a completion event after anime coverage is complete", async () => {
-		const service = new SandboxService();
+const createSandboxHarness = (respond: (call: SandboxCall) => unknown) => {
+	const service = new SandboxService();
+	// oxlint-disable-next-line no-unsafe-type-assertion
+	const testService = service as unknown as TestSandboxExecutor;
+	const calls: SandboxCall[] = [];
+	let runIndex = 0;
+
+	testService.execute = async (options: unknown) => {
+		runIndex += 1;
+		const currentRunIndex = runIndex;
 		// oxlint-disable-next-line no-unsafe-type-assertion
-		const testService = service as unknown as TestSandboxExecutor;
-		const calls: Array<{ method: unknown; path: unknown; options: unknown }> = [];
+		const executeOptions = options as {
+			code: string;
+			driverName: string;
+			context: Record<string, unknown>;
+			apiFunctions: { appApiCall: (...args: Array<unknown>) => Promise<unknown> };
+		};
 
-		testService.execute = async (options: unknown) => {
-			// oxlint-disable-next-line no-unsafe-type-assertion
-			const executeOptions = options as {
-				code: string;
-				driverName: string;
-				context: Record<string, unknown>;
-				apiFunctions: {
-					appApiCall: (...args: Array<unknown>) => Promise<unknown>;
-				};
-			};
+		const driverRegistry: Record<string, (context: unknown) => Promise<unknown>> = {};
+		const appApiCall = (method: unknown, path: unknown, apiOptions?: unknown) => {
+			const call = { method, path, options: apiOptions, runIndex: currentRunIndex };
+			calls.push(call);
+			return Promise.resolve(respond(call));
+		};
 
-			const driverRegistry: Record<string, (context: unknown) => Promise<unknown>> = {};
-			const respond = (method: unknown, path: unknown, apiOptions?: unknown) => {
-				calls.push({ method, path, options: apiOptions });
-				if (path === "/event-schemas?entitySchemaId=entity_schema_1") {
-					return Promise.resolve({
-						success: true,
-						data: {
-							body: { data: [{ id: "complete_schema", slug: "complete" }] },
-						},
-					});
-				}
-				if (path === "/entities/entity_1") {
-					return Promise.resolve({
-						success: true,
-						data: { body: { data: { properties: { episodes: 2 } } } },
-					});
-				}
-				if (path === "/events?entityId=entity_1&eventSchemaSlug=progress") {
+		// oxlint-disable-next-line no-implied-eval
+		new Function("driver", "appApiCall", executeOptions.code)(function driver(
+			name: string,
+			fn: (context: unknown) => Promise<unknown>,
+		) {
+			driverRegistry[name] = fn;
+		}, appApiCall);
+
+		await driverRegistry[executeOptions.driverName]?.(executeOptions.context);
+
+		return { success: true, logs: null, error: null, value: null };
+	};
+
+	return { calls, testService };
+};
+
+describe("auto-complete-on-full-progress sandbox script", () => {
+	it("emits repeated episodic completions using occurredAt chronology", async () => {
+		const { calls, testService } = createSandboxHarness((call) => {
+			if (call.path === "/event-schemas?entitySchemaId=entity_schema_1") {
+				return Promise.resolve({
+					success: true,
+					data: { body: { data: [{ id: "complete_schema", slug: "complete" }] } },
+				});
+			}
+
+			if (call.path === "/entities/entity_1") {
+				return Promise.resolve({
+					success: true,
+					data: { body: { data: { properties: { episodes: 2 } } } },
+				});
+			}
+
+			if (call.path === "/events?entityId=entity_1&eventSchemaSlug=progress") {
+				if (call.runIndex === 1) {
 					return Promise.resolve({
 						success: true,
 						data: {
 							body: {
 								data: [
-									{
-										id: "event_1",
-										createdAt: "2024-01-01T00:00:00.000Z",
-										properties: { progressPercent: 100, animeEpisode: 1 },
-									},
-									{
-										id: "event_2",
-										createdAt: "2024-01-02T00:00:00.000Z",
-										properties: { progressPercent: 100, animeEpisode: 2 },
-									},
+									createProgressEvent(
+										"event_2",
+										"2024-01-02T00:00:00.000Z",
+										"2024-01-03T00:00:00.000Z",
+										{ progressPercent: 100, animeEpisode: 2, consumedOn: "Crunchyroll" },
+									),
+									createProgressEvent(
+										"event_1",
+										"2024-01-01T00:00:00.000Z",
+										"2024-01-04T00:00:00.000Z",
+										{ progressPercent: 100, animeEpisode: 1 },
+									),
 								],
 							},
 						},
 					});
 				}
-				if (method === "POST" && path === "/events") {
-					return Promise.resolve({ success: true, data: { body: { data: { count: 1 } } } });
+
+				if (call.runIndex === 2) {
+					return Promise.resolve({
+						success: true,
+						data: {
+							body: {
+								data: [
+									createProgressEvent(
+										"event_4",
+										"2024-01-04T00:00:00.000Z",
+										"2024-01-01T00:00:00.000Z",
+										{ progressPercent: 100, animeEpisode: 2, consumedOn: "Crunchyroll" },
+									),
+									createProgressEvent(
+										"event_3",
+										"2024-01-03T00:00:00.000Z",
+										"2024-01-02T00:00:00.000Z",
+										{ progressPercent: 100, animeEpisode: 1 },
+									),
+									createProgressEvent(
+										"event_2",
+										"2024-01-02T00:00:00.000Z",
+										"2024-01-03T00:00:00.000Z",
+										{ progressPercent: 100, animeEpisode: 2, consumedOn: "Crunchyroll" },
+									),
+									createProgressEvent(
+										"event_1",
+										"2024-01-01T00:00:00.000Z",
+										"2024-01-04T00:00:00.000Z",
+										{ progressPercent: 100, animeEpisode: 1 },
+									),
+								],
+							},
+						},
+					});
 				}
 
-				throw new Error(`Unexpected appApiCall: ${String(method)} ${String(path)}`);
-			};
+				throw new Error(`Unexpected progress event lookup for run ${String(call.runIndex)}`);
+			}
 
-			// oxlint-disable-next-line no-implied-eval
-			new Function("driver", "appApiCall", executeOptions.code)(function driver(
-				name: string,
-				fn: (context: unknown) => Promise<unknown>,
-			) {
-				driverRegistry[name] = fn;
-			}, respond);
+			if (call.method === "POST" && call.path === "/events") {
+				return Promise.resolve({ success: true, data: { body: { data: { count: 1 } } } });
+			}
 
-			await driverRegistry[executeOptions.driverName]?.(executeOptions.context);
-
-			return { success: true, logs: null, error: null, value: null };
-		};
+			throw new Error(`Unexpected appApiCall: ${String(call.method)} ${String(call.path)}`);
+		});
 
 		await testService.executeQueuedRun(
 			{
@@ -118,7 +188,260 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 				driverName: "trigger",
 				context: createTriggerContext({
 					eventId: "event_2",
+					entitySchemaSlug: "anime",
+					createdAt: "2024-01-03T00:00:00.000Z",
+					updatedAt: "2024-01-03T00:00:00.000Z",
+					occurredAt: "2024-01-02T00:00:00.000Z",
+					inheritedProperties: { consumedOn: "Crunchyroll" },
 					properties: { progressPercent: 100, animeEpisode: 2 },
+				}),
+			},
+			() => Promise.resolve(createScriptFetcher()),
+		);
+
+		await testService.executeQueuedRun(
+			{
+				userId: "user_1",
+				scriptId: "script_1",
+				driverName: "trigger",
+				context: createTriggerContext({
+					eventId: "event_4",
+					entitySchemaSlug: "anime",
+					createdAt: "2024-01-01T00:00:00.000Z",
+					updatedAt: "2024-01-01T00:00:00.000Z",
+					occurredAt: "2024-01-04T00:00:00.000Z",
+					inheritedProperties: { consumedOn: "Crunchyroll" },
+					properties: { progressPercent: 100, animeEpisode: 2 },
+				}),
+			},
+			() => Promise.resolve(createScriptFetcher()),
+		);
+
+		const postCalls = calls.filter((call) => call.method === "POST" && call.path === "/events");
+		expect(postCalls).toHaveLength(2);
+		expect(postCalls[0]?.options).toEqual({
+			body: [
+				{
+					entityId: "entity_1",
+					eventSchemaId: "complete_schema",
+					occurredAt: "2024-01-02T00:00:00.000Z",
+					properties: {
+						consumedOn: "Crunchyroll",
+						completionMode: "custom_timestamps",
+						completedOn: "2024-01-02T00:00:00.000Z",
+					},
+				},
+			],
+		});
+		expect(postCalls[1]?.options).toEqual({
+			body: [
+				{
+					entityId: "entity_1",
+					eventSchemaId: "complete_schema",
+					occurredAt: "2024-01-04T00:00:00.000Z",
+					properties: {
+						consumedOn: "Crunchyroll",
+						completionMode: "custom_timestamps",
+						completedOn: "2024-01-04T00:00:00.000Z",
+					},
+				},
+			],
+		});
+	});
+
+	it("uses createdAt to break same occurredAt ties", async () => {
+		const { calls, testService } = createSandboxHarness((call) => {
+			if (call.path === "/event-schemas?entitySchemaId=entity_schema_1") {
+				return Promise.resolve({
+					success: true,
+					data: { body: { data: [{ id: "complete_schema", slug: "complete" }] } },
+				});
+			}
+
+			if (call.path === "/entities/entity_1") {
+				return Promise.resolve({
+					success: true,
+					data: { body: { data: { properties: { episodes: 2 } } } },
+				});
+			}
+
+			if (call.path === "/events?entityId=entity_1&eventSchemaSlug=progress") {
+				return Promise.resolve({
+					success: true,
+					data: {
+						body: {
+							data: [
+								createProgressEvent(
+									"event_b",
+									"2024-01-01T00:00:00.000Z",
+									"2024-01-01T00:00:00.000Z",
+									{ progressPercent: 100, animeEpisode: 1 },
+								),
+								createProgressEvent(
+									"event_a",
+									"2024-01-01T00:00:00.000Z",
+									"2024-01-02T00:00:00.000Z",
+									{ progressPercent: 100, animeEpisode: 2 },
+								),
+							],
+						},
+					},
+				});
+			}
+
+			if (call.method === "POST" && call.path === "/events") {
+				return Promise.resolve({ success: true, data: { body: { data: { count: 1 } } } });
+			}
+
+			throw new Error(`Unexpected appApiCall: ${String(call.method)} ${String(call.path)}`);
+		});
+
+		await testService.executeQueuedRun(
+			{
+				userId: "user_1",
+				scriptId: "script_1",
+				driverName: "trigger",
+				context: createTriggerContext({
+					eventId: "event_a",
+					entitySchemaSlug: "anime",
+					createdAt: "2024-01-02T00:00:00.000Z",
+					updatedAt: "2024-01-02T00:00:00.000Z",
+					occurredAt: "2024-01-01T00:00:00.000Z",
+					properties: { progressPercent: 100, animeEpisode: 2 },
+				}),
+			},
+			() => Promise.resolve(createScriptFetcher()),
+		);
+
+		const postCalls = calls.filter((call) => call.method === "POST" && call.path === "/events");
+		expect(postCalls).toHaveLength(1);
+		expect(postCalls[0]?.options).toEqual({
+			body: [
+				{
+					entityId: "entity_1",
+					eventSchemaId: "complete_schema",
+					occurredAt: "2024-01-01T00:00:00.000Z",
+					properties: {
+						completionMode: "custom_timestamps",
+						completedOn: "2024-01-01T00:00:00.000Z",
+					},
+				},
+			],
+		});
+	});
+
+	it("uses occurredAt chronology to choose the emitter for backfilled events", async () => {
+		const { calls, testService } = createSandboxHarness((call) => {
+			if (call.path === "/event-schemas?entitySchemaId=entity_schema_1") {
+				return Promise.resolve({
+					success: true,
+					data: { body: { data: [{ id: "complete_schema", slug: "complete" }] } },
+				});
+			}
+
+			if (call.path === "/entities/entity_1") {
+				return Promise.resolve({
+					success: true,
+					data: { body: { data: { properties: { episodes: 2 } } } },
+				});
+			}
+
+			if (call.path === "/events?entityId=entity_1&eventSchemaSlug=progress") {
+				return Promise.resolve({
+					success: true,
+					data: {
+						body: {
+							data: [
+								createProgressEvent(
+									"event_a",
+									"2024-01-01T00:00:00.000Z",
+									"2024-01-02T00:00:00.000Z",
+									{ progressPercent: 100, animeEpisode: 1 },
+								),
+								createProgressEvent(
+									"event_b",
+									"2024-01-02T00:00:00.000Z",
+									"2024-01-01T00:00:00.000Z",
+									{ progressPercent: 100, animeEpisode: 2 },
+								),
+							],
+						},
+					},
+				});
+			}
+
+			if (call.method === "POST" && call.path === "/events") {
+				return Promise.resolve({ success: true, data: { body: { data: { count: 1 } } } });
+			}
+
+			throw new Error(`Unexpected appApiCall: ${String(call.method)} ${String(call.path)}`);
+		});
+
+		await testService.executeQueuedRun(
+			{
+				userId: "user_1",
+				scriptId: "script_1",
+				driverName: "trigger",
+				context: createTriggerContext({
+					eventId: "event_b",
+					entitySchemaSlug: "anime",
+					createdAt: "2024-01-01T00:00:00.000Z",
+					updatedAt: "2024-01-01T00:00:00.000Z",
+					occurredAt: "2024-01-02T00:00:00.000Z",
+					properties: { progressPercent: 100, animeEpisode: 2 },
+				}),
+			},
+			() => Promise.resolve(createScriptFetcher()),
+		);
+
+		const postCalls = calls.filter((call) => call.method === "POST" && call.path === "/events");
+		expect(postCalls).toHaveLength(1);
+		expect(postCalls[0]?.options).toEqual({
+			body: [
+				{
+					entityId: "entity_1",
+					eventSchemaId: "complete_schema",
+					occurredAt: "2024-01-02T00:00:00.000Z",
+					properties: {
+						completionMode: "custom_timestamps",
+						completedOn: "2024-01-02T00:00:00.000Z",
+					},
+				},
+			],
+		});
+	});
+
+	it("exits when episodic required coverage is missing", async () => {
+		const { calls, testService } = createSandboxHarness((call) => {
+			if (call.path === "/event-schemas?entitySchemaId=entity_schema_1") {
+				return Promise.resolve({
+					success: true,
+					data: { body: { data: [{ id: "complete_schema", slug: "complete" }] } },
+				});
+			}
+
+			if (call.path === "/entities/entity_1") {
+				return Promise.resolve({
+					success: true,
+					data: { body: { data: { properties: { episodes: null } } } },
+				});
+			}
+
+			throw new Error(`Unexpected appApiCall: ${String(call.method)} ${String(call.path)}`);
+		});
+
+		await testService.executeQueuedRun(
+			{
+				userId: "user_1",
+				scriptId: "script_1",
+				driverName: "trigger",
+				context: createTriggerContext({
+					eventId: "event_missing",
+					entitySchemaSlug: "anime",
+					createdAt: "2024-01-01T00:00:00.000Z",
+					updatedAt: "2024-01-01T00:00:00.000Z",
+					occurredAt: "2024-01-01T00:00:00.000Z",
+					properties: { progressPercent: 100, animeEpisode: 1 },
 				}),
 			},
 			() => Promise.resolve(createScriptFetcher()),
@@ -127,15 +450,188 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 		expect(calls.map((call) => call.path)).toEqual([
 			"/event-schemas?entitySchemaId=entity_schema_1",
 			"/entities/entity_1",
-			"/events?entityId=entity_1&eventSchemaSlug=progress",
-			"/events",
 		]);
-		expect(calls.at(-1)?.options).toEqual({
+	});
+
+	it("exits when a non-special show season has no episodes", async () => {
+		const { calls, testService } = createSandboxHarness((call) => {
+			if (call.path === "/event-schemas?entitySchemaId=entity_schema_1") {
+				return Promise.resolve({
+					success: true,
+					data: { body: { data: [{ id: "complete_schema", slug: "complete" }] } },
+				});
+			}
+
+			if (call.path === "/entities/entity_1") {
+				return Promise.resolve({
+					success: true,
+					data: {
+						body: {
+							data: {
+								properties: { showSeasons: [{ episodes: [], seasonNumber: 1, name: "Season 1" }] },
+							},
+						},
+					},
+				});
+			}
+
+			throw new Error(`Unexpected appApiCall: ${String(call.method)} ${String(call.path)}`);
+		});
+
+		await testService.executeQueuedRun(
+			{
+				userId: "user_1",
+				scriptId: "script_1",
+				driverName: "trigger",
+				context: createTriggerContext({
+					entitySchemaSlug: "show",
+					eventId: "event_empty_regular",
+					createdAt: "2024-01-01T00:00:00.000Z",
+					updatedAt: "2024-01-01T00:00:00.000Z",
+					occurredAt: "2024-01-01T00:00:00.000Z",
+					properties: { progressPercent: 100, showSeason: 1, showEpisode: 1 },
+				}),
+			},
+			() => Promise.resolve(createScriptFetcher()),
+		);
+
+		expect(calls.map((call) => call.path)).toEqual([
+			"/event-schemas?entitySchemaId=entity_schema_1",
+			"/entities/entity_1",
+		]);
+	});
+
+	it("exits when episodic required coverage is empty", async () => {
+		const { calls, testService } = createSandboxHarness((call) => {
+			if (call.path === "/event-schemas?entitySchemaId=entity_schema_1") {
+				return Promise.resolve({
+					success: true,
+					data: { body: { data: [{ id: "complete_schema", slug: "complete" }] } },
+				});
+			}
+
+			if (call.path === "/entities/entity_1") {
+				return Promise.resolve({
+					success: true,
+					data: {
+						body: {
+							data: {
+								properties: {
+									showSeasons: [
+										{ name: "Specials", seasonNumber: 0, episodes: [{ episodeNumber: 1 }] },
+									],
+								},
+							},
+						},
+					},
+				});
+			}
+
+			throw new Error(`Unexpected appApiCall: ${String(call.method)} ${String(call.path)}`);
+		});
+
+		await testService.executeQueuedRun(
+			{
+				userId: "user_1",
+				scriptId: "script_1",
+				driverName: "trigger",
+				context: createTriggerContext({
+					eventId: "event_empty",
+					entitySchemaSlug: "show",
+					createdAt: "2024-01-01T00:00:00.000Z",
+					updatedAt: "2024-01-01T00:00:00.000Z",
+					occurredAt: "2024-01-01T00:00:00.000Z",
+					properties: { progressPercent: 100, showSeason: 0, showEpisode: 1 },
+				}),
+			},
+			() => Promise.resolve(createScriptFetcher()),
+		);
+
+		expect(calls.map((call) => call.path)).toEqual([
+			"/event-schemas?entitySchemaId=entity_schema_1",
+			"/entities/entity_1",
+		]);
+	});
+
+	it("creates a completion event for each non-episodic 100% progress event", async () => {
+		const { calls, testService } = createSandboxHarness((call) => {
+			if (call.path === "/event-schemas?entitySchemaId=entity_schema_1") {
+				return Promise.resolve({
+					success: true,
+					data: { body: { data: [{ id: "complete_schema", slug: "complete" }] } },
+				});
+			}
+
+			if (call.method === "POST" && call.path === "/events") {
+				return Promise.resolve({ success: true, data: { body: { data: { count: 1 } } } });
+			}
+
+			throw new Error(`Unexpected appApiCall: ${String(call.method)} ${String(call.path)}`);
+		});
+
+		await testService.executeQueuedRun(
+			{
+				userId: "user_1",
+				scriptId: "script_1",
+				driverName: "trigger",
+				context: createTriggerContext({
+					eventId: "event_1",
+					entitySchemaSlug: "movie",
+					properties: { progressPercent: 100 },
+					createdAt: "2024-01-01T00:00:00.000Z",
+					updatedAt: "2024-01-01T00:00:00.000Z",
+					occurredAt: "2024-01-01T00:00:00.000Z",
+					inheritedProperties: { consumedOn: "Netflix" },
+				}),
+			},
+			() => Promise.resolve(createScriptFetcher()),
+		);
+
+		await testService.executeQueuedRun(
+			{
+				userId: "user_1",
+				scriptId: "script_1",
+				driverName: "trigger",
+				context: createTriggerContext({
+					eventId: "event_2",
+					entitySchemaSlug: "movie",
+					properties: { progressPercent: 100 },
+					createdAt: "2024-01-02T00:00:00.000Z",
+					updatedAt: "2024-01-02T00:00:00.000Z",
+					occurredAt: "2024-01-02T00:00:00.000Z",
+					inheritedProperties: { consumedOn: "Hulu" },
+				}),
+			},
+			() => Promise.resolve(createScriptFetcher()),
+		);
+
+		const postCalls = calls.filter((call) => call.method === "POST" && call.path === "/events");
+		expect(postCalls).toHaveLength(2);
+		expect(postCalls[0]?.options).toEqual({
 			body: [
 				{
 					entityId: "entity_1",
 					eventSchemaId: "complete_schema",
-					properties: { completionMode: "just_now" },
+					occurredAt: "2024-01-01T00:00:00.000Z",
+					properties: {
+						consumedOn: "Netflix",
+						completionMode: "custom_timestamps",
+						completedOn: "2024-01-01T00:00:00.000Z",
+					},
+				},
+			],
+		});
+		expect(postCalls[1]?.options).toEqual({
+			body: [
+				{
+					entityId: "entity_1",
+					eventSchemaId: "complete_schema",
+					occurredAt: "2024-01-02T00:00:00.000Z",
+					properties: {
+						consumedOn: "Hulu",
+						completionMode: "custom_timestamps",
+						completedOn: "2024-01-02T00:00:00.000Z",
+					},
 				},
 			],
 		});
