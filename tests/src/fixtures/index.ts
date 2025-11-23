@@ -7,6 +7,7 @@ export * from "./entity-schemas";
 export * from "./event-schemas";
 export * from "./events";
 export * from "./imports";
+export * from "./notifications";
 export * from "./interest-sse";
 export * from "./measurements";
 export * from "./media";
