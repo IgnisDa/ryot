@@ -112,11 +112,3 @@ export const UpdateNotificationPlatformBody = Schema.Struct({
 });
 
 export type UpdateNotificationPlatformBody = typeof UpdateNotificationPlatformBody.Type;
-
-export const NotificationDeliveryResult = Schema.Struct({
-	platform: NotificationPlatformKind,
-	platformId: NotificationPlatformId,
-	status: Schema.Literal("sent", "failed"),
-});
-
-export type NotificationDeliveryResult = typeof NotificationDeliveryResult.Type;
