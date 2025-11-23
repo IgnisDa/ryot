@@ -7,6 +7,8 @@ import {
 	entitySchemaScript,
 	event,
 	eventSchema,
+	importRun,
+	importRunFailure,
 	relationship,
 	relationshipSchema,
 	sandboxScript,
@@ -167,5 +169,20 @@ export const savedViewRelations = relations(savedView, ({ one }) => ({
 	user: one(user, {
 		references: [user.id],
 		fields: [savedView.userId],
+	}),
+}));
+
+export const importRunRelations = relations(importRun, ({ one, many }) => ({
+	failures: many(importRunFailure),
+	user: one(user, {
+		references: [user.id],
+		fields: [importRun.userId],
+	}),
+}));
+
+export const importRunFailureRelations = relations(importRunFailure, ({ one }) => ({
+	run: one(importRun, {
+		references: [importRun.id],
+		fields: [importRunFailure.runId],
 	}),
 }));
