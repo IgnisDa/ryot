@@ -6,6 +6,7 @@ import { nonEmptyTrimmedStringSchema, timestampFields } from "~/lib/zod";
 export const listedEventSchema = z.object({
 	id: z.string(),
 	...timestampFields,
+	occurredAt: z.date(),
 	entityId: z.string(),
 	eventSchemaId: z.string(),
 	eventSchemaName: z.string(),
@@ -32,6 +33,7 @@ export const listEventsQuery = z
 export const createEventBody = z.object({
 	properties: unknownObjectSchema,
 	entityId: nonEmptyTrimmedStringSchema,
+	occurredAt: z.iso.datetime().optional(),
 	eventSchemaId: nonEmptyTrimmedStringSchema,
 	sessionEntityId: nonEmptyTrimmedStringSchema.optional(),
 });

@@ -25,7 +25,6 @@ export type BuiltInMediaOverviewSourceItem = {
 	backlogAt: Date | null;
 	progressAt: Date | null;
 	completeAt: Date | null;
-	completedOn: Date | null;
 	publishYear: number | null;
 	totalUnits: number | null;
 	reviewRating: number | null;
@@ -66,8 +65,7 @@ const resolveContinueProgressAt = (item: ContinueSourceItem) => item.progressAt;
 
 const resolveUpNextBacklogAt = (item: UpNextSourceItem) => item.backlogAt;
 
-const resolveRateTheseCompletedAt = (item: RateTheseSourceItem) =>
-	item.completedOn ?? item.completeAt;
+const resolveRateTheseCompletedAt = (item: RateTheseSourceItem) => item.completeAt;
 
 const formatNumber = (value: number) => {
 	if (Number.isInteger(value)) {
@@ -165,16 +163,8 @@ const compareUpNextSourceItems = (left: UpNextSourceItem, right: UpNextSourceIte
 
 const compareRateTheseSourceItems = (left: RateTheseSourceItem, right: RateTheseSourceItem) =>
 	compareRateTheseItems(
-		{
-			entityId: left.id,
-			completeAt: left.completeAt,
-			completedOn: left.completedOn,
-		},
-		{
-			entityId: right.id,
-			completeAt: right.completeAt,
-			completedOn: right.completedOn,
-		},
+		{ entityId: left.id, completeAt: left.completeAt },
+		{ entityId: right.id, completeAt: right.completeAt },
 	);
 
 export const buildBuiltInMediaOverviewResponse = (input: {

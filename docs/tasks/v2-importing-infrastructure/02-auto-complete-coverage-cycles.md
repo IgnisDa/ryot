@@ -14,6 +14,8 @@ For episodic media, the trigger should walk qualifying `progress(100)` events in
 
 If a package is used for multiset/data-structure clarity, update all package/cache locations required by the parent PRD: `apps/app-backend/package.json` if TypeScript code uses it, `apps/app-backend/src/lib/sandbox/constants.ts`, and the root `Dockerfile` Deno cache list. `mnemonist` is acceptable, but only use a dependency if it materially improves the script implementation.
 
+Update `apps/app-backend/src/modules/builtins/AGENTS.md` as part of this task. The update should cover both the event occurrence-time changes from Task 01 and the auto-complete coverage-cycle behavior from this task: state derivation must reference `occurredAt` rather than `createdAt`; past/backdated complete-event callers must pass explicit `occurredAt` rather than relying on `completedOn`; episodic auto-complete must describe repeated chronological coverage cycles; and missing/empty episodic coverage data must not imply completion.
+
 ## Acceptance criteria
 
 - [ ] The auto-complete trigger uses `trigger.occurredAt` and event `occurredAt` values for chronological cycle detection and completion timestamps.
@@ -27,6 +29,7 @@ If a package is used for multiset/data-structure clarity, update all package/cac
 - [ ] The trigger does not query existing complete events to calculate coverage cycles.
 - [ ] Sandbox script tests cover repeated episodic cycles, missing/empty coverage, non-episodic repeated completion, and inherited `occurredAt`/`consumedOn` behavior.
 - [ ] If a sandbox package is added, the vendored package list and Docker cache list stay in sync.
+- [ ] `apps/app-backend/src/modules/builtins/AGENTS.md` documents `occurredAt`-based media lifecycle state derivation, caller-owned historical `occurredAt`, repeated episodic coverage cycles, and missing/empty coverage behavior.
 
 ## User stories addressed
 

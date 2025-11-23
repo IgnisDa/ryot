@@ -1,4 +1,5 @@
 import type { AppSchema } from "@ryot/ts-utils/app-schema";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { resolveRequiredString } from "@ryot/ts-utils/slug";
 
 import { checkReadAccess } from "~/lib/access";
@@ -49,6 +50,13 @@ const eventSchemaNotFoundError = "Event schema not found";
 const eventSchemaMismatchError = "Event schema does not belong to the entity schema";
 const sessionEntityNotFoundError = "Session entity not found";
 
+export const resolveOccurredAt = (input: { occurredAt?: string }): Date => {
+	if (input.occurredAt) {
+		return dayjs(input.occurredAt).toDate();
+	}
+	return dayjs().toDate();
+};
+
 const enqueueEventSchemaTriggerJob = async (input: {
 	jobId: string;
 	userId: string;
@@ -57,10 +65,13 @@ const enqueueEventSchemaTriggerJob = async (input: {
 		trigger: {
 			eventId: string;
 			entityId: string;
+			createdAt: string;
+			updatedAt: string;
+			occurredAt: string;
 			eventSchemaId: string;
 			entitySchemaId: string;
-			entitySchemaSlug: string;
 			eventSchemaSlug: string;
+			entitySchemaSlug: string;
 			properties: Record<string, unknown>;
 		};
 	};
@@ -391,7 +402,10 @@ export const createEvent = async (
 		return libraryError;
 	}
 
+	const occurredAt = resolveOccurredAt({ occurredAt: input.body.occurredAt });
+
 	const createdEvent = await deps.createEventForUser({
+		occurredAt,
 		userId: input.userId,
 		entityId: eventInput.data.entityId,
 		properties: eventInput.data.properties,
@@ -477,6 +491,9 @@ export const processEventSchemaTriggers = async (
 					entitySchemaId: createdEvent.entitySchemaId,
 					eventSchemaSlug: createdEvent.eventSchemaSlug,
 					entitySchemaSlug: createdEvent.entitySchemaSlug,
+					createdAt: createdEvent.createdAt.toISOString(),
+					updatedAt: createdEvent.updatedAt.toISOString(),
+					occurredAt: createdEvent.occurredAt.toISOString(),
 				},
 			};
 

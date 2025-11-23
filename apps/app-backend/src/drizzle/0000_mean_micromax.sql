@@ -43,8 +43,8 @@ CREATE TABLE "entity" (
 	"external_id" text,
 	"name" text NOT NULL,
 	"image" jsonb,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"populated_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text,
 	"properties" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"entity_schema_id" text NOT NULL,
@@ -78,8 +78,9 @@ CREATE TABLE "entity_schema_script" (
 );
 --> statement-breakpoint
 CREATE TABLE "event" (
-	"properties" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"occurred_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"properties" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
 	"event_schema_id" text NOT NULL,
@@ -105,6 +106,7 @@ CREATE TABLE "event_schema_trigger" (
 	"name" text NOT NULL,
 	"is_active" boolean DEFAULT true NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
+	"metadata" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text,
 	"event_schema_id" text NOT NULL,
@@ -222,6 +224,7 @@ CREATE TABLE "user" (
 	"id" text PRIMARY KEY NOT NULL,
 	"two_factor_enabled" boolean,
 	"email" text NOT NULL,
+	"banned_at" timestamp with time zone,
 	"preferences" jsonb NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,

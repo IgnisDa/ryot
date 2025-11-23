@@ -75,6 +75,7 @@ interface CreateQueryEngineEventInput {
 	client: Client;
 	cookies: string;
 	entityId: string;
+	occurredAt?: string;
 	eventSchemaId: string;
 	properties: Record<string, unknown>;
 }
@@ -357,6 +358,7 @@ export async function createQueryEngineEvent(input: CreateQueryEngineEventInput)
 		body: [
 			{
 				entityId: input.entityId,
+				occurredAt: input.occurredAt,
 				properties: input.properties,
 				eventSchemaId: input.eventSchemaId,
 			},
