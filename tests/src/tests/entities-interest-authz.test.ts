@@ -50,7 +50,9 @@ describe("interest authorization", () => {
 	}, 20_000);
 
 	it("rejects an unauthenticated stream connection", async () => {
-		const response = await fetch(`${getBackendUrl()}/stream?streamId=${crypto.randomUUID()}`);
+		const response = await fetch(
+			`${getBackendUrl()}/interest/stream?streamId=${crypto.randomUUID()}`,
+		);
 		expect(response.status).toBe(401);
 	});
 
