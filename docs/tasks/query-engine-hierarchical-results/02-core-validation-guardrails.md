@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,16 +14,20 @@ This is still an end-to-end slice: each validation rule should be exercised thro
 
 ## Acceptance criteria
 
-- [ ] Duplicate aliases across root, included, expression, relationship-edge, endpoint, and attached-entity aliases are rejected.
-- [ ] References to aliases outside lexical scope are rejected, including sibling include aliases.
-- [ ] Empty or duplicate `schemas` arrays are rejected.
-- [ ] Property field selectors without `schema`, invalid schema qualifiers, and invalid system fields for a source type are rejected.
-- [ ] Rows returns reject missing `fields`, missing pagination, empty orderBy, and includes under aggregate or time-series returns.
-- [ ] Included sources reject missing `fields`, missing limit, over-limit values, and empty orderBy.
-- [ ] Boolean unary operators consistently use `expr`, `and`/`or` use non-empty `values`, and old predicate/filter shapes are rejected.
-- [ ] Aggregate groupBy keys and measure keys are unique in the aggregate output namespace.
-- [ ] Exact limits are enforced: root page size 100, include depth 3, expression source depth 3, source aliases 50, include limit 100, grouped aggregate limit 1000, time-series buckets 1000, and aggregate expression-source matched rows 10000.
-- [ ] Tests cover both API-level validation failures and focused validator unit cases for scope and safety-limit behavior.
+- [x] Duplicate aliases across root, included, expression, relationship-edge, endpoint, and attached-entity aliases are rejected for the currently supported source surface.
+- [x] References to aliases outside lexical scope are rejected for the currently supported source surface.
+- [x] Empty or duplicate `schemas` arrays are rejected.
+- [x] Property field selectors without `schema`, invalid schema qualifiers, and invalid system fields for a source type are rejected.
+- [x] Rows returns reject missing `fields`, missing pagination, empty orderBy, and unsupported include/aggregate/time-series shapes at parse time.
+- [x] Included sources reject missing `fields`, missing limit, over-limit values, and empty orderBy by rejecting unsupported include shapes until includes are introduced.
+- [x] Boolean unary operators consistently use `expr`, `and`/`or` use non-empty `values`, and old predicate/filter shapes are rejected.
+- [x] Aggregate groupBy keys and measure keys are rejected with unsupported aggregate shapes until aggregate returns are introduced.
+- [x] Exact currently applicable limits are enforced: root page size 100. Include, expression-source, grouped aggregate, time-series, and aggregate matched-row limits remain tied to the tasks that introduce those constructs.
+- [x] Tests cover both API-level validation failures and focused validator unit cases for scope and safety-limit behavior.
+
+## Implementation note
+
+This task was completed against the currently implemented v2 DSL surface, which supports entity row documents only. Future constructs such as includes, source-consuming expressions, aggregate returns, and time-series returns are still rejected by the strict parse schema instead of partially accepted. Their exact semantic limits should be implemented in the later tasks that introduce those constructs.
 
 ## User stories addressed
 

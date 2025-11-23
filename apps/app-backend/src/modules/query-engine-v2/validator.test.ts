@@ -35,6 +35,15 @@ describe("alias registration", () => {
 	});
 });
 
+describe("schema list validation", () => {
+	it("rejects duplicate source schema slugs", () => {
+		const doc = makeDoc({
+			source: { alias: "e", where: null, type: "entities", schemas: ["books", "books"] },
+		});
+		expect(validateQueryDocumentV2(doc)).toMatch(/Duplicate schema 'books'/);
+	});
+});
+
 describe("system field validation", () => {
 	it.each(["id", "name", "image", "createdAt", "updatedAt", "externalId", "sandboxScriptId"])(
 		"accepts valid system field '%s'",
