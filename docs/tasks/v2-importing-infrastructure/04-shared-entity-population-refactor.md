@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,16 +14,16 @@ The shared function should preserve the current entity import behavior: dedupe p
 
 ## Acceptance criteria
 
-- [ ] Entity population logic currently embedded in `processEntityImportJob` is available through a shared function usable by both the entity worker and import processor.
-- [ ] `/entities/import` behavior remains intact and uses the shared function.
-- [ ] The shared function executes provider scripts through sandbox child jobs when called from worker context; no direct non-job sandbox execution path is introduced.
-- [ ] Existing populated global entities with `populatedAt != null` skip provider work while still supporting optional library linking.
-- [ ] Existing unpopulated global entities can be populated by the shared function.
-- [ ] Related entities returned by provider scripts are processed with the existing generic related-entity behavior.
-- [ ] Library linking is parameterized and import callers can request it before writing events.
-- [ ] Provider script failures and invalid details results surface as typed/domain errors the import processor can map to `provider_details` failure rows.
-- [ ] Incomplete details are detectable as `populatedAt === null` after attempted population.
-- [ ] Existing entity worker tests are updated to cover the shared function without regressing `/entities/import` polling/import behavior.
+- [x] Entity population logic currently embedded in `processEntityImportJob` is available through a shared function usable by both the entity worker and import processor.
+- [x] `/entities/import` behavior remains intact and uses the shared function.
+- [x] The shared function executes provider scripts through sandbox child jobs when called from worker context; no direct non-job sandbox execution path is introduced.
+- [x] Existing populated global entities with `populatedAt != null` skip provider work while still supporting optional library linking.
+- [x] Existing unpopulated global entities can be populated by the shared function.
+- [x] Related entities returned by provider scripts are processed with the existing generic related-entity behavior.
+- [x] Library linking is parameterized and import callers can request it before writing events.
+- [x] Provider script failures and invalid details results surface as typed/domain errors the import processor can map to `provider_details` failure rows.
+- [x] Incomplete details are detectable as `populatedAt === null` after attempted population.
+- [x] Existing entity worker tests are updated to cover the shared function without regressing `/entities/import` polling/import behavior.
 
 ## User stories addressed
 
