@@ -233,7 +233,7 @@ Both schemas belong to the built-in Media tracker. `docs/soul.md` lists the Medi
 
 ---
 
-## Decision 3: Real-Time Entity Work via Client-Declared Interest over WebSocket
+## Decision 3: Real-Time Entity Work via SSE and a Client-Declared Interest POST
 
 ### Context
 
@@ -243,38 +243,45 @@ In the rewrite the same concept is `entity.populatedAt` (null ⇒ partial) plus,
 
 ### Decision
 
-A single persistent per-session **WebSocket** at `GET /api/ws` carries a small, typed protocol (Effect `Schema`, `apps/app-backend/src/modules/interest/messages.ts`):
+Two ordinary HTTP endpoints, both authenticated through the existing auth middleware (session cookie for web; bearer or api key for native) — no subprotocol token, no bespoke `Origin` or CSRF handling:
 
-- **client → server** `{ type: "interest", entityIds }` — the full set of entity ids the client currently wants worked on. Replace semantics: each message supersedes the previous set for that connection.
-- **server → client** `{ type: "entity:updated", entityId, reason }` where `reason` is `"populated"` or `"translated"`, and `{ type: "error", code, message }`.
+- **`GET /api/stream?streamId=<uuid>`** — a Server-Sent Events (SSE) stream, handled directly in the Bun.serve fetch callback (it is a raw route, not part of the `effect/platform` `HttpApi` contract). The client generates a `streamId` (a UUID) and opens this as a long-lived GET. The first event is `connected`, with data `{ streamId }`. Completions arrive as `entity:updated` events with data `{ entityId, reason }`, where `reason` is `"populated"` or `"translated"`. A bare `: ping` comment line is sent every 25000ms (`STREAM_HEARTBEAT_INTERVAL_MS`) so intermediary proxies do not close the idle connection.
+- **`POST /api/interest`** — part of the `effect/platform` `HttpApi` contract, `AuthMiddleware`-protected. Body `{ streamId, entityIds }` (Effect `Schema`, `apps/app-backend/src/modules/interest/messages.ts`). Replace semantics: each call supersedes the interest set previously declared for that stream. Returns `{ terminal: {entityId, reason}[] }`, the entities that were already terminal at reconcile time and still present in that stream's current interest set, for immediate catch-up.
 
-There is no protocol version and no interest acknowledgement in v1.
+Ryot is self-hosted and, in practice, single-instance, so there is no meaningful payoff from a persistent bidirectional socket here. Ordinary request/response for declaring interest, and a one-way push for completions, is simpler and reuses the normal HTTP auth and CORS path instead of re-deriving equivalents for a WebSocket upgrade.
 
 ### How It Works
 
-**Reconciler (glue, not a new queue).** The socket transport lives in `modules/interest/` — `gateway.ts` (upgrade auth + frame handling), `registry.ts` (socket map + Redis subscriber), `messages.ts` (wire schemas). On each `interest` message the gateway drives the reconciler (`modules/interest/service.ts`):
+**Reconciler (unchanged glue, different caller).** The reconciler (`modules/interest/service.ts`, `InterestReconciler`) is transport-agnostic and unchanged by this migration:
 
-1. Updates the socket registry **first** (so a workflow that publishes mid-reconcile still finds the socket).
-2. Reads the interest set through the query engine — chunked into ≤100-id `execute`s (`MAX_ROOT_PAGE_SIZE`; there is no `in` operator, so the id filter is an `or`-of-`eq`), scoped to the user's visible entity-schema slugs. Per-user visibility, localization, and the `translationStatus` computed field all fall out of the engine for free.
-3. Enqueues existing idempotent bricks: `populatedAt === null` ⇒ `EntityPopulationTrigger.request` (`populate-${id}`); populated + `translationStatus === "pending"` ⇒ `TranslationsService.requestFill` (`translate-${id}-${lang}`). Idempotency is `@effect/workflow` execution-id coalescing.
-4. Returns the already-terminal ids so the handler emits their `entity:updated` frames **directly on that socket** (catch-up), never via Redis.
+1. The `POST /api/interest` handler (`modules/interest/routes.ts`) updates the `StreamRegistry` interest set for that `streamId` first, so a workflow that publishes mid-reconcile still finds the stream.
+2. It reads the interest set through the query engine, chunked into batches of at most `MAX_ROOT_PAGE_SIZE` ids (there is no `in` operator, so the id filter is an `or`-of-`eq`), scoped to the entity-schema slugs visible to the caller. Per-user visibility, localization, and the `translationStatus` computed field all fall out of the engine for free.
+3. It enqueues the existing idempotent bricks: `populatedAt === null` ⇒ `EntityPopulationTrigger.request`; populated with `translationStatus === "pending"` ⇒ `TranslationsService.requestFill`. Idempotency is `@effect/workflow` execution-id coalescing.
+4. It returns the already-terminal ids, filtered down to the ids still present in that `streamId`'s current interest set (a later POST for the same stream may have changed the set while this one awaited reconcile). The route handler returns those directly in the response body as `terminal`.
 
-**Completion fan-out.** Each workflow publishes one `{ entityId, reason }` message to a single Redis channel (`redisKeys.entityUpdatedChannel`) on completion. A per-process subscriber (a duplicated ioredis connection, modeled on the god-mode reset subscriber) fans each message out to the local sockets that declared interest, via a `Map<entityId, Set<socket>>` registry with a reverse index for replace-diffing and cleanup.
+Because the terminal ids are returned synchronously in the POST response, and the same completions are also published over SSE, a client may see a given entity id arrive twice: once in the POST response, and once later as an `entity:updated` SSE event. Client-side apply of `entity:updated` must be idempotent, keyed by entity id.
 
-**Auth.** Web clients send the session cookie automatically on the upgrade; a strict `Origin` allowlist (better-auth `trustedOrigins`, which includes `ryot://`) is the CSRF defense for those cookie connections. Native clients cannot set a Cookie header on the upgrade, so they pass the session token as a `Sec-WebSocket-Protocol` subprotocol, which the server turns into a forged `Cookie` header before resolving `AuthService.currentUser`. Session identity and language are captured once at upgrade and never re-validated per message; the client reopens the socket on a language change (as it does on login/logout).
+**Completion fan-out (unchanged).** Each workflow still publishes one `{ entityId, reason }` message to a single Redis channel, `redisKeys.entityUpdatedChannel`. `StreamRegistry` (`modules/interest/registry.ts`, formerly `WsRegistry`) owns a duplicated ioredis subscriber on that channel and fans each message out to the local SSE streams whose declared interest includes the entity id, using the same forward-index-plus-reverse-index design as before, now keyed by `streamId` instead of by socket.
 
-**Populate-before-translate.** Translation is only ever enqueued for a populated entity. Enqueuing a fill on an unpopulated entity would write an all-null overlay row that permanently mislabels the status as `none` — see `docs/tasks/media-translations/README.md` for the negative-cache and no-permanent-`pending` semantics.
+**Auth.** Both endpoints resolve the caller through `AuthService.currentUser`, the same resolution path (session cookie, bearer token, or api key) used by every other HTTP route. `GET /api/stream` returns 401 if auth fails and 400 if the `streamId` query param is missing. There is no separate `Origin` allowlist, and no subprotocol-token-to-`Cookie` translation: `GET /api/stream` and `POST /api/interest` are ordinary authenticated HTTP requests, handled the same way as any other route in this backend.
 
-### Why WebSocket
+**Stream ownership.** `POST /api/interest` requires the authenticated caller to own the given `streamId`, meaning the caller must be the same user whose `GET /api/stream` request registered that `streamId` in `StreamRegistry`. An unknown `streamId`, or one registered to a different user, is rejected with 404 — the two cases are intentionally indistinguishable, to avoid leaking which `streamId`s exist — so one user cannot declare interest against a stream opened by someone else.
 
-The reconciler is fundamentally demand-driven: it needs the client to declare interest, which requires a client→server channel. A bidirectional socket lets the client state interest explicitly and lets the server both act on it and stream completions back over the same connection.
+**Single-instance assumption.** Interest state lives in-process, in `StreamRegistry`, keyed by `streamId`. A `POST /api/interest` for a given `streamId` must land on the same process that is holding the matching SSE connection; there is no Redis-backed sharing of interest state across processes. This matches the self-hosted, effectively-single-instance deployment model this backend targets today. A future multi-instance deployment would need either sticky routing (so a `streamId` always reaches the process holding its SSE connection) or a shared interest store; neither is built here.
+
+**Populate-before-translate (unchanged).** Translation is only ever enqueued for a populated entity. Enqueuing a fill on an unpopulated entity would write an all-null overlay row that permanently mislabels the status as `none` — see `docs/tasks/media-translations/README.md` for the negative-cache and no-permanent-`pending` semantics.
+
+### Why SSE and a POST, Not a WebSocket
+
+The reconciler is demand-driven: it needs the client to declare interest, which requires a client-to-server channel. A WebSocket satisfied that with one connection carrying both directions, but a plain POST is just as good a client-to-server channel, and SSE is just as good a server-to-client one — and, unlike a WebSocket upgrade, both are ordinary HTTP requests that reuse the same auth middleware and CORS handling as every other route in this backend. The WebSocket design paid for a bespoke `Origin` allowlist for browser CSRF and a subprotocol-token-to-forged-`Cookie` translation for native clients; neither buys anything the ordinary HTTP auth path did not already provide, and the self-hosted, single-instance deployment model this backend targets gets no benefit from a persistent bidirectional socket over two ordinary endpoints.
 
 ### Summary
 
-- One persistent per-session WebSocket at `/api/ws`; the client declares its full interest set with replace semantics.
-- The server reconciles interest into existing idempotent population/translation workflows and streams `entity:updated` completions back.
-- Completions fan out via one Redis channel + a per-process duplicated-connection subscriber; catch-up for already-terminal entities is emitted directly on the originating socket.
-- Web auth via session cookie + `Origin` allowlist; native auth via the session-token subprotocol. Identity/language captured at upgrade.
+- `GET /api/stream?streamId=<uuid>` is an SSE stream: a `connected` event first, then `entity:updated` completions, with a periodic heartbeat comment.
+- `POST /api/interest` (`{ streamId, entityIds }`) replaces the stream's interest set, reconciles it through the unchanged `InterestReconciler`, and returns already-terminal entities as `{ terminal }` for immediate catch-up; the client must dedupe `entity:updated` by entity id since the same completion can also arrive over SSE.
+- Completions still fan out through one Redis channel plus a per-process duplicated-connection subscriber (`StreamRegistry`, formerly `WsRegistry`), now keyed by `streamId` instead of by socket.
+- Auth is the backend's normal session-cookie, bearer, or api-key resolution; there is no bespoke Origin/CSRF handling or subprotocol token.
+- Interest state is in-process and single-instance: a `POST /api/interest` for a `streamId` must reach the process holding the SSE connection for that `streamId`.
 
 ---
 
@@ -286,7 +293,7 @@ In V1 the frontend dispatched population jobs, coupling data-fetching to job mec
 
 ### Decision
 
-`GET /entities/{entityId}` and `POST /query-engine/execute` are **purely read-only**. Neither enqueues anything. All demand-driven population and translation is triggered by client-declared interest over the WebSocket (Decision 3).
+`GET /entities/{entityId}` and `POST /query-engine/execute` are **purely read-only**. Neither enqueues anything. All demand-driven population and translation is triggered by client-declared interest via the SSE stream and interest POST (Decision 3).
 
 `getById` still returns a localized entity and its localization state, but sources both from the read path itself rather than side effects:
 

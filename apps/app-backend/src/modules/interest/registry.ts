@@ -1,73 +1,79 @@
-import type { ServerWebSocket } from "bun";
 import { Effect, Either } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth-middleware";
+import { notFound } from "#lib/errors";
 import { decodeEntityUpdatedMessage, redisKeys, RedisService } from "#lib/redis";
+import type { UserId } from "#lib/schema/brands";
 
-import { encodeServerMessage, type ServerMessage } from "./messages";
+import type { EntityUpdatedFrame } from "./messages";
 
-// Session identity is captured once at upgrade and never re-validated per message.
-export type WsData = { readonly user: CurrentUserValue };
-export type InterestSocket = ServerWebSocket<WsData>;
+export type StreamEnqueue = (frame: EntityUpdatedFrame) => void;
 
-const send = (ws: InterestSocket, message: ServerMessage): void => {
-	try {
-		ws.send(encodeServerMessage(message));
-	} catch {
-		// Socket already closed between selection and send; the close handler cleans it up.
-	}
+type StreamEntry = {
+	readonly userId: UserId;
+	readonly enqueue: StreamEnqueue;
+	interest: Set<string>;
 };
 
-// Per-process registry of which sockets want which entities, plus the single duplicated Redis
-// subscriber that fans `entity:updated` out to the local sockets that declared interest.
-export class WsRegistry extends Effect.Service<WsRegistry>()("WsRegistry", {
+// Per-process registry of which SSE streams want which entities, plus the single duplicated Redis
+// subscriber that fans entity:updated messages out to the local streams that declared interest.
+// streamId is assumed unique per connection: the client generates a fresh UUID per stream.
+export class StreamRegistry extends Effect.Service<StreamRegistry>()("StreamRegistry", {
 	scoped: Effect.gen(function* () {
 		const redis = yield* RedisService;
 		const channel = redisKeys.entityUpdatedChannel;
 
-		// Forward: entity id → interested sockets (used by the fan-out). Reverse: socket → its declared
-		// set (used to diff on replace and to clean up on close). Kept in lock-step.
-		const byEntity = new Map<string, Set<InterestSocket>>();
-		const bySocket = new Map<InterestSocket, Set<string>>();
+		const streams = new Map<string, StreamEntry>();
+		// Forward index: entity id -> interested stream ids (used by the fan-out).
+		const byEntity = new Map<string, Set<string>>();
 
-		// Diff against the socket's prior set so only real changes touch the forward index.
-		const setInterest = (ws: InterestSocket, entityIds: readonly string[]): void => {
+		const add = (streamId: string, userId: UserId, enqueue: StreamEnqueue): void => {
+			streams.set(streamId, { userId, enqueue, interest: new Set() });
+		};
+
+		// Unknown streamId and wrong-owner are intentionally both "not found", to avoid an oracle for
+		// which streamIds exist. Diffs against the stream's prior interest so only real changes touch
+		// the forward index.
+		const setInterestIfOwner = (streamId: string, userId: UserId, entityIds: readonly string[]) => {
+			const entry = streams.get(streamId);
+			if (!entry || entry.userId !== userId) {
+				return notFound("Unknown stream");
+			}
 			const next = new Set(entityIds);
-			const prev = bySocket.get(ws) ?? new Set<string>();
-			for (const id of prev) {
+			for (const id of entry.interest) {
 				if (!next.has(id)) {
-					const sockets = byEntity.get(id);
-					sockets?.delete(ws);
-					if (sockets?.size === 0) {
+					const ids = byEntity.get(id);
+					ids?.delete(streamId);
+					if (ids?.size === 0) {
 						byEntity.delete(id);
 					}
 				}
 			}
 			for (const id of next) {
-				if (!prev.has(id)) {
-					const sockets = byEntity.get(id) ?? new Set<InterestSocket>();
-					sockets.add(ws);
-					byEntity.set(id, sockets);
+				if (!entry.interest.has(id)) {
+					const ids = byEntity.get(id) ?? new Set<string>();
+					ids.add(streamId);
+					byEntity.set(id, ids);
 				}
 			}
-			bySocket.set(ws, next);
+			entry.interest = next;
+			return Effect.void;
 		};
 
-		const hasInterest = (ws: InterestSocket, entityId: string): boolean =>
-			bySocket.get(ws)?.has(entityId) ?? false;
+		const hasInterest = (streamId: string, entityId: string): boolean =>
+			streams.get(streamId)?.interest.has(entityId) ?? false;
 
-		const remove = (ws: InterestSocket): void => {
-			const ids = bySocket.get(ws);
-			if (ids) {
-				for (const id of ids) {
-					const sockets = byEntity.get(id);
-					sockets?.delete(ws);
-					if (sockets?.size === 0) {
+		const remove = (streamId: string): void => {
+			const entry = streams.get(streamId);
+			if (entry) {
+				for (const id of entry.interest) {
+					const ids = byEntity.get(id);
+					ids?.delete(streamId);
+					if (ids?.size === 0) {
 						byEntity.delete(id);
 					}
 				}
 			}
-			bySocket.delete(ws);
+			streams.delete(streamId);
 		};
 
 		const fanOut = (raw: string): void => {
@@ -76,12 +82,12 @@ export class WsRegistry extends Effect.Service<WsRegistry>()("WsRegistry", {
 				return;
 			}
 			const { entityId, reason } = decoded.right;
-			const sockets = byEntity.get(entityId);
-			if (!sockets) {
+			const streamIds = byEntity.get(entityId);
+			if (!streamIds) {
 				return;
 			}
-			for (const ws of sockets) {
-				send(ws, { type: "entity:updated", entityId, reason });
+			for (const streamId of streamIds) {
+				streams.get(streamId)?.enqueue({ entityId, reason });
 			}
 		};
 
@@ -100,15 +106,8 @@ export class WsRegistry extends Effect.Service<WsRegistry>()("WsRegistry", {
 
 		const teardown = Effect.sync(() => {
 			subscriber.removeAllListeners();
-			for (const ws of bySocket.keys()) {
-				try {
-					ws.close();
-				} catch {
-					// Best-effort close during teardown; the socket may already be gone.
-				}
-			}
+			streams.clear();
 			byEntity.clear();
-			bySocket.clear();
 		});
 		yield* Effect.addFinalizer(() =>
 			teardown.pipe(
@@ -116,6 +115,6 @@ export class WsRegistry extends Effect.Service<WsRegistry>()("WsRegistry", {
 			),
 		);
 
-		return { send, remove, setInterest, hasInterest };
+		return { add, remove, setInterestIfOwner, hasInterest };
 	}),
 }) {}

@@ -119,7 +119,7 @@ const toInterestRow = Effect.fn("toInterestRow")(function* (row: RowItem) {
 
 // Glue over existing bricks: read the interest set via the query engine (authz + localization +
 // translationStatus for free), then enqueue the idempotent population / translation triggers. Returns
-// the already-terminal entities so the caller can emit their catch-up frames directly on the socket.
+// the already-terminal entities so the caller can return them directly as catch-up.
 export class InterestReconciler extends Effect.Service<InterestReconciler>()("InterestReconciler", {
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
