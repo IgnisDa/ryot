@@ -48,6 +48,7 @@ mod plex;
 mod storygraph;
 mod strong_app;
 mod trakt;
+mod watcharr;
 
 pub struct ImporterService(pub Arc<SupportingService>);
 
@@ -94,6 +95,7 @@ impl ImporterService {
             ImportSource::Igdb => igdb::import(input.igdb.unwrap()).await,
             ImportSource::Movary => movary::import(input.movary.unwrap()).await,
             ImportSource::Plex => plex::import(input.url_and_key.unwrap()).await,
+            ImportSource::Watcharr => watcharr::import(input.path.unwrap()).await,
             ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await,
             ImportSource::Myanimelist => myanimelist::import(input.mal.unwrap()).await,
             ImportSource::Grouvee => grouvee::import(input.generic_csv.unwrap()).await,
