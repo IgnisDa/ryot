@@ -389,13 +389,15 @@ driver("details", async function (context, { metadata }) {
 			? movieData.vote_average * 10
 			: null;
 
-	const collectionId =
-		movieData?.belongs_to_collection && typeof movieData.belongs_to_collection === "object"
-			? typeof movieData.belongs_to_collection.id === "number" &&
-				Number.isFinite(movieData.belongs_to_collection.id)
-				? String(Math.trunc(movieData.belongs_to_collection.id))
-				: null
-			: null;
+	let collectionId = null;
+	if (movieData?.belongs_to_collection && typeof movieData.belongs_to_collection === "object") {
+		if (
+			typeof movieData.belongs_to_collection.id === "number" &&
+			Number.isFinite(movieData.belongs_to_collection.id)
+		) {
+			collectionId = String(Math.trunc(movieData.belongs_to_collection.id));
+		}
+	}
 	const groups = collectionId
 		? [
 				{

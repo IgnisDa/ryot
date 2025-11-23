@@ -80,8 +80,12 @@ const parseWorkoutDurationSeconds = (value: string): number => {
 
 	const secondsPosition = normalized.indexOf("s");
 	if (secondsPosition >= 0) {
-		const start =
-			minutesPosition >= 0 ? minutesPosition + 1 : hoursPosition >= 0 ? hoursPosition + 1 : 0;
+		let start = 0;
+		if (minutesPosition >= 0) {
+			start = minutesPosition + 1;
+		} else if (hoursPosition >= 0) {
+			start = hoursPosition + 1;
+		}
 		const secondsText = normalized.slice(start, secondsPosition).trim();
 		if (secondsText.length > 0) {
 			const seconds = Number(secondsText);
@@ -96,14 +100,20 @@ const parseWorkoutDurationSeconds = (value: string): number => {
 };
 
 const toWorkoutSet = (row: StrongAppRow): WorkoutImportSet => {
-	const setLot =
-		row.setOrder === "W"
-			? "warm_up"
-			: row.setOrder === "F"
-				? "failure"
-				: row.setOrder === "D"
-					? "drop"
-					: "normal";
+	let setLot: WorkoutImportSet["setLot"];
+	switch (row.setOrder) {
+		case "W":
+			setLot = "warm_up";
+			break;
+		case "F":
+			setLot = "failure";
+			break;
+		case "D":
+			setLot = "drop";
+			break;
+		default:
+			setLot = "normal";
+	}
 
 	const set: WorkoutImportSet = { setLot };
 	if (row.notes) {

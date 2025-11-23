@@ -134,12 +134,18 @@ const inferRefType = (
 		return schemaMetadataTypeMap[selector.name] ?? "unknown";
 	}
 	if (selector.type === "system") {
-		const map =
-			entry.type === "entitySource"
-				? entitySystemTypeMap
-				: entry.type === "eventSource"
-					? eventSystemTypeMap
-					: relationshipSystemTypeMap;
+		let map: Record<string, CoarseType>;
+		switch (entry.type) {
+			case "entitySource":
+				map = entitySystemTypeMap;
+				break;
+			case "eventSource":
+				map = eventSystemTypeMap;
+				break;
+			case "relationshipEdge":
+				map = relationshipSystemTypeMap;
+				break;
+		}
 		return map[selector.name] ?? "unknown";
 	}
 	return inferPropertyType(entry, selector, propertiesBySlug);

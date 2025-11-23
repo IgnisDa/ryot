@@ -109,12 +109,15 @@ export const parsePlexSink: SinkParser = (input) =>
 			return emptySinkResult();
 		}
 
-		const entitySchemaSlug =
-			payload.Metadata.type === "episode" || payload.Metadata.librarySectionType === "show"
-				? "show"
-				: payload.Metadata.type === "movie" || payload.Metadata.librarySectionType === "movie"
-					? "movie"
-					: undefined;
+		let entitySchemaSlug: "show" | "movie" | undefined;
+		if (payload.Metadata.type === "episode" || payload.Metadata.librarySectionType === "show") {
+			entitySchemaSlug = "show";
+		} else if (
+			payload.Metadata.type === "movie" ||
+			payload.Metadata.librarySectionType === "movie"
+		) {
+			entitySchemaSlug = "movie";
+		}
 		if (!entitySchemaSlug) {
 			return sinkFailureResult("Plex webhook payload has an unsupported media type");
 		}

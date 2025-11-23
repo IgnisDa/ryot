@@ -124,12 +124,12 @@ driver("details", async function (context) {
 			if (!memberId) {
 				return null;
 			}
-			const memberName =
-				typeof issue?.issue === "string" && issue.issue.trim()
-					? issue.issue.trim()
-					: typeof issue?.issue_name === "string" && issue.issue_name.trim()
-						? issue.issue_name.trim()
-						: "Loading...";
+			let memberName = "Loading...";
+			if (typeof issue?.issue === "string" && issue.issue.trim()) {
+				memberName = issue.issue.trim();
+			} else if (typeof issue?.issue_name === "string" && issue.issue_name.trim()) {
+				memberName = issue.issue_name.trim();
+			}
 			return {
 				name: memberName,
 				externalId: memberId,
