@@ -8,9 +8,10 @@ The sandbox runs untrusted user code in single-use Deno subprocesses, exposes se
 
 - `service.ts`: builds execution payloads, registers bridge sessions, checks out Deno subprocesses, and returns sandbox results.
 - `runtime.ts`: owns the Deno runner file, process pool, package cache, and bridge server.
-- `runner-source.txt`: source executed by each Deno subprocess.
+- `runner-source.sandbox.js`: source executed by each Deno subprocess.
 - `host-functions.ts`: app-bound bridge functions for user, entity, event, integration, query-engine, and config access.
-- `providers/`, `triggers/`, `shared/`: sandbox scripts and script-side helpers.
+- `shared.ts`: shared types and helpers for host-function implementations.
+- `providers/`, `triggers/`, `script-helpers/`: sandbox scripts and script-side helpers.
 
 ## Execution Flow
 
@@ -26,7 +27,7 @@ The sandbox runs untrusted user code in single-use Deno subprocesses, exposes se
 ## API Shape
 
 - `POST /sandbox/scripts`: creates a stored script with `{ name, slug?, code, metadata? }`.
-- `POST /sandbox/enqueue`: enqueues a stored script with `{ scriptId, driverName, context? }` and returns `{ data: { jobId } }`.
+- `POST /sandbox/enqueue`: enqueues a stored script with `{ scriptId, driverName, context? }` and returns `{ jobId }`.
 - `GET /sandbox/result/:jobId`: returns `pending`, `failed`, or `completed` with `{ logs, value, error, timing }`.
 
 `metadata.allowedHostFunctions` defaults to no host functions when omitted. `timing` is `{ totalMs, executionMs }` for completed runs.
@@ -39,14 +40,12 @@ The sandbox runs untrusted user code in single-use Deno subprocesses, exposes se
 - Sandbox script network access must go through explicit host functions such as `httpCall`.
 - App-side source connectors are outside the sandbox runtime and use app runtime HTTP helpers.
 - Bridge calls require the per-execution bearer token and expire through Redis TTL.
-- Timeouts terminate the process with `SIGTERM`, then `SIGKILL`.
-- Deno heap size is capped with `--v8-flags=--max-heap-size=<maxHeapMB>`.
-- Bridge request bodies are capped by `requestBodyLimit`.
+- Timeouts invalidate the pooled process and kill it.
 - Sandbox processes receive only `PATH` and `DENO_DIR`; user code cannot read env values because `--deny-env` is enabled.
 
 ## Process Pool
 
-`ProcessPool` keeps `sandboxWorkerConcurrency + 2` idle Deno subprocesses ready. A pooled process has loaded Deno and is blocked on stdin waiting for its payload. On checkout, the pool immediately starts a replacement in the background.
+`ProcessPool` keeps `config.sandbox.workerConcurrency + 2` idle Deno subprocesses ready. A pooled process has loaded Deno and is blocked on stdin waiting for its payload. On checkout, the pool immediately starts a replacement in the background.
 
 The pool preserves process isolation because every subprocess is still single-use. Reusing a process across executions would allow global state pollution and weaken per-process memory limits.
 
