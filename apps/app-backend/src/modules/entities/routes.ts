@@ -62,9 +62,7 @@ const createEntityRoute = createAuthRoute(
 		tags: ["entities"],
 		summary: "Create an entity for a custom entity schema",
 		request: {
-			body: {
-				content: { "application/json": { schema: createEntityBody } },
-			},
+			body: { content: { "application/json": { schema: createEntityBody } } },
 		},
 		responses: {
 			400: payloadErrorResponse(),
