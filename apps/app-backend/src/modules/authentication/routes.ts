@@ -34,7 +34,7 @@ const meRoute = createAuthRoute(
 		path: "/me",
 		method: "get",
 		tags: ["authentication"],
-		summary: "Get the current user session",
+		summary: "Get the current authenticated user and session",
 		responses: {
 			200: jsonResponse("Authenticated session details", meResponseSchema),
 		},
@@ -45,7 +45,7 @@ const signUpRoute = createRoute({
 	path: "/email",
 	method: "post",
 	tags: ["authentication"],
-	summary: "Create a user account",
+	summary: "Create a user account and initialize default data",
 	request: {
 		body: { content: { "application/json": { schema: signUpBody } } },
 	},
