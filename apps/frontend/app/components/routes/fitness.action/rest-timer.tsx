@@ -55,10 +55,14 @@ export const WorkoutDurationTimer = (props: {
 		return total;
 	}, [value, currentWorkout]);
 
-	if (!currentWorkout) return null;
+	if (!currentWorkout) {
+		return null;
+	}
 
 	let format = "mm:ss";
-	if (seconds > 3600) format = `H:${format}`;
+	if (seconds > 3600) {
+		format = `H:${format}`;
+	}
 
 	return (
 		<StatDisplay

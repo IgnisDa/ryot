@@ -128,9 +128,13 @@ const DisplayGenre = (props: { genreId: string }) => {
 				}),
 			);
 
-			for (const image of results) if (image && images.length <= maxImages) images.push(image);
+			for (const image of results) {
+				if (image && images.length <= maxImages) images.push(image);
+			}
 
-			if (images.length <= maxImages) return { genreDetails, images: images.slice(0, 1) };
+			if (images.length <= maxImages) {
+				return { genreDetails, images: images.slice(0, 1) };
+			}
 
 			return { genreDetails, images };
 		},
@@ -140,7 +144,9 @@ const DisplayGenre = (props: { genreId: string }) => {
 	const color = useGetRandomMantineColor(genreName);
 	const fallbackImageUrl = useFallbackImageUrl(getInitials(genreName));
 
-	if (!genreData) return <Skeleton height={290} ref={ref} />;
+	if (!genreData) {
+		return <Skeleton height={290} ref={ref} />;
+	}
 
 	return (
 		<Anchor component={Link} to={$path("/media/genre/:id", { id: props.genreId })}>

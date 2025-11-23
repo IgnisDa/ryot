@@ -63,7 +63,9 @@ export default function Page() {
 		validate: {
 			name: (value) => (value.trim() ? null : "Name is required"),
 			website: (value) => {
-				if (!value) return null;
+				if (!value) {
+					return null;
+				}
 				try {
 					new URL(value);
 					return null;
@@ -72,7 +74,9 @@ export default function Page() {
 				}
 			},
 			deathDate: (value, values) => {
-				if (!value || !values.birthDate) return null;
+				if (!value || !values.birthDate) {
+					return null;
+				}
 				const birthDate = new Date(values.birthDate);
 				const deathDate = new Date(value);
 				return deathDate >= birthDate ? null : "Death date cannot be before birth date";

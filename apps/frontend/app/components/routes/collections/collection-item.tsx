@@ -44,17 +44,20 @@ export const CollectionItem = (props: CollectionItemProps) => {
 	});
 
 	const handleRankClick = () => {
-		if (!props.isReorderMode) return;
+		if (!props.isReorderMode) {
+			return;
+		}
 
 		const newRank = prompt(`Enter new rank for this item (1-${props.totalItems}):`);
 		const rank = Number(newRank);
-		if (newRank && isNumber(rank))
+		if (newRank && isNumber(rank)) {
 			if (rank >= 1 && rank <= props.totalItems)
 				reorderMutation.mutate({
 					newPosition: rank,
 					entityId: props.item.entityId,
 					collectionName: props.collectionName,
 				});
+		}
 	};
 
 	return (
@@ -73,8 +76,11 @@ export const CollectionItem = (props: CollectionItemProps) => {
 						color="red"
 						variant={isAdded ? "filled" : "transparent"}
 						onClick={() => {
-							if (isAdded) state.remove(props.item);
-							else state.add(props.item);
+							if (isAdded) {
+								state.remove(props.item);
+							} else {
+								state.add(props.item);
+							}
 						}}
 					>
 						<IconTrashFilled size={18} />

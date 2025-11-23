@@ -145,7 +145,9 @@ export function useWorkoutModals() {
 
 	const openBulkDeleteModal = (exerciseIdentifier: string | null) => {
 		setExerciseToDelete(exerciseIdentifier);
-		if (!exerciseIdentifier) return;
+		if (!exerciseIdentifier) {
+			return;
+		}
 		setTimeout(() => {
 			setExerciseToDelete((val) => (val === undefined ? undefined : null));
 		}, 4000);
@@ -157,7 +159,9 @@ export function useWorkoutModals() {
 
 	const openReorderDrawer = (exerciseIdentifier: string | null) => {
 		setIsReorderDrawerOpened(exerciseIdentifier);
-		if (!exerciseIdentifier) return;
+		if (!exerciseIdentifier) {
+			return;
+		}
 		setTimeout(() => {
 			setIsReorderDrawerOpened((val) => (val === undefined ? undefined : null));
 		}, 4000);

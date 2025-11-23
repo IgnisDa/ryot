@@ -133,18 +133,26 @@ export const useFilterPresets = <TFilter extends { page: number }>(
 	};
 
 	useEffect(() => {
-		if (isApplyingPreset.current) return;
+		if (isApplyingPreset.current) {
+			return;
+		}
 
-		if (!activePresetId || !filterPresets) return;
+		if (!activePresetId || !filterPresets) {
+			return;
+		}
 
 		const activePreset = filterPresets.response.find((p) => p.id === activePresetId);
-		if (!activePreset) return;
+		if (!activePreset) {
+			return;
+		}
 
 		const savedFilters = activePreset.filters;
 		const { page: _savedPage, ...savedWithoutPage } = savedFilters;
 		const { page: _currentPage, ...filtersWithoutPage } = config.filters;
 
-		if (!isEqual(filtersWithoutPage, savedWithoutPage)) setActivePresetId(null);
+		if (!isEqual(filtersWithoutPage, savedWithoutPage)) {
+			setActivePresetId(null);
+		}
 	}, [config.filters, activePresetId, filterPresets, setActivePresetId]);
 
 	const createSaveHandler = (onClose: () => void) => async (name: string) => {

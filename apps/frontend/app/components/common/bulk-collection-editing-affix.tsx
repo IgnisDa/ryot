@@ -35,7 +35,9 @@ export const BulkCollectionEditingAffix = (props: BulkCollectionEditingAffixProp
 
 	const bulkEditingCollectionState = bulkEditingCollection.state;
 
-	if (!bulkEditingCollectionState) return null;
+	if (!bulkEditingCollectionState) {
+		return null;
+	}
 
 	const { action, collection, targetEntities } = bulkEditingCollectionState.data;
 	const isRemoving = action === "remove";
