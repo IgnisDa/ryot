@@ -1145,7 +1145,8 @@ export enum ImportSource {
   Plex = 'PLEX',
   Storygraph = 'STORYGRAPH',
   StrongApp = 'STRONG_APP',
-  Trakt = 'TRAKT'
+  Trakt = 'TRAKT',
+  Watcharr = 'WATCHARR'
 }
 
 export type Integration = {
