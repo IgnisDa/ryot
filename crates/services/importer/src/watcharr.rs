@@ -38,9 +38,16 @@ struct WatcharrContent {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct WatcharrActivity {
+    data: Option<String>,
     #[serde(rename = "type")]
     activity_type: String,
     custom_date: Option<DateTimeUtc>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct WatcharrActivityData {
+    season: Option<i32>,
+    episode: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -50,6 +57,27 @@ struct WatcharrEpisode {
     season_number: i32,
     episode_number: i32,
     created_at: DateTimeUtc,
+}
+
+fn find_episode_watch_date(
+    activity: &Option<Vec<WatcharrActivity>>,
+    season: i32,
+    episode: i32,
+) -> Option<DateTimeUtc> {
+    if let Some(activities) = activity {
+        for act in activities {
+            if act.activity_type.contains("EPISODE") {
+                if let Some(data_str) = &act.data {
+                    if let Ok(data) = serde_json::from_str::<WatcharrActivityData>(data_str) {
+                        if data.season == Some(season) && data.episode == Some(episode) {
+                            return act.custom_date;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
 }
 
 pub async fn import(input: DeployPathImportInput) -> Result<ImportResult> {
@@ -130,14 +158,19 @@ fn process_item(item: &WatcharrExportItem) -> Result<ImportOrExportMetadataItem,
         if let Some(activity) = &item.activity {
             activity
                 .iter()
-                .filter_map(|act| match act.activity_type.as_str() {
-                    "IMPORTED_ADDED_WATCHED" => Some(ImportOrExportMetadataItemSeen {
-                        ended_on: act.custom_date,
-                        state: Some(map_status_to_seen_state(&item.status)),
-                        providers_consumed_on: Some(vec![ImportSource::Watcharr.to_string()]),
-                        ..Default::default()
-                    }),
-                    _ => None,
+                .filter_map(|act| {
+                    if act.activity_type == "IMPORTED_ADDED_WATCHED"
+                        || act.activity_type == "IMPORTED_ADDED_WATCHED_JF"
+                    {
+                        Some(ImportOrExportMetadataItemSeen {
+                            ended_on: act.custom_date,
+                            state: Some(map_status_to_seen_state(&item.status)),
+                            providers_consumed_on: Some(vec![ImportSource::Watcharr.to_string()]),
+                            ..Default::default()
+                        })
+                    } else {
+                        None
+                    }
                 })
                 .collect()
         } else {
@@ -146,13 +179,19 @@ fn process_item(item: &WatcharrExportItem) -> Result<ImportOrExportMetadataItem,
     } else if let Some(episodes) = &item.watched_episodes {
         episodes
             .iter()
-            .map(|ep| ImportOrExportMetadataItemSeen {
-                ended_on: Some(ep.created_at),
-                show_season_number: Some(ep.season_number),
-                show_episode_number: Some(ep.episode_number),
-                state: Some(map_status_to_seen_state(&ep.status)),
-                providers_consumed_on: Some(vec![ImportSource::Watcharr.to_string()]),
-                ..Default::default()
+            .map(|ep| {
+                let watch_date =
+                    find_episode_watch_date(&item.activity, ep.season_number, ep.episode_number)
+                        .or(Some(ep.created_at));
+
+                ImportOrExportMetadataItemSeen {
+                    ended_on: watch_date,
+                    show_season_number: Some(ep.season_number),
+                    show_episode_number: Some(ep.episode_number),
+                    state: Some(map_status_to_seen_state(&ep.status)),
+                    providers_consumed_on: Some(vec![ImportSource::Watcharr.to_string()]),
+                    ..Default::default()
+                }
             })
             .collect()
     } else {
