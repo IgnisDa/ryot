@@ -11,7 +11,7 @@ import { CurrentDb, DbRunner, DbService, TransactionRunner } from "#lib/db/servi
 import { BadRequest, DbError } from "#lib/errors";
 import { RedisService } from "#lib/redis";
 import { UserId } from "#lib/schema/brands";
-import { makeAppConfigLayer } from "#lib/test-support/effect";
+import { makeAppConfigLayer, makeRedisService } from "#lib/test-support/effect";
 
 import { GodModeRepository } from "./repository";
 import { checkResetEligibility, classifyAuthState, GodModeService } from "./service";
@@ -74,12 +74,7 @@ const makeProvisionAuthMock = (
 	});
 
 const makeRedisMock = () =>
-	Object.assign(Object.create(null), {
-		get: () => Effect.die("unused"),
-		del: () => Effect.die("unused"),
-		set: () => Effect.die("unused"),
-		getdel: () => Effect.die("unused"),
-		publish: () => Effect.die("unused"),
+	makeRedisService({
 		client: Object.assign(Object.create(null), {
 			del: () => Promise.resolve(0),
 			eval: () => Promise.resolve(0),

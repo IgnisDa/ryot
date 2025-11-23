@@ -4,6 +4,7 @@ import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngin
 import { Effect, Layer } from "effect";
 
 import { SandboxRunError } from "#lib/errors";
+import { RedisService } from "#lib/redis";
 import {
 	EntityId,
 	EntitySchemaId,
@@ -13,7 +14,11 @@ import {
 	UserId,
 } from "#lib/schema/brands";
 import type { MockOverrides } from "#lib/test-support/effect";
-import { dbRunnerLayer, makeWorkflowActivityEngine } from "#lib/test-support/effect";
+import {
+	dbRunnerLayer,
+	makeRedisService,
+	makeWorkflowActivityEngine,
+} from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { ListedEntity } from "#modules/entities/schemas";
 import { EntitiesService } from "#modules/entities/service";
@@ -145,6 +150,7 @@ const makeTestLayer = (options: TestLayerOptions) => {
 	return Layer.mergeAll(
 		dbRunnerLayer,
 		relationshipsServiceLayer,
+		Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(0) })),
 		Layer.mock(EntityImportWorkflowOperations, {
 			processSandbox: options.processSandbox ?? (() => Effect.die("unused")),
 		}),
