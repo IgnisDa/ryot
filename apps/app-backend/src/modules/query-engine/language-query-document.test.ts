@@ -7,7 +7,6 @@ const decodeSync = Schema.decodeUnknownSync;
 
 describe("QueryDocument", () => {
 	const minimal = {
-		version: 2,
 		source: { type: "entities", alias: "e", schemas: ["books"], where: null },
 		output: {
 			fields: [],
@@ -19,7 +18,6 @@ describe("QueryDocument", () => {
 
 	it("decodes a minimal valid document", () => {
 		const result = decodeSync(QueryDocument)(minimal);
-		expect(result.version).toBe(2);
 		expect(result.source.alias).toBe("e");
 	});
 
@@ -159,10 +157,6 @@ describe("QueryDocument", () => {
 			},
 		});
 		expect(result.source.where).not.toBeNull();
-	});
-
-	it("throws when version is not 2", () => {
-		expect(() => decodeSync(QueryDocument)({ ...minimal, version: 1 })).toThrow();
 	});
 
 	it("throws when source schemas list is empty", () => {
