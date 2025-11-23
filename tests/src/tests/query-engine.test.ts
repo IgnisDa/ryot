@@ -13,6 +13,7 @@ import {
 	executeQueryEngineError,
 	executeTimeSeriesQueryEngine,
 	propertyRef,
+	postBackendJson,
 	requireQueryEngineIncludeValue,
 	requireQueryEngineFieldValue,
 	schemaMetaRef,
@@ -20,7 +21,7 @@ import {
 	type QueryEnginePayload,
 } from "../fixtures";
 import { createGlobalBookEntityFixture, insertLibraryMembership } from "../fixtures/media";
-import { assertPresent, assertTaggedError } from "../test-support/assertions";
+import { assertPresent, requireObjectRecord, requireString } from "../test-support/assertions";
 
 const buildRowsDoc = (
 	overrides: Partial<QueryEnginePayload> & {
@@ -46,6 +47,14 @@ const buildRowsDoc = (
 		},
 		...rest,
 	};
+};
+
+const expectMalformedQueryBadRequest = async (body: unknown, cookies: string) => {
+	const response = await postBackendJson("/query-engine/execute", body, cookies);
+	const error = requireObjectRecord(await response.json(), "Expected BadRequest response");
+
+	expect(response.status).toBe(400);
+	expect(requireString(error._tag, "Expected error tag")).toBe("BadRequest");
 };
 
 const createCourseLessonFilterFixture = async () => {
@@ -1761,7 +1770,7 @@ describe("Query Engine E2E", () => {
 		});
 
 		it("rejects old predicate operand keys", async () => {
-			const { client } = await createAuthenticatedClient();
+			const { client, cookies } = await createAuthenticatedClient();
 			const { slug } = await createQueryEngineTrackerAndSchema(client, {
 				schemaName: "OldPredicateGuardrail",
 			});
@@ -1772,12 +1781,11 @@ describe("Query Engine E2E", () => {
 			};
 
 			const doc = buildRowsDoc({ alias: "e", schemas: [slug], orderByExpr: invalidExpr });
-			const error = await executeQueryEngineError(client, doc);
-			assertTaggedError(error, "ParseError");
+			await expectMalformedQueryBadRequest(doc, cookies);
 		});
 
 		it("rejects unsupported legacy filter keys", async () => {
-			const { client } = await createAuthenticatedClient();
+			const { client, cookies } = await createAuthenticatedClient();
 			const { slug } = await createQueryEngineTrackerAndSchema(client, {
 				schemaName: "LegacyFilterGuardrail",
 			});
@@ -1792,8 +1800,7 @@ describe("Query Engine E2E", () => {
 					filter: { type: "literal", value: true },
 				},
 			} as QueryEnginePayload;
-			const error = await executeQueryEngineError(client, doc);
-			assertTaggedError(error, "ParseError");
+			await expectMalformedQueryBadRequest(doc, cookies);
 		});
 	});
 });
