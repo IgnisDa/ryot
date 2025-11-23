@@ -7,6 +7,7 @@ import type {
 	NestedEventSourceV2,
 	QueryDocumentV2,
 	RootEventSourceV2,
+	RelationshipSourceV2,
 	SourceV2,
 } from "./language";
 
@@ -358,6 +359,61 @@ const validateRootEventSource = (
 	return null;
 };
 
+const validateRelationshipSource = (
+	source: RelationshipSourceV2,
+	scope: AliasScope,
+	aliases: AliasScope,
+) => {
+	const schemaError = validateSchemaList(source.schemas);
+	if (schemaError) {
+		return schemaError;
+	}
+	const sourceEntitySchemaError = validateSchemaList(source.sourceEntity.schemas);
+	if (sourceEntitySchemaError) {
+		return sourceEntitySchemaError;
+	}
+	const targetEntitySchemaError = validateSchemaList(source.targetEntity.schemas);
+	if (targetEntitySchemaError) {
+		return targetEntitySchemaError;
+	}
+
+	const aliasError = registerAlias(
+		scope,
+		source.alias,
+		{ type: "relationshipEdge", schemas: source.schemas },
+		aliases,
+	);
+	if (aliasError) {
+		return aliasError;
+	}
+
+	const sourceEntityAliasError = registerAlias(
+		scope,
+		source.sourceEntity.alias,
+		{ type: "entitySource", schemas: source.sourceEntity.schemas },
+		aliases,
+	);
+	if (sourceEntityAliasError) {
+		return sourceEntityAliasError;
+	}
+
+	const targetEntityAliasError = registerAlias(
+		scope,
+		source.targetEntity.alias,
+		{ type: "entitySource", schemas: source.targetEntity.schemas },
+		aliases,
+	);
+	if (targetEntityAliasError) {
+		return targetEntityAliasError;
+	}
+
+	if (source.where !== null) {
+		return `Root relationship source '${source.alias}' does not support where yet`;
+	}
+
+	return null;
+};
+
 const validateSource = (
 	source: SourceV2,
 	scope: AliasScope,
@@ -577,9 +633,19 @@ export const validateQueryDocumentV2 = (doc: QueryDocumentV2): string | null => 
 	const sourceError =
 		source.type === "entities"
 			? validateEntitySource(source, scope, aliases)
-			: validateRootEventSource(source, scope, aliases);
+			: source.type === "events"
+				? validateRootEventSource(source, scope, aliases)
+				: validateRelationshipSource(source, scope, aliases);
 	if (sourceError) {
 		return sourceError;
+	}
+
+	if (
+		source.type === "relationships" &&
+		doc.output.type === "rows" &&
+		(doc.output.include?.length ?? 0) > 0
+	) {
+		return "Relationship root rows do not support include yet";
 	}
 
 	return doc.output.type === "rows"
