@@ -213,7 +213,7 @@ driver("details", async function (context) {
 	}
 
 	const body = [
-		"fields id, name, description, logo.image_id, start_date, websites.url, country, url;",
+		"fields id, name, description, logo.image_id, start_date, websites.url, country, url, developed.id, developed.name, published.id, published.name;",
 		`where id = ${externalId};`,
 	].join("\n");
 
@@ -255,9 +255,42 @@ driver("details", async function (context) {
 		typeof company.description === "string" && company.description.trim()
 			? company.description.trim()
 			: null;
+	const relatedById = new Map();
+	const addGames = (games, role) => {
+		for (const game of Array.isArray(games) ? games : []) {
+			const gameId =
+				typeof game?.id === "number" && Number.isFinite(game.id) ? String(Math.trunc(game.id)) : null;
+			const gameName = typeof game?.name === "string" && game.name.trim() ? game.name.trim() : null;
+			if (!gameId || !gameName) {
+				continue;
+			}
+			const existing = relatedById.get(gameId);
+			if (existing) {
+				if (!existing.relationshipProperties.roles.includes(role)) {
+					existing.relationshipProperties.roles.push(role);
+				}
+				continue;
+			}
+			relatedById.set(gameId, {
+				name: gameName,
+				externalId: gameId,
+				scriptSlug: "video-game.igdb",
+				relationshipProperties: { roles: [role] },
+			});
+		}
+	};
+	addGames(company?.developed, "Developer");
+	addGames(company?.published, "Publisher");
 
 	return {
 		name,
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: [...relatedById.values()],
+				relationshipSchemaSlug: "company-to-video-game",
+			},
+		],
 		properties: {
 			images,
 			website,

@@ -61,18 +61,21 @@ describe("movie.tmdb sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.relatedEntities).toEqual([
+			expect(details.relatedEntityGroups).toEqual([
+				{ direction: "incoming", entities: [], relationshipSchemaSlug: "person-to-movie" },
+				{ direction: "incoming", entities: [], relationshipSchemaSlug: "company-to-movie" },
 				{
-					name: "Pick One",
-					externalId: "2",
-					scriptSlug: "movie.tmdb",
-					relationshipSchemaSlug: "media-suggestion",
+					entities: [],
+					direction: "incoming",
+					relationshipSchemaSlug: "movie-group-to-movie",
 				},
 				{
-					name: "Pick Two",
-					externalId: "3",
-					scriptSlug: "movie.tmdb",
+					direction: "outgoing",
 					relationshipSchemaSlug: "media-suggestion",
+					entities: [
+						{ name: "Pick One", externalId: "2", scriptSlug: "movie.tmdb" },
+						{ name: "Pick Two", externalId: "3", scriptSlug: "movie.tmdb" },
+					],
 				},
 			]);
 			return undefined;

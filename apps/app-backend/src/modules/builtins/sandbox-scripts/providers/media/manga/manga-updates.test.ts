@@ -31,18 +31,14 @@ describe("manga.manga-updates sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.relatedEntities).toEqual([
+			expect(details.relatedEntityGroups).toEqual([
 				{
-					name: "Recommendation",
-					externalId: "2",
-					scriptSlug: "manga.manga-updates",
+					direction: "outgoing",
 					relationshipSchemaSlug: "media-suggestion",
-				},
-				{
-					name: "Related",
-					externalId: "3",
-					scriptSlug: "manga.manga-updates",
-					relationshipSchemaSlug: "media-suggestion",
+					entities: [
+						{ name: "Recommendation", externalId: "2", scriptSlug: "manga.manga-updates" },
+						{ name: "Related", externalId: "3", scriptSlug: "manga.manga-updates" },
+					],
 				},
 			]);
 			return undefined;
