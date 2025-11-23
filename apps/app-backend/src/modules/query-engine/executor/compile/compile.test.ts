@@ -13,11 +13,15 @@ type ComparisonOp = Extract<Expr, { type: "comparison" }>["operator"];
 const dialect = new PgDialect();
 const render = (fragment: Parameters<typeof dialect.sqlToQuery>[0]) => dialect.sqlToQuery(fragment);
 
-const scope = (language: string | null = null) =>
+const scope = (
+	language: string | null = null,
+	canonicalByScript: Record<string, string> | null = null,
+) =>
 	rootScope(
 		{ type: "entities", alias: "course", schemas: ["course"], where: null },
 		"user-1",
 		language,
+		canonicalByScript,
 	);
 
 const ref = (name: string): Expr => ({
@@ -25,6 +29,12 @@ const ref = (name: string): Expr => ({
 	sourceAlias: "course",
 	field: { type: "system", name },
 });
+
+const translationStatusRef: Expr = {
+	type: "ref",
+	sourceAlias: "course",
+	field: { type: "systemComputed", name: "translationStatus" },
+};
 const prop = (path: string): Expr => ({
 	type: "ref",
 	sourceAlias: "course",
@@ -214,6 +224,42 @@ describe("entity source localization", () => {
 
 		const canonical = render(compileValue(aggExpr, scope()).value);
 		expect(canonical.sql).not.toContain("entity_translation");
+	});
+});
+
+describe("translationStatus computed field", () => {
+	it("constant-folds to to_jsonb('none'::text) for a canonical (null language) reader", () => {
+		const { sql, params } = render(compileValue(translationStatusRef, scope()).value);
+		expect(sql).toBe("to_jsonb('none'::text)");
+		expect(params).toHaveLength(0);
+	});
+
+	it("emits no entity_translation read when unlocalized, so canonical SQL is unchanged", () => {
+		const { sql } = render(compileValue(translationStatusRef, scope()).value);
+		expect(sql).not.toContain("entity_translation");
+		expect(sql).not.toContain("CASE");
+	});
+
+	it("tags the folded value with the text kind", () => {
+		const { sql } = render(compileValue(translationStatusRef, scope()).kind);
+		expect(sql).toBe("'text'");
+	});
+
+	it("emits its own correlated entity_translation reads when a language is set", () => {
+		const { sql, params } = render(
+			compileValue(translationStatusRef, scope("es", { "script-1": "en" })).value,
+		);
+		expect(sql).toContain("CASE");
+		expect(sql).toContain("sandbox_script_id IS NULL");
+		expect(sql).toContain("populated_at IS NULL");
+		expect(sql).toContain("NOT EXISTS (SELECT 1 FROM entity_translation t");
+		expect(params).toContain("es");
+		expect(params).toContain('{"script-1":"en"}');
+	});
+
+	it("binds an empty jsonb map when no canonical languages are known", () => {
+		const { params } = render(compileValue(translationStatusRef, scope("es")).value);
+		expect(params).toContain("{}");
 	});
 });
 

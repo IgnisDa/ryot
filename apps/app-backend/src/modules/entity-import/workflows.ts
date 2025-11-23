@@ -6,6 +6,7 @@ import { Cause, Context, DateTime, Effect, Exit, Layer, Match, Option, Schema } 
 
 import { DbRunner } from "#lib/db/service";
 import { SandboxRunError, dieOnDbError, toSandboxRunError } from "#lib/errors";
+import { encodeEntityUpdatedMessage, redisKeys, RedisService } from "#lib/redis";
 import { EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { ListedEntity } from "#modules/entities/schemas";
@@ -111,6 +112,7 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 	executionId: string,
 	options: { activityPrefix?: string } = {},
 ) {
+	const redis = yield* RedisService;
 	const runWithDb = yield* DbRunner;
 	const entities = yield* EntitiesService;
 	const repository = yield* EntitiesRepository;
@@ -209,7 +211,7 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 		name: activityName("mark-primary-entity-populated"),
 		execute: Effect.gen(function* () {
 			const populatedAt = yield* DateTime.nowAsDate;
-			return yield* entities
+			const saved = yield* entities
 				.save({
 					populatedAt,
 					scope: "global",
@@ -223,6 +225,12 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 					dieOnDbError,
 					Effect.mapError((error) => new SandboxRunError({ message: error.message })),
 				);
+			// Fans out to sockets that declared interest in this entity so they refetch its populated state.
+			yield* redis.publish(
+				redisKeys.entityUpdatedChannel,
+				encodeEntityUpdatedMessage(saved.id, "populated"),
+			);
+			return saved;
 		}),
 	});
 
