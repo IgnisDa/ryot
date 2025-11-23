@@ -1,7 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
+import { BadRequest } from "@ryot/contract/errors";
 import { Deferred, Effect, Exit, Fiber, Layer } from "effect";
-
-import { BadRequest } from "#lib/errors";
 
 import { DbService, TransactionRunner, TransactionRunnerLive } from "./service";
 

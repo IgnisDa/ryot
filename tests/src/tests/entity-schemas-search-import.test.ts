@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { EntitySchemaId, SandboxScriptId } from "@ryot/app-backend/schema/brands";
+import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 
 import {
 	createAuthenticatedClient,

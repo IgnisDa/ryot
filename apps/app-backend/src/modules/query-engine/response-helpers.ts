@@ -1,8 +1,11 @@
+import type {
+	FieldValue,
+	QueryResponse,
+	RowItem,
+	RowValue,
+} from "@ryot/contract/modules/query-engine/language";
+import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { DateTime, Effect, Option } from "effect";
-
-import { isObjectRecord } from "#lib/predicates";
-
-import type { FieldValue, QueryResponse, RowItem, RowValue } from "./language";
 
 const isFieldValue = (value: RowValue | undefined): value is FieldValue =>
 	value !== undefined && "kind" in value;

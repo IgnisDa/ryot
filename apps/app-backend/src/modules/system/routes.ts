@@ -1,11 +1,11 @@
 import { HttpApiBuilder } from "@effect/platform";
+import { AppContract } from "@ryot/contract/contract";
+import { healthCheckFailed, unknownToMessage } from "@ryot/contract/errors";
 import { sql } from "drizzle-orm";
 import { Effect, Option } from "effect";
 
 import { AppConfig, isOidcEnabled } from "#lib/config/service";
-import { AppContract } from "#lib/contract";
 import { DbService } from "#lib/db/service";
-import { healthCheckFailed, unknownToMessage } from "#lib/errors";
 import { RedisService } from "#lib/redis";
 
 export const SystemRoutesLive = HttpApiBuilder.group(AppContract, "system", (handlers) =>

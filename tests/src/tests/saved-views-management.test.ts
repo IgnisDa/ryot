@@ -3,7 +3,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	createEntityColumnExpression,
 	createEntitySchemaExpression,
-} from "@ryot/app-backend/display-configuration";
+} from "@ryot/contract/display-configuration";
 
 import {
 	cloneSavedView,

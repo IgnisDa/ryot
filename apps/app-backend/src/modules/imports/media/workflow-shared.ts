@@ -1,10 +1,10 @@
 import { Activity } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
+import type { EntityId } from "@ryot/contract/schema/brands";
+import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/db/service";
-import type { EntityId } from "#lib/schema/brands";
-import { EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
 
 import type { ImportRunJobData } from "../jobs";
 import { ImportsRepository } from "../repository";

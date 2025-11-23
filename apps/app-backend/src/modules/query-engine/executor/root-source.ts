@@ -1,7 +1,7 @@
+import type { RelationshipSource, RootSource } from "@ryot/contract/modules/query-engine/language";
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import type { RelationshipSource, RootSource } from "../language";
 import { entitySourceSql } from "./compile/fragments";
 import {
 	loadVisibleEntitySchemas,

@@ -1,4 +1,5 @@
-import type { CreateImportRunBody } from "../schemas";
+import type { CreateImportRunBody } from "@ryot/contract/modules/imports/schemas";
+
 import type { ImporterConfig } from "./importer-config";
 import { getSourceApiHost, normalizeSourceApiUrl } from "./source-api";
 

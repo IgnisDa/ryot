@@ -1,8 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import { Cause, Effect, Exit, Layer, Option } from "effect";
-
-import type { CurrentUserValue } from "#lib/auth-middleware";
-import { BadRequest, NotFound } from "#lib/errors";
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { BadRequest, NotFound } from "@ryot/contract/errors";
 import {
 	EntityId,
 	EntitySchemaId,
@@ -10,8 +8,10 @@ import {
 	RelationshipId,
 	RelationshipSchemaId,
 	UserId,
-} from "#lib/schema/brands";
-import type { AppSchema } from "#lib/schema/property-schema";
+} from "@ryot/contract/schema/brands";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
+import { Cause, Effect, Exit, Layer, Option } from "effect";
+
 import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";

@@ -1,21 +1,27 @@
 import { expect, it } from "@effect/vitest";
+import {
+	type CachedUserPreferences,
+	type CurrentUserValue,
+	defaultUserPreferences,
+} from "@ryot/contract/auth-middleware";
+import { UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { AuthService } from "#lib/auth";
-import type { CurrentUserValue } from "#lib/auth-middleware";
-import { defaultUserPreferences, type UserPreferences } from "#lib/builtins/bootstrap";
-import { UserId } from "#lib/schema/brands";
 
 import { UserPreferencesService } from "./service";
 
-const makeUser = (preferences: UserPreferences): CurrentUserValue => ({
+const makeUser = (preferences: CachedUserPreferences): CurrentUserValue => ({
 	preferences,
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
 });
 
-type UpdateUserPreferences = (userId: UserId, preferences: UserPreferences) => Effect.Effect<void>;
+type UpdateUserPreferences = (
+	userId: UserId,
+	preferences: CachedUserPreferences,
+) => Effect.Effect<void>;
 
 const makeServiceLayer = (updateUserPreferences: UpdateUserPreferences = () => Effect.void) =>
 	UserPreferencesService.Default.pipe(

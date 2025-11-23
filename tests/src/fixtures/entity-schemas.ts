@@ -1,5 +1,5 @@
-import { EntitySchemaId, SandboxScriptId, TrackerId } from "@ryot/app-backend/schema/brands";
-import type { AppSchema } from "@ryot/app-backend/schema/property-schema";
+import { EntitySchemaId, SandboxScriptId, TrackerId } from "@ryot/contract/schema/brands";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 
 import { getPgClient } from "../setup";
 import { assertPresent, requirePresent } from "../test-support/assertions";

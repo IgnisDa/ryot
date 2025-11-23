@@ -1,12 +1,16 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { badRequest, conflict, notFound } from "@ryot/contract/errors";
+import type {
+	CreateEntitySchemaBody,
+	SearchEntitySchemasBody,
+} from "@ryot/contract/modules/entity-schemas/schemas";
+import { type EntitySchemaId, Slug, TrackerId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Effect, Schema } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth-middleware";
 import { builtinEntitySchemas } from "#lib/builtins/entity-schemas";
 import { DbRunner, TransactionRunner } from "#lib/db/service";
-import { badRequest, conflict, notFound } from "#lib/errors";
-import { type EntitySchemaId, Slug, TrackerId } from "#lib/schema/brands";
 import { parseLabeledPropertySchemaInput } from "#lib/schema/property-schema-runtime";
 import { slugify } from "#lib/slug";
 import { requireText, trimToNull } from "#lib/validation";
@@ -14,7 +18,6 @@ import { SandboxApiService } from "#modules/sandbox/service";
 import { TrackersRepository } from "#modules/trackers/repository";
 
 import { EntitySchemasRepository } from "./repository";
-import type { CreateEntitySchemaBody, SearchEntitySchemasBody } from "./schemas";
 import { CreateDefaultSavedViewWorkflow } from "./workflow-definitions";
 
 const reservedEntitySchemaSlugs = new Set(builtinEntitySchemas().map((s) => s.slug));

@@ -1,6 +1,10 @@
+import type {
+	EntityId,
+	EntitySchemaId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
-
-import type { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";
 
 export type PopulationRequest = {
 	entityId: EntityId;

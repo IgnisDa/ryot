@@ -1,8 +1,8 @@
 import { DurableQueue } from "@effect/workflow";
+import type { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { DateTime, Effect } from "effect";
 
 import { DbRunner } from "#lib/db/service";
-import type { ImportRunId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import type { MediaImportAdapterResult } from "#modules/imports/media/adapter-result";
 import type { ImportEntityRef } from "#modules/imports/media/types";
 import { ImportsRepository } from "#modules/imports/repository";
