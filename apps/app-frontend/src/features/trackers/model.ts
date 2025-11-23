@@ -1,6 +1,6 @@
 import type { ApiGetResponseData } from "#/lib/api/types";
 
-export type AppTracker = ApiGetResponseData<"/trackers/list">[number];
+export type AppTracker = ApiGetResponseData<"/trackers">[number];
 
 export function sortTrackersByOrder(trackers: AppTracker[]): AppTracker[] {
 	return [...trackers].sort((a, b) => {
