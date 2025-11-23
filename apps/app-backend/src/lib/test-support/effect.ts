@@ -61,8 +61,8 @@ export const makeAppConfigLayer = (overrides?: Partial<AppConfigValue>): Layer.L
 		redisUrl: Redacted.make("unused"),
 		frontend: { oidcButtonLabel: Option.none() },
 		users: { allowRegistration: true, disableLocalAuth: false },
+		database: { poolMax: 10, connectionTimeoutMs: 10_000, url: Redacted.make("unused") },
 		notifications: {
-			disabled: false,
 			smtp: {
 				user: Option.none(),
 				server: Option.none(),
@@ -75,11 +75,6 @@ export const makeAppConfigLayer = (overrides?: Partial<AppConfigValue>): Layer.L
 			frequentCronJobsSchedule: "every 5 minutes",
 			infrequentCronJobsSchedule: "every midnight",
 		},
-		database: {
-			poolMax: 10,
-			connectionTimeoutMs: 10_000,
-			url: Redacted.make("unused"),
-		},
 		sandbox: {
 			denoDir: "/tmp",
 			timeoutMs: 5_000,
@@ -88,8 +83,9 @@ export const makeAppConfigLayer = (overrides?: Partial<AppConfigValue>): Layer.L
 		},
 		server: {
 			corsOrigins: Option.none(),
-			adminAccessToken: Redacted.make("unused"),
+			disableNotifications: false,
 			disableBackgroundJobs: false,
+			adminAccessToken: Redacted.make("unused"),
 			oidc: { clientId: Option.none(), issuerUrl: Option.none(), clientSecret: Option.none() },
 		},
 		fileStorage: {
