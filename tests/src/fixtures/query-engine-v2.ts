@@ -7,15 +7,16 @@ import { createEntitySchema } from "./entity-schemas";
 import { pollUntil } from "./polling";
 import { createTracker } from "./trackers";
 
-export type V2RowValue = V2RowItem[string];
-export type V2RowItem = V2RowsResponse["data"]["items"][number];
-export type V2FieldValue = Extract<V2RowValue, { kind: string }>;
+type V2RowValue = V2RowItem[string];
+type V2RowItem = V2RowsResponse["data"]["items"][number];
+type V2FieldValue = Extract<V2RowValue, { kind: string }>;
+type V2RowsResponse = Extract<V2ExecuteResponse, { type: "rows" }>;
+type V2ExecuteResponse = ContractSuccess<"queryEngineV2", "execute">;
 type V2RowsOutput = Extract<V2ExecutePayload["output"], { type: "rows" }>;
-export type V2RowsResponse = Extract<V2ExecuteResponse, { type: "rows" }>;
+type V2IncludeValue = Extract<V2RowValue, { items: readonly V2RowItem[] }>;
 export type V2ExecutePayload = ContractPayload<"queryEngineV2", "execute">;
-export type V2ExecuteResponse = ContractSuccess<"queryEngineV2", "execute">;
-export type V2IncludeValue = Extract<V2RowValue, { items: readonly V2RowItem[] }>;
-export type V2AggregateResponse = Extract<V2ExecuteResponse, { type: "aggregate" }>;
+type V2AggregateResponse = Extract<V2ExecuteResponse, { type: "aggregate" }>;
+type V2TimeSeriesResponse = Extract<V2ExecuteResponse, { type: "timeSeries" }>;
 
 export async function executeQueryEngineV2(
 	client: Client,
@@ -35,6 +36,17 @@ export async function executeAggregateQueryEngineV2(
 	const result = await client.run((c) => c.queryEngineV2.execute({ payload: doc }));
 	if (result.type !== "aggregate") {
 		throw new Error(`Expected aggregate response, received ${result.type}`);
+	}
+	return result;
+}
+
+export async function executeTimeSeriesQueryEngineV2(
+	client: Client,
+	doc: V2ExecutePayload,
+): Promise<V2TimeSeriesResponse> {
+	const result = await client.run((c) => c.queryEngineV2.execute({ payload: doc }));
+	if (result.type !== "timeSeries") {
+		throw new Error(`Expected timeSeries response, received ${result.type}`);
 	}
 	return result;
 }
