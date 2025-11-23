@@ -95,6 +95,27 @@ function getNullableString(value) {
 	return parsed.length > 0 ? parsed : null;
 }
 
+function toExternalId(value) {
+	if (typeof value === "number" && Number.isFinite(value)) {
+		return String(Math.trunc(value));
+	}
+	if (typeof value === "string" && value.trim()) {
+		return value.trim();
+	}
+	return null;
+}
+
+function addMedia(entities, entity) {
+	const existing = entities.get(entity.externalId);
+	if (!existing) {
+		entities.set(entity.externalId, entity);
+		return;
+	}
+	if (!existing.relationshipProperties.roles.includes(entity.relationshipProperties.roles[0])) {
+		existing.relationshipProperties.roles.push(entity.relationshipProperties.roles[0]);
+	}
+}
+
 function getCanonicalLanguage(metadata) {
 	return metadata?.providerInformation?.canonicalLanguage ?? "en";
 }
@@ -276,30 +297,15 @@ driver("details", async function (context, { metadata }) {
 	const slug = typeof person?.slug === "string" && person.slug.trim() ? person.slug.trim() : null;
 	const movieById = new Map();
 	const showById = new Map();
-	const addMedia = (entities, entity) => {
-		const existing = entities.get(entity.externalId);
-		if (!existing) {
-			entities.set(entity.externalId, entity);
-			return;
-		}
-		if (!existing.relationshipProperties.roles.includes(entity.relationshipProperties.roles[0])) {
-			existing.relationshipProperties.roles.push(entity.relationshipProperties.roles[0]);
-		}
-	};
 	for (const character of Array.isArray(person?.characters) ? person.characters : []) {
-		const role =
-			typeof character?.peopleType === "string" && character.peopleType.trim()
-				? character.peopleType.trim()
-				: typeof character?.people_type === "string" && character.people_type.trim()
-					? character.people_type.trim()
-					: "Actor";
+		let role = "Actor";
+		if (typeof character?.peopleType === "string" && character.peopleType.trim()) {
+			role = character.peopleType.trim();
+		} else if (typeof character?.people_type === "string" && character.people_type.trim()) {
+			role = character.people_type.trim();
+		}
 		const movieId = character?.movieId ?? character?.movie_id;
-		const movieExternalId =
-			typeof movieId === "number" && Number.isFinite(movieId)
-				? String(Math.trunc(movieId))
-				: typeof movieId === "string" && movieId.trim()
-					? movieId.trim()
-					: null;
+		const movieExternalId = toExternalId(movieId);
 		if (movieExternalId) {
 			const movieName =
 				typeof character?.movie?.name === "string" && character.movie.name.trim()
@@ -313,12 +319,7 @@ driver("details", async function (context, { metadata }) {
 			});
 		}
 		const seriesId = character?.seriesId ?? character?.series_id;
-		const seriesExternalId =
-			typeof seriesId === "number" && Number.isFinite(seriesId)
-				? String(Math.trunc(seriesId))
-				: typeof seriesId === "string" && seriesId.trim()
-					? seriesId.trim()
-					: null;
+		const seriesExternalId = toExternalId(seriesId);
 		if (seriesExternalId) {
 			const showName =
 				typeof character?.series?.name === "string" && character.series.name.trim()
@@ -353,9 +354,9 @@ driver("details", async function (context, { metadata }) {
 			alternateNames: [],
 			images: image ? [{ type: "remote", url: image }] : [],
 			birthDate:
-			typeof person?.birth === "string" && person.birth.trim() ? person.birth.trim() : null,
+				typeof person?.birth === "string" && person.birth.trim() ? person.birth.trim() : null,
 			deathDate:
-			typeof person?.death === "string" && person.death.trim() ? person.death.trim() : null,
+				typeof person?.death === "string" && person.death.trim() ? person.death.trim() : null,
 			sourceUrl: slug
 				? `https://www.thetvdb.com/people/${slug}`
 				: `https://www.thetvdb.com/people/${externalId}`,
