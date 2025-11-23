@@ -35,6 +35,7 @@ import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/workfl
 import { GlobalEntityReferencedWorkerLive } from "#modules/library/global-reference-worker";
 import { LibraryImportService } from "#modules/library/service";
 import { LibraryEntityImportWorkflowDefinitionsLive } from "#modules/library/workflows";
+import { QueryEngineV2Service } from "#modules/query-engine-v2/service";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipSchemasService } from "#modules/relationship-schemas/service";
@@ -119,6 +120,7 @@ const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 		Layer.provide(ImportsService.Default, UploadsService.Default),
 	),
 	QueryEngineService.Default,
+	QueryEngineV2Service.Default,
 	RelationshipSchemasService.Default,
 	RelationshipsService.Default,
 	SavedViewsServiceLive,
