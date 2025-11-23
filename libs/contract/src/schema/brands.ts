@@ -1,4 +1,6 @@
-import { Either, Schema } from "effect";
+import { Schema } from "effect";
+
+import { HttpUrl } from "./utils";
 
 export const UserId = Schema.String.pipe(Schema.brand("UserId"));
 
@@ -61,14 +63,6 @@ export const Slug = Schema.String.pipe(
 
 export type Slug = typeof Slug.Type;
 
-export const RemoteImageUrl = Schema.String.pipe(
-	Schema.filter((value) => {
-		const url = Either.try(() => new URL(value.trim()));
-		return Either.isRight(url) && ["http:", "https:"].includes(url.right.protocol)
-			? true
-			: "must be a valid http or https URL";
-	}),
-	Schema.brand("RemoteImageUrl"),
-);
+export const RemoteImageUrl = HttpUrl.pipe(Schema.brand("RemoteImageUrl"));
 
 export type RemoteImageUrl = typeof RemoteImageUrl.Type;
