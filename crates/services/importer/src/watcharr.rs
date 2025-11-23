@@ -174,8 +174,8 @@ fn map_status_to_seen_state(status: &str) -> SeenState {
     match status {
         "DROPPED" => SeenState::Dropped,
         "FINISHED" => SeenState::Completed,
-        "WATCHING" => SeenState::InProgress,
         "PLANNED" => SeenState::InProgress,
+        "WATCHING" => SeenState::InProgress,
         _ => SeenState::InProgress,
     }
 }
