@@ -4,6 +4,7 @@ export type {
 	EventSchemaServiceDeps,
 	EventSchemaServiceResult,
 } from "./service";
+export { getBuiltinEventSchemaBySlug } from "./repository";
 export {
 	createEventSchema,
 	listEventSchemas,

@@ -1,10 +1,9 @@
-import type { AppSchema } from "@ryot/ts-utils/app-schema";
 import { dayjs } from "@ryot/ts-utils/dayjs";
+import { type Job, WaitingChildrenError } from "bullmq";
 
-import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 import { getTemporaryDirectory } from "~/lib/bun";
-import { db } from "~/lib/db";
-import { entity } from "~/lib/db/schema";
+import { config } from "~/lib/config";
+import { createEntity } from "~/modules/entities";
 import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas";
 
 import {
@@ -13,10 +12,14 @@ import {
 	resolveSafeImportFilePath,
 	validateFileExtension,
 } from "./file-helpers";
+import type { ImportEntityRef, ImportMediaEntityGroup, ImportRunJobData } from "./jobs";
+import { entityRefKey, populateMediaEntityRefs, writeMediaEntityGroups } from "./media-processor";
 import { createImportRunFailure, getImportRunById, updateImportRun } from "./repository";
 import type { ImportRunFailureStage } from "./schemas";
 import { adaptOpenScaleCsv } from "./sources/open-scale";
 import type { OpenScaleNormalizedItem } from "./sources/open-scale";
+import { adaptTraktData } from "./sources/trakt";
+import type { TraktAdapterResult } from "./sources/trakt";
 
 const PROGRESS_UPDATE_INTERVAL = 10;
 
@@ -42,8 +45,9 @@ const recordItemFailure = async (
 		sourceIdentifier?: string | null;
 		context?: Record<string, unknown> | null;
 	},
+	createFailure: typeof createImportRunFailure = createImportRunFailure,
 ): Promise<void> => {
-	await createImportRunFailure({
+	await createFailure({
 		runId,
 		stage,
 		message,
@@ -55,27 +59,37 @@ const recordItemFailure = async (
 	});
 };
 
+export type TraktImportProcessorDeps = {
+	adaptTraktData: typeof adaptTraktData;
+	updateImportRun: typeof updateImportRun;
+	getTraktClientId: () => string | undefined;
+	createImportRunFailure: typeof createImportRunFailure;
+	writeMediaEntityGroups: typeof writeMediaEntityGroups;
+	populateMediaEntityRefs: typeof populateMediaEntityRefs;
+};
+
+const traktImportProcessorDeps: TraktImportProcessorDeps = {
+	adaptTraktData,
+	updateImportRun,
+	createImportRunFailure,
+	writeMediaEntityGroups,
+	populateMediaEntityRefs,
+	getTraktClientId: () => config.importer.trakt.clientId,
+};
+
 const commitMeasurementEntity = async (
 	userId: string,
 	item: OpenScaleNormalizedItem,
 	schemaId: string,
-	propertiesSchema: AppSchema,
 ): Promise<void> => {
 	const entityName = `Measurement - ${dayjs(item.properties.recordedAt).format("YYYY-MM-DD HH:mm")}`;
-
-	const validatedProperties = parseAppSchemaProperties({
-		kind: "Entity",
-		properties: item.properties,
-		propertiesSchema,
-	});
-
-	await db.insert(entity).values({
+	const result = await createEntity({
 		userId,
-		image: null,
-		name: entityName,
-		entitySchemaId: schemaId,
-		properties: validatedProperties,
+		body: { image: null, name: entityName, entitySchemaId: schemaId, properties: item.properties },
 	});
+	if ("error" in result) {
+		throw new Error(result.message);
+	}
 };
 
 export const processOpenScaleImport = async (input: {
@@ -157,12 +171,7 @@ export const processOpenScaleImport = async (input: {
 			const itemIndex = item.itemIndex;
 
 			try {
-				await commitMeasurementEntity(
-					input.userId,
-					item,
-					measurementSchema.id,
-					measurementSchema.propertiesSchema,
-				);
+				await commitMeasurementEntity(input.userId, item, measurementSchema.id);
 				importedItems++;
 			} catch (error) {
 				await recordItemFailure(
@@ -208,25 +217,290 @@ export const processOpenScaleImport = async (input: {
 	}
 };
 
-export const processImportJob = async (input: {
-	runId: string;
-	userId: string;
-	filePath: string;
-}): Promise<void> => {
-	const tempDir = getTemporaryDirectory();
+export const processTraktImport = async (
+	job: Job,
+	token: string | undefined,
+	input: {
+		runId: string;
+		userId: string;
+		traktUsername: string;
+		providerEntityIndex: number | undefined;
+		adapterFailureCount: number | undefined;
+		providerSandboxJobId: string | undefined;
+		mediaWriteGroupIndex: number | undefined;
+		mediaWriteFailedItems: number | undefined;
+		importStep: ImportRunJobData["importStep"];
+		providerFailedIndices: number[] | undefined;
+		mediaWriteImportedItems: number | undefined;
+		providerEntityRefs: ImportEntityRef[] | undefined;
+		providerEntityIds: Array<string | null> | undefined;
+		mediaEntityGroups: ImportMediaEntityGroup[] | undefined;
+	},
+	deps: TraktImportProcessorDeps = traktImportProcessorDeps,
+): Promise<void> => {
+	const { runId, userId, traktUsername } = input;
 
-	const run = await getImportRunById({ runId: input.runId, userId: input.userId });
-	if (!run) {
-		throw new Error(`Import run '${input.runId}' not found`);
+	const clientId = deps.getTraktClientId();
+	if (!clientId) {
+		await deps.updateImportRun({
+			runId,
+			status: "failed",
+			finishedAt: new Date(),
+			errorSummary: "Trakt importer is not configured. Set SERVER_IMPORTER_TRAKT_CLIENT_ID.",
+		});
+		return;
 	}
 
-	await updateImportRun({ status: "running", runId: input.runId, startedAt: new Date() });
+	let importStep = input.importStep;
+	let mediaEntityGroups = input.mediaEntityGroups;
+	let providerEntityRefs = input.providerEntityRefs;
+	let adapterFailureCount = input.adapterFailureCount ?? 0;
+	let mediaWriteFailedItems = input.mediaWriteFailedItems ?? 0;
+	let mediaWriteGroupIndex = input.mediaWriteGroupIndex ?? 0;
+	let mediaWriteImportedItems = input.mediaWriteImportedItems ?? 0;
+	let providerEntityIds = input.providerEntityIds ?? [];
+	let providerFailedIndices = input.providerFailedIndices ?? [];
 
-	const safePathResult = resolveSafeImportFilePath(input.filePath, tempDir);
+	if (!importStep || importStep === "populating_entities") {
+		if (!providerEntityRefs || !mediaEntityGroups) {
+			let adapterResult: TraktAdapterResult;
+			try {
+				adapterResult = await deps.adaptTraktData(traktUsername, clientId);
+			} catch (error) {
+				await deps.updateImportRun({
+					runId,
+					status: "failed",
+					finishedAt: new Date(),
+					errorSummary: sanitizeErrorMessage(error, "Failed to fetch data from Trakt"),
+				});
+				return;
+			}
+
+			// oxlint-disable no-await-in-loop
+			for (const failure of adapterResult.failures) {
+				await recordItemFailure(
+					runId,
+					failure.itemIndex,
+					"input_transformation",
+					failure.message,
+					{
+						sourceLabel: failure.sourceLabel,
+						sourceIdentifier: failure.sourceIdentifier,
+					},
+					deps.createImportRunFailure,
+				);
+			}
+			// oxlint-enable no-await-in-loop
+
+			mediaEntityGroups = adapterResult.entityGroups;
+			adapterFailureCount = adapterResult.failures.length;
+			mediaWriteFailedItems = 0;
+			mediaWriteGroupIndex = 0;
+			mediaWriteImportedItems = 0;
+			providerEntityRefs = mediaEntityGroups.map((g) => g.entityRef);
+			const totalItems = providerEntityRefs.length + adapterFailureCount;
+			await deps.updateImportRun({ runId, totalItems });
+
+			await job.updateData({
+				runId,
+				userId,
+				traktUsername,
+				mediaEntityGroups,
+				providerEntityRefs,
+				adapterFailureCount,
+				mediaWriteGroupIndex,
+				providerEntityIds: [],
+				mediaWriteFailedItems,
+				providerEntityIndex: 0,
+				mediaWriteImportedItems,
+				providerFailedIndices: [],
+				importStep: "populating_entities" as const,
+			});
+		}
+
+		const result = await deps.populateMediaEntityRefs(job, token, {
+			runId,
+			userId,
+			traktUsername,
+			mediaEntityGroups,
+			adapterFailureCount,
+			entityIds: providerEntityIds,
+			entityRefs: providerEntityRefs,
+			failedIndices: providerFailedIndices,
+			startIndex: input.providerEntityIndex ?? 0,
+			currentSandboxJobId: input.providerSandboxJobId,
+		});
+		// WaitingChildrenError propagates naturally to pause the job
+
+		providerFailedIndices = result.failedIndices;
+		providerEntityIds = result.entityIds;
+		importStep = "writing_events";
+
+		await job.updateData({
+			runId,
+			userId,
+			traktUsername,
+			mediaEntityGroups,
+			providerEntityIds,
+			providerEntityRefs,
+			adapterFailureCount,
+			mediaWriteGroupIndex,
+			mediaWriteFailedItems,
+			providerFailedIndices,
+			mediaWriteImportedItems,
+			importStep: "writing_events" as const,
+		});
+	}
+
+	if (
+		!mediaEntityGroups ||
+		!providerEntityRefs ||
+		providerEntityIds.length < providerEntityRefs.length
+	) {
+		await deps.updateImportRun({
+			runId,
+			status: "failed",
+			finishedAt: new Date(),
+			errorSummary: "Import job is missing normalized or populated Trakt data",
+		});
+		return;
+	}
+
+	const entityIdsByKey = new Map<string, string>();
+	providerEntityRefs.forEach((ref, i) => {
+		const entityId = providerEntityIds[i];
+		if (!providerFailedIndices.includes(i) && entityId) {
+			entityIdsByKey.set(entityRefKey(ref), entityId);
+		}
+	});
+
+	const { failedItems, importedItems } = await deps.writeMediaEntityGroups({
+		runId,
+		userId,
+		entityIdsByKey,
+		entityGroups: mediaEntityGroups,
+		failedItems: mediaWriteFailedItems,
+		startGroupIndex: mediaWriteGroupIndex,
+		importedItems: mediaWriteImportedItems,
+		onGroupComplete: async (state) => {
+			mediaWriteFailedItems = state.failedItems;
+			mediaWriteGroupIndex = state.nextGroupIndex;
+			mediaWriteImportedItems = state.importedItems;
+			await job.updateData({
+				runId,
+				userId,
+				traktUsername,
+				mediaEntityGroups,
+				providerEntityIds,
+				providerEntityRefs,
+				adapterFailureCount,
+				mediaWriteGroupIndex,
+				providerFailedIndices,
+				mediaWriteFailedItems,
+				mediaWriteImportedItems,
+				importStep: "writing_events" as const,
+			});
+		},
+	});
+
+	const totalFailed = adapterFailureCount + providerFailedIndices.length + failedItems;
+	const totalProcessed = adapterFailureCount + providerEntityRefs.length;
+
+	await deps.updateImportRun({
+		runId,
+		importedItems,
+		progress: 100,
+		status: "completed",
+		finishedAt: new Date(),
+		failedItems: totalFailed,
+		processedItems: totalProcessed,
+	});
+};
+
+export const processImportJob = async (input: {
+	job: Job;
+	runId: string;
+	token?: string;
+	userId: string;
+	filePath?: string;
+	traktUsername?: string;
+	providerEntityIndex?: number;
+	adapterFailureCount?: number;
+	mediaWriteGroupIndex?: number;
+	providerSandboxJobId?: string;
+	mediaWriteFailedItems?: number;
+	mediaWriteImportedItems?: number;
+	providerFailedIndices?: number[];
+	providerEntityRefs?: ImportEntityRef[];
+	providerEntityIds?: Array<string | null>;
+	importStep?: ImportRunJobData["importStep"];
+	mediaEntityGroups?: ImportMediaEntityGroup[];
+}): Promise<void> => {
+	const { runId, userId } = input;
+
+	const run = await getImportRunById({ runId, userId });
+	if (!run) {
+		throw new Error(`Import run '${runId}' not found`);
+	}
+
+	if (!input.importStep) {
+		await updateImportRun({ status: "running", runId, startedAt: new Date() });
+	}
+
+	if (run.source === "trakt") {
+		const traktUsername = input.traktUsername?.trim();
+		if (!traktUsername) {
+			await updateImportRun({
+				runId,
+				status: "failed",
+				finishedAt: new Date(),
+				errorSummary: "Import job is missing Trakt username",
+			});
+			throw new Error("Import job is missing Trakt username");
+		}
+
+		try {
+			await processTraktImport(input.job, input.token, {
+				runId,
+				userId,
+				traktUsername,
+				importStep: input.importStep,
+				mediaEntityGroups: input.mediaEntityGroups,
+				providerEntityIds: input.providerEntityIds,
+				providerEntityRefs: input.providerEntityRefs,
+				providerEntityIndex: input.providerEntityIndex,
+				adapterFailureCount: input.adapterFailureCount,
+				providerSandboxJobId: input.providerSandboxJobId,
+				mediaWriteGroupIndex: input.mediaWriteGroupIndex,
+				providerFailedIndices: input.providerFailedIndices,
+				mediaWriteFailedItems: input.mediaWriteFailedItems,
+				mediaWriteImportedItems: input.mediaWriteImportedItems,
+			});
+		} catch (error) {
+			if (error instanceof WaitingChildrenError) {
+				throw error;
+			}
+			const message = sanitizeErrorMessage(error, "Import job failed unexpectedly");
+			try {
+				await updateImportRun({
+					runId,
+					status: "failed",
+					errorSummary: message,
+					finishedAt: new Date(),
+				});
+			} catch {}
+			throw error;
+		}
+		return;
+	}
+
+	const tempDir = getTemporaryDirectory();
+
+	const safePathResult = resolveSafeImportFilePath(input.filePath ?? "", tempDir);
 	if ("error" in safePathResult) {
 		await updateImportRun({
+			runId,
 			status: "failed",
-			runId: input.runId,
 			finishedAt: new Date(),
 			errorSummary: "Import job has an invalid file path",
 		});
@@ -240,8 +514,8 @@ export const processImportJob = async (input: {
 	if ("error" in extResult) {
 		await cleanupImportFile(safePath);
 		await updateImportRun({
+			runId,
 			status: "failed",
-			runId: input.runId,
 			finishedAt: new Date(),
 			errorSummary: "Import job has an invalid file extension",
 		});
@@ -250,15 +524,11 @@ export const processImportJob = async (input: {
 
 	try {
 		if (run.source === "open_scale") {
-			await processOpenScaleImport({
-				runId: input.runId,
-				userId: input.userId,
-				filePath: safePath,
-			});
+			await processOpenScaleImport({ runId, userId, filePath: safePath });
 		} else {
 			await updateImportRun({
+				runId,
 				status: "failed",
-				runId: input.runId,
 				finishedAt: new Date(),
 				errorSummary: `Unsupported import source: ${run.source}`,
 			});
@@ -267,8 +537,8 @@ export const processImportJob = async (input: {
 		const message = sanitizeErrorMessage(error, "Import job failed unexpectedly");
 		try {
 			await updateImportRun({
+				runId,
 				status: "failed",
-				runId: input.runId,
 				errorSummary: message,
 				finishedAt: new Date(),
 			});
