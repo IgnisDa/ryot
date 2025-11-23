@@ -66,14 +66,13 @@ fn find_episode_watch_date(
 ) -> Option<DateTimeUtc> {
     if let Some(activities) = activity {
         for act in activities {
-            if act.activity_type.contains("EPISODE") {
-                if let Some(data_str) = &act.data {
-                    if let Ok(data) = serde_json::from_str::<WatcharrActivityData>(data_str) {
-                        if data.season == Some(season) && data.episode == Some(episode) {
-                            return act.custom_date;
-                        }
-                    }
-                }
+            if act.activity_type.contains("EPISODE")
+                && let Some(data_str) = &act.data
+                && let Ok(data) = serde_json::from_str::<WatcharrActivityData>(data_str)
+                && data.season == Some(season)
+                && data.episode == Some(episode)
+            {
+                return act.custom_date;
             }
         }
     }
