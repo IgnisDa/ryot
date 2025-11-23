@@ -7,6 +7,7 @@ import { BadRequest, type DbError, NotFound } from "#lib/errors";
 
 import type {
 	Expr,
+	EventSourceV2,
 	FieldSelector,
 	FieldValue,
 	IncludeEntryV2,
@@ -20,6 +21,8 @@ const MAX_SERIALIZED_ROW_OBJECTS = 5000;
 
 export type VisibleSchema = { id: string; slug: string };
 type VisibleRelationshipSchema = { id: string; slug: string };
+
+type VisibleEventSchema = { id: string; slug: string };
 
 const loadVisibleEntitySchemas = (
 	userId: string,
@@ -78,6 +81,38 @@ const loadVisibleRelationshipSchema = (
 			return yield* new NotFound({ message: `Relationship schema '${slug}' not found` });
 		}
 		return schema;
+	});
+
+const loadVisibleEventSchemas = (
+	userId: string,
+	entitySchemaId: string,
+	slugs: readonly [string, ...string[]],
+): Effect.Effect<VisibleEventSchema[], NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const db = yield* CurrentDb;
+		const uniqueSlugs = [...new Set(slugs)];
+
+		const rows = yield* dbEffect(() =>
+			db
+				.select({ id: dbSchema.eventSchema.id, slug: dbSchema.eventSchema.slug })
+				.from(dbSchema.eventSchema)
+				.where(
+					and(
+						eq(dbSchema.eventSchema.entitySchemaId, entitySchemaId),
+						inArray(dbSchema.eventSchema.slug, uniqueSlugs),
+						or(eq(dbSchema.eventSchema.userId, userId), isNull(dbSchema.eventSchema.userId)),
+					),
+				),
+		);
+
+		const visibleSlugs = new Set(rows.map((r) => r.slug));
+		for (const slug of uniqueSlugs) {
+			if (!visibleSlugs.has(slug)) {
+				return yield* new NotFound({ message: `Event schema '${slug}' not found` });
+			}
+		}
+
+		return rows;
 	});
 
 export const systemFieldSql = (name: string, alias = "e"): ReturnType<typeof sql> | null => {
@@ -288,21 +323,78 @@ export const evalExprForField = (expr: Expr, row: EntityQueryRow): FieldValue =>
 	return { kind: "null", value: null };
 };
 
+const executeEventExists = (
+	userId: string,
+	row: BaseEntityQueryRow,
+	source: EventSourceV2,
+): Effect.Effect<boolean, NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const eventSchemas = yield* loadVisibleEventSchemas(userId, row.schemaId, source.schemas);
+		const eventSchemaIdsSql = sql.join(
+			eventSchemas.map((s) => sql`${s.id}`),
+			sql`, `,
+		);
+		const db = yield* CurrentDb;
+		const rawRows = yield* dbEffect(() =>
+			db.execute<{ id: string }>(sql`
+				SELECT ev.id
+				FROM event ev
+				WHERE
+					ev.entity_id = ${row.id}
+					AND ev.user_id = ${userId}
+					AND ev.event_schema_id IN (${eventSchemaIdsSql})
+				LIMIT 1
+			`),
+		);
+
+		return rawRows.rows.length > 0;
+	});
+
+const evalExistsExprForField = (
+	userId: string,
+	row: BaseEntityQueryRow,
+	expr: Extract<Expr, { type: "exists" }>,
+): Effect.Effect<FieldValue, NotFound | DbError, CurrentDb> => {
+	if (expr.source.type === "events") {
+		return Effect.map(executeEventExists(userId, row, expr.source), (exists) => ({
+			value: exists,
+			kind: "boolean" as const,
+		}));
+	}
+
+	return Effect.succeed({ kind: "null" as const, value: null });
+};
+
+const evalRootExprForField = (
+	userId: string,
+	expr: Expr,
+	row: EntityQueryRow,
+): Effect.Effect<FieldValue, NotFound | DbError, CurrentDb> => {
+	if (expr.type === "exists") {
+		return evalExistsExprForField(userId, row, expr);
+	}
+	return Effect.succeed(evalExprForField(expr, row));
+};
+
 const evalIncludeExprForField = (
+	userId: string,
 	expr: Expr,
 	row: IncludeQueryRow,
 	include: IncludeEntryV2,
-): FieldValue => {
+): Effect.Effect<FieldValue, NotFound | DbError, CurrentDb> => {
+	if (expr.type === "exists") {
+		return evalExistsExprForField(userId, row, expr);
+	}
 	if (expr.type === "ref" && expr.sourceAlias === include.source.via?.alias) {
-		return evalRelationshipFieldSelector(expr.field, row);
+		return Effect.succeed(evalRelationshipFieldSelector(expr.field, row));
 	}
 	if (expr.type === "ref") {
-		return evalFieldSelector(expr.field, row);
+		return Effect.succeed(evalFieldSelector(expr.field, row));
 	}
 	if (expr.type === "literal") {
-		return valueToFieldValue(expr.value);
+		return Effect.succeed(valueToFieldValue(expr.value));
 	}
-	return { kind: "null", value: null };
+	return Effect.succeed({ kind: "null", value: null });
 };
 
 export const serializeRow = (
@@ -316,13 +408,31 @@ export const serializeRow = (
 	return result;
 };
 
-const serializeIncludeRow = (row: IncludeQueryRow, include: IncludeEntryV2): RowItem => {
-	const result: Record<string, RowValue> = {};
-	for (const field of include.fields) {
-		result[field.key] = evalIncludeExprForField(field.expr, row, include);
-	}
-	return result;
-};
+const serializeRootRow = (
+	userId: string,
+	row: EntityQueryRow,
+	fields: QueryDocumentV2["output"]["fields"],
+): Effect.Effect<RowItem, NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const result: Record<string, RowValue> = {};
+		for (const field of fields) {
+			result[field.key] = yield* evalRootExprForField(userId, field.expr, row);
+		}
+		return result;
+	});
+
+const serializeIncludeRow = (
+	userId: string,
+	row: IncludeQueryRow,
+	include: IncludeEntryV2,
+): Effect.Effect<RowItem, NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const result: Record<string, RowValue> = {};
+		for (const field of include.fields) {
+			result[field.key] = yield* evalIncludeExprForField(userId, field.expr, row, include);
+		}
+		return result;
+	});
 
 const includeOrderSql = (include: IncludeEntryV2): ReturnType<typeof sql> => {
 	const viaAlias = include.source.via?.alias;
@@ -340,9 +450,9 @@ const includeOrderSql = (include: IncludeEntryV2): ReturnType<typeof sql> => {
 	return sql.join(orderParts, sql`, `);
 };
 
-const executeIncludeForRootRow = (
+const executeIncludeForParentRow = (
 	userId: string,
-	rootRow: EntityQueryRow,
+	parentRow: BaseEntityQueryRow,
 	include: IncludeEntryV2,
 ): Effect.Effect<{ rows: IncludeQueryRow[]; hasMore: boolean }, NotFound | DbError, CurrentDb> =>
 	Effect.gen(function* () {
@@ -393,7 +503,7 @@ const executeIncludeForRootRow = (
 				JOIN entity_schema es ON es.id = e.entity_schema_id
 				WHERE
 					r.relationship_schema_id = ${relationshipSchema.id}
-					AND ${anchorColumn} = ${rootRow.id}
+					AND ${anchorColumn} = ${parentRow.id}
 					AND e.entity_schema_id IN (${schemaIdsSql})
 					AND (r.user_id = ${userId} OR r.user_id IS NULL)
 					AND (e.user_id = ${userId} OR e.user_id IS NULL)
@@ -406,6 +516,51 @@ const executeIncludeForRootRow = (
 			hasMore: rawRows.rows.length > include.limit,
 			rows: rawRows.rows.slice(0, include.limit),
 		};
+	});
+
+const serializeIncludesForRow = (
+	userId: string,
+	row: BaseEntityQueryRow,
+	includes: readonly IncludeEntryV2[],
+): Effect.Effect<
+	{ rowCount: number; values: Record<string, RowValue> },
+	BadRequest | NotFound | DbError,
+	CurrentDb
+> =>
+	Effect.gen(function* () {
+		let rowCount = 0;
+		const values: Record<string, RowValue> = {};
+
+		for (const include of includes) {
+			const includeResult = yield* executeIncludeForParentRow(userId, row, include);
+			rowCount += includeResult.rows.length;
+			const items: RowItem[] = [];
+
+			for (const includeRow of includeResult.rows) {
+				const item = yield* serializeIncludeRow(userId, includeRow, include);
+				const childIncludes = yield* serializeIncludesForRow(
+					userId,
+					includeRow,
+					include.include ?? [],
+				);
+				rowCount += childIncludes.rowCount;
+				Object.assign(item, childIncludes.values);
+				items.push(item);
+			}
+
+			values[include.key] = {
+				items,
+				pageInfo: { limit: include.limit, hasMore: includeResult.hasMore },
+			};
+		}
+
+		if (rowCount > MAX_SERIALIZED_ROW_OBJECTS) {
+			return yield* new BadRequest({
+				message: `Serialized row object count exceeds maximum of ${MAX_SERIALIZED_ROW_OBJECTS}`,
+			});
+		}
+
+		return { values, rowCount };
 	});
 
 export const executeEntityRowsQuery = (
@@ -482,20 +637,15 @@ export const executeEntityRowsQuery = (
 		let serializedRowCount = rows.length;
 		const items: RowItem[] = [];
 		for (const row of rows) {
-			const item: Record<string, RowValue> = serializeRow(row, output.fields);
-			for (const include of output.include ?? []) {
-				const includeResult = yield* executeIncludeForRootRow(userId, row, include);
-				serializedRowCount += includeResult.rows.length;
-				if (serializedRowCount > MAX_SERIALIZED_ROW_OBJECTS) {
-					return yield* new BadRequest({
-						message: `Serialized row object count exceeds maximum of ${MAX_SERIALIZED_ROW_OBJECTS}`,
-					});
-				}
-				item[include.key] = {
-					items: includeResult.rows.map((includeRow) => serializeIncludeRow(includeRow, include)),
-					pageInfo: { limit: include.limit, hasMore: includeResult.hasMore },
-				};
+			const item: Record<string, RowValue> = yield* serializeRootRow(userId, row, output.fields);
+			const includeValues = yield* serializeIncludesForRow(userId, row, output.include ?? []);
+			serializedRowCount += includeValues.rowCount;
+			if (serializedRowCount > MAX_SERIALIZED_ROW_OBJECTS) {
+				return yield* new BadRequest({
+					message: `Serialized row object count exceeds maximum of ${MAX_SERIALIZED_ROW_OBJECTS}`,
+				});
 			}
+			Object.assign(item, includeValues.values);
 			items.push(item);
 		}
 

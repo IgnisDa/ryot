@@ -1,13 +1,17 @@
 import type {
 	EntitySourceV2,
+	EventSourceV2,
 	Expr,
 	FieldSelector,
 	IncludeEntryV2,
 	QueryDocumentV2,
+	SourceV2,
 } from "./language";
 
 const MAX_ROOT_PAGE_SIZE = 100;
 const MAX_INCLUDE_LIMIT = 100;
+const MAX_INCLUDE_DEPTH = 3;
+const MAX_EXPRESSION_SOURCE_DEPTH = 3;
 
 const ENTITY_SYSTEM_FIELDS = new Set([
 	"id",
@@ -21,7 +25,10 @@ const ENTITY_SYSTEM_FIELDS = new Set([
 
 const RELATIONSHIP_SYSTEM_FIELDS = new Set(["id", "sourceEntityId", "targetEntityId", "createdAt"]);
 
+const EVENT_SYSTEM_FIELDS = new Set(["id", "occurredAt", "createdAt", "updatedAt"]);
+
 type ScopeEntry =
+	| { type: "eventSource"; schemas: readonly [string, ...string[]] }
 	| { type: "entitySource"; schemas: readonly [string, ...string[]] }
 	| { type: "relationshipEdge"; schemas: readonly [string, ...string[]] };
 type AliasScope = Map<string, ScopeEntry>;
@@ -54,9 +61,18 @@ const validateSchemaList = (schemas: readonly string[]) => {
 const validateFieldSelector = (field: FieldSelector, entry: ScopeEntry): string | null => {
 	if (field.type === "system") {
 		const validFields =
-			entry.type === "entitySource" ? ENTITY_SYSTEM_FIELDS : RELATIONSHIP_SYSTEM_FIELDS;
+			entry.type === "entitySource"
+				? ENTITY_SYSTEM_FIELDS
+				: entry.type === "eventSource"
+					? EVENT_SYSTEM_FIELDS
+					: RELATIONSHIP_SYSTEM_FIELDS;
 		if (!validFields.has(field.name)) {
-			const label = entry.type === "entitySource" ? "entity source" : "relationship edge";
+			const label =
+				entry.type === "entitySource"
+					? "entity source"
+					: entry.type === "eventSource"
+						? "event source"
+						: "relationship edge";
 			return `Invalid system field '${field.name}' for ${label}. Valid fields: ${[...validFields].join(", ")}`;
 		}
 		return null;
@@ -64,17 +80,21 @@ const validateFieldSelector = (field: FieldSelector, entry: ScopeEntry): string 
 
 	if (field.type === "property") {
 		if (!entry.schemas.includes(field.schema)) {
-			const label = entry.type === "entitySource" ? "source" : "relationship edge";
+			const label = entry.type === "relationshipEdge" ? "relationship edge" : "source";
 			return `Property field references schema '${field.schema}' which is not in ${label} schemas [${entry.schemas.join(", ")}]`;
 		}
 		return null;
 	}
 
-	// schema metadata fields are always valid
 	return null;
 };
 
-const validateExpr = (expr: Expr, scope: AliasScope): string | null => {
+const validateExpr = (
+	expr: Expr,
+	scope: AliasScope,
+	aliases: AliasScope,
+	expressionSourceDepth = 0,
+): string | null => {
 	if (expr.type === "literal") {
 		return null;
 	}
@@ -87,13 +107,24 @@ const validateExpr = (expr: Expr, scope: AliasScope): string | null => {
 		return validateFieldSelector(expr.field, entry);
 	}
 
+	if (expr.type === "exists") {
+		if (expressionSourceDepth + 1 > MAX_EXPRESSION_SOURCE_DEPTH) {
+			return `Expression source depth exceeds maximum of ${MAX_EXPRESSION_SOURCE_DEPTH}`;
+		}
+		const sourceScope = new Map(scope);
+		return validateSource(expr.source, sourceScope, aliases, expressionSourceDepth + 1);
+	}
+
 	if (expr.type === "comparison") {
-		return validateExpr(expr.left, scope) ?? validateExpr(expr.right, scope);
+		return (
+			validateExpr(expr.left, scope, aliases, expressionSourceDepth) ??
+			validateExpr(expr.right, scope, aliases, expressionSourceDepth)
+		);
 	}
 
 	if (expr.type === "and" || expr.type === "or" || expr.type === "coalesce") {
 		for (const value of expr.values) {
-			const error = validateExpr(value, scope);
+			const error = validateExpr(value, scope, aliases, expressionSourceDepth);
 			if (error) {
 				return error;
 			}
@@ -102,11 +133,13 @@ const validateExpr = (expr: Expr, scope: AliasScope): string | null => {
 	}
 
 	if (expr.type === "not" || expr.type === "isNull" || expr.type === "isNotNull") {
-		return validateExpr(expr.expr, scope);
+		return validateExpr(expr.expr, scope, aliases, expressionSourceDepth);
 	}
 
-	// expr.type === "contains" at this point
-	return validateExpr(expr.left, scope) ?? validateExpr(expr.right, scope);
+	return (
+		validateExpr(expr.left, scope, aliases, expressionSourceDepth) ??
+		validateExpr(expr.right, scope, aliases, expressionSourceDepth)
+	);
 };
 
 const validateEntitySource = (source: EntitySourceV2, scope: AliasScope, aliases: AliasScope) => {
@@ -146,17 +179,62 @@ const validateEntitySource = (source: EntitySourceV2, scope: AliasScope, aliases
 	}
 
 	if (source.where !== null) {
-		return validateExpr(source.where, scope);
+		return validateExpr(source.where, scope, aliases);
 	}
 
 	return null;
 };
 
+const validateEventSource = (source: EventSourceV2, scope: AliasScope, aliases: AliasScope) => {
+	const schemaError = validateSchemaList(source.schemas);
+	if (schemaError) {
+		return schemaError;
+	}
+
+	const entity = scope.get(source.entityRef);
+	if (!entity) {
+		return `Unknown source alias '${source.entityRef}'`;
+	}
+	if (entity.type !== "entitySource") {
+		return `Event source entityRef '${source.entityRef}' must reference an entity source`;
+	}
+
+	const aliasError = registerAlias(
+		scope,
+		source.alias,
+		{ type: "eventSource", schemas: source.schemas },
+		aliases,
+	);
+	if (aliasError) {
+		return aliasError;
+	}
+
+	if (source.where !== null) {
+		return `Event source '${source.alias}' does not support where yet`;
+	}
+
+	return null;
+};
+
+const validateSource = (
+	source: SourceV2,
+	scope: AliasScope,
+	aliases: AliasScope,
+	_expressionSourceDepth = 0,
+) =>
+	source.type === "entities"
+		? validateEntitySource(source, scope, aliases)
+		: validateEventSource(source, scope, aliases);
+
 const validateIncludeEntry = (
 	include: IncludeEntryV2,
 	parentScope: AliasScope,
 	aliases: AliasScope,
-) => {
+	depth: number,
+): string | null => {
+	if (depth > MAX_INCLUDE_DEPTH) {
+		return `Include depth exceeds maximum of ${MAX_INCLUDE_DEPTH}`;
+	}
 	if (include.limit > MAX_INCLUDE_LIMIT) {
 		return `Include limit ${include.limit} exceeds maximum of ${MAX_INCLUDE_LIMIT}`;
 	}
@@ -193,16 +271,29 @@ const validateIncludeEntry = (
 		}
 		outputKeys.add(field.key);
 	}
+	for (const childInclude of include.include ?? []) {
+		if (outputKeys.has(childInclude.key)) {
+			return `Duplicate output field key '${childInclude.key}'`;
+		}
+		outputKeys.add(childInclude.key);
+	}
 
 	for (const entry of include.orderBy) {
-		const error = validateExpr(entry.expr, outputScope);
+		const error = validateExpr(entry.expr, outputScope, aliases);
 		if (error) {
 			return error;
 		}
 	}
 
 	for (const field of include.fields) {
-		const error = validateExpr(field.expr, outputScope);
+		const error = validateExpr(field.expr, outputScope, aliases);
+		if (error) {
+			return error;
+		}
+	}
+
+	for (const childInclude of include.include ?? []) {
+		const error = validateIncludeEntry(childInclude, scope, aliases, depth + 1);
 		if (error) {
 			return error;
 		}
@@ -245,21 +336,21 @@ export const validateQueryDocumentV2 = (doc: QueryDocumentV2): string | null => 
 	}
 
 	for (const entry of output.orderBy) {
-		const error = validateExpr(entry.expr, scope);
+		const error = validateExpr(entry.expr, scope, aliases);
 		if (error) {
 			return error;
 		}
 	}
 
 	for (const field of output.fields) {
-		const error = validateExpr(field.expr, scope);
+		const error = validateExpr(field.expr, scope, aliases);
 		if (error) {
 			return error;
 		}
 	}
 
 	for (const include of output.include ?? []) {
-		const error = validateIncludeEntry(include, scope, aliases);
+		const error = validateIncludeEntry(include, scope, aliases, 1);
 		if (error) {
 			return error;
 		}
