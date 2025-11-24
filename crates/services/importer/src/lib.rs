@@ -24,11 +24,6 @@ use sea_orm::{
 use supporting_service::SupportingService;
 use traits::TraceOk;
 
-mod mediatracker;
-mod movary;
-mod myanimelist;
-mod netflix;
-mod open_scale;
 mod plex;
 mod storygraph;
 mod strong_app;
@@ -78,21 +73,27 @@ impl ImporterService {
         ryot_log!(debug, "Started import job with id {import_id}");
         let maybe_import = match input.source {
             ImportSource::Igdb => igdb_importer_service::import(input.igdb.unwrap()).await,
-            ImportSource::Movary => movary::import(input.movary.unwrap()).await,
             ImportSource::Plex => plex::import(input.url_and_key.unwrap()).await,
             ImportSource::Watcharr => watcharr::import(input.path.unwrap()).await,
             ImportSource::Jellyfin => {
                 jellyfin_importer_service::import(input.jellyfin.unwrap()).await
             }
-            ImportSource::Myanimelist => myanimelist::import(input.mal.unwrap()).await,
+            ImportSource::Myanimelist => {
+                myanimelist_importer_service::import(input.mal.unwrap()).await
+            }
             ImportSource::Grouvee => {
                 grouvee_importer_service::import(input.generic_csv.unwrap()).await
             }
             ImportSource::Hardcover => {
                 hardcover_importer_service::import(input.generic_csv.unwrap()).await
             }
-            ImportSource::Netflix => netflix::import(input.netflix.unwrap(), &self.0).await,
-            ImportSource::Mediatracker => mediatracker::import(input.url_and_key.unwrap()).await,
+            ImportSource::Movary => movary_importer_service::import(input.movary.unwrap()).await,
+            ImportSource::Mediatracker => {
+                mediatracker_importer_service::import(input.url_and_key.unwrap()).await
+            }
+            ImportSource::Netflix => {
+                netflix_importer_service::import(input.netflix.unwrap(), &self.0).await
+            }
             ImportSource::Hevy => {
                 hevy_importer_service::import(input.generic_csv.unwrap(), &self.0, &user_id).await
             }
@@ -100,7 +101,8 @@ impl ImporterService {
                 generic_json_importer_service::import(input.path.unwrap()).await
             }
             ImportSource::OpenScale => {
-                open_scale::import(input.generic_csv.unwrap(), &self.0.timezone).await
+                open_scale_importer_service::import(input.generic_csv.unwrap(), &self.0.timezone)
+                    .await
             }
             ImportSource::Anilist => {
                 anilist_importer_service::import(input.path.unwrap(), &self.0).await

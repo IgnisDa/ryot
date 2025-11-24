@@ -4225,7 +4225,12 @@ dependencies = [
  "itertools 0.14.0",
  "jellyfin-importer-service",
  "media-models",
+ "mediatracker-importer-service",
  "miscellaneous-lookup-service",
+ "movary-importer-service",
+ "myanimelist-importer-service",
+ "netflix-importer-service",
+ "open-scale-importer-service",
  "openlibrary-provider",
  "reqwest",
  "rust_decimal",
@@ -4733,6 +4738,58 @@ dependencies = [
 ]
 
 [[package]]
+name = "mediatracker-importer-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "background-models",
+ "chrono",
+ "chrono-tz",
+ "common-models",
+ "common-utils",
+ "convert_case 0.8.0",
+ "csv",
+ "data-encoding",
+ "database-models",
+ "dependent-entity-utils",
+ "dependent-fitness-utils",
+ "dependent-import-utils",
+ "dependent-jobs-utils",
+ "dependent-models",
+ "dependent-provider-utils",
+ "enum-models",
+ "external-models",
+ "external-utils",
+ "fitness-models",
+ "flate2",
+ "futures",
+ "google-books-provider",
+ "hardcover-provider",
+ "importer-models",
+ "indexmap 2.12.0",
+ "itertools 0.14.0",
+ "media-models",
+ "miscellaneous-lookup-service",
+ "nest_struct",
+ "openlibrary-provider",
+ "reqwest",
+ "rust_decimal",
+ "sea-orm",
+ "serde",
+ "serde-xml-rs",
+ "serde_json",
+ "serde_with",
+ "supporting-service",
+ "tempfile",
+ "tmdb-provider",
+ "tokio",
+ "tracing",
+ "traits",
+ "zip",
+]
+
+[[package]]
 name = "memchr"
 version = "2.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5185,6 +5242,58 @@ dependencies = [
 ]
 
 [[package]]
+name = "movary-importer-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "background-models",
+ "chrono",
+ "chrono-tz",
+ "common-models",
+ "common-utils",
+ "convert_case 0.8.0",
+ "csv",
+ "data-encoding",
+ "database-models",
+ "dependent-entity-utils",
+ "dependent-fitness-utils",
+ "dependent-import-utils",
+ "dependent-jobs-utils",
+ "dependent-models",
+ "dependent-provider-utils",
+ "enum-models",
+ "external-models",
+ "external-utils",
+ "fitness-models",
+ "flate2",
+ "futures",
+ "google-books-provider",
+ "hardcover-provider",
+ "importer-models",
+ "indexmap 2.12.0",
+ "itertools 0.14.0",
+ "media-models",
+ "miscellaneous-lookup-service",
+ "nest_struct",
+ "openlibrary-provider",
+ "reqwest",
+ "rust_decimal",
+ "sea-orm",
+ "serde",
+ "serde-xml-rs",
+ "serde_json",
+ "serde_with",
+ "supporting-service",
+ "tempfile",
+ "tmdb-provider",
+ "tokio",
+ "tracing",
+ "traits",
+ "zip",
+]
+
+[[package]]
 name = "multer"
 version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5199,6 +5308,58 @@ dependencies = [
  "mime",
  "spin",
  "version_check",
+]
+
+[[package]]
+name = "myanimelist-importer-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "background-models",
+ "chrono",
+ "chrono-tz",
+ "common-models",
+ "common-utils",
+ "convert_case 0.8.0",
+ "csv",
+ "data-encoding",
+ "database-models",
+ "dependent-entity-utils",
+ "dependent-fitness-utils",
+ "dependent-import-utils",
+ "dependent-jobs-utils",
+ "dependent-models",
+ "dependent-provider-utils",
+ "enum-models",
+ "external-models",
+ "external-utils",
+ "fitness-models",
+ "flate2",
+ "futures",
+ "google-books-provider",
+ "hardcover-provider",
+ "importer-models",
+ "indexmap 2.12.0",
+ "itertools 0.14.0",
+ "media-models",
+ "miscellaneous-lookup-service",
+ "nest_struct",
+ "openlibrary-provider",
+ "reqwest",
+ "rust_decimal",
+ "sea-orm",
+ "serde",
+ "serde-xml-rs",
+ "serde_json",
+ "serde_with",
+ "supporting-service",
+ "tempfile",
+ "tmdb-provider",
+ "tokio",
+ "tracing",
+ "traits",
+ "zip",
 ]
 
 [[package]]
@@ -5240,6 +5401,58 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.108",
+]
+
+[[package]]
+name = "netflix-importer-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "background-models",
+ "chrono",
+ "chrono-tz",
+ "common-models",
+ "common-utils",
+ "convert_case 0.8.0",
+ "csv",
+ "data-encoding",
+ "database-models",
+ "dependent-entity-utils",
+ "dependent-fitness-utils",
+ "dependent-import-utils",
+ "dependent-jobs-utils",
+ "dependent-models",
+ "dependent-provider-utils",
+ "enum-models",
+ "external-models",
+ "external-utils",
+ "fitness-models",
+ "flate2",
+ "futures",
+ "google-books-provider",
+ "hardcover-provider",
+ "importer-models",
+ "indexmap 2.12.0",
+ "itertools 0.14.0",
+ "media-models",
+ "miscellaneous-lookup-service",
+ "nest_struct",
+ "openlibrary-provider",
+ "reqwest",
+ "rust_decimal",
+ "sea-orm",
+ "serde",
+ "serde-xml-rs",
+ "serde_json",
+ "serde_with",
+ "supporting-service",
+ "tempfile",
+ "tmdb-provider",
+ "tokio",
+ "tracing",
+ "traits",
+ "zip",
 ]
 
 [[package]]
@@ -5383,6 +5596,25 @@ name = "opaque-debug"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
+
+[[package]]
+name = "open-scale-importer-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "chrono-tz",
+ "csv",
+ "database-models",
+ "dependent-import-utils",
+ "dependent-models",
+ "fitness-models",
+ "importer-models",
+ "itertools 0.14.0",
+ "media-models",
+ "rust_decimal",
+ "serde",
+]
 
 [[package]]
 name = "openidconnect"

@@ -4,9 +4,12 @@ use anyhow::Result;
 use common_models::IdObject;
 use common_utils::get_base_http_client;
 use common_utils::ryot_log;
+use dependent_models::ImportOrExportMetadataItem;
 use dependent_models::{CollectionToEntityDetails, ImportCompletedItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use futures::stream::{self, StreamExt};
+use importer_models::ImportFailStep;
+use importer_models::ImportFailedItem;
 use media_models::{
     CreateOrUpdateCollectionInput, DeployUrlAndKeyImportInput, ImportOrExportItemRating,
     ImportOrExportItemReview, ImportOrExportMetadataItemSeen,
@@ -17,8 +20,6 @@ use rust_decimal::{Decimal, dec};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_with::{TimestampMilliSeconds, formats::Flexible, serde_as};
-
-use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]

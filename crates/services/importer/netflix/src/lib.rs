@@ -11,9 +11,12 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use csv::Reader;
-use dependent_models::{CollectionToEntityDetails, ImportCompletedItem, ImportResult};
+use dependent_models::{
+    CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
+};
 use enum_models::{ImportSource, MediaLot};
 use futures::stream::{self, StreamExt};
+use importer_models::{ImportFailStep, ImportFailedItem};
 use indexmap::IndexMap;
 use media_models::{
     DeployNetflixImportInput, ImportOrExportItemRating, ImportOrExportMetadataItemSeen,
@@ -25,8 +28,6 @@ use serde::Deserialize;
 use supporting_service::SupportingService;
 use tempfile::TempDir;
 use zip::ZipArchive;
-
-use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 const METADATA_LOOKUP_CONCURRENCY: usize = 10;
 
