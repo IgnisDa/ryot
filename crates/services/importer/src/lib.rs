@@ -24,8 +24,6 @@ use sea_orm::{
 use supporting_service::SupportingService;
 use traits::TraceOk;
 
-mod grouvee;
-mod hardcover;
 mod hevy;
 mod igdb;
 mod imdb;
@@ -89,8 +87,8 @@ impl ImporterService {
             ImportSource::Watcharr => watcharr::import(input.path.unwrap()).await,
             ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await,
             ImportSource::Myanimelist => myanimelist::import(input.mal.unwrap()).await,
-            ImportSource::Grouvee => grouvee::import(input.generic_csv.unwrap()).await,
-            ImportSource::Hardcover => hardcover::import(input.generic_csv.unwrap()).await,
+            ImportSource::Grouvee => grouvee_importer_service::import(input.generic_csv.unwrap()).await,
+            ImportSource::Hardcover => hardcover_importer_service::import(input.generic_csv.unwrap()).await,
             ImportSource::Netflix => netflix::import(input.netflix.unwrap(), &self.0).await,
             ImportSource::Mediatracker => mediatracker::import(input.url_and_key.unwrap()).await,
             ImportSource::Hevy => hevy::import(input.generic_csv.unwrap(), &self.0, &user_id).await,
