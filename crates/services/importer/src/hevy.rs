@@ -5,6 +5,7 @@ use chrono::NaiveDateTime;
 use common_utils::ryot_log;
 use csv::Reader;
 use database_models::exercise;
+use dependent_import_utils::{associate_with_existing_or_new_exercise, get_date_time_with_offset};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::ExerciseLot;
 use fitness_models::{
@@ -17,8 +18,6 @@ use media_models::DeployGenericCsvImportInput;
 use rust_decimal::{Decimal, dec};
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
-
-use crate::utils;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 struct Entry {
@@ -103,7 +102,7 @@ pub async fn import(
                 });
                 continue;
             };
-            let exercise_id = utils::associate_with_existing_or_new_exercise(
+            let exercise_id = associate_with_existing_or_new_exercise(
                 user_id,
                 &exercise_name,
                 exercise_lot,
@@ -150,8 +149,8 @@ pub async fn import(
             exercises: collected_exercises,
             name: first_exercise.title.clone(),
             comment: first_exercise.description.clone(),
-            end_time: utils::get_date_time_with_offset(end_time, &ss.timezone),
-            start_time: utils::get_date_time_with_offset(start_time, &ss.timezone),
+            end_time: get_date_time_with_offset(end_time, &ss.timezone),
+            start_time: get_date_time_with_offset(start_time, &ss.timezone),
             ..Default::default()
         }));
     }

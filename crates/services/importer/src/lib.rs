@@ -1,15 +1,11 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::Result;
 use background_models::{ApplicationJob, MpApplicationJob};
-use chrono::{Duration, NaiveDateTime, Offset, TimeZone, Utc};
+use chrono::{Duration, Utc};
 use common_models::BackgroundJob;
 use common_utils::{MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, ryot_log};
-use database_models::{
-    exercise, import_report,
-    prelude::{Exercise, ImportReport},
-};
-use dependent_fitness_utils::generate_exercise_id;
+use database_models::{import_report, prelude::ImportReport};
 use dependent_import_utils::process_import;
 use dependent_jobs_utils::deploy_background_job;
 use dependent_models::ImportOrExportMetadataItem;
@@ -17,18 +13,17 @@ use dependent_provider_utils::{
     get_google_books_service, get_hardcover_service, get_openlibrary_service,
     get_tmdb_non_media_service,
 };
-use enum_models::{ExerciseLot, ExerciseSource, ImportSource};
+use enum_models::ImportSource;
 use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::DeployImportJobInput;
 use rust_decimal::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
-    QueryOrder, prelude::DateTimeUtc, prelude::Expr,
+    QueryOrder, prelude::Expr,
 };
 use supporting_service::SupportingService;
 use traits::TraceOk;
 
-mod anilist;
 mod audiobookshelf;
 mod generic_json;
 mod goodreads;
@@ -101,11 +96,13 @@ impl ImporterService {
             ImportSource::GenericJson => generic_json::import(input.path.unwrap()).await,
             ImportSource::Hardcover => hardcover::import(input.generic_csv.unwrap()).await,
             ImportSource::Netflix => netflix::import(input.netflix.unwrap(), &self.0).await,
-            ImportSource::Anilist => anilist::import(input.path.unwrap(), &self.0).await,
             ImportSource::Mediatracker => mediatracker::import(input.url_and_key.unwrap()).await,
             ImportSource::Hevy => hevy::import(input.generic_csv.unwrap(), &self.0, &user_id).await,
             ImportSource::OpenScale => {
                 open_scale::import(input.generic_csv.unwrap(), &self.0.timezone).await
+            }
+            ImportSource::Anilist => {
+                anilist_importer_service::import(input.path.unwrap(), &self.0).await
             }
             ImportSource::StrongApp => {
                 strong_app::import(input.strong_app.unwrap(), &self.0, &user_id).await
@@ -205,57 +202,5 @@ impl ImporterService {
         model.finished_on = ActiveValue::Set(Some(Utc::now()));
         model.update(&self.0.db).await.trace_ok();
         Ok(())
-    }
-}
-
-pub mod utils {
-    use super::*;
-
-    pub fn get_date_time_with_offset(
-        date_time: NaiveDateTime,
-        timezone: &chrono_tz::Tz,
-    ) -> DateTimeUtc {
-        let offset = timezone
-            .offset_from_utc_datetime(&Utc::now().naive_utc())
-            .fix()
-            .local_minus_utc();
-        let offset = Duration::try_seconds(offset.into()).unwrap();
-        DateTimeUtc::from_naive_utc_and_offset(date_time, Utc) - offset
-    }
-
-    pub async fn associate_with_existing_or_new_exercise(
-        user_id: &str,
-        exercise_name: &String,
-        exercise_lot: ExerciseLot,
-        ss: &Arc<SupportingService>,
-        unique_exercises: &mut HashMap<String, exercise::Model>,
-    ) -> Result<String> {
-        let existing_exercise = Exercise::find()
-            .filter(exercise::Column::Lot.eq(exercise_lot))
-            .filter(exercise::Column::Name.eq(exercise_name))
-            .one(&ss.db)
-            .await?;
-        let generated_id = generate_exercise_id(exercise_name, exercise_lot, user_id);
-        let exercise_id = match existing_exercise {
-            Some(db_ex) if db_ex.source == ExerciseSource::Github || db_ex.id == generated_id => {
-                db_ex.id
-            }
-            _ => match unique_exercises.get(exercise_name) {
-                Some(mem_ex) => mem_ex.id.clone(),
-                None => {
-                    unique_exercises.insert(
-                        exercise_name.clone(),
-                        exercise::Model {
-                            lot: exercise_lot,
-                            id: generated_id.clone(),
-                            name: exercise_name.to_owned(),
-                            ..Default::default()
-                        },
-                    );
-                    generated_id
-                }
-            },
-        };
-        Ok(exercise_id)
     }
 }

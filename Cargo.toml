@@ -57,6 +57,7 @@ members = [
     "crates/services/file-storage",
     "crates/services/fitness",
     "crates/services/importer",
+    "crates/services/importer/anilist",
     "crates/services/integration",
     "crates/services/miscellaneous",
     "crates/services/miscellaneous/background",
@@ -218,6 +219,7 @@ url = "=2.5.7"
 uuid = { version = "=1.18.1", features = ["v4"], default-features = false }
 zip = "=6.0.0"
 
+anilist-importer-service = { path = "crates/services/importer/anilist" }
 anilist-provider = { path = "crates/providers/anilist" }
 application-utils = { path = "crates/utils/application" }
 audible-provider = { path = "crates/providers/audible" }

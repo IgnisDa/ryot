@@ -2,6 +2,7 @@ use anyhow::Result;
 use chrono::NaiveDateTime;
 use csv::ReaderBuilder;
 use database_models::user_measurement;
+use dependent_import_utils::get_date_time_with_offset;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use fitness_models::{UserMeasurementInformation, UserMeasurementStatistic};
 use itertools::Itertools;
@@ -9,7 +10,7 @@ use media_models::DeployGenericCsvImportInput;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
-use crate::{ImportFailStep, ImportFailedItem, utils};
+use crate::{ImportFailStep, ImportFailedItem};
 
 #[derive(Debug, Deserialize)]
 struct Record {
@@ -62,7 +63,7 @@ pub async fn import(
         };
         let ndt = NaiveDateTime::parse_from_str(&record.date_time, "%Y-%m-%d %H:%M")
             .expect("Failed to parse input string");
-        let timestamp = utils::get_date_time_with_offset(ndt, timezone);
+        let timestamp = get_date_time_with_offset(ndt, timezone);
         let mut information = UserMeasurementInformation::default();
         if let Some(weight) = record.weight {
             information.statistics.push(UserMeasurementStatistic {

@@ -3,6 +3,7 @@ use std::{collections::HashMap, fs, sync::Arc};
 use anyhow::Result;
 use chrono::NaiveDateTime;
 use common_utils::convert_naive_to_utc_datetime;
+use dependent_import_utils::get_date_time_with_offset;
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
 };
@@ -15,8 +16,6 @@ use nest_struct::nest_struct;
 use rust_decimal::{Decimal, dec};
 use serde::Deserialize;
 use supporting_service::SupportingService;
-
-use crate::utils;
 
 #[nest_struct]
 #[derive(Debug, Deserialize)]
@@ -164,7 +163,7 @@ pub async fn import(
                 review: Some(ImportOrExportItemReview {
                     text: Some(entire_text),
                     visibility: Some(visibility),
-                    date: Some(utils::get_date_time_with_offset(
+                    date: Some(get_date_time_with_offset(
                         parse_date_string(&review.updated_at),
                         &ss.timezone,
                     )),

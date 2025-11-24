@@ -5,20 +5,22 @@ use std::{
 };
 
 use anyhow::Result;
+use chrono::{Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use common_models::{ChangeCollectionToEntitiesInput, EntityToCollectionInput};
 use common_utils::ryot_log;
+use database_models::{exercise, prelude::Exercise};
 use database_utils::{schedule_user_for_workout_revision, user_by_id};
 use dependent_collection_utils::{add_entities_to_collection, create_or_update_collection};
 use dependent_entity_utils::{commit_metadata, commit_metadata_group, commit_person};
 use dependent_fitness_utils::{
     create_custom_exercise, create_or_update_user_measurement, create_or_update_user_workout,
-    db_workout_to_workout_input,
+    db_workout_to_workout_input, generate_exercise_id,
 };
 use dependent_jobs_utils::{deploy_update_metadata_group_job, deploy_update_person_job};
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use dependent_progress_utils::commit_import_seen_item;
 use dependent_review_utils::{convert_review_into_input, post_review};
-use enum_models::{EntityLot, MediaLot, MediaSource};
+use enum_models::{EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource};
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use media_models::{
     CommitMetadataGroupInput, CommitPersonInput, CreateOrUpdateCollectionInput,
@@ -26,6 +28,7 @@ use media_models::{
 };
 use rand::seq::SliceRandom;
 use rust_decimal::{Decimal, dec, prelude::FromPrimitive};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc};
 use supporting_service::SupportingService;
 
 async fn create_collection_and_add_entity_to_it(
@@ -461,4 +464,52 @@ where
     };
 
     Ok((source_result, details))
+}
+
+pub fn get_date_time_with_offset(
+    date_time: NaiveDateTime,
+    timezone: &chrono_tz::Tz,
+) -> DateTimeUtc {
+    let offset = timezone
+        .offset_from_utc_datetime(&Utc::now().naive_utc())
+        .fix()
+        .local_minus_utc();
+    let offset = Duration::try_seconds(offset.into()).unwrap();
+    DateTimeUtc::from_naive_utc_and_offset(date_time, Utc) - offset
+}
+
+pub async fn associate_with_existing_or_new_exercise(
+    user_id: &str,
+    exercise_name: &String,
+    exercise_lot: ExerciseLot,
+    ss: &Arc<SupportingService>,
+    unique_exercises: &mut HashMap<String, exercise::Model>,
+) -> Result<String> {
+    let existing_exercise = Exercise::find()
+        .filter(exercise::Column::Lot.eq(exercise_lot))
+        .filter(exercise::Column::Name.eq(exercise_name))
+        .one(&ss.db)
+        .await?;
+    let generated_id = generate_exercise_id(exercise_name, exercise_lot, user_id);
+    let exercise_id = match existing_exercise {
+        Some(db_ex) if db_ex.source == ExerciseSource::Github || db_ex.id == generated_id => {
+            db_ex.id
+        }
+        _ => match unique_exercises.get(exercise_name) {
+            Some(mem_ex) => mem_ex.id.clone(),
+            None => {
+                unique_exercises.insert(
+                    exercise_name.clone(),
+                    exercise::Model {
+                        lot: exercise_lot,
+                        id: generated_id.clone(),
+                        name: exercise_name.to_owned(),
+                        ..Default::default()
+                    },
+                );
+                generated_id
+            }
+        },
+    };
+    Ok(exercise_id)
 }

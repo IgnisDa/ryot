@@ -1,5 +1,5 @@
 [package]
-name = "importer-service"
+name = "anilist-importer-service"
 version = "0.1.0"
 edition = "2024"
 
@@ -14,6 +14,7 @@ flate2 = { workspace = true }
 futures = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
+nest_struct = { workspace = true }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
@@ -27,11 +28,11 @@ tracing = { workspace = true }
 zip = { workspace = true }
 
 application-utils = { workspace = true }
-anilist-importer-service = { workspace = true }
 background-models = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { workspace = true }
+dependent-fitness-utils = { workspace = true }
 dependent-import-utils = { workspace = true }
 dependent-jobs-utils = { workspace = true }
 dependent-entity-utils = { workspace = true }

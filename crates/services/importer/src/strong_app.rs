@@ -5,6 +5,7 @@ use chrono::{Duration, NaiveDateTime};
 use common_utils::ryot_log;
 use csv::ReaderBuilder;
 use database_models::exercise;
+use dependent_import_utils::{associate_with_existing_or_new_exercise, get_date_time_with_offset};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::ExerciseLot;
 use fitness_models::{
@@ -17,8 +18,6 @@ use media_models::DeployStrongAppImportInput;
 use rust_decimal::{Decimal, dec};
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
-
-use crate::utils;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "PascalCase")]
@@ -109,7 +108,7 @@ async fn import_exercises(
         let first_exercise = workout.first().unwrap().1.first().unwrap();
         let ndt = NaiveDateTime::parse_from_str(&first_exercise.date, "%Y-%m-%d %H:%M:%S")
             .expect("Failed to parse input string");
-        let ndt = utils::get_date_time_with_offset(ndt, &ss.timezone);
+        let ndt = get_date_time_with_offset(ndt, &ss.timezone);
         let workout_duration_seconds = parse_workout_duration(&first_exercise.workout_duration)?;
         let workout_duration = Duration::try_seconds(workout_duration_seconds).unwrap();
         let mut collected_exercises = vec![];
@@ -132,7 +131,7 @@ async fn import_exercises(
                     continue;
                 }
             };
-            let exercise_id = utils::associate_with_existing_or_new_exercise(
+            let exercise_id = associate_with_existing_or_new_exercise(
                 user_id,
                 &exercise_name,
                 exercise_lot,
