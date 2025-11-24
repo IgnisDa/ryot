@@ -24,7 +24,6 @@ use sea_orm::{
 use supporting_service::SupportingService;
 use traits::TraceOk;
 
-mod goodreads;
 mod grouvee;
 mod hardcover;
 mod hevy;
@@ -122,7 +121,7 @@ impl ImporterService {
                 .await
             }
             ImportSource::Goodreads => {
-                goodreads::import(
+                goodreads_importer_service::import(
                     input.generic_csv.unwrap(),
                     &get_hardcover_service(&self.0.config).await?,
                     &get_google_books_service(&self.0.config).await?,

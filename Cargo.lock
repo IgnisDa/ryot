@@ -3331,6 +3331,58 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 
 [[package]]
+name = "goodreads-importer-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "background-models",
+ "chrono",
+ "chrono-tz",
+ "common-models",
+ "common-utils",
+ "convert_case 0.8.0",
+ "csv",
+ "data-encoding",
+ "database-models",
+ "dependent-entity-utils",
+ "dependent-fitness-utils",
+ "dependent-import-utils",
+ "dependent-jobs-utils",
+ "dependent-models",
+ "dependent-provider-utils",
+ "enum-models",
+ "external-models",
+ "external-utils",
+ "fitness-models",
+ "flate2",
+ "futures",
+ "google-books-provider",
+ "hardcover-provider",
+ "importer-models",
+ "indexmap 2.12.0",
+ "itertools 0.14.0",
+ "media-models",
+ "miscellaneous-lookup-service",
+ "nest_struct",
+ "openlibrary-provider",
+ "reqwest",
+ "rust_decimal",
+ "sea-orm",
+ "serde",
+ "serde-xml-rs",
+ "serde_json",
+ "serde_with",
+ "supporting-service",
+ "tempfile",
+ "tmdb-provider",
+ "tokio",
+ "tracing",
+ "traits",
+ "zip",
+]
+
+[[package]]
 name = "google-books-provider"
 version = "0.1.0"
 dependencies = [
@@ -3934,6 +3986,7 @@ dependencies = [
  "flate2",
  "futures",
  "generic-json-importer-service",
+ "goodreads-importer-service",
  "google-books-provider",
  "hardcover-provider",
  "importer-models",
