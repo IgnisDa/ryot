@@ -6,51 +6,17 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 chrono = { workspace = true }
-chrono-tz = { workspace = true }
-convert_case = { workspace = true }
 csv = { workspace = true }
-data-encoding = { workspace = true }
-flate2 = { workspace = true }
-futures = { workspace = true }
-indexmap = { workspace = true }
-itertools = { workspace = true }
-nest_struct = { workspace = true }
-reqwest = { workspace = true }
 rust_decimal = { workspace = true }
-sea-orm = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
-serde_with = { workspace = true }
-serde-xml-rs = { workspace = true }
-tempfile = { workspace = true }
-tokio = { workspace = true }
 tracing = { workspace = true }
-zip = { workspace = true }
 
-application-utils = { workspace = true }
-background-models = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
-database-models = { workspace = true }
-dependent-fitness-utils = { workspace = true }
-dependent-import-utils = { workspace = true }
-dependent-jobs-utils = { workspace = true }
-dependent-entity-utils = { workspace = true }
 dependent-models = { workspace = true }
-dependent-provider-utils = { workspace = true }
 enum-models = { workspace = true }
-external-models = { workspace = true }
-external-utils = { workspace = true }
-fitness-models = { workspace = true }
-google-books-provider = { workspace = true }
-hardcover-provider = { workspace = true }
 importer-models = { workspace = true }
 media-models = { workspace = true }
-miscellaneous-lookup-service = { workspace = true }
-openlibrary-provider = { workspace = true }
-supporting-service = { workspace = true }
-tmdb-provider = { workspace = true }
-traits = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]
