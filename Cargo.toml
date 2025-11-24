@@ -59,6 +59,7 @@ members = [
     "crates/services/importer",
     "crates/services/importer/anilist",
     "crates/services/importer/audiobookshelf",
+    "crates/services/importer/generic-json",
     "crates/services/integration",
     "crates/services/miscellaneous",
     "crates/services/miscellaneous/background",
@@ -222,6 +223,7 @@ zip = "=6.0.0"
 
 anilist-importer-service = { path = "crates/services/importer/anilist" }
 audiobookshelf-importer-service = { path = "crates/services/importer/audiobookshelf" }
+generic-json-importer-service = { path = "crates/services/importer/generic-json" }
 anilist-provider = { path = "crates/providers/anilist" }
 application-utils = { path = "crates/utils/application" }
 audible-provider = { path = "crates/providers/audible" }
