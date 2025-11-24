@@ -139,6 +139,7 @@ pub enum ImportSource {
     Anilist,
     Grouvee,
     Netflix,
+    Watcharr,
     Jellyfin,
     OpenScale,
     StrongApp,

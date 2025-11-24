@@ -113,7 +113,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				.with(
 					ImportSource.GenericJson,
 					ImportSource.Anilist,
-
+					ImportSource.Watcharr,
 					async () => ({
 						path: processSubmission(formData, exportPathImportFormSchema),
 					}),
@@ -420,6 +420,7 @@ export default function Page() {
 												))
 												.with(
 													ImportSource.Anilist,
+													ImportSource.Watcharr,
 													ImportSource.GenericJson,
 													() => (
 														<FileInput
