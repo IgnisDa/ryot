@@ -1,5 +1,5 @@
 [package]
-name = "strong_app-importer-service"
+name = "strong-app-importer-service"
 version = "0.1.0"
 edition = "2024"
 

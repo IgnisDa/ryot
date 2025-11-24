@@ -43,7 +43,7 @@ netflix-importer-service = { workspace = true }
 open-scale-importer-service = { workspace = true }
 plex-importer-service = { workspace = true }
 storygraph-importer-service = { workspace = true }
-strong_app-importer-service = { workspace = true }
+strong-app-importer-service = { workspace = true }
 trakt-importer-service = { workspace = true }
 watcharr-importer-service = { workspace = true }
 background-models = { workspace = true }

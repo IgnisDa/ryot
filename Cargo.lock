@@ -4241,7 +4241,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "storygraph-importer-service",
- "strong_app-importer-service",
+ "strong-app-importer-service",
  "supporting-service",
  "tempfile",
  "tmdb-provider",
@@ -7878,7 +7878,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "strong_app-importer-service"
+name = "strong-app-importer-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",

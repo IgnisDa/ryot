@@ -73,7 +73,7 @@ members = [
     "crates/services/importer/open_scale",
     "crates/services/importer/plex",
     "crates/services/importer/storygraph",
-    "crates/services/importer/strong_app",
+    "crates/services/importer/strong-app",
     "crates/services/importer/trakt",
     "crates/services/importer/watcharr",
     "crates/services/integration",
@@ -254,7 +254,7 @@ netflix-importer-service = { path = "crates/services/importer/netflix" }
 open-scale-importer-service = { path = "crates/services/importer/open_scale" }
 plex-importer-service = { path = "crates/services/importer/plex" }
 storygraph-importer-service = { path = "crates/services/importer/storygraph" }
-strong_app-importer-service = { path = "crates/services/importer/strong_app" }
+strong-app-importer-service = { path = "crates/services/importer/strong-app" }
 trakt-importer-service = { path = "crates/services/importer/trakt" }
 watcharr-importer-service = { path = "crates/services/importer/watcharr" }
 anilist-provider = { path = "crates/providers/anilist" }
