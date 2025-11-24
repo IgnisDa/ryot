@@ -71,6 +71,11 @@ members = [
     "crates/services/importer/myanimelist",
     "crates/services/importer/netflix",
     "crates/services/importer/open_scale",
+    "crates/services/importer/plex",
+    "crates/services/importer/storygraph",
+    "crates/services/importer/strong_app",
+    "crates/services/importer/trakt",
+    "crates/services/importer/watcharr",
     "crates/services/integration",
     "crates/services/miscellaneous",
     "crates/services/miscellaneous/background",
@@ -247,6 +252,11 @@ movary-importer-service = { path = "crates/services/importer/movary" }
 myanimelist-importer-service = { path = "crates/services/importer/myanimelist" }
 netflix-importer-service = { path = "crates/services/importer/netflix" }
 open-scale-importer-service = { path = "crates/services/importer/open_scale" }
+plex-importer-service = { path = "crates/services/importer/plex" }
+storygraph-importer-service = { path = "crates/services/importer/storygraph" }
+strong_app-importer-service = { path = "crates/services/importer/strong_app" }
+trakt-importer-service = { path = "crates/services/importer/trakt" }
+watcharr-importer-service = { path = "crates/services/importer/watcharr" }
 anilist-provider = { path = "crates/providers/anilist" }
 application-utils = { path = "crates/utils/application" }
 audible-provider = { path = "crates/providers/audible" }

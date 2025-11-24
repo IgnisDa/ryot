@@ -2,8 +2,11 @@ use std::fs::read_to_string;
 
 use anyhow::Result;
 use common_models::DefaultCollection;
-use dependent_models::{CollectionToEntityDetails, ImportCompletedItem, ImportResult};
+use dependent_models::{
+    CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
+};
 use enum_models::{ImportSource, MediaLot, MediaSource, SeenState};
+use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::{
     DeployPathImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMetadataItemSeen,
@@ -11,8 +14,6 @@ use media_models::{
 use rust_decimal::{Decimal, dec};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
-
-use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

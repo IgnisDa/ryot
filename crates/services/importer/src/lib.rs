@@ -8,13 +8,11 @@ use common_utils::{MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, ryot_log};
 use database_models::{import_report, prelude::ImportReport};
 use dependent_import_utils::process_import;
 use dependent_jobs_utils::deploy_background_job;
-use dependent_models::ImportOrExportMetadataItem;
 use dependent_provider_utils::{
     get_google_books_service, get_hardcover_service, get_openlibrary_service,
     get_tmdb_non_media_service,
 };
 use enum_models::ImportSource;
-use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::DeployImportJobInput;
 use rust_decimal::dec;
 use sea_orm::{
@@ -23,12 +21,6 @@ use sea_orm::{
 };
 use supporting_service::SupportingService;
 use traits::TraceOk;
-
-mod plex;
-mod storygraph;
-mod strong_app;
-mod trakt;
-mod watcharr;
 
 pub struct ImporterService(pub Arc<SupportingService>);
 
@@ -73,8 +65,8 @@ impl ImporterService {
         ryot_log!(debug, "Started import job with id {import_id}");
         let maybe_import = match input.source {
             ImportSource::Igdb => igdb_importer_service::import(input.igdb.unwrap()).await,
-            ImportSource::Plex => plex::import(input.url_and_key.unwrap()).await,
-            ImportSource::Watcharr => watcharr::import(input.path.unwrap()).await,
+            ImportSource::Plex => plex_importer_service::import(input.url_and_key.unwrap()).await,
+            ImportSource::Watcharr => watcharr_importer_service::import(input.path.unwrap()).await,
             ImportSource::Jellyfin => {
                 jellyfin_importer_service::import(input.jellyfin.unwrap()).await
             }
@@ -108,10 +100,11 @@ impl ImporterService {
                 anilist_importer_service::import(input.path.unwrap(), &self.0).await
             }
             ImportSource::StrongApp => {
-                strong_app::import(input.strong_app.unwrap(), &self.0, &user_id).await
+                strong_app_importer_service::import(input.strong_app.unwrap(), &self.0, &user_id)
+                    .await
             }
             ImportSource::Trakt => {
-                trakt::import(
+                trakt_importer_service::import(
                     input.trakt.unwrap(),
                     self.0.config.server.importer.trakt_client_id.as_str(),
                 )
@@ -134,7 +127,7 @@ impl ImporterService {
                 .await
             }
             ImportSource::Storygraph => {
-                storygraph::import(
+                storygraph_importer_service::import(
                     input.generic_csv.unwrap(),
                     &get_hardcover_service(&self.0.config).await?,
                     &get_google_books_service(&self.0.config).await?,

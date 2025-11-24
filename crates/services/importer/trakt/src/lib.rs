@@ -1,8 +1,11 @@
 use anyhow::Result;
 use common_utils::{APPLICATION_JSON_HEADER, get_base_http_client, ryot_log};
 use convert_case::{Case, Casing};
-use dependent_models::{CollectionToEntityDetails, ImportCompletedItem, ImportResult};
+use dependent_models::{
+    CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
+};
 use enum_models::{ImportSource, MediaLot, MediaSource};
+use importer_models::{ImportFailStep, ImportFailedItem};
 use itertools::Itertools;
 use media_models::{
     CreateOrUpdateCollectionInput, DeployTraktImportInput, DeployTraktImportListInput,
@@ -12,8 +15,6 @@ use reqwest::header::{CONTENT_TYPE, HeaderName, HeaderValue};
 use rust_decimal::{Decimal, dec};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
-
-use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 const API_URL: &str = "https://api.trakt.tv";
 const API_VERSION: &str = "2";
