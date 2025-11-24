@@ -70,7 +70,7 @@ members = [
     "crates/services/importer/mediatracker",
     "crates/services/importer/myanimelist",
     "crates/services/importer/netflix",
-    "crates/services/importer/open_scale",
+    "crates/services/importer/open-scale",
     "crates/services/importer/plex",
     "crates/services/importer/storygraph",
     "crates/services/importer/strong-app",
@@ -251,7 +251,7 @@ jellyfin-importer-service = { path = "crates/services/importer/jellyfin" }
 movary-importer-service = { path = "crates/services/importer/movary" }
 myanimelist-importer-service = { path = "crates/services/importer/myanimelist" }
 netflix-importer-service = { path = "crates/services/importer/netflix" }
-open-scale-importer-service = { path = "crates/services/importer/open_scale" }
+open-scale-importer-service = { path = "crates/services/importer/open-scale" }
 plex-importer-service = { path = "crates/services/importer/plex" }
 storygraph-importer-service = { path = "crates/services/importer/storygraph" }
 strong-app-importer-service = { path = "crates/services/importer/strong-app" }
