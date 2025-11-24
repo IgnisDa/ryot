@@ -17,7 +17,7 @@ use media_models::{
 use rust_decimal::{Decimal, dec};
 use serde::Deserialize;
 
-use crate::{ImportFailStep, ImportFailedItem};
+use importer_models::{ImportFailStep, ImportFailedItem};
 
 #[derive(Debug, Deserialize)]
 struct HardcoverBook {
