@@ -1,0 +1,24 @@
+[package]
+name = "trakt-importer-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+convert_case = { workspace = true }
+itertools = { workspace = true }
+reqwest = { workspace = true }
+rust_decimal = { workspace = true }
+sea-orm = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+
+common-utils = { workspace = true }
+dependent-models = { workspace = true }
+enum-models = { workspace = true }
+importer-models = { workspace = true }
+media-models = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["tracing"]

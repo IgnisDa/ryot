@@ -19,10 +19,10 @@ english-to-cron = { workspace = true }
 futures = { workspace = true }
 http = { workspace = true }
 itertools = { workspace = true }
+schematic = { workspace = true }
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
 serde_json = { workspace = true }
-schematic = { workspace = true }
 tokio = { workspace = true }
 tower-http = { workspace = true }
 tracing = { workspace = true }

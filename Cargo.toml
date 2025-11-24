@@ -57,6 +57,25 @@ members = [
     "crates/services/file-storage",
     "crates/services/fitness",
     "crates/services/importer",
+    "crates/services/importer/anilist",
+    "crates/services/importer/audiobookshelf",
+    "crates/services/importer/generic-json",
+    "crates/services/importer/goodreads",
+    "crates/services/importer/grouvee",
+    "crates/services/importer/hardcover",
+    "crates/services/importer/hevy",
+    "crates/services/importer/igdb",
+    "crates/services/importer/imdb",
+    "crates/services/importer/jellyfin",
+    "crates/services/importer/mediatracker",
+    "crates/services/importer/myanimelist",
+    "crates/services/importer/netflix",
+    "crates/services/importer/open-scale",
+    "crates/services/importer/plex",
+    "crates/services/importer/storygraph",
+    "crates/services/importer/strong-app",
+    "crates/services/importer/trakt",
+    "crates/services/importer/watcharr",
     "crates/services/integration",
     "crates/services/miscellaneous",
     "crates/services/miscellaneous/background",
@@ -218,9 +237,11 @@ url = "=2.5.7"
 uuid = { version = "=1.18.1", features = ["v4"], default-features = false }
 zip = "=6.0.0"
 
+anilist-importer-service = { path = "crates/services/importer/anilist" }
 anilist-provider = { path = "crates/providers/anilist" }
 application-utils = { path = "crates/utils/application" }
 audible-provider = { path = "crates/providers/audible" }
+audiobookshelf-importer-service = { path = "crates/services/importer/audiobookshelf" }
 background-models = { path = "crates/models/background" }
 cache-service = { path = "crates/services/cache" }
 collection-resolver = { path = "crates/resolvers/collection" }
@@ -260,18 +281,27 @@ file-storage-service = { path = "crates/services/file-storage" }
 fitness-models = { path = "crates/models/fitness" }
 fitness-resolver = { path = "crates/resolvers/fitness" }
 fitness-service = { path = "crates/services/fitness" }
+generic-json-importer-service = { path = "crates/services/importer/generic-json" }
 giant-bomb-provider = { path = "crates/providers/giant-bomb" }
+goodreads-importer-service = { path = "crates/services/importer/goodreads" }
 google-books-provider = { path = "crates/providers/google-books" }
+grouvee-importer-service = { path = "crates/services/importer/grouvee" }
+hardcover-importer-service = { path = "crates/services/importer/hardcover" }
 hardcover-provider = { path = "crates/providers/hardcover" }
+hevy-importer-service = { path = "crates/services/importer/hevy" }
+igdb-importer-service = { path = "crates/services/importer/igdb" }
 igdb-provider = { path = "crates/providers/igdb" }
+imdb-importer-service = { path = "crates/services/importer/imdb" }
 importer-models = { path = "crates/models/importer" }
 importer-resolver = { path = "crates/resolvers/importer" }
 importer-service = { path = "crates/services/importer" }
 integration-service = { path = "crates/services/integration" }
 itunes-provider = { path = "crates/providers/itunes" }
+jellyfin-importer-service = { path = "crates/services/importer/jellyfin" }
 listennotes-provider = { path = "crates/providers/listennotes" }
 manga-updates-provider = { path = "crates/providers/manga-updates" }
 media-models = { path = "crates/models/media" }
+mediatracker-importer-service = { path = "crates/services/importer/mediatracker" }
 migrations-sql = { path = "crates/migrations/sql" }
 migrations-utils = { path = "crates/migrations/utils" }
 miscellaneous-background-service = { path = "crates/services/miscellaneous/background" }
@@ -294,17 +324,25 @@ miscellaneous-social-resolver = { path = "crates/resolvers/miscellaneous/social"
 miscellaneous-system-resolver = { path = "crates/resolvers/miscellaneous/system" }
 miscellaneous-tracking-resolver = { path = "crates/resolvers/miscellaneous/tracking" }
 miscellaneous-trending-and-events-service = { path = "crates/services/miscellaneous/trending-and-events" }
+movary-importer-service = { path = "crates/services/importer/movary" }
+myanimelist-importer-service = { path = "crates/services/importer/myanimelist" }
 myanimelist-provider = { path = "crates/providers/myanimelist" }
+netflix-importer-service = { path = "crates/services/importer/netflix" }
 notification-service = { path = "crates/services/notification" }
+open-scale-importer-service = { path = "crates/services/importer/open-scale" }
 openlibrary-provider = { path = "crates/providers/openlibrary" }
+plex-importer-service = { path = "crates/services/importer/plex" }
 router-resolver = { path = "crates/resolvers/router" }
 session-service = { path = "crates/services/session" }
 spotify-provider = { path = "crates/providers/spotify" }
 statistics-resolver = { path = "crates/resolvers/statistics" }
 statistics-service = { path = "crates/services/statistics" }
+storygraph-importer-service = { path = "crates/services/importer/storygraph" }
+strong-app-importer-service = { path = "crates/services/importer/strong-app" }
 supporting-service = { path = "crates/services/supporting" }
 tmdb-provider = { path = "crates/providers/tmdb" }
 traits = { path = "crates/traits" }
+trakt-importer-service = { path = "crates/services/importer/trakt" }
 tvdb-provider = { path = "crates/providers/tvdb" }
 user-authentication-resolver = { path = "crates/resolvers/user/authentication" }
 user-management-resolver = { path = "crates/resolvers/user/management" }
@@ -313,6 +351,7 @@ user-resolver = { path = "crates/resolvers/user" }
 user-service = { path = "crates/services/user" }
 user-services-resolver = { path = "crates/resolvers/user/services" }
 vndb-provider = { path = "crates/providers/vndb" }
+watcharr-importer-service = { path = "crates/services/importer/watcharr" }
 youtube-music-provider = { path = "crates/providers/youtube-music" }
 
 [profile.release]

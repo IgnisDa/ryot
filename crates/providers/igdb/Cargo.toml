@@ -8,8 +8,8 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 convert_case = { workspace = true }
-itertools = { workspace = true }
 futures = { workspace = true }
+itertools = { workspace = true }
 nest_struct = { workspace = true }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }

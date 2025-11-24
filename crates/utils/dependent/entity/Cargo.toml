@@ -6,8 +6,8 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 chrono = { workspace = true }
-itertools = { workspace = true }
 futures = { workspace = true }
+itertools = { workspace = true }
 markdown = { workspace = true }
 nanoid = { workspace = true }
 sea-orm = { workspace = true }

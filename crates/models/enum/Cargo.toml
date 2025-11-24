@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 async-graphql = { workspace = true }
-rust_decimal = { workspace = true }
 enum_meta = { workspace = true }
+rust_decimal = { workspace = true }
 schematic = { workspace = true }
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
