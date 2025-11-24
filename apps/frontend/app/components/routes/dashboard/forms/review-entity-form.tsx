@@ -39,7 +39,6 @@ import {
 import {
 	convertDecimalToThreePointSmiley,
 	convertRatingToUserScale,
-	convertUserScaleToRating,
 } from "~/lib/shared/media-utils";
 import {
 	clientGqlService,
@@ -419,16 +418,7 @@ export const ReviewEntityForm = (props: {
 				loading={reviewMutation.isPending}
 				onClick={() => {
 					events.postReview(entityToReview?.entityTitle);
-					const convertedInput = produce(input, (draft) => {
-						if (draft.rating) {
-							const convertedRating = convertUserScaleToRating(
-								draft.rating,
-								userPreferences.general.reviewScale,
-							);
-							draft.rating = convertedRating?.toString();
-						}
-					});
-					reviewMutation.mutate({ input: convertedInput });
+					reviewMutation.mutate({ input });
 				}}
 			>
 				{entityToReview.existingReview?.id ? "Update" : "Submit"}
