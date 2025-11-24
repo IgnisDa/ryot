@@ -12,6 +12,7 @@ use external_models::audiobookshelf as audiobookshelf_models;
 use futures::stream::{self, StreamExt};
 use google_books_provider::GoogleBooksService;
 use hardcover_provider::HardcoverService;
+use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::{
     DeployUrlAndKeyImportInput, ImportOrExportMetadataItemSeen, PartialMetadataWithoutId,
 };
@@ -21,8 +22,6 @@ use reqwest::{
     header::{AUTHORIZATION, HeaderValue},
 };
 use supporting_service::SupportingService;
-
-use crate::{ImportFailStep, ImportFailedItem};
 
 struct ImportServices<'a> {
     ss: &'a Arc<SupportingService>,

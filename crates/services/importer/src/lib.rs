@@ -24,7 +24,6 @@ use sea_orm::{
 use supporting_service::SupportingService;
 use traits::TraceOk;
 
-mod audiobookshelf;
 mod generic_json;
 mod goodreads;
 mod grouvee;
@@ -140,7 +139,7 @@ impl ImporterService {
                 .await
             }
             ImportSource::Audiobookshelf => {
-                audiobookshelf::import(
+                audiobookshelf_importer_service::import(
                     input.url_and_key.unwrap(),
                     &self.0,
                     &get_hardcover_service(&self.0.config).await?,
