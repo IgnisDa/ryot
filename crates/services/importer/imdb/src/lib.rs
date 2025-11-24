@@ -11,7 +11,7 @@ use media_models::DeployGenericCsvImportInput;
 use serde::Deserialize;
 use tmdb_provider::NonMediaTmdbService;
 
-use crate::{ImportFailStep, ImportFailedItem};
+use importer_models::{ImportFailStep, ImportFailedItem};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]

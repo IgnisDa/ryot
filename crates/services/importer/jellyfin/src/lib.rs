@@ -12,7 +12,7 @@ use media_models::{DeployJellyfinImportInput, ImportOrExportMetadataItemSeen};
 use reqwest::Client;
 use tokio::sync::Mutex;
 
-use crate::{ImportFailStep, ImportFailedItem};
+use importer_models::{ImportFailStep, ImportFailedItem};
 
 pub async fn import(input: DeployJellyfinImportInput) -> Result<ImportResult> {
     let mut failed = vec![];

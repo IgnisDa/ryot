@@ -3662,6 +3662,58 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
 
 [[package]]
+name = "hevy-importer-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "background-models",
+ "chrono",
+ "chrono-tz",
+ "common-models",
+ "common-utils",
+ "convert_case 0.8.0",
+ "csv",
+ "data-encoding",
+ "database-models",
+ "dependent-entity-utils",
+ "dependent-fitness-utils",
+ "dependent-import-utils",
+ "dependent-jobs-utils",
+ "dependent-models",
+ "dependent-provider-utils",
+ "enum-models",
+ "external-models",
+ "external-utils",
+ "fitness-models",
+ "flate2",
+ "futures",
+ "google-books-provider",
+ "hardcover-provider",
+ "importer-models",
+ "indexmap 2.12.0",
+ "itertools 0.14.0",
+ "media-models",
+ "miscellaneous-lookup-service",
+ "nest_struct",
+ "openlibrary-provider",
+ "reqwest",
+ "rust_decimal",
+ "sea-orm",
+ "serde",
+ "serde-xml-rs",
+ "serde_json",
+ "serde_with",
+ "supporting-service",
+ "tempfile",
+ "tmdb-provider",
+ "tokio",
+ "tracing",
+ "traits",
+ "zip",
+]
+
+[[package]]
 name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4009,6 +4061,58 @@ dependencies = [
 ]
 
 [[package]]
+name = "igdb-importer-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "background-models",
+ "chrono",
+ "chrono-tz",
+ "common-models",
+ "common-utils",
+ "convert_case 0.8.0",
+ "csv",
+ "data-encoding",
+ "database-models",
+ "dependent-entity-utils",
+ "dependent-fitness-utils",
+ "dependent-import-utils",
+ "dependent-jobs-utils",
+ "dependent-models",
+ "dependent-provider-utils",
+ "enum-models",
+ "external-models",
+ "external-utils",
+ "fitness-models",
+ "flate2",
+ "futures",
+ "google-books-provider",
+ "hardcover-provider",
+ "importer-models",
+ "indexmap 2.12.0",
+ "itertools 0.14.0",
+ "media-models",
+ "miscellaneous-lookup-service",
+ "nest_struct",
+ "openlibrary-provider",
+ "reqwest",
+ "rust_decimal",
+ "sea-orm",
+ "serde",
+ "serde-xml-rs",
+ "serde_json",
+ "serde_with",
+ "supporting-service",
+ "tempfile",
+ "tmdb-provider",
+ "tokio",
+ "tracing",
+ "traits",
+ "zip",
+]
+
+[[package]]
 name = "igdb-provider"
 version = "0.1.0"
 dependencies = [
@@ -4037,6 +4141,24 @@ dependencies = [
  "supporting-service",
  "tracing",
  "traits",
+]
+
+[[package]]
+name = "imdb-importer-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common-models",
+ "common-utils",
+ "csv",
+ "dependent-models",
+ "enum-models",
+ "importer-models",
+ "itertools 0.14.0",
+ "media-models",
+ "serde",
+ "tmdb-provider",
+ "tracing",
 ]
 
 [[package]]
@@ -4095,9 +4217,13 @@ dependencies = [
  "grouvee-importer-service",
  "hardcover-importer-service",
  "hardcover-provider",
+ "hevy-importer-service",
+ "igdb-importer-service",
+ "imdb-importer-service",
  "importer-models",
  "indexmap 2.12.0",
  "itertools 0.14.0",
+ "jellyfin-importer-service",
  "media-models",
  "miscellaneous-lookup-service",
  "openlibrary-provider",
@@ -4307,6 +4433,58 @@ dependencies = [
  "supporting-service",
  "tracing",
  "traits",
+]
+
+[[package]]
+name = "jellyfin-importer-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "background-models",
+ "chrono",
+ "chrono-tz",
+ "common-models",
+ "common-utils",
+ "convert_case 0.8.0",
+ "csv",
+ "data-encoding",
+ "database-models",
+ "dependent-entity-utils",
+ "dependent-fitness-utils",
+ "dependent-import-utils",
+ "dependent-jobs-utils",
+ "dependent-models",
+ "dependent-provider-utils",
+ "enum-models",
+ "external-models",
+ "external-utils",
+ "fitness-models",
+ "flate2",
+ "futures",
+ "google-books-provider",
+ "hardcover-provider",
+ "importer-models",
+ "indexmap 2.12.0",
+ "itertools 0.14.0",
+ "media-models",
+ "miscellaneous-lookup-service",
+ "nest_struct",
+ "openlibrary-provider",
+ "reqwest",
+ "rust_decimal",
+ "sea-orm",
+ "serde",
+ "serde-xml-rs",
+ "serde_json",
+ "serde_with",
+ "supporting-service",
+ "tempfile",
+ "tmdb-provider",
+ "tokio",
+ "tracing",
+ "traits",
+ "zip",
 ]
 
 [[package]]

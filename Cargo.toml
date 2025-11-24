@@ -63,6 +63,10 @@ members = [
     "crates/services/importer/goodreads",
     "crates/services/importer/grouvee",
     "crates/services/importer/hardcover",
+    "crates/services/importer/hevy",
+    "crates/services/importer/igdb",
+    "crates/services/importer/imdb",
+    "crates/services/importer/jellyfin",
     "crates/services/integration",
     "crates/services/miscellaneous",
     "crates/services/miscellaneous/background",
@@ -230,6 +234,10 @@ generic-json-importer-service = { path = "crates/services/importer/generic-json"
 goodreads-importer-service = { path = "crates/services/importer/goodreads" }
 grouvee-importer-service = { path = "crates/services/importer/grouvee" }
 hardcover-importer-service = { path = "crates/services/importer/hardcover" }
+hevy-importer-service = { path = "crates/services/importer/hevy" }
+igdb-importer-service = { path = "crates/services/importer/igdb" }
+imdb-importer-service = { path = "crates/services/importer/imdb" }
+jellyfin-importer-service = { path = "crates/services/importer/jellyfin" }
 anilist-provider = { path = "crates/providers/anilist" }
 application-utils = { path = "crates/utils/application" }
 audible-provider = { path = "crates/providers/audible" }

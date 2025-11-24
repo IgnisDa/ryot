@@ -24,10 +24,6 @@ use sea_orm::{
 use supporting_service::SupportingService;
 use traits::TraceOk;
 
-mod hevy;
-mod igdb;
-mod imdb;
-mod jellyfin;
 mod mediatracker;
 mod movary;
 mod myanimelist;
@@ -81,17 +77,25 @@ impl ImporterService {
         let import_id = db_import_job.id.clone();
         ryot_log!(debug, "Started import job with id {import_id}");
         let maybe_import = match input.source {
-            ImportSource::Igdb => igdb::import(input.igdb.unwrap()).await,
+            ImportSource::Igdb => igdb_importer_service::import(input.igdb.unwrap()).await,
             ImportSource::Movary => movary::import(input.movary.unwrap()).await,
             ImportSource::Plex => plex::import(input.url_and_key.unwrap()).await,
             ImportSource::Watcharr => watcharr::import(input.path.unwrap()).await,
-            ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await,
+            ImportSource::Jellyfin => {
+                jellyfin_importer_service::import(input.jellyfin.unwrap()).await
+            }
             ImportSource::Myanimelist => myanimelist::import(input.mal.unwrap()).await,
-            ImportSource::Grouvee => grouvee_importer_service::import(input.generic_csv.unwrap()).await,
-            ImportSource::Hardcover => hardcover_importer_service::import(input.generic_csv.unwrap()).await,
+            ImportSource::Grouvee => {
+                grouvee_importer_service::import(input.generic_csv.unwrap()).await
+            }
+            ImportSource::Hardcover => {
+                hardcover_importer_service::import(input.generic_csv.unwrap()).await
+            }
             ImportSource::Netflix => netflix::import(input.netflix.unwrap(), &self.0).await,
             ImportSource::Mediatracker => mediatracker::import(input.url_and_key.unwrap()).await,
-            ImportSource::Hevy => hevy::import(input.generic_csv.unwrap(), &self.0, &user_id).await,
+            ImportSource::Hevy => {
+                hevy_importer_service::import(input.generic_csv.unwrap(), &self.0, &user_id).await
+            }
             ImportSource::GenericJson => {
                 generic_json_importer_service::import(input.path.unwrap()).await
             }
@@ -112,7 +116,7 @@ impl ImporterService {
                 .await
             }
             ImportSource::Imdb => {
-                imdb::import(
+                imdb_importer_service::import(
                     input.generic_csv.unwrap(),
                     &get_tmdb_non_media_service(&self.0).await?,
                 )

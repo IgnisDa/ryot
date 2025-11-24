@@ -8,7 +8,7 @@ use itertools::Itertools;
 use media_models::DeployIgdbImportInput;
 use serde::Deserialize;
 
-use crate::{ImportFailStep, ImportFailedItem};
+use importer_models::{ImportFailStep, ImportFailedItem};
 
 #[derive(Debug, Deserialize)]
 struct Item {

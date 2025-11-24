@@ -1,5 +1,5 @@
 [package]
-name = "importer-service"
+name = "hevy-importer-service"
 version = "0.1.0"
 edition = "2024"
 
@@ -14,6 +14,7 @@ flate2 = { workspace = true }
 futures = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
+nest_struct = { workspace = true }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
@@ -26,20 +27,12 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 zip = { workspace = true }
 
-anilist-importer-service = { workspace = true }
 application-utils = { workspace = true }
-audiobookshelf-importer-service = { workspace = true }
-goodreads-importer-service = { workspace = true }
-grouvee-importer-service = { workspace = true }
-hardcover-importer-service = { workspace = true }
-hevy-importer-service = { workspace = true }
-igdb-importer-service = { workspace = true }
-imdb-importer-service = { workspace = true }
-jellyfin-importer-service = { workspace = true }
 background-models = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { workspace = true }
+dependent-fitness-utils = { workspace = true }
 dependent-import-utils = { workspace = true }
 dependent-jobs-utils = { workspace = true }
 dependent-entity-utils = { workspace = true }
@@ -49,7 +42,6 @@ enum-models = { workspace = true }
 external-models = { workspace = true }
 external-utils = { workspace = true }
 fitness-models = { workspace = true }
-generic-json-importer-service = { workspace = true }
 google-books-provider = { workspace = true }
 hardcover-provider = { workspace = true }
 importer-models = { workspace = true }
