@@ -334,7 +334,6 @@ const DisplayExerciseAttributes = (props: {
 export const ExerciseUpdatePreferencesModal = (props: {
 	opened: boolean;
 	onClose: () => void;
-	exerciseId: string;
 	userExerciseDetails: {
 		details?: {
 			exerciseExtraInformation?: {

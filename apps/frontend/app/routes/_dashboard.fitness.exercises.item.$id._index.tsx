@@ -210,7 +210,6 @@ export default function Page() {
 	return (
 		<>
 			<ExerciseUpdatePreferencesModal
-				exerciseId={exerciseDetails.id}
 				opened={updatePreferencesModalOpened}
 				onClose={closeUpdatePreferencesModal}
 				userExerciseDetails={userExerciseDetails}
