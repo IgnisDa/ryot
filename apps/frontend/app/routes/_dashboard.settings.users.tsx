@@ -387,9 +387,7 @@ const UserInvitationModal = (props: {
 	const form = useForm({
 		mode: "uncontrolled",
 		initialValues: { username: "" },
-		validate: {
-			username: hasLength({ min: 1 }, "Username is required"),
-		},
+		validate: { username: hasLength({ min: 1 }, "Username is required") },
 	});
 
 	const handleClose = () => {
@@ -401,14 +399,11 @@ const UserInvitationModal = (props: {
 		mutationFn: async (username: string) => {
 			const { registerUser } = await clientGqlService.request(
 				RegisterUserDocument,
-				{
-					input: { data: { password: { username, password: "" } } },
-				},
+				{ input: { data: { password: { username, password: "" } } } },
 			);
 
-			if (registerUser.__typename !== "StringIdObject") {
+			if (registerUser.__typename !== "StringIdObject")
 				throw new Error("Failed to register user");
-			}
 
 			const { getPasswordChangeSession } = await clientGqlService.request(
 				GetPasswordChangeSessionDocument,
