@@ -253,9 +253,8 @@ export default function Page() {
 												method: "POST",
 												encType: "multipart/form-data",
 											});
-											if (deployImportSource) {
+											if (deployImportSource)
 												events.deployImport(deployImportSource);
-											}
 										},
 									);
 								}}
