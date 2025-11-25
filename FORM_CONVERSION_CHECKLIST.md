@@ -99,10 +99,10 @@ These files use `useState` + `onClick` patterns and need conversion:
   - **State**: ~~Uses `useState` with immer~~ Now uses `useForm`
   - **Changes**: Converted to proper HTML form, removed immer/produce boilerplate, automatic validation
 
-- [ ] `apps/frontend/app/components/routes/dashboard/forms/add-entity-to-collections-form.tsx`
-  - **Inputs**: Collection selection inputs
-  - **State**: State-based management
-  - **Action**: Convert to `<form>` with `useForm`
+- [x] `apps/frontend/app/components/routes/dashboard/forms/add-entity-to-collections-form.tsx` ✅ **COMPLETED**
+  - **Inputs**: MultiSelect for collections, dynamic custom fields based on templates
+  - **State**: ~~Uses `useListState` for collections array~~ Now uses `useForm`
+  - **Changes**: Converted to proper HTML form, replaced useListState with form array field, automatic validation
 
 #### Progress Update Forms
 
@@ -222,4 +222,4 @@ After converting each form, verify:
 - **Needs conversion**: 19 (32.8%)
 - **Not applicable**: 30 (51.7%)
 
-**Progress**: 12/28 complete (42.9%)
+**Progress**: 13/28 complete (46.4%)
