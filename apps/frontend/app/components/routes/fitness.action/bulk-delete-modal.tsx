@@ -7,9 +7,9 @@ import {
 	ScrollArea,
 	Stack,
 } from "@mantine/core";
+import { useForm } from "@mantine/form";
 import { useDidUpdate } from "@mantine/hooks";
 import { produce } from "immer";
-import { useState } from "react";
 import invariant from "tiny-invariant";
 import { getSetStatisticsTextToDisplay } from "~/components/fitness/utils";
 import {
@@ -21,7 +21,7 @@ import { useCurrentWorkout } from "~/lib/state/fitness";
 
 const ExerciseItem = (props: {
 	exerciseIdx: number;
-	selectedSets: Set<string>;
+	selectedSets: string[];
 	onToggleSet: (setIdentifier: string) => void;
 	onToggleExercise: (setIdentifiers: string[]) => void;
 }) => {
@@ -33,7 +33,7 @@ const ExerciseItem = (props: {
 
 	const setIdentifiers = exercise.sets.map((s) => s.identifier);
 	const selectedCount = setIdentifiers.filter((id) =>
-		props.selectedSets.has(id),
+		props.selectedSets.includes(id),
 	).length;
 	const isFullySelected = selectedCount === setIdentifiers.length;
 	const isPartiallySelected = selectedCount > 0 && !isFullySelected;
@@ -62,7 +62,7 @@ const ExerciseItem = (props: {
 							size="sm"
 							label={firstStat}
 							key={set.identifier}
-							checked={props.selectedSets.has(set.identifier)}
+							checked={props.selectedSets.includes(set.identifier)}
 							onChange={() => props.onToggleSet(set.identifier)}
 						/>
 					);
@@ -79,7 +79,17 @@ export const BulkDeleteModal = (props: {
 }) => {
 	const deleteS3AssetMutation = useDeleteS3AssetMutation();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const [selectedSets, setSelectedSets] = useState<Set<string>>(new Set());
+
+	const form = useForm<{ selectedSets: string[] }>({
+		mode: "uncontrolled",
+		initialValues: {
+			selectedSets: [],
+		},
+		validate: {
+			selectedSets: (value) =>
+				value.length > 0 ? null : "Select at least one set to delete",
+		},
+	});
 
 	useDidUpdate(() => {
 		if (!props.exerciseToDelete || !currentWorkout) return;
@@ -91,7 +101,7 @@ export const BulkDeleteModal = (props: {
 		if (!exercise) return;
 
 		const setIdentifiers = exercise.sets.map((s) => s.identifier);
-		setSelectedSets(new Set(setIdentifiers));
+		form.setFieldValue("selectedSets", setIdentifiers);
 
 		setTimeout(() => {
 			const elementId = `delete-${props.exerciseToDelete}`;
@@ -102,45 +112,56 @@ export const BulkDeleteModal = (props: {
 
 	useDidUpdate(() => {
 		if (!props.opened) {
-			setSelectedSets(new Set());
+			form.reset();
 		}
 	}, [props.opened]);
 
 	const toggleSet = (setIdentifier: string) => {
-		setSelectedSets((prev) => {
-			const newSet = new Set(prev);
+		const currentSets = form.values.selectedSets;
 
-			if (newSet.has(setIdentifier)) newSet.delete(setIdentifier);
-			else newSet.add(setIdentifier);
-
-			return newSet;
-		});
+		if (currentSets.includes(setIdentifier)) {
+			form.setFieldValue(
+				"selectedSets",
+				currentSets.filter((id) => id !== setIdentifier),
+			);
+		} else {
+			form.setFieldValue("selectedSets", [...currentSets, setIdentifier]);
+		}
 	};
 
 	const toggleExercise = (setIdentifiers: string[]) => {
-		setSelectedSets((prev) => {
-			const newSet = new Set(prev);
-			const allSelected = setIdentifiers.every((id) => newSet.has(id));
+		const currentSets = form.values.selectedSets;
+		const allSelected = setIdentifiers.every((id) => currentSets.includes(id));
 
-			if (allSelected) for (const id of setIdentifiers) newSet.delete(id);
-			else for (const id of setIdentifiers) newSet.add(id);
-
-			return newSet;
-		});
+		if (allSelected) {
+			form.setFieldValue(
+				"selectedSets",
+				currentSets.filter((id) => !setIdentifiers.includes(id)),
+			);
+		} else {
+			const newSets = [...currentSets];
+			for (const id of setIdentifiers) {
+				if (!newSets.includes(id)) {
+					newSets.push(id);
+				}
+			}
+			form.setFieldValue("selectedSets", newSets);
+		}
 	};
 
-	const handleDelete = () => {
-		if (!currentWorkout || selectedSets.size === 0) return;
+	const handleDelete = (values: { selectedSets: string[] }) => {
+		if (!currentWorkout) return;
 
 		openConfirmationModal(
-			`This will delete ${selectedSets.size} set(s). You cannot undo this action. Are you sure you want to continue?`,
+			`This will delete ${values.selectedSets.length} set(s). You cannot undo this action. Are you sure you want to continue?`,
 			() => {
+				const selectedSetsSet = new Set(values.selectedSets);
 				const exercisesToDelete: string[] = [];
 
 				for (let idx = 0; idx < currentWorkout.exercises.length; idx++) {
 					const exercise = currentWorkout.exercises[idx];
 					const remainingSets = exercise.sets.filter(
-						(set) => !selectedSets.has(set.identifier),
+						(set) => !selectedSetsSet.has(set.identifier),
 					);
 
 					if (remainingSets.length === 0) {
@@ -156,7 +177,7 @@ export const BulkDeleteModal = (props: {
 							const exercise = draft.exercises[idx];
 
 							draft.exercises[idx].sets = exercise.sets.filter(
-								(set) => !selectedSets.has(set.identifier),
+								(set) => !selectedSetsSet.has(set.identifier),
 							);
 
 							if (draft.exercises[idx].sets.length === 0) {
@@ -179,7 +200,7 @@ export const BulkDeleteModal = (props: {
 					}),
 				);
 
-				setSelectedSets(new Set());
+				form.reset();
 				props.onClose();
 			},
 		);
@@ -191,30 +212,32 @@ export const BulkDeleteModal = (props: {
 			onClose={props.onClose}
 			title="Select sets to delete"
 		>
-			<Stack gap="md" h="60vh">
-				<ScrollArea flex={1}>
-					<Stack gap="sm">
-						{currentWorkout?.exercises.map((_, idx) => (
-							<ExerciseItem
-								exerciseIdx={idx}
-								onToggleSet={toggleSet}
-								selectedSets={selectedSets}
-								onToggleExercise={toggleExercise}
-								key={currentWorkout.exercises[idx].identifier}
-							/>
-						))}
-					</Stack>
-				</ScrollArea>
+			<form onSubmit={form.onSubmit(handleDelete)}>
+				<Stack gap="md" h="60vh">
+					<ScrollArea flex={1}>
+						<Stack gap="sm">
+							{currentWorkout?.exercises.map((_, idx) => (
+								<ExerciseItem
+									exerciseIdx={idx}
+									onToggleSet={toggleSet}
+									selectedSets={form.values.selectedSets}
+									onToggleExercise={toggleExercise}
+									key={currentWorkout.exercises[idx].identifier}
+								/>
+							))}
+						</Stack>
+					</ScrollArea>
 
-				<Group justify="space-between">
-					<Button variant="subtle" onClick={props.onClose}>
-						Cancel
-					</Button>
-					<Button color="red" onClick={handleDelete}>
-						Delete Selected ({selectedSets.size})
-					</Button>
-				</Group>
-			</Stack>
+					<Group justify="space-between">
+						<Button variant="subtle" onClick={props.onClose}>
+							Cancel
+						</Button>
+						<Button color="red" type="submit">
+							Delete Selected ({form.values.selectedSets.length})
+						</Button>
+					</Group>
+				</Stack>
+			</form>
 		</Modal>
 	);
 };

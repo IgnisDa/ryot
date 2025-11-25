@@ -138,10 +138,10 @@ These files use `useState` + `onClick` patterns and need conversion:
 
 #### Fitness Action Components
 
-- [ ] `apps/frontend/app/components/routes/fitness.action/bulk-delete-modal.tsx`
+- [x] `apps/frontend/app/components/routes/fitness.action/bulk-delete-modal.tsx` ✅ **COMPLETED**
   - **Inputs**: Checkbox components for set selection
-  - **State**: Uses `useState` for selectedSets
-  - **Action**: Convert to form with checkbox group
+  - **State**: ~~Uses `useState` with Set<string>~~ Now uses `useForm` with string array
+  - **Changes**: Converted to proper HTML form, validation for selection, changed Set to array for form compatibility
 
 #### Settings Pages
 
@@ -228,4 +228,4 @@ After converting each form, verify:
 - **Needs conversion**: 19 (32.8%)
 - **Not applicable**: 30 (51.7%)
 
-**Progress**: 19/28 complete (67.9%)
+**Progress**: 20/28 complete (71.4%)
