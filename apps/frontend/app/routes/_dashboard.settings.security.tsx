@@ -511,9 +511,7 @@ interface VerifyCodeStepProps {
 
 const VerifyCodeStep = (props: VerifyCodeStepProps) => {
 	const form = useForm({
-		initialValues: {
-			code: "",
-		},
+		initialValues: { code: "" },
 		validate: {
 			code: (value) => (value.length !== 6 ? "Code must be 6 digits" : null),
 		},
