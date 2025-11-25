@@ -121,9 +121,10 @@ These files use `useState` + `onClick` patterns and need conversion:
   - **Inputs**: Season Select, Episode Select, 2 Checkboxes
   - **Changes**: Removed immer dependency, simplified state updates to use object spreading
 
-- [ ] `apps/frontend/app/components/routes/dashboard/forms/metadata-progress-update/media-types/podcast-form.tsx`
-  - **Type**: Podcast-specific progress form
-  - **Action**: Convert to `useForm`
+- [x] `apps/frontend/app/components/routes/dashboard/forms/metadata-progress-update/media-types/podcast-form.tsx` ✅ **COMPLETED**
+  - **Type**: Podcast-specific progress form (child component)
+  - **Inputs**: Episode Select, Checkbox (mark all episodes before)
+  - **Changes**: Removed immer dependency, simplified state updates, fixed controlled component pattern
 
 - [ ] `apps/frontend/app/components/routes/dashboard/forms/metadata-progress-update/media-types/manga-form.tsx`
   - **Type**: Manga-specific progress form
@@ -225,4 +226,4 @@ After converting each form, verify:
 - **Needs conversion**: 19 (32.8%)
 - **Not applicable**: 30 (51.7%)
 
-**Progress**: 16/28 complete (57.1%)
+**Progress**: 17/28 complete (60.7%)
