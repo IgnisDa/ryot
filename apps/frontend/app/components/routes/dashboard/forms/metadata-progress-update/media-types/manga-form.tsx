@@ -1,6 +1,5 @@
 import { Checkbox, Group, Input, NumberInput, Text } from "@mantine/core";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
-import { produce } from "immer";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
@@ -23,12 +22,11 @@ export const MangaForm = (props: MediaFormProps) => {
 						description="Chapter"
 						value={metadataToUpdate.mangaChapterNumber?.toString()}
 						onChange={(e) => {
-							updateMetadataToUpdate(
-								produce(metadataToUpdate, (draft) => {
-									draft.mangaChapterNumber =
-										e === "" ? undefined : Number(e).toString();
-								}),
-							);
+							updateMetadataToUpdate({
+								...metadataToUpdate,
+								mangaChapterNumber:
+									e === "" ? undefined : Number(e).toString(),
+							});
 						}}
 					/>
 					<Text ta="center" fw="bold" mt="sm">
@@ -40,11 +38,10 @@ export const MangaForm = (props: MediaFormProps) => {
 						description="Volume"
 						value={metadataToUpdate.mangaVolumeNumber?.toString()}
 						onChange={(e) => {
-							updateMetadataToUpdate(
-								produce(metadataToUpdate, (draft) => {
-									draft.mangaVolumeNumber = e === "" ? undefined : Number(e);
-								}),
-							);
+							updateMetadataToUpdate({
+								...metadataToUpdate,
+								mangaVolumeNumber: e === "" ? undefined : Number(e),
+							});
 						}}
 					/>
 				</Group>
@@ -52,13 +49,12 @@ export const MangaForm = (props: MediaFormProps) => {
 			<Checkbox
 				size="xs"
 				label="Mark all unread volumes/chapters before this as watched"
-				defaultChecked={metadataToUpdate.mangaAllChaptersOrVolumesBefore}
+				checked={metadataToUpdate.mangaAllChaptersOrVolumesBefore || false}
 				onChange={(e) => {
-					updateMetadataToUpdate(
-						produce(metadataToUpdate, (draft) => {
-							draft.mangaAllChaptersOrVolumesBefore = e.target.checked;
-						}),
-					);
+					updateMetadataToUpdate({
+						...metadataToUpdate,
+						mangaAllChaptersOrVolumesBefore: e.target.checked,
+					});
 				}}
 			/>
 		</>

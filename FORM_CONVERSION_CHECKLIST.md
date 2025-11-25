@@ -126,9 +126,10 @@ These files use `useState` + `onClick` patterns and need conversion:
   - **Inputs**: Episode Select, Checkbox (mark all episodes before)
   - **Changes**: Removed immer dependency, simplified state updates, fixed controlled component pattern
 
-- [ ] `apps/frontend/app/components/routes/dashboard/forms/metadata-progress-update/media-types/manga-form.tsx`
-  - **Type**: Manga-specific progress form
-  - **Action**: Convert to `useForm`
+- [x] `apps/frontend/app/components/routes/dashboard/forms/metadata-progress-update/media-types/manga-form.tsx` ✅ **COMPLETED**
+  - **Type**: Manga-specific progress form (child component)
+  - **Inputs**: Chapter NumberInput, Volume NumberInput, Checkbox (mark all before)
+  - **Changes**: Removed immer dependency, simplified state updates, converted to proper controlled components
 
 - [ ] `apps/frontend/app/components/routes/dashboard/forms/metadata-progress-update/media-types/anime-form.tsx`
   - **Type**: Anime-specific progress form
@@ -226,4 +227,4 @@ After converting each form, verify:
 - **Needs conversion**: 19 (32.8%)
 - **Not applicable**: 30 (51.7%)
 
-**Progress**: 17/28 complete (60.7%)
+**Progress**: 18/28 complete (64.3%)
