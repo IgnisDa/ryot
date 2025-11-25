@@ -164,7 +164,6 @@ export default function Page() {
 		authHeader?: string;
 		priority?: number;
 	}>({
-		mode: "uncontrolled",
 		initialValues: {
 			lot: "",
 			baseUrl: "",
@@ -181,13 +180,13 @@ export default function Page() {
 	return (
 		<>
 			<Modal
+				centered
+				withCloseButton={false}
 				opened={createUserNotificationPlatformModalOpened}
 				onClose={() => {
 					closeCreateUserNotificationPlatformModal();
 					createForm.reset();
 				}}
-				centered
-				withCloseButton={false}
 			>
 				<Box
 					method="POST"
