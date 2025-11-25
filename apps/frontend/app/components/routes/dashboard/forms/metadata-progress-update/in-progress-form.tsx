@@ -44,11 +44,11 @@ export const MetadataInProgressUpdateForm = (
 	if (!metadataToUpdate) return null;
 
 	const total =
-		props.metadataDetails.audioBookSpecifics?.runtime ||
 		props.metadataDetails.bookSpecifics?.pages ||
 		props.metadataDetails.movieSpecifics?.runtime ||
 		props.metadataDetails.mangaSpecifics?.chapters ||
 		props.metadataDetails.animeSpecifics?.episodes ||
+		props.metadataDetails.audioBookSpecifics?.runtime ||
 		props.metadataDetails.visualNovelSpecifics?.length;
 
 	const [updateIcon, text] = match(props.metadataDetails.lot)
@@ -90,10 +90,10 @@ export const MetadataInProgressUpdateForm = (
 							min={0}
 							step={1}
 							max={100}
-							value={form.values.progress}
-							onChange={(value) => form.setFieldValue("progress", value)}
 							style={{ flexGrow: 1 }}
 							showLabelOnHover={false}
+							value={form.values.progress}
+							onChange={(value) => form.setFieldValue("progress", value)}
 						/>
 						<NumberInput
 							w="20%"
