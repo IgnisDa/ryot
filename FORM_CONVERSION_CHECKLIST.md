@@ -131,9 +131,10 @@ These files use `useState` + `onClick` patterns and need conversion:
   - **Inputs**: Chapter NumberInput, Volume NumberInput, Checkbox (mark all before)
   - **Changes**: Removed immer dependency, simplified state updates, converted to proper controlled components
 
-- [ ] `apps/frontend/app/components/routes/dashboard/forms/metadata-progress-update/media-types/anime-form.tsx`
-  - **Type**: Anime-specific progress form
-  - **Action**: Convert to `useForm`
+- [x] `apps/frontend/app/components/routes/dashboard/forms/metadata-progress-update/media-types/anime-form.tsx` ✅ **COMPLETED**
+  - **Type**: Anime-specific progress form (child component)
+  - **Inputs**: Episode NumberInput, Checkbox (mark all episodes before)
+  - **Changes**: Removed immer dependency, simplified state updates, converted to proper controlled components
 
 #### Fitness Action Components
 
@@ -227,4 +228,4 @@ After converting each form, verify:
 - **Needs conversion**: 19 (32.8%)
 - **Not applicable**: 30 (51.7%)
 
-**Progress**: 18/28 complete (64.3%)
+**Progress**: 19/28 complete (67.9%)
