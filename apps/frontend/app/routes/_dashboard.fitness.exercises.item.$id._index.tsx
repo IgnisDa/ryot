@@ -48,7 +48,7 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
-import { Fragment, useState } from "react";
+import { Fragment } from "react";
 import { Link, useLoaderData, useNavigate } from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "safe-routes";
@@ -160,20 +160,16 @@ export default function Page() {
 	const [bodyViewGender, setBodyViewGender] = useLocalStorage<
 		"male" | "female"
 	>("ExerciseBodyViewGender", "female");
-	const [changingExerciseSettings, setChangingExerciseSettings] = useState({
-		isChanged: false,
-		value: userExerciseDetails?.details?.exerciseExtraInformation?.settings || {
-			excludeFromAnalytics: false,
-			setRestTimers: {},
-		},
-	});
 
 	const updateUserExerciseSettingsMutation = useMutation({
-		mutationFn: async () => {
+		mutationFn: async (values: {
+			excludeFromAnalytics: boolean;
+			setRestTimers: Record<string, number | null>;
+		}) => {
 			await clientGqlService.request(UpdateUserExerciseSettingsDocument, {
 				input: {
 					exerciseId: exerciseDetails?.id || "",
-					change: changingExerciseSettings.value,
+					change: values,
 				},
 			});
 		},
@@ -216,9 +212,8 @@ export default function Page() {
 			<ExerciseUpdatePreferencesModal
 				opened={updatePreferencesModalOpened}
 				onClose={closeUpdatePreferencesModal}
+				exerciseId={exerciseDetails.id}
 				userExerciseDetails={userExerciseDetails}
-				changingExerciseSettings={changingExerciseSettings}
-				setChangingExerciseSettings={setChangingExerciseSettings}
 				updateUserExerciseSettingsMutation={updateUserExerciseSettingsMutation}
 			/>
 			<ExerciseMusclesModal

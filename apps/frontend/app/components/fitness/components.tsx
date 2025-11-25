@@ -21,6 +21,7 @@ import {
 	Text,
 	useMantineTheme,
 } from "@mantine/core";
+import { useForm } from "@mantine/form";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import Body, { type ExtendedBodyPart } from "@mjcdev/react-body-highlighter";
@@ -43,7 +44,6 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { type UseMutationResult, useQuery } from "@tanstack/react-query";
-import { produce } from "immer";
 import type { ComponentType, Dispatch, SetStateAction } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
@@ -334,6 +334,7 @@ const DisplayExerciseAttributes = (props: {
 export const ExerciseUpdatePreferencesModal = (props: {
 	opened: boolean;
 	onClose: () => void;
+	exerciseId: string;
 	userExerciseDetails: {
 		details?: {
 			exerciseExtraInformation?: {
@@ -344,29 +345,27 @@ export const ExerciseUpdatePreferencesModal = (props: {
 			} | null;
 		} | null;
 	};
-	changingExerciseSettings: {
-		isChanged: boolean;
-		value: {
-			excludeFromAnalytics: boolean;
-			setRestTimers: Record<string, number | null>;
-		};
-	};
-	setChangingExerciseSettings: Dispatch<
-		SetStateAction<{
-			isChanged: boolean;
-			value: {
-				excludeFromAnalytics: boolean;
-				setRestTimers: Record<string, number | null>;
-			};
-		}>
-	>;
 	updateUserExerciseSettingsMutation: UseMutationResult<
 		void,
 		Error,
-		void,
+		{
+			excludeFromAnalytics: boolean;
+			setRestTimers: Record<string, number | null>;
+		},
 		unknown
 	>;
 }) => {
+	const form = useForm({
+		initialValues: {
+			excludeFromAnalytics:
+				props.userExerciseDetails.details?.exerciseExtraInformation?.settings
+					.excludeFromAnalytics ?? false,
+			setRestTimers:
+				props.userExerciseDetails.details?.exerciseExtraInformation?.settings
+					.setRestTimers ?? {},
+		},
+	});
+
 	return (
 		<Modal
 			centered
@@ -374,72 +373,61 @@ export const ExerciseUpdatePreferencesModal = (props: {
 			opened={props.opened}
 			onClose={props.onClose}
 		>
-			<Stack>
-				<Switch
-					label="Exclude from analytics"
-					defaultChecked={
-						props.userExerciseDetails.details?.exerciseExtraInformation
-							?.settings.excludeFromAnalytics
-					}
-					onChange={(ev) => {
-						props.setChangingExerciseSettings(
-							produce(props.changingExerciseSettings, (draft) => {
-								draft.isChanged = true;
-								draft.value.excludeFromAnalytics = ev.currentTarget.checked;
-							}),
-						);
-					}}
-				/>
-				<Text size="sm">
-					When a new set is added, rest timers will be added automatically
-					according to the settings below.
-					<Text size="xs" c="dimmed" span>
-						{" "}
-						Default rest timer durations for all exercises can be changed in the
-						fitness preferences.
+			<form
+				onSubmit={form.onSubmit(async (values) => {
+					await props.updateUserExerciseSettingsMutation.mutateAsync(values);
+					notifications.show({
+						color: "green",
+						title: "Settings updated",
+						message: "Settings for the exercise have been updated.",
+					});
+					props.onClose();
+				})}
+			>
+				<Stack>
+					<Switch
+						label="Exclude from analytics"
+						{...form.getInputProps("excludeFromAnalytics", {
+							type: "checkbox",
+						})}
+					/>
+					<Text size="sm">
+						When a new set is added, rest timers will be added automatically
+						according to the settings below.
+						<Text size="xs" c="dimmed" span>
+							{" "}
+							Default rest timer durations for all exercises can be changed in
+							the fitness preferences.
+						</Text>
 					</Text>
-				</Text>
-				<SimpleGrid cols={2}>
-					{(["normal", "warmup", "drop", "failure"] as const).map((name) => {
-						const value =
-							props.userExerciseDetails.details?.exerciseExtraInformation
-								?.settings.setRestTimers[name];
-						return (
-							<NumberInput
-								suffix="s"
-								key={name}
-								label={changeCase(snakeCase(name))}
-								defaultValue={isNumber(value) ? value : undefined}
-								onChange={(val) => {
-									if (isNumber(val))
-										props.setChangingExerciseSettings(
-											produce(props.changingExerciseSettings, (draft) => {
-												draft.isChanged = true;
-												draft.value.setRestTimers[name] = val;
-											}),
-										);
-								}}
-							/>
-						);
-					})}
-				</SimpleGrid>
-				<Button
-					type="submit"
-					disabled={!props.changingExerciseSettings.isChanged}
-					loading={props.updateUserExerciseSettingsMutation.isPending}
-					onClick={async () => {
-						await props.updateUserExerciseSettingsMutation.mutateAsync();
-						notifications.show({
-							color: "green",
-							title: "Settings updated",
-							message: "Settings for the exercise have been updated.",
-						});
-						props.onClose();
-					}}
-				>
-					Save settings
-				</Button>
-			</Stack>
+					<SimpleGrid cols={2}>
+						{(["normal", "warmup", "drop", "failure"] as const).map((name) => {
+							const value =
+								props.userExerciseDetails.details?.exerciseExtraInformation
+									?.settings.setRestTimers[name];
+							return (
+								<NumberInput
+									suffix="s"
+									key={name}
+									label={changeCase(snakeCase(name))}
+									defaultValue={isNumber(value) ? value : undefined}
+									onChange={(val) => {
+										if (isNumber(val))
+											form.setFieldValue(`setRestTimers.${name}`, val);
+									}}
+								/>
+							);
+						})}
+					</SimpleGrid>
+					<Button
+						type="submit"
+						disabled={!form.isDirty()}
+						loading={props.updateUserExerciseSettingsMutation.isPending}
+					>
+						Save settings
+					</Button>
+				</Stack>
+			</form>
 		</Modal>
 	);
 };
