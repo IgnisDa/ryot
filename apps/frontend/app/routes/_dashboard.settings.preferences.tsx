@@ -645,6 +645,7 @@ export default function Page() {
 									<Button
 										ml="auto"
 										size="xs"
+										type="button"
 										variant="outline"
 										onClick={() => {
 											const newStatistics = [
