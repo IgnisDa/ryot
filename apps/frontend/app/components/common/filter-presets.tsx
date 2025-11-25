@@ -8,8 +8,8 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
+import { hasLength, useForm } from "@mantine/form";
 import { useLongPress } from "@mantine/hooks";
-import { useState } from "react";
 import type { useFilterPresets } from "~/lib/hooks/filters/use-presets";
 
 export const CreateFilterPresetModal = (props: {
@@ -18,7 +18,13 @@ export const CreateFilterPresetModal = (props: {
 	placeholder: string;
 	onSave: (name: string) => void;
 }) => {
-	const [presetName, setPresetName] = useState("");
+	const form = useForm({
+		mode: "uncontrolled",
+		initialValues: { name: "" },
+		validate: {
+			name: hasLength({ min: 3 }, "Must be at least 3 characters"),
+		},
+	});
 
 	return (
 		<Modal
@@ -26,35 +32,31 @@ export const CreateFilterPresetModal = (props: {
 			onClose={props.onClose}
 			title="Save filter as preset"
 		>
-			<Stack>
-				<TextInput
-					data-autofocus
-					value={presetName}
-					label="Preset Name"
-					placeholder={props.placeholder}
-					onChange={(e) => setPresetName(e.currentTarget.value)}
-				/>
-				<Text c="dimmed" size="xs" ta="right">
-					Hint: Long press on a preset to delete it.
-				</Text>
+			<form
+				onSubmit={form.onSubmit((values) => {
+					props.onSave(values.name);
+					form.reset();
+				})}
+			>
+				<Stack>
+					<TextInput
+						data-autofocus
+						label="Preset Name"
+						placeholder={props.placeholder}
+						{...form.getInputProps("name")}
+					/>
+					<Text c="dimmed" size="xs" ta="right">
+						Hint: Long press on a preset to delete it.
+					</Text>
 
-				<Group justify="flex-end">
-					<Button variant="default" onClick={props.onClose}>
-						Cancel
-					</Button>
-					<Button
-						disabled={!presetName.trim()}
-						onClick={() => {
-							if (presetName.trim()) {
-								props.onSave(presetName.trim());
-								setPresetName("");
-							}
-						}}
-					>
-						Save Preset
-					</Button>
-				</Group>
-			</Stack>
+					<Group justify="flex-end">
+						<Button variant="default" onClick={props.onClose}>
+							Cancel
+						</Button>
+						<Button type="submit">Save Preset</Button>
+					</Group>
+				</Stack>
+			</form>
 		</Modal>
 	);
 };
