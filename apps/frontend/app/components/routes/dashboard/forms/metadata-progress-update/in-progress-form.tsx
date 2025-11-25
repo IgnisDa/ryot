@@ -31,15 +31,12 @@ export const MetadataInProgressUpdateForm = (
 		useDeployBulkMetadataProgressUpdateMutation(props.metadataDetails.title);
 
 	const form = useForm<{ progress: number }>({
-		mode: "uncontrolled",
-		initialValues: {
-			progress: Number(props.inProgress.progress),
-		},
+		mode: "controlled",
+		initialValues: { progress: Number(props.inProgress.progress) },
 		validate: {
 			progress: (value) => {
-				if (value < 0 || value > 100) {
+				if (value < 0 || value > 100)
 					return "Progress must be between 0 and 100";
-				}
 				return null;
 			},
 		},
