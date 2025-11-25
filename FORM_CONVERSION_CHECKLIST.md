@@ -160,13 +160,15 @@ These files use `useState` + `onClick` patterns and need conversion:
   - **Inputs**: VerifyCodeStep had PinInput with useState
   - **Changes**: Converted VerifyCodeStep to useForm, main password form already uses React Router Form (acceptable)
 
-- [ ] `apps/frontend/app/routes/_dashboard.settings.sharing.tsx`
-  - **Type**: Sharing settings form
-  - **Action**: Review and convert to proper form
+- [x] `apps/frontend/app/routes/_dashboard.settings.sharing.tsx` ✅ **ALREADY PROPER**
+  - **Type**: Sharing settings with 3 forms (make public, revoke access, create link)
+  - **Status**: All forms already use React Router Form with type="submit" buttons
+  - **Changes**: No conversion needed - already follows best practices
 
-- [ ] `apps/frontend/app/routes/_dashboard.settings.notifications.tsx`
-  - **Type**: Notifications settings form
-  - **Action**: Review and convert to proper form
+- [x] `apps/frontend/app/routes/_dashboard.settings.notifications.tsx` ✅ **COMPLETED**
+  - **Type**: Notifications settings with 4 forms
+  - **Inputs**: Create modal had Select with useState, other forms already proper
+  - **Changes**: Converted create modal to useForm, other forms already use React Router Form
 
 - [ ] `apps/frontend/app/routes/_dashboard.settings.integrations.tsx`
   - **Type**: Integrations settings form
@@ -229,4 +231,4 @@ After converting each form, verify:
 - **Needs conversion**: 19 (32.8%)
 - **Not applicable**: 30 (51.7%)
 
-**Progress**: 23/28 complete (82.1%)
+**Progress**: 25/28 complete (89.3%)
