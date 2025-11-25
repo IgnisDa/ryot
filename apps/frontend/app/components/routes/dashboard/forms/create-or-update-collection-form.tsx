@@ -79,6 +79,15 @@ export const CreateOrUpdateCollectionModal = (props: {
 		},
 	});
 
+	const updateTemplateField = (
+		index: number,
+		updates: Partial<CollectionExtraInformation>,
+	) => {
+		const newTemplate = [...form.values.informationTemplate];
+		newTemplate[index] = { ...newTemplate[index], ...updates };
+		form.setFieldValue("informationTemplate", newTemplate);
+	};
+
 	const { data: usersList } = useUsersList();
 	const createOrUpdateMutation = useMutation({
 		mutationFn: (values: typeof form.values) =>
@@ -202,28 +211,18 @@ export const CreateOrUpdateCollectionModal = (props: {
 									size="xs"
 									label="Name"
 									value={field.name}
-									onChange={(e) => {
-										const newTemplate = [...form.values.informationTemplate];
-										newTemplate[index] = {
-											...field,
-											name: e.target.value,
-										};
-										form.setFieldValue("informationTemplate", newTemplate);
-									}}
+									onChange={(e) =>
+										updateTemplateField(index, { name: e.target.value })
+									}
 								/>
 								<Textarea
 									required
 									size="xs"
 									label="Description"
 									value={field.description}
-									onChange={(e) => {
-										const newTemplate = [...form.values.informationTemplate];
-										newTemplate[index] = {
-											...field,
-											description: e.target.value,
-										};
-										form.setFieldValue("informationTemplate", newTemplate);
-									}}
+									onChange={(e) =>
+										updateTemplateField(index, { description: e.target.value })
+									}
 								/>
 								<Group wrap="nowrap">
 									<Select
@@ -235,14 +234,11 @@ export const CreateOrUpdateCollectionModal = (props: {
 										data={convertEnumToSelectData(
 											CollectionExtraInformationLot,
 										)}
-										onChange={(v) => {
-											const newTemplate = [...form.values.informationTemplate];
-											newTemplate[index] = {
-												...field,
+										onChange={(v) =>
+											updateTemplateField(index, {
 												lot: v as CollectionExtraInformationLot,
-											};
-											form.setFieldValue("informationTemplate", newTemplate);
-										}}
+											})
+										}
 									/>
 									{field.lot !== CollectionExtraInformationLot.StringArray ? (
 										<TextInput
@@ -250,16 +246,11 @@ export const CreateOrUpdateCollectionModal = (props: {
 											size="xs"
 											label="Default value"
 											value={field.defaultValue || ""}
-											onChange={(e) => {
-												const newTemplate = [
-													...form.values.informationTemplate,
-												];
-												newTemplate[index] = {
-													...field,
+											onChange={(e) =>
+												updateTemplateField(index, {
 													defaultValue: e.target.value,
-												};
-												form.setFieldValue("informationTemplate", newTemplate);
-											}}
+												})
+											}
 										/>
 									) : null}
 								</Group>
@@ -268,14 +259,9 @@ export const CreateOrUpdateCollectionModal = (props: {
 										size="xs"
 										label="Possible values"
 										value={field.possibleValues || []}
-										onChange={(value) => {
-											const newTemplate = [...form.values.informationTemplate];
-											newTemplate[index] = {
-												...field,
-												possibleValues: value,
-											};
-											form.setFieldValue("informationTemplate", newTemplate);
-										}}
+										onChange={(value) =>
+											updateTemplateField(index, { possibleValues: value })
+										}
 									/>
 								) : null}
 								<Group mt="xs" justify="space-around">
@@ -283,14 +269,9 @@ export const CreateOrUpdateCollectionModal = (props: {
 										size="sm"
 										label="Required"
 										checked={field.required || false}
-										onChange={(e) => {
-											const newTemplate = [...form.values.informationTemplate];
-											newTemplate[index] = {
-												...field,
-												required: e.target.checked,
-											};
-											form.setFieldValue("informationTemplate", newTemplate);
-										}}
+										onChange={(e) =>
+											updateTemplateField(index, { required: e.target.checked })
+										}
 									/>
 									<Button
 										size="xs"
