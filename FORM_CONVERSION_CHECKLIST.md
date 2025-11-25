@@ -116,9 +116,10 @@ These files use `useState` + `onClick` patterns and need conversion:
   - **State**: ~~Uses `useState` with immer~~ Now uses `useForm`
   - **Changes**: Converted to proper HTML form, removed immer, validation for custom dates, props parameter refactor
 
-- [ ] `apps/frontend/app/components/routes/dashboard/forms/metadata-progress-update/media-types/show-form.tsx`
-  - **Type**: Show-specific progress form
-  - **Action**: Convert to `useForm`
+- [x] `apps/frontend/app/components/routes/dashboard/forms/metadata-progress-update/media-types/show-form.tsx` ✅ **COMPLETED**
+  - **Type**: Show-specific progress form (child component)
+  - **Inputs**: Season Select, Episode Select, 2 Checkboxes
+  - **Changes**: Removed immer dependency, simplified state updates to use object spreading
 
 - [ ] `apps/frontend/app/components/routes/dashboard/forms/metadata-progress-update/media-types/podcast-form.tsx`
   - **Type**: Podcast-specific progress form
@@ -224,4 +225,4 @@ After converting each form, verify:
 - **Needs conversion**: 19 (32.8%)
 - **Not applicable**: 30 (51.7%)
 
-**Progress**: 15/28 complete (53.6%)
+**Progress**: 16/28 complete (57.1%)
