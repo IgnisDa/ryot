@@ -150,10 +150,10 @@ These files use `useState` + `onClick` patterns and need conversion:
   - **State**: ~~Large form with multiple `useState` and immer~~ Now uses comprehensive `useForm`
   - **Changes**: Major refactor - removed immer, converted to controlled inputs, form.isDirty() tracking, simplified state management
 
-- [ ] `apps/frontend/app/routes/_dashboard.settings.users.tsx`
-  - **Inputs**: TextInput for user registration
-  - **State**: Uses useDisclosure and state
-  - **Action**: Convert modal form to `useForm`
+- [x] `apps/frontend/app/routes/_dashboard.settings.users.tsx` ✅ **COMPLETED**
+  - **Inputs**: TextInput for username in registration modal
+  - **State**: ~~Uses `useState` for username~~ Now uses `useForm`
+  - **Changes**: Converted to proper HTML form, validation for min length, simplified state management
 
 - [ ] `apps/frontend/app/routes/_dashboard.settings.security.tsx`
   - **Type**: Security settings form
@@ -228,4 +228,4 @@ After converting each form, verify:
 - **Needs conversion**: 19 (32.8%)
 - **Not applicable**: 30 (51.7%)
 
-**Progress**: 21/28 complete (75.0%)
+**Progress**: 22/28 complete (78.6%)

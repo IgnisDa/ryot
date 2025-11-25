@@ -12,6 +12,7 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
+import { hasLength, useForm } from "@mantine/form";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
@@ -383,17 +384,17 @@ const UserInvitationModal = (props: {
 	onClose: () => void;
 	onSuccess: (data: UrlDisplayData) => void;
 }) => {
-	const [username, setUsername] = useState("");
+	const form = useForm({
+		mode: "uncontrolled",
+		initialValues: { username: "" },
+		validate: {
+			username: hasLength({ min: 1 }, "Username is required"),
+		},
+	});
 
 	const handleClose = () => {
-		setUsername("");
+		form.reset();
 		props.onClose();
-	};
-
-	const handleCreateInvitation = () => {
-		if (username.trim()) {
-			createInvitationMutation.mutate(username.trim());
-		}
 	};
 
 	const createInvitationMutation = useMutation({
@@ -437,24 +438,25 @@ const UserInvitationModal = (props: {
 			onClose={handleClose}
 			title="Create User Invitation"
 		>
-			<Stack>
-				<TextInput
-					required
-					autoFocus
-					value={username}
-					label="Username"
-					onChange={(e) => setUsername(e.currentTarget.value)}
-				/>
-				{!createInvitationMutation.data && (
-					<Button
-						disabled={!username.trim()}
-						onClick={handleCreateInvitation}
-						loading={createInvitationMutation.isPending}
-					>
-						Create Invitation
-					</Button>
-				)}
-			</Stack>
+			<form
+				onSubmit={form.onSubmit((values) => {
+					createInvitationMutation.mutate(values.username.trim());
+				})}
+			>
+				<Stack>
+					<TextInput
+						required
+						data-autofocus
+						label="Username"
+						{...form.getInputProps("username")}
+					/>
+					{!createInvitationMutation.data && (
+						<Button type="submit" loading={createInvitationMutation.isPending}>
+							Create Invitation
+						</Button>
+					)}
+				</Stack>
+			</form>
 		</Modal>
 	);
 };
