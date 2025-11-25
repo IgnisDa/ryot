@@ -106,9 +106,10 @@ These files use `useState` + `onClick` patterns and need conversion:
 
 #### Progress Update Forms
 
-- [ ] `apps/frontend/app/components/routes/dashboard/forms/metadata-progress-update/in-progress-form.tsx`
-  - **State**: Uses state instead of form pattern
-  - **Action**: Convert to `useForm`
+- [x] `apps/frontend/app/components/routes/dashboard/forms/metadata-progress-update/in-progress-form.tsx` ✅ **COMPLETED**
+  - **Inputs**: Slider, NumberInput (percentage and absolute value modes)
+  - **State**: ~~Uses `useState` for progress~~ Now uses `useForm`
+  - **Changes**: Converted to proper HTML form, validation for 0-100 range, better type safety
 
 - [ ] `apps/frontend/app/components/routes/dashboard/forms/metadata-progress-update/new-progress-form.tsx`
   - **State**: State-based approach
@@ -222,4 +223,4 @@ After converting each form, verify:
 - **Needs conversion**: 19 (32.8%)
 - **Not applicable**: 30 (51.7%)
 
-**Progress**: 13/28 complete (46.4%)
+**Progress**: 14/28 complete (50.0%)
