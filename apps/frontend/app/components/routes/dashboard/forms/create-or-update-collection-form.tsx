@@ -251,7 +251,9 @@ export const CreateOrUpdateCollectionModal = (props: {
 											label="Default value"
 											value={field.defaultValue || ""}
 											onChange={(e) => {
-												const newTemplate = [...form.values.informationTemplate];
+												const newTemplate = [
+													...form.values.informationTemplate,
+												];
 												newTemplate[index] = {
 													...field,
 													defaultValue: e.target.value,
