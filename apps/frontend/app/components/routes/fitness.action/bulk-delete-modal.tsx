@@ -214,8 +214,8 @@ export const BulkDeleteModal = (props: {
 								<ExerciseItem
 									exerciseIdx={idx}
 									onToggleSet={toggleSet}
-									selectedSets={form.values.selectedSets}
 									onToggleExercise={toggleExercise}
+									selectedSets={form.values.selectedSets}
 									key={currentWorkout.exercises[idx].identifier}
 								/>
 							))}
