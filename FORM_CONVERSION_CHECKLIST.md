@@ -170,16 +170,17 @@ These files use `useState` + `onClick` patterns and need conversion:
   - **Inputs**: Create modal had Select with useState, other forms already proper
   - **Changes**: Converted create modal to useForm, other forms already use React Router Form
 
-- [ ] `apps/frontend/app/routes/_dashboard.settings.integrations.tsx`
-  - **Type**: Integrations settings form
-  - **Action**: Review and convert to proper form
+- [x] `apps/frontend/app/routes/_dashboard.settings.integrations.tsx` ✅ **ALREADY PROPER**
+  - **Type**: Integrations settings with 3 forms (generate token, delete, create/update)
+  - **Status**: All forms already use React Router Form with type="submit" buttons
+  - **Changes**: No conversion needed - already follows best practices
 
 #### Import/Export
 
-- [ ] `apps/frontend/app/routes/_dashboard.settings.imports-and-exports._index.tsx`
+- [x] `apps/frontend/app/routes/_dashboard.settings.imports-and-exports._index.tsx` ✅ **COMPLETED**
   - **Inputs**: FileInput, TextInput, Select
-  - **Current**: Uses React Router `<Form>` component
-  - **Action**: Review - may already be acceptable with React Router Form
+  - **State**: ~~Import form used React Router Form with onClick handler~~ Now uses `useForm` with HTML form
+  - **Changes**: Converted import form to proper HTML form with useForm, export form already uses React Router Form properly (no changes needed)
 
 #### Exercise Management
 
@@ -231,4 +232,4 @@ After converting each form, verify:
 - **Needs conversion**: 19 (32.8%)
 - **Not applicable**: 30 (51.7%)
 
-**Progress**: 25/28 complete (89.3%)
+**Progress**: 27/28 complete (96.4%)

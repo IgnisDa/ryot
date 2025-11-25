@@ -20,6 +20,7 @@ import {
 	Title,
 	Tooltip,
 } from "@mantine/core";
+import { useForm } from "@mantine/form";
 import { useInViewport } from "@mantine/hooks";
 import {
 	DeployExportJobDocument,
@@ -40,7 +41,7 @@ import { useQuery } from "@tanstack/react-query";
 import { filesize } from "filesize";
 import { DataTable } from "mantine-datatable";
 import { useMemo, useState } from "react";
-import { Form, data } from "react-router";
+import { Form, data, useSubmit } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -48,7 +49,6 @@ import { SkeletonLoader } from "~/components/common";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useApplicationEvents,
-	useConfirmSubmit,
 	useCoreDetails,
 	useDeleteS3AssetMutation,
 	useNonHiddenUserCollections,
@@ -205,7 +205,7 @@ const malImportFormSchema = z.object({
 });
 
 export default function Page() {
-	const submit = useConfirmSubmit();
+	const submit = useSubmit();
 	const coreDetails = useCoreDetails();
 	const events = useApplicationEvents();
 	const { inViewport, ref } = useInViewport();
@@ -214,6 +214,31 @@ export default function Page() {
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
+
+	const importForm = useForm({
+		mode: "uncontrolled",
+		initialValues: {
+			source: "",
+			apiUrl: "",
+			apiKey: "",
+			csvPath: "",
+			dataExportPath: "",
+			user: "",
+			listUrl: "",
+			listCollection: "",
+			username: "",
+			password: "",
+			history: "",
+			ratings: "",
+			watchlist: "",
+			collection: "",
+			animePath: "",
+			mangaPath: "",
+			exportPath: "",
+			netflixExportPath: "",
+			profileName: "",
+		},
+	});
 
 	const userImportsReportsQuery = useQuery({
 		enabled: inViewport,
@@ -241,16 +266,32 @@ export default function Page() {
 				<Box mt="xl">
 					<Tabs.Panel value="import">
 						<Stack>
-							<Form
-								method="POST"
-								encType="multipart/form-data"
-								action={withQuery(".", { intent: "deployImport" })}
+							<form
+								onSubmit={importForm.onSubmit((values, event) => {
+									const nativeEvent = event?.nativeEvent as SubmitEvent;
+									const form = nativeEvent.target as HTMLFormElement;
+									openConfirmationModal(
+										"Are you sure you want to deploy an import job? This action is irreversible.",
+										() => {
+											const formData = new FormData(form);
+											formData.set("intent", "deployImport");
+											submit(formData, {
+												method: "POST",
+												encType: "multipart/form-data",
+											});
+											if (deployImportSource) {
+												events.deployImport(deployImportSource);
+											}
+										},
+									);
+								})}
 							>
 								<Stack>
 									<input
 										hidden
 										name="source"
-										defaultValue={deployImportSource}
+										value={deployImportSource}
+										readOnly
 									/>
 									<Title order={2}>Import data</Title>
 									<Select
@@ -454,24 +495,13 @@ export default function Page() {
 												color="blue"
 												type="submit"
 												variant="light"
-												onClick={(e) => {
-													const form = e.currentTarget.form;
-													e.preventDefault();
-													openConfirmationModal(
-														"Are you sure you want to deploy an import job? This action is irreversible.",
-														() => {
-															submit(form);
-															events.deployImport(deployImportSource);
-														},
-													);
-												}}
 											>
 												Import
 											</Button>
 										</>
 									) : null}
 								</Stack>
-							</Form>
+							</form>
 							<Divider />
 							<Title order={3} ref={ref}>
 								Import history
