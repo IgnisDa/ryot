@@ -1,7 +1,6 @@
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
 	ActionIcon,
-	Affix,
 	Alert,
 	Button,
 	Container,
@@ -48,6 +47,7 @@ import {
 	IconCheckbox,
 	IconGripVertical,
 	IconMinus,
+	IconX,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { Fragment, useState } from "react";
@@ -60,7 +60,6 @@ import {
 	useCoreDetails,
 	useDashboardLayoutData,
 	useInvalidateUserDetails,
-	useIsFitnessActionActive,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
@@ -118,7 +117,6 @@ export default function Page() {
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const loaderData = useLoaderData<typeof loader>();
-	const isFitnessActionActive = useIsFitnessActionActive();
 	const [defaultTab, setDefaultTab] = useState(
 		loaderData.query.defaultTab || "dashboard",
 	);
@@ -151,42 +149,34 @@ export default function Page() {
 	return (
 		<Container size="xs">
 			<form
-				onSubmit={form.onSubmit((values) => {
-					updateUserPreferencesMutation.mutate(values);
-				})}
+				onSubmit={form.onSubmit((values) =>
+					updateUserPreferencesMutation.mutate(values),
+				)}
 			>
-				{form.isDirty() ? (
-					<Affix
-						position={{
-							bottom: rem(45),
-							right: rem(isFitnessActionActive ? 100 : 40),
-						}}
-					>
-						<Group gap="xs">
-							<Button
-								variant="outline"
-								color="red"
-								disabled={updateUserPreferencesMutation.isPending}
-								onClick={() => {
-									form.reset();
-								}}
-							>
-								Cancel changes
-							</Button>
-							<Button
-								type="submit"
-								color="green"
-								variant="outline"
-								leftSection={<IconCheckbox size={20} />}
-								loading={updateUserPreferencesMutation.isPending}
-							>
-								Save changes
-							</Button>
-						</Group>
-					</Affix>
-				) : null}
 				<Stack>
-					<Title>Preferences</Title>
+					<Group justify="space-between" align="center">
+						<Title>Preferences</Title>
+						{form.isDirty() ? (
+							<Group gap="xs">
+								<ActionIcon
+									color="red"
+									title="Cancel changes"
+									onClick={() => form.reset()}
+									disabled={updateUserPreferencesMutation.isPending}
+								>
+									<IconX size={24} />
+								</ActionIcon>
+								<ActionIcon
+									color="green"
+									type="submit"
+									title="Save changes"
+									loading={updateUserPreferencesMutation.isPending}
+								>
+									<IconCheckbox size={24} />
+								</ActionIcon>
+							</Group>
+						) : null}
+					</Group>
 					{isEditDisabled ? (
 						<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
 							{notificationContent.message}
