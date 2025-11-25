@@ -31,7 +31,6 @@ export const MetadataInProgressUpdateForm = (
 		useDeployBulkMetadataProgressUpdateMutation(props.metadataDetails.title);
 
 	const form = useForm<{ progress: number }>({
-		mode: "controlled",
 		initialValues: { progress: Number(props.inProgress.progress) },
 		validate: {
 			progress: (value) => {
