@@ -40,7 +40,7 @@ import { useQuery } from "@tanstack/react-query";
 import { filesize } from "filesize";
 import { DataTable } from "mantine-datatable";
 import { useMemo, useState } from "react";
-import { Form, data, useSubmit } from "react-router";
+import { Form, data } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -48,6 +48,7 @@ import { SkeletonLoader } from "~/components/common";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useApplicationEvents,
+	useConfirmSubmit,
 	useCoreDetails,
 	useDeleteS3AssetMutation,
 	useNonHiddenUserCollections,
@@ -204,7 +205,7 @@ const malImportFormSchema = z.object({
 });
 
 export default function Page() {
-	const submit = useSubmit();
+	const submit = useConfirmSubmit();
 	const coreDetails = useCoreDetails();
 	const events = useApplicationEvents();
 	const { inViewport, ref } = useInViewport();
@@ -240,30 +241,16 @@ export default function Page() {
 				<Box mt="xl">
 					<Tabs.Panel value="import">
 						<Stack>
-							<form
-								onSubmit={(event) => {
-									event.preventDefault();
-									const form = event.target as HTMLFormElement;
-									openConfirmationModal(
-										"Are you sure you want to deploy an import job? This action is irreversible.",
-										() => {
-											const formData = new FormData(form);
-											formData.set("intent", "deployImport");
-											submit(formData, {
-												method: "POST",
-												encType: "multipart/form-data",
-											});
-											if (deployImportSource)
-												events.deployImport(deployImportSource);
-										},
-									);
-								}}
+							<Form
+								method="POST"
+								encType="multipart/form-data"
+								action={withQuery(".", { intent: "deployImport" })}
 							>
 								<Stack>
 									<input
 										hidden
 										name="source"
-										value={deployImportSource ?? ""}
+										defaultValue={deployImportSource}
 									/>
 									<Title order={2}>Import data</Title>
 									<Select
@@ -467,13 +454,24 @@ export default function Page() {
 												color="blue"
 												type="submit"
 												variant="light"
+												onClick={(e) => {
+													const form = e.currentTarget.form;
+													e.preventDefault();
+													openConfirmationModal(
+														"Are you sure you want to deploy an import job? This action is irreversible.",
+														() => {
+															submit(form);
+															events.deployImport(deployImportSource);
+														},
+													);
+												}}
 											>
 												Import
 											</Button>
 										</>
 									) : null}
 								</Stack>
-							</form>
+							</Form>
 							<Divider />
 							<Title order={3} ref={ref}>
 								Import history
