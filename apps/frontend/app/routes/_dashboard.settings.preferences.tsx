@@ -160,6 +160,7 @@ export default function Page() {
 							<Group gap="xs">
 								<ActionIcon
 									color="red"
+									type="button"
 									title="Cancel changes"
 									onClick={() => form.reset()}
 									disabled={updateUserPreferencesMutation.isPending}
