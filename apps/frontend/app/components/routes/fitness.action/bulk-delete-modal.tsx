@@ -150,7 +150,6 @@ export const BulkDeleteModal = (props: {
 			`This will delete ${values.selectedSets.length} set(s). You cannot undo this action. Are you sure you want to continue?`,
 			() => {
 				const selectedSetsSet = new Set(values.selectedSets);
-				const exercisesToDelete: string[] = [];
 
 				for (let idx = 0; idx < currentWorkout.exercises.length; idx++) {
 					const exercise = currentWorkout.exercises[idx];
@@ -159,7 +158,6 @@ export const BulkDeleteModal = (props: {
 					);
 
 					if (remainingSets.length === 0) {
-						exercisesToDelete.push(exercise.identifier);
 						const assets = [...exercise.images, ...exercise.videos];
 						for (const asset of assets) deleteS3AssetMutation.mutate(asset);
 					}
