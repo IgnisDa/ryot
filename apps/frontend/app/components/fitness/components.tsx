@@ -31,7 +31,7 @@ import {
 	type UserUnitSystem,
 	type WorkoutSupersetsInformation,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, isNumber, snakeCase, startCase } from "@ryot/ts-utils";
+import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconArrowLeftToArc,
 	IconClock,
@@ -401,23 +401,14 @@ export const ExerciseUpdatePreferencesModal = (props: {
 						</Text>
 					</Text>
 					<SimpleGrid cols={2}>
-						{(["normal", "warmup", "drop", "failure"] as const).map((name) => {
-							const value =
-								props.userExerciseDetails.details?.exerciseExtraInformation
-									?.settings.setRestTimers[name];
-							return (
-								<NumberInput
-									suffix="s"
-									key={name}
-									label={changeCase(snakeCase(name))}
-									defaultValue={isNumber(value) ? value : undefined}
-									onChange={(val) => {
-										if (isNumber(val))
-											form.setFieldValue(`setRestTimers.${name}`, val);
-									}}
-								/>
-							);
-						})}
+						{(["normal", "warmup", "drop", "failure"] as const).map((name) => (
+							<NumberInput
+								suffix="s"
+								key={name}
+								label={changeCase(snakeCase(name))}
+								{...form.getInputProps(`setRestTimers.${name}`)}
+							/>
+						))}
 					</SimpleGrid>
 					<Button
 						type="submit"
