@@ -210,9 +210,9 @@ export default function Page() {
 	return (
 		<>
 			<ExerciseUpdatePreferencesModal
+				exerciseId={exerciseDetails.id}
 				opened={updatePreferencesModalOpened}
 				onClose={closeUpdatePreferencesModal}
-				exerciseId={exerciseDetails.id}
 				userExerciseDetails={userExerciseDetails}
 				updateUserExerciseSettingsMutation={updateUserExerciseSettingsMutation}
 			/>
@@ -220,10 +220,10 @@ export default function Page() {
 				opened={musclesModalOpened}
 				onClose={closeMusclesModal}
 				bodyViewSide={bodyViewSide}
-				setBodyViewSide={setBodyViewSide}
-				bodyViewGender={bodyViewGender}
-				setBodyViewGender={setBodyViewGender}
 				bodyPartsData={bodyPartsData}
+				bodyViewGender={bodyViewGender}
+				setBodyViewSide={setBodyViewSide}
+				setBodyViewGender={setBodyViewGender}
 			/>
 			<Container size="xs" px="lg">
 				<Stack>
@@ -234,8 +234,8 @@ export default function Page() {
 								<DisplayCollectionToEntity
 									col={col}
 									key={col.id}
-									entityLot={EntityLot.Exercise}
 									entityId={exerciseDetails.id}
+									entityLot={EntityLot.Exercise}
 								/>
 							))}
 						</Group>
