@@ -20,7 +20,6 @@ import {
 	Title,
 	Tooltip,
 } from "@mantine/core";
-import { useForm } from "@mantine/form";
 import { useInViewport } from "@mantine/hooks";
 import {
 	DeployExportJobDocument,
@@ -215,31 +214,6 @@ export default function Page() {
 
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
-	const importForm = useForm({
-		mode: "uncontrolled",
-		initialValues: {
-			source: "",
-			apiUrl: "",
-			apiKey: "",
-			csvPath: "",
-			dataExportPath: "",
-			user: "",
-			listUrl: "",
-			listCollection: "",
-			username: "",
-			password: "",
-			history: "",
-			ratings: "",
-			watchlist: "",
-			collection: "",
-			animePath: "",
-			mangaPath: "",
-			exportPath: "",
-			netflixExportPath: "",
-			profileName: "",
-		},
-	});
-
 	const userImportsReportsQuery = useQuery({
 		enabled: inViewport,
 		refetchInterval: 5000,
@@ -267,9 +241,9 @@ export default function Page() {
 					<Tabs.Panel value="import">
 						<Stack>
 							<form
-								onSubmit={importForm.onSubmit((_, event) => {
-									const nativeEvent = event?.nativeEvent as SubmitEvent;
-									const form = nativeEvent.target as HTMLFormElement;
+								onSubmit={(event) => {
+									event.preventDefault();
+									const form = event.target as HTMLFormElement;
 									openConfirmationModal(
 										"Are you sure you want to deploy an import job? This action is irreversible.",
 										() => {
@@ -284,7 +258,7 @@ export default function Page() {
 											}
 										},
 									);
-								})}
+								}}
 							>
 								<Stack>
 									<input hidden name="source" value={deployImportSource} />
