@@ -155,9 +155,10 @@ These files use `useState` + `onClick` patterns and need conversion:
   - **State**: ~~Uses `useState` for username~~ Now uses `useForm`
   - **Changes**: Converted to proper HTML form, validation for min length, simplified state management
 
-- [ ] `apps/frontend/app/routes/_dashboard.settings.security.tsx`
-  - **Type**: Security settings form
-  - **Action**: Review and convert to proper form
+- [x] `apps/frontend/app/routes/_dashboard.settings.security.tsx` ✅ **COMPLETED**
+  - **Type**: Security settings with 2FA setup modal
+  - **Inputs**: VerifyCodeStep had PinInput with useState
+  - **Changes**: Converted VerifyCodeStep to useForm, main password form already uses React Router Form (acceptable)
 
 - [ ] `apps/frontend/app/routes/_dashboard.settings.sharing.tsx`
   - **Type**: Sharing settings form
@@ -228,4 +229,4 @@ After converting each form, verify:
 - **Needs conversion**: 19 (32.8%)
 - **Not applicable**: 30 (51.7%)
 
-**Progress**: 22/28 complete (78.6%)
+**Progress**: 23/28 complete (82.1%)
