@@ -267,7 +267,7 @@ export default function Page() {
 					<Tabs.Panel value="import">
 						<Stack>
 							<form
-								onSubmit={importForm.onSubmit((values, event) => {
+								onSubmit={importForm.onSubmit((_values, event) => {
 									const nativeEvent = event?.nativeEvent as SubmitEvent;
 									const form = nativeEvent.target as HTMLFormElement;
 									openConfirmationModal(
