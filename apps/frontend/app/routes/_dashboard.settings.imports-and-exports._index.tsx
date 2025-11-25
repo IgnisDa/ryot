@@ -287,12 +287,7 @@ export default function Page() {
 								})}
 							>
 								<Stack>
-									<input
-										hidden
-										name="source"
-										value={deployImportSource}
-										readOnly
-									/>
+									<input hidden name="source" value={deployImportSource} />
 									<Title order={2}>Import data</Title>
 									<Select
 										required
