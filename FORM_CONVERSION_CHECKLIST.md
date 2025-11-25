@@ -111,9 +111,10 @@ These files use `useState` + `onClick` patterns and need conversion:
   - **State**: ~~Uses `useState` for progress~~ Now uses `useForm`
   - **Changes**: Converted to proper HTML form, validation for 0-100 range, better type safety
 
-- [ ] `apps/frontend/app/components/routes/dashboard/forms/metadata-progress-update/new-progress-form.tsx`
-  - **State**: State-based approach
-  - **Action**: Convert to proper form
+- [x] `apps/frontend/app/components/routes/dashboard/forms/metadata-progress-update/new-progress-form.tsx` ✅ **COMPLETED**
+  - **Inputs**: WatchTimeSelect, CustomDatePicker (start/finish), ProviderSelect
+  - **State**: ~~Uses `useState` with immer~~ Now uses `useForm`
+  - **Changes**: Converted to proper HTML form, removed immer, validation for custom dates, props parameter refactor
 
 - [ ] `apps/frontend/app/components/routes/dashboard/forms/metadata-progress-update/media-types/show-form.tsx`
   - **Type**: Show-specific progress form
@@ -223,4 +224,4 @@ After converting each form, verify:
 - **Needs conversion**: 19 (32.8%)
 - **Not applicable**: 30 (51.7%)
 
-**Progress**: 14/28 complete (50.0%)
+**Progress**: 15/28 complete (53.6%)
