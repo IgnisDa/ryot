@@ -24,8 +24,7 @@ export const MangaForm = (props: MediaFormProps) => {
 						onChange={(e) => {
 							updateMetadataToUpdate({
 								...metadataToUpdate,
-								mangaChapterNumber:
-									e === "" ? undefined : Number(e).toString(),
+								mangaChapterNumber: e === "" ? undefined : Number(e).toString(),
 							});
 						}}
 					/>

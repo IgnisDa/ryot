@@ -101,7 +101,9 @@ export const MetadataNewProgressUpdateForm = (
 	return (
 		<form
 			onSubmit={form.onSubmit(async (values) => {
-				const startDateFormatted = convertTimestampToUtcString(values.startDate);
+				const startDateFormatted = convertTimestampToUtcString(
+					values.startDate,
+				);
 				const finishDateFormatted = convertTimestampToUtcString(
 					values.finishDate,
 				);
@@ -171,7 +173,9 @@ export const MetadataNewProgressUpdateForm = (
 						startDate={form.values.startDate}
 						finishDate={form.values.finishDate}
 						onStartDateChange={(date) => form.setFieldValue("startDate", date)}
-						onFinishDateChange={(date) => form.setFieldValue("finishDate", date)}
+						onFinishDateChange={(date) =>
+							form.setFieldValue("finishDate", date)
+						}
 					/>
 				) : null}
 				{form.values.watchTime !== WatchTimes.JustStartedIt ? (

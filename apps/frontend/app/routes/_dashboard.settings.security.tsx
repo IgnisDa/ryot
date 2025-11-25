@@ -541,7 +541,8 @@ const VerifyCodeStep = (props: VerifyCodeStepProps) => {
 		<form onSubmit={form.onSubmit(handleSubmit)}>
 			<Stack>
 				<Text>
-					Enter the 6-digit code from your authenticator app to verify the setup.
+					Enter the 6-digit code from your authenticator app to verify the
+					setup.
 				</Text>
 				<Center>
 					<PinInput length={6} {...form.getInputProps("code")} />
