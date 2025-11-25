@@ -619,6 +619,7 @@ export default function Page() {
 													mt={14}
 													size="xs"
 													color="red"
+													type="button"
 													variant="outline"
 													disabled={
 														!!isEditDisabled ||
