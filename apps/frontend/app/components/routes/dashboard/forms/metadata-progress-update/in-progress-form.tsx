@@ -127,7 +127,7 @@ export const MetadataInProgressUpdateForm = (
 								leftSection={updateIcon}
 								max={Number(total)}
 								onFocus={(e) => e.target.select()}
-								defaultValue={
+								value={
 									((Number(total) || 1) * (form.values.progress || 1)) / 100
 								}
 								onChange={(v) => {
