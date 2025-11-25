@@ -767,8 +767,8 @@ const EditDashboardElement = (props: {
 								size="xs"
 								label="Deduplicate media"
 								disabled={!!props.isEditDisabled}
-								checked={focusedElement.deduplicateMedia || undefined}
 								styles={{ description: { width: rem(200) } }}
+								checked={focusedElement.deduplicateMedia ?? undefined}
 								description="If there's more than one episode of a media, keep the first one"
 								onChange={(ev) => {
 									const newValue = ev.currentTarget.checked;
