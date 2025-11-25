@@ -136,13 +136,10 @@ export const BulkDeleteModal = (props: {
 				currentSets.filter((id) => !setIdentifiers.includes(id)),
 			);
 		} else {
-			const newSets = [...currentSets];
-			for (const id of setIdentifiers) {
-				if (!newSets.includes(id)) {
-					newSets.push(id);
-				}
-			}
-			form.setFieldValue("selectedSets", newSets);
+			form.setFieldValue(
+				"selectedSets",
+				Array.from(new Set([...currentSets, ...setIdentifiers])),
+			);
 		}
 	};
 
