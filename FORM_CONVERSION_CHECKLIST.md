@@ -145,10 +145,10 @@ These files use `useState` + `onClick` patterns and need conversion:
 
 #### Settings Pages
 
-- [ ] `apps/frontend/app/routes/_dashboard.settings.preferences.tsx`
-  - **Inputs**: DragDropContext, Select, NumberInput, Switch, TextInput, MultiSelect, TagsInput
-  - **State**: Large form with multiple `useState` calls
-  - **Action**: Convert to comprehensive `useForm` implementation
+- [x] `apps/frontend/app/routes/_dashboard.settings.preferences.tsx` ✅ **COMPLETED**
+  - **Inputs**: DragDropContext, Select, NumberInput, Switch, TextInput, MultiSelect, TagsInput, SegmentedControl
+  - **State**: ~~Large form with multiple `useState` and immer~~ Now uses comprehensive `useForm`
+  - **Changes**: Major refactor - removed immer, converted to controlled inputs, form.isDirty() tracking, simplified state management
 
 - [ ] `apps/frontend/app/routes/_dashboard.settings.users.tsx`
   - **Inputs**: TextInput for user registration
@@ -228,4 +228,4 @@ After converting each form, verify:
 - **Needs conversion**: 19 (32.8%)
 - **Not applicable**: 30 (51.7%)
 
-**Progress**: 20/28 complete (71.4%)
+**Progress**: 21/28 complete (75.0%)

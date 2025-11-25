@@ -23,6 +23,7 @@ import {
 	Title,
 	rem,
 } from "@mantine/core";
+import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
 	DashboardElementLot,
@@ -49,7 +50,6 @@ import {
 	IconMinus,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
-import { type Draft, produce } from "immer";
 import { Fragment, useState } from "react";
 import { useLoaderData } from "react-router";
 import { $path } from "safe-routes";
@@ -114,8 +114,6 @@ const notificationContent = {
 		"Changing preferences is disabled for demo users. Please create an account to save your preferences.",
 };
 
-type UpdatePreferenceFunc = (draft: Draft<UserPreferences>) => void;
-
 export default function Page() {
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
@@ -126,76 +124,67 @@ export default function Page() {
 	);
 	const dashboardData = useDashboardLayoutData();
 	const invalidateUserDetails = useInvalidateUserDetails();
-	const [changingUserPreferences, setChangingUserPreferences] = useState({
-		isChanged: false,
-		value: userPreferences,
-	});
 	const isEditDisabled = dashboardData.isDemoInstance;
 
+	const form = useForm<UserPreferences>({
+		mode: "controlled",
+		initialValues: userPreferences,
+	});
+
 	const updateUserPreferencesMutation = useMutation({
-		mutationFn: async () => {
+		mutationFn: async (values: UserPreferences) => {
 			await clientGqlService.request(UpdateUserPreferenceDocument, {
-				input: changingUserPreferences.value,
+				input: values,
 			});
 			await invalidateUserDetails();
 		},
+		onSuccess: () => {
+			notifications.show({
+				color: "green",
+				title: "Preferences updated",
+				message: "Preferences have been updated.",
+			});
+			form.resetDirty();
+		},
 	});
-
-	const updatePreference = (makeChange: UpdatePreferenceFunc) => {
-		setChangingUserPreferences(
-			produce(changingUserPreferences, (draft) => {
-				draft.isChanged = true;
-				makeChange(draft.value);
-			}),
-		);
-	};
 
 	return (
 		<Container size="xs">
-			{changingUserPreferences.isChanged ? (
-				<Affix
-					position={{
-						bottom: rem(45),
-						right: rem(isFitnessActionActive ? 100 : 40),
-					}}
-				>
-					<Group gap="xs">
-						<Button
-							variant="outline"
-							color="red"
-							disabled={updateUserPreferencesMutation.isPending}
-							onClick={() => {
-								setChangingUserPreferences({
-									isChanged: false,
-									value: userPreferences,
-								});
-							}}
-						>
-							Cancel changes
-						</Button>
-						<Button
-							color="green"
-							variant="outline"
-							leftSection={<IconCheckbox size={20} />}
-							loading={updateUserPreferencesMutation.isPending}
-							onClick={async () => {
-								await updateUserPreferencesMutation.mutateAsync();
-								notifications.show({
-									color: "green",
-									title: "Preferences updated",
-									message: "Preferences have been updated.",
-								});
-								setChangingUserPreferences({
-									isChanged: false,
-									value: userPreferences,
-								});
-							}}
-						>
-							Save changes
-						</Button>
-					</Group>
-				</Affix>
-			) : null}
+			<form
+				onSubmit={form.onSubmit((values) => {
+					updateUserPreferencesMutation.mutate(values);
+				})}
+			>
+				{form.isDirty() ? (
+					<Affix
+						position={{
+							bottom: rem(45),
+							right: rem(isFitnessActionActive ? 100 : 40),
+						}}
+					>
+						<Group gap="xs">
+							<Button
+								variant="outline"
+								color="red"
+								disabled={updateUserPreferencesMutation.isPending}
+								onClick={() => {
+									form.reset();
+								}}
+							>
+								Cancel changes
+							</Button>
+							<Button
+								type="submit"
+								color="green"
+								variant="outline"
+								leftSection={<IconCheckbox size={20} />}
+								loading={updateUserPreferencesMutation.isPending}
+							>
+								Save changes
+							</Button>
+						</Group>
+					</Affix>
+				) : null}
 			<Stack>
 				<Title>Preferences</Title>
 				{isEditDisabled ? (
@@ -223,13 +212,11 @@ export default function Page() {
 						<DragDropContext
 							onDragEnd={({ destination, source }) => {
 								if (!isEditDisabled) {
-									const newOrder = reorder(userPreferences.general.dashboard, {
+									const newOrder = reorder(form.values.general.dashboard, {
 										from: source.index,
 										to: destination?.index || 0,
 									});
-									updatePreference((draft) => {
-										draft.general.dashboard = newOrder;
-									});
+									form.setFieldValue("general.dashboard", newOrder);
 								} else {
 									notifications.show(notificationContent);
 								}
@@ -238,17 +225,15 @@ export default function Page() {
 							<Droppable droppableId="dnd-list">
 								{(provided) => (
 									<Stack {...provided.droppableProps} ref={provided.innerRef}>
-										{changingUserPreferences.value.general.dashboard.map(
-											(de, index) => (
-												<EditDashboardElement
-													index={index}
-													key={de.section}
-													lot={de.section}
-													isEditDisabled={isEditDisabled}
-													updatePreference={updatePreference}
-												/>
-											),
-										)}
+										{form.values.general.dashboard.map((de, index) => (
+											<EditDashboardElement
+												index={index}
+												key={de.section}
+												lot={de.section}
+												form={form}
+												isEditDisabled={isEditDisabled}
+											/>
+										))}
 										{provided.placeholder}
 									</Stack>
 								)}
@@ -261,7 +246,7 @@ export default function Page() {
 							{(["media", "fitness", "analytics", "others"] as const).map(
 								(facet) => {
 									const entries = Object.entries(
-										userPreferences.featuresEnabled[facet],
+										form.values.featuresEnabled[facet],
 									);
 
 									return (
@@ -273,15 +258,14 @@ export default function Page() {
 														<Switch
 															key={name}
 															size="xs"
-															defaultChecked={isEnabled}
+															checked={isEnabled}
 															disabled={!!isEditDisabled}
 															label={changeCase(snakeCase(name))}
 															onChange={(ev) => {
-																updatePreference((draft) => {
-																	// biome-ignore lint/suspicious/noExplicitAny: too much work to use correct types
-																	(draft as any).featuresEnabled[facet][name] =
-																		ev.currentTarget.checked;
-																});
+																form.setFieldValue(
+																	`featuresEnabled.${facet}.${name}`,
+																	ev.currentTarget.checked,
+																);
 															}}
 														/>
 													) : null,
@@ -290,19 +274,17 @@ export default function Page() {
 											{facet === "media" ? (
 												<MultiSelect
 													disabled={!!isEditDisabled}
-													defaultValue={
-														userPreferences.featuresEnabled[facet].specific
-													}
+													value={form.values.featuresEnabled[facet].specific}
 													data={Object.entries(MediaLot).map(([name, lot]) => ({
 														value: lot,
 														label: changeCase(name),
 													}))}
 													onChange={(val) => {
 														if (val) {
-															updatePreference((draft) => {
-																draft.featuresEnabled[facet].specific =
-																	val as MediaLot[];
-															});
+															form.setFieldValue(
+																`featuresEnabled.${facet}.specific`,
+																val as MediaLot[],
+															);
 														}
 													}}
 												/>
@@ -331,11 +313,12 @@ export default function Page() {
 										size="xs"
 										key={name}
 										disabled={!!isEditDisabled}
-										defaultChecked={userPreferences.general[name]}
+										checked={form.values.general[name]}
 										onChange={(ev) => {
-											updatePreference((draft) => {
-												draft.general[name] = ev.currentTarget.checked;
-											});
+											form.setFieldValue(
+												`general.${name}`,
+												ev.currentTarget.checked,
+											);
 										}}
 										label={match(name)
 											.with(
@@ -373,7 +356,7 @@ export default function Page() {
 										disabled={!!isEditDisabled}
 										label="Default landing page"
 										data={loaderData.userPreferenceLandingPaths}
-										defaultValue={userPreferences.general.landingPath}
+										value={form.values.general.landingPath}
 										description="The page you want to see when you first open the app"
 										onChange={(value) => {
 											if (!coreDetails.isServerKeyValidated) {
@@ -384,9 +367,7 @@ export default function Page() {
 												return;
 											}
 											if (value) {
-												updatePreference((draft) => {
-													draft.general.landingPath = value;
-												});
+												form.setFieldValue("general.landingPath", value);
 											}
 										}}
 									/>
@@ -395,13 +376,11 @@ export default function Page() {
 										size="xs"
 										label="List page size"
 										disabled={!!isEditDisabled}
-										defaultValue={userPreferences.general.listPageSize}
+										value={form.values.general.listPageSize}
 										description="The number of items to display on the list pages"
 										onChange={(val) => {
 											if (isNumber(val)) {
-												updatePreference((draft) => {
-													draft.general.listPageSize = val;
-												});
+												form.setFieldValue("general.listPageSize", val);
 											}
 										}}
 									/>
@@ -416,12 +395,13 @@ export default function Page() {
 										fullWidth
 										disabled={!!isEditDisabled}
 										data={convertEnumToSelectData(UserReviewScale)}
-										defaultValue={userPreferences.general.reviewScale}
+										value={form.values.general.reviewScale}
 										onChange={(val) => {
 											if (val) {
-												updatePreference((draft) => {
-													draft.general.reviewScale = val as UserReviewScale;
-												});
+												form.setFieldValue(
+													"general.reviewScale",
+													val as UserReviewScale,
+												);
 											}
 										}}
 									/>
@@ -431,8 +411,7 @@ export default function Page() {
 							<Stack gap="sm">
 								<Title order={3}>Watch providers</Title>
 								{Object.values(MediaLot).map((lot) => {
-									const watchProviders =
-										changingUserPreferences.value.general.watchProviders;
+									const watchProviders = form.values.general.watchProviders;
 									const existingValues =
 										watchProviders.find((wp) => wp.lot === lot)?.values || [];
 									return (
@@ -440,7 +419,7 @@ export default function Page() {
 											key={lot}
 											label={changeCase(lot)}
 											disabled={!!isEditDisabled}
-											defaultValue={existingValues}
+											value={existingValues}
 											placeholder="Enter more providers"
 											onChange={(val) => {
 												if (val) {
@@ -457,9 +436,10 @@ export default function Page() {
 													} else {
 														existingMediaLot.values = val;
 													}
-													updatePreference((draft) => {
-														draft.general.watchProviders = newWatchProviders;
-													});
+													form.setFieldValue(
+														"general.watchProviders",
+														newWatchProviders,
+													);
 												}
 											}}
 										/>
@@ -475,13 +455,13 @@ export default function Page() {
 								disabled={!!isEditDisabled}
 								label="Unit system to use for measurements"
 								data={convertEnumToSelectData(UserUnitSystem)}
-								defaultValue={userPreferences.fitness.exercises.unitSystem}
+								value={form.values.fitness.exercises.unitSystem}
 								onChange={(val) => {
 									if (val) {
-										updatePreference((draft) => {
-											draft.fitness.exercises.unitSystem =
-												val as UserUnitSystem;
-										});
+										form.setFieldValue(
+											"fitness.exercises.unitSystem",
+											val as UserUnitSystem,
+										);
 									}
 								}}
 							/>
@@ -493,7 +473,7 @@ export default function Page() {
 									{(["normal", "warmup", "drop", "failure"] as const).map(
 										(name) => {
 											const value =
-												userPreferences.fitness.exercises.setRestTimers[name];
+												form.values.fitness.exercises.setRestTimers[name];
 											return (
 												<NumberInput
 													suffix="s"
@@ -501,13 +481,13 @@ export default function Page() {
 													key={name}
 													disabled={!!isEditDisabled}
 													label={changeCase(snakeCase(name))}
-													defaultValue={isNumber(value) ? value : undefined}
+													value={isNumber(value) ? value : undefined}
 													onChange={(val) => {
 														if (isNumber(val)) {
-															updatePreference((draft) => {
-																draft.fitness.exercises.setRestTimers[name] =
-																	val;
-															});
+															form.setFieldValue(
+																`fitness.exercises.setRestTimers.${name}`,
+																val,
+															);
 														}
 													}}
 												/>
@@ -553,7 +533,7 @@ export default function Page() {
 										key={option}
 										label={label}
 										disabled={!!isEditDisabled}
-										defaultChecked={userPreferences.fitness.logging[option]}
+										checked={form.values.fitness.logging[option]}
 										onChange={(ev) => {
 											if (
 												isGatedBehindServerKeyValidation &&
@@ -565,10 +545,10 @@ export default function Page() {
 												});
 												return;
 											}
-											updatePreference((draft) => {
-												draft.fitness.logging[option] =
-													ev.currentTarget.checked;
-											});
+											form.setFieldValue(
+												`fitness.logging.${option}`,
+												ev.currentTarget.checked,
+											);
 										}}
 									/>
 								);
@@ -578,13 +558,13 @@ export default function Page() {
 								label="Calories burnt unit"
 								disabled={!!isEditDisabled}
 								description="The unit to use for tracking calories burnt"
-								defaultValue={userPreferences.fitness.logging.caloriesBurntUnit}
+								value={form.values.fitness.logging.caloriesBurntUnit}
 								onChange={(val) => {
 									if (val) {
-										updatePreference((draft) => {
-											draft.fitness.logging.caloriesBurntUnit =
-												val.target.value;
-										});
+										form.setFieldValue(
+											"fitness.logging.caloriesBurntUnit",
+											val.target.value,
+										);
 									}
 								}}
 							/>
@@ -593,73 +573,89 @@ export default function Page() {
 								<Text size="sm">
 									The measurements you want to keep track of
 								</Text>
-								{changingUserPreferences.value.fitness.measurements.statistics.map(
-									(s, index) => (
-										<Group
-											wrap="nowrap"
-											key={`${
-												// biome-ignore lint/suspicious/noArrayIndexKey: index is unique
-												index
-											}`}
+								{form.values.fitness.measurements.statistics.map((s, index) => (
+									<Group
+										wrap="nowrap"
+										key={`${
+											// biome-ignore lint/suspicious/noArrayIndexKey: index is unique
+											index
+										}`}
+									>
+										<TextInput
+											size="xs"
+											label="Name"
+											value={s.name}
+											disabled={!!isEditDisabled}
+											onChange={(val) => {
+												const newStatistics = [
+													...form.values.fitness.measurements.statistics,
+												];
+												newStatistics[index] = {
+													...newStatistics[index],
+													name: val.target.value,
+												};
+												form.setFieldValue(
+													"fitness.measurements.statistics",
+													newStatistics,
+												);
+											}}
+										/>
+										<TextInput
+											size="xs"
+											label="Unit"
+											value={s.unit || undefined}
+											disabled={!!isEditDisabled}
+											onChange={(val) => {
+												const newStatistics = [
+													...form.values.fitness.measurements.statistics,
+												];
+												newStatistics[index] = {
+													...newStatistics[index],
+													unit: val.target.value,
+												};
+												form.setFieldValue(
+													"fitness.measurements.statistics",
+													newStatistics,
+												);
+											}}
+										/>
+										<ActionIcon
+											mt={14}
+											size="xs"
+											color="red"
+											variant="outline"
+											disabled={
+												!!isEditDisabled ||
+												form.values.fitness.measurements.statistics.length === 1
+											}
+											onClick={() => {
+												const newStatistics = [
+													...form.values.fitness.measurements.statistics,
+												];
+												newStatistics.splice(index, 1);
+												form.setFieldValue(
+													"fitness.measurements.statistics",
+													newStatistics,
+												);
+											}}
 										>
-											<TextInput
-												size="xs"
-												label="Name"
-												value={s.name}
-												disabled={!!isEditDisabled}
-												onChange={(val) => {
-													updatePreference((draft) => {
-														draft.fitness.measurements.statistics[index].name =
-															val.target.value;
-													});
-												}}
-											/>
-											<TextInput
-												size="xs"
-												label="Unit"
-												value={s.unit || undefined}
-												disabled={!!isEditDisabled}
-												onChange={(val) => {
-													updatePreference((draft) => {
-														draft.fitness.measurements.statistics[index].unit =
-															val.target.value;
-													});
-												}}
-											/>
-											<ActionIcon
-												mt={14}
-												size="xs"
-												color="red"
-												variant="outline"
-												disabled={
-													!!isEditDisabled ||
-													changingUserPreferences.value.fitness.measurements
-														.statistics.length === 1
-												}
-												onClick={() => {
-													updatePreference((draft) => {
-														draft.fitness.measurements.statistics.splice(
-															index,
-															1,
-														);
-													});
-												}}
-											>
-												<IconMinus />
-											</ActionIcon>
-										</Group>
-									),
-								)}
+											<IconMinus />
+										</ActionIcon>
+									</Group>
+								))}
 								<Button
 									ml="auto"
 									size="xs"
 									variant="outline"
 									onClick={() => {
-										updatePreference((draft) => {
-											draft.fitness.measurements.statistics.push({
-												name: "<name>",
-											});
-										});
+										const newStatistics = [
+											...form.values.fitness.measurements.statistics,
+											{ name: "<name>" },
+										];
+										form.setFieldValue(
+											"fitness.measurements.statistics",
+											newStatistics,
+										);
 									}}
 								>
 									Add
@@ -669,6 +665,7 @@ export default function Page() {
 					</Tabs.Panel>
 				</Tabs>
 			</Stack>
+			</form>
 		</Container>
 	);
 }
@@ -684,13 +681,12 @@ const EditDashboardElement = (props: {
 	index: number;
 	isEditDisabled: boolean;
 	lot: DashboardElementLot;
-	updatePreference: (makeChange: UpdatePreferenceFunc) => void;
+	form: ReturnType<typeof useForm<UserPreferences>>;
 }) => {
-	const userPreferences = useUserPreferences();
-	const focusedElementIndex = userPreferences.general.dashboard.findIndex(
+	const focusedElementIndex = props.form.values.general.dashboard.findIndex(
 		(de) => de.section === props.lot,
 	);
-	const focusedElement = userPreferences.general.dashboard[focusedElementIndex];
+	const focusedElement = props.form.values.general.dashboard[focusedElementIndex];
 
 	return (
 		<Draggable index={props.index} draggableId={props.lot}>
@@ -725,17 +721,15 @@ const EditDashboardElement = (props: {
 						<Switch
 							label="Hidden"
 							labelPosition="left"
-							defaultChecked={focusedElement.hidden}
+							checked={focusedElement.hidden}
 							disabled={!!props.isEditDisabled}
 							onChange={(ev) => {
 								const newValue = ev.currentTarget.checked;
 								const newDashboardData = Array.from(
-									userPreferences.general.dashboard,
+									props.form.values.general.dashboard,
 								);
 								newDashboardData[focusedElementIndex].hidden = newValue;
-								props.updatePreference((draft) => {
-									draft.general.dashboard = newDashboardData;
-								});
+								props.form.setFieldValue("general.dashboard", newDashboardData);
 							}}
 						/>
 					</Group>
@@ -745,16 +739,14 @@ const EditDashboardElement = (props: {
 								size="xs"
 								label="Number of elements"
 								disabled={!!props.isEditDisabled}
-								defaultValue={focusedElement.numElements || undefined}
+								value={focusedElement.numElements || undefined}
 								onChange={(num) => {
 									if (isNumber(num)) {
 										const newDashboardData = cloneDeep(
-											userPreferences.general.dashboard,
+											props.form.values.general.dashboard,
 										);
 										newDashboardData[focusedElementIndex].numElements = num;
-										props.updatePreference((draft) => {
-											draft.general.dashboard = newDashboardData;
-										});
+										props.form.setFieldValue("general.dashboard", newDashboardData);
 									}
 								}}
 							/>
@@ -764,19 +756,17 @@ const EditDashboardElement = (props: {
 								size="xs"
 								label="Deduplicate media"
 								disabled={!!props.isEditDisabled}
-								defaultChecked={focusedElement.deduplicateMedia || undefined}
+								checked={focusedElement.deduplicateMedia || undefined}
 								styles={{ description: { width: rem(200) } }}
 								description="If there's more than one episode of a media, keep the first one"
 								onChange={(ev) => {
 									const newValue = ev.currentTarget.checked;
 									const newDashboardData = Array.from(
-										userPreferences.general.dashboard,
+										props.form.values.general.dashboard,
 									);
 									newDashboardData[focusedElementIndex].deduplicateMedia =
 										newValue;
-									props.updatePreference((draft) => {
-										draft.general.dashboard = newDashboardData;
-									});
+									props.form.setFieldValue("general.dashboard", newDashboardData);
 								}}
 							/>
 						) : null}
