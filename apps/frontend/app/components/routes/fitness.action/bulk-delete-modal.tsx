@@ -81,10 +81,7 @@ export const BulkDeleteModal = (props: {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
 	const form = useForm<{ selectedSets: string[] }>({
-		mode: "uncontrolled",
-		initialValues: {
-			selectedSets: [],
-		},
+		initialValues: { selectedSets: [] },
 		validate: {
 			selectedSets: (value) =>
 				value.length > 0 ? null : "Select at least one set to delete",
