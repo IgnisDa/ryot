@@ -15,6 +15,7 @@ import {
 	Title,
 	Tooltip,
 } from "@mantine/core";
+import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
 	type CollectionExtraInformation,
@@ -23,13 +24,9 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconTrash } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
-import { produce } from "immer";
-import { useState } from "react";
-import { Form } from "react-router";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useCoreDetails,
-	useFormValidation,
 	useUserCollections,
 	useUserDetails,
 	useUsersList,
@@ -56,41 +53,45 @@ export const CreateOrUpdateCollectionModal = (props: {
 		? userCollections.find((c) => c.id === modalData.collectionId)
 		: null;
 
-	const [formData, setFormData] = useState<{
+	const form = useForm<{
 		name: string;
 		isHidden: boolean;
 		description: string;
 		collaborators: string[];
 		informationTemplate: CollectionExtraInformation[];
 	}>({
-		name: toUpdateCollection?.name || "",
-		description: toUpdateCollection?.description || "",
-		informationTemplate: toUpdateCollection?.informationTemplate || [],
-		collaborators: (toUpdateCollection?.collaborators || []).map(
-			(c) => c.collaborator.id,
-		),
-		isHidden: Boolean(
-			toUpdateCollection?.collaborators?.find(
-				(c) => c.collaborator.id === userDetails.id,
-			)?.extraInformation?.isHidden,
-		),
+		mode: "uncontrolled",
+		initialValues: {
+			name: toUpdateCollection?.name || "",
+			description: toUpdateCollection?.description || "",
+			informationTemplate: toUpdateCollection?.informationTemplate || [],
+			collaborators: (toUpdateCollection?.collaborators || []).map(
+				(c) => c.collaborator.id,
+			),
+			isHidden: Boolean(
+				toUpdateCollection?.collaborators?.find(
+					(c) => c.collaborator.id === userDetails.id,
+				)?.extraInformation?.isHidden,
+			),
+		},
+		validate: {
+			name: (value) => (value.trim() ? null : "Name is required"),
+		},
 	});
-
-	const { formRef, isFormValid } = useFormValidation(formData);
 
 	const { data: usersList } = useUsersList();
 	const createOrUpdateMutation = useMutation({
-		mutationFn: () =>
+		mutationFn: (values: typeof form.values) =>
 			clientGqlService.request(CreateOrUpdateCollectionDocument, {
 				input: {
-					name: formData.name,
+					name: values.name,
 					updateId: toUpdateCollection?.id,
-					description: formData.description,
-					collaborators: formData.collaborators,
-					extraInformation: { isHidden: formData.isHidden },
+					description: values.description,
+					collaborators: values.collaborators,
+					extraInformation: { isHidden: values.isHidden },
 					informationTemplate:
-						formData.informationTemplate.length > 0
-							? formData.informationTemplate
+						values.informationTemplate.length > 0
+							? values.informationTemplate
 							: undefined,
 				},
 			}),
@@ -111,12 +112,10 @@ export const CreateOrUpdateCollectionModal = (props: {
 	});
 
 	return (
-		<Form
-			ref={formRef}
-			onSubmit={(e) => {
-				e.preventDefault();
-				createOrUpdateMutation.mutate();
-			}}
+		<form
+			onSubmit={form.onSubmit((values) => {
+				createOrUpdateMutation.mutate(values);
+			})}
 		>
 			<Stack>
 				<Title order={3}>
@@ -125,32 +124,18 @@ export const CreateOrUpdateCollectionModal = (props: {
 				<TextInput
 					required
 					label="Name"
-					value={formData.name}
 					readOnly={toUpdateCollection?.isDefault}
 					description={
 						toUpdateCollection?.isDefault
 							? "Can not edit a default collection"
 							: undefined
 					}
-					onChange={(e) => {
-						setFormData(
-							produce(formData, (draft) => {
-								draft.name = e.target.value;
-							}),
-						);
-					}}
+					{...form.getInputProps("name")}
 				/>
 				<Textarea
 					autosize
 					label="Description"
-					value={formData.description}
-					onChange={(e) =>
-						setFormData(
-							produce(formData, (draft) => {
-								draft.description = e.target.value;
-							}),
-						)
-					}
+					{...form.getInputProps("description")}
 				/>
 				<Tooltip
 					label={PRO_REQUIRED_MESSAGE}
@@ -158,15 +143,8 @@ export const CreateOrUpdateCollectionModal = (props: {
 				>
 					<Checkbox
 						label="Hide collection"
-						checked={formData.isHidden}
 						disabled={!coreDetails.isServerKeyValidated}
-						onChange={(e) =>
-							setFormData(
-								produce(formData, (draft) => {
-									draft.isHidden = e.target.checked;
-								}),
-							)
-						}
+						{...form.getInputProps("isHidden", { type: "checkbox" })}
 					/>
 				</Tooltip>
 				<Tooltip
@@ -175,7 +153,6 @@ export const CreateOrUpdateCollectionModal = (props: {
 				>
 					<MultiSelect
 						searchable
-						value={formData.collaborators}
 						disabled={!coreDetails.isServerKeyValidated}
 						description="Add collaborators to this collection"
 						data={usersList?.map((u) => ({
@@ -183,13 +160,7 @@ export const CreateOrUpdateCollectionModal = (props: {
 							label: u.name,
 							disabled: u.id === userDetails.id,
 						}))}
-						onChange={(value) =>
-							setFormData(
-								produce(formData, (draft) => {
-									draft.collaborators = value;
-								}),
-							)
-						}
+						{...form.getInputProps("collaborators")}
 					/>
 				</Tooltip>
 				<Input.Wrapper
@@ -208,15 +179,14 @@ export const CreateOrUpdateCollectionModal = (props: {
 										});
 										return;
 									}
-									setFormData(
-										produce(formData, (draft) => {
-											draft.informationTemplate.push({
-												name: "",
-												description: "",
-												lot: CollectionExtraInformationLot.String,
-											});
-										}),
-									);
+									form.setFieldValue("informationTemplate", [
+										...form.values.informationTemplate,
+										{
+											name: "",
+											description: "",
+											lot: CollectionExtraInformationLot.String,
+										},
+									]);
 								}}
 							>
 								Add field
@@ -225,7 +195,7 @@ export const CreateOrUpdateCollectionModal = (props: {
 					}
 				>
 					<Stack gap="xs" mt="xs" ref={parent}>
-						{formData.informationTemplate.map((field, index) => (
+						{form.values.informationTemplate.map((field, index) => (
 							<Paper withBorder key={index.toString()} p="xs">
 								<TextInput
 									required
@@ -233,14 +203,12 @@ export const CreateOrUpdateCollectionModal = (props: {
 									label="Name"
 									value={field.name}
 									onChange={(e) => {
-										setFormData(
-											produce(formData, (draft) => {
-												draft.informationTemplate[index] = {
-													...field,
-													name: e.target.value,
-												};
-											}),
-										);
+										const newTemplate = [...form.values.informationTemplate];
+										newTemplate[index] = {
+											...field,
+											name: e.target.value,
+										};
+										form.setFieldValue("informationTemplate", newTemplate);
 									}}
 								/>
 								<Textarea
@@ -249,14 +217,12 @@ export const CreateOrUpdateCollectionModal = (props: {
 									label="Description"
 									value={field.description}
 									onChange={(e) => {
-										setFormData(
-											produce(formData, (draft) => {
-												draft.informationTemplate[index] = {
-													...field,
-													description: e.target.value,
-												};
-											}),
-										);
+										const newTemplate = [...form.values.informationTemplate];
+										newTemplate[index] = {
+											...field,
+											description: e.target.value,
+										};
+										form.setFieldValue("informationTemplate", newTemplate);
 									}}
 								/>
 								<Group wrap="nowrap">
@@ -270,14 +236,12 @@ export const CreateOrUpdateCollectionModal = (props: {
 											CollectionExtraInformationLot,
 										)}
 										onChange={(v) => {
-											setFormData(
-												produce(formData, (draft) => {
-													draft.informationTemplate[index] = {
-														...field,
-														lot: v as CollectionExtraInformationLot,
-													};
-												}),
-											);
+											const newTemplate = [...form.values.informationTemplate];
+											newTemplate[index] = {
+												...field,
+												lot: v as CollectionExtraInformationLot,
+											};
+											form.setFieldValue("informationTemplate", newTemplate);
 										}}
 									/>
 									{field.lot !== CollectionExtraInformationLot.StringArray ? (
@@ -287,14 +251,12 @@ export const CreateOrUpdateCollectionModal = (props: {
 											label="Default value"
 											value={field.defaultValue || ""}
 											onChange={(e) => {
-												setFormData(
-													produce(formData, (draft) => {
-														draft.informationTemplate[index] = {
-															...field,
-															defaultValue: e.target.value,
-														};
-													}),
-												);
+												const newTemplate = [...form.values.informationTemplate];
+												newTemplate[index] = {
+													...field,
+													defaultValue: e.target.value,
+												};
+												form.setFieldValue("informationTemplate", newTemplate);
 											}}
 										/>
 									) : null}
@@ -305,14 +267,12 @@ export const CreateOrUpdateCollectionModal = (props: {
 										label="Possible values"
 										value={field.possibleValues || []}
 										onChange={(value) => {
-											setFormData(
-												produce(formData, (draft) => {
-													draft.informationTemplate[index] = {
-														...field,
-														possibleValues: value,
-													};
-												}),
-											);
+											const newTemplate = [...form.values.informationTemplate];
+											newTemplate[index] = {
+												...field,
+												possibleValues: value,
+											};
+											form.setFieldValue("informationTemplate", newTemplate);
 										}}
 									/>
 								) : null}
@@ -322,14 +282,12 @@ export const CreateOrUpdateCollectionModal = (props: {
 										label="Required"
 										checked={field.required || false}
 										onChange={(e) => {
-											setFormData(
-												produce(formData, (draft) => {
-													draft.informationTemplate[index] = {
-														...field,
-														required: e.target.checked,
-													};
-												}),
-											);
+											const newTemplate = [...form.values.informationTemplate];
+											newTemplate[index] = {
+												...field,
+												required: e.target.checked,
+											};
+											form.setFieldValue("informationTemplate", newTemplate);
 										}}
 									/>
 									<Button
@@ -338,11 +296,9 @@ export const CreateOrUpdateCollectionModal = (props: {
 										variant="subtle"
 										leftSection={<IconTrash />}
 										onClick={() => {
-											setFormData(
-												produce(formData, (draft) => {
-													draft.informationTemplate.splice(index, 1);
-												}),
-											);
+											const newTemplate = [...form.values.informationTemplate];
+											newTemplate.splice(index, 1);
+											form.setFieldValue("informationTemplate", newTemplate);
 										}}
 									>
 										Remove field
@@ -355,12 +311,11 @@ export const CreateOrUpdateCollectionModal = (props: {
 				<Button
 					type="submit"
 					variant="outline"
-					disabled={!isFormValid}
 					loading={createOrUpdateMutation.isPending}
 				>
 					{toUpdateCollection?.id ? "Update" : "Create"}
 				</Button>
 			</Stack>
-		</Form>
+		</form>
 	);
 };

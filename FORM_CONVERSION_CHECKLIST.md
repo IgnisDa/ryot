@@ -94,10 +94,10 @@ These files use `useState` + `onClick` patterns and need conversion:
   - **State**: ~~Uses `useState` for input state~~ Now uses `useForm`
   - **Changes**: Converted to proper form with validation, supports keyboard submission, proper array handling for statistics
 
-- [ ] `apps/frontend/app/components/routes/dashboard/forms/create-or-update-collection-form.tsx`
-  - **Inputs**: Various collection-related inputs
-  - **State**: Uses `useState`
-  - **Action**: Convert to proper form submission
+- [x] `apps/frontend/app/components/routes/dashboard/forms/create-or-update-collection-form.tsx` ✅ **COMPLETED**
+  - **Inputs**: TextInput, Textarea, Checkbox, MultiSelect, nested informationTemplate fields
+  - **State**: ~~Uses `useState` with immer~~ Now uses `useForm`
+  - **Changes**: Converted to proper HTML form, removed immer/produce boilerplate, automatic validation
 
 - [ ] `apps/frontend/app/components/routes/dashboard/forms/add-entity-to-collections-form.tsx`
   - **Inputs**: Collection selection inputs
@@ -222,4 +222,4 @@ After converting each form, verify:
 - **Needs conversion**: 19 (32.8%)
 - **Not applicable**: 30 (51.7%)
 
-**Progress**: 11/28 complete (39.3%)
+**Progress**: 12/28 complete (42.9%)
