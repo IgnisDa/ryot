@@ -1,4 +1,4 @@
-import { Checkbox, Select } from "@mantine/core";
+import { Checkbox, Select, Text } from "@mantine/core";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
@@ -11,6 +11,7 @@ export const PodcastForm = (props: MediaFormProps) => {
 
 	return (
 		<>
+			<Text fw="bold">Select episode</Text>
 			<Select
 				required
 				size="xs"
