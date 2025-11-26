@@ -15,7 +15,6 @@ import {
 	ThemeIcon,
 	rem,
 } from "@mantine/core";
-import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
 	CreateOrUpdateReviewDocument,
@@ -30,6 +29,7 @@ import { IconPercentage } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { match } from "ts-pattern";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import {
 	useApplicationEvents,
 	useMetadataDetails,
@@ -58,7 +58,7 @@ export const ReviewEntityForm = (props: {
 		entityToReview?.entityLot === EntityLot.Metadata,
 	);
 
-	const form = useForm<
+	const form = useSavedForm<
 		Omit<
 			CreateOrUpdateReviewInput,
 			"showSeasonNumber" | "showEpisodeNumber" | "podcastEpisodeNumber"
@@ -69,7 +69,7 @@ export const ReviewEntityForm = (props: {
 			podcastEpisodeNumber?: string;
 		}
 	>({
-		mode: "uncontrolled",
+		storageKeyPrefix: "ReviewEntityForm",
 		initialValues: {
 			entityId: entityToReview?.entityId || "",
 			reviewId: entityToReview?.existingReview?.id,
