@@ -264,9 +264,9 @@ export default function Page() {
 														disabled={!!isEditDisabled}
 														value={form.values.featuresEnabled[facet].specific}
 														data={Object.entries(MediaLot).map(
-															([name, lot]) => ({
+															([_name, lot]) => ({
 																value: lot,
-																label: changeCase(name),
+																label: changeCase(lot),
 															}),
 														)}
 														onChange={(val) => {
