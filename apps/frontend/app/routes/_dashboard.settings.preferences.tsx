@@ -124,10 +124,7 @@ export default function Page() {
 	const invalidateUserDetails = useInvalidateUserDetails();
 	const isEditDisabled = dashboardData.isDemoInstance;
 
-	const form = useForm<UserPreferences>({
-		mode: "controlled",
-		initialValues: userPreferences,
-	});
+	const form = useForm<UserPreferences>({ initialValues: userPreferences });
 
 	const updateUserPreferencesMutation = useMutation({
 		mutationFn: async (values: UserPreferences) => {
