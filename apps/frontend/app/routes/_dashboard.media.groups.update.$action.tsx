@@ -7,7 +7,6 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
-import { useForm } from "@mantine/form";
 import {
 	CreateCustomMetadataGroupDocument,
 	MediaLot,
@@ -22,6 +21,7 @@ import {
 	ExistingImageList,
 } from "~/components/common/custom-entities";
 import { useEntityCrud } from "~/lib/hooks/use-entity-crud";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { useCoreDetails, useMetadataGroupDetails } from "~/lib/shared/hooks";
 import { buildImageAssets } from "~/lib/shared/image-utils";
 import { getMetadataGroupDetailsPath } from "~/lib/shared/media-utils";
@@ -58,14 +58,15 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
-	const form = useForm<{
-		title: string;
-		description: string;
-		images: File[];
-		existingImages: string[];
+	const form = useSavedForm<{
 		id: string;
 		lot: string;
+		title: string;
+		images: File[];
+		description: string;
+		existingImages: string[];
 	}>({
+		storageKeyPrefix: "MetadataGroup",
 		initialValues: {
 			title: "",
 			description: "",
