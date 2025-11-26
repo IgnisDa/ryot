@@ -5,15 +5,11 @@ use reqwest::Client;
 #[derive(Debug, Clone)]
 pub struct AnilistService {
     pub client: Client,
-    pub preferred_language: config_definition::AnilistPreferredLanguage,
 }
 
 impl AnilistService {
-    pub async fn new(config: &config_definition::AnilistConfig) -> Result<Self> {
+    pub async fn new(_config: &config_definition::AnilistConfig) -> Result<Self> {
         let client = get_base_http_client(None);
-        Ok(Self {
-            client,
-            preferred_language: config.preferred_language.clone(),
-        })
+        Ok(Self { client })
     }
 }

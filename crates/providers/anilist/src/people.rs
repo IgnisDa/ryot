@@ -13,7 +13,7 @@ use crate::{
     models::{
         GraphQLResponse, MediaSearchResponse, STUDIO_ROLE, StaffDetailsResponse,
         StudioDetailsResponse, URL, build_staff_details_query, build_staff_search_query,
-        build_studio_details_query, build_studio_search_query, get_in_preferred_language,
+        build_studio_details_query, build_studio_search_query,
     },
 };
 
@@ -151,8 +151,8 @@ impl MediaProvider for NonMediaAnilistService {
                     metadata: PartialMetadataWithoutId {
                         source: MediaSource::Anilist,
                         identifier: data.id.to_string(),
-                        title: data.title.and_then(|t| t.native).unwrap_or_default(),
                         image: data.cover_image.and_then(|c| c.extra_large),
+                        title: data.title.map(|t| t.user_preferred).unwrap_or_default(),
                         lot: match data.media_type.as_deref() {
                             Some("ANIME") => MediaLot::Anime,
                             Some("MANGA") => MediaLot::Manga,
@@ -209,17 +209,11 @@ impl MediaProvider for NonMediaAnilistService {
                 .for_each(|edge| {
                     let characters = edge.characters.unwrap_or_default();
                     if let Some(data) = edge.node {
-                        let title = data.title.as_ref();
-                        let title = if let Some(title) = title {
-                            get_in_preferred_language(
-                                title.native.clone(),
-                                title.english.clone(),
-                                title.romaji.clone(),
-                                &self.0.preferred_language,
-                            )
-                        } else {
-                            String::new()
-                        };
+                        let title = data
+                            .title
+                            .clone()
+                            .map(|s| s.user_preferred)
+                            .unwrap_or_default();
                         for character in characters {
                             if let Some(character) = character.and_then(|c| c.name) {
                                 related_metadata.push(MetadataPersonRelated {
@@ -255,17 +249,8 @@ impl MediaProvider for NonMediaAnilistService {
                     .filter_map(|edge| {
                         edge.and_then(|edge| {
                             edge.node.map(|data| {
-                                let title = data.title.as_ref();
-                                let title = if let Some(title) = title {
-                                    get_in_preferred_language(
-                                        title.native.clone(),
-                                        title.english.clone(),
-                                        title.romaji.clone(),
-                                        &self.0.preferred_language,
-                                    )
-                                } else {
-                                    String::new()
-                                };
+                                let title =
+                                    data.title.map(|t| t.user_preferred).unwrap_or_default();
                                 MetadataPersonRelated {
                                     role: edge
                                         .staff_role

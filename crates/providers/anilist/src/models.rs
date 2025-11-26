@@ -49,15 +49,9 @@ pub struct MediaSearchItem {
     pub id: i32,
     #[serde(rename = "type")]
     pub media_type: Option<String>,
+    pub title: Option<AnilistTitle>,
     #[serde(rename = "bannerImage")]
     pub banner_image: Option<String>,
-    pub title: Option<
-        nest! {
-            pub native: Option<String>,
-            pub romaji: Option<String>,
-            pub english: Option<String>,
-        },
-    >,
     #[serde(rename = "coverImage")]
     pub cover_image: Option<
         nest! {
@@ -99,6 +93,11 @@ pub struct StaffSearchItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnilistTitle {
+    pub user_preferred: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StudioSearchItem {
     pub id: i32,
     pub name: String,
@@ -126,14 +125,20 @@ pub struct StudioDetailsResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaDetails {
     pub id: i32,
-    pub title: Option<
-        nest! {
-            pub native: Option<String>,
-            pub romaji: Option<String>,
-            pub english: Option<String>,
-        },
-    >,
+    pub volumes: Option<i32>,
+    pub episodes: Option<i32>,
+    pub chapters: Option<i32>,
+    #[serde(rename = "isAdult")]
+    pub is_adult: Option<bool>,
     pub status: Option<String>,
+    #[serde(rename = "type")]
+    pub media_type: Option<String>,
+    pub title: Option<AnilistTitle>,
+    #[serde(rename = "averageScore")]
+    pub average_score: Option<i32>,
+    pub description: Option<String>,
+    pub genres: Option<Vec<Option<String>>>,
+    pub tags: Option<Vec<Option<nest! { pub name: String }>>>,
     #[serde(rename = "airingSchedule")]
     pub airing_schedule: Option<
         nest! {
@@ -144,16 +149,6 @@ pub struct MediaDetails {
             }>>>,
         },
     >,
-    pub volumes: Option<i32>,
-    pub episodes: Option<i32>,
-    pub chapters: Option<i32>,
-    #[serde(rename = "isAdult")]
-    pub is_adult: Option<bool>,
-    #[serde(rename = "type")]
-    pub media_type: Option<String>,
-    pub description: Option<String>,
-    pub genres: Option<Vec<Option<String>>>,
-    pub tags: Option<Vec<Option<nest! { pub name: String }>>>,
     #[serde(rename = "coverImage")]
     pub cover_image: Option<
         nest! {
@@ -194,8 +189,6 @@ pub struct MediaDetails {
             }>>>,
         },
     >,
-    #[serde(rename = "averageScore")]
-    pub average_score: Option<i32>,
     pub recommendations: Option<
         nest! {
             pub nodes: Option<Vec<Option<nest! {
@@ -296,33 +289,13 @@ pub fn media_status_string(status: Option<String>) -> Option<String> {
     status.map(|f| f.to_case(Case::Title))
 }
 
-pub fn get_in_preferred_language(
-    native: Option<String>,
-    english: Option<String>,
-    romaji: Option<String>,
-    preferred_language: &config_definition::AnilistPreferredLanguage,
-) -> String {
-    let title = match preferred_language {
-        config_definition::AnilistPreferredLanguage::Native => native.clone(),
-        config_definition::AnilistPreferredLanguage::English => english.clone(),
-        config_definition::AnilistPreferredLanguage::Romaji => romaji.clone(),
-    };
-    title.or(native).or(english).or(romaji).unwrap()
-}
-
-pub async fn media_details(
-    client: &Client,
-    id: &str,
-    preferred_language: &config_definition::AnilistPreferredLanguage,
-) -> Result<MetadataDetails> {
+pub async fn media_details(client: &Client, id: &str) -> Result<MetadataDetails> {
     let query = r#"
         query MediaDetailsQuery($id: Int!) {
           Media(id: $id) {
             id
             title {
-              english
-              native
-              romaji
+              userPreferred
             }
             status
             airingSchedule {
@@ -374,9 +347,7 @@ pub async fn media_details(
                   id
                   type
                   title {
-                    english
-                    native
-                    romaji
+                    userPreferred
                   }
                   coverImage {
                     extraLarge
@@ -510,27 +481,20 @@ pub async fn media_details(
         .unwrap()
         .into_iter()
         .flat_map(|r| {
-            r.unwrap().media_recommendation.map(|data| {
-                let title = data.title.unwrap();
-                let title = get_in_preferred_language(
-                    title.native,
-                    title.english,
-                    title.romaji,
-                    preferred_language,
-                );
-                PartialMetadataWithoutId {
-                    title,
+            r.unwrap()
+                .media_recommendation
+                .map(|data| PartialMetadataWithoutId {
                     source: MediaSource::Anilist,
                     identifier: data.id.to_string(),
                     image: data.cover_image.unwrap().extra_large,
+                    title: data.title.map(|s| s.user_preferred).unwrap_or_default(),
                     lot: match data.media_type.as_deref() {
                         Some("ANIME") => MediaLot::Anime,
                         Some("MANGA") => MediaLot::Manga,
                         _ => unreachable!(),
                     },
                     ..Default::default()
-                }
-            })
+                })
         })
         .collect();
     let score = media.average_score.map(Decimal::from);
@@ -552,13 +516,7 @@ pub async fn media_details(
         ..Default::default()
     };
 
-    let title = media.title.unwrap();
-    let title = get_in_preferred_language(
-        title.native,
-        title.english,
-        title.romaji,
-        preferred_language,
-    );
+    let title = media.title.map(|s| s.user_preferred).unwrap_or_default();
     let identifier = media.id.to_string();
     Ok(MetadataDetails {
         people,
@@ -585,7 +543,6 @@ pub async fn search(
     page: u64,
     page_size: u64,
     _is_adult: bool,
-    preferred_language: &config_definition::AnilistPreferredLanguage,
 ) -> Result<(Vec<MetadataSearchItem>, u64, Option<u64>)> {
     let query_str = r#"
         query MediaSearchQuery(
@@ -601,9 +558,7 @@ pub async fn search(
             media(search: $search, type: $type) {
               id
               title {
-                english
-                native
-                romaji
+                userPreferred
               }
               coverImage {
                 extraLarge
@@ -648,18 +603,12 @@ pub async fn search(
         .into_iter()
         .flatten()
         .map(|b| {
-            let title = b.title.unwrap();
-            let title = get_in_preferred_language(
-                title.native,
-                title.english,
-                title.romaji,
-                preferred_language,
-            );
+            let title = b.title.map(|s| s.user_preferred).unwrap_or_default();
             MetadataSearchItem {
-                identifier: b.id.to_string(),
                 title,
-                image: b.cover_image.and_then(|l| l.extra_large).or(b.banner_image),
+                identifier: b.id.to_string(),
                 publish_year: b.start_date.and_then(|b| b.year),
+                image: b.cover_image.and_then(|l| l.extra_large).or(b.banner_image),
             }
         })
         .collect();
@@ -767,9 +716,7 @@ pub fn build_staff_details_query(id: i64) -> serde_json::Value {
                   id
                   type
                   title {
-                    native
-                    english
-                    romaji
+                    userPreferred
                   }
                   coverImage {
                     extraLarge
@@ -784,9 +731,7 @@ pub fn build_staff_details_query(id: i64) -> serde_json::Value {
                   id
                   type
                   title {
-                    native
-                    english
-                    romaji
+                    userPreferred
                   }
                   coverImage {
                     extraLarge
@@ -819,9 +764,7 @@ pub fn build_studio_details_query(id: i64) -> serde_json::Value {
                   id
                   type
                   title {
-                    english
-                    native
-                    romaji
+                    userPreferred
                   }
                   coverImage {
                     extraLarge
