@@ -114,7 +114,6 @@ export const CreateOrUpdateCollectionModal = (props: {
 			queryClient.invalidateQueries({
 				queryKey: queryFactory.collections.userCollectionsList().queryKey,
 			});
-			form.reset();
 			form.clearSavedState();
 			props.onClose();
 		},

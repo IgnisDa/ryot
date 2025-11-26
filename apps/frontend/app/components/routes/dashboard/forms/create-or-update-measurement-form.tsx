@@ -88,7 +88,6 @@ export const CreateOrUpdateMeasurementForm = (props: {
 				if (!props.measurementToUpdate) {
 					events.createMeasurement();
 				}
-				form.reset();
 				form.clearSavedState();
 				props.closeMeasurementModal();
 			})}

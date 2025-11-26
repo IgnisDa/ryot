@@ -259,7 +259,6 @@ export const ReviewItemDisplay = (props: {
 									text: values.comment,
 									reviewId: props.review.id,
 								});
-								form.reset();
 								form.clearSavedState();
 								toggleLeaveComment();
 							})}

@@ -77,7 +77,6 @@ export const MetadataInProgressUpdateForm = (
 						change: { changeLatestInProgress: values.progress.toString() },
 					},
 				]);
-				form.reset();
 				form.clearSavedState();
 				props.onSubmit();
 			})}

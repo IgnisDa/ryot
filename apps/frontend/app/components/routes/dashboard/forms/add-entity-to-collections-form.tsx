@@ -133,7 +133,6 @@ export const AddEntityToCollectionsForm = ({
 					message: `Entity added to ${values.selectedCollections.length} collection(s)`,
 				});
 				refreshEntityDetails(addEntityToCollectionData.entityId);
-				form.reset();
 				form.clearSavedState();
 				closeAddEntityToCollectionsDrawer();
 				events.addToCollection(addEntityToCollectionData.entityLot);
