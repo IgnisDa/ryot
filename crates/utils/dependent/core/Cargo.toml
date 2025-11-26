@@ -23,6 +23,7 @@ dependent-models = { workspace = true }
 enum-models = { workspace = true }
 env-utils = { workspace = true }
 igdb-provider = { workspace = true }
+itunes-provider = { workspace = true }
 file-storage-service = { workspace = true }
 supporting-service = { workspace = true }
 tmdb-provider = { workspace = true }

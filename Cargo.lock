@@ -2033,6 +2033,7 @@ dependencies = [
  "futures",
  "igdb-provider",
  "itertools 0.14.0",
+ "itunes-provider",
  "nest_struct",
  "reqwest",
  "sea-orm",

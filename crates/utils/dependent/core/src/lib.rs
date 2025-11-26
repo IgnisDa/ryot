@@ -21,6 +21,7 @@ use env_utils::{APP_VERSION, UNKEY_ROOT_KEY};
 use futures::try_join;
 use igdb_provider::IgdbService;
 use itertools::Itertools;
+use itunes_provider::ITunesService;
 use nest_struct::nest_struct;
 use reqwest::header::{AUTHORIZATION, HeaderValue};
 use sea_orm::{Iterable, prelude::Date};
@@ -80,20 +81,30 @@ async fn create_providers(
     TmdbService,
     TvdbService,
     IgdbService,
+    ITunesService,
     AudibleService,
     YoutubeMusicService,
 )> {
-    let (tmdb_service, tvdb_service, igdb_service, audible_service, youtube_music_service) = try_join!(
+    let (
+        tmdb_service,
+        tvdb_service,
+        igdb_service,
+        youtube_music_service,
+        itunes_service,
+        audible_service,
+    ) = try_join!(
         TmdbService::new(ss.clone()),
         TvdbService::new(ss.clone()),
         IgdbService::new(ss.clone()),
-        AudibleService::new(&ss.config.audio_books.audible),
         YoutubeMusicService::new(),
+        ITunesService::new(ss.clone()),
+        AudibleService::new(&ss.config.audio_books.audible)
     )?;
     Ok((
         tmdb_service,
         tvdb_service,
         igdb_service,
+        itunes_service,
         audible_service,
         youtube_music_service,
     ))
@@ -102,6 +113,7 @@ async fn create_providers(
 fn build_provider_language_information(
     tmdb_service: &TmdbService,
     tvdb_service: &TvdbService,
+    itunes_service: &ITunesService,
     audible_service: &AudibleService,
     youtube_music_service: &YoutubeMusicService,
 ) -> Result<Vec<ProviderLanguageInformation>> {
@@ -120,13 +132,16 @@ fn build_provider_language_information(
                     youtube_music_service.get_all_languages(),
                     youtube_music_service.get_default_language(),
                 ),
+                MediaSource::Itunes => (
+                    itunes_service.get_all_languages(),
+                    itunes_service.get_default_language(),
+                ),
                 MediaSource::Audible => (
                     audible_service.get_all_languages(),
                     audible_service.get_default_language(),
                 ),
                 MediaSource::Igdb
                 | MediaSource::Vndb
-                | MediaSource::Itunes
                 | MediaSource::Custom
                 | MediaSource::Anilist
                 | MediaSource::Spotify
@@ -218,8 +233,14 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
                 files_enabled = false;
             }
 
-            let (tmdb_service, tvdb_service, igdb_service, audible_service, youtube_music_service) =
-                create_providers(ss).await?;
+            let (
+                tmdb_service,
+                tvdb_service,
+                igdb_service,
+                itunes_service,
+                audible_service,
+                youtube_music_service,
+            ) = create_providers(ss).await?;
 
             let (metadata_lot_source_mappings, metadata_group_source_lot_mappings) =
                 build_metadata_mappings();
@@ -227,6 +248,7 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
             let metadata_provider_languages = build_provider_language_information(
                 &tmdb_service,
                 &tvdb_service,
+                &itunes_service,
                 &audible_service,
                 &youtube_music_service,
             )?;
