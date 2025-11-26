@@ -8,7 +8,6 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
-import { useForm } from "@mantine/form";
 import {
 	CreateCustomPersonDocument,
 	UpdateCustomPersonDocument,
@@ -27,6 +26,7 @@ import { useCoreDetails, usePersonDetails } from "~/lib/shared/hooks";
 import { buildImageAssets } from "~/lib/shared/image-utils";
 import { getPersonDetailsPath } from "~/lib/shared/media-utils";
 import type { Route } from "./+types/_dashboard.media.people.update.$action";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 
 enum Action {
 	Edit = "edit",
@@ -57,7 +57,8 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
-	const form = useForm({
+	const form = useSavedForm({
+		storageKeyPrefix: "PersonUpdate",
 		initialValues: {
 			name: "",
 			place: "",

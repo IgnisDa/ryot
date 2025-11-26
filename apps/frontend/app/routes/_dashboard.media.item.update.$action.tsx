@@ -15,7 +15,6 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
-import { useForm } from "@mantine/form";
 import {
 	CreateCustomMetadataDocument,
 	MediaLot,
@@ -49,6 +48,7 @@ import {
 } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import type { Route } from "./+types/_dashboard.media.item.update.$action";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 
 enum Action {
 	Edit = "edit",
@@ -153,7 +153,8 @@ export default function Page() {
 		extractIdFromUpdateResult: () => loaderData.query.id as string,
 	});
 
-	const form = useForm({
+	const form = useSavedForm({
+		storageKeyPrefix: "MediaUpdate",
 		initialValues: {
 			title: "",
 			genres: "",
@@ -248,8 +249,8 @@ export default function Page() {
 	return (
 		<Container>
 			<form
-				onSubmit={form.onSubmit(handleSubmit)}
 				encType="multipart/form-data"
+				onSubmit={form.onSubmit(handleSubmit)}
 			>
 				<Stack>
 					<Title>

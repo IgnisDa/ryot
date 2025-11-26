@@ -9,7 +9,6 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
-import { useForm } from "@mantine/form";
 import {
 	CreateCustomExerciseDocument,
 	ExerciseEquipment,
@@ -46,6 +45,7 @@ import {
 	convertEnumToSelectData,
 } from "~/lib/shared/ui-utils";
 import type { Route } from "./+types/_dashboard.fitness.exercises.update.$action";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 
 const searchParamsSchema = z.object({
 	id: z.string().optional(),
@@ -87,7 +87,8 @@ export default function Page() {
 		loaderData.action === Action.Create && Boolean(loaderData.duplicateId),
 	);
 
-	const form = useForm({
+	const form = useSavedForm({
+		storageKeyPrefix: "ExerciseUpdate",
 		initialValues: {
 			lot: "",
 			name: "",

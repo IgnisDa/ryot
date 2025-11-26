@@ -21,7 +21,6 @@ import {
 	Text,
 	useMantineTheme,
 } from "@mantine/core";
-import { useForm } from "@mantine/form";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import Body, { type ExtendedBodyPart } from "@mjcdev/react-body-highlighter";
@@ -68,6 +67,7 @@ import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 } from "./utils";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 
 type Exercise = TWorkoutDetails["details"]["information"]["exercises"][number];
 type Set = Exercise["sets"][number];
@@ -354,7 +354,8 @@ export const ExerciseUpdatePreferencesModal = (props: {
 		unknown
 	>;
 }) => {
-	const form = useForm({
+	const form = useSavedForm({
+		storageKeyPrefix: "ExerciseUpdatePreferencesModal",
 		initialValues: {
 			excludeFromAnalytics:
 				props.userExerciseDetails.details?.exerciseExtraInformation?.settings

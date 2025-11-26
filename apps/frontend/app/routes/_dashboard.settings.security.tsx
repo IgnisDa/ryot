@@ -14,7 +14,6 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
-import { useForm } from "@mantine/form";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
@@ -48,6 +47,7 @@ import { clientGqlService } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.security";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 
 enum TwoFactorSetupStep {
 	Auth = "auth",
@@ -510,8 +510,9 @@ interface VerifyCodeStepProps {
 }
 
 const VerifyCodeStep = (props: VerifyCodeStepProps) => {
-	const form = useForm({
+	const form = useSavedForm({
 		initialValues: { code: "" },
+		storageKeyPrefix: "TwoFactorVerify",
 		validate: {
 			code: (value) => (value.length !== 6 ? "Code must be 6 digits" : null),
 		},
