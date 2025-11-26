@@ -93,6 +93,7 @@ pub struct StaffSearchItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AnilistTitle {
     pub user_preferred: String,
 }
