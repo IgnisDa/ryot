@@ -125,7 +125,7 @@ export const ReviewItemDisplay = (props: {
 
 	const form = useSavedForm({
 		initialValues: { comment: "" },
-		storageKeyPrefix: "ReviewItem",
+		storageKeyPrefix: `ReviewItem-${props.review.id}`,
 	});
 
 	const RenderedText = () =>

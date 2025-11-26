@@ -23,8 +23,8 @@ export const AddEntityToCollectionsForm = ({
 	closeAddEntityToCollectionsDrawer: () => void;
 }) => {
 	const userDetails = useUserDetails();
-	const collections = useNonHiddenUserCollections();
 	const events = useApplicationEvents();
+	const collections = useNonHiddenUserCollections();
 	const [addEntityToCollectionData] = useAddEntityToCollections();
 	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
 	const { alreadyInCollectionIds } = useEntityAlreadyInCollections(
@@ -38,7 +38,7 @@ export const AddEntityToCollectionsForm = ({
 		>;
 	}>({
 		initialValues: { selectedCollections: [] },
-		storageKeyPrefix: "AddEntityToCollectionsForm",
+		storageKeyPrefix: `AddEntityToCollectionsForm-${addEntityToCollectionData?.entityId}`,
 		validate: {
 			selectedCollections: (value) =>
 				value.length > 0 ? null : "Select at least one collection",

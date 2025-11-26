@@ -46,7 +46,7 @@ export const MetadataNewProgressUpdateForm = (
 		finishDate: Date | null;
 		providersConsumedOn: string[];
 	}>({
-		storageKeyPrefix: "MetadataNewProgressUpdateForm",
+		storageKeyPrefix: `MetadataNewProgressUpdateForm-${props.metadataDetails.id}`,
 		initialValues: {
 			startDate: null,
 			finishDate: new Date(),
