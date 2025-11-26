@@ -41,10 +41,7 @@ derive_enum!(
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "ANIME_AND_MANGA_ANILIST_")]
-pub struct AnilistConfig {
-    /// The preferred language for media from this source.
-    pub preferred_language: AnilistPreferredLanguage,
-}
+pub struct AnilistConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(

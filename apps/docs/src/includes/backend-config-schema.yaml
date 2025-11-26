@@ -1,11 +1,7 @@
 # Settings related to anime and manga.
 anime_and_manga:
   # Settings related to Anilist.
-  anilist:
-    # The preferred language for media from this source.
-    # @envvar ANIME_AND_MANGA_ANILIST_PREFERRED_LANGUAGE
-    # @values "english" | "native" | "romaji"
-    preferred_language: "native"
+  anilist: {}
 
   # Settings related to MAL.
   mal:
