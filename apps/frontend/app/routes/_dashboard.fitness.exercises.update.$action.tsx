@@ -9,7 +9,6 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
-import { useForm } from "@mantine/form";
 import {
 	CreateCustomExerciseDocument,
 	ExerciseEquipment,
@@ -33,6 +32,7 @@ import {
 	CustomEntityImageInput,
 	ExistingImageList,
 } from "~/components/common/custom-entities";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { useCoreDetails, useExerciseDetails } from "~/lib/shared/hooks";
 import { buildImageAssets, mergeImages } from "~/lib/shared/image-utils";
 import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
@@ -87,7 +87,8 @@ export default function Page() {
 		loaderData.action === Action.Create && Boolean(loaderData.duplicateId),
 	);
 
-	const form = useForm({
+	const form = useSavedForm({
+		storageKeyPrefix: "ExerciseUpdate",
 		initialValues: {
 			lot: "",
 			name: "",
@@ -186,6 +187,7 @@ export default function Page() {
 				.then((res) => res.createCustomExercise),
 		onSuccess: (id) => {
 			showEntitySuccess("Exercise", "created");
+			form.clearSavedState();
 			navigate(getExerciseDetailsPath(id));
 		},
 		onError: () => showEntityError("Exercise", "create"),
@@ -207,6 +209,7 @@ export default function Page() {
 				"Exercise",
 				memoizedInput.shouldDelete ? "deleted" : "updated",
 			);
+			form.clearSavedState();
 			navigate(destination);
 		},
 		onError: () => showEntityError("Exercise", "update"),

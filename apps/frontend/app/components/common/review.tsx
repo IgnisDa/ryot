@@ -12,7 +12,6 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
-import { useForm } from "@mantine/form";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
@@ -37,6 +36,7 @@ import {
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { match } from "ts-pattern";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { reviewYellow } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useUserDetails, useUserPreferences } from "~/lib/shared/hooks";
@@ -123,7 +123,10 @@ export const ReviewItemDisplay = (props: {
 			notifications.show({ color: "red", message: "Failed to update comment" }),
 	});
 
-	const form = useForm({ initialValues: { comment: "" } });
+	const form = useSavedForm({
+		initialValues: { comment: "" },
+		storageKeyPrefix: `ReviewItem-${props.review.id}`,
+	});
 
 	const RenderedText = () =>
 		props.review.textRendered ? (
@@ -256,7 +259,7 @@ export const ReviewItemDisplay = (props: {
 									text: values.comment,
 									reviewId: props.review.id,
 								});
-								form.reset();
+								form.clearSavedState();
 								toggleLeaveComment();
 							})}
 						>

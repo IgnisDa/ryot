@@ -15,7 +15,6 @@ import {
 	Title,
 	Tooltip,
 } from "@mantine/core";
-import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
 	type CollectionExtraInformation,
@@ -24,6 +23,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconTrash } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useCoreDetails,
@@ -53,14 +53,14 @@ export const CreateOrUpdateCollectionModal = (props: {
 		? userCollections.find((c) => c.id === modalData.collectionId)
 		: null;
 
-	const form = useForm<{
+	const form = useSavedForm<{
 		name: string;
 		isHidden: boolean;
 		description: string;
 		collaborators: string[];
 		informationTemplate: CollectionExtraInformation[];
 	}>({
-		mode: "uncontrolled",
+		storageKeyPrefix: "CreateOrUpdateCollectionForm",
 		initialValues: {
 			name: toUpdateCollection?.name || "",
 			description: toUpdateCollection?.description || "",
@@ -114,6 +114,7 @@ export const CreateOrUpdateCollectionModal = (props: {
 			queryClient.invalidateQueries({
 				queryKey: queryFactory.collections.userCollectionsList().queryKey,
 			});
+			form.clearSavedState();
 			props.onClose();
 		},
 		onError: (_error) =>

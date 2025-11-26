@@ -8,7 +8,6 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
-import { useForm } from "@mantine/form";
 import {
 	CreateCustomPersonDocument,
 	UpdateCustomPersonDocument,
@@ -23,6 +22,7 @@ import {
 	ExistingImageList,
 } from "~/components/common/custom-entities";
 import { useEntityCrud } from "~/lib/hooks/use-entity-crud";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { useCoreDetails, usePersonDetails } from "~/lib/shared/hooks";
 import { buildImageAssets } from "~/lib/shared/image-utils";
 import { getPersonDetailsPath } from "~/lib/shared/media-utils";
@@ -57,7 +57,8 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
-	const form = useForm({
+	const form = useSavedForm({
+		storageKeyPrefix: "PersonUpdate",
 		initialValues: {
 			name: "",
 			place: "",
@@ -100,14 +101,17 @@ export default function Page() {
 		NonNullable<ReturnType<typeof usePersonDetails>[0]["data"]>,
 		{ createCustomPerson: { id: string } }
 	>({
+		s3Prefix: "person",
+		entityName: "Person",
 		action: loaderData.action,
 		entityId: loaderData.query.id,
-		entityName: "Person",
-		s3Prefix: "person",
+		useDetailsHook: usePersonDetails,
 		detailsPath: getPersonDetailsPath,
 		createDocument: CreateCustomPersonDocument,
 		updateDocument: UpdateCustomPersonDocument,
-		useDetailsHook: usePersonDetails,
+		onSuccessCleanup: () => form.clearSavedState(),
+		extractIdFromUpdateResult: () => loaderData.query.id as string,
+		extractIdFromCreateResult: (result) => result.createCustomPerson.id,
 		transformToCreateInput: (values, s3Images) => ({
 			name: values.name,
 			place: values.place || undefined,
@@ -143,8 +147,6 @@ export default function Page() {
 					: undefined,
 			},
 		}),
-		extractIdFromCreateResult: (result) => result.createCustomPerson.id,
-		extractIdFromUpdateResult: () => loaderData.query.id as string,
 	});
 
 	useEffect(() => {

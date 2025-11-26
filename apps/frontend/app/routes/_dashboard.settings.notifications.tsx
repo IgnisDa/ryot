@@ -18,7 +18,6 @@ import {
 	Title,
 	Tooltip,
 } from "@mantine/core";
-import { useForm } from "@mantine/form";
 import { useDisclosure, useListState } from "@mantine/hooks";
 import {
 	CreateUserNotificationPlatformDocument,
@@ -41,6 +40,7 @@ import { Form, data, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useConfirmSubmit } from "~/lib/shared/hooks";
 import {
@@ -156,24 +156,23 @@ export default function Page() {
 		},
 	] = useDisclosure(false);
 
-	const createForm = useForm<{
-		lot: NotificationPlatformLot | "";
+	const createForm = useSavedForm<{
+		chatId?: string;
 		baseUrl?: string;
 		apiToken?: string;
-		chatId?: string;
-		authHeader?: string;
 		priority?: number;
+		authHeader?: string;
+		lot: NotificationPlatformLot | "";
 	}>({
+		storageKeyPrefix: "CreateUserNotificationPlatform",
+		validate: { lot: (value) => (value ? null : "Please select a platform") },
 		initialValues: {
 			lot: "",
+			chatId: "",
 			baseUrl: "",
 			apiToken: "",
-			chatId: "",
 			authHeader: "",
 			priority: undefined,
-		},
-		validate: {
-			lot: (value) => (value ? null : "Please select a platform"),
 		},
 	});
 
@@ -185,7 +184,7 @@ export default function Page() {
 				opened={createUserNotificationPlatformModalOpened}
 				onClose={() => {
 					closeCreateUserNotificationPlatformModal();
-					createForm.reset();
+					createForm.clearSavedState();
 				}}
 			>
 				<Box
@@ -194,7 +193,7 @@ export default function Page() {
 					action={withQuery(".", { intent: "create" })}
 					onSubmit={createForm.onSubmit(() => {
 						closeCreateUserNotificationPlatformModal();
-						createForm.reset();
+						createForm.clearSavedState();
 					})}
 				>
 					<input hidden name="lot" value={createForm.values.lot} />

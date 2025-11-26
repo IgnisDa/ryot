@@ -15,7 +15,6 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
-import { useForm } from "@mantine/form";
 import {
 	CreateCustomMetadataDocument,
 	MediaLot,
@@ -33,6 +32,7 @@ import {
 	ExistingImageList,
 } from "~/components/common/custom-entities";
 import { useEntityCrud } from "~/lib/hooks/use-entity-crud";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import {
 	useCoreDetails,
 	useMetadataDetails,
@@ -151,9 +151,11 @@ export default function Page() {
 			(result as { createCustomMetadata: { id: string } }).createCustomMetadata
 				.id as string,
 		extractIdFromUpdateResult: () => loaderData.query.id as string,
+		onSuccessCleanup: () => form.clearSavedState(),
 	});
 
-	const form = useForm({
+	const form = useSavedForm({
+		storageKeyPrefix: "MediaUpdate",
 		initialValues: {
 			title: "",
 			genres: "",
@@ -248,8 +250,8 @@ export default function Page() {
 	return (
 		<Container>
 			<form
-				onSubmit={form.onSubmit(handleSubmit)}
 				encType="multipart/form-data"
+				onSubmit={form.onSubmit(handleSubmit)}
 			>
 				<Stack>
 					<Title>

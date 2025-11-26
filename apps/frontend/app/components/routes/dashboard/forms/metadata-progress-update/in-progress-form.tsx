@@ -7,7 +7,6 @@ import {
 	Stack,
 	Text,
 } from "@mantine/core";
-import { useForm } from "@mantine/form";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber } from "@ryot/ts-utils";
 import {
@@ -18,6 +17,7 @@ import {
 	IconPercentage,
 } from "@tabler/icons-react";
 import { match } from "ts-pattern";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useDeployBulkMetadataProgressUpdateMutation } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
@@ -30,7 +30,8 @@ export const MetadataInProgressUpdateForm = (
 	const deployBulkMetadataProgressUpdate =
 		useDeployBulkMetadataProgressUpdateMutation(props.metadataDetails.title);
 
-	const form = useForm<{ progress: number }>({
+	const form = useSavedForm<{ progress: number }>({
+		storageKeyPrefix: `MetadataInProgressUpdateForm-${props.metadataDetails.id}`,
 		initialValues: { progress: Number(props.inProgress.progress) },
 		validate: {
 			progress: (value) => {
@@ -76,6 +77,7 @@ export const MetadataInProgressUpdateForm = (
 						change: { changeLatestInProgress: values.progress.toString() },
 					},
 				]);
+				form.clearSavedState();
 				props.onSubmit();
 			})}
 		>

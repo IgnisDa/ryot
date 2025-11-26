@@ -26,7 +26,6 @@ import type { ExtendedBodyPart } from "@mjcdev/react-body-highlighter";
 import {
 	EntityLot,
 	ExerciseSource,
-	UpdateUserExerciseSettingsDocument,
 	WorkoutSetPersonalBest,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -47,7 +46,6 @@ import {
 	IconTrophy,
 	IconUser,
 } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
 import { Fragment } from "react";
 import { Link, useLoaderData, useNavigate } from "react-router";
 import { Virtuoso } from "react-virtuoso";
@@ -84,7 +82,6 @@ import {
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
 	addExerciseToCurrentWorkout,
@@ -161,20 +158,6 @@ export default function Page() {
 		"male" | "female"
 	>("ExerciseBodyViewGender", "female");
 
-	const updateUserExerciseSettingsMutation = useMutation({
-		mutationFn: async (values: {
-			excludeFromAnalytics: boolean;
-			setRestTimers: Record<string, number | null>;
-		}) => {
-			await clientGqlService.request(UpdateUserExerciseSettingsDocument, {
-				input: {
-					exerciseId: exerciseDetails?.id || "",
-					change: values,
-				},
-			});
-		},
-	});
-
 	const computedDateAfterForCharts = getDateFromTimeSpan(timeSpanForCharts);
 	const filteredHistoryForCharts = sortBy(
 		userExerciseDetails?.history || [],
@@ -210,10 +193,10 @@ export default function Page() {
 	return (
 		<>
 			<ExerciseUpdatePreferencesModal
+				exerciseId={exerciseDetails.id}
 				opened={updatePreferencesModalOpened}
 				onClose={closeUpdatePreferencesModal}
 				userExerciseDetails={userExerciseDetails}
-				updateUserExerciseSettingsMutation={updateUserExerciseSettingsMutation}
 			/>
 			<ExerciseMusclesModal
 				opened={musclesModalOpened}

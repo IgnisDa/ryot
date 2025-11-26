@@ -21,13 +21,13 @@ import {
 	Text,
 	useMantineTheme,
 } from "@mantine/core";
-import { useForm } from "@mantine/form";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import Body, { type ExtendedBodyPart } from "@mjcdev/react-body-highlighter";
 import {
 	type ExerciseLot,
 	SetLot,
+	UpdateUserExerciseSettingsDocument,
 	type UserUnitSystem,
 	type WorkoutSupersetsInformation,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -43,11 +43,12 @@ import {
 	IconWeight,
 	IconZzz,
 } from "@tabler/icons-react";
-import { type UseMutationResult, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ComponentType, Dispatch, SetStateAction } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useExerciseDetails,
@@ -55,6 +56,7 @@ import {
 	useS3PresignedUrls,
 } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath, getSetColor } from "~/lib/shared/media-utils";
+import { clientGqlService } from "~/lib/shared/react-query";
 import {
 	type TWorkoutDetails,
 	getWorkoutDetailsQuery,
@@ -333,6 +335,7 @@ const DisplayExerciseAttributes = (props: {
 
 export const ExerciseUpdatePreferencesModal = (props: {
 	opened: boolean;
+	exerciseId: string;
 	onClose: () => void;
 	userExerciseDetails: {
 		details?: {
@@ -344,17 +347,9 @@ export const ExerciseUpdatePreferencesModal = (props: {
 			} | null;
 		} | null;
 	};
-	updateUserExerciseSettingsMutation: UseMutationResult<
-		void,
-		Error,
-		{
-			excludeFromAnalytics: boolean;
-			setRestTimers: Record<string, number | null>;
-		},
-		unknown
-	>;
 }) => {
-	const form = useForm({
+	const form = useSavedForm({
+		storageKeyPrefix: `ExerciseUpdatePreferencesModal-${props.exerciseId}`,
 		initialValues: {
 			excludeFromAnalytics:
 				props.userExerciseDetails.details?.exerciseExtraInformation?.settings
@@ -362,6 +357,17 @@ export const ExerciseUpdatePreferencesModal = (props: {
 			setRestTimers:
 				props.userExerciseDetails.details?.exerciseExtraInformation?.settings
 					.setRestTimers ?? {},
+		},
+	});
+
+	const updateUserExerciseSettingsMutation = useMutation({
+		mutationFn: async (values: {
+			excludeFromAnalytics: boolean;
+			setRestTimers: Record<string, number | null>;
+		}) => {
+			await clientGqlService.request(UpdateUserExerciseSettingsDocument, {
+				input: { change: values, exerciseId: props.exerciseId },
+			});
 		},
 	});
 
@@ -374,12 +380,13 @@ export const ExerciseUpdatePreferencesModal = (props: {
 		>
 			<form
 				onSubmit={form.onSubmit(async (values) => {
-					await props.updateUserExerciseSettingsMutation.mutateAsync(values);
+					await updateUserExerciseSettingsMutation.mutateAsync(values);
 					notifications.show({
 						color: "green",
 						title: "Settings updated",
 						message: "Settings for the exercise have been updated.",
 					});
+					form.clearSavedState();
 					props.onClose();
 				})}
 			>
@@ -411,8 +418,7 @@ export const ExerciseUpdatePreferencesModal = (props: {
 					</SimpleGrid>
 					<Button
 						type="submit"
-						disabled={!form.isDirty()}
-						loading={props.updateUserExerciseSettingsMutation.isPending}
+						loading={updateUserExerciseSettingsMutation.isPending}
 					>
 						Save settings
 					</Button>

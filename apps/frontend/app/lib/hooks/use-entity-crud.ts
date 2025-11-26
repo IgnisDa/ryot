@@ -16,6 +16,7 @@ export interface UseEntityCrudConfig<TValues, TDetails, TCreateResult> {
 	action: "create" | "edit";
 	createDocument: DocumentNode;
 	updateDocument: DocumentNode;
+	onSuccessCleanup?: () => void;
 	detailsPath: (id: string) => string;
 	extractIdFromUpdateResult: (result: unknown) => string;
 	extractIdFromCreateResult: (result: TCreateResult) => string;
@@ -62,6 +63,7 @@ export const useEntityCrud = <
 		},
 		onSuccess: (id) => {
 			showEntitySuccess(config.entityName, "created");
+			config.onSuccessCleanup?.();
 			navigate(config.detailsPath(id));
 		},
 		onError: () => {
@@ -87,6 +89,7 @@ export const useEntityCrud = <
 		onSuccess: (id) => {
 			refreshEntityDetails(id);
 			showEntitySuccess(config.entityName, "updated");
+			config.onSuccessCleanup?.();
 			navigate(config.detailsPath(id));
 		},
 		onError: () => {

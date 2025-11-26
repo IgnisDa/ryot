@@ -1,12 +1,12 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Button, Stack } from "@mantine/core";
-import { useForm } from "@mantine/form";
 import type {
 	MetadataProgressUpdateChange,
 	MetadataProgressUpdateCommonInput,
 	MetadataProgressUpdateInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { match } from "ts-pattern";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { convertTimestampToUtcString } from "~/lib/shared/date-utils";
 import { useDeployBulkMetadataProgressUpdateMutation } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
@@ -40,13 +40,13 @@ export const MetadataNewProgressUpdateForm = (
 		useDeployBulkMetadataProgressUpdateMutation(props.metadataDetails.title);
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
-	const form = useForm<{
+	const form = useSavedForm<{
+		watchTime: WatchTimes;
 		startDate: Date | null;
 		finishDate: Date | null;
-		watchTime: WatchTimes;
 		providersConsumedOn: string[];
 	}>({
-		mode: "uncontrolled",
+		storageKeyPrefix: `MetadataNewProgressUpdateForm-${props.metadataDetails.id}`,
 		initialValues: {
 			startDate: null,
 			finishDate: new Date(),
@@ -155,6 +155,7 @@ export const MetadataNewProgressUpdateForm = (
 				updates.push({ change, metadataId: metadataToUpdate.metadataId });
 				await deployBulkMetadataProgressUpdate.mutateAsync(updates);
 				advanceOnboardingTourStep();
+				form.clearSavedState();
 				props.onSubmit();
 			})}
 		>

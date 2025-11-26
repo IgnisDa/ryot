@@ -7,7 +7,6 @@ import {
 	Textarea,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
 	CreateOrUpdateUserMeasurementDocument,
@@ -17,6 +16,7 @@ import {
 import { changeCase, snakeCase } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { useApplicationEvents, useUserPreferences } from "~/lib/shared/hooks";
 import {
 	clientGqlService,
@@ -48,8 +48,8 @@ export const CreateOrUpdateMeasurementForm = (props: {
 	const events = useApplicationEvents();
 	const userPreferences = useUserPreferences();
 
-	const form = useForm<UserMeasurementInput>({
-		mode: "uncontrolled",
+	const form = useSavedForm<UserMeasurementInput>({
+		storageKeyPrefix: "CreateOrUpdateMeasurementForm",
 		initialValues: buildInput(props.measurementToUpdate),
 		validate: {
 			information: {
@@ -88,6 +88,7 @@ export const CreateOrUpdateMeasurementForm = (props: {
 				if (!props.measurementToUpdate) {
 					events.createMeasurement();
 				}
+				form.clearSavedState();
 				props.closeMeasurementModal();
 			})}
 		>

@@ -1,11 +1,11 @@
 import { Button, MultiSelect, Stack } from "@mantine/core";
-import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import type { Scalars } from "@ryot/generated/graphql/backend/graphql";
 import { groupBy } from "@ryot/ts-utils";
 import { useMemo } from "react";
 import { Fragment } from "react/jsx-runtime";
 import { CollectionTemplateRenderer } from "~/components/common/CollectionTemplateRenderer";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import {
 	useAddEntitiesToCollectionMutation,
 	useApplicationEvents,
@@ -23,8 +23,8 @@ export const AddEntityToCollectionsForm = ({
 	closeAddEntityToCollectionsDrawer: () => void;
 }) => {
 	const userDetails = useUserDetails();
-	const collections = useNonHiddenUserCollections();
 	const events = useApplicationEvents();
+	const collections = useNonHiddenUserCollections();
 	const [addEntityToCollectionData] = useAddEntityToCollections();
 	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
 	const { alreadyInCollectionIds } = useEntityAlreadyInCollections(
@@ -32,15 +32,13 @@ export const AddEntityToCollectionsForm = ({
 		addEntityToCollectionData?.entityLot,
 	);
 
-	const form = useForm<{
+	const form = useSavedForm<{
 		selectedCollections: Array<
 			Collection & { userExtraInformationData: Scalars["JSON"]["input"] }
 		>;
 	}>({
-		mode: "uncontrolled",
-		initialValues: {
-			selectedCollections: [],
-		},
+		initialValues: { selectedCollections: [] },
+		storageKeyPrefix: `AddEntityToCollectionsForm-${addEntityToCollectionData?.entityId}`,
 		validate: {
 			selectedCollections: (value) =>
 				value.length > 0 ? null : "Select at least one collection",
@@ -135,6 +133,7 @@ export const AddEntityToCollectionsForm = ({
 					message: `Entity added to ${values.selectedCollections.length} collection(s)`,
 				});
 				refreshEntityDetails(addEntityToCollectionData.entityId);
+				form.clearSavedState();
 				closeAddEntityToCollectionsDrawer();
 				events.addToCollection(addEntityToCollectionData.entityLot);
 			})}
