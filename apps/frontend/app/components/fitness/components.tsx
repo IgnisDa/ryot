@@ -381,6 +381,8 @@ export const ExerciseUpdatePreferencesModal = (props: {
 						title: "Settings updated",
 						message: "Settings for the exercise have been updated.",
 					});
+					form.reset();
+					form.clearSavedState();
 					props.onClose();
 				})}
 			>

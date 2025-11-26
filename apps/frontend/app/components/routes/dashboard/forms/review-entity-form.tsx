@@ -115,6 +115,8 @@ export const ReviewEntityForm = (props: {
 					? "Your review has been updated"
 					: "Your review has been created",
 			});
+			form.reset();
+			form.clearSavedState();
 			props.closeReviewEntityModal();
 		},
 		onError: () => {

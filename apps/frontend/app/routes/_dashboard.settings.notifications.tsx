@@ -185,6 +185,7 @@ export default function Page() {
 				onClose={() => {
 					closeCreateUserNotificationPlatformModal();
 					createForm.reset();
+					createForm.clearSavedState();
 				}}
 			>
 				<Box
@@ -194,6 +195,7 @@ export default function Page() {
 					onSubmit={createForm.onSubmit(() => {
 						closeCreateUserNotificationPlatformModal();
 						createForm.reset();
+						createForm.clearSavedState();
 					})}
 				>
 					<input hidden name="lot" value={createForm.values.lot} />

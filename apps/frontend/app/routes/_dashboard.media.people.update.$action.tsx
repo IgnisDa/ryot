@@ -146,6 +146,10 @@ export default function Page() {
 		}),
 		extractIdFromCreateResult: (result) => result.createCustomPerson.id,
 		extractIdFromUpdateResult: () => loaderData.query.id as string,
+		onSuccessCleanup: () => {
+			form.reset();
+			form.clearSavedState();
+		},
 	});
 
 	useEffect(() => {

@@ -155,6 +155,8 @@ export const MetadataNewProgressUpdateForm = (
 				updates.push({ change, metadataId: metadataToUpdate.metadataId });
 				await deployBulkMetadataProgressUpdate.mutateAsync(updates);
 				advanceOnboardingTourStep();
+				form.reset();
+				form.clearSavedState();
 				props.onSubmit();
 			})}
 		>

@@ -260,6 +260,7 @@ export const ReviewItemDisplay = (props: {
 									reviewId: props.review.id,
 								});
 								form.reset();
+								form.clearSavedState();
 								toggleLeaveComment();
 							})}
 						>

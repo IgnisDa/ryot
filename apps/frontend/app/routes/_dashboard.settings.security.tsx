@@ -528,6 +528,8 @@ const VerifyCodeStep = (props: VerifyCodeStepProps) => {
 		},
 		onSuccess: (data) => {
 			props.setBackupCodes(data.backupCodes);
+			form.reset();
+			form.clearSavedState();
 			props.onNext();
 		},
 	});
