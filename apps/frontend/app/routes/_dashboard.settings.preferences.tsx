@@ -262,13 +262,8 @@ export default function Page() {
 												{facet === "media" ? (
 													<MultiSelect
 														disabled={!!isEditDisabled}
+														data={convertEnumToSelectData(MediaLot)}
 														value={form.values.featuresEnabled[facet].specific}
-														data={Object.entries(MediaLot).map(
-															([_name, lot]) => ({
-																value: lot,
-																label: changeCase(lot),
-															}),
-														)}
 														onChange={(val) => {
 															if (val) {
 																form.setFieldValue(
