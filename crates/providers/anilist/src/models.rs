@@ -23,13 +23,7 @@ pub static STUDIO_ROLE: &str = "Production Studio";
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphQLResponse<T> {
     pub data: Option<T>,
-    pub errors: Option<
-        Vec<
-            nest! {
-                pub message: String,
-            },
-        >,
-    >,
+    pub errors: Option<Vec<nest! { pub message: String }>>,
 }
 
 #[nest_struct]
@@ -38,13 +32,13 @@ pub struct MediaSearchResponse {
     #[serde(rename = "Page")]
     pub page: Option<
         nest! {
+            pub media: Option<Vec<Option<MediaSearchItem>>>,
+            pub staff: Option<Vec<Option<StaffSearchItem>>>,
+            pub studios: Option<Vec<Option<StudioSearchItem>>>,
             #[serde(rename = "pageInfo")]
             pub page_info: Option<nest! {
                 pub total: Option<u64>,
             }>,
-            pub media: Option<Vec<Option<MediaSearchItem>>>,
-            pub staff: Option<Vec<Option<StaffSearchItem>>>,
-            pub studios: Option<Vec<Option<StudioSearchItem>>>,
         },
     >,
 }
@@ -53,57 +47,53 @@ pub struct MediaSearchResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaSearchItem {
     pub id: i32,
+    #[serde(rename = "type")]
+    pub media_type: Option<String>,
+    #[serde(rename = "bannerImage")]
+    pub banner_image: Option<String>,
     pub title: Option<
         nest! {
-            pub english: Option<String>,
             pub native: Option<String>,
             pub romaji: Option<String>,
+            pub english: Option<String>,
         },
     >,
     #[serde(rename = "coverImage")]
     pub cover_image: Option<
         nest! {
+            pub large: Option<String>,
+            pub medium: Option<String>,
             #[serde(rename = "extraLarge")]
             pub extra_large: Option<String>,
-            pub medium: Option<String>,
-            pub large: Option<String>,
         },
     >,
     #[serde(rename = "startDate")]
     pub start_date: Option<
         nest! {
+            pub day: Option<i32>,
             pub year: Option<i32>,
             pub month: Option<i32>,
-            pub day: Option<i32>,
         },
     >,
-    #[serde(rename = "bannerImage")]
-    pub banner_image: Option<String>,
-    #[serde(rename = "type")]
-    pub media_type: Option<String>,
 }
 
 #[nest_struct]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StaffSearchItem {
     pub id: i32,
-    pub name: Option<
-        nest! {
-            pub full: Option<String>,
-        },
-    >,
+    pub name: Option<nest! { pub full: Option<String> }>,
     pub image: Option<
         nest! {
-            pub medium: Option<String>,
             pub large: Option<String>,
+            pub medium: Option<String>,
         },
     >,
     #[serde(rename = "dateOfBirth")]
     pub date_of_birth: Option<
         nest! {
+            pub day: Option<i32>,
             pub year: Option<i32>,
             pub month: Option<i32>,
-            pub day: Option<i32>,
         },
     >,
 }
@@ -138,9 +128,9 @@ pub struct MediaDetails {
     pub id: i32,
     pub title: Option<
         nest! {
-            pub english: Option<String>,
             pub native: Option<String>,
             pub romaji: Option<String>,
+            pub english: Option<String>,
         },
     >,
     pub status: Option<String>,
@@ -148,45 +138,37 @@ pub struct MediaDetails {
     pub airing_schedule: Option<
         nest! {
             pub nodes: Option<Vec<Option<nest! {
+                pub episode: i32,
                 #[serde(rename = "airingAt")]
                 pub airing_at: i64,
-                pub episode: i32,
             }>>>,
         },
     >,
-    #[serde(rename = "isAdult")]
-    pub is_adult: Option<bool>,
+    pub volumes: Option<i32>,
     pub episodes: Option<i32>,
     pub chapters: Option<i32>,
-    pub volumes: Option<i32>,
-    pub description: Option<String>,
+    #[serde(rename = "isAdult")]
+    pub is_adult: Option<bool>,
     #[serde(rename = "type")]
     pub media_type: Option<String>,
+    pub description: Option<String>,
     pub genres: Option<Vec<Option<String>>>,
+    pub tags: Option<Vec<Option<nest! { pub name: String }>>>,
     #[serde(rename = "coverImage")]
     pub cover_image: Option<
         nest! {
+            pub large: Option<String>,
+            pub medium: Option<String>,
             #[serde(rename = "extraLarge")]
             pub extra_large: Option<String>,
-            pub medium: Option<String>,
-            pub large: Option<String>,
         },
-    >,
-    pub tags: Option<
-        Vec<
-            Option<
-                nest! {
-                    pub name: String,
-                },
-            >,
-        >,
     >,
     #[serde(rename = "startDate")]
     pub start_date: Option<
         nest! {
+            pub day: Option<i32>,
             pub year: Option<i32>,
             pub month: Option<i32>,
-            pub day: Option<i32>,
         },
     >,
     #[serde(rename = "bannerImage")]
@@ -194,13 +176,11 @@ pub struct MediaDetails {
     pub staff: Option<
         nest! {
             pub edges: Option<Vec<Option<nest! {
+                pub role: Option<String>,
                 pub node: Option<nest! {
                     pub id: i32,
-                    pub name: Option<nest! {
-                        pub full: Option<String>,
-                    }>,
+                    pub name: Option<nest! { pub full: Option<String> }>,
                 }>,
-                pub role: Option<String>,
             }>>>,
         },
     >,
@@ -226,8 +206,8 @@ pub struct MediaDetails {
     >,
     pub trailer: Option<
         nest! {
-            pub site: Option<String>,
             pub id: Option<String>,
+            pub site: Option<String>,
         },
     >,
 }
@@ -236,19 +216,15 @@ pub struct MediaDetails {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StaffDetails {
     pub id: i32,
-    pub name: Option<
-        nest! {
-            pub full: Option<String>,
-        },
-    >,
+    pub name: Option<nest! { pub full: Option<String> }>,
     pub image: Option<
         nest! {
-            pub medium: Option<String>,
             pub large: Option<String>,
+            pub medium: Option<String>,
         },
     >,
-    pub description: Option<String>,
     pub gender: Option<String>,
+    pub description: Option<String>,
     #[serde(rename = "dateOfBirth")]
     pub date_of_birth: Option<
         nest! {
