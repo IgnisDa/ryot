@@ -371,9 +371,12 @@ async fn get_settings(client: &Client, ss: &Arc<SupportingService>) -> Result<Tm
         || async {
             let config_future = client.get(format!("{URL}/configuration")).send();
             let languages_future = client.get(format!("{URL}/configuration/languages")).send();
-            let (config_resp, languages_resp) = try_join!(config_future, languages_future)?;
-            let languages: Vec<TmdbLanguage> = languages_resp.json().await?;
-            let configuration: TmdbConfiguration = config_resp.json().await?;
+            let (configuration_response, languages_resp) =
+                try_join!(config_future, languages_future)?;
+            let (languages, configuration) = try_join!(
+                languages_resp.json::<Vec<TmdbLanguage>>(),
+                configuration_response.json::<TmdbConfiguration>()
+            )?;
             let settings = TmdbSettings {
                 languages,
                 image_url: configuration.images.secure_base_url,
