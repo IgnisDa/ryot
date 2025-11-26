@@ -413,7 +413,6 @@ export const ExerciseUpdatePreferencesModal = (props: {
 					</SimpleGrid>
 					<Button
 						type="submit"
-						disabled={!form.isDirty()}
 						loading={props.updateUserExerciseSettingsMutation.isPending}
 					>
 						Save settings
