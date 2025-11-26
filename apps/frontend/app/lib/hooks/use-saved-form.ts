@@ -15,7 +15,7 @@ export const useSavedForm = <TValues extends Record<string, unknown>>(
 } => {
 	const userDetails = useUserDetails();
 	const [savedValues, setSavedValues] = useLocalStorage<TValues | null>(
-		`${userDetails.id}-${config.storageKeyPrefix}`,
+		`${config.storageKeyPrefix}-${userDetails.id}`,
 		null,
 	);
 
