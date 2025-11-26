@@ -24,17 +24,12 @@ export const useSavedForm = <TValues extends Record<string, unknown>>(
 	const form = useForm<TValues>({ ...config, initialValues });
 
 	useEffect(() => {
-		if (form.isDirty()) {
-			setSavedValues(form.values);
-		}
+		if (form.isDirty()) setSavedValues(form.values);
 	}, [form.values, form.isDirty, setSavedValues]);
 
 	const clearSavedState = () => {
 		setSavedValues(null);
 	};
 
-	return {
-		...form,
-		clearSavedState,
-	};
+	return { ...form, clearSavedState };
 };
