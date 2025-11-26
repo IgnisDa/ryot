@@ -1,17 +1,15 @@
 import { Button, MultiSelect, Stack } from "@mantine/core";
-import { useListState } from "@mantine/hooks";
+import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import type { Scalars } from "@ryot/generated/graphql/backend/graphql";
 import { groupBy } from "@ryot/ts-utils";
-import { type FormEvent, useMemo } from "react";
-import { Form } from "react-router";
+import { useMemo } from "react";
 import { Fragment } from "react/jsx-runtime";
 import { CollectionTemplateRenderer } from "~/components/common/CollectionTemplateRenderer";
 import {
 	useAddEntitiesToCollectionMutation,
 	useApplicationEvents,
 	useEntityAlreadyInCollections,
-	useFormValidation,
 	useNonHiddenUserCollections,
 	useUserDetails,
 } from "~/lib/shared/hooks";
@@ -34,11 +32,20 @@ export const AddEntityToCollectionsForm = ({
 		addEntityToCollectionData?.entityLot,
 	);
 
-	const [selectedCollections, selectedCollectionsHandlers] = useListState<
-		Collection & { userExtraInformationData: Scalars["JSON"]["input"] }
-	>([]);
-
-	const { formRef, isFormValid } = useFormValidation(selectedCollections);
+	const form = useForm<{
+		selectedCollections: Array<
+			Collection & { userExtraInformationData: Scalars["JSON"]["input"] }
+		>;
+	}>({
+		mode: "uncontrolled",
+		initialValues: {
+			selectedCollections: [],
+		},
+		validate: {
+			selectedCollections: (value) =>
+				value.length > 0 ? null : "Select at least one collection",
+		},
+	});
 
 	const selectData = useMemo(
 		() =>
@@ -60,20 +67,25 @@ export const AddEntityToCollectionsForm = ({
 	if (!addEntityToCollectionData) return null;
 
 	const handleCollectionChange = (ids: string[]) => {
+		const currentCollections = form.values.selectedCollections;
+		const newCollections = [...currentCollections];
+
 		for (const id of ids) {
-			if (!selectedCollections.some((c) => c.id === id)) {
+			if (!newCollections.some((c) => c.id === id)) {
 				const col = collections.find((c) => c.id === id);
-				if (col)
-					selectedCollectionsHandlers.append({
+				if (col) {
+					newCollections.push({
 						...col,
 						userExtraInformationData: {},
 					});
+				}
 			}
 		}
-		for (let i = selectedCollections.length - 1; i >= 0; i--) {
-			if (!ids.includes(selectedCollections[i].id))
-				selectedCollectionsHandlers.remove(i);
-		}
+
+		const filteredCollections = newCollections.filter((c) =>
+			ids.includes(c.id),
+		);
+		form.setFieldValue("selectedCollections", filteredCollections);
 	};
 
 	const handleCustomFieldChange = (
@@ -81,46 +93,52 @@ export const AddEntityToCollectionsForm = ({
 		field: string,
 		value: unknown,
 	) => {
-		const idx = selectedCollections.findIndex((c) => c.id === colId);
+		const idx = form.values.selectedCollections.findIndex(
+			(c) => c.id === colId,
+		);
 		if (idx !== -1) {
-			selectedCollectionsHandlers.setItemProp(idx, "userExtraInformationData", {
-				...selectedCollections[idx].userExtraInformationData,
-				[field]: value,
-			});
+			const newCollections = [...form.values.selectedCollections];
+			newCollections[idx] = {
+				...newCollections[idx],
+				userExtraInformationData: {
+					...newCollections[idx].userExtraInformationData,
+					[field]: value,
+				},
+			};
+			form.setFieldValue("selectedCollections", newCollections);
 		}
 	};
 
-	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-		e.preventDefault();
-		if (!addEntityToCollectionData) return;
-
-		await Promise.all(
-			selectedCollections.map((col) =>
-				addEntitiesToCollection.mutateAsync({
-					collectionName: col.name,
-					creatorUserId: col.creator.id,
-					entities: [
-						{
-							information: col.userExtraInformationData,
-							entityId: addEntityToCollectionData.entityId,
-							entityLot: addEntityToCollectionData.entityLot,
-						},
-					],
-				}),
-			),
-		);
-		notifications.show({
-			color: "green",
-			title: "Added to collection",
-			message: `Entity added to ${selectedCollections.length} collection(s)`,
-		});
-		refreshEntityDetails(addEntityToCollectionData.entityId);
-		closeAddEntityToCollectionsDrawer();
-		events.addToCollection(addEntityToCollectionData.entityLot);
-	};
-
 	return (
-		<Form ref={formRef} onSubmit={handleSubmit}>
+		<form
+			onSubmit={form.onSubmit(async (values) => {
+				if (!addEntityToCollectionData) return;
+
+				await Promise.all(
+					values.selectedCollections.map((col) =>
+						addEntitiesToCollection.mutateAsync({
+							collectionName: col.name,
+							creatorUserId: col.creator.id,
+							entities: [
+								{
+									information: col.userExtraInformationData,
+									entityId: addEntityToCollectionData.entityId,
+									entityLot: addEntityToCollectionData.entityLot,
+								},
+							],
+						}),
+					),
+				);
+				notifications.show({
+					color: "green",
+					title: "Added to collection",
+					message: `Entity added to ${values.selectedCollections.length} collection(s)`,
+				});
+				refreshEntityDetails(addEntityToCollectionData.entityId);
+				closeAddEntityToCollectionsDrawer();
+				events.addToCollection(addEntityToCollectionData.entityLot);
+			})}
+		>
 			<Stack>
 				<MultiSelect
 					required
@@ -129,9 +147,9 @@ export const AddEntityToCollectionsForm = ({
 					label="Select collections"
 					nothingFoundMessage="Nothing found..."
 					onChange={(v) => handleCollectionChange(v)}
-					value={selectedCollections.map((c) => c.id)}
+					value={form.values.selectedCollections.map((c) => c.id)}
 				/>
-				{selectedCollections.map((col) => (
+				{form.values.selectedCollections.map((col) => (
 					<Fragment key={col.id}>
 						{col.informationTemplate?.map((template) => (
 							<CollectionTemplateRenderer
@@ -148,12 +166,11 @@ export const AddEntityToCollectionsForm = ({
 				<Button
 					type="submit"
 					variant="outline"
-					disabled={!isFormValid}
 					loading={addEntitiesToCollection.isPending}
 				>
 					Set
 				</Button>
 			</Stack>
-		</Form>
+		</form>
 	);
 };

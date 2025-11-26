@@ -18,6 +18,7 @@ import {
 	Title,
 	Tooltip,
 } from "@mantine/core";
+import { useForm } from "@mantine/form";
 import { useDisclosure, useListState } from "@mantine/hooks";
 import {
 	CreateUserNotificationPlatformDocument,
@@ -36,7 +37,6 @@ import {
 	zodCheckboxAsString,
 } from "@ryot/ts-utils";
 import { IconPencil, IconTrash } from "@tabler/icons-react";
-import { useState } from "react";
 import { Form, data, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -155,44 +155,59 @@ export default function Page() {
 			close: closeCreateUserNotificationPlatformModal,
 		},
 	] = useDisclosure(false);
-	const [
-		createUserNotificationPlatformLot,
-		setCreateUserNotificationPlatformLot,
-	] = useState<NotificationPlatformLot>();
+
+	const createForm = useForm<{
+		lot: NotificationPlatformLot | "";
+		baseUrl?: string;
+		apiToken?: string;
+		chatId?: string;
+		authHeader?: string;
+		priority?: number;
+	}>({
+		initialValues: {
+			lot: "",
+			baseUrl: "",
+			apiToken: "",
+			chatId: "",
+			authHeader: "",
+			priority: undefined,
+		},
+		validate: {
+			lot: (value) => (value ? null : "Please select a platform"),
+		},
+	});
 
 	return (
 		<>
 			<Modal
-				opened={createUserNotificationPlatformModalOpened}
-				onClose={closeCreateUserNotificationPlatformModal}
 				centered
 				withCloseButton={false}
+				opened={createUserNotificationPlatformModalOpened}
+				onClose={() => {
+					closeCreateUserNotificationPlatformModal();
+					createForm.reset();
+				}}
 			>
 				<Box
 					method="POST"
 					component={Form}
 					action={withQuery(".", { intent: "create" })}
-					onSubmit={() => {
+					onSubmit={createForm.onSubmit(() => {
 						closeCreateUserNotificationPlatformModal();
-						setCreateUserNotificationPlatformLot(undefined);
-					}}
+						createForm.reset();
+					})}
 				>
-					<input hidden name="lot" value={createUserNotificationPlatformLot} />
+					<input hidden name="lot" value={createForm.values.lot} />
 					<Stack>
 						<Select
 							required
 							searchable
 							label="Select a platform"
 							data={convertEnumToSelectData(NotificationPlatformLot)}
-							onChange={(v) => {
-								if (v)
-									setCreateUserNotificationPlatformLot(
-										v as NotificationPlatformLot,
-									);
-							}}
+							{...createForm.getInputProps("lot")}
 						/>
-						{createUserNotificationPlatformLot
-							? match(createUserNotificationPlatformLot)
+						{createForm.values.lot
+							? match(createForm.values.lot)
 									.with(NotificationPlatformLot.Apprise, () => (
 										<>
 											<TextInput label="Base Url" required name="baseUrl" />

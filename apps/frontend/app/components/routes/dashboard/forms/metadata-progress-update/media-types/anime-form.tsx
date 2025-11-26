@@ -1,6 +1,5 @@
 import { Checkbox, NumberInput } from "@mantine/core";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
-import { produce } from "immer";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
@@ -19,23 +18,21 @@ export const AnimeForm = (props: MediaFormProps) => {
 				label="Episode"
 				value={metadataToUpdate.animeEpisodeNumber?.toString()}
 				onChange={(e) => {
-					updateMetadataToUpdate(
-						produce(metadataToUpdate, (draft) => {
-							draft.animeEpisodeNumber = Number(e);
-						}),
-					);
+					updateMetadataToUpdate({
+						...metadataToUpdate,
+						animeEpisodeNumber: Number(e),
+					});
 				}}
 			/>
 			<Checkbox
 				size="xs"
 				label="Mark all unseen episodes before this as watched"
-				defaultChecked={metadataToUpdate.animeAllEpisodesBefore}
+				checked={metadataToUpdate.animeAllEpisodesBefore || false}
 				onChange={(e) => {
-					updateMetadataToUpdate(
-						produce(metadataToUpdate, (draft) => {
-							draft.animeAllEpisodesBefore = e.target.checked;
-						}),
-					);
+					updateMetadataToUpdate({
+						...metadataToUpdate,
+						animeAllEpisodesBefore: e.target.checked,
+					});
 				}}
 			/>
 		</>
