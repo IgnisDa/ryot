@@ -15,10 +15,9 @@ pub trait MaskedConfig {
 
 /// Helper function to mask string values
 pub fn mask_string(value: &str) -> String {
-    if value.is_empty() {
-        "<empty>".to_owned()
-    } else {
-        "****".to_owned()
+    match value.is_empty() {
+        false => "****".to_owned(),
+        true => "<empty>".to_owned(),
     }
 }
 
