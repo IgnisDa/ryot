@@ -184,7 +184,6 @@ export default function Page() {
 				opened={createUserNotificationPlatformModalOpened}
 				onClose={() => {
 					closeCreateUserNotificationPlatformModal();
-					createForm.reset();
 					createForm.clearSavedState();
 				}}
 			>
@@ -194,7 +193,6 @@ export default function Page() {
 					action={withQuery(".", { intent: "create" })}
 					onSubmit={createForm.onSubmit(() => {
 						closeCreateUserNotificationPlatformModal();
-						createForm.reset();
 						createForm.clearSavedState();
 					})}
 				>

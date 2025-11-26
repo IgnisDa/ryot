@@ -27,7 +27,10 @@ export const useSavedForm = <TValues extends Record<string, unknown>>(
 		if (form.isDirty()) setSavedValues(form.values);
 	}, [form.values, form.isDirty, setSavedValues]);
 
-	const clearSavedState = () => setSavedValues(null);
+	const clearSavedState = () => {
+		form.reset();
+		setSavedValues(null);
+	};
 
 	return { ...form, clearSavedState };
 };

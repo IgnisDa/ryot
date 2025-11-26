@@ -108,10 +108,7 @@ export default function Page() {
 		extractIdFromCreateResult: (result) =>
 			result.createCustomMetadataGroup.id as string,
 		extractIdFromUpdateResult: () => loaderData.query.id as string,
-		onSuccessCleanup: () => {
-			form.reset();
-			form.clearSavedState();
-		},
+		onSuccessCleanup: () => form.clearSavedState(),
 	});
 
 	useEffect(() => {

@@ -101,14 +101,17 @@ export default function Page() {
 		NonNullable<ReturnType<typeof usePersonDetails>[0]["data"]>,
 		{ createCustomPerson: { id: string } }
 	>({
+		s3Prefix: "person",
+		entityName: "Person",
 		action: loaderData.action,
 		entityId: loaderData.query.id,
-		entityName: "Person",
-		s3Prefix: "person",
+		useDetailsHook: usePersonDetails,
 		detailsPath: getPersonDetailsPath,
 		createDocument: CreateCustomPersonDocument,
 		updateDocument: UpdateCustomPersonDocument,
-		useDetailsHook: usePersonDetails,
+		onSuccessCleanup: () => form.clearSavedState(),
+		extractIdFromUpdateResult: () => loaderData.query.id as string,
+		extractIdFromCreateResult: (result) => result.createCustomPerson.id,
 		transformToCreateInput: (values, s3Images) => ({
 			name: values.name,
 			place: values.place || undefined,
@@ -144,12 +147,6 @@ export default function Page() {
 					: undefined,
 			},
 		}),
-		extractIdFromCreateResult: (result) => result.createCustomPerson.id,
-		extractIdFromUpdateResult: () => loaderData.query.id as string,
-		onSuccessCleanup: () => {
-			form.reset();
-			form.clearSavedState();
-		},
 	});
 
 	useEffect(() => {

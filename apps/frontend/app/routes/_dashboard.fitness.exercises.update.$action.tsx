@@ -187,7 +187,6 @@ export default function Page() {
 				.then((res) => res.createCustomExercise),
 		onSuccess: (id) => {
 			showEntitySuccess("Exercise", "created");
-			form.reset();
 			form.clearSavedState();
 			navigate(getExerciseDetailsPath(id));
 		},
@@ -210,7 +209,6 @@ export default function Page() {
 				"Exercise",
 				memoizedInput.shouldDelete ? "deleted" : "updated",
 			);
-			form.reset();
 			form.clearSavedState();
 			navigate(destination);
 		},

@@ -151,10 +151,7 @@ export default function Page() {
 			(result as { createCustomMetadata: { id: string } }).createCustomMetadata
 				.id as string,
 		extractIdFromUpdateResult: () => loaderData.query.id as string,
-		onSuccessCleanup: () => {
-			form.reset();
-			form.clearSavedState();
-		},
+		onSuccessCleanup: () => form.clearSavedState(),
 	});
 
 	const form = useSavedForm({
