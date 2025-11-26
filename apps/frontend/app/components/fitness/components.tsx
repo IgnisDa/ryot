@@ -47,6 +47,7 @@ import type { ComponentType, Dispatch, SetStateAction } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useExerciseDetails,
@@ -67,7 +68,6 @@ import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 } from "./utils";
-import { useSavedForm } from "~/lib/hooks/use-saved-form";
 
 type Exercise = TWorkoutDetails["details"]["information"]["exercises"][number];
 type Set = Exercise["sets"][number];

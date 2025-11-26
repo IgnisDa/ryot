@@ -32,6 +32,7 @@ import {
 	CustomEntityImageInput,
 	ExistingImageList,
 } from "~/components/common/custom-entities";
+import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { useCoreDetails, useExerciseDetails } from "~/lib/shared/hooks";
 import { buildImageAssets, mergeImages } from "~/lib/shared/image-utils";
 import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
@@ -45,7 +46,6 @@ import {
 	convertEnumToSelectData,
 } from "~/lib/shared/ui-utils";
 import type { Route } from "./+types/_dashboard.fitness.exercises.update.$action";
-import { useSavedForm } from "~/lib/hooks/use-saved-form";
 
 const searchParamsSchema = z.object({
 	id: z.string().optional(),
