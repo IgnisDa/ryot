@@ -285,8 +285,8 @@ impl TmdbService {
         media_type: &str,
     ) -> Result<Vec<PartialMetadataWithoutId>> {
         let media_lot = match media_type {
-            "movie" => MediaLot::Movie,
             "tv" => MediaLot::Show,
+            "movie" => MediaLot::Movie,
             _ => bail!("Invalid media type"),
         };
 
@@ -297,10 +297,10 @@ impl TmdbService {
             |entry| async move {
                 entry.title.map(|title| PartialMetadataWithoutId {
                     title,
+                    lot: media_lot,
                     source: MediaSource::Tmdb,
                     identifier: entry.id.to_string(),
                     image: entry.poster_path.map(|p| self.get_image_url(p)),
-                    lot: media_lot,
                     ..Default::default()
                 })
             },
@@ -372,8 +372,8 @@ async fn get_settings(client: &Client, ss: &Arc<SupportingService>) -> Result<Tm
             let config_future = client.get(format!("{URL}/configuration")).send();
             let languages_future = client.get(format!("{URL}/configuration/languages")).send();
             let (config_resp, languages_resp) = try_join!(config_future, languages_future)?;
-            let configuration: TmdbConfiguration = config_resp.json().await?;
             let languages: Vec<TmdbLanguage> = languages_resp.json().await?;
+            let configuration: TmdbConfiguration = config_resp.json().await?;
             let settings = TmdbSettings {
                 languages,
                 image_url: configuration.images.secure_base_url,
