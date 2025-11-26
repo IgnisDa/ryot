@@ -14,6 +14,7 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
+import { useForm } from "@mantine/form";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
@@ -35,7 +36,6 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { CopyableTextInput } from "~/components/common";
-import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { redirectToQueryParam } from "~/lib/shared/constants";
 import {
 	useConfirmSubmit,
@@ -510,9 +510,8 @@ interface VerifyCodeStepProps {
 }
 
 const VerifyCodeStep = (props: VerifyCodeStepProps) => {
-	const form = useSavedForm({
+	const form = useForm({
 		initialValues: { code: "" },
-		storageKeyPrefix: "TwoFactorVerify",
 		validate: {
 			code: (value) => (value.length !== 6 ? "Code must be 6 digits" : null),
 		},
@@ -528,7 +527,7 @@ const VerifyCodeStep = (props: VerifyCodeStepProps) => {
 		},
 		onSuccess: (data) => {
 			props.setBackupCodes(data.backupCodes);
-			form.clearSavedState();
+			form.reset();
 			props.onNext();
 		},
 	});
