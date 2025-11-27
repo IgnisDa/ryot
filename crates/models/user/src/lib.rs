@@ -1,6 +1,6 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
 use educe::Educe;
-use enum_models::{MediaLot, UserLot};
+use enum_models::{MediaLot, MediaSource, UserLot};
 use fitness_models::{SetRestTimersSettings, UserUnitSystem};
 use sea_orm::{FromJsonQueryResult, Iterable, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
@@ -393,6 +393,43 @@ pub struct UserGeneralPreferences {
     Eq,
     Clone,
     Debug,
+    Educe,
+    Serialize,
+    PartialEq,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "UserSourceLanguagePreferencesInput")]
+#[educe(Default)]
+pub struct UserSourceLanguagePreferences {
+    pub source: MediaSource,
+    pub preferred_language: String,
+}
+
+#[derive(
+    Eq,
+    Clone,
+    Debug,
+    Educe,
+    Serialize,
+    PartialEq,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "UserLanguagePreferencesInput")]
+#[educe(Default)]
+pub struct UserLanguagePreferences {
+    pub information: Vec<UserSourceLanguagePreferences>,
+}
+
+#[derive(
+    Eq,
+    Clone,
+    Debug,
     Default,
     PartialEq,
     Serialize,
@@ -405,6 +442,7 @@ pub struct UserGeneralPreferences {
 pub struct UserPreferences {
     pub fitness: UserFitnessPreferences,
     pub general: UserGeneralPreferences,
+    pub languages: UserLanguagePreferences,
     pub features_enabled: UserFeaturesEnabledPreferences,
 }
 
