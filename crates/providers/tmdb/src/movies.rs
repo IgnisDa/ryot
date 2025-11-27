@@ -19,7 +19,10 @@ use rust_decimal::dec;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
-use crate::{base::TmdbService, models::*};
+use crate::{
+    base::TmdbService,
+    models::{TmdbCollection, TmdbCreditsResponse, TmdbListResponse, TmdbMediaEntry, URL},
+};
 
 pub struct TmdbMovieService(TmdbService);
 
@@ -45,7 +48,7 @@ impl MediaProvider for TmdbMovieService {
             .query(&[
                 ("query", query),
                 ("page", &page.to_string()),
-                ("language", self.0.language.as_str()),
+                ("language", &self.0.get_default_language()),
                 ("include_adult", &display_nsfw.to_string()),
             ])
             .send()
@@ -79,7 +82,7 @@ impl MediaProvider for TmdbMovieService {
             .get(format!("{URL}/movie/{identifier}"))
             .query(&[
                 ("append_to_response", "videos"),
-                ("language", self.0.language.as_str()),
+                ("language", &self.0.get_default_language()),
             ])
             .send()
             .await?;
@@ -95,7 +98,7 @@ impl MediaProvider for TmdbMovieService {
             .0
             .client
             .get(format!("{URL}/movie/{identifier}/credits"))
-            .query(&[("language", self.0.language.as_str())])
+            .query(&[("language", &self.0.get_default_language())])
             .send()
             .await?;
         let credits: TmdbCreditsResponse = rsp.json().await?;
@@ -240,7 +243,7 @@ impl MediaProvider for TmdbMovieService {
             .query(&[
                 ("query", query),
                 ("page", &page.to_string()),
-                ("language", self.0.language.as_str()),
+                ("language", &self.0.get_default_language()),
                 ("include_adult", &display_nsfw.to_string()),
             ])
             .send()
@@ -274,7 +277,7 @@ impl MediaProvider for TmdbMovieService {
             .0
             .client
             .get(format!("{URL}/collection/{identifier}"))
-            .query(&[("language", self.0.language.as_str())])
+            .query(&[("language", &self.0.get_default_language())])
             .send()
             .await?
             .json()

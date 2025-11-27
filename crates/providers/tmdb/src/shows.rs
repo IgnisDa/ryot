@@ -22,7 +22,10 @@ use rust_decimal::dec;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
-use crate::{base::TmdbService, models::*};
+use crate::{
+    base::TmdbService,
+    models::{TmdbListResponse, TmdbMediaEntry, TmdbSeason, TmdbSeasonCredit, URL},
+};
 
 pub struct TmdbShowService(TmdbService);
 
@@ -40,8 +43,8 @@ impl MediaProvider for TmdbShowService {
             .client
             .get(format!("{}/tv/{}", URL, &identifier))
             .query(&[
-                ("language", self.0.language.as_str()),
                 ("append_to_response", "videos"),
+                ("language", &self.0.get_default_language()),
             ])
             .send()
             .await?;
@@ -261,7 +264,7 @@ impl MediaProvider for TmdbShowService {
             .query(&[
                 ("query", query),
                 ("page", &page.to_string()),
-                ("language", self.0.language.as_str()),
+                ("language", &self.0.get_default_language()),
                 ("include_adult", &display_nsfw.to_string()),
             ])
             .send()
@@ -300,7 +303,7 @@ pub async fn fetch_season_with_credits(
     let season_data_future = base
         .client
         .get(format!("{URL}/tv/{identifier}/season/{season_number}"))
-        .query(&[("language", base.language.as_str())])
+        .query(&[("language", &base.get_default_language())])
         .send();
 
     let season_credits_future = base
@@ -308,7 +311,7 @@ pub async fn fetch_season_with_credits(
         .get(format!(
             "{URL}/tv/{identifier}/season/{season_number}/credits"
         ))
-        .query(&[("language", base.language.as_str())])
+        .query(&[("language", &base.get_default_language())])
         .send();
 
     let (season_resp, credits_resp) = try_join!(season_data_future, season_credits_future)?;

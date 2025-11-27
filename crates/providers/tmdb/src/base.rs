@@ -25,7 +25,6 @@ use crate::models::{
 
 pub struct TmdbService {
     pub client: Client,
-    pub language: String,
     pub settings: TmdbSettings,
 }
 
@@ -37,11 +36,7 @@ impl TmdbService {
             HeaderValue::from_str(&format!("Bearer {access_token}"))?,
         )]));
         let settings = get_settings(&client, &ss).await.unwrap_or_default();
-        Ok(Self {
-            client,
-            settings,
-            language: ss.config.movies_and_shows.tmdb.locale.clone(),
-        })
+        Ok(Self { client, settings })
     }
 
     pub fn get_image_url(&self, c: String) -> String {
@@ -142,7 +137,7 @@ impl TmdbService {
         let watch_providers_with_langs: TmdbWatchProviderResponse = self
             .client
             .get(format!("{URL}/{media_type}/{identifier}/watch/providers"))
-            .query(&[("language", self.language.as_str())])
+            .query(&[("language", self.get_default_language())])
             .send()
             .await?
             .json()
@@ -295,7 +290,7 @@ impl TmdbService {
 
         self.fetch_paginated_data(
             format!("{URL}/trending/{media_type}/day"),
-            &[("page", "1"), ("language", self.language.as_str())],
+            &[("page", "1"), ("language", &self.get_default_language())],
             Some(3),
             |entry| async move {
                 entry.title.map(|title| PartialMetadataWithoutId {
@@ -320,7 +315,7 @@ impl TmdbService {
             ss,
             ApplicationCacheKey::TmdbMultiSearch(MetadataLookupCacheInput {
                 title: query.to_owned(),
-                language: Some(self.language.clone()),
+                language: Some(self.get_default_language()),
             }),
             ApplicationCacheValue::TmdbMultiSearch,
             move || async move {
@@ -332,7 +327,7 @@ impl TmdbService {
                         ("page", "1"),
                         ("query", query),
                         ("include_adult", "true"),
-                        ("language", &self.language),
+                        ("language", &self.get_default_language()),
                     ])
                     .send()
                     .await?

@@ -192,9 +192,6 @@ pub struct TvdbConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_AND_SHOWS_TMDB_")]
 pub struct TmdbConfig {
-    /// The locale to use for making requests to TMDB API.
-    #[setting(default = "en")]
-    pub locale: String,
     /// The access token for the TMDB API.
     #[mask]
     pub access_token: String,
