@@ -403,7 +403,7 @@ pub struct UserGeneralPreferences {
 )]
 #[graphql(input_name = "UserSourceLanguagePreferencesInput")]
 #[educe(Default)]
-pub struct UserSourceLanguagePreferences {
+pub struct UserProviderLanguagePreferences {
     pub source: MediaSource,
     pub preferred_language: String,
 }
@@ -423,7 +423,7 @@ pub struct UserSourceLanguagePreferences {
 #[graphql(input_name = "UserLanguagePreferencesInput")]
 #[educe(Default)]
 pub struct UserLanguagePreferences {
-    pub information: Vec<UserSourceLanguagePreferences>,
+    pub providers: Vec<UserProviderLanguagePreferences>,
 }
 
 #[derive(

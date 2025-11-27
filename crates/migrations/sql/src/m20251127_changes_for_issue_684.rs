@@ -11,7 +11,7 @@ impl MigrationTrait for Migration {
         db.execute_unprepared(
             r#"
 UPDATE "user" SET "preferences" =
-JSONB_SET("preferences", '{languages}', '{"information": []}'::jsonb)
+JSONB_SET("preferences", '{languages}', '{"providers": []}'::jsonb)
 WHERE "preferences"->'languages' IS NULL
 "#,
         )
