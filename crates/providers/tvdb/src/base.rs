@@ -2,8 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use common_models::SearchDetails;
-use common_utils::PAGE_SIZE;
-use common_utils::get_base_http_client;
+use common_utils::{PAGE_SIZE, get_base_http_client};
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, SearchResults, TvdbSettings};
 use itertools::Itertools;
 use media_models::MetadataSearchItem;
