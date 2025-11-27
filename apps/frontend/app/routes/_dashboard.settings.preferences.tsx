@@ -71,6 +71,65 @@ import { FitnessEntity } from "~/lib/types";
 import classes from "~/styles/preferences.module.css";
 import type { Route } from "./+types/_dashboard.settings.preferences";
 
+const EDITABLE_NUM_ELEMENTS = [
+	DashboardElementLot.Upcoming,
+	DashboardElementLot.InProgress,
+	DashboardElementLot.Recommendations,
+];
+const EDITABLE_DEDUPLICATE_MEDIA = [DashboardElementLot.Upcoming];
+
+const updateCollectionInArray = <T extends { lot: unknown; values: string[] }>(
+	array: T[],
+	lot: unknown,
+	values: string[],
+): T[] => {
+	const cloned = cloneDeep(array);
+	let item = cloned.find((x) => x.lot === lot);
+	if (!item) {
+		item = { lot, values } as T;
+		cloned.push(item);
+	} else {
+		item.values = values;
+	}
+	return cloned;
+};
+
+type MeasurementStatistic = { name: string; unit?: string | null };
+
+const addMeasurementStatistic = (
+	statistics: MeasurementStatistic[],
+): MeasurementStatistic[] => [...statistics, { name: "<name>" }];
+
+const updateMeasurementStatistic = (
+	statistics: MeasurementStatistic[],
+	index: number,
+	updates: Partial<MeasurementStatistic>,
+): MeasurementStatistic[] => {
+	const newStats = [...statistics];
+	newStats[index] = { ...newStats[index], ...updates };
+	return newStats;
+};
+
+const removeMeasurementStatistic = (
+	statistics: MeasurementStatistic[],
+	index: number,
+): MeasurementStatistic[] => {
+	const newStats = [...statistics];
+	newStats.splice(index, 1);
+	return newStats;
+};
+
+const reorder = <T,>(
+	array: Array<T>,
+	details: { from: number; to: number },
+) => {
+	const cloned = [...array];
+	const item = array[details.from];
+	cloned.splice(details.from, 1);
+	cloned.splice(details.to, 0, item);
+	return cloned;
+};
+
 const searchSchema = z.object({
 	defaultTab: z.string().default("dashboard").optional(),
 });
@@ -412,22 +471,9 @@ export default function Page() {
 												placeholder="Enter more providers"
 												onChange={(val) => {
 													if (val) {
-														const newWatchProviders = cloneDeep(watchProviders);
-														let existingMediaLot = newWatchProviders.find(
-															(wp) => wp.lot === lot,
-														);
-														if (!existingMediaLot) {
-															existingMediaLot = {
-																values: val,
-																lot: lot as MediaLot,
-															};
-															newWatchProviders.push(existingMediaLot);
-														} else {
-															existingMediaLot.values = val;
-														}
 														form.setFieldValue(
 															"general.watchProviders",
-															newWatchProviders,
+															updateCollectionInArray(watchProviders, lot, val),
 														);
 													}
 												}}
@@ -465,22 +511,27 @@ export default function Page() {
 												}
 												onChange={(val) => {
 													if (val) {
-														const newLanguages = cloneDeep(
-															form.values.languages,
-														);
-														let existingSource = newLanguages.providers.find(
+														const providers = [
+															...form.values.languages.providers,
+														];
+														const existingIndex = providers.findIndex(
 															(p) => p.source === source,
 														);
-														if (!existingSource) {
-															existingSource = {
-																source: source as MediaSource,
+														if (existingIndex !== -1) {
+															providers[existingIndex] = {
+																...providers[existingIndex],
 																preferredLanguage: val,
 															};
-															newLanguages.providers.push(existingSource);
 														} else {
-															existingSource.preferredLanguage = val;
+															providers.push({
+																source: source as MediaSource,
+																preferredLanguage: val,
+															});
 														}
-														form.setFieldValue("languages", newLanguages);
+														form.setFieldValue("languages", {
+															...form.values.languages,
+															providers,
+														});
 													}
 												}}
 											/>
@@ -630,38 +681,32 @@ export default function Page() {
 													label="Name"
 													value={s.name}
 													disabled={!!isEditDisabled}
-													onChange={(val) => {
-														const newStatistics = [
-															...form.values.fitness.measurements.statistics,
-														];
-														newStatistics[index] = {
-															...newStatistics[index],
-															name: val.target.value,
-														};
+													onChange={(val) =>
 														form.setFieldValue(
 															"fitness.measurements.statistics",
-															newStatistics,
-														);
-													}}
+															updateMeasurementStatistic(
+																form.values.fitness.measurements.statistics,
+																index,
+																{ name: val.target.value },
+															),
+														)
+													}
 												/>
 												<TextInput
 													size="xs"
 													label="Unit"
 													value={s.unit || undefined}
 													disabled={!!isEditDisabled}
-													onChange={(val) => {
-														const newStatistics = [
-															...form.values.fitness.measurements.statistics,
-														];
-														newStatistics[index] = {
-															...newStatistics[index],
-															unit: val.target.value,
-														};
+													onChange={(val) =>
 														form.setFieldValue(
 															"fitness.measurements.statistics",
-															newStatistics,
-														);
-													}}
+															updateMeasurementStatistic(
+																form.values.fitness.measurements.statistics,
+																index,
+																{ unit: val.target.value },
+															),
+														)
+													}
 												/>
 												<ActionIcon
 													mt={14}
@@ -674,16 +719,15 @@ export default function Page() {
 														form.values.fitness.measurements.statistics
 															.length === 1
 													}
-													onClick={() => {
-														const newStatistics = [
-															...form.values.fitness.measurements.statistics,
-														];
-														newStatistics.splice(index, 1);
+													onClick={() =>
 														form.setFieldValue(
 															"fitness.measurements.statistics",
-															newStatistics,
-														);
-													}}
+															removeMeasurementStatistic(
+																form.values.fitness.measurements.statistics,
+																index,
+															),
+														)
+													}
 												>
 													<IconMinus />
 												</ActionIcon>
@@ -695,16 +739,14 @@ export default function Page() {
 										size="xs"
 										type="button"
 										variant="outline"
-										onClick={() => {
-											const newStatistics = [
-												...form.values.fitness.measurements.statistics,
-												{ name: "<name>" },
-											];
+										onClick={() =>
 											form.setFieldValue(
 												"fitness.measurements.statistics",
-												newStatistics,
-											);
-										}}
+												addMeasurementStatistic(
+													form.values.fitness.measurements.statistics,
+												),
+											)
+										}
 									>
 										Add
 									</Button>
@@ -718,13 +760,6 @@ export default function Page() {
 	);
 }
 
-const EDITABLE_NUM_ELEMENTS = [
-	DashboardElementLot.Upcoming,
-	DashboardElementLot.InProgress,
-	DashboardElementLot.Recommendations,
-];
-const EDITABLE_DEDUPLICATE_MEDIA = [DashboardElementLot.Upcoming];
-
 const EditDashboardElement = (props: {
 	index: number;
 	isEditDisabled: boolean;
@@ -736,6 +771,15 @@ const EditDashboardElement = (props: {
 	);
 	const focusedElement =
 		props.form.values.general.dashboard[focusedElementIndex];
+
+	const updateDashboardElement = <K extends keyof typeof focusedElement>(
+		key: K,
+		value: (typeof focusedElement)[K],
+	) => {
+		const newDashboardData = cloneDeep(props.form.values.general.dashboard);
+		newDashboardData[focusedElementIndex][key] = value;
+		props.form.setFieldValue("general.dashboard", newDashboardData);
+	};
 
 	return (
 		<Draggable index={props.index} draggableId={props.lot}>
@@ -772,14 +816,9 @@ const EditDashboardElement = (props: {
 							labelPosition="left"
 							checked={focusedElement.hidden}
 							disabled={!!props.isEditDisabled}
-							onChange={(ev) => {
-								const newValue = ev.currentTarget.checked;
-								const newDashboardData = Array.from(
-									props.form.values.general.dashboard,
-								);
-								newDashboardData[focusedElementIndex].hidden = newValue;
-								props.form.setFieldValue("general.dashboard", newDashboardData);
-							}}
+							onChange={(ev) =>
+								updateDashboardElement("hidden", ev.currentTarget.checked)
+							}
 						/>
 					</Group>
 					<Group gap="xl" wrap="nowrap">
@@ -790,16 +829,7 @@ const EditDashboardElement = (props: {
 								disabled={!!props.isEditDisabled}
 								value={focusedElement.numElements || undefined}
 								onChange={(num) => {
-									if (isNumber(num)) {
-										const newDashboardData = cloneDeep(
-											props.form.values.general.dashboard,
-										);
-										newDashboardData[focusedElementIndex].numElements = num;
-										props.form.setFieldValue(
-											"general.dashboard",
-											newDashboardData,
-										);
-									}
+									if (isNumber(num)) updateDashboardElement("numElements", num);
 								}}
 							/>
 						) : null}
@@ -811,18 +841,12 @@ const EditDashboardElement = (props: {
 								styles={{ description: { width: rem(200) } }}
 								checked={focusedElement.deduplicateMedia ?? undefined}
 								description="If there's more than one episode of a media, keep the first one"
-								onChange={(ev) => {
-									const newValue = ev.currentTarget.checked;
-									const newDashboardData = Array.from(
-										props.form.values.general.dashboard,
-									);
-									newDashboardData[focusedElementIndex].deduplicateMedia =
-										newValue;
-									props.form.setFieldValue(
-										"general.dashboard",
-										newDashboardData,
-									);
-								}}
+								onChange={(ev) =>
+									updateDashboardElement(
+										"deduplicateMedia",
+										ev.currentTarget.checked,
+									)
+								}
 							/>
 						) : null}
 					</Group>
@@ -830,15 +854,4 @@ const EditDashboardElement = (props: {
 			)}
 		</Draggable>
 	);
-};
-
-const reorder = <T,>(
-	array: Array<T>,
-	details: { from: number; to: number },
-) => {
-	const cloned = [...array];
-	const item = array[details.from];
-	cloned.splice(details.from, 1);
-	cloned.splice(details.to, 0, item);
-	return cloned;
 };
