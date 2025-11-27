@@ -91,11 +91,11 @@ pub async fn download_logs_handler(
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
 
-    let metadata = file
+    let file_size = file
         .metadata()
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let file_size = metadata.len();
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .len();
 
     let stream = ReaderStream::new(file);
     let body = Body::from_stream(stream);
