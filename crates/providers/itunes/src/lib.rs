@@ -22,19 +22,13 @@ static URL: &str = "https://itunes.apple.com";
 
 pub struct ITunesService {
     client: Client,
-    language: String,
     ss: Arc<SupportingService>,
 }
 
 impl ITunesService {
     pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
         let client = get_base_http_client(None);
-        let language = ss.config.podcasts.itunes.locale.clone();
-        Ok(Self {
-            ss,
-            client,
-            language,
-        })
+        Ok(Self { ss, client })
     }
 
     pub fn get_all_languages(&self) -> Vec<String> {
@@ -88,7 +82,7 @@ impl MediaProvider for ITunesService {
                 ("id", identifier),
                 ("media", "podcast"),
                 ("entity", "podcast"),
-                ("lang", self.language.as_str()),
+                ("lang", &self.get_default_language()),
             ])
             .send()
             .await?;
@@ -121,7 +115,7 @@ impl MediaProvider for ITunesService {
                 ("id", identifier),
                 ("media", "podcast"),
                 ("entity", "podcastEpisode"),
-                ("lang", self.language.as_str()),
+                ("lang", &self.get_default_language()),
                 ("limit", &total_episodes.to_string()),
             ])
             .send()
@@ -233,7 +227,7 @@ impl MediaProvider for ITunesService {
                 ("term", query),
                 ("media", "podcast"),
                 ("entity", "podcast"),
-                ("lang", self.language.as_str()),
+                ("lang", &self.get_default_language()),
             ])
             .send()
             .await?;
