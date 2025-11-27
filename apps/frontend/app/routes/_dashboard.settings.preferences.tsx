@@ -455,6 +455,7 @@ export default function Page() {
 											<Text>{changeCase(source)}</Text>
 											<Select
 												size="xs"
+												searchable
 												disabled={!!isEditDisabled}
 												data={languagesForThisSource.supported}
 												value={
