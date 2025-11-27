@@ -4,8 +4,7 @@ use chrono::Datelike;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, compute_next_page, ryot_log};
 use convert_case::{Case, Casing};
-use dependent_models::MetadataSearchSourceSpecifics;
-use dependent_models::{PersonDetails, SearchResults};
+use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
 use enum_models::MediaSource;
 use itertools::Itertools;
 use media_models::{
@@ -273,10 +272,10 @@ impl MediaProvider for OpenlibraryService {
                 .items
                 .into_iter()
                 .map(|b| MetadataSearchItem {
-                    identifier: b.identifier,
                     title: b.title,
-                    image: b.images.first().cloned(),
+                    identifier: b.identifier,
                     publish_year: b.publish_year,
+                    image: b.images.first().cloned(),
                 })
                 .collect(),
         })
