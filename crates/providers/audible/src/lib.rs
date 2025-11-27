@@ -152,8 +152,8 @@ pub struct AudibleService {
     client: Client,
 }
 
-fn url_from_locale(locale: &AudibleLocale) -> String {
-    let suffix = match locale {
+fn suffix_from_locale(locale: &AudibleLocale) -> &'static str {
+    match locale {
         AudibleLocale::ES => "es",
         AudibleLocale::IT => "it",
         AudibleLocale::CA => "ca",
@@ -164,7 +164,11 @@ fn url_from_locale(locale: &AudibleLocale) -> String {
         AudibleLocale::IN => "co.in",
         AudibleLocale::AU => "com.au",
         AudibleLocale::GB | AudibleLocale::UK => "co.uk",
-    };
+    }
+}
+
+fn url_from_locale(locale: &AudibleLocale) -> String {
+    let suffix = suffix_from_locale(locale);
     format!("https://api.audible.{suffix}/1.0/catalog/products")
 }
 
