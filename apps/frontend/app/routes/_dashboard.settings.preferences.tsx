@@ -2,6 +2,7 @@ import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
 	ActionIcon,
 	Alert,
+	Box,
 	Button,
 	Container,
 	Divider,
@@ -30,6 +31,7 @@ import {
 	UpdateUserPreferenceDocument,
 	type UserPreferences,
 	UserReviewScale,
+	MediaSource,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -67,6 +69,7 @@ import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { FitnessEntity } from "~/lib/types";
 import classes from "~/styles/preferences.module.css";
 import type { Route } from "./+types/_dashboard.settings.preferences";
+import invariant from "tiny-invariant";
 
 const searchSchema = z.object({
 	defaultTab: z.string().default("dashboard").optional(),
@@ -190,6 +193,7 @@ export default function Page() {
 							<Tabs.Tab value="dashboard">Dashboard</Tabs.Tab>
 							<Tabs.Tab value="features">Features</Tabs.Tab>
 							<Tabs.Tab value="general">General</Tabs.Tab>
+							<Tabs.Tab value="languages">Languages</Tabs.Tab>
 							<Tabs.Tab value="fitness">Fitness</Tabs.Tab>
 						</Tabs.List>
 						<Tabs.Panel value="dashboard">
@@ -431,6 +435,57 @@ export default function Page() {
 										);
 									})}
 								</Stack>
+							</Stack>
+						</Tabs.Panel>
+						<Tabs.Panel value="languages">
+							<Stack>
+								<Title order={4}>Providers</Title>
+								{Object.values(MediaSource).map((source) => {
+									const languagesForThisSource =
+										coreDetails.metadataProviderLanguages.find(
+											(l) => l.source === source,
+										);
+									if ((languagesForThisSource?.supported.length || 0) <= 1)
+										return null;
+
+									invariant(languagesForThisSource);
+
+									return (
+										<Box key={source}>
+											<Text>{changeCase(source)}</Text>
+											<Select
+												size="xs"
+												disabled={!!isEditDisabled}
+												data={languagesForThisSource.supported}
+												value={
+													form.values.languages.providers.find(
+														(p) => p.source === source,
+													)?.preferredLanguage
+												}
+												onChange={(val) => {
+													if (val) {
+														const newLanguages = cloneDeep(
+															form.values.languages,
+														);
+														let existingSource = newLanguages.providers.find(
+															(p) => p.source === source,
+														);
+														if (!existingSource) {
+															existingSource = {
+																source: source as MediaSource,
+																preferredLanguage: val,
+															};
+															newLanguages.providers.push(existingSource);
+														} else {
+															existingSource.preferredLanguage = val;
+														}
+														form.setFieldValue("languages", newLanguages);
+													}
+												}}
+											/>
+										</Box>
+									);
+								})}
 							</Stack>
 						</Tabs.Panel>
 						<Tabs.Panel value="fitness">
