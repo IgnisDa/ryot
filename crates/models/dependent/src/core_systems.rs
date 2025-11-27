@@ -93,7 +93,7 @@ pub struct CoreDetails {
     pub frontend: config_definition::FrontendConfig,
     pub provider_specifics: CoreDetailsProviderSpecifics,
     pub metadata_lot_source_mappings: Vec<MetadataLotSourceMappings>,
-    pub metadata_provider_languages: Vec<ProviderLanguageInformation>,
+    pub provider_languages: Vec<ProviderLanguageInformation>,
     pub metadata_group_source_lot_mappings: Vec<MetadataGroupSourceLotMapping>,
 }
 

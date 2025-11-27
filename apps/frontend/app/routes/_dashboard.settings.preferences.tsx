@@ -28,10 +28,10 @@ import { notifications } from "@mantine/notifications";
 import {
 	DashboardElementLot,
 	MediaLot,
+	MediaSource,
 	UpdateUserPreferenceDocument,
 	type UserPreferences,
 	UserReviewScale,
-	MediaSource,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -55,6 +55,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Fragment, useState } from "react";
 import { useLoaderData } from "react-router";
 import { $path } from "safe-routes";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
@@ -69,7 +70,6 @@ import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { FitnessEntity } from "~/lib/types";
 import classes from "~/styles/preferences.module.css";
 import type { Route } from "./+types/_dashboard.settings.preferences";
-import invariant from "tiny-invariant";
 
 const searchSchema = z.object({
 	defaultTab: z.string().default("dashboard").optional(),
@@ -442,7 +442,7 @@ export default function Page() {
 								<Title order={4}>Providers</Title>
 								{Object.values(MediaSource).map((source) => {
 									const languagesForThisSource =
-										coreDetails.metadataProviderLanguages.find(
+										coreDetails.providerLanguages.find(
 											(l) => l.source === source,
 										);
 									if ((languagesForThisSource?.supported.length || 0) <= 1)

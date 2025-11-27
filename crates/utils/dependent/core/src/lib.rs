@@ -255,7 +255,7 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
             let (metadata_lot_source_mappings, metadata_group_source_lot_mappings) =
                 build_metadata_mappings();
             let exercise_parameters = build_exercise_parameters();
-            let metadata_provider_languages = build_provider_language_information(
+            let provider_languages = build_provider_language_information(
                 &tmdb_service,
                 &tvdb_service,
                 &itunes_service,
@@ -269,7 +269,7 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
                 provider_specifics,
                 exercise_parameters,
                 page_size: PAGE_SIZE,
-                metadata_provider_languages,
+                provider_languages,
                 metadata_lot_source_mappings,
                 version: APP_VERSION.to_owned(),
                 oidc_enabled: ss.is_oidc_enabled,
