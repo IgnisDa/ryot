@@ -18,7 +18,10 @@ use reqwest::{
 };
 use supporting_service::SupportingService;
 
-use crate::models::*;
+use crate::models::{
+    TmdbConfiguration, TmdbEntry, TmdbImagesResponse, TmdbListResponse, TmdbWatchProviderDetails,
+    TmdbWatchProviderResponse, URL,
+};
 
 pub struct TmdbService {
     pub client: Client,
