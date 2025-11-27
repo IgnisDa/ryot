@@ -1,8 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use common_models::{EntityAssets, SearchDetails};
-use common_utils::get_base_http_client;
-use common_utils::{PAGE_SIZE, compute_next_page, convert_date_to_year};
+use common_utils::{PAGE_SIZE, compute_next_page, convert_date_to_year, get_base_http_client};
 use convert_case::{Case, Casing};
 use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::SearchResults;
