@@ -36,27 +36,27 @@ impl GoogleBooksService {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct ImageLinks {
-    extra_large: Option<String>,
+    small: Option<String>,
     large: Option<String>,
     medium: Option<String>,
-    small: Option<String>,
-    small_thumbnail: Option<String>,
     thumbnail: Option<String>,
+    extra_large: Option<String>,
+    small_thumbnail: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct ItemVolumeInfo {
     title: String,
-    average_rating: Option<Decimal>,
-    published_date: Option<String>,
-    image_links: Option<ImageLinks>,
+    page_count: Option<i32>,
+    publisher: Option<String>,
     description: Option<String>,
     authors: Option<Vec<String>>,
-    publisher: Option<String>,
     main_category: Option<String>,
+    published_date: Option<String>,
     categories: Option<Vec<String>>,
-    page_count: Option<i32>,
+    average_rating: Option<Decimal>,
+    image_links: Option<ImageLinks>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
