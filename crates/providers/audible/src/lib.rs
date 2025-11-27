@@ -130,7 +130,6 @@ struct AudibleItemSimResponse {
 pub struct AudibleService {
     url: String,
     client: Client,
-    locale: AudibleLocale,
 }
 
 impl AudibleService {
@@ -150,14 +149,10 @@ impl AudibleService {
         format!("https://api.audible.{suffix}/1.0/catalog/products")
     }
 
-    pub async fn new(config: &config_definition::AudibleConfig) -> Result<Self> {
-        let url = Self::url_from_locale(&config.locale);
+    pub async fn new(_config: &config_definition::AudibleConfig) -> Result<Self> {
+        let url = "https://api.audible.com/1.0/catalog/products".to_string();
         let client = get_base_http_client(None);
-        Ok(Self {
-            url,
-            client,
-            locale: config.locale.clone(),
-        })
+        Ok(Self { url, client })
     }
 
     pub fn get_all_languages(&self) -> Vec<String> {
@@ -183,7 +178,7 @@ impl MediaProvider for AudibleService {
         let data: Vec<AudibleAuthor> = self
             .client
             .get(format!("{AUDNEX_URL}/authors"))
-            .query(&[("name", query), ("region", &self.locale.to_string())])
+            .query(&[("name", query), ("region", "us")])
             .send()
             .await?
             .json()
@@ -218,7 +213,7 @@ impl MediaProvider for AudibleService {
         let data: AudnexResponse = self
             .client
             .get(format!("{AUDNEX_URL}/authors/{identity}"))
-            .query(&[("region", &self.locale.to_string())])
+            .query(&[("region", "us")])
             .send()
             .await?
             .json()

@@ -15,11 +15,7 @@ anime_and_manga:
 # Settings related to audio books.
 audio_books:
   # Settings related to Audible.
-  audible:
-    # Settings related to locale for making requests Audible.
-    # @envvar AUDIO_BOOKS_AUDIBLE_LOCALE
-    # @values "au" | "ca" | "fr" | "de" | "gb" | "in" | "it" | "jp" | "es" | "uk" | "us"
-    locale: "us"
+  audible: {}
 
 # Settings related to books.
 books:

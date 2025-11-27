@@ -106,10 +106,7 @@ derive_enum!(
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "AUDIO_BOOKS_AUDIBLE_")]
-pub struct AudibleConfig {
-    /// Settings related to locale for making requests Audible.
-    pub locale: AudibleLocale,
-}
+pub struct AudibleConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case")]
