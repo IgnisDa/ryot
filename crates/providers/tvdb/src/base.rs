@@ -38,7 +38,7 @@ impl TvdbService {
     }
 
     pub fn get_default_language(&self) -> String {
-        "en".to_owned()
+        "eng".to_owned()
     }
 
     pub fn get_language_name(&self, iso: Option<String>) -> Option<String> {
