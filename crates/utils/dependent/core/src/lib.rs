@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anilist_provider::AnilistService;
 use anyhow::Result;
 use audible_provider::AudibleService;
 use common_models::BackendError;
@@ -82,6 +83,7 @@ async fn create_providers(
     TvdbService,
     IgdbService,
     ITunesService,
+    AnilistService,
     AudibleService,
     YoutubeMusicService,
 )> {
@@ -89,22 +91,25 @@ async fn create_providers(
         tmdb_service,
         tvdb_service,
         igdb_service,
-        youtube_music_service,
         itunes_service,
+        anilist_service,
         audible_service,
+        youtube_music_service,
     ) = try_join!(
         TmdbService::new(ss.clone()),
         TvdbService::new(ss.clone()),
         IgdbService::new(ss.clone()),
-        YoutubeMusicService::new(),
         ITunesService::new(ss.clone()),
-        AudibleService::new(&ss.config.audio_books.audible)
+        AnilistService::new(&ss.config.anime_and_manga.anilist),
+        AudibleService::new(&ss.config.audio_books.audible),
+        YoutubeMusicService::new(),
     )?;
     Ok((
         tmdb_service,
         tvdb_service,
         igdb_service,
         itunes_service,
+        anilist_service,
         audible_service,
         youtube_music_service,
     ))
@@ -115,6 +120,7 @@ fn build_provider_language_information(
     tvdb_service: &TvdbService,
     itunes_service: &ITunesService,
     audible_service: &AudibleService,
+    anilist_service: &AnilistService,
     youtube_music_service: &YoutubeMusicService,
 ) -> Result<Vec<ProviderLanguageInformation>> {
     let information = MediaSource::iter()
@@ -136,6 +142,10 @@ fn build_provider_language_information(
                     itunes_service.get_all_languages(),
                     itunes_service.get_default_language(),
                 ),
+                MediaSource::Anilist => (
+                    anilist_service.get_all_languages(),
+                    anilist_service.get_default_language(),
+                ),
                 MediaSource::Audible => (
                     audible_service.get_all_languages(),
                     audible_service.get_default_language(),
@@ -143,7 +153,6 @@ fn build_provider_language_information(
                 MediaSource::Igdb
                 | MediaSource::Vndb
                 | MediaSource::Custom
-                | MediaSource::Anilist
                 | MediaSource::Spotify
                 | MediaSource::GiantBomb
                 | MediaSource::Hardcover
@@ -238,6 +247,7 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
                 tvdb_service,
                 igdb_service,
                 itunes_service,
+                anilist_service,
                 audible_service,
                 youtube_music_service,
             ) = create_providers(ss).await?;
@@ -250,6 +260,7 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
                 &tvdb_service,
                 &itunes_service,
                 &audible_service,
+                &anilist_service,
                 &youtube_music_service,
             )?;
             let provider_specifics = build_provider_specifics(&igdb_service).await?;

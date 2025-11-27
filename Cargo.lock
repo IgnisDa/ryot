@@ -2019,6 +2019,7 @@ dependencies = [
 name = "dependent-core-utils"
 version = "0.1.0"
 dependencies = [
+ "anilist-provider",
  "anyhow",
  "audible-provider",
  "cache-service",
