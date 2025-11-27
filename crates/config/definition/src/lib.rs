@@ -229,11 +229,7 @@ pub struct ListenNotesConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "PODCASTS_ITUNES_")]
-pub struct ITunesConfig {
-    /// The locale to use for making requests to iTunes API.
-    #[setting(default = "en_us")]
-    pub locale: String,
-}
+pub struct ITunesConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case")]

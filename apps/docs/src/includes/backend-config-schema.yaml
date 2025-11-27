@@ -132,10 +132,7 @@ music:
 # Settings related to podcasts.
 podcasts:
   # Settings related to iTunes.
-  itunes:
-    # The locale to use for making requests to iTunes API.
-    # @envvar PODCASTS_ITUNES_LOCALE
-    locale: "en_us"
+  itunes: {}
 
   # Settings related to Listennotes.
   listennotes:
