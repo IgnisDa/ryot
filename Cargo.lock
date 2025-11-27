@@ -1554,7 +1554,6 @@ dependencies = [
  "config-macros",
  "schematic",
  "serde",
- "strum",
 ]
 
 [[package]]

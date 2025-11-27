@@ -6,7 +6,6 @@ use common_utils::PROJECT_NAME;
 use config_macros::MaskedConfig;
 use schematic::{Config, ConfigEnum, ConfigLoader, derive_enum, validate::not_empty};
 use serde::{Deserialize, Serialize};
-use strum::EnumIter;
 
 /// Trait for creating masked versions of configuration structs
 pub trait MaskedConfig {
@@ -28,16 +27,6 @@ pub struct MalConfig {
     #[mask]
     pub client_id: String,
 }
-
-derive_enum!(
-    #[derive(ConfigEnum, Default)]
-    pub enum AnilistPreferredLanguage {
-        English,
-        #[default]
-        Native,
-        Romaji,
-    }
-);
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "ANIME_AND_MANGA_ANILIST_")]
@@ -84,25 +73,6 @@ pub struct MusicConfig {
     #[mask_nested]
     pub spotify: SpotifyConfig,
 }
-
-derive_enum!(
-    #[derive(ConfigEnum, EnumIter, Default)]
-    #[config(rename_all = "lowercase")]
-    pub enum AudibleLocale {
-        AU,
-        CA,
-        FR,
-        DE,
-        GB,
-        IN,
-        IT,
-        JP,
-        ES,
-        UK,
-        #[default]
-        US,
-    }
-);
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "AUDIO_BOOKS_AUDIBLE_")]
