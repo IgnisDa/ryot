@@ -2208,7 +2208,13 @@ export type ProviderLanguageInformation = {
   __typename?: 'ProviderLanguageInformation';
   default: Scalars['String']['output'];
   source: MediaSource;
-  supported: Array<Scalars['String']['output']>;
+  supported: Array<ProviderSupportedLanguageInformation>;
+};
+
+export type ProviderSupportedLanguageInformation = {
+  __typename?: 'ProviderSupportedLanguageInformation';
+  id: Scalars['String']['output'];
+  label: Scalars['String']['output'];
 };
 
 export type QueryRoot = {

@@ -3,7 +3,10 @@ use std::sync::Arc;
 use anyhow::Result;
 use common_models::SearchDetails;
 use common_utils::{PAGE_SIZE, get_base_http_client};
-use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, SearchResults, TvdbSettings};
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, ProviderSupportedLanguageInformation,
+    SearchResults, TvdbSettings,
+};
 use itertools::Itertools;
 use media_models::MetadataSearchItem;
 use reqwest::{
@@ -29,11 +32,14 @@ impl TvdbService {
         Ok(Self { client, settings })
     }
 
-    pub fn get_all_languages(&self) -> Vec<String> {
+    pub fn get_all_languages(&self) -> Vec<ProviderSupportedLanguageInformation> {
         self.settings
             .languages
             .iter()
-            .map(|l| l.id.clone())
+            .map(|l| ProviderSupportedLanguageInformation {
+                id: l.id.clone(),
+                label: l.name.clone(),
+            })
             .collect()
     }
 

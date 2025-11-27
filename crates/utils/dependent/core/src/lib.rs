@@ -12,6 +12,7 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CoreDetails, CoreDetailsProviderSpecifics,
     ExerciseFilters, ExerciseParameters, ExerciseParametersLotMapping,
     MetadataGroupSourceLotMapping, MetadataLotSourceMappings, ProviderLanguageInformation,
+    ProviderSupportedLanguageInformation,
 };
 use enum_meta::Meta;
 use enum_models::{
@@ -160,7 +161,13 @@ fn build_provider_language_information(
                 | MediaSource::GoogleBooks
                 | MediaSource::Listennotes
                 | MediaSource::Openlibrary
-                | MediaSource::MangaUpdates => (vec!["us".to_owned()], "us".to_owned()),
+                | MediaSource::MangaUpdates => (
+                    vec![ProviderSupportedLanguageInformation {
+                        id: "us".to_owned(),
+                        label: "us".to_owned(),
+                    }],
+                    "us".to_owned(),
+                ),
             };
             ProviderLanguageInformation {
                 source,

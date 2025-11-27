@@ -5,7 +5,10 @@ use common_utils::get_base_http_client;
 use common_utils::{PAGE_SIZE, compute_next_page, convert_date_to_year, convert_string_to_date};
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
+use dependent_models::{
+    MetadataSearchSourceSpecifics, PersonDetails, ProviderSupportedLanguageInformation,
+    SearchResults,
+};
 use educe::Educe;
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -170,8 +173,13 @@ impl AudibleService {
         Ok(Self { url, client })
     }
 
-    pub fn get_all_languages(&self) -> Vec<String> {
-        AudibleLocale::iter().map(|l| l.to_string()).collect()
+    pub fn get_all_languages(&self) -> Vec<ProviderSupportedLanguageInformation> {
+        AudibleLocale::iter()
+            .map(|l| ProviderSupportedLanguageInformation {
+                id: l.to_string(),
+                label: l.to_string(),
+            })
+            .collect()
     }
 
     pub fn get_default_language(&self) -> String {

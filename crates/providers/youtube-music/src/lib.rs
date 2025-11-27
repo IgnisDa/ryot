@@ -5,7 +5,7 @@ use common_utils::get_temporary_directory;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
     MetadataGroupPersonRelated, MetadataPersonRelated, MetadataSearchSourceSpecifics,
-    PersonDetails, SearchResults,
+    PersonDetails, ProviderSupportedLanguageInformation, SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -35,8 +35,14 @@ impl YoutubeMusicService {
         })
     }
 
-    pub fn get_all_languages(&self) -> Vec<String> {
-        LANGUAGES.iter().map(|l| l.name().to_owned()).collect()
+    pub fn get_all_languages(&self) -> Vec<ProviderSupportedLanguageInformation> {
+        LANGUAGES
+            .iter()
+            .map(|l| ProviderSupportedLanguageInformation {
+                id: l.name().to_owned(),
+                label: l.name().to_owned(),
+            })
+            .collect()
     }
 
     pub fn get_default_language(&self) -> String {

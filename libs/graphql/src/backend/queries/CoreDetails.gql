@@ -50,7 +50,10 @@ query CoreDetails {
 		providerLanguages {
 			source
 			default
-			supported
+			supported {
+				id
+				label
+			}
 		}
 		frontend {
 			url

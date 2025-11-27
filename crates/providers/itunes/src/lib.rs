@@ -6,7 +6,9 @@ use chrono::Datelike;
 use common_models::{EntityAssets, NamedObject, SearchDetails};
 use common_utils::{PAGE_SIZE, get_base_http_client, ryot_log};
 use database_models::{metadata, prelude::Metadata};
-use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
+use dependent_models::{
+    MetadataSearchSourceSpecifics, ProviderSupportedLanguageInformation, SearchResults,
+};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
@@ -31,8 +33,17 @@ impl ITunesService {
         Ok(Self { ss, client })
     }
 
-    pub fn get_all_languages(&self) -> Vec<String> {
-        vec!["en_us".to_string(), "ja_jp".to_string()]
+    pub fn get_all_languages(&self) -> Vec<ProviderSupportedLanguageInformation> {
+        vec![
+            ProviderSupportedLanguageInformation {
+                id: "en_us".to_owned(),
+                label: "English (US)".to_owned(),
+            },
+            ProviderSupportedLanguageInformation {
+                id: "ja_jp".to_owned(),
+                label: "Japanese".to_owned(),
+            },
+        ]
     }
 
     pub fn get_default_language(&self) -> String {

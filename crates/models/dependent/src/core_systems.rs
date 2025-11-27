@@ -10,10 +10,16 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct ProviderSupportedLanguageInformation {
+    pub id: String,
+    pub label: String,
+}
+
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ProviderLanguageInformation {
     pub default: String,
     pub source: MediaSource,
-    pub supported: Vec<String>,
+    pub supported: Vec<ProviderSupportedLanguageInformation>,
 }
 
 #[derive(PartialEq, Eq, Debug, SimpleObject, Serialize, Deserialize, Clone)]

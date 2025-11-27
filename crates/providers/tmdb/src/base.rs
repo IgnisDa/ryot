@@ -3,7 +3,10 @@ use std::{collections::HashSet, future::Future, sync::Arc};
 use anyhow::{Result, bail};
 use common_models::MetadataLookupCacheInput;
 use common_utils::{convert_date_to_year, get_base_http_client, ryot_log};
-use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TmdbLanguage, TmdbSettings};
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, ProviderSupportedLanguageInformation, TmdbLanguage,
+    TmdbSettings,
+};
 use enum_models::{MediaLot, MediaSource};
 use futures::{
     stream::{self, StreamExt},
@@ -43,11 +46,14 @@ impl TmdbService {
         format!("{}{}{}", self.settings.image_url, "original", c)
     }
 
-    pub fn get_all_languages(&self) -> Vec<String> {
+    pub fn get_all_languages(&self) -> Vec<ProviderSupportedLanguageInformation> {
         self.settings
             .languages
             .iter()
-            .map(|l| l.iso_639_1.clone())
+            .map(|l| ProviderSupportedLanguageInformation {
+                id: l.iso_639_1.clone(),
+                label: l.english_name.clone(),
+            })
             .collect()
     }
 
