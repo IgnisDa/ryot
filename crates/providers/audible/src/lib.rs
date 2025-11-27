@@ -170,7 +170,7 @@ impl AudibleService {
     }
 
     pub async fn new(_config: &config_definition::AudibleConfig) -> Result<Self> {
-        let url = "https://api.audible.com/1.0/catalog/products".to_string();
+        let url = Self::url_from_locale(&AudibleLocale::US);
         let client = get_base_http_client(None);
         Ok(Self { url, client })
     }
