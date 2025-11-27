@@ -152,25 +152,25 @@ pub struct AudibleService {
     client: Client,
 }
 
-impl AudibleService {
-    fn url_from_locale(locale: &AudibleLocale) -> String {
-        let suffix = match locale {
-            AudibleLocale::ES => "es",
-            AudibleLocale::IT => "it",
-            AudibleLocale::CA => "ca",
-            AudibleLocale::FR => "fr",
-            AudibleLocale::DE => "de",
-            AudibleLocale::US => "com",
-            AudibleLocale::JP => "co.jp",
-            AudibleLocale::IN => "co.in",
-            AudibleLocale::AU => "com.au",
-            AudibleLocale::GB | AudibleLocale::UK => "co.uk",
-        };
-        format!("https://api.audible.{suffix}/1.0/catalog/products")
-    }
+fn url_from_locale(locale: &AudibleLocale) -> String {
+    let suffix = match locale {
+        AudibleLocale::ES => "es",
+        AudibleLocale::IT => "it",
+        AudibleLocale::CA => "ca",
+        AudibleLocale::FR => "fr",
+        AudibleLocale::DE => "de",
+        AudibleLocale::US => "com",
+        AudibleLocale::JP => "co.jp",
+        AudibleLocale::IN => "co.in",
+        AudibleLocale::AU => "com.au",
+        AudibleLocale::GB | AudibleLocale::UK => "co.uk",
+    };
+    format!("https://api.audible.{suffix}/1.0/catalog/products")
+}
 
+impl AudibleService {
     pub async fn new(_config: &config_definition::AudibleConfig) -> Result<Self> {
-        let url = Self::url_from_locale(&AudibleLocale::US);
+        let url = url_from_locale(&AudibleLocale::US);
         let client = get_base_http_client(None);
         Ok(Self { url, client })
     }
