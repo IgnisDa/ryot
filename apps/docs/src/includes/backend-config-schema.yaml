@@ -107,10 +107,6 @@ movies_and_shows:
     # @envvar MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN
     access_token: ""
 
-    # The locale to use for making requests to TMDB API.
-    # @envvar MOVIES_AND_SHOWS_TMDB_LOCALE
-    locale: "en"
-
   # Settings related to TVDB.
   tvdb:
     # The API key for the TVDB API.
