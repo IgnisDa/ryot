@@ -3009,6 +3009,15 @@ export type UserGeneralWatchProviderInput = {
   values: Array<Scalars['String']['input']>;
 };
 
+export type UserLanguagePreferences = {
+  __typename?: 'UserLanguagePreferences';
+  providers: Array<UserProviderLanguagePreferences>;
+};
+
+export type UserLanguagePreferencesInput = {
+  providers: Array<UserSourceLanguagePreferencesInput>;
+};
+
 export enum UserLot {
   Admin = 'ADMIN',
   Normal = 'NORMAL'
@@ -3206,12 +3215,20 @@ export type UserPreferences = {
   featuresEnabled: UserFeaturesEnabledPreferences;
   fitness: UserFitnessPreferences;
   general: UserGeneralPreferences;
+  languages: UserLanguagePreferences;
 };
 
 export type UserPreferencesInput = {
   featuresEnabled: UserFeaturesEnabledPreferencesInput;
   fitness: UserFitnessPreferencesInput;
   general: UserGeneralPreferencesInput;
+  languages: UserLanguagePreferencesInput;
+};
+
+export type UserProviderLanguagePreferences = {
+  __typename?: 'UserProviderLanguagePreferences';
+  preferredLanguage: Scalars['String']['output'];
+  source: MediaSource;
 };
 
 export type UserResetResponse = {
@@ -3228,6 +3245,11 @@ export enum UserReviewScale {
   OutOfTen = 'OUT_OF_TEN',
   ThreePointSmiley = 'THREE_POINT_SMILEY'
 }
+
+export type UserSourceLanguagePreferencesInput = {
+  preferredLanguage: Scalars['String']['input'];
+  source: MediaSource;
+};
 
 export type UserStatisticsMeasurement = {
   __typename?: 'UserStatisticsMeasurement';
