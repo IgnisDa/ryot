@@ -183,7 +183,7 @@ impl AudibleService {
         AudibleLocale::iter()
             .map(|l| ProviderSupportedLanguageInformation {
                 value: l.to_string(),
-                label: l.to_string(),
+                label: format!(r"{} (.{})", l.to_string(), suffix_from_locale(&l)),
             })
             .collect()
     }
