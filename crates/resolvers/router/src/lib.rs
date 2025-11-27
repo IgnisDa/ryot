@@ -7,8 +7,8 @@ use axum::{
     body::Body,
     extract::{Multipart, Path},
     http::{
-        StatusCode,
-        header::{CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_TYPE, PRAGMA},
+        HeaderMap, HeaderValue, StatusCode,
+        header::{CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_TYPE, PRAGMA},
     },
     response::{Html, IntoResponse},
 };
@@ -91,15 +91,24 @@ pub async fn download_logs_handler(
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
 
+    let metadata = file
+        .metadata()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let file_size = metadata.len();
+
     let stream = ReaderStream::new(file);
     let body = Body::from_stream(stream);
 
-    let headers = [
-        (PRAGMA, "no-cache"),
-        (CACHE_CONTROL, "no-store"),
-        (CONTENT_TYPE, "text/plain"),
-        (CONTENT_DISPOSITION, r#"attachment; filename="ryot.log""#),
-    ];
+    let mut headers = HeaderMap::new();
+    headers.insert(CONTENT_LENGTH, HeaderValue::from(file_size));
+    headers.insert(PRAGMA, HeaderValue::from_static("no-cache"));
+    headers.insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    headers.insert(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
+    headers.insert(
+        CONTENT_DISPOSITION,
+        HeaderValue::from_static(r#"attachment; filename="ryot.log""#),
+    );
 
     Ok((headers, body))
 }
