@@ -3,7 +3,6 @@ use async_trait::async_trait;
 use common_models::{EntityAssets, NamedObject, PersonSourceSpecifics, SearchDetails};
 use common_utils::get_base_http_client;
 use common_utils::{PAGE_SIZE, compute_next_page, convert_date_to_year, convert_string_to_date};
-use config_definition::AudibleLocale;
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
@@ -23,6 +22,22 @@ use strum::{Display, EnumIter, IntoEnumIterator};
 use traits::MediaProvider;
 
 static AUDNEX_URL: &str = "https://api.audnex.us";
+
+#[derive(Eq, Copy, Debug, Clone, Default, EnumIter, PartialEq, Serialize, Deserialize, Display)]
+pub enum AudibleLocale {
+    AU,
+    CA,
+    FR,
+    DE,
+    GB,
+    IN,
+    IT,
+    JP,
+    ES,
+    UK,
+    #[default]
+    US,
+}
 
 #[derive(EnumIter, Display)]
 enum AudibleSimilarityType {
