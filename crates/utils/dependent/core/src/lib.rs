@@ -163,7 +163,7 @@ fn build_provider_language_information(
                 | MediaSource::Openlibrary
                 | MediaSource::MangaUpdates => (
                     vec![ProviderSupportedLanguageInformation {
-                        id: "us".to_owned(),
+                        value: "us".to_owned(),
                         label: "us".to_owned(),
                     }],
                     "us".to_owned(),

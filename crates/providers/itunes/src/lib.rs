@@ -36,11 +36,11 @@ impl ITunesService {
     pub fn get_all_languages(&self) -> Vec<ProviderSupportedLanguageInformation> {
         vec![
             ProviderSupportedLanguageInformation {
-                id: "en_us".to_owned(),
+                value: "en_us".to_owned(),
                 label: "English (US)".to_owned(),
             },
             ProviderSupportedLanguageInformation {
-                id: "ja_jp".to_owned(),
+                value: "ja_jp".to_owned(),
                 label: "Japanese".to_owned(),
             },
         ]

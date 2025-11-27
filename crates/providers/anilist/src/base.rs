@@ -17,19 +17,19 @@ impl AnilistService {
     pub fn get_all_languages(&self) -> Vec<ProviderSupportedLanguageInformation> {
         vec![
             ProviderSupportedLanguageInformation {
-                id: "english".to_owned(),
+                value: "english".to_owned(),
                 label: "English".to_owned(),
             },
             ProviderSupportedLanguageInformation {
-                id: "romaji".to_owned(),
+                value: "romaji".to_owned(),
                 label: "Romaji".to_owned(),
             },
             ProviderSupportedLanguageInformation {
-                id: "native".to_owned(),
+                value: "native".to_owned(),
                 label: "Native".to_owned(),
             },
             ProviderSupportedLanguageInformation {
-                id: "user_preferred".to_owned(),
+                value: "user_preferred".to_owned(),
                 label: "User Preferred".to_owned(),
             },
         ]

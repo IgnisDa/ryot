@@ -39,7 +39,7 @@ impl YoutubeMusicService {
         LANGUAGES
             .iter()
             .map(|l| ProviderSupportedLanguageInformation {
-                id: l.name().to_owned(),
+                value: l.name().to_owned(),
                 label: l.name().to_owned(),
             })
             .collect()

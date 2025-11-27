@@ -51,8 +51,8 @@ query CoreDetails {
 			source
 			default
 			supported {
-				id
 				label
+				value
 			}
 		}
 		frontend {

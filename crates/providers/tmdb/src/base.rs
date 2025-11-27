@@ -51,7 +51,7 @@ impl TmdbService {
             .languages
             .iter()
             .map(|l| ProviderSupportedLanguageInformation {
-                id: l.iso_639_1.clone(),
+                value: l.iso_639_1.clone(),
                 label: l.english_name.clone(),
             })
             .collect()

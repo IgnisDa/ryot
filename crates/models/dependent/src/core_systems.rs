@@ -11,7 +11,7 @@ use serde_with::skip_serializing_none;
 
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ProviderSupportedLanguageInformation {
-    pub id: String,
+    pub value: String,
     pub label: String,
 }
 

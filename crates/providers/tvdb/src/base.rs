@@ -37,7 +37,7 @@ impl TvdbService {
             .languages
             .iter()
             .map(|l| ProviderSupportedLanguageInformation {
-                id: l.id.clone(),
+                value: l.id.clone(),
                 label: l.name.clone(),
             })
             .collect()

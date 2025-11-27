@@ -176,7 +176,7 @@ impl AudibleService {
     pub fn get_all_languages(&self) -> Vec<ProviderSupportedLanguageInformation> {
         AudibleLocale::iter()
             .map(|l| ProviderSupportedLanguageInformation {
-                id: l.to_string(),
+                value: l.to_string(),
                 label: l.to_string(),
             })
             .collect()

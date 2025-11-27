@@ -2213,8 +2213,8 @@ export type ProviderLanguageInformation = {
 
 export type ProviderSupportedLanguageInformation = {
   __typename?: 'ProviderSupportedLanguageInformation';
-  id: Scalars['String']['output'];
   label: Scalars['String']['output'];
+  value: Scalars['String']['output'];
 };
 
 export type QueryRoot = {
