@@ -198,10 +198,10 @@ pub struct CreateCustomMetadataGroupInput {
 pub struct CreateCustomPersonInput {
     pub name: String,
     pub assets: EntityAssets,
-    pub description: Option<String>,
     pub place: Option<String>,
     pub gender: Option<String>,
     pub website: Option<String>,
+    pub description: Option<String>,
     pub birth_date: Option<NaiveDate>,
     pub death_date: Option<NaiveDate>,
     pub alternate_names: Option<Vec<String>>,
