@@ -11,9 +11,9 @@ pub struct Model {
     pub language: String,
     pub entity_id: String,
     pub entity_lot: String,
-    pub metadata_id: String,
     pub value: Option<String>,
     pub created_on: DateTimeUtc,
+    pub metadata_id: Option<String>,
     pub variant: EntityTranslationVariant,
 }
 
