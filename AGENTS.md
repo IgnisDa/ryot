@@ -1,5 +1,6 @@
 # Rules for Ryot
 
+- Use tools from the Serena MCP to help you with faster code navigation and editing.
 - The project uses `moon` for monorepo management. All frontend-related commands (like type
   checking, running tests, etc.) should use `moon` commands.
 - You can read @apps/docs/src/contributing.md for an overview of the project architecture
