@@ -619,11 +619,13 @@ pub async fn update_entity_translation_for_language(
                 .await?
                 .ok_or_else(|| anyhow!("Metadata not found"))?;
             let provider = get_metadata_provider(meta.lot, meta.source, ss).await?;
-            let translation = provider
+            let Ok(translation) = provider
                 .translate_metadata(&meta.identifier, &target_language)
                 .await
-                .unwrap();
-            dbg!(&translation);
+            else {
+                bail!("Translation not found from provider");
+            };
+            dbg!(translation);
         }
         _ => {}
     };
