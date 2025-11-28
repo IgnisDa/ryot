@@ -44,15 +44,3 @@ pub struct PersonDetailsGroupedByRole {
     /// The media items in which this role was performed.
     pub items: Vec<PersonDetailsItemWithCharacter>,
 }
-
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct EntityLanguageTranslationDetails {
-    pub value: String,
-    pub language: String,
-}
-
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct EntityTranslationDetails {
-    pub titles: Vec<EntityLanguageTranslationDetails>,
-    pub descriptions: Vec<EntityLanguageTranslationDetails>,
-}
