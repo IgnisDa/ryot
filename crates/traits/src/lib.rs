@@ -10,8 +10,8 @@ use database_models::metadata_group::MetadataGroupWithoutId;
 use database_utils::{check_token, deploy_job_to_mark_user_last_activity};
 use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
 use media_models::{
-    MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem, PartialMetadataWithoutId,
-    PeopleSearchItem,
+    EntityTranslationDetails, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
+    PartialMetadataWithoutId, PeopleSearchItem,
 };
 use supporting_service::SupportingService;
 
@@ -80,6 +80,19 @@ pub trait MediaProvider {
     /// Get trending media.
     async fn get_trending_media(&self) -> Result<Vec<PartialMetadataWithoutId>> {
         bail!("This provider does not support getting trending media")
+    }
+}
+
+#[async_trait]
+pub trait MediaTranslationProvider {
+    /// Translate media metadata.
+    #[allow(unused_variables)]
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        bail!("This provider does not support translating metadata")
     }
 }
 
