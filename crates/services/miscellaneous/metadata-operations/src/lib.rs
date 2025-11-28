@@ -604,3 +604,11 @@ pub async fn handle_metadata_eligible_for_smart_collection_moving(
 
     Ok(())
 }
+
+pub async fn update_metadata_translations_for_user(
+    ss: &Arc<SupportingService>,
+    user_id: &String,
+    metadata_id: &String,
+) -> Result<()> {
+    todo!()
+}

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::{Result, bail};
-use background_models::{ApplicationJob, HpApplicationJob};
+use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
 use common_models::{
     BackgroundJob, MetadataGroupSearchInput, PeopleSearchInput, SearchInput, StringIdObject,
 };
@@ -212,6 +212,30 @@ impl MiscellaneousService {
         Ok(true)
     }
 
+    pub async fn deploy_update_media_entity_translations_job(
+        &self,
+        user_id: String,
+        entity_id: String,
+        entity_lot: EntityLot,
+    ) -> Result<bool> {
+        match entity_lot {
+            EntityLot::Metadata => {
+                self.0
+                    .perform_application_job(ApplicationJob::Mp(
+                        MpApplicationJob::UpdateMetadataTranslationsForUser(user_id, entity_id),
+                    ))
+                    .await?;
+            }
+            _ => {
+                bail!(
+                    "Entity type {:?} is not supported for update translations jobs",
+                    entity_lot
+                );
+            }
+        }
+        Ok(true)
+    }
+
     pub async fn merge_metadata(
         &self,
         user_id: String,
@@ -338,6 +362,19 @@ impl MiscellaneousService {
     pub async fn update_metadata_and_notify_users(&self, metadata_id: &String) -> Result<()> {
         update_metadata_and_notify_users(metadata_id, &self.0).await?;
         Ok(())
+    }
+
+    pub async fn update_metadata_translations_for_user(
+        &self,
+        user_id: String,
+        metadata_id: String,
+    ) -> Result<()> {
+        miscellaneous_metadata_operations_service::update_metadata_translations_for_user(
+            &self.0,
+            &user_id,
+            &metadata_id,
+        )
+        .await
     }
 
     pub async fn update_person_and_notify_users(&self, person_id: &String) -> Result<()> {

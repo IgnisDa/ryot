@@ -26,6 +26,7 @@ pub enum MpApplicationJob {
     PerformBackgroundTasks,
     ReviseUserWorkouts(String),
     UpdateMetadataGroup(String),
+    UpdateMetadataTranslationsForUser(String, String),
     ImportFromExternalSource(String, Box<DeployImportJobInput>),
 }
 

@@ -124,6 +124,12 @@ pub async fn perform_mp_application_job(
                 .update_metadata_and_notify_users(&metadata_id)
                 .await
         }
+        MpApplicationJob::UpdateMetadataTranslationsForUser(user_id, metadata_id) => {
+            app_services
+                .miscellaneous_service
+                .update_metadata_translations_for_user(user_id, metadata_id)
+                .await
+        }
         MpApplicationJob::UpdatePerson(person_id) => {
             app_services
                 .miscellaneous_service
