@@ -10,4 +10,5 @@ strum = { workspace = true }
 uuid = { workspace = true }
 
 common-models = { workspace = true }
+enum-models = { workspace = true }
 media-models = { workspace = true }

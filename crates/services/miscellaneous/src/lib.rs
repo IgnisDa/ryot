@@ -1,12 +1,15 @@
 use std::sync::Arc;
 
-use anyhow::{Result, bail};
+use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
 use common_models::{
     BackgroundJob, MetadataGroupSearchInput, PeopleSearchInput, SearchInput, StringIdObject,
 };
-use database_models::{prelude::User, user};
-use database_utils::admin_account_guard;
+use database_models::{
+    prelude::{Metadata, User},
+    user,
+};
+use database_utils::{admin_account_guard, user_by_id};
 use dependent_core_utils::core_details;
 use dependent_entity_list_utils::{
     user_genres_list, user_metadata_groups_list, user_metadata_list, user_people_list,
@@ -218,21 +221,35 @@ impl MiscellaneousService {
         entity_id: String,
         entity_lot: EntityLot,
     ) -> Result<bool> {
-        match entity_lot {
+        let entity_source = match entity_lot {
             EntityLot::Metadata => {
-                self.0
-                    .perform_application_job(ApplicationJob::Mp(
-                        MpApplicationJob::UpdateMetadataTranslationsForUser(user_id, entity_id),
-                    ))
-                    .await?;
+                Metadata::find_by_id(entity_id.clone())
+                    .one(&self.0.db)
+                    .await?
+                    .ok_or_else(|| anyhow!("Metadata not found"))?
+                    .source
             }
-            _ => {
-                bail!(
-                    "Entity type {:?} is not supported for update translations jobs",
-                    entity_lot
-                );
-            }
-        }
+            _ => bail!("Entity type {:?} is not supported", entity_lot),
+        };
+        let user_preferences = user_by_id(&user_id, &self.0).await?.preferences;
+        let Some(preferred_language) = user_preferences
+            .languages
+            .providers
+            .into_iter()
+            .find(|lang| lang.source == entity_source)
+        else {
+            bail!("No preferred language found for source {}", entity_source);
+        };
+
+        self.0
+            .perform_application_job(ApplicationJob::Mp(
+                MpApplicationJob::UpdateEntityTranslationForLanguage(
+                    preferred_language.preferred_language,
+                    entity_id,
+                    entity_lot,
+                ),
+            ))
+            .await?;
         Ok(true)
     }
 
@@ -364,15 +381,17 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn update_metadata_translations_for_user(
+    pub async fn update_entity_translation_for_language(
         &self,
-        user_id: String,
-        metadata_id: String,
+        target_language: String,
+        entity_id: String,
+        entity_lot: EntityLot,
     ) -> Result<()> {
-        miscellaneous_metadata_operations_service::update_metadata_translations_for_user(
+        miscellaneous_metadata_operations_service::update_entity_translation_for_language(
             &self.0,
-            &user_id,
-            &metadata_id,
+            target_language,
+            entity_id,
+            entity_lot,
         )
         .await
     }
