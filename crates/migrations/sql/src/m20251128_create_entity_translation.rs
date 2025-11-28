@@ -1,4 +1,5 @@
 use indoc::indoc;
+use migrations_utils::create_trigram_index_if_required;
 use sea_orm_migration::prelude::*;
 
 use super::m20230410_create_metadata::Metadata;
@@ -101,6 +102,13 @@ impl MigrationTrait for Migration {
             .await?;
         db.execute_unprepared(ENTITY_TRANSLATION_CONSTRAINT_SQL)
             .await?;
+        create_trigram_index_if_required(
+            manager,
+            "entity_translation",
+            "value",
+            "entity_translation_value_trigram_idx",
+        )
+        .await?;
         Ok(())
     }
 
