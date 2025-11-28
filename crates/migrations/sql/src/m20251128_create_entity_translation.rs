@@ -91,7 +91,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("entity_translation-fk2")
+                            .name("entity_translation-fk1")
                             .from(EntityTranslation::Table, EntityTranslation::MetadataId)
                             .to(Metadata::Table, Metadata::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -101,6 +101,19 @@ impl MigrationTrait for Migration {
             )
             .await?;
         db.execute_unprepared(ENTITY_TRANSLATION_CONSTRAINT_SQL)
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name("entity_translation__variant_language_metadata_id_idx")
+                    .unique()
+                    .table(EntityTranslation::Table)
+                    .col(EntityTranslation::Variant)
+                    .col(EntityTranslation::Language)
+                    .col(EntityTranslation::MetadataId)
+                    .and_where(Expr::col(EntityTranslation::MetadataId).is_not_null())
+                    .to_owned(),
+            )
             .await?;
         create_trigram_index_if_required(
             manager,
