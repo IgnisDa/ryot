@@ -36,7 +36,7 @@ use nanoid::nanoid;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
     ModelTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait,
-    sea_query::{Asterisk, Condition, Expr, JoinType},
+    sea_query::{Asterisk, Condition, Expr, JoinType, OnConflict},
 };
 use supporting_service::SupportingService;
 use traits::TraceOk;
@@ -188,7 +188,10 @@ pub async fn change_metadata_associations(
             genre_id: ActiveValue::Set(genre.id),
             metadata_id: ActiveValue::Set(metadata_id.to_owned()),
         };
-        intermediate.insert(&ss.db).await.ok();
+        MetadataToGenre::insert(intermediate)
+            .on_conflict(OnConflict::new().do_nothing().to_owned())
+            .exec_without_returning(&ss.db)
+            .await?;
     }
 
     for data in suggestions {
@@ -199,7 +202,10 @@ pub async fn change_metadata_associations(
             relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
             ..Default::default()
         };
-        intermediate.insert(&ss.db).await.ok();
+        MetadataToMetadata::insert(intermediate)
+            .on_conflict(OnConflict::new().do_nothing().to_owned())
+            .exec_without_returning(&ss.db)
+            .await?;
     }
 
     for metadata_group in groups {
@@ -209,7 +215,10 @@ pub async fn change_metadata_associations(
             metadata_group_id: ActiveValue::Set(db_group.id),
             metadata_id: ActiveValue::Set(metadata_id.to_owned()),
         };
-        intermediate.insert(&ss.db).await.ok();
+        MetadataToMetadataGroup::insert(intermediate)
+            .on_conflict(OnConflict::new().do_nothing().to_owned())
+            .exec_without_returning(&ss.db)
+            .await?;
     }
 
     Ok(())
@@ -228,7 +237,10 @@ pub async fn insert_metadata_person_links(
             character: ActiveValue::Set(character),
             metadata_id: ActiveValue::Set(metadata_id.to_owned()),
         };
-        intermediate.insert(&ss.db).await.ok();
+        MetadataToPerson::insert(intermediate)
+            .on_conflict(OnConflict::new().do_nothing().to_owned())
+            .exec_without_returning(&ss.db)
+            .await?;
     }
     Ok(())
 }
