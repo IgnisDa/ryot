@@ -7,12 +7,12 @@ use common_models::{
 };
 use common_utils::ryot_log;
 use database_models::{
-    collection, collection_entity_membership, collection_to_entity,
+    collection, collection_entity_membership, collection_to_entity, entity_translation,
     functions::get_user_to_entity_association,
     metadata, metadata_group, metadata_to_genre, person,
     prelude::{
-        Collection, CollectionEntityMembership, CollectionToEntity, Metadata, MetadataGroup,
-        MetadataToGenre, Person, Review, Seen, UserToEntity,
+        Collection, CollectionEntityMembership, CollectionToEntity, EntityTranslation, Metadata,
+        MetadataGroup, MetadataToGenre, Person, Review, Seen, UserToEntity,
     },
     review, seen, user_to_entity,
 };
@@ -30,7 +30,9 @@ use dependent_utility_utils::{
     expire_person_details_cache, expire_user_metadata_groups_list_cache,
     expire_user_metadata_list_cache, expire_user_people_list_cache,
 };
-use enum_models::{EntityLot, MediaLot, MediaSource, UserNotificationContent};
+use enum_models::{
+    EntityLot, EntityTranslationVariant, MediaLot, MediaSource, UserNotificationContent,
+};
 use futures::try_join;
 use media_models::{
     CreateCustomMetadataGroupInput, CreateCustomMetadataInput, UpdateCustomMetadataGroupInput,
@@ -625,7 +627,25 @@ pub async fn update_entity_translation_for_language(
             else {
                 bail!("Translation not found from provider");
             };
-            dbg!(translation);
+            for (variant, value) in [
+                (EntityTranslationVariant::Title, translation.title),
+                (
+                    EntityTranslationVariant::Description,
+                    translation.description,
+                ),
+            ] {
+                let translation_model = entity_translation::ActiveModel {
+                    variant: ActiveValue::Set(variant),
+                    language: ActiveValue::Set(target_language.clone()),
+                    metadata_id: ActiveValue::Set(Some(entity_id.clone())),
+                    value: ActiveValue::Set(value.filter(|v| !v.is_empty())),
+                    ..Default::default()
+                };
+                EntityTranslation::insert(translation_model)
+                    .on_conflict_do_nothing()
+                    .exec(&ss.db)
+                    .await?;
+            }
         }
         _ => {}
     };
