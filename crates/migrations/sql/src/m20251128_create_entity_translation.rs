@@ -65,11 +65,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(
-                        ColumnDef::new(EntityTranslation::MetadataId)
-                            .text()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(EntityTranslation::MetadataId).text())
                     .col(ColumnDef::new(EntityTranslation::Value).text())
                     .col(ColumnDef::new(EntityTranslation::Variant).text().not_null())
                     .col(
