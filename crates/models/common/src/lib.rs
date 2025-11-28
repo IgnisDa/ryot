@@ -167,9 +167,9 @@ pub enum CollectionExtraInformationLot {
     PartialEq,
     Serialize,
     Schematic,
+    InputObject,
     Deserialize,
     SimpleObject,
-    InputObject,
     FromJsonQueryResult,
 )]
 #[serde(rename_all = "snake_case")]
@@ -262,8 +262,8 @@ pub struct NamedObject {
 #[skip_serializing_none]
 #[derive(
     Eq,
-    Clone,
     Hash,
+    Clone,
     Debug,
     Default,
     PartialEq,
