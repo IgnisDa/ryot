@@ -42,6 +42,7 @@ use nanoid::nanoid;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
     PaginatorTrait, QueryFilter, QuerySelect, TransactionTrait, prelude::Expr,
+    sea_query::OnConflict,
 };
 use supporting_service::SupportingService;
 
@@ -639,8 +640,8 @@ pub async fn update_entity_translation_for_language(
                     ..Default::default()
                 };
                 EntityTranslation::insert(translation_model)
-                    .on_conflict_do_nothing()
-                    .exec(&ss.db)
+                    .on_conflict(OnConflict::new().do_nothing().to_owned())
+                    .exec_without_returning(&ss.db)
                     .await?;
             }
         }
