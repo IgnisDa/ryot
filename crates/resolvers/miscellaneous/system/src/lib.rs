@@ -54,6 +54,19 @@ impl MiscellaneousSystemMutationResolver {
             .await?)
     }
 
+    /// Deploy a job to update a media entity's translations.
+    async fn deploy_update_media_entity_translations_job(
+        &self,
+        gql_ctx: &Context<'_>,
+        entity_id: String,
+        entity_lot: EntityLot,
+    ) -> Result<bool> {
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
+        Ok(service
+            .deploy_update_media_entity_translations_job(user_id, entity_id, entity_lot)
+            .await?)
+    }
+
     /// Start a background job.
     async fn deploy_background_job(
         &self,
