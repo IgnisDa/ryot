@@ -203,10 +203,10 @@ impl MiscellaneousService {
                 deploy_update_metadata_group_job(&entity_id, &self.0).await?;
             }
             _ => {
-                bail!(format!(
+                bail!(
                     "Entity type {:?} is not supported for update jobs",
                     entity_lot
-                ));
+                );
             }
         }
         Ok(true)
