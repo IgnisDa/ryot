@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct EntityLanguageTranslationDetails {
-    pub value: String,
     pub language: String,
+    pub value: Option<String>,
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
