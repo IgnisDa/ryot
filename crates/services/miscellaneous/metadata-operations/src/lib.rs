@@ -621,18 +621,15 @@ pub async fn update_entity_translation_for_language(
                 .await?
                 .ok_or_else(|| anyhow!("Metadata not found"))?;
             let provider = get_metadata_provider(meta.lot, meta.source, ss).await?;
-            let Ok(translation) = provider
+            let Ok(trn) = provider
                 .translate_metadata(&meta.identifier, &target_language)
                 .await
             else {
                 bail!("Translation not found from provider");
             };
             for (variant, value) in [
-                (EntityTranslationVariant::Title, translation.title),
-                (
-                    EntityTranslationVariant::Description,
-                    translation.description,
-                ),
+                (EntityTranslationVariant::Title, trn.title),
+                (EntityTranslationVariant::Description, trn.description),
             ] {
                 let translation_model = entity_translation::ActiveModel {
                     variant: ActiveValue::Set(variant),
