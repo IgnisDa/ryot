@@ -12,17 +12,28 @@ use enum_models::{MediaLot, MediaSource};
 use futures::try_join;
 use itertools::Itertools;
 use media_models::{
-    CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
-    MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
+    CommitMetadataGroupInput, EntityTranslationDetails, MetadataDetails, MetadataGroupSearchItem,
+    MetadataSearchItem, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
+    UniqueMediaIdentifier,
 };
 use rust_decimal::dec;
 use supporting_service::SupportingService;
-use traits::MediaProvider;
+use traits::{MediaProvider, MediaTranslationProvider};
 
 use crate::{
     base::TmdbService,
     models::{TmdbCollection, TmdbCreditsResponse, TmdbListResponse, TmdbMediaEntry, URL},
 };
+
+fn replace_from_end(input_string: String, search_string: &str, replace_string: &str) -> String {
+    if let Some(last_index) = input_string.rfind(search_string) {
+        let mut modified_string = input_string.clone();
+        let end = last_index + search_string.len();
+        modified_string.replace_range(last_index..end, replace_string);
+        return modified_string;
+    }
+    input_string
+}
 
 pub struct TmdbMovieService(TmdbService);
 
@@ -330,12 +341,24 @@ impl MediaProvider for TmdbMovieService {
     }
 }
 
-fn replace_from_end(input_string: String, search_string: &str, replace_string: &str) -> String {
-    if let Some(last_index) = input_string.rfind(search_string) {
-        let mut modified_string = input_string.clone();
-        let end = last_index + search_string.len();
-        modified_string.replace_range(last_index..end, replace_string);
-        return modified_string;
+#[async_trait]
+impl MediaTranslationProvider for TmdbMovieService {
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let rsp = self
+            .0
+            .client
+            .get(format!("{URL}/movie/{identifier}"))
+            .query(&[("language", target_language)])
+            .send()
+            .await?;
+        let data: TmdbMediaEntry = rsp.json().await?;
+        Ok(EntityTranslationDetails {
+            title: data.title,
+            description: data.overview,
+        })
     }
-    input_string
 }
