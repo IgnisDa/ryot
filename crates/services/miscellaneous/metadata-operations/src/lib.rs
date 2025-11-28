@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Result, bail};
+use anyhow::{Result, anyhow, bail};
 use chrono::Datelike;
 use common_models::{
     ChangeCollectionToEntitiesInput, DefaultCollection, EntityAssets, EntityToCollectionInput,
@@ -23,6 +23,7 @@ use dependent_entity_utils::{
     change_metadata_associations, insert_metadata_group_links, insert_metadata_person_links,
 };
 use dependent_notification_utils::send_notification_for_user;
+use dependent_provider_utils::get_metadata_provider;
 use dependent_seen_utils::is_metadata_finished_by_user;
 use dependent_utility_utils::{
     expire_metadata_details_cache, expire_metadata_group_details_cache,
@@ -611,5 +612,15 @@ pub async fn update_entity_translation_for_language(
     entity_id: String,
     entity_lot: EntityLot,
 ) -> Result<()> {
-    todo!()
+    match entity_lot {
+        EntityLot::Metadata => {
+            let meta = Metadata::find_by_id(&entity_id)
+                .one(&ss.db)
+                .await?
+                .ok_or_else(|| anyhow!("Metadata not found"))?;
+            let provider = get_metadata_provider(meta.lot, meta.source, ss).await?;
+        }
+        _ => {}
+    };
+    Ok(())
 }

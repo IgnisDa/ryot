@@ -4710,6 +4710,7 @@ dependencies = [
  "dependent-details-utils",
  "dependent-entity-utils",
  "dependent-notification-utils",
+ "dependent-provider-utils",
  "dependent-seen-utils",
  "dependent-utility-utils",
  "enum-models",
