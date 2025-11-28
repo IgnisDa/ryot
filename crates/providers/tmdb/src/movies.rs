@@ -18,7 +18,7 @@ use media_models::{
 };
 use rust_decimal::dec;
 use supporting_service::SupportingService;
-use traits::{MediaProvider, MediaTranslationProvider};
+use traits::MediaProvider;
 
 use crate::{
     base::TmdbService,
@@ -339,10 +339,7 @@ impl MediaProvider for TmdbMovieService {
     async fn get_trending_media(&self) -> Result<Vec<PartialMetadataWithoutId>> {
         self.0.get_trending_media("movie").await
     }
-}
 
-#[async_trait]
-impl MediaTranslationProvider for TmdbMovieService {
     async fn translate_metadata(
         &self,
         identifier: &str,

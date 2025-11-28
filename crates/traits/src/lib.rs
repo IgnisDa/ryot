@@ -81,10 +81,7 @@ pub trait MediaProvider {
     async fn get_trending_media(&self) -> Result<Vec<PartialMetadataWithoutId>> {
         bail!("This provider does not support getting trending media")
     }
-}
 
-#[async_trait]
-pub trait MediaTranslationProvider {
     /// Translate media metadata.
     #[allow(unused_variables)]
     async fn translate_metadata(
