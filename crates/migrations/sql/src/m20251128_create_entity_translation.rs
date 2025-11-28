@@ -34,6 +34,7 @@ pub static ENTITY_TRANSLATION_ENTITY_LOT_SQL: &str = indoc! { r#"
 pub enum EntityTranslation {
     Id,
     Table,
+    Value,
     Variant,
     Language,
     EntityId,
@@ -68,6 +69,7 @@ impl MigrationTrait for Migration {
                             .text()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(EntityTranslation::Value).text())
                     .col(ColumnDef::new(EntityTranslation::Variant).text().not_null())
                     .col(
                         ColumnDef::new(EntityTranslation::Language)
