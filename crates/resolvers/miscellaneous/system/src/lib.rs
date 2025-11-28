@@ -54,8 +54,9 @@ impl MiscellaneousSystemMutationResolver {
             .await?)
     }
 
-    /// Deploy a job to update a media entity's translations.
-    async fn deploy_update_media_entity_translations_job(
+    /// Deploy a job to update a media entity's translations. The language code is
+    /// extracted from the user's preferences.
+    async fn deploy_update_media_entity_translation_job(
         &self,
         gql_ctx: &Context<'_>,
         entity_id: String,
@@ -63,7 +64,7 @@ impl MiscellaneousSystemMutationResolver {
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         Ok(service
-            .deploy_update_media_entity_translations_job(user_id, entity_id, entity_lot)
+            .deploy_update_media_entity_translation_job(user_id, entity_id, entity_lot)
             .await?)
     }
 

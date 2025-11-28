@@ -215,7 +215,7 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    pub async fn deploy_update_media_entity_translations_job(
+    pub async fn deploy_update_media_entity_translation_job(
         &self,
         user_id: String,
         entity_id: String,
