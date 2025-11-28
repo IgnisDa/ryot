@@ -13,19 +13,11 @@ use media_models::{
 use nest_struct::nest_struct;
 use reqwest::Client;
 use rust_decimal::Decimal;
-use sea_orm::{EnumIter, prelude::DateTimeUtc, strum::Display};
+use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 
 pub static URL: &str = "https://graphql.anilist.co";
 pub static STUDIO_ROLE: &str = "Production Studio";
-
-#[derive(Eq, Copy, Debug, Clone, Default, Display, EnumIter, PartialEq, Serialize, Deserialize)]
-pub enum AnilistPreferredLanguage {
-    #[default]
-    Native,
-    Romaji,
-    English,
-}
 
 #[nest_struct]
 #[derive(Debug, Clone, Serialize, Deserialize)]
