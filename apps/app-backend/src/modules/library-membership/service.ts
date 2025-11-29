@@ -10,10 +10,10 @@ import { DbRunner } from "#lib/db/service";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/job-id";
 import { trimToNull } from "#lib/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { toEntityImportRunResult } from "#modules/entity-import/workflows";
+import { toEntityImportRunResult } from "#modules/entity-import/result-workflow";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
-import { LibraryEntityImportWorkflow } from "./workflows";
+import { LibraryEntityImportWorkflow } from "./library-entity-import-workflow";
 
 const entitySchemaNotFoundError = "Entity schema not found";
 const importJobNotFoundError = "Entity import job not found";

@@ -16,17 +16,17 @@ import {
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import { EntityImportPayload } from "#modules/entity-import/entity-import-workflow";
 import {
-	EntityImportPayload,
 	EntityImportWorkflowOperations,
 	type EntityImportWorkflowOperationsValue,
-} from "#modules/entity-import/workflows";
+} from "#modules/entity-import/operations-workflow";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
-import { runLibraryEntityImportWorkflow } from "./workflows";
+import { runLibraryEntityImportWorkflow } from "./library-entity-import-workflow";
 
 const TestLibraryEntityImportWorkflow = Workflow.make({
 	success: ListedEntity,
