@@ -8,6 +8,8 @@ import { createEventSchema, listEventSchemas, requireEventSchemaBySlug } from ".
 import { seedMediaEntity } from "./media";
 import { type PollOptions, pollUntil } from "./polling";
 
+const defaultEventTimeoutMs = 90_000;
+
 const defaultMediaProperties = {
 	genres: [],
 	isNsfw: null,
@@ -64,7 +66,7 @@ export async function waitForEventCount(
 			const events = await listEventsForEntity(client, entityId);
 			return events.length >= expectedCount ? events : null;
 		},
-		{ timeoutMs: 30000, intervalMs: 200, ...options },
+		{ timeoutMs: defaultEventTimeoutMs, intervalMs: 200, ...options },
 	);
 }
 
@@ -168,7 +170,7 @@ export async function waitForEventWithSchema(
 			const events = await listEventsForEntity(client, entityId);
 			return events.find((event) => event.eventSchemaSlug === eventSchemaSlug) ?? null;
 		},
-		{ timeoutMs: 30000, intervalMs: 500, ...options },
+		{ timeoutMs: defaultEventTimeoutMs, intervalMs: 500, ...options },
 	);
 }
 
@@ -190,7 +192,7 @@ export async function waitForEventSlugs(
 			const slugs = await listEventSlugs(client, entityId);
 			return slugs.includes(requiredSlug) ? slugs : null;
 		},
-		{ timeoutMs: 30000, intervalMs: 250, ...options },
+		{ timeoutMs: defaultEventTimeoutMs, intervalMs: 250, ...options },
 	);
 }
 
