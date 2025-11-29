@@ -201,6 +201,7 @@ query GetHardcoverPublisherDetails($id: Int!) {
 			{
 				entities: mediaEntities,
 				direction: "outgoing",
+				synchronization: "authoritative",
 				relationshipSchemaSlug: "company-to-book",
 			},
 		],

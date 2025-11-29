@@ -250,6 +250,7 @@ driver("details", async function (context) {
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: relatedEntities,
 				relationshipSchemaSlug: "video-game-group-to-video-game",
 			},

@@ -201,6 +201,7 @@ driver("details", async function (context, { metadata }) {
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: relatedEntities,
 				relationshipSchemaSlug: "music-group-to-music",
 			},
