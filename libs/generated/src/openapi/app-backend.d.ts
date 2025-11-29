@@ -4609,9 +4609,21 @@ export interface paths {
                         source: "open_scale";
                         uploadToken: string;
                     } | {
+                        uploadToken: string;
+                        /** @enum {string} */
+                        source: "goodreads";
+                    } | {
+                        uploadToken: string;
+                        /** @enum {string} */
+                        source: "hardcover";
+                    } | {
                         /** @enum {string} */
                         source: "strong_app";
                         uploadToken: string;
+                    } | {
+                        uploadToken: string;
+                        /** @enum {string} */
+                        source: "storygraph";
                     };
                 };
             };

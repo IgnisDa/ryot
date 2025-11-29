@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,15 +14,15 @@ The adapters should emit explicit media entity references with the best provider
 
 ## Acceptance criteria
 
-- [ ] `goodreads`, `storygraph`, and `hardcover` source input schemas are available through `POST /imports/runs`.
-- [ ] Each adapter reads files through import file helpers and never directly trusts raw request paths.
-- [ ] Each adapter returns normalized provider-backed book/media groups and item failures without DB writes.
-- [ ] Read/completed/current/want-to-read statuses map to V2 lifecycle events according to the parent PRD, not lifecycle-named collections.
-- [ ] Reviews map to `review` events with historical `occurredAt` where source dates exist.
-- [ ] Non-lifecycle shelves/lists map to collection memberships.
-- [ ] Provider lookup failures become item-level failures where possible, not catastrophic run failures unless the source cannot continue.
-- [ ] Run counters, failures, provider population, event writes, trigger enqueueing, and cleanup all reuse existing import infrastructure.
-- [ ] Source adapter tests cover representative successful rows, row-level failures, date parsing, lifecycle mapping, review mapping, and collection mapping.
+- [x] `goodreads`, `storygraph`, and `hardcover` source input schemas are available through `POST /imports/runs`.
+- [x] Each adapter reads files through import file helpers and never directly trusts raw request paths.
+- [x] Each adapter returns normalized provider-backed book/media groups and item failures without DB writes.
+- [x] Read/completed/current/want-to-read statuses map to V2 lifecycle events according to the parent PRD, not lifecycle-named collections.
+- [x] Reviews map to `review` events with historical `occurredAt` where source dates exist.
+- [x] Non-lifecycle shelves/lists map to collection memberships.
+- [x] Provider lookup failures become item-level failures where possible, not catastrophic run failures unless the source cannot continue.
+- [x] Run counters, failures, provider population, event writes, trigger enqueueing, and cleanup all reuse existing import infrastructure.
+- [x] Source adapter tests cover representative successful rows, row-level failures, date parsing, lifecycle mapping, review mapping, and collection mapping.
 
 ## User stories addressed
 
