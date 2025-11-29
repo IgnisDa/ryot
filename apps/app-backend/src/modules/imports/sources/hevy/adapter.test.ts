@@ -2,9 +2,6 @@ import { describe, expect, it } from "bun:test";
 
 import { adaptHevyCsv } from "./adapter";
 
-// Hevy CSV columns. Dates are kept as ISO strings in most test cases so they
-// do not need per-field quoting in the test CSV. A dedicated test below
-// verifies the native Hevy "DD MMM YYYY, HH:mm" date format.
 const HEVY_HEADERS =
 	"title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_order,weight_kg,reps,set_type,distance_m,duration_seconds";
 
@@ -52,7 +49,6 @@ describe("adaptHevyCsv", () => {
 	});
 
 	it("parses the native Hevy date format DD MMM YYYY, HH:mm", () => {
-		// Dates contain commas, so the fields must be quoted in the CSV.
 		const csv = [
 			HEVY_HEADERS,
 			'"Leg Day","01 Jan 2026, 10:00","01 Jan 2026, 11:00",,Squat,,,1,80,5,normal,,,',

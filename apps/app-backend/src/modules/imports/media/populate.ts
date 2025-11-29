@@ -70,6 +70,20 @@ export const populateMediaEntityRefs = async (
 			continue;
 		}
 
+		if (ref.kind !== "resolved") {
+			if (!failedIndices.includes(i)) {
+				failedIndices.push(i);
+			}
+			entityIds[i] = null;
+			await job.updateData({
+				...baseSnapshot,
+				providerEntityIndex: i + 1,
+				providerFailedIndices: failedIndices,
+			});
+			await recordEntityProcessed(i);
+			continue;
+		}
+
 		const script = await deps.getBuiltinSandboxScriptBySlug(ref.scriptSlug);
 		if (!script) {
 			failedIndices.push(i);
