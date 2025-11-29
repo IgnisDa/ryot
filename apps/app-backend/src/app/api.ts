@@ -13,6 +13,7 @@ import { savedViewsApi } from "~/modules/saved-views/routes";
 import { systemApi } from "~/modules/system/routes";
 import { trackersApi } from "~/modules/trackers/routes";
 import { uploadsApi } from "~/modules/uploads/routes";
+import { viewRuntimeApi } from "~/modules/view-runtime/routes";
 
 const openApiTags = [
 	{
@@ -59,6 +60,10 @@ const openApiTags = [
 		name: "saved-views",
 		description: "Saved query configurations for quick access to entity views",
 	},
+	{
+		name: "view-runtime",
+		description: "Execute saved-view style entity queries",
+	},
 ];
 
 export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
@@ -89,7 +94,8 @@ export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.route("/event-schemas", eventSchemasApi)
 	.route("/events", eventsApi)
 	.route("/uploads", uploadsApi)
-	.route("/saved-views", savedViewsApi);
+	.route("/saved-views", savedViewsApi)
+	.route("/view-runtime", viewRuntimeApi);
 
 export const apiApp = baseApp
 	.doc("/openapi.json", (c) => ({
