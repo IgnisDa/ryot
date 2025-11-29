@@ -1,8 +1,6 @@
 // TODO:
 // - audit remaining test files and replace `if (x === null) { throw }` type-narrowing
 // guards with `assert(x !== null)` from vitest
-// - a lot of endpoints defined `400 BadRequest` in their contract even though it is
-// declared at the root level.
 import { BunFileSystem, BunRuntime, BunContext } from "@effect/platform-bun";
 import { Effect, Layer } from "effect";
 
