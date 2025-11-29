@@ -91,7 +91,6 @@ describe("toUpdateTrackerPayload", () => {
 
 		expect(payload).toEqual({
 			name: "Tracker",
-			slug: "tracker",
 			icon: "sparkles",
 			accentColor: "#00ff00",
 			description: "Updated description",
@@ -102,7 +101,6 @@ describe("toUpdateTrackerPayload", () => {
 		const input = v({
 			icon: "  sparkles  ",
 			name: "  Tracker Name  ",
-			slug: "  tracker-name  ",
 			accentColor: "  #00ff00  ",
 			description: "  New description  ",
 		});
@@ -110,7 +108,6 @@ describe("toUpdateTrackerPayload", () => {
 		const payload = toUpdateTrackerPayload(input);
 
 		expect(payload.name).toBe("Tracker Name");
-		expect(payload.slug).toBe("tracker-name");
 		expect(payload.icon).toBe("sparkles");
 		expect(payload.description).toBe("New description");
 		expect(payload.accentColor).toBe("#00ff00");
@@ -126,22 +123,21 @@ describe("toUpdateTrackerPayload", () => {
 		expect(payload.description).toBeNull();
 	});
 
-	it("includes name and slug in update payload", () => {
+	it("includes name but excludes slug in update payload", () => {
 		const input = v({
 			icon: "sparkles",
 			accentColor: "#0000ff",
 			name: "  Should Update  ",
-			slug: "  should-update  ",
 			description: "Update this",
 		});
 
 		const payload = toUpdateTrackerPayload(input);
 
 		expect(payload.name).toBe("Should Update");
-		expect(payload.slug).toBe("should-update");
 		expect(payload.icon).toBe("sparkles");
 		expect(payload.description).toBe("Update this");
 		expect(payload.accentColor).toBe("#0000ff");
+		expect(payload).not.toHaveProperty("slug");
 	});
 
 	it("handles optional whitespace-only fields", () => {
@@ -162,7 +158,6 @@ describe("toUpdateTrackerPayload", () => {
 		expect(payload).toEqual({
 			icon: "shapes",
 			name: "Tracker",
-			slug: "tracker",
 			description: null,
 			accentColor: "#5B7FFF",
 		});
