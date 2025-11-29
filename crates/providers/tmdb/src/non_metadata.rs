@@ -71,7 +71,7 @@ impl MediaProvider for NonMediaTmdbService {
                 ..Default::default()
             })
             .collect_vec();
-        let next_page = compute_next_page(page,search.total_results);
+        let next_page = compute_next_page(page, search.total_results);
         Ok(SearchResults {
             items,
             details: SearchDetails {

@@ -279,7 +279,7 @@ impl MediaProvider for TmdbShowService {
                 publish_year: convert_date_to_year(&d.first_air_date.unwrap()),
             })
             .collect_vec();
-        let next_page = compute_next_page(page,search.total_results);
+        let next_page = compute_next_page(page, search.total_results);
         Ok(SearchResults {
             items: resp.to_vec(),
             details: SearchDetails {
