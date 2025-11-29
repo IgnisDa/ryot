@@ -35,57 +35,59 @@ import {
 
 type RootPagination = RowsQueryDocument["output"]["pagination"];
 
-const resolveRootPage = <T extends { totalCount: string | bigint }>(
+const resolveRootPage = Effect.fn("resolveRootPage")(function* <
+	T extends { totalCount: string | bigint },
+>(
 	userId: string,
 	where: Expr | null,
 	rawRows: readonly T[],
 	offset: number,
 	limit: number,
 	makeContext: (row: T) => RowContext,
-): Effect.Effect<{ rows: T[]; total: number }, BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		if (where === null) {
-			const total = rawRows[0]?.totalCount !== undefined ? Number(rawRows[0].totalCount) : 0;
-			return { total, rows: [...rawRows] };
+) {
+	if (where === null) {
+		const total = rawRows[0]?.totalCount !== undefined ? Number(rawRows[0].totalCount) : 0;
+		return { total, rows: [...rawRows] };
+	}
+	if (rawRows.length > MAX_ROOT_FILTER_SCAN_ROWS) {
+		return yield* new BadRequest({
+			message: `Root filter candidate rows exceeds maximum of ${MAX_ROOT_FILTER_SCAN_ROWS}`,
+		});
+	}
+	const filtered: T[] = [];
+	for (const row of rawRows) {
+		if (yield* evalExprAsBoolean(userId, where, makeContext(row))) {
+			filtered.push(row);
 		}
-		if (rawRows.length > MAX_ROOT_FILTER_SCAN_ROWS) {
-			return yield* new BadRequest({
-				message: `Root filter candidate rows exceeds maximum of ${MAX_ROOT_FILTER_SCAN_ROWS}`,
-			});
-		}
-		const filtered: T[] = [];
-		for (const row of rawRows) {
-			if (yield* evalExprAsBoolean(userId, where, makeContext(row))) {
-				filtered.push(row);
-			}
-		}
-		return { total: filtered.length, rows: filtered.slice(offset, offset + limit) };
-	});
+	}
+	return { total: filtered.length, rows: filtered.slice(offset, offset + limit) };
+});
 
-const serializeRootRowsWithIncludes = <T extends BaseEntityQueryRow>(
+const serializeRootRowsWithIncludes = Effect.fn("serializeRootRowsWithIncludes")(function* <
+	T extends BaseEntityQueryRow,
+>(
 	userId: string,
 	rows: readonly T[],
 	include: readonly IncludeEntry[],
 	serializeRow: (row: T) => Effect.Effect<RowItem, BadRequest | NotFound | DbError, CurrentDb>,
 	makeContext: (row: T) => RowContext,
-): Effect.Effect<RowItem[], BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		let serializedRowCount = rows.length;
-		const items: RowItem[] = [];
-		for (const row of rows) {
-			const item = yield* serializeRow(row);
-			const includeValues = yield* serializeIncludesForRow(userId, row, include, makeContext(row));
-			serializedRowCount += includeValues.rowCount;
-			if (serializedRowCount > MAX_SERIALIZED_ROW_OBJECTS) {
-				return yield* new BadRequest({
-					message: `Serialized row object count exceeds maximum of ${MAX_SERIALIZED_ROW_OBJECTS}`,
-				});
-			}
-			Object.assign(item, includeValues.values);
-			items.push(item);
+) {
+	let serializedRowCount = rows.length;
+	const items: RowItem[] = [];
+	for (const row of rows) {
+		const item = yield* serializeRow(row);
+		const includeValues = yield* serializeIncludesForRow(userId, row, include, makeContext(row));
+		serializedRowCount += includeValues.rowCount;
+		if (serializedRowCount > MAX_SERIALIZED_ROW_OBJECTS) {
+			return yield* new BadRequest({
+				message: `Serialized row object count exceeds maximum of ${MAX_SERIALIZED_ROW_OBJECTS}`,
+			});
 		}
-		return items;
-	});
+		Object.assign(item, includeValues.values);
+		items.push(item);
+	}
+	return items;
+});
 
 const rowsResponse = (
 	items: readonly RowItem[],
@@ -109,33 +111,32 @@ const rowsResponse = (
 const paginationSql = (pagination: RootPagination, where: Expr | null, offset: number) =>
 	where === null ? sql`LIMIT ${pagination.limit} OFFSET ${offset}` : sql``;
 
-const executeEntityRowsQuery = (
+const executeEntityRowsQuery = Effect.fn("executeEntityRowsQuery")(function* (
 	userId: string,
 	doc: RowsQueryDocument,
-): Effect.Effect<RowsResponse, BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const { source, output } = doc;
-		if (source.type !== "entities") {
-			return yield* new BadRequest({ message: "Entity rows query requires an entity source" });
-		}
+) {
+	const { source, output } = doc;
+	if (source.type !== "entities") {
+		return yield* new BadRequest({ message: "Entity rows query requires an entity source" });
+	}
 
-		const offset = (output.pagination.page - 1) * output.pagination.limit;
-		const visibleSchemas = yield* loadVisibleEntitySchemas(userId, source.schemas);
-		if (visibleSchemas.length === 0) {
-			return rowsResponse([], output.pagination, 0, offset, 0);
-		}
+	const offset = (output.pagination.page - 1) * output.pagination.limit;
+	const visibleSchemas = yield* loadVisibleEntitySchemas(userId, source.schemas);
+	if (visibleSchemas.length === 0) {
+		return rowsResponse([], output.pagination, 0, offset, 0);
+	}
 
-		const schemaIdsSql = sql.join(
-			visibleSchemas.map((schema) => sql`${schema.id}`),
-			sql`, `,
-		);
-		const orderSql = buildOrderBySql(output.orderBy, () => ({
-			alias: "e",
-			schemas: source.schemas,
-		}));
-		const db = yield* CurrentDb;
-		const rawRows = yield* dbEffect(() =>
-			db.execute<EntityQueryRow>(sql`
+	const schemaIdsSql = sql.join(
+		visibleSchemas.map((schema) => sql`${schema.id}`),
+		sql`, `,
+	);
+	const orderSql = buildOrderBySql(output.orderBy, () => ({
+		alias: "e",
+		schemas: source.schemas,
+	}));
+	const db = yield* CurrentDb;
+	const rawRows = yield* dbEffect(() =>
+		db.execute<EntityQueryRow>(sql`
 				SELECT
 					${entitySelectColumnsSql},
 					COUNT(*) OVER() AS "totalCount"
@@ -147,57 +148,56 @@ const executeEntityRowsQuery = (
 				ORDER BY ${orderSql}
 				${paginationSql(output.pagination, source.where, offset)}
 			`),
-		);
+	);
 
-		const { rows, total } = yield* resolveRootPage(
-			userId,
-			source.where,
-			rawRows.rows,
-			offset,
-			output.pagination.limit,
-			(row) => makeEntityContext(source.alias, row),
-		);
-		const items = yield* serializeRootRowsWithIncludes(
-			userId,
-			rows,
-			output.include ?? [],
-			(row) => serializeRootRow(userId, row, source.alias, output.fields),
-			(row) => makeEntityContext(source.alias, row),
-		);
-		return rowsResponse(items, output.pagination, total, offset, rows.length);
-	});
+	const { rows, total } = yield* resolveRootPage(
+		userId,
+		source.where,
+		rawRows.rows,
+		offset,
+		output.pagination.limit,
+		(row) => makeEntityContext(source.alias, row),
+	);
+	const items = yield* serializeRootRowsWithIncludes(
+		userId,
+		rows,
+		output.include ?? [],
+		(row) => serializeRootRow(userId, row, source.alias, output.fields),
+		(row) => makeEntityContext(source.alias, row),
+	);
+	return rowsResponse(items, output.pagination, total, offset, rows.length);
+});
 
-const executeEventRowsQuery = (
+const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 	userId: string,
 	doc: RowsQueryDocument,
-): Effect.Effect<RowsResponse, BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const { source, output } = doc;
-		if (source.type !== "events") {
-			return yield* new BadRequest({ message: "Event rows query requires an event source" });
-		}
+) {
+	const { source, output } = doc;
+	if (source.type !== "events") {
+		return yield* new BadRequest({ message: "Event rows query requires an event source" });
+	}
 
-		const visibleEntitySchemas = yield* loadVisibleEntitySchemas(userId, source.entity.schemas);
-		const entitySchemaIds = visibleEntitySchemas.map((schema) => schema.id);
-		const visibleEventSchemas = yield* loadVisibleEventSchemasForEntitySchemas(
-			userId,
-			entitySchemaIds,
-			source.schemas,
-		);
+	const visibleEntitySchemas = yield* loadVisibleEntitySchemas(userId, source.entity.schemas);
+	const entitySchemaIds = visibleEntitySchemas.map((schema) => schema.id);
+	const visibleEventSchemas = yield* loadVisibleEventSchemasForEntitySchemas(
+		userId,
+		entitySchemaIds,
+		source.schemas,
+	);
 
-		const entitySchemaIdsSql = sql.join(
-			entitySchemaIds.map((id) => sql`${id}`),
-			sql`, `,
-		);
-		const eventSchemaIdsSql = sql.join(
-			visibleEventSchemas.map((schema) => sql`${schema.id}`),
-			sql`, `,
-		);
-		const offset = (output.pagination.page - 1) * output.pagination.limit;
-		const orderSql = eventRootOrderSql(source, output);
-		const db = yield* CurrentDb;
-		const rawRows = yield* dbEffect(() =>
-			db.execute<EventQueryRow>(sql`
+	const entitySchemaIdsSql = sql.join(
+		entitySchemaIds.map((id) => sql`${id}`),
+		sql`, `,
+	);
+	const eventSchemaIdsSql = sql.join(
+		visibleEventSchemas.map((schema) => sql`${schema.id}`),
+		sql`, `,
+	);
+	const offset = (output.pagination.page - 1) * output.pagination.limit;
+	const orderSql = eventRootOrderSql(source, output);
+	const db = yield* CurrentDb;
+	const rawRows = yield* dbEffect(() =>
+		db.execute<EventQueryRow>(sql`
 				SELECT
 					${entitySelectColumnsSql},
 					${eventSelectColumnsSql},
@@ -214,58 +214,57 @@ const executeEventRowsQuery = (
 				ORDER BY ${orderSql}
 				${paginationSql(output.pagination, source.where, offset)}
 			`),
-		);
+	);
 
-		const { rows, total } = yield* resolveRootPage(
-			userId,
-			source.where,
-			rawRows.rows,
-			offset,
-			output.pagination.limit,
-			(row) => makeEventRootContext(source, row),
-		);
-		const items = yield* serializeRootRowsWithIncludes(
-			userId,
-			rows,
-			output.include ?? [],
-			(row) => serializeEventRootRow(userId, row, source, output.fields),
-			(row) => makeEventRootContext(source, row),
-		);
-		return rowsResponse(items, output.pagination, total, offset, rows.length);
-	});
+	const { rows, total } = yield* resolveRootPage(
+		userId,
+		source.where,
+		rawRows.rows,
+		offset,
+		output.pagination.limit,
+		(row) => makeEventRootContext(source, row),
+	);
+	const items = yield* serializeRootRowsWithIncludes(
+		userId,
+		rows,
+		output.include ?? [],
+		(row) => serializeEventRootRow(userId, row, source, output.fields),
+		(row) => makeEventRootContext(source, row),
+	);
+	return rowsResponse(items, output.pagination, total, offset, rows.length);
+});
 
-const executeRelationshipRowsQuery = (
+const executeRelationshipRowsQuery = Effect.fn("executeRelationshipRowsQuery")(function* (
 	userId: string,
 	doc: RowsQueryDocument,
-): Effect.Effect<RowsResponse, BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const { source, output } = doc;
-		if (source.type !== "relationships") {
-			return yield* new BadRequest({
-				message: "Relationship rows query requires a relationship source",
-			});
-		}
+) {
+	const { source, output } = doc;
+	if (source.type !== "relationships") {
+		return yield* new BadRequest({
+			message: "Relationship rows query requires a relationship source",
+		});
+	}
 
-		const [visibleRelationshipSchemas, visibleSourceEntitySchemas, visibleTargetEntitySchemas] =
-			yield* loadRelationshipRootVisibleSchemas(userId, source);
+	const [visibleRelationshipSchemas, visibleSourceEntitySchemas, visibleTargetEntitySchemas] =
+		yield* loadRelationshipRootVisibleSchemas(userId, source);
 
-		const relationshipSchemaIdsSql = sql.join(
-			visibleRelationshipSchemas.map((schema) => sql`${schema.id}`),
-			sql`, `,
-		);
-		const sourceEntitySchemaIdsSql = sql.join(
-			visibleSourceEntitySchemas.map((schema) => sql`${schema.id}`),
-			sql`, `,
-		);
-		const targetEntitySchemaIdsSql = sql.join(
-			visibleTargetEntitySchemas.map((schema) => sql`${schema.id}`),
-			sql`, `,
-		);
-		const offset = (output.pagination.page - 1) * output.pagination.limit;
-		const orderSql = relationshipRootOrderSql(source, output);
-		const db = yield* CurrentDb;
-		const rawRows = yield* dbEffect(() =>
-			db.execute<RelationshipRootQueryRow>(sql`
+	const relationshipSchemaIdsSql = sql.join(
+		visibleRelationshipSchemas.map((schema) => sql`${schema.id}`),
+		sql`, `,
+	);
+	const sourceEntitySchemaIdsSql = sql.join(
+		visibleSourceEntitySchemas.map((schema) => sql`${schema.id}`),
+		sql`, `,
+	);
+	const targetEntitySchemaIdsSql = sql.join(
+		visibleTargetEntitySchemas.map((schema) => sql`${schema.id}`),
+		sql`, `,
+	);
+	const offset = (output.pagination.page - 1) * output.pagination.limit;
+	const orderSql = relationshipRootOrderSql(source, output);
+	const db = yield* CurrentDb;
+	const rawRows = yield* dbEffect(() =>
+		db.execute<RelationshipRootQueryRow>(sql`
 				${relationshipRootSelectSql(
 					relationshipSchemaIdsSql,
 					sourceEntitySchemaIdsSql,
@@ -275,22 +274,22 @@ const executeRelationshipRowsQuery = (
 				ORDER BY ${orderSql}
 				${paginationSql(output.pagination, source.where, offset)}
 			`),
-		);
+	);
 
-		const { rows, total } = yield* resolveRootPage(
-			userId,
-			source.where,
-			rawRows.rows,
-			offset,
-			output.pagination.limit,
-			(row) => makeRelationshipRootContext(source, row),
-		);
-		const items: RowItem[] = [];
-		for (const row of rows) {
-			items.push(yield* serializeRelationshipRootRow(userId, row, source, output.fields));
-		}
-		return rowsResponse(items, output.pagination, total, offset, rows.length);
-	});
+	const { rows, total } = yield* resolveRootPage(
+		userId,
+		source.where,
+		rawRows.rows,
+		offset,
+		output.pagination.limit,
+		(row) => makeRelationshipRootContext(source, row),
+	);
+	const items: RowItem[] = [];
+	for (const row of rows) {
+		items.push(yield* serializeRelationshipRootRow(userId, row, source, output.fields));
+	}
+	return rowsResponse(items, output.pagination, total, offset, rows.length);
+});
 
 export const executeRowsQuery = (
 	userId: string,
