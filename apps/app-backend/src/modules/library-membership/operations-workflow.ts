@@ -5,7 +5,7 @@ import type { DbError } from "@ryot/contract/errors";
 import type { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
-import { EnsureLibraryMembershipQueue } from "./durable-queues";
+import { EnsureLibraryMembershipQueue } from "#modules/events/durable-queues";
 
 export type LibraryEntityImportWorkflowOperationsValue = {
 	ensureLibraryMembership: (input: {
