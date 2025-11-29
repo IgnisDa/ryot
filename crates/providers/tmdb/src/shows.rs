@@ -192,20 +192,17 @@ impl MediaProvider for TmdbShowService {
                 ..Default::default()
             },
             show_specifics: Some(ShowSpecifics {
-                runtime: if total_runtime == 0 {
-                    None
-                } else {
-                    Some(total_runtime)
+                runtime: match total_runtime {
+                    0 => None,
+                    _ => Some(total_runtime),
                 },
-                total_seasons: if total_seasons == 0 {
-                    None
-                } else {
-                    Some(total_seasons)
+                total_seasons: match total_seasons {
+                    0 => None,
+                    _ => Some(total_seasons),
                 },
-                total_episodes: if total_episodes == 0 {
-                    None
-                } else {
-                    Some(total_episodes)
+                total_episodes: match total_episodes {
+                    0 => None,
+                    _ => Some(total_episodes),
                 },
                 seasons: seasons
                     .into_iter()
