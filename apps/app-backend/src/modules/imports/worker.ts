@@ -4,7 +4,7 @@ import { getRedisConnection } from "~/lib/queue/connection";
 import { onWorkerError } from "~/lib/queue/utils";
 
 import { importRunJobData, importRunJobName } from "./jobs";
-import { processImportJob } from "./processor";
+import { processImportJob } from "./runtime/processor";
 
 const processImportQueueJob = async (job: Job, token?: string): Promise<void> => {
 	if (job.name === importRunJobName) {
