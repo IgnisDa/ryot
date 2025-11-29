@@ -254,9 +254,6 @@ export const validateTimeSeriesOutput = (
 	if (timeExprError) {
 		return timeExprError;
 	}
-	if (output.time.expr.type === "measureRef") {
-		return "Measure references are valid only in aggregate orderBy";
-	}
 
 	const aggregation = output.measure.aggregation;
 	if (aggregation.function === "count") {
