@@ -6,25 +6,10 @@ import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { RedisService } from "#lib/infrastructure/redis";
 import type { MockOverrides } from "#lib/test-support/effect";
-import {
-	dbRunnerLayer,
-	makeRedisService,
-	makeWorkflowActivityEngine,
-} from "#lib/test-support/effect";
+import { makeWorkflowActivityEngine } from "#lib/test-support/effect";
 import { CollectionsService } from "#modules/collections/service";
-import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
 import { EntityImportPayload } from "#modules/entity-import/entity-import-workflow";
-import {
-	EntityImportWorkflowOperations,
-	type EntityImportWorkflowOperationsValue,
-} from "#modules/entity-import/operations-workflow";
-import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
-import { RelationshipsRepository } from "#modules/relationships/repository";
-import { RelationshipsService } from "#modules/relationships/service";
 
 import { runLibraryEntityImportWorkflow } from "./library-entity-import-workflow";
 
@@ -58,67 +43,19 @@ const importPayload = {
 	entitySchemaId: EntitySchemaId.make("schema-1"),
 } satisfies EntityImportPayload;
 
-const mockEntitiesService = Layer.mock(EntitiesService);
-const mockEntitiesRepository = Layer.mock(EntitiesRepository);
+type PopulationStub = (
+	...args: Parameters<WorkflowEngine["Type"]["execute"]>
+) => Effect.Effect<unknown, unknown>;
+
+type TestLayerOptions = {
+	population?: PopulationStub;
+	collectionsService?: Layer.Layer<CollectionsService>;
+};
+
 const mockCollectionsService = Layer.mock(CollectionsService);
-const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
-const mockEntitySchemasRepository = Layer.mock(EntitySchemasRepository);
-const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasRepository);
-
-const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
-	mockEntitiesRepository({
-		findGlobalEntityByExternalId: () => Effect.succeed(populatedEntity),
-		...overrides,
-		_tag: "EntitiesRepository",
-	});
-
-const makeEntitiesService = (overrides: MockOverrides<typeof mockEntitiesService> = {}) =>
-	mockEntitiesService({ ...overrides, _tag: "EntitiesService" });
 
 const makeCollectionsService = (overrides: MockOverrides<typeof mockCollectionsService> = {}) =>
 	mockCollectionsService({ ...overrides, _tag: "CollectionsService" });
-
-const makeRelationshipsRepository = (
-	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
-) => mockRelationshipsRepository({ ...overrides, _tag: "RelationshipsRepository" });
-
-const makeEntitySchemasRepository = (
-	overrides: MockOverrides<typeof mockEntitySchemasRepository> = {},
-) => mockEntitySchemasRepository({ ...overrides, _tag: "EntitySchemasRepository" });
-
-const makeRelationshipSchemasRepository = (
-	overrides: MockOverrides<typeof mockRelationshipSchemasRepository> = {},
-) => mockRelationshipSchemasRepository({ ...overrides, _tag: "RelationshipSchemasRepository" });
-
-type TestLayerOptions = {
-	entitiesService?: Layer.Layer<EntitiesService>;
-	collectionsService?: Layer.Layer<CollectionsService>;
-	entitiesRepository?: Layer.Layer<EntitiesRepository>;
-	processSandbox?: EntityImportWorkflowOperationsValue["processSandbox"];
-};
-
-const makeTestLayer = (options: TestLayerOptions) => {
-	const relationshipsRepository = makeRelationshipsRepository();
-
-	const relationshipsServiceLayer = RelationshipsService.Default.pipe(
-		Layer.provide(Layer.mergeAll(dbRunnerLayer, relationshipsRepository)),
-	);
-
-	return Layer.mergeAll(
-		dbRunnerLayer,
-		relationshipsServiceLayer,
-		Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(0) })),
-		Layer.mock(EntityImportWorkflowOperations, {
-			processSandbox: options.processSandbox ?? (() => Effect.die("unused")),
-		}),
-		options.collectionsService ?? makeCollectionsService(),
-		options.entitiesService ?? makeEntitiesService(),
-		options.entitiesRepository ?? makeEntitiesRepository(),
-		makeEntitySchemasRepository(),
-		relationshipsRepository,
-		makeRelationshipSchemasRepository(),
-	);
-};
 
 const withTestLayer = <A, E, R>(
 	options: TestLayerOptions,
@@ -126,19 +63,26 @@ const withTestLayer = <A, E, R>(
 	effect: Effect.Effect<A, E, R>,
 ) => {
 	const instance = WorkflowInstance.initial(TestLibraryEntityImportWorkflow, executionId);
-	const engine = makeWorkflowActivityEngine(instance);
+	const engine = makeWorkflowActivityEngine(instance, {
+		execute: options.population ?? (() => Effect.succeed(populatedEntity)),
+	});
 
 	return effect.pipe(
 		Effect.provideService(WorkflowEngine, engine),
 		Effect.provideService(WorkflowInstance, instance),
-		Effect.provide(makeTestLayer(options)),
+		Effect.provide(options.collectionsService ?? makeCollectionsService()),
 	);
 };
 
-it.effect("ensures library membership after a successful import", () => {
+it.effect("awaits provider population then ensures library membership", () => {
 	let ensuredCall: { userId: string; entityId: string } | undefined;
+	const populationCalls: unknown[] = [];
 
 	const options = {
+		population: (_workflow, execOptions) => {
+			populationCalls.push(execOptions);
+			return Effect.succeed(populatedEntity);
+		},
 		collectionsService: makeCollectionsService({
 			ensureEntityInLibrary: (userId, entityId) => {
 				ensuredCall = { userId, entityId };
@@ -158,6 +102,39 @@ it.effect("ensures library membership after a successful import", () => {
 
 			expect(entity.id).toBe("entity-1");
 			expect(ensuredCall).toEqual({ userId: "user-1", entityId: "entity-1" });
+			expect(populationCalls).toMatchObject([
+				{
+					payload: { mode: "ensure" },
+					executionId: `${importPayload.executionId}-provider-population`,
+				},
+			]);
+		}),
+	);
+});
+
+it.effect("does not ensure library membership when provider population fails", () => {
+	let ensureCalled = false;
+
+	const options = {
+		population: () => Effect.fail(new SandboxRunError({ message: "provider boom" })),
+		collectionsService: makeCollectionsService({
+			ensureEntityInLibrary: () => {
+				ensureCalled = true;
+				return Effect.void;
+			},
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		importPayload.executionId,
+		Effect.gen(function* () {
+			const exit = yield* Effect.exit(
+				runLibraryEntityImportWorkflow(importPayload, importPayload.executionId),
+			);
+
+			expect(ensureCalled).toBe(false);
+			expect(exit._tag).toBe("Failure");
 		}),
 	);
 });
