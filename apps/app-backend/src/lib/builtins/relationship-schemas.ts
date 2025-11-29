@@ -169,6 +169,13 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		sourceEntitySchemaSlug: "show-season",
 		targetEntitySchemaSlug: "show-episode",
 	},
+	{
+		propertiesSchema: { fields: {} },
+		sourceEntitySchemaSlug: "podcast",
+		slug: "podcast-to-podcast-episode",
+		name: "Podcast to Podcast Episode",
+		targetEntitySchemaSlug: "podcast-episode",
+	},
 	...buildCreditRelationshipSchemas({
 		sourceSlug: "person",
 		targetEntitySchemaSlugs: builtinMediaEntitySchemaSlugs,
