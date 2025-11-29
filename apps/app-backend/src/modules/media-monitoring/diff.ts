@@ -69,31 +69,53 @@ const sameImageSet = (before: unknown, after: unknown) => {
 	return beforeSet.size === afterSet.size && [...beforeSet].every((image) => afterSet.has(image));
 };
 
-const identityKeys = (input: { externalId: string | null; number: number | null }): string[] =>
-	[
-		...(input.externalId === null ? [] : [`external:${input.externalId}`]),
-		...(input.number === null ? [] : [`number:${input.number}`]),
-	] as const;
-
-const matchByIdentity = <T>(
+const matchByIdentity = <T extends object>(
 	before: ReadonlyArray<T>,
 	after: ReadonlyArray<T>,
 	identity: (value: T) => { externalId: string | null; number: number | null },
 ) => {
+	const unmatchedBefore = new Set(before);
 	const unmatchedAfter = new Set(after);
 	const matches: Array<{ after: T; before: T }> = [];
 	for (const beforeValue of before) {
-		const beforeKeys = identityKeys(identity(beforeValue));
-		const afterValue = [...unmatchedAfter].find((candidate) => {
-			const afterKeys = identityKeys(identity(candidate));
-			return beforeKeys.some((key) => afterKeys.includes(key));
-		});
+		const beforeIdentity = identity(beforeValue);
+		if (beforeIdentity.externalId === null) {
+			continue;
+		}
+		const afterValue = [...unmatchedAfter].find(
+			(candidate) => identity(candidate).externalId === beforeIdentity.externalId,
+		);
 		if (afterValue !== undefined) {
+			unmatchedBefore.delete(beforeValue);
 			unmatchedAfter.delete(afterValue);
 			matches.push({ after: afterValue, before: beforeValue });
 		}
 	}
-	return matches;
+
+	for (const beforeValue of unmatchedBefore) {
+		const beforeIdentity = identity(beforeValue);
+		if (beforeIdentity.number === null) {
+			continue;
+		}
+		const afterValue = [...unmatchedAfter].find((candidate) => {
+			const afterIdentity = identity(candidate);
+			return (
+				afterIdentity.number === beforeIdentity.number &&
+				(beforeIdentity.externalId === null || afterIdentity.externalId === null)
+			);
+		});
+		if (afterValue !== undefined) {
+			unmatchedBefore.delete(beforeValue);
+			unmatchedAfter.delete(afterValue);
+			matches.push({ after: afterValue, before: beforeValue });
+		}
+	}
+
+	return {
+		matches,
+		unmatchedAfter: [...unmatchedAfter],
+		unmatchedBefore: [...unmatchedBefore],
+	};
 };
 
 const diffShowEpisodes = (
@@ -104,7 +126,11 @@ const diffShowEpisodes = (
 	if (isSpecialSeason(before.name) && isSpecialSeason(after.name)) {
 		return [];
 	}
-	if (before.episodes.length !== after.episodes.length) {
+	const episodeMatches = matchByIdentity(before.episodes, after.episodes, (episode) => ({
+		externalId: episode.externalId,
+		number: episode.episodeNumber,
+	}));
+	if (episodeMatches.unmatchedAfter.length > 0 && after.episodes.length > before.episodes.length) {
 		return [
 			mediaMonitoringMessages.episodeReleased({
 				entityName,
@@ -115,11 +141,17 @@ const diffShowEpisodes = (
 		];
 	}
 
-	const changes: MediaMonitoringChange[] = [];
-	for (const pair of matchByIdentity(before.episodes, after.episodes, (episode) => ({
-		externalId: episode.externalId,
-		number: episode.episodeNumber,
-	}))) {
+	const changes: MediaMonitoringChange[] =
+		episodeMatches.unmatchedAfter.length > 0
+			? [
+					mediaMonitoringMessages.episodesReleased({
+						entityName,
+						count: episodeMatches.unmatchedAfter.length,
+						seasonNumber: before.seasonNumber ?? after.seasonNumber,
+					}),
+				]
+			: [];
+	for (const pair of episodeMatches.matches) {
 		const seasonNumber = before.seasonNumber ?? after.seasonNumber;
 		const episodeNumber = pair.before.episodeNumber ?? pair.after.episodeNumber;
 		if (episodeNumber === null || seasonNumber === null) {
@@ -174,11 +206,22 @@ const diffShows = (before: MediaMonitoringSnapshot, after: MediaMonitoringSnapsh
 	return matchByIdentity(before.seasons, after.seasons, (season) => ({
 		externalId: season.externalId,
 		number: season.seasonNumber,
-	})).flatMap((pair) => diffShowEpisodes(pair.before, pair.after, after.name));
+	})).matches.flatMap((pair) => diffShowEpisodes(pair.before, pair.after, after.name));
 };
 
 const diffPodcastEpisodes = (before: MediaMonitoringSnapshot, after: MediaMonitoringSnapshot) => {
-	if (before.podcastEpisodes.length !== after.podcastEpisodes.length) {
+	const episodeMatches = matchByIdentity(
+		before.podcastEpisodes,
+		after.podcastEpisodes,
+		(episode) => ({
+			externalId: episode.externalId,
+			number: episode.episodeNumber,
+		}),
+	);
+	if (
+		episodeMatches.unmatchedAfter.length > 0 &&
+		after.podcastEpisodes.length > before.podcastEpisodes.length
+	) {
 		return [
 			mediaMonitoringMessages.episodeReleased({
 				seasonNumber: null,
@@ -189,11 +232,17 @@ const diffPodcastEpisodes = (before: MediaMonitoringSnapshot, after: MediaMonito
 		];
 	}
 
-	const changes: MediaMonitoringChange[] = [];
-	for (const pair of matchByIdentity(before.podcastEpisodes, after.podcastEpisodes, (episode) => ({
-		externalId: episode.externalId,
-		number: episode.episodeNumber,
-	}))) {
+	const changes: MediaMonitoringChange[] =
+		episodeMatches.unmatchedAfter.length > 0
+			? [
+					mediaMonitoringMessages.episodesReleased({
+						seasonNumber: null,
+						entityName: after.name,
+						count: episodeMatches.unmatchedAfter.length,
+					}),
+				]
+			: [];
+	for (const pair of episodeMatches.matches) {
 		const episodeNumber = pair.before.episodeNumber ?? pair.after.episodeNumber;
 		if (episodeNumber === null) {
 			continue;
