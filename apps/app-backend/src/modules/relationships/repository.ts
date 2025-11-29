@@ -358,11 +358,80 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 				);
 			});
 
+			const syncGlobalRelationshipSelfEdges = Effect.fn(
+				"RelationshipsRepository.syncGlobalRelationshipSelfEdges",
+			)(function* (input: {
+				relationshipSchemaId: RelationshipSchemaId;
+				entries: ReadonlyArray<{ entityId: EntityId; properties: Record<string, unknown> }>;
+			}) {
+				const db = yield* CurrentDb;
+				const entriesById = new Map<
+					string,
+					{ entityId: EntityId; properties: Record<string, unknown> }
+				>();
+				for (const entry of input.entries) {
+					entriesById.set(entry.entityId, entry);
+				}
+
+				const entries = [...entriesById.values()];
+				const entityIds = entries.map((entry) => entry.entityId);
+				const selfEdgeWhere = and(
+					isNull(schema.relationship.userId),
+					eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
+					eq(schema.relationship.sourceEntityId, schema.relationship.targetEntityId),
+				);
+
+				yield* dbEffect(() =>
+					db.transaction((tx) => {
+						const upsert =
+							entries.length > 0
+								? tx
+										.insert(schema.relationship)
+										.values(
+											entries.map((entry) => ({
+												userId: null,
+												properties: entry.properties,
+												targetEntityId: entry.entityId,
+												sourceEntityId: entry.entityId,
+												relationshipSchemaId: input.relationshipSchemaId,
+											})),
+										)
+										.onConflictDoUpdate({
+											set: { properties: sql.raw('excluded."properties"') },
+											targetWhere: isNull(schema.relationship.userId),
+											target: [
+												schema.relationship.sourceEntityId,
+												schema.relationship.targetEntityId,
+												schema.relationship.relationshipSchemaId,
+											],
+										})
+								: Promise.resolve();
+
+						return upsert.then(() => {
+							if (entityIds.length === 0) {
+								return tx
+									.delete(schema.relationship)
+									.where(selfEdgeWhere)
+									.then(() => undefined);
+							}
+
+							return tx
+								.delete(schema.relationship)
+								.where(
+									and(selfEdgeWhere, notInArray(schema.relationship.sourceEntityId, entityIds)),
+								)
+								.then(() => undefined);
+						});
+					}),
+				);
+			});
+
 			return {
 				saveRelationship,
 				deleteUserRelationship,
 				findRelationshipProperties,
 				syncGlobalRelationshipTargets,
+				syncGlobalRelationshipSelfEdges,
 				deleteUserRelationshipsForEntity,
 				moveUserRelationshipsBetweenEntities,
 			};

@@ -93,6 +93,7 @@ export const insertGlobalRelationship = async (input: {
 	sourceEntityId: string;
 	targetEntityId: string;
 	relationshipSchemaId: string;
+	properties?: Record<string, unknown>;
 }) => {
 	await getPgClient().query(
 		`insert into relationship (
@@ -102,10 +103,16 @@ export const insertGlobalRelationship = async (input: {
 			source_entity_id,
 			target_entity_id,
 			relationship_schema_id
-		) values ($1, null, '{}'::jsonb, $2, $3, $4)
+		) values ($1, null, $2::jsonb, $3, $4, $5)
 		on conflict (user_id, source_entity_id, target_entity_id, relationship_schema_id)
 		where user_id is null do nothing`,
-		[crypto.randomUUID(), input.sourceEntityId, input.targetEntityId, input.relationshipSchemaId],
+		[
+			crypto.randomUUID(),
+			JSON.stringify(input.properties ?? {}),
+			input.sourceEntityId,
+			input.targetEntityId,
+			input.relationshipSchemaId,
+		],
 	);
 };
 

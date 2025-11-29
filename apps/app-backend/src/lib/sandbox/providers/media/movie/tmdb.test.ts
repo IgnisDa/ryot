@@ -14,6 +14,12 @@ const runTmdbMovieDetails = (context: unknown, hostFunctions: Record<string, Hos
 		metadata: { providerInformation: { source: "tmdb", canonicalLanguage: "en" } },
 	});
 
+const runTmdbMovieTrending = (context: unknown, hostFunctions: Record<string, HostFunction>) =>
+	runProviderDriver(tmdbMovieScriptCode, context, hostFunctions, {
+		driverName: "trending",
+		metadata: { providerInformation: { source: "tmdb", canonicalLanguage: "en" } },
+	});
+
 describe("movie.tmdb sandbox script", () => {
 	it("keeps TMDB recommendations as related entities", () => {
 		return runTmdbMovieDetails(
@@ -69,6 +75,45 @@ describe("movie.tmdb sandbox script", () => {
 					relationshipSchemaSlug: "media-suggestion",
 				},
 			]);
+			return undefined;
+		});
+	});
+	it("returns TMDB trending movies", () => {
+		const requestedPages: string[] = [];
+		return runTmdbMovieTrending(
+			{},
+			{
+				getAppConfigValue: () => hostSuccess("token"),
+				httpCall: (...args: Array<unknown>) => {
+					const requestUrl = new URL(String(args[1]));
+					expect(requestUrl.pathname).toBe("/3/trending/movie/day");
+					requestedPages.push(requestUrl.searchParams.get("page") ?? "");
+
+					if (requestUrl.searchParams.get("page") === "1") {
+						return httpSuccess({
+							results: [
+								{ id: 1, title: "First Movie" },
+								{ id: 2, original_title: "Second Movie" },
+								{ id: 3, title: "" },
+							],
+						});
+					}
+					if (requestUrl.searchParams.get("page") === "2") {
+						return httpSuccess({ results: [{ id: 4, title: "Third Movie" }] });
+					}
+					return httpSuccess({ results: [{ id: 5, title: "Fourth Movie" }] });
+				},
+			},
+		).then((rawResult) => {
+			expect(requestedPages).toEqual(["1", "2", "3"]);
+			expect(toRecord(rawResult)).toEqual({
+				items: [
+					{ name: "First Movie", externalId: "1" },
+					{ name: "Second Movie", externalId: "2" },
+					{ name: "Third Movie", externalId: "4" },
+					{ name: "Fourth Movie", externalId: "5" },
+				],
+			});
 			return undefined;
 		});
 	});
