@@ -597,7 +597,7 @@ pub async fn search(
         .page
         .unwrap();
     let total = search.page_info.unwrap().total.unwrap();
-    let next_page = compute_next_page(page, page_size, total);
+    let next_page = compute_next_page(page, total);
     let media = search
         .media
         .unwrap()

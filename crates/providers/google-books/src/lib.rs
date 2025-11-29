@@ -135,7 +135,7 @@ impl MediaProvider for GoogleBooksService {
                 }
             })
             .collect();
-        let next_page = compute_next_page(page, PAGE_SIZE, search.total_items);
+        let next_page = compute_next_page(page, search.total_items);
         Ok(SearchResults {
             items: resp,
             details: SearchDetails {

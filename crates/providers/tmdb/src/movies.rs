@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics, SearchDetails,
 };
-use common_utils::{PAGE_SIZE, compute_next_page, convert_date_to_year, convert_string_to_date};
+use common_utils::{compute_next_page, convert_date_to_year, convert_string_to_date};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
 use enum_models::{MediaLot, MediaSource};
@@ -76,7 +76,7 @@ impl MediaProvider for TmdbMovieService {
                 publish_year: d.release_date.and_then(|r| convert_date_to_year(&r)),
             })
             .collect_vec();
-        let next_page = compute_next_page(page, PAGE_SIZE, search.total_results);
+        let next_page = compute_next_page(page,search.total_results);
         Ok(SearchResults {
             items: resp.to_vec(),
             details: SearchDetails {
@@ -270,7 +270,7 @@ impl MediaProvider for TmdbMovieService {
                 ..Default::default()
             })
             .collect_vec();
-        let next_page = compute_next_page(page, PAGE_SIZE, search.total_results);
+        let next_page = compute_next_page(page,search.total_results);
         Ok(SearchResults {
             items: resp,
             details: SearchDetails {

@@ -58,7 +58,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .page
                 .unwrap();
             let total = search.page_info.unwrap().total.unwrap();
-            let next_page = compute_next_page(page, PAGE_SIZE, total);
+            let next_page = compute_next_page(page, total);
             let items = search
                 .studios
                 .unwrap_or_default()
@@ -87,7 +87,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .page
                 .unwrap();
             let total_items = search.page_info.unwrap().total.unwrap();
-            let next_page = compute_next_page(page, PAGE_SIZE, total_items);
+            let next_page = compute_next_page(page, total_items);
             let items = search
                 .staff
                 .unwrap_or_default()

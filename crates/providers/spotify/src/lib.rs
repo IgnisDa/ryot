@@ -333,7 +333,7 @@ impl MediaProvider for SpotifyService {
         let (search_response, page): (SpotifySearchResponse, u64) =
             self.search_spotify(query, "track", Some(page)).await?;
 
-        let next_page = compute_next_page(page, PAGE_SIZE, search_response.tracks.total);
+        let next_page = compute_next_page(page, search_response.tracks.total);
 
         let items = search_response
             .tracks
@@ -425,7 +425,7 @@ impl MediaProvider for SpotifyService {
         let (search_response, page): (SpotifyAlbumSearchResponse, u64) =
             self.search_spotify(query, "album", Some(page)).await?;
 
-        let next_page = compute_next_page(page, PAGE_SIZE, search_response.albums.total);
+        let next_page = compute_next_page(page, search_response.albums.total);
 
         let items = search_response
             .albums
@@ -549,7 +549,7 @@ impl MediaProvider for SpotifyService {
         let (search_response, page): (SpotifyArtistSearchResponse, u64) =
             self.search_spotify(query, "artist", Some(page)).await?;
 
-        let next_page = compute_next_page(page, PAGE_SIZE, search_response.artists.total);
+        let next_page = compute_next_page(page, search_response.artists.total);
 
         let items = search_response
             .artists

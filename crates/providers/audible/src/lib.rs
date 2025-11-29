@@ -403,7 +403,7 @@ impl MediaProvider for AudibleService {
                 }
             })
             .collect_vec();
-        let next_page = compute_next_page(page, PAGE_SIZE, search.total_results);
+        let next_page = compute_next_page(page, search.total_results);
         Ok(SearchResults {
             items: resp,
             details: SearchDetails {

@@ -6,8 +6,7 @@ use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics, SearchDetails,
 };
 use common_utils::{
-    PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES, compute_next_page, convert_date_to_year,
-    convert_string_to_date,
+    SHOW_SPECIAL_SEASON_NAMES, compute_next_page, convert_date_to_year, convert_string_to_date,
 };
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
 use enum_models::MediaSource;
@@ -280,7 +279,7 @@ impl MediaProvider for TmdbShowService {
                 publish_year: convert_date_to_year(&d.first_air_date.unwrap()),
             })
             .collect_vec();
-        let next_page = compute_next_page(page, PAGE_SIZE, search.total_results);
+        let next_page = compute_next_page(page,search.total_results);
         Ok(SearchResults {
             items: resp.to_vec(),
             details: SearchDetails {

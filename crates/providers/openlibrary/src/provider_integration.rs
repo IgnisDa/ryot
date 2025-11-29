@@ -56,7 +56,7 @@ impl MediaProvider for OpenlibraryService {
             items: resp,
             details: SearchDetails {
                 total_items: search.num_found,
-                next_page: compute_next_page(page, PAGE_SIZE, search.num_found),
+                next_page: compute_next_page(page, search.num_found),
             },
         };
         Ok(data)
@@ -262,7 +262,7 @@ impl MediaProvider for OpenlibraryService {
             total: search.num_found,
             items: resp,
         };
-        let next_page = compute_next_page(page, PAGE_SIZE, search.num_found);
+        let next_page = compute_next_page(page, search.num_found);
         Ok(SearchResults {
             details: SearchDetails {
                 next_page,

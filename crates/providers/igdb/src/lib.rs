@@ -254,7 +254,7 @@ offset: {offset};
                 image: d.cover.map(|c| self.get_cover_image_url(c.image_id)),
             })
             .collect_vec();
-        let next_page = compute_next_page(page, PAGE_SIZE, total_items);
+        let next_page = compute_next_page(page, total_items);
         Ok(SearchResults {
             items: resp.clone(),
             details: SearchDetails {
@@ -360,7 +360,7 @@ offset: {offset};
                 }
             })
             .collect_vec();
-        let next_page = compute_next_page(page, PAGE_SIZE, total_items);
+        let next_page = compute_next_page(page, total_items);
         Ok(SearchResults {
             items: resp.clone(),
             details: SearchDetails {
@@ -587,7 +587,7 @@ offset: {offset};
             })
             .collect_vec();
 
-        let next_page = compute_next_page(page, PAGE_SIZE, total_items);
+        let next_page = compute_next_page(page, total_items);
         Ok(SearchResults {
             items: resp,
             details: SearchDetails {

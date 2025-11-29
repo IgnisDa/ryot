@@ -185,7 +185,7 @@ impl MediaProvider for MangaUpdatesService {
             items,
             details: SearchDetails {
                 total_items: data.total_hits,
-                next_page: compute_next_page(page, PAGE_SIZE, data.total_hits),
+                next_page: compute_next_page(page, data.total_hits),
             },
         })
     }
@@ -361,7 +361,7 @@ impl MediaProvider for MangaUpdatesService {
                 publish_year: s.record.year.and_then(|y| y.parse().ok()),
             })
             .collect();
-        let next_page = compute_next_page(page, PAGE_SIZE, search.total_hits);
+        let next_page = compute_next_page(page, search.total_hits);
         Ok(SearchResults {
             items,
             details: SearchDetails {
