@@ -67,6 +67,16 @@ const savedRelationship = {
 	relationshipSchemaId: RelationshipSchemaId.make("relationship-schema-id"),
 };
 
+const mediaSuggestionSchema = {
+	isBuiltin: true,
+	name: "Media Suggestion",
+	slug: "media-suggestion",
+	sourceEntitySchemaId: null,
+	targetEntitySchemaId: null,
+	propertiesSchema: { fields: {} },
+	id: RelationshipSchemaId.make("media-suggestion-schema-id"),
+};
+
 const baseEntitySchema = {
 	propertiesSchema: {
 		fields: { title: { type: "string" as const, label: "Title", description: "Title" } },
@@ -109,6 +119,7 @@ const makeRelationshipsRepository = (
 ) =>
 	mockRelationshipsRepository({
 		saveRelationship: () => Effect.succeed(savedRelationship),
+		syncGlobalRelationshipTargets: () => Effect.void,
 		...overrides,
 		_tag: "RelationshipsRepository",
 	});
@@ -126,6 +137,8 @@ const makeRelationshipSchemasRepository = (
 	overrides: MockOverrides<typeof mockRelationshipSchemasRepository> = {},
 ) =>
 	mockRelationshipSchemasRepository({
+		findBuiltinBySlug: (slug: string) =>
+			Effect.succeed(slug === "media-suggestion" ? mediaSuggestionSchema : null),
 		findGlobalBySchemaIds: () => Effect.succeed(null),
 		...overrides,
 		_tag: "RelationshipSchemasRepository",
@@ -488,6 +501,227 @@ it.effect("propagates images through properties for the primary entity", () => {
 			]);
 		}),
 	);
+});
+
+it.effect("creates placeholder suggestion entities and syncs source suggestions", () => {
+	const syncedTargets: Array<{
+		sourceEntityId: EntityId;
+		targetEntityIds: ReadonlyArray<EntityId>;
+		relationshipSchemaId: RelationshipSchemaId;
+	}> = [];
+	const placeholderWrites: Array<{
+		name: string;
+		externalId: string;
+		populatedAt: string | null;
+		entitySchemaId: EntitySchemaId;
+		sandboxScriptId: SandboxScriptId;
+		properties: Record<string, unknown>;
+	}> = [];
+	const movieSchemaScript = {
+		entitySchemaId: EntitySchemaId.make("schema-movie"),
+		sandboxScriptId: SandboxScriptId.make("movie-script"),
+	};
+	const payload = { ...importPayload, executionId: "exec-suggestions" };
+	const options = {
+		processSandbox: () =>
+			Effect.succeed({
+				logs: [],
+				error: null,
+				status: "completed" as const,
+				value: {
+					name: "Test Book",
+					properties: { title: "Test Book" },
+					suggestions: [
+						{
+							externalId: "movie-1",
+							scriptSlug: "movie.tmdb",
+							name: "Recommended Movie",
+						},
+						{
+							externalId: "missing-1",
+							name: "Missing Suggestion",
+							scriptSlug: "missing.provider",
+						},
+					],
+				},
+			}),
+		entitiesRepository: makeEntitiesRepository({
+			findEntitySchemaScriptBySlug: (slug: string) =>
+				Effect.succeed(slug === "movie.tmdb" ? movieSchemaScript : null),
+		}),
+		entitiesService: makeEntitiesService({
+			save: (input) => {
+				if (input.scope !== "global") {
+					return Effect.die("unexpected user entity save");
+				}
+				if (input.entitySchemaId === payload.entitySchemaId) {
+					return Effect.succeed({
+						...baseEntity,
+						populatedAt: input.populatedAt === null ? null : now,
+					});
+				}
+
+				const properties: unknown = input.properties;
+				assertRecord(properties);
+				placeholderWrites.push({
+					properties,
+					name: input.name,
+					externalId: input.externalId,
+					entitySchemaId: input.entitySchemaId,
+					sandboxScriptId: input.sandboxScriptId,
+					populatedAt: input.populatedAt?.toISOString() ?? null,
+				});
+				return Effect.succeed({
+					...baseEntity,
+					properties,
+					name: input.name,
+					populatedAt: null,
+					externalId: input.externalId,
+					entitySchemaId: input.entitySchemaId,
+					sandboxScriptId: input.sandboxScriptId,
+					id: EntityId.make(`suggestion-${input.externalId}`),
+				});
+			},
+		}),
+		relationshipsRepository: makeRelationshipsRepository({
+			syncGlobalRelationshipTargets: (input) =>
+				Effect.sync(() => {
+					syncedTargets.push(input);
+				}),
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		payload.executionId,
+		Effect.gen(function* () {
+			const result = yield* runEntityImportWorkflow(payload, payload.executionId);
+
+			expect(result.id).toBe("entity-1");
+			expect(result.populatedAt).toBe(now);
+			expect(placeholderWrites).toEqual([
+				{
+					name: "Recommended Movie",
+					externalId: "movie-1",
+					properties: {},
+					populatedAt: null,
+					entitySchemaId: EntitySchemaId.make("schema-movie"),
+					sandboxScriptId: SandboxScriptId.make("movie-script"),
+				},
+			]);
+			expect(syncedTargets).toEqual([
+				{
+					sourceEntityId: EntityId.make("entity-1"),
+					relationshipSchemaId: mediaSuggestionSchema.id,
+					targetEntityIds: [EntityId.make("suggestion-movie-1")],
+				},
+			]);
+		}),
+	);
+});
+
+it.effect("replaces stale synced suggestions on a later import run", () => {
+	let storedPrimaryEntity: StoredEntity | null = null;
+	const currentTargets = new Set<string>();
+	const syncCalls: Array<ReadonlyArray<EntityId>> = [];
+	const movieSchemaScript = {
+		entitySchemaId: EntitySchemaId.make("schema-movie"),
+		sandboxScriptId: SandboxScriptId.make("movie-script"),
+	};
+
+	const runAttempt = (
+		executionId: string,
+		suggestions: ReadonlyArray<{ name: string; externalId: string; scriptSlug: string }>,
+	) =>
+		withTestLayer(
+			{
+				processSandbox: () =>
+					Effect.succeed({
+						logs: [],
+						error: null,
+						status: "completed" as const,
+						value: {
+							suggestions,
+							name: "Test Book",
+							properties: { title: "Test Book" },
+						},
+					}),
+				entitiesRepository: makeEntitiesRepository({
+					findEntitySchemaScriptBySlug: (slug: string) =>
+						Effect.succeed(slug === "movie.tmdb" ? movieSchemaScript : null),
+					findGlobalEntityByExternalId: () => Effect.succeed(storedPrimaryEntity),
+				}),
+				entitiesService: makeEntitiesService({
+					save: (input) => {
+						if (input.scope !== "global") {
+							return Effect.die("unexpected user entity save");
+						}
+
+						if (input.entitySchemaId === importPayload.entitySchemaId) {
+							storedPrimaryEntity = {
+								...baseEntity,
+								name: input.name,
+								populatedAt: null,
+								externalId: input.externalId,
+								properties: { title: "Test Book" },
+								entitySchemaId: input.entitySchemaId,
+								sandboxScriptId: input.sandboxScriptId,
+							};
+							return Effect.succeed({
+								...storedPrimaryEntity,
+								populatedAt: input.populatedAt === null ? null : now,
+							});
+						}
+
+						return Effect.succeed({
+							...baseEntity,
+							name: input.name,
+							properties: {},
+							populatedAt: null,
+							externalId: input.externalId,
+							entitySchemaId: input.entitySchemaId,
+							sandboxScriptId: input.sandboxScriptId,
+							id: EntityId.make(`suggestion-${input.externalId}`),
+						});
+					},
+				}),
+				relationshipsRepository: makeRelationshipsRepository({
+					syncGlobalRelationshipTargets: (input) =>
+						Effect.sync(() => {
+							syncCalls.push(input.targetEntityIds);
+							currentTargets.clear();
+							for (const targetEntityId of input.targetEntityIds) {
+								currentTargets.add(targetEntityId);
+							}
+						}),
+				}),
+			},
+			executionId,
+			runEntityImportWorkflow({ ...importPayload, executionId }, executionId),
+		);
+
+	return Effect.gen(function* () {
+		yield* runAttempt("exec-suggestions-replace-1", [
+			{
+				externalId: "movie-1",
+				scriptSlug: "movie.tmdb",
+				name: "First Recommendation",
+			},
+		]);
+		yield* runAttempt("exec-suggestions-replace-2", [
+			{
+				externalId: "movie-2",
+				scriptSlug: "movie.tmdb",
+				name: "Second Recommendation",
+			},
+		]);
+
+		expect(syncCalls).toEqual([
+			[EntityId.make("suggestion-movie-1")],
+			[EntityId.make("suggestion-movie-2")],
+		]);
+		expect([...currentTargets]).toEqual(["suggestion-movie-2"]);
+	});
 });
 
 it.effect("short-circuits sandbox when global entity is already populated", () => {

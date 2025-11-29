@@ -16,12 +16,13 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 
+import type { EntityDetailsRelatedEntity, EntityDetailsSuggestion } from "./population";
 import {
 	EntityDetailsChildEntity,
-	EntityDetailsRelatedEntity,
 	decodeEntityDetailsResult,
 	processChildEntityTree,
 	processRelatedEntity,
+	syncEntitySuggestions,
 } from "./population";
 
 export const EntityImportPayload = Schema.Struct({
@@ -66,7 +67,24 @@ const ValidatedEntityDetails = Schema.Struct({
 	name: Schema.String,
 	properties: Schema.Unknown,
 	childEntities: Schema.Array(EntityDetailsChildEntity),
-	relatedEntities: Schema.Array(EntityDetailsRelatedEntity),
+	relatedEntities: Schema.Array(
+		Schema.Union(
+			Schema.Struct({
+				name: Schema.String,
+				externalId: Schema.String,
+				scriptSlug: Schema.String,
+				kind: Schema.Literal("relationship"),
+				reverseDirection: Schema.optional(Schema.Boolean),
+				relationshipProperties: Schema.optional(Schema.Unknown),
+			}),
+			Schema.Struct({
+				name: Schema.String,
+				externalId: Schema.String,
+				scriptSlug: Schema.String,
+				kind: Schema.Literal("suggestion"),
+			}),
+		),
+	),
 });
 
 const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
@@ -158,10 +176,28 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 				name: details.name,
 				properties: details.properties,
 				childEntities: details.childEntities ?? [],
-				relatedEntities: details.relatedEntities ?? [],
+				relatedEntities: [
+					...(details.relatedEntities ?? []).map((relatedEntity) =>
+						Object.assign({ kind: "relationship" as const }, relatedEntity),
+					),
+					...(details.suggestions ?? []).map((suggestion) =>
+						Object.assign({ kind: "suggestion" as const }, suggestion),
+					),
+				],
 			};
 		}),
 	});
+
+	const relatedEntities = validatedDetails.relatedEntities.filter(
+		(relatedEntity): relatedEntity is EntityDetailsRelatedEntity & { kind: "relationship" } =>
+			relatedEntity.kind === "relationship",
+	);
+	const suggestions = validatedDetails.relatedEntities
+		.filter(
+			(relatedEntity): relatedEntity is EntityDetailsSuggestion & { kind: "suggestion" } =>
+				relatedEntity.kind === "suggestion",
+		)
+		.map(({ kind: _kind, ...suggestion }) => suggestion);
 
 	const entity = yield* Activity.make({
 		success: ListedEntity,
@@ -184,7 +220,7 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 	});
 
 	yield* Effect.forEach(
-		validatedDetails.relatedEntities,
+		relatedEntities,
 		(relatedEntity) =>
 			Activity.make({
 				error: SandboxRunError,
@@ -197,6 +233,12 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 			}),
 		{ discard: true },
 	);
+
+	yield* Activity.make({
+		error: SandboxRunError,
+		name: activityName("write-media-suggestions"),
+		execute: syncEntitySuggestions({ suggestions, sourceEntityId: entity.id }),
+	});
 
 	yield* processChildEntityTree({
 		parentEntityId: entity.id,

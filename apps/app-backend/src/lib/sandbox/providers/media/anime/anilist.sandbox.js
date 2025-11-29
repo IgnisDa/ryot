@@ -115,6 +115,52 @@ function parsePublishYear(startDate) {
 	return Math.trunc(year);
 }
 
+function collectSuggestions(recommendations, titleLang) {
+	const suggestionByKey = new Map();
+	const nodes = Array.isArray(recommendations?.nodes) ? recommendations.nodes : [];
+
+	for (const node of nodes) {
+		const media =
+			node?.mediaRecommendation && typeof node.mediaRecommendation === "object"
+				? node.mediaRecommendation
+				: null;
+		if (!media) {
+			continue;
+		}
+
+		const externalId =
+			typeof media.id === "number" && Number.isFinite(media.id)
+				? String(Math.trunc(media.id))
+				: null;
+		if (!externalId) {
+			continue;
+		}
+
+		const name = pickAnilistTitle(media.title, titleLang);
+		if (!name) {
+			continue;
+		}
+
+		let scriptSlug = null;
+		if (media.type === "ANIME") {
+			scriptSlug = "anime.anilist";
+		} else if (media.type === "MANGA") {
+			scriptSlug = "manga.anilist";
+		}
+		if (!scriptSlug) {
+			continue;
+		}
+
+		suggestionByKey.set(`${scriptSlug}:${externalId}`, {
+			name,
+			externalId,
+			scriptSlug,
+		});
+	}
+
+	return [...suggestionByKey.values()];
+}
+
 function collectImages(coverImage, bannerImage) {
 	const imageSet = new Set();
 	const candidates = [coverImage?.extraLarge, bannerImage];
@@ -372,6 +418,7 @@ query MediaDetailsQuery($id: Int!) {
     title { english romaji native userPreferred }
     airingSchedule { nodes { episode airingAt } }
     studios { nodes { id name } }
+    recommendations { nodes { mediaRecommendation { id type title { english romaji native userPreferred } } } }
   }
 }
 `;
@@ -458,6 +505,8 @@ query MediaDetailsQuery($id: Int!) {
 
 	return {
 		name: title,
+		relatedEntities,
+		suggestions: collectSuggestions(media.recommendations, titleLang),
 		properties: {
 			episodes,
 			productionStatus: productionStatus,
@@ -473,7 +522,6 @@ query MediaDetailsQuery($id: Int!) {
 					? media.averageScore
 					: null,
 		},
-		relatedEntities,
 	};
 });
 
