@@ -123,7 +123,10 @@ const syncTrendingEdges = Effect.fn("syncTrendingEdges")(function* (
 			}
 
 			yield* runWithDb(
-				relationships.syncGlobalRelationshipSelfEdges({
+				relationships.syncGlobalRelationships({
+					type: "self",
+					onConflict: "replaceProperties",
+					synchronization: "authoritative",
 					relationshipSchemaId: mediaTrending.id,
 					entries: items.map((item) => ({
 						entityId: item.entityId,

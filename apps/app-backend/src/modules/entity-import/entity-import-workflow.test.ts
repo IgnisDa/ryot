@@ -120,8 +120,7 @@ const makeRelationshipsRepository = (
 	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
 ) =>
 	mockRelationshipsRepository({
-		syncGlobalRelationshipTargets: () => Effect.void,
-		syncGlobalRelationshipsWithProperties: () => Effect.void,
+		syncGlobalRelationships: () => Effect.void,
 		saveRelationship: () => Effect.succeed(savedRelationship),
 		...overrides,
 		_tag: "RelationshipsRepository",
@@ -266,7 +265,7 @@ it.effect("populates entity and writes related entities", () => {
 			findEntitySchemaSandboxScriptBySlug: () => Effect.succeed(relatedEntitySchemaSandboxScript),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationshipsWithProperties: () => {
+			syncGlobalRelationships: () => {
 				relationshipWritten = true;
 				return Effect.void;
 			},
@@ -522,8 +521,11 @@ it.effect("propagates images through properties for the primary entity", () => {
 
 it.effect("creates placeholder suggestion entities and syncs source suggestions", () => {
 	const syncedGroups: Array<{
+		type: "anchored";
+		onConflict: "preserveExisting" | "replaceProperties";
 		anchorEntityId: EntityId;
 		direction: "incoming" | "outgoing";
+		synchronization: "additive" | "authoritative";
 		relationshipSchemaId: RelationshipSchemaId;
 		entries: ReadonlyArray<{ entityId: EntityId; properties: Record<string, unknown> }>;
 	}> = [];
@@ -605,8 +607,9 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 			},
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationshipsWithProperties: (input) =>
+			syncGlobalRelationships: (input) =>
 				Effect.sync(() => {
+					assert(input.type === "anchored");
 					syncedGroups.push(input);
 				}),
 		}),
@@ -635,7 +638,9 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 			]);
 			expect(syncedGroups).toEqual([
 				{
+					type: "anchored",
 					direction: "outgoing",
+					onConflict: "replaceProperties",
 					synchronization: "authoritative",
 					anchorEntityId: EntityId.make("entity-1"),
 					relationshipSchemaId: mediaSuggestionSchema.id,
@@ -719,7 +724,7 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 					},
 				}),
 				relationshipsRepository: makeRelationshipsRepository({
-					syncGlobalRelationshipsWithProperties: (input) =>
+					syncGlobalRelationships: (input) =>
 						Effect.sync(() => {
 							syncCalls.push(input.entries.map((entry) => entry.entityId));
 							currentTargets.clear();
@@ -777,7 +782,7 @@ it.effect("does not synchronize relationships when the provider declares no grou
 				},
 			}),
 		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationshipsWithProperties: () =>
+			syncGlobalRelationships: () =>
 				Effect.sync(() => {
 					syncCalled = true;
 				}),
@@ -989,7 +994,7 @@ it.effect("keeps the refresh baseline when related relationship properties are i
 			},
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationshipsWithProperties: () =>
+			syncGlobalRelationships: () =>
 				Effect.sync(() => {
 					relationshipWritten = true;
 					return undefined;
@@ -1075,7 +1080,7 @@ it.effect("fails workflow when related relationship properties are not objects",
 				}),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationshipsWithProperties: () =>
+			syncGlobalRelationships: () =>
 				Effect.sync(() => {
 					relationshipWritten = true;
 					return undefined;
@@ -1164,7 +1169,7 @@ it.effect("retries related writes after a failed related validation", () => {
 			},
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationshipsWithProperties: () =>
+			syncGlobalRelationships: () =>
 				Effect.sync(() => {
 					relationshipWriteCount += 1;
 					return undefined;
@@ -1300,7 +1305,7 @@ it.effect("rolls back provider graph writes when a later child write fails", () 
 			getBuiltinBySlug: () => Effect.succeed(null),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationshipsWithProperties: () =>
+			syncGlobalRelationships: () =>
 				Effect.sync(() => {
 					writes.push("relationship:media-suggestion");
 				}),
@@ -1459,8 +1464,11 @@ it.effect("dies when a refresh payload omits entitySchemaSlug", () => {
 
 it.effect("clears an explicit empty relationship group", () => {
 	const calls: Array<{
+		type: "anchored";
+		onConflict: "preserveExisting" | "replaceProperties";
 		anchorEntityId: EntityId;
 		direction: "incoming" | "outgoing";
+		synchronization: "additive" | "authoritative";
 		relationshipSchemaId: RelationshipSchemaId;
 		entries: ReadonlyArray<{ entityId: EntityId; properties: Record<string, unknown> }>;
 	}> = [];
@@ -1485,8 +1493,9 @@ it.effect("clears an explicit empty relationship group", () => {
 				},
 			}),
 		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationshipsWithProperties: (input) =>
+			syncGlobalRelationships: (input) =>
 				Effect.sync(() => {
+					assert(input.type === "anchored");
 					calls.push(input);
 				}),
 		}),
@@ -1502,8 +1511,10 @@ it.effect("clears an explicit empty relationship group", () => {
 			);
 			expect(calls).toEqual([
 				{
+					type: "anchored",
 					entries: [],
 					direction: "outgoing",
+					onConflict: "replaceProperties",
 					synchronization: "authoritative",
 					anchorEntityId: EntityId.make("entity-1"),
 					relationshipSchemaId: mediaSuggestionSchema.id,
