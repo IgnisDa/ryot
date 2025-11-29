@@ -9,7 +9,6 @@ import {
 import { DateTime, Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
-import { defaultUserPreferences } from "#modules/builtins/bootstrap";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EpisodeResolverService } from "#modules/episode-resolver/service";
@@ -22,12 +21,13 @@ import { resolveMediaEventTarget } from "./event-target-workflow";
 import { mediaEntityGroupItemIndex } from "./groups";
 import {
 	activityKey,
-	EnsureLibraryMembershipOutcome,
 	type EntityIdsByKey,
 	type ProgressReporter,
+	WriteOutcome,
 } from "./shared-workflow";
 import type { ImportMediaEntityGroup } from "./types";
 import { importEntityRefKey } from "./types";
+import { MediaImportWorkflowOperations } from "./types-workflow";
 import { recordWriteFailure } from "./writing-failures-workflow";
 
 export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(function* (input: {
@@ -41,6 +41,7 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 	const runWithDb = yield* DbRunner;
 	const events = yield* EventsService;
 	const collections = yield* CollectionsService;
+	const operations = yield* MediaImportWorkflowOperations;
 	const eventSchemas = yield* EventSchemasRepository;
 	const entitySchemas = yield* EntitySchemasRepository;
 	const episodeResolver = yield* EpisodeResolverService;
@@ -48,12 +49,6 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 	let importedItems = 0;
 	const collectionIdsByName = new Map<string, EntityId>();
 	const eventSchemaIdsByKey = new Map<string, EventSchemaId>();
-	const user = {
-		name: "",
-		email: "",
-		id: input.payload.userId,
-		preferences: defaultUserPreferences,
-	};
 	const entitySchemaIdsBySlug = new Map<string, EntitySchemaId>();
 	const ownershipSyncedAt = yield* Activity.make({
 		error: ImportRunError,
@@ -167,20 +162,17 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 					continue;
 				}
 
-				const membershipResult = yield* Activity.make({
-					success: EnsureLibraryMembershipOutcome,
-					name: `add-collection-membership-${writeInput.groupIndex}-${membershipIndex}`,
-					execute: collections
-						.addToCollection(user, {
-							properties: {},
-							entityId: writeInput.entityId,
-							collectionId: collectionId.right,
-						})
-						.pipe(
-							Effect.as({ message: null }),
-							Effect.catchAll((error) => Effect.succeed({ message: unknownToMessage(error) })),
-						),
-				});
+				const membershipResult = yield* operations
+					.writeCollectionMembership({
+						userId: input.payload.userId,
+						entityId: writeInput.entityId,
+						collectionId: collectionId.right,
+						executionId: `${input.executionId}-collection-${writeInput.groupIndex}-${membershipIndex}`,
+					})
+					.pipe(
+						Effect.as({ message: null as string | null }),
+						Effect.catchAll((error) => Effect.succeed({ message: unknownToMessage(error) })),
+					);
 				if (membershipResult.message) {
 					groupFailed = true;
 					yield* recordWriteFailure({
@@ -321,7 +313,7 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 
 			const ownershipResult = yield* Activity.make({
 				name: `mark-library-ownership-${writeInput.groupIndex}`,
-				success: EnsureLibraryMembershipOutcome,
+				success: WriteOutcome,
 				execute: collections
 					.markEntityOwnedInLibrary({
 						syncedAt: ownershipSyncedAt,

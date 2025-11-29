@@ -9,6 +9,7 @@ import type {
 } from "@ryot/contract/schema/brands";
 import { Context, type Effect } from "effect";
 
+import type { AddEntityToCollectionWorkflowError } from "#modules/collections/add-entity-to-collection-workflow";
 import type { EntitySearchItem } from "#modules/entity-import/population";
 import type { LibraryEntityImportError } from "#modules/library-membership/library-entity-import-workflow";
 
@@ -45,6 +46,12 @@ export type MediaImportWorkflowOperationsValue = {
 		scriptId: SandboxScriptId;
 		entitySchemaId: EntitySchemaId;
 	}) => Effect.Effect<{ id: EntityId }, LibraryEntityImportError, MediaSandboxRequirements>;
+	writeCollectionMembership: (input: {
+		userId: UserId;
+		entityId: EntityId;
+		executionId: string;
+		collectionId: EntityId;
+	}) => Effect.Effect<void, AddEntityToCollectionWorkflowError, MediaSandboxRequirements>;
 };
 
 export class MediaImportWorkflowOperations extends Context.Tag("MediaImportWorkflowOperations")<
