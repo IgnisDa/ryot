@@ -15,6 +15,7 @@ import {
 	buildCollectionToEntityRelationshipMigrationSql,
 	buildOwnedCollectionOwnershipMigrationSql,
 } from "./collection-mapping";
+import { buildLegacyEpisodicSubEntityMigrationSql } from "./episodic-sub-entity-mapping";
 import {
 	buildExerciseMigrationSql,
 	exerciseEntityTargets,
@@ -295,6 +296,38 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		"relationship schema",
 	);
 
+	const showSeasonEntitySchemaId = requireSchemaId(entitySchemaIds, "show-season", "entity schema");
+
+	const showEpisodeEntitySchemaId = requireSchemaId(
+		entitySchemaIds,
+		"show-episode",
+		"entity schema",
+	);
+
+	const podcastEpisodeEntitySchemaId = requireSchemaId(
+		entitySchemaIds,
+		"podcast-episode",
+		"entity schema",
+	);
+
+	const showToSeasonRelationshipSchemaId = requireSchemaId(
+		relationshipSchemaIds,
+		"show-to-show-season",
+		"relationship schema",
+	);
+
+	const seasonToEpisodeRelationshipSchemaId = requireSchemaId(
+		relationshipSchemaIds,
+		"show-season-to-show-episode",
+		"relationship schema",
+	);
+
+	const podcastToEpisodeRelationshipSchemaId = requireSchemaId(
+		relationshipSchemaIds,
+		"podcast-to-podcast-episode",
+		"relationship schema",
+	);
+
 	const unsupportedMetadataSources = yield* getUnsupportedMetadataSources;
 	yield* unsupportedMetadataSources.length > 0
 		? Effect.die(
@@ -401,6 +434,18 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	yield* withRawPgClient((client) =>
 		client
 			.query(buildMetadataMigrationSql(resolvedMetadataTargets))
+			.then(() =>
+				client.query(
+					buildLegacyEpisodicSubEntityMigrationSql({
+						showSeasonEntitySchemaId,
+						showEpisodeEntitySchemaId,
+						podcastEpisodeEntitySchemaId,
+						showToSeasonRelationshipSchemaId,
+						seasonToEpisodeRelationshipSchemaId,
+						podcastToEpisodeRelationshipSchemaId,
+					}),
+				),
+			)
 			.then(() =>
 				client.query(buildMetadataGroupEntityMigrationSql(resolvedMetadataGroupEntityTargets)),
 			)

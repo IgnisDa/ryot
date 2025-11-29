@@ -220,40 +220,8 @@ const buildMetadataLotSpecificPropertiesSql = () => `
 COALESCE(jsonb_strip_nulls(
 	CASE
 		WHEN metadata.lot = 'show' THEN jsonb_build_object(
-			'showSeasons', COALESCE((
-				SELECT jsonb_agg(
-					jsonb_strip_nulls(jsonb_build_object(
-						'id',             (season.value ->> 'id')::int,
-						'name',           season.value ->> 'name',
-						'overview',       season.value ->> 'overview',
-						'episodes',       COALESCE((
-							SELECT jsonb_agg(
-								jsonb_strip_nulls(jsonb_build_object(
-									'id',            (episode.value ->> 'id')::int,
-									'name',          episode.value ->> 'name',
-									'runtime',       (episode.value ->> 'runtime')::int,
-									'overview',      episode.value ->> 'overview',
-									'publishDate',   episode.value ->> 'publish_date',
-									'posterImages',  COALESCE(episode.value -> 'poster_images', '[]'::jsonb),
-									'episodeNumber', (episode.value ->> 'episode_number')::int
-								))
-								ORDER BY (episode.value ->> 'episode_number')::int
-							)
-							FROM jsonb_array_elements(
-								CASE
-									WHEN jsonb_typeof(season.value -> 'episodes') = 'array'
-									THEN season.value -> 'episodes'
-									ELSE '[]'::jsonb
-								END
-							) AS episode(value)
-						), '[]'::jsonb),
-						'publishDate',     season.value ->> 'publish_date',
-						'posterImages',    COALESCE(season.value -> 'poster_images', '[]'::jsonb),
-						'seasonNumber',    (season.value ->> 'season_number')::int,
-						'backdropImages',  COALESCE(season.value -> 'backdrop_images', '[]'::jsonb)
-					))
-					ORDER BY (season.value ->> 'season_number')::int
-				)
+			'totalSeasons', COALESCE((
+				SELECT count(*)::int
 				FROM jsonb_array_elements(
 					CASE
 						WHEN jsonb_typeof(metadata.show_specifics -> 'seasons') = 'array'
@@ -261,7 +229,26 @@ COALESCE(jsonb_strip_nulls(
 						ELSE '[]'::jsonb
 					END
 				) AS season(value)
-			), '[]'::jsonb)
+				WHERE (season.value ->> 'season_number') ~ '^[0-9]+$'
+			), 0),
+			'totalEpisodes', COALESCE((
+				SELECT count(*)::int
+				FROM jsonb_array_elements(
+					CASE
+						WHEN jsonb_typeof(metadata.show_specifics -> 'seasons') = 'array'
+						THEN metadata.show_specifics -> 'seasons'
+						ELSE '[]'::jsonb
+					END
+				) AS season(value)
+				CROSS JOIN LATERAL jsonb_array_elements(
+					CASE
+						WHEN jsonb_typeof(season.value -> 'episodes') = 'array'
+						THEN season.value -> 'episodes'
+						ELSE '[]'::jsonb
+					END
+				) AS episode(value)
+				WHERE (episode.value ->> 'episode_number') ~ '^[0-9]+$'
+			), 0)
 		)
 		WHEN metadata.lot = 'anime' THEN jsonb_build_object(
 			'episodes', (metadata.anime_specifics ->> 'episodes')::int,
@@ -290,27 +277,6 @@ COALESCE(jsonb_strip_nulls(
 			'chapters', NULLIF(metadata.manga_specifics ->> 'chapters', '')::float8
 		)
 		WHEN metadata.lot = 'podcast' THEN jsonb_build_object(
-			'episodes', COALESCE((
-				SELECT jsonb_agg(
-					jsonb_strip_nulls(jsonb_build_object(
-						'id',          episode.value ->> 'id',
-						'title',       episode.value ->> 'title',
-						'number',      (episode.value ->> 'number')::int,
-						'runtime',     (episode.value ->> 'runtime')::int,
-						'overview',    episode.value ->> 'overview',
-						'thumbnail',   episode.value ->> 'thumbnail',
-						'publishDate', episode.value ->> 'publish_date'
-					))
-					ORDER BY (episode.value ->> 'number')::int
-				)
-				FROM jsonb_array_elements(
-					CASE
-						WHEN jsonb_typeof(metadata.podcast_specifics -> 'episodes') = 'array'
-						THEN metadata.podcast_specifics -> 'episodes'
-						ELSE '[]'::jsonb
-					END
-				) AS episode(value)
-			), '[]'::jsonb),
 			'totalEpisodes',    (metadata.podcast_specifics ->> 'total_episodes')::int,
 			'unlinkedCreators', COALESCE(metadata.free_creators, '[]'::jsonb)
 		)
