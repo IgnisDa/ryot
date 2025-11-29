@@ -13,7 +13,7 @@ const runMetronDetails = (context: unknown, hostFunctions: Record<string, HostFu
 	runProviderDriver(metronComicBookScriptCode, context, hostFunctions);
 
 describe("comic-book.metron sandbox script", () => {
-	it("keeps arc issue suggestions", () => {
+	it("keeps arc issues as related entities", () => {
 		return runMetronDetails(
 			{ externalId: "1" },
 			{
@@ -41,8 +41,19 @@ describe("comic-book.metron sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.suggestions).toEqual([
-				{ name: "Saga #2", externalId: "2", scriptSlug: "comic-book.metron" },
+			expect(details.relatedEntities).toEqual([
+				{
+					name: "Saga",
+					externalId: "10",
+					scriptSlug: "comic-book-group.metron",
+					relationshipProperties: { roles: ["Member"] },
+				},
+				{
+					name: "Saga #2",
+					externalId: "2",
+					scriptSlug: "comic-book.metron",
+					relationshipSchemaSlug: "media-suggestion",
+				},
 			]);
 			return undefined;
 		});

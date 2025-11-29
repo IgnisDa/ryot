@@ -18,7 +18,7 @@ const runAnilistMangaDetails = (context: unknown, hostFunctions: Record<string, 
 	});
 
 describe("manga.anilist sandbox script", () => {
-	it("keeps recommendations in suggestions", () => {
+	it("keeps recommendations as related entities", () => {
 		return runAnilistMangaDetails(
 			{ externalId: "1" },
 			{
@@ -62,9 +62,19 @@ describe("manga.anilist sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.suggestions).toEqual([
-				{ name: "Anime Pick", externalId: "2", scriptSlug: "anime.anilist" },
-				{ name: "Manga Pick", externalId: "3", scriptSlug: "manga.anilist" },
+			expect(details.relatedEntities).toEqual([
+				{
+					name: "Anime Pick",
+					externalId: "2",
+					scriptSlug: "anime.anilist",
+					relationshipSchemaSlug: "media-suggestion",
+				},
+				{
+					name: "Manga Pick",
+					externalId: "3",
+					scriptSlug: "manga.anilist",
+					relationshipSchemaSlug: "media-suggestion",
+				},
 			]);
 			return undefined;
 		});

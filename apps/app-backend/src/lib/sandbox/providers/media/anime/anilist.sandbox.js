@@ -505,8 +505,13 @@ query MediaDetailsQuery($id: Int!) {
 
 	return {
 		name: title,
-		relatedEntities,
-		suggestions: collectSuggestions(media.recommendations, titleLang),
+		relatedEntities: [
+			...relatedEntities,
+			...collectSuggestions(media.recommendations, titleLang).map((suggestion) => ({
+				...suggestion,
+				relationshipSchemaSlug: "media-suggestion",
+			})),
+		],
 		properties: {
 			episodes,
 			productionStatus: productionStatus,
