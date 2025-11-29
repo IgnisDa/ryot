@@ -59,18 +59,38 @@ The runtime request should grow into a compiled contract that can support both b
 
 Suggested request shape:
 
-- `entitySchemaIds: string[]` — which schemas to query
+- `entitySchemaSlugs: string[]` — which schemas to query (using schema slugs, e.g., `["smartphones", "tablets"]`)
 - `filters: FilterExpression[]` — flat array of filters with implicit AND logic (compound OR/nested logic deferred to Phase 2)
-- `sort: { field: string, direction: "asc" | "desc" }` — how to order results
+- `sort: { field: string[], direction: "asc" | "desc" }` — how to order results (field is an array for COALESCE across schemas)
 - `page: { limit: number, offset: number }` — pagination parameters
-- `fields: string[]` — which entity property keys to return in `propertyValues` (applies globally across all schemas)
+- `fields: string[]` — schema-qualified property paths to return (e.g., `["smartphones.manufacturer", "tablets.maker"]`)
+- `displayConfiguration: object` — active layout configuration with property reference arrays for COALESCE resolution
 - `include: { schemaMeta?: boolean }` — optional metadata flags (event-related fields deferred to Phase 2)
 
 Each filter in the `filters` array has the shape:
 
-- `field: string` — property name to filter on (or "name" for the top-level name column)
+- `field: string` — property path to filter on, using one of two formats:
+  - **Top-level column**: `@name`, `@image` — references database columns directly
+  - **Schema-qualified**: `smartphones.manufacturer` — references a property in that schema's propertyValues
 - `op: string` — operator: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `contains`, `in`, `isNull`
 - `value: any` — the value to compare against (type depends on the property being filtered)
+
+**Important**: All entity schema properties MUST be schema-qualified. Unqualified property names are not allowed. This ensures clients are explicit about which schema's property they are filtering, avoiding ambiguity in cross-schema views.
+
+The `sort.field` is an array of property paths that follows COALESCE semantics for cross-schema views:
+
+```json
+"sort": {
+  "field": ["smartphones.year", "tablets.release_year"],
+  "direction": "desc"
+}
+```
+
+Backend SQL: `ORDER BY COALESCE((propertyValues->>'year')::integer, (propertyValues->>'release_year')::integer) DESC`
+
+For single-schema views, the array contains one element: `["smartphones.year"]`
+
+For top-level columns: `["@name"]`
 
 Suggested response shape:
 
@@ -83,12 +103,145 @@ Each item should include at least:
 
 - core entity fields (id, name, image, createdAt, etc.) — note that `name` and `image` are top-level entity columns, not in `propertyValues` (see "Entity Structure: Top-Level vs PropertyValues" section)
 - `propertyValues` — filtered to requested fields from the `fields` parameter
-- `entitySchemaId`
+- `resolvedProperties` — COALESCE-resolved values for each property reference in displayConfiguration (frontend uses these for rendering)
+- `entitySchemaId` — the UUID foreign key to the entity schema
+- `entitySchemaSlug` — the human-readable schema slug (e.g., "smartphones", "movies")
 - optional schema metadata when runtime spans multiple schemas (included when `include.schemaMeta: true`)
 
 **Note**: Event-related fields (lastEventDate, eventCount, averageRating) are intentionally excluded from Phase 1. These will be added in Phase 2 alongside event-based filtering capabilities.
 
+**Resolved properties structure:**
+
+The `resolvedProperties` object contains the resolved values for each displayConfiguration property reference, keyed by the property role:
+
+```json
+{
+  "id": "entity-123",
+  "name": "iPhone 15 Pro",
+  "entitySchemaId": "c3f8a9b2-...",
+  "entitySchemaSlug": "smartphones",
+  "propertyValues": {
+    "manufacturer": "Apple",
+    "year": 2023,
+    "price_usd": 999,
+    "product_image": "https://..."
+  },
+  "resolvedProperties": {
+    "imageProperty": "https://...",
+    "titleProperty": "iPhone 15 Pro",
+    "subtitleProperties": ["Apple", "2023"],
+    "badgeProperty": "999"
+  }
+}
+```
+
+This eliminates the need for frontend COALESCE logic and makes rendering trivial — the frontend just renders `resolvedProperties.imageProperty`, `resolvedProperties.titleProperty`, etc.
+
 The runtime contract should stay generic enough that the frontend can compile both built-in curated views and user-authored saved views into the same payload.
+
+### Schema-Qualified Property Syntax
+
+To support cross-schema views where different entity schemas have different property names, the runtime contract uses a **unified schema-qualified property path syntax** across all features.
+
+**Two path formats:**
+
+1. **Top-level columns**: `@name`, `@image`, `@createdAt`
+   - Prefix: `@`
+   - References database columns that exist on all entities
+   - Used in filters, sorts, and displayConfiguration
+
+2. **Schema-qualified properties**: `smartphones.manufacturer`, `tablets.maker`
+   - Format: `<schema-slug>.<property>` (uses entity schema slugs, not IDs)
+   - References properties in the entity's `propertyValues` jsonb column
+   - **Required for all entity schema properties** — no unqualified references allowed
+   - Schema slugs are stable identifiers (e.g., "smartphones", "movies", "whiskeys")
+   - Used in filters, sorts, fields, and displayConfiguration
+
+**No unqualified properties:**
+
+All entity schema properties MUST be schema-qualified. This eliminates ambiguity and forces clients to be explicit about which schema's property they are referencing. For cross-schema views, clients must explicitly specify which schemas to filter/sort by.
+
+**Why slugs instead of IDs?**
+
+Schema references use slugs rather than database IDs for several critical reasons:
+- **Readability**: `smartphones.manufacturer` is self-documenting vs `c3f8a9b2.manufacturer`
+- **Portability**: Saved views can be exported/imported between environments (slugs are stable, IDs differ)
+- **Debuggability**: Inspecting saved views doesn't require constant ID lookups
+- **Built-in schemas**: System schemas like "movies" have consistent slugs across all installations
+- **Query builder UX**: UI can work directly with human-readable slugs
+- **SQL simplicity**: Queries can filter directly on `entity_schemas.slug` without ID resolution
+
+Schema slugs are treated as stable identifiers. Changing a schema's slug is a breaking change that would invalidate all saved views referencing it. The `entity_schemas` table has a unique constraint on `slug` for efficient querying.
+
+**Why this syntax?**
+
+Cross-schema views query multiple entity schemas simultaneously (e.g., "smartphones" and "tablets"). Different schemas often use different property names for conceptually similar data:
+- Smartphones have `product_image`, tablets have `device_image`
+- Movies have `director`, TV shows have `showrunner`
+- Books have `author`, podcasts have `host`
+
+Schema-qualified paths enable:
+- **Filters**: Target specific schemas or apply broadly across schemas
+- **Sorts**: COALESCE across different property names for unified ordering
+- **Display**: COALESCE to gracefully handle schema differences in UI rendering
+- **Clarity**: Explicit about which schema's property is being referenced
+
+**Consistency across features:**
+
+This syntax is used uniformly in:
+- `filters[].field` — filter by entity properties
+- `sort.field` — array of paths for COALESCE ordering
+- `fields[]` — which properties to return from propertyValues
+- `displayConfiguration.*Property` — arrays of paths for COALESCE rendering
+- `eventConditions[].field` (Phase 2) — filter by event properties
+- `relationships[].propertyFilters[].field` (Phase 2) — filter by relationship properties
+
+**Examples:**
+
+Single-schema view:
+```json
+{
+  "filters": [
+    { "field": "@name", "op": "contains", "value": "Pro" },
+    { "field": "smartphones.manufacturer", "op": "eq", "value": "Apple" },
+    { "field": "smartphones.year", "op": "gte", "value": 2020 }
+  ],
+  "sort": {
+    "field": ["smartphones.year"],
+    "direction": "desc"
+  },
+  "displayConfiguration": {
+    "imageProperty": ["smartphones.product_image"],
+    "titleProperty": ["@name"],
+    "subtitleProperties": [
+      ["smartphones.manufacturer"],
+      ["smartphones.year"]
+    ]
+  }
+}
+```
+
+Cross-schema view:
+```json
+{
+  "filters": [
+    { "field": "@name", "op": "contains", "value": "Pro" },
+    { "field": "smartphones.year", "op": "gte", "value": 2020 },
+    { "field": "tablets.release_year", "op": "gte", "value": 2020 }
+  ],
+  "sort": {
+    "field": ["smartphones.year", "tablets.release_year"],
+    "direction": "desc"
+  },
+  "displayConfiguration": {
+    "imageProperty": ["smartphones.product_image", "tablets.device_image"],
+    "titleProperty": ["@name"],
+    "subtitleProperties": [
+      ["smartphones.manufacturer", "tablets.maker"]
+    ]
+  }
+}
+```
 
 ### Entity Structure: Top-Level vs PropertyValues
 
@@ -120,7 +273,74 @@ Entities have a hybrid structure with both top-level database columns and schema
 
 5. **Relationship display cost**: Displaying relationships (cast lists, collection memberships, related entities) requires fetching names constantly. Direct column access is substantially faster than jsonb extraction at scale.
 
-**Filter handling**: The view-runtime query builder handles this hybrid structure by checking the filter field — filters on `name` query the top-level column, while all other filters query into `propertyValues`. This is a trivial special case that preserves significant performance benefits.
+**Filter and sort handling**: The view-runtime query builder handles this hybrid structure using the property path prefix:
+- `@name` / `@image` — query top-level columns directly
+- `smartphones.manufacturer` — query into propertyValues with schema qualification
+
+All entity schema properties must be schema-qualified. This explicit syntax eliminates ambiguity and makes it clear which schema's property is being targeted.
+
+### Display Configuration Property References
+
+Display configurations reference entity properties using a **schema-qualified path format** to support cross-schema views. Each property reference is an array of paths that the backend resolves using `COALESCE` to return the first non-null value.
+
+**Path format:**
+
+- **Top-level columns**: Prefixed with `@` (e.g., `@name`, `@image`)
+- **PropertyValues**: Qualified as `<schema>.<property>` (e.g., `smartphones.product_image`, `tablets.device_image`)
+
+**Why arrays?**
+
+Cross-schema views query multiple entity schemas simultaneously (movies + TV shows, smartphones + tablets, books + articles). Different schemas use different property names for conceptually similar data:
+
+- Smartphones have `product_image`, tablets have `device_image`
+- Movies have `poster_url`, books have `cover_image`
+- Whiskeys have `distillery`, wines have `vineyard`
+
+By specifying an array of schema-qualified paths, the backend can use `COALESCE` to gracefully handle schema differences:
+
+```typescript
+imageProperty: ["smartphones.product_image", "tablets.device_image"]
+// Backend: COALESCE(smartphones.product_image, tablets.device_image)
+// Returns the first non-null value
+```
+
+**Property reference format in displayConfiguration:**
+
+```json
+{
+  "imageProperty": ["smartphones.product_image", "tablets.device_image"],
+  "titleProperty": ["@name"],
+  "subtitleProperties": [
+    ["smartphones.manufacturer", "tablets.maker"],
+    ["smartphones.year", "tablets.release_year"]
+  ],
+  "badgeProperty": ["smartphones.price_usd", "tablets.price_usd"]
+}
+```
+
+- `imageProperty` / `titleProperty` / `badgeProperty`: Arrays of schema-qualified paths
+- `subtitleProperties`: Array of arrays — each inner array is a COALESCE chain for that subtitle slot
+
+**Top-level column references:**
+
+Since `name` is a top-level entity column (not in propertyValues), it uses the `@` prefix: `["@name"]`. This works universally for all entities regardless of schema. Similarly, `@image` references the top-level image column.
+
+**Single-schema views:**
+
+Even when querying a single schema, the array format is required:
+
+```json
+{
+  "imageProperty": ["smartphones.product_image"],
+  "titleProperty": ["@name"],
+  "subtitleProperties": [
+    ["smartphones.manufacturer"],
+    ["smartphones.year"]
+  ]
+}
+```
+
+This maintains consistency across all saved views and keeps the runtime contract simple.
 
 ### Field Selection Design
 
@@ -133,15 +353,15 @@ Example: A "Smartphones" schema with properties `[manufacturer, year, os, screen
 
 The saved view should store which properties matter for that view's purpose. The runtime request requires a `fields` parameter that specifies which property keys to return, avoiding waste when entities have large propertyValues objects.
 
-This makes field selection explicit and forces callers to think about what data they actually need.
+The `fields` parameter sent to the runtime is derived from the active layout's displayConfiguration by extracting all unique schema-qualified property paths (excluding top-level column references like `@name`).
 
-**Cross-schema field selection**: For saved views that query multiple schemas (e.g., both "Movie" and "TV Show"), the `fields` parameter applies globally across all schemas. If a requested field exists in one schema but not another, entities from the schema without that property simply return null/undefined for that field. This design choice is driven by frontend rendering — since cross-schema views render a unified list with consistent card/table structure, all items must have the same field shape. Per-schema field selection would break unified rendering.
+This makes field selection explicit and forces callers to think about what data they actually need.
 
 ## Saved View Data Model Changes
 
 The current saved-view definition only stores:
 
-- `entitySchemaIds: string[]`
+- `entitySchemaSlugs: string[]`
 
 That is too small for the saved-view renderer that was designed. A saved view needs to store both query semantics and presentation configuration.
 
@@ -155,13 +375,16 @@ The saved view schema should include:
 - `queryDefinition: jsonb` — the data query (required)
 - `displayConfiguration: jsonb` — the presentation config (required)
 
-**Note on `trackerId`**: This field is purely for UI organization and determines which tracker's sidebar section should display the saved view. It is **not** the source of truth for query scope — the actual schemas/trackers being queried are stored within `queryDefinition.entitySchemaIds`. For cross-tracker views querying multiple schemas, `trackerId` may be null or point to the primary tracker for sidebar placement purposes. The frontend sidebar rendering logic may also examine `queryDefinition` directly to determine appropriate placement when `trackerId` is null.
+**Note on `trackerId`**: This field is purely for UI organization and determines which tracker's sidebar section should display the saved view. It is **not** the source of truth for query scope — the actual schemas/trackers being queried are stored within `queryDefinition.entitySchemaSlugs`. For cross-tracker views querying multiple schemas, `trackerId` may be null or point to the primary tracker for sidebar placement purposes. The frontend sidebar rendering logic may also examine `queryDefinition` directly to determine appropriate placement when `trackerId` is null.
 
 The `queryDefinition` column stores:
 
-- `entitySchemaIds: string[]` — which schemas to query
+- `entitySchemaSlugs: string[]` — which schemas to query (using schema slugs, e.g., `["smartphones", "tablets"]`)
 - `filters: FilterExpression[]` — flat array of attribute filters (implicit AND logic)
-- `sort: { field: string, direction: "asc" | "desc" }` — how to order results
+  - Each filter must use explicit property paths: `@name` for top-level columns, `<schema-slug>.<property>` for schema properties
+  - All entity schema properties must be schema-qualified using slugs (no unqualified references allowed)
+- `sort: { field: string[], direction: "asc" | "desc" }` — how to order results
+  - `field` is an array for COALESCE across schemas: `["smartphones.year", "tablets.release_year"]`
 
 Event-based filtering (e.g., "movies I rated >8", "shows watched in 2024") is deferred to Phase 2 and will be added as an `eventConditions` field once event integration is implemented in the runtime.
 
@@ -172,7 +395,7 @@ The `displayConfiguration` column stores:
 - `list: {}` — list layout configuration
 - `table: {}` — table layout configuration
 
-All three layout configurations are stored simultaneously so users can switch between layouts in the frontend without losing their configuration. Each layout specifies which entity properties to display and how.
+All three layout configurations are stored simultaneously so users can switch between layouts in the frontend without losing their configuration. Each layout specifies which entity properties to display using schema-qualified property paths (see "Display Configuration Property References" section).
 
 This separation keeps query logic distinct from presentation concerns while allowing the saved-view record to align with product behavior without making `view-runtime` own persistence concerns.
 
@@ -200,40 +423,150 @@ Consider a "Smartphones" entity schema with properties:
   "trackerId": "smartphones-tracker-id",
   "isBuiltIn": false,
   "queryDefinition": {
-    "entitySchemaIds": ["smartphones-schema-id"],
+    "entitySchemaSlugs": ["smartphones"],
     "filters": [
-      { "field": "manufacturer", "op": "eq", "value": "Samsung" },
-      { "field": "year", "op": "lt", "value": 2025 }
+      { "field": "smartphones.manufacturer", "op": "eq", "value": "Samsung" },
+      { "field": "smartphones.year", "op": "lt", "value": 2025 }
     ],
-    "sort": { "field": "year", "direction": "desc" }
+    "sort": { "field": ["smartphones.year"], "direction": "desc" }
   },
   "displayConfiguration": {
     "layout": "grid",
     "grid": {
-      "imageProperty": "product_image",
-      "titleProperty": "name",
-      "subtitleProperties": ["manufacturer", "year"],
-      "badgeProperty": "price_usd"
+      "imageProperty": ["smartphones.product_image"],
+      "titleProperty": ["@name"],
+      "subtitleProperties": [
+        ["smartphones.manufacturer"],
+        ["smartphones.year"]
+      ],
+      "badgeProperty": ["smartphones.price_usd"]
     },
     "list": {
-      "imageProperty": "product_image",
-      "titleProperty": "name",
-      "subtitleProperties": ["manufacturer", "year", "price_usd"],
+      "imageProperty": ["smartphones.product_image"],
+      "titleProperty": ["@name"],
+      "subtitleProperties": [
+        ["smartphones.manufacturer"],
+        ["smartphones.year"],
+        ["smartphones.price_usd"]
+      ],
       "badgeProperty": null
     },
     "table": {
       "columns": [
-        { "property": "name" },
-        { "property": "manufacturer" },
-        { "property": "year" },
-        { "property": "price_usd" }
+        { "property": ["@name"] },
+        { "property": ["smartphones.manufacturer"] },
+        { "property": ["smartphones.year"] },
+        { "property": ["smartphones.price_usd"] }
       ]
     }
   }
 }
 ```
 
-### View 2: Older Android Phones
+### View 2: Cross-Schema View (Smartphones + Tablets)
+
+This example demonstrates the COALESCE behavior for cross-schema views where different schemas have different property names:
+
+```json
+{
+  "name": "Mobile Devices",
+  "trackerId": null,
+  "isBuiltIn": false,
+  "queryDefinition": {
+    "entitySchemaSlugs": ["smartphones", "tablets"],
+    "filters": [
+      { "field": "smartphones.year", "op": "gte", "value": 2020 },
+      { "field": "tablets.release_year", "op": "gte", "value": 2020 }
+    ],
+    "sort": { "field": ["smartphones.year", "tablets.release_year"], "direction": "desc" }
+  },
+  "displayConfiguration": {
+    "layout": "grid",
+    "grid": {
+      "imageProperty": ["smartphones.product_image", "tablets.device_image"],
+      "titleProperty": ["@name"],
+      "subtitleProperties": [
+        ["smartphones.manufacturer", "tablets.maker"],
+        ["smartphones.year", "tablets.release_year"]
+      ],
+      "badgeProperty": ["smartphones.price_usd", "tablets.price_usd"]
+    },
+    "list": {
+      "imageProperty": ["smartphones.product_image", "tablets.device_image"],
+      "titleProperty": ["@name"],
+      "subtitleProperties": [
+        ["smartphones.manufacturer", "tablets.maker"],
+        ["smartphones.year", "tablets.release_year"],
+        ["smartphones.price_usd", "tablets.price_usd"]
+      ],
+      "badgeProperty": null
+    },
+    "table": {
+      "columns": [
+        { "property": ["@name"] },
+        { "property": ["smartphones.manufacturer", "tablets.maker"] },
+        { "property": ["smartphones.year", "tablets.release_year"] },
+        { "property": ["smartphones.price_usd", "tablets.price_usd"] }
+      ]
+    }
+  }
+}
+```
+
+**Backend resolution:**
+
+For a smartphone entity, the backend resolves:
+- `imageProperty`: `smartphones.product_image` (non-null) → returns this value
+- `subtitleProperties[0]`: `smartphones.manufacturer` (non-null) → returns this value
+- `subtitleProperties[1]`: `smartphones.year` (non-null) → returns this value
+
+For a tablet entity, the backend resolves:
+- `imageProperty`: `tablets.device_image` (non-null) → returns this value (smartphone property is null)
+- `subtitleProperties[0]`: `tablets.maker` (non-null) → returns this value
+- `subtitleProperties[1]`: `tablets.release_year` (non-null) → returns this value
+
+This allows both entity types to render properly in the same unified list despite having different schema-defined properties.
+
+**Filter behavior:**
+
+Each filter is schema-qualified and only applies to entities from that specific schema:
+
+```json
+"filters": [
+  { "field": "smartphones.year", "op": "gte", "value": 2020 },
+  { "field": "tablets.release_year", "op": "gte", "value": 2020 }
+]
+```
+
+The backend queries directly using slugs:
+
+```sql
+JOIN entity_schemas es ON es.id = e.entity_schema_id
+WHERE (
+  (es.slug = 'smartphones' AND (e.property_values->>'year')::integer >= 2020)
+  AND
+  (es.slug = 'tablets' AND (e.property_values->>'release_year')::integer >= 2020)
+)
+```
+
+No ID resolution step needed - the query joins to `entity_schemas` and filters by `slug` directly.
+
+Since filters are schema-qualified, clients must explicitly specify filters for each schema they want to constrain. This eliminates ambiguity about which entities are being filtered.
+
+**Sort behavior:**
+
+The sort field `["smartphones.year", "tablets.release_year"]` uses COALESCE to handle different property names:
+
+```sql
+ORDER BY COALESCE(
+  (e.property_values->>'year')::integer,
+  (e.property_values->>'release_year')::integer
+) DESC
+```
+
+This allows unified sorting across schemas even when property names differ.
+
+### View 3: Older Android Phones
 
 ```json
 {
@@ -241,34 +574,41 @@ Consider a "Smartphones" entity schema with properties:
   "trackerId": "smartphones-tracker-id",
   "isBuiltIn": false,
   "queryDefinition": {
-    "entitySchemaIds": ["smartphones-schema-id"],
+    "entitySchemaSlugs": ["smartphones"],
     "filters": [
-      { "field": "year", "op": "lt", "value": 2020 },
-      { "field": "year", "op": "gt", "value": 2001 },
-      { "field": "os", "op": "eq", "value": "Android" }
+      { "field": "smartphones.year", "op": "lt", "value": 2020 },
+      { "field": "smartphones.year", "op": "gt", "value": 2001 },
+      { "field": "smartphones.os", "op": "eq", "value": "Android" }
     ],
-    "sort": { "field": "year", "direction": "asc" }
+    "sort": { "field": ["smartphones.year"], "direction": "asc" }
   },
   "displayConfiguration": {
     "layout": "list",
     "grid": {
-      "imageProperty": "product_image",
-      "titleProperty": "name",
-      "subtitleProperties": ["os", "year"],
-      "badgeProperty": "screen_size"
+      "imageProperty": ["smartphones.product_image"],
+      "titleProperty": ["@name"],
+      "subtitleProperties": [
+        ["smartphones.os"],
+        ["smartphones.year"]
+      ],
+      "badgeProperty": ["smartphones.screen_size"]
     },
     "list": {
-      "imageProperty": "product_image",
-      "titleProperty": "name",
-      "subtitleProperties": ["os", "year", "screen_size"],
+      "imageProperty": ["smartphones.product_image"],
+      "titleProperty": ["@name"],
+      "subtitleProperties": [
+        ["smartphones.os"],
+        ["smartphones.year"],
+        ["smartphones.screen_size"]
+      ],
       "badgeProperty": null
     },
     "table": {
       "columns": [
-        { "property": "name" },
-        { "property": "os" },
-        { "property": "year" },
-        { "property": "screen_size" }
+        { "property": ["@name"] },
+        { "property": ["smartphones.os"] },
+        { "property": ["smartphones.year"] },
+        { "property": ["smartphones.screen_size"] }
       ]
     }
   }
@@ -285,25 +625,58 @@ When the frontend loads View 1:
 
   ```json
   {
-    "entitySchemaIds": ["smartphones-schema-id"],
+    "entitySchemaSlugs": ["smartphones"],
     "filters": [
-      { "field": "manufacturer", "op": "eq", "value": "Samsung" },
-      { "field": "year", "op": "lt", "value": 2025 }
+      { "field": "smartphones.manufacturer", "op": "eq", "value": "Samsung" },
+      { "field": "smartphones.year", "op": "lt", "value": 2025 }
     ],
-    "sort": { "field": "year", "direction": "desc" },
+    "sort": { "field": ["smartphones.year"], "direction": "desc" },
     "page": { "limit": 6, "offset": 0 },
-    "fields": ["manufacturer", "year", "price_usd", "product_image"]
+    "fields": [
+      "smartphones.manufacturer",
+      "smartphones.year",
+      "smartphones.price_usd",
+      "smartphones.product_image"
+    ],
+    "displayConfiguration": {
+      "imageProperty": ["smartphones.product_image"],
+      "titleProperty": ["@name"],
+      "subtitleProperties": [
+        ["smartphones.manufacturer"],
+        ["smartphones.year"]
+      ],
+      "badgeProperty": ["smartphones.price_usd"]
+    }
   }
   ```
 
-  The `fields` parameter is derived from the active layout's config (grid in this case): `imageProperty`, `subtitleProperties`, and `badgeProperty`. Note that `titleProperty` references `name`, which is a top-level entity column (see "Entity Structure: Top-Level vs PropertyValues" section) and doesn't need to be included in `fields`. Similarly, `imageProperty` could reference the top-level `image` column or a schema-defined property in `propertyValues`.
+  The `fields` parameter is derived from the active layout's config by extracting all unique schema-qualified property paths, excluding top-level column references (those starting with `@`). The `displayConfiguration` is passed to the runtime so it can resolve COALESCE logic for cross-schema views.
 
-4. `POST /view-runtime/execute` → returns only requested properties in `propertyValues`
-5. Frontend renders using `layout` and the appropriate layout config from `displayConfiguration`
+4. `POST /view-runtime/execute` → returns entities with requested properties in `propertyValues`
+5. Frontend renders using `layout` and the resolved property values from the runtime response
 
-This design gives users full control over which properties matter for each layout view, without requiring backend inference or returning wasteful full property sets.
+**Backend COALESCE resolution:**
 
-When the user switches from grid to list view in the UI, the frontend simply changes `displayConfiguration.layout` and reruns the query with different `fields` derived from `displayConfiguration.list` instead of `displayConfiguration.grid`.
+For each property reference array in displayConfiguration, the backend generates SQL like:
+
+```sql
+COALESCE(
+  (propertyValues->>'smartphones.product_image')::text,
+  (propertyValues->>'tablets.device_image')::text
+) as resolved_image_property
+```
+
+For top-level columns:
+
+```sql
+entities.name as resolved_title_property  -- @name reference
+```
+
+The runtime response includes the resolved values, making frontend rendering simple.
+
+**Layout switching:**
+
+When the user switches from grid to list view in the UI, the frontend simply changes the active layout and reruns the query with different `fields` and `displayConfiguration` derived from `displayConfiguration.list` instead of `displayConfiguration.grid`.
 
 **Key constraint**: The saved view explicitly stores all three layout configurations. The backend makes no assumptions - clients must be explicit about what data they need and how to present it.
 
@@ -402,7 +775,7 @@ They should start producing the richer saved-view structure so built-in views an
 - add `GET /saved-views/{viewId}`
 - add `PATCH /saved-views/{viewId}`
 - add `POST /saved-views/{viewId}/clone` (pure copy, no request body)
-- add `queryDefinition` jsonb column to store query semantics (entitySchemaIds, filters, sort)
+- add `queryDefinition` jsonb column to store query semantics (entitySchemaSlugs, filters, sort)
 - add `displayConfiguration` jsonb column to store presentation config (layout, grid config, list config, table config)
 - make both columns required with validation
 - update bootstrap paths that create built-in views with all required fields
@@ -410,21 +783,33 @@ They should start producing the richer saved-view structure so built-in views an
 ### Phase 2: Build Real Runtime Execution
 
 - replace the placeholder `entitySchemaId` request with a compiled runtime request
-- add support for `fields` parameter to filter which entity properties are returned (global field selection across schemas)
-- validate access for all referenced schemas
-- implement filter execution (flat array with implicit AND logic, operators: eq, ne, gt, gte, lt, lte, contains, in, isNull)
-- support sort and pagination
-- return `items + total + page metadata`
-- handle special case for `name` filter (top-level column vs propertyValues jsonb)
+- add support for `fields` parameter (schema-qualified property paths like `["smartphones.manufacturer", "tablets.maker"]`)
+- add support for `displayConfiguration` parameter with property reference arrays
+- implement COALESCE resolution for cross-schema property references in displayConfiguration
+- validate that all referenced schema slugs exist and user has access to them
+- implement filter execution with schema-qualified syntax support:
+  - **Top-level column filters**: `@name`, `@image` → query database columns directly
+  - **Schema-qualified filters**: `smartphones.manufacturer` → query specific schema's propertyValues
+  - All entity schema properties must be schema-qualified (no unqualified references)
+  - Operators: eq, ne, gt, gte, lt, lte, contains, in, isNull
+  - Flat array with implicit AND logic
+- implement sort execution with COALESCE for cross-schema property paths:
+  - `sort.field` is an array: `["smartphones.year", "tablets.release_year"]`
+  - Generate `ORDER BY COALESCE(...)` SQL for multiple paths
+  - Handle `@name`, `@image` top-level columns
+- support pagination
+- return `items + total + page metadata` with `resolvedProperties` for frontend rendering
 
 ### Phase 3: Move Frontend View Route To Runtime
 
 - change frontend route to `/views/$viewId`
 - fetch saved view by id
 - extract active layout from `displayConfiguration.layout`
-- compile runtime payload from `queryDefinition` + active layout config (derive `fields` from layout properties)
+- compile runtime payload from `queryDefinition` + active layout config
+  - derive `fields` from all schema-qualified property paths in the active layout (excluding `@` references)
+  - pass the active layout's displayConfiguration for COALESCE resolution
 - execute via `POST /view-runtime/execute`
-- render returned entities using the active layout config from `displayConfiguration`
+- render returned entities using `resolvedProperties` from the runtime response
 - remove assumptions that saved views live under a tracker route
 
 ## Design Constraints
@@ -444,10 +829,18 @@ The following features are intentionally excluded from the initial implementatio
 
 **Event-based filtering**: The ability to filter entities based on their events (e.g., "movies I rated >8", "shows watched in 2024", "entities with no events", "entities with event count > 5"). This requires:
 
-- Adding `eventConditions` field to `queryDefinition` structure
+- Adding `eventConditions` field to `queryDefinition` structure with schema-qualified syntax:
+  ```json
+  "eventConditions": [
+    { "field": "movies.rating", "op": "gte", "value": 8 },
+    { "field": "@lastEventDate", "op": "gte", "value": "2024-01-01" },
+    { "field": "@eventCount", "op": "gt", "value": 0 }
+  ]
+  ```
 - Joining to the events table in view-runtime queries
 - Supporting event aggregation filters (count, avg, min, max, latest/earliest date)
 - Query builder UI for constructing event-based filter expressions
+- Schema-qualified event property references for cross-schema views
 
 **Event summary fields**: Including event-derived data in runtime responses (lastEventDate, eventCount, averageRating). Once event filtering is implemented, returning event summaries becomes trivial since the runtime will already be joining to the events table. These fields will be controlled by the `include` parameter (e.g., `include: { eventSummary: true }`).
 
@@ -460,11 +853,27 @@ Filter structure for Phase 2 might look like:
 ```json
 {
   "and": [
-    { "field": "year", "op": "gte", "value": 2020 },
+    { "field": "movies.year", "op": "gte", "value": 2020 },
     {
       "or": [
-        { "field": "genre", "op": "contains", "value": "Sci-Fi" },
-        { "field": "genre", "op": "contains", "value": "Fantasy" }
+        { "field": "movies.genre", "op": "contains", "value": "Sci-Fi" },
+        { "field": "movies.genre", "op": "contains", "value": "Fantasy" }
+      ]
+    }
+  ]
+}
+```
+
+For cross-schema views with OR logic:
+
+```json
+{
+  "and": [
+    { "field": "@name", "op": "contains", "value": "Pro" },
+    {
+      "or": [
+        { "field": "smartphones.manufacturer", "op": "eq", "value": "Apple" },
+        { "field": "tablets.maker", "op": "eq", "value": "Samsung" }
       ]
     }
   ]
@@ -519,7 +928,7 @@ Similarly, "Tom Hanks acted in Forrest Gump as Forrest" is a relationship: `Tom 
 
 ```json
 {
-  "entitySchemaIds": ["movie-schema-id"],
+  "entitySchemaSlugs": ["movies"],
   "filters": [ /* entity property filters */ ],
   "relationships": [
     {
@@ -532,14 +941,15 @@ Similarly, "Tom Hanks acted in Forrest Gump as Forrest" is a relationship: `Tom 
       "to": "favorites-collection-id",
       "type": "member_of",
       "propertyFilters": [
-        { "field": "bought_where", "op": "eq", "value": "Amazon" }
+        { "field": "member_of.bought_where", "op": "eq", "value": "Amazon" },
+        { "field": "@createdAt", "op": "gte", "value": "2024-01-01" }
       ]
     }
   ],
   "sort": {
     "source": "relationship",
     "relationshipIndex": 1,
-    "field": "bought_when",
+    "field": ["member_of.bought_when"],
     "direction": "desc"
   },
   "include": {
@@ -585,8 +995,11 @@ Similarly, "Tom Hanks acted in Forrest Gump as Forrest" is a relationship: `Tom 
 - Support for multiple relationships (array) with implicit AND logic
 - Direction awareness: `incoming` (entity is target) vs `outgoing` (entity is source)
 - Optional `from` (for incoming) and `to` (for outgoing) to specify the related entity
-- Optional `propertyFilters` on relationships (same filter grammar as entity filters)
-- Ability to sort by relationship properties
+- Optional `propertyFilters` on relationships with schema-qualified syntax:
+  - Relationship properties: `member_of.bought_where` (qualified by relationship type)
+  - Top-level relationship columns: `@createdAt` (relationship creation timestamp)
+  - Same filter operators as entity filters
+- Ability to sort by relationship properties using array format: `["member_of.bought_when"]`
 - Ability to include relationship data in responses
 - OR logic for relationships (aligned with compound filter OR logic)
 
@@ -595,9 +1008,10 @@ Similarly, "Tom Hanks acted in Forrest Gump as Forrest" is a relationship: `Tom 
 ```sql
 SELECT e.*
 FROM entities e
+JOIN entity_schemas es ON es.id = e.entity_schema_id
 JOIN relationships r1 ON r1.target_entity_id = e.id  -- incoming
 JOIN relationships r2 ON r2.source_entity_id = e.id  -- outgoing
-WHERE e.entity_schema_id = 'movie-schema-id'
+WHERE es.slug = 'movies'
   AND r1.source_entity_id = 'christopher-nolan-id'
   AND r1.relationship_type = 'directed'
   AND r2.target_entity_id = 'to-watch-collection-id'
