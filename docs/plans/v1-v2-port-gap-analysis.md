@@ -30,6 +30,7 @@ These V1 areas have a working home in V2. Several are **partial** ports — the 
 | User state operations (`merge_metadata`, `merge_exercise`, `disassociate_metadata`) | `modules/user-state` (`POST /user-state/merge`, `DELETE /user-state/clear/:entityId`)                           | Events/relationships only — does not touch collection membership |
 | Media translation (localized title/overview)                                        | `modules/entity-translation` (sandbox `translate` driver + `TranslateEntityWorkflow`); localized `name`/`properties` and a `translationStatus` field via `modules/query-engine`; filled on demand through client-declared interest (`modules/entity-interest`) rather than V1's periodic refresh job | Functionally equivalent; drops per-variant (title/image/description) granularity and show/podcast episode-scoped translation — low priority |
 | Integration progress normalization (clamp above configured maximum to 100%, filter below configured minimum, auto-fill a missing completion timestamp with "now") | Builtin `before_create` sandbox trigger `trigger.integration-progress-policy` (`lib/sandbox/triggers/integration-progress-policy.sandbox.js`); timestamp fallback is structural via `modules/integrations/sinks/shared.ts`'s `createProgressResult` | Full — see `lib/builtins/AGENTS.md` ("Integration Progress Policy Trigger"); regression coverage in `tests/src/tests/integrations.test.ts` ("Progress normalization") |
+| Media & collection recommendations (`user_metadata_recommendations`, `collection_recommendations`) | `media-suggestion` relationship schema (`lib/builtins/relationship-schemas.ts`) populated by `modules/entity-import/population.ts`'s `syncEntitySuggestions()`, triggered from `modules/entity-import/workflows.ts`; consumed via ad hoc `modules/query-engine` documents | **Partial** — see [Recommendations — known gaps](#recommendations--known-gaps) |
 
 ## Cache & Invalidation Architecture
 
@@ -93,8 +94,6 @@ Foundational; several behaviors depend on it. Build first.
   - V1: `deploy_export_job`, `user_exports` (`crates/resolvers/exporter`); `PerformExport` job; `crates/services/exporter/*`.
 - **Trending metadata** — fetch trending lists from every configured provider across every media type, commit newly-discovered items to the database, drop cached IDs that no longer resolve to a DB record, and expose the result ordered by last-updated. Surfaced as a query or built-in saved view.
   - V1: `trending_metadata` (`crates/resolvers/miscellaneous/search`); population logic in `crates/services/miscellaneous/trending-and-events`.
-- **Recommendations** — media and collection recommendations (only fitness exercise recs exist today). V1 oversamples candidates (5x the limit), excludes sources that don't support recommendations, filters by the user's enabled media types, and creates a `Suggestion`-type relationship idempotently for each pick.
-  - V1: `user_metadata_recommendations`, `collection_recommendations` (`crates/services/user/src/recommendation_operations.rs`, `crates/services/collection/src/recommendation_operations.rs`).
 
 #### Collections management completeness
 
@@ -120,6 +119,14 @@ Promoted from "Open/Unverified" below — now confirmed, not just unverified. `m
 - `delete_user` with last-remaining-admin protection (V2 has no admin/role concept at all right now, so this needs a design decision, not just an endpoint).
 - True `reset_user` — V1 deletes and recreates the user with the same ID, preserving auth type; V2's `resetUserPassword` only sends a password-reset email, it doesn't reset anything else.
 - Non-admin privacy masking on the user list (V1 hides other users' names from non-admins; V2's `listUsers` returns full details to any admin-gated caller, which is lower-risk but still a behavior difference worth confirming intentional).
+
+#### Recommendations — known gaps
+
+The `media-suggestion` relationship graph is populated and both media and collection recommendations can be computed from it (verified in `tests/src/tests/query-engine-media-suggestions.test.ts`), but two things still separate this from V1:
+- **No dedicated endpoint or saved view.** Both recommendation types are only demonstrated via a hand-assembled `query-engine` `QueryEnginePayload` in the test above — there is no callable route or built-in saved view a client can hit today.
+- **V1's refinements aren't carried forward**: 5x-limit candidate oversampling, exclusion of sources that don't support recommendations (V1's `MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS`), and filtering by the user's enabled media types (`preferences.features_enabled.media.specific`) have no V2 equivalent yet.
+
+V1: `crates/services/user/src/recommendation_operations.rs`, `crates/services/collection/src/recommendation_operations.rs`.
 
 ### Tier 3 — Metadata-management ops
 
