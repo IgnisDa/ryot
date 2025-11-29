@@ -9,7 +9,8 @@ This module owns one-time import runs. It normalizes third-party exports into Ry
 - `routes.ts`, `service.ts`, `repository.ts`, `schemas.ts`, `jobs.ts`, `import-run-workflow.ts`: HTTP, workflow entry, persistence, and shared import-run types.
 - `runtime/`: file handling, source payload storage, shared failures, and workflow helpers.
 - `sources/`: source-specific adapters and loader helpers.
-- `media/`: shared media import orchestration, source loading, and workflow-owned sandbox composition.
+- `media-workflow.ts`, `non-media-workflow.ts`, `non-media-operation-registry-workflow.ts`: import workflow orchestration and non-media source operation wiring.
+- `media/`: shared media import stages, source loading, and workflow-owned sandbox composition.
 - `measurement/`: OpenScale import pipeline.
 - `workout/`: Hevy and Strong import pipeline.
 
@@ -63,7 +64,7 @@ Use the existing import failure stages consistently:
 For a new source:
 
 1. Add source metadata and validation in `runtime/source-definitions.ts` if needed.
-2. Register the loader or dispatcher in `media/source-loaders.ts` or `import-run-workflow.ts`, depending on whether the source is media or non-media.
+2. Register media loaders in `media/source-loaders.ts` and non-media operation wiring in `non-media-operation-registry-workflow.ts`.
 3. Prefer a small source adapter in `sources/<source>/adapter.ts` that only fetches, parses, and maps source data.
 4. Reuse `runOneTimeMediaImportWorkflow` or `runOneTimeNonMediaImportWorkflow` and keep source-specific code bounded to loading, parsing, or write preparation.
 5. Follow the source-ingestion versus provider catalog boundary rules.
@@ -82,5 +83,5 @@ For a new source:
 ## Testing expectations
 
 - Adapter tests should validate normalization behavior and row-level failures, not provider HTTP.
-- Workflow orchestration tests belong in `workflows.test.ts` or `workflows-non-media.test.ts`, and pure helper tests should stay beside the helper they cover.
+- Workflow orchestration tests belong in `media-workflow.test.ts` or `non-media-workflow.test.ts`, and pure helper tests should stay beside the helper they cover.
 - End-to-end media pipeline tests should assert phase transitions and persisted job data only where needed.
