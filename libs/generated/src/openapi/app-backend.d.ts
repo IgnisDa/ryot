@@ -4597,17 +4597,17 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
+                        uploadToken: string;
                         /** @enum {string} */
                         source: "hevy";
-                        uploadToken: string;
                     } | {
                         username: string;
                         /** @enum {string} */
                         source: "trakt";
                     } | {
+                        uploadToken: string;
                         /** @enum {string} */
                         source: "open_scale";
-                        uploadToken: string;
                     } | {
                         uploadToken: string;
                         /** @enum {string} */
@@ -4617,9 +4617,9 @@ export interface paths {
                         /** @enum {string} */
                         source: "hardcover";
                     } | {
+                        uploadToken: string;
                         /** @enum {string} */
                         source: "strong_app";
-                        uploadToken: string;
                     } | {
                         uploadToken: string;
                         /** @enum {string} */

@@ -1,8 +1,11 @@
 import type { Job } from "bullmq";
 
 import { cleanupImportFile, readImportFile } from "../../files";
-import type { ImportEntityRef, ImportMediaEntityGroup, ImportRunJobData } from "../../jobs";
-import { processMediaImport, type MediaImportAdapterResult } from "../../media/import-processor";
+import {
+	processMediaImport,
+	type MediaImportAdapterResult,
+	type MediaImportJobInput,
+} from "../../media/import-processor";
 
 export type BookImportProcessorDeps = {
 	readImportFile: typeof readImportFile;
@@ -19,22 +22,9 @@ const bookImportProcessorDeps: BookImportProcessorDeps = {
 export const processBookCsvImport = async (
 	job: Job,
 	token: string | undefined,
-	input: {
-		runId: string;
-		userId: string;
+	input: MediaImportJobInput & {
 		filePath: string;
 		sourceName: string;
-		adapterFailureCount: number | undefined;
-		providerEntityIndex: number | undefined;
-		providerSandboxJobId: string | undefined;
-		mediaWriteGroupIndex: number | undefined;
-		mediaWriteFailedItems: number | undefined;
-		importStep: ImportRunJobData["importStep"];
-		mediaWriteImportedItems: number | undefined;
-		providerFailedIndices: number[] | undefined;
-		providerEntityRefs: ImportEntityRef[] | undefined;
-		providerEntityIds: Array<string | null> | undefined;
-		mediaEntityGroups: ImportMediaEntityGroup[] | undefined;
 		adapt: (csvText: string) => Promise<MediaImportAdapterResult> | MediaImportAdapterResult;
 	},
 	deps: BookImportProcessorDeps = bookImportProcessorDeps,

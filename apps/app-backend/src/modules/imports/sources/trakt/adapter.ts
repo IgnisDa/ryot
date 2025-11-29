@@ -1,6 +1,7 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
 import type { ImportEntityRef, ImportMediaEntityGroup } from "../../jobs";
+import { getOrCreateMediaEntityGroup } from "../../media/groups";
 import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
@@ -154,9 +155,6 @@ const buildShowRef = (show: TraktItem): ImportEntityRef | undefined => {
 	};
 };
 
-const entityGroupKey = (ref: ImportEntityRef) =>
-	`${ref.entitySchemaSlug}|${ref.scriptSlug}|${ref.externalId}`;
-
 export const adaptTraktData = async (
 	username: string,
 	clientId: string,
@@ -167,16 +165,6 @@ export const adaptTraktData = async (
 	const failures: MediaImportAdapterFailure[] = [];
 	const groupMap = new Map<string, ImportMediaEntityGroup>();
 	let itemIndex = 0;
-
-	const getOrCreate = (ref: ImportEntityRef): ImportMediaEntityGroup => {
-		const key = entityGroupKey(ref);
-		let group = groupMap.get(key);
-		if (!group) {
-			group = { entityRef: ref, events: [], collectionMemberships: [] };
-			groupMap.set(key, group);
-		}
-		return group;
-	};
 
 	// History: movies become complete events, episodes become progress events
 	const history = await client.fetchAll<TraktHistoryItem>(`${userUrl}/history`);
@@ -194,7 +182,7 @@ export const adaptTraktData = async (
 				});
 				continue;
 			}
-			const group = getOrCreate(ref);
+			const group = getOrCreateMediaEntityGroup(groupMap, ref);
 			group.events.push({
 				eventSchemaSlug: "complete",
 				occurredAt: item.watched_at,
@@ -211,7 +199,7 @@ export const adaptTraktData = async (
 				});
 				continue;
 			}
-			const group = getOrCreate(ref);
+			const group = getOrCreateMediaEntityGroup(groupMap, ref);
 			group.events.push({
 				eventSchemaSlug: "progress",
 				occurredAt: item.watched_at,
@@ -244,7 +232,7 @@ export const adaptTraktData = async (
 				});
 				continue;
 			}
-			const group = getOrCreate(ref);
+			const group = getOrCreateMediaEntityGroup(groupMap, ref);
 			// Trakt rates 1-10; V2 uses 0-100
 			group.events.push({
 				occurredAt: item.rated_at,
@@ -272,7 +260,7 @@ export const adaptTraktData = async (
 			});
 			continue;
 		}
-		const group = getOrCreate(ref);
+		const group = getOrCreateMediaEntityGroup(groupMap, ref);
 		group.events.push({
 			properties: {},
 			eventSchemaSlug: "backlog",
@@ -307,7 +295,7 @@ export const adaptTraktData = async (
 				});
 				continue;
 			}
-			const group = getOrCreate(ref);
+			const group = getOrCreateMediaEntityGroup(groupMap, ref);
 			const alreadyMember = group.collectionMemberships.some(
 				(m) => m.collectionName === collectionName,
 			);
@@ -337,7 +325,7 @@ export const adaptTraktData = async (
 				});
 				continue;
 			}
-			const group = getOrCreate(ref);
+			const group = getOrCreateMediaEntityGroup(groupMap, ref);
 			const alreadyMember = group.collectionMemberships.some((m) => m.collectionName === "Owned");
 			if (!alreadyMember) {
 				group.collectionMemberships.push({ collectionName: "Owned" });
