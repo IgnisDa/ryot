@@ -46,6 +46,7 @@ import { ImportWorkflowDefinitionsLive } from "#modules/imports/import-run-workf
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
 import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/integration-workflow";
+import { IntegrationReconciliationWorkflowDefinitionsLive } from "#modules/integrations/reconciliation-workflow";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { IntegrationsService } from "#modules/integrations/service";
 import { LibraryEntityImportWorkflowDefinitionsLive } from "#modules/library-membership/library-entity-import-workflow";
@@ -56,6 +57,7 @@ import { MediaMonitoringRefreshWorkflowDefinitionsLive } from "#modules/media-mo
 import { MediaMonitoringRepository } from "#modules/media-monitoring/repository";
 import { MediaMonitoringService } from "#modules/media-monitoring/service";
 import { MediaTrendingWorkflowOperationsLive } from "#modules/media-trending/operations-workflow";
+import { MediaTrendingRefreshWorkflowDefinitionsLive } from "#modules/media-trending/refresh-workflow";
 import { MediaTrendingRepository } from "#modules/media-trending/repository";
 import { MetadataLookupService } from "#modules/metadata-lookup/service";
 import { NotificationDeliveryService } from "#modules/notifications/delivery";
@@ -254,6 +256,8 @@ const RuntimeLive = Layer.mergeAll(
 	LibraryEntityImportWorkflowDefinitionsLive,
 	NotificationDeliveryWorkflowDefinitionsLive,
 	MediaMonitoringRefreshWorkflowDefinitionsLive,
+	MediaTrendingRefreshWorkflowDefinitionsLive,
+	IntegrationReconciliationWorkflowDefinitionsLive,
 	EnsureLibraryMembershipWorkerLive,
 	DefaultSavedViewWorkerLive,
 	BuiltinEntityPreloaderLive,
