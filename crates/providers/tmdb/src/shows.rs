@@ -15,8 +15,8 @@ use futures::{
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
-    ShowEpisode, ShowSeason, ShowSpecifics,
+    EntityTranslationDetails, MetadataDetails, MetadataSearchItem, PartialMetadataPerson,
+    PartialMetadataWithoutId, ShowEpisode, ShowSeason, ShowSpecifics,
 };
 use rust_decimal::dec;
 use supporting_service::SupportingService;
@@ -292,6 +292,25 @@ impl MediaProvider for TmdbShowService {
 
     async fn get_trending_media(&self) -> Result<Vec<PartialMetadataWithoutId>> {
         self.0.get_trending_media("tv").await
+    }
+
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let rsp = self
+            .0
+            .client
+            .get(format!("{URL}/tv/{identifier}"))
+            .query(&[("language", target_language)])
+            .send()
+            .await?;
+        let data: TmdbMediaEntry = rsp.json().await?;
+        Ok(EntityTranslationDetails {
+            title: data.name,
+            description: data.overview,
+        })
     }
 }
 
