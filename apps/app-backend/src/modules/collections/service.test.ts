@@ -200,9 +200,6 @@ const makeServiceLayer = (
 
 type CapturedDispatch = { executionId: string; payload: unknown };
 
-// Runs AddEntityToCollectionWorkflow's body with the membership-write activity executing in-process,
-// mirroring how the HTTP route and media import dispatch it. `execute` is overridden so the
-// fire-and-forget EventCreateWorkflow dispatch from the workflow body can be asserted on.
 const runAddWorkflow = (input: {
 	entityId: EntityId;
 	collectionId: EntityId;
