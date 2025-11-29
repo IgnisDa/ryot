@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { match } from "ts-pattern";
 
 import { db } from "~/lib/db";
 
@@ -58,44 +59,45 @@ const buildAggregationExpression = (input: {
 	computedFields: AggregateQueryEngineRequest["computedFields"];
 	context: QueryEngineContext;
 }) => {
-	if (input.aggregation.type === "count") {
-		return sql`to_jsonb(count(*)::integer)`;
-	}
-
-	if (input.aggregation.type === "countWhere") {
-		const predicateClause = buildFilterWhereClause({
-			context: input.context,
-			compiler: input.expressionCompiler,
-			computedFields: input.computedFields,
-			predicate: input.aggregation.predicate,
-		});
-
-		return sql`to_jsonb(count(*) filter (where ${predicateClause})::integer)`;
-	}
-
-	if (input.aggregation.type === "countBy") {
-		return buildCountByAggregationExpression({
-			alias: input.alias,
-			compiler: input.compiler,
-			expression: input.aggregation,
-		});
-	}
-
-	const valueExpression = input.compiler.compile(input.aggregation.expression, "number");
-
-	if (input.aggregation.type === "sum") {
-		return sql`to_jsonb(sum(${valueExpression}))`;
-	}
-
-	if (input.aggregation.type === "avg") {
-		return sql`to_jsonb(avg(${valueExpression}))`;
-	}
-
-	if (input.aggregation.type === "min") {
-		return sql`to_jsonb(min(${valueExpression}))`;
-	}
-
-	return sql`to_jsonb(max(${valueExpression}))`;
+	return match(input.aggregation)
+		.with({ type: "count" }, () => sql`to_jsonb(count(*)::integer)`)
+		.with({ type: "countWhere" }, (aggregation) => {
+			const predicateClause = buildFilterWhereClause({
+				context: input.context,
+				compiler: input.expressionCompiler,
+				computedFields: input.computedFields,
+				predicate: aggregation.predicate,
+			});
+			return sql`to_jsonb(count(*) filter (where ${predicateClause})::integer)`;
+		})
+		.with({ type: "countBy" }, (aggregation) =>
+			buildCountByAggregationExpression({
+				alias: input.alias,
+				compiler: input.compiler,
+				expression: aggregation,
+			}),
+		)
+		.with(
+			{ type: "sum" },
+			(aggregation) =>
+				sql`to_jsonb(sum(${input.compiler.compile(aggregation.expression, "number")}))`,
+		)
+		.with(
+			{ type: "avg" },
+			(aggregation) =>
+				sql`to_jsonb(avg(${input.compiler.compile(aggregation.expression, "number")}))`,
+		)
+		.with(
+			{ type: "min" },
+			(aggregation) =>
+				sql`to_jsonb(min(${input.compiler.compile(aggregation.expression, "number")}))`,
+		)
+		.with(
+			{ type: "max" },
+			(aggregation) =>
+				sql`to_jsonb(max(${input.compiler.compile(aggregation.expression, "number")}))`,
+		)
+		.exhaustive();
 };
 
 type AggregateValue = QueryEngineAggregateResponseData["values"][number];

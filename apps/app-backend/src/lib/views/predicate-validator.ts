@@ -85,109 +85,101 @@ export const validateViewPredicateAgainstSchemas = <
 	};
 
 	const validatePredicate = (predicate: ViewPredicate): void => {
-		if (predicate.type === "and" || predicate.type === "or") {
-			for (const child of predicate.predicates) {
-				validatePredicate(child);
-			}
+		match(predicate)
+			.with({ type: "and" }, { type: "or" }, (pred) => {
+				for (const child of pred.predicates) {
+					validatePredicate(child);
+				}
+			})
+			.with({ type: "not" }, (pred) => validatePredicate(pred.predicate))
+			.with({ type: "isNull" }, { type: "isNotNull" }, (pred) => {
+				assertFilterCompatibleExpression(validateFilterExpression(pred.expression), "filtering");
+			})
+			.with({ type: "contains" }, (pred) => {
+				const expressionType = validateFilterExpression(pred.expression);
+				const valueType = validateFilterExpression(pred.value);
+				assertContainsCompatibleExpression(expressionType);
+				assertFilterCompatibleExpression(valueType, "filtering");
 
-			return;
-		}
+				if (expressionType.kind === "property" && expressionType.propertyType === "string") {
+					if (valueType.kind !== "property" || valueType.propertyType !== "string") {
+						throw new QueryEngineValidationError(
+							"Filter operator 'contains' requires a string expression value for string expressions",
+						);
+					}
+				}
 
-		if (predicate.type === "not") {
-			validatePredicate(predicate.predicate);
-			return;
-		}
-
-		if (predicate.type === "isNull" || predicate.type === "isNotNull") {
-			assertFilterCompatibleExpression(validateFilterExpression(predicate.expression), "filtering");
-			return;
-		}
-
-		if (predicate.type === "contains") {
-			const expressionType = validateFilterExpression(predicate.expression);
-			const valueType = validateFilterExpression(predicate.value);
-			assertContainsCompatibleExpression(expressionType);
-			assertFilterCompatibleExpression(valueType, "filtering");
-
-			if (expressionType.kind === "property" && expressionType.propertyType === "string") {
-				if (valueType.kind !== "property" || valueType.propertyType !== "string") {
+				if (valueType.kind === "null") {
 					throw new QueryEngineValidationError(
-						"Filter operator 'contains' requires a string expression value for string expressions",
+						"Filter operator 'contains' does not support null expression values",
 					);
 				}
-			}
 
-			if (valueType.kind === "null") {
-				throw new QueryEngineValidationError(
-					"Filter operator 'contains' does not support null expression values",
-				);
-			}
+				if (expressionType.kind === "property" && expressionType.propertyType === "array") {
+					if (
+						valueType.kind !== "property" ||
+						["array", "object"].includes(valueType.propertyType)
+					) {
+						throw new QueryEngineValidationError(
+							"Filter operator 'contains' for array expressions requires a scalar or object item expression",
+						);
+					}
+				}
 
-			if (expressionType.kind === "property" && expressionType.propertyType === "array") {
-				if (valueType.kind !== "property" || ["array", "object"].includes(valueType.propertyType)) {
+				if (
+					expressionType.kind === "property" &&
+					expressionType.propertyType === "object" &&
+					(valueType.kind !== "property" || valueType.propertyType !== "object")
+				) {
 					throw new QueryEngineValidationError(
-						"Filter operator 'contains' for array expressions requires a scalar or object item expression",
+						"Filter operator 'contains' for object expressions requires an object expression value",
 					);
 				}
-			}
 
-			if (
-				expressionType.kind === "property" &&
-				expressionType.propertyType === "object" &&
-				(valueType.kind !== "property" || valueType.propertyType !== "object")
-			) {
-				throw new QueryEngineValidationError(
-					"Filter operator 'contains' for object expressions requires an object expression value",
-				);
-			}
+				if (
+					expressionType.kind === "property" &&
+					expressionType.propertyDefinition &&
+					pred.value.type === "literal"
+				) {
+					const literalValue = pred.value.value;
+					match(expressionType.propertyDefinition)
+						.with({ type: "array" }, (property) =>
+							validateLiteralAgainstSchema(
+								literalValue,
+								createContainsValueSchema(property.items),
+								"Filter operator 'contains' received a literal value incompatible with the array item schema",
+							),
+						)
+						.with({ type: "object" }, (property) =>
+							validateLiteralAgainstSchema(
+								literalValue,
+								createObjectContainsSchema(property),
+								"Filter operator 'contains' received a literal value incompatible with the object schema",
+							),
+						)
+						.otherwise(() => undefined);
+				}
+			})
+			.with({ type: "in" }, (pred) => {
+				const expressionType = validateFilterExpression(pred.expression);
+				assertComparableExpression(expressionType, "in");
 
-			if (
-				expressionType.kind === "property" &&
-				expressionType.propertyDefinition &&
-				predicate.value.type === "literal"
-			) {
-				const literalValue = predicate.value.value;
-				match(expressionType.propertyDefinition)
-					.with({ type: "array" }, (property) =>
-						validateLiteralAgainstSchema(
-							literalValue,
-							createContainsValueSchema(property.items),
-							"Filter operator 'contains' received a literal value incompatible with the array item schema",
-						),
-					)
-					.with({ type: "object" }, (property) =>
-						validateLiteralAgainstSchema(
-							literalValue,
-							createObjectContainsSchema(property),
-							"Filter operator 'contains' received a literal value incompatible with the object schema",
-						),
-					)
-					.otherwise(() => undefined);
-			}
-
-			return;
-		}
-
-		if (predicate.type === "in") {
-			const expressionType = validateFilterExpression(predicate.expression);
-			assertComparableExpression(expressionType, "in");
-
-			for (const value of predicate.values) {
+				for (const value of pred.values) {
+					assertCompatibleComparisonTypes({
+						operator: "in",
+						left: expressionType,
+						right: validateFilterExpression(value),
+					});
+				}
+			})
+			.with({ type: "comparison" }, (pred) => {
 				assertCompatibleComparisonTypes({
-					operator: "in",
-					left: expressionType,
-					right: validateFilterExpression(value),
+					operator: pred.operator,
+					left: validateFilterExpression(pred.left),
+					right: validateFilterExpression(pred.right),
 				});
-			}
-
-			return;
-		}
-
-		assertCompatibleComparisonTypes({
-			operator: predicate.operator,
-			left: validateFilterExpression(predicate.left),
-			right: validateFilterExpression(predicate.right),
-		});
+			})
+			.exhaustive();
 	};
 
 	validatePredicate(input.predicate);
