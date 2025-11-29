@@ -4,7 +4,7 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 
 import { createAuthenticatedClient, getBackendClient, postBackendJson } from "../fixtures";
 import { getBackendUrl, getS3BucketName, getS3Client } from "../setup";
-import { assertTaggedError } from "../test-support/assertions";
+import { assertCondition, assertTaggedError } from "../test-support/assertions";
 
 function isStringArray(value: unknown): value is string[] {
 	return Array.isArray(value) && value.every((entry) => typeof entry === "string");
@@ -136,9 +136,7 @@ describe("POST /uploads/temporary", () => {
 
 		const tokens: unknown = await response.json();
 		expect(isStringArray(tokens)).toBe(true);
-		if (!isStringArray(tokens)) {
-			throw new Error("Temporary upload response did not include tokens");
-		}
+		assertCondition(isStringArray(tokens), "Temporary upload response did not include tokens");
 
 		expect(tokens).toHaveLength(files.length);
 		for (const token of tokens) {
