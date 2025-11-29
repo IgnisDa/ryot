@@ -33,9 +33,10 @@ describe("processPlexImport", () => {
 				adaptPlexData: () => {
 					throw new Error("adapter should not load during resume");
 				},
-				processMediaImport: async (_job, _token, input) => {
+				processMediaImport: (_job, _token, input) => {
 					calls.push(input.sourceName);
 					expect(input.sourceName).toBe("Plex");
+					return Promise.resolve();
 				},
 			}),
 		);
@@ -49,8 +50,9 @@ describe("processPlexImport", () => {
 			undefined,
 			createInput(undefined),
 			createDeps({
-				processMediaImport: async (_job, _token, input) => {
+				processMediaImport: (_job, _token, input) => {
 					expect(() => input.loadAdapterResult()).toThrow("Import job is missing Plex credentials");
+					return Promise.resolve();
 				},
 			}),
 		);
