@@ -22,10 +22,10 @@ const TRAKT_PAGE_LIMIT = "1000";
 const TRAKT_API_URL = "https://api.trakt.tv";
 
 const TraktIds = Schema.Struct({
-	trakt: Schema.Number,
 	tmdb: Schema.optional(Schema.Number),
 	imdb: Schema.optional(Schema.String),
 	slug: Schema.optional(Schema.String),
+	trakt: Schema.optional(Schema.Number),
 });
 
 const TraktItem = Schema.Struct({
@@ -189,7 +189,7 @@ const buildMovieRef = (movie: TraktItem): ImportEntityRef | undefined => {
 			externalId: tmdbId,
 			scriptSlug: "movie.tmdb",
 			entitySchemaSlug: "movie",
-			sourceLabel: movie.title ?? `Movie ${movie.ids.trakt}`,
+			sourceLabel: movie.title ?? `Movie ${movie.ids.trakt ?? "unknown"}`,
 		};
 	}
 	const imdbId = extractImdbId(movie);
@@ -201,7 +201,7 @@ const buildMovieRef = (movie: TraktItem): ImportEntityRef | undefined => {
 		identifierType: "imdb",
 		identifierValue: imdbId,
 		entitySchemaSlug: "movie",
-		sourceLabel: movie.title ?? `Movie ${movie.ids.trakt}`,
+		sourceLabel: movie.title ?? `Movie ${movie.ids.trakt ?? "unknown"}`,
 	};
 };
 
@@ -213,7 +213,7 @@ const buildShowRef = (show: TraktItem): ImportEntityRef | undefined => {
 			externalId: tmdbId,
 			scriptSlug: "show.tmdb",
 			entitySchemaSlug: "show",
-			sourceLabel: show.title ?? `Show ${show.ids.trakt}`,
+			sourceLabel: show.title ?? `Show ${show.ids.trakt ?? "unknown"}`,
 		};
 	}
 	const imdbId = extractImdbId(show);
@@ -225,7 +225,7 @@ const buildShowRef = (show: TraktItem): ImportEntityRef | undefined => {
 		identifierType: "imdb",
 		identifierValue: imdbId,
 		entitySchemaSlug: "show",
-		sourceLabel: show.title ?? `Show ${show.ids.trakt}`,
+		sourceLabel: show.title ?? `Show ${show.ids.trakt ?? "unknown"}`,
 	};
 };
 
@@ -251,7 +251,8 @@ export const adaptTraktData = Effect.fn("traktAdapter.adaptData")(function* (
 					itemIndex,
 					sourceLabel: item.movie.title,
 					message: missingProviderIdMessage("Movie"),
-					sourceIdentifier: String(item.movie.ids.trakt),
+					sourceIdentifier:
+						item.movie.ids.trakt !== undefined ? String(item.movie.ids.trakt) : undefined,
 				});
 				continue;
 			}
@@ -266,7 +267,8 @@ export const adaptTraktData = Effect.fn("traktAdapter.adaptData")(function* (
 					itemIndex,
 					sourceLabel: item.show.title,
 					message: missingProviderIdMessage("Show"),
-					sourceIdentifier: String(item.show.ids.trakt),
+					sourceIdentifier:
+						item.show.ids.trakt !== undefined ? String(item.show.ids.trakt) : undefined,
 				});
 				continue;
 			}
@@ -296,8 +298,9 @@ export const adaptTraktData = Effect.fn("traktAdapter.adaptData")(function* (
 				failures.push({
 					itemIndex,
 					sourceLabel: sourceItem.title,
-					sourceIdentifier: String(sourceItem.ids.trakt),
 					message: missingProviderIdMessage(type === "movies" ? "Movie" : "Show"),
+					sourceIdentifier:
+						sourceItem.ids.trakt !== undefined ? String(sourceItem.ids.trakt) : undefined,
 				});
 				continue;
 			}
@@ -324,8 +327,9 @@ export const adaptTraktData = Effect.fn("traktAdapter.adaptData")(function* (
 			failures.push({
 				itemIndex,
 				sourceLabel: sourceItem.title,
-				sourceIdentifier: String(sourceItem.ids.trakt),
 				message: missingProviderIdMessage(item.type === "movie" ? "Movie" : "Show"),
+				sourceIdentifier:
+					sourceItem.ids.trakt !== undefined ? String(sourceItem.ids.trakt) : undefined,
 			});
 			continue;
 		}
@@ -340,6 +344,9 @@ export const adaptTraktData = Effect.fn("traktAdapter.adaptData")(function* (
 		if (lifecycleAliases.has(collectionName.toLowerCase())) {
 			continue;
 		}
+		if (list.ids.trakt === undefined) {
+			continue;
+		}
 		const items = yield* client.fetchAll(`${userUrl}/lists/${list.ids.trakt}/items`, TraktListItem);
 		for (const item of items) {
 			itemIndex++;
@@ -352,8 +359,9 @@ export const adaptTraktData = Effect.fn("traktAdapter.adaptData")(function* (
 				failures.push({
 					itemIndex,
 					sourceLabel: sourceItem.title,
-					sourceIdentifier: String(sourceItem.ids.trakt),
 					message: missingProviderIdMessage(item.type === "movie" ? "Movie" : "Show"),
+					sourceIdentifier:
+						sourceItem.ids.trakt !== undefined ? String(sourceItem.ids.trakt) : undefined,
 				});
 				continue;
 			}
@@ -375,8 +383,9 @@ export const adaptTraktData = Effect.fn("traktAdapter.adaptData")(function* (
 				failures.push({
 					itemIndex,
 					sourceLabel: sourceItem.title,
-					sourceIdentifier: String(sourceItem.ids.trakt),
 					message: missingProviderIdMessage(type === "movies" ? "Movie" : "Show"),
+					sourceIdentifier:
+						sourceItem.ids.trakt !== undefined ? String(sourceItem.ids.trakt) : undefined,
 				});
 				continue;
 			}
