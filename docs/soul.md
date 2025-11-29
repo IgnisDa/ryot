@@ -167,26 +167,11 @@ The Collections page in the LIBRARY section follows this exact pattern. Since co
 
 A saved view carries two pieces of configuration:
 
-**Query definition** (jsonb) — the data query: which entity schema, what filters, what event-based conditions. This is what the query builder edits.
+**Query definition** — the data query: which entity schemas to target, what filters to apply, what event-based conditions to check, and how to sort results. This is what the query builder edits.
 
-**Display configuration** (jsonb) — the presentation layer: default layout (grid vs table vs card list), which properties appear on cards, which filters are promoted to the filter bar, default sort order, and optional grouping. For example:
+**Display configuration** — the presentation layer: how to render data in each available layout type (grid, list, table). All layout configurations are stored together so users can switch between views without losing their setup. Each layout specifies which entity properties to display and how to present them.
 
-```json
-{
-  "layout": "grid",
-  "card": {
-    "image_property": "poster",
-    "title_property": "name",
-    "subtitle_properties": ["year", "genre"],
-    "badge_property": "rating"
-  },
-  "promoted_filters": ["genre", "release_year", "rating"],
-  "default_sort": { "field": "created_at", "direction": "desc" },
-  "group_by": null
-}
-```
-
-For built-in trackers, display configs are hand-tuned — movies default to a poster grid with genre/year/rating filters promoted. For custom trackers, the display config is auto-generated from the schema: the first image property becomes the thumbnail, name is the title, the first 2-3 properties become subtitle fields, and the first numeric property becomes the badge.
+For built-in trackers, display configs are hand-tuned — movies default to a poster grid. For custom trackers, the display config is auto-generated from the schema: the first image property becomes the thumbnail, name is the title, the first 2-3 properties become subtitle fields, and the first numeric property becomes the badge.
 
 **Tracker landing pages vs entity list views are distinct.** Clicking "Media" in the sidebar navigates to a tracker overview — a dashboard-like widget surface with multiple sections ("In Progress," "Recently Watched," "Upcoming") composed from multiple saved view queries. Clicking "Movies" navigates to the single saved view for all movies. This separation is natural: overview pages answer "what's happening in this tracker?" while entity list pages answer "show me everything of this type." Tracker overview pages are curated for built-in trackers and auto-generated (recent activity + stats) for custom trackers.
 
