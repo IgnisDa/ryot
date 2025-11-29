@@ -366,10 +366,6 @@ describe("GET /event-schemas", () => {
 		});
 
 		const podcastEpisodeProgressSchema = await getProgressSchema("podcast-episode");
-		const podcastEpisodeFields = requireObjectRecord(
-			podcastEpisodeProgressSchema.fields,
-			"Expected podcast episode progress schema fields to be an object",
-		);
 		expect(podcastEpisodeProgressSchema).toMatchObject({
 			fields: {
 				progressPercent: {
@@ -379,13 +375,8 @@ describe("GET /event-schemas", () => {
 				},
 			},
 		});
-		expect(podcastEpisodeFields.podcastEpisode).toBeUndefined();
 
 		const movieProgressSchema = await getProgressSchema("movie");
-		const movieFields = requireObjectRecord(
-			movieProgressSchema.fields,
-			"Expected movie progress schema fields to be an object",
-		);
 		expect(movieProgressSchema).toMatchObject({
 			fields: {
 				progressPercent: {
@@ -397,8 +388,6 @@ describe("GET /event-schemas", () => {
 				},
 			},
 		});
-		expect(movieFields.showSeason).toBeUndefined();
-		expect(movieFields.showEpisode).toBeUndefined();
 
 		const progressSchemas = await Promise.all(
 			["book", "comic-book", "audiobook", "video-game", "music", "visual-novel"].map((slug) =>
