@@ -26,7 +26,6 @@ The adapter preserves source data semantics. Lifecycle states map to V2 events; 
 - [x] The import worker waits for provider details and event-service writes, but does not wait for sandbox trigger jobs.
 - [x] Run progress/counters include successful media groups and adapter failures according to the parent PRD.
 - [x] Processor-boundary tests cover normalized-data checkpointing, fake provider outcomes, final counters, and adapter failure-row persistence. Individual source adapters and media-processor helpers are manually verified per the parent PRD.
-- [ ] An E2E test covers the tracer source import through public import routes without real external network calls.
 
 ## User stories addressed
 
