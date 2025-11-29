@@ -1,0 +1,31 @@
+import { Effect } from "effect";
+
+import { DbRunner } from "#lib/db";
+import type { EntityId, UserId } from "#lib/schema/brands";
+
+import { EpisodeResolverRepository } from "./repository";
+
+export class EpisodeResolverService extends Effect.Service<EpisodeResolverService>()(
+	"EpisodeResolverService",
+	{
+		effect: Effect.gen(function* () {
+			const runWithDb = yield* DbRunner;
+			const repository = yield* EpisodeResolverRepository;
+
+			return {
+				resolveShowEpisode: Effect.fn("EpisodeResolverService.resolveShowEpisode")(
+					function* (input: {
+						userId: UserId;
+						seasonNumber: number;
+						episodeNumber: number;
+						showEntityId: EntityId;
+					}) {
+						const candidates = yield* runWithDb(repository.findShowEpisodeCandidates(input));
+
+						return candidates.length === 1 ? (candidates[0] ?? null) : null;
+					},
+				),
+			};
+		}),
+	},
+) {}

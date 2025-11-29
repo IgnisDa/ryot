@@ -59,6 +59,7 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 ## Queues
 
 - Do not introduce a third-party job-queue library. Background work uses the durable workflow engine, durable queues, and durable deferred signals.
+- When a workflow runs a child workflow (e.g. an import writing events via `EventCreateWorkflow`), give the child a deterministic `executionId` derived from the parent (parent executionId + loop indices), never a fresh random one. A child that durably suspends — e.g. an event firing an after-create trigger — replays the parent, and a random id spawns a new child each replay, looping forever. Match the keying used by `resolveExternalId`/`importEntity`.
 
 ## Redis
 
