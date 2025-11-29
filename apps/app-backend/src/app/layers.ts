@@ -31,7 +31,10 @@ import { EpisodeResolverRepository } from "#modules/episode-resolver/repository"
 import { EpisodeResolverService } from "#modules/episode-resolver/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventSchemasService } from "#modules/event-schemas/service";
-import { EventCreateWorkflowDefinitionsLive } from "#modules/events/event-create-workflow-live";
+import {
+	EventCreateWorkflowDefinitionsLive,
+	EventCreateWorkflowOperationsLive,
+} from "#modules/events/event-create-workflow-live";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
 import { BuiltinEntityPreloaderLive } from "#modules/exercises/preload";
@@ -227,6 +230,7 @@ const RuntimeDependenciesLive = Layer.mergeAll(
 	ServiceDependenciesLive,
 	ApplicationInfrastructureLive,
 	Layer.provide(EntityImportWorkflowOperationsLive, ApplicationInfrastructureLive),
+	Layer.provide(EventCreateWorkflowOperationsLive, ApplicationInfrastructureLive),
 	Layer.provide(TranslateEntityWorkflowOperationsLive, ApplicationInfrastructureLive),
 	Layer.provide(MediaTrendingWorkflowOperationsLive, ApplicationInfrastructureLive),
 );
