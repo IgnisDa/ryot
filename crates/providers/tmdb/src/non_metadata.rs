@@ -3,6 +3,7 @@ use std::sync::Arc;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
+use common_utils::{PAGE_SIZE, compute_next_page};
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use futures::{
@@ -70,7 +71,7 @@ impl MediaProvider for NonMediaTmdbService {
                 ..Default::default()
             })
             .collect_vec();
-        let next_page = (page < search.total_pages).then(|| page + 1);
+        let next_page = compute_next_page(page, PAGE_SIZE, search.total_results);
         Ok(SearchResults {
             items,
             details: SearchDetails {
