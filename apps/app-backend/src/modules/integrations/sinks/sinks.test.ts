@@ -23,7 +23,8 @@ describe("parseKodiSinkPayload", () => {
 			events: [
 				{
 					eventSchemaSlug: "progress",
-					properties: { showSeason: 2, showEpisode: 7, consumedOn: "kodi", progressPercent: 45 },
+					properties: { consumedOn: "kodi", progressPercent: 45 },
+					episodeLocator: { type: "show", seasonNumber: 2, episodeNumber: 7 },
 				},
 			],
 		});
@@ -42,7 +43,7 @@ describe("parseKodiSinkPayload", () => {
 		]);
 	});
 
-	it("ignores invalid show season and episode values", () => {
+	it("returns an input_transformation failure for invalid show season and episode values", () => {
 		const result = parseKodiSinkPayload({
 			lot: "show",
 			progress: 45,
@@ -51,11 +52,14 @@ describe("parseKodiSinkPayload", () => {
 			show_season_number: Number.NaN,
 		});
 
-		expect(result.failures).toEqual([]);
-		expect(result.entityGroups[0]?.events[0]?.properties).toEqual({
-			consumedOn: "kodi",
-			progressPercent: 45,
-		});
+		expect(result.entityGroups).toEqual([]);
+		expect(result.failures).toEqual([
+			{
+				itemIndex: 0,
+				stage: "input_transformation",
+				message: "Kodi webhook payload is missing show episode coordinates",
+			},
+		]);
 	});
 });
 
@@ -113,7 +117,43 @@ describe("getSinkAdapterResult", () => {
 		expect(result.entityGroups[0]).toMatchObject({
 			entityRef: { externalId: "95396", scriptSlug: "show.tmdb", entitySchemaSlug: "show" },
 			events: [
-				{ properties: { showSeason: 1, showEpisode: 3, consumedOn: "emby", progressPercent: 50 } },
+				{
+					episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 3 },
+					properties: { consumedOn: "emby", progressPercent: 50 },
+				},
+			],
+		});
+	});
+
+	it("maps a Jellyfin episode webhook to a TMDB show ref with an episode locator", () => {
+		const rawBody = JSON.stringify({
+			IndexNumber: 4,
+			RunTimeTicks: 100,
+			PositionTicks: 25,
+			SeriesName: "Silo",
+			ItemType: "Episode",
+			ParentIndexNumber: 2,
+			SeriesProvider_tmdb: "125988",
+		});
+		const result = Effect.runSync(
+			getSinkAdapterResult(
+				makeIntegration({
+					provider: "jellyfin_sink",
+					providerSpecifics: { kind: "jellyfin_sink" },
+				}),
+				rawBody,
+				json,
+			),
+		);
+
+		expect(result.failures).toEqual([]);
+		expect(result.entityGroups[0]).toMatchObject({
+			entityRef: { externalId: "125988", scriptSlug: "show.tmdb", entitySchemaSlug: "show" },
+			events: [
+				{
+					properties: { consumedOn: "jellyfin_sink", progressPercent: 25 },
+					episodeLocator: { type: "show", seasonNumber: 2, episodeNumber: 4 },
+				},
 			],
 		});
 	});
@@ -162,6 +202,40 @@ describe("getSinkAdapterResult", () => {
 		});
 	});
 
+	it("maps a Plex episode multipart webhook to a TMDB show ref with an episode locator", () => {
+		const payload = JSON.stringify({
+			event: "media.pause",
+			Metadata: {
+				index: 5,
+				duration: 100,
+				viewOffset: 80,
+				parentIndex: 3,
+				type: "episode",
+				Guid: [{ id: "tmdb://93740" }],
+				grandparentTitle: "Foundation",
+			},
+		});
+		const rawBody = `--abc\r\nContent-Disposition: form-data; name="payload"\r\n\r\n${payload}\r\n--abc--`;
+		const result = Effect.runSync(
+			getSinkAdapterResult(
+				makeIntegration({ provider: "plex_sink", providerSpecifics: { kind: "plex_sink" } }),
+				rawBody,
+				"multipart/form-data; boundary=abc",
+			),
+		);
+
+		expect(result.failures).toEqual([]);
+		expect(result.entityGroups[0]).toMatchObject({
+			entityRef: { externalId: "93740", scriptSlug: "show.tmdb", entitySchemaSlug: "show" },
+			events: [
+				{
+					properties: { consumedOn: "plex_sink", progressPercent: 80 },
+					episodeLocator: { type: "show", seasonNumber: 3, episodeNumber: 5 },
+				},
+			],
+		});
+	});
+
 	it("ignores browser extension events from disabled sites", () => {
 		const rawBody = JSON.stringify({
 			url: "https://www.youtube.com/watch?v=1",
@@ -180,5 +254,39 @@ describe("getSinkAdapterResult", () => {
 
 		expect(result.entityGroups).toEqual([]);
 		expect(result.failures).toEqual([]);
+	});
+
+	it("maps a browser extension show webhook to a TMDB show ref with an episode locator", () => {
+		const rawBody = JSON.stringify({
+			url: "https://www.max.com/watch/1",
+			data: {
+				lot: "show",
+				progress: 80,
+				identifier: "94997",
+				show_season_number: 1,
+				show_episode_number: 6,
+			},
+		});
+		const result = Effect.runSync(
+			getSinkAdapterResult(
+				makeIntegration({
+					provider: "ryot_browser_extension",
+					providerSpecifics: { kind: "ryot_browser_extension" },
+				}),
+				rawBody,
+				json,
+			),
+		);
+
+		expect(result.failures).toEqual([]);
+		expect(result.entityGroups[0]).toMatchObject({
+			entityRef: { externalId: "94997", scriptSlug: "show.tmdb", entitySchemaSlug: "show" },
+			events: [
+				{
+					properties: { consumedOn: "max", progressPercent: 80 },
+					episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 6 },
+				},
+			],
+		});
 	});
 });
