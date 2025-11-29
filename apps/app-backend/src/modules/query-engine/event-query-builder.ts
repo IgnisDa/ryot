@@ -1,3 +1,5 @@
+import { sql } from "drizzle-orm";
+
 import type { PreparedQueryContext } from "./context";
 import { buildJoinedCte } from "./event-join-ctes";
 import { buildEventFirstCte } from "./event-query-ctes";
@@ -74,6 +76,7 @@ export const executeEventQuery = async (input: {
 			filteredAlias: EVENT_CTE_ALIASES.filtered,
 			joinedTableName: EVENT_CTE_ALIASES.joined,
 			paginatedAlias: EVENT_CTE_ALIASES.paginated,
+			tiebreakerExpressions: sql`${sql.raw(EVENT_CTE_ALIASES.filtered)}.created_at desc nulls last, ${sql.raw(EVENT_CTE_ALIASES.filtered)}.id desc`,
 		},
 	});
 
