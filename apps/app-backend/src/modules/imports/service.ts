@@ -1,5 +1,4 @@
 import { getTemporaryDirectory } from "~/lib/bun";
-import { config } from "~/lib/config";
 import { getQueues } from "~/lib/queue";
 import { type ServiceResult, serviceData, serviceError } from "~/lib/result";
 import { claimUploadToken } from "~/lib/temporary-upload-token";
@@ -21,9 +20,10 @@ import type {
 	ListedImportRunFailure,
 } from "./schemas";
 import {
-	allowedExtensionsBySource,
-	buildFileInputSummary,
-	buildTraktInputSummary,
+	buildInputSummary,
+	buildSourcePayload,
+	getImportSourceStartError,
+	getAllowedExtensionsForSource,
 } from "./source-config";
 
 type ImportServiceError = "not_found" | "validation";
@@ -37,16 +37,20 @@ export const startImportRun = async (input: {
 	userId: string;
 	body: CreateImportRunBody;
 }): Promise<ImportServiceResult<{ id: string }>> => {
-	if (
-		input.body.source === "goodreads" ||
-		input.body.source === "hardcover" ||
-		input.body.source === "hevy" ||
-		input.body.source === "open_scale" ||
-		input.body.source === "storygraph" ||
-		input.body.source === "strong_app"
-	) {
+	const startError = getImportSourceStartError(input.body.source);
+	if (startError) {
+		return serviceError("validation", startError);
+	}
+
+	const inputSummary = buildInputSummary(input.body);
+	const allowedExtensions = getAllowedExtensionsForSource(input.body.source);
+
+	if (allowedExtensions) {
+		if (!("uploadToken" in input.body)) {
+			return serviceError("validation", "Import source requires an upload token");
+		}
+
 		const tempDir = getTemporaryDirectory();
-		const allowedExtensions = allowedExtensionsBySource[input.body.source];
 
 		const claimResult = await claimUploadToken(input.body.uploadToken, input.userId);
 		if ("error" in claimResult) {
@@ -65,8 +69,6 @@ export const startImportRun = async (input: {
 			await cleanupImportFile(safePathResult.path);
 			return serviceError("validation", extResult.error);
 		}
-
-		const inputSummary = buildFileInputSummary(input.body.source);
 
 		const run = await createImportRun({
 			inputSummary,
@@ -94,15 +96,6 @@ export const startImportRun = async (input: {
 		return serviceData({ id: run.id });
 	}
 
-	if (!config.importer.trakt.clientId) {
-		return serviceError(
-			"validation",
-			"Trakt importer is not configured. Set SERVER_IMPORTER_TRAKT_CLIENT_ID.",
-		);
-	}
-
-	const inputSummary = buildTraktInputSummary(input.body.username);
-
 	const run = await createImportRun({
 		inputSummary,
 		userId: input.userId,
@@ -113,7 +106,7 @@ export const startImportRun = async (input: {
 		await getQueues().importQueue.add(importRunJobName, {
 			runId: run.id,
 			userId: input.userId,
-			traktUsername: input.body.username,
+			sourcePayload: buildSourcePayload(input.body),
 		});
 	} catch {
 		await updateImportRun({
