@@ -97,6 +97,7 @@ pub async fn perform_hp_application_job(
             .await
             .map(|_| ()),
     };
+    ryot_log!(trace, "Finished job {:?}", information);
     status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }
 
@@ -171,6 +172,7 @@ pub async fn perform_mp_application_job(
                 .await
         }
     };
+    ryot_log!(trace, "Finished job {:?}", information);
     status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }
 
@@ -210,6 +212,7 @@ pub async fn perform_lp_application_job(
                 .await
         }
     };
+    ryot_log!(trace, "Finished job {:?}", information);
     status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }
 
@@ -225,5 +228,6 @@ pub async fn perform_single_application_job(
             .await
             .map(|_| ()),
     };
+    ryot_log!(trace, "Finished job {:?}", information);
     status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }
