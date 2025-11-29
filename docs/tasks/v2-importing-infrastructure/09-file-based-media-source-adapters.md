@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,15 +14,15 @@ Do not invent fallback whole-entity episodic completion when a source lacks epis
 
 ## Acceptance criteria
 
-- [ ] Source input schemas are added for `imdb`, `igdb`, `grouvee`, `anilist`, `myanimelist`, and `watcharr`.
-- [ ] CSV/JSON reads go through centralized import file helpers with path, extension, and size validation.
-- [ ] Adapters emit normalized media entity groups and failures without direct DB writes.
-- [ ] Non-episodic completed facts map to `complete` events with historical `occurredAt` where source dates exist.
-- [ ] Episodic watched/read coverage maps to `progress(100)` events with required coverage keys and source dates where available.
-- [ ] The adapters do not create direct whole-entity episodic `complete` events unless a source-specific real fact exists that cannot be represented as coverage.
-- [ ] Lifecycle aliases map to V2 lifecycle events; non-lifecycle source lists map to collections.
-- [ ] Adapter tests cover success, malformed rows/items, lifecycle mapping, episodic coverage mapping, review mapping, and collection mapping for each source.
-- [ ] Import run counters/failures remain consistent across mixed success/failure files.
+- [x] Source input schemas are added for `imdb`, `igdb`, `grouvee`, `anilist`, `myanimelist`, and `watcharr`.
+- [x] CSV/JSON reads go through centralized import file helpers with path, extension, and size validation.
+- [x] Adapters emit normalized media entity groups and failures without direct DB writes.
+- [x] Non-episodic completed facts map to `complete` events with historical `occurredAt` where source dates exist.
+- [x] Episodic watched/read coverage maps to `progress(100)` events with required coverage keys and source dates where available.
+- [x] The adapters do not create direct whole-entity episodic `complete` events unless a source-specific real fact exists that cannot be represented as coverage.
+- [x] Lifecycle aliases map to V2 lifecycle events; non-lifecycle source lists map to collections.
+- [x] Adapter tests cover success, malformed rows/items, lifecycle mapping, episodic coverage mapping, review mapping, and collection mapping for each source.
+- [x] Import run counters/failures remain consistent across mixed success/failure files.
 
 ## User stories addressed
 
