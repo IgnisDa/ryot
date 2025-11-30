@@ -1,15 +1,12 @@
 use std::sync::Arc;
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Result, bail};
 use background_models::{ApplicationJob, HpApplicationJob};
 use common_models::{
     BackgroundJob, MetadataGroupSearchInput, PeopleSearchInput, SearchInput, StringIdObject,
 };
-use database_models::{
-    prelude::{Metadata, User},
-    user,
-};
-use database_utils::{admin_account_guard, user_by_id};
+use database_models::{prelude::User, user};
+use database_utils::admin_account_guard;
 use dependent_core_utils::core_details;
 use dependent_entity_list_utils::{
     user_genres_list, user_metadata_groups_list, user_metadata_list, user_people_list,
