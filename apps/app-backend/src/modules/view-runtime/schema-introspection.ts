@@ -21,15 +21,17 @@ export const buildSchemaMap = <TSchema extends ViewRuntimeSchema>(
 };
 
 export const parseFieldPath = (field: string) => {
-	if (field.startsWith("@"))
+	if (field.startsWith("@")) {
 		return {
 			type: "top-level" as const,
 			column: field.slice(1),
 		};
+	}
 
 	const [slug, property, ...rest] = field.split(".");
-	if (!slug || !property || rest.length > 0)
+	if (!slug || !property || rest.length > 0) {
 		throw new Error(`Invalid field path: ${field}`);
+	}
 
 	return { slug, property, type: "schema-property" as const };
 };

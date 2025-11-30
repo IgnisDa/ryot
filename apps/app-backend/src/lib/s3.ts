@@ -7,7 +7,9 @@ const createS3Config = () => {
 	const accessKeyId = config.FILE_STORAGE_S3_ACCESS_KEY_ID;
 	const secretAccessKey = config.FILE_STORAGE_S3_SECRET_ACCESS_KEY;
 
-	if (!endpoint || !bucketName || !accessKeyId || !secretAccessKey) return null;
+	if (!endpoint || !bucketName || !accessKeyId || !secretAccessKey) {
+		return null;
+	}
 
 	return {
 		endpoint,

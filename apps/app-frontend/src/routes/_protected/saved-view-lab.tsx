@@ -593,11 +593,15 @@ function applyFiltersAndSort(
 	let filtered = [...entities];
 
 	Object.entries(filters).forEach(([key, value]) => {
-		if (!value || value === "All" || value === "Any") return;
+		if (!value || value === "All" || value === "Any") {
+			return;
+		}
 
 		filtered = filtered.filter((entity) => {
 			const entityValue = entity[key as keyof MockEntity];
-			if (entityValue === undefined) return false;
+			if (entityValue === undefined) {
+				return false;
+			}
 
 			if (typeof entityValue === "number") {
 				if (value.includes("+")) {
@@ -834,7 +838,7 @@ function EntityThumbnail(props: {
 		? "var(--mantine-color-dark-4)"
 		: "var(--mantine-color-stone-5)";
 
-	if (props.image)
+	if (props.image) {
 		return (
 			<Box
 				h={props.height}
@@ -848,6 +852,7 @@ function EntityThumbnail(props: {
 				}}
 			/>
 		);
+	}
 
 	return (
 		<Box
@@ -1367,7 +1372,9 @@ function QueryBuilderDrawer(props: {
 									}))}
 									value={props.sortKey}
 									onChange={(value) => {
-										if (value) props.onSortKeyChange(value);
+										if (value) {
+											props.onSortKeyChange(value);
+										}
 									}}
 								/>
 								<SegmentedControl
@@ -1717,7 +1724,9 @@ function RouteComponent() {
 		MOCK_SCENARIOS.find((item) => item.id === activeScenario) ??
 		MOCK_SCENARIOS[0];
 
-	if (!scenario) throw new Error("Scenario not found");
+	if (!scenario) {
+		throw new Error("Scenario not found");
+	}
 
 	const textPrimary = isDark
 		? "var(--mantine-color-dark-0)"

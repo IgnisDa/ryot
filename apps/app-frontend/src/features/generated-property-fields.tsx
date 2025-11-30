@@ -82,13 +82,14 @@ export function getGeneratedPropertyFieldConfig(
 				placeholder: `Enter ${propertyKey}`,
 			};
 		default:
-			if (options.fallback === "text")
+			if (options.fallback === "text") {
 				return {
 					label,
 					required,
 					kind: "text",
 					placeholder: `Enter ${propertyKey}`,
 				};
+			}
 
 			return null;
 	}
@@ -100,7 +101,9 @@ export function GeneratedPropertyField(props: GeneratedPropertyFieldProps) {
 		props.propertyDef,
 		props.options,
 	);
-	if (!config) return null;
+	if (!config) {
+		return null;
+	}
 
 	const fieldName = `properties.${props.propertyKey}` as const;
 

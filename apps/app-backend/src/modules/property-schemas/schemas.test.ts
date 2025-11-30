@@ -38,7 +38,9 @@ describe("createPropertySchemaObjectSchema", () => {
 		const result = schema.safeParse({});
 
 		expect(result.success).toBeFalse();
-		if (result.success) return;
+		if (result.success) {
+			return;
+		}
 
 		expect(result.error.issues[0]?.message).toBe(
 			"Event schema properties must contain at least one property",

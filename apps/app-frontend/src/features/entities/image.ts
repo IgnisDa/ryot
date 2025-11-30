@@ -26,7 +26,9 @@ export function useResolvedEntityImageUrls(entities: AppEntity[]) {
 	presignedQueries.forEach((query, index) => {
 		const key = s3Keys[index];
 		const url = query.data?.data.uploadUrl;
-		if (!key || !url) return;
+		if (!key || !url) {
+			return;
+		}
 		urlByKey.set(key, url);
 	});
 

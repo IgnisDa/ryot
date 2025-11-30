@@ -14,8 +14,9 @@ const AuthClientContext = createContext<AuthClient | undefined>(undefined);
 
 export function useAuthClient() {
 	const context = useContext(AuthClientContext);
-	if (!context)
+	if (!context) {
 		throw new Error("useAuthClient must be used within AuthClientProvider");
+	}
 	return context;
 }
 

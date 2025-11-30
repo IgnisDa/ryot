@@ -4,7 +4,9 @@ export type AppEventSchema = ApiGetResponseData<"/event-schemas">[number];
 
 export function sortEventSchemas(eventSchemas: AppEventSchema[]) {
 	return [...eventSchemas].sort((a, b) => {
-		if (a.name !== b.name) return a.name.localeCompare(b.name);
+		if (a.name !== b.name) {
+			return a.name.localeCompare(b.name);
+		}
 		return a.slug.localeCompare(b.slug);
 	});
 }
@@ -16,7 +18,9 @@ type EntityEventSchemaViewState =
 export function getEntityEventSchemaViewState(
 	eventSchemas: AppEventSchema[],
 ): EntityEventSchemaViewState {
-	if (eventSchemas.length === 0) return { type: "empty" };
+	if (eventSchemas.length === 0) {
+		return { type: "empty" };
+	}
 
 	return {
 		type: "list",
