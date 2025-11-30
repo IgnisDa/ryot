@@ -610,7 +610,7 @@ pub async fn handle_metadata_eligible_for_smart_collection_moving(
     Ok(())
 }
 
-pub async fn update_entity_translation(
+pub async fn update_media_entity_translation(
     ss: &Arc<SupportingService>,
     user_id: &String,
     entity_id: String,

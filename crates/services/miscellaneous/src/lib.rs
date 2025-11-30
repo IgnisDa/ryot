@@ -221,7 +221,7 @@ impl MiscellaneousService {
         entity_id: String,
         entity_lot: EntityLot,
     ) -> Result<bool> {
-        miscellaneous_metadata_operations_service::update_entity_translation(
+        miscellaneous_metadata_operations_service::update_media_entity_translation(
             &self.0, &user_id, entity_id, entity_lot,
         )
         .await?;
