@@ -1,7 +1,7 @@
 import type { ContractClient, ContractRunner, ContractSuccess } from "@/lib/contract-client";
 
 type QueryEngineExecute = ContractClient["queryEngine"]["execute"];
-export type QueryEngineResponse = ContractSuccess<QueryEngineExecute>;
+export type QueryEngineResponse = ContractSuccess<"queryEngine", "execute">;
 export type QueryEngineEntitiesResponse = Extract<QueryEngineResponse, { mode: "entities" }>;
 export type QueryEngineEntitiesRequestBody = Extract<
 	Parameters<QueryEngineExecute>[0] extends { payload: infer P } ? P : never,

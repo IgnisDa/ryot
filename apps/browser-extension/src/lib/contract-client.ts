@@ -1,13 +1,6 @@
-import { FetchHttpClient, HttpApiClient } from "@effect/platform";
-import { AppContract } from "@ryot/contract/contract";
 import type { IntegrationWebhookPayload } from "@ryot/contract/modules/integrations/schemas";
 import { IntegrationId } from "@ryot/contract/schema/brands";
-import { Effect } from "effect";
-
-const makeClient = (baseUrl: string) => HttpApiClient.make(AppContract, { baseUrl });
-
-type ContractClient = Effect.Effect.Success<ReturnType<typeof makeClient>>;
-type ContractProgram<A, E> = (client: ContractClient) => Effect.Effect<A, E>;
+import { runContract, type ContractProgram } from "@ryot/contract/client";
 
 const resolveConnection = (integrationUrl: string) => {
 	const url = new URL(integrationUrl);
@@ -23,18 +16,14 @@ const resolveConnection = (integrationUrl: string) => {
 	};
 };
 
-const runContract = <A, E>(integrationUrl: string, program: ContractProgram<A, E>) => {
+const runForIntegration = <A, E>(integrationUrl: string, program: ContractProgram<A, E>) => {
 	const { baseUrl } = resolveConnection(integrationUrl);
-	return makeClient(baseUrl).pipe(
-		Effect.flatMap(program),
-		Effect.provide(FetchHttpClient.layer),
-		Effect.runPromise,
-	);
+	return runContract(program, { baseUrl });
 };
 
 export const lookupMetadata = (integrationUrl: string, title: string) => {
 	const { integrationId } = resolveConnection(integrationUrl);
-	return runContract(integrationUrl, (client) =>
+	return runForIntegration(integrationUrl, (client) =>
 		client.metadataLookup.lookup({ payload: { title }, path: { integrationId } }),
 	);
 };
@@ -44,7 +33,7 @@ export const postIntegrationWebhook = (
 	payload: IntegrationWebhookPayload,
 ) => {
 	const { integrationId } = resolveConnection(integrationUrl);
-	return runContract(integrationUrl, (client) =>
+	return runForIntegration(integrationUrl, (client) =>
 		client.integrations.webhook({ payload, path: { integrationId } }),
 	);
 };
