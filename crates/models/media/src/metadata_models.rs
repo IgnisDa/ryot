@@ -15,7 +15,10 @@ use crate::{
     MusicSpecifics, PodcastSpecifics, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
 };
 
-#[derive(Debug, PartialEq, Eq, Default, SimpleObject, Serialize, Deserialize, Clone)]
+#[derive(
+    Debug, InputObject, Hash, PartialEq, Eq, Default, SimpleObject, Serialize, Deserialize, Clone,
+)]
+#[graphql(input_name = "EntityWithLotInput")]
 pub struct EntityWithLot {
     pub entity_id: String,
     pub entity_lot: EntityLot,

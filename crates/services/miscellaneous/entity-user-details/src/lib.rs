@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{Result, anyhow};
 use application_utils::calculate_average_rating_for_user;
-use common_models::{EntityRecentlyConsumedCacheInput, UserLevelCacheKey};
+use common_models::UserLevelCacheKey;
 use database_models::{
     functions::get_user_to_entity_association,
     prelude::{Metadata, Seen},
@@ -22,7 +22,8 @@ use enum_models::{EntityLot, SeenState};
 use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
 use media_models::{
-    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    EntityWithLot, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::dec;
 use sea_orm::{ColumnTrait, EntityTrait, QuerySelect};
@@ -287,7 +288,7 @@ pub async fn get_entity_recently_consumed(
         ss,
         ApplicationCacheKey::EntityRecentlyConsumed(UserLevelCacheKey {
             user_id: user_id.to_owned(),
-            input: EntityRecentlyConsumedCacheInput {
+            input: EntityWithLot {
                 entity_lot,
                 entity_id: entity_id.to_owned(),
             },

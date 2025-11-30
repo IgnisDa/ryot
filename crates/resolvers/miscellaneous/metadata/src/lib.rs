@@ -3,7 +3,7 @@ use dependent_models::{
     CachedResponse, UserMetadataDetails, UserMetadataListInput, UserMetadataListResponse,
 };
 use enum_models::EntityLot;
-use media_models::{GraphqlMetadataDetails, MarkEntityAsPartialInput};
+use media_models::{EntityWithLot, GraphqlMetadataDetails};
 use miscellaneous_service::MiscellaneousService;
 use traits::{AuthProvider, GraphqlResolverSvc};
 
@@ -102,7 +102,7 @@ impl MiscellaneousMetadataMutationResolver {
     async fn mark_entity_as_partial(
         &self,
         gql_ctx: &Context<'_>,
-        input: MarkEntityAsPartialInput,
+        input: EntityWithLot,
     ) -> Result<bool> {
         let (service, _) = self.svc_and_user(gql_ctx).await?;
         Ok(service.mark_entity_as_partial(input).await?)

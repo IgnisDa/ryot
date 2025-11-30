@@ -37,7 +37,7 @@ use enum_models::{
 };
 use futures::try_join;
 use media_models::{
-    CreateCustomMetadataGroupInput, CreateCustomMetadataInput, EntityTranslationInput,
+    CreateCustomMetadataGroupInput, CreateCustomMetadataInput, EntityWithLot,
     UpdateCustomMetadataGroupInput, UpdateCustomMetadataInput, UpdateCustomPersonInput,
 };
 use nanoid::nanoid;
@@ -634,7 +634,7 @@ async fn get_preferred_language_for_user_and_source(
 pub async fn update_media_entity_translation(
     ss: &Arc<SupportingService>,
     user_id: &String,
-    input: EntityTranslationInput,
+    input: EntityWithLot,
 ) -> Result<()> {
     match input.entity_lot {
         EntityLot::Metadata => {
@@ -685,7 +685,7 @@ pub async fn update_media_entity_translation(
 pub async fn entity_translation_details(
     ss: &Arc<SupportingService>,
     user_id: String,
-    input: EntityTranslationInput,
+    input: EntityWithLot,
 ) -> Result<CachedResponse<Vec<entity_translation::Model>>> {
     cache_service::get_or_set_with_callback(
         ss,

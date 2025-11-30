@@ -30,10 +30,10 @@ use dependent_notification_utils::{
 use dependent_review_utils::post_review;
 use enum_models::EntityLot;
 use media_models::{
-    CreateOrUpdateReviewInput, CreateReviewCommentInput, EntityTranslationInput, GenreDetailsInput,
-    GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent, MarkEntityAsPartialInput,
-    MetadataLookupResponse, MetadataProgressUpdateInput, ReviewPostedEvent, UpdateSeenItemInput,
-    UserCalendarEventInput, UserUpcomingCalendarEventInput,
+    CreateOrUpdateReviewInput, CreateReviewCommentInput, EntityWithLot, GenreDetailsInput,
+    GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent, MetadataLookupResponse,
+    MetadataProgressUpdateInput, ReviewPostedEvent, UpdateSeenItemInput, UserCalendarEventInput,
+    UserUpcomingCalendarEventInput,
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc, prelude::Expr};
 use supporting_service::SupportingService;
@@ -175,7 +175,7 @@ impl MiscellaneousService {
         Ok(download_url)
     }
 
-    pub async fn mark_entity_as_partial(&self, input: MarkEntityAsPartialInput) -> Result<bool> {
+    pub async fn mark_entity_as_partial(&self, input: EntityWithLot) -> Result<bool> {
         miscellaneous_general_service::mark_entity_as_partial(&self.0, input).await
     }
 
@@ -215,7 +215,7 @@ impl MiscellaneousService {
     pub async fn update_media_entity_translation(
         &self,
         user_id: String,
-        input: EntityTranslationInput,
+        input: EntityWithLot,
     ) -> Result<bool> {
         miscellaneous_metadata_operations_service::update_media_entity_translation(
             &self.0, &user_id, input,
@@ -408,7 +408,7 @@ impl MiscellaneousService {
     pub async fn entity_translation_details(
         &self,
         user_id: String,
-        input: EntityTranslationInput,
+        input: EntityWithLot,
     ) -> Result<CachedResponse<Vec<entity_translation::Model>>> {
         miscellaneous_metadata_operations_service::entity_translation_details(
             &self.0, user_id, input,

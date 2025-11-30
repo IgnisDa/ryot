@@ -2335,6 +2335,7 @@ dependencies = [
  "dependent-models",
  "enum-models",
  "futures",
+ "media-models",
  "sea-orm",
  "supporting-service",
  "tracing",

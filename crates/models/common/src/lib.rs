@@ -435,13 +435,6 @@ pub struct UserLevelCacheKey<T> {
 
 #[skip_serializing_none]
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EntityRecentlyConsumedCacheInput {
-    pub entity_id: String,
-    pub entity_lot: EntityLot,
-}
-
-#[skip_serializing_none]
-#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MetadataLookupCacheInput {
     pub title: String,
     pub language: Option<String>,

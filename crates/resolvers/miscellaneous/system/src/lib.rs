@@ -3,7 +3,7 @@ use common_models::BackgroundJob;
 use database_models::entity_translation;
 use dependent_models::{CachedResponse, CoreDetails};
 use enum_models::EntityLot;
-use media_models::EntityTranslationInput;
+use media_models::EntityWithLot;
 use miscellaneous_service::MiscellaneousService;
 use traits::{AuthProvider, GraphqlResolverSvc};
 use uuid::Uuid;
@@ -27,7 +27,7 @@ impl MiscellaneousSystemQueryResolver {
     async fn entity_translation_details(
         &self,
         gql_ctx: &Context<'_>,
-        input: EntityTranslationInput,
+        input: EntityWithLot,
     ) -> Result<CachedResponse<Vec<entity_translation::Model>>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         Ok(service.entity_translation_details(user_id, input).await?)
@@ -71,7 +71,7 @@ impl MiscellaneousSystemMutationResolver {
     async fn update_media_entity_translation(
         &self,
         gql_ctx: &Context<'_>,
-        input: EntityTranslationInput,
+        input: EntityWithLot,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         Ok(service

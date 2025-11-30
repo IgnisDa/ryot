@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 
 use common_models::{
-    ApplicationDateRange, EntityRecentlyConsumedCacheInput, FilterPresetQueryInput,
-    MetadataGroupSearchInput, MetadataLookupCacheInput, PeopleSearchInput, UserAnalyticsInput,
-    UserLevelCacheKey, YoutubeMusicSongListened,
+    ApplicationDateRange, FilterPresetQueryInput, MetadataGroupSearchInput,
+    MetadataLookupCacheInput, PeopleSearchInput, UserAnalyticsInput, UserLevelCacheKey,
+    YoutubeMusicSongListened,
 };
 use database_models::entity_translation;
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
-    EntityTranslationInput, GenreDetailsInput, GraphqlMetadataDetails, MetadataLookupResponse,
+    EntityWithLot, GenreDetailsInput, GraphqlMetadataDetails, MetadataLookupResponse,
     MetadataProgressUpdateCacheInput, TmdbMetadataLookupResult,
 };
 use sea_orm::FromJsonQueryResult;
@@ -101,7 +101,9 @@ pub enum ApplicationCacheKey {
     UserMetadataRecommendationsSet(UserLevelCacheKey<()>),
     MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
     UserPeopleList(UserLevelCacheKey<UserPeopleListInput>),
+    EntityRecentlyConsumed(UserLevelCacheKey<EntityWithLot>),
     UserMetadataList(UserLevelCacheKey<UserMetadataListInput>),
+    EntityTranslationDetails(UserLevelCacheKey<EntityWithLot>),
     UserExercisesList(UserLevelCacheKey<UserExercisesListInput>),
     UserFilterPresets(UserLevelCacheKey<FilterPresetQueryInput>),
     MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
@@ -110,8 +112,6 @@ pub enum ApplicationCacheKey {
     YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
     UserWorkoutsList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     UserMetadataGroupsList(UserLevelCacheKey<UserMetadataGroupsListInput>),
-    EntityTranslationDetails(UserLevelCacheKey<EntityTranslationInput>),
-    EntityRecentlyConsumed(UserLevelCacheKey<EntityRecentlyConsumedCacheInput>),
     UserWorkoutTemplatesList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     MetadataProgressUpdateCompletedCache(UserLevelCacheKey<MetadataProgressUpdateCacheInput>),
     MetadataProgressUpdateInProgressCache(UserLevelCacheKey<MetadataProgressUpdateCacheInput>),
