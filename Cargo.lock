@@ -4653,6 +4653,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cache-service",
+ "common-models",
  "common-utils",
  "database-models",
  "dependent-models",
@@ -4732,6 +4733,7 @@ name = "miscellaneous-metadata-resolver"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
+ "common-models",
  "dependent-models",
  "media-models",
  "miscellaneous-service",

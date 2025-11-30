@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use chrono::Utc;
-use common_models::UserLevelCacheKey;
+use common_models::{EntityWithLot, UserLevelCacheKey};
 use database_models::{functions::get_user_to_entity_association, user_to_entity};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ApplicationCacheValue, EmptyCacheValue,
@@ -10,7 +10,6 @@ use dependent_models::{
 };
 use enum_models::EntityLot;
 use futures::try_join;
-use media_models::EntityWithLot;
 use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
 use supporting_service::SupportingService;
 

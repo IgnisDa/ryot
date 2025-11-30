@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow, bail};
 use chrono::Datelike;
 use common_models::{
     ChangeCollectionToEntitiesInput, DefaultCollection, EntityAssets, EntityToCollectionInput,
-    UserLevelCacheKey,
+    EntityWithLot, UserLevelCacheKey,
 };
 use common_utils::ryot_log;
 use database_models::{
@@ -37,8 +37,8 @@ use enum_models::{
 };
 use futures::try_join;
 use media_models::{
-    CreateCustomMetadataGroupInput, CreateCustomMetadataInput, EntityWithLot,
-    UpdateCustomMetadataGroupInput, UpdateCustomMetadataInput, UpdateCustomPersonInput,
+    CreateCustomMetadataGroupInput, CreateCustomMetadataInput, UpdateCustomMetadataGroupInput,
+    UpdateCustomMetadataInput, UpdateCustomPersonInput,
 };
 use nanoid::nanoid;
 use sea_orm::{

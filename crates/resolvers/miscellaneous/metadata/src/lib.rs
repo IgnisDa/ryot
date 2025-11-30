@@ -1,8 +1,9 @@
 use async_graphql::{Context, Object, Result};
+use common_models::EntityWithLot;
 use dependent_models::{
     CachedResponse, UserMetadataDetails, UserMetadataListInput, UserMetadataListResponse,
 };
-use media_models::{EntityWithLot, GraphqlMetadataDetails};
+use media_models::GraphqlMetadataDetails;
 use miscellaneous_service::MiscellaneousService;
 use traits::{AuthProvider, GraphqlResolverSvc};
 

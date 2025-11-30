@@ -1,8 +1,7 @@
 use async_graphql::{Context, Object, Result};
-use common_models::BackgroundJob;
+use common_models::{BackgroundJob, EntityWithLot};
 use database_models::entity_translation;
 use dependent_models::{CachedResponse, CoreDetails};
-use media_models::EntityWithLot;
 use miscellaneous_service::MiscellaneousService;
 use traits::{AuthProvider, GraphqlResolverSvc};
 use uuid::Uuid;

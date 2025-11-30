@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 
 use common_models::{
-    ApplicationDateRange, FilterPresetQueryInput, MetadataGroupSearchInput,
+    ApplicationDateRange, EntityWithLot, FilterPresetQueryInput, MetadataGroupSearchInput,
     MetadataLookupCacheInput, PeopleSearchInput, UserAnalyticsInput, UserLevelCacheKey,
     YoutubeMusicSongListened,
 };
 use database_models::entity_translation;
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
-    EntityWithLot, GenreDetailsInput, GraphqlMetadataDetails, MetadataLookupResponse,
+    GenreDetailsInput, GraphqlMetadataDetails, MetadataLookupResponse,
     MetadataProgressUpdateCacheInput, TmdbMetadataLookupResult,
 };
 use sea_orm::FromJsonQueryResult;
