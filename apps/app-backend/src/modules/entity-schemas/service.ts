@@ -53,44 +53,18 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 	{
 		effect: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
+			const engine = yield* WorkflowEngine;
 			const runInTransaction = yield* TransactionRunner;
 			const repository = yield* EntitySchemasRepository;
 			const sandboxApiService = yield* SandboxApiService;
 			const trackersRepository = yield* TrackersRepository;
-			const engine = yield* WorkflowEngine;
 
-			return {
-				list: Effect.fn("EntitySchemasService.list")(function* (
-					user: CurrentUserValue,
-					input: { trackerId?: TrackerId; slugs?: ReadonlyArray<string> },
-				) {
-					if (input.trackerId) {
-						const trackerId = trimToNull(input.trackerId);
-						if (!trackerId) {
-							return yield* badRequest("Tracker id is required");
-						}
-
-						const tracker = yield* runWithDb(
-							trackersRepository.getOwnedById(user.id, TrackerId.make(trackerId)),
-						);
-						if (!tracker) {
-							return yield* notFound("Tracker not found");
-						}
-					}
-
-					return yield* runWithDb(
-						repository.listByUser({
-							userId: user.id,
-							slugs: input.slugs,
-							trackerId: input.trackerId,
-						}),
-					);
-				}),
-				create: Effect.fn("EntitySchemasService.create")(function* (
-					user: CurrentUserValue,
-					payload: CreateEntitySchemaBody,
-				) {
-					const trackerId = trimToNull(payload.trackerId);
+			const list = Effect.fn("EntitySchemasService.list")(function* (
+				user: CurrentUserValue,
+				input: { trackerId?: TrackerId; slugs?: ReadonlyArray<string> },
+			) {
+				if (input.trackerId) {
+					const trackerId = trimToNull(input.trackerId);
 					if (!trackerId) {
 						return yield* badRequest("Tracker id is required");
 					}
@@ -101,105 +75,135 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 					if (!tracker) {
 						return yield* notFound("Tracker not found");
 					}
-					if (tracker.isBuiltin) {
-						return yield* badRequest("Built-in trackers do not support entity schema creation");
-					}
+				}
 
-					const resolved = yield* resolveEntitySchemaCreateInput({
-						icon: payload.icon,
-						name: payload.name,
-						slug: payload.slug,
-						accentColor: payload.accentColor,
-					});
+				return yield* runWithDb(
+					repository.listByUser({
+						userId: user.id,
+						slugs: input.slugs,
+						trackerId: input.trackerId,
+					}),
+				);
+			});
 
-					const propertiesSchema = yield* parseLabeledPropertySchemaInput(
-						payload.propertiesSchema,
-						"Entity schema properties",
-					).pipe(Effect.mapError((error) => badRequest(error.message)));
+			const create = Effect.fn("EntitySchemasService.create")(function* (
+				user: CurrentUserValue,
+				payload: CreateEntitySchemaBody,
+			) {
+				const trackerId = trimToNull(payload.trackerId);
+				if (!trackerId) {
+					return yield* badRequest("Tracker id is required");
+				}
 
-					const existing = yield* runWithDb(repository.findBySlug(user.id, resolved.slug));
-					if (existing) {
-						return yield* conflict("Entity schema slug already exists");
-					}
+				const tracker = yield* runWithDb(
+					trackersRepository.getOwnedById(user.id, TrackerId.make(trackerId)),
+				);
+				if (!tracker) {
+					return yield* notFound("Tracker not found");
+				}
+				if (tracker.isBuiltin) {
+					return yield* badRequest("Built-in trackers do not support entity schema creation");
+				}
 
-					const createdEntitySchema = yield* runInTransaction(
-						Effect.gen(function* () {
-							const created = yield* repository.createEntitySchema({
-								userId: user.id,
-								propertiesSchema,
-								icon: resolved.icon,
-								name: resolved.name,
-								slug: resolved.slug,
-								accentColor: resolved.accentColor,
-							});
+				const resolved = yield* resolveEntitySchemaCreateInput({
+					icon: payload.icon,
+					name: payload.name,
+					slug: payload.slug,
+					accentColor: payload.accentColor,
+				});
 
-							yield* trackersRepository.linkEntitySchema({
-								trackerId: TrackerId.make(trackerId),
-								entitySchemaId: created.id,
-							});
+				const propertiesSchema = yield* parseLabeledPropertySchemaInput(
+					payload.propertiesSchema,
+					"Entity schema properties",
+				).pipe(Effect.mapError((error) => badRequest(error.message)));
 
-							return created;
-						}),
-					);
+				const existing = yield* runWithDb(repository.findBySlug(user.id, resolved.slug));
+				if (existing) {
+					return yield* conflict("Entity schema slug already exists");
+				}
 
-					const executionId = generateId();
-					yield* engine
-						.execute(CreateDefaultSavedViewWorkflow, {
+				const createdEntitySchema = yield* runInTransaction(
+					Effect.gen(function* () {
+						const created = yield* repository.createEntitySchema({
+							userId: user.id,
+							propertiesSchema,
+							icon: resolved.icon,
+							name: resolved.name,
+							slug: resolved.slug,
+							accentColor: resolved.accentColor,
+						});
+
+						yield* trackersRepository.linkEntitySchema({
+							entitySchemaId: created.id,
+							trackerId: TrackerId.make(trackerId),
+						});
+
+						return created;
+					}),
+				);
+
+				const executionId = generateId();
+				yield* engine
+					.execute(CreateDefaultSavedViewWorkflow, {
+						executionId,
+						discard: true,
+						payload: {
 							executionId,
-							discard: true,
-							payload: {
-								executionId,
-								userId: user.id,
-								icon: resolved.icon,
-								entitySchemaSlug: resolved.slug,
-								entitySchemaName: resolved.name,
-								accentColor: resolved.accentColor,
-								trackerId: TrackerId.make(trackerId),
-							},
-						})
-						.pipe(Effect.orDie);
+							userId: user.id,
+							icon: resolved.icon,
+							entitySchemaSlug: resolved.slug,
+							entitySchemaName: resolved.name,
+							accentColor: resolved.accentColor,
+							trackerId: TrackerId.make(trackerId),
+						},
+					})
+					.pipe(Effect.orDie);
 
-					return {
-						providers: [],
-						id: createdEntitySchema.id,
-						name: createdEntitySchema.name,
-						slug: createdEntitySchema.slug,
-						icon: createdEntitySchema.icon,
-						trackerId: TrackerId.make(trackerId),
-						isBuiltin: createdEntitySchema.isBuiltin,
-						accentColor: createdEntitySchema.accentColor,
-						propertiesSchema: createdEntitySchema.propertiesSchema,
-					};
-				}),
-				getById: Effect.fn("EntitySchemasService.getById")(function* (
-					user: CurrentUserValue,
-					entitySchemaId: EntitySchemaId,
-				) {
-					const result = yield* runWithDb(
-						repository.getByIdForUser({ userId: user.id, entitySchemaId }),
-					);
-					if (!result) {
-						return yield* notFound("Entity schema not found");
-					}
-					return result;
-				}),
-				search: Effect.fn("EntitySchemasService.search")(function* (
-					user: CurrentUserValue,
-					payload: SearchEntitySchemasBody,
-				) {
-					return yield* sandboxApiService.enqueue(user, {
-						driverName: "search",
-						context: payload.context,
-						scriptId: payload.scriptId,
-					});
-				}),
-				getSearchResult: Effect.fn("EntitySchemasService.getSearchResult")(function* (
-					user: CurrentUserValue,
-					jobId: string,
-				) {
-					return yield* sandboxApiService.getResult(user, jobId);
-				}),
-			};
+				return {
+					providers: [],
+					id: createdEntitySchema.id,
+					name: createdEntitySchema.name,
+					slug: createdEntitySchema.slug,
+					icon: createdEntitySchema.icon,
+					trackerId: TrackerId.make(trackerId),
+					isBuiltin: createdEntitySchema.isBuiltin,
+					accentColor: createdEntitySchema.accentColor,
+					propertiesSchema: createdEntitySchema.propertiesSchema,
+				};
+			});
+
+			const getById = Effect.fn("EntitySchemasService.getById")(function* (
+				user: CurrentUserValue,
+				entitySchemaId: EntitySchemaId,
+			) {
+				const result = yield* runWithDb(
+					repository.getByIdForUser({ userId: user.id, entitySchemaId }),
+				);
+				if (!result) {
+					return yield* notFound("Entity schema not found");
+				}
+				return result;
+			});
+
+			const search = Effect.fn("EntitySchemasService.search")(function* (
+				user: CurrentUserValue,
+				payload: SearchEntitySchemasBody,
+			) {
+				return yield* sandboxApiService.enqueue(user, {
+					driverName: "search",
+					context: payload.context,
+					scriptId: payload.scriptId,
+				});
+			});
+
+			const getSearchResult = Effect.fn("EntitySchemasService.getSearchResult")(function* (
+				user: CurrentUserValue,
+				jobId: string,
+			) {
+				return yield* sandboxApiService.getResult(user, jobId);
+			});
+
+			return { list, create, getById, search, getSearchResult };
 		}),
 	},
 ) {}
