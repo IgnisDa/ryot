@@ -80,7 +80,6 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 
 		const inLibrary = await queryInLibraryRelationship(client, imported.data.id, email);
 		expect(inLibrary.rowCount).toBeGreaterThan(0);
-	}, 90_000);
 
 	it("translates a real TMDB movie on interest (requires tmdbAccessToken)", async () => {
 		const auth = await createAuthenticatedClient();

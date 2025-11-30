@@ -41,7 +41,6 @@ describe("Event trigger firing", () => {
 			completionMode: "custom_timestamps",
 		});
 		expect(completionEvent.occurredAt).toBe(isoAt(1));
-	}, 120_000);
 
 	it("logging less than 100% progress does not create a completion event", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -62,7 +61,6 @@ describe("Event trigger firing", () => {
 		const completeEvent = events.find((event) => event.eventSchemaSlug === "complete");
 
 		expect(completeEvent).toBeUndefined();
-	}, 120_000);
 
 	it("logging 100% progress twice creates two completion events", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -101,7 +99,6 @@ describe("Event trigger firing", () => {
 		const completeEvents = allEvents.filter((event) => event.eventSchemaSlug === "complete");
 
 		expect(completeEvents.length).toBe(2);
-	}, 120_000);
 
 	it("logging all anime episodes creates a completion event", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -141,7 +138,6 @@ describe("Event trigger firing", () => {
 
 		const events = await listEventsForEntity(client, entityId);
 		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(1);
-	}, 120_000);
 
 	it("anime with unknown episode count does not create a completion event", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -168,7 +164,6 @@ describe("Event trigger firing", () => {
 
 		const events = await listEventsForEntity(client, entityId);
 		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(0);
-	}, 120_000);
 
 	it("logging all manga chapters creates a completion event", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -198,7 +193,6 @@ describe("Event trigger firing", () => {
 		const completeEvent = await waitForEventWithSchema(client, entityId, "complete");
 
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
-	}, 120_000);
 
 	it("manga with unknown chapter count does not create a completion event", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -225,7 +219,6 @@ describe("Event trigger firing", () => {
 
 		const events = await listEventsForEntity(client, entityId);
 		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(0);
-	}, 120_000);
 
 	it("logging 100% podcast episode progress creates a completion event", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -262,7 +255,6 @@ describe("Event trigger firing", () => {
 		const completeEvent = await waitForEventWithSchema(client, entity.id, "complete");
 
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
-	}, 120_000);
 
 	it("logging 100% show episode progress creates a completion event", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -300,7 +292,6 @@ describe("Event trigger firing", () => {
 		const completeEvent = await waitForEventWithSchema(client, entity.id, "complete");
 
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
-	}, 120_000);
 
 	it("logging 100% progress creates a timestamped completion event via builtin trigger", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -331,7 +322,6 @@ describe("Event trigger firing", () => {
 			completionMode: "custom_timestamps",
 		});
 		expect(completeEvent.occurredAt).toBe(isoAt(1));
-	}, 120_000);
 
 	it("consumedOn from a progress event is propagated to the auto-generated complete event", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -362,7 +352,6 @@ describe("Event trigger firing", () => {
 			completionMode: "custom_timestamps",
 		});
 		expect(completeEvent.occurredAt).toBe(isoAt(1));
-	}, 120_000);
 
 	it("complete event has no consumedOn when progress event omits it", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -393,7 +382,6 @@ describe("Event trigger firing", () => {
 			completedOn: isoAt(1),
 		});
 		expect(completeEvent.occurredAt).toBe(isoAt(1));
-	}, 120_000);
 
 	it("movie completion still fires twice when 100% progress is logged twice", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -435,5 +423,4 @@ describe("Event trigger firing", () => {
 
 		const events = await listEventsForEntity(client, entityId);
 		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(2);
-	}, 120_000);
 });
