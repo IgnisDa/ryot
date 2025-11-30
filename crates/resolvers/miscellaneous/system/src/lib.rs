@@ -2,7 +2,6 @@ use async_graphql::{Context, Object, Result};
 use common_models::BackgroundJob;
 use database_models::entity_translation;
 use dependent_models::{CachedResponse, CoreDetails};
-use enum_models::EntityLot;
 use media_models::EntityWithLot;
 use miscellaneous_service::MiscellaneousService;
 use traits::{AuthProvider, GraphqlResolverSvc};
@@ -57,13 +56,10 @@ impl MiscellaneousSystemMutationResolver {
     async fn deploy_update_media_entity_job(
         &self,
         gql_ctx: &Context<'_>,
-        entity_id: String,
-        entity_lot: EntityLot,
+        input: EntityWithLot,
     ) -> Result<bool> {
         let service = self.svc(gql_ctx);
-        Ok(service
-            .deploy_update_media_entity_job(entity_id, entity_lot)
-            .await?)
+        Ok(service.deploy_update_media_entity_job(input).await?)
     }
 
     /// Update a media entity's translations. The language code is

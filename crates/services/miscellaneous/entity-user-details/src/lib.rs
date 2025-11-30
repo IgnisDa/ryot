@@ -279,19 +279,15 @@ pub async fn user_metadata_group_details(
 
 pub async fn get_entity_recently_consumed(
     user_id: &String,
-    entity_id: &String,
-    entity_lot: EntityLot,
+    input: EntityWithLot,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
     server_key_validation_guard(is_server_key_validated(ss).await?).await?;
     let is_recently_consumed = cache_service::get_value::<EmptyCacheValue>(
         ss,
         ApplicationCacheKey::EntityRecentlyConsumed(UserLevelCacheKey {
+            input: input.clone(),
             user_id: user_id.to_owned(),
-            input: EntityWithLot {
-                entity_lot,
-                entity_id: entity_id.to_owned(),
-            },
         }),
     )
     .await

@@ -91,11 +91,10 @@ impl MiscellaneousService {
     pub async fn is_entity_recently_consumed(
         &self,
         user_id: String,
-        entity_id: String,
-        entity_lot: EntityLot,
+        input: EntityWithLot,
     ) -> Result<bool> {
         miscellaneous_entity_user_details_service::get_entity_recently_consumed(
-            &user_id, &entity_id, entity_lot, &self.0,
+            &user_id, input, &self.0,
         )
         .await
     }
@@ -187,25 +186,21 @@ impl MiscellaneousService {
         miscellaneous_progress_service::update_seen_item(&self.0, &user_id, input).await
     }
 
-    pub async fn deploy_update_media_entity_job(
-        &self,
-        entity_id: String,
-        entity_lot: EntityLot,
-    ) -> Result<bool> {
-        match entity_lot {
+    pub async fn deploy_update_media_entity_job(&self, input: EntityWithLot) -> Result<bool> {
+        match input.entity_lot {
             EntityLot::Metadata => {
-                deploy_update_metadata_job(&entity_id, &self.0).await?;
+                deploy_update_metadata_job(&input.entity_id, &self.0).await?;
             }
             EntityLot::Person => {
-                deploy_update_person_job(&entity_id, &self.0).await?;
+                deploy_update_person_job(&input.entity_id, &self.0).await?;
             }
             EntityLot::MetadataGroup => {
-                deploy_update_metadata_group_job(&entity_id, &self.0).await?;
+                deploy_update_metadata_group_job(&input.entity_id, &self.0).await?;
             }
             _ => {
                 bail!(
                     "Entity type {:?} is not supported for update jobs",
-                    entity_lot
+                    input.entity_lot
                 );
             }
         }
