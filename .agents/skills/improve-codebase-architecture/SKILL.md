@@ -5,7 +5,7 @@ description: Explore a codebase to find opportunities for architectural improvem
 
 # Improve Codebase Architecture
 
-Explore a codebase like an AI would, surface architectural friction, discover opportunities for improving testability, and propose module-deepening refactors as GitHub issue RFCs.
+Explore a codebase like an AI would, surface architectural friction, discover opportunities for improving testability, and propose module-deepening refactors as RFC documents.
 
 A **deep module** (John Ousterhout, "A Philosophy of Software Design") has a small interface hiding a large implementation. Deep modules are more testable, more AI-navigable, and let you test at the boundary instead of inside.
 
@@ -71,6 +71,16 @@ After comparing, give your own recommendation: which design you think is stronge
 
 ### 6. User picks an interface (or accepts recommendation)
 
-### 7. Create GitHub issue
+### 7. Create refactor RFC document
 
-Create a refactor RFC as a GitHub issue using `gh issue create`. Use the template in [REFERENCE.md](REFERENCE.md). Do NOT ask the user to review before creating — just create it and share the URL.
+Create a refactor RFC as a markdown file in `docs/tasks/refactor-{descriptive-name}/README.md`. Use the template in [REFERENCE.md](REFERENCE.md). Do NOT ask the user to review before creating — just create it and show the path.
+
+The file structure should be:
+```
+docs/tasks/refactor-{descriptive-name}/
+└── README.md  (contains the RFC)
+```
+
+Use kebab-case for the directory name (e.g., `refactor-metadata-fetching`, `refactor-auth-flow`).
+
+If implementation tasks are needed later, they can be added to the same directory using the `prd-to-issues` skill workflow.
