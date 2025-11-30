@@ -1,5 +1,9 @@
 import { resolveRequiredString } from "@ryot/ts-utils";
-import type { SavedViewQueryDefinition } from "../saved-views/schemas";
+import { createDefaultQueryDefinition } from "../saved-views/constants";
+import type {
+	DisplayConfiguration,
+	SavedViewQueryDefinition,
+} from "../saved-views/schemas";
 
 export const resolveAuthenticationName = (name: string) =>
 	resolveRequiredString(name, "Signup name");
@@ -67,6 +71,7 @@ export const buildAuthenticationSavedViewInputs = (input: {
 		accentColor?: string;
 		entitySchemaSlug?: string;
 		queryDefinition?: SavedViewQueryDefinition;
+		displayConfiguration: DisplayConfiguration;
 	}>;
 }) => {
 	return input.savedViews.map((savedView) => {
@@ -114,7 +119,9 @@ export const buildAuthenticationSavedViewInputs = (input: {
 					`Missing query definition for saved view ${savedView.name}`,
 				);
 
-			resolvedQueryDefinition = { entitySchemaIds: [entitySchema.id] };
+			resolvedQueryDefinition = createDefaultQueryDefinition([
+				entitySchema.slug,
+			]);
 		}
 
 		return {
@@ -124,6 +131,7 @@ export const buildAuthenticationSavedViewInputs = (input: {
 			isBuiltin: true,
 			name: savedView.name,
 			queryDefinition: resolvedQueryDefinition,
+			displayConfiguration: savedView.displayConfiguration,
 		};
 	});
 };

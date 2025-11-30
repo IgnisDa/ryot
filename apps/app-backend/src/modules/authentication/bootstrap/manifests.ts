@@ -5,6 +5,10 @@ import {
 	readEventPropertiesJsonSchema,
 } from "~/lib/zod/media/book";
 import { mangaPropertiesJsonSchema } from "~/lib/zod/media/manga";
+import {
+	createDefaultQueryDefinition,
+	defaultDisplayConfiguration,
+} from "~/modules/saved-views/constants";
 
 export const authenticationBuiltinTrackers = () => [
 	{
@@ -71,21 +75,25 @@ export const authenticationBuiltinSavedViews = () => [
 		name: "All Books",
 		trackerSlug: "media",
 		entitySchemaSlug: "book",
+		displayConfiguration: defaultDisplayConfiguration,
 	},
 	{
 		name: "All Animes",
 		trackerSlug: "media",
 		entitySchemaSlug: "anime",
+		displayConfiguration: defaultDisplayConfiguration,
 	},
 	{
 		name: "All Mangas",
 		trackerSlug: "media",
 		entitySchemaSlug: "manga",
+		displayConfiguration: defaultDisplayConfiguration,
 	},
 	{
 		icon: "folders",
 		name: "Collections",
 		accentColor: "#F59E0B",
-		queryDefinition: { entitySchemaIds: [] },
+		displayConfiguration: defaultDisplayConfiguration,
+		queryDefinition: createDefaultQueryDefinition([]),
 	},
 ];
