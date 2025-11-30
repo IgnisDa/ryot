@@ -82,3 +82,33 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 - External event creation goes through the path that also dispatches schema-defined triggers.
 - Migration and `legacy-bootstrap` code is the only exception to the write-path rules.
 - Allow arbitrary top-level keys in a property schema only when relationship or collection properties genuinely require passthrough; otherwise keep properties aligned with their built-in schemas.
+
+## Entity Translation & Localization
+
+Observable read-path semantics pinned by the e2e suite; keep them in mind when touching localization.
+
+- Each entity's canonical language comes from its provider script metadata (`providerInformation.canonicalLanguage`); the read path uses it to compute `translationStatus` and to decide whether to localize at all.
+- A localized read overlays the per-`(entity, language)` `entity_translation` row on the canonical entity: the overlay `name` and overlaid property values win, while canonical-only properties survive the `properties || et.properties` merge. Sorting and filtering on `name` key off the localized value, so a canonical name is no longer matchable once a localized overlay exists.
+- `translationStatus` resolves to `none` when the entity has no sandbox script (regardless of language or population), when `populated_at` is null even with a canonical script (populate-before-translate gate), or when the viewer's resolved language is the canonical one or unset. For a non-canonical viewer of a populated entity it is `pending` when no overlay row exists yet, `ready` when a content-bearing overlay exists, and `none` when the overlay is an all-null negative-cache row.
+- Overlays are shared: once one viewer's declared interest fills an overlay, other non-canonical viewers read it directly without declaring interest.
+- A provider that returns no translation writes an all-null overlay (negative cache) and does not refetch. Declaring interest on an unpopulated entity enqueues population only, never a translate — a premature all-null overlay would permanently mislabel the status as `none`.
+
+## Interest & Population Dispatch
+
+- Entity reads are side-effect-free: they dispatch nothing. Population and translation fills are driven by declaring interest (POST `/api/entity-interest`, or opening an interest stream), which runs the entity's provenance sandbox script (`sandbox_script_id`) and, on completion, fans out an `entity:updated` frame (`reason: "populated" | "translated"`) over the SSE stream.
+- Declaring interest on an already-terminal entity (e.g. populated, with no pending localization for a no-language reader) returns an immediate catch-up frame in the POST response itself, with no SSE round-trip.
+- Interest is authorization-scoped: an entity the requesting user cannot see (another user's private entity) is never surfaced by the reconciler — no catch-up, no completion event, and nothing enqueued on that user's behalf.
+
+## Query Engine Read Semantics
+
+- Property null semantics: a property read resolves to null when the row's schema does not define the property (including a multi-schema source where the property is qualified by a different schema) or the value is absent, and such rows are excluded from positive comparisons. `neq` compiles as null-as-false (null rows excluded); `not(eq)` is a double negation that keeps null rows. `isNull`/`isNotNull` treat a missing value as null. Comparisons are operand-order-preserving, and text orders under `COLLATE "C"` (byte order, uppercase before lowercase).
+- A query returns only the fields a row selects; an unselected field (e.g. `translationStatus`) is absent rather than null.
+- Time-series buckets are contiguous and gap-filled: each bucket's `endAt` equals the next bucket's `startAt`, empty spans between populated buckets are emitted as zero buckets, and week buckets align to the ISO Monday start.
+
+## Sandbox Script Cache
+
+- The sandbox key/value cache is isolated per `(user, scriptId)`: a user-owned script cannot read another user's cache entry even under the same key.
+
+## Events
+
+- Event writes are fire-and-forget: after a run reports complete its events may not be queryable yet, so readers must poll for them (as the `waitForEventSlugs` test helper does).

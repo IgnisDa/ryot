@@ -242,9 +242,7 @@ describe("event time series", () => {
 			}),
 		);
 
-		// Day 1 has no events but is still emitted as a zero bucket between the two populated days.
 		expect(result.data.buckets.map((bucket) => bucket.value)).toEqual([2, 0, 1]);
-		// Buckets are contiguous: each bucket's endAt is the next bucket's startAt.
 		expect(result.data.buckets[0]?.endAt).toBe(result.data.buckets[1]?.startAt);
 		expect(result.data.buckets[1]?.endAt).toBe(result.data.buckets[2]?.startAt);
 	});
@@ -287,7 +285,6 @@ describe("event time series", () => {
 
 		expect(result.data.buckets).toHaveLength(1);
 		expect(result.data.buckets[0]?.value).toBe(1);
-		// The lone bucket's start snaps back to the Monday of the event's week (getUTCDay() === 1).
 		const bucketStart = result.data.buckets[0]?.startAt;
 		expect(bucketStart).toBeDefined();
 		expect(new Date(bucketStart ?? "").getUTCDay()).toBe(1);
