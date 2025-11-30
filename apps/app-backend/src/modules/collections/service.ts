@@ -136,10 +136,10 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 
 			const properties: Record<string, unknown> = {};
 			if (payload.description !== undefined) {
-				properties.description = payload.description;
+				properties["description"] = payload.description;
 			}
 			if (payload.membershipPropertiesSchema !== undefined) {
-				properties.membershipPropertiesSchema = payload.membershipPropertiesSchema;
+				properties["membershipPropertiesSchema"] = payload.membershipPropertiesSchema;
 			}
 
 			const entitySchema = yield* collectionEntitySchema;
@@ -208,7 +208,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			}
 
 			const collectionProps = isPlainObject(collection.properties) ? collection.properties : {};
-			const rawMembershipSchema = collectionProps.membershipPropertiesSchema;
+			const rawMembershipSchema = collectionProps["membershipPropertiesSchema"];
 			let validatedProperties: Record<string, unknown>;
 
 			if (rawMembershipSchema !== undefined && rawMembershipSchema !== null) {
@@ -422,8 +422,8 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 					}),
 				);
 				const existingProperties = isPlainObject(existing) ? existing : {};
-				const currentSources = Array.isArray(existingProperties.ownershipSources)
-					? existingProperties.ownershipSources.filter(
+				const currentSources = Array.isArray(existingProperties["ownershipSources"])
+					? existingProperties["ownershipSources"].filter(
 							(source): source is string => typeof source === "string",
 						)
 					: [];

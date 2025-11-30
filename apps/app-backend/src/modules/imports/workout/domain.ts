@@ -139,8 +139,8 @@ const cleanWorkoutSetStats = (kind: WorkoutExerciseKind, set: WorkoutImportSet) 
 };
 
 const calculateWorkoutSetVolume = (input: {
-	reps?: number;
-	weight?: number;
+	reps?: number | undefined;
+	weight?: number | undefined;
 }): number | undefined => {
 	if (input.weight === undefined || input.reps === undefined) {
 		return undefined;
@@ -149,8 +149,8 @@ const calculateWorkoutSetVolume = (input: {
 };
 
 const calculateWorkoutSetPace = (input: {
-	duration?: number;
-	distance?: number;
+	duration?: number | undefined;
+	distance?: number | undefined;
 }): number | undefined => {
 	if (input.distance === undefined || input.duration === undefined || input.duration === 0) {
 		return undefined;
@@ -159,8 +159,8 @@ const calculateWorkoutSetPace = (input: {
 };
 
 const calculateWorkoutSetOneRm = (input: {
-	reps?: number;
-	weight?: number;
+	reps?: number | undefined;
+	weight?: number | undefined;
 }): number | undefined => {
 	if (input.weight === undefined || input.reps === undefined) {
 		return undefined;
@@ -196,7 +196,7 @@ export const buildWorkoutSetEventProperties = (input: {
 		exerciseOrder: input.exerciseOrder,
 	};
 	if (input.set.note) {
-		properties.note = input.set.note;
+		properties["note"] = input.set.note;
 	}
 
 	const stats = cleanWorkoutSetStats(input.exerciseKind, input.set);

@@ -38,7 +38,7 @@ export const adaptStorygraphCsv = (csvText: string): MediaImportAdapterResult =>
 			continue;
 		}
 
-		const title = row.Title?.trim();
+		const title = row["Title"]?.trim();
 		let sourceLabel = `StoryGraph row ${itemIndex + 1}`;
 		if (title) {
 			sourceLabel = title;
@@ -96,7 +96,7 @@ export const adaptStorygraphCsv = (csvText: string): MediaImportAdapterResult =>
 		}
 
 		const reviewEvent = createReviewEvent({
-			text: row.Review ?? "",
+			text: row["Review"] ?? "",
 			occurredAt: completedOn ?? fallbackOccurredAt,
 			rating: normalizeRating(row["Star Rating"] ?? ""),
 		});
@@ -104,7 +104,7 @@ export const adaptStorygraphCsv = (csvText: string): MediaImportAdapterResult =>
 			group.events.push(reviewEvent);
 		}
 
-		for (const tag of splitCommaList(row.Tags ?? "")) {
+		for (const tag of splitCommaList(row["Tags"] ?? "")) {
 			if (isLifecycleAlias(tag)) {
 				continue;
 			}

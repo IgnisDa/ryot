@@ -51,7 +51,7 @@ describe("person.anilist sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.relatedEntityGroups).toEqual([
+			expect(details["relatedEntityGroups"]).toEqual([
 				{
 					direction: "outgoing",
 					synchronization: "authoritative",
@@ -90,7 +90,7 @@ describe("person.anilist sandbox script", () => {
 			{
 				httpCall: (...args: Array<unknown>) => {
 					const page = requestedPages.length + 1;
-					expect(String(toRecord(args[2]).body)).toContain(`"page":${page}`);
+					expect(String(toRecord(args[2])["body"])).toContain(`"page":${page}`);
 					requestedPages.push(page);
 					return httpSuccess({
 						data: {
@@ -143,7 +143,7 @@ describe("person.anilist sandbox script", () => {
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
 			expect(requestedPages).toEqual([1, 2]);
-			expect(details.relatedEntityGroups).toEqual([
+			expect(details["relatedEntityGroups"]).toEqual([
 				expect.objectContaining({
 					entities: [expect.objectContaining({ externalId: "2" })],
 				}),

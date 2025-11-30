@@ -123,8 +123,8 @@ export const adaptGrouveeCsv = (csvText: string): MediaImportAdapterResult => {
 			continue;
 		}
 
-		const sourceName = row.name?.trim();
-		const giantbombId = row.giantbomb_id?.trim() ?? "";
+		const sourceName = row["name"]?.trim();
+		const giantbombId = row["giantbomb_id"]?.trim() ?? "";
 		const sourceLabel = sourceName?.length ? sourceName : `Grouvee row ${itemIndex + 1}`;
 		if (!giantbombId) {
 			failures.push({ itemIndex, sourceLabel, message: "giantbomb_id is empty" });
@@ -143,9 +143,9 @@ export const adaptGrouveeCsv = (csvText: string): MediaImportAdapterResult => {
 			itemIndex,
 		);
 		const importedAt = nowIso();
-		const shelfNames = parseShelfNames(row.shelves ?? "");
-		const dateEntries = parseDateEntries(row.dates ?? "");
-		const statusEntries = parseStatusEntries(row.statuses ?? "");
+		const shelfNames = parseShelfNames(row["shelves"] ?? "");
+		const dateEntries = parseDateEntries(row["dates"] ?? "");
+		const statusEntries = parseStatusEntries(row["statuses"] ?? "");
 
 		let hasExplicitCompletion = false;
 		let lastOccurredAt: string | undefined;
@@ -204,9 +204,9 @@ export const adaptGrouveeCsv = (csvText: string): MediaImportAdapterResult => {
 		}
 
 		const reviewEvent = createReviewEvent({
-			text: row.review ?? "",
+			text: row["review"] ?? "",
 			occurredAt: lastOccurredAt ?? importedAt,
-			rating: normalizeRating(row.rating ?? ""),
+			rating: normalizeRating(row["rating"] ?? ""),
 		});
 		if (reviewEvent) {
 			group.events.push(reviewEvent);

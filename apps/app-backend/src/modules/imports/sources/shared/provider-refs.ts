@@ -10,7 +10,11 @@ const normalizeProviderId = (value: string | null | undefined): string | undefin
 export const buildMovieOrShowImportRef = (input: {
 	sourceLabel: string;
 	entitySchemaSlug: MovieOrShowEntitySchemaSlug;
-	providerIds: { imdb?: string | null; tmdb?: string | null; tvdb?: string | null };
+	providerIds: {
+		imdb?: string | null | undefined;
+		tmdb?: string | null | undefined;
+		tvdb?: string | null | undefined;
+	};
 }): ImportEntityRef | undefined => {
 	const tmdbId = normalizeProviderId(input.providerIds.tmdb);
 	if (tmdbId) {

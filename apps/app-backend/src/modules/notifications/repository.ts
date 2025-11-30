@@ -181,7 +181,7 @@ export class NotificationsRepository extends Effect.Service<NotificationsReposit
 			});
 
 			const listEnabledForUser = Effect.fn("NotificationsRepository.listEnabledForUser")(
-				function* (input: { userId: UserId; eventType?: NotificationEventType }) {
+				function* (input: { userId: UserId; eventType?: NotificationEventType | undefined }) {
 					const db = yield* CurrentDb;
 					const clauses = [
 						eq(schema.notificationPlatform.userId, input.userId),

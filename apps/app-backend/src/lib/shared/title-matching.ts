@@ -54,10 +54,10 @@ const calculateSimilarity = (left: string, right: string): number => {
 };
 
 const calculateMatchScore = (input: {
-	publishYear?: number;
 	originalTitle: string;
 	resultPosition: number;
 	hasShowIndicators: boolean;
+	publishYear?: number | undefined;
 	result: MetadataLookupTitleMatchCandidate;
 }): number => {
 	let score = calculateSimilarity(input.originalTitle, input.result.title);
@@ -102,7 +102,7 @@ const calculateMatchScore = (input: {
 export const chooseBestMetadataLookupTitleMatch = (input: {
 	title: string;
 	results: MetadataLookupTitleMatchCandidate[];
-	preferredEntitySchemaSlug?: "movie" | "show";
+	preferredEntitySchemaSlug?: "movie" | "show" | undefined;
 }): MetadataLookupTitleMatchCandidate | undefined => {
 	const filteredResults = input.preferredEntitySchemaSlug
 		? input.results.filter((result) => result.entitySchemaSlug === input.preferredEntitySchemaSlug)

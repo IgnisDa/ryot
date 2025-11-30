@@ -32,7 +32,7 @@ type MyanimelistItem = {
 	done: number;
 	title: string;
 	myScore: number;
-	myStatus?: string;
+	myStatus?: string | undefined;
 	identifier: string;
 	myStartDate: string;
 	myFinishDate: string;
@@ -53,13 +53,13 @@ const isMyanimelistXmlDocument = (value: unknown): value is MyanimelistXmlDocume
 		return false;
 	}
 
-	const myanimelist = value.myanimelist;
+	const myanimelist = value["myanimelist"];
 	if (!isObjectRecord(myanimelist)) {
 		return false;
 	}
 
-	const anime = myanimelist.anime;
-	const manga = myanimelist.manga;
+	const anime = myanimelist["anime"];
+	const manga = myanimelist["manga"];
 	return (
 		(anime === undefined || (Array.isArray(anime) && anime.every(isMyanimelistXmlItem))) &&
 		(manga === undefined || (Array.isArray(manga) && manga.every(isMyanimelistXmlItem)))
@@ -222,8 +222,8 @@ const adaptMyanimelistLot = (
 };
 
 export const adaptMyanimelistExports = (input: {
-	animeXml?: string;
-	mangaXml?: string;
+	animeXml?: string | undefined;
+	mangaXml?: string | undefined;
 }): MediaImportAdapterResult => {
 	const failures: MediaImportAdapterFailure[] = [];
 	const groupMap = new Map<string, ImportMediaEntityGroup>();

@@ -26,7 +26,7 @@ type UpdateSavedViewData = {
 	readonly name: string;
 	readonly isDisabled: boolean;
 	readonly accentColor: string;
-	readonly trackerId?: TrackerId;
+	readonly trackerId?: TrackerId | undefined;
 	readonly queryDocument: (typeof schema.savedView.$inferSelect)["queryDocument"];
 	readonly displayConfiguration: (typeof schema.savedView.$inferSelect)["displayConfiguration"];
 };
@@ -58,7 +58,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 		sync: () => {
 			const listByUser = Effect.fn("SavedViewsRepository.listByUser")(function* (
 				userId: UserId,
-				input: { trackerId?: TrackerId; includeDisabled: boolean },
+				input: { trackerId?: TrackerId | undefined; includeDisabled: boolean },
 			) {
 				const db = yield* CurrentDb;
 				const clauses = [eq(schema.savedView.userId, userId)];

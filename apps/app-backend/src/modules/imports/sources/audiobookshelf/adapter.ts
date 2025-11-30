@@ -84,7 +84,7 @@ const decodeLibraries = Schema.decodeUnknown(AudiobookshelfLibrariesResponse);
 type AudiobookshelfAdapterInput = {
 	apiKey: string;
 	apiUrl: string;
-	allowInsecureConnections?: boolean;
+	allowInsecureConnections?: boolean | undefined;
 };
 
 const createHeaders = (apiKey: string): Record<string, string> => ({
@@ -196,10 +196,10 @@ const adaptAudiobookshelfItem = Effect.fn(function* (input: {
 	baseUrl: string;
 	itemIndex: number;
 	importedAt: string;
-	libraryName?: string;
+	libraryName?: string | undefined;
 	item: AudiobookshelfItem;
 	headers: Record<string, string>;
-	allowInsecureConnections?: boolean;
+	allowInsecureConnections?: boolean | undefined;
 	failures: MediaImportAdapterFailure[];
 	groupMap: Map<string, ImportMediaEntityGroup>;
 }) {

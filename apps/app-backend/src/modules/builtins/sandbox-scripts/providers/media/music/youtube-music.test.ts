@@ -43,7 +43,7 @@ describe("music.youtube-music sandbox script", () => {
 			testClient,
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.relatedEntityGroups).toEqual([
+			expect(details["relatedEntityGroups"]).toEqual([
 				{
 					direction: "incoming",
 					synchronization: "additive",
