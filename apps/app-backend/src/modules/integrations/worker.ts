@@ -143,14 +143,14 @@ export const finalizeIntegrationRun = Effect.fn("integrationsWorker.finalizeInte
 		}
 
 		if (!integration.extraSettings.disableOnContinuousErrors) {
-			return;
+			return false;
 		}
 
 		const lastRuns = yield* runWithDb(
 			repository.listRecentStatusesByIntegrationId({ integrationId: integration.id, limit: 5 }),
 		);
 		if (lastRuns.length < 5 || lastRuns.some((candidate) => candidate.status !== "failed")) {
-			return;
+			return false;
 		}
 
 		yield* runWithDb(
@@ -162,5 +162,6 @@ export const finalizeIntegrationRun = Effect.fn("integrationsWorker.finalizeInte
 				})
 				.pipe(Effect.asVoid),
 		);
+		return true;
 	},
 );

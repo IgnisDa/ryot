@@ -45,7 +45,6 @@ Core platform delivery is in the baseline; the remaining gaps are notification-p
 - **Reminders** _(depends on notifications)_ — reminder on an entity → scheduled notification, then automatically removed from the Reminders collection once it fires.
   - V1 event: `NotificationFromReminderCollection` (`crates/services/miscellaneous/background/src/calendar.rs`).
 - **Event-driven alerts** — wire these into the send path:
-  - `IntegrationDisabledDueToTooManyErrors` — V2's integration worker already disables after repeated failures (`modules/integrations/worker.ts`) but never notifies the user.
   - `NewWorkoutCreated`, `ReviewPosted` (already tracked).
   - `MetadataMovedFromCompletedToWatchlistCollection` — fires from the smart-collection auto-management job below.
   - Outdated in-progress/on-hold nudges — user hasn't touched an in-progress item in 7 days, or an on-hold item in 14 days.
