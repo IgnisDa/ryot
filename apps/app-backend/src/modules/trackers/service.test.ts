@@ -1,5 +1,116 @@
 import { describe, expect, it } from "bun:test";
-import { buildTrackerOrder, resolveTrackerPatch } from "./service";
+import type {
+	CreateTrackerBody,
+	ListedTracker,
+	ReorderTrackersBody,
+	UpdateTrackerBody,
+} from "./schemas";
+import {
+	buildTrackerOrder,
+	createTracker,
+	reorderTrackers,
+	resolveTrackerPatch,
+	type TrackerServiceDeps,
+	type TrackerServiceResult,
+	updateTracker,
+} from "./service";
+
+const createListedTracker = (
+	overrides: Partial<ListedTracker> = {},
+): ListedTracker => ({
+	config: null,
+	icon: "film",
+	sortOrder: 0,
+	enabled: true,
+	slug: "media",
+	name: "Media",
+	id: "tracker_1",
+	isBuiltin: false,
+	description: null,
+	accentColor: "#5B7FFF",
+	...overrides,
+});
+
+const createOwnedTracker = (
+	overrides: Partial<{
+		id: string;
+		icon: string;
+		name: string;
+		slug: string;
+		accentColor: string;
+		description: string | null;
+	}> = {},
+) => ({
+	icon: "film",
+	slug: "media",
+	name: "Media",
+	id: "tracker_1",
+	description: null,
+	accentColor: "#5B7FFF",
+	...overrides,
+});
+
+const createTrackerBody = (): CreateTrackerBody => ({
+	icon: "film",
+	name: "Media",
+	accentColor: "#5B7FFF",
+	description: "Track media",
+});
+
+const createUpdateTrackerBody = (): UpdateTrackerBody => ({
+	icon: "film",
+	name: "Media",
+	enabled: true,
+	accentColor: "#5B7FFF",
+	description: "Track media",
+});
+
+const createReorderTrackersBody = (): ReorderTrackersBody => ({
+	trackerIds: ["tracker_2", "tracker_1"],
+});
+
+const createDeps = (
+	overrides: Partial<TrackerServiceDeps> = {},
+): TrackerServiceDeps => ({
+	createTrackerForUser: async (input) =>
+		createListedTracker({
+			slug: input.slug,
+			name: input.name,
+			icon: input.icon,
+			accentColor: input.accentColor,
+			description: input.description ?? null,
+		}),
+	countVisibleTrackersByIdsForUser: async (input) => input.trackerIds.length,
+	getOwnedTrackerById: async (input) =>
+		createOwnedTracker({ id: input.trackerId }),
+	getTrackerBySlugForUser: async () => undefined,
+	listUserTrackerIdsInOrder: async () => [
+		"tracker_1",
+		"tracker_2",
+		"tracker_3",
+	],
+	persistTrackerOrderForUser: async (input) => input.trackerIds,
+	setTrackerEnabledForUser: async (input) =>
+		createListedTracker({ enabled: input.enabled, id: input.trackerId }),
+	updateTrackerForUser: async (input) =>
+		createListedTracker({
+			icon: input.icon,
+			name: input.name,
+			slug: input.slug,
+			id: input.trackerId,
+			description: input.description,
+			accentColor: input.accentColor,
+		}),
+	...overrides,
+});
+
+const expectDataResult = <T>(result: TrackerServiceResult<T>) => {
+	if ("error" in result) {
+		throw new Error(`Expected data result, got ${result.error}`);
+	}
+
+	return result.data;
+};
 
 describe("resolveTrackerPatch", () => {
 	it("keeps current slug when neither name nor slug changes", () => {
@@ -82,5 +193,134 @@ describe("buildTrackerOrder", () => {
 		});
 
 		expect(nextOrder).toEqual(["x", "b", "a"]);
+	});
+});
+
+describe("createTracker", () => {
+	it("normalizes the slug before persisting", async () => {
+		let createdSlug: string | undefined;
+		const deps = createDeps({
+			createTrackerForUser: async (input) => {
+				createdSlug = input.slug;
+				return createListedTracker({ slug: input.slug, name: input.name });
+			},
+		});
+
+		const createdTracker = expectDataResult(
+			await createTracker(
+				{
+					userId: "user_1",
+					body: { ...createTrackerBody(), slug: "  My_Custom Tracker  " },
+				},
+				deps,
+			),
+		);
+
+		expect(createdSlug).toBe("my-custom-tracker");
+		expect(createdTracker.slug).toBe("my-custom-tracker");
+	});
+
+	it("returns validation when the slug already exists", async () => {
+		const result = await createTracker(
+			{ body: createTrackerBody(), userId: "user_1" },
+			createDeps({
+				getTrackerBySlugForUser: async () => ({ id: "tracker_2" }),
+			}),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "Tracker slug already exists",
+		});
+	});
+});
+
+describe("updateTracker", () => {
+	it("updates enabled-only changes through the dedicated repository path", async () => {
+		const updatedTracker = expectDataResult(
+			await updateTracker(
+				{
+					userId: "user_1",
+					trackerId: "tracker_1",
+					body: { enabled: false },
+				},
+				createDeps(),
+			),
+		);
+
+		expect(updatedTracker.enabled).toBe(false);
+	});
+
+	it("returns not found when the tracker does not exist", async () => {
+		const result = await updateTracker(
+			{
+				userId: "user_1",
+				trackerId: "tracker_1",
+				body: createUpdateTrackerBody(),
+			},
+			createDeps({ getOwnedTrackerById: async () => undefined }),
+		);
+
+		expect(result).toEqual({
+			error: "not_found",
+			message: "Tracker not found",
+		});
+	});
+
+	it("returns validation when no update fields are provided", async () => {
+		const result = await updateTracker(
+			{ body: {}, userId: "user_1", trackerId: "tracker_1" },
+			createDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "At least one field must be provided",
+		});
+	});
+
+	it("returns validation for a blank tracker id", async () => {
+		const result = await updateTracker(
+			{
+				userId: "user_1",
+				trackerId: "   ",
+				body: { enabled: false },
+			},
+			createDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "Tracker id is required",
+		});
+	});
+});
+
+describe("reorderTrackers", () => {
+	it("keeps unspecified trackers after the requested order", async () => {
+		const reordered = expectDataResult(
+			await reorderTrackers(
+				{ body: createReorderTrackersBody(), userId: "user_1" },
+				createDeps(),
+			),
+		);
+
+		expect(reordered.trackerIds).toEqual([
+			"tracker_2",
+			"tracker_1",
+			"tracker_3",
+		]);
+	});
+
+	it("returns validation for unknown tracker ids", async () => {
+		const result = await reorderTrackers(
+			{ body: createReorderTrackersBody(), userId: "user_1" },
+			createDeps({ countVisibleTrackersByIdsForUser: async () => 1 }),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "Tracker ids contain unknown trackers",
+		});
 	});
 });
