@@ -1,7 +1,7 @@
 use std::{fs::File as StdFile, sync::Arc};
 
 use anyhow::Result;
-use common_models::{EntityWithLot, SearchInput};
+use common_models::SearchInput;
 use common_utils::ryot_log;
 use database_models::{prelude::Seen, seen};
 use database_utils::{entity_in_collections_with_details, item_reviews};
@@ -78,20 +78,17 @@ pub async fn export_media(
                     }
                 })
                 .collect();
-            let entity = EntityWithLot {
-                entity_id: m.id.clone(),
-                entity_lot: EntityLot::Metadata,
-            };
-            let reviews = item_reviews(user_id, &entity, false, ss)
+            let reviews = item_reviews(user_id, &m.id, EntityLot::Metadata, false, ss)
                 .await?
                 .into_iter()
                 .map(get_review_export_item)
                 .collect();
-            let collections = entity_in_collections_with_details(user_id, &entity, ss)
-                .await?
-                .into_iter()
-                .map(|c| c.details)
-                .collect();
+            let collections =
+                entity_in_collections_with_details(user_id, &m.id, EntityLot::Metadata, ss)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.details)
+                    .collect();
             let exp = ImportOrExportMetadataItem {
                 reviews,
                 lot: m.lot,
@@ -135,20 +132,17 @@ pub async fn export_media_group(
         ryot_log!(debug, "Exporting metadata groups list page: {current_page}");
         for rm in related_metadata.response.items.iter() {
             let m = metadata_group_details(ss, rm).await?.response.details;
-            let entity = EntityWithLot {
-                entity_id: m.id.clone(),
-                entity_lot: EntityLot::MetadataGroup,
-            };
-            let reviews = item_reviews(user_id, &entity, false, ss)
+            let reviews = item_reviews(user_id, &m.id, EntityLot::MetadataGroup, false, ss)
                 .await?
                 .into_iter()
                 .map(get_review_export_item)
                 .collect();
-            let collections = entity_in_collections_with_details(user_id, &entity, ss)
-                .await?
-                .into_iter()
-                .map(|c| c.details)
-                .collect();
+            let collections =
+                entity_in_collections_with_details(user_id, &m.id, EntityLot::MetadataGroup, ss)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.details)
+                    .collect();
             let exp = ImportOrExportMetadataGroupItem {
                 reviews,
                 lot: m.lot,
@@ -191,20 +185,17 @@ pub async fn export_people(
         ryot_log!(debug, "Exporting people list page: {current_page}");
         for rm in related_people.response.items.iter() {
             let p = person_details(rm, ss).await?.response.details;
-            let entity = EntityWithLot {
-                entity_id: p.id.clone(),
-                entity_lot: EntityLot::Person,
-            };
-            let reviews = item_reviews(user_id, &entity, false, ss)
+            let reviews = item_reviews(user_id, &p.id, EntityLot::Person, false, ss)
                 .await?
                 .into_iter()
                 .map(get_review_export_item)
                 .collect();
-            let collections = entity_in_collections_with_details(user_id, &entity, ss)
-                .await?
-                .into_iter()
-                .map(|c| c.details)
-                .collect();
+            let collections =
+                entity_in_collections_with_details(user_id, &p.id, EntityLot::Person, ss)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.details)
+                    .collect();
             let exp = ImportOrExportPersonItem {
                 reviews,
                 collections,

@@ -1,14 +1,13 @@
 use std::{collections::HashSet, sync::Arc};
 
 use anyhow::Result;
-use common_models::{EntityWithLot, UserNotificationContent};
 use database_models::{metadata, prelude::Metadata};
 use dependent_entity_utils::commit_metadata;
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TrendingMetadataIdsResponse};
 use dependent_notification_utils::{get_users_monitoring_entity, send_notification_for_user};
 use dependent_provider_utils::get_metadata_provider;
 use enum_meta::Meta;
-use enum_models::MediaLot;
+use enum_models::{MediaLot, UserNotificationContent};
 use itertools::Itertools;
 use media_models::ReviewPostedEvent;
 use sea_orm::{ColumnTrait, EntityTrait, Iterable, QueryFilter, QueryOrder, QuerySelect};
@@ -62,17 +61,14 @@ pub async fn handle_review_posted_event(
     ss: &Arc<SupportingService>,
     event: ReviewPostedEvent,
 ) -> Result<()> {
-    let entity = EntityWithLot {
-        entity_id: event.obj_id.clone(),
-        entity_lot: event.entity_lot,
-    };
-    let monitored_by = get_users_monitoring_entity(&entity, ss).await?;
+    let monitored_by = get_users_monitoring_entity(&event.obj_id, event.entity_lot, ss).await?;
     for user_id in monitored_by {
         send_notification_for_user(
             &user_id,
             ss,
             UserNotificationContent::ReviewPosted {
-                entity: entity.clone(),
+                entity_lot: event.entity_lot,
+                entity_id: event.obj_id.clone(),
                 entity_title: event.obj_title.clone(),
                 triggered_by_username: event.username.clone(),
             },

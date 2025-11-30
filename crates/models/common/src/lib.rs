@@ -10,9 +10,6 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::{Display, EnumIter};
 
-mod notifications;
-pub use notifications::*;
-
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
 pub struct IdObject {
     pub id: i32,
@@ -298,7 +295,8 @@ pub struct SearchDetails {
 
 #[derive(Debug, InputObject, Clone, Serialize, Deserialize)]
 pub struct EntityToCollectionInput {
-    pub entity: EntityWithLot,
+    pub entity_id: String,
+    pub entity_lot: EntityLot,
     pub information: Option<serde_json::Value>,
 }
 
@@ -339,7 +337,8 @@ pub struct ExportJob {
     Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
 )]
 pub struct DailyUserActivityHourRecordEntity {
-    pub entity: EntityWithLot,
+    pub entity_id: String,
+    pub entity_lot: EntityLot,
     pub metadata_lot: Option<MediaLot>,
 }
 

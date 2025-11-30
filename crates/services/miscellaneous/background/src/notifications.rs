@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use chrono::{Duration, Utc};
-use common_models::UserNotificationContent;
 use convert_case::{Case, Casing};
 use database_models::{
     prelude::{Metadata, Seen},
@@ -10,7 +9,7 @@ use database_models::{
 };
 use dependent_core_utils::is_server_key_validated;
 use dependent_notification_utils::send_notification_for_user;
-use enum_models::{EntityLot, SeenState};
+use enum_models::{EntityLot, SeenState, UserNotificationContent};
 use sea_orm::{ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
 use supporting_service::SupportingService;
 

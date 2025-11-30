@@ -1,6 +1,8 @@
 use async_graphql::{InputObject, SimpleObject, Union};
-use common_models::{NotificationPlatformLot, UserNotificationContentDiscriminants};
-use enum_models::{IntegrationProvider, MediaLot, MediaSource};
+use enum_models::{
+    IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot,
+    UserNotificationContentDiscriminants,
+};
 use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::FromJsonQueryResult;

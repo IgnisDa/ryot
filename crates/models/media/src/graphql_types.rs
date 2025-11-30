@@ -1,7 +1,9 @@
 use async_graphql::{Enum, InputObject, OneofObject, SimpleObject};
 use chrono::NaiveDate;
-use common_models::{ApplicationDateRange, EntityWithLot, SearchInput, UserNotificationContent};
-use enum_models::{MediaLot, MediaSource, SeenState, Visibility};
+use common_models::{ApplicationDateRange, SearchInput};
+use enum_models::{
+    EntityLot, MediaLot, MediaSource, SeenState, UserNotificationContent, Visibility,
+};
 use rust_decimal::Decimal;
 use sea_orm::{prelude::DateTimeUtc, strum::Display};
 use serde::{Deserialize, Serialize};
@@ -11,8 +13,9 @@ use crate::{SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtr
 
 #[derive(Debug, InputObject, Default)]
 pub struct CreateOrUpdateReviewInput {
+    pub entity_id: String,
     pub text: Option<String>,
-    pub entity: EntityWithLot,
+    pub entity_lot: EntityLot,
     pub rating: Option<Decimal>,
     pub is_spoiler: Option<bool>,
     /// ID of the review if this is an update to an existing review

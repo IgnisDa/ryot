@@ -120,10 +120,8 @@ export const AddEntityToCollectionsForm = ({
 							entities: [
 								{
 									information: col.userExtraInformationData,
-									entity: {
-										entityId: addEntityToCollectionData.entityId,
-										entityLot: addEntityToCollectionData.entityLot,
-									},
+									entityId: addEntityToCollectionData.entityId,
+									entityLot: addEntityToCollectionData.entityLot,
 								},
 							],
 						}),

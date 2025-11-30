@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow, bail};
 use chrono::Datelike;
 use common_models::{
     ChangeCollectionToEntitiesInput, DefaultCollection, EntityAssets, EntityToCollectionInput,
-    EntityWithLot, UserLevelCacheKey, UserNotificationContent,
+    EntityWithLot, UserLevelCacheKey,
 };
 use common_utils::ryot_log;
 use database_models::{
@@ -32,7 +32,9 @@ use dependent_utility_utils::{
     expire_person_details_cache, expire_user_metadata_groups_list_cache,
     expire_user_metadata_list_cache, expire_user_people_list_cache,
 };
-use enum_models::{EntityLot, EntityTranslationVariant, MediaLot, MediaSource};
+use enum_models::{
+    EntityLot, EntityTranslationVariant, MediaLot, MediaSource, UserNotificationContent,
+};
 use futures::try_join;
 use media_models::{
     CreateCustomMetadataGroupInput, CreateCustomMetadataInput, UpdateCustomMetadataGroupInput,
@@ -115,26 +117,13 @@ pub async fn merge_metadata(
             item_active.update(&txn).await?;
         }
     }
-    if let Some(_association) = get_user_to_entity_association(
-        &txn,
-        &user_id,
-        EntityWithLot {
-            entity_id: merge_into.clone(),
-            entity_lot: EntityLot::Metadata,
-        },
-    )
-    .await?
+    if let Some(_association) =
+        get_user_to_entity_association(&txn, &user_id, &merge_into, EntityLot::Metadata).await?
     {
-        let old_association = get_user_to_entity_association(
-            &txn,
-            &user_id,
-            EntityWithLot {
-                entity_id: merge_from.clone(),
-                entity_lot: EntityLot::Metadata,
-            },
-        )
-        .await?
-        .unwrap();
+        let old_association =
+            get_user_to_entity_association(&txn, &user_id, &merge_from, EntityLot::Metadata)
+                .await?
+                .unwrap();
         let mut cloned = old_association.clone().into_active_model();
         cloned.needs_to_be_updated = ActiveValue::Set(Some(true));
         cloned.update(&txn).await?;
@@ -173,10 +162,8 @@ pub async fn disassociate_metadata(
     ryot_log!(debug, "Deleted {} seen items", delete_seen.rows_affected);
     let collections_part_of = entity_in_collections_with_collection_to_entity_ids(
         &user_id,
-        &EntityWithLot {
-            entity_id: metadata_id.clone(),
-            entity_lot: EntityLot::Metadata,
-        },
+        &metadata_id,
+        EntityLot::Metadata,
         ss,
     )
     .await?
@@ -240,10 +227,8 @@ pub async fn create_custom_metadata(
             collection_name: DefaultCollection::Custom.to_string(),
             entities: vec![EntityToCollectionInput {
                 information: None,
-                entity: EntityWithLot {
-                    entity_id: metadata.id.clone(),
-                    entity_lot: EntityLot::Metadata,
-                },
+                entity_id: metadata.id.clone(),
+                entity_lot: EntityLot::Metadata,
             }],
         },
         ss,
@@ -340,10 +325,8 @@ pub async fn create_custom_metadata_group(
             collection_name: DefaultCollection::Custom.to_string(),
             entities: vec![EntityToCollectionInput {
                 information: None,
-                entity: EntityWithLot {
-                    entity_id: group.id.clone(),
-                    entity_lot: EntityLot::MetadataGroup,
-                },
+                entity_id: group.id.clone(),
+                entity_lot: EntityLot::MetadataGroup,
             }],
         },
         ss,
@@ -386,10 +369,8 @@ pub async fn create_custom_person(
             collection_name: DefaultCollection::Custom.to_string(),
             entities: vec![EntityToCollectionInput {
                 information: None,
-                entity: EntityWithLot {
-                    entity_id: person.id.clone(),
-                    entity_lot: EntityLot::Person,
-                },
+                entity_id: person.id.clone(),
+                entity_lot: EntityLot::Person,
             }],
         },
         ss,
@@ -597,10 +578,8 @@ pub async fn handle_metadata_eligible_for_smart_collection_moving(
                     collection_name: DefaultCollection::Completed.to_string(),
                     entities: vec![EntityToCollectionInput {
                         information: None,
-                        entity: EntityWithLot {
-                            entity_id: meta.id.clone(),
-                            entity_lot: EntityLot::Metadata,
-                        }
+                        entity_id: meta.id.clone(),
+                        entity_lot: EntityLot::Metadata,
                     }],
                 },
                 ss,
@@ -612,10 +591,8 @@ pub async fn handle_metadata_eligible_for_smart_collection_moving(
                     collection_name: DefaultCollection::Watchlist.to_string(),
                     entities: vec![EntityToCollectionInput {
                         information: None,
-                        entity: EntityWithLot {
-                            entity_id: meta.id.clone(),
-                            entity_lot: EntityLot::Metadata,
-                        }
+                        entity_id: meta.id.clone(),
+                        entity_lot: EntityLot::Metadata,
                     }],
                 },
                 ss,
@@ -624,10 +601,8 @@ pub async fn handle_metadata_eligible_for_smart_collection_moving(
                 &user_id,
                 ss,
                 UserNotificationContent::MetadataMovedFromCompletedToWatchlistCollection {
-                    entity: EntityWithLot {
-                        entity_id: meta.id.clone(),
-                        entity_lot: EntityLot::Metadata,
-                    },
+                    entity_id: meta.id.clone(),
+                    entity_lot: EntityLot::Metadata,
                     entity_title: meta.title.clone(),
                 },
             )

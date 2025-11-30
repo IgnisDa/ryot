@@ -3,9 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use anyhow::Result;
 use application_utils::{get_podcast_episode_by_number, get_show_episode_by_numbers};
 use chrono::{NaiveDate, Timelike};
-use common_models::{
-    DailyUserActivityHourRecord, DailyUserActivityHourRecordEntity, EntityWithLot,
-};
+use common_models::{DailyUserActivityHourRecord, DailyUserActivityHourRecordEntity};
 use common_utils::ryot_log;
 use database_models::{
     collection_to_entity, daily_user_activity, metadata,
@@ -90,15 +88,12 @@ pub async fn calculate_user_activities_and_summary(
         activities: &'a mut HashMap<Option<NaiveDate>, daily_user_activity::Model>,
         user_id: &'a String,
         dt: Option<DateTimeUtc>,
-        entity: EntityWithLot,
+        entity_id: String,
+        entity_lot: EntityLot,
         metadata_lot: Option<MediaLot>,
         timestamp: DateTimeUtc,
     ) -> &'a mut daily_user_activity::Model {
-        ryot_log!(
-            debug,
-            "Updating activity counts for id: {:?}",
-            entity.entity_id
-        );
+        ryot_log!(debug, "Updating activity counts for id: {:?}", entity_id);
         let date = dt.map(|d| d.date_naive());
         let existing = activities
             .entry(date)
@@ -107,7 +102,7 @@ pub async fn calculate_user_activities_and_summary(
                 user_id: user_id.to_owned(),
                 ..Default::default()
             });
-        existing.entity_ids.push(entity.entity_id.clone());
+        existing.entity_ids.push(entity_id.clone());
         let hour = if timestamp.minute() < 30 {
             timestamp.hour()
         } else {
@@ -117,16 +112,18 @@ pub async fn calculate_user_activities_and_summary(
         if let Some(idx) = maybe_idx {
             existing.hour_records.get_mut(idx).unwrap().entities.push(
                 DailyUserActivityHourRecordEntity {
+                    entity_id,
+                    entity_lot,
                     metadata_lot,
-                    entity,
                 },
             );
         } else {
             existing.hour_records.push(DailyUserActivityHourRecord {
                 hour,
                 entities: vec![DailyUserActivityHourRecordEntity {
+                    entity_id,
+                    entity_lot,
                     metadata_lot,
-                    entity,
                 }],
             });
         }
@@ -172,10 +169,8 @@ pub async fn calculate_user_activities_and_summary(
             &mut activities,
             user_id,
             seen.finished_on,
-            EntityWithLot {
-                entity_id: seen.seen_id,
-                entity_lot: EntityLot::Metadata,
-            },
+            seen.seen_id,
+            EntityLot::Metadata,
             Some(seen.metadata_lot),
             seen.last_updated_on,
         );
@@ -254,10 +249,8 @@ pub async fn calculate_user_activities_and_summary(
             &mut activities,
             user_id,
             Some(workout.end_time),
-            EntityWithLot {
-                entity_id: workout.id,
-                entity_lot: EntityLot::Workout,
-            },
+            workout.id,
+            EntityLot::Workout,
             None,
             workout.start_time,
         );
@@ -303,10 +296,8 @@ pub async fn calculate_user_activities_and_summary(
             &mut activities,
             user_id,
             Some(measurement.timestamp),
-            EntityWithLot {
-                entity_id: measurement.timestamp.to_string(),
-                entity_lot: EntityLot::UserMeasurement,
-            },
+            measurement.timestamp.to_string(),
+            EntityLot::UserMeasurement,
             None,
             measurement.timestamp,
         );
@@ -323,10 +314,8 @@ pub async fn calculate_user_activities_and_summary(
             &mut activities,
             user_id,
             Some(review.posted_on),
-            EntityWithLot {
-                entity_id: review.id,
-                entity_lot: EntityLot::Review,
-            },
+            review.id,
+            EntityLot::Review,
             None,
             review.posted_on,
         );
@@ -360,10 +349,8 @@ pub async fn calculate_user_activities_and_summary(
             &mut activities,
             user_id,
             Some(cte.created_on),
-            EntityWithLot {
-                entity_id: cte.id.to_string(),
-                entity_lot: cte.entity_lot,
-            },
+            cte.id.to_string(),
+            cte.entity_lot,
             None,
             cte.created_on,
         );

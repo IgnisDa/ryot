@@ -29,10 +29,8 @@ export const ToggleMediaMonitorMenuItem = (props: {
 
 	const handleToggleMonitoring = () => {
 		const entityData = {
-			entity: {
-				entityId: props.formValue,
-				entityLot: props.entityLot,
-			},
+			entityId: props.formValue,
+			entityLot: props.entityLot,
 		};
 
 		if (isMonitored) {

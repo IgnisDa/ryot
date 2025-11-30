@@ -1,7 +1,7 @@
 use std::{fs::File as StdFile, sync::Arc};
 
 use anyhow::{Result, anyhow};
-use common_models::{EntityWithLot, SearchInput};
+use common_models::SearchInput;
 use common_utils::ryot_log;
 use database_models::prelude::Exercise;
 use database_utils::{
@@ -101,20 +101,17 @@ pub async fn export_exercises(
         )
         .await?;
         for exercise_id in exercises.response.items {
-            let entity = EntityWithLot {
-                entity_id: exercise_id.clone(),
-                entity_lot: EntityLot::Exercise,
-            };
-            let reviews = item_reviews(user_id, &entity, false, ss)
+            let reviews = item_reviews(user_id, &exercise_id, EntityLot::Exercise, false, ss)
                 .await?
                 .into_iter()
                 .map(get_review_export_item)
                 .collect_vec();
-            let collections = entity_in_collections_with_details(user_id, &entity, ss)
-                .await?
-                .into_iter()
-                .map(|c| c.details)
-                .collect_vec();
+            let collections =
+                entity_in_collections_with_details(user_id, &exercise_id, EntityLot::Exercise, ss)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.details)
+                    .collect_vec();
             if reviews.is_empty() && collections.is_empty() {
                 continue;
             }

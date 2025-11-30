@@ -55,10 +55,8 @@ export const EditEntityCollectionInformationForm = ({
 			entities: [
 				{
 					information: userExtraInformationData,
-					entity: {
-						entityId: editEntityCollectionInformationData.entityId,
-						entityLot: editEntityCollectionInformationData.entityLot,
-					},
+					entityId: editEntityCollectionInformationData.entityId,
+					entityLot: editEntityCollectionInformationData.entityLot,
 				},
 			],
 		});

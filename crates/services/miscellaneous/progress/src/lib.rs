@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::{Result, bail};
-use common_models::{EntityWithLot, StringIdObject};
+use common_models::StringIdObject;
 use database_models::prelude::{Review, Seen};
 use dependent_progress_utils::metadata_progress_update;
 use dependent_seen_utils::handle_after_metadata_seen_tasks;
@@ -75,14 +75,7 @@ pub async fn delete_seen_item(
     si.delete(&ss.db).await.trace_ok();
     try_join!(
         handle_after_metadata_seen_tasks(cloned_seen, ss),
-        associate_user_with_entity(
-            user_id,
-            EntityWithLot {
-                entity_id: metadata_id,
-                entity_lot: EntityLot::Metadata
-            },
-            ss
-        )
+        associate_user_with_entity(user_id, &metadata_id, EntityLot::Metadata, ss)
     )?;
     Ok(StringIdObject { id: seen_id })
 }

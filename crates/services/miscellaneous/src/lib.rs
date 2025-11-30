@@ -348,7 +348,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn update_person_and_notify_users(&self, person_id: &str) -> Result<()> {
+    pub async fn update_person_and_notify_users(&self, person_id: &String) -> Result<()> {
         update_person_and_notify_users(person_id, &self.0).await?;
         Ok(())
     }

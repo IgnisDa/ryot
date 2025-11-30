@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::{Result, anyhow, bail};
-use common_models::{EntityAssets, EntityWithLot};
+use common_models::EntityAssets;
 use common_utils::ryot_log;
 use database_models::{
     exercise,
@@ -40,13 +40,9 @@ pub async fn user_exercise_details(
     user_id: String,
     exercise_id: String,
 ) -> Result<UserExerciseDetails> {
-    let entity = EntityWithLot {
-        entity_id: exercise_id.clone(),
-        entity_lot: EntityLot::Exercise,
-    };
     let (collections, reviews) = try_join!(
-        entity_in_collections_with_details(&user_id, &entity, ss),
-        item_reviews(&user_id, &entity, true, ss)
+        entity_in_collections_with_details(&user_id, &exercise_id, EntityLot::Exercise, ss),
+        item_reviews(&user_id, &exercise_id, EntityLot::Exercise, true, ss)
     )?;
     let mut resp = UserExerciseDetails {
         collections,

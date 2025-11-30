@@ -366,9 +366,7 @@ const BaseEntityDisplayItemComponent = forwardRef<
 		await mutation.mutateAsync({
 			collectionName: "Watchlist",
 			creatorUserId: userDetails.id,
-			entities: [
-				{ entity: { entityId: props.entityId, entityLot: props.entityLot } },
-			],
+			entities: [{ entityId: props.entityId, entityLot: props.entityLot }],
 		});
 		notifications.show({
 			color: "green",

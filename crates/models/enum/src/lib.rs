@@ -10,5 +10,8 @@ pub use media_enums::*;
 mod miscellaneous_enums;
 pub use miscellaneous_enums::*;
 
+mod notification_enums;
+pub use notification_enums::*;
+
 mod user_enums;
 pub use user_enums::*;

@@ -41,7 +41,7 @@ struct CollectionEntityRank {
 
 async fn add_single_entity_to_collection(
     user_id: &String,
-    input: &EntityToCollectionInput,
+    entity: &EntityToCollectionInput,
     collection_name: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
@@ -57,15 +57,15 @@ async fn add_single_entity_to_collection(
     let collection = updated.update(&ss.db).await?;
     let resp = match CollectionToEntity::find()
         .filter(collection_to_entity::Column::CollectionId.eq(collection.id.clone()))
-        .filter(collection_to_entity::Column::EntityLot.eq(input.entity.entity_lot))
-        .filter(collection_to_entity::Column::EntityId.eq(input.entity.entity_id.clone()))
+        .filter(collection_to_entity::Column::EntityId.eq(entity.entity_id.clone()))
+        .filter(collection_to_entity::Column::EntityLot.eq(entity.entity_lot))
         .one(&ss.db)
         .await?
     {
         Some(etc) => {
             let mut to_update = etc.into_active_model();
             to_update.last_updated_on = ActiveValue::Set(Utc::now());
-            to_update.information = ActiveValue::Set(input.information.clone());
+            to_update.information = ActiveValue::Set(entity.information.clone());
             to_update.update(&ss.db).await?
         }
         None => {
@@ -84,11 +84,11 @@ async fn add_single_entity_to_collection(
             let mut created_collection = collection_to_entity::ActiveModel {
                 rank: ActiveValue::Set(new_rank),
                 collection_id: ActiveValue::Set(collection.id.clone()),
-                information: ActiveValue::Set(input.information.clone()),
+                information: ActiveValue::Set(entity.information.clone()),
                 ..Default::default()
             };
-            let id = input.entity.entity_id.clone();
-            match input.entity.entity_lot {
+            let id = entity.entity_id.clone();
+            match entity.entity_lot {
                 EntityLot::Metadata => created_collection.metadata_id = ActiveValue::Set(Some(id)),
                 EntityLot::Person => created_collection.person_id = ActiveValue::Set(Some(id)),
                 EntityLot::MetadataGroup => {
@@ -113,7 +113,7 @@ async fn add_single_entity_to_collection(
         }
     };
     try_join!(
-        associate_user_with_entity(user_id, input.entity.clone(), ss),
+        associate_user_with_entity(user_id, &entity.entity_id, entity.entity_lot, ss),
         expire_user_collection_contents_cache(user_id, &collection.id, ss),
         ss.perform_application_job(ApplicationJob::Lp(
             LpApplicationJob::HandleEntityAddedToCollectionEvent(resp.id),
@@ -230,7 +230,7 @@ pub async fn create_or_update_collection(
 
 async fn remove_single_entity_from_collection(
     user_id: &String,
-    input: &EntityToCollectionInput,
+    entity: &EntityToCollectionInput,
     collection_name: &String,
     creator_user_id: &String,
     ss: &Arc<SupportingService>,
@@ -244,21 +244,19 @@ async fn remove_single_entity_from_collection(
         .unwrap();
     CollectionToEntity::delete_many()
         .filter(collection_to_entity::Column::CollectionId.eq(collect.id.clone()))
-        .filter(collection_to_entity::Column::EntityLot.eq(input.entity.entity_lot))
-        .filter(collection_to_entity::Column::EntityId.eq(input.entity.entity_id.clone()))
+        .filter(collection_to_entity::Column::EntityId.eq(entity.entity_id.clone()))
+        .filter(collection_to_entity::Column::EntityLot.eq(entity.entity_lot))
         .exec(&ss.db)
         .await?;
-    if input.entity.entity_lot != EntityLot::Workout
-        && input.entity.entity_lot != EntityLot::WorkoutTemplate
-    {
-        associate_user_with_entity(user_id, input.entity.clone(), ss)
+    if entity.entity_lot != EntityLot::Workout && entity.entity_lot != EntityLot::WorkoutTemplate {
+        associate_user_with_entity(user_id, &entity.entity_id, entity.entity_lot, ss)
             .await
             .ok();
     }
     try_join!(
         expire_user_collections_list_cache(user_id, ss),
-        expire_entity_details_cache(user_id, input.entity.clone(), ss),
         expire_user_collection_contents_cache(user_id, &collect.id, ss),
+        expire_entity_details_cache(user_id, &entity.entity_id, entity.entity_lot, ss),
     )?;
     Ok(true)
 }

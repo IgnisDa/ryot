@@ -2,7 +2,7 @@
 
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
-use common_models::{NotificationPlatformLot, UserNotificationContentDiscriminants};
+use enum_models::{NotificationPlatformLot, UserNotificationContentDiscriminants};
 use nanoid::nanoid;
 use sea_orm::{ActiveValue, entity::prelude::*};
 use user_models::NotificationPlatformSpecifics;

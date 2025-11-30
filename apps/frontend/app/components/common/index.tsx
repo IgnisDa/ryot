@@ -160,12 +160,7 @@ export const DisplayCollectionToEntity = (props: {
 						creatorUserId: props.col.details.creatorUserId,
 						collectionName: props.col.details.collectionName,
 						entities: [
-							{
-								entity: {
-									entityId: props.entityId,
-									entityLot: props.entityLot,
-								},
-							},
+							{ entityId: props.entityId, entityLot: props.entityLot },
 						],
 					},
 					{

@@ -556,9 +556,7 @@ const TimeOfDayChart = () => {
 							data.hours
 								.find((d) => d.hour === h)
 								?.entities.filter(
-									(e) =>
-										e.entity.entityLot === mKey ||
-										(e.metadataLot || "") === mKey,
+									(e) => e.entityLot === mKey || (e.metadataLot || "") === mKey,
 								).length || 0;
 						obj[mKey] = count;
 						if (count > 0) trackSeries.add(mKey);

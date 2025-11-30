@@ -41,10 +41,6 @@ pub async fn user_metadata_details(
         }),
         |f| ApplicationCacheValue::UserMetadataDetails(Box::new(f)),
         || async {
-            let entity = EntityWithLot {
-                entity_id: metadata_id.clone(),
-                entity_lot: EntityLot::Metadata,
-            };
             let (
                 media_details,
                 collections,
@@ -54,8 +50,8 @@ pub async fn user_metadata_details(
                 user_to_meta,
             ) = try_join!(
                 generic_metadata(&metadata_id, ss, None),
-                entity_in_collections_with_details(&user_id, &entity, ss),
-                item_reviews(&user_id, &entity, true, ss),
+                entity_in_collections_with_details(&user_id, &metadata_id, EntityLot::Metadata, ss),
+                item_reviews(&user_id, &metadata_id, EntityLot::Metadata, true, ss),
                 is_metadata_finished_by_user(&user_id, &metadata_id, ss),
                 Metadata::find_by_id(&metadata_id)
                     .select_only()
@@ -64,7 +60,7 @@ pub async fn user_metadata_details(
                     .into_tuple::<(i64,)>()
                     .one(&ss.db)
                     .map_err(|_| anyhow!("Metadata not found")),
-                get_user_to_entity_association(&ss.db, &user_id, entity.clone())
+                get_user_to_entity_association(&ss.db, &user_id, &metadata_id, EntityLot::Metadata)
             )?;
 
             let in_progress = history
@@ -217,14 +213,10 @@ pub async fn user_person_details(
         }),
         |f| ApplicationCacheValue::UserPersonDetails(Box::new(f)),
         || async {
-            let entity = EntityWithLot {
-                entity_id: person_id.clone(),
-                entity_lot: EntityLot::Person,
-            };
             let (reviews, collections, person_meta) = try_join!(
-                item_reviews(&user_id, &entity, true, ss),
-                entity_in_collections_with_details(&user_id, &entity, ss),
-                get_user_to_entity_association(&ss.db, &user_id, entity.clone())
+                item_reviews(&user_id, &person_id, EntityLot::Person, true, ss),
+                entity_in_collections_with_details(&user_id, &person_id, EntityLot::Person, ss),
+                get_user_to_entity_association(&ss.db, &user_id, &person_id, EntityLot::Person)
             )?;
             let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
             Ok(UserPersonDetails {
@@ -251,14 +243,26 @@ pub async fn user_metadata_group_details(
         }),
         |f| ApplicationCacheValue::UserMetadataGroupDetails(Box::new(f)),
         || async {
-            let entity = EntityWithLot {
-                entity_id: metadata_group_id.clone(),
-                entity_lot: EntityLot::MetadataGroup,
-            };
             let (collections, reviews, metadata_group_meta) = try_join!(
-                entity_in_collections_with_details(&user_id, &entity, ss),
-                item_reviews(&user_id, &entity, true, ss,),
-                get_user_to_entity_association(&ss.db, &user_id, entity.clone())
+                entity_in_collections_with_details(
+                    &user_id,
+                    &metadata_group_id,
+                    EntityLot::MetadataGroup,
+                    ss
+                ),
+                item_reviews(
+                    &user_id,
+                    &metadata_group_id,
+                    EntityLot::MetadataGroup,
+                    true,
+                    ss,
+                ),
+                get_user_to_entity_association(
+                    &ss.db,
+                    &user_id,
+                    &metadata_group_id,
+                    EntityLot::MetadataGroup,
+                )
             )?;
             let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
             Ok(UserMetadataGroupDetails {
