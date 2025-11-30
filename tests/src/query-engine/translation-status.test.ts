@@ -128,4 +128,5 @@ describe("query engine — translationStatus computed field", () => {
 		assertPresent(item, "Expected a row for the pending movie");
 		expect(getQueryEngineFieldValue(item, "translationStatus")).toBeUndefined();
 		expect(requireQueryEngineTextField(item, "id")).toBe(pendingMovie.id);
+	});
 });
