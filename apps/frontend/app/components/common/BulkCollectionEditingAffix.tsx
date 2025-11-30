@@ -68,10 +68,12 @@ export const BulkCollectionEditingAffix = (
 	const buildPayloadEntities = (
 		information?: Scalars["JSON"]["input"],
 	): EntityToCollectionInput[] =>
-		targetEntities.map((entity) => {
+		targetEntities.map((entityData) => {
 			const payload: EntityToCollectionInput = {
-				entityId: entity.entityId,
-				entityLot: entity.entityLot,
+				entity: {
+					entityId: entityData.entityId,
+					entityLot: entityData.entityLot,
+				},
 			};
 			if (!isRemoving && information && Object.keys(information).length > 0) {
 				payload.information = information;

@@ -2,7 +2,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use anyhow::{Result, anyhow, bail};
 use chrono::Utc;
-use common_models::StringIdAndNamedObject;
+use common_models::{EntityWithLot, StringIdAndNamedObject};
 use database_models::{prelude::Review, review};
 use database_utils::user_by_id;
 use dependent_utility_utils::associate_user_with_entity;
@@ -26,7 +26,15 @@ pub async fn delete_review(
     match review {
         Some(r) => {
             if r.user_id == user_id {
-                associate_user_with_entity(&user_id, &r.entity_id, r.entity_lot, ss).await?;
+                associate_user_with_entity(
+                    &user_id,
+                    EntityWithLot {
+                        entity_lot: r.entity_lot,
+                        entity_id: r.entity_id.clone(),
+                    },
+                    ss,
+                )
+                .await?;
                 r.delete(&ss.db).await?;
                 Ok(true)
             } else {

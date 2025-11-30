@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{Result, bail};
 use background_models::{ApplicationJob, HpApplicationJob};
-use common_models::StringIdObject;
+use common_models::{EntityWithLot, StringIdObject};
 use common_utils::ryot_log;
 use database_models::{
     prelude::{Collection, Exercise, Genre, Workout, WorkoutTemplate},
@@ -76,8 +76,8 @@ pub async fn post_review(
             )),
             ..Default::default()
         };
-    let entity_id = input.entity_id.clone();
-    match input.entity_lot {
+    let entity_id = input.entity.entity_id.clone();
+    match input.entity.entity_lot {
         EntityLot::Metadata => review_obj.metadata_id = ActiveValue::Set(Some(entity_id)),
         EntityLot::Person => review_obj.person_id = ActiveValue::Set(Some(entity_id)),
         EntityLot::MetadataGroup => {
@@ -120,7 +120,7 @@ pub async fn post_review(
             .await?;
         }
     }
-    associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss).await?;
+    associate_user_with_entity(user_id, input.entity, ss).await?;
     Ok(StringIdObject {
         id: insert.id.unwrap(),
     })
@@ -129,8 +129,7 @@ pub async fn post_review(
 pub fn convert_review_into_input(
     review: &ImportOrExportItemRating,
     preferences: &UserPreferences,
-    entity_id: String,
-    entity_lot: EntityLot,
+    entity: EntityWithLot,
 ) -> Option<CreateOrUpdateReviewInput> {
     if review.review.is_none() && review.rating.is_none() {
         ryot_log!(debug, "Skipping review since it has no content");
@@ -147,8 +146,7 @@ pub fn convert_review_into_input(
     Some(CreateOrUpdateReviewInput {
         text,
         rating,
-        entity_id,
-        entity_lot,
+        entity,
         is_spoiler,
         date: date.flatten(),
         show_season_number: review.show_season_number,

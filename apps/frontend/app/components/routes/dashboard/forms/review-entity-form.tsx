@@ -71,10 +71,8 @@ export const ReviewEntityForm = (props: {
 	>({
 		storageKeyPrefix: `ReviewEntityForm-${entityToReview?.entityId}`,
 		initialValues: {
-			entityId: entityToReview?.entityId || "",
 			reviewId: entityToReview?.existingReview?.id,
 			text: entityToReview?.existingReview?.textOriginal || "",
-			entityLot: entityToReview?.entityLot || EntityLot.Metadata,
 			isSpoiler: entityToReview?.existingReview?.isSpoiler || false,
 			visibility:
 				entityToReview?.existingReview?.visibility || Visibility.Public,
@@ -90,6 +88,10 @@ export const ReviewEntityForm = (props: {
 				entityToReview?.existingReview?.showExtraInformation?.episode?.toString(),
 			podcastEpisodeNumber:
 				entityToReview?.existingReview?.podcastExtraInformation?.episode?.toString(),
+			entity: {
+				entityId: entityToReview?.entityId || "",
+				entityLot: entityToReview?.entityLot || EntityLot.Metadata,
+			},
 			rating: entityToReview?.existingReview?.rating
 				? convertRatingToUserScale(
 						entityToReview.existingReview.rating,

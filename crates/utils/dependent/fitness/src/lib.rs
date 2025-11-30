@@ -1,7 +1,10 @@
 use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 
 use anyhow::{Result, anyhow, bail};
-use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
+use common_models::{
+    ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput, EntityWithLot,
+    UserNotificationContent,
+};
 use common_utils::{get_first_max_index_by, ryot_log};
 use database_models::{
     exercise,
@@ -17,9 +20,7 @@ use dependent_utility_utils::{
     expire_user_workout_details_cache, expire_user_workouts_list_cache,
 };
 use enum_meta::Meta;
-use enum_models::{
-    EntityLot, ExerciseLot, ExerciseSource, UserNotificationContent, WorkoutSetPersonalBest,
-};
+use enum_models::{EntityLot, ExerciseLot, ExerciseSource, WorkoutSetPersonalBest};
 use fitness_models::{
     ExerciseBestSetRecord, ProcessedExercise, UserExerciseInput,
     UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
@@ -313,8 +314,10 @@ pub async fn create_custom_exercise(
             collection_name: DefaultCollection::Custom.to_string(),
             entities: vec![EntityToCollectionInput {
                 information: None,
-                entity_id: exercise.id.clone(),
-                entity_lot: EntityLot::Exercise,
+                entity: EntityWithLot {
+                    entity_id: exercise.id.clone(),
+                    entity_lot: EntityLot::Exercise,
+                },
             }],
         },
         ss,

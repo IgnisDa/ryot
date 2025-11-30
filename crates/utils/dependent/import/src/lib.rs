@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::Result;
 use chrono::{Duration, NaiveDateTime, Offset, TimeZone, Utc};
-use common_models::{ChangeCollectionToEntitiesInput, EntityToCollectionInput};
+use common_models::{ChangeCollectionToEntitiesInput, EntityToCollectionInput, EntityWithLot};
 use common_utils::ryot_log;
 use database_models::{exercise, prelude::Exercise};
 use database_utils::{schedule_user_for_workout_revision, user_by_id};
@@ -33,8 +33,7 @@ use supporting_service::SupportingService;
 
 async fn create_collection_and_add_entity_to_it(
     user_id: &String,
-    entity_id: String,
-    entity_lot: EntityLot,
+    entity: EntityWithLot,
     collection_name: String,
     ss: &Arc<SupportingService>,
     information: Option<serde_json::Value>,
@@ -58,14 +57,14 @@ async fn create_collection_and_add_entity_to_it(
         });
         return;
     }
+    let entity_id = entity.entity_id.clone();
     if let Err(e) = add_entities_to_collection(
         user_id,
         ChangeCollectionToEntitiesInput {
             collection_name: collection_name.clone(),
             entities: vec![EntityToCollectionInput {
-                entity_id: entity_id.clone(),
-                entity_lot,
                 information,
+                entity,
             }],
             ..Default::default()
         },
@@ -235,8 +234,10 @@ where
                     if let Some(input) = convert_review_into_input(
                         review,
                         &preferences,
-                        db_metadata_id.clone(),
-                        EntityLot::Metadata,
+                        EntityWithLot {
+                            entity_lot: EntityLot::Metadata,
+                            entity_id: db_metadata_id.clone(),
+                        },
                     ) && let Err(e) = post_review(user_id, input, ss).await
                     {
                         import.failed.push(ImportFailedItem {
@@ -250,8 +251,10 @@ where
                 for col in metadata.collections.into_iter() {
                     create_collection_and_add_entity_to_it(
                         user_id,
-                        db_metadata_id.clone(),
-                        EntityLot::Metadata,
+                        EntityWithLot {
+                            entity_id: db_metadata_id.clone(),
+                            entity_lot: EntityLot::Metadata,
+                        },
                         col.collection_name,
                         ss,
                         col.information,
@@ -291,8 +294,10 @@ where
                     if let Some(input) = convert_review_into_input(
                         review,
                         &preferences,
-                        db_metadata_group_id.clone(),
-                        EntityLot::MetadataGroup,
+                        EntityWithLot {
+                            entity_lot: EntityLot::MetadataGroup,
+                            entity_id: db_metadata_group_id.clone(),
+                        },
                     ) && let Err(e) = post_review(user_id, input, ss).await
                     {
                         import.failed.push(ImportFailedItem {
@@ -306,8 +311,10 @@ where
                 for col in metadata_group.collections.into_iter() {
                     create_collection_and_add_entity_to_it(
                         user_id,
-                        db_metadata_group_id.clone(),
-                        EntityLot::MetadataGroup,
+                        EntityWithLot {
+                            entity_id: db_metadata_group_id.clone(),
+                            entity_lot: EntityLot::MetadataGroup,
+                        },
                         col.collection_name,
                         ss,
                         col.information,
@@ -345,8 +352,10 @@ where
                     if let Some(input) = convert_review_into_input(
                         review,
                         &preferences,
-                        db_person_id.clone(),
-                        EntityLot::Person,
+                        EntityWithLot {
+                            entity_lot: EntityLot::Person,
+                            entity_id: db_person_id.clone(),
+                        },
                     ) && let Err(e) = post_review(user_id, input, ss).await
                     {
                         import.failed.push(ImportFailedItem {
@@ -360,8 +369,10 @@ where
                 for col in person.collections.into_iter() {
                     create_collection_and_add_entity_to_it(
                         user_id,
-                        db_person_id.clone(),
-                        EntityLot::Person,
+                        EntityWithLot {
+                            entity_id: db_person_id.clone(),
+                            entity_lot: EntityLot::Person,
+                        },
                         col.collection_name,
                         ss,
                         col.information,
@@ -419,8 +430,10 @@ where
                         for col in workout.collections.into_iter() {
                             create_collection_and_add_entity_to_it(
                                 user_id,
-                                workout_id.clone(),
-                                EntityLot::Workout,
+                                EntityWithLot {
+                                    entity_id: workout_id.clone(),
+                                    entity_lot: EntityLot::Workout,
+                                },
                                 col.collection_name,
                                 ss,
                                 col.information,

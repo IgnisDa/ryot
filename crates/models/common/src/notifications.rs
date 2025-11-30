@@ -1,11 +1,12 @@
 use async_graphql::Enum;
+use enum_models::EntityLot;
 use rust_decimal::Decimal;
 use sea_orm::{DeriveActiveEnum, EnumIter, prelude::Date};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumDiscriminants};
 
-use crate::EntityLot;
+use crate::EntityWithLot;
 
 #[derive(
     Eq,
@@ -95,15 +96,13 @@ pub enum UserNotificationContent {
         content_type: String,
     },
     ReviewPosted {
-        entity_id: String,
+        entity: EntityWithLot,
         entity_title: String,
-        entity_lot: EntityLot,
         triggered_by_username: String,
     },
     MetadataPublished {
-        entity_id: String,
+        entity: EntityWithLot,
         entity_title: String,
-        entity_lot: EntityLot,
         podcast_extra: Option<i32>,
         show_extra: Option<(i32, i32)>,
     },
@@ -129,8 +128,7 @@ pub enum UserNotificationContent {
         season_number: Option<i32>,
     },
     MetadataMovedFromCompletedToWatchlistCollection {
-        entity_id: String,
+        entity: EntityWithLot,
         entity_title: String,
-        entity_lot: EntityLot,
     },
 }

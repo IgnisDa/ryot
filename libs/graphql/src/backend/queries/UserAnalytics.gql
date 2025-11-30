@@ -5,7 +5,10 @@ query UserAnalytics($input: UserAnalyticsInput!) {
 			hours {
 				hour
 				entities {
-					entityLot
+					entity {
+						entityId
+						entityLot
+					}
 					metadataLot
 				}
 			}

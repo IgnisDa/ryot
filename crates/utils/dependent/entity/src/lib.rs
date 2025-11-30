@@ -3,7 +3,7 @@ use std::{collections::HashMap, iter::zip, sync::Arc};
 use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, LpApplicationJob};
 use chrono::Utc;
-use common_models::{EntityAssets, PersonSourceSpecifics, StringIdObject};
+use common_models::{EntityAssets, PersonSourceSpecifics, StringIdObject, UserNotificationContent};
 use common_utils::{
     MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES, ryot_log, sleep_for_n_seconds,
 };
@@ -23,7 +23,7 @@ use dependent_provider_utils::{
 use dependent_utility_utils::{
     expire_metadata_details_cache, expire_metadata_group_details_cache, expire_person_details_cache,
 };
-use enum_models::{MetadataToMetadataRelation, UserNotificationContent};
+use enum_models::MetadataToMetadataRelation;
 use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
 use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};

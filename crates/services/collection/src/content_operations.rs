@@ -127,8 +127,10 @@ pub async fn collection_contents(
             let user = user_by_id(&details.user_id, ss).await?;
             let reviews = item_reviews(
                 &details.user_id,
-                &input.collection_id,
-                EntityLot::Collection,
+                &EntityWithLot {
+                    entity_id: input.collection_id.clone(),
+                    entity_lot: EntityLot::Collection,
+                },
                 true,
                 ss,
             )

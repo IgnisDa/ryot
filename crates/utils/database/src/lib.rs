@@ -3,7 +3,9 @@ use std::sync::Arc;
 use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob};
 use chrono::Utc;
-use common_models::{BackendError, SearchInput, StringIdAndNamedObject, UserLevelCacheKey};
+use common_models::{
+    BackendError, EntityWithLot, SearchInput, StringIdAndNamedObject, UserLevelCacheKey,
+};
 use common_utils::ryot_log;
 use database_models::{
     access_link, collection, collection_entity_membership,
@@ -124,11 +126,10 @@ pub async fn server_key_validation_guard(is_server_key_validated: bool) -> Resul
 
 pub async fn entity_in_collections_with_collection_to_entity_ids(
     user_id: &String,
-    entity_id: &String,
-    entity_lot: EntityLot,
+    entity: &EntityWithLot,
     ss: &Arc<SupportingService>,
 ) -> Result<Vec<(collection::Model, Uuid)>> {
-    let details = entity_in_collections_with_details(user_id, entity_id, entity_lot, ss).await?;
+    let details = entity_in_collections_with_details(user_id, entity, ss).await?;
     Ok(details
         .into_iter()
         .map(|d| {
@@ -146,14 +147,13 @@ pub async fn entity_in_collections_with_collection_to_entity_ids(
 
 pub async fn entity_in_collections_with_details(
     user_id: &String,
-    entity_id: &String,
-    entity_lot: EntityLot,
+    entity: &EntityWithLot,
     ss: &Arc<SupportingService>,
 ) -> Result<Vec<GraphqlCollectionToEntityDetails>> {
     let memberships = CollectionEntityMembership::find()
         .filter(collection_entity_membership::Column::UserId.eq(user_id))
-        .filter(collection_entity_membership::Column::EntityId.eq(entity_id))
-        .filter(collection_entity_membership::Column::EntityLot.eq(entity_lot))
+        .filter(collection_entity_membership::Column::EntityId.eq(&entity.entity_id))
+        .filter(collection_entity_membership::Column::EntityLot.eq(entity.entity_lot))
         .order_by_desc(collection_entity_membership::Column::CollectionToEntityLastUpdatedOn)
         .all(&ss.db)
         .await?;
@@ -195,9 +195,15 @@ pub async fn user_workout_details(
             let Some(workout) = maybe_workout else {
                 bail!("Workout with the given ID could not be found for this user.");
             };
-            let collections =
-                entity_in_collections_with_details(user_id, &workout_id, EntityLot::Workout, ss)
-                    .await?;
+            let collections = entity_in_collections_with_details(
+                user_id,
+                &EntityWithLot {
+                    entity_id: workout_id.clone(),
+                    entity_lot: EntityLot::Workout,
+                },
+                ss,
+            )
+            .await?;
             let details = workout;
             let metadata_consumed = Seen::find()
                 .select_only()
@@ -245,8 +251,10 @@ pub async fn user_workout_template_details(
             };
             let collections = entity_in_collections_with_details(
                 user_id,
-                &workout_template_id,
-                EntityLot::WorkoutTemplate,
+                &EntityWithLot {
+                    entity_id: workout_template_id.clone(),
+                    entity_lot: EntityLot::WorkoutTemplate,
+                },
                 ss,
             )
             .await?;
@@ -376,13 +384,12 @@ pub async fn deploy_job_to_mark_user_last_activity(
 
 pub async fn item_reviews(
     user_id: &String,
-    entity_id: &String,
-    entity_lot: EntityLot,
+    entity: &EntityWithLot,
     // DEV: Setting this to true will return ALL user's reviews + public reviews by others
     get_public: bool,
     ss: &Arc<SupportingService>,
 ) -> Result<Vec<ReviewItem>> {
-    let column = match entity_lot {
+    let column = match entity.entity_lot {
         EntityLot::Person => review::Column::PersonId,
         EntityLot::Exercise => review::Column::ExerciseId,
         EntityLot::Metadata => review::Column::MetadataId,
@@ -403,7 +410,7 @@ pub async fn item_reviews(
         })
         .find_also_related(User)
         .order_by_desc(review::Column::PostedOn)
-        .filter(column.eq(entity_id))
+        .filter(column.eq(&entity.entity_id))
         .all(&ss.db)
         .await?;
     let mut reviews = vec![];

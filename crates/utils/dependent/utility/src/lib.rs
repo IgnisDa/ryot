@@ -15,18 +15,14 @@ use supporting_service::SupportingService;
 
 async fn mark_entity_as_recently_consumed(
     user_id: &String,
-    entity_id: &String,
-    entity_lot: EntityLot,
+    entity: EntityWithLot,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     cache_service::set_key(
         ss,
         ApplicationCacheKey::EntityRecentlyConsumed(UserLevelCacheKey {
+            input: entity.clone(),
             user_id: user_id.to_owned(),
-            input: EntityWithLot {
-                entity_lot,
-                entity_id: entity_id.to_owned(),
-            },
         }),
         ApplicationCacheValue::EntityRecentlyConsumed(EmptyCacheValue::default()),
     )
@@ -36,23 +32,22 @@ async fn mark_entity_as_recently_consumed(
 
 pub async fn expire_entity_details_cache(
     user_id: &String,
-    entity_id: &String,
-    entity_lot: EntityLot,
+    entity: EntityWithLot,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     try_join!(
         expire_user_metadata_list_cache(user_id, ss),
         expire_user_exercises_list_cache(user_id, ss),
-        expire_user_workout_details_cache(user_id, entity_id, ss),
-        expire_user_metadata_details_cache(user_id, entity_id, ss),
-        expire_user_workout_template_details_cache(user_id, entity_id, ss),
-        mark_entity_as_recently_consumed(user_id, entity_id, entity_lot, ss),
+        mark_entity_as_recently_consumed(user_id, entity.clone(), ss),
+        expire_user_workout_details_cache(user_id, &entity.entity_id, ss),
+        expire_user_metadata_details_cache(user_id, &entity.entity_id, ss),
+        expire_user_workout_template_details_cache(user_id, &entity.entity_id, ss),
         cache_service::expire_key(
             ss,
             ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::UserPersonDetails(
                 UserLevelCacheKey {
                     user_id: user_id.to_owned(),
-                    input: entity_id.to_owned(),
+                    input: entity.entity_id.to_owned(),
                 }
             )))
         ),
@@ -61,7 +56,7 @@ pub async fn expire_entity_details_cache(
             ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::UserMetadataGroupDetails(
                 UserLevelCacheKey {
                     user_id: user_id.to_owned(),
-                    input: entity_id.to_owned(),
+                    input: entity.entity_id.to_owned(),
                 }
             )))
         )
@@ -71,21 +66,20 @@ pub async fn expire_entity_details_cache(
 
 pub async fn associate_user_with_entity(
     user_id: &String,
-    entity_id: &String,
-    entity_lot: EntityLot,
+    entity: EntityWithLot,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     if !matches!(
-        entity_lot,
+        entity.entity_lot,
         EntityLot::Workout
             | EntityLot::Review
             | EntityLot::WorkoutTemplate
             | EntityLot::UserMeasurement
     ) {
         let user_to_entity_model =
-            get_user_to_entity_association(&ss.db, user_id, entity_id, entity_lot).await?;
+            get_user_to_entity_association(&ss.db, user_id, entity.clone()).await?;
 
-        let entity_id_owned = entity_id.to_owned();
+        let entity_id_owned = entity.entity_id.to_owned();
 
         match user_to_entity_model {
             Some(u) => {
@@ -102,7 +96,7 @@ pub async fn associate_user_with_entity(
                     ..Default::default()
                 };
 
-                match entity_lot {
+                match entity.entity_lot {
                     EntityLot::Metadata => {
                         new_user_to_entity.metadata_id = ActiveValue::Set(Some(entity_id_owned))
                     }
@@ -129,7 +123,7 @@ pub async fn associate_user_with_entity(
             }
         };
     }
-    expire_entity_details_cache(user_id, entity_id, entity_lot, ss).await
+    expire_entity_details_cache(user_id, entity, ss).await
 }
 
 pub async fn expire_user_collections_list_cache(

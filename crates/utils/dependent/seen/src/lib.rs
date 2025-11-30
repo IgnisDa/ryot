@@ -1,7 +1,9 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
-use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
+use common_models::{
+    ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput, EntityWithLot,
+};
 use common_utils::SHOW_SPECIAL_SEASON_NAMES;
 use database_models::{
     prelude::{Metadata, Seen},
@@ -128,9 +130,11 @@ pub async fn handle_after_metadata_seen_tasks(
                 creator_user_id: seen.user_id.clone(),
                 collection_name: collection_name.to_string(),
                 entities: vec![EntityToCollectionInput {
-                    entity_id: seen.metadata_id.clone(),
-                    entity_lot: EntityLot::Metadata,
                     information: None,
+                    entity: EntityWithLot {
+                        entity_lot: EntityLot::Metadata,
+                        entity_id: seen.metadata_id.clone(),
+                    },
                 }],
             },
             ss,
@@ -143,9 +147,11 @@ pub async fn handle_after_metadata_seen_tasks(
                 creator_user_id: seen.user_id.clone(),
                 collection_name: collection_name.to_string(),
                 entities: vec![EntityToCollectionInput {
-                    entity_id: seen.metadata_id.clone(),
-                    entity_lot: EntityLot::Metadata,
                     information: None,
+                    entity: EntityWithLot {
+                        entity_lot: EntityLot::Metadata,
+                        entity_id: seen.metadata_id.clone(),
+                    },
                 }],
             },
             ss,

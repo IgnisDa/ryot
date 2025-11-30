@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use anyhow::{Result, anyhow, bail};
+use common_models::{NotificationPlatformLot, UserNotificationContentDiscriminants};
 use database_models::{notification_platform, prelude::NotificationPlatform};
-use enum_models::{NotificationPlatformLot, UserNotificationContentDiscriminants};
 use media_models::{CreateUserNotificationPlatformInput, UpdateUserNotificationPlatformInput};
 use notification_service::send_notification;
 use sea_orm::{

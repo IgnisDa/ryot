@@ -5,7 +5,10 @@ use application_utils::{
     get_current_date, get_podcast_episode_by_number, get_show_episode_by_numbers,
 };
 use chrono::NaiveDate;
-use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
+use common_models::{
+    ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput, EntityWithLot,
+    UserNotificationContent,
+};
 use common_utils::{SHOW_SPECIAL_SEASON_NAMES, ryot_log};
 use database_models::{
     calendar_event::{self, Entity as CalendarEvent},
@@ -14,7 +17,7 @@ use database_models::{
 };
 use dependent_collection_utils::remove_entities_from_collection;
 use dependent_notification_utils::{get_users_monitoring_entity, send_notification_for_user};
-use enum_models::{EntityLot, UserNotificationContent};
+use enum_models::EntityLot;
 use futures::TryStreamExt;
 use itertools::Itertools;
 use media_models::{
@@ -188,15 +191,20 @@ pub async fn notify_users_for_released_media(ss: &Arc<SupportingService>) -> Res
                 show_extra,
                 podcast_extra,
                 entity_title: meta.title,
-                entity_id: meta.id.to_string(),
-                entity_lot: EntityLot::Metadata,
+                entity: EntityWithLot {
+                    entity_id: meta.id.to_string(),
+                    entity_lot: EntityLot::Metadata,
+                },
             };
             (meta.id.to_string(), notification)
         })
         .collect_vec();
     for (metadata_id, notification) in notifications.into_iter() {
-        let users_to_notify =
-            get_users_monitoring_entity(&metadata_id, EntityLot::Metadata, ss).await?;
+        let entity = EntityWithLot {
+            entity_id: metadata_id,
+            entity_lot: EntityLot::Metadata,
+        };
+        let users_to_notify = get_users_monitoring_entity(&entity, ss).await?;
         for user in users_to_notify {
             send_notification_for_user(&user, ss, notification.clone()).await?;
         }
@@ -237,8 +245,10 @@ pub async fn notify_users_for_pending_reminders(ss: &Arc<SupportingService>) -> 
                         collection_name: DefaultCollection::Reminders.to_string(),
                         entities: vec![EntityToCollectionInput {
                             information: None,
-                            entity_lot: membership.entity_lot,
-                            entity_id: membership.entity_id.clone(),
+                            entity: EntityWithLot {
+                                entity_lot: membership.entity_lot,
+                                entity_id: membership.entity_id.clone(),
+                            },
                         }],
                     },
                     ss,

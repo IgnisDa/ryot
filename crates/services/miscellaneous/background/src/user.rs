@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::Result;
-use common_models::DefaultCollection;
+use common_models::{DefaultCollection, EntityWithLot};
 use common_utils::ryot_log;
 use database_models::{
     collection,
@@ -88,8 +88,15 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
                 continue;
             };
 
-            let collections =
-                entity_in_collections_with_details(&user_id, &entity_id, entity_lot, ss).await?;
+            let collections = entity_in_collections_with_details(
+                &user_id,
+                &EntityWithLot {
+                    entity_id: entity_id.clone(),
+                    entity_lot,
+                },
+                ss,
+            )
+            .await?;
 
             let mut is_in_collection = false;
             let mut is_monitoring = false;

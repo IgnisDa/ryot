@@ -2,14 +2,14 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use chrono::Utc;
-use common_models::DefaultCollection;
+use common_models::{DefaultCollection, EntityWithLot, UserNotificationContent};
 use common_utils::ryot_log;
 use database_models::{
     collection_entity_membership, collection_to_entity, notification_platform,
     prelude::{CollectionEntityMembership, CollectionToEntity, NotificationPlatform},
 };
 use dependent_entity_utils::{update_metadata, update_metadata_group, update_person};
-use enum_models::{EntityLot, UserNotificationContent};
+use enum_models::EntityLot;
 use itertools::Itertools;
 use media_models::UpdateMediaEntityResult;
 use notification_service::send_notification;
@@ -19,12 +19,12 @@ use traits::TraceOk;
 use uuid::Uuid;
 
 fn get_entity_details_frontend_url(
-    id: String,
-    entity_lot: EntityLot,
+    entity: &EntityWithLot,
     default_tab: Option<&str>,
     ss: &Arc<SupportingService>,
 ) -> String {
-    let mut url = match entity_lot {
+    let id = &entity.entity_id;
+    let mut url = match entity.entity_lot {
         EntityLot::Genre => format!("media/genre/{id}"),
         EntityLot::Metadata => format!("media/item/{id}"),
         EntityLot::Collection => format!("collections/{id}"),
@@ -43,16 +43,15 @@ fn get_entity_details_frontend_url(
 }
 
 pub async fn get_users_and_cte_monitoring_entity(
-    entity_id: &String,
-    entity_lot: EntityLot,
+    entity: &EntityWithLot,
     ss: &Arc<SupportingService>,
 ) -> Result<Vec<(String, Uuid)>> {
     let all_entities = CollectionEntityMembership::find()
         .select_only()
         .column(collection_entity_membership::Column::UserId)
         .column(collection_entity_membership::Column::CollectionToEntityId)
-        .filter(collection_entity_membership::Column::EntityId.eq(entity_id))
-        .filter(collection_entity_membership::Column::EntityLot.eq(entity_lot))
+        .filter(collection_entity_membership::Column::EntityId.eq(&entity.entity_id))
+        .filter(collection_entity_membership::Column::EntityLot.eq(entity.entity_lot))
         .filter(
             collection_entity_membership::Column::CollectionName
                 .eq(DefaultCollection::Monitoring.to_string()),
@@ -64,17 +63,14 @@ pub async fn get_users_and_cte_monitoring_entity(
 }
 
 pub async fn get_users_monitoring_entity(
-    entity_id: &String,
-    entity_lot: EntityLot,
+    entity: &EntityWithLot,
     ss: &Arc<SupportingService>,
 ) -> Result<Vec<String>> {
-    Ok(
-        get_users_and_cte_monitoring_entity(entity_id, entity_lot, ss)
-            .await?
-            .into_iter()
-            .map(|(u, _)| u)
-            .collect_vec(),
-    )
+    Ok(get_users_and_cte_monitoring_entity(entity, ss)
+        .await?
+        .into_iter()
+        .map(|(u, _)| u)
+        .collect_vec())
 }
 
 async fn get_notification_message(
@@ -83,25 +79,23 @@ async fn get_notification_message(
 ) -> Result<String> {
     match change {
         UserNotificationContent::ReviewPosted {
-            entity_id,
+            entity,
             entity_title,
-            entity_lot,
             triggered_by_username,
         } => {
-            let url = get_entity_details_frontend_url(entity_id, entity_lot, Some("reviews"), ss);
+            let url = get_entity_details_frontend_url(&entity, Some("reviews"), ss);
             Ok(format!(
                 "New review posted for {} ({}, {}) by {}.",
-                entity_title, entity_lot, url, triggered_by_username
+                entity_title, entity.entity_lot, url, triggered_by_username
             ))
         }
         UserNotificationContent::MetadataPublished {
-            entity_id,
-            entity_lot,
+            entity,
             show_extra,
             entity_title,
             podcast_extra,
         } => {
-            let url = get_entity_details_frontend_url(entity_id, entity_lot, None, ss);
+            let url = get_entity_details_frontend_url(&entity, None, ss);
             Ok(if let Some((season, episode)) = show_extra {
                 format!(
                     "S{}E{} of {} ({}) has been released today.",
@@ -120,7 +114,14 @@ async fn get_notification_message(
             workout_id,
             workout_name,
         } => {
-            let url = get_entity_details_frontend_url(workout_id, EntityLot::Workout, None, ss);
+            let url = get_entity_details_frontend_url(
+                &EntityWithLot {
+                    entity_id: workout_id,
+                    entity_lot: EntityLot::Workout,
+                },
+                None,
+                ss,
+            );
             Ok(format!("New workout created - {} ({})", workout_name, url))
         }
         UserNotificationContent::OutdatedSeenEntries {
@@ -251,11 +252,10 @@ async fn get_notification_message(
             ))
         }
         UserNotificationContent::MetadataMovedFromCompletedToWatchlistCollection {
-            entity_id,
-            entity_lot,
+            entity,
             entity_title,
         } => {
-            let url = get_entity_details_frontend_url(entity_id, entity_lot, None, ss);
+            let url = get_entity_details_frontend_url(&entity, None, ss);
             Ok(format!(
                 "{} ({}) has been moved from the Completed to the Watchlist collection",
                 entity_title, url
@@ -322,8 +322,14 @@ pub async fn update_metadata_and_notify_users(
 ) -> Result<UpdateMediaEntityResult> {
     let result = update_metadata(metadata_id, ss).await?;
     if !result.notifications.is_empty() {
-        let users_to_notify =
-            get_users_and_cte_monitoring_entity(metadata_id, EntityLot::Metadata, ss).await?;
+        let users_to_notify = get_users_and_cte_monitoring_entity(
+            &EntityWithLot {
+                entity_id: metadata_id.clone(),
+                entity_lot: EntityLot::Metadata,
+            },
+            ss,
+        )
+        .await?;
         for notification in result.notifications.iter() {
             for (user_id, cte_id) in users_to_notify.iter() {
                 send_notification_for_user(user_id, ss, notification.clone())
@@ -339,13 +345,19 @@ pub async fn update_metadata_and_notify_users(
 }
 
 pub async fn update_person_and_notify_users(
-    person_id: &String,
+    person_id: &str,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
-    let result = update_person(person_id.clone(), ss).await?;
+    let result = update_person(person_id.to_owned(), ss).await?;
     if !result.notifications.is_empty() {
-        let users_to_notify =
-            get_users_and_cte_monitoring_entity(person_id, EntityLot::Person, ss).await?;
+        let users_to_notify = get_users_and_cte_monitoring_entity(
+            &EntityWithLot {
+                entity_lot: EntityLot::Person,
+                entity_id: person_id.to_owned(),
+            },
+            ss,
+        )
+        .await?;
         for notification in result.notifications.iter() {
             for (user_id, cte_id) in users_to_notify.iter() {
                 send_notification_for_user(user_id, ss, notification.clone())
@@ -366,9 +378,14 @@ pub async fn update_metadata_group_and_notify_users(
 ) -> Result<UpdateMediaEntityResult> {
     let result = update_metadata_group(metadata_group_id, ss).await?;
     if !result.notifications.is_empty() {
-        let users_to_notify =
-            get_users_and_cte_monitoring_entity(metadata_group_id, EntityLot::MetadataGroup, ss)
-                .await?;
+        let users_to_notify = get_users_and_cte_monitoring_entity(
+            &EntityWithLot {
+                entity_id: metadata_group_id.clone(),
+                entity_lot: EntityLot::MetadataGroup,
+            },
+            ss,
+        )
+        .await?;
         for notification in result.notifications.iter() {
             for (user_id, cte_id) in users_to_notify.iter() {
                 send_notification_for_user(user_id, ss, notification.clone())

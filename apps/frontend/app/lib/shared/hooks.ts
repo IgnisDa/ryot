@@ -525,7 +525,8 @@ export const useAddEntitiesToCollectionMutation = () => {
 			return input;
 		},
 		onSettled: (d) => {
-			for (const e of d?.entities || []) refreshEntityDetails(e.entityId);
+			for (const e of d?.entities || [])
+				refreshEntityDetails(e.entity.entityId);
 		},
 	});
 	return mutation;
@@ -541,7 +542,8 @@ export const useRemoveEntitiesFromCollectionMutation = () => {
 			return input;
 		},
 		onSettled: (d) => {
-			for (const e of d?.entities || []) refreshEntityDetails(e.entityId);
+			for (const e of d?.entities || [])
+				refreshEntityDetails(e.entity.entityId);
 		},
 	});
 	return mutation;

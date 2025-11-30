@@ -465,8 +465,7 @@ export type CreateOrUpdateCollectionInput = {
 export type CreateOrUpdateReviewInput = {
   animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   date?: InputMaybe<Scalars['DateTime']['input']>;
-  entityId: Scalars['String']['input'];
-  entityLot: EntityLot;
+  entity: EntityWithLotInput;
   isSpoiler?: InputMaybe<Scalars['Boolean']['input']>;
   mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
@@ -535,8 +534,7 @@ export type DailyUserActivityHourRecord = {
 
 export type DailyUserActivityHourRecordEntity = {
   __typename?: 'DailyUserActivityHourRecordEntity';
-  entityId: Scalars['String']['output'];
-  entityLot: EntityLot;
+  entity: EntityWithLot;
   metadataLot?: Maybe<MediaLot>;
 };
 
@@ -726,8 +724,7 @@ export enum EntityRemoteVideoSource {
 }
 
 export type EntityToCollectionInput = {
-  entityId: Scalars['String']['input'];
-  entityLot: EntityLot;
+  entity: EntityWithLotInput;
   information?: InputMaybe<Scalars['JSON']['input']>;
 };
 

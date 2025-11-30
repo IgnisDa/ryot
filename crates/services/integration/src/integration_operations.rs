@@ -2,9 +2,10 @@ use std::{collections::VecDeque, sync::Arc};
 
 use anyhow::Result;
 use chrono::Utc;
+use common_models::UserNotificationContent;
 use database_models::{integration, prelude::Integration};
 use dependent_notification_utils::send_notification_for_user;
-use enum_models::{IntegrationLot, IntegrationProvider, UserNotificationContent};
+use enum_models::{IntegrationLot, IntegrationProvider};
 use media_models::IntegrationTriggerResult;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
