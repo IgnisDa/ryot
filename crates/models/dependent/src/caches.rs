@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use common_models::{
-    ApplicationDateRange, EntityRecentlyConsumedCacheInput, EntityTranslationCacheInput,
+    ApplicationDateRange, EntityRecentlyConsumedCacheInput, EntityTranslationInput,
     FilterPresetQueryInput, MetadataGroupSearchInput, MetadataLookupCacheInput, PeopleSearchInput,
     UserAnalyticsInput, UserLevelCacheKey, YoutubeMusicSongListened,
 };
@@ -109,7 +109,7 @@ pub enum ApplicationCacheKey {
     YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
     UserWorkoutsList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     UserMetadataGroupsList(UserLevelCacheKey<UserMetadataGroupsListInput>),
-    EntityTranslationDetails(UserLevelCacheKey<EntityTranslationCacheInput>),
+    EntityTranslationDetails(UserLevelCacheKey<EntityTranslationInput>),
     EntityRecentlyConsumed(UserLevelCacheKey<EntityRecentlyConsumedCacheInput>),
     UserWorkoutTemplatesList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     MetadataProgressUpdateCompletedCache(UserLevelCacheKey<MetadataProgressUpdateCacheInput>),

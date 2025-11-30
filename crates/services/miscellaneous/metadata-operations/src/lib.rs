@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow, bail};
 use chrono::Datelike;
 use common_models::{
     ChangeCollectionToEntitiesInput, DefaultCollection, EntityAssets, EntityToCollectionInput,
-    EntityTranslationCacheInput, UserLevelCacheKey,
+    EntityTranslationInput, UserLevelCacheKey,
 };
 use common_utils::ryot_log;
 use database_models::{
@@ -686,24 +686,20 @@ pub async fn update_media_entity_translation(
 pub async fn entity_translation_details(
     ss: &Arc<SupportingService>,
     user_id: String,
-    entity_id: String,
-    entity_lot: EntityLot,
+    input: EntityTranslationInput,
 ) -> Result<CachedResponse<Vec<GraphqlEntityTranslationDetail>>> {
     cache_service::get_or_set_with_callback(
         ss,
         ApplicationCacheKey::EntityTranslationDetails(UserLevelCacheKey {
+            input: input.clone(),
             user_id: user_id.clone(),
-            input: EntityTranslationCacheInput {
-                entity_lot,
-                entity_id: entity_id.clone(),
-            },
         }),
         ApplicationCacheValue::EntityTranslationDetails,
         || async {
-            match entity_lot {
+            match input.entity_lot {
                 EntityLot::Metadata => {
                     let translations = EntityTranslation::find()
-                        .filter(entity_translation::Column::MetadataId.eq(&entity_id))
+                        .filter(entity_translation::Column::MetadataId.eq(&input.entity_id))
                         .all(&ss.db)
                         .await?
                         .into_iter()

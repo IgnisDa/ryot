@@ -3,7 +3,8 @@ use std::sync::Arc;
 use anyhow::{Result, bail};
 use background_models::{ApplicationJob, HpApplicationJob};
 use common_models::{
-    BackgroundJob, MetadataGroupSearchInput, PeopleSearchInput, SearchInput, StringIdObject,
+    BackgroundJob, EntityTranslationInput, MetadataGroupSearchInput, PeopleSearchInput,
+    SearchInput, StringIdObject,
 };
 use database_models::{prelude::User, user};
 use database_utils::admin_account_guard;
@@ -409,11 +410,10 @@ impl MiscellaneousService {
     pub async fn entity_translation_details(
         &self,
         user_id: String,
-        entity_id: String,
-        entity_lot: EntityLot,
+        input: EntityTranslationInput,
     ) -> Result<CachedResponse<Vec<GraphqlEntityTranslationDetail>>> {
         miscellaneous_metadata_operations_service::entity_translation_details(
-            &self.0, user_id, entity_id, entity_lot,
+            &self.0, user_id, input,
         )
         .await
     }

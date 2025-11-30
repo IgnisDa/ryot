@@ -1,5 +1,5 @@
 use async_graphql::{Context, Object, Result};
-use common_models::BackgroundJob;
+use common_models::{BackgroundJob, EntityTranslationInput};
 use dependent_models::{CachedResponse, CoreDetails};
 use enum_models::EntityLot;
 use media_models::GraphqlEntityTranslationDetail;
@@ -26,13 +26,10 @@ impl MiscellaneousSystemQueryResolver {
     async fn entity_translation_details(
         &self,
         gql_ctx: &Context<'_>,
-        entity_id: String,
-        entity_lot: EntityLot,
+        input: EntityTranslationInput,
     ) -> Result<CachedResponse<Vec<GraphqlEntityTranslationDetail>>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service
-            .entity_translation_details(user_id, entity_id, entity_lot)
-            .await?)
+        Ok(service.entity_translation_details(user_id, input).await?)
     }
 }
 
