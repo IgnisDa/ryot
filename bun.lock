@@ -307,6 +307,7 @@
       "name": "@ryot/contract",
       "dependencies": {
         "@effect/platform": "0.96.2",
+        "@ryot/query-engine": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "effect": "3.21.4",
       },
