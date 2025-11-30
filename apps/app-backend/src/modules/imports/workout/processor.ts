@@ -156,12 +156,13 @@ export const commitWorkoutItem = Effect.fn("imports.commitWorkoutItem")(function
 		});
 	}
 
-	return yield* input.events.createForImport(
-		input.user.id,
-		eventBody,
-		input.runId,
-		input.executionId,
-	);
+	return yield* input.events.create({
+		source: "import",
+		payload: eventBody,
+		userId: input.user.id,
+		executionId: input.executionId,
+		metadata: { importRunId: input.runId },
+	});
 });
 
 export type WorkoutImportContext = {

@@ -20,7 +20,9 @@ export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (han
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* EventsService;
-				return yield* service.create(user, payload).pipe(dieOnDbError);
+				return yield* service
+					.create({ userId: user.id, payload, source: "api" })
+					.pipe(dieOnDbError);
 			}),
 		),
 );
