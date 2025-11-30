@@ -4865,6 +4865,7 @@ dependencies = [
  "database-models",
  "dependent-models",
  "enum-models",
+ "media-models",
  "miscellaneous-service",
  "traits",
  "uuid",
