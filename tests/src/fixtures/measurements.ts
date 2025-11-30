@@ -15,7 +15,7 @@ export async function createMeasurementEntityFixture(client: Client, cookies: st
 		entitySchemaId: measurementSchema.id,
 		properties: {
 			recordedAt: "2026-04-27T08:00:00Z",
-			statistics: [{ key: "weight", label: "Weight", value: 75.5, unit: "kg" }],
+			statistics: [{ key: "weight", label: "Weight", value: 75.5 }],
 		},
 	});
 
