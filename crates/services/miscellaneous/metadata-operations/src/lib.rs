@@ -611,7 +611,7 @@ pub async fn handle_metadata_eligible_for_smart_collection_moving(
     Ok(())
 }
 
-pub async fn get_entity_translations(
+pub async fn get_or_fetch_entity_translations(
     ss: &Arc<SupportingService>,
     user_id: &String,
     input: EntityWithLot,

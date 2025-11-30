@@ -208,13 +208,15 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    pub async fn get_entity_translations(
+    pub async fn get_or_fetch_entity_translations(
         &self,
         user_id: String,
         input: EntityWithLot,
     ) -> Result<Vec<entity_translation::Model>> {
-        miscellaneous_metadata_operations_service::get_entity_translations(&self.0, &user_id, input)
-            .await
+        miscellaneous_metadata_operations_service::get_or_fetch_entity_translations(
+            &self.0, &user_id, input,
+        )
+        .await
     }
 
     pub async fn merge_metadata(

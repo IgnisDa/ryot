@@ -53,13 +53,15 @@ impl MiscellaneousSystemMutationResolver {
 
     /// Get entity translations. If translations don't exist for the user's
     /// preferred language, they will be fetched from the provider and saved.
-    async fn get_entity_translations(
+    async fn get_or_fetch_entity_translations(
         &self,
         gql_ctx: &Context<'_>,
         input: EntityWithLot,
     ) -> Result<Vec<entity_translation::Model>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.get_entity_translations(user_id, input).await?)
+        Ok(service
+            .get_or_fetch_entity_translations(user_id, input)
+            .await?)
     }
 
     /// Start a background job.
