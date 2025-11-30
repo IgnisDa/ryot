@@ -460,9 +460,7 @@ sources before porting every adapter.
 
 ## Tasks
 
-**Overall Progress:** 11 of 12 tasks completed
-
-**Current Task:** [Task 12](./12-codebase-cleanup.md) (todo)
+**Overall Progress:** 12 of 12 tasks completed
 
 ### Task List
 
@@ -479,4 +477,4 @@ sources before porting every adapter.
 | 09  | [File-Based Media Source Adapters](./09-file-based-media-source-adapters.md)           | AFK  | done   |
 | 10  | [API Media Source Adapters](./10-api-media-source-adapters.md)                         | AFK  | done   |
 | 11  | [Netflix ZIP Import Adapter](./11-netflix-zip-import-adapter.md)                       | AFK  | done   |
-| 12  | [Codebase Cleanup](./12-codebase-cleanup.md)                                           | AFK  | todo   |
+| 12  | [Codebase Cleanup](./12-codebase-cleanup.md)                                           | AFK  | done   |
