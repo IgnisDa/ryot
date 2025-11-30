@@ -54,16 +54,14 @@ const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
 	makeMock<EntitiesRepository>(
 		{
 			_tag: "EntitiesRepository" as const,
-			createEntity: () => Effect.die("unused"),
+			saveEntity: () => Effect.die("unused"),
 			getByIdForUser: () => Effect.die("unused"),
-			getEntityScopeById: () => Effect.die("unused"),
 			insertRelationship: () => Effect.die("unused"),
 			upsertRelationship: () => Effect.die("unused"),
 			findEntitySchemaById: () => Effect.die("unused"),
 			getEntityScopeForUser: () => Effect.die("unused"),
 			upsertEntityRelationship: () => Effect.die("unused"),
 			deleteUserEventsForEntity: () => Effect.die("unused"),
-			createOrUpdateGlobalEntity: () => Effect.die("unused"),
 			findRelationshipProperties: () => Effect.die("unused"),
 			listMatchCandidatesBySchema: () => Effect.die("unused"),
 			getEntitySchemaScopeForUser: () => Effect.die("unused"),
