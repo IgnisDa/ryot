@@ -19,7 +19,8 @@ import {
 	createShowReviewPropertiesSchema,
 	createWorkoutSetPropertiesSchema,
 } from "~/lib/test-fixtures/property-schemas";
-import type { CreateEventBody, EventServiceDeps, ListedEvent } from "~/modules/events";
+import type { CreateEventBody, ListedEvent } from "~/modules/events";
+import type { EventServiceDeps } from "~/modules/events/service";
 
 const listedEventDefaults: ListedEvent = {
 	id: "event_1",

@@ -58,7 +58,7 @@ export const normalizeSourceApiUrl = (value: string): string => {
 export const getSourceApiHost = (value: string): string =>
 	new URL(normalizeSourceApiUrl(value)).host;
 
-export const buildSourceApiUrl = (input: {
+const buildSourceApiUrl = (input: {
 	path: string;
 	baseUrl: string;
 	query?: Record<string, SourceQueryValue>;
@@ -73,7 +73,7 @@ export const buildSourceApiUrl = (input: {
 	return url;
 };
 
-export const getImportSourceFailureContext = (
+const getImportSourceFailureContext = (
 	error: unknown,
 	fallback: Record<string, unknown> = {},
 ): Record<string, unknown> => {
