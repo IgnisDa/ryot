@@ -4700,6 +4700,7 @@ name = "miscellaneous-metadata-operations-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cache-service",
  "chrono",
  "common-models",
  "common-utils",
@@ -4708,6 +4709,7 @@ dependencies = [
  "dependent-collection-utils",
  "dependent-details-utils",
  "dependent-entity-utils",
+ "dependent-models",
  "dependent-notification-utils",
  "dependent-provider-utils",
  "dependent-seen-utils",
@@ -4862,6 +4864,7 @@ dependencies = [
  "common-models",
  "dependent-models",
  "enum-models",
+ "media-models",
  "miscellaneous-service",
  "traits",
  "uuid",

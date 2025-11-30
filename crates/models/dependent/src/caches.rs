@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 
 use common_models::{
-    ApplicationDateRange, EntityRecentlyConsumedCacheInput, FilterPresetQueryInput,
-    MetadataGroupSearchInput, MetadataLookupCacheInput, PeopleSearchInput, UserAnalyticsInput,
-    UserLevelCacheKey, YoutubeMusicSongListened,
+    ApplicationDateRange, EntityRecentlyConsumedCacheInput, EntityTranslationCacheInput,
+    FilterPresetQueryInput, MetadataGroupSearchInput, MetadataLookupCacheInput, PeopleSearchInput,
+    UserAnalyticsInput, UserLevelCacheKey, YoutubeMusicSongListened,
 };
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
-    GenreDetailsInput, GraphqlMetadataDetails, MetadataLookupResponse,
-    MetadataProgressUpdateCacheInput, TmdbMetadataLookupResult,
+    GenreDetailsInput, GraphqlEntityTranslationDetail, GraphqlMetadataDetails,
+    MetadataLookupResponse, MetadataProgressUpdateCacheInput, TmdbMetadataLookupResult,
 };
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
@@ -109,6 +109,7 @@ pub enum ApplicationCacheKey {
     YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
     UserWorkoutsList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     UserMetadataGroupsList(UserLevelCacheKey<UserMetadataGroupsListInput>),
+    EntityTranslationDetails(UserLevelCacheKey<EntityTranslationCacheInput>),
     EntityRecentlyConsumed(UserLevelCacheKey<EntityRecentlyConsumedCacheInput>),
     UserWorkoutTemplatesList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     MetadataProgressUpdateCompletedCache(UserLevelCacheKey<MetadataProgressUpdateCacheInput>),
@@ -121,6 +122,7 @@ pub type YoutubeMusicSongListenedResponse = bool;
 pub type ApplicationRecommendations = Vec<String>;
 pub type TrendingMetadataIdsResponse = Vec<String>;
 pub type ListennotesSettings = HashMap<i32, String>;
+pub type EntityTranslationDetailsResponse = Vec<GraphqlEntityTranslationDetail>;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {
@@ -163,6 +165,7 @@ pub enum ApplicationCacheValue {
     UserCollectionContents(Box<CollectionContentsResponse>),
     UserMetadataGroupDetails(Box<UserMetadataGroupDetails>),
     UserPasswordChangeSession(UserPasswordChangeSessionValue),
+    EntityTranslationDetails(EntityTranslationDetailsResponse),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
     UserMetadataRecommendationsSet(ApplicationRecommendations),
     UserWorkoutTemplateDetails(Box<UserWorkoutTemplateDetails>),

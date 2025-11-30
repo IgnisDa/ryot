@@ -31,9 +31,9 @@ use dependent_review_utils::post_review;
 use enum_models::EntityLot;
 use media_models::{
     CreateOrUpdateReviewInput, CreateReviewCommentInput, GenreDetailsInput, GraphqlCalendarEvent,
-    GraphqlMetadataDetails, GroupedCalendarEvent, MarkEntityAsPartialInput, MetadataLookupResponse,
-    MetadataProgressUpdateInput, ReviewPostedEvent, UpdateSeenItemInput, UserCalendarEventInput,
-    UserUpcomingCalendarEventInput,
+    GraphqlEntityTranslationDetail, GraphqlMetadataDetails, GroupedCalendarEvent,
+    MarkEntityAsPartialInput, MetadataLookupResponse, MetadataProgressUpdateInput,
+    ReviewPostedEvent, UpdateSeenItemInput, UserCalendarEventInput, UserUpcomingCalendarEventInput,
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc, prelude::Expr};
 use supporting_service::SupportingService;
@@ -404,6 +404,18 @@ impl MiscellaneousService {
 
     pub async fn perform_background_jobs(&self) -> Result<()> {
         miscellaneous_background_service::perform_background_jobs(&self.0).await
+    }
+
+    pub async fn entity_translation_details(
+        &self,
+        user_id: String,
+        entity_id: String,
+        entity_lot: EntityLot,
+    ) -> Result<CachedResponse<Vec<GraphqlEntityTranslationDetail>>> {
+        miscellaneous_metadata_operations_service::entity_translation_details(
+            &self.0, user_id, entity_id, entity_lot,
+        )
+        .await
     }
 
     pub async fn metadata_lookup(

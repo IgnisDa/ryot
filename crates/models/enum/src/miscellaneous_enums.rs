@@ -42,6 +42,7 @@ pub enum FilterPresetContextType {
     Enum,
     Debug,
     Clone,
+    Default,
     Display,
     EnumIter,
     PartialEq,
@@ -56,6 +57,7 @@ pub enum FilterPresetContextType {
     db_type = "String(StringLen::None)"
 )]
 pub enum EntityTranslationVariant {
+    #[default]
     Title,
     Description,
 }

@@ -1,7 +1,8 @@
 use async_graphql::{Context, Object, Result};
 use common_models::BackgroundJob;
-use dependent_models::CoreDetails;
+use dependent_models::{CachedResponse, CoreDetails};
 use enum_models::EntityLot;
+use media_models::GraphqlEntityTranslationDetail;
 use miscellaneous_service::MiscellaneousService;
 use traits::{AuthProvider, GraphqlResolverSvc};
 use uuid::Uuid;
@@ -19,6 +20,19 @@ impl MiscellaneousSystemQueryResolver {
     async fn core_details(&self, gql_ctx: &Context<'_>) -> Result<CoreDetails> {
         let service = self.svc(gql_ctx);
         Ok(service.core_details().await?)
+    }
+
+    /// Get the translations of an entity using the user's preferred language.
+    async fn entity_translation_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        entity_id: String,
+        entity_lot: EntityLot,
+    ) -> Result<CachedResponse<Vec<GraphqlEntityTranslationDetail>>> {
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
+        Ok(service
+            .entity_translation_details(user_id, entity_id, entity_lot)
+            .await?)
     }
 }
 

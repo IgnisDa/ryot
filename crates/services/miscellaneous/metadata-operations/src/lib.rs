@@ -4,6 +4,7 @@ use anyhow::{Result, anyhow, bail};
 use chrono::Datelike;
 use common_models::{
     ChangeCollectionToEntitiesInput, DefaultCollection, EntityAssets, EntityToCollectionInput,
+    EntityTranslationCacheInput, UserLevelCacheKey,
 };
 use common_utils::ryot_log;
 use database_models::{
@@ -22,6 +23,7 @@ use dependent_details_utils::metadata_details;
 use dependent_entity_utils::{
     change_metadata_associations, insert_metadata_group_links, insert_metadata_person_links,
 };
+use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, CachedResponse};
 use dependent_notification_utils::send_notification_for_user;
 use dependent_provider_utils::get_metadata_provider;
 use dependent_seen_utils::is_metadata_finished_by_user;
@@ -35,8 +37,8 @@ use enum_models::{
 };
 use futures::try_join;
 use media_models::{
-    CreateCustomMetadataGroupInput, CreateCustomMetadataInput, UpdateCustomMetadataGroupInput,
-    UpdateCustomMetadataInput, UpdateCustomPersonInput,
+    CreateCustomMetadataGroupInput, CreateCustomMetadataInput, GraphqlEntityTranslationDetail,
+    UpdateCustomMetadataGroupInput, UpdateCustomMetadataInput, UpdateCustomPersonInput,
 };
 use nanoid::nanoid;
 use sea_orm::{
@@ -610,29 +612,39 @@ pub async fn handle_metadata_eligible_for_smart_collection_moving(
     Ok(())
 }
 
+async fn get_preferred_language_for_user_and_source(
+    ss: &Arc<SupportingService>,
+    user_id: &String,
+    source: &MediaSource,
+) -> Result<String> {
+    let user_preferences = user_by_id(user_id, ss).await?.preferences;
+    let Some(UserProviderLanguagePreferences {
+        preferred_language, ..
+    }) = user_preferences
+        .languages
+        .providers
+        .into_iter()
+        .find(|lang| lang.source == *source)
+    else {
+        bail!("No preferred language found for source {}", source);
+    };
+    Ok(preferred_language)
+}
+
 pub async fn update_media_entity_translation(
     ss: &Arc<SupportingService>,
     user_id: &String,
     entity_id: String,
     entity_lot: EntityLot,
 ) -> Result<()> {
-    let user_preferences = user_by_id(&user_id, ss).await?.preferences;
     match entity_lot {
         EntityLot::Metadata => {
             let meta = Metadata::find_by_id(&entity_id)
                 .one(&ss.db)
                 .await?
                 .ok_or_else(|| anyhow!("Metadata not found"))?;
-            let Some(UserProviderLanguagePreferences {
-                preferred_language, ..
-            }) = user_preferences
-                .languages
-                .providers
-                .into_iter()
-                .find(|lang| lang.source == meta.source)
-            else {
-                bail!("No preferred language found for source {}", meta.source);
-            };
+            let preferred_language =
+                get_preferred_language_for_user_and_source(ss, user_id, &meta.source).await?;
             // TODO: https://github.com/SeaQL/sea-orm/discussions/730#discussioncomment-13440496
             if let Some(_existing) = EntityTranslation::find()
                 .filter(entity_translation::Column::Language.eq(&preferred_language))
@@ -666,7 +678,45 @@ pub async fn update_media_entity_translation(
                     .await?;
             }
         }
-        _ => {}
+        _ => unreachable!(),
     };
     Ok(())
+}
+
+pub async fn entity_translation_details(
+    ss: &Arc<SupportingService>,
+    user_id: String,
+    entity_id: String,
+    entity_lot: EntityLot,
+) -> Result<CachedResponse<Vec<GraphqlEntityTranslationDetail>>> {
+    cache_service::get_or_set_with_callback(
+        ss,
+        ApplicationCacheKey::EntityTranslationDetails(UserLevelCacheKey {
+            user_id: user_id.clone(),
+            input: EntityTranslationCacheInput {
+                entity_lot,
+                entity_id: entity_id.clone(),
+            },
+        }),
+        ApplicationCacheValue::EntityTranslationDetails,
+        || async {
+            match entity_lot {
+                EntityLot::Metadata => {
+                    let translations = EntityTranslation::find()
+                        .filter(entity_translation::Column::MetadataId.eq(&entity_id))
+                        .all(&ss.db)
+                        .await?
+                        .into_iter()
+                        .map(|trn| GraphqlEntityTranslationDetail {
+                            value: trn.value,
+                            variant: trn.variant,
+                        })
+                        .collect::<Vec<_>>();
+                    Ok(translations)
+                }
+                _ => unreachable!(),
+            }
+        },
+    )
+    .await
 }

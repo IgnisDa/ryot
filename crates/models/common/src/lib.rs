@@ -442,6 +442,13 @@ pub struct EntityRecentlyConsumedCacheInput {
 
 #[skip_serializing_none]
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EntityTranslationCacheInput {
+    pub entity_id: String,
+    pub entity_lot: EntityLot,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MetadataLookupCacheInput {
     pub title: String,
     pub language: Option<String>,
