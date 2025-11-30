@@ -8,6 +8,7 @@ import { ListedImportRun } from "../imports/schemas";
 import {
 	CreateIntegrationBody,
 	IntegrationProvider,
+	IntegrationWebhookPayload,
 	ListedIntegration,
 	UpdateIntegrationBody,
 } from "./schemas";
@@ -56,6 +57,7 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 	.middlewareEndpoints(AuthMiddleware)
 	.add(
 		HttpApiEndpoint.post("webhook")`/webhooks/integrations/${integrationIdParam}`
+			.setPayload(IntegrationWebhookPayload)
 			.addSuccess(Schema.Struct({ runId: ImportRunId }), { status: 202 })
 			.addError(NotFound, { status: 404 }),
 	);

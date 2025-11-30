@@ -11,6 +11,7 @@ import { GodModeGroup } from "./modules/god-mode/contract";
 import { ImportsGroup } from "./modules/imports/contract";
 import { IntegrationsGroup } from "./modules/integrations/contract";
 import { EntityImportGroup } from "./modules/library-membership/contract";
+import { MetadataLookupGroup } from "./modules/metadata-lookup/contract";
 import { QueryEngineGroup } from "./modules/query-engine/contract";
 import { RelationshipSchemasGroup } from "./modules/relationship-schemas/contract";
 import { RelationshipsGroup } from "./modules/relationships/contract";
@@ -42,6 +43,7 @@ export const AppContract = HttpApi.make("ryot")
 	.add(GodModeGroup)
 	.add(ImportsGroup)
 	.add(IntegrationsGroup)
+	.add(MetadataLookupGroup)
 	.add(QueryEngineGroup)
 	.add(InterestGroup)
 	.annotate(OpenApi.Title, "Ryot API")

@@ -5,9 +5,13 @@ import type {
 	CreateIntegrationBody,
 	IntegrationExtraSettings,
 	IntegrationProviderSpecifics,
+	IntegrationWebhookPayload,
 	UpdateIntegrationBody,
 } from "@ryot/contract/modules/integrations/schemas";
-import { IntegrationProviderSpecifics as IntegrationProviderSpecificsSchema } from "@ryot/contract/modules/integrations/schemas";
+import {
+	IntegrationProviderSpecifics as IntegrationProviderSpecificsSchema,
+	IntegrationWebhookPayload as IntegrationWebhookPayloadSchema,
+} from "@ryot/contract/modules/integrations/schemas";
 import { providerLotByProvider } from "@ryot/contract/modules/integrations/types";
 import type { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Either, Schema } from "effect";
@@ -23,6 +27,9 @@ const defaultExtraSettings = {
 } satisfies IntegrationExtraSettings;
 
 const decodeIntegrationProviderSpecifics = Schema.decodeUnknown(IntegrationProviderSpecificsSchema);
+const encodeIntegrationWebhookPayload = Schema.encode(
+	Schema.parseJson(IntegrationWebhookPayloadSchema),
+);
 
 const buildIntegrationInputSummary = (
 	integration: Pick<IntegrationRecord, "id" | "lot" | "name" | "provider">,
@@ -217,11 +224,10 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 			});
 
 			const handleWebhook = Effect.fn("IntegrationsService.handleWebhook")(function* (input: {
-				rawBody?: string;
-				contentType?: string;
+				payload: IntegrationWebhookPayload;
 				integrationId: IntegrationId;
 			}) {
-				const { integrationId, rawBody, contentType } = input;
+				const { integrationId, payload } = input;
 				const integration = yield* runWithDb(repository.getByIdAnyUser({ integrationId }));
 				if (!integration) {
 					return yield* notFound("Integration not found");
@@ -250,6 +256,8 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 					return { runId: run.id };
 				}
 
+				const rawBody = yield* encodeIntegrationWebhookPayload(payload).pipe(Effect.orDie);
+
 				const started = yield* engine
 					.execute(ProcessIntegrationRunWorkflow, {
 						discard: true,
@@ -258,8 +266,8 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 							runId: run.id,
 							userId: integration.userId,
 							integrationId: integration.id,
-							...(rawBody !== undefined ? { rawBody } : {}),
-							...(contentType !== undefined ? { contentType } : {}),
+							contentType: "application/json",
+							rawBody,
 						},
 					})
 					.pipe(Effect.either);

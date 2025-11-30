@@ -14,13 +14,13 @@ import {
 	listEventsForEntity,
 	listIntegrations,
 	postIntegrationWebhook,
-	postWebhook,
 	pollImportRunUntilTerminal,
 	seedGlobalShowEpisodeTree,
 	updateUserPreferences,
 	waitForEventSlugs,
 	waitForEventWithSchema,
 } from "../fixtures";
+import { getBackendUrl } from "../setup";
 import { assertTaggedError, requirePresent } from "../test-support/assertions";
 
 const kodiPayload = { identifier: "tt1234567", lot: "movie", progress: 50 };
@@ -115,16 +115,40 @@ describe("Integration CRUD", () => {
 		expect(requirePresent(enabled[0], "Expected enabled integration").isDisabled).toBe(false);
 	});
 
-	it("GET by id returns full providerSpecifics and webhookUrl for Sink providers", async () => {
+	it("GET by id returns /_i webhookUrl for all Sink providers", async () => {
 		const { client } = await createAuthenticatedClient();
+		const integrations = [
+			await createKodiIntegration(client),
+			await createIntegration(client, {
+				provider: "emby",
+				providerSpecifics: { kind: "emby" },
+			}),
+			await createIntegration(client, {
+				provider: "plex_sink",
+				providerSpecifics: { kind: "plex_sink" },
+			}),
+			await createIntegration(client, {
+				provider: "generic_json",
+				providerSpecifics: { kind: "generic_json" },
+			}),
+			await createIntegration(client, {
+				provider: "jellyfin_sink",
+				providerSpecifics: { kind: "jellyfin_sink" },
+			}),
+			await createIntegration(client, {
+				provider: "ryot_browser_extension",
+				providerSpecifics: { kind: "ryot_browser_extension" },
+			}),
+		];
 
-		const { id } = await createKodiIntegration(client);
-		const integration = await getIntegration(client, id);
+		for (const created of integrations) {
+			const integration = await getIntegration(client, created.id);
 
-		expect(integration.id).toBe(IntegrationId.make(id));
-		expect(integration.providerSpecifics).toMatchObject({ kind: "kodi" });
-		expect(integration.webhookUrl).toBeDefined();
-		expect(integration.webhookUrl).toContain(`/_i/${id}`);
+			expect(integration.id).toBe(IntegrationId.make(created.id));
+			expect(integration.webhookUrl).toBeDefined();
+			expect(integration.webhookUrl).toContain(`/_i/${created.id}`);
+			expect(integration.webhookUrl).not.toContain("/api/webhooks/integrations/");
+		}
 	});
 
 	it("GET by id returns no webhookUrl for Yank providers", async () => {
@@ -190,38 +214,45 @@ describe("Integration CRUD", () => {
 });
 
 describe("Webhook routes", () => {
-	it("POST /_i/{unknownId} returns 404", async () => {
-		const { response } = await postWebhook("nonexistent-id-abc123");
-		expect(response.status).toBe(404);
-	});
-
-	it("POST /api/webhooks/integrations/{unknownId} returns 404", async () => {
+	it("POST /api/webhooks/integrations/{unknownId} returns NotFound", async () => {
 		const { client } = await createAuthenticatedClient();
-		const { response } = await postIntegrationWebhook(client, "nonexistent-id-abc123", {});
-		expect(response.status).toBe(404);
+
+		const error = await client.runError((c) =>
+			c.integrations.webhook({
+				payload: {},
+				path: { integrationId: IntegrationId.make("nonexistent-id-abc123") },
+			}),
+		);
+
+		assertTaggedError(error, "NotFound");
 	});
 
-	it("POST /_i/{validKodiIntegrationId} returns 202 with runId", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { id } = await createKodiIntegration(client);
-
-		const { response, data } = await postWebhook(id, kodiPayload);
-
-		expect(response.status).toBe(202);
-		expect(data?.runId).toBeDefined();
-	});
-
-	it("POST /api/webhooks/integrations/{validKodiIntegrationId} returns 202 with runId", async () => {
+	it("POST /api/webhooks/integrations/{validKodiIntegrationId} creates a run", async () => {
 		const { client } = await createAuthenticatedClient();
 		const { id } = await createKodiIntegration(client);
 
-		const { response, data } = await postIntegrationWebhook(client, id, kodiPayload);
+		const data = await postIntegrationWebhook(client, id, kodiPayload);
 
-		expect(response.status).toBe(202);
-		expect(data?.runId).toBeDefined();
+		expect(data.runId).toBeDefined();
 	});
 
-	it("POST /_i/{validKodiIntegrationId} attaches show progress to the resolved episode", async () => {
+	it("POST /_i/{validKodiIntegrationId} creates a run from a JSON payload", async () => {
+		const { client } = await createAuthenticatedClient();
+		const { id } = await createKodiIntegration(client);
+		const backendRootUrl = getBackendUrl().replace(/\/api$/, "");
+
+		const response = await fetch(`${backendRootUrl}/_i/${id}`, {
+			method: "POST",
+			body: JSON.stringify(kodiPayload),
+			headers: { "Content-Type": "application/json" },
+		});
+		const data = (await response.json()) as { runId?: string };
+
+		expect(response.status).toBe(202);
+		expect(data.runId).toBeDefined();
+	});
+
+	it("POST /api/webhooks/integrations/{validKodiIntegrationId} attaches show progress to the resolved episode", async () => {
 		const { client } = await createAuthenticatedClient();
 		const { id } = await createKodiIntegration(client);
 
@@ -229,16 +260,15 @@ describe("Webhook routes", () => {
 			showName: "Live Sink Test Show",
 		});
 
-		const { response, data } = await postWebhook(id, {
+		const data = await postIntegrationWebhook(client, id, {
 			lot: "show",
 			progress: 45,
 			identifier: tmdbId,
-			show_episode_number: 2,
 			show_season_number: 1,
+			show_episode_number: 2,
 		});
 
-		expect(response.status).toBe(202);
-		const runId = requirePresent(data?.runId, "Expected runId from webhook");
+		const runId = requirePresent(data.runId, "Expected runId from webhook");
 		const completedRun = await pollImportRunUntilTerminal(client, runId);
 
 		expect(completedRun.status).toBe("completed");
@@ -248,6 +278,7 @@ describe("Webhook routes", () => {
 		const showEvents = await listEventSlugs(client, showId);
 		expect(showEvents).not.toContain("progress");
 		expect(episodeEvents).toContain("progress");
+	});
 
 	it("POST to a disabled integration returns 202 with a failed run", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -260,10 +291,9 @@ describe("Webhook routes", () => {
 			}),
 		);
 
-		const { response, data } = await postWebhook(id, kodiPayload);
+		const data = await postIntegrationWebhook(client, id, kodiPayload);
 
-		expect(response.status).toBe(202);
-		const runId = requirePresent(data?.runId, "Expected runId from webhook");
+		const runId = requirePresent(data.runId, "Expected runId from webhook");
 
 		const run = await getImportRun(client, runId);
 		expect(run.status).toBe("failed");
@@ -275,22 +305,26 @@ describe("Webhook routes", () => {
 
 		await updateUserPreferences(client, { disableIntegrations: true });
 
-		const { response, data } = await postWebhook(id, kodiPayload);
+		const data = await postIntegrationWebhook(client, id, kodiPayload);
 
-		expect(response.status).toBe(202);
-		const runId = requirePresent(data?.runId, "Expected runId from webhook");
+		const runId = requirePresent(data.runId, "Expected runId from webhook");
 
 		const run = await getImportRun(client, runId);
 		expect(run.status).toBe("failed");
 	});
 
-	it("POST to a non-Sink integration returns 400", async () => {
+	it("POST to a non-Sink integration returns BadRequest", async () => {
 		const { client } = await createAuthenticatedClient();
 		const { id } = await createAudiobookshelfIntegration(client);
 
-		const { response } = await postWebhook(id, {});
+		const error = await client.runError((c) =>
+			c.integrations.webhook({
+				payload: {},
+				path: { integrationId: IntegrationId.make(id) },
+			}),
+		);
 
-		expect(response.status).toBe(400);
+		assertTaggedError(error, "BadRequest");
 	});
 });
 
@@ -307,7 +341,7 @@ describe("Progress normalization", () => {
 			showName: "Progress Clamp Test Show",
 		});
 
-		const { response, data } = await postWebhook(id, {
+		const data = await postIntegrationWebhook(client, id, {
 			lot: "show",
 			progress: 97,
 			identifier: tmdbId,
@@ -315,8 +349,7 @@ describe("Progress normalization", () => {
 			show_episode_number: 2,
 		});
 
-		expect(response.status).toBe(202);
-		const runId = requirePresent(data?.runId, "Expected runId from webhook");
+		const runId = requirePresent(data.runId, "Expected runId from webhook");
 		const completedRun = await pollImportRunUntilTerminal(client, runId);
 
 		expect(completedRun.status).toBe("completed");
@@ -337,6 +370,7 @@ describe("Progress normalization", () => {
 		// fill, not just the progress event's own occurredAt.
 		const completeEvent = await waitForEventWithSchema(client, episodeId, "complete");
 		expect(completeEvent.properties).toMatchObject({ completedOn: progressEvent.occurredAt });
+	});
 
 	it("filters out progress below the integration's minimum threshold without failing the run", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -350,28 +384,26 @@ describe("Progress normalization", () => {
 			showName: "Progress Filter Test Show",
 		});
 
-		const { response: firstResponse, data: firstData } = await postWebhook(id, {
+		const firstData = await postIntegrationWebhook(client, id, {
 			lot: "show",
 			progress: 5,
 			identifier: tmdbId,
 			show_season_number: 1,
 			show_episode_number: 2,
 		});
-		expect(firstResponse.status).toBe(202);
-		const firstRunId = requirePresent(firstData?.runId, "Expected runId from webhook");
+		const firstRunId = requirePresent(firstData.runId, "Expected runId from webhook");
 		const firstRun = await pollImportRunUntilTerminal(client, firstRunId);
 		expect(firstRun.status).toBe("completed");
 		expect(firstRun.failedItems).toBe(0);
 
-		const { response: secondResponse, data: secondData } = await postWebhook(id, {
+		const secondData = await postIntegrationWebhook(client, id, {
 			lot: "show",
 			progress: 50,
 			identifier: tmdbId,
 			show_season_number: 1,
 			show_episode_number: 2,
 		});
-		expect(secondResponse.status).toBe(202);
-		const secondRunId = requirePresent(secondData?.runId, "Expected runId from webhook");
+		const secondRunId = requirePresent(secondData.runId, "Expected runId from webhook");
 		const secondRun = await pollImportRunUntilTerminal(client, secondRunId);
 		expect(secondRun.status).toBe("completed");
 		expect(secondRun.failedItems).toBe(0);
@@ -385,6 +417,7 @@ describe("Progress normalization", () => {
 		expect(requirePresent(progressEvents[0], "Expected progress event").properties).toMatchObject({
 			progressPercent: 50,
 		});
+	});
 });
 
 describe("Import run visibility", () => {
@@ -392,8 +425,8 @@ describe("Import run visibility", () => {
 		const { client } = await createAuthenticatedClient();
 		const { id: integrationId } = await createKodiIntegration(client);
 
-		const { data: webhookData } = await postWebhook(integrationId, kodiPayload);
-		const runId = requirePresent(webhookData?.runId, "Expected runId from webhook");
+		const webhookData = await postIntegrationWebhook(client, integrationId, kodiPayload);
+		const runId = requirePresent(webhookData.runId, "Expected runId from webhook");
 
 		const allRuns = await client.run((c) => c.imports.listRuns());
 		expect(allRuns.find((r) => r.id === runId)).toBeUndefined();

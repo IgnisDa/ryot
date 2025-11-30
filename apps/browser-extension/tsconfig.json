@@ -1,16 +1,10 @@
 {
 	"extends": "./.wxt/tsconfig.json",
 	"compilerOptions": {
-		"baseUrl": ".",
 		"strict": true,
 		"noEmit": true,
 		"outDir": "dist",
 		"jsx": "react-jsx",
-		"allowImportingTsExtensions": true,
-		"paths": {
-			"@ryot/graphql/*": ["../../libs/graphql/src/*"],
-			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"],
-			"@ryot/generated/*": ["../../libs/generated/src/*"]
-		}
+		"allowImportingTsExtensions": true
 	}
 }

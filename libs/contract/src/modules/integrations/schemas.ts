@@ -149,3 +149,26 @@ export const UpdateIntegrationBody = Schema.Struct({
 });
 
 export type UpdateIntegrationBody = typeof UpdateIntegrationBody.Type;
+
+export type IntegrationWebhookPayload =
+	| null
+	| string
+	| number
+	| boolean
+	| ReadonlyArray<IntegrationWebhookPayload>
+	| { readonly [key: string]: IntegrationWebhookPayload };
+
+export const IntegrationWebhookPayload: Schema.Schema<IntegrationWebhookPayload> = Schema.suspend(
+	() =>
+		Schema.Union(
+			Schema.Null,
+			Schema.String,
+			Schema.Number,
+			Schema.Boolean,
+			Schema.Array(IntegrationWebhookPayload),
+			Schema.Record({ key: Schema.String, value: IntegrationWebhookPayload }),
+		),
+).annotations({
+	title: "Integration Webhook Payload",
+	identifier: "IntegrationWebhookPayload",
+});
