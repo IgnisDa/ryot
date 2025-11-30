@@ -32,8 +32,8 @@ export const filterExpressionSchema = z.discriminatedUnion("op", [
 export type FilterExpression = z.infer<typeof filterExpressionSchema>;
 
 export const sortDefinitionSchema = z.object({
-	field: z.array(z.string()),
 	direction: z.enum(["asc", "desc"]),
+	field: z.array(z.string()).min(1, "Sort field is required"),
 });
 
 export type GridConfig = z.infer<typeof gridConfigSchema>;
