@@ -208,16 +208,13 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    pub async fn update_media_entity_translation(
+    pub async fn get_entity_translations(
         &self,
         user_id: String,
         input: EntityWithLot,
-    ) -> Result<bool> {
-        miscellaneous_metadata_operations_service::update_media_entity_translation(
-            &self.0, &user_id, input,
-        )
-        .await?;
-        Ok(true)
+    ) -> Result<Vec<entity_translation::Model>> {
+        miscellaneous_metadata_operations_service::get_entity_translations(&self.0, &user_id, input)
+            .await
     }
 
     pub async fn merge_metadata(
@@ -399,17 +396,6 @@ impl MiscellaneousService {
 
     pub async fn perform_background_jobs(&self) -> Result<()> {
         miscellaneous_background_service::perform_background_jobs(&self.0).await
-    }
-
-    pub async fn entity_translation_details(
-        &self,
-        user_id: String,
-        input: EntityWithLot,
-    ) -> Result<CachedResponse<Vec<entity_translation::Model>>> {
-        miscellaneous_metadata_operations_service::entity_translation_details(
-            &self.0, user_id, input,
-        )
-        .await
     }
 
     pub async fn metadata_lookup(

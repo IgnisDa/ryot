@@ -1,7 +1,7 @@
 use async_graphql::{Context, Object, Result};
 use common_models::{BackgroundJob, EntityWithLot};
 use database_models::entity_translation;
-use dependent_models::{CachedResponse, CoreDetails};
+use dependent_models::CoreDetails;
 use miscellaneous_service::MiscellaneousService;
 use traits::{AuthProvider, GraphqlResolverSvc};
 use uuid::Uuid;
@@ -19,16 +19,6 @@ impl MiscellaneousSystemQueryResolver {
     async fn core_details(&self, gql_ctx: &Context<'_>) -> Result<CoreDetails> {
         let service = self.svc(gql_ctx);
         Ok(service.core_details().await?)
-    }
-
-    /// Get the translations of an entity using the user's preferred language.
-    async fn entity_translation_details(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: EntityWithLot,
-    ) -> Result<CachedResponse<Vec<entity_translation::Model>>> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.entity_translation_details(user_id, input).await?)
     }
 }
 
@@ -61,17 +51,15 @@ impl MiscellaneousSystemMutationResolver {
         Ok(service.deploy_update_media_entity_job(input).await?)
     }
 
-    /// Update a media entity's translations. The language code is
-    /// extracted from the user's preferences.
-    async fn update_media_entity_translation(
+    /// Get entity translations. If translations don't exist for the user's
+    /// preferred language, they will be fetched from the provider and saved.
+    async fn get_entity_translations(
         &self,
         gql_ctx: &Context<'_>,
         input: EntityWithLot,
-    ) -> Result<bool> {
+    ) -> Result<Vec<entity_translation::Model>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service
-            .update_media_entity_translation(user_id, input)
-            .await?)
+        Ok(service.get_entity_translations(user_id, input).await?)
     }
 
     /// Start a background job.

@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow, bail};
 use chrono::Datelike;
 use common_models::{
     ChangeCollectionToEntitiesInput, DefaultCollection, EntityAssets, EntityToCollectionInput,
-    EntityWithLot, UserLevelCacheKey,
+    EntityWithLot,
 };
 use common_utils::ryot_log;
 use database_models::{
@@ -23,7 +23,6 @@ use dependent_details_utils::metadata_details;
 use dependent_entity_utils::{
     change_metadata_associations, insert_metadata_group_links, insert_metadata_person_links,
 };
-use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, CachedResponse};
 use dependent_notification_utils::send_notification_for_user;
 use dependent_provider_utils::get_metadata_provider;
 use dependent_seen_utils::is_metadata_finished_by_user;
@@ -612,100 +611,64 @@ pub async fn handle_metadata_eligible_for_smart_collection_moving(
     Ok(())
 }
 
-async fn get_preferred_language_for_user_and_source(
-    ss: &Arc<SupportingService>,
-    user_id: &String,
-    source: &MediaSource,
-) -> Result<String> {
-    let user_preferences = user_by_id(user_id, ss).await?.preferences;
-    let Some(UserProviderLanguagePreferences {
-        preferred_language, ..
-    }) = user_preferences
-        .languages
-        .providers
-        .into_iter()
-        .find(|lang| lang.source == *source)
-    else {
-        bail!("No preferred language found for source {}", source);
-    };
-    Ok(preferred_language)
-}
-
-pub async fn update_media_entity_translation(
+pub async fn get_entity_translations(
     ss: &Arc<SupportingService>,
     user_id: &String,
     input: EntityWithLot,
-) -> Result<()> {
+) -> Result<Vec<entity_translation::Model>> {
     match input.entity_lot {
         EntityLot::Metadata => {
             let meta = Metadata::find_by_id(&input.entity_id)
                 .one(&ss.db)
                 .await?
                 .ok_or_else(|| anyhow!("Metadata not found"))?;
-            let preferred_language =
-                get_preferred_language_for_user_and_source(ss, user_id, &meta.source).await?;
-            // TODO: https://github.com/SeaQL/sea-orm/discussions/730#discussioncomment-13440496
-            if let Some(_existing) = EntityTranslation::find()
+            let user_preferences = user_by_id(user_id, ss).await?.preferences;
+            let Some(UserProviderLanguagePreferences {
+                preferred_language, ..
+            }) = user_preferences
+                .languages
+                .providers
+                .into_iter()
+                .find(|lang| lang.source == meta.source)
+            else {
+                bail!("No preferred language found for source {}", meta.source);
+            };
+            let existing_translation = EntityTranslation::find()
                 .filter(entity_translation::Column::MetadataId.eq(&input.entity_id))
                 .filter(entity_translation::Column::Language.eq(&preferred_language))
                 .one(&ss.db)
-                .await?
-            {
-                return Ok(());
-            }
-            let provider = get_metadata_provider(meta.lot, meta.source, ss).await?;
-            let Ok(trn) = provider
-                .translate_metadata(&meta.identifier, &preferred_language)
-                .await
-            else {
-                bail!("Translation not found from provider");
-            };
-            for (variant, value) in [
-                (EntityTranslationVariant::Title, trn.title),
-                (EntityTranslationVariant::Description, trn.description),
-            ] {
-                let translation_model = entity_translation::ActiveModel {
-                    variant: ActiveValue::Set(variant),
-                    language: ActiveValue::Set(preferred_language.clone()),
-                    value: ActiveValue::Set(value.filter(|v| !v.is_empty())),
-                    metadata_id: ActiveValue::Set(Some(input.entity_id.clone())),
-                    ..Default::default()
+                .await?;
+            if existing_translation.is_none() {
+                let provider = get_metadata_provider(meta.lot, meta.source, ss).await?;
+                let Ok(trn) = provider
+                    .translate_metadata(&meta.identifier, &preferred_language)
+                    .await
+                else {
+                    bail!("Translation not found from provider");
                 };
-                EntityTranslation::insert(translation_model)
-                    .on_conflict(OnConflict::new().do_nothing().to_owned())
-                    .exec_without_returning(&ss.db)
-                    .await?;
+                for (variant, value) in [
+                    (EntityTranslationVariant::Title, trn.title),
+                    (EntityTranslationVariant::Description, trn.description),
+                ] {
+                    let translation_model = entity_translation::ActiveModel {
+                        variant: ActiveValue::Set(variant),
+                        language: ActiveValue::Set(preferred_language.clone()),
+                        value: ActiveValue::Set(value.filter(|v| !v.is_empty())),
+                        metadata_id: ActiveValue::Set(Some(input.entity_id.clone())),
+                        ..Default::default()
+                    };
+                    EntityTranslation::insert(translation_model)
+                        .on_conflict(OnConflict::new().do_nothing().to_owned())
+                        .exec_without_returning(&ss.db)
+                        .await?;
+                }
             }
+            let translations = EntityTranslation::find()
+                .filter(entity_translation::Column::MetadataId.eq(&input.entity_id))
+                .all(&ss.db)
+                .await?;
+            Ok(translations)
         }
         _ => unreachable!(),
-    };
-    Ok(())
-}
-
-pub async fn entity_translation_details(
-    ss: &Arc<SupportingService>,
-    user_id: String,
-    input: EntityWithLot,
-) -> Result<CachedResponse<Vec<entity_translation::Model>>> {
-    cache_service::get_or_set_with_callback(
-        ss,
-        ApplicationCacheKey::EntityTranslationDetails(UserLevelCacheKey {
-            input: input.clone(),
-            user_id: user_id.clone(),
-        }),
-        ApplicationCacheValue::EntityTranslationDetails,
-        || async {
-            match input.entity_lot {
-                EntityLot::Metadata => {
-                    let translations = EntityTranslation::find()
-                        .filter(entity_translation::Column::MetadataId.eq(&input.entity_id))
-                        .all(&ss.db)
-                        .await?;
-                    Ok(translations)
-                }
-                _ => unreachable!(),
-            }
-        },
-    )
-    .await
+    }
 }
