@@ -14,7 +14,7 @@ export type BuiltinSavedView = {
 	readonly entitySchemaSlug?: string;
 	readonly requireInLibrary?: boolean;
 	readonly queryDocument?: QueryDocument;
-	readonly displayConfiguration: typeof DisplayConfiguration.Type;
+	readonly displayConfiguration: DisplayConfiguration;
 };
 
 const mediaEntitySchemaSlugs = [
