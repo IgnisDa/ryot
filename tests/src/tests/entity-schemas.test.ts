@@ -20,24 +20,17 @@ async function createTracker(
 	options: CreateTrackerOptions = {},
 ) {
 	const {
+		enabled = true,
 		icon = "rocket",
 		name = "Test Tracker",
-		slug = `tracker-${Date.now()}`,
-		enabled = true,
 		accentColor = "#FF5733",
+		slug = `tracker-${Date.now()}`,
 		description = "Test tracker description",
 	} = options;
 
 	const { data } = await client.POST("/trackers", {
 		headers: { Cookie: cookies },
-		body: {
-			icon,
-			name,
-			slug,
-			enabled,
-			accentColor,
-			description,
-		},
+		body: { icon, name, slug, enabled, accentColor, description },
 	});
 
 	const trackerId = data?.data?.id;
@@ -65,28 +58,17 @@ async function createEntitySchema(
 	options: CreateEntitySchemaOptions,
 ) {
 	const {
+		trackerId,
 		icon = "book",
 		name = "Test Schema",
-		slug = `schema-${Date.now()}`,
-		trackerId,
 		accentColor = "#00FF00",
-		propertiesSchema = {
-			title: {
-				type: "string",
-			},
-		},
+		slug = `schema-${Date.now()}`,
+		propertiesSchema = { title: { type: "string" } },
 	} = options;
 
 	const { data } = await client.POST("/entity-schemas", {
 		headers: { Cookie: cookies },
-		body: {
-			icon,
-			name,
-			slug,
-			trackerId,
-			accentColor,
-			propertiesSchema,
-		},
+		body: { icon, name, slug, trackerId, accentColor, propertiesSchema },
 	});
 
 	const schemaId = data?.data?.id;
@@ -113,8 +95,8 @@ describe("GET /entity-schemas", () => {
 		const builtinTracker = await findBuiltinTracker(client, cookies);
 
 		const { data, response } = await client.GET("/entity-schemas", {
-			params: { query: { trackerId: builtinTracker.id } },
 			headers: { Cookie: cookies },
+			params: { query: { trackerId: builtinTracker.id } },
 		});
 
 		expect(response.status).toBe(200);
@@ -147,8 +129,8 @@ describe("GET /entity-schemas", () => {
 		});
 
 		const { data, response } = await client.GET("/entity-schemas", {
-			params: { query: { trackerId } },
 			headers: { Cookie: cookies },
+			params: { query: { trackerId } },
 		});
 
 		expect(response.status).toBe(200);
@@ -186,8 +168,8 @@ describe("GET /entity-schemas", () => {
 		});
 
 		const { data, response } = await client.GET("/entity-schemas", {
-			params: { query: { trackerId } },
 			headers: { Cookie: cookies },
+			params: { query: { trackerId } },
 		});
 
 		expect(response.status).toBe(200);
@@ -207,8 +189,8 @@ describe("GET /entity-schemas", () => {
 		});
 
 		const { response, error } = await client2.GET("/entity-schemas", {
-			params: { query: { trackerId } },
 			headers: { Cookie: cookies2 },
+			params: { query: { trackerId } },
 		});
 
 		expect(response.status).toBe(404);
@@ -225,25 +207,25 @@ describe("GET /entity-schemas", () => {
 
 		await createEntitySchema(client, cookies, {
 			trackerId,
-			name: "Zebra Schema",
 			slug: "zebra",
+			name: "Zebra Schema",
 		});
 
 		await createEntitySchema(client, cookies, {
 			trackerId,
-			name: "Alpha Schema",
 			slug: "alpha",
+			name: "Alpha Schema",
 		});
 
 		await createEntitySchema(client, cookies, {
 			trackerId,
-			name: "Beta Schema",
 			slug: "beta",
+			name: "Beta Schema",
 		});
 
 		const { data, response } = await client.GET("/entity-schemas", {
-			params: { query: { trackerId } },
 			headers: { Cookie: cookies },
+			params: { query: { trackerId } },
 		});
 
 		expect(response.status).toBe(200);
@@ -265,13 +247,11 @@ describe("POST /entity-schemas", () => {
 			headers: { Cookie: cookies },
 			body: {
 				icon: "test",
-				name: "Hacked Schema",
 				slug: "hacked",
-				trackerId: builtinTracker.id,
+				name: "Hacked Schema",
 				accentColor: "#FF0000",
-				propertiesSchema: {
-					field: { type: "string" },
-				},
+				trackerId: builtinTracker.id,
+				propertiesSchema: { field: { type: "string" } },
 			},
 		});
 
@@ -292,14 +272,14 @@ describe("POST /entity-schemas", () => {
 		const { data, response } = await client.POST("/entity-schemas", {
 			headers: { Cookie: cookies },
 			body: {
+				trackerId,
 				icon: "star",
 				name: "My Schema",
 				slug: "my-schema",
-				trackerId,
 				accentColor: "#00FF00",
 				propertiesSchema: {
-					title: { type: "string" },
 					year: { type: "number" },
+					title: { type: "string" },
 				},
 			},
 		});
@@ -322,11 +302,9 @@ describe("POST /entity-schemas", () => {
 				icon: "test",
 				name: "Schema",
 				slug: "schema",
-				trackerId: nonExistentId,
 				accentColor: "#FF0000",
-				propertiesSchema: {
-					field: { type: "string" },
-				},
+				trackerId: nonExistentId,
+				propertiesSchema: { field: { type: "string" } },
 			},
 		});
 
@@ -348,14 +326,12 @@ describe("POST /entity-schemas", () => {
 		const { response, error } = await client2.POST("/entity-schemas", {
 			headers: { Cookie: cookies2 },
 			body: {
-				icon: "test",
-				name: "Hacked Schema",
-				slug: "hacked",
 				trackerId,
+				icon: "test",
+				slug: "hacked",
+				name: "Hacked Schema",
 				accentColor: "#FF0000",
-				propertiesSchema: {
-					field: { type: "string" },
-				},
+				propertiesSchema: { field: { type: "string" } },
 			},
 		});
 
@@ -373,21 +349,19 @@ describe("POST /entity-schemas", () => {
 
 		await createEntitySchema(client, cookies, {
 			trackerId,
-			slug: "duplicate-slug",
 			name: "First Schema",
+			slug: "duplicate-slug",
 		});
 
 		const { response, error } = await client.POST("/entity-schemas", {
 			headers: { Cookie: cookies },
 			body: {
+				trackerId,
 				icon: "test",
 				name: "Second Schema",
 				slug: "duplicate-slug",
-				trackerId,
 				accentColor: "#FF0000",
-				propertiesSchema: {
-					field: { type: "string" },
-				},
+				propertiesSchema: { field: { type: "string" } },
 			},
 		});
 
