@@ -1,12 +1,17 @@
 import { expect, it } from "@effect/vitest";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Effect, Exit, Layer } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest, Conflict, NotFound } from "#lib/errors";
 import { EntitySchemaId, TrackerId, UserId } from "#lib/schema/brands";
-import { dbRunnerLayer, makeMock, transactionLayer } from "#lib/test-support/effect";
+import {
+	dbRunnerLayer,
+	makeMock,
+	makeWorkflowEngine,
+	transactionLayer,
+} from "#lib/test-support/effect";
 import { SandboxApiService } from "#modules/sandbox/service";
-import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { TrackersRepository } from "#modules/trackers/repository";
 
 import { EntitySchemasRepository } from "./repository";
@@ -51,35 +56,21 @@ const makeEntitySchemasRepository = (overrides: Partial<EntitySchemasRepository>
 			_tag: "EntitySchemasRepository" as const,
 			findBySlug: () => Effect.die("unused"),
 			listByUser: () => Effect.die("unused"),
-			listVisibleBySlugs: () => Effect.die("unused"),
 			getByIdForUser: () => Effect.die("unused"),
+			listVisibleBySlugs: () => Effect.die("unused"),
 			createEntitySchema: () => Effect.die("unused"),
 		},
 		overrides,
 	);
 
-const makeSavedViewsRepository = (overrides: Partial<SavedViewsRepository> = {}) =>
-	makeMock<SavedViewsRepository>(
-		{
-			_tag: "SavedViewsRepository" as const,
-			create: () => Effect.die("unused"),
-			findBySlug: () => Effect.die("unused"),
-			listByUser: () => Effect.die("unused"),
-			deleteBySlug: () => Effect.die("unused"),
-			updateBySlug: () => Effect.die("unused"),
-			countBySlugs: () => Effect.die("unused"),
-			persistOrder: () => Effect.die("unused"),
-			listSlugsInOrder: () => Effect.die("unused"),
-			updateDisabledBySlug: () => Effect.die("unused"),
-			createDefaultViewForSchema: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const fakeWorkflowEngineLayer = Layer.succeed(
+	WorkflowEngine,
+	makeWorkflowEngine({ execute: () => Effect.void }),
+);
 
 const makeEntitySchemasServiceLayer = (
 	repository: EntitySchemasRepository,
 	trackers: TrackersRepository,
-	savedViews: SavedViewsRepository = makeSavedViewsRepository(),
 ) =>
 	EntitySchemasService.Default.pipe(
 		Layer.provide(
@@ -87,9 +78,9 @@ const makeEntitySchemasServiceLayer = (
 				dbRunnerLayer,
 				transactionLayer,
 				fakeSandboxApiServiceLayer,
+				fakeWorkflowEngineLayer,
 				Layer.succeed(EntitySchemasRepository, repository),
 				Layer.succeed(TrackersRepository, trackers),
-				Layer.succeed(SavedViewsRepository, savedViews),
 			),
 		),
 	);
@@ -106,8 +97,8 @@ it.effect("returns not found when tracker does not exist during creation", () =>
 			service.create(user, {
 				icon: "rocket",
 				name: "My Schema",
-				trackerId: TrackerId.make("tracker-id"),
 				accentColor: "#FF5733",
+				trackerId: TrackerId.make("tracker-id"),
 				propertiesSchema: {
 					fields: { name: { type: "string", label: "Name", description: "Name" } },
 				},
@@ -128,9 +119,9 @@ it.effect("returns bad request when tracker is built-in during creation", () => 
 					slug: "media",
 					name: "Media",
 					isBuiltin: true,
-					id: TrackerId.make("tracker-id"),
 					description: null,
 					accentColor: "#000000",
+					id: TrackerId.make("tracker-id"),
 				}),
 		}),
 	);
@@ -141,8 +132,8 @@ it.effect("returns bad request when tracker is built-in during creation", () => 
 			service.create(user, {
 				icon: "rocket",
 				name: "My Schema",
-				trackerId: TrackerId.make("tracker-id"),
 				accentColor: "#FF5733",
+				trackerId: TrackerId.make("tracker-id"),
 				propertiesSchema: {
 					fields: { name: { type: "string", label: "Name", description: "Name" } },
 				},
@@ -169,9 +160,9 @@ it.effect("returns conflict when entity schema slug already exists", () => {
 					name: "Custom",
 					slug: "custom",
 					isBuiltin: false,
-					id: TrackerId.make("tracker-id"),
 					description: null,
 					accentColor: "#000000",
+					id: TrackerId.make("tracker-id"),
 				}),
 		}),
 	);
@@ -182,8 +173,8 @@ it.effect("returns conflict when entity schema slug already exists", () => {
 			service.create(user, {
 				icon: "rocket",
 				name: "My Schema",
-				trackerId: TrackerId.make("tracker-id"),
 				accentColor: "#FF5733",
+				trackerId: TrackerId.make("tracker-id"),
 				propertiesSchema: {
 					fields: { name: { type: "string", label: "Name", description: "Name" } },
 				},
@@ -204,9 +195,9 @@ it.effect("returns bad request for reserved slug", () => {
 					slug: "custom",
 					name: "Custom",
 					isBuiltin: false,
-					id: TrackerId.make("tracker-id"),
 					description: null,
 					accentColor: "#000000",
+					id: TrackerId.make("tracker-id"),
 				}),
 		}),
 	);
@@ -215,10 +206,10 @@ it.effect("returns bad request for reserved slug", () => {
 		const service = yield* EntitySchemasService;
 		const exit = yield* Effect.exit(
 			service.create(user, {
-				icon: "rocket",
 				name: "Book",
-				trackerId: TrackerId.make("tracker-id"),
+				icon: "rocket",
 				accentColor: "#FF5733",
+				trackerId: TrackerId.make("tracker-id"),
 				propertiesSchema: {
 					fields: { name: { type: "string", label: "Name", description: "Name" } },
 				},
@@ -233,60 +224,6 @@ it.effect("returns bad request for reserved slug", () => {
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("returns conflict when default saved view creation conflicts", () => {
-	const layer = makeEntitySchemasServiceLayer(
-		makeEntitySchemasRepository({
-			findBySlug: () => Effect.succeed(null),
-			createEntitySchema: (input) =>
-				Effect.succeed({
-					id: EntitySchemaId.make("schema-id"),
-					name: input.name,
-					icon: input.icon,
-					slug: input.slug,
-					isBuiltin: false,
-					accentColor: input.accentColor,
-					propertiesSchema: input.propertiesSchema,
-				}),
-		}),
-		makeTrackersRepository({
-			getOwnedById: () =>
-				Effect.succeed({
-					icon: "star",
-					slug: "custom",
-					name: "Custom",
-					id: TrackerId.make("tracker-id"),
-					isBuiltin: false,
-					description: null,
-					accentColor: "#000000",
-				}),
-			linkEntitySchema: () => Effect.succeed(TrackerId.make("tracker-id")),
-		}),
-		makeSavedViewsRepository({
-			createDefaultViewForSchema: () =>
-				Effect.fail(new Conflict({ message: "Entity schema default saved view already exists" })),
-		}),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* EntitySchemasService;
-		const exit = yield* Effect.exit(
-			service.create(user, {
-				icon: "rocket",
-				name: "My Schema",
-				trackerId: TrackerId.make("tracker-id"),
-				accentColor: "#FF5733",
-				propertiesSchema: {
-					fields: { name: { type: "string", label: "Name", description: "Name" } },
-				},
-			}),
-		);
-
-		expect(exit).toEqual(
-			Exit.fail(new Conflict({ message: "Entity schema default saved view already exists" })),
-		);
-	}).pipe(Effect.provide(layer));
-});
-
 it.effect("normalizes slugs before creating entity schemas", () => {
 	let createdSlug = "";
 
@@ -297,12 +234,12 @@ it.effect("normalizes slugs before creating entity schemas", () => {
 				Effect.sync(() => {
 					createdSlug = input.slug;
 					return {
-						id: EntitySchemaId.make("schema-id"),
 						name: input.name,
 						icon: input.icon,
 						slug: input.slug,
 						isBuiltin: false,
 						accentColor: input.accentColor,
+						id: EntitySchemaId.make("schema-id"),
 						propertiesSchema: input.propertiesSchema,
 					};
 				}),
@@ -314,22 +251,21 @@ it.effect("normalizes slugs before creating entity schemas", () => {
 					icon: "star",
 					slug: "custom",
 					name: "Custom",
-					id: TrackerId.make("tracker-id"),
 					isBuiltin: false,
 					description: null,
 					accentColor: "#000000",
+					id: TrackerId.make("tracker-id"),
 				}),
 		}),
-		makeSavedViewsRepository({ createDefaultViewForSchema: () => Effect.void }),
 	);
 
 	return Effect.gen(function* () {
 		const service = yield* EntitySchemasService;
 		const schema = yield* service.create(user, {
 			icon: "rocket",
+			accentColor: "#FF5733",
 			name: " My Cool Schema ",
 			trackerId: TrackerId.make("tracker-id"),
-			accentColor: "#FF5733",
 			propertiesSchema: {
 				fields: { name: { type: "string", label: "Name", description: "Name" } },
 			},
