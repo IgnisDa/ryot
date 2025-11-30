@@ -212,9 +212,9 @@ impl MiscellaneousService {
         &self,
         user_id: String,
         input: EntityWithLot,
-    ) -> Result<Vec<entity_translation::Model>> {
+    ) -> Result<CachedResponse<Vec<entity_translation::Model>>> {
         miscellaneous_metadata_operations_service::get_or_fetch_entity_translations(
-            &self.0, &user_id, input,
+            &self.0, user_id, input,
         )
         .await
     }
