@@ -129,7 +129,7 @@ const sourceLabelForWorkout = (row: StrongAppRow): string => `${row.workoutName}
 const sourceIdentifierForWorkout = (row: Pick<StrongAppRow, "date" | "workoutName">): string =>
 	`${row.date}:${row.workoutName}`;
 
-export const adaptStrongAppCsv = (csvText: string): WorkoutAdapterResult => {
+export const adaptStrongAppCsv = (csvText: string, timezone: string): WorkoutAdapterResult => {
 	const { headers, rows } = parseCsvText(csvText);
 	if (headers.length === 0) {
 		throw new Error("StrongApp CSV is empty or has no header row");
@@ -174,7 +174,7 @@ export const adaptStrongAppCsv = (csvText: string): WorkoutAdapterResult => {
 		const date = firstRow.date;
 
 		const sourceLabel = sourceLabelForWorkout(firstRow);
-		const startedAt = dayjs(date);
+		const startedAt = dayjs.tz(date, timezone);
 		if (!startedAt.isValid()) {
 			failures.push({
 				sourceLabel,
