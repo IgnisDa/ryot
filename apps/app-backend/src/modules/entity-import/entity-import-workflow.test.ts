@@ -99,7 +99,7 @@ const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasReposito
 
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
 	mockEntitiesRepository({
-		findEntitySchemaScriptBySlug: () => Effect.succeed(null),
+		findEntitySchemaSandboxScriptBySlug: () => Effect.succeed(null),
 		findGlobalEntityByExternalId: () => Effect.succeed(null),
 		findEntitySchemaById: () => Effect.succeed(baseEntitySchema),
 		...overrides,
@@ -203,7 +203,7 @@ it.effect("populates entity and writes related entities", () => {
 	let relatedEntityWritten = false;
 
 	const payload = { ...importPayload, executionId: "exec-full" };
-	const relatedEntitySchemaScript = {
+	const relatedEntitySchemaSandboxScript = {
 		entitySchemaId: EntitySchemaId.make("schema-person"),
 		sandboxScriptId: SandboxScriptId.make("person-script"),
 	};
@@ -250,7 +250,7 @@ it.effect("populates entity and writes related entities", () => {
 			findGlobalBySchemaIds: () => Effect.succeed(relationshipSchema),
 		}),
 		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaScriptBySlug: () => Effect.succeed(relatedEntitySchemaScript),
+			findEntitySchemaSandboxScriptBySlug: () => Effect.succeed(relatedEntitySchemaSandboxScript),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
 			saveRelationship: () => {
@@ -547,7 +547,7 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 				},
 			}),
 		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaScriptBySlug: (slug: string) =>
+			findEntitySchemaSandboxScriptBySlug: (slug: string) =>
 				Effect.succeed(slug === "movie.tmdb" ? movieSchemaScript : null),
 		}),
 		entitiesService: makeEntitiesService({
@@ -651,7 +651,7 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 						},
 					}),
 				entitiesRepository: makeEntitiesRepository({
-					findEntitySchemaScriptBySlug: (slug: string) =>
+					findEntitySchemaSandboxScriptBySlug: (slug: string) =>
 						Effect.succeed(slug === "movie.tmdb" ? movieSchemaScript : null),
 					findGlobalEntityByExternalId: () => Effect.succeed(storedPrimaryEntity),
 				}),
@@ -902,7 +902,7 @@ it.effect("fails workflow when related relationship properties are invalid", () 
 		}),
 		entitiesRepository: makeEntitiesRepository({
 			findGlobalEntityByExternalId: () => Effect.succeed(storedEntity),
-			findEntitySchemaScriptBySlug: () =>
+			findEntitySchemaSandboxScriptBySlug: () =>
 				Effect.succeed({
 					entitySchemaId: EntitySchemaId.make("schema-person"),
 					sandboxScriptId: SandboxScriptId.make("person-script"),
@@ -996,7 +996,7 @@ it.effect("fails workflow when related relationship properties are not objects",
 				}),
 		}),
 		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaScriptBySlug: () =>
+			findEntitySchemaSandboxScriptBySlug: () =>
 				Effect.succeed({
 					entitySchemaId: EntitySchemaId.make("schema-person"),
 					sandboxScriptId: SandboxScriptId.make("person-script"),
@@ -1059,7 +1059,7 @@ it.effect("retries related writes after a failed related validation", () => {
 		}),
 		entitiesRepository: makeEntitiesRepository({
 			findGlobalEntityByExternalId: () => Effect.succeed(storedEntity),
-			findEntitySchemaScriptBySlug: () =>
+			findEntitySchemaSandboxScriptBySlug: () =>
 				Effect.succeed({
 					entitySchemaId: EntitySchemaId.make("schema-person"),
 					sandboxScriptId: SandboxScriptId.make("person-script"),

@@ -225,10 +225,10 @@ export const processRelatedEntity = Effect.fn("processRelatedEntity")(function* 
 	const relationships = yield* RelationshipsService;
 	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
-	const entitySchemaScript = yield* runWithDb(
-		repository.findEntitySchemaScriptBySlug(input.relatedEntity.scriptSlug),
+	const entitySchemaSandboxScript = yield* runWithDb(
+		repository.findEntitySchemaSandboxScriptBySlug(input.relatedEntity.scriptSlug),
 	);
-	if (!entitySchemaScript) {
+	if (!entitySchemaSandboxScript) {
 		return;
 	}
 
@@ -239,8 +239,8 @@ export const processRelatedEntity = Effect.fn("processRelatedEntity")(function* 
 			populatedAt: null,
 			name: input.relatedEntity.name,
 			externalId: input.relatedEntity.externalId,
-			entitySchemaId: entitySchemaScript.entitySchemaId,
-			sandboxScriptId: entitySchemaScript.sandboxScriptId,
+			entitySchemaId: entitySchemaSandboxScript.entitySchemaId,
+			sandboxScriptId: entitySchemaSandboxScript.sandboxScriptId,
 		})
 		.pipe(
 			dieOnDbError,
@@ -252,9 +252,9 @@ export const processRelatedEntity = Effect.fn("processRelatedEntity")(function* 
 	const targetEntityId = reverseDirection ? relatedEntity.id : input.sourceEntityId;
 	const sourceSchemaId = reverseDirection
 		? input.sourceEntitySchemaId
-		: entitySchemaScript.entitySchemaId;
+		: entitySchemaSandboxScript.entitySchemaId;
 	const targetSchemaId = reverseDirection
-		? entitySchemaScript.entitySchemaId
+		? entitySchemaSandboxScript.entitySchemaId
 		: input.sourceEntitySchemaId;
 
 	const relationshipSchema = yield* runWithDb(
@@ -316,10 +316,10 @@ export const syncRelatedEntitiesByRelationshipSchema = Effect.fn(
 
 	const targetEntityIds: EntityId[] = [];
 	for (const relatedEntity of uniqueRelatedEntities.values()) {
-		const entitySchemaScript = yield* runWithDb(
-			repository.findEntitySchemaScriptBySlug(relatedEntity.scriptSlug),
+		const entitySchemaSandboxScript = yield* runWithDb(
+			repository.findEntitySchemaSandboxScriptBySlug(relatedEntity.scriptSlug),
 		).pipe(dieOnDbError);
-		if (!entitySchemaScript) {
+		if (!entitySchemaSandboxScript) {
 			continue;
 		}
 
@@ -330,8 +330,8 @@ export const syncRelatedEntitiesByRelationshipSchema = Effect.fn(
 				populatedAt: null,
 				name: relatedEntity.name,
 				externalId: relatedEntity.externalId,
-				entitySchemaId: entitySchemaScript.entitySchemaId,
-				sandboxScriptId: entitySchemaScript.sandboxScriptId,
+				entitySchemaId: entitySchemaSandboxScript.entitySchemaId,
+				sandboxScriptId: entitySchemaSandboxScript.sandboxScriptId,
 			})
 			.pipe(
 				dieOnDbError,
