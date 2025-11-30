@@ -14,13 +14,14 @@ import {
 import {
 	customTrackerError,
 	resolveCustomTrackerAccess,
+	resolveTrackerReadAccess,
 	trackerNotFoundError,
 } from "../trackers/access";
 import { getTrackerScopeForUser } from "../trackers/repository";
 import {
 	createEntitySchemaForUser,
 	getEntitySchemaBySlugForUser,
-	listEntitySchemasByTrackerForUser,
+	listEntitySchemasByTracker,
 } from "./repository";
 import {
 	createEntitySchemaBody,
@@ -39,9 +40,8 @@ const listEntitySchemasRoute = createAuthRoute(
 		method: "get",
 		tags: ["entity-schemas"],
 		request: { query: listEntitySchemasQuery },
-		summary: "List entity schemas for a custom tracker",
+		summary: "List entity schemas for a tracker",
 		responses: {
-			400: payloadErrorResponse(),
 			404: notFoundResponse("Tracker does not exist for this user"),
 			200: jsonResponse(
 				"Entity schemas for the requested tracker",
@@ -78,21 +78,13 @@ const entitySchemaUniqueConstraint = "entity_schema_user_slug_unique";
 const duplicateSlugErrorResult =
 	createValidationErrorResult(duplicateSlugError);
 
-const resolveTrackerAccessError = (error: "builtin" | "not_found") => ({
-	body:
-		error === "not_found"
-			? createNotFoundErrorResult(trackerNotFoundError).body
-			: createValidationErrorResult(customTrackerError).body,
-	status: error === "not_found" ? (404 as const) : (400 as const),
-});
-
 export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(listEntitySchemasRoute, async (c) => {
 		const user = c.get("user");
 		const query = c.req.valid("query");
 		const trackerId = resolveEntitySchemaTrackerId(query.trackerId);
 
-		const foundTracker = resolveCustomTrackerAccess(
+		const foundTracker = resolveTrackerReadAccess(
 			await getTrackerScopeForUser({
 				trackerId,
 				userId: user.id,
@@ -100,13 +92,11 @@ export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 		);
 		const listTrackerError = foundTracker.error;
 		if (listTrackerError) {
-			const errorResult = resolveTrackerAccessError(listTrackerError);
-			return c.json(errorResult.body, errorResult.status);
+			return c.json(createNotFoundErrorResult(trackerNotFoundError).body, 404);
 		}
 
-		const entitySchemas = await listEntitySchemasByTrackerForUser({
+		const entitySchemas = await listEntitySchemasByTracker({
 			trackerId,
-			userId: user.id,
 		});
 
 		return c.json(successResponse(entitySchemas), 200);
@@ -117,15 +107,16 @@ export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const trackerId = resolveEntitySchemaTrackerId(body.trackerId);
 
 		const foundTracker = resolveCustomTrackerAccess(
-			await getTrackerScopeForUser({
-				trackerId,
-				userId: user.id,
-			}),
+			await getTrackerScopeForUser({ trackerId, userId: user.id }),
 		);
 		const createTrackerError = foundTracker.error;
 		if (createTrackerError) {
-			const errorResult = resolveTrackerAccessError(createTrackerError);
-			return c.json(errorResult.body, errorResult.status);
+			const errorBody =
+				createTrackerError === "not_found"
+					? createNotFoundErrorResult(trackerNotFoundError).body
+					: createValidationErrorResult(customTrackerError).body;
+			const errorStatus = createTrackerError === "not_found" ? 404 : 400;
+			return c.json(errorBody, errorStatus);
 		}
 
 		const entitySchemaInput = resolveValidationData(
