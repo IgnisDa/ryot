@@ -1,5 +1,5 @@
 {
-	"id": "abab7735-f6ea-40a5-a617-8ebbf150308a",
+	"id": "acc91d0a-5ee5-4b6b-8f1b-9346f83dd6aa",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -186,12 +186,6 @@
 					"primaryKey": false,
 					"notNull": false
 				},
-				"reference_id": {
-					"name": "reference_id",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
 				"enabled": {
 					"name": "enabled",
 					"type": "boolean",
@@ -263,6 +257,12 @@
 					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true
+				},
+				"reference_id": {
+					"name": "reference_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
 				}
 			},
 			"indexes": {
@@ -312,7 +312,17 @@
 					"with": {}
 				}
 			},
-			"foreignKeys": {},
+			"foreignKeys": {
+				"apikey_reference_id_user_id_fk": {
+					"name": "apikey_reference_id_user_id_fk",
+					"tableFrom": "apikey",
+					"tableTo": "user",
+					"columnsFrom": ["reference_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
 			"compositePrimaryKeys": {},
 			"uniqueConstraints": {},
 			"policies": {},
