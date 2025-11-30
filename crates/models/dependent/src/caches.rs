@@ -5,10 +5,11 @@ use common_models::{
     FilterPresetQueryInput, MetadataGroupSearchInput, MetadataLookupCacheInput, PeopleSearchInput,
     UserAnalyticsInput, UserLevelCacheKey, YoutubeMusicSongListened,
 };
+use database_models::entity_translation;
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
-    GenreDetailsInput, GraphqlEntityTranslationDetail, GraphqlMetadataDetails,
-    MetadataLookupResponse, MetadataProgressUpdateCacheInput, TmdbMetadataLookupResult,
+    GenreDetailsInput, GraphqlMetadataDetails, MetadataLookupResponse,
+    MetadataProgressUpdateCacheInput, TmdbMetadataLookupResult,
 };
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
@@ -122,7 +123,7 @@ pub type YoutubeMusicSongListenedResponse = bool;
 pub type ApplicationRecommendations = Vec<String>;
 pub type TrendingMetadataIdsResponse = Vec<String>;
 pub type ListennotesSettings = HashMap<i32, String>;
-pub type EntityTranslationDetailsResponse = Vec<GraphqlEntityTranslationDetail>;
+pub type EntityTranslationDetailsResponse = Vec<entity_translation::Model>;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {

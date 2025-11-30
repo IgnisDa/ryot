@@ -37,8 +37,8 @@ use enum_models::{
 };
 use futures::try_join;
 use media_models::{
-    CreateCustomMetadataGroupInput, CreateCustomMetadataInput, GraphqlEntityTranslationDetail,
-    UpdateCustomMetadataGroupInput, UpdateCustomMetadataInput, UpdateCustomPersonInput,
+    CreateCustomMetadataGroupInput, CreateCustomMetadataInput, UpdateCustomMetadataGroupInput,
+    UpdateCustomMetadataInput, UpdateCustomPersonInput,
 };
 use nanoid::nanoid;
 use sea_orm::{
@@ -686,7 +686,7 @@ pub async fn entity_translation_details(
     ss: &Arc<SupportingService>,
     user_id: String,
     input: EntityTranslationInput,
-) -> Result<CachedResponse<Vec<GraphqlEntityTranslationDetail>>> {
+) -> Result<CachedResponse<Vec<entity_translation::Model>>> {
     cache_service::get_or_set_with_callback(
         ss,
         ApplicationCacheKey::EntityTranslationDetails(UserLevelCacheKey {
@@ -700,13 +700,7 @@ pub async fn entity_translation_details(
                     let translations = EntityTranslation::find()
                         .filter(entity_translation::Column::MetadataId.eq(&input.entity_id))
                         .all(&ss.db)
-                        .await?
-                        .into_iter()
-                        .map(|trn| GraphqlEntityTranslationDetail {
-                            value: trn.value,
-                            variant: trn.variant,
-                        })
-                        .collect::<Vec<_>>();
+                        .await?;
                     Ok(translations)
                 }
                 _ => unreachable!(),

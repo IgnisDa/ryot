@@ -87,6 +87,10 @@ pub struct SortInput<T: InputType + Default> {
     name = "CachedUserAnalyticsParametersResponse",
 ))]
 #[graphql(concrete(
+    params(EntityTranslationDetailsResponse),
+    name = "CachedEntityTranslationDetailsResponse",
+))]
+#[graphql(concrete(
     params(UserMetadataGroupDetails),
     name = "CachedUserMetadataGroupDetailsResponse",
 ))]
@@ -97,10 +101,6 @@ pub struct SortInput<T: InputType + Default> {
 #[graphql(concrete(
     params(UserMetadataRecommendationsResponse),
     name = "CachedUserMetadataRecommendationsResponse",
-))]
-#[graphql(concrete(
-    params(EntityTranslationDetailsResponse),
-    name = "CachedEntityTranslationDetailsResponse",
 ))]
 pub struct CachedResponse<T: OutputType> {
     pub response: T,

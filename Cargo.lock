@@ -4862,9 +4862,9 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
+ "database-models",
  "dependent-models",
  "enum-models",
- "media-models",
  "miscellaneous-service",
  "traits",
  "uuid",

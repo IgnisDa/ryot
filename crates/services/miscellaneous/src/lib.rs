@@ -6,7 +6,7 @@ use common_models::{
     BackgroundJob, EntityTranslationInput, MetadataGroupSearchInput, PeopleSearchInput,
     SearchInput, StringIdObject,
 };
-use database_models::{prelude::User, user};
+use database_models::{entity_translation, prelude::User, user};
 use database_utils::admin_account_guard;
 use dependent_core_utils::core_details;
 use dependent_entity_list_utils::{
@@ -32,9 +32,9 @@ use dependent_review_utils::post_review;
 use enum_models::EntityLot;
 use media_models::{
     CreateOrUpdateReviewInput, CreateReviewCommentInput, GenreDetailsInput, GraphqlCalendarEvent,
-    GraphqlEntityTranslationDetail, GraphqlMetadataDetails, GroupedCalendarEvent,
-    MarkEntityAsPartialInput, MetadataLookupResponse, MetadataProgressUpdateInput,
-    ReviewPostedEvent, UpdateSeenItemInput, UserCalendarEventInput, UserUpcomingCalendarEventInput,
+    GraphqlMetadataDetails, GroupedCalendarEvent, MarkEntityAsPartialInput, MetadataLookupResponse,
+    MetadataProgressUpdateInput, ReviewPostedEvent, UpdateSeenItemInput, UserCalendarEventInput,
+    UserUpcomingCalendarEventInput,
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc, prelude::Expr};
 use supporting_service::SupportingService;
@@ -410,7 +410,7 @@ impl MiscellaneousService {
         &self,
         user_id: String,
         input: EntityTranslationInput,
-    ) -> Result<CachedResponse<Vec<GraphqlEntityTranslationDetail>>> {
+    ) -> Result<CachedResponse<Vec<entity_translation::Model>>> {
         miscellaneous_metadata_operations_service::entity_translation_details(
             &self.0, user_id, input,
         )
