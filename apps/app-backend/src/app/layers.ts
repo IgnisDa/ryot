@@ -2,19 +2,15 @@ import { FetchHttpClient } from "@effect/platform";
 import { BunContext } from "@effect/platform-bun";
 import { Layer } from "effect";
 
-import { AuthService } from "#lib/auth";
-import { SeedService } from "#lib/builtins/seed";
-import { AppConfig } from "#lib/config/service";
-import {
-	FrequentCronWorkflowDefinitionsLive,
-	InfrequentCronWorkflowDefinitionsLive,
-} from "#lib/cron-workflow-definitions";
-import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "#lib/db/migrate";
-import { DbService, DbRunnerLive, TransactionRunnerLive } from "#lib/db/service";
-import { RedisService } from "#lib/redis";
-import { S3Service } from "#lib/s3";
-import { SandboxService } from "#lib/sandbox/service";
-import { PersistedQueueLive, WorkflowEngineLive } from "#lib/workflow";
+import { AppConfig } from "#lib/infrastructure/config/service";
+import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "#lib/infrastructure/db/migrate";
+import { DbService, DbRunnerLive, TransactionRunnerLive } from "#lib/infrastructure/db/service";
+import { RedisService } from "#lib/infrastructure/redis";
+import { S3Service } from "#lib/infrastructure/s3";
+import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
+import { PersistedQueueLive, WorkflowEngineLive } from "#lib/infrastructure/workflow";
+import { AuthService } from "#modules/auth/service";
+import { SeedService } from "#modules/builtins/seed";
 import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -76,6 +72,10 @@ import { UploadsService } from "#modules/uploads/service";
 import { UserPreferencesService } from "#modules/user-preferences/service";
 import { UserStateService } from "#modules/user-state/service";
 
+import {
+	FrequentCronWorkflowDefinitionsLive,
+	InfrequentCronWorkflowDefinitionsLive,
+} from "./cron-workflow-definitions";
 import { ServerLive } from "./server";
 
 const ConfigLive = Layer.mergeAll(AppConfig.Default, BunContext.layer);

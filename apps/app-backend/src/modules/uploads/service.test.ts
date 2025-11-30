@@ -6,8 +6,8 @@ import { UserId } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Exit, Inspectable, Layer, Option } from "effect";
 import Redis from "ioredis";
 
-import { RedisService, redisKeys } from "#lib/redis";
-import { S3Service } from "#lib/s3";
+import { RedisService, redisKeys } from "#lib/infrastructure/redis";
+import { S3Service } from "#lib/infrastructure/s3";
 import { makeAppConfigLayer, makeRedisService } from "#lib/test-support/effect";
 
 import { UploadsService } from "./service";

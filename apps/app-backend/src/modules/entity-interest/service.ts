@@ -5,7 +5,7 @@ import type { Expr, QueryDocument, RowItem } from "@ryot/contract/modules/query-
 import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
-import { DbRunner } from "#lib/db/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
 import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
 import { TranslationsService } from "#modules/entity-translation/service";
 import { loadVisibleEntitySchemaSlugs } from "#modules/query-engine/executor/schema-loaders";

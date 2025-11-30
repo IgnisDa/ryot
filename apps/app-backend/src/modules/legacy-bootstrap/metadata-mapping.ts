@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { dbEffect, DbService } from "#lib/db/service";
+import { dbEffect, DbService } from "#lib/infrastructure/db/service";
 
 import { metadataMigrationTargets } from "./metadata-mapping-targets";
 import {

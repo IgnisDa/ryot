@@ -364,7 +364,7 @@ expecting Temporal-style "runs once, at the end" semantics.
 
 ## This repo's execution backend
 
-`apps/app-backend/src/lib/workflow.ts` wires:
+`apps/app-backend/src/lib/infrastructure/workflow.ts` wires:
 
 ```ts
 export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(

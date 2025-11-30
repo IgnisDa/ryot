@@ -10,7 +10,7 @@ import type { Exit } from "effect";
 import { Cause, Effect, Layer, Option } from "effect";
 import { assert } from "vitest";
 
-import { SandboxService } from "#lib/sandbox/service";
+import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { type MockOverrides, dbRunnerLayer } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";

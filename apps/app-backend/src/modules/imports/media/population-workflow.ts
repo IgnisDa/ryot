@@ -2,7 +2,7 @@ import { Activity } from "@effect/workflow";
 import { unknownToMessage } from "@ryot/contract/errors";
 import { Effect, Schema } from "effect";
 
-import { DbRunner } from "#lib/db/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 

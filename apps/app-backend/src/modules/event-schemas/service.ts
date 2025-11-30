@@ -4,11 +4,11 @@ import type { CreateEventSchemaBody } from "@ryot/contract/modules/event-schemas
 import { EntitySchemaId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
-import { builtinEntitySchemas } from "#lib/builtins/entity-schemas";
-import { DbRunner } from "#lib/db/service";
-import { parseLabeledPropertySchemaInput } from "#lib/schema/property-schema-runtime";
-import { slugify } from "#lib/slug";
-import { requireText } from "#lib/validation";
+import { DbRunner } from "#lib/infrastructure/db/service";
+import { parseLabeledPropertySchemaInput } from "#lib/property-schema/property-schema-runtime";
+import { slugify } from "#lib/shared/slug";
+import { requireText } from "#lib/shared/validation";
+import { builtinEntitySchemas } from "#modules/builtins/entity-schemas";
 
 import { EventSchemasRepository } from "./repository";
 

@@ -3,8 +3,8 @@ import { type EntitySchemaId, TrackerId, type UserId } from "@ryot/contract/sche
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import * as schema from "#lib/db/schema/tables/combined";
-import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db/service";
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/infrastructure/db/service";
 
 type TrackerRow = typeof schema.tracker.$inferSelect;
 

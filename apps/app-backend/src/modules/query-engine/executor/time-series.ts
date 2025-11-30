@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { DateTime, Effect, Option } from "effect";
 
-import { CurrentDb, dbEffect } from "#lib/db/service";
+import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 import { compileBool, compileScalar } from "./compile/expr";
 import { bucketStartSql, bucketStepSql, timeRangeConditionSql } from "./compile/fragments";

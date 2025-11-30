@@ -128,7 +128,7 @@ finished, not an individual episode/chapter. `show` and `podcast` progress is tr
 `show-episode`/`podcast-episode` entity instead, so each episode completes independently like
 non-episodic media. The trigger logic walks coverage cycles chronologically and can emit repeated
 completions. The trigger logic lives in:
-`src/lib/sandbox/triggers/auto-complete-on-full-progress.sandbox.js`.
+`src/modules/builtins/sandbox-scripts/triggers/auto-complete-on-full-progress.sandbox.js`.
 
 `consumedOn` is propagated from the triggering progress event to the created complete event via
 `event_schema_trigger.metadata.inheritedProperties: ["consumedOn"]`.
@@ -163,7 +163,8 @@ then reuses that (always-present) `occurredAt` as the resulting `complete` event
 so a missing completion timestamp ends up filled in "for free" by the progress event's own
 fallback, not by a dedicated step in this trigger.
 
-The trigger logic lives in `src/lib/sandbox/triggers/integration-progress-policy.sandbox.js`. It is
+The trigger logic lives in
+`src/modules/builtins/sandbox-scripts/triggers/integration-progress-policy.sandbox.js`. It is
 registered and seeded active by default alongside the Auto-Complete Trigger (`registry.ts` /
 `seed.ts`); there is currently no user-facing way to disable it short of disabling the integration
 itself.

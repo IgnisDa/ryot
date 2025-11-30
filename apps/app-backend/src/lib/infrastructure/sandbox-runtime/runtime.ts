@@ -4,7 +4,7 @@ import type { PlatformError } from "@effect/platform/Error";
 import { badRequest, internalError, unknownToMessage } from "@ryot/contract/errors";
 import { Clock, Effect, Fiber, Pool, Queue, Runtime, Schema, Sink, Stream } from "effect";
 
-import sandboxRunnerSource from "#lib/sandbox/runner-source.sandbox.js" with { type: "text" };
+import sandboxRunnerSource from "#lib/infrastructure/sandbox-runtime/runner-source.sandbox.js" with { type: "text" };
 
 import { AppConfig } from "../config/service";
 import { redisKeys, RedisService } from "../redis";
