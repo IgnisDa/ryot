@@ -70,12 +70,11 @@ impl MiscellaneousSystemMutationResolver {
     async fn update_media_entity_translation(
         &self,
         gql_ctx: &Context<'_>,
-        entity_id: String,
-        entity_lot: EntityLot,
+        input: EntityTranslationInput,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         Ok(service
-            .update_media_entity_translation(user_id, entity_id, entity_lot)
+            .update_media_entity_translation(user_id, input)
             .await?)
     }
 

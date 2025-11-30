@@ -216,11 +216,10 @@ impl MiscellaneousService {
     pub async fn update_media_entity_translation(
         &self,
         user_id: String,
-        entity_id: String,
-        entity_lot: EntityLot,
+        input: EntityTranslationInput,
     ) -> Result<bool> {
         miscellaneous_metadata_operations_service::update_media_entity_translation(
-            &self.0, &user_id, entity_id, entity_lot,
+            &self.0, &user_id, input,
         )
         .await?;
         Ok(true)

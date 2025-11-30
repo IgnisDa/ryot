@@ -634,12 +634,11 @@ async fn get_preferred_language_for_user_and_source(
 pub async fn update_media_entity_translation(
     ss: &Arc<SupportingService>,
     user_id: &String,
-    entity_id: String,
-    entity_lot: EntityLot,
+    input: EntityTranslationInput,
 ) -> Result<()> {
-    match entity_lot {
+    match input.entity_lot {
         EntityLot::Metadata => {
-            let meta = Metadata::find_by_id(&entity_id)
+            let meta = Metadata::find_by_id(&input.entity_id)
                 .one(&ss.db)
                 .await?
                 .ok_or_else(|| anyhow!("Metadata not found"))?;
@@ -647,8 +646,8 @@ pub async fn update_media_entity_translation(
                 get_preferred_language_for_user_and_source(ss, user_id, &meta.source).await?;
             // TODO: https://github.com/SeaQL/sea-orm/discussions/730#discussioncomment-13440496
             if let Some(_existing) = EntityTranslation::find()
+                .filter(entity_translation::Column::MetadataId.eq(&input.entity_id))
                 .filter(entity_translation::Column::Language.eq(&preferred_language))
-                .filter(entity_translation::Column::MetadataId.eq(&entity_id))
                 .one(&ss.db)
                 .await?
             {
@@ -668,8 +667,8 @@ pub async fn update_media_entity_translation(
                 let translation_model = entity_translation::ActiveModel {
                     variant: ActiveValue::Set(variant),
                     language: ActiveValue::Set(preferred_language.clone()),
-                    metadata_id: ActiveValue::Set(Some(entity_id.clone())),
                     value: ActiveValue::Set(value.filter(|v| !v.is_empty())),
+                    metadata_id: ActiveValue::Set(Some(input.entity_id.clone())),
                     ..Default::default()
                 };
                 EntityTranslation::insert(translation_model)
