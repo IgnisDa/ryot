@@ -1,28 +1,12 @@
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { unknownToMessage } from "@ryot/contract/errors";
+import { generateId } from "better-auth";
 import { Cause, Effect, Layer, Schedule } from "effect";
 
 import { AppConfig } from "#lib/config/service";
-import {
-	type FrequentCronTask,
-	integrationsFrequentTask,
-} from "#modules/integrations/frequent-task";
 
 import { DEFAULT_FREQUENT_INTERVAL, parseFrequentSchedule } from "./cron";
-
-const frequentCronTasks: ReadonlyArray<FrequentCronTask> = [integrationsFrequentTask];
-
-const runAllFrequentTasks = Effect.forEach(
-	frequentCronTasks,
-	(task) =>
-		task.run.pipe(
-			Effect.catchAllCause((cause) =>
-				Effect.logError(
-					`Frequent cron task '${task.name}' failed: ${unknownToMessage(Cause.squash(cause))}`,
-				),
-			),
-		),
-	{ discard: true },
-);
+import { FrequentCronWorkflow } from "./cron-workflow";
 
 export const FrequentCronSchedulerLive = Layer.scopedDiscard(
 	Effect.gen(function* () {
@@ -33,6 +17,8 @@ export const FrequentCronSchedulerLive = Layer.scopedDiscard(
 			return;
 		}
 
+		const engine = yield* WorkflowEngine;
+
 		const configuredSchedule = config.scheduler.frequentCronJobsSchedule;
 		const interval = parseFrequentSchedule(configuredSchedule);
 		if (interval === null) {
@@ -41,7 +27,24 @@ export const FrequentCronSchedulerLive = Layer.scopedDiscard(
 			);
 		}
 
-		yield* runAllFrequentTasks.pipe(
+		const enqueueRun = Effect.gen(function* () {
+			const executionId = `frequent-cron-${generateId()}`;
+			yield* engine
+				.execute(FrequentCronWorkflow, {
+					executionId,
+					discard: true,
+					payload: { executionId },
+				})
+				.pipe(
+					Effect.catchAllCause((cause) =>
+						Effect.logError(
+							`Failed to enqueue frequent cron run: ${unknownToMessage(Cause.squash(cause))}`,
+						),
+					),
+				);
+		});
+
+		yield* enqueueRun.pipe(
 			Effect.repeat(Schedule.spaced(interval ?? DEFAULT_FREQUENT_INTERVAL)),
 			Effect.forkScoped,
 		);
