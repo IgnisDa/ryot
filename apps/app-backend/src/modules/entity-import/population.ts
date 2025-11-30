@@ -179,10 +179,12 @@ export const processChildEntityTree = (input: {
 						}).pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
 
 						yield* runWithDb(
-							relationshipsRepository.upsertEntityRelationship({
+							relationshipsRepository.saveRelationship({
 								properties,
+								scope: "global",
 								sourceEntityId: parentEntityId,
 								targetEntityId: child.entity.id,
+								onConflict: "replaceProperties",
 								relationshipSchemaId: relationshipSchema.id,
 							}),
 						).pipe(dieOnDbError);
@@ -272,10 +274,12 @@ export const processRelatedEntity = Effect.fn("processRelatedEntity")(function* 
 	}).pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
 
 	yield* runWithDb(
-		relationshipsRepository.upsertEntityRelationship({
+		relationshipsRepository.saveRelationship({
 			properties,
 			sourceEntityId,
 			targetEntityId,
+			scope: "global",
+			onConflict: "replaceProperties",
 			relationshipSchemaId: relationshipSchema.id,
 		}),
 	);
