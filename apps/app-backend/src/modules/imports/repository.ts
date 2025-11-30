@@ -44,8 +44,8 @@ const normalizeFailure = (row: ImportRunFailureRow): ListedImportRunFailure => (
 });
 
 export class ImportsRepository extends Effect.Service<ImportsRepository>()("ImportsRepository", {
-	sync: () => ({
-		createRun: Effect.fn("ImportsRepository.createRun")(function* (input: {
+	sync: () => {
+		const createRun = Effect.fn("ImportsRepository.createRun")(function* (input: {
 			userId: UserId;
 			source: ImportRunSource;
 			integrationId?: IntegrationId | null;
@@ -67,8 +67,9 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 				return yield* new DbError({ message: "Import run insert returned no row" });
 			}
 			return normalizeRun(row);
-		}),
-		getRunById: Effect.fn("ImportsRepository.getRunById")(function* (input: {
+		});
+
+		const getRunById = Effect.fn("ImportsRepository.getRunById")(function* (input: {
 			runId: ImportRunId;
 			userId: UserId;
 		}) {
@@ -83,8 +84,9 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 					.limit(1),
 			);
 			return row ? normalizeRun(row) : null;
-		}),
-		listRunsByUser: Effect.fn("ImportsRepository.listRunsByUser")(function* (input: {
+		});
+
+		const listRunsByUser = Effect.fn("ImportsRepository.listRunsByUser")(function* (input: {
 			userId: UserId;
 		}) {
 			const db = yield* CurrentDb;
@@ -98,8 +100,9 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 					.orderBy(desc(schema.importRun.createdAt)),
 			);
 			return rows.map(normalizeRun);
-		}),
-		listRunsByIntegrationId: Effect.fn("ImportsRepository.listRunsByIntegrationId")(
+		});
+
+		const listRunsByIntegrationId = Effect.fn("ImportsRepository.listRunsByIntegrationId")(
 			function* (input: { userId: UserId; integrationId: IntegrationId }) {
 				const db = yield* CurrentDb;
 				const rows = yield* dbEffect(() =>
@@ -116,8 +119,9 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 				);
 				return rows.map(normalizeRun);
 			},
-		),
-		hasActiveRunForIntegration: Effect.fn("ImportsRepository.hasActiveRunForIntegration")(
+		);
+
+		const hasActiveRunForIntegration = Effect.fn("ImportsRepository.hasActiveRunForIntegration")(
 			function* (input: { integrationId: IntegrationId }) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
@@ -134,8 +138,9 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 				);
 				return row !== undefined;
 			},
-		),
-		listRecentStatusesByIntegrationId: Effect.fn(
+		);
+
+		const listRecentStatusesByIntegrationId = Effect.fn(
 			"ImportsRepository.listRecentStatusesByIntegrationId",
 		)(function* (input: { integrationId: IntegrationId; limit: number }) {
 			const db = yield* CurrentDb;
@@ -147,8 +152,9 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 					.orderBy(desc(schema.importRun.createdAt))
 					.limit(input.limit),
 			);
-		}),
-		updateRun: Effect.fn("ImportsRepository.updateRun")(function* (input: {
+		});
+
+		const updateRun = Effect.fn("ImportsRepository.updateRun")(function* (input: {
 			runId: string;
 			startedAt?: Date;
 			finishedAt?: Date;
@@ -195,8 +201,9 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 			yield* dbEffect(() =>
 				db.update(schema.importRun).set(updates).where(eq(schema.importRun.id, input.runId)),
 			);
-		}),
-		deleteRunById: Effect.fn("ImportsRepository.deleteRunById")(function* (input: {
+		});
+
+		const deleteRunById = Effect.fn("ImportsRepository.deleteRunById")(function* (input: {
 			runId: ImportRunId;
 			userId: UserId;
 		}) {
@@ -208,8 +215,9 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 						and(eq(schema.importRun.id, input.runId), eq(schema.importRun.userId, input.userId)),
 					),
 			);
-		}),
-		createFailure: Effect.fn("ImportsRepository.createFailure")(function* (input: {
+		});
+
+		const createFailure = Effect.fn("ImportsRepository.createFailure")(function* (input: {
 			runId: string;
 			message: string;
 			itemIndex: number;
@@ -234,32 +242,44 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 					entitySchemaSlug: input.entitySchemaSlug ?? null,
 				}),
 			);
-		}),
-		listFailuresByRunId: Effect.fn("ImportsRepository.listFailuresByRunId")(function* (input: {
-			runId: ImportRunId;
-			page: number;
-			limit: number;
-		}) {
-			const db = yield* CurrentDb;
-			const offset = (input.page - 1) * input.limit;
-			const [rows, totals] = yield* Effect.all([
-				dbEffect(() =>
-					db
-						.select()
-						.from(schema.importRunFailure)
-						.where(eq(schema.importRunFailure.runId, input.runId))
-						.orderBy(asc(schema.importRunFailure.createdAt))
-						.limit(input.limit)
-						.offset(offset),
-				),
-				dbEffect(() =>
-					db
-						.select({ total: count() })
-						.from(schema.importRunFailure)
-						.where(eq(schema.importRunFailure.runId, input.runId)),
-				),
-			]);
-			return { total: totals[0]?.total ?? 0, items: rows.map(normalizeFailure) };
-		}),
-	}),
+		});
+
+		const listFailuresByRunId = Effect.fn("ImportsRepository.listFailuresByRunId")(
+			function* (input: { runId: ImportRunId; page: number; limit: number }) {
+				const db = yield* CurrentDb;
+				const offset = (input.page - 1) * input.limit;
+				const [rows, totals] = yield* Effect.all([
+					dbEffect(() =>
+						db
+							.select()
+							.from(schema.importRunFailure)
+							.where(eq(schema.importRunFailure.runId, input.runId))
+							.orderBy(asc(schema.importRunFailure.createdAt))
+							.limit(input.limit)
+							.offset(offset),
+					),
+					dbEffect(() =>
+						db
+							.select({ total: count() })
+							.from(schema.importRunFailure)
+							.where(eq(schema.importRunFailure.runId, input.runId)),
+					),
+				]);
+				return { total: totals[0]?.total ?? 0, items: rows.map(normalizeFailure) };
+			},
+		);
+
+		return {
+			createRun,
+			getRunById,
+			listRunsByUser,
+			listRunsByIntegrationId,
+			hasActiveRunForIntegration,
+			listRecentStatusesByIntegrationId,
+			updateRun,
+			deleteRunById,
+			createFailure,
+			listFailuresByRunId,
+		};
+	},
 }) {}

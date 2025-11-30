@@ -10,8 +10,8 @@ const userSearchClause = (search?: string) =>
 	search ? ilike(schema.user.email, `%${search.trim()}%`) : undefined;
 
 export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodModeRepository", {
-	sync: () => ({
-		countUsers: Effect.fn("GodModeRepository.countUsers")(function* (search?: string) {
+	sync: () => {
+		const countUsers = Effect.fn("GodModeRepository.countUsers")(function* (search?: string) {
 			const db = yield* CurrentDb;
 			const rows = yield* dbEffect(() =>
 				db
@@ -20,8 +20,9 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 					.where(userSearchClause(search)),
 			);
 			return Number(rows[0]?.count ?? 0);
-		}),
-		listUserRows: Effect.fn("GodModeRepository.listUserRows")(function* (input: {
+		});
+
+		const listUserRows = Effect.fn("GodModeRepository.listUserRows")(function* (input: {
 			search?: string;
 			offset: number;
 			limit: number;
@@ -52,8 +53,9 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 				bannedAt: row.bannedAt?.toISOString() ?? null,
 				twoFactorEnabled: row.twoFactorEnabled ?? null,
 			}));
-		}),
-		listAccountsForUsers: Effect.fn("GodModeRepository.listAccountsForUsers")(function* (
+		});
+
+		const listAccountsForUsers = Effect.fn("GodModeRepository.listAccountsForUsers")(function* (
 			userIds: string[],
 		) {
 			const db = yield* CurrentDb;
@@ -63,8 +65,9 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 					.from(schema.account)
 					.where(inArray(schema.account.userId, userIds)),
 			);
-		}),
-		findUserById: Effect.fn("GodModeRepository.findUserById")(function* (userId: UserId) {
+		});
+
+		const findUserById = Effect.fn("GodModeRepository.findUserById")(function* (userId: UserId) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
 				db
@@ -74,8 +77,11 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 					.limit(1),
 			);
 			return row ?? null;
-		}),
-		findUserIdByEmail: Effect.fn("GodModeRepository.findUserIdByEmail")(function* (email: string) {
+		});
+
+		const findUserIdByEmail = Effect.fn("GodModeRepository.findUserIdByEmail")(function* (
+			email: string,
+		) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
 				db
@@ -85,8 +91,11 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 					.limit(1),
 			);
 			return row ?? null;
-		}),
-		findUserBanState: Effect.fn("GodModeRepository.findUserBanState")(function* (userId: UserId) {
+		});
+
+		const findUserBanState = Effect.fn("GodModeRepository.findUserBanState")(function* (
+			userId: UserId,
+		) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
 				db
@@ -96,8 +105,9 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 					.limit(1),
 			);
 			return row ?? null;
-		}),
-		insertUser: Effect.fn("GodModeRepository.insertUser")(function* (input: {
+		});
+
+		const insertUser = Effect.fn("GodModeRepository.insertUser")(function* (input: {
 			id: string;
 			name: string;
 			email: string;
@@ -112,8 +122,9 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 					preferences: defaultUserPreferences,
 				}),
 			);
-		}),
-		insertOidcAccount: Effect.fn("GodModeRepository.insertOidcAccount")(function* (input: {
+		});
+
+		const insertOidcAccount = Effect.fn("GodModeRepository.insertOidcAccount")(function* (input: {
 			userId: UserId;
 			oidcIssuerId: string;
 		}) {
@@ -126,8 +137,9 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 					accountId: input.oidcIssuerId,
 				}),
 			);
-		}),
-		updateUserBan: Effect.fn("GodModeRepository.updateUserBan")(function* (input: {
+		});
+
+		const updateUserBan = Effect.fn("GodModeRepository.updateUserBan")(function* (input: {
 			userId: UserId;
 			bannedAt: Date | null;
 			updatedAt: Date;
@@ -139,6 +151,18 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 					.set({ bannedAt: input.bannedAt, updatedAt: input.updatedAt })
 					.where(eq(schema.user.id, input.userId)),
 			);
-		}),
-	}),
+		});
+
+		return {
+			countUsers,
+			listUserRows,
+			listAccountsForUsers,
+			findUserById,
+			findUserIdByEmail,
+			findUserBanState,
+			insertUser,
+			insertOidcAccount,
+			updateUserBan,
+		};
+	},
 }) {}
