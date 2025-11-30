@@ -674,6 +674,7 @@ pub async fn get_or_fetch_entity_translations(
                     }
                     let translations = EntityTranslation::find()
                         .filter(entity_translation::Column::MetadataId.eq(&input.entity_id))
+                        .filter(entity_translation::Column::Language.eq(&preferred_language))
                         .all(&ss.db)
                         .await?;
                     Ok(translations)
