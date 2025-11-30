@@ -15,7 +15,7 @@
 			"!apps/frontend/app/styles/*.css",
 			"!apps/app-frontend/src/routeTree.gen.ts",
 			"!apps/docs/src/includes/export-schema.ts",
-			"!apps/app-frontend/src/lib/api/openapi.d.ts"
+			"!libs/generated/src/openapi/app-backend.d.ts"
 		]
 	},
 	"linter": {
