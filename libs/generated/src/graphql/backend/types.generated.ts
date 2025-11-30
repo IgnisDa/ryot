@@ -136,6 +136,12 @@ export type CachedCollectionsListResponse = {
   response: Array<CollectionItem>;
 };
 
+export type CachedEntityTranslationDetailsResponse = {
+  __typename?: 'CachedEntityTranslationDetailsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: Array<EntityTranslation>;
+};
+
 export type CachedFilterPresetsResponse = {
   __typename?: 'CachedFilterPresetsResponse';
   cacheId: Scalars['UUID']['output'];
@@ -725,9 +731,27 @@ export type EntityToCollectionInput = {
   information?: InputMaybe<Scalars['JSON']['input']>;
 };
 
+export type EntityTranslation = {
+  __typename?: 'EntityTranslation';
+  entityId: Scalars['String']['output'];
+  entityLot: EntityLot;
+  value?: Maybe<Scalars['String']['output']>;
+  variant: EntityTranslationVariant;
+};
+
+export enum EntityTranslationVariant {
+  Description = 'DESCRIPTION',
+  Title = 'TITLE'
+}
+
 export type EntityWithLot = {
   __typename?: 'EntityWithLot';
   entityId: Scalars['String']['output'];
+  entityLot: EntityLot;
+};
+
+export type EntityWithLotInput = {
+  entityId: Scalars['String']['input'];
   entityLot: EntityLot;
 };
 
@@ -1291,11 +1315,6 @@ export type MangaSpecificsInput = {
   volumes?: InputMaybe<Scalars['Int']['input']>;
 };
 
-export type MarkEntityAsPartialInput = {
-  entityId: Scalars['String']['input'];
-  entityLot: EntityLot;
-};
-
 export type MediaCollectionContentsResults = {
   __typename?: 'MediaCollectionContentsResults';
   details: SearchDetails;
@@ -1719,6 +1738,11 @@ export type MutationRoot = {
   updateCustomPerson: Scalars['Boolean']['output'];
   /** Update the last used timestamp for a filter preset */
   updateFilterPresetLastUsed: Scalars['Boolean']['output'];
+  /**
+   * Update a media entity's translations. The language code is
+   * extracted from the user's preferences.
+   */
+  updateMediaEntityTranslation: Scalars['Boolean']['output'];
   /** Update the attributes of a seen item. */
   updateSeenItem: Scalars['Boolean']['output'];
   /** Update a user's profile details. */
@@ -1892,8 +1916,7 @@ export type MutationRootDeployRemoveEntitiesFromCollectionJobArgs = {
 
 
 export type MutationRootDeployUpdateMediaEntityJobArgs = {
-  entityId: Scalars['String']['input'];
-  entityLot: EntityLot;
+  input: EntityWithLotInput;
 };
 
 
@@ -1918,7 +1941,7 @@ export type MutationRootLoginUserArgs = {
 
 
 export type MutationRootMarkEntityAsPartialArgs = {
-  input: MarkEntityAsPartialInput;
+  input: EntityWithLotInput;
 };
 
 
@@ -1991,6 +2014,11 @@ export type MutationRootUpdateCustomPersonArgs = {
 
 export type MutationRootUpdateFilterPresetLastUsedArgs = {
   filterPresetId: Scalars['UUID']['input'];
+};
+
+
+export type MutationRootUpdateMediaEntityTranslationArgs = {
+  input: EntityWithLotInput;
 };
 
 
@@ -2225,6 +2253,8 @@ export type QueryRoot = {
   collectionRecommendations: IdResults;
   /** Get some primary information about the service. */
   coreDetails: CoreDetails;
+  /** Get the translations of an entity using the user's preferred language. */
+  entityTranslationDetails: CachedEntityTranslationDetailsResponse;
   /** Get details about an exercise. */
   exerciseDetails: Exercise;
   /** Get all filter presets for a specific context */
@@ -2324,6 +2354,11 @@ export type QueryRootCollectionRecommendationsArgs = {
 };
 
 
+export type QueryRootEntityTranslationDetailsArgs = {
+  input: EntityWithLotInput;
+};
+
+
 export type QueryRootExerciseDetailsArgs = {
   exerciseId: Scalars['String']['input'];
 };
@@ -2400,8 +2435,7 @@ export type QueryRootUserCalendarEventsArgs = {
 
 
 export type QueryRootUserEntityRecentlyConsumedArgs = {
-  entityId: Scalars['String']['input'];
-  entityLot: EntityLot;
+  input: EntityWithLotInput;
 };
 
 

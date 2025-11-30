@@ -160,6 +160,11 @@ export type CachedCollectionsListResponse = {
   response: Array<CollectionItem>;
 };
 
+export type CachedEntityTranslationDetailsResponse = {
+  cacheId: Scalars['UUID']['output'];
+  response: Array<EntityTranslation>;
+};
+
 export type CachedFilterPresetsResponse = {
   cacheId: Scalars['UUID']['output'];
   response: Array<FilterPreset>;
@@ -718,8 +723,25 @@ export type EntityToCollectionInput = {
   information?: InputMaybe<Scalars['JSON']['input']>;
 };
 
+export type EntityTranslation = {
+  entityId: Scalars['String']['output'];
+  entityLot: EntityLot;
+  value?: Maybe<Scalars['String']['output']>;
+  variant: EntityTranslationVariant;
+};
+
+export enum EntityTranslationVariant {
+  Description = 'DESCRIPTION',
+  Title = 'TITLE'
+}
+
 export type EntityWithLot = {
   entityId: Scalars['String']['output'];
+  entityLot: EntityLot;
+};
+
+export type EntityWithLotInput = {
+  entityId: Scalars['String']['input'];
   entityLot: EntityLot;
 };
 
@@ -1249,11 +1271,6 @@ export type MangaSpecificsInput = {
   volumes?: InputMaybe<Scalars['Int']['input']>;
 };
 
-export type MarkEntityAsPartialInput = {
-  entityId: Scalars['String']['input'];
-  entityLot: EntityLot;
-};
-
 export type MediaCollectionContentsResults = {
   details: SearchDetails;
   items: Array<EntityWithLot>;
@@ -1664,6 +1681,11 @@ export type MutationRoot = {
   updateCustomPerson: Scalars['Boolean']['output'];
   /** Update the last used timestamp for a filter preset */
   updateFilterPresetLastUsed: Scalars['Boolean']['output'];
+  /**
+   * Update a media entity's translations. The language code is
+   * extracted from the user's preferences.
+   */
+  updateMediaEntityTranslation: Scalars['Boolean']['output'];
   /** Update the attributes of a seen item. */
   updateSeenItem: Scalars['Boolean']['output'];
   /** Update a user's profile details. */
@@ -1837,8 +1859,7 @@ export type MutationRootDeployRemoveEntitiesFromCollectionJobArgs = {
 
 
 export type MutationRootDeployUpdateMediaEntityJobArgs = {
-  entityId: Scalars['String']['input'];
-  entityLot: EntityLot;
+  input: EntityWithLotInput;
 };
 
 
@@ -1863,7 +1884,7 @@ export type MutationRootLoginUserArgs = {
 
 
 export type MutationRootMarkEntityAsPartialArgs = {
-  input: MarkEntityAsPartialInput;
+  input: EntityWithLotInput;
 };
 
 
@@ -1936,6 +1957,11 @@ export type MutationRootUpdateCustomPersonArgs = {
 
 export type MutationRootUpdateFilterPresetLastUsedArgs = {
   filterPresetId: Scalars['UUID']['input'];
+};
+
+
+export type MutationRootUpdateMediaEntityTranslationArgs = {
+  input: EntityWithLotInput;
 };
 
 
@@ -2156,6 +2182,8 @@ export type QueryRoot = {
   collectionRecommendations: IdResults;
   /** Get some primary information about the service. */
   coreDetails: CoreDetails;
+  /** Get the translations of an entity using the user's preferred language. */
+  entityTranslationDetails: CachedEntityTranslationDetailsResponse;
   /** Get details about an exercise. */
   exerciseDetails: Exercise;
   /** Get all filter presets for a specific context */
@@ -2255,6 +2283,11 @@ export type QueryRootCollectionRecommendationsArgs = {
 };
 
 
+export type QueryRootEntityTranslationDetailsArgs = {
+  input: EntityWithLotInput;
+};
+
+
 export type QueryRootExerciseDetailsArgs = {
   exerciseId: Scalars['String']['input'];
 };
@@ -2331,8 +2364,7 @@ export type QueryRootUserCalendarEventsArgs = {
 
 
 export type QueryRootUserEntityRecentlyConsumedArgs = {
-  entityId: Scalars['String']['input'];
-  entityLot: EntityLot;
+  input: EntityWithLotInput;
 };
 
 
@@ -3742,8 +3774,7 @@ export type DeployImportJobMutationVariables = Exact<{
 export type DeployImportJobMutation = { deployImportJob: boolean };
 
 export type DeployUpdateMediaEntityJobMutationVariables = Exact<{
-  entityId: Scalars['String']['input'];
-  entityLot: EntityLot;
+  input: EntityWithLotInput;
 }>;
 
 
@@ -3877,7 +3908,7 @@ export type MergeExerciseMutationVariables = Exact<{
 export type MergeExerciseMutation = { mergeExercise: boolean };
 
 export type MarkEntityAsPartialMutationVariables = Exact<{
-  input: MarkEntityAsPartialInput;
+  input: EntityWithLotInput;
 }>;
 
 
@@ -4267,8 +4298,7 @@ export type MetadataLookupQuery = { metadataLookup: { cacheId: string, response:
      } };
 
 export type UserEntityRecentlyConsumedQueryVariables = Exact<{
-  entityId: Scalars['String']['input'];
-  entityLot: EntityLot;
+  input: EntityWithLotInput;
 }>;
 
 
@@ -4374,7 +4404,7 @@ export const DeleteUserWorkoutTemplateDocument = {"kind":"Document","definitions
 export const DeployBackgroundJobDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeployBackgroundJob"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"jobName"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"BackgroundJob"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deployBackgroundJob"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"jobName"},"value":{"kind":"Variable","name":{"kind":"Name","value":"jobName"}}}]}]}}]} as unknown as DocumentNode<DeployBackgroundJobMutation, DeployBackgroundJobMutationVariables>;
 export const DeployExportJobDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeployExportJob"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deployExportJob"}}]}}]} as unknown as DocumentNode<DeployExportJobMutation, DeployExportJobMutationVariables>;
 export const DeployImportJobDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeployImportJob"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DeployImportJobInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deployImportJob"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<DeployImportJobMutation, DeployImportJobMutationVariables>;
-export const DeployUpdateMediaEntityJobDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeployUpdateMediaEntityJob"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"entityId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"entityLot"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"EntityLot"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deployUpdateMediaEntityJob"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"entityId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"entityId"}}},{"kind":"Argument","name":{"kind":"Name","value":"entityLot"},"value":{"kind":"Variable","name":{"kind":"Name","value":"entityLot"}}}]}]}}]} as unknown as DocumentNode<DeployUpdateMediaEntityJobMutation, DeployUpdateMediaEntityJobMutationVariables>;
+export const DeployUpdateMediaEntityJobDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeployUpdateMediaEntityJob"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"EntityWithLotInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deployUpdateMediaEntityJob"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<DeployUpdateMediaEntityJobMutation, DeployUpdateMediaEntityJobMutationVariables>;
 export const UpdateSeenItemDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateSeenItem"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateSeenItemInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateSeenItem"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<UpdateSeenItemMutation, UpdateSeenItemMutationVariables>;
 export const UpdateUserNotificationPlatformDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateUserNotificationPlatform"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateUserNotificationPlatformInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateUserNotificationPlatform"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<UpdateUserNotificationPlatformMutation, UpdateUserNotificationPlatformMutationVariables>;
 export const UpdateUserWorkoutAttributesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateUserWorkoutAttributes"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateUserWorkoutAttributesInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateUserWorkoutAttributes"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<UpdateUserWorkoutAttributesMutation, UpdateUserWorkoutAttributesMutationVariables>;
@@ -4393,7 +4423,7 @@ export const ProcessAccessLinkDocument = {"kind":"Document","definitions":[{"kin
 export const RevokeAccessLinkDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RevokeAccessLink"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"accessLinkId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"revokeAccessLink"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"accessLinkId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"accessLinkId"}}}]}]}}]} as unknown as DocumentNode<RevokeAccessLinkMutation, RevokeAccessLinkMutationVariables>;
 export const UpdateUserExerciseSettingsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateUserExerciseSettings"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateUserExerciseSettings"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateUserExerciseSettings"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<UpdateUserExerciseSettingsMutation, UpdateUserExerciseSettingsMutationVariables>;
 export const MergeExerciseDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"MergeExercise"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"mergeFrom"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"mergeInto"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mergeExercise"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"mergeFrom"},"value":{"kind":"Variable","name":{"kind":"Name","value":"mergeFrom"}}},{"kind":"Argument","name":{"kind":"Name","value":"mergeInto"},"value":{"kind":"Variable","name":{"kind":"Name","value":"mergeInto"}}}]}]}}]} as unknown as DocumentNode<MergeExerciseMutation, MergeExerciseMutationVariables>;
-export const MarkEntityAsPartialDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"MarkEntityAsPartial"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"MarkEntityAsPartialInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"markEntityAsPartial"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<MarkEntityAsPartialMutation, MarkEntityAsPartialMutationVariables>;
+export const MarkEntityAsPartialDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"MarkEntityAsPartial"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"EntityWithLotInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"markEntityAsPartial"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<MarkEntityAsPartialMutation, MarkEntityAsPartialMutationVariables>;
 export const ExpireCacheKeyDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ExpireCacheKey"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"cacheId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UUID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"expireCacheKey"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"cacheId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"cacheId"}}}]}]}}]} as unknown as DocumentNode<ExpireCacheKeyMutation, ExpireCacheKeyMutationVariables>;
 export const DeployBulkMetadataProgressUpdateDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeployBulkMetadataProgressUpdate"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"MetadataProgressUpdateInput"}}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deployBulkMetadataProgressUpdate"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<DeployBulkMetadataProgressUpdateMutation, DeployBulkMetadataProgressUpdateMutationVariables>;
 export const InitiateTwoFactorSetupDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"InitiateTwoFactorSetup"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"initiateTwoFactorSetup"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"secret"}},{"kind":"Field","name":{"kind":"Name","value":"qrCodeUrl"}}]}}]}}]} as unknown as DocumentNode<InitiateTwoFactorSetupMutation, InitiateTwoFactorSetupMutationVariables>;
@@ -4452,5 +4482,5 @@ export const UserAnalyticsParametersDocument = {"kind":"Document","definitions":
 export const TrendingMetadataDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"TrendingMetadata"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"trendingMetadata"}}]}}]} as unknown as DocumentNode<TrendingMetadataQuery, TrendingMetadataQueryVariables>;
 export const CollectionRecommendationsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CollectionRecommendations"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CollectionRecommendationsInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"collectionRecommendations"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"items"}},{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SearchDetailsPart"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SearchDetailsPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SearchDetails"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"nextPage"}},{"kind":"Field","name":{"kind":"Name","value":"totalItems"}}]}}]} as unknown as DocumentNode<CollectionRecommendationsQuery, CollectionRecommendationsQueryVariables>;
 export const MetadataLookupDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MetadataLookup"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"title"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadataLookup"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"title"},"value":{"kind":"Variable","name":{"kind":"Name","value":"title"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cacheId"}},{"kind":"Field","name":{"kind":"Name","value":"response"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MetadataLookupFoundResult"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"data"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"source"}},{"kind":"Field","name":{"kind":"Name","value":"identifier"}}]}},{"kind":"Field","name":{"kind":"Name","value":"showInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"season"}},{"kind":"Field","name":{"kind":"Name","value":"episode"}}]}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"MetadataLookupNotFound"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"notFound"}}]}}]}}]}}]}}]} as unknown as DocumentNode<MetadataLookupQuery, MetadataLookupQueryVariables>;
-export const UserEntityRecentlyConsumedDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserEntityRecentlyConsumed"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"entityId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"entityLot"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"EntityLot"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userEntityRecentlyConsumed"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"entityId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"entityId"}}},{"kind":"Argument","name":{"kind":"Name","value":"entityLot"},"value":{"kind":"Variable","name":{"kind":"Name","value":"entityLot"}}}]}]}}]} as unknown as DocumentNode<UserEntityRecentlyConsumedQuery, UserEntityRecentlyConsumedQueryVariables>;
+export const UserEntityRecentlyConsumedDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserEntityRecentlyConsumed"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"EntityWithLotInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userEntityRecentlyConsumed"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<UserEntityRecentlyConsumedQuery, UserEntityRecentlyConsumedQueryVariables>;
 export const FilterPresetsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"FilterPresets"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"FilterPresetQueryInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"filterPresets"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cacheId"}},{"kind":"Field","name":{"kind":"Name","value":"response"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"filters"}}]}}]}}]}}]} as unknown as DocumentNode<FilterPresetsQuery, FilterPresetsQueryVariables>;
