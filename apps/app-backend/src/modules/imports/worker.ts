@@ -1,8 +1,6 @@
-import { FileSystem } from "@effect/platform";
 import { Workflow } from "@effect/workflow";
-import { Effect, Schema } from "effect";
+import { Effect, Layer, Schema } from "effect";
 
-import { AppConfig } from "#lib/config";
 import { unknownToMessage } from "#lib/errors";
 
 import { ImportRunJobData } from "./jobs";
@@ -11,80 +9,67 @@ import {
 	loadOpenScaleAdapterResult,
 	prepareOpenScaleWrites,
 } from "./measurement/workflow";
-import {
-	isOneTimeMediaImportSource,
-	loadOneTimeMediaImportAdapterResult,
-} from "./media/source-loaders";
-import {
-	importMediaEntityViaWorkflow,
-	resolveSandboxEntityExternalId,
-	searchSandboxEntities,
-} from "./media/workflow-operations";
+import { isOneTimeMediaImportSource } from "./media/source-loaders";
+import { MediaImportWorkflowOperationsLive } from "./media/workflow-operations";
 import { failImportRun } from "./runtime/failures";
-import { resolveSafeImportFilePath } from "./runtime/files";
-import { deleteImportSourcePayload } from "./runtime/source-payload-store";
-import { ImportRunError } from "./runtime/workflow-helpers";
-import { adaptHevyCsv } from "./sources/hevy/adapter";
-import { adaptStrongAppCsv } from "./sources/strong-app/adapter";
+import { ImportRunArtifacts, ImportRunError } from "./runtime/workflow-helpers";
 import { runOneTimeMediaImportWorkflow } from "./workflows";
-import { runOneTimeNonMediaImportWorkflow } from "./workflows-non-media";
+import {
+	NonMediaImportWorkflowOperations,
+	makeNonMediaImportOperationSet,
+	runOneTimeNonMediaImportWorkflow,
+} from "./workflows-non-media";
 import { WorkoutImportItemSchema } from "./workout/domain";
-import { loadWorkoutAdapterResult, prepareWorkoutWrites } from "./workout/workflow";
+import {
+	loadHevyWorkoutAdapterResult,
+	loadStrongAppWorkoutAdapterResult,
+	prepareWorkoutWrites,
+} from "./workout/workflow";
 
-const cleanupImportArtifacts = Effect.fn(function* (input: {
-	sourcePayloadKey?: string;
-	cleanupPaths: ReadonlyArray<string>;
-}) {
-	const config = yield* AppConfig;
-	const fs = yield* FileSystem.FileSystem;
-	const tempDir = config.tmpDir;
-
-	if (input.sourcePayloadKey) {
-		yield* deleteImportSourcePayload(input.sourcePayloadKey);
-	}
-
-	yield* Effect.forEach(
-		new Set(input.cleanupPaths),
-		(path) =>
-			!path.trim()
-				? Effect.void
-				: resolveSafeImportFilePath(path, tempDir).pipe(
-						Effect.mapError(
-							() => new ImportRunError({ message: "Import cleanup path is invalid" }),
-						),
-						Effect.flatMap((safePath) => fs.remove(safePath, { recursive: true })),
-					),
-		{ discard: true },
-	);
+const NonMediaImportWorkflowOperationsLive = Layer.succeed(NonMediaImportWorkflowOperations, {
+	getOperations: (payload) => {
+		if (payload.source === "open_scale") {
+			return Effect.succeed(
+				makeNonMediaImportOperationSet({
+					itemSchema: OpenScaleImportItemSchema,
+					prepareWrites: prepareOpenScaleWrites,
+					loadAdapterResult: loadOpenScaleAdapterResult,
+				}),
+			);
+		}
+		if (payload.source === "hevy") {
+			return Effect.succeed(
+				makeNonMediaImportOperationSet({
+					itemSchema: WorkoutImportItemSchema,
+					prepareWrites: prepareWorkoutWrites,
+					loadAdapterResult: loadHevyWorkoutAdapterResult,
+				}),
+			);
+		}
+		if (payload.source === "strong_app") {
+			return Effect.succeed(
+				makeNonMediaImportOperationSet({
+					itemSchema: WorkoutImportItemSchema,
+					prepareWrites: prepareWorkoutWrites,
+					loadAdapterResult: loadStrongAppWorkoutAdapterResult,
+				}),
+			);
+		}
+		return Effect.fail(
+			new ImportRunError({ message: `Unsupported import source: ${payload.source}` }),
+		);
+	},
 });
 
 const runNonMediaImport = (payload: ImportRunJobData) => {
 	if (payload.source === "open_scale") {
-		return runOneTimeNonMediaImportWorkflow(payload, {
-			cleanupArtifacts: cleanupImportArtifacts,
-			itemSchema: OpenScaleImportItemSchema,
-			prepareWrites: prepareOpenScaleWrites,
-			loadAdapterResult: loadOpenScaleAdapterResult,
-		});
+		return runOneTimeNonMediaImportWorkflow(payload);
 	}
 	if (payload.source === "hevy") {
-		return runOneTimeNonMediaImportWorkflow(payload, {
-			cleanupArtifacts: cleanupImportArtifacts,
-			itemSchema: WorkoutImportItemSchema,
-			prepareWrites: prepareWorkoutWrites,
-			loadAdapterResult: loadWorkoutAdapterResult({ sourceName: "Hevy", adapt: adaptHevyCsv }),
-		});
+		return runOneTimeNonMediaImportWorkflow(payload);
 	}
 	if (payload.source === "strong_app") {
-		return runOneTimeNonMediaImportWorkflow(payload, {
-			cleanupArtifacts: cleanupImportArtifacts,
-			itemSchema: WorkoutImportItemSchema,
-			prepareWrites: prepareWorkoutWrites,
-			loadAdapterResult: loadWorkoutAdapterResult({
-				adapt: adaptStrongAppCsv,
-				sourceName: "StrongApp",
-			}),
-		});
+		return runOneTimeNonMediaImportWorkflow(payload);
 	}
 	return failImportRun(payload.runId, `Unsupported import source: ${payload.source}`).pipe(
 		Effect.mapError((error) => new ImportRunError({ message: unknownToMessage(error) })),
@@ -106,14 +91,16 @@ const ProcessImportRunWorkflowLive = ProcessImportRunWorkflow.toLayer((payload, 
 			return;
 		}
 
-		yield* runOneTimeMediaImportWorkflow(payload, executionId, {
-			searchEntities: searchSandboxEntities,
-			cleanupArtifacts: cleanupImportArtifacts,
-			importEntity: importMediaEntityViaWorkflow,
-			resolveExternalId: resolveSandboxEntityExternalId,
-			loadAdapterResult: loadOneTimeMediaImportAdapterResult,
-		});
+		yield* runOneTimeMediaImportWorkflow(payload, executionId);
 	}),
 );
 
-export const ImportWorkflowDefinitionsLive = ProcessImportRunWorkflowLive;
+export const ImportWorkflowDefinitionsLive = ProcessImportRunWorkflowLive.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			ImportRunArtifacts.Default,
+			MediaImportWorkflowOperationsLive,
+			NonMediaImportWorkflowOperationsLive,
+		),
+	),
+);

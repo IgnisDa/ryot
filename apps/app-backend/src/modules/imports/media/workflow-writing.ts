@@ -1,15 +1,14 @@
 import { Activity } from "@effect/workflow";
 import { DateTime, Effect, Schema } from "effect";
 
-import type { CurrentDb } from "#lib/db";
+import { DbRunner } from "#lib/db";
 import { unknownToMessage } from "#lib/errors";
-import {
-	EntityId,
-	EntitySchemaId,
-	EventSchemaId,
-	type IntegrationId,
-	type UserId,
-} from "#lib/schema/brands";
+import { EntityId, EntitySchemaId, EventSchemaId, type IntegrationId } from "#lib/schema/brands";
+import { CollectionsService } from "#modules/collections/service";
+import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
+import { EpisodeResolverService } from "#modules/episode-resolver/service";
+import { EventSchemasRepository } from "#modules/event-schemas/repository";
+import { EventsService } from "#modules/events/service";
 
 import type { ImportRunJobData } from "../jobs";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
@@ -21,7 +20,6 @@ import {
 	EnsureLibraryMembershipOutcome,
 	type EntityIdsByKey,
 	type ProgressReporter,
-	type RunWithDb,
 } from "./workflow-shared";
 import {
 	recordEpisodeResolutionFailure,
@@ -29,71 +27,20 @@ import {
 	recordWriteFailure,
 } from "./workflow-writing-failures";
 
-type EventPayload = ReadonlyArray<{
-	entityId: EntityId;
-	occurredAt: string;
-	eventSchemaId: EventSchemaId;
-	properties: Record<string, unknown>;
-}>;
-
 export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(function* (input: {
 	executionId: string;
-	runWithDb: RunWithDb;
 	entityIdsByKey: EntityIdsByKey;
 	reportProgress: ProgressReporter;
 	entityGroups: ImportMediaEntityGroup[];
 	options: { integrationId?: IntegrationId };
 	payload: Pick<ImportRunJobData, "runId" | "userId">;
-	events: {
-		create: (input: {
-			userId: UserId;
-			executionId: string;
-			payload: EventPayload;
-			source: "import" | "integration";
-			metadata: { integrationId?: IntegrationId; importRunId: ImportRunJobData["runId"] };
-		}) => Effect.Effect<unknown, unknown>;
-	};
-	collections: {
-		getOrCreateCollection: (
-			userId: UserId,
-			name: string,
-		) => Effect.Effect<{ id: EntityId }, unknown>;
-		addToCollection: (
-			user: { id: UserId; name: string; email: string },
-			payload: { entityId: EntityId; collectionId: EntityId; properties: Record<string, unknown> },
-		) => Effect.Effect<unknown, unknown>;
-		markEntityOwnedInLibrary: (input: {
-			userId: UserId;
-			provider: string;
-			syncedAt: string;
-			entityId: EntityId;
-		}) => Effect.Effect<void, unknown>;
-	};
-	episodeResolver: {
-		resolveShowEpisode: (input: {
-			userId: UserId;
-			seasonNumber: number;
-			episodeNumber: number;
-			showEntityId: EntityId;
-		}) => Effect.Effect<EntityId | null, unknown>;
-		resolvePodcastEpisode: (input: {
-			userId: UserId;
-			episodeNumber: number;
-			podcastEntityId: EntityId;
-		}) => Effect.Effect<EntityId | null, unknown>;
-	};
-	entitySchemas: {
-		getBuiltinBySlug: (
-			slug: string,
-		) => Effect.Effect<{ id: EntitySchemaId } | null, unknown, CurrentDb>;
-	};
-	eventSchemas: {
-		getBuiltinBySlug: (input: {
-			slug: string;
-			entitySchemaId: EntitySchemaId;
-		}) => Effect.Effect<{ id: EventSchemaId } | null, unknown, CurrentDb>;
-	};
 }) {
+	const runWithDb = yield* DbRunner;
+	const events = yield* EventsService;
+	const collections = yield* CollectionsService;
+	const eventSchemas = yield* EventSchemasRepository;
+	const entitySchemas = yield* EntitySchemasRepository;
+	const episodeResolver = yield* EpisodeResolverService;
 	let failures = 0;
 	let importedItems = 0;
 	const collectionIdsByName = new Map<string, EntityId>();
@@ -121,7 +68,7 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 				error: ImportRunError,
 				success: Schema.NullOr(EntitySchemaId),
 				name: `load-entity-schema-${activityKey(entitySchemaSlug)}`,
-				execute: input.runWithDb(input.entitySchemas.getBuiltinBySlug(entitySchemaSlug)).pipe(
+				execute: runWithDb(entitySchemas.getBuiltinBySlug(entitySchemaSlug)).pipe(
 					Effect.map((found) => found?.id ?? null),
 					Effect.mapError(toWorkflowError),
 				),
@@ -144,7 +91,7 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 				success: EntityId,
 				error: ImportRunError,
 				name: `get-or-create-collection-${activityKey(collectionName)}`,
-				execute: input.collections.getOrCreateCollection(input.payload.userId, collectionName).pipe(
+				execute: collections.getOrCreateCollection(input.payload.userId, collectionName).pipe(
 					Effect.map((collection) => collection.id),
 					Effect.mapError(toWorkflowError),
 				),
@@ -165,12 +112,12 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 				error: ImportRunError,
 				success: Schema.NullOr(EventSchemaId),
 				name: `load-event-schema-${activityKey(schemaKey)}`,
-				execute: input
-					.runWithDb(input.eventSchemas.getBuiltinBySlug({ entitySchemaId, slug: eventSchemaSlug }))
-					.pipe(
-						Effect.map((found) => found?.id ?? null),
-						Effect.mapError(toWorkflowError),
-					),
+				execute: runWithDb(
+					eventSchemas.getBuiltinBySlug({ entitySchemaId, slug: eventSchemaSlug }),
+				).pipe(
+					Effect.map((found) => found?.id ?? null),
+					Effect.mapError(toWorkflowError),
+				),
 			});
 			if (eventSchemaId) {
 				eventSchemaIdsByKey.set(schemaKey, eventSchemaId);
@@ -232,9 +179,9 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 				continue;
 			}
 			const membershipResult = yield* Activity.make({
-				name: `add-collection-membership-${i}-${membershipIndex}`,
 				success: EnsureLibraryMembershipOutcome,
-				execute: input.collections
+				name: `add-collection-membership-${i}-${membershipIndex}`,
+				execute: collections
 					.addToCollection(user, { entityId, collectionId: collectionId.right, properties: {} })
 					.pipe(
 						Effect.as({ message: null }),
@@ -267,7 +214,7 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 					error: ImportRunError,
 					success: Schema.NullOr(EntityId),
 					name: `resolve-show-episode-${i}-${eventIndex}`,
-					execute: input.episodeResolver
+					execute: episodeResolver
 						.resolveShowEpisode({
 							showEntityId: entityId,
 							userId: input.payload.userId,
@@ -314,7 +261,7 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 					error: ImportRunError,
 					success: Schema.NullOr(EntityId),
 					name: `resolve-podcast-episode-${i}-${eventIndex}`,
-					execute: input.episodeResolver
+					execute: episodeResolver
 						.resolvePodcastEpisode({
 							podcastEntityId: entityId,
 							userId: input.payload.userId,
@@ -379,7 +326,7 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 				},
 			];
 			const eventExecutionId = `${input.executionId}-event-${i}-${eventIndex}`;
-			const eventWrite = yield* input.events
+			const eventWrite = yield* events
 				.create({
 					payload: eventPayload,
 					userId: input.payload.userId,
@@ -412,7 +359,7 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 			const ownershipResult = yield* Activity.make({
 				name: `mark-library-ownership-${i}`,
 				success: EnsureLibraryMembershipOutcome,
-				execute: input.collections
+				execute: collections
 					.markEntityOwnedInLibrary({
 						entityId,
 						syncedAt: ownershipSyncedAt,
