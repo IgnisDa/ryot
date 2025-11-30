@@ -39,7 +39,7 @@ pub async fn recalculate_calendar_events(ss: &Arc<SupportingService>) -> Result<
     let mut calendar_event_ids_to_delete = vec![];
 
     while let Some(meta) = meta_stream.try_next().await? {
-        ryot_log!(trace, "Processing metadata id = {:#?}", meta.id);
+        ryot_log!(debug, "Processing metadata id = {:#?}", meta.id);
         let calendar_events = meta.find_related(CalendarEvent).all(&ss.db).await?;
         for cal_event in calendar_events {
             let mut need_to_delete = true;

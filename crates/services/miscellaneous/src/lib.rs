@@ -3,9 +3,10 @@ use std::sync::Arc;
 use anyhow::{Result, bail};
 use background_models::{ApplicationJob, HpApplicationJob};
 use common_models::{
-    BackgroundJob, MetadataGroupSearchInput, PeopleSearchInput, SearchInput, StringIdObject,
+    BackgroundJob, EntityWithLot, MetadataGroupSearchInput, PeopleSearchInput, SearchInput,
+    StringIdObject,
 };
-use database_models::{prelude::User, user};
+use database_models::{entity_translation, prelude::User, user};
 use database_utils::admin_account_guard;
 use dependent_core_utils::core_details;
 use dependent_entity_list_utils::{
@@ -31,7 +32,7 @@ use dependent_review_utils::post_review;
 use enum_models::EntityLot;
 use media_models::{
     CreateOrUpdateReviewInput, CreateReviewCommentInput, GenreDetailsInput, GraphqlCalendarEvent,
-    GraphqlMetadataDetails, GroupedCalendarEvent, MarkEntityAsPartialInput, MetadataLookupResponse,
+    GraphqlMetadataDetails, GroupedCalendarEvent, MetadataLookupResponse,
     MetadataProgressUpdateInput, ReviewPostedEvent, UpdateSeenItemInput, UserCalendarEventInput,
     UserUpcomingCalendarEventInput,
 };
@@ -91,11 +92,10 @@ impl MiscellaneousService {
     pub async fn is_entity_recently_consumed(
         &self,
         user_id: String,
-        entity_id: String,
-        entity_lot: EntityLot,
+        input: EntityWithLot,
     ) -> Result<bool> {
         miscellaneous_entity_user_details_service::get_entity_recently_consumed(
-            &user_id, &entity_id, entity_lot, &self.0,
+            &user_id, input, &self.0,
         )
         .await
     }
@@ -175,7 +175,7 @@ impl MiscellaneousService {
         Ok(download_url)
     }
 
-    pub async fn mark_entity_as_partial(&self, input: MarkEntityAsPartialInput) -> Result<bool> {
+    pub async fn mark_entity_as_partial(&self, input: EntityWithLot) -> Result<bool> {
         miscellaneous_general_service::mark_entity_as_partial(&self.0, input).await
     }
 
@@ -187,29 +187,34 @@ impl MiscellaneousService {
         miscellaneous_progress_service::update_seen_item(&self.0, &user_id, input).await
     }
 
-    pub async fn deploy_update_media_entity_job(
-        &self,
-        entity_id: String,
-        entity_lot: EntityLot,
-    ) -> Result<bool> {
-        match entity_lot {
+    pub async fn deploy_update_media_entity_job(&self, input: EntityWithLot) -> Result<bool> {
+        match input.entity_lot {
             EntityLot::Metadata => {
-                deploy_update_metadata_job(&entity_id, &self.0).await?;
+                deploy_update_metadata_job(&input.entity_id, &self.0).await?;
             }
             EntityLot::Person => {
-                deploy_update_person_job(&entity_id, &self.0).await?;
+                deploy_update_person_job(&input.entity_id, &self.0).await?;
             }
             EntityLot::MetadataGroup => {
-                deploy_update_metadata_group_job(&entity_id, &self.0).await?;
+                deploy_update_metadata_group_job(&input.entity_id, &self.0).await?;
             }
             _ => {
-                bail!(format!(
+                bail!(
                     "Entity type {:?} is not supported for update jobs",
-                    entity_lot
-                ));
+                    input.entity_lot
+                );
             }
         }
         Ok(true)
+    }
+
+    pub async fn get_entity_translations(
+        &self,
+        user_id: String,
+        input: EntityWithLot,
+    ) -> Result<Vec<entity_translation::Model>> {
+        miscellaneous_metadata_operations_service::get_entity_translations(&self.0, &user_id, input)
+            .await
     }
 
     pub async fn merge_metadata(

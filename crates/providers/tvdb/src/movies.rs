@@ -115,8 +115,8 @@ impl MediaProvider for TvdbMovieService {
             let all_companies = [
                 (companies.studio.as_ref(), "Studio"),
                 (companies.network.as_ref(), "Network"),
-                (companies.production.as_ref(), "Production Company"),
                 (companies.distributor.as_ref(), "Distributor"),
+                (companies.production.as_ref(), "Production Company"),
                 (companies.special_effects.as_ref(), "Special Effects"),
             ];
 

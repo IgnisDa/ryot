@@ -5,8 +5,7 @@ use std::{
 
 use anyhow::{Context, Result, anyhow, bail};
 use common_models::DefaultCollection;
-use common_utils::get_base_http_client;
-use common_utils::{ryot_log, sleep_for_n_seconds};
+use common_utils::{get_base_http_client, ryot_log, sleep_for_n_seconds};
 use database_models::{metadata, prelude::Metadata};
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
@@ -227,11 +226,11 @@ async fn sse_listener(
                     }
                 }
             } else {
-                ryot_log!(trace, event_type = ?event.event, "Received unhandled event type");
+                ryot_log!(debug, event_type = ?event.event, "Received unhandled event type");
             }
         }
 
-        ryot_log!(trace, "SSE listener finished");
+        ryot_log!(debug, "SSE listener finished");
         sleep_for_n_seconds(30).await;
     }
 }

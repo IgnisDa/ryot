@@ -1,10 +1,10 @@
 use async_graphql::{InputObject, InputType, OutputType, SimpleObject};
-use common_models::{ApplicationDateRange, SearchDetails, SearchInput};
+use common_models::{ApplicationDateRange, EntityWithLot, SearchDetails, SearchInput};
 use database_models::{collection, metadata_group};
 use enum_models::MediaLot;
 use media_models::{
-    CollectionContentsFilter, CollectionContentsSortBy, EntityWithLot, GenreListItem,
-    GraphqlMetadataDetails, GraphqlSortOrder, MediaFilter, MediaSortBy, MetadataLookupResponse,
+    CollectionContentsFilter, CollectionContentsSortBy, GenreListItem, GraphqlMetadataDetails,
+    GraphqlSortOrder, MediaFilter, MediaSortBy, MetadataLookupResponse,
     PersonAndMetadataGroupsSortBy, ReviewItem,
 };
 use serde::{Deserialize, Serialize};
@@ -12,15 +12,13 @@ use serde_with::skip_serializing_none;
 use uuid::Uuid;
 
 use crate::{
-    BasicUserDetails, GraphqlPersonDetails, UserAnalytics, UserMetadataDetails,
-    UserMetadataGroupDetails, UserPersonDetails, UserWorkoutDetails, UserWorkoutTemplateDetails,
+    BasicUserDetails, EntityTranslationDetailsResponse, GraphqlPersonDetails, UserAnalytics,
+    UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails, UserWorkoutDetails,
+    UserWorkoutTemplateDetails,
 };
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
-#[graphql(concrete(
-    params(media_models::EntityWithLot),
-    name = "MediaCollectionContentsResults"
-))]
+#[graphql(concrete(params(EntityWithLot), name = "MediaCollectionContentsResults"))]
 #[graphql(concrete(name = "IdResults", params(String)))]
 pub struct SearchResults<T: OutputType> {
     pub items: Vec<T>,
@@ -84,6 +82,10 @@ pub struct SortInput<T: InputType + Default> {
 #[graphql(concrete(
     params(ApplicationDateRange),
     name = "CachedUserAnalyticsParametersResponse",
+))]
+#[graphql(concrete(
+    params(EntityTranslationDetailsResponse),
+    name = "CachedEntityTranslationDetailsResponse",
 ))]
 #[graphql(concrete(
     params(UserMetadataGroupDetails),

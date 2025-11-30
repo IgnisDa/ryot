@@ -57,6 +57,7 @@ pub async fn perform_hp_application_job(
     information: HpApplicationJob,
     app_services: Data<Arc<AppServices>>,
 ) -> Result<(), Error> {
+    let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
         HpApplicationJob::SyncUserIntegrationsData(user_id) => {
@@ -97,6 +98,7 @@ pub async fn perform_hp_application_job(
             .await
             .map(|_| ()),
     };
+    ryot_log!(trace, "Finished job {:?}", name);
     status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }
 
@@ -104,6 +106,7 @@ pub async fn perform_mp_application_job(
     information: MpApplicationJob,
     app_services: Data<Arc<AppServices>>,
 ) -> Result<(), Error> {
+    let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
         MpApplicationJob::ImportFromExternalSource(user_id, input) => {
@@ -161,6 +164,7 @@ pub async fn perform_mp_application_job(
                 .await
         }
     };
+    ryot_log!(trace, "Finished job {:?}", name);
     status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }
 
@@ -168,6 +172,7 @@ pub async fn perform_lp_application_job(
     information: LpApplicationJob,
     app_services: Data<Arc<AppServices>>,
 ) -> Result<(), Error> {
+    let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
         LpApplicationJob::HandleEntityAddedToCollectionEvent(collection_to_entity_id) => {
@@ -200,6 +205,7 @@ pub async fn perform_lp_application_job(
                 .await
         }
     };
+    ryot_log!(trace, "Finished job {:?}", name);
     status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }
 
@@ -207,6 +213,7 @@ pub async fn perform_single_application_job(
     information: SingleApplicationJob,
     app_services: Data<Arc<AppServices>>,
 ) -> Result<(), Error> {
+    let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
         SingleApplicationJob::ProcessIntegrationWebhook(integration_slug, payload) => app_services
@@ -215,5 +222,6 @@ pub async fn perform_single_application_job(
             .await
             .map(|_| ()),
     };
+    ryot_log!(trace, "Finished job {:?}", name);
     status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }

@@ -42,8 +42,8 @@ pub const USER_AGENT_STR: &str = const_str::concat!(
     ")"
 );
 
-pub fn compute_next_page(page: u64, page_size: u64, total_items: u64) -> Option<u64> {
-    page.checked_mul(page_size)
+pub fn compute_next_page(page: u64, total_items: u64) -> Option<u64> {
+    page.checked_mul(PAGE_SIZE)
         .and_then(|count| (count < total_items).then(|| page.checked_add(1)))
         .flatten()
 }

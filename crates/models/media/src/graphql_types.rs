@@ -201,12 +201,6 @@ pub struct UpdateSeenItemInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct MarkEntityAsPartialInput {
-    pub entity_id: String,
-    pub entity_lot: EntityLot,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateReviewCommentInput {
     /// The review this comment belongs to.
     pub review_id: String,

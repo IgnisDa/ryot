@@ -1,9 +1,9 @@
 use async_graphql::{Context, Object, Result};
+use common_models::EntityWithLot;
 use dependent_models::{
     CachedResponse, UserMetadataDetails, UserMetadataListInput, UserMetadataListResponse,
 };
-use enum_models::EntityLot;
-use media_models::{GraphqlMetadataDetails, MarkEntityAsPartialInput};
+use media_models::GraphqlMetadataDetails;
 use miscellaneous_service::MiscellaneousService;
 use traits::{AuthProvider, GraphqlResolverSvc};
 
@@ -50,13 +50,10 @@ impl MiscellaneousMetadataQueryResolver {
     async fn user_entity_recently_consumed(
         &self,
         gql_ctx: &Context<'_>,
-        entity_id: String,
-        entity_lot: EntityLot,
+        input: EntityWithLot,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service
-            .is_entity_recently_consumed(user_id, entity_id, entity_lot)
-            .await?)
+        Ok(service.is_entity_recently_consumed(user_id, input).await?)
     }
 }
 
@@ -102,7 +99,7 @@ impl MiscellaneousMetadataMutationResolver {
     async fn mark_entity_as_partial(
         &self,
         gql_ctx: &Context<'_>,
-        input: MarkEntityAsPartialInput,
+        input: EntityWithLot,
     ) -> Result<bool> {
         let (service, _) = self.svc_and_user(gql_ctx).await?;
         Ok(service.mark_entity_as_partial(input).await?)

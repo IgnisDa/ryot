@@ -1554,7 +1554,6 @@ dependencies = [
  "config-macros",
  "schematic",
  "serde",
- "strum",
 ]
 
 [[package]]
@@ -2020,6 +2019,7 @@ dependencies = [
 name = "dependent-core-utils"
 version = "0.1.0"
 dependencies = [
+ "anilist-provider",
  "anyhow",
  "audible-provider",
  "cache-service",
@@ -4652,12 +4652,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cache-service",
+ "common-models",
  "common-utils",
  "database-models",
  "dependent-models",
  "dependent-utility-utils",
  "enum-models",
- "media-models",
  "rust_decimal",
  "sea-orm",
  "supporting-service",
@@ -4700,6 +4700,7 @@ name = "miscellaneous-metadata-operations-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cache-service",
  "chrono",
  "common-models",
  "common-utils",
@@ -4708,7 +4709,9 @@ dependencies = [
  "dependent-collection-utils",
  "dependent-details-utils",
  "dependent-entity-utils",
+ "dependent-models",
  "dependent-notification-utils",
+ "dependent-provider-utils",
  "dependent-seen-utils",
  "dependent-utility-utils",
  "enum-models",
@@ -4720,6 +4723,7 @@ dependencies = [
  "sea-orm",
  "supporting-service",
  "tracing",
+ "user-models",
 ]
 
 [[package]]
@@ -4727,8 +4731,8 @@ name = "miscellaneous-metadata-resolver"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
+ "common-models",
  "dependent-models",
- "enum-models",
  "media-models",
  "miscellaneous-service",
  "traits",
@@ -4858,8 +4862,8 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
+ "database-models",
  "dependent-models",
- "enum-models",
  "miscellaneous-service",
  "traits",
  "uuid",

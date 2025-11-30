@@ -521,8 +521,8 @@ query MetadataLookup($title: String!) {
 	}
 }
 
-query UserEntityRecentlyConsumed($entityId: String!, $entityLot: EntityLot!) {
-	userEntityRecentlyConsumed(entityId: $entityId, entityLot: $entityLot)
+query UserEntityRecentlyConsumed($input: EntityWithLotInput!) {
+	userEntityRecentlyConsumed(input: $input)
 }
 
 query FilterPresets($input: FilterPresetQueryInput!) {

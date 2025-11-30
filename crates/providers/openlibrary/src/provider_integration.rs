@@ -4,8 +4,7 @@ use chrono::Datelike;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, compute_next_page, ryot_log};
 use convert_case::{Case, Casing};
-use dependent_models::MetadataSearchSourceSpecifics;
-use dependent_models::{PersonDetails, SearchResults};
+use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
 use enum_models::MediaSource;
 use itertools::Itertools;
 use media_models::{
@@ -57,7 +56,7 @@ impl MediaProvider for OpenlibraryService {
             items: resp,
             details: SearchDetails {
                 total_items: search.num_found,
-                next_page: compute_next_page(page, PAGE_SIZE, search.num_found),
+                next_page: compute_next_page(page, search.num_found),
             },
         };
         Ok(data)
@@ -263,7 +262,7 @@ impl MediaProvider for OpenlibraryService {
             total: search.num_found,
             items: resp,
         };
-        let next_page = compute_next_page(page, PAGE_SIZE, search.num_found);
+        let next_page = compute_next_page(page, search.num_found);
         Ok(SearchResults {
             details: SearchDetails {
                 next_page,
@@ -273,10 +272,10 @@ impl MediaProvider for OpenlibraryService {
                 .items
                 .into_iter()
                 .map(|b| MetadataSearchItem {
-                    identifier: b.identifier,
                     title: b.title,
-                    image: b.images.first().cloned(),
+                    identifier: b.identifier,
                     publish_year: b.publish_year,
+                    image: b.images.first().cloned(),
                 })
                 .collect(),
         })

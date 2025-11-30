@@ -6,7 +6,6 @@ use common_utils::PROJECT_NAME;
 use config_macros::MaskedConfig;
 use schematic::{Config, ConfigEnum, ConfigLoader, derive_enum, validate::not_empty};
 use serde::{Deserialize, Serialize};
-use strum::EnumIter;
 
 /// Trait for creating masked versions of configuration structs
 pub trait MaskedConfig {
@@ -15,10 +14,9 @@ pub trait MaskedConfig {
 
 /// Helper function to mask string values
 pub fn mask_string(value: &str) -> String {
-    if value.is_empty() {
-        "<empty>".to_owned()
-    } else {
-        "****".to_owned()
+    match value.is_empty() {
+        false => "****".to_owned(),
+        true => "<empty>".to_owned(),
     }
 }
 
@@ -30,22 +28,9 @@ pub struct MalConfig {
     pub client_id: String,
 }
 
-derive_enum!(
-    #[derive(ConfigEnum, Default)]
-    pub enum AnilistPreferredLanguage {
-        English,
-        #[default]
-        Native,
-        Romaji,
-    }
-);
-
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "ANIME_AND_MANGA_ANILIST_")]
-pub struct AnilistConfig {
-    /// The preferred language for media from this source.
-    pub preferred_language: AnilistPreferredLanguage,
-}
+pub struct AnilistConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(
@@ -89,31 +74,9 @@ pub struct MusicConfig {
     pub spotify: SpotifyConfig,
 }
 
-derive_enum!(
-    #[derive(ConfigEnum, EnumIter, Default)]
-    #[config(rename_all = "lowercase")]
-    pub enum AudibleLocale {
-        AU,
-        CA,
-        FR,
-        DE,
-        GB,
-        IN,
-        IT,
-        JP,
-        ES,
-        UK,
-        #[default]
-        US,
-    }
-);
-
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "AUDIO_BOOKS_AUDIBLE_")]
-pub struct AudibleConfig {
-    /// Settings related to locale for making requests Audible.
-    pub locale: AudibleLocale,
-}
+pub struct AudibleConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case")]
@@ -199,9 +162,6 @@ pub struct TvdbConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_AND_SHOWS_TMDB_")]
 pub struct TmdbConfig {
-    /// The locale to use for making requests to TMDB API.
-    #[setting(default = "en")]
-    pub locale: String,
     /// The access token for the TMDB API.
     #[mask]
     pub access_token: String,
@@ -236,11 +196,7 @@ pub struct ListenNotesConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "PODCASTS_ITUNES_")]
-pub struct ITunesConfig {
-    /// The locale to use for making requests to iTunes API.
-    #[setting(default = "en_us")]
-    pub locale: String,
-}
+pub struct ITunesConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case")]

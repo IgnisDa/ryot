@@ -248,8 +248,7 @@ export const getUserEntityRecentlyConsumedQuery = (
 				? () =>
 						clientGqlService
 							.request(UserEntityRecentlyConsumedDocument, {
-								entityId,
-								entityLot,
+								input: { entityId, entityLot },
 							})
 							.then((data) => data.userEntityRecentlyConsumed)
 				: skipToken,

@@ -3,10 +3,8 @@ use async_trait::async_trait;
 use common_models::{
     EntityAssets, NamedObject, PersonSourceSpecifics, SearchDetails, StringIdAndNamedObject,
 };
-use common_utils::get_base_http_client;
-use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
-use dependent_models::MetadataSearchSourceSpecifics;
-use dependent_models::{PersonDetails, SearchResults};
+use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date, get_base_http_client};
+use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
 use enum_models::MediaSource;
 use itertools::Itertools;
 use media_models::{
@@ -61,8 +59,8 @@ struct ItemResponse {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct SearchResponse {
-    count: u64,
     more: bool,
+    count: u64,
     results: Option<Vec<ItemResponse>>,
 }
 
@@ -79,11 +77,11 @@ impl MediaProvider for VndbService {
             .client
             .post(format!("{URL}/producer"))
             .json(&serde_json::json!({
-                "filters": format!(r#"["search", "=", "{}"]"#, query),
+                "page": page,
                 "count": true,
                 "fields": "id,name",
                 "results": PAGE_SIZE,
-                "page": page
+                "filters": format!(r#"["search", "=", "{}"]"#, query),
             }))
             .send()
             .await?
@@ -118,9 +116,9 @@ impl MediaProvider for VndbService {
             .client
             .post(format!("{URL}/producer"))
             .json(&serde_json::json!({
-                "filters": format!(r#"["id", "=", "{}"]"#, identifier),
                 "count": true,
-                "fields": "id,name,description"
+                "fields": "id,name,description",
+                "filters": format!(r#"["id", "=", "{}"]"#, identifier),
             }))
             .send()
             .await?;
@@ -138,9 +136,9 @@ impl MediaProvider for VndbService {
             .client
             .post(format!("{URL}/vn"))
             .json(&serde_json::json!({
-                "filters": format!(r#"["id", "=", "{}"]"#, identifier),
                 "count": true,
-                "fields": METADATA_FIELDS
+                "fields": METADATA_FIELDS,
+                "filters": format!(r#"["id", "=", "{}"]"#, identifier),
             }))
             .send()
             .await?;
@@ -161,11 +159,11 @@ impl MediaProvider for VndbService {
             .client
             .post(format!("{URL}/vn"))
             .json(&serde_json::json!({
-                "filters": format!(r#"["search", "=", "{}"]"#, query),
-                "fields": METADATA_FIELDS_SMALL,
+                "page": page,
                 "count": true,
                 "results": PAGE_SIZE,
-                "page": page
+                "fields": METADATA_FIELDS_SMALL,
+                "filters": format!(r#"["search", "=", "{}"]"#, query),
             }))
             .send()
             .await?;
@@ -231,27 +229,27 @@ impl VndbService {
             .collect_vec();
         let identifier = item.id;
         MetadataDetails {
+            title: item.title.unwrap(),
+            provider_rating: item.rating,
+            description: item.description,
+            people: people.into_iter().unique().collect(),
+            genres: genres.into_iter().unique().collect(),
+            source_url: Some(format!("https://vndb.org/{identifier}")),
+            publish_year: item.released.clone().and_then(|d| convert_date_to_year(&d)),
+            publish_date: item.released.and_then(|d| convert_string_to_date(&d)),
+            visual_novel_specifics: Some(VisualNovelSpecifics {
+                length: item.length_minutes,
+            }),
+            assets: EntityAssets {
+                remote_images,
+                ..Default::default()
+            },
             production_status: item.devstatus.map(|s| match s {
                 0 => "Finished".to_owned(),
                 1 => "In development".to_owned(),
                 2 => "Cancelled".to_owned(),
                 _ => unreachable!(),
             }),
-            source_url: Some(format!("https://vndb.org/{identifier}")),
-            title: item.title.unwrap(),
-            description: item.description,
-            people: people.into_iter().unique().collect(),
-            genres: genres.into_iter().unique().collect(),
-            publish_year: item.released.clone().and_then(|d| convert_date_to_year(&d)),
-            publish_date: item.released.and_then(|d| convert_string_to_date(&d)),
-            visual_novel_specifics: Some(VisualNovelSpecifics {
-                length: item.length_minutes,
-            }),
-            provider_rating: item.rating,
-            assets: EntityAssets {
-                remote_images,
-                ..Default::default()
-            },
             ..Default::default()
         }
     }

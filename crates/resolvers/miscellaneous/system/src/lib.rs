@@ -1,7 +1,7 @@
 use async_graphql::{Context, Object, Result};
-use common_models::BackgroundJob;
+use common_models::{BackgroundJob, EntityWithLot};
+use database_models::entity_translation;
 use dependent_models::CoreDetails;
-use enum_models::EntityLot;
 use miscellaneous_service::MiscellaneousService;
 use traits::{AuthProvider, GraphqlResolverSvc};
 use uuid::Uuid;
@@ -45,13 +45,21 @@ impl MiscellaneousSystemMutationResolver {
     async fn deploy_update_media_entity_job(
         &self,
         gql_ctx: &Context<'_>,
-        entity_id: String,
-        entity_lot: EntityLot,
+        input: EntityWithLot,
     ) -> Result<bool> {
         let service = self.svc(gql_ctx);
-        Ok(service
-            .deploy_update_media_entity_job(entity_id, entity_lot)
-            .await?)
+        Ok(service.deploy_update_media_entity_job(input).await?)
+    }
+
+    /// Get entity translations. If translations don't exist for the user's
+    /// preferred language, they will be fetched from the provider and saved.
+    async fn get_entity_translations(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: EntityWithLot,
+    ) -> Result<Vec<entity_translation::Model>> {
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
+        Ok(service.get_entity_translations(user_id, input).await?)
     }
 
     /// Start a background job.

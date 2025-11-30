@@ -3,6 +3,7 @@ use std::sync::Arc;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
+use common_utils::compute_next_page;
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use futures::{
@@ -14,7 +15,13 @@ use media_models::PeopleSearchItem;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
-use crate::{base::TmdbService, models::*};
+use crate::{
+    base::TmdbService,
+    models::{
+        TmdbCreditsResponse, TmdbFindByExternalSourceResponse, TmdbListResponse,
+        TmdbNonMediaEntity, URL, fetch_company_media_by_type,
+    },
+};
 
 pub struct NonMediaTmdbService(TmdbService);
 
@@ -33,7 +40,7 @@ impl MediaProvider for NonMediaTmdbService {
         display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let language = &self.0.language;
+        let language = &self.0.get_default_language();
         let person_type = match source_specifics {
             Some(PersonSourceSpecifics {
                 is_tmdb_company: Some(true),
@@ -64,7 +71,7 @@ impl MediaProvider for NonMediaTmdbService {
                 ..Default::default()
             })
             .collect_vec();
-        let next_page = (page < search.total_pages).then(|| page + 1);
+        let next_page = compute_next_page(page, search.total_results);
         Ok(SearchResults {
             items,
             details: SearchDetails {
@@ -90,7 +97,7 @@ impl MediaProvider for NonMediaTmdbService {
             .0
             .client
             .get(format!("{URL}/{person_type}/{identifier}"))
-            .query(&[("language", self.0.language.as_str())])
+            .query(&[("language", &self.0.get_default_language())])
             .send()
             .await?
             .json()
@@ -106,7 +113,7 @@ impl MediaProvider for NonMediaTmdbService {
                         .0
                         .client
                         .get(format!("{URL}/{person_type}/{identifier}/combined_credits"))
-                        .query(&[("language", self.0.language.as_str())])
+                        .query(&[("language", &self.0.get_default_language())])
                         .send()
                         .await?;
                     resp.json::<TmdbCreditsResponse>()
@@ -199,7 +206,7 @@ impl NonMediaTmdbService {
             .get(format!("{URL}/find/{external_id}"))
             .query(&[
                 ("external_source", external_source),
-                ("language", self.0.language.as_str()),
+                ("language", &self.0.get_default_language()),
             ])
             .send()
             .await?

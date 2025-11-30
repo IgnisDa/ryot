@@ -194,8 +194,7 @@ export const usePartialStatusMonitor = (props: {
 		if (!isPollingRef.current) {
 			if (jobDeployedForEntityRef.current !== entityId && entityId) {
 				clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
-					entityId,
-					entityLot,
+					input: { entityId, entityLot },
 				});
 				jobDeployedForEntityRef.current = entityId;
 			}

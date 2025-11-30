@@ -10,7 +10,10 @@ use media_models::{PartialMetadataWithoutId, PeopleSearchItem};
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
-use crate::{base::TvdbService, models::*};
+use crate::{
+    base::TvdbService,
+    models::{TvdbCompanyExtendedResponse, TvdbPersonExtendedResponse, URL},
+};
 
 pub struct NonMediaTvdbService(TvdbService);
 

@@ -24,7 +24,7 @@ impl AnilistAnimeService {
 #[async_trait]
 impl MediaProvider for AnilistAnimeService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
-        let details = media_details(&self.0.client, identifier, &self.0.preferred_language).await?;
+        let details = media_details(&self.0.client, identifier).await?;
         Ok(details)
     }
 
@@ -42,7 +42,6 @@ impl MediaProvider for AnilistAnimeService {
             page,
             PAGE_SIZE,
             display_nsfw,
-            &self.0.preferred_language,
         )
         .await?;
         Ok(SearchResults {
