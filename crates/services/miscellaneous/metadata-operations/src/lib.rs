@@ -551,8 +551,8 @@ pub async fn handle_metadata_eligible_for_smart_collection_moving(
         .column(collection_entity_membership::Column::UserId)
         .filter(collection_entity_membership::Column::EntityId.eq(&metadata_id))
         .filter(collection_entity_membership::Column::CollectionName.is_in([
-            DefaultCollection::Monitoring.to_string(),
             DefaultCollection::Completed.to_string(),
+            DefaultCollection::Monitoring.to_string(),
         ]))
         .group_by(collection_entity_membership::Column::UserId)
         .having(
