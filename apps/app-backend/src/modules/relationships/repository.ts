@@ -102,26 +102,40 @@ const relationshipIdentityWhere = (input: RelationshipIdentityInput) =>
 				eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
 			);
 
-const globalRelationshipConflictTarget = {
+const globalRelationshipConflictColumns = [
+	schema.relationship.sourceEntityId,
+	schema.relationship.targetEntityId,
+	schema.relationship.relationshipSchemaId,
+];
+
+const globalRelationshipConflictDoNothingTarget = {
+	where: isNull(schema.relationship.userId),
+	target: globalRelationshipConflictColumns,
+};
+
+const globalRelationshipConflictDoUpdateTarget = {
 	targetWhere: isNull(schema.relationship.userId),
+	target: globalRelationshipConflictColumns,
+};
+
+const userRelationshipConflictTarget = {
 	target: [
+		schema.relationship.userId,
 		schema.relationship.sourceEntityId,
 		schema.relationship.targetEntityId,
 		schema.relationship.relationshipSchemaId,
 	],
 };
 
-const relationshipConflictTarget = (input: RelationshipIdentityInput) =>
+const relationshipConflictDoNothingTarget = (input: RelationshipIdentityInput) =>
 	input.scope === "user"
-		? {
-				target: [
-					schema.relationship.userId,
-					schema.relationship.sourceEntityId,
-					schema.relationship.targetEntityId,
-					schema.relationship.relationshipSchemaId,
-				],
-			}
-		: globalRelationshipConflictTarget;
+		? userRelationshipConflictTarget
+		: globalRelationshipConflictDoNothingTarget;
+
+const relationshipConflictDoUpdateTarget = (input: RelationshipIdentityInput) =>
+	input.scope === "user"
+		? userRelationshipConflictTarget
+		: globalRelationshipConflictDoUpdateTarget;
 
 export class RelationshipsRepository extends Effect.Service<RelationshipsRepository>()(
 	"RelationshipsRepository",
@@ -163,7 +177,7 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 						db
 							.insert(schema.relationship)
 							.values(values)
-							.onConflictDoNothing(relationshipConflictTarget(input))
+							.onConflictDoNothing(relationshipConflictDoNothingTarget(input))
 							.returning(relationshipSelection),
 					);
 
@@ -192,7 +206,7 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 						.values(values)
 						.onConflictDoUpdate({
 							set: { properties: input.properties },
-							...relationshipConflictTarget(input),
+							...relationshipConflictDoUpdateTarget(input),
 						})
 						.returning(relationshipSelection),
 				);
@@ -392,7 +406,7 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 								return tx
 									.insert(schema.relationship)
 									.values(relationshipValues)
-									.onConflictDoNothing(globalRelationshipConflictTarget)
+									.onConflictDoNothing(globalRelationshipConflictDoNothingTarget)
 									.then(synchronize);
 							}
 
@@ -401,7 +415,7 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 								.values(relationshipValues)
 								.onConflictDoUpdate({
 									set: { properties: sql.raw('excluded."properties"') },
-									...globalRelationshipConflictTarget,
+									...globalRelationshipConflictDoUpdateTarget,
 								})
 								.then(synchronize);
 						}),
@@ -412,8 +426,8 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 			return {
 				saveRelationship,
 				deleteUserRelationship,
-				findRelationshipProperties,
 				syncGlobalRelationships,
+				findRelationshipProperties,
 				deleteUserRelationshipsForEntity,
 				moveUserRelationshipsBetweenEntities,
 			};

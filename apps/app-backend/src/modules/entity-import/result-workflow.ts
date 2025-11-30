@@ -9,8 +9,11 @@ const workflowFailureResult = <E extends { readonly message: string }>(
 	cause: Cause.Cause<E>,
 ): Extract<EntityImportRunResult, { status: "failed" }> =>
 	Option.match(Cause.failureOption(cause), {
-		onNone: () => ({ status: "failed", error: "Import failed" }),
 		onSome: (error) => ({ status: "failed", error: error.message }),
+		onNone: () => ({
+			status: "failed",
+			error: `Import failed: ${Cause.pretty(cause).slice(0, 500)}`,
+		}),
 	});
 
 export const toEntityImportRunResult = <E extends { readonly message: string }>(

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+﻿import { describe, expect, it } from "bun:test";
 
 import {
 	createAuthenticatedClient,
@@ -6,11 +6,10 @@ import {
 	enqueueSandboxScript,
 	pollSandboxResult,
 } from "../fixtures";
-import { assertCondition, requireObjectRecord } from "../test-support/assertions";
+import { assertCompleted, requireObjectRecord } from "../test-support/assertions";
 
 const requireCompletedSandboxValue = (result: Awaited<ReturnType<typeof pollSandboxResult>>) => {
-	expect(result.status).toBe("completed");
-	assertCondition(result.status === "completed", "Expected sandbox job to complete");
+	assertCompleted(result, "sandbox job");
 
 	expect(result.error).toBeNull();
 	return result.value;

@@ -12,6 +12,7 @@ import { Effect, Redacted, Schema } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
+import { pollWorkflowWithResumeNudge } from "#lib/infrastructure/workflow";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/shared/job-id";
 import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
@@ -154,7 +155,9 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 				return yield* notFound(sandboxJobNotFoundError);
 			}
 
-			return toSandboxRunResult(yield* engine.poll(RunSandboxWorkflow, executionId));
+			return toSandboxRunResult(
+				yield* pollWorkflowWithResumeNudge(engine, RunSandboxWorkflow, executionId),
+			);
 		});
 
 		return { enqueue, getResult, createScript };
