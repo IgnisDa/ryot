@@ -2212,7 +2212,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Execute a view-runtime query for a custom entity schema */
+        /** Execute a compiled view-runtime query */
         post: {
             parameters: {
                 query?: never;
@@ -2223,7 +2223,109 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        entitySchemaId: string;
+                        page: {
+                            limit: number;
+                            offset: number;
+                        };
+                        sort: {
+                            field: string[];
+                            /** @enum {string} */
+                            direction: "asc" | "desc";
+                        };
+                        /** @enum {string} */
+                        layout: "grid";
+                        displayConfiguration: {
+                            imageProperty: string[] | null;
+                            titleProperty: string[] | null;
+                            badgeProperty: string[] | null;
+                            subtitleProperty: string[] | null;
+                        };
+                        entitySchemaSlugs: string[];
+                        filters: ({
+                            /** @enum {string} */
+                            op: "in";
+                            field: string[];
+                            value: unknown[];
+                        } | {
+                            value?: unknown;
+                            /** @enum {string} */
+                            op: "isNull";
+                            field: string[];
+                        } | {
+                            value?: unknown;
+                            field: string[];
+                            /** @enum {string} */
+                            op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                        })[];
+                    } | {
+                        page: {
+                            limit: number;
+                            offset: number;
+                        };
+                        sort: {
+                            field: string[];
+                            /** @enum {string} */
+                            direction: "asc" | "desc";
+                        };
+                        /** @enum {string} */
+                        layout: "list";
+                        displayConfiguration: {
+                            imageProperty: string[] | null;
+                            titleProperty: string[] | null;
+                            badgeProperty: string[] | null;
+                            subtitleProperty: string[] | null;
+                        };
+                        entitySchemaSlugs: string[];
+                        filters: ({
+                            /** @enum {string} */
+                            op: "in";
+                            field: string[];
+                            value: unknown[];
+                        } | {
+                            value?: unknown;
+                            /** @enum {string} */
+                            op: "isNull";
+                            field: string[];
+                        } | {
+                            value?: unknown;
+                            field: string[];
+                            /** @enum {string} */
+                            op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                        })[];
+                    } | {
+                        page: {
+                            limit: number;
+                            offset: number;
+                        };
+                        sort: {
+                            field: string[];
+                            /** @enum {string} */
+                            direction: "asc" | "desc";
+                        };
+                        /** @enum {string} */
+                        layout: "table";
+                        displayConfiguration: {
+                            columns: {
+                                property: string[];
+                            }[];
+                        };
+                        entitySchemaSlugs: string[];
+                        filters: ({
+                            /** @enum {string} */
+                            op: "in";
+                            field: string[];
+                            value: unknown[];
+                        } | {
+                            value?: unknown;
+                            /** @enum {string} */
+                            op: "isNull";
+                            field: string[];
+                        } | {
+                            value?: unknown;
+                            field: string[];
+                            /** @enum {string} */
+                            op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                        })[];
                     };
                 };
             };
@@ -2236,28 +2338,40 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
-                                id: string;
-                                name: string;
-                                /** Format: date-time */
-                                createdAt: string;
-                                /** Format: date-time */
-                                updatedAt: string;
-                                entitySchemaId: string;
-                                externalId: string | null;
-                                image: {
-                                    key: string;
-                                    /** @enum {string} */
-                                    kind: "s3";
-                                } | {
-                                    url: string;
-                                    /** @enum {string} */
-                                    kind: "remote";
-                                } | unknown;
-                                detailsSandboxScriptId: string | null;
-                                properties: {
-                                    [key: string]: unknown;
+                                items: {
+                                    id: string;
+                                    name: string;
+                                    /** Format: date-time */
+                                    createdAt: string;
+                                    /** Format: date-time */
+                                    updatedAt: string;
+                                    entitySchemaId: string;
+                                    entitySchemaSlug: string;
+                                    image: {
+                                        key: string;
+                                        /** @enum {string} */
+                                        kind: "s3";
+                                    } | {
+                                        url: string;
+                                        /** @enum {string} */
+                                        kind: "remote";
+                                    } | unknown;
+                                    resolvedProperties: {
+                                        [key: string]: unknown;
+                                    };
+                                }[];
+                                meta: {
+                                    pagination: {
+                                        total: number;
+                                        limit: number;
+                                        offset: number;
+                                        hasNextPage: boolean;
+                                        hasPreviousPage: boolean;
+                                        totalPages: number;
+                                        currentPage: number;
+                                    };
                                 };
-                            }[];
+                            };
                         };
                     };
                 };
