@@ -1687,6 +1687,11 @@ export type MutationRoot = {
   generateAuthToken: Scalars['String']['output'];
   /** Generate a one-time URL for downloading application logs. Admin only. */
   generateLogDownloadUrl: Scalars['String']['output'];
+  /**
+   * Get entity translations. If translations don't exist for the user's
+   * preferred language, they will be fetched from the provider and saved.
+   */
+  getOrFetchEntityTranslations: CachedEntityTranslationDetailsResponse;
   /** Get a URL which can be used to set a new password for the user. */
   getPasswordChangeSession: GetPasswordChangeSessionResponse;
   /** Initiate two-factor authentication setup by generating a TOTP secret. */
@@ -1738,11 +1743,6 @@ export type MutationRoot = {
   updateCustomPerson: Scalars['Boolean']['output'];
   /** Update the last used timestamp for a filter preset */
   updateFilterPresetLastUsed: Scalars['Boolean']['output'];
-  /**
-   * Update a media entity's translations. The language code is
-   * extracted from the user's preferences.
-   */
-  updateMediaEntityTranslation: Scalars['Boolean']['output'];
   /** Update the attributes of a seen item. */
   updateSeenItem: Scalars['Boolean']['output'];
   /** Update a user's profile details. */
@@ -1930,6 +1930,11 @@ export type MutationRootExpireCacheKeyArgs = {
 };
 
 
+export type MutationRootGetOrFetchEntityTranslationsArgs = {
+  input: EntityWithLotInput;
+};
+
+
 export type MutationRootGetPasswordChangeSessionArgs = {
   input: GetPasswordChangeSessionInput;
 };
@@ -2014,11 +2019,6 @@ export type MutationRootUpdateCustomPersonArgs = {
 
 export type MutationRootUpdateFilterPresetLastUsedArgs = {
   filterPresetId: Scalars['UUID']['input'];
-};
-
-
-export type MutationRootUpdateMediaEntityTranslationArgs = {
-  input: EntityWithLotInput;
 };
 
 
@@ -2253,8 +2253,6 @@ export type QueryRoot = {
   collectionRecommendations: IdResults;
   /** Get some primary information about the service. */
   coreDetails: CoreDetails;
-  /** Get the translations of an entity using the user's preferred language. */
-  entityTranslationDetails: CachedEntityTranslationDetailsResponse;
   /** Get details about an exercise. */
   exerciseDetails: Exercise;
   /** Get all filter presets for a specific context */
@@ -2351,11 +2349,6 @@ export type QueryRootCollectionContentsArgs = {
 
 export type QueryRootCollectionRecommendationsArgs = {
   input: CollectionRecommendationsInput;
-};
-
-
-export type QueryRootEntityTranslationDetailsArgs = {
-  input: EntityWithLotInput;
 };
 
 
