@@ -633,6 +633,14 @@ pub async fn update_entity_translation(
             else {
                 bail!("No preferred language found for source {}", meta.source);
             };
+            if let Some(_existing) = EntityTranslation::find()
+                .filter(entity_translation::Column::Language.eq(&preferred_language))
+                .filter(entity_translation::Column::MetadataId.eq(&entity_id))
+                .one(&ss.db)
+                .await?
+            {
+                return Ok(());
+            }
             let provider = get_metadata_provider(meta.lot, meta.source, ss).await?;
             let Ok(trn) = provider
                 .translate_metadata(&meta.identifier, &preferred_language)
