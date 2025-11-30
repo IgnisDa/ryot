@@ -25,7 +25,9 @@ export const normalizeUserPreferences = (value: unknown): CachedUserPreferences 
 		isNsfw: record["isNsfw"] === true,
 		disableIntegrations: record["disableIntegrations"] === true,
 		language:
-			typeof record["language"] === "string" && record["language"].length > 0 ? record["language"] : null,
+			typeof record["language"] === "string" && record["language"].length > 0
+				? record["language"]
+				: null,
 	};
 };
 
