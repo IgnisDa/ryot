@@ -14,7 +14,9 @@ pub struct Model {
     pub id: Uuid,
     #[graphql(skip)]
     pub language: String,
+    #[graphql(skip)]
     pub entity_id: String,
+    #[graphql(skip)]
     pub entity_lot: EntityLot,
     pub value: Option<String>,
     #[graphql(skip)]

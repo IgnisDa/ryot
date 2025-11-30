@@ -733,8 +733,6 @@ export type EntityToCollectionInput = {
 
 export type EntityTranslation = {
   __typename?: 'EntityTranslation';
-  entityId: Scalars['String']['output'];
-  entityLot: EntityLot;
   value?: Maybe<Scalars['String']['output']>;
   variant: EntityTranslationVariant;
 };
