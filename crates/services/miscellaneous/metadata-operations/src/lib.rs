@@ -633,6 +633,7 @@ pub async fn update_entity_translation(
             else {
                 bail!("No preferred language found for source {}", meta.source);
             };
+            // TODO: https://github.com/SeaQL/sea-orm/discussions/730#discussioncomment-13440496
             if let Some(_existing) = EntityTranslation::find()
                 .filter(entity_translation::Column::Language.eq(&preferred_language))
                 .filter(entity_translation::Column::MetadataId.eq(&entity_id))
