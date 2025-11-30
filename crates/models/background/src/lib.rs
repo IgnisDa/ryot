@@ -1,5 +1,4 @@
 use common_models::ChangeCollectionToEntitiesInput;
-use enum_models::EntityLot;
 use media_models::{DeployImportJobInput, MetadataProgressUpdateInput, ReviewPostedEvent};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
@@ -28,7 +27,6 @@ pub enum MpApplicationJob {
     ReviseUserWorkouts(String),
     UpdateMetadataGroup(String),
     ImportFromExternalSource(String, Box<DeployImportJobInput>),
-    UpdateEntityTranslationForLanguage(String, String, EntityLot),
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]

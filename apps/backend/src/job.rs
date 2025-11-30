@@ -127,16 +127,6 @@ pub async fn perform_mp_application_job(
                 .update_metadata_and_notify_users(&metadata_id)
                 .await
         }
-        MpApplicationJob::UpdateEntityTranslationForLanguage(
-            target_language,
-            entity_id,
-            entity_lot,
-        ) => {
-            app_services
-                .miscellaneous_service
-                .update_entity_translation_for_language(target_language, entity_id, entity_lot)
-                .await
-        }
         MpApplicationJob::UpdatePerson(person_id) => {
             app_services
                 .miscellaneous_service

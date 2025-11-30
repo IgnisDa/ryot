@@ -983,7 +983,6 @@ name = "background-models"
 version = "0.1.0"
 dependencies = [
  "common-models",
- "enum-models",
  "media-models",
  "sea-orm",
  "serde",
@@ -4722,6 +4721,7 @@ dependencies = [
  "sea-orm",
  "supporting-service",
  "tracing",
+ "user-models",
 ]
 
 [[package]]

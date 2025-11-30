@@ -16,7 +16,7 @@ use database_models::{
     },
     review, seen, user_to_entity,
 };
-use database_utils::entity_in_collections_with_collection_to_entity_ids;
+use database_utils::{entity_in_collections_with_collection_to_entity_ids, user_by_id};
 use dependent_collection_utils::{add_entities_to_collection, remove_entities_from_collection};
 use dependent_details_utils::metadata_details;
 use dependent_entity_utils::{
@@ -45,6 +45,7 @@ use sea_orm::{
     sea_query::OnConflict,
 };
 use supporting_service::SupportingService;
+use user_models::UserProviderLanguagePreferences;
 
 pub async fn merge_metadata(
     ss: &Arc<SupportingService>,
@@ -609,21 +610,32 @@ pub async fn handle_metadata_eligible_for_smart_collection_moving(
     Ok(())
 }
 
-pub async fn update_entity_translation_for_language(
+pub async fn update_entity_translation(
     ss: &Arc<SupportingService>,
-    target_language: String,
+    user_id: &String,
     entity_id: String,
     entity_lot: EntityLot,
 ) -> Result<()> {
+    let user_preferences = user_by_id(&user_id, ss).await?.preferences;
     match entity_lot {
         EntityLot::Metadata => {
             let meta = Metadata::find_by_id(&entity_id)
                 .one(&ss.db)
                 .await?
                 .ok_or_else(|| anyhow!("Metadata not found"))?;
+            let Some(UserProviderLanguagePreferences {
+                preferred_language, ..
+            }) = user_preferences
+                .languages
+                .providers
+                .into_iter()
+                .find(|lang| lang.source == meta.source)
+            else {
+                bail!("No preferred language found for source {}", meta.source);
+            };
             let provider = get_metadata_provider(meta.lot, meta.source, ss).await?;
             let Ok(trn) = provider
-                .translate_metadata(&meta.identifier, &target_language)
+                .translate_metadata(&meta.identifier, &preferred_language)
                 .await
             else {
                 bail!("Translation not found from provider");
@@ -634,7 +646,7 @@ pub async fn update_entity_translation_for_language(
             ] {
                 let translation_model = entity_translation::ActiveModel {
                     variant: ActiveValue::Set(variant),
-                    language: ActiveValue::Set(target_language.clone()),
+                    language: ActiveValue::Set(preferred_language.clone()),
                     metadata_id: ActiveValue::Set(Some(entity_id.clone())),
                     value: ActiveValue::Set(value.filter(|v| !v.is_empty())),
                     ..Default::default()

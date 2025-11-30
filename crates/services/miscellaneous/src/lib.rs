@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::{Result, anyhow, bail};
-use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
+use background_models::{ApplicationJob, HpApplicationJob};
 use common_models::{
     BackgroundJob, MetadataGroupSearchInput, PeopleSearchInput, SearchInput, StringIdObject,
 };
@@ -215,41 +215,16 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    pub async fn deploy_update_media_entity_translation_job(
+    pub async fn update_media_entity_translation(
         &self,
         user_id: String,
         entity_id: String,
         entity_lot: EntityLot,
     ) -> Result<bool> {
-        let entity_source = match entity_lot {
-            EntityLot::Metadata => {
-                Metadata::find_by_id(entity_id.clone())
-                    .one(&self.0.db)
-                    .await?
-                    .ok_or_else(|| anyhow!("Metadata not found"))?
-                    .source
-            }
-            _ => bail!("Entity type {:?} is not supported", entity_lot),
-        };
-        let user_preferences = user_by_id(&user_id, &self.0).await?.preferences;
-        let Some(preferred_language) = user_preferences
-            .languages
-            .providers
-            .into_iter()
-            .find(|lang| lang.source == entity_source)
-        else {
-            bail!("No preferred language found for source {}", entity_source);
-        };
-
-        self.0
-            .perform_application_job(ApplicationJob::Mp(
-                MpApplicationJob::UpdateEntityTranslationForLanguage(
-                    preferred_language.preferred_language,
-                    entity_id,
-                    entity_lot,
-                ),
-            ))
-            .await?;
+        miscellaneous_metadata_operations_service::update_entity_translation(
+            &self.0, &user_id, entity_id, entity_lot,
+        )
+        .await?;
         Ok(true)
     }
 
@@ -379,21 +354,6 @@ impl MiscellaneousService {
     pub async fn update_metadata_and_notify_users(&self, metadata_id: &String) -> Result<()> {
         update_metadata_and_notify_users(metadata_id, &self.0).await?;
         Ok(())
-    }
-
-    pub async fn update_entity_translation_for_language(
-        &self,
-        target_language: String,
-        entity_id: String,
-        entity_lot: EntityLot,
-    ) -> Result<()> {
-        miscellaneous_metadata_operations_service::update_entity_translation_for_language(
-            &self.0,
-            target_language,
-            entity_id,
-            entity_lot,
-        )
-        .await
     }
 
     pub async fn update_person_and_notify_users(&self, person_id: &String) -> Result<()> {
