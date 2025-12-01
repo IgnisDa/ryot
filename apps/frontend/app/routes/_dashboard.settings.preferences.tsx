@@ -278,10 +278,10 @@ export default function Page() {
 										<Stack {...provided.droppableProps} ref={provided.innerRef}>
 											{form.values.general.dashboard.map((de, index) => (
 												<EditDashboardElement
+													form={form}
 													index={index}
 													key={de.section}
 													lot={de.section}
-													form={form}
 													isEditDisabled={isEditDisabled}
 												/>
 											))}
@@ -354,7 +354,6 @@ export default function Page() {
 											"disableVideos",
 											"disableReviews",
 											"disableWatchProviders",
-											"showSpoilersInCalendar",
 										] as const
 									).map((name) => (
 										<Switch
@@ -386,11 +385,6 @@ export default function Page() {
 												.with(
 													"disableWatchProviders",
 													() => 'Do not display the "Watch On" tab',
-												)
-												.with(
-													"showSpoilersInCalendar",
-													() =>
-														"Show episode title in calendar and upcoming section which might contain spoilers",
 												)
 												.exhaustive()}
 										/>
