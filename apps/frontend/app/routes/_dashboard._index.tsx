@@ -29,7 +29,7 @@ import {
 } from "@tabler/icons-react";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import CryptoJS from "crypto-js";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { redirect } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
@@ -419,22 +419,25 @@ const UpcomingMediaSection = (props: { um: CalendarEventPartFragment }) => {
 	const today = dayjsLib().startOf("day");
 	const numDaysLeft = dayjsLib(props.um.date).diff(today, "day");
 
+	const extraInformation = useMemo(() => {
+		if (props.um.showExtraInformation)
+			return `S${props.um.showExtraInformation.season}-E${props.um.showExtraInformation.episode}`;
+		if (props.um.podcastExtraInformation)
+			return `EP-${props.um.podcastExtraInformation.episode}`;
+	}, [props.um]);
+
+	const daysInformation = useMemo(() => {
+		return numDaysLeft === 0
+			? "Today"
+			: `In ${numDaysLeft === 1 ? "a" : numDaysLeft} day${
+					numDaysLeft === 1 ? "" : "s"
+				}`;
+	}, [numDaysLeft]);
+
 	return (
 		<MetadataDisplayItem
 			metadataId={props.um.metadataId}
-			additionalInformation={`${
-				props.um.showExtraInformation
-					? `S${props.um.showExtraInformation.season}-E${props.um.showExtraInformation.episode}`
-					: props.um.podcastExtraInformation
-						? `EP-${props.um.podcastExtraInformation.episode}`
-						: ""
-			} ${
-				numDaysLeft === 0
-					? "Today"
-					: `In ${numDaysLeft === 1 ? "a" : numDaysLeft} day${
-							numDaysLeft === 1 ? "" : "s"
-						}`
-			}`}
+			additionalInformation={`${extraInformation} ${daysInformation}`}
 		/>
 	);
 };
