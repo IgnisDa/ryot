@@ -348,8 +348,6 @@ pub struct UserGeneralPreferences {
     #[educe(Default = false)]
     pub disable_integrations: bool,
     #[educe(Default = false)]
-    pub show_spoilers_in_calendar: bool,
-    #[educe(Default = false)]
     pub disable_navigation_animation: bool,
     #[educe(Default(expression = vec![UserGeneralWatchProvider {
         lot: MediaLot::Movie,

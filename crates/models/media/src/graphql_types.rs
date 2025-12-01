@@ -1,9 +1,7 @@
 use async_graphql::{Enum, InputObject, OneofObject, SimpleObject};
 use chrono::NaiveDate;
 use common_models::{ApplicationDateRange, SearchInput};
-use enum_models::{
-    EntityLot, MediaLot, MediaSource, SeenState, UserNotificationContent, Visibility,
-};
+use enum_models::{EntityLot, MediaSource, SeenState, UserNotificationContent, Visibility};
 use rust_decimal::Decimal;
 use sea_orm::{prelude::DateTimeUtc, strum::Display};
 use serde::{Deserialize, Serialize};
