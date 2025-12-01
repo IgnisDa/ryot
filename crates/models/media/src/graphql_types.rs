@@ -215,8 +215,6 @@ pub struct CreateReviewCommentInput {
 pub struct GraphqlCalendarEvent {
     pub date: NaiveDate,
     pub metadata_id: String,
-    pub metadata_text: String,
-    pub metadata_lot: MediaLot,
     pub calendar_event_id: String,
     pub metadata_image: Option<String>,
     pub show_extra_information: Option<SeenShowExtraInformation>,

@@ -1009,8 +1009,6 @@ export type GraphqlCalendarEvent = {
   date: Scalars['NaiveDate']['output'];
   metadataId: Scalars['String']['output'];
   metadataImage?: Maybe<Scalars['String']['output']>;
-  metadataLot: MediaLot;
-  metadataText: Scalars['String']['output'];
   podcastExtraInformation?: Maybe<SeenPodcastExtraInformation>;
   showExtraInformation?: Maybe<SeenShowExtraInformation>;
 };
