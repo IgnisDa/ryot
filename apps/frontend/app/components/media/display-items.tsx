@@ -21,7 +21,6 @@ import {
 import { BaseEntityDisplayItem } from "../common/entity-display";
 
 export const MetadataDisplayItem = (props: {
-	altName?: string;
 	metadataId: string;
 	isFirstItem?: boolean;
 	imageClassName?: string;
@@ -93,13 +92,13 @@ export const MetadataDisplayItem = (props: {
 			entityId={props.metadataId}
 			userToMediaReasons={reasons}
 			entityLot={EntityLot.Metadata}
+			title={metadataDetails?.title}
 			isFirstItem={props.isFirstItem}
 			mediaLot={metadataDetails?.lot}
 			rating={averageRating ?? undefined}
 			centerElement={props.centerElement}
 			imageClassName={props.imageClassName}
 			isDetailsLoading={isMetadataDetailsLoading}
-			title={props.altName ?? metadataDetails?.title}
 			wasRecentlyConsumed={isMetadataRecentlyConsumed}
 			isPartialStatusActive={isMetadataPartialStatusActive}
 			interactionButtons={["collection", "consume", "review", "watchlist"]}
