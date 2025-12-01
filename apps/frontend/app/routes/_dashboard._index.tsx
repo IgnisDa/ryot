@@ -16,7 +16,6 @@ import {
 	DailyUserActivitiesResponseGroupedBy,
 	DashboardElementLot,
 	GraphqlSortOrder,
-	MediaLot,
 	MinimalUserAnalyticsDocument,
 	TrendingMetadataDocument,
 	UserMetadataRecommendationsDocument,
@@ -422,19 +421,14 @@ const UpcomingMediaSection = (props: { um: CalendarEventPartFragment }) => {
 
 	return (
 		<MetadataDisplayItem
-			altName={props.um.metadataText}
 			metadataId={props.um.metadataId}
-			additionalInformation={`${match(props.um.metadataLot)
-				.with(
-					MediaLot.Show,
-					() =>
-						`S${props.um.showExtraInformation?.season}-E${props.um.showExtraInformation?.episode}`,
-				)
-				.with(
-					MediaLot.Podcast,
-					() => `EP-${props.um.podcastExtraInformation?.episode}`,
-				)
-				.otherwise(() => "")} ${
+			additionalInformation={`${
+				props.um.showExtraInformation
+					? `S${props.um.showExtraInformation.season}-E${props.um.showExtraInformation.episode}`
+					: props.um.podcastExtraInformation
+						? `EP-${props.um.podcastExtraInformation.episode}`
+						: ""
+			} ${
 				numDaysLeft === 0
 					? "Today"
 					: `In ${numDaysLeft === 1 ? "a" : numDaysLeft} day${

@@ -8,14 +8,12 @@ import {
 	Title,
 } from "@mantine/core";
 import {
-	MediaLot,
 	UserCalendarEventsDocument,
 	type UserCalendarEventsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import {
 	DisplayListDetailsAndRefresh,
@@ -136,20 +134,14 @@ const CalendarEvent = (props: {
 				{props.data.events.map((calEvent) => (
 					<MetadataDisplayItem
 						key={calEvent.calendarEventId}
-						altName={calEvent.metadataText}
 						metadataId={calEvent.metadataId}
-						additionalInformation={`${match(calEvent.metadataLot)
-							.with(
-								MediaLot.Show,
-								() =>
-									`Upcoming: S${calEvent.showExtraInformation?.season}-E${calEvent.showExtraInformation?.episode}`,
-							)
-							.with(
-								MediaLot.Podcast,
-								() =>
-									`Upcoming: EP-${calEvent.podcastExtraInformation?.episode}`,
-							)
-							.otherwise(() => "")}`}
+						additionalInformation={
+							calEvent.showExtraInformation
+								? `Upcoming: S${calEvent.showExtraInformation?.season}-E${calEvent.showExtraInformation?.episode}`
+								: calEvent.podcastExtraInformation
+									? `Upcoming: EP-${calEvent.podcastExtraInformation?.episode}`
+									: undefined
+						}
 					/>
 				))}
 			</ApplicationGrid>
