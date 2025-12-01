@@ -225,17 +225,20 @@ export const usePartialStatusMonitor = (props: {
 };
 
 export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
-	const query = useQuery({ ...getMetadataDetailsQuery(metadataId), enabled });
+	const metadataDetailsQuery = useQuery({
+		...getMetadataDetailsQuery(metadataId),
+		enabled,
+	});
 
 	const { isPartialStatusActive } = usePartialStatusMonitor({
 		entityId: metadataId,
 		entityLot: EntityLot.Metadata,
-		onUpdate: () => query.refetch(),
-		partialStatus: enabled !== false && query.data?.isPartial,
-		externalLinkSource: query.data?.source || MediaSource.Custom,
+		onUpdate: () => metadataDetailsQuery.refetch(),
+		partialStatus: enabled !== false && metadataDetailsQuery.data?.isPartial,
+		externalLinkSource: metadataDetailsQuery.data?.source || MediaSource.Custom,
 	});
 
-	return [query, isPartialStatusActive] as const;
+	return [metadataDetailsQuery, isPartialStatusActive] as const;
 };
 
 export const useUserMetadataDetails = (
