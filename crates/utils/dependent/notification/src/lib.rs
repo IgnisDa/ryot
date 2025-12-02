@@ -318,6 +318,7 @@ pub async fn refresh_collection_to_entity_association(
 
 pub async fn update_metadata_and_notify_users(
     metadata_id: &String,
+    user_id: Option<String>,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
     let result = update_metadata(metadata_id, ss).await?;
@@ -340,6 +341,7 @@ pub async fn update_metadata_and_notify_users(
 
 pub async fn update_person_and_notify_users(
     person_id: &String,
+    user_id: Option<String>,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
     let result = update_person(person_id.clone(), ss).await?;
@@ -362,6 +364,7 @@ pub async fn update_person_and_notify_users(
 
 pub async fn update_metadata_group_and_notify_users(
     metadata_group_id: &String,
+    user_id: Option<String>,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
     let result = update_metadata_group(metadata_group_id, ss).await?;

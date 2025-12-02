@@ -20,6 +20,7 @@ pub async fn deploy_update_metadata_job(
 ) -> Result<bool> {
     ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateMetadata(
         metadata_id.to_owned(),
+        user_id,
     )))
     .await?;
     Ok(true)
@@ -32,6 +33,7 @@ pub async fn deploy_update_metadata_group_job(
 ) -> Result<bool> {
     ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateMetadataGroup(
         metadata_group_id.to_owned(),
+        user_id,
     )))
     .await?;
     Ok(true)
@@ -44,6 +46,7 @@ pub async fn deploy_update_person_job(
 ) -> Result<bool> {
     ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
         person_id.to_owned(),
+        user_id,
     )))
     .await?;
     Ok(true)

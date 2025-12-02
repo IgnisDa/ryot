@@ -68,7 +68,7 @@ async fn get_or_generate_recommendation_set(
             let mut media_item_ids = vec![];
             for media in media_items.into_iter() {
                 ryot_log!(debug, "Getting recommendations: {:?}", media);
-                update_metadata_and_notify_users(&media, ss).await?;
+                update_metadata_and_notify_users(&media, None, ss).await?;
                 let recommendations = generic_metadata(&media, ss, None).await?.suggestions;
                 ryot_log!(debug, "Found recommendations: {:?}", recommendations);
                 for rec in recommendations {

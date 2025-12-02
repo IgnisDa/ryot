@@ -346,21 +346,30 @@ impl MiscellaneousService {
         miscellaneous_review_service::create_review_comment(&self.0, user_id, input).await
     }
 
-    pub async fn update_metadata_and_notify_users(&self, metadata_id: &String) -> Result<()> {
-        update_metadata_and_notify_users(metadata_id, &self.0).await?;
+    pub async fn update_metadata_and_notify_users(
+        &self,
+        metadata_id: &String,
+        user_id: Option<String>,
+    ) -> Result<()> {
+        update_metadata_and_notify_users(metadata_id, user_id, &self.0).await?;
         Ok(())
     }
 
-    pub async fn update_person_and_notify_users(&self, person_id: &String) -> Result<()> {
-        update_person_and_notify_users(person_id, &self.0).await?;
+    pub async fn update_person_and_notify_users(
+        &self,
+        person_id: &String,
+        user_id: Option<String>,
+    ) -> Result<()> {
+        update_person_and_notify_users(person_id, user_id, &self.0).await?;
         Ok(())
     }
 
     pub async fn update_metadata_group_and_notify_users(
         &self,
         metadata_group_id: &String,
+        user_id: Option<String>,
     ) -> Result<()> {
-        update_metadata_group_and_notify_users(metadata_group_id, &self.0).await?;
+        update_metadata_group_and_notify_users(metadata_group_id, user_id, &self.0).await?;
         Ok(())
     }
 
