@@ -506,6 +506,18 @@ pub async fn update_metadata_and_translations(
         return Ok(UpdateMediaEntityResult::default());
     }
 
+    if let Some(user_id) = user_id {
+        update_media_entity_translation(
+            ss,
+            &user_id,
+            EntityWithLot {
+                entity_lot: EntityLot::Metadata,
+                entity_id: metadata_id.to_owned(),
+            },
+        )
+        .await?;
+    }
+
     let mut result = UpdateMediaEntityResult::default();
     ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
     let maybe_details =
@@ -592,6 +604,19 @@ pub async fn update_metadata_group_and_translations(
     if !metadata_group.is_partial.unwrap_or_default() {
         return Ok(UpdateMediaEntityResult::default());
     }
+
+    if let Some(user_id) = user_id {
+        update_media_entity_translation(
+            ss,
+            &user_id,
+            EntityWithLot {
+                entity_lot: EntityLot::MetadataGroup,
+                entity_id: metadata_group_id.to_owned(),
+            },
+        )
+        .await?;
+    }
+
     let provider = get_metadata_provider(metadata_group.lot, metadata_group.source, ss).await?;
     let (group_details, associated_items) = provider
         .metadata_group_details(&metadata_group.identifier)
@@ -635,6 +660,19 @@ pub async fn update_person_and_translations(
     if !person.is_partial.unwrap_or_default() {
         return Ok(UpdateMediaEntityResult::default());
     }
+
+    if let Some(user_id) = user_id {
+        update_media_entity_translation(
+            ss,
+            &user_id,
+            EntityWithLot {
+                entity_lot: EntityLot::Person,
+                entity_id: person_id.to_owned(),
+            },
+        )
+        .await?;
+    }
+
     let mut notifications = vec![];
     let provider = get_non_metadata_provider(person.source, ss).await?;
     let Some(provider_person) = provider
