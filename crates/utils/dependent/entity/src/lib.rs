@@ -296,9 +296,9 @@ pub async fn update_metadata(
                 .map(|_| details.watch_providers);
 
             let mut meta = meta.into_active_model();
+            meta.is_partial = ActiveValue::Set(None);
             meta.title = ActiveValue::Set(details.title);
             meta.assets = ActiveValue::Set(details.assets);
-            meta.is_partial = ActiveValue::Set(Some(false));
             meta.is_nsfw = ActiveValue::Set(details.is_nsfw);
             meta.last_updated_on = ActiveValue::Set(Utc::now());
             meta.free_creators = ActiveValue::Set(free_creators);
@@ -572,7 +572,7 @@ pub async fn update_person(
 
     let mut current_state_changes = person.clone().state_changes.unwrap_or_default();
     let mut to_update_person = person.clone().into_active_model();
-    to_update_person.is_partial = ActiveValue::Set(Some(false));
+    to_update_person.is_partial = ActiveValue::Set(None);
     to_update_person.name = ActiveValue::Set(provider_person.name);
     to_update_person.last_updated_on = ActiveValue::Set(Utc::now());
     to_update_person.place = ActiveValue::Set(provider_person.place);
