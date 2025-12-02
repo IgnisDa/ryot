@@ -351,10 +351,10 @@ mutation GenerateLogDownloadUrl {
 }
 
 mutation GetOrFetchEntityTranslations($input: EntityWithLotInput!) {
-  getOrFetchEntityTranslations(input: $input) {
-    response {
-      value
-      variant
-    }
-  }
+	getOrFetchEntityTranslations(input: $input) {
+		response {
+			value
+			variant
+		}
+	}
 }
