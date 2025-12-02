@@ -263,6 +263,7 @@ pub async fn insert_metadata_group_links(
 
 pub async fn update_metadata(
     metadata_id: &String,
+    user_id: Option<String>,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
     let metadata = Metadata::find_by_id(metadata_id)
@@ -504,6 +505,7 @@ async fn generate_metadata_update_notifications(
 }
 
 pub async fn update_metadata_group(
+    user_id: Option<String>,
     metadata_group_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
@@ -547,6 +549,7 @@ pub async fn update_metadata_group(
 
 pub async fn update_person(
     person_id: String,
+    user_id: Option<String>,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
     let person = Person::find_by_id(person_id.clone())
