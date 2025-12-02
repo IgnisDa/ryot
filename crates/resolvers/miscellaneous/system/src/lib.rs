@@ -47,8 +47,10 @@ impl MiscellaneousSystemMutationResolver {
         gql_ctx: &Context<'_>,
         input: EntityWithLot,
     ) -> Result<bool> {
-        let service = self.svc(gql_ctx);
-        Ok(service.deploy_update_media_entity_job(input).await?)
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
+        Ok(service
+            .deploy_update_media_entity_job(user_id, input)
+            .await?)
     }
 
     /// Get entity translations. If translations don't exist for the user's

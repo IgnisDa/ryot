@@ -58,7 +58,7 @@ async fn ensure_metadata_updated(
                     .await?
                     .unwrap_or(true);
                 if is_partial {
-                    deploy_update_metadata_job(metadata_id, ss).await?;
+                    deploy_update_metadata_job(metadata_id, None, ss).await?;
                     let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
                     ryot_log!(debug, "Sleeping for {}s before metadata check", sleep_time);
                     sleep_for_n_seconds(sleep_time).await;

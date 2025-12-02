@@ -187,16 +187,20 @@ impl MiscellaneousService {
         miscellaneous_progress_service::update_seen_item(&self.0, &user_id, input).await
     }
 
-    pub async fn deploy_update_media_entity_job(&self, input: EntityWithLot) -> Result<bool> {
+    pub async fn deploy_update_media_entity_job(
+        &self,
+        user_id: String,
+        input: EntityWithLot,
+    ) -> Result<bool> {
         match input.entity_lot {
             EntityLot::Metadata => {
-                deploy_update_metadata_job(&input.entity_id, &self.0).await?;
+                deploy_update_metadata_job(&input.entity_id, Some(user_id), &self.0).await?;
             }
             EntityLot::Person => {
-                deploy_update_person_job(&input.entity_id, &self.0).await?;
+                deploy_update_person_job(&input.entity_id, Some(user_id), &self.0).await?;
             }
             EntityLot::MetadataGroup => {
-                deploy_update_metadata_group_job(&input.entity_id, &self.0).await?;
+                deploy_update_metadata_group_job(Some(user_id), &input.entity_id, &self.0).await?;
             }
             _ => {
                 bail!(
