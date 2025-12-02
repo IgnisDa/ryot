@@ -261,93 +261,6 @@ pub async fn insert_metadata_group_links(
     Ok(())
 }
 
-pub async fn update_metadata_and_translations(
-    metadata_id: &String,
-    user_id: Option<String>,
-    ss: &Arc<SupportingService>,
-) -> Result<UpdateMediaEntityResult> {
-    let metadata = Metadata::find_by_id(metadata_id)
-        .one(&ss.db)
-        .await
-        .unwrap()
-        .unwrap();
-    if !metadata.is_partial.unwrap_or_default() {
-        return Ok(UpdateMediaEntityResult::default());
-    }
-    let mut result = UpdateMediaEntityResult::default();
-    ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
-    let maybe_details =
-        details_from_provider(metadata.lot, metadata.source, &metadata.identifier, ss).await;
-    match maybe_details {
-        Ok(details) => {
-            let meta = Metadata::find_by_id(metadata_id)
-                .one(&ss.db)
-                .await
-                .unwrap()
-                .unwrap();
-
-            let notifications = generate_metadata_update_notifications(&meta, &details, ss).await?;
-
-            let free_creators = (!details.creators.is_empty())
-                .then_some(())
-                .map(|_| details.creators);
-            let watch_providers = (!details.watch_providers.is_empty())
-                .then_some(())
-                .map(|_| details.watch_providers);
-
-            let mut meta = meta.into_active_model();
-            meta.is_partial = ActiveValue::Set(None);
-            meta.title = ActiveValue::Set(details.title);
-            meta.assets = ActiveValue::Set(details.assets);
-            meta.is_nsfw = ActiveValue::Set(details.is_nsfw);
-            meta.last_updated_on = ActiveValue::Set(Utc::now());
-            meta.free_creators = ActiveValue::Set(free_creators);
-            meta.source_url = ActiveValue::Set(details.source_url);
-            meta.description = ActiveValue::Set(details.description);
-            meta.watch_providers = ActiveValue::Set(watch_providers);
-            meta.publish_year = ActiveValue::Set(details.publish_year);
-            meta.publish_date = ActiveValue::Set(details.publish_date);
-            meta.show_specifics = ActiveValue::Set(details.show_specifics);
-            meta.book_specifics = ActiveValue::Set(details.book_specifics);
-            meta.anime_specifics = ActiveValue::Set(details.anime_specifics);
-            meta.provider_rating = ActiveValue::Set(details.provider_rating);
-            meta.manga_specifics = ActiveValue::Set(details.manga_specifics);
-            meta.movie_specifics = ActiveValue::Set(details.movie_specifics);
-            meta.music_specifics = ActiveValue::Set(details.music_specifics);
-            meta.production_status = ActiveValue::Set(details.production_status);
-            meta.original_language = ActiveValue::Set(details.original_language);
-            meta.podcast_specifics = ActiveValue::Set(details.podcast_specifics);
-            meta.audio_book_specifics = ActiveValue::Set(details.audio_book_specifics);
-            meta.video_game_specifics = ActiveValue::Set(details.video_game_specifics);
-            meta.external_identifiers = ActiveValue::Set(details.external_identifiers);
-            meta.visual_novel_specifics = ActiveValue::Set(details.visual_novel_specifics);
-            let metadata = meta.update(&ss.db).await.unwrap();
-
-            change_metadata_associations(
-                &metadata.id,
-                details.genres,
-                details.suggestions,
-                details.groups,
-                details.people,
-                ss,
-            )
-            .await?;
-            ryot_log!(debug, "Updated metadata for {:?}", metadata_id);
-            result.notifications.extend(notifications);
-        }
-        Err(e) => {
-            ryot_log!(
-                error,
-                "Error while updating metadata = {:?}: {:?}",
-                metadata_id,
-                e
-            );
-        }
-    };
-    expire_metadata_details_cache(metadata_id, ss).await?;
-    Ok(result)
-}
-
 async fn generate_metadata_update_notifications(
     meta: &metadata::Model,
     details: &MetadataDetails,
@@ -502,6 +415,93 @@ async fn generate_metadata_update_notifications(
     }
 
     Ok(notifications)
+}
+
+pub async fn update_metadata_and_translations(
+    metadata_id: &String,
+    user_id: Option<String>,
+    ss: &Arc<SupportingService>,
+) -> Result<UpdateMediaEntityResult> {
+    let metadata = Metadata::find_by_id(metadata_id)
+        .one(&ss.db)
+        .await
+        .unwrap()
+        .unwrap();
+    if !metadata.is_partial.unwrap_or_default() {
+        return Ok(UpdateMediaEntityResult::default());
+    }
+    let mut result = UpdateMediaEntityResult::default();
+    ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
+    let maybe_details =
+        details_from_provider(metadata.lot, metadata.source, &metadata.identifier, ss).await;
+    match maybe_details {
+        Ok(details) => {
+            let meta = Metadata::find_by_id(metadata_id)
+                .one(&ss.db)
+                .await
+                .unwrap()
+                .unwrap();
+
+            let notifications = generate_metadata_update_notifications(&meta, &details, ss).await?;
+
+            let free_creators = (!details.creators.is_empty())
+                .then_some(())
+                .map(|_| details.creators);
+            let watch_providers = (!details.watch_providers.is_empty())
+                .then_some(())
+                .map(|_| details.watch_providers);
+
+            let mut meta = meta.into_active_model();
+            meta.is_partial = ActiveValue::Set(None);
+            meta.title = ActiveValue::Set(details.title);
+            meta.assets = ActiveValue::Set(details.assets);
+            meta.is_nsfw = ActiveValue::Set(details.is_nsfw);
+            meta.last_updated_on = ActiveValue::Set(Utc::now());
+            meta.free_creators = ActiveValue::Set(free_creators);
+            meta.source_url = ActiveValue::Set(details.source_url);
+            meta.description = ActiveValue::Set(details.description);
+            meta.watch_providers = ActiveValue::Set(watch_providers);
+            meta.publish_year = ActiveValue::Set(details.publish_year);
+            meta.publish_date = ActiveValue::Set(details.publish_date);
+            meta.show_specifics = ActiveValue::Set(details.show_specifics);
+            meta.book_specifics = ActiveValue::Set(details.book_specifics);
+            meta.anime_specifics = ActiveValue::Set(details.anime_specifics);
+            meta.provider_rating = ActiveValue::Set(details.provider_rating);
+            meta.manga_specifics = ActiveValue::Set(details.manga_specifics);
+            meta.movie_specifics = ActiveValue::Set(details.movie_specifics);
+            meta.music_specifics = ActiveValue::Set(details.music_specifics);
+            meta.production_status = ActiveValue::Set(details.production_status);
+            meta.original_language = ActiveValue::Set(details.original_language);
+            meta.podcast_specifics = ActiveValue::Set(details.podcast_specifics);
+            meta.audio_book_specifics = ActiveValue::Set(details.audio_book_specifics);
+            meta.video_game_specifics = ActiveValue::Set(details.video_game_specifics);
+            meta.external_identifiers = ActiveValue::Set(details.external_identifiers);
+            meta.visual_novel_specifics = ActiveValue::Set(details.visual_novel_specifics);
+            let metadata = meta.update(&ss.db).await.unwrap();
+
+            change_metadata_associations(
+                &metadata.id,
+                details.genres,
+                details.suggestions,
+                details.groups,
+                details.people,
+                ss,
+            )
+            .await?;
+            ryot_log!(debug, "Updated metadata for {:?}", metadata_id);
+            result.notifications.extend(notifications);
+        }
+        Err(e) => {
+            ryot_log!(
+                error,
+                "Error while updating metadata = {:?}: {:?}",
+                metadata_id,
+                e
+            );
+        }
+    };
+    expire_metadata_details_cache(metadata_id, ss).await?;
+    Ok(result)
 }
 
 pub async fn update_metadata_group_and_translations(
