@@ -139,12 +139,6 @@ pub async fn perform_mp_application_job(
                 .update_metadata_group_and_notify_users(&metadata_group_id)
                 .await
         }
-        MpApplicationJob::UpdateEntityTranslation(user_id, input) => {
-            app_services
-                .miscellaneous_service
-                .update_media_entity_translation(user_id, input)
-                .await
-        }
         MpApplicationJob::UpdateGithubExercises => {
             app_services.fitness_service.update_github_exercises().await
         }
