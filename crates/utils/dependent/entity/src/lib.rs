@@ -261,7 +261,7 @@ pub async fn insert_metadata_group_links(
     Ok(())
 }
 
-pub async fn update_metadata(
+pub async fn update_metadata_and_translations(
     metadata_id: &String,
     user_id: Option<String>,
     ss: &Arc<SupportingService>,
@@ -504,7 +504,7 @@ async fn generate_metadata_update_notifications(
     Ok(notifications)
 }
 
-pub async fn update_metadata_group(
+pub async fn update_metadata_group_and_translations(
     user_id: Option<String>,
     metadata_group_id: &String,
     ss: &Arc<SupportingService>,
@@ -547,7 +547,7 @@ pub async fn update_metadata_group(
     Ok(UpdateMediaEntityResult::default())
 }
 
-pub async fn update_person(
+pub async fn update_person_and_translations(
     person_id: String,
     user_id: Option<String>,
     ss: &Arc<SupportingService>,
