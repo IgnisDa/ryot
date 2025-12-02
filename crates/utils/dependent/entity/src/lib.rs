@@ -3,18 +3,20 @@ use std::{collections::HashMap, iter::zip, sync::Arc};
 use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, LpApplicationJob};
 use chrono::Utc;
-use common_models::{EntityAssets, PersonSourceSpecifics, StringIdObject};
+use common_models::{EntityAssets, EntityWithLot, PersonSourceSpecifics, StringIdObject};
 use common_utils::{
     MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES, ryot_log, sleep_for_n_seconds,
 };
 use database_models::{
-    genre, metadata, metadata_group, metadata_group_to_person, metadata_to_genre,
-    metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, person,
+    entity_translation, genre, metadata, metadata_group, metadata_group_to_person,
+    metadata_to_genre, metadata_to_metadata, metadata_to_metadata_group, metadata_to_person,
+    person,
     prelude::{
-        Genre, Metadata, MetadataGroup, MetadataGroupToPerson, MetadataToGenre, MetadataToMetadata,
-        MetadataToMetadataGroup, MetadataToPerson, Person,
+        EntityTranslation, Genre, Metadata, MetadataGroup, MetadataGroupToPerson, MetadataToGenre,
+        MetadataToMetadata, MetadataToMetadataGroup, MetadataToPerson, Person,
     },
 };
+use database_utils::user_by_id;
 use dependent_jobs_utils::deploy_update_metadata_job;
 use dependent_models::MetadataBaseData;
 use dependent_provider_utils::{
@@ -23,7 +25,10 @@ use dependent_provider_utils::{
 use dependent_utility_utils::{
     expire_metadata_details_cache, expire_metadata_group_details_cache, expire_person_details_cache,
 };
-use enum_models::{MetadataToMetadataRelation, UserNotificationContent};
+use enum_models::{
+    EntityLot, EntityTranslationVariant, MediaSource, MetadataToMetadataRelation,
+    UserNotificationContent,
+};
 use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
 use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
@@ -40,6 +45,7 @@ use sea_orm::{
 };
 use supporting_service::SupportingService;
 use traits::TraceOk;
+use user_models::UserProviderLanguagePreferences;
 
 async fn ensure_metadata_updated(
     metadata_id: &String,
@@ -417,6 +423,75 @@ async fn generate_metadata_update_notifications(
     Ok(notifications)
 }
 
+async fn get_preferred_language_for_user_and_source(
+    ss: &Arc<SupportingService>,
+    user_id: &String,
+    source: &MediaSource,
+) -> Result<String> {
+    let user_preferences = user_by_id(user_id, ss).await?.preferences;
+    let Some(UserProviderLanguagePreferences {
+        preferred_language, ..
+    }) = user_preferences
+        .languages
+        .providers
+        .into_iter()
+        .find(|lang| lang.source == *source)
+    else {
+        bail!("No preferred language found for source {}", source);
+    };
+    Ok(preferred_language)
+}
+
+async fn update_media_entity_translation(
+    ss: &Arc<SupportingService>,
+    user_id: &String,
+    input: EntityWithLot,
+) -> Result<()> {
+    match input.entity_lot {
+        EntityLot::Metadata => {
+            let meta = Metadata::find_by_id(&input.entity_id)
+                .one(&ss.db)
+                .await?
+                .ok_or_else(|| anyhow!("Metadata not found"))?;
+            let preferred_language =
+                get_preferred_language_for_user_and_source(ss, user_id, &meta.source).await?;
+            if let Some(_existing) = EntityTranslation::find()
+                .filter(entity_translation::Column::MetadataId.eq(&input.entity_id))
+                .filter(entity_translation::Column::Language.eq(&preferred_language))
+                .one(&ss.db)
+                .await?
+            {
+                return Ok(());
+            }
+            let provider = get_metadata_provider(meta.lot, meta.source, ss).await?;
+            let Ok(trn) = provider
+                .translate_metadata(&meta.identifier, &preferred_language)
+                .await
+            else {
+                bail!("Translation not found from provider");
+            };
+            for (variant, value) in [
+                (EntityTranslationVariant::Title, trn.title),
+                (EntityTranslationVariant::Description, trn.description),
+            ] {
+                let translation_model = entity_translation::ActiveModel {
+                    variant: ActiveValue::Set(variant),
+                    language: ActiveValue::Set(preferred_language.clone()),
+                    value: ActiveValue::Set(value.filter(|v| !v.is_empty())),
+                    metadata_id: ActiveValue::Set(Some(input.entity_id.clone())),
+                    ..Default::default()
+                };
+                EntityTranslation::insert(translation_model)
+                    .on_conflict(OnConflict::new().do_nothing().to_owned())
+                    .exec_without_returning(&ss.db)
+                    .await?;
+            }
+        }
+        _ => unreachable!(),
+    };
+    Ok(())
+}
+
 pub async fn update_metadata_and_translations(
     metadata_id: &String,
     user_id: Option<String>,
@@ -430,6 +505,7 @@ pub async fn update_metadata_and_translations(
     if !metadata.is_partial.unwrap_or_default() {
         return Ok(UpdateMediaEntityResult::default());
     }
+
     let mut result = UpdateMediaEntityResult::default();
     ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
     let maybe_details =

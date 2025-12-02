@@ -1,39 +1,35 @@
 use std::sync::Arc;
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Result, bail};
 use chrono::Datelike;
 use common_models::{
     ChangeCollectionToEntitiesInput, DefaultCollection, EntityAssets, EntityToCollectionInput,
-    EntityWithLot,
 };
 use common_utils::ryot_log;
 use database_models::{
-    collection, collection_entity_membership, collection_to_entity, entity_translation,
+    collection, collection_entity_membership, collection_to_entity,
     functions::get_user_to_entity_association,
     metadata, metadata_group, metadata_to_genre, person,
     prelude::{
-        Collection, CollectionEntityMembership, CollectionToEntity, EntityTranslation, Metadata,
-        MetadataGroup, MetadataToGenre, Person, Review, Seen, UserToEntity,
+        Collection, CollectionEntityMembership, CollectionToEntity, Metadata, MetadataGroup,
+        MetadataToGenre, Person, Review, Seen, UserToEntity,
     },
     review, seen, user_to_entity,
 };
-use database_utils::{entity_in_collections_with_collection_to_entity_ids, user_by_id};
+use database_utils::entity_in_collections_with_collection_to_entity_ids;
 use dependent_collection_utils::{add_entities_to_collection, remove_entities_from_collection};
 use dependent_details_utils::metadata_details;
 use dependent_entity_utils::{
     change_metadata_associations, insert_metadata_group_links, insert_metadata_person_links,
 };
 use dependent_notification_utils::send_notification_for_user;
-use dependent_provider_utils::get_metadata_provider;
 use dependent_seen_utils::is_metadata_finished_by_user;
 use dependent_utility_utils::{
     expire_metadata_details_cache, expire_metadata_group_details_cache,
     expire_person_details_cache, expire_user_metadata_groups_list_cache,
     expire_user_metadata_list_cache, expire_user_people_list_cache,
 };
-use enum_models::{
-    EntityLot, EntityTranslationVariant, MediaLot, MediaSource, UserNotificationContent,
-};
+use enum_models::{EntityLot, MediaLot, MediaSource, UserNotificationContent};
 use futures::try_join;
 use media_models::{
     CreateCustomMetadataGroupInput, CreateCustomMetadataInput, UpdateCustomMetadataGroupInput,
@@ -43,10 +39,8 @@ use nanoid::nanoid;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
     PaginatorTrait, QueryFilter, QuerySelect, TransactionTrait, prelude::Expr,
-    sea_query::OnConflict,
 };
 use supporting_service::SupportingService;
-use user_models::UserProviderLanguagePreferences;
 
 pub async fn merge_metadata(
     ss: &Arc<SupportingService>,
@@ -608,74 +602,5 @@ pub async fn handle_metadata_eligible_for_smart_collection_moving(
         )?;
     }
 
-    Ok(())
-}
-
-async fn get_preferred_language_for_user_and_source(
-    ss: &Arc<SupportingService>,
-    user_id: &String,
-    source: &MediaSource,
-) -> Result<String> {
-    let user_preferences = user_by_id(user_id, ss).await?.preferences;
-    let Some(UserProviderLanguagePreferences {
-        preferred_language, ..
-    }) = user_preferences
-        .languages
-        .providers
-        .into_iter()
-        .find(|lang| lang.source == *source)
-    else {
-        bail!("No preferred language found for source {}", source);
-    };
-    Ok(preferred_language)
-}
-
-pub async fn update_media_entity_translation(
-    ss: &Arc<SupportingService>,
-    user_id: &String,
-    input: EntityWithLot,
-) -> Result<()> {
-    match input.entity_lot {
-        EntityLot::Metadata => {
-            let meta = Metadata::find_by_id(&input.entity_id)
-                .one(&ss.db)
-                .await?
-                .ok_or_else(|| anyhow!("Metadata not found"))?;
-            let preferred_language =
-                get_preferred_language_for_user_and_source(ss, user_id, &meta.source).await?;
-            if let Some(_existing) = EntityTranslation::find()
-                .filter(entity_translation::Column::MetadataId.eq(&input.entity_id))
-                .filter(entity_translation::Column::Language.eq(&preferred_language))
-                .one(&ss.db)
-                .await?
-            {
-                return Ok(());
-            }
-            let provider = get_metadata_provider(meta.lot, meta.source, ss).await?;
-            let Ok(trn) = provider
-                .translate_metadata(&meta.identifier, &preferred_language)
-                .await
-            else {
-                bail!("Translation not found from provider");
-            };
-            for (variant, value) in [
-                (EntityTranslationVariant::Title, trn.title),
-                (EntityTranslationVariant::Description, trn.description),
-            ] {
-                let translation_model = entity_translation::ActiveModel {
-                    variant: ActiveValue::Set(variant),
-                    language: ActiveValue::Set(preferred_language.clone()),
-                    value: ActiveValue::Set(value.filter(|v| !v.is_empty())),
-                    metadata_id: ActiveValue::Set(Some(input.entity_id.clone())),
-                    ..Default::default()
-                };
-                EntityTranslation::insert(translation_model)
-                    .on_conflict(OnConflict::new().do_nothing().to_owned())
-                    .exec_without_returning(&ss.db)
-                    .await?;
-            }
-        }
-        _ => unreachable!(),
-    };
     Ok(())
 }

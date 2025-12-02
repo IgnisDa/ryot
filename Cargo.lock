@@ -2096,6 +2096,7 @@ dependencies = [
  "common-models",
  "common-utils",
  "database-models",
+ "database-utils",
  "dependent-jobs-utils",
  "dependent-models",
  "dependent-provider-utils",
@@ -2110,6 +2111,7 @@ dependencies = [
  "supporting-service",
  "tracing",
  "traits",
+ "user-models",
 ]
 
 [[package]]
@@ -4709,7 +4711,6 @@ dependencies = [
  "dependent-details-utils",
  "dependent-entity-utils",
  "dependent-notification-utils",
- "dependent-provider-utils",
  "dependent-seen-utils",
  "dependent-utility-utils",
  "enum-models",
@@ -4721,7 +4722,6 @@ dependencies = [
  "sea-orm",
  "supporting-service",
  "tracing",
- "user-models",
 ]
 
 [[package]]
