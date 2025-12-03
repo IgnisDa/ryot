@@ -6,7 +6,8 @@ use common_models::{EntityWithLot, UserLevelCacheKey};
 use database_models::{
     entity_translation,
     functions::get_user_to_entity_association,
-    prelude::{EntityTranslation, Metadata, Seen},
+    metadata_group, person,
+    prelude::{EntityTranslation, Metadata, MetadataGroup, Person, Seen},
     seen,
 };
 use database_utils::{
@@ -256,17 +257,32 @@ pub async fn user_person_details(
         |f| ApplicationCacheValue::UserPersonDetails(Box::new(f)),
         || async {
             let entity_lot = EntityLot::Person;
-            let (reviews, collections, person_meta) = try_join!(
+            let (reviews, collections, person_association, person_source) = try_join!(
                 item_reviews(&user_id, &person_id, entity_lot, true, ss),
                 entity_in_collections_with_details(&user_id, &person_id, entity_lot, ss),
-                get_user_to_entity_association(&ss.db, &user_id, &person_id, entity_lot)
+                get_user_to_entity_association(&ss.db, &user_id, &person_id, entity_lot),
+                Person::find_by_id(&person_id)
+                    .select_only()
+                    .column(person::Column::Source)
+                    .into_tuple::<MediaSource>()
+                    .one(&ss.db)
+                    .map_err(|_| anyhow!("Person not found")),
             )?;
+            let translated_details = get_entity_translations(
+                &user_id,
+                &person_id,
+                &person_source.unwrap(),
+                entity_lot,
+                ss,
+            )
+            .await?;
             let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
             Ok(UserPersonDetails {
                 reviews,
                 collections,
                 average_rating,
-                has_interacted: person_meta.is_some(),
+                translated_details,
+                has_interacted: person_association.is_some(),
             })
         },
     )
@@ -287,17 +303,32 @@ pub async fn user_metadata_group_details(
         |f| ApplicationCacheValue::UserMetadataGroupDetails(Box::new(f)),
         || async {
             let entity_lot = EntityLot::MetadataGroup;
-            let (reviews, metadata_group_meta, collections) = try_join!(
+            let (reviews, metadata_group_association, collections, metadata_group_source) = try_join!(
                 item_reviews(&user_id, &metadata_group_id, entity_lot, true, ss),
                 get_user_to_entity_association(&ss.db, &user_id, &metadata_group_id, entity_lot),
                 entity_in_collections_with_details(&user_id, &metadata_group_id, entity_lot, ss),
+                MetadataGroup::find_by_id(&metadata_group_id)
+                    .select_only()
+                    .column(metadata_group::Column::Source)
+                    .into_tuple::<MediaSource>()
+                    .one(&ss.db)
+                    .map_err(|_| anyhow!("Metadata Group not found"))
             )?;
+            let translated_details = get_entity_translations(
+                &user_id,
+                &metadata_group_id,
+                &metadata_group_source.unwrap(),
+                entity_lot,
+                ss,
+            )
+            .await?;
             let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
             Ok(UserMetadataGroupDetails {
                 reviews,
                 collections,
                 average_rating,
-                has_interacted: metadata_group_meta.is_some(),
+                translated_details,
+                has_interacted: metadata_group_association.is_some(),
             })
         },
     )

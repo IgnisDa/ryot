@@ -111,6 +111,7 @@ pub struct UserPersonDetails {
     pub has_interacted: bool,
     pub reviews: Vec<ReviewItem>,
     pub average_rating: Option<Decimal>,
+    pub translated_details: EntityTranslationDetails,
     pub collections: Vec<GraphqlCollectionToEntityDetails>,
 }
 
@@ -120,6 +121,7 @@ pub struct UserMetadataGroupDetails {
     pub has_interacted: bool,
     pub reviews: Vec<ReviewItem>,
     pub average_rating: Option<Decimal>,
+    pub translated_details: EntityTranslationDetails,
     pub collections: Vec<GraphqlCollectionToEntityDetails>,
 }
 
