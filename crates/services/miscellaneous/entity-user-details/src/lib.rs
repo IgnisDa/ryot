@@ -4,21 +4,22 @@ use anyhow::{Result, anyhow};
 use application_utils::calculate_average_rating_for_user;
 use common_models::{EntityWithLot, UserLevelCacheKey};
 use database_models::{
+    entity_translation,
     functions::get_user_to_entity_association,
-    prelude::{Metadata, Seen},
+    prelude::{EntityTranslation, Metadata, Seen},
     seen,
 };
 use database_utils::{
     entity_in_collections_with_details, item_reviews, server_key_validation_guard,
 };
 use dependent_core_utils::is_server_key_validated;
-use dependent_entity_utils::generic_metadata;
+use dependent_entity_utils::{generic_metadata, get_preferred_language_for_user_and_source};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EmptyCacheValue,
     UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use dependent_seen_utils::is_metadata_finished_by_user;
-use enum_models::{EntityLot, SeenState};
+use enum_models::{EntityLot, EntityTranslationVariant, MediaSource, SeenState};
 use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
 use media_models::{
@@ -26,8 +27,33 @@ use media_models::{
     UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::dec;
-use sea_orm::{ColumnTrait, EntityTrait, QuerySelect};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use supporting_service::SupportingService;
+
+async fn get_entity_translations(
+    user_id: &String,
+    entity_id: &String,
+    source: &MediaSource,
+    ss: &Arc<SupportingService>,
+) -> Result<EntityTranslationDetails> {
+    let preferred_language =
+        get_preferred_language_for_user_and_source(ss, user_id, source).await?;
+    let translations = EntityTranslation::find()
+        .filter(entity_translation::Column::MetadataId.eq(entity_id))
+        .filter(entity_translation::Column::Language.eq(&preferred_language))
+        .all(&ss.db)
+        .await?;
+    Ok(EntityTranslationDetails {
+        title: translations
+            .iter()
+            .find(|s| s.variant == EntityTranslationVariant::Title)
+            .and_then(|s| s.value.clone()),
+        description: translations
+            .iter()
+            .find(|s| s.variant == EntityTranslationVariant::Description)
+            .and_then(|s| s.value.clone()),
+    })
+}
 
 pub async fn user_metadata_details(
     ss: &Arc<SupportingService>,
@@ -64,6 +90,14 @@ pub async fn user_metadata_details(
                     .map_err(|_| anyhow!("Metadata not found")),
                 )?;
 
+
+            let translated_details = get_entity_translations(
+                &user_id,
+                &metadata_id,
+                &media_details.model.source,
+                ss,
+            )
+            .await?;
             let in_progress = history
                 .iter()
                 .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
@@ -194,9 +228,9 @@ pub async fn user_metadata_details(
                 average_rating,
                 podcast_progress,
                 seen_by_user_count,
+                translated_details,
                 has_interacted: user_to_meta.is_some(),
                 media_reason: user_to_meta.and_then(|n| n.media_reason),
-                translated_details: EntityTranslationDetails::default(),
                 seen_by_all_count: seen_by.map(|s| s.0).unwrap_or_default(),
             })
         },
