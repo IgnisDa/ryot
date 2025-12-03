@@ -70,6 +70,7 @@ pub async fn user_metadata_details(
         }),
         |f| ApplicationCacheValue::UserMetadataDetails(Box::new(f)),
         || async {
+            let entity_lot = EntityLot::Metadata;
             let (
                 media_details,
                 (_, history),
@@ -80,9 +81,9 @@ pub async fn user_metadata_details(
             ) = try_join!(
                 generic_metadata(&metadata_id, ss, None),
                 is_metadata_finished_by_user(&user_id, &metadata_id, ss),
-                item_reviews(&user_id, &metadata_id, EntityLot::Metadata, true, ss),
-                entity_in_collections_with_details(&user_id, &metadata_id, EntityLot::Metadata, ss),
-                get_user_to_entity_association(&ss.db, &user_id, &metadata_id, EntityLot::Metadata),
+                item_reviews(&user_id, &metadata_id, entity_lot, true, ss),
+                entity_in_collections_with_details(&user_id, &metadata_id, entity_lot, ss),
+                get_user_to_entity_association(&ss.db, &user_id, &metadata_id, entity_lot),
                 Metadata::find_by_id(&metadata_id)
                     .select_only()
                     .column_as(seen::Column::Id.count(), "num_times_seen")
@@ -97,7 +98,7 @@ pub async fn user_metadata_details(
                 &user_id,
                 &metadata_id,
                 &media_details.model.source,
-                EntityLot::Metadata,
+                entity_lot,
                 ss,
             )
             .await?;
