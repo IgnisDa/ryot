@@ -255,10 +255,11 @@ pub async fn user_person_details(
         }),
         |f| ApplicationCacheValue::UserPersonDetails(Box::new(f)),
         || async {
+            let entity_lot = EntityLot::Person;
             let (reviews, collections, person_meta) = try_join!(
-                item_reviews(&user_id, &person_id, EntityLot::Person, true, ss),
-                entity_in_collections_with_details(&user_id, &person_id, EntityLot::Person, ss),
-                get_user_to_entity_association(&ss.db, &user_id, &person_id, EntityLot::Person)
+                item_reviews(&user_id, &person_id, entity_lot, true, ss),
+                entity_in_collections_with_details(&user_id, &person_id, entity_lot, ss),
+                get_user_to_entity_association(&ss.db, &user_id, &person_id, entity_lot)
             )?;
             let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
             Ok(UserPersonDetails {
@@ -285,26 +286,11 @@ pub async fn user_metadata_group_details(
         }),
         |f| ApplicationCacheValue::UserMetadataGroupDetails(Box::new(f)),
         || async {
-            let (collections, reviews, metadata_group_meta) = try_join!(
-                entity_in_collections_with_details(
-                    &user_id,
-                    &metadata_group_id,
-                    EntityLot::MetadataGroup,
-                    ss
-                ),
-                item_reviews(
-                    &user_id,
-                    &metadata_group_id,
-                    EntityLot::MetadataGroup,
-                    true,
-                    ss,
-                ),
-                get_user_to_entity_association(
-                    &ss.db,
-                    &user_id,
-                    &metadata_group_id,
-                    EntityLot::MetadataGroup,
-                )
+            let entity_lot = EntityLot::MetadataGroup;
+            let (reviews, metadata_group_meta, collections) = try_join!(
+                item_reviews(&user_id, &metadata_group_id, entity_lot, true, ss),
+                get_user_to_entity_association(&ss.db, &user_id, &metadata_group_id, entity_lot),
+                entity_in_collections_with_details(&user_id, &metadata_group_id, entity_lot, ss),
             )?;
             let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
             Ok(UserMetadataGroupDetails {
