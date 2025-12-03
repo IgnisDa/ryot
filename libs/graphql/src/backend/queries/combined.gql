@@ -385,6 +385,9 @@ query UserMetadataGroupDetails($metadataGroupId: String!) {
 			collections {
 				...CollectionToEntityDetailsPart
 			}
+			translatedDetails {
+				...EntityTranslationDetailsPart
+			}
 		}
 	}
 }
@@ -394,11 +397,14 @@ query UserPersonDetails($personId: String!) {
 		response {
 			hasInteracted
 			averageRating
+			reviews {
+				...ReviewItemPart
+			}
 			collections {
 				...CollectionToEntityDetailsPart
 			}
-			reviews {
-				...ReviewItemPart
+			translatedDetails {
+				...EntityTranslationDetailsPart
 			}
 		}
 	}

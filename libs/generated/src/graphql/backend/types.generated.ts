@@ -3157,6 +3157,7 @@ export type UserMetadataGroupDetails = {
   collections: Array<GraphqlCollectionToEntityDetails>;
   hasInteracted: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
+  translatedDetails: EntityTranslationDetails;
 };
 
 export type UserMetadataGroupsListInput = {
@@ -3216,6 +3217,7 @@ export type UserPersonDetails = {
   collections: Array<GraphqlCollectionToEntityDetails>;
   hasInteracted: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
+  translatedDetails: EntityTranslationDetails;
 };
 
 export type UserPreferences = {
