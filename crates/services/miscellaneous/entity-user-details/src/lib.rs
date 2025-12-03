@@ -22,7 +22,8 @@ use enum_models::{EntityLot, SeenState};
 use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
 use media_models::{
-    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    EntityTranslationDetails, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::dec;
 use sea_orm::{ColumnTrait, EntityTrait, QuerySelect};
@@ -195,6 +196,7 @@ pub async fn user_metadata_details(
                 seen_by_user_count,
                 has_interacted: user_to_meta.is_some(),
                 media_reason: user_to_meta.and_then(|n| n.media_reason),
+                translated_details: EntityTranslationDetails::default(),
                 seen_by_all_count: seen_by.map(|s| s.0).unwrap_or_default(),
             })
         },
