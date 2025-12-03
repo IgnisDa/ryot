@@ -56,7 +56,6 @@ fn get_expiry_for_key(ss: &Arc<SupportingService>, key: &ApplicationCacheKey) ->
         | ApplicationCacheKey::MetadataGroupDetails { .. }
         | ApplicationCacheKey::UserAnalyticsParameters { .. }
         | ApplicationCacheKey::UserMetadataGroupDetails { .. }
-        | ApplicationCacheKey::EntityTranslationDetails { .. }
         | ApplicationCacheKey::UserWorkoutTemplateDetails { .. } => Duration::hours(8),
 
         ApplicationCacheKey::TrendingMetadataIds

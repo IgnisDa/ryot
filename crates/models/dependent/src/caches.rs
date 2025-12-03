@@ -5,7 +5,6 @@ use common_models::{
     MetadataLookupCacheInput, PeopleSearchInput, UserAnalyticsInput, UserLevelCacheKey,
     YoutubeMusicSongListened,
 };
-use database_models::entity_translation;
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
     GenreDetailsInput, GraphqlMetadataDetails, MetadataLookupResponse,
@@ -103,7 +102,6 @@ pub enum ApplicationCacheKey {
     UserPeopleList(UserLevelCacheKey<UserPeopleListInput>),
     EntityRecentlyConsumed(UserLevelCacheKey<EntityWithLot>),
     UserMetadataList(UserLevelCacheKey<UserMetadataListInput>),
-    EntityTranslationDetails(UserLevelCacheKey<EntityWithLot>),
     UserExercisesList(UserLevelCacheKey<UserExercisesListInput>),
     UserFilterPresets(UserLevelCacheKey<FilterPresetQueryInput>),
     MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
@@ -123,7 +121,6 @@ pub type YoutubeMusicSongListenedResponse = bool;
 pub type ApplicationRecommendations = Vec<String>;
 pub type TrendingMetadataIdsResponse = Vec<String>;
 pub type ListennotesSettings = HashMap<i32, String>;
-pub type EntityTranslationDetailsResponse = Vec<entity_translation::Model>;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {
@@ -166,7 +163,6 @@ pub enum ApplicationCacheValue {
     UserCollectionContents(Box<CollectionContentsResponse>),
     UserMetadataGroupDetails(Box<UserMetadataGroupDetails>),
     UserPasswordChangeSession(UserPasswordChangeSessionValue),
-    EntityTranslationDetails(EntityTranslationDetailsResponse),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
     UserMetadataRecommendationsSet(ApplicationRecommendations),
     UserWorkoutTemplateDetails(Box<UserWorkoutTemplateDetails>),
