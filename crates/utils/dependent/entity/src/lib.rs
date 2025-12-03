@@ -469,22 +469,24 @@ async fn update_media_entity_translation(
                 .filter(entity_translation::Column::Language.eq(&preferred_language))
                 .exec(&ss.db)
                 .await?;
-            for (variant, value) in [
+            let translations = [
                 (EntityTranslationVariant::Title, trn.title),
                 (EntityTranslationVariant::Description, trn.description),
-            ] {
-                let translation_model = entity_translation::ActiveModel {
-                    variant: ActiveValue::Set(variant),
-                    language: ActiveValue::Set(preferred_language.clone()),
-                    value: ActiveValue::Set(value.filter(|v| !v.is_empty())),
-                    metadata_id: ActiveValue::Set(Some(input.entity_id.clone())),
-                    ..Default::default()
-                };
-                EntityTranslation::insert(translation_model)
-                    .on_conflict(OnConflict::new().do_nothing().to_owned())
-                    .exec_without_returning(&ss.db)
-                    .await?;
-            }
+            ]
+            .into_iter()
+            .map(|(variant, value)| entity_translation::ActiveModel {
+                variant: ActiveValue::Set(variant),
+                language: ActiveValue::Set(preferred_language.clone()),
+                value: ActiveValue::Set(value.filter(|v| !v.is_empty())),
+                metadata_id: ActiveValue::Set(Some(input.entity_id.clone())),
+                ..Default::default()
+            })
+            .collect::<Vec<_>>();
+            let result = EntityTranslation::insert_many(translations)
+                .on_conflict(OnConflict::new().do_nothing().to_owned())
+                .exec_without_returning(&ss.db)
+                .await?;
+            ryot_log!(debug, "Inserting translations: {:?}", result);
         }
         _ => {}
     };
