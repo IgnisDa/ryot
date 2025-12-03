@@ -34,12 +34,14 @@ async fn get_entity_translations(
     user_id: &String,
     entity_id: &String,
     source: &MediaSource,
+    entity_lot: EntityLot,
     ss: &Arc<SupportingService>,
 ) -> Result<EntityTranslationDetails> {
     let preferred_language =
         get_preferred_language_for_user_and_source(ss, user_id, source).await?;
     let translations = EntityTranslation::find()
-        .filter(entity_translation::Column::MetadataId.eq(entity_id))
+        .filter(entity_translation::Column::EntityId.eq(entity_id))
+        .filter(entity_translation::Column::EntityLot.eq(entity_lot))
         .filter(entity_translation::Column::Language.eq(&preferred_language))
         .all(&ss.db)
         .await?;
@@ -95,6 +97,7 @@ pub async fn user_metadata_details(
                 &user_id,
                 &metadata_id,
                 &media_details.model.source,
+                EntityLot::Metadata,
                 ss,
             )
             .await?;
