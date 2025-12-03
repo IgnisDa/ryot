@@ -487,7 +487,7 @@ async fn update_media_entity_translation(
                     .await?;
             }
         }
-        _ => unreachable!(),
+        _ => {}
     };
     Ok(())
 }
@@ -515,7 +515,8 @@ pub async fn update_metadata_and_translations(
                 entity_id: metadata_id.to_owned(),
             },
         )
-        .await?;
+        .await
+        .ok();
     }
 
     let mut result = UpdateMediaEntityResult::default();
@@ -614,7 +615,8 @@ pub async fn update_metadata_group_and_translations(
                 entity_id: metadata_group_id.to_owned(),
             },
         )
-        .await?;
+        .await
+        .ok();
     }
 
     let provider = get_metadata_provider(metadata_group.lot, metadata_group.source, ss).await?;
@@ -670,7 +672,8 @@ pub async fn update_person_and_translations(
                 entity_id: person_id.to_owned(),
             },
         )
-        .await?;
+        .await
+        .ok();
     }
 
     let mut notifications = vec![];
