@@ -457,7 +457,8 @@ async fn update_media_entity_translation(
                 get_preferred_language_for_user_and_source(ss, user_id, &meta.source).await?;
             // TODO: https://github.com/SeaQL/sea-orm/discussions/730#discussioncomment-13440496
             if let Some(_existing) = EntityTranslation::find()
-                .filter(entity_translation::Column::MetadataId.eq(&input.entity_id))
+                .filter(entity_translation::Column::EntityId.eq(&input.entity_id))
+                .filter(entity_translation::Column::EntityLot.eq(input.entity_lot))
                 .filter(entity_translation::Column::Language.eq(&preferred_language))
                 .one(&ss.db)
                 .await?
