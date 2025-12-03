@@ -280,3 +280,8 @@ fragment DailyUserActivityItemPart on DailyUserActivityItem {
 	videoGameCount
 	visualNovelCount
 }
+
+fragment EntityTranslationDetailsPart on EntityTranslationDetails {
+	title
+	description
+}

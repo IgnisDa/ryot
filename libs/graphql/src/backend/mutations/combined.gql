@@ -349,12 +349,3 @@ mutation UpdateFilterPresetLastUsed($filterPresetId: UUID!) {
 mutation GenerateLogDownloadUrl {
 	generateLogDownloadUrl
 }
-
-mutation GetOrFetchEntityTranslations($input: EntityWithLotInput!) {
-	getOrFetchEntityTranslations(input: $input) {
-		response {
-			value
-			variant
-		}
-	}
-}

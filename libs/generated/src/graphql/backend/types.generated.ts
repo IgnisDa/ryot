@@ -136,12 +136,6 @@ export type CachedCollectionsListResponse = {
   response: Array<CollectionItem>;
 };
 
-export type CachedEntityTranslationDetailsResponse = {
-  __typename?: 'CachedEntityTranslationDetailsResponse';
-  cacheId: Scalars['UUID']['output'];
-  response: Array<EntityTranslation>;
-};
-
 export type CachedFilterPresetsResponse = {
   __typename?: 'CachedFilterPresetsResponse';
   cacheId: Scalars['UUID']['output'];
@@ -731,16 +725,11 @@ export type EntityToCollectionInput = {
   information?: InputMaybe<Scalars['JSON']['input']>;
 };
 
-export type EntityTranslation = {
-  __typename?: 'EntityTranslation';
-  value?: Maybe<Scalars['String']['output']>;
-  variant: EntityTranslationVariant;
+export type EntityTranslationDetails = {
+  __typename?: 'EntityTranslationDetails';
+  description?: Maybe<Scalars['String']['output']>;
+  title?: Maybe<Scalars['String']['output']>;
 };
-
-export enum EntityTranslationVariant {
-  Description = 'DESCRIPTION',
-  Title = 'TITLE'
-}
 
 export type EntityWithLot = {
   __typename?: 'EntityWithLot';
@@ -1683,11 +1672,6 @@ export type MutationRoot = {
   generateAuthToken: Scalars['String']['output'];
   /** Generate a one-time URL for downloading application logs. Admin only. */
   generateLogDownloadUrl: Scalars['String']['output'];
-  /**
-   * Get entity translations. If translations don't exist for the user's
-   * preferred language, they will be fetched from the provider and saved.
-   */
-  getOrFetchEntityTranslations: CachedEntityTranslationDetailsResponse;
   /** Get a URL which can be used to set a new password for the user. */
   getPasswordChangeSession: GetPasswordChangeSessionResponse;
   /** Initiate two-factor authentication setup by generating a TOTP secret. */
@@ -1923,11 +1907,6 @@ export type MutationRootDisassociateMetadataArgs = {
 
 export type MutationRootExpireCacheKeyArgs = {
   cacheId: Scalars['UUID']['input'];
-};
-
-
-export type MutationRootGetOrFetchEntityTranslationsArgs = {
-  input: EntityWithLotInput;
 };
 
 
@@ -3155,6 +3134,8 @@ export type UserMetadataDetails = {
   seenByUserCount: Scalars['Int']['output'];
   /** The seen progress of this media if it is a show. */
   showProgress?: Maybe<Array<UserMetadataDetailsShowSeasonProgress>>;
+  /** Translated details of this media. */
+  translatedDetails: EntityTranslationDetails;
 };
 
 export type UserMetadataDetailsEpisodeProgress = {
