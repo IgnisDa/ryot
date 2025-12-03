@@ -23,7 +23,8 @@ use dependent_provider_utils::{
     details_from_provider, get_metadata_provider, get_non_metadata_provider,
 };
 use dependent_utility_utils::{
-    expire_metadata_details_cache, expire_metadata_group_details_cache, expire_person_details_cache,
+    expire_entity_details_cache, expire_metadata_details_cache,
+    expire_metadata_group_details_cache, expire_person_details_cache,
 };
 use enum_models::{
     EntityLot, EntityTranslationVariant, MediaSource, MetadataToMetadataRelation,
@@ -487,6 +488,7 @@ async fn update_media_entity_translation(
         }
         _ => {}
     };
+    expire_entity_details_cache(user_id, &input.entity_id, input.entity_lot, ss).await?;
     Ok(())
 }
 
