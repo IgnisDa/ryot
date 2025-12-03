@@ -34,19 +34,13 @@ async fn mark_entity_as_recently_consumed(
     Ok(())
 }
 
-pub async fn expire_entity_details_cache(
+pub async fn expire_user_entity_details_cache(
     user_id: &String,
     entity_id: &String,
-    entity_lot: EntityLot,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     try_join!(
-        expire_user_metadata_list_cache(user_id, ss),
-        expire_user_exercises_list_cache(user_id, ss),
-        expire_user_workout_details_cache(user_id, entity_id, ss),
         expire_user_metadata_details_cache(user_id, entity_id, ss),
-        expire_user_workout_template_details_cache(user_id, entity_id, ss),
-        mark_entity_as_recently_consumed(user_id, entity_id, entity_lot, ss),
         cache_service::expire_key(
             ss,
             ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::UserPersonDetails(
@@ -65,6 +59,23 @@ pub async fn expire_entity_details_cache(
                 }
             )))
         )
+    )?;
+    Ok(())
+}
+
+pub async fn expire_entity_details_cache(
+    user_id: &String,
+    entity_id: &String,
+    entity_lot: EntityLot,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    try_join!(
+        expire_user_metadata_list_cache(user_id, ss),
+        expire_user_exercises_list_cache(user_id, ss),
+        expire_user_entity_details_cache(user_id, entity_id, ss),
+        expire_user_workout_details_cache(user_id, entity_id, ss),
+        expire_user_workout_template_details_cache(user_id, entity_id, ss),
+        mark_entity_as_recently_consumed(user_id, entity_id, entity_lot, ss),
     )?;
     Ok(())
 }
