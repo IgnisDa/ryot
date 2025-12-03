@@ -423,7 +423,7 @@ async fn generate_metadata_update_notifications(
     Ok(notifications)
 }
 
-async fn get_preferred_language_for_user_and_source(
+pub async fn get_preferred_language_for_user_and_source(
     ss: &Arc<SupportingService>,
     user_id: &String,
     source: &MediaSource,
