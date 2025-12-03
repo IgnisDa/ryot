@@ -114,13 +114,11 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("entity_translation__language_entity_id_lot_variant_idx")
-                    .unique()
+                    .name("entity_translation__language_entity_id_lot_idx")
                     .table(EntityTranslation::Table)
                     .col(EntityTranslation::Language)
                     .col(EntityTranslation::EntityId)
                     .col(EntityTranslation::EntityLot)
-                    .col(EntityTranslation::Variant)
                     .to_owned(),
             )
             .await?;
