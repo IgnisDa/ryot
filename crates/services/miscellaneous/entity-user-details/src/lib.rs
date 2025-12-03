@@ -43,16 +43,17 @@ pub async fn user_metadata_details(
         || async {
             let (
                 media_details,
-                collections,
-                reviews,
                 (_, history),
-                seen_by,
+                reviews,
+                collections,
                 user_to_meta,
+                seen_by,
             ) = try_join!(
                 generic_metadata(&metadata_id, ss, None),
-                entity_in_collections_with_details(&user_id, &metadata_id, EntityLot::Metadata, ss),
-                item_reviews(&user_id, &metadata_id, EntityLot::Metadata, true, ss),
                 is_metadata_finished_by_user(&user_id, &metadata_id, ss),
+                item_reviews(&user_id, &metadata_id, EntityLot::Metadata, true, ss),
+                entity_in_collections_with_details(&user_id, &metadata_id, EntityLot::Metadata, ss),
+                get_user_to_entity_association(&ss.db, &user_id, &metadata_id, EntityLot::Metadata),
                 Metadata::find_by_id(&metadata_id)
                     .select_only()
                     .column_as(seen::Column::Id.count(), "num_times_seen")
@@ -60,8 +61,7 @@ pub async fn user_metadata_details(
                     .into_tuple::<(i64,)>()
                     .one(&ss.db)
                     .map_err(|_| anyhow!("Metadata not found")),
-                get_user_to_entity_association(&ss.db, &user_id, &metadata_id, EntityLot::Metadata)
-            )?;
+                )?;
 
             let in_progress = history
                 .iter()
@@ -126,60 +126,62 @@ pub async fn user_metadata_details(
             });
             let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
             let seen_by_user_count = history.len();
-            let show_progress = if let Some(show_specifics) = media_details.model.show_specifics {
-                let mut seasons = vec![];
-                for season in show_specifics.seasons {
-                    let mut episodes = vec![];
-                    for episode in season.episodes {
-                        let seen = history
-                            .iter()
-                            .filter(|h| {
-                                h.show_extra_information.as_ref().is_some_and(|s| {
-                                    s.season == season.season_number
-                                        && s.episode == episode.episode_number
+            let show_progress = match media_details.model.show_specifics {
+                Some(show_specifics) => {
+                    let mut seasons = vec![];
+                    for season in show_specifics.seasons {
+                        let mut episodes = vec![];
+                        for episode in season.episodes {
+                            let seen = history
+                                .iter()
+                                .filter(|h| {
+                                    h.show_extra_information.as_ref().is_some_and(|s| {
+                                        s.season == season.season_number
+                                            && s.episode == episode.episode_number
+                                    })
                                 })
+                                .collect_vec();
+                            episodes.push(UserMetadataDetailsEpisodeProgress {
+                                times_seen: seen.len(),
+                                episode_number: episode.episode_number,
                             })
-                            .collect_vec();
-                        episodes.push(UserMetadataDetailsEpisodeProgress {
-                            episode_number: episode.episode_number,
-                            times_seen: seen.len(),
+                        }
+                        let times_season_seen = episodes
+                            .iter()
+                            .map(|e| e.times_seen)
+                            .min()
+                            .unwrap_or_default();
+                        seasons.push(UserMetadataDetailsShowSeasonProgress {
+                            episodes,
+                            times_seen: times_season_seen,
+                            season_number: season.season_number,
                         })
                     }
-                    let times_season_seen = episodes
-                        .iter()
-                        .map(|e| e.times_seen)
-                        .min()
-                        .unwrap_or_default();
-                    seasons.push(UserMetadataDetailsShowSeasonProgress {
-                        episodes,
-                        times_seen: times_season_seen,
-                        season_number: season.season_number,
-                    })
+                    Some(seasons)
                 }
-                Some(seasons)
-            } else {
-                None
+                None => None,
             };
             let podcast_progress =
-                if let Some(podcast_specifics) = media_details.model.podcast_specifics {
-                    let mut episodes = vec![];
-                    for episode in podcast_specifics.episodes {
-                        let seen = history
-                            .iter()
-                            .filter(|h| {
-                                h.podcast_extra_information
-                                    .as_ref()
-                                    .is_some_and(|s| s.episode == episode.number)
+                match media_details.model.podcast_specifics {
+                    Some(podcast_specifics) => {
+                        let mut episodes = vec![];
+                        for episode in podcast_specifics.episodes {
+                            let seen = history
+                                .iter()
+                                .filter(|h| {
+                                    h.podcast_extra_information
+                                        .as_ref()
+                                        .is_some_and(|s| s.episode == episode.number)
+                                })
+                                .collect_vec();
+                            episodes.push(UserMetadataDetailsEpisodeProgress {
+                                times_seen: seen.len(),
+                                episode_number: episode.number,
                             })
-                            .collect_vec();
-                        episodes.push(UserMetadataDetailsEpisodeProgress {
-                            episode_number: episode.number,
-                            times_seen: seen.len(),
-                        })
+                        }
+                        Some(episodes)
                     }
-                    Some(episodes)
-                } else {
-                    None
+                    None => None,
                 };
             Ok(UserMetadataDetails {
                 reviews,
