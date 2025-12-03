@@ -455,16 +455,6 @@ async fn update_media_entity_translation(
                 .ok_or_else(|| anyhow!("Metadata not found"))?;
             let preferred_language =
                 get_preferred_language_for_user_and_source(ss, user_id, &meta.source).await?;
-            // TODO: https://github.com/SeaQL/sea-orm/discussions/730#discussioncomment-13440496
-            if let Some(_existing) = EntityTranslation::find()
-                .filter(entity_translation::Column::EntityId.eq(&input.entity_id))
-                .filter(entity_translation::Column::EntityLot.eq(input.entity_lot))
-                .filter(entity_translation::Column::Language.eq(&preferred_language))
-                .one(&ss.db)
-                .await?
-            {
-                return Ok(());
-            }
             let provider = get_metadata_provider(meta.lot, meta.source, ss).await?;
             let Ok(trn) = provider
                 .translate_metadata(&meta.identifier, &preferred_language)
@@ -472,6 +462,12 @@ async fn update_media_entity_translation(
             else {
                 bail!("Translation not found from provider");
             };
+            EntityTranslation::delete_many()
+                .filter(entity_translation::Column::EntityId.eq(&input.entity_id))
+                .filter(entity_translation::Column::EntityLot.eq(input.entity_lot))
+                .filter(entity_translation::Column::Language.eq(&preferred_language))
+                .exec(&ss.db)
+                .await?;
             for (variant, value) in [
                 (EntityTranslationVariant::Title, trn.title),
                 (EntityTranslationVariant::Description, trn.description),
