@@ -111,6 +111,18 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name("entity_translation__language_entity_id_lot_idx")
+                    .unique()
+                    .table(EntityTranslation::Table)
+                    .col(EntityTranslation::Language)
+                    .col(EntityTranslation::EntityId)
+                    .col(EntityTranslation::EntityLot)
+                    .to_owned(),
+            )
+            .await?;
         create_trigram_index_if_required(
             manager,
             "entity_translation",
