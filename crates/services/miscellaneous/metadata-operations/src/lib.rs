@@ -99,8 +99,8 @@ pub async fn merge_metadata(
     {
         // TODO: https://github.com/SeaQL/sea-orm/discussions/730#discussioncomment-13440496
         if CollectionToEntity::find()
-            .filter(collection_to_entity::Column::CollectionId.eq(item.collection_id.clone()))
             .filter(collection_to_entity::Column::MetadataId.eq(&merge_into))
+            .filter(collection_to_entity::Column::CollectionId.eq(item.collection_id.clone()))
             .count(&txn)
             .await?
             == 0
