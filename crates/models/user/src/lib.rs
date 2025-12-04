@@ -421,6 +421,32 @@ pub struct UserProviderLanguagePreferences {
 #[graphql(input_name = "UserLanguagePreferencesInput")]
 #[educe(Default)]
 pub struct UserLanguagePreferences {
+    #[educe(Default(expression = vec![
+        UserProviderLanguagePreferences {
+            source: MediaSource::Anilist,
+            preferred_language: "user_preferred".to_owned(),
+        },
+        UserProviderLanguagePreferences {
+            source: MediaSource::Tvdb,
+            preferred_language: "eng".to_owned(),
+        },
+        UserProviderLanguagePreferences {
+            source: MediaSource::Audible,
+            preferred_language: "US".to_owned(),
+        },
+        UserProviderLanguagePreferences {
+            source: MediaSource::Itunes,
+            preferred_language: "en_us".to_owned(),
+        },
+        UserProviderLanguagePreferences {
+            source: MediaSource::Tmdb,
+            preferred_language: "en".to_owned(),
+        },
+        UserProviderLanguagePreferences {
+            source: MediaSource::YoutubeMusic,
+            preferred_language: "English (US)".to_owned(),
+        },
+    ]))]
     pub providers: Vec<UserProviderLanguagePreferences>,
 }
 
