@@ -18,8 +18,11 @@ pub async fn update_user_preference(
     user_model.preferences = ActiveValue::Set(input);
     user_model.update(&ss.db).await?;
     let cache_keys = vec![
+        ApplicationCacheKeyDiscriminants::PersonDetails,
+        ApplicationCacheKeyDiscriminants::MetadataDetails,
         ApplicationCacheKeyDiscriminants::UserPersonDetails,
         ApplicationCacheKeyDiscriminants::UserMetadataDetails,
+        ApplicationCacheKeyDiscriminants::MetadataGroupDetails,
         ApplicationCacheKeyDiscriminants::UserMetadataGroupDetails,
     ];
     try_join_all(cache_keys.into_iter().map(|key| {
