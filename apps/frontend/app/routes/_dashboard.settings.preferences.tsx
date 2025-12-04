@@ -408,9 +408,8 @@ export default function Page() {
 													});
 													return;
 												}
-												if (value) {
+												if (value)
 													form.setFieldValue("general.landingPath", value);
-												}
 											}}
 										/>
 										<NumberInput

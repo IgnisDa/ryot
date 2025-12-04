@@ -85,9 +85,7 @@ export const CreateOrUpdateMeasurementForm = (props: {
 				queryClient.invalidateQueries({
 					queryKey: queryFactory.fitness.userMeasurementsList._def,
 				});
-				if (!props.measurementToUpdate) {
-					events.createMeasurement();
-				}
+				if (!props.measurementToUpdate) events.createMeasurement();
 				form.clearSavedState();
 				props.closeMeasurementModal();
 			})}

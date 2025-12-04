@@ -143,9 +143,7 @@ export const usePartialStatusMonitor = (props: {
 		if (!isPollingRef.current) return;
 
 		if (attemptCountRef.current >= 30) {
-			if (entityId) {
-				refreshEntityDetails(entityId);
-			}
+			if (entityId) refreshEntityDetails(entityId);
 			onUpdate();
 			isPollingRef.current = false;
 			setIsPartialStatusActive(false);
@@ -172,9 +170,7 @@ export const usePartialStatusMonitor = (props: {
 		isPollingRef.current = false;
 		setIsPartialStatusActive(false);
 
-		if (wasPolling && entityId) {
-			refreshEntityDetails(entityId);
-		}
+		if (wasPolling && entityId) refreshEntityDetails(entityId);
 	}, [entityId]);
 
 	useEffect(() => {
@@ -184,9 +180,7 @@ export const usePartialStatusMonitor = (props: {
 
 		if (!shouldPoll) {
 			if (isPollingRef.current) {
-				if (entityId) {
-					refreshEntityDetails(entityId);
-				}
+				if (entityId) refreshEntityDetails(entityId);
 				resetPollingState();
 			}
 			return;
@@ -577,9 +571,7 @@ export const useFormValidation = (dependency?: unknown) => {
 	const [isFormValid, setIsFormValid] = useState(true);
 
 	const checkFormValidity = useCallback(() => {
-		if (formRef.current) {
-			setIsFormValid(formRef.current.checkValidity());
-		}
+		if (formRef.current) setIsFormValid(formRef.current.checkValidity());
 	}, []);
 
 	useEffect(() => {

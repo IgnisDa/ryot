@@ -33,9 +33,8 @@ export const getGlobalSetIndex = (
 	let globalIndex = 0;
 	for (let i = 0; i < currentWorkout.exercises.length; i++) {
 		if (i === exerciseIdx) break;
-		if (currentWorkout.exercises[i].exerciseId === exerciseId) {
+		if (currentWorkout.exercises[i].exerciseId === exerciseId)
 			globalIndex += currentWorkout.exercises[i].sets.length;
-		}
 	}
 	globalIndex += setIdx;
 	return globalIndex;
@@ -152,9 +151,7 @@ export const handleSetConfirmation = async (params: {
 	const isOnboardingTourStep =
 		set?.confirmedAt === null && exerciseIdx === 0 && setIdx === 0;
 
-	if (isOnboardingTourStep && newConfirmed) {
-		advanceOnboardingTourStep();
-	}
+	if (isOnboardingTourStep && newConfirmed) advanceOnboardingTourStep();
 
 	if (
 		!newConfirmed &&
