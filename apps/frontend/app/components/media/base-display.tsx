@@ -82,14 +82,10 @@ export const PartialMetadataDisplay = (props: {
 			ref={ref}
 			image={images.at(0)}
 			extraText={props.extraText}
+			title={metadataDetails?.title || undefined}
 			isPartialStatusActive={isPartialStatusActive}
 			hasInteracted={userMetadataDetails?.hasInteracted}
 			link={$path("/media/item/:id", { id: props.metadataId })}
-			title={
-				userMetadataDetails?.translatedDetails.title ||
-				metadataDetails?.title ||
-				undefined
-			}
 		/>
 	);
 };

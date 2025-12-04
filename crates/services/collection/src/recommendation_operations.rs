@@ -52,7 +52,7 @@ pub async fn collection_recommendations(
             );
             ryot_log!(debug, "Media items: {:?}", media_items);
             for item in media_items {
-                update_metadata_and_notify_users(&item, None, ss).await?;
+                update_metadata_and_notify_users(&item, ss).await?;
                 let generic = generic_metadata(&item, ss, None).await?;
                 data.extend(generic.suggestions);
             }

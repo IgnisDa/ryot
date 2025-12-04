@@ -46,10 +46,8 @@ impl MiscellaneousSystemMutationResolver {
         gql_ctx: &Context<'_>,
         input: EntityWithLot,
     ) -> Result<bool> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service
-            .deploy_update_media_entity_job(user_id, input)
-            .await?)
+        let (service, _user_id) = self.svc_and_user(gql_ctx).await?;
+        Ok(service.deploy_update_media_entity_job(input).await?)
     }
 
     /// Start a background job.

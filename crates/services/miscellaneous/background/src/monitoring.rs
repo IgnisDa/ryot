@@ -55,7 +55,7 @@ pub async fn update_all_monitored_metadata_and_notify_users(
     for chunk in items {
         let promises = chunk
             .into_iter()
-            .map(|m| update_metadata_and_notify_users(m, None, ss));
+            .map(|m| update_metadata_and_notify_users(m, ss));
         join_all(promises).await;
     }
     Ok(())
@@ -78,7 +78,7 @@ pub async fn update_all_monitored_people_and_notify_users(
     for chunk in items {
         let promises = chunk
             .into_iter()
-            .map(|p| update_person_and_notify_users(p, None, ss));
+            .map(|p| update_person_and_notify_users(p, ss));
         join_all(promises).await;
     }
     Ok(())

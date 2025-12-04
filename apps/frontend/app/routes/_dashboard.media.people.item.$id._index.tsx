@@ -43,7 +43,6 @@ import {
 import {
 	useMetadataGroupDetails,
 	usePersonDetails,
-	useUserMetadataGroupDetails,
 	useUserPersonDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -80,9 +79,7 @@ export default function Page() {
 		loaderData.personId,
 	);
 	const userPersonDetails = useUserPersonDetails(loaderData.personId);
-	const description =
-		userPersonDetails.data?.translatedDetails.description ??
-		personDetails.data?.details.description;
+	const description = personDetails.data?.details.description;
 
 	const [mediaRoleFilter, setMediaRoleFilter] = useLocalStorage(
 		"PersonMediaTabRoleFilter",
@@ -124,12 +121,9 @@ export default function Page() {
 		<Container>
 			{personDetails.data && userPersonDetails.data ? (
 				<MediaDetailsLayout
+					title={personDetails.data.details.name}
 					assets={personDetails.data.details.assets}
 					isPartialStatusActive={isPersonPartialStatusActive}
-					title={
-						userPersonDetails.data.translatedDetails.title ??
-						personDetails.data.details.name
-					}
 					externalLink={{
 						source: personDetails.data.details.source,
 						href: personDetails.data.details.sourceUrl,
@@ -383,19 +377,13 @@ const MetadataGroupDisplay = (props: {
 }) => {
 	const [{ data: metadataGroupDetails }, isMetadataGroupPartialStatusActive] =
 		useMetadataGroupDetails(props.metadataGroupId);
-	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
-		props.metadataGroupId,
-	);
 
 	return (
 		<BaseEntityDisplay
+			title={metadataGroupDetails?.details.title}
 			isPartialStatusActive={isMetadataGroupPartialStatusActive}
 			image={metadataGroupDetails?.details.assets.remoteImages.at(0)}
 			link={$path("/media/groups/item/:id", { id: props.metadataGroupId })}
-			title={
-				userMetadataGroupDetails?.translatedDetails.title ||
-				metadataGroupDetails?.details.title
-			}
 		/>
 	);
 };

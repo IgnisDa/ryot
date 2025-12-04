@@ -75,7 +75,6 @@ import {
 	useInvalidateUserDetails,
 	useMetadataDetails,
 	useS3PresignedUrls,
-	useUserMetadataDetails,
 	useUserPreferences,
 	useUserUnitSystem,
 	useUserWorkoutDetails,
@@ -702,11 +701,6 @@ const ConsumedMetadataDisplay = (props: {
 		props.metadataId,
 		props.enabled,
 	);
-	const { data: userMetadataDetails } = useUserMetadataDetails(
-		props.metadataId,
-		props.enabled,
-	);
-
 	const s3PresignedUrls = useS3PresignedUrls(metadataDetails?.assets.s3Images);
 	const images = [
 		...(metadataDetails?.assets.remoteImages || []),
@@ -715,11 +709,7 @@ const ConsumedMetadataDisplay = (props: {
 
 	return (
 		<Link to={$path("/media/item/:id", { id: props.metadataId })}>
-			<Tooltip
-				label={
-					userMetadataDetails?.translatedDetails.title || metadataDetails?.title
-				}
-			>
+			<Tooltip label={metadataDetails?.title}>
 				<Avatar src={images.at(0)} />
 			</Tooltip>
 		</Link>

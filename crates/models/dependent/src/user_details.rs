@@ -8,9 +8,8 @@ use database_models::{
 use enum_models::{UserLot, UserToMediaReason};
 use fitness_models::UserToExerciseHistoryExtraInformation;
 use media_models::{
-    EntityTranslationDetails, PartialMetadataWithoutId, PersonDetailsGroupedByRole, ReviewItem,
-    UserDetailsError, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
-    UserMetadataDetailsShowSeasonProgress,
+    PartialMetadataWithoutId, PersonDetailsGroupedByRole, ReviewItem, UserDetailsError,
+    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -111,7 +110,6 @@ pub struct UserPersonDetails {
     pub has_interacted: bool,
     pub reviews: Vec<ReviewItem>,
     pub average_rating: Option<Decimal>,
-    pub translated_details: EntityTranslationDetails,
     pub collections: Vec<GraphqlCollectionToEntityDetails>,
 }
 
@@ -121,7 +119,6 @@ pub struct UserMetadataGroupDetails {
     pub has_interacted: bool,
     pub reviews: Vec<ReviewItem>,
     pub average_rating: Option<Decimal>,
-    pub translated_details: EntityTranslationDetails,
     pub collections: Vec<GraphqlCollectionToEntityDetails>,
 }
 
@@ -144,8 +141,6 @@ pub struct UserMetadataDetails {
     pub in_progress: Option<seen::Model>,
     /// The next episode/chapter of this media.
     pub next_entry: Option<UserMediaNextEntry>,
-    /// Translated details of this media.
-    pub translated_details: EntityTranslationDetails,
     /// The reasons why this metadata is related to this user
     pub media_reason: Option<Vec<UserToMediaReason>>,
     /// The collections in which this media is present.

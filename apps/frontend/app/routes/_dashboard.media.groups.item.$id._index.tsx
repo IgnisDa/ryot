@@ -73,20 +73,15 @@ export default function Page() {
 	const userMetadataGroupDetails = useUserMetadataGroupDetails(
 		loaderData.metadataGroupId,
 	);
-	const description =
-		userMetadataGroupDetails.data?.translatedDetails.description ??
-		metadataGroupDetailsData.data?.details.description;
+	const description = metadataGroupDetailsData.data?.details.description;
 
 	return (
 		<Container>
 			{metadataGroupDetailsData.data && userMetadataGroupDetails.data ? (
 				<MediaDetailsLayout
+					title={metadataGroupDetailsData.data.details.title}
 					assets={metadataGroupDetailsData.data.details.assets}
 					isPartialStatusActive={isMetadataGroupPartialStatusActive}
-					title={
-						userMetadataGroupDetails.data.translatedDetails.title ??
-						metadataGroupDetailsData.data.details.title
-					}
 					externalLink={{
 						lot: metadataGroupDetailsData.data.details.lot,
 						source: metadataGroupDetailsData.data.details.source,

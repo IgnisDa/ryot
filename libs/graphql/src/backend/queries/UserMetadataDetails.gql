@@ -12,9 +12,6 @@ query UserMetadataDetails($metadataId: String!) {
 			reviews {
 				...ReviewItemPart
 			}
-			translatedDetails {
-				...EntityTranslationDetailsPart
-			}
 			nextEntry {
 				season
 				volume

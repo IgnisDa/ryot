@@ -22,10 +22,10 @@ pub enum MpApplicationJob {
     PerformExport(String),
     UpdateGithubExercises,
     PerformBackgroundTasks,
+    UpdatePerson(String),
+    UpdateMetadata(String),
     ReviseUserWorkouts(String),
-    UpdatePerson(String, Option<String>),
-    UpdateMetadata(String, Option<String>),
-    UpdateMetadataGroup(String, Option<String>),
+    UpdateMetadataGroup(String),
     ImportFromExternalSource(String, Box<DeployImportJobInput>),
 }
 

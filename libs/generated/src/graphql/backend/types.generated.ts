@@ -725,12 +725,6 @@ export type EntityToCollectionInput = {
   information?: InputMaybe<Scalars['JSON']['input']>;
 };
 
-export type EntityTranslationDetails = {
-  __typename?: 'EntityTranslationDetails';
-  description?: Maybe<Scalars['String']['output']>;
-  title?: Maybe<Scalars['String']['output']>;
-};
-
 export type EntityWithLot = {
   __typename?: 'EntityWithLot';
   entityId: Scalars['String']['output'];
@@ -3134,8 +3128,6 @@ export type UserMetadataDetails = {
   seenByUserCount: Scalars['Int']['output'];
   /** The seen progress of this media if it is a show. */
   showProgress?: Maybe<Array<UserMetadataDetailsShowSeasonProgress>>;
-  /** Translated details of this media. */
-  translatedDetails: EntityTranslationDetails;
 };
 
 export type UserMetadataDetailsEpisodeProgress = {
@@ -3157,7 +3149,6 @@ export type UserMetadataGroupDetails = {
   collections: Array<GraphqlCollectionToEntityDetails>;
   hasInteracted: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
-  translatedDetails: EntityTranslationDetails;
 };
 
 export type UserMetadataGroupsListInput = {
@@ -3217,7 +3208,6 @@ export type UserPersonDetails = {
   collections: Array<GraphqlCollectionToEntityDetails>;
   hasInteracted: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
-  translatedDetails: EntityTranslationDetails;
 };
 
 export type UserPreferences = {

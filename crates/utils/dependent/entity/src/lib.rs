@@ -65,7 +65,7 @@ async fn ensure_metadata_updated(
                     .await?
                     .unwrap_or(true);
                 if is_partial {
-                    deploy_update_metadata_job(metadata_id, None, ss).await?;
+                    deploy_update_metadata_job(metadata_id, ss).await?;
                     let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
                     ryot_log!(debug, "Sleeping for {}s before metadata check", sleep_time);
                     sleep_for_n_seconds(sleep_time).await;
@@ -494,9 +494,8 @@ async fn update_media_entity_translation(
     Ok(())
 }
 
-pub async fn update_metadata_and_translations(
+pub async fn update_metadata(
     metadata_id: &String,
-    user_id: Option<String>,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
     let metadata = Metadata::find_by_id(metadata_id)
@@ -506,19 +505,6 @@ pub async fn update_metadata_and_translations(
         .unwrap();
     if !metadata.is_partial.unwrap_or_default() {
         return Ok(UpdateMediaEntityResult::default());
-    }
-
-    if let Some(user_id) = user_id {
-        update_media_entity_translation(
-            ss,
-            &user_id,
-            EntityWithLot {
-                entity_lot: EntityLot::Metadata,
-                entity_id: metadata_id.to_owned(),
-            },
-        )
-        .await
-        .ok();
     }
 
     let mut result = UpdateMediaEntityResult::default();
@@ -595,8 +581,7 @@ pub async fn update_metadata_and_translations(
     Ok(result)
 }
 
-pub async fn update_metadata_group_and_translations(
-    user_id: Option<String>,
+pub async fn update_metadata_group(
     metadata_group_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
@@ -606,19 +591,6 @@ pub async fn update_metadata_group_and_translations(
         .ok_or_else(|| anyhow!("Group not found"))?;
     if !metadata_group.is_partial.unwrap_or_default() {
         return Ok(UpdateMediaEntityResult::default());
-    }
-
-    if let Some(user_id) = user_id {
-        update_media_entity_translation(
-            ss,
-            &user_id,
-            EntityWithLot {
-                entity_lot: EntityLot::MetadataGroup,
-                entity_id: metadata_group_id.to_owned(),
-            },
-        )
-        .await
-        .ok();
     }
 
     let provider = get_metadata_provider(metadata_group.lot, metadata_group.source, ss).await?;
@@ -652,9 +624,8 @@ pub async fn update_metadata_group_and_translations(
     Ok(UpdateMediaEntityResult::default())
 }
 
-pub async fn update_person_and_translations(
+pub async fn update_person(
     person_id: String,
-    user_id: Option<String>,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
     let person = Person::find_by_id(person_id.clone())
@@ -663,19 +634,6 @@ pub async fn update_person_and_translations(
         .unwrap();
     if !person.is_partial.unwrap_or_default() {
         return Ok(UpdateMediaEntityResult::default());
-    }
-
-    if let Some(user_id) = user_id {
-        update_media_entity_translation(
-            ss,
-            &user_id,
-            EntityWithLot {
-                entity_lot: EntityLot::Person,
-                entity_id: person_id.to_owned(),
-            },
-        )
-        .await
-        .ok();
     }
 
     let mut notifications = vec![];

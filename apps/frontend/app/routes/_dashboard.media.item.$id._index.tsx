@@ -100,7 +100,6 @@ import {
 	useMetadataDetails,
 	useMetadataGroupDetails,
 	useUserMetadataDetails,
-	useUserMetadataGroupDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import {
@@ -279,18 +278,12 @@ export default function Page() {
 		[changeProgress],
 	);
 
-	const inProgress = userMetadataDetails.data?.inProgress;
+	const description = metadataDetails.data?.description;
 	const nextEntry = userMetadataDetails.data?.nextEntry;
+	const inProgress = userMetadataDetails.data?.inProgress;
 	const firstGroupAssociated = metadataDetails.data?.groups.at(0);
 	const videos = [...(metadataDetails.data?.assets.remoteVideos || [])];
-	const description =
-		userMetadataDetails.data?.translatedDetails.description ??
-		metadataDetails.data?.description;
 	const [{ data: metadataGroupDetails }] = useMetadataGroupDetails(
-		firstGroupAssociated?.id,
-		userPreferences.featuresEnabled.media.groups && !!firstGroupAssociated?.id,
-	);
-	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
 		firstGroupAssociated?.id,
 		userPreferences.featuresEnabled.media.groups && !!firstGroupAssociated?.id,
 	);
@@ -304,10 +297,8 @@ export default function Page() {
 				})}
 			>
 				<Text c="dimmed" fs="italic" span>
-					{userMetadataGroupDetails?.translatedDetails.title ||
-						metadataGroupDetails?.details.title ||
-						"Group"}{" "}
-					#{firstGroupAssociated.part}
+					{metadataGroupDetails?.details.title || "Group"} #
+					{firstGroupAssociated.part}
 				</Text>
 			</Link>
 		),
@@ -400,12 +391,9 @@ export default function Page() {
 						userMetadataDetails={userMetadataDetails.data}
 					/>
 					<MediaDetailsLayout
+						title={metadataDetails.data.title}
 						assets={metadataDetails.data.assets}
 						isPartialStatusActive={isMetadataPartialStatusActive}
-						title={
-							userMetadataDetails.data.translatedDetails.title ??
-							metadataDetails.data.title
-						}
 						externalLink={{
 							lot: metadataDetails.data.lot,
 							source: metadataDetails.data.source,

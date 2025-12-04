@@ -32,7 +32,7 @@ export const MetadataProgressUpdateForm = ({
 	return (
 		<Stack>
 			<Text fw="bold" ta="center" truncate>
-				{userMetadataDetails?.translatedDetails.title || metadataDetails.title}
+				{metadataDetails.title}
 			</Text>
 			{userMetadataDetails.inProgress ? (
 				<MetadataInProgressUpdateForm

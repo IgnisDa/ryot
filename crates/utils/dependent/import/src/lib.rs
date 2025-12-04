@@ -286,12 +286,7 @@ where
                         continue;
                     }
                 };
-                deploy_update_metadata_group_job(
-                    Some(user_id.to_owned()),
-                    &db_metadata_group_id,
-                    ss,
-                )
-                .await?;
+                deploy_update_metadata_group_job(&db_metadata_group_id, ss).await?;
                 for review in metadata_group.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
@@ -345,7 +340,7 @@ where
                         continue;
                     }
                 };
-                deploy_update_person_job(&db_person_id, Some(user_id.to_owned()), ss).await?;
+                deploy_update_person_job(&db_person_id, ss).await?;
                 for review in person.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,

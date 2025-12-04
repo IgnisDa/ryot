@@ -15,25 +15,21 @@ use supporting_service::SupportingService;
 
 pub async fn deploy_update_metadata_job(
     metadata_id: &String,
-    user_id: Option<String>,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
     ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateMetadata(
         metadata_id.to_owned(),
-        user_id,
     )))
     .await?;
     Ok(true)
 }
 
 pub async fn deploy_update_metadata_group_job(
-    user_id: Option<String>,
     metadata_group_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
     ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateMetadataGroup(
         metadata_group_id.to_owned(),
-        user_id,
     )))
     .await?;
     Ok(true)
@@ -41,12 +37,10 @@ pub async fn deploy_update_metadata_group_job(
 
 pub async fn deploy_update_person_job(
     person_id: &String,
-    user_id: Option<String>,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
     ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
         person_id.to_owned(),
-        user_id,
     )))
     .await?;
     Ok(true)
@@ -85,7 +79,7 @@ pub async fn deploy_background_job(
                 .await?;
             ryot_log!(debug, "Marked {} metadata as partial", update.rows_affected);
             for metadata_id in many_metadata {
-                deploy_update_metadata_job(&metadata_id, None, ss).await?;
+                deploy_update_metadata_job(&metadata_id, ss).await?;
             }
         }
         BackgroundJob::UpdateAllExercises => {

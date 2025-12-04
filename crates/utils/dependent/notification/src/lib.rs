@@ -8,10 +8,7 @@ use database_models::{
     collection_entity_membership, collection_to_entity, notification_platform,
     prelude::{CollectionEntityMembership, CollectionToEntity, NotificationPlatform},
 };
-use dependent_entity_utils::{
-    update_metadata_and_translations, update_metadata_group_and_translations,
-    update_person_and_translations,
-};
+use dependent_entity_utils::{update_metadata, update_metadata_group, update_person};
 use enum_models::{EntityLot, UserNotificationContent};
 use itertools::Itertools;
 use media_models::UpdateMediaEntityResult;
@@ -321,10 +318,9 @@ pub async fn refresh_collection_to_entity_association(
 
 pub async fn update_metadata_and_notify_users(
     metadata_id: &String,
-    user_id: Option<String>,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
-    let result = update_metadata_and_translations(metadata_id, user_id, ss).await?;
+    let result = update_metadata(metadata_id, ss).await?;
     if !result.notifications.is_empty() {
         let users_to_notify =
             get_users_and_cte_monitoring_entity(metadata_id, EntityLot::Metadata, ss).await?;
@@ -344,10 +340,9 @@ pub async fn update_metadata_and_notify_users(
 
 pub async fn update_person_and_notify_users(
     person_id: &String,
-    user_id: Option<String>,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
-    let result = update_person_and_translations(person_id.clone(), user_id, ss).await?;
+    let result = update_person(person_id.clone(), ss).await?;
     if !result.notifications.is_empty() {
         let users_to_notify =
             get_users_and_cte_monitoring_entity(person_id, EntityLot::Person, ss).await?;
@@ -367,10 +362,9 @@ pub async fn update_person_and_notify_users(
 
 pub async fn update_metadata_group_and_notify_users(
     metadata_group_id: &String,
-    user_id: Option<String>,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
-    let result = update_metadata_group_and_translations(user_id, metadata_group_id, ss).await?;
+    let result = update_metadata_group(metadata_group_id, ss).await?;
     if !result.notifications.is_empty() {
         let users_to_notify =
             get_users_and_cte_monitoring_entity(metadata_group_id, EntityLot::MetadataGroup, ss)

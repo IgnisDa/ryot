@@ -94,15 +94,6 @@ pub async fn user_metadata_details(
                     .map_err(|_| anyhow!("Metadata not found")),
                 )?;
 
-
-            let translated_details = get_entity_translations(
-                &user_id,
-                &metadata_id,
-                &media_details.model.source,
-                entity_lot,
-                ss,
-            )
-            .await?;
             let in_progress = history
                 .iter()
                 .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
@@ -233,7 +224,6 @@ pub async fn user_metadata_details(
                 average_rating,
                 podcast_progress,
                 seen_by_user_count,
-                translated_details,
                 has_interacted: user_to_meta.is_some(),
                 media_reason: user_to_meta.and_then(|n| n.media_reason),
                 seen_by_all_count: seen_by.map(|s| s.0).unwrap_or_default(),
@@ -268,20 +258,11 @@ pub async fn user_person_details(
                     .one(&ss.db)
                     .map_err(|_| anyhow!("Person not found")),
             )?;
-            let translated_details = get_entity_translations(
-                &user_id,
-                &person_id,
-                &person_source.unwrap(),
-                entity_lot,
-                ss,
-            )
-            .await?;
             let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
             Ok(UserPersonDetails {
                 reviews,
                 collections,
                 average_rating,
-                translated_details,
                 has_interacted: person_association.is_some(),
             })
         },
@@ -314,20 +295,11 @@ pub async fn user_metadata_group_details(
                     .one(&ss.db)
                     .map_err(|_| anyhow!("Metadata Group not found"))
             )?;
-            let translated_details = get_entity_translations(
-                &user_id,
-                &metadata_group_id,
-                &metadata_group_source.unwrap(),
-                entity_lot,
-                ss,
-            )
-            .await?;
             let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
             Ok(UserMetadataGroupDetails {
                 reviews,
                 collections,
                 average_rating,
-                translated_details,
                 has_interacted: metadata_group_association.is_some(),
             })
         },

@@ -385,9 +385,6 @@ query UserMetadataGroupDetails($metadataGroupId: String!) {
 			collections {
 				...CollectionToEntityDetailsPart
 			}
-			translatedDetails {
-				...EntityTranslationDetailsPart
-			}
 		}
 	}
 }
@@ -402,9 +399,6 @@ query UserPersonDetails($personId: String!) {
 			}
 			collections {
 				...CollectionToEntityDetailsPart
-			}
-			translatedDetails {
-				...EntityTranslationDetailsPart
 			}
 		}
 	}

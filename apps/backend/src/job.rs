@@ -121,22 +121,22 @@ pub async fn perform_mp_application_job(
                 .revise_user_workouts(user_id)
                 .await
         }
-        MpApplicationJob::UpdateMetadata(metadata_id, user_id) => {
+        MpApplicationJob::UpdateMetadata(metadata_id) => {
             app_services
                 .miscellaneous_service
-                .update_metadata_and_notify_users(&metadata_id, user_id)
+                .update_metadata_and_notify_users(&metadata_id)
                 .await
         }
-        MpApplicationJob::UpdatePerson(person_id, user_id) => {
+        MpApplicationJob::UpdatePerson(person_id) => {
             app_services
                 .miscellaneous_service
-                .update_person_and_notify_users(&person_id, user_id)
+                .update_person_and_notify_users(&person_id)
                 .await
         }
-        MpApplicationJob::UpdateMetadataGroup(metadata_group_id, user_id) => {
+        MpApplicationJob::UpdateMetadataGroup(metadata_group_id) => {
             app_services
                 .miscellaneous_service
-                .update_metadata_group_and_notify_users(&metadata_group_id, user_id)
+                .update_metadata_group_and_notify_users(&metadata_group_id)
                 .await
         }
         MpApplicationJob::UpdateGithubExercises => {
