@@ -92,7 +92,6 @@ export const MetadataDisplayItem = (props: {
 			entityId={props.metadataId}
 			userToMediaReasons={reasons}
 			entityLot={EntityLot.Metadata}
-			title={metadataDetails?.title}
 			isFirstItem={props.isFirstItem}
 			mediaLot={metadataDetails?.lot}
 			rating={averageRating ?? undefined}
@@ -102,6 +101,9 @@ export const MetadataDisplayItem = (props: {
 			wasRecentlyConsumed={isMetadataRecentlyConsumed}
 			isPartialStatusActive={isMetadataPartialStatusActive}
 			interactionButtons={["collection", "consume", "review", "watchlist"]}
+			title={
+				userMetadataDetails?.translatedDetails.title ?? metadataDetails?.title
+			}
 			hasInteracted={
 				props.shouldHighlightNameIfInteracted &&
 				userMetadataDetails?.hasInteracted
@@ -173,7 +175,6 @@ export const MetadataGroupDisplayItem = (props: {
 			rating={averageRating ?? undefined}
 			entityLot={EntityLot.MetadataGroup}
 			centerElement={props.centerElement}
-			title={metadataGroupDetails?.details.title}
 			mediaLot={metadataGroupDetails?.details.lot}
 			isDetailsLoading={isMetadataGroupDetailsLoading}
 			additionalInformation={defaultAdditionalInformation}
@@ -183,6 +184,10 @@ export const MetadataGroupDisplayItem = (props: {
 			onImageClickBehavior={[
 				$path("/media/groups/item/:id", { id: props.metadataGroupId }),
 			]}
+			title={
+				userMetadataGroupDetails?.translatedDetails.title ??
+				metadataGroupDetails?.details.title
+			}
 			hasInteracted={
 				props.shouldHighlightNameIfInteracted &&
 				userMetadataGroupDetails?.hasInteracted
@@ -236,7 +241,6 @@ export const PersonDisplayItem = (props: {
 			image={images.at(0)}
 			entityId={props.personId}
 			entityLot={EntityLot.Person}
-			title={personDetails?.details.name}
 			rating={averageRating ?? undefined}
 			centerElement={props.centerElement}
 			isDetailsLoading={isPersonDetailsLoading}
@@ -247,6 +251,10 @@ export const PersonDisplayItem = (props: {
 			onImageClickBehavior={[
 				$path("/media/people/item/:id", { id: props.personId }),
 			]}
+			title={
+				userPersonDetails?.translatedDetails.title ??
+				personDetails?.details.name
+			}
 			hasInteracted={
 				props.shouldHighlightNameIfInteracted &&
 				userPersonDetails?.hasInteracted
