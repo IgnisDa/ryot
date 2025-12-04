@@ -78,9 +78,7 @@ function handleBotRequest(
 				onError(error: unknown) {
 					// biome-ignore lint/style/noParameterAssign: part of the starter template
 					responseStatusCode = 500;
-					if (shellRendered) {
-						console.error(error);
-					}
+					if (shellRendered) console.error(error);
 				},
 			},
 		);
@@ -122,9 +120,7 @@ function handleBrowserRequest(
 				onError(error: unknown) {
 					// biome-ignore lint/style/noParameterAssign: part of the starter template
 					responseStatusCode = 500;
-					if (shellRendered) {
-						console.error(error);
-					}
+					if (shellRendered) console.error(error);
 				},
 			},
 		);
