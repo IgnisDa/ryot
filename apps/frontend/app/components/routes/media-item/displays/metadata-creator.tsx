@@ -3,7 +3,7 @@ import type { MetadataCreator } from "@ryot/generated/graphql/backend/graphql";
 import { useMemo } from "react";
 import { $path } from "safe-routes";
 import { BaseEntityDisplay } from "~/components/media/base-display";
-import { usePersonDetails } from "~/lib/shared/hooks";
+import { usePersonDetails, useUserPersonDetails } from "~/lib/shared/hooks";
 
 export const MetadataCreatorDisplay = (props: {
 	data: MetadataCreator;
@@ -13,12 +13,16 @@ export const MetadataCreatorDisplay = (props: {
 		props.data.idOrName,
 		inViewport && !props.data.isFree,
 	);
+	const { data: userPersonDetails } = useUserPersonDetails(props.data.idOrName);
 
 	const title = useMemo(() => {
-		const name = data?.details.name || props.data.idOrName;
+		const name =
+			userPersonDetails?.translatedDetails.title ||
+			data?.details.name ||
+			props.data.idOrName;
 		const character = props.data.character ? ` as ${props.data.character}` : "";
 		return `${name}${character}`;
-	}, [data, props.data]);
+	}, [data, props.data, userPersonDetails]);
 
 	return (
 		<BaseEntityDisplay

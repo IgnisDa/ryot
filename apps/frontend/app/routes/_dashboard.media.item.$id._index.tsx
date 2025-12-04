@@ -100,6 +100,7 @@ import {
 	useMetadataDetails,
 	useMetadataGroupDetails,
 	useUserMetadataDetails,
+	useUserMetadataGroupDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import {
@@ -289,6 +290,10 @@ export default function Page() {
 		firstGroupAssociated?.id,
 		userPreferences.featuresEnabled.media.groups && !!firstGroupAssociated?.id,
 	);
+	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
+		firstGroupAssociated?.id,
+		userPreferences.featuresEnabled.media.groups && !!firstGroupAssociated?.id,
+	);
 	const additionalMetadataDetails = [
 		userPreferences.featuresEnabled.media.groups && firstGroupAssociated && (
 			<Link
@@ -299,8 +304,10 @@ export default function Page() {
 				})}
 			>
 				<Text c="dimmed" fs="italic" span>
-					{metadataGroupDetails?.details.title || "Group"} #
-					{firstGroupAssociated.part}
+					{userMetadataGroupDetails?.translatedDetails.title ||
+						metadataGroupDetails?.details.title ||
+						"Group"}{" "}
+					#{firstGroupAssociated.part}
 				</Text>
 			</Link>
 		),

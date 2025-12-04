@@ -43,6 +43,7 @@ import {
 import {
 	useMetadataGroupDetails,
 	usePersonDetails,
+	useUserMetadataGroupDetails,
 	useUserPersonDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -382,13 +383,19 @@ const MetadataGroupDisplay = (props: {
 }) => {
 	const [{ data: metadataGroupDetails }, isMetadataGroupPartialStatusActive] =
 		useMetadataGroupDetails(props.metadataGroupId);
+	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
+		props.metadataGroupId,
+	);
 
 	return (
 		<BaseEntityDisplay
-			title={metadataGroupDetails?.details.title}
 			isPartialStatusActive={isMetadataGroupPartialStatusActive}
 			image={metadataGroupDetails?.details.assets.remoteImages.at(0)}
 			link={$path("/media/groups/item/:id", { id: props.metadataGroupId })}
+			title={
+				userMetadataGroupDetails?.translatedDetails.title ||
+				metadataGroupDetails?.details.title
+			}
 		/>
 	);
 };
