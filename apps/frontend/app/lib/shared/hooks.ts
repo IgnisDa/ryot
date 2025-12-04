@@ -136,6 +136,7 @@ export const usePartialStatusMonitor = (props: {
 	const isPollingRef = useRef(false);
 	const [isPartialStatusActive, setIsPartialStatusActive] = useState(false);
 	const jobDeployedForEntityRef = useRef<string | null>(null);
+	const pollingEntityIdRef = useRef<string | null>(null);
 	const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
 		undefined,
 	);
@@ -144,6 +145,9 @@ export const usePartialStatusMonitor = (props: {
 		if (!isPollingRef.current) return;
 
 		if (attemptCountRef.current >= 30) {
+			if (pollingEntityIdRef.current) {
+				refreshEntityDetails(pollingEntityIdRef.current);
+			}
 			onUpdate();
 			isPollingRef.current = false;
 			setIsPartialStatusActive(false);
@@ -160,13 +164,21 @@ export const usePartialStatusMonitor = (props: {
 	}, [onUpdate]);
 
 	const resetPollingState = useCallback(() => {
+		const wasPolling = isPollingRef.current;
+		const polledEntityId = pollingEntityIdRef.current;
+
 		if (timeoutRef.current) {
 			clearTimeout(timeoutRef.current);
 			timeoutRef.current = undefined;
 		}
 		attemptCountRef.current = 0;
 		isPollingRef.current = false;
+		pollingEntityIdRef.current = null;
 		setIsPartialStatusActive(false);
+
+		if (wasPolling && polledEntityId) {
+			refreshEntityDetails(polledEntityId);
+		}
 	}, []);
 
 	useEffect(() => {
@@ -180,14 +192,24 @@ export const usePartialStatusMonitor = (props: {
 
 		if (isJobForDifferentEntity || !entityId) {
 			jobDeployedForEntityRef.current = null;
+			pollingEntityIdRef.current = null;
 		}
 
 		if (!shouldPoll) {
-			if (isPollingRef.current) resetPollingState();
+			if (isPollingRef.current) {
+				const entityToRefresh = jobDeployedForEntity || entityId;
+				if (entityToRefresh) {
+					refreshEntityDetails(entityToRefresh);
+				}
+				resetPollingState();
+			}
 			return;
 		}
 
 		if (isJobForDifferentEntity) {
+			if (jobDeployedForEntity) {
+				refreshEntityDetails(jobDeployedForEntity);
+			}
 			resetPollingState();
 		}
 
@@ -206,6 +228,7 @@ export const usePartialStatusMonitor = (props: {
 
 			attemptCountRef.current = 0;
 			isPollingRef.current = true;
+			pollingEntityIdRef.current = entityId ?? null;
 			setIsPartialStatusActive(true);
 			scheduleNextPoll();
 		}
