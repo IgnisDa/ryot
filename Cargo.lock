@@ -957,6 +957,7 @@ dependencies = [
  "miscellaneous-social-resolver",
  "miscellaneous-system-resolver",
  "miscellaneous-tracking-resolver",
+ "miscellaneous-translation-resolver",
  "router-resolver",
  "schematic",
  "sea-orm",
@@ -4821,6 +4822,18 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
+ "media-models",
+ "miscellaneous-service",
+ "traits",
+]
+
+[[package]]
+name = "miscellaneous-translation-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "common-models",
+ "dependent-models",
  "media-models",
  "miscellaneous-service",
  "traits",

@@ -45,6 +45,7 @@ members = [
     "crates/resolvers/miscellaneous/social",
     "crates/resolvers/miscellaneous/system",
     "crates/resolvers/miscellaneous/tracking",
+    "crates/resolvers/miscellaneous/translation",
     "crates/resolvers/router",
     "crates/resolvers/statistics",
     "crates/resolvers/user/authentication",
@@ -324,6 +325,7 @@ miscellaneous-social-resolver = { path = "crates/resolvers/miscellaneous/social"
 miscellaneous-system-resolver = { path = "crates/resolvers/miscellaneous/system" }
 miscellaneous-tracking-resolver = { path = "crates/resolvers/miscellaneous/tracking" }
 miscellaneous-trending-and-events-service = { path = "crates/services/miscellaneous/trending-and-events" }
+miscellaneous-translation-resolver = { path = "crates/resolvers/miscellaneous/translation" }
 movary-importer-service = { path = "crates/services/importer/movary" }
 myanimelist-importer-service = { path = "crates/services/importer/myanimelist" }
 myanimelist-provider = { path = "crates/providers/myanimelist" }
