@@ -211,6 +211,7 @@ pub struct QueryRoot(
     MiscellaneousGroupingQueryResolver,
     MiscellaneousTrackingQueryResolver,
     MiscellaneousMetadataQueryResolver,
+    MiscellaneousTranslationQueryResolver,
     MiscellaneousFilterPresetQueryResolver,
     MiscellaneousFilterPresetMutationResolver,
 );
