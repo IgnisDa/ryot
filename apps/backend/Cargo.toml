@@ -36,13 +36,12 @@ collection-service = { workspace = true }
 common-utils = { workspace = true }
 config-definition = { workspace = true }
 custom-resolver = { workspace = true }
-custom-service = { workspace = true }
+dependent-collection-utils = { workspace = true }
 dependent-models = { workspace = true }
 env-utils = { workspace = true }
 exporter-resolver = { workspace = true }
 exporter-service = { workspace = true }
 file-storage-resolver = { workspace = true }
-file-storage-service = { workspace = true }
 fitness-resolver = { workspace = true }
 fitness-service = { workspace = true }
 importer-resolver = { workspace = true }
@@ -65,5 +64,4 @@ supporting-service = { workspace = true }
 traits = { workspace = true }
 user-authentication-resolver = { workspace = true }
 user-management-resolver = { workspace = true }
-user-service = { workspace = true }
 user-services-resolver = { workspace = true }

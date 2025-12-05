@@ -4,14 +4,13 @@ use media_models::{
     GraphqlCalendarEvent, GroupedCalendarEvent, MetadataProgressUpdateInput, UpdateSeenItemInput,
     UserCalendarEventInput, UserUpcomingCalendarEventInput,
 };
-use miscellaneous_service::MiscellaneousService;
-use traits::{AuthProvider, GraphqlResolverSvc};
+use traits::{AuthProvider, GraphqlResolverDependency};
 
 #[derive(Default)]
 pub struct MiscellaneousTrackingQueryResolver;
 
 impl AuthProvider for MiscellaneousTrackingQueryResolver {}
-impl GraphqlResolverSvc<MiscellaneousService> for MiscellaneousTrackingQueryResolver {}
+impl GraphqlResolverDependency for MiscellaneousTrackingQueryResolver {}
 
 #[Object]
 impl MiscellaneousTrackingQueryResolver {
@@ -21,8 +20,8 @@ impl MiscellaneousTrackingQueryResolver {
         gql_ctx: &Context<'_>,
         input: UserCalendarEventInput,
     ) -> Result<Vec<GroupedCalendarEvent>> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.user_calendar_events(user_id, input).await?)
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(miscellaneous_calendar_service::user_calendar_events(user_id, input, service).await?)
     }
 
     /// Get upcoming calendar events for the given filter.
@@ -31,10 +30,11 @@ impl MiscellaneousTrackingQueryResolver {
         gql_ctx: &Context<'_>,
         input: UserUpcomingCalendarEventInput,
     ) -> Result<Vec<GraphqlCalendarEvent>> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service
-            .user_upcoming_calendar_events(user_id, input)
-            .await?)
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(
+            miscellaneous_calendar_service::user_upcoming_calendar_events(service, user_id, input)
+                .await?,
+        )
     }
 }
 
@@ -46,7 +46,7 @@ impl AuthProvider for MiscellaneousTrackingMutationResolver {
         true
     }
 }
-impl GraphqlResolverSvc<MiscellaneousService> for MiscellaneousTrackingMutationResolver {}
+impl GraphqlResolverDependency for MiscellaneousTrackingMutationResolver {}
 
 #[Object]
 impl MiscellaneousTrackingMutationResolver {
@@ -56,8 +56,18 @@ impl MiscellaneousTrackingMutationResolver {
         gql_ctx: &Context<'_>,
         seen_id: String,
     ) -> Result<StringIdObject> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.delete_seen_item(&user_id, seen_id).await?)
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(miscellaneous_progress_service::delete_seen_item(service, &user_id, seen_id).await?)
+    }
+
+    /// Update the attributes of a seen item.
+    async fn update_seen_item(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UpdateSeenItemInput,
+    ) -> Result<bool> {
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(miscellaneous_progress_service::update_seen_item(service, &user_id, input).await?)
     }
 
     /// Deploy job to update progress of media items in bulk. For seen items in progress,
@@ -67,19 +77,10 @@ impl MiscellaneousTrackingMutationResolver {
         gql_ctx: &Context<'_>,
         input: Vec<MetadataProgressUpdateInput>,
     ) -> Result<bool> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service
-            .deploy_bulk_metadata_progress_update(user_id, input)
-            .await?)
-    }
-
-    /// Update the attributes of a seen item.
-    async fn update_seen_item(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: UpdateSeenItemInput,
-    ) -> Result<bool> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.update_seen_item(user_id, input).await?)
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(
+            miscellaneous_service::deploy_bulk_metadata_progress_update(service, user_id, input)
+                .await?,
+        )
     }
 }

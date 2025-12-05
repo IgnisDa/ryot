@@ -16,7 +16,6 @@ use background_models::{ApplicationJob, SingleApplicationJob};
 use common_utils::get_temporary_directory;
 use config_definition::{AppConfig, MaskedConfig};
 use dependent_models::{ApplicationCacheKey, EmptyCacheValue, ExpireCacheKeyInput};
-use integration_service::IntegrationService;
 use nanoid::nanoid;
 use supporting_service::SupportingService;
 use tokio::fs::File;
@@ -54,16 +53,14 @@ pub async fn upload_file_handler(
 
 pub async fn integration_webhook_handler(
     Path(integration_slug): Path<String>,
-    Extension(integration_service): Extension<Arc<IntegrationService>>,
+    Extension(ss): Extension<Arc<SupportingService>>,
     payload: String,
 ) -> StdResult<(StatusCode, String), StatusCode> {
-    integration_service
-        .0
-        .perform_application_job(ApplicationJob::Single(
-            SingleApplicationJob::ProcessIntegrationWebhook(integration_slug, payload),
-        ))
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    ss.perform_application_job(ApplicationJob::Single(
+        SingleApplicationJob::ProcessIntegrationWebhook(integration_slug, payload),
+    ))
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok((
         StatusCode::ACCEPTED,
         "Webhook queued for processing".to_owned(),

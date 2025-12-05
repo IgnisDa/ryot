@@ -99,7 +99,7 @@ async fn main() -> Result<()> {
     let hp_application_job_storage = MemoryStorage::new();
     let single_application_job_storage = MemoryStorage::new();
 
-    let (app_router, app_services) = create_app_services()
+    let (app_router, supporting_service) = create_app_services()
         .db(db)
         .timezone(tz)
         .config(config)
@@ -150,7 +150,7 @@ async fn main() -> Result<()> {
             WorkerBuilder::new("infrequent_cron_jobs")
                 .enable_tracing()
                 .catch_panic()
-                .data(app_services.clone())
+                .data(supporting_service.clone())
                 .backend(CronStream::new_with_timezone(infrequent_scheduler, tz))
                 .build_fn(run_infrequent_cron_jobs),
         )
@@ -158,7 +158,7 @@ async fn main() -> Result<()> {
             WorkerBuilder::new("frequent_cron_jobs")
                 .enable_tracing()
                 .catch_panic()
-                .data(app_services.clone())
+                .data(supporting_service.clone())
                 .backend(CronStream::new_with_timezone(frequent_scheduler, tz))
                 .build_fn(run_frequent_cron_jobs),
         )
@@ -167,7 +167,7 @@ async fn main() -> Result<()> {
             WorkerBuilder::new("perform_hp_application_job")
                 .catch_panic()
                 .enable_tracing()
-                .data(app_services.clone())
+                .data(supporting_service.clone())
                 .backend(hp_application_job_storage)
                 .build_fn(perform_hp_application_job),
         )
@@ -176,7 +176,7 @@ async fn main() -> Result<()> {
                 .catch_panic()
                 .enable_tracing()
                 .rate_limit(5, Duration::new(5, 0))
-                .data(app_services.clone())
+                .data(supporting_service.clone())
                 .backend(mp_application_job_storage)
                 .build_fn(perform_mp_application_job),
         )
@@ -185,7 +185,7 @@ async fn main() -> Result<()> {
                 .catch_panic()
                 .enable_tracing()
                 .rate_limit(20, Duration::new(5, 0))
-                .data(app_services.clone())
+                .data(supporting_service.clone())
                 .backend(lp_application_job_storage)
                 .build_fn(perform_lp_application_job),
         )
@@ -194,7 +194,7 @@ async fn main() -> Result<()> {
                 .catch_panic()
                 .enable_tracing()
                 .rate_limit(1, Duration::new(1, 0))
-                .data(app_services)
+                .data(supporting_service.clone())
                 .backend(single_application_job_storage)
                 .build_fn(perform_single_application_job),
         )

@@ -931,7 +931,7 @@ dependencies = [
  "common-utils",
  "config-definition",
  "custom-resolver",
- "custom-service",
+ "dependent-collection-utils",
  "dependent-models",
  "dotenvy",
  "english-to-cron",
@@ -939,7 +939,6 @@ dependencies = [
  "exporter-resolver",
  "exporter-service",
  "file-storage-resolver",
- "file-storage-service",
  "fitness-resolver",
  "fitness-service",
  "futures",
@@ -974,7 +973,6 @@ dependencies = [
  "traits",
  "user-authentication-resolver",
  "user-management-resolver",
- "user-service",
  "user-services-resolver",
 ]
 
@@ -1391,6 +1389,8 @@ dependencies = [
  "async-graphql",
  "collection-service",
  "common-models",
+ "dependent-collection-utils",
+ "dependent-entity-list-utils",
  "dependent-models",
  "media-models",
  "traits",
@@ -1409,8 +1409,6 @@ dependencies = [
  "common-utils",
  "database-models",
  "database-utils",
- "dependent-collection-utils",
- "dependent-entity-list-utils",
  "dependent-entity-utils",
  "dependent-models",
  "dependent-notification-utils",
@@ -1774,24 +1772,12 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
- "custom-service",
- "database-models",
- "dependent-models",
- "media-models",
- "traits",
-]
-
-[[package]]
-name = "custom-service"
-version = "0.1.0"
-dependencies = [
- "anyhow",
  "database-models",
  "dependent-fitness-utils",
  "dependent-models",
  "media-models",
  "miscellaneous-metadata-operations-service",
- "supporting-service",
+ "traits",
 ]
 
 [[package]]
@@ -2884,6 +2870,9 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "database-models",
+ "database-utils",
+ "dependent-entity-list-utils",
+ "dependent-fitness-utils",
  "dependent-models",
  "fitness-models",
  "fitness-service",
@@ -2903,7 +2892,6 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-core-utils",
- "dependent-entity-list-utils",
  "dependent-fitness-utils",
  "dependent-models",
  "dependent-utility-utils",
@@ -4574,7 +4562,6 @@ dependencies = [
  "database-models",
  "dependent-models",
  "miscellaneous-filter-preset-service",
- "miscellaneous-service",
  "traits",
  "uuid",
 ]
@@ -4621,9 +4608,11 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
+ "dependent-details-utils",
+ "dependent-entity-list-utils",
  "dependent-models",
  "media-models",
- "miscellaneous-service",
+ "miscellaneous-entity-user-details-service",
  "traits",
 ]
 
@@ -4678,9 +4667,13 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
+ "dependent-details-utils",
+ "dependent-entity-list-utils",
  "dependent-models",
  "media-models",
- "miscellaneous-service",
+ "miscellaneous-entity-user-details-service",
+ "miscellaneous-general-service",
+ "miscellaneous-metadata-operations-service",
  "traits",
 ]
 
@@ -4730,7 +4723,9 @@ dependencies = [
  "common-models",
  "dependent-models",
  "media-models",
- "miscellaneous-service",
+ "miscellaneous-lookup-service",
+ "miscellaneous-search-service",
+ "miscellaneous-trending-and-events-service",
  "traits",
 ]
 
@@ -4770,11 +4765,9 @@ dependencies = [
  "dependent-jobs-utils",
  "dependent-models",
  "dependent-notification-utils",
- "dependent-review-utils",
  "enum-models",
  "media-models",
  "miscellaneous-background-service",
- "miscellaneous-calendar-service",
  "miscellaneous-entity-user-details-service",
  "miscellaneous-general-service",
  "miscellaneous-lookup-service",
@@ -4796,9 +4789,13 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
+ "dependent-details-utils",
+ "dependent-entity-list-utils",
  "dependent-models",
+ "dependent-review-utils",
  "media-models",
- "miscellaneous-service",
+ "miscellaneous-entity-user-details-service",
+ "miscellaneous-review-service",
  "traits",
 ]
 
@@ -4821,6 +4818,8 @@ dependencies = [
  "async-graphql",
  "common-models",
  "media-models",
+ "miscellaneous-calendar-service",
+ "miscellaneous-progress-service",
  "miscellaneous-service",
  "traits",
 ]
@@ -4833,7 +4832,6 @@ dependencies = [
  "common-models",
  "dependent-models",
  "media-models",
- "miscellaneous-service",
  "traits",
 ]
 
@@ -6096,7 +6094,6 @@ dependencies = [
  "common-utils",
  "config-definition",
  "dependent-models",
- "integration-service",
  "nanoid",
  "serde_json",
  "supporting-service",

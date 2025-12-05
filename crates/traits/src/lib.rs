@@ -125,22 +125,25 @@ pub trait AuthProvider {
 }
 
 #[async_trait]
-pub trait GraphqlResolverSvc<T: Send + Sync + 'static>: AuthProvider {
-    fn svc<'a>(&self, ctx: &Context<'a>) -> &'a Arc<T> {
-        ctx.data_unchecked::<Arc<T>>()
+pub trait GraphqlResolverDependency: AuthProvider {
+    fn dependency<'a>(&self, ctx: &Context<'a>) -> &'a Arc<SupportingService> {
+        ctx.data_unchecked::<Arc<SupportingService>>()
     }
 
-    async fn svc_and_maybe_user<'a>(
+    async fn dependency_and_maybe_user<'a>(
         &self,
         ctx: &Context<'a>,
-    ) -> GraphqlResult<(&'a Arc<T>, Option<String>)> {
-        let service = self.svc(ctx);
+    ) -> GraphqlResult<(&'a Arc<SupportingService>, Option<String>)> {
+        let service = self.dependency(ctx);
         let user_id = self.user_id_from_ctx(ctx).await.ok();
         Ok((service, user_id))
     }
 
-    async fn svc_and_user<'a>(&self, ctx: &Context<'a>) -> GraphqlResult<(&'a Arc<T>, String)> {
-        let (service, user_id) = self.svc_and_maybe_user(ctx).await?;
+    async fn dependency_and_user<'a>(
+        &self,
+        ctx: &Context<'a>,
+    ) -> GraphqlResult<(&'a Arc<SupportingService>, String)> {
+        let (service, user_id) = self.dependency_and_maybe_user(ctx).await?;
         let user_id = user_id.ok_or_else(|| Error::new(BackendError::NoUserId.to_string()))?;
         Ok((service, user_id))
     }

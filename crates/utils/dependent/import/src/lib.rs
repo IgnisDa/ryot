@@ -19,7 +19,7 @@ use dependent_fitness_utils::{
 use dependent_jobs_utils::{deploy_update_metadata_group_job, deploy_update_person_job};
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use dependent_progress_utils::commit_import_seen_item;
-use dependent_review_utils::{convert_review_into_input, post_review};
+use dependent_review_utils::{convert_review_into_input, create_or_update_review};
 use enum_models::{EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource};
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use media_models::{
@@ -237,7 +237,7 @@ where
                         &preferences,
                         db_metadata_id.clone(),
                         EntityLot::Metadata,
-                    ) && let Err(e) = post_review(user_id, input, ss).await
+                    ) && let Err(e) = create_or_update_review(user_id, input, ss).await
                     {
                         import.failed.push(ImportFailedItem {
                             lot: Some(metadata.lot),
@@ -293,7 +293,7 @@ where
                         &preferences,
                         db_metadata_group_id.clone(),
                         EntityLot::MetadataGroup,
-                    ) && let Err(e) = post_review(user_id, input, ss).await
+                    ) && let Err(e) = create_or_update_review(user_id, input, ss).await
                     {
                         import.failed.push(ImportFailedItem {
                             error: Some(e.to_string()),
@@ -347,7 +347,7 @@ where
                         &preferences,
                         db_person_id.clone(),
                         EntityLot::Person,
-                    ) && let Err(e) = post_review(user_id, input, ss).await
+                    ) && let Err(e) = create_or_update_review(user_id, input, ss).await
                     {
                         import.failed.push(ImportFailedItem {
                             error: Some(e.to_string()),

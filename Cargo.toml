@@ -53,7 +53,6 @@ members = [
     "crates/resolvers/user/services",
     "crates/services/cache",
     "crates/services/collection",
-    "crates/services/custom",
     "crates/services/exporter",
     "crates/services/file-storage",
     "crates/services/fitness",
@@ -253,7 +252,6 @@ common-utils = { path = "crates/utils/common" }
 config-definition = { path = "crates/config/definition" }
 config-macros = { path = "crates/config/macros" }
 custom-resolver = { path = "crates/resolvers/custom" }
-custom-service = { path = "crates/services/custom" }
 database-models = { path = "crates/models/database" }
 database-utils = { path = "crates/utils/database" }
 dependent-analytics-utils = { path = "crates/utils/dependent/analytics" }

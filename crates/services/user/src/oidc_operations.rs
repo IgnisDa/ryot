@@ -8,7 +8,9 @@ use openidconnect::{
 };
 use supporting_service::SupportingService;
 
-use crate::empty_nonce_verifier;
+fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
+    Ok(())
+}
 
 pub async fn get_oidc_redirect_url(ss: &Arc<SupportingService>) -> Result<String> {
     let Some((_http, client)) = create_oidc_client(&ss.config).await else {

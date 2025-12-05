@@ -2,15 +2,13 @@ use async_graphql::{Context, Object, Result};
 use common_models::EntityWithLot;
 use dependent_models::CachedResponse;
 use media_models::EntityTranslationDetails;
-use miscellaneous_service::MiscellaneousService;
-use traits::{AuthProvider, GraphqlResolverSvc};
+use traits::{AuthProvider, GraphqlResolverDependency};
 
 #[derive(Default)]
 pub struct MiscellaneousTranslationQueryResolver;
 
 impl AuthProvider for MiscellaneousTranslationQueryResolver {}
-
-impl GraphqlResolverSvc<MiscellaneousService> for MiscellaneousTranslationQueryResolver {}
+impl GraphqlResolverDependency for MiscellaneousTranslationQueryResolver {}
 
 #[Object]
 impl MiscellaneousTranslationQueryResolver {
@@ -19,7 +17,7 @@ impl MiscellaneousTranslationQueryResolver {
         gql_ctx: &Context<'_>,
         entity: EntityWithLot,
     ) -> Result<CachedResponse<EntityTranslationDetails>> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
         todo!()
     }
 }
