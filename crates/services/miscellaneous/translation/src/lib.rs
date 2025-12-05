@@ -16,7 +16,7 @@ use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter, sea_query::OnC
 use supporting_service::SupportingService;
 use user_models::UserProviderLanguagePreferences;
 
-pub async fn get_preferred_language_for_user_and_source(
+async fn get_preferred_language_for_user_and_source(
     ss: &Arc<SupportingService>,
     user_id: &String,
     source: &MediaSource,
