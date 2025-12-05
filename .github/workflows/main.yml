@@ -24,13 +24,13 @@ jobs:
       image-names: ${{ steps.set_outputs.outputs.image-names }}
       should-release: ${{ steps.set_outputs.outputs.should-release }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           fetch-depth: 2
           persist-credentials: false
       - name: Set outputs
         id: set_outputs
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
         with:
           script: |
             const repositoryName = context.payload.repository.name;
@@ -74,17 +74,17 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           fetch-depth: 0
           persist-credentials: false
       - name: Generate changelog
         id: changelog
-        uses: metcalfc/changelog-generator@d552ecf3366cf9d6da9fd7dbe425325d3d095aa8
+        uses: metcalfc/changelog-generator@e5a31a2994bada7f5892d75974bd70e10ef983a7
         with:
           myToken: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Release
-        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b
         with:
           body: |
             ## What's Changed
@@ -106,7 +106,7 @@ jobs:
           - target: x86_64-unknown-linux-gnu
           - target: aarch64-unknown-linux-gnu
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           persist-credentials: false
       - name: Extract build information
@@ -120,22 +120,22 @@ jobs:
         id: toolchain
         run: |
           echo "channel=$(grep channel rust-toolchain.toml | awk -F' = ' '{printf $2}' | tr -d '"')" >> "$GITHUB_OUTPUT"
-      - uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+      - uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
         with:
           toolchain: ${{ steps.toolchain.outputs.channel }}
           targets: ${{ matrix.platform.target }}
-      - uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6
+      - uses: Swatinem/rust-cache@42c55942cfd355e94e6864616f4dbb3392bd2789
         with:
           key: ${{ matrix.platform.target }}-${{ steps.build.outputs.profile }}
           save-if: ${{ github.event_name != 'pull_request' }}
-      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: target
           key: cargo-build-${{ runner.os }}-${{ matrix.platform.target }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: |
             cargo-build-${{ runner.os }}-${{ matrix.platform.target }}-
       - name: Install cross
-        uses: taiki-e/cache-cargo-install-action@ad4edd4113c497b54a89ab6ae296cc2ee975cae0
+        uses: taiki-e/cache-cargo-install-action@b8c5be6c3fb064f797977463ac00b01844751632
         with:
           tool: cross
           git: https://github.com/cross-rs/cross
@@ -148,7 +148,7 @@ jobs:
         run: |
           cross build --locked --target ${{ matrix.platform.target }} --release
       - name: Upload build artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: backend-${{ steps.build.outputs.docker-arch }}
           path: ${{ github.workspace }}/target/${{ matrix.platform.target }}/release/backend
@@ -163,33 +163,33 @@ jobs:
     permissions:
       packages: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           persist-credentials: false
       - name: Download build artifact for docker
-        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
+        uses: actions/download-artifact@f093f21ca4cfa7c75ccbbc2be54da76a0c7e1f05
         with:
           path: ${{ github.workspace }}/artifact/
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2
+        uses: docker/setup-buildx-action@65d18f8f8a05aab1b2d761032bec9cd5578caadb
       - name: Log in to the ghcr container registry
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772
+        uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
         continue-on-error: true
         with:
           registry: ${{ env.GHCR_REGISTRY }}
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Log in to the docker hub container registry
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772
+        uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
         continue-on-error: true
         with:
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
       - name: Extract metadata for Docker
         id: meta
-        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
         with:
           images: ${{ needs.pre-workflow-checks.outputs.image-names }}
           tags: |
@@ -201,7 +201,7 @@ jobs:
             type=raw,value=latest,enable=${{ needs.pre-workflow-checks.outputs.should-release == 'true' }}
             type=sha
       - name: Build and push
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25
+        uses: docker/build-push-action@9e436ba9f2d7bcd1d038c8e55d039d37896ddc5d
         with:
           context: .
           push: true
@@ -222,11 +222,11 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       MOON_TOOLCHAIN_FORCE_GLOBALS: true
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           persist-credentials: false
       - name: Setup Moon
-        uses: moonrepo/setup-toolchain@937d7dbbc1ec218aa8641c792d5821addebd9f03
+        uses: moonrepo/setup-toolchain@31c3cf9f311a5b83bb95c50b542c98a076392246
         with:
           auto-install: true
       - name: Build plugin
@@ -248,11 +248,11 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       MOON_TOOLCHAIN_FORCE_GLOBALS: true
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           persist-credentials: false
       - name: Setup Moon
-        uses: moonrepo/setup-toolchain@937d7dbbc1ec218aa8641c792d5821addebd9f03
+        uses: moonrepo/setup-toolchain@31c3cf9f311a5b83bb95c50b542c98a076392246
         with:
           auto-install: true
       - name: Build browser extensions
@@ -275,17 +275,17 @@ jobs:
     env:
       MOON_TOOLCHAIN_FORCE_GLOBALS: true
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           persist-credentials: false
       - name: Setup Moon
-        uses: moonrepo/setup-toolchain@937d7dbbc1ec218aa8641c792d5821addebd9f03
+        uses: moonrepo/setup-toolchain@31c3cf9f311a5b83bb95c50b542c98a076392246
         with:
           auto-install: true
       - name: Build documentation
         run: moon run docs:build
       - name: Push to deployment branch
-        uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e
+        uses: peaceiris/actions-gh-pages@4b09552702d0b65573696410d4707c765da2630b
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: apps/docs/.vitepress/dist
