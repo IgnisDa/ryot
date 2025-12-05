@@ -17,8 +17,8 @@ use crate::{
 };
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
-#[graphql(concrete(params(EntityWithLot), name = "MediaCollectionContentsResults"))]
 #[graphql(concrete(name = "IdResults", params(String)))]
+#[graphql(concrete(params(EntityWithLot), name = "MediaCollectionContentsResults"))]
 pub struct SearchResults<T: OutputType> {
     pub items: Vec<T>,
     pub details: SearchDetails,
@@ -27,11 +27,11 @@ pub struct SearchResults<T: OutputType> {
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, InputObject, Clone, Default)]
 #[graphql(concrete(name = "MediaSortInput", params(MediaSortBy)))]
 #[graphql(concrete(name = "PersonSortInput", params(PersonAndMetadataGroupsSortBy)))]
+#[graphql(concrete(name = "CollectionContentsSortInput", params(CollectionContentsSortBy)))]
 #[graphql(concrete(
     name = "UserWorkoutsListSortInput",
     params(UserTemplatesOrWorkoutsListSortBy)
 ))]
-#[graphql(concrete(name = "CollectionContentsSortInput", params(CollectionContentsSortBy)))]
 pub struct SortInput<T: InputType + Default> {
     #[graphql(default)]
     pub by: T,
