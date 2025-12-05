@@ -17,16 +17,6 @@ WHERE "preferences"->'languages' IS NULL
         )
         .await?;
 
-        if !manager
-            .has_column("metadata", "has_translations_for_languages")
-            .await?
-        {
-            db.execute_unprepared(
-                "alter table metadata add column has_translations_for_languages jsonb",
-            )
-            .await?;
-        }
-
         Ok(())
     }
 

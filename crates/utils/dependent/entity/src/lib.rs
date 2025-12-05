@@ -443,7 +443,7 @@ pub async fn get_preferred_language_for_user_and_source(
     Ok(preferred_language)
 }
 
-pub async fn update_media_entity_translation(
+async fn update_media_entity_translation(
     ss: &Arc<SupportingService>,
     user_id: &String,
     input: EntityWithLot,
@@ -487,20 +487,8 @@ pub async fn update_media_entity_translation(
                 .exec_without_returning(&ss.db)
                 .await?;
             ryot_log!(debug, "Inserting translations: {:?}", result);
-            let mut has_translations_for_languages =
-                meta.has_translations_for_languages.unwrap_or_default();
-            if !has_translations_for_languages.contains(&preferred_language) {
-                has_translations_for_languages.push(preferred_language.clone());
-                let mut meta = meta.into_active_model();
-                meta.has_translations_for_languages =
-                    ActiveValue::Set(Some(has_translations_for_languages));
-                meta.update(&ss.db).await?;
-            }
         }
-        _ => bail!(
-            "Entity type {:?} is not supported for translations",
-            input.entity_lot
-        ),
+        _ => {}
     };
     expire_user_entity_details_cache(user_id, &input.entity_id, ss).await?;
     Ok(())

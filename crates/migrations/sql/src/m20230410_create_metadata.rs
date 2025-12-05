@@ -59,7 +59,6 @@ pub enum Metadata {
     WatchProviders,
     ExternalIdentifiers,
     Assets,
-    HasTranslationsForLanguages,
 }
 
 #[async_trait::async_trait]
@@ -110,7 +109,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::SourceUrl).text())
                     .col(ColumnDef::new(Metadata::CreatedByUserId).text())
                     .col(ColumnDef::new(Metadata::Assets).json_binary().not_null())
-                    .col(ColumnDef::new(Metadata::HasTranslationsForLanguages).json_binary())
                     .foreign_key(
                         ForeignKey::create()
                             .name(METADATA_TO_USER_FOREIGN_KEY)
