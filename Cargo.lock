@@ -4836,7 +4836,25 @@ dependencies = [
  "dependent-models",
  "media-models",
  "miscellaneous-service",
+ "miscellaneous-translation-service",
  "traits",
+]
+
+[[package]]
+name = "miscellaneous-translation-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "dependent-core-utils",
+ "dependent-models",
+ "dependent-utility-utils",
+ "sea-orm",
+ "supporting-service",
 ]
 
 [[package]]
