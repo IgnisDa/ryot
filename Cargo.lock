@@ -2056,7 +2056,6 @@ dependencies = [
  "common-models",
  "common-utils",
  "database-models",
- "database-utils",
  "dependent-jobs-utils",
  "dependent-models",
  "dependent-provider-utils",
@@ -2071,7 +2070,6 @@ dependencies = [
  "supporting-service",
  "tracing",
  "traits",
- "user-models",
 ]
 
 [[package]]
@@ -4836,7 +4834,6 @@ dependencies = [
  "dependent-models",
  "media-models",
  "miscellaneous-service",
- "miscellaneous-translation-service",
  "traits",
 ]
 
@@ -4845,16 +4842,18 @@ name = "miscellaneous-translation-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cache-service",
- "chrono",
  "common-models",
  "common-utils",
  "database-models",
- "dependent-core-utils",
- "dependent-models",
+ "database-utils",
+ "dependent-provider-utils",
  "dependent-utility-utils",
+ "enum-models",
+ "media-models",
  "sea-orm",
  "supporting-service",
+ "tracing",
+ "user-models",
 ]
 
 [[package]]

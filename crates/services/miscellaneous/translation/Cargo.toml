@@ -5,14 +5,19 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-chrono = { workspace = true }
 sea-orm = { workspace = true }
+tracing = { workspace = true }
 
-cache-service = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { workspace = true }
-dependent-models = { workspace = true }
-dependent-core-utils = { workspace = true }
+database-utils = { workspace = true }
+dependent-provider-utils = { workspace = true }
 dependent-utility-utils = { workspace = true }
+enum-models = { workspace = true }
+media-models = { workspace = true }
 supporting-service = { workspace = true }
+user-models = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["tracing"]

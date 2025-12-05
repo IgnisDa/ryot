@@ -4,58 +4,29 @@ use anyhow::{Result, anyhow};
 use application_utils::calculate_average_rating_for_user;
 use common_models::{EntityWithLot, UserLevelCacheKey};
 use database_models::{
-    entity_translation,
     functions::get_user_to_entity_association,
-    prelude::{EntityTranslation, Metadata, Seen},
+    prelude::{Metadata, Seen},
     seen,
 };
 use database_utils::{
     entity_in_collections_with_details, item_reviews, server_key_validation_guard,
 };
 use dependent_core_utils::is_server_key_validated;
-use dependent_entity_utils::{generic_metadata, get_preferred_language_for_user_and_source};
+use dependent_entity_utils::generic_metadata;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EmptyCacheValue,
     UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use dependent_seen_utils::is_metadata_finished_by_user;
-use enum_models::{EntityLot, EntityTranslationVariant, MediaSource, SeenState};
+use enum_models::{EntityLot, SeenState};
 use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
 use media_models::{
-    EntityTranslationDetails, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
-    UserMetadataDetailsShowSeasonProgress,
+    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::dec;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
+use sea_orm::{ColumnTrait, EntityTrait, QuerySelect};
 use supporting_service::SupportingService;
-
-async fn get_entity_translations(
-    user_id: &String,
-    entity_id: &String,
-    source: &MediaSource,
-    entity_lot: EntityLot,
-    ss: &Arc<SupportingService>,
-) -> Result<EntityTranslationDetails> {
-    let preferred_language =
-        get_preferred_language_for_user_and_source(ss, user_id, source).await?;
-    let translations = EntityTranslation::find()
-        .filter(entity_translation::Column::EntityId.eq(entity_id))
-        .filter(entity_translation::Column::EntityLot.eq(entity_lot))
-        .filter(entity_translation::Column::Language.eq(&preferred_language))
-        .all(&ss.db)
-        .await?;
-    Ok(EntityTranslationDetails {
-        title: translations
-            .iter()
-            .find(|s| s.variant == EntityTranslationVariant::Title)
-            .and_then(|s| s.value.clone()),
-        description: translations
-            .iter()
-            .find(|s| s.variant == EntityTranslationVariant::Description)
-            .and_then(|s| s.value.clone()),
-    })
-}
 
 pub async fn user_metadata_details(
     ss: &Arc<SupportingService>,
