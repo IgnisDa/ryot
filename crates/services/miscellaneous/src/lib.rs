@@ -12,9 +12,10 @@ use dependent_core_utils::core_details;
 use dependent_entity_list_utils::{
     user_genres_list, user_metadata_groups_list, user_metadata_list, user_people_list,
 };
+use dependent_entity_utils::update_media_entity_translation;
 use dependent_jobs_utils::{
-    deploy_background_job, deploy_update_metadata_group_job, deploy_update_metadata_job,
-    deploy_update_person_job,
+    deploy_background_job, deploy_update_media_entity_translation_job,
+    deploy_update_metadata_group_job, deploy_update_metadata_job, deploy_update_person_job,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CoreDetails, EmptyCacheValue,
@@ -206,6 +207,22 @@ impl MiscellaneousService {
             }
         }
         Ok(true)
+    }
+
+    pub async fn deploy_update_media_entity_translation_job(
+        &self,
+        user_id: &String,
+        input: EntityWithLot,
+    ) -> Result<bool> {
+        deploy_update_media_entity_translation_job(user_id, input, &self.0).await
+    }
+
+    pub async fn update_media_entity_translation(
+        &self,
+        user_id: String,
+        input: EntityWithLot,
+    ) -> Result<()> {
+        update_media_entity_translation(&self.0, &user_id, input).await
     }
 
     pub async fn merge_metadata(

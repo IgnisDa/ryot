@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
-use common_models::BackgroundJob;
+use common_models::{BackgroundJob, EntityWithLot};
 use common_utils::ryot_log;
 use database_models::{
     metadata,
@@ -42,6 +42,18 @@ pub async fn deploy_update_person_job(
     ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
         person_id.to_owned(),
     )))
+    .await?;
+    Ok(true)
+}
+
+pub async fn deploy_update_media_entity_translation_job(
+    user_id: &String,
+    input: EntityWithLot,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    ss.perform_application_job(ApplicationJob::Mp(
+        MpApplicationJob::UpdateMediaEntityTranslation(user_id.to_owned(), input),
+    ))
     .await?;
     Ok(true)
 }
