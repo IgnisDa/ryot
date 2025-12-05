@@ -6,7 +6,7 @@ anime_and_manga:
   # Settings related to MAL.
   mal:
     # The client ID to be used for the MAL API.
-    # @envvar ANIME_AND_MANGA_MAL_CLIENT_ID
+    # @env ANIME_AND_MANGA_MAL_CLIENT_ID
     client_id: ""
 
   # Settings related to MangaUpdates.
@@ -22,19 +22,19 @@ books:
   # Settings related to Google Books.
   google_books:
     # The API key to be used for the Google Books API.
-    # @envvar BOOKS_GOOGLE_BOOKS_API_KEY
+    # @env BOOKS_GOOGLE_BOOKS_API_KEY
     api_key: ""
 
   # Settings related to Hardcover.
   hardcover:
     # The API key to be used.
-    # @envvar BOOKS_HARDCOVER_API_KEY
+    # @env BOOKS_HARDCOVER_API_KEY
     api_key: ""
 
   # Settings related to Openlibrary.
   openlibrary:
     # The image sizes to fetch from Openlibrary.
-    # @envvar BOOKS_OPENLIBRARY_COVER_IMAGE_SIZE
+    # @env BOOKS_OPENLIBRARY_COVER_IMAGE_SIZE
     # @values "S" | "M" | "L"
     cover_image_size: "M"
 
@@ -42,11 +42,11 @@ books:
 database:
   # The Postgres database connection string.
   # Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection/#postgres.
-  # @envvar DATABASE_URL
+  # @env DATABASE_URL
   url: ""
 
 # Whether to disable telemetry.
-# @envvar DISABLE_TELEMETRY
+# @env DISABLE_TELEMETRY
 disable_telemetry: false
 
 # Settings related to exercises.
@@ -56,47 +56,47 @@ exercise: {}
 file_storage:
   # The access key ID for the S3 compatible file storage. **Required** to
   # enable file storage.
-  # @envvar FILE_STORAGE_S3_ACCESS_KEY_ID
+  # @env FILE_STORAGE_S3_ACCESS_KEY_ID
   s3_access_key_id: ""
 
   # The name of the S3 compatible bucket. **Required** to enable file storage.
-  # @envvar FILE_STORAGE_S3_BUCKET_NAME
+  # @env FILE_STORAGE_S3_BUCKET_NAME
   s3_bucket_name: ""
 
   # The region for the S3 compatible file storage.
-  # @envvar FILE_STORAGE_S3_REGION
+  # @env FILE_STORAGE_S3_REGION
   s3_region: "us-east-1"
 
   # The secret access key for the S3 compatible file storage. **Required**
   # to enable file storage.
-  # @envvar FILE_STORAGE_S3_SECRET_ACCESS_KEY
+  # @env FILE_STORAGE_S3_SECRET_ACCESS_KEY
   s3_secret_access_key: ""
 
   # The URL for the S3 compatible file storage.
-  # @envvar FILE_STORAGE_S3_URL
+  # @env FILE_STORAGE_S3_URL
   s3_url: ""
 
 # Settings related to frontend storage.
 frontend:
   # A message to be displayed on the dashboard.
-  # @envvar FRONTEND_DASHBOARD_MESSAGE
+  # @env FRONTEND_DASHBOARD_MESSAGE
   dashboard_message: ""
 
   # The button label for OIDC authentication.
-  # @envvar FRONTEND_OIDC_BUTTON_LABEL
+  # @env FRONTEND_OIDC_BUTTON_LABEL
   oidc_button_label: "Continue with OpenID Connect"
 
   # Settings related to Umami analytics.
   umami:
     # For example: https://umami.is/script.js.
-    # @envvar FRONTEND_UMAMI_SCRIPT_URL
+    # @env FRONTEND_UMAMI_SCRIPT_URL
     script_url: ""
 
-    # @envvar FRONTEND_UMAMI_WEBSITE_ID
+    # @env FRONTEND_UMAMI_WEBSITE_ID
     website_id: ""
 
   # Used as the base URL when generating item links for the frontend.
-  # @envvar FRONTEND_URL
+  # @env FRONTEND_URL
   url: "https://app.ryot.io"
 
 # Settings related to movies and shows.
@@ -104,13 +104,13 @@ movies_and_shows:
   # Settings related to TMDB.
   tmdb:
     # The access token for the TMDB API.
-    # @envvar MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN
+    # @env MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN
     access_token: ""
 
   # Settings related to TVDB.
   tvdb:
     # The API key for the TVDB API.
-    # @envvar MOVIES_AND_SHOWS_TVDB_API_KEY
+    # @env MOVIES_AND_SHOWS_TVDB_API_KEY
     api_key: ""
 
 # Settings related to music.
@@ -118,11 +118,11 @@ music:
   # Settings related to Spotify.
   spotify:
     # The client ID for the Spotify API.
-    # @envvar MUSIC_SPOTIFY_CLIENT_ID
+    # @env MUSIC_SPOTIFY_CLIENT_ID
     client_id: ""
 
     # The client secret for the Spotify API.
-    # @envvar MUSIC_SPOTIFY_CLIENT_SECRET
+    # @env MUSIC_SPOTIFY_CLIENT_SECRET
     client_secret: ""
 
 # Settings related to podcasts.
@@ -133,7 +133,7 @@ podcasts:
   # Settings related to Listennotes.
   listennotes:
     # The access token for the Listennotes API.
-    # @envvar PODCASTS_LISTENNOTES_API_TOKEN
+    # @env PODCASTS_LISTENNOTES_API_TOKEN
     api_token: ""
 
 # Settings related to scheduler.
@@ -141,120 +141,120 @@ scheduler:
   # Run frequent cron tasks (syncing integrations, workout revisions) every `n` minutes.
   # Will be removed in the next major release. Please use `frequent_cron_jobs_schedule` instead.
   # @deprecated
-  # @envvar SCHEDULER_FREQUENT_CRON_JOBS_EVERY_MINUTES
+  # @env SCHEDULER_FREQUENT_CRON_JOBS_EVERY_MINUTES
   frequent_cron_jobs_every_minutes: 5
 
   # English expression for frequent cron tasks (syncing integrations, workout revisions).
   # Uses https://github.com/kaplanelad/english-to-cron.
-  # @envvar SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE
+  # @env SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE
   frequent_cron_jobs_schedule: "every 5 minutes"
 
   # Hours cron component for infrequent cron jobs (cleaning up data, refreshing calendar).
   # Will be removed in the next major release. Please use `infrequent_cron_jobs_schedule` instead
   # @deprecated
-  # @envvar SCHEDULER_INFREQUENT_CRON_JOBS_HOURS_FORMAT
+  # @env SCHEDULER_INFREQUENT_CRON_JOBS_HOURS_FORMAT
   infrequent_cron_jobs_hours_format: "0"
 
   # English expression for infrequent cron jobs (cleaning up data, refreshing calendar).
   # Uses https://github.com/kaplanelad/english-to-cron.
-  # @envvar SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE
+  # @env SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE
   infrequent_cron_jobs_schedule: "every midnight"
 
 # Settings related to server.
 server:
   # An access token that can be used for admin operations.
-  # @envvar SERVER_ADMIN_ACCESS_TOKEN
+  # @env SERVER_ADMIN_ACCESS_TOKEN
   admin_access_token: ""
 
   # The host address to bind the backend server to.
-  # @envvar SERVER_BACKEND_HOST
+  # @env SERVER_BACKEND_HOST
   backend_host: "0.0.0.0"
 
   # The port number to bind the backend server to.
-  # @envvar SERVER_BACKEND_PORT
+  # @env SERVER_BACKEND_PORT
   backend_port: 5000
 
   # An array of URLs for CORS.
-  # @envvar SERVER_CORS_ORIGINS
+  # @env SERVER_CORS_ORIGINS
   cors_origins: []
 
   # Disable all background jobs.
-  # @envvar SERVER_DISABLE_BACKGROUND_JOBS
+  # @env SERVER_DISABLE_BACKGROUND_JOBS
   disable_background_jobs: false
 
   # Whether the graphql playground will be enabled.
-  # @envvar SERVER_GRAPHQL_PLAYGROUND_ENABLED
+  # @env SERVER_GRAPHQL_PLAYGROUND_ENABLED
   graphql_playground_enabled: true
 
   # The importer related settings.
   importer:
     # The client ID for the Trakt importer. **Required** to enable Trakt importer.
-    # @envvar SERVER_IMPORTER_TRAKT_CLIENT_ID
+    # @env SERVER_IMPORTER_TRAKT_CLIENT_ID
     trakt_client_id: ""
 
   # Whether this is a demo instance.
-  # @envvar SERVER_IS_DEMO_INSTANCE
+  # @env SERVER_IS_DEMO_INSTANCE
   is_demo_instance: false
 
   # The maximum file size in MB for user uploads.
-  # @envvar SERVER_MAX_FILE_SIZE_MB
+  # @env SERVER_MAX_FILE_SIZE_MB
   max_file_size_mb: 70
 
   # The OIDC related settings.
   oidc:
-    # @envvar SERVER_OIDC_CLIENT_ID
+    # @env SERVER_OIDC_CLIENT_ID
     client_id: ""
 
-    # @envvar SERVER_OIDC_CLIENT_SECRET
+    # @env SERVER_OIDC_CLIENT_SECRET
     client_secret: ""
 
-    # @envvar SERVER_OIDC_ISSUER_URL
+    # @env SERVER_OIDC_ISSUER_URL
     issuer_url: ""
 
   # The key that can be used to enable Ryot Pro features.
-  # @envvar SERVER_PRO_KEY
+  # @env SERVER_PRO_KEY
   pro_key: ""
 
   # The hours in which a media can be marked as seen again for a user. This
   # is used so that the same media can not be used marked as started when
   # it has been already marked as seen in the last `n` hours.
-  # @envvar SERVER_PROGRESS_UPDATE_THRESHOLD
+  # @env SERVER_PROGRESS_UPDATE_THRESHOLD
   progress_update_threshold: 2
 
   # Number of seconds to sleep before starting the server.
-  # @envvar SERVER_SLEEP_BEFORE_STARTUP_SECONDS
+  # @env SERVER_SLEEP_BEFORE_STARTUP_SECONDS
   sleep_before_startup_seconds: 0
 
   # The mailer related settings.
   smtp:
-    # @envvar SERVER_SMTP_MAILBOX
+    # @env SERVER_SMTP_MAILBOX
     mailbox: "Ryot <no-reply@ryot.io>"
 
-    # @envvar SERVER_SMTP_PASSWORD
+    # @env SERVER_SMTP_PASSWORD
     password: ""
 
-    # @envvar SERVER_SMTP_SERVER
+    # @env SERVER_SMTP_SERVER
     server: ""
 
-    # @envvar SERVER_SMTP_USER
+    # @env SERVER_SMTP_USER
     user: ""
 
 # Timezone to be used for date time operations.
-# @envvar TZ
+# @env TZ
 tz: "Etc/GMT"
 
 # Settings related to users.
 users:
   # Whether new users will be allowed to sign up to this instance.
-  # @envvar USERS_ALLOW_REGISTRATION
+  # @env USERS_ALLOW_REGISTRATION
   allow_registration: true
 
   # Whether to disable local user authentication completely.
-  # @envvar USERS_DISABLE_LOCAL_AUTH
+  # @env USERS_DISABLE_LOCAL_AUTH
   disable_local_auth: false
 
   # The number of days till login authentication token is valid.
-  # @envvar USERS_TOKEN_VALID_FOR_DAYS
+  # @env USERS_TOKEN_VALID_FOR_DAYS
   token_valid_for_days: 90
 
 # Settings related to video games.
@@ -262,13 +262,13 @@ video_games:
   # Settings related to GiantBomb.
   giant_bomb:
     # The API key to be used for the GiantBomb API.
-    # @envvar VIDEO_GAMES_GIANT_BOMB_API_KEY
+    # @env VIDEO_GAMES_GIANT_BOMB_API_KEY
     api_key: ""
 
   # Settings related to IGDB.
   igdb:
     # The image sizes to fetch from IGDB.
-    # @envvar VIDEO_GAMES_IGDB_IMAGE_SIZE
+    # @env VIDEO_GAMES_IGDB_IMAGE_SIZE
     # @values "t_original"
     image_size: "t_original"
 
@@ -276,12 +276,12 @@ video_games:
   twitch:
     # The client ID issues by Twitch. **Required** to enable video games
     # tracking. [More information](/docs/guides/video-games.md).
-    # @envvar VIDEO_GAMES_TWITCH_CLIENT_ID
+    # @env VIDEO_GAMES_TWITCH_CLIENT_ID
     client_id: ""
 
     # The client secret issued by Twitch. **Required** to enable video games
     # tracking.
-    # @envvar VIDEO_GAMES_TWITCH_CLIENT_SECRET
+    # @env VIDEO_GAMES_TWITCH_CLIENT_SECRET
     client_secret: ""
 
 # Settings related to visual novels.
