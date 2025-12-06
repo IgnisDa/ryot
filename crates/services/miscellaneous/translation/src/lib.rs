@@ -67,11 +67,12 @@ pub async fn update_media_entity_translation(
             let preferred_language =
                 get_preferred_language_for_user_and_source(ss, user_id, &meta.source).await?;
             let provider = get_metadata_provider(meta.lot, meta.source, ss).await?;
-            let Ok(trn) = provider
+            let trn = match provider
                 .translate_metadata(&meta.identifier, &preferred_language)
                 .await
-            else {
-                bail!("Translation not found from provider");
+            {
+                Ok(translation) => translation,
+                Err(_) => bail!("Translation not found from provider"),
             };
             EntityTranslation::delete_many()
                 .filter(entity_translation::Column::EntityId.eq(&input.entity_id))
