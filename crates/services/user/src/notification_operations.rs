@@ -7,7 +7,7 @@ use media_models::{CreateUserNotificationPlatformInput, UpdateUserNotificationPl
 use notification_service::send_notification;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, Iterable, ModelTrait,
-    QueryFilter,
+    QueryFilter, QueryOrder,
 };
 use supporting_service::SupportingService;
 use user_models::NotificationPlatformSpecifics;
