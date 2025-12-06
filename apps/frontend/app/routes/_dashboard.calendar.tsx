@@ -125,7 +125,6 @@ const CalendarEventMetadata = (props: {
 
 	return (
 		<MetadataDisplayItem
-			key={props.item.calendarEventId}
 			metadataId={props.item.metadataId}
 			additionalInformation={additionalInformation}
 		/>
@@ -155,8 +154,8 @@ const CalendarDate = (props: {
 			<ApplicationGrid>
 				{props.data.events.map((calEvent) => (
 					<CalendarEventMetadata
-						key={calEvent.calendarEventId}
 						item={calEvent}
+						key={calEvent.calendarEventId}
 					/>
 				))}
 			</ApplicationGrid>
