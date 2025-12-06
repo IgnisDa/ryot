@@ -20,7 +20,11 @@ impl FileStorageQueryResolver {
 #[derive(Default)]
 pub struct FileStorageMutationResolver;
 
-impl GraphqlDependencyInjector for FileStorageMutationResolver {}
+impl GraphqlDependencyInjector for FileStorageMutationResolver {
+    fn is_mutation(&self) -> bool {
+        true
+    }
+}
 
 #[Object]
 impl FileStorageMutationResolver {
