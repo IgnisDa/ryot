@@ -14,7 +14,7 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EntityTranslationDetailsResponse,
     ExpireCacheKeyInput,
 };
-use dependent_provider_utils::get_metadata_provider;
+use dependent_provider_utils::{get_metadata_provider, get_non_metadata_provider};
 use enum_models::{EntityLot, EntityTranslationVariant, MediaSource};
 use itertools::Itertools;
 use media_models::EntityTranslationDetails;
@@ -112,6 +112,113 @@ pub async fn update_media_entity_translation(
             languages.insert(preferred_language);
 
             let mut item: metadata::ActiveModel = meta.into();
+            item.last_updated_on = ActiveValue::Set(Utc::now());
+            item.has_translations_for_languages =
+                ActiveValue::Set(Some(languages.into_iter().collect_vec()));
+            item.update(&ss.db).await?;
+        }
+        EntityLot::MetadataGroup => {
+            let metadata_group = MetadataGroup::find_by_id(&input.entity_id)
+                .one(&ss.db)
+                .await?
+                .ok_or_else(|| anyhow!("Metadata group not found"))?;
+            let preferred_language =
+                get_preferred_language_for_user_and_source(ss, user_id, &metadata_group.source)
+                    .await?;
+            let provider =
+                get_metadata_provider(metadata_group.lot, metadata_group.source, ss).await?;
+            if let Ok(trn) = provider
+                .translate_metadata_group(&metadata_group.identifier, &preferred_language)
+                .await
+            {
+                EntityTranslation::delete_many()
+                    .filter(entity_translation::Column::EntityId.eq(&input.entity_id))
+                    .filter(entity_translation::Column::EntityLot.eq(input.entity_lot))
+                    .filter(entity_translation::Column::Language.eq(&preferred_language))
+                    .exec(&ss.db)
+                    .await?;
+                let translations = [
+                    (EntityTranslationVariant::Title, trn.title),
+                    (EntityTranslationVariant::Description, trn.description),
+                ]
+                .into_iter()
+                .map(|(variant, value)| entity_translation::ActiveModel {
+                    variant: ActiveValue::Set(variant),
+                    language: ActiveValue::Set(preferred_language.clone()),
+                    value: ActiveValue::Set(value.filter(|v| !v.is_empty())),
+                    metadata_group_id: ActiveValue::Set(Some(input.entity_id.clone())),
+                    ..Default::default()
+                })
+                .collect::<Vec<_>>();
+                let result = EntityTranslation::insert_many(translations)
+                    .on_conflict(OnConflict::new().do_nothing().to_owned())
+                    .exec_without_returning(&ss.db)
+                    .await?;
+                ryot_log!(debug, "Inserting translations: {:?}", result);
+            }
+
+            let mut languages: HashSet<String> = HashSet::from_iter(
+                metadata_group
+                    .has_translations_for_languages
+                    .clone()
+                    .unwrap_or_default()
+                    .into_iter(),
+            );
+            languages.insert(preferred_language);
+
+            let mut item: metadata_group::ActiveModel = metadata_group.into();
+            item.has_translations_for_languages =
+                ActiveValue::Set(Some(languages.into_iter().collect_vec()));
+            item.update(&ss.db).await?;
+        }
+        EntityLot::Person => {
+            let person = Person::find_by_id(&input.entity_id)
+                .one(&ss.db)
+                .await?
+                .ok_or_else(|| anyhow!("Person not found"))?;
+            let preferred_language =
+                get_preferred_language_for_user_and_source(ss, user_id, &person.source).await?;
+            let provider = get_non_metadata_provider(person.source, ss).await?;
+            if let Ok(trn) = provider
+                .translate_person(&person.identifier, &preferred_language)
+                .await
+            {
+                EntityTranslation::delete_many()
+                    .filter(entity_translation::Column::EntityId.eq(&input.entity_id))
+                    .filter(entity_translation::Column::EntityLot.eq(input.entity_lot))
+                    .filter(entity_translation::Column::Language.eq(&preferred_language))
+                    .exec(&ss.db)
+                    .await?;
+                let translations = [
+                    (EntityTranslationVariant::Title, trn.title),
+                    (EntityTranslationVariant::Description, trn.description),
+                ]
+                .into_iter()
+                .map(|(variant, value)| entity_translation::ActiveModel {
+                    variant: ActiveValue::Set(variant),
+                    language: ActiveValue::Set(preferred_language.clone()),
+                    value: ActiveValue::Set(value.filter(|v| !v.is_empty())),
+                    person_id: ActiveValue::Set(Some(input.entity_id.clone())),
+                    ..Default::default()
+                })
+                .collect::<Vec<_>>();
+                let result = EntityTranslation::insert_many(translations)
+                    .on_conflict(OnConflict::new().do_nothing().to_owned())
+                    .exec_without_returning(&ss.db)
+                    .await?;
+                ryot_log!(debug, "Inserting translations: {:?}", result);
+            }
+
+            let mut languages: HashSet<String> = HashSet::from_iter(
+                person
+                    .has_translations_for_languages
+                    .clone()
+                    .unwrap_or_default()
+                    .into_iter(),
+            );
+            languages.insert(preferred_language);
+
+            let mut item: person::ActiveModel = person.into();
             item.last_updated_on = ActiveValue::Set(Utc::now());
             item.has_translations_for_languages =
                 ActiveValue::Set(Some(languages.into_iter().collect_vec()));
