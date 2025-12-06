@@ -15,7 +15,9 @@ export function toSidebarData(input: {
 } {
 	const visibleTrackers = input.isCustomizeMode
 		? sortTrackersByOrder(input.trackers)
-		: sortTrackersByOrder(input.trackers).filter((tracker) => tracker.enabled);
+		: sortTrackersByOrder(input.trackers).filter(
+				(tracker) => !tracker.isDisabled,
+			);
 	const trackerById = new Map(
 		visibleTrackers.map((tracker) => [tracker.id, tracker]),
 	);
@@ -24,9 +26,9 @@ export function toSidebarData(input: {
 		name: tracker.name,
 		slug: tracker.slug,
 		icon: tracker.icon,
-		enabled: tracker.enabled,
 		sortOrder: tracker.sortOrder,
 		isBuiltin: tracker.isBuiltin,
+		isDisabled: tracker.isDisabled,
 		accentColor: tracker.accentColor,
 		views: input.views
 			.filter((view) => view.trackerId === tracker.id)

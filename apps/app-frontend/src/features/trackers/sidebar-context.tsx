@@ -102,7 +102,7 @@ export default function TrackerSidebarProvider(props: { children: ReactNode }) {
 	const toggleTracker = useCallback(
 		async (tracker: AppTracker) => {
 			await mutations.toggle.mutateAsync({
-				body: { enabled: !tracker.enabled },
+				body: { isDisabled: !tracker.isDisabled },
 				params: { path: { trackerId: tracker.id } },
 			});
 		},

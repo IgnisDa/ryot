@@ -128,7 +128,7 @@ function SortableTracker(props: {
 					root: {
 						padding: "10px 14px",
 						borderLeft: "2px solid transparent",
-						opacity: props.tracker.enabled ? 1 : 0.48,
+						opacity: props.tracker.isDisabled ? 0.48 : 1,
 						"&:hover": {
 							borderLeftColor: color.base,
 							backgroundColor: color.muted,
@@ -191,7 +191,9 @@ function SortableTracker(props: {
 									variant="subtle"
 									disabled={props.isMutationBusy}
 									aria-label={
-										props.tracker.enabled ? "Disable tracker" : "Enable tracker"
+										props.tracker.isDisabled
+											? "Enable tracker"
+											: "Disable tracker"
 									}
 									onClick={(event) => {
 										event.preventDefault();
@@ -199,10 +201,10 @@ function SortableTracker(props: {
 										props.onToggleTrackerEnabled?.(props.tracker.id);
 									}}
 								>
-									{props.tracker.enabled ? (
-										<ToggleRight size={14} strokeWidth={1.8} />
-									) : (
+									{props.tracker.isDisabled ? (
 										<ToggleLeft size={14} strokeWidth={1.8} />
+									) : (
+										<ToggleRight size={14} strokeWidth={1.8} />
 									)}
 								</ActionIcon>
 							</Group>
