@@ -4849,7 +4849,6 @@ dependencies = [
  "database-utils",
  "dependent-models",
  "dependent-provider-utils",
- "dependent-utility-utils",
  "enum-models",
  "media-models",
  "sea-orm",

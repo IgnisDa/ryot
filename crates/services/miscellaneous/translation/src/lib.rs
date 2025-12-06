@@ -11,9 +11,9 @@ use database_models::{
 use database_utils::user_by_id;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EntityTranslationDetailsResponse,
+    ExpireCacheKeyInput,
 };
 use dependent_provider_utils::get_metadata_provider;
-use dependent_utility_utils::expire_user_entity_details_cache;
 use enum_models::{EntityLot, EntityTranslationVariant, MediaSource};
 use media_models::EntityTranslationDetails;
 use sea_orm::{
@@ -100,7 +100,16 @@ pub async fn update_media_entity_translation(
         }
         _ => {}
     };
-    expire_user_entity_details_cache(user_id, &input.entity_id, ss).await?;
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::UserEntityTranslations(
+            UserLevelCacheKey {
+                input: input.clone(),
+                user_id: user_id.clone(),
+            },
+        ))),
+    )
+    .await?;
     Ok(())
 }
 
