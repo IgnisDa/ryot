@@ -122,10 +122,8 @@ BEGIN
 END $$;
 `;
 
-// The V1 default "Owned" collection is migrated as a normal V2 collection (entity + member-of
-// relationships) by the functions above. Additionally, every entity that was a member of an "Owned"
-// collection has its existing in-library relationship marked as owned so ownership survives as
-// library state, mirroring the runtime ownership shape written by the integrations media pipeline.
+// Marks each Owned-collection member's existing in-library relationship as owned, mirroring the
+// runtime ownership shape. Runs after user-to-entity so the relationships already exist.
 export const buildOwnedCollectionOwnershipMigrationSql = (
 	inLibraryRelationshipSchemaId: string,
 ) => `

@@ -60,8 +60,12 @@ import {
 import { buildReviewMigrationSql } from "./review-mapping";
 import { buildSeenEpisodicCompletionMigrationSql } from "./seen-completion-mapping";
 import { buildSeenMigrationSql } from "./seen-mapping";
-import { buildUniqueSlugMap, legacyBootstrapGate, withRawPgClient } from "./shared";
-import { buildEntityTranslationMigrationSql } from "./translation-mapping";
+import {
+	buildReferencedGlobalEntityIdsSql,
+	buildUniqueSlugMap,
+	legacyBootstrapGate,
+	withRawPgClient,
+} from "./shared";
 import { buildLegacyUserAuthMigrationSql } from "./user-auth-mapping";
 import { buildMeasurementMigrationSql } from "./user-measurement-mapping";
 import { buildUserToEntityInLibraryMigrationSql } from "./user-to-entity-mapping";
@@ -231,12 +235,6 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		(slug) => requireSchemaId(entitySchemaIds, slug, "entity schema"),
 	);
 
-	const mediaSuggestionRelationshipSchemaId = requireSchemaId(
-		relationshipSchemaIds,
-		"media-suggestion",
-		"relationship schema",
-	);
-
 	const showSeasonEntitySchemaId = requireSchemaId(entitySchemaIds, "show-season", "entity schema");
 
 	const showEpisodeEntitySchemaId = requireSchemaId(
@@ -372,9 +370,15 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	}
 
 	// Phase 3: Migrate entities, events, and relationships
+	//
+	// Slim migration: provider-sourced ("global") entities are reconstructed on demand by V2's
+	// entity population workflow, so we materialize only the subset referenced by user data (plus
+	// all user-authored custom entities). The referenced-id set is collected up front and consumed
+	// by the metadata / person / company / metadata_group entity migrations.
 	yield* withRawPgClient((client) =>
 		client
-			.query(buildMetadataMigrationSql(resolvedMetadataTargets))
+			.query(buildReferencedGlobalEntityIdsSql())
+			.then(() => client.query(buildMetadataMigrationSql(resolvedMetadataTargets)))
 			.then(() =>
 				client.query(
 					buildLegacyEpisodicSubEntityMigrationSql({
@@ -397,7 +401,6 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			)
 			.then(() => client.query(buildPersonEntityMigrationSql(resolvedPersonEntityTargets)))
 			.then(() => client.query(buildCompanyEntityMigrationSql(resolvedCompanyEntityTargets)))
-			.then(() => client.query(buildEntityTranslationMigrationSql()))
 			.then(() => client.query(buildCollectionEntityMigrationSql(collectionEntitySchemaId)))
 			.then(() => client.query(buildExerciseMigrationSql(resolvedExerciseTargets)))
 			.then(() => client.query(buildMeasurementMigrationSql(measurementEntitySchemaId)))
@@ -450,11 +453,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			.then(() =>
 				client.query(buildCollectionToEntityRelationshipMigrationSql(memberOfRelationshipSchemaId)),
 			)
-			.then(() =>
-				client.query(
-					buildMetadataToMetadataRelationshipMigrationSql(mediaSuggestionRelationshipSchemaId),
-				),
-			)
+			.then(() => client.query(buildMetadataToMetadataRelationshipMigrationSql()))
 			.then(() =>
 				client.query(
 					buildUserToEntityInLibraryMigrationSql(
