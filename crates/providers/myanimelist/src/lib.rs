@@ -173,7 +173,6 @@ struct ItemNode {
     num_chapters: Option<i32>,
     start_date: Option<String>,
     genres: Option<Vec<NamedObject>>,
-    studios: Option<Vec<NamedObject>>,
     related_anime: Option<Vec<ItemData>>,
     related_manga: Option<Vec<ItemData>>,
     recommendations: Option<Vec<ItemData>>,
