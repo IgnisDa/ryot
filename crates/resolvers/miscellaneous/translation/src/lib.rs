@@ -1,7 +1,6 @@
 use async_graphql::{Context, Object, Result};
 use common_models::EntityWithLot;
-use dependent_models::CachedResponse;
-use media_models::EntityTranslationDetails;
+use dependent_models::{CachedResponse, EntityTranslationDetailsResponse};
 use traits::{AuthProvider, GraphqlResolverDependency};
 
 #[derive(Default)]
@@ -16,7 +15,7 @@ impl MiscellaneousTranslationQueryResolver {
         &self,
         gql_ctx: &Context<'_>,
         entity: EntityWithLot,
-    ) -> Result<CachedResponse<EntityTranslationDetails>> {
+    ) -> Result<CachedResponse<EntityTranslationDetailsResponse>> {
         let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
         Ok(
             miscellaneous_translation_service::entity_translations(&user_id, entity, &service)

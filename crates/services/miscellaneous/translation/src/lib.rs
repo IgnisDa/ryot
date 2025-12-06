@@ -8,7 +8,9 @@ use database_models::{
     prelude::{EntityTranslation, Metadata},
 };
 use database_utils::user_by_id;
-use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, CachedResponse};
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EntityTranslationDetailsResponse,
+};
 use dependent_provider_utils::get_metadata_provider;
 use dependent_utility_utils::expire_user_entity_details_cache;
 use enum_models::{EntityLot, EntityTranslationVariant, MediaSource};
@@ -91,7 +93,7 @@ pub async fn entity_translations(
     user_id: &String,
     input: EntityWithLot,
     ss: &Arc<SupportingService>,
-) -> Result<CachedResponse<EntityTranslationDetails>> {
+) -> Result<CachedResponse<EntityTranslationDetailsResponse>> {
     cache_service::get_or_set_with_callback(
         ss,
         ApplicationCacheKey::EntityTranslations(UserLevelCacheKey {
@@ -108,7 +110,7 @@ pub async fn entity_translations(
                 .filter(entity_translation::Column::Language.eq(&preferred_language))
                 .all(&ss.db)
                 .await?;
-            Ok(EntityTranslationDetails {
+            Ok(Some(EntityTranslationDetails {
                 title: translations
                     .iter()
                     .find(|s| s.variant == EntityTranslationVariant::Title)
@@ -117,7 +119,7 @@ pub async fn entity_translations(
                     .iter()
                     .find(|s| s.variant == EntityTranslationVariant::Description)
                     .and_then(|s| s.value.clone()),
-            })
+            }))
         },
     )
     .await
