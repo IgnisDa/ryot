@@ -16,7 +16,8 @@ The end-to-end behavior: after this task, the application boots successfully wit
 
 Add `display_configuration` column to the `saved_view` table:
 - Type: `jsonb NOT NULL`
-- Structure: `{ layout: "grid" | "list" | "table", grid: {}, list: {}, table: {} }`
+- Structure: `{ grid: {}, list: {}, table: {} }`
+- The active layout is stored in `localStorage` per user per view (key: `view-layout:<viewId>`), defaulting to `"grid"` on first load.
 - See PRD section "Database Schema Changes" for full details
 
 Expand `query_definition` jsonb structure:

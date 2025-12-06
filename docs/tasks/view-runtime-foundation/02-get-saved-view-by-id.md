@@ -43,7 +43,7 @@ Add to `tests/src/tests/`:
 - [x] Returns 200 with full saved view object for user-owned views
 - [x] Returns 404 for non-existent view IDs
 - [x] Response includes `queryDefinition` with `entitySchemaSlugs`, `filters`, `sort`
-- [x] Response includes `displayConfiguration` with `layout`, `grid`, `list`, `table`
+- [x] Response includes `displayConfiguration` with `grid`, `list`, `table`
 - [x] E2E tests pass for all cases (200 success, 404 not found)
 - [x] `turbo check` passes
 
