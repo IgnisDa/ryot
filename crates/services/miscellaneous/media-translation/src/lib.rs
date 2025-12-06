@@ -102,18 +102,18 @@ pub async fn update_media_entity_translation(
                 Err(_) => {}
             };
 
-            let mut translations_for_languages: HashSet<String> = HashSet::from_iter(
+            let mut languages: HashSet<String> = HashSet::from_iter(
                 meta.has_translations_for_languages
                     .unwrap_or_default()
                     .into_iter(),
             );
-            translations_for_languages.insert(preferred_language);
+            languages.insert(preferred_language);
             Metadata::update_many()
                 .filter(metadata::Column::Id.eq(&input.entity_id))
                 .set(metadata::ActiveModel {
                     last_updated_on: ActiveValue::Set(Utc::now()),
                     has_translations_for_languages: ActiveValue::Set(Some(
-                        translations_for_languages.into_iter().collect_vec(),
+                        languages.into_iter().collect_vec(),
                     )),
                     ..Default::default()
                 })
