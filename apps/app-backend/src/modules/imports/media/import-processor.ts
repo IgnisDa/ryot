@@ -1,5 +1,7 @@
 import type { Job } from "bullmq";
 
+import type { EventWriteContext } from "~/modules/events";
+
 import { importEntityRefKey, type ImportMediaEntityGroup, type ImportRunJobData } from "../jobs";
 import { createImportRunFailure, updateImportRun } from "../repository";
 import { failImportRun, recordImportRunFailure, sanitizeErrorMessage } from "../runtime/failures";
@@ -66,6 +68,7 @@ export const processMediaImport = async (
 		sourceName: string;
 		adapterErrorFallback: string;
 		cleanup?: () => Promise<void>;
+		writeContext?: EventWriteContext;
 		jobData?: Partial<ImportRunJobData>;
 		loadAdapterResult: () => Promise<MediaImportAdapterResult> | MediaImportAdapterResult;
 	},
@@ -256,6 +259,7 @@ export const processMediaImport = async (
 			entityIdsByKey,
 			entityGroups: mediaEntityGroups,
 			failedItems: mediaWriteFailedItems,
+			writeContext: input.writeContext,
 			startGroupIndex: mediaWriteGroupIndex,
 			importedItems: mediaWriteImportedItems,
 			onGroupComplete: async (state) => {
