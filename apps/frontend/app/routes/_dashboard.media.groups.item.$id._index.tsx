@@ -36,6 +36,7 @@ import {
 } from "~/components/media/menu-items";
 import {
 	useMetadataGroupDetails,
+	useTranslationMonitor,
 	useUserMetadataGroupDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -73,13 +74,23 @@ export default function Page() {
 	const userMetadataGroupDetails = useUserMetadataGroupDetails(
 		loaderData.metadataGroupId,
 	);
-	const description = metadataGroupDetailsData.data?.details.description;
+	const { translations } = useTranslationMonitor({
+		entityLot: EntityLot.MetadataGroup,
+		entityId: loaderData.metadataGroupId,
+		enabled: metadataGroupDetailsData.isFetched,
+		mediaSource: metadataGroupDetailsData.data?.details.source,
+	});
+	const title =
+		translations?.title || metadataGroupDetailsData.data?.details.title || "";
+	const description =
+		translations?.description ||
+		metadataGroupDetailsData.data?.details.description;
 
 	return (
 		<Container>
 			{metadataGroupDetailsData.data && userMetadataGroupDetails.data ? (
 				<MediaDetailsLayout
-					title={metadataGroupDetailsData.data.details.title}
+					title={title}
 					assets={metadataGroupDetailsData.data.details.assets}
 					isPartialStatusActive={isMetadataGroupPartialStatusActive}
 					externalLink={{

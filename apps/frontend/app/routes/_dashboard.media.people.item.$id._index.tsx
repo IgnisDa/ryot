@@ -43,6 +43,7 @@ import {
 import {
 	useMetadataGroupDetails,
 	usePersonDetails,
+	useTranslationMonitor,
 	useUserPersonDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -79,7 +80,15 @@ export default function Page() {
 		loaderData.personId,
 	);
 	const userPersonDetails = useUserPersonDetails(loaderData.personId);
-	const description = personDetails.data?.details.description;
+	const { translations } = useTranslationMonitor({
+		entityLot: EntityLot.Person,
+		entityId: loaderData.personId,
+		enabled: personDetails.isFetched,
+		mediaSource: personDetails.data?.details.source,
+	});
+	const title = translations?.title || personDetails.data?.details.name || "";
+	const description =
+		translations?.description || personDetails.data?.details.description;
 
 	const [mediaRoleFilter, setMediaRoleFilter] = useLocalStorage(
 		"PersonMediaTabRoleFilter",
@@ -121,7 +130,7 @@ export default function Page() {
 		<Container>
 			{personDetails.data && userPersonDetails.data ? (
 				<MediaDetailsLayout
-					title={personDetails.data.details.name}
+					title={title}
 					assets={personDetails.data.details.assets}
 					isPartialStatusActive={isPersonPartialStatusActive}
 					externalLink={{
