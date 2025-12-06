@@ -11,10 +11,8 @@ use dependent_core_utils::core_details as dependent_core_details;
 use dependent_entity_list_utils::{
     user_genres_list, user_metadata_groups_list, user_metadata_list,
 };
-use dependent_jobs_utils::{
-    deploy_background_job as dependent_deploy_background_job, deploy_update_metadata_group_job,
-    deploy_update_metadata_job, deploy_update_person_job,
-};
+use dependent_jobs_utils::deploy_background_job as dependent_deploy_background_job;
+pub use dependent_jobs_utils::deploy_update_media_entity_job;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CoreDetails, EmptyCacheValue,
     GenreDetails, GraphqlPersonDetails, MetadataGroupDetails, MetadataGroupSearchResponse,
@@ -79,30 +77,6 @@ pub async fn generate_log_download_url(
     let download_url = format!("{}/backend/logs/download/{}", ss.config.frontend.url, token);
 
     Ok(download_url)
-}
-
-pub async fn deploy_update_media_entity_job(
-    ss: &Arc<SupportingService>,
-    input: EntityWithLot,
-) -> Result<bool> {
-    match input.entity_lot {
-        EntityLot::Metadata => {
-            deploy_update_metadata_job(&input.entity_id, ss).await?;
-        }
-        EntityLot::Person => {
-            deploy_update_person_job(&input.entity_id, ss).await?;
-        }
-        EntityLot::MetadataGroup => {
-            deploy_update_metadata_group_job(&input.entity_id, ss).await?;
-        }
-        _ => {
-            bail!(
-                "Entity type {:?} is not supported for update jobs",
-                input.entity_lot
-            );
-        }
-    }
-    Ok(true)
 }
 
 #[cfg(debug_assertions)]
@@ -288,6 +262,23 @@ pub async fn update_metadata_group_and_notify_users_for_id(
 ) -> Result<()> {
     update_metadata_group_and_notify_users(metadata_group_id, ss).await?;
     Ok(())
+}
+
+pub async fn update_media_details_and_notify_users(
+    ss: &Arc<SupportingService>,
+    input: EntityWithLot,
+) -> Result<()> {
+    match input.entity_lot {
+        EntityLot::Metadata => update_metadata_and_notify_users_for_id(ss, &input.entity_id).await,
+        EntityLot::Person => update_person_and_notify_users_for_id(ss, &input.entity_id).await,
+        EntityLot::MetadataGroup => {
+            update_metadata_group_and_notify_users_for_id(ss, &input.entity_id).await
+        }
+        _ => bail!(
+            "Entity type {:?} is not supported for update jobs",
+            input.entity_lot
+        ),
+    }
 }
 
 pub async fn trending_metadata(ss: &Arc<SupportingService>) -> Result<TrendingMetadataIdsResponse> {

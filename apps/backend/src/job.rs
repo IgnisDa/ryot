@@ -22,8 +22,7 @@ use miscellaneous_media_translation_service::update_media_translation;
 use miscellaneous_service::{
     bulk_metadata_progress_update_for_user, cleanup_user_and_metadata_association,
     handle_metadata_eligible_for_smart_collection_moving, handle_review_posted_event,
-    invalidate_import_jobs, perform_background_jobs, update_metadata_and_notify_users_for_id,
-    update_metadata_group_and_notify_users_for_id, update_person_and_notify_users_for_id,
+    invalidate_import_jobs, perform_background_jobs, update_media_details_and_notify_users,
     update_user_last_activity_performed,
 };
 use statistics_service::calculate_user_activities_and_summary_for_user;
@@ -102,14 +101,8 @@ pub async fn perform_mp_application_job(
             perform_import(&ss, user_id, input).await
         }
         MpApplicationJob::ReviseUserWorkouts(user_id) => revise_user_workouts(&ss, user_id).await,
-        MpApplicationJob::UpdateMetadata(metadata_id) => {
-            update_metadata_and_notify_users_for_id(&ss, &metadata_id).await
-        }
-        MpApplicationJob::UpdatePerson(person_id) => {
-            update_person_and_notify_users_for_id(&ss, &person_id).await
-        }
-        MpApplicationJob::UpdateMetadataGroup(metadata_group_id) => {
-            update_metadata_group_and_notify_users_for_id(&ss, &metadata_group_id).await
+        MpApplicationJob::UpdateMediaDetails(input) => {
+            update_media_details_and_notify_users(&ss, input).await
         }
         MpApplicationJob::UpdateGithubExercises => update_github_exercises(&ss).await,
         MpApplicationJob::PerformBackgroundTasks => perform_background_jobs(&ss).await,

@@ -52,7 +52,7 @@ impl MiscellaneousSystemMutationResolver {
         input: EntityWithLot,
     ) -> Result<bool> {
         let (service, _) = self.dependency_and_user(gql_ctx).await?;
-        Ok(miscellaneous_service::deploy_update_media_entity_job(service, input).await?)
+        Ok(miscellaneous_service::deploy_update_media_entity_job(input, service).await?)
     }
 
     /// Generate a one-time URL for downloading application logs. Admin only.

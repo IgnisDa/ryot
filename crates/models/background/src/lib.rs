@@ -18,14 +18,12 @@ pub enum HpApplicationJob {
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
 pub enum MpApplicationJob {
     SyncIntegrationsData,
-    UpdatePerson(String),
     PerformExport(String),
     UpdateExerciseLibrary,
     UpdateGithubExercises,
     PerformBackgroundTasks,
-    UpdateMetadata(String),
     ReviseUserWorkouts(String),
-    UpdateMetadataGroup(String),
+    UpdateMediaDetails(EntityWithLot),
     UpdateMediaTranslations(String, EntityWithLot),
     ImportFromExternalSource(String, Box<DeployImportJobInput>),
 }

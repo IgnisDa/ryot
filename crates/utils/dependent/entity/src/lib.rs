@@ -3,7 +3,7 @@ use std::{collections::HashMap, iter::zip, sync::Arc};
 use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, LpApplicationJob};
 use chrono::Utc;
-use common_models::{EntityAssets, PersonSourceSpecifics, StringIdObject};
+use common_models::{EntityAssets, EntityWithLot, PersonSourceSpecifics, StringIdObject};
 use common_utils::{
     MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES, ryot_log, sleep_for_n_seconds,
 };
@@ -15,7 +15,7 @@ use database_models::{
         MetadataToMetadataGroup, MetadataToPerson, Person,
     },
 };
-use dependent_jobs_utils::deploy_update_metadata_job;
+use dependent_jobs_utils::deploy_update_media_entity_job;
 use dependent_models::MetadataBaseData;
 use dependent_provider_utils::{
     details_from_provider, get_metadata_provider, get_non_metadata_provider,
@@ -23,7 +23,7 @@ use dependent_provider_utils::{
 use dependent_utility_utils::{
     expire_metadata_details_cache, expire_metadata_group_details_cache, expire_person_details_cache,
 };
-use enum_models::{MetadataToMetadataRelation, UserNotificationContent};
+use enum_models::{EntityLot, MetadataToMetadataRelation, UserNotificationContent};
 use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
 use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
@@ -59,7 +59,14 @@ async fn ensure_metadata_updated(
                     .flatten()
                     .unwrap_or(false);
                 if is_partial {
-                    deploy_update_metadata_job(metadata_id, ss).await?;
+                    deploy_update_media_entity_job(
+                        EntityWithLot {
+                            entity_id: metadata_id.to_owned(),
+                            entity_lot: EntityLot::Metadata,
+                        },
+                        ss,
+                    )
+                    .await?;
                     let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
                     ryot_log!(debug, "Sleeping for {}s before metadata check", sleep_time);
                     sleep_for_n_seconds(sleep_time).await;
