@@ -87,7 +87,7 @@ async fn update_media_entity_translation(
     Ok(())
 }
 
-pub async fn get_entity_translations(
+pub async fn entity_translations(
     user_id: &String,
     input: EntityWithLot,
     ss: &Arc<SupportingService>,

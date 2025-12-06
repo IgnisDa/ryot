@@ -12,14 +12,14 @@ impl GraphqlResolverDependency for MiscellaneousTranslationQueryResolver {}
 
 #[Object]
 impl MiscellaneousTranslationQueryResolver {
-    async fn get_entity_translations(
+    async fn entity_translations(
         &self,
         gql_ctx: &Context<'_>,
         entity: EntityWithLot,
     ) -> Result<CachedResponse<EntityTranslationDetails>> {
         let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
         Ok(
-            miscellaneous_translation_service::get_entity_translations(&user_id, entity, &service)
+            miscellaneous_translation_service::entity_translations(&user_id, entity, &service)
                 .await?,
         )
     }
