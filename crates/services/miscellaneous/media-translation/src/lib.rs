@@ -167,6 +167,7 @@ pub async fn update_media_entity_translation(
             languages.insert(preferred_language);
 
             let mut item: metadata_group::ActiveModel = metadata_group.into();
+            item.last_updated_on = ActiveValue::Set(Utc::now());
             item.has_translations_for_languages =
                 ActiveValue::Set(Some(languages.into_iter().collect_vec()));
             item.update(&ss.db).await?;
