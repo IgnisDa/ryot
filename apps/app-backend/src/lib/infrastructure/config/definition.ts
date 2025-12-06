@@ -28,7 +28,7 @@ const fields = {
 		default: "Ryot <no-reply@ryot.io>",
 	}),
 	disableNotifications: boolField(
-		"DISABLE_NOTIFICATIONS",
+		"SERVER_DISABLE_NOTIFICATIONS",
 		"Disable delivery of all notifications",
 		{ default: false },
 	),
@@ -195,8 +195,8 @@ const smtpGroup = group(
 
 const notificationsGroup = group(
 	"Notification delivery settings",
-	Config.all({ disabled: fields.disableNotifications.config, smtp: smtpGroup.config }),
-	{ disabled: fields.disableNotifications.meta, smtp: smtpGroup.meta },
+	Config.all({ smtp: smtpGroup.config }),
+	{ smtp: smtpGroup.meta },
 );
 
 const usersGroup = group(
@@ -275,12 +275,14 @@ const serverGroup = group(
 		oidc: oidcGroup.config,
 		corsOrigins: fields.corsOrigins.config,
 		adminAccessToken: fields.adminAccessToken.config,
+		disableNotifications: fields.disableNotifications.config,
 		disableBackgroundJobs: fields.disableBackgroundJobs.config,
 	}),
 	{
 		oidc: oidcGroup.meta,
 		corsOrigins: fields.corsOrigins.meta,
 		adminAccessToken: fields.adminAccessToken.meta,
+		disableNotifications: fields.disableNotifications.meta,
 		disableBackgroundJobs: fields.disableBackgroundJobs.meta,
 	},
 );
