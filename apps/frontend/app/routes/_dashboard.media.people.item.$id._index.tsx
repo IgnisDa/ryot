@@ -174,7 +174,7 @@ export default function Page() {
 									Groups
 								</Tabs.Tab>
 							) : null}
-							{personDetails.data.details.description ? (
+							{description ? (
 								<Tabs.Tab
 									value="overview"
 									leftSection={<IconInfoCircle size={16} />}
