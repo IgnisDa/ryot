@@ -437,7 +437,11 @@ const UpcomingMediaSection = (props: { um: CalendarEventPartFragment }) => {
 	return (
 		<MetadataDisplayItem
 			metadataId={props.um.metadataId}
-			additionalInformation={`${extraInformation} ${daysInformation}`}
+			additionalInformation={
+				extraInformation
+					? `${extraInformation} ${daysInformation}`
+					: daysInformation
+			}
 		/>
 	);
 };
