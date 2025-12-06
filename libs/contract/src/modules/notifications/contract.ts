@@ -7,7 +7,6 @@ import { NotificationPlatformId } from "../../schema/brands";
 import {
 	CreateNotificationPlatformBody,
 	ListedNotificationPlatform,
-	NotificationDeliveryResult,
 	UpdateNotificationPlatformBody,
 } from "./schemas";
 
@@ -39,7 +38,7 @@ export const NotificationsGroup = HttpApiGroup.make("notifications")
 		),
 	)
 	.add(
-		HttpApiEndpoint.post("testPlatforms", "/notifications/platforms/test").addSuccess(
-			Schema.Array(NotificationDeliveryResult),
-		),
+		HttpApiEndpoint.post("testPlatforms", "/notifications/platforms/test").addSuccess(Schema.Void, {
+			status: 202,
+		}),
 	);
