@@ -20,6 +20,7 @@ import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
+import { RelationshipsService } from "#modules/relationships/service";
 
 import { processChildEntityTree } from "./population";
 import {
@@ -153,9 +154,21 @@ type TestLayerOptions = {
 	processSandbox?: EntityImportWorkflowOperationsValue["processSandbox"];
 };
 
-const makeTestLayer = (options: TestLayerOptions) =>
-	Layer.mergeAll(
+const makeTestLayer = (options: TestLayerOptions) => {
+	const relationshipsRepository = options.relationshipsRepository ?? makeRelationshipsRepository();
+
+	const relationshipsServiceLayer = RelationshipsService.Default.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				dbRunnerLayer,
+				Layer.succeed(RelationshipsRepository, relationshipsRepository),
+			),
+		),
+	);
+
+	return Layer.mergeAll(
 		dbRunnerLayer,
+		relationshipsServiceLayer,
 		Layer.succeed(EntityImportWorkflowOperations, {
 			processSandbox: options.processSandbox ?? (() => Effect.die("unused")),
 		}),
@@ -165,15 +178,13 @@ const makeTestLayer = (options: TestLayerOptions) =>
 			EntitySchemasRepository,
 			options.entitySchemasRepository ?? makeEntitySchemasRepository(),
 		),
-		Layer.succeed(
-			RelationshipsRepository,
-			options.relationshipsRepository ?? makeRelationshipsRepository(),
-		),
+		Layer.succeed(RelationshipsRepository, relationshipsRepository),
 		Layer.succeed(
 			RelationshipSchemasRepository,
 			options.relationshipSchemasRepository ?? makeRelationshipSchemasRepository(),
 		),
 	);
+};
 
 const withTestLayer = <A, E, R>(
 	options: TestLayerOptions,

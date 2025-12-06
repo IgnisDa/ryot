@@ -140,7 +140,7 @@ const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 
 const CollectionsServiceLive = Layer.provide(
 	CollectionsService.Default,
-	Layer.mergeAll(EntitiesService.Default, EventsService.Default),
+	Layer.mergeAll(EntitiesService.Default, EventsService.Default, RelationshipsService.Default),
 );
 
 const ServicesBaseLive = Layer.provideMerge(
