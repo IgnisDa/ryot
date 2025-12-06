@@ -34,9 +34,9 @@ export const IntegrationId = Schema.String.pipe(Schema.brand("IntegrationId"));
 
 export type IntegrationId = typeof IntegrationId.Type;
 
-export const NotificationPlatformId = Schema.String.pipe(Schema.brand("NotificationPlatformId"));
+export const NotificationChannelId = Schema.String.pipe(Schema.brand("NotificationChannelId"));
 
-export type NotificationPlatformId = typeof NotificationPlatformId.Type;
+export type NotificationChannelId = typeof NotificationChannelId.Type;
 
 export const EventSchemaId = Schema.String.pipe(Schema.brand("EventSchemaId"));
 
@@ -49,6 +49,22 @@ export type EntitySchemaId = typeof EntitySchemaId.Type;
 export const SandboxScriptId = Schema.String.pipe(Schema.brand("SandboxScriptId"));
 
 export type SandboxScriptId = typeof SandboxScriptId.Type;
+
+export const SignalId = Schema.String.pipe(Schema.brand("SignalId"));
+
+export type SignalId = typeof SignalId.Type;
+
+export const SignalSchemaId = Schema.String.pipe(Schema.brand("SignalSchemaId"));
+
+export type SignalSchemaId = typeof SignalSchemaId.Type;
+
+export const AutomationRuleId = Schema.String.pipe(Schema.brand("AutomationRuleId"));
+
+export type AutomationRuleId = typeof AutomationRuleId.Type;
+
+export const SubscriptionRunId = Schema.String.pipe(Schema.brand("SubscriptionRunId"));
+
+export type SubscriptionRunId = typeof SubscriptionRunId.Type;
 
 export const RelationshipSchemaId = Schema.String.pipe(Schema.brand("RelationshipSchemaId"));
 

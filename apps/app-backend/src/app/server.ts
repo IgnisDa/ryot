@@ -9,6 +9,7 @@ import type * as LayerTypes from "effect/Layer";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#modules/auth/service";
+import { AutomationsRoutesLive } from "#modules/automations/routes";
 import { CollectionsRoutesLive } from "#modules/collections/routes";
 import { EntitiesRoutesLive } from "#modules/entities/routes";
 import { InterestRoutesLive } from "#modules/entity-interest/routes";
@@ -99,6 +100,7 @@ const ApiBaseLive = HttpApiBuilder.api(AppContract).pipe(
 			MediaMonitoringRoutesLive,
 			QueryEngineRoutesLive,
 			InterestRoutesLive,
+			AutomationsRoutesLive,
 		),
 	),
 	Layer.provide(AuthMiddlewareLive),

@@ -2,22 +2,16 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import type {
-	CreateNotificationPlatformBody,
-	UpdateNotificationPlatformBody,
+	CreateNotificationChannelBody,
+	UpdateNotificationChannelBody,
 } from "@ryot/contract/modules/notifications/schemas";
-import {
-	notificationEventTypes,
-	type NotificationEventType,
-} from "@ryot/contract/modules/notifications/types";
-import type { NotificationPlatformId, UserId } from "@ryot/contract/schema/brands";
+import type { NotificationChannelId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 
 import { enqueueNotificationDelivery } from "./notification-delivery-workflow";
 import { NotificationsRepository } from "./repository";
-
-const defaultConfiguredEvents = [...notificationEventTypes];
 
 export class NotificationsService extends Effect.Service<NotificationsService>()(
 	"NotificationsService",
@@ -27,82 +21,63 @@ export class NotificationsService extends Effect.Service<NotificationsService>()
 			const engine = yield* WorkflowEngine;
 			const repository = yield* NotificationsRepository;
 
-			const provideWorkflowEngine = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-				effect.pipe(Effect.provideService(WorkflowEngine, engine));
-
 			const list = Effect.fn("NotificationsService.list")(function* (user: CurrentUserValue) {
 				return yield* runWithDb(repository.listForUser(user.id));
 			});
 
 			const create = Effect.fn("NotificationsService.create")(function* (
 				user: CurrentUserValue,
-				body: CreateNotificationPlatformBody,
+				body: CreateNotificationChannelBody,
 			) {
-				if (body.platform !== body.platformSpecifics.kind) {
-					return yield* badRequest("platform must match platformSpecifics.kind");
+				if (body.kind !== body.specifics.kind) {
+					return yield* badRequest("kind must match specifics.kind");
 				}
 
-				const platform = yield* runWithDb(
+				const channel = yield* runWithDb(
 					repository.createForUser({
+						kind: body.kind,
 						userId: user.id,
-						platform: body.platform,
+						specifics: body.specifics,
 						isDisabled: body.isDisabled ?? false,
-						platformSpecifics: body.platformSpecifics,
-						configuredEvents: [...(body.configuredEvents ?? defaultConfiguredEvents)],
 					}),
 				);
-				return { id: platform.id };
+				return { id: channel.id };
 			});
 
 			const update = Effect.fn("NotificationsService.update")(function* (
 				user: CurrentUserValue,
-				platformId: NotificationPlatformId,
-				body: UpdateNotificationPlatformBody,
+				channelId: NotificationChannelId,
+				body: UpdateNotificationChannelBody,
 			) {
-				const platform = yield* runWithDb(
-					repository.updateForUser({ body, platformId, userId: user.id }),
+				const channel = yield* runWithDb(
+					repository.updateForUser({ body, channelId, userId: user.id }),
 				);
-				if (!platform) {
-					return yield* notFound("Notification platform not found");
+				if (!channel) {
+					return yield* notFound("Notification channel not found");
 				}
-				return platform;
+				return channel;
 			});
 
 			const remove = Effect.fn("NotificationsService.delete")(function* (
 				user: CurrentUserValue,
-				platformId: NotificationPlatformId,
+				channelId: NotificationChannelId,
 			) {
-				const deleted = yield* runWithDb(repository.deleteForUser({ platformId, userId: user.id }));
+				const deleted = yield* runWithDb(repository.deleteForUser({ channelId, userId: user.id }));
 				if (!deleted) {
-					return yield* notFound("Notification platform not found");
+					return yield* notFound("Notification channel not found");
 				}
-				return { id: platformId };
+				return { id: channelId };
 			});
 
 			const test = Effect.fn("NotificationsService.test")(function* (user: CurrentUserValue) {
-				yield* provideWorkflowEngine(
-					enqueueNotificationDelivery({ userId: user.id, request: { kind: "test" } }),
-				);
+				yield* enqueueNotificationDelivery({
+					userId: user.id,
+					request: { kind: "test" },
+				}).pipe(Effect.provideService(WorkflowEngine, engine));
 				return undefined;
 			});
 
-			const trigger = Effect.fn("NotificationsService.trigger")(function* (input: {
-				userId: UserId;
-				message: string;
-				executionId?: string | undefined;
-				eventType: NotificationEventType;
-			}) {
-				yield* provideWorkflowEngine(
-					enqueueNotificationDelivery({
-						userId: input.userId,
-						executionId: input.executionId,
-						request: { kind: "event", message: input.message, eventType: input.eventType },
-					}),
-				);
-				return undefined;
-			});
-
-			return { create, delete: remove, list, test, trigger, update };
+			return { create, delete: remove, list, test, update };
 		}),
 	},
 ) {}

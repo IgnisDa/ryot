@@ -2,10 +2,11 @@ import { isObjectRecord } from "@ryot/ts-utils/predicates";
 
 type HostFunction = (...args: Array<unknown>) => unknown;
 
-export const runTriggerScript = (
+export const runBuiltinScript = (
 	code: string,
 	context: unknown,
 	hostFunctions: Record<string, HostFunction>,
+	subscriptionContext = context,
 ): Promise<unknown> => {
 	const driverRegistry: Record<string, HostFunction> = {};
 	const register = (name: string, fn: HostFunction) => {
@@ -20,11 +21,29 @@ export const runTriggerScript = (
 	factory(register, ...hostImplementations);
 
 	const trigger = driverRegistry["trigger"];
-	if (!trigger) {
-		throw new Error("Script did not register a 'trigger' driver");
+	if (trigger) {
+		return Promise.resolve(trigger(context));
 	}
 
-	return Promise.resolve(trigger(context));
+	const subscription = driverRegistry["subscription"];
+	if (!subscription) {
+		throw new Error("Script did not register a trigger or subscription driver");
+	}
+	return Promise.resolve(subscription(subscriptionContext));
+};
+
+export const runTriggerScript = (
+	code: string,
+	context: unknown,
+	hostFunctions: Record<string, HostFunction>,
+) => {
+	const triggerContext = toRecord(context)["trigger"];
+	const triggerRecord = toRecord(triggerContext);
+	return runBuiltinScript(code, context, hostFunctions, {
+		automation: {
+			source: { kind: "event", after: { ...triggerRecord, id: triggerRecord["eventId"] } },
+		},
+	});
 };
 
 const PUSH_HELPER_NAMES =

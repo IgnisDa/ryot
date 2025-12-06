@@ -3,14 +3,14 @@ import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { NotFound, RateLimited, Unauthorized } from "../../errors";
-import { NotificationPlatformId } from "../../schema/brands";
+import { NotificationChannelId } from "../../schema/brands";
 import {
-	CreateNotificationPlatformBody,
-	ListedNotificationPlatform,
-	UpdateNotificationPlatformBody,
+	CreateNotificationChannelBody,
+	ListedNotificationChannel,
+	UpdateNotificationChannelBody,
 } from "./schemas";
 
-const platformIdParam = HttpApiSchema.param("platformId", NotificationPlatformId);
+const channelIdParam = HttpApiSchema.param("channelId", NotificationChannelId);
 
 export const NotificationsGroup = HttpApiGroup.make("notifications")
 	.addError(Unauthorized, { status: 401 })
@@ -18,27 +18,27 @@ export const NotificationsGroup = HttpApiGroup.make("notifications")
 	.addError(NotFound, { status: 404 })
 	.middleware(AuthMiddleware)
 	.add(
-		HttpApiEndpoint.get("listPlatforms", "/notifications/platforms").addSuccess(
-			Schema.Array(ListedNotificationPlatform),
+		HttpApiEndpoint.get("listChannels", "/notifications/channels").addSuccess(
+			Schema.Array(ListedNotificationChannel),
 		),
 	)
 	.add(
-		HttpApiEndpoint.post("createPlatform", "/notifications/platforms")
-			.setPayload(CreateNotificationPlatformBody)
-			.addSuccess(Schema.Struct({ id: NotificationPlatformId }), { status: 201 }),
+		HttpApiEndpoint.post("createChannel", "/notifications/channels")
+			.setPayload(CreateNotificationChannelBody)
+			.addSuccess(Schema.Struct({ id: NotificationChannelId }), { status: 201 }),
 	)
 	.add(
-		HttpApiEndpoint.patch("updatePlatform")`/notifications/platforms/${platformIdParam}`
-			.setPayload(UpdateNotificationPlatformBody)
-			.addSuccess(ListedNotificationPlatform),
+		HttpApiEndpoint.patch("updateChannel")`/notifications/channels/${channelIdParam}`
+			.setPayload(UpdateNotificationChannelBody)
+			.addSuccess(ListedNotificationChannel),
 	)
 	.add(
-		HttpApiEndpoint.del("deletePlatform")`/notifications/platforms/${platformIdParam}`.addSuccess(
-			Schema.Struct({ id: NotificationPlatformId }),
+		HttpApiEndpoint.del("deleteChannel")`/notifications/channels/${channelIdParam}`.addSuccess(
+			Schema.Struct({ id: NotificationChannelId }),
 		),
 	)
 	.add(
-		HttpApiEndpoint.post("testPlatforms", "/notifications/platforms/test").addSuccess(Schema.Void, {
+		HttpApiEndpoint.post("testChannels", "/notifications/channels/test").addSuccess(Schema.Void, {
 			status: 202,
 		}),
 	);

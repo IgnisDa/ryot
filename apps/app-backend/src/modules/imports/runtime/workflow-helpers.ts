@@ -1,12 +1,14 @@
 import { FileSystem } from "@effect/platform";
 import { Activity } from "@effect/workflow";
 import { unknownToMessage } from "@ryot/contract/errors";
-import { Effect, Schema } from "effect";
+import { DateTime, Effect, Schema } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 
 import type { ImportRunJobData } from "../jobs";
+import { ImportsRepository } from "../repository";
 import { resolveSafeImportFilePath } from "./import-files";
 import { failImportRun } from "./import-run-status";
 import { deleteImportAdapterResult, deleteImportSourcePayload } from "./source-payload-store";
@@ -117,3 +119,48 @@ export const createImportRunLifecycle = (
 
 	return { cleanupArtifacts, failRunAndCleanup, cleanupArtifactsBestEffort };
 };
+
+export const recordImportTotalItems = (
+	payload: Pick<ImportRunJobData, "runId">,
+	totalItems: number,
+) =>
+	Effect.gen(function* () {
+		const runWithDb = yield* DbRunner;
+		const repository = yield* ImportsRepository;
+
+		yield* Activity.make({
+			error: ImportRunError,
+			name: "record-total-items",
+			execute: runWithDb(repository.updateRun({ runId: payload.runId, totalItems })).pipe(
+				Effect.mapError(toWorkflowError),
+			),
+		});
+	});
+
+export const finalizeImportRun = (input: {
+	failedItems: number;
+	importedItems: number;
+	processedItems: number;
+	payload: Pick<ImportRunJobData, "runId">;
+}) =>
+	Effect.gen(function* () {
+		const runWithDb = yield* DbRunner;
+		const repository = yield* ImportsRepository;
+		const finishedAt = yield* DateTime.nowAsDate;
+
+		yield* Activity.make({
+			error: ImportRunError,
+			name: "finalize-import-run",
+			execute: runWithDb(
+				repository.updateRun({
+					finishedAt,
+					progress: 100,
+					status: "completed",
+					runId: input.payload.runId,
+					failedItems: input.failedItems,
+					importedItems: input.importedItems,
+					processedItems: input.processedItems,
+				}),
+			).pipe(Effect.mapError(toWorkflowError)),
+		});
+	});

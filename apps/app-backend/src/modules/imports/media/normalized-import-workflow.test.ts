@@ -2,6 +2,7 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import {
+	AutomationRuleId,
 	EntityId,
 	EntitySchemaId,
 	EventSchemaId,
@@ -19,6 +20,7 @@ import {
 	makeRedisService,
 	makeWorkflowActivityEngine,
 } from "#lib/test-support/effect";
+import { AutomationsRepository } from "#modules/automations/repository";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
@@ -42,6 +44,7 @@ const now = "2026-06-17T00:00:00.000Z";
 const mockImportsRepository = Layer.mock(ImportsRepository);
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 const mockCollectionsService = Layer.mock(CollectionsService);
+const mockAutomationsRepository = Layer.mock(AutomationsRepository);
 const mockEventsService = Layer.mock(EventsService);
 const mockEpisodeResolverService = Layer.mock(EpisodeResolverService);
 const mockEventSchemasRepository = Layer.mock(EventSchemasRepository);
@@ -62,27 +65,38 @@ const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepo
 		_tag: "EntitiesRepository",
 	});
 
+const collectionResponse = (overrides: { name?: string; id?: string } = {}) => ({
+	createdAt: now,
+	updatedAt: now,
+	properties: {},
+	externalId: null,
+	sandboxScriptId: null,
+	name: overrides.name ?? "Collection",
+	id: EntityId.make(overrides.id ?? "collection-1"),
+	entitySchemaId: EntitySchemaId.make("schema-collection"),
+});
+
 const makeCollectionsService = (overrides: MockOverrides<typeof mockCollectionsService> = {}) =>
 	mockCollectionsService({
 		markEntityOwnedInLibrary: () => Effect.void,
 		getOrCreateCollection: () =>
-			Effect.succeed({
-				createdAt: now,
-				updatedAt: now,
-				properties: {},
-				externalId: null,
-				name: "Collection",
-				sandboxScriptId: null,
-				id: EntityId.make("collection-1"),
-				entitySchemaId: EntitySchemaId.make("schema-collection"),
-			}),
+			Effect.succeed({ operation: "noop" as const, collection: collectionResponse() }),
 		...overrides,
 		_tag: "CollectionsService",
 	});
 
+const makeAutomationsRepository = (
+	overrides: MockOverrides<typeof mockAutomationsRepository> = {},
+) =>
+	mockAutomationsRepository({
+		listLifecycleSubscriptions: () => Effect.succeed([]),
+		...overrides,
+		_tag: "AutomationsRepository",
+	});
+
 const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = {}) =>
 	mockEventsService({
-		create: () => Effect.succeed({ count: 1 }),
+		create: () => Effect.succeed({ count: 1, skipped: 0 }),
 		...overrides,
 		_tag: "EventsService",
 	});
@@ -149,10 +163,14 @@ type TestLayerOptions = {
 	importsRepository?: Layer.Layer<ImportsRepository>;
 	collectionsService?: Layer.Layer<CollectionsService>;
 	entitiesRepository?: Layer.Layer<EntitiesRepository>;
+	automationsRepository?: Layer.Layer<AutomationsRepository>;
+	mediaOperations?: Layer.Layer<MediaImportWorkflowOperations>;
 	episodeResolverService?: Layer.Layer<EpisodeResolverService>;
 	eventSchemasRepository?: Layer.Layer<EventSchemasRepository>;
 	entitySchemasRepository?: Layer.Layer<EntitySchemasRepository>;
-	mediaOperations?: Layer.Layer<MediaImportWorkflowOperations>;
+	execute?: (
+		...args: Parameters<WorkflowEngine["Type"]["execute"]>
+	) => Effect.Effect<unknown, unknown>;
 };
 
 const makeTestLayer = (options: TestLayerOptions) =>
@@ -169,6 +187,7 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		options.eventsService ?? makeEventsService(),
 		options.eventSchemasRepository ?? makeEventSchemasRepository(),
 		options.entitySchemasRepository ?? makeEntitySchemasRepository(),
+		options.automationsRepository ?? makeAutomationsRepository(),
 	);
 
 const withTestLayer = <A, E, R>(
@@ -177,7 +196,10 @@ const withTestLayer = <A, E, R>(
 	effect: Effect.Effect<A, E, R>,
 ) => {
 	const instance = WorkflowInstance.initial(ProcessNormalizedMediaImportWorkflow, executionId);
-	const engine = makeWorkflowActivityEngine(instance);
+	const engine = makeWorkflowActivityEngine(
+		instance,
+		options.execute ? { execute: options.execute } : {},
+	);
 
 	return effect.pipe(
 		Effect.provideService(WorkflowEngine, engine),
@@ -199,10 +221,10 @@ const resolvedBookGroup = (input: { externalId: string; sourceLabel: string }) =
 	collectionMemberships: [],
 	events: [],
 	entityRef: {
-		kind: "resolved" as const,
-		scriptSlug: "book.openlibrary",
 		entitySchemaSlug: "book",
+		kind: "resolved" as const,
 		externalId: input.externalId,
+		scriptSlug: "book.openlibrary",
 		sourceLabel: input.sourceLabel,
 	},
 });
@@ -248,6 +270,7 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 				Effect.succeed(
 					slug === "book.openlibrary"
 						? {
+								entitySchemaSlug: "book",
 								entitySchemaId: EntitySchemaId.make("schema-book"),
 								sandboxScriptId: SandboxScriptId.make("script-book-openlibrary"),
 							}
@@ -262,20 +285,14 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 			},
 			getOrCreateCollection: (_userId, name) =>
 				Effect.succeed({
-					name,
-					createdAt: now,
-					updatedAt: now,
-					properties: {},
-					externalId: null,
-					sandboxScriptId: null,
-					id: EntityId.make(`${name}-id`),
-					entitySchemaId: EntitySchemaId.make("schema-collection"),
+					operation: "noop" as const,
+					collection: collectionResponse({ name, id: `${name}-id` }),
 				}),
 		}),
 		eventsService: makeEventsService({
 			create: (input) => {
 				createdEvents.push(input.payload as ReadonlyArray<Record<string, unknown>>);
-				return Effect.succeed({ count: input.payload.length });
+				return Effect.succeed({ count: input.payload.length, skipped: 0 });
 			},
 		}),
 	} satisfies TestLayerOptions;
@@ -311,7 +328,7 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 					value: "9781234567890",
 					identifierType: "isbn",
 					scriptId: "script-book-openlibrary",
-					executionId: "normalized-1-resolve-0-0",
+					executionId: "normalized-1-chunk-0-resolve-0-0",
 				},
 			]);
 			expect(importedCalls).toEqual([
@@ -319,8 +336,9 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 					userId: "user-1",
 					externalId: "OL123M",
 					entitySchemaId: "schema-book",
-					executionId: "normalized-1-entity-0",
 					scriptId: "script-book-openlibrary",
+					executionId: "normalized-1-chunk-0-entity-0",
+					origin: { kind: "import", importRunId: "run-1" },
 				},
 			]);
 			expect(recordedFailures).toHaveLength(1);
@@ -335,7 +353,7 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 					userId: "user-1",
 					entityId: "entity-1",
 					collectionId: "Favorites-id",
-					executionId: "normalized-1-collection-0-0",
+					executionId: "normalized-1-chunk-0-collection-0-0",
 				},
 			]);
 			expect(createdEvents).toEqual([
@@ -383,6 +401,148 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 	);
 });
 
+const ruleId = AutomationRuleId.make("rule-1");
+
+const bookMembershipGroup = (collectionName: string) => ({
+	itemIndex: 1,
+	events: [],
+	collectionMemberships: [{ collectionName }],
+	entityRef: {
+		kind: "resolved" as const,
+		externalId: "book-1",
+		entitySchemaSlug: "book",
+		sourceLabel: "Book One",
+		scriptSlug: "book.openlibrary",
+	},
+});
+
+const bookEntitiesRepository = () =>
+	makeEntitiesRepository({
+		findEntitySchemaSandboxScriptBySlug: (slug) =>
+			Effect.succeed(
+				slug === "book.openlibrary"
+					? {
+							entitySchemaSlug: "book",
+							entitySchemaId: EntitySchemaId.make("schema-book"),
+							sandboxScriptId: SandboxScriptId.make("script-book-openlibrary"),
+						}
+					: null,
+			),
+	});
+
+const createdCollectionEnvelope = (name: string) => ({
+	operation: "create" as const,
+	entitySchemaSlug: "collection",
+	collection: collectionResponse({ name, id: `${name}-entity` }),
+	entity: {
+		name,
+		createdAt: now,
+		updatedAt: now,
+		properties: {},
+		externalId: null,
+		populatedAt: null,
+		sandboxScriptId: null,
+		id: EntityId.make(`${name}-entity`),
+		entitySchemaId: EntitySchemaId.make("schema-collection"),
+	},
+});
+
+it.effect("dispatches an import entity-create occurrence when a collection is created", () => {
+	const captured: Array<Record<string, unknown>> = [];
+
+	const options = {
+		execute: (_workflow, execOptions) => {
+			captured.push(execOptions as Record<string, unknown>);
+			return Effect.void;
+		},
+		automationsRepository: makeAutomationsRepository({
+			listLifecycleSubscriptions: () => Effect.succeed([{ id: ruleId }]),
+		}),
+		entitiesRepository: bookEntitiesRepository(),
+		mediaOperations: makeMediaOperations({
+			importEntity: () => Effect.succeed({ id: EntityId.make("entity-1") }),
+			writeCollectionMembership: () => Effect.void,
+		}),
+		collectionsService: makeCollectionsService({
+			ensureEntityInLibrary: () => Effect.void,
+			getOrCreateCollection: (_userId, name) => Effect.succeed(createdCollectionEnvelope(name)),
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		"normalized-collection-create",
+		Effect.gen(function* () {
+			yield* seedAdapterResult({ failures: [], entityGroups: [bookMembershipGroup("Favorites")] });
+
+			yield* processNormalizedMediaImport(
+				makePayload("normalized-collection-create"),
+				"normalized-collection-create",
+			);
+
+			expect(captured).toHaveLength(1);
+			expect(captured[0]).toMatchObject({
+				executionId: "lifecycle-subscription-entity-create-Favorites-entity-rule-1",
+				payload: {
+					ruleId,
+					correlationId: "entity-create-Favorites-entity",
+					automation: {
+						operation: "create",
+						occurrenceId: "entity-create-Favorites-entity",
+						origin: { kind: "import", importRunId: "run-1" },
+						source: {
+							kind: "entity",
+							after: { id: "Favorites-entity", name: "Favorites", entitySchemaSlug: "collection" },
+						},
+					},
+				},
+			});
+		}),
+	);
+});
+
+it.effect("dispatches no occurrence when the collection already exists", () => {
+	const captured: Array<Record<string, unknown>> = [];
+
+	const options = {
+		execute: (_workflow, execOptions) => {
+			captured.push(execOptions as Record<string, unknown>);
+			return Effect.void;
+		},
+		automationsRepository: makeAutomationsRepository({
+			listLifecycleSubscriptions: () => Effect.succeed([{ id: ruleId }]),
+		}),
+		entitiesRepository: bookEntitiesRepository(),
+		mediaOperations: makeMediaOperations({
+			importEntity: () => Effect.succeed({ id: EntityId.make("entity-1") }),
+			writeCollectionMembership: () => Effect.void,
+		}),
+		collectionsService: makeCollectionsService({
+			ensureEntityInLibrary: () => Effect.void,
+			getOrCreateCollection: (_userId, name) =>
+				Effect.succeed({
+					operation: "noop" as const,
+					collection: collectionResponse({ name, id: `${name}-entity` }),
+				}),
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		"normalized-collection-noop",
+		Effect.gen(function* () {
+			yield* seedAdapterResult({ failures: [], entityGroups: [bookMembershipGroup("Favorites")] });
+
+			yield* processNormalizedMediaImport(
+				makePayload("normalized-collection-noop"),
+				"normalized-collection-noop",
+			);
+
+			expect(captured).toHaveLength(0);
+		}),
+	);
+});
+
 it.effect("resolves imported show episode progress and drops unresolved locators", () => {
 	const resolverCalls: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
@@ -408,6 +568,7 @@ it.effect("resolves imported show episode progress and drops unresolved locators
 				Effect.succeed(
 					slug === "show.tmdb"
 						? {
+								entitySchemaSlug: "show",
 								entitySchemaId: EntitySchemaId.make("schema-show"),
 								sandboxScriptId: SandboxScriptId.make("script-show-tmdb"),
 							}
@@ -446,7 +607,7 @@ it.effect("resolves imported show episode progress and drops unresolved locators
 		eventsService: makeEventsService({
 			create: (input) => {
 				createdEvents.push(input.payload as ReadonlyArray<Record<string, unknown>>);
-				return Effect.succeed({ count: input.payload.length });
+				return Effect.succeed({ count: input.payload.length, skipped: 0 });
 			},
 		}),
 	} satisfies TestLayerOptions;
@@ -556,6 +717,7 @@ it.effect("resolves imported podcast episode progress and drops unresolved locat
 				Effect.succeed(
 					slug === "podcast.itunes"
 						? {
+								entitySchemaSlug: "podcast",
 								entitySchemaId: EntitySchemaId.make("schema-podcast"),
 								sandboxScriptId: SandboxScriptId.make("script-podcast-itunes"),
 							}
@@ -594,7 +756,7 @@ it.effect("resolves imported podcast episode progress and drops unresolved locat
 		eventsService: makeEventsService({
 			create: (input) => {
 				createdEvents.push(input.payload as ReadonlyArray<Record<string, unknown>>);
-				return Effect.succeed({ count: input.payload.length });
+				return Effect.succeed({ count: input.payload.length, skipped: 0 });
 			},
 		}),
 	} satisfies TestLayerOptions;
@@ -706,6 +868,7 @@ it.effect(
 					Effect.succeed(
 						slug === "book.openlibrary"
 							? {
+									entitySchemaSlug: "book",
 									entitySchemaId: EntitySchemaId.make("schema-book"),
 									sandboxScriptId: SandboxScriptId.make("script-book-openlibrary"),
 								}

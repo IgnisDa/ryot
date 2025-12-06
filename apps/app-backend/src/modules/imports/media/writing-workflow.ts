@@ -1,5 +1,6 @@
 import { Activity } from "@effect/workflow";
 import { unknownToMessage } from "@ryot/contract/errors";
+import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import {
 	EntityId,
 	EntitySchemaId,
@@ -16,6 +17,7 @@ import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
 
 import type { ImportRunJobData } from "../jobs";
+import { dispatchImportEntityCreateOccurrence } from "../runtime/import-entity-lifecycle-workflow";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
 import { resolveMediaEventTarget } from "./event-target-workflow";
 import { mediaEntityGroupItemIndex } from "./groups";
@@ -29,6 +31,19 @@ import type { ImportMediaEntityGroup } from "./types";
 import { importEntityRefKey } from "./types";
 import { MediaImportWorkflowOperations } from "./types-workflow";
 import { recordWriteFailure } from "./writing-failures-workflow";
+
+const GetOrCreateCollectionOutcome = Schema.Union(
+	Schema.Struct({
+		entity: ListedEntity,
+		collectionId: EntityId,
+		entitySchemaSlug: Schema.String,
+		operation: Schema.Literal("create"),
+	}),
+	Schema.Struct({
+		collectionId: EntityId,
+		operation: Schema.Literal("noop", "update"),
+	}),
+);
 
 export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(function* (input: {
 	executionId: string;
@@ -90,17 +105,34 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 				return cached;
 			}
 
-			const collectionId = yield* Activity.make({
-				success: EntityId,
+			const result = yield* Activity.make({
 				error: ImportRunError,
+				success: GetOrCreateCollectionOutcome,
 				name: `get-or-create-collection-${activityKey(collectionName)}`,
 				execute: collections.getOrCreateCollection(input.payload.userId, collectionName).pipe(
-					Effect.map((collection) => collection.id),
+					Effect.map((outcome) =>
+						outcome.operation === "create"
+							? {
+									entity: outcome.entity,
+									operation: "create" as const,
+									collectionId: outcome.collection.id,
+									entitySchemaSlug: outcome.entitySchemaSlug,
+								}
+							: { operation: outcome.operation, collectionId: outcome.collection.id },
+					),
 					Effect.mapError(toWorkflowError),
 				),
 			});
-			collectionIdsByName.set(collectionName, collectionId);
-			return collectionId;
+			if (result.operation === "create") {
+				yield* dispatchImportEntityCreateOccurrence({
+					entity: result.entity,
+					userId: input.payload.userId,
+					importRunId: input.payload.runId,
+					entitySchemaSlug: result.entitySchemaSlug,
+				});
+			}
+			collectionIdsByName.set(collectionName, result.collectionId);
+			return result.collectionId;
 		});
 
 	const getEventSchemaId = (entitySchemaId: EntitySchemaId, eventSchemaSlug: string) =>
