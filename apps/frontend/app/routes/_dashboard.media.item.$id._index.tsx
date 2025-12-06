@@ -99,7 +99,6 @@ import {
 	useDeployBulkMetadataProgressUpdateMutation,
 	useMetadataDetails,
 	useMetadataGroupDetails,
-	useTranslationMonitor,
 	useUserMetadataDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -230,16 +229,9 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
 
-	const [metadataDetails, isMetadataPartialStatusActive] = useMetadataDetails(
-		loaderData.metadataId,
-	);
+	const [metadataDetails, isMetadataPartialStatusActive, metadataTranslations] =
+		useMetadataDetails(loaderData.metadataId);
 	const userMetadataDetails = useUserMetadataDetails(loaderData.metadataId);
-	const { translations } = useTranslationMonitor({
-		entityLot: EntityLot.Metadata,
-		entityId: loaderData.metadataId,
-		enabled: metadataDetails.isFetched,
-		mediaSource: metadataDetails.data?.source,
-	});
 	const averageRatingValue = convertRatingToUserScale(
 		userMetadataDetails.data?.averageRating,
 		userPreferences.general.reviewScale,
@@ -285,9 +277,10 @@ export default function Page() {
 		[changeProgress],
 	);
 
-	const title = translations?.title || metadataDetails.data?.title || "";
+	const title =
+		metadataTranslations?.title || metadataDetails.data?.title || "";
 	const description =
-		translations?.description || metadataDetails.data?.description;
+		metadataTranslations?.description || metadataDetails.data?.description;
 	const nextEntry = userMetadataDetails.data?.nextEntry;
 	const inProgress = userMetadataDetails.data?.inProgress;
 	const firstGroupAssociated = metadataDetails.data?.groups.at(0);

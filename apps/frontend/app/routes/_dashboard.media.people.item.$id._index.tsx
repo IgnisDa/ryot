@@ -43,7 +43,6 @@ import {
 import {
 	useMetadataGroupDetails,
 	usePersonDetails,
-	useTranslationMonitor,
 	useUserPersonDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -76,19 +75,13 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
-	const [personDetails, isPersonPartialStatusActive] = usePersonDetails(
-		loaderData.personId,
-	);
+	const [personDetails, isPersonPartialStatusActive, personTranslations] =
+		usePersonDetails(loaderData.personId);
 	const userPersonDetails = useUserPersonDetails(loaderData.personId);
-	const { translations } = useTranslationMonitor({
-		entityLot: EntityLot.Person,
-		entityId: loaderData.personId,
-		enabled: personDetails.isFetched,
-		mediaSource: personDetails.data?.details.source,
-	});
-	const title = translations?.title || personDetails.data?.details.name || "";
+	const title =
+		personTranslations?.title || personDetails.data?.details.name || "";
 	const description =
-		translations?.description || personDetails.data?.details.description;
+		personTranslations?.description || personDetails.data?.details.description;
 
 	const [mediaRoleFilter, setMediaRoleFilter] = useLocalStorage(
 		"PersonMediaTabRoleFilter",

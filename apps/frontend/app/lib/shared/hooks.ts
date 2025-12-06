@@ -266,7 +266,7 @@ export const useEntityTranslations = (
 	});
 };
 
-export const useTranslationMonitor = (props: {
+const useTranslationMonitor = (props: {
 	entityId?: string;
 	enabled?: boolean;
 	entityLot: EntityLot;
@@ -356,7 +356,14 @@ export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
 			metadataDetailsQuery.data?.source !== MediaSource.Custom,
 	});
 
-	return [metadataDetailsQuery, isPartialStatusActive] as const;
+	const { translations } = useTranslationMonitor({
+		enabled,
+		entityId: metadataId,
+		entityLot: EntityLot.Metadata,
+		mediaSource: metadataDetailsQuery.data?.source,
+	});
+
+	return [metadataDetailsQuery, isPartialStatusActive, translations] as const;
 };
 
 export const usePersonDetails = (personId?: string, enabled?: boolean) => {
@@ -373,7 +380,14 @@ export const usePersonDetails = (personId?: string, enabled?: boolean) => {
 			query.data?.details.source !== MediaSource.Custom,
 	});
 
-	return [query, isPartialStatusActive] as const;
+	const { translations } = useTranslationMonitor({
+		enabled,
+		entityId: personId,
+		entityLot: EntityLot.Person,
+		mediaSource: query.data?.details.source,
+	});
+
+	return [query, isPartialStatusActive, translations] as const;
 };
 
 export const useMetadataGroupDetails = (
@@ -399,7 +413,14 @@ export const useMetadataGroupDetails = (
 			query.data?.details.source !== MediaSource.Custom,
 	});
 
-	return [query, isPartialStatusActive] as const;
+	const { translations } = useTranslationMonitor({
+		enabled,
+		entityId: metadataGroupId,
+		entityLot: EntityLot.MetadataGroup,
+		mediaSource: query.data?.details.source,
+	});
+
+	return [query, isPartialStatusActive, translations] as const;
 };
 
 export const useUserMetadataGroupDetails = (
