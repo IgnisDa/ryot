@@ -6,8 +6,8 @@ use chrono::Utc;
 use common_models::{EntityWithLot, UserLevelCacheKey};
 use common_utils::ryot_log;
 use database_models::{
-    entity_translation, metadata,
-    prelude::{EntityTranslation, Metadata},
+    entity_translation, metadata, metadata_group, person,
+    prelude::{EntityTranslation, Metadata, MetadataGroup, Person},
 };
 use database_utils::user_by_id;
 use dependent_models::{
@@ -154,6 +154,22 @@ pub async fn media_translations(
                     .one(&ss.db)
                     .await?
                     .ok_or_else(|| anyhow!("Metadata not found"))?,
+                EntityLot::MetadataGroup => MetadataGroup::find_by_id(&input.entity_id)
+                    .select_only()
+                    .column(metadata_group::Column::Source)
+                    .column(metadata_group::Column::HasTranslationsForLanguages)
+                    .into_tuple::<(MediaSource, Option<Vec<String>>)>()
+                    .one(&ss.db)
+                    .await?
+                    .ok_or_else(|| anyhow!("Metadata group not found"))?,
+                EntityLot::Person => Person::find_by_id(&input.entity_id)
+                    .select_only()
+                    .column(person::Column::Source)
+                    .column(person::Column::HasTranslationsForLanguages)
+                    .into_tuple::<(MediaSource, Option<Vec<String>>)>()
+                    .one(&ss.db)
+                    .await?
+                    .ok_or_else(|| anyhow!("Person not found"))?,
                 _ => {
                     bail!("Unsupported entity lot for translations");
                 }
