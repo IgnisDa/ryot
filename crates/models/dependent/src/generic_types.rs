@@ -39,70 +39,6 @@ pub struct SortInput<T: InputType + Default> {
     pub order: GraphqlSortOrder,
 }
 
-#[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
-#[graphql(concrete(name = "CachedGenreDetailsResponse", params(GenreDetails)))]
-#[graphql(concrete(name = "CachedUserAnalyticsResponse", params(UserAnalytics)))]
-#[graphql(concrete(name = "CachedSearchIdResponse", params(UserMetadataListResponse)))]
-#[graphql(concrete(name = "CachedUserPersonDetailsResponse", params(UserPersonDetails)))]
-#[graphql(concrete(name = "CachedUserWorkoutDetailsResponse", params(UserWorkoutDetails)))]
-#[graphql(concrete(name = "CachedMetadataLookupResponse", params(MetadataLookupResponse)))]
-#[graphql(concrete(
-    params(FilterPresetsListResponse),
-    name = "CachedFilterPresetsResponse",
-))]
-#[graphql(concrete(
-    params(UserCollectionsListResponse),
-    name = "CachedCollectionsListResponse",
-))]
-#[graphql(concrete(
-    params(EntityTranslationDetails),
-    name = "CachedEntityTranslationDetails",
-))]
-#[graphql(concrete(
-    params(CollectionContentsResponse),
-    name = "CachedCollectionContentsResponse",
-))]
-#[graphql(concrete(
-    params(UserMetadataDetails),
-    name = "CachedUserMetadataDetailsResponse",
-))]
-#[graphql(concrete(
-    params(UserMeasurementsListResponse),
-    name = "CachedUserMeasurementsListResponse",
-))]
-#[graphql(concrete(
-    params(GraphqlPersonDetails),
-    name = "CachedGraphqlPersonDetailsResponse",
-))]
-#[graphql(concrete(
-    params(MetadataGroupDetails),
-    name = "CachedMetadataGroupDetailsResponse",
-))]
-#[graphql(concrete(
-    params(GraphqlMetadataDetails),
-    name = "CachedGraphqlMetadataDetailsResponse",
-))]
-#[graphql(concrete(
-    params(ApplicationDateRange),
-    name = "CachedUserAnalyticsParametersResponse",
-))]
-#[graphql(concrete(
-    params(UserMetadataGroupDetails),
-    name = "CachedUserMetadataGroupDetailsResponse",
-))]
-#[graphql(concrete(
-    params(UserWorkoutTemplateDetails),
-    name = "CachedUserWorkoutTemplateDetailsResponse",
-))]
-#[graphql(concrete(
-    params(UserMetadataRecommendationsResponse),
-    name = "CachedUserMetadataRecommendationsResponse",
-))]
-pub struct CachedResponse<T: OutputType> {
-    pub response: T,
-    pub cache_id: Uuid,
-}
-
 #[derive(Debug, PartialEq, Eq, SimpleObject, Serialize, Deserialize, Clone)]
 pub struct CollectionContents {
     pub total_items: u64,
@@ -191,5 +127,70 @@ pub type MetadataGroupSearchResponse = SearchResults<String>;
 pub type UserMetadataGroupsListResponse = SearchResults<String>;
 pub type UserWorkoutsTemplatesListResponse = SearchResults<String>;
 pub type UserCollectionsListResponse = Vec<media_models::CollectionItem>;
+pub type EntityTranslationDetailsResponse = Option<EntityTranslationDetails>;
 pub type FilterPresetsListResponse = Vec<database_models::filter_preset::Model>;
 pub type UserMeasurementsListResponse = Vec<database_models::user_measurement::Model>;
+
+#[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[graphql(concrete(name = "CachedGenreDetailsResponse", params(GenreDetails)))]
+#[graphql(concrete(name = "CachedUserAnalyticsResponse", params(UserAnalytics)))]
+#[graphql(concrete(name = "CachedSearchIdResponse", params(UserMetadataListResponse)))]
+#[graphql(concrete(name = "CachedUserPersonDetailsResponse", params(UserPersonDetails)))]
+#[graphql(concrete(name = "CachedUserWorkoutDetailsResponse", params(UserWorkoutDetails)))]
+#[graphql(concrete(name = "CachedMetadataLookupResponse", params(MetadataLookupResponse)))]
+#[graphql(concrete(
+    params(FilterPresetsListResponse),
+    name = "CachedFilterPresetsResponse",
+))]
+#[graphql(concrete(
+    params(UserCollectionsListResponse),
+    name = "CachedCollectionsListResponse",
+))]
+#[graphql(concrete(
+    params(EntityTranslationDetailsResponse),
+    name = "CachedEntityTranslationDetails",
+))]
+#[graphql(concrete(
+    params(CollectionContentsResponse),
+    name = "CachedCollectionContentsResponse",
+))]
+#[graphql(concrete(
+    params(UserMetadataDetails),
+    name = "CachedUserMetadataDetailsResponse",
+))]
+#[graphql(concrete(
+    params(UserMeasurementsListResponse),
+    name = "CachedUserMeasurementsListResponse",
+))]
+#[graphql(concrete(
+    params(GraphqlPersonDetails),
+    name = "CachedGraphqlPersonDetailsResponse",
+))]
+#[graphql(concrete(
+    params(MetadataGroupDetails),
+    name = "CachedMetadataGroupDetailsResponse",
+))]
+#[graphql(concrete(
+    params(GraphqlMetadataDetails),
+    name = "CachedGraphqlMetadataDetailsResponse",
+))]
+#[graphql(concrete(
+    params(ApplicationDateRange),
+    name = "CachedUserAnalyticsParametersResponse",
+))]
+#[graphql(concrete(
+    params(UserMetadataGroupDetails),
+    name = "CachedUserMetadataGroupDetailsResponse",
+))]
+#[graphql(concrete(
+    params(UserWorkoutTemplateDetails),
+    name = "CachedUserWorkoutTemplateDetailsResponse",
+))]
+#[graphql(concrete(
+    params(UserMetadataRecommendationsResponse),
+    name = "CachedUserMetadataRecommendationsResponse",
+))]
+pub struct CachedResponse<T: OutputType> {
+    pub response: T,
+    pub cache_id: Uuid,
+}
