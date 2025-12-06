@@ -141,8 +141,111 @@ sort order of multiple trackers inside a transaction.
   folded into the tracker CRUD methods; that table should be handled when its owning service is
   discussed.
 
+## Entity Schemas Service
+
+### Current state
+
+`EntitySchemasService` exposes `create` for user-defined entity schemas and read/search methods, but
+no `update` or `delete`. Creating a schema also creates a `tracker_entity_schema` link in the same
+transaction and then schedules default saved-view creation through a durable workflow.
+
+### Decision
+
+- `create` will remain the single entity-schema creation entry point for one schema at a time. No
+  creation modes will be added.
+- `update` and `delete` will not be added because those operations are not currently supported.
+- The `tracker_entity_schema` join table must have an explicit owning service. The current
+  `TrackersRepository.linkEntitySchema` write must be moved behind that owner; it must not be
+  treated as part of `TrackersService` tracker CRUD.
+- Entity-schema creation and its tracker link must remain atomic. The caller may coordinate the two
+  simple writes inside the existing transaction.
+- Default saved-view creation remains a post-schema workflow. It must use the normal
+  `SavedViewsService.create` path and preserve the current conflict-as-no-op behavior.
+- Read-only repository access from import and query workflows may remain an implementation detail;
+  direct writes must use the owning service.
+
+## Event Schemas Service
+
+### Current state
+
+`EventSchemasService` exposes `create` and read methods, but no `update` or `delete`. Its create
+operation validates the parent entity schema, reserved slugs, and event properties schema before
+inserting one user-owned event schema.
+
+### Decision
+
+- `create` will remain the single event-schema creation entry point for one schema at a time.
+- `update` and `delete` will not be added because those operations are not currently supported.
+- No `save`, upsert, or mode-based creation method will be introduced.
+- Parent entity-schema access validation, reserved built-in slug protection, properties-schema
+  validation, and conflict behavior must be preserved.
+- The `event_schema_trigger` table is a separate ownership concern. Built-in seed writes to that
+  table must not be folded into `EventSchemasService` CRUD; its owner should be handled separately.
+- Read-only repository access from event creation and import workflows may remain an implementation
+  detail; direct event-schema writes must use `EventSchemasService`.
+
+## Relationship Schemas Service
+
+### Current state
+
+`RelationshipSchemasService` exposes `create` and read methods, but no `update` or `delete`. Its
+create operation validates the referenced entity schemas, reserved built-in slugs, and relationship
+properties schema before inserting one user-owned relationship schema.
+
+### Decision
+
+- `create` will remain the single relationship-schema creation entry point for one schema at a time.
+- `update` and `delete` will not be added because those operations are not currently supported.
+- No `save`, upsert, or mode-based creation method will be introduced.
+- Entity-schema access validation, reserved built-in slug protection, properties-schema validation,
+  and conflict behavior must be preserved.
+- Any future deletion must have an explicit data-loss policy because relationship rows reference
+  relationship schemas with cascading deletion.
+- Read-only repository access from collections, imports, and media workflows may remain an
+  implementation detail; direct relationship-schema writes must use `RelationshipSchemasService`.
+
+## Notifications Service
+
+### Current state
+
+`NotificationsService` already exposes exactly one `create`, `update`, and `delete` method for
+notification-platform rows. Its `test` and `trigger` methods enqueue delivery workflows and do not
+write notification-platform rows. Delivery code uses the repository read-only.
+
+### Decision
+
+- No structural CRUD refactor is required for `NotificationsService`.
+- Keep `create`, `update`, and `delete` as the only notification-platform write methods.
+- Preserve user scoping, platform-kind validation, and the current update and delete behavior.
+- `test` and `trigger` may remain separate workflow operations because they do not write the owned
+  table.
+- Repository access from delivery code must remain read-only.
+
+## Integrations Service
+
+### Current state
+
+`IntegrationsService` already exposes exactly one `create`, `update`, and `delete` method for
+integration rows. Integration workers, however, directly call `IntegrationsRepository.updateForUser`
+to record `lastFinishedAt` and disable integrations after repeated failures.
+
+### Decision
+
+- No additional integration write methods will be added.
+- Worker updates must use the existing `update` entry point. Its internal input may support fields
+  such as `lastFinishedAt` that are not accepted by the public API payload, without adding methods
+  such as `disable` or `markFinished`.
+- Each update must remain a single-integration update; no mode-based or batch update input will be
+  introduced.
+- Provider-specific validation, progress-threshold validation, ownership checks, and workflow
+  behavior must be preserved.
+- Repository access from metadata lookup and integration workflows may remain read-only. Direct
+  integration writes must use `IntegrationsService`.
+
 ## Follow-up
 
 Implement and verify these decisions one service at a time, beginning with `EntitiesService` and
-then `RelationshipsService`, `EventsService`, `SavedViewsService`, and `TrackersService`. Do not
-add decisions for later services until they are discussed.
+then `RelationshipsService`, `EventsService`, `SavedViewsService`, `TrackersService`, and
+`EntitySchemasService`, `EventSchemasService`, `RelationshipSchemasService`, and
+`NotificationsService`, and `IntegrationsService`. Do not add decisions for later services until
+they are discussed.
