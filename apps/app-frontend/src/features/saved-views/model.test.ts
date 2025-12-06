@@ -2,7 +2,6 @@ import { describe, expect, it } from "bun:test";
 import type { AppSavedView } from "./model";
 
 const displayConfiguration: AppSavedView["displayConfiguration"] = {
-	layout: "grid",
 	table: { columns: [{ property: ["@name"] }] },
 	grid: {
 		badgeProperty: null,
