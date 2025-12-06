@@ -116,7 +116,7 @@ pub async fn perform_mp_application_job(
         MpApplicationJob::PerformExport(user_id) => perform_export(&ss, user_id).await,
         MpApplicationJob::UpdateExerciseLibrary => deploy_update_exercise_library_job(&ss).await,
         MpApplicationJob::SyncIntegrationsData => sync_integrations_data(&ss).await,
-        MpApplicationJob::UpdateEntityTranslations(user_id, input) => {
+        MpApplicationJob::UpdateMediaTranslations(user_id, input) => {
             update_media_entity_translation(&ss, &user_id, input).await
         }
     };

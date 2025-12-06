@@ -26,7 +26,7 @@ pub enum MpApplicationJob {
     UpdateMetadata(String),
     ReviseUserWorkouts(String),
     UpdateMetadataGroup(String),
-    UpdateEntityTranslations(String, EntityWithLot),
+    UpdateMediaTranslations(String, EntityWithLot),
     ImportFromExternalSource(String, Box<DeployImportJobInput>),
 }
 
