@@ -17,6 +17,16 @@ WHERE "preferences"->'languages' IS NULL
         )
         .await?;
 
+        if !manager
+            .has_column("metadata", "has_translations_for_languages")
+            .await?
+        {
+            db.execute_unprepared(
+                r#"ALTER TABLE "metadata" ADD COLUMN "has_translations_for_languages" JSONB"#,
+            )
+            .await?;
+        }
+
         Ok(())
     }
 
