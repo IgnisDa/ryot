@@ -2957,7 +2957,7 @@ export type UserLanguagePreferences = {
 };
 
 export type UserLanguagePreferencesInput = {
-  providers: Array<UserSourceLanguagePreferencesInput>;
+  providers: Array<UserProviderLanguagePreferencesInput>;
 };
 
 export enum UserLot {
@@ -3160,6 +3160,11 @@ export type UserProviderLanguagePreferences = {
   source: MediaSource;
 };
 
+export type UserProviderLanguagePreferencesInput = {
+  preferredLanguage: Scalars['String']['input'];
+  source: MediaSource;
+};
+
 export type UserResetResponse = {
   passwordChangeUrl?: Maybe<Scalars['String']['output']>;
   userId: Scalars['String']['output'];
@@ -3173,11 +3178,6 @@ export enum UserReviewScale {
   OutOfTen = 'OUT_OF_TEN',
   ThreePointSmiley = 'THREE_POINT_SMILEY'
 }
-
-export type UserSourceLanguagePreferencesInput = {
-  preferredLanguage: Scalars['String']['input'];
-  source: MediaSource;
-};
 
 export type UserStatisticsMeasurement = {
   name: Scalars['String']['output'];

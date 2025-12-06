@@ -399,7 +399,7 @@ pub struct UserGeneralPreferences {
     SimpleObject,
     FromJsonQueryResult,
 )]
-#[graphql(input_name = "UserSourceLanguagePreferencesInput")]
+#[graphql(input_name = "UserProviderLanguagePreferencesInput")]
 #[educe(Default)]
 pub struct UserProviderLanguagePreferences {
     pub source: MediaSource,
