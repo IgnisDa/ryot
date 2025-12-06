@@ -2,7 +2,7 @@ import type { DbClient } from "~/lib/db";
 
 import { shouldRunLegacyBootstrap, withLegacyBootstrapNoticeClient } from "./shared";
 
-const renameLegacyTablesSql = `
+const renameLegacyUserTableSql = `
 DO $$
 DECLARE started_at timestamptz := clock_timestamp();
 BEGIN
@@ -30,12 +30,37 @@ BEGIN
 END $$;
 `;
 
+// The V2 "integration" table reuses the V1 table name, so the V1 table must be moved aside before
+// the Drizzle migration creates the V2 "integration" table (its CREATE TABLE has no IF NOT EXISTS).
+// The legacy primary key is renamed too because its backing index name would otherwise collide with
+// the V2 table's "integration_pkey" index.
+const renameLegacyIntegrationTableSql = `
+DO $$
+DECLARE started_at timestamptz := clock_timestamp();
+BEGIN
+	IF to_regclass('"old_integration"') IS NOT NULL THEN
+		-- rename already ran on a previous startup; skip idempotently
+		RETURN;
+	END IF;
+
+	IF to_regclass('"integration"') IS NULL THEN
+		RAISE EXCEPTION 'Expected V1 integration table to exist but it was not found; cannot rename';
+	END IF;
+
+	ALTER TABLE "integration" RENAME TO old_integration;
+	ALTER TABLE "old_integration" RENAME CONSTRAINT "integration_pkey" TO "old_integration_pkey";
+	RAISE NOTICE 'rename: integration -> old_integration (% seconds elapsed)',
+		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+END $$;
+`;
+
 export const renameLegacyTables = async (database: DbClient) => {
 	if (!(await shouldRunLegacyBootstrap(database))) {
 		return;
 	}
 
 	await withLegacyBootstrapNoticeClient(database, async (client) => {
-		await client.query(renameLegacyTablesSql);
+		await client.query(renameLegacyUserTableSql);
+		await client.query(renameLegacyIntegrationTableSql);
 	});
 };
