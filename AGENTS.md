@@ -10,7 +10,7 @@
   single quotes since they often contain special characters.
 - When getting data from GitHub, try using the `gh` CLI and make raw requests only when
   absolutely necessary.
-- When making changes to the code, run the following commands generously to ensure that the
+- When making changes to the code, run the following commands often to ensure that the
   changes you are making do not break anything:
 
   ```bash
