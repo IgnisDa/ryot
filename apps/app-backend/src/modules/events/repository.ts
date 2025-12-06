@@ -156,6 +156,13 @@ export type ActiveEventSchemaTriggerRow = {
 	metadata: (typeof eventSchemaTrigger.$inferSelect)["metadata"];
 };
 
+export type ActiveBeforeCreateTriggerRow = {
+	id: string;
+	position: number;
+	eventSchemaId: string;
+	sandboxScriptId: string;
+};
+
 export const getActiveEventSchemaTriggersForEventSchemas = async (input: {
 	userId: string;
 	eventSchemaIds: string[];
@@ -176,7 +183,35 @@ export const getActiveEventSchemaTriggersForEventSchemas = async (input: {
 			and(
 				inArray(eventSchemaTrigger.eventSchemaId, input.eventSchemaIds),
 				eq(eventSchemaTrigger.isActive, true),
+				eq(eventSchemaTrigger.phase, "after_create"),
 				or(isNull(eventSchemaTrigger.userId), eq(eventSchemaTrigger.userId, input.userId)),
 			),
 		);
+};
+
+export const getActiveBeforeCreateTriggersForEventSchemas = async (input: {
+	userId: string;
+	eventSchemaIds: string[];
+}): Promise<ActiveBeforeCreateTriggerRow[]> => {
+	if (input.eventSchemaIds.length === 0) {
+		return [];
+	}
+
+	return db
+		.select({
+			id: eventSchemaTrigger.id,
+			position: eventSchemaTrigger.position,
+			eventSchemaId: eventSchemaTrigger.eventSchemaId,
+			sandboxScriptId: eventSchemaTrigger.sandboxScriptId,
+		})
+		.from(eventSchemaTrigger)
+		.where(
+			and(
+				inArray(eventSchemaTrigger.eventSchemaId, input.eventSchemaIds),
+				eq(eventSchemaTrigger.isActive, true),
+				eq(eventSchemaTrigger.phase, "before_create"),
+				or(isNull(eventSchemaTrigger.userId), eq(eventSchemaTrigger.userId, input.userId)),
+			),
+		)
+		.orderBy(eventSchemaTrigger.position);
 };
