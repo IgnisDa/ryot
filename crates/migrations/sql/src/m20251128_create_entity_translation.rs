@@ -143,6 +143,32 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
+                    .name("entity_translation__language_metadata_group_id_variant_idx")
+                    .unique()
+                    .table(EntityTranslation::Table)
+                    .col(EntityTranslation::Language)
+                    .col(EntityTranslation::MetadataGroupId)
+                    .col(EntityTranslation::Variant)
+                    .and_where(Expr::col(EntityTranslation::MetadataGroupId).is_not_null())
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name("entity_translation__language_person_id_variant_idx")
+                    .unique()
+                    .table(EntityTranslation::Table)
+                    .col(EntityTranslation::Language)
+                    .col(EntityTranslation::PersonId)
+                    .col(EntityTranslation::Variant)
+                    .and_where(Expr::col(EntityTranslation::PersonId).is_not_null())
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
                     .name("entity_translation__language_entity_id_lot_idx")
                     .table(EntityTranslation::Table)
                     .col(EntityTranslation::Language)
