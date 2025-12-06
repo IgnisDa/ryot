@@ -328,7 +328,6 @@ query MetadataGroupDetails($metadataGroupId: String!) {
 
 query MetadataGroupSearch($input: MetadataGroupSearchInput!) {
 	metadataGroupSearch(input: $input) {
-		cacheId
 		response {
 			items
 			details {
@@ -352,7 +351,6 @@ query UserMetadataList($input: UserMetadataListInput!) {
 
 query MetadataSearch($input: MetadataSearchInput!) {
 	metadataSearch(input: $input) {
-		cacheId
 		response {
 			items
 			details {
@@ -364,7 +362,6 @@ query MetadataSearch($input: MetadataSearchInput!) {
 
 query PeopleSearch($input: PeopleSearchInput!) {
 	peopleSearch(input: $input) {
-		cacheId
 		response {
 			items
 			details {
@@ -478,7 +475,6 @@ query UserWorkoutTemplatesList($input: UserTemplatesOrWorkoutsListInput!) {
 
 query UserAnalyticsParameters {
 	userAnalyticsParameters {
-		cacheId
 		response {
 			endDate
 			startDate
@@ -501,7 +497,6 @@ query CollectionRecommendations($input: CollectionRecommendationsInput!) {
 
 query MetadataLookup($title: String!) {
 	metadataLookup(title: $title) {
-		cacheId
 		response {
 			... on MetadataLookupFoundResult {
 				data {
@@ -527,7 +522,6 @@ query UserEntityRecentlyConsumed($input: EntityWithLotInput!) {
 
 query MediaTranslations($input: EntityWithLotInput!) {
 	mediaTranslations(input: $input) {
-		cacheId
 		response {
 			title
 			description
@@ -537,7 +531,6 @@ query MediaTranslations($input: EntityWithLotInput!) {
 
 query FilterPresets($input: FilterPresetQueryInput!) {
 	filterPresets(input: $input) {
-		cacheId
 		response {
 			id
 			name
