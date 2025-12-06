@@ -105,19 +105,16 @@ pub async fn update_media_entity_translation(
 
             let mut languages: HashSet<String> = HashSet::from_iter(
                 meta.has_translations_for_languages
+                    .clone()
                     .unwrap_or_default()
                     .into_iter(),
             );
             languages.insert(preferred_language);
 
-            let item = metadata::ActiveModel {
-                last_updated_on: ActiveValue::Set(Utc::now()),
-                id: ActiveValue::Unchanged(input.entity_id.clone()),
-                has_translations_for_languages: ActiveValue::Set(Some(
-                    languages.into_iter().collect_vec(),
-                )),
-                ..Default::default()
-            };
+            let mut item: metadata::ActiveModel = meta.into();
+            item.last_updated_on = ActiveValue::Set(Utc::now());
+            item.has_translations_for_languages =
+                ActiveValue::Set(Some(languages.into_iter().collect_vec()));
             item.update(&ss.db).await?;
         }
         _ => {}
