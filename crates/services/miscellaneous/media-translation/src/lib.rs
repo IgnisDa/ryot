@@ -147,11 +147,12 @@ pub async fn media_translations(
         }),
         ApplicationCacheValue::UserEntityTranslations,
         || async move {
-            let source = match input.entity_lot {
+            let (source, has_translations_for_languages) = match input.entity_lot {
                 EntityLot::Metadata => Metadata::find_by_id(&input.entity_id)
                     .select_only()
                     .column(metadata::Column::Source)
-                    .into_tuple::<MediaSource>()
+                    .column(metadata::Column::HasTranslationsForLanguages)
+                    .into_tuple::<(MediaSource, Option<Vec<String>>)>()
                     .one(&ss.db)
                     .await?
                     .ok_or_else(|| anyhow!("Metadata not found"))?,
@@ -168,6 +169,12 @@ pub async fn media_translations(
                 .all(&ss.db)
                 .await?;
             if translations.is_empty() {
+                if has_translations_for_languages
+                    .unwrap_or_default()
+                    .contains(&preferred_language)
+                {
+                    return Ok(Some(EntityTranslationDetails::default()));
+                }
                 return Ok(None);
             }
             Ok(Some(EntityTranslationDetails {
