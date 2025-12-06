@@ -203,6 +203,7 @@ export const PersonDisplayItem = (props: {
 	const [
 		{ data: personDetails, isLoading: isPersonDetailsLoading },
 		isPersonPartialStatusActive,
+		personTranslations,
 	] = usePersonDetails(props.personId, inViewport);
 	const { data: userPersonDetails } = useUserPersonDetails(
 		props.personId,
@@ -240,13 +241,13 @@ export const PersonDisplayItem = (props: {
 			entityId={props.personId}
 			entityLot={EntityLot.Person}
 			rating={averageRating ?? undefined}
-			title={personDetails?.details.name}
 			centerElement={props.centerElement}
 			isDetailsLoading={isPersonDetailsLoading}
 			interactionButtons={["collection", "review"]}
 			wasRecentlyConsumed={isPersonRecentlyConsumed}
 			isPartialStatusActive={isPersonPartialStatusActive}
 			additionalInformation={defaultAdditionalInformation}
+			title={personTranslations?.title || personDetails?.details.name}
 			onImageClickBehavior={[
 				$path("/media/people/item/:id", { id: props.personId }),
 			]}
