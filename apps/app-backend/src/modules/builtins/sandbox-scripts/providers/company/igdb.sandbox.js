@@ -259,7 +259,9 @@ driver("details", async function (context) {
 	const addGames = (games, role) => {
 		for (const game of Array.isArray(games) ? games : []) {
 			const gameId =
-				typeof game?.id === "number" && Number.isFinite(game.id) ? String(Math.trunc(game.id)) : null;
+				typeof game?.id === "number" && Number.isFinite(game.id)
+					? String(Math.trunc(game.id))
+					: null;
 			const gameName = typeof game?.name === "string" && game.name.trim() ? game.name.trim() : null;
 			if (!gameId || !gameName) {
 				continue;

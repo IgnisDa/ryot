@@ -173,8 +173,11 @@ driver("details", async function (context) {
 	const movieEntities = (Array.isArray(movieData?.results) ? movieData.results : [])
 		.map((movie) => {
 			const movieId =
-				typeof movie?.id === "number" && Number.isFinite(movie.id) ? String(Math.trunc(movie.id)) : null;
-			const movieName = typeof movie?.title === "string" && movie.title.trim() ? movie.title.trim() : null;
+				typeof movie?.id === "number" && Number.isFinite(movie.id)
+					? String(Math.trunc(movie.id))
+					: null;
+			const movieName =
+				typeof movie?.title === "string" && movie.title.trim() ? movie.title.trim() : null;
 			return {
 				externalId: movieId,
 				scriptSlug: "movie.tmdb",
@@ -186,7 +189,9 @@ driver("details", async function (context) {
 	const showEntities = (Array.isArray(showData?.results) ? showData.results : [])
 		.map((show) => {
 			const showId =
-				typeof show?.id === "number" && Number.isFinite(show.id) ? String(Math.trunc(show.id)) : null;
+				typeof show?.id === "number" && Number.isFinite(show.id)
+					? String(Math.trunc(show.id))
+					: null;
 			const showName = typeof show?.name === "string" && show.name.trim() ? show.name.trim() : null;
 			return {
 				externalId: showId,

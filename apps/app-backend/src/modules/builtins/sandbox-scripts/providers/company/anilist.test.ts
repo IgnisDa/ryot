@@ -56,5 +56,6 @@ describe("company.anilist sandbox script", () => {
 					],
 				},
 			]);
+			return undefined;
 		}));
 });
