@@ -18,6 +18,9 @@ impl MiscellaneousTranslationQueryResolver {
         entity: EntityWithLot,
     ) -> Result<CachedResponse<EntityTranslationDetails>> {
         let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
-        todo!()
+        Ok(
+            miscellaneous_translation_service::get_entity_translations(&user_id, entity, &service)
+                .await?,
+        )
     }
 }

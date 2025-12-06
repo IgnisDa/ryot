@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
 use anyhow::{Result, anyhow, bail};
-use common_models::EntityWithLot;
+use common_models::{EntityWithLot, UserLevelCacheKey};
 use common_utils::ryot_log;
 use database_models::{
     entity_translation,
     prelude::{EntityTranslation, Metadata},
 };
 use database_utils::user_by_id;
+use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, CachedResponse};
 use dependent_provider_utils::get_metadata_provider;
 use dependent_utility_utils::expire_user_entity_details_cache;
 use enum_models::{EntityLot, EntityTranslationVariant, MediaSource};
@@ -86,29 +87,38 @@ async fn update_media_entity_translation(
     Ok(())
 }
 
-async fn get_entity_translations(
+pub async fn get_entity_translations(
     user_id: &String,
-    entity_id: &String,
-    source: &MediaSource,
-    entity_lot: EntityLot,
+    input: EntityWithLot,
     ss: &Arc<SupportingService>,
-) -> Result<EntityTranslationDetails> {
-    let preferred_language =
-        get_preferred_language_for_user_and_source(ss, user_id, source).await?;
-    let translations = EntityTranslation::find()
-        .filter(entity_translation::Column::EntityId.eq(entity_id))
-        .filter(entity_translation::Column::EntityLot.eq(entity_lot))
-        .filter(entity_translation::Column::Language.eq(&preferred_language))
-        .all(&ss.db)
-        .await?;
-    Ok(EntityTranslationDetails {
-        title: translations
-            .iter()
-            .find(|s| s.variant == EntityTranslationVariant::Title)
-            .and_then(|s| s.value.clone()),
-        description: translations
-            .iter()
-            .find(|s| s.variant == EntityTranslationVariant::Description)
-            .and_then(|s| s.value.clone()),
-    })
+) -> Result<CachedResponse<EntityTranslationDetails>> {
+    cache_service::get_or_set_with_callback(
+        ss,
+        ApplicationCacheKey::EntityTranslations(UserLevelCacheKey {
+            input: input.clone(),
+            user_id: user_id.clone(),
+        }),
+        ApplicationCacheValue::EntityTranslations,
+        || async move {
+            let preferred_language =
+                get_preferred_language_for_user_and_source(ss, user_id, todo!()).await?;
+            let translations = EntityTranslation::find()
+                .filter(entity_translation::Column::EntityId.eq(input.entity_id))
+                .filter(entity_translation::Column::EntityLot.eq(input.entity_lot))
+                .filter(entity_translation::Column::Language.eq(&preferred_language))
+                .all(&ss.db)
+                .await?;
+            Ok(EntityTranslationDetails {
+                title: translations
+                    .iter()
+                    .find(|s| s.variant == EntityTranslationVariant::Title)
+                    .and_then(|s| s.value.clone()),
+                description: translations
+                    .iter()
+                    .find(|s| s.variant == EntityTranslationVariant::Description)
+                    .and_then(|s| s.value.clone()),
+            })
+        },
+    )
+    .await
 }

@@ -9,4 +9,5 @@ async-graphql = { workspace = true }
 common-models = { workspace = true }
 dependent-models = { workspace = true }
 media-models = { workspace = true }
+miscellaneous-translation-service = { workspace = true }
 traits = { workspace = true }

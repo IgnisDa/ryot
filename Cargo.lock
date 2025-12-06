@@ -4832,6 +4832,7 @@ dependencies = [
  "common-models",
  "dependent-models",
  "media-models",
+ "miscellaneous-translation-service",
  "traits",
 ]
 
@@ -4840,10 +4841,12 @@ name = "miscellaneous-translation-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cache-service",
  "common-models",
  "common-utils",
  "database-models",
  "database-utils",
+ "dependent-models",
  "dependent-provider-utils",
  "dependent-utility-utils",
  "enum-models",

@@ -7,7 +7,7 @@ use common_models::{
 };
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
-    GenreDetailsInput, GraphqlMetadataDetails, MetadataLookupResponse,
+    EntityTranslationDetails, GenreDetailsInput, GraphqlMetadataDetails, MetadataLookupResponse,
     MetadataProgressUpdateCacheInput, TmdbMetadataLookupResult,
 };
 use sea_orm::FromJsonQueryResult;
@@ -96,6 +96,7 @@ pub enum ApplicationCacheKey {
     PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),
     UserMetadataGroupDetails(UserLevelCacheKey<String>),
     UserAnalytics(UserLevelCacheKey<UserAnalyticsInput>),
+    EntityTranslations(UserLevelCacheKey<EntityWithLot>),
     UserWorkoutTemplateDetails(UserLevelCacheKey<String>),
     UserMetadataRecommendationsSet(UserLevelCacheKey<()>),
     MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
@@ -147,6 +148,7 @@ pub enum ApplicationCacheValue {
     UserWorkoutDetails(Box<UserWorkoutDetails>),
     MetadataDetails(Box<GraphqlMetadataDetails>),
     UserExercisesList(UserExercisesListResponse),
+    EntityTranslations(EntityTranslationDetails),
     UserFilterPresets(FilterPresetsListResponse),
     UserAnalyticsParameters(ApplicationDateRange),
     UserMetadataDetails(Box<UserMetadataDetails>),
