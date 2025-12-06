@@ -7,7 +7,7 @@ use common_models::{
 };
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
-    EntityTranslationDetails, GenreDetailsInput, GraphqlMetadataDetails, MetadataLookupResponse,
+    GenreDetailsInput, GraphqlMetadataDetails, MetadataLookupResponse,
     MetadataProgressUpdateCacheInput, TmdbMetadataLookupResult,
 };
 use sea_orm::FromJsonQueryResult;
@@ -17,8 +17,9 @@ use strum::{Display, EnumDiscriminants};
 use uuid::Uuid;
 
 use crate::{
-    GenreDetails, GraphqlPersonDetails, MetadataGroupDetails, UserMetadataDetails,
-    UserMetadataGroupDetails, UserPersonDetails, UserWorkoutDetails, UserWorkoutTemplateDetails,
+    EntityTranslationDetailsResponse, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
+    UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails, UserWorkoutDetails,
+    UserWorkoutTemplateDetails,
     analytics::UserAnalytics,
     core_systems::{CoreDetails, TmdbSettings, TvdbSettings},
     generic_types::{
@@ -148,7 +149,6 @@ pub enum ApplicationCacheValue {
     UserWorkoutDetails(Box<UserWorkoutDetails>),
     MetadataDetails(Box<GraphqlMetadataDetails>),
     UserExercisesList(UserExercisesListResponse),
-    EntityTranslations(EntityTranslationDetails),
     UserFilterPresets(FilterPresetsListResponse),
     UserAnalyticsParameters(ApplicationDateRange),
     UserMetadataDetails(Box<UserMetadataDetails>),
@@ -159,6 +159,7 @@ pub enum ApplicationCacheValue {
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
     UserMeasurementsList(UserMeasurementsListResponse),
+    EntityTranslations(EntityTranslationDetailsResponse),
     MetadataProgressUpdateCompletedCache(EmptyCacheValue),
     MetadataProgressUpdateInProgressCache(EmptyCacheValue),
     UserMetadataGroupsList(UserMetadataGroupsListResponse),
