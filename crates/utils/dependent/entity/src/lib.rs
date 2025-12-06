@@ -257,7 +257,10 @@ pub async fn insert_metadata_group_links(
             metadata_id: ActiveValue::Set(metadata_id.to_owned()),
             metadata_group_id: ActiveValue::Set(metadata_group_id),
         };
-        intermediate.insert(&ss.db).await.ok();
+        MetadataToMetadataGroup::insert(intermediate)
+            .on_conflict(OnConflict::new().do_nothing().to_owned())
+            .exec_without_returning(&ss.db)
+            .await?;
     }
     Ok(())
 }
