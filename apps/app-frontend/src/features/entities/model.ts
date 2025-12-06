@@ -1,6 +1,15 @@
-import type { ApiPostResponseData } from "#/lib/api/types";
+import type {
+	ApiGetResponseData,
+	ApiPostRequestBody,
+	ApiPostResponseData,
+} from "#/lib/api/types";
 
-type ApiEntity = ApiPostResponseData<"/view-runtime/execute">[number];
+type ViewRuntimeRequest = ApiPostRequestBody<"/view-runtime/execute">;
+type GridViewRuntimeRequest = Extract<ViewRuntimeRequest, { layout: "grid" }>;
+type ApiEntity = ApiGetResponseData<"/entities/{entityId}">;
+type ApiViewRuntimeEntity =
+	ApiPostResponseData<"/view-runtime/execute">["items"][number];
+type ApiEntityInput = ApiEntity | ApiViewRuntimeEntity;
 
 export type AppEntityImage =
 	| { kind: "remote"; url: string }
@@ -11,7 +20,30 @@ export type AppEntity = Omit<ApiEntity, "createdAt" | "updatedAt" | "image"> & {
 	image: AppEntityImage;
 	createdAt: Date;
 	updatedAt: Date;
+	entitySchemaSlug?: ApiViewRuntimeEntity["entitySchemaSlug"];
+	resolvedProperties?: ApiViewRuntimeEntity["resolvedProperties"];
 };
+
+const defaultDisplayConfiguration: GridViewRuntimeRequest["displayConfiguration"] =
+	{
+		badgeProperty: null,
+		subtitleProperty: null,
+		titleProperty: ["@name"],
+		imageProperty: ["@image"],
+	};
+
+export function createEntityRuntimeRequest(
+	entitySchemaSlug: string,
+): GridViewRuntimeRequest {
+	return {
+		layout: "grid",
+		filters: [],
+		entitySchemaSlugs: [entitySchemaSlug],
+		pagination: { page: 1, limit: 1000 },
+		sort: { field: ["@name"], direction: "asc" },
+		displayConfiguration: defaultDisplayConfiguration,
+	};
+}
 
 function toAppEntityImage(image: unknown): AppEntityImage {
 	if (!image || typeof image !== "object") {
@@ -31,12 +63,34 @@ function toAppEntityImage(image: unknown): AppEntityImage {
 	return null;
 }
 
-export function toAppEntity(entity: ApiEntity): AppEntity {
+function isViewRuntimeEntity(
+	entity: ApiEntityInput,
+): entity is ApiViewRuntimeEntity {
+	return "resolvedProperties" in entity;
+}
+
+export function toAppEntity(entity: ApiEntityInput): AppEntity {
+	const properties = isViewRuntimeEntity(entity) ? {} : entity.properties;
+	const externalId = isViewRuntimeEntity(entity) ? null : entity.externalId;
+	const detailsSandboxScriptId = isViewRuntimeEntity(entity)
+		? null
+		: entity.detailsSandboxScriptId;
+	const resolvedProperties = isViewRuntimeEntity(entity)
+		? entity.resolvedProperties
+		: properties;
+
 	return {
 		...entity,
+		properties,
+		externalId,
+		resolvedProperties,
+		detailsSandboxScriptId,
 		image: toAppEntityImage(entity.image),
 		createdAt: new Date(entity.createdAt),
 		updatedAt: new Date(entity.updatedAt),
+		entitySchemaSlug: isViewRuntimeEntity(entity)
+			? entity.entitySchemaSlug
+			: undefined,
 	};
 }
 
@@ -60,8 +114,5 @@ export function getEntityListViewState(
 		return { type: "empty" };
 	}
 
-	return {
-		type: "list",
-		entities: sortEntities(entities),
-	};
+	return { type: "list", entities: sortEntities(entities) };
 }
