@@ -46,9 +46,7 @@ impl MiscellaneousMediaTranslationMutationResolver {
         let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
         Ok(
             miscellaneous_media_translation_service::deploy_update_media_translations_job(
-                service,
-                user_id,
-                input.clone(),
+                user_id, input, service,
             )
             .await?,
         )

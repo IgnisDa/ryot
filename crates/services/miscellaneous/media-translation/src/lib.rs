@@ -45,9 +45,9 @@ async fn get_preferred_language_for_user_and_source(
 }
 
 pub async fn deploy_update_media_translations_job(
-    ss: &Arc<SupportingService>,
     user_id: String,
     input: EntityWithLot,
+    ss: &Arc<SupportingService>,
 ) -> Result<bool> {
     ss.perform_application_job(ApplicationJob::Mp(
         MpApplicationJob::UpdateMediaTranslations(user_id, input),
