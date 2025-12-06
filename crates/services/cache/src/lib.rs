@@ -73,7 +73,7 @@ fn get_expiry_for_key(ss: &Arc<SupportingService>, key: &ApplicationCacheKey) ->
         | ApplicationCacheKey::UserPasswordChangeSession { .. } => Duration::days(7),
 
         ApplicationCacheKey::UserFilterPresets { .. }
-        | ApplicationCacheKey::EntityTranslations { .. }
+        | ApplicationCacheKey::UserEntityTranslations { .. }
         | ApplicationCacheKey::MetadataProgressUpdateInProgressCache { .. } => Duration::days(60),
 
         ApplicationCacheKey::UserSession { .. } => {

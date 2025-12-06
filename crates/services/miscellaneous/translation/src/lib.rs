@@ -96,11 +96,11 @@ pub async fn entity_translations(
 ) -> Result<CachedResponse<EntityTranslationDetailsResponse>> {
     cache_service::get_or_set_with_callback(
         ss,
-        ApplicationCacheKey::EntityTranslations(UserLevelCacheKey {
+        ApplicationCacheKey::UserEntityTranslations(UserLevelCacheKey {
             input: input.clone(),
             user_id: user_id.clone(),
         }),
-        ApplicationCacheValue::EntityTranslations,
+        ApplicationCacheValue::UserEntityTranslations,
         || async move {
             let preferred_language =
                 get_preferred_language_for_user_and_source(ss, user_id, todo!()).await?;
