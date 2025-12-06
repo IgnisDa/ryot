@@ -2,7 +2,10 @@ use indoc::indoc;
 use migrations_utils::create_trigram_index_if_required;
 use sea_orm_migration::prelude::*;
 
-use super::m20230410_create_metadata::Metadata;
+use super::{
+    m20230410_create_metadata::Metadata, m20230411_create_metadata_group::MetadataGroup,
+    m20230413_create_person::Person,
+};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -12,14 +15,18 @@ pub static ENTITY_TRANSLATION_CONSTRAINT_SQL: &str = indoc! { r#"
     ALTER TABLE "entity_translation"
     ADD CONSTRAINT "entity_translation__ensure_one_entity"
     CHECK (
-        (CASE WHEN "metadata_id" IS NOT NULL THEN 1 ELSE 0 END)
+        (CASE WHEN "metadata_id" IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN "metadata_group_id" IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN "person_id" IS NOT NULL THEN 1 ELSE 0 END)
         = 1
     );
 "# };
 pub static ENTITY_TRANSLATION_ENTITY_ID_SQL: &str = indoc! { r#"
     GENERATED ALWAYS AS (
         COALESCE(
-            "metadata_id"
+            "metadata_id",
+            "metadata_group_id",
+            "person_id"
         )
     ) STORED
 "# };
@@ -27,6 +34,8 @@ pub static ENTITY_TRANSLATION_ENTITY_LOT_SQL: &str = indoc! { r#"
     GENERATED ALWAYS AS (
         CASE
             WHEN "metadata_id" IS NOT NULL THEN 'metadata'
+            WHEN "metadata_group_id" IS NOT NULL THEN 'metadata_group'
+            WHEN "person_id" IS NOT NULL THEN 'person'
         END
     ) STORED
 "# };
@@ -38,10 +47,12 @@ pub enum EntityTranslation {
     Value,
     Variant,
     Language,
+    PersonId,
     EntityId,
     CreatedOn,
     EntityLot,
     MetadataId,
+    MetadataGroupId,
 }
 
 #[async_trait::async_trait]
@@ -66,6 +77,8 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(EntityTranslation::MetadataId).text())
+                    .col(ColumnDef::new(EntityTranslation::MetadataGroupId).text())
+                    .col(ColumnDef::new(EntityTranslation::PersonId).text())
                     .col(ColumnDef::new(EntityTranslation::Value).text())
                     .col(ColumnDef::new(EntityTranslation::Variant).text().not_null())
                     .col(
@@ -90,6 +103,22 @@ impl MigrationTrait for Migration {
                             .name("entity_translation-fk1")
                             .from(EntityTranslation::Table, EntityTranslation::MetadataId)
                             .to(Metadata::Table, Metadata::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("entity_translation-fk2")
+                            .from(EntityTranslation::Table, EntityTranslation::MetadataGroupId)
+                            .to(MetadataGroup::Table, MetadataGroup::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("entity_translation-fk3")
+                            .from(EntityTranslation::Table, EntityTranslation::PersonId)
+                            .to(Person::Table, Person::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )

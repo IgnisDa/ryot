@@ -22,8 +22,12 @@ pub struct Model {
     #[graphql(skip)]
     pub created_on: DateTimeUtc,
     #[graphql(skip)]
+    pub person_id: Option<String>,
+    #[graphql(skip)]
     pub metadata_id: Option<String>,
     pub variant: EntityTranslationVariant,
+    #[graphql(skip)]
+    pub metadata_group_id: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -36,6 +40,22 @@ pub enum Relation {
         belongs_to = "super::metadata::Entity"
     )]
     Metadata,
+    #[sea_orm(
+        on_update = "Cascade",
+        on_delete = "Cascade",
+        from = "Column::MetadataGroupId",
+        to = "super::metadata_group::Column::Id",
+        belongs_to = "super::metadata_group::Entity"
+    )]
+    MetadataGroup,
+    #[sea_orm(
+        on_update = "Cascade",
+        on_delete = "Cascade",
+        from = "Column::PersonId",
+        to = "super::person::Column::Id",
+        belongs_to = "super::person::Entity"
+    )]
+    Person,
 }
 
 impl Related<super::metadata::Entity> for Entity {
