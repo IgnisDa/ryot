@@ -285,10 +285,12 @@ export default function Page() {
 	const inProgress = userMetadataDetails.data?.inProgress;
 	const firstGroupAssociated = metadataDetails.data?.groups.at(0);
 	const videos = [...(metadataDetails.data?.assets.remoteVideos || [])];
-	const [{ data: metadataGroupDetails }] = useMetadataGroupDetails(
-		firstGroupAssociated?.id,
-		userPreferences.featuresEnabled.media.groups && !!firstGroupAssociated?.id,
-	);
+	const [{ data: metadataGroupDetails }, _, metadataGroupTranslations] =
+		useMetadataGroupDetails(
+			firstGroupAssociated?.id,
+			userPreferences.featuresEnabled.media.groups &&
+				!!firstGroupAssociated?.id,
+		);
 	const additionalMetadataDetails = [
 		userPreferences.featuresEnabled.media.groups && firstGroupAssociated && (
 			<Link
@@ -299,8 +301,10 @@ export default function Page() {
 				})}
 			>
 				<Text c="dimmed" fs="italic" span>
-					{metadataGroupDetails?.details.title || "Group"} #
-					{firstGroupAssociated.part}
+					{metadataGroupTranslations?.title ||
+						metadataGroupDetails?.details.title ||
+						"Group"}{" "}
+					#{firstGroupAssociated.part}
 				</Text>
 			</Link>
 		),

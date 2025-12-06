@@ -132,6 +132,7 @@ export const MetadataGroupDisplayItem = (props: {
 	const [
 		{ data: metadataGroupDetails, isLoading: isMetadataGroupDetailsLoading },
 		isMetadataGroupPartialStatusActive,
+		metadataGroupTranslations,
 	] = useMetadataGroupDetails(props.metadataGroupId, inViewport);
 	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
 		props.metadataGroupId,
@@ -173,13 +174,15 @@ export const MetadataGroupDisplayItem = (props: {
 			rating={averageRating ?? undefined}
 			entityLot={EntityLot.MetadataGroup}
 			centerElement={props.centerElement}
-			title={metadataGroupDetails?.details.title}
 			mediaLot={metadataGroupDetails?.details.lot}
 			isDetailsLoading={isMetadataGroupDetailsLoading}
 			additionalInformation={defaultAdditionalInformation}
 			wasRecentlyConsumed={isMetadataGroupRecentlyConsumed}
 			interactionButtons={["collection", "review", "watchlist"]}
 			isPartialStatusActive={isMetadataGroupPartialStatusActive}
+			title={
+				metadataGroupTranslations?.title || metadataGroupDetails?.details.title
+			}
 			onImageClickBehavior={[
 				$path("/media/groups/item/:id", { id: props.metadataGroupId }),
 			]}
