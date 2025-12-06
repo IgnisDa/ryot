@@ -67,7 +67,7 @@ const ValidatedEntityDetails = Schema.Struct({
 	relatedEntities: Schema.Array(EntityDetailsRelatedEntity),
 });
 
-export const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
+const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
 	DurableQueue.process(SandboxExecutionQueue, {
 		driverName: "details",
 		userId: payload.userId,

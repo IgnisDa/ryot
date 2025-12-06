@@ -48,16 +48,16 @@ export const SandboxExecutionPayload = Schema.Struct({
 
 export type SandboxExecutionPayload = Schema.Schema.Type<typeof SandboxExecutionPayload>;
 
-export const SandboxTiming = Schema.Struct({
+const SandboxTiming = Schema.Struct({
 	totalMs: Schema.Number,
 	executionMs: Schema.Number,
 });
 
-export const SandboxPendingResult = Schema.Struct({
+const SandboxPendingResult = Schema.Struct({
 	status: Schema.Literal("pending"),
 });
 
-export const SandboxFailedResult = Schema.Struct({
+const SandboxFailedResult = Schema.Struct({
 	error: Schema.String,
 	status: Schema.Literal("failed"),
 });
