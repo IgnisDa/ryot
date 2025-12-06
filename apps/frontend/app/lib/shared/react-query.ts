@@ -6,6 +6,7 @@ import {
 	type CollectionContentsInput,
 	type CollectionRecommendationsInput,
 	type EntityLot,
+	EntityTranslationsDocument,
 	type GenreDetailsInput,
 	MetadataGroupDetailsDocument,
 	type MetadataGroupSearchInput,
@@ -110,6 +111,9 @@ const mediaQueryKeys = createQueryKeys("media", {
 	}),
 	userEntityRecentlyConsumed: (entityId?: string) => ({
 		queryKey: ["userEntityRecentlyConsumed", entityId],
+	}),
+	entityTranslations: (entityId?: string, entityLot?: EntityLot) => ({
+		queryKey: ["entityTranslations", entityId, entityLot],
 	}),
 });
 
@@ -254,6 +258,24 @@ export const getUserEntityRecentlyConsumedQuery = (
 				: skipToken,
 	});
 
+export const getEntityTranslationsQuery = (
+	entityId?: string,
+	entityLot?: EntityLot,
+) =>
+	queryOptions({
+		queryKey: queryFactory.media.entityTranslations(entityId, entityLot)
+			.queryKey,
+		queryFn:
+			entityId && entityLot
+				? () =>
+						clientGqlService
+							.request(EntityTranslationsDocument, {
+								input: { entityId, entityLot },
+							})
+							.then((data) => data.entityTranslations)
+				: skipToken,
+	});
+
 export const refreshEntityDetails = (entityId: string) =>
 	setTimeout(async () => {
 		await Promise.all(
@@ -266,6 +288,7 @@ export const refreshEntityDetails = (entityId: string) =>
 				queryFactory.media.metadataGroupDetails(entityId).queryKey,
 				queryFactory.media.userMetadataGroupDetails(entityId).queryKey,
 				queryFactory.media.userEntityRecentlyConsumed(entityId).queryKey,
+				queryFactory.media.entityTranslations._def,
 				queryFactory.fitness.workoutTemplateDetails(entityId).queryKey,
 				queryFactory.media.userGenresList._def,
 				queryFactory.media.userPeopleList._def,
