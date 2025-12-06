@@ -40,7 +40,9 @@ use miscellaneous_system_resolver::{
 use miscellaneous_tracking_resolver::{
     MiscellaneousTrackingMutationResolver, MiscellaneousTrackingQueryResolver,
 };
-use miscellaneous_translation_resolver::MiscellaneousTranslationQueryResolver;
+use miscellaneous_translation_resolver::{
+    MiscellaneousTranslationMutationResolver, MiscellaneousTranslationQueryResolver,
+};
 use router_resolver::{
     config_handler, download_logs_handler, graphql_playground_handler, integration_webhook_handler,
     upload_file_handler,
@@ -179,6 +181,7 @@ pub struct MutationRoot(
     MiscellaneousSystemMutationResolver,
     MiscellaneousTrackingMutationResolver,
     MiscellaneousMetadataMutationResolver,
+    MiscellaneousTranslationMutationResolver,
     MiscellaneousFilterPresetMutationResolver,
 );
 
