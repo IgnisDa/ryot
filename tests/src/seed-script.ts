@@ -1,5 +1,5 @@
 /* oxlint-disable */
-
+// TODO: delete this file eventually
 import { fileURLToPath } from "node:url";
 
 import { faker } from "@faker-js/faker";
