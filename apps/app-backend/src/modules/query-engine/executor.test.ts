@@ -7,6 +7,7 @@ import { CurrentDb } from "#lib/db";
 import { makeEmptyContext } from "./executor/context";
 import { evalExprValue } from "./executor/expr";
 import {
+	evalEventFieldSelector,
 	evalFieldSelector,
 	evalSystemRef,
 	getNestedValue,
@@ -20,7 +21,7 @@ import {
 	includeOrderSql,
 	relationshipRootOrderSql,
 } from "./executor/sql";
-import type { EntityQueryRow } from "./executor/types";
+import type { EntityQueryRow, EventFields } from "./executor/types";
 import type {
 	EntitySource,
 	Expr,
@@ -55,6 +56,7 @@ const baseRow: EntityQueryRow = {
 	id: "row-1",
 	image: null,
 	name: "Dune",
+	userId: "user-1",
 	externalId: null,
 	totalCount: "42",
 	schemaSlug: "books",
@@ -62,9 +64,25 @@ const baseRow: EntityQueryRow = {
 	schemaIsBuiltin: false,
 	sandboxScriptId: null,
 	schemaId: "schema-books",
+	populatedAt: null,
 	createdAt: new Date("2024-01-01"),
 	updatedAt: new Date("2024-06-01"),
 	properties: { title: "Dune", year: 1965, nested: { publisher: "Chilton" } },
+};
+
+const baseEventRow: EventFields = {
+	eventId: "event-1",
+	eventUserId: "user-1",
+	eventEntityId: "row-1",
+	eventSessionEntityId: null,
+	eventSchemaSlug: "complete",
+	eventSchemaName: "Complete",
+	eventSchemaIsBuiltin: false,
+	eventSchemaId: "schema-complete",
+	eventProperties: { score: 10, note: "done" },
+	eventCreatedAt: new Date("2024-01-02"),
+	eventUpdatedAt: new Date("2024-01-03"),
+	eventOccurredAt: new Date("2024-01-01"),
 };
 
 describe("valueToFieldValue", () => {
@@ -149,6 +167,42 @@ describe("evalSystemRef", () => {
 		expect(evalSystemRef("sandboxScriptId", row)).toEqual({ kind: "text", value: "script-7" });
 	});
 
+	it("resolves 'entitySchemaId' to the row schema id as text", () => {
+		expect(evalSystemRef("entitySchemaId", baseRow)).toEqual({
+			kind: "text",
+			value: "schema-books",
+		});
+	});
+
+	it("resolves 'userId' to null when null", () => {
+		const row = { ...baseRow, userId: null };
+		expect(evalSystemRef("userId", row)).toEqual({ kind: "null", value: null });
+	});
+
+	it("resolves 'userId' to text when present", () => {
+		const row = { ...baseRow, userId: "user-2" };
+		expect(evalSystemRef("userId", row)).toEqual({ kind: "text", value: "user-2" });
+	});
+
+	it("resolves 'populatedAt' to null when null", () => {
+		expect(evalSystemRef("populatedAt", baseRow)).toEqual({ kind: "null", value: null });
+	});
+
+	it("resolves 'populatedAt' to date when present", () => {
+		const populated = new Date("2024-03-01");
+		const row = { ...baseRow, populatedAt: populated };
+		const result = evalSystemRef("populatedAt", row);
+		expect(result.kind).toBe("date");
+		expect(result.value).toEqual(populated);
+	});
+
+	it("resolves 'properties' to the full json object", () => {
+		expect(evalSystemRef("properties", baseRow)).toEqual({
+			kind: "json",
+			value: baseRow.properties,
+		});
+	});
+
 	it("returns null for an unrecognized field name", () => {
 		expect(evalSystemRef("bogus", baseRow)).toEqual({ kind: "null", value: null });
 	});
@@ -227,6 +281,55 @@ describe("evalFieldSelector", () => {
 	});
 });
 
+describe("evalEventFieldSelector", () => {
+	it("resolves event 'id' to text", () => {
+		const field: FieldSelector = { type: "system", name: "id" };
+		expect(evalEventFieldSelector(field, baseEventRow)).toEqual({ kind: "text", value: "event-1" });
+	});
+
+	it("resolves event 'entityId' to text", () => {
+		const field: FieldSelector = { type: "system", name: "entityId" };
+		expect(evalEventFieldSelector(field, baseEventRow)).toEqual({ kind: "text", value: "row-1" });
+	});
+
+	it("resolves event 'eventSchemaId' to the schema id as text", () => {
+		const field: FieldSelector = { type: "system", name: "eventSchemaId" };
+		expect(evalEventFieldSelector(field, baseEventRow)).toEqual({
+			kind: "text",
+			value: "schema-complete",
+		});
+	});
+
+	it("resolves event 'userId' to text", () => {
+		const field: FieldSelector = { type: "system", name: "userId" };
+		expect(evalEventFieldSelector(field, baseEventRow)).toEqual({ kind: "text", value: "user-1" });
+	});
+
+	it("resolves event 'sessionEntityId' to null when null", () => {
+		const field: FieldSelector = { type: "system", name: "sessionEntityId" };
+		expect(evalEventFieldSelector(field, baseEventRow)).toEqual({ kind: "null", value: null });
+	});
+
+	it("resolves event 'sessionEntityId' to text when present", () => {
+		const field: FieldSelector = { type: "system", name: "sessionEntityId" };
+		const row = { ...baseEventRow, eventSessionEntityId: "session-entity-1" };
+		expect(evalEventFieldSelector(field, row)).toEqual({ kind: "text", value: "session-entity-1" });
+	});
+
+	it("resolves event 'properties' to the full json object", () => {
+		const field: FieldSelector = { type: "system", name: "properties" };
+		expect(evalEventFieldSelector(field, baseEventRow)).toEqual({
+			kind: "json",
+			value: baseEventRow.eventProperties,
+		});
+	});
+
+	it("returns null for an unrecognized event system field", () => {
+		const field: FieldSelector = { type: "system", name: "bogus" };
+		expect(evalEventFieldSelector(field, baseEventRow)).toEqual({ kind: "null", value: null });
+	});
+});
+
 describe("evalExprValue date literal", () => {
 	it("resolves a date literal to {kind: 'date'} keeping the string value", () => {
 		expect(
@@ -300,6 +403,12 @@ describe("fieldSelectorToOrderSql", () => {
 		return dialect.sqlToQuery(result);
 	};
 
+	const toSqlEvent = (field: FieldSelector) => {
+		const result = fieldSelectorToOrderSql(field, ["complete"], "ev");
+		assert(result !== null, "expected non-null SQL result");
+		return dialect.sqlToQuery(result);
+	};
+
 	it("returns SQL referencing the entity name column for system 'name'", () => {
 		const query = toSql({ type: "system", name: "name" });
 		expect(query.sql).toContain("e.name");
@@ -313,6 +422,51 @@ describe("fieldSelectorToOrderSql", () => {
 	it("returns SQL referencing e.created_at for system 'createdAt'", () => {
 		const query = toSql({ type: "system", name: "createdAt" });
 		expect(query.sql).toContain("e.created_at");
+	});
+
+	it("returns SQL referencing e.entity_schema_id for system 'entitySchemaId'", () => {
+		const query = toSql({ type: "system", name: "entitySchemaId" });
+		expect(query.sql).toContain("e.entity_schema_id");
+	});
+
+	it("returns SQL referencing e.user_id for system 'userId'", () => {
+		const query = toSql({ type: "system", name: "userId" });
+		expect(query.sql).toContain("e.user_id");
+	});
+
+	it("returns SQL referencing e.populated_at for system 'populatedAt'", () => {
+		const query = toSql({ type: "system", name: "populatedAt" });
+		expect(query.sql).toContain("e.populated_at");
+	});
+
+	it("returns SQL referencing e.properties for system 'properties'", () => {
+		const query = toSql({ type: "system", name: "properties" });
+		expect(query.sql).toContain("e.properties");
+	});
+
+	it("returns SQL referencing ev.entity_id for event system 'entityId'", () => {
+		const query = toSqlEvent({ type: "system", name: "entityId" });
+		expect(query.sql).toContain("ev.entity_id");
+	});
+
+	it("returns SQL referencing ev.event_schema_id for event system 'eventSchemaId'", () => {
+		const query = toSqlEvent({ type: "system", name: "eventSchemaId" });
+		expect(query.sql).toContain("ev.event_schema_id");
+	});
+
+	it("returns SQL referencing ev.session_entity_id for event system 'sessionEntityId'", () => {
+		const query = toSqlEvent({ type: "system", name: "sessionEntityId" });
+		expect(query.sql).toContain("ev.session_entity_id");
+	});
+
+	it("returns SQL referencing ev.user_id for event system 'userId'", () => {
+		const query = toSqlEvent({ type: "system", name: "userId" });
+		expect(query.sql).toContain("ev.user_id");
+	});
+
+	it("returns SQL referencing ev.properties for event system 'properties'", () => {
+		const query = toSqlEvent({ type: "system", name: "properties" });
+		expect(query.sql).toContain("ev.properties");
 	});
 
 	it("returns null for an unknown system field", () => {
@@ -370,6 +524,8 @@ describe("entityJsonbObjectSql", () => {
 		expect(query.sql).toContain("se.updated_at");
 		expect(query.sql).toContain("se.properties");
 		expect(query.sql).toContain("se.external_id");
+		expect(query.sql).toContain("se.user_id");
+		expect(query.sql).toContain("se.populated_at");
 		expect(query.sql).toContain("se.sandbox_script_id");
 	});
 

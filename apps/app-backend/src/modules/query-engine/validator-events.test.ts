@@ -33,6 +33,62 @@ describe("event roots and first expressions", () => {
 		expect(validateQueryDocument(makeEventDoc())).toBeNull();
 	});
 
+	it.each(["entityId", "eventSchemaId", "sessionEntityId", "userId", "properties"])(
+		"accepts event system field '%s' in fields and orderBy",
+		(name) => {
+			const doc = makeEventDoc({
+				output: {
+					type: "rows",
+					pagination: { page: 1, limit: 10 },
+					orderBy: [
+						{
+							order: "desc",
+							expr: { type: "ref", sourceAlias: "completion", field: { type: "system", name } },
+						},
+					],
+					fields: [
+						{
+							key: "f",
+							expr: { type: "ref", sourceAlias: "completion", field: { type: "system", name } },
+						},
+					],
+				},
+			});
+			expect(validateQueryDocument(doc)).toBeNull();
+		},
+	);
+
+	it("accepts a new event system field inside a where comparison", () => {
+		const doc = makeEventDoc({
+			source: {
+				where: null,
+				type: "events",
+				alias: "completion",
+				schemas: ["complete"],
+				entity: { alias: "lesson", schemas: ["lessons"] },
+			},
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "desc", expr: occurredAtRef("completion") }],
+				fields: [
+					{
+						key: "hasSession",
+						expr: {
+							type: "isNotNull",
+							expr: {
+								type: "ref",
+								sourceAlias: "completion",
+								field: { type: "system", name: "sessionEntityId" },
+							},
+						},
+					},
+				],
+			},
+		});
+		expect(validateQueryDocument(doc)).toBeNull();
+	});
+
 	it("accepts event, event property, attached entity, and event schema metadata refs", () => {
 		const doc = makeEventDoc({
 			output: {
