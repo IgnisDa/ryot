@@ -525,6 +525,16 @@ query UserEntityRecentlyConsumed($input: EntityWithLotInput!) {
 	userEntityRecentlyConsumed(input: $input)
 }
 
+query EntityTranslations($input: EntityWithLotInput!) {
+	entityTranslations(input: $input) {
+		cacheId
+		response {
+			title
+			description
+		}
+	}
+}
+
 query FilterPresets($input: FilterPresetQueryInput!) {
 	filterPresets(input: $input) {
 		cacheId

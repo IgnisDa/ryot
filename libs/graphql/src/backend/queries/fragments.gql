@@ -280,4 +280,3 @@ fragment DailyUserActivityItemPart on DailyUserActivityItem {
 	videoGameCount
 	visualNovelCount
 }
-
