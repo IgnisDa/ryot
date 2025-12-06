@@ -44,16 +44,66 @@ async fn get_preferred_language_for_user_and_source(
     Ok(preferred_language)
 }
 
-pub async fn deploy_update_media_translations_job(
-    user_id: String,
-    input: EntityWithLot,
+fn merge_languages(existing: &Option<Vec<String>>, preferred_language: &str) -> Vec<String> {
+    let mut languages: HashSet<String> = HashSet::from_iter(existing.clone().unwrap_or_default());
+    languages.insert(preferred_language.to_string());
+    languages.into_iter().collect_vec()
+}
+
+fn build_translation_models(
+    input: &EntityWithLot,
+    preferred_language: &str,
+    title: Option<String>,
+    description: Option<String>,
+) -> Vec<entity_translation::ActiveModel> {
+    let model_for = |variant: EntityTranslationVariant, value: Option<String>| {
+        let mut model = entity_translation::ActiveModel {
+            variant: ActiveValue::Set(variant),
+            value: ActiveValue::Set(value.filter(|v| !v.is_empty())),
+            language: ActiveValue::Set(preferred_language.to_string()),
+            ..Default::default()
+        };
+        match input.entity_lot {
+            EntityLot::Person => {
+                model.person_id = ActiveValue::Set(Some(input.entity_id.clone()));
+            }
+            EntityLot::Metadata => {
+                model.metadata_id = ActiveValue::Set(Some(input.entity_id.clone()));
+            }
+            EntityLot::MetadataGroup => {
+                model.metadata_group_id = ActiveValue::Set(Some(input.entity_id.clone()));
+            }
+            _ => {}
+        }
+        model
+    };
+
+    vec![
+        model_for(EntityTranslationVariant::Title, title),
+        model_for(EntityTranslationVariant::Description, description),
+    ]
+}
+
+async fn replace_entity_translations(
     ss: &Arc<SupportingService>,
-) -> Result<bool> {
-    ss.perform_application_job(ApplicationJob::Mp(
-        MpApplicationJob::UpdateMediaTranslations(user_id, input),
-    ))
-    .await?;
-    Ok(true)
+    input: &EntityWithLot,
+    preferred_language: &str,
+    title: Option<String>,
+    description: Option<String>,
+) -> Result<()> {
+    EntityTranslation::delete_many()
+        .filter(entity_translation::Column::EntityId.eq(&input.entity_id))
+        .filter(entity_translation::Column::EntityLot.eq(input.entity_lot))
+        .filter(entity_translation::Column::Language.eq(preferred_language))
+        .exec(&ss.db)
+        .await?;
+    let translations = build_translation_models(input, preferred_language, title, description);
+    let result = EntityTranslation::insert_many(translations)
+        .on_conflict(OnConflict::new().do_nothing().to_owned())
+        .exec_without_returning(&ss.db)
+        .await?;
+    ryot_log!(debug, "Inserting translations: {:?}", result);
+    Ok(())
 }
 
 pub async fn update_media_entity_translation(
@@ -70,51 +120,25 @@ pub async fn update_media_entity_translation(
             let preferred_language =
                 get_preferred_language_for_user_and_source(ss, user_id, &meta.source).await?;
             let provider = get_metadata_provider(meta.lot, meta.source, ss).await?;
-            match provider
+            if let Ok(trn) = provider
                 .translate_metadata(&meta.identifier, &preferred_language)
                 .await
             {
-                Ok(trn) => {
-                    EntityTranslation::delete_many()
-                        .filter(entity_translation::Column::EntityId.eq(&input.entity_id))
-                        .filter(entity_translation::Column::EntityLot.eq(input.entity_lot))
-                        .filter(entity_translation::Column::Language.eq(&preferred_language))
-                        .exec(&ss.db)
-                        .await?;
-                    let translations = [
-                        (EntityTranslationVariant::Title, trn.title),
-                        (EntityTranslationVariant::Description, trn.description),
-                    ]
-                    .into_iter()
-                    .map(|(variant, value)| entity_translation::ActiveModel {
-                        variant: ActiveValue::Set(variant),
-                        language: ActiveValue::Set(preferred_language.clone()),
-                        value: ActiveValue::Set(value.filter(|v| !v.is_empty())),
-                        metadata_id: ActiveValue::Set(Some(input.entity_id.clone())),
-                        ..Default::default()
-                    })
-                    .collect::<Vec<_>>();
-                    let result = EntityTranslation::insert_many(translations)
-                        .on_conflict(OnConflict::new().do_nothing().to_owned())
-                        .exec_without_returning(&ss.db)
-                        .await?;
-                    ryot_log!(debug, "Inserting translations: {:?}", result);
-                }
-                Err(_) => {}
-            };
+                replace_entity_translations(
+                    ss,
+                    &input,
+                    &preferred_language,
+                    trn.title,
+                    trn.description,
+                )
+                .await?;
+            }
 
-            let mut languages: HashSet<String> = HashSet::from_iter(
-                meta.has_translations_for_languages
-                    .clone()
-                    .unwrap_or_default()
-                    .into_iter(),
-            );
-            languages.insert(preferred_language);
-
+            let languages =
+                merge_languages(&meta.has_translations_for_languages, &preferred_language);
             let mut item: metadata::ActiveModel = meta.into();
             item.last_updated_on = ActiveValue::Set(Utc::now());
-            item.has_translations_for_languages =
-                ActiveValue::Set(Some(languages.into_iter().collect_vec()));
+            item.has_translations_for_languages = ActiveValue::Set(Some(languages));
             item.update(&ss.db).await?;
         }
         EntityLot::MetadataGroup => {
@@ -131,45 +155,23 @@ pub async fn update_media_entity_translation(
                 .translate_metadata_group(&metadata_group.identifier, &preferred_language)
                 .await
             {
-                EntityTranslation::delete_many()
-                    .filter(entity_translation::Column::EntityId.eq(&input.entity_id))
-                    .filter(entity_translation::Column::EntityLot.eq(input.entity_lot))
-                    .filter(entity_translation::Column::Language.eq(&preferred_language))
-                    .exec(&ss.db)
-                    .await?;
-                let translations = [
-                    (EntityTranslationVariant::Title, trn.title),
-                    (EntityTranslationVariant::Description, trn.description),
-                ]
-                .into_iter()
-                .map(|(variant, value)| entity_translation::ActiveModel {
-                    variant: ActiveValue::Set(variant),
-                    language: ActiveValue::Set(preferred_language.clone()),
-                    value: ActiveValue::Set(value.filter(|v| !v.is_empty())),
-                    metadata_group_id: ActiveValue::Set(Some(input.entity_id.clone())),
-                    ..Default::default()
-                })
-                .collect::<Vec<_>>();
-                let result = EntityTranslation::insert_many(translations)
-                    .on_conflict(OnConflict::new().do_nothing().to_owned())
-                    .exec_without_returning(&ss.db)
-                    .await?;
-                ryot_log!(debug, "Inserting translations: {:?}", result);
+                replace_entity_translations(
+                    ss,
+                    &input,
+                    &preferred_language,
+                    trn.title,
+                    trn.description,
+                )
+                .await?;
             }
 
-            let mut languages: HashSet<String> = HashSet::from_iter(
-                metadata_group
-                    .has_translations_for_languages
-                    .clone()
-                    .unwrap_or_default()
-                    .into_iter(),
+            let languages = merge_languages(
+                &metadata_group.has_translations_for_languages,
+                &preferred_language,
             );
-            languages.insert(preferred_language);
-
             let mut item: metadata_group::ActiveModel = metadata_group.into();
             item.last_updated_on = ActiveValue::Set(Utc::now());
-            item.has_translations_for_languages =
-                ActiveValue::Set(Some(languages.into_iter().collect_vec()));
+            item.has_translations_for_languages = ActiveValue::Set(Some(languages));
             item.update(&ss.db).await?;
         }
         EntityLot::Person => {
@@ -184,45 +186,21 @@ pub async fn update_media_entity_translation(
                 .translate_person(&person.identifier, &preferred_language)
                 .await
             {
-                EntityTranslation::delete_many()
-                    .filter(entity_translation::Column::EntityId.eq(&input.entity_id))
-                    .filter(entity_translation::Column::EntityLot.eq(input.entity_lot))
-                    .filter(entity_translation::Column::Language.eq(&preferred_language))
-                    .exec(&ss.db)
-                    .await?;
-                let translations = [
-                    (EntityTranslationVariant::Title, trn.title),
-                    (EntityTranslationVariant::Description, trn.description),
-                ]
-                .into_iter()
-                .map(|(variant, value)| entity_translation::ActiveModel {
-                    variant: ActiveValue::Set(variant),
-                    language: ActiveValue::Set(preferred_language.clone()),
-                    value: ActiveValue::Set(value.filter(|v| !v.is_empty())),
-                    person_id: ActiveValue::Set(Some(input.entity_id.clone())),
-                    ..Default::default()
-                })
-                .collect::<Vec<_>>();
-                let result = EntityTranslation::insert_many(translations)
-                    .on_conflict(OnConflict::new().do_nothing().to_owned())
-                    .exec_without_returning(&ss.db)
-                    .await?;
-                ryot_log!(debug, "Inserting translations: {:?}", result);
+                replace_entity_translations(
+                    ss,
+                    &input,
+                    &preferred_language,
+                    trn.title,
+                    trn.description,
+                )
+                .await?;
             }
 
-            let mut languages: HashSet<String> = HashSet::from_iter(
-                person
-                    .has_translations_for_languages
-                    .clone()
-                    .unwrap_or_default()
-                    .into_iter(),
-            );
-            languages.insert(preferred_language);
-
+            let languages =
+                merge_languages(&person.has_translations_for_languages, &preferred_language);
             let mut item: person::ActiveModel = person.into();
             item.last_updated_on = ActiveValue::Set(Utc::now());
-            item.has_translations_for_languages =
-                ActiveValue::Set(Some(languages.into_iter().collect_vec()));
+            item.has_translations_for_languages = ActiveValue::Set(Some(languages));
             item.update(&ss.db).await?;
         }
         _ => {}
@@ -238,6 +216,18 @@ pub async fn update_media_entity_translation(
     )
     .await?;
     Ok(())
+}
+
+pub async fn deploy_update_media_translations_job(
+    user_id: String,
+    input: EntityWithLot,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    ss.perform_application_job(ApplicationJob::Mp(
+        MpApplicationJob::UpdateMediaTranslations(user_id, input),
+    ))
+    .await?;
+    Ok(true)
 }
 
 pub async fn media_translations(
