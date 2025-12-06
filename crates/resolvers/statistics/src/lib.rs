@@ -2,12 +2,11 @@ use async_graphql::{Context, Object, Result};
 use common_models::{ApplicationDateRange, UserAnalyticsInput};
 use dependent_models::{CachedResponse, UserAnalytics};
 use statistics_service::{user_analytics, user_analytics_parameters};
-use traits::{AuthProvider, GraphqlDependencyInjector};
+use traits::GraphqlDependencyInjector;
 
 #[derive(Default)]
 pub struct StatisticsQueryResolver;
 
-impl AuthProvider for StatisticsQueryResolver {}
 impl GraphqlDependencyInjector for StatisticsQueryResolver {}
 
 #[Object]

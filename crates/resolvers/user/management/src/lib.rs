@@ -6,7 +6,7 @@ use media_models::{
     CreateAccessLinkInput, GetPasswordChangeSessionInput, GetPasswordChangeSessionResponse,
     ProcessAccessLinkInput, ProcessAccessLinkResult, SetPasswordViaSessionInput, UserResetResult,
 };
-use traits::{AuthProvider, GraphqlDependencyInjector};
+use traits::GraphqlDependencyInjector;
 use user_models::{UpdateUserInput, UserPreferences};
 use user_service::{
     access_link_operations, authentication_operations, password_change_operations,
@@ -16,7 +16,6 @@ use user_service::{
 #[derive(Default)]
 pub struct UserManagementQueryResolver;
 
-impl AuthProvider for UserManagementQueryResolver {}
 impl GraphqlDependencyInjector for UserManagementQueryResolver {}
 
 #[Object]
@@ -48,12 +47,11 @@ impl UserManagementQueryResolver {
 #[derive(Default)]
 pub struct UserManagementMutationResolver;
 
-impl AuthProvider for UserManagementMutationResolver {
+impl GraphqlDependencyInjector for UserManagementMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
-impl GraphqlDependencyInjector for UserManagementMutationResolver {}
 
 #[Object]
 impl UserManagementMutationResolver {

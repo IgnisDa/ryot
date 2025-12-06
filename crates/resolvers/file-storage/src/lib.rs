@@ -1,12 +1,11 @@
 use async_graphql::{Context, Object, Result};
 use common_models::PresignedPutUrlResponse;
 use file_storage_service::{delete_object, get_presigned_put_url, get_presigned_url};
-use traits::{AuthProvider, GraphqlDependencyInjector};
+use traits::GraphqlDependencyInjector;
 
 #[derive(Default)]
 pub struct FileStorageQueryResolver;
 
-impl AuthProvider for FileStorageQueryResolver {}
 impl GraphqlDependencyInjector for FileStorageQueryResolver {}
 
 #[Object]
@@ -21,7 +20,6 @@ impl FileStorageQueryResolver {
 #[derive(Default)]
 pub struct FileStorageMutationResolver;
 
-impl AuthProvider for FileStorageMutationResolver {}
 impl GraphqlDependencyInjector for FileStorageMutationResolver {}
 
 #[Object]

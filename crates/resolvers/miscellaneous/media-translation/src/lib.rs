@@ -1,12 +1,11 @@
 use async_graphql::{Context, Object, Result};
 use common_models::EntityWithLot;
 use dependent_models::{CachedResponse, EntityTranslationDetailsResponse};
-use traits::{AuthProvider, GraphqlDependencyInjector};
+use traits::GraphqlDependencyInjector;
 
 #[derive(Default)]
 pub struct MiscellaneousMediaTranslationQueryResolver;
 
-impl AuthProvider for MiscellaneousMediaTranslationQueryResolver {}
 impl GraphqlDependencyInjector for MiscellaneousMediaTranslationQueryResolver {}
 
 #[Object]
@@ -28,12 +27,11 @@ impl MiscellaneousMediaTranslationQueryResolver {
 #[derive(Default)]
 pub struct MiscellaneousMediaTranslationMutationResolver;
 
-impl AuthProvider for MiscellaneousMediaTranslationMutationResolver {
+impl GraphqlDependencyInjector for MiscellaneousMediaTranslationMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
-impl GraphqlDependencyInjector for MiscellaneousMediaTranslationMutationResolver {}
 
 #[Object]
 impl MiscellaneousMediaTranslationMutationResolver {

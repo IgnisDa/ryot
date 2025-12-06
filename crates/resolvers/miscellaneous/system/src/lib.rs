@@ -1,13 +1,12 @@
 use async_graphql::{Context, Object, Result};
 use common_models::{BackgroundJob, EntityWithLot};
 use dependent_models::CoreDetails;
-use traits::{AuthProvider, GraphqlDependencyInjector};
+use traits::GraphqlDependencyInjector;
 use uuid::Uuid;
 
 #[derive(Default)]
 pub struct MiscellaneousSystemQueryResolver;
 
-impl AuthProvider for MiscellaneousSystemQueryResolver {}
 impl GraphqlDependencyInjector for MiscellaneousSystemQueryResolver {}
 
 #[Object]
@@ -22,12 +21,11 @@ impl MiscellaneousSystemQueryResolver {
 #[derive(Default)]
 pub struct MiscellaneousSystemMutationResolver;
 
-impl AuthProvider for MiscellaneousSystemMutationResolver {
+impl GraphqlDependencyInjector for MiscellaneousSystemMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
-impl GraphqlDependencyInjector for MiscellaneousSystemMutationResolver {}
 
 #[Object]
 impl MiscellaneousSystemMutationResolver {

@@ -11,17 +11,16 @@ use miscellaneous_metadata_operations_service::{
     create_custom_metadata, create_custom_metadata_group, create_custom_person,
     update_custom_metadata, update_custom_metadata_group, update_custom_person,
 };
-use traits::{AuthProvider, GraphqlDependencyInjector};
+use traits::GraphqlDependencyInjector;
 
 #[derive(Default)]
 pub struct CustomMutationResolver;
 
-impl AuthProvider for CustomMutationResolver {
+impl GraphqlDependencyInjector for CustomMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
-impl GraphqlDependencyInjector for CustomMutationResolver {}
 
 #[Object]
 impl CustomMutationResolver {

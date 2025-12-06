@@ -114,7 +114,7 @@ pub trait MediaProvider {
 }
 
 #[async_trait]
-pub trait AuthProvider {
+pub trait GraphqlDependencyInjector {
     #[allow(dead_code)]
     fn is_mutation(&self) -> bool {
         false
@@ -142,10 +142,7 @@ pub trait AuthProvider {
             .clone()
             .ok_or_else(|| Error::new(BackendError::NoUserId.to_string()))
     }
-}
 
-#[async_trait]
-pub trait GraphqlDependencyInjector: AuthProvider {
     fn dependency<'a>(&self, ctx: &Context<'a>) -> &'a Arc<SupportingService> {
         ctx.data_unchecked::<Arc<SupportingService>>()
     }

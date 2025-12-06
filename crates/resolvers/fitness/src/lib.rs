@@ -18,12 +18,11 @@ use fitness_service::{
     exercise_management, measurement_operations, template_management, workout_operations,
 };
 use sea_orm::prelude::DateTimeUtc;
-use traits::{AuthProvider, GraphqlDependencyInjector};
+use traits::GraphqlDependencyInjector;
 
 #[derive(Default)]
 pub struct FitnessQueryResolver;
 
-impl AuthProvider for FitnessQueryResolver {}
 impl GraphqlDependencyInjector for FitnessQueryResolver {}
 
 #[Object]
@@ -112,12 +111,11 @@ impl FitnessQueryResolver {
 #[derive(Default)]
 pub struct FitnessMutationResolver;
 
-impl AuthProvider for FitnessMutationResolver {
+impl GraphqlDependencyInjector for FitnessMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
-impl GraphqlDependencyInjector for FitnessMutationResolver {}
 
 #[Object]
 impl FitnessMutationResolver {

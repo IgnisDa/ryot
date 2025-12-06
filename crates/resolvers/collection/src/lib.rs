@@ -13,12 +13,11 @@ use dependent_models::{
     CollectionRecommendationsInput, SearchResults, UserCollectionsListResponse,
 };
 use media_models::CreateOrUpdateCollectionInput;
-use traits::{AuthProvider, GraphqlDependencyInjector};
+use traits::GraphqlDependencyInjector;
 
 #[derive(Default)]
 pub struct CollectionQueryResolver;
 
-impl AuthProvider for CollectionQueryResolver {}
 impl GraphqlDependencyInjector for CollectionQueryResolver {}
 
 #[Object]
@@ -56,12 +55,11 @@ impl CollectionQueryResolver {
 #[derive(Default)]
 pub struct CollectionMutationResolver;
 
-impl AuthProvider for CollectionMutationResolver {
+impl GraphqlDependencyInjector for CollectionMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
-impl GraphqlDependencyInjector for CollectionMutationResolver {}
 
 #[Object]
 impl CollectionMutationResolver {

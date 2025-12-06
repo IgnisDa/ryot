@@ -2,12 +2,11 @@ use async_graphql::{Context, Object, Result};
 use database_models::import_report;
 use importer_service::job_operations;
 use media_models::DeployImportJobInput;
-use traits::{AuthProvider, GraphqlDependencyInjector};
+use traits::GraphqlDependencyInjector;
 
 #[derive(Default)]
 pub struct ImporterQueryResolver;
 
-impl AuthProvider for ImporterQueryResolver {}
 impl GraphqlDependencyInjector for ImporterQueryResolver {}
 
 #[Object]
@@ -25,12 +24,11 @@ impl ImporterQueryResolver {
 #[derive(Default)]
 pub struct ImporterMutationResolver;
 
-impl AuthProvider for ImporterMutationResolver {
+impl GraphqlDependencyInjector for ImporterMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
-impl GraphqlDependencyInjector for ImporterMutationResolver {}
 
 #[Object]
 impl ImporterMutationResolver {

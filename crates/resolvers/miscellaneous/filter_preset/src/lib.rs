@@ -5,13 +5,12 @@ use dependent_models::{CachedResponse, FilterPresetsListResponse};
 use miscellaneous_filter_preset_service::{
     create_filter_preset, delete_filter_preset, get_filter_presets, update_filter_preset_last_used,
 };
-use traits::{AuthProvider, GraphqlDependencyInjector};
+use traits::GraphqlDependencyInjector;
 use uuid::Uuid;
 
 #[derive(Default)]
 pub struct MiscellaneousFilterPresetQueryResolver;
 
-impl AuthProvider for MiscellaneousFilterPresetQueryResolver {}
 impl GraphqlDependencyInjector for MiscellaneousFilterPresetQueryResolver {}
 
 #[Object]
@@ -30,12 +29,11 @@ impl MiscellaneousFilterPresetQueryResolver {
 #[derive(Default)]
 pub struct MiscellaneousFilterPresetMutationResolver;
 
-impl AuthProvider for MiscellaneousFilterPresetMutationResolver {
+impl GraphqlDependencyInjector for MiscellaneousFilterPresetMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
-impl GraphqlDependencyInjector for MiscellaneousFilterPresetMutationResolver {}
 
 #[Object]
 impl MiscellaneousFilterPresetMutationResolver {

@@ -4,12 +4,11 @@ use dependent_models::{
     CachedResponse, UserMetadataDetails, UserMetadataListInput, UserMetadataListResponse,
 };
 use media_models::GraphqlMetadataDetails;
-use traits::{AuthProvider, GraphqlDependencyInjector};
+use traits::GraphqlDependencyInjector;
 
 #[derive(Default)]
 pub struct MiscellaneousMetadataQueryResolver;
 
-impl AuthProvider for MiscellaneousMetadataQueryResolver {}
 impl GraphqlDependencyInjector for MiscellaneousMetadataQueryResolver {}
 
 #[Object]
@@ -70,12 +69,11 @@ impl MiscellaneousMetadataQueryResolver {
 #[derive(Default)]
 pub struct MiscellaneousMetadataMutationResolver;
 
-impl AuthProvider for MiscellaneousMetadataMutationResolver {
+impl GraphqlDependencyInjector for MiscellaneousMetadataMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
-impl GraphqlDependencyInjector for MiscellaneousMetadataMutationResolver {}
 
 #[Object]
 impl MiscellaneousMetadataMutationResolver {

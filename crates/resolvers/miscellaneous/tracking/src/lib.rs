@@ -4,12 +4,11 @@ use media_models::{
     GraphqlCalendarEvent, GroupedCalendarEvent, MetadataProgressUpdateInput, UpdateSeenItemInput,
     UserCalendarEventInput, UserUpcomingCalendarEventInput,
 };
-use traits::{AuthProvider, GraphqlDependencyInjector};
+use traits::GraphqlDependencyInjector;
 
 #[derive(Default)]
 pub struct MiscellaneousTrackingQueryResolver;
 
-impl AuthProvider for MiscellaneousTrackingQueryResolver {}
 impl GraphqlDependencyInjector for MiscellaneousTrackingQueryResolver {}
 
 #[Object]
@@ -41,12 +40,11 @@ impl MiscellaneousTrackingQueryResolver {
 #[derive(Default)]
 pub struct MiscellaneousTrackingMutationResolver;
 
-impl AuthProvider for MiscellaneousTrackingMutationResolver {
+impl GraphqlDependencyInjector for MiscellaneousTrackingMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
-impl GraphqlDependencyInjector for MiscellaneousTrackingMutationResolver {}
 
 #[Object]
 impl MiscellaneousTrackingMutationResolver {

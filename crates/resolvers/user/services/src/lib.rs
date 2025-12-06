@@ -5,13 +5,11 @@ use media_models::{
     CreateOrUpdateUserIntegrationInput, CreateUserNotificationPlatformInput,
     UpdateUserNotificationPlatformInput,
 };
-use traits::{AuthProvider, GraphqlDependencyInjector};
+use traits::GraphqlDependencyInjector;
 use user_service::{integration_operations, notification_operations, recommendation_operations};
 
 #[derive(Default)]
 pub struct UserServicesQueryResolver;
-
-impl AuthProvider for UserServicesQueryResolver {}
 
 impl GraphqlDependencyInjector for UserServicesQueryResolver {}
 
@@ -45,12 +43,11 @@ impl UserServicesQueryResolver {
 #[derive(Default)]
 pub struct UserServicesMutationResolver;
 
-impl AuthProvider for UserServicesMutationResolver {
+impl GraphqlDependencyInjector for UserServicesMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
-impl GraphqlDependencyInjector for UserServicesMutationResolver {}
 
 #[Object]
 impl UserServicesMutationResolver {
