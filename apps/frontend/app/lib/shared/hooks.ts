@@ -7,6 +7,7 @@ import {
 	DeployAddEntitiesToCollectionJobDocument,
 	DeployBulkMetadataProgressUpdateDocument,
 	DeployRemoveEntitiesFromCollectionJobDocument,
+	DeployUpdateEntityTranslationsJobDocument,
 	DeployUpdateMediaEntityJobDocument,
 	EntityLot,
 	ExpireCacheKeyDocument,
@@ -40,6 +41,7 @@ import { match } from "ts-pattern";
 import { useInterval, useMediaQuery } from "usehooks-ts";
 import {
 	clientGqlService,
+	getEntityTranslationsQuery,
 	getMetadataDetailsQuery,
 	getMetadataGroupDetailsQuery,
 	getPersonDetailsQuery,
@@ -122,11 +124,21 @@ export const useGetWorkoutStarter = () => {
 	return fn;
 };
 
+const createDeployMediaEntityJob =
+	(entityId: string | undefined, entityLot: EntityLot) => () => {
+		if (entityId) {
+			clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
+				input: { entityId, entityLot },
+			});
+		}
+	};
+
 export const useEntityUpdateMonitor = (props: {
 	entityId?: string;
 	entityLot: EntityLot;
 	onUpdate: () => unknown;
 	needsRefetch?: boolean | null;
+	deployJob: () => void | Promise<void>;
 }) => {
 	const { entityId, entityLot, onUpdate, needsRefetch } = props;
 
@@ -206,9 +218,7 @@ export const useEntityUpdateMonitor = (props: {
 
 		if (!isPollingRef.current) {
 			if (jobDeployedForEntityRef.current !== entityId && entityId) {
-				clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
-					input: { entityId, entityLot },
-				});
+				props.deployJob();
 				jobDeployedForEntityRef.current = entityId;
 			}
 
@@ -230,6 +240,7 @@ export const useEntityUpdateMonitor = (props: {
 		entityId,
 		entityLot,
 		needsRefetch,
+		props.deployJob,
 		scheduleNextPoll,
 		resetPollingState,
 	]);
@@ -247,6 +258,7 @@ export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
 		entityId: metadataId,
 		entityLot: EntityLot.Metadata,
 		onUpdate: () => metadataDetailsQuery.refetch(),
+		deployJob: createDeployMediaEntityJob(metadataId, EntityLot.Metadata),
 		needsRefetch:
 			enabled !== false &&
 			metadataDetailsQuery.data?.isPartial &&
@@ -260,10 +272,50 @@ export const useUserMetadataDetails = (
 	metadataId?: string,
 	enabled?: boolean,
 ) => {
+	return useQuery({ ...getUserMetadataDetailsQuery(metadataId), enabled });
+};
+
+export const useEntityTranslations = (
+	entityId?: string,
+	enabled?: boolean,
+	entityLot?: EntityLot,
+) => {
 	return useQuery({
-		...getUserMetadataDetailsQuery(metadataId),
+		...getEntityTranslationsQuery(entityId, entityLot),
 		enabled,
 	});
+};
+
+export const useTranslationMonitor = (props: {
+	entityId?: string;
+	enabled?: boolean;
+	entityLot: EntityLot;
+	mediaSource?: MediaSource;
+}) => {
+	const translationsQuery = useEntityTranslations(
+		props.entityId,
+		props.enabled,
+		props.entityLot,
+	);
+	const hasTranslations = translationsQuery.data?.response !== null;
+
+	useEntityUpdateMonitor({
+		entityId: props.entityId,
+		entityLot: props.entityLot,
+		onUpdate: () => translationsQuery.refetch(),
+		needsRefetch:
+			props.enabled !== false &&
+			!hasTranslations &&
+			props.mediaSource !== MediaSource.Custom,
+		deployJob: () => {
+			if (props.entityId)
+				clientGqlService.request(DeployUpdateEntityTranslationsJobDocument, {
+					input: { entityId: props.entityId, entityLot: props.entityLot },
+				});
+		},
+	});
+
+	return { translations: translationsQuery.data?.response };
 };
 
 export const usePersonDetails = (personId?: string, enabled?: boolean) => {
@@ -273,6 +325,7 @@ export const usePersonDetails = (personId?: string, enabled?: boolean) => {
 		entityId: personId,
 		entityLot: EntityLot.Person,
 		onUpdate: () => query.refetch(),
+		deployJob: createDeployMediaEntityJob(personId, EntityLot.Person),
 		needsRefetch:
 			enabled !== false &&
 			query.data?.details.isPartial &&
@@ -336,6 +389,10 @@ export const useMetadataGroupDetails = (
 		entityId: metadataGroupId,
 		onUpdate: () => query.refetch(),
 		entityLot: EntityLot.MetadataGroup,
+		deployJob: createDeployMediaEntityJob(
+			metadataGroupId,
+			EntityLot.MetadataGroup,
+		),
 		needsRefetch:
 			enabled !== false &&
 			query.data?.details.isPartial &&
