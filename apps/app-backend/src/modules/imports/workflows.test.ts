@@ -110,7 +110,6 @@ const makeEventsService = (overrides: Partial<EventsService> = {}) =>
 	makeMock<EventsService>(
 		{
 			_tag: "EventsService" as const,
-			list: () => Effect.die("unused"),
 			create: () => Effect.succeed({ count: 1 }),
 			listForUser: () => Effect.die("unused"),
 		},
