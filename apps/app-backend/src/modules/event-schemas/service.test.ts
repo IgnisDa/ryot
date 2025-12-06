@@ -4,7 +4,8 @@ import { Effect, Exit, Layer } from "effect";
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest, Conflict, NotFound } from "#lib/errors";
 import { EntitySchemaId, EventSchemaId, UserId } from "#lib/schema/brands";
-import { dbRunnerLayer, makeMock } from "#lib/test-support/effect";
+import type { MockOverrides } from "#lib/test-support/effect";
+import { dbRunnerLayer } from "#lib/test-support/effect";
 
 import { EventSchemasRepository } from "./repository";
 import { EventSchemasService } from "./service";
@@ -15,22 +16,14 @@ const user = {
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
-const makeEventSchemasRepository = (overrides: Partial<EventSchemasRepository> = {}) =>
-	makeMock<EventSchemasRepository>(
-		{
-			_tag: "EventSchemasRepository" as const,
-			createEventSchema: () => Effect.die("unused"),
-			findBySlugForUser: () => Effect.die("unused"),
-			getEntitySchemaScopeById: () => Effect.die("unused"),
-			listByEntitySchemaForUser: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const mockEventSchemasRepository = Layer.mock(EventSchemasRepository);
 
-const makeEventSchemasServiceLayer = (repository: EventSchemasRepository) =>
-	EventSchemasService.Default.pipe(
-		Layer.provide(Layer.mergeAll(dbRunnerLayer, Layer.succeed(EventSchemasRepository, repository))),
-	);
+const makeEventSchemasRepository = (
+	overrides: MockOverrides<typeof mockEventSchemasRepository> = {},
+) => mockEventSchemasRepository({ _tag: "EventSchemasRepository", ...overrides });
+
+const makeEventSchemasServiceLayer = (repository: ReturnType<typeof makeEventSchemasRepository>) =>
+	EventSchemasService.Default.pipe(Layer.provide(Layer.mergeAll(dbRunnerLayer, repository)));
 
 it.effect("returns not found when entity schema does not exist during list", () => {
 	const layer = makeEventSchemasServiceLayer(

@@ -4,7 +4,7 @@ import { Effect, Exit, Layer } from "effect";
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest, NotFound } from "#lib/errors";
 import { SavedViewId, UserId } from "#lib/schema/brands";
-import { dbRunnerLayer, makeMock, transactionLayer } from "#lib/test-support/effect";
+import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-support/effect";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { QueryEngineService } from "#modules/query-engine/service";
 
@@ -68,59 +68,44 @@ const baseListedSavedView: ListedSavedView = {
 	},
 };
 
-const makeRepository = (overrides: Partial<SavedViewsRepository> = {}) =>
-	makeMock<SavedViewsRepository>(
-		{
-			_tag: "SavedViewsRepository" as const,
-			create: () => Effect.die("unused"),
-			listByUser: () => Effect.die("unused"),
-			findBySlug: () => Effect.die("unused"),
-			updateBySlug: () => Effect.die("unused"),
-			deleteBySlug: () => Effect.die("unused"),
-			countBySlugs: () => Effect.die("unused"),
-			persistOrder: () => Effect.die("unused"),
-			listSlugsInOrder: () => Effect.die("unused"),
-			updateDisabledBySlug: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const mockRepository = Layer.mock(SavedViewsRepository);
 
-const makeQueryEngine = (overrides: Partial<QueryEngineService> = {}) =>
-	makeMock<QueryEngineService>(
-		{
-			_tag: "QueryEngineService" as const,
-			execute: () => Effect.die("unused"),
-			validate: () => Effect.void,
-		},
-		overrides,
-	);
+const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
+	mockRepository({ _tag: "SavedViewsRepository", ...overrides });
 
-const makeEntitySchemasRepository = (overrides: Partial<EntitySchemasRepository> = {}) =>
-	makeMock<EntitySchemasRepository>(
-		{
-			_tag: "EntitySchemasRepository" as const,
-			findBySlug: () => Effect.die("unused"),
-			listByUser: () => Effect.die("unused"),
-			getByIdForUser: () => Effect.die("unused"),
-			createEntitySchema: () => Effect.die("unused"),
-			listVisibleBySlugs: () => Effect.succeed([]),
-		},
-		overrides,
-	);
+const mockQueryEngine = Layer.mock(QueryEngineService);
+
+const makeQueryEngine = (overrides: MockOverrides<typeof mockQueryEngine> = {}) =>
+	mockQueryEngine({
+		_tag: "QueryEngineService",
+		validate: () => Effect.void.pipe(Effect.as(undefined)),
+		...overrides,
+	});
+
+const mockEntitySchemasRepository = Layer.mock(EntitySchemasRepository);
+
+const makeEntitySchemasRepository = (
+	overrides: MockOverrides<typeof mockEntitySchemasRepository> = {},
+) =>
+	mockEntitySchemasRepository({
+		_tag: "EntitySchemasRepository",
+		listVisibleBySlugs: () => Effect.succeed([]),
+		...overrides,
+	});
 
 const makeServiceLayer = (
-	repository: SavedViewsRepository,
-	queryEngine: QueryEngineService = makeQueryEngine(),
-	entitySchemasRepository: EntitySchemasRepository = makeEntitySchemasRepository(),
+	repository = makeRepository(),
+	queryEngine = makeQueryEngine(),
+	entitySchemasRepository = makeEntitySchemasRepository(),
 ) =>
 	SavedViewsService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
-				Layer.succeed(EntitySchemasRepository, entitySchemasRepository),
-				Layer.succeed(QueryEngineService, queryEngine),
-				Layer.succeed(SavedViewsRepository, repository),
+				entitySchemasRepository,
+				queryEngine,
+				repository,
 			),
 		),
 	);
