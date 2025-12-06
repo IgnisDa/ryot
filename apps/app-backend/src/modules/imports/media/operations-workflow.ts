@@ -18,8 +18,6 @@ import {
 } from "#modules/entity-import/population";
 import { LibraryEntityImportWorkflow } from "#modules/library-membership/library-entity-import-workflow";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
-import { resolveProviderSandboxArtifact } from "#modules/sandbox/provider-artifacts";
-import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { loadOneTimeMediaImportAdapterResult } from "./source-loaders";
 import { MediaImportWorkflowOperations } from "./types-workflow";
@@ -35,14 +33,10 @@ const resolveSandboxEntityExternalId = (input: {
 		userId: input.userId,
 		driverName: "resolve",
 		scriptId: input.scriptId,
-		executionKind: "provider",
 		executionId: input.executionId,
 		context: { value: input.value, identifierType: input.identifierType },
 	}).pipe(
 		Effect.mapError(toSandboxRunError),
-		Effect.flatMap((result) =>
-			resolveProviderSandboxArtifact({ executionId: input.executionId, result }),
-		),
 		Effect.flatMap((result) =>
 			decodeSandboxDriverResult(
 				result,
@@ -62,14 +56,10 @@ const searchSandboxEntities = (input: {
 		userId: input.userId,
 		driverName: "search",
 		scriptId: input.scriptId,
-		executionKind: "provider",
 		executionId: input.executionId,
 		context: { query: input.query, page: 1, pageSize: 5 },
 	}).pipe(
 		Effect.mapError(toSandboxRunError),
-		Effect.flatMap((result) =>
-			resolveProviderSandboxArtifact({ executionId: input.executionId, result }),
-		),
 		Effect.flatMap((result) =>
 			decodeSandboxDriverResult(
 				result,
@@ -86,7 +76,6 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
-		const sandboxRepository = yield* SandboxRepository;
 		const fs = yield* FileSystem.FileSystem;
 		const httpClient = yield* HttpClient.HttpClient;
 		const entitiesRepository = yield* EntitiesRepository;
@@ -106,8 +95,6 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 			searchEntities: (input) =>
 				searchSandboxEntities(input).pipe(
 					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
-					Effect.provideService(DbRunner, runWithDb),
-					Effect.provideService(SandboxRepository, sandboxRepository),
 				),
 			importEntity: (input) =>
 				Effect.gen(function* () {
@@ -116,7 +103,6 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 						executionId: input.executionId,
 						payload: {
 							userId: input.userId,
-							origin: input.origin,
 							scriptId: input.scriptId,
 							externalId: input.externalId,
 							executionId: input.executionId,
@@ -128,8 +114,6 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 			resolveExternalId: (input) =>
 				resolveSandboxEntityExternalId(input).pipe(
 					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
-					Effect.provideService(DbRunner, runWithDb),
-					Effect.provideService(SandboxRepository, sandboxRepository),
 				),
 			writeCollectionMembership: (input) =>
 				Effect.gen(function* () {

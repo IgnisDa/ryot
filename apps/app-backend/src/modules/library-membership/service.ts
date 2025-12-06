@@ -19,8 +19,6 @@ import { LibraryEntityImportWorkflow } from "./library-entity-import-workflow";
 const entitySchemaNotFoundError = "Entity schema not found";
 const importJobNotFoundError = "Entity import job not found";
 const sandboxScriptNotFoundError = "Sandbox script not found";
-const customSandboxScriptError = "Provider imports require a built-in provider script";
-const customEntitySchemaError = "Provider imports require a built-in entity schema";
 
 export class LibraryImportService extends Effect.Service<LibraryImportService>()(
 	"LibraryImportService",
@@ -57,9 +55,6 @@ export class LibraryImportService extends Effect.Service<LibraryImportService>()
 				if (!script) {
 					return yield* notFound(sandboxScriptNotFoundError);
 				}
-				if (script.userId !== null) {
-					return yield* badRequest(customSandboxScriptError);
-				}
 
 				const entitySchemaScope = yield* runWithDb(
 					repository.getEntitySchemaScopeForUser({ userId: user.id, entitySchemaId }),
@@ -67,23 +62,13 @@ export class LibraryImportService extends Effect.Service<LibraryImportService>()
 				if (!entitySchemaScope) {
 					return yield* notFound(entitySchemaNotFoundError);
 				}
-				if (entitySchemaScope.userId !== null) {
-					return yield* badRequest(customEntitySchemaError);
-				}
 
 				const executionId = generateId();
 				yield* engine
 					.execute(LibraryEntityImportWorkflow, {
 						executionId,
 						discard: true,
-						payload: {
-							scriptId,
-							externalId,
-							executionId,
-							entitySchemaId,
-							userId: user.id,
-							origin: { kind: "api" },
-						},
+						payload: { scriptId, externalId, executionId, entitySchemaId, userId: user.id },
 					})
 					.pipe(Effect.orDie);
 

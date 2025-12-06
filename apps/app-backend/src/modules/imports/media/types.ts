@@ -52,6 +52,8 @@ const ImportCollectionMembershipSchema = Schema.Struct({
 	collectionName: Schema.String,
 });
 
+export type ImportCollectionMembership = typeof ImportCollectionMembershipSchema.Type;
+
 export const ImportMediaEntityGroupSchema = Schema.Struct({
 	entityRef: ImportEntityRef,
 	itemIndex: Schema.optional(Schema.Number),
@@ -60,12 +62,10 @@ export const ImportMediaEntityGroupSchema = Schema.Struct({
 	collectionMemberships: Schema.Array(ImportCollectionMembershipSchema),
 });
 
-type SchemaImportMediaEntityGroup = typeof ImportMediaEntityGroupSchema.Type;
-
 export type ImportMediaEntityGroup = {
-	-readonly [Key in keyof SchemaImportMediaEntityGroup]: Key extends "events"
-		? ImportMediaEvent[]
-		: Key extends "collectionMemberships"
-			? Array<typeof ImportCollectionMembershipSchema.Type>
-			: SchemaImportMediaEntityGroup[Key];
+	itemIndex?: number | undefined;
+	entityRef: ImportEntityRef;
+	ownershipProvider?: string | undefined;
+	events: ImportMediaEvent[];
+	collectionMemberships: ImportCollectionMembership[];
 };
