@@ -30,6 +30,6 @@ export const notificationPlatform = pgTable(
 	},
 	(table) => [
 		index("notification_platform_user_id_created_at_idx").on(table.userId, table.createdAt.desc()),
-		index("notification_platform_user_id_event_idx").on(table.userId, table.isDisabled),
+		index("notification_platform_user_id_is_disabled_idx").on(table.userId, table.isDisabled),
 	],
 );

@@ -27,6 +27,11 @@ const fields = {
 	smtpMailbox: strField("SERVER_SMTP_MAILBOX", "SMTP sender mailbox", {
 		default: "Ryot <no-reply@ryot.io>",
 	}),
+	disableNotifications: boolField(
+		"DISABLE_NOTIFICATIONS",
+		"Disable delivery of all notifications",
+		{ default: false },
+	),
 	jobIdSecret: secretField("SANDBOX_JOB_ID_SECRET", "Secret used to sign sandbox job identifiers", {
 		default: "changeme",
 	}),
@@ -190,8 +195,8 @@ const smtpGroup = group(
 
 const notificationsGroup = group(
 	"Notification delivery settings",
-	Config.all({ smtp: smtpGroup.config }),
-	{ smtp: smtpGroup.meta },
+	Config.all({ disabled: fields.disableNotifications.config, smtp: smtpGroup.config }),
+	{ disabled: fields.disableNotifications.meta, smtp: smtpGroup.meta },
 );
 
 const usersGroup = group(
