@@ -38,15 +38,11 @@ export { integrationRunJobName } from "./jobs";
 const toIntegrationJobData = (input: {
 	runId?: string;
 	userId: string;
-	rawBody?: string;
-	contentType?: string;
 	integrationId: string;
 }): IntegrationRunJobData => ({
 	userId: input.userId,
 	integrationId: input.integrationId,
 	...(input.runId ? { runId: input.runId } : {}),
-	...(input.rawBody !== undefined ? { rawBody: input.rawBody } : {}),
-	...(input.contentType !== undefined ? { contentType: input.contentType } : {}),
 });
 
 const createIntegrationImportJob = (job: Job, data: IntegrationRunJobData): Job =>
@@ -264,15 +260,10 @@ export const createProcessSinkIntegration =
 			});
 		}
 
+		// Persist only resume-identity fields; the raw payload must not be re-persisted into snapshots.
 		const importJob = createIntegrationImportJob(
 			job,
-			toIntegrationJobData({
-				userId,
-				rawBody,
-				contentType,
-				integrationId,
-				runId: existingRunId,
-			}),
+			toIntegrationJobData({ userId, integrationId, runId: existingRunId }),
 		);
 
 		let adapterResult: MediaImportAdapterResult | undefined;
