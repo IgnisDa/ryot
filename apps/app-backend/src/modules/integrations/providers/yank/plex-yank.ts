@@ -98,6 +98,7 @@ const extractPlexEntityRef = (item: z.infer<typeof plexItemSchema>): ImportEntit
 };
 
 export const fetchPlexYankProgress = (): MediaImportAdapterResult => {
+	// PlexYank only contributes owned-library syncs in V2.
 	return { failures: [], entityGroups: [] };
 };
 
