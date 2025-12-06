@@ -267,6 +267,7 @@ impl MediaProvider for TvdbMovieService {
                     remote_images: images,
                     ..Default::default()
                 },
+                ..Default::default()
             },
             parts,
         ))

@@ -411,6 +411,7 @@ impl MediaProvider for SpotifyService {
                 remote_images: get_images_ordered_by_size(&album.images),
                 ..Default::default()
             },
+            ..Default::default()
         };
 
         Ok((group, items))

@@ -331,6 +331,7 @@ impl MediaProvider for TmdbMovieService {
                     remote_images: images,
                     ..Default::default()
                 },
+                ..Default::default()
             },
             parts,
         ))

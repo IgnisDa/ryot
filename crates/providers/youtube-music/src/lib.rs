@@ -188,6 +188,7 @@ impl MediaProvider for YoutubeMusicService {
                         .collect(),
                     ..Default::default()
                 },
+                ..Default::default()
             },
             album
                 .tracks
