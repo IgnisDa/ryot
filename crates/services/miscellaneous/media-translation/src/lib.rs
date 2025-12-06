@@ -106,7 +106,7 @@ async fn replace_entity_translations(
     Ok(())
 }
 
-pub async fn update_media_entity_translation(
+pub async fn update_media_translation(
     ss: &Arc<SupportingService>,
     user_id: &String,
     input: EntityWithLot,

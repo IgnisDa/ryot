@@ -18,7 +18,7 @@ use integration_service::{
     handle_entity_added_to_collection_event, handle_on_seen_complete, process_integration_webhook,
     sync_integrations_data, sync_integrations_data_for_user, yank_integrations_data,
 };
-use miscellaneous_media_translation_service::update_media_entity_translation;
+use miscellaneous_media_translation_service::update_media_translation;
 use miscellaneous_service::{
     bulk_metadata_progress_update_for_user, cleanup_user_and_metadata_association,
     handle_metadata_eligible_for_smart_collection_moving, handle_review_posted_event,
@@ -117,7 +117,7 @@ pub async fn perform_mp_application_job(
         MpApplicationJob::UpdateExerciseLibrary => deploy_update_exercise_library_job(&ss).await,
         MpApplicationJob::SyncIntegrationsData => sync_integrations_data(&ss).await,
         MpApplicationJob::UpdateMediaTranslations(user_id, input) => {
-            update_media_entity_translation(&ss, &user_id, input).await
+            update_media_translation(&ss, &user_id, input).await
         }
     };
     ryot_log!(trace, "Finished job {:?}", name);
