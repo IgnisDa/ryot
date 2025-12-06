@@ -22,7 +22,7 @@ WHERE "preferences"->'languages' IS NULL
             .await?
         {
             db.execute_unprepared(
-                r#"ALTER TABLE "metadata" ADD COLUMN "has_translations_for_languages" JSONB"#,
+                r#"ALTER TABLE "metadata" ADD COLUMN "has_translations_for_languages" text[]"#,
             )
             .await?;
         }

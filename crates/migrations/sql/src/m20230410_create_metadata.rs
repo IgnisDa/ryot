@@ -110,7 +110,10 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::SourceUrl).text())
                     .col(ColumnDef::new(Metadata::CreatedByUserId).text())
                     .col(ColumnDef::new(Metadata::Assets).json_binary().not_null())
-                    .col(ColumnDef::new(Metadata::HasTranslationsForLanguages).json_binary())
+                    .col(
+                        ColumnDef::new(Metadata::HasTranslationsForLanguages)
+                            .array(ColumnType::Text),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name(METADATA_TO_USER_FOREIGN_KEY)
