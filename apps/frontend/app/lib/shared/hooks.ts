@@ -14,6 +14,7 @@ import {
 	GetPresignedS3UrlDocument,
 	type MediaLot,
 	MediaSource,
+	MediaTranslationsDocument,
 	type MetadataProgressUpdateInput,
 	UpdateUserDocument,
 	UserCollectionsListDocument,
@@ -41,7 +42,6 @@ import { match } from "ts-pattern";
 import { useInterval, useMediaQuery } from "usehooks-ts";
 import {
 	clientGqlService,
-	getEntityTranslationsQuery,
 	getMetadataDetailsQuery,
 	getMetadataGroupDetailsQuery,
 	getPersonDetailsQuery,
@@ -255,28 +255,27 @@ export const useUserMetadataDetails = (
 	return useQuery({ ...getUserMetadataDetailsQuery(metadataId), enabled });
 };
 
-export const useEntityTranslations = (
-	entityId?: string,
-	enabled?: boolean,
-	entityLot?: EntityLot,
-) => {
-	return useQuery({
-		...getEntityTranslationsQuery(entityId, entityLot),
-		enabled,
-	});
-};
-
 const useTranslationMonitor = (props: {
 	entityId?: string;
 	enabled?: boolean;
 	entityLot: EntityLot;
 	mediaSource?: MediaSource;
 }) => {
-	const translationsQuery = useEntityTranslations(
-		props.entityId,
-		props.enabled,
-		props.entityLot,
-	);
+	const translationsQuery = useQuery({
+		enabled: props.enabled,
+		queryKey: queryFactory.media.entityTranslations(
+			props.entityId,
+			props.entityLot,
+		).queryKey,
+		queryFn: () => {
+			if (props.entityId && props.entityLot)
+				return clientGqlService
+					.request(MediaTranslationsDocument, {
+						input: { entityId: props.entityId, entityLot: props.entityLot },
+					})
+					.then((data) => data.mediaTranslations);
+		},
+	});
 	const hasTranslations = translationsQuery.data?.response !== null;
 
 	useEntityUpdateMonitor({

@@ -7,7 +7,6 @@ import {
 	type CollectionRecommendationsInput,
 	type EntityLot,
 	type GenreDetailsInput,
-	MediaTranslationsDocument,
 	MetadataGroupDetailsDocument,
 	type MetadataGroupSearchInput,
 	type MetadataSearchInput,
@@ -255,24 +254,6 @@ export const getUserEntityRecentlyConsumedQuery = (
 								input: { entityId, entityLot },
 							})
 							.then((data) => data.userEntityRecentlyConsumed)
-				: skipToken,
-	});
-
-export const getEntityTranslationsQuery = (
-	entityId?: string,
-	entityLot?: EntityLot,
-) =>
-	queryOptions({
-		queryKey: queryFactory.media.entityTranslations(entityId, entityLot)
-			.queryKey,
-		queryFn:
-			entityId && entityLot
-				? () =>
-						clientGqlService
-							.request(MediaTranslationsDocument, {
-								input: { entityId, entityLot },
-							})
-							.then((data) => data.mediaTranslations)
 				: skipToken,
 	});
 
