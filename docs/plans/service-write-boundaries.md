@@ -346,6 +346,29 @@ user-facing update or delete operations for sandbox scripts.
 - Any built-in script seeding remains an explicit bootstrap concern and must not become a second
   user-facing write path.
 
+## Built-in Initialization
+
+### Current state
+
+`builtins/seed.ts` reconciles global system rows such as built-in entity, event, and relationship
+schemas, sandbox scripts, triggers, and links. `builtins/bootstrap.ts` creates per-user defaults
+such as trackers, tracker-schema links, saved views, and the library entity. Both paths perform
+direct database writes because they coordinate multi-table initialization and reconciliation.
+
+### Decision
+
+- `builtins/seed.ts` is an explicit system-initialization exception. It may reconcile global
+  built-in rows directly within its transaction; this must not become a user-facing write path.
+- Do not add `seed`, `ensure`, `upsert`, or built-in modes to user-facing CRUD methods solely for
+  system reconciliation.
+- `builtins/bootstrap.ts` should use owning service write methods for per-user rows where practical,
+  while retaining orchestration and transaction control in the bootstrap caller.
+- Bootstrap must remain transactional and idempotent. Reconciliation must only update or replace
+  rows owned by the bootstrap process and must not overwrite user-customized rows.
+- Join tables written by bootstrap require explicit ownership and the same service-boundary rule.
+- Outside these initialization paths, all runtime and user-facing writes must use the owning
+  service entry point.
+
 ## Follow-up
 
 Implement and verify these decisions one service at a time, beginning with `EntitiesService` and
@@ -353,4 +376,5 @@ then `RelationshipsService`, `EventsService`, `SavedViewsService`, `TrackersServ
 `EntitySchemasService`, `EventSchemasService`, `RelationshipSchemasService`,
 `NotificationsService`, `IntegrationsService`, `ImportsService`, `TranslationsService`, and
 `GodModeService`, and `SandboxApiService`. Do not add decisions for later services until they are
-discussed.
+discussed. With the service decisions complete, implementation should begin with
+`EntitiesService` and proceed through the documented order.
