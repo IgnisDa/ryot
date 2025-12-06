@@ -50,14 +50,14 @@ integration-service = { workspace = true }
 migrations-sql = { workspace = true }
 miscellaneous-filter-preset-resolver = { workspace = true }
 miscellaneous-grouping-resolver = { workspace = true }
+miscellaneous-media-translation-resolver = { workspace = true }
+miscellaneous-media-translation-service = { workspace = true }
 miscellaneous-metadata-resolver = { workspace = true }
 miscellaneous-search-resolver = { workspace = true }
 miscellaneous-service = { workspace = true }
 miscellaneous-social-resolver = { workspace = true }
 miscellaneous-system-resolver = { workspace = true }
 miscellaneous-tracking-resolver = { workspace = true }
-miscellaneous-translation-resolver = { workspace = true }
-miscellaneous-translation-service = { workspace = true }
 router-resolver = { workspace = true }
 statistics-resolver = { workspace = true }
 statistics-service = { workspace = true }

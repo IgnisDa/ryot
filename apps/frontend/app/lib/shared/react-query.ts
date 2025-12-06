@@ -6,8 +6,8 @@ import {
 	type CollectionContentsInput,
 	type CollectionRecommendationsInput,
 	type EntityLot,
-	EntityTranslationsDocument,
 	type GenreDetailsInput,
+	MediaTranslationsDocument,
 	MetadataGroupDetailsDocument,
 	type MetadataGroupSearchInput,
 	type MetadataSearchInput,
@@ -269,10 +269,10 @@ export const getEntityTranslationsQuery = (
 			entityId && entityLot
 				? () =>
 						clientGqlService
-							.request(EntityTranslationsDocument, {
+							.request(MediaTranslationsDocument, {
 								input: { entityId, entityLot },
 							})
-							.then((data) => data.entityTranslations)
+							.then((data) => data.mediaTranslations)
 				: skipToken,
 	});
 

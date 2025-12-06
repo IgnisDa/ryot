@@ -27,6 +27,9 @@ use miscellaneous_filter_preset_resolver::{
     MiscellaneousFilterPresetMutationResolver, MiscellaneousFilterPresetQueryResolver,
 };
 use miscellaneous_grouping_resolver::MiscellaneousGroupingQueryResolver;
+use miscellaneous_media_translation_resolver::{
+    MiscellaneousMediaTranslationMutationResolver, MiscellaneousMediaTranslationQueryResolver,
+};
 use miscellaneous_metadata_resolver::{
     MiscellaneousMetadataMutationResolver, MiscellaneousMetadataQueryResolver,
 };
@@ -39,9 +42,6 @@ use miscellaneous_system_resolver::{
 };
 use miscellaneous_tracking_resolver::{
     MiscellaneousTrackingMutationResolver, MiscellaneousTrackingQueryResolver,
-};
-use miscellaneous_translation_resolver::{
-    MiscellaneousTranslationMutationResolver, MiscellaneousTranslationQueryResolver,
 };
 use router_resolver::{
     config_handler, download_logs_handler, graphql_playground_handler, integration_webhook_handler,
@@ -161,9 +161,9 @@ pub struct QueryRoot(
     MiscellaneousGroupingQueryResolver,
     MiscellaneousTrackingQueryResolver,
     MiscellaneousMetadataQueryResolver,
-    MiscellaneousTranslationQueryResolver,
     MiscellaneousFilterPresetQueryResolver,
     MiscellaneousFilterPresetMutationResolver,
+    MiscellaneousMediaTranslationQueryResolver,
 );
 
 #[derive(MergedObject, Default)]
@@ -181,8 +181,8 @@ pub struct MutationRoot(
     MiscellaneousSystemMutationResolver,
     MiscellaneousTrackingMutationResolver,
     MiscellaneousMetadataMutationResolver,
-    MiscellaneousTranslationMutationResolver,
     MiscellaneousFilterPresetMutationResolver,
+    MiscellaneousMediaTranslationMutationResolver,
 );
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;

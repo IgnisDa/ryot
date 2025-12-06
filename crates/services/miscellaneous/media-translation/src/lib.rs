@@ -41,7 +41,7 @@ async fn get_preferred_language_for_user_and_source(
     Ok(preferred_language)
 }
 
-pub async fn deploy_update_entity_translations_job(
+pub async fn deploy_update_media_translations_job(
     ss: &Arc<SupportingService>,
     user_id: String,
     input: EntityWithLot,
@@ -114,7 +114,7 @@ pub async fn update_media_entity_translation(
     Ok(())
 }
 
-pub async fn entity_translations(
+pub async fn media_translations(
     user_id: &String,
     input: EntityWithLot,
     ss: &Arc<SupportingService>,

@@ -950,14 +950,14 @@ dependencies = [
  "migrations-sql",
  "miscellaneous-filter-preset-resolver",
  "miscellaneous-grouping-resolver",
+ "miscellaneous-media-translation-resolver",
+ "miscellaneous-media-translation-service",
  "miscellaneous-metadata-resolver",
  "miscellaneous-search-resolver",
  "miscellaneous-service",
  "miscellaneous-social-resolver",
  "miscellaneous-system-resolver",
  "miscellaneous-tracking-resolver",
- "miscellaneous-translation-resolver",
- "miscellaneous-translation-service",
  "router-resolver",
  "schematic",
  "sea-orm",
@@ -4636,6 +4636,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "miscellaneous-media-translation-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "common-models",
+ "dependent-models",
+ "miscellaneous-media-translation-service",
+ "traits",
+]
+
+[[package]]
+name = "miscellaneous-media-translation-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "background-models",
+ "cache-service",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "database-utils",
+ "dependent-models",
+ "dependent-provider-utils",
+ "enum-models",
+ "media-models",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+ "user-models",
+]
+
+[[package]]
 name = "miscellaneous-metadata-operations-service"
 version = "0.1.0"
 dependencies = [
@@ -4823,38 +4855,6 @@ dependencies = [
  "miscellaneous-progress-service",
  "miscellaneous-service",
  "traits",
-]
-
-[[package]]
-name = "miscellaneous-translation-resolver"
-version = "0.1.0"
-dependencies = [
- "async-graphql",
- "common-models",
- "dependent-models",
- "miscellaneous-translation-service",
- "traits",
-]
-
-[[package]]
-name = "miscellaneous-translation-service"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "background-models",
- "cache-service",
- "common-models",
- "common-utils",
- "database-models",
- "database-utils",
- "dependent-models",
- "dependent-provider-utils",
- "enum-models",
- "media-models",
- "sea-orm",
- "supporting-service",
- "tracing",
- "user-models",
 ]
 
 [[package]]

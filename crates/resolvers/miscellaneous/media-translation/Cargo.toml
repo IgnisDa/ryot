@@ -1,5 +1,5 @@
 [package]
-name = "miscellaneous-translation-resolver"
+name = "miscellaneous-media-translation-resolver"
 version = "0.1.0"
 edition = "2024"
 
@@ -8,5 +8,5 @@ async-graphql = { workspace = true }
 
 common-models = { workspace = true }
 dependent-models = { workspace = true }
-miscellaneous-translation-service = { workspace = true }
+miscellaneous-media-translation-service = { workspace = true }
 traits = { workspace = true }

@@ -7,8 +7,8 @@ import {
 	DeployAddEntitiesToCollectionJobDocument,
 	DeployBulkMetadataProgressUpdateDocument,
 	DeployRemoveEntitiesFromCollectionJobDocument,
-	DeployUpdateEntityTranslationsJobDocument,
 	DeployUpdateMediaEntityJobDocument,
+	DeployUpdateMediaTranslationsJobDocument,
 	EntityLot,
 	ExpireCacheKeyDocument,
 	GetPresignedS3UrlDocument,
@@ -309,7 +309,7 @@ export const useTranslationMonitor = (props: {
 			props.mediaSource !== MediaSource.Custom,
 		deployJob: () => {
 			if (props.entityId)
-				clientGqlService.request(DeployUpdateEntityTranslationsJobDocument, {
+				clientGqlService.request(DeployUpdateMediaTranslationsJobDocument, {
 					input: { entityId: props.entityId, entityLot: props.entityLot },
 				});
 		},

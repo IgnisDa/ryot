@@ -18,6 +18,7 @@ use integration_service::{
     handle_entity_added_to_collection_event, handle_on_seen_complete, process_integration_webhook,
     sync_integrations_data, sync_integrations_data_for_user, yank_integrations_data,
 };
+use miscellaneous_media_translation_service::update_media_entity_translation;
 use miscellaneous_service::{
     bulk_metadata_progress_update_for_user, cleanup_user_and_metadata_association,
     handle_metadata_eligible_for_smart_collection_moving, handle_review_posted_event,
@@ -25,7 +26,6 @@ use miscellaneous_service::{
     update_metadata_group_and_notify_users_for_id, update_person_and_notify_users_for_id,
     update_user_last_activity_performed,
 };
-use miscellaneous_translation_service::update_media_entity_translation;
 use statistics_service::calculate_user_activities_and_summary_for_user;
 use supporting_service::SupportingService;
 use traits::TraceOk;

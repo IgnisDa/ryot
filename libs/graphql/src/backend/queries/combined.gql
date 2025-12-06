@@ -525,8 +525,8 @@ query UserEntityRecentlyConsumed($input: EntityWithLotInput!) {
 	userEntityRecentlyConsumed(input: $input)
 }
 
-query EntityTranslations($input: EntityWithLotInput!) {
-	entityTranslations(input: $input) {
+query MediaTranslations($input: EntityWithLotInput!) {
+	mediaTranslations(input: $input) {
 		cacheId
 		response {
 			title

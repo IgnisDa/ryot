@@ -1658,10 +1658,10 @@ export type MutationRoot = {
   deployImportJob: Scalars['Boolean']['output'];
   /** Deploy a background job to remove entities from a collection. */
   deployRemoveEntitiesFromCollectionJob: Scalars['Boolean']['output'];
-  /** Deploy a job to update entity translations in the background. */
-  deployUpdateEntityTranslationsJob: Scalars['Boolean']['output'];
   /** Deploy a job to update a media entity's metadata. */
   deployUpdateMediaEntityJob: Scalars['Boolean']['output'];
+  /** Deploy a job to update media translations in the background. */
+  deployUpdateMediaTranslationsJob: Scalars['Boolean']['output'];
   /**
    * Use this mutation to call a function that needs to be tested for implementation.
    * It is only available in development mode.
@@ -1903,12 +1903,12 @@ export type MutationRootDeployRemoveEntitiesFromCollectionJobArgs = {
 };
 
 
-export type MutationRootDeployUpdateEntityTranslationsJobArgs = {
+export type MutationRootDeployUpdateMediaEntityJobArgs = {
   input: EntityWithLotInput;
 };
 
 
-export type MutationRootDeployUpdateMediaEntityJobArgs = {
+export type MutationRootDeployUpdateMediaTranslationsJobArgs = {
   input: EntityWithLotInput;
 };
 
@@ -2245,8 +2245,6 @@ export type QueryRoot = {
   createFilterPreset: FilterPreset;
   /** Delete a filter preset */
   deleteFilterPreset: Scalars['Boolean']['output'];
-  /** Fetch translations for a given entity. */
-  entityTranslations: CachedEntityTranslationDetails;
   /** Get details about an exercise. */
   exerciseDetails: Exercise;
   /** Get all filter presets for a specific context */
@@ -2259,6 +2257,8 @@ export type QueryRoot = {
   getOidcToken: OidcTokenOutput;
   /** Get a presigned URL (valid for 90 minutes) for a given key. */
   getPresignedS3Url: Scalars['String']['output'];
+  /** Fetch translations for a given media item. */
+  mediaTranslations: CachedEntityTranslationDetails;
   /** Get details about a media present in the database. */
   metadataDetails: CachedGraphqlMetadataDetailsResponse;
   /** Get details about a metadata group present in the database. */
@@ -2358,11 +2358,6 @@ export type QueryRootDeleteFilterPresetArgs = {
 };
 
 
-export type QueryRootEntityTranslationsArgs = {
-  input: EntityWithLotInput;
-};
-
-
 export type QueryRootExerciseDetailsArgs = {
   exerciseId: Scalars['String']['input'];
 };
@@ -2385,6 +2380,11 @@ export type QueryRootGetOidcTokenArgs = {
 
 export type QueryRootGetPresignedS3UrlArgs = {
   key: Scalars['String']['input'];
+};
+
+
+export type QueryRootMediaTranslationsArgs = {
+  input: EntityWithLotInput;
 };
 
 

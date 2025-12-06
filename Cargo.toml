@@ -40,12 +40,12 @@ members = [
     "crates/resolvers/importer",
     "crates/resolvers/miscellaneous/filter_preset",
     "crates/resolvers/miscellaneous/grouping",
+    "crates/resolvers/miscellaneous/media-translation",
     "crates/resolvers/miscellaneous/metadata",
     "crates/resolvers/miscellaneous/search",
     "crates/resolvers/miscellaneous/social",
     "crates/resolvers/miscellaneous/system",
     "crates/resolvers/miscellaneous/tracking",
-    "crates/resolvers/miscellaneous/translation",
     "crates/resolvers/router",
     "crates/resolvers/statistics",
     "crates/resolvers/user/authentication",
@@ -84,11 +84,11 @@ members = [
     "crates/services/miscellaneous/filter_preset",
     "crates/services/miscellaneous/general",
     "crates/services/miscellaneous/lookup",
+    "crates/services/miscellaneous/media-translation",
     "crates/services/miscellaneous/metadata-operations",
     "crates/services/miscellaneous/progress",
     "crates/services/miscellaneous/review",
     "crates/services/miscellaneous/search",
-    "crates/services/miscellaneous/translation",
     "crates/services/miscellaneous/trending-and-events",
     "crates/services/notification",
     "crates/services/session",
@@ -312,6 +312,8 @@ miscellaneous-filter-preset-service = { path = "crates/services/miscellaneous/fi
 miscellaneous-general-service = { path = "crates/services/miscellaneous/general" }
 miscellaneous-grouping-resolver = { path = "crates/resolvers/miscellaneous/grouping" }
 miscellaneous-lookup-service = { path = "crates/services/miscellaneous/lookup" }
+miscellaneous-media-translation-service = { path = "crates/services/miscellaneous/media-translation" }
+miscellaneous-media-translation-resolver = { path = "crates/resolvers/miscellaneous/media-translation" }
 miscellaneous-metadata-operations-service = { path = "crates/services/miscellaneous/metadata-operations" }
 miscellaneous-metadata-resolver = { path = "crates/resolvers/miscellaneous/metadata" }
 miscellaneous-progress-service = { path = "crates/services/miscellaneous/progress" }
@@ -324,8 +326,6 @@ miscellaneous-social-resolver = { path = "crates/resolvers/miscellaneous/social"
 miscellaneous-system-resolver = { path = "crates/resolvers/miscellaneous/system" }
 miscellaneous-tracking-resolver = { path = "crates/resolvers/miscellaneous/tracking" }
 miscellaneous-trending-and-events-service = { path = "crates/services/miscellaneous/trending-and-events" }
-miscellaneous-translation-service = { path = "crates/services/miscellaneous/translation" }
-miscellaneous-translation-resolver = { path = "crates/resolvers/miscellaneous/translation" }
 movary-importer-service = { path = "crates/services/importer/movary" }
 myanimelist-importer-service = { path = "crates/services/importer/myanimelist" }
 myanimelist-provider = { path = "crates/providers/myanimelist" }
