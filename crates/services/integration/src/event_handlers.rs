@@ -101,7 +101,7 @@ pub async fn handle_entity_added_to_collection_event(
 }
 
 pub async fn handle_on_seen_complete(ss: &Arc<SupportingService>, id: String) -> Result<()> {
-    let (seen, show_extra_information, metadata_title, metadata_lot) = Seen::find_by_id(id)
+    let (user_id, show_extra_information, metadata_title, metadata_lot) = Seen::find_by_id(id)
         .left_join(Metadata)
         .select_only()
         .columns([seen::Column::UserId, seen::Column::ShowExtraInformation])
@@ -112,7 +112,7 @@ pub async fn handle_on_seen_complete(ss: &Arc<SupportingService>, id: String) ->
         .ok_or(anyhow!("Seen with the given ID could not be found"))?;
     let integrations = select_integrations_to_process(
         ss,
-        &seen,
+        &user_id,
         IntegrationLot::Push,
         Some(IntegrationProvider::JellyfinPush),
     )
