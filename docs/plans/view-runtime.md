@@ -888,7 +888,7 @@ The view-runtime query builder lives in `app-backend/src/modules/view-runtime/qu
 
 ### Image Handling
 
-**Images are returned as raw jsonb discriminated unions.** The view-runtime does not resolve S3 keys to URLs or perform any image transformation. The frontend already has utilities for converting ImageSchema objects (`{ kind: "s3", key: "..." }`) to fully qualified URLs.
+**Images are returned as raw jsonb discriminated unions.** The view-runtime does not resolve S3 keys to URLs or perform any image transformation. The frontend already has utilities for converting ImageSchema objects (`{ kind: "s3", key: "..." }`) to fully qualified URLs. When `@image` appears inside a display fallback array, a missing top-level image must remain SQL NULL so later references in the COALESCE chain can still win.
 
 ### Testing Approach
 
@@ -924,7 +924,7 @@ Bootstrap manifests are updated with minimal changes to satisfy type requirement
 }
 ```
 
-**This configuration will be broken** because `@image` returns the full jsonb object, not a URL. This is acceptable for Phase 1. Full bootstrap implementation with schema-aware defaults is deferred to Phase 2.
+**This configuration returns raw image objects**, not resolved URLs. That is acceptable for Phase 1 because the frontend already knows how to render image unions. If a view uses `@image` in a longer fallback chain, missing top-level images must fall through to later references instead of resolving early to JSON null.
 
 ## Design Constraints
 
