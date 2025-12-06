@@ -521,6 +521,7 @@ pub async fn update_metadata_group(
     eg.is_partial = ActiveValue::Set(None);
     eg.title = ActiveValue::Set(group_details.title);
     eg.parts = ActiveValue::Set(group_details.parts);
+    eg.last_updated_on = ActiveValue::Set(Utc::now());
     eg.assets = ActiveValue::Set(group_details.assets);
     eg.source_url = ActiveValue::Set(group_details.source_url);
     eg.description = ActiveValue::Set(group_details.description);
