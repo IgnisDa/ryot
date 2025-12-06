@@ -34,6 +34,7 @@ export const MetadataDisplayItem = (props: {
 	const [
 		{ data: metadataDetails, isLoading: isMetadataDetailsLoading },
 		isMetadataPartialStatusActive,
+		metadataTranslations,
 	] = useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
@@ -91,7 +92,6 @@ export const MetadataDisplayItem = (props: {
 			progress={currentProgress}
 			entityId={props.metadataId}
 			userToMediaReasons={reasons}
-			title={metadataDetails?.title}
 			entityLot={EntityLot.Metadata}
 			isFirstItem={props.isFirstItem}
 			mediaLot={metadataDetails?.lot}
@@ -101,6 +101,7 @@ export const MetadataDisplayItem = (props: {
 			isDetailsLoading={isMetadataDetailsLoading}
 			wasRecentlyConsumed={isMetadataRecentlyConsumed}
 			isPartialStatusActive={isMetadataPartialStatusActive}
+			title={metadataTranslations?.title || metadataDetails?.title}
 			interactionButtons={["collection", "consume", "review", "watchlist"]}
 			hasInteracted={
 				props.shouldHighlightNameIfInteracted &&

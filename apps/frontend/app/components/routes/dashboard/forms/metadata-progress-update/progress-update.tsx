@@ -11,9 +11,8 @@ export const MetadataProgressUpdateForm = ({
 }) => {
 	const { metadataToUpdate } = useMetadataProgressUpdate();
 
-	const [{ data: metadataDetails }] = useMetadataDetails(
-		metadataToUpdate?.metadataId,
-	);
+	const [{ data: metadataDetails }, _, metadataTranslations] =
+		useMetadataDetails(metadataToUpdate?.metadataId);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		metadataToUpdate?.metadataId,
 	);
@@ -32,7 +31,7 @@ export const MetadataProgressUpdateForm = ({
 	return (
 		<Stack>
 			<Text fw="bold" ta="center" truncate>
-				{metadataDetails.title}
+				{metadataTranslations?.title || metadataDetails.title}
 			</Text>
 			{userMetadataDetails.inProgress ? (
 				<MetadataInProgressUpdateForm
