@@ -13,9 +13,9 @@ import {
 } from "@mantine/core";
 import { useDisclosure, useHover } from "@mantine/hooks";
 import { Key, Laptop, LogOut, Moon, Settings, Sun } from "lucide-react";
-import { useAuthClient } from "#/hooks/auth";
 import { useIsMobileScreen } from "#/hooks/screen";
 import { useColorScheme } from "#/hooks/theme";
+import { authClient } from "#/lib/auth";
 import type { SidebarAccount } from "./Sidebar.types";
 import { SidebarApiKeysSection } from "./SidebarApiKeysSection";
 import {
@@ -44,7 +44,6 @@ export function SidebarAccountSection(props: {
 	borderAccent: string;
 	account: SidebarAccount;
 }) {
-	const authClient = useAuthClient();
 	const isMobile = useIsMobileScreen();
 	const computedColorScheme = useColorScheme();
 	const { hovered, ref } = useHover<HTMLButtonElement>();

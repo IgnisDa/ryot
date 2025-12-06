@@ -1,4 +1,4 @@
-import type { AuthClient } from "#/hooks/auth";
+import type { AuthClient } from "#/lib/auth";
 
 type SidebarApiKeyListResponse = Awaited<
 	ReturnType<AuthClient["apiKey"]["list"]>
