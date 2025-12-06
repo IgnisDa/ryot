@@ -126,7 +126,7 @@ fn build_provider_language_information(
 ) -> Result<Vec<ProviderLanguageInformation>> {
     let information = MediaSource::iter()
         .map(|source| {
-            let (supported, default) = match source {
+            let (mut supported, default) = match source {
                 MediaSource::Tmdb => (
                     tmdb_service.get_all_languages(),
                     tmdb_service.get_default_language(),
@@ -169,6 +169,7 @@ fn build_provider_language_information(
                     "us".to_owned(),
                 ),
             };
+            supported.sort_by(|a, b| a.label.cmp(&b.label));
             ProviderLanguageInformation {
                 source,
                 default,
