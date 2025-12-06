@@ -6,13 +6,13 @@ use dependent_models::{
     UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
 };
 use media_models::GenreDetailsInput;
-use traits::{AuthProvider, GraphqlResolverDependency};
+use traits::{AuthProvider, GraphqlDependencyInjector};
 
 #[derive(Default)]
 pub struct MiscellaneousGroupingQueryResolver;
 
 impl AuthProvider for MiscellaneousGroupingQueryResolver {}
-impl GraphqlResolverDependency for MiscellaneousGroupingQueryResolver {}
+impl GraphqlDependencyInjector for MiscellaneousGroupingQueryResolver {}
 
 #[Object]
 impl MiscellaneousGroupingQueryResolver {

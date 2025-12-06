@@ -1,13 +1,13 @@
 use async_graphql::{Context, Object, Result};
 use common_models::ExportJob;
 use exporter_service::export_operations::{deploy_export_job, user_exports};
-use traits::{AuthProvider, GraphqlResolverDependency};
+use traits::{AuthProvider, GraphqlDependencyInjector};
 
 #[derive(Default)]
 pub struct ExporterQueryResolver;
 
 impl AuthProvider for ExporterQueryResolver {}
-impl GraphqlResolverDependency for ExporterQueryResolver {}
+impl GraphqlDependencyInjector for ExporterQueryResolver {}
 
 #[Object]
 impl ExporterQueryResolver {
@@ -26,7 +26,7 @@ impl AuthProvider for ExporterMutationResolver {
         true
     }
 }
-impl GraphqlResolverDependency for ExporterMutationResolver {}
+impl GraphqlDependencyInjector for ExporterMutationResolver {}
 
 #[Object]
 impl ExporterMutationResolver {

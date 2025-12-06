@@ -4,7 +4,7 @@ use media_models::{
     UserTwoFactorBackupCodesResponse, UserTwoFactorInitiateResponse, UserTwoFactorSetupInput,
     UserTwoFactorVerifyInput, VerifyTwoFactorResult,
 };
-use traits::{AuthProvider, GraphqlResolverDependency};
+use traits::{AuthProvider, GraphqlDependencyInjector};
 use user_service::{
     authentication_operations, oidc_operations, two_factor_operations, user_data_operations,
     user_management_operations,
@@ -14,7 +14,7 @@ use user_service::{
 pub struct UserAuthenticationQueryResolver;
 
 impl AuthProvider for UserAuthenticationQueryResolver {}
-impl GraphqlResolverDependency for UserAuthenticationQueryResolver {}
+impl GraphqlDependencyInjector for UserAuthenticationQueryResolver {}
 
 #[Object]
 impl UserAuthenticationQueryResolver {
@@ -49,7 +49,7 @@ impl AuthProvider for UserAuthenticationMutationResolver {
         true
     }
 }
-impl GraphqlResolverDependency for UserAuthenticationMutationResolver {}
+impl GraphqlDependencyInjector for UserAuthenticationMutationResolver {}
 
 #[Object]
 impl UserAuthenticationMutationResolver {

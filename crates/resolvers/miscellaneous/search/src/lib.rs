@@ -5,13 +5,13 @@ use dependent_models::{
     PeopleSearchResponse, TrendingMetadataIdsResponse,
 };
 use media_models::MetadataLookupResponse;
-use traits::{AuthProvider, GraphqlResolverDependency};
+use traits::{AuthProvider, GraphqlDependencyInjector};
 
 #[derive(Default)]
 pub struct MiscellaneousSearchQueryResolver;
 
 impl AuthProvider for MiscellaneousSearchQueryResolver {}
-impl GraphqlResolverDependency for MiscellaneousSearchQueryResolver {}
+impl GraphqlDependencyInjector for MiscellaneousSearchQueryResolver {}
 
 #[Object]
 impl MiscellaneousSearchQueryResolver {

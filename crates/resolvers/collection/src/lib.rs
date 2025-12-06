@@ -13,13 +13,13 @@ use dependent_models::{
     CollectionRecommendationsInput, SearchResults, UserCollectionsListResponse,
 };
 use media_models::CreateOrUpdateCollectionInput;
-use traits::{AuthProvider, GraphqlResolverDependency};
+use traits::{AuthProvider, GraphqlDependencyInjector};
 
 #[derive(Default)]
 pub struct CollectionQueryResolver;
 
 impl AuthProvider for CollectionQueryResolver {}
-impl GraphqlResolverDependency for CollectionQueryResolver {}
+impl GraphqlDependencyInjector for CollectionQueryResolver {}
 
 #[Object]
 impl CollectionQueryResolver {
@@ -61,7 +61,7 @@ impl AuthProvider for CollectionMutationResolver {
         true
     }
 }
-impl GraphqlResolverDependency for CollectionMutationResolver {}
+impl GraphqlDependencyInjector for CollectionMutationResolver {}
 
 #[Object]
 impl CollectionMutationResolver {

@@ -11,7 +11,7 @@ use miscellaneous_metadata_operations_service::{
     create_custom_metadata, create_custom_metadata_group, create_custom_person,
     update_custom_metadata, update_custom_metadata_group, update_custom_person,
 };
-use traits::{AuthProvider, GraphqlResolverDependency};
+use traits::{AuthProvider, GraphqlDependencyInjector};
 
 #[derive(Default)]
 pub struct CustomMutationResolver;
@@ -21,7 +21,7 @@ impl AuthProvider for CustomMutationResolver {
         true
     }
 }
-impl GraphqlResolverDependency for CustomMutationResolver {}
+impl GraphqlDependencyInjector for CustomMutationResolver {}
 
 #[Object]
 impl CustomMutationResolver {

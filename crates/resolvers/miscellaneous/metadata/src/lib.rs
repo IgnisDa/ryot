@@ -4,13 +4,13 @@ use dependent_models::{
     CachedResponse, UserMetadataDetails, UserMetadataListInput, UserMetadataListResponse,
 };
 use media_models::GraphqlMetadataDetails;
-use traits::{AuthProvider, GraphqlResolverDependency};
+use traits::{AuthProvider, GraphqlDependencyInjector};
 
 #[derive(Default)]
 pub struct MiscellaneousMetadataQueryResolver;
 
 impl AuthProvider for MiscellaneousMetadataQueryResolver {}
-impl GraphqlResolverDependency for MiscellaneousMetadataQueryResolver {}
+impl GraphqlDependencyInjector for MiscellaneousMetadataQueryResolver {}
 
 #[Object]
 impl MiscellaneousMetadataQueryResolver {
@@ -75,7 +75,7 @@ impl AuthProvider for MiscellaneousMetadataMutationResolver {
         true
     }
 }
-impl GraphqlResolverDependency for MiscellaneousMetadataMutationResolver {}
+impl GraphqlDependencyInjector for MiscellaneousMetadataMutationResolver {}
 
 #[Object]
 impl MiscellaneousMetadataMutationResolver {

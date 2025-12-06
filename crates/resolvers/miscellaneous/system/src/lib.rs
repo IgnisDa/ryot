@@ -1,14 +1,14 @@
 use async_graphql::{Context, Object, Result};
 use common_models::{BackgroundJob, EntityWithLot};
 use dependent_models::CoreDetails;
-use traits::{AuthProvider, GraphqlResolverDependency};
+use traits::{AuthProvider, GraphqlDependencyInjector};
 use uuid::Uuid;
 
 #[derive(Default)]
 pub struct MiscellaneousSystemQueryResolver;
 
 impl AuthProvider for MiscellaneousSystemQueryResolver {}
-impl GraphqlResolverDependency for MiscellaneousSystemQueryResolver {}
+impl GraphqlDependencyInjector for MiscellaneousSystemQueryResolver {}
 
 #[Object]
 impl MiscellaneousSystemQueryResolver {
@@ -27,7 +27,7 @@ impl AuthProvider for MiscellaneousSystemMutationResolver {
         true
     }
 }
-impl GraphqlResolverDependency for MiscellaneousSystemMutationResolver {}
+impl GraphqlDependencyInjector for MiscellaneousSystemMutationResolver {}
 
 #[Object]
 impl MiscellaneousSystemMutationResolver {

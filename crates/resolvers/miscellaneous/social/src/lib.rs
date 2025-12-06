@@ -5,13 +5,13 @@ use dependent_models::{
     UserPersonDetails,
 };
 use media_models::{CreateOrUpdateReviewInput, CreateReviewCommentInput};
-use traits::{AuthProvider, GraphqlResolverDependency};
+use traits::{AuthProvider, GraphqlDependencyInjector};
 
 #[derive(Default)]
 pub struct MiscellaneousSocialQueryResolver;
 
 impl AuthProvider for MiscellaneousSocialQueryResolver {}
-impl GraphqlResolverDependency for MiscellaneousSocialQueryResolver {}
+impl GraphqlDependencyInjector for MiscellaneousSocialQueryResolver {}
 
 #[Object]
 impl MiscellaneousSocialQueryResolver {
@@ -59,7 +59,7 @@ impl AuthProvider for MiscellaneousSocialMutationResolver {
         true
     }
 }
-impl GraphqlResolverDependency for MiscellaneousSocialMutationResolver {}
+impl GraphqlDependencyInjector for MiscellaneousSocialMutationResolver {}
 
 #[Object]
 impl MiscellaneousSocialMutationResolver {

@@ -145,7 +145,7 @@ pub trait AuthProvider {
 }
 
 #[async_trait]
-pub trait GraphqlResolverDependency: AuthProvider {
+pub trait GraphqlDependencyInjector: AuthProvider {
     fn dependency<'a>(&self, ctx: &Context<'a>) -> &'a Arc<SupportingService> {
         ctx.data_unchecked::<Arc<SupportingService>>()
     }
