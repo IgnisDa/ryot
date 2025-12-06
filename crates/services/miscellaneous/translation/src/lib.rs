@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow, bail};
 use common_models::{EntityWithLot, UserLevelCacheKey};
 use common_utils::ryot_log;
 use database_models::{
-    entity_translation,
+    entity_translation, metadata,
     prelude::{EntityTranslation, Metadata},
 };
 use database_utils::user_by_id;
@@ -15,7 +15,9 @@ use dependent_provider_utils::get_metadata_provider;
 use dependent_utility_utils::expire_user_entity_details_cache;
 use enum_models::{EntityLot, EntityTranslationVariant, MediaSource};
 use media_models::EntityTranslationDetails;
-use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter, sea_query::OnConflict};
+use sea_orm::{
+    ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, sea_query::OnConflict,
+};
 use supporting_service::SupportingService;
 use user_models::UserProviderLanguagePreferences;
 
@@ -102,14 +104,29 @@ pub async fn entity_translations(
         }),
         ApplicationCacheValue::UserEntityTranslations,
         || async move {
+            let source = match input.entity_lot {
+                EntityLot::Metadata => Metadata::find_by_id(&input.entity_id)
+                    .select_only()
+                    .column(metadata::Column::Source)
+                    .into_tuple::<MediaSource>()
+                    .one(&ss.db)
+                    .await?
+                    .ok_or_else(|| anyhow!("Metadata not found"))?,
+                _ => {
+                    bail!("Unsupported entity lot for translations");
+                }
+            };
             let preferred_language =
-                get_preferred_language_for_user_and_source(ss, user_id, todo!()).await?;
+                get_preferred_language_for_user_and_source(ss, user_id, &source).await?;
             let translations = EntityTranslation::find()
                 .filter(entity_translation::Column::EntityId.eq(input.entity_id))
                 .filter(entity_translation::Column::EntityLot.eq(input.entity_lot))
                 .filter(entity_translation::Column::Language.eq(&preferred_language))
                 .all(&ss.db)
                 .await?;
+            if translations.is_empty() {
+                return Ok(None);
+            }
             Ok(Some(EntityTranslationDetails {
                 title: translations
                     .iter()
