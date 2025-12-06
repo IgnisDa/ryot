@@ -61,6 +61,7 @@ import { buildReviewMigrationSql } from "./review-mapping";
 import { buildSeenEpisodicCompletionMigrationSql } from "./seen-completion-mapping";
 import { buildSeenMigrationSql } from "./seen-mapping";
 import { buildUniqueSlugMap, legacyBootstrapGate, withRawPgClient } from "./shared";
+import { buildEntityTranslationMigrationSql } from "./translation-mapping";
 import { buildLegacyUserAuthMigrationSql } from "./user-auth-mapping";
 import { buildMeasurementMigrationSql } from "./user-measurement-mapping";
 import { buildUserToEntityInLibraryMigrationSql } from "./user-to-entity-mapping";
@@ -396,6 +397,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			)
 			.then(() => client.query(buildPersonEntityMigrationSql(resolvedPersonEntityTargets)))
 			.then(() => client.query(buildCompanyEntityMigrationSql(resolvedCompanyEntityTargets)))
+			.then(() => client.query(buildEntityTranslationMigrationSql()))
 			.then(() => client.query(buildCollectionEntityMigrationSql(collectionEntitySchemaId)))
 			.then(() => client.query(buildExerciseMigrationSql(resolvedExerciseTargets)))
 			.then(() => client.query(buildMeasurementMigrationSql(measurementEntitySchemaId)))
