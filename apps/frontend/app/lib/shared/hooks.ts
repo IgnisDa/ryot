@@ -133,7 +133,7 @@ const createDeployMediaEntityJob =
 		}
 	};
 
-export const useEntityUpdateMonitor = (props: {
+const useEntityUpdateMonitor = (props: {
 	entityId?: string;
 	entityLot: EntityLot;
 	onUpdate: () => unknown;
