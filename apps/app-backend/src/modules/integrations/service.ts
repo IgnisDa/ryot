@@ -32,6 +32,10 @@ const encodeIntegrationWebhookPayload = Schema.encode(
 	Schema.parseJson(IntegrationWebhookPayloadSchema),
 );
 
+type UpdateIntegrationInput = UpdateIntegrationBody & {
+	readonly lastFinishedAt?: Date | null | undefined;
+};
+
 const buildIntegrationInputSummary = (
 	integration: Pick<IntegrationRecord, "id" | "lot" | "name" | "provider">,
 ) => ({
@@ -125,15 +129,15 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 			) => runWithDb(repository.listForUser({ userId: user.id, ...query }));
 
 			const update = Effect.fn("IntegrationsService.update")(function* (
-				user: CurrentUserValue,
+				userId: UserId,
 				integrationId: IntegrationId,
-				body: UpdateIntegrationBody,
+				body: UpdateIntegrationInput,
 			) {
-				const existing = yield* requireIntegration(user.id, integrationId);
+				const existing = yield* requireIntegration(userId, integrationId);
 
-				let providerSpecifics: IntegrationProviderSpecifics = existing.providerSpecifics;
+				let providerSpecifics: IntegrationProviderSpecifics | undefined;
 				if (body.providerSpecifics !== undefined) {
-					providerSpecifics = yield* decodeIntegrationProviderSpecifics({
+					const merged = yield* decodeIntegrationProviderSpecifics({
 						...existing.providerSpecifics,
 						...body.providerSpecifics,
 					}).pipe(
@@ -141,27 +145,31 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 							badRequest(`Invalid providerSpecifics after merge: ${error.message}`),
 						),
 					);
-					if (providerSpecifics.kind !== existing.provider) {
+					if (merged.kind !== existing.provider) {
 						return yield* badRequest("providerSpecifics.kind must match provider");
 					}
+					providerSpecifics = merged;
 				}
 
-				const minimumProgress = body.minimumProgress ?? existing.minimumProgress;
-				const maximumProgress = body.maximumProgress ?? existing.maximumProgress;
-				const thresholdError = validateProgressThresholds(minimumProgress, maximumProgress);
-				if (thresholdError) {
-					return yield* badRequest(thresholdError);
+				if (body.minimumProgress !== undefined || body.maximumProgress !== undefined) {
+					const minimumProgress = body.minimumProgress ?? existing.minimumProgress;
+					const maximumProgress = body.maximumProgress ?? existing.maximumProgress;
+					const thresholdError = validateProgressThresholds(minimumProgress, maximumProgress);
+					if (thresholdError) {
+						return yield* badRequest(thresholdError);
+					}
 				}
 
 				const updated = yield* runWithDb(
 					repository.updateForUser({
+						userId,
 						integrationId,
 						name: body.name,
-						userId: user.id,
 						providerSpecifics,
 						isDisabled: body.isDisabled,
 						extraSettings: body.extraSettings,
 						syncOwnership: body.syncOwnership,
+						lastFinishedAt: body.lastFinishedAt,
 						minimumProgress:
 							body.minimumProgress !== undefined ? String(body.minimumProgress) : undefined,
 						maximumProgress:
