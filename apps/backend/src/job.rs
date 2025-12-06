@@ -25,6 +25,7 @@ use miscellaneous_service::{
     update_metadata_group_and_notify_users_for_id, update_person_and_notify_users_for_id,
     update_user_last_activity_performed,
 };
+use miscellaneous_translation_service::update_media_entity_translation;
 use statistics_service::calculate_user_activities_and_summary_for_user;
 use supporting_service::SupportingService;
 use traits::TraceOk;
@@ -115,6 +116,9 @@ pub async fn perform_mp_application_job(
         MpApplicationJob::PerformExport(user_id) => perform_export(&ss, user_id).await,
         MpApplicationJob::UpdateExerciseLibrary => deploy_update_exercise_library_job(&ss).await,
         MpApplicationJob::SyncIntegrationsData => sync_integrations_data(&ss).await,
+        MpApplicationJob::UpdateEntityTranslations(user_id, input) => {
+            update_media_entity_translation(&ss, &user_id, input).await
+        }
     };
     ryot_log!(trace, "Finished job {:?}", name);
     status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))

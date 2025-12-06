@@ -957,6 +957,7 @@ dependencies = [
  "miscellaneous-system-resolver",
  "miscellaneous-tracking-resolver",
  "miscellaneous-translation-resolver",
+ "miscellaneous-translation-service",
  "router-resolver",
  "schematic",
  "sea-orm",
@@ -4831,7 +4832,6 @@ dependencies = [
  "async-graphql",
  "common-models",
  "dependent-models",
- "media-models",
  "miscellaneous-translation-service",
  "traits",
 ]
@@ -4841,6 +4841,7 @@ name = "miscellaneous-translation-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "background-models",
  "cache-service",
  "common-models",
  "common-utils",

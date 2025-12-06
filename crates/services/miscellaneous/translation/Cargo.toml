@@ -8,6 +8,7 @@ anyhow = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
 
+background-models = { workspace = true }
 cache-service = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }

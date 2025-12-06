@@ -42,8 +42,15 @@ impl MiscellaneousTranslationMutationResolver {
         &self,
         gql_ctx: &Context<'_>,
         input: EntityWithLot,
-    ) -> Result<CachedResponse<EntityTranslationDetailsResponse>> {
+    ) -> Result<bool> {
         let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
-        todo!()
+        Ok(
+            miscellaneous_translation_service::deploy_update_entity_translations_job(
+                &service,
+                user_id,
+                input.clone(),
+            )
+            .await?,
+        )
     }
 }

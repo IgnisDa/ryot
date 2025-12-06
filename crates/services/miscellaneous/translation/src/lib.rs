@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::{Result, anyhow, bail};
+use background_models::{ApplicationJob, MpApplicationJob};
 use common_models::{EntityWithLot, UserLevelCacheKey};
 use common_utils::ryot_log;
 use database_models::{
@@ -40,7 +41,19 @@ async fn get_preferred_language_for_user_and_source(
     Ok(preferred_language)
 }
 
-async fn update_media_entity_translation(
+pub async fn deploy_update_entity_translations_job(
+    ss: &Arc<SupportingService>,
+    user_id: String,
+    input: EntityWithLot,
+) -> Result<bool> {
+    ss.perform_application_job(ApplicationJob::Mp(
+        MpApplicationJob::UpdateEntityTranslations(user_id, input),
+    ))
+    .await?;
+    Ok(true)
+}
+
+pub async fn update_media_entity_translation(
     ss: &Arc<SupportingService>,
     user_id: &String,
     input: EntityWithLot,
