@@ -122,15 +122,13 @@ export const useGetWorkoutStarter = () => {
 	return fn;
 };
 
-export const usePartialStatusMonitor = (props: {
+export const useEntityUpdateMonitor = (props: {
 	entityId?: string;
 	entityLot: EntityLot;
 	onUpdate: () => unknown;
-	partialStatus?: boolean | null;
-	externalLinkSource: MediaSource;
+	needsRefetch?: boolean | null;
 }) => {
-	const { entityId, entityLot, onUpdate, partialStatus, externalLinkSource } =
-		props;
+	const { entityId, entityLot, onUpdate, needsRefetch } = props;
 
 	const attemptCountRef = useRef(0);
 	const isPollingRef = useRef(false);
@@ -182,9 +180,7 @@ export const usePartialStatusMonitor = (props: {
 
 	useEffect(() => {
 		const jobDeployedForEntity = jobDeployedForEntityRef.current;
-		const shouldPoll = Boolean(
-			entityId && partialStatus && externalLinkSource !== MediaSource.Custom,
-		);
+		const shouldPoll = Boolean(entityId && needsRefetch);
 		const isJobForDifferentEntity = Boolean(
 			jobDeployedForEntity && jobDeployedForEntity !== entityId,
 		);
@@ -233,10 +229,9 @@ export const usePartialStatusMonitor = (props: {
 		onUpdate,
 		entityId,
 		entityLot,
-		partialStatus,
+		needsRefetch,
 		scheduleNextPoll,
 		resetPollingState,
-		externalLinkSource,
 	]);
 
 	return { isPartialStatusActive };
@@ -248,12 +243,14 @@ export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
 		enabled,
 	});
 
-	const { isPartialStatusActive } = usePartialStatusMonitor({
+	const { isPartialStatusActive } = useEntityUpdateMonitor({
 		entityId: metadataId,
 		entityLot: EntityLot.Metadata,
 		onUpdate: () => metadataDetailsQuery.refetch(),
-		partialStatus: enabled !== false && metadataDetailsQuery.data?.isPartial,
-		externalLinkSource: metadataDetailsQuery.data?.source || MediaSource.Custom,
+		needsRefetch:
+			enabled !== false &&
+			metadataDetailsQuery.data?.isPartial &&
+			metadataDetailsQuery.data?.source !== MediaSource.Custom,
 	});
 
 	return [metadataDetailsQuery, isPartialStatusActive] as const;
@@ -272,12 +269,14 @@ export const useUserMetadataDetails = (
 export const usePersonDetails = (personId?: string, enabled?: boolean) => {
 	const query = useQuery({ ...getPersonDetailsQuery(personId), enabled });
 
-	const { isPartialStatusActive } = usePartialStatusMonitor({
+	const { isPartialStatusActive } = useEntityUpdateMonitor({
 		entityId: personId,
 		entityLot: EntityLot.Person,
 		onUpdate: () => query.refetch(),
-		partialStatus: enabled !== false && query.data?.details.isPartial,
-		externalLinkSource: query.data?.details.source || MediaSource.Custom,
+		needsRefetch:
+			enabled !== false &&
+			query.data?.details.isPartial &&
+			query.data?.details.source !== MediaSource.Custom,
 	});
 
 	return [query, isPartialStatusActive] as const;
@@ -333,12 +332,14 @@ export const useMetadataGroupDetails = (
 		enabled,
 	});
 
-	const { isPartialStatusActive } = usePartialStatusMonitor({
+	const { isPartialStatusActive } = useEntityUpdateMonitor({
 		entityId: metadataGroupId,
 		onUpdate: () => query.refetch(),
 		entityLot: EntityLot.MetadataGroup,
-		partialStatus: enabled !== false && query.data?.details.isPartial,
-		externalLinkSource: query.data?.details.source || MediaSource.Custom,
+		needsRefetch:
+			enabled !== false &&
+			query.data?.details.isPartial &&
+			query.data?.details.source !== MediaSource.Custom,
 	});
 
 	return [query, isPartialStatusActive] as const;
