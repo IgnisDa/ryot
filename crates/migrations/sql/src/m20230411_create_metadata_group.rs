@@ -13,18 +13,19 @@ pub static METADATA_GROUP_DESCRIPTION_TRIGRAM_INDEX: &str =
 
 #[derive(Iden)]
 pub enum MetadataGroup {
-    Table,
     Id,
-    Parts,
-    Identifier,
-    Title,
-    Description,
-    Assets,
     Lot,
+    Table,
+    Parts,
+    Title,
+    Assets,
     Source,
     IsPartial,
     SourceUrl,
+    Identifier,
+    Description,
     CreatedByUserId,
+    HasTranslationsForLanguages,
 }
 
 #[async_trait::async_trait]
@@ -59,6 +60,10 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(MetadataGroup::CreatedByUserId).text())
+                    .col(
+                        ColumnDef::new(MetadataGroup::HasTranslationsForLanguages)
+                            .array(ColumnType::Text),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name(METADATA_GROUP_TO_USER_FOREIGN_KEY)

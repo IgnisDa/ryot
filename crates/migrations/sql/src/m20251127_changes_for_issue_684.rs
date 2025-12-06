@@ -17,14 +17,17 @@ WHERE "preferences"->'languages' IS NULL
         )
         .await?;
 
-        if !manager
-            .has_column("metadata", "has_translations_for_languages")
-            .await?
-        {
-            db.execute_unprepared(
-                r#"ALTER TABLE "metadata" ADD COLUMN "has_translations_for_languages" text[]"#,
-            )
-            .await?;
+        for entity in &["person", "metadata_group", "metadata"] {
+            if !manager
+                .has_column(entity, "has_translations_for_languages")
+                .await?
+            {
+                db.execute_unprepared(&format!(
+                    r#"ALTER TABLE "{}" ADD COLUMN "has_translations_for_languages" text[]"#,
+                    entity
+                ))
+                .await?;
+            }
         }
 
         Ok(())
