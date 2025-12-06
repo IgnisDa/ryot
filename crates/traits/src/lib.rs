@@ -82,7 +82,7 @@ pub trait MediaProvider {
         bail!("This provider does not support getting trending media")
     }
 
-    /// Translate media metadata.
+    /// Translate metadata.
     #[allow(unused_variables)]
     async fn translate_metadata(
         &self,
@@ -90,6 +90,26 @@ pub trait MediaProvider {
         target_language: &str,
     ) -> Result<EntityTranslationDetails> {
         bail!("This provider does not support translating metadata")
+    }
+
+    /// Translate metadata group.
+    #[allow(unused_variables)]
+    async fn translate_metadata_group(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        bail!("This provider does not support translating metadata groups")
+    }
+
+    /// Translate person.
+    #[allow(unused_variables)]
+    async fn translate_person(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        bail!("This provider does not support translating person")
     }
 }
 
