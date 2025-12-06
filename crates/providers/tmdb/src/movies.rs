@@ -359,4 +359,23 @@ impl MediaProvider for TmdbMovieService {
             description: data.overview,
         })
     }
+
+    async fn translate_metadata_group(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let rsp = self
+            .0
+            .client
+            .get(format!("{URL}/collection/{identifier}"))
+            .query(&[("language", target_language)])
+            .send()
+            .await?;
+        let data: TmdbCollection = rsp.json().await?;
+        Ok(EntityTranslationDetails {
+            title: Some(data.name),
+            description: data.overview,
+        })
+    }
 }

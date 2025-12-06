@@ -11,7 +11,7 @@ use futures::{
     try_join,
 };
 use itertools::Itertools;
-use media_models::PeopleSearchItem;
+use media_models::{EntityTranslationDetails, PeopleSearchItem};
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
@@ -191,6 +191,33 @@ impl MediaProvider for NonMediaTmdbService {
             ..Default::default()
         };
         Ok(resp)
+    }
+
+    async fn translate_person(
+        &self,
+        identifier: &str,
+        target_language: &str,
+        source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<EntityTranslationDetails> {
+        let person_type = match source_specifics {
+            Some(PersonSourceSpecifics {
+                is_tmdb_company: Some(true),
+                ..
+            }) => "company",
+            _ => "person",
+        };
+        let rsp = self
+            .0
+            .client
+            .get(format!("{URL}/{person_type}/{identifier}"))
+            .query(&[("language", target_language)])
+            .send()
+            .await?;
+        let data: TmdbNonMediaEntity = rsp.json().await?;
+        Ok(EntityTranslationDetails {
+            title: Some(data.name),
+            description: data.biography.or(data.description),
+        })
     }
 }
 
