@@ -53,10 +53,11 @@ async fn ensure_metadata_updated(
                 let is_partial = Metadata::find_by_id(metadata_id)
                     .select_only()
                     .column(metadata::Column::IsPartial)
-                    .into_tuple::<bool>()
+                    .into_tuple::<Option<bool>>()
                     .one(&ss.db)
                     .await?
-                    .unwrap_or(true);
+                    .flatten()
+                    .unwrap_or(false);
                 if is_partial {
                     deploy_update_metadata_job(metadata_id, ss).await?;
                     let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
