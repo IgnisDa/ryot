@@ -99,6 +99,7 @@ import {
 	useDeployBulkMetadataProgressUpdateMutation,
 	useMetadataDetails,
 	useMetadataGroupDetails,
+	useTranslationMonitor,
 	useUserMetadataDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -233,6 +234,12 @@ export default function Page() {
 		loaderData.metadataId,
 	);
 	const userMetadataDetails = useUserMetadataDetails(loaderData.metadataId);
+	const { translations } = useTranslationMonitor({
+		entityLot: EntityLot.Metadata,
+		entityId: loaderData.metadataId,
+		enabled: metadataDetails.isFetched,
+		mediaSource: metadataDetails.data?.source,
+	});
 	const averageRatingValue = convertRatingToUserScale(
 		userMetadataDetails.data?.averageRating,
 		userPreferences.general.reviewScale,
@@ -278,7 +285,9 @@ export default function Page() {
 		[changeProgress],
 	);
 
-	const description = metadataDetails.data?.description;
+	const title = translations?.title || metadataDetails.data?.title || "";
+	const description =
+		translations?.description || metadataDetails.data?.description;
 	const nextEntry = userMetadataDetails.data?.nextEntry;
 	const inProgress = userMetadataDetails.data?.inProgress;
 	const firstGroupAssociated = metadataDetails.data?.groups.at(0);
@@ -391,7 +400,7 @@ export default function Page() {
 						userMetadataDetails={userMetadataDetails.data}
 					/>
 					<MediaDetailsLayout
-						title={metadataDetails.data.title}
+						title={title}
 						assets={metadataDetails.data.assets}
 						isPartialStatusActive={isMetadataPartialStatusActive}
 						externalLink={{
