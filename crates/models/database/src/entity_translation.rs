@@ -64,4 +64,16 @@ impl Related<super::metadata::Entity> for Entity {
     }
 }
 
+impl Related<super::metadata_group::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::MetadataGroup.def()
+    }
+}
+
+impl Related<super::person::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Person.def()
+    }
+}
+
 impl ActiveModelBehavior for ActiveModel {}
