@@ -154,6 +154,7 @@ pub async fn user_notification_platforms(
 ) -> Result<Vec<notification_platform::Model>> {
     let all_notifications = NotificationPlatform::find()
         .filter(notification_platform::Column::UserId.eq(user_id))
+        .order_by_desc(notification_platform::Column::CreatedOn)
         .all(&ss.db)
         .await?;
     Ok(all_notifications)
