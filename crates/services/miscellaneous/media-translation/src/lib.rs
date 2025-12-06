@@ -106,8 +106,7 @@ pub async fn update_media_entity_translation(
             let mut translations_for_languages: HashSet<String> = HashSet::from_iter(
                 meta.has_translations_for_languages
                     .unwrap_or_default()
-                    .iter()
-                    .cloned(),
+                    .into_iter(),
             );
             translations_for_languages.insert(preferred_language);
             Metadata::update_many()
