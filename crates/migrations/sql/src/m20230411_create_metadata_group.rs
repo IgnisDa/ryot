@@ -24,6 +24,7 @@ pub enum MetadataGroup {
     SourceUrl,
     Identifier,
     Description,
+    LastUpdatedOn,
     CreatedByUserId,
     HasTranslationsForLanguages,
 }
@@ -47,6 +48,12 @@ impl MigrationTrait for Migration {
                             .integer()
                             .default(0)
                             .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(MetadataGroup::LastUpdatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(MetadataGroup::Title).text().not_null())
                     .col(ColumnDef::new(MetadataGroup::Description).text())

@@ -34,6 +34,7 @@ pub struct Model {
     pub is_partial: Option<bool>,
     pub source_url: Option<String>,
     pub description: Option<String>,
+    pub last_updated_on: DateTimeUtc,
     #[boilermates(not_in("MetadataGroupWithoutId"))]
     pub created_by_user_id: Option<String>,
     pub has_translations_for_languages: Option<Vec<String>>,

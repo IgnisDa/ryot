@@ -17,6 +17,16 @@ WHERE "preferences"->'languages' IS NULL
         )
         .await?;
 
+        if !manager
+            .has_column("metadata_group", "last_updated_on")
+            .await?
+        {
+            db.execute_unprepared(
+            r#"ALTER TABLE "metadata_group" ADD COLUMN "last_updated_on" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP"#,
+        )
+        .await?;
+        }
+
         for entity in &["person", "metadata_group", "metadata"] {
             if !manager
                 .has_column(entity, "has_translations_for_languages")
