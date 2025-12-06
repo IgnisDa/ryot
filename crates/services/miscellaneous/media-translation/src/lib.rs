@@ -183,7 +183,11 @@ pub async fn update_media_translation(
                 get_preferred_language_for_user_and_source(ss, user_id, &person.source).await?;
             let provider = get_non_metadata_provider(person.source, ss).await?;
             if let Ok(trn) = provider
-                .translate_person(&person.identifier, &preferred_language)
+                .translate_person(
+                    &person.identifier,
+                    &preferred_language,
+                    &person.source_specifics,
+                )
                 .await
             {
                 replace_entity_translations(

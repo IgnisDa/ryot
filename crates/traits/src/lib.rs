@@ -108,6 +108,7 @@ pub trait MediaProvider {
         &self,
         identifier: &str,
         target_language: &str,
+        source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<EntityTranslationDetails> {
         bail!("This provider does not support translating person")
     }
