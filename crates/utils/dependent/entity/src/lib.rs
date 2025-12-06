@@ -425,27 +425,20 @@ pub async fn update_metadata(
     metadata_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
-    let metadata = Metadata::find_by_id(metadata_id)
+    let meta = Metadata::find_by_id(metadata_id)
         .one(&ss.db)
         .await
         .unwrap()
         .unwrap();
-    if !metadata.is_partial.unwrap_or_default() {
+    if !meta.is_partial.unwrap_or_default() {
         return Ok(UpdateMediaEntityResult::default());
     }
 
     let mut result = UpdateMediaEntityResult::default();
     ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
-    let maybe_details =
-        details_from_provider(metadata.lot, metadata.source, &metadata.identifier, ss).await;
+    let maybe_details = details_from_provider(meta.lot, meta.source, &meta.identifier, ss).await;
     match maybe_details {
         Ok(details) => {
-            let meta = Metadata::find_by_id(metadata_id)
-                .one(&ss.db)
-                .await
-                .unwrap()
-                .unwrap();
-
             let notifications = generate_metadata_update_notifications(&meta, &details, ss).await?;
 
             let free_creators = (!details.creators.is_empty())
