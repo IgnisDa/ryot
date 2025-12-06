@@ -5,14 +5,14 @@ import getPort from "get-port";
 
 import {
 	cleanupBuiltinProviderScript,
-	countMonitoringRelationships,
+	countMediaMonitoringRelationships,
 	createAuthenticatedClient,
 	createNotificationPlatform,
 	detailsDriverCode,
-	disableMonitoring,
-	enableMonitoring,
+	disableMediaMonitoring,
+	enableMediaMonitoring,
 	getBackendClient,
-	getMonitoringStatus,
+	getMediaMonitoringStatus,
 	getBuiltinEntitySchemaId,
 	queryInLibraryRelationship,
 	seedBuiltinProviderScript,
@@ -24,23 +24,23 @@ import { assertTaggedError, requirePresent } from "../test-support/assertions";
 
 const ADMIN_TOKEN = "test-admin-token";
 const adminHeaders = { "Admin-Access-Token": ADMIN_TOKEN };
-const apiExternalId = `monitoring-api-${crypto.randomUUID()}`;
-const cronExternalId = `monitoring-cron-${crypto.randomUUID()}`;
+const apiExternalId = `media-monitoring-api-${crypto.randomUUID()}`;
+const cronExternalId = `media-monitoring-cron-${crypto.randomUUID()}`;
 
 const detailsCode = (productionStatus: string) =>
 	detailsDriverCode({
-		name: "Monitoring Cron Target",
+		name: "Media Monitoring Cron Target",
 		properties: { productionStatus, publishYear: 2026 },
 	});
 
-const waitForMonitoringRefresh = (executionId: string) =>
-	pollUntil("monitoring refresh workflow completion", async () => {
+const waitForMediaMonitoringRefresh = (executionId: string) =>
+	pollUntil("media monitoring refresh workflow completion", async () => {
 		const result = await getPgClient().query<{ complete: boolean }>(
 			`select exists (
 				select 1
 				from cluster_messages m
 				inner join cluster_replies r on r.request_id = m.id
-				where m.entity_type = 'Workflow/MonitoringRefreshWorkflow'
+				where m.entity_type = 'Workflow/MediaMonitoringRefreshWorkflow'
 				  and m.tag = 'run'
 				  and m.payload like ('%' || $1 || '%')
 			) as complete`,
@@ -61,14 +61,14 @@ let provider: Awaited<ReturnType<typeof seedBuiltinProviderScript>>;
 beforeAll(async () => {
 	movieSchemaId = await getBuiltinEntitySchemaId("movie");
 	provider = await seedBuiltinProviderScript({
-		name: "Monitoring E2E Provider",
+		name: "Media Monitoring E2E Provider",
 		code: detailsCode("Continuing"),
-		slug: `movie.monitoring-e2e-${crypto.randomUUID()}`,
+		slug: `movie.media-monitoring-e2e-${crypto.randomUUID()}`,
 	});
 	const apiEntity = await seedMediaEntity({
 		properties: {},
 		externalId: apiExternalId,
-		name: "Monitoring API Target",
+		name: "Media Monitoring API Target",
 		entitySchemaId: movieSchemaId,
 		sandboxScriptId: provider.scriptId,
 	});
@@ -76,7 +76,7 @@ beforeAll(async () => {
 		properties: {},
 		externalId: cronExternalId,
 		entitySchemaId: movieSchemaId,
-		name: "Monitoring Cron Target",
+		name: "Media Monitoring Cron Target",
 		sandboxScriptId: provider.scriptId,
 	});
 	apiEntityId = apiEntity.id;
@@ -96,53 +96,53 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-	fakeAppriseServer.stop(true);
+	await fakeAppriseServer.stop(true);
 	const pg = getPgClient();
 	await pg.query(`delete from entity where id = any($1::text[])`, [extraEntityIds]);
 	await cleanupBuiltinProviderScript(provider);
 });
 
-describe("monitoring endpoints", () => {
+describe("media monitoring endpoints", () => {
 	it("requires authentication", async () => {
 		const error = await getBackendClient().runError((contract) =>
-			contract.monitoring.status({ path: { entityId: EntityId.make(apiEntityId) } }),
+			contract.mediaMonitoring.status({ path: { entityId: EntityId.make(apiEntityId) } }),
 		);
 		assertTaggedError(error, "Unauthorized");
 	});
 
-	it("keeps monitoring status and relationships scoped to each user", async () => {
+	it("keeps media monitoring status and relationships scoped to each user", async () => {
 		const owner = await createAuthenticatedClient();
 		const other = await createAuthenticatedClient();
 
-		expect(await getMonitoringStatus(owner.client, apiEntityId)).toEqual({
+		expect(await getMediaMonitoringStatus(owner.client, apiEntityId)).toEqual({
 			entityId: EntityId.make(apiEntityId),
-			isMonitored: false,
+			isMediaMonitored: false,
 		});
-		await enableMonitoring(owner.client, apiEntityId);
-		await enableMonitoring(owner.client, apiEntityId);
+		await enableMediaMonitoring(owner.client, apiEntityId);
+		await enableMediaMonitoring(owner.client, apiEntityId);
 		expect(
-			await countMonitoringRelationships({ entityId: apiEntityId, userId: owner.userId }),
+			await countMediaMonitoringRelationships({ entityId: apiEntityId, userId: owner.userId }),
 		).toBe(1);
-		expect(await getMonitoringStatus(owner.client, apiEntityId)).toEqual({
+		expect(await getMediaMonitoringStatus(owner.client, apiEntityId)).toEqual({
 			entityId: EntityId.make(apiEntityId),
-			isMonitored: true,
+			isMediaMonitored: true,
 		});
-		expect(await getMonitoringStatus(other.client, apiEntityId)).toEqual({
+		expect(await getMediaMonitoringStatus(other.client, apiEntityId)).toEqual({
 			entityId: EntityId.make(apiEntityId),
-			isMonitored: false,
+			isMediaMonitored: false,
 		});
 
-		await disableMonitoring(owner.client, apiEntityId);
-		await disableMonitoring(owner.client, apiEntityId);
+		await disableMediaMonitoring(owner.client, apiEntityId);
+		await disableMediaMonitoring(owner.client, apiEntityId);
 		expect(
-			await countMonitoringRelationships({ entityId: apiEntityId, userId: owner.userId }),
+			await countMediaMonitoringRelationships({ entityId: apiEntityId, userId: owner.userId }),
 		).toBe(0);
 		expect(
 			(await queryInLibraryRelationship(owner.client, apiEntityId, owner.email)).rowCount,
 		).toBe(1);
 	});
 
-	it("rejects invisible and unsupported monitoring targets", async () => {
+	it("rejects invisible and unsupported media monitoring targets", async () => {
 		const owner = await createAuthenticatedClient();
 		const other = await createAuthenticatedClient();
 		const [seasonSchemaId, episodeSchemaId, groupSchemaId] = await Promise.all([
@@ -156,21 +156,21 @@ describe("monitoring endpoints", () => {
 				properties: {},
 				entitySchemaId: seasonSchemaId,
 				sandboxScriptId: provider.scriptId,
-				externalId: `monitoring-season-${crypto.randomUUID()}`,
+				externalId: `media-monitoring-season-${crypto.randomUUID()}`,
 			}),
 			seedMediaEntity({
 				properties: {},
 				name: "Episode",
 				entitySchemaId: episodeSchemaId,
 				sandboxScriptId: provider.scriptId,
-				externalId: `monitoring-episode-${crypto.randomUUID()}`,
+				externalId: `media-monitoring-episode-${crypto.randomUUID()}`,
 			}),
 			seedMediaEntity({
 				name: "Group",
 				properties: {},
 				entitySchemaId: groupSchemaId,
 				sandboxScriptId: provider.scriptId,
-				externalId: `monitoring-group-${crypto.randomUUID()}`,
+				externalId: `media-monitoring-group-${crypto.randomUUID()}`,
 			}),
 			seedMediaEntity({
 				properties: {},
@@ -178,7 +178,7 @@ describe("monitoring endpoints", () => {
 				userId: owner.userId,
 				entitySchemaId: movieSchemaId,
 				sandboxScriptId: provider.scriptId,
-				externalId: `monitoring-custom-${crypto.randomUUID()}`,
+				externalId: `media-monitoring-custom-${crypto.randomUUID()}`,
 			}),
 			seedMediaEntity({
 				properties: {},
@@ -186,32 +186,32 @@ describe("monitoring endpoints", () => {
 				name: "Other User Movie",
 				entitySchemaId: movieSchemaId,
 				sandboxScriptId: provider.scriptId,
-				externalId: `monitoring-invisible-${crypto.randomUUID()}`,
+				externalId: `media-monitoring-invisible-${crypto.randomUUID()}`,
 			}),
 			seedMediaEntity({
 				properties: {},
 				sandboxScriptId: null,
 				name: "Incomplete Movie",
 				entitySchemaId: movieSchemaId,
-				externalId: `monitoring-incomplete-${crypto.randomUUID()}`,
+				externalId: `media-monitoring-incomplete-${crypto.randomUUID()}`,
 			}),
 		]);
 		extraEntityIds.push(...unsupported.map((entity) => entity.id));
 
 		for (const entity of unsupported) {
 			const error = await owner.client.runError((contract) =>
-				contract.monitoring.enable({ path: { entityId: entity.id } }),
+				contract.mediaMonitoring.enable({ path: { entityId: entity.id } }),
 			);
 			assertTaggedError(error, "NotFound");
 		}
 		const invisible = await owner.client.runError((contract) =>
-			contract.monitoring.status({ path: { entityId: unsupported[4]!.id } }),
+			contract.mediaMonitoring.status({ path: { entityId: unsupported[4].id } }),
 		);
 		assertTaggedError(invisible, "NotFound");
 	});
 });
 
-describe("monitoring infrequent refresh", () => {
+describe("media monitoring infrequent refresh", () => {
 	it("refreshes each target once, establishes a silent baseline, and delivers changed metadata", async () => {
 		requests.length = 0;
 		const first = await createAuthenticatedClient();
@@ -229,15 +229,15 @@ describe("monitoring infrequent refresh", () => {
 			}),
 		]);
 		await Promise.all([
-			enableMonitoring(first.client, cronEntityId),
-			enableMonitoring(second.client, cronEntityId),
+			enableMediaMonitoring(first.client, cronEntityId),
+			enableMediaMonitoring(second.client, cronEntityId),
 		]);
 
 		const baseline = await getBackendClient().run(
 			(contract) => contract.godMode.triggerInfrequentCron(),
 			adminHeaders,
 		);
-		await pollUntil("monitoring baseline population", async () => {
+		await pollUntil("media monitoring baseline population", async () => {
 			const result = await getPgClient().query<{
 				populatedAt: string | null;
 				productionStatus: string | null;
@@ -250,7 +250,7 @@ describe("monitoring infrequent refresh", () => {
 			const row = result.rows[0];
 			return row?.populatedAt && row.productionStatus === "Continuing" ? row : null;
 		});
-		await waitForMonitoringRefresh(`${baseline.executionId}-${cronEntityId}`);
+		await waitForMediaMonitoringRefresh(`${baseline.executionId}-${cronEntityId}`);
 		expect(requests).toEqual([]);
 
 		await getPgClient().query(`update sandbox_script set code = $1 where id = $2`, [
@@ -261,14 +261,14 @@ describe("monitoring infrequent refresh", () => {
 			(contract) => contract.godMode.triggerInfrequentCron(),
 			adminHeaders,
 		);
-		await pollUntil("monitoring changed provider refresh", async () => {
+		await pollUntil("media monitoring changed provider refresh", async () => {
 			const result = await getPgClient().query<{ productionStatus: string | null }>(
 				`select properties->>'productionStatus' as "productionStatus" from entity where id = $1`,
 				[cronEntityId],
 			);
 			return result.rows[0]?.productionStatus === "Ended" ? true : null;
 		});
-		await waitForMonitoringRefresh(`${changed.executionId}-${cronEntityId}`);
+		await waitForMediaMonitoringRefresh(`${changed.executionId}-${cronEntityId}`);
 		const queuedDeliveries = await getPgClient().query<{ payload: string }>(
 			`select payload from cluster_messages
 			 where entity_type = 'Workflow/NotificationDeliveryWorkflow'
@@ -277,27 +277,29 @@ describe("monitoring infrequent refresh", () => {
 			[changed.executionId],
 		);
 		if (queuedDeliveries.rows.length !== 2) {
-			const monitoringReplies = await getPgClient().query<{ payload: string }>(
+			const mediaMonitoringReplies = await getPgClient().query<{ payload: string }>(
 				`select r.payload
 				 from cluster_messages m
 				 inner join cluster_replies r on r.request_id = m.id
-				 where m.entity_type = 'Workflow/MonitoringRefreshWorkflow'
+				 where m.entity_type = 'Workflow/MediaMonitoringRefreshWorkflow'
 				   and m.tag = 'run'
 				   and m.payload like ('%' || $1 || '%')`,
 				[`${changed.executionId}-${cronEntityId}`],
 			);
 			throw new Error(
-				`Expected two notification workflows, got ${queuedDeliveries.rows.length}: ${JSON.stringify(monitoringReplies.rows)}`,
+				`Expected two notification workflows, got ${queuedDeliveries.rows.length}: ${JSON.stringify(mediaMonitoringReplies.rows)}`,
 			);
 		}
-		const delivered = await pollUntil("monitoring status notification delivery", async () => {
+		const delivered = await pollUntil("media monitoring status notification delivery", async () => {
 			const paths = new Set(requests.map((request) => request.path));
 			return paths.has("/notify/first") && paths.has("/notify/second") ? requests : null;
 		});
 		expect(delivered).toHaveLength(2);
 		for (const request of delivered) {
 			const body = requirePresent(request.body as { body?: unknown }, "Missing notification body");
-			expect(body.body).toBe("Status of Monitoring Cron Target changed from Continuing to Ended");
+			expect(body.body).toBe(
+				"Status of Media Monitoring Cron Target changed from Continuing to Ended",
+			);
 		}
 	});
 });

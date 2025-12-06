@@ -8,17 +8,20 @@ import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 import type {
-	MonitoringAssociationSnapshot,
-	MonitoringEntityKind,
-	MonitoringSeasonSnapshot,
+	MediaMonitoringAssociationSnapshot,
+	MediaMonitoringEntityKind,
+	MediaMonitoringSeasonSnapshot,
 } from "./diff";
 import { snapshotEpisode, snapshotProperties, snapshotSeason } from "./diff";
-import { isMonitoringAssociationTargetSchema, monitorAbleEntitySchemaSlugs } from "./monitorable";
+import {
+	isMediaMonitoringAssociationTargetSchema,
+	mediaMonitorableEntitySchemaSlugs,
+} from "./monitorable";
 
-const sourceEntitySchema = alias(schema.entitySchema, "monitoring_source_entity_schema");
-const targetEntitySchema = alias(schema.entitySchema, "monitoring_target_entity_schema");
+const sourceEntitySchema = alias(schema.entitySchema, "media_monitoring_source_entity_schema");
+const targetEntitySchema = alias(schema.entitySchema, "media_monitoring_target_entity_schema");
 
-export type MonitoringTarget = {
+export type MediaMonitoringTarget = {
 	entityId: EntityId;
 	entitySchemaId: EntitySchemaId;
 	entitySchemaSlug: string;
@@ -40,14 +43,14 @@ type Edge = {
 
 const asRecord = (value: unknown): Record<string, unknown> => (isObjectRecord(value) ? value : {});
 
-const toKind = (slug: string): MonitoringEntityKind =>
+const toKind = (slug: string): MediaMonitoringEntityKind =>
 	slug === "person" || slug === "company" ? slug : "media";
 
-export class MonitoringRepository extends Effect.Service<MonitoringRepository>()(
-	"MonitoringRepository",
+export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRepository>()(
+	"MediaMonitoringRepository",
 	{
 		sync: () => {
-			const getProviderProvenance = Effect.fn("MonitoringRepository.getProviderProvenance")(
+			const getProviderProvenance = Effect.fn("MediaMonitoringRepository.getProviderProvenance")(
 				function* (entityId: EntityId) {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
@@ -66,7 +69,9 @@ export class MonitoringRepository extends Effect.Service<MonitoringRepository>()
 				},
 			);
 
-			const getEntity = Effect.fn("MonitoringRepository.getEntity")(function* (entityId: EntityId) {
+			const getEntity = Effect.fn("MediaMonitoringRepository.getEntity")(function* (
+				entityId: EntityId,
+			) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
 					db
@@ -90,7 +95,7 @@ export class MonitoringRepository extends Effect.Service<MonitoringRepository>()
 				return row ?? null;
 			});
 
-			const listOutgoingEdges = Effect.fn("MonitoringRepository.listOutgoingEdges")(function* (
+			const listOutgoingEdges = Effect.fn("MediaMonitoringRepository.listOutgoingEdges")(function* (
 				entityId: EntityId,
 			) {
 				const db = yield* CurrentDb;
@@ -150,7 +155,7 @@ export class MonitoringRepository extends Effect.Service<MonitoringRepository>()
 				);
 			});
 
-			const listIncomingEdges = Effect.fn("MonitoringRepository.listIncomingEdges")(function* (
+			const listIncomingEdges = Effect.fn("MediaMonitoringRepository.listIncomingEdges")(function* (
 				entityId: EntityId,
 			) {
 				const db = yield* CurrentDb;
@@ -210,7 +215,7 @@ export class MonitoringRepository extends Effect.Service<MonitoringRepository>()
 				);
 			});
 
-			const listTargets = Effect.fn("MonitoringRepository.listTargets")(function* () {
+			const listTargets = Effect.fn("MediaMonitoringRepository.listTargets")(function* () {
 				const db = yield* CurrentDb;
 				const rows = yield* dbEffect(() =>
 					db
@@ -233,12 +238,12 @@ export class MonitoringRepository extends Effect.Service<MonitoringRepository>()
 						)
 						.where(
 							and(
-								eq(schema.relationshipSchema.slug, "monitoring"),
+								eq(schema.relationshipSchema.slug, "media-monitoring"),
 								isNotNull(schema.relationship.userId),
 								isNull(schema.entity.userId),
 								isNotNull(schema.entity.externalId),
 								isNotNull(schema.entity.sandboxScriptId),
-								inArray(schema.entitySchema.slug, monitorAbleEntitySchemaSlugs),
+								inArray(schema.entitySchema.slug, mediaMonitorableEntitySchemaSlugs),
 							),
 						)
 						.orderBy(asc(schema.entity.id)),
@@ -253,13 +258,13 @@ export class MonitoringRepository extends Effect.Service<MonitoringRepository>()
 									entitySchemaSlug: row.entitySchemaSlug,
 									externalId: row.externalId,
 									sandboxScriptId: SandboxScriptId.make(row.sandboxScriptId),
-								} satisfies MonitoringTarget,
+								} satisfies MediaMonitoringTarget,
 							]
 						: [],
 				);
 			});
 
-			const listSubscribers = Effect.fn("MonitoringRepository.listSubscribers")(function* (
+			const listSubscribers = Effect.fn("MediaMonitoringRepository.listSubscribers")(function* (
 				entityId: EntityId,
 			) {
 				const db = yield* CurrentDb;
@@ -279,7 +284,7 @@ export class MonitoringRepository extends Effect.Service<MonitoringRepository>()
 						.where(
 							and(
 								eq(schema.relationship.sourceEntityId, entityId),
-								eq(schema.relationshipSchema.slug, "monitoring"),
+								eq(schema.relationshipSchema.slug, "media-monitoring"),
 								isNotNull(schema.relationship.userId),
 								eq(schema.entitySchema.slug, "library"),
 							),
@@ -288,31 +293,31 @@ export class MonitoringRepository extends Effect.Service<MonitoringRepository>()
 				return rows.flatMap((row) => (row.userId ? [UserId.make(row.userId)] : []));
 			});
 
-			const getLibraryEntityId = Effect.fn("MonitoringRepository.getLibraryEntityId")(function* (
-				userId: UserId,
-			) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.select({ id: schema.entity.id })
-						.from(schema.entity)
-						.innerJoin(
-							schema.entitySchema,
-							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
-						)
-						.where(
-							and(
-								eq(schema.entity.userId, userId),
-								eq(schema.entitySchema.slug, "library"),
-								isNull(schema.entitySchema.userId),
-							),
-						)
-						.limit(1),
-				);
-				return row ? EntityId.make(row.id) : null;
-			});
+			const getLibraryEntityId = Effect.fn("MediaMonitoringRepository.getLibraryEntityId")(
+				function* (userId: UserId) {
+					const db = yield* CurrentDb;
+					const [row] = yield* dbEffect(() =>
+						db
+							.select({ id: schema.entity.id })
+							.from(schema.entity)
+							.innerJoin(
+								schema.entitySchema,
+								eq(schema.entity.entitySchemaId, schema.entitySchema.id),
+							)
+							.where(
+								and(
+									eq(schema.entity.userId, userId),
+									eq(schema.entitySchema.slug, "library"),
+									isNull(schema.entitySchema.userId),
+								),
+							)
+							.limit(1),
+					);
+					return row ? EntityId.make(row.id) : null;
+				},
+			);
 
-			const getSnapshot = Effect.fn("MonitoringRepository.getSnapshot")(function* (
+			const getSnapshot = Effect.fn("MediaMonitoringRepository.getSnapshot")(function* (
 				entityId: EntityId,
 			) {
 				const entity = yield* getEntity(entityId);
@@ -325,7 +330,7 @@ export class MonitoringRepository extends Effect.Service<MonitoringRepository>()
 					direct.filter((edge) => edge.entitySchemaSlug === "show-season"),
 					(edge) => listOutgoingEdges(edge.entityId),
 				);
-				const seasons: MonitoringSeasonSnapshot[] = [];
+				const seasons: MediaMonitoringSeasonSnapshot[] = [];
 				for (const [index, season] of direct
 					.filter((edge) => edge.entitySchemaSlug === "show-season")
 					.entries()) {
@@ -360,7 +365,7 @@ export class MonitoringRepository extends Effect.Service<MonitoringRepository>()
 					);
 				const incoming = yield* listIncomingEdges(entityId);
 				const kind = toKind(entity.entitySchemaSlug);
-				const associations: MonitoringAssociationSnapshot[] = [];
+				const associations: MediaMonitoringAssociationSnapshot[] = [];
 				if (kind !== "media") {
 					for (const edge of [...direct, ...incoming]) {
 						const associationIsOutgoing = edge.sourceSchemaSlug === kind;
@@ -368,7 +373,7 @@ export class MonitoringRepository extends Effect.Service<MonitoringRepository>()
 						if (!associationIsOutgoing && !associationIsIncoming) {
 							continue;
 						}
-						if (!isMonitoringAssociationTargetSchema(edge.entitySchemaSlug)) {
+						if (!isMediaMonitoringAssociationTargetSchema(edge.entitySchemaSlug)) {
 							continue;
 						}
 						const roles = Array.isArray(edge.relationshipProperties.roles)
