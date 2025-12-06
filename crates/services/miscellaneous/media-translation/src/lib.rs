@@ -19,7 +19,8 @@ use enum_models::{EntityLot, EntityTranslationVariant, MediaSource};
 use itertools::Itertools;
 use media_models::EntityTranslationDetails;
 use sea_orm::{
-    ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, sea_query::OnConflict,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect,
+    sea_query::OnConflict,
 };
 use supporting_service::SupportingService;
 use user_models::UserProviderLanguagePreferences;
@@ -108,17 +109,16 @@ pub async fn update_media_entity_translation(
                     .into_iter(),
             );
             languages.insert(preferred_language);
-            Metadata::update_many()
-                .filter(metadata::Column::Id.eq(&input.entity_id))
-                .set(metadata::ActiveModel {
-                    last_updated_on: ActiveValue::Set(Utc::now()),
-                    has_translations_for_languages: ActiveValue::Set(Some(
-                        languages.into_iter().collect_vec(),
-                    )),
-                    ..Default::default()
-                })
-                .exec(&ss.db)
-                .await?;
+
+            let item = metadata::ActiveModel {
+                last_updated_on: ActiveValue::Set(Utc::now()),
+                id: ActiveValue::Unchanged(input.entity_id.clone()),
+                has_translations_for_languages: ActiveValue::Set(Some(
+                    languages.into_iter().collect_vec(),
+                )),
+                ..Default::default()
+            };
+            item.update(&ss.db).await?;
         }
         _ => {}
     };
