@@ -248,26 +248,6 @@ export const useEntityUpdateMonitor = (props: {
 	return { isPartialStatusActive };
 };
 
-export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
-	const metadataDetailsQuery = useQuery({
-		...getMetadataDetailsQuery(metadataId),
-		enabled,
-	});
-
-	const { isPartialStatusActive } = useEntityUpdateMonitor({
-		entityId: metadataId,
-		entityLot: EntityLot.Metadata,
-		onUpdate: () => metadataDetailsQuery.refetch(),
-		deployJob: createDeployMediaEntityJob(metadataId, EntityLot.Metadata),
-		needsRefetch:
-			enabled !== false &&
-			metadataDetailsQuery.data?.isPartial &&
-			metadataDetailsQuery.data?.source !== MediaSource.Custom,
-	});
-
-	return [metadataDetailsQuery, isPartialStatusActive] as const;
-};
-
 export const useUserMetadataDetails = (
 	metadataId?: string,
 	enabled?: boolean,
@@ -318,23 +298,6 @@ export const useTranslationMonitor = (props: {
 	return { translations: translationsQuery.data?.response };
 };
 
-export const usePersonDetails = (personId?: string, enabled?: boolean) => {
-	const query = useQuery({ ...getPersonDetailsQuery(personId), enabled });
-
-	const { isPartialStatusActive } = useEntityUpdateMonitor({
-		entityId: personId,
-		entityLot: EntityLot.Person,
-		onUpdate: () => query.refetch(),
-		deployJob: createDeployMediaEntityJob(personId, EntityLot.Person),
-		needsRefetch:
-			enabled !== false &&
-			query.data?.details.isPartial &&
-			query.data?.details.source !== MediaSource.Custom,
-	});
-
-	return [query, isPartialStatusActive] as const;
-};
-
 export const useUserPersonDetails = (personId?: string, enabled?: boolean) => {
 	return useQuery({ ...getUserPersonDetailsQuery(personId), enabled });
 };
@@ -374,6 +337,43 @@ export const useUserWorkoutTemplateDetails = (
 		...getWorkoutTemplateDetailsQuery(workoutTemplateId || ""),
 		enabled,
 	});
+};
+
+export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
+	const metadataDetailsQuery = useQuery({
+		...getMetadataDetailsQuery(metadataId),
+		enabled,
+	});
+
+	const { isPartialStatusActive } = useEntityUpdateMonitor({
+		entityId: metadataId,
+		entityLot: EntityLot.Metadata,
+		onUpdate: () => metadataDetailsQuery.refetch(),
+		deployJob: createDeployMediaEntityJob(metadataId, EntityLot.Metadata),
+		needsRefetch:
+			enabled !== false &&
+			metadataDetailsQuery.data?.isPartial &&
+			metadataDetailsQuery.data?.source !== MediaSource.Custom,
+	});
+
+	return [metadataDetailsQuery, isPartialStatusActive] as const;
+};
+
+export const usePersonDetails = (personId?: string, enabled?: boolean) => {
+	const query = useQuery({ ...getPersonDetailsQuery(personId), enabled });
+
+	const { isPartialStatusActive } = useEntityUpdateMonitor({
+		entityId: personId,
+		entityLot: EntityLot.Person,
+		onUpdate: () => query.refetch(),
+		deployJob: createDeployMediaEntityJob(personId, EntityLot.Person),
+		needsRefetch:
+			enabled !== false &&
+			query.data?.details.isPartial &&
+			query.data?.details.source !== MediaSource.Custom,
+	});
+
+	return [query, isPartialStatusActive] as const;
 };
 
 export const useMetadataGroupDetails = (
