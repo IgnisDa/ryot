@@ -542,15 +542,11 @@ export function Sidebar(props: SidebarProps) {
 					<NavLink
 						key={view.id}
 						label={view.name}
+						disabled={state.isCustomizeMode}
 						leftSection={<ViewIcon view={view} />}
-						disabled={!view.trackerSlug || state.isCustomizeMode}
-						onClick={
-							view.trackerSlug && !state.isCustomizeMode
-								? handleNavLinkClick
-								: undefined
-						}
+						onClick={!state.isCustomizeMode ? handleNavLinkClick : undefined}
 						renderRoot={
-							view.trackerSlug && !state.isCustomizeMode
+							!state.isCustomizeMode
 								? (rootProps) => (
 										<Link
 											{...rootProps}
