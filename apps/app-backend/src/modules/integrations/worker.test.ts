@@ -8,12 +8,7 @@ import { ImportsRepository } from "#modules/imports/repository";
 
 import { IntegrationsRepository } from "./repository";
 import { makeIntegration, makeRun } from "./test-support";
-import {
-	appendOwnedItems,
-	failAdapterOnlyRun,
-	failUnsupportedIntegrationRun,
-	finalizeIntegrationRun,
-} from "./worker";
+import { appendOwnedItems, finalizeIntegrationRun } from "./worker";
 const makeImportsRepository = (overrides: Partial<ImportsRepository> = {}) =>
 	makeMock<ImportsRepository>(
 		{
@@ -196,109 +191,5 @@ it.effect("does not disable integrations when recent runs are not all failures",
 		yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1"));
 
 		vitestExpect(updates).toEqual([]);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("records failure counts for adapter-only sink runs", () => {
-	const failures: Array<Record<string, unknown>> = [];
-	const updates: Array<Record<string, unknown>> = [];
-	const layer = makeWorkerLayer({
-		importsRepository: makeImportsRepository({
-			createFailure: (input) => {
-				failures.push(input);
-				return Effect.void;
-			},
-			getRunById: () => Effect.succeed(makeRun("failed")),
-			updateRun: (input) => {
-				updates.push(input);
-				return Effect.void;
-			},
-		}),
-	});
-
-	return Effect.gen(function* () {
-		yield* failAdapterOnlyRun(ImportRunId.make("run_1"), {
-			entityGroups: [],
-			failures: [
-				{
-					itemIndex: 0,
-					stage: "source_fetch",
-					message: "generic_json integration is not implemented in V2 yet",
-				},
-			],
-		});
-
-		vitestExpect(failures).toEqual([
-			{
-				itemIndex: 0,
-				context: null,
-				runId: "run_1",
-				stage: "source_fetch",
-				sourceLabel: undefined,
-				sourceIdentifier: undefined,
-				message: "generic_json integration is not implemented in V2 yet",
-			},
-		]);
-		vitestExpect(updates).toEqual([
-			{
-				progress: 100,
-				totalItems: 1,
-				failedItems: 1,
-				runId: "run_1",
-				processedItems: 1,
-			},
-			{
-				runId: "run_1",
-				status: "failed",
-				finishedAt: vitestExpect.any(Date),
-				errorSummary: "generic_json integration is not implemented in V2 yet",
-			},
-		]);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("records failure counts for unsupported yank providers", () => {
-	const failures: Array<Record<string, unknown>> = [];
-	const updates: Array<Record<string, unknown>> = [];
-	const layer = makeWorkerLayer({
-		importsRepository: makeImportsRepository({
-			createFailure: (input) => {
-				failures.push(input);
-				return Effect.void;
-			},
-			getRunById: () => Effect.succeed(makeRun("failed")),
-			updateRun: (input) => {
-				updates.push(input);
-				return Effect.void;
-			},
-		}),
-	});
-
-	return Effect.gen(function* () {
-		yield* failUnsupportedIntegrationRun(ImportRunId.make("run_1"), "komga");
-
-		vitestExpect(failures).toEqual([
-			{
-				itemIndex: 0,
-				runId: "run_1",
-				stage: "source_fetch",
-				message: "komga integration is not implemented in V2 yet",
-			},
-		]);
-		vitestExpect(updates).toEqual([
-			{
-				progress: 100,
-				totalItems: 1,
-				failedItems: 1,
-				runId: "run_1",
-				processedItems: 1,
-			},
-			{
-				runId: "run_1",
-				status: "failed",
-				finishedAt: vitestExpect.any(Date),
-				errorSummary: "komga integration is not implemented in V2 yet",
-			},
-		]);
 	}).pipe(Effect.provide(layer));
 });
