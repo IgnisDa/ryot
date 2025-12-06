@@ -182,7 +182,9 @@ export default function Page(props: { params: { action: string } }) {
 			/>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
-					if (action !== "list") return [];
+					if (action !== "list") {
+						return [];
+					}
 					const input = cloneDeep(listInput);
 					input.search = { ...input.search, take: Number.MAX_SAFE_INTEGER };
 					return await clientGqlService.request(UserPeopleListDocument, { input }).then((r) =>
@@ -200,7 +202,9 @@ export default function Page(props: { params: { action: string } }) {
 						variant="default"
 						value={action}
 						onChange={(v) => {
-							if (v) navigate($path("/media/people/:action", { action: v }));
+							if (v) {
+								navigate($path("/media/people/:action", { action: v }));
+							}
 						}}
 					>
 						<Tabs.List style={{ alignItems: "center" }}>
@@ -219,8 +223,11 @@ export default function Page(props: { params: { action: string } }) {
 							value={searchInputValue}
 							placeholder="Search for people"
 							onChange={(value) => {
-								if (action === "list") updateListFilters({ query: value });
-								else updateSearchFilters({ query: value });
+								if (action === "list") {
+									updateListFilters({ query: value });
+								} else {
+									updateSearchFilters({ query: value });
+								}
 							}}
 						/>
 						{action === "list" ? (
@@ -441,8 +448,11 @@ const PersonListItem = (props: PersonListItemProps) => {
 						color="green"
 						variant={isAdded ? "filled" : "transparent"}
 						onClick={() => {
-							if (isAdded) bulkEditingState.remove(becItem);
-							else bulkEditingState.add(becItem);
+							if (isAdded) {
+								bulkEditingState.remove(becItem);
+							} else {
+								bulkEditingState.add(becItem);
+							}
 						}}
 					>
 						<IconCheck size={18} />

@@ -111,14 +111,15 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		})
 		.with("delete", async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			if (submission.workoutId)
+			if (submission.workoutId) {
 				await serverGqlService.authenticatedRequest(request, DeleteUserWorkoutDocument, {
 					workoutId: submission.workoutId,
 				});
-			else if (submission.templateId)
+			} else if (submission.templateId) {
 				await serverGqlService.authenticatedRequest(request, DeleteUserWorkoutTemplateDocument, {
 					workoutTemplateId: submission.templateId,
 				});
+			}
 			const { entity } = submission;
 			return redirectWithToast($path("/fitness/:entity/list", { entity }), {
 				type: "success",
@@ -206,7 +207,9 @@ export default function Page() {
 	const loaderData = useMemo(() => {
 		const baseData = match(entity)
 			.with(FitnessEntity.Workouts, () => {
-				if (!workoutData) return null;
+				if (!workoutData) {
+					return null;
+				}
 
 				const repeatedWorkout =
 					repeatedWorkoutData && workoutData.details.repeatedFrom
@@ -242,7 +245,9 @@ export default function Page() {
 				};
 			})
 			.with(FitnessEntity.Templates, () => {
-				if (!templateData) return null;
+				if (!templateData) {
+					return null;
+				}
 
 				return {
 					entity,
@@ -261,7 +266,9 @@ export default function Page() {
 			})
 			.exhaustive();
 
-		if (!baseData) return null;
+		if (!baseData) {
+			return null;
+		}
 
 		const remoteImages = baseData.information.assets?.remoteImages || [];
 		const remoteVideoUrls = baseData.information.assets?.remoteVideos.map((v) => v.url) || [];
@@ -281,12 +288,13 @@ export default function Page() {
 		s3VideosPresigned.data,
 	]);
 
-	if (!loaderData)
+	if (!loaderData) {
 		return (
 			<Container>
 				<SkeletonLoader />
 			</Container>
 		);
+	}
 
 	const entityLot = match(loaderData.entity)
 		.with(FitnessEntity.Workouts, () => EntityLot.Workout)

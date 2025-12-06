@@ -104,7 +104,9 @@ export default function Page() {
 				timestamp: m.timestamp,
 				formattedTimestamp: tickFormatter(m.timestamp),
 			};
-			for (const s of m.information.statistics) local[s.name] = s.value;
+			for (const s of m.information.statistics) {
+				local[s.name] = s.value;
+			}
 			return local;
 		}) || [];
 
@@ -127,7 +129,9 @@ export default function Page() {
 						data={convertEnumToSelectData(TimeSpan)}
 						value={filters.timeSpan}
 						onChange={(v) => {
-							if (v) updateFilters({ timeSpan: v as TimeSpan });
+							if (v) {
+								updateFilters({ timeSpan: v as TimeSpan });
+							}
 						}}
 					/>
 				</SimpleGrid>
@@ -180,7 +184,9 @@ export default function Page() {
 											<ActionIcon
 												color="blue"
 												onClick={() => {
-													if (measurement) setMeasurementsDrawerData(measurement);
+													if (measurement) {
+														setMeasurementsDrawerData(measurement);
+													}
 												}}
 											>
 												<IconPencil />
@@ -224,7 +230,9 @@ const calculateYAxisDomain = (data: CompleteData, statValue: string) => {
 		.map((item) => Number.parseFloat(item[statValue]))
 		.filter((val) => Number.isFinite(val));
 
-	if (values.length === 0) return [0, 100];
+	if (values.length === 0) {
+		return [0, 100];
+	}
 
 	const minValue = Math.min(...values);
 	const maxValue = Math.max(...values);

@@ -247,7 +247,9 @@ export default function Page(props: { params: { action: string; lot: string } })
 			/>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
-					if (action !== "list") return [];
+					if (action !== "list") {
+						return [];
+					}
 					const input = cloneDeep(listInput);
 					input.search = { ...input.search, take: Number.MAX_SAFE_INTEGER };
 					return await clientGqlService.request(UserMetadataListDocument, { input }).then((r) =>
@@ -271,7 +273,9 @@ export default function Page(props: { params: { action: string; lot: string } })
 									lot: lot.toLowerCase(),
 								}),
 							);
-							if (v === "search") advanceOnboardingTourStep();
+							if (v === "search") {
+								advanceOnboardingTourStep();
+							}
 						}
 					}}
 				>
@@ -361,8 +365,9 @@ export default function Page(props: { params: { action: string; lot: string } })
 										tourControl={{
 											target: OnboardingTourStepTarget.SearchAudiobook,
 											onQueryChange: (query) => {
-												if (query === TOUR_METADATA_TARGET_ID)
+												if (query === TOUR_METADATA_TARGET_ID) {
 													advanceOnboardingTourStep({ increaseWaitBy: 2000 });
+												}
 											},
 										}}
 									/>
@@ -450,7 +455,9 @@ const MediaSearchItem = (props: {
 			shouldHighlightNameIfInteracted
 			imageClassName={OnboardingTourStepTarget.GoToAudiobooksSectionAgain}
 			onImageClickBehavior={async () => {
-				if (tourControlThree) advanceOnboardingTourStep();
+				if (tourControlThree) {
+					advanceOnboardingTourStep();
+				}
 			}}
 		/>
 	);
@@ -511,7 +518,9 @@ const FiltersModalForm = (props: FiltersModalFormProps) => {
 						const range = v as ApplicationTimeRange;
 						const startDateRange = getStartTimeFromRange(range);
 						onFiltersChange("dateRange", range);
-						if (range === ApplicationTimeRange.Custom) return;
+						if (range === ApplicationTimeRange.Custom) {
+							return;
+						}
 
 						onFiltersChange("startDateRange", startDateRange?.format("YYYY-MM-DD") || "");
 						onFiltersChange(
@@ -533,7 +542,9 @@ const FiltersModalForm = (props: FiltersModalFormProps) => {
 						onChange={(v) => {
 							const start = v[0];
 							const end = v[1];
-							if (!start || !end) return;
+							if (!start || !end) {
+								return;
+							}
 							onFiltersChange("startDateRange", dayjsLib(start).format("YYYY-MM-DD"));
 							onFiltersChange("endDateRange", dayjsLib(end).format("YYYY-MM-DD"));
 						}}
@@ -665,8 +676,11 @@ const MediaListItem = (props: MediaListItemProps) => {
 						color="green"
 						variant={isAdded ? "filled" : "transparent"}
 						onClick={() => {
-							if (isAdded) bulkEditingState.remove(becItem);
-							else bulkEditingState.add(becItem);
+							if (isAdded) {
+								bulkEditingState.remove(becItem);
+							} else {
+								bulkEditingState.add(becItem);
+							}
 						}}
 					>
 						<IconCheck size={18} />

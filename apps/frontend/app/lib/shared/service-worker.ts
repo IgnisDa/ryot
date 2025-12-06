@@ -13,5 +13,7 @@ export const sendNotificationToServiceWorker = (props: SendNotificationProps) =>
 	});
 
 export const postMessageToServiceWorker = (message: AppServiceWorkerMessageData) => {
-	if (navigator.serviceWorker?.controller) navigator.serviceWorker.controller.postMessage(message);
+	if (navigator.serviceWorker?.controller) {
+		navigator.serviceWorker.controller.postMessage(message);
+	}
 };

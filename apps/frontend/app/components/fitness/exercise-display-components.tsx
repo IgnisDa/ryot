@@ -60,7 +60,9 @@ export const DisplayPersonalBest = (props: {
 		userExerciseDetails?.details?.exerciseExtraInformation?.settings.defaultDurationUnit ||
 		ExerciseDurationUnit.Minutes;
 	const set = data?.details.information.exercises[props.set.exerciseIdx].sets[props.set.setIdx];
-	if (!set) return null;
+	if (!set) {
+		return null;
+	}
 
 	return (
 		<Group justify="space-between" key={`${props.set.workoutId}-${props.set.setIdx}`}>
