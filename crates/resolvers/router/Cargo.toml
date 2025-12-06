@@ -18,7 +18,6 @@ cache-service = { workspace = true }
 common-utils = { workspace = true }
 config-definition = { workspace = true }
 dependent-models = { workspace = true }
-integration-service = { workspace = true }
 supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]

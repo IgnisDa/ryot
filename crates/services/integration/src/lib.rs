@@ -1,7 +1,3 @@
-use std::sync::Arc;
-
-use supporting_service::SupportingService;
-
 mod data_operations;
 mod event_handlers;
 mod integration_operations;
@@ -11,4 +7,8 @@ mod utils;
 mod webhook_handler;
 mod yank;
 
-pub struct IntegrationService(pub Arc<SupportingService>);
+pub use data_operations::{
+    sync_integrations_data, sync_integrations_data_for_user, yank_integrations_data,
+};
+pub use event_handlers::{handle_entity_added_to_collection_event, handle_on_seen_complete};
+pub use webhook_handler::{integration_progress_update, process_integration_webhook};

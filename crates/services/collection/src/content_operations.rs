@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{Result, bail};
 use application_utils::graphql_to_db_order;
-use common_models::{SearchDetails, UserLevelCacheKey};
+use common_models::{EntityWithLot, SearchDetails, UserLevelCacheKey};
 use database_models::{
     collection_to_entity, exercise, metadata, metadata_group, person,
     prelude::{Collection, CollectionToEntity, Exercise, Metadata, MetadataGroup, Person, Workout},
@@ -13,7 +13,7 @@ use dependent_models::{
     CollectionContents, CollectionContentsInput, CollectionContentsResponse, SearchResults,
 };
 use enum_models::EntityLot;
-use media_models::{CollectionContentsSortBy, EntityWithLot};
+use media_models::CollectionContentsSortBy;
 use sea_orm::{
     ColumnTrait, EntityTrait, ItemsAndPagesNumber, PaginatorTrait, QueryFilter, QueryOrder,
     QueryTrait,

@@ -1,9 +1,7 @@
 use async_graphql::{Enum, InputObject, OneofObject, SimpleObject};
 use chrono::NaiveDate;
 use common_models::{ApplicationDateRange, SearchInput};
-use enum_models::{
-    EntityLot, MediaLot, MediaSource, SeenState, UserNotificationContent, Visibility,
-};
+use enum_models::{EntityLot, MediaSource, SeenState, UserNotificationContent, Visibility};
 use rust_decimal::Decimal;
 use sea_orm::{prelude::DateTimeUtc, strum::Display};
 use serde::{Deserialize, Serialize};
@@ -201,12 +199,6 @@ pub struct UpdateSeenItemInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct MarkEntityAsPartialInput {
-    pub entity_id: String,
-    pub entity_lot: EntityLot,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateReviewCommentInput {
     /// The review this comment belongs to.
     pub review_id: String,
@@ -221,8 +213,6 @@ pub struct CreateReviewCommentInput {
 pub struct GraphqlCalendarEvent {
     pub date: NaiveDate,
     pub metadata_id: String,
-    pub metadata_text: String,
-    pub metadata_lot: MediaLot,
     pub calendar_event_id: String,
     pub metadata_image: Option<String>,
     pub show_extra_information: Option<SeenShowExtraInformation>,

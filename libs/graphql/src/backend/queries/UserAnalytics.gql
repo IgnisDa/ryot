@@ -1,6 +1,5 @@
 query UserAnalytics($input: UserAnalyticsInput!) {
 	userAnalytics(input: $input) {
-		cacheId
 		response {
 			hours {
 				hour
@@ -46,7 +45,6 @@ query UserAnalytics($input: UserAnalyticsInput!) {
 
 query MinimalUserAnalytics($input: UserAnalyticsInput!) {
 	userAnalytics(input: $input) {
-		cacheId
 		response {
 			activities {
 				items {

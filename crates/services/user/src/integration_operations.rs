@@ -6,7 +6,9 @@ use database_utils::server_key_validation_guard;
 use dependent_core_utils::is_server_key_validated;
 use enum_models::{IntegrationLot, IntegrationProvider};
 use media_models::CreateOrUpdateUserIntegrationInput;
-use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, ModelTrait};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, QueryOrder,
+};
 use supporting_service::SupportingService;
 
 pub async fn delete_user_integration(
@@ -77,4 +79,16 @@ pub async fn create_or_update_user_integration(
     };
     to_insert.save(&ss.db).await?;
     Ok(true)
+}
+
+pub async fn user_integrations(
+    ss: &Arc<SupportingService>,
+    user_id: &String,
+) -> Result<Vec<integration::Model>> {
+    let integrations = Integration::find()
+        .filter(integration::Column::UserId.eq(user_id))
+        .order_by_desc(integration::Column::CreatedOn)
+        .all(&ss.db)
+        .await?;
+    Ok(integrations)
 }

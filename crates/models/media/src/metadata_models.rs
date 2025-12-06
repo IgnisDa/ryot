@@ -4,7 +4,7 @@ use async_graphql::{InputObject, SimpleObject};
 use boilermates::boilermates;
 use chrono::NaiveDate;
 use common_models::{EntityAssets, PersonSourceSpecifics};
-use enum_models::{EntityLot, MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use rust_decimal::Decimal;
 use sea_orm::{FromJsonQueryResult, FromQueryResult};
 use serde::{Deserialize, Serialize};
@@ -14,12 +14,6 @@ use crate::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MovieSpecifics,
     MusicSpecifics, PodcastSpecifics, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
 };
-
-#[derive(Debug, PartialEq, Eq, Default, SimpleObject, Serialize, Deserialize, Clone)]
-pub struct EntityWithLot {
-    pub entity_id: String,
-    pub entity_lot: EntityLot,
-}
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]
 pub struct GenreListItem {
@@ -198,10 +192,10 @@ pub struct CreateCustomMetadataGroupInput {
 pub struct CreateCustomPersonInput {
     pub name: String,
     pub assets: EntityAssets,
-    pub description: Option<String>,
     pub place: Option<String>,
     pub gender: Option<String>,
     pub website: Option<String>,
+    pub description: Option<String>,
     pub birth_date: Option<NaiveDate>,
     pub death_date: Option<NaiveDate>,
     pub alternate_names: Option<Vec<String>>,

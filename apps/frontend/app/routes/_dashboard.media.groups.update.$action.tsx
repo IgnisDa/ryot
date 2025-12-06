@@ -82,14 +82,18 @@ export default function Page() {
 		NonNullable<ReturnType<typeof useMetadataGroupDetails>[0]["data"]>,
 		{ createCustomMetadataGroup: { id: string } }
 	>({
-		action: loaderData.action,
-		entityId: loaderData.query.id,
 		entityName: "Group",
 		s3Prefix: "metadata-group",
+		action: loaderData.action,
+		entityId: loaderData.query.id,
+		useDetailsHook: useMetadataGroupDetails,
 		detailsPath: getMetadataGroupDetailsPath,
+		onSuccessCleanup: () => form.clearSavedState(),
 		createDocument: CreateCustomMetadataGroupDocument,
 		updateDocument: UpdateCustomMetadataGroupDocument,
-		useDetailsHook: useMetadataGroupDetails,
+		extractIdFromUpdateResult: () => loaderData.query.id as string,
+		extractIdFromCreateResult: (result) =>
+			result.createCustomMetadataGroup.id as string,
 		transformToCreateInput: (values, s3Images) => ({
 			title: values.title,
 			lot: values.lot as MediaLot,
@@ -105,10 +109,6 @@ export default function Page() {
 				assets: buildImageAssets(s3Images),
 			},
 		}),
-		extractIdFromCreateResult: (result) =>
-			result.createCustomMetadataGroup.id as string,
-		extractIdFromUpdateResult: () => loaderData.query.id as string,
-		onSuccessCleanup: () => form.clearSavedState(),
 	});
 
 	useEffect(() => {

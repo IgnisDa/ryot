@@ -21,7 +21,6 @@ import {
 import { BaseEntityDisplayItem } from "../common/entity-display";
 
 export const MetadataDisplayItem = (props: {
-	altName?: string;
 	metadataId: string;
 	isFirstItem?: boolean;
 	imageClassName?: string;
@@ -35,6 +34,7 @@ export const MetadataDisplayItem = (props: {
 	const [
 		{ data: metadataDetails, isLoading: isMetadataDetailsLoading },
 		isMetadataPartialStatusActive,
+		metadataTranslations,
 	] = useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
@@ -99,9 +99,9 @@ export const MetadataDisplayItem = (props: {
 			centerElement={props.centerElement}
 			imageClassName={props.imageClassName}
 			isDetailsLoading={isMetadataDetailsLoading}
-			title={props.altName ?? metadataDetails?.title}
 			wasRecentlyConsumed={isMetadataRecentlyConsumed}
 			isPartialStatusActive={isMetadataPartialStatusActive}
+			title={metadataTranslations?.title || metadataDetails?.title}
 			interactionButtons={["collection", "consume", "review", "watchlist"]}
 			hasInteracted={
 				props.shouldHighlightNameIfInteracted &&
@@ -133,6 +133,7 @@ export const MetadataGroupDisplayItem = (props: {
 	const [
 		{ data: metadataGroupDetails, isLoading: isMetadataGroupDetailsLoading },
 		isMetadataGroupPartialStatusActive,
+		metadataGroupTranslations,
 	] = useMetadataGroupDetails(props.metadataGroupId, inViewport);
 	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
 		props.metadataGroupId,
@@ -174,13 +175,15 @@ export const MetadataGroupDisplayItem = (props: {
 			rating={averageRating ?? undefined}
 			entityLot={EntityLot.MetadataGroup}
 			centerElement={props.centerElement}
-			title={metadataGroupDetails?.details.title}
 			mediaLot={metadataGroupDetails?.details.lot}
 			isDetailsLoading={isMetadataGroupDetailsLoading}
 			additionalInformation={defaultAdditionalInformation}
 			wasRecentlyConsumed={isMetadataGroupRecentlyConsumed}
 			interactionButtons={["collection", "review", "watchlist"]}
 			isPartialStatusActive={isMetadataGroupPartialStatusActive}
+			title={
+				metadataGroupTranslations?.title || metadataGroupDetails?.details.title
+			}
 			onImageClickBehavior={[
 				$path("/media/groups/item/:id", { id: props.metadataGroupId }),
 			]}
@@ -201,6 +204,7 @@ export const PersonDisplayItem = (props: {
 	const [
 		{ data: personDetails, isLoading: isPersonDetailsLoading },
 		isPersonPartialStatusActive,
+		personTranslations,
 	] = usePersonDetails(props.personId, inViewport);
 	const { data: userPersonDetails } = useUserPersonDetails(
 		props.personId,
@@ -237,7 +241,6 @@ export const PersonDisplayItem = (props: {
 			image={images.at(0)}
 			entityId={props.personId}
 			entityLot={EntityLot.Person}
-			title={personDetails?.details.name}
 			rating={averageRating ?? undefined}
 			centerElement={props.centerElement}
 			isDetailsLoading={isPersonDetailsLoading}
@@ -245,6 +248,7 @@ export const PersonDisplayItem = (props: {
 			wasRecentlyConsumed={isPersonRecentlyConsumed}
 			isPartialStatusActive={isPersonPartialStatusActive}
 			additionalInformation={defaultAdditionalInformation}
+			title={personTranslations?.title || personDetails?.details.name}
 			onImageClickBehavior={[
 				$path("/media/people/item/:id", { id: props.personId }),
 			]}

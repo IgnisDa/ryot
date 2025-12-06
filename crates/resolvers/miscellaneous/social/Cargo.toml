@@ -7,7 +7,11 @@ edition = "2024"
 async-graphql = { workspace = true }
 
 common-models = { workspace = true }
+dependent-details-utils = { workspace = true }
+dependent-entity-list-utils = { workspace = true }
+dependent-review-utils = { workspace = true }
 dependent-models = { workspace = true }
 media-models = { workspace = true }
-miscellaneous-service = { workspace = true }
+miscellaneous-entity-user-details-service = { workspace = true }
+miscellaneous-review-service = { workspace = true }
 traits = { workspace = true }

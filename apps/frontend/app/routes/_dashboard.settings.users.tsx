@@ -193,9 +193,7 @@ const UserActions = (props: {
 			invalidateUsersList();
 			const isCurrentUser = input.userId === userDetails.id;
 			showSuccessNotification("User status updated successfully");
-			if (isCurrentUser && input.isDisabled) {
-				handleCurrentUserLogout(navigate);
-			}
+			if (isCurrentUser && input.isDisabled) handleCurrentUserLogout(navigate);
 		},
 		onError: () => showErrorNotification("Failed to update user status"),
 	});
@@ -247,9 +245,8 @@ const UserActions = (props: {
 			} else {
 				showSuccessNotification("User password reset successfully");
 			}
-			if (isCurrentUser && resetUser.passwordChangeUrl) {
+			if (isCurrentUser && resetUser.passwordChangeUrl)
 				handleCurrentUserLogout(navigate, resetUser.passwordChangeUrl);
-			}
 		},
 	});
 

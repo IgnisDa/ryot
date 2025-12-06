@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::Result;
 use chrono::{Duration, NaiveDateTime, Offset, TimeZone, Utc};
-use common_models::{ChangeCollectionToEntitiesInput, EntityToCollectionInput};
+use common_models::{ChangeCollectionToEntitiesInput, EntityToCollectionInput, EntityWithLot};
 use common_utils::ryot_log;
 use database_models::{exercise, prelude::Exercise};
 use database_utils::{schedule_user_for_workout_revision, user_by_id};
@@ -16,10 +16,10 @@ use dependent_fitness_utils::{
     create_custom_exercise, create_or_update_user_measurement, create_or_update_user_workout,
     db_workout_to_workout_input, generate_exercise_id,
 };
-use dependent_jobs_utils::{deploy_update_metadata_group_job, deploy_update_person_job};
+use dependent_jobs_utils::deploy_update_media_entity_job;
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use dependent_progress_utils::commit_import_seen_item;
-use dependent_review_utils::{convert_review_into_input, post_review};
+use dependent_review_utils::{convert_review_into_input, create_or_update_review};
 use enum_models::{EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource};
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use media_models::{
@@ -237,7 +237,7 @@ where
                         &preferences,
                         db_metadata_id.clone(),
                         EntityLot::Metadata,
-                    ) && let Err(e) = post_review(user_id, input, ss).await
+                    ) && let Err(e) = create_or_update_review(user_id, input, ss).await
                     {
                         import.failed.push(ImportFailedItem {
                             lot: Some(metadata.lot),
@@ -286,14 +286,21 @@ where
                         continue;
                     }
                 };
-                deploy_update_metadata_group_job(&db_metadata_group_id, ss).await?;
+                deploy_update_media_entity_job(
+                    EntityWithLot {
+                        entity_id: db_metadata_group_id.clone(),
+                        entity_lot: EntityLot::MetadataGroup,
+                    },
+                    ss,
+                )
+                .await?;
                 for review in metadata_group.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
                         &preferences,
                         db_metadata_group_id.clone(),
                         EntityLot::MetadataGroup,
-                    ) && let Err(e) = post_review(user_id, input, ss).await
+                    ) && let Err(e) = create_or_update_review(user_id, input, ss).await
                     {
                         import.failed.push(ImportFailedItem {
                             error: Some(e.to_string()),
@@ -340,14 +347,21 @@ where
                         continue;
                     }
                 };
-                deploy_update_person_job(&db_person_id, ss).await?;
+                deploy_update_media_entity_job(
+                    EntityWithLot {
+                        entity_id: db_person_id.clone(),
+                        entity_lot: EntityLot::Person,
+                    },
+                    ss,
+                )
+                .await?;
                 for review in person.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
                         &preferences,
                         db_person_id.clone(),
                         EntityLot::Person,
-                    ) && let Err(e) = post_review(user_id, input, ss).await
+                    ) && let Err(e) = create_or_update_review(user_id, input, ss).await
                     {
                         import.failed.push(ImportFailedItem {
                             error: Some(e.to_string()),

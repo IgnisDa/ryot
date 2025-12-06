@@ -1,4 +1,4 @@
-use common_models::ChangeCollectionToEntitiesInput;
+use common_models::{ChangeCollectionToEntitiesInput, EntityWithLot};
 use media_models::{DeployImportJobInput, MetadataProgressUpdateInput, ReviewPostedEvent};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
@@ -10,22 +10,21 @@ pub enum HpApplicationJob {
     ReviewPosted(ReviewPostedEvent),
     SyncUserIntegrationsData(String),
     RecalculateUserActivitiesAndSummary(String, bool),
-    BulkMetadataProgressUpdate(String, Vec<MetadataProgressUpdateInput>),
     AddEntitiesToCollection(String, ChangeCollectionToEntitiesInput),
+    BulkMetadataProgressUpdate(String, Vec<MetadataProgressUpdateInput>),
     RemoveEntitiesFromCollection(String, ChangeCollectionToEntitiesInput),
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
 pub enum MpApplicationJob {
-    UpdatePerson(String),
     SyncIntegrationsData,
-    UpdateExerciseLibrary,
     PerformExport(String),
+    UpdateExerciseLibrary,
     UpdateGithubExercises,
-    UpdateMetadata(String),
     PerformBackgroundTasks,
     ReviseUserWorkouts(String),
-    UpdateMetadataGroup(String),
+    UpdateMediaDetails(EntityWithLot),
+    UpdateMediaTranslations(String, EntityWithLot),
     ImportFromExternalSource(String, Box<DeployImportJobInput>),
 }
 

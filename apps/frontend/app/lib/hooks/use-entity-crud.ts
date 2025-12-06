@@ -34,10 +34,10 @@ export interface UseEntityCrudConfig<TValues, TDetails, TCreateResult> {
 
 export const useEntityCrud = <
 	TValues extends {
-		images: File[];
-		existingImages: string[];
 		id?: string;
+		images: File[];
 		[key: string]: unknown;
+		existingImages: string[];
 	},
 	TDetails,
 	TCreateResult,

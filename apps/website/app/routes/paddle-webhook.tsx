@@ -70,9 +70,8 @@ async function findOrCreateCustomer(
 ): Promise<Customer | null> {
 	let customer = await findCustomerByPaddleId(paddleCustomerId);
 
-	if (!customer && customData) {
+	if (!customer && customData)
 		customer = await findCustomerByCustomData(customData);
-	}
 
 	return customer;
 }
@@ -232,15 +231,12 @@ async function processNewPurchase(
 		paddleCustomerId?: string | null;
 	} = {};
 
-	if (ryotUserId && ryotUserId !== customer.ryotUserId) {
+	if (ryotUserId && ryotUserId !== customer.ryotUserId)
 		updateData.ryotUserId = ryotUserId;
-	}
-	if (unkeyKeyId && unkeyKeyId !== customer.unkeyKeyId) {
+	if (unkeyKeyId && unkeyKeyId !== customer.unkeyKeyId)
 		updateData.unkeyKeyId = unkeyKeyId;
-	}
-	if (paddleCustomerId && paddleCustomerId !== customer.paddleCustomerId) {
+	if (paddleCustomerId && paddleCustomerId !== customer.paddleCustomerId)
 		updateData.paddleCustomerId = paddleCustomerId;
-	}
 
 	if (Object.keys(updateData).length > 0) {
 		await db

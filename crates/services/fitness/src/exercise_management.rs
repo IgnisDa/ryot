@@ -113,10 +113,11 @@ pub async fn merge_exercise(
         bail!("Cannot merge exercise with itself");
     }
     if old_exercise.lot != new_exercise.lot {
-        bail!(format!(
+        bail!(
             "Exercises must be of the same lot, got from={:#?} and into={:#?}",
-            old_exercise.lot, new_exercise.lot
-        ));
+            old_exercise.lot,
+            new_exercise.lot
+        );
     }
     let old_entity = UserToEntity::find()
         .filter(user_to_entity::Column::UserId.eq(&user_id))

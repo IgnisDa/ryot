@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use common_models::{
-    ApplicationDateRange, EntityRecentlyConsumedCacheInput, FilterPresetQueryInput,
-    MetadataGroupSearchInput, MetadataLookupCacheInput, PeopleSearchInput, UserAnalyticsInput,
-    UserLevelCacheKey, YoutubeMusicSongListened,
+    ApplicationDateRange, EntityWithLot, FilterPresetQueryInput, MetadataGroupSearchInput,
+    MetadataLookupCacheInput, PeopleSearchInput, UserAnalyticsInput, UserLevelCacheKey,
+    YoutubeMusicSongListened,
 };
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
@@ -17,8 +17,9 @@ use strum::{Display, EnumDiscriminants};
 use uuid::Uuid;
 
 use crate::{
-    GenreDetails, GraphqlPersonDetails, MetadataGroupDetails, UserMetadataDetails,
-    UserMetadataGroupDetails, UserPersonDetails, UserWorkoutDetails, UserWorkoutTemplateDetails,
+    EntityTranslationDetailsResponse, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
+    UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails, UserWorkoutDetails,
+    UserWorkoutTemplateDetails,
     analytics::UserAnalytics,
     core_systems::{CoreDetails, TmdbSettings, TvdbSettings},
     generic_types::{
@@ -100,6 +101,8 @@ pub enum ApplicationCacheKey {
     UserMetadataRecommendationsSet(UserLevelCacheKey<()>),
     MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
     UserPeopleList(UserLevelCacheKey<UserPeopleListInput>),
+    UserEntityTranslations(UserLevelCacheKey<EntityWithLot>),
+    EntityRecentlyConsumed(UserLevelCacheKey<EntityWithLot>),
     UserMetadataList(UserLevelCacheKey<UserMetadataListInput>),
     UserExercisesList(UserLevelCacheKey<UserExercisesListInput>),
     UserFilterPresets(UserLevelCacheKey<FilterPresetQueryInput>),
@@ -109,7 +112,6 @@ pub enum ApplicationCacheKey {
     YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
     UserWorkoutsList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     UserMetadataGroupsList(UserLevelCacheKey<UserMetadataGroupsListInput>),
-    EntityRecentlyConsumed(UserLevelCacheKey<EntityRecentlyConsumedCacheInput>),
     UserWorkoutTemplatesList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     MetadataProgressUpdateCompletedCache(UserLevelCacheKey<MetadataProgressUpdateCacheInput>),
     MetadataProgressUpdateInProgressCache(UserLevelCacheKey<MetadataProgressUpdateCacheInput>),
@@ -162,6 +164,7 @@ pub enum ApplicationCacheValue {
     UserMetadataGroupsList(UserMetadataGroupsListResponse),
     UserCollectionContents(Box<CollectionContentsResponse>),
     UserMetadataGroupDetails(Box<UserMetadataGroupDetails>),
+    UserEntityTranslations(EntityTranslationDetailsResponse),
     UserPasswordChangeSession(UserPasswordChangeSessionValue),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
     UserMetadataRecommendationsSet(ApplicationRecommendations),

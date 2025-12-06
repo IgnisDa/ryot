@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{Result, anyhow};
 use application_utils::calculate_average_rating_for_user;
-use common_models::{EntityRecentlyConsumedCacheInput, UserLevelCacheKey};
+use common_models::{EntityWithLot, UserLevelCacheKey};
 use database_models::{
     functions::get_user_to_entity_association,
     prelude::{Metadata, Seen},
@@ -41,18 +41,20 @@ pub async fn user_metadata_details(
         }),
         |f| ApplicationCacheValue::UserMetadataDetails(Box::new(f)),
         || async {
+            let entity_lot = EntityLot::Metadata;
             let (
                 media_details,
-                collections,
-                reviews,
                 (_, history),
-                seen_by,
+                reviews,
+                collections,
                 user_to_meta,
+                seen_by,
             ) = try_join!(
                 generic_metadata(&metadata_id, ss, None),
-                entity_in_collections_with_details(&user_id, &metadata_id, EntityLot::Metadata, ss),
-                item_reviews(&user_id, &metadata_id, EntityLot::Metadata, true, ss),
                 is_metadata_finished_by_user(&user_id, &metadata_id, ss),
+                item_reviews(&user_id, &metadata_id, entity_lot, true, ss),
+                entity_in_collections_with_details(&user_id, &metadata_id, entity_lot, ss),
+                get_user_to_entity_association(&ss.db, &user_id, &metadata_id, entity_lot),
                 Metadata::find_by_id(&metadata_id)
                     .select_only()
                     .column_as(seen::Column::Id.count(), "num_times_seen")
@@ -60,8 +62,7 @@ pub async fn user_metadata_details(
                     .into_tuple::<(i64,)>()
                     .one(&ss.db)
                     .map_err(|_| anyhow!("Metadata not found")),
-                get_user_to_entity_association(&ss.db, &user_id, &metadata_id, EntityLot::Metadata)
-            )?;
+                )?;
 
             let in_progress = history
                 .iter()
@@ -126,60 +127,62 @@ pub async fn user_metadata_details(
             });
             let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
             let seen_by_user_count = history.len();
-            let show_progress = if let Some(show_specifics) = media_details.model.show_specifics {
-                let mut seasons = vec![];
-                for season in show_specifics.seasons {
-                    let mut episodes = vec![];
-                    for episode in season.episodes {
-                        let seen = history
-                            .iter()
-                            .filter(|h| {
-                                h.show_extra_information.as_ref().is_some_and(|s| {
-                                    s.season == season.season_number
-                                        && s.episode == episode.episode_number
+            let show_progress = match media_details.model.show_specifics {
+                Some(show_specifics) => {
+                    let mut seasons = vec![];
+                    for season in show_specifics.seasons {
+                        let mut episodes = vec![];
+                        for episode in season.episodes {
+                            let seen = history
+                                .iter()
+                                .filter(|h| {
+                                    h.show_extra_information.as_ref().is_some_and(|s| {
+                                        s.season == season.season_number
+                                            && s.episode == episode.episode_number
+                                    })
                                 })
+                                .collect_vec();
+                            episodes.push(UserMetadataDetailsEpisodeProgress {
+                                times_seen: seen.len(),
+                                episode_number: episode.episode_number,
                             })
-                            .collect_vec();
-                        episodes.push(UserMetadataDetailsEpisodeProgress {
-                            episode_number: episode.episode_number,
-                            times_seen: seen.len(),
+                        }
+                        let times_season_seen = episodes
+                            .iter()
+                            .map(|e| e.times_seen)
+                            .min()
+                            .unwrap_or_default();
+                        seasons.push(UserMetadataDetailsShowSeasonProgress {
+                            episodes,
+                            times_seen: times_season_seen,
+                            season_number: season.season_number,
                         })
                     }
-                    let times_season_seen = episodes
-                        .iter()
-                        .map(|e| e.times_seen)
-                        .min()
-                        .unwrap_or_default();
-                    seasons.push(UserMetadataDetailsShowSeasonProgress {
-                        episodes,
-                        times_seen: times_season_seen,
-                        season_number: season.season_number,
-                    })
+                    Some(seasons)
                 }
-                Some(seasons)
-            } else {
-                None
+                None => None,
             };
             let podcast_progress =
-                if let Some(podcast_specifics) = media_details.model.podcast_specifics {
-                    let mut episodes = vec![];
-                    for episode in podcast_specifics.episodes {
-                        let seen = history
-                            .iter()
-                            .filter(|h| {
-                                h.podcast_extra_information
-                                    .as_ref()
-                                    .is_some_and(|s| s.episode == episode.number)
+                match media_details.model.podcast_specifics {
+                    Some(podcast_specifics) => {
+                        let mut episodes = vec![];
+                        for episode in podcast_specifics.episodes {
+                            let seen = history
+                                .iter()
+                                .filter(|h| {
+                                    h.podcast_extra_information
+                                        .as_ref()
+                                        .is_some_and(|s| s.episode == episode.number)
+                                })
+                                .collect_vec();
+                            episodes.push(UserMetadataDetailsEpisodeProgress {
+                                times_seen: seen.len(),
+                                episode_number: episode.number,
                             })
-                            .collect_vec();
-                        episodes.push(UserMetadataDetailsEpisodeProgress {
-                            episode_number: episode.number,
-                            times_seen: seen.len(),
-                        })
+                        }
+                        Some(episodes)
                     }
-                    Some(episodes)
-                } else {
-                    None
+                    None => None,
                 };
             Ok(UserMetadataDetails {
                 reviews,
@@ -213,17 +216,18 @@ pub async fn user_person_details(
         }),
         |f| ApplicationCacheValue::UserPersonDetails(Box::new(f)),
         || async {
-            let (reviews, collections, person_meta) = try_join!(
-                item_reviews(&user_id, &person_id, EntityLot::Person, true, ss),
-                entity_in_collections_with_details(&user_id, &person_id, EntityLot::Person, ss),
-                get_user_to_entity_association(&ss.db, &user_id, &person_id, EntityLot::Person)
+            let entity_lot = EntityLot::Person;
+            let (reviews, collections, person_association) = try_join!(
+                item_reviews(&user_id, &person_id, entity_lot, true, ss),
+                entity_in_collections_with_details(&user_id, &person_id, entity_lot, ss),
+                get_user_to_entity_association(&ss.db, &user_id, &person_id, entity_lot),
             )?;
             let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
             Ok(UserPersonDetails {
                 reviews,
                 collections,
                 average_rating,
-                has_interacted: person_meta.is_some(),
+                has_interacted: person_association.is_some(),
             })
         },
     )
@@ -243,33 +247,18 @@ pub async fn user_metadata_group_details(
         }),
         |f| ApplicationCacheValue::UserMetadataGroupDetails(Box::new(f)),
         || async {
-            let (collections, reviews, metadata_group_meta) = try_join!(
-                entity_in_collections_with_details(
-                    &user_id,
-                    &metadata_group_id,
-                    EntityLot::MetadataGroup,
-                    ss
-                ),
-                item_reviews(
-                    &user_id,
-                    &metadata_group_id,
-                    EntityLot::MetadataGroup,
-                    true,
-                    ss,
-                ),
-                get_user_to_entity_association(
-                    &ss.db,
-                    &user_id,
-                    &metadata_group_id,
-                    EntityLot::MetadataGroup,
-                )
+            let entity_lot = EntityLot::MetadataGroup;
+            let (reviews, metadata_group_association, collections) = try_join!(
+                item_reviews(&user_id, &metadata_group_id, entity_lot, true, ss),
+                get_user_to_entity_association(&ss.db, &user_id, &metadata_group_id, entity_lot),
+                entity_in_collections_with_details(&user_id, &metadata_group_id, entity_lot, ss),
             )?;
             let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
             Ok(UserMetadataGroupDetails {
                 reviews,
                 collections,
                 average_rating,
-                has_interacted: metadata_group_meta.is_some(),
+                has_interacted: metadata_group_association.is_some(),
             })
         },
     )
@@ -278,19 +267,15 @@ pub async fn user_metadata_group_details(
 
 pub async fn get_entity_recently_consumed(
     user_id: &String,
-    entity_id: &String,
-    entity_lot: EntityLot,
+    input: EntityWithLot,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
     server_key_validation_guard(is_server_key_validated(ss).await?).await?;
     let is_recently_consumed = cache_service::get_value::<EmptyCacheValue>(
         ss,
         ApplicationCacheKey::EntityRecentlyConsumed(UserLevelCacheKey {
+            input: input.clone(),
             user_id: user_id.to_owned(),
-            input: EntityRecentlyConsumedCacheInput {
-                entity_lot,
-                entity_id: entity_id.to_owned(),
-            },
         }),
     )
     .await

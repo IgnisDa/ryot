@@ -40,6 +40,7 @@ members = [
     "crates/resolvers/importer",
     "crates/resolvers/miscellaneous/filter_preset",
     "crates/resolvers/miscellaneous/grouping",
+    "crates/resolvers/miscellaneous/media-translation",
     "crates/resolvers/miscellaneous/metadata",
     "crates/resolvers/miscellaneous/search",
     "crates/resolvers/miscellaneous/social",
@@ -52,7 +53,6 @@ members = [
     "crates/resolvers/user/services",
     "crates/services/cache",
     "crates/services/collection",
-    "crates/services/custom",
     "crates/services/exporter",
     "crates/services/file-storage",
     "crates/services/fitness",
@@ -84,6 +84,7 @@ members = [
     "crates/services/miscellaneous/filter_preset",
     "crates/services/miscellaneous/general",
     "crates/services/miscellaneous/lookup",
+    "crates/services/miscellaneous/media-translation",
     "crates/services/miscellaneous/metadata-operations",
     "crates/services/miscellaneous/progress",
     "crates/services/miscellaneous/review",
@@ -251,7 +252,6 @@ common-utils = { path = "crates/utils/common" }
 config-definition = { path = "crates/config/definition" }
 config-macros = { path = "crates/config/macros" }
 custom-resolver = { path = "crates/resolvers/custom" }
-custom-service = { path = "crates/services/custom" }
 database-models = { path = "crates/models/database" }
 database-utils = { path = "crates/utils/database" }
 dependent-analytics-utils = { path = "crates/utils/dependent/analytics" }
@@ -312,6 +312,8 @@ miscellaneous-filter-preset-service = { path = "crates/services/miscellaneous/fi
 miscellaneous-general-service = { path = "crates/services/miscellaneous/general" }
 miscellaneous-grouping-resolver = { path = "crates/resolvers/miscellaneous/grouping" }
 miscellaneous-lookup-service = { path = "crates/services/miscellaneous/lookup" }
+miscellaneous-media-translation-service = { path = "crates/services/miscellaneous/media-translation" }
+miscellaneous-media-translation-resolver = { path = "crates/resolvers/miscellaneous/media-translation" }
 miscellaneous-metadata-operations-service = { path = "crates/services/miscellaneous/metadata-operations" }
 miscellaneous-metadata-resolver = { path = "crates/resolvers/miscellaneous/metadata" }
 miscellaneous-progress-service = { path = "crates/services/miscellaneous/progress" }

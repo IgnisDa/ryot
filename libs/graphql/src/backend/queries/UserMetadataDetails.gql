@@ -6,11 +6,11 @@ query UserMetadataDetails($metadataId: String!) {
 			averageRating
 			seenByAllCount
 			seenByUserCount
-			reviews {
-				...ReviewItemPart
-			}
 			history {
 				...SeenPart
+			}
+			reviews {
+				...ReviewItemPart
 			}
 			nextEntry {
 				season

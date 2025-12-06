@@ -2,7 +2,7 @@ use anyhow::{Result, bail};
 use async_graphql::OutputType;
 use chrono::{Datelike, NaiveDate};
 use common_models::SearchDetails;
-use common_utils::{PAGE_SIZE, compute_next_page};
+use common_utils::compute_next_page;
 use dependent_models::SearchResults;
 use serde::{Deserialize, Serialize};
 
@@ -137,7 +137,7 @@ impl GiantBombService {
         }
 
         let items = search_response.results.into_iter().map(mapper).collect();
-        let next_page = compute_next_page(page, PAGE_SIZE, search_response.number_of_total_results);
+        let next_page = compute_next_page(page, search_response.number_of_total_results);
 
         Ok(SearchResults {
             items,

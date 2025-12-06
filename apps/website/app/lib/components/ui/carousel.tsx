@@ -42,9 +42,8 @@ const CarouselContext = createContext<CarouselContextProps | null>(null);
 function useCarousel() {
 	const context = useContext(CarouselContext);
 
-	if (!context) {
+	if (!context)
 		throw new Error("useCarousel must be used within a <Carousel />");
-	}
 
 	return context;
 }
@@ -73,9 +72,7 @@ const Carousel = forwardRef<
 	const [canScrollNext, setCanScrollNext] = useState(false);
 
 	const onSelect = useCallback((api: CarouselApi) => {
-		if (!api) {
-			return;
-		}
+		if (!api) return;
 
 		setCanScrollPrev(api.canScrollPrev());
 		setCanScrollNext(api.canScrollNext());
@@ -103,17 +100,13 @@ const Carousel = forwardRef<
 	);
 
 	useEffect(() => {
-		if (!api || !setApi) {
-			return;
-		}
+		if (!api || !setApi) return;
 
 		setApi(api);
 	}, [api, setApi]);
 
 	useEffect(() => {
-		if (!api) {
-			return;
-		}
+		if (!api) return;
 
 		onSelect(api);
 		api.on("reInit", onSelect);

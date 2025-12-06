@@ -5,14 +5,12 @@ use dependent_models::{
     PeopleSearchResponse, TrendingMetadataIdsResponse,
 };
 use media_models::MetadataLookupResponse;
-use miscellaneous_service::MiscellaneousService;
-use traits::{AuthProvider, GraphqlResolverSvc};
+use traits::GraphqlDependencyInjector;
 
 #[derive(Default)]
 pub struct MiscellaneousSearchQueryResolver;
 
-impl AuthProvider for MiscellaneousSearchQueryResolver {}
-impl GraphqlResolverSvc<MiscellaneousService> for MiscellaneousSearchQueryResolver {}
+impl GraphqlDependencyInjector for MiscellaneousSearchQueryResolver {}
 
 #[Object]
 impl MiscellaneousSearchQueryResolver {
@@ -22,8 +20,8 @@ impl MiscellaneousSearchQueryResolver {
         gql_ctx: &Context<'_>,
         input: MetadataSearchInput,
     ) -> Result<CachedResponse<MetadataSearchResponse>> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.metadata_search(&user_id, input).await?)
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(miscellaneous_search_service::metadata_search(service, &user_id, input).await?)
     }
 
     /// Search for a list of people from a given source.
@@ -32,8 +30,8 @@ impl MiscellaneousSearchQueryResolver {
         gql_ctx: &Context<'_>,
         input: PeopleSearchInput,
     ) -> Result<CachedResponse<PeopleSearchResponse>> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.people_search(&user_id, input).await?)
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(miscellaneous_search_service::people_search(service, &user_id, input).await?)
     }
 
     /// Search for a list of groups from a given source.
@@ -42,8 +40,8 @@ impl MiscellaneousSearchQueryResolver {
         gql_ctx: &Context<'_>,
         input: MetadataGroupSearchInput,
     ) -> Result<CachedResponse<MetadataGroupSearchResponse>> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.metadata_group_search(&user_id, input).await?)
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(miscellaneous_search_service::metadata_group_search(service, &user_id, input).await?)
     }
 
     /// Get trending media items.
@@ -51,8 +49,8 @@ impl MiscellaneousSearchQueryResolver {
         &self,
         gql_ctx: &Context<'_>,
     ) -> Result<TrendingMetadataIdsResponse> {
-        let service = self.svc(gql_ctx);
-        Ok(service.trending_metadata().await?)
+        let service = self.dependency(gql_ctx);
+        Ok(miscellaneous_trending_and_events_service::trending_metadata(service).await?)
     }
 
     /// Lookup metadata by title.
@@ -61,7 +59,7 @@ impl MiscellaneousSearchQueryResolver {
         gql_ctx: &Context<'_>,
         title: String,
     ) -> Result<CachedResponse<MetadataLookupResponse>> {
-        let service = self.svc(gql_ctx);
-        Ok(service.metadata_lookup(title).await?)
+        let service = self.dependency(gql_ctx);
+        Ok(miscellaneous_lookup_service::metadata_lookup(service, title).await?)
     }
 }

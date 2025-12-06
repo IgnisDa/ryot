@@ -1,5 +1,7 @@
 # Rules for Ryot
 
+- Use tools from the Serena MCP (if available) to help you with faster code navigation
+  and retrieval. It supports Rust and Typescript.
 - The project uses `moon` for monorepo management. All frontend-related commands (like type
   checking, running tests, etc.) should use `moon` commands.
 - You can read @apps/docs/src/contributing.md for an overview of the project architecture
@@ -8,7 +10,7 @@
   single quotes since they often contain special characters.
 - When getting data from GitHub, try using the `gh` CLI and make raw requests only when
   absolutely necessary.
-- When making changes to the code, run the following commands generously to ensure that the
+- When making changes to the code, run the following commands often to ensure that the
   changes you are making do not break anything:
 
   ```bash

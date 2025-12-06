@@ -171,11 +171,12 @@ mutation DeployImportJob($input: DeployImportJobInput!) {
 	deployImportJob(input: $input)
 }
 
-mutation DeployUpdateMediaEntityJob(
-	$entityId: String!
-	$entityLot: EntityLot!
-) {
-	deployUpdateMediaEntityJob(entityId: $entityId, entityLot: $entityLot)
+mutation DeployUpdateMediaTranslationsJob($input: EntityWithLotInput!) {
+	deployUpdateMediaTranslationsJob(input: $input)
+}
+
+mutation DeployUpdateMediaEntityJob($input: EntityWithLotInput!) {
+	deployUpdateMediaEntityJob(input: $input)
 }
 
 mutation UpdateSeenItem($input: UpdateSeenItemInput!) {
@@ -275,7 +276,7 @@ mutation MergeExercise($mergeFrom: String!, $mergeInto: String!) {
 	mergeExercise(mergeFrom: $mergeFrom, mergeInto: $mergeInto)
 }
 
-mutation MarkEntityAsPartial($input: MarkEntityAsPartialInput!) {
+mutation MarkEntityAsPartial($input: EntityWithLotInput!) {
 	markEntityAsPartial(input: $input)
 }
 

@@ -34,8 +34,6 @@ fragment SeenMangaExtraInformationPart on SeenMangaExtraInformation {
 fragment CalendarEventPart on GraphqlCalendarEvent {
 	date
 	metadataId
-	metadataLot
-	metadataText
 	metadataImage
 	calendarEventId
 	showExtraInformation {

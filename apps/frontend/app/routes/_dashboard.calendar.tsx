@@ -8,14 +8,13 @@ import {
 	Title,
 } from "@mantine/core";
 import {
-	MediaLot,
 	UserCalendarEventsDocument,
 	type UserCalendarEventsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { match } from "ts-pattern";
+import { useMemo } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import {
 	DisplayListDetailsAndRefresh,
@@ -98,7 +97,7 @@ export default function Page() {
 								total={sum(userCalendarEvents.map((e) => e.events.length))}
 							/>
 							{userCalendarEvents.map((ce) => (
-								<CalendarEvent key={ce.date} data={ce} />
+								<CalendarDate key={ce.date} data={ce} />
 							))}
 						</Stack>
 					) : (
@@ -112,8 +111,28 @@ export default function Page() {
 	);
 }
 
-const CalendarEvent = (props: {
-	data: UserCalendarEventsQuery["userCalendarEvents"][number];
+type CalendarDate = UserCalendarEventsQuery["userCalendarEvents"][number];
+
+const CalendarEventMetadata = (props: {
+	item: CalendarDate["events"][number];
+}) => {
+	const additionalInformation = useMemo(() => {
+		if (props.item.showExtraInformation)
+			return `Upcoming: S${props.item.showExtraInformation?.season}-E${props.item.showExtraInformation?.episode}`;
+		if (props.item.podcastExtraInformation)
+			return `Upcoming: EP-${props.item.podcastExtraInformation?.episode}`;
+	}, []);
+
+	return (
+		<MetadataDisplayItem
+			metadataId={props.item.metadataId}
+			additionalInformation={additionalInformation}
+		/>
+	);
+};
+
+const CalendarDate = (props: {
+	data: CalendarDate;
 }) => {
 	const date = dayjsLib(props.data.date);
 
@@ -134,22 +153,9 @@ const CalendarEvent = (props: {
 			</Group>
 			<ApplicationGrid>
 				{props.data.events.map((calEvent) => (
-					<MetadataDisplayItem
+					<CalendarEventMetadata
+						item={calEvent}
 						key={calEvent.calendarEventId}
-						altName={calEvent.metadataText}
-						metadataId={calEvent.metadataId}
-						additionalInformation={`${match(calEvent.metadataLot)
-							.with(
-								MediaLot.Show,
-								() =>
-									`Upcoming: S${calEvent.showExtraInformation?.season}-E${calEvent.showExtraInformation?.episode}`,
-							)
-							.with(
-								MediaLot.Podcast,
-								() =>
-									`Upcoming: EP-${calEvent.podcastExtraInformation?.episode}`,
-							)
-							.otherwise(() => "")}`}
 					/>
 				))}
 			</ApplicationGrid>

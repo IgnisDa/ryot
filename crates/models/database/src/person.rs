@@ -42,6 +42,7 @@ pub struct Model {
     pub state_changes: Option<PersonStateChanges>,
     #[graphql(skip)]
     pub source_specifics: Option<PersonSourceSpecifics>,
+    pub has_translations_for_languages: Option<Vec<String>>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

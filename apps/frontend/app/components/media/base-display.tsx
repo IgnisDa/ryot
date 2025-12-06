@@ -62,10 +62,11 @@ export const PartialMetadataDisplay = (props: {
 	extraText?: string;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const [{ data: metadataDetails }, isPartialStatusActive] = useMetadataDetails(
-		props.metadataId,
-		inViewport,
-	);
+	const [
+		{ data: metadataDetails },
+		isPartialStatusActive,
+		metadataTranslations,
+	] = useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 		inViewport,
@@ -82,10 +83,10 @@ export const PartialMetadataDisplay = (props: {
 			ref={ref}
 			image={images.at(0)}
 			extraText={props.extraText}
-			title={metadataDetails?.title || undefined}
 			isPartialStatusActive={isPartialStatusActive}
 			hasInteracted={userMetadataDetails?.hasInteracted}
 			link={$path("/media/item/:id", { id: props.metadataId })}
+			title={metadataTranslations?.title || metadataDetails?.title || undefined}
 		/>
 	);
 };

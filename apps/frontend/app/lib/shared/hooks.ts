@@ -8,11 +8,13 @@ import {
 	DeployBulkMetadataProgressUpdateDocument,
 	DeployRemoveEntitiesFromCollectionJobDocument,
 	DeployUpdateMediaEntityJobDocument,
+	DeployUpdateMediaTranslationsJobDocument,
 	EntityLot,
 	ExpireCacheKeyDocument,
 	GetPresignedS3UrlDocument,
 	type MediaLot,
 	MediaSource,
+	MediaTranslationsDocument,
 	type MetadataProgressUpdateInput,
 	UpdateUserDocument,
 	UserCollectionsListDocument,
@@ -122,20 +124,29 @@ export const useGetWorkoutStarter = () => {
 	return fn;
 };
 
-export const usePartialStatusMonitor = (props: {
+const createDeployMediaEntityJob =
+	(entityId: string | undefined, entityLot: EntityLot) => () => {
+		if (entityId) {
+			clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
+				input: { entityId, entityLot },
+			});
+		}
+	};
+
+const useEntityUpdateMonitor = (props: {
 	entityId?: string;
 	entityLot: EntityLot;
 	onUpdate: () => unknown;
-	partialStatus?: boolean | null;
-	externalLinkSource: MediaSource;
+	needsRefetch?: boolean | null;
+	deployJob: () => void | Promise<void>;
 }) => {
-	const { entityId, entityLot, onUpdate, partialStatus, externalLinkSource } =
-		props;
+	const { entityId, entityLot, onUpdate, needsRefetch } = props;
 
 	const attemptCountRef = useRef(0);
 	const isPollingRef = useRef(false);
 	const [isPartialStatusActive, setIsPartialStatusActive] = useState(false);
 	const jobDeployedForEntityRef = useRef<string | null>(null);
+	const pollingEntityIdRef = useRef<string | null>(null);
 	const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
 		undefined,
 	);
@@ -144,6 +155,8 @@ export const usePartialStatusMonitor = (props: {
 		if (!isPollingRef.current) return;
 
 		if (attemptCountRef.current >= 30) {
+			if (pollingEntityIdRef.current)
+				refreshEntityDetails(pollingEntityIdRef.current);
 			onUpdate();
 			isPollingRef.current = false;
 			setIsPartialStatusActive(false);
@@ -160,43 +173,52 @@ export const usePartialStatusMonitor = (props: {
 	}, [onUpdate]);
 
 	const resetPollingState = useCallback(() => {
+		const wasPolling = isPollingRef.current;
+		const polledEntityId = pollingEntityIdRef.current;
+
 		if (timeoutRef.current) {
 			clearTimeout(timeoutRef.current);
 			timeoutRef.current = undefined;
 		}
 		attemptCountRef.current = 0;
 		isPollingRef.current = false;
+		pollingEntityIdRef.current = null;
 		setIsPartialStatusActive(false);
+
+		if (wasPolling && polledEntityId) {
+			refreshEntityDetails(polledEntityId);
+		}
 	}, []);
 
 	useEffect(() => {
 		const jobDeployedForEntity = jobDeployedForEntityRef.current;
-		const shouldPoll = Boolean(
-			entityId && partialStatus && externalLinkSource !== MediaSource.Custom,
-		);
+		const shouldPoll = Boolean(entityId && needsRefetch);
 		const isJobForDifferentEntity = Boolean(
 			jobDeployedForEntity && jobDeployedForEntity !== entityId,
 		);
 
 		if (isJobForDifferentEntity || !entityId) {
 			jobDeployedForEntityRef.current = null;
+			pollingEntityIdRef.current = null;
 		}
 
 		if (!shouldPoll) {
-			if (isPollingRef.current) resetPollingState();
+			if (isPollingRef.current) {
+				const entityToRefresh = jobDeployedForEntity || entityId;
+				if (entityToRefresh) refreshEntityDetails(entityToRefresh);
+				resetPollingState();
+			}
 			return;
 		}
 
 		if (isJobForDifferentEntity) {
+			if (jobDeployedForEntity) refreshEntityDetails(jobDeployedForEntity);
 			resetPollingState();
 		}
 
 		if (!isPollingRef.current) {
 			if (jobDeployedForEntityRef.current !== entityId && entityId) {
-				clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
-					entityId,
-					entityLot,
-				});
+				props.deployJob();
 				jobDeployedForEntityRef.current = entityId;
 			}
 
@@ -207,6 +229,7 @@ export const usePartialStatusMonitor = (props: {
 
 			attemptCountRef.current = 0;
 			isPollingRef.current = true;
+			pollingEntityIdRef.current = entityId ?? null;
 			setIsPartialStatusActive(true);
 			scheduleNextPoll();
 		}
@@ -216,51 +239,62 @@ export const usePartialStatusMonitor = (props: {
 		onUpdate,
 		entityId,
 		entityLot,
-		partialStatus,
+		needsRefetch,
+		props.deployJob,
 		scheduleNextPoll,
 		resetPollingState,
-		externalLinkSource,
 	]);
 
 	return { isPartialStatusActive };
-};
-
-export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
-	const query = useQuery({ ...getMetadataDetailsQuery(metadataId), enabled });
-
-	const { isPartialStatusActive } = usePartialStatusMonitor({
-		entityId: metadataId,
-		entityLot: EntityLot.Metadata,
-		onUpdate: () => query.refetch(),
-		partialStatus: enabled !== false && query.data?.isPartial,
-		externalLinkSource: query.data?.source || MediaSource.Custom,
-	});
-
-	return [query, isPartialStatusActive] as const;
 };
 
 export const useUserMetadataDetails = (
 	metadataId?: string,
 	enabled?: boolean,
 ) => {
-	return useQuery({
-		...getUserMetadataDetailsQuery(metadataId),
-		enabled,
-	});
+	return useQuery({ ...getUserMetadataDetailsQuery(metadataId), enabled });
 };
 
-export const usePersonDetails = (personId?: string, enabled?: boolean) => {
-	const query = useQuery({ ...getPersonDetailsQuery(personId), enabled });
+const useTranslationMonitor = (props: {
+	entityId?: string;
+	enabled?: boolean;
+	entityLot: EntityLot;
+	mediaSource?: MediaSource;
+}) => {
+	const translationsQuery = useQuery({
+		enabled: props.enabled,
+		queryKey: queryFactory.media.entityTranslations(
+			props.entityId,
+			props.entityLot,
+		).queryKey,
+		queryFn: () => {
+			if (props.entityId && props.entityLot)
+				return clientGqlService
+					.request(MediaTranslationsDocument, {
+						input: { entityId: props.entityId, entityLot: props.entityLot },
+					})
+					.then((data) => data.mediaTranslations);
+		},
+	});
+	const hasTranslations = translationsQuery.data?.response !== null;
 
-	const { isPartialStatusActive } = usePartialStatusMonitor({
-		entityId: personId,
-		entityLot: EntityLot.Person,
-		onUpdate: () => query.refetch(),
-		partialStatus: enabled !== false && query.data?.details.isPartial,
-		externalLinkSource: query.data?.details.source || MediaSource.Custom,
+	useEntityUpdateMonitor({
+		entityId: props.entityId,
+		entityLot: props.entityLot,
+		onUpdate: () => translationsQuery.refetch(),
+		needsRefetch:
+			props.enabled !== false &&
+			!hasTranslations &&
+			props.mediaSource !== MediaSource.Custom,
+		deployJob: () => {
+			if (props.entityId)
+				clientGqlService.request(DeployUpdateMediaTranslationsJobDocument, {
+					input: { entityId: props.entityId, entityLot: props.entityLot },
+				});
+		},
 	});
 
-	return [query, isPartialStatusActive] as const;
+	return { translations: translationsQuery.data?.response };
 };
 
 export const useUserPersonDetails = (personId?: string, enabled?: boolean) => {
@@ -304,6 +338,57 @@ export const useUserWorkoutTemplateDetails = (
 	});
 };
 
+export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
+	const metadataDetailsQuery = useQuery({
+		...getMetadataDetailsQuery(metadataId),
+		enabled,
+	});
+
+	const { isPartialStatusActive } = useEntityUpdateMonitor({
+		entityId: metadataId,
+		entityLot: EntityLot.Metadata,
+		onUpdate: () => metadataDetailsQuery.refetch(),
+		deployJob: createDeployMediaEntityJob(metadataId, EntityLot.Metadata),
+		needsRefetch:
+			enabled !== false &&
+			metadataDetailsQuery.data?.isPartial &&
+			metadataDetailsQuery.data?.source !== MediaSource.Custom,
+	});
+
+	const { translations } = useTranslationMonitor({
+		enabled,
+		entityId: metadataId,
+		entityLot: EntityLot.Metadata,
+		mediaSource: metadataDetailsQuery.data?.source,
+	});
+
+	return [metadataDetailsQuery, isPartialStatusActive, translations] as const;
+};
+
+export const usePersonDetails = (personId?: string, enabled?: boolean) => {
+	const query = useQuery({ ...getPersonDetailsQuery(personId), enabled });
+
+	const { isPartialStatusActive } = useEntityUpdateMonitor({
+		entityId: personId,
+		entityLot: EntityLot.Person,
+		onUpdate: () => query.refetch(),
+		deployJob: createDeployMediaEntityJob(personId, EntityLot.Person),
+		needsRefetch:
+			enabled !== false &&
+			query.data?.details.isPartial &&
+			query.data?.details.source !== MediaSource.Custom,
+	});
+
+	const { translations } = useTranslationMonitor({
+		enabled,
+		entityId: personId,
+		entityLot: EntityLot.Person,
+		mediaSource: query.data?.details.source,
+	});
+
+	return [query, isPartialStatusActive, translations] as const;
+};
+
 export const useMetadataGroupDetails = (
 	metadataGroupId?: string,
 	enabled?: boolean,
@@ -313,15 +398,28 @@ export const useMetadataGroupDetails = (
 		enabled,
 	});
 
-	const { isPartialStatusActive } = usePartialStatusMonitor({
+	const { isPartialStatusActive } = useEntityUpdateMonitor({
 		entityId: metadataGroupId,
 		onUpdate: () => query.refetch(),
 		entityLot: EntityLot.MetadataGroup,
-		partialStatus: enabled !== false && query.data?.details.isPartial,
-		externalLinkSource: query.data?.details.source || MediaSource.Custom,
+		deployJob: createDeployMediaEntityJob(
+			metadataGroupId,
+			EntityLot.MetadataGroup,
+		),
+		needsRefetch:
+			enabled !== false &&
+			query.data?.details.isPartial &&
+			query.data?.details.source !== MediaSource.Custom,
 	});
 
-	return [query, isPartialStatusActive] as const;
+	const { translations } = useTranslationMonitor({
+		enabled,
+		entityId: metadataGroupId,
+		entityLot: EntityLot.MetadataGroup,
+		mediaSource: query.data?.details.source,
+	});
+
+	return [query, isPartialStatusActive, translations] as const;
 };
 
 export const useUserMetadataGroupDetails = (
@@ -577,9 +675,7 @@ export const useFormValidation = (dependency?: unknown) => {
 	const [isFormValid, setIsFormValid] = useState(true);
 
 	const checkFormValidity = useCallback(() => {
-		if (formRef.current) {
-			setIsFormValid(formRef.current.checkValidity());
-		}
+		if (formRef.current) setIsFormValid(formRef.current.checkValidity());
 	}, []);
 
 	useEffect(() => {

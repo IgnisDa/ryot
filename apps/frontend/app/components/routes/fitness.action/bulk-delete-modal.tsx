@@ -108,9 +108,7 @@ export const BulkDeleteModal = (props: {
 	}, [props.opened]);
 
 	useDidUpdate(() => {
-		if (!props.opened) {
-			form.reset();
-		}
+		if (!props.opened) form.reset();
 	}, [props.opened]);
 
 	const toggleSet = (setIdentifier: string) => {

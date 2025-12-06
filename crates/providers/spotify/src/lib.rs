@@ -3,14 +3,15 @@ use std::sync::Arc;
 use anyhow::{Result, bail};
 use async_trait::async_trait;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
-use common_utils::get_base_http_client;
-use common_utils::{PAGE_SIZE, compute_next_page, convert_date_to_year, convert_string_to_date};
+use common_utils::{
+    PAGE_SIZE, compute_next_page, convert_date_to_year, convert_string_to_date,
+    get_base_http_client,
+};
 use data_encoding::BASE64;
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, MetadataGroupPersonRelated, MetadataPersonRelated,
-    PersonDetails, SearchResults,
+    MetadataSearchSourceSpecifics, PersonDetails, SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
 use futures::try_join;
@@ -299,8 +300,8 @@ impl MediaProvider for SpotifyService {
         let music_specifics = MusicSpecifics {
             disc_number: track.disc_number,
             track_number: track.track_number,
-            duration: track.duration_ms.map(|ms| ms / 1000),
             by_various_artists: Some(by_various_artists),
+            duration: track.duration_ms.map(|ms| ms / 1000),
             ..Default::default()
         };
 
@@ -332,7 +333,7 @@ impl MediaProvider for SpotifyService {
         let (search_response, page): (SpotifySearchResponse, u64) =
             self.search_spotify(query, "track", Some(page)).await?;
 
-        let next_page = compute_next_page(page, PAGE_SIZE, search_response.tracks.total);
+        let next_page = compute_next_page(page, search_response.tracks.total);
 
         let items = search_response
             .tracks
@@ -410,6 +411,7 @@ impl MediaProvider for SpotifyService {
                 remote_images: get_images_ordered_by_size(&album.images),
                 ..Default::default()
             },
+            ..Default::default()
         };
 
         Ok((group, items))
@@ -424,17 +426,17 @@ impl MediaProvider for SpotifyService {
         let (search_response, page): (SpotifyAlbumSearchResponse, u64) =
             self.search_spotify(query, "album", Some(page)).await?;
 
-        let next_page = compute_next_page(page, PAGE_SIZE, search_response.albums.total);
+        let next_page = compute_next_page(page, search_response.albums.total);
 
         let items = search_response
             .albums
             .items
             .into_iter()
             .map(|album| MetadataGroupSearchItem {
-                name: album.name.clone().unwrap_or_default(),
-                identifier: album.id.clone().unwrap_or_default(),
                 parts: album.total_tracks,
                 image: get_first_image(&album.images),
+                name: album.name.clone().unwrap_or_default(),
+                identifier: album.id.clone().unwrap_or_default(),
             })
             .collect();
 
@@ -466,13 +468,13 @@ impl MediaProvider for SpotifyService {
             fetch_artist_top_tracks(&self.client, identifier)
         )?;
 
-        let description = artist.genres.as_ref().and_then(|genres| {
-            if genres.is_empty() {
-                None
-            } else {
-                Some(format!("Genres: {}", genres.join(", ")))
-            }
-        });
+        let description = artist
+            .genres
+            .as_ref()
+            .and_then(|genres| match genres.as_slice() {
+                [] => None,
+                _ => Some(format!("Genres: {}", genres.join(", "))),
+            });
 
         let assets = EntityAssets {
             remote_images: artist
@@ -489,9 +491,9 @@ impl MediaProvider for SpotifyService {
                 metadata_group: MetadataGroupWithoutId {
                     lot: MediaLot::Music,
                     source: MediaSource::Spotify,
+                    parts: album.total_tracks.unwrap_or(0) as i32,
                     title: album.name.clone().unwrap_or_default(),
                     identifier: album.id.clone().unwrap_or_default(),
-                    parts: album.total_tracks.unwrap_or(0) as i32,
                     assets: EntityAssets {
                         remote_images: get_images_ordered_by_size(&album.images),
                         ..Default::default()
@@ -512,8 +514,8 @@ impl MediaProvider for SpotifyService {
                 MetadataPersonRelated {
                     role: "Artist".to_string(),
                     metadata: PartialMetadataWithoutId {
-                        lot: MediaLot::Music,
                         publish_year,
+                        lot: MediaLot::Music,
                         title: track.name.clone(),
                         identifier: track.id.clone(),
                         source: MediaSource::Spotify,
@@ -548,7 +550,7 @@ impl MediaProvider for SpotifyService {
         let (search_response, page): (SpotifyArtistSearchResponse, u64) =
             self.search_spotify(query, "artist", Some(page)).await?;
 
-        let next_page = compute_next_page(page, PAGE_SIZE, search_response.artists.total);
+        let next_page = compute_next_page(page, search_response.artists.total);
 
         let items = search_response
             .artists
