@@ -409,17 +409,28 @@ driver("details", async function (context) {
 	}
 
 	const suggestions = collectSuggestions(game.similar_games);
-	const relatedEntities = [
-		...collectCompanies(game.developers, game.publishers),
-		...collectGroups(game.franchises),
-		...suggestions.map((suggestion) =>
-			Object.assign(suggestion, { relationshipSchemaSlug: "media-suggestion" }),
-		),
-	];
+	const companies = collectCompanies(game.developers, game.publishers);
+	const groups = collectGroups(game.franchises);
 
 	return {
 		name,
-		relatedEntities,
+		relatedEntityGroups: [
+			{
+				entities: companies,
+				direction: "incoming",
+				relationshipSchemaSlug: "company-to-video-game",
+			},
+			{
+				entities: groups,
+				direction: "incoming",
+				relationshipSchemaSlug: "video-game-group-to-video-game",
+			},
+			{
+				direction: "outgoing",
+				entities: suggestions,
+				relationshipSchemaSlug: "media-suggestion",
+			},
+		],
 		properties: {
 			images,
 			genres,

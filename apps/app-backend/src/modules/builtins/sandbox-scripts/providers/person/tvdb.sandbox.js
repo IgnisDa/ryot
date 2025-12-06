@@ -274,21 +274,91 @@ driver("details", async function (context, { metadata }) {
 	const description = translation.description ?? firstBiography;
 
 	const slug = typeof person?.slug === "string" && person.slug.trim() ? person.slug.trim() : null;
+	const movieById = new Map();
+	const showById = new Map();
+	const addMedia = (entities, entity) => {
+		const existing = entities.get(entity.externalId);
+		if (!existing) {
+			entities.set(entity.externalId, entity);
+			return;
+		}
+		if (!existing.relationshipProperties.roles.includes(entity.relationshipProperties.roles[0])) {
+			existing.relationshipProperties.roles.push(entity.relationshipProperties.roles[0]);
+		}
+	};
+	for (const character of Array.isArray(person?.characters) ? person.characters : []) {
+		const role =
+			typeof character?.peopleType === "string" && character.peopleType.trim()
+				? character.peopleType.trim()
+				: typeof character?.people_type === "string" && character.people_type.trim()
+					? character.people_type.trim()
+					: "Actor";
+		const movieId = character?.movieId ?? character?.movie_id;
+		const movieExternalId =
+			typeof movieId === "number" && Number.isFinite(movieId)
+				? String(Math.trunc(movieId))
+				: typeof movieId === "string" && movieId.trim()
+					? movieId.trim()
+					: null;
+		if (movieExternalId) {
+			const movieName =
+				typeof character?.movie?.name === "string" && character.movie.name.trim()
+					? character.movie.name.trim()
+					: "Loading...";
+			addMedia(movieById, {
+				name: movieName,
+				scriptSlug: "movie.tvdb",
+				externalId: movieExternalId,
+				relationshipProperties: { roles: [role] },
+			});
+		}
+		const seriesId = character?.seriesId ?? character?.series_id;
+		const seriesExternalId =
+			typeof seriesId === "number" && Number.isFinite(seriesId)
+				? String(Math.trunc(seriesId))
+				: typeof seriesId === "string" && seriesId.trim()
+					? seriesId.trim()
+					: null;
+		if (seriesExternalId) {
+			const showName =
+				typeof character?.series?.name === "string" && character.series.name.trim()
+					? character.series.name.trim()
+					: "Loading...";
+			addMedia(showById, {
+				name: showName,
+				scriptSlug: "show.tvdb",
+				externalId: seriesExternalId,
+				relationshipProperties: { roles: [role] },
+			});
+		}
+	}
 
 	return {
 		name,
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: [...movieById.values()],
+				relationshipSchemaSlug: "person-to-movie",
+			},
+			{
+				direction: "outgoing",
+				entities: [...showById.values()],
+				relationshipSchemaSlug: "person-to-show",
+			},
+		],
 		properties: {
 			gender,
 			description,
 			alternateNames: [],
 			images: image ? [{ type: "remote", url: image }] : [],
+			birthDate:
+			typeof person?.birth === "string" && person.birth.trim() ? person.birth.trim() : null,
+			deathDate:
+			typeof person?.death === "string" && person.death.trim() ? person.death.trim() : null,
 			sourceUrl: slug
 				? `https://www.thetvdb.com/people/${slug}`
 				: `https://www.thetvdb.com/people/${externalId}`,
-			birthDate:
-				typeof person?.birth === "string" && person.birth.trim() ? person.birth.trim() : null,
-			deathDate:
-				typeof person?.death === "string" && person.death.trim() ? person.death.trim() : null,
 			birthPlace:
 				typeof person?.birthPlace === "string" && person.birthPlace.trim()
 					? person.birthPlace.trim()

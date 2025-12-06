@@ -156,11 +156,10 @@ driver("details", async function (context, { metadata }) {
 	const language = metadata?.providerInformation?.canonicalLanguage ?? "en";
 	const token = await getTmdbAccessToken();
 
-	const personData = await tmdbGet(
-		`/person/${externalId}`,
-		{ language, append_to_response: "images" },
-		token,
-	);
+	const [personData, combinedCredits] = await Promise.all([
+		tmdbGet(`/person/${externalId}`, { language, append_to_response: "images" }, token),
+		tmdbGet(`/person/${externalId}/combined_credits`, { language }, token),
+	]);
 
 	const name =
 		typeof personData?.name === "string" && personData.name.trim() ? personData.name.trim() : null;
@@ -189,14 +188,67 @@ driver("details", async function (context, { metadata }) {
 	const alternateNames = Array.isArray(personData?.also_known_as)
 		? personData.also_known_as.filter((n) => typeof n === "string" && n.trim())
 		: [];
+	const relatedByKey = new Map();
+	const addMedia = (media, fallbackRole) => {
+		const mediaId =
+			typeof media?.id === "number" && Number.isFinite(media.id) ? String(Math.trunc(media.id)) : null;
+		const scriptSlug =
+			media?.media_type === "movie" ? "movie.tmdb" : media?.media_type === "tv" ? "show.tmdb" : null;
+		const mediaName =
+			typeof media?.title === "string" && media.title.trim()
+				? media.title.trim()
+				: typeof media?.name === "string" && media.name.trim()
+					? media.name.trim()
+					: "Loading...";
+		if (!mediaId || !scriptSlug) {
+			return;
+		}
+		const role =
+			typeof media?.job === "string" && media.job.trim()
+				? media.job.trim()
+				: fallbackRole;
+		const key = `${scriptSlug}:${mediaId}`;
+		const existing = relatedByKey.get(key);
+		if (existing) {
+			if (!existing.relationshipProperties.roles.includes(role)) {
+				existing.relationshipProperties.roles.push(role);
+			}
+			return;
+		}
+		relatedByKey.set(key, {
+			scriptSlug,
+			name: mediaName,
+			externalId: mediaId,
+			relationshipProperties: { roles: [role] },
+		});
+	};
+	for (const media of Array.isArray(combinedCredits?.cast) ? combinedCredits.cast : []) {
+		addMedia(media, "Actor");
+	}
+	for (const media of Array.isArray(combinedCredits?.crew) ? combinedCredits.crew : []) {
+		addMedia(media, "Production");
+	}
+	const relatedEntities = [...relatedByKey.values()];
 
 	return {
 		name,
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				relationshipSchemaSlug: "person-to-movie",
+				entities: relatedEntities.filter((entity) => entity.scriptSlug === "movie.tmdb"),
+			},
+			{
+				direction: "outgoing",
+				relationshipSchemaSlug: "person-to-show",
+				entities: relatedEntities.filter((entity) => entity.scriptSlug === "show.tmdb"),
+			},
+		],
 		properties: {
 			gender,
 			alternateNames,
-			images: profileImages.map((url) => ({ type: "remote", url })),
 			sourceUrl: `https://www.themoviedb.org/person/${externalId}`,
+			images: profileImages.map((url) => ({ type: "remote", url })),
 			description:
 				typeof personData?.biography === "string" && personData.biography.trim()
 					? personData.biography.trim()

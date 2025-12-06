@@ -649,20 +649,31 @@ driver("details", async function (context, { metadata }) {
 		? `https://thetvdb.com/series/${slug}`
 		: `https://thetvdb.com/series/${externalId}`;
 
-	const relatedEntities = [...peopleRelatedEntities, ...collectCompanies(show?.companies)];
+	const companies = collectCompanies(show?.companies);
 
 	return {
 		name: title,
 		childEntities,
-		relatedEntities,
+		relatedEntityGroups: [
+			{
+				direction: "incoming",
+				entities: peopleRelatedEntities,
+				relationshipSchemaSlug: "person-to-show",
+			},
+			{
+				direction: "incoming",
+				entities: companies,
+				relationshipSchemaSlug: "company-to-show",
+			},
+		],
 		properties: {
 			images,
 			genres,
 			sourceUrl,
 			publishYear,
 			totalEpisodes,
-			totalSeasons: childEntities.length,
 			unlinkedCreators,
+			totalSeasons: childEntities.length,
 			description:
 				translation.description ??
 				(typeof show?.overview === "string" && show.overview.trim() ? show.overview.trim() : null),

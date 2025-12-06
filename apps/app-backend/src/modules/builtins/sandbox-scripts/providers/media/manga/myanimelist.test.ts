@@ -47,24 +47,15 @@ describe("manga.myanimelist sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.relatedEntities).toEqual([
+			expect(details.relatedEntityGroups).toEqual([
 				{
-					name: "Related Anime",
-					externalId: "3",
-					scriptSlug: "anime.myanimelist",
+					direction: "outgoing",
 					relationshipSchemaSlug: "media-suggestion",
-				},
-				{
-					name: "Related Manga",
-					externalId: "4",
-					scriptSlug: "manga.myanimelist",
-					relationshipSchemaSlug: "media-suggestion",
-				},
-				{
-					name: "Manga Pick",
-					externalId: "2",
-					scriptSlug: "manga.myanimelist",
-					relationshipSchemaSlug: "media-suggestion",
+					entities: [
+						{ name: "Related Anime", externalId: "3", scriptSlug: "anime.myanimelist" },
+						{ name: "Related Manga", externalId: "4", scriptSlug: "manga.myanimelist" },
+						{ name: "Manga Pick", externalId: "2", scriptSlug: "manga.myanimelist" },
+					],
 				},
 			]);
 			return undefined;

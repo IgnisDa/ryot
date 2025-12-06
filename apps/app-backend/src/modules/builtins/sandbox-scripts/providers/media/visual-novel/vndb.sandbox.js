@@ -270,6 +270,13 @@ driver("details", async function (context) {
 
 	return {
 		name,
+		relatedEntityGroups: [
+			{
+				direction: "incoming",
+				entities: relatedEntities,
+				relationshipSchemaSlug: "company-to-visual-novel",
+			},
+		],
 		properties: {
 			images,
 			genres,
@@ -281,6 +288,5 @@ driver("details", async function (context) {
 			sourceUrl: `https://vndb.org/${externalId}`,
 			publishYear: extractYear(vn.released, dayjs),
 		},
-		relatedEntities,
 	};
 });
