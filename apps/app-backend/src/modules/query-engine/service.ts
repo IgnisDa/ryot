@@ -62,7 +62,7 @@ export class QueryEngineService extends Effect.Service<QueryEngineService>()("Qu
 			);
 
 		const validate = Effect.fn("QueryEngineService.validate")(function* (
-			user: CurrentUserValue,
+			user: Pick<CurrentUserValue, "id">,
 			doc: QueryDocument,
 		) {
 			const validationError = validateQueryDocument(doc);
@@ -77,7 +77,7 @@ export class QueryEngineService extends Effect.Service<QueryEngineService>()("Qu
 				),
 			);
 			return undefined;
-		}, dieOnDbError);
+		});
 
 		const execute = Effect.fn("QueryEngineService.execute")(function* (
 			user: CurrentUserValue,

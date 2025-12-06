@@ -214,3 +214,22 @@ export const buildDisplayConfig = (slug: string) => {
 		entityIdProperty: entityColumn(slug, "id"),
 	};
 };
+
+export const buildDefaultDisplayConfig = (slug: string) => {
+	const titleProperty = entityColumn(slug, "name");
+	const card = {
+		calloutProperty: null,
+		eyebrowProperty: null,
+		imageProperty: null,
+		primarySubtitleProperty: null,
+		secondarySubtitleProperty: null,
+		titleProperty,
+	};
+
+	return {
+		grid: { ...card },
+		list: { ...card },
+		table: { columns: [{ label: "Name", expression: titleProperty }] },
+		entityIdProperty: entityColumn(slug, "id"),
+	};
+};
