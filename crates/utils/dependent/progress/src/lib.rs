@@ -27,7 +27,6 @@ use sea_orm::{
     QueryOrder, QueryTrait, prelude::DateTimeUtc,
 };
 use supporting_service::SupportingService;
-use uuid::Uuid;
 
 pub async fn commit_import_seen_item(
     is_import: bool,
@@ -36,14 +35,6 @@ pub async fn commit_import_seen_item(
     ss: &Arc<SupportingService>,
     input: ImportOrExportMetadataItemSeen,
 ) -> Result<()> {
-    let seen_execution_id = Uuid::new_v4();
-    ryot_log!(
-        debug,
-        "[1611 SEEN {}] Starting commit_import_seen_item for metadata: {}, user: {}",
-        seen_execution_id,
-        metadata_id,
-        user_id
-    );
     let common = MetadataProgressUpdateCommonInput {
         manual_time_spent: input.manual_time_spent,
         show_season_number: input.show_season_number,
@@ -111,52 +102,23 @@ pub async fn commit_import_seen_item(
         ApplicationCacheKey::MetadataProgressUpdateCompletedCache(common_input.clone());
     let in_progress_cache_key =
         ApplicationCacheKey::MetadataProgressUpdateInProgressCache(common_input);
-    ryot_log!(
-        debug,
-        "[1611 SEEN {}] Checking caches for metadata: {}",
-        seen_execution_id,
-        metadata_id
-    );
     let (in_progress_cache, completed_cache) = join!(
         cache_service::get_value::<EmptyCacheValue>(ss, in_progress_cache_key.clone()),
         cache_service::get_value::<EmptyCacheValue>(ss, completed_cache_key.clone()),
     );
-    ryot_log!(
-        debug,
-        "[1611 SEEN {}] Cache check results - in_progress: {}, completed: {}",
-        seen_execution_id,
-        in_progress_cache.is_some(),
-        completed_cache.is_some()
-    );
 
     if completed_cache.is_some() {
         ryot_log!(debug, "Progress already completed for: {}", metadata_id);
-        ryot_log!(
-            debug,
-            "[1611 SEEN {}] Exiting early - progress already completed",
-            seen_execution_id
-        );
         return Ok(());
     }
 
     if in_progress_cache.is_none() {
-        ryot_log!(
-            debug,
-            "[1611 SEEN {}] in_progress_cache is None, creating new in-progress seen",
-            seen_execution_id
-        );
         ryot_log!(debug, "Creating new in-progress seen for: {}", metadata_id);
         let change = MetadataProgressUpdateChange::CreateNewInProgress(
             MetadataProgressUpdateNewInProgressInput {
                 data: common,
                 started_on: Utc::now(),
             },
-        );
-        ryot_log!(
-            debug,
-            "[1611 SEEN {}] Calling metadata_progress_update for: {}",
-            seen_execution_id,
-            metadata_id
         );
         metadata_progress_update(
             user_id,
@@ -167,20 +129,8 @@ pub async fn commit_import_seen_item(
             },
         )
         .await?;
-        ryot_log!(
-            debug,
-            "[1611 SEEN {}] metadata_progress_update completed successfully for: {}",
-            seen_execution_id,
-            metadata_id
-        );
 
         cache_service::set_key(ss, in_progress_cache_key, ApplicationCacheValue::MetadataProgressUpdateInProgressCache(EmptyCacheValue::default())).await?;
-        ryot_log!(
-            debug,
-            "[1611 SEEN {}] Completed commit_import_seen_item for: {}",
-            seen_execution_id,
-            metadata_id
-        );
         return Ok(());
     }
 

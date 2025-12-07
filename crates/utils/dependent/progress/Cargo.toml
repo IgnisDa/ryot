@@ -10,7 +10,6 @@ futures = { workspace = true }
 rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
-uuid = { workspace = true }
 
 background-models = { workspace = true }
 cache-service = { workspace = true }
