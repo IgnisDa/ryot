@@ -21,18 +21,18 @@ use rustypipe::{
 };
 use traits::MediaProvider;
 
-pub struct YoutubeMusicService {
-    client: RustyPipeQuery,
+pub struct YoutubeMusicService {}
+
+fn get_client() -> Result<RustyPipeQuery> {
+    let client = RustyPipe::builder()
+        .storage_dir(get_temporary_directory())
+        .build()?;
+    Ok(client.query())
 }
 
 impl YoutubeMusicService {
     pub async fn new() -> Result<Self> {
-        let client = RustyPipe::builder()
-            .storage_dir(get_temporary_directory())
-            .build()?;
-        Ok(Self {
-            client: client.query(),
-        })
+        Ok(Self {})
     }
 
     pub fn get_all_languages(&self) -> Vec<ProviderSupportedLanguageInformation> {
@@ -66,11 +66,12 @@ impl YoutubeMusicService {
 #[async_trait]
 impl MediaProvider for YoutubeMusicService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
-        let details = self.client.music_details(identifier).await?;
+        let client = get_client()?;
+        let details = client.music_details(identifier).await?;
         let suggestions = match details.related_id {
             None => vec![],
             Some(related_id) => {
-                let related = self.client.music_related(related_id).await?.tracks;
+                let related = client.music_related(related_id).await?.tracks;
                 related
                     .into_iter()
                     .map(|t| PartialMetadataWithoutId {
@@ -142,7 +143,8 @@ impl MediaProvider for YoutubeMusicService {
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let results = self.client.music_search_tracks(query).await?;
+        let client = get_client()?;
+        let results = client.music_search_tracks(query).await?;
         let data = SearchResults {
             details: SearchDetails {
                 total_items: 100,
@@ -167,7 +169,8 @@ impl MediaProvider for YoutubeMusicService {
         &self,
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
-        let album = self.client.music_album(identifier).await?;
+        let client = get_client()?;
+        let album = client.music_album(identifier).await?;
         let title = album.name;
         Ok((
             MetadataGroupWithoutId {
@@ -211,7 +214,8 @@ impl MediaProvider for YoutubeMusicService {
         query: &str,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
-        let data = self.client.music_search_albums(query).await?;
+        let client = get_client()?;
+        let data = client.music_search_albums(query).await?;
         Ok(SearchResults {
             details: SearchDetails {
                 total_items: 100,
@@ -236,11 +240,12 @@ impl MediaProvider for YoutubeMusicService {
         identifier: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PersonDetails> {
-        let data = self.client.music_artist(identifier, true).await?;
+        let client = get_client()?;
+        let data = client.music_artist(identifier, true).await?;
         let related_metadata = match data.tracks_playlist_id {
             None => vec![],
             Some(playlist_id) => {
-                let items = self.client.music_playlist(playlist_id).await?;
+                let items = client.music_playlist(playlist_id).await?;
                 items
                     .tracks
                     .items
@@ -308,7 +313,8 @@ impl MediaProvider for YoutubeMusicService {
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let data = self.client.music_search_artists(query).await?;
+        let client = get_client()?;
+        let data = client.music_search_artists(query).await?;
         Ok(SearchResults {
             details: SearchDetails {
                 total_items: 100,
