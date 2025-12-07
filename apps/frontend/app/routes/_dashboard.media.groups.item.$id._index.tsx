@@ -157,6 +157,7 @@ export default function Page() {
 												entityLot: EntityLot.MetadataGroup,
 												entityId: loaderData.metadataGroupId,
 												entityTitle:
+													metadataGroupTranslations?.title ||
 													metadataGroupDetailsData.data.details.title,
 											});
 										}}

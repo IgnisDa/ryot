@@ -851,7 +851,9 @@ export default function Page() {
 														entityLot: EntityLot.Metadata,
 														entityId: loaderData.metadataId,
 														metadataLot: metadataDetails.data.lot,
-														entityTitle: metadataDetails.data.title,
+														entityTitle:
+															metadataTranslations?.title ||
+															metadataDetails.data.title,
 														existingReview: {
 															showExtraInformation: {
 																episode:

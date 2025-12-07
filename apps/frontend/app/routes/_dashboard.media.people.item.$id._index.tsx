@@ -283,7 +283,9 @@ export default function Page() {
 											setEntityToReview({
 												entityLot: EntityLot.Person,
 												entityId: loaderData.personId,
-												entityTitle: personDetails.data.details.name,
+												entityTitle:
+													personTranslations?.title ||
+													personDetails.data.details.name,
 											});
 										}}
 									>
