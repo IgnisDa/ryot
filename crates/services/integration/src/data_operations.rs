@@ -196,7 +196,7 @@ async fn sync_integrations_data_to_owned_collection(ss: &Arc<SupportingService>)
     Ok(())
 }
 
-pub async fn sync_integrations_data_for_user(
+pub async fn sync_user_integrations_data(
     ss: &Arc<SupportingService>,
     user_id: &String,
 ) -> Result<()> {

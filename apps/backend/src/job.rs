@@ -23,7 +23,7 @@ use fitness_service::{
 use importer_service::perform_import;
 use integration_service::{
     handle_entity_added_to_collection_event, handle_on_seen_complete, process_integration_webhook,
-    sync_integrations_data, sync_integrations_data_for_user, yank_integrations_data,
+    sync_integrations_data, sync_user_integrations_data, yank_integrations_data,
 };
 use miscellaneous_background_service::{
     cleanup_user_and_metadata_association, invalidate_import_jobs, perform_background_jobs,
@@ -70,7 +70,7 @@ pub async fn perform_hp_application_job(
     let status = match information {
         HpApplicationJob::ReviewPosted(event) => handle_review_posted_event(&ss, event).await,
         HpApplicationJob::SyncUserIntegrationsData(user_id) => {
-            sync_integrations_data_for_user(&ss, &user_id).await
+            sync_user_integrations_data(&ss, &user_id).await
         }
         HpApplicationJob::BulkMetadataProgressUpdate(user_id, input) => {
             bulk_metadata_progress_update(&ss, &user_id, input).await
