@@ -65,24 +65,24 @@ export const createEntityImportWorkerDeps = (
 	overrides: Partial<NonNullable<Parameters<typeof processEntityImportJob>[2]>> = {},
 ): NonNullable<Parameters<typeof processEntityImportJob>[2]> => ({
 	addEntityQueueJob: () => Promise.resolve(),
+	onEntityImported: () => Promise.resolve({ data: undefined }),
 	getEntitySchemaScopeForUser: () => Promise.resolve(undefined),
 	findGlobalEntityByExternalId: () => Promise.resolve(undefined),
 	getBuiltinEntitySchemaBySlug: () => Promise.resolve(undefined),
 	getBuiltinSandboxScriptBySlug: () => Promise.resolve(undefined),
-	ensureEntityInLibrary: () => Promise.resolve({ data: undefined }),
 	writeEntityRelationship: () => Promise.resolve({ data: undefined }),
 	getBuiltinRelationshipSchemaBySlug: () => Promise.resolve(undefined),
 	getBuiltinEntitySchemaBySandboxScriptId: () => Promise.resolve(undefined),
-	getSandboxScriptForUser: () =>
-		Promise.resolve(
-			// oxlint-disable-next-line no-unsafe-type-assertion
-			{ id: "script_1" } as never,
-		),
 	createGlobalEntity: () => {
 		throw new Error("createGlobalEntity should not be called");
 	},
 	updateGlobalEntityById: () => {
 		throw new Error("updateGlobalEntityById should not be called");
 	},
+	getSandboxScriptForUser: () =>
+		Promise.resolve(
+			// oxlint-disable-next-line no-unsafe-type-assertion
+			{ id: "script_1" } as never,
+		),
 	...overrides,
 });
