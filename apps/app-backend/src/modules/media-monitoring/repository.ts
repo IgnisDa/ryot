@@ -291,36 +291,6 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 				return rows.flatMap((row) => (row.userId ? [UserId.make(row.userId)] : []));
 			});
 
-			const isMonitoredByUser = Effect.fn("MediaMonitoringRepository.isMonitoredByUser")(
-				function* (input: { entityId: EntityId; userId: UserId }) {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
-						db
-							.select({ userId: schema.relationship.userId })
-							.from(schema.relationship)
-							.innerJoin(
-								schema.relationshipSchema,
-								eq(schema.relationship.relationshipSchemaId, schema.relationshipSchema.id),
-							)
-							.innerJoin(schema.entity, eq(schema.relationship.targetEntityId, schema.entity.id))
-							.innerJoin(
-								schema.entitySchema,
-								eq(schema.entity.entitySchemaId, schema.entitySchema.id),
-							)
-							.where(
-								and(
-									eq(schema.relationship.sourceEntityId, input.entityId),
-									eq(schema.relationship.userId, input.userId),
-									eq(schema.relationshipSchema.slug, "media-monitoring"),
-									eq(schema.entitySchema.slug, "library"),
-								),
-							)
-							.limit(1),
-					);
-					return row !== undefined;
-				},
-			);
-
 			const getSnapshot = Effect.fn("MediaMonitoringRepository.getSnapshot")(function* (
 				entityId: EntityId,
 			) {
@@ -420,7 +390,6 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 				listTargets,
 				getSnapshot,
 				listSubscribers,
-				isMonitoredByUser,
 				getProviderProvenance,
 			};
 		},
