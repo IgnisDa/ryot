@@ -1,4 +1,6 @@
-use anyhow::Result;
+use std::str::FromStr;
+
+use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use common_models::{EntityAssets, NamedObject, PersonSourceSpecifics, SearchDetails};
 use common_utils::{
@@ -15,20 +17,32 @@ use educe::Educe;
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    AudioBookSpecifics, CommitMetadataGroupInput, MetadataDetails, MetadataFreeCreator,
-    MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-    UniqueMediaIdentifier,
+    AudioBookSpecifics, CommitMetadataGroupInput, EntityTranslationDetails, MetadataDetails,
+    MetadataFreeCreator, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleSearchItem, UniqueMediaIdentifier,
 };
 use paginate::Pages;
 use reqwest::Client;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumIter, IntoEnumIterator};
+use strum::{Display, EnumIter, EnumString, IntoEnumIterator};
 use traits::MediaProvider;
 
 static AUDNEX_URL: &str = "https://api.audnex.us";
 
-#[derive(Eq, Copy, Debug, Clone, Default, EnumIter, PartialEq, Serialize, Deserialize, Display)]
+#[derive(
+    Eq,
+    Copy,
+    Debug,
+    Clone,
+    Default,
+    Display,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    EnumString,
+    Deserialize,
+)]
 pub enum AudibleLocale {
     AU,
     CA,
@@ -170,6 +184,10 @@ fn suffix_from_locale(locale: &AudibleLocale) -> &'static str {
 fn url_from_locale(locale: &AudibleLocale) -> String {
     let suffix = suffix_from_locale(locale);
     format!("https://api.audible.{suffix}/1.0/catalog/products")
+}
+
+fn locale_from_str(language: &str) -> Option<AudibleLocale> {
+    AudibleLocale::from_str(language).ok()
 }
 
 impl AudibleService {
@@ -410,6 +428,56 @@ impl MediaProvider for AudibleService {
                 next_page,
                 total_items: search.total_results,
             },
+        })
+    }
+
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let locale =
+            locale_from_str(target_language).ok_or_else(|| anyhow!("Unsupported language"))?;
+        let url = url_from_locale(&locale);
+        let data: AudibleItemResponse = self
+            .client
+            .get(format!("{url}/{identifier}"))
+            .query(&PrimaryQuery::default())
+            .send()
+            .await?
+            .json()
+            .await?;
+        Ok(EntityTranslationDetails {
+            title: Some(data.product.title),
+            description: data
+                .product
+                .publisher_summary
+                .or(data.product.merchandising_summary),
+        })
+    }
+
+    async fn translate_metadata_group(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let locale =
+            locale_from_str(target_language).ok_or_else(|| anyhow!("Unsupported language"))?;
+        let url = url_from_locale(&locale);
+        let data: AudibleItemResponse = self
+            .client
+            .get(format!("{url}/{identifier}"))
+            .query(&PrimaryQuery::default())
+            .send()
+            .await?
+            .json()
+            .await?;
+        Ok(EntityTranslationDetails {
+            title: Some(data.product.title),
+            description: data
+                .product
+                .publisher_summary
+                .or(data.product.merchandising_summary),
         })
     }
 }
