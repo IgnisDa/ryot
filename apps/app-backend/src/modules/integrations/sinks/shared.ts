@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
-} from "#modules/imports/media/import-processor";
+} from "#modules/imports/media/adapter-result";
 import type { ImportEntityRef, ImportMediaEvent } from "#modules/imports/media/types";
 
 import type { IntegrationRecord } from "../repository";

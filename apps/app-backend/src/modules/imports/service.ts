@@ -10,13 +10,14 @@ import { RedisService } from "#lib/redis";
 import type { ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
 import { UploadsService } from "#modules/uploads/service";
 
+import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import { ImportsRepository } from "./repository";
-import { failImportRunWithFailures } from "./runtime/failures";
 import {
 	cleanupImportFile,
 	resolveSafeImportFilePath,
 	validateFileExtension,
-} from "./runtime/files";
+} from "./runtime/import-files";
+import { failImportRunWithFailures } from "./runtime/import-run-status";
 import { makeImporterConfig } from "./runtime/importer-config";
 import {
 	buildInputSummary,
@@ -30,7 +31,6 @@ import {
 } from "./runtime/source-payload-store";
 import type { CreateImportRunBody } from "./schemas";
 import type { ImportRunSource, ImportRunStatus } from "./types";
-import { ProcessImportRunWorkflow } from "./worker";
 
 const isTerminalStatus = (status: ImportRunStatus): boolean =>
 	status === "completed" || status === "failed";

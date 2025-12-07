@@ -25,8 +25,7 @@ normalization path from query-definition shorthand to canonical documents, plus 
 helpers, was removed.
 
 Old saved-view query-definition-only backend schemas and unused pagination exports were removed from
-`query-language.ts`. `apps/app-client` was intentionally left untouched and still contains the known old
-frontend references.
+`display-configuration.ts`. App-client references now import the renamed display configuration export.
 
 ## Acceptance criteria
 

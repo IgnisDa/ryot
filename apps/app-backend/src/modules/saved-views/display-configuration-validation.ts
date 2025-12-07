@@ -1,7 +1,5 @@
 import { Effect } from "effect";
 
-import type { BadRequest } from "#lib/errors";
-import { badRequest } from "#lib/errors";
 import {
 	entityBuiltinColumns,
 	entitySchemaBuiltinColumns,
@@ -9,7 +7,9 @@ import {
 	type QueryExpression,
 	type QueryFilter,
 	type RuntimeRef,
-} from "#lib/query-language";
+} from "#lib/display-configuration";
+import type { BadRequest } from "#lib/errors";
+import { badRequest } from "#lib/errors";
 import type { AppPropertyDefinition, AppSchema } from "#lib/schema/property-schema";
 import type { QueryDocument } from "#modules/query-engine/language";
 

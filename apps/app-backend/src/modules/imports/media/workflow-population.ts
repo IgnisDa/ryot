@@ -7,7 +7,7 @@ import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 
 import type { ImportRunJobData } from "../jobs";
-import { recordImportRunFailure } from "../runtime/failures";
+import { recordImportRunFailure } from "../runtime/import-run-status";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
 import { mediaEntityGroupItemIndex } from "./groups";
 import type { ImportMediaEntityGroup } from "./types";

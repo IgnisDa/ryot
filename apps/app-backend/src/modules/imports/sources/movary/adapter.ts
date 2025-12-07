@@ -5,13 +5,13 @@ import {
 	createCompleteEvent,
 	createReviewEvent,
 	finalizeEntityGroups,
-} from "../../media/book/shared";
-import { parseDateTime } from "../../media/dates";
-import { getOrCreateMediaEntityGroup } from "../../media/groups";
+} from "../../media/adapter-helpers";
 import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
-} from "../../media/import-processor";
+} from "../../media/adapter-result";
+import { parseDateTime } from "../../media/dates";
+import { getOrCreateMediaEntityGroup } from "../../media/groups";
 import type { ImportMediaEntityGroup } from "../../media/types";
 import {
 	normalizeCsvHeader,

@@ -10,13 +10,13 @@ import {
 	createReviewEvent,
 	finalizeEntityGroups,
 	normalizeRating,
-} from "../../media/book/shared";
-import { nowIso, parseZonedDateTime } from "../../media/dates";
-import { getOrCreateMediaEntityGroup } from "../../media/groups";
+} from "../../media/adapter-helpers";
 import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
-} from "../../media/import-processor";
+} from "../../media/adapter-result";
+import { nowIso, parseZonedDateTime } from "../../media/dates";
+import { getOrCreateMediaEntityGroup } from "../../media/groups";
 import type { ImportMediaEntityGroup } from "../../media/types";
 
 const AnilistList = Schema.Struct({

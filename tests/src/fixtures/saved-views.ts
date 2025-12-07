@@ -2,7 +2,7 @@ import {
 	createEntityColumnExpression,
 	createEntitySchemaExpression,
 	type DisplayConfiguration,
-} from "@ryot/app-backend/query-language";
+} from "@ryot/app-backend/display-configuration";
 import { TrackerId } from "@ryot/app-backend/schema/brands";
 
 import { requirePresent } from "../test-support/assertions";
