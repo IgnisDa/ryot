@@ -153,6 +153,7 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const views = await listSavedViewsForUser({
 			userId: user.id,
 			trackerId: query.trackerId,
+			includeDisabled: query.includeDisabled,
 		});
 
 		const response = createSuccessResult(views);
