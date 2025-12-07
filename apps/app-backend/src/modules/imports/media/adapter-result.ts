@@ -21,9 +21,6 @@ export const MediaImportAdapterResultSchema = Schema.Struct({
 
 export type MediaImportAdapterResult = typeof MediaImportAdapterResultSchema.Type;
 
-// A compact projection of an adapter result: the entity group count plus the row-level
-// failures. Parents journal this summary while the bulk (entity groups) lives only in the
-// Redis artifact the normalized-import child rehydrates.
 export const MediaImportAdapterSummarySchema = Schema.Struct({
 	groups: Schema.Number,
 	failures: Schema.Array(MediaImportAdapterFailureSchema),
