@@ -97,8 +97,8 @@ pub struct CoreDetails {
     pub exercise_parameters: ExerciseParameters,
     pub frontend: config_definition::FrontendConfig,
     pub provider_specifics: CoreDetailsProviderSpecifics,
-    pub metadata_lot_source_mappings: Vec<MetadataLotSourceMappings>,
     pub provider_languages: Vec<ProviderLanguageInformation>,
+    pub metadata_lot_source_mappings: Vec<MetadataLotSourceMappings>,
     pub metadata_group_source_lot_mappings: Vec<MetadataGroupSourceLotMapping>,
 }
 
