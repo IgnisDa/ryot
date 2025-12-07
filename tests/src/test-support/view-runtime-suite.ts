@@ -19,6 +19,9 @@ import {
 type ViewRuntimeItem = NonNullable<
 	Awaited<ReturnType<typeof executeViewRuntime>>["data"]
 >["data"]["items"][number];
+type ViewRuntimeResponseData = NonNullable<
+	Awaited<ReturnType<typeof executeViewRuntime>>["data"]
+>["data"];
 
 const getSemanticItem = (item: ViewRuntimeItem | undefined) => {
 	expect(item && "resolvedProperties" in item).toBe(true);
@@ -36,6 +39,15 @@ const getTableItem = (item: ViewRuntimeItem | undefined) => {
 	}
 
 	return item;
+};
+
+const getTableMeta = (data: ViewRuntimeResponseData) => {
+	expect("table" in data.meta).toBe(true);
+	if (!("table" in data.meta)) {
+		throw new Error("Expected table runtime metadata");
+	}
+
+	return data.meta.table;
 };
 
 async function createImageFallbackFixture() {
@@ -157,7 +169,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.meta.table).toEqual({
+		expect(data?.data && getTableMeta(data.data)).toEqual({
 			columns: [
 				{ key: "column_0", label: "Name" },
 				{ key: "column_1", label: "Year" },
@@ -298,7 +310,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 
 		expect(response.status).toBe(200);
 		expect(data?.data.items[0]?.image).toBeNull();
-		expect(data?.data.meta.table).toEqual({
+		expect(data?.data && getTableMeta(data.data)).toEqual({
 			columns: [
 				{ key: "column_0", label: "Image" },
 				{ key: "column_1", label: "Name" },

@@ -57,41 +57,53 @@ export const resolvedDisplayValueKindSchema = z.enum([
 	"boolean",
 ]);
 
-export const resolvedDisplayValueSchema = z.object({
-	value: z.unknown().nullable(),
-	kind: resolvedDisplayValueKindSchema,
-});
+export const resolvedDisplayValueSchema = z
+	.object({
+		value: z.unknown().nullable(),
+		kind: resolvedDisplayValueKindSchema,
+	})
+	.strict();
 
-const semanticResolvedPropertiesSchema = z.object({
-	badgeProperty: resolvedDisplayValueSchema,
-	imageProperty: resolvedDisplayValueSchema,
-	titleProperty: resolvedDisplayValueSchema,
-	subtitleProperty: resolvedDisplayValueSchema,
-});
+const semanticResolvedPropertiesSchema = z
+	.object({
+		badgeProperty: resolvedDisplayValueSchema,
+		imageProperty: resolvedDisplayValueSchema,
+		titleProperty: resolvedDisplayValueSchema,
+		subtitleProperty: resolvedDisplayValueSchema,
+	})
+	.strict();
 
-const viewRuntimeBaseItemSchema = z.object({
-	id: z.string(),
-	name: z.string(),
-	createdAt: z.date(),
-	updatedAt: z.date(),
-	entitySchemaId: z.string(),
-	entitySchemaSlug: z.string(),
-	image: ImageSchema.nullable(),
-});
+const viewRuntimeBaseItemSchema = z
+	.object({
+		id: z.string(),
+		name: z.string(),
+		createdAt: z.date(),
+		updatedAt: z.date(),
+		entitySchemaId: z.string(),
+		entitySchemaSlug: z.string(),
+		image: ImageSchema.nullable(),
+	})
+	.strict();
 
-const viewRuntimeSemanticItemSchema = viewRuntimeBaseItemSchema.extend({
-	resolvedProperties: semanticResolvedPropertiesSchema,
-});
+const viewRuntimeSemanticItemSchema = viewRuntimeBaseItemSchema
+	.extend({
+		resolvedProperties: semanticResolvedPropertiesSchema,
+	})
+	.strict();
 
-const viewRuntimeTableCellSchema = z.object({
-	key: z.string(),
-	value: z.unknown().nullable(),
-	kind: resolvedDisplayValueKindSchema,
-});
+const viewRuntimeTableCellSchema = z
+	.object({
+		key: z.string(),
+		value: z.unknown().nullable(),
+		kind: resolvedDisplayValueKindSchema,
+	})
+	.strict();
 
-const viewRuntimeTableItemSchema = viewRuntimeBaseItemSchema.extend({
-	cells: z.array(viewRuntimeTableCellSchema),
-});
+const viewRuntimeTableItemSchema = viewRuntimeBaseItemSchema
+	.extend({
+		cells: z.array(viewRuntimeTableCellSchema),
+	})
+	.strict();
 
 const viewRuntimePaginationSchema = z.object({
 	page: z.number().int(),
@@ -102,9 +114,30 @@ const viewRuntimePaginationSchema = z.object({
 	totalPages: z.number().int(),
 });
 
-const viewRuntimeTableMetaSchema = z.object({
-	columns: z.array(z.object({ key: z.string(), label: z.string() })),
-});
+const viewRuntimeTableMetaSchema = z
+	.object({
+		columns: z.array(z.object({ key: z.string(), label: z.string() }).strict()),
+	})
+	.strict();
+
+const executeViewRuntimeSemanticResponseDataSchema = z
+	.object({
+		items: z.array(viewRuntimeSemanticItemSchema),
+		meta: z.object({ pagination: viewRuntimePaginationSchema }).strict(),
+	})
+	.strict();
+
+const executeViewRuntimeTableResponseDataSchema = z
+	.object({
+		items: z.array(viewRuntimeTableItemSchema),
+		meta: z
+			.object({
+				pagination: viewRuntimePaginationSchema,
+				table: viewRuntimeTableMetaSchema,
+			})
+			.strict(),
+	})
+	.strict();
 
 export const executeViewRuntimeBody = z.discriminatedUnion("layout", [
 	executeViewRuntimeGridBody,
@@ -113,19 +146,25 @@ export const executeViewRuntimeBody = z.discriminatedUnion("layout", [
 ]);
 
 export const executeViewRuntimeResponseSchema = dataSchema(
-	z.object({
-		items: z.array(
-			z.union([viewRuntimeSemanticItemSchema, viewRuntimeTableItemSchema]),
-		),
-		meta: z.object({
-			pagination: viewRuntimePaginationSchema,
-			table: viewRuntimeTableMetaSchema.optional(),
-		}),
-	}),
+	z.union([
+		executeViewRuntimeSemanticResponseDataSchema,
+		executeViewRuntimeTableResponseDataSchema,
+	]),
 );
 
 export type ViewRuntimeRequest = z.infer<typeof executeViewRuntimeBody>;
 export type ResolvedDisplayValue = z.infer<typeof resolvedDisplayValueSchema>;
+export type ViewRuntimeSemanticItem = z.infer<
+	typeof viewRuntimeSemanticItemSchema
+>;
+export type ViewRuntimeTableItem = z.infer<typeof viewRuntimeTableItemSchema>;
+export type ViewRuntimeSemanticResponse = z.infer<
+	typeof executeViewRuntimeSemanticResponseDataSchema
+>;
+export type ViewRuntimeTableResponse = z.infer<
+	typeof executeViewRuntimeTableResponseDataSchema
+>;
+export type ViewRuntimeTableMeta = z.infer<typeof viewRuntimeTableMetaSchema>;
 export type ViewRuntimeResponse = z.infer<
 	typeof executeViewRuntimeResponseSchema
 >["data"];
