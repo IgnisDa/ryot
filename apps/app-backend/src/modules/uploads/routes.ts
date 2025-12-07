@@ -4,8 +4,8 @@ import {
 	commonErrors,
 	createAuthRoute,
 	createErrorResponse,
-	jsonResponse,
-	payloadErrorResponse,
+	createStandardResponses,
+	jsonBody,
 	resolveValidationData,
 	successResponse,
 } from "~/lib/openapi";
@@ -26,17 +26,12 @@ const getPresignedUploadUrlRoute = createAuthRoute(
 		tags: ["uploads"],
 		path: "/presigned",
 		summary: "Get a presigned upload URL for a file",
-		request: {
-			body: {
-				content: { "application/json": { schema: getPresignedUploadUrlBody } },
-			},
-		},
+		request: { body: jsonBody(getPresignedUploadUrlBody) },
 		responses: {
-			400: payloadErrorResponse(),
-			200: jsonResponse(
-				"Presigned upload URL for a file",
-				getPresignedUploadUrlResponseSchema,
-			),
+			...createStandardResponses({
+				successSchema: getPresignedUploadUrlResponseSchema,
+				successDescription: "Presigned upload URL for a file",
+			}),
 			500: createErrorResponse(
 				"Presigned upload URL generation failed",
 				commonErrors.internalError,
@@ -53,11 +48,10 @@ const getPresignedDownloadUrlRoute = createAuthRoute(
 		summary: "Get a presigned download URL for an uploaded file",
 		request: { query: getPresignedUploadUrlQuery },
 		responses: {
-			400: payloadErrorResponse(),
-			200: jsonResponse(
-				"Presigned URL for an uploaded file",
-				getPresignedUploadUrlResponseSchema,
-			),
+			...createStandardResponses({
+				successDescription: "Presigned URL for an uploaded file",
+				successSchema: getPresignedUploadUrlResponseSchema,
+			}),
 			500: createErrorResponse(
 				"Presigned URL generation failed",
 				commonErrors.internalError,

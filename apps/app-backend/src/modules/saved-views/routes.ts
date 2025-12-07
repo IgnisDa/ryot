@@ -4,11 +4,10 @@ import {
 	createAuthRoute,
 	createNotFoundErrorResult,
 	createServiceErrorResult,
+	createStandardResponses,
 	createSuccessResult,
 	createValidationServiceErrorResult,
-	jsonResponse,
-	notFoundResponse,
-	payloadErrorResponse,
+	jsonBody,
 } from "~/lib/openapi";
 import { getSavedViewByIdForUser, listSavedViewsForUser } from "./repository";
 import {
@@ -38,13 +37,10 @@ const listSavedViewsRoute = createAuthRoute(
 		tags: ["saved-views"],
 		request: { query: listSavedViewsQuery },
 		summary: "List saved views for the authenticated user",
-		responses: {
-			400: payloadErrorResponse(),
-			200: jsonResponse(
-				"Saved views for the user",
-				listSavedViewsResponseSchema,
-			),
-		},
+		responses: createStandardResponses({
+			successSchema: listSavedViewsResponseSchema,
+			successDescription: "Saved views for the user",
+		}),
 	}),
 );
 
@@ -54,18 +50,11 @@ const createSavedViewRoute = createAuthRoute(
 		method: "post",
 		tags: ["saved-views"],
 		summary: "Create a user-defined saved view",
-		request: {
-			body: {
-				content: { "application/json": { schema: createSavedViewBody } },
-			},
-		},
-		responses: {
-			400: payloadErrorResponse(),
-			200: jsonResponse(
-				"Saved view was created",
-				createSavedViewResponseSchema,
-			),
-		},
+		request: { body: jsonBody(createSavedViewBody) },
+		responses: createStandardResponses({
+			successDescription: "Saved view was created",
+			successSchema: createSavedViewResponseSchema,
+		}),
 	}),
 );
 
@@ -76,13 +65,12 @@ const getSavedViewByIdRoute = createAuthRoute(
 		tags: ["saved-views"],
 		summary: "Get a saved view by ID",
 		request: { params: savedViewParams },
-		responses: {
-			404: notFoundResponse("Saved view not found"),
-			200: jsonResponse(
-				"Saved view was retrieved",
-				createSavedViewResponseSchema,
-			),
-		},
+		responses: createStandardResponses({
+			includePayloadError: false,
+			notFoundDescription: "Saved view not found",
+			successSchema: createSavedViewResponseSchema,
+			successDescription: "Saved view was retrieved",
+		}),
 	}),
 );
 
@@ -96,18 +84,13 @@ const updateSavedViewRoute = createAuthRoute(
 			"For user-defined views, all fields are applied. For built-in views, only `isDisabled` is applied — all other fields in the request body are ignored.",
 		request: {
 			params: savedViewParams,
-			body: {
-				content: { "application/json": { schema: updateSavedViewBody } },
-			},
+			body: jsonBody(updateSavedViewBody),
 		},
-		responses: {
-			400: payloadErrorResponse(),
-			404: notFoundResponse("Saved view not found"),
-			200: jsonResponse(
-				"Saved view was updated",
-				updateSavedViewResponseSchema,
-			),
-		},
+		responses: createStandardResponses({
+			notFoundDescription: "Saved view not found",
+			successDescription: "Saved view was updated",
+			successSchema: updateSavedViewResponseSchema,
+		}),
 	}),
 );
 
@@ -118,14 +101,11 @@ const deleteSavedViewRoute = createAuthRoute(
 		tags: ["saved-views"],
 		summary: "Delete a user-defined saved view",
 		request: { params: deleteSavedViewParams },
-		responses: {
-			400: payloadErrorResponse(),
-			404: notFoundResponse("Saved view not found"),
-			200: jsonResponse(
-				"Saved view was deleted",
-				createSavedViewResponseSchema,
-			),
-		},
+		responses: createStandardResponses({
+			notFoundDescription: "Saved view not found",
+			successDescription: "Saved view was deleted",
+			successSchema: createSavedViewResponseSchema,
+		}),
 	}),
 );
 
@@ -136,11 +116,11 @@ const cloneSavedViewRoute = createAuthRoute(
 		path: "/{viewId}/clone",
 		request: { params: savedViewParams },
 		summary: "Clone an existing saved view",
-		responses: {
-			400: payloadErrorResponse(),
-			404: notFoundResponse("Saved view not found"),
-			200: jsonResponse("Saved view was cloned", createSavedViewResponseSchema),
-		},
+		responses: createStandardResponses({
+			successDescription: "Saved view was cloned",
+			notFoundDescription: "Saved view not found",
+			successSchema: createSavedViewResponseSchema,
+		}),
 	}),
 );
 
@@ -150,18 +130,11 @@ const reorderSavedViewsRoute = createAuthRoute(
 		path: "/reorder",
 		tags: ["saved-views"],
 		summary: "Reorder saved views for the authenticated user",
-		request: {
-			body: {
-				content: { "application/json": { schema: reorderSavedViewsBody } },
-			},
-		},
-		responses: {
-			400: payloadErrorResponse(),
-			200: jsonResponse(
-				"Saved view order was updated",
-				reorderSavedViewsResponseSchema,
-			),
-		},
+		request: { body: jsonBody(reorderSavedViewsBody) },
+		responses: createStandardResponses({
+			successSchema: reorderSavedViewsResponseSchema,
+			successDescription: "Saved view order was updated",
+		}),
 	}),
 );
 
