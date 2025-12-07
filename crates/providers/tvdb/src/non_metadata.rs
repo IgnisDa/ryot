@@ -1,18 +1,20 @@
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use async_trait::async_trait;
 use common_models::{EntityAssets, PersonSourceSpecifics};
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
-use media_models::{PartialMetadataWithoutId, PeopleSearchItem};
+use media_models::{EntityTranslationDetails, PartialMetadataWithoutId, PeopleSearchItem};
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
 use crate::{
     base::TvdbService,
-    models::{TvdbCompanyExtendedResponse, TvdbPersonExtendedResponse, URL},
+    models::{
+        TvdbCompanyExtendedResponse, TvdbItemTranslationResponse, TvdbPersonExtendedResponse, URL,
+    },
 };
 
 pub struct NonMediaTvdbService(TvdbService);
@@ -195,5 +197,36 @@ impl MediaProvider for NonMediaTvdbService {
             ..Default::default()
         };
         Ok(resp)
+    }
+
+    async fn translate_person(
+        &self,
+        identifier: &str,
+        target_language: &str,
+        source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<EntityTranslationDetails> {
+        if let Some(true) = source_specifics.as_ref().and_then(|s| s.is_tvdb_company) {
+            bail!("Companies do not have translations");
+        }
+
+        let response = self
+            .0
+            .client
+            .get(format!(
+                "{URL}/people/{identifier}/translations/{target_language}",
+            ))
+            .send()
+            .await?
+            .json::<TvdbItemTranslationResponse>()
+            .await?;
+
+        if response.status != "success" {
+            bail!("Translation not found");
+        }
+
+        Ok(EntityTranslationDetails {
+            title: response.data.name,
+            description: response.data.overview,
+        })
     }
 }

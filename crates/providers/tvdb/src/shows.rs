@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use async_trait::async_trait;
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics,
@@ -11,15 +11,17 @@ use enum_models::MediaSource;
 use futures::stream::{self, StreamExt};
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataExternalIdentifiers, MetadataSearchItem, PartialMetadataPerson,
-    ShowEpisode, ShowSeason, ShowSpecifics,
+    EntityTranslationDetails, MetadataDetails, MetadataExternalIdentifiers, MetadataSearchItem,
+    PartialMetadataPerson, ShowEpisode, ShowSeason, ShowSpecifics,
 };
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
 use crate::{
     base::TvdbService,
-    models::{TvdbSeasonExtendedResponse, TvdbShowExtendedResponse, URL},
+    models::{
+        TvdbItemTranslationResponse, TvdbSeasonExtendedResponse, TvdbShowExtendedResponse, URL,
+    },
 };
 
 pub struct TvdbShowService(TvdbService);
@@ -274,6 +276,32 @@ impl MediaProvider for TvdbShowService {
                 total_episodes: (total_episodes != 0).then_some(total_episodes),
             }),
             ..Default::default()
+        })
+    }
+
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let response = self
+            .0
+            .client
+            .get(format!(
+                "{URL}/series/{identifier}/translations/{target_language}",
+            ))
+            .send()
+            .await?
+            .json::<TvdbItemTranslationResponse>()
+            .await?;
+
+        if response.status != "success" {
+            bail!("Translation not found");
+        }
+
+        Ok(EntityTranslationDetails {
+            title: response.data.name,
+            description: response.data.overview,
         })
     }
 }

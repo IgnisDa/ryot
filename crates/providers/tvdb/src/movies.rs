@@ -300,4 +300,30 @@ impl MediaProvider for TvdbMovieService {
             description: response.data.overview,
         })
     }
+
+    async fn translate_metadata_group(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let response = self
+            .0
+            .client
+            .get(format!(
+                "{URL}/lists/{identifier}/translations/{target_language}",
+            ))
+            .send()
+            .await?
+            .json::<TvdbItemTranslationResponse>()
+            .await?;
+
+        if response.status != "success" {
+            bail!("Translation not found");
+        }
+
+        Ok(EntityTranslationDetails {
+            title: response.data.name,
+            description: response.data.overview,
+        })
+    }
 }
