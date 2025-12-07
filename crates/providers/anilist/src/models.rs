@@ -7,8 +7,8 @@ use convert_case::{Case, Casing};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    AnimeAiringScheduleSpecifics, AnimeSpecifics, MangaSpecifics, MetadataDetails,
-    MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
+    AnimeAiringScheduleSpecifics, AnimeSpecifics, EntityTranslationDetails, MangaSpecifics,
+    MetadataDetails, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
 };
 use nest_struct::nest_struct;
 use reqwest::Client;
@@ -120,6 +120,27 @@ pub struct StaffDetailsResponse {
 pub struct StudioDetailsResponse {
     #[serde(rename = "Studio")]
     pub studio: Option<StudioDetails>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MediaTranslationResponse {
+    #[serde(rename = "Media")]
+    pub media: Option<MediaTranslation>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MediaTranslation {
+    pub title: Option<MediaTranslationTitle>,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaTranslationTitle {
+    pub romaji: Option<String>,
+    pub english: Option<String>,
+    pub native: Option<String>,
+    pub user_preferred: Option<String>,
 }
 
 #[nest_struct]
@@ -288,6 +309,68 @@ pub enum MediaType {
 
 pub fn media_status_string(status: Option<String>) -> Option<String> {
     status.map(|f| f.to_case(Case::Title))
+}
+
+pub async fn translate_media(
+    client: &Client,
+    id: &str,
+    target_language: &str,
+) -> Result<EntityTranslationDetails> {
+    let query = r#"
+        query MediaTranslationQuery($id: Int!) {
+          Media(id: $id) {
+            title {
+              romaji
+              english
+              native
+              userPreferred
+            }
+            description
+          }
+        }
+    "#;
+
+    let variables = serde_json::json!({
+        "id": id.parse::<i64>()?
+    });
+
+    let body = serde_json::json!({
+        "query": query,
+        "variables": variables
+    });
+
+    let response = client
+        .post(URL)
+        .json(&body)
+        .send()
+        .await?
+        .json::<GraphQLResponse<MediaTranslationResponse>>()
+        .await?;
+
+    let media = response
+        .data
+        .and_then(|d| d.media)
+        .ok_or_else(|| anyhow!("No media in translation response"))?;
+    let language = target_language.to_lowercase();
+    let title = media
+        .title
+        .as_ref()
+        .and_then(|t| match language.as_str() {
+            "romaji" => t.romaji.clone(),
+            "native" => t.native.clone(),
+            "english" => t.english.clone(),
+            "user_preferred" => t.user_preferred.clone(),
+            _ => None,
+        })
+        .or_else(|| media.title.as_ref().and_then(|t| t.user_preferred.clone()))
+        .or_else(|| media.title.as_ref().and_then(|t| t.english.clone()))
+        .or_else(|| media.title.as_ref().and_then(|t| t.romaji.clone()))
+        .or_else(|| media.title.as_ref().and_then(|t| t.native.clone()));
+
+    Ok(EntityTranslationDetails {
+        title,
+        description: media.description,
+    })
 }
 
 pub async fn media_details(client: &Client, id: &str) -> Result<MetadataDetails> {
