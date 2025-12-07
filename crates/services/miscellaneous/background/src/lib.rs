@@ -26,6 +26,8 @@ use crate::{
     summaries::regenerate_user_summaries,
 };
 
+pub use crate::user::cleanup_user_and_metadata_association;
+
 mod access;
 mod cache;
 mod calendar;
@@ -92,8 +94,4 @@ pub async fn invalidate_import_jobs(ss: &Arc<SupportingService>) -> Result<()> {
         .await?;
     ryot_log!(debug, "Invalidated {} import jobs", result.rows_affected);
     Ok(())
-}
-
-pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) -> Result<()> {
-    user::cleanup_user_and_metadata_association(ss).await
 }
