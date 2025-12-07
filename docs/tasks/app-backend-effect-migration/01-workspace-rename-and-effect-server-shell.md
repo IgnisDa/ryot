@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ This slice should prove that the new package can start as the real server target
 
 ## Acceptance criteria
 
-- [ ] The old backend directory and package name no longer conflict with `@ryot/app-backend`
-- [ ] A new `@ryot/app-backend` package starts an Effect-powered server process
-- [ ] `/api/system/health` returns a successful health response from the new backend
-- [ ] Unknown non-API paths are served from `./client` with SPA fallback semantics
-- [ ] `/_i/:integrationId` is reserved by the new server even if behavior is still unimplemented
-- [ ] The backend check can run for the new package without relying on the old backend package name
+- [x] The old backend directory and package name no longer conflict with `@ryot/app-backend`
+- [x] A new `@ryot/app-backend` package starts an Effect-powered server process
+- [x] `/api/system/health` returns a successful health response from the new backend
+- [x] Unknown non-API paths are served from `./client` with SPA fallback semantics
+- [x] `/_i/:integrationId` is reserved by the new server even if behavior is still unimplemented
+- [x] The backend check can run for the new package without relying on the old backend package name
 
 ## User stories addressed
 
