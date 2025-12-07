@@ -206,9 +206,18 @@ impl MediaProvider for NonMediaTmdbService {
             }) => "company",
             _ => "person",
         };
-        self.0
-            .translate_non_media(person_type, identifier, target_language)
-            .await
+        let rsp = self
+            .0
+            .client
+            .get(format!("{URL}/{person_type}/{identifier}"))
+            .query(&[("language", target_language)])
+            .send()
+            .await?;
+        let data: TmdbNonMediaEntity = rsp.json().await?;
+        Ok(EntityTranslationDetails {
+            title: Some(data.name),
+            description: data.biography.or(data.description),
+        })
     }
 }
 

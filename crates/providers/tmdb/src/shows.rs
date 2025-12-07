@@ -289,9 +289,18 @@ impl MediaProvider for TmdbShowService {
         identifier: &str,
         target_language: &str,
     ) -> Result<EntityTranslationDetails> {
-        self.0
-            .translate_media("tv", identifier, target_language)
-            .await
+        let rsp = self
+            .0
+            .client
+            .get(format!("{URL}/tv/{identifier}"))
+            .query(&[("language", target_language)])
+            .send()
+            .await?;
+        let data: TmdbMediaEntry = rsp.json().await?;
+        Ok(EntityTranslationDetails {
+            title: data.name,
+            description: data.overview,
+        })
     }
 }
 
