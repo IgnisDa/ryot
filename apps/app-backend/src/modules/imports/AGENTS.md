@@ -16,16 +16,18 @@ This module owns one-time import runs. It normalizes third-party exports into Ry
 
 ## Media pipeline
 
-Media imports run in four phases:
+Media imports run in four phases, split across a parent workflow and one canonical child:
 
-1. Adapter load: parse source input and emit `ImportMediaEntityGroup[]` plus row-level transformation failures.
+1. Adapter load (parent-owned): parse source input into `ImportMediaEntityGroup[]` plus row-level transformation failures. The load activity persists the normalized `MediaImportAdapterResult` to the Redis artifact store (`runtime/source-payload-store.ts`, keyed by `runId`, 24h TTL) and returns only a compact `MediaImportAdapterSummary` (group count + failures), never the full result.
 2. `resolving-entities`: convert unresolved refs into resolved refs through sandbox `resolve` drivers.
 3. `populating-entities`: populate or reuse global entities and ensure library membership by awaiting `LibraryEntityImportWorkflow` per item (it composes provider population then the durable membership queue). Its `LibraryEntityImportError` stage maps to the `provider_details` (population) and `database_commit` (membership) failure stages.
 4. `writing-events`: write collection memberships and events for resolved entity ids.
 
-The workflow body owns these phases directly. Resolution and population call sandbox or entity-import work through durable workflow steps instead of a hidden pass-through processor.
+Phases 2–4 (plus recording adapter failures and finalizing the run) are single-owned by `ProcessNormalizedMediaImportWorkflow` (`media/normalized-import-workflow.ts` definition, `media/normalized-import-workflow-live.ts` body). Both parents — `runOneTimeMediaImportWorkflow` (one-time imports) and the integration workflow — persist the adapter result, then await the child with a deterministic `${parentExecutionId}-normalized` execution id so the pipeline activities journal under one workflow regardless of caller. The child rehydrates the adapter result from Redis as its first activity (typed `ImportRunError` if the artifact is missing or expired). Resolution and population call sandbox or entity-import work through durable workflow steps instead of a hidden pass-through processor.
 
-After adapter load, later phases should operate only on normalized adapter results. Do not carry source credentials, API URLs, raw temp file paths, or source payloads beyond the loader step unless a specific source still needs them for bounded cleanup.
+Parents own everything outside the shared pipeline: file/source loading and mark-started, the Redis artifact write, and — after the child returns or fails — cleanup (one-time: `cleanupMediaImportRun` / `failRunAndCleanup`, which also deletes the adapter artifact via the `ImportRunArtifacts` cleanup lifecycle) or finalization (integration: `finalizeIntegrationRun`).
+
+After adapter load, later phases should operate only on the normalized adapter artifact. Do not carry source credentials, API URLs, raw temp file paths, or source payloads beyond the loader step unless a specific source still needs them for bounded cleanup.
 
 API source loaders should validate credentials inside `loadAdapterResult`, not in later workflow phases. File-backed media loaders should require temp paths only for adapter loading; later phases should work from normalized groups and durable workflow state.
 
