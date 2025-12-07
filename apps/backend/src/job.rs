@@ -68,17 +68,17 @@ pub async fn perform_hp_application_job(
     let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
+        HpApplicationJob::ReviewPosted(event) => handle_review_posted_event(&ss, event).await,
         HpApplicationJob::SyncUserIntegrationsData(user_id) => {
             sync_integrations_data_for_user(&ss, &user_id).await
+        }
+        HpApplicationJob::BulkMetadataProgressUpdate(user_id, input) => {
+            bulk_metadata_progress_update(&ss, &user_id, input).await
         }
         HpApplicationJob::RecalculateUserActivitiesAndSummary(
             user_id,
             calculate_from_beginning,
         ) => calculate_user_activities_and_summary(&user_id, &ss, calculate_from_beginning).await,
-        HpApplicationJob::ReviewPosted(event) => handle_review_posted_event(&ss, event).await,
-        HpApplicationJob::BulkMetadataProgressUpdate(user_id, input) => {
-            bulk_metadata_progress_update(&ss, &user_id, input).await
-        }
         HpApplicationJob::AddEntitiesToCollection(user_id, input) => {
             add_entities_to_collection(&user_id, input, &ss)
                 .await
@@ -101,10 +101,18 @@ pub async fn perform_mp_application_job(
     let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
+        MpApplicationJob::SyncIntegrationsData => sync_integrations_data(&ss).await,
+        MpApplicationJob::UpdateGithubExercises => update_github_exercises(&ss).await,
+        MpApplicationJob::PerformBackgroundTasks => perform_background_jobs(&ss).await,
+        MpApplicationJob::PerformExport(user_id) => perform_export(&ss, user_id).await,
+        MpApplicationJob::UpdateExerciseLibrary => deploy_update_exercise_library_job(&ss).await,
+        MpApplicationJob::ReviseUserWorkouts(user_id) => revise_user_workouts(&ss, user_id).await,
+        MpApplicationJob::UpdateMediaTranslations(user_id, input) => {
+            update_media_translation(&ss, &user_id, input).await
+        }
         MpApplicationJob::ImportFromExternalSource(user_id, input) => {
             perform_import(&ss, user_id, input).await
         }
-        MpApplicationJob::ReviseUserWorkouts(user_id) => revise_user_workouts(&ss, user_id).await,
         MpApplicationJob::UpdateMediaDetails(input) => match input.entity_lot {
             EntityLot::Metadata => update_metadata_and_notify_users(&input.entity_id, &ss)
                 .await
@@ -122,14 +130,6 @@ pub async fn perform_mp_application_job(
                 input.entity_lot
             )),
         },
-        MpApplicationJob::UpdateGithubExercises => update_github_exercises(&ss).await,
-        MpApplicationJob::PerformBackgroundTasks => perform_background_jobs(&ss).await,
-        MpApplicationJob::PerformExport(user_id) => perform_export(&ss, user_id).await,
-        MpApplicationJob::UpdateExerciseLibrary => deploy_update_exercise_library_job(&ss).await,
-        MpApplicationJob::SyncIntegrationsData => sync_integrations_data(&ss).await,
-        MpApplicationJob::UpdateMediaTranslations(user_id, input) => {
-            update_media_translation(&ss, &user_id, input).await
-        }
     };
     ryot_log!(trace, "Finished job {:?}", name);
     status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
@@ -142,19 +142,19 @@ pub async fn perform_lp_application_job(
     let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
-        LpApplicationJob::HandleEntityAddedToCollectionEvent(collection_to_entity_id) => {
-            handle_entity_added_to_collection_event(&ss, collection_to_entity_id)
-                .await
-                .ok();
-            event_operations::handle_entity_added_to_collection_event(collection_to_entity_id, &ss)
-                .await
-        }
         LpApplicationJob::HandleOnSeenComplete(id) => handle_on_seen_complete(&ss, id).await,
         LpApplicationJob::UpdateUserLastActivityPerformed(user_id, timestamp) => {
             update_user_last_activity_performed(&ss, user_id, timestamp).await
         }
         LpApplicationJob::HandleMetadataEligibleForSmartCollectionMoving(metadata_id) => {
             handle_metadata_eligible_for_smart_collection_moving(&ss, metadata_id).await
+        }
+        LpApplicationJob::HandleEntityAddedToCollectionEvent(collection_to_entity_id) => {
+            handle_entity_added_to_collection_event(&ss, collection_to_entity_id)
+                .await
+                .ok();
+            event_operations::handle_entity_added_to_collection_event(collection_to_entity_id, &ss)
+                .await
         }
     };
     ryot_log!(trace, "Finished job {:?}", name);
