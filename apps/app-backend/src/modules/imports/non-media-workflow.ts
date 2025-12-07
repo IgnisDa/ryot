@@ -6,7 +6,7 @@ import type { ImportRunFailureStage } from "@ryot/contract/modules/imports/types
 import { Cause, Context, DateTime, Effect, Schema } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { DbRunner } from "#lib/infrastructure/db/service";
+import type { DbRunner } from "#lib/infrastructure/db/service";
 import type { EntitiesRepository } from "#modules/entities/repository";
 import type { EntitiesService } from "#modules/entities/service";
 import type { EntitySchemasRepository } from "#modules/entity-schemas/repository";
@@ -14,7 +14,6 @@ import type { EventSchemasRepository } from "#modules/event-schemas/repository";
 import type { EventsService } from "#modules/events/service";
 
 import type { ImportRunJobData } from "./jobs";
-import { ImportsRepository } from "./repository";
 import {
 	readImportFile,
 	resolveImportPath,
@@ -31,6 +30,7 @@ import {
 	ImportRunError,
 	toWorkflowError,
 } from "./runtime/workflow-helpers";
+import { ImportsService } from "./service";
 
 const NonMediaAdapterFailureSchema = Schema.Struct({
 	message: Schema.String,
@@ -292,15 +292,14 @@ const recordNonMediaAdapterFailures = (
 
 const recordNonMediaTotalItems = (payload: ImportRunJobData, totalItems: number) =>
 	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const repository = yield* ImportsRepository;
+		const imports = yield* ImportsService;
 
 		yield* Activity.make({
 			error: ImportRunError,
 			name: "record-total-items",
-			execute: runWithDb(repository.updateRun({ runId: payload.runId, totalItems })).pipe(
-				Effect.mapError(toWorkflowError),
-			),
+			execute: imports
+				.update({ runId: payload.runId, totalItems })
+				.pipe(Effect.mapError(toWorkflowError)),
 		});
 	});
 
@@ -332,21 +331,20 @@ const reportNonMediaProgress = (input: {
 	payload: ImportRunJobData;
 }) =>
 	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const repository = yield* ImportsRepository;
+		const imports = yield* ImportsService;
 
 		yield* Activity.make({
 			error: ImportRunError,
 			name: `report-progress-${input.processedItems}`,
-			execute: runWithDb(
-				repository.updateRun({
+			execute: imports
+				.update({
 					progress: input.progress,
 					runId: input.payload.runId,
 					failedItems: input.failedItems,
 					importedItems: input.importedItems,
 					processedItems: input.processedItems,
-				}),
-			).pipe(Effect.mapError(toWorkflowError)),
+				})
+				.pipe(Effect.mapError(toWorkflowError)),
 		});
 	});
 
@@ -395,15 +393,14 @@ const writeNonMediaItems = <Item extends NonMediaImportItem, RWrite>(input: {
 
 const finalizeNonMediaImportRun = (payload: ImportRunJobData, summary: NonMediaWriteSummary) =>
 	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const repository = yield* ImportsRepository;
+		const imports = yield* ImportsService;
 		const finishedAt = yield* DateTime.nowAsDate;
 
 		yield* Activity.make({
 			error: ImportRunError,
 			name: "finalize-import-run",
-			execute: runWithDb(
-				repository.updateRun({
+			execute: imports
+				.update({
 					finishedAt,
 					progress: 100,
 					status: "completed",
@@ -411,8 +408,8 @@ const finalizeNonMediaImportRun = (payload: ImportRunJobData, summary: NonMediaW
 					failedItems: summary.failedItems,
 					importedItems: summary.importedItems,
 					processedItems: summary.processedItems,
-				}),
-			).pipe(Effect.mapError(toWorkflowError)),
+				})
+				.pipe(Effect.mapError(toWorkflowError)),
 		});
 	});
 
