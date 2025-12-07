@@ -27,13 +27,13 @@ import { RelationshipSchemasRepository } from "#modules/relationship-schemas/rep
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
-import { EntityImportPayload, runEntityImportWorkflow } from "./entity-import-workflow";
+import { EntityImportPayload } from "./entity-import-workflow";
 import {
 	EntityImportWorkflowOperations,
 	type EntityImportWorkflowOperationsValue,
 } from "./operations-workflow";
 import { processChildEntityTree } from "./population";
-import { synchronizeProviderEntity } from "./provider-entity-synchronizer";
+import { runProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
 
 const TestEntityImportWorkflow = Workflow.make({
 	success: ListedEntity,
@@ -288,7 +288,10 @@ it.effect("populates entity and writes related entities", () => {
 		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			const result = yield* runEntityImportWorkflow(payload, payload.executionId);
+			const result = yield* runProviderEntityPopulationWorkflow(
+				{ ...payload, mode: "ensure" },
+				payload.executionId,
+			);
 			expect(result.id).toBe("entity-1");
 			expect(result.name).toBe("Test Book");
 			expect(result.populatedAt).toBe(now);
@@ -408,7 +411,6 @@ it.effect("writes child entity trees idempotently", () => {
 			options,
 			executionId,
 			processChildEntityTree({
-				activityPrefix: "",
 				parentEntityId: baseEntity.id,
 				sandboxScriptId: SandboxScriptId.make("script-1"),
 				parentEntitySchemaId: EntitySchemaId.make("schema-1"),
@@ -500,7 +502,10 @@ it.effect("propagates images through properties for the primary entity", () => {
 		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			yield* runEntityImportWorkflow(payload, payload.executionId);
+			yield* runProviderEntityPopulationWorkflow(
+				{ ...payload, mode: "ensure" },
+				payload.executionId,
+			);
 
 			expect(savedProperties).toEqual([
 				{ title: "Test Book", images },
@@ -609,7 +614,10 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			const result = yield* runEntityImportWorkflow(payload, payload.executionId);
+			const result = yield* runProviderEntityPopulationWorkflow(
+				{ ...payload, mode: "ensure" },
+				payload.executionId,
+			);
 
 			expect(result.id).toBe("entity-1");
 			expect(result.populatedAt).toBe(now);
@@ -718,7 +726,10 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 				}),
 			},
 			executionId,
-			runEntityImportWorkflow({ ...importPayload, executionId }, executionId),
+			runProviderEntityPopulationWorkflow(
+				{ ...importPayload, executionId, mode: "ensure" },
+				executionId,
+			),
 		);
 
 	return Effect.gen(function* () {
@@ -773,7 +784,10 @@ it.effect("does not synchronize relationships when the provider declares no grou
 		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			yield* runEntityImportWorkflow(payload, payload.executionId);
+			yield* runProviderEntityPopulationWorkflow(
+				{ ...payload, mode: "ensure" },
+				payload.executionId,
+			);
 
 			expect(syncCalled).toBe(false);
 		}),
@@ -804,7 +818,10 @@ it.effect("short-circuits sandbox when global entity is already populated", () =
 		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			const result = yield* runEntityImportWorkflow(payload, payload.executionId);
+			const result = yield* runProviderEntityPopulationWorkflow(
+				{ ...payload, mode: "ensure" },
+				payload.executionId,
+			);
 
 			expect(result.id).toBe("entity-1");
 			expect(sandboxCalled).toBe(false);
@@ -828,7 +845,9 @@ it.effect("fails workflow when sandbox returns an error", () => {
 		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			const exit = yield* Effect.exit(runEntityImportWorkflow(payload, payload.executionId));
+			const exit = yield* Effect.exit(
+				runProviderEntityPopulationWorkflow({ ...payload, mode: "ensure" }, payload.executionId),
+			);
 
 			expect(exit._tag).toBe("Failure");
 			if (exit._tag === "Failure") {
@@ -863,7 +882,10 @@ it.effect("workflow body executes the sandbox step as part of orchestration", ()
 		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			yield* runEntityImportWorkflow(payload, payload.executionId);
+			yield* runProviderEntityPopulationWorkflow(
+				{ ...payload, mode: "ensure" },
+				payload.executionId,
+			);
 
 			expect(sandboxStepExecuted).toBe(true);
 		}),
@@ -965,7 +987,9 @@ it.effect("fails workflow when related relationship properties are invalid", () 
 		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			const exit = yield* Effect.exit(runEntityImportWorkflow(payload, payload.executionId));
+			const exit = yield* Effect.exit(
+				runProviderEntityPopulationWorkflow({ ...payload, mode: "ensure" }, payload.executionId),
+			);
 
 			expect(relationshipWritten).toBe(false);
 			expect(storedEntity?.populatedAt).toBeNull();
@@ -1041,7 +1065,9 @@ it.effect("fails workflow when related relationship properties are not objects",
 		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			const exit = yield* Effect.exit(runEntityImportWorkflow(payload, payload.executionId));
+			const exit = yield* Effect.exit(
+				runProviderEntityPopulationWorkflow({ ...payload, mode: "ensure" }, payload.executionId),
+			);
 
 			expect(relationshipWritten).toBe(false);
 			expect(exit._tag).toBe("Failure");
@@ -1156,7 +1182,10 @@ it.effect("retries related writes after a failed related validation", () => {
 				},
 			},
 			executionId,
-			runEntityImportWorkflow({ ...importPayload, executionId }, executionId),
+			runProviderEntityPopulationWorkflow(
+				{ ...importPayload, executionId, mode: "ensure" },
+				executionId,
+			),
 		);
 
 	return Effect.gen(function* () {
@@ -1247,11 +1276,10 @@ it.effect("refresh synchronization replaces provider-owned primary and child val
 		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			yield* synchronizeProviderEntity(payload, payload.executionId, {
-				mode: "refresh",
-				entitySchemaSlug: "show",
-				childEntitySchemaSlugs: { show: "show-season" },
-			});
+			yield* runProviderEntityPopulationWorkflow(
+				{ ...payload, mode: "refresh", entitySchemaSlug: "show" },
+				payload.executionId,
+			);
 
 			expect(writes).toHaveLength(3);
 			expect(writes[0]).toMatchObject({
@@ -1275,6 +1303,42 @@ it.effect("refresh synchronization replaces provider-owned primary and child val
 	);
 });
 
+it.effect("dies when a refresh payload omits entitySchemaSlug", () => {
+	let sandboxCalled = false;
+	const payload = { ...importPayload, executionId: "exec-refresh-missing-slug" };
+	const options = {
+		processSandbox: () =>
+			Effect.sync(() => {
+				sandboxCalled = true;
+				return {
+					logs: [],
+					error: null,
+					status: "completed" as const,
+					value: { name: "Test Book", properties: { title: "Test Book" } },
+				};
+			}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		payload.executionId,
+		Effect.gen(function* () {
+			const exit = yield* Effect.exit(
+				runProviderEntityPopulationWorkflow({ ...payload, mode: "refresh" }, payload.executionId),
+			);
+
+			expect(exit._tag).toBe("Failure");
+			if (exit._tag === "Failure") {
+				expect(exit.cause._tag).toBe("Die");
+				if (exit.cause._tag === "Die") {
+					expect(String(exit.cause.defect)).toContain("entitySchemaSlug is required");
+				}
+			}
+			expect(sandboxCalled).toBe(false);
+		}),
+	);
+});
+
 it.effect("clears an explicit empty relationship group", () => {
 	const calls: Array<{
 		anchorEntityId: EntityId;
@@ -1293,11 +1357,7 @@ it.effect("clears an explicit empty relationship group", () => {
 					name: "Test Book",
 					properties: { title: "Test Book" },
 					relatedEntityGroups: [
-						{
-							entities: [],
-							direction: "outgoing",
-							relationshipSchemaSlug: "media-suggestion",
-						},
+						{ entities: [], direction: "outgoing", relationshipSchemaSlug: "media-suggestion" },
 					],
 				},
 			}),
@@ -1313,7 +1373,10 @@ it.effect("clears an explicit empty relationship group", () => {
 		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			yield* runEntityImportWorkflow(payload, payload.executionId);
+			yield* runProviderEntityPopulationWorkflow(
+				{ ...payload, mode: "ensure" },
+				payload.executionId,
+			);
 			expect(calls).toEqual([
 				{
 					entries: [],

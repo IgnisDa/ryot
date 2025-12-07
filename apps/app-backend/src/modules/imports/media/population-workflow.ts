@@ -83,7 +83,6 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 				externalId: ref.externalId,
 				userId: input.payload.userId,
 				scriptId: script.sandboxScriptId,
-				activityPrefix: `populate-${i}-`,
 				entitySchemaId: script.entitySchemaId,
 				executionId: `${input.executionId}-entity-${i}`,
 			})
