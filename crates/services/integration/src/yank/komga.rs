@@ -41,15 +41,11 @@ mod komga_book {
     #[serde(rename_all = "camelCase")]
     pub struct ReadProgress {
         pub page: i32,
-        pub completed: bool,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct Item {
-        pub id: String,
-        pub number: i32,
-        pub name: String,
         pub media: Media,
         pub series_id: String,
         pub metadata: Metadata,
@@ -125,11 +121,7 @@ mod komga_series {
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct Item {
-        pub id: String,
         pub name: String,
-        pub books_count: Decimal,
-        pub books_read_count: Option<i32>,
-        pub books_unread_count: Decimal,
         pub metadata: Metadata,
     }
 
@@ -147,7 +139,6 @@ mod komga_events {
     #[serde(rename_all = "camelCase")]
     pub struct Data {
         pub book_id: String,
-        pub user_id: String,
     }
 }
 
