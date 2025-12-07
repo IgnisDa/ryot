@@ -8,6 +8,9 @@ async-graphql = { workspace = true }
 uuid = { workspace = true }
 
 common-models = { workspace = true }
+dependent-core-utils = { workspace = true }
+dependent-jobs-utils = { workspace = true }
 dependent-models = { workspace = true }
+miscellaneous-general-service = { workspace = true }
 miscellaneous-service = { workspace = true }
 traits = { workspace = true }

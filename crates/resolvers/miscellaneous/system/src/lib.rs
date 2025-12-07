@@ -14,7 +14,7 @@ impl MiscellaneousSystemQueryResolver {
     /// Get some primary information about the service.
     async fn core_details(&self, gql_ctx: &Context<'_>) -> Result<CoreDetails> {
         let service = self.dependency(gql_ctx);
-        Ok(miscellaneous_service::core_details(service).await?)
+        Ok(dependent_core_utils::core_details(service).await?)
     }
 }
 
@@ -32,7 +32,7 @@ impl MiscellaneousSystemMutationResolver {
     /// Expire a cache key by its ID
     async fn expire_cache_key(&self, gql_ctx: &Context<'_>, cache_id: Uuid) -> Result<bool> {
         let service = self.dependency(gql_ctx);
-        Ok(miscellaneous_service::expire_cache_key(service, cache_id).await?)
+        Ok(miscellaneous_general_service::expire_cache_key(service, cache_id).await?)
     }
 
     /// Start a background job.
@@ -42,7 +42,7 @@ impl MiscellaneousSystemMutationResolver {
         job_name: BackgroundJob,
     ) -> Result<bool> {
         let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
-        Ok(miscellaneous_service::deploy_background_job(service, &user_id, job_name).await?)
+        Ok(dependent_jobs_utils::deploy_background_job(&user_id, job_name, service).await?)
     }
 
     /// Deploy a job to update a media entity's metadata.

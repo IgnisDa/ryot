@@ -7,7 +7,13 @@ use background_models::{
 };
 use collection_service::event_operations;
 use common_utils::ryot_log;
+use dependent_analytics_utils::calculate_user_activities_and_summary;
 use dependent_collection_utils::{add_entities_to_collection, remove_entities_from_collection};
+use dependent_notification_utils::{
+    update_metadata_and_notify_users, update_metadata_group_and_notify_users,
+    update_person_and_notify_users,
+};
+use enum_models::EntityLot;
 use exporter_service::export_operations::perform_export;
 use fitness_service::{
     deploy_update_exercise_library_job, process_users_scheduled_for_workout_revision,
@@ -18,14 +24,14 @@ use integration_service::{
     handle_entity_added_to_collection_event, handle_on_seen_complete, process_integration_webhook,
     sync_integrations_data, sync_integrations_data_for_user, yank_integrations_data,
 };
-use miscellaneous_media_translation_service::update_media_translation;
-use miscellaneous_service::{
-    bulk_metadata_progress_update_for_user, cleanup_user_and_metadata_association,
-    handle_metadata_eligible_for_smart_collection_moving, handle_review_posted_event,
-    invalidate_import_jobs, perform_background_jobs, update_media_details_and_notify_users,
-    update_user_last_activity_performed,
+use miscellaneous_background_service::{
+    cleanup_user_and_metadata_association, invalidate_import_jobs, perform_background_jobs,
 };
-use statistics_service::calculate_user_activities_and_summary_for_user;
+use miscellaneous_media_translation_service::update_media_translation;
+use miscellaneous_metadata_operations_service::handle_metadata_eligible_for_smart_collection_moving;
+use miscellaneous_progress_service::bulk_metadata_progress_update;
+use miscellaneous_service::update_user_last_activity_performed;
+use miscellaneous_trending_and_events_service::handle_review_posted_event;
 use supporting_service::SupportingService;
 use traits::TraceOk;
 
@@ -67,13 +73,10 @@ pub async fn perform_hp_application_job(
         HpApplicationJob::RecalculateUserActivitiesAndSummary(
             user_id,
             calculate_from_beginning,
-        ) => {
-            calculate_user_activities_and_summary_for_user(&ss, &user_id, calculate_from_beginning)
-                .await
-        }
+        ) => calculate_user_activities_and_summary(&user_id, &ss, calculate_from_beginning).await,
         HpApplicationJob::ReviewPosted(event) => handle_review_posted_event(&ss, event).await,
         HpApplicationJob::BulkMetadataProgressUpdate(user_id, input) => {
-            bulk_metadata_progress_update_for_user(&ss, user_id, input).await
+            bulk_metadata_progress_update(&ss, &user_id, input).await
         }
         HpApplicationJob::AddEntitiesToCollection(user_id, input) => {
             add_entities_to_collection(&user_id, input, &ss)
@@ -101,9 +104,23 @@ pub async fn perform_mp_application_job(
             perform_import(&ss, user_id, input).await
         }
         MpApplicationJob::ReviseUserWorkouts(user_id) => revise_user_workouts(&ss, user_id).await,
-        MpApplicationJob::UpdateMediaDetails(input) => {
-            update_media_details_and_notify_users(&ss, input).await
-        }
+        MpApplicationJob::UpdateMediaDetails(input) => match input.entity_lot {
+            EntityLot::Metadata => update_metadata_and_notify_users(&input.entity_id, &ss)
+                .await
+                .map(|_| ()),
+            EntityLot::Person => update_person_and_notify_users(&input.entity_id, &ss)
+                .await
+                .map(|_| ()),
+            EntityLot::MetadataGroup => {
+                update_metadata_group_and_notify_users(&input.entity_id, &ss)
+                    .await
+                    .map(|_| ())
+            }
+            _ => Err(anyhow::anyhow!(
+                "Entity type {:?} is not supported for update jobs",
+                input.entity_lot
+            )),
+        },
         MpApplicationJob::UpdateGithubExercises => update_github_exercises(&ss).await,
         MpApplicationJob::PerformBackgroundTasks => perform_background_jobs(&ss).await,
         MpApplicationJob::PerformExport(user_id) => perform_export(&ss, user_id).await,

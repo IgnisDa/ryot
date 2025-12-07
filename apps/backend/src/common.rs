@@ -17,6 +17,7 @@ use bon::builder;
 use collection_resolver::{CollectionMutationResolver, CollectionQueryResolver};
 use config_definition::AppConfig;
 use custom_resolver::CustomMutationResolver;
+use dependent_core_utils::core_details;
 use exporter_resolver::{ExporterMutationResolver, ExporterQueryResolver};
 use file_storage_resolver::{FileStorageMutationResolver, FileStorageQueryResolver};
 use fitness_resolver::{FitnessMutationResolver, FitnessQueryResolver};
@@ -134,7 +135,7 @@ pub async fn create_app_services(
         .layer(cors);
 
     let _ = try_join!(
-        miscellaneous_service::core_details(&supporting_service),
+        core_details(&supporting_service),
         supporting_service
             .perform_application_job(ApplicationJob::Mp(MpApplicationJob::SyncIntegrationsData)),
         supporting_service
