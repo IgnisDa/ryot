@@ -1,7 +1,10 @@
 use std::{
     collections::{HashMap, hash_map::Entry},
     future::Future,
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 use anyhow::Result;
@@ -30,6 +33,10 @@ use rand::seq::SliceRandom;
 use rust_decimal::{Decimal, dec, prelude::FromPrimitive};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc};
 use supporting_service::SupportingService;
+use uuid::Uuid;
+
+// TEMP(1611): debug instrumentation for duplicate seen records; remove after investigation completes
+static SEEN_PROCESSING_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 async fn create_collection_and_add_entity_to_it(
     user_id: &String,
@@ -180,6 +187,14 @@ where
         match item {
             ImportCompletedItem::Empty => {}
             ImportCompletedItem::Metadata(metadata) => {
+                let execution_id = Uuid::new_v4();
+                let metadata_ptr = format!("{:p}", &metadata as *const _);
+                ryot_log!(
+                    debug,
+                    "[1611 TRACE {}] Starting metadata processing, ptr={}",
+                    execution_id,
+                    metadata_ptr
+                );
                 let (db_metadata_id, was_updated_successfully) = match commit_metadata(
                     PartialMetadataWithoutId {
                         lot: metadata.lot,
@@ -212,13 +227,37 @@ where
                         error: Some("Progress update *might* be wrong".to_owned()),
                     });
                 }
+                let counter_value = SEEN_PROCESSING_COUNTER.fetch_add(1, Ordering::SeqCst);
+                ryot_log!(
+                    debug,
+                    "[1611 TRACE {}] [1611 COUNTER {}] Before seen_history processing, metadata.seen_history.len={}, ptr={}",
+                    execution_id,
+                    counter_value,
+                    metadata.seen_history.len(),
+                    metadata_ptr
+                );
                 ryot_log!(
                     debug,
                     "Processing {} seen_history items for metadata: {}",
                     metadata.seen_history.len(),
                     db_metadata_id
                 );
-                for seen in metadata.seen_history {
+                let seen_history_len = metadata.seen_history.len();
+                ryot_log!(
+                    debug,
+                    "[1611 TRACE {}] After seen_history log, about to enter loop with {} items",
+                    execution_id,
+                    seen_history_len
+                );
+                for (seen_idx, seen) in metadata.seen_history.into_iter().enumerate() {
+                    ryot_log!(
+                        debug,
+                        "[1611 TRACE {}] Processing seen item {}/{} for metadata: {}",
+                        execution_id,
+                        seen_idx + 1,
+                        seen_history_len,
+                        db_metadata_id
+                    );
                     if let Err(e) =
                         commit_import_seen_item(is_import, user_id, &db_metadata_id, ss, seen).await
                     {
@@ -231,6 +270,12 @@ where
                         });
                     };
                 }
+                ryot_log!(
+                    debug,
+                    "[1611 TRACE {}] Completed seen_history processing for metadata: {}",
+                    execution_id,
+                    db_metadata_id
+                );
                 for review in metadata.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
