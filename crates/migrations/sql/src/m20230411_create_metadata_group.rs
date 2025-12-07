@@ -49,12 +49,6 @@ impl MigrationTrait for Migration {
                             .default(0)
                             .not_null(),
                     )
-                    .col(
-                        ColumnDef::new(MetadataGroup::LastUpdatedOn)
-                            .timestamp_with_time_zone()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
                     .col(ColumnDef::new(MetadataGroup::Title).text().not_null())
                     .col(ColumnDef::new(MetadataGroup::Description).text())
                     .col(ColumnDef::new(MetadataGroup::Lot).text().not_null())
@@ -67,6 +61,12 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(MetadataGroup::CreatedByUserId).text())
+                    .col(
+                        ColumnDef::new(MetadataGroup::LastUpdatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
                     .col(
                         ColumnDef::new(MetadataGroup::HasTranslationsForLanguages)
                             .array(ColumnType::Text),

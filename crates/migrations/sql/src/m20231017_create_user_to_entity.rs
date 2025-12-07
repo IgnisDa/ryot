@@ -116,16 +116,16 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::CollectionId).text())
                     .col(ColumnDef::new(UserToEntity::CollectionExtraInformation).json_binary())
                     .col(
-                        ColumnDef::new(UserToEntity::EntityLot)
-                            .text()
-                            .not_null()
-                            .extra(ENTITY_LOT_SQL),
-                    )
-                    .col(
                         ColumnDef::new(UserToEntity::EntityId)
                             .text()
                             .not_null()
                             .extra(ENTITY_ID_SQL),
+                    )
+                    .col(
+                        ColumnDef::new(UserToEntity::EntityLot)
+                            .text()
+                            .not_null()
+                            .extra(ENTITY_LOT_SQL),
                     )
                     .foreign_key(
                         ForeignKey::create()
