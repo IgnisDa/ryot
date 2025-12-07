@@ -46,9 +46,9 @@ export function createEntityRuntimeRequest(
 	return {
 		filters: [],
 		layout: "grid",
-		entitySchemaSlugs: [entitySchemaSlug],
 		pagination: { page: 1, limit: 1000 },
-		sort: { field: ["@name"], direction: "asc" },
+		entitySchemaSlugs: [entitySchemaSlug],
+		sort: { fields: ["@name"], direction: "asc" },
 		displayConfiguration: defaultDisplayConfiguration,
 	};
 }

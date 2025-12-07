@@ -309,11 +309,11 @@ export interface paths {
                                 config?: unknown;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
+                                description?: string | null;
+                                sortOrder: number;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
-                                description?: string | null;
                                 accentColor: string;
-                                sortOrder: number;
                             }[];
                         };
                     };
@@ -356,10 +356,10 @@ export interface paths {
                     "application/json": {
                         name: string;
                         slug?: string;
+                        description?: string;
                         /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                         icon: string;
                         accentColor: string;
-                        description?: string;
                     };
                 };
             };
@@ -378,11 +378,11 @@ export interface paths {
                                 config?: unknown;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
+                                description?: string | null;
+                                sortOrder: number;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
-                                description?: string | null;
                                 accentColor: string;
-                                sortOrder: number;
                             };
                         };
                     };
@@ -445,9 +445,9 @@ export interface paths {
                     "application/json": {
                         isDisabled: boolean;
                         description?: string | unknown;
+                        name?: string;
                         /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                         icon?: string;
-                        name?: string;
                         accentColor?: string;
                     };
                 };
@@ -467,11 +467,11 @@ export interface paths {
                                 config?: unknown;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
+                                description?: string | null;
+                                sortOrder: number;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
-                                description?: string | null;
                                 accentColor: string;
-                                sortOrder: number;
                             };
                         };
                     };
@@ -613,12 +613,12 @@ export interface paths {
                                 slug: string;
                                 trackerId: string;
                                 isBuiltin: boolean;
-                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
-                                icon: string;
-                                accentColor: string;
                                 propertiesSchema: {
                                     [key: string]: components["schemas"]["AppPropertyDefinition"];
                                 };
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                                icon: string;
+                                accentColor: string;
                             }[];
                         };
                     };
@@ -672,13 +672,13 @@ export interface paths {
                     "application/json": {
                         name: string;
                         slug?: string;
-                        /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
-                        icon: string;
                         trackerId: string;
-                        accentColor: string;
                         propertiesSchema: {
                             [key: string]: components["schemas"]["AppPropertyDefinition"];
                         };
+                        /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                        icon: string;
+                        accentColor: string;
                     };
                 };
             };
@@ -696,12 +696,12 @@ export interface paths {
                                 slug: string;
                                 trackerId: string;
                                 isBuiltin: boolean;
-                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
-                                icon: string;
-                                accentColor: string;
                                 propertiesSchema: {
                                     [key: string]: components["schemas"]["AppPropertyDefinition"];
                                 };
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                                icon: string;
+                                accentColor: string;
                             };
                         };
                     };
@@ -1456,32 +1456,29 @@ export interface paths {
                                 updatedAt: string;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
-                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
-                                icon: string;
                                 trackerId: string | null;
-                                accentColor: string;
                                 sortOrder: number;
                                 queryDefinition: {
                                     sort: {
+                                        fields: string[];
                                         /** @enum {string} */
                                         direction: "asc" | "desc";
-                                        field: string[];
                                     };
                                     filters: ({
                                         /** @enum {string} */
                                         op: "in";
+                                        field: string;
                                         value: unknown[];
-                                        field: string[];
                                     } | {
                                         value?: unknown;
                                         /** @enum {string} */
                                         op: "isNull";
-                                        field: string[];
+                                        field: string;
                                     } | {
                                         value?: unknown;
+                                        field: string;
                                         /** @enum {string} */
                                         op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
-                                        field: string[];
                                     })[];
                                     entitySchemaSlugs: string[];
                                 };
@@ -1505,6 +1502,9 @@ export interface paths {
                                         }[];
                                     };
                                 };
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                                icon: string;
+                                accentColor: string;
                             }[];
                         };
                     };
@@ -1545,31 +1545,28 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
-                        icon: string;
                         name: string;
-                        accentColor: string;
                         queryDefinition: {
                             sort: {
+                                fields: string[];
                                 /** @enum {string} */
                                 direction: "asc" | "desc";
-                                field: string[];
                             };
                             filters: ({
                                 /** @enum {string} */
                                 op: "in";
+                                field: string;
                                 value: unknown[];
-                                field: string[];
                             } | {
                                 value?: unknown;
                                 /** @enum {string} */
                                 op: "isNull";
-                                field: string[];
+                                field: string;
                             } | {
                                 value?: unknown;
+                                field: string;
                                 /** @enum {string} */
                                 op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
-                                field: string[];
                             })[];
                             entitySchemaSlugs: string[];
                         };
@@ -1594,6 +1591,9 @@ export interface paths {
                             };
                         };
                         trackerId?: string;
+                        /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                        icon: string;
+                        accentColor: string;
                     };
                 };
             };
@@ -1614,32 +1614,29 @@ export interface paths {
                                 updatedAt: string;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
-                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
-                                icon: string;
                                 trackerId: string | null;
-                                accentColor: string;
                                 sortOrder: number;
                                 queryDefinition: {
                                     sort: {
+                                        fields: string[];
                                         /** @enum {string} */
                                         direction: "asc" | "desc";
-                                        field: string[];
                                     };
                                     filters: ({
                                         /** @enum {string} */
                                         op: "in";
+                                        field: string;
                                         value: unknown[];
-                                        field: string[];
                                     } | {
                                         value?: unknown;
                                         /** @enum {string} */
                                         op: "isNull";
-                                        field: string[];
+                                        field: string;
                                     } | {
                                         value?: unknown;
+                                        field: string;
                                         /** @enum {string} */
                                         op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
-                                        field: string[];
                                     })[];
                                     entitySchemaSlugs: string[];
                                 };
@@ -1663,6 +1660,9 @@ export interface paths {
                                         }[];
                                     };
                                 };
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                                icon: string;
+                                accentColor: string;
                             };
                         };
                     };
@@ -1732,32 +1732,29 @@ export interface paths {
                                 updatedAt: string;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
-                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
-                                icon: string;
                                 trackerId: string | null;
-                                accentColor: string;
                                 sortOrder: number;
                                 queryDefinition: {
                                     sort: {
+                                        fields: string[];
                                         /** @enum {string} */
                                         direction: "asc" | "desc";
-                                        field: string[];
                                     };
                                     filters: ({
                                         /** @enum {string} */
                                         op: "in";
+                                        field: string;
                                         value: unknown[];
-                                        field: string[];
                                     } | {
                                         value?: unknown;
                                         /** @enum {string} */
                                         op: "isNull";
-                                        field: string[];
+                                        field: string;
                                     } | {
                                         value?: unknown;
+                                        field: string;
                                         /** @enum {string} */
                                         op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
-                                        field: string[];
                                     })[];
                                     entitySchemaSlugs: string[];
                                 };
@@ -1781,6 +1778,9 @@ export interface paths {
                                         }[];
                                     };
                                 };
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                                icon: string;
+                                accentColor: string;
                             };
                         };
                     };
@@ -1826,31 +1826,28 @@ export interface paths {
                 content: {
                     "application/json": {
                         isDisabled: boolean;
-                        /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
-                        icon: string;
                         name: string;
-                        accentColor: string;
                         queryDefinition: {
                             sort: {
+                                fields: string[];
                                 /** @enum {string} */
                                 direction: "asc" | "desc";
-                                field: string[];
                             };
                             filters: ({
                                 /** @enum {string} */
                                 op: "in";
+                                field: string;
                                 value: unknown[];
-                                field: string[];
                             } | {
                                 value?: unknown;
                                 /** @enum {string} */
                                 op: "isNull";
-                                field: string[];
+                                field: string;
                             } | {
                                 value?: unknown;
+                                field: string;
                                 /** @enum {string} */
                                 op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
-                                field: string[];
                             })[];
                             entitySchemaSlugs: string[];
                         };
@@ -1875,6 +1872,9 @@ export interface paths {
                             };
                         };
                         trackerId?: string;
+                        /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                        icon: string;
+                        accentColor: string;
                     };
                 };
             };
@@ -1895,32 +1895,29 @@ export interface paths {
                                 updatedAt: string;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
-                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
-                                icon: string;
                                 trackerId: string | null;
-                                accentColor: string;
                                 sortOrder: number;
                                 queryDefinition: {
                                     sort: {
+                                        fields: string[];
                                         /** @enum {string} */
                                         direction: "asc" | "desc";
-                                        field: string[];
                                     };
                                     filters: ({
                                         /** @enum {string} */
                                         op: "in";
+                                        field: string;
                                         value: unknown[];
-                                        field: string[];
                                     } | {
                                         value?: unknown;
                                         /** @enum {string} */
                                         op: "isNull";
-                                        field: string[];
+                                        field: string;
                                     } | {
                                         value?: unknown;
+                                        field: string;
                                         /** @enum {string} */
                                         op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
-                                        field: string[];
                                     })[];
                                     entitySchemaSlugs: string[];
                                 };
@@ -1944,6 +1941,9 @@ export interface paths {
                                         }[];
                                     };
                                 };
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                                icon: string;
+                                accentColor: string;
                             };
                         };
                     };
@@ -2012,32 +2012,29 @@ export interface paths {
                                 updatedAt: string;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
-                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
-                                icon: string;
                                 trackerId: string | null;
-                                accentColor: string;
                                 sortOrder: number;
                                 queryDefinition: {
                                     sort: {
+                                        fields: string[];
                                         /** @enum {string} */
                                         direction: "asc" | "desc";
-                                        field: string[];
                                     };
                                     filters: ({
                                         /** @enum {string} */
                                         op: "in";
+                                        field: string;
                                         value: unknown[];
-                                        field: string[];
                                     } | {
                                         value?: unknown;
                                         /** @enum {string} */
                                         op: "isNull";
-                                        field: string[];
+                                        field: string;
                                     } | {
                                         value?: unknown;
+                                        field: string;
                                         /** @enum {string} */
                                         op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
-                                        field: string[];
                                     })[];
                                     entitySchemaSlugs: string[];
                                 };
@@ -2061,6 +2058,9 @@ export interface paths {
                                         }[];
                                     };
                                 };
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                                icon: string;
+                                accentColor: string;
                             };
                         };
                     };
@@ -2142,32 +2142,29 @@ export interface paths {
                                 updatedAt: string;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
-                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
-                                icon: string;
                                 trackerId: string | null;
-                                accentColor: string;
                                 sortOrder: number;
                                 queryDefinition: {
                                     sort: {
+                                        fields: string[];
                                         /** @enum {string} */
                                         direction: "asc" | "desc";
-                                        field: string[];
                                     };
                                     filters: ({
                                         /** @enum {string} */
                                         op: "in";
+                                        field: string;
                                         value: unknown[];
-                                        field: string[];
                                     } | {
                                         value?: unknown;
                                         /** @enum {string} */
                                         op: "isNull";
-                                        field: string[];
+                                        field: string;
                                     } | {
                                         value?: unknown;
+                                        field: string;
                                         /** @enum {string} */
                                         op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
-                                        field: string[];
                                     })[];
                                     entitySchemaSlugs: string[];
                                 };
@@ -2191,6 +2188,9 @@ export interface paths {
                                         }[];
                                     };
                                 };
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                                icon: string;
+                                accentColor: string;
                             };
                         };
                     };
@@ -2326,9 +2326,9 @@ export interface paths {
                 content: {
                     "application/json": {
                         sort: {
+                            fields: string[];
                             /** @enum {string} */
                             direction: "asc" | "desc";
-                            field: string[];
                         };
                         pagination: {
                             page: number;
@@ -2345,25 +2345,25 @@ export interface paths {
                         filters: ({
                             /** @enum {string} */
                             op: "in";
+                            field: string;
                             value: unknown[];
-                            field: string[];
                         } | {
                             value?: unknown;
                             /** @enum {string} */
                             op: "isNull";
-                            field: string[];
+                            field: string;
                         } | {
                             value?: unknown;
+                            field: string;
                             /** @enum {string} */
                             op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
-                            field: string[];
                         })[];
                         entitySchemaSlugs: string[];
                     } | {
                         sort: {
+                            fields: string[];
                             /** @enum {string} */
                             direction: "asc" | "desc";
-                            field: string[];
                         };
                         pagination: {
                             page: number;
@@ -2380,25 +2380,25 @@ export interface paths {
                         filters: ({
                             /** @enum {string} */
                             op: "in";
+                            field: string;
                             value: unknown[];
-                            field: string[];
                         } | {
                             value?: unknown;
                             /** @enum {string} */
                             op: "isNull";
-                            field: string[];
+                            field: string;
                         } | {
                             value?: unknown;
+                            field: string;
                             /** @enum {string} */
                             op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
-                            field: string[];
                         })[];
                         entitySchemaSlugs: string[];
                     } | {
                         sort: {
+                            fields: string[];
                             /** @enum {string} */
                             direction: "asc" | "desc";
-                            field: string[];
                         };
                         pagination: {
                             page: number;
@@ -2415,18 +2415,18 @@ export interface paths {
                         filters: ({
                             /** @enum {string} */
                             op: "in";
+                            field: string;
                             value: unknown[];
-                            field: string[];
                         } | {
                             value?: unknown;
                             /** @enum {string} */
                             op: "isNull";
-                            field: string[];
+                            field: string;
                         } | {
                             value?: unknown;
+                            field: string;
                             /** @enum {string} */
                             op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
-                            field: string[];
                         })[];
                         entitySchemaSlugs: string[];
                     };
