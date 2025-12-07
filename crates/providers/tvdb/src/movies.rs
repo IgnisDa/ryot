@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 use async_trait::async_trait;
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics,
@@ -19,9 +19,7 @@ use traits::MediaProvider;
 
 use crate::{
     base::TvdbService,
-    models::{
-        TvdbItemTranslationResponse, TvdbListDetailsResponse, TvdbMovieExtendedResponse, URL,
-    },
+    models::{TvdbListDetailsResponse, TvdbMovieExtendedResponse, URL},
 };
 
 pub struct TvdbMovieService(TvdbService);
@@ -280,25 +278,9 @@ impl MediaProvider for TvdbMovieService {
         identifier: &str,
         target_language: &str,
     ) -> Result<EntityTranslationDetails> {
-        let response = self
-            .0
-            .client
-            .get(format!(
-                "{URL}/movies/{identifier}/translations/{target_language}",
-            ))
-            .send()
-            .await?
-            .json::<TvdbItemTranslationResponse>()
-            .await?;
-
-        if response.status != "success" {
-            bail!("Translation not found");
-        }
-
-        Ok(EntityTranslationDetails {
-            title: response.data.name,
-            description: response.data.overview,
-        })
+        self.0
+            .translate("movies", identifier, target_language)
+            .await
     }
 
     async fn translate_metadata_group(
@@ -306,24 +288,6 @@ impl MediaProvider for TvdbMovieService {
         identifier: &str,
         target_language: &str,
     ) -> Result<EntityTranslationDetails> {
-        let response = self
-            .0
-            .client
-            .get(format!(
-                "{URL}/lists/{identifier}/translations/{target_language}",
-            ))
-            .send()
-            .await?
-            .json::<TvdbItemTranslationResponse>()
-            .await?;
-
-        if response.status != "success" {
-            bail!("Translation not found");
-        }
-
-        Ok(EntityTranslationDetails {
-            title: response.data.name,
-            description: response.data.overview,
-        })
+        self.0.translate("lists", identifier, target_language).await
     }
 }

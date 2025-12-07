@@ -12,9 +12,7 @@ use traits::MediaProvider;
 
 use crate::{
     base::TvdbService,
-    models::{
-        TvdbCompanyExtendedResponse, TvdbItemTranslationResponse, TvdbPersonExtendedResponse, URL,
-    },
+    models::{TvdbCompanyExtendedResponse, TvdbPersonExtendedResponse, URL},
 };
 
 pub struct NonMediaTvdbService(TvdbService);
@@ -209,24 +207,8 @@ impl MediaProvider for NonMediaTvdbService {
             bail!("Companies do not have translations");
         }
 
-        let response = self
-            .0
-            .client
-            .get(format!(
-                "{URL}/people/{identifier}/translations/{target_language}",
-            ))
-            .send()
-            .await?
-            .json::<TvdbItemTranslationResponse>()
-            .await?;
-
-        if response.status != "success" {
-            bail!("Translation not found");
-        }
-
-        Ok(EntityTranslationDetails {
-            title: response.data.name,
-            description: response.data.overview,
-        })
+        self.0
+            .translate("people", identifier, target_language)
+            .await
     }
 }

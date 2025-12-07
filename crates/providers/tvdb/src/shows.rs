@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 use async_trait::async_trait;
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics,
@@ -19,9 +19,7 @@ use traits::MediaProvider;
 
 use crate::{
     base::TvdbService,
-    models::{
-        TvdbItemTranslationResponse, TvdbSeasonExtendedResponse, TvdbShowExtendedResponse, URL,
-    },
+    models::{TvdbSeasonExtendedResponse, TvdbShowExtendedResponse, URL},
 };
 
 pub struct TvdbShowService(TvdbService);
@@ -284,24 +282,8 @@ impl MediaProvider for TvdbShowService {
         identifier: &str,
         target_language: &str,
     ) -> Result<EntityTranslationDetails> {
-        let response = self
-            .0
-            .client
-            .get(format!(
-                "{URL}/series/{identifier}/translations/{target_language}",
-            ))
-            .send()
-            .await?
-            .json::<TvdbItemTranslationResponse>()
-            .await?;
-
-        if response.status != "success" {
-            bail!("Translation not found");
-        }
-
-        Ok(EntityTranslationDetails {
-            title: response.data.name,
-            description: response.data.overview,
-        })
+        self.0
+            .translate("series", identifier, target_language)
+            .await
     }
 }
