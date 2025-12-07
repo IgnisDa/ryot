@@ -1,7 +1,7 @@
 import type { DisplayConfiguration, SavedViewQueryDefinition } from "./schemas";
 
 export const defaultDisplayConfiguration: DisplayConfiguration = {
-	table: { columns: [{ property: ["@name"] }] },
+	table: { columns: [{ label: "Name", property: ["@name"] }] },
 	grid: {
 		badgeProperty: null,
 		subtitleProperty: null,

@@ -17,6 +17,7 @@ const defaultQueryDefinition = {
 } satisfies CreateSavedViewBody["queryDefinition"];
 
 const defaultDisplayConfiguration = {
+	table: { columns: [{ label: "Name", property: ["@name"] }] },
 	grid: {
 		badgeProperty: null,
 		subtitleProperty: null,
@@ -29,7 +30,6 @@ const defaultDisplayConfiguration = {
 		titleProperty: ["@name"],
 		imageProperty: ["@image"],
 	},
-	table: { columns: [{ property: ["@name"] }] },
 } satisfies CreateSavedViewBody["displayConfiguration"];
 
 export function buildSavedViewBody(
@@ -59,7 +59,12 @@ export function buildUpdatedSavedViewBody(
 			filters: [{ op: "gte", field: ["year"], value: 2020 }],
 		},
 		displayConfiguration: {
-			table: { columns: [{ property: ["@name"] }, { property: ["year"] }] },
+			table: {
+				columns: [
+					{ label: "Name", property: ["@name"] },
+					{ label: "Year", property: ["year"] },
+				],
+			},
 			grid: {
 				imageProperty: null,
 				titleProperty: null,

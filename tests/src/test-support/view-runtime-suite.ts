@@ -16,6 +16,28 @@ import {
 	executeViewRuntime,
 } from "./view-runtime";
 
+type ViewRuntimeItem = NonNullable<
+	Awaited<ReturnType<typeof executeViewRuntime>>["data"]
+>["data"]["items"][number];
+
+const getSemanticItem = (item: ViewRuntimeItem | undefined) => {
+	expect(item && "resolvedProperties" in item).toBe(true);
+	if (!item || !("resolvedProperties" in item)) {
+		throw new Error("Expected grid/list runtime item");
+	}
+
+	return item;
+};
+
+const getTableItem = (item: ViewRuntimeItem | undefined) => {
+	expect(item && "cells" in item).toBe(true);
+	if (!item || !("cells" in item)) {
+		throw new Error("Expected table runtime item");
+	}
+
+	return item;
+};
+
 async function createImageFallbackFixture() {
 	const { client, cookies } = await createAuthenticatedClient();
 	const { trackerId } = await createTracker(client, cookies, {
@@ -44,14 +66,17 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		const { client, cookies, schema } =
 			await createSingleSchemaRuntimeFixture();
 		const expectedProperties = {
-			badgeProperty: "phone",
-			subtitleProperty: 2018,
-			titleProperty: "Alpha Phone",
+			badgeProperty: { kind: "text", value: "phone" },
+			subtitleProperty: { kind: "number", value: 2018 },
+			titleProperty: { kind: "text", value: "Alpha Phone" },
 			imageProperty: {
-				kind: "remote",
-				url: "https://example.com/alpha-phone.png",
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://example.com/alpha-phone.png",
+				},
 			},
-		};
+		} as const;
 
 		const gridResult = await executeViewRuntime(
 			client,
@@ -72,18 +97,49 @@ export function registerViewRuntimePresentationAndErrorTests() {
 
 		expect(gridResult.response.status).toBe(200);
 		expect(listResult.response.status).toBe(200);
-		expect(gridResult.data?.data.items[0]?.resolvedProperties).toEqual(
-			expectedProperties,
-		);
-		expect(listResult.data?.data.items[0]?.resolvedProperties).toEqual(
-			expectedProperties,
-		);
+		expect(
+			getSemanticItem(gridResult.data?.data.items[0]).resolvedProperties,
+		).toEqual(expectedProperties);
+		expect(
+			getSemanticItem(listResult.data?.data.items[0]).resolvedProperties,
+		).toEqual(expectedProperties);
 		expect(gridResult.data?.data.items[0]?.image).toEqual(
-			expectedProperties.imageProperty,
+			expectedProperties.imageProperty.value,
 		);
 	});
 
-	it("returns index-based table columns and nulls for empty property references", async () => {
+	it("returns null wrappers for empty grid display references", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaRuntimeFixture();
+		const { data, response } = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 1, limit: 1 },
+				displayConfiguration: buildGridDisplayConfiguration({
+					badgeProperty: [],
+					subtitleProperty: [],
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(getSemanticItem(data?.data.items[0]).resolvedProperties).toEqual({
+			badgeProperty: { kind: "null", value: null },
+			subtitleProperty: { kind: "null", value: null },
+			titleProperty: { kind: "text", value: "Alpha Phone" },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://example.com/alpha-phone.png",
+				},
+			},
+		});
+	});
+
+	it("returns table metadata, ordered cells, and null wrappers for empty property references", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaRuntimeFixture();
 		const { data, response } = await executeViewRuntime(
@@ -93,18 +149,27 @@ export function registerViewRuntimePresentationAndErrorTests() {
 				entitySchemaSlugs: [schema.slug],
 				pagination: { page: 1, limit: 1 },
 				displayConfiguration: buildTableDisplayConfiguration([
-					{ property: ["@name"] },
-					{ property: ["year"] },
-					{ property: [] },
+					{ label: "Name", property: ["@name"] },
+					{ label: "Year", property: ["year"] },
+					{ label: "Empty", property: [] },
 				]),
 			}),
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items[0]?.resolvedProperties).toEqual({
-			column_0: "Alpha Phone",
-			column_1: 2018,
-			column_2: null,
+		expect(data?.data.meta.table).toEqual({
+			columns: [
+				{ key: "column_0", label: "Name" },
+				{ key: "column_1", label: "Year" },
+				{ key: "column_2", label: "Empty" },
+			],
+		});
+		expect(getTableItem(data?.data.items[0])).toMatchObject({
+			cells: [
+				{ key: "column_0", kind: "text", value: "Alpha Phone" },
+				{ key: "column_1", kind: "number", value: 2018 },
+				{ key: "column_2", kind: "null", value: null },
+			],
 		});
 	});
 
@@ -134,22 +199,28 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items[0]?.resolvedProperties).toEqual({
-			badgeProperty: 2018,
-			subtitleProperty: "Acme",
-			titleProperty: "Alpha Phone",
+		expect(getSemanticItem(data?.data.items[0]).resolvedProperties).toEqual({
+			badgeProperty: { kind: "number", value: 2018 },
+			subtitleProperty: { kind: "text", value: "Acme" },
+			titleProperty: { kind: "text", value: "Alpha Phone" },
 			imageProperty: {
-				kind: "remote",
-				url: "https://example.com/alpha-phone.png",
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://example.com/alpha-phone.png",
+				},
 			},
 		});
-		expect(data?.data.items[1]?.resolvedProperties).toEqual({
-			badgeProperty: 2019,
-			subtitleProperty: "Tabula",
-			titleProperty: "Beta Tablet",
+		expect(getSemanticItem(data?.data.items[1]).resolvedProperties).toEqual({
+			badgeProperty: { kind: "number", value: 2019 },
+			subtitleProperty: { kind: "text", value: "Tabula" },
+			titleProperty: { kind: "text", value: "Beta Tablet" },
 			imageProperty: {
-				kind: "remote",
-				url: "https://example.com/beta-tablet.png",
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://example.com/beta-tablet.png",
+				},
 			},
 		});
 	});
@@ -173,11 +244,11 @@ export function registerViewRuntimePresentationAndErrorTests() {
 
 		expect(response.status).toBe(200);
 		expect(data?.data.items[0]?.image).toBeNull();
-		expect(data?.data.items[0]?.resolvedProperties).toEqual({
-			badgeProperty: null,
-			subtitleProperty: null,
-			imageProperty: "fallback-image",
-			titleProperty: "No Image Device",
+		expect(getSemanticItem(data?.data.items[0]).resolvedProperties).toEqual({
+			badgeProperty: { kind: "null", value: null },
+			subtitleProperty: { kind: "null", value: null },
+			imageProperty: { kind: "text", value: "fallback-image" },
+			titleProperty: { kind: "text", value: "No Image Device" },
 		});
 	});
 
@@ -201,11 +272,11 @@ export function registerViewRuntimePresentationAndErrorTests() {
 
 		expect(response.status).toBe(200);
 		expect(data?.data.items[0]?.image).toBeNull();
-		expect(data?.data.items[0]?.resolvedProperties).toEqual({
-			badgeProperty: null,
-			subtitleProperty: null,
-			imageProperty: "fallback-image",
-			titleProperty: "No Image Device",
+		expect(getSemanticItem(data?.data.items[0]).resolvedProperties).toEqual({
+			badgeProperty: { kind: "null", value: null },
+			subtitleProperty: { kind: "null", value: null },
+			imageProperty: { kind: "text", value: "fallback-image" },
+			titleProperty: { kind: "text", value: "No Image Device" },
 		});
 	});
 
@@ -219,17 +290,25 @@ export function registerViewRuntimePresentationAndErrorTests() {
 				entitySchemaSlugs: [schema.slug],
 				filters: [{ op: "eq", field: ["@name"], value: "No Image Device" }],
 				displayConfiguration: buildTableDisplayConfiguration([
-					{ property: ["@image", "category"] },
-					{ property: ["@name"] },
+					{ label: "Image", property: ["@image", "category"] },
+					{ label: "Name", property: ["@name"] },
 				]),
 			}),
 		);
 
 		expect(response.status).toBe(200);
 		expect(data?.data.items[0]?.image).toBeNull();
-		expect(data?.data.items[0]?.resolvedProperties).toEqual({
-			column_0: "fallback-image",
-			column_1: "No Image Device",
+		expect(data?.data.meta.table).toEqual({
+			columns: [
+				{ key: "column_0", label: "Image" },
+				{ key: "column_1", label: "Name" },
+			],
+		});
+		expect(getTableItem(data?.data.items[0])).toMatchObject({
+			cells: [
+				{ key: "column_0", kind: "text", value: "fallback-image" },
+				{ key: "column_1", kind: "text", value: "No Image Device" },
+			],
 		});
 	});
 
