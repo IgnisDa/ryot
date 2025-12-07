@@ -2,14 +2,18 @@ import { ClusterWorkflowEngine, SingleRunner } from "@effect/cluster";
 import * as PersistedQueue from "@effect/experimental/PersistedQueue";
 import * as PersistedQueueRedis from "@effect/experimental/PersistedQueue/Redis";
 import { PgClient } from "@effect/sql-pg";
-import { Config, Duration, Effect, Layer, Redacted } from "effect";
+import { Duration, Effect, Layer, Redacted } from "effect";
 
 import { AppConfig } from "./config/service";
 
-const WorkflowPgClientLive = PgClient.layerConfig({
-	url: Config.redacted("DATABASE_URL"),
-	maxConnections: Config.integer("DATABASE_WORKFLOW_POOL_MAX").pipe(Config.withDefault(10)),
-});
+const WorkflowPgClientLive = Layer.unwrapEffect(
+	Effect.map(AppConfig, (config) =>
+		PgClient.layer({
+			url: config.database.url,
+			maxConnections: config.database.workflowPoolMax,
+		}),
+	),
+);
 
 // TODO: https://github.com/Effect-TS/effect/issues/6294
 // A workflow awaiting more than one child resumes its 2nd+ child only via this
