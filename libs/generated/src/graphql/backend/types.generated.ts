@@ -1053,7 +1053,7 @@ export type GraphqlMetadataDetails = {
 export type GraphqlMetadataGroup = {
   __typename?: 'GraphqlMetadataGroup';
   id: Scalars['String']['output'];
-  part: Scalars['Int']['output'];
+  part?: Maybe<Scalars['Int']['output']>;
 };
 
 export type GraphqlPersonDetails = {
