@@ -181,7 +181,13 @@ async fn sync_integrations_data_to_owned_collection_for_user(
 
 async fn sync_integrations_data_to_owned_collection(ss: &Arc<SupportingService>) -> Result<()> {
     let users_with_integrations = Integration::find()
+        .inner_join(User)
         .filter(integration::Column::SyncToOwnedCollection.eq(true))
+        .filter(
+            user::Column::IsDisabled
+                .eq(false)
+                .or(user::Column::IsDisabled.is_null()),
+        )
         .select_only()
         .column(integration::Column::UserId)
         .into_tuple::<String>()
