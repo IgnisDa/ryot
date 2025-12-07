@@ -90,8 +90,8 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 
 	yield* Effect.addFinalizer(() => killProcessHandle(denoProcess));
 
-	const stdinQueue = yield* Queue.unbounded<Uint8Array>();
 	const responseQueue = yield* Queue.unbounded<string>();
+	const stdinQueue = yield* Queue.unbounded<Uint8Array>();
 
 	yield* Stream.fromQueue(stdinQueue).pipe(Stream.run(denoProcess.stdin), Effect.forkScoped);
 
