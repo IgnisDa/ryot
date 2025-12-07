@@ -24,6 +24,7 @@ describe("person.anilist sandbox script", () => {
 								image: { large: null },
 								name: { full: "Creator" },
 								characterMedia: {
+									pageInfo: { hasNextPage: false },
 									edges: [
 										{
 											characters: [{ name: { full: "Hero" } }],
@@ -32,6 +33,7 @@ describe("person.anilist sandbox script", () => {
 									],
 								},
 								staffMedia: {
+									pageInfo: { hasNextPage: false },
 									edges: [
 										{
 											staffRole: "Writer",
@@ -77,4 +79,77 @@ describe("person.anilist sandbox script", () => {
 			]);
 			return undefined;
 		}));
+
+	it("collects every character and staff media page", () => {
+		const requestedPages: number[] = [];
+
+		return runAnilistPersonDetails(
+			{ externalId: "1" },
+			{
+				httpCall: (...args: Array<unknown>) => {
+					const page = requestedPages.length + 1;
+					expect(String(toRecord(args[2]).body)).toContain(`"page":${page}`);
+					requestedPages.push(page);
+					return httpSuccess({
+						data: {
+							Staff: {
+								id: 1,
+								gender: null,
+								homeTown: null,
+								dateOfBirth: {},
+								dateOfDeath: {},
+								description: null,
+								image: { large: null },
+								name: { full: "Creator" },
+								characterMedia: {
+									pageInfo: { hasNextPage: page === 1 },
+									edges:
+										page === 1
+											? [
+													{
+														characters: [{ name: { full: "Hero" } }],
+														node: {
+															id: 2,
+															type: "ANIME",
+															title: { userPreferred: "Anime Credit" },
+														},
+													},
+												]
+											: [],
+								},
+								staffMedia: {
+									pageInfo: { hasNextPage: page === 1 },
+									edges:
+										page === 1
+											? []
+											: [
+													{
+														staffRole: "Writer",
+														node: {
+															id: 3,
+															type: "MANGA",
+															title: { userPreferred: "Manga Credit" },
+														},
+													},
+												],
+								},
+							},
+						},
+					});
+				},
+			},
+		).then((rawDetails) => {
+			const details = toRecord(rawDetails);
+			expect(requestedPages).toEqual([1, 2]);
+			expect(details.relatedEntityGroups).toEqual([
+				expect.objectContaining({
+					entities: [expect.objectContaining({ externalId: "2" })],
+				}),
+				expect.objectContaining({
+					entities: [expect.objectContaining({ externalId: "3" })],
+				}),
+			]);
+			return undefined;
+		});
+	});
 });

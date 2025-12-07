@@ -19,6 +19,7 @@ describe("company.anilist sandbox script", () => {
 								name: "Studio",
 								siteUrl: null,
 								media: {
+									pageInfo: { hasNextPage: false },
 									edges: [
 										{ node: { id: 2, type: "ANIME", title: { userPreferred: "Anime" } } },
 										{ node: { id: 3, type: "MANGA", title: { userPreferred: "Manga" } } },
@@ -58,4 +59,47 @@ describe("company.anilist sandbox script", () => {
 			]);
 			return undefined;
 		}));
+
+	it("collects every studio media connection page", () => {
+		const requestedPages: number[] = [];
+
+		return runAnilistCompanyDetails(
+			{ externalId: "1" },
+			{
+				httpCall: (...args: Array<unknown>) => {
+					const page = requestedPages.length + 1;
+					expect(String(toRecord(args[2]).body)).toContain(`"page":${page}`);
+					requestedPages.push(page);
+					return httpSuccess({
+						data: {
+							Studio: {
+								id: 1,
+								name: "Studio",
+								siteUrl: null,
+								media: {
+									pageInfo: { hasNextPage: page === 1 },
+									edges:
+										page === 1
+											? [{ node: { id: 2, type: "ANIME", title: { userPreferred: "Anime" } } }]
+											: [{ node: { id: 3, type: "MANGA", title: { userPreferred: "Manga" } } }],
+								},
+							},
+						},
+					});
+				},
+			},
+		).then((rawDetails) => {
+			const details = toRecord(rawDetails);
+			expect(requestedPages).toEqual([1, 2]);
+			expect(details.relatedEntityGroups).toEqual([
+				expect.objectContaining({
+					entities: [expect.objectContaining({ externalId: "2" })],
+				}),
+				expect.objectContaining({
+					entities: [expect.objectContaining({ externalId: "3" })],
+				}),
+			]);
+			return undefined;
+		});
+	});
 });

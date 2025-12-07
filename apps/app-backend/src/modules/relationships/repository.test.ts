@@ -337,7 +337,7 @@ it.effect("syncs global relationship properties while removing stale targets", (
 	}).pipe(Effect.provide(makeLayer(db)));
 });
 
-it.effect("syncs incoming global relationships without removing unrelated sources", () => {
+it.effect("preserves existing incoming global relationships and properties", () => {
 	const { db, state } = makeDb([
 		{
 			userId: null,
@@ -389,9 +389,9 @@ it.effect("syncs incoming global relationships without removing unrelated source
 			],
 		});
 
-		expect(state.rows.find((row) => row.id === "rel-stale")).toBeUndefined();
+		expect(state.rows.find((row) => row.id === "rel-stale")).toBeDefined();
 		expect(state.rows.find((row) => row.id === "rel-existing")?.properties).toEqual({
-			roles: ["Writer"],
+			roles: ["Old"],
 		});
 		expect(
 			state.rows.find(
@@ -406,7 +406,7 @@ it.effect("syncs incoming global relationships without removing unrelated source
 	}).pipe(Effect.provide(makeLayer(db)));
 });
 
-it.effect("clears an empty incoming group without touching other anchors", () => {
+it.effect("keeps incoming relationships when an incoming group is empty", () => {
 	const { db, state } = makeDb([
 		{
 			userId: null,
@@ -446,7 +446,7 @@ it.effect("clears an empty incoming group without touching other anchors", () =>
 			relationshipSchemaId: RelationshipSchemaId.make("schema-person-to-movie"),
 		});
 
-		expect(state.rows.map((row) => row.id)).not.toContain("rel-clear-a");
+		expect(state.rows.map((row) => row.id)).toContain("rel-clear-a");
 		expect(state.rows.map((row) => row.id)).toContain("rel-keep-other-anchor");
 		expect(state.rows.map((row) => row.id)).toContain("rel-keep-other-schema");
 	}).pipe(Effect.provide(makeLayer(db)));

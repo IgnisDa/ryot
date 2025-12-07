@@ -184,7 +184,7 @@ driver("details", async function (context) {
 	}
 
 	const graphqlQuery = `
-query StaffQuery($id: Int!) {
+query StaffQuery($id: Int!, $page: Int!) {
   Staff(id: $id) {
     id
     name { full }
@@ -194,13 +194,15 @@ query StaffQuery($id: Int!) {
     homeTown
     dateOfBirth { day year month }
     dateOfDeath { day year month }
-		characterMedia(page: 1, perPage: 50) {
+		characterMedia(page: $page, perPage: 25) {
+			pageInfo { hasNextPage }
 			edges {
 				characters { name { full } }
 				node { id type title { userPreferred english romaji native } }
 			}
 		}
-		staffMedia(page: 1, perPage: 50) {
+		staffMedia(page: $page, perPage: 25) {
+			pageInfo { hasNextPage }
 			edges {
 				staffRole
 				node { id type title { userPreferred english romaji native } }
@@ -210,27 +212,54 @@ query StaffQuery($id: Int!) {
 }
 `;
 
-	const response = await httpCall("POST", "https://graphql.anilist.co", {
-		body: JSON.stringify({ query: graphqlQuery, variables: { id: staffId } }),
-		headers: {
-			Accept: "application/json",
-			"Content-Type": "application/json",
-		},
-	});
+	const getStaffPage = async (page) => {
+		const response = await httpCall("POST", "https://graphql.anilist.co", {
+			body: JSON.stringify({ query: graphqlQuery, variables: { id: staffId, page } }),
+			headers: {
+				Accept: "application/json",
+				"Content-Type": "application/json",
+			},
+		});
 
-	if (!response?.success) {
-		throw new Error(response?.error ?? "Anilist person details request failed");
+		if (!response?.success) {
+			throw new Error(response?.error ?? "Anilist person details request failed");
+		}
+
+		const payload = parseJsonResponse(response.data.body);
+
+		const graphQlErrorMessage = extractGraphQlErrorMessage(payload);
+		if (graphQlErrorMessage) {
+			throw new Error(`Anilist person details GraphQL error: ${graphQlErrorMessage}`);
+		}
+
+		const staff =
+			payload?.data?.Staff && typeof payload.data.Staff === "object" ? payload.data.Staff : null;
+		if (!staff) {
+			throw new Error("Anilist returned no staff data");
+		}
+
+		return staff;
+	};
+
+	const characterEdges = [];
+	const staffEdges = [];
+	let staffData = null;
+	for (let page = 1; ; page += 1) {
+		const staffPage = await getStaffPage(page);
+		staffData ??= staffPage;
+		characterEdges.push(
+			...(Array.isArray(staffPage?.characterMedia?.edges) ? staffPage.characterMedia.edges : []),
+		);
+		staffEdges.push(
+			...(Array.isArray(staffPage?.staffMedia?.edges) ? staffPage.staffMedia.edges : []),
+		);
+		if (
+			staffPage?.characterMedia?.pageInfo?.hasNextPage !== true &&
+			staffPage?.staffMedia?.pageInfo?.hasNextPage !== true
+		) {
+			break;
+		}
 	}
-
-	const payload = parseJsonResponse(response.data.body);
-
-	const graphQlErrorMessage = extractGraphQlErrorMessage(payload);
-	if (graphQlErrorMessage) {
-		throw new Error(`Anilist person details GraphQL error: ${graphQlErrorMessage}`);
-	}
-
-	const staffData =
-		payload?.data?.Staff && typeof payload.data.Staff === "object" ? payload.data.Staff : null;
 
 	if (!staffData) {
 		throw new Error("Anilist returned no staff data");
@@ -296,9 +325,6 @@ query StaffQuery($id: Int!) {
 			relationshipProperties: { roles: [role] },
 		});
 	};
-	const characterEdges = Array.isArray(staffData?.characterMedia?.edges)
-		? staffData.characterMedia.edges
-		: [];
 	for (const edge of characterEdges) {
 		const characters = Array.isArray(edge?.characters) ? edge.characters : [];
 		const characterNames = characters
@@ -312,7 +338,6 @@ query StaffQuery($id: Int!) {
 			addMedia(edge?.node, characterName ? `Voicing (${characterName})` : "Voicing");
 		}
 	}
-	const staffEdges = Array.isArray(staffData?.staffMedia?.edges) ? staffData.staffMedia.edges : [];
 	for (const edge of staffEdges) {
 		const role =
 			typeof edge?.staffRole === "string" && edge.staffRole.trim()
