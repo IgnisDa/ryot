@@ -12,7 +12,8 @@ use dependent_models::{
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataFreeCreator, MetadataSearchItem, PodcastEpisode, PodcastSpecifics,
+    EntityTranslationDetails, MetadataDetails, MetadataFreeCreator, MetadataSearchItem,
+    PodcastEpisode, PodcastSpecifics,
 };
 use reqwest::Client;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc};
@@ -264,6 +265,30 @@ impl MediaProvider for ITunesService {
                 total_items,
                 next_page: (total_items > page * PAGE_SIZE).then(|| page + 1),
             },
+        })
+    }
+
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let rsp = self
+            .client
+            .get(format!("{URL}/lookup"))
+            .query(&[
+                ("id", identifier),
+                ("media", "podcast"),
+                ("entity", "podcast"),
+                ("lang", target_language),
+            ])
+            .send()
+            .await?;
+        let details: SearchResponse = rsp.json().await?;
+        let item = details.results.and_then(|s| s.first().cloned());
+        Ok(EntityTranslationDetails {
+            title: item.clone().map(|i| i.collection_name.clone()),
+            description: item.and_then(|i| i.description.clone()),
         })
     }
 }
