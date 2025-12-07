@@ -71,6 +71,7 @@ import { RelationshipSchemasRepository } from "#modules/relationship-schemas/rep
 import { RelationshipSchemasService } from "#modules/relationship-schemas/service";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
+import { SandboxCompiler } from "#modules/sandbox/compiler";
 import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/sandbox-workflow-live";
 import { SandboxApiService } from "#modules/sandbox/service";
@@ -181,7 +182,8 @@ const RuntimeSandboxServiceLive = Layer.provide(
 	Layer.mergeAll(EventsServiceLive, QueryEngineServiceLive),
 );
 
-const SandboxServicesLive = Layer.mergeAll(SandboxApiService.Default, RuntimeSandboxServiceLive);
+const SandboxApiServiceLive = Layer.provide(SandboxApiService.Default, SandboxCompiler.Default);
+const SandboxServicesLive = Layer.mergeAll(SandboxApiServiceLive, RuntimeSandboxServiceLive);
 
 const ContentServicesLive = Layer.mergeAll(
 	AuthDependentServicesLive,
