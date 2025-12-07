@@ -62,7 +62,7 @@ use user_management_resolver::{UserManagementMutationResolver, UserManagementQue
 use user_services_resolver::{UserServicesMutationResolver, UserServicesQueryResolver};
 
 #[builder]
-pub async fn create_app_services(
+pub async fn create_app_dependencies(
     db: DatabaseConnection,
     config: Arc<AppConfig>,
     log_file_path: PathBuf,

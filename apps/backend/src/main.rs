@@ -29,7 +29,7 @@ use tokio::{
 use tracing_subscriber::{fmt, layer::SubscriberExt};
 
 use crate::{
-    common::create_app_services,
+    common::create_app_dependencies,
     job::{
         perform_hp_application_job, perform_lp_application_job, perform_mp_application_job,
         perform_single_application_job, run_frequent_cron_jobs, run_infrequent_cron_jobs,
@@ -99,7 +99,7 @@ async fn main() -> Result<()> {
     let hp_application_job_storage = MemoryStorage::new();
     let single_application_job_storage = MemoryStorage::new();
 
-    let (app_router, supporting_service) = create_app_services()
+    let (app_router, supporting_service) = create_app_dependencies()
         .db(db)
         .timezone(tz)
         .config(config)
