@@ -104,6 +104,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 			direction: input.group.direction,
 			anchorEntityId: input.primaryEntityId,
 			relationshipSchemaId: relationshipSchema.id,
+			synchronization: input.group.synchronization,
 		}),
 	).pipe(dieOnDbError);
 	return undefined;

@@ -239,11 +239,13 @@ driver("details", async function (context, { metadata }) {
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				relationshipSchemaSlug: "person-to-movie",
 				entities: relatedEntities.filter((entity) => entity.scriptSlug === "movie.tmdb"),
 			},
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				relationshipSchemaSlug: "person-to-show",
 				entities: relatedEntities.filter((entity) => entity.scriptSlug === "show.tmdb"),
 			},

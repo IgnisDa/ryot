@@ -426,6 +426,7 @@ query MediaDetailsQuery($id: Int!) {
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				relationshipSchemaSlug: "media-suggestion",
 				entities: collectSuggestions(media.recommendations, titleLang),
 			},

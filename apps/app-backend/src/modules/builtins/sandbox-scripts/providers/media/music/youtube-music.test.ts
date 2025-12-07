@@ -46,6 +46,7 @@ describe("music.youtube-music sandbox script", () => {
 			expect(details.relatedEntityGroups).toEqual([
 				{
 					direction: "incoming",
+					synchronization: "additive",
 					relationshipSchemaSlug: "person-to-music",
 					entities: [
 						{
@@ -58,6 +59,7 @@ describe("music.youtube-music sandbox script", () => {
 				},
 				{
 					direction: "incoming",
+					synchronization: "additive",
 					relationshipSchemaSlug: "music-group-to-music",
 					entities: [
 						{
@@ -70,6 +72,7 @@ describe("music.youtube-music sandbox script", () => {
 				},
 				{
 					direction: "outgoing",
+					synchronization: "authoritative",
 					relationshipSchemaSlug: "media-suggestion",
 					entities: [
 						{ name: "Pick One", externalId: "track-2", scriptSlug: "music.youtube-music" },

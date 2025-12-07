@@ -274,6 +274,7 @@ driver("details", async function (context, { metadata }) {
 		relatedEntityGroups: [
 			{
 				direction: "incoming",
+				synchronization: "additive",
 				relationshipSchemaSlug: "person-to-music",
 				entities: [...relatedEntityByKey.values()].filter(
 					(entity) => entity.scriptSlug === "person.youtube-music",
@@ -281,12 +282,18 @@ driver("details", async function (context, { metadata }) {
 			},
 			{
 				direction: "incoming",
+				synchronization: "additive",
 				relationshipSchemaSlug: "music-group-to-music",
 				entities: [...relatedEntityByKey.values()].filter(
 					(entity) => entity.scriptSlug === "music-group.youtube-music",
 				),
 			},
-			{ direction: "outgoing", entities: suggestions, relationshipSchemaSlug: "media-suggestion" },
+			{
+				direction: "outgoing",
+				synchronization: "authoritative",
+				entities: suggestions,
+				relationshipSchemaSlug: "media-suggestion",
+			},
 		],
 		properties: {
 			duration,
