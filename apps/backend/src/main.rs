@@ -164,6 +164,15 @@ async fn main() -> Result<()> {
         )
         // application jobs
         .register(
+            WorkerBuilder::new("perform_single_application_job")
+                .catch_panic()
+                .enable_tracing()
+                .rate_limit(1, Duration::new(1, 0))
+                .data(supporting_service.clone())
+                .backend(single_application_job_storage)
+                .build_fn(perform_single_application_job),
+        )
+        .register(
             WorkerBuilder::new("perform_hp_application_job")
                 .catch_panic()
                 .enable_tracing()
@@ -175,7 +184,7 @@ async fn main() -> Result<()> {
             WorkerBuilder::new("perform_mp_application_job")
                 .catch_panic()
                 .enable_tracing()
-                .rate_limit(5, Duration::new(5, 0))
+                .rate_limit(10, Duration::new(5, 0))
                 .data(supporting_service.clone())
                 .backend(mp_application_job_storage)
                 .build_fn(perform_mp_application_job),
@@ -184,19 +193,10 @@ async fn main() -> Result<()> {
             WorkerBuilder::new("perform_lp_application_job")
                 .catch_panic()
                 .enable_tracing()
-                .rate_limit(20, Duration::new(5, 0))
+                .rate_limit(40, Duration::new(5, 0))
                 .data(supporting_service.clone())
                 .backend(lp_application_job_storage)
                 .build_fn(perform_lp_application_job),
-        )
-        .register(
-            WorkerBuilder::new("perform_single_application_job")
-                .catch_panic()
-                .enable_tracing()
-                .rate_limit(1, Duration::new(1, 0))
-                .data(supporting_service.clone())
-                .backend(single_application_job_storage)
-                .build_fn(perform_single_application_job),
         )
         .run();
 
