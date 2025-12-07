@@ -318,6 +318,17 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
                 /** @description Request is unauthenticated */
                 401: {
                     headers: {
@@ -1420,8 +1431,8 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    includeDisabled?: string;
                     trackerId?: string;
+                    includeDisabled?: string;
                 };
                 header?: never;
                 path?: never;
@@ -1443,6 +1454,7 @@ export interface paths {
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
+                                sortOrder: number;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
@@ -1598,6 +1610,7 @@ export interface paths {
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
+                                sortOrder: number;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
@@ -1714,6 +1727,7 @@ export interface paths {
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
+                                sortOrder: number;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
@@ -1874,6 +1888,7 @@ export interface paths {
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
+                                sortOrder: number;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
@@ -1989,6 +2004,7 @@ export interface paths {
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
+                                sortOrder: number;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
@@ -2117,6 +2133,7 @@ export interface paths {
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
+                                sortOrder: number;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
@@ -2200,6 +2217,75 @@ export interface paths {
                     content: {
                         "application/json": {
                             error: components["schemas"]["NotFoundError"];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/saved-views/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reorder saved views for the authenticated user */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        viewIds: string[];
+                        trackerId?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Saved view order was updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                viewIds: string[];
+                            };
+                        };
+                    };
+                };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
                         };
                     };
                 };

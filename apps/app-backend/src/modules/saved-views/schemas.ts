@@ -94,6 +94,7 @@ export const listedSavedViewSchema = z.object({
 	icon: applicationIconNameSchema,
 	trackerId: z.string().nullable(),
 	accentColor: nonEmptyTrimmedStringSchema,
+	sortOrder: z.number().int().nonnegative(),
 	queryDefinition: savedViewQueryDefinitionSchema,
 	displayConfiguration: displayConfigurationSchema,
 });
@@ -136,6 +137,29 @@ export const updateSavedViewBody = z.object({
 
 export const updateSavedViewResponseSchema = dataSchema(listedSavedViewSchema);
 
+export const reorderSavedViewsBody = z
+	.object({
+		trackerId: nonEmptyTrimmedStringSchema.optional(),
+		viewIds: z.array(nonEmptyTrimmedStringSchema).min(1),
+	})
+	.superRefine((value, ctx) => {
+		const uniqueViewIds = new Set(value.viewIds);
+		if (uniqueViewIds.size === value.viewIds.length) {
+			return;
+		}
+
+		ctx.addIssue({
+			path: ["viewIds"],
+			code: z.ZodIssueCode.custom,
+			message: "Saved view ids must be unique",
+		});
+	});
+
+export const reorderSavedViewsResponseSchema = dataSchema(
+	z.object({ viewIds: z.array(z.string()) }),
+);
+
 export type ListedSavedView = z.infer<typeof listedSavedViewSchema>;
 export type CreateSavedViewBody = z.infer<typeof createSavedViewBody>;
 export type UpdateSavedViewBody = z.infer<typeof updateSavedViewBody>;
+export type ReorderSavedViewsBody = z.infer<typeof reorderSavedViewsBody>;

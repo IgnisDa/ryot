@@ -1,4 +1,5 @@
 import type { AppSavedView } from "#/features/saved-views/model";
+import { sortSavedViewsByOrder } from "#/features/saved-views/model";
 import {
 	type AppTracker,
 	sortTrackersByOrder,
@@ -13,8 +14,8 @@ export function toSidebarData(input: {
 	trackers: SidebarTracker[];
 } {
 	const trackers = sortTrackersByOrder(input.trackers).map((tracker) => {
-		const trackerViews = input.views.filter(
-			(view) => view.trackerId === tracker.id,
+		const trackerViews = sortSavedViewsByOrder(
+			input.views.filter((view) => view.trackerId === tracker.id),
 		);
 
 		return {
@@ -30,22 +31,24 @@ export function toSidebarData(input: {
 				id: view.id,
 				icon: view.icon,
 				name: view.name,
+				sortOrder: view.sortOrder,
 				trackerId: view.trackerId,
 				isDisabled: view.isDisabled,
 				accentColor: view.accentColor,
 			})),
 		};
 	});
-	const views = input.views
-		.filter((view) => view.trackerId === null)
-		.map((view) => ({
-			id: view.id,
-			icon: view.icon,
-			name: view.name,
-			trackerId: view.trackerId,
-			isDisabled: view.isDisabled,
-			accentColor: view.accentColor,
-		}));
+	const views = sortSavedViewsByOrder(
+		input.views.filter((view) => view.trackerId === null),
+	).map((view) => ({
+		id: view.id,
+		icon: view.icon,
+		name: view.name,
+		sortOrder: view.sortOrder,
+		trackerId: view.trackerId,
+		isDisabled: view.isDisabled,
+		accentColor: view.accentColor,
+	}));
 
 	return { views, trackers };
 }

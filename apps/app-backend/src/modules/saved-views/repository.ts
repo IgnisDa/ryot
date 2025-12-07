@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { type DbClient, db } from "~/lib/db";
 import { savedView } from "~/lib/db/schema";
 import type {
@@ -26,6 +26,7 @@ const savedViewSelection = {
 	id: savedView.id,
 	icon: savedView.icon,
 	name: savedView.name,
+	sortOrder: savedView.sortOrder,
 	trackerId: savedView.trackerId,
 	isBuiltin: savedView.isBuiltin,
 	createdAt: savedView.createdAt,
@@ -41,6 +42,31 @@ const toSavedView = (row: SavedViewRow): ListedSavedView => ({
 	queryDefinition: row.queryDefinition as SavedViewQueryDefinition,
 	displayConfiguration: row.displayConfiguration as DisplayConfiguration,
 });
+
+const withSavedViewScope = (trackerId?: string) =>
+	trackerId ? eq(savedView.trackerId, trackerId) : isNull(savedView.trackerId);
+
+const savedViewOrderPersistenceError = "Could not persist saved view order";
+
+const getNextSavedViewSortOrderForUser = async (input: {
+	userId: string;
+	database: DbClient;
+	trackerId?: string;
+}) => {
+	const [orderRow] = await input.database
+		.select({
+			maxSortOrder: sql<number>`coalesce(max(${savedView.sortOrder}), -1)`,
+		})
+		.from(savedView)
+		.where(
+			and(
+				eq(savedView.userId, input.userId),
+				withSavedViewScope(input.trackerId),
+			),
+		);
+
+	return Number(orderRow?.maxSortOrder ?? -1) + 1;
+};
 
 export const listSavedViewsForUser = async (input: {
 	userId: string;
@@ -61,7 +87,11 @@ export const listSavedViewsForUser = async (input: {
 		.select(savedViewSelection)
 		.from(savedView)
 		.where(and(...whereClauses))
-		.orderBy(asc(savedView.name), asc(savedView.createdAt));
+		.orderBy(
+			asc(savedView.trackerId),
+			asc(savedView.sortOrder),
+			asc(savedView.createdAt),
+		);
 
 	return rows.map(toSavedView);
 };
@@ -86,9 +116,16 @@ export const getSavedViewByIdForUser = async (input: {
 };
 
 export const createSavedViewForUser = async (input: SavedViewCreateInput) => {
+	const sortOrder = await getNextSavedViewSortOrderForUser({
+		database: db,
+		userId: input.userId,
+		trackerId: input.trackerId,
+	});
+
 	const [createdView] = await db
 		.insert(savedView)
 		.values({
+			sortOrder,
 			icon: input.icon,
 			name: input.name,
 			userId: input.userId,
@@ -117,18 +154,25 @@ export const createSavedViewsForUser = async (input: {
 	}
 
 	const database = input.database ?? db;
+	const scopeOrderMap = new Map<string, number>();
 
 	await database.insert(savedView).values(
-		input.views.map((view) => ({
-			icon: view.icon,
-			name: view.name,
-			userId: input.userId,
-			trackerId: view.trackerId,
-			isBuiltin: view.isBuiltin,
-			accentColor: view.accentColor,
-			queryDefinition: view.queryDefinition,
-			displayConfiguration: view.displayConfiguration,
-		})),
+		input.views.map((view) => {
+			const scopeKey = view.trackerId ?? "__top_level__";
+			const sortOrder = scopeOrderMap.get(scopeKey) ?? 0;
+			scopeOrderMap.set(scopeKey, sortOrder + 1);
+			return {
+				sortOrder,
+				icon: view.icon,
+				name: view.name,
+				userId: input.userId,
+				trackerId: view.trackerId,
+				isBuiltin: view.isBuiltin,
+				accentColor: view.accentColor,
+				queryDefinition: view.queryDefinition,
+				displayConfiguration: view.displayConfiguration,
+			};
+		}),
 	);
 };
 
@@ -136,16 +180,28 @@ export const updateSavedViewByIdForUser = async (input: {
 	userId: string;
 	viewId: string;
 	data: UpdateSavedViewBody;
+	currentTrackerId: string | null;
 }) => {
+	const nextTrackerId = input.data.trackerId ?? null;
+	const sortOrder =
+		input.currentTrackerId === nextTrackerId
+			? undefined
+			: await getNextSavedViewSortOrderForUser({
+					database: db,
+					userId: input.userId,
+					trackerId: input.data.trackerId,
+				});
+
 	const [updatedView] = await db
 		.update(savedView)
 		.set({
 			icon: input.data.icon,
 			name: input.data.name,
-			trackerId: input.data.trackerId,
+			trackerId: nextTrackerId,
 			isDisabled: input.data.isDisabled,
 			accentColor: input.data.accentColor,
 			queryDefinition: input.data.queryDefinition,
+			...(sortOrder === undefined ? {} : { sortOrder }),
 			displayConfiguration: input.data.displayConfiguration,
 		})
 		.where(
@@ -162,6 +218,90 @@ export const updateSavedViewByIdForUser = async (input: {
 	}
 
 	return toSavedView(updatedView);
+};
+
+export const listUserSavedViewIdsInOrder = async (input: {
+	userId: string;
+	trackerId?: string;
+}) => {
+	const rows = await db
+		.select({ viewId: savedView.id })
+		.from(savedView)
+		.where(
+			and(
+				eq(savedView.userId, input.userId),
+				withSavedViewScope(input.trackerId),
+			),
+		)
+		.orderBy(asc(savedView.sortOrder), asc(savedView.createdAt));
+
+	return rows.map((row) => row.viewId);
+};
+
+export const countSavedViewsByIdsForUser = async (input: {
+	userId: string;
+	viewIds: string[];
+	trackerId?: string;
+}) => {
+	if (!input.viewIds.length) {
+		return 0;
+	}
+
+	const rows = await db
+		.select({ id: savedView.id })
+		.from(savedView)
+		.where(
+			and(
+				eq(savedView.userId, input.userId),
+				inArray(savedView.id, input.viewIds),
+				withSavedViewScope(input.trackerId),
+			),
+		);
+
+	return rows.length;
+};
+
+export const persistSavedViewOrderForUser = async (input: {
+	userId: string;
+	viewIds: string[];
+	trackerId?: string;
+}) => {
+	try {
+		return await db.transaction(async (tx) => {
+			const updatedIds: string[] = [];
+
+			for (const [index, viewId] of input.viewIds.entries()) {
+				const [updatedView] = await tx
+					.update(savedView)
+					.set({ sortOrder: index })
+					.where(
+						and(
+							eq(savedView.id, viewId),
+							eq(savedView.userId, input.userId),
+							withSavedViewScope(input.trackerId),
+						),
+					)
+					.returning({ id: savedView.id });
+
+				if (!updatedView) {
+					throw new Error(savedViewOrderPersistenceError);
+				}
+
+				updatedIds.push(updatedView.id);
+			}
+
+			return updatedIds;
+		});
+	} catch (error) {
+		if (
+			error instanceof Error &&
+			error.message === savedViewOrderPersistenceError
+		) {
+			return undefined;
+		}
+
+		throw error;
+	}
 };
 
 export const updateSavedViewDisabledByIdForUser = async (input: {
