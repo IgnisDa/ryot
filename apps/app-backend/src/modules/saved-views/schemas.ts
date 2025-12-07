@@ -89,6 +89,7 @@ export const listedSavedViewSchema = z.object({
 	createdAt: z.date(),
 	updatedAt: z.date(),
 	isBuiltin: z.boolean(),
+	isDisabled: z.boolean(),
 	icon: applicationIconNameSchema,
 	trackerId: z.string().nullable(),
 	accentColor: nonEmptyTrimmedStringSchema,
@@ -122,6 +123,7 @@ export const savedViewParams = z.object({
 export const deleteSavedViewParams = savedViewParams;
 
 export const updateSavedViewBody = z.object({
+	isDisabled: z.boolean(),
 	icon: applicationIconNameSchema,
 	name: nonEmptyTrimmedStringSchema,
 	accentColor: nonEmptyTrimmedStringSchema,
