@@ -205,10 +205,6 @@ impl AudibleService {
             })
             .collect()
     }
-
-    pub fn get_default_language(&self) -> String {
-        AudibleLocale::US.to_string()
-    }
 }
 
 #[async_trait]

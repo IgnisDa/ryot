@@ -17,7 +17,6 @@ pub struct ProviderSupportedLanguageInformation {
 
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ProviderLanguageInformation {
-    pub default: String,
     pub source: MediaSource,
     pub supported: Vec<ProviderSupportedLanguageInformation>,
 }

@@ -47,10 +47,6 @@ impl YoutubeMusicService {
             .collect()
     }
 
-    pub fn get_default_language(&self) -> String {
-        Language::En.to_string()
-    }
-
     fn order_images_by_size(&self, images: &[Thumbnail]) -> Vec<Thumbnail> {
         images
             .iter()

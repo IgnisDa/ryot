@@ -34,8 +34,4 @@ impl AnilistService {
             },
         ]
     }
-
-    pub fn get_default_language(&self) -> String {
-        "user_preferred".to_owned()
-    }
 }

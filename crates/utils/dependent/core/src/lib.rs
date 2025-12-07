@@ -126,31 +126,13 @@ fn build_provider_language_information(
 ) -> Result<Vec<ProviderLanguageInformation>> {
     let information = MediaSource::iter()
         .map(|source| {
-            let (mut supported, default) = match source {
-                MediaSource::Tmdb => (
-                    tmdb_service.get_all_languages(),
-                    tmdb_service.get_default_language(),
-                ),
-                MediaSource::Tvdb => (
-                    tvdb_service.get_all_languages(),
-                    tvdb_service.get_default_language(),
-                ),
-                MediaSource::YoutubeMusic => (
-                    youtube_music_service.get_all_languages(),
-                    youtube_music_service.get_default_language(),
-                ),
-                MediaSource::Itunes => (
-                    itunes_service.get_all_languages(),
-                    itunes_service.get_default_language(),
-                ),
-                MediaSource::Anilist => (
-                    anilist_service.get_all_languages(),
-                    anilist_service.get_default_language(),
-                ),
-                MediaSource::Audible => (
-                    audible_service.get_all_languages(),
-                    audible_service.get_default_language(),
-                ),
+            let mut supported = match source {
+                MediaSource::Tmdb => tmdb_service.get_all_languages(),
+                MediaSource::Tvdb => tvdb_service.get_all_languages(),
+                MediaSource::Itunes => itunes_service.get_all_languages(),
+                MediaSource::Anilist => anilist_service.get_all_languages(),
+                MediaSource::Audible => audible_service.get_all_languages(),
+                MediaSource::YoutubeMusic => youtube_music_service.get_all_languages(),
                 MediaSource::Igdb
                 | MediaSource::Vndb
                 | MediaSource::Custom
@@ -161,20 +143,13 @@ fn build_provider_language_information(
                 | MediaSource::GoogleBooks
                 | MediaSource::Listennotes
                 | MediaSource::Openlibrary
-                | MediaSource::MangaUpdates => (
-                    vec![ProviderSupportedLanguageInformation {
-                        value: "us".to_owned(),
-                        label: "us".to_owned(),
-                    }],
-                    "us".to_owned(),
-                ),
+                | MediaSource::MangaUpdates => vec![ProviderSupportedLanguageInformation {
+                    value: "us".to_owned(),
+                    label: "us".to_owned(),
+                }],
             };
             supported.sort_by(|a, b| a.label.cmp(&b.label));
-            ProviderLanguageInformation {
-                source,
-                default,
-                supported,
-            }
+            ProviderLanguageInformation { source, supported }
         })
         .collect();
     Ok(information)
