@@ -84,9 +84,9 @@ BEGIN
 		RAISE EXCEPTION 'Legacy notification platforms with invalid configured events: %', invalid_event_values;
 	END IF;
 
-	RAISE NOTICE 'old_notification_platform -> notification_platform: migration started (% seconds elapsed)', 0.0;
+	RAISE NOTICE 'old_notification_platform -> notification_channel: migration started (% seconds elapsed)', 0.0;
 
-	INSERT INTO "notification_platform" (
+	INSERT INTO "notification_channel" (
 		"id",
 		"user_id",
 		"platform",
@@ -167,7 +167,7 @@ BEGIN
 	ON CONFLICT ("id") DO NOTHING;
 
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	RAISE NOTICE 'old_notification_platform -> notification_platform: % row(s) migrated (% seconds elapsed)',
+	RAISE NOTICE 'old_notification_platform -> notification_channel: % row(s) migrated (% seconds elapsed)',
 		rows_inserted,
 		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 END $$;
