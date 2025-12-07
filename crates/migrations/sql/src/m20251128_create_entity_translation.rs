@@ -15,27 +15,27 @@ pub static ENTITY_TRANSLATION_CONSTRAINT_SQL: &str = indoc! { r#"
     ALTER TABLE "entity_translation"
     ADD CONSTRAINT "entity_translation__ensure_one_entity"
     CHECK (
+        (CASE WHEN "person_id" IS NOT NULL THEN 1 ELSE 0 END) +
         (CASE WHEN "metadata_id" IS NOT NULL THEN 1 ELSE 0 END) +
-        (CASE WHEN "metadata_group_id" IS NOT NULL THEN 1 ELSE 0 END) +
-        (CASE WHEN "person_id" IS NOT NULL THEN 1 ELSE 0 END)
+        (CASE WHEN "metadata_group_id" IS NOT NULL THEN 1 ELSE 0 END)
         = 1
-    );
+        );
 "# };
 pub static ENTITY_TRANSLATION_ENTITY_ID_SQL: &str = indoc! { r#"
     GENERATED ALWAYS AS (
         COALESCE(
+            "person_id",
             "metadata_id",
-            "metadata_group_id",
-            "person_id"
+            "metadata_group_id"
         )
     ) STORED
 "# };
 pub static ENTITY_TRANSLATION_ENTITY_LOT_SQL: &str = indoc! { r#"
     GENERATED ALWAYS AS (
         CASE
+            WHEN "person_id" IS NOT NULL THEN 'person'
             WHEN "metadata_id" IS NOT NULL THEN 'metadata'
             WHEN "metadata_group_id" IS NOT NULL THEN 'metadata_group'
-            WHEN "person_id" IS NOT NULL THEN 'person'
         END
     ) STORED
 "# };
