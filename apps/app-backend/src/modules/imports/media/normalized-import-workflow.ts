@@ -2,7 +2,7 @@ import { Workflow } from "@effect/workflow";
 import { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { Schema } from "effect";
 
-import { ImportRunError } from "../runtime/workflow-helpers";
+import { ImportRunError } from "../runtime/workflow-errors";
 
 export const NormalizedMediaImportJobData = Schema.Struct({
 	runId: ImportRunId,
