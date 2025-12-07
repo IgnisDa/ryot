@@ -63,11 +63,6 @@ export type HttpCallOptions = {
 	headers?: Record<string, string>;
 };
 
-export type AppApiCallOptions = {
-	body?: unknown;
-	headers?: Record<string, string>;
-};
-
 export type HttpCallSuccessData = {
 	body: string;
 	status: number;
@@ -82,23 +77,6 @@ export type HttpCallErrorData = {
 export type HttpCallResult =
 	| ApiSuccess<HttpCallSuccessData>
 	| (ApiFailure & { data?: HttpCallErrorData });
-
-export type AppApiCallSuccessData = {
-	body: unknown;
-	status: number;
-	statusText: string;
-	headers: Record<string, string>;
-};
-
-export type AppApiCallErrorData = {
-	body?: unknown;
-	status?: number;
-	headers?: Record<string, string>;
-};
-
-export type AppApiCallResult =
-	| ApiSuccess<AppApiCallSuccessData>
-	| (ApiFailure & { data?: AppApiCallErrorData });
 
 export type ConfigValueResult = ApiResult<unknown>;
 

@@ -125,10 +125,14 @@ The cache persists across restarts. In Docker deployments, mount the cache direc
 ## Host functions
 
 - `httpCall` performs outbound HTTP requests.
-- `appApiCall` executes authenticated in-process requests against app-owned routes mounted on `baseApp`.
+- `createEvents` submits user-scoped event writes through the app event pipeline.
+- `executeQueryEngine` runs query-engine requests for the current user.
+- `getEntity`, `getEntitySchema`, and `getIntegration` read app-owned records for the current user.
 - `getCachedValue` and `setCachedValue` provide script-scoped cache access.
+- `getSystemConfig` returns the masked system config exposed by the app API.
 - `getAppConfigValue` reads server configuration values exposed to sandbox scripts.
 - `getUserPreferences` reads the current user's stored preferences.
+- `listEventSchemas`, `listEvents`, and `listIntegrations` expose filtered read APIs for the current user.
 
 `allowedHostFunctions` is authoritative. Scripts with no `allowedHostFunctions` entry receive no host functions.
 
@@ -140,7 +144,7 @@ The cache persists across restarts. In Docker deployments, mount the cache direc
 
 For stateless functions use an empty context object. For stateful functions, bind per-execution data (such as `userId` or `scriptId`) into the context object inside `buildFunctionContext`.
 
-`appApiCall` is stateful and binds the executing `userId` into the descriptor context. It can target routes mounted on `baseApp`, but it rejects `/api/auth/*` and does not accept auth override headers such as `authorization`, `cookie`, or `x-api-key`.
+User-scoped host functions bind the executing `userId` into the descriptor context. Script-scoped cache functions bind the executing `scriptId`. Stateless functions use an empty context object.
 
 ## Driver functions
 

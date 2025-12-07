@@ -27,7 +27,7 @@ Refer to the **Integration Progress Policy — Before Trigger**, **Push Integrat
 
 Scripts live as `.txt` files in `src/lib/sandbox/scripts/` following the existing pattern. Existing scripts like `auto-complete-on-full-progress.txt` are the reference for structure, host function declarations, and the `driver("trigger", ...)` entry point pattern.
 
-Script metadata declares which host functions are allowed. Push scripts need both `httpCall` and `appApiCall`. The progress-policy script needs `appApiCall`, `getCachedValue`, and `claimCachedValue`.
+Script metadata declares which host functions are allowed. Push scripts need `httpCall`, `listIntegrations`, `getEntity`, `getEntitySchema`, and `getUserPreferences`. The progress-policy script needs `listEvents`, `getIntegration`, `getSystemConfig`, and `claimCachedValue`.
 
 ### 2. `trigger.integration-progress-policy` script
 
@@ -37,11 +37,11 @@ Script metadata declares which host functions are allowed. Push scripts need bot
 
 1. Early exit: if `trigger.origin !== "integration"` → return `{ action: "allow" }`.
 2. Defensive parse of `trigger.properties.progressPercent`. If missing, not a number, or NaN → return `{ action: "skip", reason: "invalid_progress" }`.
-3. Fetch the integration config: `appApiCall("GET", "/api/integrations/" + trigger.integrationId)`. Extract `minimumProgress` and `maximumProgress`.
+3. Fetch the integration config: `getIntegration(trigger.integrationId)`. Extract `minimumProgress` and `maximumProgress`.
 4. If `progressPercent < minimumProgress` → return `{ action: "skip", reason: "below_minimum_progress" }`.
 5. If `progressPercent > maximumProgress` → return `{ action: "replace", body: { properties: { ...trigger.properties, progressPercent: 100 } } }`. Assign `progressPercent = 100` for subsequent steps.
 6. Build dedupe fingerprint from: `trigger.entityId + trigger.eventSchemaSlug + (trigger.properties.consumedOn ?? "") + known subitem key values` (showSeason, showEpisode, animeEpisode, mangaVolume, mangaChapter, podcastEpisode — concatenate only those present as `key=value` pairs).
-7. Fetch recent progress events: `appApiCall("GET", "/api/events?entityId=" + trigger.entityId + "&eventSchemaSlug=progress")`. Returns array of events ordered by `occurredAt desc, createdAt desc`.
+7. Fetch recent progress events: `listEvents({ entityId: trigger.entityId, eventSchemaSlug: "progress" })`. Returns array of events ordered by `occurredAt desc, createdAt desc`.
 8. Filter events by fingerprint identity (same `consumedOn` + same subitem keys).
 9. If latest matching event has same `progressPercent` as current → return `{ action: "skip", reason: "duplicate_progress" }`.
 10. If `progressPercent >= 100`:
@@ -50,7 +50,7 @@ Script metadata declares which host functions are allowed. Push scripts need bot
     c. If `claimed = false`: check the most recent matching event from step 7/8 with `progressPercent = 100`. If its `occurredAt` is within `thresholdSeconds` of now → return `{ action: "skip", reason: "completed_recently" }`.
 11. Return `{ action: "allow" }` (or `{ action: "replace" }` if step 5 modified the properties).
 
-Read the threshold: `appApiCall("GET", "/api/system/config")` and extract `SERVER_PROGRESS_UPDATE_THRESHOLD`, or use `getAppConfigValue` host function if the config path is registered. Convert hours to seconds. If config unavailable, default to 7200 (2 hours).
+Read the threshold via `getSystemConfig()` and extract `system.scheduler.progressUpdateThresholdHours`. Convert hours to seconds. If config is unavailable, default to 7200 (2 hours).
 
 The script receives `trigger.origin`, `trigger.integrationId`, `trigger.importRunId`, and raw unvalidated `trigger.properties`.
 
@@ -62,11 +62,11 @@ The script receives `trigger.origin`, `trigger.integrationId`, `trigger.importRu
 
 1. Early exit: if `trigger.properties.entitySchemaSlug !== "movie"` → return.
 2. Check `getUserPreferences()`. If `preferences.disableIntegrations === true` → return.
-3. Fetch active Radarr integrations: `appApiCall("GET", "/api/integrations?provider=radarr&isDisabled=false")`.
+3. Fetch active Radarr integrations: `listIntegrations({ provider: "radarr", isDisabled: false })`.
 4. If empty → return.
 5. For each Radarr integration:
    a. If `trigger.entityId` (collectionId) is not in `integration.providerSpecifics.syncCollectionIds` → skip this integration.
-   b. Fetch entity: `appApiCall("GET", "/api/entities/" + trigger.properties.entityId)`.
+   b. Fetch entity: `getEntity(trigger.properties.entityId)`.
    c. If entity `sandboxScriptId` does not correspond to `movie.tmdb` (check script slug or externalId format) → skip (no-op, entity is not from TMDB).
    d. Extract TMDB ID from `entity.externalId`.
    e. Call Radarr API via `httpCall`: `POST {baseUrl}/api/v3/movie` with `{ tmdbId, qualityProfileId: profileId, rootFolderPath, tags: tagIds ?? [] }` and header `X-Api-Key: {apiKey}`.
@@ -91,9 +91,9 @@ The script receives `trigger.origin`, `trigger.integrationId`, `trigger.importRu
 
 1. Early exit: if `trigger.entitySchemaSlug` is not `"movie"` or `"show"` → return.
 2. Check `getUserPreferences()`. If `preferences.disableIntegrations === true` → return.
-3. Fetch active JellyfinPush integrations: `appApiCall("GET", "/api/integrations?provider=jellyfin_push&isDisabled=false")`.
+3. Fetch active JellyfinPush integrations: `listIntegrations({ provider: "jellyfin_push", isDisabled: false })`.
 4. If empty → return.
-5. Fetch entity: `appApiCall("GET", "/api/entities/" + trigger.entityId)`.
+5. Fetch entity: `getEntity(trigger.entityId)`.
 6. For each JellyfinPush integration:
    a. Authenticate to Jellyfin: `POST {baseUrl}/Users/AuthenticateByName` with `{ Username, Pw: password }`.
    b. Search Jellyfin for the item by entity name or TMDB ID (if entity has `movie.tmdb` or `show.tmdb` script).
