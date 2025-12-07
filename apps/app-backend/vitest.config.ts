@@ -20,6 +20,6 @@ const sandboxScriptTextPlugin: Plugin = {
 
 export default defineConfig({
 	plugins: [sandboxScriptTextPlugin],
-	test: { include: ["src/**/*.test.ts"], setupFiles: ["./test-setup.ts"] },
 	resolve: { alias: [{ find: /^#(lib|modules)\//, replacement: `${srcDir}$1/` }] },
+	test: { silent: "passed-only", include: ["src/**/*.test.ts"], setupFiles: ["./test-setup.ts"] },
 });
