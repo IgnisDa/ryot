@@ -72,6 +72,10 @@ export const podcastEpisodePropertiesSchema: AppSchema = {
 		runtime: integerField("Runtime", "Runtime in minutes"),
 		description: stringField("Description", "Episode overview or summary"),
 		publishDate: stringField("Publish Date", "Episode publish date as an ISO 8601 date string"),
+		parentPodcastExternalId: stringField(
+			"Parent Podcast External Id",
+			"Provider external id of the parent podcast",
+		),
 		episodeNumber: {
 			type: "integer",
 			label: "Episode Number",
