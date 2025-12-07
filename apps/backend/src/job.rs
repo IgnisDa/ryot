@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anyhow::anyhow;
 use apalis::prelude::{Data, Error};
 use apalis_cron::CronContext;
 use background_models::{
@@ -116,8 +117,8 @@ pub async fn perform_mp_application_job(
                     .await
                     .map(|_| ())
             }
-            _ => Err(anyhow::anyhow!(
-                "Entity type {:?} is not supported for update jobs",
+            _ => Err(anyhow!(
+                "Type {:?} not supported for update",
                 input.entity_lot
             )),
         },
