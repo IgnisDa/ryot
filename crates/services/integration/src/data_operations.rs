@@ -117,10 +117,10 @@ pub async fn yank_integrations_data(ss: &Arc<SupportingService>) -> Result<()> {
 async fn sync_integrations_data_to_owned_collection_for_user(
     ss: &Arc<SupportingService>,
     user_id: &String,
-) -> Result<bool> {
+) -> Result<()> {
     let preferences = user_by_id(user_id, ss).await?.preferences;
     if preferences.general.disable_integrations {
-        return Ok(false);
+        return Ok(());
     }
     let integrations =
         select_integrations_to_process(ss, user_id, IntegrationLot::Yank, None).await?;
@@ -176,7 +176,7 @@ async fn sync_integrations_data_to_owned_collection_for_user(
             .await
             .trace_ok();
     }
-    Ok(true)
+    Ok(())
 }
 
 async fn sync_integrations_data_to_owned_collection(ss: &Arc<SupportingService>) -> Result<()> {
