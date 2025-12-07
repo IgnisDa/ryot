@@ -1,4 +1,5 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import type { BadRequest, DbError } from "@ryot/contract/errors";
 import { badRequest, internalError, notFound } from "@ryot/contract/errors";
 import type { ProvisionUserBody } from "@ryot/contract/modules/god-mode/contract";
 import { UserId } from "@ryot/contract/schema/brands";
@@ -6,15 +7,29 @@ import { generateId } from "better-auth";
 import { DateTime, Effect, Either } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
+import type { CurrentDb } from "#lib/infrastructure/db/service";
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { AuthService } from "#modules/auth/service";
-import { defaultUserPreferences, performBootstrap } from "#modules/builtins/bootstrap";
+import {
+	acquireBootstrapLock,
+	defaultUserPreferences,
+	performBootstrap,
+} from "#modules/builtins/bootstrap";
+import { EntitiesService } from "#modules/entities/service";
+import { SavedViewsService } from "#modules/saved-views/service";
 import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
+import { TrackersService } from "#modules/trackers/service";
 
 import { GodModeRepository } from "./repository";
 
 const RESET_LINK_TIMEOUT_MS = 10_000;
+
+type ResetSnapshot = {
+	readonly accounts: ReadonlyArray<{ accountId: string; providerId: string }>;
+	readonly apiKeys: ReadonlyArray<{ id: string; key: string }>;
+	readonly user: { email: string; emailVerified: boolean; id: string; name: string };
+};
 
 export const classifyAuthState = (accounts: ReadonlyArray<{ providerId: string }>) => {
 	const hasCredential = accounts.some((a) => a.providerId === "credential");
@@ -63,6 +78,9 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 		const runInTransaction = yield* TransactionRunner;
 		const repository = yield* GodModeRepository;
 		const engine = yield* WorkflowEngine;
+		const entities = yield* EntitiesService;
+		const savedViews = yield* SavedViewsService;
+		const trackers = yield* TrackersService;
 		const {
 			auth,
 			createAuthUser,
@@ -169,6 +187,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 		const deleteUser = Effect.fn("GodModeService.deleteUser")(function* (userId: UserId) {
 			const apiKeys = yield* runInTransaction(
 				Effect.gen(function* () {
+					yield* acquireBootstrapLock(userId);
 					const snapshot = yield* repository.loadDeleteSnapshot(userId);
 					if (!snapshot) {
 						return yield* notFound(`User with id '${userId}' not found`);
@@ -297,50 +316,62 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 		});
 
 		const resetUser = Effect.fn("GodModeService.resetUser")(function* (userId: UserId) {
-			const snapshot = yield* runWithDb(repository.loadResetSnapshot(userId));
+			const resetTransaction: Effect.Effect<
+				{ snapshot: ResetSnapshot; usesLocalAuth: boolean },
+				BadRequest | DbError,
+				CurrentDb
+			> = Effect.gen(function* () {
+				yield* acquireBootstrapLock(userId);
+				const resetSnapshot = yield* repository.loadResetSnapshot(userId);
+				if (!resetSnapshot) {
+					return yield* badRequest(`User with id '${userId}' not found`);
+				}
 
-			if (!snapshot) {
-				return yield* badRequest(`User with id '${userId}' not found`);
-			}
+				const authState = classifyAuthState(resetSnapshot.accounts);
+				if (authState === "mixed") {
+					return yield* badRequest(
+						"Cannot reset a user with mixed authentication (both credential and OIDC accounts).",
+					);
+				}
 
-			const authState = classifyAuthState(snapshot.accounts);
-			if (authState === "mixed") {
-				return yield* badRequest(
-					"Cannot reset a user with mixed authentication (both credential and OIDC accounts).",
-				);
-			}
+				const resetUsesLocalAuth = authState === "credential" || authState === "none";
+				if (resetUsesLocalAuth && config.users.disableLocalAuth) {
+					return yield* badRequest("Local authentication is disabled on this instance");
+				}
 
-			const usesLocalAuth = authState === "credential" || authState === "none";
-			if (usesLocalAuth && config.users.disableLocalAuth) {
-				return yield* badRequest("Local authentication is disabled on this instance");
-			}
+				const oidcAccountId =
+					authState === "oidc"
+						? (resetSnapshot.accounts.find((account) => account.providerId === "oidc")?.accountId ??
+							null)
+						: null;
 
-			const oidcAccountId =
-				authState === "oidc"
-					? (snapshot.accounts.find((account) => account.providerId === "oidc")?.accountId ?? null)
-					: null;
-
-			yield* runInTransaction(
-				Effect.gen(function* () {
-					yield* deleteAuthUser(userId);
-					yield* createAuthUser({
-						id: userId,
-						name: snapshot.user.name,
-						email: snapshot.user.email,
-						preferences: defaultUserPreferences,
-						emailVerified: snapshot.user.emailVerified,
+				yield* deleteAuthUser(userId);
+				yield* createAuthUser({
+					id: userId,
+					name: resetSnapshot.user.name,
+					email: resetSnapshot.user.email,
+					preferences: defaultUserPreferences,
+					emailVerified: resetSnapshot.user.emailVerified,
+				});
+				if (oidcAccountId !== null) {
+					yield* linkAuthAccount({
+						userId,
+						providerId: "oidc",
+						id: crypto.randomUUID(),
+						accountId: oidcAccountId,
 					});
-					if (oidcAccountId !== null) {
-						yield* linkAuthAccount({
-							userId,
-							providerId: "oidc",
-							id: crypto.randomUUID(),
-							accountId: oidcAccountId,
-						});
-					}
-					yield* performBootstrap(userId);
-				}),
-			);
+				}
+				yield* performBootstrap(userId).pipe(
+					Effect.provideService(EntitiesService, entities),
+					Effect.provideService(SavedViewsService, savedViews),
+					Effect.provideService(TrackersService, trackers),
+				);
+
+				return { snapshot: resetSnapshot, usesLocalAuth: resetUsesLocalAuth };
+			});
+			const resetResult = yield* runInTransaction(resetTransaction);
+			const snapshot = resetResult.snapshot;
+			const usesLocalAuth = resetResult.usesLocalAuth;
 
 			yield* deleteUserSessions(userId);
 			yield* purgeApiKeyCaches(userId, snapshot.apiKeys);
