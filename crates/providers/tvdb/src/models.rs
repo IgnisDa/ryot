@@ -8,6 +8,7 @@ pub static URL: &str = "https://api4.thetvdb.com/v4";
 #[derive(Debug, Deserialize)]
 pub struct TvdbApiResponse<T> {
     pub data: T,
+    pub status: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -222,3 +223,4 @@ pub type TvdbPersonExtendedResponse = TvdbApiResponse<TvdbPersonExtended>;
 pub type TvdbMovieExtendedResponse = TvdbApiResponse<TvdbMovieExtendedItem>;
 pub type TvdbShowExtendedResponse = TvdbApiResponse<TvdbSeriesExtendedItem>;
 pub type TvdbCompanyExtendedResponse = TvdbApiResponse<TvdbCompanyExtended>;
+pub type TvdbItemTranslationResponse = TvdbApiResponse<TvdbExtendedItemCommon>;
