@@ -13,7 +13,8 @@ use futures::{
     try_join,
 };
 use media_models::{
-    MetadataExternalIdentifiers, PartialMetadataWithoutId, TmdbMetadataLookupResult, WatchProvider,
+    EntityTranslationDetails, MetadataExternalIdentifiers, PartialMetadataWithoutId,
+    TmdbMetadataLookupResult, WatchProvider,
 };
 use reqwest::{
     Client,
@@ -22,8 +23,8 @@ use reqwest::{
 use supporting_service::SupportingService;
 
 use crate::models::{
-    TmdbConfiguration, TmdbEntry, TmdbImagesResponse, TmdbListResponse, TmdbWatchProviderDetails,
-    TmdbWatchProviderResponse, URL,
+    TmdbCollection, TmdbConfiguration, TmdbEntry, TmdbImagesResponse, TmdbListResponse,
+    TmdbMediaEntry, TmdbNonMediaEntity, TmdbWatchProviderDetails, TmdbWatchProviderResponse, URL,
 };
 
 pub struct TmdbService {
@@ -364,6 +365,62 @@ impl TmdbService {
         )
         .await
         .map(|c| c.response)
+    }
+
+    pub async fn translate_media(
+        &self,
+        entity_type: &str,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let rsp = self
+            .client
+            .get(format!("{URL}/{entity_type}/{identifier}"))
+            .query(&[("language", target_language)])
+            .send()
+            .await?;
+        let data: TmdbMediaEntry = rsp.json().await?;
+        Ok(EntityTranslationDetails {
+            title: data.title.or(data.name),
+            description: data.overview,
+        })
+    }
+
+    pub async fn translate_collection(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let rsp = self
+            .client
+            .get(format!("{URL}/collection/{identifier}"))
+            .query(&[("language", target_language)])
+            .send()
+            .await?;
+        let data: TmdbCollection = rsp.json().await?;
+        Ok(EntityTranslationDetails {
+            title: Some(data.name),
+            description: data.overview,
+        })
+    }
+
+    pub async fn translate_non_media(
+        &self,
+        entity_type: &str,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let rsp = self
+            .client
+            .get(format!("{URL}/{entity_type}/{identifier}"))
+            .query(&[("language", target_language)])
+            .send()
+            .await?;
+        let data: TmdbNonMediaEntity = rsp.json().await?;
+        Ok(EntityTranslationDetails {
+            title: Some(data.name),
+            description: data.biography.or(data.description),
+        })
     }
 }
 
