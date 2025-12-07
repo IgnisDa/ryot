@@ -49,7 +49,6 @@ query CoreDetails {
 		}
 		providerLanguages {
 			source
-			default
 			supported {
 				label
 				value
