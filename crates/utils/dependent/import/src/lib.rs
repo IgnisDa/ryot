@@ -208,8 +208,25 @@ where
                 )
                 .await
                 {
-                    Ok((metadata, success)) => (metadata.id, success),
+                    Ok((metadata, success)) => {
+                        ryot_log!(
+                            debug,
+                            "[1611 TRACE {}] commit_metadata succeeded: id={}, updated={}",
+                            execution_id,
+                            metadata.id,
+                            success
+                        );
+                        (metadata.id, success)
+                    }
                     Err(e) => {
+                        ryot_log!(
+                            debug,
+                            "[1611 TRACE {}] commit_metadata failed for source_id={}, lot={}: {}",
+                            execution_id,
+                            metadata.source_id,
+                            metadata.lot,
+                            e
+                        );
                         import.failed.push(ImportFailedItem {
                             lot: Some(metadata.lot),
                             error: Some(e.to_string()),
@@ -220,6 +237,12 @@ where
                     }
                 };
                 if !was_updated_successfully {
+                    ryot_log!(
+                        debug,
+                        "[1611 TRACE {}] commit_metadata marked as not updated for {}",
+                        execution_id,
+                        db_metadata_id
+                    );
                     import.failed.push(ImportFailedItem {
                         lot: Some(metadata.lot),
                         identifier: db_metadata_id.clone(),
@@ -238,7 +261,8 @@ where
                 );
                 ryot_log!(
                     debug,
-                    "Processing {} seen_history items for metadata: {}",
+                    "[1611 TRACE {}] Processing {} seen_history items for metadata: {}",
+                    execution_id,
                     metadata.seen_history.len(),
                     db_metadata_id
                 );
@@ -261,7 +285,15 @@ where
                     if let Err(e) =
                         commit_import_seen_item(is_import, user_id, &db_metadata_id, ss, seen).await
                     {
-                        ryot_log!(debug, "Failed to commit seen item: {}", e);
+                        ryot_log!(
+                            debug,
+                            "[1611 TRACE {}] Failed to commit seen item {}/{} for {}: {}",
+                            execution_id,
+                            seen_idx + 1,
+                            seen_history_len,
+                            db_metadata_id,
+                            e
+                        );
                         import.failed.push(ImportFailedItem {
                             lot: Some(metadata.lot),
                             error: Some(e.to_string()),

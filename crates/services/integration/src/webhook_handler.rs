@@ -17,10 +17,11 @@ use uuid::Uuid;
 use crate::{integration_operations::set_trigger_result, sink};
 
 // TEMP(1611): debug instrumentation for duplicate seen records; remove after investigation completes
-fn log_import_result_details(import_result: &ImportResult, context: &str) {
+fn log_import_result_details(import_result: &ImportResult, context: &str, tag: &str) {
     ryot_log!(
         debug,
-        "{} with {} completed items",
+        "{} {} with {} completed items",
+        tag,
         context,
         import_result.completed.len()
     );
@@ -28,7 +29,8 @@ fn log_import_result_details(import_result: &ImportResult, context: &str) {
         if let ImportCompletedItem::Metadata(m) = item {
             ryot_log!(
                 debug,
-                "{} item {}: identifier={}, seen_history.len={}",
+                "{} {} item {}: identifier={}, seen_history.len={}",
+                tag,
                 context,
                 idx,
                 m.identifier,
@@ -44,6 +46,7 @@ pub async fn integration_progress_update(
     updates: ImportResult,
 ) -> Result<()> {
     let progress_update_id = Uuid::new_v4();
+    let progress_tag = format!("[1611 PROGRESS {}]", progress_update_id);
     ryot_log!(
         debug,
         "[1611 PROGRESS {}] Starting integration_progress_update for integration: {}, user: {}",
@@ -74,7 +77,7 @@ pub async fn integration_progress_update(
             });
         }
     });
-    log_import_result_details(&import, "Calling process_import");
+    log_import_result_details(&import, "Calling process_import", &progress_tag);
     ryot_log!(
         debug,
         "[1611 PROGRESS {}] Calling process_import with {} completed items",
@@ -106,6 +109,7 @@ pub async fn process_integration_webhook(
     payload: String,
 ) -> Result<String> {
     let webhook_job_id = Uuid::new_v4();
+    let job_tag = format!("[1611 JOB {}]", webhook_job_id);
     ryot_log!(
         debug,
         "[1611 JOB {}] Processing webhook for integration: {}, payload len: {}",
@@ -120,6 +124,13 @@ pub async fn process_integration_webhook(
         .ok_or(anyhow!("Integration does not exist"))?;
     let preferences = user_by_id(&integration.user_id, ss).await?.preferences;
     if integration.is_disabled.unwrap_or_default() || preferences.general.disable_integrations {
+        ryot_log!(
+            debug,
+            "[1611 JOB {}] Integration disabled for slug: {}, user: {}",
+            webhook_job_id,
+            integration_slug,
+            integration.user_id
+        );
         bail!("Integration is disabled");
     }
     let maybe_progress_update = match integration.provider {
@@ -152,7 +163,7 @@ pub async fn process_integration_webhook(
             Ok("No progress update".to_owned())
         }
         Ok(Some(pu)) => {
-            log_import_result_details(&pu, "Webhook received ImportResult");
+            log_import_result_details(&pu, "Webhook received ImportResult", &job_tag);
             ryot_log!(
                 debug,
                 "[1611 JOB {}] Calling integration_progress_update",
