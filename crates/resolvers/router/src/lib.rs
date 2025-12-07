@@ -14,7 +14,7 @@ use axum::{
 };
 use background_models::{ApplicationJob, SingleApplicationJob};
 use common_utils::get_temporary_directory;
-use config_definition::{AppConfig, MaskedConfig};
+use config_definition::MaskedConfig;
 use dependent_models::{ApplicationCacheKey, EmptyCacheValue, ExpireCacheKeyInput};
 use nanoid::nanoid;
 use supporting_service::SupportingService;
@@ -27,8 +27,8 @@ pub async fn graphql_playground_handler() -> impl IntoResponse {
     )))
 }
 
-pub async fn config_handler(Extension(config): Extension<Arc<AppConfig>>) -> impl IntoResponse {
-    Json(config.masked())
+pub async fn config_handler(Extension(ss): Extension<Arc<SupportingService>>) -> impl IntoResponse {
+    Json(ss.config.masked())
 }
 
 /// Upload a file to the temporary file system. Primarily to be used for uploading

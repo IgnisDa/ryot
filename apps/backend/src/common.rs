@@ -125,7 +125,6 @@ pub async fn create_app_services(
         .route("/upload", post(upload_file_handler))
         .route("/logs/download/{token}", get(download_logs_handler))
         .layer(Extension(schema))
-        .layer(Extension(config.clone()))
         .layer(Extension(supporting_service.clone()))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
