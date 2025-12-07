@@ -96,8 +96,26 @@ export const builtinSandboxScripts = () => [
 	script("Audible", "audiobook.audible", withTitleCaseHelper(audibleAudiobookScriptCode)),
 	script("iTunes", "podcast.itunes", itunesPodcastScriptCode),
 	script("VNDB", "visual-novel.vndb", vndbVisualNovelScriptCode),
-	script("Anilist", "anime.anilist", withDelimiterTitleCaseHelper(anilistAnimeScriptCode)),
-	script("Anilist", "manga.anilist", withDelimiterTitleCaseHelper(anilistMangaScriptCode)),
+	script(
+		"Anilist",
+		"anime.anilist",
+		withDelimiterTitleCaseHelper(anilistAnimeScriptCode),
+		undefined,
+		{
+			source: "anilist",
+			canonicalLanguage: "english",
+		},
+	),
+	script(
+		"Anilist",
+		"manga.anilist",
+		withDelimiterTitleCaseHelper(anilistMangaScriptCode),
+		undefined,
+		{
+			source: "anilist",
+			canonicalLanguage: "english",
+		},
+	),
 	script("Anilist", "company.anilist", anilistCompanyScriptCode),
 	script("GiantBomb", "company.giant-bomb", giantBombCompanyScriptCode, [
 		"providers.giantBombApiKey",
