@@ -1,13 +1,16 @@
 import node_path from "node:path";
 
 import { dayjs } from "@ryot/ts-utils/dayjs";
-import { QueueEvents, type Job } from "bullmq";
+import type { Job } from "bullmq";
 import { z } from "zod";
 
-import { getQueues } from "~/lib/queue";
-import { getRedisConnection } from "~/lib/queue/connection";
-import { sandboxRunJobResult } from "~/lib/sandbox/jobs";
-import { enqueueSandbox, getBuiltinSandboxScriptBySlug } from "~/modules/sandbox";
+import { sha1Hex } from "~/lib/bun";
+import {
+	getSandboxChildRunResults,
+	queueSandboxChildJobsBatch,
+	waitForSandboxChildRun,
+} from "~/lib/sandbox/child-run";
+import { getBuiltinSandboxScriptBySlug } from "~/modules/sandbox";
 
 import {
 	processMediaImport,
@@ -27,7 +30,8 @@ import {
 	type NetflixTitleMatchCandidate,
 } from "./title-matching";
 
-const SANDBOX_SEARCH_TIMEOUT_MS = 30000;
+const searchScriptSlugSchema = z.enum(["movie.tmdb", "show.tmdb"]);
+type SearchScriptSlug = z.infer<typeof searchScriptSlugSchema>;
 
 const sandboxSearchResultSchema = z.object({
 	items: z.array(
@@ -44,50 +48,61 @@ const sandboxSearchResultSchema = z.object({
 	),
 });
 
+type NetflixSearchAdapterInput = {
+	myListCsv: string;
+	ratingsCsv: string;
+	profileName?: string;
+	viewingActivityCsv: string;
+};
+
+type NetflixCsvPaths = {
+	myListPath: string;
+	ratingsPath: string;
+	viewingActivityPath: string;
+	extractedDirectoryPath?: string;
+};
+
 export type NetflixImportProcessorDeps = {
 	now: () => string;
-	createQueueEvents: () => QueueEvents;
 	readImportFile: typeof readImportFile;
-	enqueueSandbox: typeof enqueueSandbox;
 	cleanupImportFile: typeof cleanupImportFile;
 	processMediaImport: typeof processMediaImport;
 	adaptNetflixExports: typeof adaptNetflixExports;
 	extractImportZipArchive: typeof extractImportZipArchive;
+	queueSandboxChildJobsBatch: typeof queueSandboxChildJobsBatch;
+	getSandboxChildRunResults: typeof getSandboxChildRunResults;
 	getBuiltinSandboxScriptBySlug: typeof getBuiltinSandboxScriptBySlug;
-	waitForSandboxResult: (input: { jobId: string; queueEvents: QueueEvents }) => Promise<unknown>;
+	waitForSandboxChildRun: typeof waitForSandboxChildRun;
 };
 
 const netflixImportProcessorDeps: NetflixImportProcessorDeps = {
+	now: () => dayjs().toISOString(),
 	readImportFile,
-	enqueueSandbox,
 	cleanupImportFile,
 	processMediaImport,
 	adaptNetflixExports,
 	extractImportZipArchive,
+	queueSandboxChildJobsBatch,
+	getSandboxChildRunResults,
 	getBuiltinSandboxScriptBySlug,
-	now: () => dayjs().toISOString(),
-	createQueueEvents: () => new QueueEvents("sandbox", { connection: getRedisConnection() }),
-	waitForSandboxResult: async (input) => {
-		const job = await getQueues().sandboxQueue.getJob(input.jobId);
-		if (!job) {
-			throw new Error("Sandbox search job was not created");
-		}
-
-		const result = await job.waitUntilFinished(input.queueEvents, SANDBOX_SEARCH_TIMEOUT_MS);
-		const parsed = sandboxRunJobResult.safeParse(result);
-		if (!parsed.success) {
-			throw new Error("Sandbox search job returned an invalid payload");
-		}
-		if (!parsed.data.success || parsed.data.error) {
-			throw new Error(parsed.data.error ?? "Sandbox search job failed");
-		}
-		return parsed.data.value;
-	},
+	waitForSandboxChildRun,
 };
+
+const createNetflixSearchJobKey = (input: { query: string; scriptSlug: SearchScriptSlug }) =>
+	JSON.stringify([input.scriptSlug, input.query]);
+
+const parseNetflixSearchJobKey = (searchJobKey: string) => {
+	const tupleSchema = z.tuple([searchScriptSlugSchema, z.string().min(1)]);
+	const [scriptSlug, query] = tupleSchema.parse(JSON.parse(searchJobKey));
+	return { query, scriptSlug };
+};
+
+const createNetflixSearchChildJobId = (job: Job, searchJobKey: string) =>
+	`${job.id}_netflix_search_${sha1Hex(searchJobKey)}`;
 
 const getSearchResults = (input: {
 	value: unknown;
-	scriptSlug: "movie.tmdb" | "show.tmdb";
+	scriptSlug: SearchScriptSlug;
 }): NetflixTitleMatchCandidate[] => {
 	const parsed = sandboxSearchResultSchema.safeParse(input.value);
 	if (!parsed.success) {
@@ -110,189 +125,330 @@ const getZipEntryByBasename = (
 ): string | undefined =>
 	zipResult.entries.find((entry) => node_path.basename(entry.fileName) === baseName)?.filePath;
 
+const getNetflixAdapterInput = (input: {
+	myListCsv: string;
+	ratingsCsv: string;
+	profileName?: unknown;
+	viewingActivityCsv: string;
+}): NetflixSearchAdapterInput => ({
+	myListCsv: input.myListCsv,
+	ratingsCsv: input.ratingsCsv,
+	viewingActivityCsv: input.viewingActivityCsv,
+	profileName: typeof input.profileName === "string" ? input.profileName : undefined,
+});
+
+const resolveNetflixCsvPaths = async (input: {
+	filePath?: string;
+	deps: NetflixImportProcessorDeps;
+	netflixMyListPath?: string;
+	netflixRatingsPath?: string;
+	netflixViewingActivityPath?: string;
+	netflixExtractedDirectoryPath?: string;
+	onExtractedDirectoryPath: (path: string) => void;
+}): Promise<NetflixCsvPaths> => {
+	if (input.netflixViewingActivityPath && input.netflixRatingsPath && input.netflixMyListPath) {
+		return {
+			myListPath: input.netflixMyListPath,
+			ratingsPath: input.netflixRatingsPath,
+			viewingActivityPath: input.netflixViewingActivityPath,
+			extractedDirectoryPath: input.netflixExtractedDirectoryPath,
+		};
+	}
+
+	if (!input.filePath) {
+		throw new Error("Import job is missing Netflix export file");
+	}
+
+	const zipResult = await input.deps.extractImportZipArchive(input.filePath);
+	input.onExtractedDirectoryPath(zipResult.directoryPath);
+	const viewingActivityPath = getZipEntryByBasename(zipResult, "ViewingActivity.csv");
+	const ratingsPath = getZipEntryByBasename(zipResult, "Ratings.csv");
+	const myListPath = getZipEntryByBasename(zipResult, "MyList.csv");
+	if (!viewingActivityPath || !ratingsPath || !myListPath) {
+		throw new Error("Required Netflix CSV files were not found in the archive");
+	}
+
+	return {
+		myListPath,
+		ratingsPath,
+		viewingActivityPath,
+		extractedDirectoryPath: zipResult.directoryPath,
+	};
+};
+
+const collectNetflixSearchJobKeys = async (input: {
+	deps: NetflixImportProcessorDeps;
+	adapterInput: NetflixSearchAdapterInput;
+}) => {
+	const searchJobKeys = new Set<string>();
+	await input.deps.adaptNetflixExports(input.adapterInput, {
+		now: input.deps.now,
+		lookupTitle: ({ title, preferredEntitySchemaSlug }) => {
+			const query = extractNetflixBaseTitle(title);
+			if (!query) {
+				return Promise.resolve({ error: "Metadata not found" });
+			}
+
+			if (preferredEntitySchemaSlug === "movie") {
+				searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" }));
+			} else if (preferredEntitySchemaSlug === "show") {
+				searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" }));
+			} else {
+				searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" }));
+				searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" }));
+			}
+
+			return Promise.resolve({ error: "Netflix title lookup is pending" });
+		},
+	});
+
+	return [...searchJobKeys];
+};
+
+const adaptNetflixExportsWithSearchResults = async (input: {
+	deps: NetflixImportProcessorDeps;
+	adapterInput: NetflixSearchAdapterInput;
+	searchErrors: Map<string, string>;
+	searchResults: Map<string, NetflixTitleMatchCandidate[]>;
+}): Promise<MediaImportAdapterResult> =>
+	input.deps.adaptNetflixExports(input.adapterInput, {
+		now: input.deps.now,
+		lookupTitle: ({ title, preferredEntitySchemaSlug }) => {
+			const query = extractNetflixBaseTitle(title);
+			if (!query) {
+				return Promise.resolve({ error: "Metadata not found" });
+			}
+
+			const movieResults =
+				input.searchResults.get(createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" })) ??
+				[];
+			const showResults =
+				input.searchResults.get(createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" })) ??
+				[];
+			const requiredSearchJobKeys =
+				preferredEntitySchemaSlug === "movie"
+					? [createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" })]
+					: preferredEntitySchemaSlug === "show"
+						? [createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" })]
+						: [
+								createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" }),
+								createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" }),
+							];
+			const lookupError = requiredSearchJobKeys
+				.map((searchJobKey) => input.searchErrors.get(searchJobKey))
+				.find((error): error is string => Boolean(error));
+			if (lookupError) {
+				return Promise.resolve({ error: lookupError });
+			}
+			const results =
+				preferredEntitySchemaSlug === "movie"
+					? movieResults
+					: preferredEntitySchemaSlug === "show"
+						? showResults
+						: [...movieResults, ...showResults];
+			const match = chooseBestNetflixTitleMatch({
+				title,
+				results,
+				preferredEntitySchemaSlug,
+			});
+			if (!match) {
+				if (results.length === 0) {
+					return Promise.resolve({ error: "Metadata not found" });
+				}
+				if (preferredEntitySchemaSlug) {
+					return Promise.resolve({
+						error: `Title matched only ${preferredEntitySchemaSlug === "movie" ? "show" : "movie"} results`,
+					});
+				}
+
+				return Promise.resolve({ error: "Could not match title to a supported movie or show" });
+			}
+
+			return Promise.resolve({
+				matchedTitle: match.title,
+				entityRef: {
+					kind: "resolved",
+					sourceLabel: match.title,
+					externalId: match.externalId,
+					scriptSlug: match.scriptSlug,
+					entitySchemaSlug: match.entitySchemaSlug,
+				},
+			});
+		},
+	});
+
+const loadAdapterResultFromSearchJobs = async (input: {
+	job: Job;
+	deps: NetflixImportProcessorDeps;
+	searchJobs: Record<string, string>;
+	adapterInput: NetflixSearchAdapterInput;
+}) => {
+	const searchJobResults = await input.deps.getSandboxChildRunResults({
+		job: input.job,
+		sandboxChildJobIds: Object.values(input.searchJobs),
+	});
+	const searchErrors = new Map<string, string>();
+	const searchResults = new Map<string, NetflixTitleMatchCandidate[]>();
+	for (const [searchJobKey, childJobId] of Object.entries(input.searchJobs)) {
+		const searchJobResult = searchJobResults[childJobId];
+		if (!searchJobResult?.success) {
+			searchErrors.set(searchJobKey, searchJobResult?.error ?? "Sandbox search job failed");
+			continue;
+		}
+		if (searchJobResult.error) {
+			searchErrors.set(searchJobKey, searchJobResult.error);
+			continue;
+		}
+
+		try {
+			const { scriptSlug } = parseNetflixSearchJobKey(searchJobKey);
+			searchResults.set(
+				searchJobKey,
+				getSearchResults({ value: searchJobResult.value, scriptSlug }),
+			);
+		} catch (error) {
+			searchErrors.set(
+				searchJobKey,
+				error instanceof Error
+					? error.message
+					: "Sandbox search job returned an unexpected result shape",
+			);
+		}
+	}
+
+	return adaptNetflixExportsWithSearchResults({
+		deps: input.deps,
+		adapterInput: input.adapterInput,
+		searchErrors,
+		searchResults,
+	});
+};
+
 export const processNetflixImport = async (
 	job: Job,
 	token: string | undefined,
 	input: MediaImportJobInput & { filePath?: string; sourcePayload?: Record<string, unknown> },
 	deps: NetflixImportProcessorDeps = netflixImportProcessorDeps,
 ): Promise<void> => {
-	let queueEvents: QueueEvents | undefined;
-	let extractedDirectoryPath: string | undefined;
+	let extractedDirectoryPath = input.netflixExtractedDirectoryPath;
 
-	try {
-		await deps.processMediaImport(job, token, {
-			...input,
-			sourceName: "Netflix",
-			adapterErrorFallback: "Could not parse Netflix export data",
-			cleanup: async () => {
-				if (input.filePath) {
-					await deps.cleanupImportFile(input.filePath);
-				}
-				if (extractedDirectoryPath) {
-					await deps.cleanupImportFile(extractedDirectoryPath);
-				}
-			},
-			loadAdapterResult: async (): Promise<MediaImportAdapterResult> => {
-				if (!input.filePath) {
-					throw new Error("Import job is missing Netflix export file");
-				}
+	await deps.processMediaImport(job, token, {
+		...input,
+		sourceName: "Netflix",
+		adapterErrorFallback: "Could not parse Netflix export data",
+		cleanup: async () => {
+			const cleanupTargets = [input.filePath, extractedDirectoryPath].filter(
+				(path): path is string => Boolean(path),
+			);
+			await Promise.all(cleanupTargets.map((path) => deps.cleanupImportFile(path)));
+		},
+		loadAdapterResult: async (): Promise<MediaImportAdapterResult> => {
+			const csvPaths = await resolveNetflixCsvPaths({
+				deps,
+				filePath: input.filePath,
+				netflixMyListPath: input.netflixMyListPath,
+				netflixRatingsPath: input.netflixRatingsPath,
+				netflixViewingActivityPath: input.netflixViewingActivityPath,
+				netflixExtractedDirectoryPath: input.netflixExtractedDirectoryPath,
+				onExtractedDirectoryPath: (path) => {
+					extractedDirectoryPath = path;
+				},
+			});
 
-				const zipResult = await deps.extractImportZipArchive(input.filePath);
-				extractedDirectoryPath = zipResult.directoryPath;
-				const viewingActivityPath = getZipEntryByBasename(zipResult, "ViewingActivity.csv");
-				const ratingsPath = getZipEntryByBasename(zipResult, "Ratings.csv");
-				const myListPath = getZipEntryByBasename(zipResult, "MyList.csv");
-				if (!viewingActivityPath || !ratingsPath || !myListPath) {
-					throw new Error("Required Netflix CSV files were not found in the archive");
-				}
+			const [viewingActivityCsv, ratingsCsv, myListCsv] = await Promise.all([
+				deps.readImportFile(csvPaths.viewingActivityPath),
+				deps.readImportFile(csvPaths.ratingsPath),
+				deps.readImportFile(csvPaths.myListPath),
+			]);
+			const adapterInput = getNetflixAdapterInput({
+				myListCsv,
+				ratingsCsv,
+				viewingActivityCsv,
+				profileName: input.sourcePayload?.profileName,
+			});
 
-				const [viewingActivityCsv, ratingsCsv, myListCsv] = await Promise.all([
-					deps.readImportFile(viewingActivityPath),
-					deps.readImportFile(ratingsPath),
-					deps.readImportFile(myListPath),
-				]);
+			if (input.importStep === "loading_adapter" && input.netflixSearchJobs) {
+				return loadAdapterResultFromSearchJobs({
+					job,
+					deps,
+					adapterInput,
+					searchJobs: input.netflixSearchJobs,
+				});
+			}
 
-				const activeQueueEvents = deps.createQueueEvents();
-				queueEvents = activeQueueEvents;
-				await activeQueueEvents.waitUntilReady();
-				const searchCache = new Map<string, Promise<NetflixTitleMatchCandidate[]>>();
-				const [movieScript, showScript] = await Promise.all([
-					deps.getBuiltinSandboxScriptBySlug("movie.tmdb"),
-					deps.getBuiltinSandboxScriptBySlug("show.tmdb"),
-				]);
-				if (!movieScript || !showScript) {
-					throw new Error("Netflix importer requires TMDB sandbox scripts");
-				}
+			const searchJobKeys = await collectNetflixSearchJobKeys({ deps, adapterInput });
+			if (searchJobKeys.length === 0) {
+				return adaptNetflixExportsWithSearchResults({
+					deps,
+					adapterInput,
+					searchErrors: new Map(),
+					searchResults: new Map(),
+				});
+			}
 
-				const runSearch = async (searchInput: {
-					query: string;
-					userId: string;
-					scriptId: string;
-					scriptSlug: "movie.tmdb" | "show.tmdb";
-				}) => {
-					const searchResult = await deps.enqueueSandbox({
-						userId: searchInput.userId,
-						body: {
+			const [movieScript, showScript] = await Promise.all([
+				deps.getBuiltinSandboxScriptBySlug("movie.tmdb"),
+				deps.getBuiltinSandboxScriptBySlug("show.tmdb"),
+			]);
+			if (!movieScript || !showScript) {
+				throw new Error("Netflix importer requires TMDB sandbox scripts");
+			}
+
+			const scriptIdsBySlug = new Map<SearchScriptSlug, string>([
+				["movie.tmdb", movieScript.id],
+				["show.tmdb", showScript.id],
+			]);
+			const netflixSearchJobs = Object.fromEntries(
+				searchJobKeys.map((searchJobKey) => [
+					searchJobKey,
+					createNetflixSearchChildJobId(job, searchJobKey),
+				]),
+			);
+
+			await deps.queueSandboxChildJobsBatch({
+				job,
+				children: searchJobKeys.map((searchJobKey) => {
+					const childJobId = netflixSearchJobs[searchJobKey];
+					if (!childJobId) {
+						throw new Error(`Netflix search job id missing for key '${searchJobKey}'`);
+					}
+
+					const { query, scriptSlug } = parseNetflixSearchJobKey(searchJobKey);
+					const scriptId = scriptIdsBySlug.get(scriptSlug);
+					if (!scriptId) {
+						throw new Error(`Netflix importer is missing sandbox script '${scriptSlug}'`);
+					}
+
+					return {
+						childJobId,
+						sandboxJobData: {
+							userId: input.userId,
 							driverName: "search",
-							scriptId: searchInput.scriptId,
-							context: { page: 1, query: searchInput.query, pageSize: 5 },
+							scriptId,
+							context: { page: 1, query, pageSize: 5 },
 						},
-					});
-					if ("error" in searchResult) {
-						throw new Error(searchResult.message);
-					}
+					};
+				}),
+				jobData: {
+					...input,
+					filePath: input.filePath,
+					sourcePayload: input.sourcePayload,
+					importStep: "loading_adapter",
+					netflixSearchJobs,
+					netflixMyListPath: csvPaths.myListPath,
+					netflixRatingsPath: csvPaths.ratingsPath,
+					netflixViewingActivityPath: csvPaths.viewingActivityPath,
+					netflixExtractedDirectoryPath: csvPaths.extractedDirectoryPath,
+				},
+			});
+			await deps.waitForSandboxChildRun(job, token);
 
-					const searchValue = await deps.waitForSandboxResult({
-						jobId: searchResult.data.jobId,
-						queueEvents: activeQueueEvents,
-					});
-					return getSearchResults({ value: searchValue, scriptSlug: searchInput.scriptSlug });
-				};
-
-				const loadSearchCandidates = async (searchInput: {
-					query: string;
-					userId: string;
-					preferredEntitySchemaSlug?: "movie" | "show";
-				}) => {
-					if (searchInput.preferredEntitySchemaSlug === "movie") {
-						return runSearch({
-							query: searchInput.query,
-							userId: searchInput.userId,
-							scriptId: movieScript.id,
-							scriptSlug: "movie.tmdb",
-						});
-					}
-
-					if (searchInput.preferredEntitySchemaSlug === "show") {
-						return runSearch({
-							query: searchInput.query,
-							userId: searchInput.userId,
-							scriptId: showScript.id,
-							scriptSlug: "show.tmdb",
-						});
-					}
-
-					const [movieResults, showResults] = await Promise.all([
-						runSearch({
-							query: searchInput.query,
-							userId: searchInput.userId,
-							scriptId: movieScript.id,
-							scriptSlug: "movie.tmdb",
-						}),
-						runSearch({
-							query: searchInput.query,
-							userId: searchInput.userId,
-							scriptId: showScript.id,
-							scriptSlug: "show.tmdb",
-						}),
-					]);
-
-					return [...movieResults, ...showResults];
-				};
-
-				return deps.adaptNetflixExports(
-					{
-						myListCsv,
-						ratingsCsv,
-						viewingActivityCsv,
-						profileName:
-							typeof input.sourcePayload?.profileName === "string"
-								? input.sourcePayload.profileName
-								: undefined,
-					},
-					{
-						lookupTitle: async ({ title, preferredEntitySchemaSlug }) => {
-							const query = extractNetflixBaseTitle(title);
-							if (!query) {
-								return { error: "Metadata not found" };
-							}
-
-							const cacheKey = `${preferredEntitySchemaSlug ?? "all"}:${query}`;
-							let searchPromise = searchCache.get(cacheKey);
-							if (!searchPromise) {
-								searchPromise = loadSearchCandidates({
-									query,
-									userId: input.userId,
-									preferredEntitySchemaSlug,
-								});
-								searchCache.set(cacheKey, searchPromise);
-							}
-
-							const results = await searchPromise;
-							const match = chooseBestNetflixTitleMatch({
-								title,
-								results,
-								preferredEntitySchemaSlug,
-							});
-							if (!match) {
-								if (results.length === 0) {
-									return { error: "Metadata not found" };
-								}
-								if (preferredEntitySchemaSlug) {
-									return {
-										error: `Title matched only ${preferredEntitySchemaSlug === "movie" ? "show" : "movie"} results`,
-									};
-								}
-								return { error: "Could not match title to a supported movie or show" };
-							}
-
-							return {
-								matchedTitle: match.title,
-								entityRef: {
-									kind: "resolved",
-									sourceLabel: match.title,
-									externalId: match.externalId,
-									scriptSlug: match.scriptSlug,
-									entitySchemaSlug: match.entitySchemaSlug,
-								},
-							};
-						},
-						now: deps.now,
-					},
-				);
-			},
-		});
-	} finally {
-		await queueEvents?.close();
-	}
+			return loadAdapterResultFromSearchJobs({
+				job,
+				deps,
+				adapterInput,
+				searchJobs: netflixSearchJobs,
+			});
+		},
+	});
 };
