@@ -15,6 +15,10 @@ import { trimToNull } from "#lib/shared/validation";
 
 import { TrackersRepository } from "./repository";
 
+type UpdateTrackerInput = UpdateTrackerBody & {
+	readonly sortOrder?: number | undefined;
+};
+
 const resolveOptionalDescription = (description: string | undefined) => {
 	if (description === undefined) {
 		return undefined;
@@ -160,7 +164,7 @@ export class TrackersService extends Effect.Service<TrackersService>()("Trackers
 		const update = Effect.fn("TrackersService.update")(function* (
 			user: CurrentUserValue,
 			trackerId: TrackerId,
-			payload: UpdateTrackerBody,
+			payload: UpdateTrackerInput,
 		) {
 			const trimmedTrackerId = trimToNull(trackerId);
 			if (!trimmedTrackerId) {
@@ -180,6 +184,7 @@ export class TrackersService extends Effect.Service<TrackersService>()("Trackers
 					userId: user.id,
 					trackerId: resolvedTrackerId,
 					isDisabled: payload.isDisabled,
+					sortOrder: payload.sortOrder,
 					...resolvedPayload,
 				}),
 			);
@@ -203,14 +208,33 @@ export class TrackersService extends Effect.Service<TrackersService>()("Trackers
 						return yield* badRequest("Tracker ids contain unknown trackers");
 					}
 
-					const currentTrackerIds = yield* repository.listIdsInOrder(user.id);
+					const currentTrackers = yield* repository.listInOrder(user.id);
 					const reorderedTrackerIds = buildReorderedIds({
 						requestedIds: trackerIds,
-						currentIds: currentTrackerIds,
+						currentIds: currentTrackers.map((tracker) => tracker.id),
 					});
-					const persistedTrackerIds = yield* repository.persistOrder(user.id, reorderedTrackerIds);
+					const trackersById = new Map(currentTrackers.map((tracker) => [tracker.id, tracker]));
 
-					return { trackerIds: [...persistedTrackerIds] };
+					for (const [sortOrder, trackerId] of reorderedTrackerIds.entries()) {
+						const currentTracker = trackersById.get(trackerId);
+						if (!currentTracker) {
+							return yield* badRequest("Tracker ids contain unknown trackers");
+						}
+						if (currentTracker.sortOrder === sortOrder) {
+							continue;
+						}
+
+						yield* update(user, trackerId, {
+							sortOrder,
+							isDisabled: currentTracker.isDisabled,
+						}).pipe(
+							Effect.catchTag("NotFound", () =>
+								Effect.fail(badRequest("Tracker ids contain unknown trackers")),
+							),
+						);
+					}
+
+					return { trackerIds: [...reorderedTrackerIds] };
 				}),
 			);
 		});
