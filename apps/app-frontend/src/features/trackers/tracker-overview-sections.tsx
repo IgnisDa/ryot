@@ -26,8 +26,8 @@ export function TrackerOverviewHeader(props: {
 					p="sm"
 					style={{
 						flexShrink: 0,
-						borderRadius: "var(--mantine-radius-md)",
 						color: props.accentColor,
+						borderRadius: "var(--mantine-radius-md)",
 						backgroundColor: `color-mix(in srgb, ${props.accentColor} 15%, transparent)`,
 					}}
 				>
@@ -36,14 +36,14 @@ export function TrackerOverviewHeader(props: {
 				<Stack gap={2}>
 					<Text
 						fw={700}
+						lh={1.2}
 						size="xl"
-						style={{ lineHeight: 1.2 }}
 						ff="var(--mantine-headings-font-family)"
 					>
 						{props.tracker.name}
 					</Text>
 					{props.tracker.description && (
-						<Text size="sm" c="dimmed" style={{ maxWidth: 680 }}>
+						<Text size="sm" c="dimmed" maw={680}>
 							{props.tracker.description}
 						</Text>
 					)}
@@ -81,17 +81,14 @@ export function TrackerOverviewActivityItem(props: {
 				</Box>
 				<Link
 					to="/$trackerSlug/$entityId"
-					params={{
-						entityId: props.entityId,
-						trackerSlug: props.trackerSlug,
-					}}
+					params={{ entityId: props.entityId, trackerSlug: props.trackerSlug }}
 				>
-					<Anchor component="span" size="sm" style={{ paddingTop: 5 }}>
+					<Anchor component="span" size="sm" pt={5}>
 						{props.action}
 					</Anchor>
 				</Link>
 			</Group>
-			<Text size="xs" c="dimmed" style={{ flexShrink: 0, paddingTop: 7 }}>
+			<Text size="xs" c="dimmed" pt={7} style={{ flexShrink: 0 }}>
 				{props.time}
 			</Text>
 		</Group>
@@ -154,10 +151,10 @@ export function TrackerOverviewQuickActions(props: {
 					<Button
 						fullWidth
 						size="sm"
+						c="dark.3"
 						variant="subtle"
 						onClick={props.onAddSchema}
 						leftSection={<Shapes size={14} />}
-						style={{ color: "var(--mantine-color-dark-3)" }}
 					>
 						New Schema
 					</Button>

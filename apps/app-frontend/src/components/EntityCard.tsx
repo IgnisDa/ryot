@@ -132,7 +132,7 @@ export function EntityCard(props: EntityCardProps) {
 				>
 					{props.schemaName}
 				</Badge>
-				<Text size="xs" c={textSecondary} mt={4} style={{ lineHeight: 1.5 }}>
+				<Text size="xs" c={textSecondary} mt={4} lh={1.5}>
 					{props.lastEvent}
 				</Text>
 			</Box>
