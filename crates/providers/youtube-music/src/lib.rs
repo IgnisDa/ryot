@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use anyhow::Result;
 use async_trait::async_trait;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
@@ -10,9 +12,9 @@ use dependent_models::{
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
-    MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-    UniqueMediaIdentifier,
+    CommitMetadataGroupInput, EntityTranslationDetails, MetadataDetails, MetadataGroupSearchItem,
+    MetadataSearchItem, MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleSearchItem, UniqueMediaIdentifier,
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
@@ -39,14 +41,14 @@ impl YoutubeMusicService {
         LANGUAGES
             .iter()
             .map(|l| ProviderSupportedLanguageInformation {
-                value: l.name().to_owned(),
+                value: l.to_string(),
                 label: l.name().to_owned(),
             })
             .collect()
     }
 
     pub fn get_default_language(&self) -> String {
-        Language::En.name().to_owned()
+        Language::En.to_string()
     }
 
     fn order_images_by_size(&self, images: &[Thumbnail]) -> Vec<Thumbnail> {
@@ -327,4 +329,39 @@ impl MediaProvider for YoutubeMusicService {
                 .collect(),
         })
     }
+
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let lang_client = get_lang_client(&self.client, target_language);
+        let details = lang_client.music_details(identifier).await?;
+        Ok(EntityTranslationDetails {
+            title: Some(details.track.name),
+            ..Default::default()
+        })
+    }
+
+    async fn translate_metadata_group(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        todo!()
+    }
+
+    async fn translate_person(
+        &self,
+        identifier: &str,
+        target_language: &str,
+        source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<EntityTranslationDetails> {
+        todo!()
+    }
+}
+
+fn get_lang_client(client: &RustyPipeQuery, target_language: &str) -> RustyPipeQuery {
+    let lang = Language::from_str(target_language).unwrap();
+    client.clone().lang(lang)
 }
