@@ -202,7 +202,9 @@ export default function Page() {
 					details.creators?.flatMap((c) => c.items).map((c) => c.idOrName) ||
 					[],
 				groupIds: details.groups
-					? [...details.groups].sort((a, b) => a.part - b.part).map((g) => g.id)
+					? [...details.groups]
+							.sort((a, b) => (a.part || 0) - (b.part || 0))
+							.map((g) => g.id)
 					: [],
 			});
 		}
