@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anilist_provider::AnilistService;
 use anyhow::Result;
 use audible_provider::AudibleService;
 use common_models::BackendError;
@@ -11,6 +12,7 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CoreDetails, CoreDetailsProviderSpecifics,
     ExerciseFilters, ExerciseParameters, ExerciseParametersLotMapping,
     MetadataGroupSourceLotMapping, MetadataLotSourceMappings, ProviderLanguageInformation,
+    ProviderSupportedLanguageInformation,
 };
 use enum_meta::Meta;
 use enum_models::{
@@ -82,6 +84,7 @@ async fn create_providers(
     TvdbService,
     IgdbService,
     ITunesService,
+    AnilistService,
     AudibleService,
     YoutubeMusicService,
 )> {
@@ -89,22 +92,25 @@ async fn create_providers(
         tmdb_service,
         tvdb_service,
         igdb_service,
-        youtube_music_service,
         itunes_service,
+        anilist_service,
         audible_service,
+        youtube_music_service,
     ) = try_join!(
         TmdbService::new(ss.clone()),
         TvdbService::new(ss.clone()),
         IgdbService::new(ss.clone()),
-        YoutubeMusicService::new(),
         ITunesService::new(ss.clone()),
-        AudibleService::new(&ss.config.audio_books.audible)
+        AnilistService::new(&ss.config.anime_and_manga.anilist),
+        AudibleService::new(&ss.config.audio_books.audible),
+        YoutubeMusicService::new(),
     )?;
     Ok((
         tmdb_service,
         tvdb_service,
         igdb_service,
         itunes_service,
+        anilist_service,
         audible_service,
         youtube_music_service,
     ))
@@ -115,35 +121,21 @@ fn build_provider_language_information(
     tvdb_service: &TvdbService,
     itunes_service: &ITunesService,
     audible_service: &AudibleService,
+    anilist_service: &AnilistService,
     youtube_music_service: &YoutubeMusicService,
 ) -> Result<Vec<ProviderLanguageInformation>> {
     let information = MediaSource::iter()
         .map(|source| {
-            let (supported, default) = match source {
-                MediaSource::Tmdb => (
-                    tmdb_service.get_all_languages(),
-                    tmdb_service.get_default_language(),
-                ),
-                MediaSource::Tvdb => (
-                    tvdb_service.get_all_languages(),
-                    tvdb_service.get_default_language(),
-                ),
-                MediaSource::YoutubeMusic => (
-                    youtube_music_service.get_all_languages(),
-                    youtube_music_service.get_default_language(),
-                ),
-                MediaSource::Itunes => (
-                    itunes_service.get_all_languages(),
-                    itunes_service.get_default_language(),
-                ),
-                MediaSource::Audible => (
-                    audible_service.get_all_languages(),
-                    audible_service.get_default_language(),
-                ),
+            let mut supported = match source {
+                MediaSource::Tmdb => tmdb_service.get_all_languages(),
+                MediaSource::Tvdb => tvdb_service.get_all_languages(),
+                MediaSource::Itunes => itunes_service.get_all_languages(),
+                MediaSource::Anilist => anilist_service.get_all_languages(),
+                MediaSource::Audible => audible_service.get_all_languages(),
+                MediaSource::YoutubeMusic => youtube_music_service.get_all_languages(),
                 MediaSource::Igdb
                 | MediaSource::Vndb
                 | MediaSource::Custom
-                | MediaSource::Anilist
                 | MediaSource::Spotify
                 | MediaSource::GiantBomb
                 | MediaSource::Hardcover
@@ -151,13 +143,13 @@ fn build_provider_language_information(
                 | MediaSource::GoogleBooks
                 | MediaSource::Listennotes
                 | MediaSource::Openlibrary
-                | MediaSource::MangaUpdates => (vec!["us".to_owned()], "us".to_owned()),
+                | MediaSource::MangaUpdates => vec![ProviderSupportedLanguageInformation {
+                    value: "us".to_owned(),
+                    label: "us".to_owned(),
+                }],
             };
-            ProviderLanguageInformation {
-                source,
-                default,
-                supported,
-            }
+            supported.sort_by(|a, b| a.label.cmp(&b.label));
+            ProviderLanguageInformation { source, supported }
         })
         .collect();
     Ok(information)
@@ -238,6 +230,7 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
                 tvdb_service,
                 igdb_service,
                 itunes_service,
+                anilist_service,
                 audible_service,
                 youtube_music_service,
             ) = create_providers(ss).await?;
@@ -245,11 +238,12 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
             let (metadata_lot_source_mappings, metadata_group_source_lot_mappings) =
                 build_metadata_mappings();
             let exercise_parameters = build_exercise_parameters();
-            let metadata_provider_languages = build_provider_language_information(
+            let provider_languages = build_provider_language_information(
                 &tmdb_service,
                 &tvdb_service,
                 &itunes_service,
                 &audible_service,
+                &anilist_service,
                 &youtube_music_service,
             )?;
             let provider_specifics = build_provider_specifics(&igdb_service).await?;
@@ -258,7 +252,7 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
                 provider_specifics,
                 exercise_parameters,
                 page_size: PAGE_SIZE,
-                metadata_provider_languages,
+                provider_languages,
                 metadata_lot_source_mappings,
                 version: APP_VERSION.to_owned(),
                 oidc_enabled: ss.is_oidc_enabled,

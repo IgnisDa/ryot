@@ -99,8 +99,8 @@ pub async fn merge_metadata(
     {
         // TODO: https://github.com/SeaQL/sea-orm/discussions/730#discussioncomment-13440496
         if CollectionToEntity::find()
-            .filter(collection_to_entity::Column::CollectionId.eq(item.collection_id.clone()))
             .filter(collection_to_entity::Column::MetadataId.eq(&merge_into))
+            .filter(collection_to_entity::Column::CollectionId.eq(item.collection_id.clone()))
             .count(&txn)
             .await?
             == 0
@@ -544,8 +544,8 @@ pub async fn handle_metadata_eligible_for_smart_collection_moving(
         .column(collection_entity_membership::Column::UserId)
         .filter(collection_entity_membership::Column::EntityId.eq(&metadata_id))
         .filter(collection_entity_membership::Column::CollectionName.is_in([
-            DefaultCollection::Monitoring.to_string(),
             DefaultCollection::Completed.to_string(),
+            DefaultCollection::Monitoring.to_string(),
         ]))
         .group_by(collection_entity_membership::Column::UserId)
         .having(

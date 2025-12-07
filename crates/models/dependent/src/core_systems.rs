@@ -10,10 +10,15 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct ProviderSupportedLanguageInformation {
+    pub value: String,
+    pub label: String,
+}
+
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ProviderLanguageInformation {
     pub source: MediaSource,
-    pub supported: Vec<String>,
-    pub default: String,
+    pub supported: Vec<ProviderSupportedLanguageInformation>,
 }
 
 #[derive(PartialEq, Eq, Debug, SimpleObject, Serialize, Deserialize, Clone)]
@@ -92,8 +97,8 @@ pub struct CoreDetails {
     pub exercise_parameters: ExerciseParameters,
     pub frontend: config_definition::FrontendConfig,
     pub provider_specifics: CoreDetailsProviderSpecifics,
+    pub provider_languages: Vec<ProviderLanguageInformation>,
     pub metadata_lot_source_mappings: Vec<MetadataLotSourceMappings>,
-    pub metadata_provider_languages: Vec<ProviderLanguageInformation>,
     pub metadata_group_source_lot_mappings: Vec<MetadataGroupSourceLotMapping>,
 }
 

@@ -1,8 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use common_models::{EntityAssets, NamedObject, SearchDetails};
-use common_utils::get_base_http_client;
-use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
+use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date, get_base_http_client};
 use convert_case::{Case, Casing};
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
 use enum_models::{MediaLot, MediaSource};
@@ -146,10 +145,10 @@ async fn search(
         .data
         .into_iter()
         .map(|d| MetadataSearchItem {
-            identifier: d.node.id.to_string(),
             title: d.node.title,
-            publish_year: d.node.start_date.and_then(|d| convert_date_to_year(&d)),
+            identifier: d.node.id.to_string(),
             image: Some(d.node.main_picture.large),
+            publish_year: d.node.start_date.and_then(|d| convert_date_to_year(&d)),
         })
         .collect();
     Ok((items, 100, search.paging.next.map(|_| page + 1)))
@@ -164,17 +163,16 @@ struct ItemImage {
 struct ItemNode {
     id: i128,
     title: String,
-    main_picture: ItemImage,
     nsfw: Option<String>,
-    synopsis: Option<String>,
-    genres: Option<Vec<NamedObject>>,
-    studios: Option<Vec<NamedObject>>,
-    start_date: Option<String>,
     mean: Option<Decimal>,
     status: Option<String>,
+    main_picture: ItemImage,
+    num_volumes: Option<i32>,
+    synopsis: Option<String>,
     num_episodes: Option<i32>,
     num_chapters: Option<i32>,
-    num_volumes: Option<i32>,
+    start_date: Option<String>,
+    genres: Option<Vec<NamedObject>>,
     related_anime: Option<Vec<ItemData>>,
     related_manga: Option<Vec<ItemData>>,
     recommendations: Option<Vec<ItemData>>,

@@ -1,19 +1,24 @@
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use common_models::SearchDetails;
-use common_utils::PAGE_SIZE;
-use common_utils::get_base_http_client;
-use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, SearchResults, TvdbSettings};
+use common_utils::{PAGE_SIZE, get_base_http_client};
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, ProviderSupportedLanguageInformation,
+    SearchResults, TvdbSettings,
+};
 use itertools::Itertools;
-use media_models::MetadataSearchItem;
+use media_models::{EntityTranslationDetails, MetadataSearchItem};
 use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},
 };
 use supporting_service::SupportingService;
 
-use crate::models::{TvdbLanguagesApiResponse, TvdbLoginResponse, TvdbSearchResponse, URL};
+use crate::models::{
+    TvdbItemTranslationResponse, TvdbLanguagesApiResponse, TvdbLoginResponse, TvdbSearchResponse,
+    URL,
+};
 
 pub struct TvdbService {
     pub client: Client,
@@ -30,16 +35,15 @@ impl TvdbService {
         Ok(Self { client, settings })
     }
 
-    pub fn get_all_languages(&self) -> Vec<String> {
+    pub fn get_all_languages(&self) -> Vec<ProviderSupportedLanguageInformation> {
         self.settings
             .languages
             .iter()
-            .map(|l| l.id.clone())
+            .map(|l| ProviderSupportedLanguageInformation {
+                value: l.id.clone(),
+                label: l.name.clone(),
+            })
             .collect()
-    }
-
-    pub fn get_default_language(&self) -> String {
-        "en".to_owned()
     }
 
     pub fn get_language_name(&self, iso: Option<String>) -> Option<String> {
@@ -102,6 +106,32 @@ impl TvdbService {
                 next_page,
                 total_items,
             },
+        })
+    }
+
+    pub async fn translate(
+        &self,
+        entity_type: &str,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let response = self
+            .client
+            .get(format!(
+                "{URL}/{entity_type}/{identifier}/translations/{target_language}",
+            ))
+            .send()
+            .await?
+            .json::<TvdbItemTranslationResponse>()
+            .await?;
+
+        if response.status != "success" {
+            bail!("Translation not found");
+        }
+
+        Ok(EntityTranslationDetails {
+            title: response.data.name,
+            description: response.data.overview,
         })
     }
 }

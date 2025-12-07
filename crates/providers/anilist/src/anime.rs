@@ -3,13 +3,12 @@ use async_trait::async_trait;
 use common_models::SearchDetails;
 use common_utils::PAGE_SIZE;
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
-use media_models::MetadataDetails;
-use media_models::MetadataSearchItem;
+use media_models::{EntityTranslationDetails, MetadataDetails, MetadataSearchItem};
 use traits::MediaProvider;
 
 use crate::{
     base::AnilistService,
-    models::{MediaType, media_details, search},
+    models::{MediaType, media_details, search, translate_media},
 };
 
 #[derive(Debug, Clone)]
@@ -24,7 +23,7 @@ impl AnilistAnimeService {
 #[async_trait]
 impl MediaProvider for AnilistAnimeService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
-        let details = media_details(&self.0.client, identifier, &self.0.preferred_language).await?;
+        let details = media_details(&self.0.client, identifier).await?;
         Ok(details)
     }
 
@@ -42,7 +41,6 @@ impl MediaProvider for AnilistAnimeService {
             page,
             PAGE_SIZE,
             display_nsfw,
-            &self.0.preferred_language,
         )
         .await?;
         Ok(SearchResults {
@@ -52,5 +50,13 @@ impl MediaProvider for AnilistAnimeService {
                 total_items,
             },
         })
+    }
+
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        translate_media(&self.0.client, identifier, target_language).await
     }
 }

@@ -7,16 +7,15 @@ use axum::{
     body::Body,
     extract::{Multipart, Path},
     http::{
-        StatusCode,
-        header::{CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_TYPE, PRAGMA},
+        HeaderMap, HeaderValue, StatusCode,
+        header::{CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_TYPE, PRAGMA},
     },
     response::{Html, IntoResponse},
 };
 use background_models::{ApplicationJob, SingleApplicationJob};
 use common_utils::get_temporary_directory;
-use config_definition::{AppConfig, MaskedConfig};
+use config_definition::MaskedConfig;
 use dependent_models::{ApplicationCacheKey, EmptyCacheValue, ExpireCacheKeyInput};
-use integration_service::IntegrationService;
 use nanoid::nanoid;
 use supporting_service::SupportingService;
 use tokio::fs::File;
@@ -28,8 +27,8 @@ pub async fn graphql_playground_handler() -> impl IntoResponse {
     )))
 }
 
-pub async fn config_handler(Extension(config): Extension<Arc<AppConfig>>) -> impl IntoResponse {
-    Json(config.masked())
+pub async fn config_handler(Extension(ss): Extension<Arc<SupportingService>>) -> impl IntoResponse {
+    Json(ss.config.masked())
 }
 
 /// Upload a file to the temporary file system. Primarily to be used for uploading
@@ -54,16 +53,14 @@ pub async fn upload_file_handler(
 
 pub async fn integration_webhook_handler(
     Path(integration_slug): Path<String>,
-    Extension(integration_service): Extension<Arc<IntegrationService>>,
+    Extension(ss): Extension<Arc<SupportingService>>,
     payload: String,
 ) -> StdResult<(StatusCode, String), StatusCode> {
-    integration_service
-        .0
-        .perform_application_job(ApplicationJob::Single(
-            SingleApplicationJob::ProcessIntegrationWebhook(integration_slug, payload),
-        ))
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    ss.perform_application_job(ApplicationJob::Single(
+        SingleApplicationJob::ProcessIntegrationWebhook(integration_slug, payload),
+    ))
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok((
         StatusCode::ACCEPTED,
         "Webhook queued for processing".to_owned(),
@@ -91,15 +88,24 @@ pub async fn download_logs_handler(
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
 
+    let file_size = file
+        .metadata()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .len();
+
     let stream = ReaderStream::new(file);
     let body = Body::from_stream(stream);
 
-    let headers = [
-        (PRAGMA, "no-cache"),
-        (CACHE_CONTROL, "no-store"),
-        (CONTENT_TYPE, "text/plain"),
-        (CONTENT_DISPOSITION, r#"attachment; filename="ryot.log""#),
-    ];
+    let mut headers = HeaderMap::new();
+    headers.insert(CONTENT_LENGTH, HeaderValue::from(file_size));
+    headers.insert(PRAGMA, HeaderValue::from_static("no-cache"));
+    headers.insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    headers.insert(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
+    headers.insert(
+        CONTENT_DISPOSITION,
+        HeaderValue::from_static(r#"attachment; filename="ryot.log""#),
+    );
 
     Ok((headers, body))
 }

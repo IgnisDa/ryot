@@ -6,11 +6,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "metadata_to_metadata_group")]
 pub struct Model {
-    pub part: i32,
-    #[sea_orm(primary_key, auto_increment = false)]
-    pub metadata_group_id: String,
+    pub part: Option<i32>,
     #[sea_orm(primary_key, auto_increment = false)]
     pub metadata_id: String,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub metadata_group_id: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

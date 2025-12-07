@@ -1,11 +1,7 @@
 # Settings related to anime and manga.
 anime_and_manga:
   # Settings related to Anilist.
-  anilist:
-    # The preferred language for media from this source.
-    # @env ANIME_AND_MANGA_ANILIST_PREFERRED_LANGUAGE
-    # @values "english" | "native" | "romaji"
-    preferred_language: "native"
+  anilist: {}
 
   # Settings related to MAL.
   mal:
@@ -19,11 +15,7 @@ anime_and_manga:
 # Settings related to audio books.
 audio_books:
   # Settings related to Audible.
-  audible:
-    # Settings related to locale for making requests Audible.
-    # @env AUDIO_BOOKS_AUDIBLE_LOCALE
-    # @values "au" | "ca" | "fr" | "de" | "gb" | "in" | "it" | "jp" | "es" | "uk" | "us"
-    locale: "us"
+  audible: {}
 
 # Settings related to books.
 books:
@@ -115,10 +107,6 @@ movies_and_shows:
     # @env MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN
     access_token: ""
 
-    # The locale to use for making requests to TMDB API.
-    # @env MOVIES_AND_SHOWS_TMDB_LOCALE
-    locale: "en"
-
   # Settings related to TVDB.
   tvdb:
     # The API key for the TVDB API.
@@ -140,10 +128,7 @@ music:
 # Settings related to podcasts.
 podcasts:
   # Settings related to iTunes.
-  itunes:
-    # The locale to use for making requests to iTunes API.
-    # @env PODCASTS_ITUNES_LOCALE
-    locale: "en_us"
+  itunes: {}
 
   # Settings related to Listennotes.
   listennotes:

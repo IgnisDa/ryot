@@ -49,13 +49,13 @@ impl MigrationTrait for Migration {
                             .array(ColumnType::Text)
                             .not_null(),
                     )
+                    .col(ColumnDef::new(Exercise::Assets).json_binary().not_null())
                     .col(
                         ColumnDef::new(Exercise::Instructions)
                             .array(ColumnType::Text)
                             .not_null()
                             .default("{}"),
                     )
-                    .col(ColumnDef::new(Exercise::Assets).json_binary().not_null())
                     .col(
                         ColumnDef::new(Exercise::AggregatedInstructions)
                             .text()

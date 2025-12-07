@@ -6,11 +6,14 @@ use chrono::Datelike;
 use common_models::{EntityAssets, NamedObject, SearchDetails};
 use common_utils::{PAGE_SIZE, get_base_http_client, ryot_log};
 use database_models::{metadata, prelude::Metadata};
-use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
+use dependent_models::{
+    MetadataSearchSourceSpecifics, ProviderSupportedLanguageInformation, SearchResults,
+};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataFreeCreator, MetadataSearchItem, PodcastEpisode, PodcastSpecifics,
+    EntityTranslationDetails, MetadataDetails, MetadataFreeCreator, MetadataSearchItem,
+    PodcastEpisode, PodcastSpecifics,
 };
 use reqwest::Client;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc};
@@ -22,23 +25,26 @@ static URL: &str = "https://itunes.apple.com";
 
 pub struct ITunesService {
     client: Client,
-    language: String,
     ss: Arc<SupportingService>,
 }
 
 impl ITunesService {
     pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
         let client = get_base_http_client(None);
-        let language = ss.config.podcasts.itunes.locale.clone();
-        Ok(Self {
-            ss,
-            client,
-            language,
-        })
+        Ok(Self { ss, client })
     }
 
-    pub fn get_all_languages(&self) -> Vec<String> {
-        vec!["en_us".to_string(), "ja_jp".to_string()]
+    pub fn get_all_languages(&self) -> Vec<ProviderSupportedLanguageInformation> {
+        vec![
+            ProviderSupportedLanguageInformation {
+                value: "en_us".to_owned(),
+                label: "English (US)".to_owned(),
+            },
+            ProviderSupportedLanguageInformation {
+                value: "ja_jp".to_owned(),
+                label: "Japanese".to_owned(),
+            },
+        ]
     }
 
     pub fn get_default_language(&self) -> String {
@@ -88,7 +94,7 @@ impl MediaProvider for ITunesService {
                 ("id", identifier),
                 ("media", "podcast"),
                 ("entity", "podcast"),
-                ("lang", self.language.as_str()),
+                ("lang", &self.get_default_language()),
             ])
             .send()
             .await?;
@@ -121,7 +127,7 @@ impl MediaProvider for ITunesService {
                 ("id", identifier),
                 ("media", "podcast"),
                 ("entity", "podcastEpisode"),
-                ("lang", self.language.as_str()),
+                ("lang", &self.get_default_language()),
                 ("limit", &total_episodes.to_string()),
             ])
             .send()
@@ -233,7 +239,7 @@ impl MediaProvider for ITunesService {
                 ("term", query),
                 ("media", "podcast"),
                 ("entity", "podcast"),
-                ("lang", self.language.as_str()),
+                ("lang", &self.get_default_language()),
             ])
             .send()
             .await?;
@@ -259,6 +265,30 @@ impl MediaProvider for ITunesService {
                 total_items,
                 next_page: (total_items > page * PAGE_SIZE).then(|| page + 1),
             },
+        })
+    }
+
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let rsp = self
+            .client
+            .get(format!("{URL}/lookup"))
+            .query(&[
+                ("id", identifier),
+                ("media", "podcast"),
+                ("entity", "podcast"),
+                ("lang", target_language),
+            ])
+            .send()
+            .await?;
+        let details: SearchResponse = rsp.json().await?;
+        let item = details.results.and_then(|s| s.first().cloned());
+        Ok(EntityTranslationDetails {
+            title: item.clone().map(|i| i.collection_name.clone()),
+            description: item.and_then(|i| i.description.clone()),
         })
     }
 }

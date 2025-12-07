@@ -7,8 +7,7 @@ use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, IdAndNamedObject, IdObject,
     NamedObject, PersonSourceSpecifics, SearchDetails,
 };
-use common_utils::get_base_http_client;
-use common_utils::{PAGE_SIZE, compute_next_page};
+use common_utils::{PAGE_SIZE, compute_next_page, get_base_http_client};
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
@@ -255,7 +254,7 @@ offset: {offset};
                 image: d.cover.map(|c| self.get_cover_image_url(c.image_id)),
             })
             .collect_vec();
-        let next_page = compute_next_page(page, PAGE_SIZE, total_items);
+        let next_page = compute_next_page(page, total_items);
         Ok(SearchResults {
             items: resp.clone(),
             details: SearchDetails {
@@ -361,7 +360,7 @@ offset: {offset};
                 }
             })
             .collect_vec();
-        let next_page = compute_next_page(page, PAGE_SIZE, total_items);
+        let next_page = compute_next_page(page, total_items);
         Ok(SearchResults {
             items: resp.clone(),
             details: SearchDetails {
@@ -588,7 +587,7 @@ offset: {offset};
             })
             .collect_vec();
 
-        let next_page = compute_next_page(page, PAGE_SIZE, total_items);
+        let next_page = compute_next_page(page, total_items);
         Ok(SearchResults {
             items: resp,
             details: SearchDetails {

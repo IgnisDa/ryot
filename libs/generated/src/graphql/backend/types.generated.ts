@@ -136,6 +136,12 @@ export type CachedCollectionsListResponse = {
   response: Array<CollectionItem>;
 };
 
+export type CachedEntityTranslationDetails = {
+  __typename?: 'CachedEntityTranslationDetails';
+  cacheId: Scalars['UUID']['output'];
+  response?: Maybe<EntityTranslationDetails>;
+};
+
 export type CachedFilterPresetsResponse = {
   __typename?: 'CachedFilterPresetsResponse';
   cacheId: Scalars['UUID']['output'];
@@ -360,10 +366,10 @@ export type CoreDetails = {
   maxFileSizeMb: Scalars['Int']['output'];
   metadataGroupSourceLotMappings: Array<MetadataGroupSourceLotMapping>;
   metadataLotSourceMappings: Array<MetadataLotSourceMappings>;
-  metadataProviderLanguages: Array<ProviderLanguageInformation>;
   oidcEnabled: Scalars['Boolean']['output'];
   pageSize: Scalars['Int']['output'];
   peopleSearchSources: Array<MediaSource>;
+  providerLanguages: Array<ProviderLanguageInformation>;
   providerSpecifics: CoreDetailsProviderSpecifics;
   repositoryLink: Scalars['String']['output'];
   signupAllowed: Scalars['Boolean']['output'];
@@ -725,9 +731,20 @@ export type EntityToCollectionInput = {
   information?: InputMaybe<Scalars['JSON']['input']>;
 };
 
+export type EntityTranslationDetails = {
+  __typename?: 'EntityTranslationDetails';
+  description?: Maybe<Scalars['String']['output']>;
+  title?: Maybe<Scalars['String']['output']>;
+};
+
 export type EntityWithLot = {
   __typename?: 'EntityWithLot';
   entityId: Scalars['String']['output'];
+  entityLot: EntityLot;
+};
+
+export type EntityWithLotInput = {
+  entityId: Scalars['String']['input'];
   entityLot: EntityLot;
 };
 
@@ -987,8 +1004,6 @@ export type GraphqlCalendarEvent = {
   date: Scalars['NaiveDate']['output'];
   metadataId: Scalars['String']['output'];
   metadataImage?: Maybe<Scalars['String']['output']>;
-  metadataLot: MediaLot;
-  metadataText: Scalars['String']['output'];
   podcastExtraInformation?: Maybe<SeenPodcastExtraInformation>;
   showExtraInformation?: Maybe<SeenShowExtraInformation>;
 };
@@ -1038,7 +1053,7 @@ export type GraphqlMetadataDetails = {
 export type GraphqlMetadataGroup = {
   __typename?: 'GraphqlMetadataGroup';
   id: Scalars['String']['output'];
-  part: Scalars['Int']['output'];
+  part?: Maybe<Scalars['Int']['output']>;
 };
 
 export type GraphqlPersonDetails = {
@@ -1291,11 +1306,6 @@ export type MangaSpecificsInput = {
   volumes?: InputMaybe<Scalars['Int']['input']>;
 };
 
-export type MarkEntityAsPartialInput = {
-  entityId: Scalars['String']['input'];
-  entityLot: EntityLot;
-};
-
 export type MediaCollectionContentsResults = {
   __typename?: 'MediaCollectionContentsResults';
   details: SearchDetails;
@@ -1408,9 +1418,11 @@ export type MetadataGroup = {
   assets: EntityAssets;
   createdByUserId?: Maybe<Scalars['String']['output']>;
   description?: Maybe<Scalars['String']['output']>;
+  hasTranslationsForLanguages?: Maybe<Array<Scalars['String']['output']>>;
   id: Scalars['String']['output'];
   identifier: Scalars['String']['output'];
   isPartial?: Maybe<Scalars['Boolean']['output']>;
+  lastUpdatedOn: Scalars['DateTime']['output'];
   lot: MediaLot;
   parts: Scalars['Int']['output'];
   source: MediaSource;
@@ -1650,6 +1662,8 @@ export type MutationRoot = {
   deployRemoveEntitiesFromCollectionJob: Scalars['Boolean']['output'];
   /** Deploy a job to update a media entity's metadata. */
   deployUpdateMediaEntityJob: Scalars['Boolean']['output'];
+  /** Deploy a job to update media translations in the background. */
+  deployUpdateMediaTranslationsJob: Scalars['Boolean']['output'];
   /**
    * Use this mutation to call a function that needs to be tested for implementation.
    * It is only available in development mode.
@@ -1892,8 +1906,12 @@ export type MutationRootDeployRemoveEntitiesFromCollectionJobArgs = {
 
 
 export type MutationRootDeployUpdateMediaEntityJobArgs = {
-  entityId: Scalars['String']['input'];
-  entityLot: EntityLot;
+  input: EntityWithLotInput;
+};
+
+
+export type MutationRootDeployUpdateMediaTranslationsJobArgs = {
+  input: EntityWithLotInput;
 };
 
 
@@ -1918,7 +1936,7 @@ export type MutationRootLoginUserArgs = {
 
 
 export type MutationRootMarkEntityAsPartialArgs = {
-  input: MarkEntityAsPartialInput;
+  input: EntityWithLotInput;
 };
 
 
@@ -2084,6 +2102,7 @@ export type Person = {
   deathDate?: Maybe<Scalars['NaiveDate']['output']>;
   description?: Maybe<Scalars['String']['output']>;
   gender?: Maybe<Scalars['String']['output']>;
+  hasTranslationsForLanguages?: Maybe<Array<Scalars['String']['output']>>;
   id: Scalars['String']['output'];
   identifier: Scalars['String']['output'];
   isPartial?: Maybe<Scalars['Boolean']['output']>;
@@ -2208,7 +2227,13 @@ export type ProviderLanguageInformation = {
   __typename?: 'ProviderLanguageInformation';
   default: Scalars['String']['output'];
   source: MediaSource;
-  supported: Array<Scalars['String']['output']>;
+  supported: Array<ProviderSupportedLanguageInformation>;
+};
+
+export type ProviderSupportedLanguageInformation = {
+  __typename?: 'ProviderSupportedLanguageInformation';
+  label: Scalars['String']['output'];
+  value: Scalars['String']['output'];
 };
 
 export type QueryRoot = {
@@ -2231,6 +2256,8 @@ export type QueryRoot = {
   getOidcToken: OidcTokenOutput;
   /** Get a presigned URL (valid for 90 minutes) for a given key. */
   getPresignedS3Url: Scalars['String']['output'];
+  /** Fetch translations for a given media item. */
+  mediaTranslations: CachedEntityTranslationDetails;
   /** Get details about a media present in the database. */
   metadataDetails: CachedGraphqlMetadataDetailsResponse;
   /** Get details about a metadata group present in the database. */
@@ -2343,6 +2370,11 @@ export type QueryRootGetPresignedS3UrlArgs = {
 };
 
 
+export type QueryRootMediaTranslationsArgs = {
+  input: EntityWithLotInput;
+};
+
+
 export type QueryRootMetadataDetailsArgs = {
   metadataId: Scalars['String']['input'];
 };
@@ -2394,8 +2426,7 @@ export type QueryRootUserCalendarEventsArgs = {
 
 
 export type QueryRootUserEntityRecentlyConsumedArgs = {
-  entityId: Scalars['String']['input'];
-  entityLot: EntityLot;
+  input: EntityWithLotInput;
 };
 
 
@@ -2979,7 +3010,6 @@ export type UserGeneralPreferences = {
   landingPath: Scalars['String']['output'];
   listPageSize: Scalars['Int']['output'];
   reviewScale: UserReviewScale;
-  showSpoilersInCalendar: Scalars['Boolean']['output'];
   watchProviders: Array<UserGeneralWatchProvider>;
 };
 
@@ -2994,7 +3024,6 @@ export type UserGeneralPreferencesInput = {
   landingPath: Scalars['String']['input'];
   listPageSize: Scalars['Int']['input'];
   reviewScale: UserReviewScale;
-  showSpoilersInCalendar: Scalars['Boolean']['input'];
   watchProviders: Array<UserGeneralWatchProviderInput>;
 };
 
@@ -3007,6 +3036,15 @@ export type UserGeneralWatchProvider = {
 export type UserGeneralWatchProviderInput = {
   lot: MediaLot;
   values: Array<Scalars['String']['input']>;
+};
+
+export type UserLanguagePreferences = {
+  __typename?: 'UserLanguagePreferences';
+  providers: Array<UserProviderLanguagePreferences>;
+};
+
+export type UserLanguagePreferencesInput = {
+  providers: Array<UserProviderLanguagePreferencesInput>;
 };
 
 export enum UserLot {
@@ -3206,12 +3244,25 @@ export type UserPreferences = {
   featuresEnabled: UserFeaturesEnabledPreferences;
   fitness: UserFitnessPreferences;
   general: UserGeneralPreferences;
+  languages: UserLanguagePreferences;
 };
 
 export type UserPreferencesInput = {
   featuresEnabled: UserFeaturesEnabledPreferencesInput;
   fitness: UserFitnessPreferencesInput;
   general: UserGeneralPreferencesInput;
+  languages: UserLanguagePreferencesInput;
+};
+
+export type UserProviderLanguagePreferences = {
+  __typename?: 'UserProviderLanguagePreferences';
+  preferredLanguage: Scalars['String']['output'];
+  source: MediaSource;
+};
+
+export type UserProviderLanguagePreferencesInput = {
+  preferredLanguage: Scalars['String']['input'];
+  source: MediaSource;
 };
 
 export type UserResetResponse = {

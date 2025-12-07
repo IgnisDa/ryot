@@ -112,9 +112,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				["active", "trialing"].includes(sub.status),
 			);
 
-			if (!activeSubscription) {
-				throw new Error("No active subscription found");
-			}
+			if (!activeSubscription) throw new Error("No active subscription found");
 
 			console.log("Active Subscription:", {
 				customerId: customer.id,

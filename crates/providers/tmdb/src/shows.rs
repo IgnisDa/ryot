@@ -5,7 +5,9 @@ use async_trait::async_trait;
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics, SearchDetails,
 };
-use common_utils::{SHOW_SPECIAL_SEASON_NAMES, convert_date_to_year, convert_string_to_date};
+use common_utils::{
+    SHOW_SPECIAL_SEASON_NAMES, compute_next_page, convert_date_to_year, convert_string_to_date,
+};
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
 use enum_models::MediaSource;
 use futures::{
@@ -15,14 +17,17 @@ use futures::{
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
-    ShowEpisode, ShowSeason, ShowSpecifics,
+    EntityTranslationDetails, MetadataDetails, MetadataSearchItem, PartialMetadataPerson,
+    PartialMetadataWithoutId, ShowEpisode, ShowSeason, ShowSpecifics,
 };
 use rust_decimal::dec;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
-use crate::{base::TmdbService, models::*};
+use crate::{
+    base::TmdbService,
+    models::{TmdbListResponse, TmdbMediaEntry, TmdbSeason, TmdbSeasonCredit, URL},
+};
 
 pub struct TmdbShowService(TmdbService);
 
@@ -40,8 +45,8 @@ impl MediaProvider for TmdbShowService {
             .client
             .get(format!("{}/tv/{}", URL, &identifier))
             .query(&[
-                ("language", self.0.language.as_str()),
                 ("append_to_response", "videos"),
+                ("language", &self.0.get_default_language()),
             ])
             .send()
             .await?;
@@ -189,21 +194,9 @@ impl MediaProvider for TmdbShowService {
                 ..Default::default()
             },
             show_specifics: Some(ShowSpecifics {
-                runtime: if total_runtime == 0 {
-                    None
-                } else {
-                    Some(total_runtime)
-                },
-                total_seasons: if total_seasons == 0 {
-                    None
-                } else {
-                    Some(total_seasons)
-                },
-                total_episodes: if total_episodes == 0 {
-                    None
-                } else {
-                    Some(total_episodes)
-                },
+                runtime: Some(total_runtime).filter(|&v| v != 0),
+                total_seasons: Some(total_seasons).filter(|&v| v != 0),
+                total_episodes: Some(total_episodes).filter(|&v| v != 0),
                 seasons: seasons
                     .into_iter()
                     .map(|s| {
@@ -261,7 +254,7 @@ impl MediaProvider for TmdbShowService {
             .query(&[
                 ("query", query),
                 ("page", &page.to_string()),
-                ("language", self.0.language.as_str()),
+                ("language", &self.0.get_default_language()),
                 ("include_adult", &display_nsfw.to_string()),
             ])
             .send()
@@ -277,7 +270,7 @@ impl MediaProvider for TmdbShowService {
                 publish_year: convert_date_to_year(&d.first_air_date.unwrap()),
             })
             .collect_vec();
-        let next_page = (page < search.total_pages).then(|| page + 1);
+        let next_page = compute_next_page(page, search.total_results);
         Ok(SearchResults {
             items: resp.to_vec(),
             details: SearchDetails {
@@ -290,6 +283,25 @@ impl MediaProvider for TmdbShowService {
     async fn get_trending_media(&self) -> Result<Vec<PartialMetadataWithoutId>> {
         self.0.get_trending_media("tv").await
     }
+
+    async fn translate_metadata(
+        &self,
+        identifier: &str,
+        target_language: &str,
+    ) -> Result<EntityTranslationDetails> {
+        let rsp = self
+            .0
+            .client
+            .get(format!("{URL}/tv/{identifier}"))
+            .query(&[("language", target_language)])
+            .send()
+            .await?;
+        let data: TmdbMediaEntry = rsp.json().await?;
+        Ok(EntityTranslationDetails {
+            title: data.name,
+            description: data.overview,
+        })
+    }
 }
 
 pub async fn fetch_season_with_credits(
@@ -300,7 +312,7 @@ pub async fn fetch_season_with_credits(
     let season_data_future = base
         .client
         .get(format!("{URL}/tv/{identifier}/season/{season_number}"))
-        .query(&[("language", base.language.as_str())])
+        .query(&[("language", &base.get_default_language())])
         .send();
 
     let season_credits_future = base
@@ -308,7 +320,7 @@ pub async fn fetch_season_with_credits(
         .get(format!(
             "{URL}/tv/{identifier}/season/{season_number}/credits"
         ))
-        .query(&[("language", base.language.as_str())])
+        .query(&[("language", &base.get_default_language())])
         .send();
 
     let (season_resp, credits_resp) = try_join!(season_data_future, season_credits_future)?;

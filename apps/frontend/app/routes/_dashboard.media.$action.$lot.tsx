@@ -272,9 +272,7 @@ export default function Page(props: {
 									lot: lot.toLowerCase(),
 								}),
 							);
-							if (v === "search") {
-								advanceOnboardingTourStep();
-							}
+							if (v === "search") advanceOnboardingTourStep();
 						}
 					}}
 				>

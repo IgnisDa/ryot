@@ -11,8 +11,8 @@ use database_models::{
     user_to_entity,
 };
 use database_utils::user_by_id;
-use enum_models::{MediaLot, UserToMediaReason};
-use futures::{TryFutureExt, try_join};
+use enum_models::UserToMediaReason;
+use futures::TryFutureExt;
 use itertools::Itertools;
 use media_models::{
     GraphqlCalendarEvent, PodcastSpecifics, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
@@ -98,8 +98,6 @@ async fn get_calendar_events(
     struct CalEvent {
         id: String,
         date: NaiveDate,
-        m_lot: MediaLot,
-        m_title: String,
         metadata_id: String,
         m_assets: EntityAssets,
         m_show_specifics: Option<ShowSpecifics>,
@@ -121,14 +119,6 @@ async fn get_calendar_events(
                             calendar_event::Column::MetadataId,
                         )))
                 })
-                .column_as(
-                    Expr::col((metadata::Entity, metadata::Column::Lot)),
-                    "m_lot",
-                )
-                .column_as(
-                    Expr::col((metadata::Entity, metadata::Column::Title)),
-                    "m_title",
-                )
                 .column_as(
                     Expr::col((metadata::Entity, metadata::Column::Assets)),
                     "m_assets",
@@ -179,20 +169,15 @@ async fn get_calendar_events(
         )
         .order_by(calendar_event::Column::Date, Order::Asc)
         .to_owned();
-    let (user, all_events) = try_join!(
-        user_by_id(&user_id, ss),
-        CalEvent::find_by_statement(get_db_stmt(stmt))
-            .all(&ss.db)
-            .map_err(|_| anyhow!("Failed to fetch calendar events"))
-    )?;
-    let show_spoilers_in_calendar = user.preferences.general.show_spoilers_in_calendar;
+    let all_events = CalEvent::find_by_statement(get_db_stmt(stmt))
+        .all(&ss.db)
+        .map_err(|_| anyhow!("Failed to fetch calendar events"))
+        .await?;
     let mut events = vec![];
     for evt in all_events {
         let mut calc = GraphqlCalendarEvent {
             date: evt.date,
-            metadata_lot: evt.m_lot,
             calendar_event_id: evt.id,
-            metadata_text: evt.m_title,
             metadata_id: evt.metadata_id,
             ..Default::default()
         };
@@ -203,9 +188,6 @@ async fn get_calendar_events(
                 && let Some((_, ep)) = get_show_episode_by_numbers(&sh, s.season, s.episode)
             {
                 image = ep.poster_images.first().cloned();
-                if show_spoilers_in_calendar {
-                    calc.metadata_text = ep.name.clone();
-                }
             }
             calc.show_extra_information = Some(s);
         } else if let Some(p) = evt.metadata_podcast_extra_information {
@@ -213,9 +195,6 @@ async fn get_calendar_events(
                 && let Some(ep) = get_podcast_episode_by_number(&po, p.episode)
             {
                 image = ep.thumbnail.clone();
-                if show_spoilers_in_calendar {
-                    calc.metadata_text = ep.title.clone();
-                }
             };
             calc.podcast_extra_information = Some(p);
         } else if let Some(a) = evt.metadata_anime_extra_information {

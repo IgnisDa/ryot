@@ -111,6 +111,9 @@ const mediaQueryKeys = createQueryKeys("media", {
 	userEntityRecentlyConsumed: (entityId?: string) => ({
 		queryKey: ["userEntityRecentlyConsumed", entityId],
 	}),
+	entityTranslations: (entityId?: string, entityLot?: EntityLot) => ({
+		queryKey: ["entityTranslations", entityId, entityLot],
+	}),
 });
 
 const collectionQueryKeys = createQueryKeys("collections", {
@@ -248,8 +251,7 @@ export const getUserEntityRecentlyConsumedQuery = (
 				? () =>
 						clientGqlService
 							.request(UserEntityRecentlyConsumedDocument, {
-								entityId,
-								entityLot,
+								input: { entityId, entityLot },
 							})
 							.then((data) => data.userEntityRecentlyConsumed)
 				: skipToken,
@@ -267,6 +269,7 @@ export const refreshEntityDetails = (entityId: string) =>
 				queryFactory.media.metadataGroupDetails(entityId).queryKey,
 				queryFactory.media.userMetadataGroupDetails(entityId).queryKey,
 				queryFactory.media.userEntityRecentlyConsumed(entityId).queryKey,
+				queryFactory.media.entityTranslations(entityId).queryKey,
 				queryFactory.fitness.workoutTemplateDetails(entityId).queryKey,
 				queryFactory.media.userGenresList._def,
 				queryFactory.media.userPeopleList._def,

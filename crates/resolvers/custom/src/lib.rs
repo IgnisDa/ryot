@@ -1,24 +1,26 @@
 use async_graphql::{Context, Object, Result};
 use common_models::StringIdObject;
-use custom_service::CustomService;
 use database_models::exercise;
+use dependent_fitness_utils::{create_custom_exercise, update_custom_exercise};
 use dependent_models::UpdateCustomExerciseInput;
 use media_models::{
     CreateCustomMetadataGroupInput, CreateCustomMetadataInput, CreateCustomPersonInput,
     UpdateCustomMetadataInput,
 };
-use traits::{AuthProvider, GraphqlResolverSvc};
+use miscellaneous_metadata_operations_service::{
+    create_custom_metadata, create_custom_metadata_group, create_custom_person,
+    update_custom_metadata, update_custom_metadata_group, update_custom_person,
+};
+use traits::GraphqlDependencyInjector;
 
 #[derive(Default)]
 pub struct CustomMutationResolver;
 
-impl AuthProvider for CustomMutationResolver {
+impl GraphqlDependencyInjector for CustomMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
-
-impl GraphqlResolverSvc<CustomService> for CustomMutationResolver {}
 
 #[Object]
 impl CustomMutationResolver {
@@ -28,8 +30,8 @@ impl CustomMutationResolver {
         gql_ctx: &Context<'_>,
         input: exercise::Model,
     ) -> Result<String> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.create_custom_exercise(&user_id, input).await?)
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(create_custom_exercise(&user_id, input, service).await?)
     }
 
     /// Update a custom exercise.
@@ -38,8 +40,8 @@ impl CustomMutationResolver {
         gql_ctx: &Context<'_>,
         input: UpdateCustomExerciseInput,
     ) -> Result<bool> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.update_custom_exercise(user_id, input).await?)
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(update_custom_exercise(service, user_id, input).await?)
     }
 
     /// Create a custom media item.
@@ -48,8 +50,8 @@ impl CustomMutationResolver {
         gql_ctx: &Context<'_>,
         input: CreateCustomMetadataInput,
     ) -> Result<StringIdObject> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let metadata = service.create_custom_metadata(user_id, input).await?;
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        let metadata = create_custom_metadata(service, user_id, input).await?;
         Ok(StringIdObject { id: metadata.id })
     }
 
@@ -59,8 +61,8 @@ impl CustomMutationResolver {
         gql_ctx: &Context<'_>,
         input: UpdateCustomMetadataInput,
     ) -> Result<bool> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.update_custom_metadata(&user_id, input).await?)
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(update_custom_metadata(service, &user_id, input).await?)
     }
 
     /// Create a custom metadata group.
@@ -69,10 +71,8 @@ impl CustomMutationResolver {
         gql_ctx: &Context<'_>,
         input: CreateCustomMetadataGroupInput,
     ) -> Result<StringIdObject> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let group = service
-            .create_custom_metadata_group(&user_id, input)
-            .await?;
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        let group = create_custom_metadata_group(service, &user_id, input).await?;
         Ok(StringIdObject { id: group.id })
     }
 
@@ -82,10 +82,8 @@ impl CustomMutationResolver {
         gql_ctx: &Context<'_>,
         input: media_models::UpdateCustomMetadataGroupInput,
     ) -> Result<bool> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service
-            .update_custom_metadata_group(&user_id, input)
-            .await?)
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(update_custom_metadata_group(service, &user_id, input).await?)
     }
 
     /// Create a custom person.
@@ -94,8 +92,8 @@ impl CustomMutationResolver {
         gql_ctx: &Context<'_>,
         input: CreateCustomPersonInput,
     ) -> Result<StringIdObject> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let p = service.create_custom_person(&user_id, input).await?;
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        let p = create_custom_person(service, user_id, input).await?;
         Ok(StringIdObject { id: p.id })
     }
 
@@ -105,7 +103,7 @@ impl CustomMutationResolver {
         gql_ctx: &Context<'_>,
         input: media_models::UpdateCustomPersonInput,
     ) -> Result<bool> {
-        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        Ok(service.update_custom_person(&user_id, input).await?)
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(update_custom_person(service, &user_id, input).await?)
     }
 }

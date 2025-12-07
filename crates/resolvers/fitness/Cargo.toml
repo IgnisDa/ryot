@@ -8,6 +8,9 @@ async-graphql = { workspace = true }
 sea-orm = { workspace = true }
 
 database-models = { workspace = true }
+database-utils = { workspace = true }
+dependent-entity-list-utils = { workspace = true }
+dependent-fitness-utils = { workspace = true }
 dependent-models = { workspace = true }
 fitness-models = { workspace = true }
 fitness-service = { workspace = true }

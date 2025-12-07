@@ -22,7 +22,7 @@ use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait};
 use supporting_service::SupportingService;
 use user_models::{UserPreferences, UserReviewScale};
 
-pub async fn post_review(
+pub async fn create_or_update_review(
     user_id: &String,
     input: CreateOrUpdateReviewInput,
     ss: &Arc<SupportingService>,

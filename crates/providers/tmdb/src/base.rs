@@ -3,7 +3,10 @@ use std::{collections::HashSet, future::Future, sync::Arc};
 use anyhow::{Result, bail};
 use common_models::MetadataLookupCacheInput;
 use common_utils::{convert_date_to_year, get_base_http_client, ryot_log};
-use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TmdbLanguage, TmdbSettings};
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, ProviderSupportedLanguageInformation, TmdbLanguage,
+    TmdbSettings,
+};
 use enum_models::{MediaLot, MediaSource};
 use futures::{
     stream::{self, StreamExt},
@@ -18,11 +21,13 @@ use reqwest::{
 };
 use supporting_service::SupportingService;
 
-use crate::models::*;
+use crate::models::{
+    TmdbConfiguration, TmdbEntry, TmdbImagesResponse, TmdbListResponse, TmdbWatchProviderDetails,
+    TmdbWatchProviderResponse, URL,
+};
 
 pub struct TmdbService {
     pub client: Client,
-    pub language: String,
     pub settings: TmdbSettings,
 }
 
@@ -34,22 +39,21 @@ impl TmdbService {
             HeaderValue::from_str(&format!("Bearer {access_token}"))?,
         )]));
         let settings = get_settings(&client, &ss).await.unwrap_or_default();
-        Ok(Self {
-            client,
-            settings,
-            language: ss.config.movies_and_shows.tmdb.locale.clone(),
-        })
+        Ok(Self { client, settings })
     }
 
     pub fn get_image_url(&self, c: String) -> String {
         format!("{}{}{}", self.settings.image_url, "original", c)
     }
 
-    pub fn get_all_languages(&self) -> Vec<String> {
+    pub fn get_all_languages(&self) -> Vec<ProviderSupportedLanguageInformation> {
         self.settings
             .languages
             .iter()
-            .map(|l| l.iso_639_1.clone())
+            .map(|l| ProviderSupportedLanguageInformation {
+                value: l.iso_639_1.clone(),
+                label: l.english_name.clone(),
+            })
             .collect()
     }
 
@@ -139,7 +143,7 @@ impl TmdbService {
         let watch_providers_with_langs: TmdbWatchProviderResponse = self
             .client
             .get(format!("{URL}/{media_type}/{identifier}/watch/providers"))
-            .query(&[("language", self.language.as_str())])
+            .query(&[("language", self.get_default_language())])
             .send()
             .await?
             .json()
@@ -285,22 +289,22 @@ impl TmdbService {
         media_type: &str,
     ) -> Result<Vec<PartialMetadataWithoutId>> {
         let media_lot = match media_type {
-            "movie" => MediaLot::Movie,
             "tv" => MediaLot::Show,
+            "movie" => MediaLot::Movie,
             _ => bail!("Invalid media type"),
         };
 
         self.fetch_paginated_data(
             format!("{URL}/trending/{media_type}/day"),
-            &[("page", "1"), ("language", self.language.as_str())],
+            &[("page", "1"), ("language", &self.get_default_language())],
             Some(3),
             |entry| async move {
                 entry.title.map(|title| PartialMetadataWithoutId {
                     title,
+                    lot: media_lot,
                     source: MediaSource::Tmdb,
                     identifier: entry.id.to_string(),
                     image: entry.poster_path.map(|p| self.get_image_url(p)),
-                    lot: media_lot,
                     ..Default::default()
                 })
             },
@@ -317,7 +321,7 @@ impl TmdbService {
             ss,
             ApplicationCacheKey::TmdbMultiSearch(MetadataLookupCacheInput {
                 title: query.to_owned(),
-                language: Some(self.language.clone()),
+                language: Some(self.get_default_language()),
             }),
             ApplicationCacheValue::TmdbMultiSearch,
             move || async move {
@@ -329,7 +333,7 @@ impl TmdbService {
                         ("page", "1"),
                         ("query", query),
                         ("include_adult", "true"),
-                        ("language", &self.language),
+                        ("language", &self.get_default_language()),
                     ])
                     .send()
                     .await?
@@ -371,9 +375,12 @@ async fn get_settings(client: &Client, ss: &Arc<SupportingService>) -> Result<Tm
         || async {
             let config_future = client.get(format!("{URL}/configuration")).send();
             let languages_future = client.get(format!("{URL}/configuration/languages")).send();
-            let (config_resp, languages_resp) = try_join!(config_future, languages_future)?;
-            let configuration: TmdbConfiguration = config_resp.json().await?;
-            let languages: Vec<TmdbLanguage> = languages_resp.json().await?;
+            let (configuration_response, languages_resp) =
+                try_join!(config_future, languages_future)?;
+            let (languages, configuration) = try_join!(
+                languages_resp.json::<Vec<TmdbLanguage>>(),
+                configuration_response.json::<TmdbConfiguration>()
+            )?;
             let settings = TmdbSettings {
                 languages,
                 image_url: configuration.images.secure_base_url,

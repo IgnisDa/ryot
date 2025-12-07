@@ -34,3 +34,30 @@ pub enum FilterPresetContextType {
     FitnessEntitiesList,
     MetadataGroupsSearch,
 }
+
+#[derive(
+    Eq,
+    Copy,
+    Hash,
+    Enum,
+    Debug,
+    Clone,
+    Default,
+    Display,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    DeriveActiveEnum,
+)]
+#[strum(serialize_all = "snake_case")]
+#[sea_orm(
+    rs_type = "String",
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
+)]
+pub enum EntityTranslationVariant {
+    #[default]
+    Title,
+    Description,
+}

@@ -57,6 +57,15 @@ pub struct StringIdAndNamedObject {
 }
 
 #[derive(
+    Debug, InputObject, Hash, PartialEq, Eq, Default, SimpleObject, Serialize, Deserialize, Clone,
+)]
+#[graphql(input_name = "EntityWithLotInput")]
+pub struct EntityWithLot {
+    pub entity_id: String,
+    pub entity_lot: EntityLot,
+}
+
+#[derive(
     Eq,
     Hash,
     Enum,
@@ -167,9 +176,9 @@ pub enum CollectionExtraInformationLot {
     PartialEq,
     Serialize,
     Schematic,
+    InputObject,
     Deserialize,
     SimpleObject,
-    InputObject,
     FromJsonQueryResult,
 )]
 #[serde(rename_all = "snake_case")]
@@ -262,8 +271,8 @@ pub struct NamedObject {
 #[skip_serializing_none]
 #[derive(
     Eq,
-    Clone,
     Hash,
+    Clone,
     Debug,
     Default,
     PartialEq,
@@ -431,13 +440,6 @@ pub struct PeopleSearchInput {
 pub struct UserLevelCacheKey<T> {
     pub input: T,
     pub user_id: String,
-}
-
-#[skip_serializing_none]
-#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EntityRecentlyConsumedCacheInput {
-    pub entity_id: String,
-    pub entity_lot: EntityLot,
 }
 
 #[skip_serializing_none]

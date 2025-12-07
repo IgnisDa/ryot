@@ -203,19 +203,19 @@ pub async fn fetch_company_media_by_type(
         format!("{}/discover/{}", URL, &media_type),
         &[
             ("page", "1"),
-            ("language", base.language.as_str()),
             ("with_companies", identifier),
+            ("language", &base.get_default_language()),
         ],
         None,
         |entry| async move {
             Some(MetadataPersonRelated {
                 role: "Production Company".to_owned(),
                 metadata: PartialMetadataWithoutId {
+                    lot,
                     source: MediaSource::Tmdb,
                     identifier: entry.id.to_string(),
                     title: entry.title.unwrap_or_default(),
                     image: entry.poster_path.map(|p| base.get_image_url(p)),
-                    lot,
                     ..Default::default()
                 },
                 ..Default::default()

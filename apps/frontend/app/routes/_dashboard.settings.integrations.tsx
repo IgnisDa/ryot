@@ -824,9 +824,7 @@ const CreateOrUpdateModal = (props: {
 				replace
 				method="POST"
 				onSubmit={() => {
-					if (provider) {
-						events.createOrUpdateIntegration(provider, isUpdating);
-					}
+					if (provider) events.createOrUpdateIntegration(provider, isUpdating);
 					props.close();
 				}}
 				action={withQuery(".", { intent: "createOrUpdate" })}

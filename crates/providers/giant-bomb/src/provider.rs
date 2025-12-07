@@ -477,6 +477,7 @@ impl MediaProvider for GiantBombService {
                 .as_ref()
                 .map(|games| games.len())
                 .unwrap_or(0) as i32,
+            ..Default::default()
         };
 
         let mut games = vec![];

@@ -7,19 +7,19 @@ pub struct Migration;
 
 #[derive(Iden)]
 pub enum MetadataToMetadata {
-    Table,
     Id,
-    FromMetadataId,
-    ToMetadataId,
+    Table,
     Relation,
+    ToMetadataId,
+    FromMetadataId,
 }
 
 #[derive(Iden)]
 pub enum MetadataToMetadataGroup {
+    Part,
     Table,
     MetadataId,
     MetadataGroupId,
-    Part,
 }
 
 #[async_trait::async_trait]
@@ -86,11 +86,7 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(MetadataToMetadataGroup::Table)
-                    .col(
-                        ColumnDef::new(MetadataToMetadataGroup::Part)
-                            .integer()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(MetadataToMetadataGroup::Part).integer())
                     .col(
                         ColumnDef::new(MetadataToMetadataGroup::MetadataGroupId)
                             .text()

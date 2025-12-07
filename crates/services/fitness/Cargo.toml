@@ -17,7 +17,6 @@ common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { workspace = true }
 dependent-core-utils = { workspace = true }
-dependent-entity-list-utils = { workspace = true }
 dependent-fitness-utils = { workspace = true }
 dependent-utility-utils = { workspace = true }
 database-utils = { workspace = true }

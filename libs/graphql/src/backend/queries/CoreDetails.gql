@@ -47,10 +47,12 @@ query CoreDetails {
 				}
 			}
 		}
-		metadataProviderLanguages {
+		providerLanguages {
 			source
-			default
-			supported
+			supported {
+				label
+				value
+			}
 		}
 		frontend {
 			url

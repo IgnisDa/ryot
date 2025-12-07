@@ -136,9 +136,7 @@ export const usePerformTasksAfterSetConfirmed = () => {
 						const nextExerciseHasDetailsToShow =
 							nextExercise &&
 							exerciseHasDetailsToShow(exerciseDetails, userExerciseDetails);
-						if (nextExerciseHasDetailsToShow) {
-							nextExercise.isCollapsed = false;
-						}
+						if (nextExerciseHasDetailsToShow) nextExercise.isCollapsed = false;
 					}
 				}
 			}),

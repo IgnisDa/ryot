@@ -82,14 +82,19 @@ export default function Page() {
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
 	const { details, handleSubmit, isLoading } = useEntityCrud({
-		action: loaderData.action,
-		entityId: loaderData.query.id,
 		entityName: "Media",
 		s3Prefix: "metadata",
+		action: loaderData.action,
+		entityId: loaderData.query.id,
+		useDetailsHook: useMetadataDetails,
 		detailsPath: getMetadataDetailsPath,
 		createDocument: CreateCustomMetadataDocument,
 		updateDocument: UpdateCustomMetadataDocument,
-		useDetailsHook: useMetadataDetails,
+		onSuccessCleanup: () => form.clearSavedState(),
+		extractIdFromUpdateResult: () => loaderData.query.id as string,
+		extractIdFromCreateResult: (result) =>
+			(result as { createCustomMetadata: { id: string } }).createCustomMetadata
+				.id as string,
 		transformToCreateInput: (values, s3Images) => {
 			const lot = values.lot as string;
 			const specifics = values.specifics as string;
@@ -147,11 +152,6 @@ export default function Page() {
 				},
 			};
 		},
-		extractIdFromCreateResult: (result) =>
-			(result as { createCustomMetadata: { id: string } }).createCustomMetadata
-				.id as string,
-		extractIdFromUpdateResult: () => loaderData.query.id as string,
-		onSuccessCleanup: () => form.clearSavedState(),
 	});
 
 	const form = useSavedForm({
@@ -202,7 +202,9 @@ export default function Page() {
 					details.creators?.flatMap((c) => c.items).map((c) => c.idOrName) ||
 					[],
 				groupIds: details.groups
-					? [...details.groups].sort((a, b) => a.part - b.part).map((g) => g.id)
+					? [...details.groups]
+							.sort((a, b) => (a.part || 0) - (b.part || 0))
+							.map((g) => g.id)
 					: [],
 			});
 		}

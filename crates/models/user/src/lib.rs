@@ -1,6 +1,6 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
 use educe::Educe;
-use enum_models::{MediaLot, UserLot};
+use enum_models::{MediaLot, MediaSource, UserLot};
 use fitness_models::{SetRestTimersSettings, UserUnitSystem};
 use sea_orm::{FromJsonQueryResult, Iterable, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
@@ -348,8 +348,6 @@ pub struct UserGeneralPreferences {
     #[educe(Default = false)]
     pub disable_integrations: bool,
     #[educe(Default = false)]
-    pub show_spoilers_in_calendar: bool,
-    #[educe(Default = false)]
     pub disable_navigation_animation: bool,
     #[educe(Default(expression = vec![UserGeneralWatchProvider {
         lot: MediaLot::Movie,
@@ -393,6 +391,69 @@ pub struct UserGeneralPreferences {
     Eq,
     Clone,
     Debug,
+    Educe,
+    Serialize,
+    PartialEq,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "UserProviderLanguagePreferencesInput")]
+#[educe(Default)]
+pub struct UserProviderLanguagePreferences {
+    pub source: MediaSource,
+    pub preferred_language: String,
+}
+
+#[derive(
+    Eq,
+    Clone,
+    Debug,
+    Educe,
+    Serialize,
+    PartialEq,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "UserLanguagePreferencesInput")]
+#[educe(Default)]
+pub struct UserLanguagePreferences {
+    #[educe(Default(expression = vec![
+        UserProviderLanguagePreferences {
+            source: MediaSource::Anilist,
+            preferred_language: "user_preferred".to_owned(),
+        },
+        UserProviderLanguagePreferences {
+            source: MediaSource::Tvdb,
+            preferred_language: "eng".to_owned(),
+        },
+        UserProviderLanguagePreferences {
+            source: MediaSource::Audible,
+            preferred_language: "US".to_owned(),
+        },
+        UserProviderLanguagePreferences {
+            source: MediaSource::Itunes,
+            preferred_language: "en_us".to_owned(),
+        },
+        UserProviderLanguagePreferences {
+            source: MediaSource::Tmdb,
+            preferred_language: "en".to_owned(),
+        },
+        UserProviderLanguagePreferences {
+            source: MediaSource::YoutubeMusic,
+            preferred_language: "en".to_owned(),
+        },
+    ]))]
+    pub providers: Vec<UserProviderLanguagePreferences>,
+}
+
+#[derive(
+    Eq,
+    Clone,
+    Debug,
     Default,
     PartialEq,
     Serialize,
@@ -405,6 +466,7 @@ pub struct UserGeneralPreferences {
 pub struct UserPreferences {
     pub fitness: UserFitnessPreferences,
     pub general: UserGeneralPreferences,
+    pub languages: UserLanguagePreferences,
     pub features_enabled: UserFeaturesEnabledPreferences,
 }
 
