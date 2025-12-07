@@ -32,6 +32,7 @@ import {
 	formatQuantityWithCompactNotation,
 	getActionIntent,
 	humanizeDuration,
+	isNumber,
 	parseParameters,
 	parseSearchQuery,
 	processSubmission,
@@ -304,7 +305,9 @@ export default function Page() {
 					{metadataGroupTranslations?.title ||
 						metadataGroupDetails?.details.title ||
 						"Group"}{" "}
-					#{firstGroupAssociated.part}
+					{isNumber(firstGroupAssociated.part)
+						? `#${firstGroupAssociated.part}`
+						: null}
 				</Text>
 			</Link>
 		),
