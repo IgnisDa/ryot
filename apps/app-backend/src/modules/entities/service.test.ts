@@ -84,13 +84,13 @@ const setupGetById = (row: Record<string, FieldValue>) => {
 };
 
 it.effect("returns existing entity when provenance already exists", () => {
-	let createCalled = false;
+	let insertCalled = false;
 
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
-			saveEntity: () =>
+			insertEntity: () =>
 				Effect.sync(() => {
-					createCalled = true;
+					insertCalled = true;
 					return {
 						createdAt: now,
 						updatedAt: now,
@@ -130,8 +130,10 @@ it.effect("returns existing entity when provenance already exists", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* EntitiesService;
-		const entity = yield* service.create(user, {
+		const entity = yield* service.create({
+			scope: "user",
 			name: "Existing",
+			userId: user.id,
 			externalId: "ext-1",
 			properties: { title: "Existing" },
 			entitySchemaId: EntitySchemaId.make("schema-id"),
@@ -139,7 +141,7 @@ it.effect("returns existing entity when provenance already exists", () => {
 		});
 
 		expect(entity.id).toBe("existing-entity");
-		expect(createCalled).toBe(false);
+		expect(insertCalled).toBe(false);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -151,8 +153,10 @@ it.effect("returns not found when entity schema is not visible", () => {
 	return Effect.gen(function* () {
 		const service = yield* EntitiesService;
 		const exit = yield* Effect.exit(
-			service.create(user, {
+			service.create({
+				scope: "user",
 				properties: {},
+				userId: user.id,
 				name: "Hidden Schema Entity",
 				entitySchemaId: EntitySchemaId.make("schema-id"),
 			}),
