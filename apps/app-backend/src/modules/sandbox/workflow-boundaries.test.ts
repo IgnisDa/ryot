@@ -83,7 +83,10 @@ it.effect("keeps parent workflows as orchestrations instead of queue pass-throug
 
 		expect(entityImportWorkflow).toContain("validate-entity-details");
 		expect(entityImportWorkflow).toContain("write-primary-entity");
-		expect(libraryWorkflow).toContain("ensure-library-membership");
+		// The library workflow composes provider population then dispatches the membership queue
+		// operation; it no longer owns a bare ensureEntityInLibrary write.
+		expect(libraryWorkflow).toContain("ensureLibraryMembership");
+		expect(libraryWorkflow).not.toContain("ensureEntityInLibrary");
 
 		expect(mediaImportWorkflow).toContain("load-media-import-adapter-result");
 		expect(mediaImportWorkflow).toContain("record-total-items");
@@ -117,6 +120,7 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 			libraryWorkflow,
 			monitoringWorkflow,
 			mediaOperations,
+			membershipWorker,
 			trigger,
 			preload,
 		] = yield* Effect.all([
@@ -124,6 +128,7 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 			readModule("../library-membership/library-entity-import-workflow.ts"),
 			readModule("../media-monitoring/refresh-workflow.ts"),
 			readModule("../imports/media/operations-workflow.ts"),
+			readModule("../library-membership/membership-worker.ts"),
 			readModule("../entity-import/population-trigger-live.ts"),
 			readModule("../exercises/preload.ts"),
 		]);
@@ -131,9 +136,18 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 		expect(populationWorkflow).toContain("validate-entity-details");
 		expect(populationWorkflow).toContain("mark-primary-entity-populated");
 
-		for (const source of [trigger, preload, libraryWorkflow, mediaOperations, monitoringWorkflow]) {
+		for (const source of [trigger, preload, libraryWorkflow, monitoringWorkflow]) {
 			expect(source).toContain("ProviderEntityPopulationWorkflow");
 		}
+
+		// Media import no longer composes population + membership itself; it routes each item through
+		// LibraryEntityImportWorkflow, the single durable owner of that composition.
+		expect(mediaOperations).toContain("LibraryEntityImportWorkflow");
+		expect(mediaOperations).not.toContain("ProviderEntityPopulationWorkflow");
+
+		// The durable library-membership write (ensureEntityInLibrary) is owned solely by the queue
+		// worker now that both workflow paths dispatch EnsureLibraryMembershipQueue instead.
+		expect(membershipWorker).toContain("ensureEntityInLibrary");
 
 		// `runProviderEntityPopulationWorkflow` is exported only for unit tests. No production
 		// module may import it — callers must dispatch ProviderEntityPopulationWorkflow through

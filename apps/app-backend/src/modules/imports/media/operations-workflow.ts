@@ -15,7 +15,7 @@ import {
 	decodeEntitySearchResult,
 	decodeSandboxDriverResult,
 } from "#modules/entity-import/population";
-import { ProviderEntityPopulationWorkflow } from "#modules/entity-import/provider-entity-population-workflow";
+import { LibraryEntityImportWorkflow } from "#modules/library-membership/library-entity-import-workflow";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 
 import { loadOneTimeMediaImportAdapterResult } from "./source-loaders";
@@ -98,10 +98,9 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 			importEntity: (input) =>
 				Effect.gen(function* () {
 					const engine = yield* WorkflowEngine;
-					const entity = yield* engine.execute(ProviderEntityPopulationWorkflow, {
+					const entity = yield* engine.execute(LibraryEntityImportWorkflow, {
 						executionId: input.executionId,
 						payload: {
-							mode: "ensure",
 							userId: input.userId,
 							scriptId: input.scriptId,
 							externalId: input.externalId,
