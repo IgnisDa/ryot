@@ -131,24 +131,6 @@ pub async fn change_metadata_associations(
     people: Vec<PartialMetadataPerson>,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    MetadataToPerson::delete_many()
-        .filter(metadata_to_person::Column::MetadataId.eq(metadata_id))
-        .exec(&ss.db)
-        .await?;
-    MetadataToGenre::delete_many()
-        .filter(metadata_to_genre::Column::MetadataId.eq(metadata_id))
-        .exec(&ss.db)
-        .await?;
-    MetadataToMetadata::delete_many()
-        .filter(metadata_to_metadata::Column::FromMetadataId.eq(metadata_id))
-        .filter(metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion))
-        .exec(&ss.db)
-        .await?;
-    MetadataToMetadataGroup::delete_many()
-        .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
-        .exec(&ss.db)
-        .await?;
-
     for (index, person) in people.into_iter().enumerate() {
         let role = person.role.clone();
         let db_person = commit_person(
@@ -219,9 +201,9 @@ pub async fn change_metadata_associations(
     for metadata_group in groups {
         let db_group = commit_metadata_group(metadata_group, ss).await?;
         let intermediate = metadata_to_metadata_group::ActiveModel {
-            part: ActiveValue::Set(0),
             metadata_group_id: ActiveValue::Set(db_group.id),
             metadata_id: ActiveValue::Set(metadata_id.to_owned()),
+            ..Default::default()
         };
         MetadataToMetadataGroup::insert(intermediate)
             .on_conflict(OnConflict::new().do_nothing().to_owned())
@@ -260,7 +242,7 @@ pub async fn insert_metadata_group_links(
 ) -> Result<()> {
     for (metadata_group_id, part) in links.into_iter() {
         let intermediate = metadata_to_metadata_group::ActiveModel {
-            part: ActiveValue::Set(part.unwrap_or(0)),
+            part: ActiveValue::Set(part),
             metadata_id: ActiveValue::Set(metadata_id.to_owned()),
             metadata_group_id: ActiveValue::Set(metadata_group_id),
         };
@@ -544,7 +526,7 @@ pub async fn update_metadata_group(
         let intermediate = metadata_to_metadata_group::ActiveModel {
             metadata_group_id: ActiveValue::Set(eg.id.clone()),
             metadata_id: ActiveValue::Set(db_partial_metadata.id),
-            part: ActiveValue::Set((idx + 1).try_into().unwrap()),
+            part: ActiveValue::Set(Some((idx + 1).try_into().unwrap())),
         };
         intermediate.insert(&ss.db).await.ok();
     }

@@ -17,6 +17,11 @@ WHERE "preferences"->'languages' IS NULL
         )
         .await?;
 
+        db.execute_unprepared(
+            r#"alter table metadata_to_metadata_group alter column part drop not null"#,
+        )
+        .await?;
+
         if !manager
             .has_column("metadata_group", "last_updated_on")
             .await?

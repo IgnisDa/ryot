@@ -266,8 +266,8 @@ pub struct MetadataCreatorsGroupedByRole {
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct GraphqlMetadataGroup {
-    pub part: i32,
     pub id: String,
+    pub part: Option<i32>,
 }
 
 #[skip_serializing_none]
