@@ -17,7 +17,6 @@ import type {
 	RowsQueryDocument,
 	TimeSeriesQueryDocument,
 } from "./executor/types";
-import { ProviderConfig } from "./provider-config";
 import { validateQueryDocument, validateQueryDocumentWithScope } from "./validator/document";
 import { validateQueryDocumentReferencesAndTypes } from "./validator/references";
 import { validateQueryDocumentTypeCompatibility } from "./validator/type-check";
@@ -37,7 +36,6 @@ export class QueryEngineService extends Effect.Service<QueryEngineService>()("Qu
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const runInTx = yield* TransactionRunner;
-		const providerConfig = yield* ProviderConfig;
 
 		const runBounded = <A, R>(effect: Effect.Effect<A, BadRequest | NotFound | DbError, R>) =>
 			runInTx(
@@ -91,20 +89,17 @@ export class QueryEngineService extends Effect.Service<QueryEngineService>()("Qu
 			yield* runWithDb(validateQueryDocumentTypeCompatibility(user.id, doc, scope));
 
 			const language = user.preferences.language;
-			// Canonical readers (null language) never emit the translation join, so the map is unused —
-			// skip loading it so they never touch ProviderConfig.
-			const canonicalByScript = language === null ? null : yield* providerConfig.canonicalByScript;
 
 			if (isRowsQueryDocument(doc)) {
-				return yield* runBounded(executeRowsQuery(user.id, language, canonicalByScript, doc));
+				return yield* runBounded(executeRowsQuery(user.id, language, doc));
 			}
 
 			if (isAggregateQueryDocument(doc)) {
-				return yield* runBounded(executeAggregateQuery(user.id, language, canonicalByScript, doc));
+				return yield* runBounded(executeAggregateQuery(user.id, language, doc));
 			}
 
 			if (isTimeSeriesQueryDocument(doc)) {
-				return yield* runBounded(executeTimeSeriesQuery(user.id, language, canonicalByScript, doc));
+				return yield* runBounded(executeTimeSeriesQuery(user.id, language, doc));
 			}
 
 			return yield* new BadRequest({ message: "Unsupported query output type" });
