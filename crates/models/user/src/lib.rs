@@ -444,7 +444,7 @@ pub struct UserLanguagePreferences {
         },
         UserProviderLanguagePreferences {
             source: MediaSource::YoutubeMusic,
-            preferred_language: "English (US)".to_owned(),
+            preferred_language: "en".to_owned(),
         },
     ]))]
     pub providers: Vec<UserProviderLanguagePreferences>,
