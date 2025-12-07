@@ -12,6 +12,7 @@ use rust_decimal::dec;
 use sea_orm::EntityTrait;
 use supporting_service::SupportingService;
 use traits::TraceOk;
+use uuid::Uuid;
 
 use crate::{integration_operations::set_trigger_result, sink};
 
@@ -41,6 +42,14 @@ pub async fn integration_progress_update(
     integration: integration::Model,
     updates: ImportResult,
 ) -> Result<()> {
+    let progress_update_id = Uuid::new_v4();
+    ryot_log!(
+        debug,
+        "[1611 PROGRESS {}] Starting integration_progress_update for integration: {}, user: {}",
+        progress_update_id,
+        integration.id,
+        integration.user_id
+    );
     let mut import = updates;
     import.completed.iter_mut().for_each(|item| {
         if let ImportCompletedItem::Metadata(metadata) = item {
@@ -65,11 +74,28 @@ pub async fn integration_progress_update(
         }
     });
     log_import_result_details(&import, "Calling process_import");
+    ryot_log!(
+        debug,
+        "[1611 PROGRESS {}] Calling process_import with {} completed items",
+        progress_update_id,
+        import.completed.len()
+    );
     let result = process_import(false, &integration.user_id, import, ss, |_| async {
         Ok(())
     })
     .await;
+    ryot_log!(
+        debug,
+        "[1611 PROGRESS {}] process_import completed, result: {}",
+        progress_update_id,
+        if result.is_ok() { "success" } else { "error" }
+    );
     set_trigger_result(ss, result.err().map(|e| e.to_string()), &integration).await?;
+    ryot_log!(
+        debug,
+        "[1611 PROGRESS {}] Completed integration_progress_update",
+        progress_update_id
+    );
     Ok(())
 }
 
@@ -78,8 +104,16 @@ pub async fn process_integration_webhook(
     integration_slug: String,
     payload: String,
 ) -> Result<String> {
+    let webhook_job_id = Uuid::new_v4();
+    ryot_log!(
+        debug,
+        "[1611 JOB {}] Processing webhook for integration: {}, payload len: {}",
+        webhook_job_id,
+        integration_slug,
+        payload.len()
+    );
     ryot_log!(debug, "Integration webhook for slug: {}", integration_slug);
-    let integration = Integration::find_by_id(integration_slug)
+    let integration = Integration::find_by_id(&integration_slug)
         .one(&ss.db)
         .await?
         .ok_or(anyhow!("Integration does not exist"))?;
@@ -107,15 +141,39 @@ pub async fn process_integration_webhook(
         _ => bail!("Unsupported integration source"),
     };
     match maybe_progress_update {
-        Ok(None) => Ok("No progress update".to_owned()),
+        Ok(None) => {
+            ryot_log!(
+                debug,
+                "[1611 JOB {}] No progress update for integration: {}",
+                webhook_job_id,
+                integration_slug
+            );
+            Ok("No progress update".to_owned())
+        }
         Ok(Some(pu)) => {
             log_import_result_details(&pu, "Webhook received ImportResult");
+            ryot_log!(
+                debug,
+                "[1611 JOB {}] Calling integration_progress_update",
+                webhook_job_id
+            );
             integration_progress_update(ss, integration, pu)
                 .await
                 .trace_ok();
+            ryot_log!(
+                debug,
+                "[1611 JOB {}] Completed webhook processing successfully",
+                webhook_job_id
+            );
             Ok("Progress updated successfully".to_owned())
         }
         Err(e) => {
+            ryot_log!(
+                debug,
+                "[1611 JOB {}] Webhook processing failed: {}",
+                webhook_job_id,
+                e
+            );
             set_trigger_result(ss, Some(e.to_string()), &integration).await?;
             Err(anyhow!(e.to_string()))
         }

@@ -2119,6 +2119,7 @@ dependencies = [
  "serde_json",
  "supporting-service",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -2205,6 +2206,7 @@ dependencies = [
  "sea-orm",
  "supporting-service",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
