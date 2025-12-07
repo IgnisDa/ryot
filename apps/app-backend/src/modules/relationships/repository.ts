@@ -7,19 +7,12 @@ import { Effect } from "effect";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
-import { syncGlobalRelationshipsWithProperties } from "./global-relationship-sync";
-
-type RelationshipRow = Pick<
-	typeof schema.relationship.$inferSelect,
-	"id" | "createdAt" | "properties" | "sourceEntityId" | "targetEntityId" | "relationshipSchemaId"
-> & {
-	readonly wasInserted: boolean;
-};
-
 type RelationshipSnapshotRow = Pick<
 	typeof schema.relationship.$inferSelect,
 	"id" | "createdAt" | "properties" | "sourceEntityId" | "targetEntityId" | "relationshipSchemaId"
 >;
+
+type RelationshipRow = RelationshipSnapshotRow & { readonly wasInserted: boolean };
 
 export type SaveRelationshipInputBase = {
 	sourceEntityId: EntityId;
@@ -32,6 +25,44 @@ export type SaveRelationshipInput = SaveRelationshipInputBase & {
 	properties: Record<string, unknown>;
 };
 
+type RelationshipIdentityInput = {
+	sourceEntityId: EntityId;
+	targetEntityId: EntityId;
+	relationshipSchemaId: RelationshipSchemaId;
+} & ({ scope: "global" } | { scope: "user"; userId: UserId });
+
+type GlobalRelationshipEntry = {
+	entityId: EntityId;
+	properties: Record<string, unknown>;
+};
+
+type SyncGlobalRelationshipsInputBase = {
+	entries: ReadonlyArray<GlobalRelationshipEntry>;
+	relationshipSchemaId: RelationshipSchemaId;
+};
+
+type AnchoredGlobalRelationshipsSyncInput = SyncGlobalRelationshipsInputBase & {
+	type: "anchored";
+	direction: "incoming" | "outgoing";
+	anchorEntityId: EntityId;
+} & (
+		| { synchronization: "additive"; onConflict: "preserveExisting" }
+		| {
+				synchronization: "authoritative";
+				onConflict: "preserveExisting" | "replaceProperties";
+		  }
+	);
+
+type SelfGlobalRelationshipsSyncInput = SyncGlobalRelationshipsInputBase & {
+	type: "self";
+	onConflict: "replaceProperties";
+	synchronization: "authoritative";
+};
+
+type SyncGlobalRelationshipsInput =
+	| AnchoredGlobalRelationshipsSyncInput
+	| SelfGlobalRelationshipsSyncInput;
+
 const relationshipSelection = {
 	id: schema.relationship.id,
 	createdAt: schema.relationship.createdAt,
@@ -42,26 +73,21 @@ const relationshipSelection = {
 	wasInserted: sql<boolean>`(xmax = '0'::xid)`,
 };
 
+const toRelationship = (row: RelationshipSnapshotRow) => ({
+	properties: row.properties,
+	id: RelationshipId.make(row.id),
+	createdAt: row.createdAt.toISOString(),
+	sourceEntityId: EntityId.make(row.sourceEntityId),
+	targetEntityId: EntityId.make(row.targetEntityId),
+	relationshipSchemaId: RelationshipSchemaId.make(row.relationshipSchemaId),
+});
+
 const toSavedRelationship = (row: RelationshipRow) => ({
-	properties: row.properties,
+	...toRelationship(row),
 	wasInserted: row.wasInserted,
-	id: RelationshipId.make(row.id),
-	createdAt: row.createdAt.toISOString(),
-	sourceEntityId: EntityId.make(row.sourceEntityId),
-	targetEntityId: EntityId.make(row.targetEntityId),
-	relationshipSchemaId: RelationshipSchemaId.make(row.relationshipSchemaId),
 });
 
-const toDeletedRelationship = (row: RelationshipSnapshotRow) => ({
-	properties: row.properties,
-	id: RelationshipId.make(row.id),
-	createdAt: row.createdAt.toISOString(),
-	sourceEntityId: EntityId.make(row.sourceEntityId),
-	targetEntityId: EntityId.make(row.targetEntityId),
-	relationshipSchemaId: RelationshipSchemaId.make(row.relationshipSchemaId),
-});
-
-const relationshipIdentityWhere = (input: SaveRelationshipInput) =>
+const relationshipIdentityWhere = (input: RelationshipIdentityInput) =>
 	input.scope === "user"
 		? and(
 				eq(schema.relationship.userId, input.userId),
@@ -76,7 +102,16 @@ const relationshipIdentityWhere = (input: SaveRelationshipInput) =>
 				eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
 			);
 
-const relationshipConflictTarget = (input: SaveRelationshipInput) =>
+const globalRelationshipConflictTarget = {
+	targetWhere: isNull(schema.relationship.userId),
+	target: [
+		schema.relationship.sourceEntityId,
+		schema.relationship.targetEntityId,
+		schema.relationship.relationshipSchemaId,
+	],
+};
+
+const relationshipConflictTarget = (input: RelationshipIdentityInput) =>
 	input.scope === "user"
 		? {
 				target: [
@@ -86,14 +121,7 @@ const relationshipConflictTarget = (input: SaveRelationshipInput) =>
 					schema.relationship.relationshipSchemaId,
 				],
 			}
-		: {
-				targetWhere: isNull(schema.relationship.userId),
-				target: [
-					schema.relationship.sourceEntityId,
-					schema.relationship.targetEntityId,
-					schema.relationship.relationshipSchemaId,
-				],
-			};
+		: globalRelationshipConflictTarget;
 
 export class RelationshipsRepository extends Effect.Service<RelationshipsRepository>()(
 	"RelationshipsRepository",
@@ -112,14 +140,7 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 					db
 						.select({ properties: schema.relationship.properties })
 						.from(schema.relationship)
-						.where(
-							and(
-								eq(schema.relationship.userId, input.userId),
-								eq(schema.relationship.sourceEntityId, input.sourceEntityId),
-								eq(schema.relationship.targetEntityId, input.targetEntityId),
-								eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
-							),
-						)
+						.where(relationshipIdentityWhere({ ...input, scope: "user" }))
 						.limit(1),
 				);
 				return row?.properties ?? null;
@@ -283,14 +304,7 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 					const [row] = yield* dbEffect(() =>
 						db
 							.delete(schema.relationship)
-							.where(
-								and(
-									eq(schema.relationship.userId, input.userId),
-									eq(schema.relationship.sourceEntityId, input.sourceEntityId),
-									eq(schema.relationship.targetEntityId, input.targetEntityId),
-									eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
-								),
-							)
+							.where(relationshipIdentityWhere({ ...input, scope: "user" }))
 							.returning({
 								id: schema.relationship.id,
 								createdAt: schema.relationship.createdAt,
@@ -301,141 +315,107 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 							}),
 					);
 
-					return row ? toDeletedRelationship(row) : null;
+					return row ? toRelationship(row) : null;
 				},
 			);
 
-			const syncGlobalRelationshipTargets = Effect.fn(
-				"RelationshipsRepository.syncGlobalRelationshipTargets",
-			)(function* (input: {
-				sourceEntityId: EntityId;
-				targetEntityIds: ReadonlyArray<EntityId>;
-				relationshipSchemaId: RelationshipSchemaId;
-			}) {
-				const db = yield* CurrentDb;
-				const targetEntityIds = [...new Set(input.targetEntityIds)];
-				const globalSourceWhere = and(
-					isNull(schema.relationship.userId),
-					eq(schema.relationship.sourceEntityId, input.sourceEntityId),
-					eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
-				);
-				yield* dbEffect(() =>
-					db.transaction((tx) => {
-						const insertTargets =
-							targetEntityIds.length > 0
-								? tx
-										.insert(schema.relationship)
-										.values(
-											targetEntityIds.map((targetEntityId) => ({
-												userId: null,
-												properties: {},
-												targetEntityId,
-												sourceEntityId: input.sourceEntityId,
-												relationshipSchemaId: input.relationshipSchemaId,
-											})),
-										)
-										.onConflictDoNothing()
-								: Promise.resolve();
-
-						return insertTargets.then(() => {
-							if (targetEntityIds.length === 0) {
-								return tx
-									.delete(schema.relationship)
-									.where(globalSourceWhere)
-									.then(() => undefined);
-							}
-
-							return tx
-								.delete(schema.relationship)
-								.where(
-									and(
-										globalSourceWhere,
-										notInArray(schema.relationship.targetEntityId, targetEntityIds),
+			const syncGlobalRelationships = Effect.fn("RelationshipsRepository.syncGlobalRelationships")(
+				function* (input: SyncGlobalRelationshipsInput) {
+					const db = yield* CurrentDb;
+					const entries = [
+						...new Map(input.entries.map((entry) => [entry.entityId, entry])).values(),
+					];
+					const entityIds = entries.map((entry) => entry.entityId);
+					const relationshipValues =
+						input.type === "self"
+							? entries.map((entry) => ({
+									userId: null,
+									properties: entry.properties,
+									targetEntityId: entry.entityId,
+									sourceEntityId: entry.entityId,
+									relationshipSchemaId: input.relationshipSchemaId,
+								}))
+							: entries.map((entry) => ({
+									userId: null,
+									properties: entry.properties,
+									targetEntityId:
+										input.direction === "outgoing" ? entry.entityId : input.anchorEntityId,
+									sourceEntityId:
+										input.direction === "outgoing" ? input.anchorEntityId : entry.entityId,
+									relationshipSchemaId: input.relationshipSchemaId,
+								}));
+					const synchronizationWhere =
+						input.type === "self"
+							? and(
+									isNull(schema.relationship.userId),
+									eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
+									eq(schema.relationship.sourceEntityId, schema.relationship.targetEntityId),
+								)
+							: and(
+									isNull(schema.relationship.userId),
+									eq(
+										input.direction === "outgoing"
+											? schema.relationship.sourceEntityId
+											: schema.relationship.targetEntityId,
+										input.anchorEntityId,
 									),
-								)
-								.then(() => undefined);
-						});
-					}),
-				);
-			});
+									eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
+								);
+					const relatedEntityColumn =
+						input.type === "self" || input.direction === "incoming"
+							? schema.relationship.sourceEntityId
+							: schema.relationship.targetEntityId;
 
-			const syncGlobalRelationshipSelfEdges = Effect.fn(
-				"RelationshipsRepository.syncGlobalRelationshipSelfEdges",
-			)(function* (input: {
-				relationshipSchemaId: RelationshipSchemaId;
-				entries: ReadonlyArray<{ entityId: EntityId; properties: Record<string, unknown> }>;
-			}) {
-				const db = yield* CurrentDb;
-				const entriesById = new Map<
-					string,
-					{ entityId: EntityId; properties: Record<string, unknown> }
-				>();
-				for (const entry of input.entries) {
-					entriesById.set(entry.entityId, entry);
-				}
+					yield* dbEffect(() =>
+						db.transaction((tx) => {
+							const synchronize = () => {
+								if (input.synchronization === "additive") {
+									return Promise.resolve();
+								}
+								if (entityIds.length === 0) {
+									return tx
+										.delete(schema.relationship)
+										.where(synchronizationWhere)
+										.then(() => undefined);
+								}
 
-				const entries = [...entriesById.values()];
-				const entityIds = entries.map((entry) => entry.entityId);
-				const selfEdgeWhere = and(
-					isNull(schema.relationship.userId),
-					eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
-					eq(schema.relationship.sourceEntityId, schema.relationship.targetEntityId),
-				);
-
-				yield* dbEffect(() =>
-					db.transaction((tx) => {
-						const upsert =
-							entries.length > 0
-								? tx
-										.insert(schema.relationship)
-										.values(
-											entries.map((entry) => ({
-												userId: null,
-												properties: entry.properties,
-												targetEntityId: entry.entityId,
-												sourceEntityId: entry.entityId,
-												relationshipSchemaId: input.relationshipSchemaId,
-											})),
-										)
-										.onConflictDoUpdate({
-											set: { properties: sql.raw('excluded."properties"') },
-											targetWhere: isNull(schema.relationship.userId),
-											target: [
-												schema.relationship.sourceEntityId,
-												schema.relationship.targetEntityId,
-												schema.relationship.relationshipSchemaId,
-											],
-										})
-								: Promise.resolve();
-
-						return upsert.then(() => {
-							if (entityIds.length === 0) {
 								return tx
 									.delete(schema.relationship)
-									.where(selfEdgeWhere)
+									.where(and(synchronizationWhere, notInArray(relatedEntityColumn, entityIds)))
 									.then(() => undefined);
+							};
+
+							if (entries.length === 0) {
+								return synchronize();
+							}
+							if (input.onConflict === "preserveExisting") {
+								return tx
+									.insert(schema.relationship)
+									.values(relationshipValues)
+									.onConflictDoNothing()
+									.then(synchronize);
 							}
 
 							return tx
-								.delete(schema.relationship)
-								.where(
-									and(selfEdgeWhere, notInArray(schema.relationship.sourceEntityId, entityIds)),
-								)
-								.then(() => undefined);
-						});
-					}),
-				);
-			});
+								.insert(schema.relationship)
+								.values(relationshipValues)
+								.onConflictDoUpdate({
+									set: { properties: sql.raw('excluded."properties"') },
+									...globalRelationshipConflictTarget,
+								})
+								.then(synchronize);
+						}),
+					);
+				},
+			);
 
 			return {
 				saveRelationship,
 				deleteUserRelationship,
 				findRelationshipProperties,
-				syncGlobalRelationshipTargets,
-				syncGlobalRelationshipSelfEdges,
+				syncGlobalRelationships,
 				deleteUserRelationshipsForEntity,
 				moveUserRelationshipsBetweenEntities,
-				syncGlobalRelationshipsWithProperties,
 			};
 		},
 	},

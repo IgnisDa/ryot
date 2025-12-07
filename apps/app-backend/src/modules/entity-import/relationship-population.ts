@@ -98,14 +98,26 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		entries.push({ entityId: entity.id, properties });
 	}
 
-	yield* runWithDb(
-		relationshipsRepository.syncGlobalRelationshipsWithProperties({
-			entries,
-			direction: input.group.direction,
-			anchorEntityId: input.primaryEntityId,
-			relationshipSchemaId: relationshipSchema.id,
-			synchronization: input.group.synchronization,
-		}),
-	).pipe(dieOnDbError);
+	const syncBase = {
+		type: "anchored" as const,
+		entries,
+		direction: input.group.direction,
+		anchorEntityId: input.primaryEntityId,
+		relationshipSchemaId: relationshipSchema.id,
+	};
+	const syncInput =
+		input.group.synchronization === "additive"
+			? {
+					...syncBase,
+					onConflict: "preserveExisting" as const,
+					synchronization: "additive" as const,
+				}
+			: {
+					...syncBase,
+					onConflict: "replaceProperties" as const,
+					synchronization: "authoritative" as const,
+				};
+
+	yield* runWithDb(relationshipsRepository.syncGlobalRelationships(syncInput)).pipe(dieOnDbError);
 	return undefined;
 }, dieOnDbError);
