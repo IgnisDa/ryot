@@ -15,7 +15,7 @@ The end-to-end behavior: a client sends `POST /view-runtime/execute` with multip
 ### Sort COALESCE
 
 Extend the query builder sort logic:
-- Sort field is an array of schema-qualified property paths
+- Sort fields is an array of schema-qualified property paths
 - Single-schema sort: `["smartphones.year"]` → `(properties->>'year')::integer`
 - Cross-schema sort: `["smartphones.year", "tablets.release_year"]` → `COALESCE((properties->>'year')::integer, (properties->>'release_year')::integer)`
 - Cast all paths to same type (use text as common denominator if types differ across schemas)
