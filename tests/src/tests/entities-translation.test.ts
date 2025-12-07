@@ -17,10 +17,18 @@ import { assertPresent } from "../test-support/assertions";
 
 const CANONICAL_LANGUAGE = "en-US";
 
-async function seedPopulatedTmdbMovie(client: Client, input: { externalId: string; name: string }) {
-	const { schema } = await findBuiltinSchemaBySlug(client, "movie");
+async function seedPopulatedTmdbEntity(
+	client: Client,
+	input: {
+		name: string;
+		externalId: string;
+		schemaSlug: string;
+		properties: Record<string, unknown>;
+	},
+) {
+	const { schema } = await findBuiltinSchemaBySlug(client, input.schemaSlug);
 	const sandboxScriptId = schema.providers.find((provider) => provider.name === "TMDB")?.scriptId;
-	assertPresent(sandboxScriptId, "TMDB movie provider script not found");
+	assertPresent(sandboxScriptId, `TMDB ${input.schemaSlug} provider script not found`);
 
 	const provenance = { externalId: input.externalId, entitySchemaId: schema.id, sandboxScriptId };
 	await deleteGlobalEntityByProvenance(provenance);
@@ -32,11 +40,20 @@ async function seedPopulatedTmdbMovie(client: Client, input: { externalId: strin
 		name: input.name,
 		entitySchemaId: schema.id,
 		externalId: input.externalId,
-		properties: { description: `Canonical English overview of ${input.name}.` },
+		properties: input.properties,
 	});
 	await markEntityPopulated(seeded.id);
 
 	return seeded;
+}
+
+async function seedPopulatedTmdbMovie(client: Client, input: { externalId: string; name: string }) {
+	return seedPopulatedTmdbEntity(client, {
+		name: input.name,
+		schemaSlug: "movie",
+		externalId: input.externalId,
+		properties: { description: `Canonical English overview of ${input.name}.` },
+	});
 }
 
 describe("GET /entities/:entityId — translation overlay", () => {
@@ -72,6 +89,69 @@ describe("GET /entities/:entityId — translation overlay", () => {
 		expect(sharedRead.name).toBe(localizedRead.name);
 		expect(await countEntityTranslations(movie.id)).toBe(1);
 	}, 120_000);
+
+	it("fetches localized TMDB person and movie-group overlays and shares them", async () => {
+		const { client: clientA, userId: userIdA } = await createAuthenticatedClient();
+		const person = await seedPopulatedTmdbEntity(clientA, {
+			externalId: "31",
+			schemaSlug: "person",
+			name: "Canonical Tom Hanks",
+			properties: { description: "Canonical English biography of Tom Hanks." },
+		});
+		const movieGroup = await seedPopulatedTmdbEntity(clientA, {
+			externalId: "10",
+			schemaSlug: "movie-group",
+			name: "Canonical Star Wars",
+			properties: { description: "Canonical English overview of Star Wars." },
+		});
+
+		await setUserProviderLanguage({ userId: userIdA, source: "tmdb", preferredLanguage: "es-ES" });
+
+		const firstPersonRead = await getEntity(clientA, person.id);
+		expect(firstPersonRead.translationStatus).toBe("pending");
+		expect(firstPersonRead.properties.description).toBe(
+			"Canonical English biography of Tom Hanks.",
+		);
+
+		const firstMovieGroupRead = await getEntity(clientA, movieGroup.id);
+		expect(firstMovieGroupRead.translationStatus).toBe("pending");
+		expect(firstMovieGroupRead.name).toBe("Canonical Star Wars");
+
+		const localizedPersonRead = await pollEntityUntilTranslationStatus(
+			clientA,
+			person.id,
+			"ready",
+			{ timeoutMs: 90_000 },
+		);
+		const localizedPersonDescription = localizedPersonRead.properties.description;
+		expect(typeof localizedPersonDescription).toBe("string");
+		expect(localizedPersonDescription).not.toBe("Canonical English biography of Tom Hanks.");
+		expect(String(localizedPersonDescription).length).toBeGreaterThan(0);
+
+		const localizedMovieGroupRead = await pollEntityUntilTranslationStatus(
+			clientA,
+			movieGroup.id,
+			"ready",
+			{ timeoutMs: 90_000 },
+		);
+		expect(localizedMovieGroupRead.name).not.toBe("Canonical Star Wars");
+		expect(localizedMovieGroupRead.name.length).toBeGreaterThan(0);
+
+		const { client: clientB, userId: userIdB } = await createAuthenticatedClient();
+		await setUserProviderLanguage({ userId: userIdB, source: "tmdb", preferredLanguage: "es-ES" });
+
+		const sharedPersonRead = await getEntity(clientB, person.id);
+		expect(sharedPersonRead.translationStatus).toBe("ready");
+		expect(sharedPersonRead.properties.description).toBe(
+			localizedPersonRead.properties.description,
+		);
+
+		const sharedMovieGroupRead = await getEntity(clientB, movieGroup.id);
+		expect(sharedMovieGroupRead.translationStatus).toBe("ready");
+		expect(sharedMovieGroupRead.name).toBe(localizedMovieGroupRead.name);
+		expect(await countEntityTranslations(person.id)).toBe(1);
+		expect(await countEntityTranslations(movieGroup.id)).toBe(1);
+	}, 180_000);
 
 	it("negative-caches when the provider has no translation and does not refetch", async () => {
 		const { client, userId } = await createAuthenticatedClient();
