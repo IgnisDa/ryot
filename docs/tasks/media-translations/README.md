@@ -337,15 +337,15 @@ Modules to be tested (planned for long-term health):
 
 ## Tasks
 
-**Overall Progress:** 0 of 8 tasks completed
+**Overall Progress:** 1 of 8 tasks completed
 
-**Current Task:** [Task 01](./01-tmdb-movie-translation-spine.md) (todo)
+**Current Task:** [Task 02](./02-tmdb-people-and-movie-groups.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                                   | Type | Status |
 | --- | ------------------------------------------------------------------------------------------------------ | ---- | ------ |
-| 01  | [TMDB Movie Translation — Spine](./01-tmdb-movie-translation-spine.md)                                 | AFK  | todo   |
+| 01  | [TMDB Movie Translation — Spine](./01-tmdb-movie-translation-spine.md)                                 | AFK  | done   |
 | 02  | [TMDB People and Movie Groups](./02-tmdb-people-and-movie-groups.md)                                   | AFK  | todo   |
 | 03  | [TMDB Shows, Seasons, and Episodes](./03-tmdb-shows-seasons-episodes.md)                               | AFK  | todo   |
 | 04  | [Anilist Translation and Canonical details Refactor](./04-anilist-translation-and-details-refactor.md) | AFK  | todo   |
