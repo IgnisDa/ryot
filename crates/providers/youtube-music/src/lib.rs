@@ -348,16 +348,26 @@ impl MediaProvider for YoutubeMusicService {
         identifier: &str,
         target_language: &str,
     ) -> Result<EntityTranslationDetails> {
-        todo!()
+        let lang_client = get_lang_client(&self.client, target_language);
+        let album = lang_client.music_album(identifier).await?;
+        Ok(EntityTranslationDetails {
+            title: Some(album.name),
+            ..Default::default()
+        })
     }
 
     async fn translate_person(
         &self,
         identifier: &str,
         target_language: &str,
-        source_specifics: &Option<PersonSourceSpecifics>,
+        _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<EntityTranslationDetails> {
-        todo!()
+        let lang_client = get_lang_client(&self.client, target_language);
+        let data = lang_client.music_artist(identifier, true).await?;
+        Ok(EntityTranslationDetails {
+            title: Some(data.name),
+            ..Default::default()
+        })
     }
 }
 
