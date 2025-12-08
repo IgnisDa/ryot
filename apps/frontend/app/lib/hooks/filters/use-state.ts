@@ -1,7 +1,18 @@
+import { isEqual } from "@ryot/ts-utils";
 import { useMemo } from "react";
 import { useLocalStorage } from "usehooks-ts";
-import { isFilterChanged } from "~/lib/shared/ui-utils";
 import type { FilterUpdateFunction } from "~/lib/types";
+
+const isFilterChanged = <T extends object>(
+	current: T | undefined,
+	defaults: T,
+) => {
+	if (!current) return false;
+
+	return Object.keys(defaults)
+		.filter((key) => !["page", "query"].includes(key))
+		.some((key) => !isEqual(current[key as keyof T], defaults[key as keyof T]));
+};
 
 interface UseFilterStateConfig<TFilter> {
 	storageKey: string;
