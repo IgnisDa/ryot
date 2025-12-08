@@ -15,6 +15,7 @@ import {
 	MantineProvider,
 	createTheme,
 } from "@mantine/core";
+import { NuqsAdapter } from "nuqs/adapters/react-router/v7";
 import { ModalsProvider } from "@mantine/modals";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
@@ -136,33 +137,35 @@ export default function App() {
 				<ColorSchemeScript forceColorScheme={loaderData.defaultColorScheme} />
 			</head>
 			<body>
-				<MantineProvider
-					theme={theme}
-					classNamesPrefix="mnt"
-					forceColorScheme={loaderData.defaultColorScheme}
-				>
-					<QueryClientProvider client={queryClient}>
-						<ModalsProvider>
-							{["loading", "submitting"].includes(navigation.state) ? (
-								<Loader
-									top={10}
-									size="sm"
-									right={10}
-									pos="fixed"
-									color="yellow"
-									style={{ zIndex: 10 }}
-								/>
-							) : null}
-							<Toaster toast={loaderData.toast} />
-							<Flex style={{ flexGrow: 1 }} mih="100vh">
-								<Outlet />
-							</Flex>
-							<ScrollRestoration />
-							<Scripts />
-						</ModalsProvider>
-						<ReactQueryDevtools buttonPosition="top-right" />
-					</QueryClientProvider>
-				</MantineProvider>
+				<NuqsAdapter>
+					<MantineProvider
+						theme={theme}
+						classNamesPrefix="mnt"
+						forceColorScheme={loaderData.defaultColorScheme}
+					>
+						<QueryClientProvider client={queryClient}>
+							<ModalsProvider>
+								{["loading", "submitting"].includes(navigation.state) ? (
+									<Loader
+										top={10}
+										size="sm"
+										right={10}
+										pos="fixed"
+										color="yellow"
+										style={{ zIndex: 10 }}
+									/>
+								) : null}
+								<Toaster toast={loaderData.toast} />
+								<Flex style={{ flexGrow: 1 }} mih="100vh">
+									<Outlet />
+								</Flex>
+								<ScrollRestoration />
+								<Scripts />
+							</ModalsProvider>
+							<ReactQueryDevtools buttonPosition="top-right" />
+						</QueryClientProvider>
+					</MantineProvider>
+				</NuqsAdapter>
 			</body>
 		</html>
 	);
