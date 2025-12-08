@@ -21,8 +21,8 @@ These work via webhooks wherein an external service can inform Ryot about a chan
 webhook URLs follow this format:
 
 ```txt
-https://<instance_url>/backend/_i/<slug>
-https://app.ryot.io/backend/_i/int_a6cGGXEq6KOI # example
+https://<instance_url>/_i/<slug>
+https://app.ryot.io/_i/int_a6cGGXEq6KOI # example
 ```
 
 ::: warning

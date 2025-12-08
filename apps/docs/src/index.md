@@ -9,11 +9,11 @@ Use the following docker-compose file:
 ```yaml
 services:
   ryot-db:
-    image: postgres:16-alpine # at-least version 15 is required
+    image: postgres:18-alpine # at-least version 15 is required
     restart: unless-stopped
     container_name: ryot-db
     volumes:
-      - postgres_storage:/var/lib/postgresql/data
+      - postgres_storage:/var/lib/postgresql
     environment:
       - TZ=Europe/Amsterdam
       - POSTGRES_DB=postgres
@@ -56,15 +56,15 @@ Once you have the key, you can set it in the `docker-compose.yml` file:
 +      - SERVER_PRO_KEY=<pro_key_issued_to_you>
 ```
 
-If the key is invalid or your subscription has expired, the server will automatically start
-with the community version. Since the two versions are compatible, you can switch between
+If the key is invalid or your subscription has expired, the server will automatically switch
+to the community version. Since the two versions are compatible, you can switch between
 them by simply fixing the key and restarting the server.
 
 ## Releases
 
 Each version of Ryot is released as docker images. For example, if the latest tag is
 `v5.2.1`, then the docker image will be tagged as `v5.2.1`, `v5.2`, `v5`, `latest` and
-`sha-e145f71`. The images will be made available on [Docker
+`sha-e145f71` (git commit SHA). The images will be made available on [Docker
 Hub](https://hub.docker.com/r/ignisda/ryot) and [GitHub Container
 Registry](https://ghcr.io/ignisda/ryot). Ryot is released on a (loosely) weekly basis.
 

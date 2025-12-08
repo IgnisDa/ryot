@@ -7,13 +7,13 @@
 - Install [Rust](https://www.rust-lang.org), [Moon](https://moonrepo.dev) and
   [Caddy](https://caddyserver.com/) (>= 2.7).
 - Make sure you have PostgreSQL installed and running. I prefer using Docker e.g.
-`docker run -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=postgres -p 5432:5432 postgres:16-alpine`
+`docker run -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=postgres -p 5432:5432 postgres:18-alpine`
 - Create the following environment file in the root of the repository:
 
   ```bash title=".env"
-  DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres
-  UNKEY_ROOT_KEY=dummy-root-key
   APP_VERSION=v9.2.2
+  UNKEY_ROOT_KEY=dummy-root-key
+  DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres
   ```
 
 - Run the following commands in separate terminals:

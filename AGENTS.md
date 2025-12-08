@@ -16,10 +16,10 @@
   ```bash
   cargo clippy
   moon run docs:build
+  moon run tests:typecheck
   moon run website:typecheck
   moon run frontend:typecheck
   moon run browser-extension:typecheck
-  moon run tests:typecheck
   ```
 
 - When running tests, implement the feature first and compile the backend in release mode,

@@ -4,7 +4,7 @@ import variables from "./variables";
 
 # Deployment
 
-The easiest way to deploy Ryot is using the [docker compose](./index.md#installation). Here
+The easiest way to deploy Ryot is using [docker compose](./index.md#installation). Here
 is a non-exhaustive set of guides to deploy Ryot to alternative platforms.
 
 ## Railway

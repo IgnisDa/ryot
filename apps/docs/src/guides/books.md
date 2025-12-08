@@ -6,9 +6,8 @@ also supports other providers.
 
 ## Hardcover
 
-Ryot supports tracking books via [Hardcover](https://hardcover.app). I prefer this method
-because the quality of data is much better than Openlibrary or Google Books. As of writing
-this guide, the API key expires after a year, so you will need to renew it.
+Ryot supports tracking books via [Hardcover](https://hardcover.app). As of writing, the
+API key expires after a year or on January 1st, so you will need to renew it accordingly.
 
 You can use the following steps to obtain your own API keys:
 
