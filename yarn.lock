@@ -8879,6 +8879,7 @@ __metadata:
     js-cookie: "npm:3.0.5"
     lodash: "npm:4.17.21"
     mantine-datatable: "npm:8.3.8"
+    nuqs: "npm:2.8.3"
     postcss: "npm:8.5.6"
     postcss-preset-mantine: "npm:1.18.0"
     postcss-simple-vars: "npm:7.0.1"
@@ -10214,7 +10215,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@standard-schema/spec@npm:^1.0.0":
+"@standard-schema/spec@npm:1.0.0, @standard-schema/spec@npm:^1.0.0":
   version: 1.0.0
   resolution: "@standard-schema/spec@npm:1.0.0"
   checksum: 10/aee780cc1431888ca4b9aba9b24ffc8f3073fc083acc105e3951481478a2f4dc957796931b2da9e2d8329584cf211e4542275f188296c1cdff3ed44fd93a8bc8
@@ -18922,6 +18923,33 @@ __metadata:
   version: 1.1.1
   resolution: "nullthrows@npm:1.1.1"
   checksum: 10/c7cf377a095535dc301d81cf7959d3784d090a609a2a4faa40b6121a0c1d7f70d3a3aa534a34ab852e8553b66848ec503c28f2c19efd617ed564dc07dfbb6d33
+  languageName: node
+  linkType: hard
+
+"nuqs@npm:2.8.3":
+  version: 2.8.3
+  resolution: "nuqs@npm:2.8.3"
+  dependencies:
+    "@standard-schema/spec": "npm:1.0.0"
+  peerDependencies:
+    "@remix-run/react": ">=2"
+    "@tanstack/react-router": ^1
+    next: ">=14.2.0"
+    react: ">=18.2.0 || ^19.0.0-0"
+    react-router: ^5 || ^6 || ^7
+    react-router-dom: ^5 || ^6 || ^7
+  peerDependenciesMeta:
+    "@remix-run/react":
+      optional: true
+    "@tanstack/react-router":
+      optional: true
+    next:
+      optional: true
+    react-router:
+      optional: true
+    react-router-dom:
+      optional: true
+  checksum: 10/ab8d66207c15751e723e3665968a50cfa016861ce1d6c8a2615a036d2b86b563af888111551176662f43324899699801355eb96e1d51d5b6024fcd1f54130367
   languageName: node
   linkType: hard
 
