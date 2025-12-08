@@ -15,10 +15,10 @@ import {
 	MantineProvider,
 	createTheme,
 } from "@mantine/core";
-import { NuqsAdapter } from "nuqs/adapters/react-router/v7";
 import { ModalsProvider } from "@mantine/modals";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { NuqsAdapter } from "nuqs/adapters/react-router/v7";
 import {
 	Links,
 	type LinksFunction,
