@@ -3,7 +3,7 @@ import { notifications } from "@mantine/notifications";
 import type { Scalars } from "@ryot/generated/graphql/backend/graphql";
 import { type FormEvent, useState } from "react";
 import { Form } from "react-router";
-import { CollectionTemplateRenderer } from "~/components/common/CollectionTemplateRenderer";
+import { CollectionTemplateRenderer } from "~/components/common/collection-template-renderer";
 import {
 	useAddEntitiesToCollectionMutation,
 	useApplicationEvents,

@@ -50,7 +50,7 @@ import {
 	DisplayListDetailsAndRefresh,
 	SkeletonLoader,
 } from "~/components/common";
-import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
+import { BulkCollectionEditingAffix } from "~/components/common/bulk-collection-editing-affix";
 import {
 	FilterPresetBar,
 	FilterPresetModalManager,
