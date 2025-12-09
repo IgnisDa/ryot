@@ -144,39 +144,51 @@ pub type ApplicationOidcClient<
 pub async fn create_oidc_client(
     config: &config_definition::AppConfig,
 ) -> Option<(reqwest::Client, ApplicationOidcClient)> {
-    match RedirectUrl::new(config.frontend.url.clone() + FRONTEND_OAUTH_ENDPOINT) {
-        Ok(redirect_url) => match IssuerUrl::new(config.server.oidc.issuer_url.clone()) {
-            Ok(issuer_url) => {
-                let async_http_client = reqwest::ClientBuilder::new()
-                    .redirect(reqwest::redirect::Policy::none())
-                    .build()
-                    .unwrap();
-                match CoreProviderMetadata::discover_async(issuer_url, &async_http_client).await {
-                    Ok(provider_metadata) => {
-                        let core_client = CoreClient::from_provider_metadata(
-                            provider_metadata,
-                            ClientId::new(config.server.oidc.client_id.clone()),
-                            Some(ClientSecret::new(config.server.oidc.client_secret.clone())),
-                        )
-                        .set_redirect_uri(redirect_url);
-                        Some((async_http_client, core_client))
-                    }
-                    Err(e) => {
-                        ryot_log!(debug, "Error while creating OIDC client: {:?}", e);
-                        None
-                    }
-                }
-            }
-            Err(e) => {
-                ryot_log!(debug, "Error while processing OIDC issuer url: {:?}", e);
-                None
-            }
-        },
+    let redirect_url = match RedirectUrl::new(config.frontend.url.clone() + FRONTEND_OAUTH_ENDPOINT)
+    {
+        Ok(url) => url,
         Err(e) => {
             ryot_log!(debug, "Error while processing OIDC redirect url: {:?}", e);
-            None
+            return None;
         }
-    }
+    };
+
+    let issuer_url = match IssuerUrl::new(config.server.oidc.issuer_url.clone()) {
+        Ok(url) => url,
+        Err(e) => {
+            ryot_log!(debug, "Error while processing OIDC issuer url: {:?}", e);
+            return None;
+        }
+    };
+
+    let async_http_client = match reqwest::ClientBuilder::new()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+    {
+        Ok(client) => client,
+        Err(e) => {
+            ryot_log!(debug, "Error while building HTTP client: {:?}", e);
+            return None;
+        }
+    };
+
+    let provider_metadata =
+        match CoreProviderMetadata::discover_async(issuer_url, &async_http_client).await {
+            Ok(metadata) => metadata,
+            Err(e) => {
+                ryot_log!(debug, "Error while creating OIDC client: {:?}", e);
+                return None;
+            }
+        };
+
+    let core_client = CoreClient::from_provider_metadata(
+        provider_metadata,
+        ClientId::new(config.server.oidc.client_id.clone()),
+        Some(ClientSecret::new(config.server.oidc.client_secret.clone())),
+    )
+    .set_redirect_uri(redirect_url);
+
+    Some((async_http_client, core_client))
 }
 
 pub fn calculate_average_rating_for_user(
