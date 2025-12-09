@@ -21,8 +21,8 @@ use openidconnect::{
         CoreRevocableToken, CoreRevocationErrorResponse, CoreTokenIntrospectionResponse,
         CoreTokenResponse,
     },
-    reqwest,
 };
+use reqwest::{Client as ReqwestClient, ClientBuilder, redirect::Policy};
 use rust_decimal::Decimal;
 use sea_orm::Order;
 use supporting_service::SupportingService;
@@ -143,7 +143,7 @@ pub type ApplicationOidcClient<
 
 pub async fn create_oidc_client(
     config: &config_definition::AppConfig,
-) -> Option<(reqwest::Client, ApplicationOidcClient)> {
+) -> Option<(ReqwestClient, ApplicationOidcClient)> {
     let redirect_url = match RedirectUrl::new(config.frontend.url.clone() + FRONTEND_OAUTH_ENDPOINT)
     {
         Ok(url) => url,
@@ -161,10 +161,7 @@ pub async fn create_oidc_client(
         }
     };
 
-    let async_http_client = match reqwest::ClientBuilder::new()
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
-    {
+    let async_http_client = match ClientBuilder::new().redirect(Policy::none()).build() {
         Ok(client) => client,
         Err(e) => {
             ryot_log!(debug, "Error while building HTTP client: {:?}", e);
