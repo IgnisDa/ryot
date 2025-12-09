@@ -10,14 +10,13 @@ import {
 import { isEqual } from "@ryot/ts-utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ClientError } from "graphql-request";
-import { useEffect, useRef } from "react";
-import { useLocalStorage } from "usehooks-ts";
+import type { ParserMap, Values } from "nuqs";
+import { useEffect, useRef, useState } from "react";
 import { clientGqlService } from "~/lib/shared/react-query";
 
 interface UseFilterPresetsConfig<TFilter> {
 	enabled: boolean;
 	filters: TFilter;
-	storageKeyPrefix: string;
 	contextInformation?: unknown;
 	contextType: FilterPresetContextType;
 	setFilters: (filters: TFilter) => void;
@@ -26,10 +25,7 @@ interface UseFilterPresetsConfig<TFilter> {
 export const useFilterPresets = <TFilter extends { page: number }>(
 	config: UseFilterPresetsConfig<TFilter>,
 ) => {
-	const [activePresetId, setActivePresetId] = useLocalStorage<string | null>(
-		config.storageKeyPrefix,
-		null,
-	);
+	const [activePresetId, setActivePresetId] = useState<string | null>(null);
 	const isApplyingPreset = useRef(false);
 
 	const { data: filterPresets, refetch: refetchFilterPresets } = useQuery({
@@ -92,25 +88,23 @@ export const useFilterPresets = <TFilter extends { page: number }>(
 		},
 	});
 
-	const applyPreset = async (presetId: string, presetFilters: unknown) => {
+	async function applyPreset<Parsers extends ParserMap>(
+		presetId: string,
+		presetFilters: Values<Parsers>,
+	) {
 		isApplyingPreset.current = true;
-		const parsedFilters =
-			typeof presetFilters === "string"
-				? JSON.parse(presetFilters)
-				: presetFilters;
-		config.setFilters({ ...parsedFilters, page: 1 } as TFilter);
+		config.setFilters(presetFilters as TFilter);
 		setActivePresetId(presetId);
 		setTimeout(() => {
 			isApplyingPreset.current = false;
 		}, 100);
 		updateLastUsedMutation.mutate(presetId);
-	};
+	}
 
 	const savePreset = async (name: string) => {
 		try {
-			const filtersToSave = { ...config.filters, page: 1 };
 			const result = await createPresetMutation.mutateAsync({
-				input: { name, filters: filtersToSave },
+				input: { name, filters: config.filters },
 			});
 			setActivePresetId(result.createFilterPreset.id);
 			return result.createFilterPreset.id;
@@ -147,11 +141,7 @@ export const useFilterPresets = <TFilter extends { page: number }>(
 		);
 		if (!activePreset) return;
 
-		const savedFilters =
-			typeof activePreset.filters === "string"
-				? JSON.parse(activePreset.filters)
-				: activePreset.filters;
-
+		const savedFilters = activePreset.filters;
 		const { page: _savedPage, ...savedWithoutPage } = savedFilters;
 		const { page: _currentPage, ...filtersWithoutPage } = config.filters;
 
