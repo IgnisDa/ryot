@@ -1,4 +1,4 @@
-import { isEqual, isNil } from "@ryot/ts-utils";
+import { isEqual } from "@ryot/ts-utils";
 import { type ParserMap, type Values, useQueryStates } from "nuqs";
 import { useMemo } from "react";
 import { useLocalStorage } from "usehooks-ts";
@@ -8,16 +8,12 @@ function areFiltersChanged<Parsers extends ParserMap>(
 	parsers: Parsers,
 	filters: Values<Parsers>,
 ) {
-	for (const [key, parser] of Object.entries(parsers)) {
+	for (const [key, parser] of Object.entries(parsers))
 		if (
 			!["page", "query"].includes(key) &&
-			!isNil(filters[key]) &&
-			!isNil(parsers[key].defaultValue) &&
 			!parser.eq(filters[key], parsers[key].defaultValue)
-		) {
+		)
 			return true;
-		}
-	}
 	return false;
 }
 
