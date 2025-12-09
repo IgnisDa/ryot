@@ -16,6 +16,7 @@ import isEmpty from "lodash/isEmpty";
 import isEqual from "lodash/isEqual";
 import isFiniteNumber from "lodash/isFinite";
 import isInteger from "lodash/isInteger";
+import isNil from "lodash/isNil";
 import isNumber from "lodash/isNumber";
 import isPlainObject from "lodash/isPlainObject";
 import isString from "lodash/isString";
@@ -148,6 +149,7 @@ export {
 	isEqual,
 	isFiniteNumber,
 	isInteger,
+	isNil,
 	isNumber,
 	isPlainObject,
 	isString,
