@@ -151,7 +151,6 @@ export default function Page(props: {
 		contextInformation: { lot },
 		filters: listState.normalizedFilters,
 		setFilters: listState.setFiltersState,
-		storageKeyPrefix: `MediaActivePreset_${lot}`,
 		contextType: FilterPresetContextType.MetadataList,
 	});
 
@@ -160,7 +159,6 @@ export default function Page(props: {
 		enabled: action === "search",
 		filters: searchState.normalizedFilters,
 		setFilters: searchState.setFiltersState,
-		storageKeyPrefix: `MediaSearchActivePreset_${lot}`,
 		contextType: FilterPresetContextType.MetadataSearch,
 	});
 

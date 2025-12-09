@@ -124,7 +124,6 @@ export default function Page(props: { params: { action: string } }) {
 		enabled: action === "list",
 		filters: listState.normalizedFilters,
 		setFilters: listState.setFiltersState,
-		storageKeyPrefix: "GroupsListActivePreset",
 		contextType: FilterPresetContextType.MetadataGroupsList,
 	});
 
@@ -132,7 +131,6 @@ export default function Page(props: { params: { action: string } }) {
 		enabled: action === "search",
 		filters: searchState.normalizedFilters,
 		setFilters: searchState.setFiltersState,
-		storageKeyPrefix: "GroupsSearchActivePreset",
 		contextType: FilterPresetContextType.MetadataGroupsSearch,
 	});
 

@@ -165,7 +165,6 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 		setFilters: updateFilters,
 		contextInformation: { entity },
 		contextType: FilterPresetContextType.FitnessEntitiesList,
-		storageKeyPrefix: `FitnessEntityListActivePreset_${entity}`,
 	});
 
 	const { data: listData, refetch: refetchListData } = useQuery({

@@ -123,7 +123,6 @@ export default function Page(props: { params: { action: string } }) {
 		enabled: action === "list",
 		filters: listState.normalizedFilters,
 		setFilters: listState.setFiltersState,
-		storageKeyPrefix: "PeopleListActivePreset",
 		contextType: FilterPresetContextType.PeopleList,
 	});
 
@@ -131,7 +130,6 @@ export default function Page(props: { params: { action: string } }) {
 		enabled: action === "search",
 		filters: searchState.normalizedFilters,
 		setFilters: searchState.setFiltersState,
-		storageKeyPrefix: "PeopleSearchActivePreset",
 		contextType: FilterPresetContextType.PeopleSearch,
 	});
 

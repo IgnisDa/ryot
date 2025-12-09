@@ -151,7 +151,6 @@ export default function Page(props: { params: { id: string } }) {
 		filters: filterState.normalizedFilters,
 		setFilters: filterState.setFiltersState,
 		contextType: FilterPresetContextType.CollectionContents,
-		storageKeyPrefix: `CollectionContentsActivePreset_${collectionId}`,
 	});
 
 	const queryInput: CollectionContentsInput = useMemo(

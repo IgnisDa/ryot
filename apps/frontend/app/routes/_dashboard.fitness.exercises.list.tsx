@@ -197,7 +197,6 @@ export default function Page() {
 		enabled: true,
 		filters: filterState.normalizedFilters,
 		setFilters: filterState.setFiltersState,
-		storageKeyPrefix: "ExerciseListActivePreset",
 		contextType: FilterPresetContextType.ExercisesList,
 	});
 
