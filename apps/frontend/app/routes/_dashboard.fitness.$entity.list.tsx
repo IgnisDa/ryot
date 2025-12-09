@@ -41,6 +41,12 @@ import {
 	IconWeight,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import {
+	type inferParserType,
+	parseAsInteger,
+	parseAsString,
+	parseAsStringEnum,
+} from "nuqs";
 import type { ReactElement } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
@@ -67,8 +73,9 @@ import {
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
 } from "~/components/fitness/utils";
+import type { FilterUpdateFunction } from "~/lib/hooks/filters/types";
 import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
-import { useFilterState } from "~/lib/hooks/filters/use-state";
+import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
@@ -85,25 +92,20 @@ import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
-import {
-	type FilterUpdateFunction,
-	FitnessAction,
-	FitnessEntity,
-} from "~/lib/types";
+import { FitnessAction, FitnessEntity } from "~/lib/types";
 
-interface FilterState {
-	page: number;
-	query: string;
-	orderBy: GraphqlSortOrder;
-	sortBy: UserTemplatesOrWorkoutsListSortBy;
-}
-
-const defaultFilterState: FilterState = {
-	page: 1,
-	query: "",
-	orderBy: GraphqlSortOrder.Desc,
-	sortBy: UserTemplatesOrWorkoutsListSortBy.Time,
+const defaultQueryState = {
+	page: parseAsInteger.withDefault(1),
+	query: parseAsString.withDefault(""),
+	orderBy: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(
+		GraphqlSortOrder.Desc,
+	),
+	sortBy: parseAsStringEnum(
+		Object.values(UserTemplatesOrWorkoutsListSortBy),
+	).withDefault(UserTemplatesOrWorkoutsListSortBy.Time),
 };
+
+type FilterState = inferParserType<typeof defaultQueryState>;
 
 export const meta = () => {
 	return [{ title: "Fitness Entity List | Ryot" }];
@@ -129,10 +131,7 @@ const buildQueryInput = (
 		return {
 			...baseInput,
 			...overrides,
-			search: {
-				...baseInput.search,
-				...overrides.search,
-			},
+			search: { ...baseInput.search, ...overrides.search },
 		};
 	}
 
@@ -143,12 +142,12 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 	const { entity } = props.params;
 	invariant(entity);
 
-	const filterState = useFilterState({
-		defaultFilters: defaultFilterState,
-		storageKey: `Fitness-${entity}-ListFilters`,
-	});
 	const coreDetails = useCoreDetails();
 	const startWorkout = useGetWorkoutStarter();
+	const bulkEditingState = useBulkEditingState();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const { filters, resetFilters, updateFilters, haveFiltersChanged } =
+		useFiltersState(defaultQueryState);
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -157,16 +156,14 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 		presetModalOpened,
 		{ open: openPresetModal, close: closePresetModal },
 	] = useDisclosure(false);
-	const { advanceOnboardingTourStep } = useOnboardingTour();
-	const bulkEditingState = useBulkEditingState();
 
-	const input = buildQueryInput(filterState.normalizedFilters);
+	const input = buildQueryInput(filters);
 
 	const listPresets = useFilterPresets({
 		enabled: true,
+		filters: filters,
+		setFilters: updateFilters,
 		contextInformation: { entity },
-		filters: filterState.normalizedFilters,
-		setFilters: filterState.setFiltersState,
 		contextType: FilterPresetContextType.FitnessEntitiesList,
 		storageKeyPrefix: `FitnessEntityListActivePreset_${entity}`,
 	});
@@ -196,8 +193,6 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 				.exhaustive(),
 	});
 
-	const areListFiltersActive = filterState.areFiltersActive;
-
 	return (
 		<>
 			<FilterPresetModalManager
@@ -210,7 +205,7 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 				bulkAddEntities={async () => {
 					if (bulkEditingState?.data.action !== "add") return [];
 
-					const queryInput = buildQueryInput(filterState.normalizedFilters, {
+					const queryInput = buildQueryInput(filters, {
 						search: { page: 1, take: Number.MAX_SAFE_INTEGER },
 					});
 
@@ -271,25 +266,25 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 					</Flex>
 					<Group wrap="nowrap">
 						<DebouncedSearchInput
-							onChange={filterState.updateQuery}
+							value={filters.query}
 							placeholder={`Search for ${entity}`}
-							value={filterState.normalizedFilters.query}
+							onChange={(query) => updateFilters({ query })}
 						/>
 						<ActionIcon
 							onClick={openFiltersModal}
-							color={areListFiltersActive ? "blue" : "gray"}
+							color={haveFiltersChanged ? "blue" : "gray"}
 						>
 							<IconFilter size={24} />
 						</ActionIcon>
 						<FiltersModal
 							opened={filtersModalOpened}
 							onSavePreset={openPresetModal}
+							resetFilters={() => resetFilters()}
 							closeFiltersModal={closeFiltersModal}
-							resetFilters={filterState.resetFilters}
 						>
 							<FiltersModalForm
-								filters={filterState.normalizedFilters}
-								updateFilter={filterState.updateFilter}
+								filters={filters}
+								updateFilter={(key, value) => updateFilters({ [key]: value })}
 							/>
 						</FiltersModal>
 					</Group>
@@ -302,8 +297,7 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 									total={listData.details.totalItems}
 									onRefreshButtonClicked={refetchListData}
 									isRandomSortOrderSelected={
-										filterState.normalizedFilters.sortBy ===
-										UserTemplatesOrWorkoutsListSortBy.Random
+										filters.sortBy === UserTemplatesOrWorkoutsListSortBy.Random
 									}
 								/>
 								{listData.items.length > 0 ? (
@@ -319,9 +313,9 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 									<Text>No {entity} found</Text>
 								)}
 								<ApplicationPagination
+									value={filters.page}
 									totalItems={listData.details.totalItems}
-									value={filterState.normalizedFilters.page}
-									onChange={(v) => filterState.updateFilter("page", v)}
+									onChange={(v) => updateFilters({ page: v })}
 								/>
 							</>
 						) : (
@@ -562,28 +556,23 @@ const ExerciseDisplay = (props: {
 const FiltersModalForm = (props: {
 	filters: FilterState;
 	updateFilter: FilterUpdateFunction<FilterState>;
-}) => {
-	return (
-		<Flex gap="xs" align="center">
-			<Select
-				w="100%"
-				value={props.filters.sortBy}
-				data={convertEnumToSelectData(UserTemplatesOrWorkoutsListSortBy)}
-				onChange={(v) => {
-					if (v) {
-						props.updateFilter(
-							"sortBy",
-							v as UserTemplatesOrWorkoutsListSortBy,
-						);
-					}
-				}}
+}) => (
+	<Flex gap="xs" align="center">
+		<Select
+			w="100%"
+			value={props.filters.sortBy}
+			data={convertEnumToSelectData(UserTemplatesOrWorkoutsListSortBy)}
+			onChange={(v) => {
+				if (v) {
+					props.updateFilter("sortBy", v as UserTemplatesOrWorkoutsListSortBy);
+				}
+			}}
+		/>
+		{props.filters.sortBy !== UserTemplatesOrWorkoutsListSortBy.Random ? (
+			<SortOrderToggle
+				currentOrder={props.filters.orderBy}
+				onOrderChange={(order) => props.updateFilter("orderBy", order)}
 			/>
-			{props.filters.sortBy !== UserTemplatesOrWorkoutsListSortBy.Random ? (
-				<SortOrderToggle
-					currentOrder={props.filters.orderBy}
-					onOrderChange={(order) => props.updateFilter("orderBy", order)}
-				/>
-			) : null}
-		</Flex>
-	);
-};
+		) : null}
+	</Flex>
+);

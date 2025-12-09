@@ -1,8 +1,35 @@
 import { isEqual } from "@ryot/ts-utils";
+import { type ParserMap, type Values, useQueryStates } from "nuqs";
 import { useMemo } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import type { FilterUpdateFunction } from "./types";
 
+function areFiltersChanged<Parsers extends ParserMap>(
+	parsers: Parsers,
+	filters: Values<Parsers>,
+) {
+	for (const [key, parser] of Object.entries(parsers))
+		if (
+			!["page", "query"].includes(key) &&
+			!parser.eq(filters[key], parsers[key].defaultValue)
+		)
+			return true;
+	return false;
+}
+
+export function useFiltersState<Parsers extends ParserMap>(config: Parsers) {
+	const [filters, setFilters] = useQueryStates(config);
+	const haveFiltersChanged = areFiltersChanged(config, filters);
+
+	const resetFilters = () => setFilters(() => null);
+
+	const updateFilters = (nextFilters: Partial<typeof filters>) =>
+		setFilters(() => ({ page: 1, ...nextFilters }));
+
+	return { filters, resetFilters, updateFilters, haveFiltersChanged };
+}
+
+// FIXME: Remove this
 const isFilterChanged = <T extends object>(
 	current: T | undefined,
 	defaults: T,
@@ -14,11 +41,13 @@ const isFilterChanged = <T extends object>(
 		.some((key) => !isEqual(current[key as keyof T], defaults[key as keyof T]));
 };
 
+// FIXME: Remove this
 interface UseFilterStateConfig<TFilter> {
 	storageKey: string;
 	defaultFilters: TFilter;
 }
 
+// FIXME: Remove this
 export const useFilterState = <TFilter extends { page: number; query: string }>(
 	config: UseFilterStateConfig<TFilter>,
 ) => {
