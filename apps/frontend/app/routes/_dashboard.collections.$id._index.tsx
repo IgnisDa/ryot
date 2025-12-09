@@ -63,6 +63,7 @@ import {
 import { ApplicationGrid } from "~/components/common/layout";
 import { ReviewItemDisplay } from "~/components/common/review";
 import { MetadataDisplayItem } from "~/components/media/display-items";
+import type { FilterUpdateFunction } from "~/lib/hooks/filters/types";
 import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
 import { useFilterState } from "~/lib/hooks/filters/use-state";
 import { dayjsLib } from "~/lib/shared/date-utils";
@@ -83,7 +84,6 @@ import {
 	useCreateOrUpdateCollectionModal,
 } from "~/lib/state/collection";
 import { useReviewEntity } from "~/lib/state/media";
-import type { FilterUpdateFunction } from "~/lib/types";
 
 enum TabNames {
 	Actions = "actions",

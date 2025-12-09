@@ -77,6 +77,7 @@ import {
 	DebouncedSearchInput,
 	FiltersModal,
 } from "~/components/common/filters";
+import type { FilterUpdateFunction } from "~/lib/hooks/filters/types";
 import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
 import { useFilterState } from "~/lib/hooks/filters/use-state";
 import { dayjsLib } from "~/lib/shared/date-utils";
@@ -105,7 +106,6 @@ import {
 	TOUR_EXERCISE_TARGET_ID,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
-import type { FilterUpdateFunction } from "~/lib/types";
 import { redirectWithToast, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.exercises.list";
 

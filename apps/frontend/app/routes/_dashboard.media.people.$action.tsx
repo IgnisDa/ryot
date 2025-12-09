@@ -52,6 +52,7 @@ import {
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { PersonDisplayItem } from "~/components/media/display-items";
+import type { FilterUpdateFunction } from "~/lib/hooks/filters/types";
 import { useFilterModals } from "~/lib/hooks/filters/use-modals";
 import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
 import { useFilterState } from "~/lib/hooks/filters/use-state";
@@ -59,7 +60,6 @@ import { useCoreDetails, useUserPeopleList } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { useBulkEditCollection } from "~/lib/state/collection";
-import type { FilterUpdateFunction } from "~/lib/types";
 
 interface ListFilterState {
 	page: number;

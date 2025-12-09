@@ -58,6 +58,7 @@ import {
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
+import type { FilterUpdateFunction } from "~/lib/hooks/filters/types";
 import { useFilterModals } from "~/lib/hooks/filters/use-modals";
 import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
 import { useFilterState } from "~/lib/hooks/filters/use-state";
@@ -72,7 +73,7 @@ import {
 	TOUR_METADATA_TARGET_ID,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
-import { ApplicationTimeRange, type FilterUpdateFunction } from "~/lib/types";
+import { ApplicationTimeRange } from "~/lib/types";
 
 interface ListFilterState {
 	page: number;

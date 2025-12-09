@@ -1,7 +1,7 @@
 import { isEqual } from "@ryot/ts-utils";
 import { useMemo } from "react";
 import { useLocalStorage } from "usehooks-ts";
-import type { FilterUpdateFunction } from "~/lib/types";
+import type { FilterUpdateFunction } from "./types";
 
 const isFilterChanged = <T extends object>(
 	current: T | undefined,
