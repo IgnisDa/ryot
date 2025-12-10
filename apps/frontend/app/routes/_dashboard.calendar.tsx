@@ -114,7 +114,7 @@ const CalendarEventMetadata = (props: {
 			return `Upcoming: S${props.item.showExtraInformation?.season}-E${props.item.showExtraInformation?.episode}`;
 		if (props.item.podcastExtraInformation)
 			return `Upcoming: EP-${props.item.podcastExtraInformation?.episode}`;
-	}, []);
+	}, [props.item]);
 
 	return (
 		<MetadataDisplayItem
