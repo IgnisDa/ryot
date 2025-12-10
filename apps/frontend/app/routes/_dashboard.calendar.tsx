@@ -14,23 +14,20 @@ import {
 import { sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import { parseAsString } from "nuqs";
 import { useMemo } from "react";
-import { useLocalStorage } from "usehooks-ts";
 import {
 	DisplayListDetailsAndRefresh,
 	SkeletonLoader,
 } from "~/components/common";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
+import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 
-interface FilterState {
-	date: string;
-}
-
-const defaultFilterState: FilterState = {
-	date: new Date().toISOString(),
+const defaultFiltersState = {
+	date: parseAsString.withDefault(new Date().toISOString()),
 };
 
 export const meta = () => {
@@ -38,10 +35,7 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const [filters, setFilters] = useLocalStorage(
-		"CalendarFilters",
-		defaultFilterState,
-	);
+	const { filters, updateFilters } = useFiltersState(defaultFiltersState);
 
 	const date = dayjsLib(filters.date);
 
@@ -58,8 +52,7 @@ export default function Page() {
 				.then((data) => data.userCalendarEvents),
 	});
 
-	const updateDate = (newDate: string) =>
-		setFilters((prev) => ({ ...prev, date: newDate }));
+	const updateDate = (newDate: string) => updateFilters({ date: newDate });
 
 	return (
 		<Container>
