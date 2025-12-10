@@ -12,15 +12,20 @@ import { DisplaySupersetModal } from "./supersets";
 import { TimerAndStopwatchDrawer } from "./timer-and-stopwatch-drawer";
 import type { FuncStartTimer } from "./types";
 
+const useNotificationPermissionAsked = () => {
+	const userDetails = useUserDetails();
+	return useLocalStorage(
+		`HasAskedForNotificationPermission-${userDetails.id}`,
+		false,
+	);
+};
+
 const NotificationPermissionModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 }) => {
-	const userDetails = useUserDetails();
-	const [, setHasAskedForNotificationPermission] = useLocalStorage(
-		`HasAskedForNotificationPermission-${userDetails.id}`,
-		false,
-	);
+	const [, setHasAskedForNotificationPermission] =
+		useNotificationPermissionAsked();
 
 	const handleClose = () => {
 		setHasAskedForNotificationPermission(true);
@@ -125,7 +130,6 @@ export const WorkoutModals = (props: ModalsProps) => (
 );
 
 export function useWorkoutModals() {
-	const userDetails = useUserDetails();
 	const [assetsModalOpened, setAssetsModalOpened] = useState<
 		string | null | undefined
 	>(undefined);
@@ -144,10 +148,7 @@ export function useWorkoutModals() {
 	const [supersetWithExerciseIdentifier, setSupersetModalOpened] = useState<
 		string | null
 	>(null);
-	const [hasAskedForNotificationPermission] = useLocalStorage(
-		`HasAskedForNotificationPermission-${userDetails.id}`,
-		false,
-	);
+	const [hasAskedForNotificationPermission] = useNotificationPermissionAsked();
 	const [notificationModalOpened, setNotificationModalOpened] = useState(false);
 
 	useEffect(() => {
