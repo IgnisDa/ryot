@@ -270,8 +270,8 @@ export default function Page(props: { params: { action: string } }) {
 									onChange={(v) => {
 										v &&
 											updateSearchFilters({
-												source: v as MediaSource,
 												page: 1,
+												source: v as MediaSource,
 											});
 									}}
 								/>

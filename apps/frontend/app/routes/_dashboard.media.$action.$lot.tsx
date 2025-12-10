@@ -402,12 +402,10 @@ export default function Page(props: {
 								<Group wrap="nowrap">
 									<DebouncedSearchInput
 										value={searchFilters.query}
+										onChange={(value) => updateSearchFilters({ query: value })}
 										placeholder={`Search for ${changeCase(
 											lot.toLowerCase(),
 										).toLowerCase()}s`}
-										onChange={(value) =>
-											updateSearchFilters({ query: value, page: 1 })
-										}
 										tourControl={{
 											target: OnboardingTourStepTargets.SearchAudiobook,
 											onQueryChange: (query) => {

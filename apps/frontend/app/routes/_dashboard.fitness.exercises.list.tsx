@@ -297,9 +297,7 @@ export default function Page() {
 						<DebouncedSearchInput
 							value={filters.query}
 							placeholder="Search for exercises by name or instructions"
-							onChange={(value) => {
-								updateFilters({ query: value, page: 1 });
-							}}
+							onChange={(value) => updateFilters({ query: value })}
 							tourControl={{
 								target: OnboardingTourStepTargets.SearchForExercise,
 								onQueryChange: (query) => {
