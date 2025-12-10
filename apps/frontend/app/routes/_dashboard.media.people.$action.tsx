@@ -374,35 +374,32 @@ interface FiltersModalFormProps {
 	onFiltersChange: FilterUpdateFunction<ListFilterState>;
 }
 
-const FiltersModalForm = (props: FiltersModalFormProps) => {
-	const { filters, onFiltersChange } = props;
-
-	return (
-		<>
-			<Flex gap="xs" align="center">
-				<Select
-					w="100%"
-					value={filters.sortBy}
-					data={convertEnumToSelectData(PersonAndMetadataGroupsSortBy)}
-					onChange={(v) =>
-						v && onFiltersChange("sortBy", v as PersonAndMetadataGroupsSortBy)
-					}
-				/>
-				{filters.sortBy !== PersonAndMetadataGroupsSortBy.Random ? (
-					<SortOrderToggle
-						currentOrder={filters.orderBy}
-						onOrderChange={(order) => onFiltersChange("orderBy", order)}
-					/>
-				) : null}
-			</Flex>
-			<Divider />
-			<CollectionsFilter
-				applied={filters.collections}
-				onFiltersChanged={(val) => onFiltersChange("collections", val)}
+const FiltersModalForm = (props: FiltersModalFormProps) => (
+	<>
+		<Flex gap="xs" align="center">
+			<Select
+				w="100%"
+				value={props.filters.sortBy}
+				data={convertEnumToSelectData(PersonAndMetadataGroupsSortBy)}
+				onChange={(v) =>
+					v &&
+					props.onFiltersChange("sortBy", v as PersonAndMetadataGroupsSortBy)
+				}
 			/>
-		</>
-	);
-};
+			{props.filters.sortBy !== PersonAndMetadataGroupsSortBy.Random ? (
+				<SortOrderToggle
+					currentOrder={props.filters.orderBy}
+					onOrderChange={(order) => props.onFiltersChange("orderBy", order)}
+				/>
+			) : null}
+		</Flex>
+		<Divider />
+		<CollectionsFilter
+			applied={props.filters.collections}
+			onFiltersChanged={(val) => props.onFiltersChange("collections", val)}
+		/>
+	</>
+);
 
 interface SearchFiltersModalFormProps {
 	filters: SearchFilterState;
