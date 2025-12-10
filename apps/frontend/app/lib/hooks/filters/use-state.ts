@@ -1,24 +1,20 @@
 import { type ParserMap, type Values, useQueryStates } from "nuqs";
 
-function areFiltersDefault<Parsers extends ParserMap>(
+function isDefaultState<Parsers extends ParserMap>(
 	parsers: Parsers,
 	values: Values<Parsers>,
 ) {
-	for (const key in parsers) {
-		const value = values[key];
-		const parser = parsers[key];
-		const defaultValue = parser.defaultValue;
-
-		if (defaultValue === undefined && value !== null) return false;
-		if (!["page", "query"].includes(key) && !parser.eq(value, defaultValue))
-			return false;
+	for (const [key, parser] of Object.entries(parsers)) {
+		if (parsers[key].defaultValue === undefined && values[key] === null)
+			continue;
+		if (!parser.eq(values[key], parsers[key].defaultValue)) return false;
 	}
 	return true;
 }
 
 export function useFiltersState<Parsers extends ParserMap>(config: Parsers) {
 	const [filters, setFilters] = useQueryStates(config);
-	const haveFiltersChanged = !areFiltersDefault(config, filters);
+	const haveFiltersChanged = !isDefaultState(config, filters);
 
 	const resetFilters = () => setFilters(() => null);
 
