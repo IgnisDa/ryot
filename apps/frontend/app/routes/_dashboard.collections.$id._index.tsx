@@ -504,8 +504,8 @@ const FiltersModalForm = (props: {
 );
 
 const defaultRecommendationsState = {
-	page: parseAsInteger.withDefault(1),
-	query: parseAsString.withDefault(""),
+	recommendationsPage: parseAsInteger.withDefault(1),
+	recommendationsQuery: parseAsString.withDefault(""),
 };
 
 const RecommendationsSection = (props: { collectionId: string }) => {
@@ -514,8 +514,11 @@ const RecommendationsSection = (props: { collectionId: string }) => {
 	);
 
 	const input: CollectionRecommendationsInput = {
-		search,
 		collectionId: props.collectionId,
+		search: {
+			page: search.recommendationsPage,
+			query: search.recommendationsQuery,
+		},
 	};
 
 	const { data: recommendations } = useQuery({
@@ -528,9 +531,9 @@ const RecommendationsSection = (props: { collectionId: string }) => {
 	return (
 		<Stack gap="xs">
 			<DebouncedSearchInput
-				value={search.query}
+				value={search.recommendationsQuery}
 				placeholder="Search recommendations"
-				onChange={(query) => updateFilters({ query })}
+				onChange={(query) => updateFilters({ recommendationsQuery: query })}
 			/>
 			{recommendations ? (
 				recommendations.collectionRecommendations.details.totalItems > 0 ? (
@@ -545,8 +548,8 @@ const RecommendationsSection = (props: { collectionId: string }) => {
 							))}
 						</ApplicationGrid>
 						<ApplicationPagination
-							value={search.page}
-							onChange={(page) => updateFilters({ page })}
+							value={search.recommendationsPage}
+							onChange={(page) => updateFilters({ recommendationsPage: page })}
 							totalItems={
 								recommendations.collectionRecommendations.details.totalItems
 							}
