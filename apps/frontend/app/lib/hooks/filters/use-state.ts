@@ -2,14 +2,17 @@ import { type ParserMap, type Values, useQueryStates } from "nuqs";
 
 function areFiltersChanged<Parsers extends ParserMap>(
 	parsers: Parsers,
-	filters: Values<Parsers>,
+	values: Values<Parsers>,
 ) {
-	for (const [key, parser] of Object.entries(parsers))
+	for (const [key, parser] of Object.entries(parsers)) {
+		if (parsers[key].defaultValue === undefined && values[key] !== null)
+			return false;
 		if (
 			!["page", "query"].includes(key) &&
-			!parser.eq(filters[key], parsers[key].defaultValue)
+			!parser.eq(values[key], parsers[key].defaultValue)
 		)
 			return true;
+	}
 	return false;
 }
 
