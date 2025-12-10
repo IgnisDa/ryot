@@ -7,11 +7,11 @@ function isDefaultState<Parsers extends ParserMap>(
 	for (const [key, parser] of Object.entries(parsers)) {
 		if (
 			["page", "query"].includes(key) ||
-			(parsers[key].defaultValue === undefined && values[key] === null)
+			(parser.defaultValue === undefined && values[key] === null)
 		)
 			continue;
 
-		if (!parser.eq(values[key], parsers[key].defaultValue)) return false;
+		if (!parser.eq(values[key], parser.defaultValue)) return false;
 	}
 	return true;
 }
