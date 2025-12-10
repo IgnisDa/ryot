@@ -18,7 +18,7 @@ export function useFiltersState<Parsers extends ParserMap>(config: Parsers) {
 
 	const resetFilters = () => setFilters(() => null);
 
-	const updateFilters = (nextFilters: Partial<typeof filters>) =>
+	const updateFilters = (nextFilters: Partial<Values<Parsers>>) =>
 		setFilters(() => ({ page: 1, ...nextFilters }));
 
 	return { filters, resetFilters, updateFilters, haveFiltersChanged };
