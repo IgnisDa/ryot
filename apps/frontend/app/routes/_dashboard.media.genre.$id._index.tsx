@@ -1,19 +1,16 @@
 import { Box, Container, Group, Stack, Text, Title } from "@mantine/core";
 import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
+import { parseAsInteger } from "nuqs";
 import invariant from "tiny-invariant";
-import { useLocalStorage } from "usehooks-ts";
 import { ApplicationPagination, SkeletonLoader } from "~/components/common";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
+import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 
-interface PaginationState {
-	page: number;
-}
-
-const defaultPaginationState: PaginationState = {
-	page: 1,
+const defaultPaginationState = {
+	page: parseAsInteger.withDefault(1),
 };
 
 export const meta = () => {
@@ -24,8 +21,7 @@ export default function Page(props: { params: { id: string } }) {
 	const { id: genreId } = props.params;
 	invariant(genreId);
 
-	const [pagination, setPagination] = useLocalStorage(
-		`GenrePagination_${genreId}`,
+	const { filters: pagination, updateFilters } = useFiltersState(
 		defaultPaginationState,
 	);
 
@@ -42,9 +38,6 @@ export default function Page(props: { params: { id: string } }) {
 				.then((data) => data.genreDetails),
 	});
 
-	const updatePage = (page: number) =>
-		setPagination((prev) => ({ ...prev, page }));
-
 	return (
 		<Container>
 			<Stack>
@@ -60,9 +53,9 @@ export default function Page(props: { params: { id: string } }) {
 								</Text>
 							</Box>
 							<ApplicationPagination
-								onChange={updatePage}
 								value={pagination.page}
 								totalItems={genreDetails.response.contents.details.totalItems}
+								onChange={(page) => updateFilters({ page })}
 							/>
 						</Group>
 						<ApplicationGrid>
