@@ -148,8 +148,8 @@ export default function Page(props: { params: { id: string } }) {
 
 	const contentsPresets = useFilterPresets({
 		filters,
+		updateFilters,
 		enabled: true,
-		setFilters: updateFilters,
 		contextInformation: { collectionId },
 		contextType: FilterPresetContextType.CollectionContents,
 	});

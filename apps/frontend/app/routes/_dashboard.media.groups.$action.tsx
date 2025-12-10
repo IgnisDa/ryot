@@ -130,14 +130,14 @@ export default function Page(props: { params: { action: string } }) {
 	const listPresets = useFilterPresets({
 		filters: listFilters,
 		enabled: action === "list",
-		setFilters: updateListFilters,
+		updateFilters: updateListFilters,
 		contextType: FilterPresetContextType.MetadataGroupsList,
 	});
 
 	const searchPresets = useFilterPresets({
 		filters: searchFilters,
 		enabled: action === "search",
-		setFilters: updateSearchFilters,
+		updateFilters: updateSearchFilters,
 		contextType: FilterPresetContextType.MetadataGroupsSearch,
 	});
 

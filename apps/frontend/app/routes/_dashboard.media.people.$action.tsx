@@ -122,14 +122,14 @@ export default function Page(props: { params: { action: string } }) {
 	const listPresets = useFilterPresets({
 		enabled: action === "list",
 		filters: listState.normalizedFilters,
-		setFilters: listState.setFiltersState,
+		updateFilters: listState.setFiltersState,
 		contextType: FilterPresetContextType.PeopleList,
 	});
 
 	const searchPresets = useFilterPresets({
 		enabled: action === "search",
 		filters: searchState.normalizedFilters,
-		setFilters: searchState.setFiltersState,
+		updateFilters: searchState.setFiltersState,
 		contextType: FilterPresetContextType.PeopleSearch,
 	});
 

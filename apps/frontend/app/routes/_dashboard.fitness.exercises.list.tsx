@@ -205,8 +205,8 @@ export default function Page() {
 
 	const listPresets = useFilterPresets({
 		filters,
+		updateFilters,
 		enabled: true,
-		setFilters: updateFilters,
 		contextType: FilterPresetContextType.ExercisesList,
 	});
 

@@ -160,9 +160,9 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 	const input = buildQueryInput(filters);
 
 	const listPresets = useFilterPresets({
+		filters,
+		updateFilters,
 		enabled: true,
-		filters: filters,
-		setFilters: updateFilters,
 		contextInformation: { entity },
 		contextType: FilterPresetContextType.FitnessEntitiesList,
 	});

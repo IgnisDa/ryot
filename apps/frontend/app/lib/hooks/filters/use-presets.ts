@@ -19,7 +19,7 @@ interface UseFilterPresetsConfig<TFilter> {
 	filters: TFilter;
 	contextInformation?: unknown;
 	contextType: FilterPresetContextType;
-	setFilters: (filters: TFilter) => void;
+	updateFilters: (filters: TFilter) => void;
 }
 
 export const useFilterPresets = <TFilter extends { page: number }>(
@@ -93,7 +93,7 @@ export const useFilterPresets = <TFilter extends { page: number }>(
 		presetFilters: Values<Parsers>,
 	) {
 		isApplyingPreset.current = true;
-		config.setFilters(presetFilters as TFilter);
+		config.updateFilters(presetFilters as TFilter);
 		setActivePresetId(presetId);
 		setTimeout(() => {
 			isApplyingPreset.current = false;

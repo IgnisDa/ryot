@@ -150,7 +150,7 @@ export default function Page(props: {
 		enabled: action === "list",
 		contextInformation: { lot },
 		filters: listState.normalizedFilters,
-		setFilters: listState.setFiltersState,
+		updateFilters: listState.setFiltersState,
 		contextType: FilterPresetContextType.MetadataList,
 	});
 
@@ -158,7 +158,7 @@ export default function Page(props: {
 		contextInformation: { lot },
 		enabled: action === "search",
 		filters: searchState.normalizedFilters,
-		setFilters: searchState.setFiltersState,
+		updateFilters: searchState.setFiltersState,
 		contextType: FilterPresetContextType.MetadataSearch,
 	});
 
