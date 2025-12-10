@@ -5,7 +5,7 @@
 		"@types/lodash": "4.17.21"
 	},
 	"dependencies": {
-		"@conform-to/zod": "1.14.1",
+		"@conform-to/zod": "1.15.0",
 		"@ryot/generated": "workspace:*",
 		"clsx": "2.1.1",
 		"dayjs": "1.11.19",
