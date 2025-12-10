@@ -406,69 +406,65 @@ interface SearchFiltersModalFormProps {
 	onFiltersChange: FilterUpdateFunction<SearchFilterState>;
 }
 
-const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => {
-	const { filters, onFiltersChange } = props;
-
-	return (
-		<Stack gap="md">
-			{filters.source === MediaSource.Tvdb ? (
-				<Checkbox
-					label="Company"
-					checked={filters.sourceSpecifics.isTvdbCompany || false}
-					onChange={(e) =>
-						onFiltersChange("sourceSpecifics", {
-							isTvdbCompany: e.target.checked,
-						})
-					}
-				/>
-			) : null}
-			{filters.source === MediaSource.Tmdb ? (
-				<Checkbox
-					label="Company"
-					checked={filters.sourceSpecifics.isTmdbCompany || false}
-					onChange={(e) =>
-						onFiltersChange("sourceSpecifics", {
-							isTmdbCompany: e.target.checked,
-						})
-					}
-				/>
-			) : null}
-			{filters.source === MediaSource.Anilist ? (
-				<Checkbox
-					label="Studio"
-					checked={filters.sourceSpecifics.isAnilistStudio || false}
-					onChange={(e) =>
-						onFiltersChange("sourceSpecifics", {
-							isAnilistStudio: e.target.checked,
-						})
-					}
-				/>
-			) : null}
-			{filters.source === MediaSource.Hardcover ? (
-				<Checkbox
-					label="Publisher"
-					checked={filters.sourceSpecifics.isHardcoverPublisher || false}
-					onChange={(e) =>
-						onFiltersChange("sourceSpecifics", {
-							isHardcoverPublisher: e.target.checked,
-						})
-					}
-				/>
-			) : null}
-			{filters.source === MediaSource.GiantBomb ? (
-				<Checkbox
-					label="Company"
-					checked={filters.sourceSpecifics.isGiantBombCompany || false}
-					onChange={(e) =>
-						onFiltersChange("sourceSpecifics", {
-							isGiantBombCompany: e.target.checked,
-						})
-					}
-				/>
-			) : null}
-		</Stack>
-	);
-};
+const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => (
+	<Stack gap="md">
+		{props.filters.source === MediaSource.Tvdb ? (
+			<Checkbox
+				label="Company"
+				checked={props.filters.sourceSpecifics.isTvdbCompany || false}
+				onChange={(e) =>
+					props.onFiltersChange("sourceSpecifics", {
+						isTvdbCompany: e.target.checked,
+					})
+				}
+			/>
+		) : null}
+		{props.filters.source === MediaSource.Tmdb ? (
+			<Checkbox
+				label="Company"
+				checked={props.filters.sourceSpecifics.isTmdbCompany || false}
+				onChange={(e) =>
+					props.onFiltersChange("sourceSpecifics", {
+						isTmdbCompany: e.target.checked,
+					})
+				}
+			/>
+		) : null}
+		{props.filters.source === MediaSource.Anilist ? (
+			<Checkbox
+				label="Studio"
+				checked={props.filters.sourceSpecifics.isAnilistStudio || false}
+				onChange={(e) =>
+					props.onFiltersChange("sourceSpecifics", {
+						isAnilistStudio: e.target.checked,
+					})
+				}
+			/>
+		) : null}
+		{props.filters.source === MediaSource.Hardcover ? (
+			<Checkbox
+				label="Publisher"
+				checked={props.filters.sourceSpecifics.isHardcoverPublisher || false}
+				onChange={(e) =>
+					props.onFiltersChange("sourceSpecifics", {
+						isHardcoverPublisher: e.target.checked,
+					})
+				}
+			/>
+		) : null}
+		{props.filters.source === MediaSource.GiantBomb ? (
+			<Checkbox
+				label="Company"
+				checked={props.filters.sourceSpecifics.isGiantBombCompany || false}
+				onChange={(e) =>
+					props.onFiltersChange("sourceSpecifics", {
+						isGiantBombCompany: e.target.checked,
+					})
+				}
+			/>
+		) : null}
+	</Stack>
+);
 
 type PersonListItemProps = {
 	item: string;
