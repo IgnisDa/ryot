@@ -65,6 +65,7 @@ import {
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
+import type { FilterUpdateFunction } from "~/lib/hooks/filters/types";
 import { useFilterModals } from "~/lib/hooks/filters/use-modals";
 import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
 import { useFiltersState } from "~/lib/hooks/filters/use-state";
@@ -137,8 +138,6 @@ const defaultSearchQueryState = {
 
 type ListFilterState = inferParserType<typeof defaultListQueryState>;
 type SearchFilterState = inferParserType<typeof defaultSearchQueryState>;
-
-type FilterUpdateFunction<T> = <K extends keyof T>(key: K, value: T[K]) => void;
 
 export const meta = () => {
 	return [{ title: "Media | Ryot" }];
