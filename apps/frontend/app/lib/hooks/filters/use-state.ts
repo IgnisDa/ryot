@@ -4,13 +4,13 @@ function areFiltersChanged<Parsers extends ParserMap>(
 	parsers: Parsers,
 	values: Values<Parsers>,
 ) {
-	for (const [key, parser] of Object.entries(parsers)) {
-		if (parsers[key].defaultValue === undefined && values[key] !== null)
-			return false;
-		if (
-			!["page", "query"].includes(key) &&
-			!parser.eq(values[key], parsers[key].defaultValue)
-		)
+	for (const key in parsers) {
+		const value = values[key];
+		const parser = parsers[key];
+		const defaultValue = parser.defaultValue;
+
+		if (defaultValue === undefined && value !== null) return false;
+		if (!["page", "query"].includes(key) && !parser.eq(value, defaultValue))
 			return true;
 	}
 	return false;
