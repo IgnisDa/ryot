@@ -30,6 +30,13 @@ import {
 	IconSearch,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import {
+	type inferParserType,
+	parseAsInteger,
+	parseAsJson,
+	parseAsString,
+	parseAsStringEnum,
+} from "nuqs";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
@@ -55,39 +62,35 @@ import { MetadataGroupDisplayItem } from "~/components/media/display-items";
 import type { FilterUpdateFunction } from "~/lib/hooks/filters/types";
 import { useFilterModals } from "~/lib/hooks/filters/use-modals";
 import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
-import { useFilterState } from "~/lib/hooks/filters/use-state";
+import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { useCoreDetails, useUserMetadataGroupList } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { useBulkEditCollection } from "~/lib/state/collection";
 
-interface ListFilterState {
-	page: number;
-	query: string;
-	orderBy: GraphqlSortOrder;
-	collections: MediaCollectionFilter[];
-	sortBy: PersonAndMetadataGroupsSortBy;
-}
-
-interface SearchFilterState {
-	page: number;
-	query: string;
-	source: MediaSource;
-}
-
-const defaultListFilters: ListFilterState = {
-	page: 1,
-	query: "",
-	collections: [],
-	orderBy: GraphqlSortOrder.Desc,
-	sortBy: PersonAndMetadataGroupsSortBy.AssociatedEntityCount,
+const defaultListQueryState = {
+	page: parseAsInteger.withDefault(1),
+	query: parseAsString.withDefault(""),
+	orderBy: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(
+		GraphqlSortOrder.Desc,
+	),
+	collections: parseAsJson<MediaCollectionFilter[]>((val) =>
+		Array.isArray(val) ? (val as MediaCollectionFilter[]) : null,
+	).withDefault([]),
+	sortBy: parseAsStringEnum(
+		Object.values(PersonAndMetadataGroupsSortBy),
+	).withDefault(PersonAndMetadataGroupsSortBy.AssociatedEntityCount),
 };
 
-const defaultSearchFilters: SearchFilterState = {
-	page: 1,
-	query: "",
-	source: MediaSource.Tmdb,
+const defaultSearchQueryState = {
+	page: parseAsInteger.withDefault(1),
+	query: parseAsString.withDefault(""),
+	source: parseAsStringEnum(Object.values(MediaSource)).withDefault(
+		MediaSource.Tmdb,
+	),
 };
+
+type ListFilterState = inferParserType<typeof defaultListQueryState>;
 
 export const meta = () => {
 	return [{ title: "Media Groups | Ryot" }];
@@ -101,15 +104,19 @@ export default function Page(props: { params: { action: string } }) {
 	const listModals = useFilterModals();
 	const searchModals = useFilterModals();
 
-	const listState = useFilterState({
-		storageKey: "GroupsListFilters",
-		defaultFilters: defaultListFilters,
-	});
+	const {
+		filters: listFilters,
+		resetFilters: resetListFilters,
+		updateFilters: updateListFilters,
+		haveFiltersChanged: haveListFiltersChanged,
+	} = useFiltersState(defaultListQueryState);
 
-	const searchState = useFilterState({
-		storageKey: "GroupsSearchFilters",
-		defaultFilters: defaultSearchFilters,
-	});
+	const {
+		filters: searchFilters,
+		resetFilters: resetSearchFilters,
+		updateFilters: updateSearchFilters,
+		haveFiltersChanged: haveSearchFiltersChanged,
+	} = useFiltersState(defaultSearchQueryState);
 
 	const metadataGroupSourceOptions = useMemo(
 		() =>
@@ -121,32 +128,26 @@ export default function Page(props: { params: { action: string } }) {
 	);
 
 	const listPresets = useFilterPresets({
+		filters: listFilters,
 		enabled: action === "list",
-		filters: listState.normalizedFilters,
-		setFilters: listState.setFiltersState,
+		setFilters: updateListFilters,
 		contextType: FilterPresetContextType.MetadataGroupsList,
 	});
 
 	const searchPresets = useFilterPresets({
+		filters: searchFilters,
 		enabled: action === "search",
-		filters: searchState.normalizedFilters,
-		setFilters: searchState.setFiltersState,
+		setFilters: updateSearchFilters,
 		contextType: FilterPresetContextType.MetadataGroupsSearch,
 	});
 
 	const listInput: UserMetadataGroupsListInput = useMemo(
 		() => ({
-			filter: { collections: listState.normalizedFilters.collections },
-			search: {
-				page: listState.normalizedFilters.page,
-				query: listState.normalizedFilters.query,
-			},
-			sort: {
-				by: listState.normalizedFilters.sortBy,
-				order: listState.normalizedFilters.orderBy,
-			},
+			filter: { collections: listFilters.collections },
+			sort: { by: listFilters.sortBy, order: listFilters.orderBy },
+			search: { page: listFilters.page, query: listFilters.query },
 		}),
-		[listState.normalizedFilters],
+		[listFilters],
 	);
 
 	const {
@@ -156,18 +157,15 @@ export default function Page(props: { params: { action: string } }) {
 
 	const searchInput: MetadataGroupSearchInput = useMemo(() => {
 		const lot = coreDetails.metadataGroupSourceLotMappings.find(
-			(m) => m.source === searchState.normalizedFilters.source,
+			(m) => m.source === searchFilters.source,
 		)?.lot;
 		if (!lot) throw new Error("Invalid source selected");
 		return {
 			lot,
-			source: searchState.normalizedFilters.source,
-			search: {
-				page: searchState.normalizedFilters.page,
-				query: searchState.normalizedFilters.query,
-			},
+			source: searchFilters.source,
+			search: { page: searchFilters.page, query: searchFilters.query },
 		};
-	}, [searchState.normalizedFilters, coreDetails]);
+	}, [searchFilters, coreDetails]);
 
 	const { data: metadataGroupSearch } = useQuery({
 		enabled: action === "search" && !!searchInput.lot,
@@ -179,9 +177,7 @@ export default function Page(props: { params: { action: string } }) {
 	});
 
 	const searchInputValue =
-		action === "list"
-			? listState.normalizedFilters.query
-			: searchState.normalizedFilters.query;
+		action === "list" ? listFilters.query : searchFilters.query;
 
 	return (
 		<>
@@ -239,30 +235,29 @@ export default function Page(props: { params: { action: string } }) {
 							value={searchInputValue}
 							placeholder="Search for groups"
 							onChange={(value) => {
-								if (action === "list") {
-									listState.updateQuery(value);
-								} else {
-									searchState.updateQuery(value);
-								}
+								if (action === "list") updateListFilters({ query: value });
+								else updateSearchFilters({ query: value });
 							}}
 						/>
 						{action === "list" ? (
 							<>
 								<ActionIcon
 									onClick={listModals.filtersModal.open}
-									color={listState.areFiltersActive ? "blue" : "gray"}
+									color={haveListFiltersChanged ? "blue" : "gray"}
 								>
 									<IconFilter size={24} />
 								</ActionIcon>
 								<FiltersModal
-									resetFilters={listState.resetFilters}
+									resetFilters={resetListFilters}
 									opened={listModals.filtersModal.opened}
 									onSavePreset={listModals.presetModal.open}
 									closeFiltersModal={listModals.filtersModal.close}
 								>
 									<FiltersModalForm
-										filters={listState.normalizedFilters}
-										onFiltersChange={listState.updateFilter}
+										filters={listFilters}
+										onFiltersChange={(key, value) =>
+											updateListFilters({ [key]: value })
+										}
 									/>
 								</FiltersModal>
 							</>
@@ -271,19 +266,19 @@ export default function Page(props: { params: { action: string } }) {
 							<>
 								<Select
 									data={metadataGroupSourceOptions}
-									value={searchState.normalizedFilters.source}
+									value={searchFilters.source}
 									onChange={(v) =>
-										v && searchState.updateFilter("source", v as MediaSource)
+										v && updateSearchFilters({ source: v as MediaSource })
 									}
 								/>
 								<ActionIcon
 									onClick={searchModals.filtersModal.open}
-									color={searchState.areFiltersActive ? "blue" : "gray"}
+									color={haveSearchFiltersChanged ? "blue" : "gray"}
 								>
 									<IconFilter size={24} />
 								</ActionIcon>
 								<FiltersModal
-									resetFilters={searchState.resetFilters}
+									resetFilters={resetSearchFilters}
 									opened={searchModals.filtersModal.opened}
 									onSavePreset={searchModals.presetModal.open}
 									closeFiltersModal={searchModals.filtersModal.close}
@@ -306,8 +301,7 @@ export default function Page(props: { params: { action: string } }) {
 									onRefreshButtonClicked={refetchUserMetadataGroupsList}
 									total={userMetadataGroupsList.response.details.totalItems}
 									isRandomSortOrderSelected={
-										listState.normalizedFilters.sortBy ===
-										PersonAndMetadataGroupsSortBy.Random
+										listFilters.sortBy === PersonAndMetadataGroupsSortBy.Random
 									}
 								/>
 								{userMetadataGroupsList.response.details.totalItems > 0 ? (
@@ -320,8 +314,8 @@ export default function Page(props: { params: { action: string } }) {
 									<Text>No information to display</Text>
 								)}
 								<ApplicationPagination
-									value={listState.normalizedFilters.page}
-									onChange={(v) => listState.updateFilter("page", v)}
+									value={listFilters.page}
+									onChange={(page) => updateListFilters({ page })}
 									totalItems={
 										userMetadataGroupsList.response.details.totalItems
 									}
@@ -352,8 +346,8 @@ export default function Page(props: { params: { action: string } }) {
 									<Text>No groups found matching your query</Text>
 								)}
 								<ApplicationPagination
-									value={searchState.normalizedFilters.page}
-									onChange={(v) => searchState.updateFilter("page", v)}
+									value={searchFilters.page}
+									onChange={(page) => updateSearchFilters({ page })}
 									totalItems={metadataGroupSearch.response.details.totalItems}
 								/>
 							</>
