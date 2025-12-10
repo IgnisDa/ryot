@@ -277,8 +277,8 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 						</ActionIcon>
 						<FiltersModal
 							opened={filtersModalOpened}
+							resetFilters={resetFilters}
 							onSavePreset={openPresetModal}
-							resetFilters={() => resetFilters()}
 							closeFiltersModal={closeFiltersModal}
 						>
 							<FiltersModalForm
