@@ -27,12 +27,12 @@ import {
 } from "@mantine/hooks";
 import {
 	EntityLot,
-	type ExerciseEquipment,
-	type ExerciseForce,
-	type ExerciseLevel,
-	type ExerciseLot,
-	type ExerciseMechanic,
-	type ExerciseMuscle,
+	ExerciseEquipment,
+	ExerciseForce,
+	ExerciseLevel,
+	ExerciseLot,
+	ExerciseMechanic,
+	ExerciseMuscle,
 	ExerciseSortBy,
 	FilterPresetContextType,
 	type MediaCollectionFilter,
@@ -56,6 +56,14 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
+import {
+	type inferParserType,
+	parseAsArrayOf,
+	parseAsInteger,
+	parseAsJson,
+	parseAsString,
+	parseAsStringEnum,
+} from "nuqs";
 import { useMemo } from "react";
 import { Link, useNavigate, useSubmit } from "react-router";
 import { $path } from "safe-routes";
@@ -79,7 +87,7 @@ import {
 } from "~/components/common/filters";
 import type { FilterUpdateFunction } from "~/lib/hooks/filters/types";
 import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
-import { useFilterState } from "~/lib/hooks/filters/use-state";
+import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
@@ -109,31 +117,36 @@ import {
 import { redirectWithToast, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.exercises.list";
 
-interface FilterState {
-	page: number;
-	query: string;
-	types: ExerciseLot[];
-	sortBy: ExerciseSortBy;
-	levels: ExerciseLevel[];
-	forces: ExerciseForce[];
-	muscles: ExerciseMuscle[];
-	mechanics: ExerciseMechanic[];
-	equipments: ExerciseEquipment[];
-	collections: MediaCollectionFilter[];
-}
-
-const defaultFilters: FilterState = {
-	page: 1,
-	query: "",
-	types: [],
-	forces: [],
-	levels: [],
-	muscles: [],
-	mechanics: [],
-	equipments: [],
-	collections: [],
-	sortBy: ExerciseSortBy.TimesPerformed,
+const defaultQueryState = {
+	page: parseAsInteger.withDefault(1),
+	query: parseAsString.withDefault(""),
+	types: parseAsArrayOf(
+		parseAsStringEnum(Object.values(ExerciseLot)),
+	).withDefault([]),
+	sortBy: parseAsStringEnum(Object.values(ExerciseSortBy)).withDefault(
+		ExerciseSortBy.TimesPerformed,
+	),
+	levels: parseAsArrayOf(
+		parseAsStringEnum(Object.values(ExerciseLevel)),
+	).withDefault([]),
+	forces: parseAsArrayOf(
+		parseAsStringEnum(Object.values(ExerciseForce)),
+	).withDefault([]),
+	muscles: parseAsArrayOf(
+		parseAsStringEnum(Object.values(ExerciseMuscle)),
+	).withDefault([]),
+	mechanics: parseAsArrayOf(
+		parseAsStringEnum(Object.values(ExerciseMechanic)),
+	).withDefault([]),
+	equipments: parseAsArrayOf(
+		parseAsStringEnum(Object.values(ExerciseEquipment)),
+	).withDefault([]),
+	collections: parseAsJson<MediaCollectionFilter[]>((val) =>
+		Array.isArray(val) ? (val as MediaCollectionFilter[]) : null,
+	).withDefault([]),
 };
+
+type FilterState = inferParserType<typeof defaultQueryState>;
 
 export const meta = () => {
 	return [{ title: "Exercises | Ryot" }];
@@ -175,11 +188,8 @@ export default function Page() {
 	const [mergingExercise, setMergingExercise] = useMergingExercise();
 	const [selectedExercises, setSelectedExercises] =
 		useListState<SelectExercise>([]);
-
-	const filterState = useFilterState({
-		defaultFilters,
-		storageKey: "ExerciseListFilters",
-	});
+	const { filters, resetFilters, updateFilters, haveFiltersChanged } =
+		useFiltersState(defaultQueryState);
 
 	const [
 		filtersModalOpened,
@@ -194,30 +204,27 @@ export default function Page() {
 		bulkEditingCollection.state === false ? null : bulkEditingCollection.state;
 
 	const listPresets = useFilterPresets({
+		filters,
 		enabled: true,
-		filters: filterState.normalizedFilters,
-		setFilters: filterState.setFiltersState,
+		setFilters: updateFilters,
 		contextType: FilterPresetContextType.ExercisesList,
 	});
 
 	const queryInput: UserExercisesListInput = useMemo(
 		() => ({
-			sortBy: filterState.normalizedFilters.sortBy,
-			search: {
-				page: filterState.normalizedFilters.page,
-				query: filterState.normalizedFilters.query,
-			},
+			sortBy: filters.sortBy,
+			search: { page: filters.page, query: filters.query },
 			filter: {
-				types: filterState.normalizedFilters.types,
-				levels: filterState.normalizedFilters.levels,
-				forces: filterState.normalizedFilters.forces,
-				muscles: filterState.normalizedFilters.muscles,
-				mechanics: filterState.normalizedFilters.mechanics,
-				equipments: filterState.normalizedFilters.equipments,
-				collections: filterState.normalizedFilters.collections,
+				types: filters.types,
+				levels: filters.levels,
+				forces: filters.forces,
+				muscles: filters.muscles,
+				mechanics: filters.mechanics,
+				equipments: filters.equipments,
+				collections: filters.collections,
 			},
 		}),
-		[filterState.normalizedFilters],
+		[filters],
 	);
 
 	const { data: userExercisesList, refetch: refetchUserExercisesList } =
@@ -232,8 +239,6 @@ export default function Page() {
 	const replacingExerciseId =
 		currentWorkout?.replacingExerciseIdx &&
 		currentWorkout.exercises[currentWorkout.replacingExerciseIdx].exerciseId;
-
-	const areListFiltersActive = filterState.areFiltersActive;
 
 	const { data: replacingExercise } = useExerciseDetails(
 		replacingExerciseId || "",
@@ -290,11 +295,10 @@ export default function Page() {
 					</Flex>
 					<Group wrap="nowrap">
 						<DebouncedSearchInput
-							value={filterState.normalizedFilters.query}
+							value={filters.query}
 							placeholder="Search for exercises by name or instructions"
 							onChange={(value) => {
-								filterState.updateFilter("query", value);
-								filterState.updateFilter("page", 1);
+								updateFilters({ query: value, page: 1 });
 							}}
 							tourControl={{
 								target: OnboardingTourStepTargets.SearchForExercise,
@@ -307,19 +311,19 @@ export default function Page() {
 						/>
 						<ActionIcon
 							onClick={openFiltersModal}
-							color={areListFiltersActive ? "blue" : "gray"}
+							color={haveFiltersChanged ? "blue" : "gray"}
 						>
 							<IconFilter size={24} />
 						</ActionIcon>
 						<FiltersModal
+							resetFilters={resetFilters}
 							opened={filtersModalOpened}
 							onSavePreset={openPresetModal}
 							closeFiltersModal={closeFiltersModal}
-							resetFilters={filterState.resetFilters}
 						>
 							<FiltersModalForm
-								filter={filterState.normalizedFilters}
-								updateFilter={filterState.updateFilter}
+								filter={filters}
+								updateFilter={(key, value) => updateFilters({ [key]: value })}
 							/>
 						</FiltersModal>
 					</Group>
@@ -343,8 +347,7 @@ export default function Page() {
 										onRefreshButtonClicked={refetchUserExercisesList}
 										total={userExercisesList.response.details.totalItems}
 										isRandomSortOrderSelected={
-											filterState.normalizedFilters.sortBy ===
-											ExerciseSortBy.Random
+											filters.sortBy === ExerciseSortBy.Random
 										}
 										rightSection={
 											allowAddingExerciseToWorkout ? (
@@ -378,8 +381,8 @@ export default function Page() {
 								<Text>No information to display</Text>
 							)}
 							<ApplicationPagination
-								value={filterState.normalizedFilters.page}
-								onChange={(v) => filterState.updateFilter("page", v)}
+								value={filters.page}
+								onChange={(page) => updateFilters({ page })}
 								totalItems={userExercisesList.response.details.totalItems}
 							/>
 						</>
@@ -433,38 +436,41 @@ const FiltersModalForm = (props: {
 				onChange={(v) => props.updateFilter("sortBy", v as ExerciseSortBy)}
 			/>
 			<Stack gap={2}>
-				{Object.keys(defaultFilters)
-					.filter(
-						(f) => !["sortBy", "collections", "page", "query"].includes(f),
-					)
-					.map((f) => {
-						const singularKey = f.endsWith("s") ? f.slice(0, -1) : f;
-						return (
-							<MultiSelect
-								key={f}
-								size="xs"
-								clearable
-								searchable
-								label={startCase(f)}
+				{[
+					"types",
+					"levels",
+					"forces",
+					"muscles",
+					"mechanics",
+					"equipments",
+				].map((f) => {
+					const singularKey = f.endsWith("s") ? f.slice(0, -1) : f;
+					return (
+						<MultiSelect
+							key={f}
+							size="xs"
+							clearable
+							searchable
+							label={startCase(f)}
+							// biome-ignore lint/suspicious/noExplicitAny: required here
+							value={(props.filter as any)[f]}
+							onChange={(v) =>
 								// biome-ignore lint/suspicious/noExplicitAny: required here
-								value={(props.filter as any)[f]}
-								onChange={(v) =>
-									// biome-ignore lint/suspicious/noExplicitAny: required here
-									props.updateFilter(f as keyof FilterState, v as any)
-								}
+								props.updateFilter(f as keyof FilterState, v as any)
+							}
+							// biome-ignore lint/suspicious/noExplicitAny: required here
+							data={(coreDetails.exerciseParameters.filters as any)[
+								singularKey
+							].map(
 								// biome-ignore lint/suspicious/noExplicitAny: required here
-								data={(coreDetails.exerciseParameters.filters as any)[
-									singularKey
-								].map(
-									// biome-ignore lint/suspicious/noExplicitAny: required here
-									(v: any) => ({
-										value: v,
-										label: startCase(snakeCase(v)),
-									}),
-								)}
-							/>
-						);
-					})}
+								(v: any) => ({
+									value: v,
+									label: startCase(snakeCase(v)),
+								}),
+							)}
+						/>
+					);
+				})}
 			</Stack>
 			<Divider mt="md" mb="xs" />
 			<CollectionsFilter
