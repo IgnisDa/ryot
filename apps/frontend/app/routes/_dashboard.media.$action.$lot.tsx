@@ -35,6 +35,13 @@ import {
 	IconSearch,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import {
+	type inferParserType,
+	parseAsInteger,
+	parseAsJson,
+	parseAsString,
+	parseAsStringEnum,
+} from "nuqs";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
@@ -58,10 +65,9 @@ import {
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
-import type { FilterUpdateFunction } from "~/lib/hooks/filters/types";
 import { useFilterModals } from "~/lib/hooks/filters/use-modals";
 import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
-import { useFilterState } from "~/lib/hooks/filters/use-state";
+import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { dayjsLib, getStartTimeFromRange } from "~/lib/shared/date-utils";
 import { useCoreDetails, useUserMetadataList } from "~/lib/shared/hooks";
 import { getLot } from "~/lib/shared/media-utils";
@@ -75,41 +81,64 @@ import {
 } from "~/lib/state/onboarding-tour";
 import { ApplicationTimeRange } from "~/lib/types";
 
-interface ListFilterState {
-	page: number;
-	query: string;
-	sortBy: MediaSortBy;
-	endDateRange?: string;
-	startDateRange?: string;
-	sortOrder: GraphqlSortOrder;
-	dateRange: ApplicationTimeRange;
-	generalFilter: MediaGeneralFilter;
-	collections: MediaCollectionFilter[];
-}
-
-interface SearchFilterState {
-	page: number;
-	query: string;
-	source: MediaSource;
-	igdbThemeIds?: string[];
-	igdbGenreIds?: string[];
-	igdbPlatformIds?: string[];
-	igdbGameModeIds?: string[];
-	igdbGameTypeIds?: string[];
-	googleBooksPassRawQuery?: boolean;
-	igdbAllowGamesWithParent?: boolean;
-	igdbReleaseDateRegionIds?: string[];
-}
-
-const defaultListFilters: ListFilterState = {
-	page: 1,
-	query: "",
-	collections: [],
-	sortBy: MediaSortBy.LastUpdated,
-	sortOrder: GraphqlSortOrder.Desc,
-	generalFilter: MediaGeneralFilter.All,
-	dateRange: ApplicationTimeRange.AllTime,
+const defaultListQueryState = {
+	page: parseAsInteger.withDefault(1),
+	query: parseAsString.withDefault(""),
+	sortBy: parseAsStringEnum(Object.values(MediaSortBy)).withDefault(
+		MediaSortBy.LastUpdated,
+	),
+	endDateRange: parseAsString.withDefault(""),
+	startDateRange: parseAsString.withDefault(""),
+	sortOrder: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(
+		GraphqlSortOrder.Desc,
+	),
+	dateRange: parseAsStringEnum(Object.values(ApplicationTimeRange)).withDefault(
+		ApplicationTimeRange.AllTime,
+	),
+	generalFilter: parseAsStringEnum(
+		Object.values(MediaGeneralFilter),
+	).withDefault(MediaGeneralFilter.All),
+	collections: parseAsJson<MediaCollectionFilter[]>((val) =>
+		Array.isArray(val) ? (val as MediaCollectionFilter[]) : null,
+	).withDefault([]),
 };
+
+const defaultSearchQueryState = {
+	page: parseAsInteger.withDefault(1),
+	query: parseAsString.withDefault(""),
+	source: parseAsStringEnum(Object.values(MediaSource)).withDefault(
+		MediaSource.Tmdb,
+	),
+	igdbThemeIds: parseAsJson<string[]>((val) =>
+		Array.isArray(val) ? (val as string[]) : null,
+	).withDefault([]),
+	igdbGenreIds: parseAsJson<string[]>((val) =>
+		Array.isArray(val) ? (val as string[]) : null,
+	).withDefault([]),
+	igdbPlatformIds: parseAsJson<string[]>((val) =>
+		Array.isArray(val) ? (val as string[]) : null,
+	).withDefault([]),
+	igdbGameModeIds: parseAsJson<string[]>((val) =>
+		Array.isArray(val) ? (val as string[]) : null,
+	).withDefault([]),
+	igdbGameTypeIds: parseAsJson<string[]>((val) =>
+		Array.isArray(val) ? (val as string[]) : null,
+	).withDefault([]),
+	googleBooksPassRawQuery: parseAsJson<boolean>((val) =>
+		typeof val === "boolean" ? val : null,
+	).withDefault(false),
+	igdbAllowGamesWithParent: parseAsJson<boolean>((val) =>
+		typeof val === "boolean" ? val : null,
+	).withDefault(false),
+	igdbReleaseDateRegionIds: parseAsJson<string[]>((val) =>
+		Array.isArray(val) ? (val as string[]) : null,
+	).withDefault([]),
+};
+
+type ListFilterState = inferParserType<typeof defaultListQueryState>;
+type SearchFilterState = inferParserType<typeof defaultSearchQueryState>;
+
+type FilterUpdateFunction<T> = <K extends keyof T>(key: K, value: T[K]) => void;
 
 export const meta = () => {
 	return [{ title: "Media | Ryot" }];
@@ -130,89 +159,95 @@ export default function Page(props: {
 	const listModals = useFilterModals();
 	const searchModals = useFilterModals();
 
-	const listState = useFilterState({
-		storageKey: `MediaListFilters_${lot}`,
-		defaultFilters: defaultListFilters,
-	});
+	const {
+		filters: listFilters,
+		resetFilters: resetListFilters,
+		updateFilters: updateListFilters,
+		haveFiltersChanged: haveListFiltersChanged,
+	} = useFiltersState(defaultListQueryState);
 
-	const defaultSearchFilters: SearchFilterState = {
-		page: 1,
-		query: "",
-		source: metadataLotSourceMapping?.sources[0] || MediaSource.Tmdb,
-	};
-
-	const searchState = useFilterState({
-		storageKey: `MediaSearchFilters_${lot}`,
-		defaultFilters: defaultSearchFilters,
-	});
+	const {
+		filters: searchFilters,
+		resetFilters: resetSearchFilters,
+		updateFilters: updateSearchFilters,
+		haveFiltersChanged: haveSearchFiltersChanged,
+	} = useFiltersState(defaultSearchQueryState);
 
 	const listPresets = useFilterPresets({
+		filters: listFilters,
 		enabled: action === "list",
 		contextInformation: { lot },
-		filters: listState.normalizedFilters,
-		updateFilters: listState.setFiltersState,
+		updateFilters: updateListFilters,
 		contextType: FilterPresetContextType.MetadataList,
 	});
 
 	const searchPresets = useFilterPresets({
+		filters: searchFilters,
 		contextInformation: { lot },
 		enabled: action === "search",
-		filters: searchState.normalizedFilters,
-		updateFilters: searchState.setFiltersState,
+		updateFilters: updateSearchFilters,
 		contextType: FilterPresetContextType.MetadataSearch,
 	});
 
 	const listInput: UserMetadataListInput = useMemo(
 		() => ({
 			lot,
-			search: {
-				page: listState.normalizedFilters.page,
-				query: listState.normalizedFilters.query,
-			},
-			sort: {
-				order: listState.normalizedFilters.sortOrder,
-				by: listState.normalizedFilters.sortBy,
-			},
+			search: { page: listFilters.page, query: listFilters.query },
+			sort: { by: listFilters.sortBy, order: listFilters.sortOrder },
 			filter: {
-				general: listState.normalizedFilters.generalFilter,
-				collections: listState.normalizedFilters.collections,
+				general: listFilters.generalFilter,
+				collections: listFilters.collections,
 				dateRange: {
-					endDate: listState.normalizedFilters.endDateRange || undefined,
-					startDate: listState.normalizedFilters.startDateRange || undefined,
+					endDate: listFilters.endDateRange || undefined,
+					startDate: listFilters.startDateRange || undefined,
 				},
 			},
 		}),
-		[lot, listState.normalizedFilters],
+		[lot, listFilters],
 	);
 
 	const searchInput: MetadataSearchInput = useMemo(
 		() => ({
 			lot,
-			source: searchState.normalizedFilters.source,
-			search: {
-				page: searchState.normalizedFilters.page,
-				query: searchState.normalizedFilters.query,
-			},
+			source: searchFilters.source,
+			search: { page: searchFilters.page, query: searchFilters.query },
 			sourceSpecifics: {
 				googleBooks: {
-					passRawQuery: searchState.normalizedFilters.googleBooksPassRawQuery,
+					passRawQuery: searchFilters.googleBooksPassRawQuery || undefined,
 				},
 				igdb: {
 					filters: {
-						themeIds: searchState.normalizedFilters.igdbThemeIds,
-						genreIds: searchState.normalizedFilters.igdbGenreIds,
-						platformIds: searchState.normalizedFilters.igdbPlatformIds,
-						gameModeIds: searchState.normalizedFilters.igdbGameModeIds,
-						gameTypeIds: searchState.normalizedFilters.igdbGameTypeIds,
+						themeIds:
+							searchFilters.igdbThemeIds.length > 0
+								? searchFilters.igdbThemeIds
+								: undefined,
+						genreIds:
+							searchFilters.igdbGenreIds.length > 0
+								? searchFilters.igdbGenreIds
+								: undefined,
+						platformIds:
+							searchFilters.igdbPlatformIds.length > 0
+								? searchFilters.igdbPlatformIds
+								: undefined,
+						gameModeIds:
+							searchFilters.igdbGameModeIds.length > 0
+								? searchFilters.igdbGameModeIds
+								: undefined,
+						gameTypeIds:
+							searchFilters.igdbGameTypeIds.length > 0
+								? searchFilters.igdbGameTypeIds
+								: undefined,
 						releaseDateRegionIds:
-							searchState.normalizedFilters.igdbReleaseDateRegionIds,
+							searchFilters.igdbReleaseDateRegionIds.length > 0
+								? searchFilters.igdbReleaseDateRegionIds
+								: undefined,
 						allowGamesWithParent:
-							searchState.normalizedFilters.igdbAllowGamesWithParent,
+							searchFilters.igdbAllowGamesWithParent || undefined,
 					},
 				},
 			},
 		}),
-		[lot, searchState.normalizedFilters],
+		[lot, searchFilters],
 	);
 
 	const { data: userMetadataList, refetch: refetchUserMetadataList } =
@@ -302,28 +337,30 @@ export default function Page(props: {
 							<>
 								<Group wrap="nowrap">
 									<DebouncedSearchInput
-										onChange={listState.updateQuery}
-										value={listState.normalizedFilters.query}
+										value={listFilters.query}
+										onChange={(value) => updateListFilters({ query: value })}
 										placeholder={`Sift through your ${changeCase(
 											lot.toLowerCase(),
 										).toLowerCase()}s`}
 									/>
 									<ActionIcon
 										onClick={listModals.filtersModal.open}
-										color={listState.areFiltersActive ? "blue" : "gray"}
+										color={haveListFiltersChanged ? "blue" : "gray"}
 									>
 										<IconFilter size={24} />
 									</ActionIcon>
 									<FiltersModal
-										resetFilters={listState.resetFilters}
+										resetFilters={resetListFilters}
 										opened={listModals.filtersModal.opened}
 										onSavePreset={listModals.presetModal.open}
 										closeFiltersModal={listModals.filtersModal.close}
 									>
 										<FiltersModalForm
 											lot={lot}
-											filters={listState.normalizedFilters}
-											onFiltersChange={listState.updateFilter}
+											filters={listFilters}
+											onFiltersChange={(key, value) =>
+												updateListFilters({ [key]: value })
+											}
 										/>
 									</FiltersModal>
 								</Group>
@@ -333,11 +370,10 @@ export default function Page(props: {
 									onRefreshButtonClicked={refetchUserMetadataList}
 									total={userMetadataList.response.details.totalItems}
 									isRandomSortOrderSelected={
-										listState.normalizedFilters.sortBy === MediaSortBy.Random
+										listFilters.sortBy === MediaSortBy.Random
 									}
 								/>
-								{(listState.normalizedFilters.startDateRange ||
-									listState.normalizedFilters.endDateRange) &&
+								{(listFilters.startDateRange || listFilters.endDateRange) &&
 								!coreDetails.isServerKeyValidated ? (
 									<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
 								) : userMetadataList.response.details.totalItems > 0 ? (
@@ -352,8 +388,8 @@ export default function Page(props: {
 									<Text>You do not have any saved yet</Text>
 								)}
 								<ApplicationPagination
-									value={listState.normalizedFilters.page}
-									onChange={(v) => listState.updateFilter("page", v)}
+									value={listFilters.page}
+									onChange={(page) => updateListFilters({ page })}
 									totalItems={userMetadataList.response.details.totalItems}
 								/>
 							</>
@@ -366,14 +402,13 @@ export default function Page(props: {
 							<>
 								<Group wrap="nowrap">
 									<DebouncedSearchInput
-										value={searchState.normalizedFilters.query}
+										value={searchFilters.query}
 										placeholder={`Search for ${changeCase(
 											lot.toLowerCase(),
 										).toLowerCase()}s`}
-										onChange={(value) => {
-											searchState.updateFilter("query", value);
-											searchState.updateFilter("page", 1);
-										}}
+										onChange={(value) =>
+											updateSearchFilters({ query: value, page: 1 })
+										}
 										tourControl={{
 											target: OnboardingTourStepTargets.SearchAudiobook,
 											onQueryChange: (query) => {
@@ -385,10 +420,9 @@ export default function Page(props: {
 									<Group gap="xs" wrap="nowrap">
 										{(metadataLotSourceMapping?.sources.length || 0) > 1 ? (
 											<Select
-												value={searchState.normalizedFilters.source}
+												value={searchFilters.source}
 												onChange={(v) =>
-													v &&
-													searchState.updateFilter("source", v as MediaSource)
+													v && updateSearchFilters({ source: v as MediaSource })
 												}
 												data={metadataLotSourceMapping?.sources.map((o) => ({
 													value: o,
@@ -398,19 +432,21 @@ export default function Page(props: {
 										) : null}
 										<ActionIcon
 											onClick={searchModals.filtersModal.open}
-											color={searchState.areFiltersActive ? "blue" : "gray"}
+											color={haveSearchFiltersChanged ? "blue" : "gray"}
 										>
 											<IconFilter size={24} />
 										</ActionIcon>
 										<FiltersModal
-											resetFilters={searchState.resetFilters}
+											resetFilters={resetSearchFilters}
 											opened={searchModals.filtersModal.opened}
 											onSavePreset={searchModals.presetModal.open}
 											closeFiltersModal={searchModals.filtersModal.close}
 										>
 											<SearchFiltersModalForm
-												filters={searchState.normalizedFilters}
-												onFiltersChange={searchState.updateFilter}
+												filters={searchFilters}
+												onFiltersChange={(key, value) =>
+													updateSearchFilters({ [key]: value })
+												}
 											/>
 										</FiltersModal>
 									</Group>
@@ -436,8 +472,8 @@ export default function Page(props: {
 									<Text>No media found matching your query</Text>
 								)}
 								<ApplicationPagination
-									value={searchState.normalizedFilters.page}
-									onChange={(v) => searchState.updateFilter("page", v)}
+									value={searchFilters.page}
+									onChange={(page) => updateSearchFilters({ page })}
 									totalItems={metadataSearch.response.details.totalItems}
 								/>
 							</>
@@ -612,10 +648,6 @@ const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => {
 	const { filters, onFiltersChange } = props;
 	const coreDetails = useCoreDetails();
 
-	const handleIgdbFilterChange = (key: string, value: string[] | null) => {
-		onFiltersChange(key as keyof SearchFilterState, value);
-	};
-
 	return (
 		<Stack gap="xs">
 			{filters.source === MediaSource.GoogleBooks ? (
@@ -633,42 +665,54 @@ const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => {
 						valueKey="igdbThemeIds"
 						value={filters.igdbThemeIds}
 						data={coreDetails.providerSpecifics.igdb.themes}
-						onChange={handleIgdbFilterChange}
+						onChange={(key, value) =>
+							onFiltersChange(key as keyof SearchFilterState, value || [])
+						}
 					/>
 					<IgdbMultiselect
 						label="Select genres"
 						valueKey="igdbGenreIds"
 						value={filters.igdbGenreIds}
 						data={coreDetails.providerSpecifics.igdb.genres}
-						onChange={handleIgdbFilterChange}
+						onChange={(key, value) =>
+							onFiltersChange(key as keyof SearchFilterState, value || [])
+						}
 					/>
 					<IgdbMultiselect
 						label="Select platforms"
 						valueKey="igdbPlatformIds"
 						value={filters.igdbPlatformIds}
 						data={coreDetails.providerSpecifics.igdb.platforms}
-						onChange={handleIgdbFilterChange}
+						onChange={(key, value) =>
+							onFiltersChange(key as keyof SearchFilterState, value || [])
+						}
 					/>
 					<IgdbMultiselect
 						label="Select game types"
 						valueKey="igdbGameTypeIds"
 						value={filters.igdbGameTypeIds}
 						data={coreDetails.providerSpecifics.igdb.gameTypes}
-						onChange={handleIgdbFilterChange}
+						onChange={(key, value) =>
+							onFiltersChange(key as keyof SearchFilterState, value || [])
+						}
 					/>
 					<IgdbMultiselect
 						label="Select game modes"
 						valueKey="igdbGameModeIds"
 						value={filters.igdbGameModeIds}
 						data={coreDetails.providerSpecifics.igdb.gameModes}
-						onChange={handleIgdbFilterChange}
+						onChange={(key, value) =>
+							onFiltersChange(key as keyof SearchFilterState, value || [])
+						}
 					/>
 					<IgdbMultiselect
 						label="Select release regions"
 						valueKey="igdbReleaseDateRegionIds"
 						value={filters.igdbReleaseDateRegionIds}
 						data={coreDetails.providerSpecifics.igdb.releaseDateRegions}
-						onChange={handleIgdbFilterChange}
+						onChange={(key, value) =>
+							onFiltersChange(key as keyof SearchFilterState, value || [])
+						}
 					/>
 					<Checkbox
 						label="Allow games with parent"
