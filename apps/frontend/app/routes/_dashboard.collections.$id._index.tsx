@@ -49,7 +49,6 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
-import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
 	DisplayCollectionEntity,
@@ -504,10 +503,14 @@ const FiltersModalForm = (props: {
 	</>
 );
 
+const defaultRecommendationsState = {
+	page: parseAsInteger.withDefault(1),
+	query: parseAsString.withDefault(""),
+};
+
 const RecommendationsSection = (props: { collectionId: string }) => {
-	const [search, setSearchInput] = useLocalStorage(
-		`CollectionRecommendationsSearchInput-${props.collectionId}`,
-		{ page: 1, query: "" },
+	const { filters: search, updateFilters } = useFiltersState(
+		defaultRecommendationsState,
 	);
 
 	const input: CollectionRecommendationsInput = {
@@ -515,7 +518,7 @@ const RecommendationsSection = (props: { collectionId: string }) => {
 		collectionId: props.collectionId,
 	};
 
-	const recommendations = useQuery({
+	const { data: recommendations } = useQuery({
 		queryKey:
 			queryFactory.collections.collectionRecommendations(input).queryKey,
 		queryFn: () =>
@@ -527,14 +530,13 @@ const RecommendationsSection = (props: { collectionId: string }) => {
 			<DebouncedSearchInput
 				value={search.query}
 				placeholder="Search recommendations"
-				onChange={(query) => setSearchInput({ ...search, query })}
+				onChange={(query) => updateFilters({ query })}
 			/>
-			{recommendations.data ? (
-				recommendations.data.collectionRecommendations.details.totalItems >
-				0 ? (
+			{recommendations ? (
+				recommendations.collectionRecommendations.details.totalItems > 0 ? (
 					<>
 						<ApplicationGrid>
-							{recommendations.data.collectionRecommendations.items.map((r) => (
+							{recommendations.collectionRecommendations.items.map((r) => (
 								<MetadataDisplayItem
 									key={r}
 									metadataId={r}
@@ -544,10 +546,9 @@ const RecommendationsSection = (props: { collectionId: string }) => {
 						</ApplicationGrid>
 						<ApplicationPagination
 							value={search.page}
-							onChange={(v) => setSearchInput({ ...search, page: v })}
+							onChange={(page) => updateFilters({ page })}
 							totalItems={
-								recommendations.data.collectionRecommendations.details
-									.totalItems
+								recommendations.collectionRecommendations.details.totalItems
 							}
 						/>
 					</>
