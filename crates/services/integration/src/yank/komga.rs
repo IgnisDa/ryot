@@ -307,15 +307,15 @@ async fn process_events(
     base_url: &String,
     source: MediaSource,
     data: komga_events::Data,
+    client: &reqwest::Client,
     ss: &Arc<SupportingService>,
 ) -> Result<ProcessEventReturn> {
     let url = format!("{base_url}/api/v1");
-    let client = get_base_http_client(None);
 
     let book: komga_book::Item = fetch_api(
         username,
         password,
-        &client,
+        client,
         &format!("{}/books", &url),
         &data.book_id,
     )
@@ -323,7 +323,7 @@ async fn process_events(
     let series: komga_series::Item = fetch_api(
         username,
         password,
-        &client,
+        client,
         &format!("{}/series", &url),
         &book.series_id,
     )
@@ -396,7 +396,7 @@ pub async fn yank_progress(
         });
     }
 
-    // Use hashmap here so we don't dupe pulls for a single book
+    let client = get_base_http_client(None);
     let mut unique_media_items: HashMap<String, ProcessEventReturn> = HashMap::new();
 
     if let Some(mut recv) = receiver {
@@ -412,6 +412,7 @@ pub async fn yank_progress(
                                 &base_url,
                                 source,
                                 event.clone(),
+                                &client,
                                 ss,
                             )
                             .await
