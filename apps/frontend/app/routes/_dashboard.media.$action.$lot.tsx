@@ -12,6 +12,7 @@ import {
 	Text,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
+import { useDidUpdate } from "@mantine/hooks";
 import {
 	EntityLot,
 	FilterPresetContextType,
@@ -153,6 +154,11 @@ export default function Page(props: {
 		updateFilters: updateSearchFilters,
 		haveFiltersChanged: haveSearchFiltersChanged,
 	} = useFiltersState(defaultSearchQueryState);
+
+	useDidUpdate(() => {
+		if (metadataLotSourceMapping && action === "search")
+			updateSearchFilters({ source: metadataLotSourceMapping.sources[0] });
+	}, [metadataLotSourceMapping]);
 
 	const listPresets = useFilterPresets({
 		filters: listFilters,
