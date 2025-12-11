@@ -12,7 +12,10 @@ export const getMediaLinks = (userPreferences: UserPreferences) =>
 		...userPreferences.featuresEnabled.media.specific.map((f) => {
 			return {
 				label: changeCase(f),
-				link: $path("/media/:action/:lot", { action: "list", lot: f }),
+				link: $path("/media/:action/:lot", {
+					action: "list",
+					lot: f.toLowerCase(),
+				}),
 				tourControlTarget:
 					f === MediaLot.AudioBook
 						? `${OnboardingTourStepTargets.FirstSidebar} ${OnboardingTourStepTargets.GoBackToAudiobooksSection}`

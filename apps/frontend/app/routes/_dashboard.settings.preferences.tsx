@@ -146,7 +146,10 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		group: "Media",
 		items: Object.values(MediaLot).map((lot) => ({
 			label: changeCase(lot),
-			value: $path("/media/:action/:lot", { lot, action: "list" }),
+			value: $path("/media/:action/:lot", {
+				action: "list",
+				lot: lot.toLowerCase(),
+			}),
 		})),
 	});
 	userPreferenceLandingPaths.push({

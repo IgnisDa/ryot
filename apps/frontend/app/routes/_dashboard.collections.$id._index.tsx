@@ -362,7 +362,7 @@ export default function Page(props: { params: { id: string } }) {
 												navigate(
 													$path("/media/:action/:lot", {
 														action: "list",
-														lot: MediaLot.Movie,
+														lot: MediaLot.Movie.toLowerCase(),
 													}),
 												);
 											}}
