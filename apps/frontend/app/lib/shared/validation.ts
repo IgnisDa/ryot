@@ -1,4 +1,6 @@
-import { isString } from "@ryot/ts-utils";
+import type { MediaCollectionFilter } from "@ryot/generated/graphql/backend/graphql";
+import { isEqual, isString } from "@ryot/ts-utils";
+import { createParser } from "nuqs";
 import { z } from "zod";
 import { convertTimestampToUtcString } from "./date-utils";
 
@@ -22,3 +24,14 @@ export const passwordConfirmationSchema = z
 		error: "Passwords do not match",
 		path: ["confirm"],
 	});
+
+export const parseAsCollectionsFilter = createParser<MediaCollectionFilter[]>({
+	eq: (a, b) => isEqual(a, b),
+	serialize: (value) =>
+		value.map((v) => `${v.collectionId}|${v.presence}|${v.strategy}`).join(","),
+	parse: (value) =>
+		value.split(",").map((v) => {
+			const [collectionId, presence, strategy] = v.split("|");
+			return { presence, strategy, collectionId } as MediaCollectionFilter;
+		}),
+});

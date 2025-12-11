@@ -16,7 +16,6 @@ import {
 	EntityLot,
 	FilterPresetContextType,
 	GraphqlSortOrder,
-	type MediaCollectionFilter,
 	MediaGeneralFilter,
 	MediaLot,
 	MediaSortBy,
@@ -40,7 +39,6 @@ import {
 	parseAsArrayOf,
 	parseAsBoolean,
 	parseAsInteger,
-	parseAsJson,
 	parseAsString,
 	parseAsStringEnum,
 } from "nuqs";
@@ -76,6 +74,7 @@ import { useCoreDetails, useUserMetadataList } from "~/lib/shared/hooks";
 import { getLot } from "~/lib/shared/media-utils";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+import { parseAsCollectionsFilter } from "~/lib/shared/validation";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	OnboardingTourStepTargets,
@@ -87,6 +86,7 @@ import { ApplicationTimeRange } from "~/lib/types";
 const defaultListQueryState = {
 	page: parseAsInteger.withDefault(1),
 	query: parseAsString.withDefault(""),
+	collections: parseAsCollectionsFilter.withDefault([]),
 	endDateRange: parseAsString.withDefault(""),
 	startDateRange: parseAsString.withDefault(""),
 	sortBy: parseAsStringEnum(Object.values(MediaSortBy)).withDefault(
@@ -101,9 +101,6 @@ const defaultListQueryState = {
 	dateRange: parseAsStringEnum(Object.values(ApplicationTimeRange)).withDefault(
 		ApplicationTimeRange.AllTime,
 	),
-	collections: parseAsJson<MediaCollectionFilter[]>((val) =>
-		Array.isArray(val) ? (val as MediaCollectionFilter[]) : null,
-	).withDefault([]),
 };
 
 const defaultSearchQueryState = {
