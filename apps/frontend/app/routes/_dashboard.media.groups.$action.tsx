@@ -262,8 +262,8 @@ export default function Page(props: { params: { action: string } }) {
 						{action === "search" ? (
 							<>
 								<Select
-									data={metadataGroupSourceOptions}
 									value={searchFilters.source}
+									data={metadataGroupSourceOptions}
 									onChange={(v) =>
 										v && updateSearchFilters({ source: v as MediaSource })
 									}
@@ -393,9 +393,7 @@ const FiltersModalForm = (props: FiltersModalFormProps) => {
 	);
 };
 
-type MetadataGroupListItemProps = {
-	item: string;
-};
+type MetadataGroupListItemProps = { item: string };
 
 const MetadataGroupListItem = (props: MetadataGroupListItemProps) => {
 	const bulkEditingCollection = useBulkEditCollection();
