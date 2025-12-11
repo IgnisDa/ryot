@@ -87,20 +87,20 @@ import { ApplicationTimeRange } from "~/lib/types";
 const defaultListQueryState = {
 	page: parseAsInteger.withDefault(1),
 	query: parseAsString.withDefault(""),
+	endDateRange: parseAsString.withDefault(""),
+	startDateRange: parseAsString.withDefault(""),
 	sortBy: parseAsStringEnum(Object.values(MediaSortBy)).withDefault(
 		MediaSortBy.LastUpdated,
 	),
-	endDateRange: parseAsString.withDefault(""),
-	startDateRange: parseAsString.withDefault(""),
+	generalFilter: parseAsStringEnum(
+		Object.values(MediaGeneralFilter),
+	).withDefault(MediaGeneralFilter.All),
 	sortOrder: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(
 		GraphqlSortOrder.Desc,
 	),
 	dateRange: parseAsStringEnum(Object.values(ApplicationTimeRange)).withDefault(
 		ApplicationTimeRange.AllTime,
 	),
-	generalFilter: parseAsStringEnum(
-		Object.values(MediaGeneralFilter),
-	).withDefault(MediaGeneralFilter.All),
 	collections: parseAsJson<MediaCollectionFilter[]>((val) =>
 		Array.isArray(val) ? (val as MediaCollectionFilter[]) : null,
 	).withDefault([]),
