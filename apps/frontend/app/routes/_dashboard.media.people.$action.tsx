@@ -32,6 +32,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import {
 	type inferParserType,
+	parseAsBoolean,
 	parseAsInteger,
 	parseAsJson,
 	parseAsString,
@@ -85,18 +86,14 @@ const defaultListQueryState = {
 const defaultSearchQueryState = {
 	page: parseAsInteger.withDefault(1),
 	query: parseAsString.withDefault(""),
+	isTvdbCompany: parseAsBoolean.withDefault(false),
+	isTmdbCompany: parseAsBoolean.withDefault(false),
+	isAnilistStudio: parseAsBoolean.withDefault(false),
+	isGiantBombCompany: parseAsBoolean.withDefault(false),
+	isHardcoverPublisher: parseAsBoolean.withDefault(false),
 	source: parseAsStringEnum(Object.values(MediaSource)).withDefault(
 		MediaSource.Tmdb,
 	),
-	sourceSpecifics: parseAsJson<{
-		isTvdbCompany?: boolean;
-		isTmdbCompany?: boolean;
-		isAnilistStudio?: boolean;
-		isGiantBombCompany?: boolean;
-		isHardcoverPublisher?: boolean;
-	}>((val) =>
-		typeof val === "object" && val !== null ? val : null,
-	).withDefault({}),
 };
 
 type ListFilterState = inferParserType<typeof defaultListQueryState>;
@@ -157,8 +154,14 @@ export default function Page(props: { params: { action: string } }) {
 	const searchInput = useMemo(
 		() => ({
 			source: searchFilters.source,
-			sourceSpecifics: searchFilters.sourceSpecifics,
 			search: { page: searchFilters.page, query: searchFilters.query },
+			sourceSpecifics: {
+				isTvdbCompany: searchFilters.isTvdbCompany || undefined,
+				isTmdbCompany: searchFilters.isTmdbCompany || undefined,
+				isAnilistStudio: searchFilters.isAnilistStudio || undefined,
+				isGiantBombCompany: searchFilters.isGiantBombCompany || undefined,
+				isHardcoverPublisher: searchFilters.isHardcoverPublisher || undefined,
+			},
 		}),
 		[searchFilters],
 	);
@@ -411,55 +414,45 @@ const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => (
 		{props.filters.source === MediaSource.Tvdb ? (
 			<Checkbox
 				label="Company"
-				checked={props.filters.sourceSpecifics.isTvdbCompany || false}
+				checked={props.filters.isTvdbCompany}
 				onChange={(e) =>
-					props.onFiltersChange("sourceSpecifics", {
-						isTvdbCompany: e.target.checked,
-					})
+					props.onFiltersChange("isTvdbCompany", e.target.checked)
 				}
 			/>
 		) : null}
 		{props.filters.source === MediaSource.Tmdb ? (
 			<Checkbox
 				label="Company"
-				checked={props.filters.sourceSpecifics.isTmdbCompany || false}
+				checked={props.filters.isTmdbCompany}
 				onChange={(e) =>
-					props.onFiltersChange("sourceSpecifics", {
-						isTmdbCompany: e.target.checked,
-					})
+					props.onFiltersChange("isTmdbCompany", e.target.checked)
 				}
 			/>
 		) : null}
 		{props.filters.source === MediaSource.Anilist ? (
 			<Checkbox
 				label="Studio"
-				checked={props.filters.sourceSpecifics.isAnilistStudio || false}
+				checked={props.filters.isAnilistStudio}
 				onChange={(e) =>
-					props.onFiltersChange("sourceSpecifics", {
-						isAnilistStudio: e.target.checked,
-					})
+					props.onFiltersChange("isAnilistStudio", e.target.checked)
 				}
 			/>
 		) : null}
 		{props.filters.source === MediaSource.Hardcover ? (
 			<Checkbox
 				label="Publisher"
-				checked={props.filters.sourceSpecifics.isHardcoverPublisher || false}
+				checked={props.filters.isHardcoverPublisher}
 				onChange={(e) =>
-					props.onFiltersChange("sourceSpecifics", {
-						isHardcoverPublisher: e.target.checked,
-					})
+					props.onFiltersChange("isHardcoverPublisher", e.target.checked)
 				}
 			/>
 		) : null}
 		{props.filters.source === MediaSource.GiantBomb ? (
 			<Checkbox
 				label="Company"
-				checked={props.filters.sourceSpecifics.isGiantBombCompany || false}
+				checked={props.filters.isGiantBombCompany}
 				onChange={(e) =>
-					props.onFiltersChange("sourceSpecifics", {
-						isGiantBombCompany: e.target.checked,
-					})
+					props.onFiltersChange("isGiantBombCompany", e.target.checked)
 				}
 			/>
 		) : null}
