@@ -20,10 +20,10 @@ import { clientGqlService } from "~/lib/shared/react-query";
 import { forcedDashboardPath } from "~/lib/shared/ui-utils";
 import { defaultSidebarLinksState, useOpenedSidebarLinks } from "./general";
 
+export const ACTIVE_WORKOUT_REPS_TARGET = "10";
+export const ACTIVE_WORKOUT_WEIGHT_TARGET = "20";
 export const TOUR_EXERCISE_TARGET_ID = "Leg Press";
 export const TOUR_METADATA_TARGET_ID = "three body";
-export const ACTIVE_WORKOUT_WEIGHT_TARGET = "20";
-export const ACTIVE_WORKOUT_REPS_TARGET = "10";
 
 export enum OnboardingTourStepTargets {
 	Welcome = "tour-step-welcome",
@@ -294,8 +294,8 @@ export const useOnboardingTour = () => {
 				content: `Let's proceed by searching for "${TOUR_EXERCISE_TARGET_ID}".`,
 			},
 			{
-				data: { isSecondaryStep: true },
 				disableScrolling: false,
+				data: { isSecondaryStep: true },
 				target: OnboardingTourStepTargets.SelectExercise,
 				content: `Let's proceed by selecting '${TOUR_EXERCISE_TARGET_ID}'. Please click on the checkbox to continue.`,
 			},
