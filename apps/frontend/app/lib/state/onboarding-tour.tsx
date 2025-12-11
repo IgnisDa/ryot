@@ -22,7 +22,7 @@ import { defaultSidebarLinksState, useOpenedSidebarLinks } from "./general";
 
 export const ACTIVE_WORKOUT_REPS_TARGET = "10";
 export const ACTIVE_WORKOUT_WEIGHT_TARGET = "20";
-export const TOUR_EXERCISE_TARGET_ID = "Leg Press";
+export const TOUR_EXERCISE_TARGET_ID = "Calf Press";
 export const TOUR_METADATA_TARGET_ID = "three body";
 
 export enum OnboardingTourStepTargets {
