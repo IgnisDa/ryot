@@ -35,7 +35,6 @@ import {
 	ExerciseMuscle,
 	ExerciseSortBy,
 	FilterPresetContextType,
-	type MediaCollectionFilter,
 	MergeExerciseDocument,
 	UserExercisesListDocument,
 	type UserExercisesListInput,
@@ -60,7 +59,6 @@ import {
 	type inferParserType,
 	parseAsArrayOf,
 	parseAsInteger,
-	parseAsJson,
 	parseAsString,
 	parseAsStringEnum,
 } from "nuqs";
@@ -116,10 +114,12 @@ import {
 } from "~/lib/state/onboarding-tour";
 import { redirectWithToast, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.exercises.list";
+import { parseAsCollectionsFilter } from "~/lib/shared/validation";
 
 const defaultQueryState = {
 	page: parseAsInteger.withDefault(1),
 	query: parseAsString.withDefault(""),
+	collections: parseAsCollectionsFilter.withDefault([]),
 	types: parseAsArrayOf(
 		parseAsStringEnum(Object.values(ExerciseLot)),
 	).withDefault([]),
@@ -140,9 +140,6 @@ const defaultQueryState = {
 	).withDefault([]),
 	equipments: parseAsArrayOf(
 		parseAsStringEnum(Object.values(ExerciseEquipment)),
-	).withDefault([]),
-	collections: parseAsJson<MediaCollectionFilter[]>((val) =>
-		Array.isArray(val) ? (val as MediaCollectionFilter[]) : null,
 	).withDefault([]),
 };
 

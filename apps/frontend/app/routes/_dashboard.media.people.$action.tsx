@@ -15,7 +15,6 @@ import {
 	EntityLot,
 	FilterPresetContextType,
 	GraphqlSortOrder,
-	type MediaCollectionFilter,
 	MediaSource,
 	PeopleSearchDocument,
 	PersonAndMetadataGroupsSortBy,
@@ -34,7 +33,6 @@ import {
 	type inferParserType,
 	parseAsBoolean,
 	parseAsInteger,
-	parseAsJson,
 	parseAsString,
 	parseAsStringEnum,
 } from "nuqs";
@@ -67,17 +65,16 @@ import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { useCoreDetails, useUserPeopleList } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+import { parseAsCollectionsFilter } from "~/lib/shared/validation";
 import { useBulkEditCollection } from "~/lib/state/collection";
 
 const defaultListQueryState = {
 	page: parseAsInteger.withDefault(1),
 	query: parseAsString.withDefault(""),
+	collections: parseAsCollectionsFilter.withDefault([]),
 	orderBy: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(
 		GraphqlSortOrder.Desc,
 	),
-	collections: parseAsJson<MediaCollectionFilter[]>((val) =>
-		Array.isArray(val) ? (val as MediaCollectionFilter[]) : null,
-	).withDefault([]),
 	sortBy: parseAsStringEnum(
 		Object.values(PersonAndMetadataGroupsSortBy),
 	).withDefault(PersonAndMetadataGroupsSortBy.AssociatedEntityCount),
