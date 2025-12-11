@@ -220,7 +220,7 @@ export const useOnboardingTour = () => {
 			{
 				target: OnboardingTourStepTargets.GoToAudiobooksSectionAgain,
 				content:
-					"Great! Now, let's view some more details about the audiobook. Click on the audiobooks section to continue.",
+					"Great! Now, let's view some more details about the audiobook. Click on the audiobook to check out some information.",
 			},
 			{
 				target: OnboardingTourStepTargets.MetadataDetailsActionsTab,
