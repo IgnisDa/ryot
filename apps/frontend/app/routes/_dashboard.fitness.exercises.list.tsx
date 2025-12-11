@@ -100,6 +100,7 @@ import {
 	convertEnumToSelectData,
 	openConfirmationModal,
 } from "~/lib/shared/ui-utils";
+import { parseAsCollectionsFilter } from "~/lib/shared/validation";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	addExerciseToCurrentWorkout,
@@ -114,7 +115,6 @@ import {
 } from "~/lib/state/onboarding-tour";
 import { redirectWithToast, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.exercises.list";
-import { parseAsCollectionsFilter } from "~/lib/shared/validation";
 
 const defaultQueryState = {
 	page: parseAsInteger.withDefault(1),
