@@ -12,7 +12,6 @@ import {
 	Text,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
-import { useDidUpdate } from "@mantine/hooks";
 import {
 	EntityLot,
 	FilterPresetContextType,
@@ -104,7 +103,7 @@ const defaultListQueryState = {
 	),
 };
 
-const defaultSearchQueryState = {
+const baseSearchQueryState = {
 	page: parseAsInteger.withDefault(1),
 	query: parseAsString.withDefault(""),
 	googleBooksPassRawQuery: parseAsBoolean.withDefault(false),
@@ -121,7 +120,7 @@ const defaultSearchQueryState = {
 };
 
 type ListFilterState = inferParserType<typeof defaultListQueryState>;
-type SearchFilterState = inferParserType<typeof defaultSearchQueryState>;
+type SearchFilterState = inferParserType<typeof baseSearchQueryState>;
 
 export const meta = () => {
 	return [{ title: "Media | Ryot" }];
@@ -141,6 +140,16 @@ export default function Page(props: {
 		(m) => m.lot === lot,
 	);
 
+	const searchQueryState = useMemo(
+		() => ({
+			...baseSearchQueryState,
+			source: parseAsStringEnum(Object.values(MediaSource)).withDefault(
+				metadataLotSourceMapping?.sources[0] || MediaSource.Tmdb,
+			),
+		}),
+		[metadataLotSourceMapping],
+	);
+
 	const {
 		filters: listFilters,
 		resetFilters: resetListFilters,
@@ -153,12 +162,7 @@ export default function Page(props: {
 		resetFilters: resetSearchFilters,
 		updateFilters: updateSearchFilters,
 		haveFiltersChanged: haveSearchFiltersChanged,
-	} = useFiltersState(defaultSearchQueryState);
-
-	useDidUpdate(() => {
-		if (metadataLotSourceMapping && action === "search")
-			updateSearchFilters({ source: metadataLotSourceMapping.sources[0] });
-	}, [metadataLotSourceMapping]);
+	} = useFiltersState(searchQueryState);
 
 	const listPresets = useFilterPresets({
 		filters: listFilters,
