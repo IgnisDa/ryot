@@ -32,6 +32,8 @@ export const parseAsCollectionsFilter = createParser<MediaCollectionFilter[]>({
 	parse: (value) =>
 		value.split(",").map((v) => {
 			const [collectionId, presence, strategy] = v.split("|");
+			if (!collectionId || !presence || !strategy)
+				throw new Error("Invalid collection filter format");
 			return { presence, strategy, collectionId } as MediaCollectionFilter;
 		}),
 });
