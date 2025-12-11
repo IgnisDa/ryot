@@ -132,14 +132,13 @@ export default function Page(props: {
 	const navigate = useNavigate();
 	const action = props.params.action;
 	const coreDetails = useCoreDetails();
+	const listModals = useFilterModals();
+	const searchModals = useFilterModals();
 	const lot = getLot(props.params.lot) as MediaLot;
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const metadataLotSourceMapping = coreDetails.metadataLotSourceMappings.find(
 		(m) => m.lot === lot,
 	);
-
-	const listModals = useFilterModals();
-	const searchModals = useFilterModals();
 
 	const {
 		filters: listFilters,
