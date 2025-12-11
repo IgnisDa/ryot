@@ -144,11 +144,12 @@ const isCaptureLoadingAtom = atom(false);
 
 export default function Page() {
 	const coreDetails = useCoreDetails();
-	const [customRangeOpened, setCustomRangeOpened] = useState(false);
+	const userAnalytics = useGetUserAnalytics();
 	const toCaptureRef = useRef<HTMLDivElement>(null);
+	const [customRangeOpened, setCustomRangeOpened] = useState(false);
+	const [isCaptureLoading, setIsCaptureLoading] = useAtom(isCaptureLoadingAtom);
 	const { timeSpanSettings, setTimeSpanSettings, startDate, endDate } =
 		useTimeSpanSettings();
-	const [isCaptureLoading, setIsCaptureLoading] = useAtom(isCaptureLoadingAtom);
 
 	return (
 		<>
@@ -174,6 +175,7 @@ export default function Page() {
 											w={{ md: 200 }}
 											variant="default"
 											ml={{ md: "auto" }}
+											loading={userAnalytics.isFetching}
 										>
 											<Stack gap={0}>
 												<Text size="xs">{timeSpanSettings.range}</Text>
