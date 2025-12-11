@@ -37,6 +37,8 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import {
 	type inferParserType,
+	parseAsArrayOf,
+	parseAsBoolean,
 	parseAsInteger,
 	parseAsJson,
 	parseAsString,
@@ -107,33 +109,17 @@ const defaultListQueryState = {
 const defaultSearchQueryState = {
 	page: parseAsInteger.withDefault(1),
 	query: parseAsString.withDefault(""),
+	googleBooksPassRawQuery: parseAsBoolean.withDefault(false),
+	igdbAllowGamesWithParent: parseAsBoolean.withDefault(false),
+	igdbThemeIds: parseAsArrayOf(parseAsString).withDefault([]),
+	igdbGenreIds: parseAsArrayOf(parseAsString).withDefault([]),
+	igdbPlatformIds: parseAsArrayOf(parseAsString).withDefault([]),
+	igdbGameModeIds: parseAsArrayOf(parseAsString).withDefault([]),
+	igdbGameTypeIds: parseAsArrayOf(parseAsString).withDefault([]),
+	igdbReleaseDateRegionIds: parseAsArrayOf(parseAsString).withDefault([]),
 	source: parseAsStringEnum(Object.values(MediaSource)).withDefault(
 		MediaSource.Tmdb,
 	),
-	igdbThemeIds: parseAsJson<string[]>((val) =>
-		Array.isArray(val) ? (val as string[]) : null,
-	).withDefault([]),
-	igdbGenreIds: parseAsJson<string[]>((val) =>
-		Array.isArray(val) ? (val as string[]) : null,
-	).withDefault([]),
-	igdbPlatformIds: parseAsJson<string[]>((val) =>
-		Array.isArray(val) ? (val as string[]) : null,
-	).withDefault([]),
-	igdbGameModeIds: parseAsJson<string[]>((val) =>
-		Array.isArray(val) ? (val as string[]) : null,
-	).withDefault([]),
-	igdbGameTypeIds: parseAsJson<string[]>((val) =>
-		Array.isArray(val) ? (val as string[]) : null,
-	).withDefault([]),
-	googleBooksPassRawQuery: parseAsJson<boolean>((val) =>
-		typeof val === "boolean" ? val : null,
-	).withDefault(false),
-	igdbAllowGamesWithParent: parseAsJson<boolean>((val) =>
-		typeof val === "boolean" ? val : null,
-	).withDefault(false),
-	igdbReleaseDateRegionIds: parseAsJson<string[]>((val) =>
-		Array.isArray(val) ? (val as string[]) : null,
-	).withDefault([]),
 };
 
 type ListFilterState = inferParserType<typeof defaultListQueryState>;
@@ -650,7 +636,7 @@ const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => {
 			{filters.source === MediaSource.GoogleBooks ? (
 				<Checkbox
 					label="Pass raw query"
-					checked={filters.googleBooksPassRawQuery || false}
+					checked={filters.googleBooksPassRawQuery}
 					onChange={(e) =>
 						onFiltersChange("googleBooksPassRawQuery", e.target.checked)
 					}
@@ -713,7 +699,7 @@ const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => {
 					/>
 					<Checkbox
 						label="Allow games with parent"
-						checked={filters.igdbAllowGamesWithParent || false}
+						checked={filters.igdbAllowGamesWithParent}
 						onChange={(e) =>
 							onFiltersChange("igdbAllowGamesWithParent", e.target.checked)
 						}
