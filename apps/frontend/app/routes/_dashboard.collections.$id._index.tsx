@@ -156,14 +156,8 @@ export default function Page(props: { params: { id: string } }) {
 	const queryInput: CollectionContentsInput = useMemo(
 		() => ({
 			collectionId,
-			sort: {
-				by: filters.sortBy,
-				order: filters.orderBy,
-			},
-			search: {
-				page: filters.page,
-				query: filters.query,
-			},
+			sort: { by: filters.sortBy, order: filters.orderBy },
+			search: { page: filters.page, query: filters.query },
 			filter: {
 				entityLot: filters.entityLot,
 				metadataLot: filters.metadataLot,
