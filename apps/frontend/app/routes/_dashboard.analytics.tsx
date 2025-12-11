@@ -129,7 +129,7 @@ const useGetUserAnalytics = () => {
 	const { startDate, endDate } = useTimeSpanSettings();
 	const input = { dateRange: { startDate, endDate } };
 
-	const { data: userAnalytics } = useQuery({
+	const userAnalytics = useQuery({
 		queryKey: queryFactory.miscellaneous.userAnalytics(input).queryKey,
 		queryFn: async () => {
 			return await clientGqlService
@@ -319,7 +319,7 @@ const DisplayStat = (props: {
 
 const ActivitySection = () => {
 	const userAnalytics = useGetUserAnalytics();
-	const dailyUserActivities = userAnalytics?.activities;
+	const dailyUserActivities = userAnalytics?.data?.activities;
 	const trackSeries = mapValues(MediaColors, () => false);
 
 	const data = dailyUserActivities?.items.map((d) => {
@@ -748,8 +748,8 @@ const ChartContainer = (props: ChartContainerProps) => {
 	);
 	const userAnalytics = useGetUserAnalytics();
 
-	const value = userAnalytics
-		? props.children(count, userAnalytics)
+	const value = userAnalytics.data
+		? props.children(count, userAnalytics.data)
 		: undefined;
 
 	return userPreferences.featuresEnabled.fitness.enabled ? (
