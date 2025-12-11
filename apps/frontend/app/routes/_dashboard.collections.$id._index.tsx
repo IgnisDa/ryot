@@ -39,18 +39,23 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+	type inferParserType,
+	parseAsInteger,
+	parseAsString,
+	parseAsStringEnum,
+} from "nuqs";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
-import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
 	DisplayCollectionEntity,
 	DisplayListDetailsAndRefresh,
 	SkeletonLoader,
 } from "~/components/common";
-import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
+import { BulkCollectionEditingAffix } from "~/components/common/bulk-collection-editing-affix";
 import {
 	FilterPresetBar,
 	FilterPresetModalManager,
@@ -63,8 +68,9 @@ import {
 import { ApplicationGrid } from "~/components/common/layout";
 import { ReviewItemDisplay } from "~/components/common/review";
 import { MetadataDisplayItem } from "~/components/media/display-items";
+import type { FilterUpdateFunction } from "~/lib/hooks/filters/types";
 import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
-import { useFilterState } from "~/lib/hooks/filters/use-state";
+import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
@@ -83,7 +89,6 @@ import {
 	useCreateOrUpdateCollectionModal,
 } from "~/lib/state/collection";
 import { useReviewEntity } from "~/lib/state/media";
-import type { FilterUpdateFunction } from "~/lib/types";
 
 enum TabNames {
 	Actions = "actions",
@@ -94,23 +99,20 @@ enum TabNames {
 
 const DEFAULT_TAB = TabNames.Contents;
 
-interface FilterState {
-	page: number;
-	query: string;
-	entityLot?: EntityLot;
-	metadataLot?: MediaLot;
-	orderBy: GraphqlSortOrder;
-	sortBy: CollectionContentsSortBy;
-}
-
-const defaultFilters: FilterState = {
-	page: 1,
-	query: "",
-	entityLot: undefined,
-	metadataLot: undefined,
-	orderBy: GraphqlSortOrder.Desc,
-	sortBy: CollectionContentsSortBy.LastUpdatedOn,
+const defaultQueryState = {
+	page: parseAsInteger.withDefault(1),
+	query: parseAsString.withDefault(""),
+	entityLot: parseAsStringEnum(Object.values(EntityLot)),
+	metadataLot: parseAsStringEnum(Object.values(MediaLot)),
+	orderBy: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(
+		GraphqlSortOrder.Desc,
+	),
+	sortBy: parseAsStringEnum(
+		Object.values(CollectionContentsSortBy),
+	).withDefault(CollectionContentsSortBy.LastUpdatedOn),
 };
+
+type FilterState = inferParserType<typeof defaultQueryState>;
 
 export const meta = () => {
 	return [{ title: "Collection Details | Ryot" }];
@@ -129,10 +131,8 @@ export default function Page(props: { params: { id: string } }) {
 	const [tab, setTab] = useState<string | null>(DEFAULT_TAB);
 	const { open: openCollectionModal } = useCreateOrUpdateCollectionModal();
 
-	const filterState = useFilterState({
-		storageKey: `CollectionFilters-${collectionId}`,
-		defaultFilters,
-	});
+	const { filters, resetFilters, updateFilters, haveFiltersChanged } =
+		useFiltersState(defaultQueryState);
 
 	const [
 		filtersModalOpened,
@@ -146,31 +146,24 @@ export default function Page(props: { params: { id: string } }) {
 	invariant(collectionId);
 
 	const contentsPresets = useFilterPresets({
+		filters,
+		updateFilters,
 		enabled: true,
 		contextInformation: { collectionId },
-		filters: filterState.normalizedFilters,
-		setFilters: filterState.setFiltersState,
 		contextType: FilterPresetContextType.CollectionContents,
-		storageKeyPrefix: `CollectionContentsActivePreset_${collectionId}`,
 	});
 
 	const queryInput: CollectionContentsInput = useMemo(
 		() => ({
 			collectionId,
-			sort: {
-				by: filterState.normalizedFilters.sortBy,
-				order: filterState.normalizedFilters.orderBy,
-			},
-			search: {
-				page: filterState.normalizedFilters.page,
-				query: filterState.normalizedFilters.query,
-			},
+			sort: { by: filters.sortBy, order: filters.orderBy },
+			search: { page: filters.page, query: filters.query },
 			filter: {
-				entityLot: filterState.normalizedFilters.entityLot,
-				metadataLot: filterState.normalizedFilters.metadataLot,
+				entityLot: filters.entityLot,
+				metadataLot: filters.metadataLot,
 			},
 		}),
-		[collectionId, filterState.normalizedFilters],
+		[collectionId, filters],
 	);
 
 	const { data: collectionContents, refetch: refreshCollectionContents } =
@@ -190,7 +183,6 @@ export default function Page(props: { params: { id: string } }) {
 		creatorUserId: details.user.id,
 	};
 	const thisCollection = userCollections.find((c) => c.id === collectionId);
-	const areListFiltersActive = filterState.areFiltersActive;
 
 	return (
 		<>
@@ -274,13 +266,13 @@ export default function Page(props: { params: { id: string } }) {
 											<>
 												<Group wrap="nowrap">
 													<DebouncedSearchInput
-														onChange={filterState.updateQuery}
+														value={filters.query}
 														placeholder="Search in the collection"
-														value={filterState.normalizedFilters.query}
+														onChange={(query) => updateFilters({ query })}
 													/>
 													<ActionIcon
 														onClick={() => openFiltersModal()}
-														color={areListFiltersActive ? "blue" : "gray"}
+														color={haveFiltersChanged ? "blue" : "gray"}
 													>
 														<IconFilter size={24} />
 													</ActionIcon>
@@ -288,11 +280,13 @@ export default function Page(props: { params: { id: string } }) {
 														opened={filtersModalOpened}
 														onSavePreset={openPresetModal}
 														closeFiltersModal={closeFiltersModal}
-														resetFilters={filterState.resetFilters}
+														resetFilters={resetFilters}
 													>
 														<FiltersModalForm
-															filters={filterState.normalizedFilters}
-															updateFilter={filterState.updateFilter}
+															filters={filters}
+															updateFilter={(key, value) =>
+																updateFilters({ [key]: value })
+															}
 														/>
 													</FiltersModal>
 												</Group>
@@ -302,8 +296,7 @@ export default function Page(props: { params: { id: string } }) {
 													cacheId={collectionContents?.cacheId}
 													onRefreshButtonClicked={refreshCollectionContents}
 													isRandomSortOrderSelected={
-														filterState.normalizedFilters.sortBy ===
-														CollectionContentsSortBy.Random
+														filters.sortBy === CollectionContentsSortBy.Random
 													}
 												/>
 											</>
@@ -336,9 +329,9 @@ export default function Page(props: { params: { id: string } }) {
 											</Text>
 										)}
 										<ApplicationPagination
-											value={filterState.normalizedFilters.page}
+											value={filters.page}
 											totalItems={details.results.details.totalItems}
-											onChange={(v) => filterState.updateFilter("page", v)}
+											onChange={(page) => updateFilters({ page })}
 										/>
 									</Stack>
 								</Tabs.Panel>
@@ -369,7 +362,7 @@ export default function Page(props: { params: { id: string } }) {
 												navigate(
 													$path("/media/:action/:lot", {
 														action: "list",
-														lot: MediaLot.Movie,
+														lot: MediaLot.Movie.toLowerCase(),
 													}),
 												);
 											}}
@@ -406,8 +399,8 @@ export default function Page(props: { params: { id: string } }) {
 													});
 													return;
 												}
-												filterState.setFiltersState({
-													...defaultFilters,
+												resetFilters();
+												updateFilters({
 													orderBy: GraphqlSortOrder.Asc,
 													sortBy: CollectionContentsSortBy.Rank,
 												});
@@ -504,18 +497,25 @@ const FiltersModalForm = (props: {
 	</>
 );
 
+const defaultRecommendationsState = {
+	recommendationsPage: parseAsInteger.withDefault(1),
+	recommendationsQuery: parseAsString.withDefault(""),
+};
+
 const RecommendationsSection = (props: { collectionId: string }) => {
-	const [search, setSearchInput] = useLocalStorage(
-		`CollectionRecommendationsSearchInput-${props.collectionId}`,
-		{ page: 1, query: "" },
+	const { filters: search, updateFilters } = useFiltersState(
+		defaultRecommendationsState,
 	);
 
 	const input: CollectionRecommendationsInput = {
-		search,
 		collectionId: props.collectionId,
+		search: {
+			page: search.recommendationsPage,
+			query: search.recommendationsQuery,
+		},
 	};
 
-	const recommendations = useQuery({
+	const { data: recommendations } = useQuery({
 		queryKey:
 			queryFactory.collections.collectionRecommendations(input).queryKey,
 		queryFn: () =>
@@ -525,16 +525,15 @@ const RecommendationsSection = (props: { collectionId: string }) => {
 	return (
 		<Stack gap="xs">
 			<DebouncedSearchInput
-				value={search.query}
+				value={search.recommendationsQuery}
 				placeholder="Search recommendations"
-				onChange={(query) => setSearchInput({ ...search, query })}
+				onChange={(query) => updateFilters({ recommendationsQuery: query })}
 			/>
-			{recommendations.data ? (
-				recommendations.data.collectionRecommendations.details.totalItems >
-				0 ? (
+			{recommendations ? (
+				recommendations.collectionRecommendations.details.totalItems > 0 ? (
 					<>
 						<ApplicationGrid>
-							{recommendations.data.collectionRecommendations.items.map((r) => (
+							{recommendations.collectionRecommendations.items.map((r) => (
 								<MetadataDisplayItem
 									key={r}
 									metadataId={r}
@@ -543,11 +542,10 @@ const RecommendationsSection = (props: { collectionId: string }) => {
 							))}
 						</ApplicationGrid>
 						<ApplicationPagination
-							value={search.page}
-							onChange={(v) => setSearchInput({ ...search, page: v })}
+							value={search.recommendationsPage}
+							onChange={(page) => updateFilters({ recommendationsPage: page })}
 							totalItems={
-								recommendations.data.collectionRecommendations.details
-									.totalItems
+								recommendations.collectionRecommendations.details.totalItems
 							}
 						/>
 					</>

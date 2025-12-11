@@ -15,7 +15,6 @@ import {
 	EntityLot,
 	FilterPresetContextType,
 	GraphqlSortOrder,
-	type MediaCollectionFilter,
 	MediaSource,
 	PeopleSearchDocument,
 	PersonAndMetadataGroupsSortBy,
@@ -30,6 +29,13 @@ import {
 	IconSearch,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import {
+	type inferParserType,
+	parseAsBoolean,
+	parseAsInteger,
+	parseAsString,
+	parseAsStringEnum,
+} from "nuqs";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
@@ -39,7 +45,7 @@ import {
 	DisplayListDetailsAndRefresh,
 	SkeletonLoader,
 } from "~/components/common";
-import { BulkCollectionEditingAffix } from "~/components/common/BulkCollectionEditingAffix";
+import { BulkCollectionEditingAffix } from "~/components/common/bulk-collection-editing-affix";
 import {
 	FilterPresetBar,
 	FilterPresetModalManager,
@@ -52,50 +58,43 @@ import {
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { PersonDisplayItem } from "~/components/media/display-items";
+import type { FilterUpdateFunction } from "~/lib/hooks/filters/types";
 import { useFilterModals } from "~/lib/hooks/filters/use-modals";
 import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
-import { useFilterState } from "~/lib/hooks/filters/use-state";
+import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { useCoreDetails, useUserPeopleList } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+import { parseAsCollectionsFilter } from "~/lib/shared/validation";
 import { useBulkEditCollection } from "~/lib/state/collection";
-import type { FilterUpdateFunction } from "~/lib/types";
 
-interface ListFilterState {
-	page: number;
-	query: string;
-	orderBy: GraphqlSortOrder;
-	collections: MediaCollectionFilter[];
-	sortBy: PersonAndMetadataGroupsSortBy;
-}
-
-interface SearchFilterState {
-	page: number;
-	query: string;
-	source: MediaSource;
-	sourceSpecifics: {
-		isTvdbCompany?: boolean;
-		isTmdbCompany?: boolean;
-		isAnilistStudio?: boolean;
-		isGiantBombCompany?: boolean;
-		isHardcoverPublisher?: boolean;
-	};
-}
-
-const defaultListFilters: ListFilterState = {
-	page: 1,
-	query: "",
-	collections: [],
-	orderBy: GraphqlSortOrder.Desc,
-	sortBy: PersonAndMetadataGroupsSortBy.AssociatedEntityCount,
+const defaultListQueryState = {
+	page: parseAsInteger.withDefault(1),
+	query: parseAsString.withDefault(""),
+	collections: parseAsCollectionsFilter.withDefault([]),
+	orderBy: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(
+		GraphqlSortOrder.Desc,
+	),
+	sortBy: parseAsStringEnum(
+		Object.values(PersonAndMetadataGroupsSortBy),
+	).withDefault(PersonAndMetadataGroupsSortBy.AssociatedEntityCount),
 };
 
-const defaultSearchFilters: SearchFilterState = {
-	page: 1,
-	query: "",
-	sourceSpecifics: {},
-	source: MediaSource.Tmdb,
+const defaultSearchQueryState = {
+	page: parseAsInteger.withDefault(1),
+	query: parseAsString.withDefault(""),
+	isTvdbCompany: parseAsBoolean.withDefault(false),
+	isTmdbCompany: parseAsBoolean.withDefault(false),
+	isAnilistStudio: parseAsBoolean.withDefault(false),
+	isGiantBombCompany: parseAsBoolean.withDefault(false),
+	isHardcoverPublisher: parseAsBoolean.withDefault(false),
+	source: parseAsStringEnum(Object.values(MediaSource)).withDefault(
+		MediaSource.Tmdb,
+	),
 };
+
+type ListFilterState = inferParserType<typeof defaultListQueryState>;
+type SearchFilterState = inferParserType<typeof defaultSearchQueryState>;
 
 export const meta = () => {
 	return [{ title: "People | Ryot" }];
@@ -109,45 +108,41 @@ export default function Page(props: { params: { action: string } }) {
 	const listModals = useFilterModals();
 	const searchModals = useFilterModals();
 
-	const listState = useFilterState({
-		storageKey: "PeopleListFilters",
-		defaultFilters: defaultListFilters,
-	});
+	const {
+		filters: listFilters,
+		resetFilters: resetListFilters,
+		updateFilters: updateListFilters,
+		haveFiltersChanged: haveListFiltersChanged,
+	} = useFiltersState(defaultListQueryState);
 
-	const searchState = useFilterState({
-		storageKey: "PeopleSearchFilters",
-		defaultFilters: defaultSearchFilters,
-	});
+	const {
+		filters: searchFilters,
+		resetFilters: resetSearchFilters,
+		updateFilters: updateSearchFilters,
+		haveFiltersChanged: haveSearchFiltersChanged,
+	} = useFiltersState(defaultSearchQueryState);
 
 	const listPresets = useFilterPresets({
+		filters: listFilters,
 		enabled: action === "list",
-		filters: listState.normalizedFilters,
-		setFilters: listState.setFiltersState,
-		storageKeyPrefix: "PeopleListActivePreset",
+		updateFilters: updateListFilters,
 		contextType: FilterPresetContextType.PeopleList,
 	});
 
 	const searchPresets = useFilterPresets({
+		filters: searchFilters,
 		enabled: action === "search",
-		filters: searchState.normalizedFilters,
-		setFilters: searchState.setFiltersState,
-		storageKeyPrefix: "PeopleSearchActivePreset",
+		updateFilters: updateSearchFilters,
 		contextType: FilterPresetContextType.PeopleSearch,
 	});
 
 	const listInput: UserPeopleListInput = useMemo(
 		() => ({
-			filter: { collections: listState.normalizedFilters.collections },
-			sort: {
-				by: listState.normalizedFilters.sortBy,
-				order: listState.normalizedFilters.orderBy,
-			},
-			search: {
-				page: listState.normalizedFilters.page,
-				query: listState.normalizedFilters.query,
-			},
+			filter: { collections: listFilters.collections },
+			sort: { by: listFilters.sortBy, order: listFilters.orderBy },
+			search: { page: listFilters.page, query: listFilters.query },
 		}),
-		[listState.normalizedFilters],
+		[listFilters],
 	);
 
 	const { data: userPeopleList, refetch: refetchUserPeopleList } =
@@ -155,14 +150,17 @@ export default function Page(props: { params: { action: string } }) {
 
 	const searchInput = useMemo(
 		() => ({
-			source: searchState.normalizedFilters.source,
-			sourceSpecifics: searchState.normalizedFilters.sourceSpecifics,
-			search: {
-				page: searchState.normalizedFilters.page,
-				query: searchState.normalizedFilters.query,
+			source: searchFilters.source,
+			search: { page: searchFilters.page, query: searchFilters.query },
+			sourceSpecifics: {
+				isTvdbCompany: searchFilters.isTvdbCompany || undefined,
+				isTmdbCompany: searchFilters.isTmdbCompany || undefined,
+				isAnilistStudio: searchFilters.isAnilistStudio || undefined,
+				isGiantBombCompany: searchFilters.isGiantBombCompany || undefined,
+				isHardcoverPublisher: searchFilters.isHardcoverPublisher || undefined,
 			},
 		}),
-		[searchState.normalizedFilters],
+		[searchFilters],
 	);
 
 	const { data: peopleSearch } = useQuery({
@@ -175,21 +173,7 @@ export default function Page(props: { params: { action: string } }) {
 	});
 
 	const searchInputValue =
-		action === "list"
-			? listState.normalizedFilters.query
-			: searchState.normalizedFilters.query;
-
-	const updateSearchSourceSpecifics = (key: string, value: boolean) => {
-		const prevFilters = searchState.normalizedFilters;
-		searchState.setFiltersState({
-			...prevFilters,
-			sourceSpecifics: {
-				...defaultSearchFilters.sourceSpecifics,
-				...prevFilters.sourceSpecifics,
-				[key]: value,
-			},
-		});
-	};
+		action === "list" ? listFilters.query : searchFilters.query;
 
 	return (
 		<>
@@ -248,30 +232,29 @@ export default function Page(props: { params: { action: string } }) {
 							value={searchInputValue}
 							placeholder="Search for people"
 							onChange={(value) => {
-								if (action === "list") {
-									listState.updateQuery(value);
-								} else {
-									searchState.updateQuery(value);
-								}
+								if (action === "list") updateListFilters({ query: value });
+								else updateSearchFilters({ query: value });
 							}}
 						/>
 						{action === "list" ? (
 							<>
 								<ActionIcon
 									onClick={listModals.filtersModal.open}
-									color={listState.areFiltersActive ? "blue" : "gray"}
+									color={haveListFiltersChanged ? "blue" : "gray"}
 								>
 									<IconFilter size={24} />
 								</ActionIcon>
 								<FiltersModal
-									resetFilters={listState.resetFilters}
+									resetFilters={resetListFilters}
 									opened={listModals.filtersModal.opened}
 									onSavePreset={listModals.presetModal.open}
 									closeFiltersModal={listModals.filtersModal.close}
 								>
 									<FiltersModalForm
-										filters={listState.normalizedFilters}
-										onFiltersChange={listState.updateFilter}
+										filters={listFilters}
+										onFiltersChange={(key, value) =>
+											updateListFilters({ [key]: value })
+										}
 									/>
 								</FiltersModal>
 							</>
@@ -279,31 +262,36 @@ export default function Page(props: { params: { action: string } }) {
 						{action === "search" ? (
 							<>
 								<Select
-									value={searchState.normalizedFilters.source}
-									onChange={(v) => {
-										searchState.updateFilter("source", v as MediaSource);
-										searchState.updateFilter("page", 1);
-									}}
+									value={searchFilters.source}
 									data={coreDetails.peopleSearchSources.map((o) => ({
 										value: o,
 										label: startCase(o.toLowerCase()),
 									}))}
+									onChange={(v) => {
+										v &&
+											updateSearchFilters({
+												page: 1,
+												source: v as MediaSource,
+											});
+									}}
 								/>
 								<ActionIcon
 									onClick={searchModals.filtersModal.open}
-									color={searchState.areFiltersActive ? "blue" : "gray"}
+									color={haveSearchFiltersChanged ? "blue" : "gray"}
 								>
 									<IconFilter size={24} />
 								</ActionIcon>
 								<FiltersModal
-									resetFilters={searchState.resetFilters}
+									resetFilters={resetSearchFilters}
 									opened={searchModals.filtersModal.opened}
 									onSavePreset={searchModals.presetModal.open}
 									closeFiltersModal={searchModals.filtersModal.close}
 								>
 									<SearchFiltersModalForm
-										filters={searchState.normalizedFilters}
-										onFiltersChange={updateSearchSourceSpecifics}
+										filters={searchFilters}
+										onFiltersChange={(key, value) =>
+											updateSearchFilters({ [key]: value })
+										}
 									/>
 								</FiltersModal>
 							</>
@@ -320,11 +308,10 @@ export default function Page(props: { params: { action: string } }) {
 							<>
 								<DisplayListDetailsAndRefresh
 									cacheId={userPeopleList.cacheId}
-									total={userPeopleList.response.details.totalItems}
 									onRefreshButtonClicked={refetchUserPeopleList}
+									total={userPeopleList.response.details.totalItems}
 									isRandomSortOrderSelected={
-										listState.normalizedFilters.sortBy ===
-										PersonAndMetadataGroupsSortBy.Random
+										listFilters.sortBy === PersonAndMetadataGroupsSortBy.Random
 									}
 								/>
 								{userPeopleList.response.details.totalItems > 0 ? (
@@ -337,8 +324,8 @@ export default function Page(props: { params: { action: string } }) {
 									<Text>No information to display</Text>
 								)}
 								<ApplicationPagination
-									value={listState.normalizedFilters.page}
-									onChange={(v) => listState.updateFilter("page", v)}
+									value={listFilters.page}
+									onChange={(page) => updateListFilters({ page })}
 									totalItems={userPeopleList.response.details.totalItems}
 								/>
 							</>
@@ -367,8 +354,8 @@ export default function Page(props: { params: { action: string } }) {
 									<Text>No people found matching your query</Text>
 								)}
 								<ApplicationPagination
-									value={searchState.normalizedFilters.page}
-									onChange={(v) => searchState.updateFilter("page", v)}
+									value={searchFilters.page}
+									onChange={(page) => updateSearchFilters({ page })}
 									totalItems={peopleSearch.response.details.totalItems}
 								/>
 							</>
@@ -387,88 +374,87 @@ interface FiltersModalFormProps {
 	onFiltersChange: FilterUpdateFunction<ListFilterState>;
 }
 
-const FiltersModalForm = (props: FiltersModalFormProps) => {
-	const { filters, onFiltersChange } = props;
-
-	return (
-		<>
-			<Flex gap="xs" align="center">
-				<Select
-					w="100%"
-					value={filters.sortBy}
-					data={convertEnumToSelectData(PersonAndMetadataGroupsSortBy)}
-					onChange={(v) =>
-						v && onFiltersChange("sortBy", v as PersonAndMetadataGroupsSortBy)
-					}
-				/>
-				{filters.sortBy !== PersonAndMetadataGroupsSortBy.Random ? (
-					<SortOrderToggle
-						currentOrder={filters.orderBy}
-						onOrderChange={(order) => onFiltersChange("orderBy", order)}
-					/>
-				) : null}
-			</Flex>
-			<Divider />
-			<CollectionsFilter
-				applied={filters.collections}
-				onFiltersChanged={(val) => onFiltersChange("collections", val)}
+const FiltersModalForm = (props: FiltersModalFormProps) => (
+	<>
+		<Flex gap="xs" align="center">
+			<Select
+				w="100%"
+				value={props.filters.sortBy}
+				data={convertEnumToSelectData(PersonAndMetadataGroupsSortBy)}
+				onChange={(v) =>
+					v &&
+					props.onFiltersChange("sortBy", v as PersonAndMetadataGroupsSortBy)
+				}
 			/>
-		</>
-	);
-};
+			{props.filters.sortBy !== PersonAndMetadataGroupsSortBy.Random ? (
+				<SortOrderToggle
+					currentOrder={props.filters.orderBy}
+					onOrderChange={(order) => props.onFiltersChange("orderBy", order)}
+				/>
+			) : null}
+		</Flex>
+		<Divider />
+		<CollectionsFilter
+			applied={props.filters.collections}
+			onFiltersChanged={(val) => props.onFiltersChange("collections", val)}
+		/>
+	</>
+);
 
 interface SearchFiltersModalFormProps {
 	filters: SearchFilterState;
-	onFiltersChange: (key: string, value: boolean) => void;
+	onFiltersChange: FilterUpdateFunction<SearchFilterState>;
 }
 
-const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => {
-	const { filters, onFiltersChange } = props;
-
-	return (
-		<Stack gap="md">
-			{filters.source === MediaSource.Tvdb ? (
-				<Checkbox
-					label="Company"
-					checked={filters.sourceSpecifics.isTvdbCompany || false}
-					onChange={(e) => onFiltersChange("isTvdbCompany", e.target.checked)}
-				/>
-			) : null}
-			{filters.source === MediaSource.Tmdb ? (
-				<Checkbox
-					label="Company"
-					checked={filters.sourceSpecifics.isTmdbCompany || false}
-					onChange={(e) => onFiltersChange("isTmdbCompany", e.target.checked)}
-				/>
-			) : null}
-			{filters.source === MediaSource.Anilist ? (
-				<Checkbox
-					label="Studio"
-					checked={filters.sourceSpecifics.isAnilistStudio || false}
-					onChange={(e) => onFiltersChange("isAnilistStudio", e.target.checked)}
-				/>
-			) : null}
-			{filters.source === MediaSource.Hardcover ? (
-				<Checkbox
-					label="Publisher"
-					checked={filters.sourceSpecifics.isHardcoverPublisher || false}
-					onChange={(e) =>
-						onFiltersChange("isHardcoverPublisher", e.target.checked)
-					}
-				/>
-			) : null}
-			{filters.source === MediaSource.GiantBomb ? (
-				<Checkbox
-					label="Company"
-					checked={filters.sourceSpecifics.isGiantBombCompany || false}
-					onChange={(e) =>
-						onFiltersChange("isGiantBombCompany", e.target.checked)
-					}
-				/>
-			) : null}
-		</Stack>
-	);
-};
+const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => (
+	<Stack gap="md">
+		{props.filters.source === MediaSource.Tvdb ? (
+			<Checkbox
+				label="Company"
+				checked={props.filters.isTvdbCompany}
+				onChange={(e) =>
+					props.onFiltersChange("isTvdbCompany", e.target.checked)
+				}
+			/>
+		) : null}
+		{props.filters.source === MediaSource.Tmdb ? (
+			<Checkbox
+				label="Company"
+				checked={props.filters.isTmdbCompany}
+				onChange={(e) =>
+					props.onFiltersChange("isTmdbCompany", e.target.checked)
+				}
+			/>
+		) : null}
+		{props.filters.source === MediaSource.Anilist ? (
+			<Checkbox
+				label="Studio"
+				checked={props.filters.isAnilistStudio}
+				onChange={(e) =>
+					props.onFiltersChange("isAnilistStudio", e.target.checked)
+				}
+			/>
+		) : null}
+		{props.filters.source === MediaSource.Hardcover ? (
+			<Checkbox
+				label="Publisher"
+				checked={props.filters.isHardcoverPublisher}
+				onChange={(e) =>
+					props.onFiltersChange("isHardcoverPublisher", e.target.checked)
+				}
+			/>
+		) : null}
+		{props.filters.source === MediaSource.GiantBomb ? (
+			<Checkbox
+				label="Company"
+				checked={props.filters.isGiantBombCompany}
+				onChange={(e) =>
+					props.onFiltersChange("isGiantBombCompany", e.target.checked)
+				}
+			/>
+		) : null}
+	</Stack>
+);
 
 type PersonListItemProps = {
 	item: string;

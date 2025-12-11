@@ -18,9 +18,9 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { getInitials, truncate } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
+import { parseAsInteger, parseAsString } from "nuqs";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
-import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
 	DisplayListDetailsAndRefresh,
@@ -29,6 +29,7 @@ import {
 } from "~/components/common";
 import { DebouncedSearchInput } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
+import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import {
 	useCoreDetails,
 	useFallbackImageUrl,
@@ -41,14 +42,9 @@ import {
 	queryFactory,
 } from "~/lib/shared/react-query";
 
-interface FilterState {
-	page: number;
-	query: string;
-}
-
-const defaultFilterState: FilterState = {
-	page: 1,
-	query: "",
+const defaultFilterState = {
+	page: parseAsInteger.withDefault(1),
+	query: parseAsString.withDefault(""),
 };
 
 export const meta = () => {
@@ -56,10 +52,7 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const [filters, setFilters] = useLocalStorage(
-		"GenreListFilters",
-		defaultFilterState,
-	);
+	const { filters, updateFilters } = useFiltersState(defaultFilterState);
 
 	const { data: userGenresList } = useQuery({
 		queryKey: queryFactory.media.userGenresList({
@@ -74,11 +67,6 @@ export default function Page() {
 				.then((data) => data.userGenresList),
 	});
 
-	const updateFilter = (
-		key: keyof FilterState,
-		value: string | number | null,
-	) => setFilters((prev) => ({ ...prev, [key]: value }));
-
 	return (
 		<Container>
 			<Stack>
@@ -88,17 +76,14 @@ export default function Page() {
 							<Title>Genres</Title>
 							<ApplicationPagination
 								value={filters.page}
-								onChange={(v) => updateFilter("page", v)}
 								totalItems={userGenresList.details.totalItems}
+								onChange={(page) => updateFilters({ page })}
 							/>
 						</Group>
 						<DebouncedSearchInput
 							value={filters.query}
 							placeholder="Search for genres"
-							onChange={(value) => {
-								updateFilter("query", value);
-								updateFilter("page", 1);
-							}}
+							onChange={(query) => updateFilters({ query })}
 						/>
 						{userGenresList.details.totalItems > 0 ? (
 							<>

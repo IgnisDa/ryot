@@ -4,7 +4,7 @@ import type { Scalars } from "@ryot/generated/graphql/backend/graphql";
 import { groupBy } from "@ryot/ts-utils";
 import { useMemo } from "react";
 import { Fragment } from "react/jsx-runtime";
-import { CollectionTemplateRenderer } from "~/components/common/CollectionTemplateRenderer";
+import { CollectionTemplateRenderer } from "~/components/common/collection-template-renderer";
 import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import {
 	useAddEntitiesToCollectionMutation,

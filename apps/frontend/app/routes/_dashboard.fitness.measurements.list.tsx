@@ -27,8 +27,9 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { DataTable } from "mantine-datatable";
+import { parseAsStringEnum } from "nuqs";
 import { useMemo } from "react";
-import { useLocalStorage } from "usehooks-ts";
+import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { dayjsLib, getDateFromTimeSpan } from "~/lib/shared/date-utils";
 import { useUserPreferences } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
@@ -41,12 +42,10 @@ import {
 import { useMeasurementsDrawer } from "~/lib/state/fitness";
 import { TimeSpan } from "~/lib/types";
 
-interface FilterState {
-	timeSpan: TimeSpan;
-}
-
-const defaultFilterState: FilterState = {
-	timeSpan: TimeSpan.Last30Days,
+const defaultFilterState = {
+	timeSpan: parseAsStringEnum(Object.values(TimeSpan)).withDefault(
+		TimeSpan.Last30Days,
+	),
 };
 
 export const meta = () => {
@@ -61,10 +60,7 @@ const tickFormatter = (date: string) => dayjsLib(date).format("L");
 export default function Page() {
 	const userPreferences = useUserPreferences();
 	const [, setMeasurementsDrawerData] = useMeasurementsDrawer();
-	const [filters, setFilters] = useLocalStorage(
-		"MeasurementsListFilters",
-		defaultFilterState,
-	);
+	const { filters, updateFilters } = useFiltersState(defaultFilterState);
 
 	const input: UserMeasurementsListInput = useMemo(() => {
 		const now = dayjsLib();
@@ -118,9 +114,6 @@ export default function Page() {
 			return local;
 		}) || [];
 
-	const updateFilter = (key: keyof FilterState, value: TimeSpan) =>
-		setFilters((prev) => ({ ...prev, [key]: value }));
-
 	return (
 		<Container>
 			<Stack>
@@ -140,7 +133,7 @@ export default function Page() {
 						data={convertEnumToSelectData(TimeSpan)}
 						value={filters.timeSpan}
 						onChange={(v) => {
-							if (v) updateFilter("timeSpan", v as TimeSpan);
+							if (v) updateFilters({ timeSpan: v as TimeSpan });
 						}}
 					/>
 				</SimpleGrid>

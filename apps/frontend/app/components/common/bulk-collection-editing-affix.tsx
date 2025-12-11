@@ -29,7 +29,7 @@ import {
 	type BulkEditEntitiesToCollection,
 	useBulkEditCollection,
 } from "~/lib/state/collection";
-import { CollectionTemplateRenderer } from "./CollectionTemplateRenderer";
+import { CollectionTemplateRenderer } from "./collection-template-renderer";
 
 export interface BulkCollectionEditingAffixProps {
 	bulkAddEntities: BulkEditEntitiesToCollection;

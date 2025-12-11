@@ -1,57 +1,29 @@
-import { useMemo } from "react";
-import { useLocalStorage } from "usehooks-ts";
-import { isFilterChanged } from "~/lib/shared/ui-utils";
-import type { FilterUpdateFunction } from "~/lib/types";
+import { type ParserMap, type Values, useQueryStates } from "nuqs";
 
-interface UseFilterStateConfig<TFilter> {
-	storageKey: string;
-	defaultFilters: TFilter;
+function isDefaultState<Parsers extends ParserMap>(
+	parsers: Parsers,
+	values: Values<Parsers>,
+) {
+	for (const [key, parser] of Object.entries(parsers)) {
+		if (
+			["page", "query"].includes(key) ||
+			(parser.defaultValue === undefined && values[key] === null)
+		)
+			continue;
+
+		if (!parser.eq(values[key], parser.defaultValue)) return false;
+	}
+	return true;
 }
 
-export const useFilterState = <TFilter extends { page: number; query: string }>(
-	config: UseFilterStateConfig<TFilter>,
-) => {
-	const [filters, setFilters] = useLocalStorage<TFilter>(
-		config.storageKey,
-		config.defaultFilters,
-	);
+export function useFiltersState<Parsers extends ParserMap>(config: Parsers) {
+	const [filters, setFilters] = useQueryStates(config);
+	const haveFiltersChanged = !isDefaultState(config, filters);
 
-	const normalizedFilters = useMemo(
-		() => ({ ...config.defaultFilters, ...filters }),
-		[filters, config.defaultFilters],
-	);
+	const resetFilters = () => setFilters(() => null);
 
-	const setFiltersState = (nextFilters: TFilter) =>
-		setFilters({ ...config.defaultFilters, ...nextFilters });
+	const updateFilters = (nextFilters: Partial<Values<Parsers>>) =>
+		setFilters(() => ({ page: 1, ...nextFilters }));
 
-	const updateFilter: FilterUpdateFunction<TFilter> = (key, value) =>
-		setFilters((prev) => ({
-			...config.defaultFilters,
-			...prev,
-			[key]: value,
-		}));
-
-	const updateQuery = (query: string) =>
-		setFilters((prev) => ({
-			...config.defaultFilters,
-			...prev,
-			query,
-			page: 1,
-		}));
-
-	const areFiltersActive = isFilterChanged(
-		normalizedFilters,
-		config.defaultFilters,
-	);
-
-	const resetFilters = () => setFilters(config.defaultFilters);
-
-	return {
-		updateQuery,
-		resetFilters,
-		updateFilter,
-		setFiltersState,
-		areFiltersActive,
-		normalizedFilters,
-	};
-};
+	return { filters, resetFilters, updateFilters, haveFiltersChanged };
+}

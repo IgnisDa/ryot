@@ -129,7 +129,7 @@ const useGetUserAnalytics = () => {
 	const { startDate, endDate } = useTimeSpanSettings();
 	const input = { dateRange: { startDate, endDate } };
 
-	const { data: userAnalytics } = useQuery({
+	const userAnalytics = useQuery({
 		queryKey: queryFactory.miscellaneous.userAnalytics(input).queryKey,
 		queryFn: async () => {
 			return await clientGqlService
@@ -144,11 +144,12 @@ const isCaptureLoadingAtom = atom(false);
 
 export default function Page() {
 	const coreDetails = useCoreDetails();
-	const [customRangeOpened, setCustomRangeOpened] = useState(false);
+	const userAnalytics = useGetUserAnalytics();
 	const toCaptureRef = useRef<HTMLDivElement>(null);
+	const [customRangeOpened, setCustomRangeOpened] = useState(false);
+	const [isCaptureLoading, setIsCaptureLoading] = useAtom(isCaptureLoadingAtom);
 	const { timeSpanSettings, setTimeSpanSettings, startDate, endDate } =
 		useTimeSpanSettings();
-	const [isCaptureLoading, setIsCaptureLoading] = useAtom(isCaptureLoadingAtom);
 
 	return (
 		<>
@@ -174,6 +175,7 @@ export default function Page() {
 											w={{ md: 200 }}
 											variant="default"
 											ml={{ md: "auto" }}
+											loading={userAnalytics.isFetching}
 										>
 											<Stack gap={0}>
 												<Text size="xs">{timeSpanSettings.range}</Text>
@@ -319,7 +321,7 @@ const DisplayStat = (props: {
 
 const ActivitySection = () => {
 	const userAnalytics = useGetUserAnalytics();
-	const dailyUserActivities = userAnalytics?.activities;
+	const dailyUserActivities = userAnalytics?.data?.activities;
 	const trackSeries = mapValues(MediaColors, () => false);
 
 	const data = dailyUserActivities?.items.map((d) => {
@@ -748,8 +750,8 @@ const ChartContainer = (props: ChartContainerProps) => {
 	);
 	const userAnalytics = useGetUserAnalytics();
 
-	const value = userAnalytics
-		? props.children(count, userAnalytics)
+	const value = userAnalytics.data
+		? props.children(count, userAnalytics.data)
 		: undefined;
 
 	return userPreferences.featuresEnabled.fitness.enabled ? (
