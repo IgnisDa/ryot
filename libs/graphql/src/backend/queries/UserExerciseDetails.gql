@@ -21,6 +21,7 @@ query UserExerciseDetails($exerciseId: String!) {
 			exerciseNumTimesInteracted
 			exerciseExtraInformation {
 				settings {
+					defaultDurationUnit
 					excludeFromAnalytics
 					setRestTimers {
 						...SetRestTimersPart
