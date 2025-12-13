@@ -17,7 +17,9 @@ function getNullableString(value) {
 
 function getPublishYear(dateStr, dayjs) {
 	const s = getNullableString(dateStr);
-	if (!s) {return null;}
+	if (!s) {
+		return null;
+	}
 	const d = dayjs(s);
 	return d.isValid() && d.year() > 0 ? d.year() : null;
 }
@@ -57,18 +59,18 @@ async function fetchCoverArtJson(resourceType, resourceId) {
 			return null;
 		}
 
-		const frontImage = data.images.find((img) => img.front === true) || data.images[0];
+		const frontImage = data.images.find((img) => img.front === true) ?? data.images[0];
 		if (!frontImage) {
 			return null;
 		}
 
-		const t = frontImage.thumbnails || {};
+		const t = frontImage.thumbnails ?? {};
 		return (
-			getNullableString(t["1200"]) ||
-			getNullableString(t["500"]) ||
-			getNullableString(t["250"]) ||
-			getNullableString(t.large) ||
-			getNullableString(t.small) ||
+			getNullableString(t["1200"]) ??
+			getNullableString(t["500"]) ??
+			getNullableString(t["250"]) ??
+			getNullableString(t.large) ??
+			getNullableString(t.small) ??
 			getNullableString(frontImage.image)
 		);
 	} catch {
@@ -118,7 +120,8 @@ function buildLuceneQuery(query, fields) {
 
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const {
 		query,
@@ -181,7 +184,8 @@ driver("search", async function (context) {
 
 driver("details", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const { externalId } = z
 		.object({
@@ -237,7 +241,7 @@ driver("details", async function (context) {
 			continue;
 		}
 
-		const artistName = getString(credit?.artist?.name) ?? "Loading...";
+		const artistName = getString(credit?.artist?.name);
 
 		addRelatedEntity({
 			name: artistName,
@@ -254,7 +258,7 @@ driver("details", async function (context) {
 	for (const release of releases) {
 		const releaseGroup = release?.["release-group"];
 		const releaseGroupId = getString(releaseGroup?.id);
-		const releaseGroupTitle = getString(releaseGroup?.title) ?? "Loading...";
+		const releaseGroupTitle = getString(releaseGroup?.title);
 		if (!releaseGroupId || seenGroups.has(releaseGroupId)) {
 			continue;
 		}

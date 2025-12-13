@@ -4,7 +4,9 @@ function normalizeBaseUrl(value) {
 
 function parseJsonBody(result) {
 	const body = result?.data?.body;
-	if (typeof body !== "string" || !body.trim()) {return null;}
+	if (typeof body !== "string" || !body.trim()) {
+		return null;
+	}
 	try {
 		return JSON.parse(body);
 	} catch {
@@ -14,24 +16,27 @@ function parseJsonBody(result) {
 
 async function integrationsDisabledForUser() {
 	const prefsResult = await getUserPreferences();
-	return Boolean(
-		prefsResult?.success &&
-		prefsResult.data?.disableIntegrations === true,
-	);
+	return Boolean(prefsResult?.success && prefsResult.data?.disableIntegrations === true);
 }
 
 async function listActiveIntegrations(provider) {
 	const result = await listIntegrations({ provider: provider, isDisabled: false });
-	if (!result.success) {return [];}
+	if (!result.success) {
+		return [];
+	}
 	const integrations = result.data;
 	return Array.isArray(integrations) ? integrations : [];
 }
 
 async function fetchEntity(entityId) {
-	if (typeof entityId !== "string" || !entityId) {return null;}
+	if (typeof entityId !== "string" || !entityId) {
+		return null;
+	}
 	const result = await getEntity(entityId);
-	if (!result.success) {return null;}
-	return result.data || null;
+	if (!result.success) {
+		return null;
+	}
+	return result.data ?? null;
 }
 
 async function resolveEntityProviderName(entity) {
@@ -44,7 +49,9 @@ async function resolveEntityProviderName(entity) {
 	}
 
 	const schemaResult = await getEntitySchema(entity.entitySchemaId);
-	if (!schemaResult.success) {return null;}
+	if (!schemaResult.success) {
+		return null;
+	}
 
 	const schema = schemaResult.data;
 	const providers = schema && Array.isArray(schema.providers) ? schema.providers : [];

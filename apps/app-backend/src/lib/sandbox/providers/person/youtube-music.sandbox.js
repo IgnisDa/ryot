@@ -7,22 +7,32 @@ async function makeFetch(input, init) {
 		url = input.url;
 		method = input.method ?? "GET";
 		if (input.headers && typeof input.headers.entries === "function") {
-			for (const [k, v] of input.headers.entries()) {headers[k] = v;}
+			for (const [k, v] of input.headers.entries()) {
+				headers[k] = v;
+			}
 		}
 		try {
 			const t = await input.text();
-			if (t) {body = t;}
+			if (t) {
+				body = t;
+			}
 		} catch {}
 	} else {
 		url = typeof input === "string" ? input : String(input);
 	}
 	if (init) {
-		if (init.method) {method = init.method;}
+		if (init.method) {
+			method = init.method;
+		}
 		if (init.headers) {
 			if (typeof init.headers.entries === "function") {
-				for (const [k, v] of init.headers.entries()) {headers[k] = v;}
+				for (const [k, v] of init.headers.entries()) {
+					headers[k] = v;
+				}
 			} else if (Array.isArray(init.headers)) {
-				for (const [k, v] of init.headers) {headers[k] = v;}
+				for (const [k, v] of init.headers) {
+					headers[k] = v;
+				}
 			} else if (typeof init.headers === "object") {
 				Object.assign(headers, init.headers);
 			}
@@ -101,7 +111,9 @@ driver("search", async function (context) {
 	for (const shelf of results.contents ?? []) {
 		for (const artist of shelf.contents ?? []) {
 			const id = artist.id;
-			if (!id) {continue;}
+			if (!id) {
+				continue;
+			}
 
 			const name = artist.name ?? artist.title ?? id;
 			const thumb = getBestThumbnailUrl(artist.thumbnail);
@@ -136,14 +148,18 @@ driver("details", async function (context, { metadata }) {
 	const artist = await yt.music.getArtist(externalId);
 
 	const name = getArtistName(artist);
-	if (!name) {throw new Error("YouTube Music artist is missing name");}
+	if (!name) {
+		throw new Error("YouTube Music artist is missing name");
+	}
 
 	const description = artist.header?.description?.text ?? null;
 
 	const relatedEntities = (() => {
 		const albums = [];
 		const sections = artist?.sections;
-		if (!Array.isArray(sections)) {return [];}
+		if (!Array.isArray(sections)) {
+			return [];
+		}
 
 		for (const section of sections) {
 			for (const item of section?.contents ?? []) {
@@ -154,7 +170,9 @@ driver("details", async function (context, { metadata }) {
 						: typeof item?.name === "string" && item.name
 							? item.name
 							: null;
-				if (id && title) {albums.push({ id, title });}
+				if (id && title) {
+					albums.push({ id, title });
+				}
 			}
 		}
 
@@ -169,7 +187,7 @@ driver("details", async function (context, { metadata }) {
 
 	return {
 		relatedEntities,
-		name: String(name),
+		name,
 		properties: {
 			description,
 			alternateNames: [],

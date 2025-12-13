@@ -16,15 +16,21 @@ function getNullableString(value) {
 }
 
 function getPublishYear(releaseDateStr, dayjs) {
-	if (typeof releaseDateStr !== "string" || !releaseDateStr.trim()) {return null;}
+	if (typeof releaseDateStr !== "string" || !releaseDateStr.trim()) {
+		return null;
+	}
 	const d = dayjs(releaseDateStr.trim());
 	return d.isValid() && d.year() > 0 ? d.year() : null;
 }
 
 function getPublishDate(releaseDateStr) {
-	if (typeof releaseDateStr !== "string" || !releaseDateStr.trim()) {return null;}
+	if (typeof releaseDateStr !== "string" || !releaseDateStr.trim()) {
+		return null;
+	}
 	const trimmed = releaseDateStr.trim();
-	if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {return null;}
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+		return null;
+	}
 	return trimmed;
 }
 
@@ -34,8 +40,8 @@ function getImagesSortedBySize(images) {
 	}
 
 	const sorted = [...images].sort((a, b) => {
-		const sizeA = (a.width || 0) * (a.height || 0);
-		const sizeB = (b.width || 0) * (b.height || 0);
+		const sizeA = (a.width ?? 0) * (a.height ?? 0);
+		const sizeB = (b.width ?? 0) * (b.height ?? 0);
 		return sizeB - sizeA;
 	});
 
@@ -43,7 +49,7 @@ function getImagesSortedBySize(images) {
 }
 
 function getFirstImage(images) {
-	return getImagesSortedBySize(images)[0] || null;
+	return getImagesSortedBySize(images)[0] ?? null;
 }
 
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
@@ -136,7 +142,8 @@ async function spotifyGet(path, params) {
 
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const {
 		query,
@@ -203,7 +210,8 @@ driver("search", async function (context) {
 
 driver("details", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const { externalId } = z
 		.object({
@@ -250,7 +258,7 @@ driver("details", async function (context) {
 			continue;
 		}
 
-		const artistName = getString(artist?.name) ?? "Loading...";
+		const artistName = getString(artist?.name);
 
 		addRelatedEntity({
 			name: artistName,

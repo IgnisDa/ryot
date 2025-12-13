@@ -24,7 +24,9 @@ function buildMangaChapterKeys(totalChapters) {
 }
 
 function getCoverageKeyFromProperties(entitySchemaSlug, properties) {
-	if (properties?.progressPercent !== 100) {return null;}
+	if (properties?.progressPercent !== 100) {
+		return null;
+	}
 
 	if (entitySchemaSlug === "anime") {
 		const episodeNumber = toPositiveInteger(properties.animeEpisode);
@@ -40,8 +42,7 @@ function getCoverageKeyFromProperties(entitySchemaSlug, properties) {
 }
 
 function getEventTimestamp(event) {
-	const value =
-		event && typeof event.occurredAt === "string" ? event.occurredAt : event?.createdAt;
+	const value = event && typeof event.occurredAt === "string" ? event.occurredAt : event?.createdAt;
 	const timestamp = typeof value === "string" ? Date.parse(value) : Number.NaN;
 	return Number.isFinite(timestamp) ? timestamp : 0;
 }
@@ -54,15 +55,23 @@ function getCreatedAtTimestamp(event) {
 
 function compareCoverageEvents(a, b) {
 	const occurredAtDiff = getEventTimestamp(a) - getEventTimestamp(b);
-	if (occurredAtDiff !== 0) {return occurredAtDiff;}
+	if (occurredAtDiff !== 0) {
+		return occurredAtDiff;
+	}
 
 	const createdAtDiff = getCreatedAtTimestamp(a) - getCreatedAtTimestamp(b);
-	if (createdAtDiff !== 0) {return createdAtDiff;}
+	if (createdAtDiff !== 0) {
+		return createdAtDiff;
+	}
 
 	const aId = a && typeof a.id === "string" ? a.id : "";
 	const bId = b && typeof b.id === "string" ? b.id : "";
-	if (aId < bId) {return -1;}
-	if (aId > bId) {return 1;}
+	if (aId < bId) {
+		return -1;
+	}
+	if (aId > bId) {
+		return 1;
+	}
 	return 0;
 }
 
@@ -87,10 +96,14 @@ function getCompletionCandidates(entitySchemaSlug, requiredKeys, events) {
 
 	orderedEvents.forEach(function (event) {
 		const coverageKey = getCoverageKeyFromProperties(entitySchemaSlug, event?.properties);
-		if (coverageKey === null) {return;}
+		if (coverageKey === null) {
+			return;
+		}
 
 		coveredKeys.add(coverageKey);
-		if (!hasCoverageForAllRequiredKeys(requiredKeys, coveredKeys)) {return;}
+		if (!hasCoverageForAllRequiredKeys(requiredKeys, coveredKeys)) {
+			return;
+		}
 
 		if (event && typeof event.id === "string") {
 			completionCandidates.push({
@@ -118,12 +131,14 @@ async function getCompleteSchema(trigger) {
 	}
 
 	const schemas = schemasResult.data;
-	if (!Array.isArray(schemas)) {return null;}
+	if (!Array.isArray(schemas)) {
+		return null;
+	}
 
 	return (
 		schemas.find(function (schema) {
 			return schema.slug === "complete";
-		}) || null
+		}) ?? null
 	);
 }
 
@@ -134,9 +149,7 @@ async function getEntityProperties(entityId) {
 	}
 
 	const entity = entityResult.data;
-	return entity?.properties && typeof entity.properties === "object"
-		? entity.properties
-		: {};
+	return entity?.properties && typeof entity.properties === "object" ? entity.properties : {};
 }
 
 async function getProgressEvents(entityId) {
@@ -200,15 +213,21 @@ async function createCompletionEvent(trigger, completeSchema, sourceEvent) {
 
 driver("trigger", async function (context) {
 	const trigger = context.trigger;
-	if (!trigger) {return;}
+	if (!trigger) {
+		return;
+	}
 
-	if (trigger.properties.progressPercent !== 100) {return;}
+	if (trigger.properties.progressPercent !== 100) {
+		return;
+	}
 
 	const isEpisodic = trigger.entitySchemaSlug === "anime" || trigger.entitySchemaSlug === "manga";
 
 	if (!isEpisodic) {
 		const completeSchema = await getCompleteSchema(trigger);
-		if (!completeSchema) {return;}
+		if (!completeSchema) {
+			return;
+		}
 		await createCompletionEvent(trigger, completeSchema, trigger);
 		return;
 	}
@@ -223,11 +242,15 @@ driver("trigger", async function (context) {
 	const entityProperties = results[1];
 	const progressEvents = results[2];
 
-	if (!completeSchema) {return;}
+	if (!completeSchema) {
+		return;
+	}
 
 	const requiredKeys = getRequiredCoverageKeys(trigger.entitySchemaSlug, entityProperties);
 
-	if (requiredKeys === null || requiredKeys.length === 0) {return;}
+	if (requiredKeys === null || requiredKeys.length === 0) {
+		return;
+	}
 
 	const completionCandidates = getCompletionCandidates(
 		trigger.entitySchemaSlug,
@@ -238,7 +261,9 @@ driver("trigger", async function (context) {
 	const completionCandidate = completionCandidates.find(function (candidate) {
 		return candidate.emitterEventId === trigger.eventId;
 	});
-	if (!completionCandidate) {return;}
+	if (!completionCandidate) {
+		return;
+	}
 
 	await createCompletionEvent(trigger, completeSchema, completionCandidate.completionEvent);
 });
