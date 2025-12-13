@@ -1,6 +1,5 @@
 import { EntityId } from "@ryot/app-backend/schema/brands";
 
-import { getPgClient } from "../setup";
 import { assertPresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 import { createEntity } from "./entities";
@@ -173,18 +172,14 @@ export async function waitForEventWithSchema(
 	);
 }
 
-export async function listEventSlugs(entityId: string): Promise<string[]> {
-	const result = await getPgClient().query<{ slug: string }>(
-		`select es.slug from event e
-		 join event_schema es on es.id = e.event_schema_id
-		 where e.entity_id = $1`,
-		[entityId],
-	);
-	return result.rows.map((row) => row.slug);
+export async function listEventSlugs(client: Client, entityId: string): Promise<string[]> {
+	const events = await listEventsForEntity(client, entityId);
+	return events.map((event) => event.eventSchemaSlug);
 }
 
 // Event writes are fire-and-forget, so a completed run's events may not exist yet.
 export async function waitForEventSlugs(
+	client: Client,
 	entityId: string,
 	requiredSlug: string,
 	options: PollOptions = {},
@@ -192,7 +187,7 @@ export async function waitForEventSlugs(
 	return pollUntil(
 		`'${requiredSlug}' event on entity ${entityId}`,
 		async () => {
-			const slugs = await listEventSlugs(entityId);
+			const slugs = await listEventSlugs(client, entityId);
 			return slugs.includes(requiredSlug) ? slugs : null;
 		},
 		{ timeoutMs: 15000, intervalMs: 250, ...options },

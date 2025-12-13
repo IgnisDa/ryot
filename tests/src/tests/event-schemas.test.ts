@@ -7,21 +7,11 @@ import {
 	createEntitySchema,
 	createTracker,
 	findBuiltinSchemaBySlug,
+	getBuiltinEntitySchemaId,
 	listBuiltinEntitySchemas,
 	listEventSchemas,
 } from "../fixtures";
-import { getPgClient } from "../setup";
 import { assertPresent, assertTaggedError, requireObjectRecord } from "../test-support/assertions";
-
-const getBuiltinEntitySchemaId = async (slug: string) => {
-	const result = await getPgClient().query<{ id: string }>(
-		`select id from entity_schema where slug = $1 and user_id is null and is_builtin = true limit 1`,
-		[slug],
-	);
-	const row = result.rows[0];
-	assertPresent(row, `Expected builtin entity schema '${slug}'`);
-	return row.id;
-};
 
 describe("GET /event-schemas", () => {
 	it("returns seeded built-in media lifecycle event schemas", async () => {
@@ -319,12 +309,13 @@ describe("GET /event-schemas", () => {
 			return progressSchema.propertiesSchema as Record<string, unknown>;
 		};
 
-		const showEventSchemas = await listEventSchemas(client, await getBuiltinEntitySchemaId("show"));
+		const showSchema = schemas.find((schema) => schema.slug === "show");
+		assertPresent(showSchema, "Missing built-in show schema");
+		const showEventSchemas = await listEventSchemas(client, showSchema.id);
 		expect(showEventSchemas.some((schema) => schema.slug === "progress")).toBe(false);
-		const podcastEventSchemas = await listEventSchemas(
-			client,
-			await getBuiltinEntitySchemaId("podcast"),
-		);
+		const podcastSchema = schemas.find((schema) => schema.slug === "podcast");
+		assertPresent(podcastSchema, "Missing built-in podcast schema");
+		const podcastEventSchemas = await listEventSchemas(client, podcastSchema.id);
 		expect(podcastEventSchemas.some((schema) => schema.slug === "progress")).toBe(false);
 
 		const animeProgressSchema = await getProgressSchema("anime");
