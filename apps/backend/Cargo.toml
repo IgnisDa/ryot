@@ -61,7 +61,6 @@ miscellaneous-metadata-operations-service = { workspace = true }
 miscellaneous-metadata-resolver = { workspace = true }
 miscellaneous-progress-service = { workspace = true }
 miscellaneous-search-resolver = { workspace = true }
-miscellaneous-service = { workspace = true }
 miscellaneous-social-resolver = { workspace = true }
 miscellaneous-trending-and-events-service = { workspace = true }
 miscellaneous-system-resolver = { workspace = true }

@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-chrono = { workspace = true }
 itertools = { workspace = true }
 markdown = { workspace = true }
 regex = { workspace = true }

@@ -6,13 +6,11 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 rust_decimal = { workspace = true }
-sea-orm = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 
 background-models = { workspace = true }
 cache-service = { workspace = true }
-database-models = { workspace = true }
 database-utils = { workspace = true }
 dependent-jobs-utils = { workspace = true }
 dependent-models = { workspace = true }

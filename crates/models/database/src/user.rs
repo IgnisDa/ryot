@@ -20,7 +20,6 @@ pub struct Model {
     pub preferences: UserPreferences,
     pub oidc_issuer_id: Option<String>,
     pub last_login_on: Option<DateTimeUtc>,
-    pub last_activity_on: Option<DateTimeUtc>,
     pub extra_information: Option<UserExtraInformation>,
     pub two_factor_information: Option<UserTwoFactorInformation>,
 }

@@ -19,7 +19,6 @@ pub enum User {
     LastLoginOn,
     Preferences,
     OidcIssuerId,
-    LastActivityOn,
     ExtraInformation,
     TwoFactorInformation,
 }
@@ -46,7 +45,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::ExtraInformation).json_binary())
                     .col(ColumnDef::new(User::IsDisabled).boolean())
                     .col(ColumnDef::new(User::LastLoginOn).timestamp_with_time_zone())
-                    .col(ColumnDef::new(User::LastActivityOn).timestamp_with_time_zone())
                     .col(ColumnDef::new(User::TwoFactorInformation).json_binary())
                     .to_owned(),
             )

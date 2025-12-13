@@ -1,6 +1,5 @@
 use common_models::{ChangeCollectionToEntitiesInput, EntityWithLot};
 use media_models::{DeployImportJobInput, MetadataProgressUpdateInput, ReviewPostedEvent};
-use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use strum::Display;
 use uuid::Uuid;
@@ -32,7 +31,6 @@ pub enum MpApplicationJob {
 pub enum LpApplicationJob {
     HandleOnSeenComplete(String),
     HandleEntityAddedToCollectionEvent(Uuid),
-    UpdateUserLastActivityPerformed(String, DateTimeUtc),
     HandleMetadataEligibleForSmartCollectionMoving(String),
 }
 

@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::{Result, anyhow, bail};
-use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob};
-use chrono::Utc;
+use background_models::{ApplicationJob, HpApplicationJob};
 use common_models::{BackendError, SearchInput, StringIdAndNamedObject, UserLevelCacheKey};
 use common_utils::ryot_log;
 use database_models::{
@@ -360,18 +359,6 @@ pub async fn check_token(
         return Ok(true);
     }
     Ok(true)
-}
-
-#[inline]
-pub async fn deploy_job_to_mark_user_last_activity(
-    user_id: &String,
-    ss: &Arc<SupportingService>,
-) -> Result<()> {
-    ss.perform_application_job(ApplicationJob::Lp(
-        LpApplicationJob::UpdateUserLastActivityPerformed(user_id.to_owned(), Utc::now()),
-    ))
-    .await?;
-    Ok(())
 }
 
 pub async fn item_reviews(

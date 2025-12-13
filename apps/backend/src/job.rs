@@ -31,7 +31,6 @@ use miscellaneous_background_service::{
 use miscellaneous_media_translation_service::update_media_translation;
 use miscellaneous_metadata_operations_service::handle_metadata_eligible_for_smart_collection_moving;
 use miscellaneous_progress_service::bulk_metadata_progress_update;
-use miscellaneous_service::update_user_last_activity_performed;
 use miscellaneous_trending_and_events_service::handle_review_posted_event;
 use supporting_service::SupportingService;
 use traits::TraceOk;
@@ -143,9 +142,6 @@ pub async fn perform_lp_application_job(
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
         LpApplicationJob::HandleOnSeenComplete(id) => handle_on_seen_complete(&ss, id).await,
-        LpApplicationJob::UpdateUserLastActivityPerformed(user_id, timestamp) => {
-            update_user_last_activity_performed(&ss, user_id, timestamp).await
-        }
         LpApplicationJob::HandleMetadataEligibleForSmartCollectionMoving(metadata_id) => {
             handle_metadata_eligible_for_smart_collection_moving(&ss, metadata_id).await
         }
