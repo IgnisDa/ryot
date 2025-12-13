@@ -27,6 +27,8 @@ import {
 	sandboxPodcastDotListennotesScript,
 	sandboxShowDotTmdbScript,
 	sandboxShowDotTvdbScript,
+	sandboxVideoDashGameDotGiantDashBombScript,
+	sandboxVideoDashGameDotIgdbScript,
 	sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript,
 	sandboxTriggerDotIntegrationDashProgressDashPolicyScript,
 } from "#modules/builtins/generated-sandbox/registry";
@@ -1949,6 +1951,143 @@ it("loads and executes the generated Spotify module in Deno through the token ca
 				});
 				const tokenWrite = bridge.calls.find((call) => call.fnName === "setCachedValue");
 				expect(tokenWrite?.args).toEqual(["spotify_access_token", "tok", 3300]);
+			}),
+		),
+	));
+
+it("loads and executes the generated GiantBomb module in Deno", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							appConfigValue: "giant-bomb-key",
+							httpResponse: (url) => {
+								const requestUrl = new URL(url);
+								expect(requestUrl.host).toBe("www.giantbomb.com");
+								expect(requestUrl.pathname).toBe("/api/search/");
+								return {
+									error: "OK",
+									number_of_total_results: 1,
+									results: [
+										{
+											guid: "3030-1",
+											name: "My Game",
+											original_release_date: "2015-06-01 00:00:00",
+											image: { original_url: "https://img/gb.jpg" },
+										},
+									],
+								};
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const entry = sandboxVideoDashGameDotGiantDashBombScript;
+				const compiled = {
+					manifest: entry.manifest,
+					format: entry.compiledFormat,
+					javascript: entry.compiledCode,
+				};
+				const result = yield* runInDeno(
+					compiled,
+					"search",
+					{ query: "game", page: 1, pageSize: 20 },
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: compiled.manifest.capabilities,
+					},
+				);
+				assert(result !== null && typeof result === "object");
+				expect(result).toMatchObject({ success: true });
+				expect(Reflect.get(result, "value")).toMatchObject({
+					details: { totalItems: 1, nextPage: null },
+					items: [
+						{
+							externalId: "3030-1",
+							titleProperty: { kind: "text", value: "My Game" },
+							primarySubtitleProperty: { kind: "number", value: 2015 },
+							imageProperty: {
+								kind: "image",
+								value: { type: "remote", url: "https://img/gb.jpg" },
+							},
+						},
+					],
+				});
+			}),
+		),
+	));
+
+it("loads and executes the generated IGDB module in Deno through the Twitch OAuth flow", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							appConfigValue: "twitch-cred",
+							httpResponse: (url) => {
+								const requestUrl = new URL(url);
+								if (requestUrl.host === "id.twitch.tv") {
+									expect(requestUrl.pathname).toBe("/oauth2/token");
+									return { access_token: "tok", token_type: "bearer", expires_in: 3600 };
+								}
+								expect(requestUrl.host).toBe("api.igdb.com");
+								expect(requestUrl.pathname).toBe("/v4/games");
+								return [
+									{
+										id: 1020,
+										name: "IGDB Game",
+										first_release_date: 1433116800,
+										cover: { image_id: "co1" },
+									},
+								];
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const entry = sandboxVideoDashGameDotIgdbScript;
+				const compiled = {
+					manifest: entry.manifest,
+					format: entry.compiledFormat,
+					javascript: entry.compiledCode,
+				};
+				const result = yield* runInDeno(
+					compiled,
+					"search",
+					{ query: "game", page: 1, pageSize: 20 },
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: compiled.manifest.capabilities,
+					},
+				);
+				assert(result !== null && typeof result === "object");
+				expect(result).toMatchObject({ success: true });
+				expect(Reflect.get(result, "value")).toMatchObject({
+					details: { totalItems: 1, nextPage: null },
+					items: [
+						{
+							externalId: "1020",
+							titleProperty: { kind: "text", value: "IGDB Game" },
+							primarySubtitleProperty: { kind: "number", value: 2015 },
+							imageProperty: {
+								kind: "image",
+								value: {
+									type: "remote",
+									url: "https://images.igdb.com/igdb/image/upload/t_cover_big/co1.jpg",
+								},
+							},
+						},
+					],
+				});
+				const tokenWrite = bridge.calls.find((call) => call.fnName === "setCachedValue");
+				expect(tokenWrite?.args).toEqual([
+					"access_token",
+					{ accessToken: "Bearer tok", clientId: "twitch-cred" },
+					3300,
+				]);
 			}),
 		),
 	));
