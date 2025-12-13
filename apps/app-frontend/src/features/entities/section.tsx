@@ -57,10 +57,7 @@ function EntityList(props: {
 									{new Date(entity.createdAt).toLocaleDateString()}
 								</Text>
 							</Stack>
-							<Link
-								to="/$trackerSlug/$entityId"
-								params={{ entityId: entity.id, trackerSlug: props.trackerSlug }}
-							>
+							<Link to="/entities/$entityId" params={{ entityId: entity.id }}>
 								<Anchor component="span" size="sm">
 									View details
 								</Anchor>
