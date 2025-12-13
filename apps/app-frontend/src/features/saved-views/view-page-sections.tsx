@@ -73,6 +73,7 @@ function EntityThumbnail(props: {
 		</Box>
 	);
 }
+
 export function SavedViewResults(props: {
 	isDark: boolean;
 	items: AppEntity[];
@@ -214,6 +215,7 @@ export function SavedViewResults(props: {
 	}
 
 	const tableColumns = "table" in props.meta ? props.meta.table.columns : [];
+
 	return (
 		<Paper withBorder radius="sm">
 			<Table striped highlightOnHover>
