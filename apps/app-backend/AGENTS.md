@@ -20,8 +20,8 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 
 ## Sandbox Scripts
 
-- User-authored scripts are single-file TypeScript ES modules using `@ryot/sandbox-sdk`. Creation compiles and persists them as format-1 JavaScript modules; execution imports the stored compiled module in Deno and never executes the stored source.
-- Built-in providers, triggers, and script helpers remain `.sandbox.js` function-body fragments during the incremental migration. Seeding wraps them in a temporary format-0 ES module, so the Deno runner imports both formats without dynamic function construction. These fragments still use injected globals and Deno-style dynamic `await import("npm:...")`.
+- User-authored scripts are single-file TypeScript ES modules using `@ryot/sandbox-sdk` and its explicit approved dependency entry points. Creation compiles and persists them as format-1 JavaScript modules; execution imports the stored compiled module in Deno and never executes the stored source.
+- Built-in providers, triggers, and script helpers remain `.sandbox.js` function-body fragments during the incremental migration. Seeding wraps them in a temporary format-0 ES module, rewrites their approved `npm:` dependency strings to public SDK paths, and lets the Deno runner import both formats without dynamic function construction.
 - Built-in fragments are pulled into the app as raw strings via `import code from "....sandbox.js" with { type: "text" }`. `src/sandbox-scripts.d.ts` declares the module type. The Deno runner source remains under `src/lib/infrastructure/sandbox-runtime/` and is also embedded as text.
 - `check` (tsc + oxfmt + oxlint) covers these files. oxfmt/oxlint treat them as ordinary JS, so keep them lint-clean and formatted like the rest of the codebase — but remember they are linted in isolation, so functions defined only for a consuming script (e.g. helpers) will still read as "unused" to the linter.
 
