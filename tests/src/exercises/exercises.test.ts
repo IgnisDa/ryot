@@ -6,10 +6,10 @@ import {
 	createEntityPropertyPathExpression,
 	createTransformExpression,
 } from "@ryot/contract/display-configuration";
+import { buildExerciseListQueryDocument } from "@ryot/query-engine";
 
 import type { Client } from "../fixtures";
 import {
-	buildEntityRowsQueryDocument,
 	createEntity,
 	createAuthenticatedClient,
 	createWorkoutEntityFixture,
@@ -21,10 +21,7 @@ import {
 	listEntitySchemas,
 	listEventsForEntity,
 	listSavedViews,
-	literalExpr,
 	mergeUserState,
-	propertyRef,
-	systemRef,
 } from "../fixtures";
 import { pollUntil } from "../fixtures/polling";
 import { assertTaggedError } from "../test-support/assertions";
@@ -39,23 +36,9 @@ const waitForSeededExercise = async (client: Client) => {
 		async () => {
 			const { data } = await executeQueryEngine(
 				client,
-				buildEntityRowsQueryDocument({
+				buildExerciseListQueryDocument({
 					limit: 1,
-					alias: "exercise",
-					schemas: ["exercise"],
-					fields: [
-						{ key: "title", expr: systemRef("exercise", "name") },
-						{ key: "image", expr: propertyRef("exercise", "exercise", "images", "0") },
-						{ key: "callout", expr: propertyRef("exercise", "exercise", "level") },
-						{ key: "primarySubtitle", expr: propertyRef("exercise", "exercise", "kind") },
-						{ key: "secondarySubtitle", expr: propertyRef("exercise", "exercise", "equipment") },
-					],
-					where: {
-						type: "comparison",
-						operator: "eq",
-						left: systemRef("exercise", "name"),
-						right: literalExpr(seededExerciseName),
-					},
+					name: seededExerciseName,
 				}),
 			);
 
@@ -176,8 +159,8 @@ describe("Exercises E2E", () => {
 		const { client } = await createAuthenticatedClient();
 		const exercise = await waitForSeededExercise(client);
 
-		expect(getQueryEngineFieldOrThrow(exercise, "title")).toEqual({
-			key: "title",
+		expect(getQueryEngineFieldOrThrow(exercise, "name")).toEqual({
+			key: "name",
 			kind: "text",
 			value: seededExerciseName,
 		});
@@ -186,20 +169,20 @@ describe("Exercises E2E", () => {
 			kind: "json",
 			value: { type: "remote", url: seededExerciseImageUrl },
 		});
-		expect(getQueryEngineFieldOrThrow(exercise, "callout")).toEqual({
+		expect(getQueryEngineFieldOrThrow(exercise, "level")).toEqual({
 			kind: "text",
-			key: "callout",
+			key: "level",
 			value: "beginner",
 		});
-		expect(getQueryEngineFieldOrThrow(exercise, "primarySubtitle")).toEqual({
+		expect(getQueryEngineFieldOrThrow(exercise, "kind")).toEqual({
 			kind: "text",
-			key: "primarySubtitle",
+			key: "kind",
 			value: "reps_and_weight",
 		});
-		expect(getQueryEngineFieldOrThrow(exercise, "secondarySubtitle")).toEqual({
+		expect(getQueryEngineFieldOrThrow(exercise, "equipment")).toEqual({
 			kind: "text",
 			value: "body_only",
-			key: "secondarySubtitle",
+			key: "equipment",
 		});
 	});
 

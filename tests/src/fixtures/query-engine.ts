@@ -7,7 +7,6 @@ import { createEntitySchema } from "./entity-schemas";
 import { createEventSchema } from "./event-schemas";
 import { listEventsForEntity } from "./events";
 import { pollUntil } from "./polling";
-import type { QueryEnginePayload } from "./query-engine-core";
 import { createRelationshipSchema } from "./relationship-schemas";
 import { createRelationship } from "./relationships";
 import { createTracker } from "./trackers";
@@ -115,64 +114,6 @@ export const insertGlobalRelationship = async (input: {
 		],
 	);
 };
-
-export const showEpisodeEventExistsSource = (episodeAlias: string, eventSlug: string) =>
-	({
-		where: null,
-		type: "events",
-		schemas: [eventSlug],
-		alias: `${episodeAlias}${eventSlug}`,
-		entityRef: episodeAlias,
-	}) as const;
-
-export const showSeasonSource = (alias: string, where: QueryEnginePayload["source"]["where"]) =>
-	({
-		where,
-		alias,
-		type: "entities",
-		schemas: ["show-season"],
-		via: {
-			entityRef: "show",
-			alias: `${alias}Rel`,
-			direction: "outgoing",
-			schema: "show-to-show-season",
-		},
-	}) as const;
-
-export const seasonEpisodeSource = (
-	seasonAlias: string,
-	episodeAlias: string,
-	where: QueryEnginePayload["source"]["where"],
-) =>
-	({
-		where,
-		type: "entities",
-		alias: episodeAlias,
-		schemas: ["show-episode"],
-		via: {
-			direction: "outgoing",
-			entityRef: seasonAlias,
-			alias: `${episodeAlias}Rel`,
-			schema: "show-season-to-show-episode",
-		},
-	}) as const;
-
-export const podcastEpisodeSource = (
-	episodeAlias: string,
-	where: QueryEnginePayload["source"]["where"],
-) =>
-	({
-		where,
-		type: "entities",
-		alias: episodeAlias,
-		schemas: ["podcast-episode"],
-		via: {
-			entityRef: "podcast",
-			direction: "outgoing",
-			alias: `${episodeAlias}Rel`,
-			schema: "podcast-to-podcast-episode",
-		},
-	}) as const;
 
 export const createCourseLessonFilterFixture = async () => {
 	const { client } = await createAuthenticatedClient();

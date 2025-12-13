@@ -10,6 +10,7 @@
 		{ "path": "apps/website" },
 		{ "path": "libs/contract" },
 		{ "path": "libs/graphql" },
+		{ "path": "libs/query-engine" },
 		{ "path": "libs/transactional" },
 		{ "path": "libs/ts-utils" },
 		{ "path": "tests" }

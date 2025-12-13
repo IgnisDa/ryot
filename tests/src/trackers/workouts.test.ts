@@ -4,9 +4,9 @@ import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 } from "@ryot/contract/display-configuration";
+import { buildWorkoutListQueryDocument } from "@ryot/query-engine";
 
 import {
-	buildEntityRowsQueryDocument,
 	createAuthenticatedClient,
 	createWorkoutEntityFixture,
 	executeQueryEngine,
@@ -19,8 +19,6 @@ import {
 	insertRelationshipRow,
 	listEntitySchemas,
 	listSavedViews,
-	propertyRef,
-	systemRef,
 	waitForEventCount,
 	waitForSeededExerciseId,
 	waitForSessionEventCount,
@@ -111,23 +109,10 @@ describe("Workouts E2E", () => {
 		const { client } = await createAuthenticatedClient();
 		await createWorkoutEntityFixture(client);
 
-		const result = await executeQueryEngine(
-			client,
-			buildEntityRowsQueryDocument({
-				alias: "workout",
-				schemas: ["workout"],
-				fields: [
-					{ key: "title", expr: systemRef("workout", "name") },
-					{ key: "primarySubtitle", expr: propertyRef("workout", "workout", "startedAt") },
-					{ key: "secondarySubtitle", expr: propertyRef("workout", "workout", "endedAt") },
-				],
-			}),
-		);
+		const result = await executeQueryEngine(client, buildWorkoutListQueryDocument({}));
 
 		expect(result.data.items.length).toBeGreaterThan(0);
-		expect(getQueryEngineFieldOrThrow(result.data.items[0], "primarySubtitle").key).toBe(
-			"primarySubtitle",
-		);
+		expect(getQueryEngineFieldOrThrow(result.data.items[0], "startedAt").key).toBe("startedAt");
 	});
 
 	it("logs a workout set linked to a workout via sessionEntityId", async () => {
