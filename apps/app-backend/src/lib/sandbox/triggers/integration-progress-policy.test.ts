@@ -1,17 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { hostFailure, hostSuccess, readScriptFile, runTriggerScript } from "./test-utils";
-
-const getIntegrationProgressPolicyScriptCode = () =>
-	readScriptFile("./integration-progress-policy.sandbox.js");
+import integrationProgressPolicyScriptCode from "./integration-progress-policy.sandbox.js" with { type: "text" };
+import { hostFailure, hostSuccess, runTriggerScript } from "./test-utils";
 
 const runIntegrationProgressPolicyScript = (
 	context: unknown,
 	hostFunctions: Record<string, (...args: Array<unknown>) => unknown>,
-) =>
-	getIntegrationProgressPolicyScriptCode().then((code) =>
-		runTriggerScript(code, context, hostFunctions),
-	);
+) => runTriggerScript(integrationProgressPolicyScriptCode, context, hostFunctions);
 
 type EventFixture = {
 	occurredAt: string;
