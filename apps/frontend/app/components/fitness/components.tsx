@@ -27,7 +27,7 @@ import { notifications } from "@mantine/notifications";
 import Body, { type ExtendedBodyPart } from "@mjcdev/react-body-highlighter";
 import {
 	ExerciseDurationUnit,
-	type ExerciseLot,
+	ExerciseLot,
 	SetLot,
 	UpdateUserExerciseSettingsDocument,
 	type UserExerciseDetailsQuery,
@@ -419,12 +419,24 @@ export const ExerciseUpdatePreferencesModal = (props: {
 							type: "checkbox",
 						})}
 					/>
-					<Select
-						size="sm"
-						label="Default duration unit"
-						data={convertEnumToSelectData(Object.values(ExerciseDurationUnit))}
-						{...form.getInputProps("defaultDurationUnit")}
-					/>
+					{match(props.exerciseLot)
+						.with(
+							ExerciseLot.Duration,
+							ExerciseLot.RepsAndDuration,
+							ExerciseLot.DistanceAndDuration,
+							ExerciseLot.RepsAndDurationAndDistance,
+							() => (
+								<Select
+									size="sm"
+									label="Default duration unit"
+									data={convertEnumToSelectData(
+										Object.values(ExerciseDurationUnit),
+									)}
+									{...form.getInputProps("defaultDurationUnit")}
+								/>
+							),
+						)
+						.otherwise(() => null)}
 					<Button
 						type="submit"
 						loading={updateUserExerciseSettingsMutation.isPending}
