@@ -3,7 +3,7 @@ import { BunHttpServer } from "@effect/platform-bun";
 import { Effect, Layer, Runtime } from "effect";
 
 import { AppContract } from "../contract";
-import { AdminMiddlewareLive, AuthMiddlewareLive } from "../lib/auth";
+import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "../lib/auth";
 import { AppConfig } from "../lib/config";
 import { CollectionsRoutesLive } from "../modules/collections/routes";
 import { EntitiesRoutesLive } from "../modules/entities/routes";
@@ -51,12 +51,15 @@ const ApiLive = HttpApiBuilder.api(AppContract).pipe(
 
 export const ServerLive = Layer.scopedDiscard(
 	Effect.gen(function* () {
+		const auth = yield* AuthService;
 		const config = yield* AppConfig;
 		const fs = yield* FileSystem.FileSystem;
 		const runtime = yield* Effect.runtime();
 
 		const apiLayer = ApiLive.pipe(
-			Layer.provide(Layer.succeed(AppConfig, config)),
+			Layer.provide(
+				Layer.mergeAll(Layer.succeed(AppConfig, config), Layer.succeed(AuthService, auth)),
+			),
 			Layer.provideMerge(BunHttpServer.layerContext),
 		);
 
@@ -78,7 +81,7 @@ export const ServerLive = Layer.scopedDiscard(
 			fetch: async (request) => {
 				const url = new URL(request.url);
 				if (url.pathname.startsWith("/api/auth/")) {
-					return new Response(null, { status: 501 });
+					return auth.auth.handler(request);
 				}
 				if (url.pathname.startsWith("/_i/")) {
 					return new Response(null, { status: 501 });
