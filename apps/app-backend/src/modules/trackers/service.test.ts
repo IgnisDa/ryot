@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { Effect, Exit, Layer } from "effect";
 
 import type { CurrentUserValue } from "../../lib/auth";
-import { CurrentDb, DbService, TransactionRunner, type DbExecutor } from "../../lib/db";
+import { CurrentDb, DbRunner, TransactionRunner } from "../../lib/db";
 import { BadRequest, NotFound } from "../../lib/errors";
 import { TrackersRepository } from "./repository";
 import { TrackersService, TrackersServiceLive } from "./service";
@@ -13,15 +13,18 @@ const user = {
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
-const dummyDbLayer = Layer.succeed(DbService, {
-	pool: null as never,
-	db: null as never,
-} satisfies DbService["Type"]);
+const stubCurrentDb = Layer.effect(CurrentDb, Effect.die("CurrentDb not used in unit tests"));
+
+const dbRunnerLayer = Layer.succeed(
+	DbRunner,
+	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
+		Effect.provide(effect, stubCurrentDb),
+);
 
 const transactionLayer = Layer.succeed(
 	TransactionRunner,
 	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
-		Effect.provideService(effect, CurrentDb, null as unknown as DbExecutor),
+		Effect.provide(effect, stubCurrentDb),
 );
 
 it.effect("normalizes tracker slugs before creating custom trackers", () => {
@@ -30,16 +33,16 @@ it.effect("normalizes tracker slugs before creating custom trackers", () => {
 	const layer = TrackersServiceLive.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				dummyDbLayer,
+				dbRunnerLayer,
 				transactionLayer,
 				Layer.mock(TrackersRepository, {
 					listByUser: () => Effect.succeed([]),
 					findBySlug: () => Effect.succeed(null),
-					updateOwned: () => Effect.succeed(null),
 					getOwnedById: () => Effect.succeed(null),
 					countOwnedByIds: () => Effect.succeed(0),
 					listIdsInOrder: () => Effect.succeed([]),
 					persistOrder: (_userId, trackerIds) => Effect.succeed(trackerIds),
+					updateOwned: () => Effect.succeed(null),
 					create: (_userId, input) =>
 						Effect.sync(() => {
 							createdSlug = input.slug;
@@ -78,7 +81,7 @@ it.effect("returns not found when updating a tracker the user does not own", () 
 	const layer = TrackersServiceLive.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				dummyDbLayer,
+				dbRunnerLayer,
 				transactionLayer,
 				Layer.mock(TrackersRepository, {
 					create: () => Effect.die("unused"),
@@ -108,7 +111,7 @@ it.effect("reorders requested trackers and appends the remaining ids", () => {
 	const layer = TrackersServiceLive.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				dummyDbLayer,
+				dbRunnerLayer,
 				transactionLayer,
 				Layer.mock(TrackersRepository, {
 					create: () => Effect.die("unused"),
@@ -141,7 +144,7 @@ it.effect("rejects reorder requests containing unknown tracker ids", () => {
 	const layer = TrackersServiceLive.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				dummyDbLayer,
+				dbRunnerLayer,
 				transactionLayer,
 				Layer.mock(TrackersRepository, {
 					create: () => Effect.die("unused"),
