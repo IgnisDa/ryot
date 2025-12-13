@@ -90,18 +90,13 @@ const withDelimiterTitleCaseHelper = (code: string) => `${titleCaseDelimiterHelp
 
 const withPushHelpers = (code: string) => `${integrationPushHelperCode}\n\n${code}`;
 
-const provider = (source: string, canonicalLanguage?: string) => ({
-	source,
-	...(canonicalLanguage ? { canonicalLanguage } : {}),
-});
-
 const providerScript = (
 	name: string,
 	slug: string,
 	code: string,
 	source: string,
 	requiredAppConfigKeys?: string[],
-) => script(name, slug, code, requiredAppConfigKeys, provider(source));
+) => script(name, slug, code, requiredAppConfigKeys, { source });
 
 const translatedProviderScript = (
 	name: string,
@@ -110,7 +105,7 @@ const translatedProviderScript = (
 	source: string,
 	canonicalLanguage: string,
 	requiredAppConfigKeys?: string[],
-) => script(name, slug, code, requiredAppConfigKeys, provider(source, canonicalLanguage));
+) => script(name, slug, code, requiredAppConfigKeys, { source, canonicalLanguage });
 
 export const builtinSandboxScripts = () => [
 	providerScript(
