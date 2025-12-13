@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ Also adjust global E2E setup so a mostly stubbed backend can boot and pass healt
 
 ## Acceptance criteria
 
-- [ ] E2E app-owned route helpers use Effect `HttpApiClient` and the pure backend contract
-- [ ] E2E tests still spawn a real backend process and call it over HTTP
-- [ ] Better Auth endpoint helpers continue using Better Auth client or raw fetch
-- [ ] Invalid payload, invalid multipart, and missing/wrong auth tests can still use raw fetch
-- [ ] Global E2E setup no longer requires domain-specific seed data before tests can begin
-- [ ] The tests check command typechecks the migrated E2E client harness
+- [x] E2E app-owned route helpers use Effect `HttpApiClient` and the pure backend contract
+- [x] E2E tests still spawn a real backend process and call it over HTTP
+- [x] Better Auth endpoint helpers continue using Better Auth client or raw fetch
+- [x] Invalid payload, invalid multipart, and missing/wrong auth tests can still use raw fetch
+- [x] Global E2E setup no longer requires domain-specific seed data before tests can begin
+- [x] The tests check command typechecks the migrated E2E client harness
 
 ## User stories addressed
 

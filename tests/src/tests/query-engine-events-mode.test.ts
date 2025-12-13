@@ -304,7 +304,9 @@ describe("events mode", () => {
 		expect(response.status).toBe(200);
 		const items = data?.mode === "events" ? data.data.items : [];
 		expect(items).toHaveLength(3);
-		const ratings = items.map((item) => getQueryEngineFieldValue(item, "rating"));
+		const ratings = items.map((item: Parameters<typeof getQueryEngineFieldValue>[0]) =>
+			getQueryEngineFieldValue(item, "rating"),
+		);
 		expect(ratings).toEqual([5, 3, 1]);
 	});
 
@@ -752,7 +754,9 @@ describe("events mode", () => {
 		expect(response.status).toBe(200);
 		const items = data?.mode === "events" ? data.data.items : [];
 		expect(items).toHaveLength(2);
-		const ratings = items.map((item) => getQueryEngineFieldValue(item, "rating"));
+		const ratings = items.map((item: Parameters<typeof getQueryEngineFieldValue>[0]) =>
+			getQueryEngineFieldValue(item, "rating"),
+		);
 		expect(ratings).toEqual([4, 5]);
 	});
 
