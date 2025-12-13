@@ -56,8 +56,7 @@ COPY --from=backend-builder --chown=ryot:ryot /sandbox-compiler-runtime ./node_m
 RUN bun -e 'const from = "/home/ryot/dist"; if (!(await Bun.file(`${from}/compiler-worker.js`).exists())) throw new Error("Compiler worker is missing"); const sdk = Bun.resolveSync("@ryot/sandbox-sdk", from); const typescript = Bun.resolveSync("typescript/package.json", from); const typescriptDirectory = typescript.slice(0, typescript.lastIndexOf("/")); Bun.resolveSync("typescript/unstable/async", from); Bun.resolveSync(`@typescript/typescript-${process.platform}-${process.arch}/package.json`, typescriptDirectory); Bun.resolveSync("zod", sdk)'
 RUN bun -e 'const worker = Bun.spawn([process.execPath, "--smol", "--no-orphans", "--no-install", "--no-env-file", "/home/ryot/dist/compiler-worker.js"], { stdin: "pipe", stdout: "pipe", stderr: "pipe" }); await worker.stdin.end(); const [stdout, stderr, exitCode] = await Promise.all([new Response(worker.stdout).text(), new Response(worker.stderr).text(), worker.exited]); const response = JSON.parse(stdout); if (exitCode !== 0 || response.success !== false || response.error.diagnostics.some(({ code }) => code === "RYOT_COMPILER" || code === "RYOT_COMPILER_PROCESS")) throw new Error(`Compiler worker smoke failed: ${stderr || stdout}`)'
 # Build the read-only sandbox dependency runtime so startup requires no registry access.
-RUN DATABASE_URL=postgresql://localhost/ryot REDIS_URL=redis://localhost:6379 \
-    POPULATE_SANDBOX_CACHE_ONLY=true bun run dist/main.js && \
+RUN POPULATE_SANDBOX_CACHE_ONLY=true bun run dist/main.js && \
     chown -R ryot:ryot /home/ryot/tmp
 USER ryot
 ENV NODE_ENV=production
