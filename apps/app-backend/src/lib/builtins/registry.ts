@@ -84,11 +84,21 @@ const script = (
 	},
 });
 
-const withTitleCaseHelper = (code: string) => `${titleCaseHelperCode}\n\n${code}`;
+const injectHelpers = (helperCode: string, names: string, code: string) =>
+	`const { ${names} } = (function () {\n${helperCode}\n})();\n\n${code}`;
 
-const withDelimiterTitleCaseHelper = (code: string) => `${titleCaseDelimiterHelperCode}\n\n${code}`;
+const withTitleCaseHelper = (code: string) =>
+	injectHelpers(titleCaseHelperCode, "toTitleCase", code);
 
-const withPushHelpers = (code: string) => `${integrationPushHelperCode}\n\n${code}`;
+const withDelimiterTitleCaseHelper = (code: string) =>
+	injectHelpers(titleCaseDelimiterHelperCode, "toTitleCase", code);
+
+const withPushHelpers = (code: string) =>
+	injectHelpers(
+		integrationPushHelperCode,
+		"normalizeBaseUrl, parseJsonBody, integrationsDisabledForUser, listActiveIntegrations, fetchEntity, resolveEntityProviderName, collectionSyncMatches",
+		code,
+	);
 
 const providerScript = (
 	name: string,
