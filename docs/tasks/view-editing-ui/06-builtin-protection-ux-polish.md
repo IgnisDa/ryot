@@ -97,3 +97,27 @@ This vertical slice delivers:
 - User story 13: As a user, I want clear error messages when my edits fail validation, so that I can fix issues and save successfully.
 - User story 14: As a user, I want helpful hints about property path syntax, so that I can correctly reference entity fields.
 - User story 15: As a user, I want to save my changes and immediately see them reflected in the view results, so that I get instant feedback on my configuration.
+
+## Verification
+
+After implementation, verify the work using:
+
+1. **Run tests:**
+   ```bash
+   cd apps/app-frontend/src/features/saved-views
+   bun test
+   ```
+
+2. **Run typecheck:**
+   ```bash
+   cd apps/app-frontend
+   bun run typecheck
+   ```
+
+3. **Build frontend:**
+   ```bash
+   cd apps/app-frontend
+   bun run build
+   ```
+
+All steps must pass with no errors.
