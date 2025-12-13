@@ -1,7 +1,7 @@
 use async_graphql::Enum;
 use rust_decimal::Decimal;
 use sea_orm::{DeriveActiveEnum, EnumIter, prelude::Date};
-use sea_orm_migration::prelude::*;
+use sea_orm_migration::prelude::StringLen;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumDiscriminants};
 
