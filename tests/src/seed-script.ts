@@ -13,6 +13,20 @@ type Client = ReturnType<typeof createClient<paths>>;
 type CreateSavedViewBody = NonNullable<
 	paths["/saved-views"]["post"]["requestBody"]
 >["content"]["application/json"];
+type SavedViewQueryDefinition = CreateSavedViewBody["queryDefinition"];
+type SavedViewDisplayConfiguration =
+	CreateSavedViewBody["displayConfiguration"];
+type SavedViewTableColumn =
+	SavedViewDisplayConfiguration["table"]["columns"][number];
+
+type SavedViewSpec = {
+	name: string;
+	icon: string;
+	trackerId?: string;
+	accentColor: string;
+	queryDefinition: SavedViewQueryDefinition;
+	displayConfiguration: SavedViewDisplayConfiguration;
+};
 
 type PropertiesSchema = Record<
 	string,
@@ -175,8 +189,8 @@ async function createSavedView(
 	name: string,
 	icon: string,
 	accentColor: string,
-	queryDefinition: unknown,
-	displayConfiguration: unknown,
+	queryDefinition: SavedViewQueryDefinition,
+	displayConfiguration: SavedViewDisplayConfiguration,
 	trackerId?: string,
 ) {
 	apiClient.incrementRequestCount();
@@ -187,18 +201,63 @@ async function createSavedView(
 			icon,
 			accentColor,
 			trackerId,
-			queryDefinition:
-				queryDefinition as CreateSavedViewBody["queryDefinition"],
-			displayConfiguration:
-				displayConfiguration as CreateSavedViewBody["displayConfiguration"],
+			queryDefinition,
+			displayConfiguration,
 		},
 	});
 
 	if (!response.ok || !data?.data) {
-		throw new Error(`Failed to create saved view: ${response.statusText}`);
+		const details = data ? ` ${JSON.stringify(data)}` : "";
+		throw new Error(
+			`Failed to create saved view: ${response.status} ${response.statusText}${details}`,
+		);
 	}
 
 	return data.data;
+}
+
+function propertyReference(...fields: string[]) {
+	return fields;
+}
+
+function cardConfig(
+	imageProperty: string[] | null,
+	titleProperty: string[] | null,
+	badgeProperty: string[] | null,
+	subtitleProperty: string[] | null,
+): SavedViewDisplayConfiguration["grid"] {
+	return {
+		imageProperty,
+		titleProperty,
+		badgeProperty,
+		subtitleProperty,
+	};
+}
+
+function tableColumn(
+	label: string,
+	...property: string[]
+): SavedViewTableColumn {
+	return { label, property };
+}
+
+function sortDefinition(
+	direction: "asc" | "desc",
+	...fields: string[]
+): SavedViewQueryDefinition["sort"] {
+	return { fields, direction };
+}
+
+function displayConfiguration(
+	grid: SavedViewDisplayConfiguration["grid"],
+	columns: SavedViewTableColumn[],
+	list = grid,
+): SavedViewDisplayConfiguration {
+	return {
+		grid,
+		list,
+		table: { columns },
+	};
 }
 
 function generateWhiskey(): {
@@ -722,233 +781,225 @@ async function seedSavedViews(
 	console.log("\n💾 Seeding Saved Views...");
 
 	const savedViews: Awaited<ReturnType<typeof createSavedView>>[] = [];
+	const neutralCard = cardConfig(null, null, null, null);
+	const allSchemaSlugs = [
+		"whiskey",
+		"place",
+		"smartphone",
+		"feature-phone",
+		"tablet",
+	];
 
-	console.log("  Creating whiskey-related saved views...");
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Premium Aged Whiskeys",
-			"wine",
-			"#D97706",
-			{
+	const whiskeyViews: SavedViewSpec[] = [
+		{
+			trackerId: whiskeyTrackerId,
+			name: "Premium Aged Whiskeys",
+			icon: "wine",
+			accentColor: "#D97706",
+			queryDefinition: {
 				filters: [{ op: "gte", field: "age", value: 18 }],
 				entitySchemaSlugs: ["whiskey"],
-				sort: { fields: "age", direction: "desc" },
+				sort: sortDefinition("desc", "age"),
 			},
-			{
-				grid: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["age"],
-					subtitleProperty: ["distillery"],
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["age"],
-					subtitleProperty: ["distillery"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["age"] },
-						{ property: ["distillery"] },
-						{ property: ["proof"] },
-					],
-				},
-			},
-			whiskeyTrackerId,
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Scotch Whiskeys",
-			"wine",
-			"#B45309",
-			{
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("age"),
+					propertyReference("distillery"),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Age", "age"),
+					tableColumn("Distillery", "distillery"),
+					tableColumn("Proof", "proof"),
+				],
+			),
+		},
+		{
+			trackerId: whiskeyTrackerId,
+			name: "Scotch Whiskeys",
+			icon: "wine",
+			accentColor: "#B45309",
+			queryDefinition: {
 				filters: [{ op: "eq", field: "type", value: "Scotch" }],
 				entitySchemaSlugs: ["whiskey"],
-				sort: { fields: "@name", direction: "asc" },
+				sort: sortDefinition("asc", "@name"),
 			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["type"],
-					subtitleProperty: ["region"],
-				},
-				table: {
-					columns: [
-						{ label: "Name", property: ["@name"] },
-						{ label: "Region", property: ["region"] },
-					],
-				},
-			},
-			whiskeyTrackerId,
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"High Proof Whiskeys",
-			"flame",
-			"#DC2626",
-			{
+			displayConfiguration: displayConfiguration(
+				neutralCard,
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Region", "region"),
+					tableColumn("Distillery", "distillery"),
+				],
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("type"),
+					propertyReference("region"),
+				),
+			),
+		},
+		{
+			trackerId: whiskeyTrackerId,
+			name: "High Proof Whiskeys",
+			icon: "flame",
+			accentColor: "#DC2626",
+			queryDefinition: {
 				filters: [{ op: "gte", field: "proof", value: 100 }],
 				entitySchemaSlugs: ["whiskey"],
-				sort: { fields: "proof", direction: "desc" },
+				sort: sortDefinition("desc", "proof"),
 			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["proof"],
-					subtitleProperty: ["type"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["proof"] },
-						{ property: ["type"] },
-						{ property: ["age"] },
-					],
-				},
-			},
-			whiskeyTrackerId,
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Recent Whiskey Additions",
-			"clock",
-			"#F59E0B",
-			{
+			displayConfiguration: displayConfiguration(
+				neutralCard,
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Proof", "proof"),
+					tableColumn("Type", "type"),
+					tableColumn("Age", "age"),
+				],
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("proof"),
+					propertyReference("type"),
+				),
+			),
+		},
+		{
+			trackerId: whiskeyTrackerId,
+			name: "Recent Whiskey Additions",
+			icon: "clock",
+			accentColor: "#F59E0B",
+			queryDefinition: {
 				filters: [],
 				entitySchemaSlugs: ["whiskey"],
-				sort: { fields: "@createdAt", direction: "desc" },
+				sort: sortDefinition("desc", "@createdAt"),
 			},
-			{
-				grid: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["type"],
-					subtitleProperty: ["distillery"],
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["type"],
-					subtitleProperty: ["distillery"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["@createdAt"] },
-						{ property: ["type"] },
-					],
-				},
-			},
-			whiskeyTrackerId,
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Japanese Whiskeys",
-			"wine",
-			"#DC2626",
-			{
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("type"),
+					propertyReference("distillery"),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Created", "@createdAt"),
+					tableColumn("Type", "type"),
+				],
+			),
+		},
+		{
+			trackerId: whiskeyTrackerId,
+			name: "Japanese Whiskeys",
+			icon: "wine",
+			accentColor: "#DC2626",
+			queryDefinition: {
 				filters: [{ op: "eq", field: "type", value: "Japanese" }],
 				entitySchemaSlugs: ["whiskey"],
-				sort: { fields: "age", direction: "desc" },
+				sort: sortDefinition("desc", "age"),
 			},
-			{
-				grid: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["age"],
-					subtitleProperty: ["distillery"],
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["age"],
-					subtitleProperty: ["distillery"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["age"] },
-						{ property: ["distillery"] },
-					],
-				},
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("age"),
+					propertyReference("distillery"),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Age", "age"),
+					tableColumn("Distillery", "distillery"),
+				],
+			),
+		},
+		{
+			trackerId: whiskeyTrackerId,
+			name: "Whiskey Regions Atlas",
+			icon: "map",
+			accentColor: "#7C3AED",
+			queryDefinition: {
+				filters: [],
+				entitySchemaSlugs: ["whiskey"],
+				sort: sortDefinition("asc", "region", "distillery"),
 			},
-			whiskeyTrackerId,
-		),
-	);
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("region"),
+					propertyReference("distillery"),
+				),
+				[
+					tableColumn("Region", "region"),
+					tableColumn("Distillery", "distillery"),
+					tableColumn("Name", "@name"),
+					tableColumn("Type", "type"),
+					tableColumn("Proof", "proof"),
+				],
+			),
+		},
+		{
+			trackerId: whiskeyTrackerId,
+			name: "Cask Strength Candidates",
+			icon: "flame",
+			accentColor: "#991B1B",
+			queryDefinition: {
+				filters: [{ op: "gte", field: "proof", value: 120 }],
+				entitySchemaSlugs: ["whiskey"],
+				sort: sortDefinition("desc", "proof", "age"),
+			},
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("proof"),
+					propertyReference("region"),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Proof", "proof"),
+					tableColumn("Region", "region"),
+					tableColumn("Created", "@createdAt"),
+				],
+			),
+		},
+	];
 
-	console.log("  Creating place-related saved views...");
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Restaurants & Cafes",
-			"utensils",
-			"#EF4444",
-			{
+	const placeViews: SavedViewSpec[] = [
+		{
+			trackerId: placesTrackerId,
+			name: "Restaurants & Cafes",
+			icon: "utensils",
+			accentColor: "#EF4444",
+			queryDefinition: {
 				filters: [{ op: "in", field: "type", value: ["Restaurant", "Cafe"] }],
 				entitySchemaSlugs: ["place"],
-				sort: { fields: "@name", direction: "asc" },
+				sort: sortDefinition("asc", "@name"),
 			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["type"],
-					subtitleProperty: ["city"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["type"] },
-						{ property: ["city"] },
-					],
-				},
-			},
-			placesTrackerId,
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Cultural Venues",
-			"landmark",
-			"#8B5CF6",
-			{
+			displayConfiguration: displayConfiguration(
+				neutralCard,
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Type", "type"),
+					tableColumn("City", "city"),
+				],
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("type"),
+					propertyReference("city"),
+				),
+			),
+		},
+		{
+			trackerId: placesTrackerId,
+			name: "Cultural Venues",
+			icon: "landmark",
+			accentColor: "#8B5CF6",
+			queryDefinition: {
 				filters: [
 					{
 						op: "in",
@@ -957,984 +1008,618 @@ async function seedSavedViews(
 					},
 				],
 				entitySchemaSlugs: ["place"],
-				sort: { fields: "city", direction: "asc" },
+				sort: sortDefinition("asc", "city"),
 			},
-			{
-				grid: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["type"],
-					subtitleProperty: ["country"],
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["type"],
-					subtitleProperty: ["country"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["type"] },
-						{ property: ["city"] },
-						{ property: ["country"] },
-					],
-				},
-			},
-			placesTrackerId,
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Parks & Outdoor Spaces",
-			"tree",
-			"#10B981",
-			{
-				filters: [{ op: "eq", field: "type", value: "Park" }],
-				entitySchemaSlugs: ["place"],
-				sort: { fields: "@name", direction: "asc" },
-			},
-			{
-				grid: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["city"],
-					subtitleProperty: ["country"],
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["city"],
-					subtitleProperty: ["country"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["city"] },
-						{ property: ["address"] },
-					],
-				},
-			},
-			placesTrackerId,
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Recently Added Places",
-			"clock",
-			"#3B82F6",
-			{
-				filters: [],
-				entitySchemaSlugs: ["place"],
-				sort: { fields: "@createdAt", direction: "desc" },
-			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["type"],
-					subtitleProperty: ["city"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["@createdAt"] },
-						{ property: ["type"] },
-					],
-				},
-			},
-			placesTrackerId,
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Places by Country",
-			"globe",
-			"#06B6D4",
-			{
-				filters: [],
-				entitySchemaSlugs: ["place"],
-				sort: { fields: "country", direction: "asc" },
-			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["country"],
-					subtitleProperty: ["city"],
-				},
-				table: {
-					columns: [
-						{ property: ["country"] },
-						{ property: ["city"] },
-						{ property: ["@name"] },
-						{ property: ["type"] },
-					],
-				},
-			},
-			placesTrackerId,
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Cultural Venues",
-			"landmark",
-			"#8B5CF6",
-			{
-				filters: [
-					{
-						op: "in",
-						field: "type",
-						value: ["Museum", "Gallery", "Theater"],
-					},
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("type"),
+					propertyReference("country"),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Type", "type"),
+					tableColumn("City", "city"),
+					tableColumn("Country", "country"),
 				],
-				entitySchemaSlugs: ["place"],
-				sort: { fields: "city", direction: "asc" },
-			},
-			{
-				grid: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["type"],
-					subtitleProperty: ["country"],
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["type"],
-					subtitleProperty: ["country"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["type"] },
-						{ property: ["city"] },
-						{ property: ["country"] },
-					],
-				},
-			},
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Parks & Outdoor Spaces",
-			"tree",
-			"#10B981",
-			{
+			),
+		},
+		{
+			trackerId: placesTrackerId,
+			name: "Parks & Outdoor Spaces",
+			icon: "tree",
+			accentColor: "#10B981",
+			queryDefinition: {
 				filters: [{ op: "eq", field: "type", value: "Park" }],
 				entitySchemaSlugs: ["place"],
-				sort: { fields: "@name", direction: "asc" },
+				sort: sortDefinition("asc", "@name"),
 			},
-			{
-				grid: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["city"],
-					subtitleProperty: ["country"],
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["city"],
-					subtitleProperty: ["country"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["city"] },
-						{ property: ["address"] },
-					],
-				},
-			},
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Recently Added Places",
-			"clock",
-			"#3B82F6",
-			{
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("city"),
+					propertyReference("country"),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("City", "city"),
+					tableColumn("Address", "address"),
+				],
+			),
+		},
+		{
+			trackerId: placesTrackerId,
+			name: "Recently Added Places",
+			icon: "clock",
+			accentColor: "#3B82F6",
+			queryDefinition: {
 				filters: [],
 				entitySchemaSlugs: ["place"],
-				sort: { fields: "@createdAt", direction: "desc" },
+				sort: sortDefinition("desc", "@createdAt"),
 			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["type"],
-					subtitleProperty: ["city"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["@createdAt"] },
-						{ property: ["type"] },
-					],
-				},
-			},
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Places by Country",
-			"globe",
-			"#06B6D4",
-			{
+			displayConfiguration: displayConfiguration(
+				neutralCard,
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Created", "@createdAt"),
+					tableColumn("Type", "type"),
+				],
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("type"),
+					propertyReference("city"),
+				),
+			),
+		},
+		{
+			trackerId: placesTrackerId,
+			name: "Places by Country",
+			icon: "globe",
+			accentColor: "#06B6D4",
+			queryDefinition: {
 				filters: [],
 				entitySchemaSlugs: ["place"],
-				sort: { fields: "country", direction: "asc" },
+				sort: sortDefinition("asc", "country", "city"),
 			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["country"],
-					subtitleProperty: ["city"],
-				},
-				table: {
-					columns: [
-						{ property: ["country"] },
-						{ property: ["city"] },
-						{ property: ["@name"] },
-						{ property: ["type"] },
-					],
-				},
+			displayConfiguration: displayConfiguration(
+				neutralCard,
+				[
+					tableColumn("Country", "country"),
+					tableColumn("City", "city"),
+					tableColumn("Name", "@name"),
+					tableColumn("Type", "type"),
+				],
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("country"),
+					propertyReference("city"),
+				),
+			),
+		},
+		{
+			trackerId: placesTrackerId,
+			name: "Mapped Places",
+			icon: "map-pin",
+			accentColor: "#0F766E",
+			queryDefinition: {
+				filters: [],
+				entitySchemaSlugs: ["place"],
+				sort: sortDefinition("asc", "country", "@name"),
 			},
-		),
-	);
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("city"),
+					propertyReference("address"),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Latitude", "latitude"),
+					tableColumn("Longitude", "longitude"),
+					tableColumn("Address", "address"),
+				],
+			),
+		},
+		{
+			trackerId: placesTrackerId,
+			name: "City Address Book",
+			icon: "book-open",
+			accentColor: "#1D4ED8",
+			queryDefinition: {
+				filters: [],
+				entitySchemaSlugs: ["place"],
+				sort: sortDefinition("asc", "city", "address"),
+			},
+			displayConfiguration: displayConfiguration(
+				neutralCard,
+				[
+					tableColumn("City", "city"),
+					tableColumn("Name", "@name"),
+					tableColumn("Address", "address"),
+					tableColumn("Country", "country"),
+				],
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("country"),
+					propertyReference("address"),
+				),
+			),
+		},
+	];
 
-	console.log("  Creating phone-related saved views...");
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Modern Smartphones",
-			"smartphone",
-			"#6366F1",
-			{
+	const phoneViews: SavedViewSpec[] = [
+		{
+			trackerId: phonesTrackerId,
+			name: "Modern Smartphones",
+			icon: "smartphone",
+			accentColor: "#6366F1",
+			queryDefinition: {
 				filters: [{ op: "gte", field: "year", value: 2020 }],
 				entitySchemaSlugs: ["smartphone"],
-				sort: { fields: "year", direction: "desc" },
+				sort: sortDefinition("desc", "year"),
 			},
-			{
-				grid: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["year"],
-					subtitleProperty: ["manufacturer"],
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["year"],
-					subtitleProperty: ["manufacturer"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["manufacturer"] },
-						{ property: ["year"] },
-						{ property: ["os"] },
-					],
-				},
-			},
-			phonesTrackerId,
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"High Storage Devices",
-			"hard-drive",
-			"#EC4899",
-			{
-				filters: [{ op: "gte", field: "storage_gb", value: 256 }],
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("year"),
+					propertyReference("manufacturer"),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Manufacturer", "manufacturer"),
+					tableColumn("Year", "year"),
+					tableColumn("OS", "os"),
+				],
+			),
+		},
+		{
+			trackerId: phonesTrackerId,
+			name: "High Storage Devices",
+			icon: "hard-drive",
+			accentColor: "#EC4899",
+			queryDefinition: {
+				filters: [
+					{ op: "gte", field: "smartphone.storage_gb", value: 256 },
+					{ op: "gte", field: "tablet.storage_gb", value: 256 },
+				],
 				entitySchemaSlugs: ["smartphone", "tablet"],
-				sort: { fields: "storage_gb", direction: "desc" },
+				sort: sortDefinition(
+					"desc",
+					"smartphone.storage_gb",
+					"tablet.storage_gb",
+				),
 			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["storage_gb"],
-					subtitleProperty: ["manufacturer"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["storage_gb"] },
-						{ property: ["manufacturer"] },
-						{ property: ["year"] },
-					],
-				},
-			},
-			phonesTrackerId,
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"iOS Devices",
-			"apple",
-			"#6B7280",
-			{
-				filters: [{ op: "in", field: "os", value: ["iOS", "iPadOS"] }],
+			displayConfiguration: displayConfiguration(
+				neutralCard,
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Storage", "smartphone.storage_gb", "tablet.storage_gb"),
+					tableColumn(
+						"Manufacturer",
+						"smartphone.manufacturer",
+						"tablet.manufacturer",
+					),
+					tableColumn("Year", "smartphone.year", "tablet.year"),
+				],
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("smartphone.storage_gb", "tablet.storage_gb"),
+					propertyReference("smartphone.manufacturer", "tablet.manufacturer"),
+				),
+			),
+		},
+		{
+			trackerId: phonesTrackerId,
+			name: "Apple Ecosystem Devices",
+			icon: "apple",
+			accentColor: "#6B7280",
+			queryDefinition: {
+				filters: [
+					{ op: "eq", field: "smartphone.os", value: "iOS" },
+					{ op: "eq", field: "tablet.os", value: "iPadOS" },
+				],
 				entitySchemaSlugs: ["smartphone", "tablet"],
-				sort: { fields: "year", direction: "desc" },
+				sort: sortDefinition("desc", "smartphone.year", "tablet.year"),
 			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["os"],
-					subtitleProperty: ["year"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["os"] },
-						{ property: ["year"] },
-					],
-				},
-			},
-			phonesTrackerId,
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Android Devices",
-			"android",
-			"#22C55E",
-			{
-				filters: [{ op: "eq", field: "os", value: "Android" }],
+			displayConfiguration: displayConfiguration(
+				neutralCard,
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Platform", "smartphone.os", "tablet.os"),
+					tableColumn("Year", "smartphone.year", "tablet.year"),
+					tableColumn("Storage", "smartphone.storage_gb", "tablet.storage_gb"),
+				],
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("smartphone.os", "tablet.os"),
+					propertyReference("smartphone.year", "tablet.year"),
+				),
+			),
+		},
+		{
+			trackerId: phonesTrackerId,
+			name: "Android Devices",
+			icon: "android",
+			accentColor: "#22C55E",
+			queryDefinition: {
+				filters: [
+					{ op: "eq", field: "smartphone.os", value: "Android" },
+					{ op: "eq", field: "tablet.os", value: "Android" },
+				],
 				entitySchemaSlugs: ["smartphone", "tablet"],
-				sort: { fields: "@name", direction: "asc" },
+				sort: sortDefinition("asc", "@name"),
 			},
-			{
-				grid: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["manufacturer"],
-					subtitleProperty: ["year"],
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["manufacturer"],
-					subtitleProperty: ["year"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["manufacturer"] },
-						{ property: ["year"] },
-					],
-				},
-			},
-			phonesTrackerId,
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Premium Smartphones",
-			"gem",
-			"#A855F7",
-			{
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("smartphone.manufacturer", "tablet.manufacturer"),
+					propertyReference("smartphone.year", "tablet.year"),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn(
+						"Manufacturer",
+						"smartphone.manufacturer",
+						"tablet.manufacturer",
+					),
+					tableColumn("Year", "smartphone.year", "tablet.year"),
+					tableColumn("Platform", "smartphone.os", "tablet.os"),
+				],
+			),
+		},
+		{
+			trackerId: phonesTrackerId,
+			name: "Premium Smartphones",
+			icon: "gem",
+			accentColor: "#A855F7",
+			queryDefinition: {
 				filters: [{ op: "gte", field: "price_usd", value: 999 }],
 				entitySchemaSlugs: ["smartphone"],
-				sort: { fields: "price_usd", direction: "desc" },
+				sort: sortDefinition("desc", "price_usd"),
 			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["price_usd"],
-					subtitleProperty: ["manufacturer"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["price_usd"] },
-						{ property: ["manufacturer"] },
-						{ property: ["storage_gb"] },
-						{ property: ["ram_gb"] },
-					],
-				},
-			},
-			phonesTrackerId,
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Budget-Friendly Phones",
-			"dollar-sign",
-			"#10B981",
-			{
+			displayConfiguration: displayConfiguration(
+				neutralCard,
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Price", "price_usd"),
+					tableColumn("Manufacturer", "manufacturer"),
+					tableColumn("Storage", "storage_gb"),
+					tableColumn("RAM", "ram_gb"),
+				],
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("price_usd"),
+					propertyReference("manufacturer"),
+				),
+			),
+		},
+		{
+			trackerId: phonesTrackerId,
+			name: "Budget-Friendly Phones",
+			icon: "dollar-sign",
+			accentColor: "#10B981",
+			queryDefinition: {
 				filters: [{ op: "lte", field: "price_usd", value: 399 }],
 				entitySchemaSlugs: ["smartphone"],
-				sort: { fields: "price_usd", direction: "asc" },
+				sort: sortDefinition("asc", "price_usd"),
 			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["price_usd"],
-					subtitleProperty: ["manufacturer"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["price_usd"] },
-						{ property: ["manufacturer"] },
-					],
-				},
+			displayConfiguration: displayConfiguration(
+				neutralCard,
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Price", "price_usd"),
+					tableColumn("Manufacturer", "manufacturer"),
+				],
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("price_usd"),
+					propertyReference("manufacturer"),
+				),
+			),
+		},
+		{
+			trackerId: phonesTrackerId,
+			name: "Large Screen Devices",
+			icon: "smartphone",
+			accentColor: "#F97316",
+			queryDefinition: {
+				filters: [
+					{ op: "gte", field: "smartphone.screen_size", value: 6.5 },
+					{ op: "gte", field: "tablet.screen_size", value: 11 },
+				],
+				entitySchemaSlugs: ["smartphone", "tablet"],
+				sort: sortDefinition(
+					"desc",
+					"smartphone.screen_size",
+					"tablet.screen_size",
+				),
 			},
-			phonesTrackerId,
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Tablets with Cellular",
-			"signal",
-			"#F97316",
-			{
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("smartphone.screen_size", "tablet.screen_size"),
+					propertyReference("smartphone.os", "tablet.os"),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn(
+						"Screen Size",
+						"smartphone.screen_size",
+						"tablet.screen_size",
+					),
+					tableColumn("Platform", "smartphone.os", "tablet.os"),
+					tableColumn("Storage", "smartphone.storage_gb", "tablet.storage_gb"),
+				],
+			),
+		},
+		{
+			trackerId: phonesTrackerId,
+			name: "Tablets with Cellular",
+			icon: "signal",
+			accentColor: "#EA580C",
+			queryDefinition: {
 				filters: [{ op: "eq", field: "has_cellular", value: true }],
 				entitySchemaSlugs: ["tablet"],
-				sort: { fields: "screen_size", direction: "desc" },
+				sort: sortDefinition("desc", "screen_size"),
 			},
-			{
-				grid: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["screen_size"],
-					subtitleProperty: ["manufacturer"],
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["screen_size"],
-					subtitleProperty: ["manufacturer"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["screen_size"] },
-						{ property: ["manufacturer"] },
-						{ property: ["storage_gb"] },
-					],
-				},
-			},
-			phonesTrackerId,
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Feature Phones with Camera",
-			"camera",
-			"#84CC16",
-			{
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("screen_size"),
+					propertyReference("manufacturer"),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Screen Size", "screen_size"),
+					tableColumn("Manufacturer", "manufacturer"),
+					tableColumn("Storage", "storage_gb"),
+				],
+			),
+		},
+		{
+			trackerId: phonesTrackerId,
+			name: "Feature Phones with Camera",
+			icon: "camera",
+			accentColor: "#84CC16",
+			queryDefinition: {
 				filters: [{ op: "eq", field: "has_camera", value: true }],
 				entitySchemaSlugs: ["feature-phone"],
-				sort: { fields: "year", direction: "desc" },
+				sort: sortDefinition("desc", "year"),
 			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["year"],
-					subtitleProperty: ["manufacturer"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["manufacturer"] },
-						{ property: ["year"] },
-						{ property: ["battery_mah"] },
-					],
-				},
-			},
-			phonesTrackerId,
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"All Mobile Devices",
-			"mobile-phone",
-			"#475569",
-			{
+			displayConfiguration: displayConfiguration(
+				neutralCard,
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Manufacturer", "manufacturer"),
+					tableColumn("Year", "year"),
+					tableColumn("Battery", "battery_mah"),
+				],
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("year"),
+					propertyReference("manufacturer"),
+				),
+			),
+		},
+		{
+			trackerId: phonesTrackerId,
+			name: "All Mobile Devices",
+			icon: "tablet",
+			accentColor: "#475569",
+			queryDefinition: {
 				filters: [],
 				entitySchemaSlugs: ["smartphone", "feature-phone", "tablet"],
-				sort: { fields: "@name", direction: "asc" },
+				sort: sortDefinition("asc", "@name"),
 			},
-			{
-				grid: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["manufacturer"],
-					subtitleProperty: ["year"],
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["manufacturer"],
-					subtitleProperty: ["year"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["manufacturer"] },
-						{ property: ["year"] },
-					],
-				},
-			},
-			phonesTrackerId,
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"High Storage Devices",
-			"hard-drive",
-			"#EC4899",
-			{
-				filters: [{ op: "gte", field: "storage_gb", value: 256 }],
-				entitySchemaSlugs: ["smartphone", "tablet"],
-				sort: { fields: "storage_gb", direction: "desc" },
-			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["storage_gb"],
-					subtitleProperty: ["manufacturer"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["storage_gb"] },
-						{ property: ["manufacturer"] },
-						{ property: ["year"] },
-					],
-				},
-			},
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"iOS Devices",
-			"apple",
-			"#6B7280",
-			{
-				filters: [{ op: "in", field: "os", value: ["iOS", "iPadOS"] }],
-				entitySchemaSlugs: ["smartphone", "tablet"],
-				sort: { fields: "year", direction: "desc" },
-			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["os"],
-					subtitleProperty: ["year"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["os"] },
-						{ property: ["year"] },
-					],
-				},
-			},
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Android Devices",
-			"android",
-			"#22C55E",
-			{
-				filters: [{ op: "eq", field: "os", value: "Android" }],
-				entitySchemaSlugs: ["smartphone", "tablet"],
-				sort: { fields: "@name", direction: "asc" },
-			},
-			{
-				grid: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["manufacturer"],
-					subtitleProperty: ["year"],
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["manufacturer"],
-					subtitleProperty: ["year"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["manufacturer"] },
-						{ property: ["year"] },
-					],
-				},
-			},
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Premium Smartphones",
-			"gem",
-			"#A855F7",
-			{
-				filters: [{ op: "gte", field: "price_usd", value: 999 }],
-				entitySchemaSlugs: ["smartphone"],
-				sort: { fields: "price_usd", direction: "desc" },
-			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["price_usd"],
-					subtitleProperty: ["manufacturer"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["price_usd"] },
-						{ property: ["manufacturer"] },
-						{ property: ["storage_gb"] },
-						{ property: ["ram_gb"] },
-					],
-				},
-			},
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Budget-Friendly Phones",
-			"dollar-sign",
-			"#10B981",
-			{
-				filters: [{ op: "lte", field: "price_usd", value: 399 }],
-				entitySchemaSlugs: ["smartphone"],
-				sort: { fields: "price_usd", direction: "asc" },
-			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["price_usd"],
-					subtitleProperty: ["manufacturer"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["price_usd"] },
-						{ property: ["manufacturer"] },
-					],
-				},
-			},
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Tablets with Cellular",
-			"signal",
-			"#F97316",
-			{
-				filters: [{ op: "eq", field: "has_cellular", value: true }],
-				entitySchemaSlugs: ["tablet"],
-				sort: { fields: "screen_size", direction: "desc" },
-			},
-			{
-				grid: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["screen_size"],
-					subtitleProperty: ["manufacturer"],
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["screen_size"],
-					subtitleProperty: ["manufacturer"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["screen_size"] },
-						{ property: ["manufacturer"] },
-						{ property: ["storage_gb"] },
-					],
-				},
-			},
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Feature Phones with Camera",
-			"camera",
-			"#84CC16",
-			{
-				filters: [{ op: "eq", field: "has_camera", value: true }],
-				entitySchemaSlugs: ["feature-phone"],
-				sort: { fields: "year", direction: "desc" },
-			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["year"],
-					subtitleProperty: ["manufacturer"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["manufacturer"] },
-						{ property: ["year"] },
-						{ property: ["battery_mah"] },
-					],
-				},
-			},
-		),
-	);
-
-	savedViews.push(
-		await createSavedView(
-			client,
-			"All Mobile Devices",
-			"mobile-phone",
-			"#475569",
-			{
-				filters: [],
-				entitySchemaSlugs: ["smartphone", "feature-phone", "tablet"],
-				sort: { fields: "@name", direction: "asc" },
-			},
-			{
-				grid: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["manufacturer"],
-					subtitleProperty: ["year"],
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: ["manufacturer"],
-					subtitleProperty: ["year"],
-				},
-				table: {
-					columns: [
-						{ property: ["@name"] },
-						{ property: ["manufacturer"] },
-						{ property: ["year"] },
-					],
-				},
-			},
-		),
-	);
-
-	console.log("  Creating cross-tracker saved views...");
-	savedViews.push(
-		await createSavedView(
-			client,
-			"Everything Recently Added",
-			"star",
-			"#FFD700",
-			{
-				filters: [],
-				entitySchemaSlugs: [
-					"whiskey",
-					"place",
-					"smartphone",
-					"feature-phone",
-					"tablet",
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference(
+						"smartphone.os",
+						"feature-phone.color",
+						"tablet.os",
+					),
+					propertyReference(
+						"smartphone.manufacturer",
+						"feature-phone.manufacturer",
+						"tablet.manufacturer",
+					),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn(
+						"Primary Field",
+						"smartphone.os",
+						"feature-phone.color",
+						"tablet.os",
+					),
+					tableColumn(
+						"Manufacturer",
+						"smartphone.manufacturer",
+						"feature-phone.manufacturer",
+						"tablet.manufacturer",
+					),
+					tableColumn(
+						"Year",
+						"smartphone.year",
+						"feature-phone.year",
+						"tablet.year",
+					),
 				],
-				sort: { fields: "@createdAt", direction: "desc" },
-			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				table: {
-					columns: [
-						{ label: "Name", property: ["@name"] },
-						{ label: "Created", property: ["@createdAt"] },
-					],
-				},
-			},
-		),
-	);
+			),
+		},
+	];
 
-	savedViews.push(
-		await createSavedView(
-			client,
-			"All Items A-Z",
-			"book",
-			"#1F2937",
-			{
+	const crossTrackerViews: SavedViewSpec[] = [
+		{
+			name: "Everything Recently Added",
+			icon: "star",
+			accentColor: "#FFD700",
+			queryDefinition: {
 				filters: [],
-				entitySchemaSlugs: [
-					"whiskey",
-					"place",
-					"smartphone",
-					"feature-phone",
-					"tablet",
+				entitySchemaSlugs: allSchemaSlugs,
+				sort: sortDefinition("desc", "@createdAt"),
+			},
+			displayConfiguration: displayConfiguration(
+				neutralCard,
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Created", "@createdAt"),
+					tableColumn(
+						"Primary Field",
+						"whiskey.type",
+						"place.type",
+						"smartphone.os",
+						"feature-phone.color",
+						"tablet.os",
+					),
 				],
-				sort: { fields: "@name", direction: "asc" },
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference(
+						"whiskey.type",
+						"place.type",
+						"smartphone.os",
+						"feature-phone.color",
+						"tablet.os",
+					),
+					propertyReference(
+						"whiskey.distillery",
+						"place.city",
+						"smartphone.manufacturer",
+						"feature-phone.manufacturer",
+						"tablet.manufacturer",
+					),
+				),
+			),
+		},
+		{
+			name: "All Items A-Z",
+			icon: "book",
+			accentColor: "#1F2937",
+			queryDefinition: {
+				filters: [],
+				entitySchemaSlugs: allSchemaSlugs,
+				sort: sortDefinition("asc", "@name"),
 			},
-			{
-				grid: {
-					imageProperty: null,
-					titleProperty: null,
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				table: {
-					columns: [{ label: "Name", property: ["@name"] }],
-				},
+			displayConfiguration: displayConfiguration(
+				neutralCard,
+				[
+					tableColumn("Name", "@name"),
+					tableColumn(
+						"Context",
+						"whiskey.distillery",
+						"place.city",
+						"smartphone.manufacturer",
+						"feature-phone.manufacturer",
+						"tablet.manufacturer",
+					),
+				],
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference(
+						"whiskey.type",
+						"place.type",
+						"smartphone.os",
+						"feature-phone.color",
+						"tablet.os",
+					),
+					propertyReference(
+						"whiskey.region",
+						"place.country",
+						"smartphone.year",
+						"feature-phone.year",
+						"tablet.year",
+					),
+				),
+			),
+		},
+		{
+			name: "Collection Showcase",
+			icon: "image",
+			accentColor: "#0F172A",
+			queryDefinition: {
+				filters: [],
+				entitySchemaSlugs: allSchemaSlugs,
+				sort: sortDefinition("desc", "@updatedAt", "@name"),
 			},
-		),
-	);
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference(
+						"whiskey.age",
+						"place.city",
+						"smartphone.storage_gb",
+						"feature-phone.battery_mah",
+						"tablet.screen_size",
+					),
+					propertyReference(
+						"whiskey.distillery",
+						"place.address",
+						"smartphone.manufacturer",
+						"feature-phone.manufacturer",
+						"tablet.manufacturer",
+					),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn(
+						"Highlight",
+						"whiskey.age",
+						"place.city",
+						"smartphone.storage_gb",
+						"feature-phone.battery_mah",
+						"tablet.screen_size",
+					),
+					tableColumn("Updated", "@updatedAt"),
+				],
+			),
+		},
+	];
+
+	const sections = [
+		["whiskey-related", whiskeyViews],
+		["place-related", placeViews],
+		["phone-related", phoneViews],
+		["cross-tracker", crossTrackerViews],
+	] as const;
+
+	for (const [label, views] of sections) {
+		console.log(`  Creating ${label} saved views...`);
+
+		for (const view of views) {
+			savedViews.push(
+				await createSavedView(
+					client,
+					view.name,
+					view.icon,
+					view.accentColor,
+					view.queryDefinition,
+					view.displayConfiguration,
+					view.trackerId,
+				),
+			);
+		}
+	}
 
 	console.log(`  ✓ Created ${savedViews.length} saved views`);
 	return savedViews.length;
