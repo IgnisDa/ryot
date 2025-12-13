@@ -12,8 +12,8 @@ import {
 
 const getJellyfinCode = () =>
 	Promise.all([
-		readScriptFile("../script-helpers/integration-push.txt"),
-		readScriptFile("./jellyfin-push.txt"),
+		readScriptFile("../script-helpers/integration-push.sandbox.js"),
+		readScriptFile("./jellyfin-push.sandbox.js"),
 	]).then(([helperCode, scriptCode]) => `${helperCode}\n\n${scriptCode}`);
 
 const runJellyfinScript = (

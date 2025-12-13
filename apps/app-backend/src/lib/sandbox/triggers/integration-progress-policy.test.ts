@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { hostFailure, hostSuccess, readScriptFile, runTriggerScript } from "./test-utils";
 
 const getIntegrationProgressPolicyScriptCode = () =>
-	readScriptFile("./integration-progress-policy.txt");
+	readScriptFile("./integration-progress-policy.sandbox.js");
 
 const runIntegrationProgressPolicyScript = (
 	context: unknown,
