@@ -67,10 +67,10 @@ export class NotImplemented extends Schema.TaggedError<NotImplemented>()("NotImp
 	message: Schema.String,
 }) {}
 
-export const badRequest = (message: string) => new BadRequest({ message });
 export const conflict = (message: string) => new Conflict({ message });
 export const notFound = (message: string) => new NotFound({ message });
-export const unauthorized = () => new Unauthorized({ message: "Unauthorized" });
+export const badRequest = (message: string) => new BadRequest({ message });
 export const rateLimited = (message: string) => new RateLimited({ message });
+export const unauthorized = () => new Unauthorized({ message: "Unauthorized" });
 export const internalError = (message: string) => new InternalError({ message });
 export const notImplemented = () => new NotImplemented({ message: "Not implemented" });
