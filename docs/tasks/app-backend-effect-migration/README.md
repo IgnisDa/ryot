@@ -178,9 +178,9 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 
 ## Tasks
 
-**Overall Progress:** 3 of 32 tasks completed
+**Overall Progress:** 4 of 32 tasks completed
 
-**Current Task:** [Task 04](./04-config-and-system-endpoints.md) (todo)
+**Current Task:** [Task 05](./05-real-schema-migrations-and-transaction-layer.md) (todo)
 
 ### Task List
 
@@ -189,7 +189,7 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 | 01  | [Workspace Rename And Effect Server Shell](./01-workspace-rename-and-effect-server-shell.md)         | AFK  | done   |
 | 02  | [Pure Contract Exports And Stub Surface](./02-pure-contract-exports-and-stub-surface.md)             | AFK  | done   |
 | 03  | [Effect E2E Client Harness](./03-effect-e2e-client-harness.md)                                       | AFK  | done   |
-| 04  | [Config And System Endpoints](./04-config-and-system-endpoints.md)                                   | AFK  | todo   |
+| 04  | [Config And System Endpoints](./04-config-and-system-endpoints.md)                                   | AFK  | done   |
 | 05  | [Real Schema Migrations And Transaction Layer](./05-real-schema-migrations-and-transaction-layer.md) | AFK  | todo   |
 | 06  | [Static Builtins And Seed Manifests](./06-static-builtins-and-seed-manifests.md)                     | AFK  | todo   |
 | 07  | [Better Auth Email Sessions](./07-better-auth-email-sessions.md)                                     | AFK  | todo   |
