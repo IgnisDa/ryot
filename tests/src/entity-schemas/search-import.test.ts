@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+﻿import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 
 import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 
@@ -20,7 +20,7 @@ import {
 	type SeededProviderScript,
 } from "../fixtures";
 import {
-	assertCondition,
+	assertCompleted,
 	assertPresent,
 	assertTaggedError,
 	requireArray,
@@ -54,6 +54,7 @@ beforeAll(async () => {
 			relatedEntityGroups: [
 				{
 					direction: "incoming",
+					synchronization: "additive",
 					relationshipSchemaSlug: "company-to-anime",
 					entities: [
 						{
@@ -169,10 +170,7 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 		});
 
 		const result = await pollEntitySearchResult(client, jobId, { timeoutMs: 30_000 });
-		assertCondition(
-			result.status === "completed",
-			`Expected search job to complete, got '${result.status}'`,
-		);
+		assertCompleted(result, "search job");
 		const value = requireObjectRecord(result.value, "Expected search result to be an object");
 		const items = requireArray(value.items, "Expected search result items to be an array");
 		expect(items).toHaveLength(2);
@@ -263,10 +261,7 @@ describe("GET /library/import/{jobId}", () => {
 
 		const result = await pollEntityImportResult(client, jobId, { timeoutMs: 30_000 });
 
-		assertCondition(
-			result.status === "completed",
-			`Expected import job to complete, got '${result.status}'`,
-		);
+		assertCompleted(result, "import job");
 		expect(result.data.name).toBe(BOOK_IMPORT_NAME);
 	});
 
@@ -283,10 +278,7 @@ describe("GET /library/import/{jobId}", () => {
 
 		const result = await pollEntityImportResult(client, jobId, { timeoutMs: 30_000 });
 
-		assertCondition(
-			result.status === "completed",
-			`Expected import job to complete, got '${result.status}'`,
-		);
+		assertCompleted(result, "import job");
 
 		const properties = requireObjectRecord(
 			result.data.properties,
@@ -325,10 +317,7 @@ describe("GET /library/import/{jobId}", () => {
 
 		const result = await pollEntityImportResult(client, jobId, { timeoutMs: 30_000 });
 
-		assertCondition(
-			result.status === "completed",
-			`Expected import job to complete, got '${result.status}'`,
-		);
+		assertCompleted(result, "import job");
 
 		const populatedAt = result.data.populatedAt;
 
