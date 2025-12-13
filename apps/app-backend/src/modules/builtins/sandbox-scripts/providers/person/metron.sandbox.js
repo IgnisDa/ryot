@@ -72,8 +72,7 @@ async function loadMetronJson(url, errorPrefix) {
 
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjsModule = await import("npm:dayjs");
-	const dayjs = dayjsModule.default;
+	const { default: dayjs } = await import("npm:dayjs");
 
 	const {
 		query,
