@@ -62,7 +62,7 @@ describe("show.tmdb sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.relatedEntityGroups).toEqual([
+			expect(details["relatedEntityGroups"]).toEqual([
 				{
 					direction: "incoming",
 					synchronization: "additive",

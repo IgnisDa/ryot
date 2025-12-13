@@ -8,9 +8,20 @@
 		"module": "ESNext",
 		"skipLibCheck": true,
 		"types": ["bun-types"],
+		"noUnusedLocals": true,
+		"isolatedModules": true,
+		"noImplicitReturns": true,
+		"noImplicitOverride": true,
+		"noUnusedParameters": true,
+		"allowUnusedLabels": false,
+		"verbatimModuleSyntax": true,
 		"moduleResolution": "bundler",
+		"allowUnreachableCode": false,
 		"paths": { "#*": ["./src/*"] },
 		"noUncheckedIndexedAccess": true,
+		"exactOptionalPropertyTypes": true,
+		"noFallthroughCasesInSwitch": true,
+		"noPropertyAccessFromIndexSignature": true,
 		"plugins": [{ "name": "@effect/language-service" }]
 	}
 }

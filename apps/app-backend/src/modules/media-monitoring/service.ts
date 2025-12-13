@@ -113,7 +113,7 @@ export class MediaMonitoringService extends Effect.Service<MediaMonitoringServic
 					return yield* notFound("Entity not found");
 				}
 				const id = EntityId.make(yield* requireStringField(row, "id"));
-				const mediaMonitoring = row.mediaMonitoring;
+				const mediaMonitoring = row["mediaMonitoring"];
 				return {
 					entityId: id,
 					isMediaMonitored: isIncludedRows(mediaMonitoring) && mediaMonitoring.items.length > 0,

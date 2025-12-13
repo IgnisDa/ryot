@@ -27,8 +27,8 @@ export const adaptIgdbCsv = (
 			continue;
 		}
 
-		const externalId = row.id?.trim() ?? "";
-		const sourceName = row.game?.trim();
+		const externalId = row["id"]?.trim() ?? "";
+		const sourceName = row["game"]?.trim();
 		const sourceLabel = sourceName?.length ? sourceName : `IGDB row ${itemIndex + 1}`;
 		if (!externalId) {
 			failures.push({ itemIndex, sourceLabel, message: "id is empty" });

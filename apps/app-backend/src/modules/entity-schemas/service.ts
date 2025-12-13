@@ -22,7 +22,7 @@ import { EntitySchemasRepository } from "./repository";
 
 const reservedEntitySchemaSlugs = new Set(builtinEntitySchemas().map((s) => s.slug));
 
-const resolveEntitySchemaSlug = (input: { name: string; slug?: string }) => {
+const resolveEntitySchemaSlug = (input: { name: string; slug?: string | undefined }) => {
 	const candidate = input.slug?.trim() ?? input.name;
 	const slug = candidate ? slugify(candidate) : null;
 	if (!slug) {
@@ -64,7 +64,7 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 
 			const list = Effect.fn("EntitySchemasService.list")(function* (
 				user: CurrentUserValue,
-				input: { trackerId?: TrackerId; slugs?: ReadonlyArray<string> },
+				input: { trackerId?: TrackerId | undefined; slugs?: ReadonlyArray<string> | undefined },
 			) {
 				if (input.trackerId) {
 					const trackerId = trimToNull(input.trackerId);

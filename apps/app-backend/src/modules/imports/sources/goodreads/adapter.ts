@@ -59,12 +59,12 @@ export const adaptGoodreadsCsv = (csvText: string): MediaImportAdapterResult => 
 			continue;
 		}
 
-		const title = row.Title?.trim();
+		const title = row["Title"]?.trim();
 		let sourceLabel = `Goodreads row ${itemIndex + 1}`;
 		if (title) {
 			sourceLabel = title;
 		}
-		const isbn = normalizeIsbn(row.ISBN13 ?? "");
+		const isbn = normalizeIsbn(row["ISBN13"] ?? "");
 		if (!isbn) {
 			failures.push({ itemIndex, sourceLabel, message: "ISBN13 is empty" });
 			continue;
@@ -91,7 +91,7 @@ export const adaptGoodreadsCsv = (csvText: string): MediaImportAdapterResult => 
 			},
 			itemIndex,
 		);
-		const shelves = splitCommaList(row.Bookshelves ?? "");
+		const shelves = splitCommaList(row["Bookshelves"] ?? "");
 		const lifecycleStatus = selectLifecycleStatus(shelves);
 		const completedOn = parseDateWithFormat(row["Date Read"] ?? "", "YYYY/MM/DD");
 		const fallbackOccurredAt = completedOn ?? nowIso();

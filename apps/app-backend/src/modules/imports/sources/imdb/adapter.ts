@@ -36,8 +36,8 @@ export const adaptImdbCsv = (csvText: string): MediaImportAdapterResult => {
 			continue;
 		}
 
-		const imdbId = row.Const?.trim() ?? "";
-		const title = row.Title?.trim();
+		const imdbId = row["Const"]?.trim() ?? "";
+		const title = row["Title"]?.trim();
 		const sourceLabel = title?.length ? title : `IMDb row ${itemIndex + 1}`;
 		if (!imdbId) {
 			failures.push({ itemIndex, sourceLabel, message: "Const is empty" });
