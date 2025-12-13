@@ -1,10 +1,17 @@
 import { describe, expect, it } from "bun:test";
+import {
+	createEntitySchemaBody,
+	createEntitySchemaDeps,
+	createFlatTitlePagesPropertySchema,
+	createListedEntitySchema,
+	createNestedMatrixPropertySchema,
+	createNestedPeoplePropertySchema,
+	createOptionalTitlePropertiesSchema,
+} from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
 import { authenticationBuiltinEntitySchemas } from "../authentication/bootstrap/manifests";
-import type { CreateEntitySchemaBody, ListedEntitySchema } from "./schemas";
 import {
 	createEntitySchema,
-	type EntitySchemaServiceDeps,
 	getEntitySchemaById,
 	listEntitySchemas,
 	parseEntitySchemaPropertiesSchema,
@@ -15,51 +22,6 @@ import {
 	resolveEntitySchemaTrackerId,
 	validateSlugNotReserved,
 } from "./service";
-
-const createEntitySchemaBody = (): CreateEntitySchemaBody => ({
-	name: "Books",
-	icon: "book-open",
-	trackerId: "tracker_1",
-	accentColor: "#5B7FFF",
-	propertiesSchema: { title: { type: "string" } },
-});
-
-const createListedEntitySchema = (
-	overrides: Partial<ListedEntitySchema> = {},
-): ListedEntitySchema => ({
-	slug: "books",
-	name: "Books",
-	id: "schema_1",
-	isBuiltin: false,
-	icon: "book-open",
-	trackerId: "tracker_1",
-	accentColor: "#5B7FFF",
-	propertiesSchema: { title: { type: "string" } },
-	...overrides,
-});
-
-const createDeps = (
-	overrides: Partial<EntitySchemaServiceDeps> = {},
-): EntitySchemaServiceDeps => ({
-	getEntitySchemaByIdForUser: async () => undefined,
-	getEntitySchemaBySlugForUser: async () => undefined,
-	listEntitySchemasByTracker: async () => [createListedEntitySchema()],
-	getTrackerScopeForUser: async (input) => ({
-		isBuiltin: false,
-		id: input.trackerId,
-		userId: input.userId,
-	}),
-	createEntitySchemaForUser: async (input) =>
-		createListedEntitySchema({
-			name: input.name,
-			slug: input.slug,
-			icon: input.icon,
-			trackerId: input.trackerId,
-			accentColor: input.accentColor,
-			propertiesSchema: input.propertiesSchema,
-		}),
-	...overrides,
-});
 
 describe("resolveEntitySchemaName", () => {
 	it("trims the provided name", () => {
@@ -99,22 +61,13 @@ describe("resolveEntitySchemaAccentColor", () => {
 
 describe("parseEntitySchemaPropertiesSchema", () => {
 	it("accepts flat properties map", () => {
-		expect(
-			parseEntitySchemaPropertiesSchema({
-				title: { type: "string" },
-				pages: { type: "integer" },
-			}),
-		).toEqual({
-			title: { type: "string" },
-			pages: { type: "integer" },
-		});
+		const schema = createFlatTitlePagesPropertySchema();
+
+		expect(parseEntitySchemaPropertiesSchema(schema)).toEqual(schema);
 	});
 
 	it("accepts already-parsed properties map", () => {
-		const schema = {
-			title: { type: "string" as const },
-			pages: { type: "integer" as const },
-		};
+		const schema = createFlatTitlePagesPropertySchema();
 
 		expect(parseEntitySchemaPropertiesSchema(schema)).toEqual(schema);
 	});
@@ -168,32 +121,13 @@ describe("parseEntitySchemaPropertiesSchema", () => {
 	});
 
 	it("accepts complex nested structure", () => {
-		const schema = {
-			people: {
-				type: "array" as const,
-				items: {
-					type: "object" as const,
-					properties: {
-						role: { type: "string" as const },
-						identifier: { type: "string" as const },
-					},
-				},
-			},
-		};
+		const schema = createNestedPeoplePropertySchema();
 
 		expect(parseEntitySchemaPropertiesSchema(schema)).toEqual(schema);
 	});
 
 	it("validates recursively nested arrays", () => {
-		const schema = {
-			matrix: {
-				type: "array" as const,
-				items: {
-					type: "array" as const,
-					items: { type: "number" as const },
-				},
-			},
-		};
+		const schema = createNestedMatrixPropertySchema();
 
 		expect(parseEntitySchemaPropertiesSchema(schema)).toEqual(schema);
 	});
@@ -207,14 +141,14 @@ describe("resolveEntitySchemaCreateInput", () => {
 				name: "  Book Details  ",
 				accentColor: "  #5B7FFF  ",
 				slug: "  My_Custom Schema  ",
-				propertiesSchema: { title: { type: "string" } },
+				propertiesSchema: createOptionalTitlePropertiesSchema(),
 			}),
 		).toEqual({
 			icon: "book-open",
 			name: "Book Details",
 			accentColor: "#5B7FFF",
 			slug: "my-custom-schema",
-			propertiesSchema: { title: { type: "string" } },
+			propertiesSchema: createOptionalTitlePropertiesSchema(),
 		});
 	});
 
@@ -224,7 +158,7 @@ describe("resolveEntitySchemaCreateInput", () => {
 				icon: "   ",
 				name: "Books",
 				accentColor: "#5B7FFF",
-				propertiesSchema: { title: { type: "string" } },
+				propertiesSchema: createOptionalTitlePropertiesSchema(),
 			}),
 		).toThrow("Entity schema icon is required");
 	});
@@ -235,7 +169,7 @@ describe("resolveEntitySchemaCreateInput", () => {
 				name: "Books",
 				icon: "book-open",
 				accentColor: "   ",
-				propertiesSchema: { title: { type: "string" } },
+				propertiesSchema: createOptionalTitlePropertiesSchema(),
 			}),
 		).toThrow("Entity schema accent color is required");
 	});
@@ -247,7 +181,7 @@ describe("resolveEntitySchemaCreateInput", () => {
 				name: "Books",
 				icon: "book-open",
 				accentColor: "#5B7FFF",
-				propertiesSchema: { title: { type: "string" } },
+				propertiesSchema: createOptionalTitlePropertiesSchema(),
 			}),
 		).toThrow('Entity schema slug "book" is reserved for built-in schemas');
 	});
@@ -301,7 +235,7 @@ describe("listEntitySchemas", () => {
 	it("returns not found when the tracker does not exist", async () => {
 		const result = await listEntitySchemas(
 			{ trackerId: "tracker_1", userId: "user_1" },
-			createDeps({ getTrackerScopeForUser: async () => undefined }),
+			createEntitySchemaDeps({ getTrackerScopeForUser: async () => undefined }),
 		);
 
 		expect(result).toEqual({
@@ -314,7 +248,7 @@ describe("listEntitySchemas", () => {
 describe("createEntitySchema", () => {
 	it("normalizes the payload before persisting", async () => {
 		let createdSlug: string | undefined;
-		const deps = createDeps({
+		const deps = createEntitySchemaDeps({
 			createEntitySchemaForUser: async (input) => {
 				createdSlug = input.slug;
 				return createListedEntitySchema({ slug: input.slug, name: input.name });
@@ -341,7 +275,7 @@ describe("createEntitySchema", () => {
 	it("returns validation when the tracker is built in", async () => {
 		const result = await createEntitySchema(
 			{ body: createEntitySchemaBody(), userId: "user_1" },
-			createDeps({
+			createEntitySchemaDeps({
 				getTrackerScopeForUser: async () => ({
 					id: "tracker_1",
 					isBuiltin: true,
@@ -362,7 +296,7 @@ describe("createEntitySchema", () => {
 				body: { ...createEntitySchemaBody(), trackerId: "   " },
 				userId: "user_1",
 			},
-			createDeps(),
+			createEntitySchemaDeps(),
 		);
 
 		expect(result).toEqual({
@@ -377,7 +311,9 @@ describe("getEntitySchemaById", () => {
 		const schema = createListedEntitySchema();
 		const result = await getEntitySchemaById(
 			{ entitySchemaId: "schema_1", userId: "user_1" },
-			createDeps({ getEntitySchemaByIdForUser: async () => schema }),
+			createEntitySchemaDeps({
+				getEntitySchemaByIdForUser: async () => schema,
+			}),
 		);
 
 		expect(result).toEqual({ data: schema });
@@ -386,7 +322,9 @@ describe("getEntitySchemaById", () => {
 	it("returns not_found when entity schema does not exist", async () => {
 		const result = await getEntitySchemaById(
 			{ entitySchemaId: "non_existent", userId: "user_1" },
-			createDeps({ getEntitySchemaByIdForUser: async () => undefined }),
+			createEntitySchemaDeps({
+				getEntitySchemaByIdForUser: async () => undefined,
+			}),
 		);
 
 		expect(result).toEqual({
@@ -398,7 +336,9 @@ describe("getEntitySchemaById", () => {
 	it("returns not_found when the schema belongs to another user", async () => {
 		const result = await getEntitySchemaById(
 			{ entitySchemaId: "schema_1", userId: "other_user" },
-			createDeps({ getEntitySchemaByIdForUser: async () => undefined }),
+			createEntitySchemaDeps({
+				getEntitySchemaByIdForUser: async () => undefined,
+			}),
 		);
 
 		expect(result).toEqual({

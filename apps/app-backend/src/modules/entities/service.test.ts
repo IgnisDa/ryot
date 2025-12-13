@@ -1,9 +1,16 @@
 import { describe, expect, it } from "bun:test";
+import {
+	createEntityBody,
+	createEntityDeps,
+	createListedEntity,
+	createNestedMetadataPropertiesSchema,
+	createOptionalTitlePropertiesSchema,
+	createRequiredTitlePropertiesSchema,
+	createTitleAndPagesPropertiesSchema,
+} from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
-import type { CreateEntityBody, ListedEntity } from "./schemas";
 import {
 	createEntity,
-	type EntityServiceDeps,
 	getEntityDetail,
 	parseEntityProperties,
 	resolveEntityCreateInput,
@@ -11,54 +18,6 @@ import {
 	resolveEntityName,
 	resolveEntitySchemaId,
 } from "./service";
-
-const createEntityBody = (): CreateEntityBody => ({
-	image: null,
-	name: "My Book",
-	entitySchemaId: "schema_1",
-	properties: { title: "My Book" },
-});
-
-const createListedEntity = (
-	overrides: Partial<ListedEntity> = {},
-): ListedEntity => ({
-	image: null,
-	id: "entity_1",
-	name: "My Book",
-	externalId: null,
-	entitySchemaId: "schema_1",
-	detailsSandboxScriptId: null,
-	properties: { title: "My Book" },
-	createdAt: new Date("2024-01-01T00:00:00.000Z"),
-	updatedAt: new Date("2024-01-01T00:00:00.000Z"),
-	...overrides,
-});
-
-const createDeps = (
-	overrides: Partial<EntityServiceDeps> = {},
-): EntityServiceDeps => ({
-	createEntityForUser: async (input) =>
-		createListedEntity({
-			name: input.name,
-			image: input.image,
-			properties: input.properties,
-			entitySchemaId: input.entitySchemaId,
-		}),
-	getEntityByIdForUser: async (input) =>
-		createListedEntity({ id: input.entityId }),
-	getEntitySchemaScopeForUser: async (input) => ({
-		isBuiltin: false,
-		userId: input.userId,
-		id: input.entitySchemaId,
-		propertiesSchema: { title: { type: "string" as const, required: true } },
-	}),
-	getEntityScopeForUser: async (input) => ({
-		isBuiltin: false,
-		entityId: input.entityId,
-		entitySchemaId: "schema_1",
-	}),
-	...overrides,
-});
 
 describe("resolveEntityName", () => {
 	it("trims the provided name", () => {
@@ -94,10 +53,7 @@ describe("resolveEntityId", () => {
 
 describe("parseEntityProperties", () => {
 	it("validates properties against schema", () => {
-		const propertiesSchema = {
-			pages: { type: "integer" as const },
-			title: { type: "string" as const, required: true as const },
-		};
+		const propertiesSchema = createTitleAndPagesPropertiesSchema();
 
 		const properties = { pages: 350, title: "My Book" };
 
@@ -107,10 +63,7 @@ describe("parseEntityProperties", () => {
 	});
 
 	it("accepts properties with optional fields missing", () => {
-		const propertiesSchema = {
-			pages: { type: "integer" as const },
-			title: { type: "string" as const, required: true as const },
-		};
+		const propertiesSchema = createTitleAndPagesPropertiesSchema();
 
 		const properties = { title: "My Book" };
 
@@ -120,10 +73,7 @@ describe("parseEntityProperties", () => {
 	});
 
 	it("rejects properties missing required fields", () => {
-		const propertiesSchema = {
-			pages: { type: "integer" as const },
-			title: { type: "string" as const, required: true as const },
-		};
+		const propertiesSchema = createTitleAndPagesPropertiesSchema();
 
 		const properties = { pages: 350 };
 
@@ -133,10 +83,7 @@ describe("parseEntityProperties", () => {
 	});
 
 	it("rejects properties with wrong type", () => {
-		const propertiesSchema = {
-			title: { type: "string" as const, required: true as const },
-			pages: { type: "integer" as const },
-		};
+		const propertiesSchema = createTitleAndPagesPropertiesSchema();
 
 		const properties = {
 			title: "My Book",
@@ -149,9 +96,7 @@ describe("parseEntityProperties", () => {
 	});
 
 	it("rejects non-object properties", () => {
-		const propertiesSchema = {
-			title: { type: "string" as const },
-		};
+		const propertiesSchema = createOptionalTitlePropertiesSchema();
 
 		expect(() =>
 			parseEntityProperties({ properties: "not an object", propertiesSchema }),
@@ -159,9 +104,7 @@ describe("parseEntityProperties", () => {
 	});
 
 	it("rejects array properties", () => {
-		const propertiesSchema = {
-			title: { type: "string" as const },
-		};
+		const propertiesSchema = createOptionalTitlePropertiesSchema();
 
 		expect(() =>
 			parseEntityProperties({ properties: [], propertiesSchema }),
@@ -169,15 +112,7 @@ describe("parseEntityProperties", () => {
 	});
 
 	it("validates nested object properties", () => {
-		const propertiesSchema = {
-			metadata: {
-				type: "object" as const,
-				properties: {
-					year: { type: "integer" as const },
-					author: { type: "string" as const },
-				},
-			},
-		};
+		const propertiesSchema = createNestedMetadataPropertiesSchema();
 
 		const properties = {
 			metadata: { year: 2024, author: "John Doe" },
@@ -191,10 +126,7 @@ describe("parseEntityProperties", () => {
 
 describe("resolveEntityCreateInput", () => {
 	it("returns normalized payload", () => {
-		const propertiesSchema = {
-			pages: { type: "integer" as const },
-			title: { type: "string" as const, required: true as const },
-		};
+		const propertiesSchema = createTitleAndPagesPropertiesSchema();
 
 		expect(
 			resolveEntityCreateInput({
@@ -211,9 +143,7 @@ describe("resolveEntityCreateInput", () => {
 	});
 
 	it("accepts a remote image url", () => {
-		const propertiesSchema = {
-			title: { type: "string" as const, required: true as const },
-		};
+		const propertiesSchema = createRequiredTitlePropertiesSchema();
 
 		expect(
 			resolveEntityCreateInput({
@@ -230,9 +160,7 @@ describe("resolveEntityCreateInput", () => {
 	});
 
 	it("accepts an s3 image key", () => {
-		const propertiesSchema = {
-			title: { type: "string" as const, required: true as const },
-		};
+		const propertiesSchema = createRequiredTitlePropertiesSchema();
 
 		expect(
 			resolveEntityCreateInput({
@@ -249,9 +177,7 @@ describe("resolveEntityCreateInput", () => {
 	});
 
 	it("rejects invalid remote image urls", () => {
-		const propertiesSchema = {
-			title: { type: "string" as const, required: true as const },
-		};
+		const propertiesSchema = createRequiredTitlePropertiesSchema();
 
 		expect(() =>
 			resolveEntityCreateInput({
@@ -268,7 +194,7 @@ describe("getEntityDetail", () => {
 	it("returns not found when the entity does not exist", async () => {
 		const result = await getEntityDetail(
 			{ entityId: "entity_1", userId: "user_1" },
-			createDeps({ getEntityScopeForUser: async () => undefined }),
+			createEntityDeps({ getEntityScopeForUser: async () => undefined }),
 		);
 
 		expect(result).toEqual({
@@ -281,7 +207,7 @@ describe("getEntityDetail", () => {
 describe("createEntity", () => {
 	it("normalizes the payload before persisting", async () => {
 		let createdName: string | undefined;
-		const deps = createDeps({
+		const deps = createEntityDeps({
 			createEntityForUser: async (input) => {
 				createdName = input.name;
 				return createListedEntity({
@@ -313,7 +239,7 @@ describe("createEntity", () => {
 	it("returns validation when the schema is built in", async () => {
 		const result = await createEntity(
 			{ body: createEntityBody(), userId: "user_1" },
-			createDeps({
+			createEntityDeps({
 				getEntitySchemaScopeForUser: async () => ({
 					userId: null,
 					id: "schema_1",
@@ -335,7 +261,7 @@ describe("createEntity", () => {
 				userId: "user_1",
 				body: { ...createEntityBody(), entitySchemaId: "   " },
 			},
-			createDeps(),
+			createEntityDeps(),
 		);
 
 		expect(result).toEqual({

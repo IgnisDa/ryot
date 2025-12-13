@@ -1,107 +1,19 @@
 import { describe, expect, it } from "bun:test";
+import {
+	createListedTracker,
+	createReorderTrackersBody,
+	createTrackerBody,
+	createTrackerDeps,
+	createUpdateTrackerBody,
+} from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
-import type {
-	CreateTrackerBody,
-	ListedTracker,
-	ReorderTrackersBody,
-	UpdateTrackerBody,
-} from "./schemas";
 import {
 	buildTrackerOrder,
 	createTracker,
 	reorderTrackers,
 	resolveTrackerPatch,
-	type TrackerServiceDeps,
 	updateTracker,
 } from "./service";
-
-const createListedTracker = (
-	overrides: Partial<ListedTracker> = {},
-): ListedTracker => ({
-	config: null,
-	icon: "film",
-	sortOrder: 0,
-	slug: "media",
-	name: "Media",
-	id: "tracker_1",
-	isBuiltin: false,
-	isDisabled: false,
-	description: null,
-	accentColor: "#5B7FFF",
-	...overrides,
-});
-
-const createOwnedTracker = (
-	overrides: Partial<{
-		id: string;
-		icon: string;
-		name: string;
-		slug: string;
-		accentColor: string;
-		description: string | null;
-	}> = {},
-) => ({
-	icon: "film",
-	slug: "media",
-	name: "Media",
-	id: "tracker_1",
-	description: null,
-	accentColor: "#5B7FFF",
-	...overrides,
-});
-
-const createTrackerBody = (): CreateTrackerBody => ({
-	icon: "film",
-	name: "Media",
-	accentColor: "#5B7FFF",
-	description: "Track media",
-});
-
-const createUpdateTrackerBody = (): UpdateTrackerBody => ({
-	icon: "film",
-	name: "Media",
-	isDisabled: false,
-	accentColor: "#5B7FFF",
-	description: "Track media",
-});
-
-const createReorderTrackersBody = (): ReorderTrackersBody => ({
-	trackerIds: ["tracker_2", "tracker_1"],
-});
-
-const createDeps = (
-	overrides: Partial<TrackerServiceDeps> = {},
-): TrackerServiceDeps => ({
-	createTrackerForUser: async (input) =>
-		createListedTracker({
-			slug: input.slug,
-			name: input.name,
-			icon: input.icon,
-			accentColor: input.accentColor,
-			description: input.description ?? null,
-		}),
-	countVisibleTrackersByIdsForUser: async (input) => input.trackerIds.length,
-	getOwnedTrackerById: async (input) =>
-		createOwnedTracker({ id: input.trackerId }),
-	getTrackerBySlugForUser: async () => undefined,
-	listUserTrackerIdsInOrder: async () => [
-		"tracker_1",
-		"tracker_2",
-		"tracker_3",
-	],
-	persistTrackerOrderForUser: async (input) => input.trackerIds,
-	updateTrackerForUser: async (input) =>
-		createListedTracker({
-			icon: input.icon,
-			name: input.name,
-			slug: input.slug,
-			id: input.trackerId,
-			isDisabled: input.isDisabled,
-			description: input.description,
-			accentColor: input.accentColor,
-		}),
-	...overrides,
-});
 
 describe("resolveTrackerPatch", () => {
 	it("keeps current slug when neither name nor slug changes", () => {
@@ -190,7 +102,7 @@ describe("buildTrackerOrder", () => {
 describe("createTracker", () => {
 	it("normalizes the slug before persisting", async () => {
 		let createdSlug: string | undefined;
-		const deps = createDeps({
+		const deps = createTrackerDeps({
 			createTrackerForUser: async (input) => {
 				createdSlug = input.slug;
 				return createListedTracker({ slug: input.slug, name: input.name });
@@ -214,7 +126,7 @@ describe("createTracker", () => {
 	it("returns validation when the slug already exists", async () => {
 		const result = await createTracker(
 			{ body: createTrackerBody(), userId: "user_1" },
-			createDeps({
+			createTrackerDeps({
 				getTrackerBySlugForUser: async () => ({ id: "tracker_2" }),
 			}),
 		);
@@ -235,7 +147,7 @@ describe("updateTracker", () => {
 					trackerId: "tracker_1",
 					body: { isDisabled: true },
 				},
-				createDeps(),
+				createTrackerDeps(),
 			),
 		);
 
@@ -256,7 +168,7 @@ describe("updateTracker", () => {
 						accentColor: "#FF0000",
 					},
 				},
-				createDeps({
+				createTrackerDeps({
 					updateTrackerForUser: async (input) => {
 						updateCallCount++;
 						return createListedTracker({
@@ -283,7 +195,7 @@ describe("updateTracker", () => {
 				trackerId: "tracker_1",
 				body: createUpdateTrackerBody(),
 			},
-			createDeps({ getOwnedTrackerById: async () => undefined }),
+			createTrackerDeps({ getOwnedTrackerById: async () => undefined }),
 		);
 
 		expect(result).toEqual({
@@ -299,7 +211,7 @@ describe("updateTracker", () => {
 				trackerId: "   ",
 				body: { isDisabled: true },
 			},
-			createDeps(),
+			createTrackerDeps(),
 		);
 
 		expect(result).toEqual({
@@ -314,7 +226,7 @@ describe("reorderTrackers", () => {
 		const reordered = expectDataResult(
 			await reorderTrackers(
 				{ body: createReorderTrackersBody(), userId: "user_1" },
-				createDeps(),
+				createTrackerDeps(),
 			),
 		);
 
@@ -328,7 +240,7 @@ describe("reorderTrackers", () => {
 	it("returns validation for unknown tracker ids", async () => {
 		const result = await reorderTrackers(
 			{ body: createReorderTrackersBody(), userId: "user_1" },
-			createDeps({ countVisibleTrackersByIdsForUser: async () => 1 }),
+			createTrackerDeps({ countVisibleTrackersByIdsForUser: async () => 1 }),
 		);
 
 		expect(result).toEqual({

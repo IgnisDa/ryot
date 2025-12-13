@@ -1,9 +1,14 @@
 import { describe, expect, it } from "bun:test";
+import {
+	createEventBody,
+	createEventCreateScope,
+	createEventDeps,
+	createListedEvent,
+	createNoteAndRatingPropertiesSchema,
+} from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
-import type { CreateEventBody, ListedEvent } from "./schemas";
 import {
 	createEvent,
-	type EventServiceDeps,
 	listEntityEvents,
 	parseEventProperties,
 	resolveEventCreateInput,
@@ -11,59 +16,6 @@ import {
 	resolveEventSchemaId,
 	resolveOccurredAt,
 } from "./service";
-
-const createEventBody = (): CreateEventBody => ({
-	entityId: "entity_1",
-	eventSchemaId: "event_schema_1",
-	occurredAt: "2026-03-08T10:15:00.000Z",
-	properties: { rating: 4 },
-});
-
-const createListedEvent = (
-	overrides: Partial<ListedEvent> = {},
-): ListedEvent => ({
-	id: "event_1",
-	entityId: "entity_1",
-	properties: { rating: 4 },
-	eventSchemaSlug: "finished",
-	eventSchemaName: "Finished",
-	eventSchemaId: "event_schema_1",
-	createdAt: new Date("2024-01-01T00:00:00.000Z"),
-	updatedAt: new Date("2024-01-01T00:00:00.000Z"),
-	occurredAt: new Date("2026-03-08T10:15:00.000Z"),
-	...overrides,
-});
-
-const createDeps = (
-	overrides: Partial<EventServiceDeps> = {},
-): EventServiceDeps => ({
-	createEventForUser: async (input) =>
-		createListedEvent({
-			entityId: input.entityId,
-			occurredAt: input.occurredAt,
-			properties: input.properties,
-			eventSchemaId: input.eventSchemaId,
-			eventSchemaName: input.eventSchemaName,
-			eventSchemaSlug: input.eventSchemaSlug,
-		}),
-	getEntityScopeForUser: async (input) => ({
-		isBuiltin: false,
-		entityId: input.entityId,
-		entitySchemaId: "schema_1",
-	}),
-	getEventCreateScopeForUser: async (input) => ({
-		isBuiltin: false,
-		entityId: input.entityId,
-		entitySchemaId: "schema_1",
-		eventSchemaSlug: "finished",
-		eventSchemaName: "Finished",
-		eventSchemaId: input.eventSchemaId,
-		eventSchemaEntitySchemaId: "schema_1",
-		propertiesSchema: { rating: { type: "number" as const, required: true } },
-	}),
-	listEventsByEntityForUser: async () => [createListedEvent()],
-	...overrides,
-});
 
 describe("resolveEventEntityId", () => {
 	it("trims the provided entity id", () => {
@@ -118,10 +70,7 @@ describe("resolveOccurredAt", () => {
 
 describe("parseEventProperties", () => {
 	it("validates properties against schema", () => {
-		const propertiesSchema = {
-			note: { type: "string" as const },
-			rating: { type: "number" as const, required: true as const },
-		};
+		const propertiesSchema = createNoteAndRatingPropertiesSchema();
 
 		expect(
 			parseEventProperties({
@@ -132,10 +81,7 @@ describe("parseEventProperties", () => {
 	});
 
 	it("accepts optional fields missing", () => {
-		const propertiesSchema = {
-			note: { type: "string" as const },
-			rating: { type: "number" as const, required: true as const },
-		};
+		const propertiesSchema = createNoteAndRatingPropertiesSchema();
 
 		expect(
 			parseEventProperties({
@@ -146,10 +92,7 @@ describe("parseEventProperties", () => {
 	});
 
 	it("rejects missing required fields", () => {
-		const propertiesSchema = {
-			note: { type: "string" as const },
-			rating: { type: "number" as const, required: true as const },
-		};
+		const propertiesSchema = createNoteAndRatingPropertiesSchema();
 
 		expect(() =>
 			parseEventProperties({
@@ -193,10 +136,7 @@ describe("parseEventProperties", () => {
 
 describe("resolveEventCreateInput", () => {
 	it("returns normalized payload", () => {
-		const propertiesSchema = {
-			note: { type: "string" as const },
-			rating: { type: "number" as const, required: true as const },
-		};
+		const propertiesSchema = createNoteAndRatingPropertiesSchema();
 
 		const input = resolveEventCreateInput({
 			propertiesSchema,
@@ -217,7 +157,7 @@ describe("listEntityEvents", () => {
 	it("returns not found when the entity does not exist", async () => {
 		const result = await listEntityEvents(
 			{ entityId: "entity_1", userId: "user_1" },
-			createDeps({ getEntityScopeForUser: async () => undefined }),
+			createEventDeps({ getEntityScopeForUser: async () => undefined }),
 		);
 
 		expect(result).toEqual({
@@ -230,7 +170,7 @@ describe("listEntityEvents", () => {
 describe("createEvent", () => {
 	it("normalizes event payload before persisting", async () => {
 		let createdOccurredAt: Date | undefined;
-		const deps = createDeps({
+		const deps = createEventDeps({
 			createEventForUser: async (input) => {
 				createdOccurredAt = input.occurredAt;
 				return createListedEvent({
@@ -262,19 +202,16 @@ describe("createEvent", () => {
 	it("returns validation when the event schema belongs to another entity schema", async () => {
 		const result = await createEvent(
 			{ body: createEventBody(), userId: "user_1" },
-			createDeps({
-				getEventCreateScopeForUser: async (input) => ({
-					isBuiltin: false,
-					entityId: input.entityId,
-					entitySchemaId: "schema_1",
-					eventSchemaSlug: "finished",
-					eventSchemaName: "Finished",
-					eventSchemaId: input.eventSchemaId,
-					eventSchemaEntitySchemaId: "schema_2",
-					propertiesSchema: {
-						rating: { type: "number" as const, required: true },
-					},
-				}),
+			createEventDeps({
+				getEventCreateScopeForUser: async (input) =>
+					createEventCreateScope({
+						entityId: input.entityId,
+						eventSchemaId: input.eventSchemaId,
+						eventSchemaEntitySchemaId: "schema_2",
+						propertiesSchema: {
+							rating: { type: "number" as const, required: true },
+						},
+					}),
 			}),
 		);
 
@@ -290,7 +227,7 @@ describe("createEvent", () => {
 				userId: "user_1",
 				body: { ...createEventBody(), entityId: "   " },
 			},
-			createDeps(),
+			createEventDeps(),
 		);
 
 		expect(result).toEqual({

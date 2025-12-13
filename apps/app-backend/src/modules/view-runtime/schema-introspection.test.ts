@@ -1,20 +1,15 @@
 import { describe, expect, it } from "bun:test";
 import {
+	createSmartphoneSchema,
+	createTabletSchema,
+} from "~/lib/test-fixtures";
+import {
 	buildSchemaMap,
 	getPropertyType,
 	parseFieldPath,
 } from "./schema-introspection";
 
-const smartphoneSchema = {
-	slug: "smartphones",
-	propertiesSchema: {
-		announcedAt: { type: "date" as const },
-		nameplate: { type: "string" as const },
-		screenSize: { type: "number" as const },
-		isFoldable: { type: "boolean" as const },
-		releaseYear: { type: "integer" as const },
-	},
-};
+const smartphoneSchema = createSmartphoneSchema();
 
 describe("getPropertyType", () => {
 	it("returns property types for supported primitives", () => {
@@ -32,10 +27,7 @@ describe("getPropertyType", () => {
 
 describe("buildSchemaMap", () => {
 	it("indexes schemas by slug", () => {
-		const tabletSchema = {
-			slug: "tablets",
-			propertiesSchema: { releaseYear: { type: "integer" as const } },
-		};
+		const tabletSchema = createTabletSchema();
 
 		const schemaMap = buildSchemaMap([smartphoneSchema, tabletSchema]);
 
