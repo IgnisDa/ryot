@@ -124,36 +124,36 @@ describe("GET /entities/:entityId — translation overlay", () => {
 		const episodeSchemaId = await getBuiltinEntitySchemaId("show-episode");
 
 		const show = await seedPopulatedTmdbEntity(client, {
-			externalId: "1399",
+			externalId: "246",
 			schemaSlug: "show",
-			name: "Canonical Game of Thrones",
+			name: "Canonical Avatar: The Last Airbender",
 			properties: { description: "Canonical English show overview." },
 		});
 		const season = await seedPopulatedTmdbEntity(client, {
-			externalId: "3624",
+			externalId: "785",
 			schemaSlug: "show-season",
-			name: "Canonical Season 1",
 			sandboxScriptId: showScriptId,
 			entitySchemaId: seasonSchemaId,
+			name: "Canonical Book One: Water",
 			properties: {
 				seasonNumber: 1,
-				releaseDate: "2011-04-17",
-				parentShowExternalId: "1399",
+				releaseDate: "2005-02-21",
+				parentShowExternalId: "246",
 				description: "Canonical English season overview.",
 			},
 		});
 		const episode = await seedPopulatedTmdbEntity(client, {
-			externalId: "63056",
+			externalId: "13535",
 			schemaSlug: "show-episode",
 			sandboxScriptId: showScriptId,
 			entitySchemaId: episodeSchemaId,
-			name: "Canonical Winter Is Coming",
+			name: "Canonical The Boy in the Iceberg",
 			properties: {
-				runtime: 62,
+				runtime: 24,
 				seasonNumber: 1,
 				episodeNumber: 1,
-				publishDate: "2011-04-17",
-				parentShowExternalId: "1399",
+				publishDate: "2005-02-21",
+				parentShowExternalId: "246",
 				description: "Canonical English episode overview.",
 			},
 		});
@@ -162,15 +162,15 @@ describe("GET /entities/:entityId — translation overlay", () => {
 
 		const firstShowRead = await getEntity(client, show.id);
 		expect(firstShowRead.translationStatus).toBe("pending");
-		expect(firstShowRead.name).toBe("Canonical Game of Thrones");
+		expect(firstShowRead.name).toBe("Canonical Avatar: The Last Airbender");
 
 		const firstSeasonRead = await getEntity(client, season.id);
 		expect(firstSeasonRead.translationStatus).toBe("pending");
-		expect(firstSeasonRead.name).toBe("Canonical Season 1");
+		expect(firstSeasonRead.name).toBe("Canonical Book One: Water");
 
 		const firstEpisodeRead = await getEntity(client, episode.id);
 		expect(firstEpisodeRead.translationStatus).toBe("pending");
-		expect(firstEpisodeRead.name).toBe("Canonical Winter Is Coming");
+		expect(firstEpisodeRead.name).toBe("Canonical The Boy in the Iceberg");
 
 		const [localizedShowRead, localizedSeasonRead, localizedEpisodeRead] = await Promise.all([
 			pollEntityUntilTranslationStatus(client, show.id, "ready", { timeoutMs: 90_000 }),
@@ -178,13 +178,13 @@ describe("GET /entities/:entityId — translation overlay", () => {
 			pollEntityUntilTranslationStatus(client, episode.id, "ready", { timeoutMs: 90_000 }),
 		]);
 
-		expect(localizedShowRead.name).not.toBe("Canonical Game of Thrones");
+		expect(localizedShowRead.name).not.toBe("Canonical Avatar: The Last Airbender");
 		expect(localizedShowRead.properties.description).not.toBe("Canonical English show overview.");
-		expect(localizedSeasonRead.name).not.toBe("Canonical Season 1");
+		expect(localizedSeasonRead.name).not.toBe("Canonical Book One: Water");
 		expect(localizedSeasonRead.properties.description).not.toBe(
 			"Canonical English season overview.",
 		);
-		expect(localizedEpisodeRead.name).not.toBe("Canonical Winter Is Coming");
+		expect(localizedEpisodeRead.name).not.toBe("Canonical The Boy in the Iceberg");
 		expect(localizedEpisodeRead.properties.description).not.toBe(
 			"Canonical English episode overview.",
 		);
