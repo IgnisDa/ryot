@@ -1,34 +1,22 @@
 import { Badge, Box, Card, Text } from "@mantine/core";
+import { useThemeTokens } from "#/hooks/theme";
 
 export interface EntityCardProps {
 	name: string;
 	image?: string;
 	rating?: string;
-	isDark?: boolean;
 	lastEvent: string;
 	schemaName: string;
 	trackerColor?: { base: string; muted: string };
 }
 
 export function EntityCard(props: EntityCardProps) {
-	const isDark = props.isDark ?? false;
-	const surface = isDark ? "var(--mantine-color-dark-8)" : "white";
-	const surfaceHover = isDark
-		? "var(--mantine-color-dark-7)"
-		: "var(--mantine-color-stone-1)";
-	const border = isDark
-		? "var(--mantine-color-dark-6)"
-		: "var(--mantine-color-stone-3)";
+	const { isDark, surface, surfaceHover, border, textPrimary, textMuted } =
+		useThemeTokens();
 	const borderAccent = "var(--mantine-color-accent-5)";
-	const textPrimary = isDark
-		? "var(--mantine-color-dark-0)"
-		: "var(--mantine-color-dark-9)";
 	const textSecondary = isDark
 		? "var(--mantine-color-dark-3)"
 		: "var(--mantine-color-dark-5)";
-	const textMuted = isDark
-		? "var(--mantine-color-dark-4)"
-		: "var(--mantine-color-stone-5)";
 
 	const trackerColor = props.trackerColor ?? {
 		base: "#5B7FFF",
