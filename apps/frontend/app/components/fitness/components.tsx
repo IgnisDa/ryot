@@ -343,6 +343,7 @@ export const ExerciseUpdatePreferencesModal = (props: {
 	opened: boolean;
 	exerciseId: string;
 	onClose: () => void;
+	exerciseLot: ExerciseLot;
 	userExerciseDetails: UserExerciseDetails;
 }) => {
 	const form = useSavedForm({
