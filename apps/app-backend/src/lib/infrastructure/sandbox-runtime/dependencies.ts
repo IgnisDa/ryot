@@ -49,14 +49,6 @@ const legacyYoutubeiRuntime = {
 	entryRelativePath: "dist/src/platform/deno.js",
 } as const;
 
-export const SANDBOX_LEGACY_RUNTIME_IMPORTS = {
-	"npm:zod": SANDBOX_APPROVED_DEPENDENCIES[0].sdkImport,
-	"npm:dayjs": SANDBOX_APPROVED_DEPENDENCIES[1].sdkImport,
-	"npm:cheerio": SANDBOX_APPROVED_DEPENDENCIES[2].sdkImport,
-	"npm:youtubei.js": SANDBOX_APPROVED_DEPENDENCIES[3].sdkImport,
-	"npm:dayjs/plugin/customParseFormat.js": dayjsPluginRuntime.sdkImport,
-} as const;
-
 const runtimeModules = [
 	...SANDBOX_APPROVED_DEPENDENCIES.slice(0, 3).map((dependency) =>
 		Object.assign({}, dependency, {
