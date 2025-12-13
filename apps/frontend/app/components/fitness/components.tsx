@@ -397,15 +397,16 @@ export const ExerciseUpdatePreferencesModal = (props: {
 							type: "checkbox",
 						})}
 					/>
-					<Text size="sm">
-						When a new set is added, rest timers will be added automatically
-						according to the settings below.
-						<Text size="xs" c="dimmed" span>
-							{" "}
-							Default rest timer durations for all exercises can be changed in
-							the fitness preferences.
+					<Box>
+						<Text size="sm">
+							When a new set is added, rest timers will be added automatically
+							according to the settings below.
 						</Text>
-					</Text>
+						<Text mt={4} size="xs" c="dimmed">
+							Note: Default rest timer durations for all exercises can be
+							changed in the fitness preferences.
+						</Text>
+					</Box>
 					<SimpleGrid cols={2}>
 						{(["normal", "warmup", "drop", "failure"] as const).map((name) => (
 							<NumberInput
