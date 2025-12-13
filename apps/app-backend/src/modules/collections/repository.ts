@@ -10,7 +10,6 @@ type CollectionRow = Pick<
 	typeof schema.entity.$inferSelect,
 	| "id"
 	| "name"
-	| "image"
 	| "createdAt"
 	| "updatedAt"
 	| "externalId"
@@ -22,7 +21,6 @@ type CollectionRow = Pick<
 const collectionSelection = {
 	id: schema.entity.id,
 	name: schema.entity.name,
-	image: schema.entity.image,
 	createdAt: schema.entity.createdAt,
 	updatedAt: schema.entity.updatedAt,
 	externalId: schema.entity.externalId,
@@ -32,11 +30,10 @@ const collectionSelection = {
 };
 
 const toCollectionResponse = (row: CollectionRow) => ({
-	id: EntityId.make(row.id),
 	name: row.name,
-	image: row.image,
 	properties: row.properties,
 	externalId: row.externalId,
+	id: EntityId.make(row.id),
 	entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),

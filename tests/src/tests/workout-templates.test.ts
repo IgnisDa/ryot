@@ -177,8 +177,8 @@ describe("Workout Templates E2E", () => {
 			displayConfiguration: {
 				grid: {
 					calloutProperty: null,
+					imageProperty: null,
 					titleProperty: createEntityColumnExpression("workout-template", "name"),
-					imageProperty: createEntityColumnExpression("workout-template", "image"),
 					primarySubtitleProperty: createEntityColumnExpression("workout-template", "createdAt"),
 					secondarySubtitleProperty: createEntityPropertyExpression("workout-template", "comment"),
 				},
@@ -206,7 +206,6 @@ describe("Workout Templates E2E", () => {
 				schemas: ["workout-template"],
 				fields: [
 					{ key: "title", expr: systemRef("template", "name") },
-					{ key: "image", expr: systemRef("template", "image") },
 					{ key: "primarySubtitle", expr: systemRef("template", "createdAt") },
 					{
 						key: "secondarySubtitle",
@@ -278,7 +277,6 @@ describe("Workout Templates E2E", () => {
 		} satisfies WorkoutTemplateProperties;
 
 		const workoutTemplate = await createEntity(client, {
-			image: null,
 			properties: workoutTemplateProperties,
 			entitySchemaId: workoutTemplateSchema.id,
 			name: `Workout Template ${crypto.randomUUID()}`,
@@ -320,7 +318,6 @@ describe("Workout Templates E2E", () => {
 		const { workoutTemplateId, workoutTemplate } = await createWorkoutTemplateEntityFixture(client);
 		const workoutName = `Workout ${crypto.randomUUID()}`;
 		const { id: workoutId } = await createEntity(client, {
-			image: null,
 			name: workoutName,
 			entitySchemaId: workoutSchema.id,
 			properties: {
@@ -401,7 +398,6 @@ describe("Workout Templates E2E", () => {
 		const { workoutTemplateId, workoutTemplate } = await createWorkoutTemplateEntityFixture(client);
 		const workoutName = `Workout ${crypto.randomUUID()}`;
 		const { id: workoutId } = await createEntity(client, {
-			image: null,
 			name: workoutName,
 			entitySchemaId: workoutSchema.id,
 			properties: {

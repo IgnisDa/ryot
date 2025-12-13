@@ -56,7 +56,7 @@ const buildSchemaDisplayConfiguration = (slug: string) => ({
 	entityIdProperty: createEntityColumnExpression(slug, "id"),
 	table: { columns: [{ label: "Name", expression: [entityField(slug, "name")] }] },
 	grid: {
-		imageProperty: [entityField(slug, "image")],
+		imageProperty: null,
 		titleProperty: [entityField(slug, "name")],
 		eyebrowProperty: createEntitySchemaExpression("name"),
 		calloutProperty: null,
@@ -64,7 +64,7 @@ const buildSchemaDisplayConfiguration = (slug: string) => ({
 		secondarySubtitleProperty: null,
 	},
 	list: {
-		imageProperty: [entityField(slug, "image")],
+		imageProperty: null,
 		titleProperty: [entityField(slug, "name")],
 		eyebrowProperty: createEntitySchemaExpression("name"),
 		calloutProperty: null,

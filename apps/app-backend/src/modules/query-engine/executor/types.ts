@@ -17,7 +17,6 @@ export type TimeSeriesQueryDocument = QueryDocument & { output: TimeSeriesOutput
 export type BaseEntityQueryRow = {
 	id: string;
 	name: string;
-	image: unknown;
 	schemaId: string;
 	schemaSlug: string;
 	schemaName: string;

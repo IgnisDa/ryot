@@ -36,14 +36,12 @@ const canonicalFields = (
 	translatableKeys: ReadonlyArray<string>,
 ): TranslationFields => ({
 	name: entity.name,
-	image: entity.image,
 	properties: pickTranslatable(asRecord(entity.properties), translatableKeys),
 });
 
 const withMergedFields = (entity: ListedEntity, fields: TranslationFields): ListedEntity => ({
 	...entity,
 	name: fields.name,
-	image: fields.image,
 	properties: { ...asRecord(entity.properties), ...fields.properties },
 });
 
@@ -129,7 +127,6 @@ export class TranslationsService extends Effect.Service<TranslationsService>()(
 							? null
 							: {
 									name: overlayRow.name,
-									image: overlayRow.image,
 									properties: pickTranslatable(
 										asRecord(overlayRow.properties),
 										input.translatableKeys,

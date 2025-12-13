@@ -4,7 +4,6 @@ import { DateTime, Effect, Schema } from "effect";
 import { DbRunner } from "#lib/db";
 import { SandboxRunError, dieOnDbError, toSandboxRunError } from "#lib/errors";
 import { EntityId, SandboxScriptId } from "#lib/schema/brands";
-import { EntityImage } from "#modules/entities/schemas";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 
 import { TranslationsRepository } from "./repository";
@@ -25,7 +24,6 @@ export const translateEntityExecutionId = (input: { entityId: EntityId; language
 	`translate-${input.entityId}-${input.language}`;
 
 const TranslateDriverResult = Schema.Struct({
-	image: Schema.optional(Schema.NullOr(EntityImage)),
 	name: Schema.optional(Schema.NullOr(Schema.String)),
 	properties: Schema.optional(
 		Schema.NullOr(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
@@ -85,7 +83,6 @@ const runTranslateEntityWorkflow = Effect.fn("runTranslateEntityWorkflow")(funct
 					entityId: payload.entityId,
 					language: payload.language,
 					name: translation.name ?? null,
-					image: translation.image ?? null,
 					properties: translation.properties ?? null,
 				}),
 			).pipe(dieOnDbError);

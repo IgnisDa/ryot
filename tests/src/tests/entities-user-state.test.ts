@@ -175,19 +175,16 @@ describe("POST /user-state/merge", () => {
 			slug: `merged-event-${crypto.randomUUID()}`,
 		});
 		const source = await createEntity(client, {
-			image: null,
 			name: "Source Entity",
 			entitySchemaId: schemaId,
 			properties: { title: "Source" },
 		});
 		const target = await createEntity(client, {
-			image: null,
 			name: "Target Entity",
 			entitySchemaId: schemaId,
 			properties: { title: "Target" },
 		});
 		const related = await createEntity(client, {
-			image: null,
 			name: "Related Entity",
 			entitySchemaId: schemaId,
 			properties: { title: "Related" },

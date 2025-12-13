@@ -184,12 +184,12 @@ function buildTranslationResult(translationData, detailsData, language) {
 	if (name) {
 		result.name = name;
 	}
-	if (image) {
-		result.image = image;
-	}
 	const properties = {};
 	if (description) {
 		properties.description = description;
+	}
+	if (image) {
+		properties.images = [image];
 	}
 	if (Object.keys(properties).length > 0) {
 		result.properties = properties;
@@ -366,7 +366,10 @@ function collectPeople(characters) {
 		}
 	}
 
-	return { relatedEntities: [...relatedEntityByKey.values()], unlinkedCreators };
+	return {
+		relatedEntities: [...relatedEntityByKey.values()],
+		unlinkedCreators,
+	};
 }
 
 function buildSeason(parentShowExternalId, seasonData) {
@@ -428,14 +431,14 @@ function buildSeason(parentShowExternalId, seasonData) {
 				entitySchemaSlug: "show-episode",
 				externalId: String(epId),
 				name: epName ?? `Episode ${epNumber}`,
-				image: epImage ? { type: "remote", url: epImage } : null,
 				properties: {
 					seasonNumber,
 					runtime: epRuntime,
+					parentShowExternalId,
 					description: epOverview,
 					episodeNumber: epNumber,
 					publishDate: epPublishDate,
-					parentShowExternalId,
+					...(epImage ? { images: [{ type: "remote", url: epImage }] } : {}),
 				},
 			};
 		})
@@ -448,11 +451,11 @@ function buildSeason(parentShowExternalId, seasonData) {
 		externalId: String(id),
 		name: `Season ${seasonNumber}`,
 		entitySchemaSlug: "show-season",
-		image: posterImage ? { type: "remote", url: posterImage } : null,
 		properties: {
 			seasonNumber,
-			releaseDate: publishDate,
 			parentShowExternalId,
+			releaseDate: publishDate,
+			...(posterImage ? { images: [{ type: "remote", url: posterImage }] } : {}),
 		},
 	};
 }

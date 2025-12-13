@@ -8,7 +8,6 @@ import {
 	type ResolvedLotEntityMigrationTarget,
 	type ResolvedRelationshipTarget,
 	buildLotEntityTargetValuesSql,
-	buildPrimaryImageSql,
 	buildRelationshipTargetValuesSql,
 } from "./shared";
 
@@ -192,7 +191,6 @@ BEGIN
 			"id",
 			"external_id",
 			"name",
-			"image",
 			"created_at",
 			"populated_at",
 			"user_id",
@@ -205,7 +203,6 @@ BEGIN
 			mg.id,
 			mg.identifier,
 			mg.title,
-			${buildPrimaryImageSql("mg")},
 			mg.last_updated_on,
 			NULL,
 			mg.created_by_user_id,
