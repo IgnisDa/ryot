@@ -38,27 +38,11 @@ import { TrackerIcon } from "#/features/trackers/icons";
 import type { AppTracker } from "#/features/trackers/model";
 import { SetupGuidedFlow } from "#/features/trackers/setup-guided-flow";
 import { TrackerOverview } from "#/features/trackers/tracker-overview";
+import { getErrorMessage } from "#/lib/errors";
 
 export const Route = createFileRoute("/_protected/$trackerSlug/")({
 	component: RouteComponent,
 });
-
-function getErrorMessage(error: unknown) {
-	if (error instanceof Error && error.message) {
-		return error.message;
-	}
-
-	const parsed = error as {
-		message?: string;
-		error?: { message?: string };
-	};
-
-	return (
-		parsed?.error?.message ??
-		parsed?.message ??
-		"Failed to create schema. Please try again."
-	);
-}
 
 function TrackerHeader(props: { tracker: AppTracker }) {
 	return (
