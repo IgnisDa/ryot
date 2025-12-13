@@ -4,5 +4,5 @@ export * from "./events";
 export * from "./imports";
 export * from "./translations";
 export * from "./views";
-export * from "./auth"
-export * from "./relations"
+export * from "./auth";
+export * from "./relations";
