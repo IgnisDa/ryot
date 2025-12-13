@@ -1,0 +1,342 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("Spotify returned invalid JSON");
+  }
+}
+
+function getString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getNullableString(value) {
+  const s = getString(value);
+  return s || null;
+}
+
+function getPublishYear(releaseDateStr, dayjs) {
+  if (typeof releaseDateStr !== "string" || !releaseDateStr.trim()) return null;
+  const d = dayjs(releaseDateStr.trim());
+  return d.isValid() && d.year() > 0 ? d.year() : null;
+}
+
+function getPublishDate(releaseDateStr) {
+  if (typeof releaseDateStr !== "string" || !releaseDateStr.trim()) return null;
+  const trimmed = releaseDateStr.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+  return trimmed;
+}
+
+function getImagesSortedBySize(images) {
+  if (!Array.isArray(images) || images.length === 0) {
+    return [];
+  }
+
+  const sorted = [...images].sort((a, b) => {
+    const sizeA = (a.width || 0) * (a.height || 0);
+    const sizeB = (b.width || 0) * (b.height || 0);
+    return sizeB - sizeA;
+  });
+
+  return sorted
+    .map((img) => img.url)
+    .filter((url) => typeof url === "string" && url);
+}
+
+function getFirstImage(images) {
+  return getImagesSortedBySize(images)[0] || null;
+}
+
+const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
+const SPOTIFY_API_URL = "https://api.spotify.com/v1";
+const TOKEN_CACHE_KEY = "spotify_access_token";
+
+async function getCredentials() {
+  const [clientIdResp, clientSecretResp] = await Promise.all([
+    getAppConfigValue("music.spotify.clientId"),
+    getAppConfigValue("music.spotify.clientSecret"),
+  ]);
+
+  if (!clientIdResp?.success) {
+    throw new Error(
+      clientIdResp?.error ?? "Failed to retrieve Spotify client ID",
+    );
+  }
+  if (!clientSecretResp?.success) {
+    throw new Error(
+      clientSecretResp?.error ?? "Failed to retrieve Spotify client secret",
+    );
+  }
+
+  const clientId =
+    typeof clientIdResp.data === "string" ? clientIdResp.data.trim() : null;
+  const clientSecret =
+    typeof clientSecretResp.data === "string"
+      ? clientSecretResp.data.trim()
+      : null;
+
+  if (!clientId) {
+    throw new Error(
+      "Spotify client ID is not configured. Set MUSIC_SPOTIFY_CLIENT_ID in your environment.",
+    );
+  }
+  if (!clientSecret) {
+    throw new Error(
+      "Spotify client secret is not configured. Set MUSIC_SPOTIFY_CLIENT_SECRET in your environment.",
+    );
+  }
+
+  return { clientId, clientSecret };
+}
+
+async function getAccessToken() {
+  const cached = await getCachedValue(TOKEN_CACHE_KEY);
+  if (cached?.success && typeof cached.data === "string" && cached.data) {
+    return cached.data;
+  }
+
+  const { clientId, clientSecret } = await getCredentials();
+  const credentials = btoa(`${clientId}:${clientSecret}`);
+
+  const response = await httpCall("POST", SPOTIFY_TOKEN_URL, {
+    body: "grant_type=client_credentials",
+    headers: {
+      Authorization: `Basic ${credentials}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Spotify token request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+  if (!payload?.access_token) {
+    throw new Error(
+      "Spotify token response did not include an access token",
+    );
+  }
+
+  const expiresIn =
+    typeof payload.expires_in === "number" && payload.expires_in > 0
+      ? payload.expires_in
+      : 3600;
+  const expiryWithBuffer = Math.max(60, expiresIn - 300);
+
+  const cacheResult = await setCachedValue(
+    TOKEN_CACHE_KEY,
+    payload.access_token,
+    expiryWithBuffer,
+  );
+  if (!cacheResult?.success) {
+    console.warn(`Spotify token cache write failed: ${cacheResult?.error}`);
+  }
+
+  return payload.access_token;
+}
+
+async function spotifyGet(path, params) {
+  const accessToken = await getAccessToken();
+  const search = params
+    ? `?${new URLSearchParams(params).toString()}`
+    : "";
+
+  const response = await httpCall(
+    "GET",
+    `${SPOTIFY_API_URL}${path}${search}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+
+  if (!response?.success) {
+    throw new Error(
+      response?.error ?? `Spotify request failed: ${path}`,
+    );
+  }
+
+  return parseJsonResponse(response.data.body);
+}
+
+driver("search", async function(context) {
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
+
+  const offset = (currentPage - 1) * pageSize;
+
+  const data = await spotifyGet("/search", {
+    q: query,
+    type: "track",
+    limit: String(pageSize),
+    offset: String(offset),
+  });
+
+  const tracks = data?.tracks;
+  const totalItems =
+    typeof tracks?.total === "number" ? tracks.total : 0;
+  const trackItems = Array.isArray(tracks?.items) ? tracks.items : [];
+
+  const items = trackItems
+    .map((track) => {
+      const externalId = getString(track?.id);
+      if (!externalId) {
+        return null;
+      }
+
+      const title = getString(track?.name) || externalId;
+      const album = track?.album;
+      const publishYear = album ? getPublishYear(album.release_date, dayjs) : null;
+      const imageUrl = album?.images ? getFirstImage(album.images) : null;
+
+      return {
+        externalId,
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        primarySubtitleProperty:
+          publishYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: publishYear },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          imageUrl === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { type: "remote", url: imageUrl } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage:
+        offset + trackItems.length < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
+  }).parse(context ?? {});
+
+  const track = await spotifyGet(
+    `/tracks/${encodeURIComponent(externalId)}`,
+  );
+
+  const title = getString(track?.name);
+  if (!title) {
+    throw new Error("Spotify track is missing name");
+  }
+
+  const artists = Array.isArray(track?.artists) ? track.artists : [];
+  const byVariousArtists =
+    artists.length === 0 ? null : artists.length > 1;
+
+  const relatedEntityByKey = new Map();
+  const addRelatedEntity = (relatedEntity) => {
+    const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+    const existing = relatedEntityByKey.get(key);
+    if (!existing) {
+      relatedEntityByKey.set(key, relatedEntity);
+      return;
+    }
+
+    const roles = new Set([
+      ...(Array.isArray(existing.relationshipProperties.roles)
+        ? existing.relationshipProperties.roles
+        : []),
+      ...(Array.isArray(relatedEntity.relationshipProperties.roles)
+        ? relatedEntity.relationshipProperties.roles
+        : []),
+    ]);
+    existing.relationshipProperties.roles = [...roles];
+    if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+      existing.name = relatedEntity.name;
+    }
+  };
+
+  for (const artist of artists) {
+    const artistId = getString(artist?.id);
+    if (!artistId) {
+      continue;
+    }
+
+    const artistName = getString(artist?.name) ?? "Loading...";
+
+    addRelatedEntity({
+      name: artistName,
+      externalId: artistId,
+      scriptSlug: "person.spotify",
+      relationshipProperties: {
+        roles: ["Artist"],
+      },
+    });
+  }
+
+  const album = track?.album;
+  const albumImages = Array.isArray(album?.images) ? album.images : [];
+  const publishYear = getPublishYear(album?.release_date, dayjs);
+  const albumRelatedEntities =
+    album && typeof album === "object" &&
+    typeof album.id === "string" && album.id.trim() &&
+    typeof album.name === "string" && album.name.trim()
+      ? [
+        {
+          name: album.name.trim(),
+          externalId: album.id.trim(),
+          scriptSlug: "music-group.spotify",
+          relationshipProperties: {
+            roles: ["Member"],
+          },
+        },
+      ]
+      : [];
+
+  for (const albumRelatedEntity of albumRelatedEntities) {
+    addRelatedEntity(albumRelatedEntity);
+  }
+
+  const durationMs =
+    typeof track?.duration_ms === "number" &&
+    Number.isFinite(track.duration_ms)
+      ? track.duration_ms
+      : null;
+  const duration =
+    durationMs !== null ? Math.trunc(durationMs / 1000) : null;
+
+  const popularity =
+    typeof track?.popularity === "number" &&
+    Number.isFinite(track.popularity)
+      ? track.popularity
+      : null;
+
+  const isNsfw =
+    typeof track?.explicit === "boolean" ? track.explicit : null;
+
+  const sourceUrl = getNullableString(track?.external_urls?.spotify);
+
+  return {
+    name: title,
+    properties: {
+      isNsfw,
+      duration,
+      sourceUrl,
+      genres: [],
+      publishYear,
+      byVariousArtists,
+      providerRating: popularity,
+      publishDate: getPublishDate(album?.release_date),
+      images: getImagesSortedBySize(albumImages).map((url) => ({ type: "remote", url })),
+    },
+    relatedEntities: [...relatedEntityByKey.values()],
+  };
+});

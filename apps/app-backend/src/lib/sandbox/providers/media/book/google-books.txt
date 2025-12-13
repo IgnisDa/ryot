@@ -1,0 +1,329 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("Google Books returned invalid JSON");
+  }
+}
+
+function parsePublishYear(publishedDate, dayjs) {
+  if (typeof publishedDate !== "string" || !publishedDate.trim()) return null;
+  const d = dayjs(publishedDate.trim());
+  return d.isValid() ? d.year() : null;
+}
+
+function collectImages(imageLinks) {
+  if (!imageLinks || typeof imageLinks !== "object") {
+    return [];
+  }
+
+  const imageSet = new Set();
+  const imageCandidates = [
+    imageLinks.thumbnail,
+    imageLinks.smallThumbnail,
+    imageLinks.small,
+    imageLinks.medium,
+    imageLinks.large,
+    imageLinks.extraLarge,
+  ];
+
+  for (const imageUrl of imageCandidates) {
+    if (typeof imageUrl !== "string") {
+      continue;
+    }
+    const trimmedImageUrl = imageUrl.trim();
+    if (!trimmedImageUrl) {
+      continue;
+    }
+    imageSet.add(trimmedImageUrl);
+  }
+
+  return [...imageSet];
+}
+
+function collectUnlinkedCreators(authors, publisher) {
+  const unlinkedCreators = [];
+  const seen = new Set();
+
+  if (Array.isArray(authors)) {
+    for (const author of authors) {
+      if (typeof author !== "string") {
+        continue;
+      }
+      const trimmedAuthor = author.trim();
+      if (!trimmedAuthor) {
+        continue;
+      }
+
+      const key = `Author:${trimmedAuthor}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+
+      unlinkedCreators.push({ role: "Author", name: trimmedAuthor });
+    }
+  }
+
+  if (typeof publisher === "string") {
+    const trimmedPublisher = publisher.trim();
+    if (trimmedPublisher) {
+      const key = `Publisher:${trimmedPublisher}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        unlinkedCreators.push({ role: "Publisher", name: trimmedPublisher });
+      }
+    }
+  }
+
+  return unlinkedCreators;
+}
+
+function collectGenres(categories, mainCategory) {
+  const genreSet = new Set();
+
+  if (Array.isArray(categories)) {
+    for (const category of categories) {
+      if (typeof category !== "string") {
+        continue;
+      }
+
+      for (const genreToken of category.split(" / ")) {
+        const titleToken = toTitleCase(genreToken.trim());
+        if (!titleToken) {
+          continue;
+        }
+        genreSet.add(titleToken);
+      }
+    }
+  }
+
+  if (typeof mainCategory === "string") {
+    const trimmedMainCategory = mainCategory.trim();
+    if (trimmedMainCategory) {
+      genreSet.add(trimmedMainCategory);
+    }
+  }
+
+  return [...genreSet];
+}
+
+function pickImage(imageLinks) {
+  if (!imageLinks || typeof imageLinks !== "object") {
+    return null;
+  }
+
+  const candidates = [
+    imageLinks.thumbnail,
+    imageLinks.smallThumbnail,
+    imageLinks.small,
+    imageLinks.medium,
+    imageLinks.large,
+    imageLinks.extraLarge,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+async function getGoogleBooksApiKey() {
+  const configValueResponse = await getAppConfigValue(
+    "books.googleBooks.apiKey",
+  );
+  if (!configValueResponse?.success) {
+    throw new Error(
+      configValueResponse?.error ?? "Could not load Google Books API key",
+    );
+  }
+
+  const apiKey =
+    typeof configValueResponse.data === "string"
+      ? configValueResponse.data.trim()
+      : "";
+  if (!apiKey) {
+    throw new Error("BOOKS_GOOGLE_BOOKS_API_KEY is not configured");
+  }
+
+  return apiKey;
+}
+
+driver("search", async function(context) {
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
+
+  const apiKey = await getGoogleBooksApiKey();
+
+  const params = new URLSearchParams({
+    printType: "books",
+    q: `intitle:${query}`,
+    maxResults: String(pageSize),
+    startIndex: String((currentPage - 1) * pageSize),
+  });
+
+  const response = await httpCall(
+    "GET",
+    `https://www.googleapis.com/books/v1/volumes?${params.toString()}`,
+    { headers: { "x-goog-api-key": apiKey } },
+  );
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Google Books search request failed");
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(response.data.body);
+  } catch {
+    throw new Error("Google Books returned invalid JSON");
+  }
+
+  const totalItems =
+    typeof payload?.totalItems === "number" && Number.isFinite(payload.totalItems)
+      ? Math.max(0, Math.trunc(payload.totalItems))
+      : 0;
+
+  const volumes = Array.isArray(payload?.items) ? payload.items : [];
+  const items = volumes
+    .map((volume) => {
+      const externalId = typeof volume?.id === "string" ? volume.id : "";
+      if (!externalId) {
+        return null;
+      }
+
+      const volumeInfo =
+        volume?.volumeInfo && typeof volume.volumeInfo === "object"
+          ? volume.volumeInfo
+          : null;
+
+      const image = pickImage(volumeInfo?.imageLinks);
+      const publishYear = parsePublishYear(volumeInfo?.publishedDate, dayjs);
+      const title = typeof volumeInfo?.title === "string" ? volumeInfo.title : "";
+
+      return {
+        externalId,
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        primarySubtitleProperty:
+          publishYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: publishYear },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { type: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems: totalItems,
+      nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const { externalId: contextIdentifier } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
+  }).parse(context ?? {});
+
+  const apiKey = await getGoogleBooksApiKey();
+
+  const response = await httpCall(
+    "GET",
+    `https://www.googleapis.com/books/v1/volumes/${encodeURIComponent(contextIdentifier)}`,
+    { headers: { "x-goog-api-key": apiKey } },
+  );
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Google Books details request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  const externalId =
+    typeof payload?.id === "string" && payload.id.trim()
+      ? payload.id
+      : contextIdentifier;
+
+  const volumeInfo =
+    payload?.volumeInfo && typeof payload.volumeInfo === "object"
+      ? payload.volumeInfo
+      : null;
+  const title = typeof volumeInfo?.title === "string" ? volumeInfo.title : "";
+  if (!title) {
+    throw new Error("Google Books payload is missing title");
+  }
+
+  const pages =
+    typeof volumeInfo?.pageCount === "number" &&
+    Number.isFinite(volumeInfo.pageCount)
+      ? Math.trunc(volumeInfo.pageCount)
+      : null;
+
+  return {
+    name: title,
+    properties: {
+      pages,
+      publishYear: parsePublishYear(volumeInfo?.publishedDate, dayjs),
+      images: collectImages(volumeInfo?.imageLinks).map((url) => ({ type: "remote", url })),
+      genres: collectGenres(volumeInfo?.categories, volumeInfo?.mainCategory),
+      sourceUrl: `https://www.google.co.in/books/edition/${title}/${externalId}`,
+      unlinkedCreators: collectUnlinkedCreators(volumeInfo?.authors, volumeInfo?.publisher),
+      description:
+        typeof volumeInfo?.description === "string"
+          ? volumeInfo.description
+          : null,
+    },
+  };
+});
+
+driver("resolve", async function(context) {
+  if (!context || context.identifierType !== "isbn") {
+    throw new Error("Google Books resolve supports only isbn identifiers");
+  }
+  const value = typeof context.value === "string" ? context.value.trim() : "";
+  if (!value) {
+    throw new Error("Google Books resolve requires a non-empty isbn value");
+  }
+
+  const apiKey = await getGoogleBooksApiKey();
+
+  const params = new URLSearchParams({
+    maxResults: "1",
+    printType: "books",
+    q: `isbn:${value}`,
+  });
+
+  const response = await httpCall(
+    "GET",
+    `https://www.googleapis.com/books/v1/volumes?${params.toString()}`,
+    { headers: { "x-goog-api-key": apiKey } },
+  );
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Google Books ISBN lookup failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+  const id =
+    typeof payload?.items?.[0]?.id === "string" ? payload.items[0].id.trim() : "";
+
+  return { externalId: id || null };
+});

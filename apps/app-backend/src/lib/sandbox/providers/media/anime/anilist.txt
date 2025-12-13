@@ -1,0 +1,487 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("Anilist returned invalid JSON");
+  }
+}
+
+function extractGraphQlErrorMessage(payload) {
+  if (!Array.isArray(payload?.errors) || payload.errors.length === 0) {
+    return null;
+  }
+
+  const firstError = payload.errors[0];
+  const message =
+    typeof firstError?.message === "string" ? firstError.message.trim() : "";
+
+  return message || "unknown GraphQL error";
+}
+
+function pickImage(coverImage, bannerImage) {
+  const candidates = [coverImage?.extraLarge, bannerImage];
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string") {
+      continue;
+    }
+
+    const trimmedCandidate = candidate.trim();
+    if (trimmedCandidate) {
+      return trimmedCandidate;
+    }
+  }
+
+  return null;
+}
+
+async function getAnilistPreferences() {
+  const prefsResult = await getUserPreferences();
+
+  let titleLang = "user_preferred";
+  let showNsfw = false;
+
+  if (prefsResult?.success) {
+    showNsfw = prefsResult.data?.isNsfw === true;
+
+    const providers = prefsResult.data?.languages?.providers;
+    if (Array.isArray(providers)) {
+      const anilistPref = providers.find(
+        (p) => p && typeof p === "object" && p.source === "anilist",
+      );
+      const lang =
+        anilistPref &&
+        typeof anilistPref.preferredLanguage === "string" &&
+        anilistPref.preferredLanguage.trim()
+          ? anilistPref.preferredLanguage.trim().toLowerCase()
+          : "user_preferred";
+
+      const valid = ["english", "romaji", "native", "user_preferred"];
+      titleLang = valid.includes(lang) ? lang : "user_preferred";
+    }
+  }
+
+  return { titleLang, showNsfw };
+}
+
+function pickAnilistTitle(title, lang) {
+  const byLang = {
+    english: title?.english,
+    romaji: title?.romaji,
+    native: title?.native,
+    user_preferred: title?.userPreferred,
+  };
+  return (
+    (lang && typeof byLang[lang] === "string" && byLang[lang].trim()
+      ? byLang[lang].trim()
+      : null) ??
+    (typeof title?.english === "string" && title.english.trim()
+      ? title.english.trim()
+      : null) ??
+    (typeof title?.userPreferred === "string" && title.userPreferred.trim()
+      ? title.userPreferred.trim()
+      : null) ??
+    (typeof title?.romaji === "string" && title.romaji.trim()
+      ? title.romaji.trim()
+      : null) ??
+    (typeof title?.native === "string" && title.native.trim()
+      ? title.native.trim()
+      : null) ??
+    ""
+  );
+}
+
+function parsePublishYear(startDate) {
+  const year = startDate?.year;
+  if (typeof year !== "number" || !Number.isFinite(year)) {
+    return null;
+  }
+
+  return Math.trunc(year);
+}
+
+function collectImages(coverImage, bannerImage) {
+  const imageSet = new Set();
+  const candidates = [coverImage?.extraLarge, bannerImage];
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string") {
+      continue;
+    }
+
+    const trimmedCandidate = candidate.trim();
+    if (trimmedCandidate) {
+      imageSet.add(trimmedCandidate);
+    }
+  }
+
+  return [...imageSet].map((url) => ({ type: "remote", url }));
+}
+
+function collectGenres(genres, tags) {
+  const genreSet = new Set();
+
+  if (Array.isArray(genres)) {
+    for (const genre of genres) {
+      if (typeof genre !== "string") {
+        continue;
+      }
+      const trimmedGenre = genre.trim();
+      if (trimmedGenre) {
+        genreSet.add(trimmedGenre);
+      }
+    }
+  }
+
+  if (Array.isArray(tags)) {
+    for (const tag of tags) {
+      const name = typeof tag?.name === "string" ? tag.name.trim() : "";
+      if (name) {
+        genreSet.add(name);
+      }
+    }
+  }
+
+  return [...genreSet];
+}
+
+function toIsoDateTime(unixSeconds, dayjs) {
+  if (typeof unixSeconds !== "number" || !Number.isFinite(unixSeconds)) {
+    return null;
+  }
+  const d = dayjs.unix(Math.trunc(unixSeconds));
+  return d.isValid() ? d.toISOString() : null;
+}
+
+function parseAiringSchedule(airingSchedule, nextAiringEpisode, dayjs) {
+  const scheduleByEpisode = new Map();
+
+  const nodes = Array.isArray(airingSchedule?.nodes)
+    ? airingSchedule.nodes
+    : [];
+  for (const node of nodes) {
+    if (!node || typeof node !== "object") {
+      continue;
+    }
+
+    const episode =
+      typeof node.episode === "number" && Number.isFinite(node.episode)
+        ? Math.trunc(node.episode)
+        : null;
+    if (episode === null) {
+      continue;
+    }
+
+    const airingAt = toIsoDateTime(node.airingAt, dayjs);
+    if (!airingAt) {
+      continue;
+    }
+
+    scheduleByEpisode.set(episode, airingAt);
+  }
+
+  if (nextAiringEpisode && typeof nextAiringEpisode === "object") {
+    const episode =
+      typeof nextAiringEpisode.episode === "number" &&
+      Number.isFinite(nextAiringEpisode.episode)
+        ? Math.trunc(nextAiringEpisode.episode)
+        : null;
+    const airingAt = toIsoDateTime(nextAiringEpisode.airingAt, dayjs);
+
+    if (episode !== null && airingAt) {
+      scheduleByEpisode.set(episode, airingAt);
+    }
+  }
+
+  const schedule = [...scheduleByEpisode.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([episode, airingAt]) => ({ episode, airingAt }));
+
+  return schedule.length > 0 ? schedule : null;
+}
+
+async function cleanHtmlDescription(html) {
+  if (typeof html !== "string" || !html.trim()) return null;
+  const { load } = await import("npm:cheerio");
+  const $ = load(html);
+  $("br").replaceWith("\n");
+  return $.root().text().trim() || null;
+}
+
+driver("search", async function(context) {
+  const { z } = await import("npm:zod");
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
+
+  const { titleLang, showNsfw } = await getAnilistPreferences();
+
+  const graphqlQuery = `
+query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: MediaType!, $isAdult: Boolean) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo { total }
+    media(search: $search, type: $type, isAdult: $isAdult) {
+      id
+      bannerImage
+      startDate { year }
+      coverImage { extraLarge }
+      title { english romaji native userPreferred }
+    }
+  }
+}
+`;
+
+  const response = await httpCall("POST", "https://graphql.anilist.co", {
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query: graphqlQuery,
+      variables: {
+        type: "ANIME",
+        search: query,
+        page: currentPage,
+        perPage: pageSize,
+        // null = no isAdult filter (all content); false = non-adult only
+        isAdult: showNsfw ? null : false,
+      },
+    }),
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Anilist anime search request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  const graphQlErrorMessage = extractGraphQlErrorMessage(payload);
+  if (graphQlErrorMessage) {
+    throw new Error(`Anilist anime search GraphQL error: ${graphQlErrorMessage}`);
+  }
+
+  const pageData =
+    payload?.data?.Page && typeof payload.data.Page === "object"
+      ? payload.data.Page
+      : null;
+
+  if (!pageData) {
+    throw new Error("Anilist returned invalid response structure");
+  }
+
+  const totalItems =
+    typeof pageData?.pageInfo?.total === "number" &&
+    Number.isFinite(pageData.pageInfo.total)
+      ? Math.max(0, Math.trunc(pageData.pageInfo.total))
+      : 0;
+
+  const mediaItems = Array.isArray(pageData.media) ? pageData.media : [];
+  const items = mediaItems
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const mediaId =
+        typeof item.id === "number" && Number.isFinite(item.id)
+          ? Math.trunc(item.id)
+          : null;
+      if (mediaId === null || mediaId <= 0) {
+        return null;
+      }
+
+      const title = pickAnilistTitle(item.title, titleLang);
+
+      const image = pickImage(item.coverImage, item.bannerImage);
+      const publishYear = parsePublishYear(item.startDate);
+
+      return {
+        externalId: String(mediaId),
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        primarySubtitleProperty:
+          publishYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: publishYear },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { type: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems: totalItems,
+      nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const { externalId: contextIdentifier } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
+  }).parse(context ?? {});
+
+  if (!/^\d+$/.test(contextIdentifier)) {
+    throw new Error("externalId must be a numeric Anilist media id");
+  }
+
+  const mediaId = Number(contextIdentifier);
+  if (!Number.isSafeInteger(mediaId) || mediaId <= 0) {
+    throw new Error(
+      "externalId must be a positive safe integer Anilist media id",
+    );
+  }
+
+  const { titleLang } = await getAnilistPreferences();
+
+  const graphqlQuery = `
+query MediaDetailsQuery($id: Int!) {
+  Media(id: $id) {
+    id
+    type
+    genres
+    status
+    isAdult
+    episodes
+    description
+    bannerImage
+    averageScore
+    tags { name }
+    startDate { year }
+    coverImage { extraLarge }
+    nextAiringEpisode { episode airingAt }
+    title { english romaji native userPreferred }
+    airingSchedule { nodes { episode airingAt } }
+    studios { nodes { id name } }
+  }
+}
+`;
+
+  const response = await httpCall("POST", "https://graphql.anilist.co", {
+    body: JSON.stringify({ query: graphqlQuery, variables: { id: mediaId } }),
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Anilist anime details request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  const graphQlErrorMessage = extractGraphQlErrorMessage(payload);
+  if (graphQlErrorMessage) {
+    throw new Error(
+      `Anilist anime details GraphQL error: ${graphQlErrorMessage}`,
+    );
+  }
+
+  const media =
+    payload?.data?.Media && typeof payload.data.Media === "object"
+      ? payload.data.Media
+      : null;
+
+  if (!media) {
+    throw new Error("Anilist returned no media data");
+  }
+
+  if (media.type !== "ANIME") {
+    throw new Error("Anilist media is not an anime entry");
+  }
+
+  const payloadIdentifier =
+    typeof media.id === "number" && Number.isFinite(media.id)
+      ? String(Math.trunc(media.id))
+      : contextIdentifier;
+
+  const title = pickAnilistTitle(media.title, titleLang);
+  if (!title) {
+    throw new Error("Anilist anime payload is missing title");
+  }
+
+  const episodes =
+    typeof media?.episodes === "number" && Number.isFinite(media.episodes)
+      ? Math.max(0, Math.trunc(media.episodes))
+      : null;
+
+  const productionStatus =
+    typeof media?.status === "string" && media.status.trim()
+      ? toTitleCase(media.status)
+      : null;
+
+  const rawDescription =
+    typeof media?.description === "string" ? media.description : null;
+  const description = await cleanHtmlDescription(rawDescription);
+
+  const studioNodes =
+    media.studios?.nodes && Array.isArray(media.studios.nodes)
+      ? media.studios.nodes
+      : [];
+  const relatedEntities = [];
+  const seenStudios = new Set();
+  for (const studio of studioNodes) {
+    if (!studio || typeof studio !== "object") {
+      continue;
+    }
+
+    const studioId =
+      typeof studio.id === "number" && Number.isFinite(studio.id)
+        ? Math.trunc(studio.id)
+        : null;
+    if (studioId === null || seenStudios.has(studioId)) {
+      continue;
+    }
+    seenStudios.add(studioId);
+
+    const studioName =
+      typeof studio.name === "string" && studio.name.trim()
+        ? studio.name.trim()
+        : "Loading...";
+
+    relatedEntities.push({
+      name: studioName,
+      externalId: String(studioId),
+      scriptSlug: "company.anilist",
+      relationshipProperties: {
+        roles: ["Animation Studio"],
+      },
+    });
+  }
+
+  return {
+    name: title,
+    properties: {
+      episodes,
+      productionStatus: productionStatus,
+      publishYear: parsePublishYear(media.startDate),
+      genres: collectGenres(media.genres, media.tags),
+      isNsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
+      sourceUrl: `https://anilist.co/anime/${payloadIdentifier}/${encodeURIComponent(title)}`,
+      description,
+      images: collectImages(media.coverImage, media.bannerImage),
+      airingSchedule: parseAiringSchedule(
+        media.airingSchedule,
+        media.nextAiringEpisode,
+        dayjs,
+      ),
+      providerRating:
+        typeof media?.averageScore === "number" &&
+        Number.isFinite(media.averageScore)
+          ? media.averageScore
+          : null,
+    },
+    relatedEntities,
+  };
+});
