@@ -1,18 +1,15 @@
-import type {
-	SandboxCompilationDiagnostic,
-	SandboxCompilationFailure,
-} from "@ryot/contract/modules/sandbox/schemas";
+import { SANDBOX_RUNTIME_SDK_IMPORTS, SANDBOX_SDK_ROOT_IMPORT } from "@ryot/sandbox-sdk/imports";
 import { Effect } from "effect";
 
 import {
-	SANDBOX_RUNTIME_SDK_IMPORTS,
-	SANDBOX_SDK_ROOT_IMPORT,
-} from "#lib/infrastructure/sandbox-runtime/dependencies";
-
-import { SANDBOX_SOURCE_FILE, sandboxCompilationFailure } from "./compiler-diagnostics";
+	type SandboxCompilerDiagnostic,
+	type SandboxCompilerFailure,
+	SANDBOX_SOURCE_FILE,
+	sandboxCompilationFailure,
+} from "./compiler-diagnostics";
 
 type BundleResult =
-	| { readonly diagnostics: readonly SandboxCompilationDiagnostic[] }
+	| { readonly diagnostics: readonly SandboxCompilerDiagnostic[] }
 	| { readonly javascript: string };
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -30,7 +27,7 @@ const buildDiagnosticSeverity = (level: BuildMessage["level"]) => {
 	return "error" as const;
 };
 
-const toBuildDiagnostic = (log: BuildMessage | ResolveMessage): SandboxCompilationDiagnostic => ({
+const toBuildDiagnostic = (log: BuildMessage | ResolveMessage): SandboxCompilerDiagnostic => ({
 	code: "RYOT_BUNDLE",
 	message: log.message,
 	file: SANDBOX_SOURCE_FILE,
@@ -87,7 +84,7 @@ export const bundleUserScript = (source: string, sdkEntries: Readonly<Record<str
 				},
 			]),
 	}).pipe(
-		Effect.flatMap((result): Effect.Effect<BundleResult, SandboxCompilationFailure> => {
+		Effect.flatMap((result): Effect.Effect<BundleResult, SandboxCompilerFailure> => {
 			if (!result.success) {
 				return Effect.succeed({
 					diagnostics: result.logs.map(toBuildDiagnostic),
