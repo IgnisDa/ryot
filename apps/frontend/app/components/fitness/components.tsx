@@ -25,9 +25,11 @@ import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import Body, { type ExtendedBodyPart } from "@mjcdev/react-body-highlighter";
 import {
+	ExerciseDurationUnit,
 	type ExerciseLot,
 	SetLot,
 	UpdateUserExerciseSettingsDocument,
+	type UserExerciseDetailsQuery,
 	type UserUnitSystem,
 	type WorkoutSupersetsInformation,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -333,20 +335,13 @@ const DisplayExerciseAttributes = (props: {
 	) : null;
 };
 
+type UserExerciseDetails = UserExerciseDetailsQuery["userExerciseDetails"];
+
 export const ExerciseUpdatePreferencesModal = (props: {
 	opened: boolean;
 	exerciseId: string;
 	onClose: () => void;
-	userExerciseDetails: {
-		details?: {
-			exerciseExtraInformation?: {
-				settings: {
-					excludeFromAnalytics?: boolean;
-					setRestTimers: Record<string, number | null>;
-				};
-			} | null;
-		} | null;
-	};
+	userExerciseDetails: UserExerciseDetails;
 }) => {
 	const form = useSavedForm({
 		storageKeyPrefix: `ExerciseUpdatePreferencesModal-${props.exerciseId}`,
@@ -357,14 +352,18 @@ export const ExerciseUpdatePreferencesModal = (props: {
 			setRestTimers:
 				props.userExerciseDetails.details?.exerciseExtraInformation?.settings
 					.setRestTimers ?? {},
+			defaultDurationUnit:
+				props.userExerciseDetails.details?.exerciseExtraInformation?.settings
+					.defaultDurationUnit ?? ExerciseDurationUnit.Minutes,
 		},
 	});
 
 	const updateUserExerciseSettingsMutation = useMutation({
-		mutationFn: async (values: {
-			excludeFromAnalytics: boolean;
-			setRestTimers: Record<string, number | null>;
-		}) => {
+		mutationFn: async (
+			values: NonNullable<
+				NonNullable<UserExerciseDetails["details"]>["exerciseExtraInformation"]
+			>["settings"],
+		) => {
 			await clientGqlService.request(UpdateUserExerciseSettingsDocument, {
 				input: { change: values, exerciseId: props.exerciseId },
 			});
@@ -374,9 +373,9 @@ export const ExerciseUpdatePreferencesModal = (props: {
 	return (
 		<Modal
 			centered
-			withCloseButton={false}
 			opened={props.opened}
 			onClose={props.onClose}
+			withCloseButton={false}
 		>
 			<form
 				onSubmit={form.onSubmit(async (values) => {
@@ -391,12 +390,6 @@ export const ExerciseUpdatePreferencesModal = (props: {
 				})}
 			>
 				<Stack>
-					<Switch
-						label="Exclude from analytics"
-						{...form.getInputProps("excludeFromAnalytics", {
-							type: "checkbox",
-						})}
-					/>
 					<Box>
 						<Text size="sm">
 							When a new set is added, rest timers will be added automatically
@@ -417,6 +410,12 @@ export const ExerciseUpdatePreferencesModal = (props: {
 							/>
 						))}
 					</SimpleGrid>
+					<Switch
+						label="Exclude from analytics"
+						{...form.getInputProps("excludeFromAnalytics", {
+							type: "checkbox",
+						})}
+					/>
 					<Button
 						type="submit"
 						loading={updateUserExerciseSettingsMutation.isPending}
@@ -433,70 +432,66 @@ export const ExerciseMusclesModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	bodyViewSide: "front" | "back";
-	setBodyViewSide: Dispatch<SetStateAction<"front" | "back">>;
-	bodyViewGender: "male" | "female";
-	setBodyViewGender: Dispatch<SetStateAction<"male" | "female">>;
 	bodyPartsData: ExtendedBodyPart[];
-}) => {
-	return (
-		<Modal
-			centered
-			size="lg"
-			title="Muscles"
-			opened={props.opened}
-			onClose={props.onClose}
-		>
-			<Stack>
-				<Group justify="center" gap="lg">
-					<Group gap="xs">
-						<Text size="sm">Side:</Text>
-						<Button.Group>
-							<Button
-								size="xs"
-								onClick={() => props.setBodyViewSide("front")}
-								variant={props.bodyViewSide === "front" ? "filled" : "outline"}
-							>
-								Front
-							</Button>
-							<Button
-								size="xs"
-								onClick={() => props.setBodyViewSide("back")}
-								variant={props.bodyViewSide === "back" ? "filled" : "outline"}
-							>
-								Back
-							</Button>
-						</Button.Group>
-					</Group>
-					<Group gap="xs">
-						<Text size="sm">Gender:</Text>
-						<Button.Group>
-							<Button
-								size="xs"
-								onClick={() => props.setBodyViewGender("male")}
-								variant={props.bodyViewGender === "male" ? "filled" : "outline"}
-							>
-								Male
-							</Button>
-							<Button
-								size="xs"
-								onClick={() => props.setBodyViewGender("female")}
-								variant={
-									props.bodyViewGender === "female" ? "filled" : "outline"
-								}
-							>
-								Female
-							</Button>
-						</Button.Group>
-					</Group>
+	bodyViewGender: "male" | "female";
+	setBodyViewSide: Dispatch<SetStateAction<"front" | "back">>;
+	setBodyViewGender: Dispatch<SetStateAction<"male" | "female">>;
+}) => (
+	<Modal
+		centered
+		size="lg"
+		title="Muscles"
+		opened={props.opened}
+		onClose={props.onClose}
+	>
+		<Stack>
+			<Group justify="center" gap="lg">
+				<Group gap="xs">
+					<Text size="sm">Side:</Text>
+					<Button.Group>
+						<Button
+							size="xs"
+							onClick={() => props.setBodyViewSide("front")}
+							variant={props.bodyViewSide === "front" ? "filled" : "outline"}
+						>
+							Front
+						</Button>
+						<Button
+							size="xs"
+							onClick={() => props.setBodyViewSide("back")}
+							variant={props.bodyViewSide === "back" ? "filled" : "outline"}
+						>
+							Back
+						</Button>
+					</Button.Group>
 				</Group>
-				<Center>
-					<Body
-						side={props.bodyViewSide}
-						data={props.bodyPartsData}
-						gender={props.bodyViewGender}
-					/>
-				</Center>
-			</Stack>
-		</Modal>
-	);
-};
+				<Group gap="xs">
+					<Text size="sm">Gender:</Text>
+					<Button.Group>
+						<Button
+							size="xs"
+							onClick={() => props.setBodyViewGender("male")}
+							variant={props.bodyViewGender === "male" ? "filled" : "outline"}
+						>
+							Male
+						</Button>
+						<Button
+							size="xs"
+							onClick={() => props.setBodyViewGender("female")}
+							variant={props.bodyViewGender === "female" ? "filled" : "outline"}
+						>
+							Female
+						</Button>
+					</Button.Group>
+				</Group>
+			</Group>
+			<Center>
+				<Body
+					side={props.bodyViewSide}
+					data={props.bodyPartsData}
+					gender={props.bodyViewGender}
+				/>
+			</Center>
+		</Stack>
+	</Modal>
+);
