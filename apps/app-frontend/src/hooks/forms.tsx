@@ -2,19 +2,22 @@ import {
 	Box,
 	Button,
 	Checkbox,
+	ColorInput,
 	FileButton,
 	Group,
 	Loader,
 	NumberInput,
 	Paper,
 	SegmentedControl,
+	Select,
 	Stack,
 	Text,
+	Textarea,
 	TextInput,
 } from "@mantine/core";
 import { createFormHook, createFormHookContexts } from "@tanstack/react-form";
 import { Link as LinkIcon, Upload } from "lucide-react";
-import type { HTMLInputTypeAttribute } from "react";
+import type { ComponentProps, HTMLInputTypeAttribute, ReactNode } from "react";
 import { useState } from "react";
 import { useApiClient } from "#/hooks/api";
 import type { ApiPostRequestBody } from "#/lib/api/types";
@@ -391,6 +394,111 @@ function ImageField(props: ImageFieldProps) {
 	);
 }
 
+type SelectFieldProps = {
+	label: string;
+	limit?: number;
+	required?: boolean;
+	disabled?: boolean;
+	placeholder?: string;
+	searchable?: boolean;
+	leftSection?: ReactNode;
+	data: ComponentProps<typeof Select>["data"];
+	renderOption?: ComponentProps<typeof Select>["renderOption"];
+};
+
+function SelectField(props: SelectFieldProps) {
+	const field = useFieldContext<string | number | bigint | boolean>();
+
+	return (
+		<div>
+			<Select
+				data={props.data}
+				label={props.label}
+				limit={props.limit}
+				required={props.required}
+				disabled={props.disabled}
+				onBlur={field.handleBlur}
+				searchable={props.searchable}
+				placeholder={props.placeholder}
+				leftSection={props.leftSection}
+				renderOption={props.renderOption}
+				value={field.state.value || null}
+				error={!field.state.meta.isValid}
+				onChange={(value) => field.handleChange(value ?? "")}
+			/>
+			{!field.state.meta.isValid && (
+				<Text c="red" size="xs">
+					{field.state.meta.errors.map((e) => e?.message).join(", ")}
+				</Text>
+			)}
+		</div>
+	);
+}
+
+type TextareaFieldProps = {
+	label: string;
+	rows?: number;
+	required?: boolean;
+	disabled?: boolean;
+	placeholder?: string;
+};
+
+function TextareaField(props: TextareaFieldProps) {
+	const field = useFieldContext<string>();
+
+	return (
+		<div>
+			<Textarea
+				rows={props.rows}
+				label={props.label}
+				required={props.required}
+				disabled={props.disabled}
+				value={field.state.value}
+				onBlur={field.handleBlur}
+				placeholder={props.placeholder}
+				error={!field.state.meta.isValid}
+				onChange={(event) => field.handleChange(event.currentTarget.value)}
+			/>
+			{!field.state.meta.isValid && (
+				<Text c="red" size="xs">
+					{field.state.meta.errors.map((e) => e?.message).join(", ")}
+				</Text>
+			)}
+		</div>
+	);
+}
+
+type ColorInputFieldProps = {
+	label: string;
+	required?: boolean;
+	disabled?: boolean;
+	placeholder?: string;
+};
+
+function ColorInputField(props: ColorInputFieldProps) {
+	const field = useFieldContext<string>();
+
+	return (
+		<div>
+			<ColorInput
+				label={props.label}
+				required={props.required}
+				disabled={props.disabled}
+				value={field.state.value}
+				onBlur={field.handleBlur}
+				placeholder={props.placeholder}
+				error={!field.state.meta.isValid}
+				onChange={(value) => field.handleChange(value)}
+			/>
+			{!field.state.meta.isValid && (
+				<Text c="red" size="xs">
+					{field.state.meta.errors.map((e) => e?.message).join(", ")}
+				</Text>
+			)}
+		</div>
+	);
+}
+
 type SubmitButtonProps = {
 	label: string;
 	variant?: string;
@@ -425,5 +533,13 @@ export const { useAppForm } = createFormHook({
 	formContext,
 	fieldContext,
 	formComponents: { SubmitButton },
-	fieldComponents: { CheckboxField, ImageField, NumberField, TextField },
+	fieldComponents: {
+		TextField,
+		ImageField,
+		NumberField,
+		SelectField,
+		CheckboxField,
+		TextareaField,
+		ColorInputField,
+	},
 });
