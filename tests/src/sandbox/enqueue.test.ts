@@ -47,7 +47,8 @@ describe("sandbox enqueue by script ID", () => {
 			name: "no-host-functions",
 			slug: `no-host-functions-${crypto.randomUUID()}`,
 			code: `driver("main", async function() {
-  return await executeQueryEngine({ source: { type: "entities", alias: "entity", schemas: ["movie"], where: null }, output: { type: "rows", fields: [], pagination: { page: 1, limit: 1 }, orderBy: [{ order: "asc", expr: { type: "ref", sourceAlias: "entity", field: { type: "system", name: "name" } } }] } });
+  const executeQueryEngine = hostRecord["executeQueryEngine"];
+  return await executeQueryEngine!({ source: { type: "entities", alias: "entity", schemas: ["movie"], where: null }, output: { type: "rows", fields: [], pagination: { page: 1, limit: 1 }, orderBy: [{ order: "asc", expr: { type: "ref", sourceAlias: "entity", field: { type: "system", name: "name" } } }] } });
 });`,
 		});
 
@@ -56,6 +57,6 @@ describe("sandbox enqueue by script ID", () => {
 		const result = await pollSandboxResult(client, jobId);
 		assertCompleted(result, "sandbox job");
 
-		expect(result.error).toContain("executeQueryEngine is not defined");
+		expect(result.error).toContain("executeQueryEngine is not a function");
 	});
 });
