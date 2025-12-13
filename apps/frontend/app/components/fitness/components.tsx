@@ -14,6 +14,7 @@ import {
 	Paper,
 	Popover,
 	ScrollArea,
+	Select,
 	SimpleGrid,
 	Skeleton,
 	Stack,
@@ -59,6 +60,7 @@ import {
 } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath, getSetColor } from "~/lib/shared/media-utils";
 import { clientGqlService } from "~/lib/shared/react-query";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
 	type TWorkoutDetails,
 	getWorkoutDetailsQuery,
@@ -415,6 +417,12 @@ export const ExerciseUpdatePreferencesModal = (props: {
 						{...form.getInputProps("excludeFromAnalytics", {
 							type: "checkbox",
 						})}
+					/>
+					<Select
+						size="sm"
+						label="Default duration unit"
+						data={convertEnumToSelectData(Object.values(ExerciseDurationUnit))}
+						{...form.getInputProps("defaultDurationUnit")}
 					/>
 					<Button
 						type="submit"
