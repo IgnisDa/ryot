@@ -22,7 +22,7 @@ import type {
 } from "#modules/integrations/schemas";
 import type { IntegrationLot } from "#modules/integrations/types";
 
-import { user } from "../auth";
+import { user } from "./auth";
 
 export const integration = pgTable(
 	"integration",

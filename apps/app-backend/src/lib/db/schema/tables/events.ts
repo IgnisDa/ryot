@@ -15,7 +15,7 @@ import {
 import type { AppSchema } from "#lib/schema/property-schema";
 import type { EventTriggerMetadata } from "#modules/events/schemas";
 
-import { user } from "../auth";
+import { user } from "./auth";
 import { entitySchema, sandboxScript } from "./core";
 import { entity } from "./entities";
 
