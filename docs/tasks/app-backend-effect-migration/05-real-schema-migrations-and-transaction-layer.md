@@ -10,7 +10,7 @@
 
 Migrate the real current database schema, migration runner, Drizzle database layer, database error mapping, and transaction runner into the new Effect backend. The migrated schema must reflect the current product schema, not the reference backend schema. The migration path must remain compatible with production packaging.
 
-Repositories should use Effect-returning database helpers that preserve PostgreSQL metadata and allow services to translate expected constraint failures into domain errors.
+Repositories should use Effect-returning database helpers that preserve PostgreSQL metadata and allow services to translate expected constraint failures into domain errors. Prefer to use bash commands to copy stuff over.
 
 ## Acceptance criteria
 
