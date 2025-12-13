@@ -283,3 +283,11 @@ pub enum WorkoutSetPersonalBest {
     Weight,
     Distance,
 }
+
+#[derive(Eq, Hash, Enum, Copy, Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExerciseDurationUnit {
+    Seconds,
+    #[default]
+    Minutes,
+}
