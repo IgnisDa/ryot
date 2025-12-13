@@ -30,13 +30,130 @@ const invalidOutput = defineDriver(manifest, {
 export default defineScript({ manifest, drivers: { main, invalidOutput } });
 `;
 
+const coreHostSource = `
+import {
+  cacheClaimSchema,
+  defineDriver,
+  defineManifest,
+  defineScript,
+  httpCallResponseSchema,
+  jsonValueSchema,
+  unwrapHostResult,
+  userPreferencesSchema,
+  z,
+} from "@ryot/sandbox-sdk";
+
+export const manifest = defineManifest({
+  kind: "script",
+  name: "Core host execution",
+  slug: "core-host-execution",
+  capabilities: [
+    "httpCall",
+    "getCachedValue",
+    "setCachedValue",
+    "claimCachedValue",
+    "getAppConfigValue",
+    "getUserPreferences",
+  ],
+  requiredAppConfigKeys: ["timezone"],
+});
+
+const main = defineDriver(manifest, {
+  input: z.object({ write: z.boolean() }),
+  output: z.object({
+    after: jsonValueSchema.nullable(),
+    before: jsonValueSchema.nullable(),
+    claim: cacheClaimSchema,
+    config: jsonValueSchema,
+    http: httpCallResponseSchema,
+    preferences: userPreferencesSchema,
+  }),
+  run: async (input, host, execution) => {
+    const before = unwrapHostResult(await host.getCachedValue("shared"));
+    if (input.write) {
+      unwrapHostResult(await host.setCachedValue("shared", { value: 42 }, 60));
+    }
+    const after = unwrapHostResult(await host.getCachedValue("shared"));
+    const claim = unwrapHostResult(
+      await host.claimCachedValue("persistent", { owner: execution.sandboxScriptId }, 60),
+    );
+    const http = unwrapHostResult(
+      await host.httpCall("POST", "https://example.com/core", {
+        body: "payload",
+        headers: { Accept: "application/json" },
+      }),
+    );
+    const config = unwrapHostResult(await host.getAppConfigValue("timezone"));
+    const preferences = unwrapHostResult(await host.getUserPreferences());
+    return { after, before, claim, config, http, preferences };
+  },
+});
+
+export default defineScript({ manifest, drivers: { main } });
+`;
+
+const filteredHostSource = `
+import {
+  defineDriver,
+  defineManifest,
+  defineScript,
+  jsonValueSchema,
+  z,
+} from "@ryot/sandbox-sdk";
+
+export const manifest = defineManifest({
+  kind: "script",
+  name: "Filtered host",
+  slug: "filtered-host",
+  capabilities: ["getCachedValue"],
+  requiredAppConfigKeys: [],
+});
+
+Object.defineProperty(manifest.capabilities, Symbol.iterator, {
+  value: function* () {
+    yield "getCachedValue";
+    yield "setCachedValue";
+  },
+});
+const nativeEncodeComponent = globalThis.encodeURIComponent;
+globalThis.encodeURIComponent = (value) =>
+  value === "getCachedValue" ? "getAppConfigValue" : nativeEncodeComponent(value);
+
+const main = defineDriver(manifest, {
+  input: z.object({}),
+  output: z.object({ keys: z.array(z.string()), value: jsonValueSchema.nullable() }),
+  run: async (_input, host) => {
+    const result = await host.getCachedValue("redirect-check");
+    return {
+      keys: Object.keys(host).sort(),
+      value: result.success ? result.data : null,
+    };
+  },
+});
+
+export default defineScript({ manifest, drivers: { main } });
+`;
+
 const encodeRunnerRequest = Schema.encodeSync(Schema.parseJson(Schema.Unknown));
 const decodeRunnerResponse = Schema.decodeUnknownSync(Schema.parseJson(Schema.Unknown));
 type RunnerCompiledModule = Omit<CompiledSandboxModule, "format"> & { readonly format: number };
 
-const runInDeno = (compiled: RunnerCompiledModule, driverName: string, context: unknown) =>
+type RunnerOptions = {
+	readonly apiBase?: string;
+	readonly scriptId?: string;
+	readonly executionId?: string;
+	readonly apiFunctions?: readonly string[];
+};
+
+const runInDeno = (
+	compiled: RunnerCompiledModule,
+	driverName: string,
+	context: unknown,
+	options: RunnerOptions = {},
+) =>
 	Effect.gen(function* () {
 		const runnerPath = Bun.fileURLToPath(new URL("./runner-source.sandbox.js", import.meta.url));
+		const apiBase = options.apiBase ?? "http://127.0.0.1:1";
 		const process = Bun.spawn(
 			[
 				"deno",
@@ -48,6 +165,7 @@ const runInDeno = (compiled: RunnerCompiledModule, driverName: string, context: 
 				"--no-prompt",
 				"--no-remote",
 				"--cached-only",
+				`--allow-net=${new URL(apiBase).host}`,
 				`--allow-read=${runnerPath}`,
 				runnerPath,
 			],
@@ -55,15 +173,15 @@ const runInDeno = (compiled: RunnerCompiledModule, driverName: string, context: 
 		);
 		const request = `${encodeRunnerRequest({
 			context,
+			apiBase,
 			driverName,
 			token: "unused",
-			apiFunctions: [],
-			scriptId: "script-1",
-			executionId: "execution-1",
 			metadata: compiled.manifest,
-			apiBase: "http://127.0.0.1:1",
 			compiledFormat: compiled.format,
 			compiledCode: compiled.javascript,
+			scriptId: options.scriptId ?? "script-1",
+			apiFunctions: options.apiFunctions ?? [],
+			executionId: options.executionId ?? "execution-1",
 		})}\n`;
 		yield* Effect.tryPromise({
 			try: () => Promise.resolve(process.stdin.write(request)).then(() => process.stdin.end()),
@@ -86,6 +204,86 @@ const runInDeno = (compiled: RunnerCompiledModule, driverName: string, context: 
 			catch: (error) => new SandboxRunError({ message: unknownToMessage(error) }),
 		});
 	});
+
+const startCoreHostBridge = () => {
+	const calls: Array<{ fnName: string; executionId: string; args: readonly unknown[] }> = [];
+	const executionScripts = new Map<string, string>();
+	const runCache = new Map<string, unknown>();
+	const persistentCache = new Map<string, unknown>();
+
+	const server = Bun.serve({
+		port: 0,
+		hostname: "127.0.0.1",
+		fetch: (request) =>
+			Effect.runPromise(
+				Effect.gen(function* () {
+					const parts = new URL(request.url).pathname.split("/").filter(Boolean);
+					const executionId = decodeURIComponent(parts[1] ?? "");
+					const fnName = decodeURIComponent(parts[2] ?? "");
+					const body: unknown = yield* Effect.promise(() => request.json());
+					const argsValue =
+						body !== null && typeof body === "object" ? Reflect.get(body, "args") : undefined;
+					const args: readonly unknown[] = Array.isArray(argsValue) ? argsValue : [];
+					const scriptId = executionScripts.get(executionId) ?? "unknown";
+					const key = `${scriptId}:${String(args[0])}`;
+					calls.push({ fnName, executionId, args });
+
+					let result: unknown;
+					if (fnName === "getCachedValue") {
+						result = {
+							data: runCache.has(key) ? runCache.get(key) : null,
+							success: true,
+						};
+					} else if (fnName === "setCachedValue") {
+						runCache.set(key, args[1]);
+						result = { data: null, success: true };
+					} else if (fnName === "claimCachedValue") {
+						if (persistentCache.has(key)) {
+							result = {
+								data: { claimed: false, value: persistentCache.get(key) ?? null },
+								success: true,
+							};
+						} else {
+							persistentCache.set(key, args[1]);
+							result = { data: { claimed: true }, success: true };
+						}
+					} else if (fnName === "httpCall") {
+						result = {
+							data: {
+								status: 200,
+								headers: { "content-type": "application/json" },
+								body: encodeRunnerRequest({
+									method: args[0],
+									url: args[1],
+									options: args[2],
+								}),
+							},
+							success: true,
+						};
+					} else if (fnName === "getAppConfigValue") {
+						result = { data: "Etc/GMT", success: true };
+					} else if (fnName === "getUserPreferences") {
+						result = {
+							data: { isNsfw: false, disableIntegrations: true },
+							success: true,
+						};
+					} else {
+						result = { error: "Unknown function", success: false };
+					}
+
+					return Response.json({ result });
+				}),
+			),
+	});
+
+	return {
+		calls,
+		port: server.port,
+		stop: () => Promise.resolve(server.stop(true)),
+		register: (executionId: string, scriptId: string) =>
+			executionScripts.set(executionId, scriptId),
+	};
+};
 
 it("loads compiled ESM in Deno and validates driver input and output", () =>
 	Effect.runPromise(
@@ -111,4 +309,97 @@ it("loads compiled ESM in Deno and validates driver input and output", () =>
 			assert(unsupported !== null && typeof unsupported === "object");
 			expect(Reflect.get(unsupported, "error")).toBe("Unsupported sandbox compiled format: 2");
 		}).pipe(Effect.provide(SandboxCompiler.Default)),
+	));
+
+it("executes typed core host methods and filters the Deno host to declared capabilities", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(Effect.sync(startCoreHostBridge), (value) =>
+					Effect.promise(value.stop),
+				);
+				const compiler = yield* SandboxCompiler;
+				const compiled = yield* compiler.compile(coreHostSource);
+				const filtered = yield* compiler.compile(filteredHostSource);
+				const apiBase = `http://127.0.0.1:${bridge.port}`;
+				const apiFunctions = compiled.manifest.capabilities;
+
+				bridge.register("execution-a-1", "script-a");
+				const first = yield* runInDeno(
+					compiled,
+					"main",
+					{ write: true },
+					{
+						apiBase,
+						apiFunctions,
+						scriptId: "script-a",
+						executionId: "execution-a-1",
+					},
+				);
+				assert(first !== null && typeof first === "object");
+				expect(Reflect.get(first, "value")).toMatchObject({
+					before: null,
+					after: { value: 42 },
+					claim: { claimed: true },
+					config: "Etc/GMT",
+					preferences: { isNsfw: false, disableIntegrations: true },
+				});
+
+				bridge.register("execution-b-1", "script-b");
+				const isolated = yield* runInDeno(
+					compiled,
+					"main",
+					{ write: false },
+					{
+						apiBase,
+						apiFunctions,
+						scriptId: "script-b",
+						executionId: "execution-b-1",
+					},
+				);
+				assert(isolated !== null && typeof isolated === "object");
+				expect(Reflect.get(isolated, "value")).toMatchObject({
+					after: null,
+					before: null,
+					claim: { claimed: true },
+				});
+
+				bridge.register("execution-a-2", "script-a");
+				const persistent = yield* runInDeno(
+					compiled,
+					"main",
+					{ write: false },
+					{
+						apiBase,
+						apiFunctions,
+						scriptId: "script-a",
+						executionId: "execution-a-2",
+					},
+				);
+				assert(persistent !== null && typeof persistent === "object");
+				expect(Reflect.get(persistent, "value")).toMatchObject({
+					after: { value: 42 },
+					before: { value: 42 },
+					http: { status: 200 },
+					claim: { claimed: false, value: { owner: "script-a" } },
+				});
+
+				const filteredResult = yield* runInDeno(
+					filtered,
+					"main",
+					{},
+					{
+						apiBase,
+						apiFunctions: ["getCachedValue", "setCachedValue", "getAppConfigValue"],
+					},
+				);
+				assert(filteredResult !== null && typeof filteredResult === "object");
+				expect(Reflect.get(filteredResult, "value")).toEqual({
+					value: null,
+					keys: ["getCachedValue"],
+				});
+
+				expect(new Set(bridge.calls.map((call) => call.fnName))).toEqual(new Set(apiFunctions));
+			}).pipe(Effect.provide(SandboxCompiler.Default)),
+		),
 	));
