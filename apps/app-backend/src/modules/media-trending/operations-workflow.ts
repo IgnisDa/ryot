@@ -20,7 +20,7 @@ const fetchSandboxTrending = (input: { scriptId: SandboxScriptId; executionId: s
 		Effect.mapError(toSandboxRunError),
 		Effect.flatMap((result) => {
 			if (result.error) {
-				return Effect.fail(new SandboxRunError({ message: result.error }));
+				return Effect.fail(new SandboxRunError({ message: result.error.message }));
 			}
 
 			return decodeTrendingDriverResult(result.value).pipe(

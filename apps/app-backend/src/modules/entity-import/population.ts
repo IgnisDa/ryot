@@ -1,5 +1,6 @@
 import { SandboxRunError, dieOnDbError } from "@ryot/contract/errors";
 import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
+import type { SandboxExecutionError } from "@ryot/contract/modules/sandbox/schemas";
 import type {
 	EntitySchemaId,
 	EntityId,
@@ -101,12 +102,12 @@ const EntitySearchResult = Schema.Struct({ items: Schema.Array(EntitySearchItem)
 export const decodeEntitySearchResult = Schema.decodeUnknown(EntitySearchResult);
 
 export const decodeSandboxDriverResult = <A, E, R>(
-	result: { error: string | null; value: unknown },
+	result: { error: SandboxExecutionError | null; value: unknown },
 	decode: (input: unknown) => Effect.Effect<A, E, R>,
 	errorMessage: string,
 ): Effect.Effect<A, SandboxRunError, R> =>
 	result.error
-		? Effect.fail(new SandboxRunError({ message: result.error }))
+		? Effect.fail(new SandboxRunError({ message: result.error.message }))
 		: decode(result.value).pipe(
 				Effect.mapError(() => new SandboxRunError({ message: errorMessage })),
 			);

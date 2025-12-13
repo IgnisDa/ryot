@@ -1,6 +1,6 @@
-import {
+import type {
+	SandboxCompilationDiagnostic,
 	SandboxCompilationFailure,
-	type SandboxCompilationDiagnostic,
 } from "@ryot/contract/modules/sandbox/schemas";
 import { Effect } from "effect";
 
@@ -9,22 +9,16 @@ import {
 	SANDBOX_SDK_ROOT_IMPORT,
 } from "#lib/infrastructure/sandbox-runtime/dependencies";
 
+import { SANDBOX_SOURCE_FILE, sandboxCompilationFailure } from "./compiler-diagnostics";
+
 type BundleResult =
 	| { readonly diagnostics: readonly SandboxCompilationDiagnostic[] }
 	| { readonly javascript: string };
 
-const sourceFile = "script.ts";
-const compilationFailedMessage = "Sandbox TypeScript compilation failed";
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const dependencyImportPattern = new RegExp(
 	`^(?:${SANDBOX_RUNTIME_SDK_IMPORTS.map(escapeRegExp).join("|")})$`,
 );
-
-const compilationFailure = (diagnostics: readonly SandboxCompilationDiagnostic[]) =>
-	new SandboxCompilationFailure({
-		message: compilationFailedMessage,
-		diagnostics: [...diagnostics],
-	});
 
 const buildDiagnosticSeverity = (level: BuildMessage["level"]) => {
 	if (level === "warning") {
@@ -37,12 +31,12 @@ const buildDiagnosticSeverity = (level: BuildMessage["level"]) => {
 };
 
 const toBuildDiagnostic = (log: BuildMessage | ResolveMessage): SandboxCompilationDiagnostic => ({
-	file: sourceFile,
 	code: "RYOT_BUNDLE",
 	message: log.message,
+	file: SANDBOX_SOURCE_FILE,
+	severity: buildDiagnosticSeverity(log.level),
 	line: Math.max(1, log.position?.line ?? 1),
 	column: Math.max(1, log.position?.column ?? 1),
-	severity: buildDiagnosticSeverity(log.level),
 	...(log.position === null ? {} : { length: log.position.length }),
 });
 
@@ -51,7 +45,7 @@ export const bundleUserScript = (source: string, sdkEntries: Readonly<Record<str
 		name: "sandbox-user-source",
 		setup(builder) {
 			builder.onResolve({ filter: /^sandbox:user-source$/ }, () => ({
-				path: sourceFile,
+				path: SANDBOX_SOURCE_FILE,
 				namespace: "sandbox-user",
 			}));
 			builder.onLoad({ filter: /.*/, namespace: "sandbox-user" }, () => ({
@@ -70,6 +64,7 @@ export const bundleUserScript = (source: string, sdkEntries: Readonly<Record<str
 	return Effect.tryPromise({
 		try: () =>
 			Bun.build({
+				throw: false,
 				format: "esm",
 				minify: false,
 				splitting: false,
@@ -81,13 +76,13 @@ export const bundleUserScript = (source: string, sdkEntries: Readonly<Record<str
 				entrypoints: ["sandbox:user-source"],
 			}),
 		catch: (error) =>
-			compilationFailure([
+			sandboxCompilationFailure([
 				{
 					line: 1,
 					column: 1,
-					file: sourceFile,
 					severity: "error",
 					code: "RYOT_BUNDLE",
+					file: SANDBOX_SOURCE_FILE,
 					message: `JavaScript bundling failed: ${String(error)}`,
 				},
 			]),
@@ -107,8 +102,8 @@ export const bundleUserScript = (source: string, sdkEntries: Readonly<Record<str
 						{
 							line: 1,
 							column: 1,
-							file: sourceFile,
 							code: "RYOT_BUNDLE",
+							file: SANDBOX_SOURCE_FILE,
 							severity: "error" as const,
 							message: "Compiler did not emit exactly one JavaScript module",
 						},
@@ -119,13 +114,13 @@ export const bundleUserScript = (source: string, sdkEntries: Readonly<Record<str
 			return Effect.tryPromise({
 				try: () => output.text(),
 				catch: (error) =>
-					compilationFailure([
+					sandboxCompilationFailure([
 						{
 							line: 1,
 							column: 1,
-							file: sourceFile,
 							severity: "error",
 							code: "RYOT_BUNDLE",
+							file: SANDBOX_SOURCE_FILE,
 							message: `Compiled JavaScript could not be read: ${String(error)}`,
 						},
 					]),

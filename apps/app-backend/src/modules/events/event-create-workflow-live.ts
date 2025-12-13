@@ -277,7 +277,7 @@ const runBeforeTriggers = Effect.fn(function* (
 			.pipe(Effect.mapError((error) => beforeTriggerFailed(unknownToMessage(error))));
 
 		if (sandboxResult.error) {
-			return yield* beforeTriggerFailed(sandboxResult.error);
+			return yield* beforeTriggerFailed(sandboxResult.error.message);
 		}
 
 		const triggerResult = yield* decodeBeforeTriggerResult(sandboxResult.value).pipe(

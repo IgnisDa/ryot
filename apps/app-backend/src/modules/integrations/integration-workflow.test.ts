@@ -611,7 +611,7 @@ it.effect("records a YouTube Music sandbox failure as a source-fetch failure", (
 					logs: [],
 					value: null,
 					status: "completed" as const,
-					error: "history fetch failed",
+					error: { phase: "execute" as const, message: "history fetch failed" },
 				}),
 		},
 		integrationsRepository: makeIntegrationsRepository({
