@@ -1,6 +1,8 @@
 import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
 import { Schema } from "effect";
 
+import { AppSchema } from "~/lib/schema";
+
 import { AuthMiddleware } from "../../lib/auth";
 import { NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
 
@@ -25,7 +27,7 @@ const CollectionResponse = Schema.Struct({
 const CreateCollectionBody = Schema.Struct({
 	name: Schema.String,
 	description: Schema.optional(Schema.String),
-	membershipPropertiesSchema: Schema.optional(Schema.Unknown),
+	membershipPropertiesSchema: Schema.optional(AppSchema),
 });
 
 const CreateMembershipBody = Schema.Struct({

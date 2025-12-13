@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ This slice unblocks entity schemas, event schemas, relationship schemas, entity 
 
 ## Acceptance criteria
 
-- [ ] App-owned property schema definitions are represented without importing `@ryot/ts-utils`
-- [ ] Property payloads can be validated with Effect Schema semantics
-- [ ] Required fields, defaults, unknown-key policies, arrays, enums, numbers, strings, dates, datetimes, objects, and validation rules are covered
-- [ ] Invalid properties fail with typed validation errors suitable for route contracts
-- [ ] Focused unit tests cover core property schema parsing and validation branches
-- [ ] Existing builtin schema data can use the migrated property schema representation
+- [x] App-owned property schema definitions are represented without importing `@ryot/ts-utils`
+- [x] Property payloads can be validated with Effect Schema semantics
+- [x] Required fields, defaults, unknown-key policies, arrays, enums, numbers, strings, dates, datetimes, objects, and validation rules are covered
+- [x] Invalid properties fail with typed validation errors suitable for route contracts
+- [x] Focused unit tests cover core property schema parsing and validation branches
+- [x] Existing builtin schema data can use the migrated property schema representation
 
 ## User stories addressed
 
