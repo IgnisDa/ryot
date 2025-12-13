@@ -274,6 +274,7 @@ type BaseEntityDisplayItemCard = {
 	isDetailsLoading: boolean;
 	wasRecentlyConsumed?: boolean;
 	isPartialStatusActive?: boolean;
+	isCalendarEventWatched?: boolean;
 	consumeButtonIndicatorLabel?: string;
 	userToMediaReasons?: UserToMediaReason[];
 	onImageClickBehavior: [string, (() => Promise<void>)?];
@@ -328,13 +329,17 @@ const BaseEntityDisplayItemComponent = forwardRef<
 		() => ({
 			overflow: "hidden",
 			transition: "box-shadow 200ms ease",
-			boxShadow: shouldHighlightImage
+			boxShadow: props.isCalendarEventWatched
 				? mode === "dark"
-					? "0px 0px 4px 1px rgba(242, 183, 22, 1)"
-					: "0px 0px 8px 3px rgba(24, 142, 245, 1)"
-				: undefined,
+					? "0px 0px 4px 1px rgba(64, 192, 87, 1)"
+					: "0px 0px 8px 3px rgba(47, 158, 68, 1)"
+				: shouldHighlightImage
+					? mode === "dark"
+						? "0px 0px 4px 1px rgba(242, 183, 22, 1)"
+						: "0px 0px 8px 3px rgba(24, 142, 245, 1)"
+					: undefined,
 		}),
-		[mode, shouldHighlightImage],
+		[mode, shouldHighlightImage, props.isCalendarEventWatched],
 	);
 	const gradientBackgroundStyle = useMemo<MantineStyleProp>(
 		() => ({
@@ -432,7 +437,7 @@ const BaseEntityDisplayItemComponent = forwardRef<
 			style={cardStyle}
 			ref={viewportRef}
 			className={props.imageClassName}
-			withBorder={!shouldHighlightImage}
+			withBorder={!shouldHighlightImage && !props.isCalendarEventWatched}
 		>
 			{props.centerElement ? (
 				<>
