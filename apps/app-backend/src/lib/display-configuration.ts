@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 
+import { ArithmeticOperator, ComparisonOperator } from "./schema/operators";
 import { strictStruct } from "./schema/utils";
 
 export const entityBuiltinColumns: ReadonlySet<string> = new Set([
@@ -109,7 +110,7 @@ export type QueryExpression =
 			readonly type: "arithmetic";
 			readonly left: QueryExpression;
 			readonly right: QueryExpression;
-			readonly operator: "add" | "subtract" | "multiply" | "divide";
+			readonly operator: ArithmeticOperator;
 	  }
 	| {
 			readonly type: "conditional";
@@ -155,7 +156,7 @@ export const QueryExpression: Schema.Schema<QueryExpression> = Schema.suspend(()
 			left: QueryExpression,
 			right: QueryExpression,
 			type: Schema.Literal("arithmetic"),
-			operator: Schema.Literal("add", "subtract", "multiply", "divide"),
+			operator: ArithmeticOperator,
 		}).pipe(
 			Schema.annotations({ identifier: "ArithmeticExpression", title: "Arithmetic Expression" }),
 		),
@@ -190,7 +191,7 @@ export type QueryFilter =
 			readonly type: "comparison";
 			readonly left: QueryExpression;
 			readonly right: QueryExpression;
-			readonly operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
+			readonly operator: ComparisonOperator;
 	  };
 
 export const QueryFilter: Schema.Schema<QueryFilter> = Schema.suspend(() =>
@@ -224,7 +225,7 @@ export const QueryFilter: Schema.Schema<QueryFilter> = Schema.suspend(() =>
 			left: QueryExpression,
 			right: QueryExpression,
 			type: Schema.Literal("comparison"),
-			operator: Schema.Literal("eq", "neq", "gt", "gte", "lt", "lte"),
+			operator: ComparisonOperator,
 		}).pipe(Schema.annotations({ identifier: "ComparisonFilter", title: "Comparison Filter" })),
 	),
 ).pipe(Schema.annotations({ identifier: "QueryFilter", title: "Query Filter" }));
