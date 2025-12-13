@@ -7,6 +7,7 @@ import {
 	savedViewExtendedFormSchema,
 } from "../form-extended";
 import type { AppSavedView } from "../model";
+import { SortBuilder } from "./sort-builder";
 
 export function SavedViewExtendedForm(props: {
 	view: AppSavedView;
@@ -57,6 +58,8 @@ export function SavedViewExtendedForm(props: {
 							/>
 						)}
 					</form.AppField>
+
+					<SortBuilder form={form} isLoading={props.isSubmitting} />
 
 					<Group gap="md" justify="flex-end">
 						<Button
