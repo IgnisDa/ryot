@@ -3,8 +3,10 @@ import { Either, Effect, ParseResult, Schema } from "effect";
 import {
 	type AppPropertyDefinition,
 	type AppArrayPropertyValidation,
+	type AppNumberPropertyValidation,
 	type AppPropertyPrimitiveType,
 	type AppPropertyTransform,
+	type AppStringPropertyValidation,
 	AppSchema,
 	type AppSchemaFields,
 	type AppSchemaRule,
@@ -18,8 +20,29 @@ import {
 	type PropertyValidationIssue,
 } from "./property-schema";
 
+type ArrayValueSchema<A = unknown, I = A, R = never> = Schema.Schema<
+	ReadonlyArray<A>,
+	ReadonlyArray<I>,
+	R
+>;
+type NumberValueSchema = Schema.Schema<number>;
+type PropertyValueSchema = Schema.Schema.AnyNoContext;
+type PropertyValueField =
+	| PropertyValueSchema
+	| Schema.PropertySignature<
+			Schema.PropertySignature.Token,
+			unknown,
+			PropertyKey,
+			Schema.PropertySignature.Token,
+			unknown,
+			boolean
+	  >;
+type StringValueSchema = Schema.Schema<string>;
+type PropertyValues = Record<string, unknown>;
+type ObjectValueSchema = Schema.Schema<PropertyValues>;
+
 type ValidationResult =
-	| { readonly success: true; readonly data: Record<string, unknown> }
+	| { readonly success: true; readonly data: PropertyValues }
 	| { readonly success: false; readonly issues: ReadonlyArray<PropertyValidationIssue> };
 
 const dateDecoder = Schema.decodeUnknownEither(Schema.Date);
@@ -241,13 +264,13 @@ const datetimeValueSchema = Schema.String.pipe(
 );
 
 const applyStringValidation = (
-	schema: any,
-	validation?: { minLength?: number; maxLength?: number; pattern?: string },
-) => {
+	schema: StringValueSchema,
+	validation?: AppStringPropertyValidation,
+): StringValueSchema => {
 	if (!validation || typeof validation !== "object") {
 		return schema;
 	}
-	let value = schema;
+	let value: StringValueSchema = schema;
 	if (validation.minLength !== undefined) {
 		value = value.pipe(Schema.minLength(validation.minLength));
 	}
@@ -261,19 +284,13 @@ const applyStringValidation = (
 };
 
 const applyNumberValidation = (
-	schema: any,
-	validation?: {
-		minimum?: number;
-		maximum?: number;
-		exclusiveMinimum?: number;
-		exclusiveMaximum?: number;
-		multipleOf?: number;
-	},
-) => {
+	schema: NumberValueSchema,
+	validation?: AppNumberPropertyValidation,
+): NumberValueSchema => {
 	if (!validation || typeof validation !== "object") {
 		return schema;
 	}
-	let value = schema;
+	let value: NumberValueSchema = schema;
 	if (validation.minimum !== undefined) {
 		value = value.pipe(Schema.greaterThanOrEqualTo(validation.minimum));
 	}
@@ -292,8 +309,11 @@ const applyNumberValidation = (
 	return value;
 };
 
-const applyArrayValidation = (schema: any, validation?: AppArrayPropertyValidation) => {
-	let value = schema;
+const applyArrayValidation = <A, I, R>(
+	schema: ArrayValueSchema<A, I, R>,
+	validation?: AppArrayPropertyValidation,
+): ArrayValueSchema<A, I, R> => {
+	let value: ArrayValueSchema<A, I, R> = schema;
 	if (validation?.minItems !== undefined) {
 		value = value.pipe(Schema.minItems(validation.minItems));
 	}
@@ -303,7 +323,10 @@ const applyArrayValidation = (schema: any, validation?: AppArrayPropertyValidati
 	return value;
 };
 
-const withRoundTransform = (schema: any, transform?: AppPropertyTransform) => {
+const withRoundTransform = (
+	schema: NumberValueSchema,
+	transform?: AppPropertyTransform,
+): NumberValueSchema => {
 	const round = transform?.round;
 	if (!round) {
 		return schema;
@@ -311,11 +334,11 @@ const withRoundTransform = (schema: any, transform?: AppPropertyTransform) => {
 	return Schema.transformOrFail(Schema.Number, schema, {
 		strict: true,
 		decode: (value) => Effect.succeed(roundHalfUp(value, round.scale)),
-		encode: (value) => Effect.succeed(value as number),
+		encode: (value) => Effect.succeed(value),
 	});
 };
 
-const toStructField = (property: AppPropertyDefinition): Schema.Struct.Field => {
+const toStructField = (property: AppPropertyDefinition): PropertyValueField => {
 	const valueSchema = createPropertyValueSchema(property);
 	if (property.defaultValue !== undefined) {
 		return Schema.optionalWith(valueSchema, { default: () => property.defaultValue });
@@ -326,8 +349,8 @@ const toStructField = (property: AppPropertyDefinition): Schema.Struct.Field => 
 const createObjectValueSchema = (
 	fields: AppSchemaFields,
 	unknownKeys?: AppSchemaUnknownKeysPolicy,
-): any => {
-	const shape: Record<string, Schema.Struct.Field> = {};
+): ObjectValueSchema => {
+	const shape: Record<string, PropertyValueField> = {};
 	for (const [key, value] of Object.entries(fields)) {
 		shape[key] = toStructField(value);
 	}
@@ -336,7 +359,7 @@ const createObjectValueSchema = (
 	});
 };
 
-export const createPropertyValueSchema = (property: AppPropertyDefinition): any => {
+export const createPropertyValueSchema = (property: AppPropertyDefinition): PropertyValueSchema => {
 	if (property.type === "string") {
 		const value = applyStringValidation(Schema.String, property.validation);
 		return isAppPropertyRequired(property) ? value : Schema.NullOr(value);
@@ -394,10 +417,12 @@ export const createPropertyValueSchema = (property: AppPropertyDefinition): any 
 	return isAppPropertyRequired(property) ? value : Schema.NullOr(value);
 };
 
-export const createPropertiesValueSchema = (schema: AppSchema): any =>
+export const createPropertiesValueSchema = (schema: AppSchema): ObjectValueSchema =>
 	createObjectValueSchema(schema.fields, schema.unknownKeys);
 
-export const createPropertySchemaObjectSchema = (emptyFieldsMessage?: string): any =>
+export const createPropertySchemaObjectSchema = (
+	emptyFieldsMessage?: string,
+): Schema.Schema<AppSchema> =>
 	emptyFieldsMessage
 		? AppSchema.pipe(
 				Schema.filter((value) => Object.keys(value.fields).length > 0, {
@@ -406,7 +431,7 @@ export const createPropertySchemaObjectSchema = (emptyFieldsMessage?: string): a
 			)
 		: AppSchema;
 
-export const createPropertySchemaInputSchema = (message: string): any =>
+export const createPropertySchemaInputSchema = (message: string): Schema.Schema<AppSchema> =>
 	createPropertySchemaObjectSchema(message);
 
 export const createLabeledPropertySchemas = (label: string) => ({
@@ -425,7 +450,7 @@ const decodeAppSchemaEither = (input: unknown, emptyFieldsMessage?: string) => {
 	if (Either.isLeft(decoded)) {
 		return Either.left(toValidationError(parseErrorToIssues(decoded.left)));
 	}
-	const appSchema = decoded.right as AppSchema;
+	const appSchema = decoded.right;
 	const issues = validateAppSchemaDefinition(appSchema);
 	return issues.length > 0 ? Either.left(toValidationError(issues)) : Either.right(appSchema);
 };
@@ -465,13 +490,8 @@ export const parseAppSchemaPropertiesSafe = (input: {
 	if (Either.isLeft(decoded)) {
 		return { success: false, issues: parseErrorToIssues(decoded.left) };
 	}
-	const issues = collectPayloadRuleIssues(
-		input.propertiesSchema,
-		decoded.right as Record<string, unknown>,
-	);
-	return issues.length > 0
-		? { success: false, issues }
-		: { success: true, data: decoded.right as Record<string, unknown> };
+	const issues = collectPayloadRuleIssues(input.propertiesSchema, decoded.right);
+	return issues.length > 0 ? { success: false, issues } : { success: true, data: decoded.right };
 };
 
 export const parseAppSchemaProperties = (input: {
