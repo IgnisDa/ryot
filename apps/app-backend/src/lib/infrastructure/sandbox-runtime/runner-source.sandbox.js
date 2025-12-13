@@ -192,6 +192,18 @@ const stringArraysMatch = (left, right) => {
 	return true;
 };
 
+const providerInformationMatches = (left, right) => {
+	if (left === undefined && right === undefined) {
+		return true;
+	}
+	return (
+		isRecord(left) &&
+		isRecord(right) &&
+		left.source === right.source &&
+		left.canonicalLanguage === right.canonicalLanguage
+	);
+};
+
 const manifestsMatch = (left, right) =>
 	isRecord(left) &&
 	isRecord(right) &&
@@ -199,7 +211,8 @@ const manifestsMatch = (left, right) =>
 	left.name === right.name &&
 	left.slug === right.slug &&
 	stringArraysMatch(left.capabilities, right.capabilities) &&
-	stringArraysMatch(left.requiredAppConfigKeys, right.requiredAppConfigKeys);
+	stringArraysMatch(left.requiredAppConfigKeys, right.requiredAppConfigKeys) &&
+	providerInformationMatches(left.providerInformation, right.providerInformation);
 
 const importCompiledModule = async (payload) => {
 	if (payload.compiledFormat !== 0 && payload.compiledFormat !== 1) {

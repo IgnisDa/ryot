@@ -1,7 +1,10 @@
 import * as z from "@ryot/sandbox-sdk/zod";
 
 export type JsonPrimitive = boolean | number | string | null;
-export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+export type JsonValue =
+	| JsonPrimitive
+	| readonly JsonValue[]
+	| { readonly [key: string]: JsonValue };
 
 export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 	z.union([
@@ -405,23 +408,30 @@ const manifestStringSchema = z
 	.min(1)
 	.refine((value) => value === value.trim(), "Must not have leading or trailing whitespace");
 
-export const sandboxManifestSchema = z
-	.object({
-		name: manifestStringSchema,
-		kind: z.literal("script"),
-		capabilities: z.array(sandboxHostCapabilitySchema),
-		requiredAppConfigKeys: z.array(manifestStringSchema),
-		slug: z.string().regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/),
-	})
+export const providerInformationSchema = z
+	.object({ source: manifestStringSchema, canonicalLanguage: manifestStringSchema.optional() })
 	.strict();
 
+const sandboxManifestBaseSchema = z.object({
+	name: manifestStringSchema,
+	capabilities: z.array(sandboxHostCapabilitySchema),
+	requiredAppConfigKeys: z.array(manifestStringSchema),
+	slug: z.string().regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/),
+});
+
+export const sandboxManifestSchema = z.discriminatedUnion("kind", [
+	sandboxManifestBaseSchema.extend({ kind: z.literal("script") }).strict(),
+	sandboxManifestBaseSchema
+		.extend({ kind: z.literal("provider"), providerInformation: providerInformationSchema })
+		.strict(),
+]);
+
 export type SandboxManifest = z.infer<typeof sandboxManifestSchema>;
+export type ScriptManifest = Extract<SandboxManifest, { kind: "script" }>;
+export type ProviderInformation = z.infer<typeof providerInformationSchema>;
 
 export const executionMetadataSchema = z
-	.object({
-		metadata: jsonValueSchema,
-		sandboxScriptId: z.string().min(1),
-	})
+	.object({ metadata: jsonValueSchema, sandboxScriptId: z.string().min(1) })
 	.strict();
 
 export type ExecutionMetadata = z.infer<typeof executionMetadataSchema>;
@@ -467,12 +477,9 @@ export type GenericScriptDefinition<
 };
 
 export const defineScript = <
-	const Manifest extends SandboxManifest,
+	const Manifest extends ScriptManifest,
 	const Drivers extends Record<string, unknown>,
 >(definition: {
 	readonly manifest: Manifest;
 	readonly drivers: Drivers;
-}) => ({
-	...definition,
-	definitionType: SANDBOX_SCRIPT_DEFINITION,
-});
+}) => ({ ...definition, definitionType: SANDBOX_SCRIPT_DEFINITION });

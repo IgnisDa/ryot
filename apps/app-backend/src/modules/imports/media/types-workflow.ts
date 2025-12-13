@@ -7,10 +7,10 @@ import type {
 	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
+import type { ProviderSearchItem } from "@ryot/sandbox-sdk/provider";
 import { Context, type Effect } from "effect";
 
 import type { AddEntityToCollectionWorkflowError } from "#modules/collections/add-entity-to-collection-workflow";
-import type { EntitySearchItem } from "#modules/entity-import/population";
 import type { LibraryEntityImportError } from "#modules/library-membership/library-entity-import-workflow";
 
 import type { ImportRunJobData } from "../jobs";
@@ -38,7 +38,7 @@ export type MediaImportWorkflowOperationsValue = {
 		userId: UserId;
 		executionId: string;
 		scriptId: SandboxScriptId;
-	}) => Effect.Effect<ReadonlyArray<EntitySearchItem>, SandboxRunError, MediaSandboxRequirements>;
+	}) => Effect.Effect<ReadonlyArray<ProviderSearchItem>, SandboxRunError, MediaSandboxRequirements>;
 	importEntity: (input: {
 		userId: UserId;
 		externalId: string;

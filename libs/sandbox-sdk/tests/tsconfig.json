@@ -1,7 +1,7 @@
 {
 	"exclude": [],
 	"extends": "../tsconfig.json",
-	"include": ["./dependency-types.ts", "./host-types.ts"],
+	"include": ["./dependency-types.ts", "./host-types.ts", "./provider-types.ts"],
 	"compilerOptions": {
 		"noEmit": true,
 		"rootDir": "..",

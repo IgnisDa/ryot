@@ -27,6 +27,10 @@
 			"types": "./src/imports.ts",
 			"default": "./src/imports.ts"
 		},
+		"./provider": {
+			"types": "./src/provider.ts",
+			"default": "./src/provider.ts"
+		},
 		"./youtubei": {
 			"types": "./src/youtubei.ts",
 			"default": "./src/youtubei.ts"
