@@ -759,6 +759,11 @@ export type ExerciseBestSetRecord = {
   workoutId: Scalars['String']['output'];
 };
 
+export enum ExerciseDurationUnit {
+  Minutes = 'MINUTES',
+  Seconds = 'SECONDS'
+}
+
 export enum ExerciseEquipment {
   Bands = 'BANDS',
   Barbell = 'BARBELL',
@@ -2156,7 +2161,6 @@ export type ProcessedExercise = {
 };
 
 export type ProviderLanguageInformation = {
-  default: Scalars['String']['output'];
   source: MediaSource;
   supported: Array<ProviderSupportedLanguageInformation>;
 };
@@ -3220,11 +3224,13 @@ export type UserToExerciseHistoryExtraInformation = {
 };
 
 export type UserToExerciseSettingsExtraInformation = {
+  defaultDurationUnit: ExerciseDurationUnit;
   excludeFromAnalytics: Scalars['Boolean']['output'];
   setRestTimers: SetRestTimersSettings;
 };
 
 export type UserToExerciseSettingsExtraInformationInput = {
+  defaultDurationUnit: ExerciseDurationUnit;
   excludeFromAnalytics: Scalars['Boolean']['input'];
   setRestTimers: SetRestTimersSettingsInput;
 };
