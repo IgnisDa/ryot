@@ -1,3 +1,5 @@
+import type { BeforeCreateTriggerResult } from "@ryot/sandbox-sdk/trigger";
+
 import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 import type { ContractPayload, ContractSuccess } from "./contract-client";
@@ -128,6 +130,46 @@ const main = defineDriver(manifest, {
 });
 
 export default defineScript({ manifest, drivers: { main } });
+`;
+}
+
+type BeforeCreateTriggerFixtureBehavior =
+	| BeforeCreateTriggerResult
+	| { readonly action: "throw"; readonly message: string };
+
+export function beforeCreateTriggerSource(input: {
+	readonly name: string;
+	readonly slug: string;
+	readonly behavior: BeforeCreateTriggerFixtureBehavior;
+}) {
+	return `
+import { defineManifest } from "@ryot/sandbox-sdk";
+import {
+  defineBeforeCreateTrigger,
+  type BeforeCreateTriggerResult,
+} from "@ryot/sandbox-sdk/trigger";
+
+export const manifest = defineManifest({
+  kind: "trigger",
+  mode: "before_create",
+  name: ${JSON.stringify(input.name)},
+  slug: ${JSON.stringify(input.slug)},
+  capabilities: [],
+  requiredAppConfigKeys: [],
+});
+
+type Behavior = BeforeCreateTriggerResult | { readonly action: "throw"; readonly message: string };
+const behavior: Behavior = JSON.parse(${JSON.stringify(JSON.stringify(input.behavior))});
+
+export default defineBeforeCreateTrigger({
+  manifest,
+  run: async () => {
+    if (behavior.action === "throw") {
+      throw new Error(behavior.message);
+    }
+    return behavior;
+  },
+});
 `;
 }
 
