@@ -42,7 +42,6 @@ CREATE TABLE "apikey" (
 CREATE TABLE "entity" (
 	"external_id" text,
 	"name" text NOT NULL,
-	"image" jsonb,
 	"populated_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text,
@@ -80,7 +79,6 @@ CREATE TABLE "entity_schema_script" (
 CREATE TABLE "entity_translation" (
 	"name" text,
 	"language" text NOT NULL,
-	"image" jsonb,
 	"properties" jsonb,
 	"populated_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
