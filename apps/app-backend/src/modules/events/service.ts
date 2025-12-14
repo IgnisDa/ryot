@@ -2,8 +2,8 @@ import { DateTime, Effect, Option } from "effect";
 
 import type { CurrentUserValue } from "../../lib/auth";
 import { DbRunner } from "../../lib/db";
-import type { DbError, NotFound } from "../../lib/errors";
-import { BadRequest, badRequest, notFound } from "../../lib/errors";
+import type { BadRequest, DbError, NotFound } from "../../lib/errors";
+import { badRequest, notFound } from "../../lib/errors";
 import { parseAppSchemaProperties } from "../../lib/property-schema-runtime";
 import { requireText } from "../../lib/validation";
 import { EntitiesRepository } from "../entities/repository";
@@ -86,15 +86,11 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 				Effect.gen(function* () {
 					const createdEvents = yield* Effect.forEach(payload, (item) =>
 						Effect.gen(function* () {
-							const entityId = requireText(item.entityId, "Entity id is required");
-							if (entityId instanceof BadRequest) {
-								return yield* entityId;
-							}
-
-							const eventSchemaId = requireText(item.eventSchemaId, "Event schema id is required");
-							if (eventSchemaId instanceof BadRequest) {
-								return yield* eventSchemaId;
-							}
+							const entityId = yield* requireText(item.entityId, "Entity id is required");
+							const eventSchemaId = yield* requireText(
+								item.eventSchemaId,
+								"Event schema id is required",
+							);
 
 							const entityScope = yield* requireReadableEntity(
 								user.id,
