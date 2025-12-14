@@ -12,7 +12,7 @@ function getString(value) {
 
 function getNullableString(value) {
 	const s = getString(value);
-	return s || null;
+	return s.length > 0 ? s : null;
 }
 
 function getImagesSortedBySize(images) {
@@ -151,7 +151,8 @@ driver("search", async function (context) {
 				return null;
 			}
 
-			const name = getString(artist?.name) || externalId;
+			const rawName = getString(artist?.name);
+			const name = rawName.length > 0 ? rawName : externalId;
 			const imageUrl = artist?.images ? getFirstImage(artist.images) : null;
 
 			return {
@@ -223,13 +224,17 @@ driver("details", async function (context) {
 			offset += limit;
 		}
 
-		return allAlbums.map((album) => ({
-			reverseDirection: true,
-			externalId: getString(album?.id),
-			scriptSlug: "music-group.spotify",
-			relationshipProperties: { roles: ["Artist"] },
-			name: getString(album?.name) || getString(album?.id),
-		}));
+		return allAlbums.map((album) => {
+			const albumId = getString(album?.id);
+			const albumName = getString(album?.name);
+			return {
+				externalId: albumId,
+				reverseDirection: true,
+				scriptSlug: "music-group.spotify",
+				relationshipProperties: { roles: ["Artist"] },
+				name: albumName.length > 0 ? albumName : albumId,
+			};
+		});
 	})();
 
 	return {
