@@ -139,6 +139,28 @@ describe("GET /entity-schemas", () => {
 		expect(names).toEqual(["Alpha Schema", "Beta Schema", "Zebra Schema"]);
 	});
 
+	it("returns 200 when filtering by a single slug", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Single Slug Tracker",
+		});
+		await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Only Schema",
+			slug: "only-schema",
+		});
+
+		const { data, response } = await client.GET("/entity-schemas", {
+			headers: { Cookie: cookies },
+			params: { query: { slugs: ["only-schema"] } },
+		});
+
+		expect(response.status).toBe(200);
+		expect(data?.data?.length).toBe(1);
+		expect(data?.data?.[0]?.slug).toBe("only-schema");
+	});
+
 	it("lists schemas by slug across accessible trackers", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
