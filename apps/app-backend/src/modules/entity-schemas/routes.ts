@@ -11,7 +11,7 @@ import {
 	createEntitySchemaBody,
 	createEntitySchemaResponseSchema,
 	entitySchemaParams,
-	listEntitySchemasQuery,
+	listEntitySchemasBody,
 	listEntitySchemasResponseSchema,
 } from "./schemas";
 import {
@@ -22,10 +22,10 @@ import {
 
 const listEntitySchemasRoute = createAuthRoute(
 	createRoute({
-		path: "/",
-		method: "get",
+		path: "/list",
+		method: "post",
 		tags: ["entity-schemas"],
-		request: { query: listEntitySchemasQuery },
+		request: { body: jsonBody(listEntitySchemasBody) },
 		summary: "List entity schemas with optional tracker or slug filters",
 		responses: createStandardResponses({
 			successSchema: listEntitySchemasResponseSchema,
@@ -68,12 +68,12 @@ const getEntitySchemaRoute = createAuthRoute(
 export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(listEntitySchemasRoute, async (c) => {
 		const user = c.get("user");
-		const query = c.req.valid("query");
+		const body = c.req.valid("json");
 
 		const result = await listEntitySchemas({
 			userId: user.id,
-			slugs: query.slugs,
-			trackerId: query.trackerId,
+			slugs: body.slugs,
+			trackerId: body.trackerId,
 		});
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
