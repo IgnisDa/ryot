@@ -210,6 +210,58 @@ it.effect("returns bad request for reserved slug", () => {
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect("returns conflict when default saved view creation conflicts", () => {
+	const layer = makeEntitySchemasServiceLayer(
+		makeEntitySchemasRepository({
+			findBySlug: () => Effect.succeed(null),
+			linkToTracker: () => Effect.succeed("tracker-id"),
+			createDefaultSavedView: () =>
+				Effect.fail(new Conflict({ message: "Entity schema default saved view already exists" })),
+			createEntitySchema: (input) =>
+				Effect.succeed({
+					id: "schema-id",
+					name: input.name,
+					icon: input.icon,
+					slug: input.slug,
+					isBuiltin: false,
+					accentColor: input.accentColor,
+					propertiesSchema: input.propertiesSchema,
+				}),
+		}),
+		makeTrackersRepository({
+			getOwnedById: () =>
+				Effect.succeed({
+					icon: "star",
+					slug: "custom",
+					name: "Custom",
+					id: "tracker-id",
+					isBuiltin: false,
+					description: null,
+					accentColor: "#000000",
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitySchemasService;
+		const exit = yield* Effect.exit(
+			service.create(user, {
+				icon: "rocket",
+				name: "My Schema",
+				trackerId: "tracker-id",
+				accentColor: "#FF5733",
+				propertiesSchema: {
+					fields: { name: { type: "string", label: "Name", description: "Name" } },
+				},
+			}),
+		);
+
+		expect(exit).toEqual(
+			Exit.fail(new Conflict({ message: "Entity schema default saved view already exists" })),
+		);
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect("normalizes slugs before creating entity schemas", () => {
 	let createdSlug = "";
 
