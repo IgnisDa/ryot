@@ -84,7 +84,7 @@ type Set = Exercise["sets"][number];
 const PersonalBestBadge = (props: { pb: string }) => {
 	const color = useGetRandomMantineColor(props.pb);
 	return (
-		<Badge key={props.pb} size="xs" color={color} variant="light">
+		<Badge size="xs" color={color} variant="light">
 			{startCase(props.pb)}
 		</Badge>
 	);
