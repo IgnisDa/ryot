@@ -81,6 +81,15 @@ import {
 type Exercise = TWorkoutDetails["details"]["information"]["exercises"][number];
 type Set = Exercise["sets"][number];
 
+const PersonalBestBadge = (props: { pb: string }) => {
+	const color = useGetRandomMantineColor(props.pb);
+	return (
+		<Badge key={props.pb} size="xs" color={color} variant="light">
+			{startCase(props.pb)}
+		</Badge>
+	);
+};
+
 export const DisplaySet = (props: {
 	set: Set;
 	idx: number;
@@ -118,14 +127,9 @@ export const DisplaySet = (props: {
 						</Popover.Target>
 						<Popover.Dropdown style={{ pointerEvents: "none" }} p={4}>
 							<Flex>
-								{props.set.personalBests.map((pb) => {
-									const color = useGetRandomMantineColor(pb);
-									return (
-										<Badge key={pb} size="xs" color={color} variant="light">
-											{startCase(pb)}
-										</Badge>
-									);
-								})}
+								{props.set.personalBests.map((pb) => (
+									<PersonalBestBadge key={pb} pb={pb} />
+								))}
 							</Flex>
 						</Popover.Dropdown>
 					</Popover>
