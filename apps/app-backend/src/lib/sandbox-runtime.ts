@@ -48,13 +48,7 @@ const parseArgs = (request: Request) =>
 				try: () => request.json(),
 				catch: () => badRequest("Invalid request body"),
 			}).pipe(
-				Effect.map((body) => {
-					try {
-						return decodeSandboxRpcArgs(body).args;
-					} catch {
-						return [];
-					}
-				}),
+				Effect.flatMap((body) => Effect.try(() => decodeSandboxRpcArgs(body).args)),
 				Effect.orElseSucceed(() => []),
 			)
 		: Effect.succeed([]);
