@@ -8,6 +8,7 @@ import { AppConfig } from "./config";
 
 const WorkflowPgClientLive = PgClient.layerConfig({
 	url: Config.redacted("DATABASE_URL"),
+	maxConnections: Config.integer("DATABASE_WORKFLOW_POOL_MAX").pipe(Config.withDefault(10)),
 });
 
 // TODO: https://github.com/Effect-TS/effect/issues/6294

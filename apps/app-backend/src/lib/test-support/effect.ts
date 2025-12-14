@@ -50,6 +50,7 @@ export const makeAppConfigLayer = (overrides?: Partial<AppConfigValue>): Layer.L
 		users: { allowRegistration: true, disableLocalAuth: false },
 		scheduler: { frequentCronJobsSchedule: "every 5 minutes", progressUpdateThresholdHours: 2 },
 		database: {
+			poolMax: 10,
 			statementTimeoutMs: 0,
 			connectionTimeoutMs: 10_000,
 			idleInTransactionTimeoutMs: 0,
