@@ -447,9 +447,7 @@ export const ExerciseUpdatePreferencesModal = (props: {
 								<Select
 									size="sm"
 									label="Default duration unit"
-									data={convertEnumToSelectData(
-										Object.values(ExerciseDurationUnit),
-									)}
+									data={convertEnumToSelectData(ExerciseDurationUnit)}
 									{...form.getInputProps("defaultDurationUnit")}
 								/>
 							),
