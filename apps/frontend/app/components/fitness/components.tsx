@@ -30,6 +30,7 @@ import {
 	ExerciseLot,
 	SetLot,
 	UpdateUserExerciseSettingsDocument,
+	type UpdateUserExerciseSettingsMutationVariables,
 	type UserExerciseDetailsQuery,
 	type UserUnitSystem,
 	type WorkoutSupersetsInformation,
@@ -338,6 +339,8 @@ const DisplayExerciseAttributes = (props: {
 };
 
 type UserExerciseDetails = UserExerciseDetailsQuery["userExerciseDetails"];
+type UpdateUserExerciseDetailsInput =
+	UpdateUserExerciseSettingsMutationVariables["input"]["change"];
 
 export const ExerciseUpdatePreferencesModal = (props: {
 	opened: boolean;
@@ -362,15 +365,10 @@ export const ExerciseUpdatePreferencesModal = (props: {
 	});
 
 	const updateUserExerciseSettingsMutation = useMutation({
-		mutationFn: async (
-			values: NonNullable<
-				NonNullable<UserExerciseDetails["details"]>["exerciseExtraInformation"]
-			>["settings"],
-		) => {
-			await clientGqlService.request(UpdateUserExerciseSettingsDocument, {
+		mutationFn: (values: UpdateUserExerciseDetailsInput) =>
+			clientGqlService.request(UpdateUserExerciseSettingsDocument, {
 				input: { change: values, exerciseId: props.exerciseId },
-			});
-		},
+			}),
 	});
 
 	return (
