@@ -31,7 +31,6 @@ import {
 	SetLot,
 	UpdateUserExerciseSettingsDocument,
 	type UpdateUserExerciseSettingsMutationVariables,
-	type UserExerciseDetailsQuery,
 	type UserUnitSystem,
 	type WorkoutSupersetsInformation,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -354,7 +353,6 @@ const DisplayExerciseAttributes = (props: {
 	) : null;
 };
 
-type UserExerciseDetails = UserExerciseDetailsQuery["userExerciseDetails"];
 type UpdateUserExerciseDetailsInput =
 	UpdateUserExerciseSettingsMutationVariables["input"]["change"];
 
@@ -363,19 +361,21 @@ export const ExerciseUpdatePreferencesModal = (props: {
 	exerciseId: string;
 	onClose: () => void;
 	exerciseLot: ExerciseLot;
-	userExerciseDetails: UserExerciseDetails;
 }) => {
+	const { data: userExerciseDetails } = useUserExerciseDetails(
+		props.exerciseId,
+	);
 	const form = useSavedForm({
 		storageKeyPrefix: `ExerciseUpdatePreferencesModal-${props.exerciseId}`,
 		initialValues: {
 			excludeFromAnalytics:
-				props.userExerciseDetails.details?.exerciseExtraInformation?.settings
+				userExerciseDetails?.details?.exerciseExtraInformation?.settings
 					.excludeFromAnalytics ?? false,
 			setRestTimers:
-				props.userExerciseDetails.details?.exerciseExtraInformation?.settings
+				userExerciseDetails?.details?.exerciseExtraInformation?.settings
 					.setRestTimers ?? {},
 			defaultDurationUnit:
-				props.userExerciseDetails.details?.exerciseExtraInformation?.settings
+				userExerciseDetails?.details?.exerciseExtraInformation?.settings
 					.defaultDurationUnit ?? ExerciseDurationUnit.Minutes,
 		},
 	});

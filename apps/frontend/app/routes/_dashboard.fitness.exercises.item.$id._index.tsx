@@ -197,7 +197,6 @@ export default function Page() {
 				exerciseLot={exerciseDetails.lot}
 				opened={updatePreferencesModalOpened}
 				onClose={closeUpdatePreferencesModal}
-				userExerciseDetails={userExerciseDetails}
 			/>
 			<ExerciseMusclesModal
 				opened={musclesModalOpened}
