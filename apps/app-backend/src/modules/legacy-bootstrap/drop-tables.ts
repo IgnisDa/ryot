@@ -26,6 +26,7 @@ BEGIN
 	DROP TABLE IF EXISTS "user_to_entity" CASCADE;
 	DROP TABLE IF EXISTS "old_integration" CASCADE;
 	DROP TABLE IF EXISTS "old_notification_platform" CASCADE;
+	DROP TABLE IF EXISTS "old_entity_translation" CASCADE;
 	RAISE NOTICE 'legacy tables dropped (% seconds elapsed)',
 		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 END $$;
