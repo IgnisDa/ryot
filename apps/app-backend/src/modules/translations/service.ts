@@ -1,7 +1,7 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Effect } from "effect";
 
-import { DbRunner } from "#lib/db";
+import { DbRunner } from "#lib/db/service";
 import { isObjectRecord } from "#lib/predicates";
 import type { SandboxScriptId } from "#lib/schema/brands";
 import type { ListedEntity } from "#modules/entities/schemas";

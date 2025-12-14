@@ -3,10 +3,10 @@ import { Effect, Layer } from "effect";
 
 import { AppLive } from "./app/layers";
 import { SeedService } from "./lib/builtins/seed";
-import { AppConfig, appConfigMeta } from "./lib/config";
 import { generateConfigDocs } from "./lib/config/docs";
-import { DbService, TransactionRunnerLive } from "./lib/db";
+import { AppConfig, appConfigMeta } from "./lib/config/service";
 import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "./lib/db/migrate";
+import { DbService, TransactionRunnerLive } from "./lib/db/service";
 import { PackageCacheManager } from "./lib/sandbox/runtime";
 
 let shutdownTimer: ReturnType<typeof setTimeout> | undefined;

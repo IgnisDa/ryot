@@ -2,7 +2,7 @@ import { Effect, Schema } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { builtinRelationshipSchemas } from "#lib/builtins/relationship-schemas";
-import { DbRunner } from "#lib/db";
+import { DbRunner } from "#lib/db/service";
 import { badRequest, conflict, notFound } from "#lib/errors";
 import type { RelationshipSchemaId, UserId, EntitySchemaId } from "#lib/schema/brands";
 import { Slug } from "#lib/schema/brands";

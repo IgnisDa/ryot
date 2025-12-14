@@ -5,7 +5,7 @@ import type { AppPropertyDefinition, AppSchema } from "#lib/schema/property-sche
 
 import { loadVisibleEntityPropertySchemas } from "../executor/schema-loaders";
 import type { AggregationSpec, Expr, FieldSelector, QueryDocument } from "../language";
-import { collectAliasScope } from "./index";
+import { collectAliasScope } from "./document";
 import type { AliasScope, ScopeEntry } from "./shared";
 
 export type CoarseType = "boolean" | "date" | "number" | "string" | "unknown";

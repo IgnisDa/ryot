@@ -2,8 +2,8 @@ import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { makeIntegration } from "../test-support";
-import { getSinkAdapterResult } from "./index";
 import { parseKodiSinkPayload } from "./kodi";
+import { getSinkAdapterResult } from "./sink-adapters";
 
 const json = "application/json";
 

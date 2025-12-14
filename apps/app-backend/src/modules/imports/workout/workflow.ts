@@ -3,8 +3,8 @@ import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/Workflow
 import { Effect } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
-import { AppConfig } from "#lib/config";
-import type { DbRunner } from "#lib/db";
+import { AppConfig } from "#lib/config/service";
+import type { DbRunner } from "#lib/db/service";
 import type { EntitiesRepository } from "#modules/entities/repository";
 import type { ListedEntity } from "#modules/entities/schemas";
 import type { EntitiesService } from "#modules/entities/service";

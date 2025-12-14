@@ -146,7 +146,7 @@ export function buildBackendEnv(input: {
 }
 
 export function spawnBackendProcess(env: NodeJS.ProcessEnv, cwd = "../apps/app-backend") {
-	return spawn("bun", ["run", "src/index.ts"], {
+	return spawn("bun", ["run", "src/main.ts"], {
 		env,
 		cwd,
 		stdio: ["ignore", "pipe", "pipe"],

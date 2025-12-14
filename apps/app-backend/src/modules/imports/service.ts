@@ -3,8 +3,8 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { DateTime, Effect, Either } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
-import { AppConfig } from "#lib/config";
-import { DbRunner } from "#lib/db";
+import { AppConfig } from "#lib/config/service";
+import { DbRunner } from "#lib/db/service";
 import { badRequest, notFound } from "#lib/errors";
 import { RedisService } from "#lib/redis";
 import type { ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";

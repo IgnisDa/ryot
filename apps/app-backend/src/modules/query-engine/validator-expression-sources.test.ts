@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { QueryDocument } from "./language";
-import { validateQueryDocument } from "./validator";
 import { descendantSource, literal, makeDoc, nameRef, propertyRef } from "./validator.test-support";
+import { validateQueryDocument } from "./validator/document";
 
 describe("expression validation coverage", () => {
 	it("accepts literal expressions in fields", () => {

@@ -7,7 +7,7 @@ Accepts a `QueryDocument` (a JSON-serializable, source-based query language), va
 ## Abstraction Boundaries
 
 - **language.ts**: Effect Schema source of truth for the entire DSL and response shapes. Types are derived from schemas; do not duplicate shapes as hand-written interfaces.
-- **validator/**: Pure semantic validation (`index.ts`, `core.ts`, `output.ts`, `shared.ts`), DB-aware reference validation (`references.ts`), and type-compatibility validation (`type-check.ts`, which also enforces ISO date literals). Pure validation must not import executor runtime code except `schema-loaders` and `time-series-buckets`.
+- **validator/**: Pure semantic validation (`document.ts`, `core.ts`, `output.ts`, `shared.ts`), DB-aware reference validation (`references.ts`), and type-compatibility validation (`type-check.ts`, which also enforces ISO date literals). Pure validation must not import executor runtime code except `schema-loaders` and `time-series-buckets`.
 - **executor/compile/**: Pure SQL compilation — no DB, no Effect.
   - `expr.ts`: the total `Expr` → SQL compiler (`compileBool` / `compileScalar` / `compileValue`), including correlated `exists` / `aggregate` / `first` subqueries. Every node compiles; nothing falls back to app code.
   - `scope.ts`: `CompileScope` — maps doc aliases to SQL aliases, walks the parent chain for correlation, and allocates unique aliases for nested subqueries.
