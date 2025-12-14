@@ -5,6 +5,8 @@ import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import {
 	cleanupBuiltinProviderScript,
 	createAuthenticatedClient,
+	createSandboxScript,
+	createTrackerWithSchema,
 	detailsDriverCode,
 	enqueueEntityImport,
 	enqueueEntitySearch,
@@ -175,5 +177,65 @@ describe("GET /library/import/:jobId — provider entity import result", () => {
 
 		const inLibrary = await queryInLibraryRelationship(client, result.data.id, email);
 		expect(inLibrary.rowCount).toBeGreaterThan(0);
+	});
+});
+
+describe("POST /library/import — provider import ownership guard", () => {
+	it("rejects a user-owned sandbox script with BadRequest", async () => {
+		const { client } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaBySlug(client, "audiobook");
+		const userScript = await createSandboxScript(client, {
+			metadata: {},
+			name: `user-import-script-${crypto.randomUUID()}`,
+			slug: `user-import-script-${crypto.randomUUID()}`,
+			code: `driver("details", async function () { return { name: "x", properties: {} }; });`,
+		});
+
+		const error = await client.runError((c) =>
+			c.entityImport.import({
+				payload: {
+					entitySchemaId: schema.id,
+					externalId: IMPORT_EXTERNAL_ID,
+					scriptId: SandboxScriptId.make(userScript.id),
+				},
+			}),
+		);
+
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toBe("Provider imports require a built-in provider script");
+	});
+
+	it("rejects a custom user-owned entity schema with BadRequest", async () => {
+		const { client } = await createAuthenticatedClient();
+		const { schemaId } = await createTrackerWithSchema(client);
+
+		// A built-in provider script passes the script guard, so the custom entity
+		// schema is what the request must be rejected on.
+		const error = await client.runError((c) =>
+			c.entityImport.import({
+				payload: {
+					externalId: IMPORT_EXTERNAL_ID,
+					entitySchemaId: EntitySchemaId.make(schemaId),
+					scriptId: SandboxScriptId.make(providerScript.scriptId),
+				},
+			}),
+		);
+
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toBe("Provider imports require a built-in entity schema");
+	});
+
+	it("accepts a built-in schema paired with a built-in provider script", async () => {
+		const { client } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaBySlug(client, "audiobook");
+
+		const { jobId } = await enqueueEntityImport(client, {
+			entitySchemaId: schema.id,
+			externalId: IMPORT_EXTERNAL_ID,
+			scriptId: SandboxScriptId.make(providerScript.scriptId),
+		});
+
+		expect(typeof jobId).toBe("string");
+		expect(jobId.length).toBeGreaterThan(0);
 	});
 });

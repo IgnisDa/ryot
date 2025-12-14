@@ -5,7 +5,10 @@ import { SandboxRunError, toSandboxRunError } from "@ryot/contract/errors";
 import type { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
+import { DbRunner } from "#lib/infrastructure/db/service";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
+import { resolveProviderSandboxArtifact } from "#modules/sandbox/provider-artifacts";
+import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { decodeTrendingDriverResult, type TrendingDriverItem } from "./schemas";
 
@@ -15,9 +18,13 @@ const fetchSandboxTrending = (input: { scriptId: SandboxScriptId; executionId: s
 		userId: null,
 		driverName: "trending",
 		scriptId: input.scriptId,
+		executionKind: "provider",
 		executionId: input.executionId,
 	}).pipe(
 		Effect.mapError(toSandboxRunError),
+		Effect.flatMap((result) =>
+			resolveProviderSandboxArtifact({ executionId: input.executionId, result }),
+		),
 		Effect.flatMap((result) => {
 			if (result.error) {
 				return Effect.fail(new SandboxRunError({ message: result.error }));
@@ -53,14 +60,17 @@ export class MediaTrendingWorkflowOperations extends Context.Tag("MediaTrendingW
 
 export const MediaTrendingWorkflowOperationsLive = Layer.effect(
 	MediaTrendingWorkflowOperations,
-	Effect.map(
-		PersistedQueue.PersistedQueueFactory,
-		(queueFactory) =>
-			({
-				fetchTrending: (input) =>
-					fetchSandboxTrending(input).pipe(
-						Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
-					),
-			}) satisfies MediaTrendingWorkflowOperationsValue,
-	),
+	Effect.gen(function* () {
+		const runWithDb = yield* DbRunner;
+		const repository = yield* SandboxRepository;
+		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
+		return {
+			fetchTrending: (input) =>
+				fetchSandboxTrending(input).pipe(
+					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
+					Effect.provideService(DbRunner, runWithDb),
+					Effect.provideService(SandboxRepository, repository),
+				),
+		} satisfies MediaTrendingWorkflowOperationsValue;
+	}),
 );

@@ -1,5 +1,5 @@
 import { HttpClient, HttpClientRequest } from "@effect/platform";
-import type { NotificationPlatformSpecifics } from "@ryot/contract/modules/notifications/schemas";
+import type { NotificationChannelSpecifics } from "@ryot/contract/modules/notifications/schemas";
 import { Data, Duration, Effect, Match, Option, Redacted } from "effect";
 import { createTransport } from "nodemailer";
 
@@ -96,15 +96,15 @@ export class NotificationDeliveryService extends Effect.Service<NotificationDeli
 
 			const send = Effect.fn("NotificationDeliveryService.send")(function* (input: {
 				message: string;
-				platformSpecifics: NotificationPlatformSpecifics;
+				specifics: NotificationChannelSpecifics;
 			}) {
-				const { message, platformSpecifics } = input;
+				const { message, specifics: channelSpecifics } = input;
 				if (config.server.disableNotifications) {
 					return yield* Effect.logWarning("Notification delivery disabled; skipping send", {
-						platform: platformSpecifics.kind,
+						channelKind: channelSpecifics.kind,
 					});
 				}
-				return yield* Match.value(platformSpecifics).pipe(
+				return yield* Match.value(channelSpecifics).pipe(
 					Match.when({ kind: "apprise" }, (specifics) =>
 						sendHttp({
 							provider: "Apprise",

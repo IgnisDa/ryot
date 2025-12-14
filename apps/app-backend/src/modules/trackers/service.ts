@@ -10,7 +10,7 @@ import { Effect } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { buildReorderedIds } from "#lib/shared/reorder";
-import { slugify } from "#lib/shared/slug";
+import { deriveSlug } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
 
 import { TrackersRepository } from "./repository";
@@ -30,8 +30,7 @@ const resolveCreatePayload = (payload: CreateTrackerBody) => {
 	const accentColor = trimToNull(payload.accentColor);
 	const description = resolveOptionalDescription(payload.description);
 
-	const candidate = payload.slug?.trim() ?? name;
-	const slug = candidate ? slugify(candidate) : null;
+	const slug = deriveSlug(name, payload.slug);
 
 	if (!name) {
 		return badRequest("Tracker name is required");

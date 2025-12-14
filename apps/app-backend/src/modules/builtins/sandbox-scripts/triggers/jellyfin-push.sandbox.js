@@ -1,11 +1,19 @@
 const JELLYFIN_AUTH_HEADER =
 	'MediaBrowser Client="Ryot", Device="Ryot", DeviceId="ryot-integration", Version="2.0.0"';
 
-async function authenticateJellyfin(baseUrl, username, password) {
-	const result = await httpCall("POST", baseUrl + "/Users/AuthenticateByName", {
-		body: JSON.stringify({ Username: username, Pw: typeof password === "string" ? password : "" }),
-		headers: { "Content-Type": "application/json", "X-Emby-Authorization": JELLYFIN_AUTH_HEADER },
-	});
+async function authenticateJellyfin(baseUrl, username, password, effectPrefix) {
+	const result = await httpCall(
+		"POST",
+		baseUrl + "/Users/AuthenticateByName",
+		{
+			body: JSON.stringify({
+				Username: username,
+				Pw: typeof password === "string" ? password : "",
+			}),
+			headers: { "Content-Type": "application/json", "X-Emby-Authorization": JELLYFIN_AUTH_HEADER },
+		},
+		effectPrefix + ":authenticate",
+	);
 	if (!result.success) {
 		return null;
 	}
@@ -21,7 +29,7 @@ async function authenticateJellyfin(baseUrl, username, password) {
 	return { userId: userId, accessToken: accessToken };
 }
 
-async function findJellyfinItemId(baseUrl, session, item) {
+async function findJellyfinItemId(baseUrl, session, item, effectPrefix) {
 	const params = new URLSearchParams();
 	params.set("Recursive", "true");
 	params.set("Fields", "ProviderIds");
@@ -34,6 +42,7 @@ async function findJellyfinItemId(baseUrl, session, item) {
 		"GET",
 		baseUrl + "/Users/" + encodeURIComponent(session.userId) + "/Items?" + params.toString(),
 		{ headers: { "X-Emby-Token": session.accessToken } },
+		effectPrefix + ":find-item",
 	);
 	if (!result.success) {
 		return null;
@@ -74,12 +83,18 @@ async function markPlayedInJellyfin(integration, item) {
 		return;
 	}
 
-	const session = await authenticateJellyfin(baseUrl, specifics.username, specifics.password);
+	const effectPrefix = "jellyfin:" + String(integration.id);
+	const session = await authenticateJellyfin(
+		baseUrl,
+		specifics.username,
+		specifics.password,
+		effectPrefix,
+	);
 	if (!session) {
 		return;
 	}
 
-	const itemId = await findJellyfinItemId(baseUrl, session, item);
+	const itemId = await findJellyfinItemId(baseUrl, session, item, effectPrefix);
 	if (!itemId) {
 		return;
 	}
@@ -92,14 +107,16 @@ async function markPlayedInJellyfin(integration, item) {
 			"/PlayedItems/" +
 			encodeURIComponent(itemId),
 		{ headers: { "X-Emby-Token": session.accessToken } },
+		effectPrefix + ":mark-played:" + String(itemId),
 	);
 	if (!result.success) {
 		console.warn("Jellyfin push failed: " + String(result.error));
 	}
 }
 
-driver("trigger", async function (context) {
-	const trigger = context.trigger;
+driver("subscription", async function (context) {
+	const source = context.automation?.source;
+	const trigger = source?.kind === "event" ? source.after : null;
 	if (!trigger) {
 		return;
 	}
@@ -107,7 +124,6 @@ driver("trigger", async function (context) {
 		return;
 	}
 
-	// Both checks are independent — run in parallel.
 	const preamble = await Promise.all([
 		integrationsDisabledForUser(),
 		listActiveIntegrations("jellyfin_push"),

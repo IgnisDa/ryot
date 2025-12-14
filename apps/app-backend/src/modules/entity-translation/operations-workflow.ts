@@ -6,7 +6,10 @@ import { toSandboxRunError } from "@ryot/contract/errors";
 import type { SandboxCompletedResult as SandboxCompletedResultValue } from "@ryot/contract/modules/sandbox/schemas";
 import { Context, Effect, Layer } from "effect";
 
+import { DbRunner } from "#lib/infrastructure/db/service";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
+import { resolveProviderSandboxArtifact } from "#modules/sandbox/provider-artifacts";
+import { SandboxRepository } from "#modules/sandbox/repository";
 
 import type { TranslateEntityWorkflowPayload } from "./entity-translation-workflow";
 
@@ -14,6 +17,7 @@ const processSandboxTranslation = (payload: TranslateEntityWorkflowPayload, exec
 	DurableQueue.process(SandboxExecutionQueue, {
 		userId: null,
 		driverName: "translate",
+		executionKind: "provider",
 		scriptId: payload.scriptId,
 		executionId: `${executionId}-sandbox-translate`,
 		context: {
@@ -41,14 +45,24 @@ export class TranslateEntityWorkflowOperations extends Context.Tag(
 
 export const TranslateEntityWorkflowOperationsLive = Layer.effect(
 	TranslateEntityWorkflowOperations,
-	Effect.map(
-		PersistedQueue.PersistedQueueFactory,
-		(queueFactory) =>
-			({
-				processSandbox: (payload, executionId) =>
-					processSandboxTranslation(payload, executionId).pipe(
-						Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
+	Effect.gen(function* () {
+		const runWithDb = yield* DbRunner;
+		const repository = yield* SandboxRepository;
+		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
+		return {
+			processSandbox: (payload, executionId) =>
+				processSandboxTranslation(payload, executionId).pipe(
+					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
+					Effect.flatMap((result) =>
+						resolveProviderSandboxArtifact({
+							executionId: `${executionId}-sandbox-translate`,
+							result,
+						}).pipe(
+							Effect.provideService(DbRunner, runWithDb),
+							Effect.provideService(SandboxRepository, repository),
+						),
 					),
-			}) satisfies TranslateEntityWorkflowOperationsValue,
-	),
+				),
+		} satisfies TranslateEntityWorkflowOperationsValue;
+	}),
 );
