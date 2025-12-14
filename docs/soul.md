@@ -175,7 +175,7 @@ For built-in trackers, display configs are hand-tuned — movies default to a po
 
 **Tracker landing pages vs entity list views are distinct.** Clicking "Media" in the sidebar navigates to a tracker overview — a dashboard-like widget surface with multiple sections ("In Progress," "Recently Watched," "Upcoming") composed from multiple saved view queries. Clicking "Movies" navigates to the single saved view for all movies. This separation is natural: overview pages answer "what's happening in this tracker?" while entity list pages answer "show me everything of this type." Tracker overview pages are curated for built-in trackers and auto-generated (recent activity + stats) for custom trackers.
 
-The practical consequence of this decision: saved views are a core primitive, not a power-user feature. Every user interacts with saved views from their first session — they just don't know it. User-created saved views (via the query builder) are the same component with custom queries and display configs.
+The practical consequence of this decision: saved views are a core primitive, not a power-user feature. Every user interacts with saved views from their first session — they just don't know it. User-created saved views (made by cloning an existing view and editing it) are the same component with custom queries and display configs.
 
 ---
 
@@ -223,7 +223,7 @@ The sidebar is the primary navigation mechanism and is persistent across all scr
 2. **TRACKING**: dynamically populated list of active trackers. Built-in trackers (Media, Fitness) are expandable with sub-items (Movies, TV Shows, etc.). Custom trackers appear as single items. A "+ Add Tracker" link at the bottom is the entry point to create new trackers.
 3. **LIBRARY**: Collections and Saved Views. These are always visible regardless of which trackers are active because they are cross-tracker features.
    - **Collections**: Navigates to a built-in saved view that lists all collection entities. Uses the same saved view renderer as entity list pages.
-   - **Saved Views**: Navigates to a management page that lists user-created saved views (`isBuiltin: false`), allowing users to browse, edit, and delete their custom views created via the query builder.
+   - **Saved Views**: Navigates to a management page that lists user-created saved views (`isBuiltin: false`), allowing users to browse, edit, and delete their custom views. New views are created by cloning an existing built-in or user view and then editing it.
 
 On mobile, the sidebar collapses into a bottom tab bar with the most-used items and a "More" overflow.
 
@@ -251,11 +251,11 @@ A whiskey entity detail page is generated from the schema: properties rendered a
 
 ### Visual query builder
 
-The query builder is a stepped interface: (1) select the base scope (one schema, many schemas, or a tracker), (2) add attribute filters on entity properties, (3) add event logic (aggregations on events). Results show as a live preview below the builder. Queries can be saved as views that appear in the sidebar.
+The query builder is the editing interface for a saved view's query definition and display configuration. It lets users: (1) select which entity schemas to query, (2) add attribute filters on entity properties, (3) configure sort order, and (4) set display configuration for grid, list, and table layouts.
 
 The query builder is schema-aware, not single-schema-only. It supports multi-schema and tracker-level queries while preserving type safety by exposing operators and fields that are valid for the selected scope.
 
-Critically, the query builder is not a separate system from entity list pages. Every entity list page (Movies, Whiskey, etc.) is a saved view. The query builder is just the editing interface for a saved view's query definition and display configuration. When a user clicks "Save View" in the query builder, they're creating the same object that powers sidebar navigation. This unification means one renderer, one component, one data model for all browsing experiences.
+New views are created by cloning an existing view (built-in or user-created) and then editing it in the query builder. There is no create-from-scratch flow. This unification means one renderer, one editing component, one data model for all browsing experiences.
 
 ---
 
@@ -358,7 +358,7 @@ Media tracker with curated UI: movie/show/book/podcast/game detail pages, loggin
 
 ### Phase 3: Power Features
 
-Visual query builder and user-authored saved views (the saved view data model from Phase 2 is extended with schema-aware querying and display configuration). Collections (cross-tracker). Sandbox scripting system with dashboard widgets. Integrations (Jellyfin, Plex, Kodi webhooks). Import from existing Ryot instances and other services (Goodreads, Trakt, MyAnimeList).
+Visual query builder for editing saved view query definitions and display configuration. User-authored saved views via clone+edit. Collections (cross-tracker). Sandbox scripting system with dashboard widgets. Integrations (Jellyfin, Plex, Kodi webhooks). Import from existing Ryot instances and other services (Goodreads, Trakt, MyAnimeList).
 
 ### Phase 4: Polish and Scale
 
