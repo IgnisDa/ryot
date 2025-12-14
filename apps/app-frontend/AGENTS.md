@@ -24,3 +24,10 @@ Ryot is a self-hosted personal tracker for people who want to own and reflect on
 - **Keep inline styles for**: Properties without Mantine props (`flex`, `overflow`, `letterSpacing`, `whiteSpace`, gradients, complex borders, transitions).
 - **Typography**: Use `ff="var(--mantine-headings-font-family)"` for headings, never hardcode font names.
 - **Non-Mantine components**: Use inline styles for components from other libraries (e.g., TanStack Router `Link`).
+
+### Tests
+
+- Prefer shared setup/data fixtures over repeating inline builders across `src/**/*.test.*`.
+- Put cross-feature frontend fixtures in `src/features/test-fixtures/`; keep feature-only tracker fixtures in `src/features/trackers/test-fixtures.ts` until another domain needs them.
+- Keep test intent inline: assertions, error expectations, and branch-specific checks stay in the test file; only setup/data builders move to fixtures.
+- Split fixture modules by ownership (`entities`, `events`, `saved-views`, `property-schemas`, etc.) instead of growing one generic helper file.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { AppEventSchema } from "../event-schemas/model";
+import { createEventSchemaFixture } from "#/features/test-fixtures";
 import {
 	buildCreateEventFormSchema,
 	buildDefaultEventFormValues,
@@ -14,22 +14,6 @@ import {
 	toCreateEventPayload,
 } from "./form";
 
-function createEventSchemaFixture(
-	overrides: Partial<AppEventSchema> = {},
-): AppEventSchema {
-	return {
-		id: "schema-1",
-		name: "Reading",
-		slug: "reading",
-		entitySchemaId: "entity-schema-1",
-		propertiesSchema: {
-			pages: { type: "integer", required: true },
-			notes: { type: "string" },
-		},
-		...overrides,
-	};
-}
-
 describe("buildDefaultEventFormValues", () => {
 	it("uses the current timestamp, first schema selection, and generated defaults", () => {
 		const now = new Date(2026, 2, 8, 10, 15, 0, 0);
@@ -37,12 +21,20 @@ describe("buildDefaultEventFormValues", () => {
 			[
 				createEventSchemaFixture({
 					id: "schema-1",
+					name: "Reading",
+					slug: "reading",
+					entitySchemaId: "entity-schema-1",
 					propertiesSchema: {
 						notes: { type: "string" },
 						pages: { type: "integer", required: true },
 					},
 				}),
-				createEventSchemaFixture({ id: "schema-2", name: "Finished" }),
+				createEventSchemaFixture({
+					id: "schema-2",
+					name: "Finished",
+					slug: "finished",
+					entitySchemaId: "entity-schema-1",
+				}),
 			],
 			now,
 		);
@@ -58,11 +50,16 @@ describe("buildDefaultEventFormValues", () => {
 			[
 				createEventSchemaFixture({
 					id: "schema-1",
+					name: "Reading",
+					slug: "reading",
+					entitySchemaId: "entity-schema-1",
 					propertiesSchema: { pages: { type: "integer", required: true } },
 				}),
 				createEventSchemaFixture({
 					id: "schema-2",
 					name: "Finished",
+					slug: "finished",
+					entitySchemaId: "entity-schema-1",
 					propertiesSchema: { completed: { type: "boolean", required: true } },
 				}),
 			],
@@ -80,11 +77,16 @@ describe("buildDefaultEventFormValues", () => {
 			[
 				createEventSchemaFixture({
 					id: "schema-1",
+					name: "Reading",
+					slug: "reading",
+					entitySchemaId: "entity-schema-1",
 					propertiesSchema: { pages: { type: "integer", required: true } },
 				}),
 				createEventSchemaFixture({
 					id: "schema-2",
 					name: "Finished",
+					slug: "finished",
+					entitySchemaId: "entity-schema-1",
 					propertiesSchema: { completed: { type: "boolean", required: true } },
 				}),
 			],
@@ -101,6 +103,9 @@ describe("buildDefaultEventFormValues", () => {
 		const values = buildDefaultEventFormValues(
 			[
 				createEventSchemaFixture({
+					name: "Reading",
+					slug: "reading",
+					entitySchemaId: "entity-schema-1",
 					propertiesSchema: {
 						pages: { type: "integer", required: true },
 						tags: {
@@ -241,8 +246,18 @@ describe("getUnsupportedRequiredEventProperties", () => {
 describe("getSelectedEventSchema", () => {
 	it("falls back to the first schema when the current selection is invalid", () => {
 		const eventSchemas = [
-			createEventSchemaFixture({ id: "schema-1" }),
-			createEventSchemaFixture({ id: "schema-2", name: "Finished" }),
+			createEventSchemaFixture({
+				id: "schema-1",
+				name: "Reading",
+				slug: "reading",
+				entitySchemaId: "entity-schema-1",
+			}),
+			createEventSchemaFixture({
+				id: "schema-2",
+				name: "Finished",
+				slug: "finished",
+				entitySchemaId: "entity-schema-1",
+			}),
 		];
 
 		expect(getSelectedEventSchema(eventSchemas, "missing-schema")?.id).toBe(
