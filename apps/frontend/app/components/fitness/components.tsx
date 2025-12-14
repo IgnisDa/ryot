@@ -14,6 +14,7 @@ import {
 	Paper,
 	Popover,
 	ScrollArea,
+	Select,
 	SimpleGrid,
 	Skeleton,
 	Stack,
@@ -25,9 +26,11 @@ import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import Body, { type ExtendedBodyPart } from "@mjcdev/react-body-highlighter";
 import {
-	type ExerciseLot,
+	ExerciseDurationUnit,
+	ExerciseLot,
 	SetLot,
 	UpdateUserExerciseSettingsDocument,
+	type UpdateUserExerciseSettingsMutationVariables,
 	type UserUnitSystem,
 	type WorkoutSupersetsInformation,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -54,9 +57,11 @@ import {
 	useExerciseDetails,
 	useGetRandomMantineColor,
 	useS3PresignedUrls,
+	useUserExerciseDetails,
 } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath, getSetColor } from "~/lib/shared/media-utils";
 import { clientGqlService } from "~/lib/shared/react-query";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
 	type TWorkoutDetails,
 	getWorkoutDetailsQuery,
@@ -69,16 +74,28 @@ import {
 	DisplaySetStatistics,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
+	formatDuration,
+	getDurationUnitLabel,
 } from "./utils";
 
 type Exercise = TWorkoutDetails["details"]["information"]["exercises"][number];
 type Set = Exercise["sets"][number];
+
+const PersonalBestBadge = (props: { pb: string }) => {
+	const color = useGetRandomMantineColor(props.pb);
+	return (
+		<Badge size="xs" color={color} variant="light">
+			{startCase(props.pb)}
+		</Badge>
+	);
+};
 
 export const DisplaySet = (props: {
 	set: Set;
 	idx: number;
 	exerciseLot: ExerciseLot;
 	unitSystem: UserUnitSystem;
+	durationUnit: ExerciseDurationUnit;
 }) => {
 	const [opened, { close, open }] = useDisclosure(false);
 
@@ -110,14 +127,9 @@ export const DisplaySet = (props: {
 						</Popover.Target>
 						<Popover.Dropdown style={{ pointerEvents: "none" }} p={4}>
 							<Flex>
-								{props.set.personalBests.map((pb) => {
-									const color = useGetRandomMantineColor(pb);
-									return (
-										<Badge key={pb} size="xs" color={color} variant="light">
-											{startCase(pb)}
-										</Badge>
-									);
-								})}
+								{props.set.personalBests.map((pb) => (
+									<PersonalBestBadge key={pb} pb={pb} />
+								))}
 							</Flex>
 						</Popover.Dropdown>
 					</Popover>
@@ -126,6 +138,7 @@ export const DisplaySet = (props: {
 					lot={props.exerciseLot}
 					unitSystem={props.unitSystem}
 					statistic={props.set.statistic}
+					durationUnit={props.durationUnit}
 				/>
 			</Flex>
 			{props.set.note ? (
@@ -160,12 +173,20 @@ export const ExerciseHistory = (props: {
 			)
 			.exhaustive(),
 	);
-	const exercise =
-		workoutDetails?.details.information.exercises[props.exerciseIdx];
+	const exercise = workoutDetails?.details.information.exercises.at(
+		props.exerciseIdx,
+	);
 	const { data: exerciseDetails } = useExerciseDetails(
 		exercise?.id,
 		!!exercise?.id,
 	);
+	const { data: userExerciseDetails } = useUserExerciseDetails(
+		exercise?.id,
+		!!exercise?.id,
+	);
+	const durationUnit =
+		userExerciseDetails?.details?.exerciseExtraInformation?.settings
+			.defaultDurationUnit || ExerciseDurationUnit.Minutes;
 	const isInSuperset = props.supersetInformation?.find((s) =>
 		s.exercises.includes(props.exerciseIdx),
 	);
@@ -180,6 +201,8 @@ export const ExerciseHistory = (props: {
 
 	const images = useExerciseImages(exerciseDetails);
 	const hasExtraDetailsToShow = Boolean(images.length > 0 || exercise?.total);
+
+	const exerciseAttributeDurationValue = `${formatDuration(exercise?.total?.duration, durationUnit)} ${getDurationUnitLabel(durationUnit, "short")}`;
 
 	return (
 		<Paper
@@ -251,7 +274,7 @@ export const ExerciseHistory = (props: {
 												label="duration"
 												icon={IconClock}
 												quantity={exercise.total.duration}
-												value={`${exercise.total.duration} min`}
+												value={exerciseAttributeDurationValue}
 											/>
 											<DisplayExerciseAttributes
 												label="weight"
@@ -305,6 +328,7 @@ export const ExerciseHistory = (props: {
 							set={set}
 							idx={idx}
 							exerciseLot={exercise.lot}
+							durationUnit={durationUnit}
 							unitSystem={exercise.unitSystem}
 							key={`${set.confirmedAt}-${idx}`}
 						/>
@@ -333,50 +357,46 @@ const DisplayExerciseAttributes = (props: {
 	) : null;
 };
 
+type UpdateUserExerciseDetailsInput =
+	UpdateUserExerciseSettingsMutationVariables["input"]["change"];
+
 export const ExerciseUpdatePreferencesModal = (props: {
 	opened: boolean;
 	exerciseId: string;
 	onClose: () => void;
-	userExerciseDetails: {
-		details?: {
-			exerciseExtraInformation?: {
-				settings: {
-					excludeFromAnalytics?: boolean;
-					setRestTimers: Record<string, number | null>;
-				};
-			} | null;
-		} | null;
-	};
+	exerciseLot: ExerciseLot;
 }) => {
+	const { data: userExerciseDetails } = useUserExerciseDetails(
+		props.exerciseId,
+	);
 	const form = useSavedForm({
 		storageKeyPrefix: `ExerciseUpdatePreferencesModal-${props.exerciseId}`,
 		initialValues: {
 			excludeFromAnalytics:
-				props.userExerciseDetails.details?.exerciseExtraInformation?.settings
+				userExerciseDetails?.details?.exerciseExtraInformation?.settings
 					.excludeFromAnalytics ?? false,
 			setRestTimers:
-				props.userExerciseDetails.details?.exerciseExtraInformation?.settings
+				userExerciseDetails?.details?.exerciseExtraInformation?.settings
 					.setRestTimers ?? {},
+			defaultDurationUnit:
+				userExerciseDetails?.details?.exerciseExtraInformation?.settings
+					.defaultDurationUnit ?? ExerciseDurationUnit.Minutes,
 		},
 	});
 
 	const updateUserExerciseSettingsMutation = useMutation({
-		mutationFn: async (values: {
-			excludeFromAnalytics: boolean;
-			setRestTimers: Record<string, number | null>;
-		}) => {
-			await clientGqlService.request(UpdateUserExerciseSettingsDocument, {
+		mutationFn: (values: UpdateUserExerciseDetailsInput) =>
+			clientGqlService.request(UpdateUserExerciseSettingsDocument, {
 				input: { change: values, exerciseId: props.exerciseId },
-			});
-		},
+			}),
 	});
 
 	return (
 		<Modal
 			centered
-			withCloseButton={false}
 			opened={props.opened}
 			onClose={props.onClose}
+			withCloseButton={false}
 		>
 			<form
 				onSubmit={form.onSubmit(async (values) => {
@@ -391,21 +411,16 @@ export const ExerciseUpdatePreferencesModal = (props: {
 				})}
 			>
 				<Stack>
-					<Switch
-						label="Exclude from analytics"
-						{...form.getInputProps("excludeFromAnalytics", {
-							type: "checkbox",
-						})}
-					/>
-					<Text size="sm">
-						When a new set is added, rest timers will be added automatically
-						according to the settings below.
-						<Text size="xs" c="dimmed" span>
-							{" "}
-							Default rest timer durations for all exercises can be changed in
-							the fitness preferences.
+					<Box>
+						<Text size="sm">
+							When a new set is added, rest timers will be added automatically
+							according to the settings below.
 						</Text>
-					</Text>
+						<Text mt={4} size="xs" c="dimmed">
+							Note: Default rest timer durations for all exercises can be
+							changed in the fitness preferences.
+						</Text>
+					</Box>
 					<SimpleGrid cols={2}>
 						{(["normal", "warmup", "drop", "failure"] as const).map((name) => (
 							<NumberInput
@@ -416,6 +431,28 @@ export const ExerciseUpdatePreferencesModal = (props: {
 							/>
 						))}
 					</SimpleGrid>
+					<Switch
+						label="Exclude from analytics"
+						{...form.getInputProps("excludeFromAnalytics", {
+							type: "checkbox",
+						})}
+					/>
+					{match(props.exerciseLot)
+						.with(
+							ExerciseLot.Duration,
+							ExerciseLot.RepsAndDuration,
+							ExerciseLot.DistanceAndDuration,
+							ExerciseLot.RepsAndDurationAndDistance,
+							() => (
+								<Select
+									size="sm"
+									label="Default duration unit"
+									data={convertEnumToSelectData(ExerciseDurationUnit)}
+									{...form.getInputProps("defaultDurationUnit")}
+								/>
+							),
+						)
+						.otherwise(() => null)}
 					<Button
 						type="submit"
 						loading={updateUserExerciseSettingsMutation.isPending}
@@ -432,70 +469,66 @@ export const ExerciseMusclesModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	bodyViewSide: "front" | "back";
-	setBodyViewSide: Dispatch<SetStateAction<"front" | "back">>;
-	bodyViewGender: "male" | "female";
-	setBodyViewGender: Dispatch<SetStateAction<"male" | "female">>;
 	bodyPartsData: ExtendedBodyPart[];
-}) => {
-	return (
-		<Modal
-			centered
-			size="lg"
-			title="Muscles"
-			opened={props.opened}
-			onClose={props.onClose}
-		>
-			<Stack>
-				<Group justify="center" gap="lg">
-					<Group gap="xs">
-						<Text size="sm">Side:</Text>
-						<Button.Group>
-							<Button
-								size="xs"
-								onClick={() => props.setBodyViewSide("front")}
-								variant={props.bodyViewSide === "front" ? "filled" : "outline"}
-							>
-								Front
-							</Button>
-							<Button
-								size="xs"
-								onClick={() => props.setBodyViewSide("back")}
-								variant={props.bodyViewSide === "back" ? "filled" : "outline"}
-							>
-								Back
-							</Button>
-						</Button.Group>
-					</Group>
-					<Group gap="xs">
-						<Text size="sm">Gender:</Text>
-						<Button.Group>
-							<Button
-								size="xs"
-								onClick={() => props.setBodyViewGender("male")}
-								variant={props.bodyViewGender === "male" ? "filled" : "outline"}
-							>
-								Male
-							</Button>
-							<Button
-								size="xs"
-								onClick={() => props.setBodyViewGender("female")}
-								variant={
-									props.bodyViewGender === "female" ? "filled" : "outline"
-								}
-							>
-								Female
-							</Button>
-						</Button.Group>
-					</Group>
+	bodyViewGender: "male" | "female";
+	setBodyViewSide: Dispatch<SetStateAction<"front" | "back">>;
+	setBodyViewGender: Dispatch<SetStateAction<"male" | "female">>;
+}) => (
+	<Modal
+		centered
+		size="lg"
+		title="Muscles"
+		opened={props.opened}
+		onClose={props.onClose}
+	>
+		<Stack>
+			<Group justify="center" gap="lg">
+				<Group gap="xs">
+					<Text size="sm">Side:</Text>
+					<Button.Group>
+						<Button
+							size="xs"
+							onClick={() => props.setBodyViewSide("front")}
+							variant={props.bodyViewSide === "front" ? "filled" : "outline"}
+						>
+							Front
+						</Button>
+						<Button
+							size="xs"
+							onClick={() => props.setBodyViewSide("back")}
+							variant={props.bodyViewSide === "back" ? "filled" : "outline"}
+						>
+							Back
+						</Button>
+					</Button.Group>
 				</Group>
-				<Center>
-					<Body
-						side={props.bodyViewSide}
-						data={props.bodyPartsData}
-						gender={props.bodyViewGender}
-					/>
-				</Center>
-			</Stack>
-		</Modal>
-	);
-};
+				<Group gap="xs">
+					<Text size="sm">Gender:</Text>
+					<Button.Group>
+						<Button
+							size="xs"
+							onClick={() => props.setBodyViewGender("male")}
+							variant={props.bodyViewGender === "male" ? "filled" : "outline"}
+						>
+							Male
+						</Button>
+						<Button
+							size="xs"
+							onClick={() => props.setBodyViewGender("female")}
+							variant={props.bodyViewGender === "female" ? "filled" : "outline"}
+						>
+							Female
+						</Button>
+					</Button.Group>
+				</Group>
+			</Group>
+			<Center>
+				<Body
+					side={props.bodyViewSide}
+					data={props.bodyPartsData}
+					gender={props.bodyViewGender}
+				/>
+			</Center>
+		</Stack>
+	</Modal>
+);

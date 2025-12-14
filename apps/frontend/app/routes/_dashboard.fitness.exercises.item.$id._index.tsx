@@ -194,9 +194,9 @@ export default function Page() {
 		<>
 			<ExerciseUpdatePreferencesModal
 				exerciseId={exerciseDetails.id}
+				exerciseLot={exerciseDetails.lot}
 				opened={updatePreferencesModalOpened}
 				onClose={closeUpdatePreferencesModal}
-				userExerciseDetails={userExerciseDetails}
 			/>
 			<ExerciseMusclesModal
 				opened={musclesModalOpened}
@@ -432,6 +432,7 @@ export default function Page() {
 																	set={pbSet}
 																	key={pbSet.workoutId}
 																	personalBestLot={personalBest.lot}
+																	exerciseId={loaderData.exerciseId}
 																/>
 															))}
 														</Box>
