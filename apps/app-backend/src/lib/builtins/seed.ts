@@ -1,6 +1,6 @@
 import { generateId } from "better-auth";
 import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
-import { Context, Effect, Layer } from "effect";
+import { Effect } from "effect";
 
 import { CurrentDb, dbEffect, TransactionRunner } from "~/lib/db";
 import * as schema from "~/lib/db/schema";
@@ -423,16 +423,10 @@ const seedInitialDatabase = Effect.gen(function* () {
 	return { done: true as const };
 });
 
-export class SeedService extends Context.Tag("SeedService")<
-	SeedService,
-	{ readonly done: true }
->() {}
-
-export const SeedLive = Layer.effect(
-	SeedService,
-	Effect.gen(function* () {
+export class SeedService extends Effect.Service<SeedService>()("SeedService", {
+	effect: Effect.gen(function* () {
 		const runner = yield* TransactionRunner;
 		yield* runner(seedInitialDatabase);
 		return { done: true as const };
 	}),
-);
+}) {}
