@@ -1,7 +1,7 @@
 use async_graphql::{InputObject, SimpleObject};
 use common_models::EntityAssets;
 use educe::Educe;
-use enum_models::WorkoutSetPersonalBest;
+use enum_models::{ExerciseDurationUnit, WorkoutSetPersonalBest};
 use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::{FromJsonQueryResult, prelude::DateTimeUtc};
@@ -120,6 +120,7 @@ pub struct SetRestTimersSettings {
 pub struct UserToExerciseSettingsExtraInformation {
     pub exclude_from_analytics: bool,
     pub set_rest_timers: SetRestTimersSettings,
+    pub default_duration_unit: ExerciseDurationUnit,
 }
 
 #[derive(

@@ -287,7 +287,7 @@ export interface ImportOrExportPersonItem {
 export type ExerciseLot = 'reps' | 'duration' | 'reps_and_weight' | 'reps_and_duration' | 'distance_and_duration' | 'reps_and_duration_and_distance';
 
 /** The types of set (mostly characterized by exertion level). */
-export type SetLot = 'normal' | 'warm_up' | 'drop' | 'failure';
+export type SetLot = 'drop' | 'normal' | 'warm_up' | 'failure';
 
 /** The different types of personal bests that can be achieved on a set. */
 export type WorkoutSetPersonalBest = 'time' | 'pace' | 'reps' | 'one_rm' | 'volume' | 'weight' | 'distance';
@@ -312,7 +312,7 @@ export interface WorkoutSetRecord {
 	confirmed_at: string | null;
 	/**
 	 * @default 'normal'
-	 * @type {'normal' | 'warm_up' | 'drop' | 'failure'}
+	 * @type {'drop' | 'normal' | 'warm_up' | 'failure'}
 	 */
 	lot: SetLot;
 	note: string | null;

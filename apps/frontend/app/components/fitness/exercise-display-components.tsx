@@ -1,13 +1,25 @@
 import { Anchor, Box, Flex, Group, Text } from "@mantine/core";
-import { WorkoutSetPersonalBest } from "@ryot/generated/graphql/backend/graphql";
+import {
+	ExerciseDurationUnit,
+	WorkoutSetPersonalBest,
+} from "@ryot/generated/graphql/backend/graphql";
 import { startCase } from "@ryot/ts-utils";
 import { IconExternalLink } from "@tabler/icons-react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { dayjsLib } from "~/lib/shared/date-utils";
-import { useUserUnitSystem, useUserWorkoutDetails } from "~/lib/shared/hooks";
-import { displayDistanceWithUnit, displayWeightWithUnit } from "./utils";
+import {
+	useUserExerciseDetails,
+	useUserUnitSystem,
+	useUserWorkoutDetails,
+} from "~/lib/shared/hooks";
+import {
+	displayDistanceWithUnit,
+	displayWeightWithUnit,
+	formatDuration,
+	getDurationUnitLabel,
+} from "./utils";
 
 export const DisplayData = (props: {
 	name: string;
@@ -39,11 +51,19 @@ export const DisplayLifetimeStatistic = (props: {
 };
 
 export const DisplayPersonalBest = (props: {
-	set: { workoutId: string; exerciseIdx: number; setIdx: number };
+	exerciseId?: string;
 	personalBestLot: WorkoutSetPersonalBest;
+	set: { workoutId: string; exerciseIdx: number; setIdx: number };
 }) => {
 	const unitSystem = useUserUnitSystem();
 	const { data } = useUserWorkoutDetails(props.set.workoutId);
+	const { data: userExerciseDetails } = useUserExerciseDetails(
+		props.exerciseId,
+		!!props.exerciseId,
+	);
+	const durationUnit =
+		userExerciseDetails?.details?.exerciseExtraInformation?.settings
+			.defaultDurationUnit || ExerciseDurationUnit.Minutes;
 	const set =
 		data?.details.information.exercises[props.set.exerciseIdx].sets[
 			props.set.setIdx
@@ -63,7 +83,8 @@ export const DisplayPersonalBest = (props: {
 					.with(WorkoutSetPersonalBest.Reps, () => set.statistic.reps)
 					.with(
 						WorkoutSetPersonalBest.Time,
-						() => `${set.statistic.duration} min`,
+						() =>
+							`${formatDuration(set.statistic.duration, durationUnit)} ${getDurationUnitLabel(durationUnit, "short")}`,
 					)
 					.with(WorkoutSetPersonalBest.Volume, () =>
 						displayWeightWithUnit(unitSystem, set.statistic.volume),

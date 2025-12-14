@@ -15,6 +15,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	ExerciseDurationUnit,
 	ExerciseLot,
 	SetLot,
 	UserUnitSystem,
@@ -36,6 +37,7 @@ import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { v4 as randomUUID } from "uuid";
+import { getDurationUnitLabel } from "~/components/fitness/utils";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useCoreDetails,
@@ -97,6 +99,9 @@ export const ExerciseDisplay = (props: {
 	const playAddSetSound = usePlayFitnessSound("add-set");
 
 	const selectedUnitSystem = exercise.unitSystem;
+	const durationUnit =
+		userExerciseDetails?.details?.exerciseExtraInformation?.settings
+			.defaultDurationUnit || ExerciseDurationUnit.Minutes;
 	const isOnboardingTourStep = props.exerciseIdx === 0;
 	const [durationCol, distanceCol, weightCol, repsCol] = match(exercise.lot)
 		.with(ExerciseLot.Reps, () => [false, false, false, true])
@@ -300,7 +305,7 @@ export const ExerciseDisplay = (props: {
 								</Text>
 								{durationCol ? (
 									<Text size="xs" flex={1} ta="center">
-										DURATION (MIN)
+										DURATION ({getDurationUnitLabel(durationUnit)})
 									</Text>
 								) : null}
 								{distanceCol ? (
@@ -342,6 +347,7 @@ export const ExerciseDisplay = (props: {
 									weightCol={weightCol}
 									distanceCol={distanceCol}
 									durationCol={durationCol}
+									durationUnit={durationUnit}
 									stopTimer={props.stopTimer}
 									startTimer={props.startTimer}
 									exerciseIdx={props.exerciseIdx}

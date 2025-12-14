@@ -8,8 +8,6 @@ use sea_orm::{FromJsonQueryResult, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
-// Forward declaration - ProcessedExercise will use types from this module
-
 /// The types of set (mostly characterized by exertion level).
 #[derive(
     Eq,
@@ -26,10 +24,10 @@ use serde_with::skip_serializing_none;
 )]
 #[serde(rename_all = "snake_case")]
 pub enum SetLot {
+    Drop,
     #[default]
     Normal,
     WarmUp,
-    Drop,
     Failure,
 }
 
@@ -51,27 +49,27 @@ pub enum SetLot {
 #[graphql(input_name = "SetStatisticInput")]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutSetStatistic {
-    pub duration: Option<Decimal>,
-    pub distance: Option<Decimal>,
     pub reps: Option<Decimal>,
+    pub pace: Option<Decimal>,
     pub weight: Option<Decimal>,
     pub one_rm: Option<Decimal>,
-    pub pace: Option<Decimal>,
     pub volume: Option<Decimal>,
+    pub duration: Option<Decimal>,
+    pub distance: Option<Decimal>,
 }
 
 #[skip_serializing_none]
 #[derive(
+    Eq,
     Clone,
     Debug,
-    Deserialize,
-    Serialize,
-    FromJsonQueryResult,
-    Eq,
-    PartialEq,
-    SimpleObject,
-    Schematic,
     Default,
+    Schematic,
+    Serialize,
+    PartialEq,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutSetTotals {
@@ -107,17 +105,17 @@ pub struct WorkoutSetRecord {
 
 #[skip_serializing_none]
 #[derive(
+    Eq,
     Clone,
     Debug,
-    Deserialize,
-    Serialize,
-    FromJsonQueryResult,
-    Eq,
-    PartialEq,
-    SimpleObject,
-    Schematic,
     Default,
+    PartialEq,
+    Schematic,
+    Serialize,
     InputObject,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[serde(rename_all = "snake_case")]
 #[graphql(input_name = "WorkoutSupersetsInformationInput")]
@@ -168,15 +166,15 @@ pub struct WorkoutInformation {
 )]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutOrExerciseTotals {
-    /// The number of personal bests achieved.
-    pub personal_bests_achieved: usize,
-    pub weight: Decimal,
     pub reps: Decimal,
-    pub distance: Decimal,
-    pub duration: Decimal,
     /// The total seconds that were logged in the rest timer.
     #[serde(default)]
     pub rest_time: u16,
+    pub weight: Decimal,
+    pub distance: Decimal,
+    pub duration: Decimal,
+    /// The number of personal bests achieved.
+    pub personal_bests_achieved: usize,
 }
 
 /// An exercise that has been processed and committed to the database.
