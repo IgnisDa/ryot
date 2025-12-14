@@ -21,7 +21,7 @@ import { assertPresent } from "~/support/assertions";
 
 describe("Query engine media suggestions", () => {
 	it("builds user recommendations from persisted media-suggestion edges", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { schema } = await createGlobalBookEntityFixture(client);
 		const [sourceA, sourceB, candidateTop, candidateOther, alreadyOwned] = await Promise.all([
 			createGlobalBookEntityFixture(client, {
@@ -54,9 +54,9 @@ describe("Query engine media suggestions", () => {
 		);
 
 		await Promise.all([
-			insertLibraryMembership(client, { userId, mediaEntityId: sourceA.entity.id }),
-			insertLibraryMembership(client, { userId, mediaEntityId: sourceB.entity.id }),
-			insertLibraryMembership(client, { userId, mediaEntityId: alreadyOwned.entity.id }),
+			insertLibraryMembership(client, { mediaEntityId: sourceA.entity.id }),
+			insertLibraryMembership(client, { mediaEntityId: sourceB.entity.id }),
+			insertLibraryMembership(client, { mediaEntityId: alreadyOwned.entity.id }),
 			insertGlobalRelationship({
 				sourceEntityId: sourceA.entity.id,
 				targetEntityId: candidateTop.entity.id,
