@@ -1,6 +1,10 @@
 import { Button, Divider, Group, Stack, Text } from "@mantine/core";
+import { useStore } from "@tanstack/react-form";
 import { useState } from "react";
-import { useEntitySchemasQuery } from "#/features/entity-schemas/hooks";
+import {
+	useEntitySchemasBySlugQuery,
+	useEntitySchemasQuery,
+} from "#/features/entity-schemas/hooks";
 import { useAppForm } from "#/hooks/forms";
 import { getErrorMessage } from "#/lib/errors";
 import {
@@ -41,6 +45,13 @@ export function SavedViewExtendedForm(props: {
 		},
 	});
 
+	const entitySchemaSlugs = useStore(
+		form.store,
+		(state) => state.values.entitySchemaSlugs,
+	);
+	const { entitySchemas: schemas } =
+		useEntitySchemasBySlugQuery(entitySchemaSlugs);
+
 	return (
 		<form
 			onSubmit={(event) => {
@@ -54,29 +65,6 @@ export function SavedViewExtendedForm(props: {
 					<Stack gap={2}>
 						<Text size="sm" c="dimmed">
 							Edit query definition and display configuration for this view.
-						</Text>
-						<Text size="xs" c="dimmed">
-							Use{" "}
-							<Text span ff="var(--font-family-monospace)">
-								@name
-							</Text>
-							,{" "}
-							<Text span ff="var(--font-family-monospace)">
-								@createdAt
-							</Text>
-							, and{" "}
-							<Text span ff="var(--font-family-monospace)">
-								@updatedAt
-							</Text>{" "}
-							for built-in fields, or{" "}
-							<Text span ff="var(--font-family-monospace)">
-								schema.property
-							</Text>{" "}
-							for schema-specific paths like{" "}
-							<Text span ff="var(--font-family-monospace)">
-								smartphones.manufacturer
-							</Text>
-							.
 						</Text>
 					</Stack>
 
@@ -102,13 +90,29 @@ export function SavedViewExtendedForm(props: {
 						)}
 					</form.AppField>
 
-					<SortBuilder form={form} isLoading={props.isSubmitting} />
+					<SortBuilder
+						form={form}
+						schemas={schemas}
+						isLoading={props.isSubmitting}
+					/>
 
-					<FiltersBuilder form={form} isLoading={props.isSubmitting} />
+					<FiltersBuilder
+						form={form}
+						schemas={schemas}
+						isLoading={props.isSubmitting}
+						setFieldValue={(name, value) =>
+							// biome-ignore lint/suspicious/noExplicitAny: form.setFieldValue strict generics require cast for dynamic field names
+							form.setFieldValue(name as any, value)
+						}
+					/>
 
 					<Divider label="Display Configuration" labelPosition="left" />
 
-					<DisplayConfigBuilder form={form} isLoading={props.isSubmitting} />
+					<DisplayConfigBuilder
+						form={form}
+						schemas={schemas}
+						isLoading={props.isSubmitting}
+					/>
 
 					<Group gap="md" justify="flex-end">
 						<Button

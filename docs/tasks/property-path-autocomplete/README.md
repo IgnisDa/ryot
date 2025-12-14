@@ -127,16 +127,16 @@ Integration-style tests (React Testing Library):
 
 ## Tasks
 
-**Overall Progress:** 0 of 5 tasks completed
+**Overall Progress:** 5 of 5 tasks completed
 
-**Current Task:** [Task 01](./01-resolve-property-type-utility.md) (todo)
+**Current Task:** All done.
 
 ### Task List
 
 | # | Task | Type | Status | Blocked By |
 |---|------|------|--------|------------|
-| 01 | [resolvePropertyType Utility](./01-resolve-property-type-utility.md) | AFK | todo | None |
-| 02 | [PropertyPathAutocomplete Component + Schema Fetching + Filter Field Wiring](./02-property-path-autocomplete-component.md) | AFK | todo | None |
-| 03 | [Operator Filtering by Property Type](./03-operator-filtering-by-type.md) | AFK | todo | Task 01, Task 02 |
-| 04 | [Type-Aware Value Inputs + FilterRow.value Type Change + Field Reset](./04-type-aware-value-inputs.md) | AFK | todo | Task 03 |
-| 05 | [Sort Field + Display Config Property Path Autocomplete](./05-sort-and-display-config-autocomplete.md) | AFK | todo | Task 02 |
+| 01 | [resolvePropertyType Utility](./01-resolve-property-type-utility.md) | AFK | done | None |
+| 02 | [PropertyPathAutocomplete Component + Schema Fetching + Filter Field Wiring](./02-property-path-autocomplete-component.md) | AFK | done | None |
+| 03 | [Operator Filtering by Property Type](./03-operator-filtering-by-type.md) | AFK | done | Task 01, Task 02 |
+| 04 | [Type-Aware Value Inputs + FilterRow.value Type Change + Field Reset](./04-type-aware-value-inputs.md) | AFK | done | Task 03 |
+| 05 | [Sort Field + Display Config Property Path Autocomplete](./05-sort-and-display-config-autocomplete.md) | AFK | done | Task 02 |
