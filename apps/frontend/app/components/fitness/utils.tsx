@@ -42,7 +42,7 @@ export const formatDuration = (
 	const converted = convertDurationFromMinutes(minutes, targetUnit);
 	return targetUnit === ExerciseDurationUnit.Seconds
 		? Math.round(converted).toString()
-		: converted.toFixed(2);
+		: Number(converted.toFixed(2)).toString();
 };
 
 export const getSetStatisticsTextToDisplay = (
