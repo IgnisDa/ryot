@@ -63,11 +63,12 @@ async function makeFetch(input, init) {
 }
 
 function getLargestThumbnailUrl(thumbnail) {
-	const arr = Array.isArray(thumbnail)
-		? thumbnail
-		: Array.isArray(thumbnail?.contents)
-			? thumbnail.contents
-			: [];
+	let arr = [];
+	if (Array.isArray(thumbnail)) {
+		arr = thumbnail;
+	} else if (Array.isArray(thumbnail?.contents)) {
+		arr = thumbnail.contents;
+	}
 	const sorted = arr
 		.filter((t) => t?.url)
 		.sort((a, b) => (b.width ?? 0) * (b.height ?? 0) - (a.width ?? 0) * (a.height ?? 0));
@@ -173,12 +174,12 @@ driver("details", async function (context, { metadata }) {
 			if (!memberId) {
 				return null;
 			}
-			const memberName =
-				typeof track?.title === "string" && track.title.trim()
-					? track.title.trim()
-					: typeof track?.info?.title === "string" && track.info.title.trim()
-						? track.info.title.trim()
-						: "Loading...";
+			let memberName = "Loading...";
+			if (typeof track?.title === "string" && track.title.trim()) {
+				memberName = track.title.trim();
+			} else if (typeof track?.info?.title === "string" && track.info.title.trim()) {
+				memberName = track.info.title.trim();
+			}
 			return {
 				name: memberName,
 				externalId: memberId,

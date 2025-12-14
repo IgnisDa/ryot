@@ -63,11 +63,12 @@ async function makeFetch(input, init) {
 }
 
 function getThumbnailUrls(thumbnail) {
-	const arr = Array.isArray(thumbnail)
-		? thumbnail
-		: Array.isArray(thumbnail?.contents)
-			? thumbnail.contents
-			: [];
+	let arr = [];
+	if (Array.isArray(thumbnail)) {
+		arr = thumbnail;
+	} else if (Array.isArray(thumbnail?.contents)) {
+		arr = thumbnail.contents;
+	}
 	return arr
 		.filter((t) => t?.url)
 		.sort((a, b) => (b.width ?? 0) * (b.height ?? 0) - (a.width ?? 0) * (a.height ?? 0))

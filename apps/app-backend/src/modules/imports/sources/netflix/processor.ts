@@ -118,12 +118,17 @@ const adaptNetflixExportsWithSearchResults = (input: {
 		const showKey = createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" });
 		const movieResults = input.searchResults.get(movieKey) ?? [];
 		const showResults = input.searchResults.get(showKey) ?? [];
-		const requiredSearchJobKeys =
-			preferredEntitySchemaSlug === "movie"
-				? [movieKey]
-				: preferredEntitySchemaSlug === "show"
-					? [showKey]
-					: [movieKey, showKey];
+		let requiredSearchJobKeys: ReadonlyArray<string>;
+		switch (preferredEntitySchemaSlug) {
+			case "movie":
+				requiredSearchJobKeys = [movieKey];
+				break;
+			case "show":
+				requiredSearchJobKeys = [showKey];
+				break;
+			default:
+				requiredSearchJobKeys = [movieKey, showKey];
+		}
 		const lookupError = requiredSearchJobKeys
 			.map((searchJobKey) => input.searchErrors.get(searchJobKey))
 			.find((error): error is string => Boolean(error));
@@ -131,12 +136,17 @@ const adaptNetflixExportsWithSearchResults = (input: {
 			return Effect.fail(lookupError);
 		}
 
-		const results =
-			preferredEntitySchemaSlug === "movie"
-				? movieResults
-				: preferredEntitySchemaSlug === "show"
-					? showResults
-					: [...movieResults, ...showResults];
+		let results: NetflixTitleMatchCandidate[];
+		switch (preferredEntitySchemaSlug) {
+			case "movie":
+				results = movieResults;
+				break;
+			case "show":
+				results = showResults;
+				break;
+			default:
+				results = [...movieResults, ...showResults];
+		}
 		const match = chooseBestNetflixTitleMatch({ title, results, preferredEntitySchemaSlug });
 		if (!match) {
 			if (results.length === 0) {
