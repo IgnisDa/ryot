@@ -1,10 +1,17 @@
 import { Box, Flex, NumberInput, Text, rem } from "@mantine/core";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
-import type { WorkoutSetStatistic } from "@ryot/generated/graphql/backend/graphql";
+import {
+	ExerciseDurationUnit,
+	type WorkoutSetStatistic,
+} from "@ryot/generated/graphql/backend/graphql";
 import { isNumber, isString } from "@ryot/ts-utils";
 import clsx from "clsx";
 import { produce } from "immer";
 import invariant from "tiny-invariant";
+import {
+	convertDurationFromMinutes,
+	convertDurationToMinutes,
+} from "~/components/fitness/utils";
 import { useCurrentWorkout, useGetSetAtIndex } from "~/lib/state/fitness";
 import {
 	ACTIVE_WORKOUT_REPS_TARGET,
@@ -48,14 +55,24 @@ export const StatInput = (props: {
 	inputStep?: number;
 	exerciseIdx: number;
 	stat: keyof WorkoutSetStatistic;
+	durationUnit?: ExerciseDurationUnit;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
 	invariant(set);
+
+	const getDisplayValue = () => {
+		const backendValue = set.statistic[props.stat];
+		if (!isString(backendValue)) return undefined;
+
+		if (props.stat === "duration" && props.durationUnit) {
+			return convertDurationFromMinutes(backendValue, props.durationUnit);
+		}
+		return Number(backendValue);
+	};
+
 	const [value, setValue] = useDebouncedState<string | number | undefined>(
-		isString(set.statistic[props.stat])
-			? Number(set.statistic[props.stat])
-			: undefined,
+		getDisplayValue(),
 		500,
 	);
 	const { advanceOnboardingTourStep } = useOnboardingTour();
@@ -74,7 +91,20 @@ export const StatInput = (props: {
 		if (currentWorkout)
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
-					const val = isString(value) ? null : value?.toString();
+					let val: string | null = null;
+
+					if (!isString(value) && isNumber(value)) {
+						if (props.stat === "duration" && props.durationUnit) {
+							const minutes = convertDurationToMinutes(
+								value,
+								props.durationUnit,
+							);
+							val = minutes.toString();
+						} else {
+							val = value.toString();
+						}
+					}
+
 					const draftSet =
 						draft.exercises[props.exerciseIdx].sets[props.setIdx];
 					draftSet.statistic[props.stat] = val;
@@ -85,7 +115,20 @@ export const StatInput = (props: {
 						advanceOnboardingTourStep();
 				}),
 			);
-	}, [value, props.stat, props.setIdx, props.exerciseIdx]);
+	}, [value, props.stat, props.setIdx, props.exerciseIdx, props.durationUnit]);
+
+	const getInputStep = () => {
+		if (props.inputStep !== undefined) return props.inputStep;
+		if (
+			props.stat === "duration" &&
+			props.durationUnit === ExerciseDurationUnit.Seconds
+		) {
+			return 1;
+		}
+		return undefined;
+	};
+
+	const inputStep = getInputStep();
 
 	return currentWorkout ? (
 		<Flex flex={1} justify="center">
@@ -93,23 +136,22 @@ export const StatInput = (props: {
 				size="xs"
 				required
 				hideControls
-				step={props.inputStep}
-				onChange={(v) => setValue(v)}
+				step={inputStep}
+				value={getDisplayValue()}
 				onFocus={(e) => e.target.select()}
+				onChange={(v) => setValue(v)}
 				inputMode={props.stat === "reps" ? "numeric" : "decimal"}
 				className={clsx(weightStepTourClassName, repsStepTourClassName)}
 				styles={{
 					input: { fontSize: 15, width: rem(72), textAlign: "center" },
 				}}
-				value={
-					isString(set.statistic[props.stat])
-						? Number(set.statistic[props.stat])
-						: undefined
-				}
 				decimalScale={
-					isNumber(props.inputStep)
-						? Math.log10(1 / props.inputStep)
-						: undefined
+					props.stat === "duration" &&
+					props.durationUnit === ExerciseDurationUnit.Seconds
+						? 0
+						: isNumber(inputStep)
+							? Math.log10(1 / inputStep)
+							: undefined
 				}
 			/>
 		</Flex>

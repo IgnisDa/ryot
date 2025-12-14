@@ -433,6 +433,7 @@ export default function Page() {
 																	set={pbSet}
 																	key={pbSet.workoutId}
 																	personalBestLot={personalBest.lot}
+																	exerciseId={loaderData.exerciseId}
 																/>
 															))}
 														</Box>

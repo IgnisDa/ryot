@@ -58,6 +58,7 @@ import {
 	useExerciseDetails,
 	useGetRandomMantineColor,
 	useS3PresignedUrls,
+	useUserExerciseDetails,
 } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath, getSetColor } from "~/lib/shared/media-utils";
 import { clientGqlService } from "~/lib/shared/react-query";
@@ -74,6 +75,8 @@ import {
 	DisplaySetStatistics,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
+	formatDuration,
+	getDurationUnitLabel,
 } from "./utils";
 
 type Exercise = TWorkoutDetails["details"]["information"]["exercises"][number];
@@ -84,6 +87,7 @@ export const DisplaySet = (props: {
 	idx: number;
 	exerciseLot: ExerciseLot;
 	unitSystem: UserUnitSystem;
+	durationUnit: ExerciseDurationUnit;
 }) => {
 	const [opened, { close, open }] = useDisclosure(false);
 
@@ -131,6 +135,7 @@ export const DisplaySet = (props: {
 					lot={props.exerciseLot}
 					unitSystem={props.unitSystem}
 					statistic={props.set.statistic}
+					durationUnit={props.durationUnit}
 				/>
 			</Flex>
 			{props.set.note ? (
@@ -165,12 +170,20 @@ export const ExerciseHistory = (props: {
 			)
 			.exhaustive(),
 	);
-	const exercise =
-		workoutDetails?.details.information.exercises[props.exerciseIdx];
+	const exercise = workoutDetails?.details.information.exercises.at(
+		props.exerciseIdx,
+	);
 	const { data: exerciseDetails } = useExerciseDetails(
 		exercise?.id,
 		!!exercise?.id,
 	);
+	const { data: userExerciseDetails } = useUserExerciseDetails(
+		exercise?.id,
+		!!exercise?.id,
+	);
+	const durationUnit =
+		userExerciseDetails?.details?.exerciseExtraInformation?.settings
+			.defaultDurationUnit || ExerciseDurationUnit.Minutes;
 	const isInSuperset = props.supersetInformation?.find((s) =>
 		s.exercises.includes(props.exerciseIdx),
 	);
@@ -185,6 +198,8 @@ export const ExerciseHistory = (props: {
 
 	const images = useExerciseImages(exerciseDetails);
 	const hasExtraDetailsToShow = Boolean(images.length > 0 || exercise?.total);
+
+	const exerciseAttributeDurationValue = `${formatDuration(exercise?.total?.duration, durationUnit)} ${getDurationUnitLabel(durationUnit, "short")}`;
 
 	return (
 		<Paper
@@ -256,7 +271,7 @@ export const ExerciseHistory = (props: {
 												label="duration"
 												icon={IconClock}
 												quantity={exercise.total.duration}
-												value={`${exercise.total.duration} min`}
+												value={exerciseAttributeDurationValue}
 											/>
 											<DisplayExerciseAttributes
 												label="weight"
@@ -310,6 +325,7 @@ export const ExerciseHistory = (props: {
 							set={set}
 							idx={idx}
 							exerciseLot={exercise.lot}
+							durationUnit={durationUnit}
 							unitSystem={exercise.unitSystem}
 							key={`${set.confirmedAt}-${idx}`}
 						/>
