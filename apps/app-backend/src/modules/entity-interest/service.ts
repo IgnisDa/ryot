@@ -4,7 +4,7 @@ import type { EntityUpdatedReason } from "@ryot/contract/modules/entity-interest
 import type { RowItem } from "@ryot/contract/modules/query-engine/language";
 import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { buildEntityInterestQueryDocument } from "@ryot/query-engine";
-import { Array as Arr, Effect, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
@@ -19,6 +19,14 @@ import {
 } from "#modules/query-engine/response-helpers";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { MAX_ROOT_PAGE_SIZE } from "#modules/query-engine/validator/shared";
+
+const chunk = <T>(items: readonly T[], size: number): T[][] => {
+	const chunks: T[][] = [];
+	for (let index = 0; index < items.length; index += size) {
+		chunks.push(items.slice(index, index + size));
+	}
+	return chunks;
+};
 
 type TerminalUpdate = { readonly entityId: EntityId; readonly reason: EntityUpdatedReason };
 
@@ -67,7 +75,6 @@ export class InterestReconciler extends Effect.Service<InterestReconciler>()("In
 						yield* populationTrigger.request({
 							userId: user.id,
 							entityId: row.id,
-							origin: { kind: "api" },
 							externalId: row.externalId,
 							entitySchemaId: row.entitySchemaId,
 							sandboxScriptId: row.sandboxScriptId,
@@ -116,7 +123,11 @@ export class InterestReconciler extends Effect.Service<InterestReconciler>()("In
 			const schemas: [string, ...string[]] = [firstSlug, ...restSlugs];
 
 			const terminal: TerminalUpdate[] = [];
-			for (const [firstId, ...restIds] of Arr.chunksOf(entityIds, MAX_ROOT_PAGE_SIZE)) {
+			for (const ids of chunk(entityIds, MAX_ROOT_PAGE_SIZE)) {
+				const [firstId, ...restIds] = ids;
+				if (firstId === undefined) {
+					continue;
+				}
 				const doc = buildEntityInterestQueryDocument({
 					entityIds: [firstId, ...restIds],
 					entitySchemaSlugs: schemas,

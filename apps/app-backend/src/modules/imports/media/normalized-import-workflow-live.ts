@@ -1,20 +1,14 @@
 import { Activity } from "@effect/workflow";
-import { Effect, Layer, Schema } from "effect";
+import { DateTime, Effect, Layer } from "effect";
+
+import { DbRunner } from "#lib/infrastructure/db/service";
 
 import type { ImportRunJobData } from "../jobs";
+import { ImportsRepository } from "../repository";
 import { recordImportRunFailure } from "../runtime/import-run-status";
-import {
-	AdapterManifest,
-	loadImportAdapterChunk,
-	loadImportAdapterManifest,
-} from "../runtime/source-payload-store";
-import {
-	finalizeImportRun,
-	ImportRunError,
-	recordImportTotalItems,
-	toWorkflowError,
-} from "../runtime/workflow-helpers";
-import type { MediaImportAdapterResult } from "./adapter-result";
+import { loadImportAdapterResult } from "../runtime/source-payload-store";
+import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
+import { MediaImportAdapterResultSchema, type MediaImportAdapterResult } from "./adapter-result";
 import {
 	ProcessNormalizedMediaImportWorkflow,
 	type NormalizedMediaImportJobData,
@@ -23,46 +17,30 @@ import { MediaImportWorkflowOperationsLive } from "./operations-workflow";
 import { populateMediaEntityGroups } from "./population-workflow";
 import { resolveMediaEntityGroups } from "./resolution-workflow";
 import { createProgressReporter } from "./shared-workflow";
-import { ImportMediaEntityGroupSchema, type ImportMediaEntityGroup } from "./types";
+import type { ImportMediaEntityGroup } from "./types";
 import type { MediaImportWorkflowOptions } from "./types-workflow";
 import { writeMediaEntityGroups } from "./writing-workflow";
 
 const cloneMediaEntityGroups = (
-	groups: ReadonlyArray<typeof ImportMediaEntityGroupSchema.Type>,
+	adapterResult: MediaImportAdapterResult,
 ): ImportMediaEntityGroup[] =>
-	groups.map((group) => ({
+	adapterResult.entityGroups.map((group) => ({
 		...group,
 		events: [...group.events],
 		entityRef: { ...group.entityRef },
 		collectionMemberships: [...group.collectionMemberships],
 	}));
 
-const loadNormalizedAdapterManifest = (runId: string) =>
+const loadNormalizedAdapterResult = (runId: string) =>
 	Activity.make({
 		error: ImportRunError,
-		success: AdapterManifest,
-		name: "load-normalized-adapter-manifest",
-		execute: loadImportAdapterManifest(runId).pipe(
+		name: "load-normalized-adapter-result",
+		success: MediaImportAdapterResultSchema,
+		execute: loadImportAdapterResult(runId).pipe(
 			Effect.flatMap((result) =>
 				result === null
 					? new ImportRunError({
 							message: "Normalized media import artifact is missing or expired",
-						})
-					: Effect.succeed(result),
-			),
-		),
-	});
-
-const loadNormalizedAdapterChunk = (runId: string, chunkIndex: number) =>
-	Activity.make({
-		error: ImportRunError,
-		name: `load-normalized-adapter-chunk-${chunkIndex}`,
-		success: Schema.Array(ImportMediaEntityGroupSchema),
-		execute: loadImportAdapterChunk(runId, chunkIndex).pipe(
-			Effect.flatMap((result) =>
-				result === null
-					? new ImportRunError({
-							message: `Normalized media import chunk ${chunkIndex} is missing or expired`,
 						})
 					: Effect.succeed(result),
 			),
@@ -92,6 +70,20 @@ const recordMediaAdapterFailures = (
 		{ discard: true },
 	);
 
+const recordMediaTotalItems = (payload: Pick<ImportRunJobData, "runId">, totalItems: number) =>
+	Effect.gen(function* () {
+		const runWithDb = yield* DbRunner;
+		const repository = yield* ImportsRepository;
+
+		yield* Activity.make({
+			error: ImportRunError,
+			name: "record-total-items",
+			execute: runWithDb(repository.updateRun({ runId: payload.runId, totalItems })).pipe(
+				Effect.mapError(toWorkflowError),
+			),
+		});
+	});
+
 const makeMediaProgressReporters = (input: {
 	groups: number;
 	payload: Pick<ImportRunJobData, "runId">;
@@ -119,6 +111,34 @@ const makeMediaProgressReporters = (input: {
 	}),
 });
 
+const finalizeMediaImportRun = (input: {
+	failedItems: number;
+	importedItems: number;
+	processedItems: number;
+	payload: Pick<ImportRunJobData, "runId">;
+}) =>
+	Effect.gen(function* () {
+		const runWithDb = yield* DbRunner;
+		const repository = yield* ImportsRepository;
+		const finishedAt = yield* DateTime.nowAsDate;
+
+		yield* Activity.make({
+			error: ImportRunError,
+			name: "finalize-import-run",
+			execute: runWithDb(
+				repository.updateRun({
+					finishedAt,
+					progress: 100,
+					status: "completed",
+					runId: input.payload.runId,
+					failedItems: input.failedItems,
+					importedItems: input.importedItems,
+					processedItems: input.processedItems,
+				}),
+			).pipe(Effect.mapError(toWorkflowError)),
+		});
+	});
+
 export const processNormalizedMediaImport = Effect.fn("processNormalizedMediaImport")(function* (
 	payload: NormalizedMediaImportJobData,
 	executionId: string,
@@ -130,60 +150,44 @@ export const processNormalizedMediaImport = Effect.fn("processNormalizedMediaImp
 	const options: MediaImportWorkflowOptions = payload.integrationId
 		? { integrationId: payload.integrationId }
 		: {};
-	const origin = payload.integrationId
-		? {
-				importRunId: payload.runId,
-				kind: "integration" as const,
-				integrationId: payload.integrationId,
-			}
-		: { kind: "import" as const, importRunId: payload.runId };
 
-	const manifest = yield* loadNormalizedAdapterManifest(payload.runId);
-	const { failures, groups } = manifest;
+	const adapterResult = yield* loadNormalizedAdapterResult(payload.runId);
+	const { failures } = adapterResult;
+	const entityGroups = cloneMediaEntityGroups(adapterResult);
+	const groups = entityGroups.length;
 	const adapterFailureCount = failures.length;
 	const progress = makeMediaProgressReporters({ groups, payload: jobData });
 
 	yield* recordMediaAdapterFailures(jobData, failures);
-	yield* recordImportTotalItems(jobData, groups + adapterFailureCount);
+	yield* recordMediaTotalItems(jobData, groups + adapterFailureCount);
 
-	let resolveFailures = 0;
-	let populateFailures = 0;
-	let writeFailures = 0;
-	let importedItems = 0;
-	for (let chunkIndex = 0; chunkIndex < manifest.chunkCount; chunkIndex += 1) {
-		const chunk = yield* loadNormalizedAdapterChunk(payload.runId, chunkIndex);
-		const entityGroups = cloneMediaEntityGroups(chunk);
-		const chunkExecutionId = `${executionId}-chunk-${chunkIndex}`;
-		resolveFailures += yield* resolveMediaEntityGroups({
-			entityGroups,
-			payload: jobData,
-			executionId: chunkExecutionId,
-			reportProgress: progress.resolution,
-		});
-		const populated = yield* populateMediaEntityGroups({
-			origin,
-			entityGroups,
-			payload: jobData,
-			executionId: chunkExecutionId,
-			reportProgress: progress.population,
-		});
-		populateFailures += populated.failures;
-		const written = yield* writeMediaEntityGroups({
-			options,
-			entityGroups,
-			payload: jobData,
-			executionId: chunkExecutionId,
-			reportProgress: progress.writing,
-			entityIdsByKey: populated.entityIdsByKey,
-		});
-		writeFailures += written.failures;
-		importedItems += written.importedItems;
-	}
+	const resolveFailures = yield* resolveMediaEntityGroups({
+		executionId,
+		entityGroups,
+		payload: jobData,
+		reportProgress: progress.resolution,
+	});
+
+	const { failures: populateFailures, entityIdsByKey } = yield* populateMediaEntityGroups({
+		executionId,
+		entityGroups,
+		payload: jobData,
+		reportProgress: progress.population,
+	});
+
+	const { failures: writeFailures, importedItems } = yield* writeMediaEntityGroups({
+		options,
+		executionId,
+		entityGroups,
+		entityIdsByKey,
+		payload: jobData,
+		reportProgress: progress.writing,
+	});
 
 	const failedItems = adapterFailureCount + resolveFailures + populateFailures + writeFailures;
 	const processedItems = adapterFailureCount + groups;
 
-	yield* finalizeImportRun({
+	yield* finalizeMediaImportRun({
 		failedItems,
 		importedItems,
 		processedItems,

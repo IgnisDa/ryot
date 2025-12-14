@@ -4,15 +4,9 @@ import {
 	TranslationStatus,
 	type CreateEntityBody,
 	type EntityDetail,
-	type ListedEntity,
 } from "@ryot/contract/modules/entities/schemas";
 import type { RowItem } from "@ryot/contract/modules/query-engine/language";
-import {
-	EntityId,
-	EntitySchemaId,
-	SandboxScriptId,
-	type UserId,
-} from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { buildEntityDetailQueryDocument } from "@ryot/query-engine";
 import { Effect, Schema } from "effect";
 
@@ -29,16 +23,9 @@ import {
 } from "#modules/query-engine/response-helpers";
 import { QueryEngineService } from "#modules/query-engine/service";
 
-import { EntitiesRepository } from "./repository";
-import type { SaveEntityInputBase } from "./repository-types";
+import { EntitiesRepository, type SaveEntityInputBase } from "./repository";
 
 type SaveEntityInput = SaveEntityInputBase & { properties: unknown };
-
-export type EntityCreateResult = {
-	entity: ListedEntity;
-	entitySchemaSlug: string;
-	operation: "create" | "update" | "noop";
-};
 
 const entityNotFoundError = "Entity not found";
 const entitySchemaNotFoundError = "Entity schema not found";
@@ -67,9 +54,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 		const repository = yield* EntitiesRepository;
 		const queryEngine = yield* QueryEngineService;
 
-		const prepareSaveInput = Effect.fn("EntitiesService.prepareSaveInput")(function* (
-			input: SaveEntityInput,
-		) {
+		const save = Effect.fn("EntitiesService.save")(function* (input: SaveEntityInput) {
 			if (input.scope === "user") {
 				const hasExternalId = input.externalId !== undefined;
 				const hasScriptId = input.sandboxScriptId !== undefined;
@@ -96,16 +81,11 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 				propertiesSchema: scope.propertiesSchema,
 			}).pipe(Effect.mapError((error) => badRequest(error.message)));
 
-			return { ...input, properties };
+			return yield* runWithDb(repository.saveEntity({ ...input, properties }));
 		});
 
-		const save = Effect.fn("EntitiesService.save")(function* (input: SaveEntityInput) {
-			const prepared = yield* prepareSaveInput(input);
-			return yield* runWithDb(repository.saveEntity(prepared));
-		});
-
-		const prepareApiCreate = Effect.fn("EntitiesService.prepareApiCreate")(function* (
-			userId: UserId,
+		const create = Effect.fn("EntitiesService.create")(function* (
+			user: CurrentUserValue,
 			payload: CreateEntityBody,
 		) {
 			const externalId = payload.externalId ? trimToNull(payload.externalId) : null;
@@ -124,7 +104,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 
 			const entitySchemaId = EntitySchemaId.make(trimmedEntitySchemaId);
 			const scope = yield* runWithDb(
-				repository.getEntitySchemaScopeForUser({ userId, entitySchemaId }),
+				repository.getEntitySchemaScopeForUser({ userId: user.id, entitySchemaId }),
 			);
 			if (!scope) {
 				return yield* notFound(entitySchemaNotFoundError);
@@ -135,51 +115,27 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			if (provenance) {
 				const existing = yield* runWithDb(
 					repository.findEntityByExternalIdForUser({
-						userId,
 						entitySchemaId,
+						userId: user.id,
 						externalId: provenance.externalId,
 						sandboxScriptId: provenance.sandboxScriptId,
 					}),
 				);
 				if (existing) {
-					return { kind: "existing" as const, entity: existing, entitySchemaSlug: scope.slug };
+					return existing;
 				}
 			}
 
 			const name = yield* requireText(payload.name, "Entity name is required");
 
-			return {
-				kind: "create" as const,
-				entitySchemaSlug: scope.slug,
-				input: {
-					name,
-					userId,
-					entitySchemaId,
-					scope: "user" as const,
-					properties: payload.properties,
-					...provenance,
-				} satisfies SaveEntityInput,
-			};
-		});
-
-		const create = Effect.fn("EntitiesService.create")(function* (
-			userId: UserId,
-			payload: CreateEntityBody,
-		) {
-			const prepared = yield* prepareApiCreate(userId, payload);
-			if (prepared.kind === "existing") {
-				return {
-					operation: "noop",
-					entity: prepared.entity,
-					entitySchemaSlug: prepared.entitySchemaSlug,
-				} satisfies EntityCreateResult;
-			}
-			const outcome = yield* save(prepared.input);
-			return {
-				entity: outcome.entity,
-				operation: outcome.operation,
-				entitySchemaSlug: prepared.entitySchemaSlug,
-			} satisfies EntityCreateResult;
+			return yield* save({
+				name,
+				scope: "user",
+				entitySchemaId,
+				userId: user.id,
+				properties: payload.properties,
+				...provenance,
+			});
 		});
 
 		const getById = Effect.fn("EntitiesService.getById")(function* (

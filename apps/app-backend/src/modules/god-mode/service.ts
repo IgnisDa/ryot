@@ -9,8 +9,7 @@ import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { AuthService } from "#modules/auth/service";
-import { defaultUserPreferences } from "#modules/builtins/bootstrap";
-import { executeBootstrapUser } from "#modules/builtins/bootstrap-user-workflow";
+import { defaultUserPreferences, performBootstrap } from "#modules/builtins/bootstrap";
 import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 
 import { GodModeRepository } from "./repository";
@@ -317,14 +316,16 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 			const now = yield* DateTime.nowAsDate;
 
 			yield* runInTransaction(
-				repository.deleteAndRecreateUser({
-					now,
-					oidcAccountId,
-					user: snapshot.user,
-					preferences: defaultUserPreferences,
+				Effect.gen(function* () {
+					yield* repository.deleteAndRecreateUser({
+						now,
+						oidcAccountId,
+						user: snapshot.user,
+						preferences: defaultUserPreferences,
+					});
+					yield* performBootstrap(userId);
 				}),
 			);
-			yield* executeBootstrapUser(engine, { executionId: generateId(), userId });
 
 			yield* deleteUserSessions(userId);
 			yield* purgeApiKeyCaches(userId, snapshot.apiKeys);

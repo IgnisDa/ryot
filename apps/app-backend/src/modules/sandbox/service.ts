@@ -11,10 +11,10 @@ import { generateId } from "better-auth";
 import { Effect, Redacted, Schema } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
 import { pollWorkflowWithResumeNudge } from "#lib/infrastructure/workflow";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/shared/job-id";
-import { deriveSlug } from "#lib/shared/slug";
+import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
 
 import { SandboxRepository } from "./repository";
@@ -24,14 +24,12 @@ import { toSandboxRunResult } from "./sandbox-workflow-live";
 const allowedHostFunctions = new Set([
 	"httpCall",
 	"getEntity",
-	"emitSignal",
 	"listEvents",
 	"createEvents",
 	"getCachedValue",
 	"getIntegration",
 	"setCachedValue",
 	"getEntitySchema",
-	"sendNotification",
 	"listEventSchemas",
 	"listIntegrations",
 	"claimCachedValue",
@@ -39,7 +37,6 @@ const allowedHostFunctions = new Set([
 	"getUserPreferences",
 	"executeQueryEngine",
 ]);
-const maximumScriptsPerUser = 256;
 const sandboxJobNotFoundError = "Sandbox job not found";
 const sandboxScriptNotFoundError = "Sandbox script not found";
 
@@ -47,7 +44,8 @@ const decodeMetadata = Schema.decodeUnknown(SandboxScriptMetadata);
 
 const resolveScriptSlug = (payload: CreateSandboxScriptBody) => {
 	const name = payload.name === undefined ? null : trimToNull(payload.name);
-	const slug = deriveSlug(name, payload.slug);
+	const candidate = payload.slug?.trim() ?? name;
+	const slug = candidate ? slugify(candidate) : null;
 
 	if (!slug) {
 		return Effect.fail(badRequest("Sandbox script slug is required"));
@@ -78,7 +76,6 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 		const runWithDb = yield* DbRunner;
 		const engine = yield* WorkflowEngine;
 		const repository = yield* SandboxRepository;
-		const runInTransaction = yield* TransactionRunner;
 		const jobIdSecret = Redacted.value(config.sandbox.jobIdSecret);
 
 		const createScript = Effect.fn("SandboxApiService.createScript")(function* (
@@ -88,31 +85,20 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 			const resolved = yield* resolveScriptSlug(payload);
 			const metadata = yield* resolveMetadata(payload.metadata);
 
-			return yield* runInTransaction(
-				Effect.gen(function* () {
-					const scriptCount = yield* repository.lockUserAndCountScripts(user.id);
-					if (scriptCount === null) {
-						return yield* Effect.die(new Error("Authenticated user not found"));
-					}
-					if (scriptCount >= maximumScriptsPerUser) {
-						return yield* badRequest("Sandbox script limit exceeded");
-					}
+			const existing = yield* runWithDb(
+				repository.findScriptBySlugForUser({ userId: user.id, slug: resolved.slug }),
+			);
+			if (existing) {
+				return yield* conflict("A sandbox script with this slug already exists");
+			}
 
-					const existing = yield* repository.findScriptBySlugForUser({
-						userId: user.id,
-						slug: resolved.slug,
-					});
-					if (existing) {
-						return yield* conflict("A sandbox script with this slug already exists");
-					}
-
-					return yield* repository.createScript({
-						metadata,
-						userId: user.id,
-						code: payload.code,
-						slug: resolved.slug,
-						name: resolved.name,
-					});
+			return yield* runWithDb(
+				repository.createScript({
+					metadata,
+					userId: user.id,
+					code: payload.code,
+					slug: resolved.slug,
+					name: resolved.name,
 				}),
 			);
 		});
@@ -147,7 +133,6 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 						executionId,
 						userId: user.id,
 						scriptId: script.id,
-						executionKind: "direct",
 						context: payload.context ?? {},
 					},
 				})

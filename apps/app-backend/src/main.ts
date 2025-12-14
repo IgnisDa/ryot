@@ -5,24 +5,9 @@ import { AppLive } from "./app/layers";
 import { generateConfigDocs } from "./lib/infrastructure/config/docs";
 import { AppConfig, appConfigMeta } from "./lib/infrastructure/config/service";
 import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "./lib/infrastructure/db/migrate";
-import { DbRunnerLive, DbService, TransactionRunnerLive } from "./lib/infrastructure/db/service";
+import { DbService, TransactionRunnerLive } from "./lib/infrastructure/db/service";
 import { PackageCacheManager } from "./lib/infrastructure/sandbox-runtime/runtime";
 import { SeedService } from "./modules/builtins/seed";
-import { EntitiesRepository } from "./modules/entities/repository";
-import { EntitiesService } from "./modules/entities/service";
-import { ProviderConfig } from "./modules/query-engine/provider-config";
-import { QueryEngineService } from "./modules/query-engine/service";
-
-const MigrationQueryEngineLive = QueryEngineService.Default.pipe(
-	Layer.provide(ProviderConfig.Default),
-	Layer.provide(DbRunnerLive),
-	Layer.provide(TransactionRunnerLive),
-);
-const MigrationBootstrapServicesLive = EntitiesService.Default.pipe(
-	Layer.provide(MigrationQueryEngineLive),
-	Layer.provide(EntitiesRepository.Default),
-	Layer.provide(DbRunnerLive),
-);
 
 let shutdownTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -41,7 +26,6 @@ if (Bun.env["RUN_MIGRATION_ONLY"] === "true") {
 		Layer.flatMap(() =>
 			SeedService.Default.pipe(Layer.flatMap(() => LegacyBootstrapMigrateDrop.Default)),
 		),
-		Layer.provide(MigrationBootstrapServicesLive),
 		Layer.provide(TransactionRunnerLive),
 		Layer.provide(DbService.Default),
 		Layer.provide(BunContext.layer),
