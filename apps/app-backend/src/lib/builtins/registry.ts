@@ -136,21 +136,21 @@ export const builtinSandboxScripts = () => [
 		withTitleCaseHelper(audibleAudiobookScriptCode),
 		"audible",
 	),
-	translatedProviderScript("iTunes", "podcast.itunes", itunesPodcastScriptCode, "itunes", "en_us"),
+	translatedProviderScript("iTunes", "podcast.itunes", itunesPodcastScriptCode, "itunes", "en"),
 	providerScript("VNDB", "visual-novel.vndb", vndbVisualNovelScriptCode, "vndb"),
 	translatedProviderScript(
 		"Anilist",
 		"anime.anilist",
 		withDelimiterTitleCaseHelper(anilistAnimeScriptCode),
 		"anilist",
-		"english",
+		"en",
 	),
 	translatedProviderScript(
 		"Anilist",
 		"manga.anilist",
 		withDelimiterTitleCaseHelper(anilistMangaScriptCode),
 		"anilist",
-		"english",
+		"en",
 	),
 	providerScript("Anilist", "company.anilist", anilistCompanyScriptCode, "anilist"),
 	providerScript("GiantBomb", "company.giant-bomb", giantBombCompanyScriptCode, "giant-bomb", [
@@ -229,22 +229,22 @@ export const builtinSandboxScripts = () => [
 	providerScript("GiantBomb", "video-game.giant-bomb", giantBombVideoGameScriptCode, "giant-bomb", [
 		"providers.giantBombApiKey",
 	]),
-	translatedProviderScript("TMDB", "movie.tmdb", tmdbMovieScriptCode, "tmdb", "en-US", [
+	translatedProviderScript("TMDB", "movie.tmdb", tmdbMovieScriptCode, "tmdb", "en", [
 		"providers.tmdbAccessToken",
 	]),
-	translatedProviderScript("TMDB", "show.tmdb", tmdbShowScriptCode, "tmdb", "en-US", [
+	translatedProviderScript("TMDB", "show.tmdb", tmdbShowScriptCode, "tmdb", "en", [
 		"providers.tmdbAccessToken",
 	]),
-	translatedProviderScript("TMDB", "person.tmdb", tmdbPersonScriptCode, "tmdb", "en-US", [
+	translatedProviderScript("TMDB", "person.tmdb", tmdbPersonScriptCode, "tmdb", "en", [
 		"providers.tmdbAccessToken",
 	]),
-	translatedProviderScript("TVDB", "movie.tvdb", tvdbMovieScriptCode, "tvdb", "eng", [
+	translatedProviderScript("TVDB", "movie.tvdb", tvdbMovieScriptCode, "tvdb", "en", [
 		"providers.tvdbApiKey",
 	]),
-	translatedProviderScript("TVDB", "show.tvdb", tvdbShowScriptCode, "tvdb", "eng", [
+	translatedProviderScript("TVDB", "show.tvdb", tvdbShowScriptCode, "tvdb", "en", [
 		"providers.tvdbApiKey",
 	]),
-	translatedProviderScript("TVDB", "person.tvdb", tvdbPersonScriptCode, "tvdb", "eng", [
+	translatedProviderScript("TVDB", "person.tvdb", tvdbPersonScriptCode, "tvdb", "en", [
 		"providers.tvdbApiKey",
 	]),
 	providerScript(
@@ -281,10 +281,10 @@ export const builtinSandboxScripts = () => [
 		"providers.twitchClientId",
 		"providers.twitchClientSecret",
 	]),
-	translatedProviderScript("TMDB", "movie-group.tmdb", tmdbMovieGroupScriptCode, "tmdb", "en-US", [
+	translatedProviderScript("TMDB", "movie-group.tmdb", tmdbMovieGroupScriptCode, "tmdb", "en", [
 		"providers.tmdbAccessToken",
 	]),
-	translatedProviderScript("TVDB", "movie-group.tvdb", tvdbMovieGroupScriptCode, "tvdb", "eng", [
+	translatedProviderScript("TVDB", "movie-group.tvdb", tvdbMovieGroupScriptCode, "tvdb", "en", [
 		"providers.tvdbApiKey",
 	]),
 	providerScript("Audible", "audiobook-group.audible", audibleAudiobookGroupScriptCode, "audible"),

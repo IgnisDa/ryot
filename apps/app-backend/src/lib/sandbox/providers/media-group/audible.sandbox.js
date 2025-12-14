@@ -6,39 +6,6 @@ function parseJsonResponse(responseBody) {
 	}
 }
 
-const LOCALE_SUFFIX_MAP = {
-	AU: "com.au",
-	CA: "ca",
-	DE: "de",
-	ES: "es",
-	FR: "fr",
-	GB: "co.uk",
-	IN: "co.in",
-	IT: "it",
-	JP: "co.jp",
-	UK: "co.uk",
-	US: "com",
-};
-
-async function getAudibleLocale() {
-	const prefsResult = await getUserPreferences();
-	if (!prefsResult?.success) {
-		return "com";
-	}
-	const providers = prefsResult?.data?.languages?.providers;
-	if (!Array.isArray(providers)) {
-		return "com";
-	}
-	const audiblePref = providers.find((p) => p && typeof p === "object" && p.source === "audible");
-	const lang =
-		audiblePref &&
-		typeof audiblePref.preferredLanguage === "string" &&
-		audiblePref.preferredLanguage.trim()
-			? audiblePref.preferredLanguage.trim().toUpperCase()
-			: "US";
-	return LOCALE_SUFFIX_MAP[lang] ?? "com";
-}
-
 driver("search", function () {
 	throw new Error("Audible does not support audiobook group search");
 });
@@ -50,8 +17,7 @@ driver("details", async function (context) {
 		.object({ externalId: z.string().trim().min(1, "externalId is required") })
 		.parse(context ?? {});
 
-	const localeSuffix = await getAudibleLocale();
-	const baseUrl = `https://api.audible.${localeSuffix}/1.0/catalog/products`;
+	const baseUrl = "https://api.audible.com/1.0/catalog/products";
 
 	// Fetch the series ASIN to get its relationships (the member items).
 	const seriesParams = new URLSearchParams({
