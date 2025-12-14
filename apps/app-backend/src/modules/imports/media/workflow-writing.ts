@@ -1,6 +1,7 @@
 import { Activity } from "@effect/workflow";
 import { DateTime, Effect, Schema } from "effect";
 
+import { defaultUserPreferences } from "#lib/builtins/bootstrap";
 import { DbRunner } from "#lib/db/service";
 import { unknownToMessage } from "#lib/errors";
 import { EntityId, EntitySchemaId, EventSchemaId, type IntegrationId } from "#lib/schema/brands";
@@ -45,7 +46,12 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 	let importedItems = 0;
 	const collectionIdsByName = new Map<string, EntityId>();
 	const eventSchemaIdsByKey = new Map<string, EventSchemaId>();
-	const user = { id: input.payload.userId, name: "", email: "" };
+	const user = {
+		name: "",
+		email: "",
+		id: input.payload.userId,
+		preferences: defaultUserPreferences,
+	};
 	const entitySchemaIdsBySlug = new Map<string, EntitySchemaId>();
 	const ownershipSyncedAt = yield* Activity.make({
 		error: ImportRunError,
