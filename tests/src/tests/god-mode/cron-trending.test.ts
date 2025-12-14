@@ -4,12 +4,15 @@ import { randomUUID } from "node:crypto";
 import {
 	createAndPromoteSandboxScript,
 	createAuthenticatedClient,
+	findBuiltinSchemaBySlug,
 	getBackendClient,
+	listRelationshipSchemas,
+	requireRelationshipSchemaBySlug,
 	trendingSandboxSource,
 } from "~/fixtures";
 import { pollUntil } from "~/fixtures/polling";
 import { getPgClient } from "~/setup";
-import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
+import { assertPresent, assertTaggedError } from "~/support/assertions";
 
 const ADMIN_TOKEN = "test-admin-token";
 const ADMIN_ACCESS_TOKEN_HEADER = "Admin-Access-Token";
@@ -39,19 +42,14 @@ describe("POST /god-mode/cron/infrequent (media-trending durable workflow)", () 
 		const pg = getPgClient();
 		const { client } = await createAuthenticatedClient();
 
-		const movieSchema = await pg.query<{ id: string }>(
-			`select id from entity_schema
-			 where slug = 'movie' and user_id is null and is_builtin = true`,
-		);
-		movieSchemaId = requirePresent(movieSchema.rows[0], "missing builtin movie schema").id;
-
-		const trendingSchema = await pg.query<{ id: string }>(
-			`select id from relationship_schema
-			 where slug = 'media-trending' and user_id is null`,
-		);
-		mediaTrendingSchemaId = requirePresent(
-			trendingSchema.rows[0],
-			"missing media-trending relationship schema",
+		const [{ schema: movieSchema }, relationshipSchemas] = await Promise.all([
+			findBuiltinSchemaBySlug(client, "movie"),
+			listRelationshipSchemas(client, { slugs: ["media-trending"] }),
+		]);
+		movieSchemaId = movieSchema.id;
+		mediaTrendingSchemaId = requireRelationshipSchemaBySlug(
+			relationshipSchemas,
+			"media-trending",
 		).id;
 
 		const script = await createAndPromoteSandboxScript(client, TRENDING_SOURCE);
