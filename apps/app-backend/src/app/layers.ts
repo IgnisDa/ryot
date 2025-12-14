@@ -7,6 +7,8 @@ import { AppConfig } from "../lib/config";
 import { DbService, DbRunnerLive, TransactionRunnerLive } from "../lib/db";
 import { MigrationsComplete } from "../lib/db/migrate";
 import { RedisService } from "../lib/redis";
+import { EntitiesRepository } from "../modules/entities/repository";
+import { EntitiesService } from "../modules/entities/service";
 import { EntitySchemasRepository } from "../modules/entity-schemas/repository";
 import { EntitySchemasService } from "../modules/entity-schemas/service";
 import { EventSchemasRepository } from "../modules/event-schemas/repository";
@@ -23,11 +25,13 @@ const RuntimeAfterMigrationsLive = MigrationsComplete.Default.pipe(
 
 export const AppLive = RuntimeAfterMigrationsLive.pipe(
 	Layer.provide(TrackersService.Default),
+	Layer.provide(EntitiesService.Default),
 	Layer.provide(EntitySchemasService.Default),
 	Layer.provide(EventSchemasService.Default),
 	Layer.provide(RelationshipSchemasService.Default),
 	Layer.provide(DbRunnerLive),
 	Layer.provide(TrackersRepository.Default),
+	Layer.provide(EntitiesRepository.Default),
 	Layer.provide(EntitySchemasRepository.Default),
 	Layer.provide(EventSchemasRepository.Default),
 	Layer.provide(RelationshipSchemasRepository.Default),
