@@ -1,7 +1,5 @@
 /* oxlint-disable */
 // TODO: delete this file eventually
-import { fileURLToPath } from "node:url";
-
 import { faker } from "@faker-js/faker";
 import { runContract, type ContractProgram } from "@ryot/contract/client";
 import type { QueryExpression, RuntimeRef } from "@ryot/contract/display-configuration";
@@ -21,11 +19,11 @@ import {
 } from "@ryot/query-engine";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
-import { Effect } from "effect";
+
+import { requirePresent } from "~/support/assertions";
 
 import { cookieHeaderFromSetCookies, enableTwoFactorForSession } from "./fixtures/auth-2fa";
 import type { ContractPayload, ContractSuccess } from "./fixtures/contract-client";
-import { requirePresent } from "./test-support/assertions";
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8000/api";
 const FRONTEND_URL = requirePresent(
@@ -34,15 +32,11 @@ const FRONTEND_URL = requirePresent(
 );
 
 async function createAndSignIn(): Promise<{
-	totpCodes: {
-		past: string;
-		current: string;
-		future: string;
-	};
 	email: string;
 	cookies: string;
 	password: string;
 	backupCodes: string[];
+	totpCodes: { past: string; future: string; current: string };
 }> {
 	const email = `seed-${dayjs().valueOf()}@example.com`;
 	const password = email;

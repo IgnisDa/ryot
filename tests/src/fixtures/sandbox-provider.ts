@@ -7,7 +7,8 @@ import type {
 	ProviderTranslateResult,
 } from "@ryot/sandbox-sdk/provider";
 
-import { getPgClient } from "../setup";
+import { getPgClient } from "~/setup";
+
 import type { Client } from "./auth";
 import { createAndPromoteSandboxScript } from "./sandbox";
 

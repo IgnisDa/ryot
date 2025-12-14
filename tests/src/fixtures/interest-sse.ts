@@ -1,4 +1,5 @@
-import { getBackendUrl } from "../setup";
+import { getBackendUrl } from "~/setup";
+
 import { postBackendJson } from "./contract-client";
 
 export type EntityUpdatedFrame = {

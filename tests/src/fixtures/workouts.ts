@@ -1,6 +1,7 @@
 import { EntityId } from "@ryot/contract/schema/brands";
 
-import { requireString } from "../test-support/assertions";
+import { requireString } from "~/support/assertions";
+
 import type { Client } from "./auth";
 import { createEntity } from "./entities";
 import { findBuiltinSchemaBySlug } from "./entity-schemas";
