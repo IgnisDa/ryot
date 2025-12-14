@@ -1,5 +1,5 @@
 import { reactRouter } from "@react-router/dev/vite";
-// import { reactRouterDevTools } from "react-router-devtools";
+import { reactRouterDevTools } from "react-router-devtools";
 import { safeRoutes } from "safe-routes/vite";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
@@ -13,7 +13,7 @@ export default defineConfig({
 			: undefined,
 	},
 	plugins: [
-		// reactRouterDevTools(),
+		reactRouterDevTools(),
 		reactRouter(),
 		safeRoutes(),
 		tsconfigPaths({ ignoreConfigErrors: true }),
