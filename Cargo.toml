@@ -358,3 +358,4 @@ youtube-music-provider = { path = "crates/providers/youtube-music" }
 
 [profile.release]
 lto = true
+codegen-units = 1
