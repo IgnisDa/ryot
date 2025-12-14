@@ -32,11 +32,6 @@ const fields = {
 		"Maximum milliseconds to wait when acquiring a PostgreSQL connection from the pool",
 		{ default: 10_000 },
 	),
-	databaseStatementTimeoutMs: intField(
-		"DATABASE_STATEMENT_TIMEOUT_MS",
-		"Maximum milliseconds a single SQL statement may run before PostgreSQL aborts it; 0 disables. Bounds pathological statements (e.g. a deeply nested query-engine document). The pool is shared with migrations, so set to 0 or raise this when running long migrations or bulk backfills.",
-		{ default: 30_000 },
-	),
 	databaseIdleInTransactionTimeoutMs: intField(
 		"DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS",
 		"Maximum milliseconds a transaction may sit idle holding locks before PostgreSQL aborts it; 0 disables",
@@ -195,14 +190,12 @@ const databaseGroup = group(
 	Config.all({
 		url: fields.databaseUrl.config,
 		poolMax: fields.databasePoolMax.config,
-		statementTimeoutMs: fields.databaseStatementTimeoutMs.config,
 		connectionTimeoutMs: fields.databaseConnectionTimeoutMs.config,
 		idleInTransactionTimeoutMs: fields.databaseIdleInTransactionTimeoutMs.config,
 	}),
 	{
 		url: fields.databaseUrl.meta,
 		poolMax: fields.databasePoolMax.meta,
-		statementTimeoutMs: fields.databaseStatementTimeoutMs.meta,
 		connectionTimeoutMs: fields.databaseConnectionTimeoutMs.meta,
 		idleInTransactionTimeoutMs: fields.databaseIdleInTransactionTimeoutMs.meta,
 	},

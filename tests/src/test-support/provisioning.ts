@@ -128,8 +128,6 @@ export function buildBackendEnv(input: {
 		...process.env,
 		NODE_ENV: "test",
 		DATABASE_POOL_MAX: "50",
-		// Tests run without a statement timeout; the production default must not abort test queries.
-		DATABASE_STATEMENT_TIMEOUT_MS: "0",
 		DATABASE_URL: input.dbUrl,
 		REDIS_URL: input.redisUrl,
 		PORT: input.port.toString(),
