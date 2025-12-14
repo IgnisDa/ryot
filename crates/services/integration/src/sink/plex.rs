@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result, anyhow, bail};
 use common_models::StringIdObject;
+use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use media_models::ImportOrExportMetadataItemSeen;
@@ -97,15 +98,32 @@ pub async fn sink_progress(
 ) -> Result<Option<ImportResult>> {
     let payload = parse_payload(&payload)?;
 
-    if let Some(plex_user) = &plex_user
-        && *plex_user != payload.account.plex_user
+    let plex_user = plex_user
+        .as_deref()
+        .map(str::trim)
+        .filter(|u| !u.is_empty());
+    if let Some(plex_user) = plex_user
+        && plex_user != payload.account.plex_user
     {
+        ryot_log!(
+            debug,
+            "Ignoring Plex webhook for user {:?}; integration is configured for {:?}",
+            payload.account.plex_user,
+            plex_user
+        );
         return Ok(None);
     }
 
     match payload.event_type.as_str() {
         "media.scrobble" | "media.play" | "media.pause" | "media.resume" | "media.stop" => {}
-        _ => return Ok(None),
+        _ => {
+            ryot_log!(
+                debug,
+                "Ignoring unsupported Plex webhook event {:?}",
+                payload.event_type
+            );
+            return Ok(None);
+        }
     };
 
     let identifier = get_tmdb_identifier(&payload.metadata.guids)?;
