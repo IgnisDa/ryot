@@ -8216,10 +8216,10 @@ __metadata:
     "@wxt-dev/auto-icons": "npm:1.1.0"
     "@wxt-dev/module-react": "npm:1.1.5"
     graphql: "npm:16.12.0"
-    graphql-request: "npm:7.3.5"
-    lucide-react: "npm:0.560.0"
-    react: "npm:19.2.1"
-    react-dom: "npm:19.2.1"
+    graphql-request: "npm:7.4.0"
+    lucide-react: "npm:0.561.0"
+    react: "npm:19.2.3"
+    react-dom: "npm:19.2.3"
     tailwindcss: "npm:4.1.18"
     ts-pattern: "npm:5.9.0"
     vite-tsconfig-paths: "npm:5.1.4"
@@ -8281,7 +8281,7 @@ __metadata:
     embla-carousel-react: "npm:8.6.0"
     filesize: "npm:11.0.13"
     graphql: "npm:16.12.0"
-    graphql-request: "npm:7.3.5"
+    graphql-request: "npm:7.4.0"
     howler: "npm:2.2.4"
     html2canvas: "npm:1.4.1"
     humanize-duration-ts: "npm:2.1.1"
@@ -8296,8 +8296,8 @@ __metadata:
     postcss-preset-mantine: "npm:1.18.0"
     postcss-simple-vars: "npm:7.0.1"
     qrcode.react: "npm:4.2.0"
-    react: "npm:19.2.1"
-    react-dom: "npm:19.2.1"
+    react: "npm:19.2.3"
+    react-dom: "npm:19.2.3"
     react-joyride: "npm:2.9.3"
     react-router: "npm:7.10.1"
     react-router-devtools: "npm:6.0.0"
@@ -8335,7 +8335,7 @@ __metadata:
   resolution: "@ryot/graphql@workspace:libs/graphql"
   dependencies:
     "@ryot/generated": "workspace:*"
-    graphql-request: "npm:7.3.5"
+    graphql-request: "npm:7.4.0"
   languageName: unknown
   linkType: soft
 
@@ -8361,7 +8361,7 @@ __metadata:
     dotenv: "npm:17.2.3"
     get-port: "npm:7.1.0"
     graphql: "npm:16.12.0"
-    graphql-request: "npm:7.3.5"
+    graphql-request: "npm:7.4.0"
     testcontainers: "npm:11.10.0"
     vite-tsconfig-paths: "npm:5.1.4"
     vitest: "npm:4.0.15"
@@ -8374,9 +8374,9 @@ __metadata:
   dependencies:
     "@react-email/components": "npm:1.0.1"
     "@ryot/ts-utils": "workspace:*"
-    react: "npm:19.2.1"
-    react-dom: "npm:19.2.1"
-    react-email: "npm:5.0.7"
+    react: "npm:19.2.3"
+    react-dom: "npm:19.2.3"
+    react-email: "npm:5.0.8"
   languageName: unknown
   linkType: soft
 
@@ -8424,7 +8424,7 @@ __metadata:
     "@types/nodemailer": "npm:7.0.4"
     "@types/react": "npm:19.2.7"
     "@types/react-dom": "npm:19.2.3"
-    "@unkey/api": "npm:2.2.0"
+    "@unkey/api": "npm:2.2.1"
     class-variance-authority: "npm:0.7.1"
     clsx: "npm:2.1.1"
     dayjs: "npm:1.11.19"
@@ -8433,18 +8433,18 @@ __metadata:
     embla-carousel-autoplay: "npm:8.6.0"
     embla-carousel-react: "npm:8.6.0"
     graphql: "npm:16.12.0"
-    graphql-request: "npm:7.3.5"
+    graphql-request: "npm:7.4.0"
     humanize-duration-ts: "npm:2.1.1"
     input-otp: "npm:1.4.2"
     isbot: "npm:5.1.32"
     lodash: "npm:4.17.21"
-    lucide-react: "npm:0.560.0"
+    lucide-react: "npm:0.561.0"
     next-themes: "npm:0.4.6"
     nodemailer: "npm:7.0.11"
     openid-client: "npm:6.8.1"
     postgres: "npm:3.4.7"
-    react: "npm:19.2.1"
-    react-dom: "npm:19.2.1"
+    react: "npm:19.2.3"
+    react-dom: "npm:19.2.3"
     react-router: "npm:7.10.1"
     remix-utils: "npm:9.0.0"
     safe-routes: "npm:1.0.18"
@@ -10544,12 +10544,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@unkey/api@npm:2.2.0":
-  version: 2.2.0
-  resolution: "@unkey/api@npm:2.2.0"
+"@unkey/api@npm:2.2.1":
+  version: 2.2.1
+  resolution: "@unkey/api@npm:2.2.1"
   dependencies:
     zod: "npm:^3.25.0 || ^4.0.0"
-  checksum: 10/9018c32f304063f5a256598b9b7c29a82b75eed0fe0b714f23de19cbeb083fd01825b26773a1751792a96ceda628231c4decb3cc2029c81025ea1e70da9b3043
+  checksum: 10/fdfaf1c11574cf61e01ef1115722d584b7f9de8abdf96992573603365f4064649cc7c8904e3a1873653af9c95dc375abb68c72aa448d7e1b515b0e7013e6bd56
   languageName: node
   linkType: hard
 
@@ -15590,14 +15590,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"graphql-request@npm:7.3.5":
-  version: 7.3.5
-  resolution: "graphql-request@npm:7.3.5"
+"graphql-request@npm:7.4.0":
+  version: 7.4.0
+  resolution: "graphql-request@npm:7.4.0"
   dependencies:
     "@graphql-typed-document-node/core": "npm:^3.2.0"
   peerDependencies:
     graphql: 14 - 16
-  checksum: 10/d76e11d83e14e4059ad655ddbf7b4ef78b4ba9590f4fa7889eadfa17391e50d42a62cc26e1f50ebc28a68563e39d48daf25d65ec53ca46162133554cb3fa08de
+  checksum: 10/bdf657ffd2017a4c404f2b18fc21dabb7094866059e80312632c38c21f3936cd790c1c635de5dba568f90c096725eaf50d6ec98db75229f260a5b9d6717744c5
   languageName: node
   linkType: hard
 
@@ -17469,12 +17469,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lucide-react@npm:0.560.0":
-  version: 0.560.0
-  resolution: "lucide-react@npm:0.560.0"
+"lucide-react@npm:0.561.0":
+  version: 0.561.0
+  resolution: "lucide-react@npm:0.561.0"
   peerDependencies:
     react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
-  checksum: 10/20a7ed9db37108f07992db63835dcd93f6ee12ec4fb0d8da707a5360cf0fb0948f73e8a4a3dc1558b6f45ca05a2ad99cfb96e9c8d7e87810ff9e2f264ac89983
+  checksum: 10/fb305e06527849c2d475b245c524ac56c6554afe648ce1d0ede9d5105366ce296c0f2fa2cbf5c57ef0c14449462a2ec30f35db2656626e9fcf2c96fd124738d0
   languageName: node
   linkType: hard
 
@@ -19536,20 +19536,20 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-dom@npm:19.2.1":
-  version: 19.2.1
-  resolution: "react-dom@npm:19.2.1"
+"react-dom@npm:19.2.3":
+  version: 19.2.3
+  resolution: "react-dom@npm:19.2.3"
   dependencies:
     scheduler: "npm:^0.27.0"
   peerDependencies:
-    react: ^19.2.1
-  checksum: 10/cceea7104bd3ad52e2f6377f47c4b346244c1263917fd95745e31647ff8ab23b16f719c2bfc8bcf2a6c802ecb9c9e81f08b09e3447e1f49bc27368283ed299ba
+    react: ^19.2.3
+  checksum: 10/5780f6d4c8e8ece09f82c5500ba2d55e01c30b5273f9281734d7d3b65013cd1fa52ec4e4436e5248c0a9e5bc340836044051168bbad8d7eac4d33ee6c2a867a1
   languageName: node
   linkType: hard
 
-"react-email@npm:5.0.7":
-  version: 5.0.7
-  resolution: "react-email@npm:5.0.7"
+"react-email@npm:5.0.8":
+  version: 5.0.8
+  resolution: "react-email@npm:5.0.8"
   dependencies:
     "@babel/parser": "npm:^7.27.0"
     "@babel/traverse": "npm:^7.27.0"
@@ -19570,7 +19570,7 @@ __metadata:
     tsconfig-paths: "npm:4.2.0"
   bin:
     email: dist/index.js
-  checksum: 10/828c3abb69c22ae3ab6ea38be2cb15dce670312b08d60fbdf21d34f468ba37346ff675ad1015d54f02cb1a08a6c4cbfcb526e067d563c8eb1a214a260605309a
+  checksum: 10/4094131defec36704391a94cfb0d302a50f6f208e0877421ba4cd1fb00e65be187149e5a911e4c1b1afa67b24bf14d280d718a85f991a4408164befc289a5f9f
   languageName: node
   linkType: hard
 
@@ -19848,10 +19848,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react@npm:19.2.1":
-  version: 19.2.1
-  resolution: "react@npm:19.2.1"
-  checksum: 10/7c7ab0f40b98e87e1466bea8c28564c5f3c384506cbda93d24788d32b40bf6059c991687c7e90a396b11f09223a779a81b1188af9acd839aaa0a672987c13107
+"react@npm:19.2.3":
+  version: 19.2.3
+  resolution: "react@npm:19.2.3"
+  checksum: 10/d16b7f35c0d35a56f63d9d1693819762e4abc479c57dd6310298920bed3820fcec7e17a99d44983416d8f5049143ea45b8005d3ab8324bae8973224400502b08
   languageName: node
   linkType: hard
 

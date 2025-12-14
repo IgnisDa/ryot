@@ -4,8 +4,8 @@
 	"dependencies": {
 		"@react-email/components": "1.0.1",
 		"@ryot/ts-utils": "workspace:*",
-		"react": "19.2.1",
-		"react-dom": "19.2.1",
-		"react-email": "5.0.7"
+		"react": "19.2.3",
+		"react-dom": "19.2.3",
+		"react-email": "5.0.8"
 	}
 }

@@ -11,7 +11,7 @@
 		"dotenv": "17.2.3",
 		"get-port": "7.1.0",
 		"graphql": "16.12.0",
-		"graphql-request": "7.3.5",
+		"graphql-request": "7.4.0",
 		"testcontainers": "11.10.0",
 		"vite-tsconfig-paths": "5.1.4",
 		"vitest": "4.0.15"
