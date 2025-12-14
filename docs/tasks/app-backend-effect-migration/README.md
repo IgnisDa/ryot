@@ -178,9 +178,9 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 
 ## Tasks
 
-**Overall Progress:** 13 of 32 tasks completed
+**Overall Progress:** 14 of 32 tasks completed
 
-**Current Task:** [Task 14](./14-event-schema-basic-crud.md) (todo)
+**Current Task:** [Task 15](./15-entity-create-get-clear-state.md) (todo)
 
 ### Task List
 
@@ -199,7 +199,7 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 | 11  | [Property Schema Effect DSL](./11-property-schema-effect-dsl.md)                                     | AFK  | done   |
 | 12  | [Relationship Schema Reads](./12-relationship-schema-reads.md)                                       | AFK  | done   |
 | 13  | [Entity Schema Basic CRUD](./13-entity-schema-basic-crud.md)                                         | AFK  | done   |
-| 14  | [Event Schema Basic CRUD](./14-event-schema-basic-crud.md)                                           | AFK  | todo   |
+| 14  | [Event Schema Basic CRUD](./14-event-schema-basic-crud.md)                                           | AFK  | done   |
 | 15  | [Entity Create Get Clear State](./15-entity-create-get-clear-state.md)                               | AFK  | todo   |
 | 16  | [Event Create List Without Triggers](./16-event-create-list-without-triggers.md)                     | AFK  | todo   |
 | 17  | [Collections And Library Membership](./17-collections-and-library-membership.md)                     | AFK  | todo   |
