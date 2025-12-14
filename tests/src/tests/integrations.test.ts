@@ -15,9 +15,9 @@ import {
 	postWebhook,
 	pollImportRunUntilTerminal,
 	seedGlobalShowEpisodeTree,
+	updateUserPreferences,
 	waitForEventSlugs,
 } from "../fixtures";
-import { getPgClient } from "../setup";
 import { assertTaggedError, requirePresent } from "../test-support/assertions";
 
 const kodiPayload = { identifier: "tt1234567", lot: "movie", progress: 50 };
@@ -268,14 +268,10 @@ describe("Webhook routes", () => {
 	});
 
 	it("POST when disableIntegrations preference is true returns 202 with failed run", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { id } = await createKodiIntegration(client);
 
-		const pg = getPgClient();
-		await pg.query(`UPDATE "user" SET preferences = preferences || $1::jsonb WHERE id = $2`, [
-			JSON.stringify({ disableIntegrations: true }),
-			userId,
-		]);
+		await updateUserPreferences(client, { disableIntegrations: true });
 
 		const { response, data } = await postWebhook(id, kodiPayload);
 
