@@ -43,6 +43,8 @@ export const EntitiesGroup = HttpApiGroup.make("entities")
 		HttpApiEndpoint.post("import", "/entities/import")
 			.setPayload(ImportEntityBody)
 			.addSuccess(Schema.Struct({ jobId: Schema.String }))
+			.addError(BadRequest, { status: 400 })
+			.addError(NotFound, { status: 404 })
 			.middleware(AuthMiddleware),
 	)
 	.add(

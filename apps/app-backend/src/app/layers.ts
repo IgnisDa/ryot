@@ -14,6 +14,7 @@ import { CollectionsRepository } from "../modules/collections/repository";
 import { CollectionsService } from "../modules/collections/service";
 import { EntitiesRepository } from "../modules/entities/repository";
 import { EntitiesService } from "../modules/entities/service";
+import { EntityImportWorkflowDefinitionsLive } from "../modules/entities/workflows";
 import { EntitySchemasRepository } from "../modules/entity-schemas/repository";
 import { EntitySchemasService } from "../modules/entity-schemas/service";
 import { EventSchemasRepository } from "../modules/event-schemas/repository";
@@ -30,7 +31,11 @@ import { TrackersService } from "../modules/trackers/service";
 import { UploadsService } from "../modules/uploads/service";
 import { ServerLive } from "./server";
 
-const RuntimeLive = Layer.mergeAll(ServerLive, SandboxWorkflowDefinitionsLive);
+const RuntimeLive = Layer.mergeAll(
+	ServerLive,
+	SandboxWorkflowDefinitionsLive,
+	EntityImportWorkflowDefinitionsLive,
+);
 
 const RuntimeAfterMigrationsLive = MigrationsComplete.Default.pipe(
 	Layer.flatMap(() => SeedService.Default.pipe(Layer.flatMap(() => RuntimeLive))),
@@ -47,6 +52,8 @@ const RepositoriesLive = Layer.mergeAll(
 	RelationshipSchemasRepository.Default,
 );
 
+const SandboxServicesLive = Layer.mergeAll(SandboxApiService.Default, SandboxService.Default);
+
 const ServicesLive = Layer.mergeAll(
 	TrackersService.Default,
 	CollectionsService.Default,
@@ -54,12 +61,10 @@ const ServicesLive = Layer.mergeAll(
 	EntitySchemasService.Default,
 	EventSchemasService.Default,
 	EventsService.Default,
-	SandboxApiService.Default,
 	RelationshipSchemasService.Default,
 	UploadsService.Default,
-	SandboxService.Default,
 	AuthService.Default,
-);
+).pipe(Layer.provideMerge(SandboxServicesLive));
 
 const ConfigLive = Layer.mergeAll(AppConfig.Default, BunContext.layer);
 
