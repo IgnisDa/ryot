@@ -4,18 +4,23 @@ import { Schema } from "effect";
 import { AuthMiddleware } from "../../lib/auth";
 import { NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
 import { ListedImportRun } from "../imports/contract";
+import { integrationLots, type IntegrationLot as IntegrationLotType } from "./types";
+
+export const IntegrationLot = Schema.Literal(...integrationLots);
+
+export type IntegrationLot = IntegrationLotType;
 
 export const ListedIntegration = Schema.Struct({
 	id: Schema.String,
-	lot: Schema.Literal("yank", "sink", "push"),
+	lot: IntegrationLot,
 	provider: Schema.String,
-	isDisabled: Schema.Boolean,
-	syncOwnership: Schema.Boolean,
-	minimumProgress: Schema.Number,
-	maximumProgress: Schema.Number,
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
+	isDisabled: Schema.Boolean,
+	syncOwnership: Schema.Boolean,
 	extraSettings: Schema.Unknown,
+	minimumProgress: Schema.Number,
+	maximumProgress: Schema.Number,
 	providerSpecifics: Schema.Unknown,
 	name: Schema.optional(Schema.String),
 	webhookUrl: Schema.optional(Schema.String),
