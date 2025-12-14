@@ -1,4 +1,5 @@
 import { type AppSchema, resolveRequiredString } from "@ryot/ts-utils";
+import { chunk } from "lodash";
 import { z } from "zod";
 import { resolveCustomEntitySchemaAccess } from "~/lib/app/entity-schema-access";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
@@ -8,7 +9,11 @@ import {
 	getEventCreateScopeForUser,
 	listEventsByEntityForUser,
 } from "./repository";
-import type { CreateEventBody, ListedEvent } from "./schemas";
+import type {
+	CreateEventBody,
+	CreateEventBulkBody,
+	ListedEvent,
+} from "./schemas";
 
 export type EventPropertiesShape = Record<string, unknown>;
 
@@ -305,4 +310,29 @@ export const createEvent = async (
 	});
 
 	return createDataResult(createdEvent);
+};
+
+const BULK_CHUNK_SIZE = 1000;
+
+export const createEvents = async (
+	input: { body: CreateEventBulkBody; userId: string },
+	deps: EventServiceDeps = eventServiceDeps,
+): Promise<EventServiceResult<{ count: number }>> => {
+	const chunks = chunk(input.body, BULK_CHUNK_SIZE);
+	let count = 0;
+
+	for (const chunk of chunks) {
+		for (const item of chunk) {
+			const result = await createEvent(
+				{ body: item, userId: input.userId },
+				deps,
+			);
+			if ("error" in result) {
+				return result;
+			}
+			count++;
+		}
+	}
+
+	return createDataResult({ count });
 };

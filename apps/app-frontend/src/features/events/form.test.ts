@@ -277,10 +277,12 @@ describe("toCreateEventPayload", () => {
 			"entity-1",
 		);
 
-		expect(payload.occurredAt).toBe(new Date("2026-03-08T10:15").toISOString());
+		expect(payload[0]?.occurredAt).toBe(
+			new Date("2026-03-08T10:15").toISOString(),
+		);
 	});
 
-	it("trims ids and preserves validated properties", () => {
+	it("wraps the single event in an array and trims ids", () => {
 		const payload = toCreateEventPayload(
 			{
 				eventSchemaId: "  schema-1  ",
@@ -290,12 +292,14 @@ describe("toCreateEventPayload", () => {
 			"  entity-1  ",
 		);
 
-		expect(payload).toEqual({
-			entityId: "entity-1",
-			eventSchemaId: "schema-1",
-			occurredAt: "2026-03-08T10:15:00.000Z",
-			properties: { completed: true, minutes: 15 },
-		});
+		expect(payload).toEqual([
+			{
+				entityId: "entity-1",
+				eventSchemaId: "schema-1",
+				occurredAt: "2026-03-08T10:15:00.000Z",
+				properties: { completed: true, minutes: 15 },
+			},
+		]);
 	});
 
 	it("drops stale properties after the schema selection changes", () => {
@@ -319,11 +323,11 @@ describe("toCreateEventPayload", () => {
 			],
 		);
 
-		expect(payload.properties).toEqual({ completed: true });
+		expect(payload[0]?.properties).toEqual({ completed: true });
 	});
 
 	it("sanitizes unknown properties using the selected schema", () => {
-		const payload = toCreateEventPayload(
+		const sanitizedPayload = toCreateEventPayload(
 			{
 				eventSchemaId: "schema-1",
 				occurredAt: "2026-03-08T10:15:00.000Z",
@@ -338,7 +342,7 @@ describe("toCreateEventPayload", () => {
 			],
 		);
 
-		expect(payload.properties).toEqual({ minutes: 15 });
+		expect(sanitizedPayload[0]?.properties).toEqual({ minutes: 15 });
 	});
 });
 
