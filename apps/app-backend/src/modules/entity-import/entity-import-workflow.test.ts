@@ -15,13 +15,13 @@ import { Effect, Layer } from "effect";
 
 import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
-import type { MockOverrides } from "#lib/test-support/effect";
+import type { MockOverrides } from "#lib/test-utils/effect";
 import {
 	dbRunnerLayer,
 	makeRedisService,
 	makeWorkflowActivityEngine,
 	transactionLayer,
-} from "#lib/test-support/effect";
+} from "#lib/test-utils/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
