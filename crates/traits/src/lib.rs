@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use common_models::{BackendError, PersonSourceSpecifics};
 use common_utils::ryot_log;
 use database_models::metadata_group::MetadataGroupWithoutId;
-use database_utils::{check_token, deploy_job_to_mark_user_last_activity};
+use database_utils::check_token;
 use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
 use media_models::{
     EntityTranslationDetails, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
@@ -134,9 +134,6 @@ pub trait GraphqlDependencyInjector {
         let ss = ctx.data_unchecked::<Arc<SupportingService>>();
         if let Some(session_id) = &auth_ctx.session_id {
             check_token(session_id, self.is_mutation(), ss).await?;
-        }
-        if let Some(user_id) = &auth_ctx.user_id {
-            deploy_job_to_mark_user_last_activity(user_id, ss).await?;
         }
         auth_ctx
             .user_id
