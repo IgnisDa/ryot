@@ -42,15 +42,15 @@ export async function createEntitySchema(
 export async function listEntitySchemas(
 	client: Client,
 	cookies: string,
-	trackerId: string,
+	options: { slugs?: string[]; trackerId?: string },
 ) {
 	const { data, response } = await client.GET("/entity-schemas", {
+		params: { query: options },
 		headers: { Cookie: cookies },
-		params: { query: { trackerId } },
 	});
 
 	if (response.status !== 200 || !data?.data) {
-		throw new Error(`Failed to list entity schemas for tracker '${trackerId}'`);
+		throw new Error("Failed to list entity schemas");
 	}
 
 	return data.data;
@@ -78,7 +78,9 @@ export async function getEntitySchema(
 
 export async function findBuiltinEntitySchema(client: Client, cookies: string) {
 	const builtinTracker = await findBuiltinTracker(client, cookies);
-	const schemas = await listEntitySchemas(client, cookies, builtinTracker.id);
+	const schemas = await listEntitySchemas(client, cookies, {
+		trackerId: builtinTracker.id,
+	});
 	const firstSchema = schemas[0];
 
 	if (!firstSchema) {
