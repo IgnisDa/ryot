@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Arc, time::Instant};
+use std::{collections::HashSet, sync::Arc};
 
 use anyhow::Result;
 use common_models::UserLevelCacheKey;
@@ -18,13 +18,9 @@ use dependent_models::{
 use dependent_notification_utils::update_metadata_and_notify_users;
 use enum_models::MetadataToMetadataRelation;
 use itertools::Itertools;
-use nanoid::nanoid;
-use rand::seq::{IndexedRandom, SliceRandom};
 use sea_orm::{
     ActiveValue, ColumnTrait, Condition, EntityTrait, JoinType, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, QueryTrait, RelationTrait,
-    prelude::Expr,
-    sea_query::{Func, extension::postgres::PgExpr},
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, prelude::Expr, sea_query::Func,
 };
 use supporting_service::SupportingService;
 use user_models::DashboardElementLot;
@@ -100,62 +96,54 @@ async fn filter_and_select_recommendations(
     ss: &Arc<SupportingService>,
 ) -> Result<UserMetadataRecommendationsResponse> {
     let preferences = user_by_id(user_id, ss).await?.preferences;
-    let limit = preferences
+    let limit: usize = preferences
         .general
         .dashboard
         .into_iter()
         .find(|d| d.section == DashboardElementLot::Recommendations)
         .unwrap()
         .num_elements
+        .unwrap()
+        .try_into()
         .unwrap();
     let enabled = preferences.features_enabled.media.specific;
-    let started_at = Instant::now();
-    let mut recommendations = HashSet::new();
+    let candidate_fetch_limit: u64 = ((limit * 5).max(limit + 10)).try_into().unwrap();
+    let user_id_for_join = user_id.clone();
 
-    for i in 0.. {
-        let now = Instant::now();
-        if recommendations.len() >= limit.try_into().unwrap()
-            || now.duration_since(started_at).as_secs() > 5
-        {
-            break;
-        }
-        ryot_log!(debug, "Recommendations loop {} for user: {}", i, user_id);
-        let selected_lot = enabled.choose(&mut rand::rng()).unwrap();
-        let cloned_user_id = user_id.clone();
-        let rec = Metadata::find()
-            .select_only()
-            .column(metadata::Column::Id)
-            .filter(metadata::Column::Lot.eq(*selected_lot))
-            .join(
-                JoinType::LeftJoin,
-                metadata::Relation::UserToEntity
-                    .def()
-                    .on_condition(move |_left, right| {
-                        Condition::all().add(
-                            Expr::col((right, user_to_entity::Column::UserId))
-                                .eq(cloned_user_id.clone()),
-                        )
-                    }),
-            )
-            .filter(user_to_entity::Column::Id.is_null())
-            .apply_if(
-                (!calculated_recommendations.is_empty()).then_some(0),
-                |query, _| query.filter(metadata::Column::Id.is_in(&calculated_recommendations)),
-            )
-            .order_by_desc(Expr::expr(Func::md5(
-                Expr::col(metadata::Column::Title).concat(Expr::val(nanoid!(12))),
-            )))
-            .into_tuple::<String>()
-            .one(&ss.db)
-            .await?;
-        if let Some(rec) = rec {
-            recommendations.insert(rec);
-        }
-    }
+    let candidates = Metadata::find()
+        .select_only()
+        .column(metadata::Column::Id)
+        .filter(metadata::Column::Lot.is_in(enabled))
+        .join(
+            JoinType::LeftJoin,
+            metadata::Relation::UserToEntity
+                .def()
+                .on_condition(move |_left, right| {
+                    Condition::all().add(
+                        Expr::col((right, user_to_entity::Column::UserId))
+                            .eq(user_id_for_join.clone()),
+                    )
+                }),
+        )
+        .filter(user_to_entity::Column::Id.is_null())
+        .apply_if(
+            (!calculated_recommendations.is_empty()).then_some(0),
+            |query, _| query.filter(metadata::Column::Id.is_in(&calculated_recommendations)),
+        )
+        .order_by(Expr::expr(Func::random()), sea_orm::Order::Asc)
+        .limit(candidate_fetch_limit)
+        .into_tuple::<String>()
+        .all(&ss.db)
+        .await?;
 
-    let mut recommendations = recommendations.into_iter().collect_vec();
-    recommendations.shuffle(&mut rand::rng());
-    Ok(recommendations)
+    ryot_log!(
+        debug,
+        "Selecting {} candidates for user: {}",
+        candidates.len(),
+        user_id
+    );
+
+    Ok(candidates.into_iter().take(limit).collect_vec())
 }
 
 pub async fn user_metadata_recommendations(
