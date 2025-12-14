@@ -1,59 +1,29 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk";
-import dayjs from "@ryot/sandbox-sdk/dayjs";
-import type {
-	ProviderDetailsRelatedEntity,
-	ProviderSearchInput,
-	ProviderSearchResult,
-} from "@ryot/sandbox-sdk/provider";
+import type { ProviderSearchInput, ProviderSearchResult } from "@ryot/sandbox-sdk/provider";
+
+import {
+	asRecord,
+	numberValue,
+	parseJsonResponse,
+	recordsValue,
+	stringValue,
+	type UnknownRecord,
+} from "../script-helpers/records";
+import type { RoleRelatedEntity } from "../script-helpers/role-accumulator";
 
 export type TvdbHost = SandboxHost<
 	readonly ["httpCall", "getCachedValue", "setCachedValue", "getAppConfigValue"]
 >;
 
-export type UnknownRecord = Record<string, unknown>;
-
 export type RemoteImage = { type: "remote"; url: string };
-
-export type TvdbRelatedEntityWithRoles = Omit<
-	ProviderDetailsRelatedEntity,
-	"relationshipProperties"
-> & { relationshipProperties: { roles: string[] } };
 
 const TVDB_BASE_URL = "https://api4.thetvdb.com/v4";
 const TOKEN_CACHE_KEY = "tvdb_access_token";
 // TVDB tokens are valid for 30 days; cache for 23 hours as a safety buffer.
 const TOKEN_CACHE_TTL_SECONDS = 23 * 60 * 60;
 
-const isRecord = (value: unknown): value is UnknownRecord =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-
-export const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
-
-export const recordsValue = (value: unknown) =>
-	Array.isArray(value)
-		? value.flatMap((item) => {
-				const record = asRecord(item);
-				return record ? [record] : [];
-			})
-		: [];
-
-export const stringValue = (value: unknown) =>
-	typeof value === "string" && value.trim() ? value.trim() : null;
-
-export const numberValue = (value: unknown) =>
-	typeof value === "number" && Number.isFinite(value) ? value : null;
-
 export const firstStringValue = (record: UnknownRecord, keys: readonly string[]) =>
 	keys.reduce<string | null>((value, key) => value ?? stringValue(record[key]), null);
-
-const parseJsonResponse = (responseBody: string) => {
-	try {
-		const value: unknown = JSON.parse(responseBody);
-		return value;
-	} catch {
-		throw new Error("TVDB returned invalid JSON");
-	}
-};
 
 const getTvdbApiKey = (host: TvdbHost) =>
 	host.getAppConfigValue("providers.tvdbApiKey").then((response) => {
@@ -86,7 +56,7 @@ export const getTvdbAccessToken = (host: TvdbHost): Promise<string> =>
 				if (!response.success) {
 					throw new Error(response.error || "TVDB login request failed");
 				}
-				const payload = asRecord(parseJsonResponse(response.data.body));
+				const payload = asRecord(parseJsonResponse(response.data.body, "TVDB"));
 				const token = stringValue(asRecord(payload?.["data"])?.["token"]);
 				if (payload?.["status"] !== "success" || !token) {
 					throw new Error("TVDB login returned no token");
@@ -122,7 +92,7 @@ const tvdbRequest = (
 					}
 					throw new Error(response.error || `TVDB request failed: ${path}`);
 				}
-				const payload = asRecord(parseJsonResponse(response.data.body));
+				const payload = asRecord(parseJsonResponse(response.data.body, "TVDB"));
 				if (!payload) {
 					throw new Error("TVDB returned an invalid response object");
 				}
@@ -221,15 +191,6 @@ export const buildTranslationResult = (
 	};
 };
 
-export const parsePublishYear = (date: unknown) => {
-	const value = stringValue(date);
-	if (!value) {
-		return null;
-	}
-	const parsed = dayjs(value);
-	return parsed.isValid() && parsed.year() > 0 ? parsed.year() : null;
-};
-
 export const collectImages = (mainImages: readonly unknown[], artworks: unknown) => {
 	const seen = new Set<string>();
 	const images: RemoteImage[] = [];
@@ -270,7 +231,7 @@ export const collectCompanies = (companies: unknown) => {
 		return [];
 	}
 
-	const companyByKey = new Map<string, TvdbRelatedEntityWithRoles>();
+	const companyByKey = new Map<string, RoleRelatedEntity>();
 	for (const [key, role] of TVDB_COMPANY_ROLES) {
 		for (const company of recordsValue(companiesRecord[key])) {
 			const id = numberValue(company["id"]);
@@ -302,7 +263,7 @@ export const collectCompanies = (companies: unknown) => {
 };
 
 export const collectPeople = (characters: unknown) => {
-	const relatedEntityByKey = new Map<string, TvdbRelatedEntityWithRoles>();
+	const relatedEntityByKey = new Map<string, RoleRelatedEntity>();
 	const unlinkedCreators: Array<{ name: string; role: string }> = [];
 	const unlinkedByKey = new Set<string>();
 

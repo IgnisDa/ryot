@@ -1,14 +1,11 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
+import { asRecord, numberValue, recordsValue, stringValue } from "../../script-helpers/records";
 import {
-	asRecord,
 	bcp47ToTvdb,
 	buildTranslationResult,
 	getTranslationFields,
-	numberValue,
-	recordsValue,
-	stringValue,
 	tvdbGet,
 	tvdbGetOptional,
 } from "../tvdb-shared";

@@ -14,7 +14,6 @@ import {
 	sandboxHttpRequestBodyError,
 	sandboxRunnerRequestError,
 	SANDBOX_LIMITS,
-	truncateUtf8,
 	utf8ByteLength,
 } from "./limits";
 
@@ -46,11 +45,9 @@ describe("sandbox limits", () => {
 		});
 	});
 
-	it("measures and truncates strings at UTF-8 boundaries", () => {
+	it("measures string and JSON byte lengths at UTF-8 boundaries", () => {
 		expect(utf8ByteLength("abc")).toBe(3);
 		expect(utf8ByteLength("a🙂")).toBe(5);
-		expect(truncateUtf8("a🙂b", 5)).toBe("a🙂");
-		expect(truncateUtf8("a🙂b", 4)).toBe("a");
 		expect(jsonByteLength({ value: "🙂" })).toBe(16);
 	});
 

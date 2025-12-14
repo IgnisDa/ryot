@@ -2,16 +2,19 @@ import { defineManifest } from "@ryot/sandbox-sdk";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
+import {
+	type UnknownRecord,
+	asRecord,
+	numberValue,
+	stringValue,
+} from "../../../script-helpers/records";
+import { createRoleAccumulator } from "../../../script-helpers/role-accumulator";
 import { toTitleCase } from "../../../script-helpers/title-case";
 import {
-	asRecord,
 	getKeySegment,
 	loadOpenLibraryJson,
-	numberValue,
 	type OpenLibraryHost,
 	parseDescription,
-	stringValue,
-	type UnknownRecord,
 } from "../../openlibrary-shared";
 
 export const manifest = defineManifest({
@@ -22,37 +25,6 @@ export const manifest = defineManifest({
 	capabilities: ["httpCall"],
 	providerInformation: { source: "openlibrary" },
 });
-
-type RoleRelatedEntity = {
-	name: string;
-	externalId: string;
-	scriptSlug: string;
-	relationshipProperties: { roles: string[] };
-};
-
-const createRoleAccumulator = () => {
-	const entities: RoleRelatedEntity[] = [];
-	const byKey = new Map<string, RoleRelatedEntity>();
-	const add = (entity: RoleRelatedEntity) => {
-		const key = `${entity.scriptSlug}:${entity.externalId}`;
-		const existing = byKey.get(key);
-		if (!existing) {
-			byKey.set(key, entity);
-			entities.push(entity);
-			return;
-		}
-		existing.relationshipProperties.roles = [
-			...new Set([
-				...existing.relationshipProperties.roles,
-				...entity.relationshipProperties.roles,
-			]),
-		];
-		if (existing.name === "Loading..." && entity.name !== "Loading...") {
-			existing.name = entity.name;
-		}
-	};
-	return { entities, add };
-};
 
 const coverImageUrl = (coverId: number) =>
 	`https://covers.openlibrary.org/b/id/${coverId}-M.jpg?default=false`;

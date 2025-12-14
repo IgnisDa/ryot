@@ -1,21 +1,20 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
+import { cleanHtmlDescription } from "../../../script-helpers/clean-html-description";
+import { numberValue, stringValue } from "../../../script-helpers/records";
 import { toTitleCase } from "../../../script-helpers/title-case-delimiters";
 import {
 	anilistGraphql,
 	bcp47ToAnilistMode,
-	cleanHtmlDescription,
 	collectGenres,
 	collectImages,
 	collectSuggestions,
-	numberValue,
 	parseAnilistId,
 	parsePublishYear,
 	pickAnilistTitle,
 	requireAnilistMedia,
 	searchAnilistMedia,
-	stringValue,
 	translateAnilistMedia,
 } from "../../anilist-shared";
 

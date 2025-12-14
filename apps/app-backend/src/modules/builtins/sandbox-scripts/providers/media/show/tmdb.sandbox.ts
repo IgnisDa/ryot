@@ -2,17 +2,10 @@ import { defineDriver, defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 import * as z from "@ryot/sandbox-sdk/zod";
 
-import {
-	fetchTrendingItems,
-	getImageUrl,
-	getTmdbAccessToken,
-	getUserIsNsfw,
-	numberValue,
-	parsePublishYear,
-	recordsValue,
-	stringValue,
-	tmdbGet,
-} from "../../tmdb-shared";
+import { getUserIsNsfw } from "../../../script-helpers/host";
+import { parsePublishYear } from "../../../script-helpers/parse-publish-year";
+import { numberValue, recordsValue, stringValue } from "../../../script-helpers/records";
+import { fetchTrendingItems, getImageUrl, getTmdbAccessToken, tmdbGet } from "../../tmdb-shared";
 import { getTmdbShowDetails } from "./tmdb-details";
 import { translateTmdbShow } from "./tmdb-translation";
 
