@@ -1,23 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import {
-	type Client,
 	createAuthenticatedClient,
 	createEntitySchema,
 	createTracker,
-} from "../helpers";
-
-async function findBuiltinTracker(client: Client, cookies: string) {
-	const { data: listData } = await client.GET("/trackers", {
-		headers: { Cookie: cookies },
-	});
-
-	const builtinTracker = listData?.data?.find((t) => t.isBuiltin);
-	if (!builtinTracker) {
-		throw new Error("Built-in tracker not found");
-	}
-
-	return builtinTracker;
-}
+	findBuiltinEntitySchema,
+	findBuiltinTracker,
+	getEntitySchema,
+	listEntitySchemas,
+} from "../fixtures";
 
 describe("GET /entity-schemas", () => {
 	it("returns 200 and lists built-in entity schemas for built-in tracker", async () => {
@@ -25,17 +15,12 @@ describe("GET /entity-schemas", () => {
 
 		const builtinTracker = await findBuiltinTracker(client, cookies);
 
-		const { data, response } = await client.GET("/entity-schemas", {
-			headers: { Cookie: cookies },
-			params: { query: { trackerId: builtinTracker.id } },
-		});
+		const schemas = await listEntitySchemas(client, cookies, builtinTracker.id);
 
-		expect(response.status).toBe(200);
-		expect(data?.data).toBeDefined();
-		expect(Array.isArray(data?.data)).toBe(true);
-		expect(data?.data?.length).toBeGreaterThan(0);
+		expect(Array.isArray(schemas)).toBe(true);
+		expect(schemas.length).toBeGreaterThan(0);
 
-		const firstSchema = data?.data?.[0];
+		const firstSchema = schemas[0];
 		expect(firstSchema?.id).toBeDefined();
 		expect(firstSchema?.name).toBeDefined();
 		expect(firstSchema?.slug).toBeDefined();
@@ -59,17 +44,12 @@ describe("GET /entity-schemas", () => {
 			slug: "custom-schema",
 		});
 
-		const { data, response } = await client.GET("/entity-schemas", {
-			headers: { Cookie: cookies },
-			params: { query: { trackerId } },
-		});
+		const schemas = await listEntitySchemas(client, cookies, trackerId);
 
-		expect(response.status).toBe(200);
-		expect(data?.data).toBeDefined();
-		expect(Array.isArray(data?.data)).toBe(true);
-		expect(data?.data?.length).toBe(1);
+		expect(Array.isArray(schemas)).toBe(true);
+		expect(schemas.length).toBe(1);
 
-		const schema = data?.data?.[0];
+		const schema = schemas[0];
 		expect(schema?.id).toBe(schemaId);
 		expect(schema?.name).toBe("Custom Schema");
 		expect(schema?.slug).toBe("custom-schema");
@@ -98,15 +78,10 @@ describe("GET /entity-schemas", () => {
 			name: "Empty Tracker",
 		});
 
-		const { data, response } = await client.GET("/entity-schemas", {
-			headers: { Cookie: cookies },
-			params: { query: { trackerId } },
-		});
+		const schemas = await listEntitySchemas(client, cookies, trackerId);
 
-		expect(response.status).toBe(200);
-		expect(data?.data).toBeDefined();
-		expect(Array.isArray(data?.data)).toBe(true);
-		expect(data?.data?.length).toBe(0);
+		expect(Array.isArray(schemas)).toBe(true);
+		expect(schemas.length).toBe(0);
 	});
 
 	it("returns 404 when attempting to access another user's custom tracker", async () => {
@@ -154,16 +129,11 @@ describe("GET /entity-schemas", () => {
 			name: "Beta Schema",
 		});
 
-		const { data, response } = await client.GET("/entity-schemas", {
-			headers: { Cookie: cookies },
-			params: { query: { trackerId } },
-		});
+		const schemas = await listEntitySchemas(client, cookies, trackerId);
 
-		expect(response.status).toBe(200);
-		expect(data?.data).toBeDefined();
-		expect(data?.data?.length).toBe(3);
+		expect(schemas.length).toBe(3);
 
-		const names = data?.data?.map((s) => s.name);
+		const names = schemas.map((s) => s.name);
 		expect(names).toEqual(["Alpha Schema", "Beta Schema", "Zebra Schema"]);
 	});
 });
@@ -316,57 +286,29 @@ describe("GET /entity-schemas/:entitySchemaId", () => {
 			{ trackerId, name: "My Schema", slug: "my-schema" },
 		);
 
-		const { data, response } = await client.GET(
-			"/entity-schemas/{entitySchemaId}",
-			{
-				headers: { Cookie: cookies },
-				params: { path: { entitySchemaId: schemaId } },
-			},
-		);
+		const schema = await getEntitySchema(client, cookies, schemaId);
 
-		expect(response.status).toBe(200);
-		expect(data?.data).toBeDefined();
-		expect(data?.data?.id).toBe(schemaId);
-		expect(data?.data?.name).toBe("My Schema");
-		expect(data?.data?.slug).toBe("my-schema");
-		expect(data?.data?.trackerId).toBe(trackerId);
-		expect(data?.data?.isBuiltin).toBe(false);
-		expect(data?.data?.icon).toBe(createdData.icon);
-		expect(data?.data?.accentColor).toBe(createdData.accentColor);
-		expect(data?.data?.propertiesSchema).toBeDefined();
+		expect(schema.id).toBe(schemaId);
+		expect(schema.name).toBe("My Schema");
+		expect(schema.slug).toBe("my-schema");
+		expect(schema.trackerId).toBe(trackerId);
+		expect(schema.isBuiltin).toBe(false);
+		expect(schema.icon).toBe(createdData.icon);
+		expect(schema.accentColor).toBe(createdData.accentColor);
+		expect(schema.propertiesSchema).toBeDefined();
 	});
 
 	it("returns 200 for a built-in entity schema accessible to the user", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { data: listData } = await client.GET("/trackers", {
-			headers: { Cookie: cookies },
-		});
-		const builtinTracker = listData?.data?.find((t) => t.isBuiltin);
-		if (!builtinTracker) {
-			throw new Error("Built-in tracker not found");
-		}
-
-		const { data: schemasData } = await client.GET("/entity-schemas", {
-			headers: { Cookie: cookies },
-			params: { query: { trackerId: builtinTracker.id } },
-		});
-		const firstSchema = schemasData?.data?.[0];
-		if (!firstSchema) {
-			throw new Error("No built-in entity schema found");
-		}
-
-		const { data, response } = await client.GET(
-			"/entity-schemas/{entitySchemaId}",
-			{
-				headers: { Cookie: cookies },
-				params: { path: { entitySchemaId: firstSchema.id } },
-			},
+		const { schema: firstSchema } = await findBuiltinEntitySchema(
+			client,
+			cookies,
 		);
+		const schema = await getEntitySchema(client, cookies, firstSchema.id);
 
-		expect(response.status).toBe(200);
-		expect(data?.data?.id).toBe(firstSchema.id);
-		expect(data?.data?.isBuiltin).toBe(true);
+		expect(schema.id).toBe(firstSchema.id);
+		expect(schema.isBuiltin).toBe(true);
 	});
 
 	it("returns 404 for a non-existent entity schema", async () => {
