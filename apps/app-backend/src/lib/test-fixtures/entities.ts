@@ -1,9 +1,9 @@
 import {
 	createCreatedAt,
-	createRequiredTitlePropertiesSchema,
 	createUpdatedAt,
 	withOverrides,
-} from "~/lib/test-fixtures/shared";
+} from "~/lib/test-fixtures/fixture-helpers";
+import { createRequiredTitlePropertiesSchema } from "~/lib/test-fixtures/property-schemas";
 import type {
 	CreateEntityBody,
 	ListedEntity,
