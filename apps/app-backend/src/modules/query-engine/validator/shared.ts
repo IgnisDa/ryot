@@ -6,6 +6,15 @@ export const MAX_ROOT_PAGE_SIZE = 100;
 export const MAX_TIME_SERIES_BUCKETS = 1000;
 export const MAX_EXPRESSION_SOURCE_DEPTH = 3;
 export const MAX_GROUPED_AGGREGATE_LIMIT = 1000;
+// Rows output field/include keys become SQL column aliases (`<key>__v`/`__k`/`__inc`). Postgres
+// truncates identifiers at 63 bytes, so a longer key could collide with another after truncation;
+// cap the key so the longest suffix (`__inc`, 5 bytes) still fits.
+export const MAX_OUTPUT_KEY_LENGTH = 58;
+
+export const outputKeyLengthError = (key: string): string | null =>
+	new TextEncoder().encode(key).length > MAX_OUTPUT_KEY_LENGTH
+		? `Output field key '${key}' exceeds maximum length of ${MAX_OUTPUT_KEY_LENGTH} bytes`
+		: null;
 
 const EVENT_SYSTEM_FIELDS = new Set([
 	"id",
