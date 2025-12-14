@@ -32,11 +32,6 @@ const fields = {
 		"Maximum milliseconds to wait when acquiring a PostgreSQL connection from the pool",
 		{ default: 10_000 },
 	),
-	databaseIdleInTransactionTimeoutMs: intField(
-		"DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS",
-		"Maximum milliseconds a transaction may sit idle holding locks before PostgreSQL aborts it; 0 disables",
-		{ default: 0 },
-	),
 	databasePoolMax: intField(
 		"DATABASE_POOL_MAX",
 		"Maximum number of PostgreSQL connections held in the pool",
@@ -191,13 +186,11 @@ const databaseGroup = group(
 		url: fields.databaseUrl.config,
 		poolMax: fields.databasePoolMax.config,
 		connectionTimeoutMs: fields.databaseConnectionTimeoutMs.config,
-		idleInTransactionTimeoutMs: fields.databaseIdleInTransactionTimeoutMs.config,
 	}),
 	{
 		url: fields.databaseUrl.meta,
 		poolMax: fields.databasePoolMax.meta,
 		connectionTimeoutMs: fields.databaseConnectionTimeoutMs.meta,
-		idleInTransactionTimeoutMs: fields.databaseIdleInTransactionTimeoutMs.meta,
 	},
 );
 
