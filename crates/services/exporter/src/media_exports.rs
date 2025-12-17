@@ -3,7 +3,6 @@ use std::{fs::File as StdFile, sync::Arc};
 use anyhow::Result;
 use common_models::SearchInput;
 use common_utils::ryot_log;
-use database_models::{prelude::Seen, seen};
 use database_utils::{entity_in_collections_with_details, item_reviews};
 use dependent_details_utils::{metadata_details, metadata_group_details, person_details};
 use dependent_entity_list_utils::{
@@ -13,9 +12,9 @@ use dependent_models::{
     ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem, ImportOrExportPersonItem,
     UserMetadataGroupsListInput, UserMetadataListInput, UserPeopleListInput,
 };
+use dependent_seen_utils::metadata_seen_history;
 use enum_models::EntityLot;
 use media_models::ImportOrExportMetadataItemSeen;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use supporting_service::SupportingService;
 
@@ -44,12 +43,7 @@ pub async fn export_media(
         ryot_log!(debug, "Exporting metadata list page: {current_page}");
         for rm in related_metadata.response.items.iter() {
             let m = metadata_details(ss, rm).await?.response;
-            let seen_history = Seen::find()
-                .filter(seen::Column::UserId.eq(user_id))
-                .filter(seen::Column::MetadataId.eq(&m.id))
-                .order_by_desc(seen::Column::LastUpdatedOn)
-                .all(&ss.db)
-                .await?;
+            let seen_history = metadata_seen_history(user_id, &m.id, ss).await?;
             let seen_history = seen_history
                 .into_iter()
                 .map(|s| {

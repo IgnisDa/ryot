@@ -128,6 +128,7 @@ pub async fn user_metadata_details(
             let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
             let seen_by_user_count = history.len();
             let show_progress = match media_details.model.show_specifics {
+                None => None,
                 Some(show_specifics) => {
                     let mut seasons = vec![];
                     for season in show_specifics.seasons {
@@ -160,10 +161,10 @@ pub async fn user_metadata_details(
                     }
                     Some(seasons)
                 }
-                None => None,
             };
             let podcast_progress =
                 match media_details.model.podcast_specifics {
+                    None => None,
                     Some(podcast_specifics) => {
                         let mut episodes = vec![];
                         for episode in podcast_specifics.episodes {
@@ -182,7 +183,6 @@ pub async fn user_metadata_details(
                         }
                         Some(episodes)
                     }
-                    None => None,
                 };
             Ok(UserMetadataDetails {
                 reviews,

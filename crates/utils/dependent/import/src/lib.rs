@@ -1,9 +1,10 @@
 use std::{
+    cmp::Ordering,
     collections::{HashMap, hash_map::Entry},
     future::Future,
     sync::{
         Arc,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicU64, Ordering as AtomicOrdering},
     },
 };
 
@@ -250,7 +251,7 @@ where
                         error: Some("Progress update *might* be wrong".to_owned()),
                     });
                 }
-                let counter_value = SEEN_PROCESSING_COUNTER.fetch_add(1, Ordering::SeqCst);
+                let counter_value = SEEN_PROCESSING_COUNTER.fetch_add(1, AtomicOrdering::SeqCst);
                 ryot_log!(
                     debug,
                     "[1611 TRACE {}] [1611 COUNTER {}] Before seen_history processing, metadata.seen_history.len={}, ptr={}",
@@ -273,7 +274,47 @@ where
                     execution_id,
                     seen_history_len
                 );
-                for (seen_idx, seen) in metadata.seen_history.into_iter().enumerate() {
+
+                let mut sorted_seen_history = metadata.seen_history;
+                sorted_seen_history.sort_by(|a, b| {
+                    let end_date_cmp = a.ended_on.cmp(&b.ended_on);
+                    if end_date_cmp != Ordering::Equal {
+                        return end_date_cmp;
+                    }
+
+                    if let (Some(a_season), Some(a_episode), Some(b_season), Some(b_episode)) = (
+                        a.show_season_number,
+                        a.show_episode_number,
+                        b.show_season_number,
+                        b.show_episode_number,
+                    ) {
+                        a_season.cmp(&b_season).then(a_episode.cmp(&b_episode))
+                    } else if let (Some(a_episode), Some(b_episode)) =
+                        (a.anime_episode_number, b.anime_episode_number)
+                    {
+                        a_episode.cmp(&b_episode)
+                    } else if let (
+                        Some(a_volume),
+                        Some(a_chapter),
+                        Some(b_volume),
+                        Some(b_chapter),
+                    ) = (
+                        a.manga_volume_number,
+                        a.manga_chapter_number,
+                        b.manga_volume_number,
+                        b.manga_chapter_number,
+                    ) {
+                        a_volume.cmp(&b_volume).then(a_chapter.cmp(&b_chapter))
+                    } else if let (Some(a_episode), Some(b_episode)) =
+                        (a.podcast_episode_number, b.podcast_episode_number)
+                    {
+                        a_episode.cmp(&b_episode)
+                    } else {
+                        Ordering::Equal
+                    }
+                });
+
+                for (seen_idx, seen) in sorted_seen_history.into_iter().enumerate() {
                     ryot_log!(
                         debug,
                         "[1611 TRACE {}] Processing seen item {}/{} for metadata: {}",

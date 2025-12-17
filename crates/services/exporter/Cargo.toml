@@ -24,6 +24,7 @@ database-utils = { workspace = true }
 dependent-details-utils = { workspace = true }
 dependent-entity-list-utils = { workspace = true }
 dependent-models = { workspace = true }
+dependent-seen-utils = { workspace = true }
 enum-models = { workspace = true }
 file-storage-service = { workspace = true }
 fitness-models = { workspace = true }

@@ -2722,6 +2722,7 @@ dependencies = [
  "dependent-details-utils",
  "dependent-entity-list-utils",
  "dependent-models",
+ "dependent-seen-utils",
  "enum-models",
  "file-storage-service",
  "fitness-models",

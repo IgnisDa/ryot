@@ -19,7 +19,7 @@ use rust_decimal::{
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use supporting_service::SupportingService;
 
-pub async fn seen_history(
+pub async fn metadata_seen_history(
     user_id: &String,
     metadata_id: &String,
     ss: &Arc<SupportingService>,
@@ -29,8 +29,7 @@ pub async fn seen_history(
         .filter(seen::Column::MetadataId.eq(metadata_id))
         .order_by_desc(seen::Column::LastUpdatedOn)
         .all(&ss.db)
-        .await
-        .unwrap();
+        .await?;
     Ok(seen_items)
 }
 
@@ -41,10 +40,9 @@ pub async fn is_metadata_finished_by_user(
 ) -> Result<(bool, Vec<seen::Model>)> {
     let metadata = Metadata::find_by_id(metadata_id)
         .one(&ss.db)
-        .await
-        .unwrap()
+        .await?
         .unwrap();
-    let seen_history = seen_history(user_id, metadata_id, ss).await?;
+    let seen_history = metadata_seen_history(user_id, metadata_id, ss).await?;
     let is_finished = if metadata.lot == MediaLot::Podcast
         || metadata.lot == MediaLot::Show
         || metadata.lot == MediaLot::Anime
