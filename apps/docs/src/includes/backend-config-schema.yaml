@@ -138,22 +138,10 @@ podcasts:
 
 # Settings related to scheduler.
 scheduler:
-  # Run frequent cron tasks (syncing integrations, workout revisions) every `n` minutes.
-  # Will be removed in the next major release. Please use `frequent_cron_jobs_schedule` instead.
-  # @deprecated
-  # @env SCHEDULER_FREQUENT_CRON_JOBS_EVERY_MINUTES
-  frequent_cron_jobs_every_minutes: 5
-
   # English expression for frequent cron tasks (syncing integrations, workout revisions).
   # Uses https://github.com/kaplanelad/english-to-cron.
   # @env SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE
   frequent_cron_jobs_schedule: "every 5 minutes"
-
-  # Hours cron component for infrequent cron jobs (cleaning up data, refreshing calendar).
-  # Will be removed in the next major release. Please use `infrequent_cron_jobs_schedule` instead
-  # @deprecated
-  # @env SCHEDULER_INFREQUENT_CRON_JOBS_HOURS_FORMAT
-  infrequent_cron_jobs_hours_format: "0"
 
   # English expression for infrequent cron jobs (cleaning up data, refreshing calendar).
   # Uses https://github.com/kaplanelad/english-to-cron.

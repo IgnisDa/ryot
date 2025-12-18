@@ -228,22 +228,11 @@ fn init_tracing() -> Result<PathBuf> {
 }
 
 fn get_cron_schedules(config: &Arc<AppConfig>, tz: chrono_tz::Tz) -> Result<(Schedule, Schedule)> {
-    let frequent_cron_jobs_every_minutes = config.scheduler.frequent_cron_jobs_every_minutes;
-    let infrequent_cron_jobs_hours_format =
-        config.scheduler.infrequent_cron_jobs_hours_format.clone();
-
-    let infrequent_format = match infrequent_cron_jobs_hours_format.as_str() {
-        "0" => str_cron_syntax(&config.scheduler.infrequent_cron_jobs_schedule)?,
-        _ => format!("0 0 {infrequent_cron_jobs_hours_format} * * *"),
-    };
-
+    let infrequent_format = str_cron_syntax(&config.scheduler.infrequent_cron_jobs_schedule)?;
     let infrequent_scheduler = Schedule::from_str(&infrequent_format)?;
     log_cron_schedule(stringify!(infrequent_scheduler), &infrequent_scheduler, tz);
 
-    let frequent_format = match frequent_cron_jobs_every_minutes {
-        5 => str_cron_syntax(&config.scheduler.frequent_cron_jobs_schedule)?,
-        _ => format!("0 */{frequent_cron_jobs_every_minutes} * * * *"),
-    };
+    let frequent_format = str_cron_syntax(&config.scheduler.frequent_cron_jobs_schedule)?;
     let frequent_scheduler = Schedule::from_str(&frequent_format)?;
     log_cron_schedule(stringify!(frequent_scheduler), &frequent_scheduler, tz);
 
