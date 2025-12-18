@@ -21,7 +21,7 @@ services:
       - POSTGRES_PASSWORD=postgres
 
   ryot:
-    image: ignisda/ryot:v9 # or ghcr.io/ignisda/ryot:v9
+    image: ignisda/ryot:v10 # or ghcr.io/ignisda/ryot:v10
     pull_policy: always
     container_name: ryot
     restart: unless-stopped
