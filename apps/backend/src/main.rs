@@ -288,7 +288,10 @@ BEGIN
                 ('m20240712_create_notification_platform', 1684693335),
                 ('m20240714_create_access_link', 1684693336),
                 ('m20240827_create_daily_user_activity', 1684693337),
-                ('m20241004_create_application_cache', 1684693339);
+                ('m20241004_create_application_cache', 1684693340),
+                ('m20250813_create_collection_entity_membership', 1684693341),
+                ('m20251115_create_filter_preset', 1684693342),
+                ('m20251128_create_entity_translation', 1684693343);
         END IF;
     END IF;
 END $$;

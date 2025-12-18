@@ -24,19 +24,10 @@ mod m20240712_create_notification_platform;
 mod m20240714_create_access_link;
 mod m20240827_create_daily_user_activity;
 mod m20241004_create_application_cache;
-mod m20250801_is_v9_migration;
 mod m20250813_create_collection_entity_membership;
-mod m20250814_changes_for_issue_1483;
-mod m20250826_changes_for_issue_1529;
-mod m20250907_changes_for_issue_1533;
-mod m20250908_changes_for_issue_1551;
-mod m20250914_changes_for_issue_1561;
-mod m20251021_changes_for_issue_1583;
 mod m20251115_create_filter_preset;
-mod m20251127_changes_for_issue_684;
 mod m20251128_create_entity_translation;
-mod m20251201_changes_for_issue_1642;
-mod m20251212_is_last_v9_migration;
+mod m20251218_is_v10_migration;
 
 pub struct Migrator;
 
@@ -67,19 +58,10 @@ impl MigratorTrait for Migrator {
             Box::new(m20240714_create_access_link::Migration),
             Box::new(m20240827_create_daily_user_activity::Migration),
             Box::new(m20241004_create_application_cache::Migration),
-            Box::new(m20250801_is_v9_migration::Migration),
             Box::new(m20250813_create_collection_entity_membership::Migration),
-            Box::new(m20250814_changes_for_issue_1483::Migration),
-            Box::new(m20250826_changes_for_issue_1529::Migration),
-            Box::new(m20250907_changes_for_issue_1533::Migration),
-            Box::new(m20250908_changes_for_issue_1551::Migration),
-            Box::new(m20250914_changes_for_issue_1561::Migration),
-            Box::new(m20251021_changes_for_issue_1583::Migration),
             Box::new(m20251115_create_filter_preset::Migration),
-            Box::new(m20251127_changes_for_issue_684::Migration),
             Box::new(m20251128_create_entity_translation::Migration),
-            Box::new(m20251201_changes_for_issue_1642::Migration),
-            Box::new(m20251212_is_last_v9_migration::Migration),
+            Box::new(m20251218_is_v10_migration::Migration),
         ]
     }
 }
