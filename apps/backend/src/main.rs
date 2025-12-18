@@ -85,9 +85,9 @@ async fn main() -> Result<()> {
         .await
         .expect("Database connection failed");
 
-    migrate_from_v8_if_applicable(&db)
+    migrate_from_v9_if_applicable(&db)
         .await
-        .context("There was an error migrating from v8")?;
+        .context("There was an error migrating from v9")?;
 
     if let Err(err) = Migrator::up(&db, None).await {
         ryot_log!(error, "Database migration failed: {}", err);
@@ -244,7 +244,7 @@ fn log_cron_schedule(name: &str, schedule: &Schedule, tz: chrono_tz::Tz) {
     ryot_log!(info, "Schedule for {name:#?}: {times:?} and so on...");
 }
 
-async fn migrate_from_v8_if_applicable(db: &DatabaseConnection) -> Result<()> {
+async fn migrate_from_v9_if_applicable(db: &DatabaseConnection) -> Result<()> {
     db.execute_unprepared(
         r#"
 DO $$
@@ -255,13 +255,13 @@ BEGIN
     ) THEN
         IF EXISTS (
             SELECT 1 FROM seaql_migrations
-            WHERE version = 'm20250118_is_v8_migration'
+            WHERE version = 'm20250801_is_v9_migration'
         ) THEN
             IF NOT EXISTS (
                 SELECT 1 FROM seaql_migrations
-                WHERE version = 'm20250731_is_last_v8_migration'
+                WHERE version = 'm20251212_is_last_v9_migration'
             ) THEN
-                RAISE EXCEPTION 'Final migration for v8 does not exist, upgrade aborted.';
+                RAISE EXCEPTION 'Final migration for v9 does not exist, upgrade aborted.';
             END IF;
 
             DELETE FROM seaql_migrations;
