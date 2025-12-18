@@ -33,8 +33,8 @@ hosted tracker you will ever need!
 ## IMPORTANT NOTE FOR `v9.*` USERS
 
 If you were using `v9.*` of Ryot, please read the
-[migration guide](https://docs.ryot.io/migration.html#from-v9-to-v10) for migration
-instructions to v10.
+[guide](https://docs.ryot.io/migration.html#from-v9-to-v10) for migration instructions to
+`v10`.
 
 ## Pro version
 
