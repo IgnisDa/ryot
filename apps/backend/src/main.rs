@@ -266,7 +266,7 @@ BEGIN
 
             DELETE FROM seaql_migrations;
             INSERT INTO seaql_migrations (version, applied_at) VALUES
-                ('m20230403_create_extensions', 1684693316),
+                ('m20230403_create_database_setup_requirements', 1684693316),
                 ('m20230404_create_user', 1684693317),
                 ('m20230410_create_metadata', 1684693318),
                 ('m20230411_create_metadata_group', 1684693319),
@@ -288,7 +288,6 @@ BEGIN
                 ('m20240712_create_notification_platform', 1684693335),
                 ('m20240714_create_access_link', 1684693336),
                 ('m20240827_create_daily_user_activity', 1684693337),
-                ('m20240904_create_monitored_entity', 1684693338),
                 ('m20241004_create_application_cache', 1684693339);
         END IF;
     END IF;

@@ -1,7 +1,7 @@
 use sea_orm::entity::prelude::*;
 use sea_orm_migration::prelude::*;
 
-mod m20230403_create_extensions;
+mod m20230403_create_database_setup_requirements;
 mod m20230404_create_user;
 mod m20230410_create_metadata;
 mod m20230411_create_metadata_group;
@@ -23,13 +23,11 @@ mod m20240607_create_integration;
 mod m20240712_create_notification_platform;
 mod m20240714_create_access_link;
 mod m20240827_create_daily_user_activity;
-mod m20240904_create_monitored_entity;
 mod m20241004_create_application_cache;
 mod m20250801_is_v9_migration;
 mod m20250813_create_collection_entity_membership;
 mod m20250814_changes_for_issue_1483;
 mod m20250826_changes_for_issue_1529;
-mod m20250827_create_enriched_user_to_entity_views;
 mod m20250907_changes_for_issue_1533;
 mod m20250908_changes_for_issue_1551;
 mod m20250914_changes_for_issue_1561;
@@ -46,7 +44,7 @@ pub struct Migrator;
 impl MigratorTrait for Migrator {
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
         vec![
-            Box::new(m20230403_create_extensions::Migration),
+            Box::new(m20230403_create_database_setup_requirements::Migration),
             Box::new(m20230404_create_user::Migration),
             Box::new(m20230410_create_metadata::Migration),
             Box::new(m20230411_create_metadata_group::Migration),
@@ -68,13 +66,11 @@ impl MigratorTrait for Migrator {
             Box::new(m20240712_create_notification_platform::Migration),
             Box::new(m20240714_create_access_link::Migration),
             Box::new(m20240827_create_daily_user_activity::Migration),
-            Box::new(m20240904_create_monitored_entity::Migration),
             Box::new(m20241004_create_application_cache::Migration),
             Box::new(m20250801_is_v9_migration::Migration),
             Box::new(m20250813_create_collection_entity_membership::Migration),
             Box::new(m20250814_changes_for_issue_1483::Migration),
             Box::new(m20250826_changes_for_issue_1529::Migration),
-            Box::new(m20250827_create_enriched_user_to_entity_views::Migration),
             Box::new(m20250907_changes_for_issue_1533::Migration),
             Box::new(m20250908_changes_for_issue_1551::Migration),
             Box::new(m20250914_changes_for_issue_1561::Migration),
