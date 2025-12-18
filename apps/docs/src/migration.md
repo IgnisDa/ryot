@@ -1,7 +1,8 @@
 # Migration
 
-All steps below are required unless otherwise stated. Please follow them in the correct
-order.
+All steps below are required unless otherwise stated. Directly upgrading across multiple
+major versions is not supported. If you want to upgrade from a version older than the last
+major release, please follow each major version's migration steps in order.
 
 ## From `v8.*` to `v9.*`
 
