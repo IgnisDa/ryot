@@ -4,6 +4,24 @@ All steps below are required unless otherwise stated. Directly upgrading across 
 major versions is not supported. If you want to upgrade from a version older than the last
 major release, please follow each major version's migration steps in order.
 
+## From `v9.*` to `v10.*`
+
+:::warning Environment Variables Change
+If you had `SCHEDULER_FREQUENT_CRON_JOBS_EVERY_MINUTES=2` in your environment variables,
+then change it to `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE="every 2 minutes"`.
+:::
+
+1. Upgrade the server to `v9.6.0` to make sure all `v9` migrations are applied. For
+   example, you can make this change: `image: "ignisda/ryot:v9.6.0"` in your docker-compose
+   file.
+
+2. Create a backup of your database. [Here](./exporting.md#exporting-the-entire-database)
+   is a guide on how to do this.
+
+3. Now you can upgrade to the latest version (`v10.*`). For example you can make this
+   change: `image: "ignisda/ryot:v10"` in your docker-compose file. This will
+   automatically apply all migrations required for the new version.
+
 ## From `v8.*` to `v9.*`
 
 ::: warning API Credentials Required
