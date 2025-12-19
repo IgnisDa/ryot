@@ -7,9 +7,13 @@ major release, please follow each major version's migration steps in order.
 ## From `v9.*` to `v10.*`
 
 :::warning Environment Variables Change
-If you had `SCHEDULER_FREQUENT_CRON_JOBS_EVERY_MINUTES=2` in your environment, then change
-it to `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE="every 2 minutes"`. Read more about
-[yank integrations](./integrations/overview.md#yank-integrations).
+
+1. If you had `SCHEDULER_FREQUENT_CRON_JOBS_EVERY_MINUTES=2` in your environment, then change
+   it to `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE="every 2 minutes"`. Read more about
+   [yank integrations](./integrations/overview.md#yank-integrations).
+2. Localization specific environment variables (eg: `MOVIES_AND_SHOWS_TMDB_LOCALE`,
+   `ANIME_AND_MANGA_ANILIST_PREFERRED_LANGUAGE` etc.) have been removed and are now
+   user level settings. They have been moved to language preferences.
 :::
 
 1. Upgrade the server to `v9.6.0` to make sure all `v9` migrations are applied. For
