@@ -16,8 +16,8 @@ it to `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE="every 2 minutes"`. Read more about
    example, you can make this change: `image: "ignisda/ryot:v9.6.0"` in your docker-compose
    file.
 
-2. Create a backup of your database. [Follow this guide](./exporting.md#exporting-the-entire-database)
-   is a guide on how to do this.
+2. Create a backup of your database. Follow this
+   [guide](./exporting.md#exporting-the-entire-database).
 
 3. Now you can upgrade to the latest version (`v10.*`). For example you can make this
    change: `image: "ignisda/ryot:v10"` in your docker-compose file. This will
