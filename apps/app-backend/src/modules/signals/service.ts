@@ -14,6 +14,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
+import { SignalDispatch } from "./dispatch";
 import { SignalsRepository, type StoredSignal } from "./repository";
 import {
 	SignalSchemasRepository,
@@ -126,6 +127,7 @@ export class SignalEmissionService extends Effect.Service<SignalEmissionService>
 	"SignalEmissionService",
 	{
 		effect: Effect.gen(function* () {
+			const dispatch = yield* SignalDispatch;
 			const repository = yield* SignalsRepository;
 			const runInTransaction = yield* TransactionRunner;
 			const entitiesRepository = yield* EntitiesRepository;
@@ -158,7 +160,7 @@ export class SignalEmissionService extends Effect.Service<SignalEmissionService>
 					Effect.mapError(() => badRequest("Invalid signal origin")),
 				);
 
-				return yield* runInTransaction(
+				const result = yield* runInTransaction(
 					Effect.gen(function* () {
 						const principalUserId = input.principal.kind === "user" ? input.principal.userId : null;
 						const signalSchema = yield* signalSchemasRepository.findVisibleBySlug({
@@ -255,6 +257,17 @@ export class SignalEmissionService extends Effect.Service<SignalEmissionService>
 						return toEmissionResult(inserted, signalSchema, recipientUserIds, true);
 					}),
 				);
+				yield* dispatch.dispatch({
+					id: result.signal.id,
+					origin: result.signal.origin,
+					properties: result.signal.properties,
+					occurredAt: result.signal.occurredAt,
+					actorUserId: result.signal.actorUserId,
+					recipientUserIds: result.recipientUserIds,
+					signalSchemaSlug: result.signal.schemaSlug,
+					signalSchemaId: result.signal.signalSchemaId,
+				});
+				return result;
 			});
 
 			return { emit };

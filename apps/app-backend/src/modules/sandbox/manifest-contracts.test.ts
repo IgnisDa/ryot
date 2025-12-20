@@ -12,6 +12,13 @@ const manifests = [
 		requiredAppConfigKeys: ["timezone"],
 	},
 	{
+		capabilities: [],
+		kind: "automation",
+		name: "Automation",
+		slug: "automation.test",
+		requiredAppConfigKeys: [],
+	},
+	{
 		kind: "provider",
 		name: "Provider",
 		slug: "provider.test",
