@@ -24,6 +24,7 @@ import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
 
+import { ImportRunFailuresService } from "./failure-service";
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import type { ImportRunJobData } from "./jobs";
 import {
@@ -38,14 +39,15 @@ import {
 	type NonMediaImportOperationSet,
 	runOneTimeNonMediaImportWorkflow,
 } from "./non-media-workflow";
-import { ImportsRepository } from "./repository";
 import { ImportRunArtifacts } from "./runtime/workflow-helpers";
+import { ImportsService } from "./service";
 import { WorkoutImportItemSchema, type WorkoutImportItem } from "./workout/domain";
 import { prepareWorkoutWrites } from "./workout/workout-workflow";
 
 const now = "2026-06-17T00:00:00.000Z";
 
-const mockImportsRepository = Layer.mock(ImportsRepository);
+const mockImportRunFailuresService = Layer.mock(ImportRunFailuresService);
+const mockImportsService = Layer.mock(ImportsService);
 const mockEntitiesService = Layer.mock(EntitiesService);
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 const mockEntitySchemasRepository = Layer.mock(EntitySchemasRepository);
@@ -68,12 +70,20 @@ const makeListedEntity = (
 	...overrides,
 });
 
-const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
-	mockImportsRepository({
-		updateRun: () => Effect.void,
-		createFailure: () => Effect.void,
+const makeImportRunFailuresService = (
+	overrides: MockOverrides<typeof mockImportRunFailuresService> = {},
+) =>
+	mockImportRunFailuresService({
+		create: () => Effect.void,
 		...overrides,
-		_tag: "ImportsRepository",
+		_tag: "ImportRunFailuresService",
+	});
+
+const makeImportsService = (overrides: MockOverrides<typeof mockImportsService> = {}) =>
+	mockImportsService({
+		update: () => Effect.void,
+		...overrides,
+		_tag: "ImportsService",
 	});
 
 const makeEntitiesService = (overrides: MockOverrides<typeof mockEntitiesService> = {}) =>
@@ -128,7 +138,8 @@ const makeImportRunArtifacts = (
 type TestLayerOptions = {
 	eventsService?: Layer.Layer<EventsService>;
 	entitiesService?: Layer.Layer<EntitiesService>;
-	importsRepository?: Layer.Layer<ImportsRepository>;
+	importsService?: Layer.Layer<ImportsService>;
+	importRunFailuresService?: Layer.Layer<ImportRunFailuresService>;
 	entitiesRepository?: Layer.Layer<EntitiesRepository>;
 	importRunArtifacts?: Layer.Layer<ImportRunArtifacts>;
 	eventSchemasRepository?: Layer.Layer<EventSchemasRepository>;
@@ -177,7 +188,8 @@ const makeTestLayer = (options: TestLayerOptions) =>
 						openScaleOperations({ loadAdapterResult: () => Effect.die("unused") }),
 				),
 		}),
-		options.importsRepository ?? makeImportsRepository(),
+		options.importsService ?? makeImportsService(),
+		options.importRunFailuresService ?? makeImportRunFailuresService(),
 		options.entitiesService ?? makeEntitiesService(),
 		options.entitiesRepository ?? makeEntitiesRepository(),
 		options.eventsService ?? makeEventsService(),
@@ -225,13 +237,15 @@ it.effect("orchestrates open-scale measurement imports through workflow-owned ph
 	const recordedFailures: Array<Record<string, unknown>> = [];
 
 	const options = {
-		importsRepository: makeImportsRepository({
-			createFailure: (input) => {
-				recordedFailures.push(input);
+		importsService: makeImportsService({
+			update: (input) => {
+				recordedUpdates.push(input);
 				return Effect.void;
 			},
-			updateRun: (input) => {
-				recordedUpdates.push(input);
+		}),
+		importRunFailuresService: makeImportRunFailuresService({
+			create: (input) => {
+				recordedFailures.push(input);
 				return Effect.void;
 			},
 		}),
@@ -328,8 +342,8 @@ it.effect("fails the open-scale run when the measurement entity schema is missin
 	const recordedUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
-		importsRepository: makeImportsRepository({
-			updateRun: (input) => {
+		importsService: makeImportsService({
+			update: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
 			},
@@ -408,8 +422,8 @@ it.effect("orchestrates workout imports through workflow-owned phases", () => {
 				return Effect.succeed({ count: input.payload.length });
 			},
 		}),
-		importsRepository: makeImportsRepository({
-			updateRun: (input) => {
+		importsService: makeImportsService({
+			update: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
 			},
@@ -472,8 +486,8 @@ it.effect("fails the workout run when workout schemas are missing", () => {
 	const recordedUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
-		importsRepository: makeImportsRepository({
-			updateRun: (input) => {
+		importsService: makeImportsService({
+			update: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
 			},
@@ -511,8 +525,8 @@ it.effect("fails the run and cleans up when non-media adapter loading fails", ()
 	const defectPayload = { ...measurementPayload, filePath: "/tmp/open-scale.csv" };
 
 	const options = {
-		importsRepository: makeImportsRepository({
-			updateRun: (input) => {
+		importsService: makeImportsService({
+			update: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
 			},
@@ -552,8 +566,8 @@ it.effect("does not reintroduce invalid file paths during handled non-media load
 	const invalidPayload = { ...measurementPayload, filePath: "../../etc/passwd" };
 
 	const options = {
-		importsRepository: makeImportsRepository({
-			updateRun: (input) => {
+		importsService: makeImportsService({
+			update: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
 			},
@@ -594,8 +608,8 @@ it.effect("does not attempt cleanup for invalid file paths when non-media loadin
 	const invalidPayload = { ...measurementPayload, filePath: "../../etc/passwd" };
 
 	const options = {
-		importsRepository: makeImportsRepository({
-			updateRun: (input) => {
+		importsService: makeImportsService({
+			update: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
 			},
