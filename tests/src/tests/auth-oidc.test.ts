@@ -26,6 +26,7 @@ const OIDC_CLIENT_ID = "test-client";
 const S3_BUCKET_NAME = "ryot-oidc-test";
 const OIDC_CLIENT_SECRET = "test-secret";
 const OIDC_BUTTON_LABEL = "Sign in with TestOIDC";
+const trackersListQuery = { includeDisabled: false };
 
 let backendPortA: number;
 let backendPortB: number;
@@ -186,7 +187,10 @@ describe("OIDC sign-in happy path (Backend A)", () => {
 		const username = `user-${crypto.randomUUID()}`;
 		const sessionCookie = await oidcSignIn(username, getBackendUrlA());
 		const client = createBackendClient(getBackendUrlA());
-		const { response } = await client.trackers.list({ headers: { Cookie: sessionCookie } });
+		const { response } = await client.trackers.list({
+			params: { query: trackersListQuery },
+			headers: { Cookie: sessionCookie },
+		});
 		expect(response.status).toBe(200);
 	});
 
@@ -231,8 +235,14 @@ describe("OIDC idempotency (Backend A)", () => {
 
 		const client = createBackendClient(getBackendUrlA());
 		const [res1, res2] = await Promise.all([
-			client.trackers.list({ headers: { Cookie: cookie1 } }),
-			client.trackers.list({ headers: { Cookie: cookie2 } }),
+			client.trackers.list({
+				params: { query: trackersListQuery },
+				headers: { Cookie: cookie1 },
+			}),
+			client.trackers.list({
+				params: { query: trackersListQuery },
+				headers: { Cookie: cookie2 },
+			}),
 		]);
 		expect(res1.response.status).toBe(200);
 		expect(res2.response.status).toBe(200);
@@ -342,7 +352,10 @@ describe("Registration gating for OIDC (Backend C)", () => {
 
 		const sessionCookie = await oidcSignIn(username, getBackendUrlC());
 		const client = createBackendClient(getBackendUrlC());
-		const { response } = await client.trackers.list({ headers: { Cookie: sessionCookie } });
+		const { response } = await client.trackers.list({
+			params: { query: trackersListQuery },
+			headers: { Cookie: sessionCookie },
+		});
 		expect(response.status).toBe(200);
 
 		const afterResult = await pg.query<{ id: string }>(`SELECT id FROM "user" WHERE email = $1`, [
