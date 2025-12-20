@@ -141,6 +141,7 @@ it.effect("creates relationship schema with normalized slug", () => {
 	let createdSlug = "";
 	const layer = makeServiceLayer(
 		makeRepository({
+			findBuiltinBySlug: () => Effect.succeed(null),
 			findBySlugForUser: () => Effect.succeed(null),
 			createRelationshipSchema: (input) =>
 				Effect.sync(() => {
@@ -173,6 +174,7 @@ it.effect("creates relationship schema with normalized slug", () => {
 it.effect("returns conflict when relationship schema slug already exists", () => {
 	const layer = makeServiceLayer(
 		makeRepository({
+			findBuiltinBySlug: () => Effect.succeed(null),
 			findBySlugForUser: () => Effect.succeed({ id: RelationshipSchemaId.make("existing-id") }),
 		}),
 	);
@@ -193,7 +195,11 @@ it.effect("returns conflict when relationship schema slug already exists", () =>
 });
 
 it.effect("returns bad request for reserved relationship schema slug", () => {
-	const layer = makeServiceLayer(makeRepository());
+	const layer = makeServiceLayer(
+		makeRepository({
+			findBuiltinBySlug: () => Effect.succeed(scope),
+		}),
+	);
 
 	return Effect.gen(function* () {
 		const service = yield* RelationshipSchemasService;
