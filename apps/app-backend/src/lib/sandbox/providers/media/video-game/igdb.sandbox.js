@@ -221,6 +221,8 @@ const DETAIL_FIELDS = [
 	"involved_companies.supporting",
 	"involved_companies.company.name",
 	"release_dates.release_region.region",
+	"similar_games.id",
+	"similar_games.name",
 ].join(", ");
 
 function collectCompanies(involvedCompanies) {
@@ -317,6 +319,31 @@ function collectGroups(collections) {
 	}
 
 	return [...groupByKey.values()];
+}
+
+function collectSuggestions(similarGames) {
+	if (!Array.isArray(similarGames)) {
+		return [];
+	}
+
+	return similarGames
+		.map((game) => {
+			const externalId =
+				typeof game?.id === "number" && Number.isFinite(game.id)
+					? String(Math.trunc(game.id))
+					: null;
+			const name = typeof game?.name === "string" ? game.name.trim() : "";
+			if (!externalId || !name) {
+				return null;
+			}
+
+			return {
+				name,
+				externalId,
+				scriptSlug: "video-game.igdb",
+			};
+		})
+		.filter((suggestion) => suggestion !== null);
 }
 
 driver("search", async function (context) {
@@ -491,9 +518,12 @@ driver("details", async function (context) {
 		...collectGroups(game.collections),
 		...collectCompanies(game.involved_companies),
 	];
+	const suggestions = collectSuggestions(game.similar_games);
 
 	return {
 		name,
+		suggestions,
+		relatedEntities,
 		properties: {
 			images,
 			genres,
@@ -504,6 +534,5 @@ driver("details", async function (context) {
 			sourceUrl: `https://www.igdb.com/games/${gameSlug}`,
 			publishYear: extractYear(game.first_release_date, dayjs),
 		},
-		relatedEntities,
 	};
 });
