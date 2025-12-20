@@ -243,26 +243,28 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 						if (!libraryEntityId) {
 							return yield* Effect.die("Library entity not found for user");
 						}
-						yield* relationshipsRepository.saveRelationship({
+						yield* relationships.create({
 							scope: "user",
 							properties: {},
 							userId: input.userId,
 							sourceEntityId: entity.id,
-							onConflict: "preserveExisting",
 							targetEntityId: libraryEntityId,
 							relationshipSchemaId: inLibrary.id,
+							propertiesSchema: inLibrary.propertiesSchema,
 						});
 					}
 
-					return yield* relationshipsRepository.saveRelationship({
+					const membershipInput = {
 						scope: "user",
 						userId: input.userId,
-						properties: validatedProperties,
-						onConflict: "replaceProperties",
 						sourceEntityId: input.entityId,
+						properties: validatedProperties,
 						targetEntityId: input.collectionId,
 						relationshipSchemaId: memberOfRelationshipSchema.id,
-					});
+						propertiesSchema: memberOfRelationshipSchema.propertiesSchema,
+					} as const;
+					const created = yield* relationships.create(membershipInput);
+					return created.wasInserted ? created : yield* relationships.update(membershipInput);
 				}),
 			);
 
@@ -312,14 +314,13 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			}
 
 			const memberOf = yield* memberOfSchema;
-			const deleted = yield* runWithDb(
-				relationshipsRepository.deleteUserRelationship({
-					userId: user.id,
-					sourceEntityId: payload.entityId,
-					relationshipSchemaId: memberOf.id,
-					targetEntityId: payload.collectionId,
-				}),
-			);
+			const deleted = yield* relationships.delete({
+				scope: "user",
+				userId: user.id,
+				sourceEntityId: payload.entityId,
+				relationshipSchemaId: memberOf.id,
+				targetEntityId: payload.collectionId,
+			});
 
 			if (!deleted) {
 				return yield* notFound("Entity is not in collection");
@@ -384,12 +385,11 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 
 			const inLibrary = yield* inLibrarySchema;
 			yield* relationships
-				.save({
+				.create({
 					userId,
 					scope: "user",
 					properties: {},
 					sourceEntityId: entityId,
-					onConflict: "preserveExisting",
 					targetEntityId: libraryEntityId,
 					relationshipSchemaId: inLibrary.id,
 					propertiesSchema: inLibrary.propertiesSchema,
@@ -405,46 +405,72 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 				syncedAt: string;
 				entityId: EntityId;
 			}) {
-				const libraryEntityId = yield* runWithDb(
-					repository.getUserLibraryEntityId({ userId: input.userId }),
-				);
-				if (!libraryEntityId) {
-					return yield* Effect.die("Library entity not found for user");
-				}
-
 				const inLibrary = yield* inLibrarySchema;
-				const existing = yield* runWithDb(
-					relationshipsRepository.findRelationshipProperties({
-						userId: input.userId,
-						sourceEntityId: input.entityId,
-						targetEntityId: libraryEntityId,
-						relationshipSchemaId: inLibrary.id,
+				yield* runInTransaction(
+					Effect.gen(function* () {
+						const libraryEntityId = yield* repository.getUserLibraryEntityId({
+							userId: input.userId,
+						});
+						if (!libraryEntityId) {
+							return yield* Effect.die("Library entity not found for user");
+						}
+
+						const existing = yield* relationshipsRepository.findRelationshipProperties({
+							userId: input.userId,
+							sourceEntityId: input.entityId,
+							targetEntityId: libraryEntityId,
+							relationshipSchemaId: inLibrary.id,
+						});
+						const buildOwnershipProperties = (properties: unknown) => {
+							const existingProperties = isPlainObject(properties) ? properties : {};
+							const currentSources = Array.isArray(existingProperties["ownershipSources"])
+								? existingProperties["ownershipSources"].filter(
+										(source): source is string => typeof source === "string",
+									)
+								: [];
+
+							return {
+								...existingProperties,
+								owned: true,
+								ownershipSyncedAt: input.syncedAt,
+								ownershipSources: [...new Set([...currentSources, input.provider])],
+							};
+						};
+
+						const buildInput = (properties: Record<string, unknown>) => ({
+							scope: "user" as const,
+							userId: input.userId,
+							sourceEntityId: input.entityId,
+							targetEntityId: libraryEntityId,
+							relationshipSchemaId: inLibrary.id,
+							propertiesSchema: inLibrary.propertiesSchema,
+							properties,
+						});
+
+						if (existing) {
+							yield* relationships
+								.update(buildInput(buildOwnershipProperties(existing)))
+								.pipe(Effect.catchTag("BadRequest", (e) => Effect.die(e)));
+							return undefined;
+						}
+
+						const created = yield* relationships
+							.create(buildInput(buildOwnershipProperties({})))
+							.pipe(Effect.catchTag("BadRequest", (e) => Effect.die(e)));
+						if (!created.wasInserted) {
+							const current = yield* relationshipsRepository.findRelationshipProperties({
+								userId: input.userId,
+								sourceEntityId: input.entityId,
+								targetEntityId: libraryEntityId,
+								relationshipSchemaId: inLibrary.id,
+							});
+							yield* relationships
+								.update(buildInput(buildOwnershipProperties(current ?? created.properties)))
+								.pipe(Effect.catchTag("BadRequest", (e) => Effect.die(e)));
+						}
+						return undefined;
 					}),
 				);
-				const existingProperties = isPlainObject(existing) ? existing : {};
-				const currentSources = Array.isArray(existingProperties["ownershipSources"])
-					? existingProperties["ownershipSources"].filter(
-							(source): source is string => typeof source === "string",
-						)
-					: [];
-
-				yield* relationships
-					.save({
-						scope: "user",
-						userId: input.userId,
-						sourceEntityId: input.entityId,
-						onConflict: "replaceProperties",
-						targetEntityId: libraryEntityId,
-						relationshipSchemaId: inLibrary.id,
-						propertiesSchema: inLibrary.propertiesSchema,
-						properties: {
-							...existingProperties,
-							owned: true,
-							ownershipSyncedAt: input.syncedAt,
-							ownershipSources: [...new Set([...currentSources, input.provider])],
-						},
-					})
-					.pipe(Effect.catchTag("BadRequest", (e) => Effect.die(e)));
 				return undefined;
 			},
 			Effect.asVoid,

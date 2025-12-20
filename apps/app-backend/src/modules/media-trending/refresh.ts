@@ -3,10 +3,11 @@ import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import { EntityId } from "@ryot/contract/schema/brands";
 import { Cause, DateTime, Effect, Schema } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
+import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { EntitiesService } from "#modules/entities/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
+import { RelationshipsService } from "#modules/relationships/service";
 
 import { MediaTrendingWorkflowOperations } from "./operations-workflow";
 import { MediaTrendingRepository } from "./repository";
@@ -108,6 +109,8 @@ const syncTrendingEdges = Effect.fn("syncTrendingEdges")(function* (
 ) {
 	const runWithDb = yield* DbRunner;
 	const relationships = yield* RelationshipsRepository;
+	const relationshipsService = yield* RelationshipsService;
+	const runInTransaction = yield* TransactionRunner;
 	const relationshipSchemas = yield* RelationshipSchemasRepository;
 
 	return yield* Activity.make({
@@ -122,16 +125,49 @@ const syncTrendingEdges = Effect.fn("syncTrendingEdges")(function* (
 				return yield* new SandboxRunError({ message: "media-trending schema not found" });
 			}
 
-			yield* runWithDb(
-				relationships.syncGlobalRelationships({
-					type: "self",
-					onConflict: "replaceProperties",
-					synchronization: "authoritative",
-					relationshipSchemaId: mediaTrending.id,
-					entries: items.map((item) => ({
-						entityId: item.entityId,
-						properties: { rank: item.rank, fetchedAt: item.fetchedAt },
-					})),
+			yield* runInTransaction(
+				Effect.gen(function* () {
+					const existing = yield* relationships.listGlobalRelationships({
+						type: "self",
+						relationshipSchemaId: mediaTrending.id,
+					});
+					const existingByEntityId = new Map(
+						existing.map((relationship) => [relationship.sourceEntityId, relationship]),
+					);
+					const entries = new Map(items.map((item) => [item.entityId, item]));
+
+					for (const item of entries.values()) {
+						const relationshipInput = {
+							scope: "global" as const,
+							sourceEntityId: item.entityId,
+							targetEntityId: item.entityId,
+							relationshipSchemaId: mediaTrending.id,
+							propertiesSchema: mediaTrending.propertiesSchema,
+							properties: { rank: item.rank, fetchedAt: item.fetchedAt },
+						};
+						if (existingByEntityId.has(item.entityId)) {
+							yield* relationshipsService.update(relationshipInput);
+							continue;
+						}
+
+						const created = yield* relationshipsService.create(relationshipInput);
+						if (!created.wasInserted) {
+							yield* relationshipsService.update(relationshipInput);
+						}
+					}
+
+					for (const relationship of existing) {
+						if (entries.has(relationship.sourceEntityId)) {
+							continue;
+						}
+
+						yield* relationshipsService.delete({
+							scope: "global",
+							sourceEntityId: relationship.sourceEntityId,
+							targetEntityId: relationship.targetEntityId,
+							relationshipSchemaId: relationship.relationshipSchemaId,
+						});
+					}
 				}),
 			);
 
