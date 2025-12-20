@@ -1,6 +1,18 @@
-export type ApiFunction = (
+export type ApiFunction = (...args: Array<unknown>) => Promise<unknown>;
+
+export type HostFunction<TContext extends Record<string, unknown>> = (
+	context: TContext,
 	...args: Array<unknown>
-) => unknown | Promise<unknown>;
+) => Promise<unknown>;
+
+export type HostFunctionFactory = (
+	context: Record<string, unknown>,
+) => ApiFunction;
+
+export interface ApiFunctionDescriptor {
+	functionKey: string;
+	context: Record<string, unknown>;
+}
 
 export interface SandboxRunOptions {
 	code: string;
