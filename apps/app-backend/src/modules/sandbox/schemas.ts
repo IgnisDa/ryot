@@ -6,10 +6,18 @@ import {
 	stringUnknownRecordSchema,
 } from "~/lib/zod/base";
 
-export const enqueueSandboxBody = z.object({
-	context: stringUnknownRecordSchema.optional(),
-	code: nonEmptyStringSchema.max(20_000),
-});
+export const enqueueSandboxBody = z.discriminatedUnion("kind", [
+	z.object({
+		kind: z.literal("code"),
+		context: stringUnknownRecordSchema.optional(),
+		code: nonEmptyStringSchema.max(20_000),
+	}),
+	z.object({
+		kind: z.literal("script"),
+		scriptId: nonEmptyStringSchema,
+		context: stringUnknownRecordSchema.optional(),
+	}),
+]);
 
 export const sandboxJobParams = createIdParamsSchema("jobId");
 
