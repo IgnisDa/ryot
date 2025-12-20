@@ -37,7 +37,17 @@ const filterRowSchema = z.object({
 	id: z.string(),
 	field: propertyReferenceSchema,
 	value: z.union([z.string(), z.number(), z.boolean()]),
-	op: z.enum(["eq", "ne", "gt", "gte", "lt", "lte", "in", "isNull"]),
+	op: z.enum([
+		"eq",
+		"ne",
+		"gt",
+		"gte",
+		"lt",
+		"lte",
+		"in",
+		"isNull",
+		"contains",
+	]),
 });
 
 export type FilterRow = z.infer<typeof filterRowSchema>;
@@ -219,7 +229,7 @@ type ApiFilterExpression =
 	| { field: string; op: "in"; value: unknown[] }
 	| {
 			field: string;
-			op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+			op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte" | "contains";
 			value: unknown;
 	  };
 
