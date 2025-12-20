@@ -133,6 +133,41 @@ completions. The trigger logic lives in:
 `consumedOn` is propagated from the triggering progress event to the created complete event via
 `event_schema_trigger.metadata.inheritedProperties: ["consumedOn"]`.
 
+### Integration Progress Policy Trigger
+
+The built-in sandbox trigger (`trigger.integration-progress-policy`) is a `before_create` trigger
+on the `progress` event schema (position 100). It is a no-op (`{ action: "allow" }`) unless the
+incoming event's `trigger.origin` is `"integration"` — it never affects progress events created
+via the app UI, imports, or the API directly.
+
+For integration-sourced progress events, it reads the triggering integration's `minimumProgress` /
+`maximumProgress` (defaulting to `0` / `100` if either is unreadable) and applies, in order:
+
+- **Minimum filter**: if `progressPercent < minimumProgress`, the event is skipped
+  (`reason: "below_minimum_progress"`) — no event is persisted.
+- **Maximum clamp**: if `progressPercent > maximumProgress`, the value is replaced with `100`
+  (`{ action: "replace", body: { properties: { ...properties, progressPercent: 100 } } }`).
+- **Duplicate suppression**: if the entity's most recent matching `progress` event (matched by
+  `consumedOn` plus any `animeEpisode`/`mangaVolume`/`mangaChapter` subitem key) already has the
+  exact same post-clamp `progressPercent`, the event is skipped (`reason: "duplicate_progress"`).
+- **Completion debounce**: if the post-clamp value is `100` and a matching `progress(100%)` event
+  already fired within the last `scheduler.progressUpdateThresholdHours` config value (default 2
+  hours), the event is skipped (`reason: "completed_recently"`) so chatty integrations polling at
+  high frequency don't repeatedly re-trigger the auto-complete cascade above.
+
+Auto-filling a missing timestamp is **not** this trigger's job — it's structural. Every sink's
+`MediaImportAdapterResult` sets a progress event's `occurredAt` via `createProgressResult` in
+`apps/app-backend/src/modules/integrations/sinks/shared.ts`, which defaults to
+`new Date().toISOString()` whenever the source payload has none. The Auto-Complete Trigger above
+then reuses that (always-present) `occurredAt` as the resulting `complete` event's `completedOn`,
+so a missing completion timestamp ends up filled in "for free" by the progress event's own
+fallback, not by a dedicated step in this trigger.
+
+The trigger logic lives in `src/lib/sandbox/triggers/integration-progress-policy.sandbox.js`. It is
+registered and seeded active by default alongside the Auto-Complete Trigger (`registry.ts` /
+`seed.ts`); there is currently no user-facing way to disable it short of disabling the integration
+itself.
+
 ### `progressPercent` Validation
 
 - Type: `number`, required, `exclusiveMinimum: 0`, `maximum: 100`, rounded to 2 decimal places.
