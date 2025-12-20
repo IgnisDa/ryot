@@ -199,9 +199,20 @@ export const SavedViewQueryField = strictStruct({
 });
 export type SavedViewQueryField = typeof SavedViewQueryField.Type;
 
+export const AggregationDefinition = Schema.Union(
+	strictStruct({ type: Schema.Literal("count") }),
+	strictStruct({ type: Schema.Literal("countWhere"), predicate: Schema.NullOr(QueryFilter) }),
+	strictStruct({ type: Schema.Literal("countBy"), groupBy: QueryExpression }),
+	strictStruct({ type: Schema.Literal("sum"), expression: QueryExpression }),
+	strictStruct({ type: Schema.Literal("avg"), expression: QueryExpression }),
+	strictStruct({ type: Schema.Literal("min"), expression: QueryExpression }),
+	strictStruct({ type: Schema.Literal("max"), expression: QueryExpression }),
+);
+export type AggregationDefinition = typeof AggregationDefinition.Type;
+
 export const SavedViewAggregation = strictStruct({
 	key: Schema.String,
-	aggregation: strictStruct({ type: Schema.String, expression: Schema.optional(QueryExpression) }),
+	aggregation: AggregationDefinition,
 });
 export type SavedViewAggregation = typeof SavedViewAggregation.Type;
 
@@ -283,6 +294,7 @@ export const EntitiesQueryRequest = strictStruct({
 	computedFields: Schema.optional(Schema.Array(QueryComputedField)),
 	relationshipJoins: Schema.optional(Schema.Array(QueryRelationshipJoin)),
 });
+export type EntitiesQueryRequest = typeof EntitiesQueryRequest.Type;
 
 export const EventsQueryRequest = strictStruct({
 	pagination: Pagination,
@@ -295,6 +307,7 @@ export const EventsQueryRequest = strictStruct({
 	eventJoins: Schema.optional(Schema.Array(QueryEventJoin)),
 	computedFields: Schema.optional(Schema.Array(QueryComputedField)),
 });
+export type EventsQueryRequest = typeof EventsQueryRequest.Type;
 
 export const AggregateQueryRequest = strictStruct({
 	mode: Schema.Literal("aggregate"),
@@ -305,10 +318,17 @@ export const AggregateQueryRequest = strictStruct({
 	computedFields: Schema.optional(Schema.Array(QueryComputedField)),
 	relationshipJoins: Schema.optional(Schema.Array(QueryRelationshipJoin)),
 });
+export type AggregateQueryRequest = typeof AggregateQueryRequest.Type;
+
+export const TimeSeriesMetric = Schema.Union(
+	strictStruct({ type: Schema.Literal("count") }),
+	strictStruct({ type: Schema.Literal("sum"), expression: QueryExpression }),
+);
+export type TimeSeriesMetric = typeof TimeSeriesMetric.Type;
 
 export const TimeSeriesQueryRequest = strictStruct({
 	dateRange: DateRange,
-	metric: Schema.Unknown,
+	metric: TimeSeriesMetric,
 	mode: Schema.Literal("timeSeries"),
 	scope: Schema.Array(Schema.String),
 	eventSchemas: Schema.Array(Schema.String),
@@ -316,6 +336,7 @@ export const TimeSeriesQueryRequest = strictStruct({
 	filter: Schema.optional(Schema.NullOr(QueryFilter)),
 	computedFields: Schema.optional(Schema.Array(QueryComputedField)),
 });
+export type TimeSeriesQueryRequest = typeof TimeSeriesQueryRequest.Type;
 
 export const QueryEngineRequest = Schema.Union(
 	EventsQueryRequest,
@@ -323,6 +344,7 @@ export const QueryEngineRequest = Schema.Union(
 	AggregateQueryRequest,
 	TimeSeriesQueryRequest,
 );
+export type QueryEngineRequest = typeof QueryEngineRequest.Type;
 
 export function getQueryEngineField(
 	item: Readonly<Record<string, { kind: string; value: unknown }>> | undefined,
