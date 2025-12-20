@@ -4,10 +4,10 @@
 
 This module is the backend half of **client-declared interest**: the mechanism by which a client tells the server which entities it currently cares about, and learns when the server has finished populating or translating one of them — without polling, and without any read being coupled to background work.
 
-It exposes two ordinary authenticated HTTP endpoints on the `interest` `HttpApiGroup`:
+It exposes two ordinary authenticated HTTP endpoints on the `entity-interest` `HttpApiGroup`:
 
-- **`GET /api/interest/stream?streamId=<uuid>`** — a long-lived Server-Sent Events (SSE) stream. The client mints its own `streamId` (a UUID). The first event is `connected` (`data: { streamId }`); thereafter completions arrive as `entity:updated` events (`data: { entityId, reason }`, `reason ∈ {"populated","translated"}`). A bare `: ping` comment line is sent every 25 s so idle proxies don't drop the connection.
-- **`POST /api/interest`** — body `{ streamId, entityIds }`, **replace semantics** (each call supersedes the prior interest set for that stream). It returns `{ terminal: {entityId, reason}[] }`: entities already in a terminal state at reconcile time, for immediate catch-up.
+- **`GET /api/entity-interest/stream?streamId=<uuid>`** — a long-lived Server-Sent Events (SSE) stream. The client mints its own `streamId` (a UUID). The first event is `connected` (`data: { streamId }`); thereafter completions arrive as `entity:updated` events (`data: { entityId, reason }`, `reason ∈ {"populated","translated"}`). A bare `: ping` comment line is sent every 25 s so idle proxies don't drop the connection.
+- **`POST /api/entity-interest`** — body `{ streamId, entityIds }`, **replace semantics** (each call supersedes the prior interest set for that stream). It returns `{ terminal: {entityId, reason}[] }`: entities already in a terminal state at reconcile time, for immediate catch-up.
 
 The module is **glue over existing bricks**. It owns no persistence and no provider logic. It reads the declared interest set through the query engine (which supplies authz, localization, and translation status for free) and enqueues the pre-existing idempotent population/translation workflows. Completion fan-out rides one Redis channel back to the SSE streams.
 
@@ -18,10 +18,10 @@ This file is the authoritative record of how the module works: the mental model,
 ```
 client                        interest module                     rest of backend
   │                                  │                                   │
-  ├─ GET /interest/stream ──────────►│ StreamRegistry.add(streamId)      │
+  ├─ GET /entity-interest/stream ───►│ StreamRegistry.add(streamId)      │
   │◄──── event: connected ──────────┤ (SSE scope opens)                 │
   │                                  │                                   │
-  ├─ POST /interest {ids} ──────────►│ 1. setInterestIfOwner (register)  │
+  ├─ POST /entity-interest {ids} ───►│ 1. setInterestIfOwner (register)  │
   │                                  │ 2. reconcile: read ids via ───────► query engine
   │                                  │    query engine (authz+status)    │   (side-effect-free)
   │                                  │ 3. enqueue work per row ──────────► EntityPopulationTrigger.request
@@ -41,7 +41,7 @@ client                        interest module                     rest of backen
 
 ## File Map
 
-- **[contract.ts](contract.ts)** — the `interest` `HttpApiGroup`: `.middleware(AuthMiddleware)`, the `stream` GET (url param `streamId`, success `text/event-stream`), and the `declareInterest` POST (payload/response schemas, `NotFound` 404, `RateLimited` 429). Group error `Unauthorized` 401. Registered into the single `AppContract` in `lib/contract.ts`, so both endpoints appear in `/docs` like every other route.
+- **[contract.ts](contract.ts)** — the `entity-interest` `HttpApiGroup`: `.middleware(AuthMiddleware)`, the `stream` GET (url param `streamId`, success `text/event-stream`), and the `declareInterest` POST (payload/response schemas, `NotFound` 404, `RateLimited` 429). Group error `Unauthorized` 401. Registered into the single `AppContract` in `lib/contract.ts`, so both endpoints appear in `/docs` like every other route.
 - **[messages.ts](messages.ts)** — the wire schemas (Effect `Schema`): `EntityUpdatedFrame` (reused for both the SSE payload and each `terminal` entry), `ConnectedFrame`, `DeclareInterestBody`, `DeclareInterestResponse`, plus the `MAX_INTEREST_ENTITY_IDS = 500` cap constant. `EntityUpdatedReason` is imported from `#lib/redis` — the reason vocabulary is owned there, not here.
 - **[registry.ts](registry.ts)** — `StreamRegistry`: the per-process map of `streamId → { userId, enqueue, interest }`, a reverse index `byEntity: entityId → Set<streamId>` for fan-out, and the **single duplicated Redis subscriber** that turns `entity:updated` messages into `enqueue` calls. A scoped `Effect.Service`; one subscriber per process, torn down via finalizer.
 - **[stream.ts](stream.ts)** — the SSE transport: `events` (a `Stream.asyncPush` whose acquire/release drive `registry.add`/`registry.remove`) merged with a heartbeat stream, wrapped by `buildInterestStreamResponse` into an `HttpServerResponse.stream`.
@@ -95,7 +95,7 @@ A failing `reconcile` is caught, logged as a warning, and treated as an empty `t
 
 ### Stream ownership and the existence oracle
 
-`POST /api/interest` requires the caller to own the `streamId` (same user who opened it). `setInterestIfOwner` returns `notFound("Unknown stream")` for **both** an unknown `streamId` and a wrong-owner one — the two cases are **intentionally indistinguishable**, to avoid leaking which `streamId`s exist. This is why `declareInterest` declares `NotFound` 404.
+`POST /api/entity-interest` requires the caller to own the `streamId` (same user who opened it). `setInterestIfOwner` returns `notFound("Unknown stream")` for **both** an unknown `streamId` and a wrong-owner one — the two cases are **intentionally indistinguishable**, to avoid leaking which `streamId`s exist. This is why `declareInterest` declares `NotFound` 404.
 
 ### `Effect.suspend` in `setInterestIfOwner`
 
@@ -111,7 +111,7 @@ The `: ping` heartbeat is its own `Stream.fromSchedule(...)` merged with the pus
 
 ### Single-instance assumption
 
-Interest state lives **in-process** in `StreamRegistry`, keyed by `streamId`; there is no Redis-backed sharing of interest state across processes. A `POST /api/interest` for a `streamId` **must** land on the process holding that stream's SSE connection. This matches the self-hosted, effectively-single-instance deployment target. Multi-instance would need sticky routing (a `streamId` always reaches its SSE process) or a shared interest store — neither is built.
+Interest state lives **in-process** in `StreamRegistry`, keyed by `streamId`; there is no Redis-backed sharing of interest state across processes. A `POST /api/entity-interest` for a `streamId` **must** land on the process holding that stream's SSE connection. This matches the self-hosted, effectively-single-instance deployment target. Multi-instance would need sticky routing (a `streamId` always reaches its SSE process) or a shared interest store — neither is built.
 
 ## Cross-Module Dependencies
 
@@ -122,7 +122,7 @@ The module deliberately reuses existing infrastructure rather than reimplementin
   - **Localization.** The entity source coalesces the `(entity_id, language)` translation row into `name`/`properties`.
   - **`translationStatus`.** An opt-in `systemComputed` field valid on the **root entity source only**, computed entirely in SQL. Because the localized source coalesces the overlay row _away_, status can't be derived from the merged columns — it needs its own correlated read of `entity_translation`. For a canonical/null-language reader it constant-folds to `'none'` with no join. Truth table: not-populated ⇒ `none`; overlay row absent ⇒ `pending`; row present but null-name + empty-properties ⇒ `none` (negative cache); else ⇒ `ready`. Canonical language comes from `ProviderConfig` (`sandbox_script.metadata.providerInformation.canonicalLanguage`), read lazily post-seed and memoized.
 - **Population producer** (`#modules/entities` `EntityPopulationTrigger` → `#modules/entity-import`) — `request({ entityId, externalId, userId, entitySchemaId, sandboxScriptId })` enqueues `BuiltinEntityImportWorkflow` with `executionId = populate-${entityId}`, `discard: true`. Idempotency is `@effect/workflow` execution-id coalescing, so blind per-row calls collapse to one in-flight run. On completion, the `mark-primary-entity-populated` activity publishes `entity:updated` with `reason: "populated"` **after** `populatedAt` is durably written ([entity-import/workflows.ts:228](../entity-import/workflows.ts:228)).
-- **Translation producer** (`#modules/translations` `TranslationsService.requestFill`) — enqueues `TranslateEntityWorkflow` with `executionId = translate-${entityId}-${language}`, `discard: true`. On success it upserts the overlay (all-null row when the provider has no translation) and publishes `entity:updated` with `reason: "translated"`. On transient sandbox failure it writes **no** row (status stays `pending`, so the next reconcile retries).
+- **Translation producer** (`#modules/entity-translation` `TranslationsService.requestFill`) — enqueues `TranslateEntityWorkflow` with `executionId = translate-${entityId}-${language}`, `discard: true`. On success it upserts the overlay (all-null row when the provider has no translation) and publishes `entity:updated` with `reason: "translated"`. On transient sandbox failure it writes **no** row (status stays `pending`, so the next reconcile retries).
 - **Redis** (`#lib/redis`) — owns the vocabulary: `redisKeys.entityUpdatedChannel = "ryot:entity:updated"`, `EntityUpdatedReason`, `EntityUpdatedMessage`, `encodeEntityUpdatedMessage` (producer side) and `decodeEntityUpdatedMessage` (the **synchronous, `Either`-returning** decoder shaped for the raw ioredis callback, which is not an Effect context). The `reason` rides _in the payload_ because only the publisher knows whether it populated or translated; the registry is generic fan-out.
 - **Wiring** (`app/layers.ts`, `app/server.ts`, `lib/contract.ts`) — `InterestGroup` is `.add()`ed to the single `AppContract`; `InterestRoutesLive` is provided into the API layer; `StreamRegistry.Default` and `InterestReconciler.Default` are merged into `ServicesLive`. `AuthMiddlewareLive` is provided once at the API level and covers both endpoints. The SSE endpoint being a real contract endpoint (via `handleRaw`) is why it appears in `/docs` and gets group-level 401 handling — unlike the pre-migration raw route.
 

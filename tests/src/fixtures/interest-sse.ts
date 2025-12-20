@@ -63,7 +63,7 @@ export async function openInterestStream(
 	options: WaitOptions = {},
 ): Promise<InterestStream> {
 	const streamId = crypto.randomUUID();
-	const url = `${getBackendUrl()}/interest/stream?streamId=${streamId}`;
+	const url = `${getBackendUrl()}/entity-interest/stream?streamId=${streamId}`;
 
 	const controller = new AbortController();
 
@@ -143,7 +143,7 @@ export async function openInterestStream(
 
 	const declareInterest = async (entityIds: string[]): Promise<EntityUpdatedFrame[]> => {
 		const interestResponse = await postBackendJson(
-			"/interest",
+			"/entity-interest",
 			{ streamId, entityIds },
 			auth.cookies,
 		);
