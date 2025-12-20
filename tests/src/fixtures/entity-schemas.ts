@@ -90,3 +90,20 @@ export async function findBuiltinEntitySchema(client: Client, cookies: string) {
 
 	return { builtinTracker, schema: firstSchema };
 }
+
+export async function findBuiltinSchemaWithSearchProviders(
+	client: Client,
+	cookies: string,
+) {
+	const builtinTracker = await findBuiltinTracker(client, cookies);
+	const schemas = await listEntitySchemas(client, cookies, {
+		trackerId: builtinTracker.id,
+	});
+	const schema = schemas.find((s) => s.searchProviders.length > 0);
+
+	if (!schema) {
+		throw new Error("No built-in entity schema with search providers found");
+	}
+
+	return { schema, builtinTracker };
+}
