@@ -184,7 +184,7 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 
 				const args = yield* parseArgs(request);
 				return yield* Effect.tryPromise({
-					try: () => fn(...args),
+					try: () => fn(args),
 					catch: (error) => internalError(unknownToMessage(error)),
 				}).pipe(
 					Effect.map((result) => Response.json({ result }, { status: 200 })),
