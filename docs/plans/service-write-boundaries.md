@@ -347,24 +347,43 @@ inside its existing transaction.
 
 ### Current state
 
-`TranslationsService` currently exposes `requestFill`, which only enqueues the translation workflow.
-The workflow writes `entity_translation` directly through `TranslationsRepository.upsertOverlay`. Each
-entity-language pair is unique, so the repository write currently combines insertion and replacement.
+Implemented. `TranslationsService` keeps `requestFill` as workflow orchestration and exposes one
+canonical `create` and `update` entry point for translation overlays. The translation workflow reads
+the existing entity-language row and delegates the write to the appropriate service method.
 
 ### Checklist
 
-- [ ] Keep `requestFill` as workflow orchestration and do not make it a table write method.
-- [ ] Keep `create` as the single entry point for inserting one translation overlay.
-- [ ] Keep `update` as the single entry point for replacing one existing translation overlay.
-- [ ] Make the workflow caller read the existing overlay and choose `create` or `update`; the service
+- [x] Keep `requestFill` as workflow orchestration and do not make it a table write method.
+- [x] Keep `create` as the single entry point for inserting one translation overlay.
+- [x] Keep `update` as the single entry point for replacing one existing translation overlay.
+- [x] Make the workflow caller read the existing overlay and choose `create` or `update`; the service
   must not expose an `upsert` method or hide that branch internally.
-- [ ] Do not add `delete` because translation rows currently have no standalone deletion requirement
+- [x] Do not add `delete` because translation rows currently have no standalone deletion requirement
   and are removed with their entity through the existing foreign-key cascade.
-- [ ] Move the `upsertOverlay` repository write behind the service while preserving execution-id
+- [x] Move the `upsertOverlay` repository write behind the service while preserving execution-id
   idempotency, activity retry behavior, the populated-entity precondition, and the translation update
   notification.
-- [ ] Keep any unique-conflict or concurrency handling in the workflow caller rather than adding a
+- [x] Keep any unique-conflict or concurrency handling in the workflow caller rather than adding a
   complex branch in a CRUD method. Read-only repository methods may remain available.
+
+### Implementation notes
+
+- `TranslationsRepository.upsertOverlay` was split into `createOverlay` and `updateOverlay`. The
+  create operation uses conflict-do-nothing and reports an entity-language conflict; the update
+  operation returns no id when the existing row is absent. `TranslationsService.update` converts that
+  missing row into `NotFound`. Conflict-do-nothing keeps the workflow fallback safe inside an ambient
+  transaction.
+- The workflow body now lives in `entity-translation-workflow-live.ts`, while the workflow definition
+  remains in `entity-translation-workflow.ts`. This avoids a service-to-workflow-to-service import
+  cycle after the activity began using `TranslationsService` for writes.
+- The write activity reads the overlay through the repository, calls `create` when it is absent, and
+  calls `update` when it exists. If a concurrent creator wins after the read, the workflow catches the
+  create conflict and delegates the replacement to `update`. Database defects, sandbox validation,
+  execution-id idempotency, the populated-entity precondition, activity behavior, and the translated
+  Redis notification remain unchanged.
+- `TranslationsService.Default` is included in runtime service wiring so the durable workflow can use
+  the canonical write entry points. No translation HTTP CRUD endpoints or standalone deletion path
+  were added.
 
 ## Imports Service
 
