@@ -8,10 +8,8 @@ import {
 	successResponse,
 } from "~/lib/openapi";
 import { getSandboxService } from "~/lib/sandbox";
-import {
-	getAppConfigValue,
-	getUserConfigValue,
-} from "~/lib/sandbox/host-functions";
+import { getAppConfigValue } from "~/lib/sandbox/host-functions/get-app-config-value";
+import { getUserConfigValue } from "~/lib/sandbox/host-functions/get-user-config-value";
 import { nonEmptyStringSchema, nullableStringSchema } from "~/lib/zod/base";
 
 const runSandboxSchema = z.object({
