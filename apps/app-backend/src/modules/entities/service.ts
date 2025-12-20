@@ -3,6 +3,12 @@ import { resolveCustomEntitySchemaAccess } from "~/lib/app/entity-schema-access"
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 import { ImageSchema, type ImageSchemaType } from "~/lib/db/schema/tables";
 import {
+	type ServiceResult,
+	serviceData,
+	serviceError,
+	wrapServiceValidator,
+} from "~/lib/result";
+import {
 	createEntityForUser,
 	getEntityByIdForUser,
 	getEntitySchemaScopeForUser,
@@ -31,9 +37,7 @@ export type EntityServiceDeps = {
 	getEntitySchemaScopeForUser: typeof getEntitySchemaScopeForUser;
 };
 
-export type EntityServiceResult<T> =
-	| { data: T }
-	| { error: EntityMutationError; message: string };
+export type EntityServiceResult<T> = ServiceResult<T, EntityMutationError>;
 
 const customEntitySchemaError =
 	"Built-in entity schemas do not support manual entity creation";
@@ -49,39 +53,17 @@ const entityServiceDeps: EntityServiceDeps = {
 	getEntityScopeForUser,
 };
 
-const createDataResult = <T>(data: T): EntityServiceResult<T> => ({ data });
+const resolveEntityIdResult = (entityId: string) =>
+	wrapServiceValidator(
+		() => resolveEntityId(entityId),
+		"Entity id is required",
+	);
 
-const createErrorResult = <T>(input: {
-	error: EntityMutationError;
-	message: string;
-}): EntityServiceResult<T> => ({
-	error: input.error,
-	message: input.message,
-});
-
-const resolveEntityIdResult = (
-	entityId: string,
-): EntityServiceResult<string> => {
-	try {
-		return createDataResult(resolveEntityId(entityId));
-	} catch (error) {
-		const message =
-			error instanceof Error ? error.message : "Entity id is required";
-		return createErrorResult({ error: "validation", message });
-	}
-};
-
-const resolveEntitySchemaIdResult = (
-	entitySchemaId: string,
-): EntityServiceResult<string> => {
-	try {
-		return createDataResult(resolveEntitySchemaId(entitySchemaId));
-	} catch (error) {
-		const message =
-			error instanceof Error ? error.message : "Entity schema id is required";
-		return createErrorResult({ error: "validation", message });
-	}
-};
+const resolveEntitySchemaIdResult = (entitySchemaId: string) =>
+	wrapServiceValidator(
+		() => resolveEntitySchemaId(entitySchemaId),
+		"Entity schema id is required",
+	);
 
 export const resolveEntityId = (entityId: string) =>
 	resolveRequiredString(entityId, "Entity id");
@@ -156,15 +138,11 @@ const resolveEntityCreateInputResult = (
 	input: Pick<CreateEntityBody, "image" | "name" | "properties"> & {
 		propertiesSchema: AppSchema;
 	},
-): EntityServiceResult<ReturnType<typeof resolveEntityCreateInput>> => {
-	try {
-		return createDataResult(resolveEntityCreateInput(input));
-	} catch (error) {
-		const message =
-			error instanceof Error ? error.message : "Entity payload is invalid";
-		return createErrorResult({ error: "validation", message });
-	}
-};
+) =>
+	wrapServiceValidator(
+		() => resolveEntityCreateInput(input),
+		"Entity payload is invalid",
+	);
 
 export const getEntityDetail = async (
 	input: { entityId: string; userId: string },
@@ -182,13 +160,12 @@ export const getEntityDetail = async (
 		}),
 	);
 	if ("error" in foundEntity) {
-		return createErrorResult({
-			error: foundEntity.error === "not_found" ? "not_found" : "validation",
-			message:
-				foundEntity.error === "not_found"
-					? entityNotFoundError
-					: customEntityDetailError,
-		});
+		return serviceError(
+			foundEntity.error === "not_found" ? "not_found" : "validation",
+			foundEntity.error === "not_found"
+				? entityNotFoundError
+				: customEntityDetailError,
+		);
 	}
 
 	const entity = await deps.getEntityByIdForUser({
@@ -196,13 +173,10 @@ export const getEntityDetail = async (
 		entityId: entityIdResult.data,
 	});
 	if (!entity) {
-		return createErrorResult({
-			error: "not_found",
-			message: entityNotFoundError,
-		});
+		return serviceError("not_found", entityNotFoundError);
 	}
 
-	return createDataResult(entity);
+	return serviceData(entity);
 };
 
 export const createEntity = async (
@@ -223,14 +197,12 @@ export const createEntity = async (
 		}),
 	);
 	if (!("entitySchema" in foundEntitySchema)) {
-		return createErrorResult({
-			error:
-				foundEntitySchema.error === "not_found" ? "not_found" : "validation",
-			message:
-				foundEntitySchema.error === "not_found"
-					? entitySchemaNotFoundError
-					: customEntitySchemaError,
-		});
+		return serviceError(
+			foundEntitySchema.error === "not_found" ? "not_found" : "validation",
+			foundEntitySchema.error === "not_found"
+				? entitySchemaNotFoundError
+				: customEntitySchemaError,
+		);
 	}
 
 	const entityInput = resolveEntityCreateInputResult({
@@ -252,5 +224,5 @@ export const createEntity = async (
 		entitySchemaId: entitySchemaIdResult.data,
 	});
 
-	return createDataResult(createdEntity);
+	return serviceData(createdEntity);
 };
