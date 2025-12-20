@@ -225,10 +225,19 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
+                        /** @enum {string} */
+                        kind?: "code";
                         context?: {
                             [key: string]: unknown;
                         };
                         code: string;
+                    } | {
+                        scriptId: string;
+                        /** @enum {string} */
+                        kind: "script";
+                        context?: {
+                            [key: string]: unknown;
+                        };
                     };
                 };
             };
@@ -265,6 +274,17 @@ export interface paths {
                     content: {
                         "application/json": {
                             error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+                /** @description Sandbox script not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["NotFoundError"];
                         };
                     };
                 };
@@ -711,6 +731,11 @@ export interface paths {
                                 propertiesSchema: {
                                     [key: string]: components["schemas"]["AppPropertyDefinition"];
                                 };
+                                searchProviders: {
+                                    name: string;
+                                    searchScriptId: string;
+                                    detailsScriptId: string;
+                                }[];
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 accentColor: string;
@@ -808,6 +833,11 @@ export interface paths {
                                 propertiesSchema: {
                                     [key: string]: components["schemas"]["AppPropertyDefinition"];
                                 };
+                                searchProviders: {
+                                    name: string;
+                                    searchScriptId: string;
+                                    detailsScriptId: string;
+                                }[];
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 accentColor: string;
@@ -891,6 +921,11 @@ export interface paths {
                                 propertiesSchema: {
                                     [key: string]: components["schemas"]["AppPropertyDefinition"];
                                 };
+                                searchProviders: {
+                                    name: string;
+                                    searchScriptId: string;
+                                    detailsScriptId: string;
+                                }[];
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 accentColor: string;
@@ -985,10 +1020,10 @@ export interface paths {
                                     kind: "remote";
                                 } | unknown;
                                 externalId: string | null;
-                                detailsSandboxScriptId: string | null;
                                 properties: {
                                     [key: string]: unknown;
                                 };
+                                detailsSandboxScriptId: string | null;
                             };
                         };
                     };
@@ -1070,6 +1105,8 @@ export interface paths {
                             [key: string]: unknown;
                         };
                         entitySchemaId: string;
+                        externalId?: string;
+                        detailsSandboxScriptId?: string;
                     };
                 };
             };
@@ -1099,10 +1136,10 @@ export interface paths {
                                     kind: "remote";
                                 } | unknown;
                                 externalId: string | null;
-                                detailsSandboxScriptId: string | null;
                                 properties: {
                                     [key: string]: unknown;
                                 };
+                                detailsSandboxScriptId: string | null;
                             };
                         };
                     };
