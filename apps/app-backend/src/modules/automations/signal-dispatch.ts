@@ -55,6 +55,7 @@ export const SignalDispatchLive = Layer.effect(
 										sourceKind: "signal",
 										origin: input.origin,
 										occurrenceId: input.id,
+										occurredAt: input.occurredAt,
 										source: {
 											kind: "signal",
 											signal: {

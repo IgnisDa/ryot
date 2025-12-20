@@ -4,9 +4,9 @@ import { defineAutomation } from "@ryot/sandbox-sdk/automation";
 export const manifest = defineManifest({
 	kind: "automation",
 	requiredAppConfigKeys: [],
-	capabilities: ["emitSignal"],
-	slug: "automation.test-tracer",
-	name: "Automation Test Tracer",
+	slug: "automation.test-notifier",
+	name: "Automation Test Notifier",
+	capabilities: ["sendNotification"],
 });
 
 export default defineAutomation({
@@ -16,11 +16,7 @@ export default defineAutomation({
 			automation.source.kind === "signal" &&
 			typeof automation.source.signal.properties["message"] === "string"
 				? automation.source.signal.properties["message"]
-				: "trace";
-		return host.emitSignal({
-			properties: { message },
-			schemaSlug: "automation.test-emitted",
-			discriminator: automation.occurrenceId,
-		});
+				: "Automation notification";
+		return host.sendNotification(message);
 	},
 });
