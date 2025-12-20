@@ -57,7 +57,7 @@ Use the existing import failure stages consistently:
 - `input_transformation`: parsing or normalization failures.
 - `provider_resolution`: unresolved ref could not be mapped to a supported provider id.
 - `provider_details`: sandbox `details` fetch or entity population failure.
-- `event_before_trigger`: failure before an import-triggered event fires.
+- `event_policy`: failure while evaluating a policy before an imported event is written.
 - `database_commit`: collections, events, or library membership writes failed.
 - `source_fetch`: source payload or external source fetch failed before normalization.
 

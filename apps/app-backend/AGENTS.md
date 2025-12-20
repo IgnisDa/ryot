@@ -71,7 +71,7 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 ## Queues
 
 - Do not introduce a third-party job-queue library. Background work uses the durable workflow engine, durable queues, and durable deferred signals.
-- When a workflow runs a child workflow (e.g. an import writing events via `EventCreateWorkflow`), give the child a deterministic `executionId` derived from the parent (parent executionId + loop indices), never a fresh random one. A child that durably suspends — e.g. an event firing an after-create trigger — replays the parent, and a random id spawns a new child each replay, looping forever. Match the keying used by `populateMediaEntityGroups` (`imports/media/population-workflow.ts`) and `resolveMediaEntityGroups` (`imports/media/resolution-workflow.ts`).
+- When a workflow runs a child workflow (e.g. an import writing events via `EventCreateWorkflow`), give the child a deterministic `executionId` derived from the parent (parent executionId + loop indices), never a fresh random one. A child that durably suspends — e.g. an event dispatching a subscription execution — replays the parent, and a random id spawns a new child each replay, looping forever. Match the keying used by `populateMediaEntityGroups` (`imports/media/population-workflow.ts`) and `resolveMediaEntityGroups` (`imports/media/resolution-workflow.ts`).
 
 ## Redis
 
@@ -82,7 +82,8 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 
 - Writes to schema-backed entity, event, and relationship tables must validate their properties against the matching schema's property definition.
 - Provider-backed population in background flows composes the established import workflow rather than calling lower-level population helpers directly.
-- External event creation goes through the path that also dispatches schema-defined triggers.
+- External event creation goes through the path that evaluates automation policies and dispatches
+  lifecycle subscriptions.
 - Migration and `legacy-bootstrap` code is the only exception to the write-path rules.
 - Allow arbitrary top-level keys in a property schema only when relationship or collection properties genuinely require passthrough; otherwise keep properties aligned with their built-in schemas.
 
