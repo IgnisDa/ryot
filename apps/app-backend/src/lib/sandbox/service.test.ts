@@ -7,6 +7,10 @@ type TestSandboxExecutor = {
 	execute: (options: unknown) => Promise<unknown>;
 };
 
+type TestSandboxQueueAccessor = {
+	getQueue: () => { getJob: (jobId: string) => Promise<unknown> };
+};
+
 const createJobData = (
 	overrides: Partial<SandboxRunJobData> = {},
 ): SandboxRunJobData => ({
@@ -145,5 +149,66 @@ describe("SandboxService.executeQueuedRun", () => {
 		expect((capturedOptions as { apiFunctions?: unknown }).apiFunctions).toBe(
 			undefined,
 		);
+	});
+});
+
+describe("SandboxService.getJobByIdForUser", () => {
+	it("returns the job when it belongs to the user and payload is valid", async () => {
+		const service = new SandboxService();
+		const testService = service as unknown as TestSandboxQueueAccessor;
+		const job = {
+			data: createJobData(),
+			returnvalue: undefined,
+			failedReason: undefined,
+			getState: async () => "completed" as const,
+		};
+
+		testService.getQueue = () => ({
+			getJob: async (jobId: string) => {
+				expect(jobId).toBe("job_1");
+				return job;
+			},
+		});
+
+		expect(
+			service.getJobByIdForUser({ jobId: "job_1", userId: "user_1" }),
+		).resolves.toEqual({ job, jobData: createJobData() });
+	});
+
+	it("returns null when the job does not exist", async () => {
+		const service = new SandboxService();
+		const testService = service as unknown as TestSandboxQueueAccessor;
+
+		testService.getQueue = () => ({ getJob: async () => null });
+
+		expect(
+			service.getJobByIdForUser({ jobId: "missing", userId: "user_1" }),
+		).resolves.toBeNull();
+	});
+
+	it("returns null when the job belongs to another user", async () => {
+		const service = new SandboxService();
+		const testService = service as unknown as TestSandboxQueueAccessor;
+
+		testService.getQueue = () => ({
+			getJob: async () => ({ data: createJobData({ userId: "user_2" }) }),
+		});
+
+		expect(
+			service.getJobByIdForUser({ jobId: "job_1", userId: "user_1" }),
+		).resolves.toBeNull();
+	});
+
+	it("returns null when the job payload is invalid", async () => {
+		const service = new SandboxService();
+		const testService = service as unknown as TestSandboxQueueAccessor;
+
+		testService.getQueue = () => ({
+			getJob: async () => ({ data: { userId: "user_1" } }),
+		});
+
+		expect(
+			service.getJobByIdForUser({ jobId: "job_1", userId: "user_1" }),
+		).resolves.toBeNull();
 	});
 });
