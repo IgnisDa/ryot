@@ -32,6 +32,7 @@ import { validateEventCreateSubmission } from "./event-creation";
 import {
 	EventsRepository,
 	type EventIdentityInput,
+	type InsertEventSchemaTriggerInput,
 	type UpdateEventEntityReferencesInput,
 } from "./repository";
 
@@ -49,6 +50,11 @@ type EventCreateInput = {
 		readonly integrationId?: IntegrationId;
 	};
 };
+
+type CreateEventSchemaTriggerInput = Omit<
+	InsertEventSchemaTriggerInput,
+	"isActive" | "isBuiltin" | "metadata"
+>;
 
 type EventListQuery = {
 	readonly entityId?: EntityId | undefined;
@@ -261,6 +267,19 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 			return yield* runWithDb(repository.deleteEvent(input));
 		});
 
-		return { create, delete: deleteEvent, listForUser, update };
+		const createTrigger = Effect.fn("EventsService.createTrigger")(function* (
+			input: CreateEventSchemaTriggerInput,
+		) {
+			return yield* runWithDb(
+				repository.createTrigger({
+					...input,
+					metadata: {},
+					isActive: true,
+					isBuiltin: false,
+				}),
+			);
+		});
+
+		return { create, createTrigger, delete: deleteEvent, listForUser, update };
 	}),
 }) {}

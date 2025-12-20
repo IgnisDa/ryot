@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { ProviderInformation } from "@ryot/sandbox-sdk";
 import type {
 	ProviderDetailsResult,
@@ -7,9 +8,9 @@ import type {
 	ProviderTranslateResult,
 } from "@ryot/sandbox-sdk/provider";
 
-import { getPgClient } from "~/setup";
-
+import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
+import { getBackendClient } from "./contract-client";
 import { createAndPromoteSandboxScript } from "./sandbox";
 
 export type SeededProviderScript = {
@@ -26,7 +27,7 @@ export async function seedBuiltinProviderScript(input: {
 	linkToEntitySchemaId?: string;
 	providerInformation?: ProviderInformation;
 }): Promise<SeededProviderScript> {
-	const pg = getPgClient();
+	const backend = getBackendClient();
 	const slug = input.slug ?? `e2e-provider-${randomUUID()}`;
 	const name = input.name ?? "E2E Provider Script";
 	const script = await createAndPromoteSandboxScript(
@@ -42,16 +43,38 @@ export async function seedBuiltinProviderScript(input: {
 
 	let entitySchemaScriptId: string | null = null;
 	if (input.linkToEntitySchemaId) {
-		entitySchemaScriptId = randomUUID();
+		const entitySchemaId = EntitySchemaId.make(input.linkToEntitySchemaId);
 		try {
-			await pg.query(
-				`insert into entity_schema_sandbox_script (id, entity_schema_id, sandbox_script_id)
-				 values ($1, $2, $3)`,
-				[entitySchemaScriptId, input.linkToEntitySchemaId, scriptId],
+			const link = await backend.run(
+				(c) =>
+					c.testSupport.linkSandboxScriptToEntitySchema({
+						path: {
+							scriptId: SandboxScriptId.make(scriptId),
+							entitySchemaId,
+						},
+					}),
+				adminHeaders,
 			);
+			const repeatedLink = await backend.run(
+				(c) =>
+					c.testSupport.linkSandboxScriptToEntitySchema({
+						path: { scriptId: SandboxScriptId.make(scriptId), entitySchemaId },
+					}),
+				adminHeaders,
+			);
+			if (repeatedLink.id !== link.id) {
+				throw new Error("Repeated sandbox script link returned a different row");
+			}
+			entitySchemaScriptId = link.id;
 		} catch (error) {
-			await pg
-				.query(`delete from sandbox_script where id = $1`, [scriptId])
+			await backend
+				.run(
+					(c) =>
+						c.testSupport.deleteSandboxScript({
+							path: { scriptId: SandboxScriptId.make(scriptId) },
+						}),
+					adminHeaders,
+				)
 				.catch((cleanupError) => {
 					console.error("[sandbox-provider] failed link cleanup", cleanupError);
 				});
@@ -63,22 +86,14 @@ export async function seedBuiltinProviderScript(input: {
 }
 
 export async function cleanupBuiltinProviderScript(seeded: SeededProviderScript): Promise<void> {
-	const pg = getPgClient();
 	try {
-		await pg.query(
-			`delete from relationship r
-			 using entity e
-			 where (r.source_entity_id = e.id or r.target_entity_id = e.id)
-			   and e.sandbox_script_id = $1`,
-			[seeded.scriptId],
+		await getBackendClient().run(
+			(c) =>
+				c.testSupport.deleteSandboxScript({
+					path: { scriptId: SandboxScriptId.make(seeded.scriptId) },
+				}),
+			adminHeaders,
 		);
-		await pg.query(`delete from entity where sandbox_script_id = $1`, [seeded.scriptId]);
-		if (seeded.entitySchemaScriptId) {
-			await pg.query(`delete from entity_schema_sandbox_script where id = $1`, [
-				seeded.entitySchemaScriptId,
-			]);
-		}
-		await pg.query(`delete from sandbox_script where id = $1`, [seeded.scriptId]);
 	} catch (error) {
 		console.error("[sandbox-provider] cleanup failed (non-fatal)", error);
 	}

@@ -1,12 +1,12 @@
 import { EntitySchemaId, SandboxScriptId, TrackerId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 
-import { getPgClient } from "~/setup";
 import { assertPresent, requirePresent } from "~/support/assertions";
 
 export type { AppSchema };
+import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
-import type { ContractPayload } from "./contract-client";
+import { type ContractPayload, getBackendClient } from "./contract-client";
 import { type PollOptions, pollUntil } from "./polling";
 import { createTracker, listTrackers } from "./trackers";
 
@@ -108,13 +108,12 @@ export async function findBuiltinSchemaBySlug(client: Client, slug: string) {
 }
 
 export const getBuiltinEntitySchemaId = async (slug: string) => {
-	const result = await getPgClient().query<{ id: string }>(
-		`select id from entity_schema where slug = $1 and user_id is null and is_builtin = true limit 1`,
-		[slug],
+	const result = await getBackendClient().run(
+		(c) => c.testSupport.getBuiltinEntitySchema({ path: { slug } }),
+		adminHeaders,
 	);
-	const row = result.rows[0];
-	assertPresent(row, `Expected builtin entity schema '${slug}'`);
-	return row.id;
+	assertPresent(result, `Expected builtin entity schema '${slug}'`);
+	return result.id;
 };
 
 export async function listBuiltinEntitySchemas(client: Client) {
