@@ -1,5 +1,11 @@
 import { expect, it } from "@effect/vitest";
-import { AutomationRuleId, SandboxScriptId, SignalSchemaId } from "@ryot/contract/schema/brands";
+import {
+	AutomationRuleId,
+	EventSchemaId,
+	SandboxScriptId,
+	SignalSchemaId,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
@@ -29,16 +35,27 @@ const row = {
 } as const;
 
 const makeDb = () => {
-	const state = { filteredSubscriptions: false };
+	const state = { filteredPolicies: false, filteredSubscriptions: false };
 	const select = () => ({
 		from: () => ({
 			where: (condition: Parameters<typeof dialect.sqlToQuery>[0]) => {
 				const query = dialect.sqlToQuery(condition);
-				const rows = query.params.includes("subscription")
-					? [row]
-					: [row, { ...row, id: "policy-1", kind: "policy" as const }];
+				const policyRow = {
+					...row,
+					position: 10,
+					id: "policy-1",
+					userId: "user-1",
+					operation: "create",
+					signalSchemaId: null,
+					kind: "policy" as const,
+					eventSchemaId: "event-schema-1",
+				};
+				const rows = query.params.includes("subscription") ? [row] : [policyRow];
 				if (query.params.includes("subscription")) {
 					state.filteredSubscriptions = true;
+				}
+				if (query.params.includes("policy")) {
+					state.filteredPolicies = true;
 				}
 				return {
 					limit: () => Promise.resolve(rows.slice(0, 1)),
@@ -81,5 +98,19 @@ it.effect("filters lifecycle policy rows from subscription resolution", () => {
 		});
 		expect(db.state.filteredSubscriptions).toBe(true);
 		expect(rules.map((rule) => rule.id)).toEqual([AutomationRuleId.make(row.id)]);
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
+it.effect("resolves active event policies independently from subscriptions", () => {
+	const db = makeDb();
+	return Effect.gen(function* () {
+		const repository = yield* AutomationsRepository;
+		const rules = yield* repository.resolveActivePolicies({
+			operation: "create",
+			rowUserId: UserId.make("user-1"),
+			target: { kind: "event_schema", id: EventSchemaId.make("event-schema-1") },
+		});
+		expect(db.state.filteredPolicies).toBe(true);
+		expect(rules.map((rule) => rule.id)).toEqual([AutomationRuleId.make("policy-1")]);
 	}).pipe(Effect.provide(makeLayer(db)));
 });

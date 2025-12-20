@@ -373,40 +373,61 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 				return yield* toStoredRule(row);
 			});
 
+			const resolveActiveByKind = Effect.fn("AutomationsRepository.resolveActiveByKind")(
+				function* (input: {
+					rowUserId: UserId | null;
+					target: AutomationRuleTarget;
+					kind: AutomationRuleKindValue;
+					operation: AutomationOperationValue;
+				}) {
+					const db = yield* CurrentDb;
+					const rows = yield* dbEffect(() =>
+						db
+							.select()
+							.from(schema.automationRule)
+							.where(
+								and(
+									eq(schema.automationRule.kind, input.kind),
+									eq(schema.automationRule.isActive, true),
+									targetClause(input.target),
+									eq(schema.automationRule.operation, input.operation),
+									input.rowUserId
+										? or(
+												eq(schema.automationRule.userId, input.rowUserId),
+												and(
+													isNull(schema.automationRule.userId),
+													eq(schema.automationRule.isBuiltin, true),
+												),
+											)
+										: and(
+												isNull(schema.automationRule.userId),
+												eq(schema.automationRule.isBuiltin, true),
+											),
+								),
+							)
+							.orderBy(asc(schema.automationRule.position), asc(schema.automationRule.id)),
+					);
+					return yield* Effect.all(rows.map(toStoredRule));
+				},
+			);
+
 			const resolveActive = Effect.fn("AutomationsRepository.resolveActive")(function* (input: {
 				rowUserId: UserId | null;
 				target: AutomationRuleTarget;
 				operation: AutomationOperationValue;
 			}) {
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
-					db
-						.select()
-						.from(schema.automationRule)
-						.where(
-							and(
-								eq(schema.automationRule.isActive, true),
-								eq(schema.automationRule.kind, "subscription"),
-								targetClause(input.target),
-								eq(schema.automationRule.operation, input.operation),
-								input.rowUserId
-									? or(
-											eq(schema.automationRule.userId, input.rowUserId),
-											and(
-												isNull(schema.automationRule.userId),
-												eq(schema.automationRule.isBuiltin, true),
-											),
-										)
-									: and(
-											isNull(schema.automationRule.userId),
-											eq(schema.automationRule.isBuiltin, true),
-										),
-							),
-						)
-						.orderBy(asc(schema.automationRule.position), asc(schema.automationRule.id)),
-				);
-				return yield* Effect.all(rows.map(toStoredRule));
+				return yield* resolveActiveByKind({ ...input, kind: "subscription" });
 			});
+
+			const resolveActivePolicies = Effect.fn("AutomationsRepository.resolveActivePolicies")(
+				function* (input: {
+					rowUserId: UserId;
+					operation: "create";
+					target: AutomationRuleTarget;
+				}) {
+					return yield* resolveActiveByKind({ ...input, kind: "policy" });
+				},
+			);
 
 			const isUserEnabled = Effect.fn("AutomationsRepository.isUserEnabled")(function* (
 				userId: UserId,
@@ -610,6 +631,7 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 				findTargetScope,
 				setUserRuleActive,
 				findScriptExecution,
+				resolveActivePolicies,
 				lockActiveSubscription,
 				listRunsByOriginalRuleId,
 			};
