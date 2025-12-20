@@ -9,7 +9,6 @@ import { badRequest, conflict, notFound } from "~/lib/errors";
 import { slugify } from "~/lib/slug";
 import { trimToNull } from "~/lib/validation";
 
-import { RunSandboxWorkflow } from "./definitions";
 import { createSandboxJobId, resolveSandboxExecutionId } from "./job-id";
 import { SandboxRepository } from "./repository";
 import {
@@ -17,6 +16,7 @@ import {
 	type CreateSandboxScriptBody,
 	type EnqueueSandboxBody,
 } from "./schemas";
+import { RunSandboxWorkflow } from "./workflow-definitions";
 import { toSandboxRunResult } from "./workflows";
 
 const allowedHostFunctions = new Set([
