@@ -273,7 +273,7 @@ it.effect("creates a collection with valid inputs", () => {
 
 	const layer = makeServiceLayer({
 		entitiesRepository: makeEntitiesRepository({
-			saveEntity: () => {
+			insertEntity: () => {
 				created = true;
 				return Effect.succeed({
 					createdAt: now,
