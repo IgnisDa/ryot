@@ -1,0 +1,15 @@
+{
+	"exclude": ["dist", "tests"],
+	"extends": "../../tsconfig.options.json",
+	"compilerOptions": {
+		"types": [],
+		"strict": true,
+		"outDir": "dist",
+		"module": "nodenext",
+		"lib": ["ESNext", "DOM"],
+		"verbatimModuleSyntax": true,
+		"moduleResolution": "nodenext",
+		"noUncheckedIndexedAccess": true,
+		"exactOptionalPropertyTypes": true
+	}
+}

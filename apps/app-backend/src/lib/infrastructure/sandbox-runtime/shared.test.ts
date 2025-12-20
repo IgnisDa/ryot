@@ -4,8 +4,9 @@ import { requireSandboxRunInput, requireUserSandboxRunInput } from "./shared";
 
 const makeRunInput = (userId: string | null) => ({
 	userId,
-	code: "",
 	context: {},
+	compiledCode: "",
+	compiledFormat: 1,
 	scriptId: "script_1",
 	driverName: "search",
 	executionId: "exec_1",

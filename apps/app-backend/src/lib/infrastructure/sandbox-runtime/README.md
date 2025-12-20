@@ -15,22 +15,22 @@ The sandbox runs untrusted user code in single-use Deno subprocesses, exposes se
 
 ## Execution Flow
 
-1. A script is stored via `POST /sandbox/scripts` and enqueued via `POST /sandbox/enqueue` with a `scriptId`, `driverName`, and optional `context`.
-2. The workflow loads the script, validates `metadata.allowedHostFunctions`, and calls `SandboxService.executeQueuedRun(...)`.
+1. `POST /sandbox/scripts` accepts one TypeScript `source`, statically validates its manifest, type-checks and bundles it, then stores source and compiled JavaScript separately with compiled format `1`.
+2. `POST /sandbox/enqueue` receives a `scriptId`, `driverName`, and optional `context`. The workflow loads compiled code and the capabilities from validated manifest metadata.
 3. The service registers a bridge session keyed by `executionId`. Redis stores `{ token, expiresAt }` with a TTL, and memory stores the allowed host-function handlers for that run.
 4. A pre-warmed Deno process is checked out, or a fresh one is spawned if the pool is empty. Each process handles exactly one execution.
-5. The service writes one JSON payload to stdin containing the script code, driver name, context, bridge URL, token, function names, execution id, and script id.
-6. The runner captures console calls into `logs`, creates host-function stubs, runs the requested `driver(name, fn)`, and writes the final JSON result to stdout.
+5. The service writes one JSON payload to stdin containing compiled code, compiled format, driver name, context, bridge URL, token, function names, execution id, and script id.
+6. The runner captures console calls into `logs`, imports the compiled in-memory ES module, validates the definition, driver, input, and output, and writes the final JSON result to stdout.
 7. Host-function stubs call `POST /rpc/:executionId/:fnName`; the bridge validates expiry, bearer token, request body, and function name before dispatching.
 8. The service adds server timing, removes the bridge session with an Effect finalizer, and returns the job result.
 
 ## API Shape
 
-- `POST /sandbox/scripts`: creates a stored script with `{ name, slug?, code, metadata? }`.
+- `POST /sandbox/scripts`: creates a stored script with `{ source }`; name, slug, and capabilities come from the static manifest.
 - `POST /sandbox/enqueue`: enqueues a stored script with `{ scriptId, driverName, context? }` and returns `{ jobId }`.
 - `GET /sandbox/result/:jobId`: returns `pending`, `failed`, or `completed` with `{ logs, value, error, timing }`.
 
-`metadata.allowedHostFunctions` defaults to no host functions when omitted. `timing` is `{ totalMs, executionMs }` for completed runs.
+Generic scripts without host access declare an empty manifest `capabilities` tuple. `timing` is `{ totalMs, executionMs }` for completed runs.
 
 ## Security
 
@@ -51,13 +51,13 @@ The pool preserves process isolation because every subprocess is still single-us
 
 ## Vendored Packages
 
-User scripts can dynamically import only packages listed in `vendoredPackages` in `runtime.ts`. At startup, `PackageCacheManager` runs `deno cache --no-config` into `SANDBOX_DENO_DIR` and records a marker file for the cached package list. Deno then runs with `--cached-only`, so imports outside the allowlist fail.
+Format-1 user modules can import only the SDK root and bundle its current runtime. Existing format-0 built-ins can dynamically import only packages listed in `vendoredPackages` in `runtime.ts`. At startup, `PackageCacheManager` runs `deno cache --no-config` into `SANDBOX_DENO_DIR` and records a marker file for the cached package list. Deno then runs with `--cached-only`, so imports outside the allowlist fail.
 
 To add a package, append its specifier to `vendoredPackages` and restart the service. In Docker deployments, mount `SANDBOX_DENO_DIR` as a volume to avoid re-downloading packages on each restart.
 
 ## Host Functions
 
-Host functions are bridge handlers exposed only when listed in `metadata.allowedHostFunctions`.
+Host functions are bridge handlers exposed only when listed in format-1 manifest `capabilities` or temporary format-0 `metadata.allowedHostFunctions`.
 
 | Scope   | Functions                                                                                                                                                          |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -78,16 +78,19 @@ Script-scoped functions use execution metadata such as `scriptId`. User-scoped f
 
 ## Driver Functions
 
-Sandbox scripts must register at least one driver with `driver(name, fn)`. The enqueue request chooses which driver to run with `driverName`.
+Format-1 scripts define drivers with SDK input and output schemas. The enqueue request chooses a driver by name; the runner validates input before invoking `run` and output before returning it.
 
-Drivers receive `(context, meta)`. `context` is caller-provided input. `meta` includes `{ metadata, sandboxScriptId }` when running from a stored script.
-
-```js
-driver("search", async function (context, meta) {
-	const response = await httpCall("GET", "https://api.example.com/search");
-	return { response, scriptId: meta.sandboxScriptId };
+```ts
+const main = defineDriver(manifest, {
+	input: z.object({ value: z.number() }),
+	output: z.number(),
+	run: async (input) => input.value + 1,
 });
+
+export default defineScript({ manifest, drivers: { main } });
 ```
+
+The SDK run function receives `(input, host, execution)`. `execution` contains `{ metadata, sandboxScriptId }`. Temporary format-0 built-ins continue to register legacy `driver(name, fn)` functions inside their compatibility module.
 
 ## Errors And Debugging
 
