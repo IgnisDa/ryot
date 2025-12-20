@@ -6,17 +6,21 @@ import {
 	stringUnknownRecordSchema,
 } from "~/lib/zod/base";
 
-export const enqueueSandboxBody = z.discriminatedUnion("kind", [
-	z.object({
-		kind: z.literal("code"),
-		context: stringUnknownRecordSchema.optional(),
-		code: nonEmptyStringSchema.max(20_000),
-	}),
-	z.object({
-		kind: z.literal("script"),
-		scriptId: nonEmptyStringSchema,
-		context: stringUnknownRecordSchema.optional(),
-	}),
+const enqueueSandboxCodeBody = z.object({
+	kind: z.literal("code").optional(),
+	context: stringUnknownRecordSchema.optional(),
+	code: nonEmptyStringSchema.max(20_000),
+});
+
+const enqueueSandboxScriptBody = z.object({
+	scriptId: nonEmptyStringSchema,
+	kind: z.literal("script"),
+	context: stringUnknownRecordSchema.optional(),
+});
+
+export const enqueueSandboxBody = z.union([
+	enqueueSandboxCodeBody,
+	enqueueSandboxScriptBody,
 ]);
 
 export const sandboxJobParams = createIdParamsSchema("jobId");
@@ -24,6 +28,10 @@ export const sandboxJobParams = createIdParamsSchema("jobId");
 export const enqueueSandboxResponseSchema = dataSchema(
 	z.object({ jobId: nonEmptyStringSchema }),
 );
+
+export type SandboxEnqueueResult = z.infer<
+	typeof enqueueSandboxResponseSchema.shape.data
+>;
 
 export const sandboxPendingResultSchema = z.object({
 	status: z.literal("pending"),
@@ -59,3 +67,6 @@ export const pollSandboxResultResponseSchema = dataSchema(
 );
 
 export type EnqueueSandboxBody = z.infer<typeof enqueueSandboxBody>;
+export type PollSandboxResult = z.infer<
+	typeof pollSandboxResultResponseSchema.shape.data
+>;
