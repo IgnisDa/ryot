@@ -94,6 +94,18 @@ export const importRun = pgTable(
 	],
 );
 
+export const integrationAutoDisableClaim = pgTable(
+	"integration_auto_disable_claim",
+	{
+		importRunId: text().notNull().primaryKey(),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		integrationId: text()
+			.notNull()
+			.references(() => integration.id, { onDelete: "cascade" }),
+	},
+	(table) => [index("integration_auto_disable_claim_integration_id_idx").on(table.integrationId)],
+);
+
 export const importRunFailure = pgTable(
 	"import_run_failure",
 	{
