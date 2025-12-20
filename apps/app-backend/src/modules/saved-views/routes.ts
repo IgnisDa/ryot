@@ -6,12 +6,11 @@ import {
 	createServiceErrorResult,
 	createStandardResponses,
 	createSuccessResult,
+	createValidationErrorResult,
 	createValidationServiceErrorResult,
 	jsonBody,
-	resolveValidationData,
 } from "~/lib/openapi";
-import { resolveRuntimeReference } from "../view-runtime/runtime-reference";
-import { executeViewRuntimeBody } from "../view-runtime/schemas";
+import { validateSavedViewBody } from "~/lib/views/validator";
 import { getSavedViewByIdForUser, listSavedViewsForUser } from "./repository";
 import {
 	createSavedViewBody,
@@ -32,70 +31,6 @@ import {
 	reorderSavedViews,
 	updateSavedView,
 } from "./service";
-
-type SavedViewRuntimeValidationInput = {
-	displayConfiguration: { grid: unknown; list: unknown; table: unknown };
-	queryDefinition: {
-		sort: unknown;
-		filters: unknown;
-		entitySchemaSlugs: unknown;
-	};
-};
-
-const preValidateSavedViewBody = <T extends SavedViewRuntimeValidationInput>(
-	body: T,
-) => {
-	const validateReferences = (references: string[] | null) => {
-		for (const reference of references ?? []) {
-			resolveRuntimeReference(reference);
-		}
-	};
-
-	const runtimeLayouts = [
-		{
-			layout: "grid",
-			displayConfiguration: body.displayConfiguration.grid,
-		},
-		{
-			layout: "list",
-			displayConfiguration: body.displayConfiguration.list,
-		},
-		{
-			layout: "table",
-			displayConfiguration: body.displayConfiguration.table,
-		},
-	] as const;
-
-	for (const runtimeLayout of runtimeLayouts) {
-		const runtimeRequest = executeViewRuntimeBody.parse({
-			sort: body.queryDefinition.sort,
-			pagination: { page: 1, limit: 1 },
-			filters: body.queryDefinition.filters,
-			entitySchemaSlugs: body.queryDefinition.entitySchemaSlugs,
-			...runtimeLayout,
-		});
-
-		for (const field of runtimeRequest.sort.fields) {
-			resolveRuntimeReference(field);
-		}
-		for (const filter of runtimeRequest.filters) {
-			resolveRuntimeReference(filter.field);
-		}
-		if (runtimeRequest.layout === "table") {
-			for (const column of runtimeRequest.displayConfiguration.columns) {
-				validateReferences(column.property);
-			}
-			continue;
-		}
-
-		validateReferences(runtimeRequest.displayConfiguration.imageProperty);
-		validateReferences(runtimeRequest.displayConfiguration.titleProperty);
-		validateReferences(runtimeRequest.displayConfiguration.badgeProperty);
-		validateReferences(runtimeRequest.displayConfiguration.subtitleProperty);
-	}
-
-	return body;
-};
 
 const listSavedViewsRoute = createAuthRoute(
 	createRoute({
@@ -246,19 +181,20 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const body = c.req.valid("json");
 		const params = c.req.valid("param");
-		const validatedBody = resolveValidationData(
-			() => preValidateSavedViewBody(body),
-			"Saved view body is invalid",
-		);
 
-		if ("status" in validatedBody) {
-			return c.json(validatedBody.body, validatedBody.status);
+		try {
+			await validateSavedViewBody(body, user.id);
+		} catch (error) {
+			const message =
+				error instanceof Error ? error.message : "Saved view body is invalid";
+			const result = createValidationErrorResult(message);
+			return c.json(result.body, result.status);
 		}
 
 		const result = await updateSavedView({
+			body,
 			userId: user.id,
 			viewId: params.viewId,
-			body: validatedBody.data,
 		});
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
@@ -271,19 +207,17 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(createSavedViewRoute, async (c) => {
 		const user = c.get("user");
 		const body = c.req.valid("json");
-		const validatedBody = resolveValidationData(
-			() => preValidateSavedViewBody(body),
-			"Saved view body is invalid",
-		);
 
-		if ("status" in validatedBody) {
-			return c.json(validatedBody.body, validatedBody.status);
+		try {
+			await validateSavedViewBody(body, user.id);
+		} catch (error) {
+			const message =
+				error instanceof Error ? error.message : "Saved view body is invalid";
+			const result = createValidationErrorResult(message);
+			return c.json(result.body, result.status);
 		}
 
-		const result = await createSavedView({
-			userId: user.id,
-			body: validatedBody.data,
-		});
+		const result = await createSavedView({ body, userId: user.id });
 		if ("error" in result) {
 			const response = createValidationServiceErrorResult(result);
 			return c.json(response.body, response.status);

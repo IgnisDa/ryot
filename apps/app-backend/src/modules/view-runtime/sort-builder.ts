@@ -1,15 +1,18 @@
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
-import { ViewRuntimeValidationError } from "./errors";
+import { ViewRuntimeValidationError } from "~/lib/views/errors";
 import {
-	buildCastedValueExpression,
-	buildCoalescedExpression,
+	getPropertyType,
 	getSchemaForReference,
+	type PropertyType,
 	type RuntimeRef,
 	resolveRuntimeReference,
 	type ViewRuntimeSchemaLike,
+} from "~/lib/views/reference";
+import {
+	buildCastedValueExpression,
+	buildCoalescedExpression,
 } from "./runtime-reference";
-import { getPropertyType, type PropertyType } from "./schema-introspection";
 
 const getTopLevelSortType = (column: string): PropertyType =>
 	match(column)
