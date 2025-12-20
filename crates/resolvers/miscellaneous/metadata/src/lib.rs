@@ -110,7 +110,8 @@ impl MiscellaneousMetadataMutationResolver {
         )
     }
 
-    /// Mark an entity as partial.
+    /// Mark an entity as partial. This will make it eligible to get it's details and
+    /// translations updated from external sources.
     async fn mark_entity_as_partial(
         &self,
         gql_ctx: &Context<'_>,
