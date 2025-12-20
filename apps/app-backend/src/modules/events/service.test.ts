@@ -2,13 +2,14 @@ import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Effect, Exit, Layer } from "effect";
 
-import type { CurrentUserValue } from "../../lib/auth";
-import { CurrentDb, DbRunner } from "../../lib/db";
-import { BadRequest, NotFound } from "../../lib/errors";
-import { SandboxService } from "../../lib/sandbox";
-import { EntitiesRepository } from "../entities/repository";
-import { EventSchemasRepository } from "../event-schemas/repository";
-import { SandboxRepository } from "../sandbox/repository";
+import type { CurrentUserValue } from "~/lib/auth";
+import { CurrentDb, DbRunner } from "~/lib/db";
+import { BadRequest, NotFound } from "~/lib/errors";
+import { SandboxService } from "~/lib/sandbox";
+import { EntitiesRepository } from "~/modules/entities/repository";
+import { EventSchemasRepository } from "~/modules/event-schemas/repository";
+import { SandboxRepository } from "~/modules/sandbox/repository";
+
 import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
 

@@ -3,10 +3,11 @@ import { FileSystem } from "@effect/platform";
 import { generateId } from "better-auth";
 import { Effect, Schema } from "effect";
 
-import type { CurrentUserValue } from "../../lib/auth";
-import { type BadRequest, badRequest } from "../../lib/errors";
-import { RedisService, redisKeys } from "../../lib/redis";
-import { S3Service } from "../../lib/s3";
+import type { CurrentUserValue } from "~/lib/auth";
+import { type BadRequest, badRequest } from "~/lib/errors";
+import { RedisService, redisKeys } from "~/lib/redis";
+import { S3Service } from "~/lib/s3";
+
 import { type UploadContentType, uploadContentTypeExtensions, uploadContentTypes } from "./shared";
 
 const UPLOAD_TOKEN_TTL_SECONDS = 15 * 60;
