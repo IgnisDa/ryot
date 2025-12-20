@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
 
-import { UserId } from "@ryot/app-backend/schema/brands";
+import { UserId } from "@ryot/contract/schema/brands";
 import { DateTime } from "effect";
 
 import { getBackendClient } from "../fixtures";

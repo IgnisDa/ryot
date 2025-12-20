@@ -1,23 +1,23 @@
+import { unknownToMessage } from "@ryot/contract/errors";
+import { CreateEventItem } from "@ryot/contract/modules/events/schemas";
+import { isIntegrationProvider } from "@ryot/contract/modules/integrations/types";
+import { QueryDocument } from "@ryot/contract/modules/query-engine/language";
+import { EntityId, EntitySchemaId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
+import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { eq } from "drizzle-orm";
 import { Effect, Runtime, Schema } from "effect";
 
 import { defaultUserPreferences } from "#lib/builtins/bootstrap";
-import { isObjectRecord } from "#lib/predicates";
-import { EntityId, EntitySchemaId, IntegrationId, UserId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
-import { CreateEventItem } from "#modules/events/schemas";
 import { EventsService } from "#modules/events/service";
 import { IntegrationsRepository } from "#modules/integrations/repository";
-import { isIntegrationProvider } from "#modules/integrations/types";
-import { QueryDocument } from "#modules/query-engine/language";
 import { QueryEngineService } from "#modules/query-engine/service";
 
 import { AppConfig } from "../config/service";
 import * as schema from "../db/schema/tables/auth";
 import { CurrentDb, DbRunner, dbEffect } from "../db/service";
-import { unknownToMessage } from "../errors";
 import { RedisService, redisKeys } from "../redis";
 import { getSandboxAppConfigValue } from "./app-config";
 import {

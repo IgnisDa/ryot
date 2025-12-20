@@ -1,3 +1,4 @@
+import { UserId } from "@ryot/contract/schema/brands";
 import PurchaseCompleteEmail, {
 	type PurchaseCompleteEmailProps,
 } from "@ryot/transactional/emails/purchase-complete";
@@ -31,7 +32,7 @@ async function getCloudAuthDetails(
 		return { provider: "google", email };
 	}
 
-	const { data, error } = await resetUserPassword(userId);
+	const { data, error } = await resetUserPassword(UserId.make(userId));
 	if (error || !data.resetUrl) {
 		throw new Error("Failed to generate password reset link");
 	}
@@ -51,7 +52,7 @@ async function handleCloudPurchase(customer: Customer): Promise<{
 	const { email, oidcIssuerId } = customer;
 
 	if (customer.ryotUserId) {
-		await setUserDisabled(customer.ryotUserId, false);
+		await setUserDisabled(UserId.make(customer.ryotUserId), false);
 		const auth = await getCloudAuthDetails(customer.ryotUserId, email, oidcIssuerId);
 		return {
 			unkeyKeyId: null,
@@ -195,7 +196,7 @@ export async function provisionRenewal(
 		.where(eq(customerPurchases.id, activePurchase.id));
 
 	if (customer.ryotUserId) {
-		await setUserDisabled(customer.ryotUserId, false);
+		await setUserDisabled(UserId.make(customer.ryotUserId), false);
 	}
 
 	if (customer.unkeyKeyId) {
@@ -225,15 +226,12 @@ export async function revokePurchase(customer: Customer) {
 		);
 
 	if (customer.ryotUserId) {
-		await setUserDisabled(customer.ryotUserId, true);
+		await setUserDisabled(UserId.make(customer.ryotUserId), true);
 	}
 
 	if (customer.unkeyKeyId) {
 		const unkey = getUnkeyClient();
-		await unkey.keys.updateKey({
-			enabled: false,
-			keyId: customer.unkeyKeyId,
-		});
+		await unkey.keys.updateKey({ enabled: false, keyId: customer.unkeyKeyId });
 	}
 }
 

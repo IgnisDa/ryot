@@ -5,7 +5,8 @@ import type {
 	RootEventSource,
 	RelationshipSource,
 	Source,
-} from "../language";
+} from "@ryot/contract/modules/query-engine/language";
+
 import {
 	MAX_EXPRESSION_SOURCE_DEPTH,
 	type AliasScope,

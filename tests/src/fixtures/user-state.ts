@@ -1,4 +1,4 @@
-import { EntityId } from "@ryot/app-backend/schema/brands";
+import { EntityId } from "@ryot/contract/schema/brands";
 
 import { getPgClient } from "../setup";
 import { requirePresent } from "../test-support/assertions";

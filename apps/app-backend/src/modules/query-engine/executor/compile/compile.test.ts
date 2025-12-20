@@ -1,8 +1,8 @@
+import type { Expr } from "@ryot/contract/modules/query-engine/language";
 import { sql as rawSql } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 
-import type { Expr } from "../../language";
 import { reconstructMeasureValue, reconstructOutputValue } from "../reconstruct";
 import { compileBool, compileValue } from "./expr";
 import { bucketStartSql, bucketStepSql, entitySourceSql } from "./fragments";

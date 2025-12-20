@@ -3,8 +3,8 @@ import { describe, expect, it } from "bun:test";
 import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
-} from "@ryot/app-backend/display-configuration";
-import { SavedViewId } from "@ryot/app-backend/schema/brands";
+} from "@ryot/contract/display-configuration";
+import { SavedViewId } from "@ryot/contract/schema/brands";
 
 import type { QueryEngineEntityItem } from "../entity-detail/query-engine";
 import type { EntitySavedView } from "./runtime";

@@ -1,11 +1,13 @@
 import { Workflow } from "@effect/workflow";
+import { BadRequest, DbError, NotFound } from "@ryot/contract/errors";
+import {
+	CreateEventItem,
+	CreateEventsResponse,
+	EventCreateOrigin,
+} from "@ryot/contract/modules/events/schemas";
+import { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Schema } from "effect";
-
-import { BadRequest, DbError, NotFound } from "#lib/errors";
-import { ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
-
-import { CreateEventItem, CreateEventsResponse, EventCreateOrigin } from "./schemas";
 
 const EventCreateWorkflowError = Schema.Union(BadRequest, DbError, NotFound);
 

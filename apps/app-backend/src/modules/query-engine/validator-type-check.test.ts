@@ -1,8 +1,7 @@
+import type { Expr, QueryDocument } from "@ryot/contract/modules/query-engine/language";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { describe, expect, it } from "vitest";
 
-import type { AppSchema } from "#lib/schema/property-schema";
-
-import type { Expr, QueryDocument } from "./language";
 import { literal, makeDoc, nameRef, propertyRef } from "./validator.test-support";
 import { collectAliasScope } from "./validator/document";
 import { checkQueryDocumentTypes, type PropertySchemasBySlug } from "./validator/type-check";
