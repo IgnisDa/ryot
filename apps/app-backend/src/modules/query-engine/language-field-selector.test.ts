@@ -44,6 +44,15 @@ describe("FieldSelector", () => {
 		expect(result).toEqual({ type: "schema", name: "isBuiltin" });
 	});
 
+	it("decodes a system-computed translationStatus selector", () => {
+		const result = decodeSync(FieldSelector)({ type: "systemComputed", name: "translationStatus" });
+		expect(result).toEqual({ type: "systemComputed", name: "translationStatus" });
+	});
+
+	it("throws for a system-computed selector with an unknown name", () => {
+		expect(() => decodeSync(FieldSelector)({ type: "systemComputed", name: "other" })).toThrow();
+	});
+
 	it("throws for an unknown selector type", () => {
 		expect(() => decodeSync(FieldSelector)({ type: "unknown" })).toThrow();
 	});
