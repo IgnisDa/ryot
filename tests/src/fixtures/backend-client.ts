@@ -75,14 +75,14 @@ const successStatus = {
 		getImportResult: 200,
 		import: 200,
 	},
-	"entity-schemas": {
+	entitySchemas: {
 		create: 201,
 		get: 200,
 		getSearchResult: 200,
 		list: 200,
 		search: 200,
 	},
-	"event-schemas": {
+	eventSchemas: {
 		create: 201,
 		list: 200,
 	},
@@ -90,7 +90,7 @@ const successStatus = {
 		create: 201,
 		list: 200,
 	},
-	"god-mode": {
+	godMode: {
 		listUsers: 200,
 		provisionUser: 201,
 		resetUserPassword: 200,
@@ -111,10 +111,10 @@ const successStatus = {
 		update: 200,
 		webhook: 202,
 	},
-	"query-engine": {
+	queryEngine: {
 		execute: 200,
 	},
-	"saved-views": {
+	savedViews: {
 		clone: 201,
 		create: 201,
 		delete: 200,
@@ -320,65 +320,47 @@ export function createBackendClient(baseUrl: string): BackendClient {
 			import: (request) =>
 				executeRequest(baseUrl, "entities", "import", successStatus.entities.import, request),
 		},
-		"entity-schemas": {
+		entitySchemas: {
 			create: (request) =>
 				executeRequest(
 					baseUrl,
-					"entity-schemas",
+					"entitySchemas",
 					"create",
-					successStatus["entity-schemas"].create,
+					successStatus.entitySchemas.create,
 					request,
 				),
 			get: (request) =>
-				executeRequest(
-					baseUrl,
-					"entity-schemas",
-					"get",
-					successStatus["entity-schemas"].get,
-					request,
-				),
+				executeRequest(baseUrl, "entitySchemas", "get", successStatus.entitySchemas.get, request),
 			getSearchResult: (request) =>
 				executeRequest(
 					baseUrl,
-					"entity-schemas",
+					"entitySchemas",
 					"getSearchResult",
-					successStatus["entity-schemas"].getSearchResult,
+					successStatus.entitySchemas.getSearchResult,
 					request,
 				),
 			list: (request) =>
-				executeRequest(
-					baseUrl,
-					"entity-schemas",
-					"list",
-					successStatus["entity-schemas"].list,
-					request,
-				),
+				executeRequest(baseUrl, "entitySchemas", "list", successStatus.entitySchemas.list, request),
 			search: (request) =>
 				executeRequest(
 					baseUrl,
-					"entity-schemas",
+					"entitySchemas",
 					"search",
-					successStatus["entity-schemas"].search,
+					successStatus.entitySchemas.search,
 					request,
 				),
 		},
-		"event-schemas": {
+		eventSchemas: {
 			create: (request) =>
 				executeRequest(
 					baseUrl,
-					"event-schemas",
+					"eventSchemas",
 					"create",
-					successStatus["event-schemas"].create,
+					successStatus.eventSchemas.create,
 					request,
 				),
 			list: (request) =>
-				executeRequest(
-					baseUrl,
-					"event-schemas",
-					"list",
-					successStatus["event-schemas"].list,
-					request,
-				),
+				executeRequest(baseUrl, "eventSchemas", "list", successStatus.eventSchemas.list, request),
 		},
 		events: {
 			create: (request) =>
@@ -386,39 +368,27 @@ export function createBackendClient(baseUrl: string): BackendClient {
 			list: (request) =>
 				executeRequest(baseUrl, "events", "list", successStatus.events.list, request),
 		},
-		"god-mode": {
+		godMode: {
 			listUsers: (request) =>
-				executeRequest(
-					baseUrl,
-					"god-mode",
-					"listUsers",
-					successStatus["god-mode"].listUsers,
-					request,
-				),
+				executeRequest(baseUrl, "godMode", "listUsers", successStatus.godMode.listUsers, request),
 			provisionUser: (request) =>
 				executeRequest(
 					baseUrl,
-					"god-mode",
+					"godMode",
 					"provisionUser",
-					successStatus["god-mode"].provisionUser,
+					successStatus.godMode.provisionUser,
 					request,
 				),
 			resetUserPassword: (request) =>
 				executeRequest(
 					baseUrl,
-					"god-mode",
+					"godMode",
 					"resetUserPassword",
-					successStatus["god-mode"].resetUserPassword,
+					successStatus.godMode.resetUserPassword,
 					request,
 				),
 			setUserBan: (request) =>
-				executeRequest(
-					baseUrl,
-					"god-mode",
-					"setUserBan",
-					successStatus["god-mode"].setUserBan,
-					request,
-				),
+				executeRequest(baseUrl, "godMode", "setUserBan", successStatus.godMode.setUserBan, request),
 		},
 		imports: {
 			createRun: (request) =>
@@ -476,61 +446,31 @@ export function createBackendClient(baseUrl: string): BackendClient {
 					request,
 				),
 		},
-		"query-engine": {
+		queryEngine: {
 			execute: (request) =>
 				executeRequest(
 					baseUrl,
-					"query-engine",
+					"queryEngine",
 					"execute",
-					successStatus["query-engine"].execute,
+					successStatus.queryEngine.execute,
 					request,
 				),
 		},
-		"saved-views": {
+		savedViews: {
 			clone: (request) =>
-				executeRequest(
-					baseUrl,
-					"saved-views",
-					"clone",
-					successStatus["saved-views"].clone,
-					request,
-				),
+				executeRequest(baseUrl, "savedViews", "clone", successStatus.savedViews.clone, request),
 			create: (request) =>
-				executeRequest(
-					baseUrl,
-					"saved-views",
-					"create",
-					successStatus["saved-views"].create,
-					request,
-				),
+				executeRequest(baseUrl, "savedViews", "create", successStatus.savedViews.create, request),
 			delete: (request) =>
-				executeRequest(
-					baseUrl,
-					"saved-views",
-					"delete",
-					successStatus["saved-views"].delete,
-					request,
-				),
+				executeRequest(baseUrl, "savedViews", "delete", successStatus.savedViews.delete, request),
 			get: (request) =>
-				executeRequest(baseUrl, "saved-views", "get", successStatus["saved-views"].get, request),
+				executeRequest(baseUrl, "savedViews", "get", successStatus.savedViews.get, request),
 			list: (request) =>
-				executeRequest(baseUrl, "saved-views", "list", successStatus["saved-views"].list, request),
+				executeRequest(baseUrl, "savedViews", "list", successStatus.savedViews.list, request),
 			reorder: (request) =>
-				executeRequest(
-					baseUrl,
-					"saved-views",
-					"reorder",
-					successStatus["saved-views"].reorder,
-					request,
-				),
+				executeRequest(baseUrl, "savedViews", "reorder", successStatus.savedViews.reorder, request),
 			update: (request) =>
-				executeRequest(
-					baseUrl,
-					"saved-views",
-					"update",
-					successStatus["saved-views"].update,
-					request,
-				),
+				executeRequest(baseUrl, "savedViews", "update", successStatus.savedViews.update, request),
 		},
 		sandbox: {
 			createScript: (request) =>
