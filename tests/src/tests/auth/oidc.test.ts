@@ -2,11 +2,15 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import type { ChildProcess } from "node:child_process";
 
 import getPort from "get-port";
-import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 
 import { adminHeaders, makeSession } from "~/fixtures";
 import { createTestAuthClient } from "~/fixtures/auth";
-import { oidcSignIn } from "~/fixtures/auth-oidc";
+import {
+	type MockOidcServer,
+	oidcSignIn,
+	startMockOidcServer,
+	stopMockOidcServer,
+} from "~/fixtures/auth-oidc";
 import { requirePresent } from "~/support/assertions";
 import {
 	attachProcessLogs,
@@ -52,12 +56,15 @@ async function listTrackerCount(backendUrl: string, cookie: string) {
 let backendPortA: number;
 let backendPortB: number;
 let backendPortC: number;
-let oidcIssuerUrl: string;
 let backendProcessA: ChildProcess | undefined;
 let backendProcessB: ChildProcess | undefined;
 let backendProcessC: ChildProcess | undefined;
-let oidcContainer: StartedTestContainer | undefined;
+let mockOidcServer: MockOidcServer | undefined;
 let coreInfrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+
+function requireMockOidcServer() {
+	return requirePresent(mockOidcServer, "Mock OIDC server is not initialised");
+}
 
 function getBackendUrlA() {
 	return `http://127.0.0.1:${backendPortA}/api`;
@@ -80,14 +87,7 @@ beforeAll(async () => {
 		bucketName: S3_BUCKET_NAME,
 	});
 
-	oidcContainer = await new GenericContainer("ghcr.io/navikt/mock-oauth2-server:4.0.0")
-		.withExposedPorts(8080)
-		.withWaitStrategy(Wait.forHttp("/default/.well-known/openid-configuration", 8080))
-		.start();
-
-	const oidcHost = oidcContainer.getHost();
-	const oidcMappedPort = oidcContainer.getMappedPort(8080);
-	oidcIssuerUrl = `http://${oidcHost}:${oidcMappedPort}/default`;
+	mockOidcServer = await startMockOidcServer();
 
 	[backendPortA, backendPortB, backendPortC] = await Promise.all([getPort(), getPort(), getPort()]);
 	const backendOriginA = `http://127.0.0.1:${backendPortA}`;
@@ -97,7 +97,7 @@ beforeAll(async () => {
 	const infrastructure = requireCoreInfrastructure();
 	const sharedEnv = {
 		SERVER_OIDC_CLIENT_ID: OIDC_CLIENT_ID,
-		SERVER_OIDC_ISSUER_URL: oidcIssuerUrl,
+		SERVER_OIDC_ISSUER_URL: requireMockOidcServer().issuerUrl,
 		SERVER_OIDC_CLIENT_SECRET: OIDC_CLIENT_SECRET,
 	};
 	const startBackend = (
@@ -145,7 +145,10 @@ afterAll(async () => {
 		stopBackendProcess(backendProcessC),
 	]);
 
-	await Promise.all([stopCoreTestInfrastructure(coreInfrastructure), oidcContainer?.stop()]);
+	await Promise.all([
+		stopCoreTestInfrastructure(coreInfrastructure),
+		stopMockOidcServer(mockOidcServer),
+	]);
 });
 
 describe("GET /system/config with OIDC enabled (Backend A)", () => {
@@ -188,7 +191,7 @@ describe("sign-up/email with local auth disabled (Backend B)", () => {
 describe("OIDC sign-in happy path (Backend A)", () => {
 	it("first-time OIDC sign-in produces a valid session", async () => {
 		const username = `user-${crypto.randomUUID()}`;
-		const sessionCookie = await oidcSignIn(username, getBackendUrlA());
+		const sessionCookie = await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
 		const client = makeSession(getBackendUrlA());
 		await client.run((c) => c.trackers.list({ urlParams: trackersListQuery }), {
 			Cookie: sessionCookie,
@@ -197,13 +200,13 @@ describe("OIDC sign-in happy path (Backend A)", () => {
 
 	it("first-time OIDC sign-in creates a user row", async () => {
 		const username = `user-${crypto.randomUUID()}`;
-		await oidcSignIn(username, getBackendUrlA());
+		await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
 		expect(await countUsersByEmail(getBackendUrlA(), `${username}@example.com`)).toBe(1);
 	});
 
 	it("first-time OIDC sign-in bootstraps the user with tracker rows", async () => {
 		const username = `user-${crypto.randomUUID()}`;
-		const sessionCookie = await oidcSignIn(username, getBackendUrlA());
+		const sessionCookie = await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
 		expect(await listTrackerCount(getBackendUrlA(), sessionCookie)).toBeGreaterThan(0);
 	});
 });
@@ -212,8 +215,8 @@ describe("OIDC idempotency (Backend A)", () => {
 	it("repeated OIDC sign-in with same identity reuses the same user row", async () => {
 		const username = `user-${crypto.randomUUID()}`;
 
-		const cookie1 = await oidcSignIn(username, getBackendUrlA());
-		const cookie2 = await oidcSignIn(username, getBackendUrlA());
+		const cookie1 = await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
+		const cookie2 = await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
 
 		expect(await countUsersByEmail(getBackendUrlA(), `${username}@example.com`)).toBe(1);
 
@@ -227,11 +230,11 @@ describe("OIDC idempotency (Backend A)", () => {
 	it("bootstrap idempotency: tracker count is the same after two sign-ins", async () => {
 		const username = `user-${crypto.randomUUID()}`;
 
-		const cookie1 = await oidcSignIn(username, getBackendUrlA());
+		const cookie1 = await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
 		const firstCount = await listTrackerCount(getBackendUrlA(), cookie1);
 		expect(firstCount).toBeGreaterThan(0);
 
-		const cookie2 = await oidcSignIn(username, getBackendUrlA());
+		const cookie2 = await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
 		const secondCount = await listTrackerCount(getBackendUrlA(), cookie2);
 		expect(secondCount).toBe(firstCount);
 	});
@@ -259,16 +262,12 @@ describe("Registration gating for OIDC (Backend C)", () => {
 		);
 		const [stateCookie] = stateCookieHeader.split(";");
 
-		const resolvedClaims = { name: username, email: `${username}@example.com` };
-		const formBody = new URLSearchParams();
-		formBody.set("username", username);
-		formBody.set("claims", JSON.stringify(resolvedClaims));
-		const step2Response = await fetch(authorizeUrl, {
-			method: "POST",
-			redirect: "manual",
-			body: formBody.toString(),
-			headers: { "Content-Type": "application/x-www-form-urlencoded" },
+		requireMockOidcServer().setNextClaims({
+			sub: username,
+			name: username,
+			email: `${username}@example.com`,
 		});
+		const step2Response = await fetch(authorizeUrl, { redirect: "manual" });
 		const callbackUrl = requirePresent(
 			step2Response.headers.get("location"),
 			"Step 2 failed: no location header",
@@ -300,11 +299,11 @@ describe("Registration gating for OIDC (Backend C)", () => {
 		const username = `user-${crypto.randomUUID()}`;
 		const email = `${username}@example.com`;
 
-		await oidcSignIn(username, getBackendUrlA());
+		await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
 		const beforeId = await findUserIdByEmail(getBackendUrlA(), email);
 		expect(beforeId).not.toBeNull();
 
-		const sessionCookie = await oidcSignIn(username, getBackendUrlC());
+		const sessionCookie = await oidcSignIn(requireMockOidcServer(), username, getBackendUrlC());
 		const client = makeSession(getBackendUrlC());
 		await client.run((c) => c.trackers.list({ urlParams: trackersListQuery }), {
 			Cookie: sessionCookie,
