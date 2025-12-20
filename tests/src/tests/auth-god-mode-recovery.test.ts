@@ -115,20 +115,23 @@ describe("God-mode admin token enforcement", () => {
 		assertTaggedError(error, "Unauthorized");
 	});
 
-	it("rejects ban set without auth header", async () => {
+	it("rejects disable set without auth header", async () => {
 		const client = getBackendClient();
 		const error = await client.runError((c) =>
-			c.godMode.setUserBan({ payload: { banned: true }, path: { userId: UserId.make("any-id") } }),
+			c.godMode.setUserDisabled({
+				payload: { disabled: true },
+				path: { userId: UserId.make("any-id") },
+			}),
 		);
 		assertTaggedError(error, "Unauthorized");
 	});
 
-	it("rejects ban set with wrong admin token", async () => {
+	it("rejects disable set with wrong admin token", async () => {
 		const client = getBackendClient();
 		const error = await client.runError(
 			(c) =>
-				c.godMode.setUserBan({
-					payload: { banned: true },
+				c.godMode.setUserDisabled({
+					payload: { disabled: true },
 					path: { userId: UserId.make("any-id") },
 				}),
 			adminAccessTokenHeaders(WRONG_TOKEN),
@@ -171,7 +174,7 @@ describe("User listing with correct admin token", () => {
 			adminAccessTokenHeaders(ADMIN_TOKEN),
 		);
 		expect(data.users[0]?.authState).toBe("credential");
-		expect(data.users[0]?.bannedAt).toBeNull();
+		expect(data.users[0]?.disabledAt).toBeNull();
 	});
 
 	it("classifies mixed auth users as 'mixed'", async () => {
@@ -253,7 +256,7 @@ describe("User provisioning", () => {
 	});
 });
 
-describe("God-mode ban set", () => {
+describe("God-mode disable set", () => {
 	it("disables a user, revokes sessions, blocks API keys, and then enables the user", async () => {
 		const client = getBackendClient();
 		const { cookies, email, password } = await createTestUser();
@@ -268,17 +271,17 @@ describe("God-mode ban set", () => {
 			"X-Api-Key": apiKey,
 		});
 
-		const banData = await client.run(
-			(c) => c.godMode.setUserBan({ payload: { banned: true }, path: { userId } }),
+		const disabledData = await client.run(
+			(c) => c.godMode.setUserDisabled({ payload: { disabled: true }, path: { userId } }),
 			adminAccessTokenHeaders(ADMIN_TOKEN),
 		);
-		expect(typeof banData.bannedAt).toBe("string");
+		expect(typeof disabledData.disabledAt).toBe("string");
 
 		const listData = await client.run(
 			(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
 			adminAccessTokenHeaders(ADMIN_TOKEN),
 		);
-		expect(listData.users[0]?.bannedAt).toBe(banData.bannedAt);
+		expect(listData.users[0]?.disabledAt).toBe(disabledData.disabledAt);
 
 		const revokedSession = await client.runError(
 			(c) => c.trackers.list({ urlParams: trackersListQuery }),
@@ -296,10 +299,10 @@ describe("God-mode ban set", () => {
 		expect(blockedSignIn.status).toBe(403);
 
 		const enableData = await client.run(
-			(c) => c.godMode.setUserBan({ payload: { banned: false }, path: { userId } }),
+			(c) => c.godMode.setUserDisabled({ payload: { disabled: false }, path: { userId } }),
 			adminAccessTokenHeaders(ADMIN_TOKEN),
 		);
-		expect(enableData.bannedAt).toBeNull();
+		expect(enableData.disabledAt).toBeNull();
 
 		const restoredSignIn = await signInWithPassword(email, password);
 		expect(restoredSignIn.ok).toBe(true);

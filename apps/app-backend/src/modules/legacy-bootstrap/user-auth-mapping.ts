@@ -94,7 +94,7 @@ BEGIN
 		"id",
 		"name",
 		"email",
-		"banned_at",
+		"disabled_at",
 		"preferences",
 		"email_verified",
 		"created_at",
