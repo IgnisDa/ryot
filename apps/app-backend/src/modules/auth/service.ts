@@ -23,10 +23,13 @@ import { AppConfig, type AppConfigValue, isOidcEnabled } from "#lib/infrastructu
 import * as schemaAuth from "#lib/infrastructure/db/schema/tables/auth";
 import * as schemaTables from "#lib/infrastructure/db/schema/tables/combined";
 import * as schemaRelations from "#lib/infrastructure/db/schema/tables/relations";
-import type { DbRoot, TransactionRunner } from "#lib/infrastructure/db/service";
-import { CurrentDb, DbService } from "#lib/infrastructure/db/service";
+import type { DbRoot } from "#lib/infrastructure/db/service";
+import { CurrentDb, DbService, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { bootstrapNewUser } from "#modules/builtins/bootstrap";
+import { EntitiesService } from "#modules/entities/service";
+import { SavedViewsService } from "#modules/saved-views/service";
+import { TrackersService } from "#modules/trackers/service";
 
 const schema = { ...schemaAuth, ...schemaTables, ...schemaRelations };
 
@@ -35,6 +38,7 @@ const makeAuthInstance = (args: {
 	readonly redis: Redis;
 	readonly config: AppConfigValue;
 	readonly runtime: Runtime.Runtime<DbService | RedisService | TransactionRunner>;
+	readonly bootstrapNewUser: (userId: string) => Effect.Effect<void, unknown>;
 }) => {
 	const corsOrigins = Option.match(args.config.server.corsOrigins, {
 		onNone: () => [] as string[],
@@ -127,11 +131,13 @@ const makeAuthInstance = (args: {
 				create: {
 					after: (user) =>
 						Runtime.runPromise(args.runtime)(
-							bootstrapNewUser(user.id).pipe(
-								Effect.catchAllCause((cause) =>
-									Effect.logError("[auth] bootstrapNewUser failed for user", user.id, cause),
+							args
+								.bootstrapNewUser(user.id)
+								.pipe(
+									Effect.catchAllCause((cause) =>
+										Effect.logError("[auth] bootstrapNewUser failed for user", user.id, cause),
+									),
 								),
-							),
 						),
 				},
 			},
@@ -184,8 +190,25 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 		const db = yield* DbService;
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
+		const entities = yield* EntitiesService;
+		const trackers = yield* TrackersService;
+		const savedViews = yield* SavedViewsService;
+		const runInTransaction = yield* TransactionRunner;
 		const runtime = yield* Effect.runtime<DbService | RedisService | TransactionRunner>();
-		const auth = makeAuthInstance({ config, db: db.db, redis: redis.client, runtime });
+		const runBootstrap = (userId: string) =>
+			bootstrapNewUser(userId).pipe(
+				Effect.provideService(EntitiesService, entities),
+				Effect.provideService(SavedViewsService, savedViews),
+				Effect.provideService(TrackersService, trackers),
+				Effect.provideService(TransactionRunner, runInTransaction),
+			);
+		const auth = makeAuthInstance({
+			config,
+			runtime,
+			db: db.db,
+			redis: redis.client,
+			bootstrapNewUser: runBootstrap,
+		});
 		const withInternalAdapter = <A>(operation: (context: AuthContextValue) => Promise<A>) =>
 			Effect.gen(function* () {
 				const currentDb = yield* Effect.serviceOption(CurrentDb);

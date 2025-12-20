@@ -1,12 +1,56 @@
 import { createEntityColumnExpression } from "@ryot/contract/display-configuration";
-import { describe, expect, it } from "vitest";
+import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine";
+import { Effect } from "effect";
+import { assert, describe, expect, it } from "vitest";
 
+import { validateDisplayConfiguration } from "#modules/saved-views/display-configuration-validation";
+
+import { builtinEntitySchemas } from "./entity-schemas";
+import { builtinSavedViews } from "./saved-views";
 import { buildDefaultDisplayConfig, buildDisplayConfig } from "./view-helpers";
 
 describe("buildDisplayConfig", () => {
 	it("always sets entityIdProperty to the id column for the slug", () => {
 		const config = buildDisplayConfig("movie");
 		expect(config.entityIdProperty).toEqual(createEntityColumnExpression("movie", "id"));
+	});
+
+	it("validates every built-in saved-view display configuration", () => {
+		const schemaBySlug = new Map(builtinEntitySchemas().map((schema) => [schema.slug, schema]));
+
+		return Effect.runPromise(
+			Effect.forEach(
+				builtinSavedViews(),
+				(view) => {
+					if (!view.entitySchemaSlug) {
+						return Effect.void;
+					}
+
+					const viewSchema = schemaBySlug.get(view.entitySchemaSlug);
+					assert(viewSchema, `Missing built-in entity schema for ${view.entitySchemaSlug}`);
+					const doc =
+						view.queryDocument ??
+						buildDefaultSavedViewQueryDocument({
+							schemas: [view.entitySchemaSlug],
+							requireInLibrary: view.requireInLibrary,
+						});
+
+					return validateDisplayConfiguration({
+						doc,
+						displayConfig: view.displayConfiguration,
+						loadSchemas: (slugs) =>
+							Effect.sync(() =>
+								slugs.map((slug) => {
+									const schema = schemaBySlug.get(slug);
+									assert(schema, `Missing built-in entity schema for ${slug}`);
+									return { slug, propertiesSchema: schema.propertiesSchema };
+								}),
+							),
+					});
+				},
+				{ discard: true },
+			),
+		);
 	});
 
 	it("grid and list have the same title and image properties", () => {

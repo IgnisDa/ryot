@@ -1,10 +1,9 @@
-import { DbError, conflict } from "@ryot/contract/errors";
 import { type EntitySchemaId, TrackerId, type UserId } from "@ryot/contract/schema/brands";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/infrastructure/db/service";
+import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 type TrackerRow = typeof schema.tracker.$inferSelect;
 
@@ -13,6 +12,7 @@ type CreateTrackerInput = {
 	readonly name: string;
 	readonly icon: string;
 	readonly accentColor: string;
+	readonly isBuiltin?: boolean | undefined;
 	readonly description?: string | null | undefined;
 };
 
@@ -27,8 +27,6 @@ type UpdateTrackerData = {
 	readonly description: string | null;
 	readonly sortOrder?: number | undefined;
 };
-
-const trackerUserSlugConstraint = "tracker_user_slug_unique";
 
 const toListedTracker = (row: TrackerRow) => ({
 	id: TrackerId.make(row.id),
@@ -112,12 +110,12 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 					.where(eq(schema.tracker.userId, userId)),
 			);
 
-			const [row] = yield* dbEffect(() =>
+			const rows = yield* dbEffect(() =>
 				db
 					.insert(schema.tracker)
 					.values({
 						userId,
-						isBuiltin: false,
+						isBuiltin: input.isBuiltin ?? false,
 						slug: input.slug,
 						name: input.name,
 						icon: input.icon,
@@ -125,20 +123,13 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 						accentColor: input.accentColor,
 						sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
 					})
+					.onConflictDoNothing({
+						target: [schema.tracker.userId, schema.tracker.slug],
+					})
 					.returning(),
-			).pipe(
-				Effect.mapError((error) =>
-					isUniqueConstraintError(trackerUserSlugConstraint)(error)
-						? conflict("Tracker slug already exists")
-						: error,
-				),
 			);
 
-			if (!row) {
-				return yield* new DbError({ message: "Tracker insert returned no row" });
-			}
-
-			return toListedTracker(row);
+			return rows[0] ? toListedTracker(rows[0]) : null;
 		});
 
 		const findBySlug = Effect.fn("TrackersRepository.findBySlug")(function* (
@@ -221,20 +212,19 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 			entitySchemaId: EntitySchemaId;
 		}) {
 			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
+			yield* dbEffect(() =>
 				db
 					.insert(schema.trackerEntitySchema)
 					.values({ trackerId: input.trackerId, entitySchemaId: input.entitySchemaId })
-					.returning({ trackerId: schema.trackerEntitySchema.trackerId }),
+					.onConflictDoNothing({
+						target: [
+							schema.trackerEntitySchema.trackerId,
+							schema.trackerEntitySchema.entitySchemaId,
+						],
+					}),
 			);
 
-			if (!row) {
-				return yield* new DbError({
-					message: "Tracker entity schema link insert returned no row",
-				});
-			}
-
-			return TrackerId.make(row.trackerId);
+			return TrackerId.make(input.trackerId);
 		});
 
 		return {
