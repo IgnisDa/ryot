@@ -27,6 +27,8 @@ import { RelationshipSchemasService } from "../modules/relationship-schemas/serv
 import { SandboxRepository } from "../modules/sandbox/repository";
 import { SandboxApiService } from "../modules/sandbox/service";
 import { SandboxWorkflowDefinitionsLive } from "../modules/sandbox/workflows";
+import { SavedViewsRepository } from "../modules/saved-views/repository";
+import { SavedViewsService } from "../modules/saved-views/service";
 import { TrackersRepository } from "../modules/trackers/repository";
 import { TrackersService } from "../modules/trackers/service";
 import { UploadsService } from "../modules/uploads/service";
@@ -49,6 +51,7 @@ const RepositoriesLive = Layer.mergeAll(
 	IntegrationsRepository.Default,
 	RelationshipSchemasRepository.Default,
 	SandboxRepository.Default,
+	SavedViewsRepository.Default,
 	TrackersRepository.Default,
 );
 
@@ -70,6 +73,7 @@ const ServicesLive = Layer.mergeAll(
 	EventSchemasService.Default,
 	EventsService.Default,
 	RelationshipSchemasService.Default,
+	SavedViewsService.Default,
 	TrackersService.Default,
 	UploadsService.Default,
 ).pipe(Layer.provideMerge(SandboxServicesLive));
