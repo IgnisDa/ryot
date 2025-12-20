@@ -1,6 +1,10 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
-import { TranslationStatus, type EntityDetail } from "@ryot/contract/modules/entities/schemas";
+import {
+	TranslationStatus,
+	type EntityDetail,
+	type ListedEntity,
+} from "@ryot/contract/modules/entities/schemas";
 import type { RowItem } from "@ryot/contract/modules/query-engine/language";
 import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { UserId } from "@ryot/contract/schema/brands";
@@ -20,6 +24,7 @@ import {
 } from "#modules/query-engine/response-helpers";
 import { QueryEngineService } from "#modules/query-engine/service";
 
+import type { EntityMutationSnapshot } from "./mutation-outcomes";
 import { EntitiesRepository, type InsertEntityInputBase } from "./repository";
 
 type CreateEntityInput = {
@@ -65,6 +70,17 @@ const entityNotFoundError = "Entity not found";
 const entitySchemaNotFoundError = "Entity schema not found";
 const partialProvenanceError =
 	"externalId and sandboxScriptId must both be provided or both be omitted";
+
+const toMutationSnapshot = (
+	entity: ListedEntity,
+	entitySchemaSlug: string,
+): EntityMutationSnapshot => ({
+	id: entity.id,
+	entitySchemaSlug,
+	name: entity.name,
+	properties: entity.properties,
+	entitySchemaId: entity.entitySchemaId,
+});
 
 const toListedEntity = Effect.fn("toListedEntityFromQueryEngine")(function* (row: RowItem) {
 	const sandboxScriptId = yield* getOptionalStringField(row, "sandboxScriptId");
@@ -141,7 +157,8 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			const name = yield* requireText(input.name, "Entity name is required");
 			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
 
-			return yield* runWithDb(repository.insertEntity({ ...input, name, properties }));
+			const saved = yield* runWithDb(repository.insertEntity({ ...input, name, properties }));
+			return saved.entity;
 		});
 
 		const create = Effect.fn("EntitiesService.create")(function* (input: CreateEntityInput) {
@@ -173,37 +190,55 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 		});
 
 		const upsert = Effect.fn("EntitiesService.upsert")(function* (input: UpsertEntityInput) {
-			const existing = yield* runWithDb(
-				repository.findGlobalEntityByExternalId({
+			const scope = yield* runWithDb(repository.findEntitySchemaById(input.entitySchemaId));
+			if (!scope) {
+				return yield* notFound(entitySchemaNotFoundError);
+			}
+
+			const name = yield* requireText(input.name, "Entity name is required");
+			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
+			const saved = yield* runWithDb(
+				repository.insertEntity({
+					name,
+					properties,
+					scope: "global",
 					externalId: input.externalId,
+					populatedAt: input.populatedAt,
 					entitySchemaId: input.entitySchemaId,
 					sandboxScriptId: input.sandboxScriptId,
 				}),
 			);
+			const before = toMutationSnapshot(saved.entity, scope.slug);
 
-			if (!existing) {
-				return yield* create({
-					scope: "global",
-					name: input.name,
-					externalId: input.externalId,
-					properties: input.properties,
-					populatedAt: input.populatedAt,
-					entitySchemaId: input.entitySchemaId,
-					sandboxScriptId: input.sandboxScriptId,
-				});
+			if (saved.wasInserted) {
+				return {
+					entity: saved.entity,
+					outcome: { before: null, after: before, operation: "create" as const },
+				};
 			}
 
-			if (input.updateExisting || existing.populatedAt === null) {
-				return yield* update({
-					name: input.name,
-					entityId: existing.id,
-					properties: input.properties,
-					populatedAt: input.populatedAt,
-					entitySchemaId: input.entitySchemaId,
-				});
+			if (!input.updateExisting && saved.entity.populatedAt !== null) {
+				return {
+					entity: saved.entity,
+					outcome: { before, after: before, operation: "noop" as const },
+				};
 			}
 
-			return existing;
+			const entity = yield* runWithDb(
+				repository.updateEntity({
+					name,
+					properties,
+					entityId: saved.entity.id,
+					populatedAt: input.populatedAt,
+				}),
+			);
+			const after = toMutationSnapshot(entity, scope.slug);
+			const operation =
+				before.name === after.name && Bun.deepEquals(before.properties, after.properties)
+					? ("noop" as const)
+					: ("update" as const);
+
+			return { entity, outcome: { before, after, operation } };
 		});
 
 		const getById = Effect.fn("EntitiesService.getById")(function* (
