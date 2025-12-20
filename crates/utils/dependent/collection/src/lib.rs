@@ -88,17 +88,18 @@ async fn add_single_entity_to_collection(
                 ..Default::default()
             };
             let id = entity.entity_id.clone();
+            macro_rules! set_collection_id {
+                ($field:ident) => {
+                    created_collection.$field = ActiveValue::Set(Some(id))
+                };
+            }
             match entity.entity_lot {
-                EntityLot::Metadata => created_collection.metadata_id = ActiveValue::Set(Some(id)),
-                EntityLot::Person => created_collection.person_id = ActiveValue::Set(Some(id)),
-                EntityLot::MetadataGroup => {
-                    created_collection.metadata_group_id = ActiveValue::Set(Some(id))
-                }
-                EntityLot::Exercise => created_collection.exercise_id = ActiveValue::Set(Some(id)),
-                EntityLot::Workout => created_collection.workout_id = ActiveValue::Set(Some(id)),
-                EntityLot::WorkoutTemplate => {
-                    created_collection.workout_template_id = ActiveValue::Set(Some(id))
-                }
+                EntityLot::Person => set_collection_id!(person_id),
+                EntityLot::Workout => set_collection_id!(workout_id),
+                EntityLot::Metadata => set_collection_id!(metadata_id),
+                EntityLot::Exercise => set_collection_id!(exercise_id),
+                EntityLot::MetadataGroup => set_collection_id!(metadata_group_id),
+                EntityLot::WorkoutTemplate => set_collection_id!(workout_template_id),
                 EntityLot::Genre
                 | EntityLot::Review
                 | EntityLot::Collection

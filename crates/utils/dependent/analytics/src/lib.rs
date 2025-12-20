@@ -308,12 +308,17 @@ pub async fn calculate_user_activities_and_summary(
             None,
             review.posted_on,
         );
+        macro_rules! inc_review {
+            ($field:ident) => {
+                activity.$field += 1
+            };
+        }
         match review.entity_lot {
-            EntityLot::Person => activity.person_review_count += 1,
-            EntityLot::Exercise => activity.exercise_review_count += 1,
-            EntityLot::Metadata => activity.metadata_review_count += 1,
-            EntityLot::Collection => activity.collection_review_count += 1,
-            EntityLot::MetadataGroup => activity.metadata_group_review_count += 1,
+            EntityLot::Person => inc_review!(person_review_count),
+            EntityLot::Exercise => inc_review!(exercise_review_count),
+            EntityLot::Metadata => inc_review!(metadata_review_count),
+            EntityLot::Collection => inc_review!(collection_review_count),
+            EntityLot::MetadataGroup => inc_review!(metadata_group_review_count),
             _ => {}
         }
     }
@@ -344,10 +349,15 @@ pub async fn calculate_user_activities_and_summary(
             cte.created_on,
         );
 
+        macro_rules! inc {
+            ($field:ident) => {
+                activity.$field += 1
+            };
+        }
         match cte.entity_lot {
-            EntityLot::Metadata => activity.metadata_collection_count += 1,
-            EntityLot::Person => activity.person_collection_count += 1,
-            EntityLot::MetadataGroup => activity.metadata_group_collection_count += 1,
+            EntityLot::Person => inc!(person_collection_count),
+            EntityLot::Metadata => inc!(metadata_collection_count),
+            EntityLot::MetadataGroup => inc!(metadata_group_collection_count),
             _ => {}
         }
     }

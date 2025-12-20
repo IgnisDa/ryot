@@ -77,14 +77,17 @@ pub async fn create_or_update_review(
             ..Default::default()
         };
     let entity_id = input.entity_id.clone();
+    macro_rules! set_review_id {
+        ($field:ident) => {
+            review_obj.$field = ActiveValue::Set(Some(entity_id))
+        };
+    }
     match input.entity_lot {
-        EntityLot::Metadata => review_obj.metadata_id = ActiveValue::Set(Some(entity_id)),
-        EntityLot::Person => review_obj.person_id = ActiveValue::Set(Some(entity_id)),
-        EntityLot::MetadataGroup => {
-            review_obj.metadata_group_id = ActiveValue::Set(Some(entity_id))
-        }
-        EntityLot::Collection => review_obj.collection_id = ActiveValue::Set(Some(entity_id)),
-        EntityLot::Exercise => review_obj.exercise_id = ActiveValue::Set(Some(entity_id)),
+        EntityLot::Person => set_review_id!(person_id),
+        EntityLot::Metadata => set_review_id!(metadata_id),
+        EntityLot::Exercise => set_review_id!(exercise_id),
+        EntityLot::Collection => set_review_id!(collection_id),
+        EntityLot::MetadataGroup => set_review_id!(metadata_group_id),
         EntityLot::Genre
         | EntityLot::Review
         | EntityLot::Workout
