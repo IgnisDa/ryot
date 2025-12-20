@@ -365,8 +365,8 @@ describe("Saved views E2E", () => {
 			fetchedUpdatedClone.queryDefinition as { mode?: string } & Record<string, unknown>;
 		expect(queryMode).toBe("entities");
 		const updatedCloneQD = updatedCloneInput.queryDefinition as {
-			eventJoins?: unknown[];
-			relationshipJoins?: unknown[];
+			eventJoins?: ReadonlyArray<unknown>;
+			relationshipJoins?: ReadonlyArray<unknown>;
 		};
 		expect(queryDefinitionWithoutMode).toEqual({
 			...updatedCloneInput.queryDefinition,

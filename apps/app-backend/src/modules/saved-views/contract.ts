@@ -3,20 +3,21 @@ import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../lib/auth";
 import { NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
+import { DisplayConfiguration, SavedViewQueryDefinition } from "../../lib/query-language";
 
 export const ListedSavedView = Schema.Struct({
 	id: Schema.String,
 	slug: Schema.String,
 	name: Schema.String,
 	icon: Schema.String,
+	sortOrder: Schema.Number,
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
 	isBuiltin: Schema.Boolean,
 	isDisabled: Schema.Boolean,
-	sortOrder: Schema.Number,
 	accentColor: Schema.String,
-	queryDefinition: Schema.Unknown,
-	displayConfiguration: Schema.Unknown,
+	queryDefinition: SavedViewQueryDefinition,
+	displayConfiguration: DisplayConfiguration,
 	trackerId: Schema.optional(Schema.String),
 });
 
@@ -24,8 +25,8 @@ const CreateSavedViewBody = Schema.Struct({
 	icon: Schema.String,
 	name: Schema.String,
 	accentColor: Schema.String,
-	queryDefinition: Schema.Unknown,
-	displayConfiguration: Schema.Unknown,
+	queryDefinition: SavedViewQueryDefinition,
+	displayConfiguration: DisplayConfiguration,
 	trackerId: Schema.optional(Schema.String),
 });
 
@@ -34,8 +35,8 @@ const UpdateSavedViewBody = Schema.Struct({
 	name: Schema.String,
 	isDisabled: Schema.Boolean,
 	accentColor: Schema.String,
-	queryDefinition: Schema.Unknown,
-	displayConfiguration: Schema.Unknown,
+	queryDefinition: SavedViewQueryDefinition,
+	displayConfiguration: DisplayConfiguration,
 	trackerId: Schema.optional(Schema.String),
 });
 
