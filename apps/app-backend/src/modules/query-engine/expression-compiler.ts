@@ -1,5 +1,5 @@
 import { isNotNull, sql } from "drizzle-orm";
-import { match } from "ts-pattern";
+import { Match } from "effect";
 
 import type { QueryComputedField, QueryExpression } from "~/lib/query-language";
 import { buildComputedFieldMap, getComputedFieldOrThrow } from "~/lib/views/computed-fields";
@@ -44,15 +44,15 @@ export const createExpressionCompilerCore = (input: {
 	const { getTypeInfo } = input;
 
 	const compile = (expression: QueryExpression, targetType?: PropertyType): SqlExpression => {
-		return match(expression)
-			.with({ type: "literal" }, (expr) =>
+		return Match.value(expression).pipe(
+			Match.when({ type: "literal" }, (expr) =>
 				buildLiteralExpression({ literalType: undefined, value: expr.value }, targetType),
-			)
-			.with({ type: "isNotNull" }, (expr) => {
+			),
+			Match.when({ type: "isNotNull" }, (expr) => {
 				const compiled = compile(expr.expression);
 				return sql`(${isNotNull(compiled)})`;
-			})
-			.with({ type: "coalesce" }, (expr) => {
+			}),
+			Match.when({ type: "coalesce" }, (expr) => {
 				const typeInfo = getTypeInfo(expr);
 				const coalesceTargetType =
 					targetType ?? (typeInfo.kind === "property" ? typeInfo.propertyType : undefined);
@@ -66,8 +66,8 @@ export const createExpressionCompilerCore = (input: {
 						});
 					}),
 				);
-			})
-			.with({ type: "arithmetic" }, (expr) => {
+			}),
+			Match.when({ type: "arithmetic" }, (expr) => {
 				const leftType = getTypeInfo(expr.left);
 				const rightType = getTypeInfo(expr.right);
 				assertNumericExpression(leftType, "Arithmetic");
@@ -82,31 +82,32 @@ export const createExpressionCompilerCore = (input: {
 				const left = compile(expr.left, arithmeticTargetType);
 				const right = compile(expr.right, arithmeticTargetType);
 
-				return match(expr.operator)
-					.with("add", () => sql`(${left}) + (${right})`)
-					.with("subtract", () => sql`(${left}) - (${right})`)
-					.with("multiply", () => sql`(${left}) * (${right})`)
-					.with("divide", () => sql`(${left}) / nullif((${right}), 0)`)
-					.exhaustive();
-			})
-			.with({ type: "round" }, (expr) => {
+				return Match.value(expr.operator).pipe(
+					Match.when("add", () => sql`(${left}) + (${right})`),
+					Match.when("subtract", () => sql`(${left}) - (${right})`),
+					Match.when("multiply", () => sql`(${left}) * (${right})`),
+					Match.when("divide", () => sql`(${left}) / nullif((${right}), 0)`),
+					Match.exhaustive,
+				);
+			}),
+			Match.when({ type: "round" }, (expr) => {
 				const expressionType = getTypeInfo(expr.expression);
 				assertNumericExpression(expressionType, "Numeric normalization");
 				const compiled = compile(expr.expression, "number");
 				return sql`round(${compiled})::integer`;
-			})
-			.with({ type: "floor" }, (expr) => {
+			}),
+			Match.when({ type: "floor" }, (expr) => {
 				const expressionType = getTypeInfo(expr.expression);
 				assertNumericExpression(expressionType, "Numeric normalization");
 				const compiled = compile(expr.expression, "number");
 				return sql`floor(${compiled})::integer`;
-			})
-			.with({ type: "integer" }, (expr) => {
+			}),
+			Match.when({ type: "integer" }, (expr) => {
 				const expressionType = getTypeInfo(expr.expression);
 				assertNumericExpression(expressionType, "Numeric normalization");
 				return buildIntegerNormalizationExpression(compile(expr.expression, "number"));
-			})
-			.with({ type: "concat" }, (expr) => {
+			}),
+			Match.when({ type: "concat" }, (expr) => {
 				for (const value of expr.values) {
 					assertConcatCompatibleExpression(getTypeInfo(value));
 				}
@@ -115,17 +116,22 @@ export const createExpressionCompilerCore = (input: {
 					expr.values.map((value) => buildTextValueExpression(compile(value))),
 					sql`, `,
 				)})`;
-			})
-			.with({ type: "transform" }, (expr) => {
+			}),
+			Match.when({ type: "transform" }, (expr) => {
 				assertConcatCompatibleExpression(getTypeInfo(expr.expression));
 				const textExpr = buildTextValueExpression(compile(expr.expression));
 
-				return match(expr.name)
-					.with("titleCase", () => sql`initcap(replace(replace(${textExpr}, '_', ' '), '-', ' '))`)
-					.with("kebabCase", () => sql`lower(replace(replace(${textExpr}, '_', '-'), ' ', '-'))`)
-					.exhaustive();
-			})
-			.with({ type: "conditional" }, (expr) => {
+				return Match.value(expr.name).pipe(
+					Match.when("titleCase", () =>
+						sql`initcap(replace(replace(${textExpr}, '_', ' '), '-', ' '))`,
+					),
+					Match.when("kebabCase", () =>
+						sql`lower(replace(replace(${textExpr}, '_', '-'), ' ', '-'))`,
+					),
+					Match.exhaustive,
+				);
+			}),
+			Match.when({ type: "conditional" }, (expr) => {
 				const typeInfo = getTypeInfo(expr);
 				const conditionalTargetType =
 					targetType ?? (typeInfo.kind === "property" ? typeInfo.propertyType : undefined);
@@ -136,11 +142,12 @@ export const createExpressionCompilerCore = (input: {
 				const whenTrue = compile(expr.whenTrue, conditionalTargetType);
 				const whenFalse = compile(expr.whenFalse, conditionalTargetType);
 				return sql`case when ${predicate} then ${whenTrue} else ${whenFalse} end`;
-			})
-			.with({ type: "reference" }, (expr) =>
+			}),
+			Match.when({ type: "reference" }, (expr) =>
 				input.resolveReference({ compile, targetType, reference: expr.reference }),
-			)
-			.exhaustive();
+			),
+			Match.exhaustive,
+		);
 	};
 
 	return { compile, getTypeInfo };
@@ -157,8 +164,8 @@ export const createScalarExpressionCompiler = (input: {
 	const { compile } = createExpressionCompilerCore({
 		getTypeInfo: input.getTypeInfo,
 		resolveReference: ({ compile: compileExpression, reference, targetType }) =>
-			match(reference)
-				.with({ type: "computed-field" }, (ref) => {
+			Match.value(reference).pipe(
+				Match.when({ type: "computed-field" }, (ref) => {
 					const cacheKey = `${ref.key}:${targetType ?? "base"}`;
 					const cached = expressionCache.get(cacheKey);
 					if (cached) {
@@ -169,54 +176,55 @@ export const createScalarExpressionCompiler = (input: {
 					const compiled = compileExpression(computedField.expression, targetType);
 					expressionCache.set(cacheKey, compiled);
 					return compiled;
-				})
-				.with({ type: "entity" }, (ref) =>
+				}),
+				Match.when({ type: "entity" }, (ref) =>
 					buildEntityExpression({
 						targetType,
 						reference: ref,
 						alias: input.alias,
 						context: input.context,
 					}),
-				)
-				.with({ type: "entity-schema" }, (ref) =>
+				),
+				Match.when({ type: "entity-schema" }, (ref) =>
 					buildEntitySchemaExpression({ targetType, reference: ref, alias: input.alias }),
-				)
-				.with({ type: "event-aggregate" }, (ref) =>
+				),
+				Match.when({ type: "event-aggregate" }, (ref) =>
 					buildEventAggregateExpression({
 						targetType,
 						reference: ref,
 						alias: input.alias,
 						context: input.context,
 					}),
-				)
-				.with({ type: "event-join" }, (ref) =>
+				),
+				Match.when({ type: "event-join" }, (ref) =>
 					buildEventJoinExpression({
 						targetType,
 						reference: ref,
 						alias: input.alias,
 						context: input.context,
 					}),
-				)
-				.with({ type: "relationship-join" }, (ref) =>
+				),
+				Match.when({ type: "relationship-join" }, (ref) =>
 					buildRelationshipJoinExpression({
 						targetType,
 						reference: ref,
 						alias: input.alias,
 						context: input.context,
 					}),
-				)
-				.with({ type: "event" }, (ref) =>
+				),
+				Match.when({ type: "event" }, (ref) =>
 					buildEventExpression({
 						targetType,
 						reference: ref,
 						alias: input.alias,
 						context: input.context,
 					}),
-				)
-				.with({ type: "event-schema" }, (ref) =>
+				),
+				Match.when({ type: "event-schema" }, (ref) =>
 					buildEventSchemaExpression({ targetType, reference: ref, alias: input.alias }),
-				)
-				.exhaustive(),
+				),
+				Match.exhaustive,
+			),
 	});
 
 	return { compile };
