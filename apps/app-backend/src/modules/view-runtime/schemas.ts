@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ImageSchema } from "~/lib/db/schema";
 import { dataSchema } from "~/lib/openapi";
+import { timestampFields } from "~/lib/zod/base";
 import {
 	filterExpressionSchema,
 	gridConfigSchema,
@@ -68,8 +69,7 @@ const viewRuntimeBaseItemSchema = z
 	.object({
 		id: z.string(),
 		name: z.string(),
-		createdAt: z.date(),
-		updatedAt: z.date(),
+		...timestampFields,
 		entitySchemaId: z.string(),
 		entitySchemaSlug: z.string(),
 		image: ImageSchema.nullable(),
