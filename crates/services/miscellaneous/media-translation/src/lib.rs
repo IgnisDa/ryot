@@ -1,7 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
 use anyhow::{Result, anyhow, bail};
-use background_models::{ApplicationJob, MpApplicationJob};
 use chrono::Utc;
 use common_models::{EntityWithLot, UserLevelCacheKey};
 use common_utils::ryot_log;
@@ -220,18 +219,6 @@ pub async fn update_media_translation(
     )
     .await?;
     Ok(())
-}
-
-pub async fn deploy_update_media_translations_job(
-    user_id: String,
-    input: EntityWithLot,
-    ss: &Arc<SupportingService>,
-) -> Result<bool> {
-    ss.perform_application_job(ApplicationJob::Mp(
-        MpApplicationJob::UpdateMediaTranslations(user_id, input),
-    ))
-    .await?;
-    Ok(true)
 }
 
 pub async fn media_translations(

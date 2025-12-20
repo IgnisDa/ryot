@@ -43,10 +43,8 @@ impl MiscellaneousMediaTranslationMutationResolver {
     ) -> Result<bool> {
         let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
         Ok(
-            miscellaneous_media_translation_service::deploy_update_media_translations_job(
-                user_id, input, service,
-            )
-            .await?,
+            dependent_jobs_utils::deploy_update_media_translations_job(user_id, input, service)
+                .await?,
         )
     }
 }

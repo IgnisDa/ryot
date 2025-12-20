@@ -11,6 +11,7 @@ use database_models::{
 };
 use database_utils::admin_account_guard;
 use enum_models::EntityLot;
+use futures::try_join;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QuerySelect, prelude::Expr};
 use supporting_service::SupportingService;
 
@@ -21,6 +22,18 @@ pub async fn deploy_update_media_entity_job(
     ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateMediaDetails(
         input,
     )))
+    .await?;
+    Ok(true)
+}
+
+pub async fn deploy_update_media_translations_job(
+    user_id: String,
+    input: EntityWithLot,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    ss.perform_application_job(ApplicationJob::Mp(
+        MpApplicationJob::UpdateMediaTranslations(user_id, input),
+    ))
     .await?;
     Ok(true)
 }
@@ -58,14 +71,14 @@ pub async fn deploy_background_job(
                 .await?;
             ryot_log!(debug, "Marked {} metadata as partial", update.rows_affected);
             for metadata_id in many_metadata {
-                deploy_update_media_entity_job(
-                    EntityWithLot {
-                        entity_id: metadata_id,
-                        entity_lot: EntityLot::Metadata,
-                    },
-                    ss,
-                )
-                .await?;
+                let input = EntityWithLot {
+                    entity_id: metadata_id.clone(),
+                    entity_lot: EntityLot::Metadata,
+                };
+                try_join!(
+                    deploy_update_media_entity_job(input.clone(), ss),
+                    deploy_update_media_translations_job(user_id.to_owned(), input, ss)
+                )?;
             }
         }
         BackgroundJob::UpdateAllExercises => {

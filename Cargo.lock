@@ -2120,6 +2120,7 @@ dependencies = [
  "database-models",
  "database-utils",
  "enum-models",
+ "futures",
  "rust_decimal",
  "sea-orm",
  "supporting-service",
@@ -4638,6 +4639,7 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
+ "dependent-jobs-utils",
  "dependent-models",
  "miscellaneous-media-translation-service",
  "traits",
@@ -4648,7 +4650,6 @@ name = "miscellaneous-media-translation-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "background-models",
  "cache-service",
  "chrono",
  "common-models",
