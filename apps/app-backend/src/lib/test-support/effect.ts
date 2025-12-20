@@ -8,6 +8,7 @@ export type MockOverrides<T> = T extends (...args: infer TArgs) => unknown
 
 import { AppConfig, type AppConfigValue } from "#lib/config/service";
 import { CurrentDb, DbRunner, TransactionRunner } from "#lib/db/service";
+import type { RedisService } from "#lib/redis";
 
 const provideEmptyDb = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	Effect.provideService(effect, CurrentDb, Object.create(null));
@@ -33,6 +34,18 @@ export const makeWorkflowEngine = (
 		scheduleClock: () => Effect.die("unused"),
 		deferredResult: () => Effect.die("unused"),
 		activityExecute: () => Effect.die("unused"),
+		...overrides,
+	});
+
+export const makeRedisService = (overrides: Partial<RedisService> = {}): RedisService =>
+	Object.assign(Object.create(null), {
+		client: undefined,
+		del: () => Effect.die("unused"),
+		get: () => Effect.die("unused"),
+		set: () => Effect.die("unused"),
+		claim: () => Effect.die("unused"),
+		getdel: () => Effect.die("unused"),
+		publish: () => Effect.die("unused"),
 		...overrides,
 	});
 
