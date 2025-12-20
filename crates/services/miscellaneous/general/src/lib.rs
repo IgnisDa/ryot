@@ -25,30 +25,26 @@ pub async fn mark_entity_as_partial(
     ss: &Arc<SupportingService>,
     input: EntityWithLot,
 ) -> Result<bool> {
+    macro_rules! update_entity {
+        ($entity:ident, $col_mod:ident, $expire_fn:ident) => {{
+            $entity::update_many()
+                .filter($col_mod::Column::Id.eq(&input.entity_id))
+                .col_expr($col_mod::Column::IsPartial, Expr::value(true))
+                .exec(&ss.db)
+                .await?;
+            $expire_fn(&input.entity_id, ss).await?;
+        }};
+    }
+
     match input.entity_lot {
-        EntityLot::Metadata => {
-            Metadata::update_many()
-                .filter(metadata::Column::Id.eq(&input.entity_id))
-                .col_expr(metadata::Column::IsPartial, Expr::value(true))
-                .exec(&ss.db)
-                .await?;
-            expire_metadata_details_cache(&input.entity_id, ss).await?;
-        }
+        EntityLot::Person => update_entity!(Person, person, expire_person_details_cache),
+        EntityLot::Metadata => update_entity!(Metadata, metadata, expire_metadata_details_cache),
         EntityLot::MetadataGroup => {
-            MetadataGroup::update_many()
-                .filter(metadata_group::Column::Id.eq(&input.entity_id))
-                .col_expr(metadata_group::Column::IsPartial, Expr::value(true))
-                .exec(&ss.db)
-                .await?;
-            expire_metadata_group_details_cache(&input.entity_id, ss).await?;
-        }
-        EntityLot::Person => {
-            Person::update_many()
-                .filter(person::Column::Id.eq(&input.entity_id))
-                .col_expr(person::Column::IsPartial, Expr::value(true))
-                .exec(&ss.db)
-                .await?;
-            expire_person_details_cache(&input.entity_id, ss).await?;
+            update_entity!(
+                MetadataGroup,
+                metadata_group,
+                expire_metadata_group_details_cache
+            )
         }
         _ => bail!("Invalid entity lot".to_owned()),
     }
