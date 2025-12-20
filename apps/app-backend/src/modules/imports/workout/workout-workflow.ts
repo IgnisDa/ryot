@@ -21,7 +21,7 @@ import {
 	loadNonMediaImportText,
 } from "../non-media-workflow";
 import { sanitizeErrorMessage } from "../runtime/import-run-status";
-import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
+import { ImportRunError, toWorkflowError } from "../runtime/workflow-errors";
 import { adaptHevyCsv } from "../sources/hevy/adapter";
 import { adaptStrongAppCsv } from "../sources/strong-app/adapter";
 import type { WorkoutImportItem } from "./domain";

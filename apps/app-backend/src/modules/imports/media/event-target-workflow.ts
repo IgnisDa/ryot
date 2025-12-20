@@ -6,7 +6,7 @@ import { Effect, Schema } from "effect";
 import type { EpisodeResolverService } from "#modules/episode-resolver/service";
 
 import type { ImportRunJobData } from "../jobs";
-import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
+import { ImportRunError, toWorkflowError } from "../runtime/workflow-errors";
 import type { ImportMediaEntityGroup } from "./types";
 import {
 	recordEpisodeResolutionFailure,

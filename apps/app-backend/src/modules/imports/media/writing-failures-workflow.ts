@@ -3,7 +3,7 @@ import { Effect } from "effect";
 
 import type { ImportRunJobData } from "../jobs";
 import { recordImportRunFailure } from "../runtime/import-run-status";
-import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
+import { ImportRunError, toWorkflowError } from "../runtime/workflow-errors";
 import type { ImportMediaEntityGroup } from "./types";
 
 export const recordWriteFailure = (input: {
