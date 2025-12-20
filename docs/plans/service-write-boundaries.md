@@ -555,8 +555,11 @@ to the owning services and retains orchestration and transaction control in the 
   set absent until the slug conflict is resolved.
 - The Better Auth after-create hook retains its existing log-and-suppress behavior for bootstrap
   failures because it runs after the auth write and has no surrounding transaction to roll back. The
-  individual bootstrap attempt remains atomic, but a retry/readiness mechanism for a failed auth hook
-  is outside this section and remains an operational follow-up.
+  individual bootstrap attempt remains atomic. The log-and-suppress gap is closed by a nullable
+  `user.bootstrap_completed_at` marker and a session-readiness gate: `performBootstrap` sets the
+  marker in the same transaction as the defaults, and the `session.create.before` hook reruns the
+  idempotent bootstrap under the user-row lock when the marker is null, returning a retryable
+  `USER_INITIALIZING` error on failure. A completed user is never reconciled against defaults.
 
 ## Implementation Checklist
 
