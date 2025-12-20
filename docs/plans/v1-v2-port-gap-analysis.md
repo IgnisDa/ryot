@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document captures what remains to port from V1 (`apps/backend`, Rust) to V2 (`apps/app-backend`, TypeScript), as of 2026-06-20. As items are completed they should be removed and added to the baseline.
+This document captures what remains to port from V1 (`apps/backend`, Rust) to V2 (`apps/app-backend`, TypeScript), as of 2026-07-07. As items are completed they should be removed and added to the baseline.
 
 It was produced by mapping V1's full API surface — 116 GraphQL operations across 18 resolver crates under `crates/resolvers/` — against V2's modules and routes under `apps/app-backend/src/modules/`. V1 is a behavior reference only; V2 deliberately replaces V1's domain-specific resolvers with a generic `entity_schema → entity → event → relationship` model queried through `modules/query-engine`.
 
@@ -28,6 +28,7 @@ These V1 areas have a working home in V2 and are not part of the backlog.
 | Admin user management                                                               | `modules/god-mode` (list/provision/ban/reset-password)                                                          |
 | Core details / config                                                               | `modules/system` (config/health/metrics)                                                                        |
 | User state operations (`merge_metadata`, `merge_exercise`, `disassociate_metadata`) | `modules/user-state` (`POST /user-state/merge`, `DELETE /user-state/clear/:entityId`)                           |
+| Media translation (localized title/overview)                                        | `modules/entity-translation` (sandbox `translate` driver + `TranslateEntityWorkflow`); localized `name`/`properties` and a `translationStatus` field via `modules/query-engine`; filled on demand through client-declared interest (`modules/entity-interest`) rather than V1's periodic refresh job |
 
 ## Remaining Backlog (In-Scope)
 
@@ -48,8 +49,6 @@ Foundational; three behaviors depend on it. Build first.
 
 - **Data export** — job serializing a user's entities/events/relationships/collections into a downloadable archive, plus a listing query and a download URL.
   - V1: `deploy_export_job`, `user_exports` (`crates/resolvers/exporter`); `PerformExport` job.
-- **Media translation** — fetch localized title/overview through sandbox provider drivers using the existing language preferences; refresh job; surface on entity reads. V2 stores provider language preferences (`builtins/preferences.ts`) but never fetches translations.
-  - V1: `media_translation`, `deploy_update_media_translations_job` (`crates/resolvers/miscellaneous/media-translation`); `UpdateMediaTranslations` job.
 - **Trending metadata** — provider trending lists surfaced as a query or built-in saved view.
   - V1: `trending_metadata` (`crates/resolvers/miscellaneous/search`).
 - **Recommendations** — media and collection recommendations (only fitness exercise recs exist today).
@@ -57,14 +56,12 @@ Foundational; three behaviors depend on it. Build first.
 
 ### Tier 3 — Metadata-management ops
 
-- **Mark as partial** — decide whether to add a population-state flag or treat as obsolete given V2's on-demand population; reconcile with the population pipeline.
-  - V1: `mark_entity_as_partial`.
 - **Metadata lookup** — single-best-match wrapper over the existing search/resolve drivers (distinct from paginated search).
   - V1: `metadata_lookup`.
 
 ## Open / Unverified
 
-- **User self-service** — `update_user`, self account-delete, `update_user_preference`, `reset_user` (data wipe), and impersonation link. V2 preferences cover only provider languages and there is no self-update endpoint; account operations may be partly delegated to Better Auth `/auth/*`. Needs a pass over `lib/auth` to confirm what Better Auth already provides before scoping the remainder.
+- **User self-service** — `update_user`, self account-delete, `reset_user` (data wipe), and impersonation link. `update_user_preference` is now covered by the `modules/user-preferences` update endpoint; the language model is a single global BCP-47 preference (replacing the earlier per-provider languages). Remaining account operations may be partly delegated to Better Auth `/auth/*`; needs a pass over `lib/auth` to confirm what Better Auth already provides before scoping the remainder.
 
 ## Deferred — Build On Query Engine
 
@@ -79,4 +76,5 @@ Not ported as-is; to be expressed on top of `modules/query-engine`.
 Intentionally not ported.
 
 - Collection collaborators.
+- Mark as partial (`mark_entity_as_partial`) — obsolete under V2's on-demand population: `entity.populatedAt === null` is itself the partial state, and a partial entity is re-populated on demand when a client declares interest in it (`modules/entity-interest`), so no explicit partial flag or manual mark operation is needed.
 - Access links — V1: `create_access_link`, `process_access_link`, `revoke_access_link`, `user_access_links`.
