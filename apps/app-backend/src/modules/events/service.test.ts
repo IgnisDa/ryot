@@ -46,13 +46,11 @@ const eventSchemaScope = {
 	},
 };
 
-const dbRunnerLayer = Layer.succeed(
-	DbRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
-		Effect.provideService(effect, CurrentDb, Object.create(null)),
+const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+	Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
-const makeWorkflowEngine = (): WorkflowEngine["Type"] =>
+const makeWorkflowEngine = () =>
 	({
 		poll: () => Effect.die("unused"),
 		resume: () => Effect.die("unused"),
@@ -78,15 +76,15 @@ type FakeSandboxService = {
 	run: () => Effect.Effect<typeof defaultSandboxRunResult | { [key: string]: unknown }>;
 };
 
-const defaultSandboxService = (): SandboxService =>
+const defaultSandboxService = () =>
 	Object.assign(Object.create(null), {
 		run: () => Effect.succeed(defaultSandboxRunResult),
 	});
 
-const makeSandboxService = (overrides: Partial<FakeSandboxService> = {}): SandboxService =>
+const makeSandboxService = (overrides: Partial<FakeSandboxService> = {}) =>
 	Object.assign(Object.create(null), defaultSandboxService(), overrides);
 
-const defaultEntitiesRepository = (): EntitiesRepository =>
+const defaultEntitiesRepository = () =>
 	Object.assign(Object.create(null), {
 		_tag: "EntitiesRepository" as const,
 		createEntity: () => Effect.die("unused"),
@@ -102,7 +100,7 @@ const defaultEntitiesRepository = (): EntitiesRepository =>
 		deleteUserRelationshipsForEntity: () => Effect.die("unused"),
 	});
 
-const defaultEventSchemasRepository = (): EventSchemasRepository =>
+const defaultEventSchemasRepository = () =>
 	Object.assign(Object.create(null), {
 		_tag: "EventSchemasRepository" as const,
 		getScopeForUser: () => Effect.die("unused"),
@@ -112,7 +110,7 @@ const defaultEventSchemasRepository = (): EventSchemasRepository =>
 		listByEntitySchemaForUser: () => Effect.die("unused"),
 	});
 
-const defaultEventsRepository = (): EventsRepository =>
+const defaultEventsRepository = () =>
 	Object.assign(Object.create(null), {
 		_tag: "EventsRepository" as const,
 		listForUser: () => Effect.die("unused"),
@@ -121,7 +119,7 @@ const defaultEventsRepository = (): EventsRepository =>
 		getActiveBeforeCreateTriggers: () => Effect.succeed([]),
 	});
 
-const defaultSandboxRepository = (): SandboxRepository =>
+const defaultSandboxRepository = () =>
 	Object.assign(Object.create(null), {
 		_tag: "SandboxRepository" as const,
 		createScript: () => Effect.die("unused"),
@@ -129,15 +127,13 @@ const defaultSandboxRepository = (): SandboxRepository =>
 		findScriptBySlugForUser: () => Effect.die("unused"),
 	});
 
-const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}): EntitiesRepository =>
+const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
 	Object.assign(Object.create(null), defaultEntitiesRepository(), overrides);
 
-const makeEventSchemasRepository = (
-	overrides: Partial<EventSchemasRepository> = {},
-): EventSchemasRepository =>
+const makeEventSchemasRepository = (overrides: Partial<EventSchemasRepository> = {}) =>
 	Object.assign(Object.create(null), defaultEventSchemasRepository(), overrides);
 
-const makeEventsRepository = (overrides: Partial<EventsRepository> = {}): EventsRepository =>
+const makeEventsRepository = (overrides: Partial<EventsRepository> = {}) =>
 	Object.assign(Object.create(null), defaultEventsRepository(), overrides);
 
 const makeServiceLayer = (input: {

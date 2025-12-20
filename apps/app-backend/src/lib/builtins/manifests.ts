@@ -67,22 +67,7 @@ const BUILTIN_ALLOWED_HOST_FUNCTIONS: string[] = [
 	"getUserPreferences",
 ];
 
-type BuiltinScriptEntry = {
-	name: string;
-	slug: string;
-	code: string;
-	metadata: {
-		allowedHostFunctions: string[];
-		requiredAppConfigKeys?: string[];
-	};
-};
-
-const script = (
-	name: string,
-	slug: string,
-	code: string,
-	requiredAppConfigKeys?: string[],
-): BuiltinScriptEntry => ({
+const script = (name: string, slug: string, code: string, requiredAppConfigKeys?: string[]) => ({
 	name,
 	slug,
 	code,
@@ -98,7 +83,7 @@ const withDelimiterTitleCaseHelper = (code: string) => `${titleCaseDelimiterHelp
 
 const withPushHelpers = (code: string) => `${integrationPushHelperCode}\n\n${code}`;
 
-export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
+export const builtinSandboxScripts = () => [
 	script("Free Exercise DB", "exercise.free-exercise-db", freeExerciseDbScriptCode),
 	script("OpenLibrary", "book.openlibrary", withTitleCaseHelper(openLibraryBookScriptCode)),
 	script("Audible", "audiobook.audible", withTitleCaseHelper(audibleAudiobookScriptCode)),
@@ -293,16 +278,7 @@ export const entitySchemaScriptLinks = () =>
 export const fitnessSchemaScriptLinks = () =>
 	[{ schemaSlug: "exercise", scriptSlug: "exercise.free-exercise-db" }] as const;
 
-type BuiltinEventSchemaTriggerLink = {
-	phase: string;
-	position: number;
-	scriptSlug: string;
-	triggerName: string;
-	eventSchemaSlug: string;
-	metadata: Record<string, unknown>;
-};
-
-export const builtinEventSchemaTriggerLinks = (): BuiltinEventSchemaTriggerLink[] => [
+export const builtinEventSchemaTriggerLinks = () => [
 	{
 		position: 1000,
 		phase: "after_create",

@@ -14,19 +14,17 @@ const user = {
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
-const dbRunnerLayer = Layer.succeed(
-	DbRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
-		Effect.provideService(effect, CurrentDb, Object.create(null)),
+const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+	Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
 const transactionLayer = Layer.succeed(
 	TransactionRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
+	<A, E, R>(effect: Effect.Effect<A, E, R>) =>
 		Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
-const defaultTrackersRepository = (): TrackersRepository =>
+const defaultTrackersRepository = () =>
 	Object.assign(Object.create(null), {
 		_tag: "TrackersRepository" as const,
 		create: () => Effect.die("unused"),
@@ -39,7 +37,7 @@ const defaultTrackersRepository = (): TrackersRepository =>
 		countOwnedByIds: () => Effect.die("unused"),
 	});
 
-const makeTrackersRepository = (overrides: Partial<TrackersRepository> = {}): TrackersRepository =>
+const makeTrackersRepository = (overrides: Partial<TrackersRepository> = {}) =>
 	Object.assign(Object.create(null), defaultTrackersRepository(), overrides);
 
 const makeServiceLayer = (repository: TrackersRepository) =>

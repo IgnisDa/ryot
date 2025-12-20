@@ -36,11 +36,7 @@ export class S3Service extends Effect.Service<S3Service>()("S3Service", {
 
 		const isConfigured = client !== null;
 
-		const presignUpload = (
-			key: string,
-			contentType: string,
-			expiresInSeconds: number,
-		): Effect.Effect<string> =>
+		const presignUpload = (key: string, contentType: string, expiresInSeconds: number) =>
 			Effect.gen(function* () {
 				if (!client) {
 					return yield* Effect.die("S3 is not configured");
@@ -52,7 +48,7 @@ export class S3Service extends Effect.Service<S3Service>()("S3Service", {
 				).pipe(Effect.orDie);
 			});
 
-		const presignDownload = (key: string, expiresInSeconds: number): Effect.Effect<string> =>
+		const presignDownload = (key: string, expiresInSeconds: number) =>
 			Effect.gen(function* () {
 				if (!client) {
 					return yield* Effect.die("S3 is not configured");
