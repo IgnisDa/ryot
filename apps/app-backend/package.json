@@ -15,8 +15,8 @@
 		"test": "bun --bun run vitest run --config vitest.config.ts",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
 		"run-migration": "RUN_MIGRATION_ONLY=true bun run src/main.ts",
-		"populate-sandbox-cache": "POPULATE_SANDBOX_CACHE_ONLY=true bun run src/main.ts",
-		"build": "bun build src/main.ts --outdir dist --target bun --sourcemap && bun build src/modules/sandbox/compiler-worker.ts --outdir dist --target bun --sourcemap"
+		"build": "bun build src/main.ts --outdir dist --target bun --sourcemap",
+		"populate-sandbox-cache": "POPULATE_SANDBOX_CACHE_ONLY=true bun run src/main.ts"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.6.15",
@@ -30,6 +30,7 @@
 		"@effect/workflow": "0.18.2",
 		"@ryot/contract": "workspace:*",
 		"@ryot/query-engine": "workspace:*",
+		"@ryot/sandbox-compiler": "workspace:*",
 		"@ryot/sandbox-sdk": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"better-auth": "1.6.15",
@@ -41,7 +42,6 @@
 		"nodemailer": "8.0.10",
 		"papaparse": "5.5.3",
 		"pg": "8.21.0",
-		"typescript": "7.0.2",
 		"unzipit": "2.0.3"
 	},
 	"devDependencies": {
