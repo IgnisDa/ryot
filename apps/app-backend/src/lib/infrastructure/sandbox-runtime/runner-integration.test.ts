@@ -8,6 +8,9 @@ import { afterAll, assert, beforeAll, expect, it } from "vitest";
 import {
 	sandboxAnimeDotAnilistScript,
 	sandboxAnimeDotMyanimelistScript,
+	sandboxBookDotGoogleDashBooksScript,
+	sandboxBookDotHardcoverScript,
+	sandboxBookDotOpenlibraryScript,
 	sandboxCompanyDotTmdbScript,
 	sandboxCompanyDotTvdbScript,
 	sandboxMangaDotMangaDashUpdatesScript,
@@ -1432,6 +1435,199 @@ it("loads and executes the generated MyAnimeList and MangaUpdates modules in Den
 				}
 				const malConfigCall = bridge.calls.find((call) => call.fnName === "getAppConfigValue");
 				expect(malConfigCall?.args).toEqual(["providers.malClientId"]);
+			}),
+		),
+	));
+
+it("loads and executes the generated Hardcover book module in Deno through the GraphQL flow", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							appConfigValue: "hardcover-key",
+							httpResponse: (url) => {
+								expect(new URL(url).host).toBe("api.hardcover.app");
+								return {
+									data: {
+										books_by_pk: {
+											id: "42",
+											images: [],
+											pages: 300,
+											book_series: [],
+											slug: "the-book",
+											title: "The Book",
+											release_year: 2020,
+											description: "A book.",
+											release_date: "2020-01-01",
+											image: { url: "https://img/cover.jpg" },
+											cached_tags: { Genre: [{ tag: "science fiction" }] },
+											contributions: [
+												{ contribution: "Author", author_id: 7, author: { name: "Jane Doe" } },
+											],
+										},
+									},
+								};
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const entry = sandboxBookDotHardcoverScript;
+				const compiled = {
+					manifest: entry.manifest,
+					format: entry.compiledFormat,
+					javascript: entry.compiledCode,
+				};
+				const result = yield* runInDeno(
+					compiled,
+					"details",
+					{ externalId: "42" },
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: compiled.manifest.capabilities,
+					},
+				);
+				assert(result !== null && typeof result === "object");
+				expect(result).toMatchObject({ success: true });
+				expect(Reflect.get(result, "value")).toMatchObject({
+					name: "The Book",
+					relatedEntityGroups: [
+						{
+							relationshipSchemaSlug: "person-to-book",
+							entities: [{ externalId: "7", name: "Jane Doe" }],
+						},
+						{ relationshipSchemaSlug: "company-to-book", entities: [] },
+						{ relationshipSchemaSlug: "book-group-to-book", entities: [] },
+					],
+					properties: { publishYear: 2020, genres: ["Science Fiction"] },
+				});
+				const configCall = bridge.calls.find((call) => call.fnName === "getAppConfigValue");
+				expect(configCall?.args).toEqual(["providers.hardcoverApiKey"]);
+			}),
+		),
+	));
+
+it("loads and executes the generated OpenLibrary book module in Deno with custom date parsing", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							httpResponse: (url) => {
+								const requestUrl = new URL(url);
+								expect(requestUrl.host).toBe("openlibrary.org");
+								if (requestUrl.pathname.endsWith("/editions.json")) {
+									return {
+										entries: [
+											{ number_of_pages: 320, publish_date: "May 5, 2001" },
+											{ publish_date: "1999" },
+										],
+									};
+								}
+								if (requestUrl.pathname === "/authors/OL1A.json") {
+									return { name: "Author Name" };
+								}
+								return {
+									covers: [111],
+									title: "The Work",
+									key: "/works/OL1W",
+									subjects: ["Fiction"],
+									authors: [{ author: { key: "/authors/OL1A" } }],
+								};
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const entry = sandboxBookDotOpenlibraryScript;
+				const compiled = {
+					manifest: entry.manifest,
+					format: entry.compiledFormat,
+					javascript: entry.compiledCode,
+				};
+				const result = yield* runInDeno(
+					compiled,
+					"details",
+					{ externalId: "OL1W" },
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: compiled.manifest.capabilities,
+					},
+				);
+				assert(result !== null && typeof result === "object");
+				expect(result).toMatchObject({ success: true });
+				expect(Reflect.get(result, "value")).toMatchObject({
+					name: "The Work",
+					relatedEntityGroups: [{ entities: [{ externalId: "OL1A", name: "Author Name" }] }],
+					properties: { pages: 320, publishYear: 1999, genres: ["Fiction"] },
+				});
+			}),
+		),
+	));
+
+it("loads and executes the generated Google Books module in Deno through the REST flow", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							appConfigValue: "google-key",
+							httpResponse: (url) => {
+								const requestUrl = new URL(url);
+								expect(requestUrl.host).toBe("www.googleapis.com");
+								expect(requestUrl.pathname).toBe("/books/v1/volumes");
+								return {
+									totalItems: 1,
+									items: [
+										{
+											id: "g1",
+											volumeInfo: {
+												title: "G Book",
+												publishedDate: "2010-06-01",
+												imageLinks: { thumbnail: "https://img/t.jpg" },
+											},
+										},
+									],
+								};
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const entry = sandboxBookDotGoogleDashBooksScript;
+				const compiled = {
+					manifest: entry.manifest,
+					format: entry.compiledFormat,
+					javascript: entry.compiledCode,
+				};
+				const result = yield* runInDeno(
+					compiled,
+					"search",
+					{ query: "g", page: 1, pageSize: 20 },
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: compiled.manifest.capabilities,
+					},
+				);
+				assert(result !== null && typeof result === "object");
+				expect(result).toMatchObject({ success: true });
+				expect(Reflect.get(result, "value")).toEqual({
+					details: { totalItems: 1, nextPage: null },
+					items: [
+						{
+							externalId: "g1",
+							calloutProperty: { kind: "null", value: null },
+							titleProperty: { kind: "text", value: "G Book" },
+							secondarySubtitleProperty: { kind: "null", value: null },
+							primarySubtitleProperty: { kind: "number", value: 2010 },
+							imageProperty: { kind: "image", value: { type: "remote", url: "https://img/t.jpg" } },
+						},
+					],
+				});
 			}),
 		),
 	));
