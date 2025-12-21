@@ -19,6 +19,8 @@ import {
 	sandboxMovieDashGroupDotTvdbScript,
 	sandboxMovieDotTmdbScript,
 	sandboxMovieDotTvdbScript,
+	sandboxMusicDotMusicDashBrainzScript,
+	sandboxMusicDotSpotifyScript,
 	sandboxPersonDotTmdbScript,
 	sandboxPersonDotTvdbScript,
 	sandboxPodcastDotItunesScript,
@@ -1824,6 +1826,129 @@ it("loads and executes the generated ListenNotes podcast module in Deno through 
 				});
 				const configCall = bridge.calls.find((call) => call.fnName === "getAppConfigValue");
 				expect(configCall?.args).toEqual(["providers.listennotesApiKey"]);
+			}),
+		),
+	));
+
+it("loads and executes the generated MusicBrainz module in Deno", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							httpResponse: (url) => {
+								const requestUrl = new URL(url);
+								expect(requestUrl.host).toBe("musicbrainz.org");
+								expect(requestUrl.pathname).toBe("/ws/2/recording");
+								return {
+									count: 1,
+									recordings: [
+										{ id: "rec-1", title: "Song One", "first-release-date": "2020-05-01" },
+									],
+								};
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const entry = sandboxMusicDotMusicDashBrainzScript;
+				const compiled = {
+					manifest: entry.manifest,
+					format: entry.compiledFormat,
+					javascript: entry.compiledCode,
+				};
+				const result = yield* runInDeno(
+					compiled,
+					"search",
+					{ query: "song", page: 1, pageSize: 20 },
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: compiled.manifest.capabilities,
+					},
+				);
+				assert(result !== null && typeof result === "object");
+				expect(result).toMatchObject({ success: true });
+				expect(Reflect.get(result, "value")).toMatchObject({
+					details: { totalItems: 1, nextPage: null },
+					items: [
+						{
+							externalId: "rec-1",
+							titleProperty: { kind: "text", value: "Song One" },
+							primarySubtitleProperty: { kind: "number", value: 2020 },
+						},
+					],
+				});
+			}),
+		),
+	));
+
+it("loads and executes the generated Spotify module in Deno through the token cache flow", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							appConfigValue: "spotify-cred",
+							httpResponse: (url) => {
+								const requestUrl = new URL(url);
+								if (requestUrl.host === "accounts.spotify.com") {
+									expect(requestUrl.pathname).toBe("/api/token");
+									return { access_token: "tok", token_type: "Bearer", expires_in: 3600 };
+								}
+								expect(requestUrl.host).toBe("api.spotify.com");
+								expect(requestUrl.pathname).toBe("/v1/search");
+								return {
+									tracks: {
+										total: 1,
+										items: [
+											{
+												id: "t1",
+												name: "Track One",
+												album: {
+													release_date: "2019-03-03",
+													images: [{ url: "https://img/s.jpg", width: 640, height: 640 }],
+												},
+											},
+										],
+									},
+								};
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const entry = sandboxMusicDotSpotifyScript;
+				const compiled = {
+					manifest: entry.manifest,
+					format: entry.compiledFormat,
+					javascript: entry.compiledCode,
+				};
+				const result = yield* runInDeno(
+					compiled,
+					"search",
+					{ query: "track", page: 1, pageSize: 20 },
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: compiled.manifest.capabilities,
+					},
+				);
+				assert(result !== null && typeof result === "object");
+				expect(result).toMatchObject({ success: true });
+				expect(Reflect.get(result, "value")).toMatchObject({
+					details: { totalItems: 1, nextPage: null },
+					items: [
+						{
+							externalId: "t1",
+							titleProperty: { kind: "text", value: "Track One" },
+							primarySubtitleProperty: { kind: "number", value: 2019 },
+							imageProperty: { kind: "image", value: { type: "remote", url: "https://img/s.jpg" } },
+						},
+					],
+				});
+				const tokenWrite = bridge.calls.find((call) => call.fnName === "setCachedValue");
+				expect(tokenWrite?.args).toEqual(["spotify_access_token", "tok", 3300]);
 			}),
 		),
 	));

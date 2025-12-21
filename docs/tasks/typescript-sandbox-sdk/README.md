@@ -385,9 +385,9 @@ The Deno runner will load the compiled JavaScript as an in-memory ES module inst
 
 ## Tasks
 
-**Overall Progress:** 13 of 18 tasks completed
+**Overall Progress:** 14 of 18 tasks completed
 
-**Current Task:** [Task 14](./14-music-providers.md) (todo)
+**Current Task:** [Task 15](./15-game-providers.md) (todo)
 
 ### Task List
 
@@ -406,7 +406,7 @@ The Deno runner will load the compiled JavaScript as an in-memory ES module inst
 | 11  | [Anime and Manga Providers](./11-anime-and-manga-providers.md)                                 | AFK  | done   |
 | 12  | [Book Providers](./12-book-providers.md)                                                       | AFK  | done   |
 | 13  | [Audiobook and Podcast Providers](./13-audiobook-and-podcast-providers.md)                     | AFK  | done   |
-| 14  | [Music Providers](./14-music-providers.md)                                                     | AFK  | todo   |
+| 14  | [Music Providers](./14-music-providers.md)                                                     | AFK  | done   |
 | 15  | [Game Providers](./15-game-providers.md)                                                       | AFK  | todo   |
 | 16  | [Comic, Visual Novel, and Fitness Providers](./16-comic-visual-novel-and-fitness-providers.md) | AFK  | todo   |
 | 17  | [Complete Sandbox Cutover](./17-complete-sandbox-cutover.md)                                   | AFK  | todo   |
