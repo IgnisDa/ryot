@@ -1,11 +1,19 @@
 import {
 	type GeneratedBuiltinSandboxScript,
+	sandboxAnimeDotAnilistScript,
+	sandboxAnimeDotMyanimelistScript,
+	sandboxCompanyDotAnilistScript,
 	sandboxCompanyDotTmdbScript,
 	sandboxCompanyDotTvdbScript,
+	sandboxMangaDotAnilistScript,
+	sandboxMangaDotMangaDashUpdatesScript,
+	sandboxMangaDotMyanimelistScript,
 	sandboxMovieDashGroupDotTmdbScript,
 	sandboxMovieDashGroupDotTvdbScript,
 	sandboxMovieDotTmdbScript,
 	sandboxMovieDotTvdbScript,
+	sandboxPersonDotAnilistScript,
+	sandboxPersonDotMangaDashUpdatesScript,
 	sandboxPersonDotTmdbScript,
 	sandboxPersonDotTvdbScript,
 	sandboxShowDotTmdbScript,
@@ -16,8 +24,7 @@ import {
 	sandboxTriggerDotRadarrDashPushScript,
 	sandboxTriggerDotSonarrDashPushScript,
 } from "./generated-sandbox/registry";
-import { withDelimiterTitleCaseHelper, withTitleCaseHelper } from "./legacy-sandbox-helpers";
-import anilistCompanyScriptCode from "./sandbox-scripts/providers/company/anilist.sandbox.js" with { type: "text" };
+import { withTitleCaseHelper } from "./legacy-sandbox-helpers";
 import giantBombCompanyScriptCode from "./sandbox-scripts/providers/company/giant-bomb.sandbox.js" with { type: "text" };
 import hardcoverCompanyScriptCode from "./sandbox-scripts/providers/company/hardcover.sandbox.js" with { type: "text" };
 import igdbCompanyScriptCode from "./sandbox-scripts/providers/company/igdb.sandbox.js" with { type: "text" };
@@ -31,16 +38,11 @@ import metronComicBookGroupScriptCode from "./sandbox-scripts/providers/media-gr
 import musicBrainzMusicGroupScriptCode from "./sandbox-scripts/providers/media-group/music-brainz.sandbox.js" with { type: "text" };
 import spotifyMusicGroupScriptCode from "./sandbox-scripts/providers/media-group/spotify.sandbox.js" with { type: "text" };
 import youtubeMusicGroupScriptCode from "./sandbox-scripts/providers/media-group/youtube-music.sandbox.js" with { type: "text" };
-import anilistAnimeScriptCode from "./sandbox-scripts/providers/media/anime/anilist.sandbox.js" with { type: "text" };
-import myanimelistAnimeScriptCode from "./sandbox-scripts/providers/media/anime/myanimelist.sandbox.js" with { type: "text" };
 import audibleAudiobookScriptCode from "./sandbox-scripts/providers/media/audiobook/audible.sandbox.js" with { type: "text" };
 import googleBooksBookScriptCode from "./sandbox-scripts/providers/media/book/google-books.sandbox.js" with { type: "text" };
 import hardcoverBookScriptCode from "./sandbox-scripts/providers/media/book/hardcover.sandbox.js" with { type: "text" };
 import openLibraryBookScriptCode from "./sandbox-scripts/providers/media/book/openlibrary.sandbox.js" with { type: "text" };
 import metronComicBookScriptCode from "./sandbox-scripts/providers/media/comic-book/metron.sandbox.js" with { type: "text" };
-import anilistMangaScriptCode from "./sandbox-scripts/providers/media/manga/anilist.sandbox.js" with { type: "text" };
-import mangaUpdatesMangaScriptCode from "./sandbox-scripts/providers/media/manga/manga-updates.sandbox.js" with { type: "text" };
-import myanimelistMangaScriptCode from "./sandbox-scripts/providers/media/manga/myanimelist.sandbox.js" with { type: "text" };
 import musicBrainzMusicScriptCode from "./sandbox-scripts/providers/media/music/music-brainz.sandbox.js" with { type: "text" };
 import spotifyMusicScriptCode from "./sandbox-scripts/providers/media/music/spotify.sandbox.js" with { type: "text" };
 import youtubeMusicScriptCode from "./sandbox-scripts/providers/media/music/youtube-music.sandbox.js" with { type: "text" };
@@ -49,11 +51,9 @@ import listennotesPodcastScriptCode from "./sandbox-scripts/providers/media/podc
 import giantBombVideoGameScriptCode from "./sandbox-scripts/providers/media/video-game/giant-bomb.sandbox.js" with { type: "text" };
 import igdbVideoGameScriptCode from "./sandbox-scripts/providers/media/video-game/igdb.sandbox.js" with { type: "text" };
 import vndbVisualNovelScriptCode from "./sandbox-scripts/providers/media/visual-novel/vndb.sandbox.js" with { type: "text" };
-import anilistPersonScriptCode from "./sandbox-scripts/providers/person/anilist.sandbox.js" with { type: "text" };
 import audiblePersonScriptCode from "./sandbox-scripts/providers/person/audible.sandbox.js" with { type: "text" };
 import giantBombPersonScriptCode from "./sandbox-scripts/providers/person/giant-bomb.sandbox.js" with { type: "text" };
 import hardcoverPersonScriptCode from "./sandbox-scripts/providers/person/hardcover.sandbox.js" with { type: "text" };
-import mangaUpdatesPersonScriptCode from "./sandbox-scripts/providers/person/manga-updates.sandbox.js" with { type: "text" };
 import metronPersonScriptCode from "./sandbox-scripts/providers/person/metron.sandbox.js" with { type: "text" };
 import musicBrainzPersonScriptCode from "./sandbox-scripts/providers/person/music-brainz.sandbox.js" with { type: "text" };
 import openLibraryPersonScriptCode from "./sandbox-scripts/providers/person/openlibrary.sandbox.js" with { type: "text" };
@@ -123,21 +123,9 @@ export const builtinSandboxScripts = () => [
 	),
 	translatedProviderScript("iTunes", "podcast.itunes", itunesPodcastScriptCode, "itunes", "en"),
 	providerScript("VNDB", "visual-novel.vndb", vndbVisualNovelScriptCode, "vndb"),
-	translatedProviderScript(
-		"Anilist",
-		"anime.anilist",
-		withDelimiterTitleCaseHelper(anilistAnimeScriptCode),
-		"anilist",
-		"en",
-	),
-	translatedProviderScript(
-		"Anilist",
-		"manga.anilist",
-		withDelimiterTitleCaseHelper(anilistMangaScriptCode),
-		"anilist",
-		"en",
-	),
-	providerScript("Anilist", "company.anilist", anilistCompanyScriptCode, "anilist"),
+	sandboxAnimeDotAnilistScript,
+	sandboxMangaDotAnilistScript,
+	sandboxCompanyDotAnilistScript,
 	providerScript("GiantBomb", "company.giant-bomb", giantBombCompanyScriptCode, "giant-bomb", [
 		"providers.giantBombApiKey",
 	]),
@@ -151,23 +139,13 @@ export const builtinSandboxScripts = () => [
 	sandboxCompanyDotTmdbScript,
 	sandboxCompanyDotTvdbScript,
 	providerScript("VNDB", "company.vndb", vndbCompanyScriptCode, "vndb"),
-	providerScript("Anilist", "person.anilist", anilistPersonScriptCode, "anilist"),
+	sandboxPersonDotAnilistScript,
 	providerScript("Audible", "person.audible", audiblePersonScriptCode, "audible"),
 	providerScript("GiantBomb", "person.giant-bomb", giantBombPersonScriptCode, "giant-bomb", [
 		"providers.giantBombApiKey",
 	]),
-	providerScript(
-		"MangaUpdates",
-		"person.manga-updates",
-		mangaUpdatesPersonScriptCode,
-		"manga-updates",
-	),
-	providerScript(
-		"MangaUpdates",
-		"manga.manga-updates",
-		mangaUpdatesMangaScriptCode,
-		"manga-updates",
-	),
+	sandboxPersonDotMangaDashUpdatesScript,
+	sandboxMangaDotMangaDashUpdatesScript,
 	providerScript("MusicBrainz", "music.music-brainz", musicBrainzMusicScriptCode, "music-brainz"),
 	providerScript("MusicBrainz", "person.music-brainz", musicBrainzPersonScriptCode, "music-brainz"),
 	providerScript("OpenLibrary", "person.openlibrary", openLibraryPersonScriptCode, "openlibrary"),
@@ -218,20 +196,8 @@ export const builtinSandboxScripts = () => [
 	sandboxMovieDotTvdbScript,
 	sandboxShowDotTvdbScript,
 	sandboxPersonDotTvdbScript,
-	providerScript(
-		"MyAnimeList",
-		"anime.myanimelist",
-		withDelimiterTitleCaseHelper(myanimelistAnimeScriptCode),
-		"myanimelist",
-		["providers.malClientId"],
-	),
-	providerScript(
-		"MyAnimeList",
-		"manga.myanimelist",
-		withDelimiterTitleCaseHelper(myanimelistMangaScriptCode),
-		"myanimelist",
-		["providers.malClientId"],
-	),
+	sandboxAnimeDotMyanimelistScript,
+	sandboxMangaDotMyanimelistScript,
 	providerScript("Metron", "comic-book.metron", metronComicBookScriptCode, "metron", [
 		"providers.metronUsername",
 		"providers.metronPassword",
