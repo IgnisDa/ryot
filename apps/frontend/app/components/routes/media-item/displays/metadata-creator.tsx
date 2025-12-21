@@ -26,7 +26,11 @@ export const MetadataCreatorDisplay = (props: {
 			ref={ref}
 			title={title}
 			isPartialStatusActive={isPartialStatusActive}
-			image={personDetails?.details.assets.remoteImages.at(0) || undefined}
+			image={
+				personTranslations?.image ||
+				personDetails?.details.assets.remoteImages.at(0) ||
+				undefined
+			}
 			link={
 				props.data.isFree
 					? undefined

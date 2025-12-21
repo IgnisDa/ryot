@@ -708,7 +708,7 @@ const ConsumedMetadataDisplay = (props: {
 	return (
 		<Link to={$path("/media/item/:id", { id: props.metadataId })}>
 			<Tooltip label={metadataTranslations?.title || metadataDetails?.title}>
-				<Avatar src={images.at(0)} />
+				<Avatar src={metadataTranslations?.image || images.at(0)} />
 			</Tooltip>
 		</Link>
 	);
