@@ -197,6 +197,33 @@ describe("builtinSandboxScripts", () => {
 		}
 	});
 
+	it("uses generated format-1 representations for the comic, visual-novel, and fitness families", () => {
+		const sources = new Set(["metron", "vndb", "free-exercise-db"]);
+		const scripts = builtinSandboxScripts().filter(
+			({ metadata }) =>
+				"providerInformation" in metadata &&
+				sources.has(metadata.providerInformation?.source ?? ""),
+		);
+
+		expect(scripts.map(({ slug }) => slug).sort()).toEqual([
+			"comic-book-group.metron",
+			"comic-book.metron",
+			"company.vndb",
+			"exercise.free-exercise-db",
+			"person.metron",
+			"visual-novel.vndb",
+		]);
+		for (const script of scripts) {
+			assert("compiledCode" in script && "manifest" in script);
+			expect(script.compiledFormat).toBe(1);
+			expect(script.code).toBe(script.source);
+			expect(script.metadata).toBe(script.manifest);
+			expect(script.source).toContain("defineProvider");
+			expect(script.compiledCode).toContain("ryot:sandbox-script");
+			expect(script.compiledCode).toContain("sourceMappingURL=data:application/json;base64,");
+		}
+	});
+
 	it("uses generated format-1 representations and manifest modes for every trigger", () => {
 		const triggers = builtinSandboxScripts().filter(({ slug }) => slug.startsWith("trigger."));
 		const links = new Map(
