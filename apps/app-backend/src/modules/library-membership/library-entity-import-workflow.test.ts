@@ -41,6 +41,7 @@ const importPayload = {
 	externalId: "ext-1",
 	executionId: "exec-1",
 	userId: UserId.make("user-1"),
+	origin: { kind: "api" } as const,
 	scriptId: SandboxScriptId.make("script-1"),
 	entitySchemaId: EntitySchemaId.make("schema-1"),
 } satisfies EntityImportPayload;

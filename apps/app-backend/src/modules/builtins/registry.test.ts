@@ -289,6 +289,7 @@ describe("builtinSandboxScripts", () => {
 		]);
 		expect(workoutLinks).toEqual([
 			{
+				operation: "create",
 				entitySchemaSlug: "workout",
 				name: "Workout Created Detector",
 				scriptSlug: "automation.workout-created",
@@ -304,6 +305,22 @@ describe("builtinSandboxScripts", () => {
 				({ scriptSlug }) => scriptSlug === "automation.workout-created",
 			),
 		).toEqual([]);
+	});
+
+	it("registers the media update detector only for update occurrences", () => {
+		const links = builtinEntityAutomationRuleLinks().filter(
+			({ scriptSlug }) => scriptSlug === "automation.media-entity-updated",
+		);
+		const detector = builtinSandboxScripts().find(
+			({ slug }) => slug === "automation.media-entity-updated",
+		);
+
+		assert(detector);
+		expect(detector.manifest.capabilities).toEqual(["emitSignal"]);
+		expect(links).not.toHaveLength(0);
+		expect(links.every(({ operation }) => operation === "update")).toBe(true);
+		expect(links.some(({ entitySchemaSlug }) => entitySchemaSlug === "show-episode")).toBe(true);
+		expect(links.some(({ entitySchemaSlug }) => entitySchemaSlug === "show-season")).toBe(false);
 	});
 
 	it("registers the shared notification script with only send-notification authority", () => {

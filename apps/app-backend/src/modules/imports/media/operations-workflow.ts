@@ -102,6 +102,7 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 					const entity = yield* engine.execute(LibraryEntityImportWorkflow, {
 						executionId: input.executionId,
 						payload: {
+							origin: input.origin,
 							userId: input.userId,
 							scriptId: input.scriptId,
 							externalId: input.externalId,

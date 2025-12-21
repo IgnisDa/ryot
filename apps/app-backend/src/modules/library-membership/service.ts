@@ -68,7 +68,14 @@ export class LibraryImportService extends Effect.Service<LibraryImportService>()
 					.execute(LibraryEntityImportWorkflow, {
 						executionId,
 						discard: true,
-						payload: { scriptId, externalId, executionId, entitySchemaId, userId: user.id },
+						payload: {
+							scriptId,
+							externalId,
+							executionId,
+							entitySchemaId,
+							userId: user.id,
+							origin: { kind: "api" },
+						},
 					})
 					.pipe(Effect.orDie);
 
