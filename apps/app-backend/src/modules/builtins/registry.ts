@@ -1,3 +1,9 @@
+import { sandboxShowDotTmdbScript } from "./generated-sandbox/registry";
+import {
+	withDelimiterTitleCaseHelper,
+	withPushHelpers,
+	withTitleCaseHelper,
+} from "./legacy-sandbox-helpers";
 import anilistCompanyScriptCode from "./sandbox-scripts/providers/company/anilist.sandbox.js" with { type: "text" };
 import giantBombCompanyScriptCode from "./sandbox-scripts/providers/company/giant-bomb.sandbox.js" with { type: "text" };
 import hardcoverCompanyScriptCode from "./sandbox-scripts/providers/company/hardcover.sandbox.js" with { type: "text" };
@@ -33,7 +39,6 @@ import spotifyMusicScriptCode from "./sandbox-scripts/providers/media/music/spot
 import youtubeMusicScriptCode from "./sandbox-scripts/providers/media/music/youtube-music.sandbox.js" with { type: "text" };
 import itunesPodcastScriptCode from "./sandbox-scripts/providers/media/podcast/itunes.sandbox.js" with { type: "text" };
 import listennotesPodcastScriptCode from "./sandbox-scripts/providers/media/podcast/listennotes.sandbox.js" with { type: "text" };
-import tmdbShowScriptCode from "./sandbox-scripts/providers/media/show/tmdb.sandbox.js" with { type: "text" };
 import tvdbShowScriptCode from "./sandbox-scripts/providers/media/show/tvdb.sandbox.js" with { type: "text" };
 import giantBombVideoGameScriptCode from "./sandbox-scripts/providers/media/video-game/giant-bomb.sandbox.js" with { type: "text" };
 import igdbVideoGameScriptCode from "./sandbox-scripts/providers/media/video-game/igdb.sandbox.js" with { type: "text" };
@@ -50,9 +55,6 @@ import spotifyPersonScriptCode from "./sandbox-scripts/providers/person/spotify.
 import tmdbPersonScriptCode from "./sandbox-scripts/providers/person/tmdb.sandbox.js" with { type: "text" };
 import tvdbPersonScriptCode from "./sandbox-scripts/providers/person/tvdb.sandbox.js" with { type: "text" };
 import youtubeMusicPersonScriptCode from "./sandbox-scripts/providers/person/youtube-music.sandbox.js" with { type: "text" };
-import integrationPushHelperCode from "./sandbox-scripts/script-helpers/integration-push.sandbox.js" with { type: "text" };
-import titleCaseDelimiterHelperCode from "./sandbox-scripts/script-helpers/title-case-delimiters.sandbox.js" with { type: "text" };
-import titleCaseHelperCode from "./sandbox-scripts/script-helpers/title-case.sandbox.js" with { type: "text" };
 import autoCompleteOnFullProgressScriptCode from "./sandbox-scripts/triggers/auto-complete-on-full-progress.sandbox.js" with { type: "text" };
 import integrationProgressPolicyScriptCode from "./sandbox-scripts/triggers/integration-progress-policy.sandbox.js" with { type: "text" };
 import jellyfinPushScriptCode from "./sandbox-scripts/triggers/jellyfin-push.sandbox.js" with { type: "text" };
@@ -83,22 +85,6 @@ const script = (
 		allowedHostFunctions: BUILTIN_ALLOWED_HOST_FUNCTIONS,
 	},
 });
-
-const injectHelpers = (helperCode: string, names: string, code: string) =>
-	`const { ${names} } = (function () {\n${helperCode}\n})();\n\n${code}`;
-
-const withTitleCaseHelper = (code: string) =>
-	injectHelpers(titleCaseHelperCode, "toTitleCase", code);
-
-const withDelimiterTitleCaseHelper = (code: string) =>
-	injectHelpers(titleCaseDelimiterHelperCode, "toTitleCase", code);
-
-const withPushHelpers = (code: string) =>
-	injectHelpers(
-		integrationPushHelperCode,
-		"normalizeBaseUrl, parseJsonBody, integrationsDisabledForUser, listActiveIntegrations, fetchEntity, resolveEntityProviderName, collectionSyncMatches",
-		code,
-	);
 
 const providerScript = (
 	name: string,
@@ -232,9 +218,7 @@ export const builtinSandboxScripts = () => [
 	translatedProviderScript("TMDB", "movie.tmdb", tmdbMovieScriptCode, "tmdb", "en", [
 		"providers.tmdbAccessToken",
 	]),
-	translatedProviderScript("TMDB", "show.tmdb", tmdbShowScriptCode, "tmdb", "en", [
-		"providers.tmdbAccessToken",
-	]),
+	sandboxShowDotTmdbScript,
 	translatedProviderScript("TMDB", "person.tmdb", tmdbPersonScriptCode, "tmdb", "en", [
 		"providers.tmdbAccessToken",
 	]),
