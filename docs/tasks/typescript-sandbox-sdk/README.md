@@ -385,9 +385,9 @@ The Deno runner will load the compiled JavaScript as an in-memory ES module inst
 
 ## Tasks
 
-**Overall Progress:** 4 of 18 tasks completed
+**Overall Progress:** 5 of 18 tasks completed
 
-**Current Task:** [Task 05](./05-diagnostics-and-resource-limits.md) (todo)
+**Current Task:** [Task 06](./06-built-in-provider-compilation-tracer.md) (todo)
 
 ### Task List
 
@@ -397,7 +397,7 @@ The Deno runner will load the compiled JavaScript as an in-memory ES module inst
 | 02  | [Core Host Capability Contracts](./02-core-host-capability-contracts.md)                       | AFK  | done   |
 | 03  | [Domain Host Capability Contracts](./03-domain-host-capability-contracts.md)                   | AFK  | done   |
 | 04  | [Approved Runtime Dependencies](./04-approved-runtime-dependencies.md)                         | AFK  | done   |
-| 05  | [Diagnostics and Resource Limits](./05-diagnostics-and-resource-limits.md)                     | AFK  | todo   |
+| 05  | [Diagnostics and Resource Limits](./05-diagnostics-and-resource-limits.md)                     | AFK  | done   |
 | 06  | [Built-In Provider Compilation Tracer](./06-built-in-provider-compilation-tracer.md)           | AFK  | todo   |
 | 07  | [Typed Trigger Migration](./07-typed-trigger-migration.md)                                     | AFK  | todo   |
 | 08  | [End-to-End Sandbox Fixtures](./08-end-to-end-sandbox-fixtures.md)                             | AFK  | todo   |
