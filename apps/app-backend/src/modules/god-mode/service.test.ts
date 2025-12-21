@@ -25,6 +25,7 @@ type UserRow = {
 
 const appConfig = {
 	port: 3000,
+	timezone: "Etc/GMT",
 	frontendUrl: "http://localhost:3000",
 	frontend: { oidcButtonLabel: Option.none() },
 	scheduler: { progressUpdateThresholdHours: 2 },

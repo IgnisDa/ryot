@@ -3,28 +3,39 @@ import { Config } from "effect";
 import { boolField, group, intField, optField, secretField, strField } from "./builder";
 
 const fields = {
-	port: intField("PORT", "HTTP port the server listens on", { default: 8000 }),
-	oidcClientId: optField(strField("SERVER_OIDC_CLIENT_ID", "OIDC client ID")),
-	oidcIssuerUrl: optField(strField("SERVER_OIDC_ISSUER_URL", "OIDC issuer URL")),
-	oidcClientSecret: optField(secretField("SERVER_OIDC_CLIENT_SECRET", "OIDC client secret")),
-	s3Url: optField(strField("FILE_STORAGE_S3_URL", "S3-compatible endpoint URL")),
 	s3Region: optField(strField("FILE_STORAGE_S3_REGION", "S3 bucket region")),
+	oidcClientId: optField(strField("SERVER_OIDC_CLIENT_ID", "OIDC client ID")),
+	port: intField("PORT", "HTTP port the server listens on", { default: 8000 }),
+	oidcIssuerUrl: optField(strField("SERVER_OIDC_ISSUER_URL", "OIDC issuer URL")),
+	s3Url: optField(strField("FILE_STORAGE_S3_URL", "S3-compatible endpoint URL")),
 	s3BucketName: optField(strField("FILE_STORAGE_S3_BUCKET_NAME", "S3 bucket name")),
 	s3AccessKeyId: optField(secretField("FILE_STORAGE_S3_ACCESS_KEY_ID", "S3 access key ID")),
-	s3SecretAccessKey: optField(
-		secretField("FILE_STORAGE_S3_SECRET_ACCESS_KEY", "S3 secret access key"),
-	),
-	redisUrl: secretField("REDIS_URL", "Redis connection string", {
-		default: "redis://localhost:6379",
-	}),
+	oidcClientSecret: optField(secretField("SERVER_OIDC_CLIENT_SECRET", "OIDC client secret")),
 	frontendUrl: strField("FRONTEND_URL", "Public URL of the frontend application", {
 		default: "http://localhost:3000",
 	}),
+	redisUrl: secretField("REDIS_URL", "Redis connection string", {
+		default: "redis://localhost:6379",
+	}),
+	s3SecretAccessKey: optField(
+		secretField("FILE_STORAGE_S3_SECRET_ACCESS_KEY", "S3 secret access key"),
+	),
 	databaseUrl: secretField("DATABASE_URL", "PostgreSQL connection string", {
 		default: "postgres://postgres:postgres@localhost:5432/postgres",
 	}),
 	oidcButtonLabel: optField(
 		strField("FRONTEND_OIDC_BUTTON_LABEL", "Label for the OIDC sign-in button"),
+	),
+	corsOrigins: optField(
+		strField("SERVER_CORS_ORIGINS", "Comma-separated list of allowed CORS origins"),
+	),
+	jobIdSecret: secretField("SANDBOX_JOB_ID_SECRET", "Secret used to sign sandbox job identifiers", {
+		default: "changeme",
+	}),
+	timezone: strField(
+		"TZ",
+		"IANA timezone used for interpreting timezone-less datetimes during imports",
+		{ default: "Etc/GMT" },
 	),
 	allowRegistration: boolField(
 		"USERS_ALLOW_REGISTRATION",
@@ -50,12 +61,6 @@ const fields = {
 		"SANDBOX_DENO_DIR",
 		"Directory used by Deno for caching modules inside the sandbox",
 		{ default: "/tmp/ryot-sandbox-deno" },
-	),
-	jobIdSecret: secretField("SANDBOX_JOB_ID_SECRET", "Secret used to sign sandbox job identifiers", {
-		default: "changeme",
-	}),
-	corsOrigins: optField(
-		strField("SERVER_CORS_ORIGINS", "Comma-separated list of allowed CORS origins"),
 	),
 	adminAccessToken: secretField(
 		"SERVER_ADMIN_ACCESS_TOKEN",
@@ -156,6 +161,7 @@ export const systemConfigDefinition = group(
 		server: serverGroup.config,
 		sandbox: sandboxGroup.config,
 		frontend: frontendGroup.config,
+		timezone: fields.timezone.config,
 		redisUrl: fields.redisUrl.config,
 		scheduler: schedulerGroup.config,
 		fileStorage: fileStorageGroup.config,
@@ -168,6 +174,7 @@ export const systemConfigDefinition = group(
 		server: serverGroup.meta,
 		sandbox: sandboxGroup.meta,
 		frontend: frontendGroup.meta,
+		timezone: fields.timezone.meta,
 		redisUrl: fields.redisUrl.meta,
 		scheduler: schedulerGroup.meta,
 		fileStorage: fileStorageGroup.meta,

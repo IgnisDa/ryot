@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { CurrentDb, dbEffect, schema } from "~/lib/db";
@@ -121,6 +121,27 @@ const toSavedRelationship = (row: RelationshipRow) => ({
 
 export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("EntitiesRepository", {
 	sync: () => ({
+		listMatchCandidatesBySchema: (input: { userId: string; entitySchemaId: string }) =>
+			Effect.gen(function* () {
+				const db = yield* CurrentDb;
+				const rows = yield* dbEffect(() =>
+					db
+						.select(entitySelection)
+						.from(schema.entity)
+						.where(
+							and(
+								entityVisibleToUserClause(input.userId),
+								eq(schema.entity.entitySchemaId, input.entitySchemaId),
+							),
+						)
+						.orderBy(
+							sql`case when ${schema.entity.userId} = ${input.userId} then 0 else 1 end`,
+							asc(schema.entity.name),
+							asc(schema.entity.createdAt),
+						),
+				);
+				return rows.map(toListedEntity);
+			}),
 		getEntitySchemaScopeForUser: (input: { userId: string; entitySchemaId: string }) =>
 			Effect.gen(function* () {
 				const db = yield* CurrentDb;

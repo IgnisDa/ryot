@@ -1,7 +1,6 @@
 import { getBackendUrl } from "../setup";
 import { requirePresent, requireResponseData } from "../test-support/assertions";
 import type { Client } from "./auth";
-import type { ClientBody } from "./backend-client";
 import { pollUntil } from "./polling";
 
 const OPENSCALE_SAMPLE_CSV = `dateTime,weight,bmi,fat,water,muscle,comment
@@ -17,7 +16,7 @@ export async function uploadTemporaryFile(
 	mimeType: string,
 ): Promise<string> {
 	const formData = new FormData();
-	formData.append("files[]", new File([content], fileName, { type: mimeType }));
+	formData.append("files", new File([content], fileName, { type: mimeType }), fileName);
 
 	const response = await fetch(`${getBackendUrl()}/uploads/temporary`, {
 		body: formData,
@@ -26,8 +25,7 @@ export async function uploadTemporaryFile(
 	});
 
 	const tokens: string[] = await response.json();
-	const token = requirePresent(tokens[0], "Upload token is missing");
-	return token;
+	return requirePresent(tokens[0], "Upload token is missing");
 }
 
 export async function startOpenScaleImport(
@@ -37,9 +35,7 @@ export async function startOpenScaleImport(
 ): Promise<string> {
 	const { data, response } = await client.imports.createRun({
 		headers: { Cookie: cookies },
-		// TODO(Task 26): Remove this tests-only import payload assertion once the
-		// public AppContract includes source-specific import bodies.
-		body: { source: "open_scale", uploadToken } as unknown as ClientBody<"imports", "createRun">,
+		body: { source: "open_scale", uploadToken },
 	});
 
 	const result = requireResponseData(response, data, "Failed to start import run");
@@ -48,8 +44,8 @@ export async function startOpenScaleImport(
 
 export async function getImportRun(client: Client, cookies: string, runId: string) {
 	const { data, response } = await client.imports.getRun({
-		params: { path: { runId } },
 		headers: { Cookie: cookies },
+		params: { path: { runId }, query: {} },
 	});
 
 	return requireResponseData(response, data, `Failed to get import run '${runId}'`);
@@ -78,6 +74,31 @@ export async function runOpenScaleImportFixture(client: Client, cookies: string)
 	);
 
 	const runId = await startOpenScaleImport(client, cookies, uploadToken);
+	const completedRun = await pollImportRunUntilTerminal(client, cookies, runId);
+	return { runId, completedRun };
+}
+
+const HEVY_SAMPLE_CSV = `title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_order,weight_kg,reps,set_type,distance_m,duration_seconds
+Push Day,2026-01-01T10:00:00,2026-01-01T11:00:00,Good session,Bench Press,,Felt strong,1,100,5,normal,,
+Push Day,2026-01-01T10:00:00,2026-01-01T11:00:00,Good session,Bench Press,,,2,100,5,normal,,
+Push Day,2026-01-01T10:00:00,2026-01-01T11:00:00,Good session,Squat,,,1,140,3,normal,,
+`;
+
+export async function runHevyImportFixture(client: Client, cookies: string) {
+	const uploadToken = await uploadTemporaryFile(
+		cookies,
+		HEVY_SAMPLE_CSV,
+		"hevy-export.csv",
+		"text/csv",
+	);
+
+	const { data, response } = await client.imports.createRun({
+		headers: { Cookie: cookies },
+		body: { source: "hevy", uploadToken },
+	});
+	const result = requireResponseData(response, data, "Failed to start hevy import run");
+	const runId = requirePresent(result.id, "Import run id is missing");
+
 	const completedRun = await pollImportRunUntilTerminal(client, cookies, runId);
 	return { runId, completedRun };
 }

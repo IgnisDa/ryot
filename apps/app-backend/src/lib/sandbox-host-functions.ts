@@ -49,12 +49,15 @@ const listScopeRequiredError = "Either entityId or sessionEntityId is required";
 const configEnvKeyByPath = {
 	"music.spotify.clientId": "MUSIC_SPOTIFY_CLIENT_ID",
 	"books.hardcover.apiKey": "BOOKS_HARDCOVER_API_KEY",
+	"books.googleBooks.apiKey": "BOOKS_GOOGLE_BOOKS_API_KEY",
 	"comicBooks.metron.password": "COMIC_BOOK_METRON_PASSWORD",
 	"comicBooks.metron.username": "COMIC_BOOK_METRON_USERNAME",
 	"music.spotify.clientSecret": "MUSIC_SPOTIFY_CLIENT_SECRET",
 	"videoGames.twitch.clientId": "VIDEO_GAMES_TWITCH_CLIENT_ID",
 	"podcasts.listenNotes.apiKey": "PODCASTS_LISTENNOTES_API_KEY",
 	"moviesAndShows.tvdb.apiKey": "MOVIES_AND_SHOWS_TVDB_API_KEY",
+	"animeAndManga.mal.clientId": "ANIME_AND_MANGA_MAL_CLIENT_ID",
+	"videoGames.giantBomb.apiKey": "VIDEO_GAMES_GIANT_BOMB_API_KEY",
 	"videoGames.twitch.clientSecret": "VIDEO_GAMES_TWITCH_CLIENT_SECRET",
 	"moviesAndShows.tmdb.accessToken": "MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN",
 } as const;
