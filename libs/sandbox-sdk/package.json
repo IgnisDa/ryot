@@ -7,9 +7,29 @@
 			"types": "./src/index.ts",
 			"default": "./src/index.ts"
 		},
+		"./cheerio": {
+			"types": "./src/cheerio.ts",
+			"default": "./src/cheerio.ts"
+		},
+		"./dayjs": {
+			"types": "./src/dayjs.ts",
+			"default": "./src/dayjs.ts"
+		},
+		"./dayjs/custom-parse-format": {
+			"types": "./src/dayjs-custom-parse-format.ts",
+			"default": "./src/dayjs-custom-parse-format.ts"
+		},
 		"./testing": {
 			"types": "./src/testing.ts",
 			"default": "./src/testing.ts"
+		},
+		"./youtubei": {
+			"types": "./src/youtubei.ts",
+			"default": "./src/youtubei.ts"
+		},
+		"./zod": {
+			"types": "./src/zod.ts",
+			"default": "./src/zod.ts"
 		}
 	},
 	"scripts": {
@@ -18,6 +38,9 @@
 		"check": "tsc && tsc --project tests/tsconfig.json && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
+		"cheerio": "1.2.0",
+		"dayjs": "1.11.21",
+		"youtubei.js": "17.2.0",
 		"zod": "4.4.3"
 	}
 }

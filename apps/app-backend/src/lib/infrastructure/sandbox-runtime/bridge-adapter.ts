@@ -3,8 +3,8 @@ import {
 	createEventItemSchema,
 	listEventsQuerySchema,
 	listIntegrationsOptionsSchema,
-	z,
 } from "@ryot/sandbox-sdk";
+import * as z from "@ryot/sandbox-sdk/zod";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 
 import {
