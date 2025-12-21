@@ -12,7 +12,7 @@ import {
 	seedMediaEntity,
 	waitForEventCount,
 } from "~/fixtures";
-import { assertTaggedError, requireNumber, requireObjectRecord } from "~/support/assertions";
+import { requireNumber, requireObjectRecord } from "~/support/assertions";
 
 const getProgressPercent = (properties: unknown) =>
 	requireNumber(
@@ -158,7 +158,7 @@ describe("Events built-in status schemas", () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, completeEventSchemaId } = await createBuiltinMediaLifecycleFixture(apiClient);
 
-		const error = await apiClient.runError((c) =>
+		const result = await apiClient.run((c) =>
 			c.events.create({
 				payload: [
 					{
@@ -170,7 +170,11 @@ describe("Events built-in status schemas", () => {
 			}),
 		);
 
-		assertTaggedError(error, "BadRequest");
+		expect(result).toMatchObject({
+			count: 0,
+			outcomes: [],
+			failure: { index: 0, reason: { kind: "bad_request" } },
+		});
 	});
 
 	it("creates repeated built-in review events before completion exists", async () => {
@@ -255,7 +259,7 @@ describe("Events built-in status schemas", () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, droppedEventSchemaId } = await createBuiltinMediaLifecycleFixture(apiClient);
 
-		const error = await apiClient.runError((c) =>
+		const result = await apiClient.run((c) =>
 			c.events.create({
 				payload: [
 					{
@@ -267,7 +271,11 @@ describe("Events built-in status schemas", () => {
 			}),
 		);
 
-		assertTaggedError(error, "BadRequest");
+		expect(result).toMatchObject({
+			count: 0,
+			outcomes: [],
+			failure: { index: 0, reason: { kind: "bad_request" } },
+		});
 	});
 
 	it("creates built-in dropped events with rounded progress values", async () => {
