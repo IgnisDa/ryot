@@ -4,6 +4,7 @@ import type { SandboxRunError } from "@ryot/contract/errors";
 import { badRequest, unknownToMessage } from "@ryot/contract/errors";
 import {
 	AutomationPolicyResult,
+	AutomationProperties,
 	AutomationRuleMetadata,
 } from "@ryot/contract/modules/automations/schemas";
 import type {
@@ -24,14 +25,9 @@ import { resolveEventCreateItemScopes } from "./event-creation";
 const policyFailed = (detail: string) => badRequest(`Policy failed: ${detail}`);
 const invalidPolicyResultShape = "Policy returned invalid shape";
 
-export const EventPolicyProperties = Schema.Record({
-	key: Schema.String,
-	value: AutomationRuleMetadata,
-});
-
 export const EventPolicyDraft = Schema.Struct({
 	occurredAt: Schema.String,
-	properties: EventPolicyProperties,
+	properties: AutomationProperties,
 	sessionEntityId: Schema.optional(EntityId),
 });
 
@@ -53,7 +49,7 @@ type PolicyPreparation = {
 	eventSchemaId: EventSchemaId;
 	entitySchemaId: EntitySchemaId;
 	sessionEntityId?: EntityId | undefined;
-	properties: typeof EventPolicyProperties.Type;
+	properties: typeof AutomationProperties.Type;
 	policies: ReadonlyArray<typeof PreparedEventPolicy.Type>;
 };
 
@@ -62,7 +58,7 @@ type ProcessSandboxExecution = (
 ) => Effect.Effect<SandboxCompletedResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 
 export const decodeEventPolicyProperties = (properties: unknown) =>
-	Schema.decodeUnknown(EventPolicyProperties)(properties).pipe(
+	Schema.decodeUnknown(AutomationProperties)(properties).pipe(
 		Effect.mapError(() => badRequest("Event properties must be JSON-serializable")),
 	);
 
