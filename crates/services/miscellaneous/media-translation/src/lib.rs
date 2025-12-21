@@ -51,8 +51,9 @@ fn merge_languages(existing: &Option<Vec<String>>, preferred_language: &str) -> 
 
 fn build_translation_models(
     input: &EntityWithLot,
-    preferred_language: &str,
     title: Option<String>,
+    image: Option<String>,
+    preferred_language: &str,
     description: Option<String>,
 ) -> Vec<entity_translation::ActiveModel> {
     let model_for = |variant: EntityTranslationVariant, value: Option<String>| {
@@ -78,6 +79,7 @@ fn build_translation_models(
 
     vec![
         model_for(EntityTranslationVariant::Title, title),
+        model_for(EntityTranslationVariant::Image, image),
         model_for(EntityTranslationVariant::Description, description),
     ]
 }
@@ -85,6 +87,7 @@ fn build_translation_models(
 async fn replace_entity_translations(
     input: &EntityWithLot,
     title: Option<String>,
+    image: Option<String>,
     preferred_language: &str,
     description: Option<String>,
     ss: &Arc<SupportingService>,
@@ -95,7 +98,8 @@ async fn replace_entity_translations(
         .filter(entity_translation::Column::Language.eq(preferred_language))
         .exec(&ss.db)
         .await?;
-    let translations = build_translation_models(input, preferred_language, title, description);
+    let translations =
+        build_translation_models(input, title, image, preferred_language, description);
     let result = EntityTranslation::insert_many(translations)
         .on_conflict(OnConflict::new().do_nothing().to_owned())
         .exec_without_returning(&ss.db)
@@ -125,11 +129,12 @@ pub async fn update_media_translation(
                 .await
             {
                 replace_entity_translations(
-                    ss,
                     &input,
-                    &preferred_language,
                     trn.title,
+                    trn.image,
+                    &preferred_language,
                     trn.description,
+                    ss,
                 )
                 .await?;
             }
@@ -167,6 +172,7 @@ pub async fn update_media_translation(
                 replace_entity_translations(
                     &input,
                     trn.title,
+                    trn.image,
                     &preferred_language,
                     trn.description,
                     ss,

@@ -734,6 +734,7 @@ export type EntityToCollectionInput = {
 export type EntityTranslationDetails = {
   __typename?: 'EntityTranslationDetails';
   description?: Maybe<Scalars['String']['output']>;
+  image?: Maybe<Scalars['String']['output']>;
   title?: Maybe<Scalars['String']['output']>;
 };
 
