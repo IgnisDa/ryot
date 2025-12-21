@@ -1,12 +1,35 @@
 import { describe, expect, it } from "bun:test";
 
-import { UserId } from "@ryot/contract/schema/brands";
+import { EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 
-import { ADMIN_TOKEN, adminAccessTokenHeaders, getBackendClient } from "~/fixtures";
+import {
+	ADMIN_TOKEN,
+	adminAccessTokenHeaders,
+	cleanupBuiltinProviderScript,
+	createEntity,
+	createNotificationChannel,
+	enableMediaMonitoring,
+	enqueueEntityImport,
+	fakeProviderDetailsResult,
+	findBuiltinSchemaBySlug,
+	getBackendClient,
+	getBuiltinEntitySchemaId,
+	pollEntityImportResult,
+	pollSignalId,
+	pollSignalRecipientCount,
+	pollTerminalSubscriptionRunStatuses,
+	queryAutomationRuleCount,
+	querySignalId,
+	querySignalRecipientUserIds,
+	querySubscriptionRunStatuses,
+	seedBuiltinProviderScript,
+	seedMediaEntity,
+	startFakeAppriseServer,
+} from "~/fixtures";
 import { createAuthenticatedClient } from "~/fixtures/auth";
 import { createTracker } from "~/fixtures/trackers";
 import { getBackendUrl, getPgClient } from "~/setup";
-import { assertTaggedError } from "~/support/assertions";
+import { assertCompleted, assertTaggedError } from "~/support/assertions";
 
 const WRONG_TOKEN = "wrong-token";
 const trackersListQuery = { includeDisabled: false };
@@ -102,5 +125,161 @@ describe("Delete user", () => {
 			{ "X-Api-Key": apiKey },
 		);
 		assertTaggedError(revokedApiKey, "Unauthorized");
+	});
+});
+
+describe("Delete user automation data cleanup", () => {
+	it("removes a deleted user's private actor-audience signal and subscription run", async () => {
+		const client = getBackendClient();
+		const { userId: rawUserId, client: userClient } = await createAuthenticatedClient();
+		const userId = UserId.make(rawUserId);
+		const { schema } = await findBuiltinSchemaBySlug(userClient, "workout");
+		const workoutName = `Delete User E2E Workout ${crypto.randomUUID()}`;
+		await createEntity(userClient, {
+			name: workoutName,
+			entitySchemaId: schema.id,
+			properties: { endedAt: "2026-07-21T11:00:00Z", startedAt: "2026-07-21T10:00:00Z" },
+		});
+
+		const signalId = await pollSignalId({ schemaSlug: "workout.created", actorUserId: rawUserId });
+		await pollTerminalSubscriptionRunStatuses({ executionUserId: rawUserId, signalId });
+
+		await client.run(
+			(c) => c.godMode.deleteUser({ path: { userId } }),
+			adminAccessTokenHeaders(ADMIN_TOKEN),
+		);
+
+		expect(
+			await querySignalId({ schemaSlug: "workout.created", actorUserId: rawUserId }),
+		).toBeNull();
+		expect(await querySubscriptionRunStatuses({ executionUserId: rawUserId, signalId })).toEqual(
+			[],
+		);
+	});
+
+	it("removes only the deleted recipient's row from a shared signal, preserving it for other recipients", async () => {
+		const movieName = "Delete User E2E Movie";
+		const personName = "Delete User E2E Person";
+		const movieExternalId = `delete-user-movie-${crypto.randomUUID()}`;
+		const personExternalId = `delete-user-person-${crypto.randomUUID()}`;
+
+		const { client: compilerClient } = await createAuthenticatedClient();
+		const personSchemaId = await getBuiltinEntitySchemaId("person");
+		const movieSchemaId = await getBuiltinEntitySchemaId("movie");
+		const personProvider = await seedBuiltinProviderScript({
+			client: compilerClient,
+			linkToEntitySchemaId: personSchemaId,
+			slug: `person.delete-user-e2e-${crypto.randomUUID()}`,
+			drivers: { details: fakeProviderDetailsResult({ name: personName }) },
+		});
+		const movieProvider = await seedBuiltinProviderScript({
+			client: compilerClient,
+			slug: `movie.delete-user-e2e-${crypto.randomUUID()}`,
+			drivers: {
+				details: fakeProviderDetailsResult({
+					name: movieName,
+					relatedEntityGroups: [
+						{
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "person-to-movie",
+							entities: [
+								{
+									name: personName,
+									externalId: personExternalId,
+									scriptSlug: personProvider.slug,
+									relationshipProperties: { roles: ["Actor"] },
+								},
+							],
+						},
+					],
+				}),
+			},
+		});
+
+		try {
+			const person = await seedMediaEntity({
+				properties: {},
+				name: personName,
+				externalId: personExternalId,
+				entitySchemaId: personSchemaId,
+				sandboxScriptId: personProvider.scriptId,
+			});
+
+			const fakeApprise = await startFakeAppriseServer();
+			try {
+				const firstMonitor = await createAuthenticatedClient();
+				const secondMonitor = await createAuthenticatedClient();
+				const importer = await createAuthenticatedClient();
+				await Promise.all([
+					createNotificationChannel(firstMonitor.client, {
+						channel: "apprise",
+						channelSpecifics: { baseUrl: fakeApprise.url, key: "first", kind: "apprise" },
+					}),
+					createNotificationChannel(secondMonitor.client, {
+						channel: "apprise",
+						channelSpecifics: { baseUrl: fakeApprise.url, key: "second", kind: "apprise" },
+					}),
+				]);
+				await Promise.all([
+					enableMediaMonitoring(firstMonitor.client, person.id),
+					enableMediaMonitoring(secondMonitor.client, person.id),
+				]);
+
+				const { jobId } = await enqueueEntityImport(importer.client, {
+					externalId: movieExternalId,
+					entitySchemaId: EntitySchemaId.make(movieSchemaId),
+					scriptId: SandboxScriptId.make(movieProvider.scriptId),
+				});
+				const imported = await pollEntityImportResult(importer.client, jobId, {
+					timeoutMs: 30_000,
+				});
+				assertCompleted(imported, "delete-user shared association import");
+
+				const signalId = await pollSignalId({
+					schemaSlug: "person.media.associated",
+					subjectEntityId: person.id,
+				});
+				await pollSignalRecipientCount(signalId, 2);
+				await Promise.all([
+					pollTerminalSubscriptionRunStatuses({
+						signalId,
+						executionUserId: firstMonitor.userId,
+					}),
+					pollTerminalSubscriptionRunStatuses({
+						signalId,
+						executionUserId: secondMonitor.userId,
+					}),
+				]);
+				const rulesBeforeDeletion = await queryAutomationRuleCount(secondMonitor.userId);
+				expect(rulesBeforeDeletion).toBeGreaterThan(0);
+
+				await getBackendClient().run(
+					(c) => c.godMode.deleteUser({ path: { userId: UserId.make(firstMonitor.userId) } }),
+					adminAccessTokenHeaders(ADMIN_TOKEN),
+				);
+
+				expect(
+					await querySignalId({
+						subjectEntityId: person.id,
+						schemaSlug: "person.media.associated",
+					}),
+				).toBe(signalId);
+				expect(await querySignalRecipientUserIds(signalId)).toEqual([secondMonitor.userId]);
+				expect(
+					await querySubscriptionRunStatuses({ signalId, executionUserId: firstMonitor.userId }),
+				).toEqual([]);
+				expect(
+					await querySubscriptionRunStatuses({ signalId, executionUserId: secondMonitor.userId }),
+				).not.toEqual([]);
+				expect(await queryAutomationRuleCount(firstMonitor.userId)).toBe(0);
+				expect(await queryAutomationRuleCount(secondMonitor.userId)).toBe(rulesBeforeDeletion);
+			} finally {
+				fakeApprise.stop();
+			}
+		} finally {
+			await cleanupBuiltinProviderScript(movieProvider);
+			await cleanupBuiltinProviderScript(personProvider);
+		}
 	});
 });
