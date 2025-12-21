@@ -1638,10 +1638,7 @@ export type MutationRoot = {
   loginUser: LoginResult;
   /** Logout the current user by invalidating their session. */
   logoutUser: Scalars['Boolean']['output'];
-  /**
-   * Mark an entity as partial. This will make it eligible to get its details and
-   * translations updated from external sources.
-   */
+  /** Mark an entity as partial. */
   markEntityAsPartial: Scalars['Boolean']['output'];
   /** Merge an exercise into another. */
   mergeExercise: Scalars['Boolean']['output'];

@@ -127,7 +127,7 @@ const getJobDetails = (job: BackgroundJob) =>
 			() =>
 				[
 					"Update all metadata",
-					"Fetch and update the metadata for all the media items that are stored. The more media you have, the longer this will take. This also updates people and group data from remote providers.",
+					"Update all the media items that are stored to be partial so that the next time you view them, they will be automatically updated in the background.",
 					true,
 				] as const,
 		)
