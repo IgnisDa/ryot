@@ -2,7 +2,7 @@ type CustomEntityScope = {
 	isBuiltin: boolean;
 };
 
-export type CustomEntityAccessError = "builtin" | "not_found";
+export type CustomEntityAccessError = "not_found";
 
 type CustomEntitySchemaAccessResult<T extends CustomEntityScope> =
 	| { error: CustomEntityAccessError }
@@ -13,9 +13,6 @@ export const resolveCustomEntitySchemaAccess = <T extends CustomEntityScope>(
 ): CustomEntitySchemaAccessResult<T> => {
 	if (!entitySchema) {
 		return { error: "not_found" as const };
-	}
-	if (entitySchema.isBuiltin) {
-		return { error: "builtin" as const };
 	}
 
 	return { entitySchema };
