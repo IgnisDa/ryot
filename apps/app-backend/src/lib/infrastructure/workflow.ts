@@ -20,18 +20,19 @@ const WorkflowPgClientLive = Layer.unwrapEffect(
 
 // TODO: https://github.com/Effect-TS/effect/issues/6317
 // @effect/cluster's SqlMessageStorage migration creates cluster_messages with
-// message_id VARCHAR(255), but the dedupe key it stores there is
-// `${entityType}/${executionId}/${tag}/${primaryKey}`, and for a DurableQueue
-// deferred the primaryKey embeds the execution id twice more. Chained workflows
-// (import -> population -> sandbox queue, interest population dispatch) compose
-// execution ids by suffixing, so their deferred-done messages exceed 255 chars
-// and every persist attempt dies with "value too long", leaving the awaiting
-// workflow suspended (or dead) forever. Widen the column until upstream shrinks
-// the key (the source has a "hash the entity address to save space?" note);
-// drop once the fix lands.
-const widenClusterMessageIdColumn = Effect.flatMap(
+// message_id and entity_id both VARCHAR(255). message_id stores the dedupe key
+// `${entityType}/${executionId}/${tag}/${primaryKey}` (for a DurableQueue
+// deferred the primaryKey embeds the execution id twice more), and entity_id
+// stores the raw execution id directly. Chained workflows (import -> population
+// -> sandbox queue, interest population dispatch) compose execution ids by
+// suffixing, so either column can exceed 255 chars and every persist attempt
+// dies with "value too long", leaving the awaiting workflow suspended (or dead)
+// forever. Widen both columns until upstream shrinks the key (the source has a
+// "hash the entity address to save space?" note); drop once the fix lands.
+const widenClusterMessageColumns = Effect.flatMap(
 	PgClient.PgClient,
-	(sql) => sql`ALTER TABLE cluster_messages ALTER COLUMN message_id TYPE text`,
+	(sql) =>
+		sql`ALTER TABLE cluster_messages ALTER COLUMN message_id TYPE text, ALTER COLUMN entity_id TYPE text`,
 ).pipe(Effect.orDie, Effect.asVoid);
 
 // TODO: https://github.com/Effect-TS/effect/issues/6294
@@ -47,7 +48,7 @@ export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
 				shardLockDisableAdvisory: true,
 				entityMessagePollInterval: Duration.millis(250),
 			},
-		}).pipe(Layer.tap(() => widenClusterMessageIdColumn)),
+		}).pipe(Layer.tap(() => widenClusterMessageColumns)),
 	),
 	Layer.provide(WorkflowPgClientLive),
 );
