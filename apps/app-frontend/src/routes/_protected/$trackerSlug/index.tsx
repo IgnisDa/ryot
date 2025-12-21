@@ -67,70 +67,24 @@ function TrackerHeader(props: { tracker: AppTracker }) {
 	);
 }
 
-function BuiltinTrackerSection(props: { tracker: AppTracker }) {
-	const [activeSchemaId, setActiveSchemaId] = useState<string | null>(null);
-	const entitySchemasQuery = useEntitySchemasQuery(props.tracker.id, true);
-	const searchableSchemas = entitySchemasQuery.entitySchemas.filter(
-		(s) => s.searchProviders.length > 0,
-	);
-	const activeSchema = entitySchemasQuery.entitySchemas.find(
-		(s) => s.id === activeSchemaId,
-	);
-
-	return (
-		<Stack gap="xl">
-			<TrackerHeader tracker={props.tracker} />
-
-			{entitySchemasQuery.isLoading && (
-				<Center py="sm">
-					<Loader size="sm" />
-				</Center>
-			)}
-
-			{!entitySchemasQuery.isLoading && searchableSchemas.length > 0 && (
-				<Group>
-					{searchableSchemas.map((schema) => (
-						<Button
-							key={schema.id}
-							variant="light"
-							onClick={() => setActiveSchemaId(schema.id)}
-						>
-							Add {schema.name}
-						</Button>
-					))}
-				</Group>
-			)}
-
-			{activeSchema && (
-				<SearchEntityModal
-					opened={activeSchemaId !== null}
-					onClose={() => setActiveSchemaId(null)}
-					entitySchema={activeSchema}
-					onEntityAdded={() => {}}
-				/>
-			)}
-		</Stack>
-	);
-}
-
-type CustomTrackerModalState =
+type TrackerModalState =
 	| null
 	| { type: "entity-schema" }
 	| { type: "event"; entity: AppEntity }
 	| { type: "entity"; entitySchemaId: string }
 	| { type: "event-schema"; entitySchemaId: string };
 
-function CustomTrackerSchemaSection(props: { tracker: AppTracker }) {
-	const [openedModal, setOpenedModal] = useState<CustomTrackerModalState>(null);
+function TrackerSchemaSection(props: { tracker: AppTracker }) {
+	const [openedModal, setOpenedModal] = useState<TrackerModalState>(null);
+	const [activeSearchSchemaId, setActiveSearchSchemaId] = useState<
+		string | null
+	>(null);
 	const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(
 		null,
 	);
 
-	const entitySchemasQuery = useEntitySchemasQuery(
-		props.tracker.id,
-		!props.tracker.isBuiltin,
-	);
 	const entitySchemaMutations = useEntitySchemaMutations(props.tracker.id);
+	const entitySchemasQuery = useEntitySchemasQuery(props.tracker.id, true);
 
 	const primaryEntitySchema = entitySchemasQuery.entitySchemas[0];
 	const selectedEntitySchema =
@@ -155,6 +109,13 @@ function CustomTrackerSchemaSection(props: { tracker: AppTracker }) {
 		tracker: props.tracker,
 		entitySchemas: entitySchemasQuery.entitySchemas,
 	});
+
+	const searchableSchemas = entitySchemasQuery.entitySchemas.filter(
+		(s) => s.searchProviders.length > 0,
+	);
+	const activeSearchSchema = entitySchemasQuery.entitySchemas.find(
+		(s) => s.id === activeSearchSchemaId,
+	);
 
 	const openEntitySchemaModal = useCallback(() => {
 		setCreateErrorMessage(null);
@@ -305,14 +266,38 @@ function CustomTrackerSchemaSection(props: { tracker: AppTracker }) {
 			{viewState.type === "empty" && (
 				<Stack gap="xl">
 					<TrackerHeader tracker={props.tracker} />
-					<SetupGuidedFlow
-						tracker={props.tracker}
-						entitySchemas={entitySchemasQuery.entitySchemas}
-						onOpenCreateEntityModal={() => openEntityModal()}
-						onOpenCreateEntitySchemaModal={openEntitySchemaModal}
-						onOpenCreateEventSchemaModal={() => openEventSchemaModal()}
-					/>
+					{searchableSchemas.length > 0 && (
+						<Group>
+							{searchableSchemas.map((schema) => (
+								<Button
+									key={schema.id}
+									variant="light"
+									onClick={() => setActiveSearchSchemaId(schema.id)}
+								>
+									Add {schema.name}
+								</Button>
+							))}
+						</Group>
+					)}
+					{!props.tracker.isBuiltin && (
+						<SetupGuidedFlow
+							tracker={props.tracker}
+							entitySchemas={entitySchemasQuery.entitySchemas}
+							onOpenCreateEntityModal={() => openEntityModal()}
+							onOpenCreateEntitySchemaModal={openEntitySchemaModal}
+							onOpenCreateEventSchemaModal={() => openEventSchemaModal()}
+						/>
+					)}
 				</Stack>
+			)}
+
+			{activeSearchSchema && (
+				<SearchEntityModal
+					onEntityAdded={() => {}}
+					entitySchema={activeSearchSchema}
+					opened={activeSearchSchemaId !== null}
+					onClose={() => setActiveSearchSchemaId(null)}
+				/>
 			)}
 
 			{viewState.type === "list" && (
@@ -417,17 +402,9 @@ function RouteComponent() {
 		);
 	}
 
-	if (tracker.isBuiltin) {
-		return (
-			<Container size="md" py={56}>
-				<BuiltinTrackerSection tracker={tracker} />
-			</Container>
-		);
-	}
-
 	return (
 		<Container size="xl" py={56}>
-			<CustomTrackerSchemaSection tracker={tracker} />
+			<TrackerSchemaSection tracker={tracker} />
 		</Container>
 	);
 }

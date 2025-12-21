@@ -4,17 +4,6 @@ import { createTrackerFixture } from "#/features/trackers/test-fixtures";
 import { getTrackerEntitySchemaViewState } from "./model";
 
 describe("getTrackerEntitySchemaViewState", () => {
-	it("returns builtin for built-in trackers", () => {
-		const tracker = createTrackerFixture({ isBuiltin: true });
-
-		const state = getTrackerEntitySchemaViewState({
-			tracker,
-			entitySchemas: [createEntitySchemaFixture()],
-		});
-
-		expect(state).toEqual({ type: "builtin" });
-	});
-
 	it("returns empty when a custom tracker has no schemas", () => {
 		const tracker = createTrackerFixture({ isBuiltin: false });
 
