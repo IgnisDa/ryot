@@ -1,5 +1,4 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
 import { BadRequest, DbError } from "@ryot/contract/errors";
 import { TrackerId, UserId } from "@ryot/contract/schema/brands";
@@ -11,7 +10,7 @@ import { assert, describe, it as vitestIt } from "vitest";
 import * as schema from "#lib/infrastructure/db/schema/tables/auth";
 import { CurrentDb, DbRunner, DbService, TransactionRunner } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
-import { makeAppConfigLayer, makeRedisService, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { EntitiesService } from "#modules/entities/service";
@@ -148,11 +147,6 @@ const makeTransactionLayer = (db: object) =>
 		Effect.provideService(effect, CurrentDb, Object.assign(Object.create(null), db)),
 	);
 
-const workflowEngineLayer = Layer.succeed(
-	WorkflowEngine,
-	makeWorkflowEngine({ execute: () => Effect.void.pipe(Effect.as(undefined)) }),
-);
-
 const bootstrapEntitiesServiceLayer = Layer.mock(EntitiesService)({ _tag: "EntitiesService" });
 const bootstrapNotificationSubscriptionsServiceLayer = Layer.mock(NotificationSubscriptionsService)(
 	{
@@ -202,7 +196,6 @@ const makeServiceLayer = (
 				bootstrapNotificationSubscriptionsServiceLayer,
 				bootstrapSavedViewsServiceLayer,
 				bootstrapTrackersServiceLayer,
-				workflowEngineLayer,
 			),
 		),
 	);
@@ -225,7 +218,6 @@ const makeProvisionLayer = (
 				bootstrapNotificationSubscriptionsServiceLayer,
 				bootstrapSavedViewsServiceLayer,
 				bootstrapTrackersServiceLayer,
-				workflowEngineLayer,
 			),
 		),
 	);

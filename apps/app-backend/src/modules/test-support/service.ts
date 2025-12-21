@@ -1,3 +1,4 @@
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { badRequest } from "@ryot/contract/errors";
 import type {
 	EntityId,
@@ -18,6 +19,7 @@ import { TranslationsService } from "#modules/entity-translation/service";
 import { RelationshipSchemasService } from "#modules/relationship-schemas/service";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxApiService } from "#modules/sandbox/service";
+import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 
 type CreateGlobalEntityInput = {
 	readonly name: string;
@@ -38,6 +40,7 @@ const parseDate = (value: string) => {
 export class TestSupportService extends Effect.Service<TestSupportService>()("TestSupportService", {
 	effect: Effect.gen(function* () {
 		const auth = yield* AuthService;
+		const engine = yield* WorkflowEngine;
 		const entities = yield* EntitiesService;
 		const sandbox = yield* SandboxApiService;
 		const translations = yield* TranslationsService;
@@ -144,11 +147,25 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 			},
 		);
 
+		const triggerInfrequentCron = () =>
+			Effect.gen(function* () {
+				const executionId = `infrequent-cron-manual-${generateId()}`;
+				yield* engine
+					.execute(InfrequentCronWorkflow, {
+						executionId,
+						discard: true,
+						payload: { executionId },
+					})
+					.pipe(Effect.orDie);
+				return { executionId };
+			});
+
 		return {
 			linkAuthAccount,
 			createGlobalEntity,
 			deleteSandboxScript,
 			setEntityPopulatedAt,
+			triggerInfrequentCron,
 			upsertEntityTranslation,
 			upsertGlobalRelationship,
 			getSandboxScript: sandbox.getStoredScript,

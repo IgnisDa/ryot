@@ -44,6 +44,8 @@ const CreateGlobalEntityBody = Schema.Struct({
 	populatedAt: Schema.optional(Schema.NullOr(Schema.String)),
 });
 
+const TriggerInfrequentCronResponse = Schema.Struct({ executionId: Schema.String });
+
 const GlobalRelationshipListBody = Schema.Union(
 	Schema.Struct({
 		type: Schema.Literal("self"),
@@ -171,4 +173,9 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			)
 			.addSuccess(Schema.Struct({ id: Schema.String }), { status: 201 })
 			.addError(InternalError, { status: 500 }),
+	)
+	.add(
+		HttpApiEndpoint.post("triggerInfrequentCron", "/test-support/cron/infrequent").addSuccess(
+			TriggerInfrequentCronResponse,
+		),
 	);
