@@ -30,7 +30,14 @@ type EventsServiceShape = {
 	readonly createForImport: (
 		userId: string,
 		payload: ReadonlyArray<CreateEventItem>,
+		importRunId?: string,
 	) => Effect.Effect<CreateEventsResponse, BadRequest | DbError | NotFound>;
+	readonly createForIntegration: (input: {
+		userId: string;
+		importRunId: string;
+		integrationId: string;
+		payload: ReadonlyArray<CreateEventItem>;
+	}) => Effect.Effect<CreateEventsResponse, BadRequest | DbError | NotFound>;
 };
 
 export class EventsService extends Effect.Service<EventsService>()("EventsService", {
@@ -89,7 +96,7 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 					},
 					{ userId: user.id, origin: "api", payload },
 				),
-			createForImport: (userId, payload) =>
+			createForImport: (userId, payload, importRunId) =>
 				createEventsForUser(
 					{
 						runWithDb,
@@ -100,7 +107,26 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 						eventsRepository: repository,
 						runSandboxScript: (sandboxInput) => sandbox.run(sandboxInput),
 					},
-					{ userId, origin: "import", payload },
+					{ userId, payload, importRunId, origin: "import" },
+				),
+			createForIntegration: (input) =>
+				createEventsForUser(
+					{
+						runWithDb,
+						sandboxRepository,
+						entitiesRepository,
+						eventSchemasRepository,
+						workflowEngine: engine,
+						eventsRepository: repository,
+						runSandboxScript: (sandboxInput) => sandbox.run(sandboxInput),
+					},
+					{
+						userId: input.userId,
+						origin: "integration",
+						payload: input.payload,
+						importRunId: input.importRunId,
+						integrationId: input.integrationId,
+					},
 				),
 		} satisfies EventsServiceShape;
 	}),

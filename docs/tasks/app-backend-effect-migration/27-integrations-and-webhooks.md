@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,24 @@ This slice should preserve public webhook paths and typed route contracts while 
 
 ## Acceptance criteria
 
-- [ ] Authenticated users can list, create, get, patch, and delete integrations
-- [ ] Authenticated users can list integration runs
-- [ ] Scheduled integration reconciliation uses Effect-native scheduling/workflow primitives
-- [ ] App-owned integration webhook routes process sink payloads through migrated services
-- [ ] The short integration webhook path remains served outside or alongside the app-owned contract as appropriate
-- [ ] Integration E2E tests pass through the Effect client or raw fetch for webhook payloads as needed
+- [x] Authenticated users can list, create, get, patch, and delete integrations
+- [x] Authenticated users can list integration runs
+- [x] Scheduled integration reconciliation uses Effect-native scheduling/workflow primitives
+- [x] App-owned integration webhook routes process sink payloads through migrated services
+- [x] The short integration webhook path remains served outside or alongside the app-owned contract as appropriate
+- [x] Integration E2E tests pass through the Effect client or raw fetch for webhook payloads as needed
+
+## Notes
+
+- Migrated the integrations contract, repository, service, worker, and scheduler to Effect-native layers and durable workflow primitives.
+- Preserved the short `/_i/:integrationId` webhook path by forwarding it into the app-owned integrations webhook handler while tolerating bodyless webhook posts.
+- Threaded `integrationId` and `importRunId` into event creation so integration-origin events keep trigger context.
+- Removed the integrations-specific `TODO(Task 22)` tests-only typing bridge now that the contract exposes typed integration fields.
+
+## Verification
+
+- `bun turbo --filter=@ryot/app-backend check`
+- `bun test src/tests/integrations.test.ts --timeout 60000`
 
 ## User stories addressed
 

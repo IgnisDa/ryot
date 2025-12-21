@@ -94,6 +94,7 @@ const buildWorkoutEntityProperties = (workout: WorkoutImportItem): Record<string
 };
 
 const commitWorkoutItem = (input: {
+	runId: string;
 	events: EventsService;
 	user: CurrentUserValue;
 	schemas: WorkoutSchemas;
@@ -163,7 +164,7 @@ const commitWorkoutItem = (input: {
 			});
 		}
 
-		return yield* input.events.createForImport(input.user.id, eventBody);
+		return yield* input.events.createForImport(input.user.id, eventBody, input.runId);
 	});
 
 export const processWorkoutImportResult = (input: {
@@ -241,6 +242,7 @@ export const processWorkoutImportResult = (input: {
 				entities,
 				candidates,
 				exerciseCache,
+				runId: input.runId,
 			}).pipe(Effect.either);
 
 			if (Either.isRight(result)) {
