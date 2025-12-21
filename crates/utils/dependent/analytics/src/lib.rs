@@ -298,6 +298,12 @@ pub async fn calculate_user_activities_and_summary(
         .filter(review::Column::PostedOn.gte(start_from))
         .stream(&ss.db)
         .await?;
+    macro_rules! inc {
+        ($obj:ident, $field:ident) => {
+            $obj.$field += 1
+        };
+    }
+
     while let Some(review) = review_stream.try_next().await? {
         let activity = get_activity_count(
             &mut activities,
@@ -308,17 +314,12 @@ pub async fn calculate_user_activities_and_summary(
             None,
             review.posted_on,
         );
-        macro_rules! inc_review {
-            ($field:ident) => {
-                activity.$field += 1
-            };
-        }
         match review.entity_lot {
-            EntityLot::Person => inc_review!(person_review_count),
-            EntityLot::Exercise => inc_review!(exercise_review_count),
-            EntityLot::Metadata => inc_review!(metadata_review_count),
-            EntityLot::Collection => inc_review!(collection_review_count),
-            EntityLot::MetadataGroup => inc_review!(metadata_group_review_count),
+            EntityLot::Person => inc!(activity, person_review_count),
+            EntityLot::Exercise => inc!(activity, exercise_review_count),
+            EntityLot::Metadata => inc!(activity, metadata_review_count),
+            EntityLot::Collection => inc!(activity, collection_review_count),
+            EntityLot::MetadataGroup => inc!(activity, metadata_group_review_count),
             _ => {}
         }
     }
@@ -349,15 +350,10 @@ pub async fn calculate_user_activities_and_summary(
             cte.created_on,
         );
 
-        macro_rules! inc {
-            ($field:ident) => {
-                activity.$field += 1
-            };
-        }
         match cte.entity_lot {
-            EntityLot::Person => inc!(person_collection_count),
-            EntityLot::Metadata => inc!(metadata_collection_count),
-            EntityLot::MetadataGroup => inc!(metadata_group_collection_count),
+            EntityLot::Person => inc!(activity, person_collection_count),
+            EntityLot::Metadata => inc!(activity, metadata_collection_count),
+            EntityLot::MetadataGroup => inc!(activity, metadata_group_collection_count),
             _ => {}
         }
     }
