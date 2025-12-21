@@ -1,99 +1,104 @@
-import { describe, expect, it } from "vitest";
+import type { SandboxHost } from "@ryot/sandbox-sdk";
+import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { describe, expect, it, vi } from "vitest";
 
-import integrationPushHelperCode from "../script-helpers/integration-push.sandbox.js" with { type: "text" };
-import radarrPushScriptCode from "./radarr-push.sandbox.js" with { type: "text" };
+import definition, { manifest } from "./radarr-push.sandbox";
 import {
+	afterCreateContext,
+	entityRecord,
+	entitySchemaRecord,
+	execution,
 	hostFailure,
 	hostSuccess,
+	httpFailure,
 	httpSuccess,
-	runTriggerScript,
+	integrationRecord,
 	toRecord,
-	wrapWithPushHelpers,
 } from "./test-utils";
 
-const radarrCode = wrapWithPushHelpers(integrationPushHelperCode, radarrPushScriptCode);
-
-const runRadarrScript = (
-	context: unknown,
-	hostFunctions: Record<string, (...args: Array<unknown>) => unknown>,
-) => runTriggerScript(radarrCode, context, hostFunctions);
-
+type RadarrHost = SandboxHost<typeof manifest.capabilities>;
 type HttpCall = { url: string; method: string; options: Record<string, unknown> };
 
-const movieEntity = {
+const movieEntity = entityRecord({
+	id: "movie-1",
 	externalId: "603",
 	name: "The Matrix",
-	entitySchemaId: "es_movie",
-	sandboxScriptId: "script_movie_tmdb",
-};
+	entitySchemaId: "es-movie",
+	sandboxScriptId: "script-movie-tmdb",
+});
 
-const radarrIntegration = {
-	id: "integration_1",
+const radarrIntegration = integrationRecord({
+	provider: "radarr",
 	providerSpecifics: {
 		profileId: "4",
-		kind: "radarr",
 		tagIds: [3, 7],
 		apiKey: "radarr-key",
 		rootFolderPath: "/movies",
 		baseUrl: "http://radarr.local",
-		syncCollectionIds: ["collection_1"],
+		syncCollectionIds: ["collection-1"],
 	},
-};
+});
 
-const tmdbProviders = [
-	{ name: "TVDB", scriptId: "script_movie_tvdb" },
-	{ name: "TMDB", scriptId: "script_movie_tmdb" },
-];
+const schema = entitySchemaRecord({
+	id: "es-movie",
+	providers: [
+		{ name: "TVDB", scriptId: "script-movie-tvdb" },
+		{ name: "TMDB", scriptId: "script-movie-tmdb" },
+	],
+});
 
-const createTrigger = (properties: Record<string, unknown>) => ({
-	trigger: {
-		entityId: "collection_1",
+const createTrigger = (properties: Record<string, string>) =>
+	afterCreateContext({
+		entityId: "collection-1",
 		entitySchemaSlug: "collection",
 		eventSchemaSlug: "add-entity-to-collection",
-		properties: { relationshipId: "rel_1", relationshipProperties: {}, ...properties },
-	},
-});
-
-const createHostFunctions = (options: {
-	integrations?: unknown[];
-	entity?: Record<string, unknown> | null;
-	providers?: Array<{ name: string; scriptId: string }>;
-}) => ({
-	listIntegrations: () => hostSuccess(options.integrations ?? []),
-	getEntity: () => (options.entity ? hostSuccess(options.entity) : hostFailure()),
-	getEntitySchema: () => hostSuccess({ providers: options.providers ?? tmdbProviders }),
-});
-
-const userPreferences =
-	(disableIntegrations = false) =>
-	() => ({ success: true, data: { disableIntegrations } });
-
-const createHttpCall = (calls: HttpCall[]) => (method: unknown, url: unknown, options: unknown) => {
-	calls.push({
-		url: String(url),
-		method: String(method),
-		options: toRecord(options),
+		properties: { relationshipId: "rel-1", relationshipProperties: {}, ...properties },
 	});
-	return httpSuccess({});
-};
+
+const createHttpCall =
+	(calls: HttpCall[]): RadarrHost["httpCall"] =>
+	(method, url, options) => {
+		calls.push({ url, method, options: toRecord(options) });
+		return httpSuccess({});
+	};
+
+const createHost = (options: {
+	disableIntegrations?: boolean;
+	httpCall: RadarrHost["httpCall"];
+	entity?: ReturnType<typeof entityRecord> | null;
+	integrations?: ReturnType<typeof integrationRecord>[];
+}) =>
+	defineSandboxTestHost(manifest, {
+		httpCall: options.httpCall,
+		getEntity: () => (options.entity ? hostSuccess(options.entity) : hostFailure()),
+		getEntitySchema: () => hostSuccess(schema),
+		listIntegrations: () => hostSuccess(options.integrations ?? []),
+		getUserPreferences: () =>
+			hostSuccess({ isNsfw: false, disableIntegrations: options.disableIntegrations ?? false }),
+	});
 
 describe("radarr-push sandbox script", () => {
 	it("adds a TMDB movie to each matching Radarr integration", () => {
-		const httpCalls: HttpCall[] = [];
-
-		return runRadarrScript(createTrigger({ entitySchemaSlug: "movie", entityId: "movie_1" }), {
-			...createHostFunctions({ entity: movieEntity, integrations: [radarrIntegration] }),
-			getUserPreferences: userPreferences(),
-			httpCall: createHttpCall(httpCalls),
-		}).then(() => {
-			expect(httpCalls).toHaveLength(1);
-			expect(httpCalls[0]?.method).toBe("POST");
-			expect(httpCalls[0]?.url).toBe("http://radarr.local/api/v3/movie");
-			expect(httpCalls[0]?.options["headers"]).toEqual({
+		const calls: HttpCall[] = [];
+		const host = createHost({
+			entity: movieEntity,
+			integrations: [radarrIntegration],
+			httpCall: createHttpCall(calls),
+		});
+		return runSandboxTestDriver(
+			definition.drivers.trigger,
+			createTrigger({ entitySchemaSlug: "movie", entityId: "movie-1" }),
+			host,
+			execution,
+		).then(() => {
+			expect(calls).toHaveLength(1);
+			expect(calls[0]?.method).toBe("POST");
+			expect(calls[0]?.url).toBe("http://radarr.local/api/v3/movie");
+			expect(calls[0]?.options["headers"]).toEqual({
 				"X-Api-Key": "radarr-key",
 				"Content-Type": "application/json",
 			});
-			expect(JSON.parse(String(httpCalls[0]?.options["body"]))).toEqual({
+			expect(JSON.parse(String(calls[0]?.options["body"]))).toEqual({
 				tmdbId: 603,
 				tags: [3, 7],
 				monitored: true,
@@ -105,68 +110,84 @@ describe("radarr-push sandbox script", () => {
 		});
 	});
 
-	it("no-ops when the added entity is not a movie", () => {
-		const httpCalls: HttpCall[] = [];
-
-		return runRadarrScript(createTrigger({ entitySchemaSlug: "show", entityId: "show_1" }), {
-			...createHostFunctions({ entity: movieEntity, integrations: [radarrIntegration] }),
-			getUserPreferences: userPreferences(),
-			httpCall: createHttpCall(httpCalls),
-		}).then(() => {
-			expect(httpCalls).toHaveLength(0);
+	it("no-ops for non-movies, non-TMDB entities, and unmatched collections", () => {
+		const calls: HttpCall[] = [];
+		const httpCall = createHttpCall(calls);
+		const base = { integrations: [radarrIntegration], httpCall };
+		const unmatched = integrationRecord({
+			provider: "radarr",
+			providerSpecifics: {
+				profileId: "4",
+				tagIds: [3, 7],
+				apiKey: "radarr-key",
+				rootFolderPath: "/movies",
+				syncCollectionIds: ["other"],
+				baseUrl: "http://radarr.local",
+			},
+		});
+		return Promise.all([
+			runSandboxTestDriver(
+				definition.drivers.trigger,
+				createTrigger({ entitySchemaSlug: "show", entityId: "show-1" }),
+				createHost({ ...base, entity: movieEntity }),
+				execution,
+			),
+			runSandboxTestDriver(
+				definition.drivers.trigger,
+				createTrigger({ entitySchemaSlug: "movie", entityId: "movie-1" }),
+				createHost({
+					...base,
+					entity: entityRecord({ ...movieEntity, sandboxScriptId: "script-movie-tvdb" }),
+				}),
+				execution,
+			),
+			runSandboxTestDriver(
+				definition.drivers.trigger,
+				createTrigger({ entitySchemaSlug: "movie", entityId: "movie-1" }),
+				createHost({ entity: movieEntity, httpCall, integrations: [unmatched] }),
+				execution,
+			),
+		]).then(() => {
+			expect(calls).toHaveLength(0);
 			return undefined;
 		});
 	});
 
-	it("no-ops when the movie entity is not sourced from TMDB", () => {
-		const httpCalls: HttpCall[] = [];
-
-		return runRadarrScript(createTrigger({ entitySchemaSlug: "movie", entityId: "movie_1" }), {
-			...createHostFunctions({
-				integrations: [radarrIntegration],
-				entity: { ...movieEntity, sandboxScriptId: "script_movie_tvdb" },
-			}),
-			getUserPreferences: userPreferences(),
-			httpCall: createHttpCall(httpCalls),
-		}).then(() => {
-			expect(httpCalls).toHaveLength(0);
+	it("honors the user's disabled-integration preference", () => {
+		const calls: HttpCall[] = [];
+		const host = createHost({
+			entity: movieEntity,
+			disableIntegrations: true,
+			integrations: [radarrIntegration],
+			httpCall: createHttpCall(calls),
+		});
+		return runSandboxTestDriver(
+			definition.drivers.trigger,
+			createTrigger({ entitySchemaSlug: "movie", entityId: "movie-1" }),
+			host,
+			execution,
+		).then(() => {
+			expect(calls).toHaveLength(0);
 			return undefined;
 		});
 	});
 
-	it("no-ops when the collection is not in any integration's sync collections", () => {
-		const httpCalls: HttpCall[] = [];
-
-		return runRadarrScript(createTrigger({ entitySchemaSlug: "movie", entityId: "movie_1" }), {
-			...createHostFunctions({
-				entity: movieEntity,
-				integrations: [
-					{
-						...radarrIntegration,
-						providerSpecifics: {
-							...radarrIntegration.providerSpecifics,
-							syncCollectionIds: ["other"],
-						},
-					},
-				],
-			}),
-			getUserPreferences: userPreferences(),
-			httpCall: createHttpCall(httpCalls),
-		}).then(() => {
-			expect(httpCalls).toHaveLength(0);
-			return undefined;
+	it("treats an expected Radarr HTTP failure as non-fatal", () => {
+		const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+		const host = createHost({
+			entity: movieEntity,
+			integrations: [radarrIntegration],
+			httpCall: () => httpFailure("already exists", 409),
 		});
-	});
-
-	it("no-ops when integrations are disabled for the user", () => {
-		const httpCalls: HttpCall[] = [];
-
-		return runRadarrScript(createTrigger({ entitySchemaSlug: "movie", entityId: "movie_1" }), {
-			...createHostFunctions({ entity: movieEntity, integrations: [radarrIntegration] }),
-			httpCall: createHttpCall(httpCalls),
-			getUserPreferences: userPreferences(true),
-		}).then(() => {
-			expect(httpCalls).toHaveLength(0);
+		return runSandboxTestDriver(
+			definition.drivers.trigger,
+			createTrigger({ entitySchemaSlug: "movie", entityId: "movie-1" }),
+			host,
+			execution,
+		).then((result) => {
+			expect(result).toBeUndefined();
+			expect(warning).toHaveBeenCalledWith("Radarr push failed: already exists");
+			warning.mockRestore();
 			return undefined;
 		});
 	});

@@ -1,7 +1,9 @@
+import type { SandboxManifest } from "@ryot/sandbox-sdk";
 import {
 	SANDBOX_SDK_IMPORTS,
 	SANDBOX_SDK_PROVIDER_IMPORT,
 	SANDBOX_SDK_ROOT_IMPORT,
+	SANDBOX_SDK_TRIGGER_IMPORT,
 } from "@ryot/sandbox-sdk/imports";
 import * as ts from "typescript/unstable/ast";
 
@@ -62,6 +64,7 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 	const manifestHelpers = new Set<string>();
 	const diagnostics: SandboxCompilerDiagnostic[] = [];
 	const driverHelpers = new Map<string, "generic" | "provider">();
+	const triggerHelpers = new Map<string, "after_create" | "before_create">();
 
 	for (const reference of [
 		...file.referencedFiles,
@@ -93,7 +96,9 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 
 			if (
 				ts.isImportDeclaration(statement) &&
-				(specifier === SANDBOX_SDK_ROOT_IMPORT || specifier === SANDBOX_SDK_PROVIDER_IMPORT)
+				(specifier === SANDBOX_SDK_ROOT_IMPORT ||
+					specifier === SANDBOX_SDK_PROVIDER_IMPORT ||
+					specifier === SANDBOX_SDK_TRIGGER_IMPORT)
 			) {
 				const bindings = statement.importClause?.namedBindings;
 				if (bindings && ts.isNamedImports(bindings)) {
@@ -113,6 +118,12 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 						}
 						if (importedName === "defineProvider") {
 							providerHelpers.add(element.name.text);
+						}
+						if (importedName === "defineBeforeCreateTrigger") {
+							triggerHelpers.set(element.name.text, "before_create");
+						}
+						if (importedName === "defineAfterCreateTrigger") {
+							triggerHelpers.set(element.name.text, "after_create");
 						}
 					}
 				}
@@ -155,7 +166,14 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 	};
 	visit(file);
 
-	return { diagnostics, driverHelpers, manifestHelpers, providerHelpers, scriptHelpers };
+	return {
+		diagnostics,
+		driverHelpers,
+		scriptHelpers,
+		triggerHelpers,
+		manifestHelpers,
+		providerHelpers,
+	};
 };
 
 const topLevelDriverName = (call: ts.CallExpression, file: ts.SourceFile) => {
@@ -301,6 +319,7 @@ const inspectScriptDefinition = (
 	file: ts.SourceFile,
 	scriptHelpers: ReadonlySet<string>,
 	providerHelpers: ReadonlySet<string>,
+	triggerHelpers: ReadonlyMap<string, "after_create" | "before_create">,
 	driverDefinitions: ReadonlyMap<string, DriverDefinition>,
 ) => {
 	const defaults = file.statements.filter(
@@ -309,6 +328,7 @@ const inspectScriptDefinition = (
 	);
 	if (defaults.length !== 1) {
 		return {
+			triggerMode: null,
 			definitionKind: null,
 			diagnostics: [
 				diagnosticAt(
@@ -322,12 +342,16 @@ const inspectScriptDefinition = (
 
 	const assignment = defaults[0];
 	const call = assignment?.expression;
-	let definitionKind: "provider" | "script" | null = null;
+	let definitionKind: "provider" | "script" | "trigger" | null = null;
+	let triggerMode: "after_create" | "before_create" | null = null;
 	if (call && ts.isCallExpression(call) && ts.isIdentifier(call.expression)) {
 		if (scriptHelpers.has(call.expression.text)) {
 			definitionKind = "script";
 		} else if (providerHelpers.has(call.expression.text)) {
 			definitionKind = "provider";
+		} else if (triggerHelpers.has(call.expression.text)) {
+			definitionKind = "trigger";
+			triggerMode = triggerHelpers.get(call.expression.text) ?? null;
 		}
 	}
 	if (
@@ -340,11 +364,12 @@ const inspectScriptDefinition = (
 	) {
 		return {
 			definitionKind: null,
+			triggerMode: null,
 			diagnostics: [
 				diagnosticAt(
 					assignment ?? file,
 					"RYOT_DEFINITION",
-					"The default export must be a direct defineScript or defineProvider call",
+					"The default export must be a direct script, provider, or trigger definition call",
 				),
 			],
 		};
@@ -354,6 +379,7 @@ const inspectScriptDefinition = (
 	if (!definition || !ts.isObjectLiteralExpression(definition)) {
 		return {
 			definitionKind,
+			triggerMode,
 			diagnostics: [
 				diagnosticAt(
 					definition ?? call,
@@ -361,6 +387,41 @@ const inspectScriptDefinition = (
 					"The definition helper must receive a direct object literal",
 				),
 			],
+		};
+	}
+	if (definitionKind === "trigger") {
+		let hasManifest = false;
+		let hasRun = false;
+		for (const property of definition.properties) {
+			if (
+				ts.isShorthandPropertyAssignment(property) &&
+				ts.isIdentifier(property.name) &&
+				property.name.text === "manifest"
+			) {
+				hasManifest = true;
+			} else if (ts.isPropertyAssignment(property) && propertyName(property.name) === "manifest") {
+				hasManifest =
+					ts.isIdentifier(property.initializer) && property.initializer.text === "manifest";
+			} else if (
+				(ts.isPropertyAssignment(property) || ts.isMethodDeclaration(property)) &&
+				propertyName(property.name) === "run"
+			) {
+				hasRun = true;
+			}
+		}
+		return {
+			triggerMode,
+			definitionKind,
+			diagnostics:
+				hasManifest && hasRun
+					? []
+					: [
+							diagnosticAt(
+								definition,
+								"RYOT_DEFINITION",
+								'The trigger definition must contain the exported "manifest" and a run function',
+							),
+						],
 		};
 	}
 
@@ -392,6 +453,7 @@ const inspectScriptDefinition = (
 	}
 	if (!hasManifest || drivers === null) {
 		return {
+			triggerMode,
 			definitionKind,
 			diagnostics: [
 				diagnosticAt(
@@ -456,11 +518,34 @@ const inspectScriptDefinition = (
 		}
 	}
 
-	return { definitionKind, diagnostics };
+	return { definitionKind, diagnostics, triggerMode };
 };
 
 export const inspectSandboxModuleImports = (file: ts.SourceFile) =>
 	inspectImports(file, true).diagnostics;
+
+export const sandboxDefinitionMismatch = (
+	inspection: {
+		readonly definitionKind: "provider" | "script" | "trigger" | null;
+		readonly triggerMode: "after_create" | "before_create" | null;
+	},
+	manifest: SandboxManifest,
+) => {
+	let helper = "defineScript";
+	if (manifest.kind === "provider") {
+		helper = "defineProvider";
+	} else if (manifest.kind === "trigger") {
+		helper =
+			manifest.mode === "before_create" ? "defineBeforeCreateTrigger" : "defineAfterCreateTrigger";
+	}
+	if (inspection.definitionKind !== manifest.kind) {
+		return `Manifest kind "${manifest.kind}" must use ${helper}`;
+	}
+	if (manifest.kind === "trigger" && inspection.triggerMode !== manifest.mode) {
+		return `Trigger manifest mode "${manifest.mode}" must use ${helper}`;
+	}
+	return null;
+};
 
 export const inspectSandboxSource = (
 	file: ts.SourceFile,
@@ -469,6 +554,7 @@ export const inspectSandboxSource = (
 	const imports = inspectImports(file, options.allowRelativeImports ?? false);
 	if (imports.diagnostics.length > 0) {
 		return {
+			triggerMode: null,
 			definitionKind: null,
 			diagnostics: imports.diagnostics,
 			manifestHelpers: imports.manifestHelpers,
@@ -478,6 +564,7 @@ export const inspectSandboxSource = (
 	const drivers = inspectDriverDefinitions(file, imports.driverHelpers);
 	if (drivers.diagnostics.length > 0) {
 		return {
+			triggerMode: null,
 			definitionKind: null,
 			diagnostics: drivers.diagnostics,
 			manifestHelpers: imports.manifestHelpers,
@@ -488,6 +575,7 @@ export const inspectSandboxSource = (
 		file,
 		imports.scriptHelpers,
 		imports.providerHelpers,
+		imports.triggerHelpers,
 		drivers.driverDefinitions,
 	);
 	return { ...definition, manifestHelpers: imports.manifestHelpers };

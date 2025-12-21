@@ -1,3 +1,4 @@
+import type { JsonValue } from "@ryot/sandbox-sdk";
 import { Schema } from "effect";
 
 import { EntityId, EventId, EventSchemaId } from "../../schema/brands";
@@ -16,6 +17,17 @@ export const EventCreateOrigin = Schema.Literal(
 
 export type EventCreateOrigin = typeof EventCreateOrigin.Type;
 
+const JsonValueSchema: Schema.Schema<JsonValue, JsonValue> = Schema.suspend(() =>
+	Schema.Union(
+		Schema.Null,
+		Schema.String,
+		Schema.Number,
+		Schema.Boolean,
+		Schema.Array(JsonValueSchema),
+		Schema.Record({ key: Schema.String, value: JsonValueSchema }),
+	),
+);
+
 const BeforeTriggerAllow = Schema.Struct({ action: Schema.Literal("allow") });
 const BeforeTriggerSkip = Schema.Struct({ action: Schema.Literal("skip"), reason: Schema.String });
 const BeforeTriggerReplace = Schema.Struct({
@@ -23,7 +35,7 @@ const BeforeTriggerReplace = Schema.Struct({
 	body: Schema.Struct({
 		occurredAt: Schema.optional(Schema.String),
 		sessionEntityId: Schema.optional(Schema.NullOr(EntityId)),
-		properties: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+		properties: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
 	}),
 });
 
