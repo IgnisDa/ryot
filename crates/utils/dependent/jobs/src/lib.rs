@@ -10,8 +10,6 @@ use database_models::{
     user_to_entity,
 };
 use database_utils::admin_account_guard;
-use enum_models::EntityLot;
-use futures::try_join;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QuerySelect, prelude::Expr};
 use supporting_service::SupportingService;
 
@@ -70,13 +68,6 @@ pub async fn deploy_background_job(
                 .exec(&ss.db)
                 .await?;
             ryot_log!(debug, "Marked {} metadata as partial", update.rows_affected);
-            for metadata_id in many_metadata {
-                let input = EntityWithLot {
-                    entity_id: metadata_id.clone(),
-                    entity_lot: EntityLot::Metadata,
-                };
-                deploy_update_media_entity_job(input.clone(), ss).await?;
-            }
         }
         BackgroundJob::UpdateAllExercises => {
             ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateExerciseLibrary))

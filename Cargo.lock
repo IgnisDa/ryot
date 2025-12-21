@@ -2119,8 +2119,6 @@ dependencies = [
  "common-utils",
  "database-models",
  "database-utils",
- "enum-models",
- "futures",
  "rust_decimal",
  "sea-orm",
  "supporting-service",

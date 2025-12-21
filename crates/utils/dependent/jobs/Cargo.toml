@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-futures = { workspace = true }
 rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
@@ -15,7 +14,6 @@ common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { workspace = true }
 database-utils = { workspace = true }
-enum-models = { workspace = true }
 supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
