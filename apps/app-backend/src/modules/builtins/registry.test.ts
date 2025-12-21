@@ -11,7 +11,6 @@ import {
 	builtinEntityAutomationRuleLinks,
 	builtinRelationshipAutomationRuleLinks,
 	builtinSandboxScripts,
-	builtinSignalAutomationRuleLinks,
 } from "./registry";
 import { builtinRelationshipSchemas } from "./relationship-schemas";
 import { builtinSignalSchemas } from "./signal-schemas";
@@ -412,9 +411,7 @@ describe("builtinSandboxScripts", () => {
 		);
 		const activeSignalSlugs = builtinSignalSchemas(
 			RelationshipSchemaId.make("media-monitoring-schema"),
-		)
-			.filter(({ catalogState }) => catalogState === "active")
-			.map(({ slug }) => slug);
+		).map(({ slug }) => slug);
 
 		expect(new Set(activeSignalSlugs)).toEqual(
 			new Set([...Object.keys(producerScripts), "integration.disabled"]),
@@ -432,33 +429,15 @@ describe("builtinSandboxScripts", () => {
 		expect(notifier.compiledCode).toContain("ryot:sandbox-script");
 	});
 
-	it("registers automation test scripts with isolated capabilities", () => {
-		const policy = builtinSandboxScripts().find(({ slug }) => slug === "automation.test-policy");
-		const automation = builtinSandboxScripts().find(
-			({ slug }) => slug === "automation.test-tracer",
+	it("excludes test fixtures from production built-ins", () => {
+		expect(builtinSandboxScripts().some(({ slug }) => slug.startsWith("automation.test-"))).toBe(
+			false,
 		);
-		const notifier = builtinSandboxScripts().find(
-			({ slug }) => slug === "automation.test-notifier",
-		);
-		assert(policy);
-		assert(automation);
-		assert(notifier);
-		expect(policy.manifest.kind).toBe("automation");
-		expect(automation.manifest.kind).toBe("automation");
-		expect(notifier.manifest.kind).toBe("automation");
-		expect(policy.manifest.capabilities).toEqual([]);
-		expect(automation.manifest.capabilities).toEqual(["emitSignal"]);
-		expect(notifier.manifest.capabilities).toEqual(["sendNotification"]);
-		expect(policy.compiledCode).toContain("ryot:sandbox-script");
-		expect(automation.compiledCode).toContain("ryot:sandbox-script");
-		expect(notifier.compiledCode).toContain("ryot:sandbox-script");
-		expect(builtinSignalAutomationRuleLinks()).toEqual([
-			{
-				name: "Automation Test Tracer",
-				scriptSlug: "automation.test-tracer",
-				signalSchemaSlug: "automation.test-tracer",
-			},
-		]);
+		expect(
+			builtinSignalSchemas(RelationshipSchemaId.make("media-monitoring")).some(({ slug }) =>
+				slug.startsWith("automation.test-"),
+			),
+		).toBe(false);
 	});
 
 	it("declares source metadata for every provider script", () => {

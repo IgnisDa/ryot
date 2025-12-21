@@ -47,8 +47,8 @@ Deterministic Identity sections.
 - [x] Logs, error, and returned value are truncated at the single cap with explicit markers;
       truncation never changes run status; the sandbox receives the complete context
 - [x] Workflow replay does not duplicate runs
-- [x] The SDK automation entry point type-checks the seeded script, and the end-to-end
-      signal-to-succeeded-run tracer passes
+- [x] The SDK automation entry point type-checks the built-in scripts, and subscription execution
+      is covered through isolated workflow tests
 
 ## Implementation notes
 
@@ -59,8 +59,8 @@ Deterministic Identity sections.
   errors, and returned values.
 - Stored artifacts share the sandbox log total-byte cap and use an explicit truncation envelope.
 - The SDK and compiler now support `@ryot/sandbox-sdk/automation` and its complete typed context.
-- A hidden `automation.test-tracer` signal schema, compiled built-in script, and global built-in
-  rule are seeded idempotently for the tracer path.
+- Automation execution is covered with production built-ins and isolated workflow fixtures; no
+  test schema, script, or rule is included in production seed data.
 - Migration `0005_broken_midnight.sql` adds the run timing artifact omitted by the prior
   persistence slice.
 - Migration `0006_smooth_ronan.sql` snapshots the sandbox script ID and rule metadata on each run

@@ -47,7 +47,7 @@ const signal = {
 	properties: { message: "trace" },
 	occurredAt: "2026-07-20T10:00:00.000Z",
 	recipientUserIds: [userId, otherUserId],
-	signalSchemaSlug: "automation.test-tracer",
+	signalSchemaSlug: "review.created",
 } as const;
 
 it.effect("matches shared signals once per global rule and recipient-owned rule", () => {
