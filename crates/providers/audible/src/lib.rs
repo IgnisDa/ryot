@@ -449,6 +449,7 @@ impl MediaProvider for AudibleService {
                 .product
                 .publisher_summary
                 .or(data.product.merchandising_summary),
+            ..Default::default()
         })
     }
 
@@ -474,6 +475,7 @@ impl MediaProvider for AudibleService {
                 .product
                 .publisher_summary
                 .or(data.product.merchandising_summary),
+            ..Default::default()
         })
     }
 }

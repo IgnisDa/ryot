@@ -81,10 +81,10 @@ export const PartialMetadataDisplay = (props: {
 	return (
 		<BaseEntityDisplay
 			ref={ref}
-			image={images.at(0)}
 			extraText={props.extraText}
 			isPartialStatusActive={isPartialStatusActive}
 			hasInteracted={userMetadataDetails?.hasInteracted}
+			image={metadataTranslations?.image || images.at(0)}
 			link={$path("/media/item/:id", { id: props.metadataId })}
 			title={metadataTranslations?.title || metadataDetails?.title || undefined}
 		/>

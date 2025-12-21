@@ -85,9 +85,9 @@ async fn main() -> Result<()> {
         .await
         .expect("Database connection failed");
 
-    migrate_from_v8_if_applicable(&db)
+    migrate_from_v9_if_applicable(&db)
         .await
-        .context("There was an error migrating from v8")?;
+        .context("There was an error migrating from v9")?;
 
     if let Err(err) = Migrator::up(&db, None).await {
         ryot_log!(error, "Database migration failed: {}", err);
@@ -228,22 +228,11 @@ fn init_tracing() -> Result<PathBuf> {
 }
 
 fn get_cron_schedules(config: &Arc<AppConfig>, tz: chrono_tz::Tz) -> Result<(Schedule, Schedule)> {
-    let frequent_cron_jobs_every_minutes = config.scheduler.frequent_cron_jobs_every_minutes;
-    let infrequent_cron_jobs_hours_format =
-        config.scheduler.infrequent_cron_jobs_hours_format.clone();
-
-    let infrequent_format = match infrequent_cron_jobs_hours_format.as_str() {
-        "0" => str_cron_syntax(&config.scheduler.infrequent_cron_jobs_schedule)?,
-        _ => format!("0 0 {infrequent_cron_jobs_hours_format} * * *"),
-    };
-
+    let infrequent_format = str_cron_syntax(&config.scheduler.infrequent_cron_jobs_schedule)?;
     let infrequent_scheduler = Schedule::from_str(&infrequent_format)?;
     log_cron_schedule(stringify!(infrequent_scheduler), &infrequent_scheduler, tz);
 
-    let frequent_format = match frequent_cron_jobs_every_minutes {
-        5 => str_cron_syntax(&config.scheduler.frequent_cron_jobs_schedule)?,
-        _ => format!("0 */{frequent_cron_jobs_every_minutes} * * * *"),
-    };
+    let frequent_format = str_cron_syntax(&config.scheduler.frequent_cron_jobs_schedule)?;
     let frequent_scheduler = Schedule::from_str(&frequent_format)?;
     log_cron_schedule(stringify!(frequent_scheduler), &frequent_scheduler, tz);
 
@@ -255,7 +244,7 @@ fn log_cron_schedule(name: &str, schedule: &Schedule, tz: chrono_tz::Tz) {
     ryot_log!(info, "Schedule for {name:#?}: {times:?} and so on...");
 }
 
-async fn migrate_from_v8_if_applicable(db: &DatabaseConnection) -> Result<()> {
+async fn migrate_from_v9_if_applicable(db: &DatabaseConnection) -> Result<()> {
     db.execute_unprepared(
         r#"
 DO $$
@@ -266,18 +255,18 @@ BEGIN
     ) THEN
         IF EXISTS (
             SELECT 1 FROM seaql_migrations
-            WHERE version = 'm20250118_is_v8_migration'
+            WHERE version = 'm20250801_is_v9_migration'
         ) THEN
             IF NOT EXISTS (
                 SELECT 1 FROM seaql_migrations
-                WHERE version = 'm20250731_is_last_v8_migration'
+                WHERE version = 'm20251212_is_last_v9_migration'
             ) THEN
-                RAISE EXCEPTION 'Final migration for v8 does not exist, upgrade aborted.';
+                RAISE EXCEPTION 'Final migration for v9 does not exist, upgrade aborted.';
             END IF;
 
             DELETE FROM seaql_migrations;
             INSERT INTO seaql_migrations (version, applied_at) VALUES
-                ('m20230403_create_extensions', 1684693316),
+                ('m20230403_create_database_setup_requirements', 1684693316),
                 ('m20230404_create_user', 1684693317),
                 ('m20230410_create_metadata', 1684693318),
                 ('m20230411_create_metadata_group', 1684693319),
@@ -299,8 +288,10 @@ BEGIN
                 ('m20240712_create_notification_platform', 1684693335),
                 ('m20240714_create_access_link', 1684693336),
                 ('m20240827_create_daily_user_activity', 1684693337),
-                ('m20240904_create_monitored_entity', 1684693338),
-                ('m20241004_create_application_cache', 1684693339);
+                ('m20241004_create_application_cache', 1684693340),
+                ('m20250813_create_collection_entity_membership', 1684693341),
+                ('m20251115_create_filter_preset', 1684693342),
+                ('m20251128_create_entity_translation', 1684693343);
         END IF;
     END IF;
 END $$;

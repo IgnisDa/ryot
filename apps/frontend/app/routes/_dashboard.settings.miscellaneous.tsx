@@ -1,11 +1,15 @@
 import {
+	ActionIcon,
 	Box,
 	Button,
 	Container,
+	Group,
+	Paper,
 	SimpleGrid,
 	Stack,
 	Text,
 	Title,
+	useMantineTheme,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
@@ -15,8 +19,18 @@ import {
 	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { processSubmission } from "@ryot/ts-utils";
+import {
+	IconActivity,
+	IconBarbell,
+	IconChartBar,
+	IconCloudDownload,
+	IconDownload,
+	IconPlayerPlay,
+	IconRefresh,
+	IconRocket,
+} from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
-import type { ComponentPropsWithoutRef } from "react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { Form, data, useNavigate } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
@@ -71,10 +85,7 @@ export default function Page() {
 		<Container size="lg">
 			<Stack>
 				<Title>Miscellaneous settings</Title>
-				<SimpleGrid
-					cols={{ base: 1, lg: 2 }}
-					spacing={{ base: "xl", md: "md" }}
-				>
+				<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 					{Object.values(BackgroundJob).map((job) => (
 						<DisplayJobBtn key={job} job={job} />
 					))}
@@ -85,6 +96,7 @@ export default function Page() {
 								<SettingsActionCard
 									title="Onboarding"
 									buttonText="Restart onboarding"
+									icon={<IconRocket size={28} />}
 									description="Restart the application onboarding tour."
 									buttonProps={{
 										onClick: async () => {
@@ -105,20 +117,52 @@ export default function Page() {
 
 const SettingsActionCard = (props: {
 	title: string;
+	icon: ReactNode;
 	buttonText: string;
 	description: string;
 	buttonProps?: ComponentPropsWithoutRef<typeof Button>;
-}) => (
-	<Stack>
-		<Box>
-			<Title order={4}>{props.title}</Title>
-			<Text>{props.description}</Text>
-		</Box>
-		<Button mt="auto" variant="light" {...props.buttonProps}>
-			{props.buttonText}
-		</Button>
-	</Stack>
-);
+}) => {
+	const theme = useMantineTheme();
+
+	return (
+		<Paper
+			withBorder
+			radius="md"
+			p={{ base: "sm", md: "lg" }}
+			style={{
+				height: "100%",
+				display: "flex",
+				flexDirection: "column",
+				transition: "transform 0.2s, box-shadow 0.2s",
+			}}
+		>
+			<Stack gap="md" style={{ flex: 1 }}>
+				<Group gap="md" wrap="nowrap">
+					<ActionIcon
+						size={56}
+						radius="md"
+						variant="light"
+						style={{ flexShrink: 0 }}
+						color={theme.primaryColor}
+					>
+						{props.icon}
+					</ActionIcon>
+					<Box style={{ flex: 1, minWidth: 0 }}>
+						<Title order={4} lineClamp={2}>
+							{props.title}
+						</Title>
+					</Box>
+				</Group>
+				<Text size="sm" c="dimmed" style={{ flex: 1 }}>
+					{props.description}
+				</Text>
+				<Button fullWidth variant="light" {...props.buttonProps}>
+					{props.buttonText}
+				</Button>
+			</Stack>
+		</Paper>
+	);
+};
 
 const getJobDetails = (job: BackgroundJob) =>
 	match(job)
@@ -126,8 +170,9 @@ const getJobDetails = (job: BackgroundJob) =>
 			BackgroundJob.UpdateAllMetadata,
 			() =>
 				[
+					<IconRefresh size={28} key={job} />,
 					"Update all metadata",
-					"Fetch and update the metadata for all the media items that are stored. The more media you have, the longer this will take. This also updates people and group data from remote providers.",
+					"Mark all stored media items as partial so they will be automatically updated in the background the next time you view them.",
 					true,
 				] as const,
 		)
@@ -135,6 +180,7 @@ const getJobDetails = (job: BackgroundJob) =>
 			BackgroundJob.UpdateAllExercises,
 			() =>
 				[
+					<IconBarbell size={28} key={job} />,
 					"Update all exercises",
 					"Update the exercise database. Exercise data is downloaded on startup but they can be updated manually. Trigger this job when there are new exercises available.",
 					true,
@@ -144,6 +190,7 @@ const getJobDetails = (job: BackgroundJob) =>
 			BackgroundJob.PerformBackgroundTasks,
 			() =>
 				[
+					<IconPlayerPlay size={28} key={job} />,
 					"Perform background tasks",
 					"Update the user summaries, recalculate media associations for all users, update all monitored entities and remove useless data. The more users you have, the longer this will take.",
 					true,
@@ -153,6 +200,7 @@ const getJobDetails = (job: BackgroundJob) =>
 			BackgroundJob.CalculateUserActivitiesAndSummary,
 			() =>
 				[
+					<IconChartBar size={28} key={job} />,
 					"Regenerate Summaries",
 					"Regenerate all pre-computed summaries from the beginning. This may be useful if, for some reason, summaries are faulty or preconditions have changed. This may take some time.",
 				] as const,
@@ -161,6 +209,7 @@ const getJobDetails = (job: BackgroundJob) =>
 			BackgroundJob.ReviseUserWorkouts,
 			() =>
 				[
+					<IconActivity size={28} key={job} />,
 					"Revise workouts",
 					"Revise all workouts. This may be useful if exercises done during a workout have changed or workouts have been edited or deleted.",
 				] as const,
@@ -169,6 +218,7 @@ const getJobDetails = (job: BackgroundJob) =>
 			BackgroundJob.SyncIntegrationsData,
 			() =>
 				[
+					<IconCloudDownload size={28} key={job} />,
 					"Synchronize integrations progress",
 					"Get/push data for all configured integrations and update progress if applicable. The more integrations you have enabled, the longer this will take.",
 				] as const,
@@ -182,7 +232,8 @@ const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 	const isEditDisabled = dashboardData.isDemoInstance;
 	const invalidateUserDetails = useInvalidateUserDetails();
 
-	const [title, description, isAdminOnly] = getJobDetails(props.job);
+	const jobDetails = getJobDetails(props.job);
+	const [icon, title, description, isAdminOnly] = jobDetails;
 
 	if (isAdminOnly && userDetails.lot !== UserLot.Admin) return null;
 
@@ -190,6 +241,7 @@ const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 		<Form replace method="POST">
 			<input hidden name="jobName" defaultValue={props.job} />
 			<SettingsActionCard
+				icon={icon}
 				title={title}
 				buttonText={title}
 				description={description}
@@ -243,6 +295,7 @@ const DownloadLogsButton = () => {
 		<SettingsActionCard
 			title="Download Logs"
 			buttonText="Download Logs"
+			icon={<IconDownload size={28} />}
 			description="Download application logs for debugging and troubleshooting purposes."
 			buttonProps={{
 				disabled: isEditDisabled,

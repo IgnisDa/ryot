@@ -300,6 +300,7 @@ impl MediaProvider for TmdbShowService {
         Ok(EntityTranslationDetails {
             title: data.name,
             description: data.overview,
+            image: data.poster_path.map(|p| self.0.get_image_url(p)),
         })
     }
 }

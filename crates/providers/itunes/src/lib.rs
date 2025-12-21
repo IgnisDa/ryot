@@ -289,6 +289,7 @@ impl MediaProvider for ITunesService {
         Ok(EntityTranslationDetails {
             title: item.clone().map(|i| i.collection_name.clone()),
             description: item.and_then(|i| i.description.clone()),
+            ..Default::default()
         })
     }
 }

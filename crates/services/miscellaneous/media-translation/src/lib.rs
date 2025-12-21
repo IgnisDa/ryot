@@ -1,7 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
 use anyhow::{Result, anyhow, bail};
-use background_models::{ApplicationJob, MpApplicationJob};
 use chrono::Utc;
 use common_models::{EntityWithLot, UserLevelCacheKey};
 use common_utils::ryot_log;
@@ -52,8 +51,9 @@ fn merge_languages(existing: &Option<Vec<String>>, preferred_language: &str) -> 
 
 fn build_translation_models(
     input: &EntityWithLot,
-    preferred_language: &str,
     title: Option<String>,
+    image: Option<String>,
+    preferred_language: &str,
     description: Option<String>,
 ) -> Vec<entity_translation::ActiveModel> {
     let model_for = |variant: EntityTranslationVariant, value: Option<String>| {
@@ -63,16 +63,15 @@ fn build_translation_models(
             language: ActiveValue::Set(preferred_language.to_string()),
             ..Default::default()
         };
+        macro_rules! set_id {
+            ($field:ident) => {
+                model.$field = ActiveValue::Set(Some(input.entity_id.clone()))
+            };
+        }
         match input.entity_lot {
-            EntityLot::Person => {
-                model.person_id = ActiveValue::Set(Some(input.entity_id.clone()));
-            }
-            EntityLot::Metadata => {
-                model.metadata_id = ActiveValue::Set(Some(input.entity_id.clone()));
-            }
-            EntityLot::MetadataGroup => {
-                model.metadata_group_id = ActiveValue::Set(Some(input.entity_id.clone()));
-            }
+            EntityLot::Person => set_id!(person_id),
+            EntityLot::Metadata => set_id!(metadata_id),
+            EntityLot::MetadataGroup => set_id!(metadata_group_id),
             _ => {}
         }
         model
@@ -80,16 +79,18 @@ fn build_translation_models(
 
     vec![
         model_for(EntityTranslationVariant::Title, title),
+        model_for(EntityTranslationVariant::Image, image),
         model_for(EntityTranslationVariant::Description, description),
     ]
 }
 
 async fn replace_entity_translations(
-    ss: &Arc<SupportingService>,
     input: &EntityWithLot,
-    preferred_language: &str,
     title: Option<String>,
+    image: Option<String>,
+    preferred_language: &str,
     description: Option<String>,
+    ss: &Arc<SupportingService>,
 ) -> Result<()> {
     EntityTranslation::delete_many()
         .filter(entity_translation::Column::EntityId.eq(&input.entity_id))
@@ -97,7 +98,8 @@ async fn replace_entity_translations(
         .filter(entity_translation::Column::Language.eq(preferred_language))
         .exec(&ss.db)
         .await?;
-    let translations = build_translation_models(input, preferred_language, title, description);
+    let translations =
+        build_translation_models(input, title, image, preferred_language, description);
     let result = EntityTranslation::insert_many(translations)
         .on_conflict(OnConflict::new().do_nothing().to_owned())
         .exec_without_returning(&ss.db)
@@ -111,68 +113,45 @@ pub async fn update_media_translation(
     user_id: &String,
     input: EntityWithLot,
 ) -> Result<()> {
-    match input.entity_lot {
-        EntityLot::Metadata => {
-            let meta = Metadata::find_by_id(&input.entity_id)
+    macro_rules! update_metadata_translation {
+        ($entity_type:ident, $mod:ident, $method:ident) => {{
+            let entity = $entity_type::find_by_id(&input.entity_id)
                 .one(&ss.db)
                 .await?
-                .ok_or_else(|| anyhow!("Metadata not found"))?;
+                .ok_or_else(|| anyhow!(concat!(stringify!($entity_type), " not found")))?;
             let preferred_language =
-                get_preferred_language_for_user_and_source(ss, user_id, &meta.source).await?;
-            let provider = get_metadata_provider(meta.lot, meta.source, ss).await?;
+                get_preferred_language_for_user_and_source(ss, user_id, &entity.source).await?;
+
+            let provider = get_metadata_provider(entity.lot, entity.source, ss).await?;
+
             if let Ok(trn) = provider
-                .translate_metadata(&meta.identifier, &preferred_language)
+                .$method(&entity.identifier, &preferred_language)
                 .await
             {
                 replace_entity_translations(
-                    ss,
                     &input,
-                    &preferred_language,
                     trn.title,
+                    trn.image,
+                    &preferred_language,
                     trn.description,
+                    ss,
                 )
                 .await?;
             }
 
             let languages =
-                merge_languages(&meta.has_translations_for_languages, &preferred_language);
-            let mut item: metadata::ActiveModel = meta.into();
+                merge_languages(&entity.has_translations_for_languages, &preferred_language);
+            let mut item: $mod::ActiveModel = entity.into();
             item.last_updated_on = ActiveValue::Set(Utc::now());
             item.has_translations_for_languages = ActiveValue::Set(Some(languages));
             item.update(&ss.db).await?;
-        }
-        EntityLot::MetadataGroup => {
-            let metadata_group = MetadataGroup::find_by_id(&input.entity_id)
-                .one(&ss.db)
-                .await?
-                .ok_or_else(|| anyhow!("Metadata group not found"))?;
-            let preferred_language =
-                get_preferred_language_for_user_and_source(ss, user_id, &metadata_group.source)
-                    .await?;
-            let provider =
-                get_metadata_provider(metadata_group.lot, metadata_group.source, ss).await?;
-            if let Ok(trn) = provider
-                .translate_metadata_group(&metadata_group.identifier, &preferred_language)
-                .await
-            {
-                replace_entity_translations(
-                    ss,
-                    &input,
-                    &preferred_language,
-                    trn.title,
-                    trn.description,
-                )
-                .await?;
-            }
+        }};
+    }
 
-            let languages = merge_languages(
-                &metadata_group.has_translations_for_languages,
-                &preferred_language,
-            );
-            let mut item: metadata_group::ActiveModel = metadata_group.into();
-            item.last_updated_on = ActiveValue::Set(Utc::now());
-            item.has_translations_for_languages = ActiveValue::Set(Some(languages));
-            item.update(&ss.db).await?;
+    match input.entity_lot {
+        EntityLot::Metadata => update_metadata_translation!(Metadata, metadata, translate_metadata),
+        EntityLot::MetadataGroup => {
+            update_metadata_translation!(MetadataGroup, metadata_group, translate_metadata_group)
         }
         EntityLot::Person => {
             let person = Person::find_by_id(&input.entity_id)
@@ -191,11 +170,12 @@ pub async fn update_media_translation(
                 .await
             {
                 replace_entity_translations(
-                    ss,
                     &input,
-                    &preferred_language,
                     trn.title,
+                    trn.image,
+                    &preferred_language,
                     trn.description,
+                    ss,
                 )
                 .await?;
             }
@@ -222,18 +202,6 @@ pub async fn update_media_translation(
     Ok(())
 }
 
-pub async fn deploy_update_media_translations_job(
-    user_id: String,
-    input: EntityWithLot,
-    ss: &Arc<SupportingService>,
-) -> Result<bool> {
-    ss.perform_application_job(ApplicationJob::Mp(
-        MpApplicationJob::UpdateMediaTranslations(user_id, input),
-    ))
-    .await?;
-    Ok(true)
-}
-
 pub async fn media_translations(
     user_id: &String,
     input: EntityWithLot,
@@ -247,31 +215,25 @@ pub async fn media_translations(
         }),
         ApplicationCacheValue::UserEntityTranslations,
         || async move {
+            macro_rules! fetch_info {
+                ($entity:ident, $mod:ident, $name:literal) => {
+                    $entity::find_by_id(&input.entity_id)
+                        .select_only()
+                        .column($mod::Column::Source)
+                        .column($mod::Column::HasTranslationsForLanguages)
+                        .into_tuple::<(MediaSource, Option<Vec<String>>)>()
+                        .one(&ss.db)
+                        .await?
+                        .ok_or_else(|| anyhow!(concat!($name, " not found")))?
+                };
+            }
+
             let (source, has_translations_for_languages) = match input.entity_lot {
-                EntityLot::Metadata => Metadata::find_by_id(&input.entity_id)
-                    .select_only()
-                    .column(metadata::Column::Source)
-                    .column(metadata::Column::HasTranslationsForLanguages)
-                    .into_tuple::<(MediaSource, Option<Vec<String>>)>()
-                    .one(&ss.db)
-                    .await?
-                    .ok_or_else(|| anyhow!("Metadata not found"))?,
-                EntityLot::MetadataGroup => MetadataGroup::find_by_id(&input.entity_id)
-                    .select_only()
-                    .column(metadata_group::Column::Source)
-                    .column(metadata_group::Column::HasTranslationsForLanguages)
-                    .into_tuple::<(MediaSource, Option<Vec<String>>)>()
-                    .one(&ss.db)
-                    .await?
-                    .ok_or_else(|| anyhow!("Metadata group not found"))?,
-                EntityLot::Person => Person::find_by_id(&input.entity_id)
-                    .select_only()
-                    .column(person::Column::Source)
-                    .column(person::Column::HasTranslationsForLanguages)
-                    .into_tuple::<(MediaSource, Option<Vec<String>>)>()
-                    .one(&ss.db)
-                    .await?
-                    .ok_or_else(|| anyhow!("Person not found"))?,
+                EntityLot::Person => fetch_info!(Person, person, "Person"),
+                EntityLot::Metadata => fetch_info!(Metadata, metadata, "Metadata"),
+                EntityLot::MetadataGroup => {
+                    fetch_info!(MetadataGroup, metadata_group, "Metadata group")
+                }
                 _ => {
                     bail!("Unsupported entity lot for translations");
                 }
@@ -294,6 +256,10 @@ pub async fn media_translations(
                 return Ok(None);
             }
             Ok(Some(EntityTranslationDetails {
+                image: translations
+                    .iter()
+                    .find(|s| s.variant == EntityTranslationVariant::Image)
+                    .and_then(|s| s.value.clone()),
                 title: translations
                     .iter()
                     .find(|s| s.variant == EntityTranslationVariant::Title)

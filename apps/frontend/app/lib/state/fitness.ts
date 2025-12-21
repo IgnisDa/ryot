@@ -89,7 +89,6 @@ export type InProgressWorkout = {
 	exercises: Array<Exercise>;
 	currentAction: FitnessAction;
 	replacingExerciseIdx?: number;
-	mergingExercise: string | null;
 	updateWorkoutTemplateId?: string;
 	durations: Array<WorkoutDuration>;
 	timerDrawerLot: "timer" | "stopwatch";
@@ -121,7 +120,6 @@ export const getDefaultWorkout = (fitnessEntity: FitnessAction) => {
 		videos: [],
 		supersets: [],
 		exercises: [],
-		mergingExercise: null,
 		timerDrawerLot: "timer",
 		currentAction: fitnessEntity,
 		startTime: date.toISOString(),
@@ -310,17 +308,9 @@ const measurementsDrawerAtom = atom<false | UserMeasurement | null>(false);
 
 export const useMeasurementsDrawer = () => useAtom(measurementsDrawerAtom);
 
-export const useMergingExercise = () => {
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const setMergingExercise = (value: string | null) => {
-		setCurrentWorkout((prev) => {
-			if (!prev) return prev;
-			if (prev.mergingExercise === value) return prev;
-			return { ...prev, mergingExercise: value };
-		});
-	};
-	return [currentWorkout?.mergingExercise ?? null, setMergingExercise] as const;
-};
+const mergingExerciseAtom = atom<string | null>(null);
+
+export const useMergingExercise = () => useAtom(mergingExerciseAtom);
 
 export const duplicateOldWorkout = async (
 	name: string,

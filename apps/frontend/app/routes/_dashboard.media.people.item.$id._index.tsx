@@ -124,6 +124,7 @@ export default function Page() {
 			{personDetails.data && userPersonDetails.data ? (
 				<MediaDetailsLayout
 					title={title}
+					extraImage={personTranslations?.image}
 					assets={personDetails.data.details.assets}
 					isPartialStatusActive={isPersonPartialStatusActive}
 					externalLink={{
@@ -388,10 +389,13 @@ const MetadataGroupDisplay = (props: {
 	return (
 		<BaseEntityDisplay
 			isPartialStatusActive={isMetadataGroupPartialStatusActive}
-			image={metadataGroupDetails?.details.assets.remoteImages.at(0)}
 			link={$path("/media/groups/item/:id", { id: props.metadataGroupId })}
 			title={
 				metadataGroupTranslations?.title || metadataGroupDetails?.details.title
+			}
+			image={
+				metadataGroupTranslations?.image ||
+				metadataGroupDetails?.details.assets.remoteImages.at(0)
 			}
 		/>
 	);

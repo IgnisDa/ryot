@@ -88,7 +88,6 @@ export const MetadataDisplayItem = (props: {
 	return (
 		<BaseEntityDisplayItem
 			ref={ref}
-			image={images.at(0)}
 			progress={currentProgress}
 			entityId={props.metadataId}
 			userToMediaReasons={reasons}
@@ -101,6 +100,7 @@ export const MetadataDisplayItem = (props: {
 			isDetailsLoading={isMetadataDetailsLoading}
 			wasRecentlyConsumed={isMetadataRecentlyConsumed}
 			isPartialStatusActive={isMetadataPartialStatusActive}
+			image={metadataTranslations?.image || images.at(0)}
 			title={metadataTranslations?.title || metadataDetails?.title}
 			interactionButtons={["collection", "consume", "review", "watchlist"]}
 			hasInteracted={
@@ -170,7 +170,6 @@ export const MetadataGroupDisplayItem = (props: {
 	return (
 		<BaseEntityDisplayItem
 			ref={ref}
-			image={images.at(0)}
 			entityId={props.metadataGroupId}
 			rating={averageRating ?? undefined}
 			entityLot={EntityLot.MetadataGroup}
@@ -181,6 +180,7 @@ export const MetadataGroupDisplayItem = (props: {
 			wasRecentlyConsumed={isMetadataGroupRecentlyConsumed}
 			interactionButtons={["collection", "review", "watchlist"]}
 			isPartialStatusActive={isMetadataGroupPartialStatusActive}
+			image={metadataGroupTranslations?.image || images.at(0)}
 			title={
 				metadataGroupTranslations?.title || metadataGroupDetails?.details.title
 			}
@@ -238,7 +238,6 @@ export const PersonDisplayItem = (props: {
 	return (
 		<BaseEntityDisplayItem
 			ref={ref}
-			image={images.at(0)}
 			entityId={props.personId}
 			entityLot={EntityLot.Person}
 			rating={averageRating ?? undefined}
@@ -248,6 +247,7 @@ export const PersonDisplayItem = (props: {
 			wasRecentlyConsumed={isPersonRecentlyConsumed}
 			isPartialStatusActive={isPersonPartialStatusActive}
 			additionalInformation={defaultAdditionalInformation}
+			image={personTranslations?.image || images.at(0)}
 			title={personTranslations?.title || personDetails?.details.name}
 			onImageClickBehavior={[
 				$path("/media/people/item/:id", { id: props.personId }),

@@ -132,6 +132,7 @@ impl TvdbService {
         Ok(EntityTranslationDetails {
             title: response.data.name,
             description: response.data.overview,
+            ..Default::default()
         })
     }
 }

@@ -16,9 +16,9 @@ pub struct Model {
     pub language: String,
     #[graphql(skip)]
     pub entity_id: String,
+    pub value: Option<String>,
     #[graphql(skip)]
     pub entity_lot: EntityLot,
-    pub value: Option<String>,
     #[graphql(skip)]
     pub created_on: DateTimeUtc,
     #[graphql(skip)]

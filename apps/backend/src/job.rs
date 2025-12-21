@@ -112,23 +112,22 @@ pub async fn perform_mp_application_job(
         MpApplicationJob::ImportFromExternalSource(user_id, input) => {
             perform_import(&ss, user_id, input).await
         }
-        MpApplicationJob::UpdateMediaDetails(input) => match input.entity_lot {
-            EntityLot::Metadata => update_metadata_and_notify_users(&input.entity_id, &ss)
-                .await
-                .map(|_| ()),
-            EntityLot::Person => update_person_and_notify_users(&input.entity_id, &ss)
-                .await
-                .map(|_| ()),
-            EntityLot::MetadataGroup => {
-                update_metadata_group_and_notify_users(&input.entity_id, &ss)
-                    .await
-                    .map(|_| ())
+        MpApplicationJob::UpdateMediaDetails(input) => {
+            macro_rules! update_media {
+                ($update_fn:ident) => {
+                    $update_fn(&input.entity_id, &ss).await.map(|_| ())
+                };
             }
-            _ => Err(anyhow!(
-                "Type {:?} not supported for update",
-                input.entity_lot
-            )),
-        },
+            match input.entity_lot {
+                EntityLot::Person => update_media!(update_person_and_notify_users),
+                EntityLot::Metadata => update_media!(update_metadata_and_notify_users),
+                EntityLot::MetadataGroup => update_media!(update_metadata_group_and_notify_users),
+                _ => Err(anyhow!(
+                    "Type {:?} not supported for update",
+                    input.entity_lot
+                )),
+            }
+        }
     };
     ryot_log!(trace, "Finished job {:?}", name);
     status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))

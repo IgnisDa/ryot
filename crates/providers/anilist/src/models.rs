@@ -370,6 +370,7 @@ pub async fn translate_media(
     Ok(EntityTranslationDetails {
         title,
         description: media.description,
+        ..Default::default()
     })
 }
 

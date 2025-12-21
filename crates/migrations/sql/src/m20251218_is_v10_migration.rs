@@ -7,12 +7,13 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
-
-        if manager.has_column("user", "last_activity_on").await? {
-            db.execute_unprepared(r#"ALTER TABLE "user" DROP COLUMN "last_activity_on""#)
-                .await?;
-        }
-
+        db.execute_unprepared(
+            r#"
+UPDATE "metadata" SET "has_translations_for_languages" = NULL;
+UPDATE "application_cache" SET "expires_at" = NOW() WHERE "sanitized_key" LIKE 'UserEntityTranslations-%';
+        "#,
+        )
+        .await?;
         Ok(())
     }
 

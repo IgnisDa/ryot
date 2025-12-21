@@ -524,6 +524,7 @@ query MediaTranslations($input: EntityWithLotInput!) {
 	mediaTranslations(input: $input) {
 		response {
 			title
+			image
 			description
 		}
 	}

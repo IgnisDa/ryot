@@ -343,7 +343,14 @@ export default function Page() {
 									<Button
 										component={Link}
 										variant="subtle"
-										onClick={() => advanceOnboardingTourStep()}
+										onClick={() => {
+											setCurrentWorkout(
+												produce(currentWorkout, (draft) => {
+													draft.replacingExerciseIdx = undefined;
+												}),
+											);
+											advanceOnboardingTourStep();
+										}}
 										to={$path("/fitness/exercises/list")}
 										className={
 											OnboardingTourStepTargets.ClickOnAddAnExerciseButton

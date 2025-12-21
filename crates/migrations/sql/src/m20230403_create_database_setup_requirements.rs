@@ -1,4 +1,3 @@
-// FIXME: Rename this to `m20230403_create_database_setup_requirements` in the next major release
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]

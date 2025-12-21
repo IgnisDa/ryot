@@ -113,20 +113,17 @@ pub async fn associate_user_with_entity(
                     ..Default::default()
                 };
 
+                macro_rules! set_ute_id {
+                    ($field:ident) => {
+                        new_user_to_entity.$field = ActiveValue::Set(Some(entity_id_owned))
+                    };
+                }
+
                 match entity_lot {
-                    EntityLot::Metadata => {
-                        new_user_to_entity.metadata_id = ActiveValue::Set(Some(entity_id_owned))
-                    }
-                    EntityLot::Person => {
-                        new_user_to_entity.person_id = ActiveValue::Set(Some(entity_id_owned))
-                    }
-                    EntityLot::Exercise => {
-                        new_user_to_entity.exercise_id = ActiveValue::Set(Some(entity_id_owned))
-                    }
-                    EntityLot::MetadataGroup => {
-                        new_user_to_entity.metadata_group_id =
-                            ActiveValue::Set(Some(entity_id_owned))
-                    }
+                    EntityLot::Person => set_ute_id!(person_id),
+                    EntityLot::Metadata => set_ute_id!(metadata_id),
+                    EntityLot::Exercise => set_ute_id!(exercise_id),
+                    EntityLot::MetadataGroup => set_ute_id!(metadata_group_id),
                     EntityLot::Genre
                     | EntityLot::Review
                     | EntityLot::Workout
