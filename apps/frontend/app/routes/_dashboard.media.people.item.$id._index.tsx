@@ -124,6 +124,7 @@ export default function Page() {
 			{personDetails.data && userPersonDetails.data ? (
 				<MediaDetailsLayout
 					title={title}
+					extraImage={personTranslations?.image}
 					assets={personDetails.data.details.assets}
 					isPartialStatusActive={isPersonPartialStatusActive}
 					externalLink={{

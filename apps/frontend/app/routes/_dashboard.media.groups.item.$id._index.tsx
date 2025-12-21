@@ -89,6 +89,7 @@ export default function Page() {
 			{metadataGroupDetailsData.data && userMetadataGroupDetails.data ? (
 				<MediaDetailsLayout
 					title={title}
+					extraImage={metadataGroupTranslations?.image}
 					assets={metadataGroupDetailsData.data.details.assets}
 					isPartialStatusActive={isMetadataGroupPartialStatusActive}
 					externalLink={{

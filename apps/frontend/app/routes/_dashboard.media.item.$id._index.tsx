@@ -402,6 +402,7 @@ export default function Page() {
 					<MediaDetailsLayout
 						title={title}
 						assets={metadataDetails.data.assets}
+						extraImage={metadataTranslations?.image}
 						isPartialStatusActive={isMetadataPartialStatusActive}
 						externalLink={{
 							lot: metadataDetails.data.lot,
