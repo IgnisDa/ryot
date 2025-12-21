@@ -1,4 +1,5 @@
 import {
+	Anchor,
 	Avatar,
 	Box,
 	Button,
@@ -12,7 +13,21 @@ import {
 	useMantineColorScheme,
 } from "@mantine/core";
 import { useDisclosure, useHover } from "@mantine/hooks";
-import { Key, Laptop, LogOut, Moon, Settings, Sun } from "lucide-react";
+import {
+	BookOpen,
+	ExternalLink,
+	Github,
+	Globe,
+	Info,
+	Key,
+	Laptop,
+	LogOut,
+	Mail,
+	MessageCircle,
+	Moon,
+	Settings,
+	Sun,
+} from "lucide-react";
 import { useIsMobileScreen } from "#/hooks/screen";
 import { useThemeTokens } from "#/hooks/theme";
 import { authClient } from "#/lib/auth";
@@ -22,6 +37,39 @@ import {
 	formatSidebarAccountDate,
 	getSidebarAccountInitials,
 } from "./sidebar-account";
+
+const ABOUT_LINKS = [
+	{
+		href: "https://discord.gg/D9XTg2a7R8",
+		icon: MessageCircle,
+		label: "Discord",
+		description: "Join the community",
+	},
+	{
+		icon: Github,
+		label: "GitHub",
+		href: "https://github.com/IgnisDa/ryot",
+		description: "View the source code",
+	},
+	{
+		icon: Globe,
+		label: "Website",
+		href: "https://ryot.io",
+		description: "Learn more about Ryot",
+	},
+	{
+		icon: BookOpen,
+		label: "Documentation",
+		href: "https://docs.ryot.io",
+		description: "Read the docs",
+	},
+	{
+		icon: Mail,
+		label: "Contact",
+		href: "mailto:ignisda2001@gmail.com",
+		description: "ignisda2001@gmail.com",
+	},
+];
 
 function AccountMetaItem(props: { label: string; value: string }) {
 	return (
@@ -138,6 +186,9 @@ export function SidebarAccountSection(props: { account: SidebarAccount }) {
 						</Tabs.Tab>
 						<Tabs.Tab value="api-keys" leftSection={<Key size={16} />}>
 							API Keys
+						</Tabs.Tab>
+						<Tabs.Tab value="about" leftSection={<Info size={16} />}>
+							About
 						</Tabs.Tab>
 					</Tabs.List>
 
@@ -275,6 +326,66 @@ export function SidebarAccountSection(props: { account: SidebarAccount }) {
 
 					<Tabs.Panel value="api-keys" style={{ flex: 1 }}>
 						<SidebarApiKeysSection opened={opened} />
+					</Tabs.Panel>
+
+					<Tabs.Panel value="about" style={{ flex: 1 }}>
+						<Stack gap="lg">
+							<Box>
+								<Text
+									fw={600}
+									size="xl"
+									ff="var(--mantine-headings-font-family)"
+								>
+									About Ryot
+								</Text>
+								<Text c={textMuted} size="sm" mt={4}>
+									A journal of personal tracking
+								</Text>
+							</Box>
+							<Stack gap="xs">
+								{ABOUT_LINKS.map((link) => (
+									<Anchor
+										key={link.label}
+										href={link.href}
+										target={
+											link.href.startsWith("mailto:") ? undefined : "_blank"
+										}
+										rel="noopener noreferrer"
+										underline="never"
+										style={{ display: "block" }}
+									>
+										<Box
+											p="md"
+											style={{
+												borderRadius: "10px",
+												border: `1px solid ${border}`,
+												transition: "all 140ms ease",
+											}}
+										>
+											<Group justify="space-between" wrap="nowrap">
+												<Group gap="sm" wrap="nowrap">
+													<Box
+														c={borderAccent}
+														style={{ display: "flex", alignItems: "center" }}
+													>
+														<link.icon size={18} />
+													</Box>
+													<Box>
+														<Text size="sm" fw={500} c={textPrimary}>
+															{link.label}
+														</Text>
+														<Text size="xs" c={textMuted}>
+															{link.description}
+														</Text>
+													</Box>
+												</Group>
+												<ExternalLink size={14} color={textMuted} />
+											</Group>
+										</Box>
+									</Anchor>
+								))}
+							</Stack>
+						</Stack>
 					</Tabs.Panel>
 				</Tabs>
 			</Modal>
