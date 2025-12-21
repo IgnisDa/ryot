@@ -1,11 +1,11 @@
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { DateTime, Effect, Schema } from "effect";
 
 import { DbRunner } from "~/lib/db";
 import { SandboxRunError, dieOnDbError, unknownToMessage } from "~/lib/errors";
 import { parseAppSchemaProperties } from "~/lib/property-schema-runtime";
+import { SandboxService } from "~/lib/sandbox";
 import { RelationshipSchemasRepository } from "~/modules/relationship-schemas/repository";
-import { RunSandboxWorkflow } from "~/modules/sandbox/workflow-definitions";
+import { SandboxRepository } from "~/modules/sandbox/repository";
 
 import { EntitiesRepository } from "./repository";
 
@@ -49,7 +49,43 @@ export type EntitySearchItem = typeof EntitySearchItem.Type;
 
 const EntitySearchResult = Schema.Struct({ items: Schema.Array(EntitySearchItem) });
 
-const decodeEntitySearchResult = Schema.decodeUnknown(EntitySearchResult);
+export const decodeEntitySearchResult = Schema.decodeUnknown(EntitySearchResult);
+
+const runSandboxDriver = (input: {
+	userId: string;
+	context: unknown;
+	scriptId: string;
+	driverName: string;
+	executionId: string;
+}) =>
+	Effect.gen(function* () {
+		const runWithDb = yield* DbRunner;
+		const sandbox = yield* SandboxService;
+		const sandboxRepository = yield* SandboxRepository;
+
+		const script = yield* runWithDb(
+			sandboxRepository.getScriptForUser({ userId: input.userId, scriptId: input.scriptId }),
+		);
+		if (!script) {
+			return yield* new SandboxRunError({ message: "Sandbox script not found" });
+		}
+
+		return yield* sandbox.run({
+			code: script.code,
+			scriptId: script.id,
+			userId: input.userId,
+			context: input.context,
+			driverName: input.driverName,
+			executionId: input.executionId,
+			allowedHostFunctions: script.metadata.allowedHostFunctions ?? [],
+		});
+	}).pipe(
+		Effect.mapError((error) =>
+			error instanceof SandboxRunError
+				? error
+				: new SandboxRunError({ message: unknownToMessage(error) }),
+		),
+	);
 
 export const processRelatedEntity = (input: {
 	sourceEntityId: string;
@@ -125,7 +161,6 @@ export const populateGlobalEntity = (input: {
 }) =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
-		const engine = yield* WorkflowEngine;
 		const repository = yield* EntitiesRepository;
 
 		const existing = yield* runWithDb(
@@ -146,18 +181,13 @@ export const populateGlobalEntity = (input: {
 			return yield* new SandboxRunError({ message: "Entity schema not found" });
 		}
 
-		const sandboxResult = yield* engine
-			.execute(RunSandboxWorkflow, {
-				executionId: input.executionId,
-				payload: {
-					userId: input.userId,
-					driverName: "details",
-					scriptId: input.scriptId,
-					executionId: input.executionId,
-					context: { externalId: input.externalId },
-				},
-			})
-			.pipe(Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })));
+		const sandboxResult = yield* runSandboxDriver({
+			userId: input.userId,
+			driverName: "details",
+			scriptId: input.scriptId,
+			executionId: input.executionId,
+			context: { externalId: input.externalId },
+		});
 
 		if (sandboxResult.error) {
 			return yield* new SandboxRunError({ message: sandboxResult.error });
@@ -216,20 +246,13 @@ export const resolveGlobalEntityExternalId = (input: {
 	identifierType: string;
 }) =>
 	Effect.gen(function* () {
-		const engine = yield* WorkflowEngine;
-
-		const sandboxResult = yield* engine
-			.execute(RunSandboxWorkflow, {
-				executionId: input.executionId,
-				payload: {
-					userId: input.userId,
-					driverName: "resolve",
-					scriptId: input.scriptId,
-					executionId: input.executionId,
-					context: { value: input.value, identifierType: input.identifierType },
-				},
-			})
-			.pipe(Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })));
+		const sandboxResult = yield* runSandboxDriver({
+			userId: input.userId,
+			driverName: "resolve",
+			scriptId: input.scriptId,
+			executionId: input.executionId,
+			context: { value: input.value, identifierType: input.identifierType },
+		});
 
 		if (sandboxResult.error) {
 			return yield* new SandboxRunError({ message: sandboxResult.error });
@@ -247,27 +270,20 @@ export const resolveGlobalEntityExternalId = (input: {
 
 export const searchGlobalEntities = (input: {
 	query: string;
-	userId: string;
 	page?: number;
+	userId: string;
 	scriptId: string;
 	pageSize?: number;
 	executionId: string;
 }) =>
 	Effect.gen(function* () {
-		const engine = yield* WorkflowEngine;
-
-		const sandboxResult = yield* engine
-			.execute(RunSandboxWorkflow, {
-				executionId: input.executionId,
-				payload: {
-					userId: input.userId,
-					driverName: "search",
-					scriptId: input.scriptId,
-					executionId: input.executionId,
-					context: { query: input.query, page: input.page ?? 1, pageSize: input.pageSize ?? 5 },
-				},
-			})
-			.pipe(Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })));
+		const sandboxResult = yield* runSandboxDriver({
+			userId: input.userId,
+			driverName: "search",
+			scriptId: input.scriptId,
+			executionId: input.executionId,
+			context: { query: input.query, page: input.page ?? 1, pageSize: input.pageSize ?? 5 },
+		});
 
 		if (sandboxResult.error) {
 			return yield* new SandboxRunError({ message: sandboxResult.error });
