@@ -8,6 +8,7 @@ import { afterAll, assert, beforeAll, expect, it } from "vitest";
 import {
 	sandboxAnimeDotAnilistScript,
 	sandboxAnimeDotMyanimelistScript,
+	sandboxAudiobookDotAudibleScript,
 	sandboxBookDotGoogleDashBooksScript,
 	sandboxBookDotHardcoverScript,
 	sandboxBookDotOpenlibraryScript,
@@ -20,6 +21,8 @@ import {
 	sandboxMovieDotTvdbScript,
 	sandboxPersonDotTmdbScript,
 	sandboxPersonDotTvdbScript,
+	sandboxPodcastDotItunesScript,
+	sandboxPodcastDotListennotesScript,
 	sandboxShowDotTmdbScript,
 	sandboxShowDotTvdbScript,
 	sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript,
@@ -1628,6 +1631,199 @@ it("loads and executes the generated Google Books module in Deno through the RES
 						},
 					],
 				});
+			}),
+		),
+	));
+
+it("loads and executes the generated Audible module in Deno with HTML description cleaning", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							httpResponse: (url) => {
+								expect(new URL(url).host).toBe("api.audible.com");
+								if (url.includes("/sims?")) {
+									return { similar_products: [] };
+								}
+								return {
+									product: {
+										asin: "B01",
+										title: "The Book",
+										narrators: [],
+										series: [],
+										category_ladders: [],
+										runtime_length_min: 120,
+										release_date: "2020-05-02",
+										is_adult_product: false,
+										product_images: { "2400": "https://img/2400.jpg" },
+										publisher_summary: "<p>Hello<br>World</p>",
+										authors: [{ name: "Jane Doe", asin: "A1" }],
+										rating: { num_reviews: 0, overall_distribution: {} },
+									},
+								};
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const entry = sandboxAudiobookDotAudibleScript;
+				const compiled = {
+					manifest: entry.manifest,
+					format: entry.compiledFormat,
+					javascript: entry.compiledCode,
+				};
+				const result = yield* runInDeno(
+					compiled,
+					"details",
+					{ externalId: "B01" },
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: compiled.manifest.capabilities,
+					},
+				);
+				assert(result !== null && typeof result === "object");
+				expect(result).toMatchObject({ success: true });
+				expect(Reflect.get(result, "value")).toMatchObject({
+					name: "The Book",
+					properties: { publishYear: 2020, description: "Hello\nWorld" },
+					relatedEntityGroups: [
+						{
+							relationshipSchemaSlug: "person-to-audiobook",
+							entities: [{ externalId: "A1", name: "Jane Doe" }],
+						},
+						{ relationshipSchemaSlug: "audiobook-group-to-audiobook", entities: [] },
+						{ relationshipSchemaSlug: "media-suggestion", entities: [] },
+					],
+				});
+			}),
+		),
+	));
+
+it("loads and executes the generated iTunes podcast module in Deno", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							httpResponse: (url) => {
+								const requestUrl = new URL(url);
+								expect(requestUrl.host).toBe("itunes.apple.com");
+								expect(requestUrl.pathname).toBe("/search");
+								return {
+									results: [
+										{
+											collectionId: 123,
+											collectionName: "My Podcast",
+											releaseDate: "2021-01-01T00:00:00Z",
+											artworkUrl600: "https://img/600.jpg",
+										},
+									],
+								};
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const entry = sandboxPodcastDotItunesScript;
+				const compiled = {
+					manifest: entry.manifest,
+					format: entry.compiledFormat,
+					javascript: entry.compiledCode,
+				};
+				const result = yield* runInDeno(
+					compiled,
+					"search",
+					{ query: "podcast", page: 1, pageSize: 20 },
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: compiled.manifest.capabilities,
+					},
+				);
+				assert(result !== null && typeof result === "object");
+				expect(result).toMatchObject({ success: true });
+				expect(Reflect.get(result, "value")).toMatchObject({
+					details: { totalItems: 1, nextPage: null },
+					items: [
+						{
+							externalId: "123",
+							titleProperty: { kind: "text", value: "My Podcast" },
+							primarySubtitleProperty: { kind: "number", value: 2021 },
+							imageProperty: {
+								kind: "image",
+								value: { type: "remote", url: "https://img/600.jpg" },
+							},
+						},
+					],
+				});
+			}),
+		),
+	));
+
+it("loads and executes the generated ListenNotes podcast module in Deno through the API key header", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							appConfigValue: "listennotes-key",
+							httpResponse: (url) => {
+								const requestUrl = new URL(url);
+								expect(requestUrl.host).toBe("listen-api.listennotes.com");
+								expect(requestUrl.pathname).toBe("/api/v2/search");
+								return {
+									total: 1,
+									next_offset: null,
+									results: [
+										{
+											id: "abc",
+											image: "https://img/ln.jpg",
+											title_original: "LN Podcast",
+											earliest_pub_date_ms: 1609459200000,
+										},
+									],
+								};
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const entry = sandboxPodcastDotListennotesScript;
+				const compiled = {
+					manifest: entry.manifest,
+					format: entry.compiledFormat,
+					javascript: entry.compiledCode,
+				};
+				const result = yield* runInDeno(
+					compiled,
+					"search",
+					{ query: "podcast", page: 1, pageSize: 20 },
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: compiled.manifest.capabilities,
+					},
+				);
+				assert(result !== null && typeof result === "object");
+				expect(result).toMatchObject({ success: true });
+				expect(Reflect.get(result, "value")).toMatchObject({
+					details: { totalItems: 1, nextPage: null },
+					items: [
+						{
+							externalId: "abc",
+							titleProperty: { kind: "text", value: "LN Podcast" },
+							primarySubtitleProperty: { kind: "number", value: 2021 },
+							imageProperty: {
+								kind: "image",
+								value: { type: "remote", url: "https://img/ln.jpg" },
+							},
+						},
+					],
+				});
+				const configCall = bridge.calls.find((call) => call.fnName === "getAppConfigValue");
+				expect(configCall?.args).toEqual(["providers.listennotesApiKey"]);
 			}),
 		),
 	));
