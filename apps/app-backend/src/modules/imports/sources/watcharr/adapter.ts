@@ -64,22 +64,25 @@ const findEpisodeWatchDate = (
 ): string => {
 	let matchedOccurredAt: string | undefined;
 	for (const activity of activities) {
-		if (!activity.type.includes("EPISODE") || !activity.data) {
+		const activityData = activity.data;
+		if (!activity.type.includes("EPISODE") || !activityData) {
 			continue;
 		}
-		try {
-			const parsed = decodeWatcharrActivityData(JSON.parse(activity.data));
-			if (
-				Either.isRight(parsed) &&
-				parsed.right.season === season &&
-				parsed.right.episode === episode
-			) {
-				const occurredAt = normalizeOccurredAt(activity.customDate, fallback);
-				matchedOccurredAt = matchedOccurredAt
-					? getLatestOccurredAt(matchedOccurredAt, occurredAt)
-					: occurredAt;
-			}
-		} catch {}
+		const parsed = Either.try(() => JSON.parse(activityData) as unknown);
+		if (Either.isLeft(parsed)) {
+			continue;
+		}
+		const decoded = decodeWatcharrActivityData(parsed.right);
+		if (
+			Either.isRight(decoded) &&
+			decoded.right.season === season &&
+			decoded.right.episode === episode
+		) {
+			const occurredAt = normalizeOccurredAt(activity.customDate, fallback);
+			matchedOccurredAt = matchedOccurredAt
+				? getLatestOccurredAt(matchedOccurredAt, occurredAt)
+				: occurredAt;
+		}
 	}
 	return matchedOccurredAt ?? fallback;
 };
