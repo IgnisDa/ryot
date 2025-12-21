@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use background_models::{ApplicationJob, HpApplicationJob};
+use background_models::{ApplicationJob, SingleApplicationJob};
 use database_utils::admin_account_guard;
 pub use dependent_jobs_utils::deploy_update_media_entity_job;
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, EmptyCacheValue};
@@ -14,8 +14,8 @@ pub async fn deploy_bulk_metadata_progress_update(
     user_id: String,
     input: Vec<MetadataProgressUpdateInput>,
 ) -> Result<bool> {
-    ss.perform_application_job(ApplicationJob::Hp(
-        HpApplicationJob::BulkMetadataProgressUpdate(user_id, input),
+    ss.perform_application_job(ApplicationJob::Single(
+        SingleApplicationJob::BulkMetadataProgressUpdate(user_id, input),
     ))
     .await?;
     Ok(true)

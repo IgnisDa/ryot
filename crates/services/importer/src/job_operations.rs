@@ -1,5 +1,5 @@
 use anyhow::Result;
-use background_models::{ApplicationJob, MpApplicationJob};
+use background_models::{ApplicationJob, SingleApplicationJob};
 use common_utils::ryot_log;
 use database_models::{import_report, prelude::ImportReport};
 use media_models::DeployImportJobInput;
@@ -12,8 +12,9 @@ pub async fn deploy_import_job(
     user_id: String,
     input: DeployImportJobInput,
 ) -> Result<bool> {
-    let job = MpApplicationJob::ImportFromExternalSource(user_id, Box::new(input));
-    ss.perform_application_job(ApplicationJob::Mp(job)).await?;
+    let job = SingleApplicationJob::ImportFromExternalSource(user_id, Box::new(input));
+    ss.perform_application_job(ApplicationJob::Single(job))
+        .await?;
     ryot_log!(debug, "Deployed import job");
     Ok(true)
 }

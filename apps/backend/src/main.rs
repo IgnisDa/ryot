@@ -167,7 +167,7 @@ async fn main() -> Result<()> {
             WorkerBuilder::new("perform_single_application_job")
                 .catch_panic()
                 .enable_tracing()
-                .rate_limit(1, Duration::new(1, 0))
+                .concurrency(1)
                 .data(supporting_service.clone())
                 .backend(single_application_job_storage)
                 .build_fn(perform_single_application_job),

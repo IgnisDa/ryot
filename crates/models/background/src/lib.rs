@@ -10,7 +10,6 @@ pub enum HpApplicationJob {
     SyncUserIntegrationsData(String),
     RecalculateUserActivitiesAndSummary(String, bool),
     AddEntitiesToCollection(String, ChangeCollectionToEntitiesInput),
-    BulkMetadataProgressUpdate(String, Vec<MetadataProgressUpdateInput>),
     RemoveEntitiesFromCollection(String, ChangeCollectionToEntitiesInput),
 }
 
@@ -24,7 +23,6 @@ pub enum MpApplicationJob {
     ReviseUserWorkouts(String),
     UpdateMediaDetails(EntityWithLot),
     UpdateMediaTranslations(String, EntityWithLot),
-    ImportFromExternalSource(String, Box<DeployImportJobInput>),
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
@@ -37,6 +35,8 @@ pub enum LpApplicationJob {
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
 pub enum SingleApplicationJob {
     ProcessIntegrationWebhook(String, String),
+    ImportFromExternalSource(String, Box<DeployImportJobInput>),
+    BulkMetadataProgressUpdate(String, Vec<MetadataProgressUpdateInput>),
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
