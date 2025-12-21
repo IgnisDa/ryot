@@ -308,15 +308,15 @@ driver("details", async function (context) {
 			: null;
 
 	const sourceUrl = `https://myanimelist.net/anime/${payloadIdentifier}/${title}`;
-	const suggestions = [
+	const relatedEntities = [
 		...collectSuggestionItems(payload?.related_anime, "anime.myanimelist"),
 		...collectSuggestionItems(payload?.related_manga, "manga.myanimelist"),
 		...collectSuggestionItems(payload?.recommendations, "anime.myanimelist"),
-	];
+	].map((suggestion) => ({ ...suggestion, relationshipSchemaSlug: "media-suggestion" }));
 
 	return {
 		name: title,
-		suggestions,
+		relatedEntities,
 		properties: {
 			episodes,
 			sourceUrl,

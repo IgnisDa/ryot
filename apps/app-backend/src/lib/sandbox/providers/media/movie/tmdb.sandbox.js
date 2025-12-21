@@ -464,7 +464,13 @@ driver("details", async function (context, { metadata }) {
 
 	return {
 		name: title,
-		suggestions: collectSuggestions(recommendationsData?.results),
+		relatedEntities: [
+			...relatedEntities,
+			...collectSuggestions(recommendationsData?.results).map((suggestion) => ({
+				...suggestion,
+				relationshipSchemaSlug: "media-suggestion",
+			})),
+		],
 		properties: {
 			images,
 			runtime,
@@ -483,7 +489,6 @@ driver("details", async function (context, { metadata }) {
 					: null,
 			unlinkedCreators,
 		},
-		relatedEntities,
 	};
 });
 
