@@ -385,9 +385,9 @@ The Deno runner will load the compiled JavaScript as an in-memory ES module inst
 
 ## Tasks
 
-**Overall Progress:** 7 of 18 tasks completed
+**Overall Progress:** 8 of 18 tasks completed
 
-**Current Task:** [Task 08](./08-end-to-end-sandbox-fixtures.md) (todo)
+**Current Task:** [Task 09](./09-tmdb-provider-family.md) (todo)
 
 ### Task List
 
@@ -400,7 +400,7 @@ The Deno runner will load the compiled JavaScript as an in-memory ES module inst
 | 05  | [Diagnostics and Resource Limits](./05-diagnostics-and-resource-limits.md)                     | AFK  | done   |
 | 06  | [Built-In Provider Compilation Tracer](./06-built-in-provider-compilation-tracer.md)           | AFK  | done   |
 | 07  | [Typed Trigger Migration](./07-typed-trigger-migration.md)                                     | AFK  | done   |
-| 08  | [End-to-End Sandbox Fixtures](./08-end-to-end-sandbox-fixtures.md)                             | AFK  | todo   |
+| 08  | [End-to-End Sandbox Fixtures](./08-end-to-end-sandbox-fixtures.md)                             | AFK  | done   |
 | 09  | [TMDB Provider Family](./09-tmdb-provider-family.md)                                           | AFK  | todo   |
 | 10  | [TVDB Provider Family](./10-tvdb-provider-family.md)                                           | AFK  | todo   |
 | 11  | [Anime and Manga Providers](./11-anime-and-manga-providers.md)                                 | AFK  | todo   |
