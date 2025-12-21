@@ -2,12 +2,7 @@ import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest } from "@ryot/contract/errors";
 import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import type { CreateEventItem } from "@ryot/contract/modules/events/schemas";
-import type {
-	EntitySchemaId,
-	EventSchemaId,
-	ImportRunId,
-	UserId,
-} from "@ryot/contract/schema/brands";
+import type { EntitySchemaId, EventSchemaId, UserId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Effect } from "effect";
@@ -18,7 +13,6 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
-import { EventsService } from "#modules/events/service";
 
 import {
 	buildWorkoutSetEventProperties,
@@ -89,15 +83,12 @@ const buildWorkoutEntityProperties = (workout: WorkoutImportItem): Record<string
 };
 
 export const commitWorkoutItem = Effect.fn("imports.commitWorkoutItem")(function* (input: {
-	runId: ImportRunId;
-	executionId: string;
 	user: CurrentUserValue;
 	schemas: WorkoutSchemas;
 	workout: WorkoutImportItem;
 	candidates: ReadonlyArray<ListedEntity>;
 	exerciseCache: Map<string, ListedEntity>;
 }) {
-	const events = yield* EventsService;
 	const entities = yield* EntitiesService;
 	const drafts = input.workout.exercises.flatMap((exercise, exerciseOrder) =>
 		exercise.sets.map((set, setOrder) => ({
@@ -158,13 +149,7 @@ export const commitWorkoutItem = Effect.fn("imports.commitWorkoutItem")(function
 		});
 	}
 
-	return yield* events.create({
-		source: "import",
-		payload: eventBody,
-		userId: input.user.id,
-		executionId: input.executionId,
-		metadata: { importRunId: input.runId },
-	});
+	return eventBody;
 });
 
 export type WorkoutImportContext = {

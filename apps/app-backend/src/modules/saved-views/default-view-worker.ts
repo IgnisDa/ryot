@@ -1,11 +1,14 @@
 import { DurableQueue } from "@effect/workflow";
 import { Effect } from "effect";
 
-import { DefaultSavedViewQueue } from "#modules/entity-schemas/durable-queues";
+import {
+	type CreateDefaultSavedViewPayload,
+	DefaultSavedViewQueue,
+} from "#modules/entity-schemas/durable-queues";
 
 import { SavedViewsService } from "./service";
 
-export const DefaultSavedViewWorkerLive = DurableQueue.worker(DefaultSavedViewQueue, (payload) =>
+export const processDefaultSavedView = (payload: CreateDefaultSavedViewPayload) =>
 	Effect.gen(function* () {
 		const service = yield* SavedViewsService;
 		yield* service
@@ -18,5 +21,9 @@ export const DefaultSavedViewWorkerLive = DurableQueue.worker(DefaultSavedViewQu
 				entitySchemaName: payload.entitySchemaName,
 			})
 			.pipe(Effect.catchTag("Conflict", () => Effect.void));
-	}),
+	});
+
+export const DefaultSavedViewWorkerLive = DurableQueue.worker(
+	DefaultSavedViewQueue,
+	processDefaultSavedView,
 );
