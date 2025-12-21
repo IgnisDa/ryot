@@ -351,6 +351,7 @@ impl MediaProvider for TmdbMovieService {
         Ok(EntityTranslationDetails {
             title: data.title,
             description: data.overview,
+            image: data.poster_path.map(|p| self.0.get_image_url(p)),
         })
     }
 
@@ -370,6 +371,7 @@ impl MediaProvider for TmdbMovieService {
         Ok(EntityTranslationDetails {
             title: Some(data.name),
             description: data.overview,
+            image: data.poster_path.map(|p| self.0.get_image_url(p)),
         })
     }
 }

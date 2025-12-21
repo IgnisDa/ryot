@@ -217,6 +217,7 @@ impl MediaProvider for NonMediaTmdbService {
         Ok(EntityTranslationDetails {
             title: Some(data.name),
             description: data.biography.or(data.description),
+            ..Default::default()
         })
     }
 }
