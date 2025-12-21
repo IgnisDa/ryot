@@ -59,5 +59,6 @@ pub enum FilterPresetContextType {
 pub enum EntityTranslationVariant {
     #[default]
     Title,
+    Image,
     Description,
 }
