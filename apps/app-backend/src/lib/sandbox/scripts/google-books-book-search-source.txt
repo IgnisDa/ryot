@@ -49,13 +49,11 @@ try {
 const parsePublishYear = (publishedDate) => {
 	if (typeof publishedDate !== "string") return null;
 
-	const trimmedDate = publishedDate.trim();
-	if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) return null;
+	const yearToken = publishedDate.trim().slice(0, 4);
+	if (!/^\d{4}$/.test(yearToken)) return null;
 
-	const year = Number(trimmedDate.slice(0, 4));
-	if (!Number.isFinite(year)) return null;
-
-	return year;
+	const year = Number(yearToken);
+	return Number.isFinite(year) ? year : null;
 };
 
 const pickImage = (imageLinks) => {
@@ -98,10 +96,17 @@ const items = volumes
 		const title = typeof volumeInfo?.title === "string" ? volumeInfo.title : "";
 
 		return {
-			title,
-			image,
 			identifier,
-			publishYear: publishYear,
+			badgeProperty: { kind: "null", value: null },
+			titleProperty: { kind: "text", value: title },
+			subtitleProperty:
+				publishYear === null
+					? { kind: "null", value: null }
+					: { kind: "number", value: publishYear },
+			imageProperty:
+				image === null
+					? { kind: "null", value: null }
+					: { kind: "image", value: { kind: "remote", url: image } },
 		};
 	})
 	.filter((item) => item !== null);
