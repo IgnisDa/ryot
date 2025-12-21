@@ -112,7 +112,7 @@ export const runMediaMonitoringRefreshWorkflow = Effect.fn("runMediaMonitoringRe
 							payload: {
 								userId: UserId.make(userId),
 								executionId: deliveryExecutionId,
-								request: { kind: "event", message: change.message, eventType: change.eventType },
+								request: { kind: "message", message: change.message },
 							},
 						}),
 					);

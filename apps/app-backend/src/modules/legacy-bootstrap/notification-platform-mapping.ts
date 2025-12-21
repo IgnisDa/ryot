@@ -5,7 +5,6 @@ DECLARE
 	started_at timestamptz := clock_timestamp();
 	unknown_platforms text;
 	invalid_platform_ids text;
-	invalid_event_values text;
 BEGIN
 	IF to_regclass('"old_notification_platform"') IS NULL THEN
 		RAISE EXCEPTION 'Expected old_notification_platform table to exist (created by renameLegacyTables) but it was not found';
@@ -54,36 +53,6 @@ BEGIN
 		RAISE EXCEPTION 'Legacy notification platforms with invalid specifics: %', invalid_platform_ids;
 	END IF;
 
-	SELECT string_agg(id, ', ' ORDER BY id)
-	INTO invalid_event_values
-	FROM "old_notification_platform" p
-	WHERE p.configured_events IS NULL
-		OR EXISTS (
-			SELECT 1
-			FROM unnest(p.configured_events) AS event_name
-			WHERE event_name IS NULL OR event_name NOT IN (
-				'notification_from_reminder_collection',
-				'integration_disabled_due_to_too_many_errors',
-				'new_workout_created',
-				'metadata_status_changed',
-				'person_metadata_associated',
-				'metadata_episode_images_changed',
-				'person_metadata_group_associated',
-				'metadata_number_of_seasons_changed',
-				'metadata_episode_released',
-				'metadata_chapters_or_episodes_changed',
-				'review_posted',
-				'metadata_published',
-				'outdated_seen_entries',
-				'metadata_release_date_changed',
-				'metadata_episode_name_changed',
-				'metadata_moved_from_completed_to_watchlist_collection'
-			)
-		);
-	IF invalid_event_values IS NOT NULL THEN
-		RAISE EXCEPTION 'Legacy notification platforms with invalid configured events: %', invalid_event_values;
-	END IF;
-
 	RAISE NOTICE 'old_notification_platform -> notification_channel: migration started (% seconds elapsed)', 0.0;
 
 	INSERT INTO "notification_channel" (
@@ -91,7 +60,6 @@ BEGIN
 		"user_id",
 		"platform",
 		"platform_specifics",
-		"configured_events",
 		"is_disabled",
 		"created_at",
 		"updated_at"
@@ -159,7 +127,6 @@ BEGIN
 				'chatId', op.platform_specifics->'d'->>'chat_id'
 			)
 		END,
-		op.configured_events,
 		COALESCE(op.is_disabled, false),
 		op.created_on,
 		op.created_on

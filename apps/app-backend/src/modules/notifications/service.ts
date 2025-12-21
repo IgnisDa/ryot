@@ -5,10 +5,6 @@ import type {
 	CreateNotificationChannelBody,
 	UpdateNotificationChannelBody,
 } from "@ryot/contract/modules/notifications/schemas";
-import {
-	notificationEventTypes,
-	type NotificationEventType,
-} from "@ryot/contract/modules/notifications/types";
 import type { NotificationChannelId, UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
@@ -16,8 +12,6 @@ import { DbRunner } from "#lib/infrastructure/db/service";
 
 import { enqueueNotificationDelivery } from "./notification-delivery-workflow";
 import { NotificationsRepository } from "./repository";
-
-const defaultConfiguredEvents = [...notificationEventTypes];
 
 export class NotificationsService extends Effect.Service<NotificationsService>()(
 	"NotificationsService",
@@ -48,7 +42,6 @@ export class NotificationsService extends Effect.Service<NotificationsService>()
 						channel: body.channel,
 						isDisabled: body.isDisabled ?? false,
 						channelSpecifics: body.channelSpecifics,
-						configuredEvents: [...(body.configuredEvents ?? defaultConfiguredEvents)],
 					}),
 				);
 				return { id: channel.id };
@@ -86,22 +79,6 @@ export class NotificationsService extends Effect.Service<NotificationsService>()
 				return undefined;
 			});
 
-			const trigger = Effect.fn("NotificationsService.trigger")(function* (input: {
-				userId: UserId;
-				message: string;
-				executionId?: string | undefined;
-				eventType: NotificationEventType;
-			}) {
-				yield* provideWorkflowEngine(
-					enqueueNotificationDelivery({
-						userId: input.userId,
-						executionId: input.executionId,
-						request: { kind: "event", message: input.message, eventType: input.eventType },
-					}),
-				);
-				return undefined;
-			});
-
 			const sendMessage = Effect.fn("NotificationsService.sendMessage")(function* (input: {
 				userId: UserId;
 				message: string;
@@ -117,7 +94,7 @@ export class NotificationsService extends Effect.Service<NotificationsService>()
 				return undefined;
 			});
 
-			return { create, delete: remove, list, sendMessage, test, trigger, update };
+			return { create, delete: remove, list, sendMessage, test, update };
 		}),
 	},
 ) {}
