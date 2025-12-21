@@ -258,6 +258,13 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 			},
 		},
 	},
+	...buildCreditRelationshipSchemas({
+		sourceSlug: "company",
+		targetEntitySchemaSlugs: ["music-group", "video-game-group"],
+		orderDescription: "Display order of this company in the group credits",
+		rolesItemDescription: "A specific role name (e.g. Label, Publisher)",
+		rolesDescription: "Roles this company filled in this group (e.g. Label, Publisher)",
+	}),
 	...(
 		[
 			{ group: "book-group", media: "book", name: "Book Series to Book" },
