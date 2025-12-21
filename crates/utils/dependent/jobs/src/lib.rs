@@ -64,7 +64,7 @@ pub async fn deploy_background_job(
                 .await?;
             let update = Metadata::update_many()
                 .col_expr(metadata::Column::IsPartial, Expr::value(true))
-                .filter(metadata::Column::Id.is_in(many_metadata.clone()))
+                .filter(metadata::Column::Id.is_in(many_metadata))
                 .exec(&ss.db)
                 .await?;
             ryot_log!(debug, "Marked {} metadata as partial", update.rows_affected);
