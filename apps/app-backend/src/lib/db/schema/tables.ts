@@ -1,8 +1,6 @@
 import { generateId } from "better-auth";
-import { sql } from "drizzle-orm";
 import {
 	boolean,
-	customType,
 	index,
 	integer,
 	jsonb,
@@ -13,10 +11,6 @@ import {
 } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { user } from "./auth";
-
-const tsvector = customType<{ data: string }>({
-	dataType: () => "tsvector",
-});
 
 const remoteImageUrlSchema = z
 	.string()
@@ -248,9 +242,6 @@ export const entity = pgTable(
 		createdAt: timestamp().defaultNow().notNull(),
 		properties: jsonb().notNull().default({}),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
-		searchVector: tsvector()
-			.notNull()
-			.generatedAlwaysAs(sql`to_tsvector('english', name)`),
 		entitySchemaId: text()
 			.notNull()
 			.references(() => entitySchema.id, { onDelete: "cascade" }),
@@ -271,7 +262,6 @@ export const entity = pgTable(
 		index("entity_external_id_idx").on(table.externalId),
 		index("entity_entity_schema_id_idx").on(table.entitySchemaId),
 		index("entity_properties_idx").using("gin", table.properties),
-		index("entity_search_vector_idx").using("gin", table.searchVector),
 		index("entity_details_sandbox_script_id_idx").on(
 			table.detailsSandboxScriptId,
 		),
