@@ -123,7 +123,7 @@ export const adaptAudiobookshelfData = (input: AudiobookshelfAdapterInput) =>
 		const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
 		const baseUrl = input.apiUrl.endsWith("/api") ? input.apiUrl : `${input.apiUrl}/api`;
 
-		const librariesRaw = yield* requestSourceJson<unknown>({
+		const librariesRaw = yield* requestSourceJson({
 			headers,
 			baseUrl,
 			path: "libraries",
@@ -135,7 +135,7 @@ export const adaptAudiobookshelfData = (input: AudiobookshelfAdapterInput) =>
 		let nextItemIndex = 0;
 		for (const library of librariesResponse.libraries) {
 			const startItemIndex = nextItemIndex;
-			const listResult = yield* requestSourceJson<unknown>({
+			const listResult = yield* requestSourceJson({
 				headers,
 				baseUrl,
 				sourceName: "Audiobookshelf",
@@ -277,7 +277,7 @@ const adaptAudiobookshelfItem = (input: {
 			} satisfies MediaImportAdapterFailure;
 		}
 
-		const itemDetails = yield* requestSourceJson<unknown>({
+		const itemDetails = yield* requestSourceJson({
 			headers: input.headers,
 			baseUrl: input.baseUrl,
 			path: `items/${item.id}`,
@@ -317,7 +317,7 @@ const adaptAudiobookshelfItem = (input: {
 			if (!episode.id) {
 				continue;
 			}
-			const episodeDetails = yield* requestSourceJson<unknown>({
+			const episodeDetails = yield* requestSourceJson({
 				headers: input.headers,
 				baseUrl: input.baseUrl,
 				path: `items/${item.id}`,

@@ -233,7 +233,7 @@ export const makeAdditionalSandboxApiFunctions = (
 			return Promise.resolve(apiFailure(`Config key "${trimmedKey}" does not exist`));
 		}
 
-		return Promise.resolve(apiSuccess(process.env[configEnvKeyByPath[trimmedKey]] ?? null));
+		return Promise.resolve(apiSuccess(Bun.env[configEnvKeyByPath[trimmedKey]] ?? null));
 	},
 	getEntity: (...args) => {
 		const entityId = args[0];
