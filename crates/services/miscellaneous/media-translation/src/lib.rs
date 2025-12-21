@@ -83,11 +83,11 @@ fn build_translation_models(
 }
 
 async fn replace_entity_translations(
-    ss: &Arc<SupportingService>,
     input: &EntityWithLot,
-    preferred_language: &str,
     title: Option<String>,
+    preferred_language: &str,
     description: Option<String>,
+    ss: &Arc<SupportingService>,
 ) -> Result<()> {
     EntityTranslation::delete_many()
         .filter(entity_translation::Column::EntityId.eq(&input.entity_id))
@@ -165,11 +165,11 @@ pub async fn update_media_translation(
                 .await
             {
                 replace_entity_translations(
-                    ss,
                     &input,
-                    &preferred_language,
                     trn.title,
+                    &preferred_language,
                     trn.description,
+                    ss,
                 )
                 .await?;
             }
@@ -250,6 +250,10 @@ pub async fn media_translations(
                 return Ok(None);
             }
             Ok(Some(EntityTranslationDetails {
+                image: translations
+                    .iter()
+                    .find(|s| s.variant == EntityTranslationVariant::Image)
+                    .and_then(|s| s.value.clone()),
                 title: translations
                     .iter()
                     .find(|s| s.variant == EntityTranslationVariant::Title)
