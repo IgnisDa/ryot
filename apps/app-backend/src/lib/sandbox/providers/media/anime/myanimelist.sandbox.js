@@ -312,7 +312,7 @@ driver("details", async function (context) {
 		...collectSuggestionItems(payload?.related_anime, "anime.myanimelist"),
 		...collectSuggestionItems(payload?.related_manga, "manga.myanimelist"),
 		...collectSuggestionItems(payload?.recommendations, "anime.myanimelist"),
-	].map((suggestion) => ({ ...suggestion, relationshipSchemaSlug: "media-suggestion" }));
+	].map((suggestion) => Object.assign(suggestion, { relationshipSchemaSlug: "media-suggestion" }));
 
 	return {
 		name: title,
