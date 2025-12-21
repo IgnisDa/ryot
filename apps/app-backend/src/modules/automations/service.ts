@@ -1,4 +1,4 @@
-import { DbError, badRequest, conflict, notFound } from "@ryot/contract/errors";
+import { DbError, badRequest, notFound } from "@ryot/contract/errors";
 import {
 	AutomationRuleMetadata,
 	type AutomationOperation,
@@ -21,7 +21,6 @@ import { SANDBOX_LIMITS, utf8ByteLength } from "#lib/infrastructure/sandbox-runt
 
 import {
 	AutomationsRepository,
-	type AutomationReferenceScope,
 	type AutomationRuleTarget,
 	type StoredAutomationRule,
 } from "./repository";
@@ -36,25 +35,17 @@ type RuleDefinition = {
 	sandboxScriptId: SandboxScriptId;
 };
 
-export type CreateUserAutomationRuleInput = RuleDefinition & { userId: UserId };
-
-export type EnsureBuiltinAutomationRuleInput = RuleDefinition;
-
-export type QueueSubscriptionRunInput = {
+type PrepareSubscriptionRunInput = {
 	occurrenceId: string;
 	ruleId: AutomationRuleId;
+	rowUserId: UserId | null;
 	recordId?: string | undefined;
 	operation: AutomationOperation;
-	executionUserId: UserId | null;
 	signalId?: SignalId | undefined;
 	sourceKind: SubscriptionRunSourceKind;
 };
 
-export type PrepareSubscriptionRunInput = Omit<QueueSubscriptionRunInput, "executionUserId"> & {
-	rowUserId: UserId | null;
-};
-
-export type CompleteSubscriptionRunInput = {
+type CompleteSubscriptionRunInput = {
 	logs: unknown;
 	error: unknown;
 	value: unknown;
@@ -97,9 +88,6 @@ const makeRunId = (occurrenceId: string, ruleId: AutomationRuleId) =>
 			.update(stableStringify([occurrenceId, ruleId]))
 			.digest("base64url")}`,
 	);
-
-const isVisibleReference = (scope: AutomationReferenceScope, userId: UserId) =>
-	(scope.userId === null && scope.isBuiltin) || scope.userId === userId;
 
 const matchesRowOwner = (rule: StoredAutomationRule, rowUserId: UserId | null) => {
 	if (rule.kind !== "subscription") {
@@ -174,43 +162,8 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 			return { script, target };
 		});
 
-		const createUserRule = Effect.fn("AutomationsService.createUserRule")(function* (
-			input: CreateUserAutomationRuleInput,
-		) {
-			const validated = yield* validateDefinition(input);
-			if (input.operation !== "create" && input.operation !== "signal") {
-				return yield* badRequest("User lifecycle rules support only create operations");
-			}
-			return yield* runInTransaction(
-				Effect.gen(function* () {
-					const references = yield* loadReferences(input);
-					if (!isVisibleReference(references.target, input.userId)) {
-						return yield* notFound("Automation rule target not found");
-					}
-					if (!isVisibleReference(references.script, input.userId)) {
-						return yield* notFound("Sandbox script not found");
-					}
-					const inserted = yield* repository.insertRule({
-						...validated,
-						isActive: true,
-						isBuiltin: false,
-						kind: input.kind,
-						name: input.name,
-						target: input.target,
-						userId: input.userId,
-						operation: input.operation,
-						sandboxScriptId: input.sandboxScriptId,
-					});
-					if (!inserted) {
-						return yield* conflict("Automation rule already exists");
-					}
-					return inserted;
-				}),
-			);
-		});
-
 		const ensureBuiltin = Effect.fn("AutomationsService.ensureBuiltin")(function* (
-			input: EnsureBuiltinAutomationRuleInput,
+			input: RuleDefinition,
 		) {
 			const validated = yield* validateDefinition(input);
 			yield* validateBuiltinLifecycleOperation(input);
@@ -304,59 +257,6 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 				);
 			},
 		);
-
-		const queueRun = Effect.fn("AutomationsService.queueRun")(function* (
-			input: QueueSubscriptionRunInput,
-		) {
-			if (!input.occurrenceId) {
-				return yield* badRequest("Occurrence ID must be non-empty");
-			}
-			const isSignal = input.sourceKind === "signal";
-			if (
-				(isSignal && (input.operation !== "signal" || !input.signalId || input.recordId)) ||
-				(!isSignal && (input.operation === "signal" || input.signalId || !input.recordId))
-			) {
-				return yield* badRequest("Run source does not match its operation and record references");
-			}
-			return yield* runInTransaction(
-				Effect.gen(function* () {
-					const rule = yield* repository.lockActiveSubscription(input.ruleId);
-					if (!rule) {
-						return null;
-					}
-					if (
-						rule.operation !== input.operation ||
-						!sourceMatchesTarget(input.sourceKind, rule.target)
-					) {
-						return yield* badRequest("Run source does not match its automation rule");
-					}
-					const id = makeRunId(input.occurrenceId, rule.id);
-					const inserted = yield* repository.insertRun({
-						id,
-						ruleId: rule.id,
-						ruleName: rule.name,
-						operation: input.operation,
-						ruleMetadata: rule.metadata,
-						sourceKind: input.sourceKind,
-						occurrenceId: input.occurrenceId,
-						recordId: input.recordId ?? null,
-						signalId: input.signalId ?? null,
-						sandboxScriptId: rule.sandboxScriptId,
-						executionUserId: input.executionUserId,
-					});
-					if (inserted) {
-						return { run: inserted, wasCreated: true };
-					}
-					const existing = yield* repository.findRunById(id);
-					if (!existing) {
-						return yield* new DbError({
-							message: "Subscription run insert conflicted but not found",
-						});
-					}
-					return { run: existing, wasCreated: false };
-				}),
-			);
-		});
 
 		const prepareRun = Effect.fn("AutomationsService.prepareRun")(function* (
 			input: PrepareSubscriptionRunInput,
@@ -529,13 +429,11 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 		);
 
 		return {
-			queueRun,
 			beginRun,
 			prepareRun,
 			completeRun,
 			resolveActive,
 			ensureBuiltin,
-			createUserRule,
 			deleteUserRule,
 			setUserRuleActive,
 			resolveActivePolicies,
