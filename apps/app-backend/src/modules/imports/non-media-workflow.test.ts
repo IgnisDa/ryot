@@ -30,18 +30,18 @@ import {
 	OpenScaleImportItemSchema,
 	prepareOpenScaleWrites,
 	type OpenScaleImportItem,
-} from "./measurement/workflow";
-import { ImportsRepository } from "./repository";
-import { ImportRunArtifacts } from "./runtime/workflow-helpers";
+} from "./measurement/measurement-workflow";
 import {
 	NonMediaImportWorkflowOperations,
 	makeNonMediaImportOperationSet,
 	type NonMediaImportOperations,
 	type NonMediaImportOperationSet,
 	runOneTimeNonMediaImportWorkflow,
-} from "./workflows-non-media";
+} from "./non-media-workflow";
+import { ImportsRepository } from "./repository";
+import { ImportRunArtifacts } from "./runtime/workflow-helpers";
 import { WorkoutImportItemSchema, type WorkoutImportItem } from "./workout/domain";
-import { prepareWorkoutWrites } from "./workout/workflow";
+import { prepareWorkoutWrites } from "./workout/workout-workflow";
 
 const now = "2026-06-17T00:00:00.000Z";
 
