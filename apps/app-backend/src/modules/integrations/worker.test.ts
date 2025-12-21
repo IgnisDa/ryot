@@ -7,11 +7,10 @@ import { ImportsRepository } from "~/modules/imports/repository";
 
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
 import {
+	appendOwnedItems,
 	failAdapterOnlyRun,
 	failUnsupportedIntegrationRun,
 	finalizeIntegrationRun,
-	getSinkAdapterResult,
-	parseKodiSinkPayload,
 } from "./worker";
 
 const makeIntegration = (overrides: Partial<IntegrationRecord> = {}): IntegrationRecord => ({
@@ -101,74 +100,55 @@ const makeWorkerLayer = (input: {
 		),
 	);
 
-describe("parseKodiSinkPayload", () => {
-	vitestIt("maps Kodi show progress to a TMDB show ref", () => {
-		const result = parseKodiSinkPayload({
-			lot: "show",
-			progress: 45,
-			identifier: "1234",
-			show_season_number: 2,
-			show_episode_number: 7,
-		});
-
-		vitestExpect(result.failures).toEqual([]);
-		vitestExpect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "1234", scriptSlug: "show.tmdb", entitySchemaSlug: "show" },
-			events: [
+describe("appendOwnedItems", () => {
+	vitestIt("appends owned items as event-less ownership groups after progress groups", () => {
+		const progress = {
+			failures: [{ itemIndex: 0, stage: "input_transformation" as const, message: "bad" }],
+			entityGroups: [
 				{
-					eventSchemaSlug: "progress",
-					properties: { showSeason: 2, showEpisode: 7, consumedOn: "kodi", progressPercent: 45 },
+					itemIndex: 0,
+					collectionMemberships: [],
+					events: [
+						{ occurredAt: "2026-06-17T00:00:00.000Z", eventSchemaSlug: "progress", properties: {} },
+					],
+					entityRef: {
+						externalId: "1",
+						sourceLabel: "A",
+						entitySchemaSlug: "manga",
+						kind: "resolved" as const,
+						scriptSlug: "manga.anilist",
+					},
 				},
 			],
-		});
-	});
+		};
 
-	vitestIt("returns an input_transformation failure for malformed payloads", () => {
-		const result = parseKodiSinkPayload("not-json");
-
-		vitestExpect(result.entityGroups).toEqual([]);
-		vitestExpect(result.failures).toEqual([
+		const result = appendOwnedItems(progress, [
 			{
-				itemIndex: 0,
-				stage: "input_transformation",
-				message: "Could not parse Kodi webhook payload",
+				provider: "komga",
+				entityRef: {
+					externalId: "2",
+					kind: "resolved",
+					sourceLabel: "B",
+					entitySchemaSlug: "manga",
+					scriptSlug: "manga.anilist",
+				},
 			},
 		]);
-	});
 
-	vitestIt("returns a source_fetch failure for unsupported sink providers", () => {
-		const result = getSinkAdapterResult(
-			makeIntegration({
-				provider: "generic_json",
-				providerSpecifics: { kind: "generic_json" },
-				webhookUrl: "http://localhost:3000/_i/int_1",
-			}),
-			{},
-		);
-
-		vitestExpect(result.entityGroups).toEqual([]);
-		vitestExpect(result.failures).toEqual([
-			{
-				itemIndex: 0,
-				stage: "source_fetch",
-				message: "generic_json integration is not implemented in V2 yet",
+		vitestExpect(result.failures).toBe(progress.failures);
+		vitestExpect(result.entityGroups).toHaveLength(2);
+		vitestExpect(result.entityGroups[1]).toEqual({
+			events: [],
+			itemIndex: 1,
+			collectionMemberships: [],
+			ownershipProvider: "komga",
+			entityRef: {
+				externalId: "2",
+				kind: "resolved",
+				sourceLabel: "B",
+				entitySchemaSlug: "manga",
+				scriptSlug: "manga.anilist",
 			},
-		]);
-	});
-
-	vitestIt("ignores invalid show season and episode values", () => {
-		const result = parseKodiSinkPayload({
-			lot: "show",
-			progress: 45,
-			identifier: "1234",
-			show_episode_number: 7.5,
-			show_season_number: Number.NaN,
-		});
-
-		vitestExpect(result.failures).toEqual([]);
-		vitestExpect(result.entityGroups[0]?.events[0]?.properties).toEqual({
-			consumedOn: "kodi",
-			progressPercent: 45,
 		});
 	});
 });

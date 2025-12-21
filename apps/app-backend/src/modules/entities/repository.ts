@@ -530,6 +530,30 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 
 				return rows.length;
 			}),
+		findRelationshipProperties: (input: {
+			userId: string;
+			sourceEntityId: string;
+			targetEntityId: string;
+			relationshipSchemaId: string;
+		}) =>
+			Effect.gen(function* () {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select({ properties: schema.relationship.properties })
+						.from(schema.relationship)
+						.where(
+							and(
+								eq(schema.relationship.userId, input.userId),
+								eq(schema.relationship.sourceEntityId, input.sourceEntityId),
+								eq(schema.relationship.targetEntityId, input.targetEntityId),
+								eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
+							),
+						)
+						.limit(1),
+				);
+				return row?.properties ?? null;
+			}),
 		insertRelationship: (input: {
 			userId: string;
 			sourceEntityId: string;
