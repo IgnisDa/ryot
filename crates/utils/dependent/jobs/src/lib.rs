@@ -75,10 +75,7 @@ pub async fn deploy_background_job(
                     entity_id: metadata_id.clone(),
                     entity_lot: EntityLot::Metadata,
                 };
-                try_join!(
-                    deploy_update_media_entity_job(input.clone(), ss),
-                    deploy_update_media_translations_job(user_id.to_owned(), input, ss)
-                )?;
+                deploy_update_media_entity_job(input.clone(), ss).await?;
             }
         }
         BackgroundJob::UpdateAllExercises => {
