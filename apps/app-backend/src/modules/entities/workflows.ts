@@ -92,15 +92,18 @@ export const runEntityImportWorkflow = <R>(
 		payload: EntityImportPayload,
 		executionId: string,
 	) => Effect.Effect<SandboxCompletedResultValue, SandboxRunError, R>,
+	options: { activityPrefix?: string; skipLibraryMembership?: boolean } = {},
 ) =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const repository = yield* EntitiesRepository;
 		const collections = yield* CollectionsService;
+		const activityName = (name: string) =>
+			options.activityPrefix ? `${options.activityPrefix}${name}` : name;
 
 		const existing = yield* Activity.make({
-			name: "check-existing-entity",
 			success: Schema.NullOr(ListedEntity),
+			name: activityName("check-existing-entity"),
 			execute: runWithDb(
 				repository.findGlobalEntityByExternalId({
 					externalId: payload.externalId,
@@ -111,10 +114,14 @@ export const runEntityImportWorkflow = <R>(
 		});
 
 		if (existing && existing.populatedAt !== null) {
-			yield* Activity.make({
-				name: "ensure-library-membership",
-				execute: collections.ensureEntityInLibrary(payload.userId, existing.id).pipe(dieOnDbError),
-			});
+			if (!options.skipLibraryMembership) {
+				yield* Activity.make({
+					name: activityName("ensure-library-membership"),
+					execute: collections
+						.ensureEntityInLibrary(payload.userId, existing.id)
+						.pipe(dieOnDbError),
+				});
+			}
 			return existing;
 		}
 
@@ -126,8 +133,8 @@ export const runEntityImportWorkflow = <R>(
 
 		const validatedDetails = yield* Activity.make({
 			error: SandboxRunError,
-			name: "validate-entity-details",
 			success: ValidatedEntityDetails,
+			name: activityName("validate-entity-details"),
 			execute: Effect.gen(function* () {
 				const entitySchemaScope = yield* runWithDb(
 					repository.findEntitySchemaById(payload.entitySchemaId),
@@ -158,8 +165,8 @@ export const runEntityImportWorkflow = <R>(
 		});
 
 		const entity = yield* Activity.make({
-			name: "write-primary-entity",
 			success: ListedEntity,
+			name: activityName("write-primary-entity"),
 			execute: Effect.gen(function* () {
 				const now = yield* DateTime.nowAsDate;
 				return yield* runWithDb(
@@ -180,7 +187,9 @@ export const runEntityImportWorkflow = <R>(
 			validatedDetails.relatedEntities,
 			(relatedEntity) =>
 				Activity.make({
-					name: `write-related-${relatedEntity.scriptSlug}-${relatedEntity.externalId}`,
+					name: activityName(
+						`write-related-${relatedEntity.scriptSlug}-${relatedEntity.externalId}`,
+					),
 					execute: processRelatedEntity({
 						relatedEntity,
 						sourceEntityId: entity.id,
@@ -190,10 +199,12 @@ export const runEntityImportWorkflow = <R>(
 			{ discard: true },
 		);
 
-		yield* Activity.make({
-			name: "ensure-library-membership",
-			execute: collections.ensureEntityInLibrary(payload.userId, entity.id).pipe(dieOnDbError),
-		});
+		if (!options.skipLibraryMembership) {
+			yield* Activity.make({
+				name: activityName("ensure-library-membership"),
+				execute: collections.ensureEntityInLibrary(payload.userId, entity.id).pipe(dieOnDbError),
+			});
+		}
 
 		return entity;
 	});

@@ -4,6 +4,10 @@ import { DbRunner } from "~/lib/db";
 import { searchGlobalEntities } from "~/modules/entities/population";
 import { EntitiesRepository } from "~/modules/entities/repository";
 
+import type {
+	LoadedMediaImportAdapterError,
+	LoadedMediaImportAdapterResult,
+} from "../../media/file-processor";
 import { processMediaImport } from "../../media/import-processor";
 import { sanitizeErrorMessage } from "../../runtime/failures";
 import {
@@ -145,137 +149,201 @@ export const processNetflixImport = (input: {
 	sourcePayload?: Record<string, unknown>;
 }) =>
 	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const entitiesRepository = yield* EntitiesRepository;
-
-		let extractedDirectoryPath: string | undefined;
+		let cleanupPaths: ReadonlyArray<string> = [];
 
 		yield* processMediaImport({
 			runId: input.runId,
 			userId: input.userId,
 			sourceName: "Netflix",
 			adapterErrorFallback: "Could not parse Netflix export data",
-			loadAdapterResult: Effect.gen(function* () {
-				const filePath = input.filePath;
-				if (!filePath) {
-					return yield* Effect.fail("Import job is missing Netflix export file");
-				}
-
-				const zipResult = yield* extractImportZipArchive(filePath).pipe(
-					Effect.mapError((error) =>
-						sanitizeErrorMessage(error, "Could not read Netflix export archive"),
-					),
-				);
-				extractedDirectoryPath = zipResult.directoryPath;
-
-				const viewingActivityPath = getZipEntryByBasename(zipResult, "ViewingActivity.csv");
-				const ratingsPath = getZipEntryByBasename(zipResult, "Ratings.csv");
-				const myListPath = getZipEntryByBasename(zipResult, "MyList.csv");
-				if (!viewingActivityPath || !ratingsPath || !myListPath) {
-					return yield* Effect.fail("Required Netflix CSV files were not found in the archive");
-				}
-
-				const [viewingActivityCsv, ratingsCsv, myListCsv] = yield* Effect.all([
-					readImportFile(viewingActivityPath),
-					readImportFile(ratingsPath),
-					readImportFile(myListPath),
-				]).pipe(Effect.mapError(() => "Could not read import file"));
-
-				const profileName =
-					typeof input.sourcePayload?.profileName === "string"
-						? input.sourcePayload.profileName
-						: undefined;
-				const adapterInput: NetflixAdapterInput = {
-					myListCsv,
-					ratingsCsv,
-					profileName,
-					viewingActivityCsv,
-				};
-
-				const searchJobKeys = yield* collectNetflixSearchJobKeys(adapterInput).pipe(
-					Effect.mapError((error) =>
-						sanitizeErrorMessage(error, "Could not parse Netflix export data"),
-					),
-				);
-				if (searchJobKeys.length === 0) {
-					return yield* adaptNetflixExportsWithSearchResults({
-						adapterInput,
-						searchErrors: new Map(),
-						searchResults: new Map(),
-					}).pipe(
-						Effect.mapError((error) =>
-							sanitizeErrorMessage(error, "Could not parse Netflix export data"),
-						),
-					);
-				}
-
-				const [movieScript, showScript] = yield* Effect.all([
-					runWithDb(entitiesRepository.findEntitySchemaScriptBySlug("movie.tmdb")),
-					runWithDb(entitiesRepository.findEntitySchemaScriptBySlug("show.tmdb")),
-				]);
-				if (!movieScript || !showScript) {
-					return yield* Effect.fail("Netflix importer requires TMDB sandbox scripts");
-				}
-				const scriptIdsBySlug: Record<SearchScriptSlug, string> = {
-					"movie.tmdb": movieScript.sandboxScriptId,
-					"show.tmdb": showScript.sandboxScriptId,
-				};
-
-				const searchErrors = new Map<string, string>();
-				const searchResults = new Map<string, NetflixTitleMatchCandidate[]>();
-				yield* Effect.forEach(
-					searchJobKeys,
-					(searchJobKey, index) =>
-						Effect.gen(function* () {
-							const { query, scriptSlug } = parseNetflixSearchJobKey(searchJobKey);
-							const result = yield* searchGlobalEntities({
-								query,
-								userId: input.userId,
-								scriptId: scriptIdsBySlug[scriptSlug],
-								executionId: `${input.runId}_netflix_search_${index}`,
-							}).pipe(Effect.either);
-							if (Either.isLeft(result)) {
-								searchErrors.set(searchJobKey, result.left.message);
-								return;
-							}
-							searchResults.set(
-								searchJobKey,
-								result.right.map((item) => ({
-									scriptSlug,
-									externalId: item.externalId,
-									title: item.titleProperty.value,
-									entitySchemaSlug: scriptSlug === "movie.tmdb" ? "movie" : "show",
-									publishYear:
-										item.primarySubtitleProperty?.kind === "number"
-											? item.primarySubtitleProperty.value
-											: null,
-								})),
-							);
-						}),
-					{ concurrency: 5, discard: true },
-				);
-
-				return yield* adaptNetflixExportsWithSearchResults({
-					adapterInput,
-					searchErrors,
-					searchResults,
-				}).pipe(
-					Effect.mapError((error) =>
-						sanitizeErrorMessage(error, "Could not parse Netflix export data"),
-					),
-				);
-			}),
+			loadAdapterResult: loadNetflixAdapterResult(input).pipe(
+				Effect.tap(({ cleanupPaths: paths }) =>
+					Effect.sync(() => {
+						cleanupPaths = paths;
+					}),
+				),
+				Effect.map(({ adapterResult }) => adapterResult),
+				Effect.mapError((error) => error.message),
+			),
 		}).pipe(
 			Effect.ensuring(
 				Effect.suspend(() =>
-					Effect.forEach(
-						new Set(
-							[input.filePath, extractedDirectoryPath].filter((p): p is string => Boolean(p)),
-						),
-						cleanupImportFile,
-						{ discard: true },
-					),
+					Effect.forEach(new Set(cleanupPaths), cleanupImportFile, { discard: true }),
 				),
 			),
 		);
+	});
+
+export const loadNetflixAdapterResult = (input: {
+	runId: string;
+	userId: string;
+	filePath?: string;
+	sourcePayload?: Record<string, unknown>;
+}) =>
+	Effect.gen(function* () {
+		const runWithDb = yield* DbRunner;
+		const entitiesRepository = yield* EntitiesRepository;
+
+		let extractedDirectoryPath: string | undefined;
+		const currentCleanupPaths = () =>
+			[filePath, extractedDirectoryPath].filter((path): path is string => Boolean(path));
+		const filePath = input.filePath;
+		if (!filePath) {
+			return yield* Effect.fail({
+				cleanupPaths: [],
+				message: "Import job is missing Netflix export file",
+			} satisfies LoadedMediaImportAdapterError);
+		}
+
+		const zipResult = yield* extractImportZipArchive(filePath).pipe(
+			Effect.mapError(
+				(error) =>
+					({
+						cleanupPaths: currentCleanupPaths(),
+						message: sanitizeErrorMessage(error, "Could not read Netflix export archive"),
+					}) satisfies LoadedMediaImportAdapterError,
+			),
+		);
+		extractedDirectoryPath = zipResult.directoryPath;
+
+		const viewingActivityPath = getZipEntryByBasename(zipResult, "ViewingActivity.csv");
+		const ratingsPath = getZipEntryByBasename(zipResult, "Ratings.csv");
+		const myListPath = getZipEntryByBasename(zipResult, "MyList.csv");
+		if (!viewingActivityPath || !ratingsPath || !myListPath) {
+			return yield* Effect.fail({
+				message: "Required Netflix CSV files were not found in the archive",
+				cleanupPaths: currentCleanupPaths(),
+			} satisfies LoadedMediaImportAdapterError);
+		}
+
+		const [viewingActivityCsv, ratingsCsv, myListCsv] = yield* Effect.all([
+			readImportFile(viewingActivityPath),
+			readImportFile(ratingsPath),
+			readImportFile(myListPath),
+		]).pipe(
+			Effect.mapError(
+				() =>
+					({
+						cleanupPaths: currentCleanupPaths(),
+						message: "Could not read import file",
+					}) satisfies LoadedMediaImportAdapterError,
+			),
+		);
+
+		const profileName =
+			typeof input.sourcePayload?.profileName === "string"
+				? input.sourcePayload.profileName
+				: undefined;
+		const adapterInput: NetflixAdapterInput = {
+			myListCsv,
+			ratingsCsv,
+			profileName,
+			viewingActivityCsv,
+		};
+
+		const searchJobKeys = yield* collectNetflixSearchJobKeys(adapterInput).pipe(
+			Effect.mapError(
+				(error) =>
+					({
+						cleanupPaths: currentCleanupPaths(),
+						message: sanitizeErrorMessage(error, "Could not parse Netflix export data"),
+					}) satisfies LoadedMediaImportAdapterError,
+			),
+		);
+		if (searchJobKeys.length === 0) {
+			const adapterResult = yield* adaptNetflixExportsWithSearchResults({
+				adapterInput,
+				searchErrors: new Map(),
+				searchResults: new Map(),
+			}).pipe(
+				Effect.mapError(
+					(error) =>
+						({
+							cleanupPaths: currentCleanupPaths(),
+							message: sanitizeErrorMessage(error, "Could not parse Netflix export data"),
+						}) satisfies LoadedMediaImportAdapterError,
+				),
+			);
+
+			return {
+				adapterResult,
+				cleanupPaths: currentCleanupPaths(),
+			} satisfies LoadedMediaImportAdapterResult;
+		}
+
+		const [movieScript, showScript] = yield* Effect.all([
+			runWithDb(entitiesRepository.findEntitySchemaScriptBySlug("movie.tmdb")),
+			runWithDb(entitiesRepository.findEntitySchemaScriptBySlug("show.tmdb")),
+		]).pipe(
+			Effect.mapError(
+				(error) =>
+					({
+						cleanupPaths: currentCleanupPaths(),
+						message: sanitizeErrorMessage(error, "Could not parse Netflix export data"),
+					}) satisfies LoadedMediaImportAdapterError,
+			),
+		);
+		if (!movieScript || !showScript) {
+			return yield* Effect.fail({
+				cleanupPaths: currentCleanupPaths(),
+				message: "Netflix importer requires TMDB sandbox scripts",
+			} satisfies LoadedMediaImportAdapterError);
+		}
+		const scriptIdsBySlug: Record<SearchScriptSlug, string> = {
+			"show.tmdb": showScript.sandboxScriptId,
+			"movie.tmdb": movieScript.sandboxScriptId,
+		};
+
+		const searchErrors = new Map<string, string>();
+		const searchResults = new Map<string, NetflixTitleMatchCandidate[]>();
+		yield* Effect.forEach(
+			searchJobKeys,
+			(searchJobKey, index) =>
+				Effect.gen(function* () {
+					const { query, scriptSlug } = parseNetflixSearchJobKey(searchJobKey);
+					const result = yield* searchGlobalEntities({
+						query,
+						userId: input.userId,
+						scriptId: scriptIdsBySlug[scriptSlug],
+						executionId: `${input.runId}_netflix_search_${index}`,
+					}).pipe(Effect.either);
+					if (Either.isLeft(result)) {
+						searchErrors.set(searchJobKey, result.left.message);
+						return;
+					}
+					searchResults.set(
+						searchJobKey,
+						result.right.map((item) => ({
+							scriptSlug,
+							externalId: item.externalId,
+							title: item.titleProperty.value,
+							entitySchemaSlug: scriptSlug === "movie.tmdb" ? "movie" : "show",
+							publishYear:
+								item.primarySubtitleProperty?.kind === "number"
+									? item.primarySubtitleProperty.value
+									: null,
+						})),
+					);
+				}),
+			{ concurrency: 5, discard: true },
+		);
+
+		const adapterResult = yield* adaptNetflixExportsWithSearchResults({
+			adapterInput,
+			searchErrors,
+			searchResults,
+		}).pipe(
+			Effect.mapError(
+				(error) =>
+					({
+						cleanupPaths: currentCleanupPaths(),
+						message: sanitizeErrorMessage(error, "Could not parse Netflix export data"),
+					}) satisfies LoadedMediaImportAdapterError,
+			),
+		);
+
+		return {
+			adapterResult,
+			cleanupPaths: currentCleanupPaths(),
+		} satisfies LoadedMediaImportAdapterResult;
 	});
