@@ -7,6 +7,7 @@ import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "#lib/infrastruct
 import { DbService, DbRunnerLive, TransactionRunnerLive } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
+import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { PersistedQueueLive, WorkflowEngineLive } from "#lib/infrastructure/workflow";
@@ -24,6 +25,7 @@ import { SeedService } from "#modules/builtins/seed";
 import { AddEntityToCollectionWorkflowDefinitionsLive } from "#modules/collections/add-entity-to-collection-workflow-live";
 import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
+import { LifecycleDispatchNoop } from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EntityImportWorkflowOperationsLive } from "#modules/entity-import/operations-workflow";
@@ -145,6 +147,16 @@ const PlatformRepositoriesLive = Layer.mergeAll(
 );
 
 const RepositoriesLive = Layer.mergeAll(ContentRepositoriesLive, PlatformRepositoriesLive);
+
+const MigrationBootstrapRepositoriesLive = Layer.mergeAll(
+	AutomationsRepository.Default,
+	EntitiesRepository.Default,
+	EntitySchemasRepository.Default,
+	SavedViewsRepository.Default,
+	RelationshipSchemasRepository.Default,
+	SignalSchemasRepository.Default,
+	TrackersRepository.Default,
+);
 
 const CoreInfrastructureDependenciesLive = Layer.mergeAll(BaseInfrastructureLive, ConfigLive);
 
@@ -342,6 +354,17 @@ const SeedServiceLive = Layer.provide(
 	Layer.mergeAll(AutomationsService.Default, SignalSchemasService.Default),
 );
 
+const MigrationBootstrapServicesLive = Layer.provideMerge(
+	Layer.mergeAll(
+		Layer.provideMerge(NotificationSubscriptionsService.Default, AutomationsService.Default),
+		EntitiesService.Default,
+		SavedViewsService.Default,
+		SignalSchemasService.Default,
+		TrackersService.Default,
+	),
+	Layer.mergeAll(LifecycleDispatchNoop, QueryEngineServiceLive, MigrationBootstrapRepositoriesLive),
+);
+
 const RuntimeAfterMigrationsLive = MigrationsComplete.Default.pipe(
 	Layer.flatMap(() =>
 		SeedServiceLive.pipe(
@@ -361,6 +384,22 @@ const RuntimeDependenciesLive = Layer.mergeAll(
 	Layer.provide(LibraryEntityImportWorkflowOperationsLive, ApplicationInfrastructureLive),
 	Layer.provide(TranslateEntityWorkflowOperationsLive, ApplicationInfrastructureLive),
 	Layer.provide(MediaTrendingWorkflowOperationsLive, ApplicationInfrastructureLive),
+);
+
+export const MigrationOnlyLive = MigrationsComplete.Default.pipe(
+	Layer.flatMap(() =>
+		SeedServiceLive.pipe(Layer.flatMap(() => LegacyBootstrapMigrateDrop.Default)),
+	),
+	Layer.provide(MigrationBootstrapServicesLive),
+	Layer.provide(DbRunnerLive),
+	Layer.provide(TransactionRunnerLive),
+	Layer.provide(DbService.Default),
+	Layer.provide(BunContext.layer),
+	Layer.provide(AppConfig.Default),
+);
+
+export const SandboxCacheOnlyLive = PackageCacheManager.Default.pipe(
+	Layer.provide(BunContext.layer),
 );
 
 export const AppLive = Layer.provide(RuntimeAfterMigrationsLive, RuntimeDependenciesLive);
