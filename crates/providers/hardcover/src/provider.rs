@@ -42,12 +42,6 @@ query {{
     images {{ url }}
     book_series {{ series {{ id name }} }}
     contributions {{ contribution author_id author {{ name }} }}
-    recommendations(
-      where: {{
-        subject_id: {{ _eq: {identifier} }},
-        subject_type: {{ _eq: "Book" }}, item_type: {{ _eq: "Book" }}
-      }}
-    ) {{ item_id }}
   }}
 }}
     "#
@@ -91,20 +85,6 @@ query {{
             source_url: data
                 .slug
                 .map(|s| format!("https://hardcover.app/books/{s}")),
-            suggestions: data
-                .recommendations
-                .unwrap_or_default()
-                .into_iter()
-                .flat_map(|i| {
-                    i.item_book.map(|b| PartialMetadataWithoutId {
-                        lot: MediaLot::Book,
-                        title: b.title.unwrap(),
-                        identifier: b.id.to_string(),
-                        source: MediaSource::Hardcover,
-                        ..Default::default()
-                    })
-                })
-                .collect(),
             genres: data
                 .cached_tags
                 .into_iter()
