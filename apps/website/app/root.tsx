@@ -20,7 +20,7 @@ import { withFragment } from "ufo";
 import { Button } from "./lib/components/ui/button";
 import { Toaster } from "./lib/components/ui/sonner";
 import { honeypot } from "./lib/config.server";
-import { logoUrl, startUrl } from "./lib/constants";
+import { logoUrl, startUrl } from "./lib/general";
 import { getCustomerFromCookie } from "./lib/utilities.server";
 import "./tailwind.css";
 

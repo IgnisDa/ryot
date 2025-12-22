@@ -19,8 +19,8 @@ import {
 	Target,
 	Users,
 } from "lucide-react";
-import type { ReactNode } from "react";
-import { Link } from "react-router";
+import { type ReactNode, useEffect } from "react";
+import { Link, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
 import { Badge } from "~/lib/components/ui/badge";
@@ -32,6 +32,9 @@ import {
 	CarouselItem,
 } from "~/lib/components/ui/carousel";
 import { ProBadge } from "~/lib/components/ui/pro-badge";
+import { serverVariables } from "~/lib/config.server";
+import { initializePaddleForApplication } from "~/lib/general";
+import type { Route } from "./+types/features";
 
 export const meta = () => {
 	return [{ title: "Features | Ryot" }];
@@ -42,6 +45,122 @@ export const headers = () => ({
 		"public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
 });
 
+export const loader = async (_args: Route.LoaderArgs) => {
+	return {
+		isSandbox: !!serverVariables.PADDLE_SANDBOX,
+		clientToken: serverVariables.PADDLE_CLIENT_TOKEN,
+	};
+};
+
+export default function Page() {
+	const loaderData = useLoaderData<typeof loader>();
+	useEffect(() => {
+		initializePaddleForApplication(
+			loaderData.clientToken,
+			loaderData.isSandbox,
+		);
+	}, []);
+
+	return (
+		<div className="min-h-screen">
+			<section className="py-20 lg:py-32">
+				<div className={SECTION_STYLES}>
+					<div className="text-center mb-16">
+						<Badge variant="secondary" className="mb-6">
+							<Brain className="w-4 h-4 mr-2" />
+							Comprehensive Tracking
+						</Badge>
+						<h1 className="text-4xl lg:text-6xl font-bold text-foreground mb-6 leading-tight">
+							Think of Ryot as your{" "}
+							<span className="text-primary">second brain</span> with
+							superpowers ✨
+						</h1>
+						<p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+							What all can Ryot do for you?
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section className="py-20">
+				<div className={SECTION_STYLES}>
+					<div className="text-center mb-16">
+						<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
+							Everything You Need in One Place
+						</h2>
+						<p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+							Discover all the powerful features that make Ryot your ultimate
+							personal tracking companion.
+						</p>
+					</div>
+
+					<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+						{FEATURE_CARDS.map((card) => (
+							<Card key={card.title} className={CARD_HOVER_STYLES}>
+								<CardContent className="p-6">
+									<div
+										className={`w-12 h-12 ${colorMap[card.color].bg} rounded-lg flex items-center justify-center mb-4`}
+									>
+										<card.icon
+											className={`w-6 h-6 ${colorMap[card.color].text}`}
+										/>
+									</div>
+									<h3 className="text-xl font-semibold mb-3">{card.title}</h3>
+									<p className="text-muted-foreground mb-4">
+										{card.description}
+									</p>
+									<div
+										className={`flex items-center text-sm ${colorMap[card.color].text}`}
+									>
+										<card.featureIcon className="w-4 h-4 mr-1" />
+										{card.feature}
+									</div>
+								</CardContent>
+							</Card>
+						))}
+					</div>
+				</div>
+			</section>
+
+			{FEATURE_DATA.map((data, index) => (
+				<FeatureSection
+					key={data.heading}
+					data={data}
+					isEven={index % 2 === 0}
+					showDescription={index === 1}
+					customGrid={index === 2 ? "single" : "lg:grid-cols-2"}
+				/>
+			))}
+
+			<section className="py-20 bg-linear-to-r from-orange-50 to-pink-50">
+				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+					<div className="flex items-center justify-center gap-3 mb-6">
+						<div className="w-12 h-12 bg-linear-to-r from-orange-500 to-pink-500 rounded-full flex items-center justify-center">
+							<Crown className="w-6 h-6 text-white" />
+						</div>
+						<span className="text-2xl font-bold text-foreground">
+							Unlock Pro Features
+						</span>
+					</div>
+					<p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed">
+						Get access to advanced analytics, custom collections, sharing
+						features, and much more with Ryot Pro. Upgrade your tracking
+						experience today.
+					</p>
+					<div className="flex flex-col sm:flex-row gap-4 justify-center">
+						<Link to={withFragment($path("/"), "pricing")}>
+							<Button size="lg">
+								View Pricing Plans
+								<ArrowRight className="w-4 h-4 ml-2" />
+							</Button>
+						</Link>
+					</div>
+				</div>
+			</section>
+		</div>
+	);
+}
+
 const CARD_HOVER_STYLES =
 	"hover:shadow-lg transition-all duration-300 hover:-translate-y-1";
 const SECTION_STYLES = "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8";
@@ -51,7 +170,7 @@ const FeatureItem = (props: {
 	isPro?: boolean;
 }) => (
 	<div className="flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/30 transition-colors">
-		<CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+		<CheckCircle className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
 		<div className="flex items-start flex-wrap gap-1">
 			<span className="text-foreground leading-relaxed">{props.children}</span>
 			{props.isPro && <ProBadge />}
@@ -71,7 +190,7 @@ const FeatureCarousel = (props: { images: string[]; altPrefix: string }) => (
 						<img
 							src={`/features/${image}`}
 							alt={`${props.altPrefix} ${index + 1}`}
-							className="mx-auto rounded-2xl max-h-96 md:max-h-[500px] lg:max-h-[600px] w-full object-contain"
+							className="mx-auto rounded-2xl max-h-96 md:max-h-125 lg:max-h-150 w-full object-contain"
 						/>
 					</CarouselItem>
 				))}
@@ -81,10 +200,10 @@ const FeatureCarousel = (props: { images: string[]; altPrefix: string }) => (
 );
 
 const FeatureSection = (props: {
-	data: (typeof FEATURE_DATA)[0];
 	isEven: boolean;
-	showDescription?: boolean;
 	customGrid?: string;
+	showDescription?: boolean;
+	data: (typeof FEATURE_DATA)[0];
 }) => {
 	const {
 		data,
@@ -371,104 +490,3 @@ const FEATURE_CARDS = [
 		featureIcon: CheckCircle,
 	},
 ];
-
-export default function Page() {
-	return (
-		<div className="min-h-screen">
-			<section className="py-20 lg:py-32">
-				<div className={SECTION_STYLES}>
-					<div className="text-center mb-16">
-						<Badge variant="secondary" className="mb-6">
-							<Brain className="w-4 h-4 mr-2" />
-							Comprehensive Tracking
-						</Badge>
-						<h1 className="text-4xl lg:text-6xl font-bold text-foreground mb-6 leading-tight">
-							Think of Ryot as your{" "}
-							<span className="text-primary">second brain</span> with
-							superpowers ✨
-						</h1>
-						<p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-							What all can Ryot do for you?
-						</p>
-					</div>
-				</div>
-			</section>
-
-			<section className="py-20">
-				<div className={SECTION_STYLES}>
-					<div className="text-center mb-16">
-						<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
-							Everything You Need in One Place
-						</h2>
-						<p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-							Discover all the powerful features that make Ryot your ultimate
-							personal tracking companion.
-						</p>
-					</div>
-
-					<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-						{FEATURE_CARDS.map((card) => (
-							<Card key={card.title} className={CARD_HOVER_STYLES}>
-								<CardContent className="p-6">
-									<div
-										className={`w-12 h-12 ${colorMap[card.color].bg} rounded-lg flex items-center justify-center mb-4`}
-									>
-										<card.icon
-											className={`w-6 h-6 ${colorMap[card.color].text}`}
-										/>
-									</div>
-									<h3 className="text-xl font-semibold mb-3">{card.title}</h3>
-									<p className="text-muted-foreground mb-4">
-										{card.description}
-									</p>
-									<div
-										className={`flex items-center text-sm ${colorMap[card.color].text}`}
-									>
-										<card.featureIcon className="w-4 h-4 mr-1" />
-										{card.feature}
-									</div>
-								</CardContent>
-							</Card>
-						))}
-					</div>
-				</div>
-			</section>
-
-			{FEATURE_DATA.map((data, index) => (
-				<FeatureSection
-					key={data.heading}
-					data={data}
-					isEven={index % 2 === 0}
-					showDescription={index === 1}
-					customGrid={index === 2 ? "single" : "lg:grid-cols-2"}
-				/>
-			))}
-
-			<section className="py-20 bg-gradient-to-r from-orange-50 to-pink-50">
-				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-					<div className="flex items-center justify-center gap-3 mb-6">
-						<div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-pink-500 rounded-full flex items-center justify-center">
-							<Crown className="w-6 h-6 text-white" />
-						</div>
-						<span className="text-2xl font-bold text-foreground">
-							Unlock Pro Features
-						</span>
-					</div>
-					<p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed">
-						Get access to advanced analytics, custom collections, sharing
-						features, and much more with Ryot Pro. Upgrade your tracking
-						experience today.
-					</p>
-					<div className="flex flex-col sm:flex-row gap-4 justify-center">
-						<Link to={withFragment($path("/"), "pricing")}>
-							<Button size="lg">
-								View Pricing Plans
-								<ArrowRight className="w-4 h-4 ml-2" />
-							</Button>
-						</Link>
-					</div>
-				</div>
-			</section>
-		</div>
-	);
-}
