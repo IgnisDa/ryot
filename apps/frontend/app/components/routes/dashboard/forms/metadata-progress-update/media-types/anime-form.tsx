@@ -1,4 +1,4 @@
-import { Checkbox, NumberInput } from "@mantine/core";
+import { Checkbox, NumberInput, Text, rem } from "@mantine/core";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
@@ -9,6 +9,8 @@ export const AnimeForm = (props: MediaFormProps) => {
 	if (props.metadataDetails.lot !== MediaLot.Anime || !metadataToUpdate)
 		return null;
 
+	const totalEpisodes = props.metadataDetails.animeSpecifics?.episodes;
+
 	return (
 		<>
 			<NumberInput
@@ -16,7 +18,13 @@ export const AnimeForm = (props: MediaFormProps) => {
 				size="xs"
 				hideControls
 				label="Episode"
+				rightSectionWidth={rem(60)}
 				value={metadataToUpdate.animeEpisodeNumber?.toString()}
+				rightSection={
+					totalEpisodes ? (
+						<Text size="xs">Total: {totalEpisodes}</Text>
+					) : undefined
+				}
 				onChange={(e) => {
 					updateMetadataToUpdate({
 						...metadataToUpdate,

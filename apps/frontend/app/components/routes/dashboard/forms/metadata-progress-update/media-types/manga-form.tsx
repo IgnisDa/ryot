@@ -1,4 +1,4 @@
-import { Checkbox, Group, Input, NumberInput, Text } from "@mantine/core";
+import { Checkbox, Group, Input, NumberInput, Text, rem } from "@mantine/core";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
@@ -9,18 +9,27 @@ export const MangaForm = (props: MediaFormProps) => {
 	if (props.metadataDetails.lot !== MediaLot.Manga || !metadataToUpdate)
 		return null;
 
+	const totalVolumes = props.metadataDetails.mangaSpecifics?.volumes;
+	const totalChapters = props.metadataDetails.mangaSpecifics?.chapters;
+
 	return (
 		<>
 			<Input.Wrapper
 				required
 				label="Enter either the chapter number or the volume number"
 			>
-				<Group wrap="nowrap">
+				<Group wrap="nowrap" mt={4}>
 					<NumberInput
 						size="xs"
 						hideControls
 						description="Chapter"
+						rightSectionWidth={rem(60)}
 						value={metadataToUpdate.mangaChapterNumber?.toString()}
+						rightSection={
+							totalChapters ? (
+								<Text size="xs">Total: {totalChapters}</Text>
+							) : undefined
+						}
 						onChange={(e) => {
 							updateMetadataToUpdate({
 								...metadataToUpdate,
@@ -35,7 +44,13 @@ export const MangaForm = (props: MediaFormProps) => {
 						size="xs"
 						hideControls
 						description="Volume"
+						rightSectionWidth={rem(60)}
 						value={metadataToUpdate.mangaVolumeNumber?.toString()}
+						rightSection={
+							totalVolumes ? (
+								<Text size="xs">Total: {totalVolumes}</Text>
+							) : undefined
+						}
 						onChange={(e) => {
 							updateMetadataToUpdate({
 								...metadataToUpdate,
