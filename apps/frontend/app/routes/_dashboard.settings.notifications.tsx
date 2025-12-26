@@ -191,10 +191,10 @@ export default function Page() {
 					method="POST"
 					component={Form}
 					action={withQuery(".", { intent: "create" })}
-					onSubmit={createForm.onSubmit(() => {
+					onSubmit={() => {
 						closeCreateUserNotificationPlatformModal();
 						createForm.clearSavedState();
-					})}
+					}}
 				>
 					<input hidden name="lot" value={createForm.values.lot} />
 					<Stack>
