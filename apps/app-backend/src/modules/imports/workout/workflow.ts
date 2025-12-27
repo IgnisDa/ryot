@@ -5,7 +5,6 @@ import { Effect } from "effect";
 import type { CurrentUserValue } from "~/lib/auth";
 import { AppConfig } from "~/lib/config";
 import type { DbRunner } from "~/lib/db";
-import { unknownToMessage } from "~/lib/errors";
 import type { EntitiesRepository } from "~/modules/entities/repository";
 import type { ListedEntity } from "~/modules/entities/schemas";
 import { EntitiesService } from "~/modules/entities/service";
@@ -15,7 +14,7 @@ import { EventsService } from "~/modules/events/service";
 
 import type { ImportRunJobData } from "../jobs";
 import { sanitizeErrorMessage } from "../runtime/failures";
-import { ImportRunError } from "../workflows";
+import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
 import {
 	type NonMediaItemOutcome,
 	type NonMediaPrepareResult,
@@ -23,9 +22,6 @@ import {
 } from "../workflows-non-media";
 import type { WorkoutAdapterResult, WorkoutImportItem } from "./domain";
 import { commitWorkoutItem, loadWorkoutImportContext } from "./processor";
-
-const toImportRunError = (cause: unknown) =>
-	new ImportRunError({ message: unknownToMessage(cause) });
 
 export const loadWorkoutAdapterResult =
 	(input: {
@@ -67,7 +63,7 @@ export const prepareWorkoutWrites = (
 		const user: CurrentUserValue = { id: payload.userId, name: "", email: "" };
 
 		const context = yield* loadWorkoutImportContext(payload.userId).pipe(
-			Effect.mapError(toImportRunError),
+			Effect.mapError(toWorkflowError),
 		);
 		if (!context) {
 			return { _tag: "failed", message: "Workout import schemas are missing" };
@@ -91,7 +87,7 @@ export const prepareWorkoutWrites = (
 						workout: item,
 						exerciseCache,
 						runId: payload.runId,
-					}).pipe(Effect.asVoid, Effect.mapError(toImportRunError)),
+					}).pipe(Effect.asVoid, Effect.mapError(toWorkflowError)),
 				}).pipe(
 					Effect.as({ _tag: "imported" } satisfies NonMediaItemOutcome),
 					Effect.catchAll((error) =>

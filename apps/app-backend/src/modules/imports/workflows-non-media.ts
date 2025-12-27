@@ -6,18 +6,15 @@ import { unknownToMessage } from "~/lib/errors";
 
 import type { ImportRunJobData } from "./jobs";
 import { ImportsRepository } from "./repository";
-import {
-	PROGRESS_UPDATE_INTERVAL,
-	failImportRun,
-	recordImportRunFailure,
-} from "./runtime/failures";
+import { PROGRESS_UPDATE_INTERVAL, recordImportRunFailure } from "./runtime/failures";
 import { getTemporaryDirectory, readImportFile, resolveSafeImportFilePath } from "./runtime/files";
 import { getKnownImportExtensions } from "./runtime/source-definitions";
+import {
+	createImportRunLifecycle,
+	ImportRunError,
+	toWorkflowError,
+} from "./runtime/workflow-helpers";
 import type { ImportRunFailureStage } from "./types";
-import { ImportRunError } from "./workflows";
-
-const toWorkflowError = (cause: unknown) =>
-	new ImportRunError({ message: unknownToMessage(cause) });
 
 export const NonMediaAdapterFailureSchema = Schema.Struct({
 	message: Schema.String,
@@ -158,50 +155,10 @@ export const runOneTimeNonMediaImportWorkflow = <
 
 		const initialCleanupPaths = payload.filePath ? [payload.filePath] : [];
 		let cleanupPaths: ReadonlyArray<string> = initialCleanupPaths;
-
-		const cleanupArtifacts = (name: string, paths: ReadonlyArray<string>) =>
-			Activity.make({
-				name,
-				error: ImportRunError,
-				execute: operations
-					.cleanupArtifacts({ cleanupPaths: paths, sourcePayloadKey: payload.sourcePayloadKey })
-					.pipe(Effect.mapError(toWorkflowError)),
-			});
-		const cleanupArtifactsBestEffort = (name: string, paths: ReadonlyArray<string>) =>
-			Activity.make({
-				name,
-				execute: operations
-					.cleanupArtifacts({ cleanupPaths: paths, sourcePayloadKey: payload.sourcePayloadKey })
-					.pipe(Effect.catchAll(() => Effect.void)),
-			});
-
-		const markRunFailed = (name: string, message: string) =>
-			Activity.make({
-				name,
-				error: ImportRunError,
-				execute: failImportRun(payload.runId, message).pipe(Effect.mapError(toWorkflowError)),
-			});
-		const failRunAndCleanup = (input: {
-			message: string;
-			cleanupName: string;
-			failureName: string;
-			cleanupPaths: ReadonlyArray<string>;
-		}) =>
-			Effect.gen(function* () {
-				const failedRun = yield* Effect.exit(markRunFailed(input.failureName, input.message));
-				const cleanedUp = yield* Effect.exit(
-					cleanupArtifacts(input.cleanupName, input.cleanupPaths),
-				);
-
-				if (cleanedUp._tag === "Failure") {
-					return yield* Effect.failCause(cleanedUp.cause);
-				}
-				if (failedRun._tag === "Failure") {
-					return yield* Effect.failCause(failedRun.cause);
-				}
-
-				return undefined;
-			});
+		const { cleanupArtifactsBestEffort, failRunAndCleanup } = createImportRunLifecycle(
+			payload,
+			operations.cleanupArtifacts,
+		);
 
 		const processWorkflow = Effect.gen(function* () {
 			const startedAt = yield* DateTime.nowAsDate;

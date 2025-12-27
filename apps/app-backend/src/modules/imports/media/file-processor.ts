@@ -1,8 +1,8 @@
 import { Effect } from "effect";
 
 import { sanitizeErrorMessage } from "../runtime/failures";
-import { cleanupImportFile, readImportFile } from "../runtime/files";
-import { type MediaImportAdapterResult, processMediaImport } from "./import-processor";
+import { readImportFile } from "../runtime/files";
+import type { MediaImportAdapterResult } from "./import-processor";
 
 export type LoadedMediaImportAdapterResult = {
 	cleanupPaths: ReadonlyArray<string>;
@@ -52,23 +52,3 @@ export const loadMediaTextFileAdapterResult = (input: {
 
 		return { adapterResult, cleanupPaths: [filePath] } satisfies LoadedMediaImportAdapterResult;
 	});
-
-export const processMediaTextFileImport = (input: {
-	runId: string;
-	userId: string;
-	filePath: string;
-	sourceName: string;
-	adapterErrorFallback?: string;
-	loadAdapterResult: (fileText: string) => MediaImportAdapterResult;
-}) =>
-	processMediaImport({
-		runId: input.runId,
-		userId: input.userId,
-		sourceName: input.sourceName,
-		adapterErrorFallback:
-			input.adapterErrorFallback ?? `Could not parse ${input.sourceName} import data`,
-		loadAdapterResult: loadMediaTextFileAdapterResult(input).pipe(
-			Effect.map(({ adapterResult }) => adapterResult),
-			Effect.mapError((error) => error.message),
-		),
-	}).pipe(Effect.ensuring(cleanupImportFile(input.filePath)));
