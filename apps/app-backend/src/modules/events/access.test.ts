@@ -17,6 +17,7 @@ describe("resolveEventCreateAccess", () => {
 				eventSchemaName: null,
 				propertiesSchema: null,
 				entitySchemaId: "schema-1",
+				entitySchemaSlug: "custom",
 				eventSchemaEntitySchemaId: null,
 			}),
 		).toEqual({ error: "event_schema_not_found" });
@@ -42,8 +43,10 @@ describe("resolveEventCreateAccess", () => {
 			),
 		).toEqual({
 			access: {
+				isBuiltin: true,
 				entityId: "entity_1",
 				propertiesSchema: {},
+				entitySchemaSlug: "custom",
 				eventSchemaSlug: "backlog",
 				eventSchemaName: "Backlog",
 				entitySchemaId: "schema_1",
@@ -65,10 +68,12 @@ describe("resolveEventCreateAccess", () => {
 
 		expect(resolveEventCreateAccess(scope)).toEqual({
 			access: {
+				isBuiltin: false,
 				entityId: "entity-1",
 				eventSchemaSlug: "log",
 				eventSchemaName: "Log",
 				entitySchemaId: "schema-1",
+				entitySchemaSlug: "custom",
 				eventSchemaId: "event-schema-1",
 				propertiesSchema: { rating: { type: "number" } },
 			},
