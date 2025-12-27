@@ -323,26 +323,18 @@ export async function seedGlobalShowEpisodeTree(client: Client, options: { showN
 	return { tmdbId, showId, seasonId, episodeId };
 }
 
-export async function insertLibraryMembership(
-	client: Client,
-	input: { userId: string; mediaEntityId: string },
-) {
-	const pg = getPgClient();
-
-	const libraryResult = await pg.query<{ id: string }>(
-		`select e.id
-		 from entity e
-		 inner join entity_schema es on es.id = e.entity_schema_id
-		 where e.user_id = $1
-		   and es.slug = 'library'
-		   and es.user_id is null
-		 limit 1`,
-		[input.userId],
+export async function insertLibraryMembership(client: Client, input: { mediaEntityId: string }) {
+	const libraryResult = await executeQueryEngine(
+		client,
+		buildEntityRowsQueryDocument({
+			limit: 1,
+			alias: "library",
+			schemas: ["library"],
+			fields: [queryEngineField("id", queryEngineSystemRef("library", "id"))],
+		}),
 	);
-	const libraryEntityId = requirePresent(
-		libraryResult.rows[0]?.id,
-		`Missing library entity for user '${input.userId}'`,
-	);
+	const libraryEntity = requirePresent(libraryResult.data.items[0], "Missing library entity");
+	const libraryEntityId = requireQueryEngineTextField(libraryEntity, "id");
 
 	const schemas = await listRelationshipSchemas(client, { slugs: ["in-library"] });
 	const inLibrarySchema = requireRelationshipSchemaBySlug(schemas, "in-library");
