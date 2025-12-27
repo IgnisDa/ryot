@@ -55,13 +55,13 @@ export class MetadataCache {
 
 			if (response.success && response.data) {
 				const cacheKey = this.getCacheKey(title);
-				await storage.setItem(cacheKey, response.data.response);
+				await storage.setItem(cacheKey, response.data);
 				logger.debug("Metadata lookup successful", {
 					title,
 					cacheKey,
 					responseData: response.data,
 				});
-				return response.data.response as MetadataLookupData;
+				return response.data as MetadataLookupData;
 			}
 
 			logger.debug("Metadata lookup failed", { error: response.error });

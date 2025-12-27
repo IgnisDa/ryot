@@ -8,8 +8,8 @@ The [Kodi](https://kodi.tv) integration allows syncing the current movie or TV
 show you are watching. It will work for all the media that have a valid
 TMDb ID attached to their metadata.
 
-1. Generate a slug in the integration settings page. Copy the newly generated
-   webhook Url.
+1. Create a Kodi integration in the integration settings page. Copy the
+   webhook URL. It should end with `/_i/{integrationId}`.
 2. Download the addon from <a :href="`${variables.repoUrl}/releases`" target="_blank">github releases</a>.
    The file will have a name of `script.ryot.zip`.
 3. [Install](https://kodi.wiki/view/Add-on_manager#How_to_install_from_a_ZIP_file)

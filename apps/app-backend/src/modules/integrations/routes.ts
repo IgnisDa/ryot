@@ -1,4 +1,4 @@
-import { HttpApiBuilder, HttpServerRequest } from "@effect/platform";
+import { HttpApiBuilder } from "@effect/platform";
 import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
 import { dieOnDbError } from "@ryot/contract/errors";
@@ -53,14 +53,11 @@ export const IntegrationsRoutesLive = HttpApiBuilder.group(
 					return yield* service.listRuns(user, path.integrationId).pipe(dieOnDbError);
 				}),
 			)
-			.handle("webhook", ({ path }) =>
+			.handle("webhook", ({ path, payload }) =>
 				Effect.gen(function* () {
-					const request = yield* HttpServerRequest.HttpServerRequest;
-					const rawBody = yield* request.text.pipe(Effect.orDie);
-					const contentType = request.headers["content-type"] ?? "application/json";
 					const service = yield* IntegrationsService;
 					return yield* service
-						.handleWebhook({ integrationId: path.integrationId, rawBody, contentType })
+						.handleWebhook({ payload, integrationId: path.integrationId })
 						.pipe(dieOnDbError);
 				}),
 			),

@@ -19,6 +19,7 @@ import { GodModeRoutesLive } from "#modules/god-mode/routes";
 import { ImportsRoutesLive } from "#modules/imports/routes";
 import { IntegrationsRoutesLive } from "#modules/integrations/routes";
 import { LibraryRoutesLive } from "#modules/library-membership/routes";
+import { MetadataLookupRoutesLive } from "#modules/metadata-lookup/routes";
 import { QueryEngineRoutesLive } from "#modules/query-engine/routes";
 import { RelationshipSchemasRoutesLive } from "#modules/relationship-schemas/routes";
 import { RelationshipsRoutesLive } from "#modules/relationships/routes";
@@ -70,18 +71,8 @@ const DecodeErrorsAsBadRequestLive = HttpApiBuilder.middleware(
 	decodeErrorsAsBadRequest,
 );
 
-const buildWebhookForwardRequest = (request: Request, url: URL) => {
-	if (request.body !== null) {
-		return new Request(url.toString(), request);
-	}
-
-	const headers = new Headers(request.headers);
-	if (!headers.has("content-type")) {
-		headers.set("content-type", "application/json");
-	}
-
-	return new Request(url.toString(), { headers, body: "null", method: request.method });
-};
+const buildWebhookForwardRequest = (request: Request, url: URL) =>
+	new Request(url.toString(), request);
 
 const ApiBaseLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(SystemRoutesLive),
@@ -100,7 +91,9 @@ const ApiBaseLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(GodModeRoutesLive),
 	Layer.provide(ImportsRoutesLive),
 	Layer.provide(IntegrationsRoutesLive),
-	Layer.provide(Layer.mergeAll(QueryEngineRoutesLive, InterestRoutesLive)),
+	Layer.provide(
+		Layer.mergeAll(MetadataLookupRoutesLive, QueryEngineRoutesLive, InterestRoutesLive),
+	),
 	Layer.provide(AuthMiddlewareLive),
 	Layer.provide(AdminMiddlewareLive),
 	Layer.provide(UploadBodyLimitMiddlewareLive),
