@@ -23,7 +23,7 @@ The backend powers a self-hosted personal tracking product. Favor explicit valid
 - Routes should be thin: parse input, check access, call service/repo, return response.
 - Use `createAuthRoute`, shared error helpers, and shared access-error helpers.
 - Keep OpenAPI schemas colocated with their module.
-- After schema changes, regenerate the spec: `bun run --filter=@ryot/generated app-backend-openapi` (requires dev server running).
+- After schema changes, regenerate the spec: `bun run --filter=@ryot/generated app-backend-openapi`. This requires the dev server to be running. Before starting yourself, please check if it's already running.
 
 ### Repositories And Drizzle
 
