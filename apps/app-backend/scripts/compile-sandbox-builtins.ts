@@ -57,7 +57,6 @@ const registrySource = (entries: readonly CompiledBuiltInSandboxEntry[]) => {
 const ${identifier}Manifest: SandboxManifest = ${manifest};
 
 export const ${identifier}: GeneratedBuiltinSandboxScript = {
-\tcode: ${identifier}Source,
 \tname: ${JSON.stringify(compiled.manifest.name)},
 \tslug: ${JSON.stringify(compiled.manifest.slug)},
 \tsource: ${identifier}Source,
@@ -71,7 +70,6 @@ export const ${identifier}: GeneratedBuiltinSandboxScript = {
 	return `import type { SandboxManifest } from "@ryot/sandbox-sdk";
 
 export type GeneratedBuiltinSandboxScript = {
-\tcode: string;
 \tname: string;
 \tslug: string;
 \tsource: string;
@@ -145,6 +143,42 @@ const compileBuiltIns = (sourceRoot: string, outputDirectory: string) =>
 		return files;
 	}).pipe(Effect.tapError((error) => Effect.logError(JSON.stringify(error, null, 2))));
 
+const runnerModuleSource = (javascript: string) =>
+	`export const sandboxRunnerSource = ${JSON.stringify(javascript)};\n`;
+
+const compileRunner = (sandboxRuntimeDir: string) =>
+	Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const entrypoint = `${sandboxRuntimeDir}/runner-source.sandbox.ts`;
+		const result = yield* Effect.tryPromise({
+			try: () =>
+				Bun.build({
+					format: "esm",
+					minify: false,
+					splitting: false,
+					target: "browser",
+					packages: "bundle",
+					entrypoints: [entrypoint],
+				}),
+			catch: (error) =>
+				new BuiltInGenerationError({ message: `Sandbox runner build failed: ${String(error)}` }),
+		});
+		const [output, ...rest] = result.outputs;
+		if (!result.success || !output || rest.length > 0) {
+			const details = result.logs.map(({ message }) => message).join("\n");
+			return yield* new BuiltInGenerationError({
+				message: details || "Sandbox runner build did not emit exactly one module",
+			});
+		}
+		const javascript = yield* Effect.promise(() => output.text());
+		yield* fs.writeFileString(
+			`${sandboxRuntimeDir}/runner.generated.ts`,
+			runnerModuleSource(javascript),
+		);
+		yield* Effect.logInfo("Compiled Deno sandbox runner");
+		return yield* Effect.void;
+	}).pipe(Effect.tapError((error) => Effect.logError(JSON.stringify(error, null, 2))));
+
 const fingerprint = (files: Readonly<Record<string, string>>) => {
 	const hasher = new Bun.CryptoHasher("sha256");
 	for (const [path, source] of Object.entries(files).sort(([left], [right]) =>
@@ -162,6 +196,14 @@ const program = Effect.gen(function* () {
 	const backendRoot = path.resolve(path.dirname(scriptPath), "..");
 	const sourceRoot = path.join(backendRoot, "src", "modules", "builtins", "sandbox-scripts");
 	const outputDirectory = path.join(backendRoot, "src", "modules", "builtins", "generated-sandbox");
+	const sandboxRuntimeDir = path.join(
+		backendRoot,
+		"src",
+		"lib",
+		"infrastructure",
+		"sandbox-runtime",
+	);
+	yield* compileRunner(sandboxRuntimeDir);
 	const files = process.argv.includes("--skip-initial")
 		? yield* walkSourceFiles(sourceRoot, sourceRoot)
 		: yield* compileBuiltIns(sourceRoot, outputDirectory);
