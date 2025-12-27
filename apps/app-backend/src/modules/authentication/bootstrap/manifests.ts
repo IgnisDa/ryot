@@ -1,8 +1,5 @@
 import { animePropertiesJsonSchema } from "~/lib/zod/media/anime";
-import {
-	bookPropertiesJsonSchema,
-	readEventPropertiesJsonSchema,
-} from "~/lib/zod/media/book";
+import { bookPropertiesJsonSchema } from "~/lib/zod/media/book";
 import { mangaPropertiesJsonSchema } from "~/lib/zod/media/manga";
 import {
 	createDefaultQueryDefinition,
@@ -26,12 +23,11 @@ export const authenticationBuiltinTrackers = () => [
 	},
 ];
 
-const bookEventSchemas = () => [
-	{
-		name: "Read",
-		slug: "read",
-		propertiesSchema: readEventPropertiesJsonSchema,
-	},
+const mediaLifecycleEventSchemas = () => [
+	{ name: "Backlog", slug: "backlog", propertiesSchema: {} },
+	{ name: "Progress", slug: "progress", propertiesSchema: {} },
+	{ name: "Complete", slug: "complete", propertiesSchema: {} },
+	{ name: "Review", slug: "review", propertiesSchema: {} },
 ];
 
 export const authenticationBuiltinEntitySchemas = () => [
@@ -41,14 +37,14 @@ export const authenticationBuiltinEntitySchemas = () => [
 		icon: "book-open",
 		trackerSlug: "media",
 		accentColor: "#5B7FFF",
-		eventSchemas: bookEventSchemas(),
+		eventSchemas: mediaLifecycleEventSchemas(),
 		propertiesSchema: bookPropertiesJsonSchema,
 	},
 	{
 		icon: "tv",
 		slug: "anime",
 		name: "Anime",
-		eventSchemas: [],
+		eventSchemas: mediaLifecycleEventSchemas(),
 		trackerSlug: "media",
 		accentColor: "#FB7185",
 		propertiesSchema: animePropertiesJsonSchema,
@@ -59,7 +55,7 @@ export const authenticationBuiltinEntitySchemas = () => [
 		icon: "book",
 		trackerSlug: "media",
 		accentColor: "#A78BFA",
-		eventSchemas: [],
+		eventSchemas: mediaLifecycleEventSchemas(),
 		propertiesSchema: mangaPropertiesJsonSchema,
 	},
 ];

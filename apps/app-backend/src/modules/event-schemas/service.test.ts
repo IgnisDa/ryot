@@ -129,6 +129,26 @@ describe("listEventSchemas", () => {
 			message: "Entity schema not found",
 		});
 	});
+
+	it("returns event schemas for a built-in entity schema", async () => {
+		const eventSchemas = [createListedEventSchema({ slug: "backlog" })];
+
+		const result = expectDataResult(
+			await listEventSchemas(
+				{ entitySchemaId: "schema_1", userId: "user_1" },
+				createEventSchemaDeps({
+					listEventSchemasByEntitySchemaForUser: async () => eventSchemas,
+					getEntitySchemaScopeForUser: async (input) => ({
+						isBuiltin: true,
+						userId: input.userId,
+						id: input.entitySchemaId,
+					}),
+				}),
+			),
+		);
+
+		expect(result).toEqual(eventSchemas);
+	});
 });
 
 describe("createEventSchema", () => {
@@ -170,6 +190,24 @@ describe("createEventSchema", () => {
 		expect(result).toEqual({
 			error: "validation",
 			message: "Entity schema id is required",
+		});
+	});
+
+	it("returns validation when attempting to create an event schema for a built-in entity schema", async () => {
+		const result = await createEventSchema(
+			{ userId: "user_1", body: createEventSchemaBody() },
+			createEventSchemaDeps({
+				getEntitySchemaScopeForUser: async (input) => ({
+					isBuiltin: true,
+					userId: input.userId,
+					id: input.entitySchemaId,
+				}),
+			}),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "Built-in entity schemas do not support event schema creation",
 		});
 	});
 });
