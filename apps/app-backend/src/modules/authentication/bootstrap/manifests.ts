@@ -34,7 +34,14 @@ const mediaLifecycleEventSchemas = () => [
 		},
 	},
 	{ name: "Complete", slug: "complete", propertiesSchema: {} },
-	{ name: "Review", slug: "review", propertiesSchema: {} },
+	{
+		name: "Review",
+		slug: "review",
+		propertiesSchema: {
+			review: { type: "string" as const },
+			rating: { type: "integer" as const, required: true as const },
+		},
+	},
 ];
 
 export const authenticationBuiltinEntitySchemas = () => [

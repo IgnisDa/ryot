@@ -34,6 +34,11 @@ export const createProgressPercentPropertiesSchema = () => ({
 	progressPercent: { type: "number" as const, required: true as const },
 });
 
+export const createReviewPropertiesSchema = () => ({
+	review: { type: "string" as const },
+	rating: { type: "integer" as const, required: true as const },
+});
+
 export const createNestedMetadataPropertiesSchema = () => ({
 	metadata: {
 		type: "object" as const,

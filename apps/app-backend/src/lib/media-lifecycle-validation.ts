@@ -15,6 +15,14 @@ export const normalizeProgressPercent = (value: number) => {
 	return progressPercent;
 };
 
+export const normalizeRating = (value: number) => {
+	if (!Number.isInteger(value) || value < 1 || value > 5) {
+		throw new Error("Rating must be an integer between 1 and 5");
+	}
+
+	return value;
+};
+
 export const normalizeBuiltinMediaEventProperties = (input: {
 	isBuiltin: boolean;
 	eventSchemaSlug: string;
@@ -23,16 +31,26 @@ export const normalizeBuiltinMediaEventProperties = (input: {
 }) => {
 	if (
 		!input.isBuiltin ||
-		input.eventSchemaSlug !== "progress" ||
 		!builtinMediaEntitySchemaSlugSet.has(input.entitySchemaSlug)
 	) {
 		return input.properties;
 	}
 
-	return {
-		...input.properties,
-		progressPercent: normalizeProgressPercent(
-			input.properties.progressPercent as number,
-		),
-	};
+	if (input.eventSchemaSlug === "progress") {
+		return {
+			...input.properties,
+			progressPercent: normalizeProgressPercent(
+				input.properties.progressPercent as number,
+			),
+		};
+	}
+
+	if (input.eventSchemaSlug === "review") {
+		return {
+			...input.properties,
+			rating: normalizeRating(input.properties.rating as number),
+		};
+	}
+
+	return input.properties;
 };
