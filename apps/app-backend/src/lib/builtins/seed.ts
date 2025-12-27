@@ -10,11 +10,11 @@ import { builtinEntitySchemas } from "./entity-schemas";
 import {
 	builtinEventSchemaTriggerLinks,
 	builtinSandboxScripts,
-	companySchemaScriptLinks,
-	entitySchemaScriptLinks,
-	fitnessSchemaScriptLinks,
-	groupSchemaScriptLinks,
-	personSchemaScriptLinks,
+	companySchemaSandboxScriptLinks,
+	entitySchemaSandboxScriptLinks,
+	fitnessSchemaSandboxScriptLinks,
+	groupSchemaSandboxScriptLinks,
+	personSchemaSandboxScriptLinks,
 } from "./registry";
 import { builtinRelationshipSchemas } from "./relationship-schemas";
 
@@ -164,12 +164,12 @@ const linkScriptToEntitySchema = Effect.fn(function* (input: {
 	const db = yield* CurrentDb;
 	const [existing] = yield* dbEffect(() =>
 		db
-			.select({ id: schema.entitySchemaScript.id })
-			.from(schema.entitySchemaScript)
+			.select({ id: schema.entitySchemaSandboxScript.id })
+			.from(schema.entitySchemaSandboxScript)
 			.where(
 				and(
-					eq(schema.entitySchemaScript.entitySchemaId, input.entitySchemaId),
-					eq(schema.entitySchemaScript.sandboxScriptId, input.sandboxScriptId),
+					eq(schema.entitySchemaSandboxScript.entitySchemaId, input.entitySchemaId),
+					eq(schema.entitySchemaSandboxScript.sandboxScriptId, input.sandboxScriptId),
 				),
 			)
 			.limit(1),
@@ -180,7 +180,7 @@ const linkScriptToEntitySchema = Effect.fn(function* (input: {
 	}
 
 	yield* dbEffect(() =>
-		db.insert(schema.entitySchemaScript).values({
+		db.insert(schema.entitySchemaSandboxScript).values({
 			entitySchemaId: input.entitySchemaId,
 			sandboxScriptId: input.sandboxScriptId,
 		}),
@@ -328,11 +328,11 @@ const seedInitialDatabase = Effect.gen(function* () {
 	}
 
 	for (const link of [
-		...entitySchemaScriptLinks(),
-		...fitnessSchemaScriptLinks(),
-		...companySchemaScriptLinks(),
-		...personSchemaScriptLinks(),
-		...groupSchemaScriptLinks(),
+		...entitySchemaSandboxScriptLinks(),
+		...fitnessSchemaSandboxScriptLinks(),
+		...companySchemaSandboxScriptLinks(),
+		...personSchemaSandboxScriptLinks(),
+		...groupSchemaSandboxScriptLinks(),
 	]) {
 		const entitySchemaId = schemaIds.get(link.schemaSlug);
 		const scriptId = scriptIds.get(link.scriptSlug);

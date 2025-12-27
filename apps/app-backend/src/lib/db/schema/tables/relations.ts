@@ -3,7 +3,7 @@ import { relations } from "drizzle-orm";
 import { user } from "./auth";
 import {
 	entitySchema,
-	entitySchemaScript,
+	entitySchemaSandboxScript,
 	sandboxScript,
 	tracker,
 	trackerEntitySchema,
@@ -29,7 +29,7 @@ export const trackerEntitySchemaRelations = relations(trackerEntitySchema, ({ on
 export const entitySchemaRelations = relations(entitySchema, ({ one, many }) => ({
 	entities: many(entity),
 	eventSchemas: many(eventSchema),
-	entitySchemaScripts: many(entitySchemaScript),
+	entitySchemaSandboxScripts: many(entitySchemaSandboxScript),
 	trackerEntitySchemas: many(trackerEntitySchema),
 	user: one(user, { references: [user.id], fields: [entitySchema.userId] }),
 	sourceRelationshipSchemas: many(relationshipSchema, {
@@ -50,20 +50,23 @@ export const eventSchemaRelations = relations(eventSchema, ({ one, many }) => ({
 
 export const sandboxScriptRelations = relations(sandboxScript, ({ one, many }) => ({
 	entities: many(entity),
-	entityScriptLinks: many(entitySchemaScript),
+	entityScriptLinks: many(entitySchemaSandboxScript),
 	user: one(user, { references: [user.id], fields: [sandboxScript.userId] }),
 }));
 
-export const entitySchemaScriptRelations = relations(entitySchemaScript, ({ one }) => ({
-	entitySchema: one(entitySchema, {
-		references: [entitySchema.id],
-		fields: [entitySchemaScript.entitySchemaId],
+export const entitySchemaSandboxScriptRelations = relations(
+	entitySchemaSandboxScript,
+	({ one }) => ({
+		entitySchema: one(entitySchema, {
+			references: [entitySchema.id],
+			fields: [entitySchemaSandboxScript.entitySchemaId],
+		}),
+		sandboxScript: one(sandboxScript, {
+			references: [sandboxScript.id],
+			fields: [entitySchemaSandboxScript.sandboxScriptId],
+		}),
 	}),
-	sandboxScript: one(sandboxScript, {
-		references: [sandboxScript.id],
-		fields: [entitySchemaScript.sandboxScriptId],
-	}),
-}));
+);
 
 export const entityRelations = relations(entity, ({ one, many }) => ({
 	events: many(event),
