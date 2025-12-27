@@ -1,4 +1,7 @@
-import type { AppPropertyDefinition } from "@ryot/ts-utils";
+import {
+	type AppPropertyDefinition,
+	isAppPropertyRequired,
+} from "@ryot/ts-utils";
 import type { ComponentType, HTMLInputTypeAttribute, ReactNode } from "react";
 
 type GeneratedPropertyFieldConfig =
@@ -59,7 +62,7 @@ export function getGeneratedPropertyFieldConfig(
 	options: GeneratedPropertyFieldOptions = {},
 ): GeneratedPropertyFieldConfig | null {
 	const label = propertyKey;
-	const required = !!propertyDef.required;
+	const required = isAppPropertyRequired(propertyDef);
 
 	switch (propertyDef.type) {
 		case "boolean":

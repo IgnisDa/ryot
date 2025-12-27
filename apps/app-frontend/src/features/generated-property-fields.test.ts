@@ -6,7 +6,7 @@ describe("getGeneratedPropertyFieldConfig", () => {
 		expect(
 			getGeneratedPropertyFieldConfig("notes", {
 				type: "string",
-				required: true,
+				validation: { required: true },
 			}),
 		).toEqual({
 			kind: "text",
@@ -28,7 +28,7 @@ describe("getGeneratedPropertyFieldConfig", () => {
 		expect(
 			getGeneratedPropertyFieldConfig("startedOn", {
 				type: "date",
-				required: true,
+				validation: { required: true },
 			}),
 		).toEqual({
 			kind: "text",
@@ -39,8 +39,8 @@ describe("getGeneratedPropertyFieldConfig", () => {
 
 		expect(
 			getGeneratedPropertyFieldConfig("pages", {
-				required: true,
 				type: "integer",
+				validation: { required: true },
 			}),
 		).toEqual({
 			kind: "number",
@@ -65,8 +65,10 @@ describe("getGeneratedPropertyFieldConfig", () => {
 				"metadata",
 				{
 					type: "object",
-					required: true,
-					properties: { rating: { type: "number", required: true } },
+					validation: { required: true },
+					properties: {
+						rating: { type: "number", validation: { required: true } },
+					},
 				},
 				{ fallback: "text" },
 			),

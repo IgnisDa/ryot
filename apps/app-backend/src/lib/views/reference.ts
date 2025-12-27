@@ -29,7 +29,7 @@ export const getPropertyType = (
 	schema: { slug: string; propertiesSchema: AppSchema },
 	propertyName: string,
 ): PropertyType | null => {
-	return schema.propertiesSchema[propertyName]?.type ?? null;
+	return schema.propertiesSchema.fields[propertyName]?.type ?? null;
 };
 
 export const buildSchemaMap = <TSchema extends { slug: string }>(

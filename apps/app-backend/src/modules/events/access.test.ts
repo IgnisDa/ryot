@@ -36,21 +36,21 @@ describe("resolveEventCreateAccess", () => {
 			resolveEventCreateAccess(
 				createEventCreateScope({
 					isBuiltin: true,
-					propertiesSchema: {},
 					eventSchemaSlug: "backlog",
 					eventSchemaName: "Backlog",
+					propertiesSchema: { fields: {} },
 				}),
 			),
 		).toEqual({
 			access: {
 				isBuiltin: true,
 				entityId: "entity_1",
-				propertiesSchema: {},
 				entitySchemaSlug: "custom",
 				eventSchemaSlug: "backlog",
 				eventSchemaName: "Backlog",
 				entitySchemaId: "schema_1",
 				eventSchemaId: "event_schema_1",
+				propertiesSchema: { fields: {} },
 			},
 		});
 	});
@@ -63,7 +63,7 @@ describe("resolveEventCreateAccess", () => {
 			entitySchemaId: "schema-1",
 			eventSchemaId: "event-schema-1",
 			eventSchemaEntitySchemaId: "schema-1",
-			propertiesSchema: { rating: { type: "number" as const } },
+			propertiesSchema: { fields: { rating: { type: "number" as const } } },
 		});
 
 		expect(resolveEventCreateAccess(scope)).toEqual({
@@ -75,7 +75,7 @@ describe("resolveEventCreateAccess", () => {
 				entitySchemaId: "schema-1",
 				entitySchemaSlug: "custom",
 				eventSchemaId: "event-schema-1",
-				propertiesSchema: { rating: { type: "number" } },
+				propertiesSchema: { fields: { rating: { type: "number" } } },
 			},
 		});
 	});

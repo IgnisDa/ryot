@@ -163,7 +163,9 @@ export function useTrackerOverviewData(input: {
 
 		eventSchemasBySchemaId.set(
 			schema.id,
-			sortEventSchemas(query.data?.data ?? []),
+			sortEventSchemas(
+				(query.data?.data as AppEventSchema[] | undefined) ?? [],
+			),
 		);
 	});
 
