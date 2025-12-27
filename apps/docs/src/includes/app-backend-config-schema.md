@@ -23,7 +23,10 @@
 
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
+| `server.logLevel` | `SERVER_LOG_LEVEL` | Minimum application log level | No | No | `info` |
+| `server.logFile` | `SERVER_LOG_FILE` | File path for appended structured logs | No | No | — |
 | `server.corsOrigins` | `SERVER_CORS_ORIGINS` | Comma-separated list of allowed CORS origins | No | No | — |
+| `server.otlpEndpoint` | `SERVER_OTLP_ENDPOINT` | Base URL for OTLP trace export | No | No | — |
 | `server.adminAccessToken` | `SERVER_ADMIN_ACCESS_TOKEN` | Bearer token required for god-mode admin endpoints | Yes | Yes | — |
 | `server.disableNotifications` | `SERVER_DISABLE_NOTIFICATIONS` | Disable delivery of all notifications | No | No | `false` |
 | `server.disableBackgroundJobs` | `SERVER_DISABLE_BACKGROUND_JOBS` | Disable all scheduled background jobs (both the frequent and infrequent cron tiers) | No | No | `false` |

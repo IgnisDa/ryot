@@ -1,6 +1,6 @@
 import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import { Effect, Layer, Option, Redacted } from "effect";
+import { Effect, Layer, LogLevel, Option, Redacted } from "effect";
 
 import { AppConfig, type AppConfigValue } from "#lib/infrastructure/config/service";
 import { CurrentDb, DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
@@ -118,7 +118,10 @@ export const makeAppConfigLayer = (
 			jobIdSecret: Redacted.make("test-secret"),
 		},
 		server: {
+			logFile: Option.none(),
+			logLevel: LogLevel.Info,
 			corsOrigins: Option.none(),
+			otlpEndpoint: Option.none(),
 			disableNotifications: false,
 			disableBackgroundJobs: false,
 			adminAccessToken: Redacted.make("unused"),
