@@ -23,7 +23,7 @@ export const manifest = defineManifest({
 	slug: "video-game.giant-bomb",
 	providerInformation: { source: "giant-bomb" },
 	capabilities: ["httpCall", "getAppConfigValue"],
-	requiredAppConfigKeys: ["providers.giantBombApiKey"],
+	requiredAppConfigKeys: ["videoGames.giantBombApiKey"],
 });
 
 const buildPlatformReleases = (platforms: unknown) => {
