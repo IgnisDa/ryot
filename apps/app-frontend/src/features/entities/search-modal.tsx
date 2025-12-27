@@ -220,6 +220,7 @@ export function SearchEntityModalContent(props: {
 		nextPage,
 		goToPage,
 		addStatus,
+		totalItems,
 		isSearching,
 		searchError,
 		selectedProviderIndex,
@@ -302,7 +303,7 @@ export function SearchEntityModalContent(props: {
 										backgroundColor: `${accentColor}12`,
 									}}
 								>
-									{results.length} result{results.length === 1 ? "" : "s"}
+									{totalItems} result{totalItems === 1 ? "" : "s"}
 								</Badge>
 							</Group>
 							<ScrollArea.Autosize mah={460}>
