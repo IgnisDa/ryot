@@ -3,13 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { useApiClient } from "@/lib/api-client";
+import { useContractClient } from "@/lib/contract-client";
 
 import { loadRelatedCollections } from "./collections";
 import { loadRelatedCompanies } from "./companies";
 import { loadRelatedGroups } from "./groups";
 import { isEntitySchemaSlug, toEntityDetail } from "./model";
 import { loadRelatedCreators, mergeCreators } from "./people";
+import { createQueryEngineClient } from "./query-engine";
 import { EntityDetailTabs } from "./tabs";
 
 function ScreenState(props: {
@@ -38,56 +39,41 @@ function ScreenState(props: {
 }
 
 export function EntityDetailScreen(props: { entityId: string }) {
-	const apiClient = useApiClient();
+	const runContract = useContractClient();
+	const queryEngineClient = createQueryEngineClient(runContract);
 	const entityId = props.entityId.trim();
 
 	const entityQuery = useQuery({
 		enabled: entityId.length > 0,
 		queryKey: ["entity-detail", entityId],
-		queryFn: async () => {
-			const response = await apiClient.GET("/entities/{entityId}", {
-				params: { path: { entityId } },
-			});
-			if (response.error) {
-				throw new Error("Failed to load entity");
-			}
-
-			return response.data;
-		},
+		queryFn: () => runContract((client) => client.entities.get({ path: { entityId } })),
 	});
 
-	const entitySchemaId = entityQuery.data?.data.entitySchemaId;
+	const entitySchemaId = entityQuery.data?.entitySchemaId;
 	const entitySchemaQuery = useQuery({
 		enabled: !!entitySchemaId,
 		queryKey: ["entity-schema", entitySchemaId],
-		queryFn: async () => {
+		queryFn: () => {
 			if (!entitySchemaId) {
 				throw new Error("Failed to resolve entity schema");
 			}
 
-			const response = await apiClient.GET("/entity-schemas/{entitySchemaId}", {
-				params: { path: { entitySchemaId } },
-			});
-			if (response.error) {
-				throw new Error("Failed to load entity schema");
-			}
-
-			return response.data;
+			return runContract((client) => client.entitySchemas.get({ path: { entitySchemaId } }));
 		},
 	});
 
 	const relatedCreatorsQuery = useQuery({
-		enabled: !!entityQuery.data?.data && !!entitySchemaQuery.data?.data.slug,
-		queryKey: ["entity-detail", entityId, "people", entitySchemaQuery.data?.data.slug],
+		enabled: !!entityQuery.data && !!entitySchemaQuery.data?.slug,
+		queryKey: ["entity-detail", entityId, "people", entitySchemaQuery.data?.slug],
 		queryFn: async () => {
-			const entitySchemaSlug = entitySchemaQuery.data?.data.slug;
-			const entityData = entityQuery.data?.data;
+			const entitySchemaSlug = entitySchemaQuery.data?.slug;
+			const entityData = entityQuery.data;
 			if (!entityData || !entitySchemaSlug || !isEntitySchemaSlug(entitySchemaSlug)) {
 				return [];
 			}
 
 			try {
-				return await loadRelatedCreators(apiClient, { entityId, entitySchemaSlug });
+				return await loadRelatedCreators(queryEngineClient, { entityId, entitySchemaSlug });
 			} catch {
 				return [];
 			}
@@ -95,17 +81,17 @@ export function EntityDetailScreen(props: { entityId: string }) {
 	});
 
 	const relatedCompaniesQuery = useQuery({
-		enabled: !!entityQuery.data?.data && !!entitySchemaQuery.data?.data.slug,
-		queryKey: ["entity-detail", entityId, "companies", entitySchemaQuery.data?.data.slug],
+		enabled: !!entityQuery.data && !!entitySchemaQuery.data?.slug,
+		queryKey: ["entity-detail", entityId, "companies", entitySchemaQuery.data?.slug],
 		queryFn: async () => {
-			const entitySchemaSlug = entitySchemaQuery.data?.data.slug;
-			const entityData = entityQuery.data?.data;
+			const entitySchemaSlug = entitySchemaQuery.data?.slug;
+			const entityData = entityQuery.data;
 			if (!entityData || !entitySchemaSlug || !isEntitySchemaSlug(entitySchemaSlug)) {
 				return [];
 			}
 
 			try {
-				return await loadRelatedCompanies(apiClient, { entityId, entitySchemaSlug });
+				return await loadRelatedCompanies(queryEngineClient, { entityId, entitySchemaSlug });
 			} catch {
 				return [];
 			}
@@ -113,17 +99,17 @@ export function EntityDetailScreen(props: { entityId: string }) {
 	});
 
 	const relatedGroupsQuery = useQuery({
-		enabled: !!entityQuery.data?.data && !!entitySchemaQuery.data?.data.slug,
-		queryKey: ["entity-detail", entityId, "groups", entitySchemaQuery.data?.data.slug],
+		enabled: !!entityQuery.data && !!entitySchemaQuery.data?.slug,
+		queryKey: ["entity-detail", entityId, "groups", entitySchemaQuery.data?.slug],
 		queryFn: async () => {
-			const entitySchemaSlug = entitySchemaQuery.data?.data.slug;
-			const entityData = entityQuery.data?.data;
+			const entitySchemaSlug = entitySchemaQuery.data?.slug;
+			const entityData = entityQuery.data;
 			if (!entityData || !entitySchemaSlug || !isEntitySchemaSlug(entitySchemaSlug)) {
 				return [];
 			}
 
 			try {
-				return await loadRelatedGroups(apiClient, { entityId, entitySchemaSlug });
+				return await loadRelatedGroups(queryEngineClient, { entityId, entitySchemaSlug });
 			} catch {
 				return [];
 			}
@@ -131,15 +117,15 @@ export function EntityDetailScreen(props: { entityId: string }) {
 	});
 
 	const relatedCollectionsQuery = useQuery({
-		enabled: !!entityQuery.data?.data,
+		enabled: !!entityQuery.data,
 		queryKey: ["entity-detail", entityId, "collections"],
 		queryFn: async () => {
-			const entityData = entityQuery.data?.data;
+			const entityData = entityQuery.data;
 			if (!entityData) {
 				return [];
 			}
 
-			return loadRelatedCollections(apiClient, { entityId });
+			return loadRelatedCollections(queryEngineClient, { entityId });
 		},
 	});
 
@@ -175,8 +161,8 @@ export function EntityDetailScreen(props: { entityId: string }) {
 		);
 	}
 
-	const entityData = entityQuery.data?.data;
-	const entitySchemaSlug = entitySchemaQuery.data?.data.slug;
+	const entityData = entityQuery.data;
+	const entitySchemaSlug = entitySchemaQuery.data?.slug;
 	const entity =
 		entityData && entitySchemaSlug && isEntitySchemaSlug(entitySchemaSlug)
 			? toEntityDetail(entityData, entitySchemaSlug)

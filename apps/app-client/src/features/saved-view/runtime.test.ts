@@ -78,13 +78,13 @@ describe("saved view runtime request builder", () => {
 
 		expect(result.pagination).toEqual({ limit: SAVED_VIEW_PAGE_SIZE, page: 2 });
 		expect(result.scope).toEqual(["book"]);
-		expect(result.fields?.map((field) => field.key)).toEqual([
+		expect(result.fields.map((field) => field.key)).toEqual([
 			SAVED_VIEW_RUNTIME_FIELD_KEYS.entityId,
 			SAVED_VIEW_RUNTIME_FIELD_KEYS.image,
 			SAVED_VIEW_RUNTIME_FIELD_KEYS.title,
 			SAVED_VIEW_RUNTIME_FIELD_KEYS.secondarySubtitle,
 		]);
-		expect(result.fields?.some((field) => field.key === "entityName")).toBe(false);
+		expect(result.fields.some((field) => field.key === "entityName")).toBe(false);
 	});
 
 	it("builds a list request with declared fields only", () => {
@@ -96,13 +96,13 @@ describe("saved view runtime request builder", () => {
 
 		expect(result.pagination).toEqual({ limit: SAVED_VIEW_PAGE_SIZE, page: 3 });
 		expect(result.scope).toEqual(["book"]);
-		expect(result.fields?.map((field) => field.key)).toEqual([
+		expect(result.fields.map((field) => field.key)).toEqual([
 			SAVED_VIEW_RUNTIME_FIELD_KEYS.entityId,
 			SAVED_VIEW_RUNTIME_FIELD_KEYS.eyebrow,
 			SAVED_VIEW_RUNTIME_FIELD_KEYS.title,
 			SAVED_VIEW_RUNTIME_FIELD_KEYS.callout,
 		]);
-		expect(result.fields?.some((field) => field.key === "entityName")).toBe(false);
+		expect(result.fields.some((field) => field.key === "entityName")).toBe(false);
 	});
 
 	it("builds a table request with stable column keys", () => {
@@ -114,12 +114,12 @@ describe("saved view runtime request builder", () => {
 
 		expect(result.pagination).toEqual({ limit: SAVED_VIEW_PAGE_SIZE, page: 1 });
 		expect(result.scope).toEqual(["book"]);
-		expect(result.fields?.map((field) => field.key)).toEqual([
+		expect(result.fields.map((field) => field.key)).toEqual([
 			SAVED_VIEW_RUNTIME_FIELD_KEYS.entityId,
 			"column_0",
 			"column_1",
 		]);
-		expect(result.fields?.some((field) => field.key === "entityName")).toBe(false);
+		expect(result.fields.some((field) => field.key === "entityName")).toBe(false);
 	});
 
 	it("produces distinct field sets per layout so switching resets accumulated results", () => {

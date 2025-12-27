@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ After this slice, app-client should no longer depend on generated OpenAPI backen
 
 ## Acceptance criteria
 
-- [ ] Entity detail and entity-schema detail screens use the Effect client
-- [ ] Saved-view screen route calls and query execution use the Effect client
-- [ ] Upload download URL helper uses the Effect client
-- [ ] God-mode app-client route calls use the Effect client and admin token header behavior
-- [ ] App-client no longer imports generated OpenAPI backend path types
-- [ ] App-client check passes for migrated API call sites
+- [x] Entity detail and entity-schema detail screens use the Effect client
+- [x] Saved-view screen route calls and query execution use the Effect client
+- [x] Upload download URL helper uses the Effect client
+- [x] God-mode app-client route calls use the Effect client and admin token header behavior
+- [x] App-client no longer imports generated OpenAPI backend path types
+- [x] App-client check passes for migrated API call sites
 
 ## User stories addressed
 
