@@ -32,6 +32,11 @@ const baseEntitySchema = {
 	},
 };
 
+type StoredEntity = Omit<typeof baseEntity, "populatedAt" | "properties"> & {
+	populatedAt: string | null;
+	properties: Record<string, unknown>;
+};
+
 const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
@@ -350,6 +355,7 @@ it.effect("workflow body executes the sandbox step as part of orchestration", ()
 
 it.effect("fails workflow when related relationship properties are invalid", () => {
 	let relationshipWritten = false;
+	let storedEntity: StoredEntity | null = null;
 	const payload = { ...importPayload, executionId: "exec-related-validation" };
 	const options = {
 		relationshipSchemasRepository: makeRelationshipSchemasRepository({
@@ -374,8 +380,26 @@ it.effect("fails workflow when related relationship properties are invalid", () 
 				}),
 		}),
 		entitiesRepository: makeEntitiesRepository({
+			findGlobalEntityByExternalId: () => Effect.succeed(storedEntity),
 			findEntitySchemaScriptBySlug: () =>
 				Effect.succeed({ entitySchemaId: "schema-person", sandboxScriptId: "person-script" }),
+			createOrUpdateGlobalEntity: (input) => {
+				const nextEntity = {
+					...baseEntity,
+					name: input.name,
+					externalId: input.externalId,
+					properties: input.properties,
+					entitySchemaId: input.entitySchemaId,
+					sandboxScriptId: input.sandboxScriptId,
+					populatedAt: input.populatedAt?.toISOString() ?? null,
+					id: input.entitySchemaId === "schema-1" ? "entity-1" : "person-1",
+				};
+				if (input.entitySchemaId === "schema-1") {
+					storedEntity = nextEntity;
+				}
+
+				return Effect.succeed(nextEntity);
+			},
 			upsertEntityRelationship: () =>
 				Effect.sync(() => {
 					relationshipWritten = true;
@@ -410,6 +434,7 @@ it.effect("fails workflow when related relationship properties are invalid", () 
 			);
 
 			expect(relationshipWritten).toBe(false);
+			expect(storedEntity?.populatedAt).toBeNull();
 			expect(exit._tag).toBe("Failure");
 			if (exit._tag === "Failure") {
 				const cause = exit.cause;
@@ -420,4 +445,165 @@ it.effect("fails workflow when related relationship properties are invalid", () 
 			}
 		}),
 	);
+});
+
+it.effect("fails workflow when related relationship properties are not objects", () => {
+	let relationshipWritten = false;
+	const payload = { ...importPayload, executionId: "exec-related-type-validation" };
+	const options = {
+		relationshipSchemasRepository: makeRelationshipSchemasRepository({
+			findGlobalBySchemaIds: () =>
+				Effect.succeed({
+					isBuiltin: true,
+					id: "rel-schema-1",
+					slug: "authored-by",
+					name: "Authored By",
+					propertiesSchema: { fields: {} },
+					sourceEntitySchemaId: "schema-1",
+					targetEntitySchemaId: "schema-person",
+				}),
+		}),
+		entitiesRepository: makeEntitiesRepository({
+			findEntitySchemaScriptBySlug: () =>
+				Effect.succeed({ entitySchemaId: "schema-person", sandboxScriptId: "person-script" }),
+			upsertEntityRelationship: () =>
+				Effect.sync(() => {
+					relationshipWritten = true;
+				}),
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		payload.executionId,
+		Effect.gen(function* () {
+			const exit = yield* Effect.exit(
+				runEntityImportWorkflow(payload, payload.executionId, () =>
+					Effect.succeed({
+						logs: [],
+						error: null,
+						status: "completed" as const,
+						value: {
+							name: "Test Book",
+							properties: { title: "Test Book" },
+							relatedEntities: [
+								{
+									name: "Author",
+									scriptSlug: "person.test",
+									externalId: "person-ext-1",
+									relationshipProperties: [],
+								},
+							],
+						},
+					}),
+				),
+			);
+
+			expect(relationshipWritten).toBe(false);
+			expect(exit._tag).toBe("Failure");
+			if (exit._tag === "Failure") {
+				const cause = exit.cause;
+				expect(cause._tag).toBe("Fail");
+				if (cause._tag === "Fail") {
+					expect(cause.error.message.length).toBeGreaterThan(0);
+				}
+			}
+		}),
+	);
+});
+
+it.effect("retries related writes after a failed related validation", () => {
+	let relationshipWriteCount = 0;
+	let sandboxCalls = 0;
+	let storedEntity: StoredEntity | null = null;
+
+	const options = {
+		relationshipSchemasRepository: makeRelationshipSchemasRepository({
+			findGlobalBySchemaIds: () =>
+				Effect.succeed({
+					isBuiltin: true,
+					id: "rel-schema-1",
+					slug: "authored-by",
+					name: "Authored By",
+					sourceEntitySchemaId: "schema-1",
+					targetEntitySchemaId: "schema-person",
+					propertiesSchema: {
+						fields: {
+							rating: {
+								type: "number",
+								label: "Rating",
+								description: "Rating",
+								validation: { required: true },
+							},
+						},
+					},
+				}),
+		}),
+		entitiesRepository: makeEntitiesRepository({
+			findGlobalEntityByExternalId: () => Effect.succeed(storedEntity),
+			findEntitySchemaScriptBySlug: () =>
+				Effect.succeed({ entitySchemaId: "schema-person", sandboxScriptId: "person-script" }),
+			createOrUpdateGlobalEntity: (input) => {
+				const nextEntity = {
+					...baseEntity,
+					name: input.name,
+					externalId: input.externalId,
+					properties: input.properties,
+					entitySchemaId: input.entitySchemaId,
+					sandboxScriptId: input.sandboxScriptId,
+					populatedAt: input.populatedAt?.toISOString() ?? null,
+					id: input.entitySchemaId === "schema-1" ? "entity-1" : "person-1",
+				};
+				if (input.entitySchemaId === "schema-1") {
+					storedEntity = nextEntity;
+				}
+
+				return Effect.succeed(nextEntity);
+			},
+			upsertEntityRelationship: () =>
+				Effect.sync(() => {
+					relationshipWriteCount += 1;
+				}),
+		}),
+	} satisfies TestLayerOptions;
+
+	const runAttempt = (executionId: string, relationshipProperties: unknown) =>
+		withTestLayer(
+			options,
+			executionId,
+			runEntityImportWorkflow({ ...importPayload, executionId }, executionId, () => {
+				sandboxCalls += 1;
+				return Effect.succeed({
+					logs: [],
+					error: null,
+					status: "completed" as const,
+					value: {
+						name: "Test Book",
+						properties: { title: "Test Book" },
+						relatedEntities: [
+							{
+								name: "Author",
+								relationshipProperties,
+								scriptSlug: "person.test",
+								externalId: "person-ext-1",
+							},
+						],
+					},
+				});
+			}),
+		);
+
+	return Effect.gen(function* () {
+		const firstExit = yield* Effect.exit(runAttempt("exec-related-retry-1", {}));
+
+		expect(firstExit._tag).toBe("Failure");
+		expect(storedEntity?.populatedAt).toBeNull();
+
+		const secondResult = yield* runAttempt("exec-related-retry-2", { rating: 5 });
+
+		expect(sandboxCalls).toBe(2);
+		expect(relationshipWriteCount).toBe(1);
+		expect(secondResult.id).toBe("entity-1");
+		expect(secondResult.populatedAt).not.toBeNull();
+	});
 });
