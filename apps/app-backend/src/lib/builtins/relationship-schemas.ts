@@ -1,5 +1,5 @@
-import type { AppSchema } from "~/lib/schema";
-import { slugify } from "~/lib/slug";
+import type { AppSchema } from "#lib/schema";
+import { slugify } from "#lib/slug";
 
 type BuiltinRelationshipSchema = {
 	slug: string;

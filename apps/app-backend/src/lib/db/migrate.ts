@@ -1,12 +1,12 @@
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Effect } from "effect";
 
-import { unknownToDbError } from "~/lib/errors";
+import { unknownToDbError } from "#lib/errors";
 import {
 	dropLegacyTables,
 	migrateLegacyTables,
 	renameLegacyTables,
-} from "~/modules/legacy-bootstrap";
+} from "#modules/legacy-bootstrap";
 
 import { DbService } from "./index";
 

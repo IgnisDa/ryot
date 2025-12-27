@@ -7,7 +7,7 @@ import type {
 	QueryExpression,
 	QueryFilter,
 	QueryRelationshipJoin,
-} from "~/lib/query-language";
+} from "#lib/query-language";
 
 import {
 	buildComputedFieldMap,

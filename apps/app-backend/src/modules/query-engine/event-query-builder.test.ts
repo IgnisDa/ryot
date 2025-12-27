@@ -1,7 +1,7 @@
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 
-import type { AppSchema } from "~/lib/property-schema";
+import type { AppSchema } from "#lib/property-schema";
 
 import { buildJoinedCte, buildLatestEventJoinCte } from "./event-join-ctes";
 import { buildEventFirstCte } from "./event-query-ctes";

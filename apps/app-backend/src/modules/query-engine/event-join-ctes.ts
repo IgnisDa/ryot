@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 
-import { schema } from "~/lib/db";
-import type { QueryEngineEventJoinLike } from "~/lib/views/reference";
+import { schema } from "#lib/db";
+import type { QueryEngineEventJoinLike } from "#lib/views/reference";
 
 import type { LoadedRelationshipJoin } from "./context";
 import { getEventJoinCteName } from "./query-cte-shared";

@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 
-import type { QueryComputedField, QueryFilter } from "~/lib/query-language";
+import type { QueryComputedField, QueryFilter } from "#lib/query-language";
 
 import type { QueryEngineContext } from "./context";
 import type { ExpressionCompiler } from "./expression-compiler";
