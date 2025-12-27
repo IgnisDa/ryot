@@ -347,3 +347,77 @@ it.effect("workflow body executes the sandbox step as part of orchestration", ()
 		}),
 	);
 });
+
+it.effect("fails workflow when related relationship properties are invalid", () => {
+	let relationshipWritten = false;
+	const payload = { ...importPayload, executionId: "exec-related-validation" };
+	const options = {
+		relationshipSchemasRepository: makeRelationshipSchemasRepository({
+			findGlobalBySchemaIds: () =>
+				Effect.succeed({
+					isBuiltin: true,
+					id: "rel-schema-1",
+					slug: "authored-by",
+					name: "Authored By",
+					sourceEntitySchemaId: "schema-1",
+					targetEntitySchemaId: "schema-person",
+					propertiesSchema: {
+						fields: {
+							rating: {
+								type: "number",
+								label: "Rating",
+								description: "Rating",
+								validation: { required: true },
+							},
+						},
+					},
+				}),
+		}),
+		entitiesRepository: makeEntitiesRepository({
+			findEntitySchemaScriptBySlug: () =>
+				Effect.succeed({ entitySchemaId: "schema-person", sandboxScriptId: "person-script" }),
+			upsertEntityRelationship: () =>
+				Effect.sync(() => {
+					relationshipWritten = true;
+				}),
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		payload.executionId,
+		Effect.gen(function* () {
+			const exit = yield* Effect.exit(
+				runEntityImportWorkflow(payload, payload.executionId, () =>
+					Effect.succeed({
+						logs: [],
+						error: null,
+						status: "completed" as const,
+						value: {
+							name: "Test Book",
+							properties: { title: "Test Book" },
+							relatedEntities: [
+								{
+									name: "Author",
+									scriptSlug: "person.test",
+									externalId: "person-ext-1",
+									relationshipProperties: {},
+								},
+							],
+						},
+					}),
+				),
+			);
+
+			expect(relationshipWritten).toBe(false);
+			expect(exit._tag).toBe("Failure");
+			if (exit._tag === "Failure") {
+				const cause = exit.cause;
+				expect(cause._tag).toBe("Fail");
+				if (cause._tag === "Fail") {
+					expect(cause.error.message).toBe("rating: is missing");
+				}
+			}
+		}),
+	);
+});
