@@ -1,4 +1,5 @@
-import { requireObjectRecord, requirePresent } from "../test-support/assertions";
+import { requireObjectRecord, requirePresent } from "~/support/assertions";
+
 import type { Client } from "./auth";
 import type { AppSchema } from "./entity-schemas";
 
