@@ -1,4 +1,9 @@
-import { EntityId, RelationshipSchemaId } from "@ryot/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaId,
+	RelationshipSchemaId,
+	SandboxScriptId,
+} from "@ryot/contract/schema/brands";
 import {
 	queryEngineAnd,
 	queryEngineComparison,
@@ -10,10 +15,11 @@ import {
 	queryEngineSystemRef,
 } from "@ryot/query-engine";
 
-import { getPgClient } from "~/setup";
 import { assertPresent, requirePresent } from "~/support/assertions";
 
+import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
+import { getBackendClient } from "./contract-client";
 import {
 	findBuiltinSchemaBySlug,
 	findBuiltinSchemaWithProviders,
@@ -99,23 +105,6 @@ export async function waitForInLibraryRelationship(
 	);
 }
 
-export async function deleteGlobalEntityByProvenance(input: {
-	externalId: string;
-	entitySchemaId: string;
-	sandboxScriptId: string;
-}) {
-	const pg = getPgClient();
-
-	await pg.query(
-		`delete from entity
-		 where external_id = $1
-		   and entity_schema_id = $2
-		   and sandbox_script_id = $3
-		   and user_id is null`,
-		[input.externalId, input.entitySchemaId, input.sandboxScriptId],
-	);
-}
-
 export async function getGlobalEntityByProvenance(
 	client: Client,
 	input: { externalId: string; sandboxScriptId: string; entitySchemaSlug: string },
@@ -176,71 +165,79 @@ export async function getRelationshipBySchemaSlug(
 	client: Client,
 	input: { sourceEntityId: string; targetEntityId: string; relationshipSchemaSlug: string },
 ) {
-	const pg = getPgClient();
 	const schemas = await listRelationshipSchemas(client, { slugs: [input.relationshipSchemaSlug] });
 	const relationshipSchema = requireRelationshipSchemaBySlug(schemas, input.relationshipSchemaSlug);
-	const result = await pg.query<{
-		sourceEntityId: string;
-		targetEntityId: string;
-		properties: Record<string, unknown>;
-	}>(
-		`select r.properties,
-		        r.source_entity_id as "sourceEntityId",
-		        r.target_entity_id as "targetEntityId"
-		 from relationship r
-		 where r.relationship_schema_id = $1
-		   and r.source_entity_id = $2
-		   and r.target_entity_id = $3
-		   and r.user_id is null
-		 limit 1`,
-		[relationshipSchema.id, input.sourceEntityId, input.targetEntityId],
+	const relationships = await getBackendClient().run(
+		(c) =>
+			c.testSupport.listGlobalRelationships({
+				payload: {
+					type: "anchored",
+					direction: "outgoing",
+					anchorEntityId: EntityId.make(input.sourceEntityId),
+					relationshipSchemaId: RelationshipSchemaId.make(relationshipSchema.id),
+				},
+			}),
+		adminHeaders,
 	);
 
-	return requirePresent(
-		result.rows[0],
+	const relationship = requirePresent(
+		relationships.find((item) => item.targetEntityId === input.targetEntityId),
 		`Missing relationship '${input.relationshipSchemaSlug}' for '${input.sourceEntityId}' -> '${input.targetEntityId}'`,
 	);
+	return {
+		properties: relationship.properties,
+		sourceEntityId: String(relationship.sourceEntityId),
+		targetEntityId: String(relationship.targetEntityId),
+	};
 }
 
 export async function seedMediaEntity(input: {
 	name: string;
+	client?: Client;
 	externalId: string;
 	userId?: string | null;
 	entitySchemaId: string;
 	sandboxScriptId: string | null;
 	properties: Record<string, unknown>;
 }) {
-	const pg = getPgClient();
-	const id = crypto.randomUUID();
-
-	await pg.query(
-		`insert into entity (
-			id,
-			name,
-			user_id,
-			properties,
-			external_id,
-			entity_schema_id,
-			sandbox_script_id
-		) values ($1, $2, $3, $4::jsonb, $5, $6, $7)`,
-		[
-			id,
-			input.name,
-			input.userId ?? null,
-			JSON.stringify(input.properties),
-			input.externalId,
-			input.entitySchemaId,
-			input.sandboxScriptId,
-		],
-	);
+	const entitySchemaId = EntitySchemaId.make(input.entitySchemaId);
+	const sandboxScriptId = input.sandboxScriptId
+		? SandboxScriptId.make(input.sandboxScriptId)
+		: undefined;
+	const entity = input.userId
+		? await requirePresent(input.client, "Client is required for user-scoped entity seeding").run(
+				(c) =>
+					c.entities.create({
+						payload: {
+							entitySchemaId,
+							sandboxScriptId,
+							name: input.name,
+							properties: input.properties,
+							externalId: input.externalId,
+						},
+					}),
+			)
+		: await getBackendClient().run(
+				(c) =>
+					c.testSupport.createGlobalEntity({
+						payload: {
+							entitySchemaId,
+							sandboxScriptId,
+							name: input.name,
+							properties: input.properties,
+							externalId: input.externalId,
+						},
+					}),
+				adminHeaders,
+			);
 
 	return {
+		id: entity.id,
 		name: input.name,
-		id: EntityId.make(id),
 		userId: input.userId ?? null,
 		properties: input.properties,
 		externalId: input.externalId,
-		entitySchemaId: input.entitySchemaId,
+		entitySchemaId: entity.entitySchemaId,
 		sandboxScriptId: input.sandboxScriptId,
 	};
 }
@@ -279,48 +276,69 @@ export async function seedGlobalShowEpisodeTree(client: Client, options: { showN
 		"show-season-to-show-episode",
 	);
 
-	const pg = getPgClient();
-	const showId = crypto.randomUUID();
-	const seasonId = crypto.randomUUID();
-	const episodeId = crypto.randomUUID();
 	const tmdbId = String(Math.floor(Math.random() * 1_000_000_000));
-
-	await pg.query(
-		`insert into entity (id, name, external_id, entity_schema_id, sandbox_script_id, user_id, populated_at, properties)
-		 values
-		 ($1,$2,$3,$4,$5,null,now(),'{"totalSeasons":1,"totalEpisodes":1}'::jsonb),
-		 ($6,'Season 1',$7,$8,$5,null,now(),'{"seasonNumber":1}'::jsonb),
-		 ($9,'Episode 2',$10,$11,$5,null,now(),'{"seasonNumber":1,"episodeNumber":2}'::jsonb)`,
-		[
-			showId,
-			options.showName,
-			tmdbId,
-			showSchema.id,
-			tmdbProvider.scriptId,
-			seasonId,
-			`season-${tmdbId}`,
-			seasonSchemaId,
-			episodeId,
-			`episode-${tmdbId}`,
-			episodeSchemaId,
-		],
+	const populatedAt = new Date().toISOString();
+	const backend = getBackendClient();
+	const createGlobalEntity = (input: {
+		name: string;
+		externalId: string;
+		entitySchemaId: string;
+		properties: Record<string, unknown>;
+	}) =>
+		backend.run(
+			(c) =>
+				c.testSupport.createGlobalEntity({
+					payload: {
+						...input,
+						populatedAt,
+						entitySchemaId: EntitySchemaId.make(input.entitySchemaId),
+						sandboxScriptId: SandboxScriptId.make(tmdbProvider.scriptId),
+					},
+				}),
+			adminHeaders,
+		);
+	const show = await createGlobalEntity({
+		name: options.showName,
+		externalId: tmdbId,
+		entitySchemaId: showSchema.id,
+		properties: { totalSeasons: 1, totalEpisodes: 1 },
+	});
+	const season = await createGlobalEntity({
+		name: "Season 1",
+		externalId: `season-${tmdbId}`,
+		entitySchemaId: seasonSchemaId,
+		properties: { seasonNumber: 1 },
+	});
+	const episode = await createGlobalEntity({
+		name: "Episode 2",
+		externalId: `episode-${tmdbId}`,
+		entitySchemaId: episodeSchemaId,
+		properties: { seasonNumber: 1, episodeNumber: 2 },
+	});
+	await backend.run(
+		(c) =>
+			c.testSupport.upsertGlobalRelationship({
+				payload: {
+					sourceEntityId: show.id,
+					targetEntityId: season.id,
+					relationshipSchemaId: RelationshipSchemaId.make(showToSeason.id),
+				},
+			}),
+		adminHeaders,
 	);
-	await pg.query(
-		`insert into relationship (id, source_entity_id, target_entity_id, relationship_schema_id, user_id)
-		 values ($1,$2,$3,$4,null), ($5,$6,$7,$8,null)`,
-		[
-			crypto.randomUUID(),
-			showId,
-			seasonId,
-			showToSeason.id,
-			crypto.randomUUID(),
-			seasonId,
-			episodeId,
-			seasonToEpisode.id,
-		],
+	await backend.run(
+		(c) =>
+			c.testSupport.upsertGlobalRelationship({
+				payload: {
+					sourceEntityId: season.id,
+					targetEntityId: episode.id,
+					relationshipSchemaId: RelationshipSchemaId.make(seasonToEpisode.id),
+				},
+			}),
+		adminHeaders,
 	);
 
-	return { tmdbId, showId, seasonId, episodeId };
+	return { tmdbId, showId: show.id, seasonId: season.id, episodeId: episode.id };
 }
 
 export async function insertLibraryMembership(client: Client, input: { mediaEntityId: string }) {

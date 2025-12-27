@@ -1,8 +1,13 @@
-import { EntityId, EntitySchemaId, EventSchemaId } from "@ryot/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaId,
+	EventSchemaId,
+	RelationshipSchemaId,
+} from "@ryot/contract/schema/brands";
 
-import { getPgClient } from "~/setup";
-
+import { adminHeaders } from "./admin";
 import { createAuthenticatedClient, type Client } from "./auth";
+import { getBackendClient } from "./contract-client";
 import { createEntity } from "./entities";
 import { createEntitySchema } from "./entity-schemas";
 import { createEventSchema } from "./event-schemas";
@@ -95,24 +100,17 @@ export const insertGlobalRelationship = async (input: {
 	relationshipSchemaId: string;
 	properties?: Record<string, unknown>;
 }) => {
-	await getPgClient().query(
-		`insert into relationship (
-			id,
-			user_id,
-			properties,
-			source_entity_id,
-			target_entity_id,
-			relationship_schema_id
-		) values ($1, null, $2::jsonb, $3, $4, $5)
-		on conflict (user_id, source_entity_id, target_entity_id, relationship_schema_id)
-		where user_id is null do nothing`,
-		[
-			crypto.randomUUID(),
-			JSON.stringify(input.properties ?? {}),
-			input.sourceEntityId,
-			input.targetEntityId,
-			input.relationshipSchemaId,
-		],
+	await getBackendClient().run(
+		(c) =>
+			c.testSupport.upsertGlobalRelationship({
+				payload: {
+					properties: input.properties,
+					sourceEntityId: EntityId.make(input.sourceEntityId),
+					targetEntityId: EntityId.make(input.targetEntityId),
+					relationshipSchemaId: RelationshipSchemaId.make(input.relationshipSchemaId),
+				},
+			}),
+		adminHeaders,
 	);
 };
 

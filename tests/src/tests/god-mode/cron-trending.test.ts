@@ -1,23 +1,27 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { randomUUID } from "node:crypto";
 
 import {
+	EntitySchemaId,
+	RelationshipSchemaId,
+	SandboxScriptId,
+} from "@ryot/contract/schema/brands";
+
+import {
+	ADMIN_TOKEN,
+	adminAccessTokenHeaders,
+	adminHeaders,
+	type Client,
 	createAndPromoteSandboxScript,
 	createAuthenticatedClient,
 	findBuiltinSchemaBySlug,
 	getBackendClient,
+	getEntity,
 	listRelationshipSchemas,
 	requireRelationshipSchemaBySlug,
 	trendingSandboxSource,
 } from "~/fixtures";
 import { pollUntil } from "~/fixtures/polling";
-import { getPgClient } from "~/setup";
-import { assertPresent, assertTaggedError } from "~/support/assertions";
-
-const ADMIN_TOKEN = "test-admin-token";
-const ADMIN_ACCESS_TOKEN_HEADER = "Admin-Access-Token";
-
-const adminHeaders = (token: string) => ({ [ADMIN_ACCESS_TOKEN_HEADER]: token });
+import { assertPresent, assertTaggedError, requireObjectRecord } from "~/support/assertions";
 
 const SCRIPT_SLUG = "movie.e2e-test-trending";
 const EXTERNAL_ID_ONE = "e2e-trending-1";
@@ -33,14 +37,14 @@ const TRENDING_SOURCE = trendingSandboxSource({
 });
 
 let scriptId: string;
+let queryClient: Client;
 let movieSchemaId: string;
 let mediaTrendingSchemaId: string;
-let entitySchemaSandboxScriptId: string;
 
 describe("POST /god-mode/cron/infrequent (media-trending durable workflow)", () => {
 	beforeAll(async () => {
-		const pg = getPgClient();
 		const { client } = await createAuthenticatedClient();
+		queryClient = client;
 
 		const [{ schema: movieSchema }, relationshipSchemas] = await Promise.all([
 			findBuiltinSchemaBySlug(client, "movie"),
@@ -55,28 +59,27 @@ describe("POST /god-mode/cron/infrequent (media-trending durable workflow)", () 
 		const script = await createAndPromoteSandboxScript(client, TRENDING_SOURCE);
 		scriptId = script.id;
 
-		entitySchemaSandboxScriptId = randomUUID();
-		await pg.query(
-			`insert into entity_schema_sandbox_script (id, entity_schema_id, sandbox_script_id)
-			 values ($1, $2, $3)`,
-			[entitySchemaSandboxScriptId, movieSchemaId, scriptId],
+		await getBackendClient().run(
+			(c) =>
+				c.testSupport.linkSandboxScriptToEntitySchema({
+					path: {
+						scriptId: SandboxScriptId.make(scriptId),
+						entitySchemaId: EntitySchemaId.make(movieSchemaId),
+					},
+				}),
+			adminHeaders,
 		);
 	});
 
 	afterAll(async () => {
-		const pg = getPgClient();
 		try {
-			await pg.query(
-				`delete from relationship r
-				 using entity e
-				 where r.source_entity_id = e.id and e.sandbox_script_id = $1`,
-				[scriptId],
+			await getBackendClient().run(
+				(c) =>
+					c.testSupport.deleteSandboxScript({
+						path: { scriptId: SandboxScriptId.make(scriptId) },
+					}),
+				adminHeaders,
 			);
-			await pg.query(`delete from entity where sandbox_script_id = $1`, [scriptId]);
-			await pg.query(`delete from entity_schema_sandbox_script where id = $1`, [
-				entitySchemaSandboxScriptId,
-			]);
-			await pg.query(`delete from sandbox_script where id = $1`, [scriptId]);
 		} catch (error) {
 			console.error("[god-mode-cron-trending] cleanup failed (non-fatal)", error);
 		}
@@ -90,17 +93,15 @@ describe("POST /god-mode/cron/infrequent (media-trending durable workflow)", () 
 
 		const wrong = await client.runError(
 			(c) => c.godMode.triggerInfrequentCron(),
-			adminHeaders("wrong-token"),
+			adminAccessTokenHeaders("wrong-token"),
 		);
 		assertTaggedError(wrong, "Unauthorized");
 	});
 
 	it("runs the media-trending workflow end-to-end and writes ranked self-edges", async () => {
-		const pg = getPgClient();
-
 		const { executionId } = await getBackendClient().run(
 			(c) => c.godMode.triggerInfrequentCron(),
-			adminHeaders(ADMIN_TOKEN),
+			adminAccessTokenHeaders(ADMIN_TOKEN),
 		);
 		expect(typeof executionId).toBe("string");
 		expect(executionId.length).toBeGreaterThan(0);
@@ -108,33 +109,47 @@ describe("POST /god-mode/cron/infrequent (media-trending durable workflow)", () 
 		const rows = await pollUntil(
 			"media-trending self-edges for seeded provider",
 			async () => {
-				const result = await pg.query<{
-					rank: string | null;
-					fetched_at: string | null;
-					external_id: string;
-				}>(
-					`select e.external_id,
-						        r.properties->>'rank' as rank,
-						        r.properties->>'fetchedAt' as fetched_at
-						 from relationship r
-						 join entity e on e.id = r.source_entity_id
-						 where r.user_id is null
-						   and r.source_entity_id = r.target_entity_id
-						   and r.relationship_schema_id = $1
-						   and e.sandbox_script_id = $2
-						   and e.external_id in ($3, $4)
-						 order by (r.properties->>'rank')::int asc`,
-					[mediaTrendingSchemaId, scriptId, EXTERNAL_ID_ONE, EXTERNAL_ID_TWO],
+				const relationships = await getBackendClient().run(
+					(c) =>
+						c.testSupport.listGlobalRelationships({
+							payload: {
+								type: "self",
+								relationshipSchemaId: RelationshipSchemaId.make(mediaTrendingSchemaId),
+							},
+						}),
+					adminHeaders,
 				);
-				return result.rows.length === 2 ? result.rows : null;
+				const candidates = await Promise.all(
+					relationships.map(async (relationship) => {
+						const entity = await getEntity(queryClient, relationship.sourceEntityId);
+						const properties = requireObjectRecord(
+							relationship.properties,
+							"Trending relationship properties",
+						);
+						return {
+							rank: properties["rank"],
+							external_id: entity.externalId,
+							fetched_at: properties["fetchedAt"],
+							sandboxScriptId: entity.sandboxScriptId,
+						};
+					}),
+				);
+				const matching = candidates
+					.filter(
+						(row) =>
+							row.sandboxScriptId === scriptId &&
+							(row.external_id === EXTERNAL_ID_ONE || row.external_id === EXTERNAL_ID_TWO),
+					)
+					.sort((a, b) => Number(a.rank) - Number(b.rank));
+				return matching.length === 2 ? matching : null;
 			},
 			{ timeoutMs: 90_000, intervalMs: 1_000 },
 		);
 
 		expect(rows).toHaveLength(2);
 		for (const row of rows) {
-			expect(row.rank).not.toBeNull();
-			expect(row.fetched_at).not.toBeNull();
+			expect(row.rank).toBeDefined();
+			expect(row.fetched_at).toBeDefined();
 			expect(Number(row.rank)).toBeGreaterThan(0);
 		}
 

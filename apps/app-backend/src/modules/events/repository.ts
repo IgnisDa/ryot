@@ -47,6 +47,18 @@ export type UpdateEventEntityReferencesInput = EventIdentityInput & {
 	readonly mergeInto: EntityId;
 };
 
+export type InsertEventSchemaTriggerInput = {
+	readonly name: string;
+	readonly position: number;
+	readonly isActive: boolean;
+	readonly isBuiltin: boolean;
+	readonly userId: UserId | null;
+	readonly eventSchemaId: EventSchemaId;
+	readonly metadata: EventTriggerMetadata;
+	readonly sandboxScriptId: SandboxScriptId;
+	readonly phase: "before_create" | "after_create";
+};
+
 const createdEventSelection = {
 	id: schema.event.id,
 	entityId: schema.event.entityId,
@@ -309,9 +321,26 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 			},
 		);
 
+		const createTrigger = Effect.fn("EventsRepository.createTrigger")(function* (
+			input: InsertEventSchemaTriggerInput,
+		) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.insert(schema.eventSchemaTrigger)
+					.values(input)
+					.returning({ id: schema.eventSchemaTrigger.id }),
+			);
+			if (!row) {
+				return yield* new DbError({ message: "Event schema trigger insert returned no row" });
+			}
+			return row;
+		});
+
 		return {
-			createEvent,
 			deleteEvent,
+			createEvent,
+			createTrigger,
 			listQueryScopesForUser,
 			listUserEventIdsForEntity,
 			updateEventEntityReferences,

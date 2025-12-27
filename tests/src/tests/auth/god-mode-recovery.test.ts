@@ -1,20 +1,15 @@
 import { describe, expect, it } from "bun:test";
-import { randomUUID } from "node:crypto";
 
 import { UserId } from "@ryot/contract/schema/brands";
 import { DateTime } from "effect";
 
-import { getBackendClient } from "~/fixtures";
+import { ADMIN_TOKEN, adminAccessTokenHeaders, getBackendClient } from "~/fixtures";
 import { createTestAuthClient, createTestUser } from "~/fixtures/auth";
 import { cookieHeaderFromSetCookies } from "~/fixtures/auth-2fa";
-import { getBackendUrl, getPgClient } from "~/setup";
+import { getBackendUrl } from "~/setup";
 import { assertPresent, assertTaggedError, requireNonEmptyArray } from "~/support/assertions";
 
 const WRONG_TOKEN = "wrong-token";
-const ADMIN_TOKEN = "test-admin-token";
-const ADMIN_ACCESS_TOKEN_HEADER = "Admin-Access-Token";
-
-const adminAccessTokenHeaders = (token: string) => ({ [ADMIN_ACCESS_TOKEN_HEADER]: token });
 const godModeListQuery = (search?: string) => ({
 	limit: 50,
 	offset: 0,
@@ -182,10 +177,16 @@ describe("User listing with correct admin token", () => {
 		const { email } = await createTestUser();
 		const userId = await getUserIdByEmail(email);
 
-		await getPgClient().query(
-			`INSERT INTO "account" (id, account_id, provider_id, user_id, created_at, updated_at)
-			 VALUES ($1, $2, 'oidc', $3, NOW(), NOW())`,
-			[randomUUID(), `oidc-sub-${uniqueTimestamp()}`, userId],
+		await client.run(
+			(c) =>
+				c.testSupport.linkAuthAccount({
+					payload: {
+						userId,
+						providerId: "oidc",
+						accountId: `oidc-sub-${uniqueTimestamp()}`,
+					},
+				}),
+			adminAccessTokenHeaders(ADMIN_TOKEN),
 		);
 
 		const data = await client.run(
@@ -445,10 +446,16 @@ describe("Mixed auth user restrictions", () => {
 		const { email } = await createTestUser();
 		const userId = await getUserIdByEmail(email);
 
-		await getPgClient().query(
-			`INSERT INTO "account" (id, account_id, provider_id, user_id, created_at, updated_at)
-			 VALUES ($1, $2, 'oidc', $3, NOW(), NOW())`,
-			[randomUUID(), `oidc-sub-${uniqueTimestamp()}`, userId],
+		await client.run(
+			(c) =>
+				c.testSupport.linkAuthAccount({
+					payload: {
+						userId,
+						providerId: "oidc",
+						accountId: `oidc-sub-${uniqueTimestamp()}`,
+					},
+				}),
+			adminAccessTokenHeaders(ADMIN_TOKEN),
 		);
 
 		const error = await client.runError(

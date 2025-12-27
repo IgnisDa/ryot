@@ -1,7 +1,7 @@
 import { DbError } from "@ryot/contract/errors";
 import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { decodeStoredAppSchema } from "@ryot/contract/schema/core";
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -20,9 +20,9 @@ export type InsertEntityInputBase = {
 } & (
 	| {
 			scope: "global";
-			externalId: string;
 			populatedAt: Date | null;
-			sandboxScriptId: SandboxScriptId;
+			externalId?: string | undefined;
+			sandboxScriptId?: SandboxScriptId | undefined;
 	  }
 	| {
 			scope: "user";
@@ -208,6 +208,18 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			return row ? toListedEntity(row) : null;
 		});
 
+		const getById = Effect.fn("EntitiesRepository.getById")(function* (entityId: EntityId) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.select(entitySelection)
+					.from(schema.entity)
+					.where(eq(schema.entity.id, entityId))
+					.limit(1),
+			);
+			return row ? toListedEntity(row) : null;
+		});
+
 		const findEntityByExternalIdForUser = Effect.fn(
 			"EntitiesRepository.findEntityByExternalIdForUser",
 		)(function* (input: {
@@ -321,15 +333,27 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			const db = yield* CurrentDb;
 
 			if (input.scope === "global") {
+				const externalId = input.externalId;
+				const sandboxScriptId = input.sandboxScriptId;
 				const values = {
 					userId: null,
 					name: input.name,
 					properties: input.properties,
-					externalId: input.externalId,
+					externalId: externalId ?? null,
 					populatedAt: input.populatedAt,
 					entitySchemaId: input.entitySchemaId,
-					sandboxScriptId: input.sandboxScriptId,
+					sandboxScriptId: sandboxScriptId ?? null,
 				};
+
+				if (!externalId || !sandboxScriptId) {
+					const [row] = yield* dbEffect(() =>
+						db.insert(schema.entity).values(values).returning(entitySelection),
+					);
+					if (!row) {
+						return yield* new DbError({ message: "Global entity insert returned no row" });
+					}
+					return toListedEntity(row);
+				}
 
 				const inserted = yield* dbEffect(() =>
 					db.insert(schema.entity).values(values).onConflictDoNothing().returning(entitySelection),
@@ -346,9 +370,9 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 						.where(
 							and(
 								isNull(schema.entity.userId),
-								eq(schema.entity.externalId, input.externalId),
+								eq(schema.entity.externalId, externalId),
 								eq(schema.entity.entitySchemaId, input.entitySchemaId),
-								eq(schema.entity.sandboxScriptId, input.sandboxScriptId),
+								eq(schema.entity.sandboxScriptId, sandboxScriptId),
 							),
 						)
 						.limit(1),
@@ -451,12 +475,41 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			return toListedEntity(updated);
 		});
 
+		const deleteByIds = Effect.fn("EntitiesRepository.deleteByIds")(function* (
+			ids: readonly [EntityId, ...EntityId[]],
+		) {
+			const db = yield* CurrentDb;
+			const rows = yield* dbEffect(() =>
+				db
+					.delete(schema.entity)
+					.where(inArray(schema.entity.id, [...ids]))
+					.returning({ id: schema.entity.id }),
+			);
+			return rows.length;
+		});
+
+		const deleteBySandboxScript = Effect.fn("EntitiesRepository.deleteBySandboxScript")(function* (
+			sandboxScriptId: SandboxScriptId,
+		) {
+			const db = yield* CurrentDb;
+			const rows = yield* dbEffect(() =>
+				db
+					.delete(schema.entity)
+					.where(eq(schema.entity.sandboxScriptId, sandboxScriptId))
+					.returning({ id: schema.entity.id }),
+			);
+			return rows.length;
+		});
+
 		return {
+			getById,
+			deleteByIds,
 			insertEntity,
 			updateEntity,
 			getByIdForUser,
 			findEntitySchemaById,
 			getEntityScopeForUser,
+			deleteBySandboxScript,
 			getEntityMergeScopeForUser,
 			listMatchCandidatesBySchema,
 			getEntitySchemaScopeForUser,
