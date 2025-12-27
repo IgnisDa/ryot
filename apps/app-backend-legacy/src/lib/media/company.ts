@@ -1,5 +1,4 @@
 import { z } from "@hono/zod-openapi";
-import { toAppSchemaProperties } from "@ryot/ts-utils/app-schema";
 
 import { imagesSchema, nullableIntSchema, nullableStringSchema, stringArraySchema } from "../zod";
 
@@ -21,6 +20,5 @@ export const companyPropertiesSchema = z
 	})
 	.strict();
 
-export const companyPropertiesJsonSchema = toAppSchemaProperties(companyPropertiesSchema);
 
 export type CompanyProperties = z.infer<typeof companyPropertiesSchema>;
