@@ -2,15 +2,13 @@ import { defineManifest } from "@ryot/sandbox-sdk";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
+import { asRecord, numberValue, stringValue } from "../../script-helpers/records";
+import { createRoleAccumulator } from "../../script-helpers/role-accumulator";
 import {
-	asRecord,
 	buildIgdbImageUrl,
 	buildPagination,
-	createRoleAccumulator,
 	makeIgdbRequest,
-	numberValue,
 	readTotalItems,
-	stringValue,
 } from "../igdb-shared";
 
 export const manifest = defineManifest({

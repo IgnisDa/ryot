@@ -1,51 +1,19 @@
 import { Effect } from "effect";
-import type * as ts from "typescript/unstable/ast";
-import { DiagnosticCategory, type Diagnostic } from "typescript/unstable/async";
+import { DiagnosticCategory } from "typescript/unstable/async";
 
 import { bundleUserScript } from "./compiler-bundle";
 import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
 import {
-	type SandboxCompilerDiagnostic,
 	SANDBOX_SOURCE_FILE,
 	sandboxCompilationFailure,
 	sandboxCompilerDiagnostic,
+	toTypeScriptDiagnostic,
 } from "./compiler-diagnostics";
 import { extractSandboxManifest } from "./compiler-manifest";
-import { createTypeScriptProject } from "./compiler-project";
+import { createTypeScriptSourcesProject } from "./compiler-project";
 import { type CompiledSandboxModule, SANDBOX_COMPILED_FORMAT } from "./compiler-protocol";
 import { inspectSandboxSource, sandboxDefinitionMismatch } from "./compiler-source";
 import { jsonByteLength, SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
-
-const diagnosticSeverity = (category: DiagnosticCategory) => {
-	if (category === DiagnosticCategory.Warning) {
-		return "warning" as const;
-	}
-	if (category === DiagnosticCategory.Message || category === DiagnosticCategory.Suggestion) {
-		return "info" as const;
-	}
-	return "error" as const;
-};
-
-const diagnosticMessage = (diagnostic: Diagnostic): string =>
-	[diagnostic.text, ...(diagnostic.messageChain ?? []).map(diagnosticMessage)].join("\n");
-
-const toTypeScriptDiagnostic = (
-	diagnostic: Diagnostic,
-	file: ts.SourceFile,
-): SandboxCompilerDiagnostic => {
-	const start = Math.max(0, diagnostic.pos);
-	const location = diagnostic.fileName ? file.getLineAndCharacterOfPosition(start) : undefined;
-
-	return {
-		file: SANDBOX_SOURCE_FILE,
-		code: `TS${diagnostic.code}`,
-		line: (location?.line ?? 0) + 1,
-		column: (location?.character ?? 0) + 1,
-		message: diagnosticMessage(diagnostic),
-		severity: diagnosticSeverity(diagnostic.category),
-		...(diagnostic.end > diagnostic.pos ? { length: diagnostic.end - diagnostic.pos } : {}),
-	};
-};
 
 export const compileSandboxSource = (source: string) =>
 	Effect.gen(function* () {
@@ -59,8 +27,8 @@ export const compileSandboxSource = (source: string) =>
 		}
 
 		const dependencies = yield* resolveSandboxCompilerDependencies;
-		const project = yield* createTypeScriptProject(
-			source,
+		const project = yield* createTypeScriptSourcesProject(
+			{ entry: SANDBOX_SOURCE_FILE, files: { [SANDBOX_SOURCE_FILE]: source } },
 			dependencies.sdkEntries,
 			dependencies.tsserverPath,
 		).pipe(
@@ -86,7 +54,9 @@ export const compileSandboxSource = (source: string) =>
 				project.diagnostics
 					.filter((diagnostic) => diagnostic.category === DiagnosticCategory.Error)
 					.slice(0, SANDBOX_COMPILER_LIMITS.diagnosticCount)
-					.map((diagnostic) => toTypeScriptDiagnostic(diagnostic, project.sourceFile)),
+					.map((diagnostic) =>
+						toTypeScriptDiagnostic(diagnostic, project.sourceFiles, project.sourceFile),
+					),
 			);
 		}
 

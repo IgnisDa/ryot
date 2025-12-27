@@ -1,17 +1,15 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
+import { cleanHtmlDescription } from "../../../script-helpers/clean-html-description";
+import { asRecord, numberValue, stringValue, trimmedString } from "../../../script-helpers/records";
+import { createRoleAccumulator } from "../../../script-helpers/role-accumulator";
 import { toTitleCase } from "../../../script-helpers/title-case";
 import {
-	asRecord,
 	audibleFetchJson,
 	type AudibleHost,
-	cleanHtmlDescription,
-	numberValue,
 	parseReleaseDate,
 	parseReleaseYear,
-	stringValue,
-	trimmedString,
 } from "../../audible-shared";
 
 export const manifest = defineManifest({
@@ -32,37 +30,6 @@ const SIMILARITY_TYPES = [
 	"NextInSameSeries",
 	"ByTheSameNarrator",
 ];
-
-type RoleRelatedEntity = {
-	name: string;
-	externalId: string;
-	scriptSlug: string;
-	relationshipProperties: { roles: string[] };
-};
-
-const createRoleAccumulator = () => {
-	const entities: RoleRelatedEntity[] = [];
-	const byKey = new Map<string, RoleRelatedEntity>();
-	const add = (entity: RoleRelatedEntity) => {
-		const key = `${entity.scriptSlug}:${entity.externalId}`;
-		const existing = byKey.get(key);
-		if (!existing) {
-			byKey.set(key, entity);
-			entities.push(entity);
-			return;
-		}
-		existing.relationshipProperties.roles = [
-			...new Set([
-				...existing.relationshipProperties.roles,
-				...entity.relationshipProperties.roles,
-			]),
-		];
-		if (existing.name === "Loading..." && entity.name !== "Loading...") {
-			existing.name = entity.name;
-		}
-	};
-	return { entities, add };
-};
 
 const productImageUrl = (product: Record<string, unknown>, order: readonly string[]) => {
 	const images = asRecord(product["product_images"]);

@@ -90,21 +90,3 @@ export const sandboxContextError = (context: unknown) => {
 		? `Sandbox driver context must be JSON and no larger than ${SANDBOX_LIMITS.execution.contextBytes} UTF-8 bytes`
 		: null;
 };
-
-export const truncateUtf8 = (value: string, maximumBytes: number) => {
-	if (utf8ByteLength(value) <= maximumBytes) {
-		return value;
-	}
-
-	let bytes = 0;
-	let truncated = "";
-	for (const character of value) {
-		const characterBytes = utf8ByteLength(character);
-		if (bytes + characterBytes > maximumBytes) {
-			break;
-		}
-		bytes += characterBytes;
-		truncated += character;
-	}
-	return truncated;
-};
