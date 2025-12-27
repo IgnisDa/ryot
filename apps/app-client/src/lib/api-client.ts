@@ -1,5 +1,4 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
-import { useQuery } from "@tanstack/react-query";
 import createFetchClient from "openapi-fetch";
 import { useMemo } from "react";
 
@@ -21,15 +20,4 @@ export function useApiClient() {
 	const cookie = authClient.getCookie();
 	const baseUrl = serverUrl ?? CLOUD_URL;
 	return useMemo(() => createApiClient(baseUrl, cookie), [baseUrl, cookie]);
-}
-
-export function useSystemConfig() {
-	const apiClient = useApiClient();
-	return useQuery({
-		queryKey: ["system-config"],
-		queryFn: async () => {
-			const { data } = await apiClient.GET("/system/config");
-			return data?.data ?? null;
-		},
-	});
 }
