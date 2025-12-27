@@ -7,9 +7,6 @@ import { DefaultSavedViewQueue } from "./durable-queues";
 const CreateDefaultSavedViewWorkflowLive = CreateDefaultSavedViewWorkflow.toLayer(
 	(payload, executionId) =>
 		DurableQueue.process(DefaultSavedViewQueue, payload).pipe(
-			Effect.withSpan("CreateDefaultSavedViewWorkflow", {
-				attributes: { executionId, userId: payload.userId, trackerId: payload.trackerId },
-			}),
 			Effect.annotateLogs({ executionId, workflow: "CreateDefaultSavedViewWorkflow" }),
 		),
 );

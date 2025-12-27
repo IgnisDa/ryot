@@ -62,37 +62,32 @@ const writeTranslationOverlay = Effect.fn("writeTranslationOverlay")(function* (
 	});
 });
 
-export const runTranslateEntityWorkflow = Effect.fn("runTranslateEntityWorkflow")(function* (
-	payload: TranslateEntityWorkflowPayload,
-	executionId: string,
-) {
-	const operations = yield* TranslateEntityWorkflowOperations;
-	const sandboxResult = yield* operations.processSandbox(payload, executionId);
+export const runTranslateEntityWorkflow = Effect.fn("TranslateEntityWorkflow")(
+	function* (payload: TranslateEntityWorkflowPayload, executionId: string) {
+		yield* Effect.annotateCurrentSpan({
+			executionId,
+			entityId: payload.entityId,
+			scriptId: payload.scriptId,
+			externalId: payload.externalId,
+		});
+		const operations = yield* TranslateEntityWorkflowOperations;
+		const sandboxResult = yield* operations.processSandbox(payload, executionId);
 
-	if (sandboxResult.error) {
-		return yield* new SandboxRunError({ message: sandboxResult.error.message });
-	}
+		if (sandboxResult.error) {
+			return yield* new SandboxRunError({ message: sandboxResult.error.message });
+		}
 
-	const translation = yield* decodeProviderTranslateResult(sandboxResult.value).pipe(
-		Effect.mapError(
-			(error) => new SandboxRunError({ message: `Invalid translate result: ${error.message}` }),
-		),
-	);
-	return yield* writeTranslationOverlay(payload, translation);
-});
-
-const TranslateEntityWorkflowLive = TranslateEntityWorkflow.toLayer((payload, executionId) =>
-	runTranslateEntityWorkflow(payload, executionId).pipe(
-		Effect.withSpan("TranslateEntityWorkflow", {
-			attributes: {
-				executionId,
-				entityId: payload.entityId,
-				scriptId: payload.scriptId,
-				externalId: payload.externalId,
-			},
-		}),
-		Effect.annotateLogs({ executionId, workflow: "TranslateEntityWorkflow" }),
-	),
+		const translation = yield* decodeProviderTranslateResult(sandboxResult.value).pipe(
+			Effect.mapError(
+				(error) => new SandboxRunError({ message: `Invalid translate result: ${error.message}` }),
+			),
+		);
+		return yield* writeTranslationOverlay(payload, translation);
+	},
+	(effect, _payload, executionId) =>
+		Effect.annotateLogs(effect, { executionId, workflow: "TranslateEntityWorkflow" }),
 );
+
+const TranslateEntityWorkflowLive = TranslateEntityWorkflow.toLayer(runTranslateEntityWorkflow);
 
 export const TranslateEntityWorkflowDefinitionsLive = TranslateEntityWorkflowLive;
