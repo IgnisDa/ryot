@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AdminMiddleware } from "../../auth-middleware";
-import { InternalError, Unauthorized } from "../../errors";
+import { InternalError, NotFound, Unauthorized } from "../../errors";
 import { UserId } from "../../schema/brands";
 
 const UserAuthState = Schema.Literal("credential", "oidc", "none", "mixed");
@@ -67,6 +67,8 @@ const SetDisabledResponse = Schema.Struct({
 	disabledAt: Schema.NullOr(Schema.String),
 });
 
+const DeleteUserResponse = Schema.Struct({ id: UserId });
+
 const TriggerInfrequentCronResponse = Schema.Struct({ executionId: Schema.String });
 
 const userIdParam = HttpApiSchema.param("userId", UserId);
@@ -108,6 +110,13 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 		HttpApiEndpoint.post("setUserDisabled")`/god-mode/users/${userIdParam}/disable/set`
 			.setPayload(SetDisabledBody)
 			.addSuccess(SetDisabledResponse)
+			.addError(InternalError, { status: 500 })
+			.middleware(AdminMiddleware),
+	)
+	.add(
+		HttpApiEndpoint.del("deleteUser")`/god-mode/users/${userIdParam}`
+			.addSuccess(DeleteUserResponse)
+			.addError(NotFound, { status: 404 })
 			.addError(InternalError, { status: 500 })
 			.middleware(AdminMiddleware),
 	)
