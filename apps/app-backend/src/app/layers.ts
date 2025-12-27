@@ -47,6 +47,10 @@ import { IntegrationsService } from "#modules/integrations/service";
 import { GlobalEntityReferencedWorkerLive } from "#modules/library-membership/global-reference-worker";
 import { LibraryEntityImportWorkflowDefinitionsLive } from "#modules/library-membership/library-entity-import-workflow";
 import { LibraryImportService } from "#modules/library-membership/service";
+import { MediaTrendingWorkflowOperationsLive } from "#modules/media-trending/operations-workflow";
+import { MediaTrendingWorkflowDefinitionsLive } from "#modules/media-trending/refresh-workflow";
+import { MediaTrendingRepository } from "#modules/media-trending/repository";
+import { MediaTrendingSchedulerLive } from "#modules/media-trending/scheduler";
 import { ProviderConfig } from "#modules/query-engine/provider-config";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
@@ -81,6 +85,7 @@ const BaseInfrastructureLive = Layer.provide(BaseInfrastructureServicesLive, Con
 const ContentRepositoriesLive = Layer.mergeAll(
 	CollectionsRepository.Default,
 	EntitiesRepository.Default,
+	MediaTrendingRepository.Default,
 	EntitySchemasRepository.Default,
 	EpisodeResolverRepository.Default,
 	EventSchemasRepository.Default,
@@ -200,10 +205,12 @@ const RuntimeLive = Layer.mergeAll(
 	BuiltinEntityPreloaderLive,
 	ImportWorkflowDefinitionsLive,
 	IntegrationWorkflowDefinitionsLive,
+	MediaTrendingWorkflowDefinitionsLive,
 	SandboxWorkflowDefinitionsLive,
 	TranslateEntityWorkflowDefinitionsLive,
 	ServerLive,
 	IntegrationsSchedulerLive,
+	MediaTrendingSchedulerLive,
 );
 
 const RuntimeAfterMigrationsLive = MigrationsComplete.Default.pipe(
@@ -221,6 +228,7 @@ const RuntimeDependenciesLive = Layer.mergeAll(
 	ApplicationInfrastructureLive,
 	Layer.provide(EntityImportWorkflowOperationsLive, ApplicationInfrastructureLive),
 	Layer.provide(TranslateEntityWorkflowOperationsLive, ApplicationInfrastructureLive),
+	Layer.provide(MediaTrendingWorkflowOperationsLive, ApplicationInfrastructureLive),
 );
 
 export const AppLive = Layer.provide(RuntimeAfterMigrationsLive, RuntimeDependenciesLive);
