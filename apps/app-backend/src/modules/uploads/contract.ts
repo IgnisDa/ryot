@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, Multipart } from "@effect
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
-import { BadRequest, NotImplemented, RateLimited, Unauthorized } from "#lib/errors";
+import { BadRequest, RateLimited, Unauthorized } from "#lib/errors";
 
 import { PresignedDownloadResponse, PresignedUploadResponse } from "./schemas";
 
@@ -28,5 +28,4 @@ export const UploadsGroup = HttpApiGroup.make("uploads")
 			.addSuccess(Schema.Array(Schema.String), { status: 201 })
 			.addError(Multipart.MultipartError, { status: 413 })
 			.addError(BadRequest, { status: 400 }),
-	)
-	.addError(NotImplemented, { status: 501 });
+	);

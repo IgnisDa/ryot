@@ -5,7 +5,7 @@ import { CurrentDb, dbEffect, schema } from "#lib/db";
 import { DbError } from "#lib/errors";
 
 import type { ListedImportRun, ListedImportRunFailure } from "./schemas";
-import type { ImportRunFailureStage, ImportRunStatus } from "./types";
+import type { ImportRunFailureStage, ImportRunSource, ImportRunStatus } from "./types";
 
 type ImportRunRow = typeof schema.importRun.$inferSelect;
 type ImportRunFailureRow = typeof schema.importRunFailure.$inferSelect;
@@ -45,7 +45,7 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 	sync: () => ({
 		createRun: (input: {
 			userId: string;
-			source: string;
+			source: ImportRunSource;
 			integrationId?: string | null;
 			inputSummary: Record<string, unknown>;
 		}) =>
