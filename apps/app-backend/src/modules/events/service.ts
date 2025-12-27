@@ -1,7 +1,7 @@
 import { type AppSchema, resolveRequiredString } from "@ryot/ts-utils";
 import { chunk } from "lodash";
 import { z } from "zod";
-import { resolveCustomEntitySchemaAccess } from "~/lib/app/entity-schema-access";
+import { resolveEntitySchemaReadAccess } from "~/lib/app/entity-schema-access";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 import {
 	type ServiceResult,
@@ -39,18 +39,10 @@ export type EventCreateScope = EntityEventScope & {
 	eventSchemaEntitySchemaId: string | null;
 };
 
-type EntityEventAccess =
-	| { error: "builtin" | "not_found" }
-	| { access: EntityEventScope };
+type EntityEventAccess = { error: "not_found" } | { access: EntityEventScope };
 
 type EventCreateAccess =
-	| {
-			error:
-				| "builtin"
-				| "not_found"
-				| "event_schema_mismatch"
-				| "event_schema_not_found";
-	  }
+	| { error: "not_found" | "event_schema_mismatch" | "event_schema_not_found" }
 	| {
 			access: {
 				entityId: string;
@@ -73,8 +65,6 @@ export type EventServiceDeps = {
 
 export type EventServiceResult<T> = ServiceResult<T, EventMutationError>;
 
-const customEntitySchemaError =
-	"Built-in entity schemas do not support generated event logging";
 const entityNotFoundError = "Entity not found";
 const eventSchemaNotFoundError = "Event schema not found";
 const eventSchemaMismatchError =
@@ -127,7 +117,7 @@ export const parseEventProperties = (input: {
 export const resolveEntityEventAccess = (
 	scope: EntityEventScope | undefined,
 ): EntityEventAccess => {
-	const entityAccess = resolveCustomEntitySchemaAccess(scope);
+	const entityAccess = resolveEntitySchemaReadAccess(scope);
 	if (!("entitySchema" in entityAccess)) {
 		return { error: entityAccess.error };
 	}
@@ -193,17 +183,10 @@ const resolveEventCreateInputResult = (
 	);
 
 const resolveCreateAccessMessage = (
-	error:
-		| "builtin"
-		| "not_found"
-		| "event_schema_not_found"
-		| "event_schema_mismatch",
+	error: "not_found" | "event_schema_not_found" | "event_schema_mismatch",
 ): { error: EventMutationError; message: string } => {
 	if (error === "not_found") {
 		return serviceError("not_found", entityNotFoundError);
-	}
-	if (error === "builtin") {
-		return serviceError("validation", customEntitySchemaError);
 	}
 	if (error === "event_schema_not_found") {
 		return serviceError("not_found", eventSchemaNotFoundError);
