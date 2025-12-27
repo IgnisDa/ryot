@@ -58,6 +58,8 @@ const decorateTracer = (tracer: Tracer.Tracer, runtime: Runtime.Runtime<never>) 
 							Effect.logDebug("span completed").pipe(
 								Effect.annotateLogs({
 									spanName: name,
+									spanId: span.spanId,
+									traceId: span.traceId,
 									durationMs: Number(endTime - startTime) / 1_000_000,
 								}),
 							),
