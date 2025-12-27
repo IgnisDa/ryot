@@ -34,13 +34,13 @@ import { CreateEventSchemaModal } from "#/features/event-schemas/section";
 import type { CreateEventPayload } from "#/features/events/form";
 import { useEventMutations } from "#/features/events/hooks";
 import { LogEventModal } from "#/features/events/section";
+import { BuiltinMediaTrackerOverview } from "#/features/trackers/builtin-media-tracker-overview";
 import { useTrackersQuery } from "#/features/trackers/hooks";
 import { TrackerIcon } from "#/features/trackers/icons";
 import type { AppTracker } from "#/features/trackers/model";
 import { SetupGuidedFlow } from "#/features/trackers/setup-guided-flow";
 import { TrackerOverview } from "#/features/trackers/tracker-overview";
 import { getErrorMessage } from "#/lib/errors";
-import { BuiltinMediaTrackerOverview } from "./media-overview";
 
 export const Route = createFileRoute("/_protected/$trackerSlug/")({
 	component: RouteComponent,
