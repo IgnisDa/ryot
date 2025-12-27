@@ -2,7 +2,7 @@ import { dayjs } from "@ryot/ts-utils/dayjs";
 import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
 import { match } from "ts-pattern";
 
-import type { ContractClient, ContractSuccess } from "@/lib/contract-client";
+import type { ContractSuccess } from "@/lib/contract-client";
 import type { EntityImage } from "@/lib/entity-image";
 import { toEntityImage } from "@/lib/entity-image";
 
@@ -11,7 +11,7 @@ import type {
 	QueryEngineEntityItem,
 } from "../entity-detail/query-engine";
 
-type SavedView = ContractSuccess<ContractClient["savedViews"]["get"]>;
+type SavedView = ContractSuccess<"savedViews", "get">;
 
 export type EntitySavedView = Omit<SavedView, "queryDefinition"> & {
 	queryDefinition: SavedView["queryDefinition"] & { mode: "entities" };
