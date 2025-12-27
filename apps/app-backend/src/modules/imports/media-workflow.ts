@@ -26,13 +26,8 @@ const mergeCleanupPaths = (
 	loadedCleanupPaths: ReadonlyArray<string>,
 ) => [...new Set([...initialCleanupPaths, ...loadedCleanupPaths])];
 
-export const runOneTimeMediaImportWorkflow = Effect.fn("ProcessImportRunWorkflow")(
-	function* (payload: ImportRunJobData, executionId: string) {
-		yield* Effect.annotateCurrentSpan({
-			executionId,
-			runId: payload.runId,
-			userId: payload.userId,
-		});
+export const runOneTimeMediaImportWorkflow = (payload: ImportRunJobData, executionId: string) =>
+	Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const engine = yield* WorkflowEngine;
 		const initialCleanupPaths = payload.filePath
@@ -88,7 +83,4 @@ export const runOneTimeMediaImportWorkflow = Effect.fn("ProcessImportRunWorkflow
 				}),
 			),
 		);
-	},
-	(effect, _payload, executionId) =>
-		Effect.annotateLogs(effect, { executionId, workflow: "ProcessImportRunWorkflow" }),
-);
+	});
