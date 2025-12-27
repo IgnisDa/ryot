@@ -1,7 +1,7 @@
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, Multipart } from "@effect/platform";
 import { Schema } from "effect";
 
-import { AuthMiddleware } from "#lib/auth";
+import { AuthMiddleware } from "#lib/auth-middleware";
 import { BadRequest, NotImplemented, RateLimited, Unauthorized } from "#lib/errors";
 
 import { PresignedDownloadResponse, PresignedUploadResponse } from "./schemas";
