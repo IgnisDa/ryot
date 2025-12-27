@@ -134,6 +134,15 @@ describe("parseEventProperties", () => {
 			}),
 		).toThrow("Event properties must be a JSON object, not an array");
 	});
+
+	it("rejects properties not declared in the schema", () => {
+		expect(() =>
+			parseEventProperties({
+				propertiesSchema: {},
+				properties: { extra: true },
+			}),
+		).toThrow("Event properties validation failed");
+	});
 });
 
 describe("resolveEventCreateInput", () => {
@@ -320,6 +329,55 @@ describe("createEvent", () => {
 		expect(createdEvent.properties).toEqual({ progressPercent: 25.56 });
 	});
 
+	it("creates a built-in complete event with an empty payload", async () => {
+		const createdEvent = expectDataResult(
+			await createEvent(
+				{ userId: "user_1", body: createEventBody({ properties: {} }) },
+				createEventDeps({
+					getEventCreateScopeForUser: async (input) =>
+						createEventCreateScope({
+							isBuiltin: true,
+							propertiesSchema: {},
+							entityId: input.entityId,
+							entitySchemaSlug: "book",
+							eventSchemaName: "Complete",
+							eventSchemaSlug: "complete",
+							eventSchemaId: input.eventSchemaId,
+						}),
+				}),
+			),
+		);
+
+		expect(createdEvent.eventSchemaSlug).toBe("complete");
+		expect(createdEvent.properties).toEqual({});
+	});
+
+	it("rejects a built-in complete event with a non-empty payload", async () => {
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({ properties: { note: "not allowed" } }),
+			},
+			createEventDeps({
+				getEventCreateScopeForUser: async (input) =>
+					createEventCreateScope({
+						isBuiltin: true,
+						propertiesSchema: {},
+						entityId: input.entityId,
+						entitySchemaSlug: "book",
+						eventSchemaName: "Complete",
+						eventSchemaSlug: "complete",
+						eventSchemaId: input.eventSchemaId,
+					}),
+			}),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: expect.stringContaining("Event properties validation failed"),
+		});
+	});
+
 	it("rejects out-of-range progress percent values", async () => {
 		const result = await createEvent(
 			{
@@ -365,6 +423,32 @@ describe("createEvent", () => {
 						eventSchemaSlug: "progress",
 						eventSchemaId: input.eventSchemaId,
 						propertiesSchema: createProgressPercentPropertiesSchema(),
+					}),
+			}),
+		);
+
+		expect(result).toEqual({ data: { count: 2 } });
+	});
+
+	it("creates repeated built-in complete events in bulk", async () => {
+		const result = await createEvents(
+			{
+				userId: "user_1",
+				body: [
+					createEventBody({ properties: {} }),
+					createEventBody({ properties: {} }),
+				],
+			},
+			createEventDeps({
+				getEventCreateScopeForUser: async (input) =>
+					createEventCreateScope({
+						isBuiltin: true,
+						propertiesSchema: {},
+						entityId: input.entityId,
+						entitySchemaSlug: "book",
+						eventSchemaName: "Complete",
+						eventSchemaSlug: "complete",
+						eventSchemaId: input.eventSchemaId,
 					}),
 			}),
 		);
