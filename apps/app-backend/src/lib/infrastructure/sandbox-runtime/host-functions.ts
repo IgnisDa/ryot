@@ -1,3 +1,4 @@
+import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
 import { unknownToMessage } from "@ryot/contract/errors";
 import { CreateEventItem } from "@ryot/contract/modules/events/schemas";
 import { isIntegrationProvider } from "@ryot/contract/modules/integrations/types";
@@ -8,7 +9,6 @@ import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { eq } from "drizzle-orm";
 import { Effect, Runtime, Schema } from "effect";
 
-import { defaultUserPreferences } from "#modules/builtins/bootstrap";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";

@@ -1,5 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
 import { BadRequest, DbError } from "@ryot/contract/errors";
 import { TrackerId, UserId } from "@ryot/contract/schema/brands";
 import type { ilike } from "drizzle-orm";
@@ -12,7 +13,6 @@ import { CurrentDb, DbRunner, DbService, TransactionRunner } from "#lib/infrastr
 import { RedisService } from "#lib/infrastructure/redis";
 import { makeAppConfigLayer, makeRedisService, makeWorkflowEngine } from "#lib/test-support/effect";
 import { AuthService } from "#modules/auth/service";
-import { defaultUserPreferences } from "#modules/builtins/bootstrap";
 import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { TrackersService } from "#modules/trackers/service";

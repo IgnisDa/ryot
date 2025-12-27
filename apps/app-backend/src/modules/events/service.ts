@@ -1,5 +1,5 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { type CurrentUserValue, defaultUserPreferences } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import type { CreateEventItem, EventCreateOrigin } from "@ryot/contract/modules/events/schemas";
 import type { RowItem } from "@ryot/contract/modules/query-engine/language";
@@ -16,7 +16,6 @@ import { buildEventHistoryQueryDocument } from "@ryot/query-engine";
 import { Effect } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
-import { defaultUserPreferences } from "#modules/builtins/bootstrap";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import {
