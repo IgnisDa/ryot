@@ -41,9 +41,6 @@ export async function seedPopulatedProviderEntity(input: {
 	return seeded;
 }
 
-// Seeds an entity_translation row directly (no provider fill). Mirrors a completed fill for the
-// (entity, language) pair so the query-engine read path localizes the entity. A null name/properties
-// models a negative-cache row (canonical fallback).
 export async function seedEntityTranslation(input: {
 	entityId: string;
 	language: string;
@@ -88,11 +85,7 @@ export async function countEntityTranslations(entityId: string) {
 	return Number(result.rows[0]?.count ?? "0");
 }
 
-/**
- * Re-reads the entity detail endpoint until its translationStatus settles to the target. Reads are
- * side-effect-free, so the caller must have declared interest via POST /api/entity-interest (or by opening
- * an interest stream) to trigger the fill; this only observes the resulting status transition.
- */
+/** Re-reads the entity detail endpoint until its translationStatus settles to `target`. */
 export async function pollEntityUntilTranslationStatus(
 	client: Client,
 	entityId: string,

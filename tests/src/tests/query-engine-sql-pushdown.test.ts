@@ -16,9 +16,6 @@ import {
 } from "../fixtures";
 import { assertPresent } from "../test-support/assertions";
 
-// Parity: aggregate/time-series over a filtered source, relationship-root filtering, and
-// correlated exists/aggregate must return the same results whether they run in SQL or app-side.
-
 const lessonSchema = () => ({
 	fields: {
 		difficulty: { type: "string" as const, label: "Difficulty", description: "Difficulty" },

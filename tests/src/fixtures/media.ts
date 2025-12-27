@@ -221,10 +221,6 @@ export async function createGlobalBookEntityFixture(
 	return { entity, schema };
 }
 
-// Seeds a global (provider-owned) show → season → episode tree so import/webhook
-// flows can resolve an episode positionally without any external provider calls.
-// The show/season/episode schemas and TMDB script come from the API; only the
-// global entity/relationship rows (which no API can create) are inserted directly.
 export async function seedGlobalShowEpisodeTree(client: Client, options: { showName: string }) {
 	const { schema: showSchema } = await findBuiltinSchemaBySlug(client, "show");
 	const tmdbProvider = showSchema.providers.find((provider) => provider.name === "TMDB");
@@ -243,7 +239,6 @@ export async function seedGlobalShowEpisodeTree(client: Client, options: { showN
 		"show-season-to-show-episode",
 	);
 
-	// A random TMDB identifier keeps parallel test runs from colliding on external_id.
 	const tmdbId = String(Math.floor(Math.random() * 1_000_000_000));
 	const showId = crypto.randomUUID();
 	const seasonId = crypto.randomUUID();

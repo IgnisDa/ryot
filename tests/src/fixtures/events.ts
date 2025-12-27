@@ -179,7 +179,6 @@ export async function listEventSlugs(client: Client, entityId: string): Promise<
 	return events.map((event) => event.eventSchemaSlug);
 }
 
-// Event writes are fire-and-forget, so a completed run's events may not exist yet.
 export async function waitForEventSlugs(
 	client: Client,
 	entityId: string,
