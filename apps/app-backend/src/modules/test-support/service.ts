@@ -5,6 +5,7 @@ import type {
 	EntitySchemaId,
 	RelationshipSchemaId,
 	SandboxScriptId,
+	TrackerId,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { dayjs } from "@ryot/ts-utils/dayjs";
@@ -22,6 +23,7 @@ import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxApiService } from "#modules/sandbox/service";
 import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 import { SignalsService } from "#modules/signals/service";
+import { TrackersService } from "#modules/trackers/service";
 
 type CreateGlobalEntityInput = {
 	readonly name: string;
@@ -44,9 +46,10 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 		const auth = yield* AuthService;
 		const engine = yield* WorkflowEngine;
 		const signals = yield* SignalsService;
-		const automations = yield* AutomationsService;
 		const entities = yield* EntitiesService;
+		const trackers = yield* TrackersService;
 		const sandbox = yield* SandboxApiService;
+		const automations = yield* AutomationsService;
 		const translations = yield* TranslationsService;
 		const relationships = yield* RelationshipsService;
 		const entitySchemas = yield* EntitySchemasService;
@@ -164,18 +167,31 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 				return { executionId };
 			});
 
+		const trackerExists = Effect.fn("TestSupportService.trackerExists")(function* (
+			trackerId: TrackerId,
+		) {
+			const exists = yield* trackers.existsById(trackerId);
+			return { exists };
+		});
+
+		const countAutomationRules = Effect.fn("TestSupportService.countAutomationRules")(function* (
+			userId: UserId,
+		) {
+			const count = yield* automations.countByUser(userId);
+			return { count };
+		});
+
 		return {
+			trackerExists,
 			linkAuthAccount,
-			countAutomationRules: (userId: UserId) =>
-				automations.countByUser(userId).pipe(Effect.map((count) => ({ count }))),
 			createGlobalEntity,
 			deleteSandboxScript,
+			countAutomationRules,
 			setEntityPopulatedAt,
 			triggerInfrequentCron,
 			upsertEntityTranslation,
 			upsertGlobalRelationship,
 			listSignals: signals.list,
-			listSubscriptionRuns: automations.listRunsByExecutionUserId,
 			getSandboxScript: sandbox.getStoredScript,
 			deleteGlobalEntities: entities.deleteByIds,
 			listSandboxScripts: sandbox.listStoredScripts,
@@ -184,6 +200,7 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 			promoteSandboxScript: sandbox.promoteStoredScript,
 			listGlobalRelationships: relationships.listGlobal,
 			getBuiltinEntitySchema: entitySchemas.getBuiltinBySlug,
+			listSubscriptionRuns: automations.listRunsByExecutionUserId,
 			linkSandboxScriptToEntitySchema: entitySchemas.linkSandboxScript,
 		};
 	}),

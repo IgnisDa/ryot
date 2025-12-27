@@ -9,6 +9,7 @@ import {
 	RelationshipSchemaId,
 	SandboxScriptId,
 	SignalId,
+	TrackerId,
 	UserId,
 } from "../../schema/brands";
 import { ListedEntity } from "../entities/schemas";
@@ -23,10 +24,11 @@ import {
 	TestSupportSubscriptionRun,
 } from "./schemas";
 
+const userIdParam = HttpApiSchema.param("userId", UserId);
 const slugParam = HttpApiSchema.param("slug", Schema.String);
 const entityIdParam = HttpApiSchema.param("entityId", EntityId);
+const trackerIdParam = HttpApiSchema.param("trackerId", TrackerId);
 const scriptIdParam = HttpApiSchema.param("scriptId", SandboxScriptId);
-const userIdParam = HttpApiSchema.param("userId", UserId);
 const properties = Schema.Record({ key: Schema.String, value: Schema.Unknown });
 const entitySchemaIdParam = HttpApiSchema.param("entitySchemaId", EntitySchemaId);
 
@@ -81,6 +83,13 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			"countAutomationRules",
 		)`/test-support/users/${userIdParam}/automation-rules/count`.addSuccess(
 			Schema.Struct({ count: Schema.Number }),
+		),
+	)
+	.add(
+		HttpApiEndpoint.get(
+			"trackerExists",
+		)`/test-support/trackers/${trackerIdParam}/exists`.addSuccess(
+			Schema.Struct({ exists: Schema.Boolean }),
 		),
 	)
 	.add(

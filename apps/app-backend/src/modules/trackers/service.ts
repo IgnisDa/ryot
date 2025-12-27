@@ -154,6 +154,10 @@ export class TrackersService extends Effect.Service<TrackersService>()("Trackers
 			return yield* runWithDb(repository.listByUser(user.id, includeDisabled));
 		});
 
+		const existsById = Effect.fn("TrackersService.existsById")(function* (trackerId: TrackerId) {
+			return yield* runWithDb(repository.existsById(trackerId));
+		});
+
 		const create = Effect.fn("TrackersService.create")(function* (
 			user: TrackerUser,
 			payload: CreateTrackerInput,
@@ -259,6 +263,6 @@ export class TrackersService extends Effect.Service<TrackersService>()("Trackers
 			);
 		});
 
-		return { list, create, update, reorder, linkEntitySchema };
+		return { list, create, update, reorder, existsById, linkEntitySchema };
 	}),
 }) {}

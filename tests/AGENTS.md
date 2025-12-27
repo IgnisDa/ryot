@@ -33,7 +33,7 @@ Admin-only fixture operations use the typed `testSupport` contract group with `a
 - Translation fixtures use `setEntityPopulatedAt`, `upsertEntityTranslation`, and `listEntityTranslations`; null overlay values model a negative cache.
 - Mixed-auth fixtures use `linkAuthAccount`, while sandbox fault injection uses `patchSandboxScript` only after compiling executable code through the public sandbox API.
 
-The SQL allowlist is workflow polling through `cluster_messages`/`cluster_replies`, the deleted tracker assertion in `god-mode/delete-user.test.ts`, `queryUserEntityStateCounts`, and `countMediaMonitoringRelationships`. Document any new SQL exception here; otherwise use the contract API.
+The SQL allowlist is workflow polling through `cluster_messages`/`cluster_replies`, `queryUserEntityStateCounts`, and `countMediaMonitoringRelationships`. Document any new SQL exception here; otherwise use the contract API.
 
 ## SSE Interest Streams
 
