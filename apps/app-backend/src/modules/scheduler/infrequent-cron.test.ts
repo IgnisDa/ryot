@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Cron, Duration, Effect, Either, Layer, Queue, TestClock } from "effect";
 
-import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-support/effect";
+import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 
 import { DEFAULT_INFREQUENT_CRON, parseInfrequentCron } from "./cron";
 import { InfrequentCronSchedulerLive } from "./infrequent-cron";

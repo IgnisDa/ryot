@@ -8,7 +8,7 @@ import Redis from "ioredis";
 
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
-import { makeAppConfigLayer, makeRedisService } from "#lib/test-support/effect";
+import { makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
 
 import { UploadsService } from "./service";
 
