@@ -2,7 +2,7 @@ import { Activity } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Effect, Schema } from "effect";
 
-import type { DbRunner } from "#lib/db/service";
+import type { DbRunner } from "#lib/infrastructure/db/service";
 import type { ImportsRepository } from "#modules/imports/repository";
 import type { CronTask } from "#modules/scheduler/types";
 

@@ -6,9 +6,9 @@ import {
 } from "@ryot/contract/modules/sandbox/schemas";
 import { Effect, Layer } from "effect";
 
-import { AppConfig } from "#lib/config/service";
-import { DbRunner } from "#lib/db/service";
-import { SandboxService as RuntimeSandboxService } from "#lib/sandbox/service";
+import { AppConfig } from "#lib/infrastructure/config/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
+import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 
 import { SandboxRepository } from "./repository";
 

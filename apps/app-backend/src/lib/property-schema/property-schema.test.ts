@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
 	moviePropertiesSchema,
 	personPropertiesSchema,
-} from "#lib/builtins/media-property-schemas";
+} from "#modules/builtins/media-property-schemas";
 
 describe("collectTranslatableProperties", () => {
 	it("marks description translatable while leaving genres and other properties canonical", () => {

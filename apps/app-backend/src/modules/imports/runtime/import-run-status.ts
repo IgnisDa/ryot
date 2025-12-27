@@ -1,7 +1,7 @@
 import type { ImportRunFailureStage } from "@ryot/contract/modules/imports/types";
 import { DateTime, Effect } from "effect";
 
-import { DbRunner } from "#lib/db/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
 
 import { ImportsRepository } from "../repository";
 

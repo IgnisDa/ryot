@@ -15,7 +15,7 @@ Permitted silent-skip patterns: idempotent guards (work already done on a previo
 
 - Keep all legacy bootstrap-specific logic inside this module.
 - Do not add automated tests inside this module; validate changes by restoring the legacy dump, running `bun run run-migration`, and inspecting the migrated rows via MCP.
-- Do not edit `src/lib/db/migrate.ts` unless the change has been discussed first.
+- Do not edit `src/lib/infrastructure/db/migrate.ts` unless the change has been discussed first.
 - Run the legacy table rename before Drizzle migrations.
 - Run the legacy table data copy after Drizzle migrations have created the new tables.
 - Prefer SQL for set-based work. Use TypeScript only for orchestration.

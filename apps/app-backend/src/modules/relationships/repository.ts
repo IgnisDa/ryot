@@ -4,8 +4,8 @@ import { EntityId, RelationshipId, RelationshipSchemaId } from "@ryot/contract/s
 import { and, eq, isNull, notInArray, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import * as schema from "#lib/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/db/service";
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 type RelationshipRow = Pick<
 	typeof schema.relationship.$inferSelect,

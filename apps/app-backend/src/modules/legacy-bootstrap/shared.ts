@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 import type { PoolClient } from "pg";
 
-import { dbEffect, DbService } from "#lib/db/service";
+import { dbEffect, DbService } from "#lib/infrastructure/db/service";
 
 export type EntityMigrationTarget = {
 	source: string;

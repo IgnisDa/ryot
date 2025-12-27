@@ -24,7 +24,7 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 
 ## Sandbox Scripts
 
-- Sandbox script sources live under `src/lib/sandbox/` with the `.sandbox.js` extension (providers, triggers, script-helpers, and the Deno runner). They are plain JavaScript executed inside a Deno subprocess, not app modules.
+- Sandbox script sources use the `.sandbox.js` extension: providers, triggers, and script-helpers live under `src/modules/builtins/sandbox-scripts/`, while the Deno runner (`runner-source.sandbox.js`) lives under `src/lib/infrastructure/sandbox-runtime/`. They are plain JavaScript executed inside a Deno subprocess, not app modules.
 - Each file is a function-body fragment, not an ES module: it must contain no top-level `import`/`export` (the runner wraps it in `new Function`). Injected globals (`driver`, host functions like `httpCall`, and helper functions such as `toTitleCase`) are provided at runtime — script-helpers are concatenated ahead of the consuming script. Dependencies load via Deno-style dynamic `await import("npm:...")`.
 - They are pulled into the app as raw strings via `import code from "....sandbox.js" with { type: "text" }`. `src/sandbox-scripts.d.ts` declares the `*.sandbox.js` module so `tsc` types the import as `string` and never type-checks the body.
 - `check` (tsc + oxfmt + oxlint) covers these files. oxfmt/oxlint treat them as ordinary JS, so keep them lint-clean and formatted like the rest of the codebase — but remember they are linted in isolation, so functions defined only for a consuming script (e.g. helpers) will still read as "unused" to the linter.

@@ -2,12 +2,12 @@ import { BunFileSystem, BunRuntime, BunContext } from "@effect/platform-bun";
 import { Effect, Layer } from "effect";
 
 import { AppLive } from "./app/layers";
-import { SeedService } from "./lib/builtins/seed";
-import { generateConfigDocs } from "./lib/config/docs";
-import { AppConfig, appConfigMeta } from "./lib/config/service";
-import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "./lib/db/migrate";
-import { DbService, TransactionRunnerLive } from "./lib/db/service";
-import { PackageCacheManager } from "./lib/sandbox/runtime";
+import { generateConfigDocs } from "./lib/infrastructure/config/docs";
+import { AppConfig, appConfigMeta } from "./lib/infrastructure/config/service";
+import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "./lib/infrastructure/db/migrate";
+import { DbService, TransactionRunnerLive } from "./lib/infrastructure/db/service";
+import { PackageCacheManager } from "./lib/infrastructure/sandbox-runtime/runtime";
+import { SeedService } from "./modules/builtins/seed";
 
 let shutdownTimer: ReturnType<typeof setTimeout> | undefined;
 

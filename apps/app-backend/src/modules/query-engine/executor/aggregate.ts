@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect } from "#lib/db/service";
+import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 import { compileBool } from "./compile/expr";
 import { rootScope } from "./compile/scope";

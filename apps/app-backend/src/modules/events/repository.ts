@@ -5,8 +5,8 @@ import { EntityId, EventId, EventSchemaId, SandboxScriptId } from "@ryot/contrac
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import * as schema from "#lib/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/db/service";
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 type EventRow = Pick<
 	typeof schema.event.$inferSelect,

@@ -5,7 +5,7 @@ import type {
 } from "@ryot/contract/modules/user-preferences/schemas";
 import { Effect } from "effect";
 
-import { AuthService } from "#lib/auth";
+import { AuthService } from "#modules/auth/service";
 
 export class UserPreferencesService extends Effect.Service<UserPreferencesService>()(
 	"UserPreferencesService",
