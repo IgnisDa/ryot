@@ -22,12 +22,13 @@ import {
 	createTracker,
 	entityField,
 	executeQueryEngine,
+	executeQueryEngineError,
 	getQueryEngineFieldOrThrow,
 	literalExpression,
 	toRequiredExpression,
 } from "~/fixtures";
 
-import { assertPresent } from "./assertions";
+import { assertPresent, assertTaggedError } from "./assertions";
 
 async function createImageFallbackFixture() {
 	const { client, cookies } = await createAuthenticatedClient();
@@ -170,8 +171,6 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			}),
 		);
 
-		expect(gridResult.response.status).toBe(200);
-		expect(listResult.response.status).toBe(200);
 		expect(getQueryEngineFieldOrThrow(gridResult.data.data.items[0], "callout")).toEqual({
 			kind: "text",
 			key: "callout",
@@ -250,7 +249,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 
 	it("returns null wrappers for empty grid display references", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -263,7 +262,6 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(getQueryEngineFieldOrThrow(data.data.items[0], "callout")).toEqual({
 			value: null,
 			kind: "null",
@@ -293,7 +291,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 
 	it("returns ordered table fields and null wrappers for empty property references", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildTableRequest({
@@ -307,7 +305,6 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(data.data.items[0]).toEqual({
 			column_0: { kind: "text", value: "Alpha Phone" },
 			column_1: { kind: "number", value: 2018 },
@@ -318,7 +315,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	it("coalesces cross-schema display configuration values", async () => {
 		const { client, cookies, smartphoneSlug, tabletSlug } =
 			await createCrossSchemaQueryEngineFixture();
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -350,7 +347,6 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(getQueryEngineFieldOrThrow(data.data.items[0], "callout")).toEqual({
 			key: "callout",
 			kind: "number",
@@ -376,7 +372,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	it("rejects mixed image and text display fallbacks when @image is null", async () => {
 		const { client, cookies, schema } = await createImageFallbackFixture();
 
-		const { data, response } = await executeQueryEngine(
+		const error = await executeQueryEngineError(
 			client,
 			cookies,
 			buildGridRequest({
@@ -397,14 +393,13 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			}),
 		);
 
-		expect(response.status).toBe(400);
-		expect(data).toBeUndefined();
+		assertTaggedError(error, "BadRequest");
 	});
 
 	it("rejects mixed image and text list fallbacks when @image is null", async () => {
 		const { client, cookies, schema } = await createImageFallbackFixture();
 
-		const { data, response } = await executeQueryEngine(
+		const error = await executeQueryEngineError(
 			client,
 			cookies,
 			buildListRequest({
@@ -425,14 +420,13 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			}),
 		);
 
-		expect(response.status).toBe(400);
-		expect(data).toBeUndefined();
+		assertTaggedError(error, "BadRequest");
 	});
 
 	it("rejects mixed image and text table fallbacks when @image is null", async () => {
 		const { client, cookies, schema } = await createImageFallbackFixture();
 
-		const { data, response } = await executeQueryEngine(
+		const error = await executeQueryEngineError(
 			client,
 			cookies,
 			buildTableRequest({
@@ -453,14 +447,13 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			}),
 		);
 
-		expect(response.status).toBe(400);
-		expect(data).toBeUndefined();
+		assertTaggedError(error, "BadRequest");
 	});
 
 	it("filters, sorts, and displays latest-event join data", async () => {
 		const { client, cookies, schema } = await createLatestEventJoinFixture();
 		const reviewRatingRef = toRequiredExpression(["event.review.properties.rating"]);
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildTableRequest({
@@ -481,7 +474,6 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(
 			data.data.items.map((item) => getQueryEngineFieldOrThrow(item, "column_0").value),
 		).toEqual(["Alpha Phone", "Gamma Phone"]);
@@ -509,7 +501,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		const { client, cookies, smartphoneSlug, tabletSlug } =
 			await createMixedLatestEventJoinFixture();
 		const reviewRatingRef = toRequiredExpression(["event.review.properties.rating"]);
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -527,7 +519,6 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(data.data.items.map((item) => getQueryEngineFieldOrThrow(item, "title").value)).toEqual([
 			"Beta Tablet",
 			"Delta Tablet",
@@ -546,7 +537,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		const { client, cookies, smartphoneSlug, tabletSlug } =
 			await createMixedLatestEventJoinFixture();
 		const reviewRatingRef = toRequiredExpression(["event.review.properties.rating"]);
-		const { data, response } = await executeQueryEngine(
+		const { data } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -564,7 +555,6 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			}),
 		);
 
-		expect(response.status).toBe(200);
 		expect(data.data.items.map((item) => getQueryEngineFieldOrThrow(item, "title").value)).toEqual([
 			"Alpha Phone",
 			"Gamma Phone",
@@ -576,12 +566,12 @@ export function registerQueryEnginePresentationAndErrorTests() {
 
 	it("returns 404 and 400 errors for invalid runtime requests", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const missingSchemaResult = await executeQueryEngine(
+		const missingSchemaError = await executeQueryEngineError(
 			client,
 			cookies,
 			buildGridRequest({ scope: ["missing-schema"] }),
 		);
-		const missingPropertyResult = await executeQueryEngine(
+		const missingPropertyError = await executeQueryEngineError(
 			client,
 			cookies,
 			buildGridRequest({
@@ -594,7 +584,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 				},
 			}),
 		);
-		const mismatchedValueResult = await executeQueryEngine(
+		const mismatchedValueError = await executeQueryEngineError(
 			client,
 			cookies,
 			buildGridRequest({
@@ -608,14 +598,14 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			}),
 		);
 
-		expect(missingSchemaResult.response.status).toBe(404);
-		expect(missingSchemaResult.error?.error.message).toBe("Schema 'missing-schema' not found");
-		expect(missingPropertyResult.response.status).toBe(400);
-		expect(missingPropertyResult.error?.error.message).toBe(
+		assertTaggedError(missingSchemaError, "NotFound");
+		expect(missingSchemaError.message).toBe("Schema 'missing-schema' not found");
+		assertTaggedError(missingPropertyError, "BadRequest");
+		expect(missingPropertyError.message).toBe(
 			`Property 'missingProperty' not found in schema '${schema.slug}'`,
 		);
-		expect(mismatchedValueResult.response.status).toBe(400);
-		expect(mismatchedValueResult.error?.error.message).toBe(
+		assertTaggedError(mismatchedValueError, "BadRequest");
+		expect(mismatchedValueError.message).toBe(
 			"Filter operator 'eq' requires compatible expression types, received 'integer' and 'string'",
 		);
 	});

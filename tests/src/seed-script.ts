@@ -1,7 +1,9 @@
-import { fileURLToPath } from "node:url";
-
+// @ts-ignore
 /* oxlint-disable */
 // TODO: delete this file eventually
+
+import { fileURLToPath } from "node:url";
+
 import { faker } from "@faker-js/faker";
 import type { components, paths } from "@ryot/generated/openapi/app-backend";
 import { dayjs } from "@ryot/ts-utils/dayjs";

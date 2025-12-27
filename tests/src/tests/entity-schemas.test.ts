@@ -11,6 +11,7 @@ import {
 	findBuiltinSchemaBySlug,
 	findBuiltinSchemaWithProviders,
 	findBuiltinTracker,
+	getBackendClient,
 	getEntitySchema,
 	getFirstProviderScriptId,
 	getGlobalEntityByProvenance,
@@ -19,8 +20,7 @@ import {
 	pollEntityImportResult,
 	pollEntitySearchResult,
 } from "../fixtures";
-import { getBackendClient } from "../setup";
-import { assertPresent, requireObjectRecord } from "../test-support/assertions";
+import { assertPresent, assertTaggedError, requireObjectRecord } from "../test-support/assertions";
 
 describe("GET /entity-schemas", () => {
 	it("returns 200 and lists built-in entity schemas for built-in tracker", async () => {
@@ -105,14 +105,13 @@ describe("GET /entity-schemas", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
 		const nonExistentId = "00000000-0000-0000-0000-000000000000";
-		const { response, error } = await client.entitySchemas.list({
-			headers: { Cookie: cookies },
-			body: { trackerId: nonExistentId },
-		});
+		const error = await client.runError(
+			(c) => c.entitySchemas.list({ payload: { trackerId: nonExistentId } }),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(404);
-		expect(error?.error).toBeDefined();
-		expect(error?.error.message).toBe("Tracker not found");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toBe("Tracker not found");
 	});
 
 	it("returns empty array for custom tracker with no schemas", async () => {
@@ -136,14 +135,12 @@ describe("GET /entity-schemas", () => {
 			name: "User 1 Tracker",
 		});
 
-		const { response, error } = await client2.entitySchemas.list({
-			body: { trackerId },
-			headers: { Cookie: cookies2 },
+		const error = await client2.runError((c) => c.entitySchemas.list({ payload: { trackerId } }), {
+			Cookie: cookies2,
 		});
 
-		expect(response.status).toBe(404);
-		expect(error?.error).toBeDefined();
-		expect(error?.error.message).toBe("Tracker not found");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toBe("Tracker not found");
 	});
 
 	it("lists multiple custom schemas ordered by name and createdAt", async () => {
@@ -191,14 +188,13 @@ describe("GET /entity-schemas", () => {
 			slug: "only-schema",
 		});
 
-		const { data, response } = await client.entitySchemas.list({
-			headers: { Cookie: cookies },
-			body: { slugs: ["only-schema"] },
-		});
+		const data = await client.run(
+			(c) => c.entitySchemas.list({ payload: { slugs: ["only-schema"] } }),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		expect(data?.length).toBe(1);
-		expect(data?.[0]?.slug).toBe("only-schema");
+		expect(data.length).toBe(1);
+		expect(data[0]?.slug).toBe("only-schema");
 	});
 
 	it("lists schemas by slug across accessible trackers", async () => {
@@ -245,15 +241,12 @@ describe("GET /entity-schemas", () => {
 			slug: "custom-entry",
 		});
 
-		const { data, response } = await client.entitySchemas.list({
-			body: {},
-			headers: { Cookie: cookies },
+		const data = await client.run((c) => c.entitySchemas.list({ payload: {} }), {
+			Cookie: cookies,
 		});
 
-		expect(response.status).toBe(200);
-		expect(data).toBeDefined();
-		expect(data?.some((schema: { slug: string }) => schema.slug === "custom-entry")).toBe(true);
-		expect(data?.length).toBeGreaterThanOrEqual(builtinSchemas.length + 1);
+		expect(data.some((schema) => schema.slug === "custom-entry")).toBe(true);
+		expect(data.length).toBeGreaterThanOrEqual(builtinSchemas.length + 1);
 	});
 
 	it("built-in schemas with linked scripts have non-empty providers", async () => {
@@ -291,25 +284,27 @@ describe("POST /entity-schemas", () => {
 
 		const builtinTracker = await findBuiltinTracker(client, cookies);
 
-		const { response, error } = await client.entitySchemas.create({
-			headers: { Cookie: cookies },
-			body: {
-				icon: "test",
-				slug: "hacked",
-				name: "Hacked Schema",
-				accentColor: "#FF0000",
-				trackerId: builtinTracker.id,
-				propertiesSchema: {
-					fields: {
-						field: { type: "string", label: "Field", description: "Field" },
+		const error = await client.runError(
+			(c) =>
+				c.entitySchemas.create({
+					payload: {
+						icon: "test",
+						slug: "hacked",
+						name: "Hacked Schema",
+						accentColor: "#FF0000",
+						trackerId: builtinTracker.id,
+						propertiesSchema: {
+							fields: {
+								field: { type: "string", label: "Field", description: "Field" },
+							},
+						},
 					},
-				},
-			},
-		});
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(400);
-		expect(error?.error).toBeDefined();
-		expect(error?.error.message).toBe("Built-in trackers do not support entity schema creation");
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toBe("Built-in trackers do not support entity schema creation");
 	});
 
 	it("successfully creates schema for custom tracker", async () => {
@@ -319,54 +314,57 @@ describe("POST /entity-schemas", () => {
 			name: "Custom Tracker",
 		});
 
-		const { data, response } = await client.entitySchemas.create({
-			headers: { Cookie: cookies },
-			body: {
-				trackerId,
-				icon: "star",
-				name: "My Schema",
-				slug: "my-schema",
-				accentColor: "#00FF00",
-				propertiesSchema: {
-					fields: {
-						year: { type: "number", label: "Year", description: "Year" },
-						title: { type: "string", label: "Title", description: "Title" },
+		const data = await client.run(
+			(c) =>
+				c.entitySchemas.create({
+					payload: {
+						trackerId,
+						icon: "star",
+						name: "My Schema",
+						slug: "my-schema",
+						accentColor: "#00FF00",
+						propertiesSchema: {
+							fields: {
+								year: { type: "number", label: "Year", description: "Year" },
+								title: { type: "string", label: "Title", description: "Title" },
+							},
+						},
 					},
-				},
-			},
-		});
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		expect(data).toBeDefined();
-		expect(data?.name).toBe("My Schema");
-		expect(data?.slug).toBe("my-schema");
-		expect(data?.trackerId).toBe(trackerId);
-		expect(data?.isBuiltin).toBe(false);
+		expect(data.name).toBe("My Schema");
+		expect(data.slug).toBe("my-schema");
+		expect(data.trackerId).toBe(trackerId);
+		expect(data.isBuiltin).toBe(false);
 	});
 
 	it("returns 404 when tracker does not exist", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
 		const nonExistentId = "00000000-0000-0000-0000-000000000000";
-		const { response, error } = await client.entitySchemas.create({
-			headers: { Cookie: cookies },
-			body: {
-				icon: "test",
-				name: "Schema",
-				slug: "schema",
-				accentColor: "#FF0000",
-				trackerId: nonExistentId,
-				propertiesSchema: {
-					fields: {
-						field: { type: "string", label: "Field", description: "Field" },
+		const error = await client.runError(
+			(c) =>
+				c.entitySchemas.create({
+					payload: {
+						icon: "test",
+						name: "Schema",
+						slug: "schema",
+						accentColor: "#FF0000",
+						trackerId: nonExistentId,
+						propertiesSchema: {
+							fields: {
+								field: { type: "string", label: "Field", description: "Field" },
+							},
+						},
 					},
-				},
-			},
-		});
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(404);
-		expect(error?.error).toBeDefined();
-		expect(error?.error.message).toBe("Tracker not found");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toBe("Tracker not found");
 	});
 
 	it("returns 404 when attempting to create schema for another user's tracker", async () => {
@@ -377,25 +375,27 @@ describe("POST /entity-schemas", () => {
 			name: "User 1 Tracker",
 		});
 
-		const { response, error } = await client2.entitySchemas.create({
-			headers: { Cookie: cookies2 },
-			body: {
-				trackerId,
-				icon: "test",
-				slug: "hacked",
-				name: "Hacked Schema",
-				accentColor: "#FF0000",
-				propertiesSchema: {
-					fields: {
-						field: { type: "string", label: "Field", description: "Field" },
+		const error = await client2.runError(
+			(c) =>
+				c.entitySchemas.create({
+					payload: {
+						trackerId,
+						icon: "test",
+						slug: "hacked",
+						name: "Hacked Schema",
+						accentColor: "#FF0000",
+						propertiesSchema: {
+							fields: {
+								field: { type: "string", label: "Field", description: "Field" },
+							},
+						},
 					},
-				},
-			},
-		});
+				}),
+			{ Cookie: cookies2 },
+		);
 
-		expect(response.status).toBe(404);
-		expect(error?.error).toBeDefined();
-		expect(error?.error.message).toBe("Tracker not found");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toBe("Tracker not found");
 	});
 
 	it("returns 400 when slug already exists for user", async () => {
@@ -411,25 +411,27 @@ describe("POST /entity-schemas", () => {
 			slug: "duplicate-slug",
 		});
 
-		const { response, error } = await client.entitySchemas.create({
-			headers: { Cookie: cookies },
-			body: {
-				trackerId,
-				icon: "test",
-				name: "Second Schema",
-				slug: "duplicate-slug",
-				accentColor: "#FF0000",
-				propertiesSchema: {
-					fields: {
-						field: { type: "string", label: "Field", description: "Field" },
+		const error = await client.runError(
+			(c) =>
+				c.entitySchemas.create({
+					payload: {
+						trackerId,
+						icon: "test",
+						name: "Second Schema",
+						slug: "duplicate-slug",
+						accentColor: "#FF0000",
+						propertiesSchema: {
+							fields: {
+								field: { type: "string", label: "Field", description: "Field" },
+							},
+						},
 					},
-				},
-			},
-		});
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(400);
-		expect(error?.error).toBeDefined();
-		expect(error?.error.message).toBe("Entity schema slug already exists");
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toBe("Entity schema slug already exists");
 	});
 
 	it("returns 400 when attempting to create the reserved collection schema slug", async () => {
@@ -439,27 +441,27 @@ describe("POST /entity-schemas", () => {
 			name: "Tracker",
 		});
 
-		const { response, error } = await client.entitySchemas.create({
-			headers: { Cookie: cookies },
-			body: {
-				trackerId,
-				icon: "folders",
-				name: "Collection",
-				slug: "collection",
-				accentColor: "#F59E0B",
-				propertiesSchema: {
-					fields: {
-						title: { type: "string", label: "Title", description: "Title" },
+		const error = await client.runError(
+			(c) =>
+				c.entitySchemas.create({
+					payload: {
+						trackerId,
+						icon: "folders",
+						name: "Collection",
+						slug: "collection",
+						accentColor: "#F59E0B",
+						propertiesSchema: {
+							fields: {
+								title: { type: "string", label: "Title", description: "Title" },
+							},
+						},
 					},
-				},
-			},
-		});
-
-		expect(response.status).toBe(400);
-		expect(error?.error).toBeDefined();
-		expect(error?.error.message).toBe(
-			'Entity schema slug "collection" is reserved for built-in schemas',
+				}),
+			{ Cookie: cookies },
 		);
+
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toBe('Entity schema slug "collection" is reserved for built-in schemas');
 	});
 });
 
@@ -503,13 +505,13 @@ describe("GET /entity-schemas/:entitySchemaId", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
 		const nonExistentId = "00000000-0000-0000-0000-000000000000";
-		const { response, error } = await client.entitySchemas.get({
-			headers: { Cookie: cookies },
-			params: { path: { entitySchemaId: nonExistentId } },
-		});
+		const error = await client.runError(
+			(c) => c.entitySchemas.get({ path: { entitySchemaId: nonExistentId } }),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(404);
-		expect(error?.error.message).toBe("Entity schema not found");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toBe("Entity schema not found");
 	});
 
 	it("returns 404 when accessing another user's entity schema", async () => {
@@ -525,37 +527,36 @@ describe("GET /entity-schemas/:entitySchemaId", () => {
 			name: "User 1 Schema",
 		});
 
-		const { response, error } = await client2.entitySchemas.get({
-			headers: { Cookie: cookies2 },
-			params: { path: { entitySchemaId: schemaId } },
-		});
+		const error = await client2.runError(
+			(c) => c.entitySchemas.get({ path: { entitySchemaId: schemaId } }),
+			{ Cookie: cookies2 },
+		);
 
-		expect(response.status).toBe(404);
-		expect(error?.error.message).toBe("Entity schema not found");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toBe("Entity schema not found");
 	});
 });
 
 describe("POST /entity-schemas/search", () => {
 	it("returns 401 when unauthenticated", async () => {
 		const client = getBackendClient();
-		const { response, error } = await client.entitySchemas.search({
-			body: { scriptId: crypto.randomUUID() },
-		});
+		const error = await client.runError((c) =>
+			c.entitySchemas.search({ payload: { scriptId: crypto.randomUUID() } }),
+		);
 
-		expect(response.status).toBe(401);
-		expect(error?.error).toBeDefined();
+		assertTaggedError(error, "Unauthorized");
 	});
 
 	it("returns 404 when the scriptId does not exist", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { response, error } = await client.entitySchemas.search({
-			headers: { Cookie: cookies },
-			body: { scriptId: crypto.randomUUID() },
-		});
+		const error = await client.runError(
+			(c) => c.entitySchemas.search({ payload: { scriptId: crypto.randomUUID() } }),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(404);
-		expect(error?.error.message).toBe("Sandbox script not found");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toBe("Sandbox script not found");
 	});
 
 	it("returns 200 with a jobId when given a valid builtin script", async () => {
@@ -576,24 +577,23 @@ describe("POST /entity-schemas/search", () => {
 describe("GET /entity-schemas/search/{jobId}", () => {
 	it("returns 401 when unauthenticated", async () => {
 		const client = getBackendClient();
-		const { response, error } = await client.entitySchemas.getSearchResult({
-			params: { path: { jobId: crypto.randomUUID() } },
-		});
+		const error = await client.runError((c) =>
+			c.entitySchemas.getSearchResult({ path: { jobId: crypto.randomUUID() } }),
+		);
 
-		expect(response.status).toBe(401);
-		expect(error?.error).toBeDefined();
+		assertTaggedError(error, "Unauthorized");
 	});
 
 	it("returns 404 for a non-existent job id", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { response, error } = await client.entitySchemas.getSearchResult({
-			headers: { Cookie: cookies },
-			params: { path: { jobId: crypto.randomUUID() } },
-		});
+		const error = await client.runError(
+			(c) => c.entitySchemas.getSearchResult({ path: { jobId: crypto.randomUUID() } }),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(404);
-		expect(error?.error.message).toBe("Sandbox job not found");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toBe("Sandbox job not found");
 	});
 
 	it("returns 404 when another user polls the job", async () => {
@@ -608,13 +608,13 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 			context: { page: 1, pageSize: 5, query: "test" },
 		});
 
-		const { response, error } = await clientB.entitySchemas.getSearchResult({
-			params: { path: { jobId } },
-			headers: { Cookie: cookiesB },
-		});
+		const error = await clientB.runError(
+			(c) => c.entitySchemas.getSearchResult({ path: { jobId } }),
+			{ Cookie: cookiesB },
+		);
 
-		expect(response.status).toBe(404);
-		expect(error?.error.message).toBe("Sandbox job not found");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toBe("Sandbox job not found");
 	});
 
 	it("reaches a terminal state for a builtin search script", async () => {
@@ -636,16 +636,17 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 describe("POST /entities/import", () => {
 	it("returns 401 when unauthenticated", async () => {
 		const client = getBackendClient();
-		const { response, error } = await client.entities.import({
-			body: {
-				externalId: "test-id",
-				scriptId: crypto.randomUUID(),
-				entitySchemaId: crypto.randomUUID(),
-			},
-		});
+		const error = await client.runError((c) =>
+			c.entities.import({
+				payload: {
+					externalId: "test-id",
+					scriptId: crypto.randomUUID(),
+					entitySchemaId: crypto.randomUUID(),
+				},
+			}),
+		);
 
-		expect(response.status).toBe(401);
-		expect(error?.error).toBeDefined();
+		assertTaggedError(error, "Unauthorized");
 	});
 
 	it("returns 200 with a jobId when given valid builtin script and schema", async () => {
@@ -667,24 +668,23 @@ describe("POST /entities/import", () => {
 describe("GET /entities/import/{jobId}", () => {
 	it("returns 401 when unauthenticated", async () => {
 		const client = getBackendClient();
-		const { response, error } = await client.entities.getImportResult({
-			params: { path: { jobId: crypto.randomUUID() } },
-		});
+		const error = await client.runError((c) =>
+			c.entities.getImportResult({ path: { jobId: crypto.randomUUID() } }),
+		);
 
-		expect(response.status).toBe(401);
-		expect(error?.error).toBeDefined();
+		assertTaggedError(error, "Unauthorized");
 	});
 
 	it("returns 404 for a non-existent job id", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { response, error } = await client.entities.getImportResult({
-			headers: { Cookie: cookies },
-			params: { path: { jobId: crypto.randomUUID() } },
-		});
+		const error = await client.runError(
+			(c) => c.entities.getImportResult({ path: { jobId: crypto.randomUUID() } }),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(404);
-		expect(error?.error.message).toBe("Entity import job not found");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toBe("Entity import job not found");
 	});
 
 	it("returns 404 when another user polls the import job", async () => {
@@ -700,13 +700,12 @@ describe("GET /entities/import/{jobId}", () => {
 			entitySchemaId: schema.id,
 		});
 
-		const { response, error } = await clientB.entities.getImportResult({
-			params: { path: { jobId } },
-			headers: { Cookie: cookiesB },
+		const error = await clientB.runError((c) => c.entities.getImportResult({ path: { jobId } }), {
+			Cookie: cookiesB,
 		});
 
-		expect(response.status).toBe(404);
-		expect(error?.error.message).toBe("Entity import job not found");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toBe("Entity import job not found");
 	});
 
 	it("reaches a terminal state for a builtin details script", async () => {
