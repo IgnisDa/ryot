@@ -1,4 +1,13 @@
 import { EntityId } from "@ryot/contract/schema/brands";
+import {
+	buildQueryEngineRowsDocument,
+	queryEngineComparison,
+	queryEngineField,
+	queryEngineLiteral,
+	queryEngineOrder,
+	queryEngineRelationshipSource,
+	queryEngineSystemRef,
+} from "@ryot/query-engine";
 
 import { getPgClient } from "~/setup";
 
@@ -6,6 +15,7 @@ import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
 import { pollUntil } from "./polling";
+import { executeQueryEngine } from "./query-engine-core";
 
 export const waitForMediaMonitoringRefresh = (executionId: string) =>
 	pollUntil("media monitoring refresh workflow completion", async () => {
@@ -48,20 +58,28 @@ export const disableMediaMonitoring = (client: Client, entityId: string) =>
 	);
 
 export const countMediaMonitoringRelationships = async (input: {
+	client: Client;
 	entityId: string;
-	userId: string;
+	entitySchemaSlug: string;
 }) => {
-	const result = await getPgClient().query<{ count: string }>(
-		`select count(*)::text as count
-		 from relationship r
-		 inner join relationship_schema rs on rs.id = r.relationship_schema_id
-		 inner join entity library_entity on library_entity.id = r.target_entity_id
-		 inner join entity_schema library_schema on library_schema.id = library_entity.entity_schema_id
-		 where r.source_entity_id = $1
-		   and r.user_id = $2
-		   and rs.slug = 'media-monitoring'
-		   and library_schema.slug = 'library'`,
-		[input.entityId, input.userId],
+	const result = await executeQueryEngine(
+		input.client,
+		buildQueryEngineRowsDocument({
+			limit: 1,
+			fields: [queryEngineField("id", queryEngineSystemRef("relationship", "id"))],
+			orderBy: [queryEngineOrder("asc", queryEngineSystemRef("relationship", "id"))],
+			source: queryEngineRelationshipSource({
+				alias: "relationship",
+				schemas: ["media-monitoring"],
+				targetEntity: { alias: "library", schemas: ["library"] },
+				sourceEntity: { alias: "media", schemas: [input.entitySchemaSlug] },
+				where: queryEngineComparison(
+					"eq",
+					queryEngineSystemRef("media", "id"),
+					queryEngineLiteral(input.entityId),
+				),
+			}),
+		}),
 	);
-	return Number(result.rows[0]?.count ?? 0);
+	return result.data.pageInfo.total;
 };
