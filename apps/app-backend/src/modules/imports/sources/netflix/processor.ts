@@ -4,6 +4,7 @@ import { DbRunner } from "~/lib/db";
 import type { EntitySearchItem } from "~/modules/entities/population";
 import { EntitiesRepository } from "~/modules/entities/repository";
 
+import { nowIso } from "../../media/dates";
 import type { LoadedMediaImportAdapterError } from "../../media/file-processor";
 import type { MediaImportAdapterResult } from "../../media/import-processor";
 import { sanitizeErrorMessage } from "../../runtime/failures";
@@ -22,6 +23,7 @@ import {
 type SearchScriptSlug = "movie.tmdb" | "show.tmdb";
 
 type NetflixAdapterInput = {
+	importedAt: string;
 	myListCsv: string;
 	ratingsCsv: string;
 	profileName?: string;
@@ -49,6 +51,7 @@ type LoadedNetflixAdapterResult =
 	  }
 	| {
 			_tag: "netflix-search-planned";
+			importedAt: string;
 			myListPath: string;
 			ratingsPath: string;
 			profileName?: string;
@@ -84,23 +87,20 @@ const getZipEntryByBasename = (
 const collectNetflixSearchJobKeys = (adapterInput: NetflixAdapterInput) =>
 	Effect.gen(function* () {
 		const searchJobKeys = new Set<string>();
-		yield* adaptNetflixExports(adapterInput, {
-			now: () => "",
-			lookupTitle: ({ title, preferredEntitySchemaSlug }) => {
-				const query = extractNetflixBaseTitle(title);
-				if (!query) {
-					return Effect.succeed({ error: "Metadata not found" });
-				}
-				if (preferredEntitySchemaSlug === "movie") {
-					searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" }));
-				} else if (preferredEntitySchemaSlug === "show") {
-					searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" }));
-				} else {
-					searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" }));
-					searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" }));
-				}
-				return Effect.succeed({ error: "Netflix title lookup is pending" });
-			},
+		yield* adaptNetflixExports(adapterInput, ({ title, preferredEntitySchemaSlug }) => {
+			const query = extractNetflixBaseTitle(title);
+			if (!query) {
+				return Effect.succeed({ error: "Metadata not found" });
+			}
+			if (preferredEntitySchemaSlug === "movie") {
+				searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" }));
+			} else if (preferredEntitySchemaSlug === "show") {
+				searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" }));
+			} else {
+				searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" }));
+				searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" }));
+			}
+			return Effect.succeed({ error: "Netflix title lookup is pending" });
 		});
 		return [...searchJobKeys];
 	});
@@ -110,61 +110,58 @@ const adaptNetflixExportsWithSearchResults = (input: {
 	searchErrors: Map<string, string>;
 	searchResults: Map<string, NetflixTitleMatchCandidate[]>;
 }) =>
-	adaptNetflixExports(input.adapterInput, {
-		now: () => "",
-		lookupTitle: ({ title, preferredEntitySchemaSlug }) => {
-			const query = extractNetflixBaseTitle(title);
-			if (!query) {
+	adaptNetflixExports(input.adapterInput, ({ title, preferredEntitySchemaSlug }) => {
+		const query = extractNetflixBaseTitle(title);
+		if (!query) {
+			return Effect.succeed({ error: "Metadata not found" });
+		}
+
+		const movieKey = createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" });
+		const showKey = createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" });
+		const movieResults = input.searchResults.get(movieKey) ?? [];
+		const showResults = input.searchResults.get(showKey) ?? [];
+		const requiredSearchJobKeys =
+			preferredEntitySchemaSlug === "movie"
+				? [movieKey]
+				: preferredEntitySchemaSlug === "show"
+					? [showKey]
+					: [movieKey, showKey];
+		const lookupError = requiredSearchJobKeys
+			.map((searchJobKey) => input.searchErrors.get(searchJobKey))
+			.find((error): error is string => Boolean(error));
+		if (lookupError) {
+			return Effect.succeed({ error: lookupError });
+		}
+
+		const results =
+			preferredEntitySchemaSlug === "movie"
+				? movieResults
+				: preferredEntitySchemaSlug === "show"
+					? showResults
+					: [...movieResults, ...showResults];
+		const match = chooseBestNetflixTitleMatch({ title, results, preferredEntitySchemaSlug });
+		if (!match) {
+			if (results.length === 0) {
 				return Effect.succeed({ error: "Metadata not found" });
 			}
-
-			const movieKey = createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" });
-			const showKey = createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" });
-			const movieResults = input.searchResults.get(movieKey) ?? [];
-			const showResults = input.searchResults.get(showKey) ?? [];
-			const requiredSearchJobKeys =
-				preferredEntitySchemaSlug === "movie"
-					? [movieKey]
-					: preferredEntitySchemaSlug === "show"
-						? [showKey]
-						: [movieKey, showKey];
-			const lookupError = requiredSearchJobKeys
-				.map((searchJobKey) => input.searchErrors.get(searchJobKey))
-				.find((error): error is string => Boolean(error));
-			if (lookupError) {
-				return Effect.succeed({ error: lookupError });
+			if (preferredEntitySchemaSlug) {
+				return Effect.succeed({
+					error: `Title matched only ${preferredEntitySchemaSlug === "movie" ? "show" : "movie"} results`,
+				});
 			}
+			return Effect.succeed({ error: "Could not match title to a supported movie or show" });
+		}
 
-			const results =
-				preferredEntitySchemaSlug === "movie"
-					? movieResults
-					: preferredEntitySchemaSlug === "show"
-						? showResults
-						: [...movieResults, ...showResults];
-			const match = chooseBestNetflixTitleMatch({ title, results, preferredEntitySchemaSlug });
-			if (!match) {
-				if (results.length === 0) {
-					return Effect.succeed({ error: "Metadata not found" });
-				}
-				if (preferredEntitySchemaSlug) {
-					return Effect.succeed({
-						error: `Title matched only ${preferredEntitySchemaSlug === "movie" ? "show" : "movie"} results`,
-					});
-				}
-				return Effect.succeed({ error: "Could not match title to a supported movie or show" });
-			}
-
-			return Effect.succeed({
-				matchedTitle: match.title,
-				entityRef: {
-					kind: "resolved",
-					sourceLabel: match.title,
-					externalId: match.externalId,
-					scriptSlug: match.scriptSlug,
-					entitySchemaSlug: match.entitySchemaSlug,
-				},
-			});
-		},
+		return Effect.succeed({
+			matchedTitle: match.title,
+			entityRef: {
+				kind: "resolved",
+				sourceLabel: match.title,
+				externalId: match.externalId,
+				scriptSlug: match.scriptSlug,
+				entitySchemaSlug: match.entitySchemaSlug,
+			},
+		});
 	});
 
 const toNetflixTitleMatchCandidates = (
@@ -183,6 +180,7 @@ const toNetflixTitleMatchCandidates = (
 };
 
 export const buildNetflixAdapterResult = (input: {
+	importedAt: string;
 	myListPath: string;
 	ratingsPath: string;
 	profileName?: string;
@@ -215,7 +213,13 @@ export const buildNetflixAdapterResult = (input: {
 		return yield* adaptNetflixExportsWithSearchResults({
 			searchErrors,
 			searchResults,
-			adapterInput: { myListCsv, ratingsCsv, viewingActivityCsv, profileName: input.profileName },
+			adapterInput: {
+				myListCsv,
+				ratingsCsv,
+				viewingActivityCsv,
+				importedAt: input.importedAt,
+				profileName: input.profileName,
+			},
 		}).pipe(
 			Effect.mapError((error) =>
 				sanitizeErrorMessage(error, "Could not parse Netflix export data"),
@@ -283,7 +287,9 @@ export const loadNetflixAdapterResult = (input: {
 			typeof input.sourcePayload?.profileName === "string"
 				? input.sourcePayload.profileName
 				: undefined;
+		const importedAt = nowIso();
 		const adapterInput: NetflixAdapterInput = {
+			importedAt,
 			myListCsv,
 			ratingsCsv,
 			profileName,
@@ -345,6 +351,7 @@ export const loadNetflixAdapterResult = (input: {
 		};
 
 		return {
+			importedAt,
 			myListPath,
 			profileName,
 			ratingsPath,

@@ -23,8 +23,6 @@ const defaultExtraSettings = {
 	disableOnContinuousErrors: false,
 } satisfies IntegrationExtraSettings;
 
-const resolvedVoid = Promise.resolve();
-
 const decodeIntegrationProviderSpecifics = Schema.decodeUnknown(IntegrationProviderSpecificsSchema);
 
 const buildIntegrationInputSummary = (
@@ -51,36 +49,6 @@ export const validateProgressThresholds = (
 	}
 	return null;
 };
-
-type AutoDisableDeps = {
-	readonly disableIntegration: (input: { userId: string; integrationId: string }) => Promise<void>;
-	readonly getIntegration: (input: {
-		userId: string;
-		integrationId: string;
-	}) => Promise<ListedIntegration | null>;
-	readonly listRecentStatuses: (input: {
-		limit: number;
-		integrationId: string;
-	}) => Promise<ReadonlyArray<{ readonly status: string }>>;
-};
-
-export const createCheckAndAutoDisable =
-	(deps: AutoDisableDeps) => (input: { integrationId: string; userId: string }) =>
-		deps.getIntegration(input).then((integration) => {
-			if (!integration || !integration.extraSettings.disableOnContinuousErrors) {
-				return resolvedVoid;
-			}
-
-			return deps
-				.listRecentStatuses({ integrationId: input.integrationId, limit: 5 })
-				.then((lastRuns) => {
-					if (lastRuns.length < 5 || lastRuns.some((run) => run.status !== "failed")) {
-						return resolvedVoid;
-					}
-
-					return deps.disableIntegration(input);
-				});
-		});
 
 type IntegrationsServiceShape = {
 	readonly reconcileScheduledYankRuns: () => Effect.Effect<void, DbError>;
