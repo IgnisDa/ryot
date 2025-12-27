@@ -159,7 +159,9 @@ export const ServerLive = Layer.scopedDiscard(
 			},
 		});
 
-		yield* Effect.logInfo(`app backend listening on ${String(server.url)}`);
+		yield* Effect.logInfo("app backend listening").pipe(
+			Effect.annotateLogs({ url: String(server.url) }),
+		);
 		yield* Effect.addFinalizer(() =>
 			Effect.promise(() => Promise.resolve(server.stop(true)).then(() => dispose())).pipe(
 				Effect.orDie,
