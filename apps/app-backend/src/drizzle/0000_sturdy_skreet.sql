@@ -25,7 +25,6 @@ CREATE TABLE "apikey" (
 	"id" text PRIMARY KEY NOT NULL,
 	"refill_amount" integer,
 	"refill_interval" integer,
-	"reference_id" text NOT NULL,
 	"enabled" boolean DEFAULT true,
 	"request_count" integer DEFAULT 0,
 	"rate_limit_max" integer DEFAULT 10,
@@ -36,7 +35,8 @@ CREATE TABLE "apikey" (
 	"last_refill_at" timestamp with time zone,
 	"rate_limit_time_window" integer DEFAULT 86400000,
 	"created_at" timestamp with time zone NOT NULL,
-	"updated_at" timestamp with time zone NOT NULL
+	"updated_at" timestamp with time zone NOT NULL,
+	"reference_id" text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "entity" (
@@ -305,6 +305,7 @@ CREATE TABLE "verification" (
 );
 --> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "apikey" ADD CONSTRAINT "apikey_reference_id_user_id_fk" FOREIGN KEY ("reference_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_sandbox_script_id_sandbox_script_id_fk" FOREIGN KEY ("sandbox_script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
