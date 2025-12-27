@@ -302,14 +302,14 @@ describe("Workout Templates E2E", () => {
 		});
 		const { workoutTemplateId } = await createWorkoutTemplateEntityFixture(client, cookies);
 
-		const { data, response } = await client.POST("/collections/memberships", {
+		const { data, response } = await client.collections.createMembership({
 			headers: { Cookie: cookies },
 			body: { entityId: workoutTemplateId, collectionId: collection.id },
 		});
 
 		expect(response.status).toBe(200);
-		expect(data?.data.memberOf.sourceEntityId).toBe(workoutTemplateId);
-		expect(data?.data.memberOf.targetEntityId).toBe(collection.id);
+		expect(data?.memberOf.sourceEntityId).toBe(workoutTemplateId);
+		expect(data?.memberOf.targetEntityId).toBe(collection.id);
 	});
 
 	it("joins a workout to its template through the seeded relationship schema", async () => {
