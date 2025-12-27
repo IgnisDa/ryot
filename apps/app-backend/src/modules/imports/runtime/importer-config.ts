@@ -9,21 +9,29 @@ const toSecret = (option: Option.Option<Redacted.Redacted>): string | undefined 
 	Option.match(option, { onNone: () => undefined, onSome: Redacted.value });
 
 export const makeImporterConfig = (config: AppConfigValue) => {
-	const providers = config.providers;
 	return {
-		trakt: { clientId: toValue(providers.traktClientId) },
-		animeAndManga: { mal: { clientId: toValue(providers.malClientId) } },
-		moviesAndShows: { tmdb: { accessToken: toSecret(providers.tmdbAccessToken) } },
+		trakt: { clientId: toValue(config.server.traktClientId) },
+		animeAndManga: { mal: { clientId: toValue(config.animeAndManga.malClientId) } },
+		moviesAndShows: { tmdb: { accessToken: toSecret(config.moviesAndShows.tmdbAccessToken) } },
 		books: {
-			hardcover: { apiKey: toSecret(providers.hardcoverApiKey) },
-			googleBooks: { apiKey: toSecret(providers.googleBooksApiKey) },
+			hardcover: { apiKey: toSecret(config.books.hardcoverApiKey) },
+			googleBooks: { apiKey: toSecret(config.books.googleBooksApiKey) },
 		},
 		videoGames: {
-			giantBomb: { apiKey: toSecret(providers.giantBombApiKey) },
+			giantBomb: { apiKey: toSecret(config.videoGames.giantBombApiKey) },
 			twitch: {
-				clientId: toValue(providers.twitchClientId),
-				clientSecret: toSecret(providers.twitchClientSecret),
+				clientId: toValue(config.videoGames.twitchClientId),
+				clientSecret: toSecret(config.videoGames.twitchClientSecret),
 			},
+		},
+		music: {
+			spotify: {
+				clientId: toValue(config.music.spotifyClientId),
+				clientSecret: toSecret(config.music.spotifyClientSecret),
+			},
+		},
+		podcasts: {
+			listennotes: { apiKey: toSecret(config.podcasts.listennotesApiKey) },
 		},
 	};
 };
