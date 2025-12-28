@@ -289,13 +289,13 @@ initially, and durable write paths must not be weakened to match.
 
 ### Provider population
 
-Population commits per scope, aligned to natural graph units: one parent's complete relationship
-set — a show's seasons, one season's episodes, one credit group — commits atomically per activity,
-so no envelope grows with the full graph and no authoritative set is ever split across chunks. A
-later scope's failure leaves earlier committed scopes and their dispatched occurrences in place;
-the workflow resumes from the failed scope, with deterministic occurrence IDs preventing
-duplicates. The root's `populated_at` is stamped in the final step, so `rootPreviouslyPopulated`
-stays false throughout a first population.
+Population already commits per natural graph scope — one parent's complete relationship set per
+activity — through a single bulk edge writer, returns ordered mutation outcomes with captured
+snapshots as bounded per-activity envelopes, and stamps the root's `populated_at` in the final
+step, so `rootPreviouslyPopulated` stays false throughout a first population. Dispatch builds
+directly on those envelopes: a later scope's failure leaves earlier committed scopes and their
+dispatched occurrences in place, and the workflow resumes from the failed scope with
+deterministic occurrence IDs preventing duplicates.
 
 Bulk relationship-sync occurrence IDs derive from the sync execution ID plus the relationship
 schema, direction, endpoints, and operation — never database return order or loop position. Sync
@@ -432,8 +432,8 @@ authoritative record they have loaded — `integration.disabled` uses the owning
 workflow cannot emit an actor-audience signal and may emit only a built-in policy-compatible
 signal with its required subject. It returns the standard sandbox success/failure envelope.
 
-**`sendNotification`** — accepts a schema-validated message and enqueues the low-level durable
-delivery step introduced in Phase 1 for the hidden current user:
+**`sendNotification`** — accepts a schema-validated message and enqueues the existing
+message-kind delivery request for the hidden current user:
 
 - rejects arbitrary user IDs
 - delivers to all enabled channels for that user
@@ -567,7 +567,7 @@ path is enhanced to capture it rather than adding feature-specific diff branches
 ## Notification Model
 
 - Remove `configuredEvents` from channels, contracts, repositories, and delivery filtering, along
-  with the `NotificationEventType` union.
+  with the `NotificationEventType` union and the legacy event-kind delivery request.
 - Delivery accepts a message with no caller-selected channel; the built-in action targets all
   enabled channels for the subscription user.
 - `bootstrapNewUser` installs one notification rule per `active` built-in signal schema, for
@@ -642,13 +642,7 @@ Land these with the implementation, not before the documented behavior becomes c
 After release, no sibling document may present configured events or the trigger model as current
 behavior.
 
-## Delivery
-
-Provider population already commits per natural graph scope through a single bulk edge writer
-and returns ordered mutation outcomes with captured snapshots as bounded per-activity envelopes
-(see Provider population above); the phases below dispatch directly from those envelopes.
-
-### Phases
+## Phases
 
 Phases 1–4 sit behind an unreleased feature boundary; the catalog and default bootstrap behavior
 are not exposed until the built-in producers, shared notification script, and legacy-bootstrap
@@ -658,12 +652,9 @@ users created between steps do not permanently miss defaults under the no-backfi
 1. **Foundation.** Signal schemas/signals/recipients, automation rules, subscription runs, the
    automation service and generic audience resolver, origin threading, lifecycle occurrence
    dispatch, the SDK automation entry point, `emitSignal`/`sendNotification`, and
-   `SubscriptionExecutionWorkflow`. Preserve current behavior while the dispatcher is introduced.
-   Notification delivery splits here: a low-level durable step delivers a message to an
-   explicitly resolved channel set; the legacy event path keeps its `configuredEvents` filtering
-   as a thin wrapper around that step, while `sendNotification` resolves the user's enabled
-   channels itself and never passes a `NotificationEventType`. Phase 3 deletes the wrapper
-   together with the enum.
+   `SubscriptionExecutionWorkflow`. Preserve current behavior while the dispatcher is introduced;
+   `sendNotification` uses the existing message-kind delivery request and never passes a
+   `NotificationEventType`.
 2. **Trigger migration.** Move the existing event trigger rows and execution to automation rules;
    delete `event_schema_trigger`.
 3. **Built-in notification subscriptions.** Shared notification script; `review.created`,
