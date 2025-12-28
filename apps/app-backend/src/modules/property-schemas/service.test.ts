@@ -3,7 +3,7 @@ import { createOptionalRatingPropertiesSchema } from "~/lib/test-fixtures";
 import { parsePropertySchemaInput } from "./service";
 
 describe("parsePropertySchemaInput", () => {
-	it("parses a flat properties map", () => {
+	it("parses a valid properties schema object", () => {
 		const schema = createOptionalRatingPropertiesSchema();
 
 		expect(

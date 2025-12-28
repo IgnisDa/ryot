@@ -1,6 +1,5 @@
-// delete this file eventually
 import { faker } from "@faker-js/faker";
-import type { paths } from "@ryot/generated/openapi/app-backend";
+import type { components, paths } from "@ryot/generated/openapi/app-backend";
 import createClient from "openapi-fetch";
 
 const API_BASE_URL = "http://localhost:3000/api";
@@ -28,25 +27,10 @@ type SavedViewSpec = {
 	displayConfiguration: SavedViewDisplayConfiguration;
 };
 
-type PropertiesSchema = Record<
-	string,
-	{
-		transform?: {
-			round?: {
-				mode: "half_up";
-				scale: number;
-			};
-		};
-		type: "string" | "number" | "integer" | "boolean" | "date";
-		validation?: {
-			required?: true;
-			maximum?: number;
-			minimum?: number;
-			exclusiveMaximum?: number;
-			exclusiveMinimum?: number;
-		};
-	}
->;
+type PropertiesSchema = {
+	fields: Record<string, components["schemas"]["AppPropertyDefinition"]>;
+	rules?: components["schemas"]["AppSchemaRule"][];
+};
 
 class APIClient {
 	private client: Client;
@@ -120,14 +104,7 @@ async function createEntitySchema(
 	apiClient.incrementRequestCount();
 	const client = apiClient.getClient();
 	const { data, response } = await client.POST("/entity-schemas", {
-		body: {
-			name,
-			slug,
-			trackerId,
-			icon,
-			accentColor,
-			propertiesSchema: { fields: propertiesSchema },
-		},
+		body: { name, slug, trackerId, icon, accentColor, propertiesSchema },
 	});
 
 	if (!response.ok || !data?.data) {
@@ -149,12 +126,7 @@ async function createEventSchema(
 	apiClient.incrementRequestCount();
 	const client = apiClient.getClient();
 	const { data, response } = await client.POST("/event-schemas", {
-		body: {
-			name,
-			slug,
-			entitySchemaId,
-			propertiesSchema: { fields: propertiesSchema },
-		},
+		body: { name, slug, entitySchemaId, propertiesSchema },
 	});
 
 	if (!response.ok || !data?.data) {
@@ -466,11 +438,13 @@ async function seedWhiskeys(client: APIClient) {
 		"wine",
 		"#D97706",
 		{
-			distillery: { type: "string", validation: { required: true } },
-			age: { type: "integer" },
-			region: { type: "string" },
-			proof: { type: "number" },
-			type: { type: "string" },
+			fields: {
+				distillery: { type: "string", validation: { required: true } },
+				age: { type: "integer" },
+				region: { type: "string" },
+				proof: { type: "number" },
+				type: { type: "string" },
+			},
 		},
 	);
 
@@ -480,12 +454,14 @@ async function seedWhiskeys(client: APIClient) {
 		"tasting",
 		entitySchema.id,
 		{
-			rating: {
-				type: "integer",
-				validation: { required: true, maximum: 5, minimum: 1 },
+			fields: {
+				rating: {
+					type: "integer",
+					validation: { required: true, maximum: 5, minimum: 1 },
+				},
+				notes: { type: "string" },
+				location: { type: "string" },
 			},
-			notes: { type: "string" },
-			location: { type: "string" },
 		},
 	);
 
@@ -495,9 +471,11 @@ async function seedWhiskeys(client: APIClient) {
 		"purchase",
 		entitySchema.id,
 		{
-			price: { type: "number", validation: { required: true } },
-			store: { type: "string" },
-			bottle_size: { type: "integer" },
+			fields: {
+				price: { type: "number", validation: { required: true } },
+				store: { type: "string" },
+				bottle_size: { type: "integer" },
+			},
 		},
 	);
 
@@ -570,12 +548,14 @@ async function seedPlaces(client: APIClient) {
 		"map-pin",
 		"#3B82F6",
 		{
-			city: { type: "string", validation: { required: true } },
-			country: { type: "string", validation: { required: true } },
-			type: { type: "string" },
-			address: { type: "string" },
-			latitude: { type: "number" },
-			longitude: { type: "number" },
+			fields: {
+				city: { type: "string", validation: { required: true } },
+				country: { type: "string", validation: { required: true } },
+				type: { type: "string" },
+				address: { type: "string" },
+				latitude: { type: "number" },
+				longitude: { type: "number" },
+			},
 		},
 	);
 
@@ -585,10 +565,12 @@ async function seedPlaces(client: APIClient) {
 		"visit",
 		entitySchema.id,
 		{
-			date: { type: "date", validation: { required: true } },
-			duration_hours: { type: "number" },
-			companions: { type: "string" },
-			notes: { type: "string" },
+			fields: {
+				date: { type: "date", validation: { required: true } },
+				duration_hours: { type: "number" },
+				companions: { type: "string" },
+				notes: { type: "string" },
+			},
 		},
 	);
 
@@ -598,12 +580,14 @@ async function seedPlaces(client: APIClient) {
 		"rating",
 		entitySchema.id,
 		{
-			rating: {
-				type: "integer",
-				validation: { required: true, maximum: 5, minimum: 1 },
+			fields: {
+				rating: {
+					type: "integer",
+					validation: { required: true, maximum: 5, minimum: 1 },
+				},
+				review: { type: "string" },
+				would_return: { type: "boolean" },
 			},
-			review: { type: "string" },
-			would_return: { type: "boolean" },
 		},
 	);
 
@@ -613,8 +597,10 @@ async function seedPlaces(client: APIClient) {
 		"photo",
 		entitySchema.id,
 		{
-			photo_url: { type: "string" },
-			caption: { type: "string" },
+			fields: {
+				photo_url: { type: "string" },
+				caption: { type: "string" },
+			},
 		},
 	);
 
@@ -692,13 +678,15 @@ async function seedMobilePhones(client: APIClient) {
 		"smartphone",
 		"#6B7280",
 		{
-			manufacturer: { type: "string", validation: { required: true } },
-			year: { type: "integer" },
-			os: { type: "string" },
-			screen_size: { type: "number" },
-			storage_gb: { type: "integer" },
-			ram_gb: { type: "integer" },
-			price_usd: { type: "number" },
+			fields: {
+				manufacturer: { type: "string", validation: { required: true } },
+				year: { type: "integer" },
+				os: { type: "string" },
+				screen_size: { type: "number" },
+				storage_gb: { type: "integer" },
+				ram_gb: { type: "integer" },
+				price_usd: { type: "number" },
+			},
 		},
 	);
 
@@ -710,11 +698,13 @@ async function seedMobilePhones(client: APIClient) {
 		"phone",
 		"#9CA3AF",
 		{
-			manufacturer: { type: "string", validation: { required: true } },
-			year: { type: "integer" },
-			has_camera: { type: "boolean" },
-			battery_mah: { type: "integer" },
-			color: { type: "string" },
+			fields: {
+				manufacturer: { type: "string", validation: { required: true } },
+				year: { type: "integer" },
+				has_camera: { type: "boolean" },
+				battery_mah: { type: "integer" },
+				color: { type: "string" },
+			},
 		},
 	);
 
@@ -726,12 +716,14 @@ async function seedMobilePhones(client: APIClient) {
 		"tablet",
 		"#4B5563",
 		{
-			manufacturer: { type: "string", validation: { required: true } },
-			year: { type: "integer" },
-			screen_size: { type: "number" },
-			os: { type: "string" },
-			storage_gb: { type: "integer" },
-			has_cellular: { type: "boolean" },
+			fields: {
+				manufacturer: { type: "string", validation: { required: true } },
+				year: { type: "integer" },
+				screen_size: { type: "number" },
+				os: { type: "string" },
+				storage_gb: { type: "integer" },
+				has_cellular: { type: "boolean" },
+			},
 		},
 	);
 
