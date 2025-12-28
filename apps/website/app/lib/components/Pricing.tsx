@@ -1,4 +1,4 @@
-import { cn } from "@ryot/ts-utils/cn";
+﻿import { cn } from "@ryot/ts-utils/cn";
 import { changeCase } from "@ryot/ts-utils/string";
 import { CheckCircle, Cloud, Crown, PlayIcon, Server, Sparkles } from "lucide-react";
 import { useState } from "react";
@@ -92,121 +92,131 @@ export default function Pricing(props: {
 							isThreeColumn ? "md:grid-cols-3 max-w-5xl" : "md:grid-cols-4 max-w-6xl",
 						)}
 					>
-						{selectedProductType.prices.map((p) => (
-							<Card
-								key={p.name}
-								className={cn(
-									"border-2 rounded-xl transition-all duration-300 hover:shadow-lg hover:-translate-y-1",
-									isPopular(p.name)
-										? "border-primary/50 relative hover:border-primary/70 hover:shadow-xl hover:-translate-y-2 bg-linear-to-b from-primary/5 to-transparent"
-										: "hover:border-primary/30",
-								)}
-							>
-								{isPopular(p.name) && (
-									<div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-										<Badge className="bg-linear-to-r from-orange-500 to-pink-500 text-white border-0">
-											<Crown className="w-4 h-4 mr-1" />
-											Most Popular
-										</Badge>
-									</div>
-								)}
-								<CardHeader className={cn("text-center pt-8", isThreeColumn ? "pb-6" : "pb-4")}>
-									<div
-										className={cn(
-											isThreeColumn ? "w-12 h-12" : "w-10 h-10",
-											getIconBg(p.name),
-											"rounded-full flex items-center justify-center mx-auto",
-											isThreeColumn ? "mb-4" : "mb-3",
-										)}
-									>
-										{getIcon(p.name)}
-									</div>
-									<CardTitle
-										className={cn(
-											isThreeColumn ? "text-2xl" : "text-lg",
-											isThreeColumn ? "mb-4" : "mb-3",
-										)}
-									>
-										{changeCase(p.name)}
-									</CardTitle>
-									{p.amount ? (
+						{selectedProductType.prices.map((p) => {
+							let to: string;
+							if (p.linkToGithub) {
+								to = "https://docs.ryot.io";
+							} else if (props.isLoggedIn) {
+								to = $path("/me");
+							} else {
+								to = "#start-here";
+							}
+							return (
+								<Card
+									key={p.name}
+									className={cn(
+										"border-2 rounded-xl transition-all duration-300 hover:shadow-lg hover:-translate-y-1",
+										isPopular(p.name)
+											? "border-primary/50 relative hover:border-primary/70 hover:shadow-xl hover:-translate-y-2 bg-linear-to-b from-primary/5 to-transparent"
+											: "hover:border-primary/30",
+									)}
+								>
+									{isPopular(p.name) && (
+										<div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+											<Badge className="bg-linear-to-r from-orange-500 to-pink-500 text-white border-0">
+												<Crown className="w-4 h-4 mr-1" />
+												Most Popular
+											</Badge>
+										</div>
+									)}
+									<CardHeader className={cn("text-center pt-8", isThreeColumn ? "pb-6" : "pb-4")}>
 										<div
-											className={cn("flex items-center justify-center", isThreeColumn && "mb-2")}
+											className={cn(
+												isThreeColumn ? "w-12 h-12" : "w-10 h-10",
+												getIconBg(p.name),
+												"rounded-full flex items-center justify-center mx-auto",
+												isThreeColumn ? "mb-4" : "mb-3",
+											)}
 										>
-											<span
+											{getIcon(p.name)}
+										</div>
+										<CardTitle
+											className={cn(
+												isThreeColumn ? "text-2xl" : "text-lg",
+												isThreeColumn ? "mb-4" : "mb-3",
+											)}
+										>
+											{changeCase(p.name)}
+										</CardTitle>
+										{p.amount ? (
+											<div
+												className={cn("flex items-center justify-center", isThreeColumn && "mb-2")}
+											>
+												<span
+													className={cn(
+														isThreeColumn ? "text-4xl" : "text-2xl",
+														"font-bold text-foreground",
+													)}
+												>
+													${p.amount}
+												</span>
+												{p.name.toLowerCase() === "monthly" && (
+													<span className="text-muted-foreground ml-2">/month</span>
+												)}
+												{p.name.toLowerCase() === "yearly" && (
+													<span className="text-muted-foreground ml-2">/year</span>
+												)}
+											</div>
+										) : (
+											<div className="text-xs text-muted-foreground">Community Edition</div>
+										)}
+										{p.trial && (
+											<div
 												className={cn(
-													isThreeColumn ? "text-4xl" : "text-2xl",
-													"font-bold text-foreground",
+													isThreeColumn ? "text-sm" : "text-xs",
+													"text-muted-foreground",
 												)}
 											>
-												${p.amount}
-											</span>
-											{p.name.toLowerCase() === "monthly" && (
-												<span className="text-muted-foreground ml-2">/month</span>
-											)}
-											{p.name.toLowerCase() === "yearly" && (
-												<span className="text-muted-foreground ml-2">/year</span>
-											)}
-										</div>
-									) : (
-										<div className="text-xs text-muted-foreground">Community Edition</div>
-									)}
-									{p.trial && (
-										<div
-											className={cn(isThreeColumn ? "text-sm" : "text-xs", "text-muted-foreground")}
+												{isPopular(p.name) && (
+													<>
+														<span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">
+															Save 17%
+														</span>
+														<br />
+													</>
+												)}
+												with a {p.trial} days trial
+											</div>
+										)}
+										{p.name.toLowerCase() === "lifetime" && (
+											<div
+												className={cn(
+													isThreeColumn ? "text-sm" : "text-xs",
+													"text-muted-foreground",
+												)}
+											>
+												One-time payment
+											</div>
+										)}
+									</CardHeader>
+									<CardContent>
+										<Link
+											target={p.linkToGithub ? "_blank" : undefined}
+											to={to}
+											onClick={(e) => {
+												if (props.onClick && p.priceId) {
+													e.preventDefault();
+													props.onClick(p.priceId);
+												}
+											}}
 										>
-											{isPopular(p.name) && (
-												<>
-													<span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">
-														Save 17%
-													</span>
-													<br />
-												</>
-											)}
-											with a {p.trial} days trial
-										</div>
-									)}
-									{p.name.toLowerCase() === "lifetime" && (
-										<div
-											className={cn(isThreeColumn ? "text-sm" : "text-xs", "text-muted-foreground")}
-										>
-											One-time payment
-										</div>
-									)}
-								</CardHeader>
-								<CardContent>
-									<Link
-										target={p.linkToGithub ? "_blank" : undefined}
-										to={
-											p.linkToGithub
-												? "https://docs.ryot.io"
-												: props.isLoggedIn
-													? $path("/me")
-													: "#start-here"
-										}
-										onClick={(e) => {
-											if (props.onClick && p.priceId) {
-												e.preventDefault();
-												props.onClick(p.priceId);
-											}
-										}}
-									>
-										<Button
-											variant={isPopular(p.name) ? "default" : "outline"}
-											className={cn(
-												"w-full",
-												!isThreeColumn && "text-sm",
-												isPopular(p.name) &&
-													"bg-linear-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary",
-											)}
-										>
-											<PlayIcon size={16} className="mr-2" />
-											<span>{props.isLoggedIn ? "Choose this" : "Get started"}</span>
-										</Button>
-									</Link>
-								</CardContent>
-							</Card>
-						))}
+											<Button
+												variant={isPopular(p.name) ? "default" : "outline"}
+												className={cn(
+													"w-full",
+													!isThreeColumn && "text-sm",
+													isPopular(p.name) &&
+														"bg-linear-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary",
+												)}
+											>
+												<PlayIcon size={16} className="mr-2" />
+												<span>{props.isLoggedIn ? "Choose this" : "Get started"}</span>
+											</Button>
+										</Link>
+									</CardContent>
+								</Card>
+							);
+						})}
 					</div>
 				</div>
 

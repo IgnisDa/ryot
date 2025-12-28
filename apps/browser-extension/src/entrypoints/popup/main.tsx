@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 
 import App from "./app.tsx";
 
+// oxlint-disable-next-line import/no-unassigned-import
 import "./style.css";
 
 const root = document.getElementById("root");
