@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { ImageSchema } from "~/lib/db/schema";
 import { dataSchema } from "~/lib/openapi";
-import { viewExpressionSchema } from "~/lib/views/expression";
+import {
+	computedFieldArraySchema,
+	viewExpressionSchema,
+} from "~/lib/views/expression";
 import { filterExpressionSchema } from "~/lib/views/filtering";
 import { timestampFields } from "~/lib/zod/base";
 import {
@@ -25,6 +28,7 @@ const executeViewRuntimeBaseBody = z
 	.object({
 		sort: sortDefinitionSchema,
 		pagination: paginationSchema,
+		computedFields: computedFieldArraySchema,
 		eventJoins: eventJoinDefinitionArraySchema,
 		filters: z.array(filterExpressionSchema),
 		entitySchemaSlugs: z

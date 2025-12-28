@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+	buildComputedField,
 	buildGridDisplayConfiguration,
 	buildGridRequest,
 	buildRuntimeField,
@@ -8,6 +9,7 @@ import {
 	createAuthenticatedClient,
 	createCrossSchemaRuntimeFixture,
 	createEntitySchema,
+	createEventSchema,
 	createRuntimeEntity,
 	createSingleSchemaRuntimeFixture,
 	createTracker,
@@ -136,6 +138,56 @@ describe("View runtime E2E", () => {
 		expect(data?.data.items[0]?.fields).toEqual([
 			{ key: "label", kind: "text", value: "Pinned" },
 			{ key: "yearOrFallback", kind: "number", value: 2018 },
+		]);
+	});
+
+	it("reuses computed fields in raw output and preserves null latest-event values", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaRuntimeFixture();
+		await createEventSchema(client, cookies, {
+			name: "Review",
+			slug: "review",
+			entitySchemaId: schema.schemaId,
+			propertiesSchema: { fields: { rating: { type: "number" } } },
+		});
+
+		const { data, response } = await executeViewRuntime(client, cookies, {
+			filters: [],
+			entitySchemaSlugs: [schema.slug],
+			pagination: { page: 1, limit: 5 },
+			sort: { fields: [entityField(schema.slug, "name")], direction: "asc" },
+			fields: [
+				buildRuntimeField("title", ["computed.entityLabel"]),
+				buildRuntimeField("badge", ["computed.reviewOrLabel"]),
+				buildRuntimeField("rawReview", ["computed.reviewScore"]),
+			],
+			eventJoins: [
+				{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
+			],
+			computedFields: [
+				buildComputedField("entityLabel", [entityField(schema.slug, "name")]),
+				buildComputedField("reviewScore", ["event.review.rating"]),
+				buildComputedField("reviewOrLabel", {
+					type: "coalesce",
+					values: [
+						{
+							type: "reference",
+							reference: { key: "reviewScore", type: "computed-field" },
+						},
+						{
+							type: "reference",
+							reference: { key: "entityLabel", type: "computed-field" },
+						},
+					],
+				}),
+			],
+		});
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items[0]?.fields).toEqual([
+			{ key: "title", kind: "text", value: "Alpha Phone" },
+			{ key: "badge", kind: "text", value: "Alpha Phone" },
+			{ key: "rawReview", kind: "null", value: null },
 		]);
 	});
 

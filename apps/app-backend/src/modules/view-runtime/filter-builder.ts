@@ -238,6 +238,12 @@ const buildFilterClauseForSchema = <
 		return buildFilterOperationClause(input.filter, expression, propertyType);
 	}
 
+	if (parsedReference.type === "computed-field") {
+		throw new ViewRuntimeValidationError(
+			"Computed field references are not supported in filters",
+		);
+	}
+
 	if (parsedReference.slug !== input.schemaSlug) {
 		getSchemaForReference(input.context.schemaMap, parsedReference);
 		return undefined;

@@ -10,6 +10,7 @@ type ExecuteViewRuntimeBody = NonNullable<
 type RuntimeRef =
 	| { type: "entity-column"; slug: string; column: string }
 	| { type: "schema-property"; slug: string; property: string }
+	| { type: "computed-field"; key: string }
 	| { type: "event-join-column"; joinKey: string; column: string }
 	| { type: "event-join-property"; joinKey: string; property: string };
 
@@ -21,6 +22,11 @@ type ViewExpression =
 type ExpressionInput = ViewExpression | string[];
 
 type RuntimeField = {
+	key: string;
+	expression: ViewExpression;
+};
+
+type ComputedField = {
 	key: string;
 	expression: ViewExpression;
 };
@@ -48,6 +54,7 @@ type RuntimeRequest = Omit<
 > & {
 	fields: RuntimeField[];
 	entitySchemaSlugs: string[];
+	computedFields?: ComputedField[];
 	eventJoins: NonNullable<ExecuteViewRuntimeBody["eventJoins"]>;
 };
 
@@ -57,6 +64,14 @@ function literalExpression(value: unknown | null): ViewExpression {
 
 function parseReference(reference: string): RuntimeRef {
 	const [namespace, segment, tail, ...rest] = reference.split(".");
+	if (namespace === "computed") {
+		if (!segment || tail || rest.length > 0) {
+			throw new Error(`Invalid runtime reference '${reference}'`);
+		}
+
+		return { type: "computed-field", key: segment };
+	}
+
 	if (namespace === "event") {
 		if (!segment || !tail || rest.length > 0) {
 			throw new Error(`Invalid runtime reference '${reference}'`);
@@ -94,7 +109,9 @@ function toExpression(input: ExpressionInput | null): ViewExpression | null {
 		reference: parseReference(reference),
 	}));
 
-	return values.length === 1 ? values[0]! : { type: "coalesce", values };
+	return values.length === 1
+		? (values[0] ?? literalExpression(null))
+		: { type: "coalesce", values };
 }
 
 function qualifyProperty(schemaSlug: string, property: string) {
@@ -242,6 +259,16 @@ export function buildRuntimeField(
 	};
 }
 
+export function buildComputedField(
+	key: string,
+	expression: ExpressionInput,
+): ComputedField {
+	return {
+		key,
+		expression: toExpression(expression) ?? literalExpression(null),
+	};
+}
+
 export function buildGridRequest(
 	overrides: Partial<Omit<RuntimeRequest, "fields">> & {
 		displayConfiguration?: GridDisplayConfiguration;
@@ -258,6 +285,7 @@ export function buildGridRequest(
 		buildGridDisplayConfiguration({}, schemaSlugs);
 
 	return {
+		computedFields: [],
 		filters: [],
 		eventJoins: [],
 		pagination: { page: 1, limit: 10 },
@@ -290,6 +318,7 @@ export function buildListRequest(
 	return {
 		filters: [],
 		eventJoins: [],
+		computedFields: [],
 		pagination: { page: 1, limit: 10 },
 		fields: toRuntimeFields({ layout: "list", displayConfiguration }),
 		sort: {
@@ -322,6 +351,7 @@ export function buildTableRequest(
 	return {
 		filters: [],
 		eventJoins: [],
+		computedFields: [],
 		pagination: { page: 1, limit: 10 },
 		fields: toRuntimeFields({ layout: "table", displayConfiguration }),
 		sort: {
