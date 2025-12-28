@@ -1219,6 +1219,7 @@ it.effect("refresh synchronization replaces provider-owned primary and child val
 		}),
 		entitiesService: makeEntitiesService({
 			save: (input) => {
+				assert(input.scope === "global");
 				assertRecord(input.properties);
 				writes.push({
 					name: input.name,
