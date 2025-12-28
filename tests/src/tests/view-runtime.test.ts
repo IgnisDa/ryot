@@ -102,7 +102,7 @@ describe("View runtime E2E", () => {
 		});
 	});
 
-	it("supports eq, neq, gt, gte, lt, lte, in, and isNull filters", async () => {
+	it("supports eq, neq, gt, gte, lt, lte, in, isNull, and isNotNull filters", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaRuntimeFixture();
 		const scenarios = [
@@ -181,6 +181,15 @@ describe("View runtime E2E", () => {
 				filters: [
 					{
 						op: "isNull" as const,
+						field: entityField(schema.slug, "category"),
+					},
+				],
+			},
+			{
+				expected: ["Alpha Phone", "Beta Tablet", "Delta Watch", "Gamma Phone"],
+				filters: [
+					{
+						op: "isNotNull" as const,
 						field: entityField(schema.slug, "category"),
 					},
 				],

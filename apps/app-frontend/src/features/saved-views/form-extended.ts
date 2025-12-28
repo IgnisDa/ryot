@@ -49,6 +49,7 @@ const filterRowOperators = [
 	"lte",
 	"in",
 	"isNull",
+	"isNotNull",
 	"contains",
 ] as const;
 
@@ -245,7 +246,7 @@ export function buildSavedViewExtendedFormValues(
 type ApiFilterExpression = SavedViewQueryDefinition["filters"][number];
 
 function buildApiFilter(filter: FilterRow): ApiFilterExpression {
-	if (filter.op === "isNull") {
+	if (filter.op === "isNull" || filter.op === "isNotNull") {
 		return { field: filter.field, op: filter.op, value: null };
 	}
 
