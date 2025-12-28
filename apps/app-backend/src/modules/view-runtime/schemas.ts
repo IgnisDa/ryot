@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { ImageSchema } from "~/lib/db/schema";
 import { dataSchema } from "~/lib/openapi";
+import { filterExpressionSchema } from "~/lib/views/filtering";
 import { timestampFields } from "~/lib/zod/base";
 import {
-	filterExpressionSchema,
 	gridConfigSchema,
 	listConfigSchema,
 	sortDefinitionSchema,

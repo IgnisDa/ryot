@@ -329,6 +329,14 @@ export function registerViewRuntimePresentationAndErrorTests() {
 				],
 			}),
 		);
+		const mismatchedValueResult = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				entitySchemaSlugs: [schema.slug],
+				filters: [{ op: "eq", field: `${schema.slug}.year`, value: "2020" }],
+			}),
+		);
 
 		expect(missingSchemaResult.response.status).toBe(404);
 		expect(missingSchemaResult.error?.error?.message).toBe(
@@ -337,6 +345,10 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		expect(missingPropertyResult.response.status).toBe(400);
 		expect(missingPropertyResult.error?.error?.message).toBe(
 			`Property 'missingProperty' not found in schema '${schema.slug}'`,
+		);
+		expect(mismatchedValueResult.response.status).toBe(400);
+		expect(mismatchedValueResult.error?.error?.message).toBe(
+			`Filter value for '${schema.slug}.year' must match the 'integer' property type`,
 		);
 	});
 }
