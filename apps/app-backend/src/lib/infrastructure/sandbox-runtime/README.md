@@ -67,6 +67,8 @@ Host functions are bridge handlers exposed only when listed in `metadata.allowed
 
 Script-scoped functions use execution metadata such as `scriptId`. User-scoped functions require `userId` and are unavailable for system executions. `claimCachedValue` atomically writes a script-scoped cached value only when the key does not already exist.
 
+`getCachedValue` and `setCachedValue` are scoped to the current server run, so their values are refreshed after a backend restart. `claimCachedValue` remains persistent across restarts.
+
 ### Adding A Host Function
 
 1. Implement the bridge handler as `(...args) => Promise<unknown>` in `service.ts` for core runtime functions or in `host-functions.ts` for app-bound functions.
