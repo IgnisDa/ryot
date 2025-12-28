@@ -1,3 +1,4 @@
+import type { DisplayConfiguration } from "~/modules/saved-views/schemas";
 import type { ViewRuntimeRequest } from "~/modules/view-runtime/schemas";
 import { ViewRuntimeValidationError } from "./errors";
 import { validateFilterExpressionAgainstSchemas } from "./predicate-validator";
@@ -93,23 +94,37 @@ export const validateViewRuntimeReferences = (
 		validateFilterExpressionAgainstSchemas(filter, context);
 	}
 
-	if (request.layout === "table") {
-		for (const column of request.displayConfiguration.columns) {
-			for (const reference of column.property) {
-				validateReferenceAgainstSchemas(reference, context, displayBuiltins);
-			}
+	for (const field of request.fields) {
+		for (const reference of field.references) {
+			validateReferenceAgainstSchemas(reference, context, displayBuiltins);
 		}
-		return;
 	}
+};
 
-	const dc = request.displayConfiguration;
+export const validateSavedViewDisplayConfiguration = (
+	displayConfiguration: DisplayConfiguration,
+	context: ViewRuntimeReferenceContext<
+		ValidationSchemaRow,
+		ValidationEventJoinRow
+	>,
+): void => {
 	for (const refs of [
-		dc.imageProperty,
-		dc.titleProperty,
-		dc.badgeProperty,
-		dc.subtitleProperty,
+		displayConfiguration.grid.imageProperty,
+		displayConfiguration.grid.titleProperty,
+		displayConfiguration.grid.badgeProperty,
+		displayConfiguration.grid.subtitleProperty,
+		displayConfiguration.list.imageProperty,
+		displayConfiguration.list.titleProperty,
+		displayConfiguration.list.badgeProperty,
+		displayConfiguration.list.subtitleProperty,
 	]) {
 		for (const reference of refs ?? []) {
+			validateReferenceAgainstSchemas(reference, context, displayBuiltins);
+		}
+	}
+
+	for (const column of displayConfiguration.table.columns) {
+		for (const reference of column.property) {
 			validateReferenceAgainstSchemas(reference, context, displayBuiltins);
 		}
 	}
