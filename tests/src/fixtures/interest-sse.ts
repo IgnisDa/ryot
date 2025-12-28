@@ -1,4 +1,6 @@
-import { getBackendUrl } from "~/setup";
+import { Effect } from "effect";
+
+import { getBackendUrl } from "~/support/backend";
 
 import { postBackendJson } from "./contract-client";
 
@@ -208,3 +210,9 @@ export async function openInterestStream(
 		close: () => controller.abort(),
 	};
 }
+
+export const openInterestStreamScoped = (auth: { cookies: string }, options: WaitOptions = {}) =>
+	Effect.acquireRelease(
+		Effect.promise(() => openInterestStream(auth, options)),
+		(stream) => Effect.sync(() => stream.close()),
+	);

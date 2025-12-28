@@ -20,8 +20,8 @@ export function requireEventSchemaBySlug<T extends { slug: string }>(
 	return requirePresent(schema, `Event schema '${slug}' not found`);
 }
 
-export async function createEventSchema(client: Client, body: CreateEventSchemaOptions) {
-	return client.run((c) =>
+export const createEventSchema = (client: Client, body: CreateEventSchemaOptions) =>
+	client.call((c) =>
 		c.eventSchemas.create({
 			payload: {
 				...body,
@@ -31,10 +31,8 @@ export async function createEventSchema(client: Client, body: CreateEventSchemaO
 			},
 		}),
 	);
-}
 
-export async function listEventSchemas(client: Client, entitySchemaId: string) {
-	return client.run((c) =>
+export const listEventSchemas = (client: Client, entitySchemaId: string) =>
+	client.call((c) =>
 		c.eventSchemas.list({ urlParams: { entitySchemaId: EntitySchemaId.make(entitySchemaId) } }),
 	);
-}

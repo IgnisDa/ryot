@@ -3,6 +3,5 @@ import type { ContractPayload } from "./contract-client";
 
 type CreateRelationshipBody = ContractPayload<"relationships", "create">;
 
-export async function createRelationship(client: Client, body: CreateRelationshipBody) {
-	return client.run((c) => c.relationships.create({ payload: body }));
-}
+export const createRelationship = (client: Client, body: CreateRelationshipBody) =>
+	client.call((c) => c.relationships.create({ payload: body }));

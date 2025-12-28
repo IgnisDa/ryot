@@ -1,4 +1,5 @@
 import { EntityId } from "@ryot/contract/schema/brands";
+import { Effect } from "effect";
 
 import { requireObjectRecord, requirePresent } from "~/support/assertions";
 
@@ -19,28 +20,31 @@ function withRecordProperties<T extends { properties: unknown }>(
 	};
 }
 
-export async function createEntity(client: Client, body: CreateEntityInput) {
-	const entity = await client.run((c) => c.entities.create({ payload: body }));
+export const createEntity = (client: Client, body: CreateEntityInput) =>
+	Effect.gen(function* () {
+		const entity = yield* client.call((c) => c.entities.create({ payload: body }));
 
-	requirePresent(entity.id, "Failed to create entity");
+		requirePresent(entity.id, "Failed to create entity");
 
-	return withRecordProperties(entity);
-}
-
-export async function getEntity(client: Client, entityId: string) {
-	const entity = await client.run((c) =>
-		c.entities.get({ path: { entityId: EntityId.make(entityId) } }),
-	);
-
-	return withRecordProperties(entity);
-}
-
-export async function createTrackerWithSchemaAndEntity(client: Client) {
-	const { slug, schemaId } = await createTrackerWithSchema(client);
-	const entity = await createEntity(client, {
-		name: "Test Entity",
-		entitySchemaId: schemaId,
-		properties: { title: "Test Title" },
+		return withRecordProperties(entity);
 	});
-	return { slug, entityId: entity.id };
-}
+
+export const getEntity = (client: Client, entityId: string) =>
+	Effect.gen(function* () {
+		const entity = yield* client.call((c) =>
+			c.entities.get({ path: { entityId: EntityId.make(entityId) } }),
+		);
+
+		return withRecordProperties(entity);
+	});
+
+export const createTrackerWithSchemaAndEntity = (client: Client) =>
+	Effect.gen(function* () {
+		const { slug, schemaId } = yield* createTrackerWithSchema(client);
+		const entity = yield* createEntity(client, {
+			name: "Test Entity",
+			entitySchemaId: schemaId,
+			properties: { title: "Test Title" },
+		});
+		return { slug, entityId: entity.id };
+	});
