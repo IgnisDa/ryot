@@ -28,6 +28,7 @@ const buildEventJoinJsonColumnExpression = (alias: string, joinKey: string) => {
 
 const getTopLevelSortType = (column: string): PropertyType =>
 	match(column)
+		.with("id", () => "string" as const)
 		.with("name", () => "string" as const)
 		.with("createdAt", "updatedAt", () => "date" as const)
 		.otherwise(() => {
@@ -114,6 +115,7 @@ const buildEntityColumnSortExpression = <
 	reference: Extract<RuntimeRef, { type: "entity-column" }>;
 }) => {
 	const expression = match(input.column)
+		.with("id", () => sql`${sql.raw(input.alias)}.id`)
 		.with("name", () => sql`${sql.raw(input.alias)}.name`)
 		.with("createdAt", () => sql`${sql.raw(input.alias)}.created_at`)
 		.with("updatedAt", () => sql`${sql.raw(input.alias)}.updated_at`)
