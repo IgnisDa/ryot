@@ -11,6 +11,7 @@ import {
 	appPropertyPrimitiveTypes,
 	getAppPropertyDefinitionAtPath,
 } from "@ryot/ts-utils";
+import { getComparablePropertyType } from "~/lib/views/policy";
 
 const propertySchemaMessage = "Properties must contain at least one property";
 
@@ -325,20 +326,6 @@ const fieldsSchema = z.record(z.string(), propertyDefinitionSchema);
 
 const createNonEmptyFieldsSchema = (message: string) =>
 	fieldsSchema.refine((value) => Object.keys(value).length > 0, { message });
-
-const getComparablePropertyType = (property: AppPropertyDefinition) => {
-	switch (property.type) {
-		case "date":
-		case "datetime":
-		case "number":
-		case "string":
-		case "boolean":
-		case "integer":
-			return property.type;
-		default:
-			return;
-	}
-};
 
 const isCompatibleRuleValue = (
 	type: AppPropertyPrimitiveType,

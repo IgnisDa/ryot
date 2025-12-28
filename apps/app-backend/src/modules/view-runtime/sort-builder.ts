@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
 import { ViewRuntimeValidationError } from "~/lib/views/errors";
+import { getCommonSortPropertyType } from "~/lib/views/policy";
 import {
 	getPropertyType,
 	getSchemaForReference,
@@ -23,26 +24,6 @@ const getTopLevelSortType = (column: string): PropertyType =>
 				`Unsupported sort column '@${column}'`,
 			);
 		});
-
-const getCommonSortType = (propertyTypes: PropertyType[]) => {
-	const uniqueTypes = [...new Set(propertyTypes)];
-	const firstType = uniqueTypes[0];
-	if (!firstType) {
-		return "string" satisfies PropertyType;
-	}
-	if (uniqueTypes.length === 1) {
-		return firstType;
-	}
-	if (
-		uniqueTypes.every((propertyType) =>
-			["integer", "number"].includes(propertyType),
-		)
-	) {
-		return "number" satisfies PropertyType;
-	}
-
-	return "string" satisfies PropertyType;
-};
 
 const buildPropertySortExpression = <
 	TSchema extends ViewRuntimeSchemaLike,
@@ -149,7 +130,7 @@ export const buildSortExpression = <
 			schemaMap: input.schemaMap,
 		});
 	});
-	const targetType = getCommonSortType(
+	const targetType = getCommonSortPropertyType(
 		resolvedFields.map((field) => field.propertyType),
 	);
 	const expressions = resolvedFields.map((field) => {
