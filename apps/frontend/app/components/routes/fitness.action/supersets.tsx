@@ -21,7 +21,9 @@ export const DisplaySupersetModal = (props: {
 		const sw = props.supersetWith;
 		if (cw && sw) {
 			const index = cw?.supersets.findIndex((s) => s.exercises.includes(sw));
-			if (index !== -1) return [index, cw.supersets[index]] as const;
+			if (index !== -1) {
+				return [index, cw.supersets[index]] as const;
+			}
 		}
 		return undefined;
 	}, [cw, props.supersetWith]);
@@ -60,7 +62,9 @@ const CreateSupersetModal = (props: { onClose: () => void; supersetWith: string 
 		}
 	}, [cw]);
 
-	if (!cw) return null;
+	if (!cw) {
+		return null;
+	}
 
 	return (
 		<Stack gap="lg">
@@ -129,8 +133,11 @@ const CreateSupersetExerciseButton = (props: {
 			variant={index !== -1 ? "light" : "outline"}
 			disabled={cw.supersets.flatMap((s) => s.exercises).includes(props.exercise.identifier)}
 			onClick={() => {
-				if (index !== -1) props.setExercisesHandle.remove(index);
-				else props.setExercisesHandle.append(props.exercise.identifier);
+				if (index !== -1) {
+					props.setExercisesHandle.remove(index);
+				} else {
+					props.setExercisesHandle.append(props.exercise.identifier);
+				}
 			}}
 		>
 			{exerciseDetails?.name}
@@ -146,7 +153,9 @@ const EditSupersetModal = (props: {
 	const [cw, setCurrentWorkout] = useCurrentWorkout();
 	const [exercises, setExercisesHandle] = useListState<string>(props.superset[1].exercises);
 
-	if (!cw) return null;
+	if (!cw) {
+		return null;
+	}
 
 	return (
 		<Stack gap="lg">
@@ -223,8 +232,11 @@ const EditSupersetExerciseButton = (props: {
 				.flatMap((s) => s.exercises)
 				.includes(props.exercise.identifier)}
 			onClick={() => {
-				if (index !== -1) props.setExercisesHandle.remove(index);
-				else props.setExercisesHandle.append(props.exercise.identifier);
+				if (index !== -1) {
+					props.setExercisesHandle.remove(index);
+				} else {
+					props.setExercisesHandle.append(props.exercise.identifier);
+				}
 			}}
 		>
 			{exerciseDetails?.name}

@@ -76,13 +76,17 @@ export const BulkDeleteModal = (props: {
 	});
 
 	useDidUpdate(() => {
-		if (!props.exerciseToDelete || !currentWorkout) return;
+		if (!props.exerciseToDelete || !currentWorkout) {
+			return;
+		}
 
 		const exercise = currentWorkout.exercises.find(
 			(ex) => ex.identifier === props.exerciseToDelete,
 		);
 
-		if (!exercise) return;
+		if (!exercise) {
+			return;
+		}
 
 		const setIdentifiers = exercise.sets.map((s) => s.identifier);
 		form.setFieldValue("selectedSets", setIdentifiers);
@@ -95,7 +99,9 @@ export const BulkDeleteModal = (props: {
 	}, [props.opened]);
 
 	useDidUpdate(() => {
-		if (!props.opened) form.reset();
+		if (!props.opened) {
+			form.reset();
+		}
 	}, [props.opened]);
 
 	const toggleSet = (setIdentifier: string) => {
@@ -126,7 +132,9 @@ export const BulkDeleteModal = (props: {
 	};
 
 	const handleDelete = (values: { selectedSets: string[] }) => {
-		if (!currentWorkout) return;
+		if (!currentWorkout) {
+			return;
+		}
 
 		openConfirmationModal(
 			`This will delete ${values.selectedSets.length} set(s). You cannot undo this action. Are you sure you want to continue?`,
@@ -139,7 +147,9 @@ export const BulkDeleteModal = (props: {
 
 					if (remainingSets.length === 0) {
 						const assets = [...exercise.images, ...exercise.videos];
-						for (const asset of assets) deleteS3AssetMutation.mutate(asset);
+						for (const asset of assets) {
+							deleteS3AssetMutation.mutate(asset);
+						}
 					}
 				}
 
@@ -158,12 +168,13 @@ export const BulkDeleteModal = (props: {
 								);
 
 								if (supersetIdx !== -1) {
-									if (draft.supersets[supersetIdx].exercises.length === 2)
+									if (draft.supersets[supersetIdx].exercises.length === 2) {
 										draft.supersets.splice(supersetIdx, 1);
-									else
+									} else {
 										draft.supersets[supersetIdx].exercises = draft.supersets[
 											supersetIdx
 										].exercises.filter((e) => e !== exercise.identifier);
+									}
 								}
 
 								draft.exercises.splice(idx, 1);

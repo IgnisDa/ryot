@@ -106,8 +106,9 @@ export const MetadataDisplayItem = (props: {
 			metadataDetails.lot !== MediaLot.Manga &&
 			metadataDetails.lot !== MediaLot.Anime &&
 			metadataDetails.lot !== MediaLot.Podcast
-		)
+		) {
 			return completedHistory.length > 0;
+		}
 		return false;
 	}, [
 		metadataDetails,

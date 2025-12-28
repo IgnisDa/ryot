@@ -245,7 +245,9 @@ const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 			}
 
 			if (context.metadataToUpdate.showSeasonEpisodesBefore) {
-				if (episode.seasonNumber !== selectedEpisode.seasonNumber) return false;
+				if (episode.seasonNumber !== selectedEpisode.seasonNumber) {
+					return false;
+				}
 			}
 
 			if (episode.seasonNumber === 0 && selectedEpisode.seasonNumber !== 0) {

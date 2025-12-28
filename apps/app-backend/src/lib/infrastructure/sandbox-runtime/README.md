@@ -84,8 +84,8 @@ Drivers receive `(context, meta)`. `context` is caller-provided input. `meta` in
 
 ```js
 driver("search", async function (context, meta) {
-  const response = await httpCall("GET", "https://api.example.com/search");
-  return { response, scriptId: meta.sandboxScriptId };
+	const response = await httpCall("GET", "https://api.example.com/search");
+	return { response, scriptId: meta.sandboxScriptId };
 });
 ```
 
