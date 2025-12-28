@@ -1,4 +1,4 @@
-import * as z from "./zod.js";
+import * as z from "@ryot/sandbox-sdk/zod";
 
 export type JsonPrimitive = boolean | number | string | null;
 export type JsonValue =
