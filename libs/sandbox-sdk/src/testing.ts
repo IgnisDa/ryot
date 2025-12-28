@@ -3,7 +3,7 @@ import type {
 	ExecutionMetadata,
 	SandboxHost,
 	SandboxManifest,
-} from "./index.js";
+} from "./core.js";
 import type * as z from "./zod.js";
 
 type SandboxTestHost<Manifest extends SandboxManifest> = Omit<

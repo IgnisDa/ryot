@@ -1,5 +1,5 @@
-import type { CreateEventItem, JsonValue } from "@ryot/sandbox-sdk";
 import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
+import type { CreateEventItem, JsonValue } from "@ryot/sandbox-sdk/core";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 

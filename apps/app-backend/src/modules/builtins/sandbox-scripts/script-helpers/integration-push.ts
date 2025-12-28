@@ -3,7 +3,7 @@ import type {
 	IntegrationRecord,
 	ListIntegrationsOptions,
 	SandboxHost,
-} from "@ryot/sandbox-sdk";
+} from "@ryot/sandbox-sdk/core";
 
 export type IntegrationPushHost = SandboxHost<
 	readonly ["httpCall", "getEntity", "getEntitySchema", "listIntegrations", "getUserPreferences"]

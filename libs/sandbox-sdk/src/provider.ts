@@ -6,7 +6,7 @@ import {
 	type GenericDriver,
 	type GenericScriptDefinition,
 	type SandboxManifest,
-} from "./index.js";
+} from "./core.js";
 
 export type ProviderManifest = Extract<SandboxManifest, { kind: "provider" }>;
 

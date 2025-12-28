@@ -1,4 +1,4 @@
-import type { JsonValue } from "@ryot/sandbox-sdk";
+import type { JsonValue } from "@ryot/sandbox-sdk/core";
 import { Schema } from "effect";
 
 import {

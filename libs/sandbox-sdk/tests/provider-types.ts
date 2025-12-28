@@ -1,4 +1,4 @@
-import { defineManifest, type ScriptManifest } from "@ryot/sandbox-sdk";
+import { defineManifest, type ScriptManifest } from "@ryot/sandbox-sdk/core";
 import {
 	defineProvider,
 	defineProviderDriver,
