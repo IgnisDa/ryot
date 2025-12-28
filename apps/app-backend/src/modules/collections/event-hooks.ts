@@ -1,13 +1,13 @@
 import { Effect, Layer } from "effect";
 
-import { GlobalEntityHook } from "#modules/events/global-entity-hook";
+import { GlobalEntityReferenceHook } from "#modules/events/global-entity-reference-hook";
 
 import { CollectionsService } from "./service";
 
-export const GlobalEntityHookLive = Layer.effect(
-	GlobalEntityHook,
+export const GlobalEntityReferenceHookLive = Layer.effect(
+	GlobalEntityReferenceHook,
 	Effect.map(CollectionsService, (cs) => ({
-		onGlobalEntity: (userId: string, entityId: string) =>
+		onGlobalEntityReferenced: (userId: string, entityId: string) =>
 			cs.ensureEntityInLibrary(userId, entityId),
 	})),
 );
