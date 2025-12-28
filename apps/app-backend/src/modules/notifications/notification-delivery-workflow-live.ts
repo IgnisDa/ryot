@@ -1,10 +1,10 @@
 import { Activity } from "@effect/workflow";
 import { DbError } from "@ryot/contract/errors";
-import { NotificationDeliveryResult } from "@ryot/contract/modules/notifications/schemas";
 import { Effect, Layer, Schema } from "effect";
 
 import { deliverEnabledPlatforms } from "./deliver-enabled-platforms";
 import {
+	NotificationDeliveryResult,
 	NotificationDeliveryWorkflow,
 	type NotificationDeliveryWorkflowPayload,
 } from "./notification-delivery-workflow";

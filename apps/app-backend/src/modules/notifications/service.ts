@@ -30,17 +30,6 @@ export class NotificationsService extends Effect.Service<NotificationsService>()
 			const provideWorkflowEngine = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 				effect.pipe(Effect.provideService(WorkflowEngine, engine));
 
-			const requirePlatform = Effect.fn("NotificationsService.requirePlatform")(function* (
-				userId: UserId,
-				platformId: NotificationPlatformId,
-			) {
-				const platform = yield* runWithDb(repository.getForUser({ platformId, userId }));
-				if (!platform) {
-					return yield* notFound("Notification platform not found");
-				}
-				return platform;
-			});
-
 			const list = Effect.fn("NotificationsService.list")(function* (user: CurrentUserValue) {
 				return yield* runWithDb(repository.listForUser(user.id));
 			});
@@ -70,7 +59,6 @@ export class NotificationsService extends Effect.Service<NotificationsService>()
 				platformId: NotificationPlatformId,
 				body: UpdateNotificationPlatformBody,
 			) {
-				yield* requirePlatform(user.id, platformId);
 				const platform = yield* runWithDb(
 					repository.updateForUser({ body, platformId, userId: user.id }),
 				);
