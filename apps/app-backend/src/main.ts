@@ -7,13 +7,18 @@ import { AppConfig, appConfigMeta } from "./lib/infrastructure/config/service";
 import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "./lib/infrastructure/db/migrate";
 import { DbRunnerLive, DbService, TransactionRunnerLive } from "./lib/infrastructure/db/service";
 import { PackageCacheManager } from "./lib/infrastructure/sandbox-runtime/runtime";
+import { AutomationsRepository } from "./modules/automations/repository";
+import { AutomationsService } from "./modules/automations/service";
 import { SeedService } from "./modules/builtins/seed";
 import { EntitiesRepository } from "./modules/entities/repository";
 import { EntitiesService } from "./modules/entities/service";
 import { EntitySchemasRepository } from "./modules/entity-schemas/repository";
 import { QueryEngineService } from "./modules/query-engine/service";
+import { RelationshipSchemasRepository } from "./modules/relationship-schemas/repository";
 import { SavedViewsRepository } from "./modules/saved-views/repository";
 import { SavedViewsService } from "./modules/saved-views/service";
+import { SignalSchemasService } from "./modules/signals/service";
+import { SignalSchemasRepository } from "./modules/signals/signal-schemas-repository";
 import { TrackersRepository } from "./modules/trackers/repository";
 import { TrackersService } from "./modules/trackers/service";
 
@@ -32,13 +37,22 @@ process.on("SIGTERM", onShutdownSignal);
 if (Bun.env["RUN_MIGRATION_ONLY"] === "true") {
 	const MigrationQueryEngineLive = QueryEngineService.Default;
 	const MigrationBootstrapRepositoriesLive = Layer.mergeAll(
+		AutomationsRepository.Default,
 		EntitiesRepository.Default,
 		EntitySchemasRepository.Default,
 		SavedViewsRepository.Default,
+		RelationshipSchemasRepository.Default,
+		SignalSchemasRepository.Default,
 		TrackersRepository.Default,
 	);
 	const MigrationBootstrapServicesLive = Layer.provideMerge(
-		Layer.mergeAll(EntitiesService.Default, SavedViewsService.Default, TrackersService.Default),
+		Layer.mergeAll(
+			AutomationsService.Default,
+			EntitiesService.Default,
+			SavedViewsService.Default,
+			SignalSchemasService.Default,
+			TrackersService.Default,
+		),
 		Layer.mergeAll(MigrationBootstrapRepositoriesLive, MigrationQueryEngineLive),
 	);
 	const MigrationOnlyLive = MigrationsComplete.Default.pipe(

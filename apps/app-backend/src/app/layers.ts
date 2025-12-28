@@ -13,6 +13,11 @@ import { PersistedQueueLive, WorkflowEngineLive } from "#lib/infrastructure/work
 import { AuthService } from "#modules/auth/service";
 import { AutomationsRepository } from "#modules/automations/repository";
 import { AutomationsService } from "#modules/automations/service";
+import { SignalDispatchLive } from "#modules/automations/signal-dispatch";
+import {
+	SubscriptionExecutionWorkflowDefinitionsLive,
+	SubscriptionExecutionWorkflowOperationsLive,
+} from "#modules/automations/subscription-execution-workflow-live";
 import { SeedService } from "#modules/builtins/seed";
 import { AddEntityToCollectionWorkflowDefinitionsLive } from "#modules/collections/add-entity-to-collection-workflow-live";
 import { CollectionsRepository } from "#modules/collections/repository";
@@ -185,6 +190,11 @@ const InterestReconcilerLive = Layer.provide(
 
 const InterestServicesLive = Layer.mergeAll(StreamRegistry.Default, InterestReconcilerLive);
 const EventsServiceLive = Layer.provide(EventsService.Default, QueryEngineServiceLive);
+const SignalDispatchLayerLive = Layer.provide(SignalDispatchLive, AutomationsService.Default);
+const SignalEmissionServiceLive = Layer.provide(
+	SignalEmissionService.Default,
+	SignalDispatchLayerLive,
+);
 
 const RuntimeSandboxServiceLive = Layer.provide(
 	SandboxService.Default,
@@ -204,7 +214,7 @@ const ContentServicesLive = Layer.mergeAll(
 	QueryEngineServiceLive,
 	RelationshipSchemasService.Default,
 	AutomationsService.Default,
-	SignalEmissionService.Default,
+	SignalEmissionServiceLive,
 	SignalSchemasService.Default,
 	TranslationsService.Default,
 );
@@ -283,9 +293,9 @@ const ServiceDependenciesLive = Layer.provide(
 	ServicesWithTestSupportLive,
 	ApplicationInfrastructureLive,
 );
-
 const RuntimeLive = Layer.mergeAll(
 	AddEntityToCollectionWorkflowDefinitionsLive,
+	SubscriptionExecutionWorkflowDefinitionsLive,
 	ProviderEntityPopulationWorkflowDefinitionsLive,
 	EntitySchemaWorkflowDefinitionsLive,
 	EventCreateWorkflowDefinitionsLive,
@@ -309,9 +319,14 @@ const RuntimeLive = Layer.mergeAll(
 	InfrequentCronSchedulerLive,
 );
 
+const SeedServiceLive = Layer.provide(
+	SeedService.Default,
+	Layer.mergeAll(AutomationsService.Default, SignalSchemasService.Default),
+);
+
 const RuntimeAfterMigrationsLive = MigrationsComplete.Default.pipe(
 	Layer.flatMap(() =>
-		SeedService.Default.pipe(
+		SeedServiceLive.pipe(
 			Layer.flatMap(() =>
 				LegacyBootstrapMigrateDrop.Default.pipe(Layer.flatMap(() => RuntimeLive)),
 			),
@@ -324,6 +339,7 @@ const RuntimeDependenciesLive = Layer.mergeAll(
 	ApplicationInfrastructureLive,
 	Layer.provide(EntityImportWorkflowOperationsLive, ApplicationInfrastructureLive),
 	Layer.provide(EventCreateWorkflowOperationsLive, ApplicationInfrastructureLive),
+	SubscriptionExecutionWorkflowOperationsLive,
 	Layer.provide(LibraryEntityImportWorkflowOperationsLive, ApplicationInfrastructureLive),
 	Layer.provide(TranslateEntityWorkflowOperationsLive, ApplicationInfrastructureLive),
 	Layer.provide(MediaTrendingWorkflowOperationsLive, ApplicationInfrastructureLive),

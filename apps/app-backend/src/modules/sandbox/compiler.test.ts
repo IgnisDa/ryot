@@ -33,6 +33,24 @@ export default defineBeforeCreateTrigger({
 });
 `;
 
+const automationSource = `
+import { defineManifest } from "@ryot/sandbox-sdk";
+import { defineAutomation } from "@ryot/sandbox-sdk/automation";
+
+export const manifest = defineManifest({
+  kind: "automation",
+  name: "Automation",
+  slug: "automation.test",
+  capabilities: [],
+  requiredAppConfigKeys: [],
+});
+
+export default defineAutomation({
+  manifest,
+  run: async () => null,
+});
+`;
+
 it.effect("compiles one SDK script to an inline-source-mapped ESM module", () =>
 	Effect.gen(function* () {
 		const compiled = yield* compile(
@@ -80,6 +98,16 @@ it.effect("compiles a typed before-create trigger definition", () =>
 			slug: "trigger.before",
 			requiredAppConfigKeys: [],
 		});
+		expect(compiled.javascript).toContain("ryot:sandbox-script");
+	}),
+);
+
+it.effect("compiles a typed automation definition", () =>
+	Effect.gen(function* () {
+		const compiled = yield* compile(automationSource);
+
+		expect(compiled.manifest.kind).toBe("automation");
+		expect(compiled.manifest.slug).toBe("automation.test");
 		expect(compiled.javascript).toContain("ryot:sandbox-script");
 	}),
 );
