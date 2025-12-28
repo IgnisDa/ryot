@@ -113,9 +113,9 @@ Review every file touched during this plan and remove anything that is no longer
 
 </cleanup-task-template>
 
-After creating all task files, update the parent README.md file to replace the placeholder Tasks section with the actual task tracking table:
+After creating all task files, update the parent README.md file to replace the top-of-file Tasks section with the actual task tracking table:
 
-Replace the Tasks section (everything after `---` and `## Tasks`) with:
+Replace the Tasks section at the top of the file with:
 
 ## <tasks-section-template>
 
@@ -135,7 +135,7 @@ Replace the Tasks section (everything after `---` and `## Tasks`) with:
 
 </tasks-section-template>
 
-Do NOT modify other sections of the parent README.md.
+Keep the Tasks section at the top of the README.md and do NOT modify other sections of the parent README.md.
 
 ### 6. Updating task status
 
