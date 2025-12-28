@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { isMonitorAbleEntity } from "./monitorable";
+import { isMediaMonitorableEntity } from "./monitorable";
 
-const entity = (overrides: Parameters<typeof isMonitorAbleEntity>[0]) => overrides;
+const entity = (overrides: Parameters<typeof isMediaMonitorableEntity>[0]) => overrides;
 
-describe("isMonitorableEntity", () => {
+describe("isMediaMonitorableEntity", () => {
 	it("accepts provider-backed top-level media, people, and companies", () => {
 		for (const entitySchemaSlug of ["movie", "person", "company"]) {
 			expect(
-				isMonitorAbleEntity(
+				isMediaMonitorableEntity(
 					entity({
 						entitySchemaSlug,
 						entityUserId: null,
@@ -38,7 +38,7 @@ describe("isMonitorableEntity", () => {
 			}),
 			entity({ entitySchemaSlug: "movie", entityUserId: null, provenance: null }),
 		]) {
-			expect(isMonitorAbleEntity(value)).toBe(false);
+			expect(isMediaMonitorableEntity(value)).toBe(false);
 		}
 	});
 });
