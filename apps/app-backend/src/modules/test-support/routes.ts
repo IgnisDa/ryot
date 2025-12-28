@@ -96,10 +96,5 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 			Effect.gen(function* () {
 				return yield* (yield* TestSupportService).linkAuthAccount(payload);
 			}).pipe(dieOnDbError),
-		)
-		.handle("createEventSchemaTrigger", ({ payload }) =>
-			Effect.gen(function* () {
-				return yield* (yield* TestSupportService).createEventSchemaTrigger(payload);
-			}).pipe(dieOnDbError),
 		),
 );

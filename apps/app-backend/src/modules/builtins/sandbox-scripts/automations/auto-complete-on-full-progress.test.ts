@@ -1,16 +1,16 @@
 import type { CreateEventItem, JsonValue } from "@ryot/sandbox-sdk";
+import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
-import type { AfterCreateTriggerInput } from "@ryot/sandbox-sdk/trigger";
 import { describe, expect, it } from "vitest";
 
 import definition, { manifest } from "./auto-complete-on-full-progress.sandbox";
 import {
-	afterCreateContext,
+	eventAutomationContext,
 	entityRecord,
 	eventRecord,
 	execution,
 	hostSuccess,
-} from "./test-utils";
+} from "./automation-test-utils";
 
 const completeSchema = {
 	name: "Complete",
@@ -39,18 +39,20 @@ const createHost = (options: {
 	};
 };
 
-const run = (context: AfterCreateTriggerInput, host: ReturnType<typeof createHost>["host"]) =>
-	runSandboxTestDriver(definition.drivers.trigger, context, host, execution);
+const run = (context: AutomationInput, host: ReturnType<typeof createHost>["host"]) =>
+	runSandboxTestDriver(definition.drivers.automation, context, host, execution);
 
 describe("auto-complete-on-full-progress sandbox script", () => {
 	it("completes non-episodic media at the progress event timestamp", () => {
 		const { created, host } = createHost({});
 		return run(
-			afterCreateContext({
-				occurredAt: "2026-02-03T04:05:06.000Z",
-				properties: { progressPercent: 100 },
-				inheritedProperties: { consumedOn: "Jellyfin" },
-			}),
+			eventAutomationContext(
+				{
+					occurredAt: "2026-02-03T04:05:06.000Z",
+					properties: { progressPercent: 100, consumedOn: "Jellyfin" },
+				},
+				{ inheritedProperties: ["consumedOn"] },
+			),
 			host,
 		).then(() => {
 			expect(created).toEqual([
@@ -91,17 +93,17 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 		});
 		return Promise.all([
 			run(
-				afterCreateContext({
-					eventId: "episode-2",
-					entitySchemaSlug: "anime",
+				eventAutomationContext({
+					id: "episode-2",
+					subject: { id: "entity-1", name: "Anime", entitySchemaSlug: "anime" },
 					properties: { progressPercent: 100, animeEpisode: 2 },
 				}),
 				complete.host,
 			),
 			run(
-				afterCreateContext({
-					eventId: "episode-1",
-					entitySchemaSlug: "anime",
+				eventAutomationContext({
+					id: "episode-1",
+					subject: { id: "entity-1", name: "Anime", entitySchemaSlug: "anime" },
 					properties: { progressPercent: 100, animeEpisode: 1 },
 				}),
 				incomplete.host,
@@ -138,9 +140,9 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 		];
 		const { created, host } = createHost({ events, entityProperties: { chapters: 2 } });
 		return run(
-			afterCreateContext({
-				eventId: "chapter-2b",
-				entitySchemaSlug: "manga",
+			eventAutomationContext({
+				id: "chapter-2b",
+				subject: { id: "entity-1", name: "Manga", entitySchemaSlug: "manga" },
 				properties: { progressPercent: 100, mangaChapter: 2 },
 			}),
 			host,

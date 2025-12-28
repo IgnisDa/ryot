@@ -26,22 +26,6 @@ const manifests = [
 		requiredAppConfigKeys: ["providers.testApiKey"],
 		providerInformation: { source: "Test", canonicalLanguage: "en" },
 	},
-	{
-		kind: "trigger",
-		mode: "before_create",
-		name: "Before trigger",
-		slug: "trigger.before",
-		requiredAppConfigKeys: [],
-		capabilities: ["getEntity"],
-	},
-	{
-		kind: "trigger",
-		mode: "after_create",
-		name: "After trigger",
-		slug: "trigger.after",
-		requiredAppConfigKeys: [],
-		capabilities: ["createEvents"],
-	},
 ] satisfies SandboxManifest[];
 
 const decodeManifest = Schema.decodeUnknown(SandboxScriptManifest);
