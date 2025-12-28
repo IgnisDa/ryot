@@ -88,7 +88,8 @@ it.effect("keeps parent workflows as orchestrations instead of queue pass-throug
 			]);
 
 		expect(entityImportWorkflow).toContain("validate-entity-details");
-		expect(entityImportWorkflow).toContain("write-entity-graph");
+		expect(entityImportWorkflow).toContain("upsert-root-entity");
+		expect(entityImportWorkflow).toContain("stamp-root-populated-at");
 		expect(libraryWorkflow).toContain("ensureLibraryMembership");
 		expect(libraryWorkflow).not.toContain("ensureEntityInLibrary");
 
@@ -142,7 +143,10 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 		]);
 
 		expect(populationWorkflow).toContain("validate-entity-details");
-		expect(populationWorkflow).toContain("write-entity-graph");
+		expect(populationWorkflow).toContain("upsert-root-entity");
+		expect(populationWorkflow).toContain("sync-related-entity-group:");
+		expect(populationWorkflow).toContain("write-child-entity-set:");
+		expect(populationWorkflow).toContain("stamp-root-populated-at");
 		expect(populationWorkflow).toContain("publish-primary-entity");
 
 		for (const source of [trigger, preload, libraryWorkflow, monitoringWorkflow]) {
