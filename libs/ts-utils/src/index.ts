@@ -169,6 +169,7 @@ export {
 	type AppArrayPropertyValidation,
 	type AppBooleanProperty,
 	type AppDateProperty,
+	type AppDateTimeProperty,
 	type AppIntegerProperty,
 	type AppNumberProperty,
 	type AppNumberPropertyValidation,

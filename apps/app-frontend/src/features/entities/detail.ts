@@ -41,6 +41,25 @@ function formatEntityDetailPropertyValue(
 			}
 			return null;
 		}
+		case "datetime": {
+			if (typeof value === "string" && value.trim() !== "") {
+				try {
+					const date = new Date(value);
+					if (!Number.isNaN(date.getTime())) {
+						return date.toLocaleString(undefined, {
+							month: "long",
+							day: "numeric",
+							hour: "numeric",
+							year: "numeric",
+							minute: "2-digit",
+						});
+					}
+				} catch {
+					return value;
+				}
+			}
+			return null;
+		}
 		case "array": {
 			if (Array.isArray(value) && value.length > 0) {
 				const items = value

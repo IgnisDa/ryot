@@ -69,6 +69,13 @@ export function getGeneratedPropertyFieldConfig(
 			return { kind: "checkbox", label, required };
 		case "date":
 			return { kind: "text", label, required, inputType: "date" };
+		case "datetime":
+			return {
+				label,
+				required,
+				kind: "text",
+				placeholder: "2026-03-27T14:30:00Z",
+			};
 		case "integer":
 		case "number":
 			return {

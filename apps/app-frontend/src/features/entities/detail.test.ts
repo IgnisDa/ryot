@@ -11,6 +11,7 @@ describe("getEntityDetailProperties", () => {
 				notes: "Easy pace",
 				startedOn: "2026-03-08",
 				ignored: "not in schema",
+				completedAt: "2026-03-08T10:15:00Z",
 			},
 		});
 
@@ -18,9 +19,10 @@ describe("getEntityDetailProperties", () => {
 			{
 				fields: {
 					notes: { type: "string" },
-					completed: { type: "boolean" },
 					startedOn: { type: "date" },
+					completed: { type: "boolean" },
 					distanceKm: { type: "number" },
+					completedAt: { type: "datetime" },
 				},
 			},
 			entity.properties,
@@ -42,18 +44,25 @@ describe("getEntityDetailProperties", () => {
 				rawValue: true,
 			},
 			{
-				key: "startedOn",
+				key: "completedAt",
+				type: "datetime",
+				label: "completedAt",
+				rawValue: "2026-03-08T10:15:00Z",
+				value: expect.any(String),
+			},
+			{
 				type: "date",
+				key: "startedOn",
 				label: "startedOn",
 				value: "March 8, 2026",
 				rawValue: "2026-03-08",
 			},
 			{
-				key: "distanceKm",
-				type: "number",
-				label: "distanceKm",
 				value: "5.25",
 				rawValue: 5.25,
+				type: "number",
+				key: "distanceKm",
+				label: "distanceKm",
 			},
 		]);
 	});
