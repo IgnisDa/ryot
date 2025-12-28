@@ -78,6 +78,10 @@
 
 ### Notification delivery settings
 
+| App Config Key | Variable | Description | Required | Sensitive | Default |
+|---|---|---|---|---|---|
+| `notifications.disabled` | `DISABLE_NOTIFICATIONS` | Disable delivery of all notifications | No | No | `false` |
+
 #### SMTP delivery settings
 
 | App Config Key | Variable | Description | Required | Sensitive | Default |

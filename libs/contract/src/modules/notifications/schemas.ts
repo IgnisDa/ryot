@@ -1,21 +1,8 @@
-import { Option, Schema } from "effect";
+import { Schema } from "effect";
 
 import { NotificationPlatformId } from "../../schema/brands";
+import { Email, HttpUrl } from "../../schema/utils";
 import { NotificationEventType, NotificationPlatformKind } from "./types";
-
-const parseUrl = Option.liftThrowable((value: string) => new URL(value));
-
-const isHttpUrl = (value: string) =>
-	parseUrl(value).pipe(
-		Option.filter((url) => ["http:", "https:"].includes(url.protocol)),
-		Option.match({ onNone: () => "must be an http(s) URL", onSome: () => true as const }),
-	);
-
-const isEmail = (value: string) =>
-	/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? true : "must be a valid email address";
-
-const HttpUrl = Schema.String.pipe(Schema.filter(isHttpUrl));
-const EmailAddress = Schema.String.pipe(Schema.filter(isEmail));
 
 const AppriseSpecifics = Schema.Struct({
 	baseUrl: HttpUrl,
@@ -29,7 +16,7 @@ const DiscordSpecifics = Schema.Struct({
 });
 
 const EmailSpecifics = Schema.Struct({
-	recipient: EmailAddress,
+	recipient: Email,
 	kind: Schema.Literal("email"),
 });
 
