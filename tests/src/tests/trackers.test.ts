@@ -120,6 +120,10 @@ describe("Trackers E2E", () => {
 
 	it("reorders trackers while keeping omitted trackers at the end", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
+
+		const initialTrackers = await listTrackers(client, cookies, { includeDisabled: true });
+		const builtinTrackerIds = initialTrackers.filter((t) => t.isBuiltin).map((t) => t.id);
+
 		const first = await createTracker(client, cookies, {
 			name: `First ${crypto.randomUUID()}`,
 		});
@@ -135,12 +139,18 @@ describe("Trackers E2E", () => {
 			{ Cookie: cookies },
 		);
 
-		expect(reorderedBody.trackerIds).toEqual([third.trackerId, first.trackerId, second.trackerId]);
+		expect(reorderedBody.trackerIds).toEqual([
+			third.trackerId,
+			first.trackerId,
+			...builtinTrackerIds,
+			second.trackerId,
+		]);
 
 		const trackers = await listTrackers(client, cookies);
 		expect(trackers.map((tracker) => tracker.id)).toEqual([
 			third.trackerId,
 			first.trackerId,
+			...builtinTrackerIds,
 			second.trackerId,
 		]);
 	});
