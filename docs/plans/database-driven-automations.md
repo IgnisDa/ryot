@@ -644,19 +644,9 @@ behavior.
 
 ## Delivery
 
-### Prerequisites — separate merges before the feature branch
-
-Each lands alone with its own tests and no automation dependencies:
-
-1. **Per-scope population activities.** Restructure provider population's whole-graph transaction
-   into per-scope activity commits aligned to natural graph units, with the root's `populated_at`
-   stamped in the final step.
-2. **Single edge writer during population.** Make the bulk relationship sync the sole writer of
-   each parent-child relationship set in both initial and refresh modes, removing the per-child
-   individual inserts so refresh syncs classify genuinely new rows as `create` with an accurate
-   `createdCount`.
-3. **Outcome capture.** Add `create`/`update`/`delete`/`noop` classification with atomic
-   before/after capture to provider-backed entity saves and relationship synchronization.
+Provider population already commits per natural graph scope through a single bulk edge writer
+and returns ordered mutation outcomes with captured snapshots as bounded per-activity envelopes
+(see Provider population above); the phases below dispatch directly from those envelopes.
 
 ### Phases
 
