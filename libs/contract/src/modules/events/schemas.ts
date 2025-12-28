@@ -2,6 +2,7 @@ import type { JsonValue } from "@ryot/sandbox-sdk";
 import { Schema } from "effect";
 
 import { EntityId, EventId, EventSchemaId } from "../../schema/brands";
+import { strictStruct } from "../../schema/utils";
 
 export type EventTriggerMetadata = {
 	inheritedProperties?: string[];
@@ -72,6 +73,28 @@ export const CreateEventItem = Schema.Struct({
 
 export type CreateEventItem = typeof CreateEventItem.Type;
 
-export const CreateEventsResponse = Schema.Struct({ count: Schema.Number });
+export const EventCreateFailureReason = Schema.Union(
+	strictStruct({ kind: Schema.Literal("not_found"), message: Schema.String }),
+	strictStruct({ kind: Schema.Literal("bad_request"), message: Schema.String }),
+);
+
+export type EventCreateFailureReason = typeof EventCreateFailureReason.Type;
+
+export const EventCreateItemOutcome = Schema.Union(
+	strictStruct({ index: Schema.Number, status: Schema.Literal("written"), eventId: EventId }),
+	strictStruct({
+		index: Schema.Number,
+		reason: Schema.String,
+		status: Schema.Literal("skipped_by_policy"),
+	}),
+);
+
+export type EventCreateItemOutcome = typeof EventCreateItemOutcome.Type;
+
+export const CreateEventsResponse = strictStruct({
+	count: Schema.Number,
+	outcomes: Schema.Array(EventCreateItemOutcome),
+	failure: Schema.NullOr(strictStruct({ index: Schema.Number, reason: EventCreateFailureReason })),
+});
 
 export type CreateEventsResponse = typeof CreateEventsResponse.Type;
