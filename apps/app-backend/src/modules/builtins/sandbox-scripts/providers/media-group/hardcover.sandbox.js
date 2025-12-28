@@ -182,7 +182,6 @@ driver("details", async function (context) {
 			return {
 				name: memberName,
 				externalId: memberId,
-				reverseDirection: true,
 				scriptSlug: "book.hardcover",
 				relationshipProperties: { order: idx + 1 },
 			};
@@ -196,12 +195,13 @@ driver("details", async function (context) {
 
 	return {
 		name: title,
-		relatedEntities,
-		properties: {
-			parts,
-			sourceUrl,
-			images: [],
-			description,
-		},
+		properties: {parts,sourceUrl,images: [],description,},
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: relatedEntities,
+				relationshipSchemaSlug: "book-group-to-book",
+			},
+		],
 	};
 });

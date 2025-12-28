@@ -51,3 +51,7 @@ The contract API is scoped to a user's own trackers, so it cannot create the glo
 ## Isolation
 
 Parallel test runs share one backend, so keep fixtures collision-free: use randomized external ids (e.g. the random TMDB id in `seedGlobalShowEpisodeTree`) and a unique schema slug per user when two users must exercise the same schema shape (in production each user has their own schema anyway).
+
+## Monitoring
+
+`tests/src/monitoring/monitoring.test.ts` seeds an offline details provider, then exercises status/enable/disable through the typed contract client. Its cron case uses the real admin infrequent-cron trigger and a local Apprise server, so baseline, provider refresh, subscriber fan-out, and notification delivery are covered together. `fixtures/monitoring.ts` owns the endpoint wrappers and monitoring-edge SQL assertion.
