@@ -276,15 +276,18 @@ it.effect("creates a collection with valid inputs", () => {
 			insertEntity: () => {
 				created = true;
 				return Effect.succeed({
-					createdAt: now,
-					updatedAt: now,
-					externalId: null,
-					name: "Favorites",
-					populatedAt: null,
-					sandboxScriptId: null,
-					id: EntityId.make("collection-id"),
-					properties: { description: "My favorites" },
-					entitySchemaId: EntitySchemaId.make("collection-schema-id"),
+					wasInserted: true,
+					entity: {
+						createdAt: now,
+						updatedAt: now,
+						externalId: null,
+						name: "Favorites",
+						populatedAt: null,
+						sandboxScriptId: null,
+						id: EntityId.make("collection-id"),
+						properties: { description: "My favorites" },
+						entitySchemaId: EntitySchemaId.make("collection-schema-id"),
+					},
 				});
 			},
 		}),
