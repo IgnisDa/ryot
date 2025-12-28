@@ -1,13 +1,8 @@
 import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils";
 import { ViewRuntimeValidationError } from "./errors";
+import type { RuntimeRef } from "./expression";
 
 export type PropertyType = AppPropertyDefinition["type"];
-
-export type RuntimeRef =
-	| { type: "entity-column"; slug: string; column: string }
-	| { type: "schema-property"; slug: string; property: string }
-	| { type: "event-join-column"; joinKey: string; column: string }
-	| { type: "event-join-property"; joinKey: string; property: string };
 
 const entityReferencePrefix = "entity";
 const eventReferencePrefix = "event";

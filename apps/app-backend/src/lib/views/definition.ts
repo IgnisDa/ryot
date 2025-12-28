@@ -3,6 +3,7 @@ import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { match } from "ts-pattern";
 import { db } from "~/lib/db";
 import { entitySchema, eventSchema } from "~/lib/db/schema";
+import { nullViewExpression } from "~/lib/views/expression";
 import {
 	buildEventJoinMap,
 	buildSchemaMap,
@@ -223,43 +224,53 @@ const buildRuntimeFields = (input: {
 		.with("grid", () => [
 			{
 				key: "image",
-				references: input.displayConfiguration.grid.imageProperty ?? [],
+				expression:
+					input.displayConfiguration.grid.imageProperty ?? nullViewExpression,
 			},
 			{
 				key: "title",
-				references: input.displayConfiguration.grid.titleProperty ?? [],
+				expression:
+					input.displayConfiguration.grid.titleProperty ?? nullViewExpression,
 			},
 			{
 				key: "subtitle",
-				references: input.displayConfiguration.grid.subtitleProperty ?? [],
+				expression:
+					input.displayConfiguration.grid.subtitleProperty ??
+					nullViewExpression,
 			},
 			{
 				key: "badge",
-				references: input.displayConfiguration.grid.badgeProperty ?? [],
+				expression:
+					input.displayConfiguration.grid.badgeProperty ?? nullViewExpression,
 			},
 		])
 		.with("list", () => [
 			{
 				key: "image",
-				references: input.displayConfiguration.list.imageProperty ?? [],
+				expression:
+					input.displayConfiguration.list.imageProperty ?? nullViewExpression,
 			},
 			{
 				key: "title",
-				references: input.displayConfiguration.list.titleProperty ?? [],
+				expression:
+					input.displayConfiguration.list.titleProperty ?? nullViewExpression,
 			},
 			{
 				key: "subtitle",
-				references: input.displayConfiguration.list.subtitleProperty ?? [],
+				expression:
+					input.displayConfiguration.list.subtitleProperty ??
+					nullViewExpression,
 			},
 			{
 				key: "badge",
-				references: input.displayConfiguration.list.badgeProperty ?? [],
+				expression:
+					input.displayConfiguration.list.badgeProperty ?? nullViewExpression,
 			},
 		])
 		.with("table", () => {
 			return input.displayConfiguration.table.columns.map((column, index) => ({
 				key: `column_${index}`,
-				references: column.property,
+				expression: column.expression,
 			}));
 		})
 		.exhaustive();
