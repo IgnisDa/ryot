@@ -62,50 +62,49 @@ describe("PropertyPathAutocomplete - disabled state", () => {
 });
 
 describe("PropertyPathAutocomplete - built-in group", () => {
-	it("includes @name, @createdAt, @updatedAt in Built-in group", () => {
+	it("includes entity built-ins in each schema group", () => {
 		const element = PropertyPathAutocomplete({
 			excludeImage: true,
 			schemas: [animeSchema],
 		});
 		const ap = getAutocompleteProps(element);
 
-		const builtinGroup = ap.data?.find((g) => g.group === "Built-in");
-		expect(builtinGroup?.items).toContain("@name");
-		expect(builtinGroup?.items).toContain("@createdAt");
-		expect(builtinGroup?.items).toContain("@updatedAt");
+		const animeGroup = ap.data?.find((g) => g.group === "anime");
+		expect(animeGroup?.items).toContain("entity.anime.@name");
+		expect(animeGroup?.items).toContain("entity.anime.@createdAt");
+		expect(animeGroup?.items).toContain("entity.anime.@updatedAt");
 	});
 
-	it("excludes @image when excludeImage is true", () => {
+	it("excludes entity @image when excludeImage is true", () => {
 		const element = PropertyPathAutocomplete({
 			excludeImage: true,
 			schemas: [animeSchema],
 		});
 		const ap = getAutocompleteProps(element);
 
-		const builtinGroup = ap.data?.find((g) => g.group === "Built-in");
-		expect(builtinGroup?.items).not.toContain("@image");
+		const animeGroup = ap.data?.find((g) => g.group === "anime");
+		expect(animeGroup?.items).not.toContain("entity.anime.@image");
 	});
 
-	it("includes @image when excludeImage is false", () => {
+	it("includes entity @image when excludeImage is false", () => {
 		const element = PropertyPathAutocomplete({
 			excludeImage: false,
 			schemas: [animeSchema],
 		});
 		const ap = getAutocompleteProps(element);
 
-		const builtinGroup = ap.data?.find((g) => g.group === "Built-in");
-		expect(builtinGroup?.items).toContain("@image");
+		const animeGroup = ap.data?.find((g) => g.group === "anime");
+		expect(animeGroup?.items).toContain("entity.anime.@image");
 	});
 
-	it("still shows Built-in group even when schemas is empty", () => {
+	it("shows no schema groups when schemas is empty", () => {
 		const element = PropertyPathAutocomplete({
 			schemas: [],
 			excludeImage: true,
 		});
 		const ap = getAutocompleteProps(element);
 
-		const builtinGroup = ap.data?.find((g) => g.group === "Built-in");
-		expect(builtinGroup).toBeDefined();
+		expect(ap.data).toEqual([]);
 	});
 });
 
@@ -118,8 +117,8 @@ describe("PropertyPathAutocomplete - schema-grouped options", () => {
 		const ap = getAutocompleteProps(element);
 
 		const animeGroup = ap.data?.find((g) => g.group === "anime");
-		expect(animeGroup?.items).toContain("anime.year");
-		expect(animeGroup?.items).toContain("anime.title");
+		expect(animeGroup?.items).toContain("entity.anime.year");
+		expect(animeGroup?.items).toContain("entity.anime.title");
 	});
 
 	it("creates a separate group for each schema", () => {
@@ -131,11 +130,11 @@ describe("PropertyPathAutocomplete - schema-grouped options", () => {
 
 		const animeGroup = ap.data?.find((g) => g.group === "anime");
 		const mangaGroup = ap.data?.find((g) => g.group === "manga");
-		expect(animeGroup?.items).toContain("anime.year");
-		expect(mangaGroup?.items).toContain("manga.chapters");
+		expect(animeGroup?.items).toContain("entity.anime.year");
+		expect(mangaGroup?.items).toContain("entity.manga.chapters");
 	});
 
-	it("omits groups for schemas with no properties", () => {
+	it("still includes built-ins for schemas with no properties", () => {
 		const emptySchema = createEntitySchemaFixture({
 			slug: "empty",
 			propertiesSchema: { fields: {} },
@@ -147,7 +146,7 @@ describe("PropertyPathAutocomplete - schema-grouped options", () => {
 		const ap = getAutocompleteProps(element);
 
 		const emptyGroup = ap.data?.find((g) => g.group === "empty");
-		expect(emptyGroup).toBeUndefined();
+		expect(emptyGroup?.items).toContain("entity.empty.@name");
 	});
 });
 
@@ -155,12 +154,12 @@ describe("PropertyPathAutocomplete - value passthrough", () => {
 	it("forwards value prop to the autocomplete", () => {
 		const element = PropertyPathAutocomplete({
 			excludeImage: true,
-			value: "anime.year",
+			value: "entity.anime.year",
 			schemas: [animeSchema],
 		});
 		const ap = getAutocompleteProps(element);
 
-		expect(ap.value).toBe("anime.year");
+		expect(ap.value).toBe("entity.anime.year");
 	});
 
 	it("uses empty string as default value when none given", () => {

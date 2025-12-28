@@ -20,6 +20,11 @@ const entitySchemaSlugArraySchema = createNonEmptyStringArraySchema(
 	"At least one entity schema slug is required",
 );
 
+const eventJoinKeySchema = nonEmptyTrimmedStringSchema.regex(
+	/^[A-Za-z_][A-Za-z0-9_]*$/,
+	"Event join keys must start with a letter or underscore and contain only letters, numbers, and underscores",
+);
+
 const displayPropertyReferenceSchema = z.array(z.string()).nullable();
 
 const createEntityCardDisplayConfigSchema = () =>
@@ -35,10 +40,32 @@ export const sortDefinitionSchema = z.object({
 	direction: z.enum(["asc", "desc"]),
 });
 
+export const latestEventJoinDefinitionSchema = z.object({
+	key: eventJoinKeySchema,
+	kind: z.literal("latestEvent"),
+	eventSchemaSlug: nonEmptyTrimmedStringSchema,
+});
+
+export const eventJoinDefinitionSchema = z.discriminatedUnion("kind", [
+	latestEventJoinDefinitionSchema,
+]);
+
+export const eventJoinDefinitionArraySchema = z
+	.array(eventJoinDefinitionSchema)
+	.refine(
+		(joins) => new Set(joins.map((join) => join.key)).size === joins.length,
+		"Event join keys must be unique",
+	)
+	.default([]);
+
 export type GridConfig = z.infer<typeof gridConfigSchema>;
 export type ListConfig = z.infer<typeof listConfigSchema>;
 export type TableConfig = z.infer<typeof tableConfigSchema>;
 export type SortDefinition = z.infer<typeof sortDefinitionSchema>;
+export type EventJoinDefinition = z.infer<typeof eventJoinDefinitionSchema>;
+export type LatestEventJoinDefinition = z.infer<
+	typeof latestEventJoinDefinitionSchema
+>;
 
 export const gridConfigSchema = createEntityCardDisplayConfigSchema();
 
@@ -63,8 +90,9 @@ export type DisplayConfiguration = z.infer<typeof displayConfigurationSchema>;
 
 export const savedViewQueryDefinitionSchema = z.object({
 	sort: sortDefinitionSchema,
-	filters: z.array(filterExpressionSchema),
+	eventJoins: eventJoinDefinitionArraySchema,
 	entitySchemaSlugs: entitySchemaSlugArraySchema,
+	filters: z.array(filterExpressionSchema),
 });
 
 export type SavedViewQueryDefinition = z.infer<

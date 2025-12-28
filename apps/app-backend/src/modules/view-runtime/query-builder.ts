@@ -1,7 +1,16 @@
 import { sql } from "drizzle-orm";
 import { db } from "~/lib/db";
-import { entity, entitySchema, type ImageSchemaType } from "~/lib/db/schema";
-import type { ViewRuntimeSchemaLike } from "~/lib/views/reference";
+import {
+	entity,
+	entitySchema,
+	event,
+	type ImageSchemaType,
+} from "~/lib/db/schema";
+import type {
+	ViewRuntimeEventJoinLike,
+	ViewRuntimeReferenceContext,
+	ViewRuntimeSchemaLike,
+} from "~/lib/views/reference";
 import {
 	buildResolvedPropertiesExpression,
 	buildTableCellsExpression,
@@ -21,6 +30,8 @@ import { buildSortExpression } from "./sort-builder";
 export type ViewRuntimeSchemaRow = ViewRuntimeSchemaLike & {
 	id: string;
 };
+
+export type ViewRuntimePreparedEventJoin = ViewRuntimeEventJoinLike;
 
 type QueryRow = {
 	total: number;
@@ -49,21 +60,20 @@ type PaginationResult = PaginationInput & {
 	hasPreviousPage: boolean;
 };
 
-const buildFilteredEntitiesCte = (input: {
+const getEventJoinCteName = (joinKey: string) => `latest_event_join_${joinKey}`;
+const getEventJoinColumnName = (joinKey: string) => `event_join_${joinKey}`;
+
+const buildBaseEntitiesCte = (input: {
 	userId: string;
 	entitySchemaIds: string[];
-	filterWhereClause?: ReturnType<typeof sql>;
 }) => {
 	const entitySchemaIdList = sql.join(
 		input.entitySchemaIds.map((entitySchemaId) => sql`${entitySchemaId}`),
 		sql`, `,
 	);
-	const filterClause = input.filterWhereClause
-		? sql` and ${input.filterWhereClause}`
-		: sql``;
 
 	return sql`
-		filtered_entities as (
+		base_entities as (
 			select
 				${entity.id} as id,
 				${entity.name} as name,
@@ -78,7 +88,54 @@ const buildFilteredEntitiesCte = (input: {
 				on ${entity.entitySchemaId} = ${entitySchema.id}
 			where ${entity.userId} = ${input.userId}
 				and ${entity.entitySchemaId} in (${entitySchemaIdList})
-				${filterClause}
+		)
+	`;
+};
+
+const buildLatestEventJoinCte = (input: {
+	join: ViewRuntimePreparedEventJoin;
+	userId: string;
+}) => {
+	const eventSchemaIdList = sql.join(
+		input.join.eventSchemas.map((schema) => sql`${schema.id}`),
+		sql`, `,
+	);
+
+	return sql`
+		${sql.raw(getEventJoinCteName(input.join.key))} as (
+			select distinct on (${event.entityId})
+				${event.entityId} as entity_id,
+				jsonb_build_object(
+					'id', ${event.id},
+					'createdAt', ${event.createdAt},
+					'updatedAt', ${event.updatedAt},
+					'properties', ${event.properties}
+				) as latest_event
+			from ${event}
+			where ${event.userId} = ${input.userId}
+				and ${event.eventSchemaId} in (${eventSchemaIdList})
+			order by ${event.entityId}, ${event.createdAt} desc, ${event.id} desc
+		)
+	`;
+};
+
+const buildJoinedEntitiesCte = (eventJoins: ViewRuntimePreparedEventJoin[]) => {
+	const selectJoins = eventJoins.map((join) => {
+		return sql`${sql.raw(getEventJoinCteName(join.key))}.latest_event as ${sql.raw(getEventJoinColumnName(join.key))}`;
+	});
+	const leftJoins = eventJoins.map((join) => {
+		return sql`
+			left join ${sql.raw(getEventJoinCteName(join.key))}
+				on ${sql.raw(getEventJoinCteName(join.key))}.entity_id = base_entities.id
+		`;
+	});
+
+	return sql`
+		joined_entities as (
+			select
+				base_entities.*${selectJoins.length ? sql`, ${sql.join(selectJoins, sql`, `)}` : sql``}
+			from base_entities
+			${sql.join(leftJoins, sql` `)}
 		)
 	`;
 };
@@ -156,23 +213,35 @@ export const executePreparedViewQuery = async (input: {
 	userId: string;
 	request: ViewRuntimeRequest;
 	runtimeSchemas: ViewRuntimeSchemaRow[];
+	eventJoins: ViewRuntimePreparedEventJoin[];
 	schemaMap: Map<string, ViewRuntimeSchemaRow>;
+	eventJoinMap: Map<string, ViewRuntimePreparedEventJoin>;
 }): Promise<ViewRuntimeResponse> => {
-	const filterWhereClause = buildFilterWhereClause({
-		alias: "entity",
+	const context: ViewRuntimeReferenceContext<
+		ViewRuntimeSchemaRow,
+		ViewRuntimePreparedEventJoin
+	> = {
 		schemaMap: input.schemaMap,
+		eventJoinMap: input.eventJoinMap,
+	};
+	const filterWhereClause = buildFilterWhereClause({
+		context,
+		alias: "joined_entities",
 		filters: input.request.filters,
-		schemaSlugExpression: sql`${entitySchema.slug}`,
 		entitySchemaSlugs: input.request.entitySchemaSlugs,
+		schemaSlugExpression: sql`${sql.raw("joined_entities")}.entity_schema_slug`,
 	});
-	const filteredEntitiesCte = buildFilteredEntitiesCte({
+	const baseEntitiesCte = buildBaseEntitiesCte({
 		userId: input.userId,
-		filterWhereClause,
 		entitySchemaIds: input.runtimeSchemas.map((schema) => schema.id),
 	});
+	const latestEventJoinCtes = input.eventJoins.map((join) => {
+		return buildLatestEventJoinCte({ join, userId: input.userId });
+	});
+	const joinedEntitiesCte = buildJoinedEntitiesCte(input.eventJoins);
 	const sortExpression = buildSortExpression({
+		context,
 		alias: "filtered_entities",
-		schemaMap: input.schemaMap,
 		field: input.request.sort.fields,
 	});
 	const offset =
@@ -181,23 +250,30 @@ export const executePreparedViewQuery = async (input: {
 		input.request.layout === "table"
 			? sql`null::jsonb`
 			: buildResolvedPropertiesExpression({
+					context,
 					request: input.request,
-					schemaMap: input.schemaMap,
 					alias: "paginated_entities",
 				});
 	const cells =
 		input.request.layout === "table"
 			? buildTableCellsExpression({
+					context,
 					request: input.request,
-					schemaMap: input.schemaMap,
 					alias: "paginated_entities",
 				})
 			: sql`null::jsonb`;
 	const direction = sql.raw(input.request.sort.direction.toUpperCase());
+	const filterClause = filterWhereClause ?? sql`true`;
 
 	const dataResult = await db.execute<QueryRow>(sql`
 		with
-			${filteredEntitiesCte},
+			${baseEntitiesCte}${latestEventJoinCtes.length ? sql`, ${sql.join(latestEventJoinCtes, sql`, `)}` : sql``},
+			${joinedEntitiesCte},
+			filtered_entities as (
+				select *
+				from joined_entities
+				where ${filterClause}
+			),
 			sorted_entities as (
 				select
 					filtered_entities.*,
