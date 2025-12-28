@@ -37,20 +37,6 @@ describe("getEntityDetailProperties", () => {
 				rawValue: "Easy pace",
 			},
 			{
-				key: "completed",
-				type: "boolean",
-				label: "completed",
-				value: "Yes",
-				rawValue: true,
-			},
-			{
-				key: "completedAt",
-				type: "datetime",
-				label: "completedAt",
-				rawValue: "2026-03-08T10:15:00Z",
-				value: expect.any(String),
-			},
-			{
 				type: "date",
 				key: "startedOn",
 				label: "startedOn",
@@ -58,11 +44,25 @@ describe("getEntityDetailProperties", () => {
 				rawValue: "2026-03-08",
 			},
 			{
+				value: "Yes",
+				rawValue: true,
+				type: "boolean",
+				key: "completed",
+				label: "completed",
+			},
+			{
 				value: "5.25",
 				rawValue: 5.25,
 				type: "number",
 				key: "distanceKm",
 				label: "distanceKm",
+			},
+			{
+				type: "datetime",
+				key: "completedAt",
+				label: "completedAt",
+				rawValue: "2026-03-08T10:15:00Z",
+				value: expect.any(String),
 			},
 		]);
 	});
