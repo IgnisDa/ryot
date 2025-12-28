@@ -148,9 +148,6 @@ export const finalizeIntegrationRun = Effect.fn("integrationsWorker.finalizeInte
 			return false;
 		}
 
-		yield* integrationsService.update(integration.userId, integration.id, {
-			isDisabled: true,
-		});
-		return true;
+		return yield* integrationsService.disableIfEnabled(integration.userId, integration.id, runId);
 	},
 );
