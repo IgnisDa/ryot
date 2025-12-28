@@ -1,0 +1,46 @@
+{
+  "name": "app-client",
+  "version": "1.0.0",
+  "scripts": {
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "start": "expo start",
+    "prebuild": "expo prebuild",
+    "lint": "eslint \"**/*.{js,jsx,ts,tsx}\" && prettier -c \"**/*.{js,jsx,ts,tsx,json}\"",
+    "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix && prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.1.13",
+    "expo": "~56.0.4",
+    "expo-splash-screen": "~56.0.10",
+    "expo-status-bar": "~56.0.4",
+    "nativewind": "preview",
+    "postcss": "^8.5.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.85.3",
+    "react-native-css": "latest",
+    "react-native-reanimated": "4.3.1",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-web": "^0.21.2",
+    "react-native-worklets": "0.8.3"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0",
+    "@types/react": "~19.2.2",
+    "babel-preset-expo": "~56.0.0",
+    "eslint": "^9.25.1",
+    "eslint-config-expo": "~56.0.4",
+    "eslint-config-prettier": "^10.1.2",
+    "prettier": "^3.2.5",
+    "prettier-plugin-tailwindcss": "^0.6.14",
+    "tailwindcss": "^4.1.13",
+    "typescript": "~6.0.3"
+  },
+  "main": "node_modules/expo/AppEntry.js",
+  "overrides": {
+    "lightningcss": "1.30.1"
+  },
+  "private": true
+}
