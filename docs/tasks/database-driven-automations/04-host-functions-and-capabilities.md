@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -35,17 +35,35 @@ workflow boundary.
 
 ## Acceptance criteria
 
-- [ ] A subscription-run script with the emit-signal allowlist can emit; the same script invoked
+- [x] A subscription-run script with the emit-signal allowlist can emit; the same script invoked
       via direct sandbox enqueue or as a policy cannot
-- [ ] Emit-signal validates payloads, derives actors from the hidden principal, rejects
+- [x] Emit-signal validates payloads, derives actors from the hidden principal, rejects
       unauthorized subjects, and never accepts recipient IDs
-- [ ] Send-notification enqueues the message-kind delivery request with a run-derived
+- [x] Send-notification enqueues the message-kind delivery request with a run-derived
       deterministic execution ID and never passes a notification event type
-- [ ] Replayed runs do not duplicate signals or delivery executions
-- [ ] Public script creation rejects both capabilities; seeding rejects a global built-in rule
+- [x] Replayed runs do not duplicate signals or delivery executions
+- [x] Public script creation rejects both capabilities; seeding rejects a global built-in rule
       whose script requests send-notification
-- [ ] A detector script cannot send notifications and the notifier script cannot emit signals,
+- [x] A detector script cannot send notifications and the notifier script cannot emit signals,
       enforced by their allowlists
+
+## Implementation notes
+
+- The SDK exposes strict `emitSignal` and `sendNotification` contracts. The signal request has no
+  recipient, actor, origin, occurrence-time, or execution-ID fields.
+- Sandbox executions carry a server-only subscription-run marker containing the run ID, origin,
+  and occurrence time. The runtime intersects script allowlists with this marker, so direct
+  enqueue and policy executions never receive either automation capability.
+- Emit-signal delegates validation, subject authorization, audience resolution, recipient
+  snapshotting, replay handling, and dispatch to `SignalEmissionService`. Send-notification
+  delegates to the message-kind `NotificationsService.sendMessage` path with a run-derived ID.
+- Public script creation rejects both capabilities. Built-in rule seeding loads the referenced
+  script capabilities and rejects global rules that request `sendNotification`.
+- The hidden automation tracer now acts as an emitter and targets a second hidden test signal.
+  A separate built-in notifier test script carries only `sendNotification`; it is intentionally
+  not attached to a global rule.
+- Automation context now includes the server-owned occurrence time required by detector
+  emissions. This completes the PRD's occurrence-envelope contract ahead of lifecycle dispatch.
 
 ## User stories addressed
 

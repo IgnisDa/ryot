@@ -7,6 +7,7 @@ import type {
 	SandboxScriptManifest,
 } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
+import { AUTOMATION_SANDBOX_HOST_CAPABILITIES } from "@ryot/sandbox-sdk";
 import { generateId } from "better-auth";
 import { Effect, Redacted } from "effect";
 
@@ -24,6 +25,7 @@ import { toSandboxRunResult } from "./sandbox-workflow-live";
 
 const sandboxJobNotFoundError = "Sandbox job not found";
 const sandboxScriptNotFoundError = "Sandbox script not found";
+const restrictedPublicCapabilities = new Set<string>(AUTOMATION_SANDBOX_HOST_CAPABILITIES);
 
 export class SandboxApiService extends Effect.Service<SandboxApiService>()("SandboxApiService", {
 	effect: Effect.gen(function* () {
@@ -39,6 +41,15 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 			payload: CreateSandboxScriptBody,
 		) {
 			const compiled = yield* compiler.compile(payload.source);
+			if (
+				compiled.manifest.capabilities.some((capability) =>
+					restrictedPublicCapabilities.has(capability),
+				)
+			) {
+				return yield* badRequest(
+					"Public sandbox scripts cannot request automation host capabilities",
+				);
+			}
 			const manifestBase = {
 				name: compiled.manifest.name,
 				slug: compiled.manifest.slug,

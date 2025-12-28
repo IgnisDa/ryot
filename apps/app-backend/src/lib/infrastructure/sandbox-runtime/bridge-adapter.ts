@@ -1,4 +1,8 @@
-import { coreSandboxHostContracts, domainSandboxHostContracts } from "@ryot/sandbox-sdk";
+import {
+	automationSandboxHostContracts,
+	coreSandboxHostContracts,
+	domainSandboxHostContracts,
+} from "@ryot/sandbox-sdk";
 import type * as z from "@ryot/sandbox-sdk/zod";
 
 import {
@@ -69,6 +73,12 @@ export const bindSandboxHostFunctions = (
 	implementations: SandboxHostImplementationMap,
 	input: SandboxRunInput,
 ): Record<keyof SandboxHostImplementationMap, BoundHostFunction> => ({
+	emitSignal: (args) => {
+		const parsed = automationSandboxHostContracts.emitSignal.args.safeParse(args);
+		return parsed.success
+			? implementations.emitSignal(input, ...parsed.data)
+			: invalidArguments("emitSignal", parsed.error, "emitSignal expects a valid signal request");
+	},
 	getEntity: (args) => {
 		const parsed = domainSandboxHostContracts.getEntity.args.safeParse(args);
 		return parsed.success
@@ -213,6 +223,16 @@ export const bindSandboxHostFunctions = (
 					"getUserPreferences",
 					parsed.error,
 					"getUserPreferences received invalid arguments",
+				);
+	},
+	sendNotification: (args) => {
+		const parsed = automationSandboxHostContracts.sendNotification.args.safeParse(args);
+		return parsed.success
+			? implementations.sendNotification(input, ...parsed.data)
+			: invalidArguments(
+					"sendNotification",
+					parsed.error,
+					"sendNotification expects a non-empty message string",
 				);
 	},
 });
