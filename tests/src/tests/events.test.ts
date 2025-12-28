@@ -533,13 +533,16 @@ describe("Events bulk POST", () => {
 			body: [
 				{
 					entityId,
-					properties: {},
 					eventSchemaId: completeEventSchemaId,
+					properties: { completionMode: "just_now" },
 				},
 				{
 					entityId,
-					properties: {},
 					eventSchemaId: completeEventSchemaId,
+					properties: {
+						completedOn: "2026-03-27",
+						completionMode: "custom_dates",
+					},
 				},
 			],
 		});
@@ -558,12 +561,12 @@ describe("Events bulk POST", () => {
 			["complete", "complete"],
 		);
 		expect(listResult.data?.data.map((event) => event.properties)).toEqual([
-			{},
-			{},
+			{ completedOn: "2026-03-27", completionMode: "custom_dates" },
+			{ completionMode: "just_now" },
 		]);
 	});
 
-	it("rejects built-in complete events with non-empty payloads", async () => {
+	it("rejects built-in complete events missing completedOn for custom_dates", async () => {
 		const auth = await createAuthenticatedClient();
 		const { apiClient, cookies, entityId, completeEventSchemaId } =
 			await setupBuiltinMediaLifecycleFixture(auth);
@@ -573,8 +576,30 @@ describe("Events bulk POST", () => {
 			body: [
 				{
 					entityId,
-					properties: { note: "not allowed" },
 					eventSchemaId: completeEventSchemaId,
+					properties: { completionMode: "custom_dates" },
+				},
+			],
+		});
+
+		expect(result.response.status).toBe(400);
+		expect(result.error?.error?.message).toContain(
+			"Event properties validation failed",
+		);
+	});
+
+	it("rejects built-in complete events with invalid completion modes", async () => {
+		const auth = await createAuthenticatedClient();
+		const { apiClient, cookies, entityId, completeEventSchemaId } =
+			await setupBuiltinMediaLifecycleFixture(auth);
+
+		const result = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					eventSchemaId: completeEventSchemaId,
+					properties: { completionMode: "later" },
 				},
 			],
 		});
