@@ -4,15 +4,15 @@ import { base32 } from "rfc4648";
 
 import { requireNonEmptyArray, requirePresent, requireString } from "~/support/assertions";
 
+import { cookieHeaderFromSetCookies, createTestAuthClient } from "./auth";
+
+export { cookieHeaderFromSetCookies } from "./auth";
+
 type TwoFactorSetupResult = {
 	cookies: string;
 	backupCodes: string[];
 	totpCodes: { past: string; current: string; future: string };
 };
-
-export function cookieHeaderFromSetCookies(setCookies: string[]) {
-	return setCookies.map((cookie) => cookie.split(";")[0]).join("; ");
-}
 
 function parseTotpSecret(totpURI: string) {
 	let url: URL;
@@ -66,65 +66,63 @@ export async function enableTwoFactorForSession(input: {
 	issuer?: string;
 	password: string;
 }): Promise<TwoFactorSetupResult> {
-	const enableResponse = await fetch(`${input.baseUrl}/auth/two-factor/enable`, {
-		method: "POST",
-		body: JSON.stringify({ password: input.password, issuer: input.issuer ?? "Ryot" }),
-		headers: {
-			Cookie: input.cookies,
-			"Content-Type": "application/json",
-			...(input.origin ? { Origin: input.origin } : {}),
+	let setCookies: string[] = [];
+	const authClient = createTestAuthClient(input.baseUrl, {
+		cookies: input.cookies,
+		origin: input.origin,
+		onSetCookies: (nextCookies) => {
+			setCookies = nextCookies;
 		},
 	});
-
-	if (!enableResponse.ok) {
-		const error = await enableResponse.text();
-		throw new Error(`Two-factor enable failed: ${error}`);
+	const { data: enableData, error: enableError } = await authClient.twoFactor.enable({
+		password: input.password,
+		issuer: input.issuer ?? "Ryot",
+	});
+	if (enableError) {
+		throw new Error(`Two-factor enable failed: ${enableError.message}`);
 	}
-
-	const enableData: Record<string, unknown> = await enableResponse.json();
-	if (typeof enableData !== "object") {
-		throw new Error("Two-factor enable returned an invalid response");
-	}
-
 	const totpURI = requireString(
-		enableData.totpURI,
+		requirePresent(enableData, "Two-factor enable returned no data").totpURI,
 		"Two-factor enable succeeded but no TOTP URI was returned",
 	);
 	const totpSecret = parseTotpSecret(totpURI);
 	const totpCodes = generateTotpWindowCodes(totpSecret);
-
-	if (!Array.isArray(enableData.backupCodes)) {
-		throw new Error("Two-factor enable returned an invalid response");
-	}
-	const backupCodes = enableData.backupCodes.filter(
-		(code): code is string => typeof code === "string",
-	);
+	const backupCodes = enableData.backupCodes;
 
 	requireNonEmptyArray(
 		backupCodes,
 		"Two-factor enable succeeded but no backup codes were returned",
 	);
 
-	const verifyResponse = await fetch(`${input.baseUrl}/auth/two-factor/verify-totp`, {
-		method: "POST",
-		body: JSON.stringify({ code: generateTotpCode(totpSecret) }),
-		headers: {
-			Cookie: input.cookies,
-			"Content-Type": "application/json",
-			...(input.origin ? { Origin: input.origin } : {}),
-		},
+	const { error: verifyError } = await authClient.twoFactor.verifyTotp({
+		code: generateTotpCode(totpSecret),
 	});
-
-	if (!verifyResponse.ok) {
-		const error = await verifyResponse.text();
-		throw new Error(`Two-factor verification failed: ${error}`);
+	if (verifyError) {
+		throw new Error(`Two-factor verification failed: ${verifyError.message}`);
 	}
-
-	const setCookies = verifyResponse.headers.getSetCookie();
 
 	return {
 		totpCodes,
 		backupCodes,
+		cookies: setCookies.length ? cookieHeaderFromSetCookies(setCookies) : input.cookies,
+	};
+}
+
+export async function verifyBackupCodeForSession(input: {
+	code: string;
+	cookies: string;
+	baseUrl: string;
+}) {
+	let setCookies: string[] = [];
+	const authClient = createTestAuthClient(input.baseUrl, {
+		cookies: input.cookies,
+		onSetCookies: (nextCookies) => {
+			setCookies = nextCookies;
+		},
+	});
+	const result = await authClient.twoFactor.verifyBackupCode({ code: input.code });
+	return {
+		...result,
 		cookies: setCookies.length ? cookieHeaderFromSetCookies(setCookies) : input.cookies,
 	};
 }
