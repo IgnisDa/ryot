@@ -1,4 +1,5 @@
-import { isObjectRecord } from "@ryot/ts-utils/predicates";
+import { stableStringify } from "@ryot/ts-utils/json";
+import { asRecord } from "@ryot/ts-utils/predicates";
 import { Schema } from "effect";
 
 import { mediaMonitoringMessages, type MediaMonitoringChange } from "./messages";
@@ -51,9 +52,6 @@ export const MediaMonitoringSnapshot = Schema.Struct({
 
 export type MediaMonitoringSnapshot = typeof MediaMonitoringSnapshot.Type;
 
-const asRecord = (value: unknown): Record<string, unknown> | null =>
-	isObjectRecord(value) ? value : null;
-
 const asString = (value: unknown) => (typeof value === "string" ? value : null);
 
 const asNumber = (value: unknown) =>
@@ -61,24 +59,13 @@ const asNumber = (value: unknown) =>
 
 const isSpecialSeason = (name: string) => ["Specials", "Special"].includes(name);
 
-const stableJson = (value: unknown): string => {
-	if (Array.isArray(value)) {
-		return `[${value.map(stableJson).sort().join(",")}]`;
-	}
-	if (isObjectRecord(value)) {
-		return `{${Object.entries(value)
-			.sort(([left], [right]) => left.localeCompare(right))
-			.map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`)
-			.join(",")}}`;
-	}
-	return JSON.stringify(value) || "undefined";
-};
+const stableImage = (image: unknown) => stableStringify(image, { sortArrays: true });
 
 const sameImageSet = (before: unknown, after: unknown) => {
 	const afterImages = Array.isArray(after) ? after : [];
 	const beforeImages = Array.isArray(before) ? before : [];
-	const afterSet = new Set(afterImages.map(stableJson));
-	const beforeSet = new Set(beforeImages.map(stableJson));
+	const afterSet = new Set(afterImages.map(stableImage));
+	const beforeSet = new Set(beforeImages.map(stableImage));
 	return beforeSet.size === afterSet.size && [...beforeSet].every((image) => afterSet.has(image));
 };
 
