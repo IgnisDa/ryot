@@ -12,7 +12,7 @@ import {
 	SandboxScriptId,
 	type UserId,
 } from "@ryot/contract/schema/brands";
-import { buildEntityInterestQueryDocument } from "@ryot/query-engine";
+import { buildEntityInterestQueryDocument } from "@ryot/query-engine/recipes/app";
 import { Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
