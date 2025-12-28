@@ -14,6 +14,8 @@ The end-to-end behavior: invalid references, computed-field cycles, invalid type
 
 See the parent PRD sections "Implementation Decisions" and "Testing Decisions" for cycle detection, type inference, validation clarity, and required test coverage.
 
+Backward compatibility is not needed in this slice. Validation, docs, and tests should target only the final contract.
+
 ## Acceptance criteria
 
 - [ ] Validation reports clear errors for invalid references, invalid operator/type combinations, unsupported non-display image usage, and computed-field cycles

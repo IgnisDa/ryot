@@ -14,6 +14,8 @@ The end-to-end behavior: a saved view or raw runtime request can use expression-
 
 See the parent PRD sections "Solution" and "Implementation Decisions" for the shared expression AST, structured references, expression-shaped display configuration, and breaking contract reset.
 
+Backward compatibility is not needed in this slice. Remove legacy request/display parsing rather than supporting both formats.
+
 ## Acceptance criteria
 
 - [ ] Saved-view and view-runtime request schemas accept the new expression AST for output fields and display configuration instead of legacy reference arrays

@@ -14,6 +14,8 @@ The end-to-end behavior: a saved view or raw runtime request can sort by a compu
 
 See the parent PRD sections "Solution" and "Implementation Decisions" for the predicate AST, sortable/filterable expression rules, and centralized validation/compilation goals.
 
+Backward compatibility is not needed in this slice. The predicate AST and expression-based sort contract should fully replace the legacy filter and sort shapes.
+
 ## Acceptance criteria
 
 - [ ] Runtime and saved-view contracts use the predicate AST instead of the legacy `{ field, op, value }` filter objects
