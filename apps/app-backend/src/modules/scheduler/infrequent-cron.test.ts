@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { Cron, Duration, Effect, Either, Layer, Option, Queue, Redacted, TestClock } from "effect";
+import { Cron, Duration, Effect, Either, Layer, Queue, TestClock } from "effect";
 
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-support/effect";
 
@@ -18,13 +18,7 @@ const makeCapturingEngine = (captured: Queue.Queue<CapturedRun>) =>
 	});
 
 const schedulerConfig = (infrequentCronJobsSchedule: string) =>
-	makeAppConfigLayer({
-		scheduler: {
-			infrequentCronJobsSchedule,
-			progressUpdateThresholdHours: 2,
-			frequentCronJobsSchedule: "every 5 minutes",
-		},
-	});
+	makeAppConfigLayer({ scheduler: { infrequentCronJobsSchedule } });
 
 it.scoped("enqueues a run with a stable execution id at each cron instant", () =>
 	Effect.gen(function* () {
@@ -61,21 +55,7 @@ it.scoped("does not enqueue when background jobs are disabled", () =>
 		const engine = makeCapturingEngine(captured);
 		const layer = InfrequentCronSchedulerLive.pipe(
 			Layer.provide(Layer.succeed(WorkflowEngine, engine)),
-			Layer.provide(
-				makeAppConfigLayer({
-					server: {
-						corsOrigins: Option.none(),
-						disableNotifications: false,
-						disableBackgroundJobs: true,
-						adminAccessToken: Redacted.make("unused"),
-						oidc: {
-							clientId: Option.none(),
-							issuerUrl: Option.none(),
-							clientSecret: Option.none(),
-						},
-					},
-				}),
-			),
+			Layer.provide(makeAppConfigLayer({ server: { disableBackgroundJobs: true } })),
 		);
 
 		yield* Layer.build(layer);
