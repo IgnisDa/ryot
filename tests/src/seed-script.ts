@@ -517,7 +517,6 @@ async function seedWhiskeys(client: APIClient) {
 				properties,
 				entityId: entity.id,
 				eventSchemaId: schema.id,
-				occurredAt: faker.date.past({ years: 2 }).toISOString(),
 			});
 		}
 	}
@@ -647,7 +646,6 @@ async function seedPlaces(client: APIClient) {
 				properties,
 				entityId: entity.id,
 				eventSchemaId: schema.id,
-				occurredAt: faker.date.past({ years: 2 }).toISOString(),
 			});
 		}
 	}

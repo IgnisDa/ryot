@@ -174,7 +174,7 @@ export function useTrackerOverviewData(input: {
 	);
 	const recentActivity = [
 		...allEvents.map((event) => ({
-			date: event.occurredAt,
+			date: event.createdAt,
 			kind: "event" as const,
 			entityId: event.entityId,
 			label: `${event.eventSchemaName} · ${entityById.get(event.entityId)?.name ?? "Unknown entity"}`,

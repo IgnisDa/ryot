@@ -319,7 +319,7 @@ export function EntityDetailEventTimeline(props: {
 											{event.eventSchemaName}
 										</Text>
 										<Text size="xs" c="dimmed" style={{ whiteSpace: "nowrap" }}>
-											{formatShortDate(event.occurredAt)}
+											{formatShortDate(event.createdAt)}
 										</Text>
 									</Group>
 

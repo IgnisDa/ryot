@@ -1393,8 +1393,6 @@ export interface paths {
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
-                                /** Format: date-time */
-                                occurredAt: string;
                                 entityId: string;
                                 eventSchemaId: string;
                                 eventSchemaName: string;
@@ -1456,7 +1454,6 @@ export interface paths {
                         properties: {
                             [key: string]: unknown;
                         };
-                        occurredAt: string;
                         entityId: string;
                         eventSchemaId: string;
                     }[];
