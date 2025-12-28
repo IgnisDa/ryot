@@ -11,6 +11,7 @@ import {
 	appPropertyPrimitiveTypes,
 	getAppPropertyDefinitionAtPath,
 } from "@ryot/ts-utils";
+import { match } from "ts-pattern";
 import { getComparablePropertyType } from "~/lib/views/policy";
 
 const propertySchemaMessage = "Properties must contain at least one property";
@@ -331,19 +332,12 @@ const isCompatibleRuleValue = (
 	type: AppPropertyPrimitiveType,
 	value: AppSchemaRuleValue,
 ) => {
-	switch (type) {
-		case "boolean":
-			return typeof value === "boolean";
-		case "date":
-		case "datetime":
-		case "string":
-			return typeof value === "string";
-		case "integer":
-			return typeof value === "number" && Number.isInteger(value);
-		case "number":
-			return typeof value === "number" && Number.isFinite(value);
-	}
-	return false;
+	return match(type)
+		.with("boolean", () => typeof value === "boolean")
+		.with("date", "datetime", "string", () => typeof value === "string")
+		.with("integer", () => typeof value === "number" && Number.isInteger(value))
+		.with("number", () => typeof value === "number" && Number.isFinite(value))
+		.exhaustive();
 };
 
 const validateRuleCondition = (
@@ -352,57 +346,53 @@ const validateRuleCondition = (
 	ctx: z.RefinementCtx,
 	path: (string | number)[],
 ) => {
-	switch (condition.operator) {
-		case "all":
-		case "any": {
-			for (const [index, value] of condition.conditions.entries()) {
+	match(condition)
+		.with({ operator: "all" }, { operator: "any" }, (cond) => {
+			for (const [index, value] of cond.conditions.entries()) {
 				validateRuleCondition(fields, value, ctx, [
 					...path,
 					"conditions",
 					index,
 				]);
 			}
-			return;
-		}
-	}
+		})
+		.otherwise((cond) => {
+			const property = getAppPropertyDefinitionAtPath(fields, cond.path);
+			if (!property) {
+				ctx.addIssue({
+					code: "custom",
+					path: [...path, "path"],
+					message: `Rule condition path '${cond.path.join(".")}' does not exist`,
+				});
+				return;
+			}
 
-	const property = getAppPropertyDefinitionAtPath(fields, condition.path);
-	if (!property) {
-		ctx.addIssue({
-			code: "custom",
-			path: [...path, "path"],
-			message: `Rule condition path '${condition.path.join(".")}' does not exist`,
+			if (cond.operator === "exists" || cond.operator === "not_exists") {
+				return;
+			}
+
+			const propertyType = getComparablePropertyType(property);
+			if (!propertyType) {
+				ctx.addIssue({
+					code: "custom",
+					path: [...path, "path"],
+					message:
+						"Rule conditions can only compare primitive string, number, integer, boolean, date, or datetime properties",
+				});
+				return;
+			}
+
+			const values = Array.isArray(cond.value) ? cond.value : [cond.value];
+			if (values.every((value) => isCompatibleRuleValue(propertyType, value))) {
+				return;
+			}
+
+			ctx.addIssue({
+				code: "custom",
+				path: [...path, "value"],
+				message: `Rule condition values must match the '${propertyType}' property type`,
+			});
 		});
-		return;
-	}
-
-	if (condition.operator === "exists" || condition.operator === "not_exists") {
-		return;
-	}
-
-	const propertyType = getComparablePropertyType(property);
-	if (!propertyType) {
-		ctx.addIssue({
-			code: "custom",
-			path: [...path, "path"],
-			message:
-				"Rule conditions can only compare primitive string, number, integer, boolean, date, or datetime properties",
-		});
-		return;
-	}
-
-	const values = Array.isArray(condition.value)
-		? condition.value
-		: [condition.value];
-	if (values.every((value) => isCompatibleRuleValue(propertyType, value))) {
-		return;
-	}
-
-	ctx.addIssue({
-		code: "custom",
-		path: [...path, "value"],
-		message: `Rule condition values must match the '${propertyType}' property type`,
-	});
 };
 
 const validateRulePaths = (schema: AppSchema, ctx: z.RefinementCtx) => {

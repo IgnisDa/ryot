@@ -9,6 +9,7 @@
 
 ## Coding Standards
 
+- **Pattern matching**: Prefer `match` from `ts-pattern` over `switch` statements for type-safe pattern matching.
 - **Pattern discovery**: Before writing new code, launch an `explore` subagent to find existing patterns and replicate them.
 - **Comments**: Avoid unless strictly necessary. Prefer self-documenting code.
 - **File size**: Keep files below 500 lines. Split if exceeded.

@@ -3,6 +3,7 @@ import {
 	type AppPropertyDefinition,
 	fromAppSchema,
 } from "@ryot/ts-utils";
+import { match } from "ts-pattern";
 import { z } from "zod";
 import { ViewRuntimeValidationError } from "./errors";
 import type { FilterExpression } from "./filtering";
@@ -60,12 +61,9 @@ const createObjectContainsSchema = (property: AppObjectProperty): z.ZodType => {
 const createContainsValueSchema = (
 	property: AppPropertyDefinition,
 ): z.ZodType => {
-	switch (property.type) {
-		case "object":
-			return createObjectContainsSchema(property);
-		default:
-			return fromAppSchema(property);
-	}
+	return match(property)
+		.with({ type: "object" }, (prop) => createObjectContainsSchema(prop))
+		.otherwise((prop) => fromAppSchema(prop));
 };
 
 const validateWithSchema = (
@@ -143,31 +141,29 @@ const validateContainsFilter = (
 		);
 	}
 
-	switch (property.type) {
-		case "string":
+	match(property)
+		.with({ type: "string" }, () =>
 			validateWithSchema(
 				z.string(),
 				filter.value,
 				`Filter value for '${filter.field}' must be a string`,
-			);
-			return;
-		case "array":
+			),
+		)
+		.with({ type: "array" }, (prop) =>
 			validateWithSchema(
-				createContainsValueSchema(property.items),
+				createContainsValueSchema(prop.items),
 				filter.value,
 				`Filter value for '${filter.field}' must match the array item type`,
-			);
-			return;
-		case "object":
+			),
+		)
+		.with({ type: "object" }, (prop) =>
 			validateWithSchema(
-				createObjectContainsSchema(property),
+				createObjectContainsSchema(prop),
 				filter.value,
 				`Filter value for '${filter.field}' must match the object schema`,
-			);
-			return;
-		default:
-			return;
-	}
+			),
+		)
+		.otherwise(() => undefined);
 };
 
 export const validateFilterExpressionAgainstSchemas = <
@@ -178,25 +174,18 @@ export const validateFilterExpressionAgainstSchemas = <
 ) => {
 	const property = getPropertyDefinitionForFilter(filter, schemaMap);
 
-	switch (filter.op) {
-		case "isNull":
-			return;
-		case "in":
-			validateInFilter(filter, property);
-			return;
-		case "contains":
-			validateContainsFilter(filter, property);
-			return;
-		case "eq":
-		case "neq":
-		case "gt":
-		case "gte":
-		case "lt":
-		case "lte":
-			validateComparableFilter(filter, property);
-			return;
-	}
-	throw new ViewRuntimeValidationError(
-		`Unsupported filter operator '${(filter as { op: string }).op}'`,
-	);
+	match(filter)
+		.with({ op: "isNull" }, () => undefined)
+		.with({ op: "in" }, (f) => validateInFilter(f, property))
+		.with({ op: "contains" }, (f) => validateContainsFilter(f, property))
+		.with(
+			{ op: "eq" },
+			{ op: "neq" },
+			{ op: "gt" },
+			{ op: "gte" },
+			{ op: "lt" },
+			{ op: "lte" },
+			(f) => validateComparableFilter(f, property),
+		)
+		.exhaustive();
 };

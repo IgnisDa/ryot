@@ -1,3 +1,4 @@
+import { match } from "ts-pattern";
 import { z } from "zod";
 
 export const appPropertyPrimitiveTypes = [
@@ -168,35 +169,39 @@ const isRuleConditionMet = (
 	condition: AppSchemaRuleCondition,
 	input: Record<string, unknown>,
 ): boolean => {
-	switch (condition.operator) {
-		case "all":
-			return condition.conditions.every((value) =>
-				isRuleConditionMet(value, input),
-			);
-		case "any":
-			return condition.conditions.some((value) =>
-				isRuleConditionMet(value, input),
-			);
-		case "exists":
-			return getValueAtPath(input, condition.path) !== undefined;
-		case "not_exists":
-			return getValueAtPath(input, condition.path) === undefined;
-		case "eq":
-			return Object.is(getValueAtPath(input, condition.path), condition.value);
-		case "neq":
-			return !Object.is(getValueAtPath(input, condition.path), condition.value);
-		case "in":
-			return condition.value.some((value) =>
-				Object.is(getValueAtPath(input, condition.path), value),
-			);
-		case "not_in":
-			return condition.value.every(
-				(value) => !Object.is(getValueAtPath(input, condition.path), value),
-			);
-	}
-	throw new Error(
-		`Unsupported app schema rule operator: ${(condition as { operator: string }).operator}`,
-	);
+	return match(condition)
+		.with({ operator: "all" }, (cond) =>
+			cond.conditions.every((value) => isRuleConditionMet(value, input)),
+		)
+		.with({ operator: "any" }, (cond) =>
+			cond.conditions.some((value) => isRuleConditionMet(value, input)),
+		)
+		.with(
+			{ operator: "exists" },
+			(cond) => getValueAtPath(input, cond.path) !== undefined,
+		)
+		.with(
+			{ operator: "not_exists" },
+			(cond) => getValueAtPath(input, cond.path) === undefined,
+		)
+		.with({ operator: "eq" }, (cond) =>
+			Object.is(getValueAtPath(input, cond.path), cond.value),
+		)
+		.with(
+			{ operator: "neq" },
+			(cond) => !Object.is(getValueAtPath(input, cond.path), cond.value),
+		)
+		.with({ operator: "in" }, (cond) =>
+			cond.value.some((value) =>
+				Object.is(getValueAtPath(input, cond.path), value),
+			),
+		)
+		.with({ operator: "not_in" }, (cond) =>
+			cond.value.every(
+				(value) => !Object.is(getValueAtPath(input, cond.path), value),
+			),
+		)
+		.exhaustive();
 };
 
 const withAppSchemaRules = (
@@ -213,21 +218,20 @@ const withAppSchemaRules = (
 				continue;
 			}
 
-			switch (rule.kind) {
-				case "validation": {
+			match(rule)
+				.with({ kind: "validation" }, (r) => {
 					if (
-						rule.validation.required &&
-						getValueAtPath(input, rule.path) === undefined
+						r.validation.required &&
+						getValueAtPath(input, r.path) === undefined
 					) {
 						ctx.addIssue({
+							path: r.path,
 							code: "custom",
-							path: rule.path,
-							message: rule.message ?? `${rule.path.join(".")} is required`,
+							message: r.message ?? `${r.path.join(".")} is required`,
 						});
 					}
-					break;
-				}
-			}
+				})
+				.exhaustive();
 		}
 	});
 };
@@ -465,45 +469,33 @@ export const toAppSchemaProperties = (
 };
 
 export const fromAppSchema = (property: AppPropertyDefinition): z.ZodType => {
-	switch (property.type) {
-		case "string":
-			return applyStringValidation(z.string(), property.validation);
-		case "date":
-			return z.iso.date();
-		case "datetime":
-			return z.iso.datetime();
-		case "boolean":
-			return z.boolean();
-		case "number": {
-			const schema = applyNumberValidation(z.number(), property.validation);
-			return withNumberTransform(schema, property.transform);
-		}
-		case "integer": {
-			const schema = applyNumberValidation(
-				z.number().int(),
-				property.validation,
-			);
-			return withNumberTransform(schema, property.transform);
-		}
-		case "array":
-			return applyArrayValidation(
-				z.array(fromAppSchema(property.items)),
-				property.validation,
-			);
-		case "object": {
+	return match(property)
+		.with({ type: "string" }, (p) =>
+			applyStringValidation(z.string(), p.validation),
+		)
+		.with({ type: "date" }, () => z.iso.date())
+		.with({ type: "datetime" }, () => z.iso.datetime())
+		.with({ type: "boolean" }, () => z.boolean())
+		.with({ type: "number" }, (p) => {
+			const schema = applyNumberValidation(z.number(), p.validation);
+			return withNumberTransform(schema, p.transform);
+		})
+		.with({ type: "integer" }, (p) => {
+			const schema = applyNumberValidation(z.number().int(), p.validation);
+			return withNumberTransform(schema, p.transform);
+		})
+		.with({ type: "array" }, (p) =>
+			applyArrayValidation(z.array(fromAppSchema(p.items)), p.validation),
+		)
+		.with({ type: "object" }, (p) => {
 			const shape: Record<string, z.ZodType> = {};
-
-			for (const [key, value] of Object.entries(property.properties)) {
+			for (const [key, value] of Object.entries(p.properties)) {
 				const schema = fromAppSchema(value);
 				shape[key] = isAppPropertyRequired(value) ? schema : schema.optional();
 			}
-
 			return z.object(shape).strict();
-		}
-	}
-	throw new Error(
-		`Unsupported app schema type: ${(property as { type: string }).type}`,
-	);
+		})
+		.exhaustive();
 };
 
 export const fromAppSchemaObject = (
