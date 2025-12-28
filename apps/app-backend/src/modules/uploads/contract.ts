@@ -10,6 +10,7 @@ import { Option, Schema } from "effect";
 import { AuthMiddleware } from "#lib/auth-middleware";
 import { BadRequest, RateLimited, Unauthorized } from "#lib/errors";
 
+import { TEMPORARY_UPLOAD_MAX_FILE_BYTES, TEMPORARY_UPLOAD_MAX_REQUEST_BYTES } from "./shared";
 import { PresignedDownloadResponse, PresignedUploadResponse } from "./schemas";
 
 export const UploadsGroup = HttpApiGroup.make("uploads")
@@ -34,8 +35,8 @@ export const UploadsGroup = HttpApiGroup.make("uploads")
 			.setPayload(
 				HttpApiSchema.Multipart(Schema.Struct({ "files[]": Multipart.FilesSchema }), {
 					fieldMimeTypes: [],
-					maxFileSize: Option.some(50 * 1024 * 1024),
-					maxTotalSize: Option.some(50 * 1024 * 1024 + 256 * 1024),
+					maxFileSize: Option.some(TEMPORARY_UPLOAD_MAX_FILE_BYTES),
+					maxTotalSize: Option.some(TEMPORARY_UPLOAD_MAX_REQUEST_BYTES),
 				}),
 			)
 			.addSuccess(Schema.Array(Schema.String), { status: 201 })
