@@ -1,89 +1,80 @@
 import { expect, it } from "@effect/vitest";
-import { NotificationPlatformId, UserId } from "@ryot/contract/schema/brands";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { dbRunnerLayer } from "#lib/test-support/effect";
+import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-support/effect";
 
-import { NotificationDeliveryService } from "./delivery";
-import type { NotificationPlatformRecord } from "./repository";
 import { NotificationsRepository } from "./repository";
 import { NotificationsService } from "./service";
 
-const userId = UserId.make("user-1");
-const now = "2026-07-10T00:00:00.000Z";
+const user = {
+	name: "Test User",
+	email: "user@example.com",
+	id: UserId.make("user-1"),
+	preferences: { isNsfw: false, language: null, disableIntegrations: false },
+} satisfies CurrentUserValue;
 
-const makePlatform = (
-	id: string,
-	configuredEvents: NotificationPlatformRecord["configuredEvents"],
-): NotificationPlatformRecord => ({
-	userId,
-	updatedAt: now,
-	createdAt: now,
-	configuredEvents,
-	isDisabled: false,
-	platform: "apprise",
-	id: NotificationPlatformId.make(id),
-	description: "Apprise at http://localhost:1234",
-	platformSpecifics: { baseUrl: "http://localhost:1234", key: "key", kind: "apprise" },
+const repositoryLayer = Layer.succeed(
+	NotificationsRepository,
+	Object.assign(Object.create(null), {}),
+);
+
+const makeServiceLayer = (workflowEngine: WorkflowEngine["Type"]) =>
+	NotificationsService.Default.pipe(
+		Layer.provide(
+			Layer.mergeAll(dbRunnerLayer, repositoryLayer, Layer.succeed(WorkflowEngine, workflowEngine)),
+		),
+	);
+
+it.effect("enqueues a fire-and-forget test delivery without delivering synchronously", () => {
+	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
+
+	const workflowEngine = makeWorkflowEngine({
+		execute: (_workflow, options) => {
+			capturedOptions = options;
+			return Effect.succeed(options.executionId);
+		},
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* NotificationsService;
+		yield* service.test(user);
+
+		expect(capturedOptions).toMatchObject({
+			discard: true,
+			payload: { userId: user.id, request: { kind: "test" } },
+		});
+		expect(typeof capturedOptions?.payload.executionId).toBe("string");
+	}).pipe(Effect.provide(makeServiceLayer(workflowEngine)));
 });
 
-const makeRepositoryLayer = (platforms: NotificationPlatformRecord[], requests: unknown[]) =>
-	Layer.succeed(
-		NotificationsRepository,
-		Object.assign(Object.create(null), {
-			listEnabledForUser: (input: { eventType?: string; userId: UserId }) => {
-				requests.push(input);
-				return Effect.succeed(platforms);
+it.effect("enqueues a fire-and-forget event delivery with the event payload", () => {
+	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
+
+	const workflowEngine = makeWorkflowEngine({
+		execute: (_workflow, options) => {
+			capturedOptions = options;
+			return Effect.succeed(options.executionId);
+		},
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* NotificationsService;
+		yield* service.trigger({
+			userId: user.id,
+			eventType: "review_posted",
+			message: "A review was posted",
+		});
+
+		expect(capturedOptions).toMatchObject({
+			discard: true,
+			payload: {
+				userId: user.id,
+				request: { kind: "event", eventType: "review_posted", message: "A review was posted" },
 			},
-		}),
-	);
-
-const makeDeliveryLayer = (failOnCall: number, calls: string[]) =>
-	Layer.succeed(
-		NotificationDeliveryService,
-		Object.assign(Object.create(null), {
-			send: (input: { platformSpecifics: NotificationPlatformRecord["platformSpecifics"] }) => {
-				const id = input.platformSpecifics.kind;
-				const shouldFail = calls.length === failOnCall;
-				calls.push(id);
-				return shouldFail
-					? Effect.fail({ _tag: "NotificationDeliveryError", message: "failed" } as const)
-					: Effect.void;
-			},
-		}),
-	);
-
-it.effect(
-	"filters event deliveries in the repository request and returns best-effort outcomes",
-	() => {
-		const calls: string[] = [];
-		const requests: unknown[] = [];
-		const deliveryLayer = makeDeliveryLayer(0, calls);
-		const first = makePlatform("platform-1", ["review_posted"]);
-		const second = makePlatform("platform-2", ["review_posted"]);
-		const repositoryLayer = makeRepositoryLayer([first, second], requests);
-
-		return Effect.gen(function* () {
-			const service = yield* NotificationsService;
-			const result = yield* service.triggerForUser({
-				userId,
-				eventType: "review_posted",
-				message: "A review was posted",
-			});
-
-			expect(calls).toEqual(["apprise", "apprise"]);
-			expect(requests).toEqual([{ eventType: "review_posted", userId }]);
-			expect(result).toEqual([
-				{ platform: "apprise", platformId: first.id, status: "failed" },
-				{ platform: "apprise", platformId: second.id, status: "sent" },
-			]);
-		}).pipe(
-			Effect.provide(
-				Layer.provide(
-					NotificationsService.Default,
-					Layer.mergeAll(dbRunnerLayer, repositoryLayer, deliveryLayer),
-				),
-			),
-		);
-	},
-);
+		});
+		expect(typeof capturedOptions?.payload.executionId).toBe("string");
+	}).pipe(Effect.provide(makeServiceLayer(workflowEngine)));
+});
