@@ -152,8 +152,6 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					yield* Effect.addFinalizer(() =>
 						bridge.removeSession(input.executionId).pipe(Effect.orDie),
 					);
-
-					const startedAt = yield* Clock.currentTimeMillis;
 					const requestLine = `${encodeSandboxRunnerRequest({
 						token,
 						code: input.code,
@@ -190,10 +188,10 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						),
 					);
 
-					const finishedAt = yield* Clock.currentTimeMillis;
-					const totalMs = finishedAt - startedAt;
 					const executionMs = raw.timing?.executionMs;
+					const finishedAt = yield* Clock.currentTimeMillis;
 					const error = typeof raw.error === "string" ? raw.error : null;
+					const totalMs = Math.max(1, Math.round(finishedAt - now));
 					const logs = "logs" in raw && Array.isArray(raw.logs) ? raw.logs : [];
 
 					return {
@@ -202,10 +200,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						success: raw.success,
 						executionId: input.executionId,
 						value: raw.success ? (raw.value ?? null) : null,
-						timing: {
-							totalMs,
-							executionMs: typeof executionMs === "number" ? executionMs : totalMs,
-						},
+						timing: { totalMs, executionMs: typeof executionMs === "number" ? executionMs : 0 },
 					};
 				}),
 			).pipe(
