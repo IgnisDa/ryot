@@ -17,13 +17,65 @@ type RuntimeRef =
 type ViewExpression =
 	| { type: "literal"; value: unknown | null }
 	| { type: "reference"; reference: RuntimeRef }
-	| { type: "coalesce"; values: ViewExpression[] };
+	| { type: "coalesce"; values: ViewExpression[] }
+	| {
+			type: "arithmetic";
+			left: ViewExpression;
+			right: ViewExpression;
+			operator: "add" | "subtract" | "multiply" | "divide";
+	  }
+	| { type: "round"; expression: ViewExpression }
+	| { type: "floor"; expression: ViewExpression }
+	| { type: "integer"; expression: ViewExpression }
+	| { type: "concat"; values: ViewExpression[] }
+	| {
+			type: "conditional";
+			condition: unknown;
+			whenTrue: ViewExpression;
+			whenFalse: ViewExpression;
+	  };
 
 type ExpressionInput = ViewExpression | string[];
 
 type RuntimeField = {
 	key: string;
 	expression: ViewExpression;
+};
+
+type ViewPredicate =
+	| {
+			type: "comparison";
+			left: ViewExpression;
+			right: ViewExpression;
+			operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
+	  }
+	| { type: "in"; expression: ViewExpression; values: ViewExpression[] }
+	| { type: "contains"; expression: ViewExpression; value: ViewExpression }
+	| { type: "isNull"; expression: ViewExpression }
+	| { type: "isNotNull"; expression: ViewExpression }
+	| { type: "and"; predicates: ViewPredicate[] }
+	| { type: "or"; predicates: ViewPredicate[] }
+	| { type: "not"; predicate: ViewPredicate };
+
+type LegacyFilter = {
+	op:
+		| "eq"
+		| "neq"
+		| "gt"
+		| "gte"
+		| "lt"
+		| "lte"
+		| "in"
+		| "contains"
+		| "isNull"
+		| "isNotNull";
+	field: string;
+	value?: unknown;
+};
+
+type LegacySort = {
+	direction: "asc" | "desc";
+	fields: string[];
 };
 
 type ComputedField = {
@@ -50,9 +102,12 @@ type TableDisplayConfiguration = {
 
 type RuntimeRequest = Omit<
 	ExecuteViewRuntimeBody,
-	"displayConfiguration" | "fields" | "layout"
+	"displayConfiguration" | "fields" | "layout" | "sort" | "filter" | "filters"
 > & {
 	fields: RuntimeField[];
+	filter?: ViewPredicate | null;
+	filters?: LegacyFilter[];
+	sort: LegacySort | ExecuteViewRuntimeBody["sort"];
 	entitySchemaSlugs: string[];
 	computedFields?: ComputedField[];
 	eventJoins: NonNullable<ExecuteViewRuntimeBody["eventJoins"]>;
@@ -112,6 +167,100 @@ function toExpression(input: ExpressionInput | null): ViewExpression | null {
 	return values.length === 1
 		? (values[0] ?? literalExpression(null))
 		: { type: "coalesce", values };
+}
+
+function toPredicate(filter: LegacyFilter): ViewPredicate {
+	const expression = toExpression([filter.field]) ?? literalExpression(null);
+	if (filter.op === "isNull") {
+		return { type: "isNull", expression };
+	}
+
+	if (filter.op === "isNotNull") {
+		return { type: "isNotNull", expression };
+	}
+
+	if (filter.op === "contains") {
+		return {
+			type: "contains",
+			expression,
+			value: literalExpression(filter.value ?? null),
+		};
+	}
+
+	if (filter.op === "in") {
+		return {
+			type: "in",
+			expression,
+			values: Array.isArray(filter.value)
+				? filter.value.map((value) => literalExpression(value))
+				: [literalExpression(filter.value ?? null)],
+		};
+	}
+
+	return {
+		left: expression,
+		type: "comparison",
+		operator: filter.op,
+		right: literalExpression(filter.value ?? null),
+	};
+}
+
+function getFilterGroupKey(filter: LegacyFilter) {
+	const reference = parseReference(filter.field);
+	return reference.type === "entity-column" ||
+		reference.type === "schema-property"
+		? reference.slug
+		: `${reference.type}:${JSON.stringify(reference)}`;
+}
+
+function combinePredicates(predicates: ViewPredicate[], type: "and" | "or") {
+	if (!predicates.length) {
+		return null;
+	}
+
+	if (predicates.length === 1) {
+		return predicates[0] ?? null;
+	}
+
+	return { type, predicates } satisfies ViewPredicate;
+}
+
+function toFilterPredicate(
+	filters?: LegacyFilter[],
+	filter?: ViewPredicate | null,
+) {
+	if (filter !== undefined) {
+		return filter;
+	}
+
+	if (!filters?.length) {
+		return null;
+	}
+
+	const grouped = new Map<string, ViewPredicate[]>();
+	for (const entry of filters) {
+		const key = getFilterGroupKey(entry);
+		const existing = grouped.get(key) ?? [];
+		existing.push(toPredicate(entry));
+		grouped.set(key, existing);
+	}
+
+	const groupedPredicates = Array.from(grouped.values())
+		.map((predicates) => combinePredicates(predicates, "and"))
+		.filter((predicate): predicate is ViewPredicate => predicate !== null);
+
+	return combinePredicates(groupedPredicates, "or");
+}
+
+function normalizeSort(sort: RuntimeRequest["sort"]) {
+	if ("expression" in sort) {
+		return sort;
+	}
+
+	return {
+		direction: sort.direction,
+		expression: toExpression(sort.fields) ?? literalExpression(null),
+	};
 }
 
 function qualifyProperty(schemaSlug: string, property: string) {
@@ -369,9 +518,16 @@ export async function executeViewRuntime(
 	cookies: string,
 	body: RuntimeRequest,
 ) {
+	const normalizedBody = {
+		...body,
+		filter: toFilterPredicate(body.filters, body.filter),
+		sort: normalizeSort(body.sort),
+	};
+	delete (normalizedBody as Partial<RuntimeRequest>).filters;
+
 	return client.POST("/view-runtime/execute", {
 		headers: { Cookie: cookies },
-		body: body as unknown as ExecuteViewRuntimeBody,
+		body: normalizedBody as unknown as ExecuteViewRuntimeBody,
 	});
 }
 

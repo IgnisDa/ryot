@@ -340,7 +340,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		});
 	});
 
-	it("falls through to later image references when @image is null", async () => {
+	it("rejects mixed image and text display fallbacks when @image is null", async () => {
 		const { client, cookies, schema } = await createImageFallbackFixture();
 
 		const { data, response } = await executeViewRuntime(
@@ -367,31 +367,11 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			}),
 		);
 
-		expect(response.status).toBe(200);
-		expect(data?.data.items[0]?.image).toBeNull();
-		expect(getField(data?.data.items[0], "badge")).toEqual({
-			key: "badge",
-			kind: "null",
-			value: null,
-		});
-		expect(getField(data?.data.items[0], "subtitle")).toEqual({
-			key: "subtitle",
-			kind: "null",
-			value: null,
-		});
-		expect(getField(data?.data.items[0], "image")).toEqual({
-			key: "image",
-			kind: "text",
-			value: "fallback-image",
-		});
-		expect(getField(data?.data.items[0], "title")).toEqual({
-			key: "title",
-			kind: "text",
-			value: "No Image Device",
-		});
+		expect(response.status).toBe(400);
+		expect(data).toBeUndefined();
 	});
 
-	it("falls through to later image references in list layout when @image is null", async () => {
+	it("rejects mixed image and text list fallbacks when @image is null", async () => {
 		const { client, cookies, schema } = await createImageFallbackFixture();
 
 		const { data, response } = await executeViewRuntime(
@@ -418,31 +398,11 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			}),
 		);
 
-		expect(response.status).toBe(200);
-		expect(data?.data.items[0]?.image).toBeNull();
-		expect(getField(data?.data.items[0], "badge")).toEqual({
-			key: "badge",
-			kind: "null",
-			value: null,
-		});
-		expect(getField(data?.data.items[0], "subtitle")).toEqual({
-			key: "subtitle",
-			kind: "null",
-			value: null,
-		});
-		expect(getField(data?.data.items[0], "image")).toEqual({
-			key: "image",
-			kind: "text",
-			value: "fallback-image",
-		});
-		expect(getField(data?.data.items[0], "title")).toEqual({
-			key: "title",
-			kind: "text",
-			value: "No Image Device",
-		});
+		expect(response.status).toBe(400);
+		expect(data).toBeUndefined();
 	});
 
-	it("falls through to later image references in table fields when @image is null", async () => {
+	it("rejects mixed image and text table fallbacks when @image is null", async () => {
 		const { client, cookies, schema } = await createImageFallbackFixture();
 
 		const { data, response } = await executeViewRuntime(
@@ -470,12 +430,8 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			}),
 		);
 
-		expect(response.status).toBe(200);
-		expect(data?.data.items[0]?.image).toBeNull();
-		expect(data?.data.items[0]?.fields).toEqual([
-			{ key: "column_0", kind: "text", value: "fallback-image" },
-			{ key: "column_1", kind: "text", value: "No Image Device" },
-		]);
+		expect(response.status).toBe(400);
+		expect(data).toBeUndefined();
 	});
 
 	it("filters, sorts, and displays latest-event join data", async () => {
@@ -621,7 +577,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		);
 		expect(mismatchedValueResult.response.status).toBe(400);
 		expect(mismatchedValueResult.error?.error?.message).toBe(
-			`Filter value for '${entityField(schema.slug, "year")}' must match the 'integer' property type`,
+			"Filter operator 'eq' requires compatible expression types, received 'integer' and 'string'",
 		);
 	});
 }

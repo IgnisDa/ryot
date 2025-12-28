@@ -82,17 +82,46 @@ const unifyPropertyDefinitions = (
 	return definitions[0];
 };
 
-const unifyTypeInfos = (typeInfos: ViewExpressionTypeInfo[]) => {
-	const invalidNonNullInfos = typeInfos.filter(
-		(info) => info.kind !== "null" && info.kind !== "property",
+const getExpressionTypeLabel = (input: ViewExpressionTypeInfo) => {
+	return input.kind === "property" ? input.propertyType : input.kind;
+};
+
+const isNumericPropertyType = (input: PropertyType) => {
+	return ["integer", "number"].includes(normalizeExpressionPropertyType(input));
+};
+
+const isConcatCompatibleType = (input: ViewExpressionTypeInfo) => {
+	if (input.kind === "null") {
+		return true;
+	}
+
+	if (input.kind !== "property") {
+		return false;
+	}
+
+	return !["array", "object"].includes(
+		normalizeExpressionPropertyType(input.propertyType),
 	);
-	if (invalidNonNullInfos.length) {
+};
+
+export const unifyTypeInfos = (typeInfos: ViewExpressionTypeInfo[]) => {
+	const nonNullInfos = typeInfos.filter((info) => info.kind !== "null");
+	if (!nonNullInfos.length) {
+		return { kind: "null" } satisfies ViewExpressionTypeInfo;
+	}
+
+	const imageInfos = nonNullInfos.filter((info) => info.kind === "image");
+	const propertyInfos = nonNullInfos.filter((info) => info.kind === "property");
+	if (imageInfos.length && propertyInfos.length) {
 		throw new ViewRuntimeValidationError(
 			"Expression branches cannot mix display-only image values into non-display expressions",
 		);
 	}
 
-	const propertyInfos = typeInfos.filter((info) => info.kind === "property");
+	if (imageInfos.length) {
+		return { kind: "image" } satisfies ViewExpressionTypeInfo;
+	}
+
 	if (!propertyInfos.length) {
 		return { kind: "null" } satisfies ViewExpressionTypeInfo;
 	}
@@ -127,6 +156,29 @@ const unifyTypeInfos = (typeInfos: ViewExpressionTypeInfo[]) => {
 	);
 };
 
+export const assertNumericExpression = (
+	input: ViewExpressionTypeInfo,
+	context: string,
+) => {
+	assertFilterCompatibleExpression(input, context);
+	if (input.kind !== "property" || !isNumericPropertyType(input.propertyType)) {
+		throw new ViewRuntimeValidationError(
+			`${context} requires a numeric expression, received '${getExpressionTypeLabel(input)}'`,
+		);
+	}
+};
+
+export const assertConcatCompatibleExpression = (
+	input: ViewExpressionTypeInfo,
+) => {
+	assertFilterCompatibleExpression(input, "string composition");
+	if (!isConcatCompatibleType(input)) {
+		throw new ViewRuntimeValidationError(
+			`String composition requires scalar expression values, received '${getExpressionTypeLabel(input)}'`,
+		);
+	}
+};
+
 export const inferViewExpressionType = <
 	TSchema extends ViewRuntimeSchemaLike,
 	TJoin extends ViewRuntimeEventJoinLike,
@@ -156,6 +208,81 @@ export const inferViewExpressionType = <
 				}),
 			),
 		);
+	}
+
+	if (input.expression.type === "arithmetic") {
+		const leftType = inferViewExpressionType({
+			typeCache,
+			computedFieldMap,
+			context: input.context,
+			expression: input.expression.left,
+		});
+		const rightType = inferViewExpressionType({
+			typeCache,
+			computedFieldMap,
+			context: input.context,
+			expression: input.expression.right,
+		});
+		assertNumericExpression(leftType, "Arithmetic");
+		assertNumericExpression(rightType, "Arithmetic");
+		if (leftType.kind !== "property" || rightType.kind !== "property") {
+			throw new ViewRuntimeValidationError(
+				"Arithmetic requires numeric property expressions",
+			);
+		}
+
+		return input.expression.operator === "divide" ||
+			leftType.propertyType === "number" ||
+			rightType.propertyType === "number"
+			? createPropertyTypeInfo("number", { type: "number" })
+			: createPropertyTypeInfo("integer", { type: "integer" });
+	}
+
+	if (
+		input.expression.type === "round" ||
+		input.expression.type === "floor" ||
+		input.expression.type === "integer"
+	) {
+		const expressionType = inferViewExpressionType({
+			typeCache,
+			computedFieldMap,
+			context: input.context,
+			expression: input.expression.expression,
+		});
+		assertNumericExpression(expressionType, "Numeric normalization");
+		return createPropertyTypeInfo("integer", { type: "integer" });
+	}
+
+	if (input.expression.type === "concat") {
+		for (const value of input.expression.values) {
+			assertConcatCompatibleExpression(
+				inferViewExpressionType({
+					typeCache,
+					computedFieldMap,
+					expression: value,
+					context: input.context,
+				}),
+			);
+		}
+
+		return createPropertyTypeInfo("string", { type: "string" });
+	}
+
+	if (input.expression.type === "conditional") {
+		const thenType = inferViewExpressionType({
+			typeCache,
+			computedFieldMap,
+			context: input.context,
+			expression: input.expression.whenTrue,
+		});
+		const elseType = inferViewExpressionType({
+			typeCache,
+			computedFieldMap,
+			context: input.context,
+			expression: input.expression.whenFalse,
+		});
+
+		return unifyTypeInfos([thenType, elseType]);
 	}
 
 	const reference = input.expression.reference;

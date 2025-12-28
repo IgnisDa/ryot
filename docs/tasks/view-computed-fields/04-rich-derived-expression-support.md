@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -18,11 +18,16 @@ Backward compatibility is not needed in this slice. Extend only the new expressi
 
 ## Acceptance criteria
 
-- [ ] Arithmetic expressions execute end-to-end in computed fields and output expressions
-- [ ] Numeric normalization operations such as rounding, flooring, and integer conversion execute end-to-end
-- [ ] String composition expressions execute end-to-end for display and raw output fields
-- [ ] Conditional expressions execute end-to-end with validated branch compatibility and null-aware behavior
-- [ ] Image-valued expressions are accepted only in display-oriented output paths and rejected from sorting, filtering, arithmetic, string composition, and other non-display operations
+- [x] Arithmetic expressions execute end-to-end in computed fields and output expressions
+- [x] Numeric normalization operations such as rounding, flooring, and integer conversion execute end-to-end
+- [x] String composition expressions execute end-to-end for display and raw output fields
+- [x] Conditional expressions execute end-to-end with validated branch compatibility and null-aware behavior
+- [x] Image-valued expressions are accepted only in display-oriented output paths and rejected from sorting, filtering, arithmetic, string composition, and other non-display operations
+
+## Notes
+
+- Conditional expressions use `whenTrue` and `whenFalse` branch keys in the payload AST.
+- Mixed image and non-image branches are rejected so display expressions keep a stable resolved kind.
 
 ## Blocked by
 
