@@ -49,10 +49,10 @@ CORS settings for your R2 bucket:
 
   ```json
   [
-  	{
-  		"AllowedOrigins": ["https://app.ryot.io", "https://pro.ryot.io"],
-  		"AllowedMethods": ["PUT"],
-  		"AllowedHeaders": ["content-type"]
-  	}
+    {
+      "AllowedOrigins": ["https://app.ryot.io", "https://pro.ryot.io"],
+      "AllowedMethods": ["PUT"],
+      "AllowedHeaders": ["content-type"]
+    }
   ]
   ```
