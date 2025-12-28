@@ -1,24 +1,21 @@
-import { Schema } from "effect";
+import { Option, Schema } from "effect";
 
 import { NotificationPlatformId } from "../../schema/brands";
-import { notificationEventTypes, notificationPlatformKinds } from "./types";
+import { NotificationEventType, NotificationPlatformKind } from "./types";
 
-const isHttpUrl = (value: string) => {
-	try {
-		const url = new URL(value);
-		return ["http:", "https:"].includes(url.protocol) ? true : "must be an http(s) URL";
-	} catch {
-		return "must be an http(s) URL";
-	}
-};
+const parseUrl = Option.liftThrowable((value: string) => new URL(value));
+
+const isHttpUrl = (value: string) =>
+	parseUrl(value).pipe(
+		Option.filter((url) => ["http:", "https:"].includes(url.protocol)),
+		Option.match({ onNone: () => "must be an http(s) URL", onSome: () => true as const }),
+	);
 
 const isEmail = (value: string) =>
 	/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? true : "must be a valid email address";
 
-const NotificationEventType = Schema.Literal(...notificationEventTypes);
 const HttpUrl = Schema.String.pipe(Schema.filter(isHttpUrl));
 const EmailAddress = Schema.String.pipe(Schema.filter(isEmail));
-const NotificationPlatformKind = Schema.Literal(...notificationPlatformKinds);
 
 const AppriseSpecifics = Schema.Struct({
 	baseUrl: HttpUrl,
