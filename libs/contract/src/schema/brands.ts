@@ -54,6 +54,14 @@ export const RelationshipSchemaId = Schema.String.pipe(Schema.brand("Relationshi
 
 export type RelationshipSchemaId = typeof RelationshipSchemaId.Type;
 
+export const SignalId = Schema.String.pipe(Schema.brand("SignalId"));
+
+export type SignalId = typeof SignalId.Type;
+
+export const SignalSchemaId = Schema.String.pipe(Schema.brand("SignalSchemaId"));
+
+export type SignalSchemaId = typeof SignalSchemaId.Type;
+
 export const Slug = Schema.String.pipe(
 	Schema.filter((value) =>
 		/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ? true : "must be a non-empty kebab-case slug",
