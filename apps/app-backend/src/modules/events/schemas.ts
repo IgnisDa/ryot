@@ -4,6 +4,16 @@ export type EventTriggerMetadata = {
 	inheritedProperties?: string[];
 };
 
+export const EventCreateOrigin = Schema.Literal(
+	"api",
+	"sandbox",
+	"import",
+	"collection",
+	"integration",
+);
+
+export type EventCreateOrigin = typeof EventCreateOrigin.Type;
+
 const BeforeTriggerAllow = Schema.Struct({ action: Schema.Literal("allow") });
 const BeforeTriggerSkip = Schema.Struct({ action: Schema.Literal("skip"), reason: Schema.String });
 const BeforeTriggerReplace = Schema.Struct({

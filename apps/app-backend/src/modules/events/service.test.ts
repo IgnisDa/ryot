@@ -10,8 +10,10 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
+import { createEventsForUser } from "./create-core";
 import { GlobalEntityHook } from "./global-entity-hook";
 import { EventsRepository } from "./repository";
+import type { CreateEventItem } from "./schemas";
 import { EventsService } from "./service";
 
 const now = "2026-06-14T00:00:00.000Z";
@@ -51,18 +53,25 @@ const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A,
 	Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
-const makeWorkflowEngine = () =>
-	({
-		poll: () => Effect.die("unused"),
-		resume: () => Effect.die("unused"),
-		execute: () => Effect.die("unused"),
-		register: () => Effect.die("unused"),
-		interrupt: () => Effect.die("unused"),
-		deferredDone: () => Effect.die("unused"),
-		scheduleClock: () => Effect.die("unused"),
-		deferredResult: () => Effect.die("unused"),
-		activityExecute: () => Effect.die("unused"),
-	}) as WorkflowEngine["Type"];
+type WorkflowEngineOverrides = Omit<Partial<WorkflowEngine["Type"]>, "execute"> & {
+	execute?: (...args: Parameters<WorkflowEngine["Type"]["execute"]>) => Effect.Effect<unknown>;
+};
+
+const makeWorkflowEngine = (overrides: WorkflowEngineOverrides = {}) =>
+	Object.assign(
+		{
+			poll: () => Effect.die("unused"),
+			resume: () => Effect.die("unused"),
+			execute: () => Effect.die("unused"),
+			register: () => Effect.die("unused"),
+			interrupt: () => Effect.die("unused"),
+			deferredDone: () => Effect.die("unused"),
+			scheduleClock: () => Effect.die("unused"),
+			deferredResult: () => Effect.die("unused"),
+			activityExecute: () => Effect.die("unused"),
+		},
+		overrides,
+	) as WorkflowEngine["Type"];
 
 const defaultSandboxRunResult = {
 	logs: [],
@@ -145,26 +154,31 @@ const makeServiceLayer = (input: {
 	entitiesRepository?: EntitiesRepository;
 	eventSchemasRepository?: EventSchemasRepository;
 }) =>
-	EventsService.Default.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				Layer.succeed(WorkflowEngine, input.workflowEngine ?? makeWorkflowEngine()),
-				Layer.succeed(SandboxService, input.sandboxService ?? makeSandboxService()),
-				Layer.succeed(SandboxRepository, input.sandboxRepository ?? defaultSandboxRepository()),
-				Layer.succeed(EntitiesRepository, input.entitiesRepository ?? makeEntitiesRepository()),
-				GlobalEntityHook.Default,
-				Layer.succeed(
-					EventSchemasRepository,
-					input.eventSchemasRepository ?? makeEventSchemasRepository(),
-				),
-				Layer.succeed(EventsRepository, input.eventsRepository ?? makeEventsRepository()),
-			),
+	Layer.mergeAll(
+		dbRunnerLayer,
+		Layer.succeed(WorkflowEngine, input.workflowEngine ?? makeWorkflowEngine()),
+		Layer.succeed(SandboxService, input.sandboxService ?? makeSandboxService()),
+		Layer.succeed(SandboxRepository, input.sandboxRepository ?? defaultSandboxRepository()),
+		Layer.succeed(EntitiesRepository, input.entitiesRepository ?? makeEntitiesRepository()),
+		GlobalEntityHook.Default,
+		Layer.succeed(
+			EventSchemasRepository,
+			input.eventSchemasRepository ?? makeEventSchemasRepository(),
 		),
+		Layer.succeed(EventsRepository, input.eventsRepository ?? makeEventsRepository()),
 	);
 
+const makeEventsServiceLayer = (input: Parameters<typeof makeServiceLayer>[0]) =>
+	EventsService.Default.pipe(Layer.provide(makeServiceLayer(input)));
+
+const runCreateCore = (payload: ReadonlyArray<CreateEventItem>) =>
+	Effect.gen(function* () {
+		const sandbox = yield* SandboxService;
+		return yield* createEventsForUser({ payload, origin: "api", userId: user.id }, sandbox.run);
+	});
+
 it.effect("requires entityId or sessionEntityId when listing events", () => {
-	const layer = makeServiceLayer({});
+	const layer = makeEventsServiceLayer({});
 
 	return Effect.gen(function* () {
 		const service = yield* EventsService;
@@ -177,7 +191,7 @@ it.effect("requires entityId or sessionEntityId when listing events", () => {
 });
 
 it.effect("returns not found when listing events for an inaccessible entity", () => {
-	const layer = makeServiceLayer({
+	const layer = makeEventsServiceLayer({
 		entitiesRepository: makeEntitiesRepository({
 			getEntityScopeForUser: () => Effect.succeed(null),
 		}),
@@ -192,7 +206,7 @@ it.effect("returns not found when listing events for an inaccessible entity", ()
 });
 
 it.effect("returns not found when listing events for an inaccessible session entity", () => {
-	const layer = makeServiceLayer({
+	const layer = makeEventsServiceLayer({
 		entitiesRepository: makeEntitiesRepository({
 			getEntityScopeForUser: () => Effect.succeed(null),
 		}),
@@ -221,7 +235,7 @@ it.effect("lists events for an accessible entity", () => {
 		},
 	];
 
-	const layer = makeServiceLayer({
+	const layer = makeEventsServiceLayer({
 		eventsRepository: makeEventsRepository({ listForUser: () => Effect.succeed(events) }),
 		entitiesRepository: makeEntitiesRepository({
 			getEntityScopeForUser: () => Effect.succeed(entityScope),
@@ -237,7 +251,7 @@ it.effect("lists events for an accessible entity", () => {
 });
 
 it.effect("returns not found when creating an event for an inaccessible entity", () => {
-	const layer = makeServiceLayer({
+	const layer = makeEventsServiceLayer({
 		entitiesRepository: makeEntitiesRepository({
 			getEntityScopeForUser: () => Effect.succeed(null),
 		}),
@@ -256,7 +270,7 @@ it.effect("returns not found when creating an event for an inaccessible entity",
 });
 
 it.effect("returns not found when the event schema is not visible to the user", () => {
-	const layer = makeServiceLayer({
+	const layer = makeEventsServiceLayer({
 		entitiesRepository: makeEntitiesRepository({
 			getEntityScopeForUser: () => Effect.succeed(entityScope),
 		}),
@@ -278,7 +292,7 @@ it.effect("returns not found when the event schema is not visible to the user", 
 });
 
 it.effect("returns bad request when the event schema does not belong to the entity schema", () => {
-	const layer = makeServiceLayer({
+	const layer = makeEventsServiceLayer({
 		entitiesRepository: makeEntitiesRepository({
 			getEntityScopeForUser: () => Effect.succeed(entityScope),
 		}),
@@ -303,7 +317,7 @@ it.effect("returns bad request when the event schema does not belong to the enti
 });
 
 it.effect("returns not found when the session entity is not accessible", () => {
-	const layer = makeServiceLayer({
+	const layer = makeEventsServiceLayer({
 		entitiesRepository: makeEntitiesRepository({
 			getEntityScopeForUser: ({ entityId }) =>
 				Effect.succeed(entityId === "entity-1" ? entityScope : null),
@@ -331,7 +345,7 @@ it.effect("returns not found when the session entity is not accessible", () => {
 });
 
 it.effect("returns bad request when event properties fail schema validation", () => {
-	const layer = makeServiceLayer({
+	const layer = makeEventsServiceLayer({
 		entitiesRepository: makeEntitiesRepository({
 			getEntityScopeForUser: () => Effect.succeed(entityScope),
 		}),
@@ -352,21 +366,27 @@ it.effect("returns bad request when event properties fail schema validation", ()
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("creates events with resolved scope and returns the created count", () => {
-	const createCalls: unknown[] = [];
-	const occurredAt = new Date("2026-01-01T00:00:00.000Z");
+it.effect("queues API event creation after validation and returns the requested count", () => {
+	let createCalled = false;
+	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
 
-	const layer = makeServiceLayer({
+	const layer = makeEventsServiceLayer({
 		entitiesRepository: makeEntitiesRepository({
 			getEntityScopeForUser: () => Effect.succeed(entityScope),
 		}),
 		eventSchemasRepository: makeEventSchemasRepository({
 			getScopeForUser: () => Effect.succeed(eventSchemaScope),
 		}),
+		workflowEngine: makeWorkflowEngine({
+			execute: (_workflow, options) => {
+				capturedOptions = options;
+				return Effect.succeed(options.executionId);
+			},
+		}),
 		eventsRepository: makeEventsRepository({
 			createEvent: (input) =>
 				Effect.sync(() => {
-					createCalls.push(input);
+					createCalled = true;
 					return {
 						id: "event-1",
 						createdAt: now,
@@ -395,18 +415,51 @@ it.effect("creates events with resolved scope and returns the created count", ()
 		]);
 
 		expect(result).toEqual({ count: 1 });
-		expect(createCalls).toEqual([
-			{
-				occurredAt,
+		expect(createCalled).toBe(false);
+		expect(capturedOptions).toMatchObject({
+			discard: true,
+			payload: {
+				origin: "api",
 				userId: user.id,
-				entityId: "entity-1",
-				properties: { rating: 5 },
-				sessionEntityId: undefined,
-				eventSchemaName: "Finished",
-				eventSchemaSlug: "finished",
-				eventSchemaId: "event-schema-1",
+				payload: [
+					{
+						entityId: "entity-1",
+						properties: { rating: 5 },
+						eventSchemaId: "event-schema-1",
+						occurredAt: "2026-01-01T00:00:00.000Z",
+					},
+				],
 			},
-		]);
+		});
+		expect(typeof capturedOptions?.payload.executionId).toBe("string");
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("createForImport waits for the queued workflow result", () => {
+	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
+
+	const layer = makeEventsServiceLayer({
+		workflowEngine: makeWorkflowEngine({
+			execute: (_workflow, options) => {
+				capturedOptions = options;
+				return Effect.succeed({ count: 1 });
+			},
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* EventsService;
+		const result = yield* service.createForImport(
+			user.id,
+			[{ entityId: "entity-1", properties: { rating: 5 }, eventSchemaId: "event-schema-1" }],
+			"run-1",
+		);
+
+		expect(result).toEqual({ count: 1 });
+		expect(capturedOptions).toMatchObject({
+			payload: { userId: user.id, origin: "import", importRunId: "run-1" },
+		});
+		expect(capturedOptions?.discard).toBeUndefined();
 	}).pipe(Effect.provide(layer));
 });
 
@@ -450,8 +503,7 @@ it.effect("before-create trigger skip prevents event creation", () => {
 	});
 
 	return Effect.gen(function* () {
-		const service = yield* EventsService;
-		const result = yield* service.create(user, [
+		const result = yield* runCreateCore([
 			{ properties: { rating: 5 }, entityId: "entity-1", eventSchemaId: "event-schema-1" },
 		]);
 
@@ -523,8 +575,7 @@ it.effect("before-create trigger replace modifies event properties", () => {
 	});
 
 	return Effect.gen(function* () {
-		const service = yield* EventsService;
-		const result = yield* service.create(user, [
+		const result = yield* runCreateCore([
 			{ properties: { rating: 1 }, entityId: "entity-1", eventSchemaId: "event-schema-1" },
 		]);
 
@@ -575,9 +626,8 @@ it.effect("before-create trigger failure prevents event creation", () => {
 	});
 
 	return Effect.gen(function* () {
-		const service = yield* EventsService;
 		const exit = yield* Effect.exit(
-			service.create(user, [
+			runCreateCore([
 				{ properties: { rating: 5 }, entityId: "entity-1", eventSchemaId: "event-schema-1" },
 			]),
 		);
