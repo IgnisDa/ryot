@@ -30,6 +30,24 @@ export const hostResultSchema = <Data extends z.ZodType>(data: Data) =>
 export type HostFailure = z.infer<typeof hostFailureSchema>;
 export type HostResult<Data> = HostFailure | { data: Data; success: true };
 
+export interface SandboxAppConfigRegistry {}
+
+type RegisteredSandboxAppConfig = SandboxAppConfigRegistry[keyof SandboxAppConfigRegistry];
+
+type SandboxAppConfigKey = [RegisteredSandboxAppConfig] extends [never]
+	? string
+	: keyof RegisteredSandboxAppConfig & string;
+
+type SandboxAppConfigValue<Key extends SandboxAppConfigKey> = [RegisteredSandboxAppConfig] extends [
+	never,
+]
+	? JsonValue
+	: RegisteredSandboxAppConfig[Key & keyof RegisteredSandboxAppConfig];
+
+type GetAppConfigValue = <Key extends SandboxAppConfigKey>(
+	key: Key,
+) => Promise<HostResult<SandboxAppConfigValue<Key>>>;
+
 export const unwrapHostResult = <Data>(result: HostResult<Data>) => {
 	if (!result.success) {
 		throw new Error(result.error);
@@ -405,9 +423,9 @@ export const sandboxHostCapabilitySchema = z.enum(SANDBOX_HOST_CAPABILITIES);
 
 export type SandboxHostCapability = z.infer<typeof sandboxHostCapabilitySchema>;
 
-export type SandboxHostMethodMap = CoreSandboxHostMethodMap &
+export type SandboxHostMethodMap = Omit<CoreSandboxHostMethodMap, "getAppConfigValue"> &
 	DomainSandboxHostMethodMap &
-	AutomationSandboxHostMethodMap;
+	AutomationSandboxHostMethodMap & { readonly getAppConfigValue: GetAppConfigValue };
 
 export type SandboxHostImplementationMap<Context> = CoreSandboxHostImplementationMap<Context> &
 	DomainSandboxHostImplementationMap<Context> &
