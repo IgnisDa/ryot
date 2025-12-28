@@ -1,4 +1,4 @@
-import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, Multipart } from "@effect/platform";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, Multipart, OpenApi } from "@effect/platform";
 import { Option, Schema } from "effect";
 
 import { AuthMiddleware } from "../../auth-middleware";
@@ -11,18 +11,21 @@ import {
 } from "./upload-policy";
 
 export const UploadsGroup = HttpApiGroup.make("uploads")
+	.annotate(OpenApi.Description, "Creates upload and download URLs and accepts temporary files")
 	.addError(Unauthorized, { status: 401 })
 	.addError(RateLimited, { status: 429 })
 	.middleware(AuthMiddleware)
 	.add(
 		HttpApiEndpoint.post("createPresigned", "/uploads/presigned")
 			.setPayload(Schema.Struct({ contentType: Schema.String }))
-			.addSuccess(PresignedUploadResponse),
+			.addSuccess(PresignedUploadResponse)
+			.annotate(OpenApi.Description, "Creates a presigned URL for uploading a file"),
 	)
 	.add(
 		HttpApiEndpoint.post("createPresignedDownload", "/uploads/presigned/download")
 			.setPayload(Schema.Struct({ keys: Schema.Array(Schema.String).pipe(Schema.minItems(1)) }))
-			.addSuccess(PresignedDownloadResponse),
+			.addSuccess(PresignedDownloadResponse)
+			.annotate(OpenApi.Description, "Creates presigned download URLs for stored files"),
 	)
 	.add(
 		HttpApiEndpoint.post("uploadTemporary", "/uploads/temporary")
@@ -35,5 +38,6 @@ export const UploadsGroup = HttpApiGroup.make("uploads")
 			)
 			.addSuccess(Schema.Array(Schema.String), { status: 201 })
 			.addError(Multipart.MultipartError, { status: 413 })
-			.middleware(UploadBodyLimitMiddleware),
+			.middleware(UploadBodyLimitMiddleware)
+			.annotate(OpenApi.Description, "Uploads files to temporary storage"),
 	);
