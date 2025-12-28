@@ -9,253 +9,173 @@ import {
 	lt,
 	lte,
 	ne,
+	not,
 	or,
 	sql,
 } from "drizzle-orm";
 import { match } from "ts-pattern";
 import { ViewRuntimeValidationError } from "~/lib/views/errors";
-import type { FilterExpression } from "~/lib/views/filtering";
+import type { ViewComputedField } from "~/lib/views/expression";
 import {
-	getEntityColumnPropertyType,
-	getEventJoinColumnPropertyType,
-	getEventJoinForReference,
-	getEventJoinPropertyType,
-	getPropertyType,
-	getSchemaForReference,
-	type PropertyType,
-	resolveRuntimeReference,
-	type ViewRuntimeEventJoinLike,
-	type ViewRuntimeReferenceContext,
-	type ViewRuntimeSchemaLike,
+	assertContainsCompatibleExpression,
+	normalizeExpressionPropertyType,
+} from "~/lib/views/expression-analysis";
+import type { ViewPredicate } from "~/lib/views/filtering";
+import type {
+	ViewRuntimeEventJoinLike,
+	ViewRuntimeReferenceContext,
+	ViewRuntimeSchemaLike,
 } from "~/lib/views/reference";
-import { buildCastedValueExpression } from "./sql-expression-policy";
+import { createScalarExpressionCompiler } from "./expression-compiler";
+import type { SqlExpression } from "./sql-expression-policy";
 
-const getEventJoinColumnName = (joinKey: string) => `event_join_${joinKey}`;
+const toJsonbExpression = (expression: SqlExpression) =>
+	sql`to_jsonb(${expression})`;
 
-const buildEventJoinJsonColumnExpression = (alias: string, joinKey: string) => {
-	return sql`${sql.raw(`${alias}.${getEventJoinColumnName(joinKey)}`)}`;
+const buildEscapedContainsPattern = (expression: SqlExpression) => {
+	const textExpression = sql`(${expression})::text`;
+	const escapedBackslashes = sql`replace(${textExpression}, '\\', '\\\\')`;
+	const escapedPercents = sql`replace(${escapedBackslashes}, '%', '\\%')`;
+	const escapedUnderscores = sql`replace(${escapedPercents}, '_', '\\_')`;
+	return sql`'%' || ${escapedUnderscores} || '%'`;
 };
 
-const buildPropertyFilterExpression = <
+const buildPredicateClause = <
 	TSchema extends ViewRuntimeSchemaLike,
 	TJoin extends ViewRuntimeEventJoinLike,
 >(input: {
-	alias: string;
-	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
-	reference: Extract<
-		ReturnType<typeof resolveRuntimeReference>,
-		{ type: "schema-property" }
-	>;
-}) => {
-	const foundSchema = getSchemaForReference(
-		input.context.schemaMap,
-		input.reference,
-	);
-	const propertyType = getPropertyType(foundSchema, input.reference.property);
-	if (!propertyType) {
-		throw new ViewRuntimeValidationError(
-			`Property '${input.reference.property}' not found in schema '${input.reference.slug}'`,
+	predicate: ViewPredicate;
+	compiler: ReturnType<typeof createScalarExpressionCompiler<TSchema, TJoin>>;
+}): SqlExpression => {
+	if (input.predicate.type === "and") {
+		const [first, ...rest] = input.predicate.predicates.map((predicate) =>
+			buildPredicateClause({ predicate, compiler: input.compiler }),
 		);
-	}
-
-	const expression = buildCastedValueExpression(propertyType, {
-		propertyJson: sql`${sql.raw(input.alias)}.properties -> ${input.reference.property}`,
-		propertyText: sql`${sql.raw(input.alias)}.properties ->> ${input.reference.property}`,
-	});
-
-	return { expression, propertyType };
-};
-
-const buildEventJoinPropertyFilterExpression = <
-	TSchema extends ViewRuntimeSchemaLike,
-	TJoin extends ViewRuntimeEventJoinLike,
->(input: {
-	alias: string;
-	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
-	reference: Extract<
-		ReturnType<typeof resolveRuntimeReference>,
-		{ type: "event-join-property" }
-	>;
-}) => {
-	const join = getEventJoinForReference(
-		input.context.eventJoinMap,
-		input.reference,
-	);
-	const propertyType = getEventJoinPropertyType(join, input.reference.property);
-	if (!propertyType) {
-		throw new ViewRuntimeValidationError(
-			`Property '${input.reference.property}' not found for event join '${join.key}'`,
-		);
-	}
-
-	const joinColumn = buildEventJoinJsonColumnExpression(
-		input.alias,
-		input.reference.joinKey,
-	);
-	const expression = buildCastedValueExpression(propertyType, {
-		propertyJson: sql`${joinColumn} -> 'properties' -> ${input.reference.property}`,
-		propertyText: sql`${joinColumn} -> 'properties' ->> ${input.reference.property}`,
-	});
-
-	return { expression, propertyType };
-};
-
-const buildEntityColumnFilterExpression = (alias: string, column: string) =>
-	match(column)
-		.with("id", () => sql`${sql.raw(alias)}.id`)
-		.with("name", () => sql`${sql.raw(alias)}.name`)
-		.with("createdAt", () => sql`${sql.raw(alias)}.created_at`)
-		.with("updatedAt", () => sql`${sql.raw(alias)}.updated_at`)
-		.with("image", () => {
-			throw new ViewRuntimeValidationError(
-				"Unsupported entity column '@image'",
-			);
-		})
-		.otherwise(() => {
-			throw new ViewRuntimeValidationError(
-				`Unsupported entity column '@${column}'`,
-			);
-		});
-
-const buildEventJoinColumnFilterExpression = (
-	alias: string,
-	joinKey: string,
-	column: string,
-) => {
-	const joinColumn = buildEventJoinJsonColumnExpression(alias, joinKey);
-	const propertyType = getEventJoinColumnPropertyType(column);
-	if (!propertyType) {
-		throw new ViewRuntimeValidationError(
-			`Unsupported event join column 'event.${joinKey}.@${column}'`,
-		);
-	}
-
-	return {
-		propertyType,
-		expression: buildCastedValueExpression(propertyType, {
-			propertyJson: sql`${joinColumn} -> ${column}`,
-			propertyText: sql`${joinColumn} ->> ${column}`,
-		}),
-	};
-};
-
-const buildFilterOperationClause = (
-	filter: FilterExpression,
-	expression: ReturnType<typeof sql>,
-	propertyType?: PropertyType,
-) =>
-	match(filter)
-		.with({ op: "isNull" }, () => isNull(expression))
-		.with({ op: "isNotNull" }, () => isNotNull(expression))
-		.with({ op: "eq" }, ({ value }) => eq(expression, value))
-		.with({ op: "neq" }, ({ value }) => ne(expression, value))
-		.with({ op: "gt" }, ({ value }) => gt(expression, value))
-		.with({ op: "lt" }, ({ value }) => lt(expression, value))
-		.with({ op: "gte" }, ({ value }) => gte(expression, value))
-		.with({ op: "lte" }, ({ value }) => lte(expression, value))
-		.with({ op: "in" }, ({ value }) => {
-			if (!Array.isArray(value)) {
-				throw new ViewRuntimeValidationError(
-					"Filter operator 'in' requires an array value",
-				);
-			}
-
-			return inArray(expression, value);
-		})
-		.with({ op: "contains" }, ({ value }) => {
-			if (propertyType === "array") {
-				if (Array.isArray(value)) {
-					throw new ViewRuntimeValidationError(
-						"Filter operator 'contains' for array properties requires a scalar value",
-					);
-				}
-				return sql`${expression} @> ${JSON.stringify([value])}::jsonb`;
-			}
-			if (propertyType === "object") {
-				return sql`${expression} @> ${JSON.stringify(value)}::jsonb`;
-			}
-			if (propertyType !== undefined && propertyType !== "string") {
-				throw new ViewRuntimeValidationError(
-					`Filter operator 'contains' is not supported for property type '${propertyType}'`,
-				);
-			}
-			const safe = String(value)
-				.replace(/\\/g, "\\\\")
-				.replace(/%/g, "\\%")
-				.replace(/_/g, "\\_");
-			return sql`${expression} ilike ${`%${safe}%`} escape '\\'`;
-		})
-		.exhaustive();
-
-const buildFilterClauseForSchema = <
-	TSchema extends ViewRuntimeSchemaLike,
-	TJoin extends ViewRuntimeEventJoinLike,
->(input: {
-	alias: string;
-	schemaSlug: string;
-	filter: FilterExpression;
-	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
-}) => {
-	const parsedReference = resolveRuntimeReference(input.filter.field);
-
-	if (parsedReference.type === "entity-column") {
-		if (parsedReference.slug !== input.schemaSlug) {
-			getSchemaForReference(input.context.schemaMap, parsedReference);
-			return undefined;
+		if (!first) {
+			throw new ViewRuntimeValidationError("And predicates must not be empty");
 		}
 
-		const expression = buildEntityColumnFilterExpression(
-			input.alias,
-			parsedReference.column,
+		if (!rest.length) {
+			return first;
+		}
+
+		return and(first, ...rest) ?? first;
+	}
+
+	if (input.predicate.type === "or") {
+		const [first, ...rest] = input.predicate.predicates.map((predicate) =>
+			buildPredicateClause({ predicate, compiler: input.compiler }),
 		);
-		const entityColumnType =
-			getEntityColumnPropertyType(parsedReference.column) ?? undefined;
-		return buildFilterOperationClause(
-			input.filter,
-			expression,
-			entityColumnType,
+		if (!first) {
+			throw new ViewRuntimeValidationError("Or predicates must not be empty");
+		}
+
+		if (!rest.length) {
+			return first;
+		}
+
+		return or(first, ...rest) ?? first;
+	}
+
+	if (input.predicate.type === "not") {
+		return not(
+			buildPredicateClause({
+				predicate: input.predicate.predicate,
+				compiler: input.compiler,
+			}),
 		);
 	}
 
-	if (parsedReference.type === "event-join-column") {
-		getEventJoinForReference(input.context.eventJoinMap, parsedReference);
-		const { expression, propertyType } = buildEventJoinColumnFilterExpression(
-			input.alias,
-			parsedReference.joinKey,
-			parsedReference.column,
-		);
-		return buildFilterOperationClause(input.filter, expression, propertyType);
+	if (input.predicate.type === "isNull") {
+		return isNull(input.compiler.compile(input.predicate.expression));
 	}
 
-	if (parsedReference.type === "event-join-property") {
-		const { expression, propertyType } = buildEventJoinPropertyFilterExpression(
-			{
-				alias: input.alias,
-				context: input.context,
-				reference: parsedReference,
-			},
-		);
-		return buildFilterOperationClause(input.filter, expression, propertyType);
+	if (input.predicate.type === "isNotNull") {
+		return isNotNull(input.compiler.compile(input.predicate.expression));
 	}
 
-	if (parsedReference.type === "computed-field") {
+	if (input.predicate.type === "comparison") {
+		const leftType = input.compiler.getTypeInfo(input.predicate.left);
+		const rightType = input.compiler.getTypeInfo(input.predicate.right);
+		const targetType =
+			leftType.kind === "property"
+				? normalizeExpressionPropertyType(leftType.propertyType)
+				: rightType.kind === "property"
+					? normalizeExpressionPropertyType(rightType.propertyType)
+					: undefined;
+		const left = input.compiler.compile(input.predicate.left, targetType);
+		const right = input.compiler.compile(input.predicate.right, targetType);
+
+		return match(input.predicate.operator)
+			.with("eq", () => eq(left, right))
+			.with("neq", () => ne(left, right))
+			.with("gt", () => gt(left, right))
+			.with("gte", () => gte(left, right))
+			.with("lt", () => lt(left, right))
+			.with("lte", () => lte(left, right))
+			.exhaustive();
+	}
+
+	if (input.predicate.type === "in") {
+		const expressionType = input.compiler.getTypeInfo(
+			input.predicate.expression,
+		);
+		const targetType =
+			expressionType.kind === "property"
+				? normalizeExpressionPropertyType(expressionType.propertyType)
+				: undefined;
+		const expression = input.compiler.compile(
+			input.predicate.expression,
+			targetType,
+		);
+		const values = input.predicate.values.map((value) =>
+			input.compiler.compile(value, targetType),
+		);
+		return inArray(expression, values);
+	}
+
+	const expressionType = input.compiler.getTypeInfo(input.predicate.expression);
+	assertContainsCompatibleExpression(expressionType);
+
+	if (expressionType.kind !== "property") {
 		throw new ViewRuntimeValidationError(
-			"Computed field references are not supported in filters",
+			"Filter operator 'contains' requires a property expression",
 		);
 	}
 
-	if (parsedReference.slug !== input.schemaSlug) {
-		getSchemaForReference(input.context.schemaMap, parsedReference);
-		return undefined;
+	if (expressionType.propertyType === "string") {
+		const expression = input.compiler.compile(
+			input.predicate.expression,
+			"string",
+		);
+		const value = input.compiler.compile(input.predicate.value, "string");
+		return sql`${expression} ilike ${buildEscapedContainsPattern(value)} escape '\\'`;
 	}
 
-	const { expression, propertyType } = buildPropertyFilterExpression({
-		alias: input.alias,
-		context: input.context,
-		reference: parsedReference,
-	});
+	if (expressionType.propertyType === "array") {
+		const expression = input.compiler.compile(
+			input.predicate.expression,
+			"array",
+		);
+		const valueType = input.compiler.getTypeInfo(input.predicate.value);
+		const value = input.compiler.compile(input.predicate.value);
+		return sql`${expression} @> jsonb_build_array(${valueType.kind === "property" && ["array", "object"].includes(valueType.propertyType) ? value : toJsonbExpression(value)})`;
+	}
 
-	return buildFilterOperationClause(input.filter, expression, propertyType);
+	if (expressionType.propertyType === "object") {
+		const expression = input.compiler.compile(
+			input.predicate.expression,
+			"object",
+		);
+		const value = toJsonbExpression(
+			input.compiler.compile(input.predicate.value),
+		);
+		return sql`${expression} @> ${value}`;
+	}
+
+	throw new ViewRuntimeValidationError(
+		`Filter operator 'contains' is not supported for expression type '${expressionType.propertyType}'`,
+	);
 };
 
 export const buildFilterWhereClause = <
@@ -263,38 +183,19 @@ export const buildFilterWhereClause = <
 	TJoin extends ViewRuntimeEventJoinLike,
 >(input: {
 	alias: string;
-	entitySchemaSlugs: string[];
-	filters: FilterExpression[];
-	schemaSlugExpression?: ReturnType<typeof sql>;
+	predicate: ViewPredicate | null;
+	computedFields?: ViewComputedField[];
 	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
 }) => {
-	if (!input.filters.length) {
+	if (!input.predicate) {
 		return undefined;
 	}
 
-	const schemaGroups = [...new Set(input.entitySchemaSlugs)].map(
-		(schemaSlug) => {
-			const clauses = input.filters.flatMap((filter) => {
-				const clause = buildFilterClauseForSchema({
-					filter,
-					schemaSlug,
-					alias: input.alias,
-					context: input.context,
-				});
+	const compiler = createScalarExpressionCompiler({
+		alias: input.alias,
+		context: input.context,
+		computedFields: input.computedFields,
+	});
 
-				return clause ? [clause] : [];
-			});
-
-			return and(
-				eq(
-					input.schemaSlugExpression ??
-						sql`${sql.raw(input.alias)}.entity_schema_slug`,
-					schemaSlug,
-				),
-				...clauses,
-			);
-		},
-	);
-
-	return or(...schemaGroups);
+	return buildPredicateClause({ predicate: input.predicate, compiler });
 };

@@ -4,12 +4,18 @@ import { executeViewRuntimeBody } from "./schemas";
 describe("executeViewRuntimeBody", () => {
 	it("rejects non-JSON literal expression values", () => {
 		const result = executeViewRuntimeBody.safeParse({
-			filters: [],
+			filter: null,
 			eventJoins: [],
 			computedFields: [],
 			entitySchemaSlugs: ["book"],
 			pagination: { page: 1, limit: 10 },
-			sort: { fields: ["entity.book.@name"], direction: "asc" },
+			sort: {
+				direction: "asc",
+				expression: {
+					type: "reference",
+					reference: { type: "entity-column", slug: "book", column: "name" },
+				},
+			},
 			fields: [
 				{
 					key: "bad",
@@ -26,11 +32,17 @@ describe("executeViewRuntimeBody", () => {
 
 	it("rejects duplicate computed field keys", () => {
 		const result = executeViewRuntimeBody.safeParse({
-			filters: [],
+			filter: null,
 			eventJoins: [],
 			entitySchemaSlugs: ["book"],
 			pagination: { page: 1, limit: 10 },
-			sort: { fields: ["entity.book.@name"], direction: "asc" },
+			sort: {
+				direction: "asc",
+				expression: {
+					type: "reference",
+					reference: { type: "entity-column", slug: "book", column: "name" },
+				},
+			},
 			fields: [],
 			computedFields: [
 				{ key: "label", expression: { type: "literal", value: "A" } },
