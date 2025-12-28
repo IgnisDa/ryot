@@ -1,5 +1,5 @@
+import { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
-import { z } from "zod";
 import {
 	createImportEnvelopeSchema,
 	nullableBooleanSchema,

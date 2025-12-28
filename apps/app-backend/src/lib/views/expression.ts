@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "@hono/zod-openapi";
 import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
 import type { ViewPredicate } from "./filtering";
 import { viewPredicateSchema } from "./filtering";
