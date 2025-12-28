@@ -1,5 +1,6 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
+import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import {
 	TranslationStatus,
 	type EntityDetail,
@@ -9,7 +10,8 @@ import type { RowItem } from "@ryot/contract/modules/query-engine/language";
 import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { UserId } from "@ryot/contract/schema/brands";
 import { buildEntityDetailQueryDocument } from "@ryot/query-engine";
-import { Effect, Schema } from "effect";
+import { generateId } from "better-auth";
+import { DateTime, Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
@@ -24,12 +26,14 @@ import {
 } from "#modules/query-engine/response-helpers";
 import { QueryEngineService } from "#modules/query-engine/service";
 
+import { LifecycleDispatch } from "./lifecycle-dispatch";
 import type { EntityMutationSnapshot } from "./mutation-outcomes";
 import { EntitiesRepository, type InsertEntityInputBase } from "./repository";
 
 type CreateEntityInput = {
 	name: string;
 	properties: unknown;
+	origin?: AutomationOrigin;
 	entitySchemaId: EntitySchemaId;
 } & (
 	| {
@@ -103,6 +107,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 		const runWithDb = yield* DbRunner;
 		const repository = yield* EntitiesRepository;
 		const queryEngine = yield* QueryEngineService;
+		const lifecycleDispatch = yield* LifecycleDispatch;
 
 		const parseEntityProperties = Effect.fn("EntitiesService.parseEntityProperties")(function* (
 			properties: unknown,
@@ -115,6 +120,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 
 		const createEntity = Effect.fn("EntitiesService.createEntity")(function* (
 			input: CreateAnyEntityInput,
+			origin?: AutomationOrigin,
 		) {
 			if (input.scope === "user") {
 				const hasExternalId = input.externalId !== undefined;
@@ -156,13 +162,35 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 
 			const name = yield* requireText(input.name, "Entity name is required");
 			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
+			const occurrenceId = `occ_${generateId()}`;
 
 			const saved = yield* runWithDb(repository.insertEntity({ ...input, name, properties }));
+
+			if (origin && saved.wasInserted) {
+				yield* lifecycleDispatch.dispatch({
+					origin,
+					occurrenceId,
+					recordId: saved.entity.id,
+					occurredAt: (yield* DateTime.nowAsDate).toISOString(),
+					rowUserId: input.scope === "user" ? input.userId : null,
+					source: {
+						kind: "entity",
+						after: {
+							properties,
+							id: saved.entity.id,
+							name: saved.entity.name,
+							entitySchemaSlug: scope.slug,
+							entitySchemaId: saved.entity.entitySchemaId,
+						},
+					},
+				});
+			}
+
 			return saved.entity;
 		});
 
 		const create = Effect.fn("EntitiesService.create")(function* (input: CreateEntityInput) {
-			return yield* createEntity(input);
+			return yield* createEntity(input, input.origin);
 		});
 
 		const createGlobal = Effect.fn("EntitiesService.createGlobal")(function* (
