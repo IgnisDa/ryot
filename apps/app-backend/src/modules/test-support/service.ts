@@ -16,6 +16,7 @@ import { TransactionRunner } from "#lib/infrastructure/db/service";
 import { AuthService } from "#modules/auth/service";
 import { AutomationsService } from "#modules/automations/service";
 import { EntitiesService } from "#modules/entities/service";
+import { InterestService } from "#modules/entity-interest/service";
 import { EntitySchemasService } from "#modules/entity-schemas/service";
 import { TranslationsService } from "#modules/entity-translation/service";
 import { RelationshipSchemasService } from "#modules/relationship-schemas/service";
@@ -48,6 +49,7 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 		const signals = yield* SignalsService;
 		const entities = yield* EntitiesService;
 		const trackers = yield* TrackersService;
+		const interest = yield* InterestService;
 		const sandbox = yield* SandboxApiService;
 		const automations = yield* AutomationsService;
 		const translations = yield* TranslationsService;
@@ -192,6 +194,7 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 			upsertEntityTranslation,
 			upsertGlobalRelationship,
 			listSignals: signals.list,
+			setEntityInterest: interest.setInterest,
 			getSandboxScript: sandbox.getStoredScript,
 			deleteGlobalEntities: entities.deleteByIds,
 			listSandboxScripts: sandbox.listStoredScripts,

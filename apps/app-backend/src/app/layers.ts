@@ -33,7 +33,7 @@ import { EntityImportWorkflowOperationsLive } from "#modules/entity-import/opera
 import { EntityPopulationTriggerLive } from "#modules/entity-import/population-trigger-live";
 import { ProviderEntityPopulationWorkflowDefinitionsLive } from "#modules/entity-import/provider-entity-population-workflow";
 import { StreamRegistry } from "#modules/entity-interest/registry";
-import { InterestReconciler } from "#modules/entity-interest/service";
+import { InterestReconciler, InterestService } from "#modules/entity-interest/service";
 import { EntitySchemaWorkflowDefinitionsLive } from "#modules/entity-schemas/default-saved-view-workflow-live";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EntitySchemasService } from "#modules/entity-schemas/service";
@@ -216,7 +216,10 @@ const InterestReconcilerLive = Layer.provide(
 	Layer.mergeAll(QueryEngineServiceLive, EntityPopulationTriggerLive, TranslationsService.Default),
 );
 
-const InterestServicesLive = Layer.mergeAll(StreamRegistry.Default, InterestReconcilerLive);
+const InterestServicesLive = Layer.provideMerge(
+	InterestService.Default,
+	Layer.mergeAll(StreamRegistry.Default, InterestReconcilerLive),
+);
 const EventsServiceLive = Layer.provide(EventsService.Default, QueryEngineServiceLive);
 const SignalDispatchLayerLive = Layer.provide(SignalDispatchLive, AutomationsService.Default);
 const SignalEmissionServiceLive = Layer.provide(
