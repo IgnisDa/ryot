@@ -4,6 +4,7 @@ import {
 	MantineProvider,
 } from "@mantine/core";
 import { ModalsProvider } from "@mantine/modals";
+import { Notifications } from "@mantine/notifications";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
@@ -42,6 +43,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 					colorSchemeManager={colorSchemeManager}
 				>
 					<ModalsProvider>
+						<Notifications position="top-right" />
 						{children}
 						<TanStackDevtools
 							config={{ position: "bottom-right" }}
