@@ -2992,6 +2992,7 @@ export type UserGeneralDashboardElement = {
   __typename?: 'UserGeneralDashboardElement';
   deduplicateMedia?: Maybe<Scalars['Boolean']['output']>;
   hidden: Scalars['Boolean']['output'];
+  numDaysAhead?: Maybe<Scalars['Int']['output']>;
   numElements?: Maybe<Scalars['Int']['output']>;
   section: DashboardElementLot;
 };
@@ -2999,6 +3000,7 @@ export type UserGeneralDashboardElement = {
 export type UserGeneralDashboardElementInput = {
   deduplicateMedia?: InputMaybe<Scalars['Boolean']['input']>;
   hidden: Scalars['Boolean']['input'];
+  numDaysAhead?: InputMaybe<Scalars['Int']['input']>;
   numElements?: InputMaybe<Scalars['Int']['input']>;
   section: DashboardElementLot;
 };
