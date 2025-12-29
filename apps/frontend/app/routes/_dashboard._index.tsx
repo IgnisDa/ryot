@@ -81,11 +81,17 @@ export default function Page() {
 	const isMobile = useIsMobile();
 	const coreDetails = useCoreDetails();
 	const userDetails = useUserDetails();
+	const userCollections = useUserCollections();
 	const userPreferences = useUserPreferences();
 	const { startOnboardingTour } = useOnboardingTour();
 	const isOnboardingTourCompleted = useIsOnboardingTourCompleted();
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
+
+	const [isAlertDismissed, setIsAlertDismissed] = useLocalStorage(
+		`AlertDismissed-${userDetails.id}-${CryptoJS.SHA256(dashboardMessage)}`,
+		"false",
+	);
 
 	const dbElm = (el: DashboardElementLot) =>
 		userPreferences.general.dashboard.find((de) => de.section === el);
@@ -93,8 +99,6 @@ export default function Page() {
 	const takeUpcoming = dbElm(DashboardElementLot.Upcoming)?.numElements;
 	const takeInProgress = dbElm(DashboardElementLot.InProgress)?.numElements;
 	const daysAheadUpcoming = dbElm(DashboardElementLot.Upcoming)?.numDaysAhead;
-
-	const userCollections = useUserCollections();
 
 	const inProgressCollection = userCollections.find(
 		(c) => c.name === "In Progress",
@@ -150,11 +154,6 @@ export default function Page() {
 
 	const latestUserSummary =
 		userAnalyticsQuery.data?.userAnalytics.response.activities.items.at(0);
-
-	const [isAlertDismissed, setIsAlertDismissed] = useLocalStorage(
-		`AlertDismissed-${userDetails.id}-${CryptoJS.SHA256(dashboardMessage)}`,
-		"false",
-	);
 
 	return (
 		<Container>
