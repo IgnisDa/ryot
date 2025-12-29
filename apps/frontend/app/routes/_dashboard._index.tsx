@@ -125,7 +125,9 @@ export default function Page() {
 
 	const upcomingInput: UserUpcomingCalendarEventInput = takeUpcoming
 		? { nextMedia: takeUpcoming }
-		: { nextDays: daysAheadUpcoming };
+		: daysAheadUpcoming
+			? { nextDays: daysAheadUpcoming }
+			: { nextMedia: 8 };
 	const userUpcomingCalendarEventsQuery = useQuery({
 		queryKey:
 			queryFactory.calendar.userUpcomingCalendarEvents(upcomingInput).queryKey,
