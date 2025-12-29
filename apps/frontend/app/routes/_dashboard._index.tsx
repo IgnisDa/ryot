@@ -86,21 +86,12 @@ export default function Page() {
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
 
-	const getTake = (el: DashboardElementLot) => {
-		const t = userPreferences.general.dashboard.find(
-			(de) => de.section === el,
-		)?.numElements;
-		return t;
-	};
-	const getDaysAhead = (el: DashboardElementLot) => {
-		const d = userPreferences.general.dashboard.find(
-			(de) => de.section === el,
-		)?.numDaysAhead;
-		return d;
-	};
-	const takeUpcoming = getTake(DashboardElementLot.Upcoming);
-	const takeInProgress = getTake(DashboardElementLot.InProgress);
-	const daysAheadUpcoming = getDaysAhead(DashboardElementLot.Upcoming);
+	const dbElm = (el: DashboardElementLot) =>
+		userPreferences.general.dashboard.find((de) => de.section === el);
+
+	const takeUpcoming = dbElm(DashboardElementLot.Upcoming)?.numElements;
+	const takeInProgress = dbElm(DashboardElementLot.InProgress)?.numElements;
+	const daysAheadUpcoming = dbElm(DashboardElementLot.Upcoming)?.numDaysAhead;
 
 	const userCollections = useUserCollections();
 
