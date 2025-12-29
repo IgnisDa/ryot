@@ -19,9 +19,10 @@ import {
 	MinimalUserAnalyticsDocument,
 	TrendingMetadataDocument,
 	UserMetadataRecommendationsDocument,
+	type UserUpcomingCalendarEventInput,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber, parseSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
+import { parseSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
 import {
 	IconInfoCircle,
 	IconPlayerPlay,
@@ -89,10 +90,17 @@ export default function Page() {
 		const t = userPreferences.general.dashboard.find(
 			(de) => de.section === el,
 		)?.numElements;
-		return isNumber(t) ? t : 10;
+		return t;
+	};
+	const getDaysAhead = (el: DashboardElementLot) => {
+		const d = userPreferences.general.dashboard.find(
+			(de) => de.section === el,
+		)?.numDaysAhead;
+		return d;
 	};
 	const takeUpcoming = getTake(DashboardElementLot.Upcoming);
 	const takeInProgress = getTake(DashboardElementLot.InProgress);
+	const daysAheadUpcoming = getDaysAhead(DashboardElementLot.Upcoming);
 
 	const userCollections = useUserCollections();
 
@@ -124,13 +132,15 @@ export default function Page() {
 			: skipToken,
 	});
 
+	const upcomingInput: UserUpcomingCalendarEventInput = takeUpcoming
+		? { nextMedia: takeUpcoming }
+		: { nextDays: daysAheadUpcoming };
 	const userUpcomingCalendarEventsQuery = useQuery({
-		queryKey: queryFactory.calendar.userUpcomingCalendarEvents({
-			nextMedia: takeUpcoming,
-		}).queryKey,
+		queryKey:
+			queryFactory.calendar.userUpcomingCalendarEvents(upcomingInput).queryKey,
 		queryFn: () =>
 			clientGqlService.request(UserUpcomingCalendarEventsDocument, {
-				input: { nextMedia: takeUpcoming },
+				input: upcomingInput,
 			}),
 	});
 
