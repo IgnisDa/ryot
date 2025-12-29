@@ -73,6 +73,7 @@ import { FitnessEntity } from "~/lib/types";
 import classes from "~/styles/preferences.module.css";
 import type { Route } from "./+types/_dashboard.settings.preferences";
 
+const EDITABLE_NUM_DAYS_AHEAD = [DashboardElementLot.Upcoming];
 const EDITABLE_DEDUPLICATE_MEDIA = [DashboardElementLot.Upcoming];
 const EDITABLE_NUM_ELEMENTS = [
 	DashboardElementLot.Upcoming,
@@ -765,20 +766,14 @@ const EditDashboardElement = (props: {
 	form: ReturnType<typeof useForm<UserPreferences>>;
 }) => {
 	const [isOpen, setIsOpen] = useState(false);
-	const focusedElementIndex = props.form.values.general.dashboard.findIndex(
-		(de) => de.section === props.lot,
-	);
-	const focusedElement =
-		props.form.values.general.dashboard[focusedElementIndex];
+	const focusedElement = props.form.values.general.dashboard[props.index];
 
 	const updateDashboardElement = <K extends keyof typeof focusedElement>(
 		key: K,
 		value: (typeof focusedElement)[K],
-	) => {
-		const newDashboardData = cloneDeep(props.form.values.general.dashboard);
-		newDashboardData[focusedElementIndex][key] = value;
-		props.form.setFieldValue("general.dashboard", newDashboardData);
-	};
+	) =>
+		// @ts-expect-error Too lazy to debug why this is failing.
+		props.form.setFieldValue(`general.dashboard.${props.index}.${key}`, value);
 
 	return (
 		<Draggable index={props.index} draggableId={props.lot}>
@@ -851,8 +846,25 @@ const EditDashboardElement = (props: {
 									disabled={!!props.isEditDisabled}
 									value={focusedElement.numElements || undefined}
 									onChange={(num) => {
-										if (isNumber(num))
+										if (isNumber(num)) {
 											updateDashboardElement("numElements", num);
+											updateDashboardElement("numDaysAhead", undefined);
+										}
+									}}
+								/>
+							) : null}
+							{EDITABLE_NUM_DAYS_AHEAD.includes(props.lot) ? (
+								<NumberInput
+									size="xs"
+									label="Number of days ahead"
+									disabled={!!props.isEditDisabled}
+									value={focusedElement.numDaysAhead || undefined}
+									description="Show upcoming items within this many days from today"
+									onChange={(num) => {
+										if (isNumber(num)) {
+											updateDashboardElement("numDaysAhead", num);
+											updateDashboardElement("numElements", undefined);
+										}
 									}}
 								/>
 							) : null}
