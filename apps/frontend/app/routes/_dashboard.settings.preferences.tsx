@@ -71,12 +71,12 @@ import { FitnessEntity } from "~/lib/types";
 import classes from "~/styles/preferences.module.css";
 import type { Route } from "./+types/_dashboard.settings.preferences";
 
+const EDITABLE_DEDUPLICATE_MEDIA = [DashboardElementLot.Upcoming];
 const EDITABLE_NUM_ELEMENTS = [
 	DashboardElementLot.Upcoming,
 	DashboardElementLot.InProgress,
 	DashboardElementLot.Recommendations,
 ];
-const EDITABLE_DEDUPLICATE_MEDIA = [DashboardElementLot.Upcoming];
 
 const updateCollectionInArray = <T extends { lot: unknown; values: string[] }>(
 	array: T[],
