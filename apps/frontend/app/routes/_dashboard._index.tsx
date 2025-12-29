@@ -12,6 +12,7 @@ import { useDisclosure } from "@mantine/hooks";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
+	type CollectionContentsInput,
 	CollectionContentsSortBy,
 	DailyUserActivitiesResponseGroupedBy,
 	DashboardElementLot,
@@ -99,26 +100,22 @@ export default function Page() {
 		(c) => c.name === "In Progress",
 	);
 
+	const collectionContentsInput: CollectionContentsInput = {
+		search: { take: takeInProgress },
+		collectionId: inProgressCollection?.id || "",
+		sort: {
+			order: GraphqlSortOrder.Desc,
+			by: CollectionContentsSortBy.LastUpdatedOn,
+		},
+	};
 	const inProgressCollectionContentsQuery = useQuery({
-		queryKey: queryFactory.collections.collectionContents({
-			search: { take: takeInProgress },
-			collectionId: inProgressCollection?.id || "",
-			sort: {
-				order: GraphqlSortOrder.Desc,
-				by: CollectionContentsSortBy.LastUpdatedOn,
-			},
-		}).queryKey,
+		queryKey: queryFactory.collections.collectionContents(
+			collectionContentsInput,
+		).queryKey,
 		queryFn: inProgressCollection?.id
 			? () =>
 					clientGqlService.request(CollectionContentsDocument, {
-						input: {
-							search: { take: takeInProgress },
-							collectionId: inProgressCollection.id,
-							sort: {
-								order: GraphqlSortOrder.Desc,
-								by: CollectionContentsSortBy.LastUpdatedOn,
-							},
-						},
+						input: collectionContentsInput,
 					})
 			: skipToken,
 	});
