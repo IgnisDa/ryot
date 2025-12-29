@@ -448,10 +448,8 @@ const UpcomingMediaSection = (props: { um: CalendarEventPartFragment }) => {
 const Section = (props: {
 	children: ReactNode | Array<ReactNode>;
 	lot: DashboardElementLot;
-}) => {
-	return (
-		<Stack gap="sm" id={props.lot}>
-			{props.children}
-		</Stack>
-	);
-};
+}) => (
+	<Stack gap="sm" id={props.lot}>
+		{props.children}
+	</Stack>
+);
