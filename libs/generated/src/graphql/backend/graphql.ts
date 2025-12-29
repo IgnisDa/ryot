@@ -2888,16 +2888,20 @@ export type UserFitnessPreferencesInput = {
 };
 
 export type UserGeneralDashboardElement = {
+  /** Applies to only upcoming section */
   deduplicateMedia?: Maybe<Scalars['Boolean']['output']>;
   hidden: Scalars['Boolean']['output'];
+  /** Applies to only upcoming section */
   numDaysAhead?: Maybe<Scalars['Int']['output']>;
   numElements?: Maybe<Scalars['Int']['output']>;
   section: DashboardElementLot;
 };
 
 export type UserGeneralDashboardElementInput = {
+  /** Applies to only upcoming section */
   deduplicateMedia?: InputMaybe<Scalars['Boolean']['input']>;
   hidden: Scalars['Boolean']['input'];
+  /** Applies to only upcoming section */
   numDaysAhead?: InputMaybe<Scalars['Int']['input']>;
   numElements?: InputMaybe<Scalars['Int']['input']>;
   section: DashboardElementLot;
