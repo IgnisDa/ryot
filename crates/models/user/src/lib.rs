@@ -293,7 +293,10 @@ pub enum DashboardElementLot {
 pub struct UserGeneralDashboardElement {
     pub hidden: bool,
     pub num_elements: Option<u64>,
+    /// Applies to only upcoming section
+    pub num_days_ahead: Option<u64>,
     pub section: DashboardElementLot,
+    /// Applies to only upcoming section
     pub deduplicate_media: Option<bool>,
 }
 

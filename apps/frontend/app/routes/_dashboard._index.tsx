@@ -12,6 +12,7 @@ import { useDisclosure } from "@mantine/hooks";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
+	type CollectionContentsInput,
 	CollectionContentsSortBy,
 	DailyUserActivitiesResponseGroupedBy,
 	DashboardElementLot,
@@ -19,9 +20,10 @@ import {
 	MinimalUserAnalyticsDocument,
 	TrendingMetadataDocument,
 	UserMetadataRecommendationsDocument,
+	type UserUpcomingCalendarEventInput,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber, parseSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
+import { parseSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
 import {
 	IconInfoCircle,
 	IconPlayerPlay,
@@ -79,58 +81,60 @@ export default function Page() {
 	const isMobile = useIsMobile();
 	const coreDetails = useCoreDetails();
 	const userDetails = useUserDetails();
+	const userCollections = useUserCollections();
 	const userPreferences = useUserPreferences();
 	const { startOnboardingTour } = useOnboardingTour();
 	const isOnboardingTourCompleted = useIsOnboardingTourCompleted();
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
 
-	const getTake = (el: DashboardElementLot) => {
-		const t = userPreferences.general.dashboard.find(
-			(de) => de.section === el,
-		)?.numElements;
-		return isNumber(t) ? t : 10;
-	};
-	const takeUpcoming = getTake(DashboardElementLot.Upcoming);
-	const takeInProgress = getTake(DashboardElementLot.InProgress);
+	const [isAlertDismissed, setIsAlertDismissed] = useLocalStorage(
+		`AlertDismissed-${userDetails.id}-${CryptoJS.SHA256(dashboardMessage)}`,
+		"false",
+	);
 
-	const userCollections = useUserCollections();
+	const dbElm = (el: DashboardElementLot) =>
+		userPreferences.general.dashboard.find((de) => de.section === el);
+
+	const takeUpcoming = dbElm(DashboardElementLot.Upcoming)?.numElements;
+	const takeInProgress = dbElm(DashboardElementLot.InProgress)?.numElements;
+	const daysAheadUpcoming = dbElm(DashboardElementLot.Upcoming)?.numDaysAhead;
 
 	const inProgressCollection = userCollections.find(
 		(c) => c.name === "In Progress",
 	);
 
+	const collectionContentsInput: CollectionContentsInput = {
+		search: { take: takeInProgress },
+		collectionId: inProgressCollection?.id || "",
+		sort: {
+			order: GraphqlSortOrder.Desc,
+			by: CollectionContentsSortBy.LastUpdatedOn,
+		},
+	};
 	const inProgressCollectionContentsQuery = useQuery({
-		queryKey: queryFactory.collections.collectionContents({
-			search: { take: takeInProgress },
-			collectionId: inProgressCollection?.id || "",
-			sort: {
-				order: GraphqlSortOrder.Desc,
-				by: CollectionContentsSortBy.LastUpdatedOn,
-			},
-		}).queryKey,
+		queryKey: queryFactory.collections.collectionContents(
+			collectionContentsInput,
+		).queryKey,
 		queryFn: inProgressCollection?.id
 			? () =>
 					clientGqlService.request(CollectionContentsDocument, {
-						input: {
-							search: { take: takeInProgress },
-							collectionId: inProgressCollection.id,
-							sort: {
-								order: GraphqlSortOrder.Desc,
-								by: CollectionContentsSortBy.LastUpdatedOn,
-							},
-						},
+						input: collectionContentsInput,
 					})
 			: skipToken,
 	});
 
+	const upcomingInput: UserUpcomingCalendarEventInput = takeUpcoming
+		? { nextMedia: takeUpcoming }
+		: daysAheadUpcoming
+			? { nextDays: daysAheadUpcoming }
+			: { nextMedia: 8 };
 	const userUpcomingCalendarEventsQuery = useQuery({
-		queryKey: queryFactory.calendar.userUpcomingCalendarEvents({
-			nextMedia: takeUpcoming,
-		}).queryKey,
+		queryKey:
+			queryFactory.calendar.userUpcomingCalendarEvents(upcomingInput).queryKey,
 		queryFn: () =>
 			clientGqlService.request(UserUpcomingCalendarEventsDocument, {
-				input: { nextMedia: takeUpcoming },
+				input: upcomingInput,
 			}),
 	});
 
@@ -150,11 +154,6 @@ export default function Page() {
 
 	const latestUserSummary =
 		userAnalyticsQuery.data?.userAnalytics.response.activities.items.at(0);
-
-	const [isAlertDismissed, setIsAlertDismissed] = useLocalStorage(
-		`AlertDismissed-${userDetails.id}-${CryptoJS.SHA256(dashboardMessage)}`,
-		"false",
-	);
 
 	return (
 		<Container>
@@ -447,12 +446,10 @@ const UpcomingMediaSection = (props: { um: CalendarEventPartFragment }) => {
 };
 
 const Section = (props: {
-	children: ReactNode | Array<ReactNode>;
 	lot: DashboardElementLot;
-}) => {
-	return (
-		<Stack gap="sm" id={props.lot}>
-			{props.children}
-		</Stack>
-	);
-};
+	children: ReactNode | Array<ReactNode>;
+}) => (
+	<Stack gap="sm" id={props.lot}>
+		{props.children}
+	</Stack>
+);

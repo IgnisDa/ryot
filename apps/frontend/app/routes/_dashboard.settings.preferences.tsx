@@ -4,6 +4,7 @@ import {
 	Alert,
 	Box,
 	Button,
+	Collapse,
 	Container,
 	Divider,
 	Group,
@@ -49,6 +50,7 @@ import {
 	IconCheckbox,
 	IconGripVertical,
 	IconMinus,
+	IconSettings,
 	IconX,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
@@ -71,12 +73,13 @@ import { FitnessEntity } from "~/lib/types";
 import classes from "~/styles/preferences.module.css";
 import type { Route } from "./+types/_dashboard.settings.preferences";
 
+const EDITABLE_NUM_DAYS_AHEAD = [DashboardElementLot.Upcoming];
+const EDITABLE_DEDUPLICATE_MEDIA = [DashboardElementLot.Upcoming];
 const EDITABLE_NUM_ELEMENTS = [
 	DashboardElementLot.Upcoming,
 	DashboardElementLot.InProgress,
 	DashboardElementLot.Recommendations,
 ];
-const EDITABLE_DEDUPLICATE_MEDIA = [DashboardElementLot.Upcoming];
 
 const updateCollectionInArray = <T extends { lot: unknown; values: string[] }>(
 	array: T[],
@@ -762,27 +765,22 @@ const EditDashboardElement = (props: {
 	lot: DashboardElementLot;
 	form: ReturnType<typeof useForm<UserPreferences>>;
 }) => {
-	const focusedElementIndex = props.form.values.general.dashboard.findIndex(
-		(de) => de.section === props.lot,
-	);
-	const focusedElement =
-		props.form.values.general.dashboard[focusedElementIndex];
+	const [isOpen, setIsOpen] = useState(false);
+	const focusedElement = props.form.values.general.dashboard[props.index];
 
 	const updateDashboardElement = <K extends keyof typeof focusedElement>(
 		key: K,
 		value: (typeof focusedElement)[K],
-	) => {
-		const newDashboardData = cloneDeep(props.form.values.general.dashboard);
-		newDashboardData[focusedElementIndex][key] = value;
-		props.form.setFieldValue("general.dashboard", newDashboardData);
-	};
+	) =>
+		// @ts-expect-error Too lazy to debug why this is failing.
+		props.form.setFieldValue(`general.dashboard.${props.index}.${key}`, value);
 
 	return (
 		<Draggable index={props.index} draggableId={props.lot}>
 			{(provided, snapshot) => (
 				<Paper
-					withBorder
 					p="xs"
+					withBorder
 					ref={provided.innerRef}
 					{...provided.draggableProps}
 					className={cn({ [classes.itemDragging]: snapshot.isDragging })}
@@ -792,60 +790,86 @@ const EditDashboardElement = (props: {
 							<div
 								{...provided.dragHandleProps}
 								style={{
-									display: "flex",
-									justifyContent: "center",
 									height: "100%",
 									cursor: "grab",
+									display: "flex",
+									justifyContent: "center",
 								}}
 							>
 								<IconGripVertical
-									style={{ width: rem(18), height: rem(18) }}
 									stroke={1.5}
+									style={{ width: rem(18), height: rem(18) }}
 								/>
 							</div>
 							<Text fw="bold" fz={{ md: "lg", lg: "xl" }}>
 								{changeCase(props.lot)}
 							</Text>
 						</Group>
-						<Switch
-							label="Hidden"
-							labelPosition="left"
-							checked={focusedElement.hidden}
-							disabled={!!props.isEditDisabled}
-							onChange={(ev) =>
-								updateDashboardElement("hidden", ev.currentTarget.checked)
-							}
-						/>
+						<ActionIcon
+							color="gray"
+							variant="subtle"
+							onClick={() => setIsOpen(!isOpen)}
+						>
+							<IconSettings size={20} />
+						</ActionIcon>
 					</Group>
-					<Group gap="xl" wrap="nowrap">
-						{EDITABLE_NUM_ELEMENTS.includes(props.lot) ? (
-							<NumberInput
-								size="xs"
-								label="Number of elements"
-								disabled={!!props.isEditDisabled}
-								value={focusedElement.numElements || undefined}
-								onChange={(num) => {
-									if (isNumber(num)) updateDashboardElement("numElements", num);
-								}}
-							/>
-						) : null}
-						{EDITABLE_DEDUPLICATE_MEDIA.includes(props.lot) ? (
+					<Collapse in={isOpen}>
+						<Stack gap="xs" mt="md">
 							<Switch
 								size="xs"
-								label="Deduplicate media"
+								label="Hidden"
+								checked={focusedElement.hidden}
 								disabled={!!props.isEditDisabled}
-								styles={{ description: { width: rem(200) } }}
-								checked={focusedElement.deduplicateMedia ?? undefined}
-								description="If there's more than one episode of a media, keep the first one"
 								onChange={(ev) =>
-									updateDashboardElement(
-										"deduplicateMedia",
-										ev.currentTarget.checked,
-									)
+									updateDashboardElement("hidden", ev.currentTarget.checked)
 								}
 							/>
-						) : null}
-					</Group>
+							{EDITABLE_DEDUPLICATE_MEDIA.includes(props.lot) ? (
+								<Switch
+									size="xs"
+									label="Deduplicate media"
+									disabled={!!props.isEditDisabled}
+									checked={focusedElement.deduplicateMedia ?? undefined}
+									description="If there's more than one episode of a media, keep the first one"
+									onChange={(ev) =>
+										updateDashboardElement(
+											"deduplicateMedia",
+											ev.currentTarget.checked,
+										)
+									}
+								/>
+							) : null}
+							{EDITABLE_NUM_ELEMENTS.includes(props.lot) ? (
+								<NumberInput
+									size="xs"
+									label="Number of elements"
+									disabled={!!props.isEditDisabled}
+									value={focusedElement.numElements || undefined}
+									onChange={(num) => {
+										if (isNumber(num)) {
+											updateDashboardElement("numElements", num);
+											updateDashboardElement("numDaysAhead", undefined);
+										}
+									}}
+								/>
+							) : null}
+							{EDITABLE_NUM_DAYS_AHEAD.includes(props.lot) ? (
+								<NumberInput
+									size="xs"
+									label="Number of days ahead"
+									disabled={!!props.isEditDisabled}
+									value={focusedElement.numDaysAhead || undefined}
+									description="Show upcoming items within this many days from today"
+									onChange={(num) => {
+										if (isNumber(num)) {
+											updateDashboardElement("numDaysAhead", num);
+											updateDashboardElement("numElements", undefined);
+										}
+									}}
+								/>
+							) : null}
+						</Stack>
+					</Collapse>
 				</Paper>
 			)}
 		</Draggable>
