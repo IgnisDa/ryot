@@ -4,6 +4,7 @@ import {
 	Alert,
 	Box,
 	Button,
+	Collapse,
 	Container,
 	Divider,
 	Group,
@@ -49,6 +50,7 @@ import {
 	IconCheckbox,
 	IconGripVertical,
 	IconMinus,
+	IconSettings,
 	IconX,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
@@ -762,6 +764,7 @@ const EditDashboardElement = (props: {
 	lot: DashboardElementLot;
 	form: ReturnType<typeof useForm<UserPreferences>>;
 }) => {
+	const [isOpen, setIsOpen] = useState(false);
 	const focusedElementIndex = props.form.values.general.dashboard.findIndex(
 		(de) => de.section === props.lot,
 	);
@@ -781,8 +784,8 @@ const EditDashboardElement = (props: {
 		<Draggable index={props.index} draggableId={props.lot}>
 			{(provided, snapshot) => (
 				<Paper
-					withBorder
 					p="xs"
+					withBorder
 					ref={provided.innerRef}
 					{...provided.draggableProps}
 					className={cn({ [classes.itemDragging]: snapshot.isDragging })}
@@ -807,45 +810,54 @@ const EditDashboardElement = (props: {
 								{changeCase(props.lot)}
 							</Text>
 						</Group>
-						<Switch
-							label="Hidden"
-							labelPosition="left"
-							checked={focusedElement.hidden}
-							disabled={!!props.isEditDisabled}
-							onChange={(ev) =>
-								updateDashboardElement("hidden", ev.currentTarget.checked)
-							}
-						/>
+						<ActionIcon
+							color="gray"
+							variant="subtle"
+							onClick={() => setIsOpen(!isOpen)}
+						>
+							<IconSettings size={20} />
+						</ActionIcon>
 					</Group>
-					<Group gap="xl" wrap="nowrap">
-						{EDITABLE_NUM_ELEMENTS.includes(props.lot) ? (
-							<NumberInput
-								size="xs"
-								label="Number of elements"
-								disabled={!!props.isEditDisabled}
-								value={focusedElement.numElements || undefined}
-								onChange={(num) => {
-									if (isNumber(num)) updateDashboardElement("numElements", num);
-								}}
-							/>
-						) : null}
-						{EDITABLE_DEDUPLICATE_MEDIA.includes(props.lot) ? (
+					<Collapse in={isOpen}>
+						<Stack gap="xs" mt="md">
 							<Switch
 								size="xs"
-								label="Deduplicate media"
+								label="Hidden"
+								checked={focusedElement.hidden}
 								disabled={!!props.isEditDisabled}
-								styles={{ description: { width: rem(200) } }}
-								checked={focusedElement.deduplicateMedia ?? undefined}
-								description="If there's more than one episode of a media, keep the first one"
 								onChange={(ev) =>
-									updateDashboardElement(
-										"deduplicateMedia",
-										ev.currentTarget.checked,
-									)
+									updateDashboardElement("hidden", ev.currentTarget.checked)
 								}
 							/>
-						) : null}
-					</Group>
+							{EDITABLE_DEDUPLICATE_MEDIA.includes(props.lot) ? (
+								<Switch
+									size="xs"
+									label="Deduplicate media"
+									disabled={!!props.isEditDisabled}
+									checked={focusedElement.deduplicateMedia ?? undefined}
+									description="If there's more than one episode of a media, keep the first one"
+									onChange={(ev) =>
+										updateDashboardElement(
+											"deduplicateMedia",
+											ev.currentTarget.checked,
+										)
+									}
+								/>
+							) : null}
+							{EDITABLE_NUM_ELEMENTS.includes(props.lot) ? (
+								<NumberInput
+									size="xs"
+									label="Number of elements"
+									disabled={!!props.isEditDisabled}
+									value={focusedElement.numElements || undefined}
+									onChange={(num) => {
+										if (isNumber(num))
+											updateDashboardElement("numElements", num);
+									}}
+								/>
+							) : null}
+						</Stack>
+					</Collapse>
 				</Paper>
 			)}
 		</Draggable>
