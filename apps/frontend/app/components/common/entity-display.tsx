@@ -53,7 +53,7 @@ import {
 	useReviewEntity,
 } from "~/lib/state/media";
 import {
-	OnboardingTourStepTargets,
+	OnboardingTourStepTarget,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
 import classes from "~/styles/common.module.css";
@@ -222,7 +222,7 @@ const ActionButtons = memo((props: ActionButtonsProps) => {
 					consumeButtonIndicatorLabel={props.consumeButtonIndicatorLabel}
 					className={
 						props.isFirstItem
-							? OnboardingTourStepTargets.OpenMetadataProgressForm
+							? OnboardingTourStepTarget.OpenMetadataProgressForm
 							: undefined
 					}
 				/>

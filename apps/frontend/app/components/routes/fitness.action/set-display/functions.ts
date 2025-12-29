@@ -213,8 +213,8 @@ export const useSetConfirmationHandler = (props: {
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
-	return async () => {
-		await handleSetConfirmation({
+	return () =>
+		handleSetConfirmation({
 			set,
 			exercise,
 			currentTimer,
@@ -230,5 +230,4 @@ export const useSetConfirmationHandler = (props: {
 			playCheckSound: props.playCheckSound,
 			isWorkoutPaused: props.isWorkoutPaused,
 		});
-	};
 };

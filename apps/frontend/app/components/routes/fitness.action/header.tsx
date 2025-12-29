@@ -26,7 +26,7 @@ import {
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
 import {
-	OnboardingTourStepTargets,
+	OnboardingTourStepTarget,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
 import { FitnessAction, FitnessEntity } from "~/lib/types";
@@ -168,7 +168,7 @@ export function WorkoutHeader({
 						size="compact-sm"
 						loading={isSaveBtnLoading}
 						disabled={isWorkoutPaused}
-						className={OnboardingTourStepTargets.FinishWorkout}
+						className={OnboardingTourStepTarget.FinishWorkout}
 						onClick={() => {
 							if (!currentWorkout.name) {
 								notifications.show({

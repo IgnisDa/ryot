@@ -39,7 +39,7 @@ import {
 	useCoreDetails,
 	useNonHiddenUserCollections,
 } from "~/lib/shared/hooks";
-import type { OnboardingTourStepTargets } from "~/lib/state/onboarding-tour";
+import type { OnboardingTourStepTarget } from "~/lib/state/onboarding-tour";
 import { ProRequiredAlert } from ".";
 
 export const FiltersModal = (props: {
@@ -213,7 +213,7 @@ export const DebouncedSearchInput = (props: {
 	placeholder: string;
 	onChange: (query: string) => void;
 	tourControl?: {
-		target: OnboardingTourStepTargets;
+		target: OnboardingTourStepTarget;
 		onQueryChange: (query: string) => void;
 	};
 }) => {

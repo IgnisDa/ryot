@@ -89,7 +89,7 @@ import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { getDefaultWorkout } from "~/lib/state/fitness";
 import {
-	OnboardingTourStepTargets,
+	OnboardingTourStepTarget,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
 import { FitnessAction, FitnessEntity } from "~/lib/types";
@@ -237,7 +237,7 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 						<ActionIcon
 							color="green"
 							variant="outline"
-							className={OnboardingTourStepTargets.AddNewWorkout}
+							className={OnboardingTourStepTarget.AddNewWorkout}
 							onClick={async () => {
 								if (
 									!coreDetails.isServerKeyValidated &&

@@ -109,7 +109,7 @@ import {
 	useMergingExercise,
 } from "~/lib/state/fitness";
 import {
-	OnboardingTourStepTargets,
+	OnboardingTourStepTarget,
 	TOUR_EXERCISE_TARGET_ID,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
@@ -296,7 +296,7 @@ export default function Page() {
 							placeholder="Search for exercises by name or instructions"
 							onChange={(value) => updateFilters({ query: value })}
 							tourControl={{
-								target: OnboardingTourStepTargets.SearchForExercise,
+								target: OnboardingTourStepTarget.SearchForExercise,
 								onQueryChange: (query) => {
 									if (query === TOUR_EXERCISE_TARGET_ID.toLowerCase()) {
 										advanceOnboardingTourStep();
@@ -393,7 +393,7 @@ export default function Page() {
 							color="blue"
 							variant="light"
 							disabled={selectedExercises.length === 0}
-							className={OnboardingTourStepTargets.AddSelectedExerciseToWorkout}
+							className={OnboardingTourStepTarget.AddSelectedExerciseToWorkout}
 							onClick={async () => {
 								setMergingExercise(null);
 								await addExerciseToCurrentWorkout(
@@ -513,7 +513,7 @@ const ExerciseItemDisplay = (props: {
 			data-exercise-id={props.exerciseId}
 			className={
 				isTourTargetExercise
-					? OnboardingTourStepTargets.SelectExercise
+					? OnboardingTourStepTarget.SelectExercise
 					: undefined
 			}
 		>

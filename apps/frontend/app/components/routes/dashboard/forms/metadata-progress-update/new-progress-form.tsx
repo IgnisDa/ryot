@@ -11,7 +11,7 @@ import { convertTimestampToUtcString } from "~/lib/shared/date-utils";
 import { useDeployBulkMetadataProgressUpdateMutation } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import {
-	OnboardingTourStepTargets,
+	OnboardingTourStepTarget,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
 import { WatchTimes } from "../../types";
@@ -190,7 +190,7 @@ export const MetadataNewProgressUpdateForm = (
 					size="xs"
 					type="submit"
 					variant="outline"
-					className={OnboardingTourStepTargets.AddAudiobookToWatchedHistory}
+					className={OnboardingTourStepTarget.AddAudiobookToWatchedHistory}
 					loading={deployBulkMetadataProgressUpdate.isPending}
 				>
 					Submit

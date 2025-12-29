@@ -77,7 +77,7 @@ import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { parseAsCollectionsFilter } from "~/lib/shared/validation";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
-	OnboardingTourStepTargets,
+	OnboardingTourStepTarget,
 	TOUR_METADATA_TARGET_ID,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
@@ -308,7 +308,7 @@ export default function Page(props: {
 						<Tabs.Tab
 							value="search"
 							leftSection={<IconSearch size={24} />}
-							className={OnboardingTourStepTargets.GoToAudiobooksSection}
+							className={OnboardingTourStepTarget.GoToAudiobooksSection}
 						>
 							<Text>Search</Text>
 						</Tabs.Tab>
@@ -369,7 +369,7 @@ export default function Page(props: {
 									<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
 								) : userMetadataList.response.details.totalItems > 0 ? (
 									<ApplicationGrid
-										className={OnboardingTourStepTargets.ShowAudiobooksListPage}
+										className={OnboardingTourStepTarget.ShowAudiobooksListPage}
 									>
 										{userMetadataList.response.items.map((item) => (
 											<MediaListItem key={item} item={item} />
@@ -399,7 +399,7 @@ export default function Page(props: {
 											lot.toLowerCase(),
 										).toLowerCase()}s`}
 										tourControl={{
-											target: OnboardingTourStepTargets.SearchAudiobook,
+											target: OnboardingTourStepTarget.SearchAudiobook,
 											onQueryChange: (query) => {
 												if (query === TOUR_METADATA_TARGET_ID)
 													advanceOnboardingTourStep({ increaseWaitBy: 2000 });
@@ -484,7 +484,7 @@ const MediaSearchItem = (props: {
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const tourControlThree = props.isFirstItem
-		? OnboardingTourStepTargets.GoToAudiobooksSectionAgain
+		? OnboardingTourStepTarget.GoToAudiobooksSectionAgain
 		: undefined;
 
 	return (
@@ -492,7 +492,7 @@ const MediaSearchItem = (props: {
 			metadataId={props.item}
 			isFirstItem={props.isFirstItem}
 			shouldHighlightNameIfInteracted
-			imageClassName={OnboardingTourStepTargets.GoToAudiobooksSectionAgain}
+			imageClassName={OnboardingTourStepTarget.GoToAudiobooksSectionAgain}
 			onImageClickBehavior={async () => {
 				if (tourControlThree) advanceOnboardingTourStep();
 			}}

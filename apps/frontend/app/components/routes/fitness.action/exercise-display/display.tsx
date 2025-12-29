@@ -52,7 +52,7 @@ import {
 	useGetExerciseAtIndex,
 } from "~/lib/state/fitness";
 import {
-	OnboardingTourStepTargets,
+	OnboardingTourStepTarget,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
 import { getProgressOfExercise, usePlayFitnessSound } from "../hooks";
@@ -205,7 +205,7 @@ export const ExerciseDisplay = (props: {
 										}}
 										className={clsx(
 											isOnboardingTourStep &&
-												OnboardingTourStepTargets.OpenExerciseMenuDetails,
+												OnboardingTourStepTarget.OpenExerciseMenuDetails,
 										)}
 									>
 										<IconDotsVertical size={20} />

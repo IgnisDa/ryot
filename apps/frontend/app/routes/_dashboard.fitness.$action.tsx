@@ -35,7 +35,7 @@ import {
 	useMeasurementsDrawer,
 } from "~/lib/state/fitness";
 import {
-	OnboardingTourStepTargets,
+	OnboardingTourStepTarget,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
 import { FitnessAction } from "~/lib/types";
@@ -343,6 +343,10 @@ export default function Page() {
 									<Button
 										component={Link}
 										variant="subtle"
+										to={$path("/fitness/exercises/list")}
+										className={
+											OnboardingTourStepTarget.ClickOnAddAnExerciseButton
+										}
 										onClick={() => {
 											setCurrentWorkout(
 												produce(currentWorkout, (draft) => {
@@ -351,10 +355,6 @@ export default function Page() {
 											);
 											advanceOnboardingTourStep();
 										}}
-										to={$path("/fitness/exercises/list")}
-										className={
-											OnboardingTourStepTargets.ClickOnAddAnExerciseButton
-										}
 									>
 										Add an exercise
 									</Button>

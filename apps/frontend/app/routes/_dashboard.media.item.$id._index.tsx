@@ -120,7 +120,7 @@ import {
 	useReviewEntity,
 } from "~/lib/state/media";
 import {
-	OnboardingTourStepTargets,
+	OnboardingTourStepTarget,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
 import { Verb } from "~/lib/types";
@@ -541,9 +541,7 @@ export default function Page() {
 									value="actions"
 									leftSection={<IconUser size={16} />}
 									onClick={() => advanceOnboardingTourStep()}
-									className={
-										OnboardingTourStepTargets.MetadataDetailsActionsTab
-									}
+									className={OnboardingTourStepTarget.MetadataDetailsActionsTab}
 								>
 									Actions
 								</Tabs.Tab>

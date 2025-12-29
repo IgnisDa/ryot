@@ -25,7 +25,7 @@ export const ACTIVE_WORKOUT_WEIGHT_TARGET = "20";
 export const TOUR_EXERCISE_TARGET_ID = "Calf Press";
 export const TOUR_METADATA_TARGET_ID = "three body";
 
-export enum OnboardingTourStepTargets {
+export enum OnboardingTourStepTarget {
 	Welcome = "tour-step-welcome",
 	FirstSidebar = "tour-step-first-sidebar",
 	GoToAudiobooksSection = "tour-step-go-to-audiobooks-section",
@@ -190,50 +190,50 @@ export const useOnboardingTour = () => {
 	const onboardingTourSteps = (
 		[
 			{
-				target: OnboardingTourStepTargets.Welcome,
+				target: OnboardingTourStepTarget.Welcome,
 				content:
 					"Welcome to Ryot! Let's get started by adding an audiobook to your history. Click on the media section in the sidebar to see what all you can track.",
 			},
 			{
-				target: OnboardingTourStepTargets.FirstSidebar,
+				target: OnboardingTourStepTarget.FirstSidebar,
 				content:
 					"Now, click on the audiobooks section to start tracking some audiobooks.",
 			},
 			{
-				target: OnboardingTourStepTargets.GoToAudiobooksSection,
+				target: OnboardingTourStepTarget.GoToAudiobooksSection,
 				content: "Click on the search tab to search for an audiobook.",
 			},
 			{
-				target: OnboardingTourStepTargets.SearchAudiobook,
+				target: OnboardingTourStepTarget.SearchAudiobook,
 				content: `You can find any audiobook here. Let us proceed by searching for "${TOUR_METADATA_TARGET_ID}".`,
 			},
 			{
-				target: OnboardingTourStepTargets.OpenMetadataProgressForm,
+				target: OnboardingTourStepTarget.OpenMetadataProgressForm,
 				content:
 					"Great! Now, let's add this audiobook to your listening history.",
 			},
 			{
-				target: OnboardingTourStepTargets.AddAudiobookToWatchedHistory,
+				target: OnboardingTourStepTarget.AddAudiobookToWatchedHistory,
 				content:
 					"Notice that there is also a button to add this audiobook to collections. For now, click on the 'Submit' button to record your progress.",
 			},
 			{
-				target: OnboardingTourStepTargets.GoToAudiobooksSectionAgain,
+				target: OnboardingTourStepTarget.GoToAudiobooksSectionAgain,
 				content:
 					"Great! Now, let's view some more details about the audiobook. Click on the audiobook to check out some information.",
 			},
 			{
-				target: OnboardingTourStepTargets.MetadataDetailsActionsTab,
+				target: OnboardingTourStepTarget.MetadataDetailsActionsTab,
 				content:
 					"The most important tab is the 'Actions' tab. Here you can add the audiobook to your collection, mark it as listened, etc.",
 			},
 			{
-				target: OnboardingTourStepTargets.GoBackToAudiobooksSection,
+				target: OnboardingTourStepTarget.GoBackToAudiobooksSection,
 				content:
 					"Great! Let's go back to the audiobooks section and see your library.",
 			},
 			{
-				target: OnboardingTourStepTargets.ShowAudiobooksListPage,
+				target: OnboardingTourStepTarget.ShowAudiobooksListPage,
 				content: (
 					<Stack>
 						<Text>
@@ -266,109 +266,109 @@ export const useOnboardingTour = () => {
 			},
 			{
 				data: { isSecondaryStep: true },
-				target: OnboardingTourStepTargets.OpenFitnessSidebar,
+				target: OnboardingTourStepTarget.OpenFitnessSidebar,
 				content:
 					"Let's move on to the fitness section. Click on the corresponding section in the sidebar.",
 			},
 			{
 				data: { isSecondaryStep: true },
-				target: OnboardingTourStepTargets.OpenWorkoutsSection,
+				target: OnboardingTourStepTarget.OpenWorkoutsSection,
 				content:
 					"Click on the 'Workouts' section to see all your workouts and start a new one.",
 			},
 			{
 				data: { isSecondaryStep: true },
-				target: OnboardingTourStepTargets.AddNewWorkout,
+				target: OnboardingTourStepTarget.AddNewWorkout,
 				content:
 					"This is the workouts section. Let's start by adding a new workout.",
 			},
 			{
 				data: { isSecondaryStep: true },
-				target: OnboardingTourStepTargets.ClickOnAddAnExerciseButton,
+				target: OnboardingTourStepTarget.ClickOnAddAnExerciseButton,
 				content:
 					"You have started with an empty workout. Let's add a new exercise to it.",
 			},
 			{
 				data: { isSecondaryStep: true },
-				target: OnboardingTourStepTargets.SearchForExercise,
+				target: OnboardingTourStepTarget.SearchForExercise,
 				content: `Let's proceed by searching for "${TOUR_EXERCISE_TARGET_ID}".`,
 			},
 			{
 				disableScrolling: false,
 				data: { isSecondaryStep: true },
-				target: OnboardingTourStepTargets.SelectExercise,
+				target: OnboardingTourStepTarget.SelectExercise,
 				content: `Let's proceed by selecting '${TOUR_EXERCISE_TARGET_ID}'. Please click on the checkbox to continue.`,
 			},
 			{
 				data: { isSecondaryStep: true },
-				target: OnboardingTourStepTargets.AddSelectedExerciseToWorkout,
+				target: OnboardingTourStepTarget.AddSelectedExerciseToWorkout,
 				content:
 					"You can select multiple exercises if you want. To proceed, click on this button to add them to the active workout.",
 			},
 			{
 				data: { isSecondaryStep: true },
-				target: OnboardingTourStepTargets.AddWeightToExercise,
+				target: OnboardingTourStepTarget.AddWeightToExercise,
 				content: `Let's associate some weight to the exercise. Please enter '${ACTIVE_WORKOUT_WEIGHT_TARGET}' to continue.`,
 			},
 			{
 				data: { isSecondaryStep: true },
-				target: OnboardingTourStepTargets.AddRepsToExercise,
+				target: OnboardingTourStepTarget.AddRepsToExercise,
 				content: `Let's associate some rep count to it. Please enter '${ACTIVE_WORKOUT_REPS_TARGET}' to continue.`,
 			},
 			{
 				data: { isSecondaryStep: true },
-				target: OnboardingTourStepTargets.OpenExerciseMenuDetails,
+				target: OnboardingTourStepTarget.OpenExerciseMenuDetails,
 				content:
 					"Click on the three dots to open the exercise menu. You will get a menu with options to see more details etc.",
 			},
 			{
 				data: { isSecondaryStep: true },
-				target: OnboardingTourStepTargets.OpenSetMenuDetails,
+				target: OnboardingTourStepTarget.OpenSetMenuDetails,
 				content:
 					"Click on the set number. Here you will get a menu with options to adjust the set details and add additional attributes to it.",
 			},
 			{
 				data: { isSecondaryStep: true },
-				target: OnboardingTourStepTargets.ConfirmSetForExercise,
+				target: OnboardingTourStepTarget.ConfirmSetForExercise,
 				content:
 					"Once you have associated the correct inputs for a set, the confirm button will be enabled. Clicking on it will confirm the set, start the rest timer and collapse the exercise if it is the last set.",
 			},
 			{
 				disableScrolling: false,
 				data: { isSecondaryStep: true },
-				target: OnboardingTourStepTargets.FinishWorkout,
+				target: OnboardingTourStepTarget.FinishWorkout,
 				content:
 					"Great! You have finished your workout tour. Once you are ready, click on the 'Finish' button to continue.",
 			},
 			{
 				data: { isSecondaryStep: true },
-				target: OnboardingTourStepTargets.ClickOnTemplatesSidebarSection,
+				target: OnboardingTourStepTarget.ClickOnTemplatesSidebarSection,
 				content:
 					"You can use templates to pre-plan your workouts and do them at a later time.",
 			},
 			{
 				data: { isSecondaryStep: true },
-				target: OnboardingTourStepTargets.ClickOnMeasurementSidebarSection,
+				target: OnboardingTourStepTarget.ClickOnMeasurementSidebarSection,
 				content:
 					"You can track measurements like body weight and blood sugar to monitor your fitness goals.",
 			},
 			{
-				target: OnboardingTourStepTargets.ClickOnAnalyticsSidebarSection,
+				target: OnboardingTourStepTarget.ClickOnAnalyticsSidebarSection,
 				content:
 					"The analytics section contains cool graphs and charts to help you visualize your habits. It is refreshed every 8 hours.",
 			},
 			{
-				target: OnboardingTourStepTargets.ClickOnCollectionsSidebarSection,
+				target: OnboardingTourStepTarget.ClickOnCollectionsSidebarSection,
 				content:
 					"You can use collections to group your movies, workouts, etc. under a special category. Some default collections are provided by Ryot and have special functions.",
 			},
 			{
-				target: OnboardingTourStepTargets.OpenSettingsSidebar,
+				target: OnboardingTourStepTarget.OpenSettingsSidebar,
 				content:
 					"Let's move on to the settings section. Click on the corresponding section in the sidebar.",
 			},
 			{
-				target: OnboardingTourStepTargets.OpenSettingsPreferences,
+				target: OnboardingTourStepTarget.OpenSettingsPreferences,
 				content:
 					"You can use the preferences settings to customize your experience.",
 			},
