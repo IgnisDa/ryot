@@ -795,15 +795,15 @@ const EditDashboardElement = (props: {
 							<div
 								{...provided.dragHandleProps}
 								style={{
-									display: "flex",
-									justifyContent: "center",
 									height: "100%",
 									cursor: "grab",
+									display: "flex",
+									justifyContent: "center",
 								}}
 							>
 								<IconGripVertical
-									style={{ width: rem(18), height: rem(18) }}
 									stroke={1.5}
+									style={{ width: rem(18), height: rem(18) }}
 								/>
 							</div>
 							<Text fw="bold" fz={{ md: "lg", lg: "xl" }}>
