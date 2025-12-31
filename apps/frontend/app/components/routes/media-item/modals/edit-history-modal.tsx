@@ -43,18 +43,22 @@ export const EditHistoryItemModal = (props: {
 	userMetadataDetails: UserMetadataDetails;
 }) => {
 	const userDetails = useUserDetails();
+	const coreDetails = useCoreDetails();
+	const watchProviders = useGetWatchProviders(props.metadataDetails.lot);
+	const [manualTimeSpentValue, setManualTimeSpentValue] =
+		useState<DurationInput>(
+			convertSecondsToDuration(props.seen.manualTimeSpent),
+		);
+
+	const manualTimeSpentInSeconds =
+		convertDurationToSeconds(manualTimeSpentValue);
 	const reviewsByThisCurrentUser = props.userMetadataDetails.reviews.filter(
 		(r) => r.postedBy.id === userDetails.id,
 	);
-	const { startedOn, finishedOn, id, manualTimeSpent, providersConsumedOn } =
-		props.seen;
-	const coreDetails = useCoreDetails();
-	const isNotCompleted = props.seen.state !== SeenState.Completed;
-	const watchProviders = useGetWatchProviders(props.metadataDetails.lot);
-	const [manualTimeSpentValue, setManualTimeSpentValue] =
-		useState<DurationInput>(convertSecondsToDuration(manualTimeSpent));
-	const manualTimeSpentInSeconds =
-		convertDurationToSeconds(manualTimeSpentValue);
+	const areStartAndEndInputsDisabled = ![
+		SeenState.Completed,
+		SeenState.Dropped,
+	].includes(props.seen.state);
 
 	return (
 		<Modal
@@ -73,25 +77,31 @@ export const EditHistoryItemModal = (props: {
 					refreshEntityDetails(props.metadataDetails.id);
 				}}
 			>
-				<input hidden name="seenId" defaultValue={id} />
+				<input hidden name="seenId" defaultValue={props.seen.id} />
 				<Stack>
 					<Title order={3}>Edit history record</Title>
 					<DateTimePicker
 						name="startedOn"
 						label="Start Date & Time"
-						disabled={isNotCompleted}
-						defaultValue={startedOn ? new Date(startedOn) : undefined}
+						disabled={areStartAndEndInputsDisabled}
+						defaultValue={
+							props.seen.startedOn ? new Date(props.seen.startedOn) : undefined
+						}
 					/>
 					<DateTimePicker
 						name="finishedOn"
 						label="End Date & Time"
-						disabled={isNotCompleted}
-						defaultValue={finishedOn ? new Date(finishedOn) : undefined}
+						disabled={areStartAndEndInputsDisabled}
+						defaultValue={
+							props.seen.finishedOn
+								? new Date(props.seen.finishedOn)
+								: undefined
+						}
 					/>
 					<MultiSelect
 						data={watchProviders}
 						name="providersConsumedOn"
-						defaultValue={providersConsumedOn || []}
+						defaultValue={props.seen.providersConsumedOn || []}
 						nothingFoundMessage="No watch providers configured. Please add them in your general preferences."
 						label={`Where did you ${getVerb(
 							Verb.Read,
@@ -111,6 +121,7 @@ export const EditHistoryItemModal = (props: {
 							defaultValue={props.seen.reviewId}
 							disabled={!coreDetails.isServerKeyValidated}
 							data={reviewsByThisCurrentUser.map((r) => ({
+								value: r.id,
 								label: [
 									r.textOriginal
 										? `${r.textOriginal.slice(0, 20)}...`
@@ -120,7 +131,6 @@ export const EditHistoryItemModal = (props: {
 								]
 									.filter(Boolean)
 									.join(" • "),
-								value: r.id,
 							}))}
 						/>
 					</Tooltip>
