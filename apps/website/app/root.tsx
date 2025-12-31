@@ -26,10 +26,11 @@ import "./tailwind.css";
 
 export const meta: MetaFunction = () => {
 	return [
-		{ title: "Ryot" },
+		{ title: "Ryot - The Only Self-Hosted Tracker You Will Ever Need" },
 		{
 			name: "description",
-			content: "The only self hosted tracker you will ever need.",
+			content:
+				"Self-hosted platform for tracking your media, fitness, and personal data. Complete privacy and control over your digital life.",
 		},
 	];
 };
@@ -37,20 +38,20 @@ export const meta: MetaFunction = () => {
 export const links: LinksFunction = () => {
 	return [
 		{
+			rel: "stylesheet",
+			href: "https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap",
+		},
+		{
 			rel: "icon",
-			type: "image/png",
 			sizes: "16x16",
+			type: "image/png",
 			href: "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/favicon-16x16.png",
 		},
 		{
 			rel: "icon",
-			type: "image/png",
 			sizes: "32x32",
+			type: "image/png",
 			href: "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/favicon-32x32.png",
-		},
-		{
-			rel: "stylesheet",
-			href: "https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap",
 		},
 	];
 };
