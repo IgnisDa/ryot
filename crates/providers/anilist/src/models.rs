@@ -631,35 +631,27 @@ pub async fn search(
 ) -> Result<(Vec<MetadataSearchItem>, u64, Option<u64>)> {
     let query_str = r#"
         query MediaSearchQuery(
-          $search: String!
           $page: Int!
-          $type: MediaType!
           $perPage: Int!
+          $search: String!
+          $type: MediaType!
         ) {
           Page(page: $page, perPage: $perPage) {
-            pageInfo {
-              total
-            }
+            pageInfo { total }
             media(search: $search, type: $type) {
               id
-              title {
-                userPreferred
-              }
-              coverImage {
-                extraLarge
-              }
-              startDate {
-                year
-              }
               bannerImage
+              startDate { year }
+              title { userPreferred }
+              coverImage { extraLarge }
             }
           }
         }
     "#;
 
     let variables = serde_json::json!({
-        "search": query,
         "page": page,
+        "search": query,
         "type": media_type,
         "perPage": page_size
     });
