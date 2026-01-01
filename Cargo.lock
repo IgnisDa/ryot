@@ -2021,6 +2021,7 @@ dependencies = [
  "enum-models",
  "fitness-models",
  "media-models",
+ "regex",
  "rust_decimal",
  "sea-orm",
  "supporting-service",

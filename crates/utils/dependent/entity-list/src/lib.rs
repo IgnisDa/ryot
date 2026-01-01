@@ -1,20 +1,20 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use anyhow::Result;
 use application_utils::graphql_to_db_order;
-use common_models::{SearchDetails, SearchInput, UserLevelCacheKey};
+use common_models::{DefaultCollection, SearchDetails, SearchInput, UserLevelCacheKey};
 use database_models::{
-    collection, collection_entity_membership, collection_to_entity, exercise, genre, metadata,
-    metadata_group, metadata_to_genre, person,
+    collection, collection_entity_membership, collection_to_entity, entity_translation, exercise,
+    genre, metadata, metadata_group, metadata_to_genre, person,
     prelude::{
-        Collection, CollectionEntityMembership, CollectionToEntity, Exercise, Genre, Metadata,
-        MetadataGroup, Person, Review, Seen, User, UserMeasurement, UserToEntity, Workout,
-        WorkoutTemplate,
+        Collection, CollectionEntityMembership, CollectionToEntity, EntityTranslation, Exercise,
+        Genre, Metadata, MetadataGroup, Person, Review, Seen, User, UserMeasurement, UserToEntity,
+        Workout, WorkoutTemplate,
     },
     review, seen, user, user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::{
-    apply_columns_search, build_collection_filter_condition, extract_pagination_params,
+    apply_columns_search, build_collection_filter_condition, extract_pagination_params, user_by_id,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, SearchResults,
@@ -24,17 +24,20 @@ use dependent_models::{
     UserTemplatesOrWorkoutsListInput, UserTemplatesOrWorkoutsListSortBy, UserWorkoutsListResponse,
     UserWorkoutsTemplatesListResponse,
 };
-use enum_models::{ExerciseSource, SeenState, UserToMediaReason};
+use enum_models::{EntityTranslationVariant, ExerciseSource, SeenState, UserToMediaReason};
 use fitness_models::{ExerciseSortBy, UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
-    CollectionItem, GenreListItem, MediaCollectionPresenceFilter, MediaGeneralFilter, MediaSortBy,
-    PersonAndMetadataGroupsSortBy,
+    CollectionItem, GenreListItem, MediaCollectionPresenceFilter, MediaCollectionStrategyFilter,
+    MediaGeneralFilter, MediaSortBy, PersonAndMetadataGroupsSortBy,
 };
+use regex::Regex;
 use sea_orm::{
     ColumnTrait, Condition, EntityTrait, ItemsAndPagesNumber, Iterable, JoinType, Order,
     PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait, Select, Value,
     prelude::Expr,
-    sea_query::{Alias, Func, NullOrdering, PgFunc, Query, SimpleExpr},
+    sea_query::{
+        Alias, Func, NullOrdering, PgFunc, Query, SimpleExpr, extension::postgres::PgExpr,
+    },
 };
 use supporting_service::SupportingService;
 
@@ -47,6 +50,124 @@ where
     query.apply_if(values.filter(|v| !v.is_empty()), move |q, v| {
         q.filter(column.is_in(v.clone()))
     })
+}
+
+fn get_user_search_languages(user: &user::Model) -> Vec<String> {
+    user.preferences
+        .languages
+        .providers
+        .iter()
+        .map(|p| p.preferred_language.clone())
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+fn apply_columns_search_with_translations<D, E, C>(
+    value: &str,
+    query: Select<D>,
+    columns: impl IntoIterator<Item = Expr>,
+    translation_fk_column: entity_translation::Column,
+    entity: E,
+    entity_id_column: C,
+    user_languages: &[String],
+) -> Select<D>
+where
+    D: EntityTrait,
+    E: EntityTrait + Copy,
+    C: ColumnTrait + Copy,
+{
+    if value.is_empty() || user_languages.is_empty() {
+        return apply_columns_search(value, query, columns);
+    }
+
+    let re = Regex::new(r"[\s_-]+").unwrap();
+    let keywords: Vec<String> = re
+        .split(value)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect();
+
+    if keywords.is_empty() {
+        return query;
+    }
+
+    let columns_vec: Vec<Expr> = columns.into_iter().collect();
+    let mut all_keywords_condition = Condition::all();
+
+    for keyword in keywords {
+        let pattern = format!("%{keyword}%");
+        let mut any_match_condition = Condition::any();
+
+        for column in &columns_vec {
+            any_match_condition = any_match_condition.add(column.clone().ilike(pattern.clone()));
+        }
+
+        let translation_exists = Expr::exists(
+            Query::select()
+                .expr(Expr::val(1))
+                .from(EntityTranslation)
+                .and_where(
+                    Expr::col((entity_translation::Entity, translation_fk_column))
+                        .equals((entity, entity_id_column)),
+                )
+                .and_where(entity_translation::Column::Language.is_in(user_languages.to_vec()))
+                .and_where(entity_translation::Column::Variant.is_in([
+                    EntityTranslationVariant::Title,
+                    EntityTranslationVariant::Description,
+                ]))
+                .and_where(
+                    Expr::col((
+                        entity_translation::Entity,
+                        entity_translation::Column::Value,
+                    ))
+                    .ilike(pattern),
+                )
+                .to_owned(),
+        );
+        any_match_condition = any_match_condition.add(translation_exists);
+
+        all_keywords_condition = all_keywords_condition.add(any_match_condition);
+    }
+
+    query.filter(all_keywords_condition)
+}
+
+fn build_translation_aware_sort_expr<E, C>(
+    original_column: Expr,
+    translation_fk_column: entity_translation::Column,
+    entity: E,
+    entity_id_column: C,
+    user_languages: &[String],
+) -> SimpleExpr
+where
+    E: EntityTrait,
+    C: ColumnTrait,
+{
+    if user_languages.is_empty() {
+        return original_column.into();
+    }
+
+    let translation_subquery = Query::select()
+        .column(entity_translation::Column::Value)
+        .from(EntityTranslation)
+        .and_where(
+            Expr::col((entity_translation::Entity, translation_fk_column))
+                .equals((entity, entity_id_column)),
+        )
+        .and_where(entity_translation::Column::Language.is_in(user_languages.to_vec()))
+        .and_where(entity_translation::Column::Variant.eq(EntityTranslationVariant::Title))
+        .limit(1)
+        .to_owned();
+
+    Func::coalesce([
+        SimpleExpr::SubQuery(
+            None,
+            Box::new(translation_subquery.into_sub_query_statement()),
+        ),
+        original_column.into(),
+    ])
+    .into()
 }
 
 pub async fn user_metadata_list(
@@ -62,6 +183,8 @@ pub async fn user_metadata_list(
         }),
         ApplicationCacheValue::UserMetadataList,
         || async {
+            let user = user_by_id(user_id, ss).await?;
+            let user_languages = get_user_search_languages(&user);
             let order_by = input
                 .sort
                 .clone()
@@ -132,13 +255,17 @@ pub async fn user_metadata_list(
                     query.filter(metadata::Column::Source.eq(v))
                 })
                 .apply_if(input.search.and_then(|s| s.query), |query, v| {
-                    apply_columns_search(
+                    apply_columns_search_with_translations(
                         &v,
                         query,
                         [
                             Expr::col(metadata::Column::Title),
                             Expr::col(metadata::Column::Description),
                         ],
+                        entity_translation::Column::MetadataId,
+                        metadata::Entity,
+                        metadata::Column::Id,
+                        &user_languages,
                     )
                 })
                 .apply_if(
@@ -261,7 +388,16 @@ pub async fn user_metadata_list(
             let paginator = base_query
                 .apply_if(input.sort.map(|s| s.by), |query, v| match v {
                     MediaSortBy::Random => query.order_by(Expr::expr(Func::random()), order_by),
-                    MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
+                    MediaSortBy::Title => query.order_by(
+                        build_translation_aware_sort_expr(
+                            Expr::col(metadata::Column::Title),
+                            entity_translation::Column::MetadataId,
+                            metadata::Entity,
+                            metadata::Column::Id,
+                            &user_languages,
+                        ),
+                        order_by,
+                    ),
                     MediaSortBy::TimesConsumed => query.order_by(
                         Expr::expr(SimpleExpr::SubQuery(
                             None,
@@ -393,7 +529,7 @@ pub async fn user_collections_list(
                 .column(collection::Column::Name)
                 .column_as(
                     collection::Column::Name
-                        .is_in(common_models::DefaultCollection::iter().map(|s| s.to_string()))
+                        .is_in(DefaultCollection::iter().map(|s| s.to_string()))
                         .and(collection::Column::UserId.eq(user_id)),
                     "is_default",
                 )
@@ -444,6 +580,8 @@ pub async fn user_metadata_groups_list(
         }),
         ApplicationCacheValue::UserMetadataGroupsList,
         || async {
+            let user = user_by_id(user_id, ss).await?;
+            let user_languages = get_user_search_languages(&user);
             let (order_by, sort_order) = match input.sort {
                 None => (Expr::col(metadata_group::Column::Parts), Order::Desc),
                 Some(ord) => (
@@ -453,7 +591,13 @@ pub async fn user_metadata_groups_list(
                             Expr::col(metadata_group::Column::Parts)
                         }
                         PersonAndMetadataGroupsSortBy::Name => {
-                            Expr::col(metadata_group::Column::Title)
+                            Expr::expr(build_translation_aware_sort_expr(
+                                Expr::col(metadata_group::Column::Title),
+                                entity_translation::Column::MetadataGroupId,
+                                metadata_group::Entity,
+                                metadata_group::Column::Id,
+                                &user_languages,
+                            ))
                         }
                     },
                     graphql_to_db_order(ord.order),
@@ -474,13 +618,17 @@ pub async fn user_metadata_groups_list(
                     query.filter(metadata_group::Column::Source.eq(v))
                 })
                 .apply_if(input.search.and_then(|f| f.query), |query, v| {
-                    apply_columns_search(
+                    apply_columns_search_with_translations(
                         &v,
                         query,
                         [
                             Expr::col(metadata_group::Column::Title),
                             Expr::col(metadata_group::Column::Description),
                         ],
+                        entity_translation::Column::MetadataGroupId,
+                        metadata_group::Entity,
+                        metadata_group::Column::Id,
+                        &user_languages,
                     )
                 });
 
@@ -529,6 +677,8 @@ pub async fn user_people_list(
         }),
         ApplicationCacheValue::UserPeopleList,
         || async {
+            let user = user_by_id(user_id, ss).await?;
+            let user_languages = get_user_search_languages(&user);
             let (order_by, sort_order) = match input.sort {
                 None => (
                     Expr::col(person::Column::AssociatedEntityCount),
@@ -537,7 +687,15 @@ pub async fn user_people_list(
                 Some(ord) => (
                     match ord.by {
                         PersonAndMetadataGroupsSortBy::Random => Expr::expr(Func::random()),
-                        PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
+                        PersonAndMetadataGroupsSortBy::Name => {
+                            Expr::expr(build_translation_aware_sort_expr(
+                                Expr::col(person::Column::Name),
+                                entity_translation::Column::PersonId,
+                                person::Entity,
+                                person::Column::Id,
+                                &user_languages,
+                            ))
+                        }
                         PersonAndMetadataGroupsSortBy::AssociatedEntityCount => {
                             Expr::col(person::Column::AssociatedEntityCount)
                         }
@@ -557,13 +715,17 @@ pub async fn user_people_list(
                     query.filter(person::Column::Source.eq(v))
                 })
                 .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
-                    apply_columns_search(
+                    apply_columns_search_with_translations(
                         &v,
                         query,
                         [
                             Expr::col(person::Column::Name),
                             Expr::col(person::Column::Description),
                         ],
+                        entity_translation::Column::PersonId,
+                        person::Entity,
+                        person::Column::Id,
+                        &user_languages,
                     )
                 });
 
@@ -851,12 +1013,8 @@ pub async fn user_exercises_list(
                     };
 
                     combined_condition = match coll_filter.strategy {
-                        media_models::MediaCollectionStrategyFilter::And => {
-                            combined_condition.and(condition)
-                        }
-                        media_models::MediaCollectionStrategyFilter::Or => {
-                            combined_condition.or(condition)
-                        }
+                        MediaCollectionStrategyFilter::Or => combined_condition.or(condition),
+                        MediaCollectionStrategyFilter::And => combined_condition.and(condition),
                     };
                 }
 

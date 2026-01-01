@@ -36,9 +36,7 @@ pub struct MediaSearchResponse {
             pub staff: Option<Vec<Option<StaffSearchItem>>>,
             pub studios: Option<Vec<Option<StudioSearchItem>>>,
             #[serde(rename = "pageInfo")]
-            pub page_info: Option<nest! {
-                pub total: Option<u64>,
-            }>,
+            pub page_info: Option<nest! { pub total: Option<u64> }>,
         },
     >,
 }
@@ -130,8 +128,8 @@ pub struct MediaTranslationResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaTranslation {
-    pub title: Option<MediaTranslationTitle>,
     pub description: Option<String>,
+    pub title: Option<MediaTranslationTitle>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -155,9 +153,9 @@ pub struct MediaDetails {
     pub status: Option<String>,
     #[serde(rename = "type")]
     pub media_type: Option<String>,
-    pub title: Option<AnilistTitle>,
     #[serde(rename = "averageScore")]
     pub average_score: Option<i32>,
+    pub title: Option<AnilistTitle>,
     pub description: Option<String>,
     pub genres: Option<Vec<Option<String>>>,
     pub tags: Option<Vec<Option<nest! { pub name: String }>>>,
@@ -262,12 +260,10 @@ pub struct StaffDetails {
     pub character_media: Option<
         nest! {
             pub edges: Option<Vec<Option<nest! {
-                pub characters: Option<Vec<Option<nest! {
-                    pub name: Option<nest! {
-                        pub full: Option<String>,
-                    }>,
-                }>>>,
                 pub node: Option<MediaSearchItem>,
+                pub characters: Option<Vec<Option<nest! {
+                    pub name: Option<nest! { pub full: Option<String> }>,
+                }>>>,
             }>>>,
         },
     >,
@@ -292,9 +288,7 @@ pub struct StudioDetails {
     pub site_url: Option<String>,
     pub media: Option<
         nest! {
-            pub edges: Option<Vec<Option<nest! {
-                pub node: Option<MediaSearchItem>,
-            }>>>,
+            pub edges: Option<Vec<Option<nest! { pub node: Option<MediaSearchItem> }>>>,
         },
     >,
 }
@@ -319,20 +313,18 @@ pub async fn translate_media(
     let query = r#"
         query MediaTranslationQuery($id: Int!) {
           Media(id: $id) {
+            description
             title {
               romaji
               english
               native
               userPreferred
             }
-            description
           }
         }
     "#;
 
-    let variables = serde_json::json!({
-        "id": id.parse::<i64>()?
-    });
+    let variables = serde_json::json!({ "id": id.parse::<i64>()? });
 
     let body = serde_json::json!({
         "query": query,
@@ -379,78 +371,47 @@ pub async fn media_details(client: &Client, id: &str) -> Result<MetadataDetails>
         query MediaDetailsQuery($id: Int!) {
           Media(id: $id) {
             id
-            title {
-              userPreferred
-            }
             status
-            airingSchedule {
-              nodes {
-                airingAt
-                episode
-              }
-            }
+            title { userPreferred }
+            airingSchedule { nodes { episode airingAt } }
             isAdult
             episodes
             chapters
             volumes
             description
-            coverImage {
-              extraLarge
-            }
+            coverImage { extraLarge }
             type
             genres
-            tags {
-              name
-            }
-            startDate {
-              year
-            }
+            tags { name }
+            startDate { year }
             bannerImage
             staff {
               edges {
-                node {
-                  id
-                  name {
-                    full
-                  }
-                }
                 role
-              }
-            }
-            studios {
-              edges {
                 node {
                   id
-                  name
+                  name { full }
                 }
               }
             }
+            studios { edges { node { id name } } }
             averageScore
             recommendations {
               nodes {
                 mediaRecommendation {
                   id
                   type
-                  title {
-                    userPreferred
-                  }
-                  coverImage {
-                    extraLarge
-                  }
+                  title { userPreferred }
+                  coverImage { extraLarge }
                 }
               }
             }
-            trailer {
-              site
-              id
-            }
+            trailer { id site }
           }
         }
     "#;
 
-    let variables = serde_json::json!({
-        "id": id.parse::<i64>().unwrap()
-    });
+    let variables = serde_json::json!({ "id": id.parse::<i64>()? });
 
     let body = serde_json::json!({
         "query": query,
@@ -540,8 +501,8 @@ pub async fn media_details(client: &Client, id: &str) -> Result<MetadataDetails>
         Some("ANIME") => (
             MediaLot::Anime,
             Some(AnimeSpecifics {
-                episodes: media.episodes,
                 airing_schedule,
+                episodes: media.episodes,
             }),
             None,
         ),
@@ -549,8 +510,8 @@ pub async fn media_details(client: &Client, id: &str) -> Result<MetadataDetails>
             MediaLot::Manga,
             None,
             Some(MangaSpecifics {
-                chapters: media.chapters.map(Decimal::from),
                 volumes: media.volumes,
+                chapters: media.chapters.map(Decimal::from),
                 ..Default::default()
             }),
         ),
@@ -590,8 +551,8 @@ pub async fn media_details(client: &Client, id: &str) -> Result<MetadataDetails>
             _ => unreachable!(),
         };
         EntityRemoteVideo {
-            url: t.id.unwrap(),
             source,
+            url: t.id.unwrap(),
         }
     }));
 
@@ -631,35 +592,27 @@ pub async fn search(
 ) -> Result<(Vec<MetadataSearchItem>, u64, Option<u64>)> {
     let query_str = r#"
         query MediaSearchQuery(
-          $search: String!
           $page: Int!
-          $type: MediaType!
           $perPage: Int!
+          $search: String!
+          $type: MediaType!
         ) {
           Page(page: $page, perPage: $perPage) {
-            pageInfo {
-              total
-            }
+            pageInfo { total }
             media(search: $search, type: $type) {
               id
-              title {
-                userPreferred
-              }
-              coverImage {
-                extraLarge
-              }
-              startDate {
-                year
-              }
               bannerImage
+              startDate { year }
+              title { userPreferred }
+              coverImage { extraLarge }
             }
           }
         }
     "#;
 
     let variables = serde_json::json!({
-        "search": query,
         "page": page,
+        "search": query,
         "type": media_type,
         "perPage": page_size
     });
@@ -708,20 +661,12 @@ pub fn build_staff_search_query(search: &str, page: u64, per_page: u64) -> serde
           $perPage: Int!
         ) {
           Page(page: $page, perPage: $perPage) {
-            pageInfo {
-              total
-            }
+            pageInfo { total }
             staff(search: $search) {
               id
-              name {
-                full
-              }
-              image {
-                medium
-              }
-              dateOfBirth {
-                year
-              }
+              name { full }
+              image { medium }
+              dateOfBirth { year }
             }
           }
         }
@@ -730,8 +675,8 @@ pub fn build_staff_search_query(search: &str, page: u64, per_page: u64) -> serde
     serde_json::json!({
         "query": query,
         "variables": {
-            "search": search,
             "page": page,
+            "search": search,
             "perPage": per_page
         }
     })
@@ -745,13 +690,8 @@ pub fn build_studio_search_query(search: &str, page: u64, per_page: u64) -> serd
           $perPage: Int!
         ) {
           Page(page: $page, perPage: $perPage) {
-            pageInfo {
-              total
-            }
-            studios(search: $search) {
-              id
-              name
-            }
+            pageInfo { total }
+            studios(search: $search) { id name }
           }
         }
     "#;
@@ -759,8 +699,8 @@ pub fn build_studio_search_query(search: &str, page: u64, per_page: u64) -> serd
     serde_json::json!({
         "query": query,
         "variables": {
-            "search": search,
             "page": page,
+            "search": search,
             "perPage": per_page
         }
     })
@@ -771,41 +711,31 @@ pub fn build_staff_details_query(id: i64) -> serde_json::Value {
         query StaffQuery($id: Int!) {
           Staff(id: $id) {
             id
-            name {
-              full
-            }
-            image {
-              large
-            }
+            name { full }
+            image { large }
             description
             gender
             dateOfBirth {
+              day
               year
               month
-              day
             }
             dateOfDeath {
+              day
               year
               month
-              day
             }
             homeTown
             characterMedia {
               edges {
                 characters {
-                  name {
-                    full
-                  }
+                  name { full }
                 }
                 node {
                   id
                   type
-                  title {
-                    userPreferred
-                  }
-                  coverImage {
-                    extraLarge
-                  }
+                  title { userPreferred }
+                  coverImage { extraLarge }
                 }
               }
             }
@@ -815,12 +745,8 @@ pub fn build_staff_details_query(id: i64) -> serde_json::Value {
                 node {
                   id
                   type
-                  title {
-                    userPreferred
-                  }
-                  coverImage {
-                    extraLarge
-                  }
+                  title { userPreferred }
+                  coverImage { extraLarge }
                 }
               }
             }
@@ -830,9 +756,7 @@ pub fn build_staff_details_query(id: i64) -> serde_json::Value {
 
     serde_json::json!({
         "query": query,
-        "variables": {
-            "id": id
-        }
+        "variables": { "id": id }
     })
 }
 
@@ -848,12 +772,8 @@ pub fn build_studio_details_query(id: i64) -> serde_json::Value {
                 node {
                   id
                   type
-                  title {
-                    userPreferred
-                  }
-                  coverImage {
-                    extraLarge
-                  }
+                  title { userPreferred }
+                  coverImage { extraLarge }
                 }
               }
             }
