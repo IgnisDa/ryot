@@ -114,6 +114,43 @@ where
     query.filter(any_match_condition)
 }
 
+fn build_translation_aware_sort_expr<E, C>(
+    original_column: Expr,
+    translation_fk_column: entity_translation::Column,
+    entity: E,
+    entity_id_column: C,
+    user_languages: &[String],
+) -> SimpleExpr
+where
+    E: EntityTrait,
+    C: ColumnTrait,
+{
+    if user_languages.is_empty() {
+        return original_column.into();
+    }
+
+    let translation_subquery = Query::select()
+        .column(entity_translation::Column::Value)
+        .from(EntityTranslation)
+        .and_where(
+            Expr::col((entity_translation::Entity, translation_fk_column))
+                .equals((entity, entity_id_column)),
+        )
+        .and_where(entity_translation::Column::Language.is_in(user_languages.to_vec()))
+        .and_where(entity_translation::Column::Variant.eq(EntityTranslationVariant::Title))
+        .limit(1)
+        .to_owned();
+
+    Func::coalesce([
+        SimpleExpr::SubQuery(
+            None,
+            Box::new(translation_subquery.into_sub_query_statement()),
+        ),
+        original_column.into(),
+    ])
+    .into()
+}
+
 pub async fn user_metadata_list(
     user_id: &String,
     input: UserMetadataListInput,
@@ -332,7 +369,16 @@ pub async fn user_metadata_list(
             let paginator = base_query
                 .apply_if(input.sort.map(|s| s.by), |query, v| match v {
                     MediaSortBy::Random => query.order_by(Expr::expr(Func::random()), order_by),
-                    MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
+                    MediaSortBy::Title => query.order_by(
+                        build_translation_aware_sort_expr(
+                            Expr::col(metadata::Column::Title),
+                            entity_translation::Column::MetadataId,
+                            metadata::Entity,
+                            metadata::Column::Id,
+                            &user_languages,
+                        ),
+                        order_by,
+                    ),
                     MediaSortBy::TimesConsumed => query.order_by(
                         Expr::expr(SimpleExpr::SubQuery(
                             None,
@@ -526,7 +572,13 @@ pub async fn user_metadata_groups_list(
                             Expr::col(metadata_group::Column::Parts)
                         }
                         PersonAndMetadataGroupsSortBy::Name => {
-                            Expr::col(metadata_group::Column::Title)
+                            Expr::expr(build_translation_aware_sort_expr(
+                                Expr::col(metadata_group::Column::Title),
+                                entity_translation::Column::MetadataGroupId,
+                                metadata_group::Entity,
+                                metadata_group::Column::Id,
+                                &user_languages,
+                            ))
                         }
                     },
                     graphql_to_db_order(ord.order),
@@ -616,7 +668,15 @@ pub async fn user_people_list(
                 Some(ord) => (
                     match ord.by {
                         PersonAndMetadataGroupsSortBy::Random => Expr::expr(Func::random()),
-                        PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
+                        PersonAndMetadataGroupsSortBy::Name => {
+                            Expr::expr(build_translation_aware_sort_expr(
+                                Expr::col(person::Column::Name),
+                                entity_translation::Column::PersonId,
+                                person::Entity,
+                                person::Column::Id,
+                                &user_languages,
+                            ))
+                        }
                         PersonAndMetadataGroupsSortBy::AssociatedEntityCount => {
                             Expr::col(person::Column::AssociatedEntityCount)
                         }
