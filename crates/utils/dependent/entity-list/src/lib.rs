@@ -30,6 +30,7 @@ use media_models::{
     CollectionItem, GenreListItem, MediaCollectionPresenceFilter, MediaCollectionStrategyFilter,
     MediaGeneralFilter, MediaSortBy, PersonAndMetadataGroupsSortBy,
 };
+use regex::Regex;
 use sea_orm::{
     ColumnTrait, Condition, EntityTrait, ItemsAndPagesNumber, Iterable, JoinType, Order,
     PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait, Select, Value,
@@ -73,45 +74,63 @@ fn apply_columns_search_with_translations<D, E, C>(
 ) -> Select<D>
 where
     D: EntityTrait,
-    E: EntityTrait,
-    C: ColumnTrait,
+    E: EntityTrait + Copy,
+    C: ColumnTrait + Copy,
 {
     if value.is_empty() || user_languages.is_empty() {
         return apply_columns_search(value, query, columns);
     }
 
-    let pattern = format!("%{value}%");
-    let mut any_match_condition = Condition::any();
+    let re = Regex::new(r"[\s_-]+").unwrap();
+    let keywords: Vec<String> = re
+        .split(value)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect();
 
-    for column in columns {
-        any_match_condition = any_match_condition.add(column.ilike(pattern.clone()));
+    if keywords.is_empty() {
+        return query;
     }
 
-    let translation_exists = Expr::exists(
-        Query::select()
-            .expr(Expr::val(1))
-            .from(EntityTranslation)
-            .and_where(
-                Expr::col((entity_translation::Entity, translation_fk_column))
-                    .equals((entity, entity_id_column)),
-            )
-            .and_where(entity_translation::Column::Language.is_in(user_languages.to_vec()))
-            .and_where(entity_translation::Column::Variant.is_in([
-                EntityTranslationVariant::Title,
-                EntityTranslationVariant::Description,
-            ]))
-            .and_where(
-                Expr::col((
-                    entity_translation::Entity,
-                    entity_translation::Column::Value,
-                ))
-                .ilike(pattern),
-            )
-            .to_owned(),
-    );
-    any_match_condition = any_match_condition.add(translation_exists);
+    let columns_vec: Vec<Expr> = columns.into_iter().collect();
+    let mut all_keywords_condition = Condition::all();
 
-    query.filter(any_match_condition)
+    for keyword in keywords {
+        let pattern = format!("%{keyword}%");
+        let mut any_match_condition = Condition::any();
+
+        for column in &columns_vec {
+            any_match_condition = any_match_condition.add(column.clone().ilike(pattern.clone()));
+        }
+
+        let translation_exists = Expr::exists(
+            Query::select()
+                .expr(Expr::val(1))
+                .from(EntityTranslation)
+                .and_where(
+                    Expr::col((entity_translation::Entity, translation_fk_column))
+                        .equals((entity, entity_id_column)),
+                )
+                .and_where(entity_translation::Column::Language.is_in(user_languages.to_vec()))
+                .and_where(entity_translation::Column::Variant.is_in([
+                    EntityTranslationVariant::Title,
+                    EntityTranslationVariant::Description,
+                ]))
+                .and_where(
+                    Expr::col((
+                        entity_translation::Entity,
+                        entity_translation::Column::Value,
+                    ))
+                    .ilike(pattern),
+                )
+                .to_owned(),
+        );
+        any_match_condition = any_match_condition.add(translation_exists);
+
+        all_keywords_condition = all_keywords_condition.add(any_match_condition);
+    }
+
+    query.filter(all_keywords_condition)
 }
 
 fn build_translation_aware_sort_expr<E, C>(
