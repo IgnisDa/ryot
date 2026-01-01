@@ -411,9 +411,7 @@ pub async fn media_details(client: &Client, id: &str) -> Result<MetadataDetails>
         }
     "#;
 
-    let variables = serde_json::json!({
-        "id": id.parse::<i64>().unwrap()
-    });
+    let variables = serde_json::json!({ "id": id.parse::<i64>()? });
 
     let body = serde_json::json!({
         "query": query,
