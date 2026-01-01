@@ -234,9 +234,7 @@ pub async fn media_translations(
                 EntityLot::MetadataGroup => {
                     fetch_info!(MetadataGroup, metadata_group, "Metadata group")
                 }
-                _ => {
-                    bail!("Unsupported entity lot for translations");
-                }
+                _ => bail!("Unsupported entity lot for translations"),
             };
             let preferred_language =
                 get_preferred_language_for_user_and_source(ss, user_id, &source).await?;
