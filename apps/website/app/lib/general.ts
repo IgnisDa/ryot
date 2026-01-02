@@ -21,18 +21,11 @@ export const initializePaddleForApplication = (
 	});
 
 export const queryClient = new QueryClient({
-	defaultOptions: {
-		queries: {
-			retry: 2,
-			staleTime: 1000 * 60 * 5, // 5 minutes
-			placeholderData: (prev: unknown) => prev,
-		},
-	},
+	defaultOptions: { queries: { placeholderData: (prev: unknown) => prev } },
 });
 
 export const useConfigData = () =>
 	useQuery({
-		staleTime: 1000 * 60 * 5,
 		queryKey: ["websiteConfig"],
 		queryFn: async () => {
 			const response = await fetch("/api/config");
