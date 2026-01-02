@@ -87,9 +87,9 @@ export default function App() {
 				<Links />
 				<script
 					defer
-					data-website-id="65cf9bb3-381b-4ea4-b87d-b40a23a0204f"
-					src="https://umami.diptesh.me/script.js"
 					data-domains="ryot.io,www.ryot.io"
+					src="https://umami.diptesh.me/script.js"
+					data-website-id="65cf9bb3-381b-4ea4-b87d-b40a23a0204f"
 				/>
 			</head>
 			<body className="font-body">
@@ -158,8 +158,8 @@ export default function App() {
 									</Link>
 									<a
 										target="_blank"
-										href="https://docs.ryot.io"
 										rel="noopener noreferrer"
+										href="https://docs.ryot.io"
 										className="text-muted-foreground hover:text-foreground transition-colors"
 									>
 										Docs
@@ -220,17 +220,17 @@ export default function App() {
 										Terms
 									</Link>
 									<a
-										href="https://docs.ryot.io"
 										target="_blank"
 										rel="noopener noreferrer"
+										href="https://docs.ryot.io"
 										className="hover:text-foreground transition-colors"
 									>
 										Docs
 									</a>
 									<a
-										href="https://github.com/IgnisDa/ryot"
 										target="_blank"
 										rel="noopener noreferrer"
+										href="https://github.com/IgnisDa/ryot"
 										className="hover:text-foreground transition-colors"
 									>
 										GitHub
@@ -238,7 +238,7 @@ export default function App() {
 								</div>
 							</div>
 							<div className="border-t border-border/50 mt-8 pt-8 text-center text-muted-foreground">
-								<p>&copy; 2025 Ryot. All rights reserved.</p>
+								<p>&copy; 2026 Ryot. All Rights Reserved.</p>
 							</div>
 						</div>
 					</footer>
