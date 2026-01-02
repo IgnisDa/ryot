@@ -40,11 +40,6 @@ export const meta = () => {
 	return [{ title: "Features | Ryot" }];
 };
 
-export const headers = () => ({
-	"Cache-Control":
-		"public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
-});
-
 export const loader = async (_args: Route.LoaderArgs) => {
 	return {
 		isSandbox: !!serverVariables.PADDLE_SANDBOX,
