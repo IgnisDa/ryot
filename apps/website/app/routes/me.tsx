@@ -84,16 +84,14 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				.update(customers)
 				.set({ unkeyKeyId: created.keyId })
 				.where(eq(customers.id, customer.id));
-			const emailElement = PurchaseCompleteEmail({
-				planType: customer.planType,
-				renewOn: customer.renewOn || undefined,
-				details: { __typename: "self_hosted", key: created.key },
-			});
-			if (!emailElement) throw new Error("Failed to create email element");
 			await sendEmail({
-				element: emailElement,
 				recipient: customer.email,
 				subject: PurchaseCompleteEmail.subject,
+				element: PurchaseCompleteEmail({
+					planType: customer.planType,
+					renewOn: customer.renewOn || undefined,
+					details: { __typename: "self_hosted", key: created.key },
+				}),
 			});
 			return data({});
 		})
