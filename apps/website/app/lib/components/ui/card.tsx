@@ -1,5 +1,5 @@
 import { cn } from "@ryot/ts-utils";
-import { type HTMLAttributes, forwardRef } from "react";
+import { forwardRef, type HTMLAttributes } from "react";
 
 const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 	(props, ref) => (

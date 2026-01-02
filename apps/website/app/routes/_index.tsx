@@ -27,9 +27,9 @@ import {
 import * as openidClient from "openid-client";
 import { useEffect, useState } from "react";
 import {
+	data,
 	Form,
 	Link,
-	data,
 	redirect,
 	useLoaderData,
 	useRouteLoaderData,
@@ -60,9 +60,9 @@ import {
 import { Textarea } from "~/lib/components/ui/textarea";
 import { TurnstileWidget } from "~/lib/components/ui/turnstile";
 import {
-	OAUTH_CALLBACK_URL,
 	db,
 	honeypot,
+	OAUTH_CALLBACK_URL,
 	prices,
 	serverVariables,
 	websiteAuthCookie,
@@ -269,6 +269,10 @@ export default function Page() {
 		);
 	}, []);
 
+	const stars = Array.from({ length: 5 }, (_, i) => `star-${i + 1}`);
+	const mikeStars = Array.from({ length: 4 }, (_, i) => `mike-star-${i + 1}`);
+	const alexStars = Array.from({ length: 4 }, (_, i) => `alex-star-${i + 1}`);
+
 	return (
 		<>
 			<section className="relative py-20 lg:py-32 overflow-hidden">
@@ -405,9 +409,9 @@ export default function Page() {
 						<Card className="bg-card/50 backdrop-blur-sm">
 							<CardContent className="pt-6">
 								<div className="flex items-center mb-4">
-									{[...Array(5)].map((_, i) => (
+									{stars.map((star) => (
 										<Star
-											key={`star-5-${i}`}
+											key={star}
 											className="w-4 h-4 fill-yellow-400 text-yellow-400"
 										/>
 									))}
@@ -434,9 +438,9 @@ export default function Page() {
 						<Card className="bg-card/50 backdrop-blur-sm">
 							<CardContent className="pt-6">
 								<div className="flex items-center mb-4">
-									{[...Array(4)].map((_, i) => (
+									{mikeStars.map((star) => (
 										<Star
-											key={`mike-star-${i}`}
+											key={star}
 											className="w-4 h-4 fill-yellow-400 text-yellow-400"
 										/>
 									))}
@@ -467,9 +471,9 @@ export default function Page() {
 						<Card className="bg-card/50 backdrop-blur-sm">
 							<CardContent className="pt-6">
 								<div className="flex items-center mb-4">
-									{[...Array(4)].map((_, i) => (
+									{alexStars.map((star) => (
 										<Star
-											key={`alex-star-${i}`}
+											key={star}
 											className="w-4 h-4 fill-yellow-400 text-yellow-400"
 										/>
 									))}

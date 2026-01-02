@@ -6,10 +6,10 @@ import useEmblaCarousel, {
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import {
 	type ComponentProps,
-	type HTMLAttributes,
-	type KeyboardEvent,
 	createContext,
 	forwardRef,
+	type HTMLAttributes,
+	type KeyboardEvent,
 	useCallback,
 	useContext,
 	useEffect,
@@ -133,7 +133,6 @@ const Carousel = forwardRef<
 		>
 			<div
 				ref={ref}
-				aria-roledescription="carousel"
 				onKeyDownCapture={handleKeyDown}
 				className={cn("relative", className)}
 				{...rest}
@@ -176,8 +175,6 @@ const CarouselItem = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 		return (
 			<div
 				ref={ref}
-				role="group"
-				aria-roledescription="slide"
 				className={cn(
 					"min-w-0 shrink-0 grow-0 basis-full",
 					orientation === "horizontal" ? "pl-4" : "pt-4",
