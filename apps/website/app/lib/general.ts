@@ -33,7 +33,7 @@ export const queryClient = new QueryClient({
 export const useConfigData = () =>
 	useQuery({
 		staleTime: 1000 * 60 * 5,
-		queryKey: ["website-config"],
+		queryKey: ["websiteConfig"],
 		queryFn: async () => {
 			const response = await fetch("/api/config");
 			if (!response.ok) throw new Error("Failed to fetch config");
