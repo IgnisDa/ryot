@@ -3,7 +3,6 @@ import { TTLCache } from "@isaacs/ttlcache";
 import ContactSubmissionEmail from "@ryot/transactional/emails/ContactSubmission";
 import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
 import { cn, getActionIntent, processSubmission } from "@ryot/ts-utils";
-import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import { sql } from "drizzle-orm";
@@ -51,13 +50,13 @@ import {
 	db,
 	honeypot,
 	OAUTH_CALLBACK_URL,
-	type TPrices,
 	websiteAuthCookie,
 } from "~/lib/config.server";
 import {
 	contactEmail,
 	initializePaddleForApplication,
 	startUrl,
+	useConfigData,
 } from "~/lib/general";
 import {
 	getClientIp,
@@ -68,24 +67,6 @@ import {
 import type { Route } from "./+types/new";
 
 dayjs.extend(duration);
-
-const useConfigData = () => {
-	return useQuery({
-		staleTime: 1000 * 60 * 5,
-		queryKey: ["website-config"],
-		queryFn: async () => {
-			const response = await fetch("/api/config");
-			if (!response.ok) throw new Error("Failed to fetch config");
-			return response.json() as Promise<{
-				prices: TPrices;
-				isSandbox: boolean;
-				clientToken: string;
-				isLoggedIn: boolean;
-				turnstileSiteKey: string;
-			}>;
-		},
-	});
-};
 
 const otpCodesCache = new TTLCache<string, string>({
 	max: 1000,

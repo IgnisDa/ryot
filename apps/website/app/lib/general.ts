@@ -1,7 +1,8 @@
 import { initializePaddle } from "@paddle/paddle-js";
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, useQuery } from "@tanstack/react-query";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
+import type { TPrices } from "./config.server";
 
 export const startUrl = withFragment($path("/"), "start-here");
 
@@ -30,3 +31,21 @@ export const queryClient = new QueryClient({
 		},
 	},
 });
+
+export const useConfigData = () => {
+	return useQuery({
+		staleTime: 1000 * 60 * 5,
+		queryKey: ["website-config"],
+		queryFn: async () => {
+			const response = await fetch("/api/config");
+			if (!response.ok) throw new Error("Failed to fetch config");
+			return response.json() as Promise<{
+				prices: TPrices;
+				isSandbox: boolean;
+				clientToken: string;
+				isLoggedIn: boolean;
+				turnstileSiteKey: string;
+			}>;
+		},
+	});
+};

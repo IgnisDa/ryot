@@ -6,7 +6,6 @@ import {
 	Link,
 	Links,
 	type LinksFunction,
-	type LoaderFunctionArgs,
 	Meta,
 	type MetaFunction,
 	Outlet,
@@ -22,8 +21,7 @@ import { withFragment } from "ufo";
 import { Button } from "./lib/components/ui/button";
 import { Toaster } from "./lib/components/ui/sonner";
 import { honeypot } from "./lib/config.server";
-import { logoUrl, queryClient, startUrl } from "./lib/general";
-import { getCustomerFromCookie } from "./lib/utilities.server";
+import { logoUrl, queryClient, startUrl, useConfigData } from "./lib/general";
 import "./tailwind.css";
 
 export const meta: MetaFunction = () => {
@@ -58,17 +56,14 @@ export const links: LinksFunction = () => {
 	];
 };
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const customer = await getCustomerFromCookie(request);
-	return {
-		isLoggedIn: !!customer,
-		honeypotInputProps: await honeypot.getInputProps(),
-	};
+export const loader = async () => {
+	return { honeypotInputProps: await honeypot.getInputProps() };
 };
 
 export default function App() {
 	const location = useLocation();
 	const loaderData = useLoaderData<typeof loader>();
+	const { data: configData } = useConfigData();
 
 	const isActivePage = (path: string) => {
 		if (path === "/") return location.pathname === "/" && location.hash === "";
@@ -169,7 +164,7 @@ export default function App() {
 								</nav>
 
 								<div className="flex items-center space-x-4">
-									{loaderData.isLoggedIn ? (
+									{configData?.isLoggedIn ? (
 										<Link to={$path("/me")}>
 											<Button variant="ghost" size="sm">
 												Dashboard
