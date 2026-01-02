@@ -13,40 +13,39 @@ import {
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
 
-export const DisplaySupersetModal = ({
-	onClose,
-	supersetWith,
-}: {
+export const DisplaySupersetModal = (props: {
 	onClose: () => void;
 	supersetWith: string | null;
 }) => {
 	const [cw] = useCurrentWorkout();
 
 	const exerciseAlreadyInSuperset = useMemo(() => {
-		if (cw && supersetWith) {
-			const index = cw?.supersets.findIndex((s) =>
-				s.exercises.includes(supersetWith),
-			);
+		const sw = props.supersetWith;
+		if (cw && sw) {
+			const index = cw?.supersets.findIndex((s) => s.exercises.includes(sw));
 			if (index !== -1) return [index, cw.supersets[index]] as const;
 		}
 		return undefined;
-	}, [cw, supersetWith]);
+	}, [cw, props.supersetWith]);
 
 	return (
 		<Modal
-			onClose={onClose}
+			onClose={props.onClose}
 			withCloseButton={false}
-			opened={isString(supersetWith)}
+			opened={isString(props.supersetWith)}
 		>
-			{supersetWith ? (
+			{props.supersetWith ? (
 				exerciseAlreadyInSuperset ? (
 					<EditSupersetModal
-						onClose={onClose}
-						supersetWith={supersetWith}
+						onClose={props.onClose}
+						supersetWith={props.supersetWith}
 						superset={exerciseAlreadyInSuperset}
 					/>
 				) : (
-					<CreateSupersetModal onClose={onClose} supersetWith={supersetWith} />
+					<CreateSupersetModal
+						onClose={props.onClose}
+						supersetWith={props.supersetWith}
+					/>
 				)
 			) : null}
 		</Modal>
